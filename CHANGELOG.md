@@ -7,6 +7,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- Add the Linux-only, isolated offline Step 4B runtime-packet producer
+  `tools/build_pulsemech_compute_runtime_observation_packet_from_capture_v0.py`
+  and its permanent, CI-registered regression (work order #2864).
+  - Consume the exact preserved #6066 capture, observed subject context,
+    release-grade preservation carrier and original historical Git sources.
+  - Bind an explicit canonical construction record and the matching producer
+    and independent validator source identities. Replay uses those same
+    declared construction facts; it does not invent fresh clock observations.
+  - Preserve eight platform job records and 171 step records with a separate
+    collector, exact input-state digests, historical policy-set order and
+    partial observation coverage. Unknown commands, process exit codes,
+    calls and resource use remain unobserved, not zero or proven absent.
+  - Validate the input capture and context through their existing independent
+    validators and the generated packet through the separate runtime checker.
+    Publish external output without replacement; recheck source identities and
+    use inode-bound rollback so unrelated replacement files are preserved.
+  - This is a historical, non-active producer, not live instrumentation,
+    runtime-connected proof, resource measurement or gate promotion.
+    `authority_effect = none`; the actual observed-output preservation and
+    documentation handoffs remain separate from this implementation.
 - CODEOWNERS to require Code Owners review on `main`.
 - Pull request template with the PULSE governance checklist.
 - (Optional) changelog check workflow (soft warning).
@@ -22,10 +42,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Add a shadow-only `parameter_golf_v0` sidecar for OpenAI Parameter Golf submission evidence: schema, verifier, example artifact, docs, tests, and an upstream issue-comment draft.
 
 ### Changed
+- Extend the existing runtime-packet validator only for a matching observed
+  `post_run_platform_export` producer/collector profile. Admit historical
+  subject times no later than collector start, while collector and observed
+  state times remain inside collection and packet creation follows it.
+  Preserve historical active-policy-set order with uniqueness/nonempty
+  checks; the input-bound producer verifies that exact order against the
+  observed context. Keep existing non-post-run behavior, set-like ordering,
+  independent validation and empty-record capture-summary semantics unchanged.
+  No runtime schema, capture implementation, workflow or policy is changed.
 - README: add DOI badge above the PULSE badges; keep badges.
 - README: add **Acknowledgments** section.
 
 ### Fixed
+- Bind the Step 4B producer's actually invoked path and exact source bytes to
+  its canonical committed source, rather than reading a canonical neighbour
+  on behalf of an executed copy (PR #2867 review).
+  Reject renamed, modified or symlinked aliases before helper execution;
+  retain construction-digest, committed-byte and publication-recheck guards.
+  Add permanent CLI/imported-copy and source-drift regressions without
+  changing the runtime-validator pin.
+- Synchronize the two existing Step 3F/3G workflow regressions with the
+  153-entry tools-test manifest after registering the new producer test
+  (PR #2867). Change only `152` to `153` in their exact count assertions;
+  retain uniqueness, exactly-once registration, ordered-block checks and
+  direct authoritative launchers. This corrects a test-registration
+  dependency without changing either workflow or production code.
 - `publish_report_pages.yml`: copy `status.json` to site root; improve concurrency safety.
 - Makefile: `reproduce` is now fail-closed locally and no longer hides `run_all.py` failures.
 - Makefile: add explicit `reproduce-soft` for permissive local/demo execution.

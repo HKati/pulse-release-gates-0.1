@@ -921,6 +921,152 @@ def test_output_through_symlink_parent_is_rejected(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Historical post-run export compatibility (Step 4B, issue #2864)
+# These are explicit synthetic schema fixtures, not a new observed capture.
+# ---------------------------------------------------------------------------
+
+
+def post_run_packet() -> dict[str, Any]:
+    value = packet()
+    value["record_status"] = "observed"
+    value["producer"]["collection_mode"] = "post_run_platform_export"
+    value["packet_identity"]["packet_scope"] = "external_export"
+    value["packet_identity"]["packet_created_utc"] = "2026-09-06T18:10:02Z"
+    boundary = value["observation_boundary"]
+    boundary.update(collector_mode="post_run_platform_export",
+                    capture_started_utc="2026-09-06T18:10:00Z",
+                    capture_completed_utc="2026-09-06T18:10:01Z")
+    execution(value, boundary["collector_execution_id"])["timing"].update(
+        started_utc=boundary["capture_started_utc"],
+        completed_utc=boundary["capture_completed_utc"], duration_ms=1000,
+    )
+    for row in value["state_observations"]:
+        row["observed_at_utc"] = boundary["capture_completed_utc"]
+    value["subject"]["active_policy_sets"] = ["required", "release_required"]
+    return value
+
+
+def test_post_run_preserves_historical_times_and_ordered_policy(tmp_path: Path) -> None:
+    value = post_run_packet()
+    original_timings = {row["execution_id"]: row["timing"] for row in value["executions"]}
+    diagnostic, code = diagnostic_for(value, tmp_path)
+    assert code == 0, diagnostic
+    assert set(diagnostic["checks"]) == EXPECTED_CHECKS
+    assert all(diagnostic["checks"].values())
+    assert value["subject"]["active_policy_sets"] == ["required", "release_required"]
+    assert {row["execution_id"]: row["timing"] for row in value["executions"]} == original_timings
+
+
+@pytest.mark.parametrize("mode", ["in_run_observer", "tool_wrapper", "provider_usage_export"])
+def test_non_post_run_modes_still_reject_old_execution_times(tmp_path: Path, mode: str) -> None:
+    value = post_run_packet()
+    value["producer"]["collection_mode"] = mode
+    value["observation_boundary"]["collector_mode"] = mode
+    value["subject"]["active_policy_sets"].sort()
+    assert_semantic_failure(value, tmp_path, "capture_window_and_packet_time_ok")
+
+
+@pytest.mark.parametrize("side", ["producer", "observation_boundary"])
+@pytest.mark.parametrize("other_mode", ["in_run_observer", "tool_wrapper", "provider_usage_export"])
+def test_post_run_mixed_collection_modes_fail_closed(tmp_path: Path, side: str, other_mode: str) -> None:
+    value = post_run_packet()
+    field = "collection_mode" if side == "producer" else "collector_mode"
+    value[side][field] = other_mode
+    assert_semantic_failure(value, tmp_path, "record_status_collection_modes_ok")
+
+
+@pytest.mark.parametrize("field", ["started_utc", "completed_utc"])
+@pytest.mark.parametrize("kind", ["executions", "external_calls", "model_inferences"])
+def test_post_run_rejects_subject_time_after_collection_start(tmp_path: Path, field: str, kind: str) -> None:
+    value = post_run_packet()
+    row = next(r for r in value[kind] if r.get("execution_scope", "subject") == "subject")
+    row["timing"][field] = "2026-09-06T18:10:00.001Z"
+    row["timing"]["duration_source"] = "platform_reported"
+    assert_semantic_failure(value, tmp_path, "capture_window_and_packet_time_ok")
+
+
+@pytest.mark.parametrize("field,time_value", [
+    ("started_utc", "2026-09-06T18:09:59Z"),
+    ("completed_utc", "2026-09-06T18:10:02Z"),
+])
+def test_post_run_collector_must_remain_inside_collection_window(tmp_path: Path, field: str, time_value: str) -> None:
+    value = post_run_packet()
+    collector = execution(value, value["observation_boundary"]["collector_execution_id"])
+    collector["timing"][field] = time_value
+    assert_semantic_failure(value, tmp_path, "capture_window_and_packet_time_ok")
+
+
+@pytest.mark.parametrize("time_value", ["2026-07-13T12:31:00Z", "2026-09-06T18:10:02Z"])
+def test_post_run_state_observation_is_not_historical_execution_time(tmp_path: Path, time_value: str) -> None:
+    value = post_run_packet()
+    value["state_observations"][0]["observed_at_utc"] = time_value
+    assert_semantic_failure(value, tmp_path, "capture_window_and_packet_time_ok")
+
+
+@pytest.mark.parametrize("field", ["window_started_utc", "window_completed_utc"])
+def test_post_run_historical_measurement_cannot_extend_into_collection(tmp_path: Path, field: str) -> None:
+    value = post_run_packet()
+    value["resource_measurements"][0][field] = "2026-09-06T18:10:00.001Z"
+    assert_semantic_failure(value, tmp_path, "capture_window_and_packet_time_ok")
+
+
+def test_post_run_packet_creation_must_follow_collection(tmp_path: Path) -> None:
+    value = post_run_packet()
+    value["packet_identity"]["packet_created_utc"] = "2026-09-06T18:10:00Z"
+    assert_semantic_failure(value, tmp_path, "capture_window_and_packet_time_ok")
+
+
+def test_post_run_rejects_inverted_historical_pair(tmp_path: Path) -> None:
+    value = post_run_packet()
+    value["executions"][0]["timing"]["completed_utc"] = "2026-07-13T12:20:00Z"
+    assert_semantic_failure(value, tmp_path, "runtime_timings_consistent")
+
+
+@pytest.mark.parametrize("policy_sets", [[], ["required", "required"], ["", "required"]])
+def test_post_run_policy_order_exception_does_not_admit_invalid_lists(tmp_path: Path, policy_sets: list[str]) -> None:
+    value = post_run_packet()
+    value["subject"]["active_policy_sets"] = policy_sets
+    assert_schema_failure(value, tmp_path)
+    assert TOOL_MODULE._all_reference_lists_sorted(value) is False
+
+
+def test_non_post_run_policy_order_remains_lexical(tmp_path: Path) -> None:
+    value = packet()
+    value["subject"]["active_policy_sets"] = ["required", "release_required"]
+    assert_semantic_failure(value, tmp_path, "deterministic_ordering_ok")
+
+
+def test_post_run_other_reference_lists_remain_sorted(tmp_path: Path) -> None:
+    value = post_run_packet()
+    value["coverage"]["resource_axes_unavailable"].reverse()
+    assert_semantic_failure(value, tmp_path, "deterministic_ordering_ok")
+
+
+def test_post_run_collector_cannot_impersonate_subject_run(tmp_path: Path) -> None:
+    value = post_run_packet()
+    boundary = value["observation_boundary"]
+    boundary["collector_run_key"] = value["subject"]["subject_run_key"]
+    collector = execution(value, boundary["collector_execution_id"])
+    collector["run_binding"].update(binding_mode="current_subject_run", execution_run_key=boundary["collector_run_key"])
+    assert_semantic_failure(value, tmp_path, "record_status_collection_modes_ok")
+
+
+@pytest.mark.parametrize("value", [
+    "2026-07-13T24:00:00Z", "2026-07-13T12:60:00Z", "2026-07-13T12:00:60Z",
+    "2026-02-29T12:00:00Z", "2026-07-13 12:00:00Z", "2026-07-13T12:00:00+00:00",
+])
+def test_post_run_upper_bound_parser_rejects_noncanonical_times(value: str) -> None:
+    boundary = TOOL_MODULE.parse_utc("2026-09-06T18:10:00Z")
+    assert TOOL_MODULE._not_after_collection_start(value, boundary) is False
+
+
+def test_post_run_exact_historical_upper_boundary_is_allowed() -> None:
+    boundary = TOOL_MODULE.parse_utc("2026-09-06T18:10:00Z")
+    assert TOOL_MODULE._not_after_collection_start("2026-09-06T18:10:00Z", boundary) is True
+    assert TOOL_MODULE._not_after_collection_start(None, boundary) is True
+
+
+# ---------------------------------------------------------------------------
 # Direct tools-tests execution entrypoint
 # ---------------------------------------------------------------------------
 
