@@ -74,9 +74,15 @@ moves between merged and open work, update this index.
 - Foundational transition-measurement architecture:
   [PULSEMECH_TRANSITION_METER.md](../PULSEMECH_TRANSITION_METER.md)
   **Foundational architecture.** Defines the evidence-bound transition between measured states as a separate measurement object and positions artifact-bound AI release authority as its first concrete PULSEmech implementation domain.
-- Detailed compute-binding and current-run workstream state:
+- Detailed compute-binding, current-run automation and historical capture:
   [compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md)
-  **Current implementation and open-workstream record.** Records the merged compute implementation through the current-run expectation validator regression and keeps the open expectation builder separate from merged state.
+  **Current implementation and completed bounded proof.** Records the completed
+  Step 3G automation and permanent regressions, the exact historical Step 4A
+  producer-input capture, and the remaining runtime-observation work. The
+  [completed Step 4A record](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md#completed-step-4a--exact-post-run-producer-input-capture)
+  preserves exact object identities, independent offline replay, deterministic
+  reconstruction and targeted mutation evidence. The capture remains
+  historical-reference input with `authority_effect = none`.
 - Witness interoperability and release-authority boundary:
   [slsa/PULSEMECH_WITNESS_INTEROPERABILITY_AND_RELEASE_AUTHORITY_BOUNDARY_v0.md](slsa/PULSEMECH_WITNESS_INTEROPERABILITY_AND_RELEASE_AUTHORITY_BOUNDARY_v0.md)
   **Interoperability boundary record.** Maps the reviewed in-toto Witness mechanics into PULSEmech upstream evidence, separates Witness SLSA export from full Witness policy verification, specifies the missing structured carrier and preserves authority effect `none`.
@@ -114,9 +120,12 @@ entrypoints.
 
 The detailed
 [compute-binding workstream record](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md)
-preserves the exact compute implementation sequence, current-run expectation
-contract, validator proof, open builder review boundary and remaining
-implementation order.
+preserves the exact compute implementation sequence through Step 3G and the
+completed historical Step 4A capture. It distinguishes merged automation and
+permanent implementation regressions from the actual observed-capture review.
+The runtime-observation packet producer and runtime-observed connected proof
+remain later work; the future operational path requires exact source capture
+before the authority decision.
 
 The [PULSEmech Transition Meter](../PULSEMECH_TRANSITION_METER.md) defines the
 broader foundational measurement architecture. It does not supersede the
@@ -203,8 +212,8 @@ Use this source order:
    exact operator and reviewer entrypoint classification.
 
 4. [Compute-binding workstream record](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md)
-   Detailed compute contracts, proofs, current-run expectation boundary and
-   remaining sequence.
+   Detailed compute contracts, completed Step 3G automation, exact historical
+   Step 4A capture and its proof, and the remaining implementation sequence.
 
 5. [Witness interoperability and release-authority boundary](slsa/PULSEMECH_WITNESS_INTEROPERABILITY_AND_RELEASE_AUTHORITY_BOUNDARY_v0.md)
    Exact upstream Witness source review, two-lane interoperability mapping,
@@ -275,7 +284,7 @@ Read these documents in this order:
 - [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md) — **Current implementation and AI-native operating model.** Canonical system identity, verified state, open-workstream separation and current development path.
 - [PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md](PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md) — **Current implementation and completed bounded proof.** Records the exact Device Ledger evidence-to-carrier path, deterministic `.pulseledger`, exact four-member `ZIP_STORED` Reproduction Capsule, two isolated byte-identical constructions, two exact positive standalone-verifier executions, targeted `package_signature_valid` rejection, canonical reproduction result, protected-source preservation, minimal runnable iPhone demonstrator, exact artifact export, and the preserved `authority_effect = none` / `external_validation_claim = none` boundary.
 - [EXTERNAL_VERIFICATION_PATH_v0.md](EXTERNAL_VERIFICATION_PATH_v0.md) — **Reviewer and operator path.** Separates the direct `pulsemech_device_ledger_v0` verification profile from the `pulsemech_device_ledger_reproduction_capsule_v0` construction and execution profile, including complete pinned reference-workflow dispatch, portable local proof replay, bounded inner runner execution, deterministic Swift-to-verifier reproduction, targeted fail-closed mutation checks and non-authorizing report fields.
-- [compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md) — **Current implementation and open-workstream record.** Detailed compute contracts, completed proofs, current-run expectation contract and open builder boundary.
+- [compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md) — **Current implementation and completed bounded proof.** Detailed compute contracts, completed Step 3G automation and regressions, exact historical Step 4A producer-input capture and offline proof, and separate remaining runtime-observation work.
 - [slsa/PULSEMECH_WITNESS_INTEROPERABILITY_AND_RELEASE_AUTHORITY_BOUNDARY_v0.md](slsa/PULSEMECH_WITNESS_INTEROPERABILITY_AND_RELEASE_AUTHORITY_BOUNDARY_v0.md) — **Interoperability boundary record.** Exact in-toto Witness source review, SLSA-export versus full-policy-verification split, proposed structured carrier and preserved PULSE release-authority boundary.
 - [STATE_v0.md](STATE_v0.md) — Broad repository-state snapshot. For current release-grade and compute state, use the Technical Overview and current workstream records above.
 - [QUICKSTART_CORE_v0.md](QUICKSTART_CORE_v0.md) — Minimal steps for the Core pipeline.
@@ -311,7 +320,7 @@ It does not create authority beyond the artifact-bound path defined by the linke
 | Authority boundary | Separates execution, approval, reader surfaces, manifests, attestations and audit sidecars from the normative authority carrier. | [PULSEMECH_ARCHITECTURE_MAP_v0_1.md](PULSEMECH_ARCHITECTURE_MAP_v0_1.md), [PULSE_RELEASE_AUTHORITY_MECHANICS_BRIDGE_v0.md](PULSE_RELEASE_AUTHORITY_MECHANICS_BRIDGE_v0.md), [PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md](PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md), [release_authority_boundary_v1.md](release_authority_boundary_v1.md), [MAINTAINER_AUTHORITY_BOUNDARY_v0.md](MAINTAINER_AUTHORITY_BOUNDARY_v0.md) |
 | Status, policy, gate-set and workflow contracts | Defines the normative carrier tuple for final state, declared policy, workflow-effective gates, strict enforcement and primary CI outcome. | [status_json.md](status_json.md), [STATUS_CONTRACT.md](STATUS_CONTRACT.md), [GATE_SETS.md](GATE_SETS.md), [WORKFLOW_MAP.md](WORKFLOW_MAP.md), [RELEASE_DECISION_v0.md](RELEASE_DECISION_v0.md), [PULSE_RELEASE_GRADE_MATERIALIZED_LANE_v0.md](PULSE_RELEASE_GRADE_MATERIALIZED_LANE_v0.md) |
 | Current verifier and evidence admission | Defines current-run candidate replay, recorded evidence verification, relation verification, gate admissibility, canonical verifier replay and verifier-bound materialization. | [recorded_release_evidence_verifier_v0.md](recorded_release_evidence_verifier_v0.md), [release_grade_reference_run_v0.md](release_grade_reference_run_v0.md), [release_reference_external_evidence_integration_v1.md](release_reference_external_evidence_integration_v1.md), [PULSE_EXTERNAL_EVIDENCE_MATERIALIZATION_BOUNDARY_v0.md](PULSE_EXTERNAL_EVIDENCE_MATERIALIZATION_BOUNDARY_v0.md) |
-| Compute binding and current-run expectation | Maps executed compute to transition roles and preserves the merged current-run expectation contract, strict validator and registered regression while keeping the open builder separate from merged state. | [compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md), [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md) |
+| Compute binding, current-run automation and historical capture | Maps executed compute to transition roles and records the completed Step 3G automation plus the exact historical Step 4A producer-input capture and its independent replay. Keeps runtime-packet production, resource measurement and future pre-decision operation separate; no compute-gate activation or release-authority change. | [compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md), [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md) |
 | Witness interoperability | Maps signed Witness attestations, signed Witness policy, verified functionaries, required-attestation and Rego results, and `artifactsFrom` continuity into upstream PULSE evidence. A dedicated structured carrier is specified but not implemented; Witness verification does not become PULSE release authority. | [slsa/PULSEMECH_WITNESS_INTEROPERABILITY_AND_RELEASE_AUTHORITY_BOUNDARY_v0.md](slsa/PULSEMECH_WITNESS_INTEROPERABILITY_AND_RELEASE_AUTHORITY_BOUNDARY_v0.md), [slsa/VSA_RELEASE_REQUIRED_PROMOTION_BOUNDARY_v0.md](slsa/VSA_RELEASE_REQUIRED_PROMOTION_BOUNDARY_v0.md), [slsa/VSA_TRUSTED_EVIDENCE_PRODUCER_DESIGN_v0.md](slsa/VSA_TRUSTED_EVIDENCE_PRODUCER_DESIGN_v0.md) |
 | Legacy verifier diagnostics and historical prerequisites | Preserves the earlier failure-only verifier-report line, expectation summaries, schema drafts and relation-promotion prerequisites without presenting them as the current admission path. | [PULSE_RELEASE_EVIDENCE_VERIFIER_v0.md](PULSE_RELEASE_EVIDENCE_VERIFIER_v0.md), [PULSE_RELEASE_EVIDENCE_EXPECTATION_SUMMARY_v0.md](PULSE_RELEASE_EVIDENCE_EXPECTATION_SUMMARY_v0.md), [PULSE_RELEASE_EVIDENCE_TRUSTED_VERIFIER_SCHEMA_DELTA_MAP_v0.md](PULSE_RELEASE_EVIDENCE_TRUSTED_VERIFIER_SCHEMA_DELTA_MAP_v0.md), [PULSE_RELEASE_EVIDENCE_TRUSTED_VERIFIER_SCHEMA_ONLY_DRAFT_BOUNDARY_v0.md](PULSE_RELEASE_EVIDENCE_TRUSTED_VERIFIER_SCHEMA_ONLY_DRAFT_BOUNDARY_v0.md), [PULSE_RELEASE_EVIDENCE_RELATION_BINDING_PROMOTION_PREREQUISITES_v0.md](PULSE_RELEASE_EVIDENCE_RELATION_BINDING_PROMOTION_PREREQUISITES_v0.md), [PULSE_EVIDENCE_FOLD_IN_ADMISSIBILITY_v0.md](PULSE_EVIDENCE_FOLD_IN_ADMISSIBILITY_v0.md) |
 | Release-grade reference and public record | Defines the completed-run contract and records the concrete first completed hosted execution. | [release_grade_reference_run_v0.md](release_grade_reference_run_v0.md), [RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md](RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md), [PULSE_RELEASE_GRADE_NEXT_RUN_PLAN_v0.md](PULSE_RELEASE_GRADE_NEXT_RUN_PLAN_v0.md) |
@@ -455,7 +464,7 @@ pulsemech_witness_verification_evidence_v0.schema.json
 
 ### Current merged implementation
 
-- [Compute-binding design and implementation-state record](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md) — Detailed workstream state synchronized through PR #2796 and merge commit `8f5f83309c920991a5223925e6084f5273a824c6`.
+- [Compute-binding design and implementation-state record](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md) — Detailed canonical record of completed Step 3G automation and historical Step 4A capture, with implementation and data evidence through PR #2861 / `7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9`.
 - [Compute-binding report schema](../schemas/pulsemech_compute_binding_report_v0.schema.json) — Strict report contract.
 - [Compute-binding report validator](../tools/check_pulsemech_compute_binding_report_v0.py) — Strict report validation.
 - [Reusable analyzer core](../tools/pulsemech_compute_binding_analyzer_core_v0.py) — Single graph and report implementation.
@@ -472,50 +481,134 @@ pulsemech_witness_verification_evidence_v0.schema.json
 - [Strict current-run expectation validator](../tools/check_pulsemech_compute_current_run_export_expectation_v0.py) — Closed schema-resolution, reviewed-byte and cross-contract validation.
 - [Current-run expectation-validator regression](../tests/test_check_pulsemech_compute_current_run_export_expectation_v0.py) — Permanent registered regression for the merged validator boundary.
 
-The merged current-run boundary is:
+<a id="open-implementation-workstream"></a>
+
+### Completed current-run automation — Step 3G
+
+[PR #2789 — current-run export expectation builder](https://github.com/HKati/pulse-release-gates-0.1/pull/2789)
+is a merged implementation milestone, not an open workstream. Its subsequent
+regression and the current-run components are recorded in the detailed
+workstream document. The former open-workstream anchor is retained here for
+navigation continuity.
+
+- [Current-run expectation builder](../tools/build_pulsemech_compute_current_run_export_expectation_v0.py) and [permanent builder regression](../tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py) — Implemented, hardened and regression-proven.
+- [Finalized export-carrier loader](../tools/load_pulsemech_compute_current_run_export_carrier_v0.py) and [carrier regression](../tests/test_load_pulsemech_compute_current_run_export_carrier_v0.py) — Exact finalized carrier and protected-control-plane binding.
+- [Current-run subject-input wrapper](../tools/build_pulsemech_compute_subject_input_packet_current_run_v0.py) and [wrapper regression](../tests/test_build_pulsemech_compute_subject_input_packet_current_run_v0.py) — Current-run production through the existing reusable producer core.
+- [Step 3F export candidate workflow](../.github/workflows/pulsemech_compute_current_run_export_candidate.yml) and [workflow regression](../tests/test_pulsemech_compute_current_run_export_candidate_workflow_v0.py) — Manual, non-active candidate export.
+- [Step 3G candidate-bundle intake](../tools/load_pulsemech_compute_current_run_export_candidate_bundle_v0.py) and [intake regression](../tests/test_load_pulsemech_compute_current_run_export_candidate_bundle_v0.py) — Independent checksum-closed candidate-bundle verification.
+- [Artifact-observed proof builder](../tools/build_pulsemech_compute_current_run_artifact_observed_proof_v0.py) and [proof-builder regression](../tests/test_build_pulsemech_compute_current_run_artifact_observed_proof_v0.py) — Uses the existing analyzer bridge and reusable core, preserving incomplete relation state.
+- [Step 3G artifact-observed candidate workflow](../.github/workflows/pulsemech_compute_current_run_artifact_observed_candidate.yml) and [workflow regression](../tests/test_pulsemech_compute_current_run_artifact_observed_candidate_workflow_v0.py) — Manual, `diagnostic_shadow` and non-active orchestration.
+
+The implementation and permanent regression boundary is complete through
+[PR #2826](https://github.com/HKati/pulse-release-gates-0.1/pull/2826), merge
+`9bf7fab95dbcc3532238723d0cf76500263106f5`.
+
+The source subject, protected control plane, finalized carrier, expectation,
+observed subject-input packet, artifact-observed report, planned-observed
+relation and separate folded candidate status remain exactly bound. Actual
+false, missing, partial, ambiguous and unresolved values remain visible.
+
+This records implemented construction capability and permanent regression
+proof. It does not claim a public manually dispatched Step 3F/3G proof instance.
+The separate Step 4A acquisition below is not such an instance.
 
 ```text
-expectation schema
-+
-canonical example
-+
-strict validator
-+
-validator hardening
-+
-permanent registered validator regression
+Step 3G implementation and permanent regressions:
+complete
+
+Step 3F/3G workflows:
+manual, candidate-only, non-active and pre-authority
+
+source status.json mutation:
+none
+
+compute-gate activation:
+none
+
+release-authority effect:
+none
 ```
 
-It does not yet include a merged expectation builder or an active workflow.
+### Completed historical producer-input capture — Step 4A
 
-### Open implementation workstream
+**Current implementation and completed bounded proof.** The detailed
+[completed Step 4A record](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md#completed-step-4a--exact-post-run-producer-input-capture)
+contains the five-member identity table, original acquisition facts, offline
+replay, manifest reconstruction, targeted negative evidence and source limits.
+The [Technical Overview capture section](../PULSEMECH_TECHNICAL_OVERVIEW.md#15i-completed-historical-post-run-producer-input-capture)
+records the same completed boundary at system level.
 
-- [PR #2789 — current-run export expectation builder](https://github.com/HKati/pulse-release-gates-0.1/pull/2789)
-  **Open implementation workstream.** Proposed machine producer for observed current-run export expectations. It is not merged, not regression-proven, non-active and non-authoritative.
+- [Capture-manifest schema](../schemas/pulsemech_compute_post_run_producer_input_capture_manifest_v0.schema.json) and [normative capture contract](../contracts/pulsemech_compute_post_run_producer_input_capture_v0.json) — Exact producer-input, request, inventory, temporal and authority boundaries.
+- [Networked capture tool](../tools/capture_pulsemech_compute_post_run_producer_input_v0.py) — Preserves the attempt-specific platform-response entity-body bytes and selected exchange metadata.
+- [Independent offline validator](../tools/check_pulsemech_compute_post_run_producer_input_capture_v0.py) — Network-free reconstruction and verification; neither imports the capture implementation nor trusts its verdict.
+- [Fixed-subject acquisition workflow](../.github/workflows/pulsemech_compute_post_run_producer_input_capture_v0.yml) — Manual capture, independent validation and mode-preserving TAR transport; no release-authority effect.
+- [Contract regression](../tests/test_pulsemech_compute_post_run_producer_input_capture_contract_v0.py), [producer regression](../tests/test_capture_pulsemech_compute_post_run_producer_input_v0.py) and [offline-validator/TAR regression](../tests/test_check_pulsemech_compute_post_run_producer_input_capture_v0.py) — Permanent implementation and fixture coverage registered in [ci/tools-tests.list](../ci/tools-tests.list).
+- [Preserved #6066 capture directory](../preservation/pulse_ci_6066/post_run_producer_input_capture_v0/) and [canonical capture manifest](../preservation/pulse_ci_6066/post_run_producer_input_capture_v0/pulsemech_compute_post_run_producer_input_capture_manifest_6066_v0.json) — The five exact observed data members, not a regenerated response or an example fixture.
 
-Current review boundary:
+The historical subject is PULSE CI #6066, run `29249887581`, attempt `1`,
+source `46b639706e23f80fe296a8893be18e2b5ab21f7e`. The separate
+[acquisition run `33986538130`](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/33986538130),
+attempt `1`, used source `22d14088ae21f84d94c6a6951c0f70ab1bdf0895`.
+The five data members were preserved through
+[PR #2861](https://github.com/HKati/pulse-release-gates-0.1/pull/2861), merge
+`7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9`.
+
+The recorded post-merge review verified exact merged bytes, two independent
+offline replays with identical diagnostics, two exact manifest reconstructions
+and ten rejected disposable-copy probes across nine mutation categories.
+Permanent CI coverage of implementation and fixtures remains distinct from
+those review executions against the actual committed capture. The detailed
+record separates cloud execution, separately inspected GitHub CI and supplied
+original-carrier identities; this index is not a new verification execution.
 
 ```text
-protected release-target binding
-release-decision schema validation
-gate-registry semantic identity binding
-Windows trusted-Git fail-closed or complete ACL boundary
+historical capture subject:
+post-run platform-response snapshot observed at capture time
+
+preserved input:
+two exact raw responses, two exchange records and one manifest
+
+page / unique job / step counts:
+1 / 8 / 171
+
+same_run_release_authority_eligible:
+false
+
+active_gate_eligible:
+false
+
+authority_effect:
+none
 ```
 
-Remaining sequence:
+The capture is not the original runtime network stream, a runtime-observation
+packet, a transition measurement, a resource measurement or a retroactive
+release-authority input. It does not modify the earlier release-grade #6066
+preservation package. Determinism begins after preservation; a later API query
+is not required to return identical bytes.
+
+### Remaining implementation and operational boundary
+
+The runtime-observation contract already exists; the
+[runtime-packet schema](../schemas/pulsemech_compute_runtime_observation_packet_v0.schema.json)
+and [runtime-packet validator](../tools/check_pulsemech_compute_runtime_observation_packet_v0.py)
+are not a runtime-packet producer or a runtime-observed connected proof.
 
 ```text
-builder finding closure
-→ builder merge
-→ permanent builder regression
-→ current-run carrier component
-→ current-run subject-input wrapper
-→ non-active candidate workflow
-→ first current-run artifact-observed connected proof
-→ runtime-observation producer
-→ per-axis resource measurement
-→ separate promotion decision
+completed Step 3G automation
++ completed historical Step 4A producer-input prerequisite
+→ remaining Step 4 runtime-observation packet producer
+→ Step 5 runtime-observed connected proof
+→ Step 6 per-axis resource measurement
+→ Step 7 separate policy promotion decision
 ```
+
+The future operational lane requires exact current-run source capture before
+its authority decision, followed by runtime-packet production, planned-observed
+transition relation and transition-path verification under declared policy.
+The historical post-run snapshot does not satisfy that pre-decision requirement
+by reclassification. Unavailable information remains unavailable, not zero or
+inferred compute-resource use.
 
 A successful proof does not automatically promote a compute gate.
 
@@ -524,6 +617,12 @@ successful proof
 ≠
 promotion
 ```
+
+The detailed workstream record, Technical Overview and this index retain their
+existing roles. Documentation closure records completed evidence; it does not
+create another validator, new authority input or an additional implementation
+condition. The documentation PR still requires its own final checks and
+post-merge review before work order #2856 is closed.
 
 ---
 
