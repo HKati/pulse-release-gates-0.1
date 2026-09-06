@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -252,9 +253,32 @@ def _sorted_unique_strings(values: Any) -> bool:
     )
 
 
+def _matching_post_run_export(packet: dict[str, Any]) -> bool:
+    return (
+        packet.get("record_status") == "observed"
+        and packet.get("producer", {}).get("collection_mode")
+        == "post_run_platform_export"
+        and packet.get("observation_boundary", {}).get("collector_mode")
+        == "post_run_platform_export"
+    )
+
+
 def _all_reference_lists_sorted(packet: dict[str, Any]) -> bool:
+    # Active policy sets are an ordered historical identity in this profile.
+    # Their source order is checked by the input-bound producer; all other
+    # set-like references, and all existing modes, retain lexical ordering.
+    policy_sets = packet.get("subject", {}).get("active_policy_sets")
+    if _matching_post_run_export(packet):
+        if not (
+            isinstance(policy_sets, list)
+            and policy_sets
+            and all(isinstance(item, str) and item for item in policy_sets)
+            and len(policy_sets) == len(set(policy_sets))
+        ):
+            return False
+    elif not _sorted_unique_strings(policy_sets):
+        return False
     top_lists = [
-        packet.get("subject", {}).get("active_policy_sets"),
         packet.get("coverage", {}).get("missing_execution_ids"),
         packet.get("coverage", {}).get("unobserved_reasons"),
         packet.get("coverage", {}).get("resource_axes_observed"),
@@ -388,6 +412,22 @@ def _within_capture(
     except Exception:
         return False
     return capture_started <= point <= capture_completed
+
+
+def _not_after_collection_start(value: str | None, start: datetime) -> bool:
+    if value is None:
+        return True
+    # Do not delegate out-of-range time normalization to an interpreter.
+    if not isinstance(value, str) or re.fullmatch(
+        r"[0-9]{4}-[0-9]{2}-[0-9]{2}T"
+        r"(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](?:\.[0-9]+)?Z",
+        value,
+    ) is None:
+        return False
+    try:
+        return parse_utc(value) <= start
+    except (TypeError, ValueError, OverflowError):
+        return False
 
 
 def _execution_graph_acyclic(
@@ -1064,17 +1104,32 @@ def semantic_checks(packet: dict[str, Any]) -> tuple[dict[str, bool], list[str]]
         except Exception:
             capture_window_ok = False
 
-        for row in executions_list + calls_list + inferences_list:
-            timing = row.get("timing", {})
-            capture_window_ok &= _within_capture(
-                timing.get("started_utc"),
+        post_run_export = _matching_post_run_export(packet)
+
+        def subject_record(row: dict[str, Any]) -> bool:
+            if "execution_scope" in row:
+                return row.get("execution_scope") == "subject"
+            return executions.get(row.get("parent_execution_id"), {}).get(
+                "execution_scope"
+            ) == "subject"
+
+        def admitted_time(value: str | None, *, historical: bool) -> bool:
+            if post_run_export and historical:
+                return _not_after_collection_start(value, capture_started)
+            return _within_capture(
+                value,
                 capture_started=capture_started,
                 capture_completed=capture_completed,
             )
-            capture_window_ok &= _within_capture(
-                timing.get("completed_utc"),
-                capture_started=capture_started,
-                capture_completed=capture_completed,
+
+        for row in executions_list + calls_list + inferences_list:
+            timing = row.get("timing", {})
+            historical = subject_record(row)
+            capture_window_ok &= admitted_time(
+                timing.get("started_utc"), historical=historical,
+            )
+            capture_window_ok &= admitted_time(
+                timing.get("completed_utc"), historical=historical,
             )
         for state in states_list:
             capture_window_ok &= _within_capture(
@@ -1087,15 +1142,18 @@ def semantic_checks(packet: dict[str, Any]) -> tuple[dict[str, bool], list[str]]
                 measurement.get("window_started_utc"),
                 measurement.get("window_completed_utc"),
             )
-            capture_window_ok &= _within_capture(
-                measurement.get("window_started_utc"),
-                capture_started=capture_started,
-                capture_completed=capture_completed,
+            target_map = {
+                "execution": executions,
+                "external_call": calls,
+                "model_inference": inferences,
+            }.get(measurement.get("target_kind"), {})
+            target = target_map.get(measurement.get("target_id"), {})
+            historical = subject_record(target)
+            capture_window_ok &= admitted_time(
+                measurement.get("window_started_utc"), historical=historical,
             )
-            capture_window_ok &= _within_capture(
-                measurement.get("window_completed_utc"),
-                capture_started=capture_started,
-                capture_completed=capture_completed,
+            capture_window_ok &= admitted_time(
+                measurement.get("window_completed_utc"), historical=historical,
             )
     record("capture_window_and_packet_time_ok", capture_window_ok)
 
@@ -1148,6 +1206,12 @@ def semantic_checks(packet: dict[str, Any]) -> tuple[dict[str, bool], list[str]]
         mode_ok = mode_values == ("example", "example", "example")
     elif record_status == "observed":
         mode_ok = all(value != "example" for value in mode_values)
+        if "post_run_platform_export" in (mode_values[0], mode_values[2]):
+            mode_ok &= (
+                _matching_post_run_export(packet)
+                and collector_mode in {"post_run_observer", "external_export"}
+                and collector_run_key != subject_run_key
+            )
     else:
         mode_ok = False
     record("record_status_collection_modes_ok", mode_ok)
