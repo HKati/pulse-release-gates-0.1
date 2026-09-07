@@ -1313,5 +1313,33 @@ def test_runtime_source_view_does_not_upgrade_provider_revision_to_model_digest(
     assert projection["source_revision"]==raw["model_identity"]["model_revision"]
 
 
+
+@pytest.mark.parametrize("which", ["producer", "consumer"])
+def test_review_2872_observed_repository_digest_claim_cannot_qualify_consumption(which):
+    p = packet()
+    p["record_status"] = "observed"
+    row = next(row for row in p["executions"] if row["execution_id"] == "execution:" + which)
+    row["source_identity"]["source_sha256"] = "f" * 64
+    before = raw(p)
+    idx = index(p)
+    # Retain the evidence exactly; do not rewrite the original claimed digest.
+    assert idx["records"]["executions"][row["execution_id"]]["record"] == row
+    result = M.assess_runtime_output_consumption(
+        idx, producer_execution_id="execution:producer", required_output_state_ids=["state:a", "state:b"],
+    )
+    assert result["status"] == "unresolved"
+    assert M.runtime_activity_is_recorded(idx, "executions", row) is False
+    assert raw(p) == before
+
+
+def test_review_2872_synthetic_source_claims_remain_example_only():
+    idx = index()
+    producer = idx["records"]["executions"]["execution:producer"]["record"]
+    assert idx["record_status"] == "example"
+    assert M.runtime_activity_is_recorded(idx, "executions", producer) is True
+    idx["record_status"] = "observed"
+    assert M.runtime_activity_is_recorded(idx, "executions", producer) is False
+
+
 if __name__ == "__main__":
     check_pulsemech_compute_binding_analyzer_core_v0()

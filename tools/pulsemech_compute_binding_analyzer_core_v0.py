@@ -2957,7 +2957,27 @@ def index_runtime_packet_sources(
     }
 
 
-def _runtime_exact_source(identity: Any) -> bool:
+def runtime_effective_source_identity(identity: Any, *, record_status: str) -> dict[str, Any]:
+    """Separate a retained source declaration from verified source identity.
+
+    This pure runtime profile receives packet bytes, not authenticated Git blobs
+    for each execution's revision/path. An observed repository-file claim must
+    therefore remain partial, even when all its digest strings are well formed.
+    Exact fixture identities are permitted only in explicitly example records;
+    they never establish historical source authenticity. The raw packet/index
+    record is preserved without modification.
+    """
+    if not isinstance(identity, dict):
+        return {}
+    result = _runtime_copy(identity)
+    if (record_status != "example" and result.get("source_kind") == "repository_file"
+            and result.get("identity_status") == "exact"):
+        result["identity_status"] = "partial"
+    return result
+
+
+def _runtime_exact_source(identity: Any, *, record_status: str) -> bool:
+    identity = runtime_effective_source_identity(identity, record_status=record_status)
     if not isinstance(identity, dict) or identity.get("identity_status") != "exact":
         return False
     kind = identity.get("source_kind")
@@ -2986,23 +3006,17 @@ def _runtime_exact_source(identity: Any) -> bool:
 
 
 
-def _runtime_qualifying_execution(record: dict[str, Any], subject_key: str) -> bool:
-    """Require a recorded executed invocation, not a skipped platform entry.
+def _runtime_execution_evidence_is_recorded(record: dict[str, Any], *, record_status: str) -> bool:
+    """Check invocation evidence without assigning a subject/observer role.
 
-    A recorded failure may have consumed inputs; success or exit zero is not a
-    prerequisite. Unsupported or incomplete outcomes remain unresolved here.
+    A completed failure may have consumed inputs. Skipped, cancelled, unknown
+    and incomplete results cannot establish a fully recorded invocation.
     """
-    binding = record.get("run_binding", {})
     result = record.get("result", {})
     command = record.get("command_identity", {})
     return (
-        record.get("execution_scope") == "subject"
-        and record.get("capture_status") == "complete"
-        and _runtime_exact_source(record.get("source_identity"))
-        and binding.get("binding_complete") is True
-        and binding.get("subject_run_key") == subject_key
-        and binding.get("execution_run_key") == subject_key
-        and binding.get("binding_mode") == "current_subject_run"
+        record.get("capture_status") == "complete"
+        and _runtime_exact_source(record.get("source_identity"), record_status=record_status)
         and isinstance(result, dict)
         and result.get("lifecycle_status") == "completed"
         and result.get("result_status") == "complete"
@@ -3011,6 +3025,21 @@ def _runtime_qualifying_execution(record: dict[str, Any], subject_key: str) -> b
         and command.get("command_kind") not in {None, "unknown"}
         and all(isinstance(command.get(key), str) and _SHA256.fullmatch(command[key])
                 for key in ("command_sha256", "arguments_sha256"))
+    )
+
+
+def _runtime_qualifying_execution(
+    record: dict[str, Any], subject_key: str, *, record_status: str,
+) -> bool:
+    """Require recorded SUBJECT work; observer qualification is separate."""
+    binding = record.get("run_binding", {})
+    return (
+        record.get("execution_scope") == "subject"
+        and binding.get("binding_complete") is True
+        and binding.get("subject_run_key") == subject_key
+        and binding.get("execution_run_key") == subject_key
+        and binding.get("binding_mode") == "current_subject_run"
+        and _runtime_execution_evidence_is_recorded(record, record_status=record_status)
     )
 
 
@@ -3068,7 +3097,7 @@ def assess_runtime_output_consumption(
         if (state.get("producer_execution_id") != producer_execution_id
                 or state_id not in producer.get("output_state_ids", [])):
             reasons.add("runtime_production_unresolved")
-        if not _runtime_qualifying_execution(producer, subject_key):
+        if not _runtime_qualifying_execution(producer, subject_key, record_status=index["record_status"]):
             reasons.add("producer_execution_binding_unresolved")
         for identifier in qualified_consumers.get(state_id, []):
             if identifier != producer_execution_id:
@@ -3139,20 +3168,11 @@ def runtime_activity_context(index: dict[str, Any], kind: str, row: dict[str, An
     return row if kind == "executions" else index["records"]["executions"][row["parent_execution_id"]]["record"]
 
 
-def runtime_activity_is_recorded(index: dict[str, Any], kind: str, row: dict[str, Any]) -> bool:
-    """Recorded invocation only; failure may consume input, skipped never does.
-
-    Service content identity and token usage are different axes from request
-    consumption. A recorded request need not prove exact provider code identity.
-    """
-    context = runtime_activity_context(index, kind, row)
-    key = index["subject_context"]["subject_run_key"]
-    if not _runtime_qualifying_execution(context, key):
-        return False
+def _runtime_activity_payload_is_recorded(kind: str, row: dict[str, Any], subject_key: str) -> bool:
     if kind == "executions":
         return True
     result = row["result"]
-    if (row["subject_run_key"] != key or row["capture_status"] != "complete"
+    if (row["subject_run_key"] != subject_key or row["capture_status"] != "complete"
             or result["lifecycle_status"] != "completed"
             or result["outcome"] not in {"success", "failure"}
             or result["result_status"] != "complete"):
@@ -3160,6 +3180,46 @@ def runtime_activity_is_recorded(index: dict[str, Any], kind: str, row: dict[str
     if kind == "external_calls":
         return row["request"]["payload"]["capture_status"] == "exact_digest"
     return bool(row["request"]["request_metadata_sha256"])
+
+
+def runtime_activity_is_recorded(index: dict[str, Any], kind: str, row: dict[str, Any]) -> bool:
+    """Recorded subject invocation only; an observer never consumes for it.
+
+    Service content identity and token usage are different axes from request
+    consumption. A recorded request need not prove exact provider code identity.
+    """
+    context = runtime_activity_context(index, kind, row)
+    key = index["subject_context"]["subject_run_key"]
+    if not _runtime_qualifying_execution(context, key, record_status=index["record_status"]):
+        return False
+    return _runtime_activity_payload_is_recorded(kind, row, key)
+
+
+def runtime_observation_is_recorded(index: dict[str, Any], kind: str, row: dict[str, Any]) -> bool:
+    """Qualify comparison observations without adding observers to subject work.
+
+    The packet index already checks the collector's declared run against the
+    observation boundary. Its separate run is allowed, but source, command,
+    capture and completed-result evidence remain mandatory for the comparison.
+    This function MUST NOT be used to qualify subject consumption or production.
+    """
+    context = runtime_activity_context(index, kind, row)
+    if context.get("execution_scope") == "subject":
+        return runtime_activity_is_recorded(index, kind, row)
+    binding = context.get("run_binding", {})
+    key = index["subject_context"]["subject_run_key"]
+    return (
+        context.get("execution_scope") in _OBSERVER_SCOPES
+        and context.get("declared_role") == "observer"
+        and binding.get("binding_complete") is True
+        and binding.get("subject_run_key") == key
+        and isinstance(binding.get("execution_run_key"), str)
+        and bool(binding["execution_run_key"])
+        and binding.get("binding_mode") in {"current_subject_run", "post_run_observer", "external_export"}
+        and (binding["binding_mode"] != "current_subject_run" or binding["execution_run_key"] == key)
+        and _runtime_execution_evidence_is_recorded(context, record_status=index["record_status"])
+        and _runtime_activity_payload_is_recorded(kind, row, key)
+    )
 
 
 def runtime_exact_state(row: dict[str, Any]) -> bool:

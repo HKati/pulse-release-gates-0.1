@@ -1188,5 +1188,51 @@ def test_runtime_relation_collector_run_binding_not_required_is_not_subject_exem
     d,rc=_runtime_relation_diagnostic(r,i);assert rc!=0,d
 
 
+
+@pytest.mark.parametrize("target", ["plan", "report", "both"])
+@pytest.mark.parametrize("locator", ["misleading://unrelated-input", "sha256:" + "0" * 64])
+def test_review_2872_replay_rejects_forged_input_locators(target, locator, tmp_path):
+    m = _runtime_test_support()
+    relation, inputs = m.runtime_test_relation(m.runtime_test_synthetic_case(), extent=True)
+    if target in {"plan", "both"}:
+        old = relation["plan_binding"]["path_or_uri"]
+        relation["plan_binding"]["path_or_uri"] = locator
+        # Forge the dependent basis locator too: checking only internal
+        # consistency must not pass this source-aware verification boundary.
+        for expectation in relation["expectations"].values():
+            for basis in expectation["basis_records"]:
+                if basis["basis_kind"] == "integration_plan_operation":
+                    assert basis["source_path_or_uri"].startswith(old + "#operation/")
+                    basis["source_path_or_uri"] = locator + basis["source_path_or_uri"][len(old):]
+    if target in {"report", "both"}:
+        relation["observation_bindings"]["compute_binding_report"]["path_or_uri"] = locator
+    diagnostic, rc = _runtime_relation_diagnostic(relation, inputs)
+    assert rc != 0 and diagnostic["ok"] is False, diagnostic
+    assert any("runtime_relation_source_replay_mismatch" in error for error in diagnostic["errors"]), diagnostic
+    status_path = tmp_path / "base.json"
+    status_path.write_bytes(m.runtime_test_bytes({"gates": {"existing": True}}))
+    relation_path = tmp_path / "forged-relation.json"
+    relation_path.write_bytes(m.runtime_test_bytes(relation))
+    output_path = tmp_path / "runtime-candidate.json"
+    materializer = m.runtime_test_module("fold_pulsemech_compute_planned_observed_relation_into_status_v0.py")
+    result, rc = materializer.build_and_write_folded_status(
+        status_path=status_path, relation_path=relation_path,
+        schema_path=m.ROOT / "schemas/pulsemech_compute_planned_observed_relation_v0.schema.json",
+        validator_path=m.ROOT / "tools/check_pulsemech_compute_planned_observed_relation_v0.py",
+        output_path=output_path, runtime_inputs=inputs,
+    )
+    assert rc != 0 and not output_path.exists(), result
+
+
+def test_review_2872_validator_does_not_match_partial_runtime_source_claim():
+    m = _runtime_test_support()
+    relation, _ = m.runtime_test_relation(m.runtime_test_synthetic_case(), extent=True)
+    observation = next(row for row in relation["observations"].values() if row["execution_scope"] == "subject")
+    expected = dict(observation["source_identity"])
+    observation["source_identity"]["identity_status"] = "partial"
+    validator = m.runtime_test_module("check_pulsemech_compute_planned_observed_relation_v0.py")
+    assert validator._source_identity_result(expected, [observation]) == "unavailable"
+
+
 if __name__ == "__main__":
     check_pulsemech_compute_planned_observed_relation_validator_v0()

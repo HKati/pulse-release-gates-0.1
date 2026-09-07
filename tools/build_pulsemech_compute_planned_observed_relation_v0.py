@@ -2480,6 +2480,10 @@ def source_identity_result(
     results: list[str] = []
     for observation in observations:
         observed = observation.get("source_identity", {})
+        if (observation.get("runtime_occurrence_guard") == "no_artifact_occurrence_binding"
+                and observed.get("identity_status") != "exact"):
+            results.append("unavailable")
+            continue
         if normalize_kind_for_comparison(
             expected.get("source_kind")
         ) != normalize_kind_for_comparison(observed.get("source_kind")):
@@ -3368,6 +3372,11 @@ def build_relation_record(
     tool_source_revision: str | None,
     expectations_bytes: bytes | None = None,
 ) -> dict[str, Any]:
+    # Runtime-profile locators are derived from the captured content, not
+    # caller labels. The legacy artifact-only path retains its path semantics.
+    if "runtime_binding" in report:
+        plan_path_or_uri = "sha256:" + sha256_bytes(plan_bytes)
+        report_path_or_uri = "sha256:" + sha256_bytes(report_bytes)
     validate_plan_mechanics(plan)
     plan_binding = build_plan_binding(
         plan,
@@ -3869,8 +3878,12 @@ def normalize_runtime_bound_observations(
         row = entry["record"]
         observation["runtime_occurrence_guard"] = "no_artifact_occurrence_binding"
         # Missing source/command/result evidence is not repaired by a graph label.
+        observation["source_identity"] = core.runtime_effective_source_identity(
+            observation["source_identity"], record_status=index["record_status"],
+        )
         qualifying = core.runtime_activity_is_recorded(index, kind, row)
-        if (not qualifying or observation["declared_role"] == "unknown") and observation["execution_scope"] == "subject":
+        recorded_observation = core.runtime_observation_is_recorded(index, kind, row)
+        if not recorded_observation or observation["declared_role"] == "unknown":
             status = "unknown" if observation["source_identity"]["identity_status"] == "unknown" else "partial"
             observation["binding_status"] = status
             observation["coverage_status"] = status

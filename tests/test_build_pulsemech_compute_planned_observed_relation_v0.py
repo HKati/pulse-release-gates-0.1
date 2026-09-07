@@ -971,5 +971,104 @@ def test_runtime_relation_cli_wiring_with_synthetic_captured_upstream(monkeypatc
     result=json.loads(capsys.readouterr().out)
     assert result==relation
 
+
+@pytest.mark.parametrize("outcome", ["skipped", "cancelled", "unknown"])
+def test_review_2872_nonexecuted_observer_cannot_complete_comparison(outcome, tmp_path):
+    m = _runtime_test_support()
+    case = m.runtime_test_synthetic_case()
+    packet = case["packets"][0]
+    collector = next(row for row in packet["executions"]
+                     if row["execution_scope"] == "observation_collector")
+    observer = collector
+    observer["result"].update(outcome=outcome, exit_code=None)
+    # These result values are accepted by the unchanged packet contract.
+    validator = m.runtime_test_module("check_pulsemech_compute_runtime_observation_packet_v0.py")
+    diagnostic, rc = validator.build_diagnostic(
+        schema_path=m.ROOT / "schemas/pulsemech_compute_runtime_observation_packet_v0.schema.json",
+        packet_path=m.runtime_test_view(m.runtime_test_bytes(packet)),
+    )
+    assert rc == 0, diagnostic
+    relation, inputs = m.runtime_test_relation(case, extent=True)
+    observation_id, observation = next((key, row) for key, row in relation["observations"].items()
+        if row["source_record_id"] == observer["execution_id"])
+    assert observation["binding_class"] == "observer"
+    assert observation["coverage_status"] != "complete"
+    classified = next(row for row in relation["relations"].values()
+                      if observation_id in row["observation_ids"])
+    assert classified["relation_status"] == "unresolved_due_to_coverage"
+    assert classified["evaluation"]["decisive"] is False
+    assert relation["summary"]["comparison_complete"] is False
+    checker = m.runtime_test_module("check_pulsemech_compute_planned_observed_relation_v0.py")
+    schema = m.ROOT / "schemas/pulsemech_compute_planned_observed_relation_v0.schema.json"
+    diagnostic, rc = checker.build_diagnostic(schema_path=schema,
+        relation_path=m.runtime_test_view(m.runtime_test_bytes(relation)), runtime_inputs=inputs)
+    assert rc == 0, diagnostic  # Valid partial evidence is not a validator error.
+    status_path = tmp_path / "base.json"
+    status_path.write_bytes(m.runtime_test_bytes({"gates": {"existing": True}}))
+    relation_path = tmp_path / "runtime-relation.json"
+    relation_path.write_bytes(m.runtime_test_bytes(relation))
+    materializer = m.runtime_test_module("fold_pulsemech_compute_planned_observed_relation_into_status_v0.py")
+    result, rc = materializer.build_and_write_folded_status(
+        status_path=status_path, relation_path=relation_path, schema_path=schema,
+        validator_path=m.ROOT / "tools/check_pulsemech_compute_planned_observed_relation_v0.py",
+        output_path=tmp_path / "runtime-candidate.json", runtime_inputs=inputs,
+    )
+    assert rc == 0 and result["candidate_all_true"] is False, result
+
+
+@pytest.mark.parametrize("field,value", [
+    ("command_sha256", None), ("arguments_sha256", None),
+    ("command_kind", "unknown"),
+])
+def test_review_2872_observer_command_evidence_cannot_be_skipped(field, value):
+    m = _runtime_test_support()
+    case = m.runtime_test_synthetic_case()
+    collector = next(row for row in case["packets"][0]["executions"]
+                     if row["execution_scope"] == "observation_collector")
+    collector["command_identity"][field] = value
+    relation, _ = m.runtime_test_relation(case, extent=True)
+    assert relation["summary"]["comparison_complete"] is False
+
+
+def test_review_2872_observed_repository_claim_does_not_become_exact():
+    # Adversarial observed-labelled inputs to the pure projection only. This is
+    # NOT a historical observation or a source-aware subject-input proof.
+    m = _runtime_test_support()
+    case = m.runtime_test_synthetic_case()
+    case["baseline"]["record_status"] = "observed"
+    case["subject_input"]["record_status"] = "observed"
+    case["packets"][0]["record_status"] = "observed"
+    report, inputs = m.runtime_test_report(case)
+    builder = m.runtime_test_module("build_pulsemech_compute_planned_observed_relation_v0.py")
+    observations = builder.normalize_runtime_bound_observations(
+        report, [(json.loads(raw), raw, locator) for locator, raw in inputs["packet_sources"]],
+        subject=builder.subject_tuple_from_report(report),
+    )
+    raw_records = {row["execution_id"]: row for row in case["packets"][0]["executions"]}
+    for observation in observations.values():
+        claimed = raw_records[observation["source_record_id"]]["source_identity"]
+        assert claimed["identity_status"] == "exact"
+        assert observation["source_identity"]["identity_status"] == "partial"
+        assert observation["source_identity"]["source_sha256"] == claimed["source_sha256"]
+        assert observation["binding_status"] != "complete"
+        assert builder.source_identity_result(claimed, [observation]) == "unavailable"
+    assert not any(edge["observed"] for edge in report["edges"])
+
+
+def test_review_2872_runtime_constructor_uses_captured_content_locators():
+    m = _runtime_test_support()
+    relation, inputs = m.runtime_test_relation(m.runtime_test_synthetic_case(), extent=True)
+    builder = m.runtime_test_module("build_pulsemech_compute_planned_observed_relation_v0.py")
+    rebuilt = builder.build_relation_record(
+        plan=json.loads(inputs["plan_bytes"]), plan_bytes=inputs["plan_bytes"],
+        plan_path_or_uri="misleading://other-plan", report=json.loads(inputs["report_bytes"]),
+        report_bytes=inputs["report_bytes"], report_path_or_uri="sha256:" + "0" * 64,
+        packets=[(json.loads(raw), raw, loc) for loc, raw in inputs["report_inputs"]["packet_sources"]],
+        explicit_expectations={}, relation_id=relation["comparison_identity"]["relation_record_id"],
+        tool_source_revision=relation["tool"]["source_revision"], expectations_bytes=None,
+    )
+    assert rebuilt == relation
+
+
 if __name__ == "__main__":
     check_build_pulsemech_compute_planned_observed_relation_v0()

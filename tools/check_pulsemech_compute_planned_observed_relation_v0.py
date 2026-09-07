@@ -312,6 +312,10 @@ def _source_identity_result(
     results: list[str] = []
     for observation in observations:
         observed = observation.get("source_identity", {})
+        if (observation.get("runtime_occurrence_guard") == "no_artifact_occurrence_binding"
+                and observed.get("identity_status") != "exact"):
+            results.append("unavailable")
+            continue
         expected_kind = _source_kind(expected.get("source_kind"))
         observed_kind = _source_kind(observed.get("source_kind"))
         if expected_kind != observed_kind:
@@ -1493,8 +1497,8 @@ def check_runtime_relation_replay(relation: dict[str, Any], inputs: dict[str, An
         packets = [(json.loads(raw, object_pairs_hook=reject_duplicate_keys, parse_constant=reject_non_finite), raw, locator)
                    for locator, raw in inputs["report_inputs"]["packet_sources"]]
         expected = builder.build_relation_record(
-            plan=plan, plan_bytes=plan_raw, plan_path_or_uri=relation["plan_binding"]["path_or_uri"],
-            report=report, report_bytes=report_bytes, report_path_or_uri=relation["observation_bindings"]["compute_binding_report"]["path_or_uri"],
+            plan=plan, plan_bytes=plan_raw, plan_path_or_uri="sha256:" + sha256_bytes(plan_raw),
+            report=report, report_bytes=report_bytes, report_path_or_uri="sha256:" + sha256_bytes(report_bytes),
             packets=packets, explicit_expectations=explicit,
             relation_id=relation["comparison_identity"]["relation_record_id"], tool_source_revision=revision,
             expectations_bytes=explicit_raw,
