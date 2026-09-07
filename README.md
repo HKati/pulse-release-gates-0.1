@@ -172,7 +172,8 @@ They do not independently produce release authority.
 | Current-run artifact-observed proof automation — verified candidate-bundle intake, compute-binding report, current-run plan, planned-observed relation, separate candidate materialization, and artifact-observed proof-bundle builder with a checksum-closed output contract | Implemented and regression-proven — non-active candidate path; no manually dispatched Step 3G run or run-bound proof-bundle instance is claimed |
 | Current-run artifact-observed candidate workflow | Implemented and regression-proven — `diagnostic_shadow`, `authority_effect = none` |
 | Historical producer-input capture — Step 4A | Completed, preserved, and independently offline replay-verified — non-active; `same_run_release_authority_eligible = false`; `active_gate_eligible = false`; `authority_effect = none` |
-| Compute runtime-observation producer | Not implemented |
+| Historical runtime-packet producer and preservation — Step 4B | Implemented and preserved — bounded `post_run_platform_export` profile, partial coverage, separate direct packet validation; `authority_effect = none` |
+| Live/current-run runtime-observation producer and complete runtime-observed connected proof | Not implemented |
 | Active or release-required compute enforcement | Not active |
 | Public PULSEmech Core execution record | Completed — PULSE CI #5728 |
 | Completed public non-stubbed release-grade run record | Completed — PULSE CI #6066 |
@@ -188,9 +189,10 @@ Post-merge verification reproduced identical offline diagnostics and
 the exact manifest from the preserved inputs. All ten targeted
 disposable-copy mutation probes were rejected.
 
-This completes the historical producer-input prerequisite. It does not
-implement the runtime-observation packet producer or turn the capture
-into a transition measurement or retroactive release-authority input.
+This completes the historical producer-input prerequisite. The capture is not
+itself the runtime-packet producer or its derived packet; that separate bounded
+Step 4B result is recorded below. The capture is not a transition measurement
+or retroactive release-authority input.
 The future operational path separately requires exact current-run
 source capture before its authority decision.
 
@@ -198,6 +200,28 @@ source capture before its authority decision.
 `active_gate_eligible = false` · `authority_effect = none`
 
 [Verified capture, evidence and development boundary](PULSEMECH_TECHNICAL_OVERVIEW.md#15i-completed-historical-post-run-producer-input-capture)
+
+### Historical runtime-packet production and preservation — Step 4B
+
+The offline historical `post_run_platform_export` producer is implemented
+through **#2867**, and its exact four-file result is preserved through **#2868**.
+The original capture remains source evidence; a separate derived runtime packet
+now records **8 jobs, 171 steps and one collector**, with **partial** coverage.
+
+The preserved local execution record documents two byte-identical constructions
+and separate successful validations. The supplied post-merge review separately
+validated the actual preserved packet under Python 3.14.4 with all **34 semantic
+checks true**; it did not repeat full producer reconstruction because a required
+historical Git object was unavailable in that cloud environment.
+
+This is bounded historical production and preservation, not live instrumentation,
+complete runtime-observed connected proof, resource measurement or compute-gate
+activation. The collector is excluded from subject totals; unobserved values
+remain unavailable. The future current-run path still requires source capture
+before its authority decision.
+
+[Verified Step 4B result and evidence limits](PULSEMECH_TECHNICAL_OVERVIEW.md#15j-historical-runtime-packet-production-and-preservation--step-4b) ·
+[Exact preserved files and reproduction instructions](preservation/pulse_ci_6066/runtime_observation_packet_v0/README.md)
 
 ### Device Ledger bounded mechanical proof
 
