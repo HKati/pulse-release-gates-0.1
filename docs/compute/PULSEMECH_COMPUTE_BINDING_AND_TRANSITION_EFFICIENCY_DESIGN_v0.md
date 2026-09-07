@@ -10,19 +10,19 @@ workstream:
 compute_binding_and_transition_efficiency
 
 state_date:
-2026-09-06
+2026-09-07
 
 canonical_system_state_source:
 PULSEMECH_TECHNICAL_OVERVIEW.md
 
 merged_compute_state_recorded_through:
-PR #2861
+PR #2868
 
 merged_compute_state_basis:
-7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9
+55c6180dfbfd4055a558cf6b3e3883461a423f86
 
 implementation_status:
-current_run_automation_through_3G_and_historical_capture_4A_complete
+current_run_automation_3G_and_bounded_historical_4A_4B_handoffs_complete
 
 current_run_automation_terminal_pr:
 2826
@@ -115,6 +115,21 @@ runtime_observation_contract:
 implemented
 
 runtime_observation_producer:
+implemented_historical_post_run_platform_export_only
+
+runtime_packet_producer_basis:
+d7def834e8aa63911426550cf41b05f81c0b56b0
+
+runtime_packet_preservation_basis:
+55c6180dfbfd4055a558cf6b3e3883461a423f86
+
+runtime_packet_preservation_acceptance:
+supported_with_explicit_reconstruction_and_remote_evidence_limits
+
+runtime_packet_coverage:
+partial
+
+live_current_run_runtime_observation_producer:
 not_implemented
 
 runtime_observed_connected_proof:
@@ -142,11 +157,12 @@ merged implementation, completed reference evidence and remaining work.
 It remains the detailed workstream record beneath the canonical system-level
 source, [PULSEMECH_TECHNICAL_OVERVIEW.md](../../PULSEMECH_TECHNICAL_OVERVIEW.md).
 
-The recorded state is bound to data merge
-`7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9`. It does not claim that the
-subsequent documentation PR has already passed its own CI or post-merge review.
+The recorded implementation/data state is bound to preservation merge
+`55c6180dfbfd4055a558cf6b3e3883461a423f86`, with the packet producer separately
+fixed at `d7def834e8aa63911426550cf41b05f81c0b56b0`. This documentation handoff
+has not yet passed its own future final-head CI or post-merge review.
 
-Two completed results must remain distinct:
+Three completed results must remain distinct:
 
 ```text
 Step 3G:
@@ -160,16 +176,25 @@ one actual historical #6066 producer-input capture
 + independent offline replay
 + deterministic manifest reconstruction
 + capture-specific disposable-copy mutation evidence
+
+Step 4B:
+bounded offline historical runtime-packet producer
++ exact packet, construction record and execution report preserved
++ recorded local deterministic reconstruction
++ separate direct validation of the preserved packet in post-merge review
++ explicit partial coverage and review-access limits
 ```
 
 Step 4A records an actual acquisition execution. It is not a manually dispatched
-Step 3F or Step 3G proof instance, and it is not completion of the future
-runtime-observation packet producer.
+Step 3F or Step 3G proof instance and is not itself a runtime packet. Step 4B
+uses that unchanged input to construct the separate bounded historical packet;
+neither result completes live/current-run observation or connected runtime proof.
 
 The former open-builder state is superseded by the merged builder and its
 registered regressions. Sections 24–27 record the completed implementation and
-reference capture; the runtime producer, runtime-observed connected proof,
-resource measurement and any policy promotion remain separate later work.
+reference capture and bounded Step 4B output. Live/current-run observation,
+runtime-observed connected proof, resource measurement and any policy promotion
+remain separate later work.
 
 This documentation changes no workflow, schema, normative contract, producer,
 validator, test registration, policy, gate, status, release-authority mechanism,
@@ -236,6 +261,8 @@ post-run producer-input capture schema and normative contract
 separate networked capture tool and independent offline validator
 manual fixed-subject capture workflow
 exact preserved #6066 run-attempt and jobs-response capture
+bounded offline historical runtime-packet producer and permanent regression
+four-file #6066 runtime-packet preservation and direct validation record
 ```
 
 The current analyzer ownership relation is:
@@ -286,12 +313,14 @@ tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py
 
 The completed current-run construction and workflow relation is described in
 Sections 24–26. The historical Step 4A acquisition and its exact evidence are
-recorded separately in Section 26.
+recorded separately in Section 26, followed by the completed bounded Step 4B
+producer and preservation record.
 
-The repository does not yet contain a merged and complete:
+The historical post-run producer is implemented. The repository does not yet
+contain a merged and complete:
 
 ```text
-runtime-observation producer
+live/current-run runtime-observation producer
 runtime-observed connected proof
 per-axis compute-resource measurement surface
 compute budget
@@ -299,8 +328,9 @@ active compute-related release enforcement
 ```
 
 The current-run automation implementation and permanent regression surface are
-complete through Step 3G. The separate Step 4A historical input capture has also
-been preserved and replayed.
+complete through Step 3G. The separate Step 4A historical input capture has been
+preserved and replayed, and the Step 4B historical packet has been produced,
+preserved and directly validated with its stated evidence limits.
 
 ```text
 current-run contract and machine construction:
@@ -314,6 +344,9 @@ not claimed by this state record
 
 historical Step 4A acquisition and offline replay:
 completed for exact #6066 attempt 1
+
+bounded historical Step 4B production and preservation:
+completed for the post_run_platform_export profile; partial coverage
 
 release-authority effect:
 none
@@ -1005,14 +1038,18 @@ artifact-observed graph
 
 The runtime-observation contract is implemented.
 
-A runtime-observation producer and complete runtime-observed subject chain are
-not yet implemented.
+A bounded historical post-run runtime-packet producer is implemented and its
+partial packet is preserved. The complete runtime-observed subject chain and
+live/current-run observation producer are not implemented. The partial historical
+packet does not promote the analyzer to a complete `runtime_observed` graph.
 
 A lower analysis level must not claim a higher-confidence classification.
 
 The current-run expectation is metadata-only and does not by itself raise the
 analysis level. The Step 4A platform-response capture likewise remains an exact
-producer input; its job and step fields are not a runtime-observed graph.
+producer input; its job and step fields are not a runtime-observed graph. The
+separate Step 4B packet preserves those fields without inventing the missing
+runtime input/output and consumption relations.
 
 ---
 
@@ -1479,7 +1516,10 @@ runtime packet validator:
 implemented
 
 runtime packet producer:
-not implemented
+implemented for bounded historical post_run_platform_export
+
+historical #6066 runtime packet:
+preserved and directly validated; partial coverage
 
 live runtime capture:
 not active
@@ -2839,9 +2879,11 @@ materialized into a separate candidate status; the subject status is unchanged.
 
 This is the historical-reference input boundary defined by
 [work order #2856](https://github.com/HKati/pulse-release-gates-0.1/issues/2856).
-Its implementation and observed-reference acceptance are complete. The
-work-order documentation closure still requires the complete documentation PR
-and its own final checks; this record does not predeclare that merge.
+Its implementation and observed-reference acceptance are complete. The separate
+Step 4A documentation closure was accepted through
+[PR #2862](https://github.com/HKati/pulse-release-gates-0.1/pull/2862), merge
+`bfa674582b17c7b1a0c238a1f0d2051ac0c847c9`. Work order #2856 remains technically
+complete. This Step 4B synchronization does not reopen that accepted scope.
 
 #### Implementation and observed-data identities
 
@@ -2872,7 +2914,7 @@ tests/test_check_pulsemech_compute_post_run_producer_input_capture_v0.py
 ```
 
 The networked capture implementation, network-free independent validator and
-future runtime-packet producer have distinct roles. The validator does not
+Step 4B runtime-packet producer have distinct roles. The validator does not
 import the capture implementation or accept its verdict as proof.
 
 #### Historical subject and separate acquisition
@@ -3115,7 +3157,7 @@ completed historical #6066 attempt
 → platform-response snapshot observed at capture time
 → exact preserved producer input
 → deterministic reconstruction and independent offline validation
-→ later reference runtime-packet production, still unimplemented
+→ separate bounded Step 4B reference runtime-packet production, completed below
 ```
 
 Determinism begins after preservation. A later API request is neither required
@@ -3153,16 +3195,17 @@ current subject run
 ```
 
 The Step 4A post-run reference cannot retroactively authorize its completed
-subject run. It supplies exact preserved inputs for the next producer task;
-it neither implements that producer nor promotes any compute gate.
+subject run. It supplies exact preserved inputs to the separate Step 4B producer;
+the capture itself neither implements that producer nor promotes any compute gate.
 
 ### Step 4 — runtime-observation producer
 
-Still unimplemented. Step 4A above closes its historical producer-input
-prerequisite, not runtime-packet production itself.
+Step 4B completes the bounded historical `post_run_platform_export` producer and
+its four-file preservation handoff, as recorded below. It does not complete a
+live/current-run observation producer or the complete runtime-observed chain.
 
-Produce strict runtime packets from recorded execution while preserving the
-historical-reference versus current-run pre-decision distinction:
+The broader runtime work must populate only evidenced fields, while preserving
+the historical-reference versus current-run pre-decision distinction:
 
 ```text
 job and step identity
@@ -3175,6 +3218,204 @@ external-service calls
 model inferences
 resource axes
 ```
+
+### Completed Step 4B — historical runtime-packet production and preservation
+
+[Work order #2864](https://github.com/HKati/pulse-release-gates-0.1/issues/2864)
+has completed implementation and preservation handoffs for the bounded historical
+`post_run_platform_export` profile. It does not complete the broader live or
+current-run runtime-observation lane.
+
+#### Implementation and preservation identities
+
+| Role | Merged PR | Exact commit | Root tree |
+| --- | --- | --- | --- |
+| Offline producer, matching runtime validator and permanent regressions | [#2867](https://github.com/HKati/pulse-release-gates-0.1/pull/2867) | `d7def834e8aa63911426550cf41b05f81c0b56b0` | `7ef7a119556d4dc69280ccd451ed41b5272fdeaa` |
+| Four-file historical packet preservation | [#2868](https://github.com/HKati/pulse-release-gates-0.1/pull/2868) | `55c6180dfbfd4055a558cf6b3e3883461a423f86` | `a1cfd8e333c138815eebc89fa20623b1a1dc5b06` |
+
+The implementation commit remains the packet's producer revision. The later
+preservation commit identifies where the four objects were stored; neither it
+nor this documentation update replaces a construction or acquisition identity.
+
+The [offline producer](../../tools/build_pulsemech_compute_runtime_observation_packet_from_capture_v0.py)
+and its [permanent regression](../../tests/test_build_pulsemech_compute_runtime_observation_packet_from_capture_v0.py)
+are separate from the accepted Step 4A capture tools. The existing
+[runtime validator](../../tools/check_pulsemech_compute_runtime_observation_packet_v0.py)
+and its [regression](../../tests/test_check_pulsemech_compute_runtime_observation_packet_v0.py)
+handle historical timing and recorded policy order only for the matching
+observed post-run producer/collector profile. The runtime schema and illustrative
+example remain unchanged.
+
+| Implementation object at the producer revision | Bytes | SHA-256 |
+| --- | ---: | --- |
+| Offline runtime-packet producer | 45122 | `b59cfc97d5b44bbd2393e5588b4b1180bd165b2b467ba1f9317b5e64ee91bbb1` |
+| Separate runtime-packet validator | 49528 | `edc8f795043f656ffa8599dfae9555f38970790f1096cf080e9049f218d512d9` |
+
+The producer admits its actually invoked canonical path and source bytes,
+checks the declared committed source and construction-record digest, and pins
+its matching validator. It uses the unchanged independent capture and
+subject-input validation paths before constructing output. The packet is then
+checked by the separate runtime validator, which does not import the producer.
+Publication is outside the source repository, does not replace an existing
+output, and retains source rechecks and ownership-bound failure cleanup.
+
+The final implementation delta was eight files: the original six-file candidate
+plus two existing workflow-regression count assertions corrected from `152` to
+`153`. Each of those two corrections changed only the expected manifest count.
+The [tools-test inventory](../../ci/tools-tests.list) has **153 unique active
+program entries**, including the producer regression exactly once. This is not
+153 individual pytest cases or evidence that every program ran in a given review.
+
+#### Exact historical input-to-packet relation
+
+```text
+Step 4A: five exact capture members for #6066 / attempt 1
++ verified observed subject-input context
++ exact earlier release-grade preservation carrier
++ original historical commit:path sources
++ immutable, explicitly SHA-256-bound local construction record
+→ unchanged offline producer at d7def834...
+→ 8 historical jobs + 171 historical steps + 1 separate collector
+→ separate runtime-packet validation
+→ canonical packet preserved at 55c6180...
+```
+
+The subject remains run `29249887581`, attempt `1`, source
+`46b639706e23f80fe296a8893be18e2b5ab21f7e`. Original acquisition remains run
+`33986538130`, attempt `1`, source
+`22d14088ae21f84d94c6a6951c0f70ab1bdf0895`. The observed context's producer is
+`3cd57dc9e88e6f804dbb134c864f4207688bddc2`. These identities have different roles.
+
+The context supplies the historical release-candidate and run-mode fields and
+the ordered policy-set identity `required`, `release_required`; the producer does
+not infer them from a job's success or the current branch. The complete input
+paths, sizes and digests are preserved in the
+[execution record](../../preservation/pulse_ci_6066/runtime_observation_packet_v0/verification_record_v0.json).
+No new network acquisition or historical workflow rerun is part of this relation.
+
+#### Preserved output and reproduction input
+
+All four objects are in
+[preservation/pulse_ci_6066/runtime_observation_packet_v0](../../preservation/pulse_ci_6066/runtime_observation_packet_v0/).
+They are new derived/output records, not replacements for the Step 4A originals.
+
+| Object | Bytes | Git blob | SHA-256 |
+| --- | ---: | --- | --- |
+| [Construction record](../../preservation/pulse_ci_6066/runtime_observation_packet_v0/construction_record_v0.json) | 1250 | `bc4944dec23eebe15df0e1634b5ed9cbfcacc5be` | `877347d5e22410888614ac55698d4ebe82378d496ae5ee31fec945195a1a55e6` |
+| [Historical runtime packet](../../preservation/pulse_ci_6066/runtime_observation_packet_v0/pulsemech_compute_runtime_observation_packet_6066_observed_v0.json) | 484234 | `cef7f1cb0386c977eb0cddc2e63f57c2813d60c7` | `76418f3a7374cf12127031b15806af1e80605ad07031b3b10308c3a30b795a88` |
+| [Verification record](../../preservation/pulse_ci_6066/runtime_observation_packet_v0/verification_record_v0.json) | 24105 | `24136a2a39b904585d36d10f003a1a3ce25b2936` | `aa225628594d5c5ef29764cde69e96d88da5942289b1603532710846b1ad3796` |
+| [Local preservation README](../../preservation/pulse_ci_6066/runtime_observation_packet_v0/README.md) | 10602 | `82055e1f4c2fa44d90515b70ce5debc84407d529` | `de2f67b8e44db24df5493a743f568b1f423eefa8035c40339a482bec2ef82c92` |
+
+The README gives the replay procedure using an exact implementation checkout,
+the preserved construction record and a fresh external output location. Replay
+must keep the construction bytes unchanged, run the separate validator and
+compare the complete result with the preserved packet. Parsing and reserializing
+that packet is not input-to-packet reconstruction.
+
+#### Evidence classes and completed checks
+
+The committed verification record and the owner-supplied read-only post-merge
+reports are different evidence sources. The reports are titled “Consolidated
+post-merge review — PR #2867 / Step 4B” and “Read-only post-merge review — PR #2868 /
+Step 4B”. Their targets are the respective implementation and preservation
+commits above. Review results below are attributed to those supplied reports;
+this documentation update does not rerun them or make them remote CI results.
+
+| Evidence source | Actual scope recorded | Limit |
+| --- | --- | --- |
+| Committed local preservation execution record; CPython 3.13.5, pytest 9.0.2, jsonschema 4.26.0, PyYAML 6.0.3 | Two isolated producer CLI executions from separate exact implementation checkouts produced identical 484234-byte packets; each passed a separate runtime-validator invocation. Producer, historical context and runtime-validator suites passed `74 + 24 + 90 = 188` cases. | Same local environment; not an external attestation, GitHub run or fresh full 153-program campaign. Regression fixture commits are distinct from the direct preservation constructions. |
+| Supplied #2867 post-merge implementation review; CPython 3.14.4 | Exact eight-file merge, both prior P1 corrections mechanically addressed, and no actionable findings in the inspected scope; bounded implementation acceptance. | Historical source `46b639...` was absent there. The producer suite/direct replay did not run; the complete subject-context suite was not PASS. |
+| Supplied #2868 post-merge preservation review; CPython 3.14.4, pytest 9.0.3, jsonschema 4.26.0, PyYAML 6.0.3 | All four committed identities exact; an actual byte-exact preserved packet passed the unchanged standalone validator, exit `0`, valid schema, no errors and all **34 semantic checks true**. Separately, the full runtime-validator regression passed **90 cases**. | Direct packet validation is not producer reconstruction. That cloud environment also lacked `46b639...`, so fresh producer replay and the 74/24 source-dependent suites were not run. |
+
+The #2868 review compared the actual packet with the committed raw responses:
+all 8 jobs, 171 steps, exact parent/run/time relationships and **44 skipped step
+outcomes** matched. It also checked every recorded input descriptor available at
+the preservation commit and all **14 embedded stdout/stderr stream** sizes and
+hashes. Consistent stored logs are not independent authentication of all reported
+historical executions. The fresh standalone execution separately corroborated
+the preserved packet's current schema and semantic validity.
+
+The same preservation review reported these temporary-copy negative probes:
+
+| Mutation | Observed enforcement |
+| --- | --- |
+| Reformat the same packet data into compact JSON | Complete-byte comparison returned `1` and SHA-256 changed; this is an exact-object rejection, not an asserted semantic-validator failure. |
+| Replace a step parent with a nonexistent execution | Runtime validator returned `1` with schema still valid; `execution_parent_references_resolve` and `workflow_job_step_shape_ok` failed. |
+| Rebind one execution to another subject run | Runtime validator returned `1` with schema still valid; `subject_execution_run_binding_ok` and `subject_run_binding_consistent` failed. |
+| Claim `complete` coverage while retaining unobserved reasons | Existing schema rejected the packet before semantic checks. |
+
+These are review probes, not newly registered permanent tests. The producer-side
+changed-construction-record probe was not run in that cloud environment because
+its historical source prerequisite was incomplete; a setup failure is not counted
+as a successful rejection.
+
+Pre-merge GitHub evidence remains separate: implementation run `34067210741`,
+Tools smoke job `101578031826`, was associated with PR head
+`9bbda256a43d767681231ed4af8411dda9ac1962`; preservation run `34114319317`, job
+`101717710093`, was associated with `f0a19b045469fee8525611379edbcf7574de7c16`.
+The supplied final-head records report successful Tools smoke and targeted
+pytest steps. They are not execution against either later merge commit, and no
+remote test count or interpreter version is inferred from them. Both supplied
+cloud reviews lacked authenticated post-merge CI access. Skipped jobs remain
+skipped, and implementation-fixture CI is not substituted for direct inspection
+of the newly preserved packet.
+
+#### Time, observation and authority limits
+
+The construction record's local collector key begins with
+`LOCAL_PRESERVATION=step4b-6066-20260907T002403Z`. Its three declared times are
+`2026-09-07T00:24:03Z`: input preparation and logical creation at record
+finalization, not the measured process interval or file-publication time of a
+later CLI invocation. The committed report separately retains actual CLI
+intervals. Equal one-second declarations prove neither zero runtime nor zero
+resource use. No independently authenticated collector identity or clock is
+claimed; replay does not refresh these declarations.
+
+`record_status: observed` concerns the verified historical platform-export data.
+Overall coverage remains `partial`. Unknown executed-command bytes, argument
+identity, process exit codes, historical runtime input/output consumption,
+individual external calls, model inferences and resource use remain unavailable.
+Empty collections do not establish absence of historical activity. The collector
+is excluded from subject totals. Job/step timestamps and derived elapsed times
+are not CPU, GPU, memory, network or token measurements.
+
+```text
+Step 4A captured source remains:
+historical-reference producer input; not a runtime packet
+
+Step 4B derived packet:
+implemented and preserved historical post-run profile; partial coverage
+
+complete runtime-observed connected proof:
+not implemented
+
+same_run_release_authority_eligible: false
+active_gate_eligible: false
+authority_effect: none
+```
+
+The last three labels describe the existing producer/report boundary; this
+record does not add runtime-schema fields. Neither the source capture nor its
+derived packet authorizes the completed subject retroactively. Current-run
+operational use still requires exact source capture before the authority decision.
+
+#### Bounded acceptance and documentation endpoint
+
+Implementation acceptance is supported within the #2867 review's source and
+execution limits. Preservation acceptance is supported for exact object
+integrity, direct packet validity, available historical mapping, internal report
+consistency and local reproduction documentation. The preserved local record
+supplies the earlier exact reconstruction result; the #2868 cloud review did not
+independently repeat that reconstruction. Its missing Git object is an
+access limitation, not a demonstrated implementation or preservation defect.
+
+This five-document synchronization records that completed bounded result. Its
+own final submitted-state checks, merge and read-only documentation review remain
+separate events; it does not predeclare them or automatically close #2864.
+Once that documentation handoff is accepted, the declared Step 4B work order has
+its finite endpoint. Live/current-run observation, connected runtime proof,
+resource measurement and policy promotion are separate future work, not extra
+acceptance conditions silently added to this historical handoff.
 
 ### Step 5 — runtime-observed connected proof
 
@@ -3541,6 +3782,23 @@ read-only post-merge verification
 Section 26 records full commit, run, member and diagnostic identities and keeps
 cloud review evidence separate from GitHub CI execution.
 
+### Historical Step 4B runtime-packet handoffs
+
+```text
+PR #2867 / d7def834...
+→ bounded offline producer and matching independent validator
+→ permanent regression and executed-source correction
+
+PR #2868 / 55c6180...
+→ exact packet, construction record, local execution record and README
+→ independent direct validation of the preserved packet
+→ bounded preservation acceptance with explicit replay-access limits
+```
+
+Section 26 separates recorded local reconstruction from fresh cloud packet
+validation. Canonical documentation synchronization is the remaining #2864
+handoff; complete runtime-observed proof and policy promotion are later work.
+
 ### Historical canonical state synchronization
 
 ```text
@@ -3675,7 +3933,9 @@ Step 3F/3G artifact instance.
 
 The Step 4A capture has an actual acquisition and replay record. Its completed
 proof remains a historical producer-input proof, not runtime-observed
-transition evidence or a resource-efficiency conclusion.
+transition evidence or a resource-efficiency conclusion. Step 4B adds the bounded
+historical packet and its preserved reproduction evidence, not the missing
+complete runtime relation or resource-efficiency measurement.
 
 ---
 
@@ -3695,6 +3955,12 @@ runtime-observation contract:
 implemented
 
 runtime-observation producer:
+implemented for bounded historical post_run_platform_export
+
+historical runtime-packet preservation:
+complete within declared object, mapping and direct-validation limits
+
+live/current-run runtime-observation producer:
 not implemented
 
 planned-observed relation:
@@ -3904,9 +4170,25 @@ exact #6066 run attempt
 → historical reference producer input
 ```
 
-This reference input does not replace the future current-run pre-decision
-capture requirement. Runtime-packet production, runtime-observed connected
-proof, resource measurement and policy promotion remain later work.
+Step 4B adds a separate completed historical relation:
+
+```text
+exact preserved capture and verified context/carrier
++ exact historical Git sources
++ fixed construction record
+→ offline producer at d7def834...
+→ partial runtime packet preserved at 55c6180...
+→ separate direct packet validation
+```
+
+The committed local execution record supplies repeated exact reconstruction;
+the separate cloud review directly validated the preserved packet but could not
+repeat producer replay without the historical subject Git object. This distinction
+does not reopen the accepted capture or turn a reported run into fresh execution.
+
+Neither historical result replaces the future current-run pre-decision capture
+requirement. Live/current-run observation, runtime-observed connected proof,
+resource measurement and policy promotion remain later work.
 
 The fixed-source #6066 candidate result remains:
 

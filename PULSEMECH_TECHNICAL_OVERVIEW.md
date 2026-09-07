@@ -49,6 +49,7 @@ reference proofs
 compute-binding implementation state
 current-run compute automation state
 completed historical post-run producer-input capture
+bounded historical runtime-packet production and preservation
 Device Ledger bounded proof, deterministic Reproduction Capsule, and runnable demonstrator state
 foundational transition-measurement architecture
 external interoperability status
@@ -2529,9 +2530,11 @@ platform fact recorded at acquisition time.
 
 PR 2 technical acceptance is supported by the exact preserved objects,
 independent replay, deterministic reconstruction, negative evidence and
-unchanged implementation. The documentation PR has its own final-head CI and
-post-merge review; this record does not predeclare their completion or close
-work order #2856.
+unchanged implementation. The subsequent Step 4A documentation closure was
+accepted through [PR #2862](https://github.com/HKati/pulse-release-gates-0.1/pull/2862),
+merge `bfa674582b17c7b1a0c238a1f0d2051ac0c847c9`; work order #2856 remains
+technically complete. That prior closure does not predeclare the present
+Step 4B documentation handoff's own checks.
 
 ### Temporal and non-authority separation
 
@@ -2565,8 +2568,113 @@ not measured compute-resource consumption.
 
 The future operational path separately requires exact current-run source
 capture before its authority decision. That requirement is not satisfied by
-reclassifying this post-run historical snapshot. The runtime-observation packet
-producer and runtime-observed connected proof remain unimplemented.
+reclassifying this post-run historical snapshot. The bounded historical producer
+is now implemented separately in Step 4B, Section 15J; live/current-run observation
+and complete runtime-observed connected proof remain unimplemented.
+
+---
+
+## 15J. Historical runtime-packet production and preservation — Step 4B
+
+The bounded historical `post_run_platform_export` producer is implemented, and
+its actual #6066 packet, immutable construction record, execution report and
+reproduction instructions are preserved. This is a separate derived runtime
+packet, not a relabelling of the Step 4A source capture as a packet or complete
+runtime-observed connected proof.
+
+| Evidence role | Merged record | Exact revision |
+| --- | --- | --- |
+| Producer and matching independent validator implementation | [PR #2867](https://github.com/HKati/pulse-release-gates-0.1/pull/2867) | `d7def834e8aa63911426550cf41b05f81c0b56b0` |
+| Four-file preservation | [PR #2868](https://github.com/HKati/pulse-release-gates-0.1/pull/2868) | `55c6180dfbfd4055a558cf6b3e3883461a423f86` |
+
+The [detailed Step 4B record](docs/compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md#completed-step-4b--historical-runtime-packet-production-and-preservation)
+contains the source identities, four-object inventory, review attribution,
+negative-evidence matrix and finite work-order boundary. The
+[preservation README](preservation/pulse_ci_6066/runtime_observation_packet_v0/README.md)
+provides the exact reconstruction procedure; the
+[verification record](preservation/pulse_ci_6066/runtime_observation_packet_v0/verification_record_v0.json)
+retains local command results and input bindings.
+
+```text
+accepted Step 4A historical capture
++ verified historical subject context and preservation carrier
++ exact historical source objects
++ fixed, SHA-256-bound local construction record
+→ offline producer at d7def834...
+→ separate runtime-packet validation
+→ canonical packet preserved at 55c6180...
+```
+
+The preserved packet is **484234 bytes**, SHA-256
+`76418f3a7374cf12127031b15806af1e80605ad07031b3b10308c3a30b795a88`.
+It contains **8 historical jobs, 171 steps and 1 separate collector**. Source
+identity and exact job/step relationships are retained; the policy-set order is
+`required`, `release_required`. Overall coverage remains **partial**.
+
+### Evidence attribution
+
+The committed local execution record documents two direct producer CLI
+constructions from separate exact implementation checkouts, identical packet
+bytes and two successful separate runtime-validator invocations. It records
+three complete suites, **74 + 24 + 90 = 188 passed**, under CPython 3.13.5. These
+remain local preparation evidence, not fresh tests run by this documentation
+update or results of the cloud review.
+
+The owner-supplied read-only report “Read-only post-merge review — PR #2868 /
+Step 4B” inspected the exact preservation merge and reported no actionable
+findings. Under **CPython 3.14.4**, it directly validated a byte-exact copy of the
+actual preserved packet: exit `0`, schema valid, no errors and **34 semantic
+checks true**. Separately, its complete runtime-validator regression passed
+**90 cases**. It also confirmed raw job/step mapping, all **44 skipped steps**,
+all four object identities and all 14 embedded output-stream hashes.
+
+That review's temporary probes detected changed packet bytes and rejected broken
+parent references, wrong run bindings and unsupported complete-coverage claims
+at their actual comparison, semantic or schema layer. They are not new permanent
+repository tests. The implementation review separately found both earlier P1
+corrections mechanically addressed within its completed source/execution checks.
+
+Both cloud reviews lacked historical subject commit
+`46b639706e23f80fe296a8893be18e2b5ab21f7e`; they did not independently repeat the
+producer's full reconstruction in those environments. Authenticated post-merge
+CI metadata/logs were also unavailable there. The local record's successful
+reconstruction is not relabelled as cloud execution, and pre-merge CI is not
+relabeled as merge execution. Direct packet validity and full input-to-packet
+reconstruction remain distinct evidence claims.
+
+### Observation and acceptance boundary
+
+The construction record's local preparation/logical-creation declarations are
+fixed replay inputs. Its equal one-second timestamps do not describe measured
+producer process duration, file publication or zero resource consumption. Actual
+CLI intervals are recorded separately. Source/content binding does not provide
+independent collector or clock authentication.
+
+No process exit code is inferred from platform success; no executed commands,
+historical runtime input/output consumption, calls, inferences or resource use
+are invented. Empty observation arrays mean unrecorded, not proven absent.
+Collector work is excluded from historical subject totals.
+
+```text
+historical-reference runtime packet: implemented, preserved and directly validated
+coverage: partial
+complete runtime-observed connected proof: not implemented
+resource measurement: not implemented
+same_run_release_authority_eligible: false
+active_gate_eligible: false
+authority_effect: none
+```
+
+These authority labels preserve the existing producer/report boundary; they are
+not new runtime-schema fields. The capture, derived packet and local report do
+not retroactively authorize the historical run or activate a compute gate.
+
+Bounded implementation and preservation acceptance is supported with the stated
+evidence limits. The documentation handoff has its own final checks and
+read-only post-merge review before #2864 closure. Complete connected runtime
+proof, live/current-run observation, resource measurement and policy promotion
+remain separate future work; current-run capture must precede its authority
+decision.
 
 ---
 
@@ -2576,27 +2684,28 @@ producer and runtime-observed connected proof remain unimplemented.
 
 ```text
 state_date:
-2026-09-06
+2026-09-07
 
 merged_repository_state_recorded_through:
-PR #2861
+PR #2868
 
 merged_repository_state_basis:
-7444c12c3c9a86591f0aa7f5cef759ec55e6f9e9
+55c6180dfbfd4055a558cf6b3e3883461a423f86
 
 merged_repository_state_tree:
-b4da3d6ebf567c6e80d3a539e8fc2d1010610213
+a1cfd8e333c138815eebc89fa20623b1a1dc5b06
 
 documentation_closure_scope:
-records completed Step 3G automation and Step 4A historical producer-input
-capture without changing implementation, verification semantics, policy or
-authority; the documentation PR's own final checks are separate
+records completed Step 3G automation, Step 4A capture and bounded historical
+Step 4B production/preservation without changing implementation, evidence,
+verification semantics, policy or authority; this documentation PR's own
+final checks and post-merge review remain separate
 
 executable_compute_state_recorded_through:
-PR #2860
+PR #2867
 
 executable_compute_state_basis:
-22d14088ae21f84d94c6a6951c0f70ab1bdf0895
+d7def834e8aa63911426550cf41b05f81c0b56b0
 
 foundational_architecture_state_recorded_through:
 PR #2817
@@ -2785,6 +2894,32 @@ runtime_observation_contract:
 implemented
 
 runtime_observation_producer:
+implemented for bounded historical post_run_platform_export only
+
+runtime_packet_preservation:
+PR #2868 / 55c6180dfbfd4055a558cf6b3e3883461a423f86
+
+runtime_packet_identity:
+484234 bytes / 76418f3a7374cf12127031b15806af1e80605ad07031b3b10308c3a30b795a88
+
+runtime_packet_local_recorded_reconstruction:
+2 byte-identical constructions and 2 separate validations at source d7def834...
+CPython 3.13.5; recorded local evidence, not cloud or CI execution
+
+runtime_packet_preservation_review:
+actual preserved packet directly validated under CPython 3.14.4;
+34 semantic checks true; separate 90-case validator suite passed
+
+runtime_packet_cloud_reconstruction_limit:
+not rerun there; required historical subject commit 46b639... unavailable
+
+runtime_packet_coverage:
+partial; collector excluded; no active gate or same-run release authority
+
+live_current_run_runtime_observation_producer:
+not implemented
+
+runtime_observed_connected_proof:
 not implemented
 
 planned_observed_relation:
@@ -2960,7 +3095,7 @@ same_run_release_authority_eligible=false / active_gate_eligible=false /
 authority_effect=none
 
 tools_test_manifest:
-152 active entries / 152 unique active entries
+153 active entries / 153 unique active entries
 
 compute_resource_measurement:
 not implemented
@@ -2981,10 +3116,11 @@ transition_meter_general_domain_extension:
 foundational architecture
 
 current_development_boundary:
-compute — Step 3G automation and Step 4A historical input capture are complete;
-Step 4 runtime-observation packet production, Step 5 runtime-observed connected
-proof, per-axis resource measurement and compute-gate promotion remain separate
-later boundaries; current-run operational capture must precede its decision
+compute — Step 3G automation, Step 4A capture and bounded historical Step 4B
+production/preservation are complete within their recorded evidence limits;
+live/current-run observation, Step 5 connected runtime proof, per-axis resource
+measurement and compute-gate promotion remain separate later boundaries;
+current-run operational capture must precede its decision
 
 Device Ledger — bounded mechanical self-proof, exact .pulseledger export,
 deterministic Reproduction Capsule, canonical reproduction result and minimal
@@ -3046,6 +3182,10 @@ https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/PULSEMECH_T
 - [PR #2860 — close independent timestamp-range admission and regression binding](https://github.com/HKati/pulse-release-gates-0.1/pull/2860)
 - [PR #2861 — preserve the exact observed #6066 capture](https://github.com/HKati/pulse-release-gates-0.1/pull/2861)
 - [Completed Step 4A evidence and temporal boundary](docs/compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md#completed-step-4a--exact-post-run-producer-input-capture)
+
+- [PR #2867 — implement the bounded historical runtime-packet producer](https://github.com/HKati/pulse-release-gates-0.1/pull/2867)
+- [PR #2868 — preserve the exact historical runtime packet and reconstruction inputs](https://github.com/HKati/pulse-release-gates-0.1/pull/2868)
+- [Step 4B evidence, review limits and documentation endpoint](docs/compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md#completed-step-4b--historical-runtime-packet-production-and-preservation)
 
 ### Latest foundational architecture sequence
 
@@ -3124,9 +3264,10 @@ attestation, universal cross-platform reproduction, release-decision
 integration, or general-purpose product layer is required to preserve this
 bounded closure.
 
-The separate compute workstream continues from completed Step 3G automation
-and the completed historical Step 4A producer-input prerequisite recorded in
-Section 15I. Neither result implements the runtime-observation packet producer.
+The separate compute workstream continues from completed Step 3G automation,
+Step 4A historical capture in Section 15I and the bounded historical Step 4B
+producer/preservation in Section 15J. The latter implements a partial post-run
+packet, not the broader live/current-run observation or connected runtime proof.
 
 The completed analyzer relation is:
 
@@ -3264,11 +3405,12 @@ The historical post-run snapshot cannot be admitted retroactively as authority
 for its completed subject. Unexposed commands, calls, resource values and
 consumption relations remain unavailable rather than inferred.
 
-The next implementation boundary remains Step 4, after this completed
-historical input prerequisite:
+Step 4B now supplies the bounded historical packet and exact preservation.
+The remaining broader observation work must supply actual evidence for the
+unobserved runtime relations, not reinterpret the partial packet as complete:
 
 ```text
-runtime-observation producer
+live/current-run runtime-observation producer
 
 → job and step identity
 → exact source identity
@@ -3284,7 +3426,8 @@ runtime-observation producer
 The later sequence remains:
 
 ```text
-Step 4 runtime-observation producer
+completed bounded historical Step 4B producer/preservation
+→ remaining live/current-run observation and runtime input/output relations
 → Step 5 runtime-observed connected proof
 → Step 6 per-axis resource measurement
 → Step 7 separate policy promotion decision
@@ -3396,6 +3539,14 @@ The acquisition event is distinct from the original execution. This record is
 neither its original runtime stream nor a same-run authority input. Its later
 repository preservation and documentation commits do not replace its recorded
 acquisition source.
+
+### Historical runtime-packet preservation record
+
+The Step 4B packet is a separate derived record from the historical source
+capture. Its construction record binds the implementation revision and fixed
+local declarations; its preservation commit locates the output and comparison
+target. The stored execution report and later direct review remain separate
+evidence events. None is a new release-authority source.
 
 ### Reproduction Capsule contract record
 
@@ -3650,6 +3801,17 @@ They do not activate compute gates or create release authority.
 This is a completed historical-reference input and offline-replay record, not
 runtime-observation packet production or current-run release authority.
 
+### Historical runtime-packet production and preservation — Step 4B
+
+- [Detailed Step 4B record](docs/compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md#completed-step-4b--historical-runtime-packet-production-and-preservation)
+- [Offline producer](tools/build_pulsemech_compute_runtime_observation_packet_from_capture_v0.py) and [producer regression](tests/test_build_pulsemech_compute_runtime_observation_packet_from_capture_v0.py)
+- [Separate runtime validator](tools/check_pulsemech_compute_runtime_observation_packet_v0.py) and [validator regression](tests/test_check_pulsemech_compute_runtime_observation_packet_v0.py)
+- [Preserved packet, construction record, execution record and reproduction README](preservation/pulse_ci_6066/runtime_observation_packet_v0/)
+
+The historical profile is implemented and its partial output preserved. The
+source capture, derived packet and complete connected-runtime proof remain
+distinct. This lane is not active compute enforcement.
+
 ### Device Ledger bounded proof and deterministic reproduction
 
 #### Canonical records
@@ -3890,7 +4052,7 @@ protected-source before/after preservation
 permanent Capsule contract regression
 permanent 15-test Capsule execution regression
 dedicated Capsule reference workflow
-152-entry registered tools-test surface
+153-entry registered tools-test surface
 ```
 
 The broader Transition Meter is recorded as foundational architecture.
@@ -3901,7 +4063,8 @@ The current implementation boundaries are:
 compute:
 completed Step 3G artifact-observed proof automation
 + completed Step 4A historical producer-input capture prerequisite
-→ Step 4 runtime-observation producer
++ completed bounded historical Step 4B producer/preservation
+→ remaining live/current-run observation and runtime input/output relations
 → Step 5 runtime-observed connected proof
 → Step 6 per-axis resource measurement
 → stable measurement coverage
@@ -4004,9 +4167,12 @@ It does not supply original runtime telemetry, perform transition measurement
 or change the historical release decision. Any future operational capture must
 occur before its current-run authority decision.
 
-Runtime observation production, resource measurement, compute budgeting, active
-compute enforcement and release-required compute promotion remain separate,
-later boundaries.
+Step 4B separately supplies the historical post-run producer and preserved
+partial packet. Its recorded local reconstruction and the cloud review's direct
+packet validation retain separate scopes and the documented historical-source
+access limit. Live/current-run observation, resource measurement, compute
+budgeting, active compute enforcement and release-required compute promotion
+remain separate later boundaries.
 
 The latest verified state remains available at the stable URL recorded at the
 top of this document.
