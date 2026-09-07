@@ -99,6 +99,11 @@ def parse_args() -> argparse.Namespace:
         "--output",
         help="Optional path for the deterministic validator diagnostic",
     )
+    parser.add_argument("--subject-input")
+    parser.add_argument("--carrier")
+    parser.add_argument("--repository-root", default=str(Path(__file__).resolve().parents[1]))
+    parser.add_argument("--runtime-packet", action="append", default=[])
+    parser.add_argument("--runtime-extent")
     return parser.parse_args()
 
 
@@ -517,6 +522,12 @@ def check_binding_classes_and_run_bindings(
                     f"binding_error: {node_id}.offline_observer_run_key_mismatch"
                 )
 
+        elif scope == "observation_collector":
+            if role != "observer" or binding_class != "observer" or "runtime_origin" not in node:
+                errors.append(f"binding_error: {node_id}.collector_scope_invalid")
+            if run_binding.get("binding_mode") not in {"post_run_observer", "external_export", "current_subject_run"}:
+                errors.append(f"binding_error: {node_id}.collector_mode_invalid")
+
         if run_binding.get("binding_complete") is not True:
             errors.append(
                 f"binding_error: {node_id}.run_binding_not_complete"
@@ -696,6 +707,17 @@ def check_mutation_authority(report: dict[str, Any]) -> list[str]:
         status = node.get("binding_status")
         flags = get_dict(node.get("flags"))
 
+        if "runtime_origin" in node:
+            if "runtime_binding" not in report:
+                errors.append(f"mutation_error: {node_id}.runtime_origin_requires_bound_profile")
+                continue
+            expected_unbound = bool(observed & AUTHORITATIVE_MUTATION_CLASSES) and status != "complete"
+            if node.get("unbound_authoritative_mutation") is not expected_unbound:
+                errors.append(f"mutation_error: {node_id}.runtime_mutation_flag_mismatch")
+            if flags.get("mutation_authority_present") is not (authority != "none"):
+                errors.append(f"mutation_error: {node_id}.runtime_permission_flag_mismatch")
+            continue
+
         expected_authority_flag = authority != "none"
         if flags.get("mutation_authority_present") is not expected_authority_flag:
             errors.append(
@@ -744,7 +766,7 @@ def check_summary_counts(report: dict[str, Any]) -> list[str]:
     observer_nodes = [
         node
         for node in nodes
-        if node.get("execution_scope") == "analysis_observer"
+        if node.get("execution_scope") in {"analysis_observer", "observation_collector"}
     ]
 
     if summary.get("subject_compute_nodes") != len(subject_nodes):
@@ -793,7 +815,7 @@ def check_resource_axes(report: dict[str, Any]) -> list[str]:
     observer_nodes = [
         node
         for node in nodes
-        if node.get("execution_scope") == "analysis_observer"
+        if node.get("execution_scope") in {"analysis_observer", "observation_collector"}
     ]
     axes = get_dict(get_dict(report.get("resource_summary")).get("axes"))
     summary = get_dict(report.get("summary"))
@@ -994,6 +1016,7 @@ def check_findings_and_non_activation(report: dict[str, Any]) -> list[str]:
 def build_diagnostic(
     schema_path: Path,
     report_path: Path,
+    *, runtime_inputs: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], int]:
     try:
         schema = load_json_strict(schema_path)
@@ -1066,6 +1089,9 @@ def build_diagnostic(
         for name, _ in semantic_checks:
             checks[name] = False
 
+    if schema_valid and ("runtime_binding" in report or (report.get("record_status") == "observed" and report.get("analysis_boundary", {}).get("analysis_level") == "runtime_observed")):
+        add_check(checks, errors, "runtime_source_replay_ok", check_runtime_source_replay(report, runtime_inputs))
+
     normalized_errors = sorted(set(errors))
     ok = schema_valid and all(checks.values()) and not normalized_errors
 
@@ -1107,12 +1133,275 @@ def main() -> int:
             emit_diagnostic(diagnostic, None)
             return 2
 
+    runtime_inputs = None
+    try:
+        report_view = capture_diagnostic_document(report_path)
+        schema_view = capture_diagnostic_document(schema_path, max_bytes=1024 * 1024)
+        document = load_json_strict(report_view)
+        if isinstance(document, dict) and "runtime_binding" in document:
+            if output_path is not None:
+                raise ValueError("runtime_diagnostic_stdout_only")
+            if not args.subject_input or not args.carrier or not args.runtime_packet:
+                raise ValueError("runtime_source_inputs_required")
+            if output_path is not None:
+                protected = [Path(args.subject_input), Path(args.carrier), *map(Path, args.runtime_packet)]
+                if args.runtime_extent:
+                    protected.append(Path(args.runtime_extent))
+                if any(same_target(output_path, p) for p in protected):
+                    raise ValueError("refusing_to_overwrite_runtime_input")
+            captures = runtime_inputs_from_paths(
+                subject_input_path=Path(args.subject_input), carrier_path=Path(args.carrier),
+                repository_root=Path(args.repository_root), packet_paths=list(map(Path, args.runtime_packet)),
+                extent_path=Path(args.runtime_extent) if args.runtime_extent else None,
+            )
+            runtime_inputs = resolve_runtime_replay_inputs(captures, document["analysis_boundary"]["analysis_run_key"])
+    except Exception as exc:
+        diagnostic = make_diagnostic(ok=False, schema_valid=False, checks={}, errors=["runtime_intake_failed:" + str(exc)])
+        emit_diagnostic(diagnostic, None)
+        return 1
     diagnostic, exit_code = build_diagnostic(
-        schema_path,
-        report_path,
+        schema_view, report_view, runtime_inputs=runtime_inputs,
     )
     emit_diagnostic(diagnostic, output_path)
     return exit_code
+
+
+# ---------------------------------------------------------------------------
+# Runtime profile: exact upstream replay plus independent graph invariants.
+# The replay reuses the one analyzer; it is not a second analyzer implementation.
+# ---------------------------------------------------------------------------
+
+RUNTIME_REPORT_PROFILE = "pulsemech_runtime_report_binding_v0"
+
+
+class RuntimeBytesView:
+    """Immutable read-only document view; never reopens its display path."""
+
+    def __init__(self, data: bytes, label: str = "captured-document") -> None:
+        self.data = data
+        self.label = label
+
+    def read_bytes(self) -> bytes:
+        return self.data
+
+    def read_text(self, encoding: str = "utf-8", errors: str = "strict") -> str:
+        return self.data.decode(encoding, errors)
+
+    def __str__(self) -> str:
+        return self.label
+
+
+def capture_diagnostic_document(path: Path, *, max_bytes: int = 64 * 1024 * 1024) -> RuntimeBytesView:
+    import os
+    import stat
+    absolute = Path(os.path.abspath(path))
+    if os.name != "posix" or not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
+        # Preserve the legacy document-only CLI on other platforms. The new
+        # runtime path still requires the bridge's descriptor-based capture.
+        if not absolute.is_file() or absolute.is_symlink() or absolute.stat().st_size > max_bytes:
+            raise ValueError("diagnostic_input_not_bounded_regular_file")
+        data = absolute.read_bytes()
+        if len(data) > max_bytes:
+            raise ValueError("diagnostic_input_too_large")
+        return RuntimeBytesView(data, str(absolute))
+    dflags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    fd = os.open(absolute.anchor, dflags)
+    filefd = None
+    try:
+        for part in absolute.parts[1:-1]:
+            nextfd = os.open(part, dflags, dir_fd=fd)
+            os.close(fd)
+            fd = nextfd
+        filefd = os.open(absolute.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd)
+        before = os.fstat(filefd)
+        if not stat.S_ISREG(before.st_mode) or before.st_size > max_bytes:
+            raise ValueError("diagnostic_input_not_bounded_regular_file")
+        chunks = []
+        remaining = max_bytes + 1
+        while remaining:
+            part = os.read(filefd, min(1024 * 1024, remaining))
+            if not part:
+                break
+            chunks.append(part)
+            remaining -= len(part)
+        data = b"".join(chunks)
+        after = os.fstat(filefd)
+        if ((before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns)
+                != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns)
+                or len(data) != before.st_size or len(data) > max_bytes):
+            raise ValueError("diagnostic_input_changed_during_capture")
+        return RuntimeBytesView(data, str(absolute))
+    finally:
+        if filefd is not None:
+            os.close(filefd)
+        os.close(fd)
+
+
+def _runtime_hash(data: bytes) -> str:
+    import hashlib
+    return hashlib.sha256(data).hexdigest()
+
+
+def _runtime_module(path: Path, name: str, *, expected_sha256: str | None = None) -> Any:
+    import os
+    import stat
+    import types
+    cursor = path.absolute()
+    while cursor != cursor.parent:
+        if cursor.is_symlink():
+            raise ValueError("runtime_dependency_symlink")
+        cursor = cursor.parent
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags)
+    try:
+        before = os.fstat(fd)
+        if not stat.S_ISREG(before.st_mode) or before.st_size > 8 * 1024 * 1024:
+            raise ValueError("runtime_dependency_not_bounded_regular_file")
+        with os.fdopen(fd, "rb", closefd=False) as stream:
+            raw = stream.read(8 * 1024 * 1024 + 1)
+        after = os.fstat(fd)
+        if (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns):
+            raise ValueError("runtime_dependency_changed_during_capture")
+    finally:
+        os.close(fd)
+    if len(raw) != before.st_size or (expected_sha256 is not None and _runtime_hash(raw) != expected_sha256):
+        raise ValueError("runtime_dependency_digest_mismatch:" + path.name)
+    name = name + "_" + _runtime_hash(raw)
+    module = types.ModuleType(name)
+    module.__file__ = str(path)
+    module.__cached__ = None
+    sys.modules[name] = module
+    try:
+        exec(compile(raw, str(path), "exec", dont_inherit=True), module.__dict__)
+    except BaseException:
+        sys.modules.pop(name, None)
+        raise
+    module.__pulsemech_source_sha256__ = _runtime_hash(raw)
+    return module
+
+
+def runtime_inputs_from_paths(
+    *, subject_input_path: Path, carrier_path: Path, repository_root: Path,
+    packet_paths: list[Path], extent_path: Path | None = None,
+) -> dict[str, Any]:
+    """Capture once and run the unchanged artifact bridge before runtime replay.
+
+    No network, fixture substitution, or missing-Git-object downgrade is allowed.
+    The caller chooses the protected local tool installation, not the report.
+    """
+    root = Path(__file__).resolve().parents[1]
+    bridge = _runtime_module(root / "tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py", "runtime_bridge_for_check")
+    subject = bridge.capture_regular_file(subject_input_path, label="runtime_subject_input", max_bytes=8 * 1024 * 1024)
+    carrier = bridge.capture_regular_file(carrier_path, label="runtime_subject_carrier", max_bytes=64 * 1024 * 1024)
+    if not packet_paths or len(packet_paths) > 128:
+        raise ValueError("runtime_packet_count_invalid")
+    packets = [bridge.capture_regular_file(p, label="runtime_packet", max_bytes=8 * 1024 * 1024) for p in packet_paths]
+    if sum(len(p.data) for p in packets) > 64 * 1024 * 1024:
+        raise ValueError("runtime_packet_total_too_large")
+    extent = bridge.capture_regular_file(extent_path, label="runtime_extent", max_bytes=1024 * 1024) if extent_path is not None else None
+    # The analysis key is part of reconstruction and is supplied separately by
+    # the report caller below, never mistaken for a subject run key.
+    return {"bridge": bridge, "subject_capture": subject, "carrier_capture": carrier,
+            "packet_captures": packets, "extent_capture": extent, "repository_root": repository_root}
+
+
+def resolve_runtime_replay_inputs(captures: dict[str, Any], analysis_run_key: str) -> dict[str, Any]:
+    bridge = captures["bridge"]
+    baseline = bridge.build_from_captured_inputs(
+        packet_capture=captures["subject_capture"], carrier_capture=captures["carrier_capture"],
+        repository_root=captures["repository_root"], analysis_run_key=analysis_run_key,
+    ).encode("utf-8")
+    return {"baseline_bytes": baseline, "subject_input_bytes": captures["subject_capture"].data,
+            "carrier_bytes": captures["carrier_capture"].data,
+            "packet_sources": [("sha256:" + p.sha256, p.data) for p in captures["packet_captures"]],
+            "extent_bytes": captures["extent_capture"].data if captures["extent_capture"] else None,
+            "repository_root": captures["repository_root"]}
+
+
+def check_runtime_source_replay(report: dict[str, Any], inputs: dict[str, Any] | None) -> list[str]:
+    if "runtime_binding" not in report:
+        if report.get("record_status") == "observed" and report.get("analysis_boundary", {}).get("analysis_level") == "runtime_observed":
+            return ["runtime_binding_required_for_observed_report"]
+        return []
+    if inputs is None:
+        return ["runtime_source_inputs_required"]
+    try:
+        root = Path(__file__).resolve().parents[1]
+        binding = report["runtime_binding"]
+        if binding["profile"] != RUNTIME_REPORT_PROFILE:
+            raise ValueError("runtime_report_profile_invalid")
+        construction = binding["construction"]
+        # Pins are checked before executing the protected replay implementation.
+        core = _runtime_module(root / "tools/pulsemech_compute_binding_analyzer_core_v0.py", "runtime_core_for_check", expected_sha256=construction["analyzer_sha256"])
+        bridge_path = root / "tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py"
+        bridge = _runtime_module(bridge_path, "runtime_bridge_source_for_check", expected_sha256=construction["entrypoint_sha256"])
+        schema_cap = bridge.capture_regular_file(root / "schemas/pulsemech_compute_runtime_observation_packet_v0.schema.json", label="runtime_schema", max_bytes=1024 * 1024)
+        validator_cap = bridge.capture_regular_file(root / "tools/check_pulsemech_compute_runtime_observation_packet_v0.py", label="runtime_validator", max_bytes=8 * 1024 * 1024)
+        validator = bridge.load_module_from_capture(validator_cap, "unchanged_runtime_packet_validator_for_report")
+        baseline_view = RuntimeBytesView(inputs["baseline_bytes"], "artifact-baseline")
+        report_schema = bridge.capture_regular_file(root / "schemas/pulsemech_compute_binding_report_v0.schema.json", label="report_schema", max_bytes=1024 * 1024)
+        baseline_diag, baseline_rc = build_diagnostic(bridge.CapturedPathView(report_schema), baseline_view)
+        if baseline_rc != 0:
+            raise ValueError("runtime_baseline_validation_failed")
+        if report["record_status"] == "observed":
+            repository_root = inputs.get("repository_root")
+            if not isinstance(repository_root, Path):
+                raise ValueError("runtime_historical_source_repository_required")
+            def captured(data: bytes, label: str) -> Any:
+                return bridge.CapturedFile(path=repository_root / label, data=data, device=0, inode=0,
+                                           size_bytes=len(data), sha256=_runtime_hash(data))
+            # Reconstruct the artifact baseline through the existing source-aware
+            # bridge. Supplying a plausible B plus its hash cannot bypass S/C/Git.
+            reconstructed = bridge.build_from_captured_inputs(
+                packet_capture=captured(inputs["subject_input_bytes"], "captured-subject-input.json"),
+                carrier_capture=captured(inputs["carrier_bytes"], "captured-carrier.zip"),
+                repository_root=repository_root,
+                analysis_run_key=report["analysis_boundary"]["analysis_run_key"],
+            ).encode("utf-8")
+            if reconstructed != inputs["baseline_bytes"]:
+                raise ValueError("runtime_artifact_baseline_reconstruction_mismatch")
+        if not inputs["packet_sources"] or len(inputs["packet_sources"]) > 128:
+            raise ValueError("runtime_packet_count_invalid")
+        if sum(len(raw) for _, raw in inputs["packet_sources"]) > 64 * 1024 * 1024:
+            raise ValueError("runtime_packet_total_too_large")
+        sources = []
+        for locator, raw in inputs["packet_sources"]:
+            if type(raw) is not bytes or len(raw) > 8 * 1024 * 1024:
+                raise ValueError("runtime_packet_bytes_invalid")
+            cap = bridge.CapturedFile(path=Path(locator), data=raw, device=0, inode=0, size_bytes=len(raw), sha256=_runtime_hash(raw))
+            diagnostic, rc = validator.build_diagnostic(schema_path=bridge.CapturedPathView(schema_cap), packet_path=bridge.CapturedPathView(cap))
+            if rc != 0 or diagnostic.get("ok") is not True:
+                raise ValueError("runtime_packet_strict_validation_failed")
+            sources.append(core.RuntimePacketSource(locator, raw))
+        expected = core.build_runtime_report(
+            baseline_bytes=inputs["baseline_bytes"], subject_input_bytes=inputs["subject_input_bytes"],
+            carrier_bytes=inputs["carrier_bytes"], packet_sources=sources,
+            entrypoint_sha256=construction["entrypoint_sha256"], analyzer_sha256=construction["analyzer_sha256"],
+            extent_bytes=inputs.get("extent_bytes"),
+        )
+        if report != expected:
+            return ["runtime_source_replay_mismatch"]
+        # Independent checks: exact baseline preservation and one representation
+        # per runtime occurrence. Replay equality alone is not the only check.
+        baseline = json.loads(inputs["baseline_bytes"])
+        for key, id_key in (("compute_nodes", "node_id"), ("state_nodes", "state_id")):
+            original = [row for row in report[key] if "runtime_origin" not in row]
+            if original != baseline[key]:
+                raise ValueError("runtime_baseline_graph_changed:" + key)
+            ids = [row["runtime_origin"]["record_id"] for row in report[key] if "runtime_origin" in row]
+            if len(ids) != len(set(ids)):
+                raise ValueError("runtime_occurrence_count_duplicated")
+        origins = binding["edge_origins"]
+        base_edges = [e for e in report["edges"] if origins[e["edge_id"]]["evidence_kind"] == "artifact_observed"]
+        if base_edges != baseline["edges"]:
+            raise ValueError("runtime_baseline_edges_changed")
+        if report["resource_summary"] != baseline["resource_summary"]:
+            raise ValueError("runtime_resource_measurement_invented")
+        if report["record_status"] == "observed" and binding["coverage"]["extent_status"] == "complete":
+            raise ValueError("runtime_observed_extent_unsupported")
+        return []
+    except Exception as exc:
+        return ["runtime_source_validation_failed:" + str(exc)]
 
 
 if __name__ == "__main__":

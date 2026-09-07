@@ -986,5 +986,38 @@ def check_build_pulsemech_compute_binding_report_v0() -> None:
     raise SystemExit(pytest.main([__file__, "-q"]))
 
 
+
+# Shared full-schema runtime examples live in an already registered regression.
+def _runtime_test_support():
+    import importlib.util
+    import hashlib
+    import sys
+    path = Path(__file__).with_name("test_pulsemech_compute_binding_analyzer_core_v0.py")
+    name = "pulse_runtime_regression_support_" + hashlib.sha256(path.read_bytes()).hexdigest()
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+def test_runtime_extension_leaves_fixed_source_wrapper_unchanged():
+    m=_runtime_test_support()
+    assert m.sha256_file(m.FIXED_WRAPPER)=="d20cb7fed3d8c1ddc10abc23882ce0cbe17d277498016a580f875614fe47becc"
+    source=m.FIXED_WRAPPER.read_text()
+    assert "def build_runtime_report(" not in source
+    assert "runtime_packet" not in source
+
+
+def test_runtime_and_artifact_paths_preserve_same_baseline_projection():
+    m=_runtime_test_support();c=m.runtime_test_historical_case();r,inputs=m.runtime_test_report(c)
+    assert r["runtime_binding"]["baseline_report"]["sha256"]==m.sha256_bytes(inputs["baseline_bytes"])
+    assert r["subject"]==c["baseline"]["subject"]
+    origins=r["runtime_binding"]["edge_origins"]
+    assert [e for e in r["edges"] if origins[e["edge_id"]]["evidence_kind"]=="artifact_observed"]==c["baseline"]["edges"]
+    assert r["resource_summary"]==c["baseline"]["resource_summary"]
+
+
 if __name__ == "__main__":
     check_build_pulsemech_compute_binding_report_v0()

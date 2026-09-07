@@ -790,6 +790,79 @@ def test_check_pulsemech_compute_binding_report_v0() -> None:
     test_valid_example_passes()
 
 
+
+# Shared full-schema runtime examples live in an already registered regression.
+def _runtime_test_support():
+    import importlib.util
+    import hashlib
+    import sys
+    path = Path(__file__).with_name("test_pulsemech_compute_binding_analyzer_core_v0.py")
+    name = "pulse_runtime_regression_support_" + hashlib.sha256(path.read_bytes()).hexdigest()
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+def _runtime_report_diagnostic(report,inputs):
+    m=_runtime_test_support();v=m.runtime_test_module("check_pulsemech_compute_binding_report_v0.py")
+    return v.build_diagnostic(m.ROOT/"schemas/pulsemech_compute_binding_report_v0.schema.json",m.runtime_test_view(m.runtime_test_bytes(report)),runtime_inputs=inputs)
+
+
+def test_runtime_report_requires_exact_upstream_replay_inputs():
+    m=_runtime_test_support();r,i=m.runtime_test_report(m.runtime_test_synthetic_case(),extent=True)
+    d,rc=_runtime_report_diagnostic(r,i);assert rc==0,d
+    d,rc=_runtime_report_diagnostic(r,None);assert rc!=0 and d["ok"] is False
+
+
+def test_runtime_report_hash_pin_tamper_fails_before_replay():
+    m=_runtime_test_support();r,i=m.runtime_test_report(m.runtime_test_synthetic_case())
+    for key in ("entrypoint_sha256","analyzer_sha256"):
+        bad=copy.deepcopy(r);bad["runtime_binding"]["construction"][key]="0"*64
+        d,rc=_runtime_report_diagnostic(bad,i);assert rc!=0,d
+
+
+def test_runtime_report_rejects_raw_source_tamper_and_missing_extent():
+    m=_runtime_test_support();r,i=m.runtime_test_report(m.runtime_test_synthetic_case(),extent=True)
+    for key in ("baseline_bytes","subject_input_bytes","carrier_bytes","extent_bytes"):
+        bad=dict(i);bad[key]=i[key]+b" "
+        d,rc=_runtime_report_diagnostic(r,bad);assert rc!=0,(key,d)
+    bad=dict(i);bad["extent_bytes"]=None
+    assert _runtime_report_diagnostic(r,bad)[1]!=0
+    bad=dict(i);loc,raw=bad["packet_sources"][0];bad["packet_sources"]=[(loc,raw+b" ")]
+    assert _runtime_report_diagnostic(r,bad)[1]!=0
+
+
+def test_runtime_report_structural_success_flag_does_not_replace_replay():
+    m=_runtime_test_support();r,i=m.runtime_test_report(m.runtime_test_synthetic_case())
+    r["runtime_binding"]["coverage"]["relational_coverage_status"]="complete"
+    d,rc=_runtime_report_diagnostic(r,i);assert rc!=0,d
+
+
+def test_runtime_diagnostic_document_capture_is_immutable(tmp_path):
+    m=_runtime_test_support();v=m.runtime_test_module("check_pulsemech_compute_binding_report_v0.py")
+    f=tmp_path/"value.json";f.write_bytes(b"{}")
+    view=v.capture_diagnostic_document(f);f.write_bytes(b"tampered")
+    assert view.read_bytes()==b"{}"
+
+
+def test_runtime_diagnostic_capture_rejects_symlink_and_size_limit(tmp_path):
+    import pytest
+    m=_runtime_test_support();v=m.runtime_test_module("check_pulsemech_compute_binding_report_v0.py")
+    f=tmp_path/"input.json";f.write_bytes(b"{}")
+    link=tmp_path/"link.json";link.symlink_to(f)
+    with pytest.raises((ValueError,OSError)):v.capture_diagnostic_document(link)
+    with pytest.raises((ValueError,OSError)):v.capture_diagnostic_document(f,max_bytes=1)
+
+
+def test_observed_runtime_report_cannot_validate_without_source_repository():
+    m=_runtime_test_support();r,i=m.runtime_test_report(m.runtime_test_historical_case());i.pop("repository_root")
+    d,rc=_runtime_report_diagnostic(r,i)
+    assert rc!=0 and "runtime_historical_source_repository_required" in str(d)
+
+
 if __name__ == "__main__":
-    check_pulsemech_compute_binding_report_v0()
-    print("OK: PULSEmech compute-binding report validator v0 passed")
+    import pytest
+    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

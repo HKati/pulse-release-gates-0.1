@@ -298,6 +298,86 @@ def test_pulsemech_compute_binding_report_schema_v0() -> None:
     check_pulsemech_compute_binding_report_schema_v0()
 
 
+
+# Shared full-schema runtime examples live in an already registered regression.
+def _runtime_test_support():
+    import importlib.util
+    import hashlib
+    import sys
+    path = Path(__file__).with_name("test_pulsemech_compute_binding_analyzer_core_v0.py")
+    name = "pulse_runtime_regression_support_" + hashlib.sha256(path.read_bytes()).hexdigest()
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+def test_runtime_report_schema_accepts_closed_example_profile():
+    import jsonschema
+    m=_runtime_test_support();r,_=m.runtime_test_report(m.runtime_test_synthetic_case(),extent=True)
+    schema=json.loads((m.ROOT/"schemas/pulsemech_compute_binding_report_v0.schema.json").read_bytes())
+    jsonschema.Draft202012Validator(schema).validate(r)
+    r["runtime_binding"]["unreviewed_claim"]=True
+    assert list(jsonschema.Draft202012Validator(schema).iter_errors(r))
+
+
+def test_runtime_report_schema_rejects_relabelled_observed_baseline():
+    import jsonschema
+    m=_runtime_test_support();c=m.runtime_test_historical_case();r=c["baseline"]
+    r["analysis_boundary"]["analysis_level"]="runtime_observed"
+    schema=json.loads((m.ROOT/"schemas/pulsemech_compute_binding_report_v0.schema.json").read_bytes())
+    assert list(jsonschema.Draft202012Validator(schema).iter_errors(r))
+
+
+def test_runtime_report_schema_has_no_external_reference_fetch():
+    m=_runtime_test_support();schema=json.loads((m.ROOT/"schemas/pulsemech_compute_binding_report_v0.schema.json").read_bytes())
+    def walk(value):
+        if isinstance(value,dict):
+            if "$ref" in value: assert value["$ref"].startswith("#/")
+            for child in value.values(): walk(child)
+        elif isinstance(value,list):
+            for child in value: walk(child)
+    walk(schema)
+
+
+def test_runtime_packet_definitions_are_copied_without_semantic_rewrite():
+    m=_runtime_test_support();packet=json.loads((m.ROOT/"schemas/pulsemech_compute_runtime_observation_packet_v0.schema.json").read_bytes())
+    report=json.loads((m.ROOT/"schemas/pulsemech_compute_binding_report_v0.schema.json").read_bytes())
+    for name,value in packet["$defs"].items():
+        expected=json.loads(json.dumps(value).replace("#/$defs/","#/$defs/rt_"))
+        assert report["$defs"]["rt_"+name]==expected,name
+
+
+def test_runtime_observed_extent_cannot_be_completed_by_schema_flag():
+    import jsonschema
+    m=_runtime_test_support();r,_=m.runtime_test_report(m.runtime_test_historical_case())
+    r["runtime_binding"]["coverage"]["extent_status"]="complete"
+    schema=json.loads((m.ROOT/"schemas/pulsemech_compute_binding_report_v0.schema.json").read_bytes())
+    assert list(jsonschema.Draft202012Validator(schema).iter_errors(r))
+
+
+
+def test_artifact_report_cannot_use_runtime_origin_to_bypass_legacy_contract():
+    import jsonschema
+    m=_runtime_test_support();r,_=m.runtime_test_report(m.runtime_test_synthetic_case())
+    r.pop("runtime_binding")
+    r["analysis_boundary"]["analysis_level"]="artifact_observed"
+    r["tool"]["id"]="build_pulsemech_compute_binding_report_v0"
+    schema=json.loads((m.ROOT/"schemas/pulsemech_compute_binding_report_v0.schema.json").read_bytes())
+    assert list(jsonschema.Draft202012Validator(schema).iter_errors(r))
+
+
+def test_legacy_report_source_kind_and_binding_mode_are_not_silently_broadened():
+    import jsonschema,copy
+    m=_runtime_test_support();baseline=m.runtime_test_historical_case()["baseline"]
+    schema=json.loads((m.ROOT/"schemas/pulsemech_compute_binding_report_v0.schema.json").read_bytes())
+    for field,value in (("source_kind","model"),("binding_mode","external_export")):
+        r=copy.deepcopy(baseline);node=r["compute_nodes"][0]
+        node["source_identity" if field=="source_kind" else "run_binding"][field]=value
+        assert list(jsonschema.Draft202012Validator(schema).iter_errors(r)),field
+
 if __name__ == "__main__":
-    check_pulsemech_compute_binding_report_schema_v0()
-    print("OK: PULSEmech compute-binding report schema v0 contract passed")
+    import pytest
+    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

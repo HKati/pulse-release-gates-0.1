@@ -2102,6 +2102,7 @@ def derive_axis_coverage(
     execution_required: bool,
     runtime_status: str,
     analysis_level: str,
+    runtime_relational_status: str | None = None,
 ) -> dict[str, str]:
     values = list(observations.values())
     if not values:
@@ -2152,13 +2153,13 @@ def derive_axis_coverage(
             execution_status = "partial"
 
     for packet, _, _ in packets:
-        packet_status = packet.get("coverage", {}).get("coverage_status")
+        packet_status = packet.get("coverage", {}).get("coverage_status") if runtime_relational_status is None else runtime_relational_status
         if packet_status == "unknown":
             execution_status = "unknown"
         elif packet_status == "partial" and execution_status != "unknown":
             execution_status = "partial"
 
-    if analysis_level == "runtime_observed" and runtime_status != "complete":
+    if analysis_level == "runtime_observed" and (runtime_status if runtime_relational_status is None else runtime_relational_status) != "complete":
         if execution_status != "unknown":
             execution_status = "partial"
 
@@ -2388,6 +2389,8 @@ def observations_can_share_relation(
 ) -> bool:
     if len(observations) <= 1:
         return True
+    if any(o.get("runtime_occurrence_guard") == "no_artifact_occurrence_binding" for o in observations):
+        return False
 
     source_record_kinds = [
         observation.get("source_record_kind") for observation in observations
@@ -2880,8 +2883,18 @@ def relation_for_unplanned_observation(
 ) -> tuple[str, dict[str, Any]]:
     selected = [observation]
     run_result = run_binding_result(subject, selected)
+    runtime_observer = (
+        observation.get("runtime_occurrence_guard") == "no_artifact_occurrence_binding"
+        and observation.get("execution_scope") in {"analysis_observer", "observation_collector"}
+        and observation.get("binding_class") == "observer"
+    )
+    if runtime_observer:
+        # Its own collector/run binding was validated at intake. It is not
+        # required to execute inside the subject run, and is never matched
+        # against a subject execution expectation.
+        run_result = "not_required"
     coverage_result = relation_coverage_result(selected, coverage)
-    decisive = coverage_result == "complete" and run_result == "match"
+    decisive = coverage_result == "complete" and (run_result == "match" or runtime_observer)
 
     if decisive:
         status = "observed_but_not_planned"
@@ -2893,7 +2906,7 @@ def relation_for_unplanned_observation(
             "downstream_consumption": "not_required",
             "execution_identity": "not_required",
             "execution_observation": "observed",
-            "run_binding": "match",
+            "run_binding": run_result,
             "source_identity": "not_required",
         }
         note = "The observed execution has no explicit planned execution expectation."
@@ -3152,6 +3165,7 @@ def build_coverage(
     axes: dict[str, str],
     runtime_status: str,
     analysis_level: str,
+    runtime_relational_status: str | None = None,
 ) -> dict[str, Any]:
     referenced_operations = {
         operation.get("operation_sha256")
@@ -3195,7 +3209,7 @@ def build_coverage(
     }
     if "ambiguous_observation_match" in relation_statuses:
         unresolved_reasons.add("ambiguous_match")
-    if analysis_level == "runtime_observed" and runtime_status != "complete":
+    if analysis_level == "runtime_observed" and (runtime_status if runtime_relational_status is None else runtime_relational_status) != "complete":
         unresolved_reasons.add("runtime_coverage_partial")
     if "unresolved_due_to_coverage" in relation_statuses and not unresolved_reasons:
         unresolved_reasons.add(
@@ -3227,7 +3241,7 @@ def build_coverage(
         and all_relations_decisive
         and (
             analysis_level != "runtime_observed"
-            or runtime_status == "complete"
+            or (runtime_status if runtime_relational_status is None else runtime_relational_status) == "complete"
         )
         and "ambiguous_observation_match" not in relation_statuses
         and "unresolved_due_to_coverage" not in relation_statuses
@@ -3352,6 +3366,7 @@ def build_relation_record(
     explicit_expectations: dict[str, Any],
     relation_id: str | None,
     tool_source_revision: str | None,
+    expectations_bytes: bytes | None = None,
 ) -> dict[str, Any]:
     validate_plan_mechanics(plan)
     plan_binding = build_plan_binding(
@@ -3381,30 +3396,39 @@ def build_relation_record(
         record_status=record_status,
     )
 
+    runtime_profile = "runtime_binding" in report
+    analysis_report = runtime_baseline_view(report) if runtime_profile else report
     observations: dict[str, Any] = {}
     merge_observation_maps(
         observations,
-        normalize_report_observations(report, subject=subject),
+        normalize_report_observations(analysis_report, subject=subject),
     )
-    for packet, _packet_bytes, _display in ordered_packets:
-        merge_observation_maps(
-            observations,
-            normalize_runtime_packet_observations(packet, subject=subject),
-        )
+    if runtime_profile:
+        merge_observation_maps(observations, normalize_runtime_bound_observations(report, ordered_packets, subject=subject))
+    else:
+        for packet, _packet_bytes, _display in ordered_packets:
+            merge_observation_maps(
+                observations, normalize_runtime_packet_observations(packet, subject=subject),
+            )
     observations = dict(sorted(observations.items()))
 
     runtime_status = runtime_observation_status(
         ordered_packets,
         chain_complete=packet_chain_complete,
     )
+    runtime_relational_status = None
+    if runtime_profile:
+        cov = report["runtime_binding"]["coverage"]
+        runtime_relational_status = "complete" if (cov["extent_status"] == "complete" and cov["relational_coverage_status"] == "complete" and packet_chain_complete) else "partial"
     execution_required = any(
         expectation.get("expected_compute", {}).get("execution_required") is True
         for expectation in expectations.values()
     )
     axes = derive_axis_coverage(
         observations,
-        report=report,
+        report=analysis_report,
         packets=ordered_packets,
+        runtime_relational_status=runtime_relational_status,
         execution_required=execution_required,
         runtime_status=runtime_status,
         analysis_level=analysis_level,
@@ -3417,6 +3441,7 @@ def build_relation_record(
         )
         != subject[1:]
         for observation in observations.values()
+        if not runtime_profile or observation.get("execution_scope") == "subject"
     ):
         axes["execution_coverage_status"] = (
             "unknown"
@@ -3469,6 +3494,7 @@ def build_relation_record(
         axes=axes,
         runtime_status=runtime_status,
         analysis_level=analysis_level,
+        runtime_relational_status=runtime_relational_status,
     )
     findings = build_findings(relations=relations, observations=observations)
     summary = build_summary(
@@ -3510,7 +3536,7 @@ def build_relation_record(
     if re.fullmatch(r"planned-observed:[A-Za-z0-9._:/@+-]+", relation_record_id) is None:
         raise BuilderError(f"relation_id_invalid: {relation_record_id!r}")
 
-    return {
+    result = {
         "authority_boundary": {
             "activates_compute_gate": False,
             "changes_gate_policy": False,
@@ -3566,6 +3592,15 @@ def build_relation_record(
             "version": TOOL_VERSION,
         },
     }
+    if runtime_profile:
+        result["runtime_comparison"] = {
+            "profile": RUNTIME_COMPARISON_PROFILE,
+            "runtime_binding_sha256": sha256_bytes(canonical_json_bytes(report["runtime_binding"])),
+            "extent_status": report["runtime_binding"]["coverage"]["extent_status"],
+            "relational_coverage_status": runtime_relational_status,
+            "expectations_sha256": sha256_bytes(expectations_bytes) if expectations_bytes is not None else None,
+        }
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -3614,6 +3649,10 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--output")
+    parser.add_argument("--subject-input")
+    parser.add_argument("--carrier")
+    parser.add_argument("--repository-root", default=str(ROOT))
+    parser.add_argument("--runtime-extent")
     return parser.parse_args()
 
 
@@ -3676,6 +3715,9 @@ def main() -> int:
         report, report_bytes = load_json_document(report_path, label="compute_report")
         validate_document(schema=schemas["plan"], value=plan, label="plan")
         validate_document(schema=schemas["report"], value=report, label="compute_report")
+
+        if "runtime_binding" in report:
+            return runtime_profile_cli(args, report_bytes=report_bytes, plan_bytes=plan_bytes)
 
         invoke_json_validator(
             validator_path=report_validator_path,
@@ -3783,6 +3825,213 @@ def main() -> int:
         }
         sys.stderr.write(render_json(diagnostic))
         return 2
+
+
+# ---------------------------------------------------------------------------
+# Runtime-bound profile. Matching and candidate derivation remain the existing
+# engine; only input admission, observation normalization and coverage differ.
+# ---------------------------------------------------------------------------
+
+RUNTIME_COMPARISON_PROFILE = "pulsemech_runtime_comparison_v0"
+
+
+def runtime_baseline_view(report: dict[str, Any]) -> dict[str, Any]:
+    result = copy.deepcopy(report)
+    for key in ("compute_nodes", "state_nodes"):
+        result[key] = [row for row in result[key] if "runtime_origin" not in row]
+    origins = report["runtime_binding"]["edge_origins"]
+    result["edges"] = [row for row in result["edges"] if origins[row["edge_id"]]["evidence_kind"] == "artifact_observed"]
+    result["analysis_boundary"]["analysis_level"] = "artifact_observed"
+    return result
+
+
+def normalize_runtime_bound_observations(
+    report: dict[str, Any], packets: list[tuple[dict[str, Any], bytes, str]], *, subject: tuple[str, str, str, str],
+) -> dict[str, Any]:
+    # The CLI separately validates source-aware report replay. This function
+    # still checks exact packet identity rather than trusting a report flag.
+    binding = report["runtime_binding"]
+    if binding.get("profile") != "pulsemech_runtime_report_binding_v0":
+        raise BuilderError("runtime_report_binding_profile_invalid")
+    checker = _load_runtime_report_checker()
+    core = checker._runtime_module(ROOT / "tools/pulsemech_compute_binding_analyzer_core_v0.py", "runtime_relation_core", expected_sha256=binding["construction"]["analyzer_sha256"])
+    srcs = [core.RuntimePacketSource("sha256:" + sha256_bytes(raw), raw) for _, raw, _ in packets]
+    index = core.index_runtime_packet_sources(srcs, expected_subject=binding["index"]["subject_context"], expected_authority_inputs=binding["index"]["authority_inputs"])
+    if index != binding["index"]:
+        raise BuilderError("runtime_report_packet_index_mismatch")
+    joined = {kind: [entry["record"] for entry in entries.values()] for kind, entries in index["records"].items()}
+    observations = normalize_runtime_packet_observations(joined, subject=subject)
+    consumers = core.runtime_consumption_map(index)
+    entries = {rid: (kind, entry) for kind in ("executions", "external_calls", "model_inferences") for rid, entry in index["records"][kind].items()}
+    for observation in observations.values():
+        rid = observation["source_record_id"]
+        kind, entry = entries[rid]
+        row = entry["record"]
+        observation["runtime_occurrence_guard"] = "no_artifact_occurrence_binding"
+        # Missing source/command/result evidence is not repaired by a graph label.
+        qualifying = core.runtime_activity_is_recorded(index, kind, row)
+        if (not qualifying or observation["declared_role"] == "unknown") and observation["execution_scope"] == "subject":
+            status = "unknown" if observation["source_identity"]["identity_status"] == "unknown" else "partial"
+            observation["binding_status"] = status
+            observation["coverage_status"] = status
+            observation["binding_class"] = derived_binding_class(execution_scope=observation["execution_scope"], declared_role=observation["declared_role"], binding_status=status)
+        outs = observation["output_state_ids"]
+        all_consumers = set()
+        edge_ids = set()
+        fully_observed = qualifying
+        evidence = set(observation["evidence_refs"])
+        for ref in entry["source_refs"]:
+            evidence.add(ref["packet_sha256"] + "#" + ref["json_pointer"])
+        for sid in outs:
+            state = index["records"]["state_observations"][sid]["record"]
+            parent = rid if kind == "executions" else row["parent_execution_id"]
+            state_consumers = consumers.get(sid, [])
+            fully_observed = (fully_observed and core.runtime_exact_state(state)
+                              and state["producer_execution_id"] == parent and bool(state_consumers))
+            all_consumers.update(state_consumers)
+            for consumer in state_consumers:
+                edge_ids.add(core.runtime_graph_id("edge", index["subject_context"], "reads", consumer + "|" + sid))
+        observation["downstream_consumption"] = {
+            "consumer_ids": sorted(all_consumers), "edge_ids": sorted(edge_ids),
+            "evidence_refs": sorted(evidence | set(outs)),
+            "status": "not_applicable" if not outs else "observed" if fully_observed else "unresolved",
+        }
+        observation["evidence_refs"] = sorted(evidence | edge_ids)
+        observation["observed_mutation_classes"] = core.runtime_recorded_output_classes(index, kind, row)
+        observation["unbound_authoritative_mutation"] = (
+            observation["binding_status"] != "complete"
+            and bool(set(observation["observed_mutation_classes"]) & AUTHORITATIVE_MUTATION_CLASSES)
+        )
+    return observations
+
+
+def _load_runtime_report_checker() -> Any:
+    # Fixed protected installation path, never a filename supplied by a report.
+    import types
+    path = DEFAULT_REPORT_VALIDATOR
+    require_regular_non_symlink(path, label="runtime_report_validator")
+    raw = path.read_bytes()
+    name = "runtime_report_checker_" + sha256_bytes(raw)
+    module = types.ModuleType(name)
+    module.__file__ = str(path)
+    sys.modules[name] = module
+    exec(compile(raw, str(path), "exec", dont_inherit=True), module.__dict__)
+    return module
+
+
+def resolve_runtime_tool_source_revision(explicit: str | None, *, record_status: str) -> str | None:
+    """Bind this profile through the existing absolute, isolated Git reader.
+
+    Caller PATH cannot select a replacement Git implementation for runtime
+    source binding. Artifact-only records retain their legacy interface.
+    """
+    checker = _load_runtime_report_checker()
+    validator = checker._runtime_module(
+        ROOT / "tools/check_pulsemech_compute_subject_input_packet_v0.py",
+        "runtime_relation_trusted_git_reader",
+    )
+    revision = explicit
+    if revision is None:
+        try:
+            revision = validator._run_isolated_git(
+                ROOT, arguments=["rev-parse", "HEAD"], failure_prefix="runtime_source_head_unavailable",
+            ).decode("ascii").strip()
+        except Exception as exc:
+            if record_status == "example":
+                return None
+            raise BuilderError("runtime_tool_source_revision_unavailable") from exc
+    if not isinstance(revision, str) or re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+        raise BuilderError("runtime_tool_source_revision_invalid")
+    try:
+        committed = validator._git_blob_bytes(
+            ROOT, revision=revision, path="tools/build_pulsemech_compute_planned_observed_relation_v0.py",
+        )
+    except Exception as exc:
+        raise BuilderError("runtime_tool_source_revision_unverifiable") from exc
+    loaded_digest = globals().get("__pulsemech_source_sha256__") or sha256_file(Path(__file__))
+    if sha256_bytes(committed) != loaded_digest:
+        if explicit is None and record_status == "example":
+            return None
+        raise BuilderError("runtime_tool_source_revision_does_not_match_builder_bytes")
+    return revision
+
+
+def runtime_profile_cli(args: argparse.Namespace, *, report_bytes: bytes, plan_bytes: bytes) -> int:
+    """One captured input set through construction, separate validation and output."""
+    checker = _load_runtime_report_checker()
+    if not args.subject_input or not args.carrier or not args.runtime_packet:
+        raise BuilderError("runtime_source_inputs_required")
+    if Path(args.report_validator).resolve() != DEFAULT_REPORT_VALIDATOR.resolve() or Path(args.relation_validator).resolve() != DEFAULT_RELATION_VALIDATOR.resolve():
+        raise BuilderError("runtime_profile_requires_canonical_validators")
+    captures = checker.runtime_inputs_from_paths(
+        subject_input_path=Path(args.subject_input), carrier_path=Path(args.carrier),
+        repository_root=Path(args.repository_root), packet_paths=list(map(Path, args.runtime_packet)),
+        extent_path=Path(args.runtime_extent) if args.runtime_extent else None,
+    )
+    bridge = captures["bridge"]
+    def view(raw: bytes, label: str) -> Any:
+        return bridge.CapturedPathView(bridge.CapturedFile(path=Path(label), data=raw, device=0, inode=0, size_bytes=len(raw), sha256=sha256_bytes(raw)))
+    report = json.loads(report_bytes.decode("utf-8"), object_pairs_hook=reject_duplicate_keys, parse_constant=reject_non_finite)
+    if not isinstance(report, dict):
+        raise BuilderError("runtime_report_not_object")
+    inputs = checker.resolve_runtime_replay_inputs(captures, report["analysis_boundary"]["analysis_run_key"])
+    schema_cap = bridge.capture_regular_file(DEFAULT_REPORT_SCHEMA, label="runtime_report_schema")
+    diagnostic, rc = checker.build_diagnostic(bridge.CapturedPathView(schema_cap), view(report_bytes, "report"), runtime_inputs=inputs)
+    if rc != 0:
+        raise BuilderError("runtime_report_replay_rejected:" + render_json(diagnostic))
+    plan = json.loads(plan_bytes, object_pairs_hook=reject_duplicate_keys, parse_constant=reject_non_finite)
+    expectation_bytes = None
+    explicit = {}
+    if args.expectations:
+        cap = bridge.capture_regular_file(Path(args.expectations), label="runtime_expectations", max_bytes=8 * 1024 * 1024)
+        expectation_bytes = cap.data
+        explicit = extract_expectations(json.loads(cap.data, object_pairs_hook=reject_duplicate_keys, parse_constant=reject_non_finite))
+    relation_schema_cap = bridge.capture_regular_file(DEFAULT_RELATION_SCHEMA, label="runtime_relation_schema")
+    relation_schema = json.loads(relation_schema_cap.data)
+    validate_document(schema=expectations_input_schema(relation_schema), value=explicit, label="runtime_expectations")
+    packets = [(json.loads(raw), raw, locator) for locator, raw in inputs["packet_sources"]]
+    revision = resolve_runtime_tool_source_revision(args.tool_source_revision, record_status=report["record_status"])
+    relation = build_relation_record(
+        plan=plan, plan_bytes=plan_bytes, plan_path_or_uri="sha256:" + sha256_bytes(plan_bytes),
+        report=report, report_bytes=report_bytes, report_path_or_uri="sha256:" + sha256_bytes(report_bytes),
+        packets=packets, explicit_expectations=explicit, relation_id=args.relation_id,
+        tool_source_revision=revision, expectations_bytes=expectation_bytes,
+    )
+    rendered = render_json(relation)
+    relation_validator = checker._runtime_module(DEFAULT_RELATION_VALIDATOR, "runtime_relation_verifier")
+    replay_inputs = {"report_inputs": inputs, "report_bytes": report_bytes, "plan_bytes": plan_bytes,
+                     "expectations_bytes": expectation_bytes}
+    diagnostic, rc = relation_validator.build_diagnostic(
+        schema_path=bridge.CapturedPathView(relation_schema_cap), relation_path=view(rendered.encode("utf-8"), "relation"),
+        runtime_inputs=replay_inputs,
+    )
+    if rc != 0:
+        raise BuilderError("runtime_relation_replay_rejected:" + render_json(diagnostic))
+    if args.output:
+        protected = [Path(args.plan), Path(args.compute_report), Path(args.subject_input), Path(args.carrier), *map(Path, args.runtime_packet),
+                     DEFAULT_REPORT_SCHEMA, DEFAULT_REPORT_VALIDATOR, DEFAULT_RELATION_SCHEMA, DEFAULT_RELATION_VALIDATOR, Path(__file__),
+                     DEFAULT_GATE_POLICY, DEFAULT_GATE_REGISTRY, DEFAULT_PULSE_WORKFLOW]
+        if args.expectations: protected.append(Path(args.expectations))
+        if args.runtime_extent: protected.append(Path(args.runtime_extent))
+        output = Path(args.output)
+        reject_unsafe_output(output, protected_paths=protected, subject_root=Path(args.subject_root) if args.subject_root else None)
+        # The new profile never replaces an existing result.
+        output.parent.mkdir(parents=True, exist_ok=True)
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", newline="\n", dir=output.parent,
+                                             prefix="." + output.name + ".", suffix=".tmp", delete=False) as handle:
+                temporary = Path(handle.name)
+                handle.write(rendered)
+                handle.flush()
+                os.fsync(handle.fileno())
+            reject_symlink_chain(output)
+            os.link(temporary, output)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+    sys.stdout.write(rendered)
+    return 0
 
 
 if __name__ == "__main__":

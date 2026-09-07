@@ -1138,5 +1138,55 @@ def check_pulsemech_compute_planned_observed_relation_validator_v0() -> None:
     raise SystemExit(pytest.main([__file__, "-q"]))
 
 
+
+# Shared full-schema runtime examples live in an already registered regression.
+def _runtime_test_support():
+    import importlib.util
+    import hashlib
+    import sys
+    path = Path(__file__).with_name("test_pulsemech_compute_binding_analyzer_core_v0.py")
+    name = "pulse_runtime_regression_support_" + hashlib.sha256(path.read_bytes()).hexdigest()
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+def _runtime_relation_diagnostic(relation,inputs):
+    m=_runtime_test_support();v=m.runtime_test_module("check_pulsemech_compute_planned_observed_relation_v0.py")
+    return v.build_diagnostic(schema_path=m.ROOT/"schemas/pulsemech_compute_planned_observed_relation_v0.schema.json",
+                              relation_path=m.runtime_test_view(m.runtime_test_bytes(relation)),runtime_inputs=inputs)
+
+
+def test_runtime_relation_requires_source_aware_replay():
+    m=_runtime_test_support();r,i=m.runtime_test_relation(m.runtime_test_synthetic_case(),extent=True)
+    d,rc=_runtime_relation_diagnostic(r,i);assert rc==0,d
+    d,rc=_runtime_relation_diagnostic(r,None);assert rc!=0 and d["ok"] is False
+
+
+@pytest.mark.parametrize("key",["report_bytes","plan_bytes","expectations_bytes"])
+def test_runtime_relation_rejects_upstream_bytes_drift(key):
+    m=_runtime_test_support();r,i=m.runtime_test_relation(m.runtime_test_synthetic_case(),extent=True)
+    bad=dict(i);bad[key]=(i[key] or b"{}")+b" "
+    d,rc=_runtime_relation_diagnostic(r,bad);assert rc!=0,(key,d)
+
+
+def test_runtime_relation_cannot_change_overall_runtime_status_to_complete():
+    m=_runtime_test_support();r,i=m.runtime_test_relation(m.runtime_test_synthetic_case(),extent=True)
+    r["coverage"]["runtime_observation_status"]="complete"
+    r["observation_bindings"]["runtime_observation_status"]="complete"
+    d,rc=_runtime_relation_diagnostic(r,i);assert rc!=0,d
+
+
+def test_runtime_relation_collector_run_binding_not_required_is_not_subject_exemption():
+    m=_runtime_test_support();r,i=m.runtime_test_relation(m.runtime_test_synthetic_case(),extent=True)
+    obs_id=next(k for k,o in r["observations"].items() if o["execution_scope"]=="subject")
+    rel=next(x for x in r["relations"].values() if obs_id in x["observation_ids"])
+    rel["evaluation"]["run_binding"]="not_required"
+    d,rc=_runtime_relation_diagnostic(r,i);assert rc!=0,d
+
+
 if __name__ == "__main__":
     check_pulsemech_compute_planned_observed_relation_validator_v0()

@@ -15,7 +15,7 @@ from typing import Any
 
 
 TOOL_ID = "build_pulsemech_compute_binding_report_from_subject_input_v0"
-TOOL_VERSION = "0.2.0"
+TOOL_VERSION = "0.3.0"
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PACKET = (
@@ -146,7 +146,7 @@ def _secure_open_constants() -> tuple[int, int]:
     return directory_flags, file_flags
 
 
-def capture_regular_file(path: Path, *, label: str) -> CapturedFile:
+def capture_regular_file(path: Path, *, label: str, max_bytes: int | None = None) -> CapturedFile:
     """Capture one exact regular-file revision through no-follow descriptors."""
 
     absolute = resolve_cli_path(str(path))
@@ -173,11 +173,17 @@ def capture_regular_file(path: Path, *, label: str) -> CapturedFile:
         if not stat.S_ISREG(before.st_mode):
             raise AdapterError(f"{label}_not_regular_file: {absolute}")
 
+        if max_bytes is not None and before.st_size > max_bytes:
+            raise AdapterError(f"{label}_size_limit_exceeded")
+        captured_size = 0
         chunks: list[bytes] = []
         while True:
             chunk = os.read(file_fd, 1024 * 1024)
             if not chunk:
                 break
+            captured_size += len(chunk)
+            if max_bytes is not None and captured_size > max_bytes:
+                raise AdapterError(f"{label}_size_limit_exceeded")
             chunks.append(chunk)
         data = b"".join(chunks)
         after = os.fstat(file_fd)
@@ -426,6 +432,7 @@ def _validate_report_exact_bytes(
     rendered_report: str,
     report_schema: CapturedFile,
     report_validator: Any,
+    runtime_inputs: dict[str, Any] | None = None,
 ) -> None:
     report_capture = CapturedFile(
         path=Path("in-memory/pulsemech_compute_binding_report_v0.json"),
@@ -438,6 +445,7 @@ def _validate_report_exact_bytes(
     diagnostic, exit_code = report_validator.build_diagnostic(
         CapturedPathView(report_schema),
         CapturedPathView(report_capture),
+        **({"runtime_inputs": runtime_inputs} if runtime_inputs is not None else {}),
     )
     if exit_code != 0 or diagnostic.get("ok") is not True:
         raise AdapterError(
@@ -453,6 +461,8 @@ def build_from_captured_inputs(
     repository_root: Path,
     analysis_run_key: str,
     dependency_captures: dict[str, CapturedFile] | None = None,
+    runtime_packet_captures: list[CapturedFile] | None = None,
+    runtime_extent_capture: CapturedFile | None = None,
 ) -> str:
     if not analysis_run_key:
         raise AdapterError("analysis_run_key_missing")
@@ -510,6 +520,46 @@ def build_from_captured_inputs(
         report_schema=captures["report_schema"],
         report_validator=report_validator,
     )
+    if runtime_packet_captures is not None:
+        if not runtime_packet_captures or len(runtime_packet_captures) > 128:
+            raise AdapterError("runtime_packet_count_invalid")
+        if any(len(c.data) > 8 * 1024 * 1024 for c in runtime_packet_captures) or sum(len(c.data) for c in runtime_packet_captures) > 64 * 1024 * 1024:
+            raise AdapterError("runtime_packet_size_limit_exceeded")
+        runtime_schema_capture = capture_regular_file(
+            ROOT / "schemas/pulsemech_compute_runtime_observation_packet_v0.schema.json", label="runtime_schema", max_bytes=1024 * 1024,
+        )
+        runtime_validator_capture = capture_regular_file(
+            ROOT / "tools/check_pulsemech_compute_runtime_observation_packet_v0.py", label="runtime_validator", max_bytes=8 * 1024 * 1024,
+        )
+        runtime_validator = load_module_from_capture(runtime_validator_capture, "pulsemech_runtime_validator_for_bridge")
+        sources = []
+        for capture in runtime_packet_captures:
+            diagnostic, rc = runtime_validator.build_diagnostic(
+                schema_path=CapturedPathView(runtime_schema_capture), packet_path=CapturedPathView(capture),
+            )
+            if rc != 0 or diagnostic.get("ok") is not True:
+                raise AdapterError("runtime_packet_strict_validation_failed:" + render_json(diagnostic))
+            sources.append(analyzer_core.RuntimePacketSource("sha256:" + capture.sha256, capture.data))
+        entrypoint = capture_regular_file(Path(__file__), label="runtime_entrypoint", max_bytes=8 * 1024 * 1024)
+        runtime_inputs = {
+            "baseline_bytes": rendered.encode("utf-8"), "subject_input_bytes": packet_capture.data,
+            "carrier_bytes": carrier_capture.data,
+            "packet_sources": [(src.locator, src.data) for src in sources],
+            "extent_bytes": runtime_extent_capture.data if runtime_extent_capture else None,
+            "repository_root": repository_root,
+        }
+        runtime_report = analyzer_core.build_runtime_report(
+            baseline_bytes=runtime_inputs["baseline_bytes"], subject_input_bytes=packet_capture.data,
+            carrier_bytes=carrier_capture.data, packet_sources=sources, entrypoint_sha256=entrypoint.sha256,
+            analyzer_sha256=captures["analyzer_core"].sha256, extent_bytes=runtime_inputs["extent_bytes"],
+        )
+        rendered = analyzer_core.render_json(runtime_report)
+        _validate_report_exact_bytes(
+            rendered_report=rendered, report_schema=captures["report_schema"],
+            report_validator=report_validator, runtime_inputs=runtime_inputs,
+        )
+    elif runtime_extent_capture is not None:
+        raise AdapterError("runtime_extent_requires_runtime_packets")
     return rendered
 
 
@@ -529,6 +579,8 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_ANALYSIS_RUN_KEY,
         help="Explicit deterministic identity for the read-only analysis run.",
     )
+    parser.add_argument("--runtime-packet", action="append", default=[])
+    parser.add_argument("--runtime-extent", help="Reserved example-only extent; never an observed closure claim.")
     return parser.parse_args()
 
 
@@ -546,16 +598,24 @@ def main() -> int:
         packet_capture = capture_regular_file(
             packet_path,
             label="subject_input_packet",
+            max_bytes=8 * 1024 * 1024 if args.runtime_packet else None,
         )
         carrier_capture = capture_regular_file(
             carrier_path,
             label="subject_carrier",
+            max_bytes=64 * 1024 * 1024 if args.runtime_packet else None,
         )
+        if len(args.runtime_packet) > 128:
+            raise AdapterError("runtime_packet_count_invalid")
+        runtime_captures = [capture_regular_file(resolve_cli_path(value), label="runtime_packet", max_bytes=8 * 1024 * 1024) for value in args.runtime_packet]
+        extent_capture = capture_regular_file(resolve_cli_path(args.runtime_extent), label="runtime_extent", max_bytes=1024 * 1024) if args.runtime_extent else None
         rendered = build_from_captured_inputs(
             packet_capture=packet_capture,
             carrier_capture=carrier_capture,
             repository_root=repository_root,
             analysis_run_key=str(args.analysis_run_key),
+            runtime_packet_captures=runtime_captures if args.runtime_packet else None,
+            runtime_extent_capture=extent_capture,
         )
         sys.stdout.write(rendered)
         return 0

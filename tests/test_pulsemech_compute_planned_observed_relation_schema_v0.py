@@ -785,6 +785,41 @@ def test_pulsemech_compute_planned_observed_relation_schema_v0() -> None:
     check_pulsemech_compute_planned_observed_relation_schema_v0()
 
 
+
+# Shared full-schema runtime examples live in an already registered regression.
+def _runtime_test_support():
+    import importlib.util
+    import hashlib
+    import sys
+    path = Path(__file__).with_name("test_pulsemech_compute_binding_analyzer_core_v0.py")
+    name = "pulse_runtime_regression_support_" + hashlib.sha256(path.read_bytes()).hexdigest()
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+def test_runtime_comparison_profile_is_closed_and_preserves_overall_coverage():
+    import jsonschema
+    m=_runtime_test_support();r,_=m.runtime_test_relation(m.runtime_test_synthetic_case(),extent=True)
+    schema=json.loads((m.ROOT/"schemas/pulsemech_compute_planned_observed_relation_v0.schema.json").read_bytes())
+    jsonschema.Draft202012Validator(schema).validate(r)
+    assert r["summary"]["comparison_complete"] is True
+    assert r["coverage"]["runtime_observation_status"]=="partial"
+    r["runtime_comparison"]["all_true_override"]=True
+    assert list(jsonschema.Draft202012Validator(schema).iter_errors(r))
+
+
+def test_runtime_observation_guard_requires_new_comparison_profile():
+    import jsonschema
+    m=_runtime_test_support();r,_=m.runtime_test_relation(m.runtime_test_synthetic_case())
+    r.pop("runtime_comparison")
+    schema=json.loads((m.ROOT/"schemas/pulsemech_compute_planned_observed_relation_v0.schema.json").read_bytes())
+    assert list(jsonschema.Draft202012Validator(schema).iter_errors(r))
+
+
 if __name__ == "__main__":
-    check_pulsemech_compute_planned_observed_relation_schema_v0()
-    print("OK: PULSEmech planned-observed relation schema v0 contract passed")
+    import pytest
+    raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

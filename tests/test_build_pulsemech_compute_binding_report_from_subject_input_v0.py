@@ -721,5 +721,51 @@ def check_build_pulsemech_compute_binding_report_from_subject_input_v0() -> None
     )
 
 
+
+# Shared full-schema runtime examples live in an already registered regression.
+def _runtime_test_support():
+    import importlib.util
+    import hashlib
+    import sys
+    path = Path(__file__).with_name("test_pulsemech_compute_binding_analyzer_core_v0.py")
+    name = "pulse_runtime_regression_support_" + hashlib.sha256(path.read_bytes()).hexdigest()
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+def test_runtime_bridge_cli_exposes_optional_runtime_inputs_only():
+    m=_runtime_test_support()
+    result=subprocess.run([sys.executable,str(m.SUBJECT_BRIDGE),"--help"],capture_output=True,text=True,check=False)
+    assert result.returncode==0
+    assert "--runtime-packet" in result.stdout and "--runtime-extent" in result.stdout
+    assert "--packet" in result.stdout and "--carrier" in result.stdout
+
+
+def test_runtime_bridge_capture_limits_and_same_buffer_semantics(tmp_path):
+    m=_runtime_test_support();bridge=m.runtime_test_module("build_pulsemech_compute_binding_report_from_subject_input_v0.py")
+    f=tmp_path/"packet.json";f.write_bytes(b"{}")
+    cap=bridge.capture_regular_file(f,label="fixture",max_bytes=2)
+    f.write_bytes(b"wrong")
+    assert cap.data==b"{}" and cap.sha256==m.sha256_bytes(b"{}")
+    with pytest.raises(bridge.AdapterError):bridge.capture_regular_file(f,label="fixture",max_bytes=2)
+
+
+def test_runtime_bridge_runtime_dependencies_are_not_loaded_in_artifact_capture():
+    m=_runtime_test_support();bridge=m.runtime_test_module("build_pulsemech_compute_binding_report_from_subject_input_v0.py")
+    keys=set(bridge._capture_dependencies())
+    assert keys=={"packet_schema","packet_validator","report_schema","report_validator","fixed_builder","analyzer_core"}
+
+
+def test_runtime_bridge_rejects_missing_subject_before_writing_stdout(tmp_path):
+    m=_runtime_test_support()
+    r=subprocess.run([sys.executable,str(m.SUBJECT_BRIDGE),"--packet",str(tmp_path/"missing.json"),"--runtime-packet",str(tmp_path/"also-missing.json")],capture_output=True,text=True,check=False)
+    assert r.returncode!=0 and r.stdout==""
+    assert json.loads(r.stderr)["ok"] is False
+
+
 if __name__ == "__main__":
     check_build_pulsemech_compute_binding_report_from_subject_input_v0()

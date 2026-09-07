@@ -1162,5 +1162,50 @@ def check_pulsemech_compute_fixed_source_candidate_chain_v0() -> None:
     raise SystemExit(pytest.main([__file__, "-q"]))
 
 
+
+# Shared full-schema runtime examples live in an already registered regression.
+def _runtime_test_support():
+    import importlib.util
+    import hashlib
+    import sys
+    path = Path(__file__).with_name("test_pulsemech_compute_binding_analyzer_core_v0.py")
+    name = "pulse_runtime_regression_support_" + hashlib.sha256(path.read_bytes()).hexdigest()
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+def test_runtime_historical_packet_is_exact_partial_source_not_a_relabelled_fixture():
+    m=_runtime_test_support();case=m.runtime_test_historical_case()
+    assert m.sha256_bytes(case["packet_bytes"][0])=="76418f3a7374cf12127031b15806af1e80605ad07031b3b10308c3a30b795a88"
+    r,_=m.runtime_test_report(case)
+    assert r["runtime_binding"]["coverage"]["extent_status"]=="unknown"
+    assert r["summary"]["decision_closure_complete"] is False
+    assert r["summary"]["authority_binding_complete"] is False
+
+
+def test_runtime_historical_full_source_bridge_report_relation_candidate(tmp_path):
+    # Genuine historical Git objects are mandatory here, as in the existing
+    # subject-input bridge suite. Missing objects fail; they never skip to PASS.
+    m=_runtime_test_support();case=m.runtime_test_historical_case()
+    builder=m.runtime_test_module("build_pulsemech_compute_planned_observed_relation_v0.py")
+    revision=builder.resolve_tool_source_revision(None,record_status="observed")
+    relation,inputs=m.runtime_test_relation(case,revision=revision)
+    checker=m.runtime_test_module("check_pulsemech_compute_planned_observed_relation_v0.py")
+    d,rc=checker.build_diagnostic(schema_path=RELATION_SCHEMA,relation_path=m.runtime_test_view(m.runtime_test_bytes(relation)),runtime_inputs=inputs)
+    assert rc==0,d
+    assert relation["coverage"]["runtime_observation_status"]=="partial"
+    assert relation["summary"]["comparison_complete"] is False
+    base=tmp_path/"base.json";base.write_bytes(m.runtime_test_bytes({"gates":{"existing":True}}))
+    relfile=tmp_path/"runtime-relation.json";relfile.write_bytes(m.runtime_test_bytes(relation))
+    materializer=m.runtime_test_module("fold_pulsemech_compute_planned_observed_relation_into_status_v0.py")
+    report,rc=materializer.build_and_write_folded_status(status_path=base,relation_path=relfile,schema_path=RELATION_SCHEMA,
+        validator_path=RELATION_VALIDATOR,output_path=tmp_path/"runtime-candidate.json",runtime_inputs=inputs)
+    assert rc==0 and report["candidate_all_true"] is False,report
+
+
 if __name__ == "__main__":
     check_pulsemech_compute_fixed_source_candidate_chain_v0()
