@@ -79,6 +79,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Execute `tests/test_parameter_golf_submission_evidence_v0.py` through the CI pytest manifest (`ci/pytest-tests.list`).
 
 ### Docs
+- Synchronize the existing compute workstream record, Technical Overview,
+  documentation index and root README with the accepted bounded Step 4B
+  implementation (#2867) and four-file historical preservation (#2868).
+  - Keep producer revision `d7def834e8aa63911426550cf41b05f81c0b56b0`
+    distinct from preservation revision `55c6180dfbfd4055a558cf6b3e3883461a423f86`.
+  - Record the preserved local reconstruction separately from the supplied
+    post-merge review's direct packet validation, negative probes and explicit
+    historical-source/remote-CI access limits.
+  - Retain partial coverage, the unchanged Step 4A inputs, no active compute
+    enforcement and the future current-run pre-decision requirement.
+  - Documentation only; no implementation, schema, evidence, workflow, policy,
+    ledger, Zenodo or DOI change. Final documentation acceptance remains a
+    separate check under #2864.
 - Add [PULSEmech — Recursive Self-Improvement and Transition Provability](docs/PULSEMECH_RECURSIVE_SELF_IMPROVEMENT_AND_TRANSITION_PROVABILITY_v0.md)
   as foundational architecture, with English main text and a fenced Hungarian
   version; register it in `docs/INDEX.md` (PR #2866).
