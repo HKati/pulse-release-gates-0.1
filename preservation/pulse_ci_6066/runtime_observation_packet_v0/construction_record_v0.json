@@ -1,0 +1,19 @@
+{
+  "capture_completed_utc": "2026-09-07T00:24:03Z",
+  "capture_manifest_sha256": "4642546646fc7c78f8b65bce40c3db72fb6847c4e3d454db97b164f1fc14f238",
+  "capture_started_utc": "2026-09-07T00:24:03Z",
+  "carrier_sha256": "7949bfd00468e6f9347fddaae732bdcebff5527e87ecb379a6c84a47176db966",
+  "collection_mode": "post_run_platform_export",
+  "collector_attempt": 1,
+  "collector_execution_id": "execution:step4b-6066-preservation-20260907T002403Z",
+  "collector_job_name": "Historical 6066 runtime packet preservation v0",
+  "collector_run_key": "LOCAL_PRESERVATION=step4b-6066-20260907T002403Z|ATTEMPT=1",
+  "collector_workflow_name": "PULSEmech local offline preservation",
+  "packet_created_utc": "2026-09-07T00:24:03Z",
+  "producer_source_revision": "d7def834e8aa63911426550cf41b05f81c0b56b0",
+  "producer_source_sha256": "b59cfc97d5b44bbd2393e5588b4b1180bd165b2b467ba1f9317b5e64ee91bbb1",
+  "record_type": "pulsemech_compute_runtime_packet_construction_v0",
+  "runtime_validator_sha256": "edc8f795043f656ffa8599dfae9555f38970790f1096cf080e9049f218d512d9",
+  "subject_context_sha256": "b457383356d330ae40843a47f9adb83c4e7d7f14447218f951ca71e4ee287467",
+  "subject_run_key": "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+}

@@ -1,0 +1,407 @@
+{
+  "authority_boundary": {
+    "active_gate_eligible": false,
+    "authority_effect": "none",
+    "same_run_release_authority_eligible": false
+  },
+  "checks": {
+    "171_steps": true,
+    "both_separate_runtime_validator_invocations_succeeded": true,
+    "eight_jobs": true,
+    "empty_call_inference_resource_lists_not_absence_proof": true,
+    "exact_platform_job_step_parent_and_time_relationships": true,
+    "inputs_sources_and_source_status_unchanged": true,
+    "no_fabricated_exit_codes": true,
+    "one_separate_collector": true,
+    "ordered_historical_policy_identity_preserved": true,
+    "packet_bytes_equal": true,
+    "packet_canonical_bytes": true,
+    "partial_coverage": true,
+    "same_construction_input_bytes": true,
+    "separate_source_checkouts": true,
+    "two_independent_cli_constructions": true
+  },
+  "classification": "Actual local CLI construction and independent replay of a bounded historical-reference packet; not a GitHub Actions run or production runtime instrumentation.",
+  "construction_record": {
+    "bytes": 1250,
+    "git_blob": "bc4944dec23eebe15df0e1634b5ed9cbfcacc5be",
+    "path": "preservation/pulse_ci_6066/runtime_observation_packet_v0/construction_record_v0.json",
+    "sha256": "877347d5e22410888614ac55698d4ebe82378d496ae5ee31fec945195a1a55e6"
+  },
+  "environment": {
+    "dependencies": {
+      "PyYAML": "6.0.3",
+      "jsonschema": "4.26.0",
+      "pytest": "9.0.2"
+    },
+    "os_platform": "linux",
+    "python_executable": "/opt/pyvenv/bin/python",
+    "python_version": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]"
+  },
+  "evidence_note": "This execution record is a report of observed local commands and byte comparisons, not a new validator, normative schema, release authority or independently attested platform record. Recorded preparation/CLI wall-clock times are local clock observations with no independent clock authentication.",
+  "executions": [
+    {
+      "command": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "/mnt/data/step4b_observed_handoff/source/tools/build_pulsemech_compute_runtime_observation_packet_from_capture_v0.py",
+        "--repository-root",
+        "/mnt/data/step4b_observed_handoff/source",
+        "--construction-record",
+        "/mnt/data/step4b_observed_handoff/export/preservation/pulse_ci_6066/runtime_observation_packet_v0/construction_record_v0.json",
+        "--construction-sha256",
+        "877347d5e22410888614ac55698d4ebe82378d496ae5ee31fec945195a1a55e6",
+        "--output",
+        "/mnt/data/step4b_observed_handoff/export/preservation/pulse_ci_6066/runtime_observation_packet_v0/pulsemech_compute_runtime_observation_packet_6066_observed_v0.json"
+      ],
+      "completed_utc": "2026-09-07T00:24:06.840265Z",
+      "cwd": "/mnt/data/step4b_observed_handoff/source",
+      "elapsed_seconds": 2.8477222289999986,
+      "exit_code": 0,
+      "id": "construction_1",
+      "source_commit": "d7def834e8aa63911426550cf41b05f81c0b56b0",
+      "started_utc": "2026-09-07T00:24:03.992842Z",
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "text": ""
+      },
+      "stdout": {
+        "bytes": 682,
+        "sha256": "d06d4a19b28176de8f33de62dda64e3ee3f3047888f98b93d6fbc387db5d5120",
+        "text": "{\n  \"active_gate_eligible\": false,\n  \"authority_effect\": \"none\",\n  \"capture_manifest_sha256\": \"4642546646fc7c78f8b65bce40c3db72fb6847c4e3d454db97b164f1fc14f238\",\n  \"collector_records\": 1,\n  \"construction_sha256\": \"877347d5e22410888614ac55698d4ebe82378d496ae5ee31fec945195a1a55e6\",\n  \"coverage_status\": \"partial\",\n  \"job_records\": 8,\n  \"ok\": true,\n  \"packet_bytes\": 484234,\n  \"packet_sha256\": \"76418f3a7374cf12127031b15806af1e80605ad07031b3b10308c3a30b795a88\",\n  \"result\": \"historical_packet_published\",\n  \"same_run_release_authority_eligible\": false,\n  \"step_records\": 171,\n  \"tool\": \"build_pulsemech_compute_runtime_observation_packet_from_capture_v0\",\n  \"tool_version\": \"0.1.0\"\n}\n"
+      }
+    },
+    {
+      "command": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "/mnt/data/step4b_observed_handoff/source/tools/check_pulsemech_compute_runtime_observation_packet_v0.py",
+        "--packet",
+        "/mnt/data/step4b_observed_handoff/export/preservation/pulse_ci_6066/runtime_observation_packet_v0/pulsemech_compute_runtime_observation_packet_6066_observed_v0.json"
+      ],
+      "completed_utc": "2026-09-07T00:24:08.710067Z",
+      "cwd": "/mnt/data/step4b_observed_handoff/source",
+      "elapsed_seconds": 1.869809757999974,
+      "exit_code": 0,
+      "id": "validation_1",
+      "source_commit": "d7def834e8aa63911426550cf41b05f81c0b56b0",
+      "started_utc": "2026-09-07T00:24:06.840717Z",
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "text": ""
+      },
+      "stdout": {
+        "bytes": 1734,
+        "sha256": "d94a9cfed5d2729ce708274905a00c39adf95fe3a8b442b9bbba34f9f7d44e63",
+        "text": "{\n  \"checks\": {\n    \"authority_input_bindings_ok\": true,\n    \"capture_window_and_packet_time_ok\": true,\n    \"collector_boundary_ok\": true,\n    \"coverage_capture_summaries_match\": true,\n    \"coverage_record_counts_match\": true,\n    \"coverage_status_semantics_ok\": true,\n    \"derived_duration_measurements_match_timing\": true,\n    \"deterministic_ordering_ok\": true,\n    \"exact_github_action_identity_pinned\": true,\n    \"execution_graph_acyclic\": true,\n    \"execution_parent_references_resolve\": true,\n    \"execution_state_references_resolve\": true,\n    \"external_call_relations_ok\": true,\n    \"missing_execution_ids_are_unobserved\": true,\n    \"model_inference_relations_ok\": true,\n    \"model_token_measurements_match_usage\": true,\n    \"mutation_authority_relations_ok\": true,\n    \"packet_ok_errors_semantics_ok\": true,\n    \"packet_sequence_chain_ok\": true,\n    \"packet_type_ok\": true,\n    \"privacy_boundary_ok\": true,\n    \"record_identifiers_unique\": true,\n    \"record_status_collection_modes_ok\": true,\n    \"redaction_rules_binding_ok\": true,\n    \"resource_axis_coverage_partition_ok\": true,\n    \"resource_measurement_relations_ok\": true,\n    \"runtime_timings_consistent\": true,\n    \"schema_version_ok\": true,\n    \"state_authority_and_privacy_ok\": true,\n    \"state_execution_references_resolve\": true,\n    \"state_producer_relations_ok\": true,\n    \"subject_execution_run_binding_ok\": true,\n    \"subject_run_binding_consistent\": true,\n    \"workflow_job_step_shape_ok\": true\n  },\n  \"errors\": [],\n  \"ok\": true,\n  \"packet_type\": \"pulsemech_compute_runtime_observation_packet\",\n  \"schema_valid\": true,\n  \"schema_version\": \"pulsemech_compute_runtime_observation_packet_v0\",\n  \"tool\": \"check_pulsemech_compute_runtime_observation_packet_v0\"\n}\n"
+      }
+    },
+    {
+      "command": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "/mnt/data/step4b_observed_handoff/source_replay/tools/build_pulsemech_compute_runtime_observation_packet_from_capture_v0.py",
+        "--repository-root",
+        "/mnt/data/step4b_observed_handoff/source_replay",
+        "--construction-record",
+        "/mnt/data/step4b_observed_handoff/replay/construction_record_v0.json",
+        "--construction-sha256",
+        "877347d5e22410888614ac55698d4ebe82378d496ae5ee31fec945195a1a55e6",
+        "--output",
+        "/mnt/data/step4b_observed_handoff/replay/packet_replayed.json"
+      ],
+      "completed_utc": "2026-09-07T00:24:11.746628Z",
+      "cwd": "/mnt/data/step4b_observed_handoff/source_replay",
+      "elapsed_seconds": 2.812534768999967,
+      "exit_code": 0,
+      "id": "construction_2",
+      "source_commit": "d7def834e8aa63911426550cf41b05f81c0b56b0",
+      "started_utc": "2026-09-07T00:24:08.934475Z",
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "text": ""
+      },
+      "stdout": {
+        "bytes": 682,
+        "sha256": "d06d4a19b28176de8f33de62dda64e3ee3f3047888f98b93d6fbc387db5d5120",
+        "text": "{\n  \"active_gate_eligible\": false,\n  \"authority_effect\": \"none\",\n  \"capture_manifest_sha256\": \"4642546646fc7c78f8b65bce40c3db72fb6847c4e3d454db97b164f1fc14f238\",\n  \"collector_records\": 1,\n  \"construction_sha256\": \"877347d5e22410888614ac55698d4ebe82378d496ae5ee31fec945195a1a55e6\",\n  \"coverage_status\": \"partial\",\n  \"job_records\": 8,\n  \"ok\": true,\n  \"packet_bytes\": 484234,\n  \"packet_sha256\": \"76418f3a7374cf12127031b15806af1e80605ad07031b3b10308c3a30b795a88\",\n  \"result\": \"historical_packet_published\",\n  \"same_run_release_authority_eligible\": false,\n  \"step_records\": 171,\n  \"tool\": \"build_pulsemech_compute_runtime_observation_packet_from_capture_v0\",\n  \"tool_version\": \"0.1.0\"\n}\n"
+      }
+    },
+    {
+      "command": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "/mnt/data/step4b_observed_handoff/source_replay/tools/check_pulsemech_compute_runtime_observation_packet_v0.py",
+        "--packet",
+        "/mnt/data/step4b_observed_handoff/replay/packet_replayed.json"
+      ],
+      "completed_utc": "2026-09-07T00:24:13.520207Z",
+      "cwd": "/mnt/data/step4b_observed_handoff/source_replay",
+      "elapsed_seconds": 1.7734734969999977,
+      "exit_code": 0,
+      "id": "validation_2",
+      "source_commit": "d7def834e8aa63911426550cf41b05f81c0b56b0",
+      "started_utc": "2026-09-07T00:24:11.747275Z",
+      "stderr": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "text": ""
+      },
+      "stdout": {
+        "bytes": 1734,
+        "sha256": "d94a9cfed5d2729ce708274905a00c39adf95fe3a8b442b9bbba34f9f7d44e63",
+        "text": "{\n  \"checks\": {\n    \"authority_input_bindings_ok\": true,\n    \"capture_window_and_packet_time_ok\": true,\n    \"collector_boundary_ok\": true,\n    \"coverage_capture_summaries_match\": true,\n    \"coverage_record_counts_match\": true,\n    \"coverage_status_semantics_ok\": true,\n    \"derived_duration_measurements_match_timing\": true,\n    \"deterministic_ordering_ok\": true,\n    \"exact_github_action_identity_pinned\": true,\n    \"execution_graph_acyclic\": true,\n    \"execution_parent_references_resolve\": true,\n    \"execution_state_references_resolve\": true,\n    \"external_call_relations_ok\": true,\n    \"missing_execution_ids_are_unobserved\": true,\n    \"model_inference_relations_ok\": true,\n    \"model_token_measurements_match_usage\": true,\n    \"mutation_authority_relations_ok\": true,\n    \"packet_ok_errors_semantics_ok\": true,\n    \"packet_sequence_chain_ok\": true,\n    \"packet_type_ok\": true,\n    \"privacy_boundary_ok\": true,\n    \"record_identifiers_unique\": true,\n    \"record_status_collection_modes_ok\": true,\n    \"redaction_rules_binding_ok\": true,\n    \"resource_axis_coverage_partition_ok\": true,\n    \"resource_measurement_relations_ok\": true,\n    \"runtime_timings_consistent\": true,\n    \"schema_version_ok\": true,\n    \"state_authority_and_privacy_ok\": true,\n    \"state_execution_references_resolve\": true,\n    \"state_producer_relations_ok\": true,\n    \"subject_execution_run_binding_ok\": true,\n    \"subject_run_binding_consistent\": true,\n    \"workflow_job_step_shape_ok\": true\n  },\n  \"errors\": [],\n  \"ok\": true,\n  \"packet_type\": \"pulsemech_compute_runtime_observation_packet\",\n  \"schema_valid\": true,\n  \"schema_version\": \"pulsemech_compute_runtime_observation_packet_v0\",\n  \"tool\": \"check_pulsemech_compute_runtime_observation_packet_v0\"\n}\n"
+      }
+    }
+  ],
+  "file_scope": {
+    "canonical_documentation_sync": "separate subsequent handoff",
+    "change_kind": "four added preservation files only",
+    "existing_files_modified": false,
+    "issue": "#2864",
+    "new_implementation_or_validator": false,
+    "paths": [
+      "preservation/pulse_ci_6066/runtime_observation_packet_v0/construction_record_v0.json",
+      "preservation/pulse_ci_6066/runtime_observation_packet_v0/pulsemech_compute_runtime_observation_packet_6066_observed_v0.json",
+      "preservation/pulse_ci_6066/runtime_observation_packet_v0/verification_record_v0.json",
+      "preservation/pulse_ci_6066/runtime_observation_packet_v0/README.md"
+    ],
+    "producer_pr": "#2867"
+  },
+  "final_source_audit": {
+    "all_worktree_blobs_match_M": true,
+    "checked_utc": "2026-09-07T00:28:16.859382Z",
+    "commit": "d7def834e8aa63911426550cf41b05f81c0b56b0",
+    "root_tree": "7ef7a119556d4dc69280ccd451ed41b5272fdeaa",
+    "tracked_file_count": 1384,
+    "tracked_inventory_sha256": "5b8fa3850c554a6bedc39bf2a714d9ad524bb30f213db7bdefbe3e141d4c4424",
+    "worktree_index_and_HEAD_unchanged": true
+  },
+  "merge_parent": "cbbaa2bb53e13a70cb36915e6e9a4395f6524ff3",
+  "packet": {
+    "bytes": 484234,
+    "git_blob": "cef7f1cb0386c977eb0cddc2e63f57c2813d60c7",
+    "path": "preservation/pulse_ci_6066/runtime_observation_packet_v0/pulsemech_compute_runtime_observation_packet_6066_observed_v0.json",
+    "sha256": "76418f3a7374cf12127031b15806af1e80605ad07031b3b10308c3a30b795a88"
+  },
+  "preserved_inputs": [
+    {
+      "bytes": 44660,
+      "git_blob": "a685da35c0cc573e46c8ed15a9b0eb8067d3b51e",
+      "path": "PULSE_CI_6066_release_grade_artifact_preservation_v0.zip",
+      "sha256": "7949bfd00468e6f9347fddaae732bdcebff5527e87ecb379a6c84a47176db966",
+      "source_commit": "d7def834e8aa63911426550cf41b05f81c0b56b0"
+    },
+    {
+      "bytes": 45914,
+      "git_blob": "f6867479f893cc25ca3b3fcb7d34f1c71ab63093",
+      "path": "examples/compute/pulsemech_compute_subject_input_packet_6066_observed_v0.json",
+      "sha256": "b457383356d330ae40843a47f9adb83c4e7d7f14447218f951ca71e4ee287467",
+      "source_commit": "d7def834e8aa63911426550cf41b05f81c0b56b0"
+    },
+    {
+      "bytes": 3036,
+      "git_blob": "2043b48ab9a583469c0887f9ff586e72c35e5ab2",
+      "path": "preservation/pulse_ci_6066/post_run_producer_input_capture_v0/metadata/jobs_page_0001_exchange_v0.json",
+      "sha256": "1866b86cb6449f85fe5a1c6d5138f6583385bffd9ddc1b1246858bba7b7bc566",
+      "source_commit": "d7def834e8aa63911426550cf41b05f81c0b56b0"
+    },
+    {
+      "bytes": 2886,
+      "git_blob": "b6eff652b27c9ad6313d4b25589dacde2e15f788",
+      "path": "preservation/pulse_ci_6066/post_run_producer_input_capture_v0/metadata/run_attempt_exchange_v0.json",
+      "sha256": "b3510e10f86904888b5c2d120270f6cadfe2086db65c18e5c699acb31fbaa018",
+      "source_commit": "d7def834e8aa63911426550cf41b05f81c0b56b0"
+    },
+    {
+      "bytes": 17905,
+      "git_blob": "3e623150e254f9383c1cec23fa68e714092a3b98",
+      "path": "preservation/pulse_ci_6066/post_run_producer_input_capture_v0/pulsemech_compute_post_run_producer_input_capture_manifest_6066_v0.json",
+      "sha256": "4642546646fc7c78f8b65bce40c3db72fb6847c4e3d454db97b164f1fc14f238",
+      "source_commit": "d7def834e8aa63911426550cf41b05f81c0b56b0"
+    },
+    {
+      "bytes": 38004,
+      "git_blob": "7d729f6748fccbab3cc9a7722ab63a50a6acfe2d",
+      "path": "preservation/pulse_ci_6066/post_run_producer_input_capture_v0/raw/jobs_page_0001_response.json",
+      "sha256": "ba263d508f2c6893fe4d21056c5e7ee2f993ad5ccacf0476000c159815041a43",
+      "source_commit": "d7def834e8aa63911426550cf41b05f81c0b56b0"
+    },
+    {
+      "bytes": 15097,
+      "git_blob": "84109eb1e163c3ee1021678a4effa6ef2d13f727",
+      "path": "preservation/pulse_ci_6066/post_run_producer_input_capture_v0/raw/run_attempt_response.json",
+      "sha256": "d9e16eb8d68f35ede5019e6138474ae552b966e40fc920fc357ac57e6077fe19",
+      "source_commit": "d7def834e8aa63911426550cf41b05f81c0b56b0"
+    }
+  ],
+  "prior_cloud_review_boundary": "The supplied post-merge cloud review did not run the producer suite or direct constructions because historical commit 46b639706e23f80fe296a8893be18e2b5ab21f7e was unavailable there. This local environment has that exact original snapshot. These new results are separate evidence, not a reclassification of that cloud review.",
+  "record_type": "pulsemech_step4b_local_preservation_execution_record_v0",
+  "regressions": {
+    "classification": "Fresh local regression executions against merged M; not cloud Codex or GitHub CI results.",
+    "dependencies": {
+      "PyYAML": "6.0.3",
+      "jsonschema": "4.26.0",
+      "pytest": "9.0.2"
+    },
+    "executions": [
+      {
+        "collected": 74,
+        "command": [
+          "/opt/pyvenv/bin/python",
+          "-B",
+          "tests/test_build_pulsemech_compute_runtime_observation_packet_from_capture_v0.py"
+        ],
+        "completed": true,
+        "completed_utc": "2026-09-07T00:24:01.043637+00:00",
+        "cwd": "/mnt/data/step4b_observed_handoff/source",
+        "elapsed_seconds": 108.59597109500004,
+        "errors": 0,
+        "exit_code": 0,
+        "failed": 0,
+        "passed": 74,
+        "skipped": 0,
+        "source_commit": "d7def834e8aa63911426550cf41b05f81c0b56b0",
+        "source_sha256": "a781dc9e4f836ab18dc2da8831902508b6ffd6024ab4af74ea3ebfaa2f57907f",
+        "started_utc": "2026-09-07T00:22:12.447638+00:00",
+        "stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "text": ""
+        },
+        "stdout": {
+          "bytes": 191,
+          "sha256": "1ae5013aa5c5987365b07c4e00bb2d2a6c35c17fa8760722b1063c526fb1d515",
+          "text": "........................................................................ [ 97%]\n..                                                                       [100%]\n74 passed in 105.78s (0:01:45)\n"
+        },
+        "suite": "producer"
+      },
+      {
+        "collected": 24,
+        "command": [
+          "/opt/pyvenv/bin/python",
+          "-B",
+          "tests/test_pulsemech_compute_subject_input_packet_6066_observed_v0.py"
+        ],
+        "completed": true,
+        "completed_utc": "2026-09-07T00:24:10.970885+00:00",
+        "cwd": "/mnt/data/step4b_observed_handoff/source",
+        "elapsed_seconds": 9.926759009999955,
+        "errors": 0,
+        "exit_code": 0,
+        "failed": 0,
+        "passed": 24,
+        "skipped": 0,
+        "source_commit": "d7def834e8aa63911426550cf41b05f81c0b56b0",
+        "source_sha256": "7c27518186a018a4c0a56fdf1aaa6c8878d697b3965c48dd66dd59a5db637687",
+        "started_utc": "2026-09-07T00:24:01.044145+00:00",
+        "stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "text": ""
+        },
+        "stdout": {
+          "bytes": 99,
+          "sha256": "9543c7bbf2cf11268decbfd1a9351b14ae225235403bf5f9cce0ac61396d509e",
+          "text": "........................                                                 [100%]\n24 passed in 6.15s\n"
+        },
+        "suite": "subject_context"
+      },
+      {
+        "collected": 90,
+        "command": [
+          "/opt/pyvenv/bin/python",
+          "-B",
+          "tests/test_check_pulsemech_compute_runtime_observation_packet_v0.py"
+        ],
+        "completed": true,
+        "completed_utc": "2026-09-07T00:24:34.494909+00:00",
+        "cwd": "/mnt/data/step4b_observed_handoff/source",
+        "elapsed_seconds": 23.523560229999987,
+        "errors": 0,
+        "exit_code": 0,
+        "failed": 0,
+        "passed": 90,
+        "skipped": 0,
+        "source_commit": "d7def834e8aa63911426550cf41b05f81c0b56b0",
+        "source_sha256": "9ba70231fa1c711cad3961585ce4d5c4bc1fb8edb10c84ca66b563e5737e8ae8",
+        "started_utc": "2026-09-07T00:24:10.971369+00:00",
+        "stderr": {
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "text": ""
+        },
+        "stdout": {
+          "bytes": 180,
+          "sha256": "0b7dd875c451591d48760faf6c348e8ffb191177793c9b8e663a94c71c15ff67",
+          "text": "........................................................................ [ 80%]\n..................                                                       [100%]\n90 passed in 19.64s\n"
+        },
+        "suite": "runtime_validator"
+      }
+    ],
+    "fixture_boundary": "The producer suite creates its own explicitly temporary candidate commits and declared test records. Those fixture identities are not the M-bound preservation construction reported separately above.",
+    "interpreter": "/opt/pyvenv/bin/python",
+    "not_executed": "The remaining 150 registered programs were not rerun as a full manifest campaign. These results do not claim Python 3.11/3.14 execution or GitHub CI.",
+    "python": "3.13.5 (main, Jul 15 2026, 20:25:40) [GCC 14.2.0]",
+    "total_complete_suites": 3,
+    "total_passed_cases": 188
+  },
+  "replay_source": {
+    "all_worktree_blobs_equal_committed_objects": true,
+    "commit": "d7def834e8aa63911426550cf41b05f81c0b56b0",
+    "root_tree": "7ef7a119556d4dc69280ccd451ed41b5272fdeaa",
+    "tracked_file_count": 1384,
+    "tracked_inventory_sha256": "5b8fa3850c554a6bedc39bf2a714d9ad524bb30f213db7bdefbe3e141d4c4424",
+    "worktree_and_index_clean": true
+  },
+  "required_git_snapshots": {
+    "22d14088ae21f84d94c6a6951c0f70ab1bdf0895": {
+      "recursive_entries": 1571,
+      "tree": "8c04d572fd3f89b7cf0f6f052f72cd4042b68690",
+      "verified": true
+    },
+    "3cd57dc9e88e6f804dbb134c864f4207688bddc2": {
+      "recursive_entries": 1413,
+      "tree": "b82479ef98bf8d8a661e1a331e20f8be3e34612b",
+      "verified": true
+    },
+    "46b639706e23f80fe296a8893be18e2b5ab21f7e": {
+      "recursive_entries": 1362,
+      "tree": "335970025be6e01d30ddf6b042e5da3dac3e75ff",
+      "verified": true
+    },
+    "cbbaa2bb53e13a70cb36915e6e9a4395f6524ff3": {
+      "recursive_entries": 1580,
+      "tree": "d6f7c9ffe2b38b6710c253202a251e04637abd7f",
+      "verified": true
+    },
+    "d7def834e8aa63911426550cf41b05f81c0b56b0": {
+      "recursive_entries": 1582,
+      "tree": "7ef7a119556d4dc69280ccd451ed41b5272fdeaa",
+      "verified": true
+    }
+  },
+  "scope": "Data preservation only. No production source, validator, test, schema, contract, workflow, CI manifest, policy, ledger or publication metadata change.",
+  "session_completed_utc": "2026-09-07T00:24:13.703543Z",
+  "session_started_utc": "2026-09-07T00:24:03.899010Z",
+  "source": {
+    "all_worktree_blobs_equal_committed_objects": true,
+    "commit": "d7def834e8aa63911426550cf41b05f81c0b56b0",
+    "root_tree": "7ef7a119556d4dc69280ccd451ed41b5272fdeaa",
+    "tracked_file_count": 1384,
+    "tracked_inventory_sha256": "5b8fa3850c554a6bedc39bf2a714d9ad524bb30f213db7bdefbe3e141d4c4424",
+    "worktree_and_index_clean": true
+  },
+  "source_preparation": "Original snapshot object pack plus byte-exact restored signed GitHub merge commit; complete merged tree equals fixed upstream tree. No substitute source commit.",
+  "time_and_identity_boundary": {
+    "actual_cli_intervals": "The executions array separately records measured local process start/completion times. Replay does not refresh the original construction record.",
+    "authentication": "No independently authenticated collector identity, trusted clock, external attestation or GitHub run identity is claimed.",
+    "collector_source": "The packet binds the unchanged merged producer, not the external one-off preparation driver. The driver is not used as replacement producer or validator.",
+    "construction_record": "The new record is a fixed declared input for this local preservation session, not a copied test fixture. Its preparation interval and logical packet creation timestamp were sampled from the local system clock before the unchanged producer was invoked.",
+    "packet_created_utc": "Declared logical creation timestamp at construction-record finalization; not a claim of file publication time or measured process completion.",
+    "recorded_collection_interval": "Local source/input inventory collection and preparation, not the elapsed runtime of either subsequent producer CLI."
+  }
+}
