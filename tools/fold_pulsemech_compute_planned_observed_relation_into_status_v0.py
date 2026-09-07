@@ -252,7 +252,7 @@ def verify_regular_file_snapshots(
             raise MaterializerError(f"protected_input_changed: {path}")
 
 
-def atomic_write_text(path: Path, text: str) -> None:
+def atomic_write_text(path: Path, text: str, *, exclusive: bool = False) -> tuple[int, int]:
     path.parent.mkdir(parents=True, exist_ok=True)
     reject_symlink_chain(path)
 
@@ -271,8 +271,14 @@ def atomic_write_text(path: Path, text: str) -> None:
             handle.write(text)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, path)
+            owned = os.fstat(handle.fileno())
+        if exclusive:
+            os.link(temporary, path)
+            temporary.unlink()
+        else:
+            os.replace(temporary, path)
         temporary = None
+        return owned.st_dev, owned.st_ino
     finally:
         if temporary is not None:
             try:
@@ -291,10 +297,30 @@ def invoke_relation_validator(
     validator_path: Path,
     schema_path: Path,
     relation_path: Path,
+    runtime_inputs: dict[str, Any] | None = None,
+    relation_bytes: bytes | None = None,
 ) -> dict[str, Any]:
     require_regular_non_symlink(validator_path, label="relation_validator")
     require_regular_non_symlink(schema_path, label="relation_schema")
     require_regular_non_symlink(relation_path, label="relation")
+
+    if runtime_inputs is not None:
+        if validator_path.resolve() != DEFAULT_RELATION_VALIDATOR.resolve():
+            raise MaterializerError("runtime_profile_requires_canonical_relation_validator")
+        import types
+        raw = validator_path.read_bytes()
+        module = types.ModuleType("runtime_relation_validator_for_materializer")
+        module.__file__ = str(validator_path)
+        sys.modules[module.__name__] = module
+        exec(compile(raw, str(validator_path), "exec", dont_inherit=True), module.__dict__)
+        checker = module._runtime_report_checker()
+        bridge = checker._runtime_module(ROOT / "tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py", "bridge_for_runtime_materializer")
+        data = relation_bytes if relation_bytes is not None else relation_path.read_bytes()
+        cap = bridge.CapturedFile(path=relation_path, data=data, device=0, inode=0, size_bytes=len(data), sha256=sha256_bytes(data))
+        diagnostic, rc = module.build_diagnostic(schema_path=schema_path, relation_path=bridge.CapturedPathView(cap), runtime_inputs=runtime_inputs)
+        if rc != 0 or diagnostic.get("ok") is not True or diagnostic.get("checks", {}).get("runtime_relation_source_replay_ok") is not True:
+            raise MaterializerError("runtime_relation_strict_validation_failed:" + render_json(diagnostic))
+        return diagnostic
 
     result = subprocess.run(
         [
@@ -714,6 +740,8 @@ def build_and_write_folded_status(
     schema_path: Path,
     validator_path: Path,
     output_path: Path,
+    runtime_source_paths: dict[str, Any] | None = None,
+    runtime_inputs: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], int]:
     relation_validated = False
     candidate_gates: dict[str, bool] = {}
@@ -723,6 +751,8 @@ def build_and_write_folded_status(
     relation_sha256: str | None = None
     output_status_sha256: str | None = None
     output_written = False
+    owned_output_identity: tuple[int, int] | None = None
+    runtime_profile = False
 
     protected_paths = (
         status_path,
@@ -756,10 +786,40 @@ def build_and_write_folded_status(
             if isinstance(value, str):
                 record_status = value
 
+        runtime_profile = isinstance(relation_raw, dict) and "runtime_comparison" in relation_raw
+        if runtime_profile:
+            source_roots = [ROOT]
+            if runtime_source_paths is not None and isinstance(runtime_source_paths.get("repository_root"), Path):
+                source_roots.append(runtime_source_paths["repository_root"])
+            if runtime_inputs is not None:
+                subject_root = runtime_inputs.get("report_inputs", {}).get("repository_root")
+                if isinstance(subject_root, Path):
+                    source_roots.append(subject_root)
+            if any(output_path.resolve().is_relative_to(path.resolve()) for path in source_roots):
+                raise MaterializerError("runtime_candidate_output_inside_source_repository")
+            if output_path.exists():
+                raise MaterializerError("runtime_candidate_output_already_exists")
+            if runtime_source_paths is not None:
+                import types
+                raw = DEFAULT_RELATION_VALIDATOR.read_bytes()
+                module = types.ModuleType("runtime_relation_inputs_for_materializer")
+                module.__file__ = str(DEFAULT_RELATION_VALIDATOR)
+                sys.modules[module.__name__] = module
+                exec(compile(raw, str(DEFAULT_RELATION_VALIDATOR), "exec", dont_inherit=True), module.__dict__)
+                extra_paths = []
+                for value in runtime_source_paths.values():
+                    if isinstance(value, Path): extra_paths.append(value)
+                    elif isinstance(value, list): extra_paths.extend(x for x in value if isinstance(x, Path))
+                reject_unsafe_output(output_path, protected_paths=[p for p in extra_paths if p.is_file()])
+                try:
+                    runtime_inputs = module.runtime_relation_inputs_from_paths(**runtime_source_paths)
+                except Exception as exc:
+                    raise MaterializerError("runtime_source_intake_failed:" + str(exc)) from exc
+            if runtime_inputs is None:
+                raise MaterializerError("runtime_relation_source_inputs_required")
         invoke_relation_validator(
-            validator_path=validator_path,
-            schema_path=schema_path,
-            relation_path=relation_path,
+            validator_path=validator_path, schema_path=schema_path, relation_path=relation_path,
+            **({"runtime_inputs": runtime_inputs, "relation_bytes": relation_bytes} if runtime_profile else {}),
         )
         relation_validated = True
         verify_regular_file_snapshots(snapshots)
@@ -775,12 +835,15 @@ def build_and_write_folded_status(
         output_status_sha256 = sha256_bytes(rendered_status.encode("utf-8"))
 
         verify_regular_file_snapshots(snapshots)
-        atomic_write_text(output_path, rendered_status)
+        if runtime_profile:
+            owned_output_identity = atomic_write_text(output_path, rendered_status, exclusive=True)
+        else:
+            atomic_write_text(output_path, rendered_status)
         output_written = True
         verify_regular_file_snapshots(snapshots)
 
     except MaterializerError as exc:
-        if output_written and output_path.is_file() and not output_path.is_symlink():
+        if output_written and output_path.is_file() and not output_path.is_symlink() and (not runtime_profile or (output_path.stat().st_dev, output_path.stat().st_ino) == owned_output_identity):
             try:
                 output_path.unlink()
             except OSError:
@@ -799,7 +862,7 @@ def build_and_write_folded_status(
         )
         return report, 1
     except (OSError, subprocess.SubprocessError) as exc:
-        if output_written and output_path.is_file() and not output_path.is_symlink():
+        if output_written and output_path.is_file() and not output_path.is_symlink() and (not runtime_profile or (output_path.stat().st_dev, output_path.stat().st_ino) == owned_output_identity):
             try:
                 output_path.unlink()
             except OSError:
@@ -865,17 +928,34 @@ def parse_args() -> argparse.Namespace:
             "writes and final authority-surface filenames."
         ),
     )
+    parser.add_argument("--plan")
+    parser.add_argument("--compute-report")
+    parser.add_argument("--subject-input")
+    parser.add_argument("--carrier")
+    parser.add_argument("--repository-root", default=str(ROOT))
+    parser.add_argument("--runtime-packet", action="append", default=[])
+    parser.add_argument("--expectations")
+    parser.add_argument("--runtime-extent")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    source_paths = None
+    if all((args.plan, args.compute_report, args.subject_input, args.carrier, args.runtime_packet)):
+        source_paths = {
+            "plan_path": Path(args.plan), "report_path": Path(args.compute_report), "subject_input_path": Path(args.subject_input),
+            "carrier_path": Path(args.carrier), "repository_root": Path(args.repository_root), "packet_paths": list(map(Path, args.runtime_packet)),
+            "expectations_path": Path(args.expectations) if args.expectations else None,
+            "extent_path": Path(args.runtime_extent) if args.runtime_extent else None,
+        }
     report, exit_code = build_and_write_folded_status(
         status_path=Path(args.status),
         relation_path=Path(args.relation),
         schema_path=Path(args.schema),
         validator_path=Path(args.validator),
         output_path=Path(args.output),
+        runtime_source_paths=source_paths,
     )
     sys.stdout.write(render_json(report))
     return exit_code

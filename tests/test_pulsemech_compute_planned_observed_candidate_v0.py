@@ -465,5 +465,91 @@ def check_pulsemech_compute_planned_observed_candidate_v0() -> None:
     raise SystemExit(pytest.main([__file__, "-q"]))
 
 
+
+# Shared full-schema runtime examples live in an already registered regression.
+def _runtime_test_support():
+    import importlib.util
+    import hashlib
+    import sys
+    path = Path(__file__).with_name("test_pulsemech_compute_binding_analyzer_core_v0.py")
+    name = "pulse_runtime_regression_support_" + hashlib.sha256(path.read_bytes()).hexdigest()
+    if name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+    return sys.modules[name]
+
+
+def _runtime_candidate(tmp_path,*,inputs=True,existing=False,tamper=False):
+    m=_runtime_test_support();c=m.runtime_test_synthetic_case();r,i=m.runtime_test_relation(c,extent=True)
+    if tamper:r["runtime_comparison"]["runtime_binding_sha256"]="0"*64
+    status=tmp_path/"base.json";status.write_bytes(m.runtime_test_bytes({"gates":{"existing_gate":True},"metrics":{"fixture":"example"}}))
+    relation=tmp_path/"runtime-relation.json";relation.write_bytes(m.runtime_test_bytes(r))
+    out=tmp_path/"folded-candidate.json"
+    if existing:out.write_bytes(b"owned elsewhere")
+    materializer=m.runtime_test_module("fold_pulsemech_compute_planned_observed_relation_into_status_v0.py")
+    before=status.read_bytes()
+    result,rc=materializer.build_and_write_folded_status(status_path=status,relation_path=relation,
+        schema_path=m.ROOT/"schemas/pulsemech_compute_planned_observed_relation_v0.schema.json",
+        validator_path=m.ROOT/"tools/check_pulsemech_compute_planned_observed_relation_v0.py",output_path=out,
+        runtime_inputs=i if inputs else None)
+    assert status.read_bytes()==before
+    return result,rc,out
+
+
+def test_runtime_candidate_is_materialized_without_prescribing_all_true(tmp_path):
+    r,rc,out=_runtime_candidate(tmp_path)
+    assert rc==0 and r["relation_validated"] is True,r
+    assert r["candidate_all_true"] is False
+    assert out.is_file()
+    folded=json.loads(out.read_bytes())
+    assert folded["gates"]["existing_gate"] is True
+    assert set(r["candidate_gates"])=={"compute_transition_path_complete","compute_transition_authority_binding_ok","compute_transition_unbound_mutation_absent"}
+    assert all(type(v) is bool for v in r["candidate_gates"].values())
+
+
+def test_runtime_candidate_without_source_inputs_is_not_published(tmp_path):
+    r,rc,out=_runtime_candidate(tmp_path,inputs=False)
+    assert rc!=0 and not out.exists(),r
+
+
+def test_runtime_candidate_does_not_replace_existing_output(tmp_path):
+    r,rc,out=_runtime_candidate(tmp_path,existing=True)
+    assert rc!=0 and out.read_bytes()==b"owned elsewhere",r
+
+
+def test_runtime_candidate_refuses_forged_runtime_binding(tmp_path):
+    r,rc,out=_runtime_candidate(tmp_path,tamper=True)
+    assert rc!=0 and not out.exists(),r
+
+
+
+def test_runtime_exclusive_publication_never_replaces_foreign_file(tmp_path):
+    m=_runtime_test_support();materializer=m.runtime_test_module("fold_pulsemech_compute_planned_observed_relation_into_status_v0.py")
+    path=tmp_path/"candidate.json"
+    identity=materializer.atomic_write_text(path,"first\n",exclusive=True)
+    assert identity==(path.stat().st_dev,path.stat().st_ino)
+    import pytest
+    with pytest.raises(OSError):materializer.atomic_write_text(path,"second\n",exclusive=True)
+    assert path.read_text()=="first\n"
+    assert sorted(p.name for p in tmp_path.iterdir())==["candidate.json"]
+
+
+def test_runtime_failed_recheck_does_not_delete_foreign_output_replacement(tmp_path,monkeypatch):
+    m=_runtime_test_support();materializer=m.runtime_test_module("fold_pulsemech_compute_planned_observed_relation_into_status_v0.py")
+    original=materializer.verify_regular_file_snapshots
+    output=tmp_path/"folded-candidate.json"
+    def recheck(snapshots):
+        original(snapshots)
+        if output.exists():
+            # Keep the original inode alive so the replacement cannot recycle it.
+            output.rename(tmp_path/"old-owned-output.json")
+            output.write_bytes(b"foreign replacement")
+            raise materializer.MaterializerError("synthetic_post_publication_failure")
+    monkeypatch.setattr(materializer,"verify_regular_file_snapshots",recheck)
+    report,rc,path=_runtime_candidate(tmp_path)
+    assert rc!=0 and path.read_bytes()==b"foreign replacement",report
+
 if __name__ == "__main__":
     check_pulsemech_compute_planned_observed_candidate_v0()

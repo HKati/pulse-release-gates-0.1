@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import argparse
+import re
+from collections.abc import Mapping
 import hashlib
 import io
 import json
@@ -2587,6 +2589,948 @@ def main(
         }
         sys.stderr.write(render_json(diagnostic))
         return 2
+
+
+class RuntimeIndexError(ValueError):
+    """Contradictory or unusable input to runtime evidence indexing."""
+
+
+@dataclass(frozen=True)
+class RuntimePacketSource:
+    locator: str
+    data: bytes
+
+
+_SUBJECT_FIELDS = (
+    "repository", "workflow_name", "workflow_run_id", "workflow_run_number",
+    "workflow_run_attempt", "subject_run_key", "source_commit",
+    "release_candidate_id", "run_mode", "active_policy_sets",
+)
+_NUMERIC_SUBJECT_FIELDS = frozenset({
+    "workflow_run_id", "workflow_run_number", "workflow_run_attempt",
+})
+_RECORD_KINDS = {
+    "executions": ("execution_id", "execution:"),
+    "state_observations": ("state_id", "state:"),
+    "external_calls": ("call_id", "call:"),
+    "model_inferences": ("inference_id", "inference:"),
+}
+_SHA256 = re.compile(r"[0-9a-f]{64}\Z")
+_SHA40 = re.compile(r"[0-9a-f]{40}\Z")
+_RECORD_SUFFIX = re.compile(r"[A-Za-z0-9._:/@+-]+\Z")
+_OBSERVER_SCOPES = frozenset({"analysis_observer", "observation_collector"})
+
+
+def _runtime_canonical(value: Any) -> bytes:
+    try:
+        return json.dumps(
+            value, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError, UnicodeError) as exc:
+        raise RuntimeIndexError("runtime_value_not_canonicalizable") from exc
+
+
+def _runtime_copy(value: Any) -> Any:
+    return json.loads(_runtime_canonical(value))
+
+
+def _runtime_sha(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _runtime_object(value: Any, label: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise RuntimeIndexError(f"{label}_not_object")
+    return value
+
+
+def _runtime_text(value: Any, label: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise RuntimeIndexError(f"{label}_not_nonempty_string")
+    return value
+
+
+def _runtime_nonnegative_int(value: Any, label: str) -> int:
+    if type(value) is not int or value < 0:
+        raise RuntimeIndexError(f"{label}_not_nonnegative_integer")
+    return value
+
+
+def _runtime_string_list(value: Any, label: str) -> list[str]:
+    if not isinstance(value, list) or any(
+        not isinstance(item, str) or not item for item in value
+    ):
+        raise RuntimeIndexError(f"{label}_not_string_list")
+    if len(value) != len(set(value)):
+        raise RuntimeIndexError(f"{label}_contains_duplicates")
+    return list(value)
+
+
+def _runtime_load(data: bytes) -> dict[str, Any]:
+    def pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in items:
+            if key in result:
+                raise RuntimeIndexError("runtime_packet_duplicate_json_key")
+            result[key] = value
+        return result
+
+    def nonfinite(_text: str) -> None:
+        raise RuntimeIndexError("runtime_packet_nonfinite_number")
+
+    if type(data) is not bytes:
+        raise RuntimeIndexError("runtime_packet_requires_immutable_bytes")
+    try:
+        value = json.loads(
+            data.decode("utf-8", errors="strict"), object_pairs_hook=pairs,
+            parse_constant=nonfinite,
+        )
+    except RuntimeIndexError:
+        raise
+    except (UnicodeError, ValueError, RecursionError) as exc:
+        raise RuntimeIndexError("runtime_packet_json_invalid") from exc
+    document = _runtime_object(value, "runtime_packet")
+    _runtime_canonical(document)  # Also rejects overflowed floating-point values.
+    return document
+
+
+def _runtime_subject(value: Any) -> dict[str, Any]:
+    subject = _runtime_object(value, "runtime_subject")
+    projected: dict[str, Any] = {}
+    for field in _SUBJECT_FIELDS:
+        item = subject.get(field)
+        if field in _NUMERIC_SUBJECT_FIELDS:
+            _runtime_nonnegative_int(item, f"subject_{field}")
+            if item == 0:
+                raise RuntimeIndexError(f"subject_{field}_must_be_positive")
+        elif field == "active_policy_sets":
+            _runtime_string_list(item, "subject_active_policy_sets")
+            if not item:
+                raise RuntimeIndexError("subject_active_policy_sets_empty")
+        else:
+            _runtime_text(item, f"subject_{field}")
+        projected[field] = _runtime_copy(item)
+    if not _SHA40.fullmatch(projected["source_commit"]):
+        raise RuntimeIndexError("subject_source_commit_invalid")
+    return projected
+
+
+def _runtime_authority(value: Any, source_commit: str) -> dict[str, Any]:
+    authority = _runtime_object(value, "runtime_authority_inputs")
+    if set(authority) != {"workflow", "policy", "gate_registry"}:
+        raise RuntimeIndexError("runtime_authority_roles_mismatch")
+    for role in sorted(authority):
+        row = _runtime_object(authority[role], f"authority_{role}")
+        if set(row) != {"role", "path", "source_commit", "sha256"}:
+            raise RuntimeIndexError("runtime_authority_descriptor_fields_mismatch")
+        if row["role"] != role or row["source_commit"] != source_commit:
+            raise RuntimeIndexError("runtime_authority_source_mismatch")
+        _runtime_text(row["path"], f"authority_{role}_path")
+        if not isinstance(row["sha256"], str) or not _SHA256.fullmatch(row["sha256"]):
+            raise RuntimeIndexError("runtime_authority_digest_invalid")
+    return _runtime_copy(authority)
+
+
+def _runtime_record_id(value: Any, prefix: str) -> str:
+    identifier = _runtime_text(value, "runtime_record_id")
+    if not identifier.startswith(prefix) or not _RECORD_SUFFIX.fullmatch(
+        identifier[len(prefix):]
+    ):
+        raise RuntimeIndexError("runtime_record_id_invalid")
+    return identifier
+
+
+def index_runtime_packet_sources(
+    sources: Iterable[RuntimePacketSource], *, expected_subject: dict[str, Any],
+    expected_authority_inputs: dict[str, Any],
+) -> dict[str, Any]:
+    """Index exact packet bytes without inventing terminal observation closure.
+
+    expected_subject and expected_authority_inputs come from independently
+    verified subject/context inputs, never from the first runtime packet itself.
+    This function checks descriptor agreement, NOT historical source authenticity.
+    The caller must separately run the unchanged runtime packet validator on the
+    same immutable input bytes. No caller-provided parsed packet is accepted.
+    """
+    subject = _runtime_subject(expected_subject)
+    authority = _runtime_authority(expected_authority_inputs, subject["source_commit"])
+    parsed: list[tuple[RuntimePacketSource, dict[str, Any], str]] = []
+    locators: set[str] = set()
+    ids: set[str] = set()
+    sequences: set[int] = set()
+    statuses: set[str] = set()
+    for source in sources:
+        if not isinstance(source, RuntimePacketSource):
+            raise RuntimeIndexError("runtime_packet_source_type_invalid")
+        locator = _runtime_text(source.locator, "runtime_source_locator")
+        if locator in locators:
+            raise RuntimeIndexError("runtime_source_locator_duplicate")
+        locators.add(locator)
+        packet = _runtime_load(source.data)
+        if packet.get("schema_version") != "pulsemech_compute_runtime_observation_packet_v0":
+            raise RuntimeIndexError("runtime_packet_schema_identity_mismatch")
+        if packet.get("packet_type") != "pulsemech_compute_runtime_observation_packet":
+            raise RuntimeIndexError("runtime_packet_type_mismatch")
+        status = packet.get("record_status")
+        if status not in {"example", "observed"}:
+            raise RuntimeIndexError("runtime_packet_record_status_invalid")
+        statuses.add(status)
+        if packet.get("ok") is not True or packet.get("errors") != []:
+            raise RuntimeIndexError("runtime_packet_reports_failure")
+        if _runtime_subject(packet.get("subject")) != subject:
+            raise RuntimeIndexError("runtime_packet_subject_context_mismatch")
+        if _runtime_authority(packet.get("authority_inputs"), subject["source_commit"]) != authority:
+            raise RuntimeIndexError("runtime_packet_authority_context_mismatch")
+        identity = _runtime_object(packet.get("packet_identity"), "packet_identity")
+        identifier = _runtime_record_id(identity.get("packet_id"), "runtime-observation:")
+        sequence = _runtime_nonnegative_int(identity.get("packet_sequence"), "packet_sequence")
+        if identity.get("subject_run_key") != subject["subject_run_key"]:
+            raise RuntimeIndexError("runtime_packet_identity_subject_mismatch")
+        if identifier in ids or sequence in sequences:
+            raise RuntimeIndexError("runtime_packet_duplicate_identity_or_sequence")
+        ids.add(identifier)
+        sequences.add(sequence)
+        previous = identity.get("previous_packet_sha256")
+        if sequence == 0:
+            if previous is not None:
+                raise RuntimeIndexError("runtime_root_predecessor_not_null")
+        elif not isinstance(previous, str) or not _SHA256.fullmatch(previous):
+            raise RuntimeIndexError("runtime_predecessor_digest_invalid")
+        parsed.append((source, packet, _runtime_sha(source.data)))
+    if not parsed:
+        raise RuntimeIndexError("runtime_packet_set_empty")
+    if len(statuses) != 1:
+        raise RuntimeIndexError("runtime_packet_mixed_record_status")
+    parsed.sort(key=lambda item: item[1]["packet_identity"]["packet_sequence"])
+    all_digests = {digest for _, _, digest in parsed}
+    previous_sequence: int | None = None
+    previous_digest: str | None = None
+    missing_ranges: list[dict[str, int]] = []
+    inventory: list[dict[str, Any]] = []
+    records: dict[str, dict[str, Any]] = {name: {} for name in _RECORD_KINDS}
+    collectors: list[dict[str, Any]] = []
+    for source, packet, digest in parsed:
+        identity = packet["packet_identity"]
+        sequence = identity["packet_sequence"]
+        predecessor = identity["previous_packet_sha256"]
+        expected_sequence = 0 if previous_sequence is None else previous_sequence + 1
+        if sequence != expected_sequence:
+            missing_ranges.append({"first_sequence": expected_sequence, "last_sequence": sequence - 1})
+            if predecessor in all_digests:
+                raise RuntimeIndexError("runtime_predecessor_contradicts_sequence_gap")
+        elif previous_sequence is not None and predecessor != previous_digest:
+            raise RuntimeIndexError("runtime_predecessor_digest_mismatch")
+        previous_sequence, previous_digest = sequence, digest
+        coverage = _runtime_object(packet.get("coverage"), "runtime_coverage")
+        overall = coverage.get("coverage_status")
+        if overall not in {"complete", "partial", "unknown"}:
+            raise RuntimeIndexError("runtime_overall_coverage_invalid")
+        inventory.append({
+            "source_locator": source.locator, "sha256": digest,
+            "size_bytes": len(source.data), "packet_id": identity["packet_id"],
+            "packet_sequence": sequence, "previous_packet_sha256": predecessor,
+            "overall_coverage_status": overall,
+        })
+        for kind, (key, prefix) in _RECORD_KINDS.items():
+            rows = packet.get(kind)
+            if not isinstance(rows, list):
+                raise RuntimeIndexError(f"runtime_{kind}_not_array")
+            within_packet: set[str] = set()
+            for position, value in enumerate(rows):
+                row = _runtime_object(value, f"runtime_{kind}_record")
+                identifier = _runtime_record_id(row.get(key), prefix)
+                if identifier in within_packet:
+                    raise RuntimeIndexError("runtime_duplicate_record_within_packet")
+                within_packet.add(identifier)
+                reference = {"packet_sha256": digest, "json_pointer": f"/{kind}/{position}"}
+                old = records[kind].get(identifier)
+                if old is None:
+                    records[kind][identifier] = {"record": _runtime_copy(row), "source_refs": [reference]}
+                else:
+                    if _runtime_canonical(old["record"]) != _runtime_canonical(row):
+                        raise RuntimeIndexError("runtime_conflicting_repeated_record")
+                    old["source_refs"].append(reference)
+        boundary = _runtime_object(packet.get("observation_boundary"), "runtime_observation_boundary")
+        if boundary.get("subject_run_key") != subject["subject_run_key"]:
+            raise RuntimeIndexError("runtime_boundary_subject_mismatch")
+        if boundary.get("observer_in_subject_totals") is not False:
+            raise RuntimeIndexError("runtime_observer_in_subject_totals")
+        collector_id = _runtime_record_id(boundary.get("collector_execution_id"), "execution:")
+        collector = next((r for r in packet["executions"] if r["execution_id"] == collector_id), None)
+        if collector is None or collector.get("execution_scope") != "observation_collector":
+            raise RuntimeIndexError("runtime_collector_identity_or_scope_mismatch")
+        binding = _runtime_object(collector.get("run_binding"), "runtime_collector_binding")
+        if binding.get("execution_run_key") != boundary.get("collector_run_key"):
+            raise RuntimeIndexError("runtime_collector_run_key_mismatch")
+        producer = _runtime_object(packet.get("producer"), "runtime_producer")
+        if producer.get("producer_execution_id") != collector_id:
+            raise RuntimeIndexError("runtime_producer_collector_mismatch")
+        collectors.append({
+            "packet_sha256": digest, "collector_execution_id": collector_id,
+            "collector_run_key": boundary["collector_run_key"],
+            "producer": _runtime_copy(producer),
+            "observation_boundary": _runtime_copy(boundary),
+        })
+    execution_rows = {key: item["record"] for key, item in records["executions"].items()}
+    state_rows = {key: item["record"] for key, item in records["state_observations"].items()}
+    for identifier, execution in execution_rows.items():
+        scope = execution.get("execution_scope")
+        if scope not in _OBSERVER_SCOPES | {"subject"}:
+            raise RuntimeIndexError("runtime_execution_scope_invalid")
+        binding = _runtime_object(execution.get("run_binding"), "runtime_execution_binding")
+        if binding.get("subject_run_key") != subject["subject_run_key"] or binding.get("binding_complete") is not True:
+            raise RuntimeIndexError("runtime_execution_subject_binding_incomplete")
+        if scope == "subject" and (
+            binding.get("execution_run_key") != subject["subject_run_key"]
+            or binding.get("binding_mode") != "current_subject_run"
+            or execution.get("declared_role") == "observer"
+        ):
+            raise RuntimeIndexError("runtime_subject_observer_mixing")
+        if scope in _OBSERVER_SCOPES and execution.get("declared_role") != "observer":
+            raise RuntimeIndexError("runtime_observer_role_mismatch")
+        parent_id = execution.get("parent_execution_id")
+        if parent_id is not None:
+            parent = execution_rows.get(parent_id)
+            if parent is None or parent_id == identifier:
+                raise RuntimeIndexError("runtime_parent_missing_or_self")
+            if parent.get("execution_scope") != scope:
+                raise RuntimeIndexError("runtime_parent_scope_mismatch")
+        for field in ("input_state_ids", "output_state_ids"):
+            linked = _runtime_string_list(execution.get(field), f"runtime_{field}")
+            if any(state_id not in state_rows for state_id in linked):
+                raise RuntimeIndexError("runtime_execution_state_missing")
+    # Reject arbitrary parent cycles, including cycles longer than two nodes.
+    completed: set[str] = set()
+    for identifier in sorted(execution_rows):
+        path: set[str] = set()
+        cursor: str | None = identifier
+        while cursor is not None and cursor not in completed:
+            if cursor in path:
+                raise RuntimeIndexError("runtime_parent_cycle")
+            path.add(cursor)
+            cursor = execution_rows[cursor].get("parent_execution_id")
+        completed.update(path)
+    # v0 permits a producer to record internal/request state as well as
+    # exported outputs. Preserve that declaration without inventing an output.
+    related_by_execution = {rid: set(row["input_state_ids"]) | set(row["output_state_ids"])
+                            for rid, row in execution_rows.items()}
+    for kind in ("external_calls", "model_inferences"):
+        for entry in records[kind].values():
+            row = entry["record"]
+            parent = row.get("parent_execution_id")
+            if parent in related_by_execution:
+                ins, outs = runtime_activity_io(kind, row)
+                related_by_execution[parent].update(ins)
+                related_by_execution[parent].update(outs)
+    for identifier, state in state_rows.items():
+        if state.get("subject_run_key") != subject["subject_run_key"]:
+            raise RuntimeIndexError("runtime_state_subject_mismatch")
+        producer_id = state.get("producer_execution_id")
+        if producer_id is not None and (
+            producer_id not in execution_rows or identifier not in related_by_execution[producer_id]
+        ):
+            raise RuntimeIndexError("runtime_state_producer_mismatch")
+    for kind in ("external_calls", "model_inferences"):
+        for entry in records[kind].values():
+            if entry["record"].get("parent_execution_id") not in execution_rows:
+                raise RuntimeIndexError("runtime_activity_parent_missing")
+    for kind in records:
+        records[kind] = dict(sorted(records[kind].items()))
+        for entry in records[kind].values():
+            entry["source_refs"].sort(key=lambda item: (item["packet_sha256"], item["json_pointer"]))
+    return {
+        "internal_profile": "pulsemech_runtime_packet_index_v0",
+        "record_status": next(iter(statuses)), "subject_context": subject,
+        "authority_inputs": authority, "packet_inventory": inventory,
+        "supplied_sequence_status": "rooted_contiguous" if not missing_ranges else "incomplete",
+        "missing_sequence_ranges": missing_ranges,
+        # No terminal closure proof exists in the v0 packet identity itself.
+        "terminal_observation_extent": "unknown", "records": records,
+        "collectors": collectors,
+        "counts": {
+            "subject_execution_occurrences": sum(r["execution_scope"] == "subject" for r in execution_rows.values()),
+            "observer_execution_occurrences": sum(r["execution_scope"] in _OBSERVER_SCOPES for r in execution_rows.values()),
+            "unique_state_records": len(state_rows),
+            "supplied_packet_count": len(inventory),
+        },
+    }
+
+
+def runtime_effective_source_identity(identity: Any, *, record_status: str) -> dict[str, Any]:
+    """Separate a retained source declaration from verified source identity.
+
+    This pure runtime profile receives packet bytes, not authenticated Git blobs
+    for each execution's revision/path. An observed repository-file claim must
+    therefore remain partial, even when all its digest strings are well formed.
+    Exact fixture identities are permitted only in explicitly example records;
+    they never establish historical source authenticity. The raw packet/index
+    record is preserved without modification.
+    """
+    if not isinstance(identity, dict):
+        return {}
+    result = _runtime_copy(identity)
+    if (record_status != "example" and result.get("source_kind") == "repository_file"
+            and result.get("identity_status") == "exact"):
+        result["identity_status"] = "partial"
+    return result
+
+
+def _runtime_exact_source(identity: Any, *, record_status: str) -> bool:
+    identity = runtime_effective_source_identity(identity, record_status=record_status)
+    if not isinstance(identity, dict) or identity.get("identity_status") != "exact":
+        return False
+    kind = identity.get("source_kind")
+    path = identity.get("source_path_or_uri")
+    digest = identity.get("source_sha256")
+    if kind == "repository_file":
+        revision = identity.get("source_revision")
+        return (isinstance(path, str) and bool(path) and isinstance(revision, str)
+                and bool(_SHA40.fullmatch(revision)) and isinstance(digest, str)
+                and bool(_SHA256.fullmatch(digest)))
+    if kind == "github_action":
+        commit = identity.get("action_commit_sha")
+        return (isinstance(identity.get("action_repository"), str)
+                and bool(identity["action_repository"])
+                and isinstance(identity.get("action_ref"), str)
+                and bool(identity["action_ref"]) and isinstance(commit, str)
+                and bool(_SHA40.fullmatch(commit)))
+    if kind == "container_image":
+        image_digest = identity.get("container_image_digest")
+        return (isinstance(path, str) and bool(path) and isinstance(image_digest, str)
+                and image_digest.startswith("sha256:")
+                and bool(_SHA256.fullmatch(image_digest[7:])))
+    return (kind in {"builtin", "external_service", "model"}
+            and isinstance(path, str) and bool(path) and isinstance(digest, str)
+            and bool(_SHA256.fullmatch(digest)))
+
+
+
+def _runtime_execution_evidence_is_recorded(record: dict[str, Any], *, record_status: str) -> bool:
+    """Check invocation evidence without assigning a subject/observer role.
+
+    A completed failure may have consumed inputs. Skipped, cancelled, unknown
+    and incomplete results cannot establish a fully recorded invocation.
+    """
+    result = record.get("result", {})
+    command = record.get("command_identity", {})
+    return (
+        record.get("capture_status") == "complete"
+        and _runtime_exact_source(record.get("source_identity"), record_status=record_status)
+        and isinstance(result, dict)
+        and result.get("lifecycle_status") == "completed"
+        and result.get("result_status") == "complete"
+        and result.get("outcome") in {"success", "failure"}
+        and isinstance(command, dict)
+        and command.get("command_kind") not in {None, "unknown"}
+        and all(isinstance(command.get(key), str) and _SHA256.fullmatch(command[key])
+                for key in ("command_sha256", "arguments_sha256"))
+    )
+
+
+def _runtime_qualifying_execution(
+    record: dict[str, Any], subject_key: str, *, record_status: str,
+) -> bool:
+    """Require recorded SUBJECT work; observer qualification is separate."""
+    binding = record.get("run_binding", {})
+    return (
+        record.get("execution_scope") == "subject"
+        and binding.get("binding_complete") is True
+        and binding.get("subject_run_key") == subject_key
+        and binding.get("execution_run_key") == subject_key
+        and binding.get("binding_mode") == "current_subject_run"
+        and _runtime_execution_evidence_is_recorded(record, record_status=record_status)
+    )
+
+
+def assess_runtime_output_consumption(
+    index: dict[str, Any], *, producer_execution_id: str,
+    required_output_state_ids: list[str],
+    required_consumer_execution_ids: Mapping[str, list[str]] | None = None,
+) -> dict[str, Any]:
+    """Assess EVERY required output using subject-consumer evidence only.
+
+    Requirement applicability must come from the bound plan before calling this
+    function. Empty requirements are not inferred from an empty observed list.
+    A missing consumer stays unresolved; absence is never proved here.
+    This direct-execution view intentionally excludes call/inference consumers.
+    It delegates consumer qualification to the same typed consumption index
+    used by runtime reports; typed relations use runtime_consumption_map().
+    """
+    required = _runtime_string_list(required_output_state_ids, "required_outputs")
+    expected_consumers: dict[str, list[str]] = {}
+    if required_consumer_execution_ids is not None:
+        if not isinstance(required_consumer_execution_ids, Mapping):
+            raise RuntimeIndexError("required_consumers_not_mapping")
+        if not set(required_consumer_execution_ids).issubset(required):
+            raise RuntimeIndexError("required_consumer_state_not_required")
+        for state_id, consumer_ids in required_consumer_execution_ids.items():
+            ids = _runtime_string_list(consumer_ids, "required_consumer_ids")
+            for identifier in ids:
+                _runtime_record_id(identifier, "execution:")
+            expected_consumers[state_id] = sorted(ids)
+    subject_key = index["subject_context"]["subject_run_key"]
+    executions = index["records"]["executions"]
+    states = index["records"]["state_observations"]
+    producer_entry = executions.get(producer_execution_id)
+    if producer_entry is None:
+        raise RuntimeIndexError("runtime_required_producer_missing")
+    producer = producer_entry["record"]
+    if producer.get("execution_scope") != "subject":
+        raise RuntimeIndexError("runtime_required_producer_is_observer")
+    direct_index = {**index, "records": {**index["records"], "external_calls": {}, "model_inferences": {}}}
+    qualified_consumers = runtime_consumption_map(direct_index)
+    results: dict[str, Any] = {}
+    for state_id in sorted(required):
+        entry = states.get(state_id)
+        state = entry["record"] if entry is not None else {}
+        reasons: set[str] = set()
+        consumers: list[str] = []
+        refs: list[dict[str, Any]] = []
+        if not state:
+            reasons.add("required_state_unavailable")
+        digest = state.get("sha256")
+        if (state.get("content_status") != "exact_digest"
+                or not isinstance(digest, str) or not _SHA256.fullmatch(digest)
+                or type(state.get("size_bytes")) is not int or state["size_bytes"] < 0):
+            reasons.add("exact_state_content_unavailable")
+        if (state.get("producer_execution_id") != producer_execution_id
+                or state_id not in producer.get("output_state_ids", [])):
+            reasons.add("runtime_production_unresolved")
+        if not _runtime_qualifying_execution(producer, subject_key, record_status=index["record_status"]):
+            reasons.add("producer_execution_binding_unresolved")
+        for identifier in qualified_consumers.get(state_id, []):
+            if identifier != producer_execution_id:
+                consumers.append(identifier)
+                refs.extend(_runtime_copy(executions[identifier]["source_refs"]))
+        missing_expected = sorted(set(expected_consumers.get(state_id, [])) - set(consumers))
+        if missing_expected:
+            reasons.add("required_consumer_execution_unresolved")
+        if not consumers:
+            reasons.add("qualifying_subject_consumption_unresolved")
+        if entry is not None:
+            refs.extend(_runtime_copy(entry["source_refs"]))
+        refs.extend(_runtime_copy(producer_entry["source_refs"]))
+        unique_refs = {_runtime_canonical(ref): ref for ref in refs}
+        results[state_id] = {
+            "status": "observed" if not reasons else "unresolved",
+            "consumer_execution_ids": consumers,
+            "required_consumer_execution_ids": expected_consumers.get(state_id, []),
+            "unresolved_required_consumer_execution_ids": missing_expected,
+            "unresolved_reasons": sorted(reasons),
+            "source_refs": [unique_refs[key] for key in sorted(unique_refs)],
+        }
+    return {
+        "status": "not_applicable" if not required else
+                  "observed" if all(row["status"] == "observed" for row in results.values()) else
+                  "unresolved",
+        "required_outputs": results,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Source-bound runtime report construction. No filesystem reads on this path.
+# ---------------------------------------------------------------------------
+
+RUNTIME_REPORT_PROFILE = "pulsemech_runtime_report_binding_v0"
+RUNTIME_COMPARISON_PROFILE = "pulsemech_runtime_comparison_v0"
+
+
+def runtime_context_from_subject_input(packet: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Translate verified subject descriptors without normalizing policy order."""
+    subject = _runtime_subject(packet["subject"])
+    authority = {}
+    for role in ("workflow", "policy", "gate_registry"):
+        source = packet["authority_sources"][role]
+        authority[role] = {
+            "role": role, "path": source["path_or_uri"],
+            "source_commit": source["source_revision"], "sha256": source["sha256"],
+        }
+    return subject, _runtime_authority(authority, subject["source_commit"])
+
+
+def runtime_graph_id(prefix: str, subject: dict[str, Any], kind: str, identifier: str) -> str:
+    # Full digest; identity includes the occurrence, not its display name/content.
+    return prefix + ":runtime:" + _runtime_sha(_runtime_canonical([
+        subject, kind, identifier,
+    ]))
+
+
+def runtime_activity_io(kind: str, row: dict[str, Any]) -> tuple[list[str], list[str]]:
+    if kind == "executions":
+        return row["input_state_ids"], row["output_state_ids"]
+    if kind == "external_calls":
+        return row["request"]["payload"]["state_ids"], row["response"]["payload"]["state_ids"]
+    return row["request"]["input_state_ids"], row["response"]["output_state_ids"]
+
+
+def runtime_activity_context(index: dict[str, Any], kind: str, row: dict[str, Any]) -> dict[str, Any]:
+    return row if kind == "executions" else index["records"]["executions"][row["parent_execution_id"]]["record"]
+
+
+def _runtime_activity_payload_is_recorded(kind: str, row: dict[str, Any], subject_key: str) -> bool:
+    if kind == "executions":
+        return True
+    result = row["result"]
+    if (row["subject_run_key"] != subject_key or row["capture_status"] != "complete"
+            or result["lifecycle_status"] != "completed"
+            or result["outcome"] not in {"success", "failure"}
+            or result["result_status"] != "complete"):
+        return False
+    if kind == "external_calls":
+        return row["request"]["payload"]["capture_status"] == "exact_digest"
+    return bool(row["request"]["request_metadata_sha256"])
+
+
+def runtime_activity_is_recorded(index: dict[str, Any], kind: str, row: dict[str, Any]) -> bool:
+    """Recorded subject invocation only; an observer never consumes for it.
+
+    Service content identity and token usage are different axes from request
+    consumption. A recorded request need not prove exact provider code identity.
+    """
+    context = runtime_activity_context(index, kind, row)
+    key = index["subject_context"]["subject_run_key"]
+    if not _runtime_qualifying_execution(context, key, record_status=index["record_status"]):
+        return False
+    return _runtime_activity_payload_is_recorded(kind, row, key)
+
+
+def runtime_observation_is_recorded(index: dict[str, Any], kind: str, row: dict[str, Any]) -> bool:
+    """Qualify comparison observations without adding observers to subject work.
+
+    The packet index already checks the collector's declared run against the
+    observation boundary. Its separate run is allowed, but source, command,
+    capture and completed-result evidence remain mandatory for the comparison.
+    This function MUST NOT be used to qualify subject consumption or production.
+    """
+    context = runtime_activity_context(index, kind, row)
+    if context.get("execution_scope") == "subject":
+        return runtime_activity_is_recorded(index, kind, row)
+    binding = context.get("run_binding", {})
+    key = index["subject_context"]["subject_run_key"]
+    return (
+        context.get("execution_scope") in _OBSERVER_SCOPES
+        and context.get("declared_role") == "observer"
+        and binding.get("binding_complete") is True
+        and binding.get("subject_run_key") == key
+        and isinstance(binding.get("execution_run_key"), str)
+        and bool(binding["execution_run_key"])
+        and binding.get("binding_mode") in {"current_subject_run", "post_run_observer", "external_export"}
+        and (binding["binding_mode"] != "current_subject_run" or binding["execution_run_key"] == key)
+        and _runtime_execution_evidence_is_recorded(context, record_status=index["record_status"])
+        and _runtime_activity_payload_is_recorded(kind, row, key)
+    )
+
+
+def runtime_exact_state(row: dict[str, Any]) -> bool:
+    return (row["content_status"] == "exact_digest"
+            and isinstance(row["sha256"], str) and bool(_SHA256.fullmatch(row["sha256"]))
+            and type(row["size_bytes"]) is int and row["size_bytes"] >= 0)
+
+
+def runtime_consumption_map(index: dict[str, Any]) -> dict[str, list[str]]:
+    """Each state retains its own qualified subject consumers; no any-state fold."""
+    consumers: dict[str, list[str]] = {sid: [] for sid in index["records"]["state_observations"]}
+    for kind in ("executions", "external_calls", "model_inferences"):
+        for identifier, entry in index["records"][kind].items():
+            row = entry["record"]
+            if not runtime_activity_is_recorded(index, kind, row):
+                continue
+            parent = identifier if kind == "executions" else row["parent_execution_id"]
+            for sid in runtime_activity_io(kind, row)[0]:
+                state = index["records"]["state_observations"][sid]["record"]
+                if runtime_exact_state(state) and state["producer_execution_id"] not in {identifier, parent}:
+                    consumers[sid].append(identifier)
+    return {sid: sorted(set(ids)) for sid, ids in sorted(consumers.items())}
+
+
+def runtime_recorded_output_classes(index: dict[str, Any], kind: str, row: dict[str, Any]) -> list[str]:
+    """Permission and an unresolved output declaration are not observed writes."""
+    if not runtime_activity_is_recorded(index, kind, row):
+        return []
+    parent = row["execution_id"] if kind == "executions" else row["parent_execution_id"]
+    classes = set()
+    for sid in runtime_activity_io(kind, row)[1]:
+        state = index["records"]["state_observations"][sid]["record"]
+        if runtime_exact_state(state) and state["producer_execution_id"] == parent and state["mutation_class"] != "none":
+            classes.add(state["mutation_class"])
+    return sorted(classes)
+
+
+def runtime_extent_and_relations(index: dict[str, Any], extent_bytes: bytes | None) -> dict[str, Any]:
+    """No v0 observed packet can attest its own full observation extent.
+
+    A separately supplied example-only boundary enables positive contract tests.
+    It is NEVER accepted as an observed/full-run extent. Its requirement lists
+    precede and are compared with the recorded lists, not generated from them.
+    """
+    result = {"extent_status": "unknown", "relational_coverage_status": "partial",
+              "extent_sha256": None, "extent_size_bytes": None,
+              "unresolved_reasons": ["observation_extent_unavailable"]}
+    if extent_bytes is None:
+        return result
+    extent = _runtime_load(extent_bytes)
+    if index["record_status"] != "example" or extent.get("profile") != "synthetic_runtime_extent_v0":
+        raise RuntimeIndexError("runtime_extent_observed_profile_not_supported")
+    if set(extent) != {"profile", "record_status", "subject_context", "requirements", "terminal_packet_sha256"}:
+        raise RuntimeIndexError("runtime_extent_fields_invalid")
+    if extent["record_status"] != "example" or extent["subject_context"] != index["subject_context"]:
+        raise RuntimeIndexError("runtime_extent_subject_or_status_mismatch")
+    requirements = extent["requirements"]
+    if not isinstance(requirements, dict) or not requirements:
+        raise RuntimeIndexError("runtime_extent_requirements_empty")
+    result.update(extent_sha256=_runtime_sha(extent_bytes), extent_size_bytes=len(extent_bytes))
+    actual = {}
+    for kind in ("executions", "external_calls", "model_inferences"):
+        for rid, entry in index["records"][kind].items():
+            row = entry["record"]
+            if runtime_activity_context(index, kind, row)["execution_scope"] == "subject":
+                actual[rid] = (kind, row)
+    reasons = set()
+    if set(requirements) != set(actual):
+        reasons.add("execution_extent_mismatch")
+    if (index["supplied_sequence_status"] != "rooted_contiguous"
+            or extent["terminal_packet_sha256"] != index["packet_inventory"][-1]["sha256"]):
+        reasons.add("terminal_packet_extent_mismatch")
+    consumers = runtime_consumption_map(index)
+    for rid, req in requirements.items():
+        if not isinstance(req, dict) or set(req) != {"input_state_ids", "output_state_ids", "required_consumers"}:
+            raise RuntimeIndexError("runtime_extent_requirement_fields_invalid")
+        ins = _runtime_string_list(req["input_state_ids"], "extent_inputs")
+        outs = _runtime_string_list(req["output_state_ids"], "extent_outputs")
+        cr = req["required_consumers"]
+        if not isinstance(cr, dict) or set(cr) != set(outs):
+            raise RuntimeIndexError("runtime_extent_output_consumer_partition_invalid")
+        for sid, ids in cr.items():
+            _runtime_string_list(ids, "extent_consumers")
+            if not ids or any(i not in requirements or i == rid for i in ids):
+                raise RuntimeIndexError("runtime_extent_consumer_not_in_extent")
+        if rid not in actual:
+            continue
+        kind, row = actual[rid]
+        ai, ao = runtime_activity_io(kind, row)
+        if set(ai) != set(ins) or set(ao) != set(outs):
+            reasons.add("runtime_io_extent_mismatch")
+        if not runtime_activity_is_recorded(index, kind, row):
+            reasons.add("execution_observation_unresolved")
+        context = runtime_activity_context(index, kind, row)
+        if context["declared_role"] == "unknown":
+            reasons.add("declared_role_unavailable")
+        if kind == "external_calls":
+            # v0 service identity has no immutable implementation content pin.
+            reasons.add("external_service_content_identity_unavailable")
+        if kind == "model_inferences" and row["model_identity"]["model_content_digest_status"] != "exact_digest":
+            reasons.add("model_content_identity_unavailable")
+        for sid in set(ins + outs):
+            state = index["records"]["state_observations"].get(sid, {}).get("record")
+            if state is None or not runtime_exact_state(state):
+                reasons.add("state_content_unavailable")
+        for sid in outs:
+            state = index["records"]["state_observations"].get(sid, {}).get("record", {})
+            parent = rid if kind == "executions" else row["parent_execution_id"]
+            if state.get("producer_execution_id") != parent:
+                reasons.add("state_production_unresolved")
+            if not set(cr[sid]).issubset(consumers.get(sid, [])):
+                reasons.add("required_output_consumption_unresolved")
+    result["extent_status"] = "complete" if not reasons.intersection({"execution_extent_mismatch", "terminal_packet_extent_mismatch"}) else "partial"
+    result["relational_coverage_status"] = "complete" if not reasons else "partial"
+    result["unresolved_reasons"] = sorted(reasons)
+    return result
+
+
+def runtime_source_projection(kind: str, row: dict[str, Any]) -> dict[str, Any]:
+    """The compact graph view never overwrites the full source record in binding."""
+    if kind == "executions":
+        src = row["source_identity"]
+        source_kind = src["source_kind"]
+        if source_kind == "github_action":
+            return source_identity(source_kind="action", path_or_uri=src["action_repository"],
+                                   revision=src["action_commit_sha"] or src["action_ref"], sha256=None)
+        if source_kind == "container_image":
+            return source_identity(source_kind=source_kind, path_or_uri=src["source_path_or_uri"],
+                                   revision=src["container_image_digest"], sha256=src["source_sha256"])
+        return source_identity(source_kind=source_kind, path_or_uri=src["source_path_or_uri"],
+                               revision=src["source_revision"], sha256=src["source_sha256"])
+    if kind == "external_calls":
+        src = row["service_identity"]
+        return source_identity(source_kind="external_service", path_or_uri=src["endpoint_origin"] or src["service_name"],
+                               revision=src["api_version"], sha256=None)
+    src = row["model_identity"]
+    return source_identity(source_kind="model", path_or_uri=src["model_id"],
+                           revision=src["model_revision"], sha256=src["model_sha256"])
+
+
+def build_runtime_report(
+    *, baseline_bytes: bytes, subject_input_bytes: bytes, carrier_bytes: bytes,
+    packet_sources: Iterable[RuntimePacketSource], entrypoint_sha256: str,
+    analyzer_sha256: str, extent_bytes: bytes | None = None,
+) -> dict[str, Any]:
+    """Construct the runtime projection; upstream validation belongs to bridge.
+
+    The original artifact graph remains separately identifiable and unchanged.
+    New nodes do not imply measured resources or terminal observation closure.
+    """
+    baseline = _runtime_load(baseline_bytes)
+    subject_input = _runtime_load(subject_input_bytes)
+    context, authority = runtime_context_from_subject_input(subject_input)
+    if baseline["analysis_boundary"]["analysis_level"] != "artifact_observed" or "runtime_binding" in baseline:
+        raise RuntimeIndexError("runtime_baseline_not_artifact_observed")
+    bs = baseline["subject"]
+    for key in _SUBJECT_FIELDS:
+        expected = context[key]
+        if key == "workflow_name": actual = bs["workflow"]
+        elif key == "subject_run_key": actual = baseline["analysis_boundary"][key]
+        elif key == "active_policy_sets": actual, expected = bs[key], sorted(expected)
+        else: actual = bs[key]
+        if actual != expected:
+            raise RuntimeIndexError("runtime_baseline_subject_mismatch:" + key)
+    if baseline.get("ok") is not True or baseline.get("errors") != []:
+        raise RuntimeIndexError("runtime_baseline_not_valid")
+    for field in ("policy_id", "policy_sha256", "materialized_gate_set_sha256",
+                  "final_status_sha256", "release_decision_sha256", "decision"):
+        if baseline["subject"].get(field) != subject_input["subject"].get(field):
+            raise RuntimeIndexError("runtime_baseline_authority_mismatch:" + field)
+    if (baseline["subject"]["policy_sha256"] != authority["policy"]["sha256"]
+            or subject_input["carrier"]["sha256"] != _runtime_sha(carrier_bytes)
+            or subject_input["carrier"]["size_bytes"] != len(carrier_bytes)):
+        raise RuntimeIndexError("runtime_baseline_carrier_or_policy_mismatch")
+    sources = list(packet_sources)
+    index = index_runtime_packet_sources(sources, expected_subject=context, expected_authority_inputs=authority)
+    if index["record_status"] != baseline["record_status"] or subject_input["record_status"] != baseline["record_status"]:
+        raise RuntimeIndexError("runtime_baseline_record_status_mismatch")
+    for digest in (entrypoint_sha256, analyzer_sha256):
+        if not isinstance(digest, str) or not _SHA256.fullmatch(digest):
+            raise RuntimeIndexError("runtime_construction_source_invalid")
+    records = index["records"]
+    # Cross-record relation coherence, beyond references to existing IDs.
+    for kind, idfield in (("external_calls", "external_call_ids"), ("model_inferences", "model_inference_ids")):
+        for rid, entry in records[kind].items():
+            row = entry["record"]
+            parent = records["executions"][row["parent_execution_id"]]["record"]
+            if row["subject_run_key"] != context["subject_run_key"] or rid not in parent[idfield]:
+                raise RuntimeIndexError("runtime_activity_parent_binding_mismatch")
+            for sid in sum((list(x) for x in runtime_activity_io(kind, row)), []):
+                if sid not in records["state_observations"]:
+                    raise RuntimeIndexError("runtime_activity_state_missing")
+    report = _runtime_copy(baseline)
+    node_ids = {rid: runtime_graph_id("compute", context, kind, rid)
+                for kind in ("executions", "external_calls", "model_inferences") for rid in records[kind]}
+    state_ids = {rid: runtime_graph_id("state", context, "state_observations", rid)
+                 for rid in records["state_observations"]}
+    edges_origin = {e["edge_id"]: {"evidence_kind": "artifact_observed", "source_refs": []}
+                    for e in baseline["edges"]}
+    correspondence = {"executions": {}, "states": {}}
+    consumers = runtime_consumption_map(index)
+    source_nodes = {}
+    for kind in ("executions", "external_calls", "model_inferences"):
+        for rid, entry in records[kind].items():
+            row = entry["record"]
+            parent = runtime_activity_context(index, kind, row)
+            ins, outs = runtime_activity_io(kind, row)
+            source = runtime_source_projection(kind, row)
+            # Conservative per-node binding; graph identity is not runtime closure.
+            status = "partial"
+            if parent["source_identity"]["identity_status"] == "unknown": status = "unknown"
+            node_type = row["execution_kind"] if kind == "executions" else ("external_service_call" if kind == "external_calls" else "model_inference")
+            node = make_compute_node(
+                node_id=node_ids[rid], node_type=node_type, scope=parent["execution_scope"],
+                role=parent["declared_role"], status=status, source=source,
+                subject_run_key=context["subject_run_key"], analysis_run_key=report["analysis_boundary"]["analysis_run_key"],
+                inputs=[state_ids[i] for i in ins], outputs=[state_ids[i] for i in outs],
+                mutation_authority=parent["permitted_mutation_authority"], observed_mutation=False,
+            )
+            node["run_binding"] = _runtime_copy(parent["run_binding"])
+            node["runtime_origin"] = {"record_kind": kind, "record_id": rid}
+            node["flags"]["resource_measurement_partial"] = bool(baseline["resource_summary"]["axes"])
+            # Actual mutations derive from recorded outputs, not permission.
+            muts = runtime_recorded_output_classes(index, kind, row)
+            node["observed_mutation_classes"] = muts
+            node["unbound_authoritative_mutation"] = bool(set(muts) & AUTHORITATIVE_MUTATION_CLASSES)
+            report["compute_nodes"].append(node)
+            source_nodes[rid] = node
+            correspondence["executions"][rid] = {"node_id": node_ids[rid], "artifact_node_ids": [],
+                                                   "status": "unresolved"}
+    for rid, entry in records["state_observations"].items():
+        row = entry["record"]
+        producer = row["producer_execution_id"]
+        state = make_state_node(
+            state_id=state_ids[rid], state_type=row["state_type"],
+            path_or_uri=row["path_or_uri"] or ("runtime-state:" + rid),
+            sha256=row["sha256"], size_bytes=row["size_bytes"], schema_id=row["schema_identity"],
+            producer_node_id=(node_ids.get(producer) if producer is not None and rid in records["executions"][producer]["record"]["output_state_ids"] else None),
+            subject_run_key=row["subject_run_key"],
+            release_candidate_id=row["release_candidate_id"], policy_relation=None, gate_relation=None,
+            authority_bearing=row["authority_bearing"],
+        )
+        state["runtime_origin"] = {"record_kind": "state_observations", "record_id": rid}
+        report["state_nodes"].append(state)
+        matches = []
+        if row["path_or_uri"] is not None and runtime_exact_state(row):
+            for old in baseline["state_nodes"]:
+                if (old["path_or_uri"] == row["path_or_uri"] and old["state_type"] == row["state_type"]
+                        and old["sha256"] == row["sha256"] and old["subject_run_key"] == row["subject_run_key"]
+                        and old["release_candidate_id"] == row["release_candidate_id"]
+                        and old["authority_bearing"] == row["authority_bearing"]
+                        and old["size_bytes"] in {None, row["size_bytes"]}):
+                    matches.append(old["state_id"])
+        correspondence["states"][rid] = {"state_id": state_ids[rid], "artifact_state_ids": sorted(matches),
+                                           "status": "matched" if len(matches) == 1 else "unresolved"}
+    for kind in ("executions", "external_calls", "model_inferences"):
+        for rid, entry in records[kind].items():
+            row = entry["record"]
+            ins, outs = runtime_activity_io(kind, row)
+            for direction, ids in (("reads", ins), ("produces", outs)):
+                for sid in sorted(set(ids)):
+                    state = records["state_observations"][sid]["record"]
+                    from_id, to_id = ((state_ids[sid], node_ids[rid]) if direction == "reads" else (node_ids[rid], state_ids[sid]))
+                    eid = runtime_graph_id("edge", context, direction, rid + "|" + sid)
+                    observed = runtime_activity_is_recorded(index, kind, row) and runtime_exact_state(state)
+                    if direction == "produces":
+                        producer = rid if kind == "executions" else row["parent_execution_id"]
+                        observed = observed and state["producer_execution_id"] == producer
+                    refs = entry["source_refs"] + records["state_observations"][sid]["source_refs"]
+                    refs = {_runtime_canonical(r): r for r in refs}
+                    report["edges"].append({
+                        "edge_id": eid, "from_id": from_id, "to_id": to_id, "edge_type": direction,
+                        "declared": True, "observed": observed, "binding_status": "complete" if observed else "partial",
+                        "evidence_digests": sorted({r["packet_sha256"] for r in refs.values()} | ({state["sha256"]} if state["sha256"] else set())),
+                        "notes": ["runtime_recorded_relation" if observed else "runtime_relation_unresolved"],
+                    })
+                    edges_origin[eid] = {"evidence_kind": "runtime_recorded" if observed else "runtime_unresolved",
+                                         "source_refs": [refs[r] for r in sorted(refs)]}
+    for name, key in (("compute_nodes", "node_id"), ("state_nodes", "state_id"), ("edges", "edge_id")):
+        report[name].sort(key=lambda r: r[key])
+        if len(report[name]) != len({r[key] for r in report[name]}):
+            raise RuntimeIndexError("runtime_graph_identity_collision")
+    subject_nodes = [n for n in report["compute_nodes"] if n["execution_scope"] == "subject"]
+    counts = Counter(n["binding_class"] for n in subject_nodes)
+    report["summary"].update({"subject_compute_nodes": len(subject_nodes),
+        "observer_nodes": sum(n["execution_scope"] in _OBSERVER_SCOPES for n in report["compute_nodes"]),
+        "decision_closure_complete": False, "authority_binding_complete": False,
+        "unbound_authoritative_mutation_count": sum(n["unbound_authoritative_mutation"] is True for n in subject_nodes),
+        **{field: counts.get(cls, 0) for cls, field in SUMMARY_COUNT_FIELDS.items()}})
+    coverage = runtime_extent_and_relations(index, extent_bytes)
+    report["analysis_boundary"]["analysis_level"] = "runtime_observed"
+    report["tool"] = {"id": "build_pulsemech_compute_binding_report_from_subject_input_v0",
+                      "version": "0.3.0", "source_sha256": entrypoint_sha256}
+    resources = []
+    by_digest = {_runtime_sha(s.data): _runtime_load(s.data) for s in sources}
+    for item in index["packet_inventory"]:
+        p = by_digest[item["sha256"]]
+        resources.append({"packet_sha256": item["sha256"], "coverage": _runtime_copy(p["coverage"]),
+                          "measurements": _runtime_copy(p["resource_measurements"])})
+    report["runtime_binding"] = {
+        "profile": RUNTIME_REPORT_PROFILE,
+        "baseline_report": {"sha256": _runtime_sha(baseline_bytes), "size_bytes": len(baseline_bytes)},
+        "subject_input": {"sha256": _runtime_sha(subject_input_bytes), "size_bytes": len(subject_input_bytes)},
+        "carrier": {"sha256": _runtime_sha(carrier_bytes), "size_bytes": len(carrier_bytes)},
+        "construction": {"entrypoint_sha256": entrypoint_sha256, "analyzer_sha256": analyzer_sha256},
+        "index": index, "correspondence": correspondence, "edge_origins": dict(sorted(edges_origin.items())),
+        "coverage": coverage, "resource_coverage": resources,
+        "extent": _runtime_load(extent_bytes) if extent_bytes is not None else None,
+    }
+    # A separate validation step checks these declarations against exact inputs.
+    return report
 
 
 if __name__ == "__main__":

@@ -312,6 +312,10 @@ def _source_identity_result(
     results: list[str] = []
     for observation in observations:
         observed = observation.get("source_identity", {})
+        if (observation.get("runtime_occurrence_guard") == "no_artifact_occurrence_binding"
+                and observed.get("identity_status") != "exact"):
+            results.append("unavailable")
+            continue
         expected_kind = _source_kind(expected.get("source_kind"))
         observed_kind = _source_kind(observed.get("source_kind"))
         if expected_kind != observed_kind:
@@ -507,6 +511,14 @@ def _relation_expected_evaluation(
 
     if relation_status == "observed_but_not_planned":
         run_result = _run_binding_result(comparison_subject, observations)
+        runtime_observer = bool(observations) and all(
+            row.get("runtime_occurrence_guard") == "no_artifact_occurrence_binding"
+            and row.get("execution_scope") in {"analysis_observer", "observation_collector"}
+            and row.get("binding_class") == "observer"
+            for row in observations
+        )
+        if runtime_observer:
+            run_result = "not_required"
         coverage_result = _relation_coverage_result(observations, coverage)
         return {
             "execution_observation": "observed",
@@ -517,7 +529,7 @@ def _relation_expected_evaluation(
             "authority_class": "not_required",
             "downstream_consumption": "not_required",
             "coverage": coverage_result,
-            "decisive": coverage_result == "complete" and run_result == "match",
+            "decisive": coverage_result == "complete" and (run_result == "match" or runtime_observer),
         }
 
     if expectation is None:
@@ -901,7 +913,7 @@ def semantic_checks(
             observer_boundary_ok = False
 
         expected_unbound_authority = (
-            binding_class == "unbound"
+            (observation.get("binding_status") != "complete" if observation.get("runtime_occurrence_guard") else binding_class == "unbound")
             and bool(mutation_classes & AUTHORITATIVE_MUTATION_CLASSES)
         )
         if observation.get("unbound_authoritative_mutation") is not (
@@ -1127,7 +1139,10 @@ def semantic_checks(
         authority_findings_cover_flags,
     )
 
+    runtime_profile = relation.get("runtime_comparison")
+    runtime_closed = runtime_profile is None or (runtime_profile.get("extent_status") == "complete" and runtime_profile.get("relational_coverage_status") == "complete")
     complete_conditions = (
+        runtime_closed and
         coverage.get("missing_plan_operation_refs") == []
         and unclassified_expectations == []
         and unclassified_observations == []
@@ -1181,6 +1196,7 @@ def build_diagnostic(
     *,
     schema_path: Path,
     relation_path: Path,
+    runtime_inputs: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], int]:
     try:
         schema, _schema_text = load_json(schema_path)
@@ -1237,6 +1253,11 @@ def build_diagnostic(
     else:
         checks["semantic_checks_skipped_due_to_schema_errors"] = False
 
+    if schema_valid and "runtime_comparison" in relation:
+        replay_errors = check_runtime_relation_replay(relation, runtime_inputs)
+        checks["runtime_relation_source_replay_ok"] = not replay_errors
+        errors.extend(replay_errors)
+
     ok = schema_valid and all(checks.values()) and not errors
     diagnostic = make_diagnostic(
         ok=ok,
@@ -1268,6 +1289,14 @@ def parse_args() -> argparse.Namespace:
         "--output",
         help="Optional path for the deterministic diagnostic JSON.",
     )
+    parser.add_argument("--plan")
+    parser.add_argument("--compute-report")
+    parser.add_argument("--subject-input")
+    parser.add_argument("--carrier")
+    parser.add_argument("--repository-root", default=str(ROOT))
+    parser.add_argument("--runtime-packet", action="append", default=[])
+    parser.add_argument("--expectations")
+    parser.add_argument("--runtime-extent")
     return parser.parse_args()
 
 
@@ -1293,9 +1322,39 @@ def main() -> int:
         sys.stderr.write(render_json(diagnostic))
         return 2
 
+    runtime_inputs = None
+    try:
+        relation_view = capture_diagnostic_document(relation_path)
+        schema_view = capture_diagnostic_document(schema_path, max_bytes=1024 * 1024)
+        try:
+            value, _text = load_json(relation_view)
+        except Exception:
+            # Preserve the legacy read/strict-JSON failure diagnostic and exit 2.
+            diagnostic, exit_code = build_diagnostic(schema_path=schema_view, relation_path=relation_view)
+            sys.stdout.write(render_json(diagnostic))
+            return exit_code
+        if isinstance(value, dict) and "runtime_comparison" in value:
+            if output is not None:
+                raise SemanticError("runtime_diagnostic_stdout_only")
+            if not all((args.plan, args.compute_report, args.subject_input, args.carrier, args.runtime_packet)):
+                raise SemanticError("runtime_relation_source_inputs_required")
+            protected = [Path(args.plan), Path(args.compute_report), Path(args.subject_input), Path(args.carrier), *map(Path, args.runtime_packet)]
+            if args.expectations: protected.append(Path(args.expectations))
+            if args.runtime_extent: protected.append(Path(args.runtime_extent))
+            if output is not None and any(same_target(output, path) for path in protected):
+                raise SemanticError("refusing_to_overwrite_runtime_source_input")
+            runtime_inputs = runtime_relation_inputs_from_paths(
+                plan_path=Path(args.plan), report_path=Path(args.compute_report), subject_input_path=Path(args.subject_input),
+                carrier_path=Path(args.carrier), repository_root=Path(args.repository_root), packet_paths=list(map(Path, args.runtime_packet)),
+                expectations_path=Path(args.expectations) if args.expectations else None,
+                extent_path=Path(args.runtime_extent) if args.runtime_extent else None,
+            )
+    except Exception as exc:
+        diagnostic = make_diagnostic(ok=False, schema_valid=False, checks={}, errors=["runtime_intake_failed:" + str(exc)])
+        sys.stdout.write(render_json(diagnostic))
+        return 1
     diagnostic, exit_code = build_diagnostic(
-        schema_path=schema_path,
-        relation_path=relation_path,
+        schema_path=schema_view, relation_path=relation_view, runtime_inputs=runtime_inputs,
     )
     rendered = render_json(diagnostic)
     sys.stdout.write(rendered)
@@ -1305,6 +1364,150 @@ def main() -> int:
         output.write_text(rendered, encoding="utf-8")
 
     return exit_code
+
+
+# ---------------------------------------------------------------------------
+# Source-aware runtime comparison verification. Missing inputs are a failure.
+# ---------------------------------------------------------------------------
+
+
+class RuntimeBytesView:
+    """Immutable read-only document view; never reopens its display path."""
+
+    def __init__(self, data: bytes, label: str = "captured-document") -> None:
+        self.data = data
+        self.label = label
+
+    def read_bytes(self) -> bytes:
+        return self.data
+
+    def read_text(self, encoding: str = "utf-8", errors: str = "strict") -> str:
+        return self.data.decode(encoding, errors)
+
+    def __str__(self) -> str:
+        return self.label
+
+
+def capture_diagnostic_document(path: Path, *, max_bytes: int = 64 * 1024 * 1024) -> RuntimeBytesView:
+    import os
+    import stat
+    absolute = Path(os.path.abspath(path))
+    if os.name != "posix" or not hasattr(os, "O_NOFOLLOW") or os.open not in os.supports_dir_fd:
+        # Preserve the legacy document-only CLI on other platforms. The new
+        # runtime path still requires the bridge's descriptor-based capture.
+        if not absolute.is_file() or absolute.is_symlink() or absolute.stat().st_size > max_bytes:
+            raise ValueError("diagnostic_input_not_bounded_regular_file")
+        data = absolute.read_bytes()
+        if len(data) > max_bytes:
+            raise ValueError("diagnostic_input_too_large")
+        return RuntimeBytesView(data, str(absolute))
+    dflags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+    fd = os.open(absolute.anchor, dflags)
+    filefd = None
+    try:
+        for part in absolute.parts[1:-1]:
+            nextfd = os.open(part, dflags, dir_fd=fd)
+            os.close(fd)
+            fd = nextfd
+        filefd = os.open(absolute.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd)
+        before = os.fstat(filefd)
+        if not stat.S_ISREG(before.st_mode) or before.st_size > max_bytes:
+            raise ValueError("diagnostic_input_not_bounded_regular_file")
+        chunks = []
+        remaining = max_bytes + 1
+        while remaining:
+            part = os.read(filefd, min(1024 * 1024, remaining))
+            if not part:
+                break
+            chunks.append(part)
+            remaining -= len(part)
+        data = b"".join(chunks)
+        after = os.fstat(filefd)
+        if ((before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns)
+                != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns)
+                or len(data) != before.st_size or len(data) > max_bytes):
+            raise ValueError("diagnostic_input_changed_during_capture")
+        return RuntimeBytesView(data, str(absolute))
+    finally:
+        if filefd is not None:
+            os.close(filefd)
+        os.close(fd)
+
+
+def _runtime_report_checker() -> Any:
+    import types
+    path = ROOT / "tools/check_pulsemech_compute_binding_report_v0.py"
+    if path.is_symlink() or not path.is_file():
+        raise SemanticError("runtime_report_checker_unavailable")
+    raw = path.read_bytes()
+    name = "runtime_report_checker_for_relation_" + sha256_bytes(raw)
+    module = types.ModuleType(name)
+    module.__file__ = str(path)
+    sys.modules[name] = module
+    exec(compile(raw, str(path), "exec", dont_inherit=True), module.__dict__)
+    return module
+
+
+def runtime_relation_inputs_from_paths(
+    *, plan_path: Path, report_path: Path, subject_input_path: Path, carrier_path: Path,
+    repository_root: Path, packet_paths: list[Path], expectations_path: Path | None = None,
+    extent_path: Path | None = None,
+) -> dict[str, Any]:
+    checker = _runtime_report_checker()
+    captures = checker.runtime_inputs_from_paths(subject_input_path=subject_input_path, carrier_path=carrier_path,
+        repository_root=repository_root, packet_paths=packet_paths, extent_path=extent_path)
+    bridge = captures["bridge"]
+    plan = bridge.capture_regular_file(plan_path, label="runtime_plan", max_bytes=8 * 1024 * 1024)
+    report = bridge.capture_regular_file(report_path, label="runtime_report", max_bytes=64 * 1024 * 1024)
+    explicit = bridge.capture_regular_file(expectations_path, label="runtime_expectations", max_bytes=8 * 1024 * 1024) if expectations_path else None
+    report_value = json.loads(report.data, object_pairs_hook=reject_duplicate_keys, parse_constant=reject_non_finite)
+    inputs = checker.resolve_runtime_replay_inputs(captures, report_value["analysis_boundary"]["analysis_run_key"])
+    return {"report_inputs": inputs, "report_bytes": report.data, "plan_bytes": plan.data,
+            "expectations_bytes": explicit.data if explicit else None}
+
+
+def check_runtime_relation_replay(relation: dict[str, Any], inputs: dict[str, Any] | None) -> list[str]:
+    if "runtime_comparison" not in relation:
+        return []
+    if inputs is None:
+        return ["runtime_relation_source_inputs_required"]
+    try:
+        checker = _runtime_report_checker()
+        bridge = checker._runtime_module(ROOT / "tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py", "bridge_for_runtime_relation_check")
+        def view(raw: bytes, label: str) -> Any:
+            return bridge.CapturedPathView(bridge.CapturedFile(path=Path(label), data=raw, device=0, inode=0, size_bytes=len(raw), sha256=sha256_bytes(raw)))
+        report_bytes = inputs["report_bytes"]
+        report = json.loads(report_bytes, object_pairs_hook=reject_duplicate_keys, parse_constant=reject_non_finite)
+        report_schema = bridge.capture_regular_file(ROOT / "schemas/pulsemech_compute_binding_report_v0.schema.json", label="runtime_report_schema")
+        diagnostic, rc = checker.build_diagnostic(bridge.CapturedPathView(report_schema), view(report_bytes, "runtime_report"), runtime_inputs=inputs["report_inputs"])
+        if rc != 0:
+            raise SemanticError("runtime_report_replay_failed:" + json.dumps(diagnostic["errors"]))
+        path = ROOT / "tools/build_pulsemech_compute_planned_observed_relation_v0.py"
+        builder = checker._runtime_module(path, "runtime_relation_builder_replay", expected_sha256=relation["tool"]["source_sha256"])
+        # Observed relation records retain the existing committed-code binding.
+        revision = builder.resolve_runtime_tool_source_revision(relation["tool"]["source_revision"], record_status=relation["record_status"])
+        plan_raw = inputs["plan_bytes"]
+        plan = json.loads(plan_raw, object_pairs_hook=reject_duplicate_keys, parse_constant=reject_non_finite)
+        plan_schema = json.loads(bridge.capture_regular_file(ROOT / "schemas/pulsemech_integration_plan_v0.schema.json", label="runtime_plan_schema").data)
+        builder.validate_document(schema=plan_schema, value=plan, label="runtime_plan")
+        explicit_raw = inputs["expectations_bytes"]
+        explicit = builder.extract_expectations(json.loads(explicit_raw, object_pairs_hook=reject_duplicate_keys, parse_constant=reject_non_finite)) if explicit_raw is not None else {}
+        relation_schema = json.loads(bridge.capture_regular_file(DEFAULT_SCHEMA, label="runtime_relation_schema").data)
+        builder.validate_document(schema=builder.expectations_input_schema(relation_schema), value=explicit, label="runtime_expectations")
+        packets = [(json.loads(raw, object_pairs_hook=reject_duplicate_keys, parse_constant=reject_non_finite), raw, locator)
+                   for locator, raw in inputs["report_inputs"]["packet_sources"]]
+        expected = builder.build_relation_record(
+            plan=plan, plan_bytes=plan_raw, plan_path_or_uri="sha256:" + sha256_bytes(plan_raw),
+            report=report, report_bytes=report_bytes, report_path_or_uri="sha256:" + sha256_bytes(report_bytes),
+            packets=packets, explicit_expectations=explicit,
+            relation_id=relation["comparison_identity"]["relation_record_id"], tool_source_revision=revision,
+            expectations_bytes=explicit_raw,
+        )
+        if expected != relation:
+            raise SemanticError("runtime_relation_source_replay_mismatch")
+        return []
+    except Exception as exc:
+        return ["runtime_relation_source_validation_failed:" + str(exc)]
 
 
 if __name__ == "__main__":

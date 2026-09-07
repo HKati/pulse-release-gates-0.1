@@ -109,6 +109,42 @@
     },
     "authority_boundary": {
       "$ref": "#/$defs/authority_boundary"
+    },
+    "runtime_comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "runtime_binding_sha256",
+        "extent_status",
+        "relational_coverage_status",
+        "expectations_sha256"
+      ],
+      "properties": {
+        "profile": {
+          "const": "pulsemech_runtime_comparison_v0"
+        },
+        "runtime_binding_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "extent_status": {
+          "enum": [
+            "unknown",
+            "partial",
+            "complete"
+          ]
+        },
+        "relational_coverage_status": {
+          "enum": [
+            "unknown",
+            "partial",
+            "complete"
+          ]
+        },
+        "expectations_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        }
+      }
     }
   },
   "$defs": {
@@ -2281,6 +2317,9 @@
         },
         "unbound_authoritative_mutation": {
           "type": "boolean"
+        },
+        "runtime_occurrence_guard": {
+          "const": "no_artifact_occurrence_binding"
         }
       },
       "allOf": [
@@ -2394,13 +2433,48 @@
           "if": {
             "allOf": [
               {
-                "properties": {
-                  "binding_class": {
-                    "const": "unbound"
+                "anyOf": [
+                  {
+                    "allOf": [
+                      {
+                        "not": {
+                          "required": [
+                            "runtime_occurrence_guard"
+                          ]
+                        }
+                      },
+                      {
+                        "properties": {
+                          "binding_class": {
+                            "const": "unbound"
+                          }
+                        },
+                        "required": [
+                          "binding_class"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "required": [
+                          "runtime_occurrence_guard"
+                        ]
+                      },
+                      {
+                        "properties": {
+                          "binding_status": {
+                            "enum": [
+                              "partial",
+                              "unknown",
+                              "none"
+                            ]
+                          }
+                        }
+                      }
+                    ]
                   }
-                },
-                "required": [
-                  "binding_class"
                 ]
               },
               {
@@ -2792,7 +2866,10 @@
                     "const": "not_required"
                   },
                   "run_binding": {
-                    "const": "match"
+                    "enum": [
+                      "match",
+                      "not_required"
+                    ]
                   },
                   "authority_class": {
                     "const": "not_required"
@@ -3964,6 +4041,132 @@
             "properties": {
               "runtime_observation_status": {
                 "const": "complete"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "runtime_comparison"
+        ]
+      },
+      "then": {
+        "properties": {
+          "comparison_boundary": {
+            "properties": {
+              "observed_analysis_level": {
+                "const": "runtime_observed"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "record_status": {
+            "const": "observed"
+          },
+          "comparison_boundary": {
+            "properties": {
+              "observed_analysis_level": {
+                "const": "runtime_observed"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "runtime_comparison"
+        ]
+      }
+    },
+    {
+      "if": {
+        "not": {
+          "required": [
+            "runtime_comparison"
+          ]
+        }
+      },
+      "then": {
+        "properties": {
+          "observations": {
+            "additionalProperties": {
+              "not": {
+                "required": [
+                  "runtime_occurrence_guard"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "not": {
+          "required": [
+            "runtime_comparison"
+          ]
+        }
+      },
+      "then": {
+        "properties": {
+          "relations": {
+            "additionalProperties": {
+              "if": {
+                "properties": {
+                  "relation_status": {
+                    "const": "observed_but_not_planned"
+                  }
+                },
+                "required": [
+                  "relation_status"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "expectation_id": {
+                    "type": "null"
+                  },
+                  "observation_ids": {
+                    "minItems": 1
+                  },
+                  "evaluation": {
+                    "properties": {
+                      "execution_observation": {
+                        "const": "observed"
+                      },
+                      "execution_identity": {
+                        "const": "not_required"
+                      },
+                      "source_identity": {
+                        "const": "not_required"
+                      },
+                      "run_binding": {
+                        "const": "match"
+                      },
+                      "authority_class": {
+                        "const": "not_required"
+                      },
+                      "coverage": {
+                        "const": "complete"
+                      },
+                      "decisive": {
+                        "const": true
+                      },
+                      "declared_role": {
+                        "const": "not_required"
+                      }
+                    }
+                  }
+                }
               }
             }
           }
