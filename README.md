@@ -173,6 +173,7 @@ They do not independently produce release authority.
 | Current-run artifact-observed candidate workflow | Implemented and regression-proven — `diagnostic_shadow`, `authority_effect = none` |
 | Historical producer-input capture — Step 4A | Completed, preserved, and independently offline replay-verified — non-active; `same_run_release_authority_eligible = false`; `active_gate_eligible = false`; `authority_effect = none` |
 | Historical runtime-packet producer and preservation — Step 4B | Implemented and preserved — bounded `post_run_platform_export` profile, partial coverage, separate direct packet validation; `authority_effect = none` |
+| Runtime-bound report/relation construction and partial historical chain — Step 5A | Implemented, reviewed and accepted through #2872 / #2870; separate source-aware validation and non-active candidate publication; complete observed Step 5 proof remains open |
 | Live/current-run runtime-observation producer and complete runtime-observed connected proof | Not implemented |
 | Active or release-required compute enforcement | Not active |
 | Public PULSEmech Core execution record | Completed — PULSE CI #5728 |
@@ -222,6 +223,34 @@ before its authority decision.
 
 [Verified Step 4B result and evidence limits](PULSEMECH_TECHNICAL_OVERVIEW.md#15j-historical-runtime-packet-production-and-preservation--step-4b) ·
 [Exact preserved files and reproduction instructions](preservation/pulse_ci_6066/runtime_observation_packet_v0/README.md)
+
+### Accepted runtime-bound report and relation — Step 5A
+
+**#2872** adds the runtime-bound construction path through the existing immutable
+subject-input bridge and single analyzer core, followed by separate source-aware
+report/relation validation and non-active candidate materialization. Its exact
+merge is `5afb4404719fb04d3ee32a007cdbb8b47c220118`; the bounded **#2870** work order
+is accepted and closed.
+
+The artifact-observed baseline remains identifiable. Collector/subject separation,
+conservative source qualification and content-derived replay locators preserve
+partial or unknown evidence instead of manufacturing complete results. Packet
+integrity, observation extent, relational coverage and resource coverage stay
+separate.
+
+The merge-bound GitHub Tools smoke execution passed **418 affected-suite cases**,
+including the historical source-aware chain, within the unchanged **153-program**
+registered path. Those results are separate from the cloud review's missing-history
+failures, which remain recorded. The historical #6066 packet is still partial;
+the full actually observed Step 5 proof and a public manually dispatched Step 3F/3G
+proof instance are not claimed. No live acquisition, resource measurement or
+compute-gate activation is added.
+
+`same_run_release_authority_eligible = false` ·
+`active_gate_eligible = false` · `authority_effect = none`
+
+[Verified Step 5A result and evidence limits](PULSEMECH_TECHNICAL_OVERVIEW.md#15k-runtime-bound-report-and-relation--step-5a) ·
+[Bounded acceptance record](https://github.com/HKati/pulse-release-gates-0.1/issues/2870#issuecomment-5577131873)
 
 ### Device Ledger bounded mechanical proof
 
