@@ -50,6 +50,7 @@ compute-binding implementation state
 current-run compute automation state
 completed historical post-run producer-input capture
 bounded historical runtime-packet production and preservation
+accepted runtime-bound report/relation implementation and partial historical chain
 Device Ledger bounded proof, deterministic Reproduction Capsule, and runnable demonstrator state
 foundational transition-measurement architecture
 external interoperability status
@@ -2569,8 +2570,9 @@ not measured compute-resource consumption.
 The future operational path separately requires exact current-run source
 capture before its authority decision. That requirement is not satisfied by
 reclassifying this post-run historical snapshot. The bounded historical producer
-is now implemented separately in Step 4B, Section 15J; live/current-run observation
-and complete runtime-observed connected proof remain unimplemented.
+is implemented separately in Step 4B, Section 15J. Step 5A in Section 15K now
+provides source-aware runtime-bound processing of the partial historical input;
+live/current-run observation and the complete observed proof remain unimplemented.
 
 ---
 
@@ -2670,11 +2672,120 @@ not new runtime-schema fields. The capture, derived packet and local report do
 not retroactively authorize the historical run or activate a compute gate.
 
 Bounded implementation and preservation acceptance is supported with the stated
-evidence limits. The documentation handoff has its own final checks and
-read-only post-merge review before #2864 closure. Complete connected runtime
-proof, live/current-run observation, resource measurement and policy promotion
-remain separate future work; current-run capture must precede its authority
-decision.
+evidence limits. The documentation handoff completed through PR #2869 and the
+[final #2864 completion record](https://github.com/HKati/pulse-release-gates-0.1/issues/2864#issuecomment-5572375868).
+The later Step 5A partial historical chain is recorded below without rewriting
+those earlier review results. Complete observed runtime proof, live/current-run
+observation, measurement and policy promotion remain separate; future operational
+current-run capture must precede its authority decision.
+
+---
+
+## 15K. Runtime-bound report and relation — Step 5A
+
+The bounded implementation from [PR #2872](https://github.com/HKati/pulse-release-gates-0.1/pull/2872)
+is accepted under the [Step 5A completion record](https://github.com/HKati/pulse-release-gates-0.1/issues/2870#issuecomment-5577131873).
+Work order #2870 is closed for that scope, not for the complete Step 5 proof.
+
+```text
+implementation merge:
+5afb4404719fb04d3ee32a007cdbb8b47c220118
+
+root tree:
+de0548855c4679dc86601963f0775639388e7bdc
+
+parent:
+5a9660878a04dde2505586ad4c9e09ce479203bb
+```
+
+Eighteen existing files changed: two schemas, six implementation/validator/
+materializer programs and ten permanent regression programs. The correction of
+three review findings is included in that set. No new workflow or policy was
+introduced.
+
+```text
+exact subject-input packet + carrier + required historical sources
+→ existing immutable bridge and single analyzer core
+→ identifiable artifact-observed baseline
+
++ captured and separately validated runtime-packet bytes
+→ newly constructed runtime-bound report
+→ source-aware report validation
+→ existing planned-observed relation engine
+→ source-aware relation validation
+→ separate non-active candidate materialization
+```
+
+The report's `pulsemech_runtime_report_binding_v0` and relation's
+`pulsemech_runtime_comparison_v0` profiles bind exact upstream inputs and
+construction sources. Artifact-derived relations retain their origin;
+collector, subject, packet producer and analyzer remain separate. Independent
+source-aware validation requires the upstream bytes, not only self-declared
+hashes or success fields. Candidate publication cannot replace existing output.
+Artifact-only behavior remains supported without hidden runtime prerequisites.
+
+Packet-set integrity, supported observation extent, relational coverage,
+comparison completeness and resource coverage are separate. A contiguous
+supplied prefix is not terminal closure. The historical #6066 packet stays
+partial; complete synthetic extent is restricted to example inputs.
+
+The merged corrections prevent non-qualifying collectors from making comparison
+complete, keep unsupported observed repository-file source identity partial,
+and derive replay locators from captured plan/report bytes. Conservative source
+qualification is not a new arbitrary runtime Git/blob authenticator.
+
+### Separate review and execution evidence
+
+The owner-supplied **“Post-merge review — PR #2872 / Step 5A”** demonstrated no
+new implementation defect and verified the three corrections. Its own ten-suite
+campaign reported **407 passed and 11 failed**, and its unchanged runtime/
+registration selection reported **140 passed and 74 setup errors**. Historical
+commit `46b639706e23f80fe296a8893be18e2b5ab21f7e` and remote GitHub access were
+unavailable there. These results are not all-pass cloud evidence.
+
+The separately retrieved [post-merge PULSE CI run](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/34170196053)
+`34170196053` / run `6794` / attempt `1` / `push` succeeded on the merge above.
+[Tools smoke job `101888978377`](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/34170196053/job/101888978377)
+completed the registered **153-program** path. Its ten affected direct-script
+suites reported **418 passed**, including the mandatory historical connected
+chain; the unchanged historical producer suite separately reported **74 passed**.
+The targeted pytest step separately reported **94 passed**.
+
+The owner completion record combines source review with that distinct CI
+execution and corrects the review's count: four comment lines are not programs,
+so 157 non-empty text lines correspond to **153 unique registered program paths**.
+Neither a test-registration change nor retroactive rewriting of cloud failures
+was required. Full counts, source identities, attribution and preservation limits
+are in the [detailed Step 5A record](docs/compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md#completed-step-5a--runtime-bound-report-and-relation).
+
+### Remaining observed-proof boundary
+
+The genuine partial historical input is now processed through the source-aware
+chain, with incomplete comparison and a non-all-true candidate. The separate
+synthetic probe has complete comparison and candidate values `false / true / true`;
+it remains example-profile evidence, not complete historical or live observation.
+
+The next bounded observation requires a new execution identity, verified source
+and command/input evidence, supported extent/closure, actual process result and
+a downstream result consumer. ALLOW and BLOCK must retain their actual outcomes.
+A public manually dispatched Step 3F/3G proof instance is still not claimed;
+that follow-through does not reopen the completed automation implementation.
+
+```text
+Step 5A runtime-bound construction and partial historical chain: accepted
+complete actually observed Step 5 proof and comparison: not completed
+live/current-run runtime-observation producer: not implemented
+resource measurement: not implemented
+compute budget: not defined
+same_run_release_authority_eligible: false
+active_gate_eligible: false
+authority_effect: none
+```
+
+Historical producer/capture/preservation identities remain unchanged. No active
+policy, release-authority enforcement, Device Ledger, iPhone, DOI or publication
+metadata changes follow from this acceptance. Step 6 and Step 7 remain separate.
+This documentation handoff does not predeclare its own future CI or review.
 
 ---
 
@@ -2684,28 +2795,30 @@ decision.
 
 ```text
 state_date:
-2026-09-07
+2026-09-08
 
 merged_repository_state_recorded_through:
-PR #2868
+PR #2872
 
 merged_repository_state_basis:
-55c6180dfbfd4055a558cf6b3e3883461a423f86
+5afb4404719fb04d3ee32a007cdbb8b47c220118
 
 merged_repository_state_tree:
-a1cfd8e333c138815eebc89fa20623b1a1dc5b06
+de0548855c4679dc86601963f0775639388e7bdc
 
 documentation_closure_scope:
-records completed Step 3G automation, Step 4A capture and bounded historical
-Step 4B production/preservation without changing implementation, evidence,
-verification semantics, policy or authority; this documentation PR's own
-final checks and post-merge review remain separate
+records completed Step 3G automation, historical Step 4A/4B and accepted bounded
+Step 5A without changing implementation, evidence, verification semantics, policy
+or authority; this documentation PR's own final checks and review remain separate
 
 executable_compute_state_recorded_through:
-PR #2867
+PR #2872
 
 executable_compute_state_basis:
-d7def834e8aa63911426550cf41b05f81c0b56b0
+5afb4404719fb04d3ee32a007cdbb8b47c220118
+
+historical_runtime_packet_producer_basis:
+PR #2867 / d7def834e8aa63911426550cf41b05f81c0b56b0
 
 foundational_architecture_state_recorded_through:
 PR #2817
@@ -2919,8 +3032,23 @@ partial; collector excluded; no active gate or same-run release authority
 live_current_run_runtime_observation_producer:
 not implemented
 
+runtime_bound_report_and_relation_step5a:
+implemented, reviewed and accepted under #2870
+
+runtime_bound_report_and_relation_basis:
+PR #2872 / 5afb4404719fb04d3ee32a007cdbb8b47c220118
+
+historical_partial_source_aware_runtime_chain:
+executed successfully in post-merge CI 34170196053 / attempt 1
+
+step5a_affected_direct_script_regressions:
+418 passed in that GitHub execution; not the cloud review's local result
+
+step5a_acceptance_record:
+#2870 / comment 5577131873 / scoped work order closed as completed
+
 runtime_observed_connected_proof:
-not implemented
+partial historical chain proven; complete actually observed proof not completed
 
 planned_observed_relation:
 implemented and proven
@@ -2954,6 +3082,11 @@ implemented and proven
 
 subject_input_bridge_to_reusable_analyzer_core:
 implemented and proven
+
+historical_analyzer_core_proof_basis:
+PR #2776 / e06acbbcd0beec7846da01322659079171e24562
+The following 33/10/18 counts and wrapper/core hashes describe that historical
+proof, not the current Step 5A analyzer bytes or current regression totals.
 
 fixed_source_analyzer_regression:
 33 passed
@@ -3116,11 +3249,12 @@ transition_meter_general_domain_extension:
 foundational architecture
 
 current_development_boundary:
-compute — Step 3G automation, Step 4A capture and bounded historical Step 4B
-production/preservation are complete within their recorded evidence limits;
-live/current-run observation, Step 5 connected runtime proof, per-axis resource
-measurement and compute-gate promotion remain separate later boundaries;
-current-run operational capture must precede its decision
+compute — Step 3G automation, historical Step 4A/4B and Step 5A runtime-bound
+construction with the partial historical chain are accepted. A public dispatched
+Step 3F/3G proof instance is not claimed. Actual bounded runtime observation,
+verified source/extent/consumption evidence, the complete Step 5 proof and
+comparison, Step 6 measurement and Step 7 promotion remain separate. Future
+operational current-run source capture must precede its authority decision
 
 Device Ledger — bounded mechanical self-proof, exact .pulseledger export,
 deterministic Reproduction Capsule, canonical reproduction result and minimal
@@ -3186,6 +3320,11 @@ https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/PULSEMECH_T
 - [PR #2867 — implement the bounded historical runtime-packet producer](https://github.com/HKati/pulse-release-gates-0.1/pull/2867)
 - [PR #2868 — preserve the exact historical runtime packet and reconstruction inputs](https://github.com/HKati/pulse-release-gates-0.1/pull/2868)
 - [Step 4B evidence, review limits and documentation endpoint](docs/compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md#completed-step-4b--historical-runtime-packet-production-and-preservation)
+
+- [PR #2869 — complete historical Step 4B documentation synchronization](https://github.com/HKati/pulse-release-gates-0.1/pull/2869)
+- [PR #2872 — bind runtime reports and relations](https://github.com/HKati/pulse-release-gates-0.1/pull/2872)
+- [Step 5A bounded acceptance and separate CI evidence](https://github.com/HKati/pulse-release-gates-0.1/issues/2870#issuecomment-5577131873)
+- [Step 5A implementation, historical chain and remaining observed boundary](#15k-runtime-bound-report-and-relation--step-5a)
 
 ### Latest foundational architecture sequence
 
@@ -3265,9 +3404,9 @@ integration, or general-purpose product layer is required to preserve this
 bounded closure.
 
 The separate compute workstream continues from completed Step 3G automation,
-Step 4A historical capture in Section 15I and the bounded historical Step 4B
-producer/preservation in Section 15J. The latter implements a partial post-run
-packet, not the broader live/current-run observation or connected runtime proof.
+historical Step 4A/4B in Sections 15I–15J and accepted Step 5A in Section 15K.
+The runtime-bound construction and partial historical source-aware chain are
+implemented; complete actual runtime observation remains a separate target.
 
 The completed analyzer relation is:
 
@@ -3423,15 +3562,25 @@ live/current-run runtime-observation producer
 → resource axes
 ```
 
-The later sequence remains:
+The accepted Step 5A construction path is already available. The remaining
+sequence supplies the missing evidence rather than rebuilding that path:
 
 ```text
 completed bounded historical Step 4B producer/preservation
-→ remaining live/current-run observation and runtime input/output relations
-→ Step 5 runtime-observed connected proof
++ accepted Step 5A runtime-bound report/relation and partial historical chain
+→ new bounded execution with verified source/command/input evidence
+→ supported observation extent, closure and downstream result consumption
+→ complete Step 5 observed proof and fixed-source/runtime comparison
 → Step 6 per-axis resource measurement
 → Step 7 separate policy promotion decision
 ```
+
+The next proposed non-active observation executes the unchanged strict
+`check_gates.py` on exact policy and separate candidate-status inputs, records
+its actual result, and records a downstream result consumer. ALLOW and BLOCK
+must remain distinct outcomes. It requires a new execution identity and a finite
+observation boundary; it cannot be presented as new observation of historical
+#6066. The completion record does not authorize acquisition or workflow dispatch.
 
 Any movement from candidate to advisory, required or release-required remains a
 separate policy decision.
@@ -3812,6 +3961,16 @@ The historical profile is implemented and its partial output preserved. The
 source capture, derived packet and complete connected-runtime proof remain
 distinct. This lane is not active compute enforcement.
 
+### Runtime-bound report and relation — Step 5A
+
+- [System-level accepted Step 5A result](#15k-runtime-bound-report-and-relation--step-5a)
+- [Detailed implementation and evidence record](docs/compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md#completed-step-5a--runtime-bound-report-and-relation)
+- [Existing runtime-enabled subject-input bridge](tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py)
+- [Existing source-aware report validator](tools/check_pulsemech_compute_binding_report_v0.py)
+- [Existing source-aware relation validator](tools/check_pulsemech_compute_planned_observed_relation_v0.py)
+- [Permanent historical source-aware connected-chain regression](tests/test_pulsemech_compute_fixed_source_candidate_chain_v0.py)
+- [Step 5A completion record](https://github.com/HKati/pulse-release-gates-0.1/issues/2870#issuecomment-5577131873)
+
 ### Device Ledger bounded proof and deterministic reproduction
 
 #### Canonical records
@@ -4021,6 +4180,11 @@ separate networked capture and independent network-free validator
 exact five-member historical #6066 producer-input capture
 repeated observed-capture offline validation and manifest reconstruction
 capture-specific disposable-copy negative evidence
+bounded historical runtime-packet production and preservation
+runtime-bound report and comparison profiles through the existing analyzer
+source-aware report/relation replay and separate candidate publication
+partial historical runtime chain exercised in post-merge CI
+bounded Step 5A acceptance with original review limits retained
 
 Device Ledger canonical record chain
 Device Ledger terminal checkpoint closure
@@ -4064,8 +4228,9 @@ compute:
 completed Step 3G artifact-observed proof automation
 + completed Step 4A historical producer-input capture prerequisite
 + completed bounded historical Step 4B producer/preservation
-→ remaining live/current-run observation and runtime input/output relations
-→ Step 5 runtime-observed connected proof
++ accepted Step 5A runtime-bound construction and partial historical chain
+→ actual bounded observation with verified source, extent and consumption
+→ complete Step 5 observed proof and fixed-source/runtime comparison
 → Step 6 per-axis resource measurement
 → stable measurement coverage
 → Step 7 separate policy promotion decision
@@ -4173,6 +4338,12 @@ packet validation retain separate scopes and the documented historical-source
 access limit. Live/current-run observation, resource measurement, compute
 budgeting, active compute enforcement and release-required compute promotion
 remain separate later boundaries.
+
+Step 5A separately completes runtime-bound construction and source-aware processing
+of that partial historical input. The full actually observed proof remains open;
+a valid partial result is not promoted to complete observation. Its acceptance and
+merge-bound CI evidence are recorded in Section 15K without changing the earlier
+cloud review outcomes or the original preserved packet.
 
 The latest verified state remains available at the stable URL recorded at the
 top of this document.

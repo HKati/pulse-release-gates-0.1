@@ -7,6 +7,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- Add the bounded Step 5A runtime-bound report and relation path through
+  PR #2872, merge `5afb4404719fb04d3ee32a007cdbb8b47c220118`, accepted under #2870.
+  - Extend the existing immutable subject-input bridge, single analyzer core,
+    report/relation contracts and source-aware validators; forward exact upstream
+    inputs through separate non-replacing candidate materialization.
+  - Preserve artifact evidence origin, subject/collector/analyzer separation,
+    original policy order, occurrence identity and per-link consumption evidence.
+  - Keep packet integrity, observation extent, relational coverage, comparison
+    completeness and resource coverage distinct; the genuine #6066 packet remains
+    partial and unchanged. Synthetic completeness is not observed completeness.
+  - Modify 18 existing files, with no workflow, dependency or program-registration
+    addition. No live acquisition, resource measurement, compute budget, active
+    gate or release-policy promotion is introduced.
 - Add the Linux-only, isolated offline Step 4B runtime-packet producer
   `tools/build_pulsemech_compute_runtime_observation_packet_from_capture_v0.py`
   and its permanent, CI-registered regression (work order #2864).
@@ -55,6 +68,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - README: add **Acknowledgments** section.
 
 ### Fixed
+- Include all three PR #2872 review corrections within the Step 5A file set:
+  downgrade non-qualifying collector/observer records; keep unverified observed
+  repository-file identities partial rather than authenticating self-declared
+  digests; and derive runtime plan/report replay locators from captured bytes.
+  Matching regressions cover collector outcomes, unsupported source exactness,
+  forged locators and non-publication of invalid candidates. No new arbitrary
+  runtime Git/blob authentication implementation is claimed.
 - Bind the Step 4B producer's actually invoked path and exact source bytes to
   its canonical committed source, rather than reading a canonical neighbour
   on behalf of an executed copy (PR #2867 review).
@@ -79,6 +99,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Execute `tests/test_parameter_golf_submission_evidence_v0.py` through the CI pytest manifest (`ci/pytest-tests.list`).
 
 ### Docs
+- Synchronize the five existing canonical documentation surfaces with accepted
+  Step 5A (#2872) and completion comment `5577131873` under closed work order #2870.
+  - Record the exact implementation merge separately from historical subject,
+    capture, packet-producer and preservation revisions, which remain unchanged.
+  - Attribute the cloud review's 407 passed / 11 failed and separate
+    140 passed / 74 setup errors to that environment. Record the distinct
+    post-merge PULSE CI run `34170196053`, attempt 1, and Tools smoke job
+    `101888978377`: 418 affected-suite passes, separate 74-pass historical producer
+    suite and separate 94-pass targeted pytest step.
+  - Correct the review's manifest interpretation: 153 unique program paths after
+    excluding five blank and four comment lines from 162 physical lines.
+    No registration file changes. Preserve original review outcomes.
+  - Keep the complete Step 5 observed proof, supported runtime source/extent
+    evidence, public Step 3F/3G execution instance, Step 6 measurement and Step 7
+    promotion distinct from the accepted implementation. Documentation only;
+    no new acquisition, authority effect or publication-metadata change.
 - Synchronize the existing compute workstream record, Technical Overview,
   documentation index and root README with the accepted bounded Step 4B
   implementation (#2867) and four-file historical preservation (#2868).
