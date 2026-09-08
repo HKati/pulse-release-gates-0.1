@@ -10,19 +10,22 @@ workstream:
 compute_binding_and_transition_efficiency
 
 state_date:
-2026-09-07
+2026-09-08
 
 canonical_system_state_source:
 PULSEMECH_TECHNICAL_OVERVIEW.md
 
 merged_compute_state_recorded_through:
-PR #2868
+PR #2872
 
 merged_compute_state_basis:
-55c6180dfbfd4055a558cf6b3e3883461a423f86
+5afb4404719fb04d3ee32a007cdbb8b47c220118
+
+merged_compute_state_tree:
+de0548855c4679dc86601963f0775639388e7bdc
 
 implementation_status:
-current_run_automation_3G_and_bounded_historical_4A_4B_handoffs_complete
+current_run_automation_3G_historical_4A_4B_and_bounded_runtime_binding_5A_complete
 
 current_run_automation_terminal_pr:
 2826
@@ -132,8 +135,17 @@ partial
 live_current_run_runtime_observation_producer:
 not_implemented
 
+runtime_bound_report_and_relation_step5a:
+implemented_and_accepted_under_2870
+
+runtime_bound_report_and_relation_basis:
+5afb4404719fb04d3ee32a007cdbb8b47c220118
+
+historical_partial_source_aware_runtime_chain:
+executed_successfully_in_post_merge_CI_34170196053_attempt_1
+
 runtime_observed_connected_proof:
-not_implemented
+partial_historical_chain_proven; complete_actually_observed_proof_not_completed
 
 resource_measurement:
 not_implemented
@@ -157,12 +169,14 @@ merged implementation, completed reference evidence and remaining work.
 It remains the detailed workstream record beneath the canonical system-level
 source, [PULSEMECH_TECHNICAL_OVERVIEW.md](../../PULSEMECH_TECHNICAL_OVERVIEW.md).
 
-The recorded implementation/data state is bound to preservation merge
-`55c6180dfbfd4055a558cf6b3e3883461a423f86`, with the packet producer separately
-fixed at `d7def834e8aa63911426550cf41b05f81c0b56b0`. This documentation handoff
-has not yet passed its own future final-head CI or post-merge review.
+The recorded implementation state now includes accepted Step 5A at
+`5afb4404719fb04d3ee32a007cdbb8b47c220118`. Historical packet preservation remains
+bound to `55c6180dfbfd4055a558cf6b3e3883461a423f86`, and its producer remains fixed
+at `d7def834e8aa63911426550cf41b05f81c0b56b0`. The later implementation and this
+documentation update do not replace those historical identities. This documentation
+handoff has its own future final-head checks and review; none is predeclared here.
 
-Three completed results must remain distinct:
+Four completed results must remain distinct:
 
 ```text
 Step 3G:
@@ -183,18 +197,26 @@ bounded offline historical runtime-packet producer
 + recorded local deterministic reconstruction
 + separate direct validation of the preserved packet in post-merge review
 + explicit partial coverage and review-access limits
+
+Step 5A:
+source-bound runtime report and planned-observed comparison implementation
++ separate source-aware report/relation validation and candidate materialization
++ successful partial historical connected-chain execution in post-merge CI
++ bounded acceptance under #2870; complete observed Step 5 proof remains open
 ```
 
 Step 4A records an actual acquisition execution. It is not a manually dispatched
 Step 3F or Step 3G proof instance and is not itself a runtime packet. Step 4B
 uses that unchanged input to construct the separate bounded historical packet;
-neither result completes live/current-run observation or connected runtime proof.
+neither result completes live/current-run observation or the full runtime proof.
+Step 5A connects the authentic partial packet to source-aware report/relation
+processing without inventing the missing observations.
 
 The former open-builder state is superseded by the merged builder and its
-registered regressions. Sections 24–27 record the completed implementation and
-reference capture and bounded Step 4B output. Live/current-run observation,
-runtime-observed connected proof, resource measurement and any policy promotion
-remain separate later work.
+registered regressions. Sections 24–27 record completed automation, historical
+capture/packet preservation and accepted Step 5A. Live/current-run observation,
+the complete actually observed Step 5 proof, resource measurement and any policy
+promotion remain separate later work.
 
 This documentation changes no workflow, schema, normative contract, producer,
 validator, test registration, policy, gate, status, release-authority mechanism,
@@ -263,6 +285,9 @@ manual fixed-subject capture workflow
 exact preserved #6066 run-attempt and jobs-response capture
 bounded offline historical runtime-packet producer and permanent regression
 four-file #6066 runtime-packet preservation and direct validation record
+runtime-bound report and versioned planned-observed comparison profiles
+separate source-aware report/relation validation and candidate publication
+partial historical runtime connected-chain regression and bounded acceptance
 ```
 
 The current analyzer ownership relation is:
@@ -313,15 +338,15 @@ tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py
 
 The completed current-run construction and workflow relation is described in
 Sections 24–26. The historical Step 4A acquisition and its exact evidence are
-recorded separately in Section 26, followed by the completed bounded Step 4B
-producer and preservation record.
+recorded separately in Section 26, followed by completed bounded Step 4B and
+accepted Step 5A runtime-report construction and partial historical-chain proof.
 
 The historical post-run producer is implemented. The repository does not yet
 contain a merged and complete:
 
 ```text
 live/current-run runtime-observation producer
-runtime-observed connected proof
+complete actually observed runtime connected proof
 per-axis compute-resource measurement surface
 compute budget
 active compute-related release enforcement
@@ -330,7 +355,9 @@ active compute-related release enforcement
 The current-run automation implementation and permanent regression surface are
 complete through Step 3G. The separate Step 4A historical input capture has been
 preserved and replayed, and the Step 4B historical packet has been produced,
-preserved and directly validated with its stated evidence limits.
+preserved and directly validated with its stated evidence limits. Step 5A now
+processes that partial historical input through the connected, source-aware
+report/relation/candidate path; this does not supply a complete observed extent.
 
 ```text
 current-run contract and machine construction:
@@ -347,6 +374,9 @@ completed for exact #6066 attempt 1
 
 bounded historical Step 4B production and preservation:
 completed for the post_run_platform_export profile; partial coverage
+
+Step 5A runtime-bound construction and partial historical chain:
+implemented, reviewed and accepted; complete observed Step 5 proof pending
 
 release-authority effect:
 none
@@ -1039,9 +1069,12 @@ artifact-observed graph
 The runtime-observation contract is implemented.
 
 A bounded historical post-run runtime-packet producer is implemented and its
-partial packet is preserved. The complete runtime-observed subject chain and
-live/current-run observation producer are not implemented. The partial historical
-packet does not promote the analyzer to a complete `runtime_observed` graph.
+partial packet is preserved. Step 5A constructs a genuine runtime-bound report
+through the existing analyzer and validates the exact upstream sources. Its
+analysis level can be `runtime_observed` while coverage remains partial. The
+complete actually observed subject proof and live/current-run observation producer
+are not implemented. Changing an analysis-level label or supplying the historical
+packet alone does not establish a complete runtime-observed graph.
 
 A lower analysis level must not claim a higher-confidence classification.
 
@@ -1097,6 +1130,12 @@ record construction status
 ```
 
 The report is deterministic for identical canonical inputs.
+
+Step 5A adds the closed `pulsemech_runtime_report_binding_v0` section to this
+existing report contract. It binds an identifiable artifact-observed baseline,
+exact runtime inputs, correspondence, evidence origins and construction-source
+identities. The existing validators check the upstream byte-bound reconstruction.
+See the [Step 5A implementation and evidence record](#completed-step-5a--runtime-bound-report-and-relation).
 
 ```text
 report ok = true
@@ -1528,6 +1567,13 @@ not active
 ---
 
 ## 16. Planned-observed relation
+
+Step 5A extends the existing relation with `pulsemech_runtime_comparison_v0` for
+runtime-bound reports. Existing overall `runtime_observation_status` retains its
+resource-inclusive meaning; extent and resource-independent relational coverage
+are represented separately. Source-aware replay derives plan/report locators
+from captured bytes. Artifact-only admission is not broadened to accept raw runtime
+packets without a newly constructed bound report.
 
 Implemented files include:
 
@@ -2883,7 +2929,7 @@ Its implementation and observed-reference acceptance are complete. The separate
 Step 4A documentation closure was accepted through
 [PR #2862](https://github.com/HKati/pulse-release-gates-0.1/pull/2862), merge
 `bfa674582b17c7b1a0c238a1f0d2051ac0c847c9`. Work order #2856 remains technically
-complete. This Step 4B synchronization does not reopen that accepted scope.
+complete. Later documentation synchronization does not reopen that accepted scope.
 
 #### Implementation and observed-data identities
 
@@ -3201,8 +3247,9 @@ the capture itself neither implements that producer nor promotes any compute gat
 ### Step 4 — runtime-observation producer
 
 Step 4B completes the bounded historical `post_run_platform_export` producer and
-its four-file preservation handoff, as recorded below. It does not complete a
-live/current-run observation producer or the complete runtime-observed chain.
+its four-file preservation handoff, as recorded below. Step 5A adds connected
+processing of that partial input, not the missing live/current-run observation
+producer or the complete actually observed runtime proof.
 
 The broader runtime work must populate only evidenced fields, while preserving
 the historical-reference versus current-run pre-decision distinction:
@@ -3409,15 +3456,227 @@ supplies the earlier exact reconstruction result; the #2868 cloud review did not
 independently repeat that reconstruction. Its missing Git object is an
 access limitation, not a demonstrated implementation or preservation defect.
 
-This five-document synchronization records that completed bounded result. Its
-own final submitted-state checks, merge and read-only documentation review remain
-separate events; it does not predeclare them or automatically close #2864.
-Once that documentation handoff is accepted, the declared Step 4B work order has
-its finite endpoint. Live/current-run observation, connected runtime proof,
-resource measurement and policy promotion are separate future work, not extra
-acceptance conditions silently added to this historical handoff.
+The Step 4B documentation handoff was subsequently completed through
+[PR #2869](https://github.com/HKati/pulse-release-gates-0.1/pull/2869), merge
+`5a9660878a04dde2505586ad4c9e09ce479203bb`, and the
+[final completion record](https://github.com/HKati/pulse-release-gates-0.1/issues/2864#issuecomment-5572375868).
+Work order #2864 is complete. Later source-aware Step 5A execution is recorded
+separately below; it does not retroactively rerun the earlier cloud review.
+Live/current-run observation, full runtime proof, resource measurement and policy
+promotion are not extra acceptance conditions added to the closed historical work.
+
+### Completed Step 5A — runtime-bound report and relation
+
+The source mapping and bounded implementation under
+[work order #2870](https://github.com/HKati/pulse-release-gates-0.1/issues/2870)
+were accepted in the
+[completion record](https://github.com/HKati/pulse-release-gates-0.1/issues/2870#issuecomment-5577131873).
+The issue is closed as completed for that scope. The implementation decision is
+[comment 5573580286](https://github.com/HKati/pulse-release-gates-0.1/issues/2870#issuecomment-5573580286).
+This acceptance does not complete the full Step 5 observed proof.
+
+#### Accepted implementation identity
+
+| Role | Exact identity |
+| --- | --- |
+| Implementation PR | [#2872](https://github.com/HKati/pulse-release-gates-0.1/pull/2872) |
+| Actual squash-merge commit | `5afb4404719fb04d3ee32a007cdbb8b47c220118` |
+| Root tree | `de0548855c4679dc86601963f0775639388e7bdc` |
+| Parent / implementation baseline | `5a9660878a04dde2505586ad4c9e09ce479203bb` |
+| Corrected pre-merge head | `a67a3f24b058f2de06410ce64362dbfb2ead5755` |
+
+The implementation changed 18 existing files: two schemas, six implementation,
+validator or materializer programs, and ten permanent regression programs.
+The three review corrections changed six files within that set, not six extra
+files. No file, workflow, dependency, policy set or test program was added.
+
+#### Implemented construction and validation
+
+```text
+exact subject-input packet + carrier + required historical Git sources
+→ existing immutable bridge and single analyzer core
+→ identifiable artifact-observed baseline
+
++ separately captured and validated runtime-packet bytes
+→ newly constructed runtime-bound report
+→ source-aware report validation
+→ existing planned-observed relation engine
+→ source-aware relation validation
+→ separate non-active candidate materialization
+```
+
+The report's closed `pulsemech_runtime_report_binding_v0` section binds baseline,
+subject-input and carrier identities, exact packet bytes and predecessor links,
+original ordered policy context, execution/state correspondence, evidence origin,
+collector identity and actual construction-source identities. The relation uses
+`pulsemech_runtime_comparison_v0`. Both are extensions of existing contracts,
+not parallel analyzers or replacement authority mechanisms.
+
+Artifact-derived edges retain their origin. Names, source hashes or equal state
+content alone do not collapse execution occurrences. Conflicting repeated
+records are rejected; identical repeated records retain their source references.
+Applicable production and consumption links require their own evidence. An
+observer read, producer self-read, skipped execution or unrelated consumer does
+not establish required subject consumption.
+
+The report and relation validators receive the required upstream bytes and
+perform source-aware reconstruction and replay. The historical artifact baseline
+still requires genuine original Git objects. Candidate materialization forwards
+those inputs, publishes separately without replacing an existing output, and
+keeps unrelated replacement files safe during failed-recheck cleanup.
+Artifact-only invocations retain their existing input contract and semantics.
+
+#### Coverage and corrected qualification
+
+Five distinct predicates remain visible: supplied packet-set integrity,
+observation extent, runtime relational coverage, planned-observed comparison
+completeness and per-axis resource coverage. Existing overall
+`runtime_observation_status` semantics are unchanged. A contiguous supplied
+prefix does not prove terminal observation closure. Complete synthetic extent
+is restricted to the `example` profile, not historical or live observed evidence.
+
+All three original review findings were corrected:
+
+| Finding | Merged behavior |
+| --- | --- |
+| Non-qualifying collector/observer records | Skipped, cancelled, unknown or insufficiently recorded execution cannot remain decisively complete merely because capture status is complete. Valid partial evidence remains representable and independently validatable. |
+| Self-declared runtime repository-file identity | Unsupported observed source identity remains partial through report and relation normalization. Raw packet declarations remain intact; syntactically valid revision/path/digest fields do not authenticate the source or qualify unsupported runtime edges. |
+| Replay provenance locators | Construction and source-aware replay derive plan/report `sha256:<digest>` locators from captured bytes. Individual and jointly consistent forged locators are rejected before candidate publication. |
+
+The source-identity correction is conservative qualification, not a new arbitrary
+runtime Git/blob authenticator. It is separate from the existing historical
+source verification used to reconstruct the artifact baseline.
+
+#### Evidence events and bounded acceptance
+
+The owner-supplied report **“Post-merge review — PR #2872 / Step 5A”** inspected
+exactly the merge above, confirmed the 18-file scope and unchanged protected
+inputs, and demonstrated no new implementation defect. Its focused correction
+selection passed 15 cases. Its recommendation was conditional because its own
+checkout lacked historical commit `46b639706e23f80fe296a8893be18e2b5ab21f7e`
+and remote GitHub access; it did not claim a complete all-pass campaign.
+
+The later completion record supplements that review with separately retrieved
+GitHub CI evidence and the manifest-count correction. It does not rewrite the
+review's original results or treat a green CI status as the source review.
+
+| Evidence event | Actual result | Boundary |
+| --- | --- | --- |
+| Cloud review; CPython 3.14.4, pytest 9.0.3 | Ten affected programs: 407 passed, 11 failed, 0 skipped; direct-script totals agreed. | Eight bridge tests, two core equivalence tests and the mandatory historical runtime chain failed at the missing historical-source boundary. Not an all-pass result. |
+| Same cloud review; unchanged runtime/registration selection | 140 passed, 74 setup errors. | The historical producer fixture could not initialize without the original Git object. These errors are not successful negative tests. |
+| Post-merge PULSE CI `34170196053`, run number `6794`, attempt `1`, event `push` | `completed / success` on `5afb4404719fb04d3ee32a007cdbb8b47c220118`; `pulse` and `Tools smoke tests` succeeded. | Separate GitHub execution, not tests rerun by the cloud reviewer or this documentation update. |
+| Same run, Tools smoke job `101888978377` | Registered 153-program path completed; ten affected direct-script programs reported 418 passed in total. | The log identifies the actual checkout and successful terminal smoke message. Program count is not pytest case count. |
+| Same job, unchanged historical runtime-packet producer suite | 74 passed. | Separate from the 418 affected cases. |
+| Same job, targeted pytest step | 94 passed. | Separate selection, not a combined rerun of the ten affected programs. |
+
+The affected direct-script counts were:
+
+| Program | Passed |
+| --- | ---: |
+| Subject-input report bridge | 22 |
+| Binding report builder | 35 |
+| Planned-observed relation builder | 41 |
+| Binding report validator | 31 |
+| Planned-observed relation validator | 66 |
+| Analyzer core | 136 |
+| Binding report schema | 25 |
+| Fixed-source candidate chain | 14 |
+| Planned-observed candidate | 12 |
+| Relation schema | 36 |
+| **Affected-case total** | **418** |
+
+The 14-case fixed-source program includes
+`test_runtime_historical_full_source_bridge_report_relation_candidate`.
+It requires the historical source-aware chain to reach relation validation and
+separate candidate materialization while retaining partial runtime coverage,
+incomplete comparison and a non-all-true candidate. The CI execution passes
+that test without replacing source pins or weakening the historical prerequisite.
+
+Sources: [post-merge PULSE CI run](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/34170196053),
+[Tools smoke job](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/34170196053/job/101888978377),
+[permanent connected-chain regression](../../tests/test_pulsemech_compute_fixed_source_candidate_chain_v0.py),
+and the [owner's acceptance and evidence reconciliation](https://github.com/HKati/pulse-release-gates-0.1/issues/2870#issuecomment-5577131873).
+The supplied cloud report is an attributed review source, not a newly committed
+repository artifact or an independently fetched report at those links.
+
+#### Registration-count correction
+
+The unchanged `ci/tools-tests.list`, Git blob
+`cc9f991c12a034a0736e5505f485cabe283cd5a9`, contains 162 physical lines:
+five blank lines, four comment lines and **153 unique program paths**.
+The manifest, workflow and registration checker explicitly filter comments and
+blank lines. The review's 157 non-empty textual entries included four comments.
+The completion record corrects that interpretation, not repository code.
+The GitHub log separately reports `tools-tests manifest (153 entries):`.
+
+#### Historical, synthetic and future observed profiles
+
+The authentic historical #6066 packet remains exactly **484234 bytes**, SHA-256
+`76418f3a7374cf12127031b15806af1e80605ad07031b3b10308c3a30b795a88`.
+Successful connected processing does not supply missing commands, consumption
+records, resource measurements or terminal observation extent. The historical
+capture, runtime-packet schema, validator, producer, construction record and
+preserved carrier remain unchanged.
+
+The cloud review's separate-process synthetic probe recorded:
+
+```text
+overall runtime_observation_status: partial
+synthetic extent_status: complete
+synthetic relational_coverage_status: complete
+comparison_complete: true
+candidate values: false / true / true
+candidate_all_true: false
+```
+
+The candidate order is `compute_transition_path_complete`,
+`compute_transition_authority_binding_ok`,
+`compute_transition_unbound_mutation_absent`. A complete comparison can expose
+a mismatch. This synthetic result neither changes the historical fixed-source
+candidate `false / false / true` nor establishes an actually observed complete
+runtime proof. Unavailable resources remain unavailable, not fabricated zeroes.
+
+The accepted next observation boundary remains a separate, non-active execution:
+
+```text
+exact policy + separate candidate-status inputs
+→ unchanged strict check_gates.py execution
+→ recorded process result
+→ downstream result-consumer execution
+```
+
+Before acquisition, define its finite extent, source/command/input capture,
+source-verification evidence, terminal closure and downstream consumption. It
+needs its own execution identity, never a relabelled historical #6066 run. ALLOW
+and BLOCK preserve their distinct actual outcomes; a correctly observed BLOCK
+is not an observation failure. This document defines no new implementation
+scope or workflow dispatch.
+
+Step 3F/3G construction capability remains completed, with a public manually
+dispatched, run-bound proof instance still not claimed by this state record.
+It is a separate execution-evidence follow-through, not missing Step 3G code.
+Live/current-run observation, the complete Step 5 observed proof and comparison,
+Step 6 measurement, budgeting and Step 7 policy promotion remain separate.
+
+```text
+authority_effect: none
+same_run_release_authority_eligible: false
+active_gate_eligible: false
+```
+
+These are the accepted work-boundary statements, not added schema fields.
+The existing release-authority mechanism, policy, gate identities, Quality Ledger,
+Transition Meter, Device Ledger, iPhone code and working publication metadata
+are unchanged. This documentation handoff records accepted implementation; its
+own future PR checks and review are separate, not predeclared evidence.
 
 ### Step 5 — runtime-observed connected proof
+
+Step 5A completes the runtime-bound construction/validation interface and the
+partial historical connected chain, not this full target. Remaining work supplies
+actual execution/source/consumption evidence and supported observation closure,
+then records the planned fixed-source versus runtime-observed comparison. The
+minimal observation boundary is defined above; it is not a new observation of #6066.
 
 ```text
 current artifact-observed report
@@ -3796,8 +4055,28 @@ PR #2868 / 55c6180...
 ```
 
 Section 26 separates recorded local reconstruction from fresh cloud packet
-validation. Canonical documentation synchronization is the remaining #2864
-handoff; complete runtime-observed proof and policy promotion are later work.
+validation. PR #2869 completed the canonical synchronization and #2864 is closed.
+
+### Accepted Step 5A runtime-bound implementation
+
+```text
+#2870 / implementation-decision comment 5573580286
+→ source mapping, coverage distinctions and complete implementation scope
+
+PR #2872 / 5afb4404719fb04d3ee32a007cdbb8b47c220118
+→ 18 existing-file runtime-report/relation implementation
+→ three corrected review findings within that file set
+
+post-merge PULSE CI 34170196053 / attempt 1
+→ 418 affected-suite cases passed, including the historical connected chain
+
+#2870 / acceptance comment 5577131873
+→ source review plus separate CI evidence; 153-program count reconciled
+→ bounded Step 5A accepted and closed; full Step 5 remains separate
+```
+
+This sequence introduces no observed-complete runtime claim, resource measurement
+or policy promotion. The new documentation handoff has its own checks and review.
 
 ### Historical canonical state synchronization
 
@@ -3934,8 +4213,9 @@ Step 3F/3G artifact instance.
 The Step 4A capture has an actual acquisition and replay record. Its completed
 proof remains a historical producer-input proof, not runtime-observed
 transition evidence or a resource-efficiency conclusion. Step 4B adds the bounded
-historical packet and its preserved reproduction evidence, not the missing
-complete runtime relation or resource-efficiency measurement.
+historical packet and its preserved reproduction evidence. Step 5A adds genuine
+source-aware runtime processing of that partial input, not the missing complete
+observed runtime extent or resource-efficiency measurement.
 
 ---
 
@@ -4047,8 +4327,14 @@ implemented; exact #6066 observed reference preserved and replay-proven
 post-run capture authority effect:
 none
 
+Step 5A runtime-bound report and relation:
+implemented and accepted under #2870
+
+partial historical source-aware runtime chain:
+passed in post-merge GitHub CI
+
 runtime-observed connected proof:
-not implemented
+complete actually observed proof not completed
 
 compute resource measurement:
 not implemented
@@ -4186,8 +4472,22 @@ the separate cloud review directly validated the preserved packet but could not
 repeat producer replay without the historical subject Git object. This distinction
 does not reopen the accepted capture or turn a reported run into fresh execution.
 
-Neither historical result replaces the future current-run pre-decision capture
-requirement. Live/current-run observation, runtime-observed connected proof,
+Step 5A adds the accepted runtime-bound relation:
+
+```text
+verified subject/carrier/historical sources
+→ identifiable artifact-observed baseline
++ exact separately validated runtime packets
+→ new runtime-bound report
+→ source-aware report and relation verification
+→ separate candidate materialization
+```
+
+The authentic partial #6066 input now traverses that source-aware chain in the
+merge-bound CI execution. The synthetic complete-comparison case remains a
+separate example and does not change the historical fixed-source result below.
+Neither historical result nor Step 5A replaces future current-run pre-decision
+capture. The complete actually observed Step 5 proof, live/current-run observation,
 resource measurement and policy promotion remain later work.
 
 The fixed-source #6066 candidate result remains:
