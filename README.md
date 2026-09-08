@@ -235,8 +235,8 @@ is accepted and closed.
 The artifact-observed baseline remains identifiable. Collector/subject separation,
 conservative source qualification and content-derived replay locators preserve
 partial or unknown evidence instead of manufacturing complete results. Packet
-integrity, observation extent, relational coverage and resource coverage stay
-separate.
+integrity, observation extent, relational coverage, comparison completeness and
+resource coverage stay separate.
 
 The merge-bound GitHub Tools smoke execution passed **418 affected-suite cases**,
 including the historical source-aware chain, within the unchanged **153-program**
