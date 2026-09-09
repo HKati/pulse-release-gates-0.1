@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Permanent Step 4B regressions using exact historical data and local fixtures.
 
-The four required Git snapshots must be present. Temporary candidate commits
-and construction records are test fixtures only, never upstream identity or
-an observed production construction. No network or original repository write
-is used; local fixture commits exist only under pytest temporary paths.
+The four required Git snapshots must be present. The producer under test stays
+current; its two frozen subject-context dependencies come from the already
+required capture revision, with their unchanged producer pins checked before
+fixture publication. This does not roll back the current checkout or weaken
+historical source validation. Temporary candidate commits and construction
+records are test fixtures only, never upstream identity or an observed
+production construction. No network or original repository write is used;
+local fixture commits exist only under pytest temporary paths.
 """
 from __future__ import annotations
 
@@ -42,6 +46,12 @@ HISTORY = (
     "46b639706e23f80fe296a8893be18e2b5ab21f7e",
 )
 SUBJECT_KEY = "GITHUB_RUN_ID=29249887581|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+# Only the temporary historical producer fixture uses these frozen dependencies.
+# Other suites must continue to exercise the current Step 5B source files.
+CONTEXT_SOURCE_PATHS = (
+    "tools/check_pulsemech_compute_subject_input_packet_v0.py",
+    "schemas/pulsemech_compute_subject_input_packet_v0.schema.json",
+)
 
 
 def sha(data: bytes) -> str:
@@ -82,6 +92,29 @@ def restore_snapshots(source: Path, target: Path, revisions: tuple[str, ...]) ->
     git(target, "checkout", "--detach", revisions[0])
 
 
+def historical_context_sources(
+    repo: Path, revision: str, fixed_sources: dict[str, tuple[int, str]],
+) -> dict[str, bytes]:
+    """Read the exact pinned context pair from a commit, never the worktree.
+
+    This read-only fixture helper has no fallback, fetch, or pin-repair path.
+    Return both validated snapshots before the caller changes its private repo.
+    """
+    assert git(repo, "cat-file", "-t", revision).strip() == b"commit", "context_source_not_commit"
+    snapshots: dict[str, bytes] = {}
+    for path in CONTEXT_SOURCE_PATHS:
+        rows = git(repo, "ls-tree", "-z", revision, "--", path).split(b"\0")
+        assert len(rows) == 2 and rows[1] == b"", ("context_source_missing", path)
+        metadata, actual_path = rows[0].split(b"\t", 1)
+        mode, kind, oid = metadata.split()
+        assert mode == b"100644" and kind == b"blob" and actual_path == path.encode(), (
+            "context_source_not_regular", path)
+        data = git(repo, "cat-file", "blob", oid.decode())
+        assert (len(data), sha(data)) == fixed_sources[path], ("context_source_pin_mismatch", path)
+        snapshots[path] = data
+    return snapshots
+
+
 def import_producer(repo: Path) -> Any:
     spec = importlib.util.spec_from_file_location("step4b_producer_under_test", repo / PRODUCER)
     assert spec is not None and spec.loader is not None
@@ -104,11 +137,19 @@ def candidate(tmp_path_factory: pytest.TempPathFactory) -> Candidate:
     parent = tmp_path_factory.mktemp("step4b-source-fixture")
     repo = parent / "repo"
     head = git(ROOT, "rev-parse", "HEAD").decode().strip()
-    before = {path: (ROOT / path).read_bytes() for path in SIX_PATHS}
+    protected_paths = (*SIX_PATHS, *CONTEXT_SOURCE_PATHS)
+    before = {path: (ROOT / path).read_bytes() for path in protected_paths}
     restore_snapshots(ROOT, repo, tuple(dict.fromkeys((head, *HISTORY))))
     for path in SIX_PATHS:
         (repo / path).write_bytes(before[path])
-    git(repo, "add", "--", *SIX_PATHS)
+    module = import_producer(repo)
+    # Step 5B legitimately extends the current context contracts. The historical
+    # producer still requires its original pair. Restore that pair only here,
+    # from genuine already-required history, without changing FIXED_SOURCES.
+    snapshots = historical_context_sources(repo, HISTORY[0], module.FIXED_SOURCES)
+    for path, data in snapshots.items():
+        (repo / path).write_bytes(data)
+    git(repo, "add", "--", *protected_paths)
     git(repo, "-c", "user.name=PULSEmech temporary regression fixture",
         "-c", "user.email=fixture@example.invalid", "-c", "core.hooksPath=/dev/null",
         "-c", "commit.gpgSign=false", "commit", "--allow-empty", "--no-verify", "-m",
@@ -129,9 +170,9 @@ def candidate(tmp_path_factory: pytest.TempPathFactory) -> Candidate:
         "capture_started_utc": "2026-09-06T18:10:00Z", "capture_completed_utc": "2026-09-06T18:10:01Z",
         "packet_created_utc": "2026-09-06T18:10:02Z",
     }
-    value = Candidate(repo, revision, record, import_producer(repo))
+    value = Candidate(repo, revision, record, module)
     yield value
-    assert {path: (ROOT / path).read_bytes() for path in SIX_PATHS} == before
+    assert {path: (ROOT / path).read_bytes() for path in protected_paths} == before
     assert git(repo, "diff", "--name-only").strip() == b""
     assert git(repo, "diff", "--cached", "--name-only").strip() == b""
 
@@ -176,6 +217,83 @@ def produced(candidate: Candidate, tmp_path_factory: pytest.TempPathFactory) -> 
     assert checked.returncode == 0, checked.stdout + checked.stderr
     assert json.loads(checked.stdout)["ok"] is True
     return json.loads(data), data
+
+
+
+@pytest.mark.parametrize("path", CONTEXT_SOURCE_PATHS)
+@pytest.mark.parametrize("case", ["exact", "size", "digest", "missing_path", "symlink", "missing_revision", "tree_revision"])
+def test_historical_context_source_reader(
+    tmp_path: Path, path: str, case: str,
+) -> None:
+    # Tiny local Git fixtures test the reader, not historical #6066 replay.
+    repo = tmp_path / "context-reader"
+    repo.mkdir()
+    git(repo, "init", "--template=")
+    originals = {name: ("local historical fixture: " + name + "\n").encode()
+                 for name in CONTEXT_SOURCE_PATHS}
+    pins = {name: (len(data), sha(data)) for name, data in originals.items()}
+    for name, data in originals.items():
+        target = repo / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    if case in ("missing_path", "symlink"):
+        (repo / path).unlink()
+        if case == "symlink":
+            (repo / path).symlink_to("untrusted-context-source")
+    git(repo, "add", "--all")
+    git(repo, "-c", "user.name=PULSEmech temporary regression fixture",
+        "-c", "user.email=fixture@example.invalid", "-c", "core.hooksPath=/dev/null",
+        "-c", "commit.gpgSign=false", "commit", "--no-verify", "-m", "Local context-reader fixture")
+    revision = git(repo, "rev-parse", "HEAD").decode().strip()
+    # Correct current files cannot rescue missing or invalid committed sources;
+    # wrong current files cannot displace exact committed sources either.
+    for name in CONTEXT_SOURCE_PATHS:
+        target = repo / name
+        target.unlink(missing_ok=True)
+        target.write_bytes(b"current worktree must not supply historical bytes\n")
+    before = {name: (repo / name).read_bytes() for name in CONTEXT_SOURCE_PATHS}
+    if case == "size":
+        pins[path] = (pins[path][0] + 1, pins[path][1])
+    elif case == "digest":
+        pins[path] = (pins[path][0], "0" * 64)
+    elif case == "missing_revision":
+        revision = "0" * 40
+    elif case == "tree_revision":
+        revision = git(repo, "rev-parse", "HEAD^{tree}").decode().strip()
+    if case == "exact":
+        assert historical_context_sources(repo, revision, pins) == originals
+    else:
+        with pytest.raises(AssertionError):
+            historical_context_sources(repo, revision, pins)
+    assert {name: (repo / name).read_bytes() for name in CONTEXT_SOURCE_PATHS} == before
+
+
+def test_historical_candidate_dependencies_match_pins_and_commit(candidate: Candidate) -> None:
+    for path, pin in candidate.module.FIXED_SOURCES.items():
+        data = (candidate.repo / path).read_bytes()
+        assert (len(data), sha(data)) == pin
+        assert git(candidate.repo, "show", candidate.revision + ":" + path) == data
+    for path in SIX_PATHS:
+        assert (candidate.repo / path).read_bytes() == (ROOT / path).read_bytes()
+    for path in CONTEXT_SOURCE_PATHS:
+        assert (candidate.repo / path).read_bytes() == git(candidate.repo, "show", HISTORY[0] + ":" + path)
+
+
+@pytest.mark.parametrize("path", CONTEXT_SOURCE_PATHS)
+@pytest.mark.parametrize("change", ["size", "digest"])
+def test_historical_context_dependency_tampering_still_fails_closed(
+    candidate: Candidate, tmp_path: Path, path: str, change: str,
+) -> None:
+    source = candidate.repo / path
+    original = source.read_bytes()
+    altered = original + b"\n" if change == "size" else bytes([original[0] ^ 1]) + original[1:]
+    try:
+        source.write_bytes(altered)
+        result, output, _ = invoke(candidate, tmp_path)
+        failed(result, output, "input_size_mismatch" if change == "size" else "input_digest_mismatch")
+        assert source.read_bytes() == altered  # No runtime repair to force PASS.
+    finally:
+        source.write_bytes(original)
 
 
 def test_real_historical_capture_constructs_and_independent_cli_validates(produced: tuple[dict[str, Any], bytes]) -> None:
