@@ -449,6 +449,14 @@ def test_bounded_manual_workflow_and_registration_contract():
     assert job['steps'][0]['with']['persist-credentials']=='false'
     assert job['steps'][0]['with']['fetch-depth']=='0'
     assert 'run-reference' in job['steps'][3]['run']
+    dependencies=yaml.safe_load((ROOT/'environment.yml').read_text())['dependencies']
+    versions=[dep.split('=',1)[1] for dep in dependencies
+              if isinstance(dep,str) and dep.startswith('python=')]
+    assert len(versions)==1
+    setup_steps=[step for step in job['steps']
+                 if step.get('uses','').startswith('actions/setup-python@')]
+    assert len(setup_steps)==1
+    assert setup_steps[0]['with']['python-version']==versions[0]
     entries=[line.split('#',1)[0].strip() for line in (ROOT/'ci/tools-tests.list').read_text().splitlines()]
     entries=[x for x in entries if x]
     assert len(entries)==len(set(entries))==154

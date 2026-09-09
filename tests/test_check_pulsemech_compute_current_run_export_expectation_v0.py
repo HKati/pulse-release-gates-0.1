@@ -27,12 +27,12 @@ SUBJECT_INPUT_SCHEMA = ROOT / "schemas" / "pulsemech_compute_subject_input_packe
 TOOLS_TESTS_MANIFEST = ROOT / "ci" / "tools-tests.list"
 TEST_RELATIVE_PATH = "tests/test_check_pulsemech_compute_current_run_export_expectation_v0.py"
 
-EXPECTED_TOOL_LINES = 2426
-EXPECTED_TOOL_BYTES = 80363
-EXPECTED_TOOL_SHA256 = "61890497d680a0d6df1fc2e52fcd7522dca30d7ac8b36d4482e9de70befb2a35"
-EXPECTED_TOOL_GIT_BLOB_SHA1 = "16b75b7df2524515146bf3472e0191a52cfad037"
+EXPECTED_TOOL_LINES = 2460
+EXPECTED_TOOL_BYTES = 81944
+EXPECTED_TOOL_SHA256 = 'a7a129d72cb9962bf5db212310b2bae3883dfdee2b7dd27f8d8acb44b4a841b9'
+EXPECTED_TOOL_GIT_BLOB_SHA1 = 'fdc6f25e2f0cd6aeba95a3d38f5cd08ef96e97f4'
 EXPECTED_EXPECTATION_SCHEMA_GIT_BLOB_SHA1 = "c0bc5a21f5bf46c529341d2e805f26525c70c7f4"
-EXPECTED_SUBJECT_INPUT_SCHEMA_GIT_BLOB_SHA1 = "e1f982ffaf900c6c17745624d80f9f38b374448b"
+EXPECTED_SUBJECT_INPUT_SCHEMA_GIT_BLOB_SHA1 = "c37dc263db787a80b94050220f8c52c8216f958f"
 EXTERNAL_SCHEMA_URI = "https://127.0.0.1:9/pulsemech-forbidden-schema.json"
 
 
@@ -800,6 +800,117 @@ def test_observed_producer_binding_mismatches_fail_closed(tmp_path: Path, path_p
     assert diagnostic["expectation_schema_valid"] is True
     assert diagnostic["expectation_instance_valid"] is True
     assert diagnostic["checks"]["observed_producer_bindings_ok"] is False
+
+
+# Step 5B schema-layout compatibility: retain the legacy current-run profile.
+
+def _cross_contract_for_schema(schema: dict[str, Any]) -> tuple[bool, list[str], bool]:
+    value = expectation()
+    return TOOL_MODULE._subject_input_cross_contract(
+        expectation=value,
+        expectation_schema=load_json(EXPECTATION_SCHEMA),
+        subject_input_schema=schema,
+        packet_contract=value["packet_contract"],
+        profile=value["packet_producer_profile"],
+    )
+
+
+def _legacy_root_schema() -> dict[str, Any]:
+    schema = load_json(SUBJECT_INPUT_SCHEMA)
+    document = copy.deepcopy(schema["$defs"].pop("legacy_document_v0"))
+    schema["$defs"].pop("bounded_reference_document_v0")
+    schema.pop("oneOf")
+    schema.update(document)
+    return schema
+
+
+@pytest.mark.parametrize("layout", ["legacy_root", "profile_union"])
+def test_current_run_cross_contract_supports_both_v0_layouts(layout: str) -> None:
+    schema = _legacy_root_schema() if layout == "legacy_root" else load_json(SUBJECT_INPUT_SCHEMA)
+    assert _cross_contract_for_schema(schema) == (True, [], True)
+
+
+def test_legacy_root_remains_usable_without_claiming_current_canonical_bytes(tmp_path: Path) -> None:
+    path = tmp_path / "legacy-root.schema.json"
+    write_json(path, _legacy_root_schema())
+    result = run_tool(subject_input_schema_path=path)
+    assert result.returncode == 0 and result.stderr == b""
+    diagnostic = parse_json_bytes(result.stdout)
+    boundary = diagnostic["verification_boundary"]
+    assert boundary["supplied_contract_semantics_verified"] is True
+    assert boundary["canonical_subject_input_schema_path_verified"] is False
+    assert boundary["canonical_subject_input_schema_git_blob_verified"] is False
+    assert boundary["canonical_contract_semantics_verified"] is False
+
+
+@pytest.mark.parametrize("mutation", ["orphan", "duplicate", "alias", "boolean_document", "missing_properties"])
+def test_current_run_does_not_admit_unused_or_ambiguous_profile_definitions(mutation: str) -> None:
+    schema = load_json(SUBJECT_INPUT_SCHEMA)
+    legacy_ref = {"$ref": "#/$defs/legacy_document_v0"}
+    if mutation == "orphan":
+        schema["oneOf"].remove(legacy_ref)
+    elif mutation == "duplicate":
+        schema["oneOf"].append(copy.deepcopy(legacy_ref))
+    elif mutation == "alias":
+        schema["$defs"]["unused_alias"] = copy.deepcopy(schema["$defs"]["legacy_document_v0"])
+        schema["oneOf"][0] = {"$ref": "#/$defs/unused_alias"}
+    elif mutation == "boolean_document":
+        schema["$defs"]["legacy_document_v0"] = True
+    else:
+        schema["$defs"]["legacy_document_v0"].pop("properties")
+    assert _cross_contract_for_schema(schema) == (
+        False, ["subject_input_current_run_document_not_supported"], False,
+    )
+
+
+@pytest.mark.parametrize("field", ["schema_version", "packet_type", "record_status"])
+def test_profile_metadata_is_read_from_declared_legacy_document(field: str) -> None:
+    schema = load_json(SUBJECT_INPUT_SCHEMA)
+    properties = schema["$defs"]["legacy_document_v0"]["properties"]
+    properties[field] = {"enum": ["example"]} if field == "record_status" else {"const": "different-contract"}
+    ok, errors, witness_valid = _cross_contract_for_schema(schema)
+    assert ok is False and witness_valid is False
+    expected = ("observed_status_not_supported_by_subject_input_schema" if field == "record_status"
+                else "packet_contract_" + field + "_mismatch")
+    assert any(expected in error for error in errors)
+
+
+@pytest.mark.parametrize("constraint", ["root_not", "duplicate_witness_branch", "legacy_not"])
+def test_current_run_witness_still_obeys_whole_supplied_schema(constraint: str) -> None:
+    schema = load_json(SUBJECT_INPUT_SCHEMA)
+    observed = {"properties": {"record_status": {"const": "observed"}}, "required": ["record_status"]}
+    if constraint == "root_not":
+        schema["allOf"] = [{"not": observed}]
+    elif constraint == "legacy_not":
+        schema["$defs"]["legacy_document_v0"]["allOf"].append({"not": observed})
+    else:
+        # Metadata lookup cannot bypass oneOf exclusivity via another matching branch.
+        schema["oneOf"].append(True)
+    ok, errors, witness_valid = _cross_contract_for_schema(schema)
+    assert ok is False and errors and witness_valid is False
+
+
+def test_bounded_reference_document_is_not_current_run_export_metadata() -> None:
+    schema = load_json(SUBJECT_INPUT_SCHEMA)
+    schema["$defs"]["legacy_document_v0"] = copy.deepcopy(schema["$defs"]["bounded_reference_document_v0"])
+    ok, errors, witness_valid = _cross_contract_for_schema(schema)
+    assert ok is False and errors and witness_valid is False
+
+
+@pytest.mark.parametrize("sibling", [True, {"type": "object"}])
+def test_rejected_legacy_witness_cannot_be_laundered_through_sibling(sibling: Any) -> None:
+    schema = load_json(SUBJECT_INPUT_SCHEMA)
+    schema["$defs"]["legacy_document_v0"]["allOf"].append(False)
+    schema["oneOf"][1] = sibling
+    # The root union alone accepts this witness through the other branch.
+    value = expectation()
+    witness = TOOL_MODULE._subject_input_observed_witness(
+        value, packet_contract=value["packet_contract"], profile=value["packet_producer_profile"],
+    )
+    accepted, _ = TOOL_MODULE.validate_instance(schema, witness, label="root_union_only")
+    assert accepted is True
+    ok, errors, witness_valid = _cross_contract_for_schema(schema)
+    assert ok is False and errors and witness_valid is False
 
 
 if __name__ == "__main__":
