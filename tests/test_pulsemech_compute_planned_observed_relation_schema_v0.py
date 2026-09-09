@@ -820,6 +820,27 @@ def test_runtime_observation_guard_requires_new_comparison_profile():
     assert list(jsonschema.Draft202012Validator(schema).iter_errors(r))
 
 
+
+
+def _bounded_unit_module(filename):
+    import importlib.util, sys, hashlib
+    path=Path(__file__).resolve().parents[1]/"tools"/filename
+    name="_bounded_unit_"+hashlib.sha256(path.read_bytes()).hexdigest()
+    spec=importlib.util.spec_from_file_location(name,path)
+    module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)
+    return module
+
+def test_bounded_relation_selector_is_required_only_in_its_own_profile():
+    import json,jsonschema
+    root=Path(__file__).resolve().parents[1]
+    schema=json.loads((root/"schemas/pulsemech_compute_planned_observed_relation_v0.schema.json").read_bytes())
+    definitions=schema["$defs"]
+    assert "bounded_execution_id" in definitions["bounded_execution_selector"]["required"]
+    assert "bounded_execution_id" not in definitions["execution_selector"]["properties"]
+    assert definitions["bounded_execution_selector"]["additionalProperties"] is False
+    assert {"comparison_profile","bounded_comparison"} <= set(definitions["bounded_reference_document_v0"]["required"])
+
+
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

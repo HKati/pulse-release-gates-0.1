@@ -551,5 +551,28 @@ def test_runtime_failed_recheck_does_not_delete_foreign_output_replacement(tmp_p
     report,rc,path=_runtime_candidate(tmp_path)
     assert rc!=0 and path.read_bytes()==b"foreign replacement",report
 
+
+
+def _bounded_unit_module(filename):
+    import importlib.util, sys, hashlib
+    path=Path(__file__).resolve().parents[1]/"tools"/filename
+    name="_bounded_unit_"+hashlib.sha256(path.read_bytes()).hexdigest()
+    spec=importlib.util.spec_from_file_location(name,path)
+    module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)
+    return module
+
+def test_bounded_candidate_cannot_use_a_substitute_validator(tmp_path):
+    import json
+    materializer=_bounded_unit_module("fold_pulsemech_compute_planned_observed_relation_into_status_v0.py")
+    status=tmp_path/"base.json";status.write_text('{"gates":{}}')
+    relation=tmp_path/"relation.json";relation.write_text('{"comparison_profile":"bounded_execution_reference_v0"}')
+    fake=tmp_path/"validator.py";fake.write_text('raise AssertionError("must not execute")')
+    output=tmp_path/"candidate.json"
+    diagnostic,code=materializer.build_and_write_folded_status(status_path=status,relation_path=relation,
+        schema_path=materializer.DEFAULT_RELATION_SCHEMA,validator_path=fake,output_path=output)
+    assert code!=0 and not output.exists()
+    assert "bounded_relation_source_inputs_required" in str(diagnostic["errors"])
+
+
 if __name__ == "__main__":
     check_pulsemech_compute_planned_observed_candidate_v0()

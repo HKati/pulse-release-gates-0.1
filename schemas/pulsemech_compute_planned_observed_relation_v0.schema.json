@@ -2,151 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_compute_planned_observed_relation_v0.schema.json",
   "title": "PULSEmech compute planned-observed relation v0",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "schema_version",
-    "relation_type",
-    "record_status",
-    "tool",
-    "comparison_identity",
-    "plan_binding",
-    "observation_bindings",
-    "comparison_boundary",
-    "expectations",
-    "observations",
-    "relations",
-    "coverage",
-    "summary",
-    "findings",
-    "errors",
-    "ok",
-    "authority_boundary"
-  ],
-  "properties": {
-    "schema_version": {
-      "const": "pulsemech_compute_planned_observed_relation_v0"
+  "oneOf": [
+    {
+      "$ref": "#/$defs/legacy_document_v0"
     },
-    "relation_type": {
-      "const": "pulsemech_compute_planned_observed_relation"
-    },
-    "record_status": {
-      "type": "string",
-      "enum": [
-        "example",
-        "observed"
-      ]
-    },
-    "tool": {
-      "$ref": "#/$defs/tool"
-    },
-    "comparison_identity": {
-      "$ref": "#/$defs/comparison_identity"
-    },
-    "plan_binding": {
-      "$ref": "#/$defs/plan_binding"
-    },
-    "observation_bindings": {
-      "$ref": "#/$defs/observation_bindings"
-    },
-    "comparison_boundary": {
-      "$ref": "#/$defs/comparison_boundary"
-    },
-    "expectations": {
-      "type": "object",
-      "$comment": "Expectation IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
-      "propertyNames": {
-        "$ref": "#/$defs/expectation_id"
-      },
-      "additionalProperties": {
-        "$ref": "#/$defs/expectation_record"
-      }
-    },
-    "observations": {
-      "type": "object",
-      "$comment": "Observation IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
-      "propertyNames": {
-        "$ref": "#/$defs/observation_id"
-      },
-      "additionalProperties": {
-        "$ref": "#/$defs/observation_record"
-      }
-    },
-    "relations": {
-      "type": "object",
-      "$comment": "Relation IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
-      "propertyNames": {
-        "$ref": "#/$defs/relation_id"
-      },
-      "additionalProperties": {
-        "$ref": "#/$defs/relation_record"
-      }
-    },
-    "coverage": {
-      "$ref": "#/$defs/coverage"
-    },
-    "summary": {
-      "$ref": "#/$defs/summary"
-    },
-    "findings": {
-      "type": "object",
-      "$comment": "Finding IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
-      "propertyNames": {
-        "$ref": "#/$defs/finding_record_id"
-      },
-      "additionalProperties": {
-        "$ref": "#/$defs/finding"
-      }
-    },
-    "errors": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/non_empty_string"
-      }
-    },
-    "ok": {
-      "type": "boolean"
-    },
-    "authority_boundary": {
-      "$ref": "#/$defs/authority_boundary"
-    },
-    "runtime_comparison": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "profile",
-        "runtime_binding_sha256",
-        "extent_status",
-        "relational_coverage_status",
-        "expectations_sha256"
-      ],
-      "properties": {
-        "profile": {
-          "const": "pulsemech_runtime_comparison_v0"
-        },
-        "runtime_binding_sha256": {
-          "$ref": "#/$defs/sha256"
-        },
-        "extent_status": {
-          "enum": [
-            "unknown",
-            "partial",
-            "complete"
-          ]
-        },
-        "relational_coverage_status": {
-          "enum": [
-            "unknown",
-            "partial",
-            "complete"
-          ]
-        },
-        "expectations_sha256": {
-          "$ref": "#/$defs/nullable_sha256"
-        }
-      }
+    {
+      "$ref": "#/$defs/bounded_reference_document_v0"
     }
-  },
+  ],
   "$defs": {
     "sha256": {
       "type": "string",
@@ -3657,512 +3520,2613 @@
         "ambiguous_match",
         "observer_only_record"
       ]
-    }
-  },
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "ok": {
-            "const": true
+    },
+    "bounded_execution_selector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_type",
+        "workflow_name",
+        "job_name",
+        "step_name",
+        "tool_id",
+        "command_sha256",
+        "bounded_execution_id"
+      ],
+      "properties": {
+        "node_type": {
+          "enum": [
+            null,
+            "workflow_job",
+            "workflow_step",
+            "local_tool_execution",
+            "github_action",
+            "verifier_execution",
+            "materializer_execution",
+            "external_service_call",
+            "model_inference",
+            "artifact_builder",
+            "report_builder",
+            "package_verifier",
+            "observer_execution",
+            "unknown"
+          ]
+        },
+        "workflow_name": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "job_name": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "step_name": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "tool_id": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "command_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "bounded_execution_id": {
+          "type": "string",
+          "pattern": "^execution:(allow|block_false|missing_required):(checker|consumer)$"
+        }
+      }
+    },
+    "bounded_expected_compute": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_required",
+        "downstream_consumption_required",
+        "selector"
+      ],
+      "properties": {
+        "execution_required": {
+          "type": "boolean"
+        },
+        "downstream_consumption_required": {
+          "type": "boolean"
+        },
+        "selector": {
+          "$ref": "#/$defs/bounded_execution_selector"
+        }
+      }
+    },
+    "bounded_expectation_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "component_id",
+        "plan_operation_refs",
+        "expectation_kind",
+        "expectation_scope",
+        "expected_compute",
+        "expected_source_identity",
+        "expected_declared_role",
+        "expected_mutation_authority",
+        "basis_records",
+        "evidence_refs"
+      ],
+      "properties": {
+        "component_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "plan_operation_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/plan_operation_ref"
+          },
+          "uniqueItems": true
+        },
+        "expectation_kind": {
+          "type": "string",
+          "enum": [
+            "planned_presence_only",
+            "planned_execution_expected",
+            "planned_execution_and_consumption_expected"
+          ]
+        },
+        "expectation_scope": {
+          "$ref": "#/$defs/expectation_scope"
+        },
+        "expected_compute": {
+          "$ref": "#/$defs/bounded_expected_compute"
+        },
+        "expected_source_identity": {
+          "$ref": "#/$defs/source_identity"
+        },
+        "expected_declared_role": {
+          "$ref": "#/$defs/nullable_declared_role"
+        },
+        "expected_mutation_authority": {
+          "$ref": "#/$defs/nullable_mutation_authority"
+        },
+        "basis_records": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/expectation_basis"
+          },
+          "uniqueItems": true
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "properties": {
+            "basis_records": {
+              "contains": {
+                "type": "object",
+                "properties": {
+                  "basis_kind": {
+                    "const": "integration_plan_operation"
+                  },
+                  "supports": {
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "component_presence"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "source_identity"
+                        }
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "basis_kind",
+                  "supports"
+                ]
+              },
+              "minContains": 1
+            }
           }
         },
-        "required": [
-          "ok"
-        ]
-      },
-      "then": {
-        "properties": {
-          "errors": {
-            "maxItems": 0
-          },
-          "comparison_boundary": {
+        {
+          "if": {
             "properties": {
-              "plan_target_matches_subject_repository": {
-                "const": true
+              "expectation_kind": {
+                "const": "planned_presence_only"
+              }
+            },
+            "required": [
+              "expectation_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_scope": {
+                "properties": {
+                  "scope_kind": {
+                    "const": "repository_presence"
+                  }
+                }
+              },
+              "expected_compute": {
+                "properties": {
+                  "execution_required": {
+                    "const": false
+                  },
+                  "downstream_consumption_required": {
+                    "const": false
+                  },
+                  "selector": {
+                    "properties": {
+                      "node_type": {
+                        "type": "null"
+                      },
+                      "workflow_name": {
+                        "type": "null"
+                      },
+                      "job_name": {
+                        "type": "null"
+                      },
+                      "step_name": {
+                        "type": "null"
+                      },
+                      "tool_id": {
+                        "type": "null"
+                      },
+                      "command_sha256": {
+                        "type": "null"
+                      }
+                    }
+                  }
+                }
+              },
+              "expected_declared_role": {
+                "type": "null"
+              },
+              "expected_mutation_authority": {
+                "type": "null"
+              },
+              "basis_records": {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "basis_kind": {
+                      "const": "integration_plan_operation"
+                    },
+                    "supports": {
+                      "contains": {
+                        "const": "component_presence"
+                      }
+                    }
+                  },
+                  "required": [
+                    "basis_kind",
+                    "supports"
+                  ]
+                },
+                "minContains": 1
+              },
+              "expected_source_identity": {
+                "properties": {
+                  "source_kind": {
+                    "const": "repository_file"
+                  },
+                  "identity_status": {
+                    "const": "exact"
+                  }
+                }
               }
             }
-          },
-          "plan_binding": {
+          }
+        },
+        {
+          "if": {
             "properties": {
-              "apply_eligible": {
-                "const": true
+              "expectation_kind": {
+                "const": "planned_execution_expected"
+              }
+            },
+            "required": [
+              "expectation_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_scope": {
+                "properties": {
+                  "scope_kind": {
+                    "const": "subject_run"
+                  }
+                }
+              },
+              "expected_compute": {
+                "properties": {
+                  "execution_required": {
+                    "const": true
+                  },
+                  "downstream_consumption_required": {
+                    "const": false
+                  },
+                  "selector": {
+                    "properties": {
+                      "node_type": {
+                        "type": "string",
+                        "enum": [
+                          "workflow_job",
+                          "workflow_step",
+                          "local_tool_execution",
+                          "github_action",
+                          "verifier_execution",
+                          "materializer_execution",
+                          "external_service_call",
+                          "model_inference",
+                          "artifact_builder",
+                          "report_builder",
+                          "package_verifier",
+                          "observer_execution",
+                          "unknown"
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              "basis_records": {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "basis_kind": {
+                      "enum": [
+                        "workflow_execution_declaration",
+                        "policy_required_path",
+                        "materialized_gate_set",
+                        "explicit_subject_run_expectation",
+                        "recorded_manifest"
+                      ]
+                    },
+                    "supports": {
+                      "contains": {
+                        "const": "execution_expectation"
+                      }
+                    }
+                  },
+                  "required": [
+                    "basis_kind",
+                    "supports"
+                  ]
+                },
+                "minContains": 1
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "expected_compute": {
+                    "properties": {
+                      "selector": {
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "workflow_name": {
+                                "$ref": "#/$defs/non_empty_string"
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "job_name": {
+                                "$ref": "#/$defs/non_empty_string"
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "step_name": {
+                                "$ref": "#/$defs/non_empty_string"
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "tool_id": {
+                                "$ref": "#/$defs/non_empty_string"
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "command_sha256": {
+                                "$ref": "#/$defs/sha256"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "expected_source_identity": {
+                    "properties": {
+                      "identity_status": {
+                        "const": "exact"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "expectation_kind": {
+                "const": "planned_execution_and_consumption_expected"
+              }
+            },
+            "required": [
+              "expectation_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "expectation_scope": {
+                "properties": {
+                  "scope_kind": {
+                    "const": "subject_run"
+                  }
+                }
+              },
+              "expected_compute": {
+                "properties": {
+                  "execution_required": {
+                    "const": true
+                  },
+                  "downstream_consumption_required": {
+                    "const": true
+                  },
+                  "selector": {
+                    "properties": {
+                      "node_type": {
+                        "type": "string",
+                        "enum": [
+                          "workflow_job",
+                          "workflow_step",
+                          "local_tool_execution",
+                          "github_action",
+                          "verifier_execution",
+                          "materializer_execution",
+                          "external_service_call",
+                          "model_inference",
+                          "artifact_builder",
+                          "report_builder",
+                          "package_verifier",
+                          "observer_execution",
+                          "unknown"
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              "basis_records": {
+                "allOf": [
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "basis_kind": {
+                          "enum": [
+                            "workflow_execution_declaration",
+                            "policy_required_path",
+                            "materialized_gate_set",
+                            "explicit_subject_run_expectation",
+                            "recorded_manifest"
+                          ]
+                        },
+                        "supports": {
+                          "contains": {
+                            "const": "execution_expectation"
+                          }
+                        }
+                      },
+                      "required": [
+                        "basis_kind",
+                        "supports"
+                      ]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "basis_kind": {
+                          "enum": [
+                            "policy_required_path",
+                            "materialized_gate_set",
+                            "explicit_subject_run_expectation",
+                            "recorded_manifest"
+                          ]
+                        },
+                        "supports": {
+                          "contains": {
+                            "const": "downstream_consumption_expectation"
+                          }
+                        }
+                      },
+                      "required": [
+                        "basis_kind",
+                        "supports"
+                      ]
+                    },
+                    "minContains": 1
+                  }
+                ]
+              }
+            },
+            "anyOf": [
+              {
+                "properties": {
+                  "expected_compute": {
+                    "properties": {
+                      "selector": {
+                        "anyOf": [
+                          {
+                            "properties": {
+                              "workflow_name": {
+                                "$ref": "#/$defs/non_empty_string"
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "job_name": {
+                                "$ref": "#/$defs/non_empty_string"
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "step_name": {
+                                "$ref": "#/$defs/non_empty_string"
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "tool_id": {
+                                "$ref": "#/$defs/non_empty_string"
+                              }
+                            }
+                          },
+                          {
+                            "properties": {
+                              "command_sha256": {
+                                "$ref": "#/$defs/sha256"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "expected_source_identity": {
+                    "properties": {
+                      "identity_status": {
+                        "const": "exact"
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "expected_declared_role": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "expected_declared_role"
+            ]
+          },
+          "then": {
+            "properties": {
+              "basis_records": {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "supports": {
+                      "contains": {
+                        "const": "declared_role"
+                      }
+                    }
+                  },
+                  "required": [
+                    "supports"
+                  ]
+                },
+                "minContains": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "expected_mutation_authority": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "expected_mutation_authority"
+            ]
+          },
+          "then": {
+            "properties": {
+              "basis_records": {
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "supports": {
+                      "contains": {
+                        "const": "mutation_authority"
+                      }
+                    }
+                  },
+                  "required": [
+                    "supports"
+                  ]
+                },
+                "minContains": 1
               }
             }
           }
         }
-      }
+      ]
     },
-    {
-      "if": {
-        "properties": {
-          "ok": {
-            "const": false
+    "bounded_observation_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observation_kind",
+        "source_record_kind",
+        "source_record_id",
+        "subject_run_key",
+        "subject_source_commit",
+        "release_candidate_id",
+        "execution_scope",
+        "execution_identity",
+        "source_identity",
+        "declared_role",
+        "mutation_authority",
+        "observed_mutation_classes",
+        "unbound_authoritative_mutation",
+        "binding_status",
+        "binding_class",
+        "input_state_ids",
+        "output_state_ids",
+        "downstream_consumption",
+        "coverage_status",
+        "evidence_refs"
+      ],
+      "properties": {
+        "observation_kind": {
+          "type": "string",
+          "enum": [
+            "compute_node",
+            "runtime_execution",
+            "external_call",
+            "model_inference"
+          ]
+        },
+        "source_record_kind": {
+          "type": "string",
+          "enum": [
+            "compute_binding_report",
+            "runtime_observation_packet"
+          ]
+        },
+        "source_record_id": {
+          "$ref": "#/$defs/source_record_id"
+        },
+        "subject_run_key": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "subject_source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "release_candidate_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "execution_scope": {
+          "type": "string",
+          "enum": [
+            "subject",
+            "analysis_observer",
+            "observation_collector"
+          ]
+        },
+        "execution_identity": {
+          "$ref": "#/$defs/bounded_execution_selector"
+        },
+        "source_identity": {
+          "$ref": "#/$defs/source_identity"
+        },
+        "declared_role": {
+          "type": "string",
+          "enum": [
+            "transition",
+            "evidence",
+            "preservation",
+            "advisory",
+            "observer",
+            "unknown"
+          ]
+        },
+        "mutation_authority": {
+          "type": "string",
+          "enum": [
+            "none",
+            "advisory_output",
+            "preservation_output",
+            "release_evidence",
+            "candidate_state",
+            "verifier_state",
+            "materialized_gate_set",
+            "final_status",
+            "release_decision"
+          ]
+        },
+        "binding_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "none",
+            "unknown"
+          ]
+        },
+        "binding_class": {
+          "type": "string",
+          "enum": [
+            "transition_bound",
+            "evidence_bound",
+            "preservation_bound",
+            "advisory_bound",
+            "observer",
+            "unbound",
+            "unknown"
+          ]
+        },
+        "input_state_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^state:[A-Za-z0-9._:/@+-]+$"
           }
         },
-        "required": [
-          "ok"
-        ]
+        "output_state_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^state:[A-Za-z0-9._:/@+-]+$"
+          }
+        },
+        "downstream_consumption": {
+          "$ref": "#/$defs/downstream_consumption"
+        },
+        "coverage_status": {
+          "type": "string",
+          "enum": [
+            "complete",
+            "partial",
+            "unknown"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "observed_mutation_classes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "advisory_output",
+              "preservation_output",
+              "release_evidence",
+              "candidate_state",
+              "verifier_state",
+              "materialized_gate_set",
+              "final_status",
+              "release_decision"
+            ]
+          }
+        },
+        "unbound_authoritative_mutation": {
+          "type": "boolean"
+        },
+        "runtime_occurrence_guard": {
+          "const": "no_artifact_occurrence_binding"
+        }
       },
-      "then": {
-        "properties": {
-          "errors": {
-            "minItems": 1
-          },
-          "summary": {
+      "allOf": [
+        {
+          "if": {
             "properties": {
-              "comparison_complete": {
+              "observation_kind": {
+                "const": "compute_node"
+              }
+            },
+            "required": [
+              "observation_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_record_kind": {
+                "const": "compute_binding_report"
+              },
+              "source_record_id": {
+                "type": "string",
+                "pattern": "^compute:[A-Za-z0-9._:/@+-]+$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observation_kind": {
+                "const": "runtime_execution"
+              }
+            },
+            "required": [
+              "observation_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_record_kind": {
+                "const": "runtime_observation_packet"
+              },
+              "source_record_id": {
+                "type": "string",
+                "pattern": "^execution:[A-Za-z0-9._:/@+-]+$"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observation_kind": {
+                "const": "external_call"
+              }
+            },
+            "required": [
+              "observation_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_record_kind": {
+                "const": "runtime_observation_packet"
+              },
+              "source_record_id": {
+                "type": "string",
+                "pattern": "^call:[A-Za-z0-9._:/@+-]+$"
+              },
+              "execution_identity": {
+                "properties": {
+                  "node_type": {
+                    "const": "external_service_call"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observation_kind": {
+                "const": "model_inference"
+              }
+            },
+            "required": [
+              "observation_kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "source_record_kind": {
+                "const": "runtime_observation_packet"
+              },
+              "source_record_id": {
+                "type": "string",
+                "pattern": "^inference:[A-Za-z0-9._:/@+-]+$"
+              },
+              "execution_identity": {
+                "properties": {
+                  "node_type": {
+                    "const": "model_inference"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "allOf": [
+              {
+                "anyOf": [
+                  {
+                    "allOf": [
+                      {
+                        "not": {
+                          "required": [
+                            "runtime_occurrence_guard"
+                          ]
+                        }
+                      },
+                      {
+                        "properties": {
+                          "binding_class": {
+                            "const": "unbound"
+                          }
+                        },
+                        "required": [
+                          "binding_class"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "required": [
+                          "runtime_occurrence_guard"
+                        ]
+                      },
+                      {
+                        "properties": {
+                          "binding_status": {
+                            "enum": [
+                              "partial",
+                              "unknown",
+                              "none"
+                            ]
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "properties": {
+                  "observed_mutation_classes": {
+                    "contains": {
+                      "enum": [
+                        "release_evidence",
+                        "candidate_state",
+                        "verifier_state",
+                        "materialized_gate_set",
+                        "final_status",
+                        "release_decision"
+                      ]
+                    },
+                    "minContains": 1
+                  }
+                },
+                "required": [
+                  "observed_mutation_classes"
+                ]
+              }
+            ]
+          },
+          "then": {
+            "properties": {
+              "unbound_authoritative_mutation": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "unbound_authoritative_mutation": {
                 "const": false
               }
             }
           }
         }
+      ]
+    },
+    "be_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_status",
+        "repository",
+        "workflow_name",
+        "workflow_path",
+        "run_id",
+        "run_number",
+        "run_attempt",
+        "source_commit",
+        "event_name",
+        "acquisition_id"
+      ],
+      "properties": {
+        "record_status": {
+          "enum": [
+            "example",
+            "observed"
+          ]
+        },
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "workflow_name": {
+          "const": "PULSEmech bounded execution reference"
+        },
+        "workflow_path": {
+          "const": ".github/workflows/pulsemech_compute_bounded_execution_reference.yml"
+        },
+        "run_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "run_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "run_attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "event_name": {
+          "enum": [
+            "test",
+            "workflow_dispatch"
+          ]
+        },
+        "acquisition_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
       }
     },
-    {
-      "if": {
-        "properties": {
-          "record_status": {
-            "const": "observed"
+    "be_descriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "member",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "member": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2097152
+        }
+      }
+    },
+    "be_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "revision",
+        "member",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "member": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2097152
+        }
+      }
+    },
+    "be_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "checker_execution_id",
+        "consumer_execution_id",
+        "expected_exit_code",
+        "status",
+        "pending_state",
+        "checker_outputs",
+        "consumer_outputs"
+      ],
+      "properties": {
+        "case_id": {
+          "enum": [
+            "allow",
+            "block_false",
+            "missing_required"
+          ]
+        },
+        "checker_execution_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "consumer_execution_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "expected_exit_code": {
+          "enum": [
+            0,
+            1,
+            2
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/be_descriptor"
+        },
+        "pending_state": {
+          "$ref": "#/$defs/be_descriptor"
+        },
+        "checker_outputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "stdout",
+            "stderr",
+            "result_envelope"
+          ],
+          "properties": {
+            "stdout": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+            },
+            "stderr": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+            },
+            "result_envelope": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+            }
           }
         },
-        "required": [
-          "record_status"
-        ]
-      },
-      "then": {
-        "properties": {
-          "tool": {
-            "properties": {
-              "source_revision": {
-                "$ref": "#/$defs/sha40"
-              }
-            }
-          },
-          "comparison_identity": {
-            "properties": {
-              "comparison_scope": {
-                "const": "subject_run"
-              }
-            }
-          },
-          "observation_bindings": {
-            "properties": {
-              "compute_binding_report": {
-                "properties": {
-                  "record_status": {
-                    "const": "observed"
-                  }
-                }
-              },
-              "runtime_observation_packets": {
-                "items": {
-                  "properties": {
-                    "record_status": {
-                      "const": "observed"
-                    },
-                    "packet_scope": {
-                      "enum": [
-                        "subject_run",
-                        "workflow_job",
-                        "workflow_step",
-                        "external_export"
-                      ]
-                    }
-                  }
-                }
-              }
+        "consumer_outputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "terminal_state",
+            "stderr"
+          ],
+          "properties": {
+            "terminal_state": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+            },
+            "stderr": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
             }
           }
         }
       }
     },
-    {
-      "if": {
-        "properties": {
-          "record_status": {
-            "const": "example"
+    "be_prelaunch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_type",
+        "context",
+        "created_at_utc",
+        "source_bindings",
+        "required_gate_ids",
+        "selected_policy_set",
+        "input_inventory",
+        "cases",
+        "planner",
+        "boundary"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_bounded_execution_evidence_v0"
+        },
+        "record_type": {
+          "const": "prelaunch"
+        },
+        "context": {
+          "$ref": "#/$defs/be_context"
+        },
+        "created_at_utc": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+        },
+        "source_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/be_source"
+          },
+          "minItems": 10,
+          "maxItems": 40
+        },
+        "required_gate_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "selected_policy_set": {
+          "const": "core_required"
+        },
+        "input_inventory": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/be_descriptor"
+          },
+          "minItems": 9,
+          "maxItems": 32
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/be_case"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "planner": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "request",
+            "component_manifest",
+            "plan"
+          ],
+          "properties": {
+            "request": {
+              "$ref": "#/$defs/be_descriptor"
+            },
+            "component_manifest": {
+              "$ref": "#/$defs/be_descriptor"
+            },
+            "plan": {
+              "$ref": "#/$defs/be_descriptor"
+            }
           }
         },
-        "required": [
-          "record_status"
-        ]
-      },
-      "then": {
-        "properties": {
-          "comparison_identity": {
-            "properties": {
-              "comparison_scope": {
-                "const": "example"
-              }
-            }
-          },
-          "observation_bindings": {
-            "properties": {
-              "compute_binding_report": {
-                "properties": {
-                  "record_status": {
-                    "const": "example"
-                  }
-                }
-              },
-              "runtime_observation_packets": {
-                "items": {
-                  "properties": {
-                    "record_status": {
-                      "const": "example"
-                    }
-                  }
-                }
-              }
+        "boundary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "authority_effect",
+            "same_run_release_authority_eligible",
+            "active_gate_eligible",
+            "resource_measurement",
+            "acquisition_profile",
+            "trusted_runtime",
+            "visibility"
+          ],
+          "properties": {
+            "authority_effect": {
+              "const": "none"
+            },
+            "same_run_release_authority_eligible": {
+              "const": false
+            },
+            "active_gate_eligible": {
+              "const": false
+            },
+            "resource_measurement": {
+              "const": "unavailable"
+            },
+            "acquisition_profile": {
+              "const": "linux_sealed_descriptor_supervisor_v0"
+            },
+            "trusted_runtime": {
+              "const": "reviewed_supervisor_interpreter_and_host_kernel"
+            },
+            "visibility": {
+              "const": "six_declared_direct_processes_and_their_bound_io"
             }
           }
         }
       }
     },
-    {
-      "if": {
-        "properties": {
-          "summary": {
+    "be_pending_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_type",
+        "context_sha256",
+        "case_id",
+        "state",
+        "authority_effect"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_bounded_execution_evidence_v0"
+        },
+        "record_type": {
+          "const": "pending_state"
+        },
+        "context_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "case_id": {
+          "enum": [
+            "allow",
+            "block_false",
+            "missing_required"
+          ]
+        },
+        "state": {
+          "const": "pending"
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      }
+    },
+    "be_process_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_type",
+        "context_sha256",
+        "prelaunch_sha256",
+        "case_id",
+        "execution_id",
+        "invocation_sha256",
+        "exit_code",
+        "stdout",
+        "stderr",
+        "authority_effect"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_bounded_execution_evidence_v0"
+        },
+        "record_type": {
+          "const": "process_result"
+        },
+        "context_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "prelaunch_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "case_id": {
+          "enum": [
+            "allow",
+            "block_false",
+            "missing_required"
+          ]
+        },
+        "execution_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "invocation_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "exit_code": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "stdout": {
+          "$ref": "#/$defs/be_descriptor"
+        },
+        "stderr": {
+          "$ref": "#/$defs/be_descriptor"
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      }
+    },
+    "be_terminal_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_type",
+        "context_sha256",
+        "prelaunch_sha256",
+        "case_id",
+        "checker_execution_id",
+        "state",
+        "reason",
+        "checker_exit_code",
+        "result_sha256",
+        "pending_state_sha256",
+        "checker_stdout_sha256",
+        "checker_stderr_sha256",
+        "authority_effect"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_bounded_execution_evidence_v0"
+        },
+        "record_type": {
+          "const": "terminal_state"
+        },
+        "context_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "prelaunch_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "case_id": {
+          "enum": [
+            "allow",
+            "block_false",
+            "missing_required"
+          ]
+        },
+        "checker_execution_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "state": {
+          "enum": [
+            "ready",
+            "held"
+          ]
+        },
+        "reason": {
+          "enum": [
+            "all_required_true",
+            "required_value_not_true",
+            "missing_or_invalid_required_input"
+          ]
+        },
+        "checker_exit_code": {
+          "enum": [
+            0,
+            1,
+            2
+          ]
+        },
+        "result_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "pending_state_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "checker_stdout_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "checker_stderr_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      }
+    },
+    "be_sealed_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "logical_role",
+        "fd",
+        "sha256",
+        "size_bytes",
+        "seal_mask"
+      ],
+      "properties": {
+        "logical_role": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "fd": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 1048576
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2097152
+        },
+        "seal_mask": {
+          "const": 15
+        }
+      }
+    },
+    "be_execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_id",
+        "case_id",
+        "kind",
+        "pid",
+        "source_path",
+        "source_sha256",
+        "arguments",
+        "sealed_inputs",
+        "started_at_utc",
+        "completed_at_utc",
+        "start_monotonic_ns",
+        "end_monotonic_ns",
+        "exit_code",
+        "stdout_eof",
+        "stderr_eof",
+        "stdout",
+        "stderr"
+      ],
+      "properties": {
+        "execution_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "case_id": {
+          "enum": [
+            "allow",
+            "block_false",
+            "missing_required"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "checker",
+            "consumer"
+          ]
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source_path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+        },
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 1024
+          },
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "sealed_inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/be_sealed_input"
+          },
+          "minItems": 2,
+          "maxItems": 8
+        },
+        "started_at_utc": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+        },
+        "completed_at_utc": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+        },
+        "start_monotonic_ns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "end_monotonic_ns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "exit_code": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "stdout_eof": {
+          "const": true
+        },
+        "stderr_eof": {
+          "const": true
+        },
+        "stdout": {
+          "$ref": "#/$defs/be_descriptor"
+        },
+        "stderr": {
+          "$ref": "#/$defs/be_descriptor"
+        }
+      }
+    },
+    "be_interpreter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes",
+        "implementation",
+        "version",
+        "os",
+        "architecture",
+        "environment",
+        "flags"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 134217728
+        },
+        "implementation": {
+          "const": "cpython"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "os": {
+          "const": "Linux"
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "LC_ALL",
+            "TZ"
+          ],
+          "properties": {
+            "LC_ALL": {
+              "const": "C.UTF-8"
+            },
+            "TZ": {
+              "const": "UTC"
+            }
+          }
+        },
+        "flags": {
+          "const": [
+            "-I",
+            "-S",
+            "-B"
+          ]
+        }
+      }
+    },
+    "be_capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_type",
+        "context",
+        "prelaunch_sha256",
+        "started_at_utc",
+        "completed_at_utc",
+        "interpreter",
+        "executions",
+        "member_inventory",
+        "terminal_roles",
+        "capture_status",
+        "authority_effect"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_bounded_execution_evidence_v0"
+        },
+        "record_type": {
+          "const": "capture"
+        },
+        "context": {
+          "$ref": "#/$defs/be_context"
+        },
+        "prelaunch_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "started_at_utc": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+        },
+        "completed_at_utc": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+        },
+        "interpreter": {
+          "$ref": "#/$defs/be_interpreter"
+        },
+        "executions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/be_execution"
+          },
+          "minItems": 6,
+          "maxItems": 6
+        },
+        "member_inventory": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/be_descriptor"
+          },
+          "minItems": 30,
+          "maxItems": 128
+        },
+        "terminal_roles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+          },
+          "minItems": 6,
+          "maxItems": 6
+        },
+        "capture_status": {
+          "const": "closed"
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      }
+    },
+    "bounded_comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "expected_acquisition_context",
+        "prelaunch_sha256",
+        "capture_sha256",
+        "subject_input_sha256",
+        "carrier_sha256",
+        "runtime_packet_sha256",
+        "report_binding_sha256",
+        "expectations_sha256",
+        "packet_integrity",
+        "extent_status",
+        "relational_coverage_status",
+        "resource_coverage_status",
+        "scope",
+        "collector_projection_is_subject",
+        "case_outcomes",
+        "terminal_state_ids"
+      ],
+      "properties": {
+        "profile": {
+          "const": "bounded_execution_reference_v0"
+        },
+        "expected_acquisition_context": {
+          "$ref": "#/$defs/be_context"
+        },
+        "prelaunch_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "capture_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "subject_input_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "carrier_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "runtime_packet_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "report_binding_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "expectations_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "packet_integrity": {
+          "const": "complete"
+        },
+        "extent_status": {
+          "const": "complete"
+        },
+        "relational_coverage_status": {
+          "const": "complete"
+        },
+        "resource_coverage_status": {
+          "const": "unavailable"
+        },
+        "scope": {
+          "const": "six_declared_direct_processes_and_their_bound_io"
+        },
+        "collector_projection_is_subject": {
+          "const": false
+        },
+        "case_outcomes": {
+          "type": "array",
+          "items": {
             "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "case_id",
+              "actual_exit_code",
+              "expected_exit_code",
+              "matches_expected",
+              "terminal_state"
+            ],
             "properties": {
-              "comparison_complete": {
+              "case_id": {
+                "enum": [
+                  "allow",
+                  "block_false",
+                  "missing_required"
+                ]
+              },
+              "actual_exit_code": {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1,
+                  2
+                ]
+              },
+              "expected_exit_code": {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1,
+                  2
+                ]
+              },
+              "matches_expected": {
+                "type": "boolean"
+              },
+              "terminal_state": {
+                "enum": [
+                  "ready",
+                  "held"
+                ]
+              }
+            }
+          }
+        },
+        "terminal_state_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^state:bounded:runtime:"
+          }
+        }
+      }
+    },
+    "legacy_document_v0": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "relation_type",
+        "record_status",
+        "tool",
+        "comparison_identity",
+        "plan_binding",
+        "observation_bindings",
+        "comparison_boundary",
+        "expectations",
+        "observations",
+        "relations",
+        "coverage",
+        "summary",
+        "findings",
+        "errors",
+        "ok",
+        "authority_boundary"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_planned_observed_relation_v0"
+        },
+        "relation_type": {
+          "const": "pulsemech_compute_planned_observed_relation"
+        },
+        "record_status": {
+          "type": "string",
+          "enum": [
+            "example",
+            "observed"
+          ]
+        },
+        "tool": {
+          "$ref": "#/$defs/tool"
+        },
+        "comparison_identity": {
+          "$ref": "#/$defs/comparison_identity"
+        },
+        "plan_binding": {
+          "$ref": "#/$defs/plan_binding"
+        },
+        "observation_bindings": {
+          "$ref": "#/$defs/observation_bindings"
+        },
+        "comparison_boundary": {
+          "$ref": "#/$defs/comparison_boundary"
+        },
+        "expectations": {
+          "type": "object",
+          "$comment": "Expectation IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
+          "propertyNames": {
+            "$ref": "#/$defs/expectation_id"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/expectation_record"
+          }
+        },
+        "observations": {
+          "type": "object",
+          "$comment": "Observation IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
+          "propertyNames": {
+            "$ref": "#/$defs/observation_id"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/observation_record"
+          }
+        },
+        "relations": {
+          "type": "object",
+          "$comment": "Relation IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
+          "propertyNames": {
+            "$ref": "#/$defs/relation_id"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/relation_record"
+          }
+        },
+        "coverage": {
+          "$ref": "#/$defs/coverage"
+        },
+        "summary": {
+          "$ref": "#/$defs/summary"
+        },
+        "findings": {
+          "type": "object",
+          "$comment": "Finding IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
+          "propertyNames": {
+            "$ref": "#/$defs/finding_record_id"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "authority_boundary": {
+          "$ref": "#/$defs/authority_boundary"
+        },
+        "runtime_comparison": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "profile",
+            "runtime_binding_sha256",
+            "extent_status",
+            "relational_coverage_status",
+            "expectations_sha256"
+          ],
+          "properties": {
+            "profile": {
+              "const": "pulsemech_runtime_comparison_v0"
+            },
+            "runtime_binding_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "extent_status": {
+              "enum": [
+                "unknown",
+                "partial",
+                "complete"
+              ]
+            },
+            "relational_coverage_status": {
+              "enum": [
+                "unknown",
+                "partial",
+                "complete"
+              ]
+            },
+            "expectations_sha256": {
+              "$ref": "#/$defs/nullable_sha256"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "ok": {
                 "const": true
               }
             },
             "required": [
-              "comparison_complete"
+              "ok"
             ]
+          },
+          "then": {
+            "properties": {
+              "errors": {
+                "maxItems": 0
+              },
+              "comparison_boundary": {
+                "properties": {
+                  "plan_target_matches_subject_repository": {
+                    "const": true
+                  }
+                }
+              },
+              "plan_binding": {
+                "properties": {
+                  "apply_eligible": {
+                    "const": true
+                  }
+                }
+              }
+            }
           }
         },
-        "required": [
-          "summary"
-        ]
-      },
-      "then": {
-        "properties": {
-          "coverage": {
+        {
+          "if": {
             "properties": {
-              "comparison_status": {
-                "const": "complete"
+              "ok": {
+                "const": false
               }
-            }
+            },
+            "required": [
+              "ok"
+            ]
           },
-          "summary": {
+          "then": {
             "properties": {
-              "ambiguous_observation_match": {
-                "const": 0
+              "errors": {
+                "minItems": 1
               },
-              "unresolved_due_to_coverage": {
-                "const": 0
-              },
-              "unresolved_relations": {
-                "const": 0
+              "summary": {
+                "properties": {
+                  "comparison_complete": {
+                    "const": false
+                  }
+                }
               }
             }
           }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "observation_bindings": {
-            "type": "object",
+        },
+        {
+          "if": {
             "properties": {
-              "compute_binding_report": {
+              "record_status": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "record_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "tool": {
+                "properties": {
+                  "source_revision": {
+                    "$ref": "#/$defs/sha40"
+                  }
+                }
+              },
+              "comparison_identity": {
+                "properties": {
+                  "comparison_scope": {
+                    "const": "subject_run"
+                  }
+                }
+              },
+              "observation_bindings": {
+                "properties": {
+                  "compute_binding_report": {
+                    "properties": {
+                      "record_status": {
+                        "const": "observed"
+                      }
+                    }
+                  },
+                  "runtime_observation_packets": {
+                    "items": {
+                      "properties": {
+                        "record_status": {
+                          "const": "observed"
+                        },
+                        "packet_scope": {
+                          "enum": [
+                            "subject_run",
+                            "workflow_job",
+                            "workflow_step",
+                            "external_export"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "record_status": {
+                "const": "example"
+              }
+            },
+            "required": [
+              "record_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "comparison_identity": {
+                "properties": {
+                  "comparison_scope": {
+                    "const": "example"
+                  }
+                }
+              },
+              "observation_bindings": {
+                "properties": {
+                  "compute_binding_report": {
+                    "properties": {
+                      "record_status": {
+                        "const": "example"
+                      }
+                    }
+                  },
+                  "runtime_observation_packets": {
+                    "items": {
+                      "properties": {
+                        "record_status": {
+                          "const": "example"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "summary": {
                 "type": "object",
                 "properties": {
-                  "analysis_level": {
+                  "comparison_complete": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "comparison_complete"
+                ]
+              }
+            },
+            "required": [
+              "summary"
+            ]
+          },
+          "then": {
+            "properties": {
+              "coverage": {
+                "properties": {
+                  "comparison_status": {
+                    "const": "complete"
+                  }
+                }
+              },
+              "summary": {
+                "properties": {
+                  "ambiguous_observation_match": {
+                    "const": 0
+                  },
+                  "unresolved_due_to_coverage": {
+                    "const": 0
+                  },
+                  "unresolved_relations": {
+                    "const": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observation_bindings": {
+                "type": "object",
+                "properties": {
+                  "compute_binding_report": {
+                    "type": "object",
+                    "properties": {
+                      "analysis_level": {
+                        "const": "artifact_observed"
+                      }
+                    },
+                    "required": [
+                      "analysis_level"
+                    ]
+                  }
+                },
+                "required": [
+                  "compute_binding_report"
+                ]
+              }
+            },
+            "required": [
+              "observation_bindings"
+            ]
+          },
+          "then": {
+            "properties": {
+              "comparison_boundary": {
+                "properties": {
+                  "observed_analysis_level": {
                     "const": "artifact_observed"
                   }
-                },
-                "required": [
-                  "analysis_level"
-                ]
-              }
-            },
-            "required": [
-              "compute_binding_report"
-            ]
-          }
-        },
-        "required": [
-          "observation_bindings"
-        ]
-      },
-      "then": {
-        "properties": {
-          "comparison_boundary": {
-            "properties": {
-              "observed_analysis_level": {
-                "const": "artifact_observed"
+                }
               }
             }
           }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "observation_bindings": {
-            "type": "object",
+        },
+        {
+          "if": {
             "properties": {
-              "compute_binding_report": {
+              "observation_bindings": {
                 "type": "object",
                 "properties": {
-                  "analysis_level": {
-                    "const": "runtime_observed"
+                  "compute_binding_report": {
+                    "type": "object",
+                    "properties": {
+                      "analysis_level": {
+                        "const": "runtime_observed"
+                      }
+                    },
+                    "required": [
+                      "analysis_level"
+                    ]
                   }
                 },
                 "required": [
-                  "analysis_level"
+                  "compute_binding_report"
                 ]
               }
             },
             "required": [
-              "compute_binding_report"
+              "observation_bindings"
             ]
-          }
-        },
-        "required": [
-          "observation_bindings"
-        ]
-      },
-      "then": {
-        "properties": {
-          "comparison_boundary": {
+          },
+          "then": {
             "properties": {
-              "observed_analysis_level": {
-                "const": "runtime_observed"
+              "comparison_boundary": {
+                "properties": {
+                  "observed_analysis_level": {
+                    "const": "runtime_observed"
+                  }
+                }
               }
             }
           }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "observation_bindings": {
-            "type": "object",
+        },
+        {
+          "if": {
             "properties": {
-              "runtime_observation_status": {
-                "const": "none"
+              "observation_bindings": {
+                "type": "object",
+                "properties": {
+                  "runtime_observation_status": {
+                    "const": "none"
+                  }
+                },
+                "required": [
+                  "runtime_observation_status"
+                ]
               }
             },
             "required": [
-              "runtime_observation_status"
+              "observation_bindings"
             ]
+          },
+          "then": {
+            "properties": {
+              "observations": {
+                "additionalProperties": {
+                  "properties": {
+                    "observation_kind": {
+                      "const": "compute_node"
+                    },
+                    "source_record_kind": {
+                      "const": "compute_binding_report"
+                    }
+                  }
+                }
+              },
+              "coverage": {
+                "properties": {
+                  "runtime_observation_status": {
+                    "const": "none"
+                  }
+                }
+              }
+            }
           }
         },
-        "required": [
-          "observation_bindings"
-        ]
-      },
-      "then": {
-        "properties": {
-          "observations": {
-            "additionalProperties": {
-              "properties": {
-                "observation_kind": {
-                  "const": "compute_node"
+        {
+          "if": {
+            "properties": {
+              "observation_bindings": {
+                "type": "object",
+                "properties": {
+                  "runtime_observation_status": {
+                    "const": "partial"
+                  }
                 },
-                "source_record_kind": {
-                  "const": "compute_binding_report"
+                "required": [
+                  "runtime_observation_status"
+                ]
+              }
+            },
+            "required": [
+              "observation_bindings"
+            ]
+          },
+          "then": {
+            "properties": {
+              "coverage": {
+                "properties": {
+                  "runtime_observation_status": {
+                    "const": "partial"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observation_bindings": {
+                "type": "object",
+                "properties": {
+                  "runtime_observation_status": {
+                    "const": "complete"
+                  }
+                },
+                "required": [
+                  "runtime_observation_status"
+                ]
+              }
+            },
+            "required": [
+              "observation_bindings"
+            ]
+          },
+          "then": {
+            "properties": {
+              "coverage": {
+                "properties": {
+                  "runtime_observation_status": {
+                    "const": "complete"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "runtime_comparison"
+            ]
+          },
+          "then": {
+            "properties": {
+              "comparison_boundary": {
+                "properties": {
+                  "observed_analysis_level": {
+                    "const": "runtime_observed"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "record_status": {
+                "const": "observed"
+              },
+              "comparison_boundary": {
+                "properties": {
+                  "observed_analysis_level": {
+                    "const": "runtime_observed"
+                  }
                 }
               }
             }
           },
-          "coverage": {
-            "properties": {
-              "runtime_observation_status": {
-                "const": "none"
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "observation_bindings": {
-            "type": "object",
-            "properties": {
-              "runtime_observation_status": {
-                "const": "partial"
-              }
-            },
+          "then": {
             "required": [
-              "runtime_observation_status"
+              "runtime_comparison"
             ]
           }
         },
-        "required": [
-          "observation_bindings"
-        ]
-      },
-      "then": {
-        "properties": {
-          "coverage": {
-            "properties": {
-              "runtime_observation_status": {
-                "const": "partial"
-              }
+        {
+          "if": {
+            "not": {
+              "required": [
+                "runtime_comparison"
+              ]
             }
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "observation_bindings": {
-            "type": "object",
-            "properties": {
-              "runtime_observation_status": {
-                "const": "complete"
-              }
-            },
-            "required": [
-              "runtime_observation_status"
-            ]
-          }
-        },
-        "required": [
-          "observation_bindings"
-        ]
-      },
-      "then": {
-        "properties": {
-          "coverage": {
-            "properties": {
-              "runtime_observation_status": {
-                "const": "complete"
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "required": [
-          "runtime_comparison"
-        ]
-      },
-      "then": {
-        "properties": {
-          "comparison_boundary": {
-            "properties": {
-              "observed_analysis_level": {
-                "const": "runtime_observed"
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "record_status": {
-            "const": "observed"
           },
-          "comparison_boundary": {
+          "then": {
             "properties": {
-              "observed_analysis_level": {
-                "const": "runtime_observed"
-              }
-            }
-          }
-        }
-      },
-      "then": {
-        "required": [
-          "runtime_comparison"
-        ]
-      }
-    },
-    {
-      "if": {
-        "not": {
-          "required": [
-            "runtime_comparison"
-          ]
-        }
-      },
-      "then": {
-        "properties": {
-          "observations": {
-            "additionalProperties": {
-              "not": {
-                "required": [
-                  "runtime_occurrence_guard"
-                ]
-              }
-            }
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "not": {
-          "required": [
-            "runtime_comparison"
-          ]
-        }
-      },
-      "then": {
-        "properties": {
-          "relations": {
-            "additionalProperties": {
-              "if": {
-                "properties": {
-                  "relation_status": {
-                    "const": "observed_but_not_planned"
+              "observations": {
+                "additionalProperties": {
+                  "not": {
+                    "required": [
+                      "runtime_occurrence_guard"
+                    ]
                   }
-                },
-                "required": [
-                  "relation_status"
-                ]
-              },
-              "then": {
-                "properties": {
-                  "expectation_id": {
-                    "type": "null"
-                  },
-                  "observation_ids": {
-                    "minItems": 1
-                  },
-                  "evaluation": {
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "not": {
+              "required": [
+                "runtime_comparison"
+              ]
+            }
+          },
+          "then": {
+            "properties": {
+              "relations": {
+                "additionalProperties": {
+                  "if": {
                     "properties": {
-                      "execution_observation": {
-                        "const": "observed"
+                      "relation_status": {
+                        "const": "observed_but_not_planned"
+                      }
+                    },
+                    "required": [
+                      "relation_status"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "expectation_id": {
+                        "type": "null"
                       },
-                      "execution_identity": {
-                        "const": "not_required"
+                      "observation_ids": {
+                        "minItems": 1
                       },
-                      "source_identity": {
-                        "const": "not_required"
-                      },
-                      "run_binding": {
-                        "const": "match"
-                      },
-                      "authority_class": {
-                        "const": "not_required"
-                      },
-                      "coverage": {
-                        "const": "complete"
-                      },
-                      "decisive": {
-                        "const": true
-                      },
-                      "declared_role": {
-                        "const": "not_required"
+                      "evaluation": {
+                        "properties": {
+                          "execution_observation": {
+                            "const": "observed"
+                          },
+                          "execution_identity": {
+                            "const": "not_required"
+                          },
+                          "source_identity": {
+                            "const": "not_required"
+                          },
+                          "run_binding": {
+                            "const": "match"
+                          },
+                          "authority_class": {
+                            "const": "not_required"
+                          },
+                          "coverage": {
+                            "const": "complete"
+                          },
+                          "decisive": {
+                            "const": true
+                          },
+                          "declared_role": {
+                            "const": "not_required"
+                          }
+                        }
                       }
                     }
                   }
@@ -4171,8 +6135,563 @@
             }
           }
         }
-      }
+      ],
+      "$comment": "Cross-record equality for subject repository, run key, source commit, release candidate, and exact input digests is enforced by the strict validator in this contract PR. Draft 2020-12 cannot express arbitrary sibling-instance equality."
+    },
+    "bounded_reference_document_v0": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "relation_type",
+        "record_status",
+        "tool",
+        "comparison_identity",
+        "plan_binding",
+        "observation_bindings",
+        "comparison_boundary",
+        "expectations",
+        "observations",
+        "relations",
+        "coverage",
+        "summary",
+        "findings",
+        "errors",
+        "ok",
+        "authority_boundary",
+        "comparison_profile",
+        "bounded_comparison"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_planned_observed_relation_v0"
+        },
+        "relation_type": {
+          "const": "pulsemech_compute_planned_observed_relation"
+        },
+        "record_status": {
+          "type": "string",
+          "enum": [
+            "example",
+            "observed"
+          ]
+        },
+        "tool": {
+          "$ref": "#/$defs/tool"
+        },
+        "comparison_identity": {
+          "$ref": "#/$defs/comparison_identity"
+        },
+        "plan_binding": {
+          "$ref": "#/$defs/plan_binding"
+        },
+        "observation_bindings": {
+          "$ref": "#/$defs/observation_bindings"
+        },
+        "comparison_boundary": {
+          "$ref": "#/$defs/comparison_boundary"
+        },
+        "expectations": {
+          "type": "object",
+          "$comment": "Expectation IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
+          "propertyNames": {
+            "$ref": "#/$defs/expectation_id"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/bounded_expectation_record"
+          },
+          "minProperties": 6,
+          "maxProperties": 6
+        },
+        "observations": {
+          "type": "object",
+          "$comment": "Observation IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
+          "propertyNames": {
+            "$ref": "#/$defs/observation_id"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/bounded_observation_record"
+          },
+          "minProperties": 6,
+          "maxProperties": 6
+        },
+        "relations": {
+          "type": "object",
+          "$comment": "Relation IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
+          "propertyNames": {
+            "$ref": "#/$defs/relation_id"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/relation_record"
+          }
+        },
+        "coverage": {
+          "$ref": "#/$defs/coverage"
+        },
+        "summary": {
+          "$ref": "#/$defs/summary"
+        },
+        "findings": {
+          "type": "object",
+          "$comment": "Finding IDs are object keys so duplicate identifiers cannot be represented after strict duplicate-key parsing.",
+          "propertyNames": {
+            "$ref": "#/$defs/finding_record_id"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "authority_boundary": {
+          "$ref": "#/$defs/authority_boundary"
+        },
+        "comparison_profile": {
+          "const": "bounded_execution_reference_v0"
+        },
+        "bounded_comparison": {
+          "$ref": "#/$defs/bounded_comparison"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "errors": {
+                "maxItems": 0
+              },
+              "comparison_boundary": {
+                "properties": {
+                  "plan_target_matches_subject_repository": {
+                    "const": true
+                  }
+                }
+              },
+              "plan_binding": {
+                "properties": {
+                  "apply_eligible": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "ok": {
+                "const": false
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "errors": {
+                "minItems": 1
+              },
+              "summary": {
+                "properties": {
+                  "comparison_complete": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "record_status": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "record_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "tool": {
+                "properties": {
+                  "source_revision": {
+                    "$ref": "#/$defs/sha40"
+                  }
+                }
+              },
+              "comparison_identity": {
+                "properties": {
+                  "comparison_scope": {
+                    "const": "subject_run"
+                  }
+                }
+              },
+              "observation_bindings": {
+                "properties": {
+                  "compute_binding_report": {
+                    "properties": {
+                      "record_status": {
+                        "const": "observed"
+                      }
+                    }
+                  },
+                  "runtime_observation_packets": {
+                    "items": {
+                      "properties": {
+                        "record_status": {
+                          "const": "observed"
+                        },
+                        "packet_scope": {
+                          "enum": [
+                            "subject_run",
+                            "workflow_job",
+                            "workflow_step",
+                            "external_export"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "record_status": {
+                "const": "example"
+              }
+            },
+            "required": [
+              "record_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "comparison_identity": {
+                "properties": {
+                  "comparison_scope": {
+                    "const": "example"
+                  }
+                }
+              },
+              "observation_bindings": {
+                "properties": {
+                  "compute_binding_report": {
+                    "properties": {
+                      "record_status": {
+                        "const": "example"
+                      }
+                    }
+                  },
+                  "runtime_observation_packets": {
+                    "items": {
+                      "properties": {
+                        "record_status": {
+                          "const": "example"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "summary": {
+                "type": "object",
+                "properties": {
+                  "comparison_complete": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "comparison_complete"
+                ]
+              }
+            },
+            "required": [
+              "summary"
+            ]
+          },
+          "then": {
+            "properties": {
+              "coverage": {
+                "properties": {
+                  "comparison_status": {
+                    "const": "complete"
+                  }
+                }
+              },
+              "summary": {
+                "properties": {
+                  "ambiguous_observation_match": {
+                    "const": 0
+                  },
+                  "unresolved_due_to_coverage": {
+                    "const": 0
+                  },
+                  "unresolved_relations": {
+                    "const": 0
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observation_bindings": {
+                "type": "object",
+                "properties": {
+                  "compute_binding_report": {
+                    "type": "object",
+                    "properties": {
+                      "analysis_level": {
+                        "const": "artifact_observed"
+                      }
+                    },
+                    "required": [
+                      "analysis_level"
+                    ]
+                  }
+                },
+                "required": [
+                  "compute_binding_report"
+                ]
+              }
+            },
+            "required": [
+              "observation_bindings"
+            ]
+          },
+          "then": {
+            "properties": {
+              "comparison_boundary": {
+                "properties": {
+                  "observed_analysis_level": {
+                    "const": "artifact_observed"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observation_bindings": {
+                "type": "object",
+                "properties": {
+                  "compute_binding_report": {
+                    "type": "object",
+                    "properties": {
+                      "analysis_level": {
+                        "const": "runtime_observed"
+                      }
+                    },
+                    "required": [
+                      "analysis_level"
+                    ]
+                  }
+                },
+                "required": [
+                  "compute_binding_report"
+                ]
+              }
+            },
+            "required": [
+              "observation_bindings"
+            ]
+          },
+          "then": {
+            "properties": {
+              "comparison_boundary": {
+                "properties": {
+                  "observed_analysis_level": {
+                    "const": "runtime_observed"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observation_bindings": {
+                "type": "object",
+                "properties": {
+                  "runtime_observation_status": {
+                    "const": "none"
+                  }
+                },
+                "required": [
+                  "runtime_observation_status"
+                ]
+              }
+            },
+            "required": [
+              "observation_bindings"
+            ]
+          },
+          "then": {
+            "properties": {
+              "observations": {
+                "additionalProperties": {
+                  "properties": {
+                    "observation_kind": {
+                      "const": "compute_node"
+                    },
+                    "source_record_kind": {
+                      "const": "compute_binding_report"
+                    }
+                  }
+                }
+              },
+              "coverage": {
+                "properties": {
+                  "runtime_observation_status": {
+                    "const": "none"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observation_bindings": {
+                "type": "object",
+                "properties": {
+                  "runtime_observation_status": {
+                    "const": "partial"
+                  }
+                },
+                "required": [
+                  "runtime_observation_status"
+                ]
+              }
+            },
+            "required": [
+              "observation_bindings"
+            ]
+          },
+          "then": {
+            "properties": {
+              "coverage": {
+                "properties": {
+                  "runtime_observation_status": {
+                    "const": "partial"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "observation_bindings": {
+                "type": "object",
+                "properties": {
+                  "runtime_observation_status": {
+                    "const": "complete"
+                  }
+                },
+                "required": [
+                  "runtime_observation_status"
+                ]
+              }
+            },
+            "required": [
+              "observation_bindings"
+            ]
+          },
+          "then": {
+            "properties": {
+              "coverage": {
+                "properties": {
+                  "runtime_observation_status": {
+                    "const": "complete"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "comparison_boundary": {
+              "properties": {
+                "observed_analysis_level": {
+                  "const": "runtime_observed"
+                }
+              }
+            },
+            "observations": {
+              "additionalProperties": {
+                "properties": {
+                  "execution_scope": {
+                    "const": "subject"
+                  },
+                  "observation_kind": {
+                    "const": "compute_node"
+                  },
+                  "source_record_kind": {
+                    "const": "compute_binding_report"
+                  }
+                },
+                "not": {
+                  "required": [
+                    "runtime_occurrence_guard"
+                  ]
+                }
+              }
+            },
+            "observation_bindings": {
+              "properties": {
+                "runtime_observation_status": {
+                  "const": "partial"
+                },
+                "runtime_observation_packets": {
+                  "minItems": 1,
+                  "maxItems": 1
+                }
+              }
+            }
+          }
+        }
+      ],
+      "$comment": "Cross-record equality for subject repository, run key, source commit, release candidate, and exact input digests is enforced by the strict validator in this contract PR. Draft 2020-12 cannot express arbitrary sibling-instance equality."
     }
-  ],
-  "$comment": "Cross-record equality for subject repository, run key, source commit, release candidate, and exact input digests is enforced by the strict validator in this contract PR. Draft 2020-12 cannot express arbitrary sibling-instance equality."
+  }
 }

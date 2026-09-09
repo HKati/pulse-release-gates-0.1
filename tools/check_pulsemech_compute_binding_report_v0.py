@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 
+ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_SCHEMA = ROOT / "schemas/pulsemech_compute_binding_report_v0.schema.json"
 TOOL_NAME = "check_pulsemech_compute_binding_report_v0"
 SCHEMA_VERSION = "pulsemech_compute_binding_report_v0"
 REPORT_TYPE = "pulsemech_compute_binding_report"
@@ -104,6 +106,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--repository-root", default=str(Path(__file__).resolve().parents[1]))
     parser.add_argument("--runtime-packet", action="append", default=[])
     parser.add_argument("--runtime-extent")
+    parser.add_argument("--expected-context")
+    parser.add_argument("--expected-prelaunch-sha256")
     return parser.parse_args()
 
 
@@ -1007,7 +1011,7 @@ def check_findings_and_non_activation(report: dict[str, Any]) -> list[str]:
         errors.append("report_error: ok_false_without_errors")
 
     subject = get_dict(report.get("subject"))
-    if subject.get("decision") not in {"ALLOW", "BLOCK"}:
+    if report.get("report_profile") != "bounded_execution_reference_v0" and subject.get("decision") not in {"ALLOW", "BLOCK"}:
         errors.append("report_error: invalid_terminal_decision")
 
     return errors
@@ -1017,6 +1021,7 @@ def build_diagnostic(
     schema_path: Path,
     report_path: Path,
     *, runtime_inputs: dict[str, Any] | None = None,
+    bounded_inputs: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], int]:
     try:
         schema = load_json_strict(schema_path)
@@ -1030,7 +1035,8 @@ def build_diagnostic(
         return diagnostic, 2
 
     try:
-        report = load_json_strict(report_path)
+        report_raw = report_path.read_bytes()
+        report = load_json_strict(RuntimeBytesView(report_raw))
     except Exception as exc:
         diagnostic = make_diagnostic(
             ok=False,
@@ -1089,7 +1095,9 @@ def build_diagnostic(
         for name, _ in semantic_checks:
             checks[name] = False
 
-    if schema_valid and ("runtime_binding" in report or (report.get("record_status") == "observed" and report.get("analysis_boundary", {}).get("analysis_level") == "runtime_observed")):
+    if schema_valid and report.get("report_profile") == "bounded_execution_reference_v0":
+        add_check(checks, errors, "bounded_source_replay_ok", check_bounded_source_replay(report, report_raw, bounded_inputs))
+    elif schema_valid and ("runtime_binding" in report or (report.get("record_status") == "observed" and report.get("analysis_boundary", {}).get("analysis_level") == "runtime_observed")):
         add_check(checks, errors, "runtime_source_replay_ok", check_runtime_source_replay(report, runtime_inputs))
 
     normalized_errors = sorted(set(errors))
@@ -1134,11 +1142,25 @@ def main() -> int:
             return 2
 
     runtime_inputs = None
+    bounded_inputs = None
     try:
         report_view = capture_diagnostic_document(report_path)
         schema_view = capture_diagnostic_document(schema_path, max_bytes=1024 * 1024)
         document = load_json_strict(report_view)
-        if isinstance(document, dict) and "runtime_binding" in document:
+        if isinstance(document, dict) and document.get("report_profile") == "bounded_execution_reference_v0":
+            if schema_path.absolute() != DEFAULT_SCHEMA.absolute():
+                raise ValueError("bounded_canonical_schema_required")
+            if output_path is not None or args.runtime_extent:
+                raise ValueError("bounded_diagnostic_stdout_only_no_synthetic_extent")
+            if not args.subject_input or not args.carrier or not args.expected_context or not args.expected_prelaunch_sha256:
+                raise ValueError("bounded_source_inputs_required")
+            if len(args.runtime_packet) > 1:
+                raise ValueError("bounded_single_runtime_packet_required")
+            bounded_inputs = bounded_inputs_from_paths(subject_input_path=Path(args.subject_input),
+                carrier_path=Path(args.carrier), repository_root=Path(args.repository_root),
+                expected_context_path=Path(args.expected_context), expected_prelaunch_sha256=args.expected_prelaunch_sha256,
+                runtime_packet_path=Path(args.runtime_packet[0]) if args.runtime_packet else None)
+        elif isinstance(document, dict) and "runtime_binding" in document:
             if output_path is not None:
                 raise ValueError("runtime_diagnostic_stdout_only")
             if not args.subject_input or not args.carrier or not args.runtime_packet:
@@ -1160,7 +1182,7 @@ def main() -> int:
         emit_diagnostic(diagnostic, None)
         return 1
     diagnostic, exit_code = build_diagnostic(
-        schema_view, report_view, runtime_inputs=runtime_inputs,
+        schema_view, report_view, runtime_inputs=runtime_inputs, bounded_inputs=bounded_inputs,
     )
     emit_diagnostic(diagnostic, output_path)
     return exit_code
@@ -1402,6 +1424,101 @@ def check_runtime_source_replay(report: dict[str, Any], inputs: dict[str, Any] |
         return []
     except Exception as exc:
         return ["runtime_source_validation_failed:" + str(exc)]
+
+
+
+
+def bounded_committed_bytes(relative: str, *, repository_root: Path, expected_context: dict[str, Any]) -> bytes:
+    """Check an installed reconstruction dependency before executing it."""
+    import os
+    import re
+    import subprocess
+    root = Path(repository_root).absolute()
+    if root != Path(__file__).absolute().parents[1]:
+        raise ValueError("bounded_checker_installation_mismatch")
+    allowed = {"tools/pulsemech_compute_binding_analyzer_core_v0.py",
+        "tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py",
+        "tools/check_pulsemech_compute_binding_report_v0.py",
+        "schemas/pulsemech_compute_binding_report_v0.schema.json",
+        "tools/build_pulsemech_compute_planned_observed_relation_v0.py",
+        "tools/check_pulsemech_compute_planned_observed_relation_v0.py",
+        "schemas/pulsemech_compute_planned_observed_relation_v0.schema.json"}
+    if relative not in allowed:
+        raise ValueError("bounded_replay_dependency_invalid")
+    revision = expected_context.get("source_commit")
+    if not isinstance(revision, str) or not re.fullmatch("[0-9a-f]{40}", revision):
+        raise ValueError("bounded_expected_revision_invalid")
+    raw = capture_diagnostic_document(root / relative, max_bytes=2 * 1024 * 1024).data
+    env = {"PATH": "/usr/bin:/bin", "LC_ALL": "C", "GIT_CONFIG_NOSYSTEM": "1",
+           "GIT_CONFIG_GLOBAL": os.devnull, "GIT_NO_REPLACE_OBJECTS": "1", "HOME": str(root)}
+    def git(args):
+        result = subprocess.run(["/usr/bin/git", "--no-replace-objects", "-C", str(root), *args],
+            env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10, check=False)
+        if result.returncode != 0: raise ValueError("bounded_replay_source_unavailable")
+        return result.stdout
+    if git(["cat-file", "-t", revision]) != b"commit\n":
+        raise ValueError("bounded_replay_commit_required")
+    entry = git(["ls-tree", "-z", revision, "--", relative])
+    if not entry.startswith((b"100644 blob ", b"100755 blob ")) or entry.count(b"\0") != 1 or not entry.endswith(b"\t" + relative.encode() + b"\0"):
+        raise ValueError("bounded_replay_source_not_regular")
+    if git(["cat-file", "-s", revision + ":" + relative]).strip() != str(len(raw)).encode() or git(["cat-file", "blob", revision + ":" + relative]) != raw:
+        raise ValueError("bounded_replay_source_mismatch:" + relative)
+    return raw
+
+
+def bounded_inputs_from_paths(*, subject_input_path: Path, carrier_path: Path, repository_root: Path,
+        expected_context_path: Path, expected_prelaunch_sha256: str, runtime_packet_path: Path | None = None) -> dict[str, Any]:
+    return {"subject_input_bytes": capture_diagnostic_document(subject_input_path, max_bytes=2 * 1024 * 1024).data,
+        "carrier_bytes": capture_diagnostic_document(carrier_path, max_bytes=16 * 1024 * 1024).data,
+        "repository_root": repository_root,
+        "expected_context": load_json_strict(capture_diagnostic_document(expected_context_path, max_bytes=65536)),
+        "expected_prelaunch_sha256": expected_prelaunch_sha256,
+        "runtime_packet_bytes": capture_diagnostic_document(runtime_packet_path, max_bytes=2 * 1024 * 1024).data if runtime_packet_path else None}
+
+
+def check_bounded_source_replay(report: dict[str, Any], report_raw: bytes, inputs: dict[str, Any] | None) -> list[str]:
+    if inputs is None:
+        return ["bounded_upstream_inputs_required"]
+    try:
+        root = Path(inputs["repository_root"]).absolute()
+        context = inputs["expected_context"]
+        core_path = "tools/pulsemech_compute_binding_analyzer_core_v0.py"
+        core_raw = bounded_committed_bytes(core_path, repository_root=root, expected_context=context)
+        checker_raw = bounded_committed_bytes("tools/check_pulsemech_compute_binding_report_v0.py", repository_root=root, expected_context=context)
+        schema_raw = bounded_committed_bytes("schemas/pulsemech_compute_binding_report_v0.schema.json", repository_root=root, expected_context=context)
+        # Supplied output declarations cannot choose different replay sources.
+        construction = report["bounded_binding"]["construction_sources"]
+        if construction[core_path] != _runtime_hash(core_raw) or construction["tools/check_pulsemech_compute_binding_report_v0.py"] != _runtime_hash(checker_raw) or construction["schemas/pulsemech_compute_binding_report_v0.schema.json"] != _runtime_hash(schema_raw):
+            raise ValueError("bounded_report_dependency_binding_mismatch")
+        core = _runtime_module(root / core_path, "bounded_core_for_report_check", expected_sha256=_runtime_hash(core_raw))
+        expected = core.build_bounded_reference_report(subject_input_bytes=inputs["subject_input_bytes"],
+            carrier_bytes=inputs["carrier_bytes"], repository_root=root, expected_context=context,
+            expected_prelaunch_sha256=inputs["expected_prelaunch_sha256"],
+            analysis_run_key=report["analysis_boundary"]["analysis_run_key"],
+            runtime_packet_bytes=inputs.get("runtime_packet_bytes"))
+        expected_raw = (json.dumps(expected, ensure_ascii=False, sort_keys=True, indent=2, allow_nan=False) + "\n").encode()
+        if report_raw != expected_raw or report != expected:
+            return ["bounded_report_exact_replay_mismatch"]
+        if "decision" in report["subject"] or report["resource_summary"] != {"axes": {}}:
+            raise ValueError("bounded_report_production_or_measurement_claim")
+        # Independently enforce the finite six-process boundary and the fact
+        # that recorder-owned envelopes are not checker-produced state objects.
+        if report["bounded_binding"]["stage"] == "runtime":
+            nodes = {n["node_id"]: n for n in report["compute_nodes"]}
+            states = {n["state_id"]: n for n in report["state_nodes"]}
+            if len(nodes) != 6 or any(n["execution_scope"] != "subject" for n in nodes.values()):
+                raise ValueError("bounded_report_subject_extent")
+            for sid in report["bounded_binding"]["recorder_result_state_ids"]:
+                if states[sid]["producer_node_id"] is not None:
+                    raise ValueError("bounded_envelope_misattributed_to_subject")
+            for node in nodes.values():
+                if node["node_id"].endswith(":checker"):
+                    suffix = node["node_id"].removesuffix(":checker") + ":consumer"
+                    if not set(node["output_state_ids"]) <= set(nodes[suffix]["input_state_ids"]):
+                        raise ValueError("bounded_required_consumer_missing")
+        return []
+    except Exception as exc:
+        return ["bounded_source_validation_failed:" + str(exc)]
 
 
 if __name__ == "__main__":

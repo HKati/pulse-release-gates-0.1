@@ -2339,5 +2339,76 @@ def main(
         return 2
 
 
+
+
+# The closed bounded-reference path is independent of the legacy #6066 artifact
+# layout. It uses the same producer core, without fabricating release objects.
+BOUNDED_REFERENCE_PROFILE = 'bounded_execution_reference_v0'
+
+
+def _bounded_capture_validator(repository_root: Path, revision: str) -> Any:
+    import types
+    relative = 'tools/check_pulsemech_compute_bounded_execution_v0.py'
+    committed_repository_file(repository_root,revision=revision,relative_path=relative,
+                              label='bounded_capture_validator')
+    raw = _git_blob_bytes(repository_root,revision=revision,path=relative)
+    name = '_pulse_subject_bound_capture_validator_' + sha256_bytes(raw)
+    module = types.ModuleType(name)
+    module.__file__ = str(repository_root.absolute()/relative)
+    sys.modules[name] = module
+    try:
+        exec(compile(raw,module.__file__,'exec'),module.__dict__)
+    except Exception:
+        sys.modules.pop(name,None)
+        raise
+    return module
+
+
+def build_bounded_reference_packet(*, carrier_bytes: bytes, repository_root: Path,
+                                   expected_context: dict[str, Any],
+                                   expected_prelaunch_sha256: str) -> dict[str, Any]:
+    """Construct the new profile only from independently verified exact evidence."""
+    root = repository_root.absolute()
+    revision = canonical_sha40(expected_context.get('source_commit'),label='bounded_reference_revision')
+    committed_repository_file(root,revision=revision,relative_path=PRODUCER_CORE_SOURCE_PATH,
+                              label='bounded_producer_core')
+    if Path(__file__).absolute() != root/PRODUCER_CORE_SOURCE_PATH:
+        raise BuilderError('bounded_producer_executed_path_mismatch')
+    validator = _bounded_capture_validator(root,revision)
+    checked = validator.verify_capture(carrier_bytes,repository_root=root,
+        expected_context=expected_context,expected_prelaunch_sha256=expected_prelaunch_sha256)
+    context = checked.expected_context
+    run_key = (f"GITHUB_RUN_ID={context['run_id']}|GITHUB_RUN_ATTEMPT={context['run_attempt']}"
+               f"|GITHUB_WORKFLOW={context['workflow_name']}")
+    core_sha = sha256_bytes(_git_blob_bytes(root,revision=revision,path=PRODUCER_CORE_SOURCE_PATH))
+    identity = sha256_bytes((checked.carrier_sha256+'\x00'+expected_prelaunch_sha256+'\x00'+core_sha).encode())
+    return {
+        'schema_version':SCHEMA_VERSION,'packet_type':PACKET_TYPE,
+        'input_profile':BOUNDED_REFERENCE_PROFILE,'record_status':context['record_status'],
+        'packet_identity':{'packet_id':'subject-input:bounded-reference/'+identity+'/v0',
+            'packet_created_utc':checked.capture['completed_at_utc'],'subject_run_key':run_key,
+            'canonicalization':'json-sort-keys-utf8-newline'},
+        'subject':{'repository':context['repository'],'workflow_name':context['workflow_name'],
+            'workflow_run_id':context['run_id'],'workflow_run_number':context['run_number'],
+            'workflow_run_attempt':context['run_attempt'],'subject_run_key':run_key,
+            'source_commit':revision,'release_candidate_id':'bounded-reference:'+context['acquisition_id'],
+            'run_mode':'bounded_reference','active_policy_sets':['core_required']},
+        'acquisition_context':context,
+        'carrier':{'carrier_kind':'bounded_execution_archive','path_or_uri':'sha256:'+checked.carrier_sha256,
+            'sha256':checked.carrier_sha256,'size_bytes':len(carrier_bytes),'immutable':True},
+        'capture_binding':{'prelaunch_sha256':expected_prelaunch_sha256,
+                           'capture_manifest_sha256':sha256_bytes(checked.members['capture.json'])},
+        'construction':{'producer_core_path':PRODUCER_CORE_SOURCE_PATH,'producer_core_revision':revision,
+                        'producer_core_sha256':core_sha},
+        'artifacts':[validator.descriptor(name,raw) for name,raw in sorted(checked.members.items())],
+        'role_bindings':{'prelaunch':'prelaunch.json','capture':'capture.json','integration_plan':'planner/plan.json'},
+        'coverage':{'artifact_inventory':'complete','observation_claim':'bounded_reference_only',
+                    'resource_measurement':'unavailable'},
+        'authority_boundary':{'authority_effect':'none','same_run_release_authority_eligible':False,
+            'active_gate_eligible':False,'packet_is_release_authority':False,'creates_release_decision':False},
+        'errors':[],'ok':True,
+    }
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

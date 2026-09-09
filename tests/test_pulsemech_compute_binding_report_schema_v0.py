@@ -378,6 +378,32 @@ def test_legacy_report_source_kind_and_binding_mode_are_not_silently_broadened()
         node["source_identity" if field=="source_kind" else "run_binding"][field]=value
         assert list(jsonschema.Draft202012Validator(schema).iter_errors(r)),field
 
+
+
+def _bounded_unit_module(filename):
+    import importlib.util, sys, hashlib
+    path=Path(__file__).resolve().parents[1]/"tools"/filename
+    name="_bounded_unit_"+hashlib.sha256(path.read_bytes()).hexdigest()
+    spec=importlib.util.spec_from_file_location(name,path)
+    module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)
+    return module
+
+def test_bounded_profile_does_not_admit_a_relabelled_legacy_report():
+    import copy,jsonschema
+    value=example(); original=copy.deepcopy(value)
+    value["report_profile"]="bounded_execution_reference_v0"
+    value["bounded_binding"]={}
+    assert validation_errors(value)
+    assert not validation_errors(original)
+
+def test_bounded_reference_schema_requires_closed_source_and_stage_binding():
+    definitions=schema()["$defs"]
+    profile=definitions["bounded_reference_document_v0"]
+    assert profile["additionalProperties"] is False
+    assert {"report_profile","bounded_binding"} <= set(profile["required"])
+    assert len(schema()["oneOf"])==2
+
+
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))

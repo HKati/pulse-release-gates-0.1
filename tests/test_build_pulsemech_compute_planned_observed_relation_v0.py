@@ -1070,5 +1070,31 @@ def test_review_2872_runtime_constructor_uses_captured_content_locators():
     assert rebuilt == relation
 
 
+
+
+def _bounded_unit_module(filename):
+    import importlib.util, sys, hashlib
+    path=Path(__file__).resolve().parents[1]/"tools"/filename
+    name="_bounded_unit_"+hashlib.sha256(path.read_bytes()).hexdigest()
+    spec=importlib.util.spec_from_file_location(name,path)
+    module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)
+    return module
+
+def test_bounded_occurrence_selector_is_a_hard_match_boundary():
+    builder=_bounded_unit_module("build_pulsemech_compute_planned_observed_relation_v0.py")
+    expectation={"expected_compute":{"selector":{"bounded_execution_id":"execution:allow:checker"}},"expected_source_identity":{}}
+    observation={"execution_identity":{"bounded_execution_id":"execution:block_false:checker"},"source_identity":{}}
+    assert builder.candidate_score(expectation,observation) is None
+    observation["execution_identity"]["bounded_execution_id"]="execution:allow:checker"
+    assert builder.candidate_score(expectation,observation)>0
+
+def test_bounded_relation_build_requires_captured_sources_not_a_flag():
+    import pytest
+    builder=_bounded_unit_module("build_pulsemech_compute_planned_observed_relation_v0.py")
+    with pytest.raises(builder.BuilderError,match="raw_sources_required"):
+        builder._prepare_bounded_relation(report={},report_bytes=b"{}",plan={},plan_bytes=b"{}",packets=[],explicit={},
+            expectations_bytes=None,tool_source_revision=None,inputs=None)
+
+
 if __name__ == "__main__":
     check_build_pulsemech_compute_planned_observed_relation_v0()

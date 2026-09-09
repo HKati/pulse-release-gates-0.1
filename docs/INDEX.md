@@ -653,6 +653,17 @@ live/current-run observation, resource measurement and policy promotion remain
 open later boundaries; `authority_effect = none`. A public Step 3F/3G dispatched
 proof instance remains separate from the completed automation implementation.
 
+### Bounded execution reference — Step 5B
+
+[Bounded execution contract](compute/PULSEMECH_COMPUTE_BOUNDED_EXECUTION_CONTRACT_v0.md)
+defines the manual, non-active checker/consumer reference under work order #2875.
+The implementation adds a separately discriminated subject/report/comparison
+profile, exact source and prelaunch binding, recorded process consumption and
+independent reconstruction through the existing cores. It preserves the historical
+#6066 profile and does not itself record an owner-dispatched reference acquisition.
+Actual reference preservation and bounded acceptance remain separate handoffs;
+this entry is navigation, not an acquisition or release-authority assertion.
+
 ### Remaining implementation and operational boundary
 
 The runtime-observation contract, matching validator and bounded historical

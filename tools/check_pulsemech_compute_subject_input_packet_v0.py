@@ -8,6 +8,7 @@ import io
 import json
 import math
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -2436,12 +2437,89 @@ def make_diagnostic(
     }
 
 
+def check_bounded_reference_packet(
+    packet: dict[str, Any], *, packet_text: str, carrier_bytes: bytes,
+    repository_root: Path, expected_context: dict[str, Any] | None,
+    expected_prelaunch_sha256: str | None,
+) -> tuple[dict[str, bool], list[str]]:
+    """Independent reconstruction for the narrowly discriminated reference profile."""
+    checks = {'bounded_reference_source_and_bytes_ok': False}
+    try:
+        if expected_context is None or expected_prelaunch_sha256 is None:
+            raise SemanticError('bounded_reference_expected_context_and_prelaunch_required')
+        revision = expected_context.get('source_commit')
+        if not isinstance(revision,str) or not re.fullmatch('[0-9a-f]{40}',revision):
+            raise SemanticError('bounded_reference_revision_invalid')
+        if packet.get('acquisition_context') != expected_context:
+            raise SemanticError('bounded_reference_acquisition_context_mismatch')
+        import types
+        relative = 'tools/check_pulsemech_compute_bounded_execution_v0.py'
+        raw = _git_blob_bytes(repository_root,revision=revision,path=relative)
+        local = repository_root.absolute()/relative
+        _reject_symlink_path(local,label='bounded_validator')
+        if local.read_bytes() != raw:
+            raise SemanticError('bounded_evidence_validator_source_mismatch')
+        name = '_pulse_subject_independent_bounded_' + sha256_bytes(raw)
+        module = types.ModuleType(name)
+        module.__file__ = str(local)
+        sys.modules[name] = module
+        try:
+            exec(compile(raw,str(local),'exec'),module.__dict__)
+            checked = module.verify_capture(carrier_bytes,repository_root=repository_root,
+                expected_context=expected_context,expected_prelaunch_sha256=expected_prelaunch_sha256)
+        finally:
+            sys.modules.pop(name,None)
+        if packet_text != render_json(packet):
+            raise SemanticError('bounded_reference_serialization_mismatch')
+        source_path='tools/pulsemech_compute_subject_input_packet_producer_core_v0.py'
+        source_raw=_git_blob_bytes(repository_root,revision=revision,path=source_path)
+        source_digest=sha256_bytes(source_raw)
+        key=(f"GITHUB_RUN_ID={expected_context['run_id']}|GITHUB_RUN_ATTEMPT={expected_context['run_attempt']}"
+             f"|GITHUB_WORKFLOW={expected_context['workflow_name']}")
+        identity=sha256_bytes((sha256_bytes(carrier_bytes)+'\x00'+expected_prelaunch_sha256+'\x00'+source_digest).encode())
+        expected = {
+            'schema_version':SCHEMA_VERSION,'packet_type':PACKET_TYPE,
+            'input_profile':'bounded_execution_reference_v0','record_status':expected_context['record_status'],
+            'packet_identity':{'packet_id':'subject-input:bounded-reference/'+identity+'/v0',
+                'packet_created_utc':checked.capture['completed_at_utc'],'subject_run_key':key,
+                'canonicalization':'json-sort-keys-utf8-newline'},
+            'subject':{'repository':expected_context['repository'],'workflow_name':expected_context['workflow_name'],
+                'workflow_run_id':expected_context['run_id'],'workflow_run_number':expected_context['run_number'],
+                'workflow_run_attempt':expected_context['run_attempt'],'subject_run_key':key,'source_commit':revision,
+                'release_candidate_id':'bounded-reference:'+expected_context['acquisition_id'],
+                'run_mode':'bounded_reference','active_policy_sets':['core_required']},
+            'acquisition_context':expected_context,
+            'carrier':{'carrier_kind':'bounded_execution_archive','path_or_uri':'sha256:'+sha256_bytes(carrier_bytes),
+                'sha256':sha256_bytes(carrier_bytes),'size_bytes':len(carrier_bytes),'immutable':True},
+            'capture_binding':{'prelaunch_sha256':expected_prelaunch_sha256,
+                'capture_manifest_sha256':sha256_bytes(checked.members['capture.json'])},
+            'construction':{'producer_core_path':source_path,'producer_core_revision':revision,
+                'producer_core_sha256':source_digest},
+            'artifacts':[{'member':name,'sha256':sha256_bytes(value),'size_bytes':len(value)}
+                         for name,value in sorted(checked.members.items())],
+            'role_bindings':{'prelaunch':'prelaunch.json','capture':'capture.json','integration_plan':'planner/plan.json'},
+            'coverage':{'artifact_inventory':'complete','observation_claim':'bounded_reference_only',
+                        'resource_measurement':'unavailable'},
+            'authority_boundary':{'authority_effect':'none','same_run_release_authority_eligible':False,
+                'active_gate_eligible':False,'packet_is_release_authority':False,'creates_release_decision':False},
+            'errors':[],'ok':True,
+        }
+        if packet_text != render_json(expected):
+            raise SemanticError('bounded_reference_packet_reconstruction_mismatch')
+        checks['bounded_reference_source_and_bytes_ok'] = True
+        return checks, []
+    except Exception as exc:
+        return checks, ['bounded_reference_rejected: '+str(exc)]
+
+
 def build_diagnostic(
     *,
     schema_path: Path,
     packet_path: Path,
     explicit_carrier: Path | None,
     repository_root: Path,
+    bounded_expected_context: dict[str, Any] | None = None,
+    bounded_prelaunch_sha256: str | None = None,
 ) -> tuple[dict[str, Any], int, Path | None, tuple[str, str, str] | None]:
     try:
         _reject_symlink_path(schema_path, label="schema")
@@ -2507,14 +2585,21 @@ def build_diagnostic(
 
     checks: dict[str, bool] = {}
     if schema_valid:
-        semantic, semantic_errors_list = semantic_checks(
-            packet,
-            packet_text=packet_text,
-            packet_path=packet_path,
-            carrier_path=carrier_path,
-            carrier_bytes=carrier_bytes,
-            repository_root=repository_root,
-        )
+        if packet.get("input_profile") == "bounded_execution_reference_v0":
+            semantic, semantic_errors_list = check_bounded_reference_packet(
+                packet, packet_text=packet_text, carrier_bytes=carrier_bytes,
+                repository_root=repository_root, expected_context=bounded_expected_context,
+                expected_prelaunch_sha256=bounded_prelaunch_sha256,
+            )
+        else:
+            semantic, semantic_errors_list = semantic_checks(
+                packet,
+                packet_text=packet_text,
+                packet_path=packet_path,
+                carrier_path=carrier_path,
+                carrier_bytes=carrier_bytes,
+                repository_root=repository_root,
+            )
         checks.update(semantic)
         errors.extend(semantic_errors_list)
     else:
@@ -2591,6 +2676,8 @@ def parse_args() -> argparse.Namespace:
         "--output",
         help="Optional path for the deterministic diagnostic JSON.",
     )
+    parser.add_argument("--expected-context", help="Separate expected bounded acquisition context.")
+    parser.add_argument("--expected-prelaunch-sha256", help="Externally bound prelaunch digest for the bounded profile.")
     return parser.parse_args()
 
 
@@ -2607,6 +2694,9 @@ def main() -> int:
         packet_path=packet_path,
         explicit_carrier=explicit_carrier,
         repository_root=repository_root,
+        bounded_expected_context=(load_json_path(Path(args.expected_context))[0]
+                                  if args.expected_context else None),
+        bounded_prelaunch_sha256=args.expected_prelaunch_sha256,
     )
 
     if carrier_path is not None:

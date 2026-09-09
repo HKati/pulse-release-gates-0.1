@@ -1795,3 +1795,50 @@ def test_protected_input_snapshot_detects_mutation(tmp_path: Path) -> None:
         carrier_path=carrier_copy,
         snapshots=snapshots,
     )
+
+
+@pytest.fixture(scope="module")
+def bounded_reference_capture():
+    from test_pulsemech_compute_bounded_execution_v0 import example as capture_fixture
+    return capture_fixture.__wrapped__()
+
+
+def bounded_reference_packet(capture):
+    import sys
+    sys.path.insert(0, str(ROOT / "tools"))
+    import build_pulsemech_compute_bounded_execution_inputs_v0 as adapter
+    import check_pulsemech_compute_bounded_execution_v0 as verify
+    context, digest, _, carrier = capture
+    raw = adapter.build_subject_input(carrier_bytes=carrier,repository_root=ROOT,
+        expected_context=context,expected_prelaunch_sha256=digest)
+    return verify.parse(raw)
+
+
+def test_bounded_reference_requires_separate_expected_inputs(bounded_reference_capture):
+    from check_pulsemech_compute_bounded_execution_v0 import canonical
+    packet = bounded_reference_packet(bounded_reference_capture)
+    for context, digest in ((None,None), (bounded_reference_capture[0],None), (None,bounded_reference_capture[1])):
+        checks,errors=TOOL_MODULE.check_bounded_reference_packet(packet,packet_text=canonical(packet).decode(),
+            carrier_bytes=bounded_reference_capture[3],repository_root=ROOT,
+            expected_context=context,expected_prelaunch_sha256=digest)
+        assert errors and not all(checks.values())
+
+
+@pytest.mark.parametrize("field", ["packet_identity", "subject", "carrier", "capture_binding", "construction", "artifacts"])
+def test_bounded_reference_semantics_recompute_from_carrier(bounded_reference_capture,field):
+    from check_pulsemech_compute_bounded_execution_v0 import canonical
+    packet=bounded_reference_packet(bounded_reference_capture)
+    if field=="packet_identity":packet[field]["packet_id"]="subject-input:forged/v0"
+    elif field=="subject":packet[field]["release_candidate_id"]="unrelated-reference"
+    elif field=="carrier":packet[field]["sha256"]="0"*64
+    elif field=="capture_binding":packet[field]["capture_manifest_sha256"]="0"*64
+    elif field=="construction":packet[field]["producer_core_sha256"]="0"*64
+    else:packet[field][0]["sha256"]="0"*64
+    checks,errors=TOOL_MODULE.check_bounded_reference_packet(packet,packet_text=canonical(packet).decode(),
+        carrier_bytes=bounded_reference_capture[3],repository_root=ROOT,
+        expected_context=bounded_reference_capture[0],expected_prelaunch_sha256=bounded_reference_capture[1])
+    assert errors and not all(checks.values())
+
+
+if __name__ == "__main__":
+    raise SystemExit(pytest.main([__file__, "-q"]))

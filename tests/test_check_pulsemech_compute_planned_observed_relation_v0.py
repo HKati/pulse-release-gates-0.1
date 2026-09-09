@@ -1234,5 +1234,26 @@ def test_review_2872_validator_does_not_match_partial_runtime_source_claim():
     assert validator._source_identity_result(expected, [observation]) == "unavailable"
 
 
+
+
+def _bounded_unit_module(filename):
+    import importlib.util, sys, hashlib
+    path=Path(__file__).resolve().parents[1]/"tools"/filename
+    name="_bounded_unit_"+hashlib.sha256(path.read_bytes()).hexdigest()
+    spec=importlib.util.spec_from_file_location(name,path)
+    module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)
+    return module
+
+def test_bounded_relation_checker_requires_its_upstream_input_set():
+    checker=_bounded_unit_module("check_pulsemech_compute_planned_observed_relation_v0.py")
+    assert checker.check_bounded_relation_replay({},None)==["bounded_relation_sources_required"]
+
+def test_bounded_relation_selector_does_not_merge_same_source_occurrences():
+    checker=_bounded_unit_module("check_pulsemech_compute_planned_observed_relation_v0.py")
+    selector={"bounded_execution_id":"execution:allow:checker"}
+    observation={"execution_identity":{"bounded_execution_id":"execution:block_false:checker"}}
+    assert checker._selector_result(selector,[observation])=="mismatch"
+
+
 if __name__ == "__main__":
     check_pulsemech_compute_planned_observed_relation_validator_v0()

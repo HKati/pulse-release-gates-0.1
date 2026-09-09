@@ -863,6 +863,27 @@ def test_observed_runtime_report_cannot_validate_without_source_repository():
     assert rc!=0 and "runtime_historical_source_repository_required" in str(d)
 
 
+
+
+def _bounded_unit_module(filename):
+    import importlib.util, sys, hashlib
+    path=Path(__file__).resolve().parents[1]/"tools"/filename
+    name="_bounded_unit_"+hashlib.sha256(path.read_bytes()).hexdigest()
+    spec=importlib.util.spec_from_file_location(name,path)
+    module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)
+    return module
+
+def test_bounded_report_replay_rejects_missing_upstream_evidence():
+    checker=_bounded_unit_module("check_pulsemech_compute_binding_report_v0.py")
+    assert checker.check_bounded_source_replay({},b"{}",None)==["bounded_upstream_inputs_required"]
+
+def test_bounded_report_replay_cannot_choose_an_arbitrary_dependency():
+    import pytest
+    checker=_bounded_unit_module("check_pulsemech_compute_binding_report_v0.py")
+    with pytest.raises(ValueError,match="dependency_invalid"):
+        checker.bounded_committed_bytes("tools/arbitrary.py",repository_root=checker.ROOT,expected_context={"source_commit":"a"*40})
+
+
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-q", "-p", "no:cacheprovider"]))
