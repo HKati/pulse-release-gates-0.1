@@ -269,6 +269,61 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             ),
         )
 
+    if rel == (
+        ".github/workflows/"
+        "pulsemech_compute_bounded_execution_reference.yml"
+    ):
+        return entry(
+            name=name,
+            path=rel,
+            surface_type="workflow",
+            primary_role="non-active bounded-execution reference workflow",
+            carrier_class="diagnostic_shadow",
+            authority_impacting="conditional",
+            authority_boundary=(
+                "Manual candidate-only, non-active, pre-authority bounded "
+                "reference workflow. It executes the strict checker and a "
+                "separate result consumer on controlled reference inputs, not "
+                "the primary production release path. Authority participation "
+                "requires a separate change admitting its outputs as recorded "
+                "evidence and enforcing a separate declared required gate."
+            ),
+            reads_artifacts=[
+                "exact reviewed main source commit and protected control-plane sources",
+                "exact repository, workflow, run, attempt, and checkout context",
+                "ordered core_required policy output and gate registry",
+                "prelaunch specification and controlled status/pending-state inputs",
+                "plan-only integration request, component manifest, and plan",
+            ],
+            writes_artifacts=[
+                "prelaunch expectations and prepared source/input carrier",
+                "bounded capture of three checker and three consumer processes",
+                "bounded-reference subject-input packet and partial runtime packet",
+                "artifact-only baseline and separate runtime-bound compute report",
+                "planned-observed relation and separate non-active candidate state",
+                "byte-identical reconstruction archives from two separate processes",
+                "checksum-closed reference_capsule_v0.zip",
+            ],
+            publishes_artifacts=[
+                "non-active bounded-reference GitHub Actions artifact bundle",
+            ],
+            required_gate_participation=False,
+            attestation_participation=False,
+            release_path_participation=False,
+            notes=(
+                "Step 5B bounded reference carrier. Checker exits 0/1/2 and "
+                "consumer ready/held states are reference results, not production "
+                "release decisions or deployment admission. Whole-packet coverage "
+                "stays partial and resources unavailable. Inventory classification "
+                "does not establish acquisition provenance, observed-reference "
+                "acceptance, or full Step 5 closure. No resource measurement, "
+                "compute budget, gate activation, or policy promotion; "
+                "authority_effect = none; "
+                "same_run_release_authority_eligible = false; "
+                "active_gate_eligible = false."
+            ),
+        )
+
     if rel == ".github/workflows/pulsemech_ledger_swift.yml":   
         return entry(
             name=name,

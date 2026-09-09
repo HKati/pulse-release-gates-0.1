@@ -163,6 +163,138 @@ def test_inventory_classifies_current_run_artifact_observed_candidate_as_non_act
     ]
 
 
+def test_inventory_classifies_bounded_execution_reference_as_non_active_shadow(
+    tmp_path: Path,
+) -> None:
+    inventory, markdown = run_builder(tmp_path)
+    workflow_path = (
+        ".github/workflows/"
+        "pulsemech_compute_bounded_execution_reference.yml"
+    )
+    reference = entry_by_path(inventory, workflow_path)
+
+    assert reference["primary_role"] == (
+        "non-active bounded-execution reference workflow"
+    )
+    assert reference["carrier_class"] == "diagnostic_shadow"
+    assert reference["authority_impacting"] == "conditional"
+    assert reference["required_gate_participation"] is False
+    assert reference["attestation_participation"] is False
+    assert reference["release_path_participation"] is False
+
+    for boundary in (
+        "Manual candidate-only",
+        "non-active",
+        "pre-authority",
+        "controlled reference inputs",
+        "not the primary production release path",
+        "recorded evidence",
+        "separate declared required gate",
+    ):
+        assert boundary in reference["authority_boundary"]
+
+    assert reference["reads_artifacts"] == [
+        "exact reviewed main source commit and protected control-plane sources",
+        "exact repository, workflow, run, attempt, and checkout context",
+        "ordered core_required policy output and gate registry",
+        "prelaunch specification and controlled status/pending-state inputs",
+        "plan-only integration request, component manifest, and plan",
+    ]
+    assert reference["writes_artifacts"] == [
+        "prelaunch expectations and prepared source/input carrier",
+        "bounded capture of three checker and three consumer processes",
+        "bounded-reference subject-input packet and partial runtime packet",
+        "artifact-only baseline and separate runtime-bound compute report",
+        "planned-observed relation and separate non-active candidate state",
+        "byte-identical reconstruction archives from two separate processes",
+        "checksum-closed reference_capsule_v0.zip",
+    ]
+    assert reference["publishes_artifacts"] == [
+        "non-active bounded-reference GitHub Actions artifact bundle"
+    ]
+    for note in (
+        "Checker exits 0/1/2",
+        "consumer ready/held",
+        "not production release decisions or deployment admission",
+        "Whole-packet coverage stays partial",
+        "resources unavailable",
+        "does not establish acquisition provenance",
+        "observed-reference acceptance",
+        "full Step 5 closure",
+        "No resource measurement",
+        "compute budget",
+        "gate activation",
+        "policy promotion",
+        "authority_effect = none",
+        "same_run_release_authority_eligible = false",
+        "active_gate_eligible = false",
+    ):
+        assert note in reference["notes"]
+    assert workflow_path in markdown
+    assert not [
+        finding
+        for finding in inventory["drift_findings"]
+        if finding["path"] == workflow_path
+    ]
+
+
+def test_inventory_does_not_classify_renamed_bounded_reference_copies(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    workflows = repo / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    workflow_name = "pulsemech_compute_bounded_execution_reference.yml"
+    original = (REPO_ROOT / ".github" / "workflows" / workflow_name).read_bytes()
+    # Identical contents and display names do not extend the exact-path entry.
+    alternate_names = (
+        "pulsemech_compute_bounded_execution_reference_copy.yml",
+        "pulsemech_compute_bounded_execution_reference.yaml",
+        "Pulsemech_compute_bounded_execution_reference.yml",
+    )
+    for filename in alternate_names:
+        (workflows / filename).write_bytes(original)
+
+    inventory = run_builder_for_repo(repo, tmp_path)
+    expected_paths = {".github/workflows/" + name for name in alternate_names}
+    for path in expected_paths:
+        assert entry_by_path(inventory, path)["primary_role"] == (
+            "unclassified workflow"
+        )
+    assert {finding["path"] for finding in inventory["drift_findings"]} == expected_paths
+    assert len(inventory["drift_findings"]) == len(expected_paths)
+    for finding in inventory["drift_findings"]:
+        assert finding["severity"] == "warning"
+        assert finding["finding"] == (
+            "workflow requires explicit carrier-role classification"
+        )
+
+
+def test_inventory_keeps_unknown_workflow_drift_beside_bounded_reference(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    workflows = repo / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    workflow_name = "pulsemech_compute_bounded_execution_reference.yml"
+    (workflows / workflow_name).write_bytes(
+        (REPO_ROOT / ".github" / "workflows" / workflow_name).read_bytes()
+    )
+    write_workflow(workflows / "unclassified_future_task.yml", name="Future task")
+
+    inventory = run_builder_for_repo(repo, tmp_path)
+    assert entry_by_path(inventory, ".github/workflows/" + workflow_name)[
+        "primary_role"
+    ] == "non-active bounded-execution reference workflow"
+    assert inventory["drift_findings"] == [
+        {
+            "severity": "warning",
+            "path": ".github/workflows/unclassified_future_task.yml",
+            "finding": "workflow requires explicit carrier-role classification",
+        }
+    ]
+
+
 def test_inventory_classifies_device_ledger_swift_as_non_authorizing_advisory(
     tmp_path: Path,
 ) -> None:
