@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import pytest
+
 import copy
 import hashlib
 import json
@@ -25,10 +27,10 @@ EXAMPLE_PATH = (
 )
 
 EXPECTED_SCHEMA_SHA256 = (
-    "81c274aaee7cd2aee015eda490cc82bd19f7556db35e2c3dc9995fbdb8d96e19"
+    "8116c757ba7ee65c14ae159fe9969bc2084fe105b0df7e69ebee64f65b45f1e5"
 )
-EXPECTED_SCHEMA_SIZE_BYTES = 33513
-EXPECTED_SCHEMA_LINE_COUNT = 1361
+EXPECTED_SCHEMA_SIZE_BYTES = 43429
+EXPECTED_SCHEMA_LINE_COUNT = 1687
 
 EXPECTED_EXAMPLE_SHA256 = (
     "37d2cec0aacd0a423da3df37dfe96c8ae5af89fbdce1f0b745cdb82ce667f251"
@@ -899,8 +901,54 @@ def test_schema_definition_surface_preserves_the_provenance_split() -> None:
         "example_archive",
     ]
 
-    example_branch, observed_branch = schema()["oneOf"]
+    example_branch, observed_branch = schema()["$defs"]["legacy_document_v0"]["oneOf"]
     assert example_branch["properties"]["producer"] is False
     assert example_branch["required"] == ["fixture_provenance"]
     assert observed_branch["properties"]["fixture_provenance"] is False
     assert observed_branch["required"] == ["producer"]
+
+
+def test_legacy_document_validation_constraints_are_unchanged() -> None:
+    legacy = schema()["$defs"]["legacy_document_v0"]
+    actual = hashlib.sha256(json.dumps(legacy, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+    assert actual == "7f7727aedecb59f1537716b4aa44635825b34766f600faf49deda2f2781d22f0"
+
+
+@pytest.fixture(scope="module")
+def bounded_reference_capture():
+    from test_pulsemech_compute_bounded_execution_v0 import example as capture_fixture
+    return capture_fixture.__wrapped__()
+
+
+def bounded_reference_packet(capture):
+    import sys
+    sys.path.insert(0, str(ROOT / "tools"))
+    import build_pulsemech_compute_bounded_execution_inputs_v0 as adapter
+    import check_pulsemech_compute_bounded_execution_v0 as verify
+    context, digest, _, carrier = capture
+    raw = adapter.build_subject_input(carrier_bytes=carrier,repository_root=ROOT,
+        expected_context=context,expected_prelaunch_sha256=digest)
+    return verify.parse(raw)
+
+
+def test_bounded_reference_profile_is_closed_and_not_legacy(bounded_reference_capture):
+    packet = bounded_reference_packet(bounded_reference_capture)
+    validate(packet)
+    assert "final_status" not in packet["role_bindings"]
+    assert "release_decision" not in packet["role_bindings"]
+    for field in ("input_profile", "capture_binding", "construction", "acquisition_context"):
+        changed = copy.deepcopy(packet); changed.pop(field)
+        assert_invalid(changed)
+    changed = copy.deepcopy(packet); changed["producer"] = observed_packet()["producer"]
+    assert_invalid(changed)
+
+
+@pytest.mark.parametrize("field", ["creates_release_decision", "packet_is_release_authority", "active_gate_eligible"])
+def test_bounded_reference_cannot_gain_authority_fields(bounded_reference_capture, field):
+    packet = bounded_reference_packet(bounded_reference_capture)
+    packet["authority_boundary"][field] = True
+    assert_invalid(packet)
+
+
+if __name__ == "__main__":
+    raise SystemExit(pytest.main([__file__, "-q"]))

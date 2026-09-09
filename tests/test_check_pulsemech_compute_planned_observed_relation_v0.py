@@ -1234,5 +1234,86 @@ def test_review_2872_validator_does_not_match_partial_runtime_source_claim():
     assert validator._source_identity_result(expected, [observation]) == "unavailable"
 
 
+
+
+def _bounded_unit_module(filename):
+    import importlib.util, sys, hashlib
+    path=Path(__file__).resolve().parents[1]/"tools"/filename
+    name="_bounded_unit_"+hashlib.sha256(path.read_bytes()).hexdigest()
+    spec=importlib.util.spec_from_file_location(name,path)
+    module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)
+    return module
+
+def test_bounded_relation_checker_requires_its_upstream_input_set():
+    checker=_bounded_unit_module("check_pulsemech_compute_planned_observed_relation_v0.py")
+    assert checker.check_bounded_relation_replay({},None)==["bounded_relation_sources_required"]
+
+def test_bounded_relation_selector_does_not_merge_same_source_occurrences():
+    checker=_bounded_unit_module("check_pulsemech_compute_planned_observed_relation_v0.py")
+    selector={"bounded_execution_id":"execution:allow:checker"}
+    observation={"execution_identity":{"bounded_execution_id":"execution:block_false:checker"}}
+    assert checker._selector_result(selector,[observation])=="mismatch"
+
+
+
+
+def test_review_2876_relation_checker_reuses_original_context(tmp_path, monkeypatch):
+    checker = _bounded_unit_module("check_pulsemech_compute_planned_observed_relation_v0.py")
+    report_checker = _bounded_unit_module("check_pulsemech_compute_binding_report_v0.py")
+    raw = b'{ "source_commit": "' + b'a' * 40 + b'" }\n'
+    context_path = tmp_path / "context.json"; context_path.write_bytes(raw)
+    paths = {key: tmp_path / key for key in ("plan_path", "report_path", "subject_input_path",
+        "carrier_path", "runtime_packet_path")}
+    for path in paths.values(): path.write_bytes(b'{}')
+    captured = []
+    original = report_checker.bounded_inputs_from_paths
+    def intake(**kw):
+        captured.append(kw)
+        assert kw.get("expected_context_bytes") == raw
+        assert kw.get("expected_context_path") is None
+        return original(**kw)
+    monkeypatch.setattr(report_checker, "bounded_inputs_from_paths", intake)
+    def bootstrap(root, context):
+        assert context == json.loads(raw)
+        context_path.write_bytes(b'not the captured context')
+        return report_checker
+    monkeypatch.setattr(checker, "_bounded_report_checker", bootstrap)
+    result = checker.bounded_relation_inputs_from_paths(**paths, repository_root=checker.ROOT,
+        expected_context_path=context_path, expected_prelaunch_sha256="0" * 64)
+    assert result["report_inputs"]["expected_context"] == json.loads(raw)
+    assert len(captured) == 1
+
+
+@pytest.mark.parametrize("raw", [b'[]', b'{}' + b' ' * 65535, bytearray(b'{}')],
+    ids=["nonobject", "oversized", "mutable_bytes"])
+def test_review_2876_relation_context_bytes_rejected_before_bootstrap(raw, tmp_path, monkeypatch):
+    checker = _bounded_unit_module("check_pulsemech_compute_planned_observed_relation_v0.py")
+    def forbidden(*a, **kw): raise AssertionError('invalid context reached bootstrap')
+    monkeypatch.setattr(checker, "_bounded_report_checker", forbidden)
+    with pytest.raises((ValueError, checker.SemanticError)):
+        checker.bounded_relation_inputs_from_paths(plan_path=tmp_path/'p', report_path=tmp_path/'r',
+            subject_input_path=tmp_path/'s', carrier_path=tmp_path/'c', runtime_packet_path=tmp_path/'runtime',
+            repository_root=checker.ROOT, expected_context_bytes=raw, expected_prelaunch_sha256="0"*64)
+
+
+def test_review_2876_diagnostic_reader_rejects_fifo_without_waiting(tmp_path):
+    import os
+    fifo = tmp_path / "context"; os.mkfifo(fifo)
+    code = r"""
+import importlib.util, sys
+from pathlib import Path
+p=Path(sys.argv[1]);spec=importlib.util.spec_from_file_location('reader_under_test',p)
+m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+try: m.capture_diagnostic_document(Path(sys.argv[2]),max_bytes=65536)
+except (ValueError,OSError): print('bounded-context-rejected')
+else: raise AssertionError('FIFO accepted')
+"""
+    process = subprocess.run([sys.executable, "-I", "-B", "-c", code,
+        str(ROOT / "tools" / "check_pulsemech_compute_planned_observed_relation_v0.py"), str(fifo)],
+        stdin=subprocess.DEVNULL, capture_output=True, timeout=8, check=False)
+    assert process.returncode == 0, process.stderr.decode()
+    assert process.stdout.strip() == b"bounded-context-rejected"
+
+
 if __name__ == "__main__":
     check_pulsemech_compute_planned_observed_relation_validator_v0()

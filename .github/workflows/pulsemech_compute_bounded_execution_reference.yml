@@ -1,0 +1,54 @@
+name: PULSEmech bounded execution reference
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_source_commit:
+        description: Exact reviewed main commit to execute (40 lowercase hex digits).
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulsemech-bounded-execution-reference
+  cancel-in-progress: false
+
+jobs:
+  reference:
+    name: Capture and verify non-active bounded reference
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      EXPECTED_SOURCE_COMMIT: ${{ inputs.expected_source_commit }}
+      CONTROL_PLANE_REVISION: ${{ github.workflow_sha }}
+      CONTROL_PLANE_WORKFLOW_REF: ${{ github.workflow_ref }}
+    steps:
+      - name: Checkout exact triggering revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up reference Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.11"
+      - name: Install verification dependencies
+        run: python -m pip install jsonschema==4.26.0 PyYAML==6.0.3
+      - name: Execute reviewed finite reference and reconstruct outputs
+        run: >-
+          python tools/build_pulsemech_compute_bounded_execution_inputs_v0.py
+          run-reference --repository-root "$GITHUB_WORKSPACE"
+          --output-directory "$RUNNER_TEMP/pulsemech-bounded-reference"
+      - name: Preserve non-active reference evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pulsemech-bounded-reference-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pulsemech-bounded-reference/
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0

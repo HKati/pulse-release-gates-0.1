@@ -243,7 +243,7 @@ def validate_document(
         raise BuilderError(f"{label}_invalid: " + "; ".join(errors))
 
 
-def expectations_input_schema(relation_schema: dict[str, Any]) -> dict[str, Any]:
+def expectations_input_schema(relation_schema: dict[str, Any], *, bounded: bool = False) -> dict[str, Any]:
     try:
         definitions = copy.deepcopy(relation_schema["$defs"])
     except KeyError as exc:
@@ -253,7 +253,7 @@ def expectations_input_schema(relation_schema: dict[str, Any]) -> dict[str, Any]
         "$defs": definitions,
         "type": "object",
         "propertyNames": {"$ref": "#/$defs/expectation_id"},
-        "additionalProperties": {"$ref": "#/$defs/expectation_record"},
+        "additionalProperties": {"$ref": "#/$defs/bounded_expectation_record" if bounded else "#/$defs/expectation_record"},
     }
 
 
@@ -2216,6 +2216,7 @@ def selector_fields(selector: dict[str, Any]) -> dict[str, Any]:
             "step_name",
             "tool_id",
             "command_sha256",
+            "bounded_execution_id",
         )
         if selector.get(field) is not None
     }
@@ -2261,6 +2262,8 @@ def candidate_score(
     selector = selector_fields(expectation.get("expected_compute", {}).get("selector", {}))
     expected_source = expectation.get("expected_source_identity", {})
     actual_identity = observation.get("execution_identity", {})
+    if "bounded_execution_id" in selector and actual_identity.get("bounded_execution_id") != selector["bounded_execution_id"]:
+        return None
     observed_source = observation.get("source_identity", {})
 
     expected_role = expectation.get("expected_declared_role")
@@ -2288,6 +2291,7 @@ def candidate_score(
             strong_anchor = True
 
     weights = {
+        "bounded_execution_id": 250,
         "tool_id": 90,
         "step_name": 55,
         "job_name": 35,
@@ -3371,10 +3375,19 @@ def build_relation_record(
     relation_id: str | None,
     tool_source_revision: str | None,
     expectations_bytes: bytes | None = None,
+    bounded_inputs: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    bounded_profile = report.get("report_profile") == "bounded_execution_reference_v0"
+    if bounded_profile:
+        explicit_expectations, expectations_bytes, tool_source_revision = _prepare_bounded_relation(
+            report=report, report_bytes=report_bytes, plan=plan, plan_bytes=plan_bytes, packets=packets,
+            explicit=explicit_expectations, expectations_bytes=expectations_bytes,
+            tool_source_revision=tool_source_revision, inputs=bounded_inputs)
+    elif bounded_inputs is not None or any("bounded_execution_id" in e.get("expected_compute", {}).get("selector", {}) for e in explicit_expectations.values()):
+        raise BuilderError("bounded_selector_or_inputs_on_legacy_profile")
     # Runtime-profile locators are derived from the captured content, not
     # caller labels. The legacy artifact-only path retains its path semantics.
-    if "runtime_binding" in report:
+    if "runtime_binding" in report or bounded_profile:
         plan_path_or_uri = "sha256:" + sha256_bytes(plan_bytes)
         report_path_or_uri = "sha256:" + sha256_bytes(report_bytes)
     validate_plan_mechanics(plan)
@@ -3408,11 +3421,13 @@ def build_relation_record(
     runtime_profile = "runtime_binding" in report
     analysis_report = runtime_baseline_view(report) if runtime_profile else report
     observations: dict[str, Any] = {}
-    merge_observation_maps(
-        observations,
-        normalize_report_observations(analysis_report, subject=subject),
-    )
-    if runtime_profile:
+    if bounded_profile:
+        merge_observation_maps(observations, _normalize_bounded_observations(report, ordered_packets[0][0], subject=subject))
+    else:
+        merge_observation_maps(observations, normalize_report_observations(analysis_report, subject=subject))
+    if bounded_profile:
+        pass  # Exact packet records were already matched to the separately verified report.
+    elif runtime_profile:
         merge_observation_maps(observations, normalize_runtime_bound_observations(report, ordered_packets, subject=subject))
     else:
         for packet, _packet_bytes, _display in ordered_packets:
@@ -3426,7 +3441,10 @@ def build_relation_record(
         chain_complete=packet_chain_complete,
     )
     runtime_relational_status = None
-    if runtime_profile:
+    if bounded_profile:
+        cov = report["bounded_binding"]["coverage"]
+        runtime_relational_status = "complete" if cov["observation_extent"] == cov["relational_coverage"] == "complete" and packet_chain_complete else "partial"
+    elif runtime_profile:
         cov = report["runtime_binding"]["coverage"]
         runtime_relational_status = "complete" if (cov["extent_status"] == "complete" and cov["relational_coverage_status"] == "complete" and packet_chain_complete) else "partial"
     execution_required = any(
@@ -3609,6 +3627,16 @@ def build_relation_record(
             "relational_coverage_status": runtime_relational_status,
             "expectations_sha256": sha256_bytes(expectations_bytes) if expectations_bytes is not None else None,
         }
+    if bounded_profile:
+        bb = report["bounded_binding"]
+        result["comparison_profile"] = "bounded_execution_reference_v0"
+        result["bounded_comparison"] = {"profile": "bounded_execution_reference_v0",
+            **{k: copy.deepcopy(bb[k]) for k in ("expected_acquisition_context", "prelaunch_sha256", "capture_sha256",
+                "subject_input_sha256", "carrier_sha256", "runtime_packet_sha256", "case_outcomes", "terminal_state_ids")},
+            "report_binding_sha256": sha256_bytes(canonical_json_bytes(bb)),
+            "expectations_sha256": sha256_bytes(expectations_bytes), "packet_integrity": bb["coverage"]["packet_integrity"],
+            "extent_status": bb["coverage"]["observation_extent"], "relational_coverage_status": runtime_relational_status,
+            "resource_coverage_status": "unavailable", "scope": bb["boundary"]["visibility"], "collector_projection_is_subject": False}
     return result
 
 
@@ -3662,6 +3690,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--carrier")
     parser.add_argument("--repository-root", default=str(ROOT))
     parser.add_argument("--runtime-extent")
+    parser.add_argument("--expected-context")
+    parser.add_argument("--expected-prelaunch-sha256")
     return parser.parse_args()
 
 
@@ -3725,6 +3755,8 @@ def main() -> int:
         validate_document(schema=schemas["plan"], value=plan, label="plan")
         validate_document(schema=schemas["report"], value=report, label="compute_report")
 
+        if report.get("report_profile") == "bounded_execution_reference_v0":
+            return bounded_profile_cli(args, report_bytes=report_bytes, plan_bytes=plan_bytes)
         if "runtime_binding" in report:
             return runtime_profile_cli(args, report_bytes=report_bytes, plan_bytes=plan_bytes)
 
@@ -4043,6 +4075,262 @@ def runtime_profile_cli(args: argparse.Namespace, *, report_bytes: bytes, plan_b
         finally:
             if temporary is not None:
                 temporary.unlink(missing_ok=True)
+    sys.stdout.write(rendered)
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# The bounded profile reuses the ordinary matching/evaluation engine. It adds
+# exact prelaunch occurrence selectors and source-aware input admission, not
+# an alternative relation algorithm or an authority decision.
+# ---------------------------------------------------------------------------
+
+def _bounded_report_checker(repository_root: Path, expected_context: dict[str, Any]) -> Any:
+    """Authenticate the fixed replay checker before evaluating its source."""
+    import os
+    import stat
+    import subprocess
+    import types
+    root = Path(repository_root).absolute()
+    relative = 'tools/check_pulsemech_compute_binding_report_v0.py'
+    if root != ROOT:
+        raise ValueError('bounded_relation_installation_mismatch')
+    revision = expected_context.get('source_commit')
+    if not isinstance(revision,str) or not re.fullmatch('[0-9a-f]{40}',revision):
+        raise ValueError('bounded_relation_expected_revision_invalid')
+    path = root/relative
+    cursor=path
+    while cursor!=cursor.parent:
+        if cursor.is_symlink(): raise ValueError('bounded_relation_bootstrap_symlink')
+        cursor=cursor.parent
+    fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK)
+    try:
+        before=os.fstat(fd)
+        if not stat.S_ISREG(before.st_mode) or before.st_size>2*1024*1024:
+            raise ValueError('bounded_relation_bootstrap_not_regular')
+        with os.fdopen(os.dup(fd),'rb') as source:
+            raw=source.read(2*1024*1024+1)
+        after=os.fstat(fd)
+        if (before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns,before.st_ctime_ns)!=(after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns,after.st_ctime_ns) or len(raw)!=before.st_size:
+            raise ValueError('bounded_relation_bootstrap_changed')
+    finally:
+        os.close(fd)
+    env={'PATH':'/usr/bin:/bin','LC_ALL':'C','GIT_NO_REPLACE_OBJECTS':'1',
+        'GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_GLOBAL':os.devnull,'HOME':str(root)}
+    def git(args):
+        process=subprocess.run(['/usr/bin/git','--no-replace-objects','-C',str(root),*args],env=env,
+            stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=10,check=False)
+        if process.returncode!=0: raise ValueError('bounded_relation_bootstrap_git_unavailable')
+        return process.stdout
+    entry=git(['ls-tree','-z',revision,'--',relative])
+    if (git(['cat-file','-t',revision])!=b'commit\n' or entry.count(b'\0')!=1
+        or not entry.startswith((b'100644 blob ',b'100755 blob ')) or not entry.endswith(b'\t'+relative.encode()+b'\0')
+        or git(['cat-file','-s',revision+':'+relative]).strip()!=str(len(raw)).encode()
+        or git(['cat-file','blob',revision+':'+relative])!=raw):
+        raise ValueError('bounded_relation_bootstrap_source_mismatch')
+    name='_bounded_relation_report_checker_'+sha256_bytes(raw)
+    module=types.ModuleType(name);module.__file__=str(path);sys.modules[name]=module
+    exec(compile(raw,str(path),'exec',dont_inherit=True),module.__dict__)
+    return module
+
+
+def bounded_expectations_from_prelaunch(prelaunch: dict[str, Any], *, prelaunch_bytes: bytes,
+                                        plan: dict[str, Any], plan_bytes: bytes) -> dict[str, Any]:
+    context = prelaunch["context"]
+    key = (f"GITHUB_RUN_ID={context['run_id']}|GITHUB_RUN_ATTEMPT={context['run_attempt']}"
+           f"|GITHUB_WORKFLOW={context['workflow_name']}")
+    operation_records, _ = build_operation_indexes(plan)
+    operations = {o["component_id"]: o for o in operation_records}
+    result = {}
+    prelaunch_sha = sha256_bytes(prelaunch_bytes)
+    for case in prelaunch["cases"]:
+        for role in ("checker", "consumer"):
+            _, record = automatic_presence_expectation(operations[role],
+                plan_path_or_uri="sha256:" + sha256_bytes(plan_bytes), plan_source_revision=context["source_commit"])
+            execution_id = case[role + "_execution_id"]
+            eid = "expectation:bounded:" + case["case_id"] + ":" + role
+            record["expectation_kind"] = "planned_execution_and_consumption_expected" if role == "checker" else "planned_execution_expected"
+            record["expectation_scope"] = {"scope_kind": "subject_run", "subject_run_key": key,
+                "subject_source_commit": context["source_commit"], "release_candidate_id": "bounded-reference:" + context["acquisition_id"]}
+            record["expected_compute"] = {"execution_required": True, "downstream_consumption_required": role == "checker",
+                "selector": {"node_type": "local_tool_execution", "workflow_name": context["workflow_name"],
+                    "job_name": "bounded_reference", "step_name": None, "tool_id": operations[role]["source_path"],
+                    "command_sha256": None, "bounded_execution_id": execution_id}}
+            record["expected_declared_role"] = "advisory"
+            record["expected_mutation_authority"] = "advisory_output"
+            supports = ["execution_expectation", "source_identity", "declared_role", "mutation_authority"]
+            if role == "checker": supports.append("downstream_consumption_expectation")
+            record["basis_records"].append({"basis_id": "basis:bounded:" + case["case_id"] + ":" + role,
+                "basis_kind": "explicit_subject_run_expectation", "source_path_or_uri": "sha256:" + prelaunch_sha,
+                "source_sha256": prelaunch_sha, "source_revision": context["source_commit"], "subject_run_key": key,
+                "supports": sorted(supports), "evidence_refs": ["prelaunch-execution:" + execution_id]})
+            record["basis_records"].sort(key=lambda x: x["basis_id"])
+            record["evidence_refs"] = sorted(record["evidence_refs"] + ["prelaunch-sha256:" + prelaunch_sha])
+            result[eid] = record
+    return dict(sorted(result.items()))
+
+
+def _prepare_bounded_relation(*, report: dict[str, Any], report_bytes: bytes, plan: dict[str, Any], plan_bytes: bytes,
+        packets: list[tuple[dict[str, Any], bytes, str]], explicit: dict[str, Any], expectations_bytes: bytes | None,
+        tool_source_revision: str | None, inputs: dict[str, Any] | None):
+    if inputs is None:
+        raise BuilderError("bounded_relation_raw_sources_required")
+    root = Path(inputs["repository_root"]).absolute()
+    context = inputs["expected_context"]
+    checker = _bounded_report_checker(root, context)
+    revision = context["source_commit"]
+    if tool_source_revision is not None and tool_source_revision != revision:
+        raise BuilderError("bounded_relation_source_revision_mismatch")
+    for relative in ("tools/check_pulsemech_compute_binding_report_v0.py",
+        "tools/build_pulsemech_compute_planned_observed_relation_v0.py",
+        "tools/check_pulsemech_compute_planned_observed_relation_v0.py",
+        "schemas/pulsemech_compute_planned_observed_relation_v0.schema.json"):
+        checker.bounded_committed_bytes(relative, repository_root=root, expected_context=context)
+    if root != ROOT or Path(__file__).absolute() != root / "tools/build_pulsemech_compute_planned_observed_relation_v0.py":
+        raise BuilderError("bounded_relation_builder_path_mismatch")
+    raw_schema = checker.bounded_committed_bytes("schemas/pulsemech_compute_binding_report_v0.schema.json",
+        repository_root=root, expected_context=context)
+    diagnostic, rc = checker.build_diagnostic(checker.RuntimeBytesView(raw_schema), checker.RuntimeBytesView(report_bytes), bounded_inputs=inputs)
+    if rc != 0:
+        raise BuilderError("bounded_report_replay_rejected:" + render_json(diagnostic))
+    if report_bytes != render_json(report).encode() or report["bounded_binding"]["stage"] != "runtime":
+        raise BuilderError("bounded_runtime_report_required")
+    core_raw = checker.bounded_committed_bytes("tools/pulsemech_compute_binding_analyzer_core_v0.py", repository_root=root, expected_context=context)
+    core = checker._runtime_module(root / "tools/pulsemech_compute_binding_analyzer_core_v0.py", "bounded_relation_core", expected_sha256=sha256_bytes(core_raw))
+    v = core._bounded_support(root, context)
+    members = v.unpack(inputs["carrier_bytes"])
+    if plan_bytes != members["planner/plan.json"] or plan_bytes != render_json(plan).encode():
+        raise BuilderError("bounded_prelaunch_plan_mismatch")
+    expected = bounded_expectations_from_prelaunch(v.parse(members["prelaunch.json"]),
+        prelaunch_bytes=members["prelaunch.json"], plan=plan, plan_bytes=plan_bytes)
+    expected_raw = render_json(expected).encode()
+    if explicit and explicit != expected:
+        raise BuilderError("bounded_prelaunch_expectations_mismatch")
+    if expectations_bytes is not None and expectations_bytes != expected_raw:
+        raise BuilderError("bounded_expectation_bytes_mismatch")
+    runtime_raw = inputs.get("runtime_packet_bytes")
+    if type(runtime_raw) is not bytes or len(packets) != 1 or packets[0][1] != runtime_raw or packets[0][0] != v.parse(runtime_raw):
+        raise BuilderError("bounded_relation_runtime_input_mismatch")
+    schema = v.parse(v.git_blob(root, revision, "schemas/pulsemech_compute_planned_observed_relation_v0.schema.json"), canonical_required=False)
+    validate_document(schema=expectations_input_schema(schema, bounded=True), value=expected, label="bounded_expectations")
+    return expected, expected_raw, revision
+
+
+def _normalize_bounded_observations(report: dict[str, Any], packet: dict[str, Any], *, subject):
+    observations = normalize_report_observations(report, subject=subject)
+    correspondence = report["bounded_binding"]["execution_correspondence"]
+    records = {r["execution_id"]: r for r in packet["executions"] if r["execution_scope"] == "subject"}
+    terminals = set(report["bounded_binding"]["terminal_state_ids"])
+    for observation in observations.values():
+        node_id = observation["source_record_id"]
+        execution_id = correspondence[node_id]
+        row = records[execution_id]
+        observation["execution_identity"].update(bounded_execution_id=execution_id,
+            command_sha256=row["command_identity"]["command_sha256"], job_name=row["job_name"])
+        if execution_id.endswith(":consumer"):
+            if not set(observation["output_state_ids"]) <= terminals:
+                raise BuilderError("bounded_consumer_output_not_predeclared_terminal")
+            observation["downstream_consumption"] = {"status": "not_applicable", "consumer_ids": [],
+                "edge_ids": [], "evidence_refs": sorted("bounded-terminal:" + sid for sid in observation["output_state_ids"])}
+        elif observation["downstream_consumption"]["status"] != "observed":
+            raise BuilderError("bounded_checker_required_consumption_missing")
+    return observations
+
+
+def _capture_bounded_expected_context(path: Path) -> bytes:
+    """Capture one small context before it selects authenticated replay code.
+
+    Do not import a replay dependency to read the input needed to authenticate
+    that dependency. Keep the immutable bytes through all downstream readers.
+    """
+    import stat
+    path = Path(path).absolute()
+    limit = 65536
+    if (os.name != "posix" or not hasattr(os, "O_NOFOLLOW")
+            or not hasattr(os, "O_NONBLOCK") or os.open not in os.supports_dir_fd):
+        raise ValueError("bounded_context_descriptor_platform_required")
+    if ".." in path.parts:
+        raise ValueError("bounded_context_path_traversal")
+    directory = filefd = None
+    try:
+        dflags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+        directory = os.open(path.anchor, dflags)
+        for part in path.parts[1:-1]:
+            child = os.open(part, dflags, dir_fd=directory)
+            os.close(directory)
+            directory = child
+        filefd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+                         | os.O_CLOEXEC, dir_fd=directory)
+        before = os.fstat(filefd)
+        if not stat.S_ISREG(before.st_mode) or before.st_size > limit:
+            raise ValueError("bounded_context_not_bounded_regular_file")
+        chunks = []
+        remaining = limit + 1
+        while remaining:
+            block = os.read(filefd, remaining)
+            if not block:
+                break
+            chunks.append(block)
+            remaining -= len(block)
+        raw = b"".join(chunks)
+        after = os.fstat(filefd)
+        identity = lambda s: (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+        if (identity(before) != identity(after) or len(raw) != before.st_size
+                or len(raw) > limit):
+            raise ValueError("bounded_context_changed_during_capture")
+        return raw
+    finally:
+        if filefd is not None:
+            os.close(filefd)
+        if directory is not None:
+            os.close(directory)
+
+
+def bounded_profile_cli(args, *, report_bytes: bytes, plan_bytes: bytes) -> int:
+    if not args.subject_input or not args.carrier or not args.expected_context or not args.expected_prelaunch_sha256 or len(args.runtime_packet) != 1:
+        raise BuilderError("bounded_relation_complete_source_arguments_required")
+    if args.runtime_extent:
+        raise BuilderError("bounded_relation_no_synthetic_extent")
+    canonical_paths = ((args.report_validator, DEFAULT_REPORT_VALIDATOR), (args.relation_validator, DEFAULT_RELATION_VALIDATOR),
+        (args.plan_schema, DEFAULT_PLAN_SCHEMA), (args.report_schema, DEFAULT_REPORT_SCHEMA),
+        (args.runtime_packet_schema, DEFAULT_PACKET_SCHEMA), (args.runtime_packet_validator, DEFAULT_PACKET_VALIDATOR),
+        (args.relation_schema, DEFAULT_RELATION_SCHEMA))
+    if any(Path(a).absolute() != Path(b).absolute() for a, b in canonical_paths):
+        raise BuilderError("bounded_canonical_contracts_required")
+    context_raw = _capture_bounded_expected_context(Path(args.expected_context))
+    context = json.loads(context_raw.decode("utf-8"), object_pairs_hook=reject_duplicate_keys,
+                         parse_constant=reject_non_finite)
+    if not isinstance(context, dict):
+        raise BuilderError("bounded_expected_context_not_object")
+    checker = _bounded_report_checker(Path(args.repository_root),context)
+    inputs = checker.bounded_inputs_from_paths(subject_input_path=Path(args.subject_input), carrier_path=Path(args.carrier),
+        repository_root=Path(args.repository_root), expected_context_bytes=context_raw,
+        expected_prelaunch_sha256=args.expected_prelaunch_sha256, runtime_packet_path=Path(args.runtime_packet[0]))
+    if inputs["expected_context"] != context:
+        raise BuilderError("bounded_expected_context_changed")
+    explicit_raw = checker.capture_diagnostic_document(Path(args.expectations), max_bytes=2 * 1024 * 1024).data if args.expectations else None
+    explicit = json.loads(explicit_raw) if explicit_raw else {}
+    packet_raw = inputs["runtime_packet_bytes"]
+    relation = build_relation_record(plan=json.loads(plan_bytes), plan_bytes=plan_bytes, plan_path_or_uri="sha256:" + sha256_bytes(plan_bytes),
+        report=json.loads(report_bytes), report_bytes=report_bytes, report_path_or_uri="sha256:" + sha256_bytes(report_bytes),
+        packets=[(json.loads(packet_raw), packet_raw, "sha256:" + sha256_bytes(packet_raw))], explicit_expectations=explicit,
+        relation_id=args.relation_id, tool_source_revision=args.tool_source_revision, expectations_bytes=explicit_raw, bounded_inputs=inputs)
+    rendered = render_json(relation)
+    root, context = inputs["repository_root"], inputs["expected_context"]
+    validator_raw = checker.bounded_committed_bytes("tools/check_pulsemech_compute_planned_observed_relation_v0.py", repository_root=root, expected_context=context)
+    validator = checker._runtime_module(DEFAULT_RELATION_VALIDATOR, "bounded_relation_validator", expected_sha256=sha256_bytes(validator_raw))
+    schema_raw = checker.bounded_committed_bytes("schemas/pulsemech_compute_planned_observed_relation_v0.schema.json", repository_root=root, expected_context=context)
+    replay = {"report_inputs": inputs, "report_bytes": report_bytes, "plan_bytes": plan_bytes, "expectations_bytes": explicit_raw}
+    diag, rc = validator.build_diagnostic(schema_path=checker.RuntimeBytesView(schema_raw),
+        relation_path=checker.RuntimeBytesView(rendered.encode()), bounded_inputs=replay)
+    if rc != 0:
+        raise BuilderError("bounded_relation_replay_rejected:" + render_json(diag))
+    if args.output:
+        if args.subject_root is None or Path(args.subject_root).absolute() != root.absolute():
+            raise BuilderError("bounded_output_requires_exact_subject_root")
+        core_raw = checker.bounded_committed_bytes("tools/pulsemech_compute_binding_analyzer_core_v0.py", repository_root=root, expected_context=context)
+        core = checker._runtime_module(root / "tools/pulsemech_compute_binding_analyzer_core_v0.py", "bounded_publication_core", expected_sha256=sha256_bytes(core_raw))
+        core._bounded_support(root, context).publish_new(Path(args.output), rendered.encode(), repository_root=root)
     sys.stdout.write(rendered)
     return 0
 

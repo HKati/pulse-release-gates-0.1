@@ -675,5 +675,39 @@ def check_pulsemech_compute_subject_input_packet_producer_core_v0() -> None:
     raise SystemExit(pytest.main([__file__, "-q"]))
 
 
+
+@pytest.fixture(scope="module")
+def bounded_reference_capture():
+    from test_pulsemech_compute_bounded_execution_v0 import example as capture_fixture
+    return capture_fixture.__wrapped__()
+
+
+def bounded_reference_packet(capture):
+    import sys
+    sys.path.insert(0, str(ROOT / "tools"))
+    import build_pulsemech_compute_bounded_execution_inputs_v0 as adapter
+    import check_pulsemech_compute_bounded_execution_v0 as verify
+    context, digest, _, carrier = capture
+    raw = adapter.build_subject_input(carrier_bytes=carrier,repository_root=ROOT,
+        expected_context=context,expected_prelaunch_sha256=digest)
+    return verify.parse(raw)
+
+
+def test_bounded_producer_core_reuses_verified_capture(bounded_reference_capture):
+    first=bounded_reference_packet(bounded_reference_capture)
+    second=bounded_reference_packet(bounded_reference_capture)
+    assert first==second
+    assert first["record_status"]=="example"
+    assert first["input_profile"]=="bounded_execution_reference_v0"
+    assert first["construction"]["producer_core_path"]=="tools/pulsemech_compute_subject_input_packet_producer_core_v0.py"
+    assert first["subject"]["run_mode"]=="bounded_reference"
+
+
+def test_bounded_producer_refuses_wrong_prelaunch(bounded_reference_capture):
+    import build_pulsemech_compute_bounded_execution_inputs_v0 as adapter
+    with pytest.raises(ValueError):
+        adapter.build_subject_input(carrier_bytes=bounded_reference_capture[3],repository_root=ROOT,
+            expected_context=bounded_reference_capture[0],expected_prelaunch_sha256="0"*64)
+
 if __name__ == "__main__":
     check_pulsemech_compute_subject_input_packet_producer_core_v0()

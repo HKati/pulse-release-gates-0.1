@@ -742,7 +742,16 @@ def build_and_write_folded_status(
     output_path: Path,
     runtime_source_paths: dict[str, Any] | None = None,
     runtime_inputs: dict[str, Any] | None = None,
+    bounded_inputs: dict[str, Any] | None = None,
+    bounded_source_paths: dict[str, Any] | None = None,
 ) -> tuple[dict[str, Any], int]:
+    if bounded_inputs is not None or bounded_source_paths is not None:
+        if runtime_inputs is not None or runtime_source_paths is not None:
+            return make_report(ok=False,relation_validated=False,output_status_written=False,
+                relation_record_id=None,record_status=None,base_status_sha256=None,relation_sha256=None,
+                output_status_sha256=None,candidate_gates={},errors=["mixed_bounded_and_legacy_inputs"]),1
+        return build_bounded_folded_status(status_path=status_path,relation_path=relation_path,schema_path=schema_path,
+            validator_path=validator_path,output_path=output_path,bounded_inputs=bounded_inputs,bounded_source_paths=bounded_source_paths)
     relation_validated = False
     candidate_gates: dict[str, bool] = {}
     relation_record_id: str | None = None
@@ -786,6 +795,8 @@ def build_and_write_folded_status(
             if isinstance(value, str):
                 record_status = value
 
+        if isinstance(relation_raw, dict) and relation_raw.get("comparison_profile") == "bounded_execution_reference_v0":
+            raise MaterializerError("bounded_relation_source_inputs_required")
         runtime_profile = isinstance(relation_raw, dict) and "runtime_comparison" in relation_raw
         if runtime_profile:
             source_roots = [ROOT]
@@ -936,13 +947,27 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--runtime-packet", action="append", default=[])
     parser.add_argument("--expectations")
     parser.add_argument("--runtime-extent")
+    parser.add_argument("--expected-context")
+    parser.add_argument("--expected-prelaunch-sha256")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     source_paths = None
-    if all((args.plan, args.compute_report, args.subject_input, args.carrier, args.runtime_packet)):
+    bounded_paths = None
+    if args.expected_context or args.expected_prelaunch_sha256:
+        if not all((args.plan,args.compute_report,args.subject_input,args.carrier,args.expected_context,args.expected_prelaunch_sha256)) or len(args.runtime_packet)!=1 or args.runtime_extent:
+            sys.stdout.write(render_json(make_report(ok=False,relation_validated=False,output_status_written=False,
+                relation_record_id=None,record_status=None,base_status_sha256=None,relation_sha256=None,
+                output_status_sha256=None,candidate_gates={},errors=["bounded_complete_source_arguments_required"])))
+            return 1
+        bounded_paths = {"plan_path":Path(args.plan),"report_path":Path(args.compute_report),
+            "subject_input_path":Path(args.subject_input),"carrier_path":Path(args.carrier),
+            "repository_root":Path(args.repository_root),"runtime_packet_path":Path(args.runtime_packet[0]),
+            "expected_context_path":Path(args.expected_context),"expected_prelaunch_sha256":args.expected_prelaunch_sha256,
+            "expectations_path":Path(args.expectations) if args.expectations else None}
+    elif all((args.plan, args.compute_report, args.subject_input, args.carrier, args.runtime_packet)):
         source_paths = {
             "plan_path": Path(args.plan), "report_path": Path(args.compute_report), "subject_input_path": Path(args.subject_input),
             "carrier_path": Path(args.carrier), "repository_root": Path(args.repository_root), "packet_paths": list(map(Path, args.runtime_packet)),
@@ -956,9 +981,186 @@ def main() -> int:
         validator_path=Path(args.validator),
         output_path=Path(args.output),
         runtime_source_paths=source_paths,
+        bounded_source_paths=bounded_paths,
     )
     sys.stdout.write(render_json(report))
     return exit_code
+
+
+# The reference profile uses the same three candidate derivations. Its source
+# admission and publication remain separate from production status mutation.
+def _bounded_materializer_verifier(root: Path, context: dict[str, Any]):
+    import re
+    import types
+    import stat
+    relative = 'tools/check_pulsemech_compute_bounded_execution_v0.py'
+    root = root.absolute()
+    if root != ROOT or Path(__file__).absolute() != root / 'tools/fold_pulsemech_compute_planned_observed_relation_into_status_v0.py':
+        raise MaterializerError('bounded_materializer_installation_mismatch')
+    revision = context.get('source_commit')
+    if not isinstance(revision, str) or not re.fullmatch('[0-9a-f]{40}', revision):
+        raise MaterializerError('bounded_materializer_revision_invalid')
+    path = root / relative
+    reject_symlink_chain(path)
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    try:
+        before = os.fstat(fd)
+        if not stat.S_ISREG(before.st_mode) or before.st_size > 2 * 1024 * 1024:
+            raise MaterializerError('bounded_materializer_verifier_not_regular')
+        with os.fdopen(os.dup(fd), 'rb') as f:
+            raw = f.read(2 * 1024 * 1024 + 1)
+        after = os.fstat(fd)
+        if (before.st_dev,before.st_ino,before.st_size,before.st_mtime_ns,before.st_ctime_ns) != (after.st_dev,after.st_ino,after.st_size,after.st_mtime_ns,after.st_ctime_ns) or len(raw) != before.st_size:
+            raise MaterializerError('bounded_materializer_verifier_changed')
+    finally:
+        os.close(fd)
+    env = {'PATH':'/usr/bin:/bin','LC_ALL':'C','GIT_NO_REPLACE_OBJECTS':'1',
+        'GIT_CONFIG_NOSYSTEM':'1','GIT_CONFIG_GLOBAL':os.devnull,'HOME':str(root)}
+    def git(args):
+        result = subprocess.run(['/usr/bin/git','--no-replace-objects','-C',str(root),*args],
+            env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=10,check=False)
+        if result.returncode != 0: raise MaterializerError('bounded_materializer_source_unavailable')
+        return result.stdout
+    entry = git(['ls-tree','-z',revision,'--',relative])
+    if (git(['cat-file','-t',revision]) != b'commit\n'
+            or not entry.startswith((b'100644 blob ',b'100755 blob ')) or entry.count(b'\0') != 1
+            or not entry.endswith(b'\t'+relative.encode()+b'\0')
+            or git(['cat-file','-s',revision+':'+relative]).strip() != str(len(raw)).encode()
+            or git(['cat-file','blob',revision+':'+relative]) != raw):
+        raise MaterializerError('bounded_materializer_verifier_source_mismatch')
+    name = '_bounded_materializer_support_' + sha256_bytes(raw)
+    module = types.ModuleType(name); module.__file__ = str(path);sys.modules[name]=module
+    exec(compile(raw,str(path),'exec',dont_inherit=True),module.__dict__)
+    for relative in (module.VALIDATOR, 'tools/fold_pulsemech_compute_planned_observed_relation_into_status_v0.py'):
+        if module.read_regular(root/relative) != module.git_blob(root,revision,relative):
+            raise MaterializerError('bounded_materializer_source_mismatch:'+relative)
+    return module
+
+
+def _capture_bounded_expected_context(path: Path) -> bytes:
+    """Capture one small context before it selects authenticated replay code.
+
+    Do not import a replay dependency to read the input needed to authenticate
+    that dependency. Keep the immutable bytes through all downstream readers.
+    """
+    import stat
+    path = Path(path).absolute()
+    limit = 65536
+    if (os.name != "posix" or not hasattr(os, "O_NOFOLLOW")
+            or not hasattr(os, "O_NONBLOCK") or os.open not in os.supports_dir_fd):
+        raise ValueError("bounded_context_descriptor_platform_required")
+    if ".." in path.parts:
+        raise ValueError("bounded_context_path_traversal")
+    directory = filefd = None
+    try:
+        dflags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+        directory = os.open(path.anchor, dflags)
+        for part in path.parts[1:-1]:
+            child = os.open(part, dflags, dir_fd=directory)
+            os.close(directory)
+            directory = child
+        filefd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+                         | os.O_CLOEXEC, dir_fd=directory)
+        before = os.fstat(filefd)
+        if not stat.S_ISREG(before.st_mode) or before.st_size > limit:
+            raise ValueError("bounded_context_not_bounded_regular_file")
+        chunks = []
+        remaining = limit + 1
+        while remaining:
+            block = os.read(filefd, remaining)
+            if not block:
+                break
+            chunks.append(block)
+            remaining -= len(block)
+        raw = b"".join(chunks)
+        after = os.fstat(filefd)
+        identity = lambda s: (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+        if (identity(before) != identity(after) or len(raw) != before.st_size
+                or len(raw) > limit):
+            raise ValueError("bounded_context_changed_during_capture")
+        return raw
+    finally:
+        if filefd is not None:
+            os.close(filefd)
+        if directory is not None:
+            os.close(directory)
+
+
+def build_bounded_folded_status(*, status_path: Path, relation_path: Path, schema_path: Path,
+        validator_path: Path, output_path: Path, bounded_inputs: dict[str, Any] | None,
+        bounded_source_paths: dict[str, Any] | None) -> tuple[dict[str, Any], int]:
+    validated = False
+    gates: dict[str, bool] = {}
+    relation_id = record_status = status_sha = relation_sha = None
+    try:
+        if schema_path.absolute() != DEFAULT_RELATION_SCHEMA or validator_path.absolute() != DEFAULT_RELATION_VALIDATOR:
+            raise MaterializerError('bounded_canonical_relation_contracts_required')
+        if (bounded_inputs is None) == (bounded_source_paths is None):
+            raise MaterializerError('bounded_exactly_one_source_input_form_required')
+        if bounded_source_paths is not None:
+            # The expected context is a caller-selected input, not copied from
+            # the relation being validated. Strict parsing occurs in the checker.
+            context_path = bounded_source_paths['expected_context_path']
+            context_raw = _capture_bounded_expected_context(context_path)
+            context = json.loads(context_raw.decode("utf-8"), object_pairs_hook=reject_duplicate_keys,
+                                 parse_constant=reject_non_finite)
+            if not isinstance(context, dict):
+                raise MaterializerError("bounded_expected_context_not_object")
+            root = Path(bounded_source_paths['repository_root']).absolute()
+        else:
+            report_inputs = bounded_inputs['report_inputs']
+            context = report_inputs['expected_context']; root = Path(report_inputs['repository_root']).absolute()
+        v = _bounded_materializer_verifier(root, context)
+        validator = v.load_reconstruction_module('tools/check_pulsemech_compute_planned_observed_relation_v0.py',
+            repository_root=root, revision=context['source_commit'])
+        if bounded_source_paths is not None:
+            captured_paths = dict(bounded_source_paths)
+            captured_paths.pop("expected_context_path")
+            captured_paths["expected_context_bytes"] = context_raw
+            bounded_inputs = validator.bounded_relation_inputs_from_paths(**captured_paths)
+            if bounded_inputs['report_inputs']['expected_context'] != context:
+                raise MaterializerError('bounded_expected_context_changed')
+        protected = [status_path,relation_path,schema_path,validator_path,Path(__file__),DEFAULT_GATE_POLICY,DEFAULT_GATE_REGISTRY,DEFAULT_PULSE_WORKFLOW]
+        if bounded_source_paths is not None:
+            protected.extend(x for x in bounded_source_paths.values() if isinstance(x,Path) and x.is_file())
+        reject_unsafe_output(output_path, protected_paths=protected)
+        if output_path.absolute().is_relative_to(root) or output_path.resolve().is_relative_to(root.resolve()):
+            raise MaterializerError('bounded_candidate_inside_source_repository')
+        if os.path.lexists(output_path):
+            raise MaterializerError('bounded_candidate_already_exists')
+        status_raw = v.read_regular(status_path); relation_raw = v.read_regular(relation_path)
+        status = validate_base_status(v.parse(status_raw)); relation = v.parse(relation_raw)
+        status_sha = sha256_bytes(status_raw); relation_sha = sha256_bytes(relation_raw)
+        if relation.get('comparison_profile') != 'bounded_execution_reference_v0':
+            raise MaterializerError('bounded_reference_relation_required')
+        relation_id = relation['comparison_identity']['relation_record_id']; record_status = relation['record_status']
+        schema_raw = v.git_blob(root,context['source_commit'],'schemas/pulsemech_compute_planned_observed_relation_v0.schema.json')
+        if v.read_regular(schema_path) != schema_raw:
+            raise MaterializerError('bounded_relation_schema_source_mismatch')
+        diagnostic, rc = validator.build_diagnostic(schema_path=validator.RuntimeBytesView(schema_raw),
+            relation_path=validator.RuntimeBytesView(relation_raw),bounded_inputs=bounded_inputs)
+        if rc != 0 or diagnostic.get('checks',{}).get('bounded_relation_source_replay_ok') is not True:
+            raise MaterializerError('bounded_relation_strict_validation_failed:'+render_json(diagnostic))
+        validated = True
+        validate_relation_materialization_boundary(relation)
+        gates = derive_candidate_gates(relation)
+        validate_existing_gate_conflicts(status,gates)
+        result_raw = render_json(fold_candidate_gates(status,gates)).encode()
+        # Recheck only captured input identities before publishing. No source is
+        # reread to rebuild the result, and no named output is deleted on failure.
+        if v.read_regular(status_path) != status_raw or v.read_regular(relation_path) != relation_raw:
+            raise MaterializerError('bounded_materializer_inputs_changed')
+        v.publish_new(output_path,result_raw,repository_root=root)
+        return make_report(ok=True,relation_validated=True,output_status_written=True,
+            relation_record_id=relation_id,record_status=record_status,base_status_sha256=status_sha,
+            relation_sha256=relation_sha,output_status_sha256=sha256_bytes(result_raw),candidate_gates=gates,errors=[]),0
+    except (Exception,) as exc:
+        # The new publication primitive has no accepted output until its final
+        # exclusive link succeeds. It never cleans up by an attacker-replaceable name.
+        return make_report(ok=False,relation_validated=validated,output_status_written=False,
+            relation_record_id=relation_id,record_status=record_status,base_status_sha256=status_sha,
+            relation_sha256=relation_sha,output_status_sha256=None,candidate_gates=gates,
+            errors=['bounded_candidate_failed:'+str(exc)]),1
 
 
 if __name__ == "__main__":

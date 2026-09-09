@@ -2,97 +2,14 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_compute_binding_report_v0.schema.json",
   "title": "PULSEmech compute binding report v0",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "schema_version",
-    "report_type",
-    "record_status",
-    "tool",
-    "analysis_boundary",
-    "subject",
-    "inputs",
-    "compute_nodes",
-    "state_nodes",
-    "edges",
-    "resource_summary",
-    "summary",
-    "findings",
-    "errors",
-    "ok"
-  ],
-  "properties": {
-    "schema_version": {
-      "const": "pulsemech_compute_binding_report_v0"
+  "oneOf": [
+    {
+      "$ref": "#/$defs/legacy_document_v0"
     },
-    "report_type": {
-      "const": "pulsemech_compute_binding_report"
-    },
-    "record_status": {
-      "type": "string",
-      "enum": [
-        "example",
-        "observed"
-      ]
-    },
-    "tool": {
-      "$ref": "#/$defs/tool"
-    },
-    "analysis_boundary": {
-      "$ref": "#/$defs/analysis_boundary"
-    },
-    "subject": {
-      "$ref": "#/$defs/subject"
-    },
-    "inputs": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/input_record"
-      }
-    },
-    "compute_nodes": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/compute_node"
-      }
-    },
-    "state_nodes": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/state_node"
-      }
-    },
-    "edges": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/edge"
-      }
-    },
-    "resource_summary": {
-      "$ref": "#/$defs/resource_summary"
-    },
-    "summary": {
-      "$ref": "#/$defs/summary"
-    },
-    "findings": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/finding"
-      }
-    },
-    "errors": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/non_empty_string"
-      }
-    },
-    "ok": {
-      "type": "boolean"
-    },
-    "runtime_binding": {
-      "$ref": "#/$defs/runtime_binding"
+    {
+      "$ref": "#/$defs/bounded_reference_document_v0"
     }
-  },
+  ],
   "$defs": {
     "sha256": {
       "type": "string",
@@ -4947,143 +4864,1603 @@
           ]
         }
       }
-    }
-  },
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "ok": {
-            "const": true
+    },
+    "bounded_reference_subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "workflow",
+        "workflow_run_id",
+        "workflow_run_number",
+        "workflow_run_attempt",
+        "source_commit",
+        "release_candidate_id",
+        "run_mode",
+        "active_policy_sets",
+        "policy_id",
+        "policy_sha256",
+        "reference_only"
+      ],
+      "properties": {
+        "repository": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "workflow": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "workflow_run_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "workflow_run_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "workflow_run_attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "release_candidate_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "run_mode": {
+          "const": "bounded_reference"
+        },
+        "active_policy_sets": {
+          "const": [
+            "core_required"
+          ]
+        },
+        "policy_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "policy_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "reference_only": {
+          "const": true
+        }
+      }
+    },
+    "be_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_status",
+        "repository",
+        "workflow_name",
+        "workflow_path",
+        "run_id",
+        "run_number",
+        "run_attempt",
+        "source_commit",
+        "event_name",
+        "acquisition_id"
+      ],
+      "properties": {
+        "record_status": {
+          "enum": [
+            "example",
+            "observed"
+          ]
+        },
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "workflow_name": {
+          "const": "PULSEmech bounded execution reference"
+        },
+        "workflow_path": {
+          "const": ".github/workflows/pulsemech_compute_bounded_execution_reference.yml"
+        },
+        "run_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "run_number": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "run_attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "event_name": {
+          "enum": [
+            "test",
+            "workflow_dispatch"
+          ]
+        },
+        "acquisition_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      }
+    },
+    "be_descriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "member",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "member": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2097152
+        }
+      }
+    },
+    "be_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "revision",
+        "member",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "member": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2097152
+        }
+      }
+    },
+    "be_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "checker_execution_id",
+        "consumer_execution_id",
+        "expected_exit_code",
+        "status",
+        "pending_state",
+        "checker_outputs",
+        "consumer_outputs"
+      ],
+      "properties": {
+        "case_id": {
+          "enum": [
+            "allow",
+            "block_false",
+            "missing_required"
+          ]
+        },
+        "checker_execution_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "consumer_execution_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "expected_exit_code": {
+          "enum": [
+            0,
+            1,
+            2
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/be_descriptor"
+        },
+        "pending_state": {
+          "$ref": "#/$defs/be_descriptor"
+        },
+        "checker_outputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "stdout",
+            "stderr",
+            "result_envelope"
+          ],
+          "properties": {
+            "stdout": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+            },
+            "stderr": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+            },
+            "result_envelope": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+            }
           }
         },
-        "required": [
-          "ok"
-        ]
-      },
-      "then": {
-        "properties": {
-          "errors": {
-            "maxItems": 0
+        "consumer_outputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "terminal_state",
+            "stderr"
+          ],
+          "properties": {
+            "terminal_state": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+            },
+            "stderr": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300,
+              "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+            }
           }
         }
       }
     },
-    {
-      "if": {
-        "properties": {
-          "ok": {
-            "const": false
+    "be_prelaunch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_type",
+        "context",
+        "created_at_utc",
+        "source_bindings",
+        "required_gate_ids",
+        "selected_policy_set",
+        "input_inventory",
+        "cases",
+        "planner",
+        "boundary"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_bounded_execution_evidence_v0"
+        },
+        "record_type": {
+          "const": "prelaunch"
+        },
+        "context": {
+          "$ref": "#/$defs/be_context"
+        },
+        "created_at_utc": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+        },
+        "source_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/be_source"
+          },
+          "minItems": 10,
+          "maxItems": 40
+        },
+        "required_gate_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "minItems": 1,
+          "maxItems": 64
+        },
+        "selected_policy_set": {
+          "const": "core_required"
+        },
+        "input_inventory": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/be_descriptor"
+          },
+          "minItems": 9,
+          "maxItems": 32
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/be_case"
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "planner": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "request",
+            "component_manifest",
+            "plan"
+          ],
+          "properties": {
+            "request": {
+              "$ref": "#/$defs/be_descriptor"
+            },
+            "component_manifest": {
+              "$ref": "#/$defs/be_descriptor"
+            },
+            "plan": {
+              "$ref": "#/$defs/be_descriptor"
+            }
           }
         },
-        "required": [
-          "ok"
-        ]
-      },
-      "then": {
-        "properties": {
-          "errors": {
-            "minItems": 1
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "required": [
-          "runtime_binding"
-        ]
-      },
-      "then": {
-        "properties": {
-          "analysis_boundary": {
-            "properties": {
-              "analysis_level": {
-                "const": "runtime_observed"
-              }
-            }
-          },
-          "tool": {
-            "properties": {
-              "id": {
-                "const": "build_pulsemech_compute_binding_report_from_subject_input_v0"
-              }
-            }
-          }
-        }
-      },
-      "else": {
-        "properties": {
-          "tool": {
-            "properties": {
-              "id": {
-                "const": "build_pulsemech_compute_binding_report_v0"
-              }
-            }
-          },
-          "compute_nodes": {
-            "items": {
-              "not": {
-                "required": [
-                  "runtime_origin"
-                ]
-              }
-            }
-          },
-          "state_nodes": {
-            "items": {
-              "not": {
-                "required": [
-                  "runtime_origin"
-                ]
-              }
+        "boundary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "authority_effect",
+            "same_run_release_authority_eligible",
+            "active_gate_eligible",
+            "resource_measurement",
+            "acquisition_profile",
+            "trusted_runtime",
+            "visibility"
+          ],
+          "properties": {
+            "authority_effect": {
+              "const": "none"
+            },
+            "same_run_release_authority_eligible": {
+              "const": false
+            },
+            "active_gate_eligible": {
+              "const": false
+            },
+            "resource_measurement": {
+              "const": "unavailable"
+            },
+            "acquisition_profile": {
+              "const": "linux_sealed_descriptor_supervisor_v0"
+            },
+            "trusted_runtime": {
+              "const": "reviewed_supervisor_interpreter_and_host_kernel"
+            },
+            "visibility": {
+              "const": "six_declared_direct_processes_and_their_bound_io"
             }
           }
         }
       }
     },
-    {
-      "if": {
-        "properties": {
-          "record_status": {
-            "const": "observed"
+    "be_pending_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_type",
+        "context_sha256",
+        "case_id",
+        "state",
+        "authority_effect"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_bounded_execution_evidence_v0"
+        },
+        "record_type": {
+          "const": "pending_state"
+        },
+        "context_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "case_id": {
+          "enum": [
+            "allow",
+            "block_false",
+            "missing_required"
+          ]
+        },
+        "state": {
+          "const": "pending"
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      }
+    },
+    "be_process_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_type",
+        "context_sha256",
+        "prelaunch_sha256",
+        "case_id",
+        "execution_id",
+        "invocation_sha256",
+        "exit_code",
+        "stdout",
+        "stderr",
+        "authority_effect"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_bounded_execution_evidence_v0"
+        },
+        "record_type": {
+          "const": "process_result"
+        },
+        "context_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "prelaunch_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "case_id": {
+          "enum": [
+            "allow",
+            "block_false",
+            "missing_required"
+          ]
+        },
+        "execution_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "invocation_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "exit_code": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "stdout": {
+          "$ref": "#/$defs/be_descriptor"
+        },
+        "stderr": {
+          "$ref": "#/$defs/be_descriptor"
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      }
+    },
+    "be_terminal_state": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_type",
+        "context_sha256",
+        "prelaunch_sha256",
+        "case_id",
+        "checker_execution_id",
+        "state",
+        "reason",
+        "checker_exit_code",
+        "result_sha256",
+        "pending_state_sha256",
+        "checker_stdout_sha256",
+        "checker_stderr_sha256",
+        "authority_effect"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_bounded_execution_evidence_v0"
+        },
+        "record_type": {
+          "const": "terminal_state"
+        },
+        "context_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "prelaunch_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "case_id": {
+          "enum": [
+            "allow",
+            "block_false",
+            "missing_required"
+          ]
+        },
+        "checker_execution_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "state": {
+          "enum": [
+            "ready",
+            "held"
+          ]
+        },
+        "reason": {
+          "enum": [
+            "all_required_true",
+            "required_value_not_true",
+            "missing_or_invalid_required_input"
+          ]
+        },
+        "checker_exit_code": {
+          "enum": [
+            0,
+            1,
+            2
+          ]
+        },
+        "result_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "pending_state_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "checker_stdout_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "checker_stderr_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      }
+    },
+    "be_sealed_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "logical_role",
+        "fd",
+        "sha256",
+        "size_bytes",
+        "seal_mask"
+      ],
+      "properties": {
+        "logical_role": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "fd": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 1048576
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2097152
+        },
+        "seal_mask": {
+          "const": 15
+        }
+      }
+    },
+    "be_execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "execution_id",
+        "case_id",
+        "kind",
+        "pid",
+        "source_path",
+        "source_sha256",
+        "arguments",
+        "sealed_inputs",
+        "started_at_utc",
+        "completed_at_utc",
+        "start_monotonic_ns",
+        "end_monotonic_ns",
+        "exit_code",
+        "stdout_eof",
+        "stderr_eof",
+        "stdout",
+        "stderr"
+      ],
+      "properties": {
+        "execution_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "case_id": {
+          "enum": [
+            "allow",
+            "block_false",
+            "missing_required"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "checker",
+            "consumer"
+          ]
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source_path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+        },
+        "source_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "maxLength": 1024
           },
-          "analysis_boundary": {
-            "properties": {
-              "analysis_level": {
-                "const": "runtime_observed"
-              }
+          "minItems": 1,
+          "maxItems": 100
+        },
+        "sealed_inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/be_sealed_input"
+          },
+          "minItems": 2,
+          "maxItems": 8
+        },
+        "started_at_utc": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+        },
+        "completed_at_utc": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+        },
+        "start_monotonic_ns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "end_monotonic_ns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "exit_code": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "stdout_eof": {
+          "const": true
+        },
+        "stderr_eof": {
+          "const": true
+        },
+        "stdout": {
+          "$ref": "#/$defs/be_descriptor"
+        },
+        "stderr": {
+          "$ref": "#/$defs/be_descriptor"
+        }
+      }
+    },
+    "be_interpreter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes",
+        "implementation",
+        "version",
+        "os",
+        "architecture",
+        "environment",
+        "flags"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 134217728
+        },
+        "implementation": {
+          "const": "cpython"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "os": {
+          "const": "Linux"
+        },
+        "architecture": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "LC_ALL",
+            "TZ"
+          ],
+          "properties": {
+            "LC_ALL": {
+              "const": "C.UTF-8"
+            },
+            "TZ": {
+              "const": "UTC"
             }
           }
+        },
+        "flags": {
+          "const": [
+            "-I",
+            "-S",
+            "-B"
+          ]
         }
-      },
-      "then": {
-        "required": [
-          "runtime_binding"
-        ],
-        "properties": {
-          "runtime_binding": {
+      }
+    },
+    "be_capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_type",
+        "context",
+        "prelaunch_sha256",
+        "started_at_utc",
+        "completed_at_utc",
+        "interpreter",
+        "executions",
+        "member_inventory",
+        "terminal_roles",
+        "capture_status",
+        "authority_effect"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_bounded_execution_evidence_v0"
+        },
+        "record_type": {
+          "const": "capture"
+        },
+        "context": {
+          "$ref": "#/$defs/be_context"
+        },
+        "prelaunch_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "started_at_utc": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+        },
+        "completed_at_utc": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$"
+        },
+        "interpreter": {
+          "$ref": "#/$defs/be_interpreter"
+        },
+        "executions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/be_execution"
+          },
+          "minItems": 6,
+          "maxItems": 6
+        },
+        "member_inventory": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/be_descriptor"
+          },
+          "minItems": 30,
+          "maxItems": 128
+        },
+        "terminal_roles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300,
+            "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+          },
+          "minItems": 6,
+          "maxItems": 6
+        },
+        "capture_status": {
+          "const": "closed"
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      }
+    },
+    "bounded_reference_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "stage",
+        "expected_acquisition_context",
+        "prelaunch_sha256",
+        "subject_input_sha256",
+        "carrier_sha256",
+        "capture_sha256",
+        "runtime_packet_sha256",
+        "baseline_sha256",
+        "construction_sources",
+        "boundary",
+        "coverage",
+        "execution_correspondence",
+        "terminal_state_ids",
+        "recorder_result_state_ids",
+        "case_outcomes",
+        "collector_declaration"
+      ],
+      "properties": {
+        "profile": {
+          "const": "bounded_execution_reference_v0"
+        },
+        "stage": {
+          "enum": [
+            "artifact_baseline",
+            "runtime"
+          ]
+        },
+        "expected_acquisition_context": {
+          "$ref": "#/$defs/be_context"
+        },
+        "prelaunch_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "subject_input_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "carrier_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "capture_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "runtime_packet_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "baseline_sha256": {
+          "$ref": "#/$defs/nullable_sha256"
+        },
+        "construction_sources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py",
+            "tools/pulsemech_compute_binding_analyzer_core_v0.py",
+            "tools/check_pulsemech_compute_binding_report_v0.py",
+            "schemas/pulsemech_compute_binding_report_v0.schema.json",
+            "tools/check_pulsemech_compute_bounded_execution_v0.py"
+          ],
+          "properties": {
+            "tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py": {
+              "$ref": "#/$defs/sha256"
+            },
+            "tools/pulsemech_compute_binding_analyzer_core_v0.py": {
+              "$ref": "#/$defs/sha256"
+            },
+            "tools/check_pulsemech_compute_binding_report_v0.py": {
+              "$ref": "#/$defs/sha256"
+            },
+            "schemas/pulsemech_compute_binding_report_v0.schema.json": {
+              "$ref": "#/$defs/sha256"
+            },
+            "tools/check_pulsemech_compute_bounded_execution_v0.py": {
+              "$ref": "#/$defs/sha256"
+            }
+          }
+        },
+        "boundary": {
+          "const": {
+            "authority_effect": "none",
+            "same_run_release_authority_eligible": false,
+            "active_gate_eligible": false,
+            "resource_measurement": "unavailable",
+            "acquisition_profile": "linux_sealed_descriptor_supervisor_v0",
+            "trusted_runtime": "reviewed_supervisor_interpreter_and_host_kernel",
+            "visibility": "six_declared_direct_processes_and_their_bound_io"
+          }
+        },
+        "coverage": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "packet_integrity",
+            "observation_extent",
+            "relational_coverage",
+            "resource_coverage"
+          ],
+          "properties": {
+            "packet_integrity": {
+              "enum": [
+                "not_evaluated",
+                "complete"
+              ]
+            },
+            "observation_extent": {
+              "enum": [
+                "not_evaluated",
+                "complete"
+              ]
+            },
+            "relational_coverage": {
+              "enum": [
+                "not_evaluated",
+                "complete"
+              ]
+            },
+            "resource_coverage": {
+              "const": "unavailable"
+            }
+          }
+        },
+        "execution_correspondence": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^compute:bounded:"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^execution:"
+          }
+        },
+        "terminal_state_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^state:bounded:runtime:"
+          }
+        },
+        "recorder_result_state_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^state:bounded:runtime:"
+          }
+        },
+        "case_outcomes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "case_id",
+              "actual_exit_code",
+              "expected_exit_code",
+              "matches_expected",
+              "terminal_state"
+            ],
             "properties": {
-              "extent": {
-                "type": "null"
+              "case_id": {
+                "enum": [
+                  "allow",
+                  "block_false",
+                  "missing_required"
+                ]
               },
-              "coverage": {
+              "actual_exit_code": {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1,
+                  2
+                ]
+              },
+              "expected_exit_code": {
+                "type": "integer",
+                "enum": [
+                  0,
+                  1,
+                  2
+                ]
+              },
+              "matches_expected": {
+                "type": "boolean"
+              },
+              "terminal_state": {
+                "enum": [
+                  "ready",
+                  "held"
+                ]
+              }
+            }
+          }
+        },
+        "collector_declaration": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/rt_execution_record"
+            }
+          ]
+        }
+      }
+    },
+    "legacy_document_v0": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "report_type",
+        "record_status",
+        "tool",
+        "analysis_boundary",
+        "subject",
+        "inputs",
+        "compute_nodes",
+        "state_nodes",
+        "edges",
+        "resource_summary",
+        "summary",
+        "findings",
+        "errors",
+        "ok"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_binding_report_v0"
+        },
+        "report_type": {
+          "const": "pulsemech_compute_binding_report"
+        },
+        "record_status": {
+          "type": "string",
+          "enum": [
+            "example",
+            "observed"
+          ]
+        },
+        "tool": {
+          "$ref": "#/$defs/tool"
+        },
+        "analysis_boundary": {
+          "$ref": "#/$defs/analysis_boundary"
+        },
+        "subject": {
+          "$ref": "#/$defs/subject"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/input_record"
+          }
+        },
+        "compute_nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/compute_node"
+          }
+        },
+        "state_nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/state_node"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/edge"
+          }
+        },
+        "resource_summary": {
+          "$ref": "#/$defs/resource_summary"
+        },
+        "summary": {
+          "$ref": "#/$defs/summary"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "runtime_binding": {
+          "$ref": "#/$defs/runtime_binding"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "errors": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "ok": {
+                "const": false
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "errors": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "runtime_binding"
+            ]
+          },
+          "then": {
+            "properties": {
+              "analysis_boundary": {
                 "properties": {
-                  "extent_status": {
-                    "const": "unknown"
-                  },
-                  "relational_coverage_status": {
-                    "enum": [
-                      "partial",
-                      "unknown"
+                  "analysis_level": {
+                    "const": "runtime_observed"
+                  }
+                }
+              },
+              "tool": {
+                "properties": {
+                  "id": {
+                    "const": "build_pulsemech_compute_binding_report_from_subject_input_v0"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "tool": {
+                "properties": {
+                  "id": {
+                    "const": "build_pulsemech_compute_binding_report_v0"
+                  }
+                }
+              },
+              "compute_nodes": {
+                "items": {
+                  "not": {
+                    "required": [
+                      "runtime_origin"
+                    ]
+                  }
+                }
+              },
+              "state_nodes": {
+                "items": {
+                  "not": {
+                    "required": [
+                      "runtime_origin"
                     ]
                   }
                 }
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "record_status": {
+                "const": "observed"
+              },
+              "analysis_boundary": {
+                "properties": {
+                  "analysis_level": {
+                    "const": "runtime_observed"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "runtime_binding"
+            ],
+            "properties": {
+              "runtime_binding": {
+                "properties": {
+                  "extent": {
+                    "type": "null"
+                  },
+                  "coverage": {
+                    "properties": {
+                      "extent_status": {
+                        "const": "unknown"
+                      },
+                      "relational_coverage_status": {
+                        "enum": [
+                          "partial",
+                          "unknown"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
-      }
+      ]
+    },
+    "bounded_reference_document_v0": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "report_type",
+        "record_status",
+        "tool",
+        "analysis_boundary",
+        "subject",
+        "inputs",
+        "compute_nodes",
+        "state_nodes",
+        "edges",
+        "resource_summary",
+        "summary",
+        "findings",
+        "errors",
+        "ok",
+        "report_profile",
+        "bounded_binding"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_binding_report_v0"
+        },
+        "report_type": {
+          "const": "pulsemech_compute_binding_report"
+        },
+        "record_status": {
+          "type": "string",
+          "enum": [
+            "example",
+            "observed"
+          ]
+        },
+        "tool": {
+          "$ref": "#/$defs/tool"
+        },
+        "analysis_boundary": {
+          "$ref": "#/$defs/analysis_boundary"
+        },
+        "subject": {
+          "$ref": "#/$defs/bounded_reference_subject"
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/input_record"
+          }
+        },
+        "compute_nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/compute_node"
+          }
+        },
+        "state_nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/state_node"
+          }
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/edge"
+          }
+        },
+        "resource_summary": {
+          "const": {
+            "axes": {}
+          }
+        },
+        "summary": {
+          "$ref": "#/$defs/summary"
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "ok": {
+          "type": "boolean"
+        },
+        "report_profile": {
+          "const": "bounded_execution_reference_v0"
+        },
+        "bounded_binding": {
+          "$ref": "#/$defs/bounded_reference_binding"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "bounded_binding": {
+                "properties": {
+                  "stage": {
+                    "const": "artifact_baseline"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "analysis_boundary": {
+                "properties": {
+                  "analysis_level": {
+                    "const": "artifact_observed"
+                  }
+                }
+              },
+              "compute_nodes": {
+                "maxItems": 0
+              },
+              "edges": {
+                "maxItems": 0
+              },
+              "bounded_binding": {
+                "properties": {
+                  "runtime_packet_sha256": {
+                    "type": "null"
+                  },
+                  "baseline_sha256": {
+                    "type": "null"
+                  },
+                  "collector_declaration": {
+                    "type": "null"
+                  },
+                  "execution_correspondence": {
+                    "maxProperties": 0
+                  },
+                  "case_outcomes": {
+                    "maxItems": 0
+                  },
+                  "terminal_state_ids": {
+                    "maxItems": 0
+                  },
+                  "recorder_result_state_ids": {
+                    "maxItems": 0
+                  },
+                  "coverage": {
+                    "const": {
+                      "packet_integrity": "not_evaluated",
+                      "observation_extent": "not_evaluated",
+                      "relational_coverage": "not_evaluated",
+                      "resource_coverage": "unavailable"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "analysis_boundary": {
+                "properties": {
+                  "analysis_level": {
+                    "const": "runtime_observed"
+                  }
+                }
+              },
+              "compute_nodes": {
+                "minItems": 6,
+                "maxItems": 6
+              },
+              "bounded_binding": {
+                "properties": {
+                  "runtime_packet_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "baseline_sha256": {
+                    "$ref": "#/$defs/sha256"
+                  },
+                  "collector_declaration": {
+                    "$ref": "#/$defs/rt_execution_record"
+                  },
+                  "execution_correspondence": {
+                    "minProperties": 6,
+                    "maxProperties": 6
+                  },
+                  "case_outcomes": {
+                    "minItems": 3,
+                    "maxItems": 3
+                  },
+                  "terminal_state_ids": {
+                    "minItems": 6,
+                    "maxItems": 6
+                  },
+                  "recorder_result_state_ids": {
+                    "minItems": 3,
+                    "maxItems": 3
+                  },
+                  "coverage": {
+                    "const": {
+                      "packet_integrity": "complete",
+                      "observation_extent": "complete",
+                      "relational_coverage": "complete",
+                      "resource_coverage": "unavailable"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "ok": {
+              "const": true
+            },
+            "errors": {
+              "maxItems": 0
+            },
+            "tool": {
+              "properties": {
+                "id": {
+                  "const": "build_pulsemech_compute_binding_report_from_subject_input_v0"
+                }
+              }
+            },
+            "summary": {
+              "properties": {
+                "decision_closure_complete": {
+                  "const": false
+                },
+                "authority_binding_complete": {
+                  "const": false
+                },
+                "resource_measurement_status": {
+                  "const": "none"
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "compute_nodes": {
+              "items": {
+                "not": {
+                  "required": [
+                    "runtime_origin"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "properties": {
+            "state_nodes": {
+              "items": {
+                "not": {
+                  "required": [
+                    "runtime_origin"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
     }
-  ]
+  }
 }

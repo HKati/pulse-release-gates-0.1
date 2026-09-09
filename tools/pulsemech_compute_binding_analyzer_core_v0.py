@@ -3533,5 +3533,392 @@ def build_runtime_report(
     return report
 
 
+# ---------------------------------------------------------------------------
+# Bounded-reference profile. These functions share the existing graph factory
+# and summary vocabulary; they do not alter the historical release-package path.
+# ---------------------------------------------------------------------------
+BOUNDED_REPORT_PROFILE = "bounded_execution_reference_v0"
+BOUNDED_CORE_PATH = "tools/pulsemech_compute_binding_analyzer_core_v0.py"
+BOUNDED_BRIDGE_PATH = "tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py"
+BOUNDED_REPORT_CHECKER = "tools/check_pulsemech_compute_binding_report_v0.py"
+BOUNDED_REPORT_SCHEMA = "schemas/pulsemech_compute_binding_report_v0.schema.json"
+BOUNDED_RUNTIME_SCHEMA = "schemas/pulsemech_compute_runtime_observation_packet_v0.schema.json"
+BOUNDED_RUNTIME_CHECKER = "tools/check_pulsemech_compute_runtime_observation_packet_v0.py"
+
+
+def _bounded_support(repository_root: Path, context: dict[str, Any]):
+    """Bootstrap the fixed offline verifier from verified, captured Git bytes."""
+    import os
+    import stat
+    import types
+    root = Path(repository_root).absolute()
+    if Path(__file__).absolute() != root / BOUNDED_CORE_PATH:
+        raise ValueError("bounded_analyzer_installation_mismatch")
+    revision = context.get("source_commit") if isinstance(context, dict) else None
+    if not isinstance(revision, str) or not re.fullmatch("[0-9a-f]{40}", revision):
+        raise ValueError("bounded_source_revision_invalid")
+    relative = "tools/check_pulsemech_compute_bounded_execution_v0.py"
+    path = root / relative
+    directory = os.open("/", os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        for part in path.parts[1:-1]:
+            fd = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=directory)
+            os.close(directory); directory = fd
+        fd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=directory)
+        try:
+            before = os.fstat(fd)
+            if not stat.S_ISREG(before.st_mode) or before.st_size > 2 * 1024 * 1024:
+                raise ValueError("bounded_verifier_not_regular")
+            with os.fdopen(fd, "rb", closefd=False) as stream:
+                raw = stream.read(2 * 1024 * 1024 + 1)
+            after = os.fstat(fd)
+            if (before.st_size, before.st_mtime_ns, before.st_ctime_ns) != (after.st_size, after.st_mtime_ns, after.st_ctime_ns) or len(raw) != before.st_size:
+                raise ValueError("bounded_verifier_changed")
+        finally:
+            os.close(fd)
+    finally:
+        os.close(directory)
+    env = {"PATH": "/usr/bin:/bin", "LC_ALL": "C", "GIT_CONFIG_NOSYSTEM": "1",
+           "GIT_CONFIG_GLOBAL": os.devnull, "GIT_NO_REPLACE_OBJECTS": "1", "HOME": str(root)}
+    def git(args):
+        process = subprocess.run(["/usr/bin/git", "--no-replace-objects", "-C", str(root), *args],
+            env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10, check=False)
+        if process.returncode != 0:
+            raise ValueError("bounded_bootstrap_git_source_unavailable")
+        return process.stdout
+    if git(["cat-file", "-t", revision]) != b"commit\n":
+        raise ValueError("bounded_commit_required")
+    entry = git(["ls-tree", "-z", revision, "--", relative])
+    if not entry.startswith((b"100644 blob ", b"100755 blob ")) or entry.count(b"\0") != 1 or not entry.endswith(b"\t" + relative.encode() + b"\0"):
+        raise ValueError("bounded_verifier_git_type")
+    if git(["cat-file", "-s", revision + ":" + relative]).strip() != str(len(raw)).encode():
+        raise ValueError("bounded_verifier_source_size")
+    if git(["cat-file", "blob", revision + ":" + relative]) != raw:
+        raise ValueError("bounded_verifier_source_mismatch")
+    name = "_pulse_bounded_core_support_" + sha256_bytes(raw)
+    module = types.ModuleType(name)
+    module.__file__ = str(path)
+    module.__cached__ = None
+    sys.modules[name] = module
+    exec(compile(raw, str(path), "exec", dont_inherit=True), module.__dict__)
+    for relative in (module.VALIDATOR, BOUNDED_CORE_PATH):
+        committed = module.git_blob(root, revision, relative)
+        module.need(module.read_regular(root / relative, module.MEMBER_LIMIT) == committed,
+                    "bounded_installed_source_mismatch:" + relative)
+    return module
+
+
+def _bounded_run_key(context: dict[str, Any]) -> str:
+    return (f"GITHUB_RUN_ID={context['run_id']}|GITHUB_RUN_ATTEMPT={context['run_attempt']}"
+            f"|GITHUB_WORKFLOW={context['workflow_name']}")
+
+
+def _bounded_state_id(member: str, *, artifact: bool = False) -> str:
+    # Logical member identity, not content equality, distinguishes empty streams.
+    return "state:bounded:" + ("artifact:" if artifact else "runtime:") + sha256_bytes(member.encode())
+
+
+def _bounded_node_id(execution_id: str) -> str:
+    return "compute:bounded:" + execution_id.removeprefix("execution:")
+
+
+def _bounded_io(spec: dict[str, Any], row: dict[str, Any]) -> tuple[list[str], list[str]]:
+    case = next(x for x in spec["cases"] if x["case_id"] == row["case_id"])
+    source = "sources/" + row["source_path"]
+    if row["kind"] == "checker":
+        return [source, case["status"]["member"]], [case["checker_outputs"][k] for k in ("stdout", "stderr")]
+    return [source, case["pending_state"]["member"],
+            *[case["checker_outputs"][k] for k in ("result_envelope", "stdout", "stderr")]], \
+           [case["consumer_outputs"][k] for k in ("terminal_state", "stderr")]
+
+
+def _bounded_packet_projection(checked: Any, support: Any) -> dict[str, Any]:
+    """Lossless-role v0 packet view of independently checked capture facts.
+
+    The projection process is not one of the six observed subject processes.
+    Its v0-required collector row is explicitly partial, with no invented
+    command, process exit or resource observation. Acquisition supervisor
+    provenance remains separately bound by the evidence profile.
+    """
+    v = support
+    context, spec, capture, members = (checked.expected_context, checked.prelaunch,
+                                      checked.capture, checked.members)
+    key = _bounded_run_key(context)
+    collector = "execution:bounded:packet_projection"
+    collector_key = "bounded-projection:" + v.sha(v.canonical(context))
+    candidate = "bounded-reference:" + context["acquisition_id"]
+    environment = {"environment_kind": "unknown", "identity_status": "partial",
+        "os_name": capture["interpreter"]["os"], "os_version": None,
+        "architecture": capture["interpreter"]["architecture"],
+        "runtime_name": capture["interpreter"]["implementation"],
+        "runtime_version": capture["interpreter"]["version"],
+        "image_identity": None, "image_digest": None,
+        "environment_sha256": v.sha(v.canonical(capture["interpreter"])),
+        "raw_environment_included": False}
+    def source(path):
+        return {"source_kind": "repository_file", "identity_status": "exact",
+            "source_path_or_uri": path, "source_revision": context["source_commit"],
+            "source_sha256": v.sha(members["sources/" + path]), "action_repository": None,
+            "action_ref": None, "action_commit_sha": None, "container_image_digest": None}
+    executions = []
+    observed_members = set()
+    producers = {}
+    for row in capture["executions"]:
+        ins, outs = _bounded_io(spec, row)
+        observed_members.update(ins + outs)
+        producers.update({name: row["execution_id"] for name in outs})
+        executions.append({"execution_id": row["execution_id"], "execution_scope": "subject",
+            "execution_kind": "local_tool_execution", "parent_execution_id": None,
+            "workflow_name": context["workflow_name"], "job_name": "bounded_reference",
+            "job_id": None, "job_attempt": context["run_attempt"], "step_name": None, "step_number": None,
+            "source_identity": source(row["source_path"]),
+            "command_identity": {"command_kind": "python_script", "display_name": row["source_path"],
+                "command_sha256": v.sha(v.canonical({"interpreter": capture["interpreter"], "arguments": row["arguments"]})),
+                "arguments_sha256": v.sha(v.canonical({"arguments": row["arguments"]})), "raw_command_included": False},
+            "execution_environment": dict(environment),
+            "run_binding": {"execution_run_key": key, "subject_run_key": key,
+                            "binding_mode": "current_subject_run", "binding_complete": True},
+            # Exact monotonic nanoseconds stay in the capture; no rounded float
+            # or elapsed-time-to-resource conversion is manufactured here.
+            "timing": {"timing_status": "partial", "started_utc": row["started_at_utc"],
+                "completed_utc": row["completed_at_utc"], "duration_ms": None,
+                "timestamp_source": "tool_reported", "duration_source": "unknown"},
+            "result": {"result_status": "complete", "lifecycle_status": "completed",
+                "outcome": "success" if row["exit_code"] == 0 else "failure", "exit_code": row["exit_code"]},
+            "declared_role": "advisory", "permitted_mutation_authority": "advisory_output",
+            "input_state_ids": sorted(_bounded_state_id(x) for x in ins),
+            "output_state_ids": sorted(_bounded_state_id(x) for x in outs),
+            "external_call_ids": [], "model_inference_ids": [], "resource_measurement_ids": [],
+            "capture_status": "complete"})
+    # Result envelopes are supervisor-owned. They have no invented checker
+    # production edge. Their concrete occurrence linkage is independently
+    # reconstructed from wait/stream facts by the bounded verifier.
+    authority_paths = (("workflow", v.WORKFLOW, "workflow_source"),
+                       ("policy", v.POLICY, "policy"), ("gate_registry", v.REGISTRY, "gate_registry"))
+    for _, path, _ in authority_paths:
+        observed_members.add("sources/" + path)
+    states = []
+    for member in sorted(observed_members):
+        authority = next(((path, kind) for _, path, kind in authority_paths if member == "sources/" + path), None)
+        raw = members[member]
+        states.append({"state_id": _bounded_state_id(member), "state_type": authority[1] if authority else "other",
+            "path_or_uri": authority[0] if authority else "sha256:" + checked.carrier_sha256 + "!/" + member,
+            "content_status": "exact_digest", "sha256": v.sha(raw), "size_bytes": len(raw),
+            "media_type": "application/json" if member.endswith(".json") else "application/octet-stream",
+            "schema_identity": None, "producer_execution_id": producers.get(member),
+            "observer_execution_id": collector, "subject_run_key": key, "release_candidate_id": candidate,
+            "authority_bearing": authority is not None,
+            "mutation_class": "advisory_output" if member in producers else "none",
+            "observed_at_utc": capture["completed_at_utc"], "secret_material_included": False})
+    executions.append({"execution_id": collector, "execution_scope": "observation_collector",
+        "execution_kind": "observer_execution", "parent_execution_id": None,
+        "workflow_name": context["workflow_name"], "job_name": "offline_packet_projection",
+        "job_id": None, "job_attempt": context["run_attempt"], "step_name": None, "step_number": None,
+        "source_identity": source(BOUNDED_CORE_PATH),
+        "command_identity": {"command_kind": "unknown", "display_name": "declared offline packet projection",
+            "command_sha256": None, "arguments_sha256": None, "raw_command_included": False},
+        "execution_environment": {k: (False if k == "raw_environment_included" else "unknown" if k in ("environment_kind", "identity_status") else None)
+                                  for k in environment},
+        "run_binding": {"execution_run_key": collector_key, "subject_run_key": key,
+                        "binding_mode": "external_export", "binding_complete": True},
+        "timing": {"timing_status": "unknown", "started_utc": None, "completed_utc": None,
+                   "duration_ms": None, "timestamp_source": "unknown", "duration_source": "unknown"},
+        "result": {"result_status": "unknown", "lifecycle_status": "unknown", "outcome": "unknown", "exit_code": None},
+        "declared_role": "observer", "permitted_mutation_authority": "advisory_output",
+        "input_state_ids": [], "output_state_ids": [], "external_call_ids": [], "model_inference_ids": [],
+        "resource_measurement_ids": [], "capture_status": "partial"})
+    runtime_schema = v.parse(members["sources/" + BOUNDED_RUNTIME_SCHEMA], canonical_required=False)
+    axes = runtime_schema["$defs"]["coverage"]["properties"]["resource_axes_unavailable"]["items"]["enum"]
+    return {"schema_version": "pulsemech_compute_runtime_observation_packet_v0",
+        "packet_type": "pulsemech_compute_runtime_observation_packet", "record_status": context["record_status"],
+        "producer": {"producer_id": "bounded_reference_projection_v0", "producer_name": BOUNDED_CORE_PATH,
+            "producer_version": "0.1.0", "producer_source": BOUNDED_CORE_PATH,
+            "producer_source_sha256": v.sha(members["sources/" + BOUNDED_CORE_PATH]),
+            "ci_workflow_or_job_identity": collector_key, "collection_mode": "example" if context["record_status"] == "example" else "tool_wrapper", "producer_execution_id": collector},
+        "packet_identity": {"packet_id": "runtime-observation:bounded:" + checked.carrier_sha256,
+            "packet_sequence": 0, "packet_scope": "example" if context["record_status"] == "example" else "subject_run", "subject_run_key": key,
+            "packet_created_utc": capture["completed_at_utc"], "previous_packet_sha256": None,
+            "canonicalization": "json-sort-keys-utf8-newline"},
+        "subject": {"repository": context["repository"], "workflow_name": context["workflow_name"],
+            "workflow_run_id": context["run_id"], "workflow_run_number": context["run_number"],
+            "workflow_run_attempt": context["run_attempt"], "subject_run_key": key,
+            "source_commit": context["source_commit"], "source_ref": "refs/heads/main" if context["record_status"] == "observed" else "example",
+            "event_name": context["event_name"], "release_candidate_id": candidate,
+            "run_mode": "bounded_reference", "active_policy_sets": ["core_required"]},
+        "observation_boundary": {"target_analysis_level": "runtime_observed", "subject_run_key": key,
+            "collector_run_key": collector_key, "collector_execution_id": collector, "collector_mode": "example" if context["record_status"] == "example" else "tool_wrapper",
+            "observer_in_subject_totals": False, "capture_started_utc": capture["started_at_utc"],
+            "capture_completed_utc": capture["completed_at_utc"], "subject_artifacts_mutated": False},
+        "authority_inputs": {role: {"role": role, "path": path, "source_commit": context["source_commit"],
+                             "sha256": v.sha(members["sources/" + path])} for role, path, _ in authority_paths},
+        "timing_basis": {"timestamps_utc": True, "primary_clock_source": "monotonic_tool_clock",
+            "timestamp_resolution_ms": 1, "cross_source_clock_status": "single_source",
+            "duration_derivation": "tool_reported", "duration_values_estimated": False},
+        "privacy_boundary": {"raw_environment_included": False, "secret_values_included": False,
+            "authorization_headers_included": False, "cookies_included": False, "request_bodies_included": False,
+            "response_bodies_included": False, "raw_prompt_text_included": False, "raw_model_output_included": False,
+            "redaction_applied": False, "redaction_rules_sha256": None},
+        "executions": sorted(executions, key=lambda x: x["execution_id"]),
+        "state_observations": sorted(states, key=lambda x: x["state_id"]),
+        "external_calls": [], "model_inferences": [], "resource_measurements": [],
+        "coverage": {"coverage_status": "partial", "expected_job_count": None, "observed_job_count": 0,
+            "expected_step_count": None, "observed_step_count": 0, "execution_records": len(executions),
+            "state_records": len(states), "external_call_records": 0, "model_inference_records": 0,
+            "resource_measurement_records": 0, "missing_execution_ids": [],
+            "unobserved_reasons": ["other", "resource_axis_unavailable"],
+            "resource_axes_observed": [], "resource_axes_unavailable": sorted(axes),
+            "external_call_capture_status": "none", "model_inference_capture_status": "none",
+            "state_digest_capture_status": "complete"}, "errors": [], "ok": True}
+
+
+def build_bounded_runtime_packet(*, carrier_bytes: bytes, repository_root: Path,
+        expected_context: dict[str, Any], expected_prelaunch_sha256: str) -> bytes:
+    v = _bounded_support(repository_root, expected_context)
+    checked = v.verify_capture(carrier_bytes, repository_root=repository_root,
+        expected_context=expected_context, expected_prelaunch_sha256=expected_prelaunch_sha256)
+    return _validate_bounded_runtime_projection(checked, v, repository_root)
+
+
+def _validate_bounded_runtime_projection(checked: Any, v: Any, repository_root: Path) -> bytes:
+    expected_context = checked.expected_context
+    raw = v.canonical(_bounded_packet_projection(checked, v))
+    validator = v.load_reconstruction_module(BOUNDED_RUNTIME_CHECKER,
+        repository_root=repository_root, revision=expected_context["source_commit"])
+    # Original packet checker receives immutable byte views, not mutable paths.
+    import io
+    class View:
+        def __init__(self, data): self.data = data
+        def read_text(self, encoding="utf-8"): return self.data.decode(encoding)
+        def read_bytes(self): return self.data
+        def open(self, mode="r", encoding="utf-8"):
+            return io.BytesIO(self.data) if "b" in mode else io.StringIO(self.data.decode(encoding))
+        def __str__(self): return "bounded-captured-input"
+    diagnostic, rc = validator.build_diagnostic(schema_path=View(checked.members["sources/" + BOUNDED_RUNTIME_SCHEMA]),
+                                               packet_path=View(raw))
+    v.need(rc == 0 and diagnostic["ok"] is True, "bounded_runtime_projection_rejected:" + str(diagnostic["errors"]))
+    return raw
+
+
+def build_bounded_reference_report(*, subject_input_bytes: bytes, carrier_bytes: bytes,
+        repository_root: Path, expected_context: dict[str, Any], expected_prelaunch_sha256: str,
+        analysis_run_key: str, runtime_packet_bytes: bytes | None = None) -> dict[str, Any]:
+    """Construct from exact validated inputs; no trusted-object/boolean bypass.
+
+    The artifact baseline describes stored objects, not their producer execution.
+    Runtime construction adds the six captured subject invocations and separate
+    exact logical states, without changing those artifact-level objects.
+    """
+    root = Path(repository_root).absolute()
+    v = _bounded_support(root, expected_context)
+    v.need(isinstance(analysis_run_key, str) and 0 < len(analysis_run_key) <= 512
+           and analysis_run_key != _bounded_run_key(expected_context), "bounded_analysis_identity_invalid")
+    checked = v.verify_capture(carrier_bytes, repository_root=root,
+        expected_context=expected_context, expected_prelaunch_sha256=expected_prelaunch_sha256)
+    revision = expected_context["source_commit"]
+    subject_validator = v.load_reconstruction_module("tools/check_pulsemech_compute_subject_input_packet_v0.py",
+        repository_root=root, revision=revision)
+    subject_packet = v.parse(subject_input_bytes)
+    schema = v.parse(checked.members["sources/schemas/pulsemech_compute_subject_input_packet_v0.schema.json"], canonical_required=False)
+    v.need(not subject_validator.schema_errors(schema, subject_packet), "bounded_report_subject_schema")
+    checks, errors = subject_validator.check_bounded_reference_packet(subject_packet,
+        packet_text=subject_input_bytes.decode(), carrier_bytes=carrier_bytes, repository_root=root,
+        expected_context=expected_context, expected_prelaunch_sha256=expected_prelaunch_sha256)
+    v.need(all(checks.values()) and not errors, "bounded_report_subject_rejected")
+    members, context = checked.members, checked.expected_context
+    runtime = runtime_packet_bytes is not None
+    expected_packet = _bounded_packet_projection(checked, v)
+    if runtime:
+        v.need(runtime_packet_bytes == _validate_bounded_runtime_projection(checked, v, root), "bounded_runtime_packet_mismatch")
+    key = _bounded_run_key(context)
+    src_subject = subject_packet["subject"]
+    subject = {k: src_subject[k] for k in ("repository", "workflow_run_id", "workflow_run_number", "workflow_run_attempt",
+        "source_commit", "release_candidate_id", "run_mode", "active_policy_sets")}
+    subject.update(workflow=src_subject["workflow_name"], policy_id=v.strict_yaml(members["sources/" + v.POLICY])["policy"]["id"],
+        policy_sha256=v.sha(members["sources/" + v.POLICY]), reference_only=True)
+    states = [make_state_node(state_id=_bounded_state_id(name, artifact=True), state_type="preservation_record",
+        path_or_uri="sha256:" + checked.carrier_sha256 + "!/" + name, sha256=v.sha(raw), size_bytes=len(raw),
+        schema_id=None, producer_node_id=None, subject_run_key=key, release_candidate_id=src_subject["release_candidate_id"],
+        policy_relation=None, gate_relation=None, authority_bearing=False) for name, raw in sorted(members.items())]
+    nodes, edges, execution_map, terminal_ids, recorder_ids = [], [], {}, [], []
+    if runtime:
+        by_state = {s["state_id"]: s for s in expected_packet["state_observations"]}
+        # All subject states, including recorded envelope inputs. The adapter
+        # projection's collector is retained as metadata, not invented subject work.
+        for row in expected_packet["executions"]:
+            if row["execution_scope"] != "subject": continue
+            nid = _bounded_node_id(row["execution_id"])
+            src = row["source_identity"]
+            source = {"source_kind": "repository_file", "source_path_or_uri": src["source_path_or_uri"],
+                      "source_revision": src["source_revision"], "source_sha256": src["source_sha256"]}
+            node = make_compute_node(node_id=nid, node_type="local_tool_execution", scope="subject", role="advisory",
+                status="complete", source=source, subject_run_key=key, analysis_run_key=analysis_run_key,
+                inputs=row["input_state_ids"], outputs=row["output_state_ids"],
+                mutation_authority="advisory_output", observed_mutation=True)
+            nodes.append(node)
+            execution_map[nid] = row["execution_id"]
+            for field, direction in (("input_state_ids", "reads"), ("output_state_ids", "produces")):
+                for sid in row[field]:
+                    eid = "edge:bounded:" + v.sha((nid + "\0" + direction + "\0" + sid).encode())
+                    edges.append(make_edge(edge_id=eid, from_id=sid if direction == "reads" else nid,
+                        to_id=nid if direction == "reads" else sid, edge_type=direction,
+                        digest=v.sha(members["capture.json"]), notes=["bounded_runtime_capture", row["execution_id"]]))
+        used = {sid for n in nodes for field in ("input_state_ids", "output_state_ids") for sid in n[field]}
+        for sid in sorted(used):
+            item = by_state[sid]
+            states.append(make_state_node(state_id=sid, state_type="preservation_record", path_or_uri=item["path_or_uri"],
+                sha256=item["sha256"], size_bytes=item["size_bytes"], schema_id=item["schema_identity"],
+                producer_node_id=_bounded_node_id(item["producer_execution_id"]) if item["producer_execution_id"] else None,
+                subject_run_key=key, release_candidate_id=src_subject["release_candidate_id"], policy_relation=None,
+                gate_relation=None, authority_bearing=False))
+        terminal_ids = sorted(_bounded_state_id(x) for x in checked.capture["terminal_roles"])
+        recorder_ids = sorted(_bounded_state_id(c["checker_outputs"]["result_envelope"]) for c in checked.prelaunch["cases"])
+    inputs = [{"role": "other", "path_or_uri": "sha256:" + v.sha(raw), "sha256": v.sha(raw), "size_bytes": len(raw)}
+              for raw in (subject_input_bytes, carrier_bytes) + ((runtime_packet_bytes,) if runtime else ())]
+    sources = {path: v.sha(members["sources/" + path]) for path in (BOUNDED_BRIDGE_PATH, BOUNDED_CORE_PATH,
+        BOUNDED_REPORT_CHECKER, BOUNDED_REPORT_SCHEMA, v.VALIDATOR)}
+    count_fields = {field: 0 for field in SUMMARY_COUNT_FIELDS.values()}
+    count_fields[SUMMARY_COUNT_FIELDS["advisory_bound"]] = len(nodes)
+    binding = {"profile": BOUNDED_REPORT_PROFILE, "stage": "runtime" if runtime else "artifact_baseline",
+        "expected_acquisition_context": dict(context), "prelaunch_sha256": expected_prelaunch_sha256,
+        "subject_input_sha256": v.sha(subject_input_bytes), "carrier_sha256": checked.carrier_sha256,
+        "capture_sha256": v.sha(members["capture.json"]), "runtime_packet_sha256": v.sha(runtime_packet_bytes) if runtime else None,
+        "baseline_sha256": None, "construction_sources": sources, "boundary": dict(v.BOUNDARY),
+        "coverage": {"packet_integrity": "complete" if runtime else "not_evaluated",
+            "observation_extent": "complete" if runtime else "not_evaluated",
+            "relational_coverage": "complete" if runtime else "not_evaluated", "resource_coverage": "unavailable"},
+        "execution_correspondence": dict(sorted(execution_map.items())), "terminal_state_ids": terminal_ids,
+        "recorder_result_state_ids": recorder_ids, "case_outcomes": list(checked.case_outcomes) if runtime else [],
+        "collector_declaration": expected_packet["executions"][next(i for i, r in enumerate(expected_packet["executions"]) if r["execution_scope"] == "observation_collector")] if runtime else None}
+    result = {"schema_version": SCHEMA_VERSION, "report_type": REPORT_TYPE, "report_profile": BOUNDED_REPORT_PROFILE,
+        "record_status": context["record_status"],
+        "tool": {"id": "build_pulsemech_compute_binding_report_from_subject_input_v0", "version": "0.4.0",
+                 "source_sha256": sources[BOUNDED_BRIDGE_PATH]},
+        "analysis_boundary": {"analysis_level": "runtime_observed" if runtime else "artifact_observed",
+            "subject_run_key": key, "analysis_run_key": analysis_run_key, "observer_in_subject_totals": False},
+        "subject": subject, "inputs": sorted(inputs, key=lambda i: (i["role"], i["path_or_uri"], i["sha256"])),
+        "compute_nodes": sorted(nodes, key=lambda n: n["node_id"]),
+        "state_nodes": sorted(states, key=lambda n: n["state_id"]), "edges": sorted(edges, key=lambda e: e["edge_id"]),
+        "resource_summary": {"axes": {}}, "summary": {"subject_compute_nodes": len(nodes), "observer_nodes": 0,
+            **count_fields, "unbound_authoritative_mutation_count": 0, "decision_closure_complete": False,
+            "authority_binding_complete": False, "resource_measurement_status": "none"},
+        "findings": [], "errors": [], "ok": True, "bounded_binding": binding}
+    if runtime:
+        baseline = _runtime_copy(result)
+        baseline["analysis_boundary"]["analysis_level"] = "artifact_observed"
+        baseline["compute_nodes"] = []; baseline["edges"] = []
+        baseline["state_nodes"] = [s for s in baseline["state_nodes"] if s["state_id"].startswith("state:bounded:artifact:")]
+        baseline["inputs"] = [i for i in baseline["inputs"] if i["sha256"] != v.sha(runtime_packet_bytes)]
+        baseline["summary"]["subject_compute_nodes"] = 0
+        for field in SUMMARY_COUNT_FIELDS.values(): baseline["summary"][field] = 0
+        bb = baseline["bounded_binding"]
+        bb.update(stage="artifact_baseline", runtime_packet_sha256=None, baseline_sha256=None,
+            execution_correspondence={}, terminal_state_ids=[], recorder_result_state_ids=[],
+            case_outcomes=[], collector_declaration=None,
+            coverage={"packet_integrity":"not_evaluated", "observation_extent":"not_evaluated",
+                      "relational_coverage":"not_evaluated", "resource_coverage":"unavailable"})
+        binding["baseline_sha256"] = v.sha(v.canonical(baseline))
+    return result
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

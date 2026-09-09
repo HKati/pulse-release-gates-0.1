@@ -1341,5 +1341,28 @@ def test_review_2872_synthetic_source_claims_remain_example_only():
     assert M.runtime_activity_is_recorded(idx, "executions", producer) is False
 
 
+
+
+def _bounded_unit_module(filename):
+    import importlib.util, sys, hashlib
+    path=Path(__file__).resolve().parents[1]/"tools"/filename
+    name="_bounded_unit_"+hashlib.sha256(path.read_bytes()).hexdigest()
+    spec=importlib.util.spec_from_file_location(name,path)
+    module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)
+    return module
+
+def test_bounded_exact_source_is_not_a_new_declaration_bypass():
+    core=_bounded_unit_module("pulsemech_compute_binding_analyzer_core_v0.py")
+    declaration={"source_kind":"repository_file","identity_status":"exact", "source_path_or_uri":"tools/example.py",
+        "source_revision":"a"*40,"source_sha256":"b"*64}
+    assert core.runtime_effective_source_identity(declaration,record_status="observed")["identity_status"]=="partial"
+    assert declaration["identity_status"]=="exact"
+
+def test_bounded_logical_state_identity_is_not_content_identity():
+    core=_bounded_unit_module("pulsemech_compute_binding_analyzer_core_v0.py")
+    assert core._bounded_state_id("results/allow/checker.stderr")!=core._bounded_state_id("results/block_false/checker.stderr")
+    assert core._bounded_state_id("results/allow/checker.stderr",artifact=True)!=core._bounded_state_id("results/allow/checker.stderr")
+
+
 if __name__ == "__main__":
     check_pulsemech_compute_binding_analyzer_core_v0()

@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 from collections import Counter
+import pytest
 from pathlib import Path
 from typing import Any
 
@@ -861,6 +862,82 @@ def test_observed_runtime_report_cannot_validate_without_source_repository():
     m=_runtime_test_support();r,i=m.runtime_test_report(m.runtime_test_historical_case());i.pop("repository_root")
     d,rc=_runtime_report_diagnostic(r,i)
     assert rc!=0 and "runtime_historical_source_repository_required" in str(d)
+
+
+
+
+def _bounded_unit_module(filename):
+    import importlib.util, sys, hashlib
+    path=Path(__file__).resolve().parents[1]/"tools"/filename
+    name="_bounded_unit_"+hashlib.sha256(path.read_bytes()).hexdigest()
+    spec=importlib.util.spec_from_file_location(name,path)
+    module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)
+    return module
+
+def test_bounded_report_replay_rejects_missing_upstream_evidence():
+    checker=_bounded_unit_module("check_pulsemech_compute_binding_report_v0.py")
+    assert checker.check_bounded_source_replay({},b"{}",None)==["bounded_upstream_inputs_required"]
+
+def test_bounded_report_replay_cannot_choose_an_arbitrary_dependency():
+    import pytest
+    checker=_bounded_unit_module("check_pulsemech_compute_binding_report_v0.py")
+    with pytest.raises(ValueError,match="dependency_invalid"):
+        checker.bounded_committed_bytes("tools/arbitrary.py",repository_root=checker.ROOT,expected_context={"source_commit":"a"*40})
+
+
+
+
+def _review_2876_report_paths(checker, tmp_path):
+    paths = dict(subject_input_path=tmp_path / "subject.json", carrier_path=tmp_path / "carrier.zip",
+        runtime_packet_path=tmp_path / "runtime.json", repository_root=checker.ROOT,
+        expected_prelaunch_sha256="0" * 64)
+    for key in ("subject_input_path", "carrier_path", "runtime_packet_path"):
+        paths[key].write_bytes(b'{}')
+    return paths
+
+
+@pytest.mark.parametrize("raw", [b'{"x":1,"x":2}', b'{"x":NaN}', b'[]', b'{', b'\xff',
+    b'\xef\xbb\xbf{}', b'{}' + b' ' * 65535, bytearray(b'{}')],
+    ids=["duplicate", "nonfinite", "nonobject", "invalid_json", "invalid_utf8", "bom", "oversized", "mutable_bytes"])
+def test_review_2876_report_context_snapshot_remains_strict(raw, tmp_path):
+    checker = _bounded_unit_module("check_pulsemech_compute_binding_report_v0.py")
+    with pytest.raises((ValueError, checker.StrictJsonError)):
+        checker.bounded_inputs_from_paths(**_review_2876_report_paths(checker, tmp_path),
+            expected_context_bytes=raw)
+
+
+def test_review_2876_report_context_snapshot_and_file_paths_agree(tmp_path):
+    checker = _bounded_unit_module("check_pulsemech_compute_binding_report_v0.py")
+    paths = _review_2876_report_paths(checker, tmp_path)
+    raw = b'{"source_commit":"' + b'a' * 40 + b'"}'
+    path = tmp_path / "context.json"; path.write_bytes(raw)
+    expected = checker.bounded_inputs_from_paths(**paths, expected_context_path=path)
+    path.write_bytes(b'changed after capture')
+    assert checker.bounded_inputs_from_paths(**paths, expected_context_bytes=raw) == expected
+    assert checker.bounded_inputs_from_paths(**paths,
+        expected_context_bytes=b'{}' + b' ' * 65534)["expected_context"] == {}
+    for forms in ({}, {"expected_context_path": path, "expected_context_bytes": raw}):
+        with pytest.raises(ValueError, match="exactly_one_context_input"):
+            checker.bounded_inputs_from_paths(**paths, **forms)
+
+
+def test_review_2876_diagnostic_reader_rejects_fifo_without_waiting(tmp_path):
+    import os
+    fifo = tmp_path / "context"; os.mkfifo(fifo)
+    code = r"""
+import importlib.util, sys
+from pathlib import Path
+p=Path(sys.argv[1]);spec=importlib.util.spec_from_file_location('reader_under_test',p)
+m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+try: m.capture_diagnostic_document(Path(sys.argv[2]),max_bytes=65536)
+except (ValueError,OSError): print('bounded-context-rejected')
+else: raise AssertionError('FIFO accepted')
+"""
+    process = subprocess.run([sys.executable, "-I", "-B", "-c", code,
+        str(ROOT / "tools" / "check_pulsemech_compute_binding_report_v0.py"), str(fifo)],
+        stdin=subprocess.DEVNULL, capture_output=True, timeout=8, check=False)
+    assert process.returncode == 0, process.stderr.decode()
+    assert process.stdout.strip() == b"bounded-context-rejected"
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import stat
 import sys
 import types
@@ -463,9 +464,30 @@ def build_from_captured_inputs(
     dependency_captures: dict[str, CapturedFile] | None = None,
     runtime_packet_captures: list[CapturedFile] | None = None,
     runtime_extent_capture: CapturedFile | None = None,
+    bounded_expected_context: dict[str, Any] | None = None,
+    bounded_prelaunch_sha256: str | None = None,
 ) -> str:
     if not analysis_run_key:
         raise AdapterError("analysis_run_key_missing")
+
+    try:
+        packet_probe = json.loads(packet_capture.data)
+    except (ValueError, UnicodeError):
+        packet_probe = None
+    packet_kind = packet_probe.get("input_profile") if isinstance(packet_probe, dict) else None
+    if packet_kind == "bounded_execution_reference_v0":
+        if bounded_expected_context is None or bounded_prelaunch_sha256 is None:
+            raise AdapterError("bounded_expected_context_and_prelaunch_required")
+        if runtime_extent_capture is not None or dependency_captures is not None:
+            raise AdapterError("bounded_profile_no_synthetic_extent_or_dependency_override")
+        if runtime_packet_captures is not None and len(runtime_packet_captures) != 1:
+            raise AdapterError("bounded_exactly_one_runtime_packet")
+        return build_bounded_from_captured_inputs(packet_capture=packet_capture, carrier_capture=carrier_capture,
+            repository_root=repository_root, analysis_run_key=analysis_run_key,
+            expected_context=bounded_expected_context, expected_prelaunch_sha256=bounded_prelaunch_sha256,
+            runtime_capture=runtime_packet_captures[0] if runtime_packet_captures else None)
+    if bounded_expected_context is not None or bounded_prelaunch_sha256 is not None:
+        raise AdapterError("bounded_context_on_legacy_packet")
 
     captures = dependency_captures or _capture_dependencies()
     packet_validator = load_module_from_capture(
@@ -581,6 +603,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--runtime-packet", action="append", default=[])
     parser.add_argument("--runtime-extent", help="Reserved example-only extent; never an observed closure claim.")
+    parser.add_argument("--expected-context")
+    parser.add_argument("--expected-prelaunch-sha256")
     return parser.parse_args()
 
 
@@ -616,6 +640,9 @@ def main() -> int:
             analysis_run_key=str(args.analysis_run_key),
             runtime_packet_captures=runtime_captures if args.runtime_packet else None,
             runtime_extent_capture=extent_capture,
+            bounded_expected_context=(json.loads(capture_regular_file(resolve_cli_path(args.expected_context),
+                label="bounded_expected_context", max_bytes=65536).data) if args.expected_context else None),
+            bounded_prelaunch_sha256=args.expected_prelaunch_sha256,
         )
         sys.stdout.write(rendered)
         return 0
@@ -643,6 +670,67 @@ def main() -> int:
             )
         )
         return 2
+
+
+
+
+def build_bounded_from_captured_inputs(*, packet_capture: CapturedFile, carrier_capture: CapturedFile,
+        repository_root: Path, analysis_run_key: str, expected_context: dict[str, Any],
+        expected_prelaunch_sha256: str, runtime_capture: CapturedFile | None = None) -> str:
+    root = Path(repository_root).absolute()
+    if root != ROOT or Path(__file__).absolute() != root / "tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py":
+        raise AdapterError("bounded_bridge_installation_mismatch")
+    # Authenticate the fixed bootstrap producer before executing its bytes.
+    # The caller supplies an expected commit, not a producer-selected revision.
+    import subprocess
+    revision = expected_context.get("source_commit")
+    if not isinstance(revision, str) or not re.fullmatch(r"[0-9a-f]{40}", revision):
+        raise AdapterError("bounded_expected_revision_invalid")
+    env = {"PATH": "/usr/bin:/bin", "LC_ALL": "C", "GIT_CONFIG_NOSYSTEM": "1",
+           "GIT_CONFIG_GLOBAL": os.devnull, "GIT_NO_REPLACE_OBJECTS": "1", "HOME": str(root)}
+    def source_object(args: list[str]) -> bytes:
+        process = subprocess.run(["/usr/bin/git", "--no-replace-objects", "-C", str(root), *args],
+            env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=10, check=False)
+        if process.returncode != 0:
+            raise AdapterError("bounded_bootstrap_source_unavailable")
+        return process.stdout
+    if source_object(["cat-file", "-t", revision]) != b"commit\n":
+        raise AdapterError("bounded_bootstrap_commit_required")
+    captured = {}
+    for relative in ("tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py",
+                     "tools/pulsemech_compute_subject_input_packet_producer_core_v0.py"):
+        item = capture_regular_file(root / relative, label="bounded_bootstrap", max_bytes=2 * 1024 * 1024)
+        entry = source_object(["ls-tree", "-z", revision, "--", relative])
+        if (not entry.startswith((b"100644 blob ", b"100755 blob ")) or entry.count(b"\0") != 1
+                or not entry.endswith(b"\t" + relative.encode() + b"\0")):
+            raise AdapterError("bounded_bootstrap_source_not_regular")
+        if (source_object(["cat-file", "-s", revision + ":" + relative]).strip() != str(item.size_bytes).encode()
+                or source_object(["cat-file", "blob", revision + ":" + relative]) != item.data):
+            raise AdapterError("bounded_bootstrap_source_mismatch:" + relative)
+        captured[relative] = item
+    producer_capture = captured["tools/pulsemech_compute_subject_input_packet_producer_core_v0.py"]
+    producer = load_module_from_capture(producer_capture, "bounded_subject_producer_for_bridge")
+    expected_subject = producer.build_bounded_reference_packet(carrier_bytes=carrier_capture.data,
+        repository_root=root, expected_context=expected_context, expected_prelaunch_sha256=expected_prelaunch_sha256)
+    if packet_capture.data != render_json(expected_subject).encode("utf-8"):
+        raise AdapterError("bounded_subject_packet_reconstruction_mismatch")
+    verifier = producer._bounded_capture_validator(root, expected_context["source_commit"])
+    core = verifier.load_reconstruction_module("tools/pulsemech_compute_binding_analyzer_core_v0.py",
+        repository_root=root, revision=expected_context["source_commit"])
+    checker = verifier.load_reconstruction_module("tools/check_pulsemech_compute_binding_report_v0.py",
+        repository_root=root, revision=expected_context["source_commit"])
+    inputs = {"subject_input_bytes": packet_capture.data, "carrier_bytes": carrier_capture.data,
+        "repository_root": root, "expected_context": expected_context,
+        "expected_prelaunch_sha256": expected_prelaunch_sha256,
+        "runtime_packet_bytes": runtime_capture.data if runtime_capture else None}
+    report = core.build_bounded_reference_report(**inputs, analysis_run_key=analysis_run_key)
+    rendered = render_json(report)
+    schema = verifier.git_blob(root, expected_context["source_commit"], "schemas/pulsemech_compute_binding_report_v0.schema.json")
+    diagnostic, rc = checker.build_diagnostic(checker.RuntimeBytesView(schema), checker.RuntimeBytesView(rendered.encode()), bounded_inputs=inputs)
+    if rc != 0 or diagnostic.get("ok") is not True:
+        raise AdapterError("bounded_generated_report_rejected:" + json.dumps(diagnostic, sort_keys=True))
+    return rendered
 
 
 if __name__ == "__main__":

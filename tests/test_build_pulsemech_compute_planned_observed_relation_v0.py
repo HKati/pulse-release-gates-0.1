@@ -1070,5 +1070,147 @@ def test_review_2872_runtime_constructor_uses_captured_content_locators():
     assert rebuilt == relation
 
 
+
+
+def _bounded_unit_module(filename):
+    import importlib.util, sys, hashlib
+    path=Path(__file__).resolve().parents[1]/"tools"/filename
+    name="_bounded_unit_"+hashlib.sha256(path.read_bytes()).hexdigest()
+    spec=importlib.util.spec_from_file_location(name,path)
+    module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)
+    return module
+
+def test_bounded_occurrence_selector_is_a_hard_match_boundary():
+    builder=_bounded_unit_module("build_pulsemech_compute_planned_observed_relation_v0.py")
+    expectation={"expected_compute":{"selector":{"bounded_execution_id":"execution:allow:checker"}},"expected_source_identity":{}}
+    observation={"execution_identity":{"bounded_execution_id":"execution:block_false:checker"},"source_identity":{}}
+    assert builder.candidate_score(expectation,observation) is None
+    observation["execution_identity"]["bounded_execution_id"]="execution:allow:checker"
+    assert builder.candidate_score(expectation,observation)>0
+
+def test_bounded_relation_build_requires_captured_sources_not_a_flag():
+    import pytest
+    builder=_bounded_unit_module("build_pulsemech_compute_planned_observed_relation_v0.py")
+    with pytest.raises(builder.BuilderError,match="raw_sources_required"):
+        builder._prepare_bounded_relation(report={},report_bytes=b"{}",plan={},plan_bytes=b"{}",packets=[],explicit={},
+            expectations_bytes=None,tool_source_revision=None,inputs=None)
+
+
+
+# PR #2876: context admission must precede authenticated replay bootstrap.
+def _review_2876_builder_args(builder, path, tmp_path):
+    from argparse import Namespace
+    return Namespace(subject_input=str(tmp_path / "subject.json"), carrier=str(tmp_path / "carrier.zip"),
+        expected_context=str(path), expected_prelaunch_sha256="0" * 64,
+        runtime_packet=[str(tmp_path / "runtime.json")], runtime_extent=None,
+        repository_root=str(builder.ROOT), expectations=None, relation_id=None, tool_source_revision=None,
+        report_validator=builder.DEFAULT_REPORT_VALIDATOR, relation_validator=builder.DEFAULT_RELATION_VALIDATOR,
+        plan_schema=builder.DEFAULT_PLAN_SCHEMA, report_schema=builder.DEFAULT_REPORT_SCHEMA,
+        runtime_packet_schema=builder.DEFAULT_PACKET_SCHEMA, runtime_packet_validator=builder.DEFAULT_PACKET_VALIDATOR,
+        relation_schema=builder.DEFAULT_RELATION_SCHEMA, output=None)
+
+
+@pytest.mark.parametrize("kind", ["symlink", "parent_symlink", "directory", "oversized",
+    "duplicate", "nonfinite", "nonobject", "invalid_json", "invalid_utf8", "bom"])
+def test_review_2876_builder_rejects_context_before_bootstrap(kind, tmp_path, monkeypatch):
+    builder = _bounded_unit_module("build_pulsemech_compute_planned_observed_relation_v0.py")
+    raw = b'{"source_commit":"' + b'a' * 40 + b'"}'
+    path = tmp_path / "context.json"
+    if kind == "directory":
+        path.mkdir()
+    elif kind == "parent_symlink":
+        target = tmp_path / "real"; target.mkdir(); (target / "context.json").write_bytes(raw)
+        link = tmp_path / "link"; link.symlink_to(target, target_is_directory=True)
+        path = link / "context.json"
+    elif kind == "symlink":
+        target = tmp_path / "target.json"; target.write_bytes(raw); path.symlink_to(target)
+    else:
+        raw = {"oversized": raw + b' ' * 65537, "duplicate": b'{"x":1,"x":2}',
+            "nonfinite": b'{"x":NaN}', "nonobject": b'[]', "invalid_json": b'{',
+            "invalid_utf8": b'\xff', "bom": b'\xef\xbb\xbf{}'}[kind]
+        path.write_bytes(raw)
+    def forbidden(*args, **kwargs):
+        raise AssertionError("context reached replay bootstrap before admission")
+    monkeypatch.setattr(builder, "_bounded_report_checker", forbidden)
+    with pytest.raises((builder.BuilderError, ValueError, OSError)):
+        builder.bounded_profile_cli(_review_2876_builder_args(builder, path, tmp_path),
+            report_bytes=b'{}', plan_bytes=b'{}')
+
+
+def test_review_2876_builder_fifo_is_rejected_without_a_writer(tmp_path):
+    # Bound the regression process itself: a broken reader must fail the test,
+    # never hang the test runner while waiting for a FIFO writer.
+    import os
+    import subprocess
+    import sys
+    fifo = tmp_path / "context"; os.mkfifo(fifo)
+    code = r"""
+import importlib.util, sys
+from pathlib import Path
+p=Path(sys.argv[1]); spec=importlib.util.spec_from_file_location('review_test',p)
+m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
+b=m._bounded_unit_module('build_pulsemech_compute_planned_observed_relation_v0.py')
+def forbidden(*a,**kw): raise AssertionError('FIFO reached replay bootstrap')
+b._bounded_report_checker=forbidden
+try:
+ b.bounded_profile_cli(m._review_2876_builder_args(b,Path(sys.argv[2]),Path(sys.argv[2]).parent),report_bytes=b'{}',plan_bytes=b'{}')
+except (b.BuilderError,ValueError,OSError):
+ print('bounded-context-rejected')
+else: raise AssertionError('FIFO accepted')
+"""
+    process = subprocess.run([sys.executable, "-I", "-B", "-c", code, __file__, str(fifo)],
+        stdin=subprocess.DEVNULL, capture_output=True, timeout=8, check=False)
+    assert process.returncode == 0, process.stderr.decode()
+    assert process.stdout.strip() == b"bounded-context-rejected"
+
+
+def test_review_2876_builder_reuses_original_context_bytes(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    builder = _bounded_unit_module("build_pulsemech_compute_planned_observed_relation_v0.py")
+    checker = _bounded_unit_module("check_pulsemech_compute_binding_report_v0.py")
+    raw = b'{ "source_commit": "' + b'a' * 40 + b'" }\n'
+    path = tmp_path / "context.json"; path.write_bytes(raw)
+    args = _review_2876_builder_args(builder, path, tmp_path)
+    for p in (args.subject_input, args.carrier, args.runtime_packet[0]): Path(p).write_bytes(b'{}')
+    calls = []
+    def source_checker(root, context):
+        assert context == json.loads(raw)
+        path.write_bytes(b'invalid replacement; must not be parsed')
+        def intake(**kw):
+            calls.append(kw)
+            assert kw.get("expected_context_bytes") == raw
+            assert kw.get("expected_context_path") is None
+            return checker.bounded_inputs_from_paths(**kw)
+        return SimpleNamespace(bounded_inputs_from_paths=intake)
+    class StopBeforeRelation(Exception): pass
+    def construct(**kw):
+        assert kw["bounded_inputs"]["expected_context"] == json.loads(raw)
+        raise StopBeforeRelation
+    monkeypatch.setattr(builder, "_bounded_report_checker", source_checker)
+    monkeypatch.setattr(builder, "build_relation_record", construct)
+    with pytest.raises(StopBeforeRelation):
+        builder.bounded_profile_cli(args, report_bytes=b'{}', plan_bytes=b'{}')
+    assert len(calls) == 1
+
+
+def test_review_2876_builder_context_limit_positive_and_capture_change(tmp_path, monkeypatch):
+    builder = _bounded_unit_module("build_pulsemech_compute_planned_observed_relation_v0.py")
+    path = tmp_path / "context.json"; raw = b'{}' + b' ' * 65534; path.write_bytes(raw)
+    assert builder._capture_bounded_expected_context(path) == raw
+    original = builder.os.read
+    changed = False
+    def read_and_change(fd, count):
+        nonlocal changed
+        assert 0 < count <= 65537
+        data = original(fd, count)
+        if not changed:
+            changed = True
+            path.write_bytes(b'{"changed":true}')
+        return data
+    monkeypatch.setattr(builder.os, "read", read_and_change)
+    with pytest.raises(ValueError, match="changed_during_capture"):
+        builder._capture_bounded_expected_context(path)
+
+
 if __name__ == "__main__":
     check_build_pulsemech_compute_planned_observed_relation_v0()

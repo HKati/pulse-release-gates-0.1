@@ -767,5 +767,33 @@ def test_runtime_bridge_rejects_missing_subject_before_writing_stdout(tmp_path):
     assert json.loads(r.stderr)["ok"] is False
 
 
+
+
+def _bounded_unit_module(filename):
+    import importlib.util, sys, hashlib
+    path=Path(__file__).resolve().parents[1]/"tools"/filename
+    name="_bounded_unit_"+hashlib.sha256(path.read_bytes()).hexdigest()
+    spec=importlib.util.spec_from_file_location(name,path)
+    module=importlib.util.module_from_spec(spec);sys.modules[name]=module;spec.loader.exec_module(module)
+    return module
+
+def test_bounded_bridge_requires_independent_context_before_processing():
+    import pytest
+    bridge=_bounded_unit_module("build_pulsemech_compute_binding_report_from_subject_input_v0.py")
+    raw=b'{"input_profile":"bounded_execution_reference_v0"}'
+    cap=bridge.CapturedFile(path=Path("input.json"),data=raw,device=0,inode=0,size_bytes=len(raw),sha256=bridge.sha256_bytes(raw))
+    with pytest.raises(bridge.AdapterError,match="bounded_expected_context"):
+        bridge.build_from_captured_inputs(packet_capture=cap,carrier_capture=cap,repository_root=bridge.ROOT,analysis_run_key="example")
+
+def test_bounded_bridge_rejects_legacy_dependency_injection():
+    import pytest
+    bridge=_bounded_unit_module("build_pulsemech_compute_binding_report_from_subject_input_v0.py")
+    raw=b'{"input_profile":"bounded_execution_reference_v0"}'
+    cap=bridge.CapturedFile(path=Path("input.json"),data=raw,device=0,inode=0,size_bytes=len(raw),sha256=bridge.sha256_bytes(raw))
+    with pytest.raises(bridge.AdapterError,match="dependency_override"):
+        bridge.build_from_captured_inputs(packet_capture=cap,carrier_capture=cap,repository_root=bridge.ROOT,analysis_run_key="example",
+            bounded_expected_context={},bounded_prelaunch_sha256="a"*64,dependency_captures={})
+
+
 if __name__ == "__main__":
     check_build_pulsemech_compute_binding_report_from_subject_input_v0()

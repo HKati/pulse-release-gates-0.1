@@ -2,278 +2,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_compute_subject_input_packet_v0.schema.json",
   "title": "PULSEmech compute subject input packet v0",
-  "type": "object",
-  "additionalProperties": false,
-  "required": [
-    "schema_version",
-    "packet_type",
-    "record_status",
-    "packet_identity",
-    "subject",
-    "analysis_boundary",
-    "authority_sources",
-    "carrier",
-    "artifacts",
-    "role_bindings",
-    "coverage",
-    "content_boundary",
-    "authority_boundary",
-    "errors",
-    "ok"
-  ],
-  "properties": {
-    "schema_version": {
-      "const": "pulsemech_compute_subject_input_packet_v0"
-    },
-    "packet_type": {
-      "const": "pulsemech_compute_subject_input_packet"
-    },
-    "record_status": {
-      "type": "string",
-      "enum": [
-        "example",
-        "observed"
-      ]
-    },
-    "producer": {
-      "$ref": "#/$defs/producer"
-    },
-    "fixture_provenance": {
-      "$ref": "#/$defs/fixture_provenance"
-    },
-    "packet_identity": {
-      "$ref": "#/$defs/packet_identity"
-    },
-    "subject": {
-      "$ref": "#/$defs/subject"
-    },
-    "analysis_boundary": {
-      "$ref": "#/$defs/analysis_boundary"
-    },
-    "authority_sources": {
-      "$ref": "#/$defs/authority_sources"
-    },
-    "carrier": {
-      "$ref": "#/$defs/carrier"
-    },
-    "artifacts": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "$ref": "#/$defs/artifact_record"
-      }
-    },
-    "role_bindings": {
-      "$ref": "#/$defs/role_bindings"
-    },
-    "coverage": {
-      "$ref": "#/$defs/coverage"
-    },
-    "content_boundary": {
-      "$ref": "#/$defs/content_boundary"
-    },
-    "authority_boundary": {
-      "$ref": "#/$defs/authority_boundary"
-    },
-    "errors": {
-      "type": "array",
-      "items": {
-        "$ref": "#/$defs/non_empty_string"
-      }
-    },
-    "ok": {
-      "type": "boolean"
-    }
-  },
   "oneOf": [
     {
-      "title": "Checked-in contract example fixture",
-      "required": [
-        "fixture_provenance"
-      ],
-      "properties": {
-        "record_status": {
-          "const": "example"
-        },
-        "producer": false,
-        "packet_identity": {
-          "properties": {
-            "packet_scope": {
-              "const": "example"
-            }
-          }
-        }
-      }
+      "$ref": "#/$defs/legacy_document_v0"
     },
     {
-      "title": "Observed producer-created packet",
-      "required": [
-        "producer"
-      ],
-      "properties": {
-        "record_status": {
-          "const": "observed"
-        },
-        "fixture_provenance": false,
-        "producer": {
-          "properties": {
-            "production_mode": {
-              "not": {
-                "const": "example"
-              }
-            }
-          }
-        },
-        "packet_identity": {
-          "properties": {
-            "packet_scope": {
-              "not": {
-                "const": "example"
-              }
-            }
-          }
-        },
-        "carrier": {
-          "properties": {
-            "carrier_kind": {
-              "not": {
-                "const": "example_archive"
-              }
-            }
-          }
-        }
-      }
-    }
-  ],
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "ok": {
-            "const": true
-          }
-        },
-        "required": [
-          "ok"
-        ]
-      },
-      "then": {
-        "properties": {
-          "errors": {
-            "maxItems": 0
-          }
-        }
-      },
-      "else": {
-        "properties": {
-          "errors": {
-            "minItems": 1
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "coverage": {
-            "properties": {
-              "coverage_status": {
-                "const": "complete"
-              }
-            },
-            "required": [
-              "coverage_status"
-            ]
-          }
-        },
-        "required": [
-          "coverage"
-        ]
-      },
-      "then": {
-        "properties": {
-          "role_bindings": {
-            "properties": {
-              "preservation_manifest": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "preservation_readme": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "preservation_checksums": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "complete_package": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "package_inventory": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "package_completeness_report": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "independent_verification_report": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "run_metadata": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "final_status": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "status_baseline": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "release_decision": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "release_authority": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "artifact_binding": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "evidence_manifest": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "recorded_verifier_report": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "required_gate_evidence": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "candidate_index": {
-                "$ref": "#/$defs/artifact_id"
-              },
-              "candidate_records": {
-                "minItems": 1
-              }
-            }
-          },
-          "coverage": {
-            "properties": {
-              "source_bindings_complete": {
-                "const": true
-              },
-              "carrier_binding_complete": {
-                "const": true
-              },
-              "artifact_graph_complete": {
-                "const": true
-              },
-              "role_bindings_complete": {
-                "const": true
-              },
-              "missing_roles": {
-                "maxItems": 0
-              },
-              "unresolved_artifact_ids": {
-                "maxItems": 0
-              }
-            }
-          }
-        }
-      }
+      "$ref": "#/$defs/bounded_reference_document_v0"
     }
   ],
   "$defs": {
@@ -1354,6 +1088,598 @@
         },
         "packet_is_runtime_observation": {
           "const": false
+        }
+      }
+    },
+    "legacy_document_v0": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "packet_type",
+        "record_status",
+        "packet_identity",
+        "subject",
+        "analysis_boundary",
+        "authority_sources",
+        "carrier",
+        "artifacts",
+        "role_bindings",
+        "coverage",
+        "content_boundary",
+        "authority_boundary",
+        "errors",
+        "ok"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_subject_input_packet_v0"
+        },
+        "packet_type": {
+          "const": "pulsemech_compute_subject_input_packet"
+        },
+        "record_status": {
+          "type": "string",
+          "enum": [
+            "example",
+            "observed"
+          ]
+        },
+        "producer": {
+          "$ref": "#/$defs/producer"
+        },
+        "fixture_provenance": {
+          "$ref": "#/$defs/fixture_provenance"
+        },
+        "packet_identity": {
+          "$ref": "#/$defs/packet_identity"
+        },
+        "subject": {
+          "$ref": "#/$defs/subject"
+        },
+        "analysis_boundary": {
+          "$ref": "#/$defs/analysis_boundary"
+        },
+        "authority_sources": {
+          "$ref": "#/$defs/authority_sources"
+        },
+        "carrier": {
+          "$ref": "#/$defs/carrier"
+        },
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/artifact_record"
+          }
+        },
+        "role_bindings": {
+          "$ref": "#/$defs/role_bindings"
+        },
+        "coverage": {
+          "$ref": "#/$defs/coverage"
+        },
+        "content_boundary": {
+          "$ref": "#/$defs/content_boundary"
+        },
+        "authority_boundary": {
+          "$ref": "#/$defs/authority_boundary"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          }
+        },
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "oneOf": [
+        {
+          "title": "Checked-in contract example fixture",
+          "required": [
+            "fixture_provenance"
+          ],
+          "properties": {
+            "record_status": {
+              "const": "example"
+            },
+            "producer": false,
+            "packet_identity": {
+              "properties": {
+                "packet_scope": {
+                  "const": "example"
+                }
+              }
+            }
+          }
+        },
+        {
+          "title": "Observed producer-created packet",
+          "required": [
+            "producer"
+          ],
+          "properties": {
+            "record_status": {
+              "const": "observed"
+            },
+            "fixture_provenance": false,
+            "producer": {
+              "properties": {
+                "production_mode": {
+                  "not": {
+                    "const": "example"
+                  }
+                }
+              }
+            },
+            "packet_identity": {
+              "properties": {
+                "packet_scope": {
+                  "not": {
+                    "const": "example"
+                  }
+                }
+              }
+            },
+            "carrier": {
+              "properties": {
+                "carrier_kind": {
+                  "not": {
+                    "const": "example_archive"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "ok": {
+                "const": true
+              }
+            },
+            "required": [
+              "ok"
+            ]
+          },
+          "then": {
+            "properties": {
+              "errors": {
+                "maxItems": 0
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "errors": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "coverage": {
+                "properties": {
+                  "coverage_status": {
+                    "const": "complete"
+                  }
+                },
+                "required": [
+                  "coverage_status"
+                ]
+              }
+            },
+            "required": [
+              "coverage"
+            ]
+          },
+          "then": {
+            "properties": {
+              "role_bindings": {
+                "properties": {
+                  "preservation_manifest": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "preservation_readme": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "preservation_checksums": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "complete_package": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "package_inventory": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "package_completeness_report": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "independent_verification_report": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "run_metadata": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "final_status": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "status_baseline": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "release_decision": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "release_authority": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "artifact_binding": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "evidence_manifest": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "recorded_verifier_report": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "required_gate_evidence": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "candidate_index": {
+                    "$ref": "#/$defs/artifact_id"
+                  },
+                  "candidate_records": {
+                    "minItems": 1
+                  }
+                }
+              },
+              "coverage": {
+                "properties": {
+                  "source_bindings_complete": {
+                    "const": true
+                  },
+                  "carrier_binding_complete": {
+                    "const": true
+                  },
+                  "artifact_graph_complete": {
+                    "const": true
+                  },
+                  "role_bindings_complete": {
+                    "const": true
+                  },
+                  "missing_roles": {
+                    "maxItems": 0
+                  },
+                  "unresolved_artifact_ids": {
+                    "maxItems": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "bounded_reference_document_v0": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "packet_type",
+        "input_profile",
+        "record_status",
+        "packet_identity",
+        "subject",
+        "acquisition_context",
+        "carrier",
+        "capture_binding",
+        "construction",
+        "artifacts",
+        "role_bindings",
+        "coverage",
+        "authority_boundary",
+        "errors",
+        "ok"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_subject_input_packet_v0"
+        },
+        "packet_type": {
+          "const": "pulsemech_compute_subject_input_packet"
+        },
+        "input_profile": {
+          "const": "bounded_execution_reference_v0"
+        },
+        "record_status": {
+          "enum": [
+            "example",
+            "observed"
+          ]
+        },
+        "packet_identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "packet_id",
+            "packet_created_utc",
+            "subject_run_key",
+            "canonicalization"
+          ],
+          "properties": {
+            "packet_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "packet_created_utc": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "subject_run_key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "canonicalization": {
+              "const": "json-sort-keys-utf8-newline"
+            }
+          }
+        },
+        "subject": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repository",
+            "workflow_name",
+            "workflow_run_id",
+            "workflow_run_number",
+            "workflow_run_attempt",
+            "subject_run_key",
+            "source_commit",
+            "release_candidate_id",
+            "run_mode",
+            "active_policy_sets"
+          ],
+          "properties": {
+            "repository": {
+              "type": "string",
+              "minLength": 1
+            },
+            "workflow_name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "workflow_run_id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "workflow_run_number": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "workflow_run_attempt": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "subject_run_key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source_commit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "release_candidate_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "run_mode": {
+              "const": "bounded_reference"
+            },
+            "active_policy_sets": {
+              "const": [
+                "core_required"
+              ]
+            }
+          }
+        },
+        "acquisition_context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "record_status",
+            "repository",
+            "workflow_name",
+            "workflow_path",
+            "run_id",
+            "run_number",
+            "run_attempt",
+            "source_commit",
+            "event_name",
+            "acquisition_id"
+          ],
+          "properties": {
+            "record_status": {
+              "enum": [
+                "example",
+                "observed"
+              ]
+            },
+            "repository": {
+              "const": "HKati/pulse-release-gates-0.1"
+            },
+            "workflow_name": {
+              "const": "PULSEmech bounded execution reference"
+            },
+            "workflow_path": {
+              "const": ".github/workflows/pulsemech_compute_bounded_execution_reference.yml"
+            },
+            "run_id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "run_number": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "run_attempt": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "source_commit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "event_name": {
+              "enum": [
+                "test",
+                "workflow_dispatch"
+              ]
+            },
+            "acquisition_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          }
+        },
+        "carrier": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "carrier_kind",
+            "path_or_uri",
+            "sha256",
+            "size_bytes",
+            "immutable"
+          ],
+          "properties": {
+            "carrier_kind": {
+              "const": "bounded_execution_archive"
+            },
+            "path_or_uri": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 16908288
+            },
+            "immutable": {
+              "const": true
+            }
+          }
+        },
+        "capture_binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "prelaunch_sha256",
+            "capture_manifest_sha256"
+          ],
+          "properties": {
+            "prelaunch_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "capture_manifest_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "construction": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "producer_core_path",
+            "producer_core_revision",
+            "producer_core_sha256"
+          ],
+          "properties": {
+            "producer_core_path": {
+              "const": "tools/pulsemech_compute_subject_input_packet_producer_core_v0.py"
+            },
+            "producer_core_revision": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "producer_core_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "member",
+              "sha256",
+              "size_bytes"
+            ],
+            "properties": {
+              "member": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300,
+                "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2097152
+              }
+            }
+          },
+          "minItems": 1,
+          "maxItems": 128
+        },
+        "role_bindings": {
+          "const": {
+            "prelaunch": "prelaunch.json",
+            "capture": "capture.json",
+            "integration_plan": "planner/plan.json"
+          }
+        },
+        "coverage": {
+          "const": {
+            "artifact_inventory": "complete",
+            "observation_claim": "bounded_reference_only",
+            "resource_measurement": "unavailable"
+          }
+        },
+        "authority_boundary": {
+          "const": {
+            "authority_effect": "none",
+            "same_run_release_authority_eligible": false,
+            "active_gate_eligible": false,
+            "packet_is_release_authority": false,
+            "creates_release_decision": false
+          }
+        },
+        "errors": {
+          "const": []
+        },
+        "ok": {
+          "const": true
         }
       }
     }

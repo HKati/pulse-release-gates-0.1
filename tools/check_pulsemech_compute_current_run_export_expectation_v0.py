@@ -74,7 +74,7 @@ CANONICAL_EXPECTATION_SCHEMA_GIT_BLOB_SHA1 = (
     "c0bc5a21f5bf46c529341d2e805f26525c70c7f4"
 )
 CANONICAL_SUBJECT_INPUT_SCHEMA_GIT_BLOB_SHA1 = (
-    "e1f982ffaf900c6c17745624d80f9f38b374448b"
+    "c37dc263db787a80b94050220f8c52c8216f958f"
 )
 SCHEMA_REFERENCE_KEYWORDS = frozenset(
     {"$ref", "$dynamicRef", "$recursiveRef"}
@@ -1127,6 +1127,28 @@ def _provider_binding_ok(
     return True, None
 
 
+def _subject_input_current_run_document(
+    schema: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Locate the current-run contract in either supported v0 schema layout.
+
+    Step 5B retains the original document under a declared local oneOf branch.
+    This only locates contract metadata; witness validation still uses the entire
+    supplied schema, including its root constraints and exclusive alternatives.
+    An unused definition or a differently named reference is not admission.
+    """
+    if isinstance(schema.get("properties"), dict):
+        return schema
+    branches = schema.get("oneOf")
+    legacy_ref = {"$ref": "#/$defs/legacy_document_v0"}
+    if not isinstance(branches, list) or branches.count(legacy_ref) != 1:
+        return None
+    document = _nested_value(schema, "$defs", "legacy_document_v0")
+    if not isinstance(document, dict) or not isinstance(document.get("properties"), dict):
+        return None
+    return document
+
+
 def _subject_input_cross_contract(
     *,
     expectation: dict[str, Any],
@@ -1136,16 +1158,19 @@ def _subject_input_cross_contract(
     profile: dict[str, Any],
 ) -> tuple[bool, list[str], bool]:
     errors: list[str] = []
+    document = _subject_input_current_run_document(subject_input_schema)
+    if document is None:
+        return False, ["subject_input_current_run_document_not_supported"], False
 
     expected_values = {
         "schema_version": _nested_value(
-            subject_input_schema,
+            document,
             "properties",
             "schema_version",
             "const",
         ),
         "packet_type": _nested_value(
-            subject_input_schema,
+            document,
             "properties",
             "packet_type",
             "const",
@@ -1179,7 +1204,7 @@ def _subject_input_cross_contract(
             )
 
     record_statuses = _nested_value(
-        subject_input_schema,
+        document,
         "properties",
         "record_status",
         "enum",
@@ -1263,8 +1288,17 @@ def _subject_input_cross_contract(
         packet_contract=packet_contract,
         profile=profile,
     )
+    witness_schema = subject_input_schema
+    if document is not subject_input_schema:
+        # Require this occurrence to satisfy the selected legacy document as well
+        # as the whole union. A permissive sibling must not launder a rejected
+        # current-run witness through a different profile.
+        witness_schema = copy.deepcopy(subject_input_schema)
+        witness_schema.setdefault("allOf", []).append(
+            {"$ref": "#/$defs/legacy_document_v0"}
+        )
     witness_valid, witness_errors = validate_instance(
-        subject_input_schema,
+        witness_schema,
         witness,
         label="subject_input_observed_branch_witness",
     )
