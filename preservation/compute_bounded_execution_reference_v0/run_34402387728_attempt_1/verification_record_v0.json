@@ -1,0 +1,804 @@
+{
+  "active_gate_eligible": false,
+  "authority_effect": "none",
+  "bounded_acceptance_status": "verification_passed_owner_preservation_review_pending",
+  "canonical_state_update_status": "pending",
+  "command_records": [
+    {
+      "args": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "-B",
+        "/mnt/data/step5b_reference_verification/source/repository/tools/check_pulsemech_compute_bounded_execution_v0.py",
+        "--repository-root",
+        "/mnt/data/step5b_reference_verification/source/repository",
+        "--expected-context",
+        "/mnt/data/step5b_reference_verification/inputs/expected_context_external.json",
+        "--expected-prelaunch-sha256",
+        "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "--carrier",
+        "/mnt/data/step5b_reference_verification/inputs/capture.zip"
+      ],
+      "cwd": "/mnt/data/step5b_reference_verification/outputs",
+      "elapsed_seconds": 2.586894,
+      "exit_code": 0,
+      "finished_at": "2026-09-09T20:59:30.377581+00:00",
+      "label": "capture_validation_1",
+      "started_at": "2026-09-09T20:59:27.790700+00:00",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "9de4a54d78c687a51aba4555f6a07226b9dfd69a30b4e154b7ee4619baf633eb"
+    },
+    {
+      "args": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "-B",
+        "/mnt/data/step5b_reference_verification/source/repository/tools/check_pulsemech_compute_bounded_execution_v0.py",
+        "--repository-root",
+        "/mnt/data/step5b_reference_verification/source/repository",
+        "--expected-context",
+        "/mnt/data/step5b_reference_verification/inputs/expected_context_external.json",
+        "--expected-prelaunch-sha256",
+        "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "--carrier",
+        "/mnt/data/step5b_reference_verification/inputs/capture.zip"
+      ],
+      "cwd": "/mnt/data/step5b_reference_verification/outputs",
+      "elapsed_seconds": 2.531998,
+      "exit_code": 0,
+      "finished_at": "2026-09-09T20:59:32.909806+00:00",
+      "label": "capture_validation_2",
+      "started_at": "2026-09-09T20:59:30.377831+00:00",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "9de4a54d78c687a51aba4555f6a07226b9dfd69a30b4e154b7ee4619baf633eb"
+    },
+    {
+      "args": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "-B",
+        "/mnt/data/step5b_reference_verification/source/repository/tools/check_pulsemech_compute_bounded_execution_v0.py",
+        "--repository-root",
+        "/mnt/data/step5b_reference_verification/source/repository",
+        "--expected-context",
+        "/mnt/data/step5b_reference_verification/inputs/expected_context_external.json",
+        "--expected-prelaunch-sha256",
+        "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "--carrier",
+        "/mnt/data/step5b_reference_verification/mutations/altered_committed_source_bytes.zip"
+      ],
+      "cwd": "/mnt/data/step5b_reference_verification/outputs",
+      "elapsed_seconds": 2.1137,
+      "exit_code": 2,
+      "finished_at": "2026-09-09T21:02:27.098358+00:00",
+      "label": "negative_altered_committed_source_bytes",
+      "started_at": "2026-09-09T21:02:24.984672+00:00",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "77bc1360915823644521ba952a789385970776b3e0c1f82780730608ab6ea6fb"
+    },
+    {
+      "args": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "-B",
+        "/mnt/data/step5b_reference_verification/source/repository/tools/check_pulsemech_compute_bounded_execution_v0.py",
+        "--repository-root",
+        "/mnt/data/step5b_reference_verification/source/repository",
+        "--expected-context",
+        "/mnt/data/step5b_reference_verification/inputs/expected_context_external.json",
+        "--expected-prelaunch-sha256",
+        "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "--carrier",
+        "/mnt/data/step5b_reference_verification/mutations/block_promoted_to_ready.zip"
+      ],
+      "cwd": "/mnt/data/step5b_reference_verification/outputs",
+      "elapsed_seconds": 2.645903,
+      "exit_code": 2,
+      "finished_at": "2026-09-09T21:02:38.647355+00:00",
+      "label": "negative_block_promoted_to_ready",
+      "started_at": "2026-09-09T21:02:36.001465+00:00",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "8d04350e46fa7675bc86ff7398a0180c48d433a88b9764bd1b9f211801efedbd"
+    },
+    {
+      "args": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "-B",
+        "/mnt/data/step5b_reference_verification/source/repository/tools/build_pulsemech_compute_bounded_execution_inputs_v0.py",
+        "reconstruct",
+        "--repository-root",
+        "/mnt/data/step5b_reference_verification/source/repository",
+        "--expected-context",
+        "/mnt/data/step5b_reference_verification/inputs/expected_context_external.json",
+        "--expected-prelaunch-sha256",
+        "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "--carrier",
+        "/mnt/data/step5b_reference_verification/mutations/cross_case_consumer_input.zip",
+        "--analysis-run-key",
+        "analysis:bounded:f218d378a935fdc653dbd1b2913c81735f934c6c2c9220b74fac5e45701b07b8",
+        "--output",
+        "/mnt/data/step5b_reference_verification/outputs/must_not_exist_after_rejection.zip"
+      ],
+      "cwd": "/mnt/data/step5b_reference_verification/outputs",
+      "elapsed_seconds": 3.192727,
+      "exit_code": 2,
+      "finished_at": "2026-09-09T21:02:41.844778+00:00",
+      "label": "negative_connected_reconstruction_rejects_wrong_consumer",
+      "started_at": "2026-09-09T21:02:38.652058+00:00",
+      "stderr_sha256": "df92986dd0b9b2e640b3b271aec23f56c193b26a869554401bcf15e36c1dc3d9",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "-B",
+        "/mnt/data/step5b_reference_verification/source/repository/tools/check_pulsemech_compute_bounded_execution_v0.py",
+        "--repository-root",
+        "/mnt/data/step5b_reference_verification/source/repository",
+        "--expected-context",
+        "/mnt/data/step5b_reference_verification/inputs/expected_context_external.json",
+        "--expected-prelaunch-sha256",
+        "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "--carrier",
+        "/mnt/data/step5b_reference_verification/mutations/cross_case_consumer_input.zip"
+      ],
+      "cwd": "/mnt/data/step5b_reference_verification/outputs",
+      "elapsed_seconds": 2.282057,
+      "exit_code": 2,
+      "finished_at": "2026-09-09T21:02:33.829574+00:00",
+      "label": "negative_cross_case_consumer_input",
+      "started_at": "2026-09-09T21:02:31.547528+00:00",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "9ea5034ef82b46f405967eec80e2e0798fb4e06f98f8a878e7cdb9fbaa27a363"
+    },
+    {
+      "args": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "-B",
+        "/mnt/data/step5b_reference_verification/source/repository/tools/check_pulsemech_compute_bounded_execution_v0.py",
+        "--repository-root",
+        "/mnt/data/step5b_reference_verification/source/repository",
+        "--expected-context",
+        "/mnt/data/step5b_reference_verification/mutations/wrong_run_context.json",
+        "--expected-prelaunch-sha256",
+        "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "--carrier",
+        "/mnt/data/step5b_reference_verification/inputs/capture.zip"
+      ],
+      "cwd": "/mnt/data/step5b_reference_verification/outputs",
+      "elapsed_seconds": 2.039305,
+      "exit_code": 2,
+      "finished_at": "2026-09-09T21:02:24.116796+00:00",
+      "label": "negative_cross_run_context",
+      "started_at": "2026-09-09T21:02:22.077494+00:00",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "26ce442dd4e501f8d582eef374761eed1b93e2bf1203a3e5c5e8c8853de3b51e"
+    },
+    {
+      "args": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "-B",
+        "/mnt/data/step5b_reference_verification/source/repository/tools/build_pulsemech_compute_bounded_execution_inputs_v0.py",
+        "reconstruct",
+        "--repository-root",
+        "/mnt/data/step5b_reference_verification/source/repository",
+        "--expected-context",
+        "/mnt/data/step5b_reference_verification/inputs/expected_context_external.json",
+        "--expected-prelaunch-sha256",
+        "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "--carrier",
+        "/mnt/data/step5b_reference_verification/inputs/capture.zip",
+        "--analysis-run-key",
+        "analysis:bounded:8097b20f4ae41686d81f113f1a06cb5eb8289b4e6ccc19a4a1e38fc09c82ab8c",
+        "--output",
+        "/mnt/data/step5b_reference_verification/outputs/publication_sentinel.zip"
+      ],
+      "cwd": "/mnt/data/step5b_reference_verification/outputs",
+      "elapsed_seconds": 24.982032,
+      "exit_code": 2,
+      "finished_at": "2026-09-09T21:03:06.829452+00:00",
+      "label": "negative_existing_output_preserved",
+      "started_at": "2026-09-09T21:02:41.847435+00:00",
+      "stderr_sha256": "e945e176248d67827fad9b2ba65c004442facb7acb97000a6e3f20e7f54555e3",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "-B",
+        "/mnt/data/step5b_reference_verification/source/repository/tools/check_pulsemech_compute_bounded_execution_v0.py",
+        "--repository-root",
+        "/mnt/data/step5b_reference_verification/source/repository",
+        "--expected-context",
+        "/mnt/data/step5b_reference_verification/inputs/expected_context_external.json",
+        "--expected-prelaunch-sha256",
+        "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "--carrier",
+        "/mnt/data/step5b_reference_verification/mutations/forged_execution_source_digest.zip"
+      ],
+      "cwd": "/mnt/data/step5b_reference_verification/outputs",
+      "elapsed_seconds": 2.167938,
+      "exit_code": 2,
+      "finished_at": "2026-09-09T21:02:35.999404+00:00",
+      "label": "negative_forged_execution_source_digest",
+      "started_at": "2026-09-09T21:02:33.831481+00:00",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "442f6f37ca475febf5f895a1d3bc7fd99c11192cc22dbb92d17cdd5c90bc0437"
+    },
+    {
+      "args": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "-B",
+        "/mnt/data/step5b_reference_verification/source/repository/tools/check_pulsemech_compute_bounded_execution_v0.py",
+        "--repository-root",
+        "/mnt/data/step5b_reference_verification/source/repository",
+        "--expected-context",
+        "/mnt/data/step5b_reference_verification/inputs/expected_context_external.json",
+        "--expected-prelaunch-sha256",
+        "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "--carrier",
+        "/mnt/data/step5b_reference_verification/mutations/missing_execution.zip"
+      ],
+      "cwd": "/mnt/data/step5b_reference_verification/outputs",
+      "elapsed_seconds": 2.166882,
+      "exit_code": 2,
+      "finished_at": "2026-09-09T21:02:29.267387+00:00",
+      "label": "negative_missing_execution",
+      "started_at": "2026-09-09T21:02:27.100516+00:00",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "09f68d3dc7e941f083d1f7659a8ab89e4de4805ddedd1983b2bb78d9d4e460ad"
+    },
+    {
+      "args": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "-B",
+        "/mnt/data/step5b_reference_verification/source/repository/tools/check_pulsemech_compute_bounded_execution_v0.py",
+        "--repository-root",
+        "/mnt/data/step5b_reference_verification/source/repository",
+        "--expected-context",
+        "/mnt/data/step5b_reference_verification/inputs/expected_context_external.json",
+        "--expected-prelaunch-sha256",
+        "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "--carrier",
+        "/mnt/data/step5b_reference_verification/mutations/wrong_occurrence_order.zip"
+      ],
+      "cwd": "/mnt/data/step5b_reference_verification/outputs",
+      "elapsed_seconds": 2.274231,
+      "exit_code": 2,
+      "finished_at": "2026-09-09T21:02:31.544080+00:00",
+      "label": "negative_wrong_occurrence_order",
+      "started_at": "2026-09-09T21:02:29.269861+00:00",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "77fe9340ec5e670a71c9d4a20ca1cabfc27937cb32e40da01bcfb57c3d8072dc"
+    },
+    {
+      "args": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "-B",
+        "/mnt/data/step5b_reference_verification/source/repository/tools/check_pulsemech_compute_bounded_execution_v0.py",
+        "--repository-root",
+        "/mnt/data/step5b_reference_verification/source/repository",
+        "--expected-context",
+        "/mnt/data/step5b_reference_verification/inputs/expected_context_external.json",
+        "--expected-prelaunch-sha256",
+        "0000000000000000000000000000000000000000000000000000000000000000",
+        "--carrier",
+        "/mnt/data/step5b_reference_verification/inputs/capture.zip"
+      ],
+      "cwd": "/mnt/data/step5b_reference_verification/outputs",
+      "elapsed_seconds": 0.86365,
+      "exit_code": 2,
+      "finished_at": "2026-09-09T21:02:24.982358+00:00",
+      "label": "negative_wrong_prelaunch_digest",
+      "started_at": "2026-09-09T21:02:24.118721+00:00",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "bff73d34f015b545a41bfcb3f199cbe1e8e88a788e97555e5e90ae28a9329c8b"
+    },
+    {
+      "args": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "-B",
+        "/mnt/data/step5b_reference_verification/tools/replay_preparation.py",
+        "/mnt/data/step5b_reference_verification/source/repository",
+        "/mnt/data/step5b_reference_verification/inputs/expected_context_external.json",
+        "2026-09-09T20:40:06.880093Z",
+        "/mnt/data/step5b_reference_verification/outputs/prepared_replayed.zip"
+      ],
+      "cwd": "/mnt/data/step5b_reference_verification/outputs",
+      "elapsed_seconds": 5.212836,
+      "exit_code": 0,
+      "finished_at": "2026-09-09T20:59:27.783123+00:00",
+      "label": "preparation_replay",
+      "started_at": "2026-09-09T20:59:22.570334+00:00",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "8e0407dbe2f670975b0f3635250508da8a8afbca97d48950da1f0bdb9aa5a0af"
+    },
+    {
+      "args": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "-B",
+        "/mnt/data/step5b_reference_verification/source/repository/tools/build_pulsemech_compute_bounded_execution_inputs_v0.py",
+        "reconstruct",
+        "--repository-root",
+        "/mnt/data/step5b_reference_verification/source/repository",
+        "--expected-context",
+        "/mnt/data/step5b_reference_verification/inputs/expected_context_external.json",
+        "--expected-prelaunch-sha256",
+        "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "--carrier",
+        "/mnt/data/step5b_reference_verification/inputs/capture.zip",
+        "--analysis-run-key",
+        "analysis:bounded:8097b20f4ae41686d81f113f1a06cb5eb8289b4e6ccc19a4a1e38fc09c82ab8c",
+        "--output",
+        "/mnt/data/step5b_reference_verification/outputs/reconstruction_1.zip"
+      ],
+      "cwd": "/mnt/data/step5b_reference_verification/outputs",
+      "elapsed_seconds": 25.867317,
+      "exit_code": 0,
+      "finished_at": "2026-09-09T21:01:27.601739+00:00",
+      "label": "reconstruction_1_completed_attempt",
+      "started_at": "2026-09-09T21:01:01.734383+00:00",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "d9ef90211622770188d227c4a1d3e6c6434df89c5fc4384e5e4fd42e562c5c9f"
+    },
+    {
+      "args": [
+        "/opt/pyvenv/bin/python",
+        "-I",
+        "-B",
+        "/mnt/data/step5b_reference_verification/source/repository/tools/build_pulsemech_compute_bounded_execution_inputs_v0.py",
+        "reconstruct",
+        "--repository-root",
+        "/mnt/data/step5b_reference_verification/source/repository",
+        "--expected-context",
+        "/mnt/data/step5b_reference_verification/inputs/expected_context_external.json",
+        "--expected-prelaunch-sha256",
+        "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "--carrier",
+        "/mnt/data/step5b_reference_verification/inputs/capture.zip",
+        "--analysis-run-key",
+        "analysis:bounded:8097b20f4ae41686d81f113f1a06cb5eb8289b4e6ccc19a4a1e38fc09c82ab8c",
+        "--output",
+        "/mnt/data/step5b_reference_verification/outputs/reconstruction_2.zip"
+      ],
+      "cwd": "/mnt/data/step5b_reference_verification/outputs",
+      "elapsed_seconds": 24.739889,
+      "exit_code": 0,
+      "finished_at": "2026-09-09T21:01:26.474569+00:00",
+      "label": "reconstruction_2_completed_attempt",
+      "started_at": "2026-09-09T21:01:01.734693+00:00",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "d9ef90211622770188d227c4a1d3e6c6434df89c5fc4384e5e4fd42e562c5c9f"
+    }
+  ],
+  "derived_interpretation": {
+    "artifact_baseline_summary": {
+      "advisory_bound_nodes": 0,
+      "authority_binding_complete": false,
+      "decision_closure_complete": false,
+      "evidence_bound_nodes": 0,
+      "observer_nodes": 0,
+      "preservation_bound_nodes": 0,
+      "resource_measurement_status": "none",
+      "subject_compute_nodes": 0,
+      "transition_bound_nodes": 0,
+      "unbound_authoritative_mutation_count": 0,
+      "unbound_nodes": 0,
+      "unknown_nodes": 0
+    },
+    "baseline_digest_bound_into_runtime_report": true,
+    "bounded_predicates": {
+      "C": true,
+      "E": "complete",
+      "I": "complete",
+      "M": "unavailable",
+      "R": "complete"
+    },
+    "non_active_candidate_gates": {
+      "compute_transition_authority_binding_ok": true,
+      "compute_transition_path_complete": true,
+      "compute_transition_unbound_mutation_absent": true
+    },
+    "relation_diagnostic": {
+      "checks_total": 34,
+      "checks_true": 34,
+      "ok": true
+    },
+    "relation_summary": {
+      "ambiguous_observation_match": 0,
+      "authority_class_mismatch": 0,
+      "authority_integrity_candidate_count": 0,
+      "comparison_complete": true,
+      "decisive_relations": 6,
+      "declared_role_mismatch": 0,
+      "downstream_consumption_missing": 0,
+      "execution_identity_mismatch": 0,
+      "expectations": 6,
+      "observations": 6,
+      "observed_but_not_planned": 0,
+      "plan_operations": 2,
+      "planned_and_observed": 6,
+      "planned_but_not_observed": 0,
+      "planned_execution_and_consumption_expected": 3,
+      "planned_execution_expected": 3,
+      "planned_presence_only": 0,
+      "relations": 6,
+      "run_binding_mismatch": 0,
+      "source_digest_mismatch": 0,
+      "unresolved_due_to_coverage": 0,
+      "unresolved_relations": 0
+    },
+    "report_diagnostic": {
+      "checks_total": 10,
+      "checks_true": 10,
+      "ok": true
+    },
+    "runtime_report_summary": {
+      "advisory_bound_nodes": 6,
+      "authority_binding_complete": false,
+      "decision_closure_complete": false,
+      "evidence_bound_nodes": 0,
+      "observer_nodes": 0,
+      "preservation_bound_nodes": 0,
+      "resource_measurement_status": "none",
+      "subject_compute_nodes": 6,
+      "transition_bound_nodes": 0,
+      "unbound_authoritative_mutation_count": 0,
+      "unbound_nodes": 0,
+      "unknown_nodes": 0
+    },
+    "scope": "six_declared_direct_processes_and_their_bound_io",
+    "whole_runtime_packet_coverage": {
+      "coverage_status": "partial",
+      "execution_records": 7,
+      "expected_job_count": null,
+      "expected_step_count": null,
+      "external_call_capture_status": "none",
+      "external_call_records": 0,
+      "missing_execution_ids": [],
+      "model_inference_capture_status": "none",
+      "model_inference_records": 0,
+      "observed_job_count": 0,
+      "observed_step_count": 0,
+      "resource_axes_observed": [],
+      "resource_axes_unavailable": [
+        "artifact_bytes_uploaded",
+        "cpu_seconds",
+        "external_api_calls",
+        "gpu_seconds",
+        "job_wall_seconds",
+        "memory_gb_seconds",
+        "model_input_tokens",
+        "model_output_tokens",
+        "network_bytes_received",
+        "network_bytes_sent",
+        "rerun_count",
+        "retry_count",
+        "runner_wall_seconds",
+        "step_wall_seconds",
+        "storage_bytes_written"
+      ],
+      "resource_measurement_records": 0,
+      "state_digest_capture_status": "complete",
+      "state_records": 26,
+      "unobserved_reasons": [
+        "other",
+        "resource_axis_unavailable"
+      ]
+    }
+  },
+  "evidence_archive": {
+    "path": "verification_evidence_v0.zip",
+    "sha256": "0baeaed84f1bd8bbc8411c46b22584be82801eb685361dc084a973dfd8f3160b",
+    "size_bytes": 7233016
+  },
+  "limitations": [
+    "Trusted supervisor, interpreter/runtime, kernel and GitHub API/log context; not protection against a compromised trusted producer.",
+    "No independently signed execution attestation or local PGP signature verification.",
+    "Preserved declared preparation timestamp reused; no separate pre-acquisition timestamp attestation.",
+    "One interrupted local reconstruction is not PASS; two later completed commands are reported separately.",
+    "Local CPython 3.13.5 verification is not a new Python 3.11 CI campaign.",
+    "Source snapshot omits ancestry; no complete #6066 historical regression or full 154-program CI campaign was run here.",
+    "Repository upload/review, canonical state update and bounded issue closure remain separate owner handoffs."
+  ],
+  "negative_verification": {
+    "cases": [
+      {
+        "carrier_sha256": "8097b20f4ae41686d81f113f1a06cb5eb8289b4e6ccc19a4a1e38fc09c82ab8c",
+        "context_sha256": "120c94f88aa11860efad57c21e16fbdf06386adfbbd105023ca5bbe76aed0e64",
+        "entrypoint": "capture_validator_cli",
+        "error": "acquisition_context_mismatch",
+        "exit_code": 2,
+        "expected_prelaunch_sha256": "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "rejected": true,
+        "scenario": "cross_run_context"
+      },
+      {
+        "carrier_sha256": "8097b20f4ae41686d81f113f1a06cb5eb8289b4e6ccc19a4a1e38fc09c82ab8c",
+        "context_sha256": "29b45bbab6a4845f2cf0a30b2bfd0da6fc22614de06fa8f42e4871f38e7854a6",
+        "entrypoint": "capture_validator_cli",
+        "error": "prelaunch_digest_mismatch",
+        "exit_code": 2,
+        "expected_prelaunch_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+        "rejected": true,
+        "scenario": "wrong_prelaunch_digest"
+      },
+      {
+        "carrier_sha256": "885c0ac5f5db52e3e62acc97f6e0b63e45b631d53efc8a656031a0d165c812e4",
+        "context_sha256": "29b45bbab6a4845f2cf0a30b2bfd0da6fc22614de06fa8f42e4871f38e7854a6",
+        "entrypoint": "capture_validator_cli",
+        "error": "source_bytes_mismatch",
+        "exit_code": 2,
+        "expected_prelaunch_sha256": "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "rejected": true,
+        "scenario": "altered_committed_source_bytes"
+      },
+      {
+        "carrier_sha256": "75ca29379600755bbee2c054c0ffbf7ef46b97c5562dcd3340dd73b0e53d7575",
+        "context_sha256": "29b45bbab6a4845f2cf0a30b2bfd0da6fc22614de06fa8f42e4871f38e7854a6",
+        "entrypoint": "capture_validator_cli",
+        "error": "evidence_schema_rejected",
+        "exit_code": 2,
+        "expected_prelaunch_sha256": "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "rejected": true,
+        "scenario": "missing_execution"
+      },
+      {
+        "carrier_sha256": "a09d19042a68b9b0e99d79f2a8ead8b729e62fb4d7de7b3f0a6cac4652df31c9",
+        "context_sha256": "29b45bbab6a4845f2cf0a30b2bfd0da6fc22614de06fa8f42e4871f38e7854a6",
+        "entrypoint": "capture_validator_cli",
+        "error": "execution_extent_mismatch",
+        "exit_code": 2,
+        "expected_prelaunch_sha256": "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "rejected": true,
+        "scenario": "wrong_occurrence_order"
+      },
+      {
+        "carrier_sha256": "f218d378a935fdc653dbd1b2913c81735f934c6c2c9220b74fac5e45701b07b8",
+        "context_sha256": "29b45bbab6a4845f2cf0a30b2bfd0da6fc22614de06fa8f42e4871f38e7854a6",
+        "entrypoint": "capture_validator_cli",
+        "error": "execution_input_binding_mismatch",
+        "exit_code": 2,
+        "expected_prelaunch_sha256": "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "rejected": true,
+        "scenario": "cross_case_consumer_input"
+      },
+      {
+        "carrier_sha256": "9ed1a86934a0768cd59d2c36a932937ff06134b2753413e512dd6ebe907f96c4",
+        "context_sha256": "29b45bbab6a4845f2cf0a30b2bfd0da6fc22614de06fa8f42e4871f38e7854a6",
+        "entrypoint": "capture_validator_cli",
+        "error": "execution_source_mismatch",
+        "exit_code": 2,
+        "expected_prelaunch_sha256": "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "rejected": true,
+        "scenario": "forged_execution_source_digest"
+      },
+      {
+        "carrier_sha256": "d1dc2461b5ee77b1a23349dc3d1d162d59847f7c701adac6f66d1cb3ac0809a2",
+        "context_sha256": "29b45bbab6a4845f2cf0a30b2bfd0da6fc22614de06fa8f42e4871f38e7854a6",
+        "entrypoint": "capture_validator_cli",
+        "error": "terminal_consumption_or_state_mismatch",
+        "exit_code": 2,
+        "expected_prelaunch_sha256": "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80",
+        "rejected": true,
+        "scenario": "block_promoted_to_ready"
+      },
+      {
+        "entrypoint": "reconstruction_cli",
+        "error": "bounded_input_rejected: execution_input_binding_mismatch",
+        "exit_code": 2,
+        "no_output": true,
+        "rejected": true,
+        "scenario": "connected_reconstruction_rejects_wrong_consumer"
+      },
+      {
+        "entrypoint": "reconstruction_cli",
+        "error": "bounded_input_rejected: output_already_exists",
+        "existing_bytes_preserved": true,
+        "exit_code": 2,
+        "rejected": true,
+        "scenario": "existing_output_preserved",
+        "sentinel_sha256": "331e24b7b43b657c1a0cbc2341a00f3ae0f7b162a794c4c7e3e605fad9a4fb78"
+      }
+    ],
+    "original_artifact_unchanged": true,
+    "permanent_repository_test_registration_changed": false,
+    "scenario_count": 10,
+    "source_checkout_clean": true,
+    "status": "passed"
+  },
+  "positive_verification": {
+    "active_gate_eligible": false,
+    "artifact": {
+      "github_metadata_match": true,
+      "sha256": "2601a68b864779b8cf99a6a2bc0fdb48c994b95067f098354d35e86e7ff178f6",
+      "size_bytes": 3270026
+    },
+    "artifact_id": 10123984621,
+    "attempt": 1,
+    "authority_effect": "none",
+    "capsule": {
+      "members": 6,
+      "payload_hashes_verified": 5,
+      "sha256": "f726c9c240512e6f13d34bebbcfa549696adff560ee718abae84f4f121d2bc7a",
+      "size_bytes": 3269864
+    },
+    "capture": {
+      "completed_at_utc": "2026-09-09T20:40:07.703283Z",
+      "execution_count": 6,
+      "member_count": 55,
+      "sha256": "8097b20f4ae41686d81f113f1a06cb5eb8289b4e6ccc19a4a1e38fc09c82ab8c",
+      "size_bytes": 1489242,
+      "started_at_utc": "2026-09-09T20:40:07.590003Z"
+    },
+    "cases": [
+      {
+        "actual_exit_code": 0,
+        "case_id": "allow",
+        "expected_exit_code": 0,
+        "matches_expected": true,
+        "terminal_state": "ready"
+      },
+      {
+        "actual_exit_code": 1,
+        "case_id": "block_false",
+        "expected_exit_code": 1,
+        "matches_expected": true,
+        "terminal_state": "held"
+      },
+      {
+        "actual_exit_code": 2,
+        "case_id": "missing_required",
+        "expected_exit_code": 2,
+        "matches_expected": true,
+        "terminal_state": "held"
+      }
+    ],
+    "job_id": 102637163024,
+    "local_runtime": "3.13.5",
+    "no_new_subject_acquisition": true,
+    "prelaunch": {
+      "anchor_method": "Exact preparation replay using authenticated source, external GitHub context and preserved declared creation timestamp",
+      "independent_pre_acquisition_timestamp_attestation": false,
+      "recorded_creation_timestamp": "2026-09-09T20:40:06.880093Z",
+      "sha256": "0c3e602d54036e5825bf3a9aaf98fdeb98d1ac907c4427512a31dc02fa77ba80"
+    },
+    "prepared": {
+      "exact_recipe_reconstruction": true,
+      "member_count": 39,
+      "sha256": "8b3300fc928259155e7966d1618b9629ff73a99defcfac502d643c6b622e6aa5",
+      "size_bytes": 1456425
+    },
+    "reconstruction": {
+      "completed_separate_cli_processes": 2,
+      "derived_members": [
+        {
+          "matches_acquired": true,
+          "path": "base_candidate.json",
+          "replay_1_equals_replay_2": true,
+          "sha256": "7bf38bbd3e4356a1c9d88722865d827254e676891821e43ebf98397358f9cd6f",
+          "size_bytes": 18
+        },
+        {
+          "matches_acquired": true,
+          "path": "baseline.json",
+          "replay_1_equals_replay_2": true,
+          "sha256": "5d4270a5050c47e86eba1ccc4635138e3cb864abbe38355746d06163d2ab9661",
+          "size_bytes": 49418
+        },
+        {
+          "matches_acquired": true,
+          "path": "candidate.json",
+          "replay_1_equals_replay_2": true,
+          "sha256": "a331e77b7b4544ef9e3cef1529377356e4e472d5ae7d86fe563430ca4c50fec4",
+          "size_bytes": 175
+        },
+        {
+          "matches_acquired": true,
+          "path": "expectations.json",
+          "replay_1_equals_replay_2": true,
+          "sha256": "ea9012881579a8fa718aebd84660fe08d5a3b330d7cb5b6dc32e1022642deadf",
+          "size_bytes": 24658
+        },
+        {
+          "matches_acquired": true,
+          "path": "materialization.json",
+          "replay_1_equals_replay_2": true,
+          "sha256": "a536ef3f5d4ed48e19a31af9ed2bda60bba94254cdfb53761d80ea01a947e7de",
+          "size_bytes": 1062
+        },
+        {
+          "matches_acquired": true,
+          "path": "plan.json",
+          "replay_1_equals_replay_2": true,
+          "sha256": "d0a94c93c59437bfe041b28885e3623301083ba63ccc0127f2d165fd2ac1fa3c",
+          "size_bytes": 2620
+        },
+        {
+          "matches_acquired": true,
+          "path": "relation.json",
+          "replay_1_equals_replay_2": true,
+          "sha256": "18d7728488a8241cdc79d8f3ed7690a539c1b9e8c1d43729821b1d519414c6b1",
+          "size_bytes": 68082
+        },
+        {
+          "matches_acquired": true,
+          "path": "relation_diagnostic.json",
+          "replay_1_equals_replay_2": true,
+          "sha256": "e4e14056e53cc937edcb57ffdb5f827cde9caeac6b745495ed793f76e22ba81a",
+          "size_bytes": 1792
+        },
+        {
+          "matches_acquired": true,
+          "path": "report_diagnostic.json",
+          "replay_1_equals_replay_2": true,
+          "sha256": "a030bb2660f1eedc29fa1ec5340136b7b2ac00af3cc34c993ac3f7a81b1ddccd",
+          "size_bytes": 609
+        },
+        {
+          "matches_acquired": true,
+          "path": "runtime.json",
+          "replay_1_equals_replay_2": true,
+          "sha256": "f9de679335b5baba0114ff69eddd6bbed55e1b2cdfe8733fd18185ce796033ad",
+          "size_bytes": 54737
+        },
+        {
+          "matches_acquired": true,
+          "path": "runtime_report.json",
+          "replay_1_equals_replay_2": true,
+          "sha256": "f3198a328046fe8975247291dc2a157159fc7e227b74d4db789160d74d89ad05",
+          "size_bytes": 104594
+        },
+        {
+          "matches_acquired": true,
+          "path": "subject.json",
+          "replay_1_equals_replay_2": true,
+          "sha256": "5343a4d103737ec6bff54d385850c7b57615d787d6c1fb227f397481a9de69a9",
+          "size_bytes": 13480
+        }
+      ],
+      "earlier_interrupted_process_count": 1,
+      "full_zip_matches_acquired": true,
+      "sha256": "2d54aba44975111e38abcf010819dce160006742243a7f46930cd86f42747cf1",
+      "size_bytes": 322567
+    },
+    "record_type": "local_source_bound_reference_verification_v0",
+    "recorded_at": "2026-09-09T21:01:29.235536+00:00",
+    "run_id": 34402387728,
+    "same_run_release_authority_eligible": false,
+    "source_commit": "c32508f8afb58381225fec0b426b85b00e32fe11",
+    "source_count": 28,
+    "source_tree": "74dd65d82124170b7d8f459925962bb8bc09fe2b",
+    "status": "passed"
+  },
+  "record_type": "step5b_observed_reference_verification_record_v0",
+  "recorded_at": "2026-09-09T21:07:43.410331+00:00",
+  "repository_preservation_status": "prepared_not_uploaded",
+  "same_run_release_authority_eligible": false,
+  "source_transport": {
+    "complete_tree_and_blob_snapshot": true,
+    "includes_ancestors": false,
+    "independent_unpack_checkout_and_all_object_byte_comparison": "passed",
+    "not_a_full_history_clone": true,
+    "object_count": 1569,
+    "pack_sha256": "bdfdcf1eaac7d4fe56e71d994b6e20d84c5def82148643b6668da487023ccc02",
+    "pack_size_bytes": 4338579,
+    "prior_preparation_bundle_is_only_a_content_transport": true,
+    "record_type": "exact_source_snapshot_transport",
+    "source_commit": "c32508f8afb58381225fec0b426b85b00e32fe11",
+    "source_identity_anchor": "GitHub git/commits response; exact signed commit object matches upstream SHA-1; complete root tree matches GitHub-returned tree",
+    "source_tree": "74dd65d82124170b7d8f459925962bb8bc09fe2b",
+    "synthetic_preparation_commits_in_pack": false,
+    "tracked_file_count": 1396
+  }
+}

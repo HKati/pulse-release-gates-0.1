@@ -1,0 +1,31 @@
+{
+  "artifact_id": 10123984621,
+  "authority_effect": "none",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "e352614ee66f842fcdc4a15ee93076c10f19343860326506869075baee7d58b4",
+      "size_bytes": 10266
+    },
+    {
+      "path": "pulsemech-bounded-reference-34402387728-1.zip",
+      "sha256": "2601a68b864779b8cf99a6a2bc0fdb48c994b95067f098354d35e86e7ff178f6",
+      "size_bytes": 3270026
+    },
+    {
+      "path": "verification_evidence_v0.zip",
+      "sha256": "0baeaed84f1bd8bbc8411c46b22584be82801eb685361dc084a973dfd8f3160b",
+      "size_bytes": 7233016
+    },
+    {
+      "path": "verification_record_v0.json",
+      "sha256": "00425b33e2b241a99a2929c5b992c2ffa5b2eaafcb3d49e6de329f8aef4907b2",
+      "size_bytes": 34290
+    }
+  ],
+  "manifest_type": "step5b_reference_preservation_inventory_v0",
+  "run_attempt": 1,
+  "run_id": 34402387728,
+  "self_excluded": "preservation_manifest_v0.json",
+  "source_commit": "c32508f8afb58381225fec0b426b85b00e32fe11"
+}
