@@ -574,5 +574,82 @@ def test_bounded_candidate_cannot_use_a_substitute_validator(tmp_path):
     assert "bounded_relation_source_inputs_required" in str(diagnostic["errors"])
 
 
+
+
+def _review_2876_fold_args(materializer, tmp_path, context_path):
+    return dict(status_path=tmp_path/'status.json', relation_path=tmp_path/'relation.json',
+        schema_path=materializer.DEFAULT_RELATION_SCHEMA,
+        validator_path=materializer.DEFAULT_RELATION_VALIDATOR, output_path=tmp_path/'output.json',
+        bounded_inputs=None, bounded_source_paths=dict(plan_path=tmp_path/'plan.json',
+            report_path=tmp_path/'report.json', subject_input_path=tmp_path/'subject.json',
+            carrier_path=tmp_path/'capture.zip', runtime_packet_path=tmp_path/'runtime.json',
+            repository_root=materializer.ROOT, expected_context_path=context_path,
+            expected_prelaunch_sha256="0"*64))
+
+
+@pytest.mark.parametrize("kind", ["oversized", "symlink", "directory", "duplicate", "nonfinite", "nonobject"])
+def test_review_2876_materializer_rejects_context_before_bootstrap(kind, tmp_path, monkeypatch):
+    materializer = _bounded_unit_module("fold_pulsemech_compute_planned_observed_relation_into_status_v0.py")
+    path = tmp_path / 'context.json'
+    if kind == 'directory': path.mkdir()
+    elif kind == 'symlink':
+        target=tmp_path/'target.json';target.write_bytes(b'{}');path.symlink_to(target)
+    else: path.write_bytes({'oversized':b'{}'+b' '*65535, 'duplicate':b'{"x":1,"x":2}',
+        'nonfinite':b'{"x":NaN}', 'nonobject':b'[]'}[kind])
+    calls=[]
+    def forbidden(*a, **kw): calls.append(a);raise AssertionError('invalid context reached bootstrap')
+    monkeypatch.setattr(materializer,'_bounded_materializer_verifier',forbidden)
+    args = _review_2876_fold_args(materializer,tmp_path,path)
+    diagnostic,rc = materializer.build_bounded_folded_status(**args)
+    assert rc != 0 and diagnostic['ok'] is False
+    assert not calls and not args['output_path'].exists(), diagnostic
+
+
+def test_review_2876_materializer_forwards_single_context_capture(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    materializer = _bounded_unit_module("fold_pulsemech_compute_planned_observed_relation_into_status_v0.py")
+    path = tmp_path/'context.json';raw=b'{ "source_commit": "'+b'a'*40+b'" }\n';path.write_bytes(raw)
+    passed=[]
+    def consume_inputs(**kw):
+        passed.append(kw)
+        assert kw.get('expected_context_bytes') == raw
+        assert 'expected_context_path' not in kw
+        return {'report_inputs':{'expected_context':json.loads(raw)}}
+    def bootstrap(root,context):
+        assert context==json.loads(raw)
+        path.write_bytes(b'changed after first capture')
+        return SimpleNamespace(load_reconstruction_module=lambda *a,**kw:
+            SimpleNamespace(bounded_relation_inputs_from_paths=consume_inputs))
+    class EndOfProbe(Exception): pass
+    def stop(*a,**kw): raise EndOfProbe('end-of-admission-probe')
+    monkeypatch.setattr(materializer,'_bounded_materializer_verifier',bootstrap)
+    monkeypatch.setattr(materializer,'reject_unsafe_output',stop)
+    args=_review_2876_fold_args(materializer,tmp_path,path)
+    diagnostic,rc=materializer.build_bounded_folded_status(**args)
+    assert len(passed)==1 and rc!=0,diagnostic
+    assert 'end-of-admission-probe' in str(diagnostic['errors'])
+    assert not args['output_path'].exists()
+
+
+def test_review_2876_materializer_fifo_rejects_without_a_writer(tmp_path):
+    import os
+    fifo=tmp_path/'context';os.mkfifo(fifo)
+    code=r"""
+import importlib.util,sys
+from pathlib import Path
+p=Path(sys.argv[1]);s=importlib.util.spec_from_file_location('review_test',p)
+m=importlib.util.module_from_spec(s);sys.modules[s.name]=m;s.loader.exec_module(m)
+f=m._bounded_unit_module('fold_pulsemech_compute_planned_observed_relation_into_status_v0.py')
+args=m._review_2876_fold_args(f,Path(sys.argv[2]).parent,Path(sys.argv[2]))
+d,rc=f.build_bounded_folded_status(**args)
+assert rc!=0 and d['ok'] is False and not args['output_path'].exists(),d
+print('bounded-context-rejected')
+"""
+    p=subprocess.run([sys.executable,'-I','-B','-c',code,__file__,str(fifo)],
+        stdin=subprocess.DEVNULL,capture_output=True,timeout=8,check=False)
+    assert p.returncode==0,p.stderr.decode()
+    assert p.stdout.strip()==b'bounded-context-rejected'
+
+
 if __name__ == "__main__":
     check_pulsemech_compute_planned_observed_candidate_v0()

@@ -1037,6 +1037,55 @@ def _bounded_materializer_verifier(root: Path, context: dict[str, Any]):
     return module
 
 
+def _capture_bounded_expected_context(path: Path) -> bytes:
+    """Capture one small context before it selects authenticated replay code.
+
+    Do not import a replay dependency to read the input needed to authenticate
+    that dependency. Keep the immutable bytes through all downstream readers.
+    """
+    import stat
+    path = Path(path).absolute()
+    limit = 65536
+    if (os.name != "posix" or not hasattr(os, "O_NOFOLLOW")
+            or not hasattr(os, "O_NONBLOCK") or os.open not in os.supports_dir_fd):
+        raise ValueError("bounded_context_descriptor_platform_required")
+    if ".." in path.parts:
+        raise ValueError("bounded_context_path_traversal")
+    directory = filefd = None
+    try:
+        dflags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+        directory = os.open(path.anchor, dflags)
+        for part in path.parts[1:-1]:
+            child = os.open(part, dflags, dir_fd=directory)
+            os.close(directory)
+            directory = child
+        filefd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+                         | os.O_CLOEXEC, dir_fd=directory)
+        before = os.fstat(filefd)
+        if not stat.S_ISREG(before.st_mode) or before.st_size > limit:
+            raise ValueError("bounded_context_not_bounded_regular_file")
+        chunks = []
+        remaining = limit + 1
+        while remaining:
+            block = os.read(filefd, remaining)
+            if not block:
+                break
+            chunks.append(block)
+            remaining -= len(block)
+        raw = b"".join(chunks)
+        after = os.fstat(filefd)
+        identity = lambda s: (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+        if (identity(before) != identity(after) or len(raw) != before.st_size
+                or len(raw) > limit):
+            raise ValueError("bounded_context_changed_during_capture")
+        return raw
+    finally:
+        if filefd is not None:
+            os.close(filefd)
+        if directory is not None:
+            os.close(directory)
+
+
 def build_bounded_folded_status(*, status_path: Path, relation_path: Path, schema_path: Path,
         validator_path: Path, output_path: Path, bounded_inputs: dict[str, Any] | None,
         bounded_source_paths: dict[str, Any] | None) -> tuple[dict[str, Any], int]:
@@ -1052,8 +1101,11 @@ def build_bounded_folded_status(*, status_path: Path, relation_path: Path, schem
             # The expected context is a caller-selected input, not copied from
             # the relation being validated. Strict parsing occurs in the checker.
             context_path = bounded_source_paths['expected_context_path']
-            reject_symlink_chain(context_path)
-            context, _ = load_json_document(context_path, label='expected_context')
+            context_raw = _capture_bounded_expected_context(context_path)
+            context = json.loads(context_raw.decode("utf-8"), object_pairs_hook=reject_duplicate_keys,
+                                 parse_constant=reject_non_finite)
+            if not isinstance(context, dict):
+                raise MaterializerError("bounded_expected_context_not_object")
             root = Path(bounded_source_paths['repository_root']).absolute()
         else:
             report_inputs = bounded_inputs['report_inputs']
@@ -1062,7 +1114,10 @@ def build_bounded_folded_status(*, status_path: Path, relation_path: Path, schem
         validator = v.load_reconstruction_module('tools/check_pulsemech_compute_planned_observed_relation_v0.py',
             repository_root=root, revision=context['source_commit'])
         if bounded_source_paths is not None:
-            bounded_inputs = validator.bounded_relation_inputs_from_paths(**bounded_source_paths)
+            captured_paths = dict(bounded_source_paths)
+            captured_paths.pop("expected_context_path")
+            captured_paths["expected_context_bytes"] = context_raw
+            bounded_inputs = validator.bounded_relation_inputs_from_paths(**captured_paths)
             if bounded_inputs['report_inputs']['expected_context'] != context:
                 raise MaterializerError('bounded_expected_context_changed')
         protected = [status_path,relation_path,schema_path,validator_path,Path(__file__),DEFAULT_GATE_POLICY,DEFAULT_GATE_REGISTRY,DEFAULT_PULSE_WORKFLOW]

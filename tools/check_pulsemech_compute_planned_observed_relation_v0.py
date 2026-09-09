@@ -1433,7 +1433,7 @@ def capture_diagnostic_document(path: Path, *, max_bytes: int = 64 * 1024 * 1024
             nextfd = os.open(part, dflags, dir_fd=fd)
             os.close(fd)
             fd = nextfd
-        filefd = os.open(absolute.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd)
+        filefd = os.open(absolute.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=fd)
         before = os.fstat(filefd)
         if not stat.S_ISREG(before.st_mode) or before.st_size > max_bytes:
             raise ValueError("diagnostic_input_not_bounded_regular_file")
@@ -1586,12 +1586,22 @@ def _bounded_report_checker(repository_root: Path, expected_context: dict[str, A
 
 
 def bounded_relation_inputs_from_paths(*, plan_path: Path, report_path: Path, subject_input_path: Path,
-        carrier_path: Path, repository_root: Path, runtime_packet_path: Path, expected_context_path: Path,
-        expected_prelaunch_sha256: str, expectations_path: Path | None = None) -> dict[str, Any]:
-    context = json.loads(capture_diagnostic_document(expected_context_path,max_bytes=65536).data,object_pairs_hook=reject_duplicate_keys,parse_constant=reject_non_finite)
+        carrier_path: Path, repository_root: Path, runtime_packet_path: Path,
+        expected_prelaunch_sha256: str, expectations_path: Path | None = None,
+        expected_context_path: Path | None = None, expected_context_bytes: bytes | None = None) -> dict[str, Any]:
+    if (expected_context_path is None) == (expected_context_bytes is None):
+        raise ValueError("bounded_exactly_one_context_input_required")
+    context_raw = (capture_diagnostic_document(expected_context_path, max_bytes=65536).data
+                   if expected_context_path is not None else expected_context_bytes)
+    if not isinstance(context_raw, bytes) or len(context_raw) > 65536:
+        raise ValueError("bounded_context_bytes_limit_or_type")
+    context = json.loads(context_raw.decode("utf-8"), object_pairs_hook=reject_duplicate_keys,
+                         parse_constant=reject_non_finite)
+    if not isinstance(context, dict):
+        raise SemanticError("bounded_expected_context_not_object")
     checker = _bounded_report_checker(repository_root,context)
     report_inputs = checker.bounded_inputs_from_paths(subject_input_path=subject_input_path, carrier_path=carrier_path,
-        repository_root=repository_root, expected_context_path=expected_context_path,
+        repository_root=repository_root, expected_context_bytes=context_raw,
         expected_prelaunch_sha256=expected_prelaunch_sha256, runtime_packet_path=runtime_packet_path)
     if report_inputs["expected_context"] != context:
         raise SemanticError("bounded_expected_context_changed")

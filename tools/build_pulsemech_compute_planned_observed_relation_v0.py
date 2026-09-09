@@ -4237,6 +4237,55 @@ def _normalize_bounded_observations(report: dict[str, Any], packet: dict[str, An
     return observations
 
 
+def _capture_bounded_expected_context(path: Path) -> bytes:
+    """Capture one small context before it selects authenticated replay code.
+
+    Do not import a replay dependency to read the input needed to authenticate
+    that dependency. Keep the immutable bytes through all downstream readers.
+    """
+    import stat
+    path = Path(path).absolute()
+    limit = 65536
+    if (os.name != "posix" or not hasattr(os, "O_NOFOLLOW")
+            or not hasattr(os, "O_NONBLOCK") or os.open not in os.supports_dir_fd):
+        raise ValueError("bounded_context_descriptor_platform_required")
+    if ".." in path.parts:
+        raise ValueError("bounded_context_path_traversal")
+    directory = filefd = None
+    try:
+        dflags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+        directory = os.open(path.anchor, dflags)
+        for part in path.parts[1:-1]:
+            child = os.open(part, dflags, dir_fd=directory)
+            os.close(directory)
+            directory = child
+        filefd = os.open(path.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+                         | os.O_CLOEXEC, dir_fd=directory)
+        before = os.fstat(filefd)
+        if not stat.S_ISREG(before.st_mode) or before.st_size > limit:
+            raise ValueError("bounded_context_not_bounded_regular_file")
+        chunks = []
+        remaining = limit + 1
+        while remaining:
+            block = os.read(filefd, remaining)
+            if not block:
+                break
+            chunks.append(block)
+            remaining -= len(block)
+        raw = b"".join(chunks)
+        after = os.fstat(filefd)
+        identity = lambda s: (s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns)
+        if (identity(before) != identity(after) or len(raw) != before.st_size
+                or len(raw) > limit):
+            raise ValueError("bounded_context_changed_during_capture")
+        return raw
+    finally:
+        if filefd is not None:
+            os.close(filefd)
+        if directory is not None:
+            os.close(directory)
+
+
 def bounded_profile_cli(args, *, report_bytes: bytes, plan_bytes: bytes) -> int:
     if not args.subject_input or not args.carrier or not args.expected_context or not args.expected_prelaunch_sha256 or len(args.runtime_packet) != 1:
         raise BuilderError("bounded_relation_complete_source_arguments_required")
@@ -4248,10 +4297,14 @@ def bounded_profile_cli(args, *, report_bytes: bytes, plan_bytes: bytes) -> int:
         (args.relation_schema, DEFAULT_RELATION_SCHEMA))
     if any(Path(a).absolute() != Path(b).absolute() for a, b in canonical_paths):
         raise BuilderError("bounded_canonical_contracts_required")
-    context = json.loads(Path(args.expected_context).read_bytes(),object_pairs_hook=reject_duplicate_keys,parse_constant=reject_non_finite)
+    context_raw = _capture_bounded_expected_context(Path(args.expected_context))
+    context = json.loads(context_raw.decode("utf-8"), object_pairs_hook=reject_duplicate_keys,
+                         parse_constant=reject_non_finite)
+    if not isinstance(context, dict):
+        raise BuilderError("bounded_expected_context_not_object")
     checker = _bounded_report_checker(Path(args.repository_root),context)
     inputs = checker.bounded_inputs_from_paths(subject_input_path=Path(args.subject_input), carrier_path=Path(args.carrier),
-        repository_root=Path(args.repository_root), expected_context_path=Path(args.expected_context),
+        repository_root=Path(args.repository_root), expected_context_bytes=context_raw,
         expected_prelaunch_sha256=args.expected_prelaunch_sha256, runtime_packet_path=Path(args.runtime_packet[0]))
     if inputs["expected_context"] != context:
         raise BuilderError("bounded_expected_context_changed")

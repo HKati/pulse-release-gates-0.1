@@ -1234,7 +1234,7 @@ def capture_diagnostic_document(path: Path, *, max_bytes: int = 64 * 1024 * 1024
             nextfd = os.open(part, dflags, dir_fd=fd)
             os.close(fd)
             fd = nextfd
-        filefd = os.open(absolute.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd)
+        filefd = os.open(absolute.name, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC, dir_fd=fd)
         before = os.fstat(filefd)
         if not stat.S_ISREG(before.st_mode) or before.st_size > max_bytes:
             raise ValueError("diagnostic_input_not_bounded_regular_file")
@@ -1467,11 +1467,23 @@ def bounded_committed_bytes(relative: str, *, repository_root: Path, expected_co
 
 
 def bounded_inputs_from_paths(*, subject_input_path: Path, carrier_path: Path, repository_root: Path,
-        expected_context_path: Path, expected_prelaunch_sha256: str, runtime_packet_path: Path | None = None) -> dict[str, Any]:
+        expected_prelaunch_sha256: str, runtime_packet_path: Path | None = None,
+        expected_context_path: Path | None = None, expected_context_bytes: bytes | None = None) -> dict[str, Any]:
+    # A caller that needed the context for authenticated bootstrap forwards the
+    # same captured bytes. It must not cause a second pathname read here.
+    if (expected_context_path is None) == (expected_context_bytes is None):
+        raise ValueError("bounded_exactly_one_context_input_required")
+    context_raw = (capture_diagnostic_document(expected_context_path, max_bytes=65536).data
+                   if expected_context_path is not None else expected_context_bytes)
+    if not isinstance(context_raw, bytes) or len(context_raw) > 65536:
+        raise ValueError("bounded_context_bytes_limit_or_type")
+    context = load_json_strict(RuntimeBytesView(context_raw))
+    if not isinstance(context, dict):
+        raise ValueError("bounded_expected_context_not_object")
     return {"subject_input_bytes": capture_diagnostic_document(subject_input_path, max_bytes=2 * 1024 * 1024).data,
         "carrier_bytes": capture_diagnostic_document(carrier_path, max_bytes=16 * 1024 * 1024).data,
         "repository_root": repository_root,
-        "expected_context": load_json_strict(capture_diagnostic_document(expected_context_path, max_bytes=65536)),
+        "expected_context": context,
         "expected_prelaunch_sha256": expected_prelaunch_sha256,
         "runtime_packet_bytes": capture_diagnostic_document(runtime_packet_path, max_bytes=2 * 1024 * 1024).data if runtime_packet_path else None}
 
