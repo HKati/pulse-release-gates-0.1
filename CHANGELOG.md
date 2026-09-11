@@ -7,7 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
-- Complete the bounded Step 5B observed execution, acquisition, preservation,
+- Record the completed bounded Step 5B observed execution, acquisition, preservation,
   independent replay and evidence-closure handoff under work order #2875.
   - Implement the finite non-active checker/result-consumer observation path
     through PR #2876, merge
