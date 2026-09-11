@@ -292,7 +292,7 @@ whole-runtime observation.
 Sections 24–27 record completed automation, historical capture and packet
 preservation, accepted Step 5A and completed bounded Step 5B. General
 live/current-run whole-runtime observation, complete Step 5 closure, resource
-measurement and policy promotion remain separate later work. 
+measurement and policy promotion remain separate later work.
 
 This documentation changes no workflow, schema, normative contract, producer,
 validator, test registration, policy, gate, status, release-authority mechanism,
@@ -4212,7 +4212,7 @@ Step 6 measurement, budgeting and Step 7 policy promotion remain separate.
 ```text
 authority_effect: none
 same_run_release_authority_eligible: false
-active_gate_eligible: false 
+active_gate_eligible: false
 ```
 
 ### Step 6 — resource measurement
@@ -4818,7 +4818,7 @@ historical runtime-packet preservation:
 complete within declared object, mapping and direct-validation limits
 
 general live/current-run whole-runtime observation producer:
-not implemented; Step 5B supplies only the bounded six-process reference observe
+not implemented; Step 5B supplies only the bounded six-process reference observer
 
 planned-observed relation:
 implemented
