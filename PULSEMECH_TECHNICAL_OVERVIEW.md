@@ -51,6 +51,7 @@ current-run compute automation state
 completed historical post-run producer-input capture
 bounded historical runtime-packet production and preservation
 accepted runtime-bound report/relation implementation and partial historical chain
+completed bounded observed checker/consumer reference with exact preservation and source-bound replay
 Device Ledger bounded proof, deterministic Reproduction Capsule, and runnable demonstrator state
 foundational transition-measurement architecture
 external interoperability status
@@ -2570,9 +2571,12 @@ not measured compute-resource consumption.
 The future operational path separately requires exact current-run source
 capture before its authority decision. That requirement is not satisfied by
 reclassifying this post-run historical snapshot. The bounded historical producer
-is implemented separately in Step 4B, Section 15J. Step 5A in Section 15K now
-provides source-aware runtime-bound processing of the partial historical input;
-live/current-run observation and the complete observed proof remain unimplemented.
+is implemented separately in Step 4B, Section 15J. Step 5A in Section 15K
+provides source-aware runtime-bound processing of the partial historical input.
+Step 5B in Section 15L separately records one actual owner-dispatched bounded
+checker/consumer reference with verified source, supported finite extent,
+downstream consumption, exact preservation and independent replay. Whole-runtime
+live/current-run observation and the complete Step 5 proof remain unimplemented.
 
 ---
 
@@ -2674,10 +2678,11 @@ not retroactively authorize the historical run or activate a compute gate.
 Bounded implementation and preservation acceptance is supported with the stated
 evidence limits. The documentation handoff completed through PR #2869 and the
 [final #2864 completion record](https://github.com/HKati/pulse-release-gates-0.1/issues/2864#issuecomment-5572375868).
-The later Step 5A partial historical chain is recorded below without rewriting
-those earlier review results. Complete observed runtime proof, live/current-run
-observation, measurement and policy promotion remain separate; future operational
-current-run capture must precede its authority decision.
+The later Step 5A partial historical chain and Step 5B bounded observed reference
+are recorded below without rewriting those earlier review results. Step 5B
+closes one finite six-process checker/consumer boundary; it does not make this
+partial historical packet complete. Whole-runtime live/current-run observation,
+resource measurement and policy promotion remain separate; future operational
 
 ---
 
@@ -2765,11 +2770,13 @@ chain, with incomplete comparison and a non-all-true candidate. The separate
 synthetic probe has complete comparison and candidate values `false / true / true`;
 it remains example-profile evidence, not complete historical or live observation.
 
-The next bounded observation requires a new execution identity, verified source
-and command/input evidence, supported extent/closure, actual process result and
-a downstream result consumer. ALLOW and BLOCK must retain their actual outcomes.
-A public manually dispatched Step 3F/3G proof instance is still not claimed;
-that follow-through does not reopen the completed automation implementation.
+Those requirements are now satisfied for the separately scoped Step 5B
+reference recorded in Section 15L: a new execution identity, verified source
+and command/input evidence, supported finite extent and closure, actual checker
+results, and distinct downstream result consumers. ALLOW and BLOCK remain
+separate outcomes. The Step 5B reference does not convert the partial historical
+#6066 packet into complete observation and does not supply a public manually
+dispatched Step 3F/3G proof instance.
 
 ```text
 Step 5A runtime-bound construction and partial historical chain: accepted
@@ -2789,33 +2796,235 @@ This documentation handoff does not predeclare its own future CI or review.
 
 ---
 
+<a id="step-5b-bounded-observed-reference"></a>
+
+## 15L. Bounded observed checker/consumer reference — Step 5B
+
+The Step 5B implementation, acquisition, preservation and independent replay
+handoffs are complete at their declared finite scope under work order
+[#2875](https://github.com/HKati/pulse-release-gates-0.1/issues/2875).
+
+This section records that accepted evidence basis. It does not declare the
+whole Step 5 runtime surface complete or predeclare the separate final
+work-order closure event.
+
+### Implementation, acquisition and preservation identities
+
+| Evidence role | Record | Exact identity |
+|---|---|---|
+| Bounded implementation | [PR #2876](https://github.com/HKati/pulse-release-gates-0.1/pull/2876) | merge `c32508f8afb58381225fec0b426b85b00e32fe11`; tree `74dd65d82124170b7d8f459925962bb8bc09fe2b` |
+| Actual owner-dispatched reference | [workflow run 34402387728](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/34402387728) | run number / attempt `1 / 1`; job `102637163024`; artifact `10123984621`; source `c32508f8afb58381225fec0b426b85b00e32fe11` |
+| Exact preservation | [PR #2877](https://github.com/HKati/pulse-release-gates-0.1/pull/2877) | merge `12b42736a9f8a1da16e3659a2d2099058207129b`; tree `b44c9f7cfa24c0dafbc8c38973fbbca37295f7d1` |
+| Preserved evidence | [Step 5B preservation directory](preservation/compute_bounded_execution_reference_v0/run_34402387728_attempt_1/) | original artifact, verification record, verification evidence, preservation manifest and reproduction instructions |
+| Bounded acceptance | [#2875 acceptance record](https://github.com/HKati/pulse-release-gates-0.1/issues/2875#issuecomment-5609641514) | preservation accepted; canonical synchronization authorized |
+
+The implementation changed 39 paths: 31 existing paths were modified, eight
+new paths were added and no path was deleted. One new permanent program was
+registered, advancing the current tools-test manifest from 153 to 154 unique
+program paths.
+
+The strict checker remains unchanged:
+
+```text
+PULSE_safe_pack_v0/tools/check_gates.py
+```
+
+The finite observed relation is:
+
+```text
+exact committed checker and consumer source
++ exact policy and registry bytes
++ exact controlled candidate-status inputs
++ separately validated ordered requirement-list derivation
+→ three sealed checker executions
+→ three distinct occurrence-bound downstream consumers
+→ exact ready or held terminal reference state
+→ preserved capture
+→ source-bound independent validation
+→ two separate deterministic reconstruction processes
+```
+
+Requirement-list derivation and integration planning remain verified prelaunch
+prerequisites outside the six observed subject processes. They are not
+relabelled as observed checker work.
+
+The manual reference workflow passes verified source and input bytes through
+sealed Linux file descriptors. It does not reopen mutable repository paths as
+the executed source or accept arbitrary command strings.
+
+### Actual checker and consumer outcomes
+
+| Case | Actual checker exit | Consumer terminal state |
+|---|---:|---|
+| `allow` | `0` | `ready` |
+| `block_false` | `1` | `held` |
+| `missing_required` | `2` | `held` |
+
+Exactly six direct checker/consumer occurrences remain distinct.
+
+The two blocking results are successful observations of BLOCK behavior. A
+consumer's successful execution does not convert checker exit `1` or `2` into
+ALLOW.
+
+### Exact preservation and independent replay
+
+The downloaded GitHub artifact is:
+
+```text
+size:
+3270026 bytes
+
+SHA-256:
+2601a68b864779b8cf99a6a2bc0fdb48c994b95067f098354d35e86e7ff178f6
+```
+
+The acquired and independently reproduced reconstruction ZIP is:
+
+```text
+size:
+322567 bytes
+
+member count:
+12
+
+SHA-256:
+2d54aba44975111e38abcf010819dce160006742243a7f46930cd86f42747cf1
+```
+
+Fresh review reproduced:
+
+```text
+exact preparation carrier
+→ source-bound capture validation
+→ reconstruction process 1
+→ reconstruction process 2
+```
+
+Both completed reconstruction processes reproduced the complete 12-member
+output byte-for-byte.
+
+All ten preserved negative or preservation scenarios were freshly reproduced
+at their intended semantic boundaries. They cover cross-run context,
+prelaunch-digest mismatch, changed committed source bytes, missing execution,
+wrong occurrence order, cross-case consumer input, forged execution source,
+BLOCK-to-ready mutation, wrong-consumer reconstruction and non-replacing
+publication.
+
+The preservation review found no actionable preservation, replay or
+bounded-claim defect.
+
+Acquisition used CPython 3.11.16. The recorded independent local replay used
+CPython 3.13.5. The byte-identity result applies to these exact preserved
+inputs and recorded executions; it is not a universal cross-version claim.
+
+GitHub workflow and check records exist against preservation SHA
+`12b42736a9f8a1da16e3659a2d2099058207129b`. A review environment's inability
+to retrieve remote workflow details is retained as a reviewer-access
+limitation, not as absence of repository workflow evidence. Those remote
+records remain separate from the local source-bound replay.
+
+### Accepted finite boundary
+
+Within:
+
+```text
+six_declared_direct_processes_and_their_bound_io
+```
+
+the accepted state is:
+
+```text
+I — bounded packet integrity: complete
+E — bounded observation extent: complete
+R — bounded relational coverage: complete
+C — comparison_complete: true
+M — resource coverage: unavailable
+```
+
+The relation contains:
+
+```text
+expectations:
+6
+
+observations:
+6
+
+decisive relations:
+6
+
+unresolved relations:
+0
+```
+
+The whole runtime packet remains `partial`.
+
+The projection collector remains a partial collector rather than a seventh
+fully observed subject process. No resource-measurement record has been
+introduced.
+
+The three non-active compute candidate values are true only for this bounded
+reference:
+
+```text
+compute_transition_path_complete: true
+compute_transition_authority_binding_ok: true
+compute_transition_unbound_mutation_absent: true
+```
+
+They do not replace the differently scoped generic runtime-report state:
+
+```text
+authority_binding_complete: false
+decision_closure_complete: false
+```
+
+The preserved authority boundary remains:
+
+```text
+authority_effect: none
+same_run_release_authority_eligible: false
+active_gate_eligible: false
+```
+
+Step 5B does not activate a compute gate, modify production release policy,
+authorize deployment, define a compute budget or supply resource measurement.
+
+Whole-runtime live/current-run observation, the remaining wider comparison
+obligations, complete Step 5 closure, Step 6 measurement and Step 7 promotion
+remain separate.
+
+---
+
 <a id="current-verified-state-and-latest-results"></a>
 
 ## 16. Current verified state and latest results
 
 ```text
 state_date:
-2026-09-08
+2026-09-11
 
 merged_repository_state_recorded_through:
-PR #2872
+PR #2877
 
 merged_repository_state_basis:
-5afb4404719fb04d3ee32a007cdbb8b47c220118
+12b42736a9f8a1da16e3659a2d2099058207129b
 
 merged_repository_state_tree:
-de0548855c4679dc86601963f0775639388e7bdc
+b44c9f7cfa24c0dafbc8c38973fbbca37295f7d1
 
 documentation_closure_scope:
-records completed Step 3G automation, historical Step 4A/4B and accepted bounded
-Step 5A without changing implementation, evidence, verification semantics, policy
-or authority; this documentation PR's own final checks and review remain separate
+records completed Step 3G automation, historical Step 4A/4B, accepted Step 5A,
+and the completed bounded Step 5B checker/consumer reference with exact
+preservation and independent source-bound replay; no implementation, evidence,
+verification semantics, policy or authority changes are introduced by this
+documentation synchronization, whose own final checks and review remain separate
 
 executable_compute_state_recorded_through:
-PR #2872
+PR #2876
 
 executable_compute_state_basis:
-5afb4404719fb04d3ee32a007cdbb8b47c220118
+c32508f8afb58381225fec0b426b85b00e32fe11
 
 historical_runtime_packet_producer_basis:
 PR #2867 / d7def834e8aa63911426550cf41b05f81c0b56b0
@@ -3030,7 +3239,8 @@ runtime_packet_coverage:
 partial; collector excluded; no active gate or same-run release authority
 
 live_current_run_runtime_observation_producer:
-not implemented
+not implemented as a general whole-runtime producer; Step 5B supplies only the
+declared six-process reference observer
 
 runtime_bound_report_and_relation_step5a:
 implemented, reviewed and accepted under #2870
@@ -3049,6 +3259,66 @@ step5a_acceptance_record:
 
 runtime_observed_connected_proof:
 partial historical chain proven; complete actually observed proof not completed
+
+bounded_observed_checker_consumer_step5b:
+implementation, owner dispatch, preservation and independent replay completed
+at the declared finite scope under #2875
+
+bounded_observed_checker_consumer_implementation:
+PR #2876 / c32508f8afb58381225fec0b426b85b00e32fe11 /
+tree 74dd65d82124170b7d8f459925962bb8bc09fe2b
+
+bounded_observed_checker_consumer_acquisition:
+run 34402387728 / attempt 1 / job 102637163024 / artifact 10123984621
+
+bounded_observed_checker_consumer_preservation:
+PR #2877 / 12b42736a9f8a1da16e3659a2d2099058207129b /
+tree b44c9f7cfa24c0dafbc8c38973fbbca37295f7d1
+
+bounded_observed_checker_consumer_scope:
+six_declared_direct_processes_and_their_bound_io
+
+bounded_observed_checker_consumer_outcomes:
+checker 0 → ready / checker 1 → held / checker 2 → held
+
+bounded_observed_checker_consumer_relation:
+6 expectations / 6 observations / 6 decisive relations / 0 unresolved
+
+bounded_observed_checker_consumer_predicates:
+I complete / E complete / R complete / C true / M unavailable
+
+bounded_observed_checker_consumer_reference_artifact:
+artifact 10123984621 / 3270026 bytes /
+2601a68b864779b8cf99a6a2bc0fdb48c994b95067f098354d35e86e7ff178f6
+
+bounded_observed_checker_consumer_reconstruction:
+2 separate processes reproduced the 322567-byte 12-member output byte-for-byte /
+SHA-256 2d54aba44975111e38abcf010819dce160006742243a7f46930cd86f42747cf1
+
+bounded_observed_checker_consumer_negative_review:
+10 preserved negative/preservation scenarios reproduced at their intended
+semantic boundaries; no actionable preservation, replay or bounded-claim defect
+
+bounded_observed_checker_consumer_candidate_state:
+compute_transition_path_complete=true /
+compute_transition_authority_binding_ok=true /
+compute_transition_unbound_mutation_absent=true
+
+bounded_observed_checker_consumer_generic_runtime_state:
+authority_binding_complete=false / decision_closure_complete=false /
+whole runtime packet partial
+
+bounded_observed_checker_consumer_authority_boundary:
+authority_effect=none / same_run_release_authority_eligible=false /
+active_gate_eligible=false
+
+step5b_acceptance_record:
+#2875 / comment 5609641514 / canonical synchronization authorized;
+final work-order closure remains a separate issue event
+
+runtime_observed_connected_proof:
+bounded Step 5B six-process reference proven at its declared scope; partial
+historical chain proven; complete whole-runtime Step 5 proof not completed
 
 planned_observed_relation:
 implemented and proven
@@ -3228,7 +3498,7 @@ same_run_release_authority_eligible=false / active_gate_eligible=false /
 authority_effect=none
 
 tools_test_manifest:
-153 active entries / 153 unique active entries
+154 active entries / 154 unique active entries
 
 compute_resource_measurement:
 not implemented
@@ -3249,12 +3519,15 @@ transition_meter_general_domain_extension:
 foundational architecture
 
 current_development_boundary:
-compute — Step 3G automation, historical Step 4A/4B and Step 5A runtime-bound
-construction with the partial historical chain are accepted. A public dispatched
-Step 3F/3G proof instance is not claimed. Actual bounded runtime observation,
-verified source/extent/consumption evidence, the complete Step 5 proof and
-comparison, Step 6 measurement and Step 7 promotion remain separate. Future
-operational current-run source capture must precede its authority decision
+compute — Step 3G automation, historical Step 4A/4B, accepted Step 5A and the
+completed bounded Step 5B checker/consumer reference are recorded. Step 5B
+proves one actual owner-dispatched six-process boundary with verified source,
+finite extent, downstream consumption, exact preservation and independent
+replay. The whole runtime packet remains partial, and a public dispatched
+Step 3F/3G proof instance is not claimed. Wider whole-runtime live/current-run
+observation, the complete Step 5 proof and comparison, Step 6 measurement and
+Step 7 promotion remain separate. Future operational current-run source capture
+must precede its authority decision
 
 Device Ledger — bounded mechanical self-proof, exact .pulseledger export,
 deterministic Reproduction Capsule, canonical reproduction result and minimal
@@ -3325,6 +3598,11 @@ https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/PULSEMECH_T
 - [PR #2872 — bind runtime reports and relations](https://github.com/HKati/pulse-release-gates-0.1/pull/2872)
 - [Step 5A bounded acceptance and separate CI evidence](https://github.com/HKati/pulse-release-gates-0.1/issues/2870#issuecomment-5577131873)
 - [Step 5A implementation, historical chain and remaining observed boundary](#15k-runtime-bound-report-and-relation--step-5a)
+- [PR #2876 — implement the bounded observed checker/consumer reference](https://github.com/HKati/pulse-release-gates-0.1/pull/2876)
+- [Owner-dispatched Step 5B reference run 34402387728](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/34402387728)
+- [PR #2877 — preserve the exact Step 5B reference and replay evidence](https://github.com/HKati/pulse-release-gates-0.1/pull/2877)
+- [Step 5B bounded acceptance and canonical-sync authorization](https://github.com/HKati/pulse-release-gates-0.1/issues/2875#issuecomment-5609641514)
+- [Step 5B implementation, preserved replay and remaining whole-runtime boundary](#step-5b-bounded-observed-reference)
 
 ### Latest foundational architecture sequence
 
@@ -3403,10 +3681,13 @@ attestation, universal cross-platform reproduction, release-decision
 integration, or general-purpose product layer is required to preserve this
 bounded closure.
 
-The separate compute workstream continues from completed Step 3G automation,
-historical Step 4A/4B in Sections 15I–15J and accepted Step 5A in Section 15K.
-The runtime-bound construction and partial historical source-aware chain are
-implemented; complete actual runtime observation remains a separate target.
+The separate compute workstream now includes completed Step 3G automation,
+historical Step 4A/4B in Sections 15I–15J, accepted Step 5A in Section 15K and
+the completed bounded Step 5B reference in Section 15L. Runtime-bound
+construction, the partial historical source-aware chain and one finite
+six-process checker/consumer observation are implemented and preserved.
+Whole-runtime live/current-run observation and complete Step 5 closure remain
+separate targets.
 
 The completed analyzer relation is:
 
@@ -3562,25 +3843,34 @@ live/current-run runtime-observation producer
 → resource axes
 ```
 
-The accepted Step 5A construction path is already available. The remaining
-sequence supplies the missing evidence rather than rebuilding that path:
+The accepted Step 5A construction path was reused rather than rebuilt. Step 5B
+now supplies the finite actual observation, preservation and replay handoff:
 
 ```text
 completed bounded historical Step 4B producer/preservation
 + accepted Step 5A runtime-bound report/relation and partial historical chain
-→ new bounded execution with verified source/command/input evidence
-→ supported observation extent, closure and downstream result consumption
+→ reviewed Step 5B source-to-consumer mapping and implementation
+→ owner-dispatched run 34402387728 / attempt 1
+→ six direct checker/consumer processes and their bound I/O
+→ exact preservation through PR #2877
+→ source-bound capture validation
+→ two byte-identical reconstruction processes
+→ bounded I/E/R/C completion with M unavailable
+→ remaining wider whole-runtime observation and comparison obligations
 → complete Step 5 observed proof and fixed-source/runtime comparison
 → Step 6 per-axis resource measurement
 → Step 7 separate policy promotion decision
 ```
 
-The next proposed non-active observation executes the unchanged strict
-`check_gates.py` on exact policy and separate candidate-status inputs, records
-its actual result, and records a downstream result consumer. ALLOW and BLOCK
-must remain distinct outcomes. It requires a new execution identity and a finite
-observation boundary; it cannot be presented as new observation of historical
-#6066. The completion record does not authorize acquisition or workflow dispatch.
+The completed non-active Step 5B reference executes the unchanged strict
+`check_gates.py` against exact policy-derived requirements and three controlled
+candidate-status inputs. It retains checker exit `0` as `ready` and exits `1`
+and `2` as distinct `held` states through three matching downstream consumers.
+
+This is a new actual execution identity and finite observation boundary. It is
+not new observation of historical #6066, not a manually dispatched Step 3F/3G
+proof instance, not whole-runtime observation and not production release
+authority.
 
 Any movement from candidate to advisory, required or release-required remains a
 separate policy decision.
@@ -3696,6 +3986,40 @@ capture. Its construction record binds the implementation revision and fixed
 local declarations; its preservation commit locates the output and comparison
 target. The stored execution report and later direct review remain separate
 evidence events. None is a new release-authority source.
+
+### Bounded observed-execution reference record
+
+The Step 5B preservation carries one actual owner-dispatched reference run and
+the exact source-bound evidence required to reconstruct its finite
+checker/consumer relation.
+
+```text
+subject:
+six_declared_direct_processes_and_their_bound_io
+
+record_role:
+bounded_observed_execution_reference_and_replay
+
+checker_outcomes:
+0 / 1 / 2
+
+consumer_states:
+ready / held / held
+
+whole_runtime_packet:
+partial
+
+resource_coverage:
+unavailable
+
+authority_effect:
+none
+```
+
+The six process occurrences remain distinct. A successfully completed consumer
+does not replace or promote the checker result it consumes. The preservation
+record is not a deployment admission, active gate result or production release
+decision.
 
 ### Reproduction Capsule contract record
 
@@ -3971,6 +4295,24 @@ distinct. This lane is not active compute enforcement.
 - [Permanent historical source-aware connected-chain regression](tests/test_pulsemech_compute_fixed_source_candidate_chain_v0.py)
 - [Step 5A completion record](https://github.com/HKati/pulse-release-gates-0.1/issues/2870#issuecomment-5577131873)
 
+### Bounded observed checker/consumer reference — Step 5B
+
+- [System-level Step 5B result](#step-5b-bounded-observed-reference)
+- [Normative bounded-execution contract](docs/compute/PULSEMECH_COMPUTE_BOUNDED_EXECUTION_CONTRACT_v0.md)
+- [Bounded-execution evidence schema](schemas/pulsemech_compute_bounded_execution_evidence_v0.schema.json)
+- [Bounded input preparation and reconstruction adapter](tools/build_pulsemech_compute_bounded_execution_inputs_v0.py)
+- [Bounded execution capture](tools/capture_pulsemech_compute_bounded_execution_v0.py)
+- [Distinct downstream result consumer](tools/consume_pulsemech_compute_bounded_result_v0.py)
+- [Independent bounded-execution checker and reconstruction entrypoint](tools/check_pulsemech_compute_bounded_execution_v0.py)
+- [Manual non-active reference workflow](.github/workflows/pulsemech_compute_bounded_execution_reference.yml)
+- [Permanent connected regression](tests/test_pulsemech_compute_bounded_execution_v0.py)
+- [Exact preserved run, validation and replay evidence](preservation/compute_bounded_execution_reference_v0/run_34402387728_attempt_1/)
+- [Step 5B bounded acceptance record](https://github.com/HKati/pulse-release-gates-0.1/issues/2875#issuecomment-5609641514)
+
+The reference is complete only for its declared six-process boundary. The whole
+runtime packet remains partial, resource coverage remains unavailable and the
+lane remains non-active and non-authorizing.
+
 ### Device Ledger bounded proof and deterministic reproduction
 
 #### Canonical records
@@ -4185,6 +4527,15 @@ runtime-bound report and comparison profiles through the existing analyzer
 source-aware report/relation replay and separate candidate publication
 partial historical runtime chain exercised in post-merge CI
 bounded Step 5A acceptance with original review limits retained
+bounded Step 5B evidence schema and normative contract
+manual non-active bounded-execution reference workflow
+actual owner-dispatched Step 5B reference acquisition
+six distinct checker/consumer occurrences with 0 → ready, 1 → held and 2 → held
+exact Step 5B preservation and source-bound validation
+two separate byte-identical 12-member reconstruction processes
+ten negative/preservation scenarios reproduced at their intended boundaries
+bounded I/E/R/C completion with M unavailable
+non-active all-true compute candidate state restricted to the bounded reference
 
 Device Ledger canonical record chain
 Device Ledger terminal checkpoint closure
@@ -4216,7 +4567,7 @@ protected-source before/after preservation
 permanent Capsule contract regression
 permanent 15-test Capsule execution regression
 dedicated Capsule reference workflow
-153-entry registered tools-test surface
+154-entry registered tools-test surface
 ```
 
 The broader Transition Meter is recorded as foundational architecture.
@@ -4229,7 +4580,8 @@ completed Step 3G artifact-observed proof automation
 + completed Step 4A historical producer-input capture prerequisite
 + completed bounded historical Step 4B producer/preservation
 + accepted Step 5A runtime-bound construction and partial historical chain
-→ actual bounded observation with verified source, extent and consumption
++ completed Step 5B six-process observation, preservation and replay
+→ wider whole-runtime live/current-run observation and remaining comparison work
 → complete Step 5 observed proof and fixed-source/runtime comparison
 → Step 6 per-axis resource measurement
 → stable measurement coverage
@@ -4339,11 +4691,17 @@ access limit. Live/current-run observation, resource measurement, compute
 budgeting, active compute enforcement and release-required compute promotion
 remain separate later boundaries.
 
-Step 5A separately completes runtime-bound construction and source-aware processing
-of that partial historical input. The full actually observed proof remains open;
-a valid partial result is not promoted to complete observation. Its acceptance and
-merge-bound CI evidence are recorded in Section 15K without changing the earlier
-cloud review outcomes or the original preserved packet.
+Step 5A separately completes runtime-bound construction and source-aware
+processing of the partial historical input. Its acceptance and merge-bound CI
+evidence remain recorded in Section 15K without changing the earlier cloud
+review outcomes or the original preserved packet.
+
+Step 5B separately completes one actual owner-dispatched six-process
+checker/consumer observation, exact preservation and independent source-bound
+replay. Its bounded I/E/R/C state is complete while M remains unavailable. It
+does not convert the partial historical packet or the projection collector into
+complete whole-runtime observation. The full Step 5 proof therefore remains
+open at its larger boundary.
 
 The latest verified state remains available at the stable URL recorded at the
 top of this document.
