@@ -174,7 +174,8 @@ They do not independently produce release authority.
 | Historical producer-input capture — Step 4A | Completed, preserved, and independently offline replay-verified — non-active; `same_run_release_authority_eligible = false`; `active_gate_eligible = false`; `authority_effect = none` |
 | Historical runtime-packet producer and preservation — Step 4B | Implemented and preserved — bounded `post_run_platform_export` profile, partial coverage, separate direct packet validation; `authority_effect = none` |
 | Runtime-bound report/relation construction and partial historical chain — Step 5A | Implemented, reviewed and accepted through #2872 / #2870; separate source-aware validation and non-active candidate publication; complete observed Step 5 proof remains open |
-| Live/current-run runtime-observation producer and complete runtime-observed connected proof | Not implemented |
+| Bounded observed checker/consumer reference — Step 5B | Completed, preserved and independently replayed through #2876, owner-dispatched run `34402387728`, artifact `10123984621`, and #2877; six distinct checker/consumer processes; `0 → ready`, `1 → held`, `2 → held`; I/E/R complete, C true, M unavailable; whole runtime packet partial; `authority_effect = none` |
+| General live/current-run whole-runtime observation and complete Step 5 proof | Not implemented; Step 5B is limited to `six_declared_direct_processes_and_their_bound_io` |
 | Active or release-required compute enforcement | Not active |
 | Public PULSEmech Core execution record | Completed — PULSE CI #5728 |
 | Completed public non-stubbed release-grade run record | Completed — PULSE CI #6066 |
@@ -251,6 +252,150 @@ compute-gate activation is added.
 
 [Verified Step 5A result and evidence limits](PULSEMECH_TECHNICAL_OVERVIEW.md#15k-runtime-bound-report-and-relation--step-5a) ·
 [Bounded acceptance record](https://github.com/HKati/pulse-release-gates-0.1/issues/2870#issuecomment-5577131873)
+
+### Completed bounded observed checker/consumer reference — Step 5B
+
+The bounded Step 5B implementation from **#2876** reuses the existing
+subject-input producer, immutable bridge, single analyzer core, source-aware
+report/relation validators and separate candidate materializer. It does not
+introduce a parallel analyzer or release-authority mechanism.
+
+```text
+implementation:
+PR #2876
+c32508f8afb58381225fec0b426b85b00e32fe11
+
+implementation tree:
+74dd65d82124170b7d8f459925962bb8bc09fe2b
+```
+
+The actual owner-dispatched reference acquisition is:
+
+```text
+workflow:
+PULSEmech bounded execution reference
+
+event / branch:
+workflow_dispatch / main
+
+run / number / attempt:
+34402387728 / 1 / 1
+
+job:
+102637163024
+
+artifact:
+10123984621
+
+source:
+c32508f8afb58381225fec0b426b85b00e32fe11
+```
+
+The unchanged strict checker ran three times against exact controlled inputs.
+Three distinct downstream consumers retained the actual checker outcomes:
+
+```text
+allow:
+checker exit 0
+→ ready
+
+block_false:
+checker exit 1
+→ held
+
+missing_required:
+checker exit 2
+→ held
+```
+
+A successfully completed consumer does not convert checker exit `1` or `2`
+into ALLOW.
+
+The exact acquisition artifact and separate source-bound verification evidence
+are preserved through **#2877**:
+
+```text
+preservation merge:
+12b42736a9f8a1da16e3659a2d2099058207129b
+
+preservation tree:
+b44c9f7cfa24c0dafbc8c38973fbbca37295f7d1
+```
+
+Fresh independent replay reproduced:
+
+```text
+exact preparation carrier
+→ source-bound capture validation
+→ reconstruction process 1
+→ reconstruction process 2
+```
+
+Both completed reconstruction processes reproduced the acquired
+**322,567-byte, 12-member reconstruction ZIP byte-for-byte**.
+
+All ten preserved negative or preservation scenarios were reproduced at their
+intended semantic rejection boundaries. The preservation review found no
+actionable preservation, replay or bounded-claim defect.
+
+Exactly six direct checker/consumer occurrences remain distinct. Within:
+
+```text
+six_declared_direct_processes_and_their_bound_io
+```
+
+the accepted bounded state is:
+
+```text
+I — bounded packet integrity: complete
+E — bounded observation extent: complete
+R — bounded relational coverage: complete
+C — comparison_complete: true
+M — resource coverage: unavailable
+```
+
+The relation contains six expectations, six observations, six decisive
+relations and zero unresolved relations.
+
+The whole runtime packet remains `partial`. The projection collector remains
+a partial collector rather than a seventh fully observed subject process.
+No resource measurement has been introduced.
+
+The three non-active compute candidate values are true only for this bounded
+reference:
+
+```text
+compute_transition_path_complete: true
+compute_transition_authority_binding_ok: true
+compute_transition_unbound_mutation_absent: true
+```
+
+They do not replace the differently scoped generic runtime-report state:
+
+```text
+authority_binding_complete: false
+decision_closure_complete: false
+```
+
+The implementation registered one new permanent regression program. The
+current tools-test manifest therefore contains **154 unique program paths**.
+The Step 5A section above retains its historical 153-program execution record.
+
+The preserved authority boundary remains:
+
+```text
+authority_effect: none
+same_run_release_authority_eligible: false
+active_gate_eligible: false
+```
+
+This bounded result does not declare complete Step 5, whole-runtime
+live/current-run observation, resource measurement, compute budgeting,
+deployment admission, active compute enforcement or Step 7 promotion complete.
+
+[Verified Step 5B result and remaining boundary](PULSEMECH_TECHNICAL_OVERVIEW.md#step-5b-bounded-observed-reference) ·
+[Exact preserved reference and replay record](preservation/compute_bounded_execution_reference_v0/run_34402387728_attempt_1/README.md) ·
+[Bounded acceptance record](https://github.com/HKati/pulse-release-gates-0.1/issues/2875#issuecomment-5609641514)
 
 ### Device Ledger bounded mechanical proof
 
