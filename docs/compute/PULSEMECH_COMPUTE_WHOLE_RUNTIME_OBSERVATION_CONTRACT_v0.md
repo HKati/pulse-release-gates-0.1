@@ -127,9 +127,16 @@ X-GitHub-Api-Version: 2026-03-10
 }
 ```
 
-The request does not use a `return_run_details` field. The accepted response is
-HTTP 200 and contains one positive `workflow_run_id`, an exact API `run_url`
-and an exact repository `html_url`, all naming the same run.
+The request pins `X-GitHub-Api-Version: 2026-03-10`. Under that API
+contract, `return_run_details` has been removed and every successful dispatch
+returns HTTP 200 with one positive `workflow_run_id`, an exact API `run_url`
+and an exact repository `html_url`, all naming the same run. The optional
+`return_run_details: true` field applies to the older compatibility contract
+and is not sent by this version-pinned request.
+
+A `204 No Content` response under the pinned API version is rejected as
+`dispatch_run_details_unavailable`. No run-list correlation fallback is
+permitted.
 
 After that exact subject reaches `completed / success`, Step 3F is dispatched:
 
