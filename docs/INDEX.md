@@ -85,7 +85,7 @@ moves between merged and open work, update this index.
   [compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md)
   **Current implementation and completed bounded proof.** Records the completed
   Step 3G automation and permanent regressions, the exact historical Step 4A
-    capture, bounded Step 4B packet production/preservation, accepted
+   capture, bounded Step 4B packet production/preservation, accepted   
   [Step 5A runtime-bound processing](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md#completed-step-5a--runtime-bound-report-and-relation),
   and the completed Step 5B checker/consumer reference.
   The
@@ -96,11 +96,11 @@ moves between merged and open work, update this index.
   complete and C is true; M remains unavailable and the whole runtime packet
   remains partial. The
   [completed Step 4A record](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md#completed-step-4a--exact-post-run-producer-input-capture)
-    preserves the historical producer-input acquisition, while the separate
+  preserves the historical producer-input acquisition, while the separate
   [Step 4B record](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md#completed-step-4b--historical-runtime-packet-production-and-preservation)
-   preserves the partial historical runtime packet. Whole-runtime
+  preserves the partial historical runtime packet. Whole-runtime
   live/current-run observation, complete Step 5 closure, resource measurement
-  and policy promotion remain separate. 
+  and policy promotion remain separate.   
 - Witness interoperability and release-authority boundary:
   [slsa/PULSEMECH_WITNESS_INTEROPERABILITY_AND_RELEASE_AUTHORITY_BOUNDARY_v0.md](slsa/PULSEMECH_WITNESS_INTEROPERABILITY_AND_RELEASE_AUTHORITY_BOUNDARY_v0.md)
   **Interoperability boundary record.** Maps the reviewed in-toto Witness mechanics into PULSEmech upstream evidence, separates Witness SLSA export from full Witness policy verification, specifies the missing structured carrier and preserves authority effect `none`.
