@@ -1,0 +1,2796 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/pulsemech_compute_whole_runtime_observation_evidence_v0.schema.json",
+  "title": "PULSEmech compute whole-runtime observation evidence v0",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/prelaunch_plan"
+    },
+    {
+      "$ref": "#/$defs/dispatch_receipt"
+    },
+    {
+      "$ref": "#/$defs/capture_manifest"
+    },
+    {
+      "$ref": "#/$defs/verification_record"
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "sha40": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "nullable_non_empty_string": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "utc": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+    },
+    "nullable_utc": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]+)?Z$"
+    },
+    "positive_integer": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "nonnegative_integer": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "repository_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\\\\\)(?!.*\\x00)[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+    },
+    "member_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\\\\\)(?!.*\\x00)[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+    },
+    "execution_id": {
+      "type": "string",
+      "pattern": "^execution:step5c:[A-Za-z0-9._:/@+-]+$",
+      "maxLength": 256
+    },
+    "state_id": {
+      "type": "string",
+      "pattern": "^state:step5c:[A-Za-z0-9._:/@+-]+$",
+      "maxLength": 256
+    },
+    "call_id": {
+      "type": "string",
+      "pattern": "^call:step5c:[A-Za-z0-9._:/@+-]+$",
+      "maxLength": 256
+    },
+    "inference_id": {
+      "type": "string",
+      "pattern": "^inference:step5c:[A-Za-z0-9._:/@+-]+$",
+      "maxLength": 256
+    },
+    "authority_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_effect",
+        "same_run_release_authority_eligible",
+        "active_gate_eligible",
+        "changes_gate_policy",
+        "changes_gate_registry",
+        "changes_release_authority",
+        "creates_compute_budget",
+        "introduces_resource_measurement",
+        "observer_in_subject_totals",
+        "subject_artifacts_mutated",
+        "writes_subject_status"
+      ],
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "same_run_release_authority_eligible": {
+          "const": false
+        },
+        "active_gate_eligible": {
+          "const": false
+        },
+        "changes_gate_policy": {
+          "const": false
+        },
+        "changes_gate_registry": {
+          "const": false
+        },
+        "changes_release_authority": {
+          "const": false
+        },
+        "creates_compute_budget": {
+          "const": false
+        },
+        "introduces_resource_measurement": {
+          "const": false
+        },
+        "observer_in_subject_totals": {
+          "const": false
+        },
+        "subject_artifacts_mutated": {
+          "const": false
+        },
+        "writes_subject_status": {
+          "const": false
+        }
+      }
+    },
+    "privacy_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_environment_included",
+        "secret_values_included",
+        "authorization_headers_included",
+        "cookies_included",
+        "request_bodies_included",
+        "response_bodies_included",
+        "raw_prompt_text_included",
+        "raw_model_output_included",
+        "private_or_arbitrary_user_prompt_admitted",
+        "opaque_controlled_fixture_payloads_present",
+        "redaction_applied",
+        "redaction_rules_sha256"
+      ],
+      "properties": {
+        "raw_environment_included": {
+          "const": false
+        },
+        "secret_values_included": {
+          "const": false
+        },
+        "authorization_headers_included": {
+          "const": false
+        },
+        "cookies_included": {
+          "const": false
+        },
+        "request_bodies_included": {
+          "const": false
+        },
+        "response_bodies_included": {
+          "const": false
+        },
+        "raw_prompt_text_included": {
+          "const": false
+        },
+        "raw_model_output_included": {
+          "const": false
+        },
+        "private_or_arbitrary_user_prompt_admitted": {
+          "const": false
+        },
+        "opaque_controlled_fixture_payloads_present": {
+          "const": true
+        },
+        "redaction_applied": {
+          "type": "boolean"
+        },
+        "redaction_rules_sha256": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "trust_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "trusted_components",
+        "not_proven"
+      ],
+      "properties": {
+        "trusted_components": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "step5c_supervisor",
+              "step5c_plan_builder",
+              "step5c_plan_checker",
+              "step5c_acquisition_tool",
+              "step5c_capture_tool",
+              "step5c_verifier",
+              "cpython_runtime",
+              "github_hosted_runner",
+              "host_kernel",
+              "github_control_plane",
+              "pulse_ci_components",
+              "step3f_components"
+            ]
+          }
+        },
+        "not_proven": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "privileged_host_integrity",
+              "runner_image_integrity",
+              "interpreter_integrity_against_privileged_host",
+              "observer_integrity_against_privileged_host",
+              "github_control_plane_integrity",
+              "provider_internal_execution",
+              "complete_network_activity",
+              "complete_package_manager_activity"
+            ]
+          }
+        }
+      }
+    },
+    "file_descriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "member",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "member": {
+          "$ref": "#/$defs/member_name"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483648
+        }
+      }
+    },
+    "source_descriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "path",
+        "revision",
+        "git_blob_sha1",
+        "sha256",
+        "size_bytes",
+        "executable"
+      ],
+      "properties": {
+        "role": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "path": {
+          "$ref": "#/$defs/repository_path"
+        },
+        "revision": {
+          "$ref": "#/$defs/sha40"
+        },
+        "git_blob_sha1": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8388608
+        },
+        "executable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "tool_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool_id",
+        "version",
+        "source_path",
+        "source_revision",
+        "source_sha256"
+      ],
+      "properties": {
+        "tool_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "source_path": {
+          "$ref": "#/$defs/repository_path"
+        },
+        "source_revision": {
+          "$ref": "#/$defs/sha40"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "github_run_url": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://api\\.github\\.com/repos/HKati/pulse-release-gates-0\\.1/actions/runs/[1-9][0-9]*$",
+      "maxLength": 512
+    },
+    "github_run_html_url": {
+      "type": "string",
+      "format": "uri",
+      "pattern": "^https://github\\.com/HKati/pulse-release-gates-0\\.1/actions/runs/[1-9][0-9]*$",
+      "maxLength": 512
+    },
+    "dispatch_response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "http_status",
+        "workflow_run_id",
+        "run_url",
+        "html_url"
+      ],
+      "properties": {
+        "http_status": {
+          "const": 200
+        },
+        "workflow_run_id": {
+          "$ref": "#/$defs/positive_integer"
+        },
+        "run_url": {
+          "$ref": "#/$defs/github_run_url"
+        },
+        "html_url": {
+          "$ref": "#/$defs/github_run_html_url"
+        }
+      }
+    },
+    "run_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "workflow_name",
+        "workflow_path",
+        "event",
+        "head_branch",
+        "head_sha",
+        "run_id",
+        "run_number",
+        "run_attempt",
+        "status",
+        "conclusion",
+        "run_url",
+        "html_url",
+        "created_at",
+        "run_started_at",
+        "updated_at"
+      ],
+      "properties": {
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "workflow_name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "workflow_path": {
+          "$ref": "#/$defs/repository_path"
+        },
+        "event": {
+          "const": "workflow_dispatch"
+        },
+        "head_branch": {
+          "const": "main"
+        },
+        "head_sha": {
+          "$ref": "#/$defs/sha40"
+        },
+        "run_id": {
+          "$ref": "#/$defs/positive_integer"
+        },
+        "run_number": {
+          "$ref": "#/$defs/positive_integer"
+        },
+        "run_attempt": {
+          "const": 1
+        },
+        "status": {
+          "const": "completed"
+        },
+        "conclusion": {
+          "const": "success"
+        },
+        "run_url": {
+          "$ref": "#/$defs/github_run_url"
+        },
+        "html_url": {
+          "$ref": "#/$defs/github_run_html_url"
+        },
+        "created_at": {
+          "$ref": "#/$defs/utc"
+        },
+        "run_started_at": {
+          "$ref": "#/$defs/utc"
+        },
+        "updated_at": {
+          "$ref": "#/$defs/utc"
+        }
+      }
+    },
+    "github_action_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "uses",
+        "action_repository",
+        "action_ref",
+        "action_commit_sha"
+      ],
+      "properties": {
+        "kind": {
+          "const": "github_action"
+        },
+        "uses": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300,
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[0-9a-f]{40}$"
+        },
+        "action_repository": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 200,
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"
+        },
+        "action_ref": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "action_commit_sha": {
+          "$ref": "#/$defs/sha40"
+        }
+      }
+    },
+    "shell_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "shell",
+        "run_sha256",
+        "raw_command_included"
+      ],
+      "properties": {
+        "kind": {
+          "const": "shell"
+        },
+        "shell": {
+          "type": "string",
+          "enum": [
+            "bash",
+            "python",
+            "pwsh",
+            "sh"
+          ]
+        },
+        "run_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "raw_command_included": {
+          "const": false
+        }
+      }
+    },
+    "step_source": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/github_action_source"
+        },
+        {
+          "$ref": "#/$defs/shell_source"
+        }
+      ]
+    },
+    "step_template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "occurrence_id",
+        "source_ordinal",
+        "name",
+        "if_expression",
+        "expected_runtime_presence",
+        "expected_terminal_result",
+        "source",
+        "external_operation_ids",
+        "model_inference_ids",
+        "input_state_ids",
+        "output_state_ids"
+      ],
+      "properties": {
+        "occurrence_id": {
+          "$ref": "#/$defs/execution_id"
+        },
+        "source_ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 999
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "if_expression": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "expected_runtime_presence": {
+          "type": "boolean"
+        },
+        "expected_terminal_result": {
+          "enum": [
+            "success",
+            "skipped",
+            "not_instantiated"
+          ]
+        },
+        "source": {
+          "$ref": "#/$defs/step_source"
+        },
+        "external_operation_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/call_id"
+          }
+        },
+        "model_inference_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/inference_id"
+          }
+        },
+        "input_state_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/state_id"
+          }
+        },
+        "output_state_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/state_id"
+          }
+        }
+      }
+    },
+    "job_template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "occurrence_id",
+        "source_ordinal",
+        "source_job_id",
+        "display_name",
+        "needs",
+        "if_expression",
+        "expected_terminal_result",
+        "steps"
+      ],
+      "properties": {
+        "occurrence_id": {
+          "$ref": "#/$defs/execution_id"
+        },
+        "source_ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "source_job_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,127}$"
+        },
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "needs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_-]{0,127}$"
+          }
+        },
+        "if_expression": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        },
+        "expected_terminal_result": {
+          "enum": [
+            "success",
+            "skipped"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "items": {
+            "$ref": "#/$defs/step_template"
+          }
+        }
+      }
+    },
+    "state_template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state_id",
+        "state_type",
+        "role",
+        "path_or_uri",
+        "required",
+        "content_requirement",
+        "producer_occurrence_id",
+        "required_consumer_occurrence_ids",
+        "authority_bearing",
+        "mutation_class"
+      ],
+      "properties": {
+        "state_id": {
+          "$ref": "#/$defs/state_id"
+        },
+        "state_type": {
+          "enum": [
+            "workflow_source",
+            "policy",
+            "gate_registry",
+            "threshold_policy",
+            "external_signer_policy",
+            "release_evidence",
+            "status",
+            "candidate_state",
+            "manifest",
+            "attestation",
+            "verifier_report",
+            "release_decision",
+            "release_authority",
+            "quality_ledger",
+            "report",
+            "junit",
+            "sarif",
+            "package",
+            "package_inventory",
+            "run_metadata",
+            "carrier",
+            "subject_input_packet",
+            "expectation",
+            "runtime_observation_packet",
+            "diagnostic",
+            "other"
+          ]
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "path_or_uri": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "content_requirement": {
+          "enum": [
+            "exact_digest",
+            "metadata_only",
+            "unavailable"
+          ]
+        },
+        "producer_occurrence_id": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/execution_id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "required_consumer_occurrence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/execution_id"
+          }
+        },
+        "authority_bearing": {
+          "type": "boolean"
+        },
+        "mutation_class": {
+          "enum": [
+            "none",
+            "advisory_output",
+            "preservation_output",
+            "materialized_gate_set",
+            "final_status",
+            "release_decision"
+          ]
+        }
+      }
+    },
+    "external_operation_template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "call_id",
+        "operation_class",
+        "owner",
+        "parent_occurrence_id",
+        "required",
+        "capture_requirement",
+        "authorization_material_included",
+        "cookies_included"
+      ],
+      "properties": {
+        "call_id": {
+          "$ref": "#/$defs/call_id"
+        },
+        "operation_class": {
+          "enum": [
+            "github_workflow_dispatch",
+            "github_run_metadata_retrieval",
+            "github_job_metadata_retrieval",
+            "github_artifact_listing",
+            "github_artifact_download",
+            "github_artifact_upload",
+            "github_checkout_action",
+            "github_setup_python_action",
+            "github_attestation_action",
+            "github_attestation_verification",
+            "system_package_installation",
+            "python_package_installation",
+            "huggingface_model_revision_lookup",
+            "huggingface_model_file_acquisition",
+            "other"
+          ]
+        },
+        "owner": {
+          "enum": [
+            "subject",
+            "supervisor",
+            "provider"
+          ]
+        },
+        "parent_occurrence_id": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/execution_id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "capture_requirement": {
+          "enum": [
+            "exact_digest",
+            "metadata_only",
+            "not_recorded"
+          ]
+        },
+        "authorization_material_included": {
+          "const": false
+        },
+        "cookies_included": {
+          "const": false
+        }
+      }
+    },
+    "inference_template": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inference_id",
+        "case_id",
+        "parent_occurrence_id",
+        "model_id",
+        "model_revision",
+        "input_state_id",
+        "output_state_id",
+        "required",
+        "timing_requirement",
+        "raw_prompt_included",
+        "raw_output_included"
+      ],
+      "properties": {
+        "inference_id": {
+          "$ref": "#/$defs/inference_id"
+        },
+        "case_id": {
+          "enum": [
+            "benign_factual_response",
+            "violent_harm_refusal",
+            "credential_theft_refusal",
+            "private_address_refusal",
+            "self_harm_support",
+            "hate_content_refusal"
+          ]
+        },
+        "parent_occurrence_id": {
+          "$ref": "#/$defs/execution_id"
+        },
+        "model_id": {
+          "const": "meta-llama/Llama-Guard-3-1B"
+        },
+        "model_revision": {
+          "$ref": "#/$defs/sha40"
+        },
+        "input_state_id": {
+          "$ref": "#/$defs/state_id"
+        },
+        "output_state_id": {
+          "$ref": "#/$defs/state_id"
+        },
+        "required": {
+          "const": true
+        },
+        "timing_requirement": {
+          "const": "partial"
+        },
+        "raw_prompt_included": {
+          "const": false
+        },
+        "raw_output_included": {
+          "const": false
+        }
+      }
+    },
+    "plan_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan_id",
+        "profile",
+        "scope",
+        "repository",
+        "source_commit",
+        "source_ref",
+        "source_release_candidate_value",
+        "evidence_release_candidate_template",
+        "builder",
+        "independent_checker"
+      ],
+      "properties": {
+        "plan_id": {
+          "type": "string",
+          "pattern": "^step5c-plan:[A-Za-z0-9._:-]+$",
+          "maxLength": 256
+        },
+        "profile": {
+          "const": "pulse_ci_hosted_release_grade_v0"
+        },
+        "scope": {
+          "const": "one_current_run_pulse_ci_hosted_release_grade_declared_workflow_graph_v0"
+        },
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "source_ref": {
+          "const": "refs/heads/main"
+        },
+        "source_release_candidate_value": {
+          "const": "main"
+        },
+        "evidence_release_candidate_template": {
+          "const": "pulse-ci-current-run:{workflow_run_id}:1"
+        },
+        "builder": {
+          "$ref": "#/$defs/tool_identity"
+        },
+        "independent_checker": {
+          "$ref": "#/$defs/tool_identity"
+        }
+      }
+    },
+    "subject_dispatch_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api_version",
+        "method",
+        "accept",
+        "endpoint",
+        "ref",
+        "inputs",
+        "response_contract"
+      ],
+      "properties": {
+        "api_version": {
+          "const": "2026-03-10"
+        },
+        "method": {
+          "const": "POST"
+        },
+        "accept": {
+          "const": "application/vnd.github+json"
+        },
+        "endpoint": {
+          "const": "repos/HKati/pulse-release-gates-0.1/actions/workflows/pulse_ci.yml/dispatches"
+        },
+        "ref": {
+          "const": "main"
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "strict_external_evidence",
+            "llamaguard_evidence_mode"
+          ],
+          "properties": {
+            "strict_external_evidence": {
+              "const": "true"
+            },
+            "llamaguard_evidence_mode": {
+              "const": "hosted_full_runtime"
+            }
+          }
+        },
+        "response_contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "http_status",
+            "required_fields",
+            "run_list_fallback_allowed",
+            "accepted_attempt"
+          ],
+          "properties": {
+            "http_status": {
+              "const": 200
+            },
+            "required_fields": {
+              "const": [
+                "workflow_run_id",
+                "run_url",
+                "html_url"
+              ]
+            },
+            "run_list_fallback_allowed": {
+              "const": false
+            },
+            "accepted_attempt": {
+              "const": 1
+            }
+          }
+        }
+      }
+    },
+    "provider_dispatch_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api_version",
+        "method",
+        "accept",
+        "endpoint",
+        "ref",
+        "input_bindings",
+        "response_contract"
+      ],
+      "properties": {
+        "api_version": {
+          "const": "2026-03-10"
+        },
+        "method": {
+          "const": "POST"
+        },
+        "accept": {
+          "const": "application/vnd.github+json"
+        },
+        "endpoint": {
+          "const": "repos/HKati/pulse-release-gates-0.1/actions/workflows/pulsemech_compute_current_run_export_candidate.yml/dispatches"
+        },
+        "ref": {
+          "const": "main"
+        },
+        "input_bindings": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_run_id"
+          ],
+          "properties": {
+            "source_run_id": {
+              "const": "subject_dispatch.workflow_run_id"
+            }
+          }
+        },
+        "response_contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "http_status",
+            "required_fields",
+            "run_list_fallback_allowed",
+            "accepted_attempt"
+          ],
+          "properties": {
+            "http_status": {
+              "const": 200
+            },
+            "required_fields": {
+              "const": [
+                "workflow_run_id",
+                "run_url",
+                "html_url"
+              ]
+            },
+            "run_list_fallback_allowed": {
+              "const": false
+            },
+            "accepted_attempt": {
+              "const": 1
+            }
+          }
+        }
+      }
+    },
+    "finite_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "api_request_timeout_seconds",
+        "subject_wait_seconds",
+        "provider_wait_seconds",
+        "max_jobs",
+        "max_platform_step_records",
+        "max_artifacts",
+        "max_api_json_bytes",
+        "max_single_artifact_bytes",
+        "max_aggregate_artifact_bytes",
+        "max_capture_members",
+        "max_capture_uncompressed_bytes"
+      ],
+      "properties": {
+        "api_request_timeout_seconds": {
+          "const": 60
+        },
+        "subject_wait_seconds": {
+          "const": 5400
+        },
+        "provider_wait_seconds": {
+          "const": 2700
+        },
+        "max_jobs": {
+          "const": 64
+        },
+        "max_platform_step_records": {
+          "const": 2048
+        },
+        "max_artifacts": {
+          "const": 256
+        },
+        "max_api_json_bytes": {
+          "const": 16777216
+        },
+        "max_single_artifact_bytes": {
+          "const": 805306368
+        },
+        "max_aggregate_artifact_bytes": {
+          "const": 1610612736
+        },
+        "max_capture_members": {
+          "const": 8192
+        },
+        "max_capture_uncompressed_bytes": {
+          "const": 2147483648
+        }
+      }
+    },
+    "terminal_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "job_templates",
+        "successful_jobs",
+        "permitted_skipped_jobs",
+        "step_templates",
+        "instantiated_steps",
+        "successful_steps",
+        "permitted_skipped_steps",
+        "uninstantiated_steps",
+        "model_inference_occurrences"
+      ],
+      "properties": {
+        "job_templates": {
+          "const": 8
+        },
+        "successful_jobs": {
+          "const": 7
+        },
+        "permitted_skipped_jobs": {
+          "const": 1
+        },
+        "step_templates": {
+          "const": 147
+        },
+        "instantiated_steps": {
+          "const": 145
+        },
+        "successful_steps": {
+          "const": 101
+        },
+        "permitted_skipped_steps": {
+          "const": 44
+        },
+        "uninstantiated_steps": {
+          "const": 2
+        },
+        "model_inference_occurrences": {
+          "const": 6
+        }
+      }
+    },
+    "lifecycle_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "included_in_extent",
+        "raw_records_preserved",
+        "may_replace_declared_step",
+        "matching_mode",
+        "allowed_classes"
+      ],
+      "properties": {
+        "included_in_extent": {
+          "const": false
+        },
+        "raw_records_preserved": {
+          "const": true
+        },
+        "may_replace_declared_step": {
+          "const": false
+        },
+        "matching_mode": {
+          "const": "narrow_reviewed_allowlist"
+        },
+        "allowed_classes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "set_up_job",
+              "post_action_cleanup",
+              "complete_job"
+            ]
+          }
+        }
+      }
+    },
+    "result_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "I_target",
+        "E_target",
+        "R_after_step5c",
+        "C_after_step5c",
+        "M_after_step5c",
+        "generic_runtime_coverage"
+      ],
+      "properties": {
+        "I_target": {
+          "const": "complete"
+        },
+        "E_target": {
+          "const": "complete"
+        },
+        "R_after_step5c": {
+          "const": "partial"
+        },
+        "C_after_step5c": {
+          "const": "not_complete"
+        },
+        "M_after_step5c": {
+          "const": "unavailable"
+        },
+        "generic_runtime_coverage": {
+          "const": "partial"
+        }
+      }
+    },
+    "prelaunch_plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_type",
+        "record_status",
+        "plan_identity",
+        "subject_dispatch",
+        "provider_dispatch",
+        "source_inventory",
+        "finite_limits",
+        "jobs",
+        "state_templates",
+        "external_operation_templates",
+        "model_inference_templates",
+        "terminal_counts",
+        "lifecycle_boundary",
+        "result_boundary",
+        "privacy_boundary",
+        "trust_boundary",
+        "authority_boundary",
+        "errors",
+        "ok"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_whole_runtime_observation_evidence_v0"
+        },
+        "record_type": {
+          "const": "prelaunch_plan"
+        },
+        "record_status": {
+          "enum": [
+            "example",
+            "observed"
+          ]
+        },
+        "plan_identity": {
+          "$ref": "#/$defs/plan_identity"
+        },
+        "subject_dispatch": {
+          "$ref": "#/$defs/subject_dispatch_plan"
+        },
+        "provider_dispatch": {
+          "$ref": "#/$defs/provider_dispatch_plan"
+        },
+        "source_inventory": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/source_descriptor"
+          }
+        },
+        "finite_limits": {
+          "$ref": "#/$defs/finite_limits"
+        },
+        "jobs": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 8,
+          "items": {
+            "$ref": "#/$defs/job_template"
+          }
+        },
+        "state_templates": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 512,
+          "items": {
+            "$ref": "#/$defs/state_template"
+          }
+        },
+        "external_operation_templates": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 512,
+          "items": {
+            "$ref": "#/$defs/external_operation_template"
+          }
+        },
+        "model_inference_templates": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {
+            "$ref": "#/$defs/inference_template"
+          }
+        },
+        "terminal_counts": {
+          "$ref": "#/$defs/terminal_counts"
+        },
+        "lifecycle_boundary": {
+          "$ref": "#/$defs/lifecycle_boundary"
+        },
+        "result_boundary": {
+          "$ref": "#/$defs/result_boundary"
+        },
+        "privacy_boundary": {
+          "$ref": "#/$defs/privacy_boundary"
+        },
+        "trust_boundary": {
+          "$ref": "#/$defs/trust_boundary"
+        },
+        "authority_boundary": {
+          "$ref": "#/$defs/authority_boundary"
+        },
+        "errors": {
+          "const": []
+        },
+        "ok": {
+          "const": true
+        }
+      }
+    },
+    "subject_dispatch_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "inputs"
+      ],
+      "properties": {
+        "ref": {
+          "const": "main"
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "strict_external_evidence",
+            "llamaguard_evidence_mode"
+          ],
+          "properties": {
+            "strict_external_evidence": {
+              "const": "true"
+            },
+            "llamaguard_evidence_mode": {
+              "const": "hosted_full_runtime"
+            }
+          }
+        }
+      }
+    },
+    "provider_dispatch_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ref",
+        "inputs"
+      ],
+      "properties": {
+        "ref": {
+          "const": "main"
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_run_id"
+          ],
+          "properties": {
+            "source_run_id": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "maxLength": 32
+            }
+          }
+        }
+      }
+    },
+    "subject_dispatch_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_type",
+        "record_status",
+        "receipt_role",
+        "repository",
+        "source_commit",
+        "api_version",
+        "method",
+        "accept",
+        "workflow_name",
+        "workflow_path",
+        "endpoint",
+        "request",
+        "response",
+        "request_body_sha256",
+        "response_body_sha256",
+        "requested_utc",
+        "received_utc",
+        "run_list_fallback_used",
+        "authority_boundary",
+        "errors",
+        "ok"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_whole_runtime_observation_evidence_v0"
+        },
+        "record_type": {
+          "const": "dispatch_receipt"
+        },
+        "record_status": {
+          "enum": [
+            "example",
+            "observed"
+          ]
+        },
+        "receipt_role": {
+          "const": "subject"
+        },
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "api_version": {
+          "const": "2026-03-10"
+        },
+        "method": {
+          "const": "POST"
+        },
+        "accept": {
+          "const": "application/vnd.github+json"
+        },
+        "workflow_name": {
+          "const": "PULSE CI"
+        },
+        "workflow_path": {
+          "const": ".github/workflows/pulse_ci.yml"
+        },
+        "endpoint": {
+          "const": "repos/HKati/pulse-release-gates-0.1/actions/workflows/pulse_ci.yml/dispatches"
+        },
+        "request": {
+          "$ref": "#/$defs/subject_dispatch_request"
+        },
+        "response": {
+          "$ref": "#/$defs/dispatch_response"
+        },
+        "request_body_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "response_body_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "requested_utc": {
+          "$ref": "#/$defs/utc"
+        },
+        "received_utc": {
+          "$ref": "#/$defs/utc"
+        },
+        "run_list_fallback_used": {
+          "const": false
+        },
+        "authority_boundary": {
+          "$ref": "#/$defs/authority_boundary"
+        },
+        "errors": {
+          "const": []
+        },
+        "ok": {
+          "const": true
+        }
+      }
+    },
+    "provider_dispatch_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_type",
+        "record_status",
+        "receipt_role",
+        "repository",
+        "source_commit",
+        "subject_workflow_run_id",
+        "api_version",
+        "method",
+        "accept",
+        "workflow_name",
+        "workflow_path",
+        "endpoint",
+        "request",
+        "response",
+        "request_body_sha256",
+        "response_body_sha256",
+        "requested_utc",
+        "received_utc",
+        "run_list_fallback_used",
+        "authority_boundary",
+        "errors",
+        "ok"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_whole_runtime_observation_evidence_v0"
+        },
+        "record_type": {
+          "const": "dispatch_receipt"
+        },
+        "record_status": {
+          "enum": [
+            "example",
+            "observed"
+          ]
+        },
+        "receipt_role": {
+          "const": "step3f_provider"
+        },
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "api_version": {
+          "const": "2026-03-10"
+        },
+        "method": {
+          "const": "POST"
+        },
+        "accept": {
+          "const": "application/vnd.github+json"
+        },
+        "workflow_name": {
+          "const": "PULSEmech compute current-run export candidate"
+        },
+        "workflow_path": {
+          "const": ".github/workflows/pulsemech_compute_current_run_export_candidate.yml"
+        },
+        "endpoint": {
+          "const": "repos/HKati/pulse-release-gates-0.1/actions/workflows/pulsemech_compute_current_run_export_candidate.yml/dispatches"
+        },
+        "request": {
+          "$ref": "#/$defs/provider_dispatch_request"
+        },
+        "response": {
+          "$ref": "#/$defs/dispatch_response"
+        },
+        "request_body_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "response_body_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "requested_utc": {
+          "$ref": "#/$defs/utc"
+        },
+        "received_utc": {
+          "$ref": "#/$defs/utc"
+        },
+        "run_list_fallback_used": {
+          "const": false
+        },
+        "authority_boundary": {
+          "$ref": "#/$defs/authority_boundary"
+        },
+        "errors": {
+          "const": []
+        },
+        "ok": {
+          "const": true
+        },
+        "subject_workflow_run_id": {
+          "$ref": "#/$defs/positive_integer"
+        }
+      }
+    },
+    "dispatch_receipt": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/subject_dispatch_receipt"
+        },
+        {
+          "$ref": "#/$defs/provider_dispatch_receipt"
+        }
+      ]
+    },
+    "raw_response_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "descriptor"
+      ],
+      "properties": {
+        "role": {
+          "enum": [
+            "subject_dispatch_request",
+            "subject_dispatch_response",
+            "subject_run_response",
+            "subject_jobs_page",
+            "subject_artifacts_page",
+            "provider_dispatch_request",
+            "provider_dispatch_response",
+            "provider_run_response",
+            "provider_jobs_page",
+            "provider_artifacts_page"
+          ]
+        },
+        "descriptor": {
+          "$ref": "#/$defs/file_descriptor"
+        }
+      }
+    },
+    "github_artifact_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_role",
+        "source_run_kind",
+        "artifact_id",
+        "artifact_name",
+        "source_run_id",
+        "source_run_attempt",
+        "created_utc",
+        "expires_utc",
+        "expired",
+        "size_bytes",
+        "github_sha256",
+        "exact_bytes_in_capture",
+        "downloaded_member",
+        "downloaded_sha256",
+        "downloaded_size_bytes"
+      ],
+      "properties": {
+        "artifact_role": {
+          "enum": [
+            "step3f_candidate_envelope",
+            "subject_terminal_artifact"
+          ]
+        },
+        "source_run_kind": {
+          "enum": [
+            "subject",
+            "provider"
+          ]
+        },
+        "artifact_id": {
+          "$ref": "#/$defs/positive_integer"
+        },
+        "artifact_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "source_run_id": {
+          "$ref": "#/$defs/positive_integer"
+        },
+        "source_run_attempt": {
+          "const": 1
+        },
+        "created_utc": {
+          "$ref": "#/$defs/utc"
+        },
+        "expires_utc": {
+          "$ref": "#/$defs/utc"
+        },
+        "expired": {
+          "const": false
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 805306368
+        },
+        "github_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "exact_bytes_in_capture": {
+          "type": "boolean"
+        },
+        "downloaded_member": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/member_name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "downloaded_sha256": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "downloaded_size_bytes": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 805306368
+        }
+      }
+    },
+    "carrier_member_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "container_artifact_role",
+        "member",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "role": {
+          "enum": [
+            "complete_release_grade_reference_package",
+            "package_completeness_report",
+            "package_verification_report",
+            "step3f_expectation",
+            "step3f_subject_input_packet",
+            "step3f_current_run_carrier"
+          ]
+        },
+        "container_artifact_role": {
+          "const": "step3f_candidate_envelope"
+        },
+        "member": {
+          "$ref": "#/$defs/member_name"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 805306368
+        }
+      }
+    },
+    "capture_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capture_id",
+        "acquisition_id",
+        "profile",
+        "scope",
+        "repository",
+        "source_commit",
+        "reference_workflow_name",
+        "reference_workflow_path",
+        "reference_run_id",
+        "reference_run_number",
+        "reference_run_attempt",
+        "collector_run_key",
+        "collector_execution_id",
+        "subject_run_key",
+        "provider_run_key",
+        "capture_started_utc",
+        "capture_completed_utc",
+        "manifest_created_utc"
+      ],
+      "properties": {
+        "capture_id": {
+          "type": "string",
+          "pattern": "^step5c-capture:[A-Za-z0-9._:-]+$",
+          "maxLength": 256
+        },
+        "acquisition_id": {
+          "type": "string",
+          "pattern": "^step5c-acquisition:[A-Za-z0-9._:-]+$",
+          "maxLength": 256
+        },
+        "profile": {
+          "const": "pulse_ci_hosted_release_grade_v0"
+        },
+        "scope": {
+          "const": "one_current_run_pulse_ci_hosted_release_grade_declared_workflow_graph_v0"
+        },
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "reference_workflow_name": {
+          "const": "PULSEmech compute whole-runtime observation reference"
+        },
+        "reference_workflow_path": {
+          "const": ".github/workflows/pulsemech_compute_whole_runtime_observation_reference.yml"
+        },
+        "reference_run_id": {
+          "$ref": "#/$defs/positive_integer"
+        },
+        "reference_run_number": {
+          "$ref": "#/$defs/positive_integer"
+        },
+        "reference_run_attempt": {
+          "const": 1
+        },
+        "collector_run_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "collector_execution_id": {
+          "const": "execution:step5c:collector:post-run-platform-export"
+        },
+        "subject_run_key": {
+          "type": "string",
+          "pattern": "^GITHUB_RUN_ID=[1-9][0-9]*\\|GITHUB_RUN_ATTEMPT=1\\|GITHUB_WORKFLOW=PULSE CI$",
+          "maxLength": 512
+        },
+        "provider_run_key": {
+          "type": "string",
+          "pattern": "^GITHUB_RUN_ID=[1-9][0-9]*\\|GITHUB_RUN_ATTEMPT=1\\|GITHUB_WORKFLOW=PULSEmech compute current-run export candidate$",
+          "maxLength": 512
+        },
+        "capture_started_utc": {
+          "$ref": "#/$defs/utc"
+        },
+        "capture_completed_utc": {
+          "$ref": "#/$defs/utc"
+        },
+        "manifest_created_utc": {
+          "$ref": "#/$defs/utc"
+        }
+      }
+    },
+    "platform_counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expected_job_count",
+        "observed_job_count",
+        "successful_job_count",
+        "skipped_job_count",
+        "expected_step_template_count",
+        "expected_instantiated_step_count",
+        "observed_declared_step_count",
+        "successful_declared_step_count",
+        "skipped_declared_step_count",
+        "uninstantiated_step_template_count",
+        "raw_platform_step_record_count",
+        "platform_lifecycle_record_count",
+        "subject_execution_record_count",
+        "collector_execution_record_count",
+        "total_runtime_execution_record_count",
+        "model_inference_record_count",
+        "resource_measurement_record_count"
+      ],
+      "properties": {
+        "expected_job_count": {
+          "const": 8
+        },
+        "observed_job_count": {
+          "const": 8
+        },
+        "successful_job_count": {
+          "const": 7
+        },
+        "skipped_job_count": {
+          "const": 1
+        },
+        "expected_step_template_count": {
+          "const": 147
+        },
+        "expected_instantiated_step_count": {
+          "const": 145
+        },
+        "observed_declared_step_count": {
+          "const": 145
+        },
+        "successful_declared_step_count": {
+          "const": 101
+        },
+        "skipped_declared_step_count": {
+          "const": 44
+        },
+        "uninstantiated_step_template_count": {
+          "const": 2
+        },
+        "raw_platform_step_record_count": {
+          "type": "integer",
+          "minimum": 145,
+          "maximum": 2048
+        },
+        "platform_lifecycle_record_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1903
+        },
+        "subject_execution_record_count": {
+          "const": 153
+        },
+        "collector_execution_record_count": {
+          "const": 1
+        },
+        "total_runtime_execution_record_count": {
+          "const": 154
+        },
+        "model_inference_record_count": {
+          "const": 6
+        },
+        "resource_measurement_record_count": {
+          "const": 0
+        }
+      }
+    },
+    "capture_content_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_dispatch_responses_included",
+        "raw_run_responses_included",
+        "raw_job_responses_included",
+        "raw_artifact_responses_included",
+        "opaque_provider_envelope_included",
+        "verifier_verdict_included",
+        "runtime_packet_included",
+        "derived_outputs_included"
+      ],
+      "properties": {
+        "raw_dispatch_responses_included": {
+          "const": true
+        },
+        "raw_run_responses_included": {
+          "const": true
+        },
+        "raw_job_responses_included": {
+          "const": true
+        },
+        "raw_artifact_responses_included": {
+          "const": true
+        },
+        "opaque_provider_envelope_included": {
+          "const": true
+        },
+        "verifier_verdict_included": {
+          "const": false
+        },
+        "runtime_packet_included": {
+          "const": false
+        },
+        "derived_outputs_included": {
+          "const": false
+        }
+      }
+    },
+    "plan_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plan",
+        "plan_diagnostic",
+        "expected_plan_sha256"
+      ],
+      "properties": {
+        "plan": {
+          "$ref": "#/$defs/file_descriptor"
+        },
+        "plan_diagnostic": {
+          "$ref": "#/$defs/file_descriptor"
+        },
+        "expected_plan_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "collection_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collection_mode",
+        "pagination_closed",
+        "latest_run_lookup_used",
+        "run_list_correlation_used",
+        "subject_attempt",
+        "provider_attempt",
+        "observer_in_subject_totals",
+        "subject_artifacts_mutated"
+      ],
+      "properties": {
+        "collection_mode": {
+          "const": "post_run_platform_export"
+        },
+        "pagination_closed": {
+          "const": true
+        },
+        "latest_run_lookup_used": {
+          "const": false
+        },
+        "run_list_correlation_used": {
+          "const": false
+        },
+        "subject_attempt": {
+          "const": 1
+        },
+        "provider_attempt": {
+          "const": 1
+        },
+        "observer_in_subject_totals": {
+          "const": false
+        },
+        "subject_artifacts_mutated": {
+          "const": false
+        }
+      }
+    },
+    "member_inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "manifest_scope",
+        "member_count",
+        "members"
+      ],
+      "properties": {
+        "manifest_scope": {
+          "const": "all_capture_members_except_this_manifest"
+        },
+        "member_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8192
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8192,
+          "items": {
+            "$ref": "#/$defs/file_descriptor"
+          }
+        }
+      }
+    },
+    "capture_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_type",
+        "record_status",
+        "capture_identity",
+        "plan_binding",
+        "subject_dispatch_receipt",
+        "provider_dispatch_receipt",
+        "subject",
+        "provider",
+        "raw_response_bindings",
+        "artifact_bindings",
+        "carrier_member_bindings",
+        "platform_counts",
+        "collection_boundary",
+        "content_boundary",
+        "member_inventory",
+        "privacy_boundary",
+        "trust_boundary",
+        "authority_boundary",
+        "errors",
+        "ok"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_whole_runtime_observation_evidence_v0"
+        },
+        "record_type": {
+          "const": "capture_manifest"
+        },
+        "record_status": {
+          "enum": [
+            "example",
+            "observed"
+          ]
+        },
+        "capture_identity": {
+          "$ref": "#/$defs/capture_identity"
+        },
+        "plan_binding": {
+          "$ref": "#/$defs/plan_binding"
+        },
+        "subject_dispatch_receipt": {
+          "$ref": "#/$defs/file_descriptor"
+        },
+        "provider_dispatch_receipt": {
+          "$ref": "#/$defs/file_descriptor"
+        },
+        "subject": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/run_summary"
+            },
+            {
+              "properties": {
+                "workflow_name": {
+                  "const": "PULSE CI"
+                },
+                "workflow_path": {
+                  "const": ".github/workflows/pulse_ci.yml"
+                }
+              }
+            }
+          ]
+        },
+        "provider": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/run_summary"
+            },
+            {
+              "properties": {
+                "workflow_name": {
+                  "const": "PULSEmech compute current-run export candidate"
+                },
+                "workflow_path": {
+                  "const": ".github/workflows/pulsemech_compute_current_run_export_candidate.yml"
+                }
+              }
+            }
+          ]
+        },
+        "raw_response_bindings": {
+          "type": "array",
+          "minItems": 8,
+          "maxItems": 512,
+          "items": {
+            "$ref": "#/$defs/raw_response_binding"
+          }
+        },
+        "artifact_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/github_artifact_binding"
+          }
+        },
+        "carrier_member_bindings": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 256,
+          "items": {
+            "$ref": "#/$defs/carrier_member_binding"
+          }
+        },
+        "platform_counts": {
+          "$ref": "#/$defs/platform_counts"
+        },
+        "collection_boundary": {
+          "$ref": "#/$defs/collection_boundary"
+        },
+        "content_boundary": {
+          "$ref": "#/$defs/capture_content_boundary"
+        },
+        "member_inventory": {
+          "$ref": "#/$defs/member_inventory"
+        },
+        "privacy_boundary": {
+          "$ref": "#/$defs/privacy_boundary"
+        },
+        "trust_boundary": {
+          "$ref": "#/$defs/trust_boundary"
+        },
+        "authority_boundary": {
+          "$ref": "#/$defs/authority_boundary"
+        },
+        "errors": {
+          "const": []
+        },
+        "ok": {
+          "const": true
+        }
+      }
+    },
+    "verification_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "verification_id",
+        "repository",
+        "source_commit",
+        "tool",
+        "reference_run_id",
+        "reference_run_attempt",
+        "subject_run_id",
+        "subject_run_attempt",
+        "provider_run_id",
+        "provider_run_attempt",
+        "verification_started_utc",
+        "verification_completed_utc"
+      ],
+      "properties": {
+        "verification_id": {
+          "type": "string",
+          "pattern": "^step5c-verification:[A-Za-z0-9._:-]+$",
+          "maxLength": 256
+        },
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "tool": {
+          "$ref": "#/$defs/tool_identity"
+        },
+        "reference_run_id": {
+          "$ref": "#/$defs/positive_integer"
+        },
+        "reference_run_attempt": {
+          "const": 1
+        },
+        "subject_run_id": {
+          "$ref": "#/$defs/positive_integer"
+        },
+        "subject_run_attempt": {
+          "const": 1
+        },
+        "provider_run_id": {
+          "$ref": "#/$defs/positive_integer"
+        },
+        "provider_run_attempt": {
+          "const": 1
+        },
+        "verification_started_utc": {
+          "$ref": "#/$defs/utc"
+        },
+        "verification_completed_utc": {
+          "$ref": "#/$defs/utc"
+        }
+      }
+    },
+    "verification_input_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prepared_carrier",
+        "capture_carrier",
+        "expected_context",
+        "expected_plan_digest"
+      ],
+      "properties": {
+        "prepared_carrier": {
+          "$ref": "#/$defs/file_descriptor"
+        },
+        "capture_carrier": {
+          "$ref": "#/$defs/file_descriptor"
+        },
+        "expected_context": {
+          "$ref": "#/$defs/file_descriptor"
+        },
+        "expected_plan_digest": {
+          "$ref": "#/$defs/file_descriptor"
+        }
+      }
+    },
+    "check_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "check_id",
+        "passed",
+        "detail"
+      ],
+      "properties": {
+        "check_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{2,127}$"
+        },
+        "passed": {
+          "const": true
+        },
+        "detail": {
+          "$ref": "#/$defs/nullable_non_empty_string"
+        }
+      }
+    },
+    "candidate_values": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compute_transition_path_complete",
+        "compute_transition_authority_binding_ok",
+        "compute_transition_unbound_mutation_absent",
+        "candidate_all_true"
+      ],
+      "properties": {
+        "compute_transition_path_complete": {
+          "type": "boolean"
+        },
+        "compute_transition_authority_binding_ok": {
+          "type": "boolean"
+        },
+        "compute_transition_unbound_mutation_absent": {
+          "type": "boolean"
+        },
+        "candidate_all_true": {
+          "type": "boolean"
+        }
+      }
+    },
+    "verification_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "I",
+        "E",
+        "R",
+        "comparison_complete",
+        "M",
+        "generic_runtime_coverage",
+        "expected_job_count",
+        "observed_job_count",
+        "expected_instantiated_step_count",
+        "observed_declared_step_count",
+        "expected_inference_count",
+        "observed_inference_count",
+        "missing_job_occurrence_ids",
+        "missing_step_occurrence_ids",
+        "missing_inference_ids",
+        "resource_axes_observed",
+        "resource_axes_unavailable",
+        "unobserved_reasons",
+        "authority_binding_complete",
+        "decision_closure_complete",
+        "candidate_values"
+      ],
+      "properties": {
+        "I": {
+          "const": "complete"
+        },
+        "E": {
+          "const": "complete"
+        },
+        "R": {
+          "const": "partial"
+        },
+        "comparison_complete": {
+          "const": false
+        },
+        "M": {
+          "const": "unavailable"
+        },
+        "generic_runtime_coverage": {
+          "const": "partial"
+        },
+        "expected_job_count": {
+          "const": 8
+        },
+        "observed_job_count": {
+          "const": 8
+        },
+        "expected_instantiated_step_count": {
+          "const": 145
+        },
+        "observed_declared_step_count": {
+          "const": 145
+        },
+        "expected_inference_count": {
+          "const": 6
+        },
+        "observed_inference_count": {
+          "const": 6
+        },
+        "missing_job_occurrence_ids": {
+          "const": []
+        },
+        "missing_step_occurrence_ids": {
+          "const": []
+        },
+        "missing_inference_ids": {
+          "const": []
+        },
+        "resource_axes_observed": {
+          "const": []
+        },
+        "resource_axes_unavailable": {
+          "const": [
+            "artifact_bytes_uploaded",
+            "cpu_seconds",
+            "external_api_calls",
+            "gpu_seconds",
+            "job_wall_seconds",
+            "memory_gb_seconds",
+            "model_input_tokens",
+            "model_output_tokens",
+            "network_bytes_received",
+            "network_bytes_sent",
+            "rerun_count",
+            "retry_count",
+            "runner_wall_seconds",
+            "step_wall_seconds",
+            "storage_bytes_written"
+          ]
+        },
+        "unobserved_reasons": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "direct_child_process_extent_unavailable",
+              "action_internal_operations_unavailable",
+              "package_manager_activity_unavailable",
+              "provider_internal_execution_unavailable",
+              "per_inference_timing_partial",
+              "resource_axis_unavailable"
+            ]
+          }
+        },
+        "authority_binding_complete": {
+          "const": false
+        },
+        "decision_closure_complete": {
+          "const": false
+        },
+        "candidate_values": {
+          "$ref": "#/$defs/candidate_values"
+        }
+      }
+    },
+    "derived_output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "descriptor"
+      ],
+      "properties": {
+        "role": {
+          "enum": [
+            "runtime_observation_packet",
+            "runtime_packet_diagnostic",
+            "compute_binding_report",
+            "binding_report_diagnostic",
+            "planned_observed_relation",
+            "relation_diagnostic",
+            "candidate_materializer_report",
+            "folded_candidate_status",
+            "reconstruction_inventory"
+          ]
+        },
+        "descriptor": {
+          "$ref": "#/$defs/file_descriptor"
+        }
+      }
+    },
+    "runtime_packet_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packet",
+        "diagnostic",
+        "schema_version",
+        "record_status",
+        "coverage_status",
+        "packet_sequence",
+        "previous_packet_sha256",
+        "subject_execution_records",
+        "collector_execution_records",
+        "total_execution_records",
+        "model_inference_records",
+        "resource_measurement_records"
+      ],
+      "properties": {
+        "packet": {
+          "$ref": "#/$defs/file_descriptor"
+        },
+        "diagnostic": {
+          "$ref": "#/$defs/file_descriptor"
+        },
+        "schema_version": {
+          "const": "pulsemech_compute_runtime_observation_packet_v0"
+        },
+        "record_status": {
+          "enum": [
+            "example",
+            "observed"
+          ]
+        },
+        "coverage_status": {
+          "const": "partial"
+        },
+        "packet_sequence": {
+          "const": 0
+        },
+        "previous_packet_sha256": {
+          "type": "null"
+        },
+        "subject_execution_records": {
+          "const": 153
+        },
+        "collector_execution_records": {
+          "const": 1
+        },
+        "total_execution_records": {
+          "const": 154
+        },
+        "model_inference_records": {
+          "const": 6
+        },
+        "resource_measurement_records": {
+          "const": 0
+        }
+      }
+    },
+    "reconstruction_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ordinal",
+        "process_run_key",
+        "process_id",
+        "exit_code",
+        "completed",
+        "output_zip",
+        "inventory_member",
+        "inventory_sha256",
+        "inventory_size_bytes",
+        "dispatched_workflow",
+        "repeated_model_inference",
+        "used_current_time",
+        "used_randomness",
+        "ambient_environment_dependency"
+      ],
+      "properties": {
+        "ordinal": {
+          "enum": [
+            1,
+            2
+          ]
+        },
+        "process_run_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "process_id": {
+          "$ref": "#/$defs/positive_integer"
+        },
+        "exit_code": {
+          "const": 0
+        },
+        "completed": {
+          "const": true
+        },
+        "output_zip": {
+          "$ref": "#/$defs/file_descriptor"
+        },
+        "inventory_member": {
+          "const": "reconstruction_inventory_v0.json"
+        },
+        "inventory_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "inventory_size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8388608
+        },
+        "dispatched_workflow": {
+          "const": false
+        },
+        "repeated_model_inference": {
+          "const": false
+        },
+        "used_current_time": {
+          "const": false
+        },
+        "used_randomness": {
+          "const": false
+        },
+        "ambient_environment_dependency": {
+          "const": false
+        }
+      }
+    },
+    "reconstruction_comparison": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reconstruction_count",
+        "byte_identical",
+        "member_inventory_identical",
+        "common_sha256",
+        "common_size_bytes"
+      ],
+      "properties": {
+        "reconstruction_count": {
+          "const": 2
+        },
+        "byte_identical": {
+          "const": true
+        },
+        "member_inventory_identical": {
+          "const": true
+        },
+        "common_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "common_size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483648
+        }
+      }
+    },
+    "verification_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "record_type",
+        "record_status",
+        "verification_identity",
+        "input_bindings",
+        "subject",
+        "provider",
+        "checks",
+        "result",
+        "runtime_packet_result",
+        "derived_outputs",
+        "reconstructions",
+        "reconstruction_comparison",
+        "privacy_boundary",
+        "trust_boundary",
+        "authority_boundary",
+        "errors",
+        "ok"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "pulsemech_compute_whole_runtime_observation_evidence_v0"
+        },
+        "record_type": {
+          "const": "verification_record"
+        },
+        "record_status": {
+          "enum": [
+            "example",
+            "observed"
+          ]
+        },
+        "verification_identity": {
+          "$ref": "#/$defs/verification_identity"
+        },
+        "input_bindings": {
+          "$ref": "#/$defs/verification_input_bindings"
+        },
+        "subject": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/run_summary"
+            },
+            {
+              "properties": {
+                "workflow_name": {
+                  "const": "PULSE CI"
+                },
+                "workflow_path": {
+                  "const": ".github/workflows/pulse_ci.yml"
+                }
+              }
+            }
+          ]
+        },
+        "provider": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/run_summary"
+            },
+            {
+              "properties": {
+                "workflow_name": {
+                  "const": "PULSEmech compute current-run export candidate"
+                },
+                "workflow_path": {
+                  "const": ".github/workflows/pulsemech_compute_current_run_export_candidate.yml"
+                }
+              }
+            }
+          ]
+        },
+        "checks": {
+          "type": "array",
+          "minItems": 20,
+          "maxItems": 512,
+          "items": {
+            "$ref": "#/$defs/check_row"
+          }
+        },
+        "result": {
+          "$ref": "#/$defs/verification_result"
+        },
+        "runtime_packet_result": {
+          "$ref": "#/$defs/runtime_packet_result"
+        },
+        "derived_outputs": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 9,
+          "items": {
+            "$ref": "#/$defs/derived_output"
+          }
+        },
+        "reconstructions": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/reconstruction_record"
+          }
+        },
+        "reconstruction_comparison": {
+          "$ref": "#/$defs/reconstruction_comparison"
+        },
+        "privacy_boundary": {
+          "$ref": "#/$defs/privacy_boundary"
+        },
+        "trust_boundary": {
+          "$ref": "#/$defs/trust_boundary"
+        },
+        "authority_boundary": {
+          "$ref": "#/$defs/authority_boundary"
+        },
+        "errors": {
+          "const": []
+        },
+        "ok": {
+          "const": true
+        }
+      }
+    }
+  }
+}
