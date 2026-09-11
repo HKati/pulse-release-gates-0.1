@@ -2683,6 +2683,7 @@ are recorded below without rewriting those earlier review results. Step 5B
 closes one finite six-process checker/consumer boundary; it does not make this
 partial historical packet complete. Whole-runtime live/current-run observation,
 resource measurement and policy promotion remain separate; future operational
+current-run capture must precede its authority decision.
 
 ---
 
@@ -3256,9 +3257,6 @@ step5a_affected_direct_script_regressions:
 
 step5a_acceptance_record:
 #2870 / comment 5577131873 / scoped work order closed as completed
-
-runtime_observed_connected_proof:
-partial historical chain proven; complete actually observed proof not completed
 
 bounded_observed_checker_consumer_step5b:
 implementation, owner dispatch, preservation and independent replay completed
