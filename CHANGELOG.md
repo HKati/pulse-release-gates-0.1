@@ -7,6 +7,51 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Added
+- Record the completed bounded Step 5B observed execution, acquisition, preservation,
+  independent replay and evidence-closure handoff under work order #2875.
+  - Implement the finite non-active checker/result-consumer observation path
+    through PR #2876, merge
+    `c32508f8afb58381225fec0b426b85b00e32fe11`, reusing the existing
+    subject-input producer, immutable bridge, single analyzer core,
+    source-aware report/relation validators and separate candidate
+    materializer.
+  - Preserve the unchanged strict `PULSE_safe_pack_v0/tools/check_gates.py`
+    outcomes across three controlled cases: exit `0` → `ready`, exit `1` →
+    `held`, and exit `2` → `held`, with the two blocking reasons retained
+    distinctly and no consumer-side promotion of BLOCK to ALLOW.
+  - Execute the reviewed manual reference workflow once on `main` as
+    workflow run `34402387728`, run number `1`, attempt `1`, job
+    `102637163024`, artifact `10123984621`, bound to source commit
+    `c32508f8afb58381225fec0b426b85b00e32fe11`.
+  - Preserve the exact acquisition artifact and separate verification
+    evidence through PR #2877, merge
+    `12b42736a9f8a1da16e3659a2d2099058207129b`, under
+    `preservation/compute_bounded_execution_reference_v0/run_34402387728_attempt_1/`.
+  - Independently reproduce the exact preparation carrier, validate the
+    preserved capture against authenticated source objects, and reconstruct
+    the complete 322,567-byte 12-member derived output twice in separate
+    processes with byte-identical results.
+  - Reproduce all ten preserved negative/preservation scenarios at their
+    intended semantic rejection boundaries, including cross-run context,
+    source/input substitution, occurrence/order mismatch, false downstream
+    consumption, BLOCK-to-ready mutation and non-replacing publication.
+  - Establish, only within
+    `six_declared_direct_processes_and_their_bound_io`, complete bounded
+    packet integrity, observation extent and relational coverage, with
+    `comparison_complete = true`: six expectations, six observations, six
+    decisive relations and zero unresolved relations.
+  - Keep the whole runtime packet `partial`, retain the projection collector
+    as a partial collector rather than a seventh fully observed subject
+    process, and keep resource coverage `unavailable`.
+  - The three non-active compute candidate values are true for this bounded
+    reference, while the differently scoped generic runtime-report fields
+    `authority_binding_complete` and `decision_closure_complete` remain
+    false.
+  - Preserve `authority_effect = none`,
+    `same_run_release_authority_eligible = false` and
+    `active_gate_eligible = false`. No resource measurement, compute budget,
+    deployment admission, active compute gate, full Step 5 completion or
+    Step 6/7 completion is introduced.
 - Add the bounded Step 5A runtime-bound report and relation path through
   PR #2872, merge `5afb4404719fb04d3ee32a007cdbb8b47c220118`, accepted under #2870.
   - Extend the existing immutable subject-input bridge, single analyzer core,
