@@ -1520,12 +1520,12 @@ def test_real_prepare_still_preserves_an_existing_destination(source_fixture, tm
 GENERIC_VALIDATOR = load_module('check_pulsemech_compute_runtime_observation_packet_v0')
 
 
-def runtime_projection_example(source_fixture, *, profile='example'):
+def runtime_projection_inputs(source_fixture, *, profile='example'):
     f = source_fixture
     jobs = example_jobs(f.plan, f.sha)
     member = 'acquisition/subject/jobs-page-0001.json'
     raw = canonical({'total_count': len(jobs), 'jobs': jobs})
-    _, envelope = provider_fixture(f.plan, f.sha)
+    artifacts, envelope = provider_fixture(f.plan, f.sha)
     identity = minimal_capture_identity()
     # The generic example profile uses an inclusive simulated observation
     # window. The observed post-run profile admits earlier subject metadata.
@@ -1533,7 +1533,7 @@ def runtime_projection_example(source_fixture, *, profile='example'):
         identity['capture_started_utc'] = EXAMPLE_START
     manifest = {
         'record_status': profile,
-        'subject': {'run_id': EXAMPLE_SUBJECT_ID, 'run_number': 11,
+        'subject': {'run_id': EXAMPLE_SUBJECT_ID, 'run_number': 11, 'run_attempt': 1,
                     'head_sha': f.sha, 'event': 'workflow_dispatch'},
         'capture_identity': identity,
         'raw_response_bindings': [
@@ -1541,10 +1541,37 @@ def runtime_projection_example(source_fixture, *, profile='example'):
              'descriptor': {'member': member, 'sha256': digest(raw), 'size_bytes': len(raw)}}
         ],
     }
+    members = {member: raw, VERIFIER.CAPTURE_PROVIDER_ENVELOPE_MEMBER: envelope}
+    metadata, bindings = [], []
+    for offset, (role, name_template, relative) in enumerate(ACQUIRER.SUBJECT_TERMINAL_ARTIFACT_TEMPLATES, 1):
+        name, payload = name_template.format(run_id=EXAMPLE_SUBJECT_ID), artifacts[role]
+        identifier, path = 40000 + offset, 'acquisition/' + relative
+        members[path] = payload
+        row = artifact_row(identifier, name, payload, f.sha, EXAMPLE_SUBJECT_ID)
+        metadata.append(row)
+        bindings.append({
+            'artifact_role': 'subject_terminal_artifact', 'source_run_kind': 'subject',
+            'artifact_id': identifier, 'artifact_name': name,
+            'source_run_id': EXAMPLE_SUBJECT_ID, 'source_run_attempt': 1,
+            'created_utc': EXAMPLE_END, 'expires_utc': EXAMPLE_EXPIRY, 'expired': False,
+            'size_bytes': len(payload), 'github_sha256': digest(payload),
+            'exact_bytes_in_capture': True, 'downloaded_member': path,
+            'downloaded_sha256': digest(payload), 'downloaded_size_bytes': len(payload),
+        })
+    page_member = 'acquisition/subject/artifacts-page-0001.json'
+    page_raw = canonical({'total_count': len(metadata), 'artifacts': metadata})
+    members[page_member] = page_raw
+    manifest['raw_response_bindings'].append({'role': 'subject_artifacts_page',
+        'descriptor': {'member': page_member, 'sha256': digest(page_raw), 'size_bytes': len(page_raw)}})
+    manifest['artifact_bindings'] = bindings
+    return manifest, members
+
+
+def runtime_projection_example(source_fixture, *, profile='example'):
+    manifest, members = runtime_projection_inputs(source_fixture, profile=profile)
     return VERIFIER.build_runtime_packet(
-        plan=f.plan, capture_manifest=manifest,
-        capture_members={member: raw, VERIFIER.CAPTURE_PROVIDER_ENVELOPE_MEMBER: envelope},
-        record_status=profile,
+        plan=source_fixture.plan, capture_manifest=manifest,
+        capture_members=members, record_status=profile,
     )
 
 
@@ -2054,6 +2081,265 @@ def test_real_verification_record_rejects_erased_external_extent_before_success_
             capture_manifest={}, reconstruction_members={VERIFIER.RUNTIME_PACKET_MEMBER: canonical(packet)},
             reconstruction_raw=b'', reconstructions=[], schema=EVIDENCE_SCHEMA, record_status='example',
         )
+    assert not destination.exists()
+
+
+# ---------------------------------------------------------------------------
+# Declared state inventory and terminal ZIP binding. These are synthetic
+# projection/negative-acceptance tests, not a successful full Step 5C replay.
+# ---------------------------------------------------------------------------
+STATE_SOURCE_IDS = (
+    'state:step5c:workflow-source', 'state:step5c:gate-policy',
+    'state:step5c:gate-registry', 'state:step5c:threshold-policy',
+    'state:step5c:external-signer-policy', 'state:step5c:llamaguard-dataset',
+)
+STATE_TERMINAL_IDS = (
+    'state:step5c:complete-release-grade-reference-package',
+    'state:step5c:package-completeness-report',
+    'state:step5c:package-verification-report',
+)
+
+
+@pytest.mark.parametrize('profile', ['example', 'observed'])
+def test_declared_state_inventory_preserves_all_requirements_and_honest_gaps(source_fixture, profile):
+    f = source_fixture
+    packet = runtime_projection_example(f, profile=profile)
+    states = {s['state_id']: s for s in packet['state_observations']}
+    templates = {s['state_id']: s for s in f.plan['state_templates']}
+    assert set(states) == set(templates) and len(states) == 57
+    assert Counter(s['content_status'] for s in states.values()) == {
+        'exact_digest': 21, 'unavailable': 36,
+    }
+    assert packet['coverage']['state_records'] == 57
+    assert packet['coverage']['state_digest_capture_status'] == 'partial'
+    assert packet['coverage']['coverage_status'] == 'partial'
+    assert 'post_decision_state_unavailable' in packet['coverage']['unobserved_reasons']
+    for state_id, state in states.items():
+        template = templates[state_id]
+        assert state['authority_bearing'] is template['authority_bearing']
+        assert state['mutation_class'] == template['mutation_class']
+        assert state['subject_run_key'] == packet['subject']['subject_run_key']
+        assert state['release_candidate_id'] == packet['subject']['release_candidate_id']
+        assert state['observer_execution_id'] == packet['observation_boundary']['collector_execution_id']
+        assert state['secret_material_included'] is False
+        if state['content_status'] == 'unavailable':
+            assert state['sha256'] is None and state['size_bytes'] is None
+            assert state['producer_execution_id'] is None
+            assert all(state_id not in e['input_state_ids'] + e['output_state_ids'] for e in packet['executions'])
+    jsonschema.Draft202012Validator(GENERIC_SCHEMA).validate(packet)
+    checks, errors = GENERIC_VALIDATOR.semantic_checks(packet)
+    assert not errors and all(checks.values())
+
+
+@pytest.mark.parametrize('state_id', STATE_SOURCE_IDS)
+def test_declared_source_state_uses_exact_plan_id_path_and_source_binding(source_fixture, state_id):
+    f = source_fixture
+    packet = runtime_projection_example(f)
+    state = next(s for s in packet['state_observations'] if s['state_id'] == state_id)
+    template = next(s for s in f.plan['state_templates'] if s['state_id'] == state_id)
+    source = next(s for s in f.plan['source_inventory'] if s['path'] == template['path_or_uri'])
+    assert state['path_or_uri'] == source['path']
+    assert state['content_status'] == 'exact_digest'
+    assert state['sha256'] == source['sha256'] == digest((f.root / source['path']).read_bytes())
+    assert state['size_bytes'] == source['size_bytes']
+    assert state['producer_execution_id'] is None and state['authority_bearing'] is True
+    # Do not convert expected consumers into proven observed reads.
+    assert all(state_id not in e['input_state_ids'] + e['output_state_ids'] for e in packet['executions'])
+
+
+@pytest.mark.parametrize('case_index', range(6))
+def test_inference_states_keep_declared_production_and_authority_identity(source_fixture, case_index):
+    f = source_fixture; states, _, _, index = inference_projection(f)
+    actual = {s['state_id']: s for s in states}
+    templates = {s['state_id']: s for s in f.plan['state_templates']}
+    inference = f.plan['model_inference_templates'][case_index]
+    for field in ('input_state_id', 'output_state_id'):
+        state = actual[inference[field]]; template = templates[inference[field]]
+        assert state['path_or_uri'] == template['path_or_uri']
+        assert state['state_type'] == 'release_evidence'
+        assert state['authority_bearing'] is True
+        assert state['producer_execution_id'] == template['producer_occurrence_id']
+    assert actual[inference['input_state_id']]['producer_execution_id'] is None
+    assert actual[inference['output_state_id']]['producer_execution_id'] == inference['parent_occurrence_id']
+    assert inference['input_state_id'] in index[inference['parent_occurrence_id']]['input_state_ids']
+    assert inference['output_state_id'] in index[inference['parent_occurrence_id']]['output_state_ids']
+
+
+@pytest.mark.parametrize('state_id', STATE_TERMINAL_IDS)
+def test_terminal_state_binds_captured_archive_without_inventing_producer_or_read(source_fixture, state_id):
+    f = source_fixture; manifest, members = runtime_projection_inputs(f)
+    before = dict(members)
+    packet = VERIFIER.build_runtime_packet(plan=f.plan, capture_manifest=manifest,
+        capture_members=members, record_status='example')
+    state = next(s for s in packet['state_observations'] if s['state_id'] == state_id)
+    name = state['path_or_uri'].removeprefix('artifact://')
+    binding = next(b for b in manifest['artifact_bindings'] if b['artifact_name'] == name)
+    assert state['sha256'] == binding['github_sha256'] == digest(members[binding['downloaded_member']])
+    assert state['size_bytes'] == len(members[binding['downloaded_member']])
+    assert state['media_type'] == 'application/zip' and state['content_status'] == 'exact_digest'
+    assert state['producer_execution_id'] is None
+    assert all(state_id not in e['input_state_ids'] + e['output_state_ids'] for e in packet['executions'])
+    assert members == before
+
+
+def test_real_capture_to_declared_state_projection_keeps_capture_bytes_unchanged(source_fixture, acquisition_fixture):
+    f = source_fixture
+    captured = construct_capture(f, acquisition_fixture, 'capture-for-state-projection.zip')
+    before = captured.path.read_bytes()
+    packet = VERIFIER.build_runtime_packet(plan=f.plan, capture_manifest=captured.manifest,
+        capture_members=captured.members, record_status='example')
+    assert len(packet['state_observations']) == 57
+    VERIFIER._require_state_projection(f.plan, packet, captured.manifest, captured.members)
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(f.plan, packet, {})
+    assert captured.path.read_bytes() == before
+
+
+def state_rebind_artifact_page(manifest, members, page, ordinal=1):
+    path = f'acquisition/subject/artifacts-page-{ordinal:04d}.json'
+    raw = canonical(page); members[path] = raw
+    binding = next(b for b in manifest['raw_response_bindings'] if b['descriptor']['member'] == path)
+    binding['descriptor'] = {'member': path, 'sha256': digest(raw), 'size_bytes': len(raw)}
+
+
+@pytest.mark.parametrize('artifact_index', range(3))
+@pytest.mark.parametrize('mutation', [
+    'wrong_run', 'wrong_attempt', 'wrong_artifact_id', 'wrong_name',
+    'wrong_download_member', 'changed_bytes_rehashed_capture_binding',
+    'wrong_size', 'missing_bytes', 'missing_binding', 'duplicate_binding',
+    'wrong_source_revision', 'wrong_branch', 'expired_metadata',
+    'raw_digest_disagrees', 'raw_size_disagrees', 'boolean_attempt',
+])
+def test_terminal_state_rejects_mismatched_capture_metadata_or_exact_bytes(source_fixture, artifact_index, mutation):
+    f=source_fixture; manifest, members=runtime_projection_inputs(f)
+    binding = manifest['artifact_bindings'][artifact_index]
+    page = json.loads(members['acquisition/subject/artifacts-page-0001.json'])
+    raw_row = page['artifacts'][artifact_index]
+    if mutation == 'wrong_run': binding['source_run_id'] += 1
+    elif mutation == 'wrong_attempt': binding['source_run_attempt'] = 2
+    elif mutation == 'wrong_artifact_id': binding['artifact_id'] += 50
+    elif mutation == 'wrong_name': binding['artifact_name'] += '-copy'
+    elif mutation == 'wrong_download_member': binding['downloaded_member'] += '-copy'
+    elif mutation == 'changed_bytes_rehashed_capture_binding':
+        member = binding['downloaded_member']; members[member] += b'changed'
+        binding['github_sha256'] = binding['downloaded_sha256'] = digest(members[member])
+        binding['size_bytes'] = binding['downloaded_size_bytes'] = len(members[member])
+    elif mutation == 'wrong_size': binding['downloaded_size_bytes'] += 1
+    elif mutation == 'missing_bytes': members.pop(binding['downloaded_member'])
+    elif mutation == 'missing_binding': manifest['artifact_bindings'].pop(artifact_index)
+    elif mutation == 'duplicate_binding': manifest['artifact_bindings'].append(copy.deepcopy(binding))
+    elif mutation == 'wrong_source_revision': raw_row['workflow_run']['head_sha'] = 'e' * 40
+    elif mutation == 'wrong_branch': raw_row['workflow_run']['head_branch'] = 'other'
+    elif mutation == 'expired_metadata': raw_row['expired'] = True
+    elif mutation == 'raw_digest_disagrees': raw_row['digest'] = 'sha256:' + 'd' * 64
+    elif mutation == 'raw_size_disagrees': raw_row['size_in_bytes'] += 1
+    else: binding['source_run_attempt'] = True
+    state_rebind_artifact_page(manifest, members, page)
+    with pytest.raises(VERIFIER.VerificationError):
+        VERIFIER.build_runtime_packet(plan=f.plan, capture_manifest=manifest,
+            capture_members=members, record_status='example')
+
+
+@pytest.mark.parametrize('mutation', [
+    'missing_page', 'duplicate_page', 'duplicate_artifact', 'wrong_page_digest',
+    'wrong_total', 'empty_rows', 'boolean_total', 'oversized_total',
+])
+def test_terminal_state_metadata_page_closure_is_fail_closed(source_fixture, mutation):
+    f=source_fixture; manifest, members=runtime_projection_inputs(f)
+    page=json.loads(members['acquisition/subject/artifacts-page-0001.json'])
+    if mutation == 'missing_page': members.pop('acquisition/subject/artifacts-page-0001.json')
+    elif mutation == 'duplicate_page': manifest['raw_response_bindings'].append(copy.deepcopy(manifest['raw_response_bindings'][-1]))
+    elif mutation == 'wrong_page_digest': manifest['raw_response_bindings'][-1]['descriptor']['sha256'] = 'd' * 64
+    else:
+        if mutation == 'duplicate_artifact': page['artifacts'][1]=copy.deepcopy(page['artifacts'][0])
+        elif mutation == 'wrong_total': page['total_count'] += 1
+        elif mutation == 'empty_rows': page['artifacts']=[]
+        elif mutation == 'boolean_total': page['total_count']=True
+        else: page['total_count']=257
+        state_rebind_artifact_page(manifest,members,page)
+    with pytest.raises(VERIFIER.VerificationError):
+        VERIFIER.build_runtime_packet(plan=f.plan,capture_manifest=manifest,
+            capture_members=members,record_status='example')
+
+
+def test_terminal_state_accepts_bounded_complete_multiple_pages(source_fixture):
+    f=source_fixture; manifest,members=runtime_projection_inputs(f)
+    page=json.loads(members['acquisition/subject/artifacts-page-0001.json'])
+    values=page['artifacts']
+    state_rebind_artifact_page(manifest,members,{'total_count':3,'artifacts':values[:1]})
+    second='acquisition/subject/artifacts-page-0002.json'
+    raw=canonical({'total_count':3,'artifacts':values[1:]});members[second]=raw
+    manifest['raw_response_bindings'].append({'role':'subject_artifacts_page',
+        'descriptor':{'member':second,'sha256':digest(raw),'size_bytes':len(raw)}})
+    packet=VERIFIER.build_runtime_packet(plan=f.plan,capture_manifest=manifest,capture_members=members,record_status='example')
+    assert len(packet['state_observations']) == 57
+
+
+@pytest.mark.parametrize('mutation', [
+    'delete_state_and_count','invent_digest','invent_producer','invent_consumer',
+    'wrong_source_digest','wrong_path','wrong_authority_flag','wrong_mutation_class',
+    'wrong_run','wrong_candidate','boolean_count','promote_digest_coverage',
+])
+def test_state_projection_guard_rejects_erasure_and_unsupported_promotions(source_fixture, mutation):
+    f=source_fixture; manifest,members=runtime_projection_inputs(f)
+    packet=runtime_projection_example(f)
+    missing=next(s for s in packet['state_observations'] if s['content_status']=='unavailable')
+    if mutation=='delete_state_and_count':
+        packet['state_observations'].remove(missing);packet['coverage']['state_records']-=1
+    elif mutation=='invent_digest':
+        missing.update(content_status='exact_digest',sha256='a'*64,size_bytes=5)
+    elif mutation=='invent_producer': missing['producer_execution_id']=packet['executions'][0]['execution_id']
+    elif mutation=='invent_consumer':
+        # Consumption is a separate obligation: this mutation must also be
+        # rejected without turning declared expected reads into observations.
+        packet['executions'][0]['input_state_ids'].append(missing['state_id'])
+    elif mutation=='wrong_source_digest': next(s for s in packet['state_observations'] if s['state_id']==STATE_SOURCE_IDS[0])['sha256']='b'*64
+    elif mutation=='wrong_path': missing['path_or_uri']='other/path'
+    elif mutation=='wrong_authority_flag': missing['authority_bearing']=not missing['authority_bearing']
+    elif mutation=='wrong_mutation_class': missing['mutation_class']='preservation_output'
+    elif mutation=='wrong_run': missing['subject_run_key']='other-run'
+    elif mutation=='wrong_candidate': missing['release_candidate_id']='other-candidate'
+    elif mutation=='boolean_count': packet['coverage']['state_records']=True
+    else: packet['coverage']['state_digest_capture_status']='complete'
+    with pytest.raises(VERIFIER.VerificationError):
+        VERIFIER._require_state_projection(f.plan,packet,manifest,members)
+
+
+def test_state_projection_guard_accepts_exact_partial_projection_without_mutation(source_fixture):
+    f=source_fixture;manifest,members=runtime_projection_inputs(f);packet=runtime_projection_example(f)
+    before=copy.deepcopy(packet)
+    VERIFIER._require_state_projection(f.plan,packet,manifest,members)
+    assert packet==before
+
+
+def test_state_completion_rejects_even_with_available_downstream_output_bytes(source_fixture):
+    f=source_fixture;packet=runtime_projection_example(f)
+    # Stand-ins only on a rejection path; these are NOT valid replay outputs.
+    outputs={name:b'example rejection-only output\n' for name in VERIFIER.DERIVED_STATE_MEMBERS.values()}
+    outputs[VERIFIER.RUNTIME_PACKET_MEMBER]=canonical(packet)
+    with pytest.raises(VERIFIER.VerificationError,match='declared_state_evidence_incomplete') as caught:
+        VERIFIER._require_declared_state_completion(f.plan,packet,outputs)
+    missing=set(caught.value.detail.split(','))
+    assert 'state:step5c:final-status' in missing
+    assert set(STATE_TERMINAL_IDS) <= missing  # exact ZIP bytes do not prove the producing step
+    assert not set(VERIFIER.DERIVED_STATE_MEMBERS) & missing
+
+
+def test_real_verification_record_cannot_publish_complete_state_extent_from_partial_packet(source_fixture,tmp_path):
+    f=source_fixture;manifest,members=runtime_projection_inputs(f);packet=runtime_projection_example(f)
+    prepared=VERIFIER.deterministic_zip_bytes(prepared_fixture_members(f),
+        maximum_members=VERIFIER.MAX_PREPARED_MEMBERS,maximum_bytes=VERIFIER.MAX_PREPARED_BYTES)
+    capture_members={**members,VERIFIER.CAPTURE_MANIFEST_MEMBER:canonical(manifest)}
+    capture=VERIFIER.deterministic_zip_bytes(capture_members,
+        maximum_members=VERIFIER.MAX_CAPTURE_MEMBERS,maximum_bytes=VERIFIER.MAX_CAPTURE_BYTES)
+    destination=tmp_path/'must-not-exist'
+    with pytest.raises(VERIFIER.VerificationError,match='declared_state_evidence_incomplete'):
+        VERIFIER._verification_record(root=f.root,source_commit=f.sha,
+            prepared_path=destination,prepared_raw=prepared,capture_path=destination,capture_raw=capture,
+            expected_context_path=destination,expected_context_raw=b'',expected_digest_path=destination,
+            expected_digest_raw=b'',capture_manifest=manifest,
+            reconstruction_members={VERIFIER.RUNTIME_PACKET_MEMBER:canonical(packet)},
+            reconstruction_raw=b'',reconstructions=[],schema=EVIDENCE_SCHEMA,record_status='example')
     assert not destination.exists()
 
 

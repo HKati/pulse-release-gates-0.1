@@ -1439,6 +1439,13 @@ def _collector_record(plan: Mapping[str, Any], capture_manifest: Mapping[str, An
 
 def _generic_state_type(value: str) -> str:
     mapping = {
+        "release_evidence": "release_evidence",
+        "manifest": "manifest",
+        "carrier": "package",
+        "expectation": "manifest",
+        "subject_input_packet": "manifest",
+        "runtime_observation_packet": "manifest",
+        "diagnostic": "verifier_report",
         "workflow_source": "workflow_source",
         "policy": "policy",
         "gate_registry": "gate_registry",
@@ -1472,6 +1479,273 @@ def _generic_state_type(value: str) -> str:
         "step3f_subject_input": "manifest",
     }
     return mapping.get(value, "other")
+
+
+# Exact state identities come from the independently checked prelaunch plan.
+# A declaration is not evidence that a consumer actually read a state.
+SOURCE_STATE_SPECS = {
+    "state:step5c:workflow-source": ("workflow_source", SUBJECT_WORKFLOW_PATH),
+    "state:step5c:gate-policy": ("policy", POLICY_PATH),
+    "state:step5c:gate-registry": ("gate_registry", REGISTRY_PATH),
+    "state:step5c:threshold-policy": ("threshold_policy", THRESHOLD_POLICY_PATH),
+    "state:step5c:external-signer-policy": ("external_signer_policy", EXTERNAL_SIGNER_POLICY_PATH),
+    "state:step5c:llamaguard-dataset": (
+        "release_evidence", "PULSE_safe_pack_v0/examples/llamaguard_current_run_cases_v0.jsonl"
+    ),
+}
+TERMINAL_STATE_MEMBERS = {
+    "state:step5c:complete-release-grade-reference-package":
+        "acquisition/subject/artifacts/complete-release-grade-reference-package.zip",
+    "state:step5c:package-completeness-report":
+        "acquisition/subject/artifacts/release-grade-package-completeness.zip",
+    "state:step5c:package-verification-report":
+        "acquisition/subject/artifacts/release-grade-reference-package-verification.zip",
+}
+# These outputs are checked outside the packet. Hashing the packet or its
+# downstream report inside the same packet would introduce a hash cycle.
+DERIVED_STATE_MEMBERS = {
+    "state:step5c:runtime-observation-packet": RUNTIME_PACKET_MEMBER,
+    "state:step5c:runtime-observation-diagnostic": RUNTIME_DIAGNOSTIC_MEMBER,
+    "state:step5c:compute-binding-report": BINDING_REPORT_MEMBER,
+    "state:step5c:planned-observed-relation": RELATION_MEMBER,
+    "state:step5c:folded-non-active-candidate-status": FOLDED_STATUS_MEMBER,
+}
+
+
+def _planned_state_templates(plan: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
+    rows = plan.get("state_templates")
+    require(isinstance(rows, list) and bool(rows), "state_plan_missing", stage="state")
+    result: dict[str, Mapping[str, Any]] = {}
+    for row in rows:
+        require(isinstance(row, dict), "state_template_invalid", stage="state")
+        state_id = row.get("state_id")
+        require(isinstance(state_id, str) and state_id.startswith("state:step5c:")
+                and state_id not in result, "state_template_identity_conflict", stage="state")
+        require(type(row.get("required")) is bool and type(row.get("authority_bearing")) is bool,
+                "state_template_invalid", state_id, stage="state")
+        result[state_id] = row
+    return result
+
+
+def _state_record(
+    template: Mapping[str, Any], *, subject_run_key: str, release_candidate: str,
+    observed_time: str, raw: bytes | None = None, source: Mapping[str, Any] | None = None,
+    producer: str | None = None, media_type: str | None = None,
+    schema_identity: str | None = None, path_or_uri: str | None = None,
+) -> dict[str, Any]:
+    require(not (raw is not None and source is not None), "state_content_source_ambiguous", stage="state")
+    if raw is not None:
+        sha, size = sha256_bytes(raw), len(raw)
+    elif source is not None:
+        sha = canonical_sha256(source.get("sha256"), label="state_source_sha256")
+        size = source.get("size_bytes")
+        require(type(size) is int and size >= 0, "state_source_size_invalid", stage="state")
+    else:
+        sha, size = None, None
+    return {
+        "state_id": template["state_id"],
+        "state_type": _generic_state_type(template["state_type"]),
+        "path_or_uri": path_or_uri if path_or_uri is not None else template["path_or_uri"],
+        "content_status": "exact_digest" if sha is not None else "unavailable",
+        "sha256": sha, "size_bytes": size, "media_type": media_type,
+        "schema_identity": schema_identity, "producer_execution_id": producer,
+        "observer_execution_id": "execution:step5c:collector:post-run-platform-export",
+        "subject_run_key": subject_run_key, "release_candidate_id": release_candidate,
+        "authority_bearing": template["authority_bearing"],
+        "mutation_class": template["mutation_class"], "observed_at_utc": observed_time,
+        "secret_material_included": False,
+    }
+
+
+def _terminal_artifact_states(
+    plan: Mapping[str, Any], capture_manifest: Mapping[str, Any],
+    capture_members: Mapping[str, bytes], subject_run_key: str, release_candidate: str,
+) -> list[dict[str, Any]]:
+    """Observe exact downloaded ZIP bytes, not an unobserved filesystem state.
+
+    Raw platform metadata, the capture binding and actual bytes must agree.
+    No source-step producer or downstream-consumption claim is invented from
+    the artifact name or the prelaunch declaration alone.
+    """
+    templates = _planned_state_templates(plan)
+    subject = capture_manifest["subject"]
+    run_id = positive_int(subject.get("run_id"), label="state_subject_run_id")
+    require(type(subject.get("run_attempt")) is int and subject["run_attempt"] == 1
+            and subject.get("head_sha") == plan["plan_identity"]["source_commit"],
+            "state_artifact_subject_mismatch", stage="state")
+    bindings = capture_manifest.get("raw_response_bindings")
+    require(isinstance(bindings, list), "state_artifact_pages_missing", stage="state")
+    pages = [row for row in bindings if isinstance(row, dict) and row.get("role") == "subject_artifacts_page"]
+    maximum = min(256, positive_int(plan["finite_limits"].get("max_artifacts"), label="max_artifacts"))
+    require(0 < len(pages) <= (maximum // 100) + 2, "state_artifact_pages_invalid", stage="state")
+    metadata: dict[int, Mapping[str, Any]] = {}
+    expected_total: int | None = None
+    for ordinal, row in enumerate(pages, 1):
+        desc = row.get("descriptor")
+        require(isinstance(desc, dict), "state_artifact_page_binding_invalid", stage="state")
+        member = f"acquisition/subject/artifacts-page-{ordinal:04d}.json"
+        raw = capture_members.get(member)
+        require(isinstance(raw, bytes) and type(desc.get("size_bytes")) is int
+                and desc == descriptor(member, raw), "state_artifact_page_binding_mismatch", member, stage="state")
+        page = parse_json_bytes(raw, label="state_artifact_page", canonical=False,
+                                maximum=min(16 * 1024 * 1024, plan["finite_limits"]["max_api_json_bytes"]))
+        total, values = page.get("total_count"), page.get("artifacts")
+        require(type(total) is int and 0 < total <= maximum and isinstance(values, list),
+                "state_artifact_page_invalid", stage="state")
+        if expected_total is None:
+            expected_total = total
+        require(total == expected_total and 0 < len(values) <= 100,
+                "state_artifact_page_extent_mismatch", stage="state")
+        for value in values:
+            require(isinstance(value, dict), "state_artifact_row_invalid", stage="state")
+            identifier = positive_int(value.get("id"), label="state_artifact_id")
+            require(identifier not in metadata, "state_artifact_identity_conflict", stage="state")
+            metadata[identifier] = value
+    require(len(metadata) == expected_total, "state_artifact_page_extent_mismatch", stage="state")
+    rows = capture_manifest.get("artifact_bindings")
+    require(isinstance(rows, list), "state_artifact_bindings_missing", stage="state")
+    selected = [row for row in rows if isinstance(row, dict) and row.get("artifact_role") == "subject_terminal_artifact"]
+    require(len(selected) == len(TERMINAL_STATE_MEMBERS), "state_terminal_artifact_extent_mismatch", stage="state")
+    result: list[dict[str, Any]] = []
+    used: set[int] = set()
+    for state_id, member in TERMINAL_STATE_MEMBERS.items():
+        template = templates.get(state_id)
+        require(template is not None, "state_terminal_template_missing", state_id, stage="state")
+        uri = template["path_or_uri"].replace("{workflow_run_id}", str(run_id))
+        require(uri.startswith("artifact://"), "state_terminal_template_invalid", state_id, stage="state")
+        name = uri[len("artifact://"):]
+        matching = [row for row in selected if row.get("artifact_name") == name]
+        require(len(matching) == 1, "state_terminal_artifact_identity_mismatch", state_id, stage="state")
+        binding = matching[0]
+        identifier = positive_int(binding.get("artifact_id"), label="state_artifact_id")
+        require(identifier not in used, "state_artifact_identity_conflict", state_id, stage="state")
+        used.add(identifier)
+        source = metadata.get(identifier)
+        require(source is not None and source.get("name") == name
+                and sum(item.get("name") == name for item in metadata.values()) == 1,
+                "state_artifact_metadata_mismatch", state_id, stage="state")
+        workflow_run = source.get("workflow_run")
+        require(binding.get("source_run_kind") == "subject"
+                and type(binding.get("source_run_id")) is int and binding["source_run_id"] == run_id
+                and type(binding.get("source_run_attempt")) is int and binding["source_run_attempt"] == 1
+                and isinstance(workflow_run, dict) and type(workflow_run.get("id")) is int
+                and workflow_run["id"] == run_id and workflow_run.get("head_sha") == subject["head_sha"]
+                and workflow_run.get("head_branch") == "main",
+                "state_artifact_run_binding_mismatch", state_id, stage="state")
+        raw = capture_members.get(member)
+        require(isinstance(raw, bytes) and binding.get("downloaded_member") == member
+                and binding.get("exact_bytes_in_capture") is True,
+                "state_artifact_bytes_missing", state_id, stage="state")
+        actual_sha = sha256_bytes(raw)
+        require(source.get("digest") == "sha256:" + actual_sha
+                and binding.get("github_sha256") == binding.get("downloaded_sha256") == actual_sha
+                and type(source.get("size_in_bytes")) is int
+                and type(binding.get("size_bytes")) is int and type(binding.get("downloaded_size_bytes")) is int
+                and source["size_in_bytes"] == binding["size_bytes"] == binding["downloaded_size_bytes"] == len(raw)
+                and 0 < len(raw) <= min(805306368, plan["finite_limits"]["max_single_artifact_bytes"]),
+                "state_artifact_bytes_binding_mismatch", state_id, stage="state")
+        require(source.get("expired") is False and binding.get("expired") is False
+                and source.get("created_at") == binding.get("created_utc")
+                and source.get("expires_at") == binding.get("expires_utc"),
+                "state_artifact_retention_mismatch", state_id, stage="state")
+        created = parse_utc(binding["created_utc"], label="state_artifact_created")
+        expires = parse_utc(binding["expires_utc"], label="state_artifact_expires")
+        observed = capture_manifest["capture_identity"]["capture_completed_utc"]
+        require(created < expires and created <= parse_utc(observed, label="state_artifact_observed"),
+                "state_artifact_retention_mismatch", state_id, stage="state")
+        result.append(_state_record(template, subject_run_key=subject_run_key,
+            release_candidate=release_candidate, observed_time=observed, raw=raw,
+            path_or_uri=uri, media_type="application/zip"))
+    return result
+
+
+def _project_declared_states(
+    plan: Mapping[str, Any], capture_manifest: Mapping[str, Any],
+    capture_members: Mapping[str, bytes], observed_states: Sequence[Mapping[str, Any]],
+    subject_run_key: str, release_candidate: str,
+) -> list[dict[str, Any]]:
+    templates = _planned_state_templates(plan)
+    states: dict[str, dict[str, Any]] = {}
+    for row in [*observed_states, *_terminal_artifact_states(
+            plan, capture_manifest, capture_members, subject_run_key, release_candidate)]:
+        state_id = row.get("state_id")
+        require(state_id in templates and state_id not in states, "state_projection_identity_conflict", stage="state")
+        states[state_id] = dict(row)
+    # Preserve unfulfilled declarations instead of dropping them from totals.
+    # An unavailable state has no invented digest, producer or consumer edge.
+    for state_id, template in templates.items():
+        if state_id not in states:
+            states[state_id] = _state_record(template, subject_run_key=subject_run_key,
+                release_candidate=release_candidate,
+                observed_time=capture_manifest["capture_identity"]["capture_completed_utc"])
+    return sorted(states.values(), key=lambda row: row["state_id"])
+
+
+def _require_state_projection(
+    plan: Mapping[str, Any], packet: Mapping[str, Any],
+    capture_manifest: Mapping[str, Any], capture_members: Mapping[str, bytes],
+) -> None:
+    # Re-derive from preserved inputs, not from claimed coverage or verdicts.
+    run_id = positive_int(capture_manifest["subject"].get("run_id"), label="state_subject_run_id")
+    key = f"GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW={SUBJECT_WORKFLOW_NAME}"
+    candidate = f"pulse-ci-current-run:{run_id}:1"
+    require(packet["subject"].get("subject_run_key") == key
+            and packet["subject"].get("release_candidate_id") == candidate,
+            "state_subject_binding_mismatch", stage="state")
+    _, index = _job_and_step_records(plan, _capture_job_rows(capture_members, capture_manifest), key)
+    collector = _collector_record(plan, capture_manifest, key)
+    index[collector["execution_id"]] = collector
+    states, _ = _build_states_and_inferences(plan, index, capture_manifest,
+        capture_members[CAPTURE_PROVIDER_ENVELOPE_MEMBER], key, candidate)
+    expected = _project_declared_states(plan, capture_manifest, capture_members, states, key, candidate)
+    require(canonical_json_bytes(packet.get("state_observations")) == canonical_json_bytes(expected),
+            "state_projection_mismatch", stage="state")
+    executions = packet.get("executions")
+    require(isinstance(executions, list) and all(isinstance(row, dict) for row in executions),
+            "state_execution_binding_mismatch", stage="state")
+    execution_ids = [row.get("execution_id") for row in executions]
+    require(all(isinstance(identifier, str) for identifier in execution_ids)
+            and len(set(execution_ids)) == len(execution_ids)
+            and set(execution_ids) == set(index),
+            "state_execution_binding_mismatch", stage="state")
+    for execution in executions:
+        expected_execution = index[execution["execution_id"]]
+        for field in ("input_state_ids", "output_state_ids"):
+            require(canonical_json_bytes(execution.get(field)) == canonical_json_bytes(expected_execution[field]),
+                    "state_execution_binding_mismatch", execution["execution_id"] + ":" + field, stage="state")
+    coverage = packet.get("coverage", {})
+    status = "complete" if all(row["content_status"] == "exact_digest" for row in expected) else "partial"
+    require(type(coverage.get("state_records")) is int and coverage["state_records"] == len(expected)
+            and coverage.get("state_digest_capture_status") == status,
+            "state_projection_coverage_mismatch", stage="state")
+
+
+def _require_declared_state_completion(
+    plan: Mapping[str, Any], packet: Mapping[str, Any], reconstruction_members: Mapping[str, bytes],
+) -> None:
+    """Fail before E=complete while required state evidence remains unresolved."""
+    templates = _planned_state_templates(plan)
+    rows = packet.get("state_observations")
+    require(isinstance(rows, list) and all(isinstance(row, dict) for row in rows),
+            "state_extent_mismatch", stage="state")
+    states = {row.get("state_id"): row for row in rows}
+    require(len(states) == len(rows) and set(states) == set(templates), "state_extent_mismatch", stage="state")
+    unresolved: list[str] = []
+    for state_id, template in templates.items():
+        if not template["required"]:
+            continue
+        if state_id in DERIVED_STATE_MEMBERS:
+            # Bind actual downstream output bytes outside the self-referential
+            # packet. The enclosing reconstruction inventory checks digests.
+            raw = reconstruction_members.get(DERIVED_STATE_MEMBERS[state_id])
+            if not isinstance(raw, bytes) or not raw:
+                unresolved.append(state_id)
+            continue
+        state = states[state_id]
+        if (state.get("content_status") != "exact_digest"
+                or state.get("producer_execution_id") != template["producer_occurrence_id"]):
+            unresolved.append(state_id)
+    require(not unresolved, "declared_state_evidence_incomplete", ",".join(sorted(unresolved)), stage="state")
 
 
 def _find_model_records(provider_envelope: bytes) -> dict[str, dict[str, Any]]:
@@ -1550,31 +1824,20 @@ def _build_states_and_inferences(
     observed_time = capture_manifest["capture_identity"]["capture_completed_utc"]
     states: dict[str, dict[str, Any]] = {}
 
-    authority_state_specs = [
-        ("state:step5c:authority:workflow", "workflow_source", SUBJECT_WORKFLOW_PATH),
-        ("state:step5c:authority:policy", "policy", POLICY_PATH),
-        ("state:step5c:authority:gate-registry", "gate_registry", REGISTRY_PATH),
-    ]
-    for state_id, state_type, path in authority_state_specs:
-        source = _source_row(plan, path)
-        states[state_id] = {
-            "state_id": state_id,
-            "state_type": state_type,
-            "path_or_uri": path,
-            "content_status": "exact_digest",
-            "sha256": source["sha256"],
-            "size_bytes": source["size_bytes"],
-            "media_type": None,
-            "schema_identity": None,
-            "producer_execution_id": None,
-            "observer_execution_id": collector_id,
-            "subject_run_key": subject_run_key,
-            "release_candidate_id": release_candidate,
-            "authority_bearing": True,
-            "mutation_class": "none",
-            "observed_at_utc": observed_time,
-            "secret_material_included": False,
-        }
+    templates = _planned_state_templates(plan)
+    for state_id, (state_type, path) in SOURCE_STATE_SPECS.items():
+        template = templates.get(state_id)
+        require(template is not None and template.get("state_type") == state_type
+                and template.get("path_or_uri") == path
+                and template.get("producer_occurrence_id") is None
+                and template.get("authority_bearing") is True
+                and template.get("mutation_class") == "none"
+                and template.get("required") is True
+                and template.get("content_requirement") == "exact_digest",
+                "source_state_template_mismatch", state_id, stage="state")
+        states[state_id] = _state_record(template, source=_source_row(plan, path),
+            subject_run_key=subject_run_key, release_candidate=release_candidate,
+            observed_time=observed_time)
 
     raw_rows = _find_model_records(provider_envelope)
     inferences: list[dict[str, Any]] = []
@@ -1593,42 +1856,22 @@ def _build_states_and_inferences(
         output_raw = output_text.encode("utf-8")
         input_state = str(template.get("input_state_id"))
         output_state = str(template.get("output_state_id"))
-        states[input_state] = {
-            "state_id": input_state,
-            "state_type": "model_request_metadata",
-            "path_or_uri": f"llamaguard://case/{case_id}/input",
-            "content_status": "exact_digest",
-            "sha256": sha256_bytes(input_raw),
-            "size_bytes": len(input_raw),
-            "media_type": "text/plain; charset=utf-8",
-            "schema_identity": "llamaguard_controlled_case_input_v0",
-            "producer_execution_id": parent_id,
-            "observer_execution_id": collector_id,
-            "subject_run_key": subject_run_key,
-            "release_candidate_id": release_candidate,
-            "authority_bearing": False,
-            "mutation_class": "none",
-            "observed_at_utc": observed_time,
-            "secret_material_included": False,
-        }
-        states[output_state] = {
-            "state_id": output_state,
-            "state_type": "model_response_metadata",
-            "path_or_uri": f"llamaguard://case/{case_id}/output",
-            "content_status": "exact_digest",
-            "sha256": sha256_bytes(output_raw),
-            "size_bytes": len(output_raw),
-            "media_type": "text/plain; charset=utf-8",
-            "schema_identity": "llamaguard_controlled_case_output_v0",
-            "producer_execution_id": parent_id,
-            "observer_execution_id": collector_id,
-            "subject_run_key": subject_run_key,
-            "release_candidate_id": release_candidate,
-            "authority_bearing": False,
-            "mutation_class": "none",
-            "observed_at_utc": observed_time,
-            "secret_material_included": False,
-        }
+        input_template, output_template = templates.get(input_state), templates.get(output_state)
+        require(input_template is not None and output_template is not None
+                and input_template.get("producer_occurrence_id") is None
+                and output_template.get("producer_occurrence_id") == parent_id,
+                "inference_state_template_mismatch", case_id, stage="state")
+        require(input_state not in states and output_state not in states,
+                "inference_state_identity_conflict", case_id, stage="state")
+        states[input_state] = _state_record(input_template, raw=input_raw,
+            subject_run_key=subject_run_key, release_candidate=release_candidate,
+            observed_time=observed_time, media_type="text/plain; charset=utf-8",
+            schema_identity="llamaguard_controlled_case_input_v0")
+        states[output_state] = _state_record(output_template, raw=output_raw,
+            subject_run_key=subject_run_key, release_candidate=release_candidate,
+            observed_time=observed_time, producer=parent_id,
+            media_type="text/plain; charset=utf-8",
+            schema_identity="llamaguard_controlled_case_output_v0")
         inference_data = row.get("inference") if isinstance(row.get("inference"), dict) else {}
         model = row.get("model")
         require(isinstance(model, dict), "model_identity_mismatch", case_id, stage="runtime")
@@ -1979,6 +2222,8 @@ def build_runtime_packet(
         subject_run_key,
         release_candidate,
     )
+    states = _project_declared_states(plan, capture_manifest, capture_members,
+        states, subject_run_key, release_candidate)
     external_calls = _build_external_call_records(plan, execution_index, subject_run_key)
     for call in external_calls:
         execution_index[call["parent_execution_id"]]["external_call_ids"].append(call["call_id"])
@@ -2099,9 +2344,15 @@ def build_runtime_packet(
             "resource_measurement_records": 0,
             "external_call_capture_status": "partial",
             "model_inference_capture_status": "complete",
-            "state_digest_capture_status": "complete",
+            "state_digest_capture_status": (
+                "complete" if all(row["content_status"] == "exact_digest" for row in states)
+                else "partial"
+            ),
             "missing_execution_ids": [],
-            "unobserved_reasons": GENERIC_UNOBSERVED_REASONS,
+            "unobserved_reasons": sorted(set(GENERIC_UNOBSERVED_REASONS) | (
+                {"post_decision_state_unavailable"}
+                if any(row["content_status"] == "unavailable" for row in states) else set()
+            )),
             "resource_axes_observed": [],
             "resource_axes_unavailable": RESOURCE_AXES,
         },
@@ -2765,6 +3016,7 @@ def _verification_checks(
         "expected_context_bound",
         "expected_plan_digest_bound",
         "external_operation_extent_preserved",
+        "declared_state_extent_complete",
         "generic_runtime_packet_validated",
         "inference_extent_complete",
         "job_extent_complete",
@@ -2793,6 +3045,7 @@ def _verification_checks(
         "step_extent_complete": str(runtime_packet["coverage"]["observed_step_count"]),
         "inference_extent_complete": str(runtime_packet["coverage"]["model_inference_records"]),
         "external_operation_extent_preserved": str(runtime_packet["coverage"]["external_call_records"]),
+        "declared_state_extent_complete": str(runtime_packet["coverage"]["state_records"]),
     }
     return [
         {"check_id": name, "passed": True, "detail": details.get(name)}
@@ -2826,6 +3079,14 @@ def _verification_record(
     )
     plan = parse_json_bytes(prepared_members[PREPARED_PLAN_MEMBER], label="prelaunch_plan")
     _require_external_projection_extent(plan, packet)
+    capture_members = read_canonical_zip_bytes(
+        capture_raw, label="state_capture", maximum_members=MAX_CAPTURE_MEMBERS,
+        maximum_bytes=MAX_CAPTURE_BYTES,
+    )
+    require(capture_members.get(CAPTURE_MANIFEST_MEMBER) == canonical_json_bytes(capture_manifest),
+            "state_capture_manifest_mismatch", stage="state")
+    _require_state_projection(plan, packet, capture_manifest, capture_members)
+    _require_declared_state_completion(plan, packet, reconstruction_members)
     candidate_values = _materializer_candidate_values(
         reconstruction_members[MATERIALIZER_REPORT_MEMBER],
         reconstruction_members[FOLDED_STATUS_MEMBER],
