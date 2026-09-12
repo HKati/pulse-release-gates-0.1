@@ -503,7 +503,7 @@ def test_real_plan_cli_and_independent_checker(source_fixture):
     assert f.diagnostic_doc['plan']['byte_identical_to_independent_reconstruction'] is True
     assert f.diagnostic_doc['plan']['sha256'] == f.plan_digest
     assert f.plan['plan_identity']['source_commit'] == f.sha
-    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 34
+    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 35
 
 
 def test_two_separate_plan_processes_are_byte_identical(source_fixture):
@@ -1361,6 +1361,154 @@ def test_source_contains_no_hidden_live_test_dispatch():
     # explicit example transport. There is no live-transport construction.
     assert not any(isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                    and node.func.attr == 'LiveGitHubTransport' for node in ast.walk(tree))
+
+
+# The verifier calls this existing local proof builder; its workflow is not
+# dispatched. Bind the exact source before observation, in both independent
+# plan implementations, rather than removing the verifier's requirement.
+STEP3G_BASELINE_SOURCE = (
+    'tools/build_pulsemech_compute_current_run_artifact_observed_proof_v0.py'
+)
+STEP3G_BASELINE_ROLE = 'current_run_artifact_observed_proof_builder'
+
+
+def test_existing_baseline_source_is_declared_once_by_both_plan_tools():
+    expected = (STEP3G_BASELINE_ROLE, STEP3G_BASELINE_SOURCE)
+    for tool in (BUILDER, PLAN_CHECKER):
+        assert tool.SOURCE_ROLES.count(expected) == 1
+        assert sum(path == STEP3G_BASELINE_SOURCE for _, path in tool.SOURCE_ROLES) == 1
+        assert len({role for role, _ in tool.SOURCE_ROLES}) == len(tool.SOURCE_ROLES)
+        assert len({path for _, path in tool.SOURCE_ROLES}) == len(tool.SOURCE_ROLES)
+    assert VERIFIER.STEP3G_PROOF_BUILDER_PATH == STEP3G_BASELINE_SOURCE
+
+
+def test_existing_baseline_source_descriptor_matches_exact_git_bytes(source_fixture):
+    f = source_fixture
+    raw = (f.root / STEP3G_BASELINE_SOURCE).read_bytes()
+    rows = [row for row in f.plan['source_inventory'] if row['path'] == STEP3G_BASELINE_SOURCE]
+    assert rows == [{
+        'role': STEP3G_BASELINE_ROLE,
+        'path': STEP3G_BASELINE_SOURCE,
+        'revision': f.sha,
+        'git_blob_sha1': hashlib.sha1(b'blob ' + str(len(raw)).encode('ascii') + b'\x00' + raw).hexdigest(),
+        'sha256': digest(raw),
+        'size_bytes': len(raw),
+        'executable': False,
+    }]
+    assert raw == (ROOT / STEP3G_BASELINE_SOURCE).read_bytes()
+    assert f.diagnostic_doc['checks']['source_inventory_matches_git_objects'] is True
+
+
+@pytest.mark.parametrize('mutation', [
+    'omitted', 'role', 'path', 'revision', 'git_blob_sha1', 'sha256',
+    'size_bytes', 'executable',
+])
+def test_rehashed_baseline_source_descriptor_cannot_bypass_plan_checker(
+    source_fixture, tmp_path, mutation,
+):
+    f = source_fixture
+    plan = copy.deepcopy(f.plan)
+    row = next(row for row in plan['source_inventory'] if row['path'] == STEP3G_BASELINE_SOURCE)
+    if mutation == 'omitted':
+        plan['source_inventory'].remove(row)
+    elif mutation == 'role':
+        row['role'] = 'unreviewed_baseline_role'
+    elif mutation == 'path':
+        row['path'] = 'tools/unreviewed_baseline_proof_v0.py'
+        plan['source_inventory'].sort(key=lambda item: item['path'])
+    elif mutation in ('revision', 'git_blob_sha1'):
+        row[mutation] = '0' * 40
+    elif mutation == 'sha256':
+        row['sha256'] = '0' * 64
+    elif mutation == 'size_bytes':
+        row['size_bytes'] += 1
+    else:
+        row['executable'] = not row['executable']
+    # These mutations remain schema-valid and receive a newly computed external
+    # digest. Rejection must come from independent source reconstruction.
+    jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(plan)
+    raw = canonical(plan)
+    path = tmp_path / 'changed-baseline-source-plan.json'
+    path.write_bytes(raw)
+    result = cli(f.root, TOOL_NAMES[1], [
+        '--repository-root', f.root, '--plan', path,
+        '--expected-source-commit', f.sha,
+        '--expected-plan-sha256', digest(raw),
+        '--expected-record-status', 'example',
+    ])
+    assert result.returncode != 0
+    diagnostic = json.loads(result.stdout or result.stderr)
+    assert diagnostic['ok'] is False
+    assert diagnostic['error_code'] == 'plan_reconstruction_mismatch'
+
+
+def baseline_prepare_args(f, target):
+    return [
+        'prepare', '--repository-root', f.root, '--source-commit', f.sha,
+        '--plan', f.plan_path, '--plan-diagnostic', f.diagnostic,
+        '--expected-plan-sha256', f.plan_digest, '--output', target,
+        '--record-status', 'example',
+    ]
+
+
+def test_two_real_prepares_preserve_the_complete_declared_source_set(
+    source_fixture, tmp_path,
+):
+    f = source_fixture
+    archives = []
+    expected_members = prepared_fixture_members(f)
+    source_member = 'sources/' + STEP3G_BASELINE_SOURCE
+    for ordinal in (1, 2):
+        target = tmp_path / f'prepared-{ordinal}.zip'
+        result = cli(f.root, TOOL_NAMES[4], baseline_prepare_args(f, target))
+        require_cli_success(result)
+        raw = target.read_bytes()
+        diagnostic = json.loads(result.stdout)
+        assert diagnostic['ok'] is True
+        assert diagnostic['record_status'] == 'example'
+        assert diagnostic['output_sha256'] == digest(raw)
+        assert diagnostic['output_size_bytes'] == len(raw)
+        assert diagnostic['member_count'] == len(expected_members) == 40
+        assert diagnostic['authority_boundary'] == VERIFIER.AUTHORITY_BOUNDARY
+        plan, members, stored_raw = read_prepared_example(f, target)
+        assert plan == f.plan and stored_raw == raw
+        assert members == expected_members
+        assert members[source_member] == (f.root / STEP3G_BASELINE_SOURCE).read_bytes()
+        archives.append(raw)
+    assert archives[0] == archives[1]
+
+
+@pytest.mark.parametrize('mutation', ['omitted', 'changed_bytes'])
+def test_prepared_baseline_source_cannot_be_removed_or_substituted(
+    source_fixture, tmp_path, mutation,
+):
+    members = prepared_fixture_members(source_fixture)
+    member = 'sources/' + STEP3G_BASELINE_SOURCE
+    if mutation == 'omitted':
+        members.pop(member)
+        expected_error = 'prepared_source_member_missing'
+    else:
+        members[member] += b'\n# substituted baseline source\n'
+        expected_error = 'prepared_source_identity_mismatch'
+    # Rebuild the archive, including its ZIP CRCs, instead of relying on a
+    # corrupt transport container to trigger rejection.
+    path = tmp_path / 'changed-baseline-source.zip'
+    path.write_bytes(example_zip(members))
+    with pytest.raises(VERIFIER.VerificationError, match=expected_error):
+        read_prepared_example(source_fixture, path)
+
+
+def test_real_prepare_still_preserves_an_existing_destination(source_fixture, tmp_path):
+    f = source_fixture
+    target = tmp_path / 'existing-prepared.zip'
+    original = b'Existing destination must remain unchanged.\n'
+    target.write_bytes(original)
+    result = cli(f.root, TOOL_NAMES[4], baseline_prepare_args(f, target))
+    assert result.returncode != 0
+    diagnostic = json.loads(result.stdout or result.stderr)
+    assert diagnostic['ok'] is False
+    assert diagnostic['error_code'] == 'output_already_exists'
+    assert target.read_bytes() == original
 
 
 class _CompleteProgramGuard:

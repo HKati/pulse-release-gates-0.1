@@ -95,6 +95,9 @@ CURRENT_RUN_SUBJECT_INPUT_BUILDER_PATH = (
 CURRENT_RUN_BUNDLE_LOADER_PATH = (
     "tools/load_pulsemech_compute_current_run_export_candidate_bundle_v0.py"
 )
+CURRENT_RUN_ARTIFACT_PROOF_BUILDER_PATH = (
+    "tools/build_pulsemech_compute_current_run_artifact_observed_proof_v0.py"
+)
 BINDING_BRIDGE_PATH = "tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py"
 ANALYZER_CORE_PATH = "tools/pulsemech_compute_binding_analyzer_core_v0.py"
 BINDING_REPORT_SCHEMA_PATH = "schemas/pulsemech_compute_binding_report_v0.schema.json"
@@ -383,6 +386,7 @@ SOURCE_ROLES = (
     ("current_run_carrier_loader", CURRENT_RUN_CARRIER_LOADER_PATH),
     ("current_run_subject_input_builder", CURRENT_RUN_SUBJECT_INPUT_BUILDER_PATH),
     ("current_run_bundle_loader", CURRENT_RUN_BUNDLE_LOADER_PATH),
+    ("current_run_artifact_observed_proof_builder", CURRENT_RUN_ARTIFACT_PROOF_BUILDER_PATH),
     ("binding_bridge", BINDING_BRIDGE_PATH),
     ("binding_analyzer_core", ANALYZER_CORE_PATH),
     ("binding_report_schema", BINDING_REPORT_SCHEMA_PATH),
