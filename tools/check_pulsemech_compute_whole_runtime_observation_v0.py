@@ -632,6 +632,15 @@ def verify_source_inventory(root: Path, source_commit: str, plan: Mapping[str, A
     return result
 
 
+def parse_source_schema(raw: bytes) -> dict[str, Any]:
+    """Read exact source bytes without imposing generated-record formatting."""
+    schema = parse_json_bytes(raw, label="step5c_schema", canonical=False)
+    # Keep the NFC and supported-value checks that canonical record parsing
+    # supplies, but do not rewrite or compare the Git-bound source formatting.
+    canonical_json_bytes(schema)
+    return schema
+
+
 def validate_schema(schema: Mapping[str, Any], document: Mapping[str, Any], *, label: str) -> None:
     try:
         jsonschema.Draft202012Validator.check_schema(schema)
@@ -880,7 +889,7 @@ def prepare_carrier(
     plan_raw = plan_path.read_bytes()
     diagnostic_raw = diagnostic_path.read_bytes()
     schema_raw, _oid, _exec = git_blob(root, source_commit, SCHEMA_PATH)
-    schema = parse_json_bytes(schema_raw, label="step5c_schema")
+    schema = parse_source_schema(schema_raw)
     plan = validate_plan_and_diagnostic(
         plan_raw=plan_raw,
         diagnostic_raw=diagnostic_raw,
@@ -966,12 +975,44 @@ def read_prepared(path: Path, *, source_commit: str, expected_digest: str, recor
     inventory = source_inventory_map(plan)
     expected_source_members = {PREPARED_SOURCE_PREFIX + path for path in inventory}
     require(expected_source_members.issubset(members), "prepared_source_member_missing", stage="prepared")
+    require(
+        set(members) == required | expected_source_members,
+        "prepared_member_inventory_mismatch",
+        stage="prepared",
+    )
     for path, row in inventory.items():
         source_member = PREPARED_SOURCE_PREFIX + path
         payload = members[source_member]
         require(sha256_bytes(payload) == row.sha256 and len(payload) == row.size_bytes, "prepared_source_identity_mismatch", path, stage="prepared")
     source_record = parse_json_bytes(members[PREPARED_SOURCE_INVENTORY_MEMBER], label="prepared_source_inventory")
-    require(source_record.get("source_commit") == source_commit and source_record.get("members") == plan.get("source_inventory"), "prepared_source_inventory_mismatch", stage="prepared")
+    expected_source_record = {
+        "schema_version": "pulsemech_compute_whole_runtime_observation_prepared_sources_v0",
+        "record_status": record_status,
+        "repository": REPOSITORY,
+        "source_commit": source_commit,
+        "members": plan["source_inventory"],
+        "authority_boundary": AUTHORITY_BOUNDARY,
+        "errors": [],
+        "ok": True,
+    }
+    require(
+        canonical_json_bytes(source_record) == canonical_json_bytes(expected_source_record),
+        "prepared_source_inventory_mismatch",
+        stage="prepared",
+    )
+    dispatch_inputs = parse_json_bytes(
+        members[PREPARED_DISPATCH_INPUTS_MEMBER], label="prepared_dispatch_inputs"
+    )
+    expected_dispatch_inputs = {
+        "subject": plan["subject_dispatch"],
+        "provider": plan["provider_dispatch"],
+        "authority_boundary": AUTHORITY_BOUNDARY,
+    }
+    require(
+        canonical_json_bytes(dispatch_inputs) == canonical_json_bytes(expected_dispatch_inputs),
+        "prepared_dispatch_inputs_mismatch",
+        stage="prepared",
+    )
     return plan, members, raw
 
 
@@ -1073,7 +1114,7 @@ def _capture_job_rows(capture_members: Mapping[str, bytes], manifest: Mapping[st
     members = [
         row.get("descriptor", {}).get("member")
         for row in bindings
-        if isinstance(row, dict) and row.get("response_role") == "subject_jobs_page"
+        if isinstance(row, dict) and row.get("role") == "subject_jobs_page"
     ]
     rows: list[dict[str, Any]] = []
     for member in members:
@@ -2203,7 +2244,7 @@ def reconstruct(
     expected_context_raw = expected_context_path.read_bytes()
     expected_context = _expected_context(expected_context_raw, source_commit=source_commit, expected_plan_sha256=expected_digest, record_status=record_status)
     schema_raw, _oid, _exec = git_blob(root, source_commit, SCHEMA_PATH)
-    schema = parse_json_bytes(schema_raw, label="step5c_schema")
+    schema = parse_source_schema(schema_raw)
     plan, _prepared_members, _prepared_raw = read_prepared(prepared_path, source_commit=source_commit, expected_digest=expected_digest, record_status=record_status, schema=schema)
     verify_source_inventory(root, source_commit, plan)
     capture_manifest, capture_members, _capture_raw = read_capture(
@@ -2655,7 +2696,7 @@ def run_reference(
         expected_digest = canonical_sha256(expected_digest_raw[:-1].decode("ascii"), label="expected_plan_sha256")
         expected_context_raw = expected_context_path.read_bytes()
         schema_raw, _oid, _exec = git_blob(root, source_commit, SCHEMA_PATH)
-        schema = parse_json_bytes(schema_raw, label="step5c_schema")
+        schema = parse_source_schema(schema_raw)
         plan, _prepared_members, prepared_raw = read_prepared(
             prepared_path,
             source_commit=source_commit,

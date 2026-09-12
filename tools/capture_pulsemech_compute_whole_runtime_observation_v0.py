@@ -1782,7 +1782,9 @@ def build_capture(
         expected_row=source_inventory[SCHEMA_PATH],
         maximum=MAX_SCHEMA_BYTES,
     )
-    schema = _json_object(schema_snapshot.path.read_bytes(), label="step5c_evidence_schema", canonical=True)
+    # The schema is exact, verified repository source, not a generated record.
+    # Preserve its original bytes; do not impose record serialization on it.
+    schema = _json_object(schema_snapshot.path.read_bytes(), label="step5c_evidence_schema", canonical=False)
     plan = _plan_contract(
         plan_snapshot=plan_snapshot,
         diagnostic_snapshot=diagnostic_snapshot,

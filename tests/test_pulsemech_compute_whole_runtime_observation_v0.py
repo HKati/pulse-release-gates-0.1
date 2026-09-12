@@ -1258,6 +1258,70 @@ def test_prepared_identity_mutations_reject(source_fixture, tmp_path, mutation):
     with pytest.raises(VERIFIER.VerificationError): read_prepared_example(source_fixture, path)
 
 
+# Source-schema intake is not a relaxation of canonical generated records.
+def test_source_schema_formatting_does_not_change_record_serialization():
+    raw = b'{ "type": "object", "properties": {} }\n'
+    expected = {'type': 'object', 'properties': {}}
+    assert VERIFIER.parse_source_schema(raw) == expected
+    assert CAPTURER._json_object(raw, label='source_schema', canonical=False) == expected
+    with pytest.raises(VERIFIER.VerificationError, match='noncanonical_json'):
+        VERIFIER.parse_json_bytes(raw, label='generated_record')
+    with pytest.raises(CAPTURER.CaptureError, match='noncanonical_json'):
+        CAPTURER._json_object(raw, label='generated_record', canonical=True)
+
+
+@pytest.mark.parametrize('raw', [
+    b'\xef\xbb\xbf{}\n', b'{"type":"object","type":"array"}\n',
+    b'{"maximum":NaN}\n', b'{"maximum":Infinity}\n', b'[]\n',
+    b'{"title":"\xff"}\n', b'{"title":"e\\u0301"}\n',
+])
+def test_source_schema_still_rejects_unsafe_json(raw):
+    with pytest.raises(VERIFIER.VerificationError):
+        VERIFIER.parse_source_schema(raw)
+    with pytest.raises(CAPTURER.CaptureError):
+        CAPTURER._json_object(raw, label='source_schema', canonical=False)
+
+
+@pytest.mark.parametrize('mutation', [
+    'schema_version', 'record_status', 'repository', 'authority_boundary',
+    'errors', 'numeric_ok',
+])
+def test_prepared_source_metadata_cannot_disagree_with_plan(source_fixture, tmp_path, mutation):
+    members = prepared_fixture_members(source_fixture)
+    record = json.loads(members['source-inventory.json'])
+    if mutation == 'schema_version': record['schema_version'] = 'unreviewed_v1'
+    elif mutation == 'record_status': record['record_status'] = 'observed'
+    elif mutation == 'repository': record['repository'] = 'other/repository'
+    elif mutation == 'authority_boundary': record['authority_boundary']['active_gate_eligible'] = True
+    elif mutation == 'errors': record['errors'] = ['unresolved']
+    else: record['ok'] = 1  # Python equality alone must not equate 1 with True.
+    members['source-inventory.json'] = canonical(record)
+    path = tmp_path / 'changed-source-metadata.zip'
+    path.write_bytes(example_zip(members))
+    with pytest.raises(VERIFIER.VerificationError, match='prepared_source_inventory_mismatch'):
+        read_prepared_example(source_fixture, path)
+
+
+def test_prepared_dispatch_still_requires_canonical_record_bytes(source_fixture, tmp_path):
+    members = prepared_fixture_members(source_fixture)
+    doc = json.loads(members['dispatch-inputs.json'])
+    members['dispatch-inputs.json'] = json.dumps(doc, separators=(',', ':')).encode()
+    path = tmp_path / 'noncanonical-dispatch.zip'
+    path.write_bytes(example_zip(members))
+    with pytest.raises(VERIFIER.VerificationError, match='noncanonical_json'):
+        read_prepared_example(source_fixture, path)
+
+
+def test_prepared_schema_bytes_remain_bound_to_source_digest(source_fixture, tmp_path):
+    members = prepared_fixture_members(source_fixture)
+    member = 'sources/' + VERIFIER.SCHEMA_PATH
+    members[member] += b'\n'
+    path = tmp_path / 'changed-schema-source.zip'
+    path.write_bytes(example_zip(members))
+    with pytest.raises(VERIFIER.VerificationError, match='prepared_source_identity_mismatch'):
+        read_prepared_example(source_fixture, path)
+
+
 def test_reconstruction_launcher_uses_two_real_isolated_child_processes(tmp_path):
     # Executable stand-in for PROCESS LAUNCH mechanics only. It is not a fake
     # accepted Step5C reconstruction and is not used by any verifier-validity test.
