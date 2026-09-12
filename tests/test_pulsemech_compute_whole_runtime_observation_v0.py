@@ -1743,6 +1743,320 @@ def test_observed_generation_cannot_exceed_recorded_limit(source_fixture):
         inference_projection(source_fixture, mutate=mutate)
 
 
+# ---------------------------------------------------------------------------
+# Subject external-operation invocation boundaries. These remain synthetic
+# projection tests, not a live acquisition, HTTP trace or full Step 5C replay.
+# ---------------------------------------------------------------------------
+def external_projection_inputs(source_fixture):
+    f = source_fixture
+    key = f'GITHUB_RUN_ID={EXAMPLE_SUBJECT_ID}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI'
+    _, index = VERIFIER._job_and_step_records(f.plan, example_jobs(f.plan, f.sha), key)
+    return copy.deepcopy(f.plan), index, key
+
+
+def external_template_and_step(plan):
+    steps = {s['occurrence_id']: s for j in plan['jobs'] for s in j['steps']}
+    template = next(t for t in plan['external_operation_templates']
+                    if t['owner'] == 'subject' and t['required']
+                    and steps[t['parent_occurrence_id']]['expected_terminal_result'] == 'success'
+                    and steps[t['parent_occurrence_id']]['source']['kind'] == 'github_action')
+    return template, steps[template['parent_occurrence_id']]
+
+
+@pytest.mark.parametrize('profile', ['example', 'observed'])
+def test_external_projection_accounts_for_every_instantiated_subject_template(source_fixture, profile):
+    plan = source_fixture.plan
+    packet = runtime_projection_example(source_fixture, profile=profile)
+    steps = {s['occurrence_id']: s for j in plan['jobs'] for s in j['steps']}
+    templates = plan['external_operation_templates']
+    subject = [t for t in templates if t['owner'] == 'subject']
+    expected = {t['call_id'] for t in subject if steps[t['parent_occurrence_id']]['expected_runtime_presence']}
+    calls = packet['external_calls']
+    assert {c['call_id'] for c in calls} == expected
+    assert len(calls) == len(expected) == 51
+    assert len(subject) == 53 and len(templates) == 64
+    assert Counter(c['result']['outcome'] for c in calls) == {'success': 29, 'skipped': 6, 'unknown': 16}
+    assert packet['coverage']['external_call_records'] == len(calls)
+    assert packet['coverage']['external_call_capture_status'] == 'partial'
+    assert packet['coverage']['coverage_status'] == 'partial'
+    assert len(packet['executions']) == 154 and len(packet['model_inferences']) == 6
+    assert packet['resource_measurements'] == []
+    assert 'external_api_calls' in packet['coverage']['resource_axes_unavailable']
+    assert 'retry_count' in packet['coverage']['resource_axes_unavailable']
+    index = {row['execution_id']: row for row in packet['executions']}
+    for call in calls:
+        parent = index[call['parent_execution_id']]
+        assert parent['execution_scope'] == 'subject'
+        assert parent['external_call_ids'].count(call['call_id']) == 1
+    actual_refs = [v for row in packet['executions'] for v in row['external_call_ids']]
+    assert Counter(actual_refs) == Counter(expected)
+    outside = {t['call_id'] for t in templates if t['owner'] != 'subject'}
+    assert not outside.intersection(actual_refs)
+    collector = next(row for row in packet['executions'] if row['execution_scope'] == 'observation_collector')
+    assert collector['external_call_ids'] == []
+    jsonschema.Draft202012Validator(GENERIC_SCHEMA).validate(packet)
+    checks, errors = GENERIC_VALIDATOR.semantic_checks(packet)
+    assert errors == [] and all(checks.values()), (checks, errors)
+
+
+def test_external_projection_preserves_absence_of_request_bodies_and_exact_call_times(source_fixture):
+    packet = runtime_projection_example(source_fixture)
+    for call in packet['external_calls']:
+        assert call['capture_status'] == 'partial'
+        assert call['request']['method'] == 'OTHER'
+        assert call['request']['authorization_material_included'] is False
+        assert call['request']['cookies_included'] is False
+        assert call['response']['set_cookie_included'] is False
+        assert call['response']['status_code'] is None
+        assert call['provider_request_id_sha256'] is None
+        assert call['service_identity']['endpoint_origin'] is None
+        assert call['service_identity']['api_version'] is None
+        assert call['service_identity']['identity_status'] == 'partial'
+        assert call['timing'] == {'timing_status': 'unknown', 'started_utc': None,
+                                 'completed_utc': None, 'duration_ms': None,
+                                 'timestamp_source': 'unknown', 'duration_source': 'unknown'}
+        assert call['result']['exit_code'] is None
+        assert call['resource_measurement_ids'] == []
+        for side in ('request', 'response'):
+            payload = call[side]['payload']
+            assert payload['body_sha256'] is None and payload['body_size_bytes'] is None
+            assert payload['raw_body_included'] is False and payload['state_ids'] == []
+        if call['result']['outcome'] == 'skipped':
+            assert call['request']['payload']['capture_status'] == 'not_recorded'
+            assert call['response']['payload']['capture_status'] == 'not_recorded'
+            assert call['request']['payload']['metadata_sha256'] is None
+            assert call['response']['payload']['metadata_sha256'] is None
+
+
+def test_external_shell_steps_do_not_supply_successful_individual_call_results(source_fixture):
+    packet = runtime_projection_example(source_fixture)
+    templates = {t['call_id']: t for t in source_fixture.plan['external_operation_templates']}
+    index = {row['execution_id']: row for row in packet['executions']}
+    calls = [c for c in packet['external_calls'] if c['service_identity']['transport'] == 'other']
+    assert len(calls) == 16
+    for call in calls:
+        parent = index[call['parent_execution_id']]
+        assert parent['result']['outcome'] == 'success'
+        assert call['result'] == {'result_status': 'unknown', 'lifecycle_status': 'unknown',
+                                 'outcome': 'unknown', 'exit_code': None}
+        assert call['response']['payload']['capture_status'] == 'not_recorded'
+        assert call['request']['payload']['capture_status'] == templates[call['call_id']]['capture_requirement']
+
+
+def test_external_action_metadata_digests_bind_exact_source_occurrence_and_platform_result(source_fixture):
+    packet = runtime_projection_example(source_fixture)
+    index = {row['execution_id']: row for row in packet['executions']}
+    calls = [c for c in packet['external_calls'] if c['service_identity']['transport'] == 'github_actions'
+             and c['result']['outcome'] == 'success']
+    assert len(calls) == 29
+    for call in calls:
+        parent = index[call['parent_execution_id']]
+        request = {'boundary': 'github_action_invocation', 'call_id': call['call_id'],
+                   'parent_execution_id': parent['execution_id'], 'subject_run_key': call['subject_run_key'],
+                   'source_identity': parent['source_identity'], 'command_identity': parent['command_identity']}
+        response = {'boundary': 'github_action_platform_result', 'call_id': call['call_id'],
+                    'parent_execution_id': parent['execution_id'], 'subject_run_key': call['subject_run_key'],
+                    'job_id': parent['job_id'], 'job_attempt': parent['job_attempt'],
+                    'source_ordinal': parent['step_number'], 'step_name': parent['step_name'],
+                    'platform_result': parent['result']}
+        assert call['request']['payload']['metadata_sha256'] == digest(canonical(request))
+        assert call['response']['payload']['metadata_sha256'] == digest(canonical(response))
+        assert call['request']['payload']['capture_status'] == 'metadata_only'
+        assert call['response']['payload']['capture_status'] == 'metadata_only'
+
+
+@pytest.mark.parametrize('mutation', [
+    'empty_templates', 'missing_template', 'duplicate_template', 'unknown_owner',
+    'owner_changed', 'wrong_parent', 'required_false', 'required_integer',
+    'unknown_operation_class', 'different_action_class', 'exact_capture_without_evidence',
+    'missing_step_reference', 'duplicate_step_reference', 'unmatched_step_reference',
+    'authorization_included', 'cookies_included',
+])
+def test_external_projection_rejects_template_reference_and_visibility_drift(source_fixture, mutation):
+    plan, index, key = external_projection_inputs(source_fixture)
+    template, step = external_template_and_step(plan)
+    identifier = template['call_id']
+    if mutation == 'empty_templates': plan['external_operation_templates'] = []
+    elif mutation == 'missing_template': plan['external_operation_templates'].remove(template)
+    elif mutation == 'duplicate_template': plan['external_operation_templates'].append(copy.deepcopy(template))
+    elif mutation == 'unknown_owner': template['owner'] = 'unknown'
+    elif mutation == 'owner_changed': template['owner'] = 'supervisor'
+    elif mutation == 'wrong_parent': template['parent_occurrence_id'] = 'execution:step5c:collector:post-run-platform-export'
+    elif mutation == 'required_false': template['required'] = False
+    elif mutation == 'required_integer': template['required'] = 1
+    elif mutation == 'unknown_operation_class': template['operation_class'] = 'invented_service'
+    elif mutation == 'different_action_class': template['operation_class'] = 'github_artifact_upload'
+    elif mutation == 'exact_capture_without_evidence': template['capture_requirement'] = 'exact_digest'
+    elif mutation == 'missing_step_reference': step['external_operation_ids'].remove(identifier)
+    elif mutation == 'duplicate_step_reference': step['external_operation_ids'].append(identifier)
+    elif mutation == 'unmatched_step_reference': step['external_operation_ids'].append('call:step5c:undeclared-operation')
+    elif mutation == 'authorization_included': template['authorization_material_included'] = True
+    elif mutation == 'cookies_included': template['cookies_included'] = True
+    old_index = copy.deepcopy(index)
+    with pytest.raises(VERIFIER.VerificationError):
+        VERIFIER._build_external_call_records(plan, index, key)
+    assert index == old_index, 'Failure mutated execution records'
+
+
+@pytest.mark.parametrize('mutation', [
+    'missing', 'collector_scope', 'wrong_kind', 'identity', 'parent_job', 'workflow',
+    'step_name', 'source_ordinal', 'attempt', 'boolean_attempt', 'run_key',
+    'execution_run_key', 'binding_mode', 'source_digest', 'action_pin',
+    'command_digest', 'result', 'fabricated_exit_code',
+])
+def test_external_projection_rejects_wrong_parent_run_source_and_terminal_evidence(source_fixture, mutation):
+    plan, index, key = external_projection_inputs(source_fixture)
+    template, step = external_template_and_step(plan)
+    parent = index[template['parent_occurrence_id']]
+    if mutation == 'missing': index.pop(template['parent_occurrence_id'])
+    elif mutation == 'collector_scope': parent['execution_scope'] = 'observation_collector'
+    elif mutation == 'wrong_kind': parent['execution_kind'] = 'workflow_job'
+    elif mutation == 'identity': parent['execution_id'] += ':other'
+    elif mutation == 'parent_job': parent['parent_execution_id'] += ':other'
+    elif mutation == 'workflow': parent['workflow_name'] = 'Another workflow'
+    elif mutation == 'step_name': parent['step_name'] = 'Another step'
+    elif mutation == 'source_ordinal': parent['step_number'] += 1
+    elif mutation == 'attempt': parent['job_attempt'] = 2
+    elif mutation == 'boolean_attempt': parent['job_attempt'] = True
+    elif mutation == 'run_key': parent['run_binding']['subject_run_key'] = 'another-subject'
+    elif mutation == 'execution_run_key': parent['run_binding']['execution_run_key'] = 'another-execution'
+    elif mutation == 'binding_mode': parent['run_binding']['binding_mode'] = 'post_run_observer'
+    elif mutation == 'source_digest': parent['source_identity']['source_sha256'] = '0' * 64
+    elif mutation == 'action_pin': parent['source_identity']['action_commit_sha'] = '0' * 40
+    elif mutation == 'command_digest': parent['command_identity']['command_sha256'] = '0' * 64
+    elif mutation == 'result': parent['result']['outcome'] = 'failure'
+    elif mutation == 'fabricated_exit_code': parent['result']['exit_code'] = 0
+    with pytest.raises(VERIFIER.VerificationError):
+        VERIFIER._build_external_call_records(plan, index, key)
+
+
+@pytest.mark.parametrize('mutation', ['unexpected_parent', 'parent_job_not_skipped', 'missing_parent_job'])
+def test_external_projection_does_not_invent_uninstantiated_occurrences(source_fixture, mutation):
+    plan, index, key = external_projection_inputs(source_fixture)
+    template = next(t for t in plan['external_operation_templates'] if t['owner'] == 'subject' and t['required'] is False)
+    parent_id = template['parent_occurrence_id']
+    job = next(j for j in plan['jobs'] if any(s['occurrence_id'] == parent_id for s in j['steps']))
+    if mutation == 'unexpected_parent': index[parent_id] = {'execution_id': parent_id}
+    elif mutation == 'parent_job_not_skipped': index[job['occurrence_id']]['result']['outcome'] = 'success'
+    elif mutation == 'missing_parent_job': index.pop(job['occurrence_id'])
+    with pytest.raises(VERIFIER.VerificationError):
+        VERIFIER._build_external_call_records(plan, index, key)
+
+
+def test_external_projection_is_deterministic_and_does_not_mutate_its_inputs(source_fixture):
+    plan, index, key = external_projection_inputs(source_fixture)
+    before_plan, before_index = copy.deepcopy(plan), copy.deepcopy(index)
+    first = VERIFIER._build_external_call_records(plan, index, key)
+    second = VERIFIER._build_external_call_records(plan, index, key)
+    assert canonical(first) == canonical(second)
+    assert plan == before_plan and index == before_index
+    assert [c['call_id'] for c in first] == sorted(c['call_id'] for c in first)
+    assert canonical(runtime_projection_example(source_fixture)) == canonical(runtime_projection_example(source_fixture))
+
+
+@pytest.mark.parametrize('mutation', ['omit_both', 'change_class', 'change_visibility', 'change_parent_and_reference'])
+def test_rehashed_external_plan_changes_reject_through_real_independent_plan_checker(source_fixture, tmp_path, mutation):
+    f = source_fixture
+    plan = copy.deepcopy(f.plan)
+    template, step = external_template_and_step(plan)
+    if mutation == 'omit_both':
+        step['external_operation_ids'].remove(template['call_id'])
+        plan['external_operation_templates'].remove(template)
+    elif mutation == 'change_class': template['operation_class'] = 'github_artifact_upload'
+    elif mutation == 'change_visibility': template['capture_requirement'] = 'not_recorded'
+    elif mutation == 'change_parent_and_reference':
+        other = next(s for j in plan['jobs'] for s in j['steps'] if s['occurrence_id'] != step['occurrence_id'])
+        step['external_operation_ids'].remove(template['call_id'])
+        other['external_operation_ids'].append(template['call_id'])
+        other['external_operation_ids'].sort()
+        template['parent_occurrence_id'] = other['occurrence_id']
+    path = tmp_path / 'rehashed-external-plan.json'
+    path.write_bytes(canonical(plan))
+    result = cli(f.root, TOOL_NAMES[1], ['--repository-root', f.root, '--plan', path,
+                 '--expected-source-commit', f.sha, '--expected-plan-sha256', digest(path.read_bytes()),
+                 '--expected-record-status', 'example'])
+    assert result.returncode != 0, 'Rehashing cannot change the independently reconstructed operation graph'
+    diagnostic = json.loads(result.stdout or result.stderr)
+    assert diagnostic['ok'] is False and diagnostic['errors']
+
+
+@pytest.mark.parametrize('mutation', ['delete_record', 'duplicate_record', 'wrong_parent', 'wrong_run', 'missing_reverse_reference'])
+def test_generic_validator_rejects_external_record_binding_damage(source_fixture, mutation):
+    packet = runtime_projection_example(source_fixture)
+    call = packet['external_calls'][0]
+    parent = next(e for e in packet['executions'] if e['execution_id'] == call['parent_execution_id'])
+    if mutation == 'delete_record': packet['external_calls'].pop(0)
+    elif mutation == 'duplicate_record': packet['external_calls'].insert(0, copy.deepcopy(call))
+    elif mutation == 'wrong_parent': call['parent_execution_id'] = packet['observation_boundary']['collector_execution_id']
+    elif mutation == 'wrong_run': call['subject_run_key'] = 'another-run'
+    elif mutation == 'missing_reverse_reference': parent['external_call_ids'].remove(call['call_id'])
+    _, errors = GENERIC_VALIDATOR.semantic_checks(packet)
+    assert errors, 'External relation corruption must not remain valid'
+
+
+def test_external_verdict_guard_accepts_the_declared_partial_invocation_projection(source_fixture):
+    packet = runtime_projection_example(source_fixture)
+    original = copy.deepcopy(packet)
+    VERIFIER._require_external_projection_extent(source_fixture.plan, packet)
+    assert packet == original
+
+
+@pytest.mark.parametrize('mutation', [
+    'erase_call_reference_and_count', 'erase_all_calls_references_and_count',
+    'change_service', 'invent_http_status', 'invent_call_time', 'promote_capture_complete',
+    'boolean_record_count',
+])
+def test_external_verdict_guard_rejects_self_consistent_erasure_or_strength_inflation(source_fixture, mutation):
+    packet = runtime_projection_example(source_fixture)
+    if mutation == 'erase_call_reference_and_count':
+        call = packet['external_calls'].pop(0)
+        parent = next(e for e in packet['executions'] if e['execution_id'] == call['parent_execution_id'])
+        parent['external_call_ids'].remove(call['call_id'])
+        packet['coverage']['external_call_records'] -= 1
+    elif mutation == 'erase_all_calls_references_and_count':
+        packet['external_calls'] = []
+        for row in packet['executions']: row['external_call_ids'] = []
+        packet['coverage']['external_call_records'] = 0
+        packet['coverage']['external_call_capture_status'] = 'none'
+    elif mutation == 'change_service': packet['external_calls'][0]['service_identity']['provider'] = 'another-provider'
+    elif mutation == 'invent_http_status': packet['external_calls'][0]['response']['status_code'] = 200
+    elif mutation == 'invent_call_time':
+        parent_id = packet['external_calls'][0]['parent_execution_id']
+        parent = next(e for e in packet['executions'] if e['execution_id'] == parent_id)
+        packet['external_calls'][0]['timing'] = copy.deepcopy(parent['timing'])
+    elif mutation == 'promote_capture_complete': packet['coverage']['external_call_capture_status'] = 'complete'
+    elif mutation == 'boolean_record_count': packet['coverage']['external_call_records'] = True
+    with pytest.raises(VERIFIER.VerificationError):
+        VERIFIER._require_external_projection_extent(source_fixture.plan, packet)
+
+
+def test_real_verification_record_rejects_erased_external_extent_before_success_record(source_fixture, tmp_path):
+    f = source_fixture
+    packet = runtime_projection_example(f)
+    packet['external_calls'] = []
+    for row in packet['executions']: row['external_call_ids'] = []
+    packet['coverage']['external_call_records'] = 0
+    packet['coverage']['external_call_capture_status'] = 'none'
+    # Generic internal consistency is not a prelaunch extent proof.
+    jsonschema.Draft202012Validator(GENERIC_SCHEMA).validate(packet)
+    checks, errors = GENERIC_VALIDATOR.semantic_checks(packet)
+    assert not errors and all(checks.values())
+    prepared = VERIFIER.deterministic_zip_bytes(
+        prepared_fixture_members(f), maximum_members=VERIFIER.MAX_PREPARED_MEMBERS,
+        maximum_bytes=VERIFIER.MAX_PREPARED_BYTES,
+    )
+    destination = tmp_path / 'must-not-exist'
+    with pytest.raises(VERIFIER.VerificationError, match='external_operation_extent_mismatch'):
+        VERIFIER._verification_record(
+            root=f.root, source_commit=f.sha, prepared_path=destination, prepared_raw=prepared,
+            capture_path=destination, capture_raw=b'', expected_context_path=destination,
+            expected_context_raw=b'', expected_digest_path=destination, expected_digest_raw=b'',
+            capture_manifest={}, reconstruction_members={VERIFIER.RUNTIME_PACKET_MEMBER: canonical(packet)},
+            reconstruction_raw=b'', reconstructions=[], schema=EVIDENCE_SCHEMA, record_status='example',
+        )
+    assert not destination.exists()
+
+
 class _CompleteProgramGuard:
     """Direct-script CI execution must collect and finish the complete program."""
     def __init__(self):

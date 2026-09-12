@@ -1700,6 +1700,256 @@ def _build_states_and_inferences(
     return sorted(states.values(), key=lambda row: row["state_id"]), sorted(inferences, key=lambda row: row["inference_id"])
 
 
+def _external_payload(metadata: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    # A metadata digest binds the explicitly labelled invocation observation,
+    # never fabricated request/response bodies or their sizes.
+    return {
+        "capture_status": "not_recorded" if metadata is None else "metadata_only",
+        "metadata_sha256": None if metadata is None else sha256_bytes(canonical_json_bytes(metadata)),
+        "body_sha256": None,
+        "body_size_bytes": None,
+        "state_ids": [],
+        "raw_body_included": False,
+    }
+
+
+def _build_external_call_records(
+    plan: Mapping[str, Any],
+    execution_index: Mapping[str, Mapping[str, Any]],
+    subject_run_key: str,
+) -> list[dict[str, Any]]:
+    """Project the validated plan's subject invocation boundaries, not HTTP traffic.
+
+    This is called only after independent plan/capture checks and job/step
+    reconstruction. A GitHub Action step supplies action-invocation metadata.
+    A shell block supplies its source descriptor and enclosing platform step,
+    not proof that each nested operation executed. Conditional skips are
+    explicit skipped records; templates beneath an uninstantiated job produce
+    no occurrence. Supervisor/provider operations remain in the outer capture.
+    """
+    templates = plan.get("external_operation_templates")
+    require(isinstance(templates, list) and bool(templates),
+            "external_operation_extent_mismatch", stage="runtime")
+    by_id: dict[str, Mapping[str, Any]] = {}
+    for template in templates:
+        require(isinstance(template, dict), "external_operation_template_invalid", stage="runtime")
+        identifier = template.get("call_id")
+        require(isinstance(identifier, str) and identifier.startswith("call:step5c:")
+                and identifier not in by_id,
+                "external_operation_identity_conflict", stage="runtime")
+        require(isinstance(template.get("owner"), str)
+                and template["owner"] in {"subject", "supervisor", "provider"},
+                "external_operation_owner_mismatch", identifier, stage="runtime")
+        require(template.get("authorization_material_included") is False
+                and template.get("cookies_included") is False,
+                "privacy_boundary_violation", identifier, stage="runtime")
+        by_id[identifier] = template
+
+    # Require agreement in both directions. Removing a template while leaving
+    # its step reference, or changing its owner/parent, cannot erase work.
+    linked: dict[str, tuple[Mapping[str, Any], Mapping[str, Any]]] = {}
+    for job in plan.get("jobs", []):
+        for step in job.get("steps", []):
+            identifiers = step.get("external_operation_ids")
+            require(isinstance(identifiers, list), "external_operation_extent_mismatch", stage="runtime")
+            for identifier in identifiers:
+                require(isinstance(identifier, str) and identifier not in linked,
+                        "external_operation_identity_conflict", stage="runtime")
+                linked[identifier] = (job, step)
+    subject_ids = {key for key, value in by_id.items() if value["owner"] == "subject"}
+    require(bool(subject_ids) and subject_ids == set(linked),
+            "external_operation_extent_mismatch", stage="runtime")
+
+    services = {
+        "github_checkout_action": ("GitHub", "checkout"),
+        "github_setup_python_action": ("GitHub", "setup-python"),
+        "github_artifact_upload": ("GitHub", "artifact-upload"),
+        "github_artifact_download": ("GitHub", "artifact-download"),
+        "github_artifact_listing": ("GitHub", "artifact-listing"),
+        "github_run_metadata_retrieval": ("GitHub", "run-metadata"),
+        "github_attestation_action": ("GitHub", "attestation"),
+        "system_package_installation": ("system-package-manager", "package-installation"),
+        "python_package_installation": ("python-package-manager", "package-installation"),
+        "huggingface_model_revision_lookup": ("Hugging Face", "model-revision-lookup"),
+        "huggingface_model_file_acquisition": ("Hugging Face", "model-file-acquisition"),
+        "other": ("unknown", "declared-external-operation"),
+    }
+    action_classes = {
+        "actions/checkout": "github_checkout_action",
+        "actions/setup-python": "github_setup_python_action",
+        "actions/upload-artifact": "github_artifact_upload",
+        "actions/download-artifact": "github_artifact_download",
+    }
+    not_recorded_classes = {
+        "system_package_installation", "python_package_installation",
+        "huggingface_model_file_acquisition",
+    }
+    shell_classes = {
+        "system_package_installation", "python_package_installation",
+        "github_artifact_download", "github_artifact_listing",
+        "github_run_metadata_retrieval", "huggingface_model_revision_lookup",
+        "huggingface_model_file_acquisition",
+    }
+    records: list[dict[str, Any]] = []
+    for identifier in sorted(subject_ids):
+        template = by_id[identifier]
+        job, step = linked[identifier]
+        parent_id = step.get("occurrence_id")
+        present = step.get("expected_runtime_presence")
+        require(type(present) is bool and template.get("required") is present
+                and template.get("parent_occurrence_id") == parent_id,
+                "external_operation_parent_mismatch", identifier, stage="runtime")
+        operation = template.get("operation_class")
+        require(isinstance(operation, str) and operation in services,
+                "external_operation_class_mismatch", identifier, stage="runtime")
+        source = step.get("source")
+        require(isinstance(source, dict) and source.get("kind") in {"github_action", "shell"},
+                "external_operation_source_mismatch", identifier, stage="runtime")
+        is_action = source["kind"] == "github_action"
+        if is_action:
+            action_repo = source.get("action_repository")
+            require(isinstance(action_repo, str), "external_operation_source_mismatch", identifier, stage="runtime")
+            expected_class = ("github_attestation_action" if action_repo.lower().startswith("actions/attest")
+                              else action_classes.get(action_repo.lower(), "other"))
+            require(operation == expected_class and template.get("capture_requirement") == "metadata_only",
+                    "external_operation_class_mismatch", identifier, stage="runtime")
+        else:
+            expected_capture = "not_recorded" if operation in not_recorded_classes else "metadata_only"
+            require(operation in shell_classes and template.get("capture_requirement") == expected_capture,
+                    "external_operation_class_mismatch", identifier, stage="runtime")
+        parent = execution_index.get(parent_id)
+        if not present:
+            parent_job = execution_index.get(job.get("occurrence_id"))
+            require(parent is None and job.get("expected_terminal_result") == "skipped"
+                    and isinstance(parent_job, dict) and parent_job.get("execution_scope") == "subject"
+                    and parent_job.get("result", {}).get("outcome") == "skipped",
+                    "external_operation_uninstantiated_parent_mismatch", identifier, stage="runtime")
+            continue
+        require(isinstance(parent, dict) and parent.get("execution_id") == parent_id
+                and parent.get("execution_kind") == "workflow_step"
+                and parent.get("execution_scope") == "subject"
+                and parent.get("parent_execution_id") == job.get("occurrence_id")
+                and parent.get("workflow_name") == SUBJECT_WORKFLOW_NAME
+                and parent.get("step_name") == step.get("name")
+                and type(parent.get("step_number")) is int
+                and parent["step_number"] == step.get("source_ordinal")
+                and type(parent.get("job_attempt")) is int and parent["job_attempt"] == 1,
+                "external_operation_parent_mismatch", identifier, stage="runtime")
+        require(parent.get("run_binding", {}).get("binding_complete") is True
+                and parent.get("run_binding") == {
+            "subject_run_key": subject_run_key, "execution_run_key": subject_run_key,
+            "binding_mode": "current_subject_run", "binding_complete": True,
+        }, "cross_run_context", identifier, stage="runtime")
+        expected_source = _action_source(source) if is_action else _repository_source(plan, SUBJECT_WORKFLOW_PATH)
+        require(parent.get("source_identity") == expected_source
+                and parent.get("command_identity") == _step_command(source),
+                "external_operation_source_mismatch", identifier, stage="runtime")
+        outcome = step.get("expected_terminal_result")
+        require(parent.get("result") == _terminal_result(outcome),
+                "external_operation_result_mismatch", identifier, stage="runtime")
+
+        request_metadata = None
+        response_metadata = None
+        result = {
+            "result_status": "unknown", "lifecycle_status": "unknown",
+            "outcome": "unknown", "exit_code": None,
+        }
+        if outcome == "skipped":
+            # A skipped invocation is not a successful call or proof of a
+            # request. Neither the source template nor a timestamp creates one.
+            result = _terminal_result("skipped")
+        elif is_action:
+            # These are action invocation/result metadata, not HTTP metadata.
+            # The full normalized inputs remain independently derivable from
+            # the preserved prelaunch plan and exact platform job/step records.
+            request_metadata = {
+                "boundary": "github_action_invocation", "call_id": identifier,
+                "parent_execution_id": parent_id, "subject_run_key": subject_run_key,
+                "source_identity": expected_source,
+                "command_identity": parent["command_identity"],
+            }
+            response_metadata = {
+                "boundary": "github_action_platform_result", "call_id": identifier,
+                "parent_execution_id": parent_id, "subject_run_key": subject_run_key,
+                "job_id": parent["job_id"], "job_attempt": parent["job_attempt"],
+                "source_ordinal": parent["step_number"], "step_name": parent["step_name"],
+                "platform_result": parent["result"],
+            }
+            result = _terminal_result("success")
+        elif template["capture_requirement"] == "metadata_only":
+            request_metadata = {
+                "boundary": "declared_shell_operation_not_individual_request",
+                "call_id": identifier, "operation_class": operation,
+                "parent_execution_id": parent_id, "subject_run_key": subject_run_key,
+                "source_identity": expected_source,
+                "command_identity": parent["command_identity"],
+                "individual_operation_execution_observed": False,
+            }
+        provider, service = services[operation]
+        records.append({
+            "call_id": identifier, "parent_execution_id": parent_id,
+            "subject_run_key": subject_run_key,
+            "service_identity": {
+                "provider": provider, "service_name": service,
+                "transport": "github_actions" if is_action else "other",
+                "endpoint_origin": None, "operation": operation, "api_version": None,
+                "identity_status": "partial",
+            },
+            "request": {
+                "method": "OTHER", "payload": _external_payload(request_metadata),
+                "authorization_material_included": False, "cookies_included": False,
+            },
+            "response": {
+                "status_code": None, "payload": _external_payload(response_metadata),
+                "set_cookie_included": False,
+            },
+            "provider_request_id_sha256": None,
+            # The enclosing step interval is not an internal network-call time.
+            "timing": _timing(None, None), "result": result,
+            # One declared invocation boundary; provider/internal retry counts
+            # are NOT measured and the retry_count resource axis stays absent.
+            "retry_index": 0, "resource_measurement_ids": [],
+            "capture_status": "partial",
+        })
+    require(bool(records), "external_operation_extent_mismatch", stage="runtime")
+    return records
+
+
+def _require_external_projection_extent(
+    plan: Mapping[str, Any], runtime_packet: Mapping[str, Any],
+) -> None:
+    """Recheck declared invocation records before recording verification success.
+
+    Generic referential integrity alone cannot detect deletion of a call along
+    with its reverse reference and count. Reconstruct the expected records from
+    the independently checked plan and bound execution observations instead.
+    This does not establish the still-separate state or wider relation extent.
+    """
+    rows = runtime_packet.get("executions")
+    require(isinstance(rows, list) and all(isinstance(row, dict) for row in rows),
+            "external_operation_extent_mismatch", stage="verify")
+    index: dict[str, Mapping[str, Any]] = {}
+    for row in rows:
+        identifier = row.get("execution_id")
+        require(isinstance(identifier, str) and identifier not in index,
+                "external_operation_parent_mismatch", stage="verify")
+        index[identifier] = row
+    key = runtime_packet.get("subject", {}).get("subject_run_key")
+    require(isinstance(key, str) and bool(key), "cross_run_context", stage="verify")
+    expected = _build_external_call_records(plan, index, key)
+    require(runtime_packet.get("external_calls") == expected,
+            "external_operation_extent_mismatch", stage="verify")
+    for identifier, row in index.items():
+        required_ids = [call["call_id"] for call in expected if call["parent_execution_id"] == identifier]
+        require(row.get("external_call_ids") == required_ids,
+                "external_operation_parent_mismatch", identifier, stage="verify")
+    coverage = runtime_packet.get("coverage", {})
+    require(type(coverage.get("external_call_records")) is int
+            and coverage["external_call_records"] == len(expected)
+            and coverage.get("external_call_capture_status") == "partial",
+            "external_operation_coverage_mismatch", stage="verify")
+
+
 def build_runtime_packet(
     *,
     plan: Mapping[str, Any],
@@ -1729,6 +1979,11 @@ def build_runtime_packet(
         subject_run_key,
         release_candidate,
     )
+    external_calls = _build_external_call_records(plan, execution_index, subject_run_key)
+    for call in external_calls:
+        execution_index[call["parent_execution_id"]]["external_call_ids"].append(call["call_id"])
+    for execution in execution_index.values():
+        execution["external_call_ids"].sort()
     executions = sorted(execution_index.values(), key=lambda row: row["execution_id"])
     point = capture_manifest["capture_identity"]["capture_completed_utc"]
     workflow_source = _source_row(plan, SUBJECT_WORKFLOW_PATH)
@@ -1828,7 +2083,7 @@ def build_runtime_packet(
         },
         "executions": executions,
         "state_observations": states,
-        "external_calls": [],
+        "external_calls": external_calls,
         "model_inferences": inferences,
         "resource_measurements": [],
         "coverage": {
@@ -1839,10 +2094,10 @@ def build_runtime_packet(
             "observed_step_count": EXPECTED_STEP_COUNT,
             "execution_records": EXPECTED_TOTAL_EXECUTIONS,
             "state_records": len(states),
-            "external_call_records": 0,
+            "external_call_records": len(external_calls),
             "model_inference_records": EXPECTED_INFERENCE_COUNT,
             "resource_measurement_records": 0,
-            "external_call_capture_status": "none",
+            "external_call_capture_status": "partial",
             "model_inference_capture_status": "complete",
             "state_digest_capture_status": "complete",
             "missing_execution_ids": [],
@@ -2509,6 +2764,7 @@ def _verification_checks(
         "collector_excluded_from_subject_totals",
         "expected_context_bound",
         "expected_plan_digest_bound",
+        "external_operation_extent_preserved",
         "generic_runtime_packet_validated",
         "inference_extent_complete",
         "job_extent_complete",
@@ -2536,6 +2792,7 @@ def _verification_checks(
         "job_extent_complete": str(runtime_packet["coverage"]["observed_job_count"]),
         "step_extent_complete": str(runtime_packet["coverage"]["observed_step_count"]),
         "inference_extent_complete": str(runtime_packet["coverage"]["model_inference_records"]),
+        "external_operation_extent_preserved": str(runtime_packet["coverage"]["external_call_records"]),
     }
     return [
         {"check_id": name, "passed": True, "detail": details.get(name)}
@@ -2563,11 +2820,17 @@ def _verification_record(
     record_status: str,
 ) -> bytes:
     packet = parse_json_bytes(reconstruction_members[RUNTIME_PACKET_MEMBER], label="runtime_packet")
+    prepared_members = read_canonical_zip_bytes(
+        prepared_raw, label="prepared", maximum_members=MAX_PREPARED_MEMBERS,
+        maximum_bytes=MAX_PREPARED_BYTES,
+    )
+    plan = parse_json_bytes(prepared_members[PREPARED_PLAN_MEMBER], label="prelaunch_plan")
+    _require_external_projection_extent(plan, packet)
     candidate_values = _materializer_candidate_values(
         reconstruction_members[MATERIALIZER_REPORT_MEMBER],
         reconstruction_members[FOLDED_STATUS_MEMBER],
     )
-    verifier_source = _source_row(parse_json_bytes(read_canonical_zip_bytes(prepared_raw, label="prepared", maximum_members=MAX_PREPARED_MEMBERS, maximum_bytes=MAX_PREPARED_BYTES)[PREPARED_PLAN_MEMBER], label="prelaunch_plan"), VERIFIER_PATH)
+    verifier_source = _source_row(plan, VERIFIER_PATH)
     identity = capture_manifest["capture_identity"]
     point = identity["capture_completed_utc"]
     record = {
