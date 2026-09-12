@@ -195,11 +195,10 @@ UNOBSERVED_REASONS = sorted(
 )
 GENERIC_UNOBSERVED_REASONS = sorted(
     [
-        "action_internal_operations_unavailable",
         "external_provider_usage_unavailable",
         "model_content_digest_unavailable",
-        "process_command_unavailable",
         "resource_axis_unavailable",
+        "step_not_instrumented",
     ]
 )
 
@@ -1179,47 +1178,34 @@ def _action_source(source: Mapping[str, Any]) -> dict[str, Any]:
 
 def _unknown_command() -> dict[str, Any]:
     return {
-        "command_status": "unknown",
-        "command_digest": None,
-        "argument_digest": None,
-        "working_directory_digest": None,
-        "environment_allowlist_digest": None,
-        "executable_path": None,
-        "executable_sha256": None,
-        "interpreter_path": None,
-        "interpreter_sha256": None,
+        "command_kind": "unknown",
+        "display_name": "command not observed",
+        "command_sha256": None,
+        "arguments_sha256": None,
         "raw_command_included": False,
     }
 
 
 def _step_command(source: Mapping[str, Any]) -> dict[str, Any]:
+    # These are source-template identities, not traces of action internals or
+    # of the expanded runtime arguments of a shell block.
     if source.get("kind") == "github_action":
-        digest = sha256_bytes(canonical_json_bytes(source))
         return {
-            "command_status": "partial",
-            "command_digest": digest,
-            "argument_digest": None,
-            "working_directory_digest": None,
-            "environment_allowlist_digest": None,
-            "executable_path": str(source.get("uses")),
-            "executable_sha256": None,
-            "interpreter_path": None,
-            "interpreter_sha256": None,
+            "command_kind": "github_action",
+            "display_name": str(source.get("uses")),
+            "command_sha256": sha256_bytes(canonical_json_bytes(source)),
+            "arguments_sha256": None,
             "raw_command_included": False,
         }
-    digest = source.get("run_sha256")
-    return {
-        "command_status": "partial",
-        "command_digest": digest if isinstance(digest, str) else None,
-        "argument_digest": None,
-        "working_directory_digest": None,
-        "environment_allowlist_digest": None,
-        "executable_path": None,
-        "executable_sha256": None,
-        "interpreter_path": source.get("shell"),
-        "interpreter_sha256": None,
-        "raw_command_included": False,
-    }
+    if source.get("kind") == "shell":
+        return {
+            "command_kind": "shell",
+            "display_name": str(source.get("shell")),
+            "command_sha256": canonical_sha256(source.get("run_sha256"), label="step_command"),
+            "arguments_sha256": None,
+            "raw_command_included": False,
+        }
+    raise VerificationError("command_source_mismatch", stage="runtime")
 
 
 def _timing(started: Any, completed: Any, *, partial: bool = False) -> dict[str, Any]:
@@ -1239,26 +1225,56 @@ def _timing(started: Any, completed: Any, *, partial: bool = False) -> dict[str,
         "started_utc": start,
         "completed_utc": finish,
         "duration_ms": duration_ms(start, finish),
-        "timestamp_source": "github_platform",
+        "timestamp_source": "platform_reported",
         "duration_source": "derived_from_timestamps",
     }
 
 
 def _execution_environment() -> dict[str, Any]:
+    # The accepted profile uses hosted runners. Their concrete image, runtime
+    # versions and architecture are not established by a runs-on source label.
     return {
-        "environment_status": "partial",
-        "runner_type": "github_hosted",
-        "runner_image": "ubuntu-latest",
-        "runner_image_digest": None,
-        "operating_system": "linux",
-        "architecture": "x86_64",
-        "runtime_versions": {},
+        "environment_kind": "github_hosted_runner",
+        "identity_status": "partial",
+        "os_name": None,
+        "os_version": None,
+        "architecture": None,
+        "runtime_name": None,
+        "runtime_version": None,
+        "image_identity": None,
+        "image_digest": None,
+        "environment_sha256": None,
         "raw_environment_included": False,
     }
 
 
+def _terminal_result(outcome: Any) -> dict[str, Any]:
+    # An accepted reference contains only required successes and predeclared
+    # skips. Neither platform success nor model output supplies an exit code.
+    require(isinstance(outcome, str) and outcome in {"success", "skipped"},
+            "required_execution_not_completed", stage="runtime")
+    return {
+        "result_status": "complete",
+        "lifecycle_status": "skipped" if outcome == "skipped" else "completed",
+        "outcome": outcome,
+        "exit_code": None,
+    }
+
+
 def _job_and_step_records(plan: Mapping[str, Any], job_rows: Sequence[Mapping[str, Any]], subject_run_key: str) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
-    by_name = {str(row.get("name")): row for row in job_rows}
+    by_name: dict[str, Mapping[str, Any]] = {}
+    job_ids: set[int] = set()
+    for row in job_rows:
+        require(isinstance(row, dict), "job_identity_conflict", stage="runtime")
+        name = row.get("name")
+        identifier = positive_int(row.get("id"), label="runtime_job_id")
+        require(isinstance(name, str) and bool(name) and name not in by_name
+                and identifier not in job_ids, "job_identity_conflict", stage="runtime")
+        by_name[name] = row
+        job_ids.add(identifier)
+    planned_names = [job.get("display_name") for job in plan.get("jobs", [])]
+    require(len(planned_names) == EXPECTED_JOB_COUNT and len(set(planned_names)) == EXPECTED_JOB_COUNT
+            and set(planned_names) == set(by_name), "job_extent_mismatch", stage="runtime")
     records: list[dict[str, Any]] = []
     index: dict[str, dict[str, Any]] = {}
     workflow_source = _repository_source(plan, SUBJECT_WORKFLOW_PATH)
@@ -1267,7 +1283,19 @@ def _job_and_step_records(plan: Mapping[str, Any], job_rows: Sequence[Mapping[st
         occurrence = str(job.get("occurrence_id"))
         row = by_name.get(str(job.get("display_name")))
         require(row is not None, "runtime_job_missing", occurrence, stage="runtime")
-        job_result = str(row.get("conclusion"))
+        expected_run_key = (
+            f"GITHUB_RUN_ID={positive_int(row.get('run_id'), label='runtime_job_run_id')}"
+            f"|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW={SUBJECT_WORKFLOW_NAME}"
+        )
+        require(expected_run_key == subject_run_key, "cross_run_context", occurrence, stage="runtime")
+        require(type(row.get("run_attempt")) is int and row["run_attempt"] == 1,
+                "subject_attempt_mismatch", occurrence, stage="runtime")
+        require(row.get("head_sha") == plan["plan_identity"]["source_commit"],
+                "subject_source_mismatch", occurrence, stage="runtime")
+        require(row.get("status") == "completed", "job_not_terminal", occurrence, stage="runtime")
+        job_result = row.get("conclusion")
+        require(job_result == job.get("expected_terminal_result"),
+                "job_terminal_result_mismatch", occurrence, stage="runtime")
         job_record = {
             "execution_id": occurrence,
             "execution_scope": "subject",
@@ -1275,11 +1303,10 @@ def _job_and_step_records(plan: Mapping[str, Any], job_rows: Sequence[Mapping[st
             "parent_execution_id": None,
             "workflow_name": SUBJECT_WORKFLOW_NAME,
             "job_name": row.get("name"),
-            "job_id": str(row.get("id")),
+            "job_id": positive_int(row.get("id"), label="runtime_job_id"),
             "job_attempt": 1,
             "step_name": None,
             "step_number": None,
-            "tool_or_action": None,
             "declared_role": "transition",
             "permitted_mutation_authority": "release_decision",
             "source_identity": workflow_source,
@@ -1292,28 +1319,38 @@ def _job_and_step_records(plan: Mapping[str, Any], job_rows: Sequence[Mapping[st
             },
             "timing": _timing(row.get("started_at"), row.get("completed_at")),
             "execution_environment": _execution_environment(),
-            "result": job_result,
-            "exit_code": None,
+            "result": _terminal_result(job_result),
             "input_state_ids": [],
             "output_state_ids": [],
             "external_call_ids": [],
             "model_inference_ids": [],
             "resource_measurement_ids": [],
             "capture_status": "complete",
-            "unobserved_reason": None,
         }
         records.append(job_record)
         index[occurrence] = job_record
-        if job_result == "skipped":
-            continue
-        platform_steps = [step for step in row.get("steps", []) if isinstance(step, dict)]
+        platform_steps = row.get("steps")
+        require(isinstance(platform_steps, list), "job_steps_missing", occurrence, stage="runtime")
         expected_steps = [step for step in job.get("steps", []) if isinstance(step, dict) and step.get("expected_runtime_presence") is True]
+        if job_result == "skipped":
+            require(not platform_steps and not expected_steps,
+                    "skipped_job_platform_steps_present", occurrence, stage="runtime")
+            continue
         cursor = 0
         for platform in platform_steps:
+            require(isinstance(platform, dict), "platform_step_not_object", occurrence, stage="runtime")
+            require(platform.get("status") == "completed", "platform_step_not_terminal", occurrence, stage="runtime")
             name = platform.get("name")
             if cursor >= len(expected_steps) or name != expected_steps[cursor].get("name"):
+                require(isinstance(name, str) and name in {
+                    "Set up job", "Complete job", "Post Checkout", "Post Set up Python"
+                }, "unexpected_platform_step", occurrence, stage="runtime")
+                require(platform.get("conclusion") in {"success", "skipped"},
+                        "platform_lifecycle_result_invalid", occurrence, stage="runtime")
                 continue
             expected = expected_steps[cursor]
+            require(platform.get("conclusion") == expected.get("expected_terminal_result"),
+                    "step_condition_result_mismatch", str(expected.get("occurrence_id")), stage="runtime")
             cursor += 1
             step_occurrence = str(expected.get("occurrence_id"))
             source = expected.get("source") if isinstance(expected.get("source"), dict) else {}
@@ -1325,11 +1362,10 @@ def _job_and_step_records(plan: Mapping[str, Any], job_rows: Sequence[Mapping[st
                 "parent_execution_id": occurrence,
                 "workflow_name": SUBJECT_WORKFLOW_NAME,
                 "job_name": row.get("name"),
-                "job_id": str(row.get("id")),
+                "job_id": positive_int(row.get("id"), label="runtime_job_id"),
                 "job_attempt": 1,
                 "step_name": name,
-                "step_number": int(expected.get("ordinal")),
-                "tool_or_action": source.get("uses") if source.get("kind") == "github_action" else source.get("shell"),
+                "step_number": positive_int(expected.get("source_ordinal"), label="source_ordinal"),
                 "declared_role": "evidence",
                 "permitted_mutation_authority": "release_decision",
                 "source_identity": source_identity,
@@ -1342,15 +1378,13 @@ def _job_and_step_records(plan: Mapping[str, Any], job_rows: Sequence[Mapping[st
                 },
                 "timing": _timing(platform.get("started_at"), platform.get("completed_at")),
                 "execution_environment": _execution_environment(),
-                "result": platform.get("conclusion"),
-                "exit_code": None,
+                "result": _terminal_result(platform.get("conclusion")),
                 "input_state_ids": [],
                 "output_state_ids": [],
                 "external_call_ids": [],
                 "model_inference_ids": [],
                 "resource_measurement_ids": [],
                 "capture_status": "complete",
-                "unobserved_reason": None,
             }
             records.append(record)
             index[step_occurrence] = record
@@ -1361,7 +1395,6 @@ def _job_and_step_records(plan: Mapping[str, Any], job_rows: Sequence[Mapping[st
 
 def _collector_record(plan: Mapping[str, Any], capture_manifest: Mapping[str, Any], subject_run_key: str) -> dict[str, Any]:
     identity = capture_manifest["capture_identity"]
-    point = identity["capture_completed_utc"]
     collector_key = identity["collector_run_key"]
     source = _repository_source(plan, VERIFIER_PATH)
     return {
@@ -1370,25 +1403,19 @@ def _collector_record(plan: Mapping[str, Any], capture_manifest: Mapping[str, An
         "execution_kind": "observer_execution",
         "parent_execution_id": None,
         "workflow_name": REFERENCE_WORKFLOW_NAME,
-        "job_name": "verify",
+        "job_name": "verification",
         "job_id": None,
         "job_attempt": 1,
         "step_name": "Construct and verify runtime observation packet",
         "step_number": None,
-        "tool_or_action": TOOL_ID,
         "declared_role": "observer",
         "permitted_mutation_authority": "advisory_output",
         "source_identity": source,
         "command_identity": {
-            "command_status": "exact",
-            "command_digest": sha256_bytes(canonical_json_bytes([TOOL_ID, "reconstruct"])),
-            "argument_digest": sha256_bytes(canonical_json_bytes([identity["capture_id"], subject_run_key])),
-            "working_directory_digest": None,
-            "environment_allowlist_digest": sha256_bytes(canonical_json_bytes(["HOME", "LANG", "LC_ALL", "PATH"])),
-            "executable_path": VERIFIER_PATH,
-            "executable_sha256": source["source_sha256"],
-            "interpreter_path": sys.executable,
-            "interpreter_sha256": None,
+            "command_kind": "python_script",
+            "display_name": TOOL_ID,
+            "command_sha256": None,
+            "arguments_sha256": None,
             "raw_command_included": False,
         },
         "run_binding": {
@@ -1397,17 +1424,16 @@ def _collector_record(plan: Mapping[str, Any], capture_manifest: Mapping[str, An
             "binding_mode": "post_run_observer",
             "binding_complete": True,
         },
-        "timing": _timing(point, point),
+        # Capture timestamps do not time this later reconstruction process.
+        "timing": _timing(None, None),
         "execution_environment": _execution_environment(),
-        "result": "completed",
-        "exit_code": 0,
+        "result": _terminal_result("success"),
         "input_state_ids": [],
         "output_state_ids": [],
         "external_call_ids": [],
         "model_inference_ids": [],
         "resource_measurement_ids": [],
         "capture_status": "complete",
-        "unobserved_reason": None,
     }
 
 
@@ -1479,6 +1505,39 @@ def _find_model_records(provider_envelope: bytes) -> dict[str, dict[str, Any]]:
     return result
 
 
+def _recorded_model_parameters(inference: Mapping[str, Any]) -> dict[str, Any]:
+    integer_fields = ("manual_seed", "num_beams", "pad_token_id", "max_new_tokens", "torch_threads")
+    for field in integer_fields:
+        if field in inference:
+            value = inference[field]
+            require(type(value) is int and (field == "manual_seed" or value >= 0),
+                    "model_parameters_invalid", field, stage="runtime")
+    if "do_sample" in inference:
+        require(type(inference["do_sample"]) is bool,
+                "model_parameters_invalid", "do_sample", stage="runtime")
+    for field in ("temperature", "top_p"):
+        if field in inference:
+            value = inference[field]
+            require(type(value) in (int, float) and math.isfinite(value) and value >= 0
+                    and (field != "top_p" or value <= 1),
+                    "model_parameters_invalid", field, stage="runtime")
+    if "device" in inference:
+        require(isinstance(inference["device"], str) and bool(inference["device"]),
+                "model_parameters_invalid", "device", stage="runtime")
+    fields = (*integer_fields, "do_sample", "temperature", "top_p", "device")
+    recorded = {field: inference[field] for field in fields if field in inference}
+    return {
+        "parameters_sha256": sha256_bytes(canonical_json_bytes(recorded)),
+        "temperature": inference.get("temperature"),
+        "top_p": inference.get("top_p"),
+        "max_output_tokens": inference.get("max_new_tokens"),
+        "seed": inference.get("manual_seed"),
+        # True describes the explicitly recorded non-sampling mode. It does
+        # not attest to model internals or cross-platform reproducibility.
+        "deterministic_mode": inference.get("do_sample") is False,
+    }
+
+
 def _build_states_and_inferences(
     plan: Mapping[str, Any],
     execution_index: MutableMapping[str, dict[str, Any]],
@@ -1505,13 +1564,12 @@ def _build_states_and_inferences(
             "content_status": "exact_digest",
             "sha256": source["sha256"],
             "size_bytes": source["size_bytes"],
+            "media_type": None,
             "schema_identity": None,
             "producer_execution_id": None,
             "observer_execution_id": collector_id,
             "subject_run_key": subject_run_key,
             "release_candidate_id": release_candidate,
-            "policy_relation": "required+release_required" if state_type != "workflow_source" else None,
-            "gate_relation": None,
             "authority_bearing": True,
             "mutation_class": "none",
             "observed_at_utc": observed_time,
@@ -1542,13 +1600,12 @@ def _build_states_and_inferences(
             "content_status": "exact_digest",
             "sha256": sha256_bytes(input_raw),
             "size_bytes": len(input_raw),
+            "media_type": "text/plain; charset=utf-8",
             "schema_identity": "llamaguard_controlled_case_input_v0",
             "producer_execution_id": parent_id,
             "observer_execution_id": collector_id,
             "subject_run_key": subject_run_key,
             "release_candidate_id": release_candidate,
-            "policy_relation": "external-thresholds-v0",
-            "gate_relation": "external_all_pass",
             "authority_bearing": False,
             "mutation_class": "none",
             "observed_at_utc": observed_time,
@@ -1561,34 +1618,51 @@ def _build_states_and_inferences(
             "content_status": "exact_digest",
             "sha256": sha256_bytes(output_raw),
             "size_bytes": len(output_raw),
+            "media_type": "text/plain; charset=utf-8",
             "schema_identity": "llamaguard_controlled_case_output_v0",
             "producer_execution_id": parent_id,
             "observer_execution_id": collector_id,
             "subject_run_key": subject_run_key,
             "release_candidate_id": release_candidate,
-            "policy_relation": "external-thresholds-v0",
-            "gate_relation": "external_all_pass",
             "authority_bearing": False,
             "mutation_class": "none",
             "observed_at_utc": observed_time,
             "secret_material_included": False,
         }
         inference_data = row.get("inference") if isinstance(row.get("inference"), dict) else {}
-        model = row.get("model") if isinstance(row.get("model"), dict) else {}
+        model = row.get("model")
+        require(isinstance(model, dict), "model_identity_mismatch", case_id, stage="runtime")
+        require(isinstance(model.get("id"), str) and bool(model["id"])
+                and model["id"] == template.get("model_id"),
+                "model_identity_mismatch", case_id, stage="runtime")
+        require(isinstance(model.get("revision"), str)
+                and SHA40_RE.fullmatch(model["revision"]) is not None
+                and model["revision"] == template.get("model_revision"),
+                "model_revision_mismatch", case_id, stage="runtime")
+        parameters = _recorded_model_parameters(inference_data)
         prompt_tokens = inference_data.get("prompt_tokens")
         generated_tokens = inference_data.get("generated_tokens")
         require(type(prompt_tokens) is int and type(generated_tokens) is int and prompt_tokens >= 0 and generated_tokens >= 0, "model_usage_mismatch", case_id, stage="runtime")
+        total_tokens = prompt_tokens + generated_tokens
+        if "total_tokens" in inference_data:
+            require(type(inference_data["total_tokens"]) is int
+                    and inference_data["total_tokens"] == total_tokens,
+                    "model_usage_mismatch", case_id, stage="runtime")
+        if parameters["max_output_tokens"] is not None:
+            require(generated_tokens <= parameters["max_output_tokens"],
+                    "model_usage_mismatch", case_id, stage="runtime")
         inference_id = str(template.get("inference_id"))
         inference = {
             "inference_id": inference_id,
             "parent_execution_id": parent_id,
             "subject_run_key": subject_run_key,
-            "release_candidate_id": release_candidate,
-            "model": {
-                "model_id": model.get("id") or template.get("model_id"),
-                "model_revision": model.get("revision") or template.get("model_revision"),
+            "model_identity": {
+                "provider": "huggingface",
+                "model_id": model["id"],
+                "model_revision": model["revision"],
                 "model_sha256": None,
-                "model_content_digest_status": "unavailable",
+                "model_content_digest_status": "provider_revision_only",
+                "deployment_id_sha256": None,
             },
             "request": {
                 "request_metadata_sha256": sha256_bytes(canonical_json_bytes({"case_id": case_id, "input_sha256": sha256_bytes(input_raw)})),
@@ -1601,8 +1675,11 @@ def _build_states_and_inferences(
                 "output_capture_status": "recorded",
                 "raw_output_included": False,
             },
-            "timing": dict(parent["timing"], timing_status="partial"),
-            "result": "completed",
+            "parameters": parameters,
+            "provider_request_id_sha256": None,
+            # The parent step and run-level timestamp do not time a case.
+            "timing": _timing(None, None),
+            "result": _terminal_result("success"),
             "usage": {
                 "input_tokens": prompt_tokens,
                 "output_tokens": generated_tokens,
@@ -1611,7 +1688,6 @@ def _build_states_and_inferences(
             },
             "resource_measurement_ids": [],
             "capture_status": "complete",
-            "unobserved_reason": "model_internal_state_unavailable",
         }
         inferences.append(inference)
         parent["input_state_ids"].append(input_state)
@@ -1631,6 +1707,8 @@ def build_runtime_packet(
     capture_members: Mapping[str, bytes],
     record_status: str,
 ) -> dict[str, Any]:
+    require(record_status in {"example", "observed"}, "record_status_invalid", stage="runtime")
+    collection_mode = "example" if record_status == "example" else "post_run_platform_export"
     subject = capture_manifest["subject"]
     subject_run_id = positive_int(subject.get("run_id"), label="subject_run_id")
     subject_run_key = f"GITHUB_RUN_ID={subject_run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW={SUBJECT_WORKFLOW_NAME}"
@@ -1668,13 +1746,14 @@ def build_runtime_packet(
             "producer_source": VERIFIER_PATH,
             "producer_source_sha256": verifier_source["sha256"],
             "ci_workflow_or_job_identity": f"{REFERENCE_WORKFLOW_NAME}/verification",
-            "collection_mode": "post_run_platform_export",
+            "collection_mode": collection_mode,
             "producer_execution_id": collector["execution_id"],
         },
         "packet_identity": {
             "packet_id": f"runtime-observation:step5c:{subject_run_id}:1",
-            "packet_scope": "subject_run",
+            "packet_scope": "example" if record_status == "example" else "subject_run",
             "packet_sequence": 0,
+            "canonicalization": "json-sort-keys-utf8-newline",
             "previous_packet_sha256": None,
             "subject_run_key": subject_run_key,
             "packet_created_utc": point,
@@ -1682,51 +1761,71 @@ def build_runtime_packet(
         "subject": {
             "repository": REPOSITORY,
             "workflow_name": SUBJECT_WORKFLOW_NAME,
-            "workflow_path": SUBJECT_WORKFLOW_PATH,
             "workflow_run_id": subject_run_id,
+            "workflow_run_number": positive_int(subject.get("run_number"), label="subject_run_number"),
             "workflow_run_attempt": 1,
             "source_commit": subject["head_sha"],
             "source_ref": SOURCE_REF,
+            "event_name": subject["event"],
+            "run_mode": "prod",
             "release_candidate_id": release_candidate,
-            "active_policy_sets": ["required", "release_required"],
+            "active_policy_sets": (
+                ["release_required", "required"] if record_status == "example"
+                else ["required", "release_required"]
+            ),
             "subject_run_key": subject_run_key,
         },
         "observation_boundary": {
-            "observer_kind": "post_run_collector",
-            "collector_mode": "post_run_platform_export",
+            "target_analysis_level": "runtime_observed",
+            "collector_mode": collection_mode,
             "collector_run_key": capture_manifest["capture_identity"]["collector_run_key"],
             "collector_execution_id": collector["execution_id"],
             "subject_run_key": subject_run_key,
             "observer_in_subject_totals": False,
             "subject_artifacts_mutated": False,
-            "capture_started_utc": point,
+            "capture_started_utc": capture_manifest["capture_identity"]["capture_started_utc"],
             "capture_completed_utc": point,
         },
         "authority_inputs": {
             "workflow": {
+                "role": "workflow",
                 "path": SUBJECT_WORKFLOW_PATH,
                 "source_commit": subject["head_sha"],
                 "sha256": workflow_source["sha256"],
             },
             "policy": {
+                "role": "policy",
                 "path": POLICY_PATH,
                 "source_commit": subject["head_sha"],
                 "sha256": policy_source["sha256"],
             },
             "gate_registry": {
+                "role": "gate_registry",
                 "path": REGISTRY_PATH,
                 "source_commit": subject["head_sha"],
                 "sha256": registry_source["sha256"],
             },
         },
         "timing_basis": {
+            "timestamps_utc": True,
             "primary_clock_source": "mixed",
             "timestamp_resolution_ms": 1000.0,
-            "monotonic_clock_used": False,
+            "duration_derivation": "derived_from_recorded_timestamps",
             "cross_source_clock_status": "not_verified",
             "duration_values_estimated": False,
         },
-        "privacy_boundary": PRIVACY_BOUNDARY,
+        # Step 5C's opaque-fixture declarations remain in its outer carrier.
+        # The unchanged generic packet has a narrower, closed privacy shape.
+        "privacy_boundary": {
+            key: PRIVACY_BOUNDARY[key]
+            for key in (
+                "raw_environment_included", "secret_values_included",
+                "authorization_headers_included", "cookies_included",
+                "request_bodies_included", "response_bodies_included",
+                "raw_prompt_text_included", "raw_model_output_included",
+                "redaction_applied", "redaction_rules_sha256",
+            )
+        },
         "executions": executions,
         "state_observations": states,
         "external_calls": [],
@@ -1743,7 +1842,6 @@ def build_runtime_packet(
             "external_call_records": 0,
             "model_inference_records": EXPECTED_INFERENCE_COUNT,
             "resource_measurement_records": 0,
-            "workflow_execution_capture_status": "complete",
             "external_call_capture_status": "none",
             "model_inference_capture_status": "complete",
             "state_digest_capture_status": "complete",

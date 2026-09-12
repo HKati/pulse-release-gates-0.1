@@ -1511,6 +1511,238 @@ def test_real_prepare_still_preserves_an_existing_destination(source_fixture, tm
     assert target.read_bytes() == original
 
 
+
+# ---------------------------------------------------------------------------
+# Runtime projection repair: unchanged generic schema and semantic validator.
+# These dictionaries are synthetic unit inputs, not verified capture carriers.
+# In particular, exercising an observed-profile branch is NOT live acquisition.
+# ---------------------------------------------------------------------------
+GENERIC_VALIDATOR = load_module('check_pulsemech_compute_runtime_observation_packet_v0')
+
+
+def runtime_projection_example(source_fixture, *, profile='example'):
+    f = source_fixture
+    jobs = example_jobs(f.plan, f.sha)
+    member = 'acquisition/subject/jobs-page-0001.json'
+    raw = canonical({'total_count': len(jobs), 'jobs': jobs})
+    _, envelope = provider_fixture(f.plan, f.sha)
+    identity = minimal_capture_identity()
+    # The generic example profile uses an inclusive simulated observation
+    # window. The observed post-run profile admits earlier subject metadata.
+    if profile == 'example':
+        identity['capture_started_utc'] = EXAMPLE_START
+    manifest = {
+        'record_status': profile,
+        'subject': {'run_id': EXAMPLE_SUBJECT_ID, 'run_number': 11,
+                    'head_sha': f.sha, 'event': 'workflow_dispatch'},
+        'capture_identity': identity,
+        'raw_response_bindings': [
+            {'role': 'subject_jobs_page',
+             'descriptor': {'member': member, 'sha256': digest(raw), 'size_bytes': len(raw)}}
+        ],
+    }
+    return VERIFIER.build_runtime_packet(
+        plan=f.plan, capture_manifest=manifest,
+        capture_members={member: raw, VERIFIER.CAPTURE_PROVIDER_ENVELOPE_MEMBER: envelope},
+        record_status=profile,
+    )
+
+
+@pytest.mark.parametrize('profile', ['example', 'observed'])
+def test_projected_packet_matches_full_unchanged_generic_contract(source_fixture, profile):
+    packet = runtime_projection_example(source_fixture, profile=profile)
+    jsonschema.Draft202012Validator(GENERIC_SCHEMA).validate(packet)
+    checks, errors = GENERIC_VALIDATOR.semantic_checks(packet)
+    assert errors == [] and checks and all(checks.values()), (checks, errors)
+    assert packet['record_status'] == profile
+    assert packet['subject']['workflow_run_number'] == 11
+    assert packet['coverage']['coverage_status'] == 'partial'
+    assert len(packet['executions']) == 154
+    assert len(packet['model_inferences']) == 6
+    assert packet['resource_measurements'] == []
+    assert packet['coverage']['resource_axes_unavailable'] == VERIFIER.RESOURCE_AXES
+    assert packet['observation_boundary']['observer_in_subject_totals'] is False
+    assert packet['observation_boundary']['subject_artifacts_mutated'] is False
+    assert packet['packet_identity']['canonicalization'] == 'json-sort-keys-utf8-newline'
+    assert packet['producer']['collection_mode'] == ('example' if profile == 'example' else 'post_run_platform_export')
+    assert packet['packet_identity']['packet_scope'] == ('example' if profile == 'example' else 'subject_run')
+
+
+@pytest.mark.parametrize('profile', ['example', 'observed'])
+def test_projected_packet_real_isolated_generic_validator_cli(source_fixture, tmp_path, profile):
+    packet_path = tmp_path / 'synthetic-projection-only.json'
+    packet_path.write_bytes(canonical(runtime_projection_example(source_fixture, profile=profile)))
+    result = cli(source_fixture.root, 'check_pulsemech_compute_runtime_observation_packet_v0', [
+        '--schema', source_fixture.root / 'schemas/pulsemech_compute_runtime_observation_packet_v0.schema.json',
+        '--packet', packet_path,
+    ])
+    require_cli_success(result)
+    diagnostic = json.loads(result.stdout)
+    assert diagnostic['ok'] is True and diagnostic['schema_valid'] is True
+    assert diagnostic['checks'] and all(diagnostic['checks'].values())
+
+
+@pytest.mark.parametrize('mutation', [
+    'subject_binding', 'collector_scope', 'collector_mutation', 'authority_digest',
+    'state_producer', 'inference_parent', 'token_total', 'record_count',
+    'duplicate_inference', 'false_complete_coverage',
+])
+def test_generic_validator_rejects_mutated_runtime_projection(source_fixture, mutation):
+    packet = runtime_projection_example(source_fixture)
+    collector = next(e for e in packet['executions'] if e['execution_scope'] == 'observation_collector')
+    inference = packet['model_inferences'][0]
+    if mutation == 'subject_binding': inference['subject_run_key'] = 'different-run'
+    elif mutation == 'collector_scope': collector['execution_scope'] = 'subject'
+    elif mutation == 'collector_mutation': packet['observation_boundary']['subject_artifacts_mutated'] = True
+    elif mutation == 'authority_digest': packet['authority_inputs']['policy']['sha256'] = 'e' * 64
+    elif mutation == 'state_producer': packet['state_observations'][0]['producer_execution_id'] = 'execution:missing'
+    elif mutation == 'inference_parent': inference['parent_execution_id'] = collector['execution_id']
+    elif mutation == 'token_total': inference['usage']['total_tokens'] += 1
+    elif mutation == 'record_count': packet['coverage']['execution_records'] -= 1
+    elif mutation == 'duplicate_inference': packet['model_inferences'].append(copy.deepcopy(inference))
+    else: packet['coverage']['coverage_status'] = 'complete'
+    schema_failures = list(jsonschema.Draft202012Validator(GENERIC_SCHEMA).iter_errors(packet))
+    if not schema_failures:
+        checks, errors = GENERIC_VALIDATOR.semantic_checks(packet)
+        assert errors and not all(checks.values()), mutation
+
+
+def test_source_step_numbers_are_not_platform_numbers(source_fixture):
+    f = source_fixture
+    jobs = example_jobs(f.plan, f.sha)
+    expected = {s['occurrence_id']: s['source_ordinal'] for j in f.plan['jobs']
+                for s in j['steps'] if s['expected_runtime_presence']}
+    for job in jobs:
+        for number, step in enumerate(job['steps'], 500): step['number'] = number
+    key = f'GITHUB_RUN_ID={EXAMPLE_SUBJECT_ID}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI'
+    records, _ = VERIFIER._job_and_step_records(f.plan, jobs, key)
+    for record in records:
+        assert type(record['job_id']) is int
+        if record['execution_kind'] == 'workflow_step':
+            assert record['step_number'] == expected[record['execution_id']]
+        assert record['result']['exit_code'] is None
+        assert record['result']['outcome'] in ('success', 'skipped')
+        assert record['command_identity']['arguments_sha256'] is None
+        environment = record['execution_environment']
+        assert environment['identity_status'] == 'partial'
+        assert all(environment[k] is None for k in ('architecture', 'runtime_version', 'image_identity', 'image_digest'))
+
+
+@pytest.mark.parametrize('mutation', [
+    'duplicate_job', 'duplicate_job_id', 'missing_job', 'unknown_job',
+    'cross_run', 'other_attempt', 'other_source', 'unfinished_job',
+    'job_wrong_result', 'unexpected_step', 'duplicate_step', 'missing_step',
+    'step_wrong_result', 'step_unfinished', 'skipped_job_has_steps',
+])
+def test_independent_projection_rejects_extent_and_identity_drift(source_fixture, mutation):
+    f = source_fixture; jobs = example_jobs(f.plan, f.sha)
+    first = jobs[0]
+    if mutation == 'duplicate_job': jobs.append(copy.deepcopy(first))
+    elif mutation == 'duplicate_job_id': jobs[-1]['id'] = first['id']
+    elif mutation == 'missing_job': jobs.pop()
+    elif mutation == 'unknown_job': jobs[-1]['name'] = 'unplanned job'
+    elif mutation == 'cross_run': first['run_id'] += 1
+    elif mutation == 'other_attempt': first['run_attempt'] = 2
+    elif mutation == 'other_source': first['head_sha'] = 'e' * 40
+    elif mutation == 'unfinished_job': first['status'] = 'in_progress'
+    elif mutation == 'job_wrong_result': first['conclusion'] = 'skipped'
+    elif mutation == 'unexpected_step':
+        extra = copy.deepcopy(first['steps'][0]); extra['name'] = 'unplanned command'; first['steps'].append(extra)
+    elif mutation == 'duplicate_step': first['steps'].insert(0, copy.deepcopy(first['steps'][0]))
+    elif mutation == 'missing_step': first['steps'].pop()
+    elif mutation == 'step_wrong_result': first['steps'][0]['conclusion'] = 'skipped'
+    elif mutation == 'step_unfinished': first['steps'][0]['status'] = 'in_progress'
+    else:
+        skipped = next(j for j in jobs if j['conclusion'] == 'skipped')
+        skipped['steps'] = [copy.deepcopy(first['steps'][0])]
+    key = f'GITHUB_RUN_ID={EXAMPLE_SUBJECT_ID}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI'
+    with pytest.raises(VERIFIER.VerificationError):
+        VERIFIER._job_and_step_records(f.plan, jobs, key)
+
+
+def test_reviewed_lifecycle_records_remain_outside_subject_extent(source_fixture):
+    f = source_fixture; jobs = example_jobs(f.plan, f.sha)
+    base = copy.deepcopy(jobs[0]['steps'][0])
+    jobs[0]['steps'].insert(0, dict(base, name='Set up job'))
+    for name in ('Post Checkout', 'Post Set up Python', 'Complete job'):
+        jobs[0]['steps'].append(dict(base, name=name))
+    key = f'GITHUB_RUN_ID={EXAMPLE_SUBJECT_ID}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI'
+    records, index = VERIFIER._job_and_step_records(f.plan, jobs, key)
+    assert len(records) == len(index) == 153
+    assert not any(r['step_name'] in {'Set up job', 'Post Checkout', 'Post Set up Python', 'Complete job'} for r in records)
+
+
+@pytest.mark.parametrize('field,value', [
+    ('id', None), ('id', ''), ('id', True), ('id', []),
+    ('revision', None), ('revision', ''), ('revision', True), ('revision', []),
+])
+def test_observed_model_identity_never_coerces_or_defaults(source_fixture, field, value):
+    def mutate(rows): rows[0]['model'][field] = value
+    with pytest.raises(VERIFIER.VerificationError, match='model_(identity|revision)_mismatch'):
+        inference_projection(source_fixture, mutate=mutate)
+
+
+def test_inference_parameters_and_model_revision_come_from_records(source_fixture):
+    def mutate(rows):
+        for row in rows:
+            row['inference'].update({'manual_seed': 0, 'do_sample': False, 'num_beams': 1,
+                                     'pad_token_id': 0, 'max_new_tokens': 32, 'device': 'cpu',
+                                     'torch_threads': 2, 'total_tokens': 12})
+    _, inferences, rows, _ = inference_projection(source_fixture, mutate=mutate)
+    expected_model = source_fixture.plan['model_inference_templates'][0]
+    recorded = {'manual_seed': 0, 'do_sample': False, 'num_beams': 1, 'pad_token_id': 0,
+                'max_new_tokens': 32, 'device': 'cpu', 'torch_threads': 2}
+    for inference in inferences:
+        assert inference['model_identity']['model_id'] == expected_model['model_id']
+        assert inference['model_identity']['model_revision'] == expected_model['model_revision']
+        assert inference['model_identity']['model_content_digest_status'] == 'provider_revision_only'
+        assert inference['model_identity']['model_sha256'] is None
+        assert inference['provider_request_id_sha256'] is None
+        assert inference['parameters'] == {
+            'parameters_sha256': digest(canonical(recorded)), 'temperature': None,
+            'top_p': None, 'max_output_tokens': 32, 'seed': 0, 'deterministic_mode': True,
+        }
+
+
+def test_missing_parameters_and_per_case_times_are_not_invented(source_fixture):
+    _, inferences, _, _ = inference_projection(source_fixture)
+    for inference in inferences:
+        assert inference['parameters'] == {
+            'parameters_sha256': digest(canonical({})), 'temperature': None,
+            'top_p': None, 'max_output_tokens': None, 'seed': None, 'deterministic_mode': False,
+        }
+        assert inference['timing'] == VERIFIER._timing(None, None)
+        assert inference['result']['exit_code'] is None
+    collector = VERIFIER._collector_record(source_fixture.plan, {'capture_identity': minimal_capture_identity()}, 'example-subject-key')
+    assert collector['timing'] == VERIFIER._timing(None, None)
+    assert collector['result']['exit_code'] is None
+    assert collector['command_identity']['command_sha256'] is None
+
+
+@pytest.mark.parametrize('field,value', [
+    ('manual_seed', True), ('max_new_tokens', True), ('max_new_tokens', -1),
+    ('max_new_tokens', '32'), ('max_new_tokens', None), ('do_sample', 0),
+    ('num_beams', -1), ('temperature', -0.1), ('top_p', 1.1), ('top_p', True),
+])
+def test_invalid_recorded_inference_parameters_reject(source_fixture, field, value):
+    def mutate(rows): rows[0]['inference'][field] = value
+    with pytest.raises(VERIFIER.VerificationError, match='model_parameters_invalid'):
+        inference_projection(source_fixture, mutate=mutate)
+
+
+@pytest.mark.parametrize('value', [11, 13, True, '12', None])
+def test_recorded_token_total_must_equal_the_exact_integer_sum(source_fixture, value):
+    def mutate(rows): rows[0]['inference']['total_tokens'] = value
+    with pytest.raises(VERIFIER.VerificationError, match='model_usage_mismatch'):
+        inference_projection(source_fixture, mutate=mutate)
+
+
+def test_observed_generation_cannot_exceed_recorded_limit(source_fixture):
+    def mutate(rows): rows[0]['inference']['max_new_tokens'] = 1
+    with pytest.raises(VERIFIER.VerificationError, match='model_usage_mismatch'):
+        inference_projection(source_fixture, mutate=mutate)
+
+
 class _CompleteProgramGuard:
     """Direct-script CI execution must collect and finish the complete program."""
     def __init__(self):
