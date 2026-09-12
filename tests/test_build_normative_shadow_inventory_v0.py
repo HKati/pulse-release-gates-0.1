@@ -238,6 +238,105 @@ def test_inventory_classifies_bounded_execution_reference_as_non_active_shadow(
     ]
 
 
+def test_inventory_classifies_whole_runtime_observation_reference_as_non_active_shadow(
+    tmp_path: Path,
+) -> None:
+    inventory, markdown = run_builder(tmp_path)
+    workflow_path = (
+        ".github/workflows/"
+        "pulsemech_compute_whole_runtime_observation_reference.yml"
+    )
+    reference = entry_by_path(inventory, workflow_path)
+
+    assert reference["primary_role"] == (
+        "non-active current-run whole-runtime observation reference workflow"
+    )
+    assert reference["carrier_class"] == "diagnostic_shadow"
+    assert reference["authority_impacting"] == "conditional"
+    assert reference["required_gate_participation"] is False
+    assert reference["attestation_participation"] is False
+    assert reference["release_path_participation"] is False
+
+    for boundary in (
+        "Manual owner-dispatched",
+        "non-active observation and preservation workflow",
+        "one exact PULSE CI subject",
+        "one exact Step 3F provider",
+        "outside subject totals",
+        "neither participates in nor changes",
+        "subject's existing release decision",
+        "recorded evidence",
+        "separate declared required gate",
+    ):
+        assert boundary in reference["authority_boundary"]
+
+    assert reference["reads_artifacts"] == [
+        (
+            "exact reviewed main source commit and protected "
+            "control-plane sources"
+        ),
+        (
+            "independently validated Step 5C prelaunch plan and exact "
+            "plan digest"
+        ),
+        (
+            "one exact attempt-1 PULSE CI subject run and complete "
+            "job/step metadata"
+        ),
+        (
+            "selected exact subject terminal artifacts and their "
+            "GitHub SHA-256 bindings"
+        ),
+        (
+            "one exact attempt-1 Step 3F provider run and current-run "
+            "candidate envelope"
+        ),
+        (
+            "exact reference-workflow context and cross-job handoff "
+            "bindings"
+        ),
+    ]
+
+    assert reference["writes_artifacts"] == [
+        "deterministic prepared Step 5C input carrier",
+        "exact capture carrier without a verifier verdict",
+        (
+            "generic partial runtime-observation packet and existing-core "
+            "derived outputs"
+        ),
+        "two byte-identical deterministic reconstruction archives",
+        "verification_record_v0.json and SHA256SUMS",
+        "checksum-closed reference_capsule_v0.zip",
+    ]
+
+    assert reference["publishes_artifacts"] == [
+        "exact non-active verification-input handoff artifact",
+        "verified non-active whole-runtime reference capsule artifact",
+    ]
+
+    for note in (
+        "not host-wide tracing",
+        "I and E may become complete only after independent verification",
+        "R stays partial",
+        "C stays not complete",
+        "M stays unavailable",
+        "generic runtime coverage stays partial",
+        "outside subject totals",
+        "does not alter the subject decision",
+        "authority_effect = none",
+        "same_run_release_authority_eligible = false",
+        "active_gate_eligible = false",
+    ):
+        assert note in reference["notes"]
+
+    assert workflow_path in markdown
+    assert not [
+        finding
+        for finding in inventory["drift_findings"]
+        if finding["path"] == workflow_path
+    ]
+
+
 def test_inventory_does_not_classify_renamed_bounded_reference_copies(
     tmp_path: Path,
 ) -> None:
