@@ -4,13 +4,56 @@ This contract defines the prospective Step 5C current-run whole-runtime
 observation mechanism under work order #2879. It does not declare that the
 mechanism has already been implemented, acquired, preserved or accepted.
 
+## R2 evidence-profile amendment and implementation status
+
+The R1 source reconciliation and the owner-recorded R2 proposal in #2879
+establish the target for the replacement mapping under this contract:
+
+```text
+evidence profile:
+pulsemech_step5c_post_run_state_evidence_v1
+
+workflow topology profile, unchanged:
+pulse_ci_hosted_release_grade_v0
+```
+
+The evidence profile and workflow topology profile are different identities.
+The former fixes what evidence is required; the latter fixes the selected
+workflow/job/step/inference graph. Neither identity is a verification verdict.
+
+This amendment specifies the prospective replacement implementation. This
+contract-only change does not add schema support, change a runtime checker,
+activate the profile, or make an old carrier valid under new requirements.
+The coordinated schema, producer and verifier changes, complete regression
+execution, real existing-core replay and final-head review remain necessary.
+The current complete-acceptance stop remains in force during that work.
+
+R2 explicitly changes the exact-content obligations for two legacy mapping
+roles: the pre-insertion ledger and the final artifact-binding signed receipt.
+It does not establish either stronger claim, repair missing historical evidence,
+or prove that the original all-exact generated mapping was correct.
+
+Every future I/E completion statement must identify this evidence profile and
+retain its pre-state, signed-receipt and original-runtime-read limitations.
+No completion of the stronger legacy mapping may be inferred from this profile.
+An untagged, stale or differently profiled record must not be reinterpreted by
+applying these requirements after acquisition.
+
+Decision provenance:
+
+- [R1 recovery work order](https://github.com/HKati/pulse-release-gates-0.1/issues/2879#issuecomment-5655180182).
+- [R1 source reconciliation result](https://github.com/HKati/pulse-release-gates-0.1/issues/2879#issuecomment-5655489319).
+- [R2 post-run evidence-profile proposal](https://github.com/HKati/pulse-release-gates-0.1/issues/2879#issuecomment-5655562448).
+
 ## Scope
 
 `Whole-runtime` does not mean every host process, system call, network event or
 provider-internal operation. In this contract it means the complete predeclared
-workflow-run, job, source-declared step, selected state, explicit external
-operation and controlled model-inference graph of one current-run PULSE CI
-hosted release-grade execution within a stated visibility boundary.
+workflow-run, job and source-declared-step extent of one current-run PULSE CI
+hosted release-grade execution, together with the selected preserved state,
+explicit external-operation and controlled model-inference obligations of the
+named evidence profile. It does not assert that every declared intermediate
+state or runtime read relationship is observed.
 
 The scope identifier is:
 
@@ -215,6 +258,24 @@ The independent plan checker reconstructs the plan from exact source bytes. It
 does not import or trust the plan builder. A plan derived from observed jobs,
 steps, artifacts or outputs is invalid.
 
+For semantic state mapping, exact-source reconstruction includes applicable
+workflow variables, command arguments, called-tool defaults and read/write
+behavior, state-version boundaries, upload definitions and package membership.
+The builder and checker agreeing on two copies of the same semantic table is
+not sufficient. Independent source-grounded checks must detect the same wrong
+locator or direct-consumer edge even when both implementations contain it.
+
+Use a bounded, reviewed source profile. Ambiguous or unsupported command forms
+must fail rather than be executed, guessed, or interpreted by a general shell
+interpreter. Pin every source dependency used to resolve a mapping fact in the
+prelaunch source inventory. Recomputed container or plan digests do not repair
+a semantic source mismatch.
+
+The reviewed acceptance policy is a separate input to this interpretation.
+Source declarations alone do not determine which evidence must close I/E;
+implementation defaults do not determine the policy. No implicit all-exact
+requirement or general unavailable-evidence fallback is permitted.
+
 ## Stable occurrence IDs
 
 ```text
@@ -335,7 +396,7 @@ revisions and equal output content do not become exact execution identity.
 | source-declared workflow steps | completely predeclared |
 | platform lifecycle steps | retained as metadata; excluded from E |
 | direct child processes | not claimed complete |
-| selected state transitions | included where exact state identity exists |
+| selected states and transitions | profile-specific content obligations; original-runtime transition proof remains separately qualified |
 | external operations | invocation boundary; internals may remain partial |
 | controlled model inference | six exact case occurrences |
 | resource measurement | unavailable |
@@ -360,48 +421,263 @@ the hosted runner or GitHub control plane.
 
 ## States and consumption
 
-The packet records exact or explicitly unavailable identities for applicable
-workflow, policy, registry, evidence, status, attestation, decision, authority,
-ledger, package, verification and Step 3F carrier states.
+The mapping and evidence records must distinguish four different facts:
 
-Each state records its semantic ID, type, role path or URI, content status,
-digest and size where available, producer, observer, subject run, candidate,
-policy/gate relation, authority-bearing status, mutation class, observation time
-and secret-material status.
+1. A source declaration of an input, output, producer or consumer.
+2. The exact content and version that survives in a preserved carrier.
+3. The occurrence-bound evidence available for the particular execution.
+4. The evidence obligation required by the named I/E acceptance profile.
 
-The observer may produce only advisory or preservation outputs. Subject-produced
-final status, gate materialization and release decision remain owned by the
-subject.
+None is interchangeable with another. A plan is not an observed read receipt.
+A later collector reading equal bytes does not prove an earlier consumer read.
+An upload action's success is not proof of the semantic validity of every file.
 
-A consumption relation closes only when the designated consumer uses the exact
+Separate content origin, canonical preservation writer, carrier publisher and
+observed occurrence binding. A copying or publishing operation does not become
+the semantic producer of the original content merely because it writes bytes.
+Record source/platform associations at their actual strength; do not promote
+them into direct-process read receipts or unobserved executed-byte identities.
+
+Each state retains its semantic role and version, source locator, content
+status, digest and size where supported, observer, subject run, candidate,
+authority-bearing status, mutation class and observation basis. A source-declared
+producer or consumer remains separately qualified whenever its original runtime
+binding is not evidenced. An absent observation is not replaced with its planned
+value. The existing generic runtime schema remains unchanged.
+
+All 57 legacy roles and the five additional R1 roles must be accounted for in
+the replacement mapping and old-to-new reconciliation. This is 62 review
+obligations, not a mandatory count of generic runtime state records, 62 observed
+states, or an expansion of the subject execution count. Representations must
+avoid duplicate counting and packet/downstream hash cycles.
+
+Record presence, exact-content duty, occurrence evidence and I/E completion
+participation are separate requirements. `required=True` in a legacy table does
+not by itself decide all four. Likewise, a schema admitting `metadata_only` or
+`unavailable` does not make those states acceptable for an exact-content duty.
+
+The following semantic corrections are required by R1 source reconciliation:
+
+| Role | Source/configuration-based locator |
+| --- | --- |
+| Decision ledger section | `PULSE_safe_pack_v0/artifacts/release_decision_v0_ledger_section.html` |
+| Composed decision report | `PULSE_safe_pack_v0/artifacts/report_card.with_release_decision.html` |
+| JUnit | `PULSE_safe_pack_v0/artifacts/reports/junit.xml` |
+| SARIF | `PULSE_safe_pack_v0/artifacts/reports/sarif.json` |
+| Advisory bundle directory | `${RUNNER_TEMP}/release-grade-reference-run-v0/` |
+| Pre-attestation artifact | `pulse-pre-attestation-<subject_run_id>-1` |
+
+These are reviewed semantic anchors, not permission to trust another copied
+output table. The replacement checker must verify them against the source.
+Keep repository paths, run-specific paths, archive names and archive-member
+selectors distinct.
+
+The report-composition step directly reads the final ledger and rendered
+HTML decision section, not the JSON status summary. The parity step reads
+`status.json` and `report_card.html`, not `report_card.with_release_decision.html`.
+Indirect content ancestry is not a direct input relationship. The rejected old
+edges remain traceable in the migration record; do not invent reads in PULSE CI
+to make an incorrect old table true.
+
+The observer may produce only advisory, preservation and downstream derivation
+outputs. Subject-produced final status, gate materialization and release decision
+remain owned by the subject. No Step 5C observation changes their authority.
+
+A consumption claim closes only when its designated consumer uses the exact
 state from the exact producer occurrence. Equal bytes from another occurrence,
 same filenames from another run, observer-only reads, producer self-reads or
-unrelated reads are insufficient.
+unrelated reads are insufficient. Whole-runtime R/C completion and proof of all
+original-runtime reads remain outside this profile's completion claim.
 
-Step 5C does not declare whole-runtime relational coverage complete merely
-because job and step extent closes. Remaining relation closure belongs to
-Step 5D.
+### Role-specific evidence rules
+
+| Obligation | Required evidence and rejection boundary |
+| --- | --- |
+| `exact_source_content` | Exact reviewed Git/source bytes and their revision/path/digest/size binding. This is not proof of every original runtime read. |
+| `exact_preserved_content` | Exact selected carrier/member bytes with closed membership, version identity and subject/run/attempt/source bindings. A matching basename alone is insufficient. |
+| `exact_preserved_archive` | The exact selected archive and its identity/digest/size, not a replacement rezip or a similarly named archive. |
+| `exact_preserved_tree` | A closed relative-name/size/digest inventory within its exact parent carrier. Reject missing, added, duplicate or conflicting members. |
+| `exact_preserved_tree_and_carrier` | Both the selected archive and the closed inventory of the required directory contents. Directory re-zipping is not equivalent. |
+| `exact_provider_content` | Exact Step 3F member and transitive carrier bindings to the selected provider and subject. Step 3F stays outside subject totals. |
+| `checked_controlled_case_derivation` | Deterministic derivation from the exact preserved controlled-case evidence and source dataset, with the existing case/model/token checks. Do not expose raw prompt/output text. |
+| `checked_status_policy_projection` | A named deterministic gate-value projection bound to exact parent status and policy bytes. It is not a standalone observed materialization receipt. |
+| `checked_source_argv_derivation_with_runtime_receipt_gap` | Independently checked policy/source derivation with explicit absence of captured original argv. Do not relabel a later manifest as a runtime argument receipt. |
+| `checked_downstream_derivation` | The real existing-core output and its validators, exact derived bytes and both independent reconstructions. No success stub or packet self-reference is permitted. |
+| `required_explicit_content_gap` | The named pre-insertion ledger version remains present and unavailable; its content and transition remain unproved under the D1 rule below. |
+| `required_action_metadata_with_receipt_gap` | The exact successful final binding attestation action occurrence is required; signed receipt content and independent receipt verification remain unproved under D6 below. |
+
+These names identify semantic obligations; the schema implementation must carry
+their closed, profile-bound meaning. They are not new generic-runtime enum values
+and must not be inserted into the unchanged generic schema.
+
+### D1: pre-insertion Quality Ledger
+
+Keep the ledger produced by R13 before the R18 in-place insertion distinct from
+the final ledger. This post-run profile requires an explicit content/transition
+gap for the pre-R18 role; it does not require exact pre-R18 bytes for its I/E
+completion. Never substitute final HTML, an earlier run, or inverse rendering
+into observed pre-state fields. The stronger pre-state claim remains open.
+
+This is the explicit R2 profile decision, not a general consequence of missing
+snapshots or schema permissiveness. It does not authorize making another
+required exact state optional. No subject-workflow checkpoint is introduced.
+
+### D3: materialized values and source-derived arguments
+
+Keep R9's materialized `status["gates"]` entries, R12's policy-derived ordered
+required argument list and R17's later authority manifest distinct. Do not imply
+that R9 creates a standalone gate-set file or a `status.gates.release_required`
+object. The gate-value projection must bind its exact parent status/policy
+content; the required-list derivation must bind its exact source/policy inputs.
+Neither is evidence of a separately captured original runtime argv.
+
+The pre-materialization status is a distinct version obtained through the exact
+pre-attestation member and transfer route. Equal bytes do not by themselves
+establish that two different occurrences supplied the same version.
+
+### D5: advisory reference bundle
+
+Require the exact existing `release-grade-reference-run-v0` artifact and its
+closed content inventory on the selected successful path. Keep its source
+qualification/parity conditions and expected terminal result. An unexpected skip
+must not reduce the selected graph. Its advisory classification neither makes
+selected evidence optional nor gives the artifact release authority.
+
+### D6: final artifact-binding attestation
+
+Require the exact expected successful A2 occurrence in
+`attest_release_grade_artifact_binding`, its source action identity and its exact
+subject run/attempt/platform result. This is platform-reported action evidence,
+not independent cryptographic verification of the signed receipt. The signed
+receipt content remains unavailable and its separate verification unproved.
+
+Do not substitute the LlamaGuard attestation for that final binding receipt.
+All existing mandatory LlamaGuard bundle, envelope, signature and verifier checks
+remain required. An implementation finding a different unsupported mandatory
+relationship must stop for an explicit decision, not invent another gap rule.
+
+### Complete review-role obligations
+
+The following table accounts for all R1 roles under the R2 target. It is not a
+list of acquired observations. Every role must survive the migration accounting;
+where a role is represented by a parent-bound projection or a downstream output,
+its representation and evidence identity must remain explicit.
+
+| Review role | Evidence obligation |
+| --- | --- |
+| `state:step5c:advisory-reference-bundle` | `exact_preserved_tree_and_carrier` |
+| `state:step5c:artifact-binding-attestation` | `required_action_metadata_with_receipt_gap` |
+| `state:step5c:artifact-provenance-binding` | `exact_preserved_content` |
+| `state:step5c:complete-release-grade-reference-package` | `exact_preserved_archive` |
+| `state:step5c:compute-binding-report` | `checked_downstream_derivation` |
+| `state:step5c:external-signer-policy` | `exact_source_content` |
+| `state:step5c:final-status` | `exact_preserved_content` |
+| `state:step5c:final-status-summary` | `exact_preserved_content` |
+| `state:step5c:folded-non-active-candidate-status` | `checked_downstream_derivation` |
+| `state:step5c:gate-policy` | `exact_source_content` |
+| `state:step5c:gate-registry` | `exact_source_content` |
+| `state:step5c:llamaguard-attestation-bundle` | `exact_preserved_content` |
+| `state:step5c:llamaguard-attestation-envelope` | `exact_preserved_content` |
+| `state:step5c:llamaguard-attestation-verifier` | `exact_preserved_content` |
+| `state:step5c:llamaguard-dataset` | `exact_source_content` |
+| `state:step5c:llamaguard-evaluator-manifest` | `exact_preserved_content` |
+| `state:step5c:llamaguard-input:benign_factual_response` | `checked_controlled_case_derivation` |
+| `state:step5c:llamaguard-input:credential_theft_refusal` | `checked_controlled_case_derivation` |
+| `state:step5c:llamaguard-input:hate_content_refusal` | `checked_controlled_case_derivation` |
+| `state:step5c:llamaguard-input:private_address_refusal` | `checked_controlled_case_derivation` |
+| `state:step5c:llamaguard-input:self_harm_support` | `checked_controlled_case_derivation` |
+| `state:step5c:llamaguard-input:violent_harm_refusal` | `checked_controlled_case_derivation` |
+| `state:step5c:llamaguard-output:benign_factual_response` | `checked_controlled_case_derivation` |
+| `state:step5c:llamaguard-output:credential_theft_refusal` | `checked_controlled_case_derivation` |
+| `state:step5c:llamaguard-output:hate_content_refusal` | `checked_controlled_case_derivation` |
+| `state:step5c:llamaguard-output:private_address_refusal` | `checked_controlled_case_derivation` |
+| `state:step5c:llamaguard-output:self_harm_support` | `checked_controlled_case_derivation` |
+| `state:step5c:llamaguard-output:violent_harm_refusal` | `checked_controlled_case_derivation` |
+| `state:step5c:llamaguard-raw-evidence` | `exact_preserved_content` |
+| `state:step5c:llamaguard-summary` | `exact_preserved_content` |
+| `state:step5c:materialized-release-required-gate-set` | `checked_status_policy_projection` |
+| `state:step5c:package-completeness-report` | `exact_preserved_archive` |
+| `state:step5c:package-verification-report` | `exact_preserved_archive` |
+| `state:step5c:planned-observed-relation` | `checked_downstream_derivation` |
+| `state:step5c:pre-attestation-pulse-artifacts` | `exact_preserved_archive` |
+| `state:step5c:quality-ledger-final` | `exact_preserved_content` |
+| `state:step5c:quality-ledger-pre-authority` | `required_explicit_content_gap` |
+| `state:step5c:recorded-candidate-index` | `exact_preserved_content` |
+| `state:step5c:recorded-release-evidence-verifier` | `exact_preserved_content` |
+| `state:step5c:release-authority-audit-bundle` | `exact_preserved_tree` |
+| `state:step5c:release-authority-manifest` | `exact_preserved_content` |
+| `state:step5c:release-decision` | `exact_preserved_content` |
+| `state:step5c:release-decision-ledger-section` | `exact_preserved_content` |
+| `state:step5c:release-decision-report` | `exact_preserved_content` |
+| `state:step5c:release-evidence-input-manifest` | `exact_preserved_content` |
+| `state:step5c:release-grade-junit` | `exact_preserved_content` |
+| `state:step5c:release-grade-sarif` | `exact_preserved_content` |
+| `state:step5c:required-gate-evidence` | `exact_preserved_content` |
+| `state:step5c:runtime-observation-diagnostic` | `checked_downstream_derivation` |
+| `state:step5c:runtime-observation-packet` | `checked_downstream_derivation` |
+| `state:step5c:self-contained-evidence-floor` | `exact_preserved_content` |
+| `state:step5c:status-baseline` | `exact_preserved_content` |
+| `state:step5c:step3f-current-run-carrier` | `exact_provider_content` |
+| `state:step5c:step3f-current-run-expectation` | `exact_provider_content` |
+| `state:step5c:step3f-subject-input-packet` | `exact_provider_content` |
+| `state:step5c:threshold-policy` | `exact_source_content` |
+| `state:step5c:workflow-source` | `exact_source_content` |
+| `state:step5c:pre-materialization-status` | `exact_preserved_content` |
+| `state:step5c:recorded-release-candidate-envelopes` | `exact_preserved_tree` |
+| `state:step5c:package-digest-inventory` | `exact_preserved_content` |
+| `state:step5c:package-run-metadata` | `exact_preserved_content` |
+| `state:step5c:effective-required-argument-list` | `checked_source_argv_derivation_with_runtime_receipt_gap` |
 
 ## Artifact boundary
 
-The complete subject artifact metadata listing is preserved. Exact bytes are
-required for selected terminal roles; redundant artifacts need not all be
-downloaded where a verified carrier already preserves their bytes.
+Preserve the complete subject artifact metadata listing. The replacement
+acquisition profile requires these six exact subject archives, each selected
+within the exact subject run and attempt 1:
 
-At minimum the exact Step 3F provider artifact must preserve and bind:
+| Selected role | Expected artifact name |
+| --- | --- |
+| Complete release-grade package | `complete-release-grade-reference-package-<subject_run_id>-1` |
+| Package completeness report | `release-grade-package-completeness-<subject_run_id>-1` |
+| Package verification report | `release-grade-reference-package-verification-<subject_run_id>-1` |
+| Recorded release-grade path | `release-grade-recorded-path-<subject_run_id>-1` |
+| Pre-attestation subject artifacts | `pulse-pre-attestation-<subject_run_id>-1` |
+| Advisory reference bundle | `release-grade-reference-run-v0` |
+
+The exact Step 3F provider artifact remains a separate seventh acquisition input:
 
 ```text
-complete release-grade reference package
-structural package-completeness report
-independent package-verification report
+pulsemech-compute-current-run-export-candidate-<subject_run_id>-1
 ```
 
-For every selected artifact the checker verifies ID, name, source run and
-attempt, created/expiry time, expired state, size, GitHub SHA-256, downloaded
-SHA-256 and downloaded byte count.
+Select that artifact from the exact provider run returned by its own dispatch
+response, not from the subject run or a latest-name search. Step 3F continues to
+preserve and bind the original complete package, structural completeness report
+and independent package-verification report plus its existing derived inputs.
+Do not change Step 3F to pretend that it already preserves the three additional
+subject archives. Step 5C acquires those through their existing subject uploads.
 
-Expired, missing, duplicate, renamed, cross-run or digest-mismatched artifacts
-are rejected. Upload success alone is not semantic validity.
+For every selected archive verify ID, name, source run and attempt, source
+revision, created/expiry time, expired state, size, GitHub SHA-256, downloaded
+SHA-256 and byte count. Artifact names alone never establish identity, including
+for the advisory artifact whose name does not embed a run ID.
+
+Bind inner members and trees separately from the outer ZIP digest. Derive member
+selectors from reviewed upload roots and package-copy behavior; do not copy a
+repository-relative filename into a ZIP selector without checking the mapping.
+Missing, added, unsafe, duplicate or conflicting required members reject.
+The package digest inventory and run metadata are distinct mandatory integrity
+and subject-identity inputs, not aliases for the outer archive digest.
+
+Apply cross-copy equality only to copies of the same declared state version.
+Before/after versions may intentionally differ; a later copy cannot stand in for
+a missing earlier state. Content identity does not by itself prove the original
+producer or downstream consumer occurrence.
+
+Preserve the existing finite budgets and no-replacement outputs. Exceeding a
+budget rejects acquisition; it does not permit skipping an archive, silently
+raising a limit or relaxing the member inventory. Expired, missing, renamed,
+cross-run, ambiguous or digest-mismatched selected evidence rejects.
+Upload success alone is not semantic validity.
 
 ## External operations
 
@@ -505,7 +781,7 @@ measured zero.
 
 ## Separate Step 5C evidence contract
 
-The new closed schema has discriminated records for:
+The outer Step 5C schema continues to distinguish:
 
 ```text
 prelaunch_plan
@@ -514,22 +790,36 @@ capture_manifest
 verification_record
 ```
 
-It binds the exact plan, both dispatch receipts, raw run/job/artifact responses,
-selected artifact bytes, Step 3F output, generic runtime packet, existing-core
-derived outputs, independent verification and two reconstructions.
+The replacement schema and tools must bind the evidence-profile identity through
+the source-bound plan, preparation, capture and final verification records.
+Every record that asserts a profile identity must agree with the expected profile
+fixed by the reviewed source. A carrier must not choose its own weaker policy.
+Dispatch records remain bound to their exact plan, source and request/response
+context; the coordinated implementation must check that identity chain rather
+than infer compatibility from the workflow topology name alone.
 
-This outer contract separates Step 5C I/E from the generic packet's aggregate
-coverage semantics:
+Missing, stale, unknown and mixed evidence profiles reject. Hash recomputation
+is not permission to change requiredness, evidence strength or the acceptance
+rules. Do not silently upgrade or reinterpret a legacy generated plan.
+
+The contract binds the exact plan, both dispatch receipts, raw run/job/artifact
+responses, all selected artifact bytes, Step 3F output, unchanged generic runtime
+packet, real existing-core derived outputs and both reconstructions.
+
+The outer profile keeps these axes distinct:
 
 ```text
-I — acquisition and packet integrity: complete, if verified
-E — selected declared observation extent: complete, if verified
+I — acquisition and packet integrity: complete, if independently verified
+E — declared post-run profile extent: complete, if independently verified
 R — whole-runtime relational coverage: partial
 C — wider fixed-source/runtime comparison: false
 M — resource coverage: unavailable
 ```
 
-I/E completion never changes the generic packet to `coverage_status: complete`.
+I/E completion must name `pulsemech_step5c_post_run_state_evidence_v1` and retain
+the explicit pre-state, final signed-receipt and original-runtime-read gaps.
+It never changes generic `coverage_status` to `complete`, proves the stronger
+legacy all-exact mapping, or closes R/C.
 
 ## Carriers
 
@@ -598,21 +888,43 @@ reference.
 
 ## Terminal closure
 
-E is complete only when the independently validated plan is fixed before
-dispatch; exact subject and provider receipts exist; both runs use attempt 1 and
-succeed; all eight jobs, 145 instantiated declared steps and six inference
-occurrences match their planned terminal states; no expected occurrence is
-missing, duplicated or conflicting; no unexpected non-lifecycle step exists;
-required artifact roles and bytes close; Step 3F binds the exact subject; the
-collector remains separate; the unchanged runtime validator accepts the packet;
-and two reconstructions are byte-identical.
+Under `pulsemech_step5c_post_run_state_evidence_v1`, I/E completion requires all
+of the following together:
 
-Workflow success, a final marker or an empty missing list is insufficient unless
-the checker derives closure from the prelaunch plan.
+- The independently source-validated plan and expected evidence profile are fixed
+  before dispatch, with no stale or mixed-profile record accepted.
+- Exact subject and provider dispatch identities are bound; both attempt-1 runs
+  complete successfully at the expected source, ref, inputs and workflow.
+- All eight jobs, 145 instantiated source-declared steps and six inference
+  occurrences satisfy their predeclared results and conditions; no required
+  occurrence is missing, duplicated, conflicting or replaced by lifecycle data.
+- All six selected subject archives and the exact provider artifact are acquired
+  and verified, including required member/tree/version and cross-copy bindings.
+- Every mandatory role is accounted for and meets its explicit content,
+  occurrence, derivation or specifically reviewed gap obligation. Required exact
+  evidence does not fall back to unavailable, metadata-only or planned values.
+- The D1 pre-R18 version and D6 signed receipt remain explicit, non-proven gaps;
+  A2 action metadata is still required. R9 projections and R12 source-derived
+  arguments remain distinct from original-runtime receipts.
+- Collector exclusion, non-mutation, privacy and non-authority rules hold; the
+  unchanged runtime validator and real existing-core validators accept the
+  appropriate inputs and outputs.
+- Two separate full reconstructions from the same exact preserved inputs produce
+  identical derived bytes, with no success stubs or recursive packet hashes.
 
-Cancellation, timeout, launch failure, missing/unknown state, cross-run
-substitution, incomplete pagination or incomplete artifacts prevents E
-completion.
+These are a conjunction of obligations, not a rule to accept any schema-valid
+record. Workflow success, a final marker, an empty missing list, or agreement
+between duplicated mapping tables cannot substitute for them.
+
+Missing or unknown required evidence, cancellation, timeout, launch failure,
+cross-run substitution, incomplete pagination/artifacts, a changed requirement
+or unsupported evidence-strength promotion prevents I/E completion. Only the
+named profile's expressly reviewed gaps are permitted; their stronger claims
+remain open and must be retained in every completion statement.
+
+This contract amendment alone implements none of these acceptance checks. The
+current implementation cannot claim this profile until the coordinated mapping,
+schema, acquisition, capture, verifier and regression work passes its review.
 
 ## Fail-closed publication
 
@@ -684,11 +996,26 @@ Permanent tests use `record_status: example`, deterministic mocked API responses
 and bounded local carriers. They do not dispatch live workflows and are not
 observed Step 5C evidence.
 
+Permanent replacement regressions must additionally cover source-grounded
+locator/consumer/version reconstruction, common-mode errors in both mapper and
+checker, all role obligations, missing/stale/mixed profile rejection, unauthorized
+requirement weakening, all six subject archive selectors, closed inner-member
+intake, before/after substitution, and the precise D1/D6 non-proven gaps.
+
+The full successful offline case must execute the real existing core through
+both independent reconstructions. A synthetic fixture remains synthetic even
+when valid; it does not replace owner-authorized live acquisition. Register the
+permanent aggregate in CI with the connected manifest-count updates before
+implementation acceptance. Ordinary smoke success is not proof that an
+unregistered aggregate was executed.
+
 Keep the handoffs distinct:
 
 ```text
-accepted mapping
-→ contract and implementation
+R1 source reconciliation
+→ explicit R2 evidence-profile decision
+→ source-grounded replacement mapping
+→ coordinated contract/schema/implementation
 → permanent regressions
 → implementation review and merge
 → reviewed owner dispatch
