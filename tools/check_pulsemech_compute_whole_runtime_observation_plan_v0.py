@@ -43,6 +43,7 @@ import json
 import math
 import os
 import re
+import shlex
 import subprocess
 import stat
 import unicodedata
@@ -413,6 +414,9 @@ SOURCE_ROLES = (
     ("llamaguard_runner", LLAMAGUARD_RUNNER_PATH),
     ("llamaguard_runtime_requirements", LLAMAGUARD_REQUIREMENTS_PATH),
     ("repository_requirements", REQUIREMENTS_PATH),
+    ('ledger_inplace_semantics', 'PULSE_safe_pack_v0/tools/insert_release_authority_manifest_ledger_section.py'),
+    ('report_composer_semantics', 'PULSE_safe_pack_v0/tools/insert_release_decision_ledger_section.py'),
+    ('ledger_parity_semantics', 'PULSE_safe_pack_v0/tools/check_quality_ledger_status_parity.py'),
 )
 
 AUTHORITY_BOUNDARY = {
@@ -777,6 +781,9 @@ def _load_sources(root: Path, source_commit: str) -> dict[str, GitObject]:
         PROVIDER_WORKFLOW_PATH: EXPECTED_PROVIDER_WORKFLOW_BLOB_SHA1,
         LLAMAGUARD_DATASET_PATH: EXPECTED_DATASET_BLOB_SHA1,
         LLAMAGUARD_RUNNER_PATH: EXPECTED_LLAMAGUARD_RUNNER_BLOB_SHA1,
+        'PULSE_safe_pack_v0/tools/insert_release_authority_manifest_ledger_section.py': '80fc10a2d6fc564091d6954159dbe6afbb1b6a37',
+        'PULSE_safe_pack_v0/tools/insert_release_decision_ledger_section.py': '5f0b8b43fa839dd6734edae265199bb5136b95ef',
+        'PULSE_safe_pack_v0/tools/check_quality_ledger_status_parity.py': 'd65d9e13d0fe66c72f876c002f66156b16df4374',
     }
     for path, expected in exact_pins.items():
         actual = source_by_path[path].blob_sha1
@@ -1219,10 +1226,231 @@ def _state(
     }
 
 
+# Independent source equations for the ledger/report mapping. No value in this
+# projection is obtained from the builder's state table or generated plan.
+def _checked_mapping_path(text: str, *, allow_temp: bool = False) -> str:
+    _require(isinstance(text, str) and len(text) > 0, "source_mapping_path_invalid")
+    roots = (("${PACK_DIR}/", "PULSE_safe_pack_v0/"),
+             ("${{ env.PACK_DIR }}/", "PULSE_safe_pack_v0/"),
+             ("${GITHUB_WORKSPACE}/", ""), ("$GITHUB_WORKSPACE/", ""))
+    for prefix, replacement in roots:
+        if text.startswith(prefix):
+            text = replacement + text[len(prefix):]
+            break
+    tail = text
+    if allow_temp and text.startswith("${RUNNER_TEMP}/"):
+        tail = text[len("${RUNNER_TEMP}/"):]
+    _require(re.fullmatch(r"[A-Za-z0-9_./-]+", tail) is not None,
+             "source_mapping_dynamic_path", text)
+    _require(not tail.startswith("/") and all(p not in ("", ".", "..") for p in tail.split("/")),
+             "source_mapping_path_invalid", text)
+    return text
+
+
+def _checked_mapping_invocation(raw_steps: list[dict[str, Any]], tool: str) -> tuple[int, dict[str, str]]:
+    matches: list[tuple[int, dict[str, str]]] = []
+    for ordinal, step in enumerate(raw_steps, 1):
+        source = step.get("run")
+        if not isinstance(source, str):
+            continue
+        for line in source.replace("\\\n", " ").splitlines():
+            if not re.match(r"^\s*python(?:3)?\s+", line):
+                continue
+            try:
+                tokens = shlex.split(line, comments=False, posix=True)
+            except ValueError as exc:
+                raise PlanError("source_mapping_command_invalid", tool) from exc
+            if len(tokens) < 2 or not tokens[1].endswith("/" + tool):
+                continue
+            _require(_checked_mapping_path(tokens[1]) == "PULSE_safe_pack_v0/tools/" + tool,
+                     "source_mapping_tool_path_mismatch", tool)
+            arguments = tokens[2:]
+            _require(len(arguments) % 2 == 0, "source_mapping_argument_shape", tool)
+            options: dict[str, str] = {}
+            for key, value in zip(arguments[::2], arguments[1::2], strict=True):
+                _require(re.fullmatch(r"--[a-z][a-z0-9_-]*", key) is not None
+                         and key not in options and not value.startswith("--"),
+                         "source_mapping_argument_shape", tool)
+                options[key] = value
+            matches.append((ordinal, options))
+    _require(len(matches) == 1, "source_mapping_command_not_unique", tool)
+    allowed_options = {
+        "render_quality_ledger.py": {"--status", "--out"},
+        "status_to_summary.py": {"--status", "--out_md", "--out_json"},
+        "materialize_release_decision.py": {"--status", "--policy", "--target", "--out", "--status-schema"},
+        "render_release_decision_ledger_section.py": {"--input", "--schema", "--out"},
+        "build_release_authority_manifest_v0.py": {"--status", "--policy", "--registry", "--evaluator", "--policy-set", "--out", "--workflow-name", "--event-name", "--ref", "--git-sha"},
+        "insert_release_authority_manifest_ledger_section.py": {"--report", "--manifest", "--href"},
+        "insert_release_decision_ledger_section.py": {"--report", "--section", "--out"},
+        "check_quality_ledger_status_parity.py": {"--status", "--ledger"},
+    }
+    _require(set(matches[0][1]) == allowed_options.get(tool), "source_mapping_argument_profile_mismatch", tool)
+    return matches[0]
+
+
+def _checked_mapping_export(raw: dict[str, Any], variable: str, *, allow_temp: bool = False) -> str:
+    source = raw.get("run")
+    _require(isinstance(source, str), "source_mapping_run_missing", variable)
+    matches = []
+    for line in source.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("export "):
+            stripped = stripped[len("export "):].lstrip()
+        if not stripped.startswith(variable + "="):
+            continue
+        try:
+            values = shlex.split(stripped[len(variable) + 1:], comments=False, posix=True)
+        except ValueError as exc:
+            raise PlanError("source_mapping_assignment_invalid", variable) from exc
+        _require(len(values) == 1, "source_mapping_assignment_invalid", variable)
+        matches.append(_checked_mapping_path(values[0], allow_temp=allow_temp))
+    _require(len(matches) == 1, "source_mapping_assignment_not_unique", variable)
+    return matches[0]
+
+
+def _source_ledger_expectations(workflow: dict[str, Any]) -> dict[str, Any]:
+    """Use the actual source's tool arguments and in-place version boundary."""
+    jobs = workflow.get("jobs")
+    _require(isinstance(jobs, dict), "source_mapping_jobs_missing")
+    job = jobs.get("release_grade_recorded_path")
+    _require(isinstance(job, dict) and isinstance(job.get("steps"), list), "source_mapping_job_missing")
+    steps = job["steps"]
+    _require(all(isinstance(s, dict) for s in steps), "source_mapping_steps_invalid")
+    calls = [_checked_mapping_invocation(steps, name) for name in (
+        "render_quality_ledger.py", "status_to_summary.py", "materialize_release_decision.py",
+        "render_release_decision_ledger_section.py", "build_release_authority_manifest_v0.py",
+        "insert_release_authority_manifest_ledger_section.py", "insert_release_decision_ledger_section.py",
+        "check_quality_ledger_status_parity.py",
+    )]
+    positions = [c[0] for c in calls]
+    _require(positions == list(range(positions[0], positions[0] + 8)), "source_mapping_ledger_order")
+    def path(number: int, flag: str) -> str:
+        _require(flag in calls[number][1], "source_mapping_argument_missing", str(number) + ":" + flag)
+        return _checked_mapping_path(calls[number][1][flag])
+    status, ledger = path(0, "--status"), path(0, "--out")
+    section, decision, manifest = path(3, "--out"), path(2, "--out"), path(4, "--out")
+    summary, report = path(1, "--out_json"), path(6, "--out")
+    _require([path(i, "--status") for i in (1, 2, 4, 7)] == [status] * 4,
+             "source_mapping_status_version_mismatch")
+    _require(path(3, "--input") == decision, "source_mapping_decision_input_mismatch")
+    _require(path(5, "--report") == ledger and path(5, "--manifest") == manifest
+             and "--out" not in calls[5][1], "source_mapping_inplace_boundary_mismatch")
+    _require((path(6, "--report"), path(6, "--section"), path(7, "--ledger")) == (ledger, section, ledger),
+             "source_mapping_consumer_input_mismatch")
+    _require(path(2, "--policy") == POLICY_PATH and path(4, "--policy") == POLICY_PATH
+             and path(4, "--registry") == REGISTRY_PATH, "source_mapping_authority_input_mismatch")
+    _require(len({status, ledger, section, decision, manifest, summary, report}) == 7,
+             "source_mapping_output_alias")
+    locators = dict(zip((
+        "quality-ledger-pre-authority", "final-status-summary", "release-decision",
+        "release-decision-ledger-section", "release-authority-manifest", "quality-ledger-final",
+        "release-decision-report"), (ledger + "#pre-authority-insertion", summary, decision,
+        section, manifest, ledger, report), strict=True))
+    equation_roles = (
+        (("final-status",), ("quality-ledger-pre-authority",)),
+        (("final-status",), ("final-status-summary",)),
+        (("final-status", "gate-policy"), ("release-decision",)),
+        (("release-decision",), ("release-decision-ledger-section",)),
+        (("final-status", "gate-policy", "gate-registry"), ("release-authority-manifest",)),
+        (("quality-ledger-pre-authority", "release-authority-manifest"), ("quality-ledger-final",)),
+        (("quality-ledger-final", "release-decision-ledger-section"), ("release-decision-report",)),
+        (("final-status", "quality-ledger-final"), ()),
+    )
+    equations = {_step_id("release_grade_recorded_path", pos): {"inputs": list(ins), "outputs": list(outs)}
+                 for pos, (ins, outs) in zip(positions, equation_roles, strict=True)}
+    def step_named(name: str) -> dict[str, Any]:
+        selected = [s for s in steps if s.get("name") == name]
+        _require(len(selected) == 1, "source_mapping_step_not_unique", name)
+        return selected[0]
+    exports = step_named("Export final release-grade JUnit and SARIF")
+    locators["release-grade-junit"] = _checked_mapping_export(exports, "PULSE_JUNIT")
+    locators["release-grade-sarif"] = _checked_mapping_export(exports, "PULSE_SARIF")
+    locators["advisory-reference-bundle"] = _checked_mapping_export(
+        step_named("Assemble advisory release-grade reference bundle"), "BUNDLE_DIR", allow_temp=True) + "/"
+    selected = [s for s in jobs.get("pulse", {}).get("steps", [])
+                if s.get("name") == "Upload release-grade pre-attestation pulse artifacts"]
+    _require(len(selected) == 1 and str(selected[0].get("uses", "")).startswith("actions/upload-artifact@"),
+             "source_mapping_upload_missing")
+    name = selected[0].get("with", {}).get("name")
+    _require(isinstance(name, str) and name.count("${{ github.run_id }}") == 1
+             and name.count("${{ github.run_attempt }}") == 1, "source_mapping_upload_template_invalid")
+    name = name.replace("${{ github.run_id }}", "{workflow_run_id}").replace("${{ github.run_attempt }}", "1")
+    _require(re.fullmatch(r"[a-z0-9-]+\{workflow_run_id\}-1", name) is not None,
+             "source_mapping_upload_template_invalid")
+    locators["pre-attestation-pulse-artifacts"] = "artifact://" + name
+    return {"locators": locators, "status": status, "equations": equations}
+
+
+def _apply_source_ledger_expectations(states: list[dict[str, Any]],
+                                      step_by_key: dict[tuple[str, int], dict[str, Any]],
+                                      facts: dict[str, Any]) -> None:
+    index = {s["state_id"].removeprefix("state:step5c:"): s for s in states}
+    controlled = set(facts["equations"])
+    for role, locator in facts["locators"].items():
+        index[role]["path_or_uri"] = locator
+    _require(index["final-status"]["path_or_uri"] == facts["status"], "source_mapping_status_locator_mismatch")
+    for role, state in index.items():
+        consumers = set(state["required_consumer_occurrence_ids"]) - controlled
+        for occurrence, equation in facts["equations"].items():
+            if role in equation["inputs"]:
+                consumers.add(occurrence)
+            if role in equation["outputs"]:
+                state["producer_occurrence_id"] = occurrence
+        state["required_consumer_occurrence_ids"] = sorted(consumers)
+    for step in step_by_key.values():
+        equation = facts["equations"].get(step["occurrence_id"])
+        if equation is not None:
+            for field, side in (("input_state_ids", "inputs"), ("output_state_ids", "outputs")):
+                step[field] = sorted("state:step5c:" + role for role in equation[side])
+
+
+def _verify_source_ledger_equations(plan: dict[str, Any], workflow: dict[str, Any]) -> None:
+    """Validate supplied records against source even if both reconstructions err."""
+    facts = _source_ledger_expectations(workflow)
+    raw_states = plan.get("state_templates")
+    _require(isinstance(raw_states, list) and all(isinstance(s, dict) for s in raw_states),
+             "source_mapping_state_set_invalid")
+    states = {s.get("state_id"): s for s in raw_states}
+    _require(len(states) == len(raw_states), "source_mapping_state_set_invalid")
+    sid = lambda key: "state:step5c:" + key
+    for key, locator in facts["locators"].items():
+        _require(states.get(sid(key), {}).get("path_or_uri") == locator,
+                 "source_mapping_locator_mismatch", key)
+    _require(states.get(sid("final-status"), {}).get("path_or_uri") == facts["status"],
+             "source_mapping_status_locator_mismatch")
+    raw_jobs = plan.get("jobs")
+    _require(isinstance(raw_jobs, list) and all(isinstance(j, dict) for j in raw_jobs),
+             "source_mapping_job_set_invalid")
+    steps = [s for j in raw_jobs for s in j.get("steps", [])]
+    _require(all(isinstance(s, dict) for s in steps), "source_mapping_step_set_invalid")
+    indexed = {s.get("occurrence_id"): s for s in steps}
+    _require(len(indexed) == len(steps), "source_mapping_step_set_invalid")
+    controlled = set(facts["equations"])
+    for occurrence, equation in facts["equations"].items():
+        step = indexed.get(occurrence)
+        _require(isinstance(step, dict), "source_mapping_occurrence_missing", occurrence)
+        for field, side in (("input_state_ids", "inputs"), ("output_state_ids", "outputs")):
+            _require(step.get(field) == sorted(sid(k) for k in equation[side]),
+                     "source_mapping_step_io_mismatch", occurrence + ":" + side)
+        for key in equation["outputs"]:
+            _require(states[sid(key)]["producer_occurrence_id"] == occurrence,
+                     "source_mapping_producer_mismatch", key)
+    for state_id, state in states.items():
+        expected = {occurrence for occurrence, eq in facts["equations"].items()
+                    if state_id in {sid(k) for k in eq["inputs"]}}
+        consumers = state.get("required_consumer_occurrence_ids")
+        _require(isinstance(consumers, list) and all(isinstance(c, str) for c in consumers),
+                 "source_mapping_consumer_set_invalid", str(state_id))
+        _require(set(consumers) & controlled == expected,
+                 "source_mapping_consumer_mismatch", str(state_id))
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
+    source_workflow: dict[str, Any],
 ) -> list[dict[str, Any]]:
+    source_projection = _source_ledger_expectations(source_workflow)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -1273,7 +1501,7 @@ def _build_states(
         "declared_gate_policy",
         POLICY_PATH,
         producer=None,
-        consumers=[st("pulse", 11), st("pulse", 50), st("pulse", 51), st("release_grade_recorded_path", 9), st("release_grade_recorded_path", 12), st("release_grade_recorded_path", 17), st("release_grade_recorded_path", 21)],
+        consumers=[st("pulse", 11), st("pulse", 50), st("pulse", 51), st("release_grade_recorded_path", 9), st("release_grade_recorded_path", 12), st("release_grade_recorded_path", 21)],
         authority=True,
     )
     registry = add(
@@ -1282,7 +1510,7 @@ def _build_states(
         "gate_registry",
         REGISTRY_PATH,
         producer=None,
-        consumers=[st("pulse", 11), st("pulse", 50), st("pulse", 51), st("release_grade_recorded_path", 9), st("release_grade_recorded_path", 12), st("release_grade_recorded_path", 17), st("release_grade_recorded_path", 21)],
+        consumers=[st("pulse", 11), st("pulse", 50), st("pulse", 51), st("release_grade_recorded_path", 9), st("release_grade_recorded_path", 12), st("release_grade_recorded_path", 21)],
         authority=True,
     )
     threshold = add(
@@ -1371,7 +1599,7 @@ def _build_states(
         "pre-attestation-pulse-artifacts",
         "package",
         "pre_attestation_pulse_artifact",
-        "artifact://release-grade-pre-attestation-pulse-artifacts",
+        source_projection["locators"]['pre-attestation-pulse-artifacts'],
         producer=st("pulse", 37),
         consumers=[st("release_grade_recorded_path", 4)],
         authority=True,
@@ -1436,7 +1664,7 @@ def _build_states(
         "materialized_release_required_gate_set",
         "status://gates/release_required",
         producer=st("release_grade_recorded_path", 9),
-        consumers=[st("release_grade_recorded_path", 10), st("release_grade_recorded_path", 11), st("release_grade_recorded_path", 12), st("release_grade_recorded_path", 15), st("release_grade_recorded_path", 17), st("release_grade_recorded_path", 21)],
+        consumers=[st("release_grade_recorded_path", 10), st("release_grade_recorded_path", 11), st("release_grade_recorded_path", 12), st("release_grade_recorded_path", 21)],
         authority=True,
         mutation="materialized_gate_set",
     )
@@ -1446,7 +1674,7 @@ def _build_states(
         "final_release_grade_status",
         "PULSE_safe_pack_v0/artifacts/status.json",
         producer=st("release_grade_recorded_path", 9),
-        consumers=[st("release_grade_recorded_path", 10), st("release_grade_recorded_path", 11), st("release_grade_recorded_path", 12), st("release_grade_recorded_path", 13), st("release_grade_recorded_path", 14), st("release_grade_recorded_path", 15), st("release_grade_recorded_path", 17), st("release_grade_recorded_path", 20), st("release_grade_recorded_path", 21), st("release_grade_recorded_path", 23)],
+        consumers=[st("release_grade_recorded_path", 10), st("release_grade_recorded_path", 11), st("release_grade_recorded_path", 12), st("release_grade_recorded_path", 21), st("release_grade_recorded_path", 23)],
         authority=True,
         mutation="final_status",
     )
@@ -1454,27 +1682,27 @@ def _build_states(
         "quality-ledger-pre-authority",
         "quality_ledger",
         "release_grade_quality_ledger_before_authority_insertion",
-        "PULSE_safe_pack_v0/artifacts/report_card.html#pre-authority-insertion",
+        source_projection["locators"]['quality-ledger-pre-authority'],
         producer=st("release_grade_recorded_path", 13),
-        consumers=[st("release_grade_recorded_path", 18)],
+        consumers=[],
         authority=True,
     )
     status_summary = add(
         "final-status-summary",
         "report",
         "final_release_grade_status_summary",
-        "PULSE_safe_pack_v0/artifacts/status_summary.json",
+        source_projection["locators"]['final-status-summary'],
         producer=st("release_grade_recorded_path", 14),
-        consumers=[st("release_grade_recorded_path", 19)],
+        consumers=[],
         authority=True,
     )
     decision = add(
         "release-decision",
         "release_decision",
         "final_release_decision",
-        "PULSE_safe_pack_v0/artifacts/release_decision_v0.json",
+        source_projection["locators"]['release-decision'],
         producer=st("release_grade_recorded_path", 15),
-        consumers=[st("release_grade_recorded_path", 16), st("release_grade_recorded_path", 19), st("release_grade_recorded_path", 21), st("release_grade_recorded_path", 30)],
+        consumers=[st("release_grade_recorded_path", 21), st("release_grade_recorded_path", 30)],
         authority=True,
         mutation="release_decision",
     )
@@ -1482,36 +1710,36 @@ def _build_states(
         "release-decision-ledger-section",
         "report",
         "release_decision_ledger_section",
-        "PULSE_safe_pack_v0/artifacts/release_decision_ledger_section_v0.html",
+        source_projection["locators"]['release-decision-ledger-section'],
         producer=st("release_grade_recorded_path", 16),
-        consumers=[st("release_grade_recorded_path", 19)],
+        consumers=[],
         authority=True,
     )
     authority_manifest = add(
         "release-authority-manifest",
         "release_authority",
         "final_release_authority_manifest",
-        "PULSE_safe_pack_v0/artifacts/release_authority_v0.json",
+        source_projection["locators"]['release-authority-manifest'],
         producer=st("release_grade_recorded_path", 17),
-        consumers=[st("release_grade_recorded_path", 18), st("release_grade_recorded_path", 19), st("release_grade_recorded_path", 21), st("release_grade_recorded_path", 27)],
+        consumers=[st("release_grade_recorded_path", 21), st("release_grade_recorded_path", 27)],
         authority=True,
     )
     ledger_final = add(
         "quality-ledger-final",
         "quality_ledger",
         "final_release_grade_quality_ledger",
-        "PULSE_safe_pack_v0/artifacts/report_card.html",
+        source_projection["locators"]['quality-ledger-final'],
         producer=st("release_grade_recorded_path", 18),
-        consumers=[st("release_grade_recorded_path", 19), st("release_grade_recorded_path", 20), st("release_grade_recorded_path", 31)],
+        consumers=[st("release_grade_recorded_path", 31)],
         authority=True,
     )
     decision_report = add(
         "release-decision-report",
         "report",
         "composed_release_decision_report",
-        "PULSE_safe_pack_v0/artifacts/release_decision_report_v0.html",
+        source_projection["locators"]['release-decision-report'],
         producer=st("release_grade_recorded_path", 19),
-        consumers=[st("release_grade_recorded_path", 20), st("release_grade_recorded_path", 31)],
+        consumers=[st("release_grade_recorded_path", 31)],
         authority=True,
     )
     artifact_binding = add(
@@ -1536,7 +1764,7 @@ def _build_states(
         "release-grade-junit",
         "junit",
         "final_release_grade_junit",
-        "reports/junit.xml",
+        source_projection["locators"]['release-grade-junit'],
         producer=st("release_grade_recorded_path", 23),
         consumers=[st("release_grade_recorded_path", 26), st("release_grade_recorded_path", 33)],
         authority=False,
@@ -1545,7 +1773,7 @@ def _build_states(
         "release-grade-sarif",
         "sarif",
         "final_release_grade_sarif",
-        "reports/sarif.json",
+        source_projection["locators"]['release-grade-sarif'],
         producer=st("release_grade_recorded_path", 23),
         consumers=[st("release_grade_recorded_path", 26), st("release_grade_recorded_path", 33)],
         authority=False,
@@ -1554,7 +1782,7 @@ def _build_states(
         "advisory-reference-bundle",
         "package",
         "advisory_release_grade_reference_bundle",
-        "PULSE_safe_pack_v0/artifacts/release_grade_reference_bundle/",
+        source_projection["locators"]['advisory-reference-bundle'],
         producer=st("release_grade_recorded_path", 25),
         consumers=[st("release_grade_recorded_path", 26), st("release_grade_recorded_path", 32), st("assemble_release_grade_reference_package", 4)],
         authority=False,
@@ -1699,13 +1927,6 @@ def _build_states(
             ("release_grade_recorded_path", 9, evidence_verifier),
             ("release_grade_recorded_path", 12, final_status),
             ("release_grade_recorded_path", 12, materialized),
-            ("release_grade_recorded_path", 18, ledger_pre),
-            ("release_grade_recorded_path", 19, status_summary),
-            ("release_grade_recorded_path", 19, decision),
-            ("release_grade_recorded_path", 19, decision_ledger),
-            ("release_grade_recorded_path", 19, authority_manifest),
-            ("release_grade_recorded_path", 20, ledger_final),
-            ("release_grade_recorded_path", 20, decision_report),
             ("release_grade_recorded_path", 21, final_status),
             ("release_grade_recorded_path", 21, decision),
             ("release_grade_recorded_path", 21, authority_manifest),
@@ -1732,13 +1953,6 @@ def _build_states(
             ("release_grade_recorded_path", 8, evidence_verifier),
             ("release_grade_recorded_path", 9, materialized),
             ("release_grade_recorded_path", 9, final_status),
-            ("release_grade_recorded_path", 13, ledger_pre),
-            ("release_grade_recorded_path", 14, status_summary),
-            ("release_grade_recorded_path", 15, decision),
-            ("release_grade_recorded_path", 16, decision_ledger),
-            ("release_grade_recorded_path", 17, authority_manifest),
-            ("release_grade_recorded_path", 18, ledger_final),
-            ("release_grade_recorded_path", 19, decision_report),
             ("release_grade_recorded_path", 21, artifact_binding),
             ("release_grade_recorded_path", 22, audit_bundle),
             ("release_grade_recorded_path", 23, junit),
@@ -1775,6 +1989,8 @@ def _build_states(
             inputs=[("pulse", 22, input_state)],
             outputs=[("pulse", 22, output_state)],
         )
+
+    _apply_source_ledger_expectations(states, step_by_key, source_projection)
 
     # Make deterministic reference arrays after all bindings are complete.
     for step in step_by_key.values():
@@ -1938,7 +2154,7 @@ def _reconstruct_expected_plan(
         model_id=model_id,
         model_revision=model_revision,
     )
-    state_templates = _build_states(step_by_key, case_ids)
+    state_templates = _build_states(step_by_key, case_ids, subject_workflow)
 
     context = PlanBuildContext(
         source_commit=revision,
@@ -2357,6 +2573,9 @@ def check_plan(
     )
 
     _check_sorted_and_unique(plan)
+    _verify_source_ledger_equations(
+        plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH),
+    )
     _verify_tool_identity(
         plan=plan,
         source_by_path=source_by_path,

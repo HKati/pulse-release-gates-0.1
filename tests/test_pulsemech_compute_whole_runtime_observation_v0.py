@@ -15,6 +15,8 @@ No xfail/skip or substituted success diagnostic masks a broken connected path.
 """
 from __future__ import annotations
 import ast
+import inspect
+import textwrap
 import copy
 import io
 import shutil
@@ -503,7 +505,7 @@ def test_real_plan_cli_and_independent_checker(source_fixture):
     assert f.diagnostic_doc['plan']['byte_identical_to_independent_reconstruction'] is True
     assert f.diagnostic_doc['plan']['sha256'] == f.plan_digest
     assert f.plan['plan_identity']['source_commit'] == f.sha
-    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 35
+    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 38
 
 
 def test_two_separate_plan_processes_are_byte_identical(source_fixture):
@@ -1468,7 +1470,7 @@ def test_two_real_prepares_preserve_the_complete_declared_source_set(
         assert diagnostic['record_status'] == 'example'
         assert diagnostic['output_sha256'] == digest(raw)
         assert diagnostic['output_size_bytes'] == len(raw)
-        assert diagnostic['member_count'] == len(expected_members) == 40
+        assert diagnostic['member_count'] == len(expected_members) == 43
         assert diagnostic['authority_boundary'] == VERIFIER.AUTHORITY_BOUNDARY
         plan, members, stored_raw = read_prepared_example(f, target)
         assert plan == f.plan and stored_raw == raw
@@ -2571,6 +2573,258 @@ def test_r2_tag_cannot_upgrade_a_legacy_plan_through_the_current_checker(source_
     assert result.returncode != 0
     error = json.loads(result.stdout or result.stderr)
     assert error['ok'] is False and error['errors']
+
+
+# ---------------------------------------------------------------------------
+# Active source-grounded ledger/report mapping. Expected semantic answers below
+# come from workflow command arguments, not either plan table. Fault-injection
+# tests exercise the source-equation boundary; they are not acquired evidence.
+# ---------------------------------------------------------------------------
+def mapping_source_document():
+    return yaml.load((ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_text(encoding='utf-8'), Loader=yaml.BaseLoader)
+
+
+def independent_source_argument(document, ordinal, tool, option):
+    source = document['jobs']['release_grade_recorded_path']['steps'][ordinal - 1]['run']
+    invocations = [shlex.split(line) for line in source.replace('\\\n', ' ').splitlines()
+                   if line.strip().startswith('python ') and ('/' + tool + '"') in line]
+    assert len(invocations) == 1
+    argv = invocations[0]
+    assert argv.count(option) == 1
+    value = argv[argv.index(option) + 1]
+    return value.replace('${PACK_DIR}', 'PULSE_safe_pack_v0').replace('${GITHUB_WORKSPACE}/', '')
+
+
+SOURCE_LEDGER_OUTPUTS = [
+    ('quality-ledger-pre-authority', 13, 'render_quality_ledger.py', '--out', '#pre-authority-insertion'),
+    ('final-status-summary', 14, 'status_to_summary.py', '--out_json', ''),
+    ('release-decision', 15, 'materialize_release_decision.py', '--out', ''),
+    ('release-decision-ledger-section', 16, 'render_release_decision_ledger_section.py', '--out', ''),
+    ('release-authority-manifest', 17, 'build_release_authority_manifest_v0.py', '--out', ''),
+    ('quality-ledger-final', 18, 'insert_release_authority_manifest_ledger_section.py', '--report', ''),
+    ('release-decision-report', 19, 'insert_release_decision_ledger_section.py', '--out', ''),
+]
+
+
+@pytest.mark.parametrize('role,ordinal,tool,option,suffix', SOURCE_LEDGER_OUTPUTS)
+def test_source_mapping_outputs_come_from_actual_workflow(source_fixture, role, ordinal, tool, option, suffix):
+    states = {row['state_id']: row for row in source_fixture.plan['state_templates']}
+    row = states['state:step5c:' + role]
+    assert row['path_or_uri'] == independent_source_argument(mapping_source_document(), ordinal, tool, option) + suffix
+    assert row['producer_occurrence_id'] == f'execution:step5c:step:release_grade_recorded_path:{ordinal:03}'
+    assert row['required'] is True and row['content_requirement'] == 'exact_digest'
+
+
+@pytest.mark.parametrize('role,variable', [('release-grade-junit', 'PULSE_JUNIT'), ('release-grade-sarif', 'PULSE_SARIF')])
+def test_source_mapping_export_paths_use_actual_environment_assignment(source_fixture, role, variable):
+    raw = mapping_source_document()['jobs']['release_grade_recorded_path']['steps'][22]['run']
+    value = re.findall(r'^export ' + variable + r'="([^"]+)"$', raw, re.M)
+    assert len(value) == 1
+    state = next(s for s in source_fixture.plan['state_templates'] if s['state_id'] == 'state:step5c:' + role)
+    assert state['path_or_uri'] == value[0].replace('${PACK_DIR}', 'PULSE_safe_pack_v0')
+
+
+def test_source_mapping_advisory_and_pre_attestation_locators_follow_source(source_fixture):
+    document = mapping_source_document()
+    source = document['jobs']['release_grade_recorded_path']['steps'][24]['run']
+    directory = re.findall(r'^BUNDLE_DIR="([^"]+)"$', source, re.M)
+    assert len(directory) == 1
+    artifact = document['jobs']['pulse']['steps'][36]['with']['name']
+    states = {s['state_id']: s for s in source_fixture.plan['state_templates']}
+    assert states['state:step5c:advisory-reference-bundle']['path_or_uri'] == directory[0] + '/'
+    assert states['state:step5c:pre-attestation-pulse-artifacts']['path_or_uri'] == ('artifact://' + artifact.replace('${{ github.run_id }}', '{workflow_run_id}').replace('${{ github.run_attempt }}', '1'))
+
+
+@pytest.mark.parametrize('ordinal,inputs,outputs', [
+    (13, ['final-status'], ['quality-ledger-pre-authority']),
+    (14, ['final-status'], ['final-status-summary']),
+    (15, ['final-status', 'gate-policy'], ['release-decision']),
+    (16, ['release-decision'], ['release-decision-ledger-section']),
+    (17, ['final-status', 'gate-policy', 'gate-registry'], ['release-authority-manifest']),
+    (18, ['quality-ledger-pre-authority', 'release-authority-manifest'], ['quality-ledger-final']),
+    (19, ['quality-ledger-final', 'release-decision-ledger-section'], ['release-decision-report']),
+    (20, ['final-status', 'quality-ledger-final'], []),
+])
+def test_source_mapping_closed_step_equations_and_reverse_edges(source_fixture, ordinal, inputs, outputs):
+    plan = source_fixture.plan
+    job = next(j for j in plan['jobs'] if j['source_job_id'] == 'release_grade_recorded_path')
+    step = job['steps'][ordinal - 1]
+    state_ids = lambda names: sorted('state:step5c:' + name for name in names)
+    assert step['input_state_ids'] == state_ids(inputs)
+    assert step['output_state_ids'] == state_ids(outputs)
+    reverse = sorted(s['state_id'] for s in plan['state_templates'] if step['occurrence_id'] in s['required_consumer_occurrence_ids'])
+    assert reverse == state_ids(inputs)
+    # Source validation is independent of the equality between two plans.
+    PLAN_CHECKER._verify_source_ledger_equations(plan, mapping_source_document())
+
+
+@pytest.mark.parametrize('mutation', ['section_path', 'summary_to_composer', 'composed_to_parity', 'prior_state_alias', 'producer'])
+def test_source_mapping_same_wrong_answer_on_both_sides_is_rejected(source_fixture, mutation):
+    plan = copy.deepcopy(source_fixture.plan)
+    states = {s['state_id'].removeprefix('state:step5c:'): s for s in plan['state_templates']}
+    job = next(j for j in plan['jobs'] if j['source_job_id'] == 'release_grade_recorded_path')
+    if mutation == 'section_path':
+        states['release-decision-ledger-section']['path_or_uri'] = 'PULSE_safe_pack_v0/artifacts/release_decision_ledger_section_v0.html'
+    elif mutation in ('summary_to_composer', 'composed_to_parity'):
+        ordinal, role = (19, 'final-status-summary') if mutation == 'summary_to_composer' else (20, 'release-decision-report')
+        target = job['steps'][ordinal - 1]
+        target['input_state_ids'].append('state:step5c:' + role)
+        target['input_state_ids'].sort()
+        states[role]['required_consumer_occurrence_ids'].append(target['occurrence_id'])
+        states[role]['required_consumer_occurrence_ids'].sort()
+    elif mutation == 'prior_state_alias':
+        states['quality-ledger-pre-authority']['path_or_uri'] = states['quality-ledger-final']['path_or_uri']
+    else:
+        states['quality-ledger-final']['producer_occurrence_id'] = job['steps'][12]['occurrence_id']
+    # Simulate a common-mode semantic defect after both plan reconstructions.
+    builder_answer, checker_answer = canonical(plan), canonical(copy.deepcopy(plan))
+    assert builder_answer == checker_answer and digest(builder_answer) == digest(checker_answer)
+    jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(plan)
+    with pytest.raises(PLAN_CHECKER.PlanError, match='source_mapping_'):
+        PLAN_CHECKER._verify_source_ledger_equations(json.loads(builder_answer), mapping_source_document())
+
+
+@pytest.mark.parametrize('mutation', ['section_path', 'consumer'])
+def test_real_plan_checker_rejects_rehashed_source_mapping_error(source_fixture, tmp_path, mutation):
+    f = source_fixture
+    plan = copy.deepcopy(f.plan)
+    states = {s['state_id']: s for s in plan['state_templates']}
+    if mutation == 'section_path':
+        states['state:step5c:release-decision-ledger-section']['path_or_uri'] = 'PULSE_safe_pack_v0/artifacts/wrong.html'
+    else:
+        role = states['state:step5c:final-status-summary']
+        role['required_consumer_occurrence_ids'].append('execution:step5c:step:release_grade_recorded_path:019')
+        role['required_consumer_occurrence_ids'].sort()
+    raw = canonical(plan); target = tmp_path / 'source-mapping-mutant.json'; target.write_bytes(raw)
+    jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(plan)
+    result = cli(f.root, TOOL_NAMES[1], ['--repository-root', f.root, '--plan', target,
+        '--expected-source-commit', f.sha, '--expected-plan-sha256', digest(raw), '--expected-record-status', 'example'])
+    assert result.returncode != 0
+    diagnostic = json.loads(result.stdout)
+    assert diagnostic['ok'] is False and diagnostic['error_code'].startswith('source_mapping_')
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('mutation', ['duplicate_command', 'duplicate_out', 'wrong_tool_path', 'shell_output', 'traversal_output', 'unknown_output', 'inplace_changed', 'wrong_report_consumer', 'duplicate_export', 'ambiguous_bundle'])
+def test_source_mapping_rejects_unsupported_or_ambiguous_forms(side, mutation):
+    doc = mapping_source_document()
+    steps = doc['jobs']['release_grade_recorded_path']['steps']
+    if mutation == 'duplicate_command': steps[15]['run'] += '\n' + steps[15]['run']
+    elif mutation == 'duplicate_out': steps[15]['run'] += '\n'  # append to the invocation, not a new command
+    elif mutation == 'wrong_tool_path': steps[15]['run'] = steps[15]['run'].replace('${PACK_DIR}/tools/', '${PACK_DIR}/other/')
+    elif mutation in ('shell_output', 'traversal_output', 'unknown_output'):
+        value = {'shell_output': '$(touch /tmp/not-executed)', 'traversal_output': '${PACK_DIR}/../outside.html', 'unknown_output': '${UNREVIEWED_ROOT}/section.html'}[mutation]
+        steps[15]['run'] = steps[15]['run'].replace('${PACK_DIR}/artifacts/release_decision_v0_ledger_section.html', value)
+    elif mutation == 'inplace_changed': steps[17]['run'] = steps[17]['run'].rstrip() + ' --out "${PACK_DIR}/artifacts/new.html"\n'
+    elif mutation == 'wrong_report_consumer': steps[19]['run'] = steps[19]['run'].replace('/artifacts/report_card.html', '/artifacts/report_card.with_release_decision.html')
+    elif mutation == 'duplicate_export': steps[22]['run'] += '\nexport PULSE_JUNIT="${PACK_DIR}/artifacts/reports/other.xml"\n'
+    elif mutation == 'ambiguous_bundle': steps[24]['run'] += '\nBUNDLE_DIR="${RUNNER_TEMP}/other"\n'
+    if mutation == 'duplicate_out':
+        steps[15]['run'] = steps[15]['run'].rstrip() + ' --out "${PACK_DIR}/artifacts/second.html"\n'
+    tool = BUILDER if side == 'builder' else PLAN_CHECKER
+    function = tool._ledger_source_projection if side == 'builder' else tool._source_ledger_expectations
+    with pytest.raises(tool.PlanError, match='source_mapping_'):
+        function(doc)
+
+
+@pytest.mark.parametrize('path', [
+    'PULSE_safe_pack_v0/tools/insert_release_authority_manifest_ledger_section.py',
+    'PULSE_safe_pack_v0/tools/insert_release_decision_ledger_section.py',
+    'PULSE_safe_pack_v0/tools/check_quality_ledger_status_parity.py',
+])
+def test_source_mapping_called_semantics_are_exact_prepared_sources(source_fixture, tmp_path, path):
+    f = source_fixture
+    source = (f.root / path).read_bytes()
+    row = next(s for s in f.plan['source_inventory'] if s['path'] == path)
+    assert row['sha256'] == digest(source) and row['size_bytes'] == len(source)
+    assert row['git_blob_sha1'] == hashlib.sha1(b'blob ' + str(len(source)).encode() + b'\0' + source).hexdigest()
+    for module in (BUILDER, PLAN_CHECKER):
+        assert sum(p == path for _, p in module.SOURCE_ROLES) == 1
+    prepared = prepared_fixture_members(f)
+    assert prepared['sources/' + path] == source
+
+
+def test_source_mapping_builder_and_checker_extractors_are_distinct():
+    first = inspect.getsource(BUILDER._ledger_source_projection)
+    second = inspect.getsource(PLAN_CHECKER._source_ledger_expectations)
+    assert ast.dump(ast.parse(textwrap.dedent(first)), include_attributes=False) != ast.dump(ast.parse(textwrap.dedent(second)), include_attributes=False)
+    checker_source = (ROOT / 'tools' / (TOOL_NAMES[1] + '.py')).read_text()
+    tree = ast.parse(checker_source)
+    imports = [name.name for n in ast.walk(tree) if isinstance(n, ast.Import) for name in n.names]
+    imports += [n.module or '' for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)]
+    assert not any('build_pulsemech_compute_whole_runtime' in name for name in imports)
+    check = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'check_plan')
+    function_calls = [n.func.id for n in ast.walk(check) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)]
+    assert '_verify_source_ledger_equations' in function_calls
+
+
+def test_source_mapping_keeps_old_evidence_stop_and_inactive_r2_root(source_fixture):
+    packet = runtime_projection_example(source_fixture)
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, packet, {})
+    assert len(source_fixture.plan['state_templates']) == 57
+    assert 'evidence_profile' not in source_fixture.plan
+    assert len(EVIDENCE_SCHEMA['oneOf']) == 4
+
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('mutation', ['extra_flag', 'missing_flag', 'noncanonical_root'])
+def test_source_mapping_rejects_changed_cli_contract(side, mutation):
+    doc = mapping_source_document()
+    target = doc['jobs']['release_grade_recorded_path']['steps'][18]
+    if mutation == 'extra_flag': target['run'] = target['run'].rstrip() + ' --unexpected "anything"\n'
+    elif mutation == 'missing_flag': target['run'] = target['run'].replace('  --section "${PACK_DIR}/artifacts/release_decision_v0_ledger_section.html" \\\n', '')
+    else: target['run'] = target['run'].replace('${PACK_DIR}/artifacts/report_card.with_release_decision.html', 'prefix${PACK_DIR}/artifacts/other.html')
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    func = module._ledger_source_projection if side == 'builder' else module._source_ledger_expectations
+    with pytest.raises(module.PlanError, match='source_mapping_'):
+        func(doc)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('path', [
+    'PULSE_safe_pack_v0/tools/insert_release_authority_manifest_ledger_section.py',
+    'PULSE_safe_pack_v0/tools/insert_release_decision_ledger_section.py',
+    'PULSE_safe_pack_v0/tools/check_quality_ledger_status_parity.py',
+])
+def test_source_mapping_rejects_semantic_source_drift_even_with_recomputed_blob(source_fixture, monkeypatch, side, path):
+    from dataclasses import replace
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    original = module._read_git_object
+    def changed(*args, **kwargs):
+        obj = original(*args, **kwargs)
+        if kwargs.get('path') == path:
+            data = obj.data + b'\n# changed semantics profile test\n'
+            blob = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+            return replace(obj, data=data, blob_sha1=blob)
+        return obj
+    monkeypatch.setattr(module, '_read_git_object', changed)
+    with pytest.raises(module.PlanError, match='reviewed_source_profile_mismatch'):
+        module._load_sources(source_fixture.root, source_fixture.sha)
+
+
+@pytest.mark.parametrize('mutation', ['path', 'edge'])
+def test_actual_both_state_constructors_can_agree_wrongly_but_source_check_blocks(source_fixture, mutation):
+    answers = []
+    source = mapping_source_document()
+    for module in (BUILDER, PLAN_CHECKER):
+        jobs, steps, _ = module._build_jobs(copy.deepcopy(source))
+        states = module._build_states(steps, module.EXPECTED_CASE_IDS, copy.deepcopy(source))
+        if mutation == 'path':
+            next(s for s in states if s['state_id'] == 'state:step5c:release-decision-ledger-section')['path_or_uri'] = 'PULSE_safe_pack_v0/artifacts/common-wrong.html'
+        else:
+            role = 'state:step5c:final-status-summary'
+            target = steps[('release_grade_recorded_path', 19)]
+            target['input_state_ids'] = sorted(target['input_state_ids'] + [role])
+            state = next(s for s in states if s['state_id'] == role)
+            state['required_consumer_occurrence_ids'] = sorted(state['required_consumer_occurrence_ids'] + [target['occurrence_id']])
+        plan = copy.deepcopy(source_fixture.plan)
+        plan['jobs'], plan['state_templates'] = jobs, states
+        answers.append(canonical(plan))
+    assert answers[0] == answers[1]
+    with pytest.raises(PLAN_CHECKER.PlanError, match='source_mapping_'):
+        PLAN_CHECKER._verify_source_ledger_equations(json.loads(answers[0]), source)
 
 
 class _CompleteProgramGuard:
