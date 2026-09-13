@@ -368,6 +368,29 @@ PULSE_SUCCESS_ORDINALS = (
     | frozenset({39, 50, 51})
 )
 
+
+# Reviewed semantics used by the recorded-evidence/status source projection.
+_RECORDED_SEMANTIC_PINS = {
+    'PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py':
+        '6dcf6826d2c04143b86c7f7b6dfd6c8c43d028f7',
+    'PULSE_safe_pack_v0/tools/build_release_evidence_input_manifest_v0.py':
+        '95b457754514c0dea7ede27cd8b3204cf26f0a01',
+    'PULSE_safe_pack_v0/tools/check_recorded_release_evidence_v0.py':
+        '561e72a8e2ea2d25faa2a80cbecf025192435c38',
+    'PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py':
+        'a86aef9f2f5ccc6bb95997ee93eb6f9f95a8b85d',
+    'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py':
+        '4298b7644acb0d8f7c50bbbac5308fb5038a501a',
+    'PULSE_safe_pack_v0/tools/check_gates.py':
+        '2a593bdef31c9c8cb565b1c4ca3d16a1e3093735',
+    'tools/policy_to_require_args.py':
+        '5b1d099485d0e3bfd90da3fff1213a4e949db850',
+    'tools/validate_status_schema.py':
+        'f329f882805615402a9fed99f67d4e7667891c06',
+    'ci/check_release_no_stub_status.py':
+        'edc5ac6899be5037188440e8d97267c25536cfc6',
+}
+
 SOURCE_ROLES = (
     ("subject_workflow", SUBJECT_WORKFLOW_PATH),
     ("provider_workflow", PROVIDER_WORKFLOW_PATH),
@@ -407,6 +430,15 @@ SOURCE_ROLES = (
     ('ledger_inplace_semantics', 'PULSE_safe_pack_v0/tools/insert_release_authority_manifest_ledger_section.py'),
     ('report_composer_semantics', 'PULSE_safe_pack_v0/tools/insert_release_decision_ledger_section.py'),
     ('ledger_parity_semantics', 'PULSE_safe_pack_v0/tools/check_quality_ledger_status_parity.py'),
+    ("recorded_candidate_builder_semantics", 'PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py'),
+    ("recorded_manifest_builder_semantics", 'PULSE_safe_pack_v0/tools/build_release_evidence_input_manifest_v0.py'),
+    ("recorded_evidence_verifier_semantics", 'PULSE_safe_pack_v0/tools/check_recorded_release_evidence_v0.py'),
+    ("release_required_materializer_semantics", 'PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py'),
+    ("candidate_status_origin_semantics", 'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py'),
+    ("release_gate_checker_semantics", 'PULSE_safe_pack_v0/tools/check_gates.py'),
+    ("policy_argument_derivation_semantics", 'tools/policy_to_require_args.py'),
+    ("release_status_schema_guard_semantics", 'tools/validate_status_schema.py'),
+    ("release_no_stub_guard_semantics", 'ci/check_release_no_stub_status.py'),
 )
 
 AUTHORITY_BOUNDARY = {
@@ -775,6 +807,7 @@ def _load_sources(root: Path, source_commit: str) -> dict[str, GitObject]:
         'PULSE_safe_pack_v0/tools/insert_release_decision_ledger_section.py': '5f0b8b43fa839dd6734edae265199bb5136b95ef',
         'PULSE_safe_pack_v0/tools/check_quality_ledger_status_parity.py': 'd65d9e13d0fe66c72f876c002f66156b16df4374',
     }
+    exact_pins.update(_RECORDED_SEMANTIC_PINS)
     for path, expected in exact_pins.items():
         actual = source_by_path[path].blob_sha1
         _require(actual == expected, "reviewed_source_profile_mismatch", f"{path}: {actual}")
@@ -1433,12 +1466,226 @@ def _install_ledger_source_projection(
         row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
 
 
+# The recorded-evidence subgraph is a projection of the pinned source, not a
+# record of actual runtime reads. R2 carrier activation remains a separate step.
+_RECORDED_JOB = "release_grade_recorded_path"
+_RECORDED_PACK_TOOLS = "PULSE_safe_pack_v0/tools/"
+_RECORDED_ROLES = frozenset({
+    "pre-materialization-status", "recorded-release-candidate-envelopes",
+    "recorded-candidate-index", "release-evidence-input-manifest",
+    "recorded-release-evidence-verifier", "materialized-release-required-gate-set",
+    "final-status", "gate-policy", "gate-registry",
+})
+
+
+def _recorded_argv(raw: dict[str, Any], tool_path: str,
+                   expected_options: set[str], *, count: int = 1) -> list[dict[str, str]]:
+    """Parse only literal Python invocations in the selected source profile."""
+    body = raw.get("run")
+    _require(isinstance(body, str), "recorded_mapping_run_missing", tool_path)
+    matches = []
+    for line in body.replace("\\\n", " ").splitlines():
+        if not re.match(r"^\s*python(?:3)?\s+", line):
+            continue
+        try:
+            argv = shlex.split(line, comments=False, posix=True)
+        except ValueError as exc:
+            raise PlanError("recorded_mapping_command_invalid", tool_path) from exc
+        if len(argv) < 2 or argv[1].rsplit("/", 1)[-1] != tool_path.rsplit("/", 1)[-1]:
+            continue
+        _require(_mapping_path(argv[1]) == tool_path, "recorded_mapping_tool_path", tool_path)
+        args = argv[2:]
+        _require(len(args) % 2 == 0, "recorded_mapping_argument_shape", tool_path)
+        options: dict[str, str] = {}
+        for i in range(0, len(args), 2):
+            key, value = args[i:i + 2]
+            _require(key in expected_options and key not in options and not value.startswith("--"),
+                     "recorded_mapping_argument_shape", tool_path)
+            options[key] = value
+        _require(set(options) == expected_options, "recorded_mapping_argument_profile", tool_path)
+        matches.append(options)
+    _require(len(matches) == count, "recorded_mapping_command_count", tool_path)
+    return matches
+
+
+def _recorded_default(source: bytes, flag: str, constant: str, path: str) -> str:
+    """Resolve a declared argparse default from a top-level literal constant."""
+    try:
+        tree = ast.parse(source.decode("utf-8", errors="strict"), filename=path)
+    except (UnicodeError, SyntaxError) as exc:
+        raise PlanError("recorded_mapping_python_source", path) from exc
+    mains = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "main"]
+    _require(len(mains) == 1, "recorded_mapping_main_not_unique", path)
+    calls = [node for node in ast.walk(mains[0]) if isinstance(node, ast.Call)
+             and isinstance(node.func, ast.Attribute) and node.func.attr == "add_argument"
+             and node.args and isinstance(node.args[0], ast.Constant) and node.args[0].value == flag]
+    _require(len(calls) == 1, "recorded_mapping_default_not_unique", flag)
+    defaults = [kw.value for kw in calls[0].keywords if kw.arg == "default"]
+    _require(len(defaults) == 1 and isinstance(defaults[0], ast.Name)
+             and defaults[0].id == constant, "recorded_mapping_default_binding", flag)
+    return _mapping_path(_python_constant(source, name=constant, label=path))
+
+
+def _recorded_source_projection(workflow: dict[str, Any],
+                                source_by_path: dict[str, GitObject]) -> dict[str, Any]:
+    """Resolve the selected candidate/status family; do not execute its tools."""
+    jobs = workflow.get("jobs", {})
+    raw_steps = jobs.get(_RECORDED_JOB, {}).get("steps")
+    _require(isinstance(raw_steps, list) and len(raw_steps) >= 12,
+             "recorded_mapping_steps_missing")
+    for ordinal in range(6, 13):
+        _require(raw_steps[ordinal - 1].get("name") == RECORDED_PATH_STEP_NAMES[ordinal - 1],
+                 "recorded_mapping_step_order", str(ordinal))
+    pack = _RECORDED_PACK_TOOLS
+    def call(ordinal: int, name: str, options: set[str]) -> dict[str, str]:
+        return _recorded_argv(raw_steps[ordinal - 1], pack + name, options)[0]
+    def payload(path: str) -> bytes:
+        obj = source_by_path.get(path)
+        _require(obj is not None, "recorded_mapping_source_missing", path)
+        _require(_sha1_git_blob(obj.data) == _RECORDED_SEMANTIC_PINS[path],
+                 "recorded_mapping_semantic_source_drift", path)
+        return obj.data
+    # Pin the semantics of every interpreted helper, not only its printed name.
+    for path in _RECORDED_SEMANTIC_PINS:
+        payload(path)
+    candidate_path = pack + "build_recorded_release_candidates_v0.py"
+    manifest_path = pack + "build_release_evidence_input_manifest_v0.py"
+    candidate = call(6, "build_recorded_release_candidates_v0.py", {"--repo-root"})
+    manifest = call(7, "build_release_evidence_input_manifest_v0.py", {"--repo-root"})
+    verifier = call(8, "check_recorded_release_evidence_v0.py", {"--manifest", "--repo-root", "--out-json"})
+    materializer = call(9, "materialize_release_required_from_verifier_v0.py",
+                        {"--status", "--verifier-report", "--manifest", "--repo-root", "--policy", "--registry", "--out"})
+    _require(all(row["--repo-root"] == "${GITHUB_WORKSPACE}" for row in
+                 (candidate, manifest, verifier, materializer)), "recorded_mapping_repo_root")
+    status = _recorded_default(payload(candidate_path), "--status", "STATUS", candidate_path)
+    index = _recorded_default(payload(candidate_path), "--index", "INDEX", candidate_path)
+    envelopes = _recorded_default(payload(candidate_path), "--out-dir", "OUT_DIR", candidate_path)
+    manifest_out = _recorded_default(payload(manifest_path), "--out", "OUT_PATH", manifest_path)
+    manifest_index = _recorded_default(payload(manifest_path), "--index", "INDEX_PATH", manifest_path)
+    manifest_envelopes = _mapping_path(_python_constant(payload(manifest_path), name="CANDIDATE_DIR", label=manifest_path))
+    manifest_status = _mapping_path(_python_constant(payload(manifest_path), name="STATUS_PATH", label=manifest_path))
+    _require(index == manifest_index and envelopes == manifest_envelopes and status == manifest_status,
+             "recorded_mapping_candidate_handoff")
+    for path, names in ((candidate_path, ("POLICY", "REGISTRY")),
+                        (manifest_path, ("POLICY_PATH", "REGISTRY_PATH"))):
+        _require(_recorded_default(payload(path), "--policy", names[0], path) == POLICY_PATH
+                 and _recorded_default(payload(path), "--registry", names[1], path) == REGISTRY_PATH,
+                 "recorded_mapping_policy_defaults")
+    report = _mapping_path(verifier["--out-json"])
+    _require(_mapping_path(verifier["--manifest"]) == manifest_out
+             and _mapping_path(materializer["--manifest"]) == manifest_out
+             and _mapping_path(materializer["--verifier-report"]) == report,
+             "recorded_mapping_verifier_handoff")
+    _require(_mapping_path(materializer["--status"]) == status
+             and _mapping_path(materializer["--out"]) == status,
+             "recorded_mapping_status_version")
+    _require(_mapping_path(materializer["--policy"]) == POLICY_PATH
+             and _mapping_path(materializer["--registry"]) == REGISTRY_PATH,
+             "recorded_mapping_materializer_context")
+    _require(len({status, index, envelopes, manifest_out, report}) == 5,
+             "recorded_mapping_output_alias")
+    pulse_steps = jobs.get("pulse", {}).get("steps", [])
+    _require(len(pulse_steps) >= 37, "recorded_mapping_origin_missing")
+    origin = _recorded_argv(pulse_steps[12], pack + "build_release_grade_candidate_status_v0.py",
+                            {"--repo-root", "--out"})[0]
+    _require(origin["--repo-root"] == "${GITHUB_WORKSPACE}" and _mapping_path(origin["--out"]) == status,
+             "recorded_mapping_status_origin")
+    restored = _mapping_assignment(raw_steps[3], "CANONICAL_ARTIFACTS")
+    restore_calls = re.findall(r'^\s*copy_required_artifact\s+"([^"\n]+)"\s*$', raw_steps[3].get("run", ""), re.M)
+    _require(restore_calls.count("status.json") == 1 and restored + "/status.json" == status,
+             "recorded_mapping_status_restore")
+    contract = _recorded_argv(raw_steps[9], "tools/validate_status_schema.py", {"--schema", "--status", "--max-errors"})[0]
+    no_stub = _recorded_argv(raw_steps[10], "ci/check_release_no_stub_status.py", {"--status"})[0]
+    _require(_mapping_path(contract["--status"]) == status and _mapping_path(no_stub["--status"]) == status
+             and contract["--max-errors"] == "20"
+             and _mapping_path(contract["--schema"]) == "schemas/status/release_grade_status_v1.schema.json",
+             "recorded_mapping_post_status_guard")
+    enforce = raw_steps[11]
+    _require(_mapping_assignment(enforce, "STATUS") == status, "recorded_mapping_enforcement_status")
+    policy_calls = _recorded_argv(enforce, "tools/policy_to_require_args.py", {"--policy", "--set", "--format"}, count=2)
+    _require([row["--set"] for row in policy_calls] == ["required", "release_required"]
+             and all(_mapping_path(row["--policy"]) == POLICY_PATH and row["--format"] == "newline" for row in policy_calls),
+             "recorded_mapping_enforcement_policy")
+    gate_call = _recorded_argv(enforce, pack + "check_gates.py", {"--status", "--require"})[0]
+    _require(gate_call == {"--status": "${STATUS}", "--require": "${EFFECTIVE_GATES[@]}"},
+             "recorded_mapping_enforcement_arguments")
+    # Exact workflow pinning also fixes the shell's ordered deduplication and
+    # non-empty guards. This is not an original runtime argv receipt.
+    locators = {
+        "pre-materialization-status": status + "#pre-release-required-materialization",
+        "recorded-release-candidate-envelopes": envelopes + "/",
+        "recorded-candidate-index": index,
+        "release-evidence-input-manifest": manifest_out,
+        "recorded-release-evidence-verifier": report,
+        "materialized-release-required-gate-set": "projection://" + status + "#policy-selected-release_required-gate-values",
+        "final-status": status,
+    }
+    # These are source-declared dependencies for this selected state family.
+    # Transitive evidence replay is not presented as an observed read receipt.
+    io = {
+        6: (("pre-materialization-status", "gate-policy", "gate-registry"),
+            ("recorded-candidate-index", "recorded-release-candidate-envelopes")),
+        7: (("recorded-candidate-index", "recorded-release-candidate-envelopes", "pre-materialization-status", "gate-policy", "gate-registry"),
+            ("release-evidence-input-manifest",)),
+        8: (("release-evidence-input-manifest", "recorded-release-candidate-envelopes", "pre-materialization-status", "gate-policy", "gate-registry"),
+            ("recorded-release-evidence-verifier",)),
+        9: (("pre-materialization-status", "release-evidence-input-manifest", "recorded-release-evidence-verifier",
+             "recorded-release-candidate-envelopes", "gate-policy", "gate-registry"),
+            ("final-status", "materialized-release-required-gate-set")),
+        10: (("final-status",), ()), 11: (("final-status",), ()),
+        12: (("final-status", "gate-policy"), ()),
+    }
+    return {"locators": locators, "steps": {_step_id(_RECORDED_JOB, n): {"inputs": a, "outputs": z}
+                                             for n, (a, z) in io.items()},
+            "pre_status_origin": _step_id("pulse", 13), "pre_status_restore": _step_id(_RECORDED_JOB, 4)}
+
+
+def _install_recorded_source_projection(states: list[dict[str, Any]],
+                                        step_by_key: dict[tuple[str, int], dict[str, Any]],
+                                        facts: dict[str, Any]) -> None:
+    sid = lambda role: "state:step5c:" + role
+    index = {row["state_id"]: row for row in states}
+    selected = {sid(role) for role in _RECORDED_ROLES}
+    owned = set(facts["steps"])
+    for role, locator in facts["locators"].items():
+        index[sid(role)]["path_or_uri"] = locator
+    for row in states:
+        if row["state_id"] in selected:
+            row["required_consumer_occurrence_ids"] = [x for x in row["required_consumer_occurrence_ids"] if x not in owned]
+    for step in step_by_key.values():
+        occurrence = step["occurrence_id"]
+        if occurrence not in owned:
+            continue
+        equation = facts["steps"][occurrence]
+        for field, key in (("input_state_ids", "inputs"), ("output_state_ids", "outputs")):
+            step[field] = sorted(set(step[field]) - selected | {sid(role) for role in equation[key]})
+        for role in equation["inputs"]:
+            index[sid(role)]["required_consumer_occurrence_ids"].append(occurrence)
+        for role in equation["outputs"]:
+            index[sid(role)]["producer_occurrence_id"] = occurrence
+    pre = sid("pre-materialization-status")
+    _append_unique(step_by_key[("pulse", 13)]["output_state_ids"], pre)
+    _append_unique(step_by_key[(_RECORDED_JOB, 4)]["input_state_ids"], pre)
+    index[pre]["producer_occurrence_id"] = facts["pre_status_origin"]
+    _append_unique(index[pre]["required_consumer_occurrence_ids"], facts["pre_status_restore"])
+    # The logical gate-value projection is not a separate file consumed by any
+    # later command. Those commands consume final-status instead.
+    logical = sid("materialized-release-required-gate-set")
+    index[logical]["required_consumer_occurrence_ids"] = []
+    for step in step_by_key.values():
+        step["input_state_ids"] = [x for x in step["input_state_ids"] if x != logical]
+    for row in states:
+        row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
     source_workflow: dict[str, Any],
+    source_by_path: dict[str, GitObject],
 ) -> list[dict[str, Any]]:
     source_projection = _ledger_source_projection(source_workflow)
+    recorded_projection = _recorded_source_projection(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -1489,7 +1736,7 @@ def _build_states(
         "declared_gate_policy",
         POLICY_PATH,
         producer=None,
-        consumers=[st("pulse", 11), st("pulse", 50), st("pulse", 51), st("release_grade_recorded_path", 9), st("release_grade_recorded_path", 12), st("release_grade_recorded_path", 21)],
+        consumers=[st("pulse", 11), st("pulse", 50), st("pulse", 51), st("release_grade_recorded_path", 21)],
         authority=True,
     )
     registry = add(
@@ -1498,7 +1745,7 @@ def _build_states(
         "gate_registry",
         REGISTRY_PATH,
         producer=None,
-        consumers=[st("pulse", 11), st("pulse", 50), st("pulse", 51), st("release_grade_recorded_path", 9), st("release_grade_recorded_path", 12), st("release_grade_recorded_path", 21)],
+        consumers=[st("pulse", 11), st("pulse", 50), st("pulse", 51), st("release_grade_recorded_path", 21)],
         authority=True,
     )
     threshold = add(
@@ -1623,36 +1870,36 @@ def _build_states(
         "recorded-candidate-index",
         "candidate_state",
         "recorded_release_candidate_index",
-        "PULSE_safe_pack_v0/artifacts/recorded_release_candidate_index_v0.json",
+        recorded_projection["locators"]['recorded-candidate-index'],
         producer=st("release_grade_recorded_path", 6),
-        consumers=[st("release_grade_recorded_path", 7), st("release_grade_recorded_path", 8), st("release_grade_recorded_path", 9)],
+        consumers=[],
         authority=True,
     )
     evidence_manifest = add(
         "release-evidence-input-manifest",
         "manifest",
         "release_evidence_input_manifest",
-        "PULSE_safe_pack_v0/artifacts/release_evidence_input_manifest_v0.json",
+        recorded_projection["locators"]['release-evidence-input-manifest'],
         producer=st("release_grade_recorded_path", 7),
-        consumers=[st("release_grade_recorded_path", 8)],
+        consumers=[],
         authority=True,
     )
     evidence_verifier = add(
         "recorded-release-evidence-verifier",
         "verifier_report",
         "recorded_release_evidence_verifier",
-        "PULSE_safe_pack_v0/artifacts/recorded_release_evidence_verifier_v0.json",
+        recorded_projection["locators"]['recorded-release-evidence-verifier'],
         producer=st("release_grade_recorded_path", 8),
-        consumers=[st("release_grade_recorded_path", 9)],
+        consumers=[],
         authority=True,
     )
     materialized = add(
         "materialized-release-required-gate-set",
         "candidate_state",
-        "materialized_release_required_gate_set",
-        "status://gates/release_required",
+        "policy_selected_release_required_status_gate_values",
+        recorded_projection["locators"]['materialized-release-required-gate-set'],
         producer=st("release_grade_recorded_path", 9),
-        consumers=[st("release_grade_recorded_path", 10), st("release_grade_recorded_path", 11), st("release_grade_recorded_path", 12), st("release_grade_recorded_path", 21)],
+        consumers=[],
         authority=True,
         mutation="materialized_gate_set",
     )
@@ -1660,11 +1907,21 @@ def _build_states(
         "final-status",
         "status",
         "final_release_grade_status",
-        "PULSE_safe_pack_v0/artifacts/status.json",
+        recorded_projection["locators"]['final-status'],
         producer=st("release_grade_recorded_path", 9),
-        consumers=[st("release_grade_recorded_path", 10), st("release_grade_recorded_path", 11), st("release_grade_recorded_path", 12), st("release_grade_recorded_path", 21), st("release_grade_recorded_path", 23)],
+        consumers=[st("release_grade_recorded_path", 21), st("release_grade_recorded_path", 23)],
         authority=True,
         mutation="final_status",
+    )
+    pre_materialization = add(
+        "pre-materialization-status", "status", "pre_release_required_materialization_status",
+        recorded_projection["locators"]["pre-materialization-status"],
+        producer=recorded_projection["pre_status_origin"], consumers=[], authority=True,
+    )
+    candidate_envelopes = add(
+        "recorded-release-candidate-envelopes", "candidate_state", "recorded_release_candidate_envelope_tree",
+        recorded_projection["locators"]["recorded-release-candidate-envelopes"],
+        producer=st("release_grade_recorded_path", 6), consumers=[], authority=True,
     )
     ledger_pre = add(
         "quality-ledger-pre-authority",
@@ -1909,12 +2166,7 @@ def _build_states(
             ("release_grade_recorded_path", 5, attestation_bundle),
             ("release_grade_recorded_path", 5, attestation_envelope),
             ("release_grade_recorded_path", 5, attestation_verifier),
-            ("release_grade_recorded_path", 8, candidate_index),
-            ("release_grade_recorded_path", 8, evidence_manifest),
             ("release_grade_recorded_path", 8, signer),
-            ("release_grade_recorded_path", 9, evidence_verifier),
-            ("release_grade_recorded_path", 12, final_status),
-            ("release_grade_recorded_path", 12, materialized),
             ("release_grade_recorded_path", 21, final_status),
             ("release_grade_recorded_path", 21, decision),
             ("release_grade_recorded_path", 21, authority_manifest),
@@ -1936,11 +2188,6 @@ def _build_states(
             ("attest_llamaguard_current_run_summary", 5, attestation_bundle),
             ("attest_llamaguard_current_run_summary", 6, attestation_envelope),
             ("attest_llamaguard_current_run_summary", 7, attestation_verifier),
-            ("release_grade_recorded_path", 6, candidate_index),
-            ("release_grade_recorded_path", 7, evidence_manifest),
-            ("release_grade_recorded_path", 8, evidence_verifier),
-            ("release_grade_recorded_path", 9, materialized),
-            ("release_grade_recorded_path", 9, final_status),
             ("release_grade_recorded_path", 21, artifact_binding),
             ("release_grade_recorded_path", 22, audit_bundle),
             ("release_grade_recorded_path", 23, junit),
@@ -1979,6 +2226,7 @@ def _build_states(
         )
 
     _install_ledger_source_projection(states, step_by_key, source_projection)
+    _install_recorded_source_projection(states, step_by_key, recorded_projection)
 
     # Make deterministic reference arrays after all bindings are complete.
     for step in step_by_key.values():
@@ -2142,7 +2390,7 @@ def build_plan(
         model_id=model_id,
         model_revision=model_revision,
     )
-    state_templates = _build_states(step_by_key, case_ids, subject_workflow)
+    state_templates = _build_states(step_by_key, case_ids, subject_workflow, source_by_path)
 
     context = PlanBuildContext(
         source_commit=revision,

@@ -505,7 +505,7 @@ def test_real_plan_cli_and_independent_checker(source_fixture):
     assert f.diagnostic_doc['plan']['byte_identical_to_independent_reconstruction'] is True
     assert f.diagnostic_doc['plan']['sha256'] == f.plan_digest
     assert f.plan['plan_identity']['source_commit'] == f.sha
-    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 38
+    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 47
 
 
 def test_two_separate_plan_processes_are_byte_identical(source_fixture):
@@ -1470,7 +1470,7 @@ def test_two_real_prepares_preserve_the_complete_declared_source_set(
         assert diagnostic['record_status'] == 'example'
         assert diagnostic['output_sha256'] == digest(raw)
         assert diagnostic['output_size_bytes'] == len(raw)
-        assert diagnostic['member_count'] == len(expected_members) == 43
+        assert diagnostic['member_count'] == len(expected_members) == 52
         assert diagnostic['authority_boundary'] == VERIFIER.AUTHORITY_BOUNDARY
         plan, members, stored_raw = read_prepared_example(f, target)
         assert plan == f.plan and stored_raw == raw
@@ -2108,11 +2108,11 @@ def test_declared_state_inventory_preserves_all_requirements_and_honest_gaps(sou
     packet = runtime_projection_example(f, profile=profile)
     states = {s['state_id']: s for s in packet['state_observations']}
     templates = {s['state_id']: s for s in f.plan['state_templates']}
-    assert set(states) == set(templates) and len(states) == 57
+    assert set(states) == set(templates) and len(states) == 59
     assert Counter(s['content_status'] for s in states.values()) == {
-        'exact_digest': 21, 'unavailable': 36,
+        'exact_digest': 21, 'unavailable': 38,
     }
-    assert packet['coverage']['state_records'] == 57
+    assert packet['coverage']['state_records'] == 59
     assert packet['coverage']['state_digest_capture_status'] == 'partial'
     assert packet['coverage']['coverage_status'] == 'partial'
     assert 'post_decision_state_unavailable' in packet['coverage']['unobserved_reasons']
@@ -2190,7 +2190,7 @@ def test_real_capture_to_declared_state_projection_keeps_capture_bytes_unchanged
     before = captured.path.read_bytes()
     packet = VERIFIER.build_runtime_packet(plan=f.plan, capture_manifest=captured.manifest,
         capture_members=captured.members, record_status='example')
-    assert len(packet['state_observations']) == 57
+    assert len(packet['state_observations']) == 59
     VERIFIER._require_state_projection(f.plan, packet, captured.manifest, captured.members)
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(f.plan, packet, {})
@@ -2274,7 +2274,7 @@ def test_terminal_state_accepts_bounded_complete_multiple_pages(source_fixture):
     manifest['raw_response_bindings'].append({'role':'subject_artifacts_page',
         'descriptor':{'member':second,'sha256':digest(raw),'size_bytes':len(raw)}})
     packet=VERIFIER.build_runtime_packet(plan=f.plan,capture_manifest=manifest,capture_members=members,record_status='example')
-    assert len(packet['state_observations']) == 57
+    assert len(packet['state_observations']) == 59
 
 
 @pytest.mark.parametrize('mutation', [
@@ -2762,7 +2762,7 @@ def test_source_mapping_keeps_old_evidence_stop_and_inactive_r2_root(source_fixt
     packet = runtime_projection_example(source_fixture)
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(source_fixture.plan, packet, {})
-    assert len(source_fixture.plan['state_templates']) == 57
+    assert len(source_fixture.plan['state_templates']) == 59
     assert 'evidence_profile' not in source_fixture.plan
     assert len(EVIDENCE_SCHEMA['oneOf']) == 4
 
@@ -2810,7 +2810,8 @@ def test_actual_both_state_constructors_can_agree_wrongly_but_source_check_block
     source = mapping_source_document()
     for module in (BUILDER, PLAN_CHECKER):
         jobs, steps, _ = module._build_jobs(copy.deepcopy(source))
-        states = module._build_states(steps, module.EXPECTED_CASE_IDS, copy.deepcopy(source))
+        states = module._build_states(steps, module.EXPECTED_CASE_IDS, copy.deepcopy(source),
+                                      module._load_sources(source_fixture.root, source_fixture.sha))
         if mutation == 'path':
             next(s for s in states if s['state_id'] == 'state:step5c:release-decision-ledger-section')['path_or_uri'] = 'PULSE_safe_pack_v0/artifacts/common-wrong.html'
         else:
@@ -2825,6 +2826,323 @@ def test_actual_both_state_constructors_can_agree_wrongly_but_source_check_block
     assert answers[0] == answers[1]
     with pytest.raises(PLAN_CHECKER.PlanError, match='source_mapping_'):
         PLAN_CHECKER._verify_source_ledger_equations(json.loads(answers[0]), source)
+
+
+# ---------------------------------------------------------------------------
+# Recorded-evidence/status source family. Expectations use reviewed source
+# defaults and CLI arguments; these tests do not claim observed read receipts.
+# The original release tools are never changed or executed as a release run.
+# ---------------------------------------------------------------------------
+RECORDED_SOURCE_TOOLS = (
+    'PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py',
+    'PULSE_safe_pack_v0/tools/build_release_evidence_input_manifest_v0.py',
+    'PULSE_safe_pack_v0/tools/check_recorded_release_evidence_v0.py',
+    'PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py',
+    'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py',
+    'PULSE_safe_pack_v0/tools/check_gates.py',
+    'tools/policy_to_require_args.py',
+    'tools/validate_status_schema.py',
+    'ci/check_release_no_stub_status.py',
+)
+RECORDED_REVIEW_ROLES = frozenset({
+    'pre-materialization-status', 'recorded-release-candidate-envelopes',
+    'recorded-candidate-index', 'release-evidence-input-manifest',
+    'recorded-release-evidence-verifier', 'materialized-release-required-gate-set',
+    'final-status', 'gate-policy', 'gate-registry',
+})
+
+
+@pytest.fixture(scope='module')
+def recorded_source_objects(source_fixture):
+    return BUILDER._load_sources(source_fixture.root, source_fixture.sha)
+
+
+def recorded_source_module(side):
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    function = module._recorded_source_projection if side == 'builder' else module._source_recorded_expectations
+    return module, function
+
+
+def reviewed_literal_default(path, flag):
+    # Read the called tool's argparse binding and literal declaration, not the
+    # plan builder, checker, generated plan or profile-obligation table.
+    tree = ast.parse((ROOT / path).read_bytes())
+    main = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'main')
+    bindings = [n for n in ast.walk(main) if isinstance(n, ast.Call)
+                and isinstance(n.func, ast.Attribute) and n.func.attr == 'add_argument'
+                and n.args and isinstance(n.args[0], ast.Constant) and n.args[0].value == flag]
+    assert len(bindings) == 1
+    default = next(kw.value for kw in bindings[0].keywords if kw.arg == 'default')
+    assert isinstance(default, ast.Name)
+    assignments = [n.value for n in tree.body if isinstance(n, ast.Assign)
+                   and any(isinstance(t, ast.Name) and t.id == default.id for t in n.targets)]
+    assert len(assignments) == 1
+    value = ast.literal_eval(assignments[0])
+    assert isinstance(value, str)
+    return value
+
+
+@pytest.mark.parametrize('role,path,flag,suffix', [
+    ('pre-materialization-status', RECORDED_SOURCE_TOOLS[0], '--status', '#pre-release-required-materialization'),
+    ('recorded-release-candidate-envelopes', RECORDED_SOURCE_TOOLS[0], '--out-dir', '/'),
+    ('recorded-candidate-index', RECORDED_SOURCE_TOOLS[0], '--index', ''),
+    ('release-evidence-input-manifest', RECORDED_SOURCE_TOOLS[1], '--out', ''),
+    ('final-status', RECORDED_SOURCE_TOOLS[0], '--status', ''),
+])
+def test_recorded_mapping_locators_follow_called_tool_defaults(source_fixture, role, path, flag, suffix):
+    state = next(s for s in source_fixture.plan['state_templates'] if s['state_id'] == 'state:step5c:' + role)
+    assert state['path_or_uri'] == reviewed_literal_default(path, flag) + suffix
+    assert state['required'] is True and state['content_requirement'] == 'exact_digest'
+
+
+def test_recorded_mapping_verifier_and_logical_projection_are_distinct(source_fixture):
+    states = {s['state_id'].removeprefix('state:step5c:'): s for s in source_fixture.plan['state_templates']}
+    assert states['recorded-release-evidence-verifier']['path_or_uri'] == independent_source_argument(
+        mapping_source_document(), 8, 'check_recorded_release_evidence_v0.py', '--out-json')
+    projection = states['materialized-release-required-gate-set']
+    assert projection['path_or_uri'] == ('projection://' + states['final-status']['path_or_uri']
+                                        + '#policy-selected-release_required-gate-values')
+    assert projection['role'] == 'policy_selected_release_required_status_gate_values'
+    assert projection['required_consumer_occurrence_ids'] == []
+    assert not any(projection['state_id'] in s['input_state_ids'] for j in source_fixture.plan['jobs'] for s in j['steps'])
+    assert projection['path_or_uri'] != 'status://gates/release_required'
+    # No original runtime-argv receipt is manufactured by this mapping repair.
+    assert 'state:step5c:effective-required-argument-list' not in {s['state_id'] for s in source_fixture.plan['state_templates']}
+
+
+@pytest.mark.parametrize('ordinal,inputs,outputs', [
+    (6, ['pre-materialization-status', 'gate-policy', 'gate-registry'],
+     ['recorded-candidate-index', 'recorded-release-candidate-envelopes']),
+    (7, ['recorded-candidate-index', 'recorded-release-candidate-envelopes', 'pre-materialization-status', 'gate-policy', 'gate-registry'],
+     ['release-evidence-input-manifest']),
+    (8, ['release-evidence-input-manifest', 'recorded-release-candidate-envelopes', 'pre-materialization-status', 'gate-policy', 'gate-registry'],
+     ['recorded-release-evidence-verifier']),
+    (9, ['pre-materialization-status', 'release-evidence-input-manifest', 'recorded-release-evidence-verifier',
+         'recorded-release-candidate-envelopes', 'gate-policy', 'gate-registry'],
+     ['final-status', 'materialized-release-required-gate-set']),
+    (10, ['final-status'], []), (11, ['final-status'], []), (12, ['final-status', 'gate-policy'], []),
+])
+def test_recorded_mapping_selected_family_equations(source_fixture, recorded_source_objects, ordinal, inputs, outputs):
+    plan = source_fixture.plan
+    step = next(j for j in plan['jobs'] if j['source_job_id'] == 'release_grade_recorded_path')['steps'][ordinal - 1]
+    selected = {'state:step5c:' + role for role in RECORDED_REVIEW_ROLES}
+    ids = lambda roles: {'state:step5c:' + role for role in roles}
+    assert set(step['input_state_ids']) & selected == ids(inputs)
+    assert set(step['output_state_ids']) & selected == ids(outputs)
+    reverse = {s['state_id'] for s in plan['state_templates'] if step['occurrence_id'] in s['required_consumer_occurrence_ids']}
+    assert reverse & selected == ids(inputs)
+    PLAN_CHECKER._verify_source_recorded_equations(plan, mapping_source_document(), recorded_source_objects)
+
+
+def test_recorded_mapping_manifest_checks_pre_status_bytes_in_source():
+    source = ast.parse((ROOT / RECORDED_SOURCE_TOOLS[1]).read_bytes())
+    functions = {n.name: n for n in source.body if isinstance(n, ast.FunctionDef)}
+    check = functions['_validate_source_bindings']
+    dictionaries = [n for n in ast.walk(check) if isinstance(n, ast.Dict)]
+    assert any(any(isinstance(k, ast.Constant) and k.value == 'candidate_status'
+                   and isinstance(v, ast.Name) and v.id == 'STATUS_PATH' for k, v in zip(d.keys, d.values)) for d in dictionaries)
+    calls = lambda node: {n.func.id for n in ast.walk(node) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+    assert '_verify_digest_ref' in calls(check)
+    assert '_sha256' in calls(functions['_verify_digest_ref'])
+    assert any('_validate_source_bindings' in calls(f) for name, f in functions.items() if name != '_validate_source_bindings')
+
+
+def test_recorded_mapping_gate_projection_matches_actual_materializer_source():
+    source = ast.parse((ROOT / RECORDED_SOURCE_TOOLS[3]).read_bytes())
+    assignments = [n for n in ast.walk(source) if isinstance(n, ast.Assign)]
+    assert any(isinstance(n.value, ast.Constant) and n.value.value is True
+               and any(isinstance(t, ast.Subscript) and isinstance(t.value, ast.Name) and t.value.id == 'gates'
+                       and isinstance(t.slice, ast.Name) and t.slice.id == 'gate_id' for t in n.targets) for n in assignments)
+    assert any(isinstance(n.value, ast.Name) and n.value.id == 'gates'
+               and any(isinstance(t, ast.Subscript) and isinstance(t.value, ast.Name) and t.value.id == 'status'
+                       and isinstance(t.slice, ast.Constant) and t.slice.value == 'gates' for t in n.targets) for n in assignments)
+    assert 'status://gates/release_required' not in (ROOT / RECORDED_SOURCE_TOOLS[3]).read_text()
+
+
+@pytest.mark.parametrize('role', ['pre-materialization-status', 'recorded-release-candidate-envelopes'])
+def test_recorded_mapping_new_roles_remain_strict_and_unobserved(source_fixture, role):
+    plan = source_fixture.plan
+    states = {s['state_id']: s for s in plan['state_templates']}
+    assert len(states) == 59
+    state = states['state:step5c:' + role]
+    assert state['required'] is True and state['content_requirement'] == 'exact_digest'
+    assert state['state_id'] in R2_CONTRACT_ROLES
+    packet = runtime_projection_example(source_fixture)
+    observation = next(s for s in packet['state_observations'] if s['state_id'] == state['state_id'])
+    assert observation['content_status'] == 'unavailable'
+    assert observation['sha256'] is None and observation['size_bytes'] is None
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(plan, packet, {})
+    assert 'evidence_profile' not in plan and len(EVIDENCE_SCHEMA['oneOf']) == 4
+
+
+def test_recorded_mapping_restore_does_not_replace_content_origin(source_fixture):
+    states = {s['state_id']: s for s in source_fixture.plan['state_templates']}
+    before = states['state:step5c:pre-materialization-status']
+    after = states['state:step5c:final-status']
+    assert before['producer_occurrence_id'] == 'execution:step5c:step:pulse:013'
+    assert after['producer_occurrence_id'] == 'execution:step5c:step:release_grade_recorded_path:009'
+    assert before['path_or_uri'].split('#')[0] == after['path_or_uri']
+    assert before['path_or_uri'] != after['path_or_uri']
+    assert 'execution:step5c:step:release_grade_recorded_path:004' in before['required_consumer_occurrence_ids']
+
+
+def corrupt_recorded_mapping(plan, mutation):
+    states = {s['state_id'].removeprefix('state:step5c:'): s for s in plan['state_templates']}
+    job = next(j for j in plan['jobs'] if j['source_job_id'] == 'release_grade_recorded_path')
+    def edge(ordinal, role, *, remove=False):
+        step = job['steps'][ordinal - 1]
+        values = step['input_state_ids']
+        reverse = states[role]['required_consumer_occurrence_ids']
+        state_id = 'state:step5c:' + role
+        if remove:
+            values.remove(state_id); reverse.remove(step['occurrence_id'])
+        else:
+            values.append(state_id); reverse.append(step['occurrence_id'])
+        values.sort(); reverse.sort()
+    if mutation == 'index_path': states['recorded-candidate-index']['path_or_uri'] += '.wrong'
+    elif mutation == 'manifest_path': states['release-evidence-input-manifest']['path_or_uri'] += '.wrong'
+    elif mutation == 'pre_state_alias': states['pre-materialization-status']['path_or_uri'] = states['final-status']['path_or_uri']
+    elif mutation == 'envelopes_alias': states['recorded-release-candidate-envelopes']['path_or_uri'] = states['recorded-candidate-index']['path_or_uri']
+    elif mutation == 'wrong_producer': states['pre-materialization-status']['producer_occurrence_id'] = job['steps'][3]['occurrence_id']
+    elif mutation == 'index_to_verifier': edge(8, 'recorded-candidate-index')
+    elif mutation == 'registry_to_gate_checker': edge(12, 'gate-registry')
+    elif mutation == 'projection_to_checker': edge(12, 'materialized-release-required-gate-set')
+    elif mutation == 'erase_manifest_pre_status': edge(7, 'pre-materialization-status', remove=True)
+    elif mutation == 'unjustified_pre_state_consumer': edge(25, 'pre-materialization-status')
+    elif mutation == 'extra_envelope_writer':
+        step = job['steps'][4]
+        step['output_state_ids'] = sorted(step['output_state_ids'] + ['state:step5c:recorded-release-candidate-envelopes'])
+    else: raise AssertionError(mutation)
+    return plan
+
+
+RECORDED_MAPPING_MUTATIONS = [
+    'index_path', 'manifest_path', 'pre_state_alias', 'envelopes_alias', 'wrong_producer',
+    'index_to_verifier', 'registry_to_gate_checker', 'projection_to_checker',
+    'erase_manifest_pre_status', 'unjustified_pre_state_consumer', 'extra_envelope_writer',
+]
+
+
+@pytest.mark.parametrize('mutation', RECORDED_MAPPING_MUTATIONS)
+def test_recorded_mapping_common_wrong_answer_is_rejected(source_fixture, recorded_source_objects, mutation):
+    bad = corrupt_recorded_mapping(copy.deepcopy(source_fixture.plan), mutation)
+    jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(bad)
+    one, two = canonical(bad), canonical(copy.deepcopy(bad))
+    assert one == two and digest(one) == digest(two)
+    with pytest.raises(PLAN_CHECKER.PlanError, match='recorded_mapping_'):
+        PLAN_CHECKER._verify_source_recorded_equations(json.loads(one), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('mutation', ['index_path', 'index_to_verifier', 'erase_manifest_pre_status', 'pre_state_alias'])
+def test_recorded_mapping_real_checker_rejects_rehashed_false_plan(source_fixture, tmp_path, mutation):
+    f = source_fixture
+    bad = corrupt_recorded_mapping(copy.deepcopy(f.plan), mutation)
+    raw = canonical(bad)
+    path = tmp_path / 'source-mapping-error.json'; path.write_bytes(raw)
+    result = cli(f.root, TOOL_NAMES[1], ['--repository-root', f.root, '--plan', path,
+                 '--expected-source-commit', f.sha, '--expected-plan-sha256', digest(raw), '--expected-record-status', 'example'])
+    assert result.returncode != 0
+    diagnostic = json.loads(result.stdout or result.stderr)
+    assert diagnostic['ok'] is False
+    assert diagnostic['error_code'].startswith('recorded_mapping_')
+
+
+@pytest.mark.parametrize('mutation', ['index_path', 'index_to_verifier'])
+def test_recorded_mapping_actual_two_constructors_cannot_hide_shared_defect(source_fixture, recorded_source_objects, mutation):
+    answers = []
+    for module in (BUILDER, PLAN_CHECKER):
+        jobs, steps, _ = module._build_jobs(mapping_source_document())
+        states = module._build_states(steps, module.EXPECTED_CASE_IDS, mapping_source_document(), recorded_source_objects)
+        result = copy.deepcopy(source_fixture.plan)
+        result['jobs'], result['state_templates'] = jobs, states
+        answers.append(canonical(corrupt_recorded_mapping(result, mutation)))
+    assert answers[0] == answers[1]
+    with pytest.raises(PLAN_CHECKER.PlanError, match='recorded_mapping_'):
+        PLAN_CHECKER._verify_source_recorded_equations(json.loads(answers[0]), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('path', RECORDED_SOURCE_TOOLS)
+def test_recorded_mapping_pins_and_preserves_called_source(source_fixture, recorded_source_objects, path):
+    data = (ROOT / path).read_bytes()
+    expected_blob = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+    for module in (BUILDER, PLAN_CHECKER):
+        assert module._RECORDED_SEMANTIC_PINS[path] == expected_blob
+        assert sum(relative == path for _, relative in module.SOURCE_ROLES) == 1
+    entry = next(row for row in source_fixture.plan['source_inventory'] if row['path'] == path)
+    assert entry['sha256'] == digest(data)
+    assert prepared_fixture_members(source_fixture)['sources/' + path] == data
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('path', RECORDED_SOURCE_TOOLS)
+def test_recorded_mapping_semantic_change_rehashed_object_is_rejected(source_fixture, monkeypatch, side, path):
+    module, _ = recorded_source_module(side)
+    original = module._read_git_object
+    def changed(*args, **kwargs):
+        obj = original(*args, **kwargs)
+        if kwargs.get('path') == path:
+            data = obj.data + b'\n# altered reviewed semantic source in a negative example\n'
+            obj = replace(obj, data=data, blob_sha1=hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest())
+        return obj
+    monkeypatch.setattr(module, '_read_git_object', changed)
+    with pytest.raises(module.PlanError, match='reviewed_source_profile_mismatch'):
+        module._load_sources(source_fixture.root, source_fixture.sha)
+
+
+RECORDED_SOURCE_CHANGES = [
+    (6, '--repo-root "${GITHUB_WORKSPACE}"', '--repo-root "${GITHUB_WORKSPACE}" --unknown "value"'),
+    (6, '--repo-root "${GITHUB_WORKSPACE}"', '--repo-root "${GITHUB_WORKSPACE}" --repo-root "${GITHUB_WORKSPACE}"'),
+    (6, '--repo-root "${GITHUB_WORKSPACE}"', '--repo-root "elsewhere"'),
+    (6, 'build_recorded_release_candidates_v0.py', 'unreviewed_candidate.py'),
+    (7, '--repo-root "${GITHUB_WORKSPACE}"', ''),
+    (8, '--manifest "${PACK_DIR}/artifacts/release_evidence_input_manifest_v0.json"', '--manifest "${PACK_DIR}/artifacts/other.json"'),
+    (8, '--out-json "${PACK_DIR}/artifacts/recorded_release_evidence_verifier_v0.json"', '--out-json "${PACK_DIR}/artifacts/other.json"'),
+    (9, '--status "${PACK_DIR}/artifacts/status.json"', '--status "${PACK_DIR}/artifacts/status_baseline.json"'),
+    (9, '--out "${PACK_DIR}/artifacts/status.json"', '--out "${PACK_DIR}/artifacts/other.json"'),
+    (9, '--policy "${GITHUB_WORKSPACE}/pulse_gate_policy_v0.yml"', '--policy "other.yml"'),
+    (10, '--status "${PACK_DIR}/artifacts/status.json"', '--status "${PACK_DIR}/artifacts/other.json"'),
+    (11, '--status "${PACK_DIR}/artifacts/status.json"', '--status "${PACK_DIR}/artifacts/status_baseline.json"'),
+    (12, '--set required', '--set release_required'),
+    (12, '--format newline', '--format space'),
+    (12, '--require "${EFFECTIVE_GATES[@]}"', '--require "${OTHER_GATES[@]}"'),
+]
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('ordinal,old,new', RECORDED_SOURCE_CHANGES)
+def test_recorded_mapping_rejects_unsupported_workflow_source(recorded_source_objects, side, ordinal, old, new):
+    document = mapping_source_document()
+    target = document['jobs']['release_grade_recorded_path']['steps'][ordinal - 1]
+    assert old in target['run'], (ordinal, old)
+    target['run'] = target['run'].replace(old, new)
+    module, project = recorded_source_module(side)
+    with pytest.raises(module.PlanError, match='(?:recorded|source)_mapping_'):
+        project(document, recorded_source_objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_recorded_mapping_rejects_missing_source_even_when_other_side_agrees(recorded_source_objects, side):
+    module, project = recorded_source_module(side)
+    sources = dict(recorded_source_objects)
+    del sources[RECORDED_SOURCE_TOOLS[1]]
+    with pytest.raises(module.PlanError, match='recorded_mapping_source_missing'):
+        project(mapping_source_document(), sources)
+
+
+def test_recorded_mapping_independent_predicate_precedes_reconstruction():
+    first = ast.parse(textwrap.dedent(inspect.getsource(BUILDER._recorded_source_projection)))
+    second = ast.parse(textwrap.dedent(inspect.getsource(PLAN_CHECKER._source_recorded_expectations)))
+    assert ast.dump(first, include_attributes=False) != ast.dump(second, include_attributes=False)
+    body = ast.parse(inspect.getsource(PLAN_CHECKER.check_plan)).body[0]
+    calls = [(n.lineno, n.func.id) for n in ast.walk(body) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)]
+    predicate = min(line for line, name in calls if name == '_verify_source_recorded_equations')
+    equality_input = min(line for line, name in calls if name == '_reconstruct_expected_plan')
+    assert predicate < equality_input
+    module_tree = ast.parse((ROOT / 'tools' / (TOOL_NAMES[1] + '.py')).read_bytes())
+    imported = [a.name for n in ast.walk(module_tree) if isinstance(n, ast.Import) for a in n.names]
+    imported += [n.module or '' for n in ast.walk(module_tree) if isinstance(n, ast.ImportFrom)]
+    assert not any('build_pulsemech_compute_whole_runtime' in name for name in imported)
 
 
 class _CompleteProgramGuard:
