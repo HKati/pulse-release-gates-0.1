@@ -2343,6 +2343,236 @@ def test_real_verification_record_cannot_publish_complete_state_extent_from_part
     assert not destination.exists()
 
 
+# ---------------------------------------------------------------------------
+# R2 schema foundation. These are normative-definition checks, not a replacement
+# mapping, observed acquisition, supported R2 wire record, or acceptance proof.
+# The root record branches intentionally remain unchanged in this checkpoint.
+# ---------------------------------------------------------------------------
+R2_PROFILE_ID = 'pulsemech_step5c_post_run_state_evidence_v1'
+R2_DEFINITION_PREFIX = 'post_run_state_evidence_v1_'
+R2_CONTRACT_PATH = (
+    ROOT / 'docs/compute/PULSEMECH_COMPUTE_WHOLE_RUNTIME_OBSERVATION_CONTRACT_v0.md'
+)
+R2_CONTRACT_ROLE_ROWS = re.findall(
+    r'^\| `(state:step5c:[^`]+)` \| `([^`]+)` \|\s*$',
+    R2_CONTRACT_PATH.read_text(encoding='utf-8'), re.M,
+)
+R2_CONTRACT_ROLES = dict(R2_CONTRACT_ROLE_ROWS)
+R2_SUBJECT_SELECTORS = {
+    'complete_release_grade_reference_package': 'complete-release-grade-reference-package-{subject_run_id}-1',
+    'package_completeness_report': 'release-grade-package-completeness-{subject_run_id}-1',
+    'package_verification_report': 'release-grade-reference-package-verification-{subject_run_id}-1',
+    'release_grade_recorded_path': 'release-grade-recorded-path-{subject_run_id}-1',
+    'pre_attestation_pulse_artifacts': 'pulse-pre-attestation-{subject_run_id}-1',
+    'advisory_reference_bundle': 'release-grade-reference-run-v0',
+}
+R2_LIMITATIONS = {
+    'pre_insertion_ledger_content': 'unavailable',
+    'pre_insertion_ledger_transition': 'unproved',
+    'final_binding_signed_receipt': 'unavailable',
+    'final_binding_signature_verification': 'unproved',
+    'original_runtime_argv_receipt': 'unproved',
+    'original_runtime_read_relationships': 'not_complete',
+    'whole_runtime_relational_coverage': 'partial',
+    'wider_fixed_source_runtime_comparison': 'not_complete',
+    'resource_coverage': 'unavailable',
+    'generic_runtime_coverage': 'partial',
+}
+
+
+def r2_definition_example():
+    """Normative configuration built from the contract, never from the schema."""
+    return {
+        'evidence_profile': R2_PROFILE_ID,
+        'topology_profile': 'pulse_ci_hosted_release_grade_v0',
+        'role_obligations': dict(R2_CONTRACT_ROLES),
+        'required_subject_archives': dict(R2_SUBJECT_SELECTORS),
+        'required_provider_artifact': {
+            'workflow_path': '.github/workflows/pulsemech_compute_current_run_export_candidate.yml',
+            'artifact_name_template': 'pulsemech-compute-current-run-export-candidate-{subject_run_id}-1',
+            'source_run_kind': 'provider',
+        },
+        'limitations': dict(R2_LIMITATIONS),
+        'authority_boundary': copy.deepcopy(ACQUIRER.AUTHORITY_BOUNDARY),
+    }
+
+
+def r2_definition_validator():
+    # Explicitly select an inactive definition for its schema-unit test.
+    # The production root schema is not changed to reference it.
+    return jsonschema.Draft202012Validator({
+        '$schema': EVIDENCE_SCHEMA['$schema'],
+        '$defs': EVIDENCE_SCHEMA['$defs'],
+        '$ref': '#/$defs/' + R2_DEFINITION_PREFIX + 'definition',
+    })
+
+
+def _schema_definition_reachability(schema):
+    pending = [value['$ref'].removeprefix('#/$defs/') for value in schema['oneOf']]
+    reached = set()
+    def references(value):
+        if isinstance(value, dict):
+            ref = value.get('$ref')
+            if isinstance(ref, str) and ref.startswith('#/$defs/'):
+                yield ref.removeprefix('#/$defs/')
+            for child in value.values():
+                yield from references(child)
+        elif isinstance(value, list):
+            for child in value:
+                yield from references(child)
+    while pending:
+        name = pending.pop()
+        if name in reached:
+            continue
+        reached.add(name)
+        pending.extend(references(schema['$defs'][name]))
+    return reached
+
+
+def test_r2_normative_definition_matches_the_complete_contract_inventory():
+    assert len(R2_CONTRACT_ROLE_ROWS) == len(R2_CONTRACT_ROLES) == 62
+    assert all(role.startswith('state:step5c:') for role in R2_CONTRACT_ROLES)
+    assert R2_CONTRACT_ROLES['state:step5c:quality-ledger-pre-authority'] == 'required_explicit_content_gap'
+    assert R2_CONTRACT_ROLES['state:step5c:artifact-binding-attestation'] == 'required_action_metadata_with_receipt_gap'
+    assert R2_CONTRACT_ROLES['state:step5c:advisory-reference-bundle'] == 'exact_preserved_tree_and_carrier'
+    assert len(R2_SUBJECT_SELECTORS) == 6
+    jsonschema.Draft202012Validator.check_schema(EVIDENCE_SCHEMA)
+    r2_definition_validator().validate(r2_definition_example())
+
+
+def test_r2_schema_foundation_is_not_reachable_from_active_record_branches():
+    assert EVIDENCE_SCHEMA['oneOf'] == [
+        {'$ref': '#/$defs/prelaunch_plan'},
+        {'$ref': '#/$defs/dispatch_receipt'},
+        {'$ref': '#/$defs/capture_manifest'},
+        {'$ref': '#/$defs/verification_record'},
+    ]
+    added = {name for name in EVIDENCE_SCHEMA['$defs'] if name.startswith(R2_DEFINITION_PREFIX)}
+    assert len(added) == 6
+    assert not added.intersection(_schema_definition_reachability(EVIDENCE_SCHEMA))
+    assert not jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).is_valid(r2_definition_example())
+
+
+def test_r2_root_activation_changes_are_detected_by_the_reachability_check():
+    schema = copy.deepcopy(EVIDENCE_SCHEMA)
+    target = R2_DEFINITION_PREFIX + 'definition'
+    schema['oneOf'].append({'$ref': '#/$defs/' + target})
+    assert target in _schema_definition_reachability(schema)
+
+
+@pytest.mark.parametrize('field', list(r2_definition_example()))
+def test_r2_definition_rejects_missing_top_level_fields(field):
+    value = r2_definition_example()
+    del value[field]
+    assert not r2_definition_validator().is_valid(value)
+
+
+@pytest.mark.parametrize('field,value', [
+    ('evidence_profile', None), ('evidence_profile', ''),
+    ('evidence_profile', 'pulse_ci_hosted_release_grade_v0'),
+    ('evidence_profile', 'pulsemech_step5c_post_run_state_evidence_v0'),
+    ('evidence_profile', R2_PROFILE_ID + '\n'),
+    ('topology_profile', R2_PROFILE_ID), ('topology_profile', 'future_topology'),
+])
+def test_r2_definition_rejects_missing_stale_unknown_or_swapped_identity(field, value):
+    example = r2_definition_example()
+    example[field] = value
+    assert not r2_definition_validator().is_valid(example)
+
+
+@pytest.mark.parametrize('role', sorted(R2_CONTRACT_ROLES))
+def test_r2_every_review_role_remains_mandatory_in_the_definition(role):
+    value = r2_definition_example()
+    del value['role_obligations'][role]
+    assert not r2_definition_validator().is_valid(value)
+
+
+@pytest.mark.parametrize('role', sorted(R2_CONTRACT_ROLES))
+def test_r2_role_obligation_cannot_be_reassigned_to_another_admitted_strength(role):
+    value = r2_definition_example()
+    original = value['role_obligations'][role]
+    value['role_obligations'][role] = (
+        'exact_preserved_content' if original == 'required_explicit_content_gap'
+        else 'required_explicit_content_gap'
+    )
+    assert not r2_definition_validator().is_valid(value)
+
+
+@pytest.mark.parametrize('role', sorted(R2_SUBJECT_SELECTORS))
+@pytest.mark.parametrize('mutation', ['remove', 'rename'])
+def test_r2_each_selected_subject_archive_is_exactly_required(role, mutation):
+    value = r2_definition_example()
+    if mutation == 'remove':
+        del value['required_subject_archives'][role]
+    else:
+        value['required_subject_archives'][role] += '-other'
+    assert not r2_definition_validator().is_valid(value)
+
+
+@pytest.mark.parametrize('field', ['workflow_path', 'artifact_name_template', 'source_run_kind'])
+def test_r2_provider_cannot_be_selected_as_a_subject_archive(field):
+    value = r2_definition_example()
+    value['required_provider_artifact'][field] = {
+        'workflow_path': '.github/workflows/pulse_ci.yml',
+        'artifact_name_template': 'pulse-pre-attestation-{subject_run_id}-1',
+        'source_run_kind': 'subject',
+    }[field]
+    assert not r2_definition_validator().is_valid(value)
+
+
+@pytest.mark.parametrize('field', sorted(R2_LIMITATIONS))
+@pytest.mark.parametrize('mutation', ['remove', 'promote'])
+def test_r2_declared_limitations_cannot_be_erased_or_promoted_to_completion(field, mutation):
+    value = r2_definition_example()
+    if mutation == 'remove':
+        del value['limitations'][field]
+    else:
+        value['limitations'][field] = 'complete'
+    assert not r2_definition_validator().is_valid(value)
+
+
+@pytest.mark.parametrize('field', ['role_obligations', 'required_subject_archives',
+                                   'required_provider_artifact', 'limitations', 'authority_boundary'])
+def test_r2_definition_rejects_unknown_nested_fields(field):
+    value = r2_definition_example()
+    value[field]['unexpected'] = True
+    assert not r2_definition_validator().is_valid(value)
+
+
+@pytest.mark.parametrize('field,value', [('ok', True), ('I', 'complete'),
+                                       ('E', 'complete'), ('runtime_observed', True)])
+def test_r2_normative_definition_is_not_a_verification_result(field, value):
+    example = r2_definition_example()
+    example[field] = value
+    assert not r2_definition_validator().is_valid(example)
+
+
+@pytest.mark.parametrize('field', ['same_run_release_authority_eligible', 'active_gate_eligible'])
+def test_r2_definition_does_not_authorize_release(field):
+    example = r2_definition_example()
+    example['authority_boundary'][field] = True
+    assert not r2_definition_validator().is_valid(example)
+
+
+@pytest.mark.parametrize('field', ['evidence_profile', 'state_evidence_profile'])
+def test_r2_tag_cannot_upgrade_a_legacy_plan_through_the_current_checker(source_fixture, tmp_path, field):
+    f = source_fixture
+    document = copy.deepcopy(f.plan)
+    document[field] = R2_PROFILE_ID if field == 'evidence_profile' else r2_definition_example()
+    raw = canonical(document)
+    path = tmp_path / 'not_an_r2_plan.json'
+    path.write_bytes(raw)
+    assert not jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).is_valid(document)
+    result = cli(f.root, TOOL_NAMES[1], [
+        '--repository-root', f.root, '--plan', path,
+        '--expected-source-commit', f.sha, '--expected-plan-sha256', digest(raw),
+        '--expected-record-status', 'example',
+    ])
+    assert result.returncode != 0
+    error = json.loads(result.stdout or result.stderr)
+    assert error['ok'] is False and error['errors']
+
+
 class _CompleteProgramGuard:
     """Direct-script CI execution must collect and finish the complete program."""
     def __init__(self):

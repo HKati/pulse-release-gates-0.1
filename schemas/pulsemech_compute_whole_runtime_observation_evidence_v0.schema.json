@@ -2791,6 +2791,402 @@
           "const": true
         }
       }
+    },
+    "post_run_state_evidence_v1_profile_id": {
+      "const": "pulsemech_step5c_post_run_state_evidence_v1"
+    },
+    "post_run_state_evidence_v1_role_obligations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state:step5c:advisory-reference-bundle",
+        "state:step5c:artifact-binding-attestation",
+        "state:step5c:artifact-provenance-binding",
+        "state:step5c:complete-release-grade-reference-package",
+        "state:step5c:compute-binding-report",
+        "state:step5c:effective-required-argument-list",
+        "state:step5c:external-signer-policy",
+        "state:step5c:final-status",
+        "state:step5c:final-status-summary",
+        "state:step5c:folded-non-active-candidate-status",
+        "state:step5c:gate-policy",
+        "state:step5c:gate-registry",
+        "state:step5c:llamaguard-attestation-bundle",
+        "state:step5c:llamaguard-attestation-envelope",
+        "state:step5c:llamaguard-attestation-verifier",
+        "state:step5c:llamaguard-dataset",
+        "state:step5c:llamaguard-evaluator-manifest",
+        "state:step5c:llamaguard-input:benign_factual_response",
+        "state:step5c:llamaguard-input:credential_theft_refusal",
+        "state:step5c:llamaguard-input:hate_content_refusal",
+        "state:step5c:llamaguard-input:private_address_refusal",
+        "state:step5c:llamaguard-input:self_harm_support",
+        "state:step5c:llamaguard-input:violent_harm_refusal",
+        "state:step5c:llamaguard-output:benign_factual_response",
+        "state:step5c:llamaguard-output:credential_theft_refusal",
+        "state:step5c:llamaguard-output:hate_content_refusal",
+        "state:step5c:llamaguard-output:private_address_refusal",
+        "state:step5c:llamaguard-output:self_harm_support",
+        "state:step5c:llamaguard-output:violent_harm_refusal",
+        "state:step5c:llamaguard-raw-evidence",
+        "state:step5c:llamaguard-summary",
+        "state:step5c:materialized-release-required-gate-set",
+        "state:step5c:package-completeness-report",
+        "state:step5c:package-digest-inventory",
+        "state:step5c:package-run-metadata",
+        "state:step5c:package-verification-report",
+        "state:step5c:planned-observed-relation",
+        "state:step5c:pre-attestation-pulse-artifacts",
+        "state:step5c:pre-materialization-status",
+        "state:step5c:quality-ledger-final",
+        "state:step5c:quality-ledger-pre-authority",
+        "state:step5c:recorded-candidate-index",
+        "state:step5c:recorded-release-candidate-envelopes",
+        "state:step5c:recorded-release-evidence-verifier",
+        "state:step5c:release-authority-audit-bundle",
+        "state:step5c:release-authority-manifest",
+        "state:step5c:release-decision",
+        "state:step5c:release-decision-ledger-section",
+        "state:step5c:release-decision-report",
+        "state:step5c:release-evidence-input-manifest",
+        "state:step5c:release-grade-junit",
+        "state:step5c:release-grade-sarif",
+        "state:step5c:required-gate-evidence",
+        "state:step5c:runtime-observation-diagnostic",
+        "state:step5c:runtime-observation-packet",
+        "state:step5c:self-contained-evidence-floor",
+        "state:step5c:status-baseline",
+        "state:step5c:step3f-current-run-carrier",
+        "state:step5c:step3f-current-run-expectation",
+        "state:step5c:step3f-subject-input-packet",
+        "state:step5c:threshold-policy",
+        "state:step5c:workflow-source"
+      ],
+      "properties": {
+        "state:step5c:advisory-reference-bundle": {
+          "const": "exact_preserved_tree_and_carrier"
+        },
+        "state:step5c:artifact-binding-attestation": {
+          "const": "required_action_metadata_with_receipt_gap"
+        },
+        "state:step5c:artifact-provenance-binding": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:complete-release-grade-reference-package": {
+          "const": "exact_preserved_archive"
+        },
+        "state:step5c:compute-binding-report": {
+          "const": "checked_downstream_derivation"
+        },
+        "state:step5c:effective-required-argument-list": {
+          "const": "checked_source_argv_derivation_with_runtime_receipt_gap"
+        },
+        "state:step5c:external-signer-policy": {
+          "const": "exact_source_content"
+        },
+        "state:step5c:final-status": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:final-status-summary": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:folded-non-active-candidate-status": {
+          "const": "checked_downstream_derivation"
+        },
+        "state:step5c:gate-policy": {
+          "const": "exact_source_content"
+        },
+        "state:step5c:gate-registry": {
+          "const": "exact_source_content"
+        },
+        "state:step5c:llamaguard-attestation-bundle": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:llamaguard-attestation-envelope": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:llamaguard-attestation-verifier": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:llamaguard-dataset": {
+          "const": "exact_source_content"
+        },
+        "state:step5c:llamaguard-evaluator-manifest": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:llamaguard-input:benign_factual_response": {
+          "const": "checked_controlled_case_derivation"
+        },
+        "state:step5c:llamaguard-input:credential_theft_refusal": {
+          "const": "checked_controlled_case_derivation"
+        },
+        "state:step5c:llamaguard-input:hate_content_refusal": {
+          "const": "checked_controlled_case_derivation"
+        },
+        "state:step5c:llamaguard-input:private_address_refusal": {
+          "const": "checked_controlled_case_derivation"
+        },
+        "state:step5c:llamaguard-input:self_harm_support": {
+          "const": "checked_controlled_case_derivation"
+        },
+        "state:step5c:llamaguard-input:violent_harm_refusal": {
+          "const": "checked_controlled_case_derivation"
+        },
+        "state:step5c:llamaguard-output:benign_factual_response": {
+          "const": "checked_controlled_case_derivation"
+        },
+        "state:step5c:llamaguard-output:credential_theft_refusal": {
+          "const": "checked_controlled_case_derivation"
+        },
+        "state:step5c:llamaguard-output:hate_content_refusal": {
+          "const": "checked_controlled_case_derivation"
+        },
+        "state:step5c:llamaguard-output:private_address_refusal": {
+          "const": "checked_controlled_case_derivation"
+        },
+        "state:step5c:llamaguard-output:self_harm_support": {
+          "const": "checked_controlled_case_derivation"
+        },
+        "state:step5c:llamaguard-output:violent_harm_refusal": {
+          "const": "checked_controlled_case_derivation"
+        },
+        "state:step5c:llamaguard-raw-evidence": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:llamaguard-summary": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:materialized-release-required-gate-set": {
+          "const": "checked_status_policy_projection"
+        },
+        "state:step5c:package-completeness-report": {
+          "const": "exact_preserved_archive"
+        },
+        "state:step5c:package-digest-inventory": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:package-run-metadata": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:package-verification-report": {
+          "const": "exact_preserved_archive"
+        },
+        "state:step5c:planned-observed-relation": {
+          "const": "checked_downstream_derivation"
+        },
+        "state:step5c:pre-attestation-pulse-artifacts": {
+          "const": "exact_preserved_archive"
+        },
+        "state:step5c:pre-materialization-status": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:quality-ledger-final": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:quality-ledger-pre-authority": {
+          "const": "required_explicit_content_gap"
+        },
+        "state:step5c:recorded-candidate-index": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:recorded-release-candidate-envelopes": {
+          "const": "exact_preserved_tree"
+        },
+        "state:step5c:recorded-release-evidence-verifier": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:release-authority-audit-bundle": {
+          "const": "exact_preserved_tree"
+        },
+        "state:step5c:release-authority-manifest": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:release-decision": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:release-decision-ledger-section": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:release-decision-report": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:release-evidence-input-manifest": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:release-grade-junit": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:release-grade-sarif": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:required-gate-evidence": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:runtime-observation-diagnostic": {
+          "const": "checked_downstream_derivation"
+        },
+        "state:step5c:runtime-observation-packet": {
+          "const": "checked_downstream_derivation"
+        },
+        "state:step5c:self-contained-evidence-floor": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:status-baseline": {
+          "const": "exact_preserved_content"
+        },
+        "state:step5c:step3f-current-run-carrier": {
+          "const": "exact_provider_content"
+        },
+        "state:step5c:step3f-current-run-expectation": {
+          "const": "exact_provider_content"
+        },
+        "state:step5c:step3f-subject-input-packet": {
+          "const": "exact_provider_content"
+        },
+        "state:step5c:threshold-policy": {
+          "const": "exact_source_content"
+        },
+        "state:step5c:workflow-source": {
+          "const": "exact_source_content"
+        }
+      }
+    },
+    "post_run_state_evidence_v1_subject_archives": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "complete_release_grade_reference_package",
+        "package_completeness_report",
+        "package_verification_report",
+        "release_grade_recorded_path",
+        "pre_attestation_pulse_artifacts",
+        "advisory_reference_bundle"
+      ],
+      "properties": {
+        "complete_release_grade_reference_package": {
+          "const": "complete-release-grade-reference-package-{subject_run_id}-1"
+        },
+        "package_completeness_report": {
+          "const": "release-grade-package-completeness-{subject_run_id}-1"
+        },
+        "package_verification_report": {
+          "const": "release-grade-reference-package-verification-{subject_run_id}-1"
+        },
+        "release_grade_recorded_path": {
+          "const": "release-grade-recorded-path-{subject_run_id}-1"
+        },
+        "pre_attestation_pulse_artifacts": {
+          "const": "pulse-pre-attestation-{subject_run_id}-1"
+        },
+        "advisory_reference_bundle": {
+          "const": "release-grade-reference-run-v0"
+        }
+      }
+    },
+    "post_run_state_evidence_v1_provider_artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workflow_path",
+        "artifact_name_template",
+        "source_run_kind"
+      ],
+      "properties": {
+        "workflow_path": {
+          "const": ".github/workflows/pulsemech_compute_current_run_export_candidate.yml"
+        },
+        "artifact_name_template": {
+          "const": "pulsemech-compute-current-run-export-candidate-{subject_run_id}-1"
+        },
+        "source_run_kind": {
+          "const": "provider"
+        }
+      }
+    },
+    "post_run_state_evidence_v1_limitations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pre_insertion_ledger_content",
+        "pre_insertion_ledger_transition",
+        "final_binding_signed_receipt",
+        "final_binding_signature_verification",
+        "original_runtime_argv_receipt",
+        "original_runtime_read_relationships",
+        "whole_runtime_relational_coverage",
+        "wider_fixed_source_runtime_comparison",
+        "resource_coverage",
+        "generic_runtime_coverage"
+      ],
+      "properties": {
+        "pre_insertion_ledger_content": {
+          "const": "unavailable"
+        },
+        "pre_insertion_ledger_transition": {
+          "const": "unproved"
+        },
+        "final_binding_signed_receipt": {
+          "const": "unavailable"
+        },
+        "final_binding_signature_verification": {
+          "const": "unproved"
+        },
+        "original_runtime_argv_receipt": {
+          "const": "unproved"
+        },
+        "original_runtime_read_relationships": {
+          "const": "not_complete"
+        },
+        "whole_runtime_relational_coverage": {
+          "const": "partial"
+        },
+        "wider_fixed_source_runtime_comparison": {
+          "const": "not_complete"
+        },
+        "resource_coverage": {
+          "const": "unavailable"
+        },
+        "generic_runtime_coverage": {
+          "const": "partial"
+        }
+      }
+    },
+    "post_run_state_evidence_v1_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_profile",
+        "topology_profile",
+        "role_obligations",
+        "required_subject_archives",
+        "required_provider_artifact",
+        "limitations",
+        "authority_boundary"
+      ],
+      "properties": {
+        "evidence_profile": {
+          "$ref": "#/$defs/post_run_state_evidence_v1_profile_id"
+        },
+        "topology_profile": {
+          "const": "pulse_ci_hosted_release_grade_v0"
+        },
+        "role_obligations": {
+          "$ref": "#/$defs/post_run_state_evidence_v1_role_obligations"
+        },
+        "required_subject_archives": {
+          "$ref": "#/$defs/post_run_state_evidence_v1_subject_archives"
+        },
+        "required_provider_artifact": {
+          "$ref": "#/$defs/post_run_state_evidence_v1_provider_artifact"
+        },
+        "limitations": {
+          "$ref": "#/$defs/post_run_state_evidence_v1_limitations"
+        },
+        "authority_boundary": {
+          "$ref": "#/$defs/authority_boundary"
+        }
+      },
+      "$comment": "Inactive R2 normative definition, not an observation, a new fifth record type, or a verification result. It is deliberately not reachable from the root oneOf. Production records remain under the existing v0 entrypoints until the source-grounded mapping, producers, capture and verifier are changed together. This definition alone does not bind an actual run, verify source semantics, acquire an artifact, or authorize old/mixed-profile acceptance. The role map is a requirements inventory, not a claim of 62 runtime observations. Artifact names are prospective selectors; exact run, attempt, source, ID, byte, member and semantic checks remain mandatory in the coordinated implementation."
     }
   }
 }
