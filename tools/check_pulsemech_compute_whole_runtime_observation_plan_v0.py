@@ -449,6 +449,9 @@ SOURCE_ROLES = (
     ("policy_argument_derivation_semantics", 'tools/policy_to_require_args.py'),
     ("release_status_schema_guard_semantics", 'tools/validate_status_schema.py'),
     ("release_no_stub_guard_semantics", 'ci/check_release_no_stub_status.py'),
+    ('package_assembler_semantics', 'PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py'),
+    ('package_verifier_semantics', 'PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py'),
+    ('package_completeness_semantics', 'tools/check_release_grade_package_complete_v1.py'),
 )
 
 AUTHORITY_BOUNDARY = {
@@ -818,6 +821,7 @@ def _load_sources(root: Path, source_commit: str) -> dict[str, GitObject]:
         'PULSE_safe_pack_v0/tools/check_quality_ledger_status_parity.py': 'd65d9e13d0fe66c72f876c002f66156b16df4374',
     }
     exact_pins.update(_RECORDED_SEMANTIC_PINS)
+    exact_pins.update(_PACKAGE_SEMANTIC_PINS)
     for path, expected in exact_pins.items():
         actual = source_by_path[path].blob_sha1
         _require(actual == expected, "reviewed_source_profile_mismatch", f"{path}: {actual}")
@@ -1729,6 +1733,264 @@ def _verify_source_recorded_equations(plan: dict[str, Any], workflow: dict[str, 
              "recorded_mapping_projection_is_not_runtime_argument_list")
 
 
+# Package publication and metadata are distinct from local content creation.
+# This bounded projection declares source relations; it never observes a run,
+# expands an archive, or treats a published report as an independent verdict.
+_PACKAGE_SEMANTIC_PINS = {
+    "PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py": "8f01602e973b890eb2ae0928bd62dfd65e691f79",
+    "PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py": "f54c37a32329d191e213bb71a6818858285ff20a",
+    "tools/check_release_grade_package_complete_v1.py": "601e9a33097824b2055d908d25fad5667612c136",
+}
+_PACKAGE_ROLES = (
+    "complete-release-grade-reference-package", "package-completeness-report",
+    "package-verification-report", "package-digest-inventory", "package-run-metadata",
+)
+_PACKAGE_ASSEMBLE_JOB = "assemble_release_grade_reference_package"
+_PACKAGE_VERIFY_JOB = "verify_release_grade_reference_package"
+
+
+def _package_temp_path(value: str, variables: dict[str, str]) -> str:
+    _require(isinstance(value, str), "package_mapping_path_invalid")
+    value = re.sub(r"\$\{\{\s*runner\.temp\s*\}\}", "${RUNNER_TEMP}", value)
+    for name, replacement in variables.items():
+        token = "${" + name + "}"
+        if value == token or value.startswith(token + "/"):
+            value = replacement + value[len(token):]
+            break
+    if value.endswith("/"):
+        value = value[:-1]
+    _require(value.startswith("${RUNNER_TEMP}/"), "package_mapping_temp_root", value)
+    try:
+        return _checked_mapping_path(value, allow_temp=True)
+    except PlanError as exc:
+        raise PlanError("package_mapping_path_invalid", value) from exc
+
+
+def _package_assignment(step: dict[str, Any], name: str, variables: dict[str, str]) -> str:
+    body = step.get("run")
+    _require(isinstance(body, str), "package_mapping_run_missing", name)
+    matches = re.findall(r"^\s*" + re.escape(name) + r"=(.+)$", body, re.M)
+    _require(len(matches) == 1, "package_mapping_assignment_not_unique", name)
+    try:
+        values = shlex.split(matches[0])
+    except ValueError as exc:
+        raise PlanError("package_mapping_assignment_invalid", name) from exc
+    _require(len(values) == 1, "package_mapping_assignment_invalid", name)
+    return _package_temp_path(values[0], variables)
+
+
+def _package_commands(step: dict[str, Any], prefix: tuple[str, ...], flags: set[str]) -> list[dict[str, str]]:
+    body = step.get("run")
+    _require(isinstance(body, str), "package_mapping_run_missing")
+    rows = []
+    for line in body.replace("\\\n", " ").splitlines():
+        if not re.match(r"^\s*" + re.escape(prefix[0]) + r"\s+", line):
+            continue
+        try:
+            words = shlex.split(line)
+        except ValueError as exc:
+            raise PlanError("package_mapping_command_invalid") from exc
+        if tuple(words[:len(prefix)]) != prefix:
+            continue
+        args = words[len(prefix):]
+        _require(len(args) == 2 * len(flags), "package_mapping_argument_shape")
+        opts = dict(zip(args[::2], args[1::2]))
+        _require(set(opts) == flags and len(opts) == len(flags)
+                 and all(not value.startswith("--") for value in opts.values()),
+                 "package_mapping_argument_profile")
+        rows.append(opts)
+    return rows
+
+
+def _package_artifact_name(value: str) -> str:
+    _require(isinstance(value, str), "package_mapping_artifact_name_invalid")
+    _require(len(re.findall(r"\$\{\{\s*github\.run_id\s*\}\}", value)) == 1
+             and len(re.findall(r"\$\{\{\s*github\.run_attempt\s*\}\}", value)) == 1,
+             "package_mapping_artifact_run_binding")
+    value = re.sub(r"\$\{\{\s*github\.run_id\s*\}\}", "{workflow_run_id}", value)
+    value = re.sub(r"\$\{\{\s*github\.run_attempt\s*\}\}", "1", value)
+    _require(re.fullmatch(r"[A-Za-z0-9_.-]+-\{workflow_run_id\}-1", value) is not None,
+             "package_mapping_artifact_name_invalid", value)
+    return value
+
+
+def _source_package_expectations(workflow: dict[str, Any], sources: dict[str, GitObject]) -> dict[str, Any]:
+    """Check source publication equations independently of either state table."""
+    parsed_sources = {}
+    for filename, blob in _PACKAGE_SEMANTIC_PINS.items():
+        record = sources.get(filename)
+        _require(record is not None, "package_mapping_source_missing", filename)
+        _require(_sha1_git_blob(record.data) == blob, "package_mapping_semantic_source_drift", filename)
+        parsed_sources[filename] = ast.parse(record.data)
+    jobs = workflow.get("jobs", {})
+    source_steps = {}
+    for job_name, names in ((_PACKAGE_ASSEMBLE_JOB, ASSEMBLE_PACKAGE_STEP_NAMES), (_PACKAGE_VERIFY_JOB, VERIFY_PACKAGE_STEP_NAMES)):
+        raw = jobs.get(job_name, {}).get("steps")
+        _require(isinstance(raw, list) and len(raw) == len(names), "package_mapping_step_profile", job_name)
+        for number, (step, name) in enumerate(zip(raw, names), 1):
+            _require(isinstance(step, dict) and step.get("name") == name, "package_mapping_step_profile", name)
+            source_steps[(job_name, number)] = step
+    s = lambda number: source_steps[(_PACKAGE_ASSEMBLE_JOB, number)]
+    v = lambda number: source_steps[(_PACKAGE_VERIFY_JOB, number)]
+    variables = {}
+    for name in ("INPUT_ROOT", "PULSE_REPORT_DIR", "RECORDED_PATH_DIR", "AUDIT_BUNDLE_DIR", "ARTIFACT_BINDING_DIR", "COMPLETE_PACKAGE_DIR"):
+        variables[name] = _package_assignment(s(4), name, variables)
+    downloaded_dir = _package_assignment(v(4), "PACKAGE_DIR", {})
+    verification_output = _package_assignment(v(4), "VERIFY_OUT", {})
+    verify_variables = {"PACKAGE_DIR": downloaded_dir, "VERIFY_OUT": verification_output}
+    id_arguments = {"--repo-root": "${GITHUB_WORKSPACE}", "--repository": "${GITHUB_REPOSITORY}", "--git-sha": "${GITHUB_SHA}",
+                    "--workflow-ref": "${GITHUB_WORKFLOW_REF}", "--run-id": "${GITHUB_RUN_ID}", "--run-attempt": "${GITHUB_RUN_ATTEMPT}",
+                    "--run-key": "${PULSE_RUN_KEY}"}
+    assembly_path = "PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py"
+    verifier_path = "PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py"
+    completeness_path = "tools/check_release_grade_package_complete_v1.py"
+    def invocation(step: dict[str, Any], path: str, fields: set[str]) -> dict[str, str]:
+        candidates = _package_commands(step, ("python", path), fields)
+        _require(len(candidates) == 1, "package_mapping_command_not_unique", path)
+        return candidates[0]
+    assembly_args = invocation(s(5), assembly_path, set(id_arguments) | {"--out-dir", "--pulse-report-dir", "--recorded-path-dir",
+        "--audit-bundle-dir", "--artifact-binding-dir", "--release-candidate", "--created-utc"})
+    verifier_args = invocation(v(7), verifier_path, set(id_arguments) | {"--package-dir", "--out"})
+    completeness_args = invocation(v(5), completeness_path, {"--package-dir", "--output"})
+    for command in (assembly_args, verifier_args):
+        _require(all(command[key] == value for key, value in id_arguments.items()), "package_mapping_command_identity")
+    _require(assembly_args["--release-candidate"] == "${GITHUB_REF_NAME}" and assembly_args["--created-utc"] == "${PACKAGE_CREATED_UTC}",
+             "package_mapping_command_identity")
+    for parameter, variable in (("--pulse-report-dir", "PULSE_REPORT_DIR"), ("--recorded-path-dir", "RECORDED_PATH_DIR"),
+                                ("--audit-bundle-dir", "AUDIT_BUNDLE_DIR"), ("--artifact-binding-dir", "ARTIFACT_BINDING_DIR")):
+        _require(_package_temp_path(assembly_args[parameter], variables) == variables[variable], "package_mapping_input_root", parameter)
+    package_dir = _package_temp_path(assembly_args["--out-dir"], variables)
+    directories = (variables["COMPLETE_PACKAGE_DIR"], downloaded_dir,
+                   _package_temp_path(completeness_args["--package-dir"], {}), _package_temp_path(verifier_args["--package-dir"], verify_variables))
+    _require(all(path == package_dir for path in directories), "package_mapping_directory_handoff")
+    report_paths = (_package_temp_path(completeness_args["--output"], {}), _package_temp_path(verifier_args["--out"], verify_variables))
+    _require(len({package_dir, *report_paths}) == 3 and not any(p.startswith(package_dir + "/") for p in report_paths),
+             "package_mapping_output_alias")
+    publication_steps = ((_PACKAGE_ASSEMBLE_JOB, 6), (_PACKAGE_VERIFY_JOB, 6), (_PACKAGE_VERIFY_JOB, 8))
+    locators, outputs, producers = {}, {}, {}
+    for role, key, expected_output in zip(_PACKAGE_ROLES[:3], publication_steps, (package_dir, *report_paths)):
+        step = source_steps[key]
+        options = step.get("with", {})
+        _require(step.get("uses") == "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+                 and options.get("if-no-files-found") == "error", "package_mapping_upload_profile")
+        output = _package_temp_path(options.get("path"), {})
+        _require(output == expected_output, "package_mapping_publication_path", role)
+        locators[role] = "artifact://" + _package_artifact_name(options.get("name"))
+        outputs[role] = output
+        producers[role] = _step_id(*key)
+    _require(len(set(locators.values())) == 3, "package_mapping_publication_alias")
+    downloads = _package_commands(v(4), ("gh", "run", "download", "${GITHUB_RUN_ID}"), {"--repo", "--name", "--dir"})
+    _require(len(downloads) == 1, "package_mapping_download_handoff")
+    retrieved = downloads[0]
+    _require(retrieved["--repo"] == "${GITHUB_REPOSITORY}"
+             and "artifact://" + _package_artifact_name(retrieved["--name"]) == locators[_PACKAGE_ROLES[0]]
+             and _package_temp_path(retrieved["--dir"], verify_variables) == downloaded_dir, "package_mapping_download_handoff")
+    input_routes = _package_commands(s(4), ("gh", "run", "download", "${GITHUB_RUN_ID}"), {"--repo", "--name", "--dir"})
+    expected_names = {
+        "pulse-report": "PULSE_REPORT_DIR", "release-authority-artifact-binding-v0": "ARTIFACT_BINDING_DIR",
+        "release-authority-audit-bundle": "AUDIT_BUNDLE_DIR",
+        "release-grade-recorded-path-${{ github.run_id }}-${{ github.run_attempt }}": "RECORDED_PATH_DIR",
+    }
+    _require(len(input_routes) == len(expected_names) and {row["--name"] for row in input_routes} == set(expected_names),
+             "package_mapping_assembly_downloads")
+    for row in input_routes:
+        _require(row["--repo"] == "${GITHUB_REPOSITORY}" and _package_temp_path(row["--dir"], variables) == variables[expected_names[row["--name"]]],
+                 "package_mapping_assembly_downloads")
+    # Work backwards from the two writer calls to their source pathname
+    # assignments. No state-table pathname or builder result is consulted.
+    main = next(node for node in parsed_sources[assembly_path].body if isinstance(node, ast.FunctionDef) and node.name == "main")
+    consumers = {_PACKAGE_ROLES[0]: (_step_id(_PACKAGE_VERIFY_JOB, 4),), _PACKAGE_ROLES[1]: (), _PACKAGE_ROLES[2]: ()}
+    members = {}
+    for writer, role in (("_write_run_metadata", "package-run-metadata"), ("_write_digest_inventory", "package-digest-inventory")):
+        writes = [node for node in ast.walk(main) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == writer]
+        _require(len(writes) == 1 and writes[0].args and isinstance(writes[0].args[0], ast.Name), "package_mapping_metadata_writer", role)
+        variable = writes[0].args[0].id
+        bindings = [node for node in ast.walk(main) if isinstance(node, ast.Assign)
+                    and any(isinstance(target, ast.Name) and target.id == variable for target in node.targets)]
+        _require(len(bindings) == 1, "package_mapping_metadata_assignment", role)
+        expr = bindings[0].value
+        _require(isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Div) and isinstance(expr.left, ast.Name)
+                 and expr.left.id == "staging_dir" and isinstance(expr.right, ast.Constant) and isinstance(expr.right.value, str),
+                 "package_mapping_metadata_path", role)
+        member = expr.right.value
+        _require(re.fullmatch(r"[A-Za-z0-9_.-]+\.json", member) is not None, "package_mapping_metadata_path", role)
+        for filename, constants in ((verifier_path, ("REQUIRED_FILES", "JSON_FILES")),
+                                    (completeness_path, ("REQUIRED_FILES", "JSON_OBJECT_FILES"))):
+            for constant in constants:
+                definitions = []
+                for node in parsed_sources[filename].body:
+                    names = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+                    if any(isinstance(target, ast.Name) and target.id == constant for target in names):
+                        definitions.append(node.value)
+                _require(len(definitions) == 1 and member in ast.literal_eval(definitions[0]), "package_mapping_metadata_reader", role)
+        members[role] = member
+        locators[role] = package_dir + "/" + member
+        producers[role] = _step_id(_PACKAGE_ASSEMBLE_JOB, 5)
+        consumers[role] = tuple(_step_id(job, number) for job, number in ((_PACKAGE_ASSEMBLE_JOB, 6), (_PACKAGE_VERIFY_JOB, 5), (_PACKAGE_VERIFY_JOB, 7)))
+    _require(len(set(members.values())) == 2, "package_mapping_metadata_alias")
+    return {"locators": locators, "producers": producers, "consumers": consumers,
+            "local_outputs": outputs, "metadata_members": members, "assembly_download_names": sorted(expected_names)}
+
+
+def _verify_source_package_equations(plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject]) -> None:
+    facts = _source_package_expectations(workflow, sources)
+    states = {row["state_id"]: row for row in plan["state_templates"]}
+    steps = {step["occurrence_id"]: step for job in plan["jobs"] for step in job["steps"]}
+    for role in _PACKAGE_ROLES:
+        state_id = "state:step5c:" + role
+        _require(state_id in states, "package_mapping_role_missing", role)
+        state = states[state_id]
+        _require(state["path_or_uri"] == facts["locators"][role], "package_mapping_locator_mismatch", role)
+        _require(state["producer_occurrence_id"] == facts["producers"][role], "package_mapping_producer_mismatch", role)
+        expected = set(facts["consumers"][role])
+        _require(set(state["required_consumer_occurrence_ids"]) == expected, "package_mapping_consumer_mismatch", role)
+        _require(state["required"] is True and state["content_requirement"] == "exact_digest" and state["authority_bearing"] is False,
+                 "package_mapping_requirement_mismatch", role)
+        _require({oid for oid, step in steps.items() if state_id in step["output_state_ids"]} == {facts["producers"][role]},
+                 "package_mapping_writer_set_mismatch", role)
+        _require({oid for oid, step in steps.items() if state_id in step["input_state_ids"]} == expected,
+                 "package_mapping_reader_set_mismatch", role)
+    acquisition = _step_id(_PACKAGE_ASSEMBLE_JOB, 4)
+    for role in ("advisory-reference-bundle", "artifact-binding-attestation"):
+        key = "state:step5c:" + role
+        _require(acquisition not in states[key]["required_consumer_occurrence_ids"]
+                 and key not in steps[acquisition]["input_state_ids"], "package_mapping_unacquired_input", role)
+
+
+def _apply_package_source_expectations(states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any]) -> None:
+    index = {row["state_id"]: row for row in states}
+    selected = {"state:step5c:" + role for role in _PACKAGE_ROLES}
+    for step in steps.values():
+        for key in ("input_state_ids", "output_state_ids"):
+            step[key] = [state for state in step[key] if state not in selected]
+    for role in _PACKAGE_ROLES:
+        state_id = "state:step5c:" + role
+        if state_id not in index:
+            row = _state(state_id=state_id, state_type="package_inventory" if role == "package-digest-inventory" else "run_metadata",
+                         role=role.replace("-", "_"), path_or_uri=facts["locators"][role], required=True,
+                         content_requirement="exact_digest", producer=facts["producers"][role], consumers=(),
+                         authority_bearing=False, mutation_class="preservation_output")
+            states.append(row)
+            index[state_id] = row
+        row = index[state_id]
+        row["path_or_uri"] = facts["locators"][role]
+        row["producer_occurrence_id"] = facts["producers"][role]
+        row["required_consumer_occurrence_ids"] = sorted(facts["consumers"][role])
+        for step in steps.values():
+            if step["occurrence_id"] == facts["producers"][role]:
+                step["output_state_ids"].append(state_id)
+            if step["occurrence_id"] in facts["consumers"][role]:
+                step["input_state_ids"].append(state_id)
+    # S4 downloads four named archives, neither of these two objects. Do not
+    # fabricate an attestation-receipt or advisory-archive acquisition edge.
+    occurrence = _step_id(_PACKAGE_ASSEMBLE_JOB, 4)
+    for role in ("advisory-reference-bundle", "artifact-binding-attestation"):
+        state_id = "state:step5c:" + role
+        row = index[state_id]
+        row["required_consumer_occurrence_ids"] = [x for x in row["required_consumer_occurrence_ids"] if x != occurrence]
+        steps[(_PACKAGE_ASSEMBLE_JOB, 4)]["input_state_ids"] = [x for x in steps[(_PACKAGE_ASSEMBLE_JOB, 4)]["input_state_ids"] if x != state_id]
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -1737,6 +1999,7 @@ def _build_states(
 ) -> list[dict[str, Any]]:
     source_projection = _source_ledger_expectations(source_workflow)
     recorded_projection = _source_recorded_expectations(source_workflow, source_by_path)
+    package_projection = _source_package_expectations(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -2080,7 +2343,7 @@ def _build_states(
         "advisory_release_grade_reference_bundle",
         source_projection["locators"]['advisory-reference-bundle'],
         producer=st("release_grade_recorded_path", 25),
-        consumers=[st("release_grade_recorded_path", 26), st("release_grade_recorded_path", 32), st("assemble_release_grade_reference_package", 4)],
+        consumers=[st("release_grade_recorded_path", 26), st("release_grade_recorded_path", 32)],
         authority=False,
     )
     binding_attestation = add(
@@ -2089,34 +2352,34 @@ def _build_states(
         "final_release_grade_artifact_binding_attestation",
         "attestation://artifact_provenance_binding_v0.json",
         producer=st("attest_release_grade_artifact_binding", 2),
-        consumers=[st("assemble_release_grade_reference_package", 4)],
+        consumers=[],
         authority=True,
     )
     complete_package = add(
         "complete-release-grade-reference-package",
         "package",
         "complete_release_grade_reference_package",
-        "artifact://complete-release-grade-reference-package-{workflow_run_id}-1",
-        producer=st("assemble_release_grade_reference_package", 5),
-        consumers=[st("assemble_release_grade_reference_package", 6), st("verify_release_grade_reference_package", 4)],
+        package_projection["locators"]["complete-release-grade-reference-package"],
+        producer=package_projection["producers"]["complete-release-grade-reference-package"],
+        consumers=package_projection["consumers"]["complete-release-grade-reference-package"],
         authority=False,
     )
     package_completeness = add(
         "package-completeness-report",
         "verifier_report",
         "release_grade_package_completeness_report",
-        "artifact://release-grade-package-completeness-{workflow_run_id}-1",
-        producer=st("verify_release_grade_reference_package", 5),
-        consumers=[st("verify_release_grade_reference_package", 6)],
+        package_projection["locators"]["package-completeness-report"],
+        producer=package_projection["producers"]["package-completeness-report"],
+        consumers=package_projection["consumers"]["package-completeness-report"],
         authority=False,
     )
     package_verification = add(
         "package-verification-report",
         "verifier_report",
         "release_grade_reference_package_verification_report",
-        "artifact://release-grade-reference-package-verification-{workflow_run_id}-1",
-        producer=st("verify_release_grade_reference_package", 7),
-        consumers=[st("verify_release_grade_reference_package", 8)],
+        package_projection["locators"]["package-verification-report"],
+        producer=package_projection["producers"]["package-verification-report"],
+        consumers=package_projection["consumers"]["package-verification-report"],
         authority=False,
     )
     step3f_carrier = add(
@@ -2224,9 +2487,6 @@ def _build_states(
             ("attest_release_grade_artifact_binding", 1, artifact_binding),
             ("assemble_release_grade_reference_package", 4, artifact_binding),
             ("assemble_release_grade_reference_package", 4, audit_bundle),
-            ("assemble_release_grade_reference_package", 4, advisory_bundle),
-            ("assemble_release_grade_reference_package", 4, binding_attestation),
-            ("verify_release_grade_reference_package", 4, complete_package),
         ],
         outputs=[
             ("pulse", 11, required_gate),
@@ -2245,9 +2505,6 @@ def _build_states(
             ("release_grade_recorded_path", 23, sarif),
             ("release_grade_recorded_path", 25, advisory_bundle),
             ("attest_release_grade_artifact_binding", 2, binding_attestation),
-            ("assemble_release_grade_reference_package", 5, complete_package),
-            ("verify_release_grade_reference_package", 5, package_completeness),
-            ("verify_release_grade_reference_package", 7, package_verification),
         ],
     )
 
@@ -2278,6 +2535,8 @@ def _build_states(
 
     _apply_source_ledger_expectations(states, step_by_key, source_projection)
     _apply_recorded_source_expectations(states, step_by_key, recorded_projection)
+
+    _apply_package_source_expectations(states, step_by_key, package_projection)
 
     # Make deterministic reference arrays after all bindings are complete.
     for step in step_by_key.values():
@@ -2864,6 +3123,9 @@ def check_plan(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH),
     )
     _verify_source_recorded_equations(
+        plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
+    )
+    _verify_source_package_equations(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_tool_identity(

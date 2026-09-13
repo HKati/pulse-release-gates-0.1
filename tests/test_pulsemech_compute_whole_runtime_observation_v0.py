@@ -505,7 +505,7 @@ def test_real_plan_cli_and_independent_checker(source_fixture):
     assert f.diagnostic_doc['plan']['byte_identical_to_independent_reconstruction'] is True
     assert f.diagnostic_doc['plan']['sha256'] == f.plan_digest
     assert f.plan['plan_identity']['source_commit'] == f.sha
-    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 47
+    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 50
 
 
 def test_two_separate_plan_processes_are_byte_identical(source_fixture):
@@ -1470,7 +1470,7 @@ def test_two_real_prepares_preserve_the_complete_declared_source_set(
         assert diagnostic['record_status'] == 'example'
         assert diagnostic['output_sha256'] == digest(raw)
         assert diagnostic['output_size_bytes'] == len(raw)
-        assert diagnostic['member_count'] == len(expected_members) == 52
+        assert diagnostic['member_count'] == len(expected_members) == 55
         assert diagnostic['authority_boundary'] == VERIFIER.AUTHORITY_BOUNDARY
         plan, members, stored_raw = read_prepared_example(f, target)
         assert plan == f.plan and stored_raw == raw
@@ -2108,11 +2108,11 @@ def test_declared_state_inventory_preserves_all_requirements_and_honest_gaps(sou
     packet = runtime_projection_example(f, profile=profile)
     states = {s['state_id']: s for s in packet['state_observations']}
     templates = {s['state_id']: s for s in f.plan['state_templates']}
-    assert set(states) == set(templates) and len(states) == 59
+    assert set(states) == set(templates) and len(states) == 61
     assert Counter(s['content_status'] for s in states.values()) == {
-        'exact_digest': 21, 'unavailable': 38,
+        'exact_digest': 21, 'unavailable': 40,
     }
-    assert packet['coverage']['state_records'] == 59
+    assert packet['coverage']['state_records'] == 61
     assert packet['coverage']['state_digest_capture_status'] == 'partial'
     assert packet['coverage']['coverage_status'] == 'partial'
     assert 'post_decision_state_unavailable' in packet['coverage']['unobserved_reasons']
@@ -2190,7 +2190,7 @@ def test_real_capture_to_declared_state_projection_keeps_capture_bytes_unchanged
     before = captured.path.read_bytes()
     packet = VERIFIER.build_runtime_packet(plan=f.plan, capture_manifest=captured.manifest,
         capture_members=captured.members, record_status='example')
-    assert len(packet['state_observations']) == 59
+    assert len(packet['state_observations']) == 61
     VERIFIER._require_state_projection(f.plan, packet, captured.manifest, captured.members)
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(f.plan, packet, {})
@@ -2274,7 +2274,7 @@ def test_terminal_state_accepts_bounded_complete_multiple_pages(source_fixture):
     manifest['raw_response_bindings'].append({'role':'subject_artifacts_page',
         'descriptor':{'member':second,'sha256':digest(raw),'size_bytes':len(raw)}})
     packet=VERIFIER.build_runtime_packet(plan=f.plan,capture_manifest=manifest,capture_members=members,record_status='example')
-    assert len(packet['state_observations']) == 59
+    assert len(packet['state_observations']) == 61
 
 
 @pytest.mark.parametrize('mutation', [
@@ -2762,7 +2762,7 @@ def test_source_mapping_keeps_old_evidence_stop_and_inactive_r2_root(source_fixt
     packet = runtime_projection_example(source_fixture)
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(source_fixture.plan, packet, {})
-    assert len(source_fixture.plan['state_templates']) == 59
+    assert len(source_fixture.plan['state_templates']) == 61
     assert 'evidence_profile' not in source_fixture.plan
     assert len(EVIDENCE_SCHEMA['oneOf']) == 4
 
@@ -2963,7 +2963,7 @@ def test_recorded_mapping_gate_projection_matches_actual_materializer_source():
 def test_recorded_mapping_new_roles_remain_strict_and_unobserved(source_fixture, role):
     plan = source_fixture.plan
     states = {s['state_id']: s for s in plan['state_templates']}
-    assert len(states) == 59
+    assert len(states) == 61
     state = states['state:step5c:' + role]
     assert state['required'] is True and state['content_requirement'] == 'exact_digest'
     assert state['state_id'] in R2_CONTRACT_ROLES
@@ -3143,6 +3143,287 @@ def test_recorded_mapping_independent_predicate_precedes_reconstruction():
     imported = [a.name for n in ast.walk(module_tree) if isinstance(n, ast.Import) for a in n.names]
     imported += [n.module or '' for n in ast.walk(module_tree) if isinstance(n, ast.ImportFrom)]
     assert not any('build_pulsemech_compute_whole_runtime' in name for name in imported)
+
+
+# ---------------------------------------------------------------------------
+# Package content/publication mapping. Example metadata remains unobserved.
+# Expected publication selectors are read from the subject workflow, not from
+# either generated state table or from an alleged package verifier verdict.
+# ---------------------------------------------------------------------------
+PACKAGE_MAPPING_TOOLS = (
+    'PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py',
+    'PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py',
+    'tools/check_release_grade_package_complete_v1.py',
+)
+PACKAGE_MAPPING_ROLES = (
+    'complete-release-grade-reference-package', 'package-completeness-report',
+    'package-verification-report', 'package-digest-inventory', 'package-run-metadata',
+)
+PACKAGE_S = 'assemble_release_grade_reference_package'
+PACKAGE_V = 'verify_release_grade_reference_package'
+
+
+def package_source_projection(side, source_fixture, workflow=None, sources=None):
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    function = module._package_source_projection if side == 'builder' else module._source_package_expectations
+    objects = BUILDER._load_sources(source_fixture.root, source_fixture.sha) if sources is None else sources
+    return function(mapping_source_document() if workflow is None else workflow, objects)
+
+
+def package_states(plan):
+    return {s['state_id'].removeprefix('state:step5c:'): s for s in plan['state_templates']}
+
+
+@pytest.mark.parametrize('role,job,number,old_producer', [
+    ('complete-release-grade-reference-package', PACKAGE_S, 6, 5),
+    ('package-completeness-report', PACKAGE_V, 6, 5),
+    ('package-verification-report', PACKAGE_V, 8, 7),
+])
+def test_package_mapping_archive_identity_comes_from_publisher(source_fixture, role, job, number, old_producer):
+    raw = mapping_source_document()['jobs'][job]['steps'][number - 1]
+    name = raw['with']['name'].replace('${{ github.run_id }}', '{workflow_run_id}').replace('${{ github.run_attempt }}', '1')
+    assert raw['uses'].startswith('actions/upload-artifact@')
+    states = package_states(source_fixture.plan)
+    assert states[role]['path_or_uri'] == 'artifact://' + name
+    expected = f'execution:step5c:step:{job}:{number:03d}'
+    assert states[role]['producer_occurrence_id'] == expected
+    all_steps = [s for j in source_fixture.plan['jobs'] for s in j['steps']]
+    assert {s['occurrence_id'] for s in all_steps if states[role]['state_id'] in s['output_state_ids']} == {expected}
+    assert expected != f'execution:step5c:step:{job}:{old_producer:03d}'
+
+
+@pytest.mark.parametrize('role,filename,writer', [
+    ('package-digest-inventory', 'package_digest_inventory_v0.json', '_write_digest_inventory'),
+    ('package-run-metadata', 'run_metadata_v0.json', '_write_run_metadata'),
+])
+def test_package_mapping_metadata_writers_and_readers_are_source_bound(source_fixture, role, filename, writer):
+    state = package_states(source_fixture.plan)[role]
+    assert state['path_or_uri'] == '${RUNNER_TEMP}/complete-release-grade-reference-package/' + filename
+    assert state['producer_occurrence_id'] == f'execution:step5c:step:{PACKAGE_S}:005'
+    expected = {f'execution:step5c:step:{PACKAGE_S}:006', f'execution:step5c:step:{PACKAGE_V}:005', f'execution:step5c:step:{PACKAGE_V}:007'}
+    assert set(state['required_consumer_occurrence_ids']) == expected
+    assert state['required'] is True and state['content_requirement'] == 'exact_digest'
+    assert state['authority_bearing'] is False
+    assembly_tree = ast.parse((ROOT / PACKAGE_MAPPING_TOOLS[0]).read_bytes())
+    # Independently demonstrate the named writer invocation and exact filename.
+    literals = {n.value for n in ast.walk(assembly_tree) if isinstance(n, ast.Constant) and isinstance(n.value, str)}
+    assert filename in literals
+    assert any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == writer for n in ast.walk(assembly_tree))
+    for path in PACKAGE_MAPPING_TOOLS[1:]:
+        tree = ast.parse((ROOT / path).read_bytes())
+        declaration = next(n.value for n in tree.body if isinstance(n, ast.AnnAssign)
+                           and isinstance(n.target, ast.Name) and n.target.id == 'REQUIRED_FILES')
+        assert filename in ast.literal_eval(declaration)
+    packet = runtime_projection_example(source_fixture)
+    observed = next(row for row in packet['state_observations'] if row['state_id'] == state['state_id'])
+    assert observed['content_status'] == 'unavailable'
+    assert observed['sha256'] is None and observed['size_bytes'] is None
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_package_mapping_separates_local_outputs_from_archive_locators(source_fixture, side):
+    facts = package_source_projection(side, source_fixture)
+    assert facts['local_outputs'] == {
+        'complete-release-grade-reference-package': '${RUNNER_TEMP}/complete-release-grade-reference-package',
+        'package-completeness-report': '${RUNNER_TEMP}/release_grade_package_completeness_v1.json',
+        'package-verification-report': '${RUNNER_TEMP}/release_grade_reference_package_verification_v0.json',
+    }
+    assert all(facts['locators'][r].startswith('artifact://') for r in PACKAGE_MAPPING_ROLES[:3])
+    assert len(set(facts['locators'].values())) == 5
+    assert set(facts['assembly_download_names']) == {
+        'pulse-report', 'release-grade-recorded-path-${{ github.run_id }}-${{ github.run_attempt }}',
+        'release-authority-audit-bundle', 'release-authority-artifact-binding-v0',
+    }
+
+
+@pytest.mark.parametrize('role', ['advisory-reference-bundle', 'artifact-binding-attestation'])
+def test_package_mapping_does_not_invent_missing_s4_download(source_fixture, role):
+    state = package_states(source_fixture.plan)[role]
+    occurrence = f'execution:step5c:step:{PACKAGE_S}:004'
+    assert occurrence not in state['required_consumer_occurrence_ids']
+    step = next(s for j in source_fixture.plan['jobs'] for s in j['steps'] if s['occurrence_id'] == occurrence)
+    assert state['state_id'] not in step['input_state_ids']
+    assert state['required'] is True  # absence of a route is not scope removal
+
+
+def corrupt_package_mapping(plan, role, mutation):
+    state = package_states(plan)[role]
+    all_steps = {s['occurrence_id']: s for j in plan['jobs'] for s in j['steps']}
+    key = state['state_id']
+    if mutation == 'locator':
+        state['path_or_uri'] = 'artifact://same-wrong-answer-{workflow_run_id}-1'
+    elif mutation == 'producer':
+        for step in all_steps.values():
+            step['output_state_ids'] = [r for r in step['output_state_ids'] if r != key]
+        wrong = f'execution:step5c:step:{PACKAGE_S}:004'
+        state['producer_occurrence_id'] = wrong
+        all_steps[wrong]['output_state_ids'] = sorted(all_steps[wrong]['output_state_ids'] + [key])
+    elif mutation == 'extra_writer':
+        step = all_steps['execution:step5c:step:pulse:022']
+        step['output_state_ids'] = sorted(step['output_state_ids'] + [key])
+    elif mutation == 'consumer':
+        wrong = 'execution:step5c:step:pulse:022'
+        state['required_consumer_occurrence_ids'] = sorted(set(state['required_consumer_occurrence_ids']) | {wrong})
+        all_steps[wrong]['input_state_ids'] = sorted(set(all_steps[wrong]['input_state_ids']) | {key})
+    elif mutation == 'strength':
+        state['content_requirement'] = 'metadata_only'
+    elif mutation == 'omission':
+        plan['state_templates'] = [s for s in plan['state_templates'] if s['state_id'] != key]
+        for step in all_steps.values():
+            for field in ('input_state_ids', 'output_state_ids'):
+                step[field] = [r for r in step[field] if r != key]
+    else:
+        raise AssertionError(mutation)
+    return plan
+
+
+@pytest.mark.parametrize('role', PACKAGE_MAPPING_ROLES)
+@pytest.mark.parametrize('mutation', ['locator', 'producer', 'extra_writer', 'consumer', 'strength', 'omission'])
+def test_package_mapping_shared_false_answers_fail_source_predicate(source_fixture, recorded_source_objects, role, mutation):
+    bad = corrupt_package_mapping(copy.deepcopy(source_fixture.plan), role, mutation)
+    # A matching constructor's answer cannot serve as the semantic oracle.
+    assert canonical(bad) == canonical(copy.deepcopy(bad))
+    with pytest.raises(PLAN_CHECKER.PlanError, match='package_mapping_'):
+        PLAN_CHECKER._verify_source_package_equations(bad, mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('role', ['advisory-reference-bundle', 'artifact-binding-attestation'])
+def test_package_mapping_false_download_edge_is_rejected(source_fixture, recorded_source_objects, role):
+    plan = copy.deepcopy(source_fixture.plan)
+    row = package_states(plan)[role]
+    target = f'execution:step5c:step:{PACKAGE_S}:004'
+    row['required_consumer_occurrence_ids'] = sorted(row['required_consumer_occurrence_ids'] + [target])
+    step = next(s for j in plan['jobs'] for s in j['steps'] if s['occurrence_id'] == target)
+    step['input_state_ids'] = sorted(step['input_state_ids'] + [row['state_id']])
+    with pytest.raises(PLAN_CHECKER.PlanError, match='package_mapping_unacquired_input'):
+        PLAN_CHECKER._verify_source_package_equations(plan, mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('role,mutation', [
+    ('complete-release-grade-reference-package', 'producer'),
+    ('package-completeness-report', 'locator'),
+    ('package-run-metadata', 'consumer'),
+    ('package-digest-inventory', 'omission'),
+])
+def test_package_mapping_real_checker_rejects_rehashed_false_plan(source_fixture, tmp_path, role, mutation):
+    f = source_fixture
+    plan = corrupt_package_mapping(copy.deepcopy(f.plan), role, mutation)
+    raw = canonical(plan)
+    path = tmp_path / 'bad-package-plan.json'; path.write_bytes(raw)
+    result = cli(f.root, TOOL_NAMES[1], ['--repository-root', f.root, '--plan', path,
+        '--expected-source-commit', f.sha, '--expected-plan-sha256', digest(raw), '--expected-record-status', 'example'])
+    assert result.returncode != 0
+    diagnostic = json.loads(result.stdout)
+    assert diagnostic['ok'] is False and diagnostic['error_code'].startswith('package_mapping_')
+
+
+@pytest.mark.parametrize('role', PACKAGE_MAPPING_ROLES[:3])
+def test_package_mapping_actual_constructors_cannot_share_false_publisher(source_fixture, recorded_source_objects, role):
+    answers = []
+    workflow = mapping_source_document()
+    for module in (BUILDER, PLAN_CHECKER):
+        jobs, steps, operations = module._build_jobs(workflow)
+        states = module._build_states(steps, tuple(s['case_id'] for s in source_fixture.plan['model_inference_templates']), workflow, recorded_source_objects)
+        plan = copy.deepcopy(source_fixture.plan); plan['jobs'], plan['state_templates'] = jobs, states
+        answers.append(canonical(corrupt_package_mapping(plan, role, 'producer')))
+    assert answers[0] == answers[1]
+    with pytest.raises(PLAN_CHECKER.PlanError, match='package_mapping_'):
+        PLAN_CHECKER._verify_source_package_equations(json.loads(answers[0]), workflow, recorded_source_objects)
+
+
+@pytest.mark.parametrize('path', PACKAGE_MAPPING_TOOLS)
+def test_package_mapping_sources_are_in_exact_prepared_carrier(source_fixture, path):
+    payload = (source_fixture.root / path).read_bytes()
+    row = next(r for r in source_fixture.plan['source_inventory'] if r['path'] == path)
+    assert row['sha256'] == digest(payload) and row['size_bytes'] == len(payload)
+    assert prepared_fixture_members(source_fixture)['sources/' + path] == payload
+    for module in (BUILDER, PLAN_CHECKER):
+        assert sum(p == path for _, p in module.SOURCE_ROLES) == 1
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('path', PACKAGE_MAPPING_TOOLS)
+def test_package_mapping_rehashed_semantic_source_drift_is_rejected(source_fixture, recorded_source_objects, side, path):
+    sources = dict(recorded_source_objects)
+    old = sources[path]; payload = old.data + b'\n# changed reviewed semantic source\n'
+    sources[path] = replace(old, data=payload, blob_sha1=hashlib.sha1(b'blob ' + str(len(payload)).encode() + b'\0' + payload).hexdigest())
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    with pytest.raises(module.PlanError, match='package_mapping_semantic_source_drift'):
+        package_source_projection(side, source_fixture, sources=sources)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('path', PACKAGE_MAPPING_TOOLS)
+def test_package_mapping_missing_source_is_rejected(source_fixture, recorded_source_objects, side, path):
+    sources = dict(recorded_source_objects); del sources[path]
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    with pytest.raises(module.PlanError, match='package_mapping_source_missing'):
+        package_source_projection(side, source_fixture, sources=sources)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('mutation', [
+    'duplicate_command', 'extra_flag', 'missing_flag', 'wrong_tool', 'wrong_source_run',
+    'duplicate_assignment', 'dynamic_directory', 'traversal_directory', 'wrong_package_dir',
+    'wrong_publication_path', 'unbound_artifact_name', 'wrong_download_name', 'cross_run_download',
+    'extra_advisory_download', 'receipt_download_substitution', 'report_alias', 'report_inside_package',
+    'unpinned_upload', 'missing_output_guard', 'wrong_input_root', 'step_order',
+])
+def test_package_mapping_unsupported_source_forms_fail(source_fixture, recorded_source_objects, side, mutation):
+    workflow = mapping_source_document()
+    s = workflow['jobs'][PACKAGE_S]['steps']; v = workflow['jobs'][PACKAGE_V]['steps']
+    if mutation == 'duplicate_command': s[4]['run'] += '\n' + s[4]['run']
+    elif mutation == 'extra_flag': v[4]['run'] = v[4]['run'].rstrip() + ' --extra "x"\n'
+    elif mutation == 'missing_flag': v[4]['run'] = v[4]['run'].replace('--output', '--other')
+    elif mutation == 'wrong_tool': v[4]['run'] = v[4]['run'].replace('tools/check_', 'other/check_')
+    elif mutation == 'wrong_source_run': s[4]['run'] = s[4]['run'].replace('--run-id "${GITHUB_RUN_ID}"', '--run-id "123"')
+    elif mutation == 'duplicate_assignment': s[3]['run'] += '\nCOMPLETE_PACKAGE_DIR="${RUNNER_TEMP}/other"\n'
+    elif mutation in ('dynamic_directory', 'traversal_directory'):
+        value = '$(touch /tmp/must-not-execute)' if mutation == 'dynamic_directory' else '${RUNNER_TEMP}/../outside'
+        s[3]['run'] = s[3]['run'].replace('COMPLETE_PACKAGE_DIR="${RUNNER_TEMP}/complete-release-grade-reference-package"', 'COMPLETE_PACKAGE_DIR="' + value + '"')
+    elif mutation == 'wrong_package_dir': v[4]['run'] = v[4]['run'].replace('/complete-release-grade-reference-package', '/different')
+    elif mutation == 'wrong_publication_path': v[5]['with']['path'] = '${{runner.temp}}/other.json'
+    elif mutation == 'unbound_artifact_name': s[5]['with']['name'] = 'unbound-artifact'
+    elif mutation == 'wrong_download_name': v[3]['run'] = v[3]['run'].replace('--name "complete-release-', '--name "wrong-release-')
+    elif mutation == 'cross_run_download': v[3]['run'] = v[3]['run'].replace('gh run download "${GITHUB_RUN_ID}"', 'gh run download "123"')
+    elif mutation == 'extra_advisory_download': s[3]['run'] += '\ngh run download "${GITHUB_RUN_ID}" --repo "${GITHUB_REPOSITORY}" --name "release-grade-reference-run-v0" --dir "${PULSE_REPORT_DIR}"\n'
+    elif mutation == 'receipt_download_substitution': s[3]['run'] = s[3]['run'].replace('--name "release-authority-artifact-binding-v0"', '--name "attestation-receipt"')
+    elif mutation == 'report_alias':
+        v[3]['run'] = v[3]['run'].replace('release_grade_reference_package_verification_v0.json', 'release_grade_package_completeness_v1.json')
+        v[7]['with']['path'] = '${{runner.temp}}/release_grade_package_completeness_v1.json'
+    elif mutation == 'report_inside_package':
+        v[4]['run'] = v[4]['run'].replace('/release_grade_package_completeness_v1.json', '/complete-release-grade-reference-package/report.json')
+        v[5]['with']['path'] = '${{runner.temp}}/complete-release-grade-reference-package/report.json'
+    elif mutation == 'unpinned_upload': s[5]['uses'] = 'actions/upload-artifact@main'
+    elif mutation == 'missing_output_guard': v[5]['with']['if-no-files-found'] = 'warn'
+    elif mutation == 'wrong_input_root': s[4]['run'] = s[4]['run'].replace('--recorded-path-dir "${RECORDED_PATH_DIR}"', '--recorded-path-dir "${PULSE_REPORT_DIR}"')
+    elif mutation == 'step_order': v[4], v[5] = v[5], v[4]
+    else: raise AssertionError(mutation)
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    with pytest.raises(module.PlanError, match='package_mapping_'):
+        package_source_projection(side, source_fixture, workflow, recorded_source_objects)
+
+
+def test_package_mapping_source_predicate_precedes_reconstruction():
+    code = (ROOT / 'tools' / (TOOL_NAMES[1] + '.py')).read_text()
+    tree = ast.parse(code)
+    main = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'check_plan')
+    calls = {n.func.id: n.lineno for n in ast.walk(main) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+    assert calls['_verify_source_package_equations'] < calls['_reconstruct_expected_plan']
+    imports = [n.module or '' for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)]
+    imports += [alias.name for n in ast.walk(tree) if isinstance(n, ast.Import) for alias in n.names]
+    assert not any('build_pulsemech_compute_whole_runtime' in name for name in imports)
+
+
+def test_package_mapping_keeps_legacy_stop_and_inactive_r2_profile(source_fixture):
+    assert len(source_fixture.plan['state_templates']) == 61
+    assert 'evidence_profile' not in source_fixture.plan
+    assert len(EVIDENCE_SCHEMA['oneOf']) == 4
+    packet = runtime_projection_example(source_fixture)
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, packet, {})
+    assert packet['coverage']['coverage_status'] == 'partial'
+
 
 
 class _CompleteProgramGuard:
