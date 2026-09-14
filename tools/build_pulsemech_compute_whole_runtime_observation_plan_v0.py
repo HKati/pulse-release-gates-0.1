@@ -1910,6 +1910,116 @@ def _install_package_source_projection(states: list[dict[str, Any]], steps: dict
         steps[(_PACKAGE_ASSEMBLE_JOB, 4)]["input_state_ids"] = [x for x in steps[(_PACKAGE_ASSEMBLE_JOB, 4)]["input_state_ids"] if x != state_id]
 
 
+# R12's ordered --require list is a source derivation, not a captured runtime
+# argv. The containing shell step creates and consumes its arrays internally;
+# no separate subject occurrence or cross-step state edge is invented here.
+_REQUIRED_ARGUMENT_ROLE = "effective-required-argument-list"
+_REQUIRED_ARGUMENT_RUN_SHA256 = "dababaec377d50eb83daa95fab958009089db11a207214bdbab1ea0156a0f81a"
+_REQUIRED_ARGUMENT_SOURCE_PINS = {
+    ".github/workflows/pulse_ci.yml": "adae42c8e9777d357ab5400ced5765de7059ed1e",
+    "pulse_gate_policy_v0.yml": "a311b424ad0f6c028b9c37b18572e7a09c721cdd",
+    "tools/policy_to_require_args.py": "5b1d099485d0e3bfd90da3fff1213a4e949db850",
+    "PULSE_safe_pack_v0/tools/check_gates.py": "2a593bdef31c9c8cb565b1c4ca3d16a1e3093735",
+}
+
+
+def _required_argument_policy_sets(data: bytes) -> dict[str, list[str]]:
+    """Read the reviewed bare-identifier block-list policy dialect only."""
+    try:
+        text = data.decode("utf-8", errors="strict")
+    except UnicodeError as exc:
+        raise PlanError("required_argument_policy_encoding") from exc
+    # Quoting, aliases, tags and flow collections are outside this source
+    # profile, even where a general YAML reader could interpret them.
+    clean_lines = [line.split("#", 1)[0].rstrip() for line in text.splitlines()]
+    selected = ("required", "release_required")
+    for name in selected:
+        headers = [i for i, line in enumerate(clean_lines) if line == "  " + name + ":"]
+        _require(len(headers) == 1, "required_argument_policy_set_shape", name)
+        members = []
+        for line in clean_lines[headers[0] + 1:]:
+            if not line.strip():
+                continue
+            if not line.startswith("    "):
+                break
+            _require(re.fullmatch(r"    - [a-z][a-z0-9_]*", line) is not None,
+                     "required_argument_policy_member_shape", name)
+            members.append(line[6:])
+        _require(bool(members), "required_argument_policy_set_empty", name)
+    document = _parse_yaml_document(data, label=POLICY_PATH)
+    gate_sets = document.get("gates")
+    _require(isinstance(gate_sets, dict), "required_argument_policy_gates_missing")
+    result: dict[str, list[str]] = {}
+    for name in selected:
+        values = gate_sets.get(name)
+        _require(isinstance(values, list) and bool(values)
+                 and all(isinstance(value, str) and re.fullmatch(r"[a-z][a-z0-9_]*", value)
+                         for value in values), "required_argument_policy_members_invalid", name)
+        result[name] = list(values)
+    return result
+
+
+def _required_arguments_source_projection(
+    workflow: dict[str, Any], source_by_path: dict[str, GitObject],
+) -> dict[str, Any]:
+    """Derive the exact policy/source object without executing subject code."""
+    bindings = []
+    for path, pin in sorted(_REQUIRED_ARGUMENT_SOURCE_PINS.items()):
+        source = source_by_path.get(path)
+        _require(source is not None, "required_argument_source_missing", path)
+        _require(_sha1_git_blob(source.data) == pin,
+                 "required_argument_semantic_source_drift", path)
+        bindings.append({"path": path, "sha256": hashlib.sha256(source.data).hexdigest()})
+    rows = workflow.get("jobs", {}).get("release_grade_recorded_path", {}).get("steps")
+    _require(isinstance(rows, list) and len(rows) >= 12,
+             "required_argument_source_step_missing")
+    step = rows[11]
+    _require(isinstance(step, dict) and step.get("name") == RECORDED_PATH_STEP_NAMES[11],
+             "required_argument_source_step_mismatch")
+    body = step.get("run")
+    _require(isinstance(body, str) and hashlib.sha256(body.encode("utf-8")).hexdigest()
+             == _REQUIRED_ARGUMENT_RUN_SHA256, "required_argument_shell_profile_mismatch")
+    # The exact body binds mapfile, non-empty guards, first-seen deduplication,
+    # quoted array expansion, command order and the final checker invocation.
+    calls = _recorded_argv(step, "tools/policy_to_require_args.py",
+                           {"--policy", "--set", "--format"}, count=2)
+    _require([call["--set"] for call in calls] == ["required", "release_required"]
+             and all(call["--policy"] == POLICY_PATH and call["--format"] == "newline"
+                     for call in calls), "required_argument_selection_mismatch")
+    invocation = _recorded_argv(step, "PULSE_safe_pack_v0/tools/check_gates.py",
+                                {"--status", "--require"})[0]
+    _require(invocation == {"--status": "${STATUS}", "--require": "${EFFECTIVE_GATES[@]}"},
+             "required_argument_checker_binding_mismatch")
+    sets = _required_argument_policy_sets(source_by_path[POLICY_PATH].data)
+    ordered = []
+    for name in ("required", "release_required"):
+        for gate in sets[name]:
+            if gate not in ordered:
+                ordered.append(gate)
+    derivation = {
+        "derivation_type": "step5c_effective_required_arguments_source_v0",
+        "source_occurrence_id": _step_id("release_grade_recorded_path", 12),
+        "source_command_sha256": _REQUIRED_ARGUMENT_RUN_SHA256,
+        "source_bindings": bindings,
+        "policy_path": POLICY_PATH,
+        "selected_sets": ["required", "release_required"],
+        "policy_set_members": sets,
+        "ordered_required_gate_ids": ordered,
+        "deduplication": "first_seen_preserve_order",
+        "status_selector": _mapping_assignment(step, "STATUS"),
+        "checker_path": "PULSE_safe_pack_v0/tools/check_gates.py",
+        "original_runtime_argv_receipt": "unavailable",
+        "source_derived_only": True,
+        "authority_effect": "none",
+    }
+    derived_sha = hashlib.sha256(_canonical_json_bytes(derivation)).hexdigest()
+    return {
+        "derivation": derivation,
+        "derivation_sha256": derived_sha,
+        "locator": "projection://" + POLICY_PATH + "#r12-source-required-arguments/sha256/" + derived_sha,
+    }
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -1919,6 +2029,7 @@ def _build_states(
     source_projection = _ledger_source_projection(source_workflow)
     recorded_projection = _recorded_source_projection(source_workflow, source_by_path)
     package_projection = _package_source_projection(source_workflow, source_by_path)
+    argument_projection = _required_arguments_source_projection(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -2456,6 +2567,16 @@ def _build_states(
     _install_recorded_source_projection(states, step_by_key, recorded_projection)
 
     _install_package_source_projection(states, step_by_key, package_projection)
+
+    # Observer-side source derivation only. R12's array construction and
+    # checker consumption are internal to one step; the v0 occurrence graph
+    # cannot express them as an additional observed producer/read pair.
+    add(
+        _REQUIRED_ARGUMENT_ROLE, "other",
+        "source_derived_required_arguments_runtime_receipt_unavailable",
+        argument_projection["locator"], producer=None, consumers=[],
+        authority=False, content="exact_digest",
+    )
 
     # Make deterministic reference arrays after all bindings are complete.
     for step in step_by_key.values():

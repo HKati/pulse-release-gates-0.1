@@ -2108,11 +2108,11 @@ def test_declared_state_inventory_preserves_all_requirements_and_honest_gaps(sou
     packet = runtime_projection_example(f, profile=profile)
     states = {s['state_id']: s for s in packet['state_observations']}
     templates = {s['state_id']: s for s in f.plan['state_templates']}
-    assert set(states) == set(templates) and len(states) == 61
+    assert set(states) == set(templates) and len(states) == 62
     assert Counter(s['content_status'] for s in states.values()) == {
-        'exact_digest': 21, 'unavailable': 40,
+        'exact_digest': 21, 'unavailable': 41,
     }
-    assert packet['coverage']['state_records'] == 61
+    assert packet['coverage']['state_records'] == 62
     assert packet['coverage']['state_digest_capture_status'] == 'partial'
     assert packet['coverage']['coverage_status'] == 'partial'
     assert 'post_decision_state_unavailable' in packet['coverage']['unobserved_reasons']
@@ -2190,7 +2190,7 @@ def test_real_capture_to_declared_state_projection_keeps_capture_bytes_unchanged
     before = captured.path.read_bytes()
     packet = VERIFIER.build_runtime_packet(plan=f.plan, capture_manifest=captured.manifest,
         capture_members=captured.members, record_status='example')
-    assert len(packet['state_observations']) == 61
+    assert len(packet['state_observations']) == 62
     VERIFIER._require_state_projection(f.plan, packet, captured.manifest, captured.members)
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(f.plan, packet, {})
@@ -2274,7 +2274,7 @@ def test_terminal_state_accepts_bounded_complete_multiple_pages(source_fixture):
     manifest['raw_response_bindings'].append({'role':'subject_artifacts_page',
         'descriptor':{'member':second,'sha256':digest(raw),'size_bytes':len(raw)}})
     packet=VERIFIER.build_runtime_packet(plan=f.plan,capture_manifest=manifest,capture_members=members,record_status='example')
-    assert len(packet['state_observations']) == 61
+    assert len(packet['state_observations']) == 62
 
 
 @pytest.mark.parametrize('mutation', [
@@ -2762,7 +2762,7 @@ def test_source_mapping_keeps_old_evidence_stop_and_inactive_r2_root(source_fixt
     packet = runtime_projection_example(source_fixture)
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(source_fixture.plan, packet, {})
-    assert len(source_fixture.plan['state_templates']) == 61
+    assert len(source_fixture.plan['state_templates']) == 62
     assert 'evidence_profile' not in source_fixture.plan
     assert len(EVIDENCE_SCHEMA['oneOf']) == 4
 
@@ -2907,7 +2907,11 @@ def test_recorded_mapping_verifier_and_logical_projection_are_distinct(source_fi
     assert not any(projection['state_id'] in s['input_state_ids'] for j in source_fixture.plan['jobs'] for s in j['steps'])
     assert projection['path_or_uri'] != 'status://gates/release_required'
     # No original runtime-argv receipt is manufactured by this mapping repair.
-    assert 'state:step5c:effective-required-argument-list' not in {s['state_id'] for s in source_fixture.plan['state_templates']}
+    arguments = states['effective-required-argument-list']
+    assert arguments['producer_occurrence_id'] is None
+    assert arguments['required_consumer_occurrence_ids'] == []
+    assert arguments['role'] == 'source_derived_required_arguments_runtime_receipt_unavailable'
+    assert arguments['path_or_uri'] != projection['path_or_uri']
 
 
 @pytest.mark.parametrize('ordinal,inputs,outputs', [
@@ -2963,7 +2967,7 @@ def test_recorded_mapping_gate_projection_matches_actual_materializer_source():
 def test_recorded_mapping_new_roles_remain_strict_and_unobserved(source_fixture, role):
     plan = source_fixture.plan
     states = {s['state_id']: s for s in plan['state_templates']}
-    assert len(states) == 61
+    assert len(states) == 62
     state = states['state:step5c:' + role]
     assert state['required'] is True and state['content_requirement'] == 'exact_digest'
     assert state['state_id'] in R2_CONTRACT_ROLES
@@ -3416,7 +3420,7 @@ def test_package_mapping_source_predicate_precedes_reconstruction():
 
 
 def test_package_mapping_keeps_legacy_stop_and_inactive_r2_profile(source_fixture):
-    assert len(source_fixture.plan['state_templates']) == 61
+    assert len(source_fixture.plan['state_templates']) == 62
     assert 'evidence_profile' not in source_fixture.plan
     assert len(EVIDENCE_SCHEMA['oneOf']) == 4
     packet = runtime_projection_example(source_fixture)
@@ -3447,6 +3451,284 @@ class _CompleteProgramGuard:
     def pytest_sessionfinish(self, session, exitstatus):
         if self.selected == 0 or self.omitted or self.incomplete or len(self.completed) != self.selected:
             session.exitstatus = pytest.ExitCode.TESTS_FAILED
+
+
+# ---------------------------------------------------------------------------
+# R12 source-derived required arguments. A separate role, not an observed argv
+# receipt. The local shell oracle below records only its own synthetic run.
+# ---------------------------------------------------------------------------
+REQUIRED_ARGUMENT_STATE = 'state:step5c:effective-required-argument-list'
+REQUIRED_ARGUMENT_INPUTS = (
+    '.github/workflows/pulse_ci.yml', 'pulse_gate_policy_v0.yml',
+    'tools/policy_to_require_args.py', 'PULSE_safe_pack_v0/tools/check_gates.py',
+)
+
+
+def required_argument_facts(side, source_fixture, *, workflow=None, sources=None):
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    method = (module._required_arguments_source_projection if side == 'builder'
+              else module._source_required_argument_expectations)
+    return method(mapping_source_document() if workflow is None else workflow,
+                  BUILDER._load_sources(source_fixture.root, source_fixture.sha)
+                  if sources is None else sources)
+
+
+def test_required_argument_role_is_present_and_not_a_runtime_receipt(source_fixture):
+    matches = [s for s in source_fixture.plan['state_templates'] if s['state_id'] == REQUIRED_ARGUMENT_STATE]
+    assert len(matches) == 1, 'The contracted source-derived required-argument role must be represented.'
+    state = matches[0]
+    assert state['role'] == 'source_derived_required_arguments_runtime_receipt_unavailable'
+    assert state['state_type'] == 'other'
+    assert state['required'] is True and state['content_requirement'] == 'exact_digest'
+    assert state['producer_occurrence_id'] is None
+    assert state['required_consumer_occurrence_ids'] == []
+    assert state['authority_bearing'] is False and state['mutation_class'] == 'none'
+    assert state['path_or_uri'].startswith('projection://pulse_gate_policy_v0.yml#r12-source-required-arguments/sha256/')
+    for job in source_fixture.plan['jobs']:
+        for step in job['steps']:
+            assert REQUIRED_ARGUMENT_STATE not in step['input_state_ids'] + step['output_state_ids']
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_required_argument_derivation_matches_real_policy_cli(source_fixture, side):
+    f = source_fixture
+    facts = required_argument_facts(side, f)
+    derived = facts['derivation']
+    actual_sets = {}
+    for name in ('required', 'release_required'):
+        result = cli(f.root, 'policy_to_require_args', ['--policy', f.root / 'pulse_gate_policy_v0.yml',
+                                                      '--set', name, '--format', 'newline'])
+        require_cli_success(result)
+        actual_sets[name] = result.stdout.decode('utf-8').splitlines()
+    assert derived['policy_set_members'] == actual_sets
+    actual_union = list(dict.fromkeys(actual_sets['required'] + actual_sets['release_required']))
+    assert derived['ordered_required_gate_ids'] == actual_union
+    assert len(actual_sets['required']) == 19 and len(actual_sets['release_required']) == 4
+    assert len(actual_union) == 23
+    assert derived['selected_sets'] == ['required', 'release_required']
+    assert derived['original_runtime_argv_receipt'] == 'unavailable'
+    assert derived['source_derived_only'] is True and derived['authority_effect'] == 'none'
+    assert facts['derivation_sha256'] == digest(canonical(derived))
+    assert facts['locator'].endswith('/' + facts['derivation_sha256'])
+    state = next(s for s in f.plan['state_templates'] if s['state_id'] == REQUIRED_ARGUMENT_STATE)
+    assert state['path_or_uri'] == facts['locator']
+
+
+def test_required_argument_exact_r12_shell_oracle_on_synthetic_status(source_fixture, tmp_path):
+    """Run the unmodified bounded R12 body, with real helpers and a local argv tap."""
+    f = source_fixture
+    document = mapping_source_document()
+    body = document['jobs']['release_grade_recorded_path']['steps'][11]['run']
+    # This guard fixes which shell text this test is permitted to execute.
+    assert digest(body.encode()) == 'dababaec377d50eb83daa95fab958009089db11a207214bdbab1ea0156a0f81a'
+    root = tmp_path / 'r12-local-example'; root.mkdir()
+    for relative in REQUIRED_ARGUMENT_INPUTS[1:]:
+        target = root / relative; target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((f.root / relative).read_bytes())
+    policy = yaml.safe_load((root / 'pulse_gate_policy_v0.yml').read_text())
+    status_path = root / 'PULSE_safe_pack_v0/artifacts/status.json'
+    status_path.parent.mkdir(parents=True)
+    status_path.write_text(json.dumps({'gates': {g: True for g in policy['gates']['required']
+                                               + policy['gates']['release_required']}}))
+    recorder = root / 'local_argv_tap.py'
+    recorder.write_text('import json, os, sys\nfrom pathlib import Path\n'
+                        'Path(os.environ["LOCAL_ARGV_TAP"]).write_text(json.dumps(sys.argv[1:]))\n')
+    prefix = r'''
+python() {
+  case "$1" in
+    tools/policy_to_require_args.py) ;;
+    PULSE_safe_pack_v0/tools/check_gates.py)
+      "$LOCAL_PYTHON" "$LOCAL_ARGV_RECORDER" "$@" || return $? ;;
+    *) return 97 ;;
+  esac
+  "$LOCAL_PYTHON" "$@"
+}
+'''
+    env = {'PATH': '/usr/bin:/bin', 'HOME': str(root), 'LANG': 'C', 'LC_ALL': 'C',
+           'PACK_DIR': 'PULSE_safe_pack_v0', 'LOCAL_PYTHON': sys.executable,
+           'LOCAL_ARGV_RECORDER': str(recorder), 'LOCAL_ARGV_TAP': str(root / 'LOCAL_ONLY_argv.json')}
+    result = subprocess.run(['/bin/bash', '--noprofile', '--norc', '-c', prefix + body], cwd=root,
+                            env=env, stdin=subprocess.DEVNULL, capture_output=True, timeout=30)
+    require_cli_success(result)
+    actual = json.loads((root / 'LOCAL_ONLY_argv.json').read_text())
+    facts = required_argument_facts('checker', f)['derivation']
+    assert actual[:4] == [facts['checker_path'], '--status', facts['status_selector'], '--require']
+    assert actual[4:] == facts['ordered_required_gate_ids']
+    assert b'[OK] All required gates PASS' in result.stdout
+    # No local tap or synthetic execution is promoted into the source plan.
+    assert facts['original_runtime_argv_receipt'] == 'unavailable'
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('path', REQUIRED_ARGUMENT_INPUTS)
+def test_required_argument_source_digests_are_exact_and_already_preserved(source_fixture, side, path):
+    facts = required_argument_facts(side, source_fixture)
+    bindings = facts['derivation']['source_bindings']
+    record = next(row for row in bindings if row['path'] == path)
+    data = (source_fixture.root / path).read_bytes()
+    assert record == {'path': path, 'sha256': digest(data)}
+    assert sum(row['path'] == path for row in bindings) == 1
+    assert prepared_fixture_members(source_fixture)['sources/' + path] == data
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('path', REQUIRED_ARGUMENT_INPUTS)
+@pytest.mark.parametrize('mutation', ['missing', 'changed_rehashed'])
+def test_required_argument_rejects_missing_or_rehashed_source(source_fixture, recorded_source_objects, side, path, mutation):
+    objects = dict(recorded_source_objects)
+    if mutation == 'missing':
+        objects.pop(path)
+    else:
+        obj = objects[path]; data = obj.data + b'\n# synthetic drift; not a new reviewed profile\n'
+        objects[path] = replace(obj, data=data, blob_sha1=hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest())
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    with pytest.raises(module.PlanError, match='required_argument_'):
+        required_argument_facts(side, source_fixture, sources=objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('mutation', [
+    'reverse_order', 'omit_deduplication', 'unquoted_expansion', 'replace_selected_set',
+    'empty_guard_removed', 'extra_command', 'duplicate_command', 'changed_status', 'renamed_step',
+])
+def test_required_argument_changed_shell_semantics_fail_closed(source_fixture, side, mutation):
+    doc = mapping_source_document()
+    step = doc['jobs']['release_grade_recorded_path']['steps'][11]
+    changes = {
+        'reverse_order': ('for gate in "${REQUIRED_GATES[@]}" "${RELEASE_REQUIRED_GATES[@]}";',
+                          'for gate in "${RELEASE_REQUIRED_GATES[@]}" "${REQUIRED_GATES[@]}";'),
+        'omit_deduplication': ('if [[ -z "${SEEN[${gate}]+x}" ]]; then', 'if true; then'),
+        'unquoted_expansion': ('--require "${EFFECTIVE_GATES[@]}"', '--require ${EFFECTIVE_GATES[@]}'),
+        'replace_selected_set': ('--set release_required', '--set advisory'),
+        'empty_guard_removed': ('if (( ${#REQUIRED_GATES[@]} == 0 )); then', 'if false; then'),
+        'changed_status': ('STATUS="${PACK_DIR}/artifacts/status.json"', 'STATUS="${PACK_DIR}/artifacts/status_baseline.json"'),
+    }
+    if mutation in changes:
+        old, new = changes[mutation]; assert old in step['run']; step['run'] = step['run'].replace(old, new)
+    elif mutation == 'extra_command': step['run'] += '\necho unexpected\n'
+    elif mutation == 'duplicate_command': step['run'] += '\n' + step['run']
+    else: step['name'] = 'Different source step'
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    with pytest.raises(module.PlanError, match='required_argument_'):
+        required_argument_facts(side, source_fixture, workflow=doc)
+
+
+def corrupt_required_argument_role(plan, mutation):
+    rows = plan['state_templates']
+    state = next(row for row in rows if row['state_id'] == REQUIRED_ARGUMENT_STATE)
+    r12 = next(job for job in plan['jobs'] if job['source_job_id'] == 'release_grade_recorded_path')['steps'][11]
+    if mutation == 'omitted': rows.remove(state)
+    elif mutation == 'duplicate': rows.append(copy.deepcopy(state))
+    elif mutation == 'false_digest': state['path_or_uri'] = state['path_or_uri'].rsplit('/', 1)[0] + '/' + '0' * 64
+    elif mutation == 'runtime_receipt': state['role'] = 'observed_runtime_argv_receipt'
+    elif mutation == 'optional': state['required'] = False
+    elif mutation == 'weaker_content': state['content_requirement'] = 'metadata_only'
+    elif mutation == 'false_producer':
+        state['producer_occurrence_id'] = r12['occurrence_id']; r12['output_state_ids'].append(REQUIRED_ARGUMENT_STATE)
+    elif mutation == 'false_consumer':
+        state['required_consumer_occurrence_ids'] = [r12['occurrence_id']]; r12['input_state_ids'].append(REQUIRED_ARGUMENT_STATE)
+    elif mutation == 'unpaired_input': r12['input_state_ids'].append(REQUIRED_ARGUMENT_STATE)
+    elif mutation == 'unpaired_output': r12['output_state_ids'].append(REQUIRED_ARGUMENT_STATE)
+    elif mutation == 'gate_value_alias':
+        state['path_or_uri'] = next(row for row in rows if row['state_id'] == 'state:step5c:materialized-release-required-gate-set')['path_or_uri']
+    elif mutation == 'authority_promotion': state['authority_bearing'] = True
+    else: raise AssertionError(mutation)
+    rows.sort(key=lambda row: row['state_id'])
+    for job in plan['jobs']:
+        for step in job['steps']:
+            step['input_state_ids'].sort(); step['output_state_ids'].sort()
+    return plan
+
+
+@pytest.mark.parametrize('mutation', [
+    'omitted', 'duplicate', 'false_digest', 'runtime_receipt', 'optional', 'weaker_content',
+    'false_producer', 'false_consumer', 'unpaired_input', 'unpaired_output',
+    'gate_value_alias', 'authority_promotion',
+])
+def test_required_argument_common_false_mapping_rejected(source_fixture, recorded_source_objects, mutation):
+    plan = corrupt_required_argument_role(copy.deepcopy(source_fixture.plan), mutation)
+    with pytest.raises(PLAN_CHECKER.PlanError, match='required_argument_'):
+        PLAN_CHECKER._verify_source_required_argument_equations(plan, mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('mutation', ['omitted', 'false_digest', 'runtime_receipt', 'unpaired_input'])
+def test_required_argument_real_checker_cli_rejects_rehashed_plan(source_fixture, tmp_path, mutation):
+    f = source_fixture
+    plan = corrupt_required_argument_role(copy.deepcopy(f.plan), mutation)
+    jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(plan)
+    raw = canonical(plan); target = tmp_path / 'false-arguments-plan.json'; target.write_bytes(raw)
+    result = cli(f.root, TOOL_NAMES[1], ['--repository-root', f.root, '--plan', target,
+        '--expected-source-commit', f.sha, '--expected-plan-sha256', digest(raw), '--expected-record-status', 'example'])
+    assert result.returncode != 0
+    diagnostic = json.loads(result.stdout)
+    assert diagnostic['ok'] is False and diagnostic['error_code'].startswith('required_argument_')
+
+
+@pytest.mark.parametrize('mutation', ['false_digest', 'runtime_receipt', 'false_producer'])
+def test_required_argument_actual_two_constructors_cannot_hide_shared_error(source_fixture, recorded_source_objects, mutation):
+    answers = []
+    for module in (BUILDER, PLAN_CHECKER):
+        workflow = mapping_source_document()
+        jobs, steps, _ = module._build_jobs(workflow)
+        states = module._build_states(steps, module.EXPECTED_CASE_IDS, workflow, recorded_source_objects)
+        plan = copy.deepcopy(source_fixture.plan); plan['jobs'], plan['state_templates'] = jobs, states
+        answers.append(canonical(corrupt_required_argument_role(plan, mutation)))
+    assert answers[0] == answers[1]
+    with pytest.raises(PLAN_CHECKER.PlanError, match='required_argument_'):
+        PLAN_CHECKER._verify_source_required_argument_equations(json.loads(answers[0]), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('required,release', [(['z_gate', 'a_gate', 'z_gate'], ['a_gate', 'b_gate']),
+                                            (['one'], ['one']), (['third', 'first'], ['second'])])
+def test_required_argument_policy_parser_preserves_duplicates_and_source_order(side, required, release):
+    data = ('gates:\n  required:\n' + ''.join('    - ' + g + '\n' for g in required)
+            + '  release_required:\n' + ''.join('    - ' + g + '\n' for g in release)).encode()
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    parse = module._required_argument_policy_sets if side == 'builder' else module._source_required_policy_members
+    # Pure parser cases do not authorize a changed policy in the pinned profile.
+    assert parse(data) == {'required': required, 'release_required': release}
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('data', [
+    b'gates:\n  required: []\n  release_required:\n    - gate\n',
+    b'gates:\n  required:\n  release_required:\n    - gate\n',
+    b'gates:\n  required:\n    - gate\n',
+    b'gates:\n  required:\n    - "quoted"\n  release_required:\n    - gate\n',
+    b'gates:\n  required:\n    - $(not_executed)\n  release_required:\n    - gate\n',
+    b'gates:\n  required:\n    - gate\n  required:\n    - other\n  release_required:\n    - gate\n',
+    b'\xff',
+])
+def test_required_argument_unsupported_policy_dialect_rejected(side, data):
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    parse = module._required_argument_policy_sets if side == 'builder' else module._source_required_policy_members
+    with pytest.raises(module.PlanError):
+        parse(data)
+
+
+def test_required_argument_predicate_runs_before_expected_reconstruction():
+    source = inspect.getsource(PLAN_CHECKER.check_plan)
+    assert source.index('_verify_source_required_argument_equations(') < source.index('_reconstruct_expected_plan(')
+    builder_tree = ast.dump(ast.parse(textwrap.dedent(inspect.getsource(BUILDER._required_arguments_source_projection))), include_attributes=False)
+    checker_tree = ast.dump(ast.parse(textwrap.dedent(inspect.getsource(PLAN_CHECKER._source_required_argument_expectations))), include_attributes=False)
+    assert builder_tree != checker_tree
+
+
+def test_required_argument_role_remains_unavailable_until_runtime_integration(source_fixture):
+    plan = source_fixture.plan
+    assert len(plan['state_templates']) == 62
+    assert len(plan['source_inventory']) == 50
+    assert len(prepared_fixture_members(source_fixture)) == 55
+    assert 'evidence_profile' not in plan
+    packet = runtime_projection_example(source_fixture)
+    state = next(row for row in packet['state_observations'] if row['state_id'] == REQUIRED_ARGUMENT_STATE)
+    assert state['content_status'] == 'unavailable'
+    assert state['sha256'] is None and state['size_bytes'] is None
+    assert state['producer_execution_id'] is None
+    assert packet['coverage']['coverage_status'] == 'partial'
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(plan, packet, {})
 
 
 if __name__ == '__main__':
