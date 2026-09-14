@@ -447,6 +447,7 @@ SOURCE_ROLES = (
     ("self_contained_floor_semantics", "PULSE_safe_pack_v0/tools/build_self_contained_pulse_evidence_floor_v0.py"),
     ("llamaguard_envelope_builder_semantics", "PULSE_safe_pack_v0/tools/build_llamaguard_attestation_envelope_v1.py"),
     ("llamaguard_attestation_verifier_semantics", "PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py"),
+    ("llamaguard_summary_ingest_semantics", "PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py"),
 )
 
 AUTHORITY_BOUNDARY = {
@@ -2788,6 +2789,141 @@ def _install_llamaguard_attestation_projection(states: list[dict[str, Any]], ste
         row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
 
 
+# Selected raw-producer / summary-ingest family. Source traversal of the
+# controlled records is not an observed read receipt or case-ID admission.
+_LG_INGEST_PATH = "PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py"
+_LG_PRODUCTION_PINS = {
+    SUBJECT_WORKFLOW_PATH: EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1,
+    LLAMAGUARD_RUNNER_PATH: EXPECTED_LLAMAGUARD_RUNNER_BLOB_SHA1,
+    LLAMAGUARD_DATASET_PATH: EXPECTED_DATASET_BLOB_SHA1,
+    _LG_INGEST_PATH: "b0e0479c4939110b08350655be234badffa189f1",
+}
+
+
+def _llamaguard_production_source_projection(workflow: dict[str, Any], sources: dict[str, GitObject]) -> dict[str, Any]:
+    """Resolve the producer's paths, then the ingester's bound file reads."""
+    for path, expected in _LG_PRODUCTION_PINS.items():
+        obj = sources.get(path)
+        _require(obj is not None and obj.path == path, "lg_production_source_missing", path)
+        _require(_sha1_git_blob(obj.data) == expected, "lg_production_source_drift", path)
+    _require(workflow == _parse_yaml_document(sources[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH),
+             "lg_production_workflow_drift")
+    rows = workflow["jobs"]["pulse"]["steps"]
+    producer = _recorded_argv(rows[21], LLAMAGUARD_RUNNER_PATH, {
+        "--repo-root", "--dataset", "--raw-out", "--manifest-out", "--manifest-schema",
+        "--model-revision", "--token-env", "--repository", "--git-sha", "--run-key",
+        "--workflow-ref", "--release-candidate", "--created-utc", "--torch-threads", "--max-new-tokens",
+    })[0]
+    ingest = _recorded_argv(rows[22], _LG_INGEST_PATH, {
+        "--repo-root", "--in", "--dataset", "--evaluator-manifest", "--out", "--schema",
+        "--thresholds", "--run-id", "--generated-at", "--release-candidate", "--git-sha",
+        "--repository", "--signer-identity", "--tool-version",
+    })[0]
+    runner = sources[LLAMAGUARD_RUNNER_PATH].data
+    adapter = sources[_LG_INGEST_PATH].data
+    locators: dict[str, str] = {}
+    for role, flag, constant in (
+        ("llamaguard-dataset", "--dataset", "DATASET_REL"),
+        ("llamaguard-raw-evidence", "--raw-out", "RAW_REL"),
+        ("llamaguard-evaluator-manifest", "--manifest-out", "MANIFEST_REL"),
+    ):
+        locators[role] = _mapping_path(producer[flag])
+        _require(locators[role] == _python_constant(runner, name=constant, label=LLAMAGUARD_RUNNER_PATH),
+                 "lg_production_canonical_path", role)
+    for flag, role in (("--in", "llamaguard-raw-evidence"), ("--dataset", "llamaguard-dataset"),
+                       ("--evaluator-manifest", "llamaguard-evaluator-manifest")):
+        _require(_mapping_path(ingest[flag]) == locators[role], "lg_production_input_handoff", role)
+    locators["threshold-policy"] = _mapping_path(ingest["--thresholds"])
+    _require(locators["threshold-policy"] == THRESHOLD_POLICY_PATH
+             == _python_constant(adapter, name="THRESHOLDS_REL", label=_LG_INGEST_PATH),
+             "lg_production_threshold_path")
+    locators["llamaguard-summary"] = _mapping_path(ingest["--out"])
+    _require(locators["llamaguard-summary"] == _mapping_assignment(rows[22], "SUMMARY"),
+             "lg_production_summary_postcondition")
+    _require(producer["--model-revision"] == ingest["--tool-version"] == "${LLAMAGUARD_VERSION}"
+             and producer["--run-key"] == ingest["--run-id"] == "${PULSE_RUN_KEY}"
+             and producer["--repo-root"] == ingest["--repo-root"] == "${GITHUB_WORKSPACE}"
+             and producer["--git-sha"] == ingest["--git-sha"] == "${GITHUB_SHA}"
+             and producer["--repository"] == ingest["--repository"] == "${GITHUB_REPOSITORY}",
+             "lg_production_source_context")
+    funcs = {node.name: node for node in ast.parse(runner).body if isinstance(node, ast.FunctionDef)}
+    main = ast.unparse(funcs["main"])
+    for expression in (
+        "cases = _load_cases(dataset_path)", "dataset_sha256 = _sha256_file(dataset_path)",
+        "for case_index, case in enumerate(cases):", "_classify_case(torch, model, tokenizer, case, args.max_new_tokens)",
+        "'case_id': case['case_id']", "'llamaguard': {'label': label, 'categories': categories",
+        "for record in records", "_write_text_atomic(raw_path, raw_text)", "_write_json_atomic(manifest_path, manifest)",
+    ):
+        _require(expression in main, "lg_production_record_traversal", expression)
+    af = {node.name: node for node in ast.parse(adapter).body if isinstance(node, ast.FunctionDef)}
+    build_text = ast.unparse(af["_build_summary"])
+    # The dataset and manifest are hashed, not parsed/admitted by this adapter.
+    for expression in (
+        "_read_llamaguard_jsonl(raw_path)", "_load_threshold(thresholds_path)",
+        "_sha256_file(raw_path)", "_sha256_file(dataset_path)", "_sha256_file(evaluator_manifest_path)",
+    ):
+        _require(expression in build_text, "lg_production_ingest_read", expression)
+    reader = ast.unparse(af["_read_llamaguard_jsonl"])
+    for expression in ("for line_number, raw_line in enumerate(handle, start=1):",
+                       "classification = record.get('llamaguard')", "label_raw = classification.get('label')"):
+        _require(expression in reader, "lg_production_classification_reader", expression)
+    adapter_main = ast.unparse(af["main"])
+    for expression in ("Path(args.raw_input)", "Path(args.dataset)", "Path(args.evaluator_manifest)",
+                       "Path(args.thresholds)", "_write_json_atomic(output_path, summary)"):
+        _require(expression in adapter_main, "lg_production_ingest_forwarding", expression)
+    case_ids = _load_case_ids(sources[LLAMAGUARD_DATASET_PATH].data)
+    p22, p23 = (_step_id("pulse", n) for n in (22, 23))
+    origins: dict[str, str | None] = {
+        "llamaguard-dataset": None, "threshold-policy": None,
+        "llamaguard-raw-evidence": p22, "llamaguard-evaluator-manifest": p22,
+        "llamaguard-summary": p23,
+    }
+    inputs, outputs = [], []
+    for case_id in case_ids:
+        given, result = "llamaguard-input:" + case_id, "llamaguard-output:" + case_id
+        inputs.append(given); outputs.append(result)
+        locators[given] = "dataset://" + locators["llamaguard-dataset"] + "#" + case_id + "/input"
+        locators[result] = "artifact://" + Path(locators["llamaguard-raw-evidence"]).name + "#" + case_id + "/classification"
+        origins[given], origins[result] = None, p22
+    return {
+        "locators": locators, "origins": origins,
+        "steps": {
+            p22: {"inputs": sorted(["llamaguard-dataset", *inputs]),
+                  "outputs": sorted(["llamaguard-raw-evidence", "llamaguard-evaluator-manifest", *outputs])},
+            p23: {"inputs": sorted(["llamaguard-raw-evidence", "llamaguard-evaluator-manifest",
+                                      "llamaguard-dataset", "threshold-policy", *outputs]),
+                  "outputs": ["llamaguard-summary"]},
+        },
+        "ingest_read_modes": {"llamaguard-raw-evidence": "classification_parse_and_digest",
+                              "llamaguard-dataset": "digest_only", "llamaguard-evaluator-manifest": "digest_only",
+                              "threshold-policy": "threshold_parse"},
+        "classification_handoff": {"case_ids": list(case_ids), "producer_emits_one_record_per_case": True,
+                                   "ingester_traverses_all_records": True, "ingester_checks_case_identity": False,
+                                   "observed_consumption_proved": False},
+    }
+
+
+def _install_llamaguard_production_projection(states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any]) -> None:
+    """Install only the selected source relations; retain all evidence duties."""
+    rows = {row["state_id"].removeprefix("state:step5c:"): row for row in states}
+    for role, path in facts["locators"].items():
+        _require(role in rows and rows[role]["path_or_uri"] == path, "lg_production_input_locator", role)
+        _require(rows[role]["producer_occurrence_id"] == facts["origins"][role], "lg_production_input_origin", role)
+    owned = set(facts["steps"])
+    for row in states:
+        row["required_consumer_occurrence_ids"] = [oid for oid in row["required_consumer_occurrence_ids"] if oid not in owned]
+    for step in steps.values():
+        oid = step["occurrence_id"]
+        if oid in owned:
+            equation = facts["steps"][oid]
+            step["input_state_ids"] = sorted("state:step5c:" + role for role in equation["inputs"])
+            step["output_state_ids"] = sorted("state:step5c:" + role for role in equation["outputs"])
+            for role in equation["inputs"]:
+                _append_unique(rows[role]["required_consumer_occurrence_ids"], oid)
+    for row in states:
+        row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -2804,6 +2940,7 @@ def _build_states(
     preservation_projection = _preattest_preservation_source_projection(source_workflow, source_by_path)
     llamaguard_preservation = _llamaguard_preservation_source_projection(source_workflow, source_by_path)
     llamaguard_attestation = _llamaguard_attestation_source_projection(source_workflow, source_by_path)
+    llamaguard_production = _llamaguard_production_source_projection(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -3334,6 +3471,7 @@ def _build_states(
     _install_preattest_preservation_projection(states, step_by_key, preservation_projection)
     _install_llamaguard_preservation_projection(states, step_by_key, llamaguard_preservation)
     _install_llamaguard_attestation_projection(states, step_by_key, llamaguard_attestation)
+    _install_llamaguard_production_projection(states, step_by_key, llamaguard_production)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph

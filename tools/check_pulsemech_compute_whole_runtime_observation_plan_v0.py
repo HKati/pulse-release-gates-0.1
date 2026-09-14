@@ -457,6 +457,7 @@ SOURCE_ROLES = (
     ("self_contained_floor_semantics", "PULSE_safe_pack_v0/tools/build_self_contained_pulse_evidence_floor_v0.py"),
     ("llamaguard_envelope_builder_semantics", "PULSE_safe_pack_v0/tools/build_llamaguard_attestation_envelope_v1.py"),
     ("llamaguard_attestation_verifier_semantics", "PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py"),
+    ("llamaguard_summary_ingest_semantics", "PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py"),
 )
 
 AUTHORITY_BOUNDARY = {
@@ -3162,6 +3163,187 @@ def _verify_source_llamaguard_attestation_equations(plan: dict[str, Any], workfl
                  == steps[oid]["input_state_ids"], "lg_attestation_reverse_inputs_mismatch", oid)
 
 
+# Reconstruct this family from the ingester's calls and the raw writer's
+# canonical-path assignments. Do not import or execute the plan builder.
+_LG_INGEST_PATH = "PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py"
+_LG_PRODUCTION_PINS = {
+    SUBJECT_WORKFLOW_PATH: EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1,
+    LLAMAGUARD_RUNNER_PATH: EXPECTED_LLAMAGUARD_RUNNER_BLOB_SHA1,
+    LLAMAGUARD_DATASET_PATH: EXPECTED_DATASET_BLOB_SHA1,
+    _LG_INGEST_PATH: "b0e0479c4939110b08350655be234badffa189f1",
+}
+
+
+def _source_llamaguard_production_expectations(workflow: dict[str, Any], sources: dict[str, GitObject]) -> dict[str, Any]:
+    """Derive input roles from source read calls and their CLI forwarding."""
+    for path, expected in _LG_PRODUCTION_PINS.items():
+        obj = sources.get(path)
+        _require(obj is not None and obj.path == path, "lg_production_source_missing", path)
+        _require(_sha1_git_blob(obj.data) == expected, "lg_production_source_drift", path)
+    _require(workflow == _parse_yaml_document(sources[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH),
+             "lg_production_workflow_drift")
+    rows = workflow["jobs"]["pulse"]["steps"]
+    ingest = _recorded_source_commands(rows[22], _LG_INGEST_PATH, (
+        "--repo-root", "--in", "--dataset", "--evaluator-manifest", "--out", "--schema",
+        "--thresholds", "--run-id", "--generated-at", "--release-candidate", "--git-sha",
+        "--repository", "--signer-identity", "--tool-version",
+    ))[0]
+    runner_args = _recorded_source_commands(rows[21], LLAMAGUARD_RUNNER_PATH, (
+        "--repo-root", "--dataset", "--raw-out", "--manifest-out", "--manifest-schema",
+        "--model-revision", "--token-env", "--repository", "--git-sha", "--run-key",
+        "--workflow-ref", "--release-candidate", "--created-utc", "--torch-threads", "--max-new-tokens",
+    ))[0]
+    source = sources[LLAMAGUARD_RUNNER_PATH].data
+    functions = {n.name: n for n in ast.parse(source).body if isinstance(n, ast.FunctionDef)}
+    canonical_paths = {}
+    for node in ast.walk(functions["main"]):
+        if not isinstance(node, ast.Assign) or len(node.targets) != 1 or not isinstance(node.targets[0], ast.Name):
+            continue
+        call = node.value
+        if not isinstance(call, ast.Call) or not isinstance(call.func, ast.Name) or call.func.id != "_require_canonical_path":
+            continue
+        _require(len(call.args) == 4 and isinstance(call.args[2], ast.Name), "lg_production_runner_path_shape")
+        canonical_paths[node.targets[0].id] = _source_provenance_literal(source, call.args[2].id)
+    variable_roles = {"dataset_path": "llamaguard-dataset", "raw_path": "llamaguard-raw-evidence",
+                      "manifest_path": "llamaguard-evaluator-manifest"}
+    _require(set(variable_roles) <= set(canonical_paths), "lg_production_runner_path_extent")
+    locators = {role: canonical_paths[variable] for variable, role in variable_roles.items()}
+    for option, variable in (("--dataset", "dataset_path"), ("--raw-out", "raw_path"), ("--manifest-out", "manifest_path")):
+        _require(_checked_mapping_path(runner_args[option]) == canonical_paths[variable], "lg_production_runner_selector")
+    adapter = {n.name: n for n in ast.parse(sources[_LG_INGEST_PATH].data).body if isinstance(n, ast.FunctionDef)}
+    arguments = {"raw_path": ("--in", "llamaguard-raw-evidence"),
+                 "dataset_path": ("--dataset", "llamaguard-dataset"),
+                 "evaluator_manifest_path": ("--evaluator-manifest", "llamaguard-evaluator-manifest"),
+                 "thresholds_path": ("--thresholds", "threshold-policy")}
+    reads = {}
+    for node in ast.walk(adapter["_build_summary"]):
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                and node.func.id in {"_sha256_file", "_read_llamaguard_jsonl", "_load_threshold"}
+                and node.args and isinstance(node.args[0], ast.Name) and node.args[0].id in arguments):
+            reads.setdefault(node.args[0].id, set()).add(node.func.id)
+    _require(reads == {"raw_path": {"_sha256_file", "_read_llamaguard_jsonl"},
+                       "dataset_path": {"_sha256_file"}, "evaluator_manifest_path": {"_sha256_file"},
+                       "thresholds_path": {"_load_threshold"}}, "lg_production_ingest_read_modes")
+    callsites = [n for n in ast.walk(adapter["main"]) if isinstance(n, ast.Call)
+                 and isinstance(n.func, ast.Name) and n.func.id == "_build_summary"]
+    _require(len(callsites) == 1, "lg_production_summary_invocation")
+    forwarded = {kw.arg: ast.unparse(kw.value) for kw in callsites[0].keywords}
+    _require(all(forwarded.get(v) == v for v in arguments), "lg_production_summary_forwarding")
+    for variable, (option, role) in arguments.items():
+        path = _checked_mapping_path(ingest[option])
+        _require(role not in locators or locators[role] == path, "lg_production_input_handoff", role)
+        locators[role] = path
+    _require(locators["threshold-policy"] == THRESHOLD_POLICY_PATH
+             == _source_provenance_literal(sources[_LG_INGEST_PATH].data, "THRESHOLDS_REL"),
+             "lg_production_threshold_selector")
+    locators["llamaguard-summary"] = _checked_mapping_path(ingest["--out"])
+    writer_calls = [n for n in ast.walk(adapter["main"]) if isinstance(n, ast.Call)
+                    and isinstance(n.func, ast.Name) and n.func.id == "_write_json_atomic"]
+    _require(len(writer_calls) == 1 and [ast.unparse(a) for a in writer_calls[0].args] == ["output_path", "summary"],
+             "lg_production_summary_writer")
+    _require("Path(args.out)" in ast.unparse(adapter["main"]), "lg_production_summary_output_selector")
+    for left, right, value in (("--model-revision", "--tool-version", "${LLAMAGUARD_VERSION}"),
+                               ("--run-key", "--run-id", "${PULSE_RUN_KEY}"),
+                               ("--repo-root", "--repo-root", "${GITHUB_WORKSPACE}"),
+                               ("--git-sha", "--git-sha", "${GITHUB_SHA}"),
+                               ("--repository", "--repository", "${GITHUB_REPOSITORY}")):
+        _require(runner_args[left] == ingest[right] == value, "lg_production_source_context")
+    loops = [n for n in ast.walk(functions["main"]) if isinstance(n, ast.For)
+             and ast.unparse(n.iter) == "enumerate(cases)"]
+    _require(len(loops) == 1 and ast.unparse(loops[0].target) == "(case_index, case)", "lg_production_case_loop")
+    emitted = [n for n in ast.walk(loops[0]) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+               and ast.unparse(n.func) == "records.append"]
+    _require(len(emitted) == 1 and len(emitted[0].args) == 1 and isinstance(emitted[0].args[0], ast.Dict),
+             "lg_production_case_emission")
+    record = {ast.literal_eval(k): ast.unparse(v) for k, v in zip(emitted[0].args[0].keys, emitted[0].args[0].values)}
+    _require(record.get("case_id") == "case['case_id']" and record.get("input") == "case['input']"
+             and record.get("output") == "case['output']"
+             and record.get("llamaguard") == "{'label': label, 'categories': categories, 'raw_output': raw_model_output}",
+             "lg_production_case_fields")
+    main_text = ast.unparse(functions["main"])
+    _require("cases = _load_cases(dataset_path)" in main_text
+             and "_write_text_atomic(raw_path, raw_text)" in main_text
+             and "_write_json_atomic(manifest_path, manifest)" in main_text,
+             "lg_production_case_writer")
+    reader = adapter["_read_llamaguard_jsonl"]
+    _require(any(isinstance(n, ast.For) and ast.unparse(n.iter) == "enumerate(handle, start=1)" for n in ast.walk(reader))
+             and "classification = record.get('llamaguard')" in ast.unparse(reader)
+             and "label_raw = classification.get('label')" in ast.unparse(reader), "lg_production_all_record_reader")
+    # Traversal establishes the declared dependency, NOT identity validation of
+    # the acquired rows. The independent runtime boundary still has to do that.
+    case_ids = _load_case_ids(sources[LLAMAGUARD_DATASET_PATH].data)
+    p22, p23 = _step_id("pulse", 22), _step_id("pulse", 23)
+    input_roles = ["llamaguard-input:" + case for case in case_ids]
+    output_roles = ["llamaguard-output:" + case for case in case_ids]
+    origins = {role: None for role in ("threshold-policy", "llamaguard-dataset", *input_roles)}
+    origins.update({role: p22 for role in ("llamaguard-raw-evidence", "llamaguard-evaluator-manifest", *output_roles)})
+    origins["llamaguard-summary"] = p23
+    for i, case in enumerate(case_ids):
+        locators[input_roles[i]] = f"dataset://{canonical_paths['dataset_path']}#{case}/input"
+        locators[output_roles[i]] = f"artifact://{canonical_paths['raw_path'].rsplit('/', 1)[1]}#{case}/classification"
+    return {"locators": locators, "origins": origins,
+            "steps": {p22: {"inputs": sorted(["llamaguard-dataset", *input_roles]),
+                              "outputs": sorted(["llamaguard-raw-evidence", "llamaguard-evaluator-manifest", *output_roles])},
+                      p23: {"inputs": sorted([arguments[v][1] for v in reads] + output_roles),
+                              "outputs": ["llamaguard-summary"]}},
+            "ingest_read_modes": {"llamaguard-raw-evidence": "classification_parse_and_digest",
+                                  "llamaguard-dataset": "digest_only", "llamaguard-evaluator-manifest": "digest_only",
+                                  "threshold-policy": "threshold_parse"},
+            "classification_handoff": {"case_ids": list(case_ids), "producer_emits_one_record_per_case": True,
+                                       "ingester_traverses_all_records": True, "ingester_checks_case_identity": False,
+                                       "observed_consumption_proved": False}}
+
+
+def _install_llamaguard_production_projection(states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any]) -> None:
+    """Install this family's source-derived equations, not runtime evidence."""
+    by_id = {row["state_id"]: row for row in states}
+    prefix = "state:step5c:"
+    for role, path in facts["locators"].items():
+        _require(prefix + role in by_id and by_id[prefix + role]["path_or_uri"] == path,
+                 "lg_production_input_locator", role)
+        _require(by_id[prefix + role]["producer_occurrence_id"] == facts["origins"][role],
+                 "lg_production_input_origin", role)
+    owned = facts["steps"]
+    for row in states:
+        row["required_consumer_occurrence_ids"] = sorted({oid for oid in row["required_consumer_occurrence_ids"] if oid not in owned})
+    for step in steps.values():
+        oid = step["occurrence_id"]
+        if oid not in owned:
+            continue
+        step["input_state_ids"] = sorted(prefix + role for role in owned[oid]["inputs"])
+        step["output_state_ids"] = sorted(prefix + role for role in owned[oid]["outputs"])
+        for sid in step["input_state_ids"]:
+            by_id[sid]["required_consumer_occurrence_ids"] = sorted(set(by_id[sid]["required_consumer_occurrence_ids"]) | {oid})
+
+
+def _verify_source_llamaguard_production_equations(plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject]) -> None:
+    """Check supplied mappings before accepting a reconstructed plan's bytes."""
+    facts = _source_llamaguard_production_expectations(workflow, sources)
+    states = {row["state_id"].removeprefix("state:step5c:"): row for row in plan["state_templates"]}
+    _require(len(states) == len(plan["state_templates"]), "lg_production_duplicate_role")
+    occurrences = [step for job in plan["jobs"] for step in job["steps"]]
+    steps = {step["occurrence_id"]: step for step in occurrences}
+    _require(len(steps) == len(occurrences), "lg_production_duplicate_step")
+    for role, path in facts["locators"].items():
+        _require(role in states, "lg_production_role_missing", role)
+        row = states[role]
+        _require(row["path_or_uri"] == path, "lg_production_locator_mismatch", role)
+        _require(row["producer_occurrence_id"] == facts["origins"][role], "lg_production_origin_mismatch", role)
+        _require(row["required"] is True and row["content_requirement"] == "exact_digest"
+                 and row["authority_bearing"] is True and row["mutation_class"] == "none",
+                 "lg_production_requirement_mismatch", role)
+        origin = facts["origins"][role]
+        _require([oid for oid, step in steps.items() if row["state_id"] in step["output_state_ids"]]
+                 == ([] if origin is None else [origin]), "lg_production_writer_set_mismatch", role)
+    for oid, equation in facts["steps"].items():
+        _require(oid in steps, "lg_production_step_missing", oid)
+        for field, direction in (("input_state_ids", "inputs"), ("output_state_ids", "outputs")):
+            _require(steps[oid][field] == sorted("state:step5c:" + role for role in equation[direction]),
+                     "lg_production_step_io_mismatch", oid + ":" + direction)
+        _require(sorted(row["state_id"] for row in states.values() if oid in row["required_consumer_occurrence_ids"])
+                 == steps[oid]["input_state_ids"], "lg_production_reverse_inputs_mismatch", oid)
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -3178,6 +3360,7 @@ def _build_states(
     preservation_projection = _source_preattest_preservation_expectations(source_workflow, source_by_path)
     llamaguard_preservation = _source_llamaguard_preservation_expectations(source_workflow, source_by_path)
     llamaguard_attestation = _source_llamaguard_attestation_expectations(source_workflow, source_by_path)
+    llamaguard_production = _source_llamaguard_production_expectations(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -3708,6 +3891,7 @@ def _build_states(
     _install_preattest_preservation_projection(states, step_by_key, preservation_projection)
     _install_llamaguard_preservation_projection(states, step_by_key, llamaguard_preservation)
     _install_llamaguard_attestation_projection(states, step_by_key, llamaguard_attestation)
+    _install_llamaguard_production_projection(states, step_by_key, llamaguard_production)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph
@@ -4328,6 +4512,9 @@ def check_plan(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_source_llamaguard_attestation_equations(
+        plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
+    )
+    _verify_source_llamaguard_production_equations(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_tool_identity(

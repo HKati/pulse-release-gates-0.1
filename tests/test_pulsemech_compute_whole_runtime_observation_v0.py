@@ -505,7 +505,7 @@ def test_real_plan_cli_and_independent_checker(source_fixture):
     assert f.diagnostic_doc['plan']['byte_identical_to_independent_reconstruction'] is True
     assert f.diagnostic_doc['plan']['sha256'] == f.plan_digest
     assert f.plan['plan_identity']['source_commit'] == f.sha
-    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 55
+    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 56
 
 
 def test_two_separate_plan_processes_are_byte_identical(source_fixture):
@@ -1470,7 +1470,7 @@ def test_two_real_prepares_preserve_the_complete_declared_source_set(
         assert diagnostic['record_status'] == 'example'
         assert diagnostic['output_sha256'] == digest(raw)
         assert diagnostic['output_size_bytes'] == len(raw)
-        assert diagnostic['member_count'] == len(expected_members) == 60
+        assert diagnostic['member_count'] == len(expected_members) == 61
         assert diagnostic['authority_boundary'] == VERIFIER.AUTHORITY_BOUNDARY
         plan, members, stored_raw = read_prepared_example(f, target)
         assert plan == f.plan and stored_raw == raw
@@ -3694,8 +3694,8 @@ def test_preattest_actual_restore_shell_with_local_mock_download(source_fixture,
 
 
 def test_preattest_mapping_does_not_promote_runtime_completion(source_fixture):
-    assert len(source_fixture.plan['state_templates']) == 62 and len(source_fixture.plan['source_inventory']) == 55
-    assert len(prepared_fixture_members(source_fixture)) == 60
+    assert len(source_fixture.plan['state_templates']) == 62 and len(source_fixture.plan['source_inventory']) == 56
+    assert len(prepared_fixture_members(source_fixture)) == 61
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary']['authority_effect'] == 'none'
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
@@ -3990,8 +3990,8 @@ def test_required_argument_predicate_runs_before_expected_reconstruction():
 def test_required_argument_role_remains_unavailable_until_runtime_integration(source_fixture):
     plan = source_fixture.plan
     assert len(plan['state_templates']) == 62
-    assert len(plan['source_inventory']) == 55
-    assert len(prepared_fixture_members(source_fixture)) == 60
+    assert len(plan['source_inventory']) == 56
+    assert len(prepared_fixture_members(source_fixture)) == 61
     assert 'evidence_profile' not in plan
     packet = runtime_projection_example(source_fixture)
     state = next(row for row in packet['state_observations'] if row['state_id'] == REQUIRED_ARGUMENT_STATE)
@@ -4304,8 +4304,8 @@ def test_bundle_actual_copy_shells_match_synthetic_preservation(tmp_path, source
 
 def test_bundle_mapping_does_not_change_role_inventory_or_runtime_acceptance(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 55
-    assert len(prepared_fixture_members(source_fixture)) == 60
+    assert len(source_fixture.plan['source_inventory']) == 56
+    assert len(prepared_fixture_members(source_fixture)) == 61
     source = (SOURCES / 'check_pulsemech_compute_whole_runtime_observation_v0.py').read_text()
     assert 'declared_state_evidence_incomplete' in source
     assert not any('artifact_id' in s for s in source_fixture.plan['state_templates'])
@@ -4562,8 +4562,8 @@ def test_provenance_exact_r21_shell_uses_five_synthetic_contents(source_fixture,
 
 def test_provenance_mapping_keeps_full_role_extent_and_unaccepted_evidence(source_fixture):
     plan = source_fixture.plan
-    assert len(plan['state_templates']) == 62 and len(plan['source_inventory']) == 55
-    assert len(prepared_fixture_members(source_fixture)) == 60
+    assert len(plan['state_templates']) == 62 and len(plan['source_inventory']) == 56
+    assert len(prepared_fixture_members(source_fixture)) == 61
     packet = runtime_projection_example(source_fixture)
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(plan, packet, {})
@@ -4857,8 +4857,8 @@ def test_floor_actual_shell_reads_current_pre_materialization_files_only(source_
 
 def test_floor_local_mapping_preserves_global_extent_and_runtime_acceptance_stop(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 55
-    assert len(prepared_fixture_members(source_fixture)) == 60
+    assert len(source_fixture.plan['source_inventory']) == 56
+    assert len(prepared_fixture_members(source_fixture)) == 61
     rows, steps = provenance_rows(source_fixture.plan)
     assert rows['status-baseline']['state_id'] != rows['pre-materialization-status']['state_id']
     assert rows['status-baseline']['state_id'] != rows['final-status']['state_id']
@@ -4962,8 +4962,8 @@ def test_smoke_budget_new_workflow_is_preserved_without_evidence_promotion(sourc
     assert row['sha256'] == digest(data)
     assert prepared_fixture_members(source_fixture)['sources/' + BUILDER.SUBJECT_WORKFLOW_PATH] == data
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 55
-    assert len(prepared_fixture_members(source_fixture)) == 60
+    assert len(source_fixture.plan['source_inventory']) == 56
+    assert len(prepared_fixture_members(source_fixture)) == 61
     assert 'evidence_profile' not in source_fixture.plan
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
@@ -5226,8 +5226,8 @@ def test_lg_preservation_actual_copy_shell_is_bounded_local_evidence(source_fixt
 
 def test_lg_preservation_keeps_full_state_profile_unfinished(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 55
-    assert len(prepared_fixture_members(source_fixture)) == 60
+    assert len(source_fixture.plan['source_inventory']) == 56
+    assert len(prepared_fixture_members(source_fixture)) == 61
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary']['authority_effect'] == 'none'
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
@@ -5494,8 +5494,279 @@ def test_lg_attestation_actual_summary_binding_reads_three_files(tmp_path, lg_at
 
 
 def test_lg_attestation_mapping_still_cannot_satisfy_runtime_completion(source_fixture):
-    assert len(source_fixture.plan['source_inventory']) == 55
-    assert len(prepared_fixture_members(source_fixture)) == 60
+    assert len(source_fixture.plan['source_inventory']) == 56
+    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert len(source_fixture.plan['state_templates']) == 62
+    assert 'evidence_profile' not in source_fixture.plan
+    assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
+
+
+# ---------------------------------------------------------------------------
+# P22/P23 source-declared production and ingestion. The actual ingester hashes
+# the dataset/manifest; it does not admit their identity or validate case IDs.
+# ---------------------------------------------------------------------------
+LG_PRODUCTION_ADAPTER = 'PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py'
+LG_PRODUCTION_NEW_INPUTS = ('llamaguard-dataset',) + tuple(
+    'llamaguard-output:' + case for case in (
+        'benign_factual_response', 'violent_harm_refusal', 'credential_theft_refusal',
+        'private_address_refusal', 'self_harm_support', 'hate_content_refusal'))
+
+
+@pytest.fixture(scope='module')
+def lg_production_tools():
+    result = {}
+    for name, path, expected in (
+        ('runner', 'PULSE_safe_pack_v0/tools/run_llamaguard_current_evidence_v0.py', '058edf0d16383db41a5a4500caf4b484321d2e57'),
+        ('ingester', LG_PRODUCTION_ADAPTER, 'b0e0479c4939110b08350655be234badffa189f1'),
+    ):
+        target = ROOT / path; data = target.read_bytes()
+        assert hashlib.sha1(('blob ' + str(len(data)) + '\0').encode() + data).hexdigest() == expected
+        spec = importlib.util.spec_from_file_location('step5c_production_unit_' + name, target)
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        result[name] = module
+    return result
+
+
+def lg_production_method(side):
+    if side == 'builder': return BUILDER, BUILDER._llamaguard_production_source_projection
+    return PLAN_CHECKER, PLAN_CHECKER._source_llamaguard_production_expectations
+
+
+@pytest.mark.parametrize('role', LG_PRODUCTION_NEW_INPUTS)
+def test_lg_production_missing_source_read_is_present(source_fixture, lg_production_tools, role):
+    # The expected sequence is obtained from the original producer's real
+    # dataset reader, not the mapping tools. Reading the fixture is not inference.
+    dataset = 'PULSE_safe_pack_v0/examples/llamaguard_current_run_cases_v0.jsonl'
+    cases = lg_production_tools['runner']._load_cases(ROOT / dataset)
+    expected = ['llamaguard-dataset'] + ['llamaguard-output:' + row['case_id'] for row in cases]
+    assert role in expected
+    rows, steps = provenance_rows(source_fixture.plan)
+    p23 = steps[('pulse', 23)]
+    assert rows[role]['state_id'] in p23['input_state_ids']
+    assert p23['occurrence_id'] in rows[role]['required_consumer_occurrence_ids']
+    if role == 'llamaguard-dataset': assert rows[role]['path_or_uri'] == dataset
+    else: assert rows[role]['producer_occurrence_id'] == steps[('pulse', 22)]['occurrence_id']
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_lg_production_source_reads_preserve_ingester_limits(recorded_source_objects, side):
+    module, method = lg_production_method(side)
+    facts = method(mapping_source_document(), recorded_source_objects)
+    assert len(facts['locators']) == 17
+    assert facts['ingest_read_modes'] == {
+        'llamaguard-raw-evidence': 'classification_parse_and_digest', 'llamaguard-dataset': 'digest_only',
+        'llamaguard-evaluator-manifest': 'digest_only', 'threshold-policy': 'threshold_parse'}
+    boundary = facts['classification_handoff']
+    assert len(boundary['case_ids']) == 6 and len(set(boundary['case_ids'])) == 6
+    assert boundary['producer_emits_one_record_per_case'] is True
+    assert boundary['ingester_traverses_all_records'] is True
+    assert boundary['ingester_checks_case_identity'] is False
+    assert boundary['observed_consumption_proved'] is False
+    assert len(facts['steps'][module._step_id('pulse', 22)]['inputs']) == 7
+    assert len(facts['steps'][module._step_id('pulse', 22)]['outputs']) == 8
+    assert len(facts['steps'][module._step_id('pulse', 23)]['inputs']) == 10
+    assert facts['steps'][module._step_id('pulse', 23)]['outputs'] == ['llamaguard-summary']
+
+
+def test_lg_production_separate_source_predicate_precedes_reconstruction(source_fixture, recorded_source_objects):
+    workflow = mapping_source_document()
+    first = BUILDER._llamaguard_production_source_projection(workflow, recorded_source_objects)
+    with patch.object(BUILDER, '_llamaguard_production_source_projection', side_effect=AssertionError('builder forbidden')):
+        second = PLAN_CHECKER._source_llamaguard_production_expectations(workflow, recorded_source_objects)
+        PLAN_CHECKER._verify_source_llamaguard_production_equations(source_fixture.plan, workflow, recorded_source_objects)
+    assert canonical(first) == canonical(second)
+    tree = ast.parse(textwrap.dedent(inspect.getsource(PLAN_CHECKER.check_plan)))
+    calls = {n.func.id: n.lineno for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+    assert calls['_verify_source_llamaguard_production_equations'] < calls['_reconstruct_expected_plan']
+
+
+def corrupt_lg_production_plan(original, mutation):
+    plan = copy.deepcopy(original); rows, steps = provenance_rows(plan)
+    p22, p23 = steps[('pulse', 22)], steps[('pulse', 23)]
+    if mutation.startswith('omit:'):
+        role = mutation[5:]; row = rows[role]
+        p23['input_state_ids'] = [sid for sid in p23['input_state_ids'] if sid != row['state_id']]
+        row['required_consumer_occurrence_ids'] = [oid for oid in row['required_consumer_occurrence_ids'] if oid != p23['occurrence_id']]
+    elif mutation.startswith('invent:'):
+        _, number, role = mutation.split(':', 2); step = steps[('pulse', int(number))]; row = rows[role]
+        step['input_state_ids'] = sorted(set(step['input_state_ids']) | {row['state_id']})
+        row['required_consumer_occurrence_ids'] = sorted(set(row['required_consumer_occurrence_ids']) | {step['occurrence_id']})
+    elif mutation == 'wrong_case_locator': rows[LG_PRODUCTION_NEW_INPUTS[1]]['path_or_uri'] += '-wrong'
+    elif mutation == 'wrong_case_origin': rows[LG_PRODUCTION_NEW_INPUTS[1]]['producer_occurrence_id'] = p23['occurrence_id']
+    elif mutation == 'extra_writer': p23['output_state_ids'].append(rows[LG_PRODUCTION_NEW_INPUTS[1]]['state_id'])
+    elif mutation == 'missing_reverse': rows['llamaguard-dataset']['required_consumer_occurrence_ids'].remove(p23['occurrence_id'])
+    elif mutation == 'optional': rows[LG_PRODUCTION_NEW_INPUTS[1]]['required'] = False
+    elif mutation == 'metadata_only': rows[LG_PRODUCTION_NEW_INPUTS[1]]['content_requirement'] = 'metadata_only'
+    elif mutation == 'non_authority': rows[LG_PRODUCTION_NEW_INPUTS[1]]['authority_bearing'] = False
+    elif mutation == 'missing_role': plan['state_templates'].remove(rows[LG_PRODUCTION_NEW_INPUTS[1]])
+    elif mutation == 'duplicate_role': plan['state_templates'].append(copy.deepcopy(rows[LG_PRODUCTION_NEW_INPUTS[1]]))
+    elif mutation == 'duplicate_step': next(job for job in plan['jobs'] if job['source_job_id'] == 'pulse')['steps'].append(copy.deepcopy(p23))
+    elif mutation == 'self_input': p23['input_state_ids'].append(rows['llamaguard-summary']['state_id'])
+    else: raise AssertionError(mutation)
+    return plan
+
+
+LG_PRODUCTION_MUTATIONS = tuple('omit:' + role for role in LG_PRODUCTION_NEW_INPUTS) + (
+    'invent:22:threshold-policy', 'invent:23:external-signer-policy', 'invent:23:workflow-source',
+    'wrong_case_locator', 'wrong_case_origin', 'extra_writer', 'missing_reverse', 'optional',
+    'metadata_only', 'non_authority', 'missing_role', 'duplicate_role', 'duplicate_step', 'self_input')
+
+
+@pytest.mark.parametrize('mutation', LG_PRODUCTION_MUTATIONS)
+def test_lg_production_source_predicate_rejects_false_graph(source_fixture, recorded_source_objects, mutation):
+    with pytest.raises(PLAN_CHECKER.PlanError, match='lg_production_'):
+        PLAN_CHECKER._verify_source_llamaguard_production_equations(
+            corrupt_lg_production_plan(source_fixture.plan, mutation), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('mutation', ['omit:llamaguard-dataset', 'omit:' + LG_PRODUCTION_NEW_INPUTS[1], 'invent:22:threshold-policy'])
+def test_lg_production_common_wrong_answers_are_rejected(source_fixture, recorded_source_objects, mutation):
+    answers = []
+    for module in (BUILDER, PLAN_CHECKER):
+        workflow = mapping_source_document(); jobs, steps, _ = module._build_jobs(workflow)
+        plan = copy.deepcopy(source_fixture.plan); plan['jobs'] = jobs
+        plan['state_templates'] = module._build_states(steps, module.EXPECTED_CASE_IDS, workflow, recorded_source_objects)
+        answers.append(canonical(corrupt_lg_production_plan(plan, mutation)))
+    assert answers[0] == answers[1]
+    with pytest.raises(PLAN_CHECKER.PlanError, match='lg_production_'):
+        PLAN_CHECKER._verify_source_llamaguard_production_equations(json.loads(answers[0]), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('mutation', ['omit:llamaguard-dataset', 'omit:' + LG_PRODUCTION_NEW_INPUTS[1],
+                                      'invent:22:threshold-policy', 'invent:23:external-signer-policy'])
+def test_lg_production_rehashed_plan_rejected_by_isolated_checker(source_fixture, tmp_path, mutation):
+    raw = canonical(corrupt_lg_production_plan(source_fixture.plan, mutation))
+    jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(json.loads(raw))
+    path = tmp_path / 'false-plan.json'; path.write_bytes(raw)
+    result = cli(source_fixture.root, TOOL_NAMES[1], ['--repository-root', source_fixture.root,
+        '--plan', path, '--expected-source-commit', source_fixture.sha, '--expected-plan-sha256', digest(raw),
+        '--expected-record-status', 'example'])
+    assert result.returncode != 0
+    assert json.loads(result.stdout)['error_code'] == 'lg_production_step_io_mismatch'
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('path', [LG_PRODUCTION_ADAPTER, 'PULSE_safe_pack_v0/tools/run_llamaguard_current_evidence_v0.py',
+                                 'PULSE_safe_pack_v0/examples/llamaguard_current_run_cases_v0.jsonl'])
+@pytest.mark.parametrize('fault', ['missing', 'bytes', 'path'])
+def test_lg_production_sources_reject_drift(recorded_source_objects, side, path, fault):
+    module, method = lg_production_method(side); objects = dict(recorded_source_objects)
+    if fault == 'missing': del objects[path]
+    elif fault == 'bytes':
+        raw = objects[path].data + b'\n'
+        # Recomputing the object's blob identity does not revise the reviewed pin.
+        objects[path] = replace(objects[path], data=raw, blob_sha1=hashlib.sha1(('blob ' + str(len(raw)) + '\0').encode() + raw).hexdigest())
+    else: objects[path] = replace(objects[path], path='different/source.py')
+    with pytest.raises(module.PlanError, match='lg_production_source_'):
+        method(mapping_source_document(), objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('fault', ['dataset', 'input', 'output', 'version'])
+def test_lg_production_logical_workflow_substitution_rejected(recorded_source_objects, side, fault):
+    workflow = mapping_source_document(); step = workflow['jobs']['pulse']['steps'][22]
+    replacements = {'dataset': ('--dataset', '--different-dataset'), 'input': ('--in ', '--other-input '),
+                    'output': ('llamaguard_summary.json', 'other-summary.json'),
+                    'version': ('${LLAMAGUARD_VERSION}', 'unreviewed-version')}
+    before, after = replacements[fault]; assert before in step['run']
+    step['run'] = step['run'].replace(before, after)
+    module, method = lg_production_method(side)
+    with pytest.raises(module.PlanError, match='lg_production_workflow_drift'):
+        method(workflow, recorded_source_objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_lg_production_retains_unselected_graph_fields(recorded_source_objects, side):
+    module, _ = lg_production_method(side); workflow = mapping_source_document()
+    _, before_steps, _ = module._build_jobs(workflow)
+    with patch.object(module, '_install_llamaguard_production_projection', return_value=None):
+        before_states = module._build_states(before_steps, module.EXPECTED_CASE_IDS, workflow, recorded_source_objects)
+    _, after_steps, _ = module._build_jobs(workflow)
+    after_states = module._build_states(after_steps, module.EXPECTED_CASE_IDS, workflow, recorded_source_objects)
+    owned = {module._step_id('pulse', n) for n in (22, 23)}
+    for old, new in zip(before_states, after_states):
+        old, new = copy.deepcopy(old), copy.deepcopy(new)
+        for row in (old, new): row['required_consumer_occurrence_ids'] = [oid for oid in row['required_consumer_occurrence_ids'] if oid not in owned]
+        assert old == new
+    for key, step in after_steps.items():
+        if step['occurrence_id'] not in owned: assert step == before_steps[key]
+        assert step['output_state_ids'] == before_steps[key]['output_state_ids']
+    assert len(before_states) == len(after_states) == 62
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_lg_production_adapter_is_exactly_once_in_source_and_preparation(source_fixture, side):
+    module, _ = lg_production_method(side)
+    assert sum(path == LG_PRODUCTION_ADAPTER for _, path in module.SOURCE_ROLES) == 1
+    entries = [row for row in source_fixture.plan['source_inventory'] if row['path'] == LG_PRODUCTION_ADAPTER]
+    assert len(entries) == 1 and entries[0]['sha256'] == digest((ROOT / LG_PRODUCTION_ADAPTER).read_bytes())
+    assert (ROOT / LG_PRODUCTION_ADAPTER).read_bytes() in prepared_fixture_members(source_fixture).values()
+
+
+@pytest.mark.parametrize('fault', [None, 'empty', 'bad_label', 'duplicate_key', 'nonfinite', 'not_object'])
+def test_lg_production_real_classification_reader_boundaries(tmp_path, lg_production_tools, fault):
+    tool = lg_production_tools['ingester']; path = tmp_path / 'synthetic-raw.jsonl'
+    record = {'case_id': 'synthetic', 'input': 'synthetic input', 'output': 'synthetic output',
+              'llamaguard': {'label': 'unsafe', 'categories': ['S1', 'S1']}}
+    raw = json.dumps(record) + '\n'
+    if fault == 'empty': raw = '\n'
+    elif fault == 'bad_label': record['llamaguard']['label'] = 'unknown'; raw = json.dumps(record) + '\n'
+    elif fault == 'duplicate_key': raw = '{"input":"a","input":"b"}\n'
+    elif fault == 'nonfinite': raw = '{"value":NaN}\n'
+    elif fault == 'not_object': raw = '[]\n'
+    path.write_text(raw)
+    if fault is None: assert tool._read_llamaguard_jsonl(path) == (1, 1, {'S1': 1})
+    else:
+        with pytest.raises(tool.ProducerError): tool._read_llamaguard_jsonl(path)
+
+
+def test_lg_production_ingester_does_not_verify_case_identity(tmp_path, lg_production_tools):
+    tool = lg_production_tools['ingester']; path = tmp_path / 'synthetic-repeated-case.jsonl'
+    record = {'case_id': 'same-case-twice', 'input': 'synthetic', 'output': 'synthetic', 'llamaguard': {'label': 'safe'}}
+    path.write_text((json.dumps(record) + '\n') * 2)
+    # This real source behavior is a qualification, not an admission rule for
+    # Step 5C evidence. No runtime verifier is called or weakened here.
+    assert tool._read_llamaguard_jsonl(path) == (2, 0, {})
+
+
+@pytest.mark.parametrize('fault', [None, 'raw_missing', 'dataset_missing', 'manifest_missing'])
+def test_lg_production_hash_only_input_helper_is_not_content_admission(tmp_path, lg_production_tools, fault):
+    tool = lg_production_tools['ingester']; root = Path(os.path.commonpath([str(ROOT), str(tmp_path)]))
+    raw, dataset, manifest, thresholds = (tmp_path / name for name in ('raw.jsonl', 'dataset.jsonl', 'manifest.json', 'thresholds.yaml'))
+    raw.write_text(json.dumps({'input': 'synthetic', 'output': 'synthetic', 'llamaguard': {'label': 'safe'}}) + '\n')
+    # Deliberately not a dataset/manifest JSON document: the helper hashes them,
+    # proving why a successful adapter is not evidence of their admission.
+    dataset.write_bytes(b'synthetic hash input, not parsed dataset\n')
+    manifest.write_bytes(b'synthetic hash input, not parsed manifest\n')
+    thresholds.write_text('llamaguard_violation_rate_max: 0.5\n')
+    if fault is not None: {'raw_missing': raw, 'dataset_missing': dataset, 'manifest_missing': manifest}[fault].unlink()
+    # Only the summary-construction subroutine is under test. Schema validation
+    # is explicitly excluded here, not replaced in any runtime/acceptance path.
+    with patch.object(tool, '_validate_summary_schema') as schema, \
+         patch.object(tool, '_sha256_file', wraps=tool._sha256_file) as hashes:
+        args = dict(repo_root=root, raw_path=raw, dataset_path=dataset, evaluator_manifest_path=manifest,
+                    schema_path=tmp_path / 'excluded-unit-schema.json', thresholds_path=thresholds,
+                    run_id='synthetic-unit', generated_at=EXAMPLE_START, release_candidate='main',
+                    git_sha='a' * 40, repository='HKati/pulse-release-gates-0.1',
+                    signer_identity='synthetic-unit', tool_version='synthetic-unit', adapter_version='synthetic-unit')
+        if fault is not None:
+            with pytest.raises(tool.ProducerError): tool._build_summary(**args)
+            schema.assert_not_called()
+        else:
+            result = tool._build_summary(**args)
+            assert [call.args[0] for call in hashes.call_args_list] == [raw, dataset, Path(tool.__file__).resolve(), manifest]
+            assert result['run']['dataset_digest'] == digest(dataset.read_bytes())
+            assert result['evidence']['raw_artifact_digest'] == digest(raw.read_bytes())
+            assert result['extensions']['classification_counts']['total'] == 1
+            assert all(value is False for value in result['extensions']['producer_boundary'].values())
+            schema.assert_called_once()
+
+
+def test_lg_production_mapping_keeps_completion_closed(source_fixture):
+    assert len(source_fixture.plan['source_inventory']) == 56
+    assert len(prepared_fixture_members(source_fixture)) == 61
     assert len(source_fixture.plan['state_templates']) == 62
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
