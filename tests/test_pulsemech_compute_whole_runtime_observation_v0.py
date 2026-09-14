@@ -3430,6 +3430,278 @@ def test_package_mapping_keeps_legacy_stop_and_inactive_r2_profile(source_fixtur
 
 
 
+# P37/R4 source-declared preservation is separate from runtime acceptance.
+PREATTEST_LOCAL_ROLES = (
+    'pre-materialization-status', 'status-baseline', 'required-gate-evidence',
+    'self-contained-evidence-floor', 'llamaguard-raw-evidence',
+    'llamaguard-evaluator-manifest', 'llamaguard-summary',
+)
+PREATTEST_RESTORED_ROLES = PREATTEST_LOCAL_ROLES[:4]
+PREATTEST_MUTATIONS = (
+    'missing_upload_status', 'missing_upload_baseline', 'missing_upload_evidence',
+    'missing_upload_floor', 'missing_upload_raw', 'missing_upload_manifest', 'missing_upload_summary',
+    'missing_restore_baseline', 'missing_restore_evidence', 'missing_restore_floor', 'missing_restore_archive',
+    'final_status_upload', 'final_status_restore', 'external_restore', 'policy_upload',
+    'publisher_as_origin', 'restorer_as_origin', 'extra_writer', 'wrong_archive_locator',
+    'optional_baseline', 'metadata_archive', 'reverse_only', 'forward_only', 'extra_archive_reader',
+    'reverse_orphan', 'missing_role',
+)
+
+
+def preattest_source_method(side):
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    return module, (module._preattest_preservation_source_projection if side == 'builder'
+                    else module._source_preattest_preservation_expectations)
+
+
+@pytest.mark.parametrize('role', PREATTEST_LOCAL_ROLES)
+def test_preattest_each_upload_input_is_bound_in_both_directions(source_fixture, role):
+    rows, steps = provenance_rows(source_fixture.plan)
+    step = steps[('pulse', 37)]; row = rows[role]
+    assert row['path_or_uri'].split('#', 1)[0] in mapping_source_document()['jobs']['pulse']['steps'][36]['with']['path'].splitlines()
+    assert row['state_id'] in step['input_state_ids']
+    assert step['occurrence_id'] in row['required_consumer_occurrence_ids']
+
+
+@pytest.mark.parametrize('role', PREATTEST_RESTORED_ROLES)
+def test_preattest_each_restore_input_is_bound_in_both_directions(source_fixture, role):
+    rows, steps = provenance_rows(source_fixture.plan)
+    step = steps[('release_grade_recorded_path', 4)]; row = rows[role]
+    body = mapping_source_document()['jobs']['release_grade_recorded_path']['steps'][3]['run']
+    assert 'copy_required_artifact "' + Path(row['path_or_uri'].split('#', 1)[0]).name + '"' in body
+    assert row['state_id'] in step['input_state_ids']
+    assert step['occurrence_id'] in row['required_consumer_occurrence_ids']
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_preattest_source_selectors_and_unmodeled_extent_remain_explicit(source_fixture, recorded_source_objects, side):
+    _, method = preattest_source_method(side)
+    doc = mapping_source_document(); facts = method(doc, recorded_source_objects)
+    upload = doc['jobs']['pulse']['steps'][36]['with']
+    body = doc['jobs']['release_grade_recorded_path']['steps'][3]['run']
+    # Independent oracle: actual workflow selectors and copy invocations, not
+    # the state constructor or an expected producer/consumer mapping table.
+    assert facts['upload_paths'] == sorted(upload['path'].splitlines())
+    copied = [shlex.split(line)[1] for line in body.splitlines() if line.startswith('copy_required_artifact "')]
+    assert facts['restored_paths'] == sorted('PULSE_safe_pack_v0/artifacts/' + name for name in copied)
+    extra = sorted('PULSE_safe_pack_v0/artifacts/' + name for name in
+                   ('status_summary_baseline.md', 'status_summary_baseline.json', 'refusal_delta_summary.json'))
+    assert facts['unmodeled_upload_paths'] == facts['unmodeled_restore_paths'] == extra
+    assert (len(facts['upload_paths']), len(facts['restored_paths']), len(facts['locators'])) == (10, 7, 8)
+    assert set(extra).isdisjoint(row['path_or_uri'] for row in source_fixture.plan['state_templates'])
+    assert facts['download_directory'] == '${RUNNER_TEMP}/pulse-pre-attestation'
+    assert facts['locators']['pre-attestation-pulse-artifacts'] == 'artifact://pulse-pre-attestation-{workflow_run_id}-1'
+
+
+def test_preattest_source_projections_agree_without_builder_execution(source_fixture, recorded_source_objects):
+    doc = mapping_source_document()
+    built = BUILDER._preattest_preservation_source_projection(doc, recorded_source_objects)
+    with patch.object(BUILDER, '_preattest_preservation_source_projection', side_effect=AssertionError('builder must not run')):
+        checked = PLAN_CHECKER._source_preattest_preservation_expectations(doc, recorded_source_objects)
+    assert canonical(built) == canonical(checked)
+    # The independent source checker reaches the actual P23 input/output
+    # arguments and R4 hash loop, rather than importing the builder's projection.
+    source = inspect.getsource(PLAN_CHECKER._source_preattest_preservation_expectations)
+    assert '_preattest_preservation_source_projection(' not in source
+    assert 'summary["--in"]' in source and 'for artifact in ' in source
+
+
+def corrupt_preattest_plan(original, mutation):
+    plan = copy.deepcopy(original); rows, steps = provenance_rows(plan)
+    publish, restore = ('pulse', 37), ('release_grade_recorded_path', 4)
+    def edge(role, key, add):
+        row, step = rows[role], steps[key]; sid, oid = row['state_id'], step['occurrence_id']
+        if add:
+            step['input_state_ids'] = sorted(set(step['input_state_ids']) | {sid})
+            row['required_consumer_occurrence_ids'] = sorted(set(row['required_consumer_occurrence_ids']) | {oid})
+        else:
+            step['input_state_ids'] = [v for v in step['input_state_ids'] if v != sid]
+            row['required_consumer_occurrence_ids'] = [v for v in row['required_consumer_occurrence_ids'] if v != oid]
+    names = {'status': 'pre-materialization-status', 'baseline': 'status-baseline', 'evidence': 'required-gate-evidence',
+             'floor': 'self-contained-evidence-floor', 'raw': 'llamaguard-raw-evidence',
+             'manifest': 'llamaguard-evaluator-manifest', 'summary': 'llamaguard-summary',
+             'archive': 'pre-attestation-pulse-artifacts'}
+    if mutation.startswith('missing_upload_'): edge(names[mutation.removeprefix('missing_upload_')], publish, False)
+    elif mutation.startswith('missing_restore_'): edge(names[mutation.removeprefix('missing_restore_')], restore, False)
+    elif mutation in ('final_status_upload', 'final_status_restore'):
+        key = publish if mutation.endswith('upload') else restore
+        edge('pre-materialization-status', key, False); edge('final-status', key, True)
+    elif mutation == 'external_restore': edge('llamaguard-raw-evidence', restore, True)
+    elif mutation == 'policy_upload': edge('gate-policy', publish, True)
+    elif mutation in ('publisher_as_origin', 'restorer_as_origin'):
+        role = 'self-contained-evidence-floor'; row = rows[role]
+        for step in steps.values(): step['output_state_ids'] = [v for v in step['output_state_ids'] if v != row['state_id']]
+        target = steps[publish if mutation.startswith('publisher') else restore]
+        target['output_state_ids'] = sorted([*target['output_state_ids'], row['state_id']])
+        row['producer_occurrence_id'] = target['occurrence_id']
+    elif mutation == 'extra_writer': steps[('pulse', 36)]['output_state_ids'].append(rows['self-contained-evidence-floor']['state_id'])
+    elif mutation == 'wrong_archive_locator': rows['pre-attestation-pulse-artifacts']['path_or_uri'] += '-other-run'
+    elif mutation == 'optional_baseline': rows['status-baseline']['required'] = False
+    elif mutation == 'metadata_archive': rows['pre-attestation-pulse-artifacts']['content_requirement'] = 'metadata_only'
+    elif mutation == 'reverse_only': rows['status-baseline']['required_consumer_occurrence_ids'].remove(steps[restore]['occurrence_id'])
+    elif mutation == 'forward_only': steps[publish]['input_state_ids'].remove(rows['self-contained-evidence-floor']['state_id'])
+    elif mutation == 'extra_archive_reader': edge('pre-attestation-pulse-artifacts', ('pulse', 38), True)
+    elif mutation == 'reverse_orphan': rows['final-status']['required_consumer_occurrence_ids'].append(steps[restore]['occurrence_id'])
+    elif mutation == 'missing_role':
+        sid = rows['status-baseline']['state_id']
+        plan['state_templates'] = [v for v in plan['state_templates'] if v['state_id'] != sid]
+        for step in steps.values():
+            for field in ('input_state_ids', 'output_state_ids'): step[field] = [v for v in step[field] if v != sid]
+    else: raise AssertionError(mutation)
+    return plan
+
+
+@pytest.mark.parametrize('mutation', PREATTEST_MUTATIONS)
+def test_preattest_coordinated_forgery_is_rejected_against_source(source_fixture, recorded_source_objects, mutation):
+    bad = corrupt_preattest_plan(source_fixture.plan, mutation)
+    with pytest.raises(PLAN_CHECKER.PlanError, match='preservation_mapping_'):
+        PLAN_CHECKER._verify_source_preattest_preservation_equations(bad, mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('mutation', ['missing_upload_floor', 'final_status_restore', 'publisher_as_origin'])
+def test_preattest_equal_constructor_errors_do_not_replace_source_checks(source_fixture, recorded_source_objects, mutation):
+    results = []
+    for module in (BUILDER, PLAN_CHECKER):
+        doc = mapping_source_document(); jobs, steps, _ = module._build_jobs(doc)
+        states = module._build_states(steps, module.EXPECTED_CASE_IDS, doc, recorded_source_objects)
+        plan = copy.deepcopy(source_fixture.plan); plan['jobs'], plan['state_templates'] = jobs, states
+        results.append(canonical(corrupt_preattest_plan(plan, mutation)))
+    assert results[0] == results[1]
+    with pytest.raises(PLAN_CHECKER.PlanError, match='preservation_mapping_'):
+        PLAN_CHECKER._verify_source_preattest_preservation_equations(json.loads(results[0]), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('mutation', ['missing_restore_floor', 'missing_upload_raw', 'metadata_archive', 'extra_archive_reader'])
+def test_preattest_rehashed_schema_valid_forgery_fails_actual_checker_cli(source_fixture, tmp_path, mutation):
+    raw = canonical(corrupt_preattest_plan(source_fixture.plan, mutation))
+    jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(json.loads(raw))
+    path = tmp_path / 'forged-preservation-plan.json'; path.write_bytes(raw)
+    args = list(source_fixture.check_args); args[args.index('--plan') + 1] = path
+    args[args.index('--expected-plan-sha256') + 1] = digest(raw)
+    result = cli(source_fixture.root, TOOL_NAMES[1], args)
+    report = json.loads(result.stdout)
+    assert result.returncode != 0 and report['ok'] is False
+    expected = {'missing_restore_floor': 'preservation_mapping_step_io_mismatch',
+                'missing_upload_raw': 'preservation_mapping_step_io_mismatch',
+                'metadata_archive': 'preservation_mapping_requirement_mismatch',
+                'extra_archive_reader': 'preservation_mapping_archive_readers_mismatch'}
+    assert report['error_code'] == expected[mutation]
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('fault', ['missing', 'rehashed'])
+def test_preattest_workflow_identity_cannot_be_replaced(source_fixture, recorded_source_objects, side, fault):
+    module, method = preattest_source_method(side); sources = dict(recorded_source_objects)
+    path = module.SUBJECT_WORKFLOW_PATH
+    if fault == 'missing': del sources[path]
+    else:
+        obj = sources[path]; raw = obj.data + b'\n# different source\n'
+        sources[path] = replace(obj, data=raw, blob_sha1=module._sha1_git_blob(raw))
+    with pytest.raises(module.PlanError, match='preservation_mapping_source_'):
+        method(mapping_source_document(), sources)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('fault', ['upload_omission', 'upload_duplicate', 'archive_name', 'other_run',
+                                  'other_repository', 'copy_omission', 'hash_omission', 'restore_target'])
+def test_preattest_source_drift_is_rejected_not_silently_reinterpreted(source_fixture, recorded_source_objects, side, fault):
+    doc = mapping_source_document(); upload = doc['jobs']['pulse']['steps'][36]
+    restore = doc['jobs']['release_grade_recorded_path']['steps'][3]
+    if fault == 'upload_omission': upload['with']['path'] = '\n'.join(upload['with']['path'].splitlines()[:-1])
+    elif fault == 'upload_duplicate': upload['with']['path'] += upload['with']['path'].splitlines()[0] + '\n'
+    elif fault == 'archive_name': upload['with']['name'] += '-wrong'
+    elif fault == 'other_run': restore['run'] = restore['run'].replace('gh run download "${GITHUB_RUN_ID}"', 'gh run download "42"')
+    elif fault == 'other_repository': restore['run'] = restore['run'].replace('--repo "${GITHUB_REPOSITORY}"', '--repo "example/other"')
+    elif fault == 'copy_omission': restore['run'] = restore['run'].replace('copy_required_artifact "status_baseline.json"\n', '')
+    elif fault == 'hash_omission': restore['run'] = restore['run'].replace('sha256sum "${artifact}"', ':')
+    elif fault == 'restore_target': restore['run'] = restore['run'].replace('cp "${src}" "${CANONICAL_ARTIFACTS}/${name}"', 'cp "${src}" "${DOWNLOAD_DIR}/${name}"')
+    module, method = preattest_source_method(side)
+    with pytest.raises(module.PlanError, match='preservation_mapping_workflow_drift'):
+        method(doc, recorded_source_objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_preattest_installation_preserves_origins_and_all_outside_duties(source_fixture, recorded_source_objects, side):
+    module, _ = preattest_source_method(side); doc = mapping_source_document()
+    old_jobs, old_steps, _ = module._build_jobs(doc)
+    with patch.object(module, '_install_preattest_preservation_projection', return_value=None):
+        old_states = module._build_states(old_steps, module.EXPECTED_CASE_IDS, doc, recorded_source_objects)
+    jobs, steps, _ = module._build_jobs(doc)
+    states = module._build_states(steps, module.EXPECTED_CASE_IDS, doc, recorded_source_objects)
+    owned = {steps[key]['occurrence_id'] for key in [('pulse', 37), ('release_grade_recorded_path', 4)]}
+    assert len(states) == len(old_states) == 62
+    for old, new in zip(old_states, states):
+        old = copy.deepcopy(old); new = copy.deepcopy(new)
+        for row in (old, new): row['required_consumer_occurrence_ids'] = [v for v in row['required_consumer_occurrence_ids'] if v not in owned]
+        assert old == new
+    for key, step in steps.items():
+        if step['occurrence_id'] not in owned: assert step == old_steps[key]
+    assert steps[('release_grade_recorded_path', 4)]['output_state_ids'] == []
+    assert steps[('pulse', 37)]['output_state_ids'] == ['state:step5c:pre-attestation-pulse-artifacts']
+
+
+@pytest.mark.parametrize('fault', [None, 'missing_floor', 'empty_baseline', 'symlink_evidence', 'download_failure'])
+def test_preattest_actual_restore_shell_with_local_mock_download(source_fixture, tmp_path, fault):
+    root, incoming, runner, bindir = [tmp_path / v for v in ('workspace', 'incoming', 'runner', 'bin')]
+    for directory in (root, incoming, runner, bindir): directory.mkdir()
+    doc = mapping_source_document(); paths = doc['jobs']['pulse']['steps'][36]['with']['path'].splitlines()
+    before = {}
+    for relative in paths:
+        p = incoming / relative; p.parent.mkdir(parents=True, exist_ok=True)
+        before[relative] = ('synthetic preservation input: ' + relative + '\n').encode(); p.write_bytes(before[relative])
+    base = 'PULSE_safe_pack_v0/artifacts/'
+    if fault == 'missing_floor': (incoming / (base + 'self_contained_pulse_evidence_floor_v0.json')).unlink()
+    elif fault == 'empty_baseline': (incoming / (base + 'status_baseline.json')).write_bytes(b'')
+    elif fault == 'symlink_evidence':
+        p = incoming / (base + 'required_gate_evidence_v0.json'); p.unlink()
+        outside = tmp_path / 'not-an-artifact'; outside.write_bytes(b'synthetic link target\n'); p.symlink_to(outside)
+    # This local stand-in records and verifies argv and copies only synthetic
+    # files. No gh installation, credentials, workflow dispatch or API call.
+    stub = bindir / 'gh'
+    expected = ['run', 'download', '10001', '--repo', 'example/step5c', '--name',
+                'pulse-pre-attestation-10001-1', '--dir', str(runner / 'pulse-pre-attestation')]
+    stub.write_text('#!' + sys.executable + '\n' +
+        'import json, pathlib, shutil, sys\n' +
+        'expected = ' + repr(expected) + '\n' +
+        'assert sys.argv[1:] == expected\n' +
+        'pathlib.Path(' + repr(str(tmp_path / 'download-argv.json')) + ').write_text(json.dumps(sys.argv[1:]))\n' +
+        ('raise SystemExit(7)\n' if fault == 'download_failure' else '') +
+        'shutil.copytree(' + repr(str(incoming)) + ', expected[-1], dirs_exist_ok=True, symlinks=True)\n')
+    stub.chmod(0o755)
+    env = {'PATH': str(bindir) + ':/usr/bin:/bin', 'HOME': str(tmp_path), 'LANG': 'C', 'LC_ALL': 'C',
+           'GITHUB_WORKSPACE': str(root), 'RUNNER_TEMP': str(runner), 'GITHUB_RUN_ID': '10001',
+           'GITHUB_RUN_ATTEMPT': '1', 'GITHUB_REPOSITORY': 'example/step5c'}
+    body = doc['jobs']['release_grade_recorded_path']['steps'][3]['run']
+    result = subprocess.run(['/bin/bash', '-c', body], cwd=root, env=env, stdin=subprocess.DEVNULL,
+                            capture_output=True, timeout=30)
+    assert json.loads((tmp_path / 'download-argv.json').read_text()) == expected
+    if fault is not None:
+        assert result.returncode != 0
+        if fault != 'download_failure': assert b'::error::' in result.stdout
+        if fault == 'missing_floor':
+            # The historical restore is not transactional. Earlier copies may
+            # remain after failure; this is not a successfully accepted capsule.
+            assert (root / (base + 'status.json')).read_bytes() == before[base + 'status.json']
+    else:
+        assert result.returncode == 0, result.stderr
+        restored = {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob('*') if p.is_file()}
+        names = [shlex.split(line)[1] for line in body.splitlines() if line.startswith('copy_required_artifact "')]
+        assert restored == {base + name: before[base + name] for name in names}
+        hashes = {line.split(None, 1)[1].strip(): line.split(None, 1)[0]
+                  for line in result.stdout.decode().splitlines()}
+        assert hashes == {str(root / relative): digest(raw) for relative, raw in restored.items()}
+        assert len(restored) == 7 and not (root / (base + 'external')).exists()
+
+
+def test_preattest_mapping_does_not_promote_runtime_completion(source_fixture):
+    assert len(source_fixture.plan['state_templates']) == 62 and len(source_fixture.plan['source_inventory']) == 53
+    assert len(prepared_fixture_members(source_fixture)) == 58
+    assert 'evidence_profile' not in source_fixture.plan
+    assert source_fixture.plan['authority_boundary']['authority_effect'] == 'none'
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
+
+
 class _CompleteProgramGuard:
     """Direct-script CI execution must collect and finish the complete program."""
     def __init__(self):

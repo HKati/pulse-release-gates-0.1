@@ -2440,6 +2440,107 @@ def _install_baseline_floor_projection(states: list[dict[str, Any]], steps: dict
         row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
 
 
+# Selected pre-attestation preservation. Source selectors are not observed
+# member receipts, and restoring content does not create a new content origin.
+_PRESERVATION_ARCHIVE_ROLE = "pre-attestation-pulse-artifacts"
+_PRESERVATION_RUNNER_FLAGS = (
+    "--repo-root", "--dataset", "--raw-out", "--manifest-out", "--manifest-schema",
+    "--model-revision", "--token-env", "--repository", "--git-sha", "--run-key",
+    "--workflow-ref", "--release-candidate", "--created-utc", "--torch-threads", "--max-new-tokens",
+)
+
+
+def _preattest_preservation_source_projection(workflow: dict[str, Any], sources: dict[str, GitObject]) -> dict[str, Any]:
+    """Derive upload membership and the bounded restore/copy input equations."""
+    obj = sources.get(SUBJECT_WORKFLOW_PATH)
+    _require(obj is not None and obj.path == SUBJECT_WORKFLOW_PATH, "preservation_mapping_source_missing")
+    _require(_sha1_git_blob(obj.data) == EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1, "preservation_mapping_source_drift")
+    _require(workflow == _parse_yaml_document(obj.data, label=SUBJECT_WORKFLOW_PATH), "preservation_mapping_workflow_drift")
+    floor = _baseline_floor_source_projection(workflow, sources)
+    pulse = workflow["jobs"]["pulse"]["steps"]
+    restore = workflow["jobs"][_RECORDED_JOB]["steps"][3]
+    upload = pulse[36]
+    _require(upload["uses"].startswith("actions/upload-artifact@")
+             and upload["with"]["if-no-files-found"] == "error", "preservation_mapping_upload_profile")
+    selected = {role: locator for role, locator in floor["locators"].items()
+                if role not in {"gate-policy", "gate-registry"}}
+    runner = _recorded_argv(pulse[21], LLAMAGUARD_RUNNER_PATH, set(_PRESERVATION_RUNNER_FLAGS))[0]
+    selected["llamaguard-raw-evidence"] = _mapping_path(runner["--raw-out"])
+    selected["llamaguard-evaluator-manifest"] = _mapping_path(runner["--manifest-out"])
+    selected["llamaguard-summary"] = _mapping_assignment(pulse[22], "SUMMARY")
+    # There is no state role for three additional source-selected files in the
+    # current graph. Retain those selectors as unresolved extent, not as claims
+    # that the seven selected local roles exhaust this artifact's contents.
+    upload_paths = [_mapping_path(line) for line in upload["with"]["path"].splitlines()]
+    physical = {locator.split("#", 1)[0]: role for role, locator in selected.items()}
+    _require(len(physical) == len(selected) == 7 and len(upload_paths) == len(set(upload_paths)) == 10
+             and set(physical) <= set(upload_paths), "preservation_mapping_upload_members")
+    download_dir = _mapping_assignment(restore, "DOWNLOAD_DIR", symbolic_temp=True)
+    canonical_dir = _mapping_assignment(restore, "CANONICAL_ARTIFACTS")
+    download = _package_commands(restore, ("gh", "run", "download", "${GITHUB_RUN_ID}"),
+                                 {"--repo", "--name", "--dir"})
+    _require(len(download) == 1 and download[0]["--repo"] == "${GITHUB_REPOSITORY}"
+             and download[0]["--dir"] == "${DOWNLOAD_DIR}", "preservation_mapping_download_context")
+    archive_name = _package_artifact_name(upload["with"]["name"])
+    downloaded_name = download[0]["--name"].replace("${GITHUB_RUN_ID}", "{workflow_run_id}").replace("${GITHUB_RUN_ATTEMPT}", "1")
+    _require(downloaded_name == archive_name, "preservation_mapping_archive_identity")
+    body = restore["run"]
+    copies = [shlex.split(line)[1] for line in body.splitlines() if line.startswith('copy_required_artifact "')]
+    _require(len(copies) == len(set(copies)) == 7
+             and all(re.fullmatch(r"[A-Za-z0-9_.-]+", name) for name in copies), "preservation_mapping_restore_members")
+    _require('local name="$1"' in body and 'cp "${src}" "${CANONICAL_ARTIFACTS}/${name}"' in body
+             and 'find "${DOWNLOAD_DIR}" -type f -name "${name}" | head -n 1 || true' in body,
+             "preservation_mapping_copy_source")
+    restored_paths = [_mapping_path(canonical_dir + "/" + name) for name in copies]
+    loops = re.findall(r"^for artifact in (.*?)^do$", body, re.M | re.S)
+    _require(len(loops) == 1, "preservation_mapping_hash_loop")
+    hashed_paths = [_mapping_path(word.replace("${CANONICAL_ARTIFACTS}/", canonical_dir + "/"))
+                    for word in shlex.split(loops[0].replace("\\\n", " "))]
+    _require(hashed_paths == restored_paths and 'sha256sum "${artifact}"' in body
+             and '! -f "${artifact}" || -L "${artifact}" || ! -s "${artifact}"' in body,
+             "preservation_mapping_restore_hash")
+    _require(set(restored_paths) <= set(upload_paths), "preservation_mapping_restore_not_uploaded")
+    restored_roles = sorted(physical[path] for path in restored_paths if path in physical)
+    _require(len(restored_roles) == 4 and "pre-materialization-status" in restored_roles,
+             "preservation_mapping_restore_role_extent")
+    publish_id, restore_id = _step_id("pulse", 37), _step_id(_RECORDED_JOB, 4)
+    origins = {"pre-materialization-status": _step_id("pulse", 13),
+               "required-gate-evidence": _step_id("pulse", 11), **floor["producers"],
+               "llamaguard-raw-evidence": _step_id("pulse", 22),
+               "llamaguard-evaluator-manifest": _step_id("pulse", 22),
+               "llamaguard-summary": _step_id("pulse", 23), _PRESERVATION_ARCHIVE_ROLE: publish_id}
+    return {"locators": {**selected, _PRESERVATION_ARCHIVE_ROLE: "artifact://" + archive_name},
+            "origins": origins, "upload_paths": sorted(upload_paths), "restored_paths": sorted(restored_paths),
+            "unmodeled_upload_paths": sorted(set(upload_paths) - set(physical)),
+            "unmodeled_restore_paths": sorted(set(restored_paths) - set(physical)),
+            "download_directory": download_dir,
+            "steps": {publish_id: {"inputs": sorted(selected), "outputs": [_PRESERVATION_ARCHIVE_ROLE]},
+                      restore_id: {"inputs": sorted([_PRESERVATION_ARCHIVE_ROLE, *restored_roles]), "outputs": []}}}
+
+
+def _install_preattest_preservation_projection(states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any]) -> None:
+    """Bind only P37 and R4; retain every local content origin and outside duty."""
+    by_role = {row["state_id"].removeprefix("state:step5c:"): row for row in states}
+    for role, locator in facts["locators"].items():
+        _require(role in by_role and by_role[role]["path_or_uri"] == locator,
+                 "preservation_mapping_input_locator", role)
+        _require(by_role[role]["producer_occurrence_id"] == facts["origins"][role],
+                 "preservation_mapping_input_origin", role)
+    owned = set(facts["steps"])
+    for row in states:
+        row["required_consumer_occurrence_ids"] = [oid for oid in row["required_consumer_occurrence_ids"] if oid not in owned]
+    for step in steps.values():
+        oid = step["occurrence_id"]
+        if oid not in owned:
+            continue
+        for field, direction in (("input_state_ids", "inputs"), ("output_state_ids", "outputs")):
+            step[field] = sorted("state:step5c:" + role for role in facts["steps"][oid][direction])
+        for role in facts["steps"][oid]["inputs"]:
+            _append_unique(by_role[role]["required_consumer_occurrence_ids"], oid)
+    for row in states:
+        row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -2453,6 +2554,7 @@ def _build_states(
     bundle_projection = _bundle_source_projection(source_workflow, source_by_path)
     binding_projection = _provenance_source_projection(source_workflow, source_by_path)
     baseline_floor_projection = _baseline_floor_source_projection(source_workflow, source_by_path)
+    preservation_projection = _preattest_preservation_source_projection(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -2983,6 +3085,7 @@ def _build_states(
     _install_bundle_source_projection(states, step_by_key, bundle_projection)
     _install_provenance_source_projection(states, step_by_key, binding_projection)
     _install_baseline_floor_projection(states, step_by_key, baseline_floor_projection)
+    _install_preattest_preservation_projection(states, step_by_key, preservation_projection)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph

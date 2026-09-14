@@ -1718,16 +1718,21 @@ def _verify_source_recorded_equations(plan: dict[str, Any], workflow: dict[str, 
              and pre in steps[facts["pre_status_restore"]]["input_state_ids"]
              and facts["pre_status_restore"] in states[pre]["required_consumer_occurrence_ids"],
              "recorded_mapping_status_origin_mismatch")
-    # Close the full role surface across both reviewed families. The pre-status
-    # is also read by the source-derived baseline/floor steps; never accept
+    # Close the full role surface across the reviewed families. The pre-status
+    # also has source-derived baseline/floor and preservation reads; never accept
     # arbitrary outside readers merely because they are outside R6-R12.
     floor_facts = _source_baseline_floor_expectations(workflow, source_by_path)
+    preservation_facts = _source_preattest_preservation_expectations(workflow, source_by_path)
     for role in ("pre-materialization-status", "recorded-release-candidate-envelopes"):
         expected_consumers = {oid for oid, eq in facts["steps"].items() if role in eq["inputs"]}
         if role == "pre-materialization-status":
             expected_consumers.add(facts["pre_status_restore"])
             expected_consumers.update(
                 oid for oid, eq in floor_facts["steps"].items()
+                if role in eq["inputs"]
+            )
+            expected_consumers.update(
+                oid for oid, eq in preservation_facts["steps"].items()
                 if role in eq["inputs"]
             )
         role_id = sid(role)
@@ -2690,6 +2695,147 @@ def _verify_source_baseline_floor_equations(plan: dict[str, Any], workflow: dict
         _require(actual_readers == steps[oid]["input_state_ids"], "floor_mapping_reverse_inputs_mismatch", oid)
 
 
+# Selected pre-attestation preservation. Source selectors are not observed
+# member receipts, and restoring content does not create a new content origin.
+_PRESERVATION_ARCHIVE_ROLE = "pre-attestation-pulse-artifacts"
+_PRESERVATION_RUNNER_FLAGS = (
+    "--repo-root", "--dataset", "--raw-out", "--manifest-out", "--manifest-schema",
+    "--model-revision", "--token-env", "--repository", "--git-sha", "--run-key",
+    "--workflow-ref", "--release-candidate", "--created-utc", "--torch-threads", "--max-new-tokens",
+)
+
+
+def _source_preattest_preservation_expectations(workflow: dict[str, Any], sources: dict[str, GitObject]) -> dict[str, Any]:
+    """Check the restore hash extent back against publication and source paths."""
+    source = sources.get(SUBJECT_WORKFLOW_PATH)
+    _require(source is not None and source.path == SUBJECT_WORKFLOW_PATH, "preservation_mapping_source_missing")
+    _require(_sha1_git_blob(source.data) == EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1, "preservation_mapping_source_drift")
+    _require(_parse_yaml_document(source.data, label=SUBJECT_WORKFLOW_PATH) == workflow,
+             "preservation_mapping_workflow_drift")
+    pulse = workflow["jobs"]["pulse"]["steps"]
+    restored = workflow["jobs"][_RECORDED_SEMANTIC_JOB]["steps"][3]
+    body = restored["run"]
+    directory = _checked_mapping_export(restored, "CANONICAL_ARTIFACTS")
+    download_directory = _checked_mapping_export(restored, "DOWNLOAD_DIR", allow_temp=True)
+    # Start at the digest loop, not the builder's list of copy invocations.
+    headers = [line for line in body.replace("\\\n", " ").splitlines() if line.startswith("for artifact in ")]
+    _require(len(headers) == 1, "preservation_mapping_hash_loop")
+    paths = [_checked_mapping_path(word.replace("${CANONICAL_ARTIFACTS}/", directory + "/"))
+             for word in shlex.split(headers[0])[3:]]
+    names = re.findall(r'^copy_required_artifact "([A-Za-z0-9_.-]+)"$', body, re.M)
+    _require(len(paths) == len(set(paths)) == len(names) == len(set(names)) == 7
+             and paths == [directory + "/" + name for name in names], "preservation_mapping_restore_members")
+    copy_function = re.search(r"^copy_required_artifact \(\) \{\n(.*?)^\}", body, re.M | re.S)
+    _require(copy_function is not None and 'local name="$1"' in copy_function.group(1)
+             and re.findall(r'^  cp (.*)$', copy_function.group(1), re.M) == ['"${src}" "${CANONICAL_ARTIFACTS}/${name}"']
+             and 'find "${DOWNLOAD_DIR}" -type f -name "${name}" | head -n 1 || true' in copy_function.group(1),
+             "preservation_mapping_copy_source")
+    _require('if [[ ! -f "${artifact}" || -L "${artifact}" || ! -s "${artifact}" ]]; then' in body
+             and re.findall(r'^  sha256sum (.*)$', body, re.M) == ['"${artifact}"'], "preservation_mapping_restore_hash")
+    downloads = [shlex.split(line) for line in body.replace("\\\n", " ").splitlines()
+                 if line.startswith("gh run download ")]
+    _require(len(downloads) == 1 and len(downloads[0]) == 10
+             and downloads[0][:4] == ["gh", "run", "download", "${GITHUB_RUN_ID}"], "preservation_mapping_download_context")
+    opts = dict(zip(downloads[0][4::2], downloads[0][5::2]))
+    _require(set(opts) == {"--repo", "--name", "--dir"} and opts["--repo"] == "${GITHUB_REPOSITORY}"
+             and opts["--dir"] == "${DOWNLOAD_DIR}", "preservation_mapping_download_context")
+    upload = pulse[36]
+    _require(str(upload.get("uses", "")).startswith("actions/upload-artifact@")
+             and upload["with"]["if-no-files-found"] == "error", "preservation_mapping_upload_profile")
+    supplied = [_checked_mapping_path(line) for line in upload["with"]["path"].splitlines()]
+    _require(len(supplied) == len(set(supplied)) == 10 and set(paths) <= set(supplied),
+             "preservation_mapping_upload_members")
+    name = opts["--name"].replace("${GITHUB_RUN_ID}", "{workflow_run_id}").replace("${GITHUB_RUN_ATTEMPT}", "1")
+    _require(name == _package_artifact_name(upload["with"]["name"]), "preservation_mapping_archive_identity")
+    floor = _source_baseline_floor_expectations(workflow, sources)
+    local = {role: floor["locators"][role] for role in
+             ("pre-materialization-status", "status-baseline", "required-gate-evidence", "self-contained-evidence-floor")}
+    runner = _recorded_source_commands(pulse[21], LLAMAGUARD_RUNNER_PATH, _PRESERVATION_RUNNER_FLAGS)[0]
+    summary_flags = ("--repo-root", "--in", "--dataset", "--evaluator-manifest", "--out", "--schema", "--thresholds",
+                     "--run-id", "--generated-at", "--release-candidate", "--git-sha", "--repository", "--signer-identity", "--tool-version")
+    summary = _recorded_source_commands(pulse[22], "PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py", summary_flags)[0]
+    external = {"llamaguard-raw-evidence": _checked_mapping_path(summary["--in"]),
+                "llamaguard-evaluator-manifest": _checked_mapping_path(summary["--evaluator-manifest"]),
+                "llamaguard-summary": _checked_mapping_path(summary["--out"])}
+    _require(external["llamaguard-raw-evidence"] == _checked_mapping_path(runner["--raw-out"])
+             and external["llamaguard-evaluator-manifest"] == _checked_mapping_path(runner["--manifest-out"])
+             and external["llamaguard-summary"] == _checked_mapping_export(pulse[22], "SUMMARY"),
+             "preservation_mapping_external_handoff")
+    local.update(external)
+    physical = {locator.split("#", 1)[0]: role for role, locator in local.items()}
+    _require(len(physical) == len(local) == 7 and set(physical) <= set(supplied), "preservation_mapping_upload_members")
+    readers = sorted(physical[path] for path in paths if path in physical)
+    _require(len(readers) == 4 and "pre-materialization-status" in readers, "preservation_mapping_restore_role_extent")
+    publisher, restorer = _step_id("pulse", 37), _step_id(_RECORDED_SEMANTIC_JOB, 4)
+    return {"locators": {**local, _PRESERVATION_ARCHIVE_ROLE: "artifact://" + name},
+            "origins": {"pre-materialization-status": _step_id("pulse", 13),
+                        "required-gate-evidence": _step_id("pulse", 11), **floor["producers"],
+                        "llamaguard-raw-evidence": _step_id("pulse", 22),
+                        "llamaguard-evaluator-manifest": _step_id("pulse", 22),
+                        "llamaguard-summary": _step_id("pulse", 23), _PRESERVATION_ARCHIVE_ROLE: publisher},
+            "upload_paths": sorted(supplied), "restored_paths": sorted(paths),
+            "unmodeled_upload_paths": sorted(set(supplied) - set(physical)),
+            "unmodeled_restore_paths": sorted(set(paths) - set(physical)),
+            "download_directory": download_directory,
+            "steps": {publisher: {"inputs": sorted(local), "outputs": [_PRESERVATION_ARCHIVE_ROLE]},
+                      restorer: {"inputs": sorted([_PRESERVATION_ARCHIVE_ROLE, *readers]), "outputs": []}}}
+
+
+def _install_preattest_preservation_projection(states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any]) -> None:
+    """Bind only P37 and R4; retain every local content origin and outside duty."""
+    by_role = {row["state_id"].removeprefix("state:step5c:"): row for row in states}
+    for role, locator in facts["locators"].items():
+        _require(role in by_role and by_role[role]["path_or_uri"] == locator,
+                 "preservation_mapping_input_locator", role)
+        _require(by_role[role]["producer_occurrence_id"] == facts["origins"][role],
+                 "preservation_mapping_input_origin", role)
+    owned = set(facts["steps"])
+    for row in states:
+        row["required_consumer_occurrence_ids"] = [oid for oid in row["required_consumer_occurrence_ids"] if oid not in owned]
+    for step in steps.values():
+        oid = step["occurrence_id"]
+        if oid not in owned:
+            continue
+        for field, direction in (("input_state_ids", "inputs"), ("output_state_ids", "outputs")):
+            step[field] = sorted("state:step5c:" + role for role in facts["steps"][oid][direction])
+        for role in facts["steps"][oid]["inputs"]:
+            _append_unique(by_role[role]["required_consumer_occurrence_ids"], oid)
+    for row in states:
+        row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
+
+
+def _verify_source_preattest_preservation_equations(plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject]) -> None:
+    """Check submitted preservation relationships before reconstruction equality."""
+    facts = _source_preattest_preservation_expectations(workflow, sources)
+    states = {row["state_id"].removeprefix("state:step5c:"): row for row in plan["state_templates"]}
+    _require(len(states) == len(plan["state_templates"]), "preservation_mapping_duplicate_role")
+    occurrences = [step for job in plan["jobs"] for step in job["steps"]]
+    steps = {step["occurrence_id"]: step for step in occurrences}
+    _require(len(steps) == len(occurrences), "preservation_mapping_duplicate_step")
+    for role, locator in facts["locators"].items():
+        _require(role in states, "preservation_mapping_role_missing", role)
+        row = states[role]
+        _require(row["path_or_uri"] == locator, "preservation_mapping_locator_mismatch", role)
+        _require(row["required"] is True and row["content_requirement"] == "exact_digest"
+                 and row["authority_bearing"] is True and row["mutation_class"] == "none",
+                 "preservation_mapping_requirement_mismatch", role)
+        _require(row["producer_occurrence_id"] == facts["origins"][role], "preservation_mapping_origin_mismatch", role)
+        _require([oid for oid, step in steps.items() if row["state_id"] in step["output_state_ids"]]
+                 == [facts["origins"][role]], "preservation_mapping_writer_set_mismatch", role)
+    for oid, equation in facts["steps"].items():
+        _require(oid in steps, "preservation_mapping_step_missing", oid)
+        for field, direction in (("input_state_ids", "inputs"), ("output_state_ids", "outputs")):
+            expected = sorted("state:step5c:" + role for role in equation[direction])
+            _require(steps[oid][field] == expected, "preservation_mapping_step_io_mismatch", oid + ":" + direction)
+        _require(sorted(row["state_id"] for row in states.values() if oid in row["required_consumer_occurrence_ids"])
+                 == steps[oid]["input_state_ids"], "preservation_mapping_reverse_inputs_mismatch", oid)
+    archive = states[_PRESERVATION_ARCHIVE_ROLE]
+    archive_readers = sorted(oid for oid, eq in facts["steps"].items() if _PRESERVATION_ARCHIVE_ROLE in eq["inputs"])
+    _require(archive["required_consumer_occurrence_ids"] == archive_readers
+             and sorted(oid for oid, step in steps.items() if archive["state_id"] in step["input_state_ids"]) == archive_readers,
+             "preservation_mapping_archive_readers_mismatch")
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -2703,6 +2849,7 @@ def _build_states(
     bundle_projection = _source_bundle_expectations(source_workflow, source_by_path)
     binding_projection = _source_provenance_expectations(source_workflow, source_by_path)
     baseline_floor_projection = _source_baseline_floor_expectations(source_workflow, source_by_path)
+    preservation_projection = _source_preattest_preservation_expectations(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -3233,6 +3380,7 @@ def _build_states(
     _apply_bundle_source_expectations(states, step_by_key, bundle_projection)
     _install_provenance_source_projection(states, step_by_key, binding_projection)
     _install_baseline_floor_projection(states, step_by_key, baseline_floor_projection)
+    _install_preattest_preservation_projection(states, step_by_key, preservation_projection)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph
@@ -3844,6 +3992,9 @@ def check_plan(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_source_baseline_floor_equations(
+        plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
+    )
+    _verify_source_preattest_preservation_equations(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_tool_identity(
