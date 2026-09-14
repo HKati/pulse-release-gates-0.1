@@ -1743,6 +1743,11 @@ def _verify_source_recorded_equations(plan: dict[str, Any], workflow: dict[str, 
                 oid for oid, eq in postcondition_facts["steps"].items()
                 if role in eq["inputs"]
             )
+        else:
+            publication = _source_recorded_publication_selectors(workflow, source_by_path)
+            _require(publication["tree_selectors"] == [facts["locators"][role] + "**"],
+                     "recorded_publication_tree_selector_mismatch")
+            expected_consumers.add(publication["occurrence_id"])
         role_id = sid(role)
         _require(set(states[role_id]["required_consumer_occurrence_ids"]) == expected_consumers
                  and {oid for oid, step in steps.items() if role_id in step["input_state_ids"]} == expected_consumers,
@@ -3621,6 +3626,149 @@ def _verify_source_final_artifact_postcondition_equations(
              == steps[oid]["input_state_ids"], "final_postcondition_reverse_inputs_mismatch")
 
 
+
+# R33's declaration is not the acquired artifact or an observed member list.
+def _source_recorded_publication_selectors(
+    workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> dict[str, Any]:
+    source = sources.get(SUBJECT_WORKFLOW_PATH)
+    _require(source is not None and source.path == SUBJECT_WORKFLOW_PATH,
+             "recorded_publication_source_missing")
+    _require(_sha1_git_blob(source.data) == EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1,
+             "recorded_publication_source_drift")
+    _require(_parse_yaml_document(source.data, label=SUBJECT_WORKFLOW_PATH) == workflow,
+             "recorded_publication_workflow_drift")
+    job = "release_grade_recorded_path"
+    uploads = [(n, step) for n, step in enumerate(workflow["jobs"][job]["steps"], 1)
+               if step.get("name") == "Upload release-grade recorded path artifacts"]
+    _require(len(uploads) == 1 and uploads[0][0] == 33, "recorded_publication_step_profile")
+    number, upload = uploads[0]
+    _require(sorted(upload) == ["name", "uses", "with"]
+             and upload.get("uses") == "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+             "recorded_publication_action_profile")
+    fields = upload["with"]
+    _require(sorted(fields) == ["if-no-files-found", "name", "path", "retention-days"]
+             and fields.get("retention-days") == "30" and fields.get("if-no-files-found") == "error"
+             and fields.get("name") == "release-grade-recorded-path-${{ github.run_id }}-${{ github.run_attempt }}",
+             "recorded_publication_options_profile")
+    parsed = []
+    for line in fields["path"].splitlines():
+        match = re.fullmatch(r"(?P<path>PULSE_safe_pack_v0/[A-Za-z0-9_./-]+?)(?P<glob>/\*\*)?", line)
+        _require(match is not None, "recorded_publication_selector_alias")
+        physical = _checked_mapping_path(match.group("path"))
+        parsed.append((physical, bool(match.group("glob"))))
+    ordered = [path + ("/**" if tree else "") for path, tree in parsed]
+    trees = [path + "/**" for path, tree in parsed if tree]
+    files = [path for path, tree in parsed if not tree]
+    _require(len(set(ordered)) == len(ordered) == 27 and len(trees) == 1 and len(files) == 26,
+             "recorded_publication_selector_extent")
+    return {"occurrence_id": _step_id(job, number), "action_uses": upload["uses"],
+            "artifact_name_template": fields["name"], "ordered_selectors": ordered,
+            "exact_file_selectors": files, "tree_selectors": trees,
+            "if_no_files_found": fields["if-no-files-found"], "retention_days": 30}
+
+
+def _source_recorded_publication_expectations(
+    workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> dict[str, Any]:
+    """Resolve each exact file/tree selector through independently read sources."""
+    selectors = _source_recorded_publication_selectors(workflow, sources)
+    final = _source_final_artifact_postcondition_expectations(workflow, sources)
+    floor = _source_baseline_floor_expectations(workflow, sources)
+    records = _source_recorded_expectations(workflow, sources)
+    floor_role, tree_role = "self-contained-evidence-floor", "recorded-release-candidate-envelopes"
+    candidate_root = records["locators"][tree_role]
+    _require(candidate_root.endswith("/") and selectors["tree_selectors"] == [candidate_root + "**"],
+             "recorded_publication_tree_selector_mismatch")
+    extra_files = set(selectors["exact_file_selectors"]) - set(final["checked_paths"])
+    _require(extra_files == {floor["locators"][floor_role]}
+             and set(final["checked_paths"]) <= set(selectors["exact_file_selectors"]),
+             "recorded_publication_file_correspondence")
+    families = [final["locators"], {floor_role: floor["locators"][floor_role]}]
+    locators, origins, role_selectors = {}, {}, {}
+    for path in selectors["exact_file_selectors"]:
+        matches = [(role, locator) for family in families for role, locator in family.items() if locator == path]
+        _require(len(matches) <= 1, "recorded_publication_selected_extent", path)
+        if matches:
+            role, locator = matches[0]
+            _require(role not in locators, "recorded_publication_selected_extent", role)
+            locators[role] = role_selectors[role] = locator
+            if role in final["origins"]:
+                origins[role] = final["origins"][role]
+            else:
+                writers = {oid for oid, eq in floor["steps"].items() if role in eq["outputs"]}
+                _require(len(writers) == 1, "recorded_publication_source_origin_extent", role)
+                origins[role] = writers.pop()
+    locators[tree_role] = candidate_root
+    role_selectors[tree_role] = selectors["tree_selectors"][0]
+    writers = {oid for oid, eq in records["steps"].items() if tree_role in eq["outputs"]}
+    _require(len(writers) == 1, "recorded_publication_source_origin_extent", tree_role)
+    origins[tree_role] = writers.pop()
+    _require(len(locators) == len(origins) == len(set(role_selectors.values())) == 23,
+             "recorded_publication_selected_extent")
+    unmodeled = sorted(path for path in selectors["exact_file_selectors"] if path not in locators.values())
+    _require(unmodeled == final["unmodeled_checked_paths"], "recorded_publication_unmodeled_extent")
+    return {**selectors, "locators": locators, "origins": origins, "role_selectors": role_selectors,
+            "unmodeled_file_selectors": unmodeled, "publication_only_roles": sorted([floor_role, tree_role]),
+            "read_basis": "source_declared_publication_input", "observed_read_receipt": False,
+            "archive_membership_observed": False, "semantic_content_admission": False,
+            "steps": {selectors["occurrence_id"]: {"inputs": sorted(locators), "outputs": []}}}
+
+
+def _install_recorded_publication_projection(
+    states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any],
+) -> None:
+    """Reconstruct selected upload dependencies, retaining every state duty."""
+    oid = facts["occurrence_id"]
+    step = steps[("release_grade_recorded_path", 33)]
+    _require(step["occurrence_id"] == oid and not step["output_state_ids"],
+             "recorded_publication_not_a_content_writer")
+    indexed = {row["state_id"]: row for row in states}
+    for role in facts["locators"]:
+        sid = "state:step5c:" + role
+        _require(sid in indexed and indexed[sid]["path_or_uri"] == facts["locators"][role],
+                 "recorded_publication_input_locator", role)
+        _require(indexed[sid]["producer_occurrence_id"] == facts["origins"][role],
+                 "recorded_publication_input_origin", role)
+    step["input_state_ids"] = sorted("state:step5c:" + role for role in facts["locators"])
+    for row in states:
+        readers = {reader for reader in row["required_consumer_occurrence_ids"] if reader != oid}
+        if row["state_id"] in step["input_state_ids"]:
+            readers.add(oid)
+        row["required_consumer_occurrence_ids"] = sorted(readers)
+
+
+def _verify_source_recorded_publication_equations(
+    plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> None:
+    """Reject false publication inputs even when both constructors agree."""
+    facts = _source_recorded_publication_expectations(workflow, sources)
+    states = {row["state_id"].removeprefix("state:step5c:"): row for row in plan["state_templates"]}
+    _require(len(states) == len(plan["state_templates"]), "recorded_publication_duplicate_role")
+    occurrences = [step for job in plan["jobs"] for step in job["steps"]]
+    steps = {step["occurrence_id"]: step for step in occurrences}
+    _require(len(steps) == len(occurrences), "recorded_publication_duplicate_step")
+    for role, path in facts["locators"].items():
+        _require(role in states, "recorded_publication_role_missing", role)
+        row = states[role]
+        _require(row["path_or_uri"] == path, "recorded_publication_locator_mismatch", role)
+        _require(row["producer_occurrence_id"] == facts["origins"][role],
+                 "recorded_publication_origin_mismatch", role)
+        mutation = {"final-status": "final_status", "release-decision": "release_decision"}.get(role, "none")
+        authority = role not in ("release-grade-junit", "release-grade-sarif")
+        _require(row["required"] is True and row["content_requirement"] == "exact_digest"
+                 and row["authority_bearing"] is authority and row["mutation_class"] == mutation,
+                 "recorded_publication_duty_mismatch", role)
+        writers = {oid for oid, step in steps.items() if row["state_id"] in step["output_state_ids"]}
+        _require(writers == {facts["origins"][role]}, "recorded_publication_writer_mismatch", role)
+    oid = facts["occurrence_id"]
+    _require(oid in steps, "recorded_publication_step_missing")
+    _require(steps[oid]["input_state_ids"] == sorted("state:step5c:" + role for role in facts["locators"])
+             and steps[oid]["output_state_ids"] == [], "recorded_publication_step_io_mismatch")
+    _require(sorted(row["state_id"] for row in states.values() if oid in row["required_consumer_occurrence_ids"])
+             == steps[oid]["input_state_ids"], "recorded_publication_reverse_inputs_mismatch")
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -3640,6 +3788,7 @@ def _build_states(
     llamaguard_production = _source_llamaguard_production_expectations(source_workflow, source_by_path)
     pre_attestation_postcondition = _source_pre_attestation_postcondition_expectations(source_workflow, source_by_path)
     final_artifact_postcondition = _source_final_artifact_postcondition_expectations(source_workflow, source_by_path)
+    recorded_publication = _source_recorded_publication_expectations(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -4173,6 +4322,7 @@ def _build_states(
     _install_llamaguard_production_projection(states, step_by_key, llamaguard_production)
     _install_pre_attestation_postcondition_projection(states, step_by_key, pre_attestation_postcondition)
     _install_final_artifact_postcondition_projection(states, step_by_key, final_artifact_postcondition)
+    _install_recorded_publication_projection(states, step_by_key, recorded_publication)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph
@@ -4802,6 +4952,9 @@ def check_plan(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_source_final_artifact_postcondition_equations(
+        plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
+    )
+    _verify_source_recorded_publication_equations(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_tool_identity(
