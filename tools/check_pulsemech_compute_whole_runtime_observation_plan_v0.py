@@ -1748,6 +1748,10 @@ def _verify_source_recorded_equations(plan: dict[str, Any], workflow: dict[str, 
             _require(publication["tree_selectors"] == [facts["locators"][role] + "**"],
                      "recorded_publication_tree_selector_mismatch")
             expected_consumers.add(publication["occurrence_id"])
+            report = _source_report_publication_selectors(workflow, source_by_path)
+            _require(_report_publication_covers_locator(report["artifact_tree_root"], facts["locators"][role]),
+                     "report_publication_candidate_selector_mismatch")
+            expected_consumers.add(report["occurrence_id"])
         role_id = sid(role)
         _require(set(states[role_id]["required_consumer_occurrence_ids"]) == expected_consumers
                  and {oid for oid, step in steps.items() if role_id in step["input_state_ids"]} == expected_consumers,
@@ -2546,14 +2550,20 @@ def _verify_source_provenance_equations(plan: dict[str, Any], workflow: dict[str
     sid = "state:step5c:" + _PROVENANCE_ROLE
     _require(sid in states and facts["producer"] in steps, "provenance_mapping_role_missing")
     binding = states[sid]
+    # Extend this formerly closed family only by the independently checked
+    # R31 tree selector. Arbitrary additional consumers remain rejected.
+    report = _source_report_publication_selectors(workflow, sources)
+    _require(_report_publication_covers_locator(report["artifact_tree_root"], facts["locator"]),
+             "report_publication_provenance_selector_mismatch")
+    expected_consumers = sorted(set(facts["consumers"]) | {report["occurrence_id"]})
     _require(binding["path_or_uri"] == facts["locator"], "provenance_mapping_locator_mismatch")
     _require(binding["producer_occurrence_id"] == facts["producer"], "provenance_mapping_producer_mismatch")
-    _require(binding["required_consumer_occurrence_ids"] == facts["consumers"], "provenance_mapping_consumers_mismatch")
+    _require(binding["required_consumer_occurrence_ids"] == expected_consumers, "provenance_mapping_consumers_mismatch")
     _require(binding["required"] is True and binding["content_requirement"] == "exact_digest"
              and binding["state_type"] == "manifest" and binding["authority_bearing"] is True
              and binding["mutation_class"] == "none"
              and binding["role"] == "final_release_authority_artifact_binding", "provenance_mapping_requirement_mismatch")
-    _require(sorted(oid for oid, step in steps.items() if sid in step["input_state_ids"]) == facts["consumers"],
+    _require(sorted(oid for oid, step in steps.items() if sid in step["input_state_ids"]) == expected_consumers,
              "provenance_mapping_reader_set_mismatch")
     _require([oid for oid, step in steps.items() if sid in step["output_state_ids"]] == [facts["producer"]],
              "provenance_mapping_writer_set_mismatch")
@@ -3893,6 +3903,150 @@ def _verify_source_authority_publication_equations(
                  == inputs, "authority_publication_reverse_inputs_mismatch")
 
 
+def _source_report_publication_selectors(
+    workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> dict[str, Any]:
+    """Extract the pinned R31 publication, independently of the plan builder."""
+    obj = sources.get(SUBJECT_WORKFLOW_PATH)
+    _require(obj is not None and obj.path == SUBJECT_WORKFLOW_PATH,
+             "report_publication_source_missing")
+    digest = hashlib.sha1(b"blob " + str(len(obj.data)).encode() + b"\0" + obj.data).hexdigest()
+    _require(digest == EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1, "report_publication_source_drift")
+    original = _parse_yaml_document(obj.data, label=SUBJECT_WORKFLOW_PATH)
+    _require(original == workflow, "report_publication_workflow_drift")
+    job = "release_grade_recorded_path"
+    matches = [(n, step) for n, step in enumerate(original["jobs"][job]["steps"], 1)
+               if step.get("with", {}).get("name") == "pulse-report"]
+    _require(len(matches) == 1 and matches[0][0] == 31, "report_publication_step_profile")
+    position, step = matches[0]
+    _require(set(step.keys()) == {"name", "uses", "with"}
+             and step["name"] == "Upload final pulse report", "report_publication_action_profile")
+    action, separator, revision = step["uses"].partition("@")
+    _require(action == "actions/upload-artifact" and separator == "@"
+             and revision == "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+             "report_publication_action_profile")
+    opts = step["with"]
+    _require(set(opts) == {"path", "name", "retention-days", "if-no-files-found"}
+             and opts["if-no-files-found"] == "error" and opts["retention-days"] == "30",
+             "report_publication_options_profile")
+    tokens = shlex.split(opts["path"], posix=True, comments=False)
+    _require(tokens == opts["path"].splitlines() and len(tokens) == len(set(tokens)) == 4,
+             "report_publication_selector_profile")
+    parts = [token.split("/") for token in tokens]
+    _require(parts == [["PULSE_safe_pack_v0", "artifacts", "**"], ["badges", "*.svg"],
+                       ["reports", "junit.xml"], ["reports", "sarif.json"]],
+             "report_publication_selector_profile")
+    return {"occurrence_id": _step_id(job, position), "artifact_name": opts["name"],
+            "action_uses": step["uses"], "ordered_selectors": tokens,
+            "artifact_tree_root": "/".join(parts[0][:-1]) + "/",
+            "artifact_tree_selector": tokens[0], "badge_selector": tokens[1],
+            "root_report_selectors": tokens[2:], "if_no_files_found": "error", "retention_days": 30}
+
+
+def _report_publication_covers_locator(root: str, locator: str) -> bool:
+    """Check selected physical-path ancestry, without globbing or alias removal."""
+    if not isinstance(locator, str) or root.split("/") != ["PULSE_safe_pack_v0", "artifacts", ""]:
+        return False
+    parts = locator.split("/")
+    if parts[-1:] == [""]:
+        parts = parts[:-1]
+    if len(parts) < 3 or parts[:2] != ["PULSE_safe_pack_v0", "artifacts"]:
+        return False
+    return all(re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*", part) is not None for part in parts[2:])
+
+
+def _source_report_publication_expectations(
+    workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> dict[str, Any]:
+    """Resolve prior final source roles against R31's selected tree boundary."""
+    selectors = _source_report_publication_selectors(workflow, sources)
+    recorded = _source_recorded_publication_expectations(workflow, sources)
+    bundle = _source_bundle_expectations(workflow, sources)
+    audit = "release-authority-audit-bundle"
+    roles = sorted(set(recorded["locators"]) | {audit})
+    paths: dict[str, str] = {}
+    origins: dict[str, str] = {}
+    for role in roles:
+        path = bundle["locators"][role] if role == audit else recorded["locators"][role]
+        _require(_report_publication_covers_locator(selectors["artifact_tree_root"], path),
+                 "report_publication_selected_locator", role)
+        paths[role] = path
+        origins[role] = bundle["producers"][role] if role == audit else recorded["origins"][role]
+    _require(len(paths) == len(set(paths.values())) == 24, "report_publication_selected_extent")
+    trees = [role for role in roles if paths[role].endswith("/")]
+    _require(trees == ["recorded-release-candidate-envelopes", audit], "report_publication_tree_roles")
+    known_unmodeled = sorted(recorded["unmodeled_file_selectors"])
+    _require(len(known_unmodeled) == 4 and all(
+        _report_publication_covers_locator(selectors["artifact_tree_root"], path)
+        for path in known_unmodeled), "report_publication_unmodeled_extent")
+    _require(all(path not in selectors["root_report_selectors"] for path in paths.values()),
+             "report_publication_root_report_alias")
+    return {**selectors, "locators": paths, "origins": origins,
+            "role_selectors": dict.fromkeys(roles, selectors["artifact_tree_selector"]),
+            "tree_roles": trees, "known_unmodeled_artifact_paths": known_unmodeled,
+            "unmodeled_literal_selectors": selectors["root_report_selectors"][:],
+            "unmodeled_pattern_selectors": [selectors["badge_selector"]],
+            "tree_membership_enumerated": False, "selected_roles_exhaust_source_tree": False,
+            "read_basis": "source_declared_publication_input", "observed_read_receipt": False,
+            "archive_membership_observed": False, "semantic_content_admission": False,
+            "steps": {selectors["occurrence_id"]: {"inputs": roles, "outputs": []}}}
+
+
+def _install_report_publication_projection(
+    states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any],
+) -> None:
+    """Reconstruct selected R31 consumers while keeping their original writers."""
+    selected = sorted("state:step5c:" + role for role in facts["locators"])
+    row = steps[("release_grade_recorded_path", 31)]
+    oid = facts["occurrence_id"]
+    _require(row["occurrence_id"] == oid and not row["output_state_ids"],
+             "report_publication_not_a_content_writer")
+    indexed = {state["state_id"]: state for state in states}
+    for role in facts["locators"]:
+        sid = "state:step5c:" + role
+        _require(sid in indexed and indexed[sid]["path_or_uri"] == facts["locators"][role],
+                 "report_publication_input_locator", role)
+        _require(indexed[sid]["producer_occurrence_id"] == facts["origins"][role],
+                 "report_publication_input_origin", role)
+    row["input_state_ids"] = selected
+    for state in states:
+        remaining = [r for r in state["required_consumer_occurrence_ids"] if r != oid]
+        state["required_consumer_occurrence_ids"] = sorted(set(
+            remaining + ([oid] if state["state_id"] in selected else [])))
+
+
+def _verify_source_report_publication_equations(
+    plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> None:
+    """Check R31 relations against source before canonical reconstruction equality."""
+    facts = _source_report_publication_expectations(workflow, sources)
+    states = {row["state_id"].removeprefix("state:step5c:"): row for row in plan["state_templates"]}
+    _require(len(states) == len(plan["state_templates"]), "report_publication_duplicate_role")
+    occurrences = [step for job in plan["jobs"] for step in job["steps"]]
+    steps = {step["occurrence_id"]: step for step in occurrences}
+    _require(len(steps) == len(occurrences), "report_publication_duplicate_step")
+    for role, path in facts["locators"].items():
+        _require(role in states, "report_publication_role_missing", role)
+        row = states[role]
+        _require(row["path_or_uri"] == path, "report_publication_locator_mismatch", role)
+        _require(row["producer_occurrence_id"] == facts["origins"][role],
+                 "report_publication_origin_mismatch", role)
+        mutation = {"final-status": "final_status", "release-decision": "release_decision"}.get(role, "none")
+        authority = role not in ("release-grade-junit", "release-grade-sarif")
+        _require(row["required"] is True and row["content_requirement"] == "exact_digest"
+                 and row["authority_bearing"] is authority and row["mutation_class"] == mutation,
+                 "report_publication_duty_mismatch", role)
+        _require({oid for oid, step in steps.items() if row["state_id"] in step["output_state_ids"]}
+                 == {facts["origins"][role]}, "report_publication_writer_mismatch", role)
+    oid = facts["occurrence_id"]
+    _require(oid in steps, "report_publication_step_missing")
+    inputs = sorted("state:step5c:" + role for role in facts["locators"])
+    _require(steps[oid]["input_state_ids"] == inputs and steps[oid]["output_state_ids"] == [],
+             "report_publication_step_io_mismatch")
+    _require(sorted(row["state_id"] for row in states.values() if oid in row["required_consumer_occurrence_ids"])
+             == inputs, "report_publication_reverse_inputs_mismatch")
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -3914,6 +4068,7 @@ def _build_states(
     final_artifact_postcondition = _source_final_artifact_postcondition_expectations(source_workflow, source_by_path)
     recorded_publication = _source_recorded_publication_expectations(source_workflow, source_by_path)
     authority_publication = _source_authority_publication_expectations(source_workflow, source_by_path)
+    report_publication = _source_report_publication_expectations(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -4449,6 +4604,7 @@ def _build_states(
     _install_final_artifact_postcondition_projection(states, step_by_key, final_artifact_postcondition)
     _install_recorded_publication_projection(states, step_by_key, recorded_publication)
     _install_authority_publication_projection(states, step_by_key, authority_publication)
+    _install_report_publication_projection(states, step_by_key, report_publication)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph
@@ -5084,6 +5240,9 @@ def check_plan(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_source_authority_publication_equations(
+        plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
+    )
+    _verify_source_report_publication_equations(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_tool_identity(

@@ -4368,7 +4368,7 @@ def test_provenance_content_readers_have_both_references(source_fixture, job, or
 def test_provenance_exact_reader_set_preserves_hash_vs_transfer_distinction(source_fixture):
     states, steps = provenance_rows(source_fixture.plan)
     row = states['artifact-provenance-binding']
-    assert row['required_consumer_occurrence_ids'] == sorted(steps[k]['occurrence_id'] for k in PROVENANCE_READERS)
+    assert row['required_consumer_occurrence_ids'] == sorted(steps[k]['occurrence_id'] for k in [*PROVENANCE_READERS, ('release_grade_recorded_path', 31)])
     assert row['producer_occurrence_id'] == steps[('release_grade_recorded_path', 21)]['occurrence_id']
     assert row['state_id'] not in steps[('assemble_release_grade_reference_package', 4)]['input_state_ids']
     raw = mapping_source_document()['jobs']['attest_release_grade_artifact_binding']['steps'][0]['run']
@@ -6828,6 +6828,267 @@ def test_authority_publication_keeps_other_selectors_and_runtime_boundary(source
         assert states['gate-policy']['state_id'] not in step['input_state_ids']
     r33 = PLAN_CHECKER._source_recorded_publication_expectations(mapping_source_document(), recorded_source_objects)
     assert len(r33['ordered_selectors']) == 27 and len(r33['unmodeled_file_selectors']) == 4
+    assert len(source_fixture.plan['source_inventory']) == 56
+    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
+    assert 'evidence_profile' not in source_fixture.plan
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
+
+
+# R31: selected physical roles under artifacts/**, not observed glob membership.
+_REPORT_PUBLICATION_ROLES = [
+    'artifact-provenance-binding', 'final-status', 'final-status-summary',
+    'llamaguard-attestation-bundle', 'llamaguard-attestation-envelope',
+    'llamaguard-attestation-verifier', 'llamaguard-evaluator-manifest',
+    'llamaguard-raw-evidence', 'llamaguard-summary', 'quality-ledger-final',
+    'recorded-candidate-index', 'recorded-release-candidate-envelopes',
+    'recorded-release-evidence-verifier', 'release-authority-audit-bundle',
+    'release-authority-manifest', 'release-decision', 'release-decision-ledger-section',
+    'release-decision-report', 'release-evidence-input-manifest', 'release-grade-junit',
+    'release-grade-sarif', 'required-gate-evidence', 'self-contained-evidence-floor',
+    'status-baseline',
+]
+
+
+def report_publication_method(side):
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    method = (module._report_publication_source_projection if side == 'builder'
+              else module._source_report_publication_expectations)
+    return module, method
+
+
+@pytest.mark.parametrize('role', _REPORT_PUBLICATION_ROLES)
+def test_report_publication_has_each_selected_physical_input(source_fixture, role):
+    states, steps = provenance_rows(source_fixture.plan)
+    row = steps[('release_grade_recorded_path', 31)]
+    assert states[role]['state_id'] in row['input_state_ids']
+    assert row['occurrence_id'] in states[role]['required_consumer_occurrence_ids']
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_report_publication_preserves_four_selectors_and_unresolved_membership(recorded_source_objects, side):
+    module, method = report_publication_method(side)
+    facts = method(mapping_source_document(), recorded_source_objects)
+    tree = 'PULSE_safe_pack_v0/artifacts/**'
+    assert facts['ordered_selectors'] == [tree, 'badges/*.svg', 'reports/junit.xml', 'reports/sarif.json']
+    assert facts['artifact_name'] == 'pulse-report'
+    assert facts['artifact_tree_root'] == 'PULSE_safe_pack_v0/artifacts/'
+    assert facts['action_uses'] == 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'
+    assert facts['if_no_files_found'] == 'error' and facts['retention_days'] == 30
+    assert sorted(facts['locators']) == _REPORT_PUBLICATION_ROLES
+    assert facts['tree_roles'] == ['recorded-release-candidate-envelopes', 'release-authority-audit-bundle']
+    assert sum(not path.endswith('/') for path in facts['locators'].values()) == 22
+    assert set(facts['role_selectors'].values()) == {tree}
+    assert facts['unmodeled_literal_selectors'] == ['reports/junit.xml', 'reports/sarif.json']
+    assert facts['unmodeled_pattern_selectors'] == ['badges/*.svg']
+    assert facts['known_unmodeled_artifact_paths'] == ['PULSE_safe_pack_v0/artifacts/' + name for name in
+        ['refusal_delta_summary.json', 'status_summary.md', 'status_summary_baseline.json', 'status_summary_baseline.md']]
+    assert facts['locators']['release-grade-junit'] == 'PULSE_safe_pack_v0/artifacts/reports/junit.xml'
+    assert facts['locators']['release-grade-sarif'] == 'PULSE_safe_pack_v0/artifacts/reports/sarif.json'
+    assert not set(facts['root_report_selectors']) & set(facts['locators'].values())
+    for field in ('tree_membership_enumerated', 'selected_roles_exhaust_source_tree',
+                  'archive_membership_observed', 'observed_read_receipt', 'semantic_content_admission'):
+        assert facts[field] is False
+    assert facts['read_basis'] == 'source_declared_publication_input'
+    assert facts['steps'] == {module._step_id('release_grade_recorded_path', 31):
+                              {'inputs': _REPORT_PUBLICATION_ROLES, 'outputs': []}}
+
+
+def test_report_publication_separate_source_extractors_agree(recorded_source_objects):
+    answers = [method(mapping_source_document(), recorded_source_objects)
+               for _, method in map(report_publication_method, ['builder', 'checker'])]
+    assert canonical(answers[0]) == canonical(answers[1])
+
+
+@pytest.mark.parametrize('locator,expected', [
+    ('PULSE_safe_pack_v0/artifacts/status.json', True),
+    ('PULSE_safe_pack_v0/artifacts/reports/junit.xml', True),
+    ('PULSE_safe_pack_v0/artifacts/recorded_release_candidates/', True),
+    ('PULSE_safe_pack_v0/artifacts/release_authority_audit_bundle/', True),
+    ('reports/junit.xml', False), ('reports/sarif.json', False),
+    ('PULSE_safe_pack_v0/artifacts-other/status.json', False),
+    ('PULSE_safe_pack_v0/artifacts/status.json#pre-release-required-materialization', False),
+    ('PULSE_safe_pack_v0/artifacts/report_card.html#pre-authority-insertion', False),
+    ('PULSE_safe_pack_v0/artifacts/../profiles/policy.yaml', False),
+    ('PULSE_safe_pack_v0/artifacts//status.json', False),
+    ('PULSE_safe_pack_v0/artifacts/.hidden/file.json', False),
+    ('PULSE_safe_pack_v0/artifacts/**', False),
+    ('PULSE_safe_pack_v0/artifacts/', False),
+    ('${RUNNER_TEMP}/release-grade-reference-run-v0/', False),
+    ('artifact://llamaguard_raw.jsonl#example/classification', False),
+])
+def test_report_publication_lexical_join_does_not_strip_versions_or_cross_roots(locator, expected):
+    for module in (BUILDER, PLAN_CHECKER):
+        assert module._report_publication_covers_locator('PULSE_safe_pack_v0/artifacts/', locator) is expected
+        assert module._report_publication_covers_locator('PULSE_safe_pack_v0/artifacts', locator) is False
+
+
+def corrupt_report_publication_plan(original, fault):
+    plan = copy.deepcopy(original); states, steps = provenance_rows(plan)
+    row = steps[('release_grade_recorded_path', 31)]; oid = row['occurrence_id']
+    def relation(role, present):
+        state = states[role]; sid = state['state_id']
+        row['input_state_ids'] = sorted((set(row['input_state_ids']) | {sid}) if present
+                                       else (set(row['input_state_ids']) - {sid}))
+        state['required_consumer_occurrence_ids'] = sorted(
+            (set(state['required_consumer_occurrence_ids']) | {oid}) if present
+            else (set(state['required_consumer_occurrence_ids']) - {oid}))
+    if fault.startswith('omit:'): relation(fault.split(':', 1)[1], False)
+    elif fault.startswith('invent:'): relation(fault.split(':', 1)[1], True)
+    elif fault == 'reverse': states['final-status-summary']['required_consumer_occurrence_ids'].remove(oid)
+    elif fault == 'duplicate_input': row['input_state_ids'].append(row['input_state_ids'][0])
+    elif fault == 'order': row['input_state_ids'].reverse()
+    elif fault == 'root_junit_alias': states['release-grade-junit']['path_or_uri'] = 'reports/junit.xml'
+    elif fault == 'root_sarif_alias': states['release-grade-sarif']['path_or_uri'] = 'reports/sarif.json'
+    elif fault == 'origin': states['release-decision-report']['producer_occurrence_id'] = oid
+    elif fault == 'writer': row['output_state_ids'].append(states['release-decision-report']['state_id'])
+    elif fault == 'required': states['final-status-summary']['required'] = False
+    elif fault == 'content': states['final-status-summary']['content_requirement'] = 'metadata_only'
+    elif fault == 'authority': states['final-status-summary']['authority_bearing'] = False
+    elif fault == 'mutation': states['final-status']['mutation_class'] = 'none'
+    elif fault == 'missing_role': plan['state_templates'].remove(states['final-status-summary'])
+    elif fault == 'duplicate_role': plan['state_templates'].append(copy.deepcopy(states['final-status-summary']))
+    elif fault == 'missing_step':
+        for job in plan['jobs']: job['steps'] = [s for s in job['steps'] if s['occurrence_id'] != oid]
+    elif fault == 'duplicate_step':
+        job = next(j for j in plan['jobs'] if row in j['steps']); job['steps'].append(copy.deepcopy(row))
+    else: raise AssertionError(fault)
+    return plan
+
+
+@pytest.mark.parametrize('fault,code', [
+    ('omit:final-status', 'step_io'), ('omit:self-contained-evidence-floor', 'step_io'),
+    ('omit:artifact-provenance-binding', 'step_io'), ('omit:recorded-release-candidate-envelopes', 'step_io'),
+    ('omit:release-authority-audit-bundle', 'step_io'), ('omit:release-grade-junit', 'step_io'),
+    ('invent:pre-materialization-status', 'step_io'), ('invent:quality-ledger-pre-authority', 'step_io'),
+    ('invent:advisory-reference-bundle', 'step_io'), ('invent:materialized-release-required-gate-set', 'step_io'),
+    ('invent:effective-required-argument-list', 'step_io'),
+    ('invent:llamaguard-output:benign_factual_response', 'step_io'),
+    ('reverse', 'reverse_inputs'), ('duplicate_input', 'step_io'), ('order', 'step_io'),
+    ('root_junit_alias', 'locator'), ('root_sarif_alias', 'locator'), ('origin', 'origin'), ('writer', 'writer'),
+    ('required', 'duty'), ('content', 'duty'), ('authority', 'duty'), ('mutation', 'duty'),
+    ('missing_role', 'role_missing'), ('duplicate_role', 'duplicate_role'),
+    ('missing_step', 'step_missing'), ('duplicate_step', 'duplicate_step'),
+])
+def test_report_publication_rejects_false_submitted_relations(source_fixture, recorded_source_objects, fault, code):
+    bad = corrupt_report_publication_plan(source_fixture.plan, fault)
+    with pytest.raises(PLAN_CHECKER.PlanError, match='report_publication_' + code):
+        PLAN_CHECKER._verify_source_report_publication_equations(bad, mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('fault', ['omit:final-status', 'omit:self-contained-evidence-floor', 'root_junit_alias'])
+def test_report_publication_equal_false_constructors_are_insufficient(source_fixture, recorded_source_objects, fault):
+    answers = []
+    for module in (BUILDER, PLAN_CHECKER):
+        doc = mapping_source_document(); jobs, steps, _ = module._build_jobs(doc)
+        plan = copy.deepcopy(source_fixture.plan); plan['jobs'] = jobs
+        plan['state_templates'] = module._build_states(steps, module.EXPECTED_CASE_IDS, doc, recorded_source_objects)
+        answers.append(canonical(corrupt_report_publication_plan(plan, fault)))
+    assert answers[0] == answers[1]
+    with pytest.raises(PLAN_CHECKER.PlanError, match='report_publication_'):
+        PLAN_CHECKER._verify_source_report_publication_equations(json.loads(answers[0]), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('fault,code', [
+    ('omit:self-contained-evidence-floor', 'report_publication_step_io_mismatch'),
+    ('omit:final-status-summary', 'report_publication_step_io_mismatch'),
+    ('omit:artifact-provenance-binding', 'provenance_mapping_consumers_mismatch'),
+    ('omit:recorded-release-candidate-envelopes', 'recorded_mapping_new_role_consumer_mismatch'),
+])
+def test_report_publication_rehashed_false_plan_fails_real_checker(source_fixture, tmp_path, fault, code):
+    raw = canonical(corrupt_report_publication_plan(source_fixture.plan, fault))
+    jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(json.loads(raw))
+    path = tmp_path / 'false-report-publication.json'; path.write_bytes(raw)
+    result = cli(source_fixture.root, TOOL_NAMES[1], ['--repository-root', source_fixture.root,
+        '--plan', path, '--expected-source-commit', source_fixture.sha, '--expected-plan-sha256', digest(raw),
+        '--expected-record-status', 'example'])
+    assert result.returncode != 0
+    assert json.loads(result.stdout)['error_code'] == code
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('fault', ['missing', 'wrong_path', 'rehashed_bytes'])
+def test_report_publication_rejects_unreviewed_workflow_source(recorded_source_objects, side, fault):
+    module, method = report_publication_method(side); objects = dict(recorded_source_objects)
+    path = module.SUBJECT_WORKFLOW_PATH
+    if fault == 'missing': del objects[path]
+    elif fault == 'wrong_path': objects[path] = replace(objects[path], path='other/pulse_ci.yml')
+    else:
+        data = objects[path].data + b'\n# Not reviewed.\n'
+        objects[path] = replace(objects[path], data=data,
+            blob_sha1=hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest())
+    with pytest.raises(module.PlanError, match='report_publication_source_'):
+        method(mapping_source_document(), objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('fault', ['source_root', 'recursive_pattern', 'badge_pattern', 'root_report',
+                                   'name', 'action', 'omit_selector', 'duplicate_selector'])
+def test_report_publication_rejects_logical_selector_drift(recorded_source_objects, side, fault):
+    module, method = report_publication_method(side); doc = mapping_source_document()
+    row = doc['jobs']['release_grade_recorded_path']['steps'][30]; options = row['with']
+    if fault == 'source_root': options['path'] = options['path'].replace('artifacts/**', 'artifacts-other/**')
+    elif fault == 'recursive_pattern': options['path'] = options['path'].replace('artifacts/**', 'artifacts/*')
+    elif fault == 'badge_pattern': options['path'] = options['path'].replace('*.svg', '**')
+    elif fault == 'root_report': options['path'] = options['path'].replace('\nreports/', '\nPULSE_safe_pack_v0/artifacts/reports/')
+    elif fault == 'name': options['name'] = 'report-latest'
+    elif fault == 'action': row['uses'] = 'actions/upload-artifact@v7'
+    elif fault == 'omit_selector': options['path'] = '\n'.join(options['path'].splitlines()[:-1]) + '\n'
+    else: options['path'] += options['path'].splitlines()[0] + '\n'
+    with pytest.raises(module.PlanError, match='report_publication_workflow_drift'):
+        method(doc, recorded_source_objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_report_publication_changes_only_one_input_set_and_selected_readers(recorded_source_objects, side):
+    module, _ = report_publication_method(side); doc = mapping_source_document()
+    _, before_steps, _ = module._build_jobs(doc)
+    with patch.object(module, '_install_report_publication_projection', return_value=None):
+        before_states = module._build_states(before_steps, module.EXPECTED_CASE_IDS, doc, recorded_source_objects)
+    _, after_steps, _ = module._build_jobs(doc)
+    after_states = module._build_states(after_steps, module.EXPECTED_CASE_IDS, doc, recorded_source_objects)
+    oid = module._step_id('release_grade_recorded_path', 31)
+    added = 0
+    for a, b in zip(before_states, after_states, strict=True):
+        a, b = copy.deepcopy(a), copy.deepcopy(b)
+        assert set(a['required_consumer_occurrence_ids']) <= set(b['required_consumer_occurrence_ids'])
+        added += len(set(b['required_consumer_occurrence_ids']) - set(a['required_consumer_occurrence_ids']))
+        for value in (a, b): value['required_consumer_occurrence_ids'] = [x for x in value['required_consumer_occurrence_ids'] if x != oid]
+        assert a == b
+    for key in before_steps:
+        a, b = copy.deepcopy(before_steps[key]), copy.deepcopy(after_steps[key])
+        if a['occurrence_id'] == oid:
+            assert a.pop('input_state_ids') == ['state:step5c:release-authority-audit-bundle']
+            assert b.pop('input_state_ids') == ['state:step5c:' + role for role in _REPORT_PUBLICATION_ROLES]
+        assert a == b
+    assert added == 21
+    assert len(before_states) == len(after_states) == 62
+
+
+@pytest.mark.parametrize('role,other_reader', [('artifact-provenance-binding', 32),
+                                              ('recorded-release-candidate-envelopes', 26),
+                                              ('recorded-release-candidate-envelopes', 32)])
+def test_report_publication_extends_old_closures_only_for_r31(source_fixture, recorded_source_objects, role, other_reader):
+    plan = copy.deepcopy(source_fixture.plan); states, steps = provenance_rows(plan)
+    state = states[role]; step = steps[('release_grade_recorded_path', other_reader)]
+    step['input_state_ids'] = sorted(set(step['input_state_ids']) | {state['state_id']})
+    state['required_consumer_occurrence_ids'] = sorted(set(state['required_consumer_occurrence_ids']) | {step['occurrence_id']})
+    method = (PLAN_CHECKER._verify_source_provenance_equations if role == 'artifact-provenance-binding'
+              else PLAN_CHECKER._verify_source_recorded_equations)
+    code = 'provenance_mapping_' if role == 'artifact-provenance-binding' else 'recorded_mapping_'
+    with pytest.raises(PLAN_CHECKER.PlanError, match=code):
+        method(plan, mapping_source_document(), recorded_source_objects)
+
+
+def test_report_publication_keeps_generic_and_complete_acceptance_boundaries(source_fixture, recorded_source_objects):
+    states, steps = provenance_rows(source_fixture.plan)
+    r31 = steps[('release_grade_recorded_path', 31)]
+    assert r31['output_state_ids'] == []
+    assert len(r31['input_state_ids']) == 24
+    assert states['self-contained-evidence-floor']['state_id'] not in steps[('release_grade_recorded_path', 26)]['input_state_ids']
+    assert states['recorded-release-candidate-envelopes']['state_id'] not in steps[('release_grade_recorded_path', 26)]['input_state_ids']
+    assert states['release-authority-audit-bundle']['state_id'] not in steps[('release_grade_recorded_path', 33)]['input_state_ids']
     assert len(source_fixture.plan['source_inventory']) == 56
     assert len(prepared_fixture_members(source_fixture)) == 61
     assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY

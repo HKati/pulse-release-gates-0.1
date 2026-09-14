@@ -3306,6 +3306,115 @@ def _install_authority_publication_projection(
         row["required_consumer_occurrence_ids"] = sorted(readers)
 
 
+# R31's broad report selectors cover selected final roles, not an enumerated
+# archive. Never expand a source glob against the observer's filesystem.
+def _report_publication_source_selectors(
+    workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> dict[str, Any]:
+    obj = sources.get(SUBJECT_WORKFLOW_PATH)
+    _require(obj is not None and obj.path == SUBJECT_WORKFLOW_PATH,
+             "report_publication_source_missing")
+    _require(_sha1_git_blob(obj.data) == EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1,
+             "report_publication_source_drift")
+    _require(workflow == _parse_yaml_document(obj.data, label=SUBJECT_WORKFLOW_PATH),
+             "report_publication_workflow_drift")
+    rows = workflow["jobs"][_RECORDED_JOB]["steps"]
+    selected = [(i, row) for i, row in enumerate(rows, 1)
+                if row.get("name") == "Upload final pulse report"]
+    _require(len(selected) == 1 and selected[0][0] == 31,
+             "report_publication_step_profile")
+    row = selected[0][1]
+    _require(set(row) == {"name", "uses", "with"}
+             and row["uses"] == "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+             "report_publication_action_profile")
+    opts = row["with"]
+    _require(set(opts) == {"name", "path", "if-no-files-found", "retention-days"}
+             and opts["name"] == "pulse-report" and opts["if-no-files-found"] == "error"
+             and opts["retention-days"] == "30", "report_publication_options_profile")
+    selectors = opts["path"].splitlines()
+    _require(selectors == ["PULSE_safe_pack_v0/artifacts/**", "badges/*.svg",
+                           "reports/junit.xml", "reports/sarif.json"],
+             "report_publication_selector_profile")
+    root = _mapping_path(selectors[0][:-3]) + "/"
+    return {"occurrence_id": _step_id(_RECORDED_JOB, selected[0][0]),
+            "artifact_name": opts["name"], "action_uses": row["uses"],
+            "ordered_selectors": selectors, "artifact_tree_root": root,
+            "artifact_tree_selector": selectors[0], "badge_selector": selectors[1],
+            "root_report_selectors": selectors[2:],
+            "if_no_files_found": "error", "retention_days": 30}
+
+
+def _report_publication_covers_locator(root: str, locator: str) -> bool:
+    """Finite lexical relation for reviewed role paths; not action-glob execution."""
+    if root != "PULSE_safe_pack_v0/artifacts/" or not isinstance(locator, str):
+        return False
+    if not locator.startswith(root):
+        return False
+    suffix = locator[len(root):]
+    # Exclude URI/version fragments, symbolic/hidden paths and path aliases.
+    # Only existing reviewed physical role paths are supported by this join.
+    return re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*/?", suffix) is not None
+
+
+def _report_publication_source_projection(
+    workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> dict[str, Any]:
+    """Join R31's tree selector to selected existing final file and tree roles."""
+    selectors = _report_publication_source_selectors(workflow, sources)
+    recorded = _recorded_publication_source_projection(workflow, sources)
+    bundles = _bundle_source_projection(workflow, sources)
+    audit = "release-authority-audit-bundle"
+    paths = {**recorded["locators"], audit: bundles["locators"][audit]}
+    origins = {**recorded["origins"], audit: bundles["producers"][audit]}
+    _require(len(paths) == len(origins) == len(set(paths.values())) == 24,
+             "report_publication_selected_extent")
+    trees = sorted(role for role, path in paths.items() if path.endswith("/"))
+    _require(trees == ["recorded-release-candidate-envelopes", audit],
+             "report_publication_tree_roles")
+    for role, path in paths.items():
+        _require(_report_publication_covers_locator(selectors["artifact_tree_root"], path),
+                 "report_publication_selected_locator", role)
+    known_unmodeled = list(recorded["unmodeled_file_selectors"])
+    _require(len(known_unmodeled) == 4 and all(
+        _report_publication_covers_locator(selectors["artifact_tree_root"], path)
+        for path in known_unmodeled), "report_publication_unmodeled_extent")
+    # Root-level reports are distinct selectors. The selected JUnit/SARIF roles
+    # are pack-local files covered by artifacts/**, not aliases of these paths.
+    _require(not set(selectors["root_report_selectors"]) & set(paths.values()),
+             "report_publication_root_report_alias")
+    return {**selectors, "locators": paths, "origins": origins,
+            "role_selectors": {role: selectors["artifact_tree_selector"] for role in paths},
+            "tree_roles": trees, "known_unmodeled_artifact_paths": known_unmodeled,
+            "unmodeled_literal_selectors": list(selectors["root_report_selectors"]),
+            "unmodeled_pattern_selectors": [selectors["badge_selector"]],
+            "tree_membership_enumerated": False, "selected_roles_exhaust_source_tree": False,
+            "read_basis": "source_declared_publication_input", "observed_read_receipt": False,
+            "archive_membership_observed": False, "semantic_content_admission": False,
+            "steps": {selectors["occurrence_id"]: {"inputs": sorted(paths), "outputs": []}}}
+
+
+def _install_report_publication_projection(
+    states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any],
+) -> None:
+    """Install selected R31 inputs without changing content origins or duties."""
+    index = {row["state_id"].removeprefix("state:step5c:"): row for row in states}
+    oid = facts["occurrence_id"]
+    row = steps[(_RECORDED_JOB, 31)]
+    _require(row["occurrence_id"] == oid and row["output_state_ids"] == [],
+             "report_publication_not_a_content_writer")
+    for role, path in facts["locators"].items():
+        _require(role in index and index[role]["path_or_uri"] == path,
+                 "report_publication_input_locator", role)
+        _require(index[role]["producer_occurrence_id"] == facts["origins"][role],
+                 "report_publication_input_origin", role)
+    row["input_state_ids"] = sorted("state:step5c:" + role for role in facts["locators"])
+    for state in states:
+        readers = set(state["required_consumer_occurrence_ids"]) - {oid}
+        if state["state_id"] in row["input_state_ids"]:
+            readers.add(oid)
+        state["required_consumer_occurrence_ids"] = sorted(readers)
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -3327,6 +3436,7 @@ def _build_states(
     final_artifact_postcondition = _final_artifact_postcondition_source_projection(source_workflow, source_by_path)
     recorded_publication = _recorded_publication_source_projection(source_workflow, source_by_path)
     authority_publication = _authority_publication_source_projection(source_workflow, source_by_path)
+    report_publication = _report_publication_source_projection(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -3862,6 +3972,7 @@ def _build_states(
     _install_final_artifact_postcondition_projection(states, step_by_key, final_artifact_postcondition)
     _install_recorded_publication_projection(states, step_by_key, recorded_publication)
     _install_authority_publication_projection(states, step_by_key, authority_publication)
+    _install_report_publication_projection(states, step_by_key, report_publication)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph
