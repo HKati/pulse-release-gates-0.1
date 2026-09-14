@@ -4881,6 +4881,93 @@ def test_floor_recorded_reader_closure_rejects_unreviewed_additions(source_fixtu
     with pytest.raises(PLAN_CHECKER.PlanError, match='recorded_mapping_new_role_consumer_mismatch'):
         PLAN_CHECKER._verify_source_recorded_equations(bad, mapping_source_document(), recorded_source_objects)
 
+
+# ---------------------------------------------------------------------------
+# Reviewed smoke-job budget amendment. Only the job time budget changes;
+# exact source identity, complete execution and failure propagation stay strict.
+# ---------------------------------------------------------------------------
+def test_smoke_budget_is_the_only_subject_workflow_byte_change():
+    raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    before_job, job_bytes = raw.split(b'  tools-tests:\n')
+    assert job_bytes.count(b'    timeout-minutes: 30\n') == 1
+    restored = before_job + b'  tools-tests:\n' + job_bytes.replace(
+        b'    timeout-minutes: 30\n', b'    timeout-minutes: 15\n', 1)
+    old_blob = hashlib.sha1(b'blob ' + str(len(restored)).encode() + b'\0' + restored).hexdigest()
+    assert old_blob == 'adae42c8e9777d357ab5400ced5765de7059ed1e'
+    job = yaml.load(raw, Loader=yaml.BaseLoader)['jobs']['tools-tests']
+    assert job['timeout-minutes'] == '30'
+    assert 'continue-on-error' not in job
+    assert all('continue-on-error' not in step for step in job['steps'])
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_smoke_budget_all_workflow_pins_require_the_same_reviewed_bytes(side):
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    path = module.SUBJECT_WORKFLOW_PATH
+    data = (ROOT / path).read_bytes()
+    current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+    assert current == 'ad1f165ad695c65827c590cbef9466e300d6b6e9'
+    assert module.EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 == current
+    for values in vars(module).values():
+        if isinstance(values, dict) and path in values:
+            assert values[path] == current
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('minutes', [15, 31])
+def test_smoke_budget_stale_or_unreviewed_rehashed_sources_fail_closed(
+    source_fixture, monkeypatch, side, minutes,
+):
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    read = module._read_git_object
+    def changed(*args, **kwargs):
+        obj = read(*args, **kwargs)
+        if kwargs.get('path') == module.SUBJECT_WORKFLOW_PATH:
+            prefix, job = obj.data.split(b'  tools-tests:\n')
+            data = prefix + b'  tools-tests:\n' + job.replace(
+                b'    timeout-minutes: 30\n',
+                ('    timeout-minutes: %s\n' % minutes).encode(), 1)
+            assert data != obj.data
+            new_blob = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
+            obj = replace(obj, data=data, blob_sha1=new_blob)
+        return obj
+    monkeypatch.setattr(module, '_read_git_object', changed)
+    with pytest.raises(module.PlanError, match='reviewed_source_profile_mismatch'):
+        module._load_sources(source_fixture.root, source_fixture.sha)
+
+
+@pytest.mark.parametrize('first_exit', [0, 7])
+def test_smoke_budget_unchanged_runner_finishes_or_propagates_failure(tmp_path, first_exit):
+    workflow = yaml.load((ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes(), Loader=yaml.BaseLoader)
+    step = next(s for s in workflow['jobs']['tools-tests']['steps']
+                if s['name'].strip() == 'Run exporter + release-authority smoke tests')
+    (tmp_path / 'ci').mkdir()
+    (tmp_path / 'ci/tools-tests.list').write_text('first.py\nsecond.py\n')
+    (tmp_path / 'first.py').write_text('raise SystemExit(%d)\n' % first_exit)
+    (tmp_path / 'second.py').write_text("from pathlib import Path\nPath('second-ran').write_text('yes')\n")
+    env = {'PATH': str(Path(sys.executable).parent) + ':/usr/bin:/bin',
+           'HOME': str(tmp_path), 'LANG': 'C', 'LC_ALL': 'C'}
+    result = subprocess.run(['bash', '--noprofile', '--norc', '-c', step['run']],
+                            cwd=tmp_path, env=env, stdin=subprocess.DEVNULL,
+                            capture_output=True, timeout=20)
+    assert result.returncode == first_exit, result.stderr.decode(errors='replace')
+    assert (tmp_path / 'second-ran').exists() is (first_exit == 0)
+    assert (b'Exporter + release-authority smoke tests OK\n' in result.stdout) is (first_exit == 0)
+
+
+def test_smoke_budget_new_workflow_is_preserved_without_evidence_promotion(source_fixture):
+    data = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    row = next(row for row in source_fixture.plan['source_inventory']
+               if row['path'] == BUILDER.SUBJECT_WORKFLOW_PATH)
+    assert row['sha256'] == digest(data)
+    assert prepared_fixture_members(source_fixture)['sources/' + BUILDER.SUBJECT_WORKFLOW_PATH] == data
+    assert len(source_fixture.plan['state_templates']) == 62
+    assert len(source_fixture.plan['source_inventory']) == 53
+    assert len(prepared_fixture_members(source_fixture)) == 58
+    assert 'evidence_profile' not in source_fixture.plan
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.

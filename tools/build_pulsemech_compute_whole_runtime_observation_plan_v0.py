@@ -123,7 +123,7 @@ REQUIREMENTS_PATH = "requirements.txt"
 # surfaces.  Adding Step 5C files changes the commit but must not silently
 # change either subject workflow, the Step 3F provider, or the controlled case
 # set.  A future change requires a reviewed profile revision.
-EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 = "adae42c8e9777d357ab5400ced5765de7059ed1e"
+EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 = "ad1f165ad695c65827c590cbef9466e300d6b6e9"
 EXPECTED_PROVIDER_WORKFLOW_BLOB_SHA1 = "79e4a355cc1eab4af26f6b16e7563424e67d05f2"
 EXPECTED_DATASET_BLOB_SHA1 = "3b6ca799f26c7374334c51c5c9c8ea26b35cf857"
 EXPECTED_LLAMAGUARD_RUNNER_BLOB_SHA1 = "058edf0d16383db41a5a4500caf4b484321d2e57"
@@ -1920,7 +1920,7 @@ def _install_package_source_projection(states: list[dict[str, Any]], steps: dict
 _REQUIRED_ARGUMENT_ROLE = "effective-required-argument-list"
 _REQUIRED_ARGUMENT_RUN_SHA256 = "dababaec377d50eb83daa95fab958009089db11a207214bdbab1ea0156a0f81a"
 _REQUIRED_ARGUMENT_SOURCE_PINS = {
-    ".github/workflows/pulse_ci.yml": "adae42c8e9777d357ab5400ced5765de7059ed1e",
+    ".github/workflows/pulse_ci.yml": "ad1f165ad695c65827c590cbef9466e300d6b6e9",
     "pulse_gate_policy_v0.yml": "a311b424ad0f6c028b9c37b18572e7a09c721cdd",
     "tools/policy_to_require_args.py": "5b1d099485d0e3bfd90da3fff1213a4e949db850",
     "PULSE_safe_pack_v0/tools/check_gates.py": "2a593bdef31c9c8cb565b1c4ca3d16a1e3093735",
@@ -2028,7 +2028,7 @@ def _required_arguments_source_projection(
 # A copy or upload declaration is not an observed runtime read receipt.
 _BUNDLE_ROLES = ("release-authority-audit-bundle", "advisory-reference-bundle")
 _BUNDLE_SOURCE_PINS = {
-    ".github/workflows/pulse_ci.yml": "adae42c8e9777d357ab5400ced5765de7059ed1e",
+    ".github/workflows/pulse_ci.yml": "ad1f165ad695c65827c590cbef9466e300d6b6e9",
     "PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py": "8f01602e973b890eb2ae0928bd62dfd65e691f79",
 }
 
@@ -2208,7 +2208,7 @@ _PROVENANCE_ASSEMBLER = "PULSE_safe_pack_v0/tools/assemble_release_grade_referen
 _PROVENANCE_ROLE = "artifact-provenance-binding"
 _PROVENANCE_JOB = "release_grade_recorded_path"
 _PROVENANCE_SOURCE_PINS = {
-    SUBJECT_WORKFLOW_PATH: "adae42c8e9777d357ab5400ced5765de7059ed1e",
+    SUBJECT_WORKFLOW_PATH: "ad1f165ad695c65827c590cbef9466e300d6b6e9",
     _PROVENANCE_BUILD: "d3f07cbbf8fd38831a42d8fe8e891c23df4c7792",
     _PROVENANCE_VERIFY: "665398c8841e4dd9534875831c93c749c3ccf94b",
     _PROVENANCE_ASSEMBLER: "8f01602e973b890eb2ae0928bd62dfd65e691f79",
