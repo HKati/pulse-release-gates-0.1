@@ -3769,6 +3769,130 @@ def _verify_source_recorded_publication_equations(
              == steps[oid]["input_state_ids"], "recorded_publication_reverse_inputs_mismatch")
 
 
+def _source_authority_publication_expectations(
+    workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> dict[str, Any]:
+    """Resolve final source outputs, then find their literal R27/R30 consumers."""
+    obj = sources.get(SUBJECT_WORKFLOW_PATH)
+    _require(obj is not None and obj.path == SUBJECT_WORKFLOW_PATH,
+             "authority_publication_source_missing")
+    _require(hashlib.sha1(b"blob " + str(len(obj.data)).encode() + b"\0" + obj.data).hexdigest()
+             == EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1, "authority_publication_source_drift")
+    source_document = _parse_yaml_document(obj.data, label=SUBJECT_WORKFLOW_PATH)
+    _require(workflow == source_document, "authority_publication_workflow_drift")
+    ledgers = _source_ledger_expectations(source_document)
+    recorded = _source_recorded_expectations(source_document, sources)
+    paths = {key: value for key, value in ledgers["locators"].items() if key in {
+        "release-authority-manifest", "release-decision", "release-decision-ledger-section",
+        "release-decision-report"}}
+    paths["final-status"] = recorded["locators"]["final-status"]
+    _require(len(paths) == len(set(paths.values())) == 5 and paths["final-status"] == ledgers["status"],
+             "authority_publication_locator_alias")
+    job = "release_grade_recorded_path"
+    rows = source_document["jobs"][job]["steps"]
+    publications: dict[str, Any] = {}
+    expected_titles = {27: "Upload final release authority manifest",
+                       30: "Upload final release decision v0 artifact bundle"}
+    for position, name in ((27, "release-authority-v0"), (30, "release-decision-v0")):
+        selected = [(i, row) for i, row in enumerate(rows, 1)
+                    if row.get("with", {}).get("name") == name]
+        _require(len(selected) == 1 and selected[0][0] == position,
+                 "authority_publication_step_selector")
+        row = selected[0][1]
+        _require(set(row.keys()) == {"name", "uses", "with"}
+                 and row["name"] == expected_titles[position], "authority_publication_action_profile")
+        owner, separator, revision = row["uses"].partition("@")
+        _require(owner == "actions/upload-artifact" and separator == "@"
+                 and revision == "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+                 "authority_publication_action_profile")
+        opts = row["with"]
+        _require(set(opts) == {"name", "path", "retention-days", "if-no-files-found"}
+                 and opts["if-no-files-found"] == "error" and opts["retention-days"] == "30",
+                 "authority_publication_options_profile")
+        literal_lines = opts["path"].splitlines()
+        tokens = shlex.split(opts["path"], comments=False, posix=True)
+        _require(tokens == literal_lines and len(set(tokens)) == len(tokens)
+                 and len(tokens) == (1 if position == 27 else 4)
+                 and all(re.fullmatch(r"PULSE_safe_pack_v0/artifacts/[A-Za-z0-9_.-]+", p)
+                         and p == _checked_mapping_path(p) for p in tokens),
+                 "authority_publication_literal_file_selectors")
+        publications[_step_id(job, position)] = {"artifact_name": name, "action_uses": row["uses"],
+            "ordered_file_selectors": tokens, "if_no_files_found": "error", "retention_days": 30}
+    equations = {oid: {"inputs": [], "outputs": []} for oid in publications}
+    origins: dict[str, str] = {}
+    for role, path in paths.items():
+        owners = {oid for graph in (recorded["steps"], ledgers["equations"])
+                  for oid, equation in graph.items() if role in equation["outputs"]}
+        _require(len(owners) == 1, "authority_publication_source_origin_extent", role)
+        origins[role] = next(iter(owners))
+        consumers = [oid for oid, info in publications.items() if path in info["ordered_file_selectors"]]
+        _require(len(consumers) == 1, "authority_publication_selected_role_extent", role)
+        equations[consumers[0]]["inputs"].append(role)
+    for oid, equation in equations.items():
+        equation["inputs"].sort()
+        _require(len(equation["inputs"]) == len(publications[oid]["ordered_file_selectors"]),
+                 "authority_publication_unresolved_file")
+    return {"locators": paths, "origins": origins, "publications": publications,
+            "steps": equations, "unmodeled_file_selectors": [],
+            "read_basis": "source_declared_publication_input",
+            "observed_read_receipt": False, "archive_membership_observed": False,
+            "semantic_content_admission": False}
+
+
+def _install_authority_publication_projection(
+    states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any],
+) -> None:
+    """Install only the two source-selected publication input equations."""
+    index = {s["state_id"]: s for s in states}
+    for role, locator in facts["locators"].items():
+        sid = "state:step5c:" + role
+        _require(sid in index and index[sid]["path_or_uri"] == locator,
+                 "authority_publication_input_locator", role)
+        _require(index[sid]["producer_occurrence_id"] == facts["origins"][role],
+                 "authority_publication_input_origin", role)
+    for step in steps.values():
+        equation = facts["steps"].get(step["occurrence_id"])
+        if equation is None:
+            continue
+        _require(step["output_state_ids"] == [], "authority_publication_not_a_content_writer")
+        step["input_state_ids"] = sorted("state:step5c:" + role for role in equation["inputs"])
+    for sid, state in index.items():
+        outside = [oid for oid in state["required_consumer_occurrence_ids"] if oid not in facts["steps"]]
+        selected = [oid for oid, eq in facts["steps"].items() if sid.removeprefix("state:step5c:") in eq["inputs"]]
+        state["required_consumer_occurrence_ids"] = sorted(set(outside + selected))
+
+
+def _verify_source_authority_publication_equations(
+    plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> None:
+    """Validate supplied edges against source, not just an equal reconstructed map."""
+    facts = _source_authority_publication_expectations(workflow, sources)
+    states = {row["state_id"].removeprefix("state:step5c:"): row for row in plan["state_templates"]}
+    _require(len(states) == len(plan["state_templates"]), "authority_publication_duplicate_role")
+    occurrences = [step for job in plan["jobs"] for step in job["steps"]]
+    steps = {step["occurrence_id"]: step for step in occurrences}
+    _require(len(steps) == len(occurrences), "authority_publication_duplicate_step")
+    for role, path in facts["locators"].items():
+        _require(role in states, "authority_publication_role_missing", role)
+        row = states[role]
+        _require(row["path_or_uri"] == path, "authority_publication_locator_mismatch", role)
+        _require(row["producer_occurrence_id"] == facts["origins"][role],
+                 "authority_publication_origin_mismatch", role)
+        mutation = {"final-status": "final_status", "release-decision": "release_decision"}.get(role, "none")
+        _require(row["required"] is True and row["content_requirement"] == "exact_digest"
+                 and row["authority_bearing"] is True and row["mutation_class"] == mutation,
+                 "authority_publication_duty_mismatch", role)
+        writers = {oid for oid, step in steps.items() if row["state_id"] in step["output_state_ids"]}
+        _require(writers == {facts["origins"][role]}, "authority_publication_writer_mismatch", role)
+    for oid, equation in facts["steps"].items():
+        _require(oid in steps, "authority_publication_step_missing")
+        inputs = sorted("state:step5c:" + role for role in equation["inputs"])
+        _require(steps[oid]["input_state_ids"] == inputs and steps[oid]["output_state_ids"] == [],
+                 "authority_publication_step_io_mismatch")
+        _require(sorted(row["state_id"] for row in states.values() if oid in row["required_consumer_occurrence_ids"])
+                 == inputs, "authority_publication_reverse_inputs_mismatch")
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -3789,6 +3913,7 @@ def _build_states(
     pre_attestation_postcondition = _source_pre_attestation_postcondition_expectations(source_workflow, source_by_path)
     final_artifact_postcondition = _source_final_artifact_postcondition_expectations(source_workflow, source_by_path)
     recorded_publication = _source_recorded_publication_expectations(source_workflow, source_by_path)
+    authority_publication = _source_authority_publication_expectations(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -4323,6 +4448,7 @@ def _build_states(
     _install_pre_attestation_postcondition_projection(states, step_by_key, pre_attestation_postcondition)
     _install_final_artifact_postcondition_projection(states, step_by_key, final_artifact_postcondition)
     _install_recorded_publication_projection(states, step_by_key, recorded_publication)
+    _install_authority_publication_projection(states, step_by_key, authority_publication)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph
@@ -4955,6 +5081,9 @@ def check_plan(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_source_recorded_publication_equations(
+        plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
+    )
+    _verify_source_authority_publication_equations(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_tool_identity(

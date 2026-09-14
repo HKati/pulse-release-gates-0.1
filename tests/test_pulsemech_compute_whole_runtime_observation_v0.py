@@ -6608,6 +6608,234 @@ def test_recorded_publication_keeps_runtime_intake_and_completion_unfinished(sou
     assert state['sha256'] is None and state['size_bytes'] is None
 
 
+# R27/R30 literal-file publications are source declarations, not new authority.
+_AUTHORITY_PUBLICATION_INPUTS = [
+    (27, 'release-authority-manifest'),
+    (30, 'final-status'),
+    (30, 'release-decision'),
+    (30, 'release-decision-ledger-section'),
+    (30, 'release-decision-report'),
+]
+
+
+def authority_publication_method(side):
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    method = (module._authority_publication_source_projection if side == 'builder'
+              else module._source_authority_publication_expectations)
+    return module, method
+
+
+@pytest.mark.parametrize('ordinal,role', _AUTHORITY_PUBLICATION_INPUTS)
+def test_authority_publication_has_each_literal_file_input(source_fixture, ordinal, role):
+    states, steps = provenance_rows(source_fixture.plan)
+    step = steps[('release_grade_recorded_path', ordinal)]
+    assert states[role]['state_id'] in step['input_state_ids']
+    assert step['occurrence_id'] in states[role]['required_consumer_occurrence_ids']
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_authority_publication_matches_the_exact_source_files(recorded_source_objects, side):
+    module, method = authority_publication_method(side)
+    doc = mapping_source_document(); facts = method(doc, recorded_source_objects)
+    prefix = 'PULSE_safe_pack_v0/artifacts/'
+    expected = {27: [prefix + 'release_authority_v0.json'],
+                30: [prefix + name for name in ['status.json', 'release_decision_v0.json',
+                    'release_decision_v0_ledger_section.html', 'report_card.with_release_decision.html']]}
+    assert set(facts['locators']) == {role for _, role in _AUTHORITY_PUBLICATION_INPUTS}
+    assert facts['unmodeled_file_selectors'] == []
+    assert facts['observed_read_receipt'] is False
+    assert facts['archive_membership_observed'] is False
+    assert facts['semantic_content_admission'] is False
+    assert facts['read_basis'] == 'source_declared_publication_input'
+    for ordinal, paths in expected.items():
+        oid = module._step_id('release_grade_recorded_path', ordinal)
+        published = facts['publications'][oid]
+        raw = doc['jobs']['release_grade_recorded_path']['steps'][ordinal - 1]
+        assert published['ordered_file_selectors'] == paths == raw['with']['path'].splitlines()
+        assert published['action_uses'] == raw['uses']
+        assert published['artifact_name'] == raw['with']['name']
+        assert published['if_no_files_found'] == 'error'
+        assert published['retention_days'] == 30
+        assert facts['steps'][oid] == {'inputs': sorted(role for pos, role in _AUTHORITY_PUBLICATION_INPUTS
+                                                       if pos == ordinal), 'outputs': []}
+    assert facts['origins'] == {role: module._step_id('release_grade_recorded_path', ordinal)
+        for role, ordinal in [('final-status', 9), ('release-decision', 15),
+            ('release-decision-ledger-section', 16), ('release-authority-manifest', 17),
+            ('release-decision-report', 19)]}
+
+
+def test_authority_publication_separate_source_extractors_agree(recorded_source_objects):
+    answers = [method(mapping_source_document(), recorded_source_objects)
+               for _, method in map(authority_publication_method, ['builder', 'checker'])]
+    assert canonical(answers[0]) == canonical(answers[1])
+
+
+def corrupt_authority_publication_plan(original, fault):
+    plan = copy.deepcopy(original); states, steps = provenance_rows(plan)
+    r27, r30 = [steps[('release_grade_recorded_path', i)] for i in (27, 30)]
+    def relation(row, role, present):
+        state = states[role]; sid, oid = state['state_id'], row['occurrence_id']
+        row['input_state_ids'] = sorted((set(row['input_state_ids']) | {sid}) if present
+                                       else (set(row['input_state_ids']) - {sid}))
+        state['required_consumer_occurrence_ids'] = sorted(
+            (set(state['required_consumer_occurrence_ids']) | {oid}) if present
+            else (set(state['required_consumer_occurrence_ids']) - {oid}))
+    if fault.startswith('omit:'):
+        _, pos, role = fault.split(':'); relation(steps[('release_grade_recorded_path', int(pos))], role, False)
+    elif fault.startswith('invent:'): relation(r30, fault.split(':', 1)[1], True)
+    elif fault == 'swap_publications':
+        relation(r27, 'release-authority-manifest', False); relation(r27, 'release-decision', True)
+        relation(r30, 'release-decision', False); relation(r30, 'release-authority-manifest', True)
+    elif fault == 'reverse':
+        states['release-decision-report']['required_consumer_occurrence_ids'].remove(r30['occurrence_id'])
+    elif fault == 'duplicate_input': r30['input_state_ids'].append(states['release-decision']['state_id'])
+    elif fault == 'order': r30['input_state_ids'].reverse()
+    elif fault == 'locator': states['release-decision-report']['path_or_uri'] = 'PULSE_safe_pack_v0/artifacts/report_card.html'
+    elif fault == 'origin': states['release-authority-manifest']['producer_occurrence_id'] = r27['occurrence_id']
+    elif fault == 'writer': r27['output_state_ids'].append(states['release-authority-manifest']['state_id'])
+    elif fault == 'required': states['release-decision']['required'] = False
+    elif fault == 'content': states['release-decision']['content_requirement'] = 'metadata_only'
+    elif fault == 'authority': states['release-decision']['authority_bearing'] = False
+    elif fault == 'mutation': states['final-status']['mutation_class'] = 'none'
+    elif fault == 'missing_role': plan['state_templates'].remove(states['release-decision-report'])
+    elif fault == 'duplicate_role': plan['state_templates'].append(copy.deepcopy(states['release-decision']))
+    elif fault == 'missing_step':
+        for job in plan['jobs']: job['steps'] = [s for s in job['steps'] if s['occurrence_id'] != r27['occurrence_id']]
+    elif fault == 'duplicate_step':
+        job = next(j for j in plan['jobs'] if r27 in j['steps']); job['steps'].append(copy.deepcopy(r27))
+    else: raise AssertionError(fault)
+    return plan
+
+
+@pytest.mark.parametrize('fault,code', [
+    ('omit:27:release-authority-manifest', 'step_io'),
+    ('omit:30:final-status', 'step_io'), ('omit:30:release-decision', 'step_io'),
+    ('omit:30:release-decision-ledger-section', 'step_io'), ('omit:30:release-decision-report', 'step_io'),
+    ('invent:pre-materialization-status', 'step_io'), ('invent:quality-ledger-final', 'step_io'),
+    ('invent:quality-ledger-pre-authority', 'step_io'), ('invent:artifact-provenance-binding', 'step_io'),
+    ('invent:gate-policy', 'step_io'), ('swap_publications', 'step_io'),
+    ('reverse', 'reverse_inputs'), ('duplicate_input', 'step_io'), ('order', 'step_io'),
+    ('locator', 'locator'), ('origin', 'origin'), ('writer', 'writer'),
+    ('required', 'duty'), ('content', 'duty'), ('authority', 'duty'), ('mutation', 'duty'),
+    ('missing_role', 'role_missing'), ('duplicate_role', 'duplicate_role'),
+    ('missing_step', 'step_missing'), ('duplicate_step', 'duplicate_step'),
+])
+def test_authority_publication_rejects_false_supplied_edges(source_fixture, recorded_source_objects, fault, code):
+    bad = corrupt_authority_publication_plan(source_fixture.plan, fault)
+    with pytest.raises(PLAN_CHECKER.PlanError, match='authority_publication_' + code):
+        PLAN_CHECKER._verify_source_authority_publication_equations(bad, mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('fault', ['omit:27:release-authority-manifest',
+                                   'omit:30:release-decision-report', 'swap_publications'])
+def test_authority_publication_equal_wrong_constructors_are_not_sufficient(source_fixture, recorded_source_objects, fault):
+    answers = []
+    for module in (BUILDER, PLAN_CHECKER):
+        document = mapping_source_document(); jobs, steps, _ = module._build_jobs(document)
+        plan = copy.deepcopy(source_fixture.plan); plan['jobs'] = jobs
+        plan['state_templates'] = module._build_states(steps, module.EXPECTED_CASE_IDS, document, recorded_source_objects)
+        answers.append(canonical(corrupt_authority_publication_plan(plan, fault)))
+    assert answers[0] == answers[1]
+    with pytest.raises(PLAN_CHECKER.PlanError, match='authority_publication_step_io_mismatch'):
+        PLAN_CHECKER._verify_source_authority_publication_equations(json.loads(answers[0]), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('fault,code', [
+    ('omit:27:release-authority-manifest', 'authority_publication_step_io_mismatch'),
+    ('omit:30:release-decision-report', 'authority_publication_step_io_mismatch'),
+    ('invent:artifact-provenance-binding', 'provenance_mapping_consumers_mismatch'),
+    ('swap_publications', 'authority_publication_step_io_mismatch'),
+])
+def test_authority_publication_rehashed_false_plan_fails_real_checker(source_fixture, tmp_path, fault, code):
+    raw = canonical(corrupt_authority_publication_plan(source_fixture.plan, fault))
+    jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(json.loads(raw))
+    path = tmp_path / 'false-authority-publication.json'; path.write_bytes(raw)
+    result = cli(source_fixture.root, TOOL_NAMES[1], ['--repository-root', source_fixture.root,
+        '--plan', path, '--expected-source-commit', source_fixture.sha, '--expected-plan-sha256', digest(raw),
+        '--expected-record-status', 'example'])
+    assert result.returncode != 0
+    assert json.loads(result.stdout)['error_code'] == code
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('fault', ['missing', 'wrong_path', 'rehashed_bytes'])
+def test_authority_publication_rejects_changed_workflow_bytes(recorded_source_objects, side, fault):
+    module, method = authority_publication_method(side); objects = dict(recorded_source_objects)
+    path = module.SUBJECT_WORKFLOW_PATH
+    if fault == 'missing': del objects[path]
+    elif fault == 'wrong_path': objects[path] = replace(objects[path], path='other/pulse_ci.yml')
+    else:
+        data = objects[path].data + b'\n# Unreviewed workflow bytes.\n'
+        objects[path] = replace(objects[path], data=data,
+            blob_sha1=hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest())
+    with pytest.raises(module.PlanError, match='authority_publication_source_'):
+        method(mapping_source_document(), objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('fault', ['name', 'action', 'condition', 'retention', 'error_mode',
+                                   'omit_file', 'duplicate_file', 'reorder', 'wildcard', 'wrong_version'])
+def test_authority_publication_rejects_logical_workflow_drift(recorded_source_objects, side, fault):
+    module, method = authority_publication_method(side); doc = mapping_source_document()
+    row = doc['jobs']['release_grade_recorded_path']['steps'][29]; options = row['with']
+    if fault == 'name': options['name'] = 'release-decision-latest'
+    elif fault == 'action': row['uses'] = 'actions/upload-artifact@v7'
+    elif fault == 'condition': row['if'] = 'always()'
+    elif fault == 'retention': options['retention-days'] = '1'
+    elif fault == 'error_mode': options['if-no-files-found'] = 'ignore'
+    elif fault == 'omit_file': options['path'] = '\n'.join(options['path'].splitlines()[1:]) + '\n'
+    elif fault == 'duplicate_file': options['path'] += options['path'].splitlines()[0] + '\n'
+    elif fault == 'reorder': options['path'] = '\n'.join(reversed(options['path'].splitlines())) + '\n'
+    elif fault == 'wildcard': options['path'] = 'PULSE_safe_pack_v0/artifacts/**'
+    else: options['path'] = options['path'].replace('report_card.with_release_decision.html', 'report_card.html')
+    with pytest.raises(module.PlanError, match='authority_publication_workflow_drift'):
+        method(doc, recorded_source_objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_authority_publication_changes_only_two_input_sets_and_three_reader_links(recorded_source_objects, side):
+    module, _ = authority_publication_method(side); document = mapping_source_document()
+    _, before_steps, _ = module._build_jobs(document)
+    with patch.object(module, '_install_authority_publication_projection', return_value=None):
+        before_states = module._build_states(before_steps, module.EXPECTED_CASE_IDS, document, recorded_source_objects)
+    _, after_steps, _ = module._build_jobs(document)
+    after_states = module._build_states(after_steps, module.EXPECTED_CASE_IDS, document, recorded_source_objects)
+    controlled = {module._step_id('release_grade_recorded_path', pos) for pos in (27, 30)}
+    forward = reverse = 0
+    for a, b in zip(before_states, after_states, strict=True):
+        a, b = copy.deepcopy(a), copy.deepcopy(b)
+        assert set(a['required_consumer_occurrence_ids']) <= set(b['required_consumer_occurrence_ids'])
+        reverse += len(set(b['required_consumer_occurrence_ids']) - set(a['required_consumer_occurrence_ids']))
+        for row in (a, b): row['required_consumer_occurrence_ids'] = [x for x in row['required_consumer_occurrence_ids'] if x not in controlled]
+        assert a == b
+    for key in before_steps:
+        a, b = copy.deepcopy(before_steps[key]), copy.deepcopy(after_steps[key])
+        if a['occurrence_id'] in controlled:
+            assert a['input_state_ids'] == []
+            forward += len(b['input_state_ids'])
+            a.pop('input_state_ids'); b.pop('input_state_ids')
+        assert a == b
+    assert forward == 5 and reverse == 3
+    assert len(before_states) == len(after_states) == 62
+
+
+def test_authority_publication_keeps_other_selectors_and_runtime_boundary(source_fixture, recorded_source_objects):
+    states, steps = provenance_rows(source_fixture.plan)
+    for pos in (27, 30):
+        step = steps[('release_grade_recorded_path', pos)]
+        assert step['output_state_ids'] == []
+        assert states['artifact-provenance-binding']['state_id'] not in step['input_state_ids']
+        assert states['gate-policy']['state_id'] not in step['input_state_ids']
+    r33 = PLAN_CHECKER._source_recorded_publication_expectations(mapping_source_document(), recorded_source_objects)
+    assert len(r33['ordered_selectors']) == 27 and len(r33['unmodeled_file_selectors']) == 4
+    assert len(source_fixture.plan['source_inventory']) == 56
+    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
+    assert 'evidence_profile' not in source_fixture.plan
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
+
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.

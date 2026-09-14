@@ -3216,6 +3216,96 @@ def _install_recorded_publication_projection(
         state["required_consumer_occurrence_ids"] = sorted(readers)
 
 
+# Selected literal-file publications only. The general pulse-report glob is a
+# separate source family; no archive, signature or observed-read claim is made.
+def _authority_publication_source_projection(
+    workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> dict[str, Any]:
+    """Join R27/R30 upload declarations to the final producer-bound versions."""
+    source = sources.get(SUBJECT_WORKFLOW_PATH)
+    _require(source is not None and source.path == SUBJECT_WORKFLOW_PATH,
+             "authority_publication_source_missing")
+    _require(_sha1_git_blob(source.data) == EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1,
+             "authority_publication_source_drift")
+    _require(workflow == _parse_yaml_document(source.data, label=SUBJECT_WORKFLOW_PATH),
+             "authority_publication_workflow_drift")
+    ledger = _ledger_source_projection(workflow)
+    recorded = _recorded_source_projection(workflow, sources)
+    _require(ledger["status"] == recorded["locators"]["final-status"],
+             "authority_publication_final_status_mismatch")
+    role_paths = {role: ledger["locators"][role] for role in (
+        "release-authority-manifest", "release-decision",
+        "release-decision-ledger-section", "release-decision-report")}
+    role_paths["final-status"] = ledger["status"]
+    _require(len(set(role_paths.values())) == 5, "authority_publication_locator_alias")
+    origins: dict[str, str] = {}
+    for role in role_paths:
+        writers = {oid for family in (ledger["equations"], recorded["steps"])
+                   for oid, equation in family.items() if role in equation["outputs"]}
+        _require(len(writers) == 1, "authority_publication_source_origin_extent", role)
+        origins[role] = writers.pop()
+    rows = workflow["jobs"][_RECORDED_JOB]["steps"]
+    publications: dict[str, Any] = {}
+    equations: dict[str, Any] = {}
+    for ordinal, title, name, count in (
+        (27, "Upload final release authority manifest", "release-authority-v0", 1),
+        (30, "Upload final release decision v0 artifact bundle", "release-decision-v0", 4),
+    ):
+        positions = [i for i, row in enumerate(rows, 1) if row.get("name") == title]
+        _require(positions == [ordinal], "authority_publication_step_selector")
+        row = rows[ordinal - 1]
+        _require(set(row) == {"name", "uses", "with"}
+                 and row["uses"] == "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+                 "authority_publication_action_profile")
+        options = row["with"]
+        _require(set(options) == {"name", "path", "if-no-files-found", "retention-days"}
+                 and options["name"] == name and options["if-no-files-found"] == "error"
+                 and options["retention-days"] == "30", "authority_publication_options_profile")
+        selectors = options["path"].splitlines()
+        _require(len(selectors) == len(set(selectors)) == count
+                 and all(path == _mapping_path(path) for path in selectors),
+                 "authority_publication_literal_file_selectors")
+        inputs = []
+        for path in selectors:
+            matches = [role for role, locator in role_paths.items() if path == locator]
+            _require(len(matches) == 1, "authority_publication_unresolved_file", path)
+            inputs.append(matches[0])
+        oid = _step_id(_RECORDED_JOB, ordinal)
+        publications[oid] = {"artifact_name": name, "action_uses": row["uses"],
+                             "ordered_file_selectors": selectors,
+                             "if_no_files_found": "error", "retention_days": 30}
+        equations[oid] = {"inputs": sorted(inputs), "outputs": []}
+    _require(sum(len(eq["inputs"]) for eq in equations.values()) == len(role_paths)
+             and {role for eq in equations.values() for role in eq["inputs"]} == set(role_paths),
+             "authority_publication_selected_role_extent")
+    return {"locators": role_paths, "origins": origins, "publications": publications,
+            "steps": equations, "unmodeled_file_selectors": [],
+            "read_basis": "source_declared_publication_input",
+            "observed_read_receipt": False, "archive_membership_observed": False,
+            "semantic_content_admission": False}
+
+
+def _install_authority_publication_projection(
+    states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any],
+) -> None:
+    """Bind the two upload consumers without changing content origins or duties."""
+    indexed = {row["state_id"].removeprefix("state:step5c:"): row for row in states}
+    for role, path in facts["locators"].items():
+        _require(role in indexed and indexed[role]["path_or_uri"] == path,
+                 "authority_publication_input_locator", role)
+        _require(indexed[role]["producer_occurrence_id"] == facts["origins"][role],
+                 "authority_publication_input_origin", role)
+    for step in steps.values():
+        oid = step["occurrence_id"]
+        if oid in facts["steps"]:
+            _require(not step["output_state_ids"], "authority_publication_not_a_content_writer")
+            step["input_state_ids"] = sorted("state:step5c:" + role for role in facts["steps"][oid]["inputs"])
+    for role, row in indexed.items():
+        readers = set(row["required_consumer_occurrence_ids"]) - facts["steps"].keys()
+        readers.update(oid for oid, eq in facts["steps"].items() if role in eq["inputs"])
+        row["required_consumer_occurrence_ids"] = sorted(readers)
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -3236,6 +3326,7 @@ def _build_states(
     pre_attestation_postcondition = _pre_attestation_postcondition_source_projection(source_workflow, source_by_path)
     final_artifact_postcondition = _final_artifact_postcondition_source_projection(source_workflow, source_by_path)
     recorded_publication = _recorded_publication_source_projection(source_workflow, source_by_path)
+    authority_publication = _authority_publication_source_projection(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -3770,6 +3861,7 @@ def _build_states(
     _install_pre_attestation_postcondition_projection(states, step_by_key, pre_attestation_postcondition)
     _install_final_artifact_postcondition_projection(states, step_by_key, final_artifact_postcondition)
     _install_recorded_publication_projection(states, step_by_key, recorded_publication)
+    _install_authority_publication_projection(states, step_by_key, authority_publication)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph
