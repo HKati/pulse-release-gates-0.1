@@ -452,6 +452,8 @@ SOURCE_ROLES = (
     ('package_assembler_semantics', 'PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py'),
     ('package_verifier_semantics', 'PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py'),
     ('package_completeness_semantics', 'tools/check_release_grade_package_complete_v1.py'),
+    ("artifact_provenance_builder_semantics", "PULSE_safe_pack_v0/tools/build_artifact_provenance_binding_v0.py"),
+    ("artifact_provenance_verifier_semantics", "PULSE_safe_pack_v0/tools/verify_artifact_provenance_binding_v0.py"),
 )
 
 AUTHORITY_BOUNDARY = {
@@ -822,6 +824,7 @@ def _load_sources(root: Path, source_commit: str) -> dict[str, GitObject]:
     }
     exact_pins.update(_RECORDED_SEMANTIC_PINS)
     exact_pins.update(_PACKAGE_SEMANTIC_PINS)
+    exact_pins.update(_PROVENANCE_SOURCE_PINS)
     for path, expected in exact_pins.items():
         actual = source_by_path[path].blob_sha1
         _require(actual == expected, "reviewed_source_profile_mismatch", f"{path}: {actual}")
@@ -2352,6 +2355,194 @@ def _verify_source_bundle_equations(plan: dict[str, Any], workflow: dict[str, An
         _require(states.get("state:step5c:" + role, {}).get("path_or_uri") == path, "bundle_mapping_input_locator_mismatch", role)
 
 
+# Source-only provenance equations. A local file, its upload and the signed
+# attestation receipt are distinct roles. No hosted read receipt is inferred.
+_PROVENANCE_BUILD = "PULSE_safe_pack_v0/tools/build_artifact_provenance_binding_v0.py"
+_PROVENANCE_VERIFY = "PULSE_safe_pack_v0/tools/verify_artifact_provenance_binding_v0.py"
+_PROVENANCE_ASSEMBLER = "PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py"
+_PROVENANCE_ROLE = "artifact-provenance-binding"
+_PROVENANCE_JOB = "release_grade_recorded_path"
+_PROVENANCE_SOURCE_PINS = {
+    SUBJECT_WORKFLOW_PATH: "adae42c8e9777d357ab5400ced5765de7059ed1e",
+    _PROVENANCE_BUILD: "d3f07cbbf8fd38831a42d8fe8e891c23df4c7792",
+    _PROVENANCE_VERIFY: "665398c8841e4dd9534875831c93c749c3ccf94b",
+    _PROVENANCE_ASSEMBLER: "8f01602e973b890eb2ae0928bd62dfd65e691f79",
+    "tools/check_release_grade_package_complete_v1.py": "601e9a33097824b2055d908d25fad5667612c136",
+    "PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py": "f54c37a32329d191e213bb71a6818858285ff20a",
+}
+
+
+def _source_provenance_literal(data: bytes, name: str) -> Any:
+    nodes = []
+    for node in ast.parse(data).body:
+        names = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+        if any(isinstance(target, ast.Name) and target.id == name for target in names):
+            nodes.append(node.value)
+    _require(len(nodes) == 1, "provenance_mapping_literal_missing", name)
+    return ast.literal_eval(nodes[0])
+
+
+def _source_provenance_commands(step: dict[str, Any]) -> list[tuple[str, list[str]]]:
+    """Independently lex the reviewed R21 command lines without shell execution."""
+    invocations = []
+    for line in step["run"].replace("\\\n", " ").splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("python "):
+            continue
+        lexer = shlex.shlex(stripped, posix=True)
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        try:
+            words = list(lexer)
+        except ValueError as exc:
+            raise PlanError("provenance_mapping_command_syntax") from exc
+        _require(len(words) > 2 and words[0] == "python", "provenance_mapping_command_syntax")
+        invocations.append((_checked_mapping_path(words[1]), words[2:]))
+    _require(len(invocations) == 2 and invocations[0][0] == _PROVENANCE_BUILD
+             and invocations[1][0] == _PROVENANCE_VERIFY, "provenance_mapping_command_order")
+    return invocations
+
+
+def _source_provenance_expectations(workflow: dict[str, Any], sources: dict[str, GitObject]) -> dict[str, Any]:
+    for path, pin in _PROVENANCE_SOURCE_PINS.items():
+        _require(path in sources and sources[path].path == path, "provenance_mapping_source_missing", path)
+        _require(_sha1_git_blob(sources[path].data) == pin, "provenance_mapping_source_drift", path)
+    _require(workflow == _parse_yaml_document(sources[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH),
+             "provenance_mapping_workflow_drift")
+    rows = workflow["jobs"][_PROVENANCE_JOB]["steps"]
+    creation = rows[20]
+    (_, build_args), (_, check_args) = _source_provenance_commands(creation)
+    _require(build_args[-1:] == ["${POLICY_ARGS[@]}"], "provenance_mapping_policy_expansion")
+    options = dict(zip(build_args[:-1:2], build_args[1:-1:2]))
+    flags = {"--status": "final-status", "--policy": "gate-policy", "--ledger": "quality-ledger-final",
+             "--release-decision": "release-decision", "--release-authority-manifest": "release-authority-manifest"}
+    _require(len(build_args) == 13 and set(options) == set(flags) | {"--out"}, "provenance_mapping_arguments")
+    policy_array = re.findall(r"(?m)^POLICY_ARGS=\((.*?)^\)", creation["run"], re.S)
+    _require(len(policy_array) == 1 and shlex.split(policy_array[0]) ==
+             ["--policy-set", "required", "--policy-set", "release_required"], "provenance_mapping_policy_sets")
+    locator = _checked_mapping_path(options["--out"])
+    _require(check_args == ["--binding", options["--out"]], "provenance_mapping_verifier_input")
+
+    # The verifier enumerates the bound file fields independently of the
+    # producer's sha256_file calls. Its nested paths are not runtime receipts.
+    tree = ast.parse(sources[_PROVENANCE_VERIFY].data)
+    function = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "verify_binding")
+    file_fields = []
+    for statement in function.body:
+        if isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Call):
+            call = statement.value
+            if isinstance(call.func, ast.Name) and call.func.id == "verify_file_field":
+                fields = {item.arg: ast.literal_eval(item.value) for item in call.keywords
+                          if item.arg in {"path_field", "sha_field"}}
+                _require(fields["sha_field"] == fields["path_field"].removesuffix(".path") + ".sha256",
+                         "provenance_mapping_verifier_hash_field")
+                file_fields.append(fields["path_field"])
+    expected_fields = {
+        "authority_carrier.status_json.path": "--status",
+        "authority_carrier.declared_gate_policy.path": "--policy",
+        "authority_carrier.release_decision.path": "--release-decision",
+        "reader_carrier.quality_ledger.path": "--ledger",
+        "trace_carrier.release_authority_manifest.path": "--release-authority-manifest",
+    }
+    _require(len(file_fields) == 5 and set(file_fields) == set(expected_fields),
+             "provenance_mapping_verifier_reads")
+    _require({expected_fields[field] for field in file_fields} == set(flags),
+             "provenance_mapping_verifier_cli_fields")
+    input_locators = {role: _checked_mapping_path(options[flag]) for flag, role in flags.items()}
+    leaf = locator.rsplit("/", 1)[-1]
+    publication = rows[28]
+    _require(_checked_mapping_path(publication["with"]["path"]) == locator, "provenance_mapping_upload_selector")
+    _require(locator in rows[32]["with"]["path"].splitlines(), "provenance_mapping_recorded_copy")
+    required = re.findall(r"(?m)^REQUIRED_FILES=\((.*?)^\)", rows[25]["run"], re.S)
+    _require(len(required) == 1 and locator in [_checked_mapping_path(x) for x in shlex.split(required[0])]
+             and 'sha256sum "${artifact}"' in rows[25]["run"], "provenance_mapping_postcondition_read")
+
+    attestation = workflow["jobs"]["attest_release_grade_artifact_binding"]["steps"]
+    transfer = _package_commands(attestation[0], ("gh", "run", "download", "${GITHUB_RUN_ID}"), {"--repo", "--name", "--dir"})
+    _require(len(transfer) == 1 and transfer[0]["--repo"] == "${GITHUB_REPOSITORY}"
+             and transfer[0]["--name"] == publication["with"]["name"], "provenance_mapping_attestation_transfer")
+    attested_path = _checked_mapping_path(transfer[0]["--dir"] + "/" + leaf)
+    _require(attestation[1]["with"]["subject-path"] == attested_path
+             and 'sha256sum "' + attested_path + '"' in attestation[0]["run"], "provenance_mapping_attestation_subject")
+
+    assembly = workflow["jobs"]["assemble_release_grade_reference_package"]["steps"]
+    downloads = _package_commands(assembly[3], ("gh", "run", "download", "${GITHUB_RUN_ID}"), {"--repo", "--name", "--dir"})
+    selected = [row for row in downloads if row["--name"] == publication["with"]["name"]]
+    _require(len(selected) == 1 and selected[0]["--repo"] == "${GITHUB_REPOSITORY}"
+             and selected[0]["--dir"] == "${ARTIFACT_BINDING_DIR}"
+             and '--artifact-binding-dir "${ARTIFACT_BINDING_DIR}"' in assembly[4]["run"], "provenance_mapping_package_transfer")
+    copies = _source_provenance_literal(sources[_PROVENANCE_ASSEMBLER].data, "ARTIFACT_FILES")
+    matches = [row for row in copies if row[:2] == ("artifact_binding", leaf)]
+    _require(len(matches) == 1, "provenance_mapping_package_member")
+    member = matches[0][2]
+    for path, constant in (("tools/check_release_grade_package_complete_v1.py", "JSON_OBJECT_FILES"),
+                           ("PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py", "JSON_FILES")):
+        _require(member in _source_provenance_literal(sources[path].data, constant), "provenance_mapping_package_reader")
+    readers = [(_PROVENANCE_JOB, n) for n in (26, 29, 33)] + [
+        ("attest_release_grade_artifact_binding", 1), ("attest_release_grade_artifact_binding", 2),
+        ("assemble_release_grade_reference_package", 5), ("verify_release_grade_reference_package", 5),
+        ("verify_release_grade_reference_package", 7)]
+    return {"locator": locator, "input_locators": input_locators, "producer": _step_id(_PROVENANCE_JOB, 21),
+            "consumers": sorted(_step_id(job, n) for job, n in readers), "package_member": member,
+            "attestation_subject": attested_path, "publication_name": publication["with"]["name"],
+            "policy_sets": ["required", "release_required"]}
+
+
+def _install_provenance_source_projection(states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any]) -> None:
+    sid = "state:step5c:" + _PROVENANCE_ROLE
+    by_role = {row["state_id"].removeprefix("state:step5c:"): row for row in states}
+    for row in states:
+        row["required_consumer_occurrence_ids"] = [oid for oid in row["required_consumer_occurrence_ids"] if oid != facts["producer"]]
+    for step in steps.values():
+        for key in ("input_state_ids", "output_state_ids"):
+            step[key] = [item for item in step[key] if item != sid]
+        if step["occurrence_id"] == facts["producer"]:
+            step["input_state_ids"] = sorted("state:step5c:" + role for role in facts["input_locators"])
+            step["output_state_ids"] = [sid]
+        if step["occurrence_id"] in facts["consumers"]:
+            _append_unique(step["input_state_ids"], sid)
+    for role in facts["input_locators"]:
+        _require(by_role[role]["path_or_uri"] == facts["input_locators"][role], "provenance_mapping_input_locator", role)
+        _append_unique(by_role[role]["required_consumer_occurrence_ids"], facts["producer"])
+    binding = by_role[_PROVENANCE_ROLE]
+    binding["path_or_uri"] = facts["locator"]
+    binding["producer_occurrence_id"] = facts["producer"]
+    binding["required_consumer_occurrence_ids"] = facts["consumers"][:]
+    for row in states:
+        row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
+
+
+def _verify_source_provenance_equations(plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject]) -> None:
+    """Reject source-inconsistent supplied plans before constructor equality."""
+    facts = _source_provenance_expectations(workflow, sources)
+    states = {row["state_id"]: row for row in plan["state_templates"]}
+    _require(len(states) == len(plan["state_templates"]), "provenance_mapping_duplicate_role")
+    steps = {step["occurrence_id"]: step for job in plan["jobs"] for step in job["steps"]}
+    sid = "state:step5c:" + _PROVENANCE_ROLE
+    _require(sid in states and facts["producer"] in steps, "provenance_mapping_role_missing")
+    binding = states[sid]
+    _require(binding["path_or_uri"] == facts["locator"], "provenance_mapping_locator_mismatch")
+    _require(binding["producer_occurrence_id"] == facts["producer"], "provenance_mapping_producer_mismatch")
+    _require(binding["required_consumer_occurrence_ids"] == facts["consumers"], "provenance_mapping_consumers_mismatch")
+    _require(binding["required"] is True and binding["content_requirement"] == "exact_digest"
+             and binding["state_type"] == "manifest" and binding["authority_bearing"] is True
+             and binding["mutation_class"] == "none"
+             and binding["role"] == "final_release_authority_artifact_binding", "provenance_mapping_requirement_mismatch")
+    _require(sorted(oid for oid, step in steps.items() if sid in step["input_state_ids"]) == facts["consumers"],
+             "provenance_mapping_reader_set_mismatch")
+    _require([oid for oid, step in steps.items() if sid in step["output_state_ids"]] == [facts["producer"]],
+             "provenance_mapping_writer_set_mismatch")
+    expected_inputs = sorted("state:step5c:" + role for role in facts["input_locators"])
+    producing_step = steps[facts["producer"]]
+    _require(producing_step["input_state_ids"] == expected_inputs and producing_step["output_state_ids"] == [sid],
+             "provenance_mapping_step_extent_mismatch")
+    _require(sorted(state_id for state_id, row in states.items() if facts["producer"] in row["required_consumer_occurrence_ids"])
+             == expected_inputs, "provenance_mapping_reverse_inputs_mismatch")
+    for role, locator in facts["input_locators"].items():
+        _require(states.get("state:step5c:" + role, {}).get("path_or_uri") == locator,
+                 "provenance_mapping_input_locator_mismatch", role)
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -2363,6 +2554,7 @@ def _build_states(
     package_projection = _source_package_expectations(source_workflow, source_by_path)
     argument_projection = _source_required_argument_expectations(source_workflow, source_by_path)
     bundle_projection = _source_bundle_expectations(source_workflow, source_by_path)
+    binding_projection = _source_provenance_expectations(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -2586,7 +2778,7 @@ def _build_states(
         "final_release_grade_status",
         recorded_projection["locators"]['final-status'],
         producer=st("release_grade_recorded_path", 9),
-        consumers=[st("release_grade_recorded_path", 21), st("release_grade_recorded_path", 23)],
+        consumers=[st("release_grade_recorded_path", 23)],
         authority=True,
         mutation="final_status",
     )
@@ -2624,7 +2816,7 @@ def _build_states(
         "final_release_decision",
         source_projection["locators"]['release-decision'],
         producer=st("release_grade_recorded_path", 15),
-        consumers=[st("release_grade_recorded_path", 21), st("release_grade_recorded_path", 30)],
+        consumers=[st("release_grade_recorded_path", 30)],
         authority=True,
         mutation="release_decision",
     )
@@ -2643,7 +2835,7 @@ def _build_states(
         "final_release_authority_manifest",
         source_projection["locators"]['release-authority-manifest'],
         producer=st("release_grade_recorded_path", 17),
-        consumers=[st("release_grade_recorded_path", 21), st("release_grade_recorded_path", 27)],
+        consumers=[st("release_grade_recorded_path", 27)],
         authority=True,
     )
     ledger_final = add(
@@ -2668,9 +2860,9 @@ def _build_states(
         "artifact-provenance-binding",
         "manifest",
         "final_release_authority_artifact_binding",
-        "PULSE_safe_pack_v0/artifacts/artifact_provenance_binding_v0.json",
-        producer=st("release_grade_recorded_path", 21),
-        consumers=[st("release_grade_recorded_path", 29), st("attest_release_grade_artifact_binding", 1), st("assemble_release_grade_reference_package", 4)],
+        binding_projection["locator"],
+        producer=binding_projection["producer"],
+        consumers=binding_projection["consumers"],
         authority=True,
     )
     audit_bundle = add(
@@ -2844,11 +3036,6 @@ def _build_states(
             ("release_grade_recorded_path", 5, attestation_envelope),
             ("release_grade_recorded_path", 5, attestation_verifier),
             ("release_grade_recorded_path", 8, signer),
-            ("release_grade_recorded_path", 21, final_status),
-            ("release_grade_recorded_path", 21, decision),
-            ("release_grade_recorded_path", 21, authority_manifest),
-            ("attest_release_grade_artifact_binding", 1, artifact_binding),
-            ("assemble_release_grade_reference_package", 4, artifact_binding),
         ],
         outputs=[
             ("pulse", 11, required_gate),
@@ -2861,7 +3048,6 @@ def _build_states(
             ("attest_llamaguard_current_run_summary", 5, attestation_bundle),
             ("attest_llamaguard_current_run_summary", 6, attestation_envelope),
             ("attest_llamaguard_current_run_summary", 7, attestation_verifier),
-            ("release_grade_recorded_path", 21, artifact_binding),
             ("release_grade_recorded_path", 23, junit),
             ("release_grade_recorded_path", 23, sarif),
             ("attest_release_grade_artifact_binding", 2, binding_attestation),
@@ -2899,6 +3085,7 @@ def _build_states(
     _apply_package_source_expectations(states, step_by_key, package_projection)
 
     _apply_bundle_source_expectations(states, step_by_key, bundle_projection)
+    _install_provenance_source_projection(states, step_by_key, binding_projection)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph
@@ -3504,6 +3691,9 @@ def check_plan(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_source_bundle_equations(
+        plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
+    )
+    _verify_source_provenance_equations(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_tool_identity(

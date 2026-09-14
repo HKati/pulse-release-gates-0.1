@@ -505,7 +505,7 @@ def test_real_plan_cli_and_independent_checker(source_fixture):
     assert f.diagnostic_doc['plan']['byte_identical_to_independent_reconstruction'] is True
     assert f.diagnostic_doc['plan']['sha256'] == f.plan_digest
     assert f.plan['plan_identity']['source_commit'] == f.sha
-    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 50
+    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 52
 
 
 def test_two_separate_plan_processes_are_byte_identical(source_fixture):
@@ -1470,7 +1470,7 @@ def test_two_real_prepares_preserve_the_complete_declared_source_set(
         assert diagnostic['record_status'] == 'example'
         assert diagnostic['output_sha256'] == digest(raw)
         assert diagnostic['output_size_bytes'] == len(raw)
-        assert diagnostic['member_count'] == len(expected_members) == 55
+        assert diagnostic['member_count'] == len(expected_members) == 57
         assert diagnostic['authority_boundary'] == VERIFIER.AUTHORITY_BOUNDARY
         plan, members, stored_raw = read_prepared_example(f, target)
         assert plan == f.plan and stored_raw == raw
@@ -3718,8 +3718,8 @@ def test_required_argument_predicate_runs_before_expected_reconstruction():
 def test_required_argument_role_remains_unavailable_until_runtime_integration(source_fixture):
     plan = source_fixture.plan
     assert len(plan['state_templates']) == 62
-    assert len(plan['source_inventory']) == 50
-    assert len(prepared_fixture_members(source_fixture)) == 55
+    assert len(plan['source_inventory']) == 52
+    assert len(prepared_fixture_members(source_fixture)) == 57
     assert 'evidence_profile' not in plan
     packet = runtime_projection_example(source_fixture)
     state = next(row for row in packet['state_observations'] if row['state_id'] == REQUIRED_ARGUMENT_STATE)
@@ -4032,11 +4032,271 @@ def test_bundle_actual_copy_shells_match_synthetic_preservation(tmp_path, source
 
 def test_bundle_mapping_does_not_change_role_inventory_or_runtime_acceptance(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 50
-    assert len(prepared_fixture_members(source_fixture)) == 55
+    assert len(source_fixture.plan['source_inventory']) == 52
+    assert len(prepared_fixture_members(source_fixture)) == 57
     source = (SOURCES / 'check_pulsemech_compute_whole_runtime_observation_v0.py').read_text()
     assert 'declared_state_evidence_incomplete' in source
     assert not any('artifact_id' in s for s in source_fixture.plan['state_templates'])
+
+
+# Provenance mapping: fixed source declarations, not hosted read receipts.
+PROVENANCE_INPUTS = [
+    ('--status', 'final-status'), ('--policy', 'gate-policy'),
+    ('--ledger', 'quality-ledger-final'), ('--release-decision', 'release-decision'),
+    ('--release-authority-manifest', 'release-authority-manifest'),
+]
+PROVENANCE_READERS = [
+    ('release_grade_recorded_path', 26), ('release_grade_recorded_path', 29),
+    ('release_grade_recorded_path', 33), ('attest_release_grade_artifact_binding', 1),
+    ('attest_release_grade_artifact_binding', 2), ('assemble_release_grade_reference_package', 5),
+    ('verify_release_grade_reference_package', 5), ('verify_release_grade_reference_package', 7),
+]
+PROVENANCE_MUTATIONS = [
+    'missing_policy', 'missing_ledger', 'pre_ledger_alias', 'composed_ledger_alias',
+    'source_argv_input', 'self_read', 'package_download_reader', 'missing_attestation_hash',
+    'missing_attestation_action', 'missing_package_copy', 'missing_postcondition_hash',
+    'missing_secondary_upload', 'missing_package_json_reader', 'publisher_as_producer',
+    'wrong_locator', 'optional', 'metadata_only', 'wrong_mutation_class',
+    'reverse_only', 'forward_only', 'missing_role',
+]
+
+
+def provenance_method(side):
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    return module, (module._provenance_source_projection if side == 'builder'
+                    else module._source_provenance_expectations)
+
+
+def provenance_rows(plan):
+    return ({row['state_id'].removeprefix('state:step5c:'): row for row in plan['state_templates']},
+            bundle_plan_steps(plan))
+
+
+@pytest.mark.parametrize('flag,role', PROVENANCE_INPUTS)
+def test_provenance_r21_actual_file_input_is_mapped(source_fixture, flag, role):
+    body = mapping_source_document()['jobs']['release_grade_recorded_path']['steps'][20]['run']
+    command = next(shlex.split(line) for line in body.replace('\\\n', ' ').splitlines()
+                   if 'python "${PACK_DIR}/tools/build_artifact_provenance_binding_v0.py"' in line)
+    location = command[command.index(flag) + 1].replace('${PACK_DIR}/', 'PULSE_safe_pack_v0/').replace('${GITHUB_WORKSPACE}/', '')
+    states, steps = provenance_rows(source_fixture.plan)
+    r21 = steps[('release_grade_recorded_path', 21)]
+    assert states[role]['path_or_uri'] == location
+    assert states[role]['state_id'] in r21['input_state_ids']
+    assert r21['occurrence_id'] in states[role]['required_consumer_occurrence_ids']
+
+
+@pytest.mark.parametrize('job,ordinal', PROVENANCE_READERS)
+def test_provenance_content_readers_have_both_references(source_fixture, job, ordinal):
+    states, steps = provenance_rows(source_fixture.plan)
+    row = states['artifact-provenance-binding']; step = steps[(job, ordinal)]
+    assert row['state_id'] in step['input_state_ids']
+    assert step['occurrence_id'] in row['required_consumer_occurrence_ids']
+
+
+def test_provenance_exact_reader_set_preserves_hash_vs_transfer_distinction(source_fixture):
+    states, steps = provenance_rows(source_fixture.plan)
+    row = states['artifact-provenance-binding']
+    assert row['required_consumer_occurrence_ids'] == sorted(steps[k]['occurrence_id'] for k in PROVENANCE_READERS)
+    assert row['producer_occurrence_id'] == steps[('release_grade_recorded_path', 21)]['occurrence_id']
+    assert row['state_id'] not in steps[('assemble_release_grade_reference_package', 4)]['input_state_ids']
+    raw = mapping_source_document()['jobs']['attest_release_grade_artifact_binding']['steps'][0]['run']
+    assert 'sha256sum "attestation-subject/artifact_provenance_binding_v0.json"' in raw
+    assert row['state_id'] not in steps[('release_grade_recorded_path', 21)]['input_state_ids']
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_provenance_projection_is_source_only_and_pins_both_semantic_tools(source_fixture, recorded_source_objects, side):
+    module, method = provenance_method(side)
+    facts = method(mapping_source_document(), recorded_source_objects)
+    assert facts == provenance_method('checker' if side == 'builder' else 'builder')[1](mapping_source_document(), recorded_source_objects)
+    assert facts['package_member'] == 'artifacts/artifact_provenance_binding_v0.json'
+    assert facts['attestation_subject'] == 'attestation-subject/artifact_provenance_binding_v0.json'
+    assert facts['policy_sets'] == ['required', 'release_required']
+    inventory = {row['path']: row for row in source_fixture.plan['source_inventory']}
+    for path in (module._PROVENANCE_BUILD, module._PROVENANCE_VERIFY):
+        assert inventory[path]['git_blob_sha1'] == module._PROVENANCE_SOURCE_PINS[path]
+        assert inventory[path]['sha256'] == digest((source_fixture.root / path).read_bytes())
+    assert set(facts) == {'locator', 'input_locators', 'producer', 'consumers', 'package_member',
+                         'attestation_subject', 'publication_name', 'policy_sets'}
+
+
+def corrupt_provenance_plan(original, mutation):
+    plan = copy.deepcopy(original)
+    states, steps = provenance_rows(plan)
+    row = states['artifact-provenance-binding']; sid = row['state_id']
+    r21 = steps[('release_grade_recorded_path', 21)]
+    def edge(role, key, add):
+        record = states[role]; target = steps[key]; occurrence = target['occurrence_id']; state_id = record['state_id']
+        if add:
+            target['input_state_ids'] = sorted(set(target['input_state_ids']) | {state_id})
+            record['required_consumer_occurrence_ids'] = sorted(set(record['required_consumer_occurrence_ids']) | {occurrence})
+        else:
+            target['input_state_ids'] = [v for v in target['input_state_ids'] if v != state_id]
+            record['required_consumer_occurrence_ids'] = [v for v in record['required_consumer_occurrence_ids'] if v != occurrence]
+    if mutation in ('missing_policy', 'missing_ledger'):
+        edge('gate-policy' if mutation == 'missing_policy' else 'quality-ledger-final', ('release_grade_recorded_path', 21), False)
+    elif mutation in ('pre_ledger_alias', 'composed_ledger_alias'):
+        edge('quality-ledger-final', ('release_grade_recorded_path', 21), False)
+        edge('quality-ledger-pre-authority' if mutation == 'pre_ledger_alias' else 'release-decision-report', ('release_grade_recorded_path', 21), True)
+    elif mutation in ('source_argv_input', 'self_read'):
+        edge('effective-required-argument-list' if mutation == 'source_argv_input' else 'artifact-provenance-binding', ('release_grade_recorded_path', 21), True)
+    elif mutation == 'package_download_reader':
+        edge('artifact-provenance-binding', ('assemble_release_grade_reference_package', 4), True)
+    elif mutation.startswith('missing_') and mutation != 'missing_role':
+        key = {
+            'missing_attestation_hash': ('attest_release_grade_artifact_binding', 1),
+            'missing_attestation_action': ('attest_release_grade_artifact_binding', 2),
+            'missing_package_copy': ('assemble_release_grade_reference_package', 5),
+            'missing_postcondition_hash': ('release_grade_recorded_path', 26),
+            'missing_secondary_upload': ('release_grade_recorded_path', 33),
+            'missing_package_json_reader': ('verify_release_grade_reference_package', 7),
+        }[mutation]
+        edge('artifact-provenance-binding', key, False)
+    elif mutation == 'publisher_as_producer':
+        r21['output_state_ids'] = []
+        steps[('release_grade_recorded_path', 29)]['output_state_ids'] = [sid]
+        row['producer_occurrence_id'] = steps[('release_grade_recorded_path', 29)]['occurrence_id']
+    elif mutation == 'wrong_locator': row['path_or_uri'] += '.wrong'
+    elif mutation == 'optional': row['required'] = False
+    elif mutation == 'metadata_only': row['content_requirement'] = 'metadata_only'
+    elif mutation == 'wrong_mutation_class': row['mutation_class'] = 'preservation_output'
+    elif mutation == 'reverse_only': states['gate-policy']['required_consumer_occurrence_ids'].remove(r21['occurrence_id'])
+    elif mutation == 'forward_only': r21['input_state_ids'].remove(states['gate-policy']['state_id'])
+    elif mutation == 'missing_role':
+        plan['state_templates'] = [s for s in plan['state_templates'] if s['state_id'] != sid]
+        for step in steps.values():
+            for key in ('input_state_ids', 'output_state_ids'): step[key] = [v for v in step[key] if v != sid]
+    else: raise AssertionError(mutation)
+    return plan
+
+
+@pytest.mark.parametrize('mutation', PROVENANCE_MUTATIONS)
+def test_provenance_equal_wrong_plans_fail_source_predicate(source_fixture, recorded_source_objects, mutation):
+    bad = corrupt_provenance_plan(source_fixture.plan, mutation)
+    assert canonical(bad) == canonical(copy.deepcopy(bad))
+    with pytest.raises(PLAN_CHECKER.PlanError, match='provenance_mapping_'):
+        PLAN_CHECKER._verify_source_provenance_equations(bad, mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('mutation', ['missing_policy', 'missing_ledger', 'package_download_reader'])
+def test_provenance_actual_constructors_common_error_is_not_accepted(source_fixture, recorded_source_objects, mutation):
+    results = []
+    for module in (BUILDER, PLAN_CHECKER):
+        document = mapping_source_document()
+        jobs, steps, _ = module._build_jobs(document)
+        states = module._build_states(steps, module.EXPECTED_CASE_IDS, document, recorded_source_objects)
+        plan = copy.deepcopy(source_fixture.plan); plan['jobs'], plan['state_templates'] = jobs, states
+        results.append(canonical(corrupt_provenance_plan(plan, mutation)))
+    assert results[0] == results[1]
+    with pytest.raises(PLAN_CHECKER.PlanError, match='provenance_mapping_'):
+        PLAN_CHECKER._verify_source_provenance_equations(json.loads(results[0]), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('mutation', ['missing_policy', 'missing_ledger', 'package_download_reader', 'optional'])
+def test_provenance_rehashed_forgery_fails_real_checker_cli(source_fixture, tmp_path, mutation):
+    raw = canonical(corrupt_provenance_plan(source_fixture.plan, mutation))
+    jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(json.loads(raw))
+    path = tmp_path / 'forged-provenance-plan.json'; path.write_bytes(raw)
+    args = list(source_fixture.check_args)
+    args[args.index('--plan') + 1] = path
+    args[args.index('--expected-plan-sha256') + 1] = digest(raw)
+    result = cli(source_fixture.root, TOOL_NAMES[1], args)
+    assert result.returncode != 0
+    report = json.loads(result.stdout)
+    assert report['ok'] is False
+    # Existing ledger/recorded predicates may reject an overlapping forged
+    # input first; it must still fail at a source-mapping boundary.
+    assert any(v in report['error_code'] for v in ('provenance_mapping_', 'source_mapping_', 'recorded_mapping_'))
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('path', [
+    'PULSE_safe_pack_v0/tools/build_artifact_provenance_binding_v0.py',
+    'PULSE_safe_pack_v0/tools/verify_artifact_provenance_binding_v0.py',
+    '.github/workflows/pulse_ci.yml',
+    'PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py',
+])
+@pytest.mark.parametrize('mutation', ['missing', 'rehashed'])
+def test_provenance_changed_semantic_source_never_inherits_old_mapping(source_fixture, recorded_source_objects, side, path, mutation):
+    module, method = provenance_method(side)
+    objects = dict(recorded_source_objects)
+    if mutation == 'missing': del objects[path]
+    else:
+        previous = objects[path]; raw = previous.data + b'\n# not the reviewed semantic source\n'
+        objects[path] = replace(previous, data=raw, blob_sha1=module._sha1_git_blob(raw))
+    with pytest.raises(module.PlanError, match='provenance_mapping_source_'):
+        method(mapping_source_document(), objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('mutation', ['ledger_version', 'verifier_target', 'publication_target',
+                                     'attestation_hash', 'attestation_subject', 'package_transfer'])
+def test_provenance_workflow_drift_requires_reviewed_profile(source_fixture, recorded_source_objects, side, mutation):
+    doc = mapping_source_document(); rows = doc['jobs']['release_grade_recorded_path']['steps']
+    if mutation == 'ledger_version': rows[20]['run'] = rows[20]['run'].replace('report_card.html', 'report_card.with_release_decision.html')
+    elif mutation == 'verifier_target': rows[20]['run'] = rows[20]['run'].replace('--binding ', '--other-binding ')
+    elif mutation == 'publication_target': rows[28]['with']['path'] += '.other'
+    elif mutation == 'attestation_hash':
+        step = doc['jobs']['attest_release_grade_artifact_binding']['steps'][0]
+        step['run'] = step['run'].replace('sha256sum ', 'echo ')
+    elif mutation == 'attestation_subject': doc['jobs']['attest_release_grade_artifact_binding']['steps'][1]['with']['subject-path'] += '.other'
+    else:
+        step = doc['jobs']['assemble_release_grade_reference_package']['steps'][3]
+        step['run'] = step['run'].replace('--dir "${ARTIFACT_BINDING_DIR}"', '--dir "${RECORDED_PATH_DIR}"')
+    module, method = provenance_method(side)
+    with pytest.raises(module.PlanError, match='provenance_mapping_workflow_drift'):
+        method(doc, recorded_source_objects)
+
+
+@pytest.mark.parametrize('tamper_role', [None, 'final-status', 'gate-policy', 'quality-ledger-final', 'release-decision', 'release-authority-manifest'])
+def test_provenance_exact_r21_shell_uses_five_synthetic_contents(source_fixture, tmp_path, tamper_role):
+    root = tmp_path / 'synthetic-r21'; pack = root / 'PULSE_safe_pack_v0'
+    (pack / 'tools').mkdir(parents=True); (pack / 'artifacts').mkdir()
+    for relative in (BUILDER._PROVENANCE_BUILD, BUILDER._PROVENANCE_VERIFY):
+        (root / relative).write_bytes((source_fixture.root / relative).read_bytes())
+    files = {
+        'final-status': ('PULSE_safe_pack_v0/artifacts/status.json', canonical({
+            'metrics': {'run_id': '73001', 'run_key': 'GITHUB_RUN_ID=73001|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=synthetic',
+                        'git_sha': source_fixture.sha, 'run_mode': 'prod'},
+            'gates': {'example_required': True, 'example_release': True}})),
+        'gate-policy': ('pulse_gate_policy_v0.yml', b'gates:\n  required: [example_required]\n  release_required: [example_release]\n'),
+        'quality-ledger-final': ('PULSE_safe_pack_v0/artifacts/report_card.html', b'<p>synthetic final ledger</p>\n'),
+        'release-decision': ('PULSE_safe_pack_v0/artifacts/release_decision_v0.json', b'{"label":"PROD-PASS"}\n'),
+        'release-authority-manifest': ('PULSE_safe_pack_v0/artifacts/release_authority_v0.json', b'{"example":"authority"}\n'),
+    }
+    for relative, raw in files.values(): (root / relative).write_bytes(raw)
+    env = {'PATH': str(Path(sys.executable).parent) + ':/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C',
+           'PACK_DIR': 'PULSE_safe_pack_v0', 'GITHUB_WORKSPACE': str(root), 'HOME': str(tmp_path)}
+    body = mapping_source_document()['jobs']['release_grade_recorded_path']['steps'][20]['run']
+    # Exact source shell, actual existing tools, only synthetic local inputs.
+    result = subprocess.run(['/bin/bash', '-c', body], cwd=root, env=env,
+                            stdin=subprocess.DEVNULL, capture_output=True, timeout=30)
+    assert result.returncode == 0, result.stderr
+    binding_path = root / 'PULSE_safe_pack_v0/artifacts/artifact_provenance_binding_v0.json'
+    binding = json.loads(binding_path.read_bytes())
+    bound = [row for row in binding['binding_subjects'] if not row['path'].startswith('inline:')]
+    assert len(bound) == 5
+    for row in bound:
+        p = Path(row['path']); p = p if p.is_absolute() else root / p
+        assert row['sha256'] == digest(p.read_bytes())
+    for relative, raw in files.values(): assert (root / relative).read_bytes() == raw
+    if tamper_role is not None:
+        relative, raw = files[tamper_role]; (root / relative).write_bytes(raw + b'changed\n')
+        bad = subprocess.run([sys.executable, '-I', '-B', str(root / BUILDER._PROVENANCE_VERIFY),
+                              '--binding', str(binding_path)], cwd=root, env=env,
+                             stdin=subprocess.DEVNULL, capture_output=True, timeout=30)
+        assert bad.returncode == 1 and b'MISMATCH:' in bad.stderr
+
+
+def test_provenance_mapping_keeps_full_role_extent_and_unaccepted_evidence(source_fixture):
+    plan = source_fixture.plan
+    assert len(plan['state_templates']) == 62 and len(plan['source_inventory']) == 52
+    assert len(prepared_fixture_members(source_fixture)) == 57
+    packet = runtime_projection_example(source_fixture)
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(plan, packet, {})
+    assert 'evidence_profile' not in plan
+    assert plan['authority_boundary']['authority_effect'] == 'none'
 
 
 if __name__ == '__main__':
