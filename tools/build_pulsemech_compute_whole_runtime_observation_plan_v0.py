@@ -444,6 +444,7 @@ SOURCE_ROLES = (
     ('package_completeness_semantics', 'tools/check_release_grade_package_complete_v1.py'),
     ("artifact_provenance_builder_semantics", "PULSE_safe_pack_v0/tools/build_artifact_provenance_binding_v0.py"),
     ("artifact_provenance_verifier_semantics", "PULSE_safe_pack_v0/tools/verify_artifact_provenance_binding_v0.py"),
+    ("self_contained_floor_semantics", "PULSE_safe_pack_v0/tools/build_self_contained_pulse_evidence_floor_v0.py"),
 )
 
 AUTHORITY_BOUNDARY = {
@@ -2333,6 +2334,112 @@ def _install_provenance_source_projection(states: list[dict[str, Any]], steps: d
         row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
 
 
+# Selected pre-augmentation baseline/floor relations. These are source facts,
+# not observed hosted-run reads or acceptance of the floor's own verdict.
+_FLOOR_BUILD_PATH = "PULSE_safe_pack_v0/tools/build_self_contained_pulse_evidence_floor_v0.py"
+_FLOOR_SOURCE_PINS = {
+    SUBJECT_WORKFLOW_PATH: EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1,
+    _FLOOR_BUILD_PATH: "2f7776e609ef7ef2fb8fcd40d5ee30e46ed46f6a",
+    "PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py": "4298b7644acb0d8f7c50bbbac5308fb5038a501a",
+    "tools/validate_status_schema.py": "f329f882805615402a9fed99f67d4e7667891c06",
+}
+_FLOOR_FLAGS = (
+    "--repo-root", "--status", "--policy", "--registry", "--required-gate-evidence",
+    "--out", "--repository", "--git-sha", "--run-key", "--workflow-ref",
+    "--created-utc", "--external-model-status",
+)
+
+
+def _baseline_floor_source_projection(workflow: dict[str, Any], sources: dict[str, GitObject]) -> dict[str, Any]:
+    """Derive the bounded P14-P19 family from command and loader sources."""
+    for path, pin in _FLOOR_SOURCE_PINS.items():
+        _require(path in sources and sources[path].path == path, "floor_mapping_source_missing", path)
+        _require(_sha1_git_blob(sources[path].data) == pin, "floor_mapping_source_drift", path)
+    _require(workflow == _parse_yaml_document(sources[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH),
+             "floor_mapping_workflow_drift")
+    rows = workflow["jobs"]["pulse"]["steps"]
+    args = _recorded_argv(rows[17], _FLOOR_BUILD_PATH, set(_FLOOR_FLAGS))[0]
+    origin = _recorded_argv(rows[12], "PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py",
+                            {"--repo-root", "--out"})[0]
+    status = _mapping_path(args["--status"])
+    baseline = _mapping_assignment(rows[13], "DST")
+    _require(_mapping_path(origin["--out"]) == status == _mapping_assignment(rows[13], "SRC"),
+             "floor_mapping_status_version")
+    copies = [shlex.split(line) for line in rows[13]["run"].splitlines() if line.strip().startswith("cp ")]
+    _require(copies == [["cp", "$SRC", "$DST"]] and baseline != status, "floor_mapping_baseline_copy")
+    guard = _recorded_argv(rows[14], "tools/validate_status_schema.py", {"--schema", "--status"})[0]
+    _require(guard == {"--schema": "$SCHEMA", "--status": "$STATUS"}
+             and _mapping_assignment(rows[14], "STATUS") == baseline
+             and _mapping_assignment(rows[14], "SCHEMA") == "schemas/status/status_v1.schema.json",
+             "floor_mapping_baseline_guard")
+    inline = re.fullmatch(r"set -euo pipefail\npython - <<'PY'\n(.*?)\nPY\n", rows[15]["run"], re.S)
+    _require(inline is not None, "floor_mapping_status_guard_source")
+    tree = ast.parse(inline.group(1))
+    paths = [node.value.value for node in tree.body if isinstance(node, ast.Assign)
+             and any(isinstance(t, ast.Name) and t.id == "p" for t in node.targets)
+             and isinstance(node.value, ast.Constant)]
+    _require(paths == [status] and any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+             and n.func.id == "open" and n.args and isinstance(n.args[0], ast.Name)
+             and n.args[0].id == "p" for n in ast.walk(tree)), "floor_mapping_status_guard_read")
+    functions = {n.name: n for n in ast.parse(sources[_FLOOR_BUILD_PATH].data).body if isinstance(n, ast.FunctionDef)}
+    loads = [(n.func.id, n.args[1].id) for n in ast.walk(functions["build_floor"])
+             if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+             and n.func.id in {"_load_json", "_load_yaml"} and len(n.args) >= 2 and isinstance(n.args[1], ast.Name)]
+    _require(sorted(loads) == sorted([("_load_json", "status_path"), ("_load_yaml", "policy_path"),
+                                    ("_load_yaml", "registry_path"), ("_load_json", "required_evidence_path")]),
+             "floor_mapping_input_loaders")
+    role_flags = {"pre-materialization-status": "--status", "gate-policy": "--policy",
+                  "gate-registry": "--registry", "required-gate-evidence": "--required-gate-evidence"}
+    inputs = {role: _mapping_path(args[flag]) for role, flag in role_flags.items()}
+    _require(inputs["gate-policy"] == POLICY_PATH and inputs["gate-registry"] == REGISTRY_PATH
+             and args["--repo-root"] == origin["--repo-root"] == "${GITHUB_WORKSPACE}"
+             and args["--external-model-status"] == "not_required_for_tier0", "floor_mapping_context")
+    floor = _mapping_path(args["--out"])
+    _require(len({status, baseline, floor, *inputs.values()}) == 6, "floor_mapping_path_alias")
+    _require(_mapping_assignment(rows[17], "FLOOR") == floor
+             and 'sha256sum "${FLOOR}"' in rows[17]["run"], "floor_mapping_output_hash")
+    upload = rows[18]
+    _require(upload["uses"].startswith("actions/upload-artifact@")
+             and upload["with"]["path"].splitlines() == [floor]
+             and upload["with"]["if-no-files-found"] == "error", "floor_mapping_upload")
+    inputs["pre-materialization-status"] += "#pre-release-required-materialization"
+    locators = {**inputs, "status-baseline": baseline, "self-contained-evidence-floor": floor}
+    equations = {
+        14: (["pre-materialization-status"], ["status-baseline"]),
+        15: (["status-baseline"], []), 16: (["pre-materialization-status"], []),
+        18: (sorted(inputs), ["self-contained-evidence-floor"]),
+        19: (["self-contained-evidence-floor"], []),
+    }
+    return {"locators": locators,
+            "producers": {"status-baseline": _step_id("pulse", 14), "self-contained-evidence-floor": _step_id("pulse", 18)},
+            "steps": {_step_id("pulse", n): {"inputs": a, "outputs": b} for n, (a, b) in equations.items()}}
+
+
+def _install_baseline_floor_projection(states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any]) -> None:
+    """Replace only the owned P14/P15/P16/P18/P19 selected-state equations."""
+    by_role = {row["state_id"].removeprefix("state:step5c:"): row for row in states}
+    for role, path in facts["locators"].items():
+        _require(role in by_role, "floor_mapping_role_missing", role)
+        if role in facts["producers"]:
+            by_role[role]["path_or_uri"] = path
+            by_role[role]["producer_occurrence_id"] = facts["producers"][role]
+        else:
+            _require(by_role[role]["path_or_uri"] == path, "floor_mapping_input_locator", role)
+    owned = set(facts["steps"])
+    for row in states:
+        row["required_consumer_occurrence_ids"] = [oid for oid in row["required_consumer_occurrence_ids"] if oid not in owned]
+    for step in steps.values():
+        oid = step["occurrence_id"]
+        if oid not in owned:
+            continue
+        for field, direction in (("input_state_ids", "inputs"), ("output_state_ids", "outputs")):
+            step[field] = sorted("state:step5c:" + role for role in facts["steps"][oid][direction])
+        for role in facts["steps"][oid]["inputs"]:
+            _append_unique(by_role[role]["required_consumer_occurrence_ids"], oid)
+    for row in states:
+        row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -2345,6 +2452,7 @@ def _build_states(
     argument_projection = _required_arguments_source_projection(source_workflow, source_by_path)
     bundle_projection = _bundle_source_projection(source_workflow, source_by_path)
     binding_projection = _provenance_source_projection(source_workflow, source_by_path)
+    baseline_floor_projection = _baseline_floor_source_projection(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -2441,7 +2549,7 @@ def _build_states(
         "current_run_required_gate_evidence",
         "PULSE_safe_pack_v0/artifacts/required_gate_evidence_v0.json",
         producer=st("pulse", 11),
-        consumers=[st("pulse", 12), st("pulse", 13), st("pulse", 18), st("release_grade_recorded_path", 4)],
+        consumers=[st("pulse", 12), st("pulse", 13), st("release_grade_recorded_path", 4)],
         authority=True,
     )
     status_baseline = add(
@@ -2450,7 +2558,7 @@ def _build_states(
         "pre_augmentation_status",
         "PULSE_safe_pack_v0/artifacts/status_baseline.json",
         producer=st("pulse", 14),
-        consumers=[st("pulse", 15), st("release_grade_recorded_path", 4)],
+        consumers=[st("release_grade_recorded_path", 4)],
         authority=True,
     )
     evidence_floor = add(
@@ -2459,7 +2567,7 @@ def _build_states(
         "self_contained_pulse_evidence_floor",
         "PULSE_safe_pack_v0/artifacts/self_contained_pulse_evidence_floor_v0.json",
         producer=st("pulse", 18),
-        consumers=[st("pulse", 19), st("release_grade_recorded_path", 4)],
+        consumers=[st("release_grade_recorded_path", 4)],
         authority=True,
     )
     raw_evidence = add(
@@ -2829,8 +2937,6 @@ def _build_states(
         ],
         outputs=[
             ("pulse", 11, required_gate),
-            ("pulse", 14, status_baseline),
-            ("pulse", 18, evidence_floor),
             ("pulse", 22, raw_evidence),
             ("pulse", 22, evaluator_manifest),
             ("pulse", 23, summary),
@@ -2876,6 +2982,7 @@ def _build_states(
 
     _install_bundle_source_projection(states, step_by_key, bundle_projection)
     _install_provenance_source_projection(states, step_by_key, binding_projection)
+    _install_baseline_floor_projection(states, step_by_key, baseline_floor_projection)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph

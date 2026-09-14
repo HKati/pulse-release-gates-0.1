@@ -505,7 +505,7 @@ def test_real_plan_cli_and_independent_checker(source_fixture):
     assert f.diagnostic_doc['plan']['byte_identical_to_independent_reconstruction'] is True
     assert f.diagnostic_doc['plan']['sha256'] == f.plan_digest
     assert f.plan['plan_identity']['source_commit'] == f.sha
-    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 52
+    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 53
 
 
 def test_two_separate_plan_processes_are_byte_identical(source_fixture):
@@ -1470,7 +1470,7 @@ def test_two_real_prepares_preserve_the_complete_declared_source_set(
         assert diagnostic['record_status'] == 'example'
         assert diagnostic['output_sha256'] == digest(raw)
         assert diagnostic['output_size_bytes'] == len(raw)
-        assert diagnostic['member_count'] == len(expected_members) == 57
+        assert diagnostic['member_count'] == len(expected_members) == 58
         assert diagnostic['authority_boundary'] == VERIFIER.AUTHORITY_BOUNDARY
         plan, members, stored_raw = read_prepared_example(f, target)
         assert plan == f.plan and stored_raw == raw
@@ -3718,8 +3718,8 @@ def test_required_argument_predicate_runs_before_expected_reconstruction():
 def test_required_argument_role_remains_unavailable_until_runtime_integration(source_fixture):
     plan = source_fixture.plan
     assert len(plan['state_templates']) == 62
-    assert len(plan['source_inventory']) == 52
-    assert len(prepared_fixture_members(source_fixture)) == 57
+    assert len(plan['source_inventory']) == 53
+    assert len(prepared_fixture_members(source_fixture)) == 58
     assert 'evidence_profile' not in plan
     packet = runtime_projection_example(source_fixture)
     state = next(row for row in packet['state_observations'] if row['state_id'] == REQUIRED_ARGUMENT_STATE)
@@ -4032,8 +4032,8 @@ def test_bundle_actual_copy_shells_match_synthetic_preservation(tmp_path, source
 
 def test_bundle_mapping_does_not_change_role_inventory_or_runtime_acceptance(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 52
-    assert len(prepared_fixture_members(source_fixture)) == 57
+    assert len(source_fixture.plan['source_inventory']) == 53
+    assert len(prepared_fixture_members(source_fixture)) == 58
     source = (SOURCES / 'check_pulsemech_compute_whole_runtime_observation_v0.py').read_text()
     assert 'declared_state_evidence_incomplete' in source
     assert not any('artifact_id' in s for s in source_fixture.plan['state_templates'])
@@ -4290,14 +4290,324 @@ def test_provenance_exact_r21_shell_uses_five_synthetic_contents(source_fixture,
 
 def test_provenance_mapping_keeps_full_role_extent_and_unaccepted_evidence(source_fixture):
     plan = source_fixture.plan
-    assert len(plan['state_templates']) == 62 and len(plan['source_inventory']) == 52
-    assert len(prepared_fixture_members(source_fixture)) == 57
+    assert len(plan['state_templates']) == 62 and len(plan['source_inventory']) == 53
+    assert len(prepared_fixture_members(source_fixture)) == 58
     packet = runtime_projection_example(source_fixture)
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(plan, packet, {})
     assert 'evidence_profile' not in plan
     assert plan['authority_boundary']['authority_effect'] == 'none'
 
+
+# Baseline / self-contained floor: source-declared reads, not hosted receipts.
+FLOOR_ROLE_INPUTS = [
+    ('--status', 'pre-materialization-status'),
+    ('--policy', 'gate-policy'),
+    ('--registry', 'gate-registry'),
+    ('--required-gate-evidence', 'required-gate-evidence'),
+]
+FLOOR_LOCAL_EQUATIONS = [
+    (14, ['pre-materialization-status'], ['status-baseline']),
+    (15, ['status-baseline'], []),
+    (16, ['pre-materialization-status'], []),
+    (18, ['gate-policy', 'gate-registry', 'pre-materialization-status',
+          'required-gate-evidence'], ['self-contained-evidence-floor']),
+    (19, ['self-contained-evidence-floor'], []),
+]
+FLOOR_PLAN_MUTATIONS = [
+    'missing_status', 'missing_policy', 'missing_registry', 'missing_evidence',
+    'final_status_alias', 'baseline_as_floor_status', 'missing_copy_input',
+    'final_status_copy_input', 'guard_reads_final', 'baseline_guard_reads_status',
+    'floor_self_read', 'missing_upload_input', 'publisher_as_producer',
+    'status_producer_as_copy', 'duplicate_writer', 'wrong_floor_locator',
+    'wrong_baseline_locator', 'optional_floor', 'metadata_floor',
+    'optional_baseline', 'metadata_baseline', 'wrong_mutation_class',
+    'reverse_only', 'forward_only', 'missing_floor', 'missing_baseline',
+]
+
+
+def floor_source_method(side):
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    return module, (module._baseline_floor_source_projection if side == 'builder'
+                    else module._source_baseline_floor_expectations)
+
+
+@pytest.mark.parametrize('number,inputs,outputs', FLOOR_LOCAL_EQUATIONS)
+def test_floor_baseline_selected_local_equations_match_source_roles(source_fixture, number, inputs, outputs):
+    states, steps = provenance_rows(source_fixture.plan)
+    step = steps[('pulse', number)]
+    assert step['input_state_ids'] == sorted('state:step5c:' + v for v in inputs)
+    assert step['output_state_ids'] == sorted('state:step5c:' + v for v in outputs)
+    reverse = sorted(row['state_id'] for row in states.values()
+                     if step['occurrence_id'] in row['required_consumer_occurrence_ids'])
+    assert reverse == step['input_state_ids']
+
+
+@pytest.mark.parametrize('flag,role', FLOOR_ROLE_INPUTS)
+def test_floor_each_actual_file_loader_has_a_selected_input(source_fixture, flag, role):
+    body = mapping_source_document()['jobs']['pulse']['steps'][17]['run']
+    command = next(shlex.split(line) for line in body.replace('\\\n', ' ').splitlines()
+                   if 'python "${PACK_DIR}/tools/build_self_contained_pulse_evidence_floor_v0.py"' in line)
+    path = command[command.index(flag) + 1].replace('${PACK_DIR}/', 'PULSE_safe_pack_v0/')
+    rows, steps = provenance_rows(source_fixture.plan)
+    expected = path + ('#pre-release-required-materialization' if flag == '--status' else '')
+    assert rows[role]['path_or_uri'] == expected
+    assert rows[role]['state_id'] in steps[('pulse', 18)]['input_state_ids']
+    assert steps[('pulse', 18)]['occurrence_id'] in rows[role]['required_consumer_occurrence_ids']
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_floor_source_projection_separates_versions_and_pins_dependency(source_fixture, recorded_source_objects, side):
+    module, method = floor_source_method(side)
+    facts = method(mapping_source_document(), recorded_source_objects)
+    other = floor_source_method('checker' if side == 'builder' else 'builder')[1]
+    assert facts == other(mapping_source_document(), recorded_source_objects)
+    assert set(facts) == {'locators', 'producers', 'steps'}
+    assert len(facts['locators']) == 6 and len(facts['steps']) == 5
+    assert facts['producers'] == {
+        'status-baseline': module._step_id('pulse', 14),
+        'self-contained-evidence-floor': module._step_id('pulse', 18),
+    }
+    inventory = {row['path']: row for row in source_fixture.plan['source_inventory']}
+    dep = inventory[module._FLOOR_BUILD_PATH]
+    assert dep['git_blob_sha1'] == '2f7776e609ef7ef2fb8fcd40d5ee30e46ed46f6a'
+    assert dep['sha256'] == digest((ROOT / module._FLOOR_BUILD_PATH).read_bytes())
+    states, steps = provenance_rows(source_fixture.plan)
+    assert states['pre-materialization-status']['producer_occurrence_id'] == steps[('pulse', 13)]['occurrence_id']
+    assert states['final-status']['producer_occurrence_id'] == steps[('release_grade_recorded_path', 9)]['occurrence_id']
+    for number in (14, 16, 18):
+        assert states['final-status']['state_id'] not in steps[('pulse', number)]['input_state_ids']
+    # Hashing the newly written floor within P18 is not a fabricated extra
+    # source-declared occurrence or a step-level self dependency.
+    assert states['self-contained-evidence-floor']['state_id'] not in steps[('pulse', 18)]['input_state_ids']
+
+
+def corrupt_floor_plan(original, mutation):
+    plan = copy.deepcopy(original)
+    rows, steps = provenance_rows(plan)
+    def edge(role, ordinal, add):
+        row = rows[role]; step = steps[('pulse', ordinal)]
+        sid, oid = row['state_id'], step['occurrence_id']
+        if add:
+            step['input_state_ids'] = sorted(set(step['input_state_ids']) | {sid})
+            row['required_consumer_occurrence_ids'] = sorted(set(row['required_consumer_occurrence_ids']) | {oid})
+        else:
+            step['input_state_ids'] = [x for x in step['input_state_ids'] if x != sid]
+            row['required_consumer_occurrence_ids'] = [x for x in row['required_consumer_occurrence_ids'] if x != oid]
+    missing = {'missing_status': 'pre-materialization-status', 'missing_policy': 'gate-policy',
+               'missing_registry': 'gate-registry', 'missing_evidence': 'required-gate-evidence'}
+    if mutation in missing:
+        edge(missing[mutation], 18, False)
+    elif mutation in ('final_status_alias', 'baseline_as_floor_status'):
+        edge('pre-materialization-status', 18, False)
+        edge('final-status' if mutation == 'final_status_alias' else 'status-baseline', 18, True)
+    elif mutation in ('missing_copy_input', 'final_status_copy_input'):
+        edge('pre-materialization-status', 14, False)
+        if mutation == 'final_status_copy_input': edge('final-status', 14, True)
+    elif mutation == 'guard_reads_final':
+        edge('pre-materialization-status', 16, False); edge('final-status', 16, True)
+    elif mutation == 'baseline_guard_reads_status':
+        edge('status-baseline', 15, False); edge('pre-materialization-status', 15, True)
+    elif mutation == 'floor_self_read': edge('self-contained-evidence-floor', 18, True)
+    elif mutation == 'missing_upload_input': edge('self-contained-evidence-floor', 19, False)
+    elif mutation in ('publisher_as_producer', 'status_producer_as_copy'):
+        role, old, new = ('self-contained-evidence-floor', 18, 19) if mutation == 'publisher_as_producer' else ('status-baseline', 14, 13)
+        sid = rows[role]['state_id']
+        steps[('pulse', old)]['output_state_ids'].remove(sid)
+        steps[('pulse', new)]['output_state_ids'].append(sid)
+        steps[('pulse', new)]['output_state_ids'].sort()
+        rows[role]['producer_occurrence_id'] = steps[('pulse', new)]['occurrence_id']
+    elif mutation == 'duplicate_writer':
+        steps[('pulse', 17)]['output_state_ids'].append(rows['self-contained-evidence-floor']['state_id'])
+    elif mutation.startswith('wrong_') and mutation.endswith('_locator'):
+        role = 'self-contained-evidence-floor' if mutation == 'wrong_floor_locator' else 'status-baseline'
+        rows[role]['path_or_uri'] += '.wrong'
+    elif mutation.startswith(('optional_', 'metadata_')):
+        role = 'self-contained-evidence-floor' if mutation.endswith('_floor') else 'status-baseline'
+        if mutation.startswith('optional_'): rows[role]['required'] = False
+        else: rows[role]['content_requirement'] = 'metadata_only'
+    elif mutation == 'wrong_mutation_class': rows['self-contained-evidence-floor']['mutation_class'] = 'preservation_output'
+    elif mutation == 'reverse_only': rows['gate-registry']['required_consumer_occurrence_ids'].remove(steps[('pulse', 18)]['occurrence_id'])
+    elif mutation == 'forward_only': steps[('pulse', 18)]['input_state_ids'].remove(rows['gate-registry']['state_id'])
+    elif mutation in ('missing_floor', 'missing_baseline'):
+        sid = rows['self-contained-evidence-floor' if mutation == 'missing_floor' else 'status-baseline']['state_id']
+        plan['state_templates'] = [x for x in plan['state_templates'] if x['state_id'] != sid]
+        for step in steps.values():
+            for key in ('input_state_ids', 'output_state_ids'):
+                step[key] = [x for x in step[key] if x != sid]
+    else: raise AssertionError(mutation)
+    return plan
+
+
+@pytest.mark.parametrize('mutation', FLOOR_PLAN_MUTATIONS)
+def test_floor_coordinated_mapping_tamper_fails_source_predicate(source_fixture, recorded_source_objects, mutation):
+    bad = corrupt_floor_plan(source_fixture.plan, mutation)
+    assert canonical(bad) == canonical(copy.deepcopy(bad))
+    with pytest.raises(PLAN_CHECKER.PlanError, match='floor_mapping_'):
+        PLAN_CHECKER._verify_source_baseline_floor_equations(bad, mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('mutation', ['missing_policy', 'final_status_alias', 'publisher_as_producer'])
+def test_floor_actual_constructors_shared_wrong_answer_is_rejected(source_fixture, recorded_source_objects, mutation):
+    results = []
+    for module in (BUILDER, PLAN_CHECKER):
+        doc = mapping_source_document(); jobs, steps, _ = module._build_jobs(doc)
+        states = module._build_states(steps, module.EXPECTED_CASE_IDS, doc, recorded_source_objects)
+        plan = copy.deepcopy(source_fixture.plan); plan['jobs'], plan['state_templates'] = jobs, states
+        results.append(canonical(corrupt_floor_plan(plan, mutation)))
+    assert results[0] == results[1]
+    with pytest.raises(PLAN_CHECKER.PlanError, match='floor_mapping_'):
+        PLAN_CHECKER._verify_source_baseline_floor_equations(json.loads(results[0]), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('mutation', ['missing_registry', 'missing_copy_input', 'publisher_as_producer', 'metadata_floor'])
+def test_floor_rehashed_schema_valid_forgery_fails_real_checker_cli(source_fixture, tmp_path, mutation):
+    raw = canonical(corrupt_floor_plan(source_fixture.plan, mutation))
+    jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(json.loads(raw))
+    path = tmp_path / 'forged-floor-plan.json'; path.write_bytes(raw)
+    args = list(source_fixture.check_args)
+    args[args.index('--plan') + 1] = path
+    args[args.index('--expected-plan-sha256') + 1] = digest(raw)
+    result = cli(source_fixture.root, TOOL_NAMES[1], args)
+    assert result.returncode != 0
+    report = json.loads(result.stdout)
+    # The full pre-status reader closure is checked by the recorded predicate
+    # first; the other three forgeries reach the local floor predicate.
+    expected_error = {
+        'missing_registry': 'floor_mapping_step_io_mismatch',
+        'missing_copy_input': 'recorded_mapping_new_role_consumer_mismatch',
+        'publisher_as_producer': 'floor_mapping_producer_mismatch',
+        'metadata_floor': 'floor_mapping_requirement_mismatch',
+    }[mutation]
+    assert report['ok'] is False and report['error_code'] == expected_error
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('path', [
+    '.github/workflows/pulse_ci.yml',
+    'PULSE_safe_pack_v0/tools/build_self_contained_pulse_evidence_floor_v0.py',
+    'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py',
+    'tools/validate_status_schema.py',
+])
+@pytest.mark.parametrize('mutation', ['missing', 'rehashed'])
+def test_floor_semantic_source_drift_cannot_inherit_old_equations(source_fixture, recorded_source_objects, side, path, mutation):
+    module, method = floor_source_method(side); sources = dict(recorded_source_objects)
+    if mutation == 'missing': del sources[path]
+    else:
+        old = sources[path]; raw = old.data + b'\n# different reviewed source required\n'
+        sources[path] = replace(old, data=raw, blob_sha1=module._sha1_git_blob(raw))
+    with pytest.raises(module.PlanError, match='floor_mapping_source_'):
+        method(mapping_source_document(), sources)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('mutation', ['copy_target', 'schema_target', 'status_guard', 'floor_status', 'floor_policy', 'floor_registry', 'floor_evidence', 'upload_target'])
+def test_floor_changed_workflow_is_not_silently_adapted(source_fixture, recorded_source_objects, side, mutation):
+    doc = mapping_source_document(); rows = doc['jobs']['pulse']['steps']
+    if mutation == 'copy_target': rows[13]['run'] = rows[13]['run'].replace('status_baseline.json', 'wrong_baseline.json')
+    elif mutation == 'schema_target': rows[14]['run'] = rows[14]['run'].replace('status_baseline.json', 'status.json')
+    elif mutation == 'status_guard': rows[15]['run'] = rows[15]['run'].replace('status.json', 'status_baseline.json')
+    elif mutation == 'upload_target': rows[18]['with']['path'] += '.wrong'
+    else:
+        old, new = {
+            'floor_status': ('--status "${PACK_DIR}/artifacts/status.json"', '--status "${PACK_DIR}/artifacts/status_baseline.json"'),
+            'floor_policy': ('pulse_gate_policy_v0.yml', 'wrong_policy.yml'),
+            'floor_registry': ('pulse_gate_registry_v0.yml', 'wrong_registry.yml'),
+            'floor_evidence': ('required_gate_evidence_v0.json', 'wrong_evidence.json'),
+        }[mutation]
+        assert old in rows[17]['run']; rows[17]['run'] = rows[17]['run'].replace(old, new)
+    module, method = floor_source_method(side)
+    with pytest.raises(module.PlanError, match='floor_mapping_workflow_drift'):
+        method(doc, recorded_source_objects)
+
+
+@pytest.mark.parametrize('fault', [None, 'status_false', 'evidence_run', 'registry_missing', 'policy_missing', 'baseline_only_changed'])
+def test_floor_actual_shell_reads_current_pre_materialization_files_only(source_fixture, tmp_path, fault):
+    root = tmp_path / 'synthetic-floor'; pack = root / 'PULSE_safe_pack_v0'
+    (pack / 'tools').mkdir(parents=True); (pack / 'artifacts').mkdir()
+    dep = BUILDER._FLOOR_BUILD_PATH
+    (root / dep).write_bytes((ROOT / dep).read_bytes())
+    run_key = 'GITHUB_RUN_ID=73|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI'
+    status = {'gates': {'example_required': True}, 'metrics': {
+        'git_sha': source_fixture.sha, 'run_key': run_key, 'run_mode': 'prod'}}
+    evidence = {'schema_version': 'required_gate_evidence_v0',
+                'run_identity': {'git_sha': source_fixture.sha, 'run_key': run_key},
+                'gates': {'example_required': {'value': True, 'status': 'passed', 'diagnostics': []}}}
+    files = {
+        'status': ('PULSE_safe_pack_v0/artifacts/status.json', canonical(status)),
+        'gate_policy': ('pulse_gate_policy_v0.yml', b'gates:\n  required: [example_required]\n'),
+        'gate_registry': ('pulse_gate_registry_v0.yml', b'gates:\n  example_required: {}\n'),
+        'required_gate_evidence': ('PULSE_safe_pack_v0/artifacts/required_gate_evidence_v0.json', canonical(evidence)),
+    }
+    for relative, raw in files.values(): (root / relative).write_bytes(raw)
+    env = {'PATH': str(Path(sys.executable).parent) + ':/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C',
+           'PACK_DIR': 'PULSE_safe_pack_v0', 'GITHUB_WORKSPACE': str(root), 'HOME': str(tmp_path),
+           'GITHUB_REPOSITORY': 'example/step5c', 'GITHUB_SHA': source_fixture.sha,
+           'GITHUB_WORKFLOW_REF': 'example/step5c/.github/workflows/pulse_ci.yml@refs/heads/main',
+           'PULSE_RUN_KEY': run_key, 'PULSE_CREATED_UTC': '2020-01-01T00:00:00Z'}
+    rows = mapping_source_document()['jobs']['pulse']['steps']
+    # Resolve only this literal Actions expression into its fixed declared pack
+    # directory. Both shell snippets execute only under this synthetic root.
+    copy_body = rows[13]['run'].replace('${{ env.PACK_DIR }}', 'PULSE_safe_pack_v0')
+    copy_result = subprocess.run(['/bin/bash', '-c', copy_body], cwd=root, env=env,
+                                 stdin=subprocess.DEVNULL, capture_output=True, timeout=30)
+    assert copy_result.returncode == 0, copy_result.stderr
+    baseline = pack / 'artifacts/status_baseline.json'
+    assert baseline.read_bytes() == files['status'][1]
+    if fault == 'status_false':
+        status['gates']['example_required'] = False
+        (root / files['status'][0]).write_bytes(canonical(status))
+    elif fault == 'evidence_run':
+        evidence['run_identity']['run_key'] += '-other'
+        (root / files['required_gate_evidence'][0]).write_bytes(canonical(evidence))
+    elif fault == 'registry_missing': (root / files['gate_registry'][0]).write_bytes(b'gates:\n  another_gate: {}\n')
+    elif fault == 'policy_missing': (root / files['gate_policy'][0]).write_bytes(b'gates:\n  release_required: [example_required]\n')
+    elif fault == 'baseline_only_changed': baseline.write_bytes(b'not the floor input\n')
+    before = {relative: (root / relative).read_bytes() for relative, _ in files.values()}
+    result = subprocess.run(['/bin/bash', '-c', rows[17]['run']], cwd=root, env=env,
+                            stdin=subprocess.DEVNULL, capture_output=True, timeout=30)
+    out = pack / 'artifacts/self_contained_pulse_evidence_floor_v0.json'
+    if fault not in (None, 'baseline_only_changed'):
+        assert result.returncode != 0 and b'ERROR:' in result.stderr
+        assert not out.exists()
+    else:
+        assert result.returncode == 0, result.stderr
+        floor = json.loads(out.read_bytes())
+        assert {item['role'] for item in floor['artifacts']} == set(files)
+        for item in floor['artifacts']:
+            relative, _ = files[item['role']]
+            assert item['path'] == relative
+            assert item['sha256'] == digest((root / relative).read_bytes())
+        assert floor['authority_boundary']['creates_release_authority'] is False
+        assert floor['authority_boundary']['materializes_status'] is False
+    assert before == {relative: (root / relative).read_bytes() for relative in before}
+
+
+def test_floor_local_mapping_preserves_global_extent_and_runtime_acceptance_stop(source_fixture):
+    assert len(source_fixture.plan['state_templates']) == 62
+    assert len(source_fixture.plan['source_inventory']) == 53
+    assert len(prepared_fixture_members(source_fixture)) == 58
+    rows, steps = provenance_rows(source_fixture.plan)
+    assert rows['status-baseline']['state_id'] != rows['pre-materialization-status']['state_id']
+    assert rows['status-baseline']['state_id'] != rows['final-status']['state_id']
+    assert 'evidence_profile' not in source_fixture.plan
+    packet = runtime_projection_example(source_fixture)
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, packet, {})
+    assert source_fixture.plan['authority_boundary']['authority_effect'] == 'none'
+
+
+
+@pytest.mark.parametrize('ordinal', [13, 17, 19])
+def test_floor_recorded_reader_closure_rejects_unreviewed_additions(source_fixture, recorded_source_objects, ordinal):
+    bad = copy.deepcopy(source_fixture.plan)
+    rows, steps = provenance_rows(bad)
+    row, step = rows['pre-materialization-status'], steps[('pulse', ordinal)]
+    assert row['state_id'] not in step['input_state_ids']
+    step['input_state_ids'] = sorted(step['input_state_ids'] + [row['state_id']])
+    row['required_consumer_occurrence_ids'] = sorted(row['required_consumer_occurrence_ids'] + [step['occurrence_id']])
+    with pytest.raises(PLAN_CHECKER.PlanError, match='recorded_mapping_new_role_consumer_mismatch'):
+        PLAN_CHECKER._verify_source_recorded_equations(bad, mapping_source_document(), recorded_source_objects)
 
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
