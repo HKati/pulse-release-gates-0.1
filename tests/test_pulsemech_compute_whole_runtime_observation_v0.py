@@ -6042,6 +6042,317 @@ def test_pre_attest_postcondition_mapping_keeps_completion_and_inventory_unchang
         VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
 
 
+# ---------------------------------------------------------------------------
+# R26 final-file postconditions: retain final versions, all 25 selectors, and
+# the distinction between a file-content hash and a directory-entry predicate.
+# ---------------------------------------------------------------------------
+FINAL_POSTCONDITION_ROLES = (
+    'final-status', 'status-baseline', 'final-status-summary', 'required-gate-evidence',
+    'recorded-candidate-index', 'release-evidence-input-manifest',
+    'recorded-release-evidence-verifier', 'release-decision', 'release-decision-ledger-section',
+    'quality-ledger-final', 'release-decision-report', 'release-authority-manifest',
+    'artifact-provenance-binding', 'release-grade-junit', 'release-grade-sarif',
+    'llamaguard-raw-evidence', 'llamaguard-evaluator-manifest', 'llamaguard-summary',
+    'llamaguard-attestation-bundle', 'llamaguard-attestation-envelope', 'llamaguard-attestation-verifier',
+)
+FINAL_POSTCONDITION_UNMODELED = (
+    'status_summary.md', 'status_summary_baseline.md', 'status_summary_baseline.json',
+    'refusal_delta_summary.json',
+)
+FINAL_POSTCONDITION_DIRECTORIES = (
+    'PULSE_safe_pack_v0/artifacts/recorded_release_candidates',
+    'PULSE_safe_pack_v0/artifacts/release_authority_audit_bundle',
+)
+
+
+def final_postcondition_method(side):
+    if side == 'builder':
+        return BUILDER, BUILDER._final_artifact_postcondition_source_projection
+    return PLAN_CHECKER, PLAN_CHECKER._source_final_artifact_postcondition_expectations
+
+
+def final_postcondition_script():
+    return mapping_source_document()['jobs']['release_grade_recorded_path']['steps'][25]['run']
+
+
+def final_checked_source_paths():
+    # Literal test-side source extraction, not a call into either implementation.
+    lines = final_postcondition_script().splitlines()
+    start = lines.index('REQUIRED_FILES=(') + 1
+    end = lines.index(')', start)
+    return [shlex.split(line)[0].replace('${PACK_DIR}/', 'PULSE_safe_pack_v0/') for line in lines[start:end]]
+
+
+@pytest.mark.parametrize('role', FINAL_POSTCONDITION_ROLES)
+def test_final_postcondition_each_final_file_has_reciprocal_input(source_fixture, role):
+    states, steps = provenance_rows(source_fixture.plan)
+    row, consumer = states[role], steps[('release_grade_recorded_path', 26)]
+    # No fragment stripping: pre-status/pre-ledger are not the selected version.
+    assert row['path_or_uri'] in final_checked_source_paths()
+    assert row['state_id'] in consumer['input_state_ids']
+    assert consumer['occurrence_id'] in row['required_consumer_occurrence_ids']
+    assert row['producer_occurrence_id'] != consumer['occurrence_id']
+    assert consumer['output_state_ids'] == []
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_final_postcondition_complete_source_extent_is_not_complete_state_coverage(recorded_source_objects, side):
+    module, method = final_postcondition_method(side)
+    facts = method(mapping_source_document(), recorded_source_objects)
+    assert facts['checked_paths'] == final_checked_source_paths()
+    assert len(facts['checked_paths']) == 25 and len(facts['locators']) == 21
+    assert facts['unmodeled_checked_paths'] == sorted('PULSE_safe_pack_v0/artifacts/' + p for p in FINAL_POSTCONDITION_UNMODELED)
+    assert facts['metadata_only_directory_checks'] == list(FINAL_POSTCONDITION_DIRECTORIES)
+    assert facts['publication_only_selectors'] == sorted([
+        FINAL_POSTCONDITION_DIRECTORIES[0] + '/**',
+        'PULSE_safe_pack_v0/artifacts/self_contained_pulse_evidence_floor_v0.json'])
+    assert facts['steps'] == {module._step_id('release_grade_recorded_path', 26): {
+        'inputs': sorted(FINAL_POSTCONDITION_ROLES), 'outputs': []}}
+    assert facts['read_basis'] == 'source_declared_file_hash_read'
+    assert facts['observed_read_receipt'] is facts['semantic_content_admission'] is facts['directory_content_read'] is False
+    assert facts['origins']['final-status'] == module._step_id('release_grade_recorded_path', 9)
+    assert facts['origins']['quality-ledger-final'] == module._step_id('release_grade_recorded_path', 18)
+    assert facts['origins']['llamaguard-attestation-bundle'] == module._step_id('attest_llamaguard_current_run_summary', 5)
+
+
+def test_final_postcondition_source_predicate_is_separate_and_precedes_equality(source_fixture, recorded_source_objects):
+    document = mapping_source_document()
+    expected = BUILDER._final_artifact_postcondition_source_projection(document, recorded_source_objects)
+    with patch.object(BUILDER, '_final_artifact_postcondition_source_projection', side_effect=AssertionError('builder forbidden')):
+        actual = PLAN_CHECKER._source_final_artifact_postcondition_expectations(document, recorded_source_objects)
+        PLAN_CHECKER._verify_source_final_artifact_postcondition_equations(source_fixture.plan, document, recorded_source_objects)
+    assert canonical(expected) == canonical(actual)
+    tree = ast.parse(textwrap.dedent(inspect.getsource(PLAN_CHECKER.check_plan)))
+    calls = {n.func.id: n.lineno for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+    assert calls['_verify_source_final_artifact_postcondition_equations'] < calls['_reconstruct_expected_plan']
+
+
+def corrupt_final_postcondition_plan(original, fault):
+    plan = copy.deepcopy(original)
+    states, steps = provenance_rows(plan)
+    reader = steps[('release_grade_recorded_path', 26)]; oid = reader['occurrence_id']
+    if ':' in fault:
+        operation, role = fault.split(':', 1); state = states[role]; sid = state['state_id']
+        if operation == 'omit':
+            reader['input_state_ids'].remove(sid)
+            state['required_consumer_occurrence_ids'].remove(oid)
+        elif operation == 'invent':
+            reader['input_state_ids'] = sorted(set(reader['input_state_ids']) | {sid})
+            state['required_consumer_occurrence_ids'] = sorted(set(state['required_consumer_occurrence_ids']) | {oid})
+        elif operation == 'reverse': state['required_consumer_occurrence_ids'].remove(oid)
+        else: raise AssertionError(fault)
+    elif fault == 'locator': states['quality-ledger-final']['path_or_uri'] += '#pre-authority-insertion'
+    elif fault == 'origin': states['final-status']['producer_occurrence_id'] = BUILDER._step_id('pulse', 13)
+    elif fault == 'writer': reader['output_state_ids'] = [states['final-status']['state_id']]
+    elif fault == 'required': states['final-status-summary']['required'] = False
+    elif fault == 'content': states['llamaguard-attestation-bundle']['content_requirement'] = 'metadata_only'
+    elif fault == 'authority': states['release-grade-junit']['authority_bearing'] = True
+    elif fault == 'mutation': states['final-status']['mutation_class'] = 'none'
+    elif fault == 'missing_role': plan['state_templates'].remove(states['status-baseline'])
+    elif fault == 'duplicate_role': plan['state_templates'].append(copy.deepcopy(states['status-baseline']))
+    elif fault == 'missing_step':
+        for job in plan['jobs']:
+            job['steps'] = [s for s in job['steps'] if s['occurrence_id'] != oid]
+    elif fault == 'duplicate_step':
+        for job in plan['jobs']:
+            if reader in job['steps']: job['steps'].append(copy.deepcopy(reader)); break
+    else: raise AssertionError(fault)
+    return plan
+
+
+@pytest.mark.parametrize('fault,code', [
+    ('omit:final-status', 'step_io'), ('omit:quality-ledger-final', 'step_io'),
+    ('omit:llamaguard-summary', 'step_io'), ('omit:recorded-candidate-index', 'step_io'),
+    ('invent:pre-materialization-status', 'step_io'), ('invent:quality-ledger-pre-authority', 'step_io'),
+    ('invent:self-contained-evidence-floor', 'step_io'), ('invent:recorded-release-candidate-envelopes', 'step_io'),
+    ('invent:release-authority-audit-bundle', 'step_io'), ('invent:advisory-reference-bundle', 'step_io'),
+    ('invent:gate-policy', 'step_io'), ('invent:materialized-release-required-gate-set', 'step_io'),
+    ('reverse:release-grade-junit', 'reverse_inputs'), ('locator', 'locator'), ('origin', 'origin'),
+    ('writer', 'writer'), ('required', 'duty'), ('content', 'duty'), ('authority', 'duty'), ('mutation', 'duty'),
+    ('missing_role', 'role_missing'), ('duplicate_role', 'duplicate_role'),
+    ('missing_step', 'step_missing'), ('duplicate_step', 'duplicate_step'),
+])
+def test_final_postcondition_rejects_false_files_versions_and_duties(source_fixture, recorded_source_objects, fault, code):
+    bad = corrupt_final_postcondition_plan(source_fixture.plan, fault)
+    with pytest.raises(PLAN_CHECKER.PlanError, match='final_postcondition_' + code):
+        PLAN_CHECKER._verify_source_final_artifact_postcondition_equations(bad, mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('fault', ['omit:final-status', 'invent:release-authority-audit-bundle', 'invent:self-contained-evidence-floor'])
+def test_final_postcondition_equal_false_constructors_do_not_close_source_evidence(source_fixture, recorded_source_objects, fault):
+    answers = []
+    for module in (BUILDER, PLAN_CHECKER):
+        document = mapping_source_document(); jobs, steps, _ = module._build_jobs(document)
+        plan = copy.deepcopy(source_fixture.plan); plan['jobs'] = jobs
+        plan['state_templates'] = module._build_states(steps, module.EXPECTED_CASE_IDS, document, recorded_source_objects)
+        answers.append(canonical(corrupt_final_postcondition_plan(plan, fault)))
+    assert answers[0] == answers[1]
+    with pytest.raises(PLAN_CHECKER.PlanError, match='final_postcondition_step_io_mismatch'):
+        PLAN_CHECKER._verify_source_final_artifact_postcondition_equations(json.loads(answers[0]), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('fault,code', [
+    ('omit:llamaguard-summary', 'final_postcondition_step_io_mismatch'),
+    ('omit:final-status-summary', 'final_postcondition_step_io_mismatch'),
+    ('invent:self-contained-evidence-floor', 'final_postcondition_step_io_mismatch'),
+    ('invent:pre-materialization-status', 'recorded_mapping_new_role_consumer_mismatch'),
+])
+def test_final_postcondition_rehashed_false_plan_fails_real_checker(source_fixture, tmp_path, fault, code):
+    raw = canonical(corrupt_final_postcondition_plan(source_fixture.plan, fault))
+    jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(json.loads(raw))
+    path = tmp_path / 'false-final-plan.json'; path.write_bytes(raw)
+    result = cli(source_fixture.root, TOOL_NAMES[1], ['--repository-root', source_fixture.root,
+        '--plan', path, '--expected-source-commit', source_fixture.sha, '--expected-plan-sha256', digest(raw),
+        '--expected-record-status', 'example'])
+    assert result.returncode != 0
+    assert json.loads(result.stdout)['error_code'] == code
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('fault', ['missing', 'path', 'bytes'])
+def test_final_postcondition_rejects_substituted_workflow_bytes(recorded_source_objects, side, fault):
+    module, method = final_postcondition_method(side); objects = dict(recorded_source_objects)
+    path = module.SUBJECT_WORKFLOW_PATH
+    if fault == 'missing': del objects[path]
+    elif fault == 'path': objects[path] = replace(objects[path], path='different/workflow.yml')
+    else:
+        data = objects[path].data.replace(b'  sha256sum "${artifact}"', b'  sha256sum "${artifact}" || true')
+        assert data != objects[path].data
+        objects[path] = replace(objects[path], data=data, blob_sha1=hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest())
+    with pytest.raises(module.PlanError, match='final_postcondition_source_'):
+        method(mapping_source_document(), objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('fault', ['array', 'hash', 'directory_read', 'empty_directory', 'publication', 'early_success'])
+def test_final_postcondition_rejects_logical_source_drift(recorded_source_objects, side, fault):
+    module, method = final_postcondition_method(side); document = mapping_source_document()
+    rows = document['jobs']['release_grade_recorded_path']['steps']; step = rows[25]
+    if fault == 'array': step['run'] = step['run'].replace('status_summary.md', 'another-summary.md')
+    elif fault == 'hash': step['run'] = step['run'].replace('sha256sum "${artifact}"', 'true')
+    elif fault == 'directory_read': step['run'] += 'find "${PACK_DIR}/artifacts/recorded_release_candidates" -type f -exec cat {} +\n'
+    elif fault == 'empty_directory': step['run'] = step['run'].replace('! -d', '! -s')
+    elif fault == 'publication': rows[32]['with']['path'] = rows[32]['with']['path'].replace('status_summary.md\n', '')
+    else: step['run'] = 'exit 0\n' + step['run']
+    with pytest.raises(module.PlanError, match='final_postcondition_workflow_drift'):
+        method(document, recorded_source_objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_final_postcondition_only_r26_inputs_and_inverse_links_change(recorded_source_objects, side):
+    module, method = final_postcondition_method(side); document = mapping_source_document()
+    _, old_steps, _ = module._build_jobs(document)
+    with patch.object(module, '_install_final_artifact_postcondition_projection', return_value=None):
+        old_states = module._build_states(old_steps, module.EXPECTED_CASE_IDS, document, recorded_source_objects)
+    _, new_steps, _ = module._build_jobs(document)
+    new_states = module._build_states(new_steps, module.EXPECTED_CASE_IDS, document, recorded_source_objects)
+    oid = module._step_id('release_grade_recorded_path', 26)
+    assert len(old_states) == len(new_states) == 62
+    delta = 0
+    for before, after in zip(old_states, new_states):
+        old, new = copy.deepcopy(before), copy.deepcopy(after)
+        delta += int(oid not in old['required_consumer_occurrence_ids'] and oid in new['required_consumer_occurrence_ids'])
+        for row in (old, new): row['required_consumer_occurrence_ids'] = [r for r in row['required_consumer_occurrence_ids'] if r != oid]
+        assert old == new
+    assert delta == 18
+    for key in new_steps:
+        if key != ('release_grade_recorded_path', 26): assert old_steps[key] == new_steps[key]
+        else:
+            old, new = copy.deepcopy(old_steps[key]), copy.deepcopy(new_steps[key])
+            assert set(old['input_state_ids']) <= set(new['input_state_ids'])
+            assert len(new['input_state_ids']) - len(old['input_state_ids']) == 20
+            old.pop('input_state_ids'); new.pop('input_state_ids'); assert old == new
+
+
+def make_final_postcondition_files(root):
+    paths = final_checked_source_paths()
+    for index, name in enumerate(paths):
+        path = root / name; path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(('SYNTHETIC NON-JSON FILE %d; NOT ATTESTED\n' % index).encode())
+    for directory in FINAL_POSTCONDITION_DIRECTORIES: (root / directory).mkdir()
+    return paths
+
+
+def run_final_postcondition_shell(root, path='/usr/bin:/bin'):
+    return subprocess.run(['/bin/bash', '-c', final_postcondition_script()], cwd=root,
+        env={'PATH': path, 'PACK_DIR': str(root / 'PULSE_safe_pack_v0')},
+        capture_output=True, text=True, timeout=15)
+
+
+def test_final_postcondition_real_shell_checks_25_files_but_only_two_directory_entries(tmp_path):
+    paths = make_final_postcondition_files(tmp_path)
+    before = {name: (tmp_path / name).read_bytes() for name in paths}
+    result = run_final_postcondition_shell(tmp_path)
+    assert result.returncode == 0
+    assert result.stdout.splitlines() == [digest(before[name]) + '  ' + str(tmp_path / name) for name in paths] + [
+        'OK: final release-grade artifact postconditions satisfied']
+    assert {p.relative_to(tmp_path).as_posix(): p.read_bytes() for p in tmp_path.rglob('*') if p.is_file()} == before
+    # Empty directories are allowed by R26; contents and the floor are NOT read.
+    assert all(list((tmp_path / directory).iterdir()) == [] for directory in FINAL_POSTCONDITION_DIRECTORIES)
+    assert not (tmp_path / 'PULSE_safe_pack_v0/artifacts/self_contained_pulse_evidence_floor_v0.json').exists()
+    for directory in FINAL_POSTCONDITION_DIRECTORIES:
+        (tmp_path / directory / 'invalid-child.json').write_bytes(b'NOT VALID JSON\n')
+        (tmp_path / directory / 'dangling-child').symlink_to(tmp_path / 'not-present')
+    repeated = run_final_postcondition_shell(tmp_path)
+    assert repeated.returncode == 0 and repeated.stdout == result.stdout
+
+
+@pytest.mark.parametrize('index', [0, 24])
+@pytest.mark.parametrize('fault', ['missing', 'empty', 'symlink', 'directory'])
+def test_final_postcondition_real_shell_file_failures_do_not_reach_success(tmp_path, index, fault):
+    paths = make_final_postcondition_files(tmp_path); target = tmp_path / paths[index]; target.unlink()
+    if fault == 'empty': target.touch()
+    elif fault == 'directory': target.mkdir()
+    elif fault == 'symlink': target.symlink_to(tmp_path / paths[1])
+    result = run_final_postcondition_shell(tmp_path)
+    assert result.returncode != 0
+    assert '::error::final release-grade artifact' in result.stdout
+    assert 'postconditions satisfied' not in result.stdout
+    hashes = [line for line in result.stdout.splitlines() if re.match(r'^[0-9a-f]{64}  ', line)]
+    assert len(hashes) == index
+
+
+@pytest.mark.parametrize('directory', FINAL_POSTCONDITION_DIRECTORIES)
+@pytest.mark.parametrize('fault', ['missing', 'file', 'symlink'])
+def test_final_postcondition_real_shell_directory_metadata_failure_after_hashes(tmp_path, directory, fault):
+    paths = make_final_postcondition_files(tmp_path); target = tmp_path / directory; target.rmdir()
+    if fault == 'file': target.write_bytes(b'SYNTHETIC FILE NOT DIRECTORY\n')
+    elif fault == 'symlink':
+        real = tmp_path / 'real-directory'; real.mkdir(); target.symlink_to(real, target_is_directory=True)
+    result = run_final_postcondition_shell(tmp_path)
+    assert result.returncode != 0 and 'postconditions satisfied' not in result.stdout
+    assert 'is missing or symlinked' in result.stdout
+    assert len([line for line in result.stdout.splitlines() if re.match(r'^[0-9a-f]{64}  ', line)]) == len(paths) == 25
+
+
+@pytest.mark.parametrize('name', FINAL_POSTCONDITION_UNMODELED)
+def test_final_postcondition_unmodeled_files_still_required_by_original_shell(tmp_path, name):
+    make_final_postcondition_files(tmp_path)
+    (tmp_path / 'PULSE_safe_pack_v0/artifacts' / name).unlink()
+    result = run_final_postcondition_shell(tmp_path)
+    assert result.returncode != 0 and name in result.stdout
+    assert 'postconditions satisfied' not in result.stdout
+
+
+def test_final_postcondition_hash_failure_propagates_without_success(tmp_path):
+    make_final_postcondition_files(tmp_path)
+    bin_dir = tmp_path / 'mock-bin'; bin_dir.mkdir(); tool = bin_dir / 'sha256sum'
+    tool.write_text('#!/bin/bash\nprintf "synthetic hash failure\\n" >&2\nexit 86\n'); tool.chmod(0o700)
+    result = run_final_postcondition_shell(tmp_path, str(bin_dir))
+    assert result.returncode == 86 and result.stdout == ''
+    assert result.stderr == 'synthetic hash failure\n'
+
+
+def test_final_postcondition_keeps_completion_barrier_and_all_inventories(source_fixture):
+    assert len(source_fixture.plan['state_templates']) == 62
+    assert len(source_fixture.plan['source_inventory']) == 56
+    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert 'evidence_profile' not in source_fixture.plan
+    assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
+
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.

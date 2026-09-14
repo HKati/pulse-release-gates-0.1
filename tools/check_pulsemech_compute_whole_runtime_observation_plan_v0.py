@@ -3458,6 +3458,169 @@ def _verify_source_pre_attestation_postcondition_equations(
              == steps[oid]["input_state_ids"], "pre_attest_postcondition_reverse_inputs_mismatch")
 
 
+# Hash arguments, directory-entry predicates and published selectors are three
+# different source surfaces. None is an observed content-admission receipt.
+def _source_final_artifact_postcondition_expectations(
+    workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> dict[str, Any]:
+    obj = sources.get(SUBJECT_WORKFLOW_PATH)
+    _require(obj is not None and obj.path == SUBJECT_WORKFLOW_PATH,
+             "final_postcondition_source_missing")
+    _require(_sha1_git_blob(obj.data) == EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1,
+             "final_postcondition_source_drift")
+    _require(_parse_yaml_document(obj.data, label=SUBJECT_WORKFLOW_PATH) == workflow,
+             "final_postcondition_workflow_drift")
+    job = "release_grade_recorded_path"
+    rows = workflow["jobs"][job]["steps"]
+    reader = rows[25]
+    _require(reader.get("name") == "Release-grade final artifact postconditions"
+             and reader.get("shell") == "bash" and "if" not in reader,
+             "final_postcondition_step_profile")
+    lines = reader["run"].splitlines()
+    loop = 'for artifact in "${REQUIRED_FILES[@]}"; do'
+    _require(lines.count(loop) == 1, "final_postcondition_source_form")
+    start = lines.index(loop)
+    consume = [loop,
+        '  if [[ ! -f "${artifact}" || -L "${artifact}" || ! -s "${artifact}" ]]; then',
+        '    echo "::error::final release-grade artifact is missing, empty, or symlinked: ${artifact}"',
+        '    exit 1', '  fi', '', '  sha256sum "${artifact}"', 'done', '']
+    _require(lines[:3] == ['set -euo pipefail', '', 'REQUIRED_FILES=(']
+             and lines[start - 2:start] == [')', '']
+             and lines[start:start + len(consume)] == consume, "final_postcondition_source_form")
+    members = lines[3:start - 2]
+    _require(len(members) == 25 and all(re.fullmatch(r'  "[^"\n]+"', line) for line in members),
+             "final_postcondition_file_extent")
+    paths = [_checked_mapping_path(line[3:-1]) for line in members]
+    _require(len(set(paths)) == 25, "final_postcondition_file_extent")
+    tail = lines[start + len(consume):]
+    directories = []
+    for number, message in enumerate(("recorded release candidate directory", "release authority audit bundle")):
+        part = tail[number * 5:(number + 1) * 5]
+        _require(len(part) == 5, "final_postcondition_source_form")
+        words = shlex.split(part[0])
+        _require(len(words) == 10 and words[:4] == ['if', '[[', '!', '-d']
+                 and words[5:7] == ['||', '-L'] and words[8:] == [']];', 'then']
+                 and words[4] == words[7], "final_postcondition_source_form")
+        _require(part[1:] == ['  echo "::error::' + message + ' is missing or symlinked"',
+                             '  exit 1', 'fi', ''], "final_postcondition_source_form")
+        directories.append(_checked_mapping_path(words[4]))
+    _require(tail[10:] == ['echo "OK: final release-grade artifact postconditions satisfied"'],
+             "final_postcondition_source_form")
+
+    # Follow each checked filename to an independently extracted source role.
+    # Do not normalize away a pre-mutation fragment to match a final file.
+    records = _source_recorded_expectations(workflow, sources)
+    ledgers = _source_ledger_expectations(workflow)
+    preserved = _source_preattest_preservation_expectations(workflow, sources)
+    external = _source_llamaguard_preservation_expectations(workflow, sources)
+    provenance = _source_provenance_expectations(workflow, sources)
+    families = [records["locators"], ledgers["locators"], preserved["locators"],
+                external["locators"], {_PROVENANCE_ROLE: provenance["locator"]}]
+    locators: dict[str, str] = {}
+    for path in paths:
+        matches = {(role, locator) for family in families for role, locator in family.items()
+                   if locator == path}
+        _require(len(matches) <= 1, "final_postcondition_source_locator_conflict", path)
+        if matches:
+            role, locator = matches.pop()
+            _require(role not in locators, "final_postcondition_source_locator_conflict", role)
+            locators[role] = locator
+    _require(len(locators) == 21, "final_postcondition_selected_extent")
+    origins: dict[str, str] = {}
+    for role in locators:
+        candidates = {oid for equations in (records["steps"], ledgers["equations"])
+                      for oid, equation in equations.items() if role in equation["outputs"]}
+        candidates.update(family[role] for family in (preserved["origins"], external["origins"])
+                          if role in family)
+        if role == _PROVENANCE_ROLE:
+            candidates.add(provenance["producer"])
+        if role in ("release-grade-junit", "release-grade-sarif"):
+            exporters = [i for i, step in enumerate(rows, 1)
+                         if step.get("name") == "Export final release-grade JUnit and SARIF"]
+            _require(exporters == [23], "final_postcondition_exporter_selector")
+            candidates.add(_step_id(job, exporters[0]))
+        _require(len(candidates) == 1, "final_postcondition_source_origin_conflict", role)
+        origins[role] = candidates.pop()
+    expected_directories = [records["locators"]["recorded-release-candidate-envelopes"].rstrip("/"),
+                            _checked_mapping_export(rows[21], "BUNDLE")]
+    _require(directories == expected_directories and len(set(directories)) == 2
+             and not set(directories) & set(paths), "final_postcondition_directory_extent")
+    publication = []
+    for selector in rows[32]["with"]["path"].splitlines():
+        tree = selector.endswith("/**")
+        publication.append(_checked_mapping_path(selector[:-3] if tree else selector) + ("/**" if tree else ""))
+    _require(len(publication) == len(set(publication)) == 27 and set(paths) <= set(publication),
+             "final_postcondition_publication_correspondence")
+    not_hashed = sorted(p for p in publication if p not in paths)
+    _require(not_hashed == sorted([directories[0] + "/**",
+             preserved["locators"]["self-contained-evidence-floor"]]),
+             "final_postcondition_publication_only_extent")
+    return {
+        "locators": locators, "origins": origins, "checked_paths": paths,
+        "unmodeled_checked_paths": [p for p in sorted(paths) if p not in locators.values()],
+        "metadata_only_directory_checks": directories,
+        "publication_only_selectors": not_hashed,
+        "read_basis": "source_declared_file_hash_read",
+        "observed_read_receipt": False, "semantic_content_admission": False,
+        "directory_content_read": False,
+        "steps": {_step_id(job, 26): {"inputs": sorted(locators), "outputs": []}},
+    }
+
+
+def _install_final_artifact_postcondition_projection(
+    states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any],
+) -> None:
+    """Install the selected final-file readers without changing other fields."""
+    prefix = "state:step5c:"
+    oid = _step_id("release_grade_recorded_path", 26)
+    row = steps[("release_grade_recorded_path", 26)]
+    _require(row["occurrence_id"] == oid and row["output_state_ids"] == [],
+             "final_postcondition_not_a_writer")
+    states_by_id = {state["state_id"]: state for state in states}
+    for role, path in facts["locators"].items():
+        _require(prefix + role in states_by_id and states_by_id[prefix + role]["path_or_uri"] == path,
+                 "final_postcondition_input_locator", role)
+        _require(states_by_id[prefix + role]["producer_occurrence_id"] == facts["origins"][role],
+                 "final_postcondition_input_origin", role)
+    row["input_state_ids"] = sorted(prefix + role for role in facts["steps"][oid]["inputs"])
+    for state in states:
+        readers = {r for r in state["required_consumer_occurrence_ids"] if r != oid}
+        if state["state_id"] in row["input_state_ids"]:
+            readers.add(oid)
+        state["required_consumer_occurrence_ids"] = sorted(readers)
+
+
+def _verify_source_final_artifact_postcondition_equations(
+    plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> None:
+    """Reject false R26 input/version claims even if constructors agree."""
+    facts = _source_final_artifact_postcondition_expectations(workflow, sources)
+    states = {row["state_id"].removeprefix("state:step5c:"): row for row in plan["state_templates"]}
+    _require(len(states) == len(plan["state_templates"]), "final_postcondition_duplicate_role")
+    occurrences = [step for job in plan["jobs"] for step in job["steps"]]
+    steps = {step["occurrence_id"]: step for step in occurrences}
+    _require(len(steps) == len(occurrences), "final_postcondition_duplicate_step")
+    for role, path in facts["locators"].items():
+        _require(role in states, "final_postcondition_role_missing", role)
+        row = states[role]
+        _require(row["path_or_uri"] == path, "final_postcondition_locator_mismatch", role)
+        _require(row["producer_occurrence_id"] == facts["origins"][role],
+                 "final_postcondition_origin_mismatch", role)
+        mutation = {"final-status": "final_status", "release-decision": "release_decision"}.get(role, "none")
+        authority = role not in ("release-grade-junit", "release-grade-sarif")
+        _require(row["required"] is True and row["content_requirement"] == "exact_digest"
+                 and row["authority_bearing"] is authority and row["mutation_class"] == mutation,
+                 "final_postcondition_duty_mismatch", role)
+        _require(sorted(oid for oid, step in steps.items() if row["state_id"] in step["output_state_ids"])
+                 == [facts["origins"][role]], "final_postcondition_writer_mismatch", role)
+    oid = _step_id("release_grade_recorded_path", 26)
+    _require(oid in steps, "final_postcondition_step_missing")
+    _require(steps[oid]["input_state_ids"] == sorted("state:step5c:" + r for r in facts["locators"])
+             and steps[oid]["output_state_ids"] == [], "final_postcondition_step_io_mismatch")
+    _require(sorted(row["state_id"] for row in states.values() if oid in row["required_consumer_occurrence_ids"])
+             == steps[oid]["input_state_ids"], "final_postcondition_reverse_inputs_mismatch")
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -3476,6 +3639,7 @@ def _build_states(
     llamaguard_attestation = _source_llamaguard_attestation_expectations(source_workflow, source_by_path)
     llamaguard_production = _source_llamaguard_production_expectations(source_workflow, source_by_path)
     pre_attestation_postcondition = _source_pre_attestation_postcondition_expectations(source_workflow, source_by_path)
+    final_artifact_postcondition = _source_final_artifact_postcondition_expectations(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -4008,6 +4172,7 @@ def _build_states(
     _install_llamaguard_attestation_projection(states, step_by_key, llamaguard_attestation)
     _install_llamaguard_production_projection(states, step_by_key, llamaguard_production)
     _install_pre_attestation_postcondition_projection(states, step_by_key, pre_attestation_postcondition)
+    _install_final_artifact_postcondition_projection(states, step_by_key, final_artifact_postcondition)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph
@@ -4634,6 +4799,9 @@ def check_plan(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_source_pre_attestation_postcondition_equations(
+        plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
+    )
+    _verify_source_final_artifact_postcondition_equations(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_tool_identity(
