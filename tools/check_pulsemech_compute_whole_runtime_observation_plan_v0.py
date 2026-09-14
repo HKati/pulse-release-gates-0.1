@@ -2836,6 +2836,154 @@ def _verify_source_preattest_preservation_equations(plan: dict[str, Any], workfl
              "preservation_mapping_archive_readers_mismatch")
 
 
+# Closed semantic role labels for the selected source filenames. Derive each
+# path from the restore/hash loop and check the corresponding upload independently.
+_LG_PRESERVATION_JOB = "attest_llamaguard_current_run_summary"
+_LG_PRESERVATION_FILES = {
+    "llamaguard_raw.jsonl": "llamaguard-raw-evidence",
+    "llamaguard_evaluator_manifest_v0.json": "llamaguard-evaluator-manifest",
+    "llamaguard_summary.json": "llamaguard-summary",
+    "llamaguard_summary.bundle.json": "llamaguard-attestation-bundle",
+    "llamaguard_summary.envelope.json": "llamaguard-attestation-envelope",
+    "llamaguard_attestation_verifier_v1.json": "llamaguard-attestation-verifier",
+}
+
+
+def _source_llamaguard_preservation_expectations(workflow: dict[str, Any], sources: dict[str, GitObject]) -> dict[str, Any]:
+    """Derive content reads from hash loops, then verify transport and copies."""
+    source = sources.get(SUBJECT_WORKFLOW_PATH)
+    _require(source is not None and source.path == SUBJECT_WORKFLOW_PATH, "lg_preservation_source_missing")
+    _require(_sha1_git_blob(source.data) == EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1, "lg_preservation_source_drift")
+    _require(_parse_yaml_document(source.data, label=SUBJECT_WORKFLOW_PATH) == workflow,
+             "lg_preservation_workflow_drift")
+    jobs = workflow["jobs"]
+    local: dict[str, str] = {}
+    duties: dict[str, Any] = {}
+    handoffs = []
+    for reader_job, reader_no, writer_job, writer_no, variable, count in (
+        (_LG_PRESERVATION_JOB, 4, "pulse", 24, "CANONICAL_DIR", 3),
+        ("release_grade_recorded_path", 5, _LG_PRESERVATION_JOB, 8, "CANONICAL_EXTERNAL", 6),
+    ):
+        reader = jobs[reader_job]["steps"][reader_no - 1]
+        publisher = jobs[writer_job]["steps"][writer_no - 1]
+        body = reader["run"]
+        flat = body.replace("\\\n", " ").splitlines()
+        root = _checked_mapping_export(reader, variable)
+        download_root = _checked_mapping_export(reader, "DOWNLOAD_DIR", allow_temp=True)
+        headers = [shlex.split(line)[3:] for line in flat if line.startswith("for artifact in ")]
+        _require(len(headers) == 1, "lg_preservation_hash_loop")
+        digest_paths = [_checked_mapping_path(word.replace("${" + variable + "}/", root + "/")) for word in headers[0]]
+        basenames = [path.rsplit("/", 1)[-1] for path in digest_paths]
+        role_names = list(_LG_PRESERVATION_FILES)[:count]
+        _require(len(digest_paths) == len(set(digest_paths)) == len(set(basenames)) == count
+                 and basenames == role_names, "lg_preservation_hash_members")
+        _require(re.findall(r'^  sha256sum (.*)$', body, re.M) == ['"${artifact}"'], "lg_preservation_hash_call")
+        guard = '! -f "${artifact}" || -L "${artifact}"' + (' || ! -s "${artifact}"' if count == 6 else '')
+        _require('if [[ ' + guard + ' ]]; then' in body, "lg_preservation_nonempty_guard")
+        if count == 3:
+            name_headers = [shlex.split(line)[3:] for line in flat if line.startswith("for name in ")]
+            _require(name_headers == [basenames]
+                     and re.findall(r'^  cp (.*)$', body, re.M) == ['"${src}" "${CANONICAL_DIR}/${name}"'],
+                     "lg_preservation_copy_members")
+            copied_paths = [root + "/" + name for name in name_headers[0]]
+        else:
+            calls = re.findall(r'^restore_external_artifact\s+"([A-Za-z0-9_.-]+)"\s+"([^"\n]+)"\s*$',
+                               body.replace("\\\n", " "), re.M)
+            copied_paths = [_checked_mapping_path(target.replace("${CANONICAL_EXTERNAL}/", root + "/")) for _, target in calls]
+            _require([name for name, _ in calls] == basenames, "lg_preservation_copy_members")
+            function = re.search(r'^restore_external_artifact \(\) \{\n(.*?)^\}', body, re.M | re.S)
+            _require(function is not None and 'local name="$1"' in function.group(1)
+                     and 'local dst="$2"' in function.group(1)
+                     and re.findall(r'^  cp (.*)$', function.group(1), re.M) == ['"${src}" "${dst}"'],
+                     "lg_preservation_copy_destination")
+        _require(copied_paths == digest_paths
+                 and 'find "${DOWNLOAD_DIR}" -type f -name "${name}" | head -n 1 || true' in body,
+                 "lg_preservation_copy_source")
+        argv = [shlex.split(line) for line in flat if line.startswith("gh run download ")]
+        _require(len(argv) == 1 and len(argv[0]) == 10
+                 and argv[0][:4] == ["gh", "run", "download", "${GITHUB_RUN_ID}"]
+                 and argv[0][4:7] == ["--repo", "${GITHUB_REPOSITORY}", "--name"]
+                 and argv[0][8:] == ["--dir", "${DOWNLOAD_DIR}"], "lg_preservation_download_context")
+        name = argv[0][7].replace("${GITHUB_RUN_ID}", "{workflow_run_id}").replace("${GITHUB_RUN_ATTEMPT}", "1")
+        options = publisher["with"]
+        upload_name = options["name"].replace("${{ github.run_id }}", "{workflow_run_id}").replace("${{ github.run_attempt }}", "1")
+        uploaded = [_checked_mapping_path(line) for line in options["path"].splitlines()]
+        _require(name == upload_name and re.fullmatch(r'[a-z0-9-]+-\{workflow_run_id\}-1', name) is not None,
+                 "lg_preservation_artifact_name")
+        _require(publisher.get("uses") == "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+                 and options.get("if-no-files-found") == "error", "lg_preservation_upload_profile")
+        _require(uploaded == digest_paths, "lg_preservation_upload_members")
+        for leaf, path in zip(basenames, digest_paths):
+            role = _LG_PRESERVATION_FILES[leaf]
+            _require(role not in local or local[role] == path, "lg_preservation_version_alias")
+            local[role] = path
+        upload_id, reader_id = _step_id(writer_job, writer_no), _step_id(reader_job, reader_no)
+        inputs = sorted(_LG_PRESERVATION_FILES[leaf] for leaf in basenames)
+        duties[upload_id] = {"inputs": inputs, "outputs": []}
+        duties[reader_id] = {"inputs": inputs, "outputs": []}
+        handoffs.append({"publisher": upload_id, "restorer": reader_id, "artifact_name_template": name,
+                         "upload_paths": uploaded, "restore_paths": copied_paths, "hash_paths": digest_paths,
+                         "download_directory": download_root, "requires_nonempty": count == 6,
+                         "upload_condition": publisher.get("if"), "restore_condition": reader.get("if"),
+                         "archive_state_modeled": False})
+    content_origins = {"llamaguard-raw-evidence": _step_id("pulse", 22),
+                       "llamaguard-evaluator-manifest": _step_id("pulse", 22),
+                       "llamaguard-summary": _step_id("pulse", 23),
+                       "llamaguard-attestation-bundle": _step_id(_LG_PRESERVATION_JOB, 5),
+                       "llamaguard-attestation-envelope": _step_id(_LG_PRESERVATION_JOB, 6),
+                       "llamaguard-attestation-verifier": _step_id(_LG_PRESERVATION_JOB, 7)}
+    return {"locators": local, "origins": content_origins, "steps": duties, "handoffs": handoffs}
+
+
+def _install_llamaguard_preservation_projection(states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any]) -> None:
+    """Replace only the four selected preservation operations, not file origins."""
+    rows = {row["state_id"].removeprefix("state:step5c:"): row for row in states}
+    for role, path in facts["locators"].items():
+        _require(role in rows and rows[role]["path_or_uri"] == path, "lg_preservation_input_locator", role)
+        _require(rows[role]["producer_occurrence_id"] == facts["origins"][role], "lg_preservation_input_origin", role)
+    owned = set(facts["steps"])
+    for row in states:
+        row["required_consumer_occurrence_ids"] = [oid for oid in row["required_consumer_occurrence_ids"] if oid not in owned]
+    for step in steps.values():
+        oid = step["occurrence_id"]
+        if oid not in owned:
+            continue
+        equation = facts["steps"][oid]
+        step["input_state_ids"] = sorted("state:step5c:" + role for role in equation["inputs"])
+        step["output_state_ids"] = []
+        for role in equation["inputs"]:
+            _append_unique(rows[role]["required_consumer_occurrence_ids"], oid)
+    for row in states:
+        row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
+
+
+def _verify_source_llamaguard_preservation_equations(plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject]) -> None:
+    """Reject incorrect submitted source relations even if constructors agree."""
+    facts = _source_llamaguard_preservation_expectations(workflow, sources)
+    states = {row["state_id"].removeprefix("state:step5c:"): row for row in plan["state_templates"]}
+    _require(len(states) == len(plan["state_templates"]), "lg_preservation_duplicate_role")
+    occurrences = [step for job in plan["jobs"] for step in job["steps"]]
+    steps = {step["occurrence_id"]: step for step in occurrences}
+    _require(len(steps) == len(occurrences), "lg_preservation_duplicate_step")
+    for role, path in facts["locators"].items():
+        _require(role in states, "lg_preservation_role_missing", role)
+        row = states[role]
+        _require(row["path_or_uri"] == path, "lg_preservation_locator_mismatch", role)
+        _require(row["required"] is True and row["content_requirement"] == "exact_digest"
+                 and row["authority_bearing"] is True and row["mutation_class"] == "none",
+                 "lg_preservation_requirement_mismatch", role)
+        _require(row["producer_occurrence_id"] == facts["origins"][role], "lg_preservation_origin_mismatch", role)
+        _require([oid for oid, step in steps.items() if row["state_id"] in step["output_state_ids"]]
+                 == [facts["origins"][role]], "lg_preservation_writer_set_mismatch", role)
+    for oid, equation in facts["steps"].items():
+        _require(oid in steps, "lg_preservation_step_missing", oid)
+        for field, direction in (("input_state_ids", "inputs"), ("output_state_ids", "outputs")):
+            _require(steps[oid][field] == sorted("state:step5c:" + role for role in equation[direction]),
+                     "lg_preservation_step_io_mismatch", oid + ":" + direction)
+        _require(sorted(row["state_id"] for row in states.values() if oid in row["required_consumer_occurrence_ids"])
+                 == steps[oid]["input_state_ids"], "lg_preservation_reverse_inputs_mismatch", oid)
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -2850,6 +2998,7 @@ def _build_states(
     binding_projection = _source_provenance_expectations(source_workflow, source_by_path)
     baseline_floor_projection = _source_baseline_floor_expectations(source_workflow, source_by_path)
     preservation_projection = _source_preattest_preservation_expectations(source_workflow, source_by_path)
+    llamaguard_preservation = _source_llamaguard_preservation_expectations(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -2927,7 +3076,7 @@ def _build_states(
         "external_signer_policy",
         EXTERNAL_SIGNER_POLICY_PATH,
         producer=None,
-        consumers=[st("attest_llamaguard_current_run_summary", 6), st("attest_llamaguard_current_run_summary", 7), st("release_grade_recorded_path", 5), st("release_grade_recorded_path", 8)],
+        consumers=[st("attest_llamaguard_current_run_summary", 6), st("attest_llamaguard_current_run_summary", 7), st("release_grade_recorded_path", 8)],
         authority=True,
     )
     dataset = add(
@@ -2973,7 +3122,7 @@ def _build_states(
         "llamaguard_raw_evidence",
         "PULSE_safe_pack_v0/artifacts/external/llamaguard_raw.jsonl",
         producer=st("pulse", 22),
-        consumers=[st("pulse", 23), st("pulse", 24), st("attest_llamaguard_current_run_summary", 4)],
+        consumers=[st("pulse", 23)],
         authority=True,
     )
     evaluator_manifest = add(
@@ -2982,7 +3131,7 @@ def _build_states(
         "llamaguard_evaluator_manifest",
         "PULSE_safe_pack_v0/artifacts/external/llamaguard_evaluator_manifest_v0.json",
         producer=st("pulse", 22),
-        consumers=[st("pulse", 23), st("pulse", 24), st("attest_llamaguard_current_run_summary", 4)],
+        consumers=[st("pulse", 23)],
         authority=True,
     )
     summary = add(
@@ -2991,7 +3140,7 @@ def _build_states(
         "canonical_llamaguard_summary",
         "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json",
         producer=st("pulse", 23),
-        consumers=[st("pulse", 24), st("pulse", 35), st("attest_llamaguard_current_run_summary", 4), st("attest_llamaguard_current_run_summary", 5)],
+        consumers=[st("pulse", 35), st("attest_llamaguard_current_run_summary", 5)],
         authority=True,
     )
     preattestation = add(
@@ -3009,7 +3158,7 @@ def _build_states(
         "llamaguard_attestation_bundle",
         "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.bundle.json",
         producer=st("attest_llamaguard_current_run_summary", 5),
-        consumers=[st("attest_llamaguard_current_run_summary", 6), st("attest_llamaguard_current_run_summary", 7), st("attest_llamaguard_current_run_summary", 8), st("release_grade_recorded_path", 5)],
+        consumers=[st("attest_llamaguard_current_run_summary", 6), st("attest_llamaguard_current_run_summary", 7)],
         authority=True,
     )
     attestation_envelope = add(
@@ -3018,7 +3167,7 @@ def _build_states(
         "llamaguard_external_summary_envelope",
         "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.envelope.json",
         producer=st("attest_llamaguard_current_run_summary", 6),
-        consumers=[st("attest_llamaguard_current_run_summary", 7), st("attest_llamaguard_current_run_summary", 8), st("release_grade_recorded_path", 5)],
+        consumers=[st("attest_llamaguard_current_run_summary", 7)],
         authority=True,
     )
     attestation_verifier = add(
@@ -3027,7 +3176,7 @@ def _build_states(
         "llamaguard_attestation_verifier",
         "PULSE_safe_pack_v0/artifacts/external/llamaguard_attestation_verifier_v1.json",
         producer=st("attest_llamaguard_current_run_summary", 7),
-        consumers=[st("attest_llamaguard_current_run_summary", 8), st("release_grade_recorded_path", 5), st("release_grade_recorded_path", 8)],
+        consumers=[st("release_grade_recorded_path", 8)],
         authority=True,
     )
     candidate_index = add(
@@ -3327,9 +3476,6 @@ def _build_states(
             ("pulse", 35, summary),
             ("pulse", 35, threshold),
             ("release_grade_recorded_path", 4, preattestation),
-            ("release_grade_recorded_path", 5, attestation_bundle),
-            ("release_grade_recorded_path", 5, attestation_envelope),
-            ("release_grade_recorded_path", 5, attestation_verifier),
             ("release_grade_recorded_path", 8, signer),
         ],
         outputs=[
@@ -3381,6 +3527,7 @@ def _build_states(
     _install_provenance_source_projection(states, step_by_key, binding_projection)
     _install_baseline_floor_projection(states, step_by_key, baseline_floor_projection)
     _install_preattest_preservation_projection(states, step_by_key, preservation_projection)
+    _install_llamaguard_preservation_projection(states, step_by_key, llamaguard_preservation)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph
@@ -3995,6 +4142,9 @@ def check_plan(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_source_preattest_preservation_equations(
+        plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
+    )
+    _verify_source_llamaguard_preservation_equations(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_tool_identity(
