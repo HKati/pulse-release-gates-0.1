@@ -2151,6 +2151,207 @@ def _verify_source_required_argument_equations(
                      "required_argument_invented_runtime_edge")
 
 
+# Independent source predicate for the two bundle-preservation roles. This
+# inspects copy and handoff source; it does not trust either constructed plan.
+_BUNDLE_ROLES = ("release-authority-audit-bundle", "advisory-reference-bundle")
+_BUNDLE_SOURCE_PINS = {
+    ".github/workflows/pulse_ci.yml": "adae42c8e9777d357ab5400ced5765de7059ed1e",
+    "PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py": "8f01602e973b890eb2ae0928bd62dfd65e691f79",
+}
+
+
+def _source_bundle_copies(step: dict[str, Any]) -> list[tuple[bool, str, str]]:
+    """Independent finite grammar; never evaluate shell or expand a glob."""
+    text = step.get("run")
+    _require(isinstance(text, str), "bundle_mapping_run_missing")
+    result = []
+    pattern = r'cp(?P<tree> -a)?\s+(?P<src>"[A-Za-z0-9_$\{\}./*-]+"(?:/[A-Za-z0-9_.*-]+)*)\s+"(?P<dst>[A-Za-z0-9_$\{\}./-]+)"'
+    for statement in text.replace("\\\n", " ").splitlines():
+        statement = statement.strip()
+        if not statement.startswith("cp "):
+            continue
+        match = re.fullmatch(pattern, statement)
+        _require(match is not None, "bundle_mapping_copy_syntax")
+        result.append((match.group("tree") is not None,
+                       match.group("src").replace('"', ''), match.group("dst")))
+    _require(bool(result) and len(result) == len(set(result)), "bundle_mapping_copy_set")
+    return result
+
+
+def _source_bundle_expectations(workflow: dict[str, Any], sources: dict[str, GitObject]) -> dict[str, Any]:
+    payloads = {}
+    for path in _BUNDLE_SOURCE_PINS:
+        item = sources.get(path)
+        _require(item is not None, "bundle_mapping_source_missing", path)
+        _require(_sha1_git_blob(item.data) == _BUNDLE_SOURCE_PINS[path], "bundle_mapping_source_drift", path)
+        payloads[path] = item.data
+    recorded = _parse_yaml_document(payloads[SUBJECT_WORKFLOW_PATH], label=SUBJECT_WORKFLOW_PATH)
+    for job_name in ("release_grade_recorded_path", "assemble_release_grade_reference_package", "pulse"):
+        _require(workflow.get("jobs", {}).get(job_name) == recorded["jobs"][job_name],
+                 "bundle_mapping_workflow_drift", job_name)
+    steps = workflow["jobs"]["release_grade_recorded_path"]["steps"]
+    occ = lambda number: _step_id("release_grade_recorded_path", number)
+    audit, advisory = _BUNDLE_ROLES
+    # Resolve backward from the upload paths and exported advisory root.
+    upload_audit, upload_advisory = steps[27], steps[31]
+    publications = {}
+    for number, role in ((28, audit), (32, advisory)):
+        item = steps[number - 1]; opts = item.get("with", {})
+        _require(item.get("uses") == "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+                 and opts.get("if-no-files-found") == "error", "bundle_mapping_upload_profile")
+        name = opts.get("name")
+        _require(isinstance(name, str) and re.fullmatch(r"[a-z0-9-]+", name), "bundle_mapping_upload_name")
+        publications[role] = {"name": name, "occurrence": occ(number)}
+    audit_root = _checked_mapping_path(upload_audit["with"]["path"].rstrip("/"))
+    _require(_checked_mapping_export(steps[21], "BUNDLE") == audit_root, "bundle_mapping_upload_path")
+    advisory_root = _checked_mapping_export(steps[24], "BUNDLE_DIR", allow_temp=True)
+    export_lines = [line.strip() for line in steps[24]["run"].splitlines() if "REFERENCE_BUNDLE_DIR=" in line]
+    _require(upload_advisory["with"]["path"] == "${{ env.REFERENCE_BUNDLE_DIR }}"
+             and export_lines == ['echo "REFERENCE_BUNDLE_DIR=${BUNDLE_DIR}" >> "$GITHUB_ENV"'],
+             "bundle_mapping_advisory_export")
+    ledger = _source_ledger_expectations(workflow)
+    paths = dict(ledger["locators"])
+    paths.update({"final-status": ledger["status"], audit: audit_root + "/", advisory: advisory_root + "/",
+                  "llamaguard-summary": _checked_mapping_export(workflow["jobs"]["pulse"]["steps"][22], "SUMMARY")})
+    _require(paths[advisory] == ledger["locators"][advisory], "bundle_mapping_root_disagreement")
+    candidate_roles = ("final-status", "quality-ledger-final", "release-authority-manifest",
+                       "llamaguard-summary", "release-grade-junit", "release-grade-sarif", audit, advisory)
+    _require(len({paths[role].rstrip("/") for role in candidate_roles}) == len(candidate_roles), "bundle_mapping_state_alias")
+    copies, inputs = {}, {}
+    for number, variable, root, output in ((22, "BUNDLE", audit_root, audit), (25, "BUNDLE_DIR", advisory_root, advisory)):
+        members = []
+        for recursive, source, destination in _source_bundle_copies(steps[number - 1]):
+            prefix = "${" + variable + "}/"
+            _require(destination.startswith(prefix), "bundle_mapping_destination_root")
+            destination = _checked_mapping_path(root + "/" + destination[len(prefix):].rstrip("/"), allow_temp=True)
+            if "*" in source:
+                _require(source.count("*") == 1 and source.endswith("/*_summary.json") and not recursive,
+                         "bundle_mapping_glob_dialect")
+                directory = _checked_mapping_path(source.rsplit("/", 1)[0])
+                found = [role for role in candidate_roles if paths[role].rsplit("/", 1)[0] == directory
+                         and paths[role].rsplit("/", 1)[1].endswith("_summary.json")]
+                _require(found == ["llamaguard-summary"], "bundle_mapping_selected_glob_roles")
+                selector = directory + "/*_summary.json"
+                kind = "selected_member_of_source_glob"
+            else:
+                selector = _checked_mapping_path(source)
+                found = [role for role in candidate_roles if paths[role].rstrip("/") == selector]
+                _require(len(found) == 1, "bundle_mapping_copy_role_missing", selector)
+                _require(recursive == (found[0] == audit), "bundle_mapping_copy_kind")
+                kind = "tree_copy" if recursive else "file_copy"
+            _require(found[0] != output and found[0] not in [entry["role"] for entry in members], "bundle_mapping_copy_alias")
+            members.append({"role": found[0], "source_selector": selector,
+                            "destination": destination, "copy_kind": kind})
+        _require(len(members) == (3 if number == 22 else 7), "bundle_mapping_copy_extent")
+        copies[output] = members
+        inputs[occ(number)] = sorted(member["role"] for member in members)
+    _require("PULSE_safe_pack_v0/artifacts/**" in steps[30]["with"]["path"].splitlines()
+             and audit_root.startswith("PULSE_safe_pack_v0/artifacts/"), "bundle_mapping_report_upload")
+    assembly = workflow["jobs"]["assemble_release_grade_reference_package"]["steps"]
+    # Parse only the exact reviewed gh run download form and prove that S4
+    # transports the named audit artifact, while S5 actually reads the tree.
+    commands = []
+    for line in assembly[3]["run"].replace("\\\n", " ").splitlines():
+        if not line.strip().startswith("gh run download "):
+            continue
+        words = shlex.split(line)
+        _require(words[:4] == ["gh", "run", "download", "${GITHUB_RUN_ID}"] and len(words) == 10,
+                 "bundle_mapping_named_handoff")
+        pairs = dict(zip(words[4::2], words[5::2]))
+        _require(set(pairs) == {"--repo", "--name", "--dir"}, "bundle_mapping_named_handoff")
+        commands.append(pairs)
+    named = [c for c in commands if c["--name"] == publications[audit]["name"]]
+    _require(len(named) == 1 and named[0]["--repo"] == "${GITHUB_REPOSITORY}"
+             and named[0]["--dir"] == "${AUDIT_BUNDLE_DIR}", "bundle_mapping_named_handoff")
+    _require(publications[advisory]["name"] not in [c["--name"] for c in commands], "bundle_mapping_advisory_not_acquired")
+    _require('--audit-bundle-dir "${AUDIT_BUNDLE_DIR}"' in assembly[4]["run"], "bundle_mapping_assembler_input")
+    module = ast.parse(payloads[next(path for path in payloads if path != SUBJECT_WORKFLOW_PATH)])
+    function = next(node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == "_stage_package")
+    destinations = []
+    for node in ast.walk(function):
+        if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Name) or node.func.id != "_copy_tree":
+            continue
+        if node.args and isinstance(node.args[0], ast.Name) and node.args[0].id == "selected_audit":
+            _require(len(node.args) == 3, "bundle_mapping_assembler_copy")
+            expression = node.args[1]
+            _require(isinstance(expression, ast.BinOp) and isinstance(expression.op, ast.Div)
+                     and isinstance(expression.left, ast.Name) and expression.left.id == "staging_dir"
+                     and isinstance(expression.right, ast.Constant) and isinstance(expression.right.value, str),
+                     "bundle_mapping_assembler_destination")
+            destinations.append(expression.right.value)
+    _require(len(destinations) == 1, "bundle_mapping_assembler_copy")
+    consumers = {role: [publications[role]["occurrence"]] for role in _BUNDLE_ROLES}
+    for operation, consumed in inputs.items():
+        for role in _BUNDLE_ROLES:
+            if role in consumed:
+                consumers[role].append(operation)
+    consumers[audit] += [occ(31), _step_id("assemble_release_grade_reference_package", 5)]
+    return {"locators": {role: paths[role] for role in _BUNDLE_ROLES},
+            "producers": {audit: occ(22), advisory: occ(25)},
+            "consumers": {role: sorted(values) for role, values in consumers.items()},
+            "copy_inputs": inputs, "copies": copies, "publications": publications,
+            "input_locators": {role: paths[role] for role in sorted({r for values in inputs.values() for r in values})},
+            "package_member": destinations[0], "conditions": {"assembly": steps[24]["if"], "publication": steps[31]["if"]}}
+
+
+def _apply_bundle_source_expectations(states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any]) -> None:
+    by_role = {entry["state_id"].removeprefix("state:step5c:"): entry for entry in states}
+    affected = set(facts["copy_inputs"])
+    for state in states:
+        state["required_consumer_occurrence_ids"] = [oid for oid in state["required_consumer_occurrence_ids"] if oid not in affected]
+    for step in steps.values():
+        oid = step["occurrence_id"]
+        for key in ("input_state_ids", "output_state_ids"):
+            step[key] = [sid for sid in step[key] if sid.removeprefix("state:step5c:") not in _BUNDLE_ROLES]
+        if oid in affected:
+            step["input_state_ids"] = []
+            for role in facts["copy_inputs"][oid]:
+                step["input_state_ids"].append("state:step5c:" + role)
+                by_role[role]["required_consumer_occurrence_ids"].append(oid)
+    for role in _BUNDLE_ROLES:
+        record = by_role[role]
+        record.update(path_or_uri=facts["locators"][role], producer_occurrence_id=facts["producers"][role],
+                      required_consumer_occurrence_ids=list(facts["consumers"][role]))
+        for step in steps.values():
+            if step["occurrence_id"] in facts["consumers"][role]:
+                _append_unique(step["input_state_ids"], record["state_id"])
+            if step["occurrence_id"] == facts["producers"][role]:
+                _append_unique(step["output_state_ids"], record["state_id"])
+    for record in states:
+        record["required_consumer_occurrence_ids"] = sorted(set(record["required_consumer_occurrence_ids"]))
+
+
+def _verify_source_bundle_equations(plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject]) -> None:
+    facts = _source_bundle_expectations(workflow, sources)
+    states = {record["state_id"]: record for record in plan["state_templates"]}
+    _require(len(states) == len(plan["state_templates"]), "bundle_mapping_duplicate_role")
+    steps = {step["occurrence_id"]: step for job in plan["jobs"] for step in job["steps"]}
+    for role in _BUNDLE_ROLES:
+        sid = "state:step5c:" + role
+        _require(sid in states, "bundle_mapping_role_missing", role)
+        row = states[sid]
+        _require(row["path_or_uri"] == facts["locators"][role], "bundle_mapping_locator_mismatch", role)
+        _require(row["producer_occurrence_id"] == facts["producers"][role], "bundle_mapping_producer_mismatch", role)
+        _require(row["required_consumer_occurrence_ids"] == facts["consumers"][role], "bundle_mapping_consumer_mismatch", role)
+        _require(row["required"] is True and row["content_requirement"] == "exact_digest"
+                 and row["state_type"] == "package" and row["authority_bearing"] is (role == _BUNDLE_ROLES[0])
+                 and row["mutation_class"] == "none", "bundle_mapping_requirement_mismatch", role)
+        _require(sorted(oid for oid, step in steps.items() if sid in step["input_state_ids"]) == facts["consumers"][role],
+                 "bundle_mapping_reader_set_mismatch", role)
+        _require([oid for oid, step in steps.items() if sid in step["output_state_ids"]] == [facts["producers"][role]],
+                 "bundle_mapping_writer_set_mismatch", role)
+    for oid, roles in facts["copy_inputs"].items():
+        _require(oid in steps, "bundle_mapping_copy_occurrence_missing")
+        expected = ["state:step5c:" + role for role in roles]
+        _require(steps[oid]["input_state_ids"] == expected, "bundle_mapping_copy_inputs_mismatch")
+        reverse = sorted(sid for sid, row in states.items() if oid in row["required_consumer_occurrence_ids"])
+        _require(reverse == expected, "bundle_mapping_reverse_inputs_mismatch")
+        produced = ["state:step5c:" + role for role in _BUNDLE_ROLES if facts["producers"][role] == oid]
+        _require(steps[oid]["output_state_ids"] == produced, "bundle_mapping_copy_outputs_mismatch")
+    for role, path in facts["input_locators"].items():
+        _require(states.get("state:step5c:" + role, {}).get("path_or_uri") == path, "bundle_mapping_input_locator_mismatch", role)
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -2161,6 +2362,7 @@ def _build_states(
     recorded_projection = _source_recorded_expectations(source_workflow, source_by_path)
     package_projection = _source_package_expectations(source_workflow, source_by_path)
     argument_projection = _source_required_argument_expectations(source_workflow, source_by_path)
+    bundle_projection = _source_bundle_expectations(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -2475,9 +2677,9 @@ def _build_states(
         "release-authority-audit-bundle",
         "package",
         "final_release_authority_audit_bundle",
-        "PULSE_safe_pack_v0/artifacts/release_authority_audit_bundle/",
-        producer=st("release_grade_recorded_path", 22),
-        consumers=[st("release_grade_recorded_path", 28), st("assemble_release_grade_reference_package", 4)],
+        bundle_projection["locators"]["release-authority-audit-bundle"],
+        producer=bundle_projection["producers"]["release-authority-audit-bundle"],
+        consumers=bundle_projection["consumers"]["release-authority-audit-bundle"],
         authority=True,
     )
     junit = add(
@@ -2502,9 +2704,9 @@ def _build_states(
         "advisory-reference-bundle",
         "package",
         "advisory_release_grade_reference_bundle",
-        source_projection["locators"]['advisory-reference-bundle'],
-        producer=st("release_grade_recorded_path", 25),
-        consumers=[st("release_grade_recorded_path", 26), st("release_grade_recorded_path", 32)],
+        bundle_projection["locators"]["advisory-reference-bundle"],
+        producer=bundle_projection["producers"]["advisory-reference-bundle"],
+        consumers=bundle_projection["consumers"]["advisory-reference-bundle"],
         authority=False,
     )
     binding_attestation = add(
@@ -2647,7 +2849,6 @@ def _build_states(
             ("release_grade_recorded_path", 21, authority_manifest),
             ("attest_release_grade_artifact_binding", 1, artifact_binding),
             ("assemble_release_grade_reference_package", 4, artifact_binding),
-            ("assemble_release_grade_reference_package", 4, audit_bundle),
         ],
         outputs=[
             ("pulse", 11, required_gate),
@@ -2661,10 +2862,8 @@ def _build_states(
             ("attest_llamaguard_current_run_summary", 6, attestation_envelope),
             ("attest_llamaguard_current_run_summary", 7, attestation_verifier),
             ("release_grade_recorded_path", 21, artifact_binding),
-            ("release_grade_recorded_path", 22, audit_bundle),
             ("release_grade_recorded_path", 23, junit),
             ("release_grade_recorded_path", 23, sarif),
-            ("release_grade_recorded_path", 25, advisory_bundle),
             ("attest_release_grade_artifact_binding", 2, binding_attestation),
         ],
     )
@@ -2698,6 +2897,8 @@ def _build_states(
     _apply_recorded_source_expectations(states, step_by_key, recorded_projection)
 
     _apply_package_source_expectations(states, step_by_key, package_projection)
+
+    _apply_bundle_source_expectations(states, step_by_key, bundle_projection)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph
@@ -3300,6 +3501,9 @@ def check_plan(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_source_required_argument_equations(
+        plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
+    )
+    _verify_source_bundle_equations(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_tool_identity(

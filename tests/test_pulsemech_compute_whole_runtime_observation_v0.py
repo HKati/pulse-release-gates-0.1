@@ -3731,6 +3731,314 @@ def test_required_argument_role_remains_unavailable_until_runtime_integration(so
         VERIFIER._require_declared_state_completion(plan, packet, {})
 
 
+# ---------------------------------------------------------------------------
+# Source-grounded audit/advisory preservation regressions. These inspect the
+# workflow and use synthetic files; no hosted run or artifact is acquired.
+# ---------------------------------------------------------------------------
+BUNDLE_COPY_INPUTS = [
+    (22, 'final-status', 'PULSE_safe_pack_v0/artifacts/status.json'),
+    (22, 'quality-ledger-final', 'PULSE_safe_pack_v0/artifacts/report_card.html'),
+    (22, 'release-authority-manifest', 'PULSE_safe_pack_v0/artifacts/release_authority_v0.json'),
+    (25, 'final-status', 'PULSE_safe_pack_v0/artifacts/status.json'),
+    (25, 'quality-ledger-final', 'PULSE_safe_pack_v0/artifacts/report_card.html'),
+    (25, 'release-authority-manifest', 'PULSE_safe_pack_v0/artifacts/release_authority_v0.json'),
+    (25, 'release-authority-audit-bundle', 'PULSE_safe_pack_v0/artifacts/release_authority_audit_bundle'),
+    (25, 'llamaguard-summary', 'PULSE_safe_pack_v0/artifacts/external/*_summary.json'),
+    (25, 'release-grade-junit', 'PULSE_safe_pack_v0/artifacts/reports/junit.xml'),
+    (25, 'release-grade-sarif', 'PULSE_safe_pack_v0/artifacts/reports/sarif.json'),
+]
+BUNDLE_COPY_MUTATIONS = [
+    'missing_audit', 'missing_advisory', 'audit_locator', 'advisory_locator',
+    'audit_upload_as_producer', 'advisory_upload_as_producer',
+    'missing_audit_status', 'extra_audit_decision', 'missing_advisory_summary',
+    'advisory_postcondition_reader', 'audit_download_reader', 'missing_audit_assembler',
+    'missing_audit_upload', 'missing_audit_report_upload', 'advisory_assembler_reader',
+    'audit_optional', 'advisory_optional', 'audit_metadata_only', 'advisory_unavailable',
+    'advisory_authority_promotion', 'input_locator', 'unpaired_copy_input',
+]
+
+
+def bundle_copy_module(side):
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    function = module._bundle_source_projection if side == 'builder' else module._source_bundle_expectations
+    return module, function
+
+
+def bundle_plan_steps(plan):
+    return {(j['source_job_id'], s['source_ordinal']): s for j in plan['jobs'] for s in j['steps']}
+
+
+@pytest.mark.parametrize('number,role,source_path', BUNDLE_COPY_INPUTS)
+def test_bundle_copy_inputs_are_supported_by_literal_source(source_fixture, number, role, source_path):
+    raw = mapping_source_document()['jobs']['release_grade_recorded_path']['steps'][number - 1]['run']
+    cp_commands = [shlex.split(line) for line in raw.replace('\\\n', ' ').splitlines() if line.strip().startswith('cp ')]
+    source_paths = [words[2] if words[1] == '-a' else words[1] for words in cp_commands]
+    source_paths = [path.replace('${PACK_DIR}', 'PULSE_safe_pack_v0') for path in source_paths]
+    assert source_path in source_paths
+    plan = source_fixture.plan
+    step = bundle_plan_steps(plan)[('release_grade_recorded_path', number)]
+    state = next(s for s in plan['state_templates'] if s['state_id'] == 'state:step5c:' + role)
+    assert state['state_id'] in step['input_state_ids']
+    assert step['occurrence_id'] in state['required_consumer_occurrence_ids']
+    if '*' not in source_path:
+        assert state['path_or_uri'].rstrip('/') == source_path
+    else:
+        assert state['path_or_uri'].rsplit('/', 1)[0] == source_path.rsplit('/', 1)[0]
+        assert state['path_or_uri'].endswith('_summary.json')
+
+
+@pytest.mark.parametrize('number,roles,output', [
+    (22, ['final-status', 'quality-ledger-final', 'release-authority-manifest'], 'release-authority-audit-bundle'),
+    (25, ['advisory-reference-bundle'], 'advisory-reference-bundle'),
+])
+def test_bundle_copy_step_closure(source_fixture, recorded_source_objects, number, roles, output):
+    # Source independently enumerates the seven selected R25 input roles.
+    if number == 25:
+        roles = [role for n, role, _ in BUNDLE_COPY_INPUTS if n == number]
+    expected = sorted('state:step5c:' + role for role in roles)
+    step = bundle_plan_steps(source_fixture.plan)[('release_grade_recorded_path', number)]
+    assert step['input_state_ids'] == expected
+    assert step['output_state_ids'] == ['state:step5c:' + output]
+    assert sorted(s['state_id'] for s in source_fixture.plan['state_templates']
+                  if step['occurrence_id'] in s['required_consumer_occurrence_ids']) == expected
+    PLAN_CHECKER._verify_source_bundle_equations(source_fixture.plan, mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('role,producer,readers', [
+    ('release-authority-audit-bundle', 22,
+     [('release_grade_recorded_path', 25), ('release_grade_recorded_path', 28),
+      ('release_grade_recorded_path', 31), ('assemble_release_grade_reference_package', 5)]),
+    ('advisory-reference-bundle', 25, [('release_grade_recorded_path', 32)]),
+])
+def test_bundle_content_origin_and_direct_readers(source_fixture, role, producer, readers):
+    steps = bundle_plan_steps(source_fixture.plan)
+    row = next(s for s in source_fixture.plan['state_templates'] if s['state_id'] == 'state:step5c:' + role)
+    assert row['producer_occurrence_id'] == steps[('release_grade_recorded_path', producer)]['occurrence_id']
+    expected = sorted(steps[key]['occurrence_id'] for key in readers)
+    assert row['required_consumer_occurrence_ids'] == expected
+    assert sorted(s['occurrence_id'] for s in steps.values() if row['state_id'] in s['input_state_ids']) == expected
+    assert row['required'] is True and row['content_requirement'] == 'exact_digest'
+    assert row['authority_bearing'] is (role == 'release-authority-audit-bundle')
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_bundle_source_copy_inventory_handoff_and_conditions(source_fixture, recorded_source_objects, side):
+    _, method = bundle_copy_module(side)
+    facts = method(mapping_source_document(), recorded_source_objects)
+    document = mapping_source_document()
+    steps = document['jobs']['release_grade_recorded_path']['steps']
+    assert [len(facts['copies'][r]) for r in BUILDER._BUNDLE_ROLES] == [3, 7]
+    assert facts['publications']['release-authority-audit-bundle']['name'] == steps[27]['with']['name']
+    assert facts['publications']['advisory-reference-bundle']['name'] == steps[31]['with']['name']
+    assert facts['conditions'] == {'assembly': steps[24]['if'], 'publication': steps[31]['if']}
+    assert facts['package_member'] == 'release-authority-audit-bundle'
+    glob = next(r for r in facts['copies']['advisory-reference-bundle'] if r['role'] == 'llamaguard-summary')
+    assert glob['copy_kind'] == 'selected_member_of_source_glob'
+    assert '*' in glob['source_selector']
+    assert not any('artifact_id' in entry for entries in facts['copies'].values() for entry in entries)
+    assert facts == bundle_copy_module('checker' if side == 'builder' else 'builder')[1](document, recorded_source_objects)
+
+
+def corrupt_bundle_copy_plan(plan, mutation):
+    plan = copy.deepcopy(plan)
+    states = {s['state_id'].removeprefix('state:step5c:'): s for s in plan['state_templates']}
+    steps = bundle_plan_steps(plan)
+    def edge(role, job, number, add):
+        row = states[role]; step = steps[(job, number)]
+        oid, sid = step['occurrence_id'], row['state_id']
+        if add:
+            row['required_consumer_occurrence_ids'] = sorted(set(row['required_consumer_occurrence_ids']) | {oid})
+            step['input_state_ids'] = sorted(set(step['input_state_ids']) | {sid})
+        else:
+            row['required_consumer_occurrence_ids'] = [v for v in row['required_consumer_occurrence_ids'] if v != oid]
+            step['input_state_ids'] = [v for v in step['input_state_ids'] if v != sid]
+    audit, advisory = 'release-authority-audit-bundle', 'advisory-reference-bundle'
+    if mutation.startswith('missing_') and mutation in ('missing_audit', 'missing_advisory'):
+        sid = states[audit if mutation == 'missing_audit' else advisory]['state_id']
+        plan['state_templates'] = [s for s in plan['state_templates'] if s['state_id'] != sid]
+        for step in steps.values():
+            for key in ('input_state_ids', 'output_state_ids'):
+                step[key] = [v for v in step[key] if v != sid]
+    elif mutation in ('audit_locator', 'advisory_locator'):
+        states[audit if mutation == 'audit_locator' else advisory]['path_or_uri'] += 'wrong'
+    elif mutation in ('audit_upload_as_producer', 'advisory_upload_as_producer'):
+        role, number = (audit, 28) if mutation == 'audit_upload_as_producer' else (advisory, 32)
+        sid = states[role]['state_id']
+        for step in steps.values():
+            step['output_state_ids'] = [v for v in step['output_state_ids'] if v != sid]
+        publisher = steps[('release_grade_recorded_path', number)]
+        publisher['output_state_ids'] = sorted(publisher['output_state_ids'] + [sid])
+        states[role]['producer_occurrence_id'] = publisher['occurrence_id']
+    elif mutation in ('audit_optional', 'advisory_optional'):
+        states[audit if mutation.startswith('audit') else advisory]['required'] = False
+    elif mutation in ('audit_metadata_only', 'advisory_unavailable'):
+        states[audit if mutation.startswith('audit') else advisory]['content_requirement'] = 'metadata_only' if mutation.startswith('audit') else 'unavailable'
+    elif mutation == 'advisory_authority_promotion':
+        states[advisory]['authority_bearing'] = True
+    elif mutation == 'input_locator':
+        states['llamaguard-summary']['path_or_uri'] = 'PULSE_safe_pack_v0/artifacts/external/wrong_summary.json'
+    elif mutation == 'unpaired_copy_input':
+        steps[('release_grade_recorded_path', 22)]['input_state_ids'].remove('state:step5c:final-status')
+    else:
+        role, job, number, add = {
+            'missing_audit_status': ('final-status', 'release_grade_recorded_path', 22, False),
+            'extra_audit_decision': ('release-decision', 'release_grade_recorded_path', 22, True),
+            'missing_advisory_summary': ('llamaguard-summary', 'release_grade_recorded_path', 25, False),
+            'advisory_postcondition_reader': (advisory, 'release_grade_recorded_path', 26, True),
+            'audit_download_reader': (audit, 'assemble_release_grade_reference_package', 4, True),
+            'missing_audit_assembler': (audit, 'assemble_release_grade_reference_package', 5, False),
+            'missing_audit_upload': (audit, 'release_grade_recorded_path', 28, False),
+            'missing_audit_report_upload': (audit, 'release_grade_recorded_path', 31, False),
+            'advisory_assembler_reader': (advisory, 'assemble_release_grade_reference_package', 5, True),
+        }[mutation]
+        edge(role, job, number, add)
+    return plan
+
+
+@pytest.mark.parametrize('mutation', BUNDLE_COPY_MUTATIONS)
+def test_bundle_common_wrong_plan_fails_source_predicate(source_fixture, recorded_source_objects, mutation):
+    bad = corrupt_bundle_copy_plan(source_fixture.plan, mutation)
+    # Equal, independently serialized false answers still need source truth.
+    first, second = canonical(bad), canonical(copy.deepcopy(bad))
+    assert first == second
+    with pytest.raises(PLAN_CHECKER.PlanError, match='bundle_mapping_'):
+        PLAN_CHECKER._verify_source_bundle_equations(json.loads(first), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('mutation', ['missing_audit_status', 'audit_download_reader', 'advisory_postcondition_reader'])
+def test_bundle_actual_constructors_shared_error_still_rejected(source_fixture, recorded_source_objects, mutation):
+    answers = []
+    for module in (BUILDER, PLAN_CHECKER):
+        document = mapping_source_document()
+        jobs, steps, _ = module._build_jobs(document)
+        states = module._build_states(steps, module.EXPECTED_CASE_IDS, document, recorded_source_objects)
+        plan = copy.deepcopy(source_fixture.plan); plan['jobs'], plan['state_templates'] = jobs, states
+        answers.append(canonical(corrupt_bundle_copy_plan(plan, mutation)))
+    assert answers[0] == answers[1]
+    with pytest.raises(PLAN_CHECKER.PlanError, match='bundle_mapping_'):
+        PLAN_CHECKER._verify_source_bundle_equations(json.loads(answers[0]), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('mutation', ['missing_audit_status', 'missing_advisory_summary', 'audit_download_reader', 'advisory_postcondition_reader'])
+def test_bundle_rehashed_forged_plan_fails_real_checker_cli(source_fixture, tmp_path, mutation):
+    raw = canonical(corrupt_bundle_copy_plan(source_fixture.plan, mutation))
+    jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(json.loads(raw))
+    path = tmp_path / 'forged-plan.json'; path.write_bytes(raw)
+    args = list(source_fixture.check_args)
+    args[args.index('--plan') + 1] = path
+    args[args.index('--expected-plan-sha256') + 1] = digest(raw)
+    result = cli(source_fixture.root, TOOL_NAMES[1], args)
+    assert result.returncode != 0
+    report = json.loads(result.stdout)
+    assert report['ok'] is False and 'bundle_mapping_' in result.stdout.decode()
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('path', ['.github/workflows/pulse_ci.yml', 'PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py'])
+@pytest.mark.parametrize('mutation', ['missing', 'rehashed'])
+def test_bundle_semantic_source_substitution_rejected(source_fixture, recorded_source_objects, side, path, mutation):
+    module, method = bundle_copy_module(side)
+    objects = dict(recorded_source_objects)
+    if mutation == 'missing':
+        del objects[path]
+    else:
+        original = objects[path]; changed = original.data + b'\n# changed source example\n'
+        objects[path] = replace(original, data=changed, blob_sha1=module._sha1_git_blob(changed))
+    with pytest.raises(module.PlanError, match='bundle_mapping_source_'):
+        method(mapping_source_document(), objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('mutation', ['copy_input', 'copy_destination', 'copy_flag', 'summary_glob',
+                                     'advisory_condition', 'publication_condition', 'publication_name',
+                                     'publication_path', 'download_name', 'assembler_argument'])
+def test_bundle_changed_workflow_not_silently_reinterpreted(source_fixture, recorded_source_objects, side, mutation):
+    document = mapping_source_document()
+    rows = document['jobs']['release_grade_recorded_path']['steps']
+    if mutation == 'copy_input': rows[21]['run'] = rows[21]['run'].replace('/status.json', '/status_baseline.json')
+    elif mutation == 'copy_destination': rows[21]['run'] = rows[21]['run'].replace('${BUNDLE}/status.json', '${BUNDLE}/../status.json')
+    elif mutation == 'copy_flag': rows[24]['run'] = rows[24]['run'].replace('cp -a ', 'cp -r ')
+    elif mutation == 'summary_glob': rows[24]['run'] = rows[24]['run'].replace('*_summary.json', '*.json')
+    elif mutation == 'advisory_condition': rows[24]['if'] = '${{ always() }}'
+    elif mutation == 'publication_condition': rows[31]['if'] = '${{ always() }}'
+    elif mutation == 'publication_name': rows[27]['with']['name'] += '-changed'
+    elif mutation == 'publication_path': rows[27]['with']['path'] = 'PULSE_safe_pack_v0/artifacts/'
+    elif mutation == 'download_name':
+        item = document['jobs']['assemble_release_grade_reference_package']['steps'][3]
+        item['run'] = item['run'].replace('--name "release-authority-audit-bundle"', '--name "other-bundle"')
+    else:
+        item = document['jobs']['assemble_release_grade_reference_package']['steps'][4]
+        item['run'] = item['run'].replace('--audit-bundle-dir "${AUDIT_BUNDLE_DIR}"', '--audit-bundle-dir "${RECORDED_PATH_DIR}"')
+    module, method = bundle_copy_module(side)
+    with pytest.raises(module.PlanError, match='bundle_mapping_workflow_drift'):
+        method(document, recorded_source_objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('body', ['cp -r "${PACK_DIR}/a" "${BUNDLE}/b"',
+                                 'cp "${PACK_DIR}/a" "${BUNDLE}/b"; echo changed',
+                                 'cp "${PACK_DIR}/a" "${BUNDLE}/b" "extra"',
+                                 'cp "$(not_executed)" "${BUNDLE}/b"',
+                                 'cp "${PACK_DIR}/a" "${BUNDLE}/b"\ncp "${PACK_DIR}/a" "${BUNDLE}/b"'])
+def test_bundle_unsupported_copy_grammar_rejected(side, body):
+    module, _ = bundle_copy_module(side)
+    parser = module._bundle_copy_commands if side == 'builder' else module._source_bundle_copies
+    with pytest.raises(module.PlanError, match='bundle_mapping_copy_'):
+        parser({'run': body})
+
+
+@pytest.mark.parametrize('extra_summary', [False, True])
+def test_bundle_actual_copy_shells_match_synthetic_preservation(tmp_path, source_fixture, recorded_source_objects, extra_summary):
+    document = mapping_source_document()
+    root = tmp_path / 'workspace'; pack = root / 'PULSE_safe_pack_v0'; temporary = tmp_path / 'temp'
+    temporary.mkdir(); (pack / 'artifacts/external').mkdir(parents=True); (pack / 'artifacts/reports').mkdir()
+    files = {
+        'artifacts/status.json': b'{"example":"status"}\n',
+        'artifacts/report_card.html': b'<p>synthetic ledger</p>\n',
+        'artifacts/release_authority_v0.json': b'{"example":"authority"}\n',
+        'artifacts/external/llamaguard_summary.json': b'{"example":"summary"}\n',
+        'artifacts/reports/junit.xml': b'<testsuites/>\n',
+        'artifacts/reports/sarif.json': b'{"example":"sarif"}\n',
+    }
+    if extra_summary:
+        files['artifacts/external/additional_summary.json'] = b'{"example":"outside selected state roles"}\n'
+    for path, raw in files.items(): (pack / path).write_bytes(raw)
+    env_file = tmp_path / 'github-env'
+    environment = {'PATH': '/usr/bin:/bin', 'PACK_DIR': str(pack), 'RUNNER_TEMP': str(temporary), 'GITHUB_ENV': str(env_file)}
+    # Exact source bodies, controlled local paths. No production/release tool,
+    # inference, API, artifact upload or actual GitHub environment is invoked.
+    for ordinal in (22, 25):
+        body = document['jobs']['release_grade_recorded_path']['steps'][ordinal - 1]['run']
+        result = subprocess.run(['/bin/bash', '-c', body], cwd=root, env=environment,
+                                stdin=subprocess.DEVNULL, capture_output=True, timeout=20)
+        assert result.returncode == 0, result.stderr
+    audit = pack / 'artifacts/release_authority_audit_bundle'
+    advisory = temporary / 'release-grade-reference-run-v0'
+    assert {p.name for p in audit.iterdir()} == {'status.json', 'report_card.html', 'release_authority_v0.json'}
+    for name in ('status.json', 'report_card.html', 'release_authority_v0.json'):
+        assert (audit / name).read_bytes() == files['artifacts/' + name]
+        assert (advisory / 'release-authority-audit-bundle' / name).read_bytes() == files['artifacts/' + name]
+        assert (advisory / 'artifacts' / name).read_bytes() == files['artifacts/' + name]
+    assert (advisory / 'reports/junit.xml').read_bytes() == files['artifacts/reports/junit.xml']
+    assert (advisory / 'reports/sarif.json').read_bytes() == files['artifacts/reports/sarif.json']
+    assert len([p for p in advisory.rglob('*') if p.is_file()]) == 9 + int(extra_summary)
+    assert env_file.read_text().strip() == 'REFERENCE_BUNDLE_DIR=' + str(advisory)
+    facts = BUILDER._bundle_source_projection(document, recorded_source_objects)
+    assert len(facts['copy_inputs'][BUILDER._step_id('release_grade_recorded_path', 25)]) == 7
+    # Seven selected roles do not claim that a runtime glob had seven members.
+    if extra_summary:
+        assert (advisory / 'artifacts/external/additional_summary.json').is_file()
+
+
+def test_bundle_mapping_does_not_change_role_inventory_or_runtime_acceptance(source_fixture):
+    assert len(source_fixture.plan['state_templates']) == 62
+    assert len(source_fixture.plan['source_inventory']) == 50
+    assert len(prepared_fixture_members(source_fixture)) == 55
+    source = (SOURCES / 'check_pulsemech_compute_whole_runtime_observation_v0.py').read_text()
+    assert 'declared_state_evidence_incomplete' in source
+    assert not any('artifact_id' in s for s in source_fixture.plan['state_templates'])
+
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.
