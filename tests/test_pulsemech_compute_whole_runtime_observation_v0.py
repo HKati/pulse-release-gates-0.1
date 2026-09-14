@@ -505,7 +505,7 @@ def test_real_plan_cli_and_independent_checker(source_fixture):
     assert f.diagnostic_doc['plan']['byte_identical_to_independent_reconstruction'] is True
     assert f.diagnostic_doc['plan']['sha256'] == f.plan_digest
     assert f.plan['plan_identity']['source_commit'] == f.sha
-    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 53
+    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 55
 
 
 def test_two_separate_plan_processes_are_byte_identical(source_fixture):
@@ -1470,7 +1470,7 @@ def test_two_real_prepares_preserve_the_complete_declared_source_set(
         assert diagnostic['record_status'] == 'example'
         assert diagnostic['output_sha256'] == digest(raw)
         assert diagnostic['output_size_bytes'] == len(raw)
-        assert diagnostic['member_count'] == len(expected_members) == 58
+        assert diagnostic['member_count'] == len(expected_members) == 60
         assert diagnostic['authority_boundary'] == VERIFIER.AUTHORITY_BOUNDARY
         plan, members, stored_raw = read_prepared_example(f, target)
         assert plan == f.plan and stored_raw == raw
@@ -3694,8 +3694,8 @@ def test_preattest_actual_restore_shell_with_local_mock_download(source_fixture,
 
 
 def test_preattest_mapping_does_not_promote_runtime_completion(source_fixture):
-    assert len(source_fixture.plan['state_templates']) == 62 and len(source_fixture.plan['source_inventory']) == 53
-    assert len(prepared_fixture_members(source_fixture)) == 58
+    assert len(source_fixture.plan['state_templates']) == 62 and len(source_fixture.plan['source_inventory']) == 55
+    assert len(prepared_fixture_members(source_fixture)) == 60
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary']['authority_effect'] == 'none'
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
@@ -3990,8 +3990,8 @@ def test_required_argument_predicate_runs_before_expected_reconstruction():
 def test_required_argument_role_remains_unavailable_until_runtime_integration(source_fixture):
     plan = source_fixture.plan
     assert len(plan['state_templates']) == 62
-    assert len(plan['source_inventory']) == 53
-    assert len(prepared_fixture_members(source_fixture)) == 58
+    assert len(plan['source_inventory']) == 55
+    assert len(prepared_fixture_members(source_fixture)) == 60
     assert 'evidence_profile' not in plan
     packet = runtime_projection_example(source_fixture)
     state = next(row for row in packet['state_observations'] if row['state_id'] == REQUIRED_ARGUMENT_STATE)
@@ -4304,8 +4304,8 @@ def test_bundle_actual_copy_shells_match_synthetic_preservation(tmp_path, source
 
 def test_bundle_mapping_does_not_change_role_inventory_or_runtime_acceptance(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 53
-    assert len(prepared_fixture_members(source_fixture)) == 58
+    assert len(source_fixture.plan['source_inventory']) == 55
+    assert len(prepared_fixture_members(source_fixture)) == 60
     source = (SOURCES / 'check_pulsemech_compute_whole_runtime_observation_v0.py').read_text()
     assert 'declared_state_evidence_incomplete' in source
     assert not any('artifact_id' in s for s in source_fixture.plan['state_templates'])
@@ -4562,8 +4562,8 @@ def test_provenance_exact_r21_shell_uses_five_synthetic_contents(source_fixture,
 
 def test_provenance_mapping_keeps_full_role_extent_and_unaccepted_evidence(source_fixture):
     plan = source_fixture.plan
-    assert len(plan['state_templates']) == 62 and len(plan['source_inventory']) == 53
-    assert len(prepared_fixture_members(source_fixture)) == 58
+    assert len(plan['state_templates']) == 62 and len(plan['source_inventory']) == 55
+    assert len(prepared_fixture_members(source_fixture)) == 60
     packet = runtime_projection_example(source_fixture)
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(plan, packet, {})
@@ -4857,8 +4857,8 @@ def test_floor_actual_shell_reads_current_pre_materialization_files_only(source_
 
 def test_floor_local_mapping_preserves_global_extent_and_runtime_acceptance_stop(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 53
-    assert len(prepared_fixture_members(source_fixture)) == 58
+    assert len(source_fixture.plan['source_inventory']) == 55
+    assert len(prepared_fixture_members(source_fixture)) == 60
     rows, steps = provenance_rows(source_fixture.plan)
     assert rows['status-baseline']['state_id'] != rows['pre-materialization-status']['state_id']
     assert rows['status-baseline']['state_id'] != rows['final-status']['state_id']
@@ -4962,8 +4962,8 @@ def test_smoke_budget_new_workflow_is_preserved_without_evidence_promotion(sourc
     assert row['sha256'] == digest(data)
     assert prepared_fixture_members(source_fixture)['sources/' + BUILDER.SUBJECT_WORKFLOW_PATH] == data
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 53
-    assert len(prepared_fixture_members(source_fixture)) == 58
+    assert len(source_fixture.plan['source_inventory']) == 55
+    assert len(prepared_fixture_members(source_fixture)) == 60
     assert 'evidence_profile' not in source_fixture.plan
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
@@ -5226,10 +5226,279 @@ def test_lg_preservation_actual_copy_shell_is_bounded_local_evidence(source_fixt
 
 def test_lg_preservation_keeps_full_state_profile_unfinished(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 53
-    assert len(prepared_fixture_members(source_fixture)) == 58
+    assert len(source_fixture.plan['source_inventory']) == 55
+    assert len(prepared_fixture_members(source_fixture)) == 60
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary']['authority_effect'] == 'none'
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
+
+
+# ---------------------------------------------------------------------------
+# L5/L6/L7 source-declared attestation reads. Synthetic unit data is never a
+# Sigstore-valid attestation or an observed whole-runtime acceptance record.
+# ---------------------------------------------------------------------------
+LG_ATTEST_JOB = 'attest_llamaguard_current_run_summary'
+LG_ATTEST_SOURCE_PATHS = (
+    'PULSE_safe_pack_v0/tools/build_llamaguard_attestation_envelope_v1.py',
+    'PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py',
+)
+LG_ATTEST_INPUT_CASES = (
+    (5, 'llamaguard-summary', 'summary'),
+    (6, 'llamaguard-summary', 'summary'),
+    (6, 'llamaguard-raw-evidence', 'raw_evidence'),
+    (6, 'llamaguard-evaluator-manifest', 'evaluator_manifest'),
+    (6, 'llamaguard-dataset', 'dataset'),
+    (6, 'external-signer-policy', 'signer_policy'),
+    (6, 'threshold-policy', 'threshold_policy'),
+    (6, 'workflow-source', 'workflow'),
+    (6, 'llamaguard-attestation-bundle', 'bundle_out'),
+    (7, 'llamaguard-summary', 'summary'),
+    (7, 'llamaguard-attestation-envelope', 'out'),
+    (7, 'external-signer-policy', 'signer_policy'),
+    (7, 'llamaguard-attestation-bundle', 'bundle_out'),
+)
+
+
+@pytest.fixture(scope='module')
+def lg_attestation_envelope_tool():
+    path = ROOT / LG_ATTEST_SOURCE_PATHS[0]
+    raw = path.read_bytes()
+    assert hashlib.sha1(('blob ' + str(len(raw)) + '\0').encode() + raw).hexdigest() == 'ecbef6ce1d2a48b5c466b79c916d1161de9df377'
+    spec = importlib.util.spec_from_file_location('step5c_lg_envelope_semantic_unit', path)
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    return module
+
+
+def lg_attestation_method(side):
+    if side == 'builder': return BUILDER, BUILDER._llamaguard_attestation_source_projection
+    return PLAN_CHECKER, PLAN_CHECKER._source_llamaguard_attestation_expectations
+
+
+@pytest.mark.parametrize('ordinal,role,attribute', LG_ATTEST_INPUT_CASES)
+def test_lg_attestation_actual_source_has_reciprocal_step_input(source_fixture, lg_attestation_envelope_tool, ordinal, role, attribute):
+    # Expected paths come from the actual called tool's argparse defaults,
+    # not the two graph constructors or their source-extraction helpers.
+    args = lg_attestation_envelope_tool._parser().parse_args([
+        '--bundle-source', '/synthetic/action-bundle', '--attestation-id', '1',
+        '--attestation-url', 'https://example.invalid/synthetic', '--attestation-action-ref', 'synthetic-only'])
+    rows, steps = provenance_rows(source_fixture.plan)
+    row, step = rows[role], steps[(LG_ATTEST_JOB, ordinal)]
+    assert row['path_or_uri'] == getattr(args, attribute)
+    if ordinal == 5:
+        assert mapping_source_document()['jobs'][LG_ATTEST_JOB]['steps'][4]['with']['subject-path'] == row['path_or_uri']
+    assert row['state_id'] in step['input_state_ids']
+    assert step['occurrence_id'] in row['required_consumer_occurrence_ids']
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_lg_attestation_resolves_copy_and_digest_reads_not_verification_claims(source_fixture, recorded_source_objects, side):
+    module, method = lg_attestation_method(side)
+    facts = method(mapping_source_document(), recorded_source_objects)
+    assert len(facts['locators']) == 10 and len(facts['steps']) == 3
+    assert sorted(len(x['inputs']) for x in facts['steps'].values()) == [1, 4, 8]
+    assert facts['bundle_handoff'] == {
+        'action_output_selector': '${{ steps.attest_llamaguard_summary.outputs.bundle-path }}',
+        'canonical_preservation_path': 'PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.bundle.json',
+        'preservation_occurrence_id': module._step_id(LG_ATTEST_JOB, 6),
+        'content_origin_occurrence_id': module._step_id(LG_ATTEST_JOB, 5),
+        'source_requires_byte_identity': True}
+    assert 'signature_verified' not in repr(facts) and 'artifact_id' not in repr(facts)
+    l7 = facts['steps'][module._step_id(LG_ATTEST_JOB, 7)]
+    assert not set(l7['inputs']) & {'threshold-policy', 'llamaguard-raw-evidence', 'llamaguard-dataset', 'llamaguard-evaluator-manifest'}
+
+
+def test_lg_attestation_independent_checker_never_calls_plan_builder(source_fixture, recorded_source_objects):
+    workflow = mapping_source_document()
+    built = BUILDER._llamaguard_attestation_source_projection(workflow, recorded_source_objects)
+    with patch.object(BUILDER, '_llamaguard_attestation_source_projection', side_effect=AssertionError('builder prohibited')):
+        checked = PLAN_CHECKER._source_llamaguard_attestation_expectations(workflow, recorded_source_objects)
+        PLAN_CHECKER._verify_source_llamaguard_attestation_equations(source_fixture.plan, workflow, recorded_source_objects)
+    assert canonical(built) == canonical(checked)
+    function = ast.parse(textwrap.dedent(inspect.getsource(PLAN_CHECKER.check_plan)))
+    names = {node.func.id: node.lineno for node in ast.walk(function) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+    assert names['_verify_source_llamaguard_attestation_equations'] < names['_reconstruct_expected_plan']
+
+
+def corrupt_lg_attestation_plan(original, mutation):
+    plan = copy.deepcopy(original); rows, steps = provenance_rows(plan)
+    if mutation.startswith('omit:') or mutation.startswith('invent:'):
+        kind, ordinal, role = mutation.split(':', 2); row, step = rows[role], steps[(LG_ATTEST_JOB, int(ordinal))]
+        sid, oid = row['state_id'], step['occurrence_id']
+        if kind == 'omit':
+            step['input_state_ids'] = [v for v in step['input_state_ids'] if v != sid]
+            row['required_consumer_occurrence_ids'] = [v for v in row['required_consumer_occurrence_ids'] if v != oid]
+        else:
+            step['input_state_ids'] = sorted(set(step['input_state_ids']) | {sid})
+            row['required_consumer_occurrence_ids'] = sorted(set(row['required_consumer_occurrence_ids']) | {oid})
+    elif mutation == 'wrong_path': rows['llamaguard-dataset']['path_or_uri'] = 'wrong/dataset.jsonl'
+    elif mutation == 'copy_is_new_origin': rows['llamaguard-attestation-bundle']['producer_occurrence_id'] = steps[(LG_ATTEST_JOB, 6)]['occurrence_id']
+    elif mutation == 'extra_writer': steps[(LG_ATTEST_JOB, 6)]['output_state_ids'].append(rows['llamaguard-attestation-bundle']['state_id'])
+    elif mutation == 'missing_reverse': rows['llamaguard-dataset']['required_consumer_occurrence_ids'].remove(steps[(LG_ATTEST_JOB, 6)]['occurrence_id'])
+    elif mutation == 'optional': rows['llamaguard-dataset']['required'] = False
+    elif mutation == 'metadata_only': rows['llamaguard-dataset']['content_requirement'] = 'metadata_only'
+    elif mutation == 'non_authority_input': rows['external-signer-policy']['authority_bearing'] = False
+    elif mutation == 'missing_role': plan['state_templates'].remove(rows['llamaguard-dataset'])
+    elif mutation == 'duplicate_role': plan['state_templates'].append(copy.deepcopy(rows['llamaguard-dataset']))
+    elif mutation == 'duplicate_step': next(job for job in plan['jobs'] if job['source_job_id'] == LG_ATTEST_JOB)['steps'].append(copy.deepcopy(steps[(LG_ATTEST_JOB, 6)]))
+    else: raise AssertionError(mutation)
+    return plan
+
+
+LG_ATTEST_MUTATIONS = tuple('omit:' + str(n) + ':' + role for n, role, _ in LG_ATTEST_INPUT_CASES) + (
+    'invent:7:threshold-policy', 'invent:7:llamaguard-raw-evidence', 'invent:5:external-signer-policy',
+    'wrong_path', 'copy_is_new_origin', 'extra_writer', 'missing_reverse', 'optional', 'metadata_only',
+    'non_authority_input', 'missing_role', 'duplicate_role', 'duplicate_step',
+)
+
+
+@pytest.mark.parametrize('mutation', LG_ATTEST_MUTATIONS)
+def test_lg_attestation_source_predicate_rejects_wrong_maps(source_fixture, recorded_source_objects, mutation):
+    wrong = corrupt_lg_attestation_plan(source_fixture.plan, mutation)
+    with pytest.raises(PLAN_CHECKER.PlanError, match='lg_attestation_'):
+        PLAN_CHECKER._verify_source_llamaguard_attestation_equations(wrong, mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('mutation', ['omit:6:llamaguard-raw-evidence', 'invent:7:threshold-policy', 'wrong_path', 'metadata_only'])
+def test_lg_attestation_agreeing_wrong_constructors_are_not_source_evidence(source_fixture, recorded_source_objects, mutation):
+    answers = []
+    for module in (BUILDER, PLAN_CHECKER):
+        doc = mapping_source_document(); jobs, steps, _ = module._build_jobs(doc)
+        plan = copy.deepcopy(source_fixture.plan); plan['jobs'] = jobs
+        plan['state_templates'] = module._build_states(steps, module.EXPECTED_CASE_IDS, doc, recorded_source_objects)
+        answers.append(canonical(corrupt_lg_attestation_plan(plan, mutation)))
+    assert answers[0] == answers[1]
+    with pytest.raises(PLAN_CHECKER.PlanError, match='lg_attestation_'):
+        PLAN_CHECKER._verify_source_llamaguard_attestation_equations(json.loads(answers[0]), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('mutation', ['omit:5:llamaguard-summary', 'omit:6:llamaguard-raw-evidence', 'omit:7:llamaguard-attestation-bundle', 'invent:7:threshold-policy'])
+def test_lg_attestation_rehashed_schema_valid_plan_fails_real_checker(source_fixture, tmp_path, mutation):
+    raw = canonical(corrupt_lg_attestation_plan(source_fixture.plan, mutation))
+    jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(json.loads(raw))
+    path = tmp_path / 'false-plan.json'; path.write_bytes(raw)
+    result = cli(source_fixture.root, TOOL_NAMES[1], ['--repository-root', source_fixture.root,
+        '--plan', path, '--expected-source-commit', source_fixture.sha, '--expected-plan-sha256', digest(raw),
+        '--expected-record-status', 'example'])
+    assert result.returncode != 0
+    assert json.loads(result.stdout)['error_code'] == 'lg_attestation_step_io_mismatch'
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('path', LG_ATTEST_SOURCE_PATHS)
+@pytest.mark.parametrize('fault', ['missing', 'bytes', 'path'])
+def test_lg_attestation_semantic_sources_are_exact(source_fixture, recorded_source_objects, side, path, fault):
+    module, method = lg_attestation_method(side); sources = dict(recorded_source_objects)
+    if fault == 'missing': del sources[path]
+    elif fault == 'bytes': sources[path] = replace(sources[path], data=sources[path].data + b'\n# unreviewed\n')
+    else: sources[path] = replace(sources[path], path='other/tool.py')
+    with pytest.raises(module.PlanError, match='lg_attestation_source_'):
+        method(mapping_source_document(), sources)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('fault', ['subject', 'bundle_source', 'signer', 'out'])
+def test_lg_attestation_changed_workflow_is_not_silently_remapped(recorded_source_objects, side, fault):
+    doc = mapping_source_document(); steps = doc['jobs'][LG_ATTEST_JOB]['steps']
+    if fault == 'subject': steps[4]['with']['subject-path'] = 'wrong/summary.json'
+    elif fault == 'bundle_source': steps[5]['run'] = steps[5]['run'].replace('outputs.bundle-path', 'outputs.other-path')
+    elif fault == 'signer': steps[6]['run'] = steps[6]['run'].replace('policy/external_signers_v1.yml', 'policy/other.yml')
+    else: steps[6]['run'] = steps[6]['run'].replace('llamaguard_attestation_verifier_v1.json', 'other-report.json')
+    module, method = lg_attestation_method(side)
+    with pytest.raises(module.PlanError, match='lg_attestation_workflow_drift'):
+        method(doc, recorded_source_objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_lg_attestation_installation_preserves_all_outside_bindings(recorded_source_objects, side):
+    module, _ = lg_attestation_method(side); doc = mapping_source_document()
+    _, old_steps, _ = module._build_jobs(doc)
+    with patch.object(module, '_install_llamaguard_attestation_projection', return_value=None):
+        old_states = module._build_states(old_steps, module.EXPECTED_CASE_IDS, doc, recorded_source_objects)
+    _, new_steps, _ = module._build_jobs(doc)
+    new_states = module._build_states(new_steps, module.EXPECTED_CASE_IDS, doc, recorded_source_objects)
+    owned = {module._step_id(LG_ATTEST_JOB, n) for n in (5, 6, 7)}
+    assert len(old_states) == len(new_states) == 62
+    for old, new in zip(old_states, new_states):
+        old, new = copy.deepcopy(old), copy.deepcopy(new)
+        for row in (old, new): row['required_consumer_occurrence_ids'] = [x for x in row['required_consumer_occurrence_ids'] if x not in owned]
+        assert old == new
+    for key, step in new_steps.items():
+        if step['occurrence_id'] not in owned: assert step == old_steps[key]
+        assert step['output_state_ids'] == old_steps[key]['output_state_ids']
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('path', LG_ATTEST_SOURCE_PATHS)
+def test_lg_attestation_called_sources_in_committed_and_prepared_inventory(source_fixture, side, path):
+    module, _ = lg_attestation_method(side)
+    assert sum(p == path for _, p in module.SOURCE_ROLES) == 1
+    rows = [r for r in source_fixture.plan['source_inventory'] if r['path'] == path]
+    assert len(rows) == 1 and rows[0]['sha256'] == digest((ROOT / path).read_bytes())
+    members = prepared_fixture_members(source_fixture)
+    assert any(data == (ROOT / path).read_bytes() for data in members.values())
+
+
+@pytest.mark.parametrize('fault', [None, 'empty', 'duplicate', 'nonfinite', 'missing', 'symlink', 'same_path', 'not_object'])
+def test_lg_attestation_real_bundle_persistence_keeps_bytes_not_signature_claim(tmp_path, lg_attestation_envelope_tool, fault):
+    tool = lg_attestation_envelope_tool; src = tmp_path / 'action-output.json'; dst = tmp_path / 'canonical-bundle.json'
+    raw = b'{ "synthetic-unit-only": true, "not-a-valid-signature": [1, 2] }\n'
+    src.write_bytes(raw)
+    if fault == 'empty': src.write_bytes(b'')
+    elif fault == 'duplicate': src.write_bytes(b'{"duplicate":1,"duplicate":2}')
+    elif fault == 'nonfinite': src.write_bytes(b'{"bad":NaN}')
+    elif fault == 'missing': src.unlink()
+    elif fault == 'symlink':
+        target = tmp_path / 'target'; target.write_bytes(raw); src.unlink(); src.symlink_to(target)
+    elif fault == 'same_path': dst = src
+    elif fault == 'not_object': src.write_bytes(b'[]')
+    if fault is not None:
+        with pytest.raises(tool.EnvelopeError): tool._persist_bundle(src, dst)
+        if dst != src: assert not dst.exists()
+    else:
+        result, hashed = tool._persist_bundle(src, dst)
+        assert src.read_bytes() == dst.read_bytes() == raw and hashed == digest(raw)
+        assert result == json.loads(raw)
+        assert not list(tmp_path.glob('.llamaguard_summary.bundle.*'))
+
+
+@pytest.mark.parametrize('fault', [None, 'raw_digest', 'dataset_digest', 'manifest_missing'])
+def test_lg_attestation_actual_summary_binding_reads_three_files(tmp_path, lg_attestation_envelope_tool, fault):
+    tool = lg_attestation_envelope_tool
+    dataset, raw, manifest = (tmp_path / name for name in ('dataset.jsonl', 'raw.jsonl', 'manifest.json'))
+    for p in (dataset, raw, manifest): p.write_bytes(('synthetic-unit:' + p.name + '\n').encode())
+    sha = 'a' * 40; repository = 'HKati/pulse-release-gates-0.1'; signer = tool.EXPECTED_SIGNER_IDENTITY
+    summary = {'schema_version': tool.SUMMARY_SCHEMA_VERSION, 'summary_id': 'synthetic-unit', 'tool': {'name': 'llamaguard'},
+        'run': {'generated_at': EXAMPLE_START, 'dataset_digest': digest(dataset.read_bytes())},
+        'subject': {'kind': 'release_candidate', 'digest_algorithm': 'sha256', 'digest': digest(sha.encode())},
+        'threshold_ref': {'key': tool.EXPECTED_THRESHOLD_KEY, 'uri': tool.THRESHOLD_POLICY_REL},
+        'evidence': {'raw_artifact_uri': raw.name, 'raw_artifact_digest': digest(raw.read_bytes())},
+        'signing': {'mode': tool.EXPECTED_SIGNING_MODE, 'identity': signer},
+        'result': {'passed': True, 'release_contribution': 'required'},
+        'extensions': {'repository': repository, 'source_commit': sha, 'dataset_path': dataset.name, 'evaluator_source': manifest.name},
+        'metrics': [{'key': 'llamaguard_violation_rate', 'passed': True}]}
+    if fault == 'raw_digest': summary['evidence']['raw_artifact_digest'] = '0' * 64
+    elif fault == 'dataset_digest': summary['run']['dataset_digest'] = '0' * 64
+    elif fault == 'manifest_missing': manifest.unlink()
+    kwargs = dict(repo_root=tmp_path, summary=summary, source_digest=sha, repository=repository, signer_identity=signer,
+                  verified_at=tool._parse_utc(EXAMPLE_END, 'synthetic unit')[1], raw_path=raw, dataset_path=dataset, evaluator_manifest_path=manifest)
+    if fault is not None:
+        with pytest.raises(tool.EnvelopeError): tool._validate_summary(**kwargs)
+    else:
+        with patch.object(tool, '_sha256_file', wraps=tool._sha256_file) as read:
+            result = tool._validate_summary(**kwargs)
+        assert [call.args[0] for call in read.call_args_list] == [dataset, raw, manifest]
+        assert result['raw_sha256'] == digest(raw.read_bytes())
+        assert result['dataset_sha256'] == digest(dataset.read_bytes())
+        assert result['evaluator_manifest_sha256'] == digest(manifest.read_bytes())
+
+
+def test_lg_attestation_mapping_still_cannot_satisfy_runtime_completion(source_fixture):
+    assert len(source_fixture.plan['source_inventory']) == 55
+    assert len(prepared_fixture_members(source_fixture)) == 60
+    assert len(source_fixture.plan['state_templates']) == 62
+    assert 'evidence_profile' not in source_fixture.plan
+    assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
 

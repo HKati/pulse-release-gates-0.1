@@ -455,6 +455,8 @@ SOURCE_ROLES = (
     ("artifact_provenance_builder_semantics", "PULSE_safe_pack_v0/tools/build_artifact_provenance_binding_v0.py"),
     ("artifact_provenance_verifier_semantics", "PULSE_safe_pack_v0/tools/verify_artifact_provenance_binding_v0.py"),
     ("self_contained_floor_semantics", "PULSE_safe_pack_v0/tools/build_self_contained_pulse_evidence_floor_v0.py"),
+    ("llamaguard_envelope_builder_semantics", "PULSE_safe_pack_v0/tools/build_llamaguard_attestation_envelope_v1.py"),
+    ("llamaguard_attestation_verifier_semantics", "PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py"),
 )
 
 AUTHORITY_BOUNDARY = {
@@ -2984,6 +2986,182 @@ def _verify_source_llamaguard_preservation_equations(plan: dict[str, Any], workf
                  == steps[oid]["input_state_ids"], "lg_preservation_reverse_inputs_mismatch", oid)
 
 
+# L5/L6/L7 selected attestation reads. The independent oracle follows canonical
+# path assignments and actual source read calls, rather than a copied plan.
+_LG_ATTEST_BUILD = "PULSE_safe_pack_v0/tools/build_llamaguard_attestation_envelope_v1.py"
+_LG_ATTEST_CHECK = "PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py"
+_LG_ATTEST_PINS = {
+    SUBJECT_WORKFLOW_PATH: EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1,
+    _LG_ATTEST_BUILD: "ecbef6ce1d2a48b5c466b79c916d1161de9df377",
+    _LG_ATTEST_CHECK: "7fa6539f614d3d30bb603c523889f38bf4c012c1",
+}
+
+
+def _source_llamaguard_attestation_expectations(workflow: dict[str, Any], sources: dict[str, GitObject]) -> dict[str, Any]:
+    """Follow the canonical-path/read chain, including delegated bundle replay."""
+    for path, expected in _LG_ATTEST_PINS.items():
+        obj = sources.get(path)
+        _require(obj is not None and obj.path == path, "lg_attestation_source_missing", path)
+        _require(_sha1_git_blob(obj.data) == expected, "lg_attestation_source_drift", path)
+    _require(_parse_yaml_document(sources[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH) == workflow,
+             "lg_attestation_workflow_drift")
+    job = "attest_llamaguard_current_run_summary"
+    rows = workflow["jobs"][job]["steps"]
+    replay = _recorded_source_commands(rows[6], _LG_ATTEST_CHECK, (
+        "--repo-root", "--summary", "--envelope", "--summary-schema", "--envelope-schema",
+        "--signer-policy", "--repository", "--source-digest", "--out",
+    ))[0]
+    build = _recorded_source_commands(rows[5], _LG_ATTEST_BUILD, (
+        "--repo-root", "--bundle-source", "--repository", "--source-digest", "--workflow-ref",
+        "--signer-identity", "--verified-at", "--attestation-id", "--attestation-url", "--attestation-action-ref",
+    ))[0]
+    _require(all(build[key] == replay[key] == value for key, value in (
+        ("--repo-root", "${GITHUB_WORKSPACE}"), ("--repository", "${GITHUB_REPOSITORY}"), ("--source-digest", "${GITHUB_SHA}"))),
+        "lg_attestation_execution_context")
+    envelope_tree = ast.parse(sources[_LG_ATTEST_BUILD].data)
+    functions = {node.name: node for node in envelope_tree.body if isinstance(node, ast.FunctionDef)}
+    constants = {node.targets[0].id: node.value.value for node in envelope_tree.body
+                 if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+                 and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)}
+    # Actual canonical-path assignments associate each runtime variable with
+    # its CLI option and exact constant; defaults alone are not a read oracle.
+    canonical_paths: dict[str, str] = {}
+    for node in ast.walk(functions["main"]):
+        if not (isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name)
+                and isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name)
+                and node.value.func.id == "_require_canonical_path"):
+            continue
+        args = node.value.args
+        _require(len(args) == 4 and isinstance(args[2], ast.Name) and args[2].id in constants,
+                 "lg_attestation_canonical_path_form")
+        canonical_paths[node.targets[0].id] = _checked_mapping_path(constants[args[2].id])
+        supplied = args[1]
+        _require(isinstance(supplied, ast.Call) and isinstance(supplied.func, ast.Name) and supplied.func.id == "Path"
+                 and len(supplied.args) == 1, "lg_attestation_canonical_path_form")
+        value = supplied.args[0]
+        if isinstance(value, ast.Attribute) and isinstance(value.value, ast.Name) and value.value.id == "args":
+            option = "--" + value.attr.replace("_", "-")
+            declarations = [n for n in ast.walk(functions["_parser"]) if isinstance(n, ast.Call)
+                            and isinstance(n.func, ast.Attribute) and n.func.attr == "add_argument"
+                            and n.args and isinstance(n.args[0], ast.Constant) and n.args[0].value == option]
+            _require(len(declarations) == 1 and any(kw.arg == "default" and isinstance(kw.value, ast.Name)
+                     and kw.value.id == args[2].id for kw in declarations[0].keywords), "lg_attestation_default_binding", option)
+    names_to_roles = {"summary_path": "llamaguard-summary", "raw_path": "llamaguard-raw-evidence",
+                      "evaluator_manifest_path": "llamaguard-evaluator-manifest", "dataset_path": "llamaguard-dataset",
+                      "signer_policy_path": "external-signer-policy", "threshold_policy_path": "threshold-policy",
+                      "workflow_path": "workflow-source", "bundle_path": "llamaguard-attestation-bundle",
+                      "envelope_path": "llamaguard-attestation-envelope", "report_path": "llamaguard-attestation-verifier"}
+    _require(set(names_to_roles) <= set(canonical_paths), "lg_attestation_canonical_path_extent")
+    locators = {role: canonical_paths[name] for name, role in names_to_roles.items()}
+    for option, variable in (("--summary", "summary_path"), ("--envelope", "envelope_path"), ("--out", "report_path"),
+                             ("--signer-policy", "signer_policy_path"), ("--summary-schema", "summary_schema_path"),
+                             ("--envelope-schema", "envelope_schema_path")):
+        _require(_checked_mapping_path(replay[option]) == canonical_paths[variable], "lg_attestation_replay_selector", option)
+    action = rows[4]
+    _require(action.get("id") == "attest_llamaguard_summary" and action.get("uses") == build["--attestation-action-ref"]
+             == "actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6", "lg_attestation_action_identity")
+    _require(_checked_mapping_path(action["with"]["subject-path"]) == canonical_paths["summary_path"],
+             "lg_attestation_subject_selector")
+    for option, output in (("--bundle-source", "bundle-path"), ("--attestation-id", "attestation-id"), ("--attestation-url", "attestation-url")):
+        _require(build[option] == "${{ steps.attest_llamaguard_summary.outputs." + output + " }}",
+                 "lg_attestation_action_output_binding", option)
+    read_variables = {node.args[0].id for fn in ("main", "_validate_summary") for node in ast.walk(functions[fn])
+                      if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "_sha256_file"
+                      and node.args and isinstance(node.args[0], ast.Name) and node.args[0].id in names_to_roles}
+    expected_variables = {"summary_path", "raw_path", "dataset_path", "evaluator_manifest_path", "signer_policy_path",
+                          "threshold_policy_path", "workflow_path"}
+    _require(read_variables == expected_variables, "lg_attestation_selected_digest_reads")
+    main_text = ast.unparse(functions["main"])
+    _require("_persist_bundle(bundle_source, bundle_path)" in main_text
+             and "'bundle_uri': _repo_relative(repo_root, bundle_path)" in main_text
+             and "_write_json_atomic(envelope_path, envelope)" in main_text, "lg_attestation_envelope_handoff")
+    persist = functions["_persist_bundle"]
+    calls = [n for n in ast.walk(persist) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)]
+    writes = [n for n in calls if n.func.id == "_write_bytes_atomic"]
+    _require(len(writes) == 1 and [ast.unparse(n) for n in writes[0].args[:2]] == ["destination", "source_bytes"]
+             and any(isinstance(n, ast.Compare) and ast.unparse(n) == "destination.read_bytes() != source_bytes"
+                     for n in ast.walk(persist))
+             and "source_bytes = source.read_bytes()" in ast.unparse(persist), "lg_attestation_bundle_preservation")
+    replay_functions = {n.name: n for n in ast.parse(sources[_LG_ATTEST_CHECK].data).body if isinstance(n, ast.FunctionDef)}
+    verify_text = ast.unparse(replay_functions["verify_external_summary_attestation"])
+    _require("signer_policy = _load_yaml(signer_policy_file," in verify_text
+             and "summary_payload = _load_json(summary," in verify_text
+             and "envelope_payload = _load_json(verification_envelope," in verify_text
+             and "bundle_uri = envelope_signing.get('bundle_uri')" in verify_text
+             and "supplied=Path(str(bundle_uri).strip())" in verify_text
+             and "'--bundle', str(bundle_path)" in verify_text
+             and "'attestation', 'verify', str(summary)" in verify_text,
+             "lg_attestation_replay_read_chain")
+    # L7 compares the threshold policy's URI; it does not open that policy,
+    # the raw classifications, dataset or evaluator manifest. L6 does hash them.
+    l5, l6, l7 = (_step_id(job, n) for n in (5, 6, 7))
+    return {"locators": locators,
+            "origins": {"workflow-source": None, "threshold-policy": None, "external-signer-policy": None,
+                        "llamaguard-dataset": None, "llamaguard-raw-evidence": _step_id("pulse", 22),
+                        "llamaguard-evaluator-manifest": _step_id("pulse", 22), "llamaguard-summary": _step_id("pulse", 23),
+                        "llamaguard-attestation-bundle": l5, "llamaguard-attestation-envelope": l6,
+                        "llamaguard-attestation-verifier": l7},
+            "steps": {l5: {"inputs": ["llamaguard-summary"], "outputs": ["llamaguard-attestation-bundle"]},
+                      l6: {"inputs": sorted([names_to_roles[name] for name in read_variables] + ["llamaguard-attestation-bundle"]),
+                           "outputs": ["llamaguard-attestation-envelope"]},
+                      l7: {"inputs": sorted(("external-signer-policy", "llamaguard-attestation-bundle", "llamaguard-attestation-envelope",
+                                               "llamaguard-summary")), "outputs": ["llamaguard-attestation-verifier"]}},
+            "bundle_handoff": {"action_output_selector": build["--bundle-source"],
+                               "canonical_preservation_path": canonical_paths["bundle_path"],
+                               "preservation_occurrence_id": l6, "content_origin_occurrence_id": l5,
+                               "source_requires_byte_identity": True}}
+
+
+def _install_llamaguard_attestation_projection(states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any]) -> None:
+    """Bind the three steps without relabeling content origins or other reads."""
+    rows = {row["state_id"].removeprefix("state:step5c:"): row for row in states}
+    for role, path in facts["locators"].items():
+        _require(role in rows and rows[role]["path_or_uri"] == path, "lg_attestation_input_locator", role)
+        _require(rows[role]["producer_occurrence_id"] == facts["origins"][role], "lg_attestation_input_origin", role)
+    owned = set(facts["steps"])
+    for row in states:
+        row["required_consumer_occurrence_ids"] = [oid for oid in row["required_consumer_occurrence_ids"] if oid not in owned]
+    for step in steps.values():
+        oid = step["occurrence_id"]
+        if oid not in owned:
+            continue
+        equation = facts["steps"][oid]
+        step["input_state_ids"] = sorted("state:step5c:" + role for role in equation["inputs"])
+        step["output_state_ids"] = sorted("state:step5c:" + role for role in equation["outputs"])
+        for role in equation["inputs"]:
+            _append_unique(rows[role]["required_consumer_occurrence_ids"], oid)
+    for row in states:
+        row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
+
+
+def _verify_source_llamaguard_attestation_equations(plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject]) -> None:
+    """Reject a false submitted graph before accepting reconstruction equality."""
+    facts = _source_llamaguard_attestation_expectations(workflow, sources)
+    states = {row["state_id"].removeprefix("state:step5c:"): row for row in plan["state_templates"]}
+    _require(len(states) == len(plan["state_templates"]), "lg_attestation_duplicate_role")
+    occurrences = [step for job in plan["jobs"] for step in job["steps"]]
+    steps = {step["occurrence_id"]: step for step in occurrences}
+    _require(len(steps) == len(occurrences), "lg_attestation_duplicate_step")
+    for role, path in facts["locators"].items():
+        _require(role in states, "lg_attestation_role_missing", role)
+        row = states[role]
+        _require(row["path_or_uri"] == path, "lg_attestation_locator_mismatch", role)
+        _require(row["producer_occurrence_id"] == facts["origins"][role], "lg_attestation_origin_mismatch", role)
+        _require(row["required"] is True and row["content_requirement"] == "exact_digest"
+                 and row["authority_bearing"] is True and row["mutation_class"] == "none",
+                 "lg_attestation_requirement_mismatch", role)
+        origin = facts["origins"][role]
+        _require([oid for oid, step in steps.items() if row["state_id"] in step["output_state_ids"]]
+                 == ([] if origin is None else [origin]), "lg_attestation_writer_set_mismatch", role)
+    for oid, equation in facts["steps"].items():
+        _require(oid in steps, "lg_attestation_step_missing", oid)
+        for field, direction in (("input_state_ids", "inputs"), ("output_state_ids", "outputs")):
+            _require(steps[oid][field] == sorted("state:step5c:" + role for role in equation[direction]),
+                     "lg_attestation_step_io_mismatch", oid + ":" + direction)
+        _require(sorted(row["state_id"] for row in states.values() if oid in row["required_consumer_occurrence_ids"])
+                 == steps[oid]["input_state_ids"], "lg_attestation_reverse_inputs_mismatch", oid)
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -2999,6 +3177,7 @@ def _build_states(
     baseline_floor_projection = _source_baseline_floor_expectations(source_workflow, source_by_path)
     preservation_projection = _source_preattest_preservation_expectations(source_workflow, source_by_path)
     llamaguard_preservation = _source_llamaguard_preservation_expectations(source_workflow, source_by_path)
+    llamaguard_attestation = _source_llamaguard_attestation_expectations(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -3528,6 +3707,7 @@ def _build_states(
     _install_baseline_floor_projection(states, step_by_key, baseline_floor_projection)
     _install_preattest_preservation_projection(states, step_by_key, preservation_projection)
     _install_llamaguard_preservation_projection(states, step_by_key, llamaguard_preservation)
+    _install_llamaguard_attestation_projection(states, step_by_key, llamaguard_attestation)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph
@@ -4145,6 +4325,9 @@ def check_plan(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_source_llamaguard_preservation_equations(
+        plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
+    )
+    _verify_source_llamaguard_attestation_equations(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_tool_identity(

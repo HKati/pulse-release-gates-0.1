@@ -445,6 +445,8 @@ SOURCE_ROLES = (
     ("artifact_provenance_builder_semantics", "PULSE_safe_pack_v0/tools/build_artifact_provenance_binding_v0.py"),
     ("artifact_provenance_verifier_semantics", "PULSE_safe_pack_v0/tools/verify_artifact_provenance_binding_v0.py"),
     ("self_contained_floor_semantics", "PULSE_safe_pack_v0/tools/build_self_contained_pulse_evidence_floor_v0.py"),
+    ("llamaguard_envelope_builder_semantics", "PULSE_safe_pack_v0/tools/build_llamaguard_attestation_envelope_v1.py"),
+    ("llamaguard_attestation_verifier_semantics", "PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py"),
 )
 
 AUTHORITY_BOUNDARY = {
@@ -2663,6 +2665,129 @@ def _install_llamaguard_preservation_projection(states: list[dict[str, Any]], st
         row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
 
 
+# L5/L6/L7 attestation-path projection. These are source-declared selected
+# state reads, not captured read receipts or cryptographic verification results.
+_LG_ATTEST_BUILD = "PULSE_safe_pack_v0/tools/build_llamaguard_attestation_envelope_v1.py"
+_LG_ATTEST_CHECK = "PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py"
+_LG_ATTEST_PINS = {
+    SUBJECT_WORKFLOW_PATH: EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1,
+    _LG_ATTEST_BUILD: "ecbef6ce1d2a48b5c466b79c916d1161de9df377",
+    _LG_ATTEST_CHECK: "7fa6539f614d3d30bb603c523889f38bf4c012c1",
+}
+
+
+def _llamaguard_attestation_source_projection(workflow: dict[str, Any], sources: dict[str, GitObject]) -> dict[str, Any]:
+    """Resolve L6 defaults, then bind the action and L7 replay selectors."""
+    for path, expected in _LG_ATTEST_PINS.items():
+        obj = sources.get(path)
+        _require(obj is not None and obj.path == path, "lg_attestation_source_missing", path)
+        _require(_sha1_git_blob(obj.data) == expected, "lg_attestation_source_drift", path)
+    _require(workflow == _parse_yaml_document(sources[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH),
+             "lg_attestation_workflow_drift")
+    job = "attest_llamaguard_current_run_summary"
+    action, envelope_step, verifier_step = workflow["jobs"][job]["steps"][4:7]
+    build_args = _recorded_argv(envelope_step, _LG_ATTEST_BUILD, {
+        "--repo-root", "--bundle-source", "--repository", "--source-digest", "--workflow-ref",
+        "--signer-identity", "--verified-at", "--attestation-id", "--attestation-url", "--attestation-action-ref",
+    })[0]
+    replay_args = _recorded_argv(verifier_step, _LG_ATTEST_CHECK, {
+        "--repo-root", "--summary", "--envelope", "--summary-schema", "--envelope-schema",
+        "--signer-policy", "--repository", "--source-digest", "--out",
+    })[0]
+    _require(build_args["--repo-root"] == replay_args["--repo-root"] == "${GITHUB_WORKSPACE}"
+             and build_args["--repository"] == replay_args["--repository"] == "${GITHUB_REPOSITORY}"
+             and build_args["--source-digest"] == replay_args["--source-digest"] == "${GITHUB_SHA}",
+             "lg_attestation_execution_context")
+    _require(action.get("uses") == build_args["--attestation-action-ref"]
+             == "actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"
+             and action.get("id") == "attest_llamaguard_summary", "lg_attestation_action_identity")
+    for flag, output in (("--bundle-source", "bundle-path"), ("--attestation-id", "attestation-id"),
+                         ("--attestation-url", "attestation-url")):
+        _require(build_args[flag] == "${{ steps." + action["id"] + ".outputs." + output + " }}",
+                 "lg_attestation_action_output_binding", flag)
+    source = sources[_LG_ATTEST_BUILD].data
+    tree = ast.parse(source)
+    parser = next(node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "_parser")
+    defaults: dict[str, str] = {}
+    for node in ast.walk(parser):
+        if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "add_argument" and node.args and isinstance(node.args[0], ast.Constant)):
+            continue
+        default = [kw.value for kw in node.keywords if kw.arg == "default"]
+        if len(default) == 1 and isinstance(default[0], ast.Name):
+            flag = node.args[0].value
+            _require(flag not in defaults, "lg_attestation_duplicate_default", flag)
+            defaults[flag] = _mapping_path(_python_constant(source, name=default[0].id, label=_LG_ATTEST_BUILD))
+    roles = {
+        "llamaguard-summary": "--summary", "llamaguard-raw-evidence": "--raw-evidence",
+        "llamaguard-evaluator-manifest": "--evaluator-manifest", "llamaguard-dataset": "--dataset",
+        "external-signer-policy": "--signer-policy", "threshold-policy": "--threshold-policy",
+        "workflow-source": "--workflow", "llamaguard-attestation-bundle": "--bundle-out",
+        "llamaguard-attestation-envelope": "--out",
+    }
+    _require(set(roles.values()) <= set(defaults), "lg_attestation_default_extent")
+    locators = {role: defaults[flag] for role, flag in roles.items()}
+    locators["llamaguard-attestation-verifier"] = _mapping_path(replay_args["--out"])
+    for flag, role in (("--summary", "llamaguard-summary"), ("--envelope", "llamaguard-attestation-envelope"),
+                       ("--signer-policy", "external-signer-policy")):
+        _require(_mapping_path(replay_args[flag]) == locators[role], "lg_attestation_replay_selector", flag)
+    for flag in ("--summary-schema", "--envelope-schema"):
+        _require(_mapping_path(replay_args[flag]) == defaults[flag], "lg_attestation_schema_selector", flag)
+    _require(_mapping_path(action["with"]["subject-path"]) == locators["llamaguard-summary"],
+             "lg_attestation_subject_selector")
+    _require(locators["llamaguard-attestation-verifier"] == _python_constant(source, name="VERIFIER_REPORT_REL", label=_LG_ATTEST_BUILD),
+             "lg_attestation_report_selector")
+    # These semantics are fixed by the exact called-tool pin, not inferred
+    # merely because a filename or a policy reference occurs in the source.
+    functions = {n.name: n for n in tree.body if isinstance(n, ast.FunctionDef)}
+    reads = {n.args[0].id for function in ("main", "_validate_summary") for n in ast.walk(functions[function])
+             if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "_sha256_file"
+             and n.args and isinstance(n.args[0], ast.Name)}
+    _require({"summary_path", "raw_path", "dataset_path", "evaluator_manifest_path", "signer_policy_path",
+              "threshold_policy_path", "workflow_path"} <= reads, "lg_attestation_selected_digest_reads")
+    persist = ast.unparse(functions["_persist_bundle"])
+    _require("source_bytes = source.read_bytes()" in persist
+             and "_write_bytes_atomic(destination, source_bytes," in persist
+             and "destination.read_bytes() != source_bytes" in persist, "lg_attestation_bundle_preservation")
+    l5, l6, l7 = (_step_id(job, n) for n in (5, 6, 7))
+    envelope_inputs = sorted(role for role in roles if role != "llamaguard-attestation-envelope")
+    return {"locators": locators,
+            "origins": {**{role: None for role in ("workflow-source", "threshold-policy", "external-signer-policy", "llamaguard-dataset")},
+                        "llamaguard-raw-evidence": _step_id("pulse", 22), "llamaguard-evaluator-manifest": _step_id("pulse", 22),
+                        "llamaguard-summary": _step_id("pulse", 23), "llamaguard-attestation-bundle": l5,
+                        "llamaguard-attestation-envelope": l6, "llamaguard-attestation-verifier": l7},
+            "steps": {l5: {"inputs": ["llamaguard-summary"], "outputs": ["llamaguard-attestation-bundle"]},
+                      l6: {"inputs": envelope_inputs, "outputs": ["llamaguard-attestation-envelope"]},
+                      l7: {"inputs": sorted(("llamaguard-summary", "llamaguard-attestation-envelope", "external-signer-policy",
+                                               "llamaguard-attestation-bundle")), "outputs": ["llamaguard-attestation-verifier"]}},
+            "bundle_handoff": {"action_output_selector": build_args["--bundle-source"],
+                               "canonical_preservation_path": locators["llamaguard-attestation-bundle"],
+                               "preservation_occurrence_id": l6, "content_origin_occurrence_id": l5,
+                               "source_requires_byte_identity": True}}
+
+
+def _install_llamaguard_attestation_projection(states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any]) -> None:
+    """Bind the three steps without relabeling content origins or other reads."""
+    rows = {row["state_id"].removeprefix("state:step5c:"): row for row in states}
+    for role, path in facts["locators"].items():
+        _require(role in rows and rows[role]["path_or_uri"] == path, "lg_attestation_input_locator", role)
+        _require(rows[role]["producer_occurrence_id"] == facts["origins"][role], "lg_attestation_input_origin", role)
+    owned = set(facts["steps"])
+    for row in states:
+        row["required_consumer_occurrence_ids"] = [oid for oid in row["required_consumer_occurrence_ids"] if oid not in owned]
+    for step in steps.values():
+        oid = step["occurrence_id"]
+        if oid not in owned:
+            continue
+        equation = facts["steps"][oid]
+        step["input_state_ids"] = sorted("state:step5c:" + role for role in equation["inputs"])
+        step["output_state_ids"] = sorted("state:step5c:" + role for role in equation["outputs"])
+        for role in equation["inputs"]:
+            _append_unique(rows[role]["required_consumer_occurrence_ids"], oid)
+    for row in states:
+        row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -2678,6 +2803,7 @@ def _build_states(
     baseline_floor_projection = _baseline_floor_source_projection(source_workflow, source_by_path)
     preservation_projection = _preattest_preservation_source_projection(source_workflow, source_by_path)
     llamaguard_preservation = _llamaguard_preservation_source_projection(source_workflow, source_by_path)
+    llamaguard_attestation = _llamaguard_attestation_source_projection(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -3207,6 +3333,7 @@ def _build_states(
     _install_baseline_floor_projection(states, step_by_key, baseline_floor_projection)
     _install_preattest_preservation_projection(states, step_by_key, preservation_projection)
     _install_llamaguard_preservation_projection(states, step_by_key, llamaguard_preservation)
+    _install_llamaguard_attestation_projection(states, step_by_key, llamaguard_attestation)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph
