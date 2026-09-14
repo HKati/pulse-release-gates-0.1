@@ -5774,6 +5774,274 @@ def test_lg_production_mapping_keeps_completion_closed(source_fixture):
         VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
 
 
+# ---------------------------------------------------------------------------
+# P36 pre-attestation postconditions: seven existing content roles are hashed
+# before publication. The other three selected files stay explicitly unmodeled.
+# ---------------------------------------------------------------------------
+PRE_ATTEST_POSTCONDITION_ROLES = (
+    'pre-materialization-status', 'status-baseline', 'required-gate-evidence',
+    'self-contained-evidence-floor', 'llamaguard-raw-evidence',
+    'llamaguard-evaluator-manifest', 'llamaguard-summary',
+)
+
+
+def pre_attest_postcondition_method(side):
+    if side == 'builder':
+        return BUILDER, BUILDER._pre_attestation_postcondition_source_projection
+    return PLAN_CHECKER, PLAN_CHECKER._source_pre_attestation_postcondition_expectations
+
+
+def pre_attest_checked_source_paths():
+    # Read the literal source array independently of either plan tool.
+    body = mapping_source_document()['jobs']['pulse']['steps'][35]['run']
+    lines = body.splitlines()
+    start = lines.index('REQUIRED_FILES=(') + 1
+    end = lines.index(')', start)
+    return [shlex.split(line)[0].replace('${PACK_DIR}/', 'PULSE_safe_pack_v0/')
+            for line in lines[start:end]]
+
+
+@pytest.mark.parametrize('role', PRE_ATTEST_POSTCONDITION_ROLES)
+def test_pre_attest_postcondition_each_hashed_role_has_reciprocal_input(source_fixture, role):
+    rows, steps = provenance_rows(source_fixture.plan)
+    row, check = rows[role], steps[('pulse', 36)]
+    assert row['path_or_uri'].split('#', 1)[0] in pre_attest_checked_source_paths()
+    assert row['state_id'] in check['input_state_ids']
+    assert check['occurrence_id'] in row['required_consumer_occurrence_ids']
+    assert row['producer_occurrence_id'] != check['occurrence_id']
+    assert check['output_state_ids'] == []
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_pre_attest_postcondition_keeps_full_selector_and_partial_role_extent(recorded_source_objects, side):
+    module, method = pre_attest_postcondition_method(side)
+    facts = method(mapping_source_document(), recorded_source_objects)
+    assert facts['checked_paths'] == pre_attest_checked_source_paths()
+    assert len(facts['checked_paths']) == 10
+    assert len(facts['locators']) == 7
+    assert facts['unmodeled_checked_paths'] == sorted('PULSE_safe_pack_v0/artifacts/' + name for name in (
+        'status_summary_baseline.md', 'status_summary_baseline.json', 'refusal_delta_summary.json'))
+    assert facts['steps'] == {module._step_id('pulse', 36): {
+        'inputs': sorted(PRE_ATTEST_POSTCONDITION_ROLES), 'outputs': []}}
+    assert facts['read_basis'] == 'source_declared_file_hash_read'
+    assert facts['observed_read_receipt'] is False
+    assert facts['semantic_content_admission'] is False
+    assert facts['origins']['pre-materialization-status'] == module._step_id('pulse', 13)
+    assert facts['locators']['pre-materialization-status'].endswith('#pre-release-required-materialization')
+
+
+def test_pre_attest_postcondition_checker_is_separate_and_precedes_equality(source_fixture, recorded_source_objects):
+    workflow = mapping_source_document()
+    expected = BUILDER._pre_attestation_postcondition_source_projection(workflow, recorded_source_objects)
+    with patch.object(BUILDER, '_pre_attestation_postcondition_source_projection', side_effect=AssertionError('builder forbidden')):
+        actual = PLAN_CHECKER._source_pre_attestation_postcondition_expectations(workflow, recorded_source_objects)
+        PLAN_CHECKER._verify_source_pre_attestation_postcondition_equations(source_fixture.plan, workflow, recorded_source_objects)
+    assert canonical(actual) == canonical(expected)
+    tree = ast.parse(textwrap.dedent(inspect.getsource(PLAN_CHECKER.check_plan)))
+    calls = {n.func.id: n.lineno for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+    assert calls['_verify_source_pre_attestation_postcondition_equations'] < calls['_reconstruct_expected_plan']
+
+
+def corrupt_pre_attest_postcondition_plan(original, fault):
+    plan = copy.deepcopy(original); rows, steps = provenance_rows(plan)
+    step = steps[('pulse', 36)]; row = rows['llamaguard-summary']
+    if fault.startswith('omit:'):
+        row = rows[fault[5:]]
+        step['input_state_ids'].remove(row['state_id'])
+        row['required_consumer_occurrence_ids'].remove(step['occurrence_id'])
+    elif fault.startswith('invent:'):
+        row = rows[fault[7:]]
+        step['input_state_ids'] = sorted(step['input_state_ids'] + [row['state_id']])
+        row['required_consumer_occurrence_ids'] = sorted(row['required_consumer_occurrence_ids'] + [step['occurrence_id']])
+    elif fault == 'wrong_locator': row['path_or_uri'] += '.different'
+    elif fault == 'wrong_origin': row['producer_occurrence_id'] = step['occurrence_id']
+    elif fault == 'extra_writer': step['output_state_ids'] = [row['state_id']]
+    elif fault == 'missing_reverse': row['required_consumer_occurrence_ids'].remove(step['occurrence_id'])
+    elif fault == 'optional': row['required'] = False
+    elif fault == 'metadata_only': row['content_requirement'] = 'metadata_only'
+    elif fault == 'non_authority': row['authority_bearing'] = False
+    elif fault == 'mutation_class': row['mutation_class'] = 'advisory_output'
+    elif fault == 'missing_role': plan['state_templates'].remove(row)
+    elif fault == 'duplicate_role': plan['state_templates'].append(copy.deepcopy(row))
+    elif fault == 'missing_step': next(j for j in plan['jobs'] if j['source_job_id'] == 'pulse')['steps'].remove(step)
+    elif fault == 'duplicate_step': next(j for j in plan['jobs'] if j['source_job_id'] == 'pulse')['steps'].append(copy.deepcopy(step))
+    else: raise AssertionError(fault)
+    return plan
+
+
+PRE_ATTEST_POSTCONDITION_FAULTS = tuple('omit:' + role for role in PRE_ATTEST_POSTCONDITION_ROLES) + (
+    'invent:gate-policy', 'invent:final-status', 'invent:pre-attestation-pulse-artifacts',
+    'wrong_locator', 'wrong_origin', 'extra_writer', 'missing_reverse', 'optional',
+    'metadata_only', 'non_authority', 'mutation_class', 'missing_role', 'duplicate_role',
+    'missing_step', 'duplicate_step',
+)
+
+
+@pytest.mark.parametrize('fault', PRE_ATTEST_POSTCONDITION_FAULTS)
+def test_pre_attest_postcondition_predicate_rejects_false_mapping(source_fixture, recorded_source_objects, fault):
+    with pytest.raises(PLAN_CHECKER.PlanError, match='pre_attest_postcondition_'):
+        PLAN_CHECKER._verify_source_pre_attestation_postcondition_equations(
+            corrupt_pre_attest_postcondition_plan(source_fixture.plan, fault), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('fault', ['omit:llamaguard-summary', 'invent:pre-attestation-pulse-artifacts'])
+def test_pre_attest_postcondition_equal_false_constructors_are_not_proof(source_fixture, recorded_source_objects, fault):
+    answers = []
+    for module in (BUILDER, PLAN_CHECKER):
+        workflow = mapping_source_document(); jobs, steps, _ = module._build_jobs(workflow)
+        plan = copy.deepcopy(source_fixture.plan); plan['jobs'] = jobs
+        plan['state_templates'] = module._build_states(steps, module.EXPECTED_CASE_IDS, workflow, recorded_source_objects)
+        answers.append(canonical(corrupt_pre_attest_postcondition_plan(plan, fault)))
+    assert answers[0] == answers[1]
+    with pytest.raises(PLAN_CHECKER.PlanError, match='pre_attest_postcondition_step_io_mismatch'):
+        PLAN_CHECKER._verify_source_pre_attestation_postcondition_equations(
+            json.loads(answers[0]), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('fault,code', [
+    ('omit:llamaguard-summary', 'pre_attest_postcondition_step_io_mismatch'),
+    ('invent:gate-policy', 'pre_attest_postcondition_step_io_mismatch'),
+    ('invent:pre-attestation-pulse-artifacts', 'preservation_mapping_archive_readers_mismatch'),
+    ('omit:pre-materialization-status', 'recorded_mapping_new_role_consumer_mismatch'),
+])
+def test_pre_attest_postcondition_rehashed_forgery_fails_real_checker(source_fixture, tmp_path, fault, code):
+    raw = canonical(corrupt_pre_attest_postcondition_plan(source_fixture.plan, fault))
+    jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(json.loads(raw))
+    path = tmp_path / 'false-plan.json'; path.write_bytes(raw)
+    result = cli(source_fixture.root, TOOL_NAMES[1], ['--repository-root', source_fixture.root,
+        '--plan', path, '--expected-source-commit', source_fixture.sha, '--expected-plan-sha256', digest(raw),
+        '--expected-record-status', 'example'])
+    assert result.returncode != 0
+    assert json.loads(result.stdout)['error_code'] == code
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('fault', ['missing', 'bytes', 'path'])
+def test_pre_attest_postcondition_reviewed_source_cannot_be_substituted(recorded_source_objects, side, fault):
+    module, method = pre_attest_postcondition_method(side); objects = dict(recorded_source_objects)
+    path = module.SUBJECT_WORKFLOW_PATH
+    if fault == 'missing': del objects[path]
+    elif fault == 'bytes':
+        data = objects[path].data.replace(b'  sha256sum "${artifact}"', b'  sha256sum "${artifact}" || true')
+        assert data != objects[path].data
+        objects[path] = replace(objects[path], data=data, blob_sha1=hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest())
+    else: objects[path] = replace(objects[path], path='different/workflow.yml')
+    with pytest.raises(module.PlanError, match='pre_attest_postcondition_source_'):
+        method(mapping_source_document(), objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('fault', ['guard', 'hash', 'member', 'early_success'])
+def test_pre_attest_postcondition_changed_logical_workflow_rejected(recorded_source_objects, side, fault):
+    document = mapping_source_document(); step = document['jobs']['pulse']['steps'][35]
+    if fault == 'guard': step['if'] = '${{ always() }}'
+    elif fault == 'hash': step['run'] = step['run'].replace('sha256sum "${artifact}"', 'true')
+    elif fault == 'member': step['run'] = step['run'].replace('refusal_delta_summary.json', 'another.json')
+    else: step['run'] = 'exit 0\n' + step['run']
+    module, method = pre_attest_postcondition_method(side)
+    with pytest.raises(module.PlanError, match='pre_attest_postcondition_workflow_drift'):
+        method(document, recorded_source_objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_pre_attest_postcondition_installer_only_changes_owned_inputs(recorded_source_objects, side):
+    module, _ = pre_attest_postcondition_method(side); workflow = mapping_source_document()
+    _, before_steps, _ = module._build_jobs(workflow)
+    with patch.object(module, '_install_pre_attestation_postcondition_projection', return_value=None):
+        before = module._build_states(before_steps, module.EXPECTED_CASE_IDS, workflow, recorded_source_objects)
+    _, after_steps, _ = module._build_jobs(workflow)
+    after = module._build_states(after_steps, module.EXPECTED_CASE_IDS, workflow, recorded_source_objects)
+    oid = module._step_id('pulse', 36)
+    for old, new in zip(before, after):
+        old, new = copy.deepcopy(old), copy.deepcopy(new)
+        for row in (old, new): row['required_consumer_occurrence_ids'] = [x for x in row['required_consumer_occurrence_ids'] if x != oid]
+        assert old == new
+    for key, step in after_steps.items():
+        if key != ('pulse', 36): assert step == before_steps[key]
+        else:
+            old, new = copy.deepcopy(before_steps[key]), copy.deepcopy(step)
+            old.pop('input_state_ids'); new.pop('input_state_ids'); assert old == new
+    assert len(before) == len(after) == 62
+
+
+@pytest.mark.parametrize('index', [0, 9])
+@pytest.mark.parametrize('fault', ['missing', 'empty', 'symlink', 'directory'])
+def test_pre_attest_postcondition_real_shell_fails_closed_at_each_boundary(tmp_path, index, fault):
+    paths = pre_attest_checked_source_paths()
+    for name in paths:
+        path = tmp_path / name; path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b'SYNTHETIC HASHABLE BYTES; NOT AN ATTESTATION\n')
+    target = tmp_path / paths[index]; target.unlink()
+    if fault == 'empty': target.touch()
+    elif fault == 'directory': target.mkdir()
+    elif fault == 'symlink':
+        source = tmp_path / 'source.txt'; source.write_text('SYNTHETIC\n'); target.symlink_to(source)
+    script = mapping_source_document()['jobs']['pulse']['steps'][35]['run']
+    result = subprocess.run(['/bin/bash', '-c', script], cwd=tmp_path,
+        env={'PATH': '/usr/bin:/bin', 'PACK_DIR': str(tmp_path / 'PULSE_safe_pack_v0')},
+        capture_output=True, text=True, timeout=15)
+    assert result.returncode != 0
+    assert 'postconditions satisfied' not in result.stdout
+    assert '::error::release-grade pre-attestation artifact' in result.stdout
+    hashes = [line for line in result.stdout.splitlines() if re.match(r'^[0-9a-f]{64}  ', line)]
+    assert len(hashes) == index
+
+
+def test_pre_attest_postcondition_real_shell_hashes_all_ten_without_semantic_admission(tmp_path):
+    paths = pre_attest_checked_source_paths(); data = b'SYNTHETIC NON-JSON CONTENT\n'
+    for name in paths:
+        path = tmp_path / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(data)
+    script = mapping_source_document()['jobs']['pulse']['steps'][35]['run']
+    result = subprocess.run(['/bin/bash', '-c', script], cwd=tmp_path,
+        env={'PATH': '/usr/bin:/bin', 'PACK_DIR': str(tmp_path / 'PULSE_safe_pack_v0')},
+        capture_output=True, text=True, timeout=15)
+    assert result.returncode == 0
+    assert result.stdout.splitlines() == [digest(data) + '  ' + str(tmp_path / name) for name in paths] + [
+        'OK: release-grade pre-attestation artifact postconditions satisfied']
+    assert all((tmp_path / name).read_bytes() == data for name in paths)
+    assert sorted(p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob('*') if p.is_file()) == sorted(paths)
+
+
+def test_pre_attest_postcondition_unmodeled_file_is_not_optional_in_original_shell(tmp_path):
+    paths = pre_attest_checked_source_paths()
+    for name in paths:
+        path = tmp_path / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(b'SYNTHETIC\n')
+    missing = 'PULSE_safe_pack_v0/artifacts/status_summary_baseline.md'
+    (tmp_path / missing).unlink()
+    script = mapping_source_document()['jobs']['pulse']['steps'][35]['run']
+    result = subprocess.run(['/bin/bash', '-c', script], cwd=tmp_path,
+        env={'PATH': '/usr/bin:/bin', 'PACK_DIR': str(tmp_path / 'PULSE_safe_pack_v0')},
+        capture_output=True, text=True, timeout=15)
+    assert result.returncode != 0 and missing in result.stdout
+    assert 'postconditions satisfied' not in result.stdout
+
+
+def test_pre_attest_postcondition_hash_failure_does_not_reach_success(tmp_path):
+    paths = pre_attest_checked_source_paths()
+    for name in paths:
+        path = tmp_path / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(b'SYNTHETIC\n')
+    mock_bin = tmp_path / 'mock-bin'; mock_bin.mkdir()
+    mock = mock_bin / 'sha256sum'
+    mock.write_text('#!/bin/bash\nprintf "synthetic hash failure\\n" >&2\nexit 86\n')
+    mock.chmod(0o700)
+    script = mapping_source_document()['jobs']['pulse']['steps'][35]['run']
+    result = subprocess.run(['/bin/bash', '-c', script], cwd=tmp_path,
+        env={'PATH': str(mock_bin), 'PACK_DIR': str(tmp_path / 'PULSE_safe_pack_v0')},
+        capture_output=True, text=True, timeout=15)
+    assert result.returncode == 86
+    assert result.stdout == '' and result.stderr == 'synthetic hash failure\n'
+
+
+def test_pre_attest_postcondition_mapping_keeps_completion_and_inventory_unchanged(source_fixture):
+    assert len(source_fixture.plan['state_templates']) == 62
+    assert len(source_fixture.plan['source_inventory']) == 56
+    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert 'evidence_profile' not in source_fixture.plan
+    assert source_fixture.plan['authority_boundary']['authority_effect'] == 'none'
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
+
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.

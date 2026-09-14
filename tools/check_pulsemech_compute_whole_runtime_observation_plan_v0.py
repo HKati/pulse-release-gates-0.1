@@ -1726,6 +1726,7 @@ def _verify_source_recorded_equations(plan: dict[str, Any], workflow: dict[str, 
     # arbitrary outside readers merely because they are outside R6-R12.
     floor_facts = _source_baseline_floor_expectations(workflow, source_by_path)
     preservation_facts = _source_preattest_preservation_expectations(workflow, source_by_path)
+    postcondition_facts = _source_pre_attestation_postcondition_expectations(workflow, source_by_path)
     for role in ("pre-materialization-status", "recorded-release-candidate-envelopes"):
         expected_consumers = {oid for oid, eq in facts["steps"].items() if role in eq["inputs"]}
         if role == "pre-materialization-status":
@@ -1736,6 +1737,10 @@ def _verify_source_recorded_equations(plan: dict[str, Any], workflow: dict[str, 
             )
             expected_consumers.update(
                 oid for oid, eq in preservation_facts["steps"].items()
+                if role in eq["inputs"]
+            )
+            expected_consumers.update(
+                oid for oid, eq in postcondition_facts["steps"].items()
                 if role in eq["inputs"]
             )
         role_id = sid(role)
@@ -3344,6 +3349,115 @@ def _verify_source_llamaguard_production_equations(plan: dict[str, Any], workflo
                  == steps[oid]["input_state_ids"], "lg_production_reverse_inputs_mismatch", oid)
 
 
+
+# Source postconditions are a hash-reading consumer, not a verifier verdict.
+def _source_pre_attestation_postcondition_expectations(
+    workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> dict[str, Any]:
+    obj = sources.get(SUBJECT_WORKFLOW_PATH)
+    _require(obj is not None and obj.path == SUBJECT_WORKFLOW_PATH,
+             "pre_attest_postcondition_source_missing")
+    _require(_sha1_git_blob(obj.data) == EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1,
+             "pre_attest_postcondition_source_drift")
+    _require(_parse_yaml_document(obj.data, label=SUBJECT_WORKFLOW_PATH) == workflow,
+             "pre_attest_postcondition_workflow_drift")
+    steps = workflow["jobs"]["pulse"]["steps"]
+    reader, publisher = steps[35], steps[36]
+    _require(reader["shell"] == "bash" and reader["if"] == publisher["if"],
+             "pre_attest_postcondition_condition_mismatch")
+    # Resolve the input array from the only admitted consuming loop. Retain the
+    # complete command ordering: no early success, ignored hash error or branch.
+    lines = reader["run"].splitlines()
+    loop = 'for artifact in "${REQUIRED_FILES[@]}"; do'
+    _require(lines.count(loop) == 1, "pre_attest_postcondition_source_form")
+    start = lines.index(loop)
+    expected_tail = [loop,
+        '  if [[ ! -f "${artifact}" || -L "${artifact}" || ! -s "${artifact}" ]]; then',
+        '    echo "::error::release-grade pre-attestation artifact is missing, empty, or symlinked: ${artifact}"',
+        '    exit 1', '  fi', '', '  sha256sum "${artifact}"', 'done', '',
+        'echo "OK: release-grade pre-attestation artifact postconditions satisfied"']
+    _require(lines[start:] == expected_tail
+             and lines[:3] == ['set -euo pipefail', '', 'REQUIRED_FILES=(']
+             and lines[start - 2:start] == [')', ''], "pre_attest_postcondition_source_form")
+    tokens = lines[3:start - 2]
+    _require(len(tokens) == 10 and all(re.fullmatch(r'  "[^"\n]+"', line) for line in tokens),
+             "pre_attest_postcondition_source_form")
+    paths = [_checked_mapping_path(line[3:-1]) for line in tokens]
+    _require(len(set(paths)) == 10
+             and paths == [_checked_mapping_path(p) for p in publisher["with"]["path"].splitlines()],
+             "pre_attest_postcondition_path_inventory")
+    transport = _source_preattest_preservation_expectations(workflow, sources)
+    # Join source-derived content locators to hash arguments, never to names in
+    # the submitted plan. The artifact archive itself is not a P36 file input.
+    local = {role: locator for role, locator in transport["locators"].items()
+             if role != _PRESERVATION_ARCHIVE_ROLE}
+    roles_by_path = {locator.split("#", 1)[0]: role for role, locator in local.items()}
+    selected = sorted(roles_by_path[path] for path in paths if path in roles_by_path)
+    _require(len(local) == len(roles_by_path) == len(selected) == 7
+             and set(selected) == set(local), "pre_attest_postcondition_selected_extent")
+    return {
+        "locators": local,
+        "origins": {role: transport["origins"][role] for role in selected},
+        "checked_paths": paths,
+        "unmodeled_checked_paths": sorted(set(paths) - set(roles_by_path)),
+        "read_basis": "source_declared_file_hash_read",
+        "observed_read_receipt": False,
+        "semantic_content_admission": False,
+        "steps": {_step_id("pulse", 36): {"inputs": selected, "outputs": []}},
+    }
+
+
+def _install_pre_attestation_postcondition_projection(
+    states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any],
+) -> None:
+    """Replace only P36's selected readers; retain all original content duties."""
+    by_role = {row["state_id"].removeprefix("state:step5c:"): row for row in states}
+    for role, locator in facts["locators"].items():
+        _require(role in by_role and by_role[role]["path_or_uri"] == locator,
+                 "pre_attest_postcondition_input_locator", role)
+        _require(by_role[role]["producer_occurrence_id"] == facts["origins"][role],
+                 "pre_attest_postcondition_input_origin", role)
+    step = steps[("pulse", 36)]
+    oid = _step_id("pulse", 36)
+    _require(step["occurrence_id"] == oid and step["output_state_ids"] == [],
+             "pre_attest_postcondition_not_a_writer")
+    step["input_state_ids"] = sorted("state:step5c:" + role for role in facts["steps"][oid]["inputs"])
+    for row in states:
+        readers = set(row["required_consumer_occurrence_ids"]) - {oid}
+        if row["state_id"] in step["input_state_ids"]:
+            readers.add(oid)
+        row["required_consumer_occurrence_ids"] = sorted(readers)
+
+
+def _verify_source_pre_attestation_postcondition_equations(
+    plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> None:
+    """Reject a false P36 mapping even when both reconstructed answers agree."""
+    facts = _source_pre_attestation_postcondition_expectations(workflow, sources)
+    states = {r["state_id"].removeprefix("state:step5c:"): r for r in plan["state_templates"]}
+    _require(len(states) == len(plan["state_templates"]), "pre_attest_postcondition_duplicate_role")
+    occurrences = [step for job in plan["jobs"] for step in job["steps"]]
+    steps = {step["occurrence_id"]: step for step in occurrences}
+    _require(len(steps) == len(occurrences), "pre_attest_postcondition_duplicate_step")
+    for role, locator in facts["locators"].items():
+        _require(role in states, "pre_attest_postcondition_role_missing", role)
+        row = states[role]
+        _require(row["path_or_uri"] == locator, "pre_attest_postcondition_locator_mismatch", role)
+        _require(row["producer_occurrence_id"] == facts["origins"][role],
+                 "pre_attest_postcondition_origin_mismatch", role)
+        _require(row["required"] is True and row["authority_bearing"] is True
+                 and row["content_requirement"] == "exact_digest" and row["mutation_class"] == "none",
+                 "pre_attest_postcondition_duty_mismatch", role)
+        _require(sorted(oid for oid, step in steps.items() if row["state_id"] in step["output_state_ids"])
+                 == [facts["origins"][role]], "pre_attest_postcondition_writer_mismatch", role)
+    oid = _step_id("pulse", 36)
+    _require(oid in steps, "pre_attest_postcondition_step_missing")
+    _require(steps[oid]["input_state_ids"] == sorted("state:step5c:" + role for role in facts["steps"][oid]["inputs"])
+             and steps[oid]["output_state_ids"] == [], "pre_attest_postcondition_step_io_mismatch")
+    _require(sorted(row["state_id"] for row in states.values() if oid in row["required_consumer_occurrence_ids"])
+             == steps[oid]["input_state_ids"], "pre_attest_postcondition_reverse_inputs_mismatch")
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -3361,6 +3475,7 @@ def _build_states(
     llamaguard_preservation = _source_llamaguard_preservation_expectations(source_workflow, source_by_path)
     llamaguard_attestation = _source_llamaguard_attestation_expectations(source_workflow, source_by_path)
     llamaguard_production = _source_llamaguard_production_expectations(source_workflow, source_by_path)
+    pre_attestation_postcondition = _source_pre_attestation_postcondition_expectations(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -3892,6 +4007,7 @@ def _build_states(
     _install_llamaguard_preservation_projection(states, step_by_key, llamaguard_preservation)
     _install_llamaguard_attestation_projection(states, step_by_key, llamaguard_attestation)
     _install_llamaguard_production_projection(states, step_by_key, llamaguard_production)
+    _install_pre_attestation_postcondition_projection(states, step_by_key, pre_attestation_postcondition)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph
@@ -4515,6 +4631,9 @@ def check_plan(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_source_llamaguard_production_equations(
+        plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
+    )
+    _verify_source_pre_attestation_postcondition_equations(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_tool_identity(

@@ -2924,6 +2924,77 @@ def _install_llamaguard_production_projection(states: list[dict[str, Any]], step
         row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
 
 
+
+# P36 hashes the pre-attestation file set before P37 publishes it. Hash reads
+# are not signature/content admission and do not make P36 a content producer.
+def _pre_attestation_postcondition_source_projection(
+    workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> dict[str, Any]:
+    source = sources.get(SUBJECT_WORKFLOW_PATH)
+    _require(source is not None and source.path == SUBJECT_WORKFLOW_PATH,
+             "pre_attest_postcondition_source_missing")
+    _require(_sha1_git_blob(source.data) == EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1,
+             "pre_attest_postcondition_source_drift")
+    _require(workflow == _parse_yaml_document(source.data, label=SUBJECT_WORKFLOW_PATH),
+             "pre_attest_postcondition_workflow_drift")
+    rows = workflow["jobs"]["pulse"]["steps"]
+    check, upload = rows[35], rows[36]
+    _require(check["shell"] == "bash" and check["if"] == upload["if"],
+             "pre_attest_postcondition_condition_mismatch")
+    match = re.fullmatch(
+        r'set -euo pipefail\n\nREQUIRED_FILES=\(\n(?P<paths>(?:  "[^"\n]+"\n)+)\)\n\n'
+        r'for artifact in "\$\{REQUIRED_FILES\[@\]\}"; do\n'
+        r'  if \[\[ ! -f "\$\{artifact\}" \|\| -L "\$\{artifact\}" \|\| ! -s "\$\{artifact\}" \]\]; then\n'
+        r'    echo "::error::release-grade pre-attestation artifact is missing, empty, or symlinked: \$\{artifact\}"\n'
+        r'    exit 1\n  fi\n\n  sha256sum "\$\{artifact\}"\ndone\n\n'
+        r'echo "OK: release-grade pre-attestation artifact postconditions satisfied"\n',
+        check["run"],
+    )
+    _require(match is not None, "pre_attest_postcondition_source_form")
+    paths = [_mapping_path(shlex.split(line)[0]) for line in match.group("paths").splitlines()]
+    publication = [_mapping_path(line) for line in upload["with"]["path"].splitlines()]
+    _require(len(paths) == len(set(paths)) == 10 and paths == publication,
+             "pre_attest_postcondition_path_inventory")
+    preservation = _preattest_preservation_source_projection(workflow, sources)
+    local = {role: path for role, path in preservation["locators"].items()
+             if role != _PRESERVATION_ARCHIVE_ROLE}
+    physical = {path.split("#", 1)[0]: role for role, path in local.items()}
+    _require(len(physical) == len(local) == 7 and set(physical) <= set(paths),
+             "pre_attest_postcondition_selected_extent")
+    return {
+        "locators": local,
+        "origins": {role: preservation["origins"][role] for role in local},
+        "checked_paths": paths,
+        "unmodeled_checked_paths": sorted(set(paths) - set(physical)),
+        "read_basis": "source_declared_file_hash_read",
+        "observed_read_receipt": False,
+        "semantic_content_admission": False,
+        "steps": {_step_id("pulse", 36): {"inputs": sorted(local), "outputs": []}},
+    }
+
+
+def _install_pre_attestation_postcondition_projection(
+    states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any],
+) -> None:
+    """Replace only P36's selected readers; retain all original content duties."""
+    by_role = {row["state_id"].removeprefix("state:step5c:"): row for row in states}
+    for role, locator in facts["locators"].items():
+        _require(role in by_role and by_role[role]["path_or_uri"] == locator,
+                 "pre_attest_postcondition_input_locator", role)
+        _require(by_role[role]["producer_occurrence_id"] == facts["origins"][role],
+                 "pre_attest_postcondition_input_origin", role)
+    step = steps[("pulse", 36)]
+    oid = _step_id("pulse", 36)
+    _require(step["occurrence_id"] == oid and step["output_state_ids"] == [],
+             "pre_attest_postcondition_not_a_writer")
+    step["input_state_ids"] = sorted("state:step5c:" + role for role in facts["steps"][oid]["inputs"])
+    for row in states:
+        readers = set(row["required_consumer_occurrence_ids"]) - {oid}
+        if row["state_id"] in step["input_state_ids"]:
+            readers.add(oid)
+        row["required_consumer_occurrence_ids"] = sorted(readers)
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -2941,6 +3012,7 @@ def _build_states(
     llamaguard_preservation = _llamaguard_preservation_source_projection(source_workflow, source_by_path)
     llamaguard_attestation = _llamaguard_attestation_source_projection(source_workflow, source_by_path)
     llamaguard_production = _llamaguard_production_source_projection(source_workflow, source_by_path)
+    pre_attestation_postcondition = _pre_attestation_postcondition_source_projection(source_workflow, source_by_path)
     sid = lambda name: f"state:step5c:{name}"
     st = lambda job, ordinal: _step_id(job, ordinal)
     collector = _collector_id()
@@ -3472,6 +3544,7 @@ def _build_states(
     _install_llamaguard_preservation_projection(states, step_by_key, llamaguard_preservation)
     _install_llamaguard_attestation_projection(states, step_by_key, llamaguard_attestation)
     _install_llamaguard_production_projection(states, step_by_key, llamaguard_production)
+    _install_pre_attestation_postcondition_projection(states, step_by_key, pre_attestation_postcondition)
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph
