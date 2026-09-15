@@ -1015,6 +1015,178 @@ def read_prepared(path: Path, *, source_commit: str, expected_digest: str, recor
     return plan, members, raw
 
 
+def _selected_archive_metadata(
+    manifest: Mapping[str, Any], members: Mapping[str, bytes],
+    index: Mapping[str, Any], kind: str, maximum: int,
+) -> list[dict[str, Any]]:
+    """Independently close one preserved artifact listing, not a live API call."""
+    bindings = manifest.get("raw_response_bindings")
+    require(isinstance(bindings, list), "selected_archive_pages_missing", stage="artifact")
+    pages = [row for row in bindings if isinstance(row, dict)
+             and row.get("role") == kind + "_artifacts_page"]
+    page_index = index.get(kind + "_artifacts")
+    require(isinstance(page_index, dict) and 0 < len(pages) <= maximum,
+            "selected_archive_pages_missing", stage="artifact")
+    expected_members = [f"{kind}/artifacts-page-{number:04d}.json"
+                        for number in range(1, len(pages) + 1)]
+    require(page_index.get("page_members") == expected_members,
+            "selected_archive_page_set_mismatch", stage="artifact")
+    expected_total = page_index.get("total_count")
+    require(type(expected_total) is int and 0 < expected_total <= maximum,
+            "selected_archive_page_total_invalid", stage="artifact")
+    rows: list[dict[str, Any]] = []
+    identifiers: set[int] = set()
+    for number, binding in enumerate(pages):
+        desc = binding.get("descriptor")
+        member = "acquisition/" + expected_members[number]
+        require(isinstance(desc, dict) and desc.get("member") == member
+                and member in members, "selected_archive_page_set_mismatch", stage="artifact")
+        raw = members[member]
+        require(type(raw) is bytes and len(raw) <= 16 * 1024 * 1024
+                and type(desc.get("size_bytes")) is int and desc["size_bytes"] == len(raw)
+                and desc.get("sha256") == sha256_bytes(raw),
+                "selected_archive_page_bytes_mismatch", stage="artifact")
+        document = parse_json_bytes(raw, label="selected_archive_page", canonical=False)
+        values = document.get("artifacts")
+        require(type(document.get("total_count")) is int
+                and document["total_count"] == expected_total
+                and isinstance(values, list) and 0 < len(values) <= 100,
+                "selected_archive_page_total_invalid", stage="artifact")
+        for row in values:
+            require(isinstance(row, dict), "selected_archive_metadata_invalid", stage="artifact")
+            identifier = positive_int(row.get("id"), label="selected_archive_metadata_id")
+            require(identifier not in identifiers, "selected_archive_metadata_id_conflict", stage="artifact")
+            identifiers.add(identifier)
+            rows.append(row)
+        require(len(rows) <= expected_total, "selected_archive_page_total_invalid", stage="artifact")
+    require(len(rows) == expected_total, "selected_archive_page_total_invalid", stage="artifact")
+    return rows
+
+
+def _check_selected_archive_evidence(
+    plan: Mapping[str, Any], manifest: Mapping[str, Any], members: Mapping[str, bytes],
+) -> None:
+    """Check the existing four selections without trusting collector agreement.
+
+    This is an outer-archive identity/transport check. Inner state contents,
+    original producer/consumer receipts and full R2 acceptance remain separate.
+    The three additional R2 archives are deliberately not enabled here.
+    """
+    subject, provider = manifest["subject"], manifest["provider"]
+    subject_id = positive_int(subject.get("run_id"), label="selected_subject_run")
+    provider_id = positive_int(provider.get("run_id"), label="selected_provider_run")
+    require(subject_id != provider_id, "selected_archive_run_collision", stage="artifact")
+    revision = plan["plan_identity"]["source_commit"]
+    # Independently encoded selectors: never import the acquisition/capture map.
+    selections = (
+        ("complete_release_grade_reference_package", "subject", subject_id,
+         f"complete-release-grade-reference-package-{subject_id}-1",
+         "subject/artifacts/complete-release-grade-reference-package.zip"),
+        ("package_completeness_report", "subject", subject_id,
+         f"release-grade-package-completeness-{subject_id}-1",
+         "subject/artifacts/release-grade-package-completeness.zip"),
+        ("package_verification_report", "subject", subject_id,
+         f"release-grade-reference-package-verification-{subject_id}-1",
+         "subject/artifacts/release-grade-reference-package-verification.zip"),
+        ("step3f_candidate_envelope", "provider", provider_id,
+         f"pulsemech-compute-current-run-export-candidate-{subject_id}-1",
+         "provider/step3f-candidate-envelope.zip"),
+    )
+    bindings = manifest.get("artifact_bindings")
+    require(isinstance(bindings, list) and len(bindings) == len(selections)
+            and all(isinstance(row, dict) for row in bindings),
+            "selected_archive_binding_set_mismatch", stage="artifact")
+    expected_members = {"acquisition/" + row[4] for row in selections}
+    archive_members = {name for name in members if name.startswith("acquisition/")
+                       and (name.lower().endswith(".zip") or name.startswith("acquisition/subject/artifacts/"))}
+    require(archive_members == expected_members, "selected_archive_member_set_mismatch", stage="artifact")
+    index_raw = members.get("acquisition/acquisition-index.json")
+    require(type(index_raw) is bytes and len(index_raw) <= 16 * 1024 * 1024,
+            "selected_archive_index_missing", stage="artifact")
+    index = parse_json_bytes(index_raw, label="selected_archive_index")
+    require(index.get("source_commit") == revision and index.get("repository") == REPOSITORY
+            and index.get("profile") == PROFILE and index.get("scope") == SCOPE
+            and index.get("record_status") == manifest.get("record_status")
+            and index.get("subject") == subject and index.get("provider") == provider,
+            "selected_archive_index_context_mismatch", stage="artifact")
+    downloaded = index.get("downloaded_artifacts")
+    require(isinstance(downloaded, list) and len(downloaded) == len(selections)
+            and all(isinstance(row, dict) for row in downloaded),
+            "selected_archive_index_set_mismatch", stage="artifact")
+    limits = plan["finite_limits"]
+    single = limits.get("max_single_artifact_bytes")
+    aggregate = limits.get("max_aggregate_artifact_bytes")
+    metadata_maximum = limits.get("max_artifacts")
+    require(type(single) is int and 0 < single <= 805306368
+            and type(aggregate) is int and 0 < aggregate <= 1610612736
+            and type(metadata_maximum) is int and 0 < metadata_maximum <= 256,
+            "selected_archive_limits_invalid", stage="artifact")
+    listings = {kind: _selected_archive_metadata(manifest, members, index, kind, metadata_maximum)
+                for kind in ("subject", "provider")}
+    metadata_ids = [row["id"] for listing in listings.values() for row in listing]
+    require(len(set(metadata_ids)) == len(metadata_ids), "selected_archive_metadata_id_conflict", stage="artifact")
+    used_ids: set[int] = set()
+    total = 0
+    for role, kind, run_id, name, relative in selections:
+        found = [row for row in bindings if row.get("artifact_name") == name]
+        indexed = [row for row in downloaded if row.get("role") == role]
+        source_rows = [row for row in listings[kind] if row.get("name") == name]
+        require(len(found) == len(indexed) == len(source_rows) == 1,
+                "selected_archive_metadata_not_unique", role, stage="artifact")
+        binding, selected, metadata = found[0], indexed[0], source_rows[0]
+        run = subject if kind == "subject" else provider
+        expected_role = "step3f_candidate_envelope" if kind == "provider" else "subject_terminal_artifact"
+        require(binding.get("artifact_role") == expected_role and binding.get("source_run_kind") == kind
+                and type(binding.get("source_run_id")) is int and binding["source_run_id"] == run_id
+                and type(binding.get("source_run_attempt")) is int and binding["source_run_attempt"] == 1
+                and type(run.get("run_attempt")) is int and run["run_attempt"] == 1
+                and run.get("head_sha") == revision,
+                "selected_archive_run_mismatch", role, stage="artifact")
+        identifier = positive_int(binding.get("artifact_id"), label="selected_archive_id")
+        require(identifier == metadata["id"] and identifier not in used_ids,
+                "selected_archive_id_mismatch", role, stage="artifact")
+        used_ids.add(identifier)
+        workflow = metadata.get("workflow_run")
+        require(isinstance(workflow, dict) and type(workflow.get("id")) is int
+                and workflow["id"] == run_id and workflow.get("head_sha") == revision
+                and workflow.get("head_branch") == "main",
+                "selected_archive_source_mismatch", role, stage="artifact")
+        member = "acquisition/" + relative
+        require(binding.get("downloaded_member") == member and binding.get("exact_bytes_in_capture") is True,
+                "selected_archive_selector_mismatch", role, stage="artifact")
+        raw = members[member]
+        require(type(raw) is bytes and 0 < len(raw) <= single
+                and all(type(value) is int and value == len(raw) for value in (
+                    metadata.get("size_in_bytes"), binding.get("size_bytes"), binding.get("downloaded_size_bytes"))),
+                "selected_archive_size_mismatch", role, stage="artifact")
+        sha = sha256_bytes(raw)
+        require(metadata.get("digest") == "sha256:" + sha
+                and binding.get("github_sha256") == binding.get("downloaded_sha256") == sha,
+                "selected_archive_digest_mismatch", role, stage="artifact")
+        require(metadata.get("expired") is False and binding.get("expired") is False
+                and metadata.get("created_at") == binding.get("created_utc")
+                and metadata.get("expires_at") == binding.get("expires_utc"),
+                "selected_archive_retention_mismatch", role, stage="artifact")
+        created = parse_utc(metadata.get("created_at"), label="selected_archive_created")
+        expires = parse_utc(metadata.get("expires_at"), label="selected_archive_expires")
+        require(parse_utc(run.get("created_at"), label="selected_archive_run_created") <= created
+                <= parse_utc(run.get("updated_at"), label="selected_archive_run_completed")
+                and created < expires,
+                "selected_archive_retention_mismatch", role, stage="artifact")
+        expected_index = {
+            "role": role, "source_run_kind": kind, "source_run_id": run_id, "source_run_attempt": 1,
+            "artifact_id": identifier, "artifact_name": name, "downloaded_member": relative,
+            "created_utc": metadata["created_at"], "expires_utc": metadata["expires_at"],
+            "size_bytes": len(raw), "downloaded_size_bytes": len(raw),
+            "github_sha256": sha, "downloaded_sha256": sha,
+        }
+        require(selected == expected_index and all(type(selected.get(key)) is int for key in (
+                    "source_run_id", "source_run_attempt", "artifact_id", "size_bytes", "downloaded_size_bytes")),
+                "selected_archive_index_binding_mismatch", role, stage="artifact")
+        total += len(raw)
+    require(total <= aggregate, "selected_archive_aggregate_limit_exceeded", stage="artifact")
+
+
 def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, Any], expected_plan_sha256: str, expected_context_raw: bytes, record_status: str, source_commit: str) -> tuple[dict[str, Any], dict[str, bytes], bytes]:
     raw = path.read_bytes()
     members = read_canonical_zip_bytes(
@@ -1081,6 +1253,7 @@ def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, An
     require(subject.get("run_attempt") == provider.get("run_attempt") == 1, "capture_attempt_mismatch", stage="capture")
     require(subject.get("head_sha") == provider.get("head_sha") == source_commit, "capture_run_source_mismatch", stage="capture")
     require(CAPTURE_PROVIDER_ENVELOPE_MEMBER in members, "provider_envelope_missing", stage="capture")
+    _check_selected_archive_evidence(plan, manifest, members)
     return manifest, members, raw
 
 

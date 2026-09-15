@@ -1181,6 +1181,136 @@ def _artifact_bindings(
     return sorted(result, key=lambda row: (row["source_run_kind"], row["artifact_name"])), by_role
 
 
+def _selected_archive_expectations(subject_run_id: int, provider_run_id: int) -> dict[str, tuple[str, int, str, str]]:
+    """Existing intake selectors only; this does not activate the R2 profile."""
+    return {
+        "complete_release_grade_reference_package": (
+            "subject", subject_run_id,
+            f"complete-release-grade-reference-package-{subject_run_id}-1",
+            "subject/artifacts/complete-release-grade-reference-package.zip",
+        ),
+        "package_completeness_report": (
+            "subject", subject_run_id,
+            f"release-grade-package-completeness-{subject_run_id}-1",
+            "subject/artifacts/release-grade-package-completeness.zip",
+        ),
+        "package_verification_report": (
+            "subject", subject_run_id,
+            f"release-grade-reference-package-verification-{subject_run_id}-1",
+            "subject/artifacts/release-grade-reference-package-verification.zip",
+        ),
+        "step3f_candidate_envelope": (
+            "provider", provider_run_id,
+            f"pulsemech-compute-current-run-export-candidate-{subject_run_id}-1",
+            PROVIDER_ENVELOPE_MEMBER,
+        ),
+    }
+
+
+def _validate_selected_archive_evidence(
+    *,
+    acquisition_files: Mapping[str, FileSnapshot],
+    artifact_rows: Mapping[str, dict[str, Any]],
+    subject_artifacts: Sequence[dict[str, Any]],
+    provider_artifacts: Sequence[dict[str, Any]],
+    subject: Mapping[str, Any],
+    provider: Mapping[str, Any],
+    source_commit: str,
+    finite_limits: Mapping[str, Any],
+) -> None:
+    """Bind the selected index to closed platform pages and original ZIP bytes.
+
+    The caller has closed both complete metadata listings and snapshotted the
+    acquisition files. Extra *metadata* is allowed; substituted or additional
+    downloaded archives are not. This proves consistency within the preserved
+    control-plane evidence, not independent authentication of that platform or
+    semantic validity/consumption of the archives' inner state contents.
+    """
+    subject_id = _positive_int(subject.get("run_id"), label="selected_subject_run")
+    provider_id = _positive_int(provider.get("run_id"), label="selected_provider_run")
+    _require(subject_id != provider_id, "selected_archive_run_collision", stage="artifact")
+    expected = _selected_archive_expectations(subject_id, provider_id)
+    _require(set(artifact_rows) == set(expected), "selected_archive_role_set_mismatch", stage="artifact")
+    expected_members = {item[3] for item in expected.values()}
+    actual_members = {
+        name for name in acquisition_files
+        if name.lower().endswith(".zip") or name.startswith("subject/artifacts/")
+    }
+    _require(actual_members == expected_members, "selected_archive_member_set_mismatch", stage="artifact")
+    single_limit = finite_limits.get("max_single_artifact_bytes")
+    aggregate_limit = finite_limits.get("max_aggregate_artifact_bytes")
+    metadata_limit = finite_limits.get("max_artifacts")
+    _require(type(single_limit) is int and 0 < single_limit <= MAX_CANDIDATE_FILE_BYTES
+             and type(aggregate_limit) is int and 0 < aggregate_limit <= 1536 * 1024 * 1024
+             and type(metadata_limit) is int and 0 < metadata_limit <= 256,
+             "selected_archive_limits_invalid", stage="artifact")
+    listings = {"subject": subject_artifacts, "provider": provider_artifacts}
+    all_metadata_ids: set[int] = set()
+    for source_rows in listings.values():
+        _require(len(source_rows) <= metadata_limit, "selected_archive_metadata_limit_exceeded", stage="artifact")
+        for source_row in source_rows:
+            _require(isinstance(source_row, dict), "selected_archive_metadata_invalid", stage="artifact")
+            identifier = _positive_int(source_row.get("id"), label="selected_archive_metadata_id")
+            _require(identifier not in all_metadata_ids, "selected_archive_metadata_id_conflict", stage="artifact")
+            all_metadata_ids.add(identifier)
+    used_ids: set[int] = set()
+    total_size = 0
+    for role, (kind, run_id, name, member) in expected.items():
+        selection = artifact_rows[role]
+        _require(isinstance(selection, dict) and set(selection) == {
+                     "role", "source_run_kind", "source_run_id", "source_run_attempt",
+                     "artifact_id", "artifact_name", "downloaded_member", "created_utc",
+                     "expires_utc", "size_bytes", "downloaded_size_bytes", "github_sha256", "downloaded_sha256",
+                 } and selection.get("role") == role,
+                 "selected_archive_index_invalid", stage="artifact")
+        run = subject if kind == "subject" else provider
+        _require(type(run.get("run_attempt")) is int and run["run_attempt"] == 1
+                 and run.get("head_sha") == source_commit,
+                 "selected_archive_run_mismatch", role, stage="artifact")
+        _require(selection.get("source_run_kind") == kind
+                 and type(selection.get("source_run_id")) is int and selection["source_run_id"] == run_id
+                 and type(selection.get("source_run_attempt")) is int and selection["source_run_attempt"] == 1,
+                 "selected_archive_run_mismatch", role, stage="artifact")
+        _require(selection.get("artifact_name") == name and selection.get("downloaded_member") == member,
+                 "selected_archive_selector_mismatch", role, stage="artifact")
+        matches = [row for row in listings[kind] if row.get("name") == name]
+        _require(len(matches) == 1, "selected_archive_metadata_not_unique", role, stage="artifact")
+        observed = matches[0]
+        identifier = _positive_int(selection.get("artifact_id"), label="selected_archive_id")
+        _require(identifier == observed.get("id") and identifier not in used_ids,
+                 "selected_archive_id_mismatch", role, stage="artifact")
+        used_ids.add(identifier)
+        workflow = observed.get("workflow_run")
+        _require(isinstance(workflow, dict) and type(workflow.get("id")) is int
+                 and workflow["id"] == run_id and workflow.get("head_sha") == source_commit
+                 and workflow.get("head_branch") == "main",
+                 "selected_archive_source_mismatch", role, stage="artifact")
+        snapshot = acquisition_files[member]
+        size = snapshot.size_bytes
+        _require(type(size) is int and 0 < size <= single_limit
+                 and all(type(value) is int and value == size for value in (
+                     observed.get("size_in_bytes"), selection.get("size_bytes"),
+                     selection.get("downloaded_size_bytes"))),
+                 "selected_archive_size_mismatch", role, stage="artifact")
+        _require(observed.get("digest") == "sha256:" + snapshot.sha256
+                 and selection.get("github_sha256") == selection.get("downloaded_sha256") == snapshot.sha256,
+                 "selected_archive_digest_mismatch", role, stage="artifact")
+        _require(observed.get("expired") is False
+                 and observed.get("created_at") == selection.get("created_utc")
+                 and observed.get("expires_at") == selection.get("expires_utc"),
+                 "selected_archive_retention_mismatch", role, stage="artifact")
+        created = _parse_utc(observed.get("created_at"), label="selected_archive_created")
+        expires = _parse_utc(observed.get("expires_at"), label="selected_archive_expires")
+        _require(_parse_utc(run.get("created_at"), label="selected_archive_run_created") <= created
+                 <= _parse_utc(run.get("updated_at"), label="selected_archive_run_completed")
+                 and created < expires,
+                 "selected_archive_retention_mismatch", role, stage="artifact")
+        # Do not compare expiry with today's clock: preserved bytes must remain
+        # replayable after their original GitHub artifact retention expires.
+        total_size += size
+    _require(total_size <= aggregate_limit, "selected_archive_aggregate_limit_exceeded", stage="artifact")
+
+
 def _zip_safe_name(info: zipfile.ZipInfo, *, label: str, allow_directory: bool) -> str | None:
     name = info.filename
     _require(isinstance(name, str) and name != "", "zip_member_name_invalid", label, stage="zip")
@@ -1921,14 +2051,14 @@ def build_capture(
         role="provider_jobs",
     )
     _validate_provider_job(provider_job_rows, provider_run_id=provider_run_id, source_commit=revision)
-    _load_paginated_rows(
+    subject_artifact_rows = _load_paginated_rows(
         acquisition_files=acquisition_files,
         members=subject_artifacts_info["page_members"],
         expected_total=subject_artifacts_info["total_count"],
         array_key="artifacts",
         role="subject_artifacts",
     )
-    _load_paginated_rows(
+    provider_artifact_rows = _load_paginated_rows(
         acquisition_files=acquisition_files,
         members=provider_artifacts_info["page_members"],
         expected_total=provider_artifacts_info["total_count"],
@@ -1941,6 +2071,16 @@ def build_capture(
         downloaded=index.get("downloaded_artifacts"),
         subject_run_id=subject_run_id,
         provider_run_id=provider_run_id,
+    )
+    _validate_selected_archive_evidence(
+        acquisition_files=acquisition_files,
+        artifact_rows=artifact_rows,
+        subject_artifacts=subject_artifact_rows,
+        provider_artifacts=provider_artifact_rows,
+        subject=subject,
+        provider=provider,
+        source_commit=revision,
+        finite_limits=finite,
     )
     provider_envelope = acquisition_files[PROVIDER_ENVELOPE_MEMBER]
     provider_binding = _validate_provider_envelope(
