@@ -43,8 +43,11 @@ import shlex
 import subprocess
 import unicodedata
 from dataclasses import dataclass
+from contextlib import contextmanager
+from contextvars import ContextVar
+from copy import deepcopy
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator
 
 import jsonschema
 import yaml
@@ -825,7 +828,47 @@ def _load_sources(root: Path, source_commit: str) -> dict[str, GitObject]:
     return source_by_path
 
 
+# This is syntax reuse, never a cached source check, mapping or verdict.
+# Each public operation (and the checker's reconstruction) starts a fresh scope.
+# Cache only the reviewed workflow; retain full bytes as the key, not just a
+# pathname or digest. Keep at most one private document and copy on every return.
+_YAML_PARSE_MEMO: ContextVar[dict[tuple[str, bytes], dict[str, Any]] | None] = (
+    ContextVar("step5c_yaml_parse_memo", default=None)
+)
+
+
+@contextmanager
+def _yaml_parse_scope() -> Iterator[None]:
+    memo: dict[tuple[str, bytes], dict[str, Any]] = {}
+    token = _YAML_PARSE_MEMO.set(memo)
+    try:
+        yield
+    finally:
+        memo.clear()
+        _YAML_PARSE_MEMO.reset(token)
+
+
 def _parse_yaml_document(data: bytes, *, label: str) -> dict[str, Any]:
+    memo = _YAML_PARSE_MEMO.get()
+    if not (
+        memo is not None
+        and type(data) is bytes
+        and label == SUBJECT_WORKFLOW_PATH
+        and _sha1_git_blob(data) == EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1
+    ):
+        return _parse_yaml_document_uncached(data, label=label)
+    key = (label, data)
+    if key not in memo:
+        value = _parse_yaml_document_uncached(data, label=label)
+        # Do not expose the private syntax object to any semantic consumer.
+        snapshot = deepcopy(value)
+        memo.clear()
+        memo[key] = snapshot
+        return value
+    return deepcopy(memo[key])
+
+
+def _parse_yaml_document_uncached(data: bytes, *, label: str) -> dict[str, Any]:
     _require(not data.startswith(b"\xef\xbb\xbf"), "yaml_bom_rejected", label)
     try:
         value = yaml.load(
@@ -4101,6 +4144,7 @@ def _schema_validate(plan: dict[str, Any], schema_bytes: bytes) -> None:
         raise PlanError("generated_plan_schema_rejected", f"{location}: {first.message}")
 
 
+@_yaml_parse_scope()
 def build_plan(
     *,
     repository_root: Path,

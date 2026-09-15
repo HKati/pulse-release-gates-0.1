@@ -7097,6 +7097,236 @@ def test_report_publication_keeps_generic_and_complete_acceptance_boundaries(sou
         VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
 
 
+# Performance-only: invocation-local syntax reuse, never a remembered verdict.
+def parse_reuse_module(side):
+    return BUILDER if side == 'builder' else PLAN_CHECKER
+
+
+def parse_reuse_outcome(call):
+    try:
+        return ('value', call())
+    except (BUILDER.PlanError, PLAN_CHECKER.PlanError) as exc:
+        return ('error', exc.code, exc.detail)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_parse_reuse_same_bytes_are_parsed_once_and_return_fresh_graphs(side):
+    module = parse_reuse_module(side)
+    data = (ROOT / module.SUBJECT_WORKFLOW_PATH).read_bytes()
+    assert module._YAML_PARSE_MEMO.get() is None
+    original = module._parse_yaml_document_uncached
+    with patch.object(module, '_parse_yaml_document_uncached', wraps=original) as parser:
+        with module._yaml_parse_scope():
+            first = module._parse_yaml_document(data, label=module.SUBJECT_WORKFLOW_PATH)
+            expected = copy.deepcopy(first)
+            first['jobs']['pulse']['steps'][0]['name'] = 'mutated consumer copy'
+            second = module._parse_yaml_document(data, label=module.SUBJECT_WORKFLOW_PATH)
+            assert second == expected and second is not first
+            second['jobs'].clear()
+            third = module._parse_yaml_document(data, label=module.SUBJECT_WORKFLOW_PATH)
+            assert third == expected and third is not second
+            assert parser.call_count == 1
+            retained = module._YAML_PARSE_MEMO.get()
+            assert len(retained) == 1
+        assert retained == {} and module._YAML_PARSE_MEMO.get() is None
+        with module._yaml_parse_scope():
+            assert module._parse_yaml_document(data, label=module.SUBJECT_WORKFLOW_PATH) == expected
+        assert parser.call_count == 2
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_parse_reuse_no_scope_means_no_reuse(side):
+    module = parse_reuse_module(side)
+    data = (ROOT / module.SUBJECT_WORKFLOW_PATH).read_bytes()
+    original = module._parse_yaml_document_uncached
+    with patch.object(module, '_parse_yaml_document_uncached', wraps=original) as parser:
+        assert module._parse_yaml_document(data, label=module.SUBJECT_WORKFLOW_PATH) == module._parse_yaml_document(data, label=module.SUBJECT_WORKFLOW_PATH)
+        assert parser.call_count == 2
+    assert module._YAML_PARSE_MEMO.get() is None
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('data', [b'', b'[]\n', b'value\n', b'\xff', b'\xef\xbb\xbfa: x\n',
+    b'a: one\na: two\n', b'a: [\n', b'---\na: x\n---\nb: y\n',
+    b'a: &v [one, two]\nb: *v\n', b'a: 1\non: true\n'])
+def test_parse_reuse_preserves_uncached_yaml_values_and_errors_when_warm(side, data):
+    module = parse_reuse_module(side)
+    label = module.SUBJECT_WORKFLOW_PATH
+    expected = parse_reuse_outcome(lambda: module._parse_yaml_document_uncached(data, label=label))
+    with module._yaml_parse_scope():
+        module._parse_yaml_document((ROOT / label).read_bytes(), label=label)
+        for _ in range(2):
+            assert parse_reuse_outcome(lambda: module._parse_yaml_document(data, label=label)) == expected
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_parse_reuse_key_checks_full_bytes_even_with_equal_claimed_hash(side):
+    module = parse_reuse_module(side)
+    a, b = b'key: one\n', b'key: two\n'
+    original = module._parse_yaml_document_uncached
+    # Hash-collision/forged-eligibility simulation is confined to this unit test.
+    with patch.object(module, '_sha1_git_blob', return_value=module.EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1):
+        with patch.object(module, '_parse_yaml_document_uncached', wraps=original) as parser:
+            with module._yaml_parse_scope():
+                assert module._parse_yaml_document(a, label=module.SUBJECT_WORKFLOW_PATH) == {'key': 'one'}
+                assert module._parse_yaml_document(b, label=module.SUBJECT_WORKFLOW_PATH) == {'key': 'two'}
+                assert module._parse_yaml_document(a, label=module.SUBJECT_WORKFLOW_PATH) == {'key': 'one'}
+                assert parser.call_count == 3
+                assert len(module._YAML_PARSE_MEMO.get()) == 1
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_parse_reuse_does_not_cache_failures_or_other_labels(side):
+    module = parse_reuse_module(side)
+    data = (ROOT / module.SUBJECT_WORKFLOW_PATH).read_bytes()
+    original = module._parse_yaml_document_uncached
+    with patch.object(module, '_parse_yaml_document_uncached', wraps=original) as parser:
+        with module._yaml_parse_scope():
+            for _ in range(2):
+                module._parse_yaml_document(data, label='other.yml')
+            assert parser.call_count == 2 and module._YAML_PARSE_MEMO.get() == {}
+            with patch.object(module, '_sha1_git_blob', return_value=module.EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1):
+                for _ in range(2):
+                    with pytest.raises(module.PlanError, match='duplicate_yaml_key'):
+                        module._parse_yaml_document(b'a: x\na: y\n', label=module.SUBJECT_WORKFLOW_PATH)
+            assert parser.call_count == 4 and module._YAML_PARSE_MEMO.get() == {}
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_parse_reuse_nested_scopes_restore_and_clear_even_on_exception(side):
+    module = parse_reuse_module(side)
+    data = (ROOT / module.SUBJECT_WORKFLOW_PATH).read_bytes()
+    original = module._parse_yaml_document_uncached
+    with patch.object(module, '_parse_yaml_document_uncached', wraps=original) as parser:
+        with module._yaml_parse_scope():
+            module._parse_yaml_document(data, label=module.SUBJECT_WORKFLOW_PATH)
+            outer = module._YAML_PARSE_MEMO.get()
+            with pytest.raises(RuntimeError, match='controlled scope failure'):
+                with module._yaml_parse_scope():
+                    inner = module._YAML_PARSE_MEMO.get()
+                    assert inner is not outer and inner == {}
+                    module._parse_yaml_document(data, label=module.SUBJECT_WORKFLOW_PATH)
+                    raise RuntimeError('controlled scope failure')
+            assert inner == {} and module._YAML_PARSE_MEMO.get() is outer
+            module._parse_yaml_document(data, label=module.SUBJECT_WORKFLOW_PATH)
+            assert parser.call_count == 2
+        assert outer == {} and module._YAML_PARSE_MEMO.get() is None
+
+
+def test_parse_reuse_builder_and_checker_have_separate_syntax_stores():
+    assert BUILDER._YAML_PARSE_MEMO is not PLAN_CHECKER._YAML_PARSE_MEMO
+    data = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    with BUILDER._yaml_parse_scope():
+        BUILDER._parse_yaml_document(data, label=BUILDER.SUBJECT_WORKFLOW_PATH)
+        assert PLAN_CHECKER._YAML_PARSE_MEMO.get() is None
+        with PLAN_CHECKER._yaml_parse_scope():
+            assert PLAN_CHECKER._YAML_PARSE_MEMO.get() == {}
+            PLAN_CHECKER._parse_yaml_document(data, label=PLAN_CHECKER.SUBJECT_WORKFLOW_PATH)
+            assert PLAN_CHECKER._YAML_PARSE_MEMO.get() is not BUILDER._YAML_PARSE_MEMO.get()
+    assert BUILDER._YAML_PARSE_MEMO.get() is PLAN_CHECKER._YAML_PARSE_MEMO.get() is None
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_parse_reuse_warm_cache_does_not_accept_altered_workflow_or_source(side, recorded_source_objects):
+    module = parse_reuse_module(side)
+    method = (module._report_publication_source_projection if side == 'builder'
+              else module._source_report_publication_expectations)
+    data = recorded_source_objects[module.SUBJECT_WORKFLOW_PATH].data
+    with module._yaml_parse_scope():
+        document = module._parse_yaml_document(data, label=module.SUBJECT_WORKFLOW_PATH)
+        baseline = method(document, recorded_source_objects)
+        bad_document = copy.deepcopy(document)
+        bad_document['jobs']['release_grade_recorded_path']['steps'][30]['with']['name'] = 'wrong'
+        with pytest.raises(module.PlanError):
+            method(bad_document, recorded_source_objects)
+        bad_sources = dict(recorded_source_objects)
+        bad_sources[module.SUBJECT_WORKFLOW_PATH] = replace(
+            bad_sources[module.SUBJECT_WORKFLOW_PATH], data=data + b'\n# altered bytes\n')
+        with pytest.raises(module.PlanError):
+            method(document, bad_sources)
+        assert method(document, recorded_source_objects) == baseline
+
+
+def test_parse_reuse_full_plan_bytes_equal_original_parser_on_same_source(source_fixture):
+    f = source_fixture
+    args = dict(repository_root=f.root, source_commit=f.sha, record_status='example')
+    with patch.object(BUILDER, '_parse_yaml_document_uncached', wraps=BUILDER._parse_yaml_document_uncached) as parser:
+        cached = BUILDER._canonical_json_bytes(BUILDER.build_plan(**args))
+        # Subject once; provider and policy still use their original parser.
+        calls = [c for c in parser.call_args_list if c.kwargs['label'] == BUILDER.SUBJECT_WORKFLOW_PATH]
+        assert len(calls) == 1
+    with patch.object(BUILDER, '_parse_yaml_document', BUILDER._parse_yaml_document_uncached):
+        fresh = BUILDER._canonical_json_bytes(BUILDER.build_plan(**args))
+    assert cached == fresh == f.plan_raw
+    assert BUILDER._YAML_PARSE_MEMO.get() is None
+
+
+def parse_reuse_installed_checker(f):
+    name = 'step5c_parse_reuse_installed_checker'
+    spec = importlib.util.spec_from_file_location(name, f.root / PLAN_CHECKER.PLAN_CHECKER_PATH)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def parse_reuse_check_args(f, path, raw):
+    return dict(repository_root=f.root, plan_path=path, expected_source_commit=f.sha,
+                expected_plan_sha256=digest(raw), expected_record_status='example', expected_plan_id=None)
+
+
+def test_parse_reuse_checker_verdict_bytes_equal_fresh_parsing_and_reconstruction_is_separate(source_fixture):
+    f = source_fixture; module = parse_reuse_installed_checker(f)
+    args = parse_reuse_check_args(f, f.plan_path, f.plan_raw)
+    with patch.object(module, '_parse_yaml_document_uncached', wraps=module._parse_yaml_document_uncached) as parser:
+        cached = module._canonical_json_bytes(module.check_plan(**args))
+        subject_calls = [c for c in parser.call_args_list if c.kwargs['label'] == module.SUBJECT_WORKFLOW_PATH]
+        # Source predicates and independent reconstruction each parse afresh.
+        assert len(subject_calls) == 2
+    with patch.object(module, '_parse_yaml_document', module._parse_yaml_document_uncached):
+        fresh = module._canonical_json_bytes(module.check_plan(**args))
+    assert cached == fresh == f.diagnostic.read_bytes()
+    assert module._YAML_PARSE_MEMO.get() is None
+
+
+@pytest.mark.parametrize('fault', ['omit:self-contained-evidence-floor', 'root_junit_alias',
+                                   'invent:pre-materialization-status', 'origin'])
+def test_parse_reuse_rehashed_rejections_equal_original_parser_after_success(source_fixture, tmp_path, fault):
+    f = source_fixture; module = parse_reuse_installed_checker(f)
+    module.check_plan(**parse_reuse_check_args(f, f.plan_path, f.plan_raw))
+    bad = corrupt_report_publication_plan(f.plan, fault)
+    jsonschema.Draft202012Validator(json.loads((f.root / module.SCHEMA_PATH).read_bytes())).validate(bad)
+    raw = canonical(bad); path = tmp_path / 'rehashed-plan.json'; path.write_bytes(raw)
+    args = parse_reuse_check_args(f, path, raw)
+    def outcome():
+        try:
+            module.check_plan(**args)
+        except module.PlanError as exc:
+            return exc.code, exc.detail
+        raise AssertionError('Corrupted plan was accepted')
+    cached = outcome()
+    with patch.object(module, '_parse_yaml_document', module._parse_yaml_document_uncached):
+        assert outcome() == cached
+    assert module._YAML_PARSE_MEMO.get() is None
+    # Rejection must not poison a later valid invocation.
+    assert module.check_plan(**parse_reuse_check_args(f, f.plan_path, f.plan_raw))['ok'] is True
+
+
+@pytest.mark.parametrize('side,entry', [('builder', 'build_plan'), ('checker', 'check_plan'),
+                                      ('checker', '_reconstruct_expected_plan')])
+def test_parse_reuse_operation_exception_cleans_invocation_scope(side, entry, tmp_path):
+    module = parse_reuse_module(side)
+    if entry == 'check_plan':
+        args = dict(repository_root=tmp_path / 'missing', plan_path=tmp_path / 'absent.json',
+                    expected_source_commit='a' * 40, expected_plan_sha256='b' * 64,
+                    expected_record_status='example', expected_plan_id=None)
+    else:
+        args = dict(repository_root=tmp_path / 'missing', source_commit='a' * 40, record_status='example')
+    with pytest.raises(module.PlanError, match='repository_root_not_directory'):
+        getattr(module, entry)(**args)
+    assert module._YAML_PARSE_MEMO.get() is None
+
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.
