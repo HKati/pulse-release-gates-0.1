@@ -60,6 +60,7 @@ import subprocess
 import tempfile
 import unicodedata
 import zipfile
+import zlib
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, BinaryIO, Iterable, Mapping, MutableMapping, Sequence
@@ -1202,6 +1203,258 @@ def _check_selected_archive_evidence(
     require(total <= aggregate, "selected_archive_aggregate_limit_exceeded", stage="artifact")
 
 
+
+# Independent inner selectors for the three additional subject-owned archives.
+# Do not import the producer inventory or use its derived membership verdict.
+_STATE_ARCHIVE_LAYOUT = (
+    ("pre_attestation_pulse_artifacts", "acquisition/subject/artifacts/pulse-pre-attestation.zip", frozenset((
+        "status_summary_baseline.md",
+        "status_summary_baseline.json",
+        "status_baseline.json",
+        "status.json",
+        "self_contained_pulse_evidence_floor_v0.json",
+        "required_gate_evidence_v0.json",
+        "refusal_delta_summary.json",
+        "external/llamaguard_summary.json",
+        "external/llamaguard_raw.jsonl",
+        "external/llamaguard_evaluator_manifest_v0.json",
+    ))),
+    ("release_grade_recorded_path", "acquisition/subject/artifacts/release-grade-recorded-path.zip", frozenset((
+        "status_summary_baseline.md",
+        "status_summary_baseline.json",
+        "status_summary.md",
+        "status_summary.json",
+        "status_baseline.json",
+        "status.json",
+        "self_contained_pulse_evidence_floor_v0.json",
+        "required_gate_evidence_v0.json",
+        "reports/sarif.json",
+        "reports/junit.xml",
+        "report_card.with_release_decision.html",
+        "report_card.html",
+        "release_evidence_input_manifest_v0.json",
+        "release_decision_v0_ledger_section.html",
+        "release_decision_v0.json",
+        "release_authority_v0.json",
+        "refusal_delta_summary.json",
+        "recorded_release_evidence_verifier_v0.json",
+        "recorded_release_candidates/refusal_delta_summary.json",
+        "recorded_release_candidates/external_llamaguard.json",
+        "recorded_release_candidates/detector_materialization.json",
+        "recorded_release_candidate_index_v0.json",
+        "external/llamaguard_summary.json",
+        "external/llamaguard_summary.envelope.json",
+        "external/llamaguard_summary.bundle.json",
+        "external/llamaguard_raw.jsonl",
+        "external/llamaguard_evaluator_manifest_v0.json",
+        "external/llamaguard_attestation_verifier_v1.json",
+        "artifact_provenance_binding_v0.json",
+    ))),
+    ("advisory_reference_bundle", "acquisition/subject/artifacts/release-grade-reference-run-v0.zip", frozenset((
+        "reports/sarif.json",
+        "reports/junit.xml",
+        "release-authority-audit-bundle/status.json",
+        "release-authority-audit-bundle/report_card.html",
+        "release-authority-audit-bundle/release_authority_v0.json",
+        "artifacts/status.json",
+        "artifacts/report_card.html",
+        "artifacts/release_authority_v0.json",
+        "artifacts/external/llamaguard_summary.json",
+    ))),
+)
+
+
+def _inspect_state_archive_bytes(
+    raw: bytes, expected: frozenset[str], *, member_limit: int, single_limit: int, expansion_limit: int,
+) -> tuple[dict[str, tuple[str, int]], dict[str, bytes], int]:
+    """Inspect arbitrary original ZIP transport without extracting payloads."""
+    require(type(raw) is bytes and raw, "state_archive_missing", stage="state_archive")
+    hashes: dict[str, tuple[str, int]] = {}
+    payloads: dict[str, bytes] = {}
+    parent_names = set()
+    for filename in expected:
+        parts = filename.split("/")
+        parent_names.update("/".join(parts[:i]) for i in range(1, len(parts)))
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw), "r") as archive:
+            listing = archive.infolist()
+            require(0 < len(listing) <= min(member_limit, 4096),
+                    "state_archive_member_limit_exceeded", stage="state_archive")
+            visited: set[str] = set()
+            selected = []
+            declared_bytes = 0
+            for info in listing:
+                original = info.orig_filename
+                require(original == info.filename and type(original) is str,
+                        "state_archive_member_name_invalid", stage="state_archive")
+                is_directory = original.endswith("/")
+                normalized = original[:-1] if is_directory else original
+                require(re.fullmatch(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*", normalized) is not None
+                        and all(part not in {".", ".."} for part in normalized.split("/"))
+                        and normalized not in visited,
+                        "state_archive_member_name_invalid", stage="state_archive")
+                visited.add(normalized)
+                mode_type = stat.S_IFMT(info.external_attr >> 16)
+                require((is_directory and mode_type in {0, stat.S_IFDIR})
+                        or (not is_directory and mode_type in {0, stat.S_IFREG} and not info.external_attr & 0x10),
+                        "state_archive_nonregular_member", stage="state_archive")
+                require(not info.flag_bits & (1 | 64)
+                        and info.compress_type in (zipfile.ZIP_DEFLATED, zipfile.ZIP_STORED),
+                        "state_archive_encoding_unsupported", stage="state_archive")
+                if is_directory:
+                    require(normalized in parent_names and info.file_size == 0,
+                            "state_archive_member_set_mismatch", stage="state_archive")
+                else:
+                    require(original in expected, "state_archive_member_set_mismatch", stage="state_archive")
+                    require(0 < info.file_size <= single_limit,
+                            "state_archive_member_size_invalid", stage="state_archive")
+                    declared_bytes += info.file_size
+                    require(declared_bytes <= expansion_limit, "state_archive_expansion_limit_exceeded", stage="state_archive")
+                    selected.append(info)
+            require({info.filename for info in selected} == expected,
+                    "state_archive_member_set_mismatch", stage="state_archive")
+            for info in selected:
+                name = info.filename
+                retain_json = name.startswith("recorded_release_candidates/") or name == "recorded_release_candidate_index_v0.json"
+                if retain_json:
+                    require(info.file_size <= 16 * 1024 * 1024, "state_archive_index_size_invalid", stage="state_archive")
+                digest = hashlib.sha256()
+                size = 0
+                document = bytearray()
+                with archive.open(info, "r") as stream:
+                    for chunk in iter(lambda: stream.read(HASH_CHUNK), b""):
+                        size += len(chunk)
+                        require(size <= info.file_size and size <= single_limit,
+                                "state_archive_member_size_invalid", stage="state_archive")
+                        digest.update(chunk)
+                        if retain_json:
+                            document.extend(chunk)
+                require(size == info.file_size, "state_archive_member_size_invalid", stage="state_archive")
+                hashes[name] = (digest.hexdigest(), size)
+                if retain_json:
+                    payloads[name] = bytes(document)
+            return hashes, payloads, len(listing)
+    except VerificationError:
+        raise
+    except (OSError, ValueError, RuntimeError, NotImplementedError, EOFError, zipfile.BadZipFile, zlib.error):
+        raise VerificationError("state_archive_zip_invalid", stage="state_archive") from None
+
+
+def _parse_state_archive_index(raw: bytes) -> dict[str, Any]:
+    try:
+        value = parse_json_bytes(raw, label="state_archive_index", canonical=False, maximum=16 * 1024 * 1024)
+        # Match the actual selected writer's integer/string JSON profile, not
+        # generic inference payloads. No input key or value enters a diagnostic.
+        stack = [value]
+        while stack:
+            item = stack.pop()
+            if type(item) is float:
+                raise ValueError()
+            if isinstance(item, dict):
+                stack.extend(item.keys()); stack.extend(item.values())
+            elif isinstance(item, list):
+                stack.extend(item)
+            elif isinstance(item, str):
+                if unicodedata.normalize("NFC", item) != item:
+                    raise ValueError()
+        return value
+    except (VerificationError, ValueError, RecursionError):
+        raise VerificationError("state_archive_index_invalid", stage="state_archive") from None
+
+
+def _check_subject_state_archives(
+    plan: Mapping[str, Any], manifest: Mapping[str, Any], members: Mapping[str, bytes],
+) -> dict[str, dict[str, tuple[str, int]]]:
+    """Check member closure/copy identity independently; do not promote R2."""
+    finite = plan.get("finite_limits", {})
+    require(isinstance(finite, Mapping), "state_archive_limits_invalid", stage="state_archive")
+    max_count = finite.get("max_capture_members")
+    max_single = finite.get("max_single_artifact_bytes")
+    max_expanded = finite.get("max_capture_uncompressed_bytes")
+    require(type(max_count) is int and 0 < max_count <= MAX_CAPTURE_MEMBERS
+            and type(max_single) is int and 0 < max_single <= 805306368
+            and type(max_expanded) is int and 0 < max_expanded <= MAX_CAPTURE_BYTES,
+            "state_archive_limits_invalid", stage="state_archive")
+    views = {}
+    documents = {}
+    totals = counts = 0
+    for role, member, expected in _STATE_ARCHIVE_LAYOUT:
+        hashes, captured_json, count = _inspect_state_archive_bytes(
+            members.get(member), expected, member_limit=max_count - counts,
+            single_limit=max_single, expansion_limit=max_expanded - totals,
+        )
+        counts += count
+        totals += sum(value[1] for value in hashes.values())
+        require(counts <= max_count, "state_archive_member_limit_exceeded", stage="state_archive")
+        require(totals <= max_expanded, "state_archive_expansion_limit_exceeded", stage="state_archive")
+        views[role] = hashes
+        if role == "release_grade_recorded_path":
+            documents = captured_json
+    pre = views["pre_attestation_pulse_artifacts"]
+    recorded = views["release_grade_recorded_path"]
+    advisory = views["advisory_reference_bundle"]
+    unchanged = (
+        "status_baseline.json", "status_summary_baseline.md", "status_summary_baseline.json",
+        "required_gate_evidence_v0.json", "self_contained_pulse_evidence_floor_v0.json",
+        "refusal_delta_summary.json", "external/llamaguard_raw.jsonl",
+        "external/llamaguard_evaluator_manifest_v0.json", "external/llamaguard_summary.json",
+    )
+    for member in unchanged:
+        require(pre[member] == recorded[member], "state_archive_same_version_mismatch", stage="state_archive")
+    # Explicit inverse groups avoid confusing pre-R9 status or root-level CI
+    # reports with the selected final/pack-local versions.
+    for member in ("status.json", "report_card.html", "release_authority_v0.json"):
+        require(recorded[member] == advisory["artifacts/" + member]
+                == advisory["release-authority-audit-bundle/" + member],
+                "state_archive_same_version_mismatch", stage="state_archive")
+    for origin, copy_name in (("external/llamaguard_summary.json", "artifacts/external/llamaguard_summary.json"),
+                              ("reports/junit.xml", "reports/junit.xml"), ("reports/sarif.json", "reports/sarif.json")):
+        require(recorded[origin] == advisory[copy_name], "state_archive_same_version_mismatch", stage="state_archive")
+    index = _parse_state_archive_index(documents["recorded_release_candidate_index_v0.json"])
+    candidate_ids = ("detector_materialization", "external_llamaguard", "refusal_delta_summary")
+    require(index.get("schema_version") == "recorded_release_candidate_index_v0"
+            and index.get("candidate_ids") == list(candidate_ids)
+            and index.get("external_candidate_ids") == ["external_llamaguard"]
+            and isinstance(index.get("candidates"), dict)
+            and set(index["candidates"]) == set(candidate_ids),
+            "state_archive_candidate_inventory_mismatch", stage="state_archive")
+    subject = manifest["subject"]
+    revision = plan["plan_identity"]["source_commit"]
+    run_id = subject.get("run_id")
+    require(type(run_id) is int and run_id > 0 and type(subject.get("run_attempt")) is int
+            and subject["run_attempt"] == 1 and subject.get("head_sha") == revision,
+            "state_archive_subject_mismatch", stage="state_archive")
+    binding = {"git_sha": revision, "run_key": f"GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"}
+    identity = index.get("run_identity")
+    require(isinstance(identity, dict) and all(identity.get(key) == value for key, value in binding.items()),
+            "state_archive_subject_mismatch", stage="state_archive")
+    for identifier in candidate_ids:
+        member = f"recorded_release_candidates/{identifier}.json"
+        envelope = _parse_state_archive_index(documents[member])
+        entry = index["candidates"][identifier]
+        require(isinstance(entry, dict) and set(entry) == {
+                    "path", "sha256", "schema_version", "required_for_gates", "subject_binding"}
+                and entry.get("path") == f"PULSE_safe_pack_v0/artifacts/{member}"
+                and entry.get("sha256") == sha256_bytes(documents[member])
+                and entry.get("schema_version") == envelope.get("schema_version") == "recorded_release_candidate_envelope_v0"
+                and envelope.get("evidence_id") == identifier
+                and entry.get("subject_binding") == envelope.get("subject_binding") == binding
+                and isinstance(envelope.get("run_identity"), dict)
+                and all(envelope["run_identity"].get(key) == value for key, value in binding.items())
+                and isinstance(entry.get("required_for_gates"), list)
+                and entry["required_for_gates"] == envelope.get("required_for_gates"),
+                "state_archive_candidate_binding_mismatch", stage="state_archive")
+    origins = index.get("source_bindings")
+    require(isinstance(origins, dict), "state_archive_pre_state_binding_mismatch", stage="state_archive")
+    for key, member in {"candidate_status": "status.json", "required_gate_evidence": "required_gate_evidence_v0.json"}.items():
+        source_binding = origins.get(key)
+        require(isinstance(source_binding, dict)
+                and source_binding.get("path") == "PULSE_safe_pack_v0/artifacts/" + member
+                and source_binding.get("sha256") == pre[member][0],
+                "state_archive_pre_state_binding_mismatch", stage="state_archive")
+    return views
+
+
 def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, Any], expected_plan_sha256: str, expected_context_raw: bytes, record_status: str, source_commit: str) -> tuple[dict[str, Any], dict[str, bytes], bytes]:
     raw = path.read_bytes()
     members = read_canonical_zip_bytes(
@@ -1269,6 +1522,7 @@ def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, An
     require(subject.get("head_sha") == provider.get("head_sha") == source_commit, "capture_run_source_mismatch", stage="capture")
     require(CAPTURE_PROVIDER_ENVELOPE_MEMBER in members, "provider_envelope_missing", stage="capture")
     _check_selected_archive_evidence(plan, manifest, members)
+    _check_subject_state_archives(plan, manifest, members)
     return manifest, members, raw
 
 

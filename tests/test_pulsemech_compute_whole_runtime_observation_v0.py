@@ -778,6 +778,75 @@ _ADDITIONAL_SUBJECT_ARCHIVES = (
 )
 
 
+
+# Literal EXAMPLE layouts, independent of both production inventories. These
+# small payloads test transport/member/copy identity, not valid release evidence.
+_INNER_PRE_MEMBERS = (
+    'status.json', 'status_baseline.json', 'status_summary_baseline.md',
+    'status_summary_baseline.json', 'required_gate_evidence_v0.json',
+    'self_contained_pulse_evidence_floor_v0.json', 'refusal_delta_summary.json',
+    'external/llamaguard_raw.jsonl', 'external/llamaguard_evaluator_manifest_v0.json',
+    'external/llamaguard_summary.json',
+)
+_INNER_RECORDED_ONLY = (
+    'status_summary.md', 'status_summary.json',
+    'recorded_release_candidate_index_v0.json', 'release_evidence_input_manifest_v0.json',
+    'recorded_release_evidence_verifier_v0.json', 'release_decision_v0.json',
+    'release_decision_v0_ledger_section.html', 'report_card.html',
+    'report_card.with_release_decision.html', 'release_authority_v0.json',
+    'artifact_provenance_binding_v0.json', 'reports/junit.xml', 'reports/sarif.json',
+    'external/llamaguard_summary.bundle.json', 'external/llamaguard_summary.envelope.json',
+    'external/llamaguard_attestation_verifier_v1.json',
+)
+_INNER_CANDIDATE_IDS = ('detector_materialization', 'external_llamaguard', 'refusal_delta_summary')
+_INNER_ADVISORY_COPIES = {
+    'artifacts/status.json': 'status.json',
+    'artifacts/report_card.html': 'report_card.html',
+    'artifacts/release_authority_v0.json': 'release_authority_v0.json',
+    'artifacts/external/llamaguard_summary.json': 'external/llamaguard_summary.json',
+    'reports/junit.xml': 'reports/junit.xml', 'reports/sarif.json': 'reports/sarif.json',
+    'release-authority-audit-bundle/status.json': 'status.json',
+    'release-authority-audit-bundle/report_card.html': 'report_card.html',
+    'release-authority-audit-bundle/release_authority_v0.json': 'release_authority_v0.json',
+}
+
+
+def example_state_archive_members(source_commit):
+    pre = {name: canonical({'record_status': 'example', 'member': name})
+           for name in _INNER_PRE_MEMBERS}
+    pre['status.json'] = canonical({'record_status': 'example', 'version': 'pre-R9',
+        'content': 'OPAQUE_EXAMPLE_CANARY_pre_attestation_pulse_artifacts'})
+    recorded = {**pre, **{name: canonical({'record_status': 'example', 'member': name})
+                         for name in _INNER_RECORDED_ONLY}}
+    recorded['status.json'] = canonical({'record_status': 'example', 'version': 'post-R9',
+        'content': 'OPAQUE_EXAMPLE_CANARY_release_grade_recorded_path'})
+    recorded['report_card.html'] = b'<p>OPAQUE_EXAMPLE_CANARY_advisory_reference_bundle</p>\n'
+    run_key = f'GITHUB_RUN_ID={EXAMPLE_SUBJECT_ID}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI'
+    binding = {'git_sha': source_commit, 'run_key': run_key}
+    index = {'schema_version': 'recorded_release_candidate_index_v0',
+        'run_identity': dict(binding), 'candidate_ids': list(_INNER_CANDIDATE_IDS),
+        'external_candidate_ids': ['external_llamaguard'], 'candidates': {},
+        'source_bindings': {key: {'path': 'PULSE_safe_pack_v0/artifacts/' + name,
+                                 'sha256': digest(pre[name])}
+            for key, name in (('candidate_status', 'status.json'),
+                              ('required_gate_evidence', 'required_gate_evidence_v0.json'))}}
+    for evidence_id in _INNER_CANDIDATE_IDS:
+        name = 'recorded_release_candidates/' + evidence_id + '.json'
+        envelope = {'schema_version': 'recorded_release_candidate_envelope_v0',
+            'evidence_id': evidence_id, 'record_status': 'example',
+            'run_identity': dict(binding), 'subject_binding': dict(binding),
+            'required_for_gates': ['example_gate']}
+        recorded[name] = canonical(envelope)
+        index['candidates'][evidence_id] = {
+            'path': 'PULSE_safe_pack_v0/artifacts/' + name, 'sha256': digest(recorded[name]),
+            'schema_version': envelope['schema_version'],
+            'subject_binding': dict(binding), 'required_for_gates': ['example_gate']}
+    recorded['recorded_release_candidate_index_v0.json'] = canonical(index)
+    advisory = {destination: recorded[source] for destination, source in _INNER_ADVISORY_COPIES.items()}
+    return {'pre_attestation_pulse_artifacts': pre,
+            'release_grade_recorded_path': recorded, 'advisory_reference_bundle': advisory}
+
+
 class ExampleTransport:
     """Exact endpoint allowlist; any unexpected or live request is a test error."""
     def __init__(self, plan, source_commit, *, change=None):
@@ -797,12 +866,10 @@ class ExampleTransport:
             raw = artifacts[role]
             self.downloads[identifier] = raw
             self.subject_artifacts.append(artifact_row(identifier, name.format(run_id=EXAMPLE_SUBJECT_ID), raw, source_commit, EXAMPLE_SUBJECT_ID))
-        # Transport-only examples, deliberately not complete inner R2 proofs.
+        # Closed-layout examples, deliberately not complete inner R2 proofs.
+        state_archives = example_state_archive_members(source_commit)
         for index, (role, name, _) in enumerate(_ADDITIONAL_SUBJECT_ARCHIVES, 5):
-            raw = example_zip({'fixture-only.json': canonical({
-                'record_status': 'example', 'purpose': role,
-                'content': 'OPAQUE_EXAMPLE_CANARY_' + role,
-            })})
+            raw = example_zip(state_archives[role])
             identifier = 40000 + index
             self.downloads[identifier] = raw
             self.subject_artifacts.append(artifact_row(identifier, name.format(run_id=EXAMPLE_SUBJECT_ID),
@@ -8615,6 +8682,450 @@ def test_expanded_archive_public_capture_and_read_reject_rehashed_legacy_four(
     with pytest.raises(VERIFIER.VerificationError) as error:
         selected_archive_read(target, case, source_fixture)
     assert error.value.code == 'selected_archive_binding_set_mismatch'
+
+
+
+# ---------------------------------------------------------------------------
+# Source-rooted inner intake for P37/R33/R32. Hashes resealed below do not
+# authorize changed membership, wrong state versions, or a forged index.
+# ---------------------------------------------------------------------------
+_INNER_ROLES = tuple(row[0] for row in _ADDITIONAL_SUBJECT_ARCHIVES)
+_INNER_PATHS = {role: member for role, _, member in _ADDITIONAL_SUBJECT_ARCHIVES}
+_INNER_LAYOUTS = {
+    'pre_attestation_pulse_artifacts': set(_INNER_PRE_MEMBERS),
+    'release_grade_recorded_path': set(_INNER_PRE_MEMBERS) | set(_INNER_RECORDED_ONLY)
+        | {'recorded_release_candidates/' + name + '.json' for name in _INNER_CANDIDATE_IDS},
+    'advisory_reference_bundle': set(_INNER_ADVISORY_COPIES),
+}
+
+
+def inner_members(case, role):
+    with zipfile.ZipFile(io.BytesIO(case.members['acquisition/' + _INNER_PATHS[role]])) as archive:
+        return {info.filename: archive.read(info) for info in archive.infolist() if not info.is_dir()}
+
+
+def inner_replace_raw(case, role, raw):
+    """Intentionally repair EVERY outer binding, not the inner evidence."""
+    selected, metadata, binding = selected_archive_rows(case, role)
+    case.members['acquisition/' + _INNER_PATHS[role]] = raw
+    sha = digest(raw)
+    selected.update(size_bytes=len(raw), downloaded_size_bytes=len(raw),
+                    github_sha256=sha, downloaded_sha256=sha)
+    metadata.update(size_in_bytes=len(raw), digest='sha256:' + sha)
+    binding.update(size_bytes=len(raw), downloaded_size_bytes=len(raw),
+                   github_sha256=sha, downloaded_sha256=sha)
+    return selected_archive_seal(case)
+
+
+def inner_replace_members(case, role, content):
+    return inner_replace_raw(case, role, example_zip(content))
+
+
+def inner_check(side, case, plan, directory):
+    if side == 'verifier':
+        return VERIFIER._check_subject_state_archives(plan, case.manifest, case.members)
+    snapshots = {}
+    directory.mkdir(parents=True, exist_ok=True)
+    for role in _INNER_ROLES:
+        relative = _INNER_PATHS[role]
+        raw = case.members.get('acquisition/' + relative)
+        if raw is None:
+            continue
+        path = directory / (role + '.zip')
+        path.write_bytes(raw); path.chmod(0o444)
+        snapshots[relative] = CAPTURER._snapshot_file(
+            path, relative=relative, maximum=CAPTURER.MAX_CARRIER_MEMBER_BYTES, require_read_only=True)
+    return CAPTURER._validate_subject_state_archives(
+        acquisition_files=snapshots, plan=plan, subject=case.manifest['subject'])
+
+
+def inner_assert_rejected(side, case, plan, directory, code):
+    # The new boundary, rather than an old stale-outer-hash rejection, must fire.
+    selected_archive_check(side, case, plan)
+    error_type = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    with pytest.raises(error_type) as caught:
+        inner_check(side, case, plan, directory)
+    assert caught.value.code == code
+    assert caught.value.stage == 'state_archive'
+    assert 'PRIVATE_INNER_CANARY' not in str(caught.value)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_inner_archive_original_bytes_are_nonmutating_and_versions_remain_distinct(
+    selected_archive_fixture, source_fixture, tmp_path, side,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    before = dict(case.members), canonical(case.manifest)
+    views = inner_check(side, case, source_fixture.plan, tmp_path)
+    assert {role: len(view) for role, view in views.items()} == {
+        'pre_attestation_pulse_artifacts': 10, 'release_grade_recorded_path': 29,
+        'advisory_reference_bundle': 9}
+    assert views['pre_attestation_pulse_artifacts']['status.json'] != views['release_grade_recorded_path']['status.json']
+    assert before == (case.members, canonical(case.manifest))
+    assert 'evidence_profile' not in source_fixture.plan
+    assert case.manifest['authority_boundary']['active_gate_eligible'] is False
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('role,member', [(r, m) for r, names in _INNER_LAYOUTS.items() for m in sorted(names)])
+def test_inner_archive_every_required_member_is_mandatory_after_rehash(
+    selected_archive_fixture, source_fixture, tmp_path, side, role, member,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    content = inner_members(case, role); del content[member]
+    inner_replace_members(case, role, content)
+    inner_assert_rejected(side, case, source_fixture.plan, tmp_path, 'state_archive_member_set_mismatch')
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('role', _INNER_ROLES)
+@pytest.mark.parametrize('mutation', ['extra', 'wrong_root', 'empty', 'nested_zip'])
+def test_inner_archive_closed_selectors_reject_extras_aliases_and_empty_content(
+    selected_archive_fixture, source_fixture, tmp_path, side, role, mutation,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    content = inner_members(case, role); member = sorted(content)[0]
+    code = 'state_archive_member_set_mismatch'
+    if mutation == 'extra': content['PRIVATE_INNER_CANARY.json'] = b'private'
+    elif mutation == 'wrong_root': content['PULSE_safe_pack_v0/artifacts/' + member] = content.pop(member)
+    elif mutation == 'nested_zip': content = {'nested.zip': example_zip(content)}
+    else:
+        content[member] = b''; code = 'state_archive_member_size_invalid'
+    inner_replace_members(case, role, content)
+    inner_assert_rejected(side, case, source_fixture.plan, tmp_path, code)
+
+
+_INNER_COPY_MUTATIONS = [('pre_attestation_pulse_artifacts', name)
+    for name in _INNER_PRE_MEMBERS if name != 'status.json'] + [
+    ('advisory_reference_bundle', name) for name in _INNER_ADVISORY_COPIES]
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('role,member', _INNER_COPY_MUTATIONS)
+def test_inner_archive_each_same_version_copy_is_bound_independently(
+    selected_archive_fixture, source_fixture, tmp_path, side, role, member,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    content = inner_members(case, role); content[member] += b'PRIVATE_INNER_CANARY'
+    inner_replace_members(case, role, content)
+    inner_assert_rejected(side, case, source_fixture.plan, tmp_path, 'state_archive_same_version_mismatch')
+
+
+_INNER_INDEX_MUTATIONS = {
+    'index_schema': 'state_archive_candidate_inventory_mismatch',
+    'candidate_ids': 'state_archive_candidate_inventory_mismatch',
+    'external_ids': 'state_archive_candidate_inventory_mismatch',
+    'extra_row': 'state_archive_candidate_inventory_mismatch',
+    'index_run': 'state_archive_subject_mismatch',
+    'index_source': 'state_archive_subject_mismatch',
+    'row_path': 'state_archive_candidate_binding_mismatch',
+    'row_sha': 'state_archive_candidate_binding_mismatch',
+    'row_extra': 'state_archive_candidate_binding_mismatch',
+    'row_gates': 'state_archive_candidate_binding_mismatch',
+    'envelope_id': 'state_archive_candidate_binding_mismatch',
+    'envelope_binding': 'state_archive_candidate_binding_mismatch',
+    'envelope_run': 'state_archive_candidate_binding_mismatch',
+    'envelope_schema': 'state_archive_candidate_binding_mismatch',
+    'pre_status_final_substitution': 'state_archive_pre_state_binding_mismatch',
+    'pre_status_wrong_path': 'state_archive_pre_state_binding_mismatch',
+    'pre_evidence_sha': 'state_archive_pre_state_binding_mismatch',
+    'pre_bindings_missing': 'state_archive_pre_state_binding_mismatch',
+}
+
+
+def inner_mutate_index(case, mutation, evidence_id='external_llamaguard'):
+    role = 'release_grade_recorded_path'; content = inner_members(case, role)
+    index_name = 'recorded_release_candidate_index_v0.json'
+    index = json.loads(content[index_name]); row = index['candidates'][evidence_id]
+    name = 'recorded_release_candidates/' + evidence_id + '.json'; envelope = json.loads(content[name])
+    if mutation == 'index_schema': index['schema_version'] = 'stale_profile'
+    elif mutation == 'candidate_ids': index['candidate_ids'] = index['candidate_ids'][::-1]
+    elif mutation == 'external_ids': index['external_candidate_ids'] = []
+    elif mutation == 'extra_row': index['candidates']['unselected'] = dict(row)
+    elif mutation == 'index_run': index['run_identity']['run_key'] += '-other'
+    elif mutation == 'index_source': index['run_identity']['git_sha'] = 'f' * 40
+    elif mutation == 'row_path': row['path'] = name
+    elif mutation == 'row_sha': row['sha256'] = 'f' * 64
+    elif mutation == 'row_extra': row['extra'] = 'PRIVATE_INNER_CANARY'
+    elif mutation == 'row_gates': row['required_for_gates'] = []
+    elif mutation == 'envelope_id': envelope['evidence_id'] = 'other'
+    elif mutation == 'envelope_binding':
+        envelope['subject_binding']['git_sha'] = 'f' * 40
+        row['subject_binding'] = dict(envelope['subject_binding'])
+    elif mutation == 'envelope_run': envelope['run_identity']['run_key'] += '-other'
+    elif mutation == 'envelope_schema': envelope['schema_version'] = row['schema_version'] = 'unknown'
+    elif mutation == 'pre_status_final_substitution': index['source_bindings']['candidate_status']['sha256'] = digest(content['status.json'])
+    elif mutation == 'pre_status_wrong_path': index['source_bindings']['candidate_status']['path'] = 'status.json'
+    elif mutation == 'pre_evidence_sha': index['source_bindings']['required_gate_evidence']['sha256'] = 'f' * 64
+    elif mutation == 'pre_bindings_missing': index.pop('source_bindings')
+    else: raise AssertionError(mutation)
+    if mutation.startswith('envelope_'):
+        content[name] = canonical(envelope); row['sha256'] = digest(content[name])
+    content[index_name] = canonical(index)
+    return inner_replace_members(case, role, content)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('mutation', tuple(_INNER_INDEX_MUTATIONS))
+def test_inner_archive_rehashed_index_does_not_authorize_false_bindings(
+    selected_archive_fixture, source_fixture, tmp_path, side, mutation,
+):
+    case = inner_mutate_index(selected_archive_case(selected_archive_fixture), mutation)
+    inner_assert_rejected(side, case, source_fixture.plan, tmp_path, _INNER_INDEX_MUTATIONS[mutation])
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('evidence_id', _INNER_CANDIDATE_IDS)
+def test_inner_archive_all_candidate_envelopes_require_exact_byte_identity(
+    selected_archive_fixture, source_fixture, tmp_path, side, evidence_id,
+):
+    case = inner_mutate_index(selected_archive_case(selected_archive_fixture), 'row_sha', evidence_id)
+    inner_assert_rejected(side, case, source_fixture.plan, tmp_path, 'state_archive_candidate_binding_mismatch')
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('bad', [b'[]', b'\xef\xbb\xbf{}', b'\xff', b'{"a":1,"a":2}',
+    b'{"a":NaN}', b'{"a":Infinity}', b'{"a":1e999}', b'{"a":-0.0}',
+    '{"a":"e\u0301"}'.encode(), b'{"PRIVATE_INNER_CANARY":'])
+def test_inner_archive_index_json_errors_remain_private_and_fail_closed(
+    selected_archive_fixture, source_fixture, tmp_path, side, bad,
+):
+    case = selected_archive_case(selected_archive_fixture); role = 'release_grade_recorded_path'
+    content = inner_members(case, role); content['recorded_release_candidate_index_v0.json'] = bad
+    inner_replace_members(case, role, content)
+    inner_assert_rejected(side, case, source_fixture.plan, tmp_path, 'state_archive_index_invalid')
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('budget', ['single', 'aggregate', 'member_count', 'boolean', 'missing', 'not_mapping'])
+def test_inner_archive_existing_finite_limits_are_enforced_before_expansion(
+    selected_archive_fixture, source_fixture, tmp_path, side, budget,
+):
+    case = selected_archive_case(selected_archive_fixture); plan = copy.deepcopy(source_fixture.plan)
+    limits = plan['finite_limits']; code = 'state_archive_limits_invalid'
+    if budget == 'single':
+        limits['max_single_artifact_bytes'] = 1; code = 'state_archive_member_size_invalid'
+    elif budget == 'aggregate':
+        sizes = [sum(map(len, inner_members(case, role).values())) for role in _INNER_ROLES]
+        limits['max_capture_uncompressed_bytes'] = sum(sizes) - 1
+        assert limits['max_capture_uncompressed_bytes'] > max(sizes)
+        code = 'state_archive_expansion_limit_exceeded'
+    elif budget == 'member_count':
+        limits['max_capture_members'] = 47; code = 'state_archive_member_limit_exceeded'
+    elif budget == 'boolean': limits['max_capture_members'] = True
+    elif budget == 'missing': limits.pop('max_capture_members')
+    else: plan['finite_limits'] = None
+    error_type = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    with pytest.raises(error_type) as caught:
+        inner_check(side, case, plan, tmp_path)
+    assert caught.value.code == code
+
+
+# Direct inner ZIP parser negatives are intentionally built without extraction.
+def inner_zip_variant(content, variant):
+    target = sorted(content)[0]
+    output = io.BytesIO()
+    with zipfile.ZipFile(output, 'w') as archive:
+        for name, raw in sorted(content.items()):
+            info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+            info.create_system = 3; info.external_attr = (stat.S_IFREG | 0o444) << 16
+            info.compress_type = zipfile.ZIP_DEFLATED if variant == 'deflated' else zipfile.ZIP_STORED
+            if name == target:
+                if variant == 'traversal': info.filename = '../PRIVATE_INNER_CANARY'
+                elif variant == 'absolute': info.filename = '/PRIVATE_INNER_CANARY'
+                elif variant == 'backslash': info.filename = 'external\\PRIVATE_INNER_CANARY'
+                elif variant == 'symlink': info.external_attr = (stat.S_IFLNK | 0o777) << 16
+                elif variant == 'device': info.external_attr = (stat.S_IFCHR | 0o600) << 16
+                elif variant == 'unsupported': info.compress_type = zipfile.ZIP_BZIP2
+            archive.writestr(info, raw)
+        if variant == 'duplicate':
+            with pytest.warns(UserWarning): archive.writestr(target, content[target])
+        if variant in ('directories', 'extra_directory'):
+            names = {str(Path(name).parent) for name in content if '/' in name}
+            if variant == 'extra_directory': names.add('PRIVATE_INNER_CANARY')
+            for name in sorted(names):
+                info = zipfile.ZipInfo(name + '/'); info.create_system = 3
+                info.external_attr = ((stat.S_IFDIR | 0o555) << 16) | 0x10
+                archive.writestr(info, b'')
+    raw = output.getvalue()
+    if variant == 'crc':
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive: info = archive.infolist()[0]
+        offset = info.header_offset
+        # Local fixed header is 30 bytes; filename/extra lengths are little endian.
+        name_len = int.from_bytes(raw[offset + 26:offset + 28], 'little')
+        extra_len = int.from_bytes(raw[offset + 28:offset + 30], 'little')
+        offset += 30 + name_len + extra_len
+        raw = raw[:offset] + bytes([raw[offset] ^ 1]) + raw[offset + 1:]
+    elif variant == 'truncated': raw = raw[:-30]
+    elif variant == 'not_zip': raw = b'PRIVATE_INNER_CANARY not a zip'
+    elif variant == 'encrypted':
+        # Set general-purpose encryption bit in each local and central header.
+        value = bytearray(raw)
+        for marker, delta in ((b'PK\x03\x04', 6), (b'PK\x01\x02', 8)):
+            start = 0
+            while (position := raw.find(marker, start)) >= 0:
+                value[position + delta] |= 1; start = position + 4
+        raw = bytes(value)
+    return raw
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('variant,code', [
+    ('traversal', 'state_archive_member_name_invalid'), ('absolute', 'state_archive_member_name_invalid'),
+    ('backslash', 'state_archive_member_name_invalid'), ('duplicate', 'state_archive_member_name_invalid'),
+    ('symlink', 'state_archive_nonregular_member'), ('device', 'state_archive_nonregular_member'),
+    ('encrypted', 'state_archive_encoding_unsupported'), ('unsupported', 'state_archive_encoding_unsupported'),
+    ('extra_directory', 'state_archive_member_set_mismatch'), ('crc', 'state_archive_zip_invalid'),
+    ('truncated', 'state_archive_zip_invalid'), ('not_zip', 'state_archive_zip_invalid'),
+])
+def test_inner_archive_hostile_original_zip_is_rejected_after_outer_rehash(
+    selected_archive_fixture, source_fixture, tmp_path, side, variant, code,
+):
+    case = selected_archive_case(selected_archive_fixture); role = 'pre_attestation_pulse_artifacts'
+    inner_replace_raw(case, role, inner_zip_variant(inner_members(case, role), variant))
+    inner_assert_rejected(side, case, source_fixture.plan, tmp_path, code)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('variant', ['deflated', 'directories'])
+def test_inner_archive_original_transport_need_not_be_canonical_zip(
+    selected_archive_fixture, source_fixture, tmp_path, side, variant,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    for role in _INNER_ROLES:
+        inner_replace_raw(case, role, inner_zip_variant(inner_members(case, role), variant))
+    with patch.object(zipfile.ZipFile, 'extract', side_effect=AssertionError('No extraction')):
+        with patch.object(zipfile.ZipFile, 'extractall', side_effect=AssertionError('No extraction')):
+            views = inner_check(side, case, source_fixture.plan, tmp_path)
+    assert sum(map(len, views.values())) == 48
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('role', _INNER_ROLES)
+def test_inner_archive_public_entrypoint_rejects_resealed_wrong_inner_layout(
+    selected_archive_fixture, source_fixture, tmp_path, side, role,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    inner_replace_members(case, role, {'fixture-only.json': b'PRIVATE_INNER_CANARY'})
+    selected_archive_check(side, case, source_fixture.plan)
+    if side == 'capture':
+        acquired = tmp_path / 'acquisition'; acquired.mkdir()
+        for name, raw in case.members.items():
+            if name.startswith('acquisition/'):
+                target = acquired / name.removeprefix('acquisition/')
+                target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(raw); target.chmod(0o444)
+        original = {p.relative_to(acquired): p.read_bytes() for p in acquired.rglob('*') if p.is_file()}
+        with pytest.raises(Exception) as caught:
+            construct_capture(source_fixture, SimpleNamespace(output=acquired, directory=tmp_path), 'must-not-exist.zip')
+        assert type(caught.value).__name__ == 'CaptureError'
+        assert not (tmp_path / 'must-not-exist.zip').exists()
+        assert original == {p.relative_to(acquired): p.read_bytes() for p in acquired.rglob('*') if p.is_file()}
+    else:
+        target = tmp_path / 'resealed.zip'; selected_archive_write_capture(target, case)
+        with patch.object(CAPTURER, '_validate_subject_state_archives', side_effect=AssertionError('Producer cannot verify')):
+            with pytest.raises(VERIFIER.VerificationError) as caught:
+                selected_archive_read(target, case, source_fixture)
+    assert caught.value.code == 'state_archive_member_set_mismatch'
+    assert 'PRIVATE_INNER_CANARY' not in str(caught.value)
+
+
+@pytest.fixture(scope='module')
+def inner_source_oracle(tmp_path_factory):
+    """Execute reviewed COPY steps and candidate serialization on example data.
+
+    This is an offline source-layout oracle, not replay of the original subject,
+    a candidate semantic verdict, attestation verification, or R2 completion.
+    """
+    root = tmp_path_factory.mktemp('inner-source-layout')
+    workflow = yaml.load((ROOT / '.github/workflows/pulse_ci.yml').read_text(), Loader=yaml.BaseLoader)
+    steps = workflow['jobs']['release_grade_recorded_path']['steps']
+    content = example_state_archive_members('a' * 40)['release_grade_recorded_path']
+    artifacts = root / 'PULSE_safe_pack_v0/artifacts'
+    for name, raw in content.items():
+        target = artifacts / name; target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(raw)
+    env = {'PATH': '/usr/bin:/bin', 'LANG': 'C', 'LC_ALL': 'C', 'PACK_DIR': str(root / 'PULSE_safe_pack_v0'),
+           'RUNNER_TEMP': str(root / 'runner'), 'GITHUB_ENV': str(root / 'github-env')}
+    (root / 'runner').mkdir()
+    for label in ('Stage final release authority audit bundle', 'Assemble advisory release-grade reference bundle'):
+        script = next(step['run'] for step in steps if step['name'] == label)
+        result = subprocess.run(['/bin/bash', '--noprofile', '--norc', '-e', '-o', 'pipefail', '-c', script],
+                                cwd=root, env=env, capture_output=True, text=True, timeout=30)
+        assert result.returncode == 0, result.stderr
+    advisory = root / 'runner/release-grade-reference-run-v0'
+    assembled = {p.relative_to(advisory).as_posix(): p.read_bytes() for p in advisory.rglob('*') if p.is_file()}
+    assert assembled == example_state_archive_members('a' * 40)['advisory_reference_bundle']
+    # Derive the multi-path selectors from reviewed upload source, not either
+    # implementation table. Their common parent is the artifacts directory.
+    pre_upload = next(s for s in workflow['jobs']['pulse']['steps']
+                      if s['name'] == 'Upload release-grade pre-attestation pulse artifacts')
+    recorded_upload = next(s for s in steps if s['name'] == 'Upload release-grade recorded path artifacts')
+    root_path = 'PULSE_safe_pack_v0/artifacts/'
+    pre = pre_upload['with']['path'].splitlines(); recorded = recorded_upload['with']['path'].splitlines()
+    assert os.path.commonpath(pre) + '/' == root_path
+    assert os.path.commonpath(recorded) + '/' == root_path
+    assert recorded.count(root_path + 'recorded_release_candidates/**') == 1
+    # The actual writer's fixed keys and the restored hosted external family.
+    writer_path = ROOT / 'PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py'
+    tree = ast.parse(writer_path.read_text())
+    build = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'build_candidates')
+    assignment = next(n for n in ast.walk(build) if isinstance(n, ast.Assign)
+        and any(isinstance(x, ast.Name) and x.id == 'envelopes' for x in n.targets))
+    fixed = {ast.literal_eval(key) for key in assignment.value.keys if key is not None}
+    restore = next(s['run'] for s in steps if s['name'] == 'Download attested LlamaGuard external evidence')
+    restored = re.findall(r'restore_external_artifact\s+\\\s+"([a-z0-9_.]+)"', restore)
+    assert len(restored) == 6
+    external = {name.removesuffix('_summary.json') for name in restored if name.endswith('_summary.json')}
+    assert external == {'llamaguard'}
+    ids = fixed | {'external_' + name for name in external}
+    assert ids == set(_INNER_CANDIDATE_IDS)
+    expected = {
+        'pre_attestation_pulse_artifacts': {name.removeprefix(root_path) for name in pre},
+        'release_grade_recorded_path': {name.removeprefix(root_path) for name in recorded if not name.endswith('/**')}
+            | {'recorded_release_candidates/' + name + '.json' for name in ids},
+        'advisory_reference_bundle': set(assembled),
+    }
+    # Exercise the unmodified serialization function with controlled records.
+    # Only this function is isolated from its AST; no semantic builder is stubbed.
+    function = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == 'write_outputs')
+    import tempfile
+    namespace = {'Path': Path, 'Any': object, 'tempfile': tempfile, 'json': json, 'hashlib': hashlib,
+                 'shutil': shutil, 'os': os, 'OUT_DIR': root_path + 'recorded_release_candidates',
+                 'ENVELOPE_SCHEMA': 'recorded_release_candidate_envelope_v0'}
+    exec(compile(ast.Module(body=[function], type_ignores=[]), str(writer_path), 'exec'), namespace)
+    write_root = root / 'serialization'; out = write_root / namespace['OUT_DIR']
+    index_path = write_root / root_path / 'recorded_release_candidate_index_v0.json'
+    index = json.loads(content['recorded_release_candidate_index_v0.json'])
+    envelopes = {key: json.loads(content['recorded_release_candidates/' + key + '.json']) for key in ids}
+    namespace['write_outputs'](write_root, out, index_path, envelopes, index)
+    assert {p.name for p in out.iterdir()} == {name + '.json' for name in ids}
+    assert index_path.read_bytes() == content['recorded_release_candidate_index_v0.json']
+    for p in out.iterdir(): assert p.read_bytes() == content['recorded_release_candidates/' + p.name]
+    return expected
+
+
+def inner_production_layout(side):
+    if side == 'capture': return {role: set(names) for role, names in CAPTURER.STATE_ARCHIVE_MEMBERS.items()}
+    return {role: set(names) for role, _, names in VERIFIER._STATE_ARCHIVE_LAYOUT}
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_inner_archive_selectors_match_executed_source_oracle(inner_source_oracle, side):
+    assert inner_production_layout(side) == inner_source_oracle
+
+
+def test_inner_archive_shared_wrong_locator_is_not_validated_by_agreement(inner_source_oracle, monkeypatch):
+    wrong = copy.deepcopy(CAPTURER.STATE_ARCHIVE_MEMBERS)
+    role = 'release_grade_recorded_path'
+    wrong[role] = tuple('reports/report_card.html' if n == 'report_card.html' else n for n in wrong[role])
+    monkeypatch.setattr(CAPTURER, 'STATE_ARCHIVE_MEMBERS', wrong)
+    monkeypatch.setattr(VERIFIER, '_STATE_ARCHIVE_LAYOUT', tuple(
+        (r, member, frozenset(wrong[r])) for r, member, _ in VERIFIER._STATE_ARCHIVE_LAYOUT))
+    assert inner_production_layout('capture') == inner_production_layout('verifier')
+    for side in ('capture', 'verifier'):
+        with pytest.raises(AssertionError):
+            test_inner_archive_selectors_match_executed_source_oracle(inner_source_oracle, side)
 
 
 if __name__ == '__main__':

@@ -61,6 +61,7 @@ import subprocess
 import tempfile
 import unicodedata
 import zipfile
+import zlib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
@@ -1667,6 +1668,255 @@ def _validate_provider_envelope(
             carrier_spool.close()
 
 
+
+# Source-reviewed inner layout of P37, R33 and R32. The two multi-path uploads
+# are rooted at PULSE_safe_pack_v0/artifacts; the advisory upload is rooted at
+# its assembled bundle directory. These are ZIP selectors, not repository paths.
+# R4/R5 restore only the selected hosted LlamaGuard inputs into the recorded job;
+# its R6 writer produces the detector, refusal and external_llamaguard envelopes.
+# This inventory is not a semantic verifier or an original runtime-read receipt.
+STATE_ARCHIVE_MEMBERS: dict[str, tuple[str, ...]] = {
+    "pre_attestation_pulse_artifacts": (
+        "external/llamaguard_evaluator_manifest_v0.json",
+        "external/llamaguard_raw.jsonl",
+        "external/llamaguard_summary.json",
+        "refusal_delta_summary.json",
+        "required_gate_evidence_v0.json",
+        "self_contained_pulse_evidence_floor_v0.json",
+        "status.json",
+        "status_baseline.json",
+        "status_summary_baseline.json",
+        "status_summary_baseline.md",
+    ),
+    "release_grade_recorded_path": (
+        "artifact_provenance_binding_v0.json",
+        "external/llamaguard_attestation_verifier_v1.json",
+        "external/llamaguard_evaluator_manifest_v0.json",
+        "external/llamaguard_raw.jsonl",
+        "external/llamaguard_summary.bundle.json",
+        "external/llamaguard_summary.envelope.json",
+        "external/llamaguard_summary.json",
+        "recorded_release_candidate_index_v0.json",
+        "recorded_release_candidates/detector_materialization.json",
+        "recorded_release_candidates/external_llamaguard.json",
+        "recorded_release_candidates/refusal_delta_summary.json",
+        "recorded_release_evidence_verifier_v0.json",
+        "refusal_delta_summary.json",
+        "release_authority_v0.json",
+        "release_decision_v0.json",
+        "release_decision_v0_ledger_section.html",
+        "release_evidence_input_manifest_v0.json",
+        "report_card.html",
+        "report_card.with_release_decision.html",
+        "reports/junit.xml",
+        "reports/sarif.json",
+        "required_gate_evidence_v0.json",
+        "self_contained_pulse_evidence_floor_v0.json",
+        "status.json",
+        "status_baseline.json",
+        "status_summary.json",
+        "status_summary.md",
+        "status_summary_baseline.json",
+        "status_summary_baseline.md",
+    ),
+    "advisory_reference_bundle": (
+        "artifacts/external/llamaguard_summary.json",
+        "artifacts/release_authority_v0.json",
+        "artifacts/report_card.html",
+        "artifacts/status.json",
+        "release-authority-audit-bundle/release_authority_v0.json",
+        "release-authority-audit-bundle/report_card.html",
+        "release-authority-audit-bundle/status.json",
+        "reports/junit.xml",
+        "reports/sarif.json",
+    ),
+}
+STATE_ARCHIVE_PATHS = {
+    "pre_attestation_pulse_artifacts": "subject/artifacts/pulse-pre-attestation.zip",
+    "release_grade_recorded_path": "subject/artifacts/release-grade-recorded-path.zip",
+    "advisory_reference_bundle": "subject/artifacts/release-grade-reference-run-v0.zip",
+}
+
+
+def _state_archive_limits(plan: Mapping[str, Any]) -> tuple[int, int, int]:
+    finite = plan.get("finite_limits", {})
+    _require(isinstance(finite, Mapping), "state_archive_limits_invalid", stage="state_archive")
+    fields = ("max_capture_members", "max_single_artifact_bytes", "max_capture_uncompressed_bytes")
+    ceilings = (MAX_CAPTURE_MEMBERS, MAX_CARRIER_MEMBER_BYTES, MAX_CAPTURE_UNCOMPRESSED_BYTES)
+    values = tuple(finite.get(key) for key in fields)
+    _require(all(type(n) is int and 0 < n <= cap for n, cap in zip(values, ceilings)),
+             "state_archive_limits_invalid", stage="state_archive")
+    return values
+
+
+def _read_state_archive(
+    snapshot: FileSnapshot, *, expected: tuple[str, ...], limits: tuple[int, int, int],
+) -> tuple[dict[str, tuple[str, int]], dict[str, bytes], int]:
+    """Stream/hash original members without extraction or payload diagnostics."""
+    maximum_members, maximum_single, maximum_total = limits
+    wanted = set(expected)
+    directories = {name[:i] for name in wanted for i, char in enumerate(name) if char == "/"}
+    digests: dict[str, tuple[str, int]] = {}
+    documents: dict[str, bytes] = {}
+    _verify_snapshot_unchanged(snapshot)
+    try:
+        with zipfile.ZipFile(snapshot.path, "r", allowZip64=True) as archive:
+            infos = archive.infolist()
+            _require(0 < len(infos) <= min(maximum_members, MAX_CARRIER_MEMBERS),
+                     "state_archive_member_limit_exceeded", stage="state_archive")
+            seen: set[str] = set()
+            files: dict[str, zipfile.ZipInfo] = {}
+            total = 0
+            for info in infos:
+                name = info.filename
+                _require(info.orig_filename == name and isinstance(name, str) and name != "",
+                         "state_archive_member_name_invalid", stage="state_archive")
+                directory = name.endswith("/")
+                key = name[:-1] if directory else name
+                _require(MEMBER_RE.fullmatch(key) is not None and key not in seen,
+                         "state_archive_member_name_invalid", stage="state_archive")
+                seen.add(key)
+                kind = stat.S_IFMT(info.external_attr >> 16)
+                _require(kind in ({0, stat.S_IFDIR} if directory else {0, stat.S_IFREG})
+                         and not (not directory and info.external_attr & 0x10),
+                         "state_archive_nonregular_member", stage="state_archive")
+                _require(info.flag_bits & 0x41 == 0
+                         and info.compress_type in {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED},
+                         "state_archive_encoding_unsupported", stage="state_archive")
+                if directory:
+                    _require(key in directories and info.file_size == 0,
+                             "state_archive_member_set_mismatch", stage="state_archive")
+                    continue
+                _require(name in wanted, "state_archive_member_set_mismatch", stage="state_archive")
+                _require(0 < info.file_size <= maximum_single,
+                         "state_archive_member_size_invalid", stage="state_archive")
+                total += info.file_size
+                _require(total <= maximum_total, "state_archive_expansion_limit_exceeded", stage="state_archive")
+                files[name] = info
+            _require(set(files) == wanted, "state_archive_member_set_mismatch", stage="state_archive")
+            for name, info in files.items():
+                is_document = name == "recorded_release_candidate_index_v0.json" or name.startswith("recorded_release_candidates/")
+                if is_document:
+                    _require(info.file_size <= MAX_JSON_BYTES, "state_archive_index_size_invalid", stage="state_archive")
+                chunks: list[bytes] = []
+                actual = 0
+                digest = hashlib.sha256()
+                with archive.open(info) as stream:
+                    while True:
+                        chunk = stream.read(HASH_CHUNK_BYTES)
+                        if not chunk:
+                            break
+                        actual += len(chunk)
+                        _require(actual <= min(info.file_size, maximum_single),
+                                 "state_archive_member_size_invalid", stage="state_archive")
+                        digest.update(chunk)
+                        if is_document:
+                            chunks.append(chunk)
+                _require(actual == info.file_size, "state_archive_member_size_invalid", stage="state_archive")
+                digests[name] = (digest.hexdigest(), actual)
+                if is_document:
+                    documents[name] = b"".join(chunks)
+    except CaptureError:
+        raise
+    except (OSError, ValueError, RuntimeError, NotImplementedError, EOFError, zipfile.BadZipFile, zlib.error):
+        raise CaptureError("state_archive_zip_invalid", stage="state_archive") from None
+    _verify_snapshot_unchanged(snapshot)
+    return digests, documents, len(infos)
+
+
+def _state_archive_json(raw: bytes) -> dict[str, Any]:
+    # These four index/envelope records contain no fractional values in the
+    # selected source writer. Do not deserialize any opaque inference payload.
+    try:
+        return _json_object(raw, label="state_archive_index", canonical=False)
+    except (CaptureError, ValueError, RecursionError):
+        raise CaptureError("state_archive_index_invalid", stage="state_archive") from None
+
+
+def _validate_subject_state_archives(
+    *, acquisition_files: Mapping[str, FileSnapshot], plan: Mapping[str, Any], subject: Mapping[str, Any],
+) -> dict[str, dict[str, tuple[str, int]]]:
+    """Validate inner inventories/copies, not complete R2 state semantics.
+
+    Original producer occurrences, signature semantics, full existing-core
+    replay and I/E acceptance remain separate and fail closed downstream.
+    """
+    limits = _state_archive_limits(plan)
+    views: dict[str, dict[str, tuple[str, int]]] = {}
+    documents: dict[str, bytes] = {}
+    count = total = 0
+    for role, expected in STATE_ARCHIVE_MEMBERS.items():
+        snapshot = acquisition_files.get(STATE_ARCHIVE_PATHS[role])
+        _require(isinstance(snapshot, FileSnapshot), "state_archive_missing", stage="state_archive")
+        view, payloads, member_count = _read_state_archive(
+            snapshot, expected=expected, limits=(limits[0] - count, limits[1], limits[2] - total),
+        )
+        count += member_count
+        total += sum(size for _, size in view.values())
+        _require(count <= limits[0], "state_archive_member_limit_exceeded", stage="state_archive")
+        _require(total <= limits[2], "state_archive_expansion_limit_exceeded", stage="state_archive")
+        views[role] = view
+        if role == "release_grade_recorded_path":
+            documents = payloads
+    before = views["pre_attestation_pulse_artifacts"]
+    final = views["release_grade_recorded_path"]
+    advisory = views["advisory_reference_bundle"]
+    # P37 status.json is pre-materialization; R33 status.json is post-R9. Never
+    # compare these different versions or substitute either for the other.
+    for name in STATE_ARCHIVE_MEMBERS["pre_attestation_pulse_artifacts"]:
+        if name != "status.json":
+            _require(before[name] == final[name], "state_archive_same_version_mismatch", stage="state_archive")
+    for name in STATE_ARCHIVE_MEMBERS["advisory_reference_bundle"]:
+        source_name = name.removeprefix("artifacts/").removeprefix("release-authority-audit-bundle/")
+        _require(advisory[name] == final[source_name], "state_archive_same_version_mismatch", stage="state_archive")
+    index = _state_archive_json(documents["recorded_release_candidate_index_v0.json"])
+    expected_ids = ["detector_materialization", "external_llamaguard", "refusal_delta_summary"]
+    _require(index.get("schema_version") == "recorded_release_candidate_index_v0"
+             and index.get("candidate_ids") == expected_ids
+             and index.get("external_candidate_ids") == ["external_llamaguard"]
+             and isinstance(index.get("candidates"), dict) and set(index["candidates"]) == set(expected_ids),
+             "state_archive_candidate_inventory_mismatch", stage="state_archive")
+    source = plan["plan_identity"]["source_commit"]
+    run_id = subject.get("run_id")
+    _require(type(run_id) is int and run_id > 0 and subject.get("head_sha") == source
+             and type(subject.get("run_attempt")) is int and subject["run_attempt"] == 1,
+             "state_archive_subject_mismatch", stage="state_archive")
+    run_key = f"GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+    run_identity = index.get("run_identity")
+    _require(isinstance(run_identity, dict) and run_identity.get("git_sha") == source
+             and run_identity.get("run_key") == run_key,
+             "state_archive_subject_mismatch", stage="state_archive")
+    expected_binding = {"git_sha": source, "run_key": run_key}
+    for evidence_id in expected_ids:
+        name = "recorded_release_candidates/" + evidence_id + ".json"
+        row = index["candidates"][evidence_id]
+        envelope = _state_archive_json(documents[name])
+        _require(isinstance(row, dict) and set(row) == {
+            "path", "sha256", "schema_version", "required_for_gates", "subject_binding"},
+            "state_archive_candidate_binding_mismatch", stage="state_archive")
+        _require(row["path"] == "PULSE_safe_pack_v0/artifacts/" + name
+                 and row["sha256"] == final[name][0]
+                 and row["schema_version"] == envelope.get("schema_version") == "recorded_release_candidate_envelope_v0"
+                 and envelope.get("evidence_id") == evidence_id
+                 and row["subject_binding"] == envelope.get("subject_binding") == expected_binding
+                 and isinstance(envelope.get("run_identity"), dict)
+                 and envelope["run_identity"].get("git_sha") == source
+                 and envelope["run_identity"].get("run_key") == run_key
+                 and isinstance(row["required_for_gates"], list)
+                 and row["required_for_gates"] == envelope.get("required_for_gates"),
+                 "state_archive_candidate_binding_mismatch", stage="state_archive")
+    # The preserved R6 index points at pre-R9 status, not the later final file
+    # with the same path. This is a byte-binding check, not a runtime-read claim.
+    bindings = index.get("source_bindings")
+    _require(isinstance(bindings, dict), "state_archive_pre_state_binding_mismatch", stage="state_archive")
+    for key, name in (("candidate_status", "status.json"), ("required_gate_evidence", "required_gate_evidence_v0.json")):
+        binding = bindings.get(key)
+        _require(isinstance(binding, dict) and binding.get("path") == "PULSE_safe_pack_v0/artifacts/" + name
+                 and binding.get("sha256") == before[name][0],
+                 "state_archive_pre_state_binding_mismatch", stage="state_archive")
+    return views
+
+
 def _raw_response_bindings(
     *,
     acquisition_files: Mapping[str, FileSnapshot],
@@ -2116,6 +2366,10 @@ def build_capture(
         subject_run_id=subject_run_id,
         source_commit=revision,
         artifact_rows=artifact_rows,
+    )
+
+    _validate_subject_state_archives(
+        acquisition_files=acquisition_files, plan=plan, subject=subject,
     )
 
     capture_members = _capture_members(
