@@ -7705,6 +7705,224 @@ def test_residual_input_complete_graph_and_noncompletion_boundaries(source_fixtu
         VERIFIER._require_declared_state_completion(plan, runtime_projection_example(source_fixture), {})
     PLAN_CHECKER._verify_source_residual_input_equations(plan, mapping_source_document(), recorded_source_objects)
 
+
+# ---------------------------------------------------------------------------
+# Composite source helpers share syntax only inside their current invocation.
+# No plan, semantic mapping, source check, or verification result is memoized.
+# ---------------------------------------------------------------------------
+_HELPER_SYNTAX_OPERATIONS = {
+    'builder': (
+        '_preattest_preservation_source_projection',
+        '_pre_attestation_postcondition_source_projection',
+        '_final_artifact_postcondition_source_projection',
+        '_recorded_publication_source_projection',
+        '_report_publication_source_projection',
+        '_residual_input_source_projection',
+        '_build_states',
+    ),
+    'checker': (
+        '_verify_source_recorded_equations',
+        '_verify_source_provenance_equations',
+        '_source_preattest_preservation_expectations',
+        '_verify_source_preattest_preservation_equations',
+        '_source_pre_attestation_postcondition_expectations',
+        '_verify_source_pre_attestation_postcondition_equations',
+        '_source_final_artifact_postcondition_expectations',
+        '_verify_source_final_artifact_postcondition_equations',
+        '_source_recorded_publication_expectations',
+        '_verify_source_recorded_publication_equations',
+        '_source_report_publication_expectations',
+        '_verify_source_report_publication_equations',
+        '_source_residual_input_expectations',
+        '_verify_source_residual_input_equations',
+        '_build_states',
+    ),
+}
+
+
+def helper_syntax_call(module, name, f, objects):
+    # Recreate mutable arguments each time, never share a constructed answer.
+    doc = mapping_source_document()
+    if name == '_build_states':
+        jobs, steps, operations = module._build_jobs(doc)
+        states = module._build_states(steps, module.EXPECTED_CASE_IDS, doc, objects)
+        return canonical({'states': states, 'jobs': jobs, 'operations': operations})
+    if name.startswith('_verify_source_'):
+        supplied = copy.deepcopy(f.plan)
+        result = getattr(module, name)(supplied, doc, objects)
+        assert result is None
+        assert supplied == f.plan
+        return canonical(supplied)
+    return canonical(getattr(module, name)(doc, objects))
+
+
+@pytest.mark.parametrize('side,name', [
+    (side, name) for side, names in _HELPER_SYNTAX_OPERATIONS.items() for name in names
+])
+def test_helper_syntax_each_composite_call_has_a_fresh_bounded_scope(
+    source_fixture, recorded_source_objects, side, name,
+):
+    module = parse_reuse_module(side)
+    assert hasattr(getattr(module, name), '__wrapped__')
+    assert module._YAML_PARSE_MEMO.get() is None
+    scopes = []
+    original = module._parse_yaml_document_uncached
+
+    def parse(data, *, label):
+        if label == module.SUBJECT_WORKFLOW_PATH:
+            scope = module._YAML_PARSE_MEMO.get()
+            assert scope is not None
+            scopes.append(scope)
+        return original(data, label=label)
+
+    with patch.object(module, '_parse_yaml_document_uncached', side_effect=parse):
+        first = helper_syntax_call(module, name, source_fixture, recorded_source_objects)
+        assert len(scopes) == 1 and scopes[0] == {}
+        assert module._YAML_PARSE_MEMO.get() is None
+        second = helper_syntax_call(module, name, source_fixture, recorded_source_objects)
+        assert len(scopes) == 2 and scopes[1] == {} and scopes[0] is not scopes[1]
+        assert module._YAML_PARSE_MEMO.get() is None
+    assert first == second
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_helper_syntax_nested_calls_keep_the_enclosing_store_and_run_bodies(side):
+    module = parse_reuse_module(side)
+    raw = (ROOT / module.SUBJECT_WORKFLOW_PATH).read_bytes()
+    calls = []
+
+    @module._yaml_parse_operation()
+    def consumer():
+        calls.append(module._YAML_PARSE_MEMO.get())
+        return module._parse_yaml_document(raw, label=module.SUBJECT_WORKFLOW_PATH)
+
+    @module._yaml_parse_operation()
+    def outer():
+        one = consumer()
+        two = consumer()
+        assert one == two and one is not two
+        return one
+
+    with patch.object(module, '_parse_yaml_document_uncached', wraps=module._parse_yaml_document_uncached) as parser:
+        with module._yaml_parse_scope():
+            enclosing = module._YAML_PARSE_MEMO.get()
+            original = module._parse_yaml_document(raw, label=module.SUBJECT_WORKFLOW_PATH)
+            assert outer() == original and consumer() == original
+            assert module._YAML_PARSE_MEMO.get() is enclosing and len(enclosing) == 1
+            assert len(calls) == 3 and all(value is enclosing for value in calls)
+            assert parser.call_count == 1
+        assert enclosing == {} and module._YAML_PARSE_MEMO.get() is None
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('inside_existing_scope', [False, True])
+def test_helper_syntax_exception_propagates_and_scope_ownership_is_respected(side, inside_existing_scope):
+    from contextlib import nullcontext
+    module = parse_reuse_module(side)
+    raw = (ROOT / module.SUBJECT_WORKFLOW_PATH).read_bytes()
+    error = module.PlanError('synthetic_helper_error', 'must propagate unchanged')
+    seen = []
+
+    @module._yaml_parse_operation()
+    def failing():
+        module._parse_yaml_document(raw, label=module.SUBJECT_WORKFLOW_PATH)
+        seen.append(module._YAML_PARSE_MEMO.get())
+        raise error
+
+    manager = module._yaml_parse_scope() if inside_existing_scope else nullcontext()
+    with manager:
+        enclosing = module._YAML_PARSE_MEMO.get()
+        with pytest.raises(module.PlanError) as caught:
+            failing()
+        assert caught.value is error
+        if inside_existing_scope:
+            assert seen[0] is enclosing and len(enclosing) == 1
+            assert module._YAML_PARSE_MEMO.get() is enclosing
+        else:
+            assert seen[0] == {} and module._YAML_PARSE_MEMO.get() is None
+    assert seen[0] == {} and module._YAML_PARSE_MEMO.get() is None
+
+
+def test_helper_syntax_builder_and_checker_do_not_borrow_each_others_store():
+    raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    assert BUILDER._YAML_PARSE_MEMO.get() is PLAN_CHECKER._YAML_PARSE_MEMO.get() is None
+    with BUILDER._yaml_parse_operation():
+        BUILDER._parse_yaml_document(raw, label=BUILDER.SUBJECT_WORKFLOW_PATH)
+        builder_store = BUILDER._YAML_PARSE_MEMO.get()
+        assert PLAN_CHECKER._YAML_PARSE_MEMO.get() is None
+        with PLAN_CHECKER._yaml_parse_operation():
+            PLAN_CHECKER._parse_yaml_document(raw, label=PLAN_CHECKER.SUBJECT_WORKFLOW_PATH)
+            checker_store = PLAN_CHECKER._YAML_PARSE_MEMO.get()
+            assert checker_store is not builder_store
+        assert checker_store == {} and len(builder_store) == 1
+        assert PLAN_CHECKER._YAML_PARSE_MEMO.get() is None
+    assert builder_store == {} and BUILDER._YAML_PARSE_MEMO.get() is None
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_helper_syntax_state_graph_matches_all_composite_wrappers_removed(
+    source_fixture, recorded_source_objects, side,
+):
+    from contextlib import ExitStack
+    module = parse_reuse_module(side)
+    actual = helper_syntax_call(module, '_build_states', source_fixture, recorded_source_objects)
+    with ExitStack() as stack:
+        for name in _HELPER_SYNTAX_OPERATIONS[side]:
+            stack.enter_context(patch.object(module, name, getattr(module, name).__wrapped__))
+        # No active scope: this is the unchanged pre-fix standalone helper path.
+        expected = helper_syntax_call(module, '_build_states', source_fixture, recorded_source_objects)
+    assert actual == expected
+    assert module._YAML_PARSE_MEMO.get() is None
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_helper_syntax_success_does_not_authorize_changed_source_or_workflow(
+    source_fixture, recorded_source_objects, side,
+):
+    module = parse_reuse_module(side)
+    name = ('_report_publication_source_projection' if side == 'builder'
+            else '_source_report_publication_expectations')
+    method = getattr(module, name)
+    raw = recorded_source_objects[module.SUBJECT_WORKFLOW_PATH].data
+    with module._yaml_parse_operation():
+        good = method(mapping_source_document(), recorded_source_objects)
+        scope = module._YAML_PARSE_MEMO.get()
+        assert len(scope) == 1
+        altered_doc = mapping_source_document()
+        altered_doc['jobs']['release_grade_recorded_path']['steps'][30]['with']['name'] = 'not-reviewed'
+        with pytest.raises(module.PlanError, match='report_publication_workflow_drift'):
+            method(altered_doc, recorded_source_objects)
+        altered_sources = dict(recorded_source_objects)
+        changed = raw + b'\n# changed source after a good result\n'
+        altered_sources[module.SUBJECT_WORKFLOW_PATH] = replace(
+            altered_sources[module.SUBJECT_WORKFLOW_PATH], data=changed,
+            blob_sha1=hashlib.sha1(b'blob ' + str(len(changed)).encode() + b'\0' + changed).hexdigest(),
+        )
+        with pytest.raises(module.PlanError, match='report_publication_source_'):
+            method(mapping_source_document(), altered_sources)
+        assert method(mapping_source_document(), recorded_source_objects) == good
+    assert scope == {} and module._YAML_PARSE_MEMO.get() is None
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_helper_syntax_wrappers_are_limited_to_composite_calls(side):
+    module = parse_reuse_module(side)
+    tree = ast.parse(Path(module.__file__).read_text())
+    decorated = {
+        node.name for node in tree.body if isinstance(node, ast.FunctionDef)
+        and any(isinstance(d, ast.Call) and isinstance(d.func, ast.Name)
+                and d.func.id == '_yaml_parse_operation' for d in node.decorator_list)
+    }
+    assert decorated == set(_HELPER_SYNTAX_OPERATIONS[side])
+    public_fresh = {'build_plan'} if side == 'builder' else {'check_plan', '_reconstruct_expected_plan'}
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name in public_fresh:
+            assert len(node.decorator_list) == 1
+            decorator = node.decorator_list[0]
+            assert isinstance(decorator, ast.Call) and isinstance(decorator.func, ast.Name)
+            assert decorator.func.id == '_yaml_parse_scope'
+    assert not hasattr(module._parse_yaml_document, '__wrapped__')
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.

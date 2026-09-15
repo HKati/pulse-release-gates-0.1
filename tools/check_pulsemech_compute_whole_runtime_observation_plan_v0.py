@@ -862,6 +862,19 @@ def _yaml_parse_scope() -> Iterator[None]:
         _YAML_PARSE_MEMO.reset(token)
 
 
+# A composite helper can also be called directly by a source predicate or a
+# regression. Give that call the same syntax-only scope as a public operation,
+# but do not reset an already active scope at each nested helper. Public build,
+# check and independent reconstruction entrypoints still force fresh scopes.
+@contextmanager
+def _yaml_parse_operation() -> Iterator[None]:
+    if _YAML_PARSE_MEMO.get() is None:
+        with _yaml_parse_scope():
+            yield
+    else:
+        yield
+
+
 def _parse_yaml_document(data: bytes, *, label: str) -> dict[str, Any]:
     memo = _YAML_PARSE_MEMO.get()
     if not (
@@ -1738,6 +1751,7 @@ def _apply_recorded_source_expectations(states: list[dict[str, Any]],
         row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
 
 
+@_yaml_parse_operation()
 def _verify_source_recorded_equations(plan: dict[str, Any], workflow: dict[str, Any],
                                         source_by_path: dict[str, GitObject]) -> None:
     """Reject a shared wrong producer/checker answer against the source itself."""
@@ -2590,6 +2604,7 @@ def _install_provenance_source_projection(states: list[dict[str, Any]], steps: d
         row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
 
 
+@_yaml_parse_operation()
 def _verify_source_provenance_equations(plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject]) -> None:
     """Reject source-inconsistent supplied plans before constructor equality."""
     facts = _source_provenance_expectations(workflow, sources)
@@ -2777,6 +2792,7 @@ _PRESERVATION_RUNNER_FLAGS = (
 )
 
 
+@_yaml_parse_operation()
 def _source_preattest_preservation_expectations(workflow: dict[str, Any], sources: dict[str, GitObject]) -> dict[str, Any]:
     """Check the restore hash extent back against publication and source paths."""
     source = sources.get(SUBJECT_WORKFLOW_PATH)
@@ -2876,6 +2892,7 @@ def _install_preattest_preservation_projection(states: list[dict[str, Any]], ste
         row["required_consumer_occurrence_ids"] = sorted(set(row["required_consumer_occurrence_ids"]))
 
 
+@_yaml_parse_operation()
 def _verify_source_preattest_preservation_equations(plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject]) -> None:
     """Check submitted preservation relationships before reconstruction equality."""
     facts = _source_preattest_preservation_expectations(workflow, sources)
@@ -3415,6 +3432,7 @@ def _verify_source_llamaguard_production_equations(plan: dict[str, Any], workflo
 
 
 # Source postconditions are a hash-reading consumer, not a verifier verdict.
+@_yaml_parse_operation()
 def _source_pre_attestation_postcondition_expectations(
     workflow: dict[str, Any], sources: dict[str, GitObject],
 ) -> dict[str, Any]:
@@ -3493,6 +3511,7 @@ def _install_pre_attestation_postcondition_projection(
         row["required_consumer_occurrence_ids"] = sorted(readers)
 
 
+@_yaml_parse_operation()
 def _verify_source_pre_attestation_postcondition_equations(
     plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject],
 ) -> None:
@@ -3524,6 +3543,7 @@ def _verify_source_pre_attestation_postcondition_equations(
 
 # Hash arguments, directory-entry predicates and published selectors are three
 # different source surfaces. None is an observed content-admission receipt.
+@_yaml_parse_operation()
 def _source_final_artifact_postcondition_expectations(
     workflow: dict[str, Any], sources: dict[str, GitObject],
 ) -> dict[str, Any]:
@@ -3654,6 +3674,7 @@ def _install_final_artifact_postcondition_projection(
         state["required_consumer_occurrence_ids"] = sorted(readers)
 
 
+@_yaml_parse_operation()
 def _verify_source_final_artifact_postcondition_equations(
     plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject],
 ) -> None:
@@ -3727,6 +3748,7 @@ def _source_recorded_publication_selectors(
             "if_no_files_found": fields["if-no-files-found"], "retention_days": 30}
 
 
+@_yaml_parse_operation()
 def _source_recorded_publication_expectations(
     workflow: dict[str, Any], sources: dict[str, GitObject],
 ) -> dict[str, Any]:
@@ -3797,6 +3819,7 @@ def _install_recorded_publication_projection(
         row["required_consumer_occurrence_ids"] = sorted(readers)
 
 
+@_yaml_parse_operation()
 def _verify_source_recorded_publication_equations(
     plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject],
 ) -> None:
@@ -4004,6 +4027,7 @@ def _report_publication_covers_locator(root: str, locator: str) -> bool:
     return all(re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*", part) is not None for part in parts[2:])
 
 
+@_yaml_parse_operation()
 def _source_report_publication_expectations(
     workflow: dict[str, Any], sources: dict[str, GitObject],
 ) -> dict[str, Any]:
@@ -4064,6 +4088,7 @@ def _install_report_publication_projection(
             remaining + ([oid] if state["state_id"] in selected else [])))
 
 
+@_yaml_parse_operation()
 def _verify_source_report_publication_equations(
     plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject],
 ) -> None:
@@ -4113,6 +4138,7 @@ _RESIDUAL_CHECKOUT_JOBS = (
 )
 
 
+@_yaml_parse_operation()
 def _source_residual_input_expectations(
     workflow: dict[str, Any], sources: dict[str, GitObject],
 ) -> dict[str, Any]:
@@ -4240,6 +4266,7 @@ def _install_residual_input_projection(
             row["required_consumer_occurrence_ids"] = sorted(set(outside + ([oid] if role in eq["inputs"] else [])))
 
 
+@_yaml_parse_operation()
 def _verify_source_residual_input_equations(
     plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject],
 ) -> None:
@@ -4283,6 +4310,7 @@ def _verify_source_residual_input_equations(
                  if oid in row["required_consumer_occurrence_ids"]), "residual_input_graph_asymmetry", oid)
 
 
+@_yaml_parse_operation()
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],

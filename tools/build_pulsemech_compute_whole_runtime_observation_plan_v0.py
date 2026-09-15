@@ -852,6 +852,19 @@ def _yaml_parse_scope() -> Iterator[None]:
         _YAML_PARSE_MEMO.reset(token)
 
 
+# A composite helper can also be called directly by a source predicate or a
+# regression. Give that call the same syntax-only scope as a public operation,
+# but do not reset an already active scope at each nested helper. Public build,
+# check and independent reconstruction entrypoints still force fresh scopes.
+@contextmanager
+def _yaml_parse_operation() -> Iterator[None]:
+    if _YAML_PARSE_MEMO.get() is None:
+        with _yaml_parse_scope():
+            yield
+    else:
+        yield
+
+
 def _parse_yaml_document(data: bytes, *, label: str) -> dict[str, Any]:
     memo = _YAML_PARSE_MEMO.get()
     if not (
@@ -2500,6 +2513,7 @@ _PRESERVATION_RUNNER_FLAGS = (
 )
 
 
+@_yaml_parse_operation()
 def _preattest_preservation_source_projection(workflow: dict[str, Any], sources: dict[str, GitObject]) -> dict[str, Any]:
     """Derive upload membership and the bounded restore/copy input equations."""
     obj = sources.get(SUBJECT_WORKFLOW_PATH)
@@ -2974,6 +2988,7 @@ def _install_llamaguard_production_projection(states: list[dict[str, Any]], step
 
 # P36 hashes the pre-attestation file set before P37 publishes it. Hash reads
 # are not signature/content admission and do not make P36 a content producer.
+@_yaml_parse_operation()
 def _pre_attestation_postcondition_source_projection(
     workflow: dict[str, Any], sources: dict[str, GitObject],
 ) -> dict[str, Any]:
@@ -3044,6 +3059,7 @@ def _install_pre_attestation_postcondition_projection(
 
 # R26 hashes final physical files and separately checks two directory entries.
 # Neither operation admits content or witnesses an original runtime read.
+@_yaml_parse_operation()
 def _final_artifact_postcondition_source_projection(
     workflow: dict[str, Any], sources: dict[str, GitObject],
 ) -> dict[str, Any]:
@@ -3207,6 +3223,7 @@ def _recorded_publication_source_selectors(
             "if_no_files_found": options["if-no-files-found"], "retention_days": 30}
 
 
+@_yaml_parse_operation()
 def _recorded_publication_source_projection(
     workflow: dict[str, Any], sources: dict[str, GitObject],
 ) -> dict[str, Any]:
@@ -3403,6 +3420,7 @@ def _report_publication_covers_locator(root: str, locator: str) -> bool:
     return re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*(?:/[A-Za-z0-9_][A-Za-z0-9_.-]*)*/?", suffix) is not None
 
 
+@_yaml_parse_operation()
 def _report_publication_source_projection(
     workflow: dict[str, Any], sources: dict[str, GitObject],
 ) -> dict[str, Any]:
@@ -3479,6 +3497,7 @@ _RESIDUAL_CHECKOUT_JOBS = (
 )
 
 
+@_yaml_parse_operation()
 def _residual_input_source_projection(
     workflow: dict[str, Any], sources: dict[str, GitObject],
 ) -> dict[str, Any]:
@@ -3612,6 +3631,7 @@ def _install_residual_input_projection(
             row["required_consumer_occurrence_ids"] = sorted(set(outside + ([oid] if role in eq["inputs"] else [])))
 
 
+@_yaml_parse_operation()
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
