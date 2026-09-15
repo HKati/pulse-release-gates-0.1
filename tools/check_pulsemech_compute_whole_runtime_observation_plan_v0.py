@@ -461,6 +461,10 @@ SOURCE_ROLES = (
     ("llamaguard_envelope_builder_semantics", "PULSE_safe_pack_v0/tools/build_llamaguard_attestation_envelope_v1.py"),
     ("llamaguard_attestation_verifier_semantics", "PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py"),
     ("llamaguard_summary_ingest_semantics", "PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py"),
+    ('registry_sync_semantics', 'tools/check_gate_registry_sync.py'),
+    ('policy_registry_consistency_semantics', 'tools/tools/check_policy_registry_consistency.py'),
+    ('junit_exporter_semantics', 'PULSE_safe_pack_v0/tools/status_to_junit.py'),
+    ('sarif_exporter_semantics', 'PULSE_safe_pack_v0/tools/status_to_sarif.py'),
 )
 
 AUTHORITY_BOUNDARY = {
@@ -1774,6 +1778,8 @@ def _verify_source_recorded_equations(plan: dict[str, Any], workflow: dict[str, 
         expected_consumers = {oid for oid, eq in facts["steps"].items() if role in eq["inputs"]}
         if role == "pre-materialization-status":
             expected_consumers.add(facts["pre_status_restore"])
+            expected_consumers.update(oid for oid, eq in _source_residual_input_expectations(workflow, source_by_path)["steps"].items()
+                                      if role in eq["inputs"])
             expected_consumers.update(
                 oid for oid, eq in floor_facts["steps"].items()
                 if role in eq["inputs"]
@@ -4090,6 +4096,193 @@ def _verify_source_report_publication_equations(
              == inputs, "report_publication_reverse_inputs_mismatch")
 
 
+# Residual input reconciliation under the exact reviewed workflow. These are
+# source-declared reads/transport inputs, never observed runtime read receipts.
+_RESIDUAL_SOURCE_PINS = {'PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py': '6dcf6826d2c04143b86c7f7b6dfd6c8c43d028f7',
+ 'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py': '4298b7644acb0d8f7c50bbbac5308fb5038a501a',
+ 'PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py': '7fa6539f614d3d30bb603c523889f38bf4c012c1',
+ 'PULSE_safe_pack_v0/tools/check_recorded_release_evidence_v0.py': '561e72a8e2ea2d25faa2a80cbecf025192435c38',
+ 'PULSE_safe_pack_v0/tools/status_to_junit.py': '3eea6c90d59fd1088db64dc1d1bcdce38e06e7a1',
+ 'PULSE_safe_pack_v0/tools/status_to_sarif.py': '9606b541a5e1219b1d6c39ffbc62d83f58cf6d42',
+ 'tools/check_gate_registry_sync.py': '333ee2088446197424e844f3f43cbeac43b77b1f',
+ 'tools/policy_to_require_args.py': '5b1d099485d0e3bfd90da3fff1213a4e949db850',
+ 'tools/tools/check_policy_registry_consistency.py': '811d8e3fc573aee2e8c48c09830fa67093437602'}
+_RESIDUAL_CHECKOUT_JOBS = (
+    "pulse", "attest_llamaguard_current_run_summary", "release_grade_recorded_path",
+    "assemble_release_grade_reference_package", "verify_release_grade_reference_package", "tools-tests",
+)
+
+
+def _source_residual_input_expectations(
+    workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> dict[str, Any]:
+    """Independent source/path equations, not a copied producer result."""
+    wf = sources.get(SUBJECT_WORKFLOW_PATH)
+    _require(wf is not None and wf.path == SUBJECT_WORKFLOW_PATH, "residual_input_source_missing")
+    _require(_sha1_git_blob(wf.data) == EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1,
+             "residual_input_source_drift", SUBJECT_WORKFLOW_PATH)
+    parsed = _parse_yaml_document(wf.data, label=SUBJECT_WORKFLOW_PATH)
+    _require(workflow == parsed, "residual_input_workflow_drift")
+    for relative in sorted(_RESIDUAL_SOURCE_PINS):
+        obj = sources.get(relative)
+        _require(obj is not None and obj.path == relative, "residual_input_source_missing", relative)
+        _require(_sha1_git_blob(obj.data) == _RESIDUAL_SOURCE_PINS[relative], "residual_input_source_drift", relative)
+    pack = "PULSE_safe_pack_v0/tools/"
+    candidate = pack + "build_recorded_release_candidates_v0.py"
+    origin = pack + "build_release_grade_candidate_status_v0.py"
+    def literal(path: str, key: str) -> str:
+        tree = ast.parse(sources[path].data, filename=path)
+        declarations = [n.value for n in tree.body if isinstance(n, ast.Assign)
+                        and any(isinstance(t, ast.Name) and t.id == key for t in n.targets)]
+        _require(len(declarations) == 1, "residual_input_literal_not_unique", key)
+        value = ast.literal_eval(declarations[0])
+        _require(isinstance(value, str), "residual_input_literal_not_text", key)
+        return _checked_mapping_path(value)
+    final = literal(candidate, "STATUS")
+    pre = final + "#pre-release-required-materialization"
+    evidence = literal(candidate, "REQUIRED_EVIDENCE")
+    _require(literal(origin, "EVIDENCE_PATH") == evidence, "residual_input_evidence_handoff")
+    policy, registry, threshold = (literal(candidate, k) for k in ("POLICY", "REGISTRY", "THRESHOLDS"))
+    _require(policy == POLICY_PATH == literal(origin, "POLICY_PATH")
+             and registry == REGISTRY_PATH == literal(origin, "REGISTRY_PATH"), "residual_input_policy_handoff")
+    _require(threshold == THRESHOLD_POLICY_PATH, "residual_input_threshold_handoff")
+    pulse = parsed["jobs"]["pulse"]["steps"]
+    rows = parsed["jobs"]["release_grade_recorded_path"]["steps"]
+    upload = pulse[11]
+    selectors = upload["with"]["path"].splitlines()
+    _require(selectors == [evidence, "PULSE_safe_pack_v0/artifacts/required_gate_inputs/**",
+                           "PULSE_safe_pack_v0/artifacts/required_gate_evidence_logs/**"], "residual_input_transport_selectors")
+    _require(upload["if"] == "${{ always() && steps.release_mode.outputs.is_release == '1' }}"
+             and upload["with"]["if-no-files-found"] == "warn", "residual_input_transport_condition")
+    _require(pulse[37]["if"] == "${{ steps.release_mode.outputs.is_release != '1' }}"
+             and _step_expected_result("pulse", 38)[1] == "skipped", "residual_input_pulse_status_version")
+    exporter = rows[22]
+    status_env = _checked_mapping_export(exporter, "PULSE_STATUS")
+    junit = _checked_mapping_export(exporter, "PULSE_JUNIT")
+    sarif = _checked_mapping_export(exporter, "PULSE_SARIF")
+    _require(status_env == final and junit == "PULSE_safe_pack_v0/artifacts/reports/junit.xml"
+             and sarif == "PULSE_safe_pack_v0/artifacts/reports/sarif.json", "residual_input_export_paths")
+    pol_calls = _recorded_source_commands(exporter, "tools/policy_to_require_args.py", ("--policy", "--set", "--format"), 2)
+    _require(tuple(c["--set"] for c in pol_calls) == ("required", "release_required")
+             and all(c["--policy"] == policy and c["--format"] == "newline" for c in pol_calls),
+             "residual_input_export_policy_order")
+    _require(exporter["env"] == {"PULSE_EVENT_NAME": "${{ github.event_name }}",
+             "PULSE_REF": "${{ github.ref }}", "PULSE_SHA": "${{ github.sha }}"}, "residual_input_export_identity")
+    ext = literal(candidate, "EXTERNAL_DIR") + "/"
+    manifest = _checked_mapping_path(_recorded_source_commands(rows[7], pack + "check_recorded_release_evidence_v0.py",
+                    ("--manifest", "--repo-root", "--out-json"))[0]["--manifest"])
+    verification = _checked_mapping_path(_recorded_source_commands(rows[7], pack + "check_recorded_release_evidence_v0.py",
+                    ("--manifest", "--repo-root", "--out-json"))[0]["--out-json"])
+    names = {SUBJECT_WORKFLOW_PATH: "workflow-source", policy: "gate-policy", registry: "gate-registry",
+             pre: "pre-materialization-status", final: "final-status", evidence: "required-gate-evidence",
+             threshold: "threshold-policy", EXTERNAL_SIGNER_POLICY_PATH: "external-signer-policy",
+             literal(candidate, "INDEX"): "recorded-candidate-index",
+             literal(candidate, "OUT_DIR") + "/": "recorded-release-candidate-envelopes",
+             manifest: "release-evidence-input-manifest", verification: "recorded-release-evidence-verifier",
+             junit: "release-grade-junit", sarif: "release-grade-sarif",
+             ext + "llamaguard_summary.json": "llamaguard-summary",
+             ext + "llamaguard_raw.jsonl": "llamaguard-raw-evidence",
+             ext + "llamaguard_summary.envelope.json": "llamaguard-attestation-envelope",
+             ext + "llamaguard_summary.bundle.json": "llamaguard-attestation-bundle",
+             ext + "llamaguard_attestation_verifier_v1.json": "llamaguard-attestation-verifier"}
+    _require(len(names) == 19, "residual_input_path_alias")
+    # Whole-file semantic pins bind the implemented replay call graph. The
+    # returned in-memory attestation report is not a read of the L7 output.
+    common = (pre, evidence, policy, registry, threshold, EXTERNAL_SIGNER_POLICY_PATH,
+              ext + "llamaguard_summary.json", ext + "llamaguard_raw.jsonl",
+              ext + "llamaguard_summary.envelope.json", ext + "llamaguard_summary.bundle.json")
+    r = lambda n: _step_id("release_grade_recorded_path", n)
+    p = lambda n: _step_id("pulse", n)
+    l = lambda n: _step_id("attest_llamaguard_current_run_summary", n)
+    candidate_index, candidate_dir = literal(candidate, "INDEX"), literal(candidate, "OUT_DIR") + "/"
+    equations = {p(12): ((evidence,), ()), p(13): ((evidence, policy, registry), (pre,)),
+                 p(50): ((pre, registry), ()), p(51): ((policy, registry), ()),
+                 r(6): (common, (candidate_index, candidate_dir)),
+                 r(8): ((manifest, candidate_dir, *common), (verification,)),
+                 r(23): ((status_env, policy), (junit, sarif))}
+    writers = {pre: p(13), final: r(9), evidence: p(11), candidate_index: r(6), candidate_dir: r(6),
+               manifest: r(7), verification: r(8), junit: r(23), sarif: r(23),
+               ext + "llamaguard_summary.json": p(23), ext + "llamaguard_raw.jsonl": p(22),
+               ext + "llamaguard_summary.envelope.json": l(6), ext + "llamaguard_summary.bundle.json": l(5),
+               ext + "llamaguard_attestation_verifier_v1.json": l(7)}
+    for job in _RESIDUAL_CHECKOUT_JOBS:
+        raw = parsed["jobs"][job]["steps"][0]
+        _require(raw == {"name": "Checkout", "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                         "with": {"fetch-depth": "0", "persist-credentials": "false"}}, "residual_input_checkout_profile", job)
+        equations[_step_id(job, 1)] = ((), ())
+    return {"locators": {role: path for path, role in names.items()},
+            "origins": {role: writers.get(path) for path, role in names.items()},
+            "steps": {oid: {"inputs": sorted(names[path] for path in ins), "outputs": sorted(names[path] for path in outs)}
+                      for oid, (ins, outs) in sorted(equations.items())},
+            "transport_occurrences": [p(12)], "source_anchor_occurrences": sorted(_step_id(j, 1) for j in _RESIDUAL_CHECKOUT_JOBS),
+            "upload_selectors": selectors, "upload_if_no_files_found": "warn",
+            "export_policy_set_order": ["required", "release_required"],
+            "export_gate_ids": list(dict.fromkeys(g for values in _source_required_policy_members(sources[POLICY_PATH].data).values() for g in values)),
+            "observed_read_receipt": False, "semantic_content_admission": False,
+            "selected_roles_exhaust_source_reads": False}
+
+
+def _install_residual_input_projection(
+    states: list[dict[str, Any]], step_by_key: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any],
+) -> None:
+    """Install only reviewed inputs and their inverse links; never alter writers."""
+    indexed = {s["state_id"].removeprefix("state:step5c:"): s for s in states}
+    steps = {s["occurrence_id"]: s for s in step_by_key.values()}
+    for role, path in facts["locators"].items():
+        _require(role in indexed and indexed[role]["path_or_uri"] == path, "residual_input_locator_mismatch", role)
+        _require(indexed[role]["producer_occurrence_id"] == facts["origins"][role], "residual_input_origin_mismatch", role)
+    for oid, eq in facts["steps"].items():
+        _require(oid in steps and steps[oid]["output_state_ids"] == sorted("state:step5c:" + r for r in eq["outputs"]),
+                 "residual_input_existing_output_mismatch", oid)
+        steps[oid]["input_state_ids"] = sorted("state:step5c:" + r for r in eq["inputs"])
+        for role, row in indexed.items():
+            outside = [c for c in row["required_consumer_occurrence_ids"] if c != oid]
+            row["required_consumer_occurrence_ids"] = sorted(set(outside + ([oid] if role in eq["inputs"] else [])))
+
+
+def _verify_source_residual_input_equations(
+    plan: dict[str, Any], workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> None:
+    """Reject wrong supplied relations even when both constructors agree."""
+    facts = _source_residual_input_expectations(workflow, sources)
+    states = {s["state_id"].removeprefix("state:step5c:"): s for s in plan["state_templates"]}
+    all_steps = [s for job in plan["jobs"] for s in job["steps"]]
+    steps = {s["occurrence_id"]: s for s in all_steps}
+    _require(len(states) == len(plan["state_templates"]) and len(steps) == len(all_steps),
+             "residual_input_duplicate_identity")
+    for role, path in facts["locators"].items():
+        _require(role in states, "residual_input_role_missing", role)
+        row = states[role]
+        _require(row["path_or_uri"] == path, "residual_input_locator_mismatch", role)
+        _require(row["producer_occurrence_id"] == facts["origins"][role], "residual_input_origin_mismatch", role)
+        authority = role not in ("release-grade-junit", "release-grade-sarif")
+        mutation = "final_status" if role == "final-status" else "none"
+        _require(row["required"] is True and row["content_requirement"] == "exact_digest"
+                 and row["authority_bearing"] is authority and row["mutation_class"] == mutation,
+                 "residual_input_duty_mismatch", role)
+    for oid, eq in facts["steps"].items():
+        _require(oid in steps, "residual_input_step_missing", oid)
+        for field, direction in (("input_state_ids", "inputs"), ("output_state_ids", "outputs")):
+            _require(steps[oid][field] == sorted("state:step5c:" + role for role in eq[direction]),
+                     "residual_input_step_io_mismatch", oid + ":" + direction)
+        _require(sorted(row["state_id"] for row in states.values() if oid in row["required_consumer_occurrence_ids"])
+                 == steps[oid]["input_state_ids"], "residual_input_reverse_mismatch", oid)
+    source = states["workflow-source"]
+    # L6 really hashes the workflow while building its envelope. Preserve that
+    # completed read; removing checkout-as-read must not erase this consumer.
+    declared = _source_llamaguard_attestation_expectations(workflow, sources)
+    expected_reads = sorted(oid for oid, eq in declared["steps"].items() if "workflow-source" in eq["inputs"])
+    _require(source["required_consumer_occurrence_ids"] == expected_reads
+             and sorted(step["occurrence_id"] for step in all_steps if source["state_id"] in step["input_state_ids"])
+             == expected_reads, "residual_input_source_is_not_read_receipt")
+    # A structural cross-check is additional, never a source oracle: it cannot
+    # discover a relation omitted from both sides of the graph.
+    by_id = {s["state_id"]: s for s in states.values()}
+    for oid, step in steps.items():
+        _require(step["input_state_ids"] == sorted(row["state_id"] for row in by_id.values()
+                 if oid in row["required_consumer_occurrence_ids"]), "residual_input_graph_asymmetry", oid)
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -4648,6 +4841,7 @@ def _build_states(
     _install_recorded_publication_projection(states, step_by_key, recorded_publication)
     _install_authority_publication_projection(states, step_by_key, authority_publication)
     _install_report_publication_projection(states, step_by_key, report_publication)
+    _install_residual_input_projection(states, step_by_key, _source_residual_input_expectations(source_workflow, source_by_path))
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph
@@ -5288,6 +5482,9 @@ def check_plan(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_source_report_publication_equations(
+        plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
+    )
+    _verify_source_residual_input_equations(
         plan, _parse_yaml_document(source_by_path[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH), source_by_path,
     )
     _verify_tool_identity(

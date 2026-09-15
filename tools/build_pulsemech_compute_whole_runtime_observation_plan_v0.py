@@ -451,6 +451,10 @@ SOURCE_ROLES = (
     ("llamaguard_envelope_builder_semantics", "PULSE_safe_pack_v0/tools/build_llamaguard_attestation_envelope_v1.py"),
     ("llamaguard_attestation_verifier_semantics", "PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py"),
     ("llamaguard_summary_ingest_semantics", "PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py"),
+    ('registry_sync_semantics', 'tools/check_gate_registry_sync.py'),
+    ('policy_registry_consistency_semantics', 'tools/tools/check_policy_registry_consistency.py'),
+    ('junit_exporter_semantics', 'PULSE_safe_pack_v0/tools/status_to_junit.py'),
+    ('sarif_exporter_semantics', 'PULSE_safe_pack_v0/tools/status_to_sarif.py'),
 )
 
 AUTHORITY_BOUNDARY = {
@@ -3458,6 +3462,156 @@ def _install_report_publication_projection(
         state["required_consumer_occurrence_ids"] = sorted(readers)
 
 
+# Residual input reconciliation under the exact reviewed workflow. These are
+# source-declared reads/transport inputs, never observed runtime read receipts.
+_RESIDUAL_SOURCE_PINS = {'PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py': '6dcf6826d2c04143b86c7f7b6dfd6c8c43d028f7',
+ 'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py': '4298b7644acb0d8f7c50bbbac5308fb5038a501a',
+ 'PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py': '7fa6539f614d3d30bb603c523889f38bf4c012c1',
+ 'PULSE_safe_pack_v0/tools/check_recorded_release_evidence_v0.py': '561e72a8e2ea2d25faa2a80cbecf025192435c38',
+ 'PULSE_safe_pack_v0/tools/status_to_junit.py': '3eea6c90d59fd1088db64dc1d1bcdce38e06e7a1',
+ 'PULSE_safe_pack_v0/tools/status_to_sarif.py': '9606b541a5e1219b1d6c39ffbc62d83f58cf6d42',
+ 'tools/check_gate_registry_sync.py': '333ee2088446197424e844f3f43cbeac43b77b1f',
+ 'tools/policy_to_require_args.py': '5b1d099485d0e3bfd90da3fff1213a4e949db850',
+ 'tools/tools/check_policy_registry_consistency.py': '811d8e3fc573aee2e8c48c09830fa67093437602'}
+_RESIDUAL_CHECKOUT_JOBS = (
+    "pulse", "attest_llamaguard_current_run_summary", "release_grade_recorded_path",
+    "assemble_release_grade_reference_package", "verify_release_grade_reference_package", "tools-tests",
+)
+
+
+def _residual_input_source_projection(
+    workflow: dict[str, Any], sources: dict[str, GitObject],
+) -> dict[str, Any]:
+    """Resolve the finite residual slices; preserve every outside obligation."""
+    obj = sources.get(SUBJECT_WORKFLOW_PATH)
+    _require(obj is not None and obj.path == SUBJECT_WORKFLOW_PATH, "residual_input_source_missing")
+    _require(_sha1_git_blob(obj.data) == EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1,
+             "residual_input_source_drift", SUBJECT_WORKFLOW_PATH)
+    _require(workflow == _parse_yaml_document(obj.data, label=SUBJECT_WORKFLOW_PATH),
+             "residual_input_workflow_drift")
+    for path, pin in _RESIDUAL_SOURCE_PINS.items():
+        source = sources.get(path)
+        _require(source is not None and source.path == path, "residual_input_source_missing", path)
+        _require(_sha1_git_blob(source.data) == pin, "residual_input_source_drift", path)
+    pulse = workflow["jobs"]["pulse"]["steps"]
+    recorded = workflow["jobs"]["release_grade_recorded_path"]["steps"]
+    def constant(path: str, name: str) -> str:
+        return _mapping_path(_python_constant(sources[path].data, name=name, label=path))
+    pack = "PULSE_safe_pack_v0/tools/"
+    origin = pack + "build_release_grade_candidate_status_v0.py"
+    candidate = pack + "build_recorded_release_candidates_v0.py"
+    status = constant(candidate, "STATUS")
+    evidence = constant(origin, "EVIDENCE_PATH")
+    _require(evidence == constant(candidate, "REQUIRED_EVIDENCE"), "residual_input_evidence_handoff")
+    for path, pol, reg in ((origin, "POLICY_PATH", "REGISTRY_PATH"), (candidate, "POLICY", "REGISTRY")):
+        _require(constant(path, pol) == POLICY_PATH and constant(path, reg) == REGISTRY_PATH,
+                 "residual_input_policy_handoff")
+    _require(constant(candidate, "THRESHOLDS") == THRESHOLD_POLICY_PATH, "residual_input_threshold_handoff")
+    upload = pulse[11]
+    _require(upload["if"] == "${{ always() && steps.release_mode.outputs.is_release == '1' }}"
+             and upload["with"]["if-no-files-found"] == "warn", "residual_input_transport_condition")
+    selectors = upload["with"]["path"].splitlines()
+    _require(selectors == [evidence, "PULSE_safe_pack_v0/artifacts/required_gate_inputs/**",
+                           "PULSE_safe_pack_v0/artifacts/required_gate_evidence_logs/**"],
+             "residual_input_transport_selectors")
+    _require(pulse[37]["if"] == "${{ steps.release_mode.outputs.is_release != '1' }}"
+             and _step_expected_result("pulse", 38)[1] == "skipped", "residual_input_pulse_status_version")
+    # The pin fixes P50's literal --status/--registry/--emit-stubs invocation,
+    # P51's two policy-helper calls and its inline policy-only subset check.
+    # No R9 state can be substituted into the earlier pulse job.
+    final = _mapping_assignment(recorded[22], "PULSE_STATUS")
+    junit = _mapping_assignment(recorded[22], "PULSE_JUNIT")
+    sarif = _mapping_assignment(recorded[22], "PULSE_SARIF")
+    _require(final == status and junit == "PULSE_safe_pack_v0/artifacts/reports/junit.xml"
+             and sarif == "PULSE_safe_pack_v0/artifacts/reports/sarif.json", "residual_input_export_paths")
+    calls = _recorded_argv(recorded[22], "tools/policy_to_require_args.py",
+                           {"--policy", "--set", "--format"}, count=2)
+    _require([x["--set"] for x in calls] == ["required", "release_required"]
+             and all(x["--policy"] == POLICY_PATH and x["--format"] == "newline" for x in calls),
+             "residual_input_export_policy_order")
+    _require(recorded[22]["env"] == {"PULSE_EVENT_NAME": "${{ github.event_name }}",
+             "PULSE_REF": "${{ github.ref }}", "PULSE_SHA": "${{ github.sha }}"},
+             "residual_input_export_identity")
+    locators = {
+        "workflow-source": SUBJECT_WORKFLOW_PATH, "gate-policy": POLICY_PATH, "gate-registry": REGISTRY_PATH,
+        "pre-materialization-status": status + "#pre-release-required-materialization", "final-status": status,
+        "required-gate-evidence": evidence, "threshold-policy": THRESHOLD_POLICY_PATH,
+        "external-signer-policy": EXTERNAL_SIGNER_POLICY_PATH,
+        "recorded-candidate-index": constant(candidate, "INDEX"),
+        "recorded-release-candidate-envelopes": constant(candidate, "OUT_DIR") + "/",
+        "release-evidence-input-manifest": "PULSE_safe_pack_v0/artifacts/release_evidence_input_manifest_v0.json",
+        "recorded-release-evidence-verifier": "PULSE_safe_pack_v0/artifacts/recorded_release_evidence_verifier_v0.json",
+        "release-grade-junit": junit, "release-grade-sarif": sarif,
+    }
+    external = constant(candidate, "EXTERNAL_DIR") + "/"
+    for role, name in (("llamaguard-summary", "llamaguard_summary.json"),
+                       ("llamaguard-raw-evidence", "llamaguard_raw.jsonl"),
+                       ("llamaguard-attestation-envelope", "llamaguard_summary.envelope.json"),
+                       ("llamaguard-attestation-bundle", "llamaguard_summary.bundle.json"),
+                       ("llamaguard-attestation-verifier", "llamaguard_attestation_verifier_v1.json")):
+        locators[role] = external + name
+    r = lambda n: _step_id("release_grade_recorded_path", n)
+    p = lambda n: _step_id("pulse", n)
+    l = lambda n: _step_id("attest_llamaguard_current_run_summary", n)
+    origins = dict.fromkeys(locators)
+    origins.update({"pre-materialization-status": p(13), "final-status": r(9), "required-gate-evidence": p(11),
+        "recorded-candidate-index": r(6), "recorded-release-candidate-envelopes": r(6),
+        "release-evidence-input-manifest": r(7), "recorded-release-evidence-verifier": r(8),
+        "release-grade-junit": r(23), "release-grade-sarif": r(23), "llamaguard-summary": p(23),
+        "llamaguard-raw-evidence": p(22), "llamaguard-attestation-envelope": l(6),
+        "llamaguard-attestation-bundle": l(5), "llamaguard-attestation-verifier": l(7)})
+    # R6 builds canonical candidates. R8 replays that builder, including a fresh
+    # attestation verification; neither reads the persisted L7 verifier report.
+    replay = ["pre-materialization-status", "gate-policy", "gate-registry", "required-gate-evidence",
+              "threshold-policy", "external-signer-policy", "llamaguard-summary", "llamaguard-raw-evidence",
+              "llamaguard-attestation-envelope", "llamaguard-attestation-bundle"]
+    equations = {
+        p(12): {"inputs": ["required-gate-evidence"], "outputs": []},
+        p(13): {"inputs": ["required-gate-evidence", "gate-policy", "gate-registry"],
+                "outputs": ["pre-materialization-status"]},
+        p(50): {"inputs": ["pre-materialization-status", "gate-registry"], "outputs": []},
+        p(51): {"inputs": ["gate-policy", "gate-registry"], "outputs": []},
+        r(6): {"inputs": replay, "outputs": ["recorded-candidate-index", "recorded-release-candidate-envelopes"]},
+        r(8): {"inputs": replay + ["release-evidence-input-manifest", "recorded-release-candidate-envelopes"],
+               "outputs": ["recorded-release-evidence-verifier"]},
+        r(23): {"inputs": ["final-status", "gate-policy"], "outputs": ["release-grade-junit", "release-grade-sarif"]},
+    }
+    # Checkout transports a repository revision. The workflow-source role is
+    # retained as required exact source inventory, not a checkout content read.
+    for job in _RESIDUAL_CHECKOUT_JOBS:
+        checkout = workflow["jobs"][job]["steps"][0]
+        _require(checkout == {"name": "Checkout", "uses": "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+                             "with": {"fetch-depth": "0", "persist-credentials": "false"}},
+                 "residual_input_checkout_profile", job)
+        equations[_step_id(job, 1)] = {"inputs": [], "outputs": []}
+    return {"locators": locators, "origins": origins,
+            "steps": {oid: {direction: sorted(roles) for direction, roles in eq.items()} for oid, eq in sorted(equations.items())},
+            "transport_occurrences": [p(12)], "source_anchor_occurrences": sorted(_step_id(j, 1) for j in _RESIDUAL_CHECKOUT_JOBS),
+            "upload_selectors": selectors, "upload_if_no_files_found": "warn",
+            "export_policy_set_order": ["required", "release_required"],
+            "export_gate_ids": list(dict.fromkeys(g for values in _required_argument_policy_sets(sources[POLICY_PATH].data).values() for g in values)),
+            "observed_read_receipt": False, "semantic_content_admission": False,
+            "selected_roles_exhaust_source_reads": False}
+
+
+def _install_residual_input_projection(
+    states: list[dict[str, Any]], step_by_key: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any],
+) -> None:
+    """Install only reviewed inputs and their inverse links; never alter writers."""
+    indexed = {s["state_id"].removeprefix("state:step5c:"): s for s in states}
+    steps = {s["occurrence_id"]: s for s in step_by_key.values()}
+    for role, path in facts["locators"].items():
+        _require(role in indexed and indexed[role]["path_or_uri"] == path, "residual_input_locator_mismatch", role)
+        _require(indexed[role]["producer_occurrence_id"] == facts["origins"][role], "residual_input_origin_mismatch", role)
+    for oid, eq in facts["steps"].items():
+        _require(oid in steps and steps[oid]["output_state_ids"] == sorted("state:step5c:" + r for r in eq["outputs"]),
+                 "residual_input_existing_output_mismatch", oid)
+        steps[oid]["input_state_ids"] = sorted("state:step5c:" + r for r in eq["inputs"])
+        for role, row in indexed.items():
+            outside = [c for c in row["required_consumer_occurrence_ids"] if c != oid]
+            row["required_consumer_occurrence_ids"] = sorted(set(outside + ([oid] if role in eq["inputs"] else [])))
+
+
 def _build_states(
     step_by_key: dict[tuple[str, int], dict[str, Any]],
     case_ids: tuple[str, ...],
@@ -4016,6 +4170,7 @@ def _build_states(
     _install_recorded_publication_projection(states, step_by_key, recorded_publication)
     _install_authority_publication_projection(states, step_by_key, authority_publication)
     _install_report_publication_projection(states, step_by_key, report_publication)
+    _install_residual_input_projection(states, step_by_key, _residual_input_source_projection(source_workflow, source_by_path))
 
     # Observer-side source derivation only. R12's array construction and
     # checker consumption are internal to one step; the v0 occurrence graph

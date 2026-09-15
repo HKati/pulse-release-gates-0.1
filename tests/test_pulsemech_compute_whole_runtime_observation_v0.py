@@ -505,7 +505,7 @@ def test_real_plan_cli_and_independent_checker(source_fixture):
     assert f.diagnostic_doc['plan']['byte_identical_to_independent_reconstruction'] is True
     assert f.diagnostic_doc['plan']['sha256'] == f.plan_digest
     assert f.plan['plan_identity']['source_commit'] == f.sha
-    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 56
+    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 60
 
 
 def test_two_separate_plan_processes_are_byte_identical(source_fixture):
@@ -1470,7 +1470,7 @@ def test_two_real_prepares_preserve_the_complete_declared_source_set(
         assert diagnostic['record_status'] == 'example'
         assert diagnostic['output_sha256'] == digest(raw)
         assert diagnostic['output_size_bytes'] == len(raw)
-        assert diagnostic['member_count'] == len(expected_members) == 61
+        assert diagnostic['member_count'] == len(expected_members) == 65
         assert diagnostic['authority_boundary'] == VERIFIER.AUTHORITY_BOUNDARY
         plan, members, stored_raw = read_prepared_example(f, target)
         assert plan == f.plan and stored_raw == raw
@@ -3694,8 +3694,8 @@ def test_preattest_actual_restore_shell_with_local_mock_download(source_fixture,
 
 
 def test_preattest_mapping_does_not_promote_runtime_completion(source_fixture):
-    assert len(source_fixture.plan['state_templates']) == 62 and len(source_fixture.plan['source_inventory']) == 56
-    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert len(source_fixture.plan['state_templates']) == 62 and len(source_fixture.plan['source_inventory']) == 60
+    assert len(prepared_fixture_members(source_fixture)) == 65
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary']['authority_effect'] == 'none'
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
@@ -3990,8 +3990,8 @@ def test_required_argument_predicate_runs_before_expected_reconstruction():
 def test_required_argument_role_remains_unavailable_until_runtime_integration(source_fixture):
     plan = source_fixture.plan
     assert len(plan['state_templates']) == 62
-    assert len(plan['source_inventory']) == 56
-    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert len(plan['source_inventory']) == 60
+    assert len(prepared_fixture_members(source_fixture)) == 65
     assert 'evidence_profile' not in plan
     packet = runtime_projection_example(source_fixture)
     state = next(row for row in packet['state_observations'] if row['state_id'] == REQUIRED_ARGUMENT_STATE)
@@ -4304,8 +4304,8 @@ def test_bundle_actual_copy_shells_match_synthetic_preservation(tmp_path, source
 
 def test_bundle_mapping_does_not_change_role_inventory_or_runtime_acceptance(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 56
-    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert len(source_fixture.plan['source_inventory']) == 60
+    assert len(prepared_fixture_members(source_fixture)) == 65
     source = (SOURCES / 'check_pulsemech_compute_whole_runtime_observation_v0.py').read_text()
     assert 'declared_state_evidence_incomplete' in source
     assert not any('artifact_id' in s for s in source_fixture.plan['state_templates'])
@@ -4562,8 +4562,8 @@ def test_provenance_exact_r21_shell_uses_five_synthetic_contents(source_fixture,
 
 def test_provenance_mapping_keeps_full_role_extent_and_unaccepted_evidence(source_fixture):
     plan = source_fixture.plan
-    assert len(plan['state_templates']) == 62 and len(plan['source_inventory']) == 56
-    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert len(plan['state_templates']) == 62 and len(plan['source_inventory']) == 60
+    assert len(prepared_fixture_members(source_fixture)) == 65
     packet = runtime_projection_example(source_fixture)
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(plan, packet, {})
@@ -4857,8 +4857,8 @@ def test_floor_actual_shell_reads_current_pre_materialization_files_only(source_
 
 def test_floor_local_mapping_preserves_global_extent_and_runtime_acceptance_stop(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 56
-    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert len(source_fixture.plan['source_inventory']) == 60
+    assert len(prepared_fixture_members(source_fixture)) == 65
     rows, steps = provenance_rows(source_fixture.plan)
     assert rows['status-baseline']['state_id'] != rows['pre-materialization-status']['state_id']
     assert rows['status-baseline']['state_id'] != rows['final-status']['state_id']
@@ -4962,8 +4962,8 @@ def test_smoke_budget_new_workflow_is_preserved_without_evidence_promotion(sourc
     assert row['sha256'] == digest(data)
     assert prepared_fixture_members(source_fixture)['sources/' + BUILDER.SUBJECT_WORKFLOW_PATH] == data
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 56
-    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert len(source_fixture.plan['source_inventory']) == 60
+    assert len(prepared_fixture_members(source_fixture)) == 65
     assert 'evidence_profile' not in source_fixture.plan
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
@@ -5226,8 +5226,8 @@ def test_lg_preservation_actual_copy_shell_is_bounded_local_evidence(source_fixt
 
 def test_lg_preservation_keeps_full_state_profile_unfinished(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 56
-    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert len(source_fixture.plan['source_inventory']) == 60
+    assert len(prepared_fixture_members(source_fixture)) == 65
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary']['authority_effect'] == 'none'
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
@@ -5494,8 +5494,8 @@ def test_lg_attestation_actual_summary_binding_reads_three_files(tmp_path, lg_at
 
 
 def test_lg_attestation_mapping_still_cannot_satisfy_runtime_completion(source_fixture):
-    assert len(source_fixture.plan['source_inventory']) == 56
-    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert len(source_fixture.plan['source_inventory']) == 60
+    assert len(prepared_fixture_members(source_fixture)) == 65
     assert len(source_fixture.plan['state_templates']) == 62
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
@@ -5765,8 +5765,8 @@ def test_lg_production_hash_only_input_helper_is_not_content_admission(tmp_path,
 
 
 def test_lg_production_mapping_keeps_completion_closed(source_fixture):
-    assert len(source_fixture.plan['source_inventory']) == 56
-    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert len(source_fixture.plan['source_inventory']) == 60
+    assert len(prepared_fixture_members(source_fixture)) == 65
     assert len(source_fixture.plan['state_templates']) == 62
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
@@ -6034,8 +6034,8 @@ def test_pre_attest_postcondition_hash_failure_does_not_reach_success(tmp_path):
 
 def test_pre_attest_postcondition_mapping_keeps_completion_and_inventory_unchanged(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 56
-    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert len(source_fixture.plan['source_inventory']) == 60
+    assert len(prepared_fixture_members(source_fixture)) == 65
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary']['authority_effect'] == 'none'
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
@@ -6345,8 +6345,8 @@ def test_final_postcondition_hash_failure_propagates_without_success(tmp_path):
 
 def test_final_postcondition_keeps_completion_barrier_and_all_inventories(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 56
-    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert len(source_fixture.plan['source_inventory']) == 60
+    assert len(prepared_fixture_members(source_fixture)) == 65
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
@@ -6595,8 +6595,8 @@ def test_recorded_publication_keeps_r26_hash_extent_distinct(source_fixture):
 
 def test_recorded_publication_keeps_runtime_intake_and_completion_unfinished(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 56
-    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert len(source_fixture.plan['source_inventory']) == 60
+    assert len(prepared_fixture_members(source_fixture)) == 65
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
     packet = runtime_projection_example(source_fixture)
@@ -6828,8 +6828,8 @@ def test_authority_publication_keeps_other_selectors_and_runtime_boundary(source
         assert states['gate-policy']['state_id'] not in step['input_state_ids']
     r33 = PLAN_CHECKER._source_recorded_publication_expectations(mapping_source_document(), recorded_source_objects)
     assert len(r33['ordered_selectors']) == 27 and len(r33['unmodeled_file_selectors']) == 4
-    assert len(source_fixture.plan['source_inventory']) == 56
-    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert len(source_fixture.plan['source_inventory']) == 60
+    assert len(prepared_fixture_members(source_fixture)) == 65
     assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
     assert 'evidence_profile' not in source_fixture.plan
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
@@ -7089,8 +7089,8 @@ def test_report_publication_keeps_generic_and_complete_acceptance_boundaries(sou
     assert states['self-contained-evidence-floor']['state_id'] not in steps[('release_grade_recorded_path', 26)]['input_state_ids']
     assert states['recorded-release-candidate-envelopes']['state_id'] not in steps[('release_grade_recorded_path', 26)]['input_state_ids']
     assert states['release-authority-audit-bundle']['state_id'] not in steps[('release_grade_recorded_path', 33)]['input_state_ids']
-    assert len(source_fixture.plan['source_inventory']) == 56
-    assert len(prepared_fixture_members(source_fixture)) == 61
+    assert len(source_fixture.plan['source_inventory']) == 60
+    assert len(prepared_fixture_members(source_fixture)) == 65
     assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
     assert 'evidence_profile' not in source_fixture.plan
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
@@ -7326,6 +7326,384 @@ def test_parse_reuse_operation_exception_cleans_invocation_scope(side, entry, tm
         getattr(module, entry)(**args)
     assert module._YAML_PARSE_MEMO.get() is None
 
+
+# ---------------------------------------------------------------------------
+# Residual source-input closure: source-grounded plan regressions, not observed
+# runtime reads, successful acquisition, or R2-profile activation.
+# ---------------------------------------------------------------------------
+RESIDUAL_NEW_SOURCES = (
+    'tools/check_gate_registry_sync.py',
+    'tools/tools/check_policy_registry_consistency.py',
+    'PULSE_safe_pack_v0/tools/status_to_junit.py',
+    'PULSE_safe_pack_v0/tools/status_to_sarif.py',
+)
+RESIDUAL_CALLED_SOURCES = RESIDUAL_NEW_SOURCES + (
+    'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py',
+    'PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py',
+    'PULSE_safe_pack_v0/tools/check_recorded_release_evidence_v0.py',
+    'PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py',
+    'tools/policy_to_require_args.py',
+)
+RESIDUAL_CHECKOUTS = ('pulse', 'attest_llamaguard_current_run_summary', 'release_grade_recorded_path',
+    'assemble_release_grade_reference_package', 'verify_release_grade_reference_package', 'tools-tests')
+RESIDUAL_REPLAY_INPUTS = ['pre-materialization-status', 'required-gate-evidence', 'gate-policy',
+    'gate-registry', 'threshold-policy', 'external-signer-policy', 'llamaguard-summary',
+    'llamaguard-raw-evidence', 'llamaguard-attestation-envelope', 'llamaguard-attestation-bundle']
+RESIDUAL_REVIEW_EQUATIONS = [
+    ('pulse', 12, ['required-gate-evidence'], []),
+    ('pulse', 13, ['required-gate-evidence', 'gate-policy', 'gate-registry'], ['pre-materialization-status']),
+    ('pulse', 50, ['pre-materialization-status', 'gate-registry'], []),
+    ('pulse', 51, ['gate-policy', 'gate-registry'], []),
+    ('release_grade_recorded_path', 6, RESIDUAL_REPLAY_INPUTS,
+        ['recorded-candidate-index', 'recorded-release-candidate-envelopes']),
+    ('release_grade_recorded_path', 8, RESIDUAL_REPLAY_INPUTS +
+        ['release-evidence-input-manifest', 'recorded-release-candidate-envelopes'], ['recorded-release-evidence-verifier']),
+    ('release_grade_recorded_path', 23, ['final-status', 'gate-policy'], ['release-grade-junit', 'release-grade-sarif']),
+] + [(job, 1, [], []) for job in RESIDUAL_CHECKOUTS]
+
+
+def residual_method(side):
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    return module, (module._residual_input_source_projection if side == 'builder'
+                    else module._source_residual_input_expectations)
+
+
+def residual_edge(plan, job, ordinal, role, present):
+    states, steps = provenance_rows(plan)
+    step, state = steps[(job, ordinal)], states[role]
+    ins = set(step['input_state_ids']); inv = set(state['required_consumer_occurrence_ids'])
+    (ins.add if present else ins.discard)(state['state_id'])
+    (inv.add if present else inv.discard)(step['occurrence_id'])
+    step['input_state_ids'] = sorted(ins); state['required_consumer_occurrence_ids'] = sorted(inv)
+
+
+@pytest.mark.parametrize('job,ordinal,inputs,outputs', RESIDUAL_REVIEW_EQUATIONS)
+def test_residual_input_exact_forward_and_inverse_equations(source_fixture, job, ordinal, inputs, outputs):
+    states, steps = provenance_rows(source_fixture.plan)
+    step = steps[(job, ordinal)]
+    assert step['input_state_ids'] == sorted('state:step5c:' + r for r in inputs)
+    assert step['output_state_ids'] == sorted('state:step5c:' + r for r in outputs)
+    assert sorted(r for r, state in states.items() if step['occurrence_id'] in state['required_consumer_occurrence_ids']) == sorted(inputs)
+
+
+def test_residual_input_extractors_are_separate_and_agree(recorded_source_objects):
+    one = BUILDER._residual_input_source_projection(mapping_source_document(), recorded_source_objects)
+    two = PLAN_CHECKER._source_residual_input_expectations(mapping_source_document(), recorded_source_objects)
+    assert canonical(one) == canonical(two)
+    assert inspect.getsource(BUILDER._residual_input_source_projection) != inspect.getsource(PLAN_CHECKER._source_residual_input_expectations)
+    assert len(one['locators']) == 19 and len(one['steps']) == 13
+    assert one['observed_read_receipt'] is False and one['semantic_content_admission'] is False
+    assert one['selected_roles_exhaust_source_reads'] is False
+    assert one['transport_occurrences'] == ['execution:step5c:step:pulse:012']
+    assert len(one['source_anchor_occurrences']) == 6
+    assert one['upload_if_no_files_found'] == 'warn'
+    assert one['upload_selectors'] == mapping_source_document()['jobs']['pulse']['steps'][11]['with']['path'].splitlines()
+
+
+@pytest.mark.parametrize('path', RESIDUAL_NEW_SOURCES)
+def test_residual_input_new_dependencies_are_exact_once_in_plan_and_preparation(source_fixture, path):
+    raw = (ROOT / path).read_bytes()
+    blob = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+    for module in (BUILDER, PLAN_CHECKER):
+        assert module._RESIDUAL_SOURCE_PINS[path] == blob
+        assert sum(relative == path for _, relative in module.SOURCE_ROLES) == 1
+    entries = [r for r in source_fixture.plan['source_inventory'] if r['path'] == path]
+    assert len(entries) == 1 and entries[0]['sha256'] == digest(raw)
+    assert prepared_fixture_members(source_fixture)['sources/' + path] == raw
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('path', RESIDUAL_CALLED_SOURCES)
+@pytest.mark.parametrize('fault', ['missing', 'changed_bytes', 'wrong_path'])
+def test_residual_input_changed_sources_do_not_gain_trust_by_rehashing(recorded_source_objects, side, path, fault):
+    module, method = residual_method(side)
+    sources = dict(recorded_source_objects)
+    if fault == 'missing': sources.pop(path)
+    elif fault == 'wrong_path': sources[path] = replace(sources[path], path='another/' + path)
+    else:
+        raw = sources[path].data + b'\n# different reviewed source bytes\n'
+        sources[path] = replace(sources[path], data=raw,
+            blob_sha1=hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest())
+    with module._yaml_parse_scope():
+        method(mapping_source_document(), recorded_source_objects)
+        with pytest.raises(module.PlanError, match='residual_input_source_'):
+            method(mapping_source_document(), sources)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('fault', ['upload_selector', 'upload_condition', 'warn_to_ignore', 'pulse_augment',
+                                  'export_status', 'export_order', 'checkout_ref'])
+def test_residual_input_altered_workflow_does_not_reuse_good_syntax(recorded_source_objects, side, fault):
+    module, method = residual_method(side)
+    doc = mapping_source_document()
+    with module._yaml_parse_scope():
+        method(doc, recorded_source_objects)
+        pulse = doc['jobs']['pulse']['steps']; rows = doc['jobs']['release_grade_recorded_path']['steps']
+        if fault == 'upload_selector': pulse[11]['with']['path'] += 'unreviewed/**\n'
+        elif fault == 'upload_condition': pulse[11]['if'] = '${{ true }}'
+        elif fault == 'warn_to_ignore': pulse[11]['with']['if-no-files-found'] = 'ignore'
+        elif fault == 'pulse_augment': pulse[37]['if'] = '${{ true }}'
+        elif fault == 'export_status': rows[22]['run'] = rows[22]['run'].replace('artifacts/status.json', 'artifacts/status_baseline.json')
+        elif fault == 'export_order': rows[22]['run'] = rows[22]['run'].replace('--set required', '--set release_required', 1)
+        else: pulse[0]['with']['ref'] = 'different-ref'
+        with pytest.raises(module.PlanError, match='residual_input_workflow_drift'):
+            method(doc, recorded_source_objects)
+
+
+RESIDUAL_PLAN_FAULTS = [
+    'p12_missing_transport', 'p13_missing_evidence', 'p50_missing_registry', 'p50_false_policy',
+    'p50_future_status', 'p51_false_status', 'p51_missing_policy', 'r6_missing_threshold',
+    'r6_missing_required_evidence', 'r6_missing_lg_raw', 'r8_persisted_verifier', 'r8_index_instead',
+    'r8_missing_envelope', 'r23_pre_status', 'r23_missing_policy', 'r23_invented_argv_receipt',
+    'checkout_as_read', 'remove_real_l6_read', 'forward_only', 'reverse_only',
+    'pre_status_alias', 'transport_as_producer', 'wrong_version_producer', 'optional_threshold',
+    'metadata_only_evidence', 'false_authority', 'wrong_mutation', 'transport_as_writer',
+    'missing_role', 'outside_asymmetry',
+]
+
+
+def corrupt_residual_input_plan(original, fault):
+    plan = copy.deepcopy(original); states, steps = provenance_rows(plan)
+    p, r = 'pulse', 'release_grade_recorded_path'
+    edge = lambda job, n, role, present: residual_edge(plan, job, n, role, present)
+    if fault == 'p12_missing_transport': edge(p, 12, 'required-gate-evidence', False)
+    elif fault == 'p13_missing_evidence': edge(p, 13, 'required-gate-evidence', False)
+    elif fault == 'p50_missing_registry': edge(p, 50, 'gate-registry', False)
+    elif fault == 'p50_false_policy': edge(p, 50, 'gate-policy', True)
+    elif fault == 'p50_future_status':
+        edge(p, 50, 'pre-materialization-status', False); edge(p, 50, 'final-status', True)
+    elif fault == 'p51_false_status': edge(p, 51, 'pre-materialization-status', True)
+    elif fault == 'p51_missing_policy': edge(p, 51, 'gate-policy', False)
+    elif fault == 'r6_missing_threshold': edge(r, 6, 'threshold-policy', False)
+    elif fault == 'r6_missing_required_evidence': edge(r, 6, 'required-gate-evidence', False)
+    elif fault == 'r6_missing_lg_raw': edge(r, 6, 'llamaguard-raw-evidence', False)
+    elif fault == 'r8_persisted_verifier': edge(r, 8, 'llamaguard-attestation-verifier', True)
+    elif fault == 'r8_index_instead':
+        edge(r, 8, 'recorded-release-candidate-envelopes', False); edge(r, 8, 'recorded-candidate-index', True)
+    elif fault == 'r8_missing_envelope': edge(r, 8, 'llamaguard-attestation-envelope', False)
+    elif fault == 'r23_pre_status':
+        edge(r, 23, 'final-status', False); edge(r, 23, 'pre-materialization-status', True)
+    elif fault == 'r23_missing_policy': edge(r, 23, 'gate-policy', False)
+    elif fault == 'r23_invented_argv_receipt': edge(r, 23, 'effective-required-argument-list', True)
+    elif fault == 'checkout_as_read': edge('tools-tests', 1, 'workflow-source', True)
+    elif fault == 'remove_real_l6_read': edge('attest_llamaguard_current_run_summary', 6, 'workflow-source', False)
+    elif fault == 'forward_only': steps[(r, 23)]['input_state_ids'].remove(states['gate-policy']['state_id'])
+    elif fault == 'reverse_only': states['threshold-policy']['required_consumer_occurrence_ids'].remove(steps[(r, 6)]['occurrence_id'])
+    elif fault == 'pre_status_alias': states['pre-materialization-status']['path_or_uri'] = states['final-status']['path_or_uri']
+    elif fault == 'transport_as_producer': states['required-gate-evidence']['producer_occurrence_id'] = steps[(p, 12)]['occurrence_id']
+    elif fault == 'wrong_version_producer': states['pre-materialization-status']['producer_occurrence_id'] = steps[(r, 9)]['occurrence_id']
+    elif fault == 'optional_threshold': states['threshold-policy']['required'] = False
+    elif fault == 'metadata_only_evidence': states['required-gate-evidence']['content_requirement'] = 'metadata_only'
+    elif fault == 'false_authority': states['release-grade-junit']['authority_bearing'] = True
+    elif fault == 'wrong_mutation': states['final-status']['mutation_class'] = 'none'
+    elif fault == 'transport_as_writer': steps[(p, 12)]['output_state_ids'] = [states['required-gate-evidence']['state_id']]
+    elif fault == 'missing_role': plan['state_templates'].remove(states['threshold-policy'])
+    elif fault == 'outside_asymmetry':
+        states['final-status']['required_consumer_occurrence_ids'] = sorted(
+            states['final-status']['required_consumer_occurrence_ids'] + [steps[(p, 4)]['occurrence_id']])
+    else: raise AssertionError(fault)
+    return plan
+
+
+@pytest.mark.parametrize('fault', RESIDUAL_PLAN_FAULTS)
+def test_residual_input_separate_source_predicate_rejects_false_relations(source_fixture, recorded_source_objects, fault):
+    bad = corrupt_residual_input_plan(source_fixture.plan, fault)
+    jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(bad)
+    raw = canonical(bad)
+    assert digest(raw) != source_fixture.plan_digest
+    with pytest.raises(PLAN_CHECKER.PlanError, match='residual_input_'):
+        PLAN_CHECKER._verify_source_residual_input_equations(json.loads(raw), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('fault', ['p50_false_policy', 'r6_missing_threshold', 'r8_persisted_verifier', 'r23_missing_policy', 'checkout_as_read'])
+def test_residual_input_real_checker_rejects_schema_valid_rehashed_plan(source_fixture, tmp_path, fault):
+    f = source_fixture; raw = canonical(corrupt_residual_input_plan(f.plan, fault))
+    target = tmp_path / 'rehashed.json'; target.write_bytes(raw)
+    checked = cli(f.root, TOOL_NAMES[1], ['--repository-root', f.root, '--plan', target,
+        '--expected-source-commit', f.sha, '--expected-plan-sha256', digest(raw), '--expected-record-status', 'example'])
+    assert checked.returncode != 0
+    report = json.loads(checked.stdout)
+    assert report['ok'] is False and report['error_code'].startswith('residual_input_')
+
+
+@pytest.mark.parametrize('fault', ['p50_false_policy', 'r6_missing_threshold', 'r8_persisted_verifier'])
+def test_residual_input_two_constructors_cannot_hide_the_same_wrong_graph(source_fixture, recorded_source_objects, fault):
+    answers = []
+    for module in (BUILDER, PLAN_CHECKER):
+        # Match the production invocation scope; the other construction gets
+        # a separate store. No semantic result or verdict is cached.
+        with module._yaml_parse_scope():
+            jobs, steps, _ = module._build_jobs(mapping_source_document())
+            states = module._build_states(steps, module.EXPECTED_CASE_IDS, mapping_source_document(), recorded_source_objects)
+        assert module._YAML_PARSE_MEMO.get() is None
+        result = copy.deepcopy(source_fixture.plan); result['jobs'], result['state_templates'] = jobs, states
+        answers.append(canonical(corrupt_residual_input_plan(result, fault)))
+    assert answers[0] == answers[1]
+    with pytest.raises(PLAN_CHECKER.PlanError, match='residual_input_'):
+        PLAN_CHECKER._verify_source_residual_input_equations(json.loads(answers[0]), mapping_source_document(), recorded_source_objects)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_residual_input_installer_changes_no_outside_equation_or_evidence_duty(source_fixture, recorded_source_objects, side):
+    module, method = residual_method(side)
+    facts = method(mapping_source_document(), recorded_source_objects)
+    received = []; original = module._install_residual_input_projection
+    def record(states, steps, mapping):
+        received.append((copy.deepcopy(states), copy.deepcopy(steps)))
+        original(states, steps, mapping)
+        received.append((copy.deepcopy(states), copy.deepcopy(steps)))
+    with module._yaml_parse_scope(), patch.object(module, '_install_residual_input_projection', side_effect=record):
+        _, steps, _ = module._build_jobs(mapping_source_document())
+        module._build_states(steps, module.EXPECTED_CASE_IDS, mapping_source_document(), recorded_source_objects)
+    (old_states, old_steps), (new_states, new_steps) = received
+    owned = set(facts['steps'])
+    for old, new in zip(old_states, new_states):
+        assert {k:v for k,v in old.items() if k != 'required_consumer_occurrence_ids'} == {
+            k:v for k,v in new.items() if k != 'required_consumer_occurrence_ids'}
+        assert set(old['required_consumer_occurrence_ids']) - owned == set(new['required_consumer_occurrence_ids']) - owned
+    for key, old in old_steps.items():
+        new = new_steps[key]
+        assert {k:v for k,v in old.items() if k != 'input_state_ids'} == {k:v for k,v in new.items() if k != 'input_state_ids'}
+        if old['occurrence_id'] not in owned: assert old == new
+
+
+def test_residual_input_predicate_precedes_reconstruction_and_builder_is_not_imported():
+    source = inspect.getsource(PLAN_CHECKER.check_plan)
+    assert source.index('_verify_source_residual_input_equations(') < source.index('_reconstruct_expected_plan(')
+    tree = ast.parse((ROOT / PLAN_CHECKER.PLAN_CHECKER_PATH).read_bytes())
+    imported = [n.module or '' for n in ast.walk(tree) if isinstance(n, ast.ImportFrom)]
+    assert not any('build_pulsemech_compute_whole_runtime_observation_plan' in name for name in imported)
+
+
+def test_residual_input_r6_r8_oracle_uses_real_transitive_call_sites():
+    def functions(path):
+        return {n.name: n for n in ast.parse((ROOT / path).read_bytes()).body if isinstance(n, ast.FunctionDef)}
+    pack = 'PULSE_safe_pack_v0/tools/'
+    candidates = functions(pack + 'build_recorded_release_candidates_v0.py')
+    checker = functions(pack + 'check_recorded_release_evidence_v0.py')
+    calls = lambda node: {n.func.id for n in ast.walk(node) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)}
+    assert 'build_candidates' in calls(candidates['build_canonical_candidates_for_replay'])
+    assert any('build_canonical_candidates_for_replay' in calls(n) for n in checker.values())
+    assert 'verify_external_summary_attestation' in calls(candidates['verify_external_attestation_for_candidate'])
+    threshold_reads = [n for n in ast.walk(candidates['build_candidates']) if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Name) and n.func.id == 'load_yaml'
+        and n.args and isinstance(n.args[0], ast.Name) and n.args[0].id == 'thresholds_path']
+    assert len(threshold_reads) == 1
+    text = (ROOT / pack / 'build_recorded_release_candidates_v0.py').read_text()
+    assert 'llamaguard_attestation_verifier_v1.json' not in text
+    assert 'report = verify_external_summary_attestation(' in ast.unparse(candidates['verify_external_attestation_for_candidate'])
+
+
+def residual_real_tool_env(root):
+    return {'PATH': str(Path(sys.executable).parent) + ':/usr/bin:/bin', 'HOME': str(root),
+        'LANG': 'C', 'LC_ALL': 'C', 'PYTHONHASHSEED': '0'}
+
+
+def residual_copy_tools(root, paths):
+    for relative in paths:
+        target = root / relative; target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((ROOT / relative).read_bytes())
+
+
+@pytest.mark.parametrize('fault', [None, 'missing_status', 'missing_registry', 'unknown_gate'])
+def test_residual_input_actual_p50_needs_status_and_registry_but_no_policy(tmp_path, fault):
+    script = RESIDUAL_NEW_SOURCES[0]; residual_copy_tools(tmp_path, [script])
+    status = tmp_path / 'before.json'; registry = tmp_path / 'pulse_gate_registry_v0.yml'
+    status.write_bytes(canonical({'gates': {'unknown' if fault == 'unknown_gate' else 'pass_a': True}}))
+    registry.write_text('gates:\n  pass_a:\n    default_normative: true\n')
+    if fault == 'missing_status': status.unlink()
+    elif fault == 'missing_registry': registry.unlink()
+    result = subprocess.run([sys.executable, '-I', '-B', str(tmp_path / script), '--status', str(status),
+        '--registry', str(registry), '--emit-stubs'], cwd=tmp_path, env=residual_real_tool_env(tmp_path),
+        capture_output=True, timeout=30)
+    assert (result.returncode == 0) is (fault is None)
+    assert not (tmp_path / 'pulse_gate_policy_v0.yml').exists()
+
+
+@pytest.mark.parametrize('fault', [None, 'missing_policy', 'missing_registry', 'non_subset'])
+def test_residual_input_actual_p51_uses_both_policy_paths_and_no_status(tmp_path, fault):
+    residual_copy_tools(tmp_path, [RESIDUAL_NEW_SOURCES[1], 'tools/policy_to_require_args.py'])
+    policy = tmp_path / 'pulse_gate_policy_v0.yml'; registry = tmp_path / 'pulse_gate_registry_v0.yml'
+    policy.write_text('gates:\n  required: [gate_a]\n  core_required: [' + ('gate_b' if fault == 'non_subset' else 'gate_a') + ']\n')
+    registry.write_text('gates:\n  gate_a:\n    default_normative: true\n  gate_b:\n    default_normative: true\n')
+    if fault == 'missing_policy': policy.unlink()
+    elif fault == 'missing_registry': registry.unlink()
+    body = mapping_source_document()['jobs']['pulse']['steps'][50]['run']
+    result = subprocess.run(['/bin/bash', '-c', body], cwd=tmp_path, env=residual_real_tool_env(tmp_path),
+        capture_output=True, timeout=30)
+    assert (result.returncode == 0) is (fault is None), result.stderr
+    assert not list(tmp_path.rglob('status.json'))
+    if fault is None: assert 'core_required ⊆ required'.encode() in result.stdout
+
+
+@pytest.mark.parametrize('fault', [None, 'empty_gate_sets', 'missing_status'])
+def test_residual_input_actual_r23_exporters_keep_pack_paths_and_ordered_helper_inputs(tmp_path, fault):
+    import xml.etree.ElementTree as ET
+    scripts = list(RESIDUAL_NEW_SOURCES[2:]) + ['tools/policy_to_require_args.py']
+    residual_copy_tools(tmp_path, scripts)
+    pack = tmp_path / 'PULSE_safe_pack_v0'; artifacts = pack / 'artifacts'; artifacts.mkdir()
+    raw = canonical({'gates': {'gate_z': True, 'gate_a': False, 'gate_b': True, 'not_selected': False},
+                     'created_utc': EXAMPLE_START, 'version': 'example'})
+    if fault != 'missing_status': (artifacts / 'status.json').write_bytes(raw)
+    values = ([], []) if fault == 'empty_gate_sets' else (['gate_z', 'gate_a'], ['gate_a', 'gate_b'])
+    policy = tmp_path / 'pulse_gate_policy_v0.yml'
+    policy.write_text('gates:\n  required: [' + ', '.join(values[0]) + ']\n  release_required: [' + ', '.join(values[1]) + ']\n')
+    root_reports = tmp_path / 'reports'; root_reports.mkdir()
+    for name in ('junit.xml', 'sarif.json'): (root_reports / name).write_bytes(b'root-version-must-not-be-replaced\n')
+    env = residual_real_tool_env(tmp_path)
+    env.update(PACK_DIR=str(pack), GITHUB_WORKSPACE=str(tmp_path), PULSE_EVENT_NAME='workflow_dispatch',
+               PULSE_REF='refs/heads/main', PULSE_SHA='a' * 40)
+    body = mapping_source_document()['jobs']['release_grade_recorded_path']['steps'][22]['run']
+    result = subprocess.run(['/bin/bash', '-c', body], cwd=tmp_path, env=env, capture_output=True, timeout=30)
+    assert (result.returncode == 0) is (fault != 'empty_gate_sets'), result.stderr
+    for path in root_reports.iterdir(): assert path.read_bytes() == b'root-version-must-not-be-replaced\n'
+    if fault == 'missing_status':
+        # Reporting helpers may return success without reports. That cannot
+        # replace mandatory exact artifact content or close Step 5C.
+        assert not (artifacts / 'reports/junit.xml').exists()
+        assert not (artifacts / 'reports/sarif.json').exists()
+    elif fault is None:
+        assert (artifacts / 'status.json').read_bytes() == raw
+        junit = ET.fromstring((artifacts / 'reports/junit.xml').read_bytes())
+        assert [e.attrib['name'] for e in junit.findall('testcase')] == ['gate_a', 'gate_b', 'gate_z', 'not_selected']
+        sarif = json.loads((artifacts / 'reports/sarif.json').read_bytes())
+        assert [r['id'] for r in sarif['runs'][0]['tool']['driver']['rules']] == ['gate_a', 'gate_b', 'gate_z']
+        assert [r['ruleId'] for r in sarif['runs'][0]['results']] == ['gate_a']
+        assert json.loads((artifacts / 'meta/sarif_upload.json').read_bytes())['sha'] == 'a' * 40
+
+
+def test_residual_input_gate_order_matches_actual_policy_helper(recorded_source_objects):
+    members = []
+    for name in ('required', 'release_required'):
+        result = subprocess.run([sys.executable, '-I', '-B', str(ROOT / 'tools/policy_to_require_args.py'),
+            '--policy', str(ROOT / 'pulse_gate_policy_v0.yml'), '--set', name, '--format', 'newline'],
+            env=residual_real_tool_env(ROOT), capture_output=True, timeout=30)
+        assert result.returncode == 0
+        members.extend(result.stdout.decode().splitlines())
+    expected = list(dict.fromkeys(members))
+    assert expected
+    for side in ('builder', 'checker'):
+        _, method = residual_method(side)
+        assert method(mapping_source_document(), recorded_source_objects)['export_gate_ids'] == expected
+
+
+def test_residual_input_complete_graph_and_noncompletion_boundaries(source_fixture, recorded_source_objects):
+    plan = source_fixture.plan; states, steps = provenance_rows(plan)
+    assert len(states) == 62 and len(plan['source_inventory']) == 60
+    assert len(prepared_fixture_members(source_fixture)) == 65
+    for step in steps.values():
+        assert step['input_state_ids'] == sorted(s['state_id'] for s in states.values()
+            if step['occurrence_id'] in s['required_consumer_occurrence_ids'])
+    assert states['workflow-source']['required_consumer_occurrence_ids'] == [
+        'execution:step5c:step:attest_llamaguard_current_run_summary:006']
+    assert states['workflow-source']['required'] is True
+    assert states['effective-required-argument-list']['required_consumer_occurrence_ids'] == []
+    assert states['materialized-release-required-gate-set']['required_consumer_occurrence_ids'] == []
+    assert 'evidence_profile' not in plan and len(EVIDENCE_SCHEMA['oneOf']) == 4
+    assert plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(plan, runtime_projection_example(source_fixture), {})
+    PLAN_CHECKER._verify_source_residual_input_equations(plan, mapping_source_document(), recorded_source_objects)
 
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
