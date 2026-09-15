@@ -324,6 +324,91 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             ),
         )
 
+    if rel == (
+        ".github/workflows/"
+        "pulsemech_compute_whole_runtime_observation_reference.yml"
+    ):
+        return entry(
+            name=name,
+            path=rel,
+            surface_type="workflow",
+            primary_role=(
+                "non-active current-run whole-runtime observation reference workflow"
+            ),
+            carrier_class="diagnostic_shadow",
+            authority_impacting="conditional",
+            authority_boundary=(
+                "Manual owner-dispatched, non-active observation and preservation "
+                "workflow. It supervises one exact PULSE CI subject and one exact "
+                "Step 3F provider, then independently verifies and reconstructs "
+                "fixed evidence outside subject totals. It neither participates "
+                "in nor changes the subject's existing release decision. Its "
+                "outputs can participate in release authority only after a "
+                "separate change admits them as recorded evidence and enforces "
+                "a separate declared required gate."
+            ),
+            reads_artifacts=[
+                (
+                    "exact reviewed main source commit and protected "
+                    "control-plane sources"
+                ),
+                (
+                    "independently validated Step 5C prelaunch plan and exact "
+                    "plan digest"
+                ),
+                (
+                    "one exact attempt-1 PULSE CI subject run and complete "
+                    "job/step metadata"
+                ),
+                (
+                    "selected exact subject terminal artifacts and their "
+                    "GitHub SHA-256 bindings"
+                ),
+                (
+                    "one exact attempt-1 Step 3F provider run and current-run "
+                    "candidate envelope"
+                ),
+                (
+                    "exact reference-workflow context and cross-job handoff "
+                    "bindings"
+                ),
+            ],
+            writes_artifacts=[
+                "deterministic prepared Step 5C input carrier",
+                "exact capture carrier without a verifier verdict",
+                (
+                    "generic partial runtime-observation packet and existing-core "
+                    "derived outputs"
+                ),
+                "two byte-identical deterministic reconstruction archives",
+                "verification_record_v0.json and SHA256SUMS",
+                "checksum-closed reference_capsule_v0.zip",
+            ],
+            publishes_artifacts=[
+                "exact non-active verification-input handoff artifact",
+                (
+                    "verified non-active whole-runtime reference capsule "
+                    "artifact"
+                ),
+            ],
+            required_gate_participation=False,
+            attestation_participation=False,
+            release_path_participation=False,
+            notes=(
+                "Step 5C current-run whole-runtime observation carrier. "
+                "Whole-runtime is bounded to the predeclared workflow, job, "
+                "source-declared step, selected state, external-operation, and "
+                "controlled inference graph; it is not host-wide tracing. I and "
+                "E may become complete only after independent verification; R "
+                "stays partial, C stays not complete, M stays unavailable, and "
+                "generic runtime coverage stays partial. The observer remains "
+                "outside subject totals and does not alter the subject decision; "
+                "authority_effect = none; "
+                "same_run_release_authority_eligible = false; "
+                "active_gate_eligible = false."
+            ),
+        )
+
     if rel == ".github/workflows/pulsemech_ledger_swift.yml":   
         return entry(
             name=name,

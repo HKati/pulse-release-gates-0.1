@@ -1,0 +1,504 @@
+name: PULSEmech compute whole-runtime observation reference
+
+# Non-active Step 5C observer. Implementation assembly is not authorization
+# to dispatch; use only after complete review, merge and owner approval.
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact reviewed main commit (40 lowercase hexadecimal digits).
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulsemech-compute-whole-runtime-observation-reference
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  acquisition:
+    name: Prepare and acquire the exact non-active reference inputs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    permissions:
+      contents: read
+      actions: write
+    env:
+      SOURCE_COMMIT_INPUT: ${{ inputs.source_commit }}
+    outputs:
+      plan_sha256: ${{ steps.preparation.outputs.plan_sha256 }}
+      file_bindings: ${{ steps.bind_handoff.outputs.file_bindings }}
+      handoff_artifact_id: ${{ steps.upload_handoff.outputs.artifact-id }}
+    steps:
+      - name: Checkout exact triggering revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up reference Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.11"
+
+      - name: Validate reviewed main source before preparation
+        run: |
+          set -euo pipefail
+          python -I -B - <<'PY'
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+
+          def require(condition, code):
+              if not condition:
+                  raise SystemExit("step5c_workflow_context_rejected:" + code)
+
+
+          env = os.environ
+          revision = env.get("SOURCE_COMMIT_INPUT", "")
+          require(re.fullmatch(r"[0-9a-f]{40}", revision) is not None, "source_commit")
+          expected = {
+              "GITHUB_REPOSITORY": "HKati/pulse-release-gates-0.1",
+              "GITHUB_WORKFLOW": "PULSEmech compute whole-runtime observation reference",
+              "GITHUB_WORKFLOW_REF": (
+                  "HKati/pulse-release-gates-0.1/.github/workflows/"
+                  "pulsemech_compute_whole_runtime_observation_reference.yml@refs/heads/main"
+              ),
+              "GITHUB_EVENT_NAME": "workflow_dispatch",
+              "GITHUB_REF": "refs/heads/main",
+              "GITHUB_SHA": revision,
+              "GITHUB_WORKFLOW_SHA": revision,
+              "GITHUB_RUN_ATTEMPT": "1",
+              "RUNNER_OS": "Linux",
+              "RUNNER_ENVIRONMENT": "github-hosted",
+          }
+          require(all(env.get(key) == value for key, value in expected.items()), "identity")
+          for key in ("GITHUB_RUN_ID", "GITHUB_RUN_NUMBER"):
+              require(re.fullmatch(r"[1-9][0-9]*", env.get(key, "")) is not None, "run_identity")
+          root = Path(env["GITHUB_WORKSPACE"]).resolve(strict=True)
+          temp = Path(env["RUNNER_TEMP"]).resolve(strict=True)
+          require(root != temp and root not in temp.parents and temp not in root.parents, "output_root")
+          git_env = {
+              "PATH": "/usr/bin:/bin",
+              "HOME": str(temp),
+              "LANG": "C",
+              "LC_ALL": "C",
+              "GIT_CONFIG_NOSYSTEM": "1",
+              "GIT_CONFIG_SYSTEM": "/dev/null",
+              "GIT_CONFIG_GLOBAL": "/dev/null",
+              "GIT_NO_REPLACE_OBJECTS": "1",
+              "GIT_TERMINAL_PROMPT": "0",
+          }
+
+
+          def git_bytes(arguments):
+              try:
+                  result = subprocess.run(
+                      ["/usr/bin/git", "--no-replace-objects", "-c", "credential.helper=", *arguments],
+                      cwd=root, env=git_env, stdin=subprocess.DEVNULL,
+                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60, check=False,
+                  )
+              except (OSError, subprocess.TimeoutExpired):
+                  raise SystemExit("step5c_workflow_context_rejected:git_unavailable") from None
+              require(result.returncode == 0 and len(result.stdout) <= 4096, "git_result")
+              return result.stdout
+
+
+          require(git_bytes(["rev-parse", "--show-toplevel"]) == str(root).encode() + b"\n", "repository_root")
+          require(git_bytes(["rev-parse", "--verify", "HEAD^{commit}"]) == revision.encode() + b"\n", "checkout")
+          require(git_bytes(["diff", "--name-only", "HEAD", "--"]) == b"", "source_mutation")
+          # Check main before preparation; the acquisition tool checks it again before
+          # each of the two dispatches. Verification later stays bound to the fixed source.
+          require(
+              git_bytes([
+                  "ls-remote", "--exit-code",
+                  "https://github.com/HKati/pulse-release-gates-0.1.git", "refs/heads/main",
+              ]) == revision.encode() + b"\trefs/heads/main\n",
+              "main_changed_before_preparation",
+          )
+          PY
+
+      - name: Install verification dependencies
+        run: >-
+          python -I -m pip --disable-pip-version-check install --no-input
+          jsonschema==4.26.0 PyYAML==6.0.3
+
+      - name: Build and independently verify the prelaunch plan
+        id: preparation
+        run: |
+          set -euo pipefail
+          set -C
+          umask 077
+          base="$RUNNER_TEMP/pulsemech-step5c"
+          mkdir -- "$base"
+          mkdir -- "$base/handoff"
+          python -I -B tools/build_pulsemech_compute_whole_runtime_observation_plan_v0.py \
+            --repository-root "$GITHUB_WORKSPACE" \
+            --source-commit "$SOURCE_COMMIT_INPUT" \
+            --record-status observed > "$base/prelaunch-plan.json"
+          plan_sha256="$(sha256sum -- "$base/prelaunch-plan.json" | cut -d ' ' -f 1)"
+          [[ "$plan_sha256" =~ ^[0-9a-f]{64}$ ]]
+          printf '%s\n' "$plan_sha256" > "$base/handoff/expected_plan.sha256"
+          python -I -B tools/check_pulsemech_compute_whole_runtime_observation_plan_v0.py \
+            --repository-root "$GITHUB_WORKSPACE" \
+            --plan "$base/prelaunch-plan.json" \
+            --expected-source-commit "$SOURCE_COMMIT_INPUT" \
+            --expected-plan-sha256 "$plan_sha256" \
+            --expected-record-status observed > "$base/prelaunch-plan-diagnostic.json"
+          python -I -B tools/check_pulsemech_compute_whole_runtime_observation_v0.py \
+            prepare --repository-root "$GITHUB_WORKSPACE" \
+            --source-commit "$SOURCE_COMMIT_INPUT" --record-status observed \
+            --plan "$base/prelaunch-plan.json" \
+            --plan-diagnostic "$base/prelaunch-plan-diagnostic.json" \
+            --expected-plan-sha256 "$plan_sha256" \
+            --output "$base/handoff/prepared.zip" > "$base/prepare-diagnostic.json"
+          chmod 0444 -- "$base/prelaunch-plan.json" \
+            "$base/prelaunch-plan-diagnostic.json" "$base/handoff/expected_plan.sha256"
+          printf 'plan_sha256=%s\n' "$plan_sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Acquire exact PULSE CI and Step 3F runs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          set -C
+          umask 077
+          base="$RUNNER_TEMP/pulsemech-step5c"
+          python -I -B tools/acquire_pulsemech_compute_whole_runtime_observation_v0.py \
+            --repository-root "$GITHUB_WORKSPACE" \
+            --source-commit "$SOURCE_COMMIT_INPUT" --record-status observed \
+            --plan "$base/prelaunch-plan.json" \
+            --plan-diagnostic "$base/prelaunch-plan-diagnostic.json" \
+            --expected-plan-sha256 "$(cat "$base/handoff/expected_plan.sha256")" \
+            --output-directory "$base/acquisition" > "$base/acquisition-diagnostic.json"
+
+      - name: Build the exact capture carrier without a verifier verdict
+        run: |
+          set -euo pipefail
+          set -C
+          umask 077
+          base="$RUNNER_TEMP/pulsemech-step5c"
+          python -I -B tools/capture_pulsemech_compute_whole_runtime_observation_v0.py \
+            --repository-root "$GITHUB_WORKSPACE" \
+            --source-commit "$SOURCE_COMMIT_INPUT" --record-status observed \
+            --plan "$base/prelaunch-plan.json" \
+            --plan-diagnostic "$base/prelaunch-plan-diagnostic.json" \
+            --expected-plan-sha256 "$(cat "$base/handoff/expected_plan.sha256")" \
+            --acquisition-directory "$base/acquisition" \
+            --output "$base/handoff/capture.zip" > "$base/capture-diagnostic.json"
+          git --no-replace-objects diff --quiet HEAD --
+
+      - name: Bind the four exact cross-job input files
+        id: bind_handoff
+        run: |
+          set -euo pipefail
+          python -I -B - <<'PY'
+          import hashlib
+          import json
+          import os
+          import stat
+          from pathlib import Path
+
+          base = Path(os.environ["RUNNER_TEMP"]) / "pulsemech-step5c"
+          handoff = base / "handoff"
+          context = base / "acquisition" / "expected_context.json"
+          info = context.lstat()
+          if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or not 0 < info.st_size <= 1048576:
+              raise SystemExit("step5c_handoff_rejected:context_file")
+          # Copy exact context bytes only; never decode and rewrite acquisition evidence.
+          with (handoff / "expected_context.json").open("xb") as output:
+              output.write(context.read_bytes())
+          limits = {
+              "prepared.zip": 512 * 1024 * 1024,
+              "capture.zip": 2048 * 1024 * 1024,
+              "expected_context.json": 1048576,
+              "expected_plan.sha256": 65,
+          }
+          if {path.name for path in handoff.iterdir()} != set(limits):
+              raise SystemExit("step5c_handoff_rejected:membership")
+          bindings = {}
+          for name, maximum in sorted(limits.items()):
+              path = handoff / name
+              info = path.lstat()
+              if not stat.S_ISREG(info.st_mode) or info.st_nlink != 1 or not 0 < info.st_size <= maximum:
+                  raise SystemExit("step5c_handoff_rejected:file_shape")
+              digest = hashlib.sha256()
+              with path.open("rb") as source:
+                  for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                      digest.update(chunk)
+              bindings[name] = {"sha256": digest.hexdigest(), "size_bytes": info.st_size}
+              path.chmod(0o444)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("file_bindings=" + json.dumps(bindings, sort_keys=True, separators=(",", ":")) + "\n")
+          PY
+
+      # This is an input handoff, not an accepted reference or release decision.
+      - name: Upload exact non-active verification inputs
+        id: upload_handoff
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pulsemech-step5c-inputs-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pulsemech-step5c/handoff/
+          if-no-files-found: error
+          overwrite: false
+          compression-level: 0
+          retention-days: 90
+
+  verification:
+    name: Independently verify and reconstruct the fixed inputs twice
+    needs: acquisition
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      actions: read
+    env:
+      SOURCE_COMMIT_INPUT: ${{ inputs.source_commit }}
+      EXPECTED_PLAN_SHA256: ${{ needs.acquisition.outputs.plan_sha256 }}
+      HANDOFF_FILE_BINDINGS: ${{ needs.acquisition.outputs.file_bindings }}
+      HANDOFF_ARTIFACT_ID: ${{ needs.acquisition.outputs.handoff_artifact_id }}
+    steps:
+      - name: Checkout exact triggering revision for independent verification
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up verification Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: "3.11"
+
+      - name: Validate independent job context and exact handoff selector
+        run: |
+          set -euo pipefail
+          python -I -B - <<'PY'
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+
+          def require(condition, code):
+              if not condition:
+                  raise SystemExit("step5c_workflow_context_rejected:" + code)
+
+
+          env = os.environ
+          revision = env.get("SOURCE_COMMIT_INPUT", "")
+          require(re.fullmatch(r"[0-9a-f]{40}", revision) is not None, "source_commit")
+          expected = {
+              "GITHUB_REPOSITORY": "HKati/pulse-release-gates-0.1",
+              "GITHUB_WORKFLOW": "PULSEmech compute whole-runtime observation reference",
+              "GITHUB_WORKFLOW_REF": (
+                  "HKati/pulse-release-gates-0.1/.github/workflows/"
+                  "pulsemech_compute_whole_runtime_observation_reference.yml@refs/heads/main"
+              ),
+              "GITHUB_EVENT_NAME": "workflow_dispatch",
+              "GITHUB_REF": "refs/heads/main",
+              "GITHUB_SHA": revision,
+              "GITHUB_WORKFLOW_SHA": revision,
+              "GITHUB_RUN_ATTEMPT": "1",
+              "RUNNER_OS": "Linux",
+              "RUNNER_ENVIRONMENT": "github-hosted",
+          }
+          require(all(env.get(key) == value for key, value in expected.items()), "identity")
+          for key in ("GITHUB_RUN_ID", "GITHUB_RUN_NUMBER"):
+              require(re.fullmatch(r"[1-9][0-9]*", env.get(key, "")) is not None, "run_identity")
+          root = Path(env["GITHUB_WORKSPACE"]).resolve(strict=True)
+          temp = Path(env["RUNNER_TEMP"]).resolve(strict=True)
+          require(root != temp and root not in temp.parents and temp not in root.parents, "output_root")
+          git_env = {
+              "PATH": "/usr/bin:/bin",
+              "HOME": str(temp),
+              "LANG": "C",
+              "LC_ALL": "C",
+              "GIT_CONFIG_NOSYSTEM": "1",
+              "GIT_CONFIG_SYSTEM": "/dev/null",
+              "GIT_CONFIG_GLOBAL": "/dev/null",
+              "GIT_NO_REPLACE_OBJECTS": "1",
+              "GIT_TERMINAL_PROMPT": "0",
+          }
+
+
+          def git_bytes(arguments):
+              try:
+                  result = subprocess.run(
+                      ["/usr/bin/git", "--no-replace-objects", "-c", "credential.helper=", *arguments],
+                      cwd=root, env=git_env, stdin=subprocess.DEVNULL,
+                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60, check=False,
+                  )
+              except (OSError, subprocess.TimeoutExpired):
+                  raise SystemExit("step5c_workflow_context_rejected:git_unavailable") from None
+              require(result.returncode == 0 and len(result.stdout) <= 4096, "git_result")
+              return result.stdout
+
+
+          require(git_bytes(["rev-parse", "--show-toplevel"]) == str(root).encode() + b"\n", "repository_root")
+          require(git_bytes(["rev-parse", "--verify", "HEAD^{commit}"]) == revision.encode() + b"\n", "checkout")
+          require(git_bytes(["diff", "--name-only", "HEAD", "--"]) == b"", "source_mutation")
+          require(re.fullmatch(r"[1-9][0-9]*", env.get("HANDOFF_ARTIFACT_ID", "")) is not None, "artifact_id")
+          require(re.fullmatch(r"[0-9a-f]{64}", env.get("EXPECTED_PLAN_SHA256", "")) is not None, "plan_digest")
+          base = temp / "pulsemech-step5c-verification"
+          require(not base.exists() and not base.is_symlink(), "output_already_exists")
+          base.mkdir(mode=0o700)
+          PY
+
+      - name: Install independent verification dependencies
+        run: >-
+          python -I -m pip --disable-pip-version-check install --no-input
+          jsonschema==4.26.0 PyYAML==6.0.3
+
+      - name: Download only the exact current-run input artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          artifact-ids: ${{ needs.acquisition.outputs.handoff_artifact_id }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.run_id }}
+          path: ${{ runner.temp }}/pulsemech-step5c-verification/input
+          merge-multiple: true
+
+      - name: Verify exact handoff bytes and independently bound context
+        run: |
+          set -euo pipefail
+          python -I -B - <<'PY'
+          import hashlib
+          import json
+          import os
+          import re
+          import stat
+          from pathlib import Path
+
+
+          def require(condition, code):
+              if not condition:
+                  raise SystemExit("step5c_handoff_rejected:" + code)
+
+
+          def unique_object(pairs):
+              result = {}
+              for key, value in pairs:
+                  require(key not in result, "duplicate_key")
+                  result[key] = value
+              return result
+
+
+          def bad_constant(_value):
+              raise ValueError("nonfinite")
+
+
+          env = os.environ
+          base = Path(env["RUNNER_TEMP"]) / "pulsemech-step5c-verification"
+          source = base / "input"
+          require(source.is_dir() and not source.is_symlink(), "input_directory")
+          limits = {
+              "prepared.zip": 512 * 1024 * 1024,
+              "capture.zip": 2048 * 1024 * 1024,
+              "expected_context.json": 1048576,
+              "expected_plan.sha256": 65,
+          }
+          raw_bindings = env.get("HANDOFF_FILE_BINDINGS", "")
+          require(0 < len(raw_bindings) <= 4096, "bindings_size")
+          try:
+              bindings = json.loads(raw_bindings, object_pairs_hook=unique_object, parse_constant=bad_constant)
+          except (ValueError, RecursionError):
+              raise SystemExit("step5c_handoff_rejected:bindings_json") from None
+          require(isinstance(bindings, dict) and set(bindings) == set(limits), "bindings_membership")
+          require({path.name for path in source.iterdir()} == set(limits), "file_membership")
+          for name, maximum in sorted(limits.items()):
+              binding = bindings[name]
+              require(isinstance(binding, dict) and set(binding) == {"sha256", "size_bytes"}, "binding_shape")
+              require(isinstance(binding["sha256"], str) and re.fullmatch(r"[0-9a-f]{64}", binding["sha256"]) is not None, "binding_digest")
+              require(type(binding["size_bytes"]) is int and 0 < binding["size_bytes"] <= maximum, "binding_size")
+              path = source / name
+              info = path.lstat()
+              require(stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_size == binding["size_bytes"], "file_shape")
+              digest = hashlib.sha256()
+              with path.open("rb") as stream:
+                  for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                      digest.update(chunk)
+              require(digest.hexdigest() == binding["sha256"], "file_digest")
+              path.chmod(0o444)
+          plan_digest = env["EXPECTED_PLAN_SHA256"]
+          require((source / "expected_plan.sha256").read_bytes() == (plan_digest + "\n").encode("ascii"), "plan_digest")
+          # These expected values come from this verification job's own GitHub context,
+          # not from the acquired carrier or the acquisition tool's success diagnostic.
+          run_id = int(env["GITHUB_RUN_ID"])
+          expected_context = {
+              "schema_version": "pulsemech_compute_whole_runtime_observation_expected_context_v0",
+              "record_status": "observed",
+              "repository": env["GITHUB_REPOSITORY"],
+              "source_commit": env["SOURCE_COMMIT_INPUT"],
+              "source_ref": env["GITHUB_REF"],
+              "reference_workflow_name": env["GITHUB_WORKFLOW"],
+              "reference_workflow_path": ".github/workflows/pulsemech_compute_whole_runtime_observation_reference.yml",
+              "reference_workflow_ref": env["GITHUB_WORKFLOW_REF"],
+              "reference_event_name": env["GITHUB_EVENT_NAME"],
+              "reference_run_id": run_id,
+              "reference_run_number": int(env["GITHUB_RUN_NUMBER"]),
+              "reference_run_attempt": 1,
+              "collector_run_key": (
+                  f"GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT=1|"
+                  "GITHUB_WORKFLOW=PULSEmech compute whole-runtime observation reference"
+              ),
+              "collector_execution_id": "execution:step5c:collector:post-run-platform-export",
+              "acquisition_id": f"step5c-acquisition:{run_id}-1",
+              "expected_plan_sha256": plan_digest,
+              "authority_boundary": {
+                  "authority_effect": "none",
+                  "same_run_release_authority_eligible": False,
+                  "active_gate_eligible": False,
+                  "changes_gate_policy": False,
+                  "changes_gate_registry": False,
+                  "changes_release_authority": False,
+                  "creates_compute_budget": False,
+                  "introduces_resource_measurement": False,
+                  "observer_in_subject_totals": False,
+                  "subject_artifacts_mutated": False,
+                  "writes_subject_status": False,
+              },
+              "errors": [],
+              "ok": True,
+          }
+          expected_bytes = (json.dumps(expected_context, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
+          require((source / "expected_context.json").read_bytes() == expected_bytes, "reference_context")
+          PY
+
+      - name: Independently verify and run two separate reconstructions
+        run: |
+          set -euo pipefail
+          set -C
+          umask 077
+          base="$RUNNER_TEMP/pulsemech-step5c-verification"
+          python -I -B tools/check_pulsemech_compute_whole_runtime_observation_v0.py \
+            run-reference --repository-root "$GITHUB_WORKSPACE" \
+            --source-commit "$SOURCE_COMMIT_INPUT" --record-status observed \
+            --prepared "$base/input/prepared.zip" \
+            --capture "$base/input/capture.zip" \
+            --expected-context "$base/input/expected_context.json" \
+            --expected-plan-digest "$base/input/expected_plan.sha256" \
+            --output-directory "$base/reference" > "$base/reference-diagnostic.json"
+          git --no-replace-objects diff --quiet HEAD --
+
+      # No always(), continue-on-error, candidate-all-true test or promotion.
+      # The verifier publishes the capsule only after exact reconstruction equality.
+      - name: Preserve the verified non-active reference capsule
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pulsemech-whole-runtime-reference-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pulsemech-step5c-verification/reference/reference_capsule_v0.zip
+          if-no-files-found: error
+          overwrite: false
+          compression-level: 0
+          retention-days: 90
