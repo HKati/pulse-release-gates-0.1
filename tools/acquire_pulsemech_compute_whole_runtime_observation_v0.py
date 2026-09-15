@@ -5,8 +5,8 @@ The tool is the networked acquisition component of the Step 5C reference
 workflow.  It validates an independently checked prelaunch plan, dispatches the
 reviewed hosted release-grade PULSE CI subject, receives the exact run identity
 from the version-pinned GitHub REST response, waits for that exact attempt,
-collects bounded run/job/artifact metadata, downloads the three selected subject
-terminal artifacts, dispatches the existing Step 3F provider with the exact
+collects bounded run/job/artifact metadata, downloads all six selected subject
+archives, dispatches the existing Step 3F provider with the exact
 subject run ID, and downloads the exact Step 3F candidate envelope.
 
 It does not build the final capture carrier, construct a runtime-observation
@@ -153,6 +153,25 @@ SUBJECT_TERMINAL_ARTIFACT_TEMPLATES = (
         "package_verification_report",
         "release-grade-reference-package-verification-{run_id}-1",
         "subject/artifacts/release-grade-reference-package-verification.zip",
+    ),
+)
+# Additional source-owned evidence, not part of Step 3F's terminal triple.
+# Exact-byte acquisition does not activate post-run state-evidence acceptance.
+SUBJECT_STATE_ARTIFACT_TEMPLATES = (
+    (
+        "release_grade_recorded_path",
+        "release-grade-recorded-path-{run_id}-1",
+        "subject/artifacts/release-grade-recorded-path.zip",
+    ),
+    (
+        "pre_attestation_pulse_artifacts",
+        "pulse-pre-attestation-{run_id}-1",
+        "subject/artifacts/pulse-pre-attestation.zip",
+    ),
+    (
+        "advisory_reference_bundle",
+        "release-grade-reference-run-v0",
+        "subject/artifacts/release-grade-reference-run-v0.zip",
     ),
 )
 PROVIDER_ARTIFACT_TEMPLATE = (
@@ -2038,7 +2057,9 @@ def acquire_observation(
         )
 
         downloads: list[ArtifactSelection] = []
-        for role_name, name_template, member in SUBJECT_TERMINAL_ARTIFACT_TEMPLATES:
+        for role_name, name_template, member in (
+            SUBJECT_TERMINAL_ARTIFACT_TEMPLATES + SUBJECT_STATE_ARTIFACT_TEMPLATES
+        ):
             metadata = _select_artifact(
                 subject_artifacts.rows,
                 expected_name=name_template.format(run_id=subject_run_id),

@@ -287,6 +287,15 @@ SUBJECT_DOWNLOAD_ROLES = {
 }
 
 
+# Preserve these archives directly from the subject. Never add them to
+# SUBJECT_DOWNLOAD_ROLES: the unchanged Step 3F carrier holds only that triple.
+SUBJECT_STATE_DOWNLOAD_ROLES = frozenset({
+    "release_grade_recorded_path",
+    "pre_attestation_pulse_artifacts",
+    "advisory_reference_bundle",
+})
+
+
 class CaptureError(RuntimeError):
     """Stable fail-closed capture error."""
 
@@ -1132,7 +1141,7 @@ def _artifact_bindings(
     subject_run_id: int,
     provider_run_id: int,
 ) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
-    _require(isinstance(downloaded, list) and len(downloaded) == 4, "downloaded_artifact_count_mismatch", stage="artifact")
+    _require(isinstance(downloaded, list) and len(downloaded) == 7, "downloaded_artifact_count_mismatch", stage="artifact")
     result: list[dict[str, Any]] = []
     by_role: dict[str, dict[str, Any]] = {}
     for row in downloaded:
@@ -1154,7 +1163,11 @@ def _artifact_bindings(
         _parse_utc(row.get("created_utc"), label=f"artifact:{role}:created")
         _parse_utc(row.get("expires_utc"), label=f"artifact:{role}:expires")
         _require(_parse_utc(row["expires_utc"], label=f"artifact:{role}:expires") > _parse_utc(row["created_utc"], label=f"artifact:{role}:created"), "artifact_retention_window_invalid", role, stage="artifact")
-        artifact_role = "step3f_candidate_envelope" if role == "step3f_candidate_envelope" else "subject_terminal_artifact"
+        artifact_role = (
+            "step3f_candidate_envelope" if role == "step3f_candidate_envelope"
+            else "subject_state_evidence_artifact" if role in SUBJECT_STATE_DOWNLOAD_ROLES
+            else "subject_terminal_artifact"
+        )
         expected_kind = "provider" if artifact_role == "step3f_candidate_envelope" else "subject"
         _require(source_kind == expected_kind, "artifact_source_kind_mismatch", role, stage="artifact")
         result.append(
@@ -1176,13 +1189,13 @@ def _artifact_bindings(
                 "downloaded_size_bytes": snapshot.size_bytes,
             }
         )
-    expected_roles = set(SUBJECT_DOWNLOAD_ROLES) | {"step3f_candidate_envelope"}
+    expected_roles = set(SUBJECT_DOWNLOAD_ROLES) | SUBJECT_STATE_DOWNLOAD_ROLES | {"step3f_candidate_envelope"}
     _require(set(by_role) == expected_roles, "downloaded_artifact_role_set_mismatch", stage="artifact")
     return sorted(result, key=lambda row: (row["source_run_kind"], row["artifact_name"])), by_role
 
 
 def _selected_archive_expectations(subject_run_id: int, provider_run_id: int) -> dict[str, tuple[str, int, str, str]]:
-    """Existing intake selectors only; this does not activate the R2 profile."""
+    """Six mandatory subject archives plus Step 3F; not R2 state acceptance."""
     return {
         "complete_release_grade_reference_package": (
             "subject", subject_run_id,
@@ -1198,6 +1211,21 @@ def _selected_archive_expectations(subject_run_id: int, provider_run_id: int) ->
             "subject", subject_run_id,
             f"release-grade-reference-package-verification-{subject_run_id}-1",
             "subject/artifacts/release-grade-reference-package-verification.zip",
+        ),
+        "release_grade_recorded_path": (
+            "subject", subject_run_id,
+            f"release-grade-recorded-path-{subject_run_id}-1",
+            "subject/artifacts/release-grade-recorded-path.zip",
+        ),
+        "pre_attestation_pulse_artifacts": (
+            "subject", subject_run_id,
+            f"pulse-pre-attestation-{subject_run_id}-1",
+            "subject/artifacts/pulse-pre-attestation.zip",
+        ),
+        "advisory_reference_bundle": (
+            "subject", subject_run_id,
+            "release-grade-reference-run-v0",
+            "subject/artifacts/release-grade-reference-run-v0.zip",
         ),
         "step3f_candidate_envelope": (
             "provider", provider_run_id,

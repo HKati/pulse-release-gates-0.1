@@ -1066,11 +1066,12 @@ def _selected_archive_metadata(
 def _check_selected_archive_evidence(
     plan: Mapping[str, Any], manifest: Mapping[str, Any], members: Mapping[str, bytes],
 ) -> None:
-    """Check the existing four selections without trusting collector agreement.
+    """Check all seven mandatory selections without trusting collector agreement.
 
     This is an outer-archive identity/transport check. Inner state contents,
     original producer/consumer receipts and full R2 acceptance remain separate.
-    The three additional R2 archives are deliberately not enabled here.
+    Additional subject archives are preserved opaquely, not promoted into
+    terminal-package states or the unchanged Step 3F inner carrier.
     """
     subject, provider = manifest["subject"], manifest["provider"]
     subject_id = positive_int(subject.get("run_id"), label="selected_subject_run")
@@ -1088,6 +1089,15 @@ def _check_selected_archive_evidence(
         ("package_verification_report", "subject", subject_id,
          f"release-grade-reference-package-verification-{subject_id}-1",
          "subject/artifacts/release-grade-reference-package-verification.zip"),
+        ("release_grade_recorded_path", "subject", subject_id,
+         f"release-grade-recorded-path-{subject_id}-1",
+         "subject/artifacts/release-grade-recorded-path.zip"),
+        ("pre_attestation_pulse_artifacts", "subject", subject_id,
+         f"pulse-pre-attestation-{subject_id}-1",
+         "subject/artifacts/pulse-pre-attestation.zip"),
+        ("advisory_reference_bundle", "subject", subject_id,
+         "release-grade-reference-run-v0",
+         "subject/artifacts/release-grade-reference-run-v0.zip"),
         ("step3f_candidate_envelope", "provider", provider_id,
          f"pulsemech-compute-current-run-export-candidate-{subject_id}-1",
          "provider/step3f-candidate-envelope.zip"),
@@ -1135,7 +1145,12 @@ def _check_selected_archive_evidence(
                 "selected_archive_metadata_not_unique", role, stage="artifact")
         binding, selected, metadata = found[0], indexed[0], source_rows[0]
         run = subject if kind == "subject" else provider
-        expected_role = "step3f_candidate_envelope" if kind == "provider" else "subject_terminal_artifact"
+        expected_role = (
+            "step3f_candidate_envelope" if kind == "provider"
+            else "subject_state_evidence_artifact" if role in {
+                "release_grade_recorded_path", "pre_attestation_pulse_artifacts", "advisory_reference_bundle",
+            } else "subject_terminal_artifact"
+        )
         require(binding.get("artifact_role") == expected_role and binding.get("source_run_kind") == kind
                 and type(binding.get("source_run_id")) is int and binding["source_run_id"] == run_id
                 and type(binding.get("source_run_attempt")) is int and binding["source_run_attempt"] == 1

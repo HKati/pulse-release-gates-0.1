@@ -768,6 +768,16 @@ def artifact_row(identifier, name, raw, source_commit, run_id):
             'workflow_run': {'id': run_id, 'head_sha': source_commit, 'head_branch': 'main'}}
 
 
+_ADDITIONAL_SUBJECT_ARCHIVES = (
+    ('release_grade_recorded_path', 'release-grade-recorded-path-{run_id}-1',
+     'subject/artifacts/release-grade-recorded-path.zip'),
+    ('pre_attestation_pulse_artifacts', 'pulse-pre-attestation-{run_id}-1',
+     'subject/artifacts/pulse-pre-attestation.zip'),
+    ('advisory_reference_bundle', 'release-grade-reference-run-v0',
+     'subject/artifacts/release-grade-reference-run-v0.zip'),
+)
+
+
 class ExampleTransport:
     """Exact endpoint allowlist; any unexpected or live request is a test error."""
     def __init__(self, plan, source_commit, *, change=None):
@@ -787,6 +797,16 @@ class ExampleTransport:
             raw = artifacts[role]
             self.downloads[identifier] = raw
             self.subject_artifacts.append(artifact_row(identifier, name.format(run_id=EXAMPLE_SUBJECT_ID), raw, source_commit, EXAMPLE_SUBJECT_ID))
+        # Transport-only examples, deliberately not complete inner R2 proofs.
+        for index, (role, name, _) in enumerate(_ADDITIONAL_SUBJECT_ARCHIVES, 5):
+            raw = example_zip({'fixture-only.json': canonical({
+                'record_status': 'example', 'purpose': role,
+                'content': 'OPAQUE_EXAMPLE_CANARY_' + role,
+            })})
+            identifier = 40000 + index
+            self.downloads[identifier] = raw
+            self.subject_artifacts.append(artifact_row(identifier, name.format(run_id=EXAMPLE_SUBJECT_ID),
+                                                        raw, source_commit, EXAMPLE_SUBJECT_ID))
         self.downloads[40004] = envelope
         self.provider_artifacts = [artifact_row(40004, ACQUIRER.PROVIDER_ARTIFACT_TEMPLATE.format(subject_run_id=EXAMPLE_SUBJECT_ID),
                                                 envelope, source_commit, EXAMPLE_PROVIDER_ID)]
@@ -881,7 +901,7 @@ def test_actual_acquisition_uses_exact_dispatch_receipts(acquisition_fixture, so
     assert index['subject']['run_id'] == EXAMPLE_SUBJECT_ID
     assert index['provider']['run_id'] == EXAMPLE_PROVIDER_ID
     assert (f.output / 'expected_context.json').is_file()
-    assert len([call for call in f.transport.calls if call[0] == 'DOWNLOAD']) == 4
+    assert len([call for call in f.transport.calls if call[0] == 'DOWNLOAD']) == 7
 
 
 def construct_capture(source_fixture, acquisition_fixture, name='capture.zip'):
@@ -8038,8 +8058,8 @@ def test_selected_archive_valid_original_outer_binding_is_nonmutating(
     before = canonical(case.manifest), canonical(case.index), dict(case.members)
     assert selected_archive_check(side, case, source_fixture.plan) is None
     assert before == (canonical(case.manifest), canonical(case.index), case.members)
-    assert len(case.index['downloaded_artifacts']) == 4
-    assert len([r for r in case.manifest['artifact_bindings'] if r['source_run_kind'] == 'subject']) == 3
+    assert len(case.index['downloaded_artifacts']) == 7
+    assert len([r for r in case.manifest['artifact_bindings'] if r['source_run_kind'] == 'subject']) == 6
     assert case.manifest['authority_boundary']['active_gate_eligible'] is False
     assert case.manifest['authority_boundary']['same_run_release_authority_eligible'] is False
 
@@ -8170,9 +8190,9 @@ def selected_archive_two_pages(case):
     extra = copy.deepcopy(original['artifacts'][0])
     extra.update(id=49999, name='unselected-example-metadata')
     rows = original['artifacts'] + [extra]
-    case.pages['subject'] = [dict(total_count=4, artifacts=rows[:2]), dict(total_count=4, artifacts=rows[2:])]
+    case.pages['subject'] = [dict(total_count=len(rows), artifacts=rows[:2]), dict(total_count=len(rows), artifacts=rows[2:])]
     page_names = ['subject/artifacts-page-0001.json', 'subject/artifacts-page-0002.json']
-    case.index['subject_artifacts'].update(page_members=page_names, total_count=4)
+    case.index['subject_artifacts'].update(page_members=page_names, total_count=len(rows))
     bindings = case.manifest['raw_response_bindings']
     position = next(i for i, row in enumerate(bindings) if row['role'] == 'subject_artifacts_page')
     second = copy.deepcopy(bindings[position]); second['descriptor']['member'] = 'acquisition/' + page_names[1]
@@ -8186,7 +8206,7 @@ def test_selected_archive_additional_metadata_and_closed_multiple_pages_are_supp
 ):
     case = selected_archive_two_pages(selected_archive_case(selected_archive_fixture))
     assert selected_archive_check(side, case, source_fixture.plan) is None
-    assert len(case.index['downloaded_artifacts']) == 4
+    assert len(case.index['downloaded_artifacts']) == 7
     # Calendar expiry is in the past; the recorded expired flag was false.
     assert all(row['expires_utc'] == EXAMPLE_EXPIRY for row in case.index['downloaded_artifacts'])
 
@@ -8224,7 +8244,7 @@ def test_selected_archive_independent_listing_and_binding_closure(
         case.members.pop('acquisition/' + old)
         case.index['subject_artifacts']['page_members'][1] = new
         bindings[positions[1]]['descriptor']['member'] = 'acquisition/' + new
-    elif mutation == 'float_total': case.index['subject_artifacts']['total_count'] = 4.0
+    elif mutation == 'float_total': case.index['subject_artifacts']['total_count'] = float(case.index['subject_artifacts']['total_count'])
     elif mutation == 'duplicate_selection': case.index['downloaded_artifacts'][1] = copy.deepcopy(case.index['downloaded_artifacts'][0])
     elif mutation == 'missing_selection': case.index['downloaded_artifacts'].pop()
     elif mutation == 'extra_binding': case.manifest['artifact_bindings'].append(copy.deepcopy(case.manifest['artifact_bindings'][0]))
@@ -8306,7 +8326,295 @@ def test_selected_archive_multiple_page_acquisition_public_capture_and_read(
     read_case = selected_archive_case(result)
     manifest, members, _ = selected_archive_read(result.path, read_case, source_fixture)
     assert manifest == result.manifest and members == result.members
-    assert len(manifest['artifact_bindings']) == 4
+    assert len(manifest['artifact_bindings']) == 7
+
+
+# ---------------------------------------------------------------------------
+# Six subject archives + one provider: transport extension, NOT R2 acceptance.
+# Existing terminal/state mappings and the incomplete-state stop are unchanged.
+# ---------------------------------------------------------------------------
+_ADDITIONAL_ARCHIVE_ROLES = tuple(row[0] for row in _ADDITIONAL_SUBJECT_ARCHIVES)
+
+
+def test_expanded_archive_selectors_are_exact_and_match_inactive_contract():
+    assert ACQUIRER.SUBJECT_STATE_ARTIFACT_TEMPLATES == _ADDITIONAL_SUBJECT_ARCHIVES
+    expected = EVIDENCE_SCHEMA['$defs']['post_run_state_evidence_v1_subject_archives']
+    declared = ACQUIRER.SUBJECT_TERMINAL_ARTIFACT_TEMPLATES + ACQUIRER.SUBJECT_STATE_ARTIFACT_TEMPLATES
+    actual = {role: name.replace('{run_id}', '{subject_run_id}') for role, name, _ in declared}
+    assert actual == {role: rule['const'] for role, rule in expected['properties'].items()}
+    assert set(actual) == set(expected['required']) and len(declared) == 6
+    assert len({name for _, _, name in declared}) == 6
+    assert CAPTURER.SUBJECT_STATE_DOWNLOAD_ROLES == frozenset(_ADDITIONAL_ARCHIVE_ROLES)
+    assert len(CAPTURER.SUBJECT_DOWNLOAD_ROLES) == len(ACQUIRER.SUBJECT_TERMINAL_ARTIFACT_TEMPLATES) == 3
+    assert not CAPTURER.SUBJECT_STATE_DOWNLOAD_ROLES.intersection(CAPTURER.SUBJECT_DOWNLOAD_ROLES)
+    assert len(EVIDENCE_SCHEMA['oneOf']) == 4
+    assert 'post_run_state_evidence_v1_definition' not in json.dumps(EVIDENCE_SCHEMA['oneOf'])
+
+
+def test_expanded_archive_actual_seven_downloads_keep_subject_and_provider_separate(
+    acquisition_fixture, selected_archive_fixture, source_fixture,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    selections = case.index['downloaded_artifacts']
+    assert {row['role'] for row in selections} == set(_SELECTED_ARCHIVE_ROLES + _ADDITIONAL_ARCHIVE_ROLES)
+    assert len(selections) == len({row['artifact_id'] for row in selections}) == 7
+    calls = [endpoint for method, endpoint, _ in acquisition_fixture.transport.calls if method == 'DOWNLOAD']
+    assert len(calls) == 7 and set(calls) == {
+        f'repos/{ACQUIRER.REPOSITORY}/actions/artifacts/{row["artifact_id"]}/zip' for row in selections
+    }
+    by_role = {row['role']: row for row in selections}
+    for role, template, member in _ADDITIONAL_SUBJECT_ARCHIVES:
+        selected, metadata, binding = selected_archive_rows(case, role)
+        raw = acquisition_fixture.transport.downloads[selected['artifact_id']]
+        assert selected['source_run_id'] == metadata['workflow_run']['id'] == EXAMPLE_SUBJECT_ID
+        assert selected['source_run_attempt'] == 1 and selected['source_run_kind'] == 'subject'
+        assert selected['artifact_name'] == template.format(run_id=EXAMPLE_SUBJECT_ID)
+        assert selected['downloaded_member'] == member
+        assert case.members['acquisition/' + member] == raw
+        assert digest(raw) == selected['downloaded_sha256'] == binding['downloaded_sha256']
+        assert binding['artifact_role'] == 'subject_state_evidence_artifact'
+        assert ('OPAQUE_EXAMPLE_CANARY_' + role).encode() in raw
+        assert ('OPAQUE_EXAMPLE_CANARY_' + role).encode() not in case.members['capture.json']
+        assert ('OPAQUE_EXAMPLE_CANARY_' + role).encode() not in case.members['acquisition/acquisition-index.json']
+    provider = by_role['step3f_candidate_envelope']
+    assert provider['source_run_id'] == EXAMPLE_PROVIDER_ID != EXAMPLE_SUBJECT_ID
+    assert str(EXAMPLE_SUBJECT_ID) in provider['artifact_name']
+    assert len([r for r in case.manifest['artifact_bindings'] if r['artifact_role'] == 'subject_terminal_artifact']) == 3
+    assert len(case.manifest['carrier_member_bindings']) == 6
+    assert 'evidence_profile' not in source_fixture.plan
+    assert case.manifest['authority_boundary'] == CAPTURER.AUTHORITY_BOUNDARY
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
+
+
+@pytest.mark.parametrize('role', _ADDITIONAL_ARCHIVE_ROLES)
+def test_expanded_archive_acquisition_rejects_without_provider_dispatch_or_publication(
+    source_fixture, tmp_path, role,
+):
+    f = source_fixture
+    transport = ExampleTransport(f.plan, f.sha)
+    name = next(template for found, template, _ in _ADDITIONAL_SUBJECT_ARCHIVES if found == role).format(run_id=EXAMPLE_SUBJECT_ID)
+    index = next(i for i, row in enumerate(transport.subject_artifacts) if row['name'] == name)
+    transport.subject_artifacts.pop(index)
+    target = tmp_path / 'must-not-publish'
+    with pytest.raises(Exception) as caught:
+        acquire_example(f, target, transport)
+    assert type(caught.value).__name__ == 'AcquisitionError'
+    assert caught.value.stage == 'artifact'
+    assert not target.exists()
+    assert not [call for call in transport.calls if call[0] == 'POST' and call[1] == ACQUIRER.PROVIDER_DISPATCH_ENDPOINT]
+
+
+def expanded_archive_mutate(case, role, mutation):
+    selected, metadata, binding = selected_archive_rows(case, role)
+    if mutation == 'wrong_run': metadata['workflow_run']['id'] = EXAMPLE_PROVIDER_ID
+    elif mutation == 'source': metadata['workflow_run']['head_sha'] = 'f' * 40
+    elif mutation == 'missing_source': metadata.pop('workflow_run')
+    elif mutation == 'size': metadata['size_in_bytes'] += 1
+    elif mutation == 'digest': metadata['digest'] = 'sha256:' + 'e' * 64
+    elif mutation == 'expired': metadata['expired'] = True
+    elif mutation == 'attempt': selected['source_run_attempt'] = 2
+    elif mutation == 'unknown_name': selected['artifact_name'] = 'unknown-state-archive'
+    elif mutation == 'unsafe_path': selected['downloaded_member'] = '../escape.zip'
+    elif mutation == 'duplicate_name':
+        duplicate = copy.deepcopy(metadata); duplicate['id'] += 1000
+        case.pages['subject'][0]['artifacts'].append(duplicate)
+        case.pages['subject'][0]['total_count'] += 1; case.index['subject_artifacts']['total_count'] += 1
+    else: raise AssertionError(mutation)
+    return selected_archive_seal(case)
+
+
+@pytest.mark.parametrize('role', _ADDITIONAL_ARCHIVE_ROLES)
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('mutation', ['wrong_run', 'source', 'missing_source', 'size', 'digest', 'expired',
+                                     'attempt', 'unknown_name', 'unsafe_path', 'duplicate_name'])
+def test_expanded_archive_new_roles_reject_rehashed_binding_mutations(
+    selected_archive_fixture, source_fixture, role, side, mutation,
+):
+    case = expanded_archive_mutate(selected_archive_case(selected_archive_fixture), role, mutation)
+    error_type = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    expected = {
+        'wrong_run': 'selected_archive_source_mismatch', 'source': 'selected_archive_source_mismatch',
+        'missing_source': 'selected_archive_source_mismatch', 'size': 'selected_archive_size_mismatch',
+        'digest': 'selected_archive_digest_mismatch', 'expired': 'selected_archive_retention_mismatch',
+        'attempt': 'selected_archive_run_mismatch' if side == 'capture' else 'selected_archive_index_binding_mismatch',
+        'unknown_name': 'selected_archive_selector_mismatch' if side == 'capture' else 'selected_archive_index_binding_mismatch',
+        'unsafe_path': 'selected_archive_selector_mismatch' if side == 'capture' else 'selected_archive_index_binding_mismatch',
+        'duplicate_name': 'selected_archive_metadata_not_unique',
+    }[mutation]
+    with pytest.raises(error_type) as error:
+        selected_archive_check(side, case, source_fixture.plan)
+    assert error.value.code == expected
+
+
+@pytest.mark.parametrize('role', _ADDITIONAL_ARCHIVE_ROLES)
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_expanded_archive_missing_obligation_cannot_be_removed_and_rehashed(
+    selected_archive_fixture, source_fixture, role, side,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    selected, _, binding = selected_archive_rows(case, role)
+    case.index['downloaded_artifacts'].remove(selected)
+    case.manifest['artifact_bindings'].remove(binding)
+    case.members.pop('acquisition/' + selected['downloaded_member'])
+    selected_archive_seal(case)
+    error_type = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    with pytest.raises(error_type) as error:
+        selected_archive_check(side, case, source_fixture.plan)
+    assert error.value.code == ('selected_archive_role_set_mismatch' if side == 'capture' else 'selected_archive_binding_set_mismatch')
+
+
+@pytest.mark.parametrize('role', _ADDITIONAL_ARCHIVE_ROLES)
+@pytest.mark.parametrize('misclassification', ['subject_terminal_artifact', 'step3f_candidate_envelope'])
+def test_expanded_archive_independent_checker_rejects_role_promotion(
+    selected_archive_fixture, source_fixture, role, misclassification,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    _, _, binding = selected_archive_rows(case, role)
+    binding['artifact_role'] = misclassification
+    selected_archive_seal(case)
+    with pytest.raises(VERIFIER.VerificationError) as error:
+        selected_archive_check('verifier', case, source_fixture.plan)
+    assert error.value.code == 'selected_archive_run_mismatch'
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_expanded_archive_identical_bytes_do_not_allow_cross_role_swap(
+    selected_archive_fixture, source_fixture, side,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    role_a, role_b = _ADDITIONAL_ARCHIVE_ROLES[:2]
+    # Make both archives byte-identical consistently. They still have distinct
+    # source-owned role and artifact identities; equal content is not identity.
+    selected_a, meta_a, binding_a = selected_archive_rows(case, role_a)
+    selected_b, meta_b, binding_b = selected_archive_rows(case, role_b)
+    raw = case.members['acquisition/' + selected_a['downloaded_member']]
+    case.members['acquisition/' + selected_b['downloaded_member']] = raw
+    meta_b.update(size_in_bytes=len(raw), digest='sha256:' + digest(raw))
+    selected_b.update(size_bytes=len(raw), downloaded_size_bytes=len(raw), github_sha256=digest(raw), downloaded_sha256=digest(raw))
+    binding_b.update(size_bytes=len(raw), downloaded_size_bytes=len(raw), github_sha256=digest(raw), downloaded_sha256=digest(raw))
+    selected_archive_seal(case)
+    assert selected_archive_check(side, case, source_fixture.plan) is None
+    selected_a['role'], selected_b['role'] = selected_b['role'], selected_a['role']
+    selected_archive_seal(case)
+    error_type = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    with pytest.raises(error_type) as error:
+        selected_archive_check(side, case, source_fixture.plan)
+    assert error.value.code in ('selected_archive_selector_mismatch', 'selected_archive_index_binding_mismatch')
+
+
+@pytest.mark.parametrize('role', _ADDITIONAL_ARCHIVE_ROLES)
+def test_expanded_archive_public_capture_and_offline_read_reject_mixed_source(
+    selected_archive_fixture, source_fixture, tmp_path, role,
+):
+    case = expanded_archive_mutate(selected_archive_case(selected_archive_fixture), role, 'source')
+    acquired = tmp_path / 'acquisition'; acquired.mkdir()
+    for name, raw in case.members.items():
+        if name.startswith('acquisition/'):
+            path = acquired / name.removeprefix('acquisition/')
+            path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(raw); path.chmod(0o444)
+    before = {p.relative_to(acquired).as_posix(): p.read_bytes() for p in acquired.rglob('*') if p.is_file()}
+    with pytest.raises(Exception) as error:
+        construct_capture(source_fixture, SimpleNamespace(output=acquired, directory=tmp_path), 'not-published.zip')
+    assert type(error.value).__name__ == 'CaptureError' and error.value.code == 'selected_archive_source_mismatch'
+    assert not (tmp_path / 'not-published.zip').exists()
+    assert before == {p.relative_to(acquired).as_posix(): p.read_bytes() for p in acquired.rglob('*') if p.is_file()}
+    target = tmp_path / 'rehashed-capture.zip'; selected_archive_write_capture(target, case)
+    original = target.read_bytes()
+    with patch.object(CAPTURER, '_validate_selected_archive_evidence', side_effect=AssertionError('Not the independent verifier')):
+        with patch.object(VERIFIER, 'build_runtime_packet', side_effect=AssertionError('Must reject before state projection')):
+            with patch.object(socket, 'create_connection', side_effect=AssertionError('Offline check only')):
+                with pytest.raises(VERIFIER.VerificationError) as error:
+                    selected_archive_read(target, case, source_fixture)
+    assert error.value.code == 'selected_archive_source_mismatch' and target.read_bytes() == original
+
+
+def test_expanded_archive_all_seven_count_against_unchanged_aggregate_budget(
+    selected_archive_fixture, source_fixture,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    rows = case.index['downloaded_artifacts']
+    old_total = sum(row['size_bytes'] for row in rows if row['role'] in _SELECTED_ARCHIVE_ROLES)
+    total = sum(row['size_bytes'] for row in rows)
+    assert total > old_total
+    plan = copy.deepcopy(source_fixture.plan)
+    plan['finite_limits']['max_aggregate_artifact_bytes'] = old_total
+    for side, error_type in [('capture', CAPTURER.CaptureError), ('verifier', VERIFIER.VerificationError)]:
+        with pytest.raises(error_type) as error:
+            selected_archive_check(side, case, plan)
+        assert error.value.code == 'selected_archive_aggregate_limit_exceeded'
+    assert ACQUIRER.DEFAULT_MAX_AGGREGATE_ARTIFACT_BYTES == 1536 * 1024 * 1024
+    assert ACQUIRER.DEFAULT_MAX_SINGLE_ARTIFACT_BYTES == 768 * 1024 * 1024
+
+
+@pytest.mark.parametrize('role', _ADDITIONAL_ARCHIVE_ROLES)
+@pytest.mark.parametrize('mutation', ['duplicate', 'wrong_run', 'expired', 'wrong_digest'])
+def test_expanded_archive_real_selector_and_download_reject_mutations(
+    source_fixture, tmp_path, role, mutation,
+):
+    # Exercise the actual artifact boundary without repeating the unrelated
+    # subprocess plan check for each metadata permutation. The public test
+    # above separately covers every new mandatory selector end-to-end.
+    f = source_fixture; transport = ExampleTransport(f.plan, f.sha)
+    _, template, member = next(row for row in _ADDITIONAL_SUBJECT_ARCHIVES if row[0] == role)
+    name = template.format(run_id=EXAMPLE_SUBJECT_ID)
+    row = next(row for row in transport.subject_artifacts if row['name'] == name)
+    if mutation == 'duplicate':
+        duplicate = copy.deepcopy(row); duplicate['id'] = 49888
+        transport.subject_artifacts.append(duplicate)
+    elif mutation == 'wrong_run': row['workflow_run']['id'] = EXAMPLE_PROVIDER_ID
+    elif mutation == 'expired': row['expired'] = True
+    else: row['digest'] = 'sha256:' + 'f' * 64
+    with pytest.raises(ACQUIRER.AcquisitionError) as error:
+        selected = ACQUIRER._select_artifact(
+            transport.subject_artifacts, expected_name=name, expected_run_id=EXAMPLE_SUBJECT_ID,
+            source_commit=f.sha, max_single_bytes=ACQUIRER.DEFAULT_MAX_SINGLE_ARTIFACT_BYTES,
+        )
+        ACQUIRER._download_selected_artifact(
+            transport=transport, staging=tmp_path, selection_role=role,
+            metadata=selected, member=member, max_bytes=ACQUIRER.DEFAULT_MAX_SINGLE_ARTIFACT_BYTES,
+        )
+    assert error.value.stage == 'artifact'
+
+
+def expanded_archive_legacy_four(case):
+    for role in _ADDITIONAL_ARCHIVE_ROLES:
+        selected, _, binding = selected_archive_rows(case, role)
+        case.index['downloaded_artifacts'].remove(selected)
+        case.manifest['artifact_bindings'].remove(binding)
+        case.members.pop('acquisition/' + selected['downloaded_member'])
+    return selected_archive_seal(case)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_expanded_archive_legacy_four_cannot_be_reinterpreted_as_current_intake(
+    selected_archive_fixture, source_fixture, side,
+):
+    case = expanded_archive_legacy_four(selected_archive_case(selected_archive_fixture))
+    assert len(case.index['downloaded_artifacts']) == len(case.manifest['artifact_bindings']) == 4
+    error_type = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    with pytest.raises(error_type) as error:
+        selected_archive_check(side, case, source_fixture.plan)
+    assert error.value.code == ('selected_archive_role_set_mismatch' if side == 'capture' else 'selected_archive_binding_set_mismatch')
+
+
+def test_expanded_archive_public_capture_and_read_reject_rehashed_legacy_four(
+    selected_archive_fixture, source_fixture, tmp_path,
+):
+    case = expanded_archive_legacy_four(selected_archive_case(selected_archive_fixture))
+    acquired = tmp_path / 'acquisition'; acquired.mkdir()
+    for name, raw in case.members.items():
+        if name.startswith('acquisition/'):
+            path = acquired / name.removeprefix('acquisition/')
+            path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(raw); path.chmod(0o444)
+    with pytest.raises(Exception) as error:
+        construct_capture(source_fixture, SimpleNamespace(output=acquired, directory=tmp_path), 'not-published.zip')
+    assert type(error.value).__name__ == 'CaptureError' and error.value.code == 'downloaded_artifact_count_mismatch'
+    assert not (tmp_path / 'not-published.zip').exists()
+    target = tmp_path / 'legacy-four.zip'; selected_archive_write_capture(target, case)
+    with pytest.raises(VERIFIER.VerificationError) as error:
+        selected_archive_read(target, case, source_fixture)
+    assert error.value.code == 'selected_archive_binding_set_mismatch'
 
 
 if __name__ == '__main__':

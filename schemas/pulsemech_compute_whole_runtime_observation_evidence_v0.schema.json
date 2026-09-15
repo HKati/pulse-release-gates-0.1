@@ -1688,7 +1688,8 @@
         "artifact_role": {
           "enum": [
             "step3f_candidate_envelope",
-            "subject_terminal_artifact"
+            "subject_terminal_artifact",
+            "subject_state_evidence_artifact"
           ]
         },
         "source_run_kind": {
