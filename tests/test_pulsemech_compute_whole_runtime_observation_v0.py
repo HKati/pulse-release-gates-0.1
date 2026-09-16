@@ -739,7 +739,7 @@ def provider_fixture(plan, source_commit, *, model_rows=None, subject_override=N
     checksums = ''.join(f'{digest(raw)}  {name}\n' for name, raw in sorted(relative_members.items())).encode()
     carrier = example_zip({**{'example-current-run/' + name: raw for name, raw in relative_members.items()},
                            'example-current-run/SHA256SUMS': checksums})
-    carrier_name = 'example-current-run-carrier-v0.zip'
+    carrier_name = f'pulsemech-current-run-export-{EXAMPLE_SUBJECT_ID}-1-v0.zip'
     subject = {'workflow_run_id': EXAMPLE_SUBJECT_ID, 'workflow_run_attempt': 1, 'source_commit': source_commit}
     if subject_override: subject.update(subject_override)
     binding = {'sha256': digest(carrier), 'size_bytes': len(carrier)}
@@ -751,7 +751,8 @@ def provider_fixture(plan, source_commit, *, model_rows=None, subject_override=N
                 'expectation.json': canonical(expectation), 'subject-input-packet.json': canonical(packet),
                 'source-run-resolution.json': canonical({'fixture_only': True}),
                 'source-artifact-selection.json': canonical({'fixture_only': True}), carrier_name: carrier}
-    manifest = {'schema_version': 'pulsemech_compute_current_run_export_candidate_output_manifest_v0',
+    manifest = {'ok': True, 'control_plane_revision': source_commit,
+                'schema_version': 'pulsemech_compute_current_run_export_candidate_output_manifest_v0',
                 'document_type': 'pulsemech_compute_current_run_export_candidate_output_manifest',
                 'manifest_scope': 'all_candidate_files_except_this_manifest',
                 'authority_boundary': CAPTURER.EXPECTED_CANDIDATE_AUTHORITY_BOUNDARY,
@@ -2249,7 +2250,7 @@ def test_declared_state_inventory_preserves_all_requirements_and_honest_gaps(sou
     templates = {s['state_id']: s for s in f.plan['state_templates']}
     assert set(states) == set(templates) and len(states) == 62
     assert Counter(s['content_status'] for s in states.values()) == {
-        'exact_digest': 46, 'unavailable': 16,
+        'exact_digest': 50, 'unavailable': 12,
     }
     assert packet['coverage']['state_records'] == 62
     assert packet['coverage']['state_digest_capture_status'] == 'partial'
@@ -9853,7 +9854,7 @@ def test_preserved_member_role_runtime_projection_has_exact_content_not_observed
                  'materialized-release-required-gate-set', 'effective-required-argument-list'):
         row = states['state:step5c:' + role]
         assert row['content_status'] == 'unavailable' and row['sha256'] is None
-    assert Counter(row['content_status'] for row in states.values()) == {'exact_digest': 46, 'unavailable': 16}
+    assert Counter(row['content_status'] for row in states.values()) == {'exact_digest': 50, 'unavailable': 12}
     assert before == (members, canonical(manifest))
     rendered = canonical(packet)
     assert b'EXAMPLE controlled input' not in rendered and b'EXAMPLE controlled output' not in rendered
@@ -9935,7 +9936,7 @@ sys.stdout.buffer.write(module.canonical_json_bytes(packet))
         outputs.append(process.stdout)
     assert outputs[0] == outputs[1]
     packet = json.loads(outputs[0])
-    assert Counter(row['content_status'] for row in packet['state_observations']) == {'exact_digest': 46, 'unavailable': 16}
+    assert Counter(row['content_status'] for row in packet['state_observations']) == {'exact_digest': 50, 'unavailable': 12}
     assert packet['coverage']['coverage_status'] == 'partial'
     jsonschema.Draft202012Validator(GENERIC_SCHEMA).validate(packet)
     checks, errors = GENERIC_VALIDATOR.semantic_checks(packet)
@@ -10324,8 +10325,431 @@ sys.stdout.buffer.write(verifier.canonical_json_bytes(packet))
     assert packet['observation_boundary']['capture_started_utc'] == collection_stamp(12)
     assert packet['observation_boundary']['capture_completed_utc'] == collection_stamp(25)
     assert digest(f.capture.path.read_bytes()) == before
-    assert Counter(row['content_status'] for row in packet['state_observations']) == {'exact_digest': 46, 'unavailable': 16}
+    assert Counter(row['content_status'] for row in packet['state_observations']) == {'exact_digest': 50, 'unavailable': 12}
     assert packet['coverage']['coverage_status'] == 'partial'
+
+
+# ---------------------------------------------------------------------------
+# Boundary-object content binding: four exact original byte objects, not four
+# newly observed producers/consumers and not R2/full existing-core acceptance.
+# ---------------------------------------------------------------------------
+_BOUNDARY_ROLE_IDS = (
+    'pre-attestation-pulse-artifacts', 'step3f-current-run-carrier',
+    'step3f-current-run-expectation', 'step3f-subject-input-packet',
+)
+_BOUNDARY_PROVIDER_MEMBER = 'acquisition/provider/step3f-candidate-envelope.zip'
+
+
+def boundary_original_members(case):
+    with zipfile.ZipFile(io.BytesIO(case.members[_BOUNDARY_PROVIDER_MEMBER])) as archive:
+        return {info.filename: archive.read(info) for info in archive.infolist() if not info.is_dir()}
+
+
+def boundary_replace_provider(case, content, *, repair_manifest=True, repair_bindings=True):
+    """Reseal unrelated enclosing identities, retaining the intentional fault."""
+    manifest_name = next(name for name in content if name.endswith('candidate-output-manifest.json'))
+    prefix = manifest_name[:-len('candidate-output-manifest.json')]
+    if repair_manifest:
+        original = json.loads(content[manifest_name])
+        for row in original['files']:
+            name = prefix + row['path']
+            if name in content:
+                row.update(sha256=digest(content[name]), size_bytes=len(content[name]))
+        content[manifest_name] = canonical(original)
+    if repair_bindings:
+        for row in case.manifest['carrier_member_bindings']:
+            if row['member'] in content:
+                row.update(sha256=digest(content[row['member']]), size_bytes=len(content[row['member']]))
+    package_replace_download(case, 'step3f_candidate_envelope', example_zip(content))
+    return collection_timing_reseal(case)
+
+
+def boundary_provider_capture_check(case, source_fixture, tmp_path):
+    raw = case.members[_BOUNDARY_PROVIDER_MEMBER]
+    path = tmp_path / 'original-envelope.zip'; path.write_bytes(raw)
+    snapshot = CAPTURER.FileSnapshot(path=path, relative='provider/step3f-candidate-envelope.zip',
+                                    sha256=digest(raw), size_bytes=len(raw), identity=())
+    return CAPTURER._validate_provider_envelope(provider_envelope=snapshot,
+        subject_run_id=EXAMPLE_SUBJECT_ID, source_commit=source_fixture.sha,
+        artifact_rows={row['role']: row for row in case.index['downloaded_artifacts']})
+
+
+@pytest.mark.parametrize('role', _BOUNDARY_ROLE_IDS)
+@pytest.mark.parametrize('profile', ['example', 'observed'])
+def test_boundary_object_projection_binds_original_bytes_without_runtime_claim(source_fixture, role, profile):
+    manifest, members = runtime_projection_inputs(source_fixture, profile=profile)
+    packet = VERIFIER.build_runtime_packet(plan=source_fixture.plan, capture_manifest=manifest,
+                                          capture_members=members, record_status=profile)
+    row = next(row for row in packet['state_observations'] if row['state_id'] == 'state:step5c:' + role)
+    if role == 'pre-attestation-pulse-artifacts':
+        raw = members['acquisition/subject/artifacts/pulse-pre-attestation.zip']
+        assert row['path_or_uri'] == f'artifact://pulse-pre-attestation-{EXAMPLE_SUBJECT_ID}-1'
+    else:
+        name = {'step3f-current-run-carrier': f'pulsemech-current-run-export-{EXAMPLE_SUBJECT_ID}-1-v0.zip',
+                'step3f-current-run-expectation': 'expectation.json',
+                'step3f-subject-input-packet': 'subject-input-packet.json'}[role]
+        with zipfile.ZipFile(io.BytesIO(members[_BOUNDARY_PROVIDER_MEMBER])) as archive:
+            raw = archive.read('candidate/' + name)
+        assert row['path_or_uri'] == next(t['path_or_uri'] for t in source_fixture.plan['state_templates']
+                                          if t['state_id'] == row['state_id'])
+    assert row['content_status'] == 'exact_digest'
+    assert (row['sha256'], row['size_bytes']) == (digest(raw), len(raw))
+    assert row['producer_execution_id'] is None and row['schema_identity'] is None
+    assert all(row['state_id'] not in e['input_state_ids'] + e['output_state_ids'] for e in packet['executions'])
+    assert row['subject_run_key'] == packet['subject']['subject_run_key']
+    assert row['release_candidate_id'] == f'pulse-ci-current-run:{EXAMPLE_SUBJECT_ID}:1'
+    assert row['observed_at_utc'] == manifest['capture_identity']['capture_completed_utc']
+    assert packet['coverage']['coverage_status'] == 'partial'
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, packet, {})
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('role', _BOUNDARY_ROLE_IDS)
+@pytest.mark.parametrize('field,value', [
+    ('path_or_uri', 'provider-artifact://step3f/carrier.json'),
+    ('producer_occurrence_id', 'execution:step5c:collector:post-run-platform-export'),
+    ('required_consumer_occurrence_ids', []), ('content_requirement', 'unavailable'),
+    ('required', 1), ('authority_bearing', 0), ('mutation_class', 'input'),
+    ('role', 'another-role'),
+])
+def test_boundary_object_role_contract_rejects_reinterpretation(source_fixture, side, role, field, value):
+    plan = copy.deepcopy(source_fixture.plan)
+    row = next(row for row in plan['state_templates'] if row['state_id'] == 'state:step5c:' + role)
+    row[field] = value
+    error = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    function = CAPTURER._validate_boundary_state_roles if side == 'capture' else VERIFIER._check_boundary_state_templates
+    before = canonical(plan)
+    code = ('state_template_invalid' if side == 'verifier' and field in {'required', 'authority_bearing'}
+            else 'boundary_state_template_mismatch')
+    with pytest.raises(error, match=code):
+        function(plan)
+    assert canonical(plan) == before
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('mutation', ['missing', 'duplicate', 'extra_field'])
+def test_boundary_object_role_contract_requires_unambiguous_plan(source_fixture, side, mutation):
+    plan = copy.deepcopy(source_fixture.plan)
+    row = next(row for row in plan['state_templates'] if row['state_id'].endswith(':step3f-current-run-carrier'))
+    if mutation == 'missing': plan['state_templates'].remove(row)
+    elif mutation == 'duplicate': plan['state_templates'].append(dict(row))
+    else: row['proof'] = 'not a real receipt'
+    error = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    function = CAPTURER._validate_boundary_state_roles if side == 'capture' else VERIFIER._check_boundary_state_templates
+    with pytest.raises(error): function(plan)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('mutation', [
+    'missing_control', 'wrong_control', 'false_ok', 'numeric_ok', 'extra_manifest',
+    'bool_attempt', 'float_id', 'float_count', 'wrong_subject', 'wrong_revision',
+    'authority_number', 'authority_true', 'rows_reversed', 'duplicate_row',
+    'missing_row', 'row_extra_field', 'row_float_size', 'row_wrong_digest',
+    'outside_prefix', 'extra_inside_prefix', 'missing_packet',
+    'packet_other_subject', 'packet_bool_attempt', 'expectation_example',
+    'packet_wrong_carrier', 'metadata_wrong_carrier',
+])
+def test_boundary_object_provider_rejects_resealed_identity_and_membership_faults(
+    source_fixture, selected_archive_fixture, tmp_path, side, mutation,
+):
+    case = selected_archive_case(selected_archive_fixture); content = boundary_original_members(case)
+    key = 'candidate/candidate-output-manifest.json'; original = json.loads(content[key])
+    repair_manifest = True
+    if mutation == 'missing_control': original.pop('control_plane_revision')
+    elif mutation == 'wrong_control': original['control_plane_revision'] = 'f' * 40
+    elif mutation == 'false_ok': original['ok'] = False
+    elif mutation == 'numeric_ok': original['ok'] = 1
+    elif mutation == 'extra_manifest': original['PRIVATE_BOUNDARY_CANARY'] = 'not evidence'
+    elif mutation == 'bool_attempt': original['source_run_attempt'] = True
+    elif mutation == 'float_id': original['source_run_id'] = float(EXAMPLE_SUBJECT_ID)
+    elif mutation == 'float_count': original['file_count'] = 6.0
+    elif mutation == 'wrong_subject': original['source_run_id'] = EXAMPLE_PROVIDER_ID
+    elif mutation == 'wrong_revision': original['subject_revision'] = 'f' * 40
+    elif mutation == 'authority_number': original['authority_boundary']['non_active'] = 1
+    elif mutation == 'authority_true': original['authority_boundary']['activates_compute_gate'] = True
+    elif mutation == 'rows_reversed': original['files'].reverse()
+    elif mutation == 'duplicate_row': original['files'][-1] = dict(original['files'][0])
+    elif mutation == 'missing_row': original['files'].pop()
+    elif mutation == 'row_extra_field': original['files'][0]['PRIVATE_BOUNDARY_CANARY'] = True
+    elif mutation == 'row_float_size':
+        original['files'][0]['size_bytes'] = float(original['files'][0]['size_bytes']); repair_manifest = False
+    elif mutation == 'row_wrong_digest':
+        original['files'][0]['sha256'] = 'f' * 64; repair_manifest = False
+    elif mutation == 'outside_prefix': content['PRIVATE_BOUNDARY_CANARY.txt'] = b'Not a selected handoff object'
+    elif mutation == 'extra_inside_prefix': content['candidate/PRIVATE_BOUNDARY_CANARY.txt'] = b'Unexpected'
+    elif mutation == 'missing_packet': content.pop('candidate/subject-input-packet.json')
+    else:
+        name = ('expectation.json' if mutation == 'expectation_example' else
+                'carrier.json' if mutation == 'metadata_wrong_carrier' else 'subject-input-packet.json')
+        document = json.loads(content['candidate/' + name])
+        if mutation == 'packet_other_subject': document['subject']['workflow_run_id'] = EXAMPLE_PROVIDER_ID
+        elif mutation == 'packet_bool_attempt': document['subject']['workflow_run_attempt'] = True
+        elif mutation == 'expectation_example': document['record_status'] = 'example'
+        elif mutation == 'packet_wrong_carrier': document['carrier']['sha256'] = 'f' * 64
+        else: document['sha256'] = 'f' * 64
+        content['candidate/' + name] = canonical(document)
+    content[key] = canonical(original)
+    boundary_replace_provider(case, content, repair_manifest=repair_manifest)
+    before = dict(case.members), canonical(case.manifest)
+    error = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    with pytest.raises(error) as caught:
+        if side == 'capture': boundary_provider_capture_check(case, source_fixture, tmp_path)
+        else: VERIFIER._check_boundary_state_bindings(source_fixture.plan, case.manifest, case.members)
+    assert before == (case.members, canonical(case.manifest))
+    if side == 'verifier': assert 'PRIVATE_BOUNDARY_CANARY' not in str(caught.value)
+
+
+@pytest.mark.parametrize('binding_role', ['step3f_current_run_carrier', 'step3f_expectation', 'step3f_subject_input_packet'])
+@pytest.mark.parametrize('mutation', ['digest', 'member', 'size_bool', 'container_role'])
+def test_boundary_object_independent_check_does_not_trust_capture_descriptors(
+    source_fixture, selected_archive_fixture, binding_role, mutation,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    row = next(row for row in case.manifest['carrier_member_bindings'] if row['role'] == binding_role)
+    if mutation == 'digest': row['sha256'] = 'f' * 64
+    elif mutation == 'member': row['member'] = 'candidate/carrier.json'
+    elif mutation == 'size_bool': row['size_bytes'] = True
+    else: row['container_artifact_role'] = 'complete_release_grade_reference_package'
+    selected_archive_seal(case)
+    with pytest.raises(VERIFIER.VerificationError, match='boundary_handoff_capture_binding_mismatch'):
+        VERIFIER._check_boundary_state_bindings(source_fixture.plan, case.manifest, case.members)
+
+
+@pytest.mark.parametrize('role', _BOUNDARY_ROLE_IDS)
+@pytest.mark.parametrize('mutation', ['invented_origin', 'invented_read', 'erase_and_recount'])
+def test_boundary_object_state_rederivation_rejects_forged_graph_claim(source_fixture, role, mutation):
+    manifest, members = runtime_projection_inputs(source_fixture)
+    packet = VERIFIER.build_runtime_packet(plan=source_fixture.plan, capture_manifest=manifest,
+                                          capture_members=members, record_status='example')
+    key = 'state:step5c:' + role
+    row = next(row for row in packet['state_observations'] if row['state_id'] == key)
+    if mutation == 'invented_origin': row['producer_execution_id'] = packet['executions'][0]['execution_id']
+    elif mutation == 'invented_read': packet['executions'][0]['input_state_ids'].append(key)
+    else:
+        packet['state_observations'].remove(row); packet['coverage']['state_records'] -= 1
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        VERIFIER._require_state_projection(source_fixture.plan, packet, manifest, members)
+    assert caught.value.code in {'state_projection_mismatch', 'state_execution_binding_mismatch'}
+
+
+@pytest.mark.parametrize('limit', ['max_capture_members', 'max_capture_uncompressed_bytes', 'max_single_artifact_bytes'])
+def test_boundary_object_intake_respects_finite_limits(source_fixture, selected_archive_fixture, limit):
+    case = selected_archive_case(selected_archive_fixture); plan = copy.deepcopy(source_fixture.plan)
+    plan['finite_limits'][limit] = 1
+    with pytest.raises(VERIFIER.VerificationError):
+        VERIFIER._check_boundary_state_bindings(plan, case.manifest, case.members)
+
+
+def test_boundary_object_budget_includes_previously_checked_inner_archives(source_fixture, selected_archive_fixture):
+    case = selected_archive_case(selected_archive_fixture); plan = copy.deepcopy(source_fixture.plan)
+    totals = counts = 0
+    for name in ('pulse-pre-attestation.zip', 'release-grade-recorded-path.zip',
+                 'release-grade-reference-run-v0.zip', 'complete-release-grade-reference-package.zip'):
+        with zipfile.ZipFile(io.BytesIO(case.members['acquisition/subject/artifacts/' + name])) as archive:
+            counts += len(archive.infolist()); totals += sum(info.file_size for info in archive.infolist())
+    plan['finite_limits']['max_capture_members'] = counts
+    with pytest.raises(VERIFIER.VerificationError, match='boundary_handoff_budget_exhausted'):
+        VERIFIER._check_boundary_state_bindings(plan, case.manifest, case.members)
+    plan = copy.deepcopy(source_fixture.plan); plan['finite_limits']['max_capture_uncompressed_bytes'] = totals
+    with pytest.raises(VERIFIER.VerificationError, match='boundary_handoff_budget_exhausted'):
+        VERIFIER._check_boundary_state_bindings(plan, case.manifest, case.members)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_boundary_object_public_intake_rejects_before_publication(
+    source_fixture, acquisition_fixture, selected_archive_fixture, tmp_path, monkeypatch, side,
+):
+    if side == 'capture':
+        changed = copy.deepcopy(CAPTURER._BOUNDARY_STATE_ROLES)
+        old = changed['step3f-current-run-carrier']
+        changed['step3f-current-run-carrier'] = (*old[:2], 'provider-artifact://step3f/carrier.json', *old[3:])
+        monkeypatch.setattr(CAPTURER, '_BOUNDARY_STATE_ROLES', changed)
+        target = tmp_path / 'must-not-publish.zip'
+        with pytest.raises(CAPTURER.CaptureError, match='boundary_state_template_mismatch'):
+            CAPTURER.build_capture(repository_root=source_fixture.root, source_commit=source_fixture.sha,
+                plan_path=source_fixture.plan_path, plan_diagnostic_path=source_fixture.diagnostic,
+                expected_plan_sha256=source_fixture.plan_digest, acquisition_directory=acquisition_fixture.output,
+                output_path=target, record_status='example')
+        assert not target.exists()
+    else:
+        case = selected_archive_case(selected_archive_fixture); content = boundary_original_members(case)
+        original = json.loads(content['candidate/candidate-output-manifest.json'])
+        original['control_plane_revision'] = 'f' * 40
+        content['candidate/candidate-output-manifest.json'] = canonical(original)
+        boundary_replace_provider(case, content)
+        target = tmp_path / 'rehashed.zip'; selected_archive_write_capture(target, case)
+        before = target.read_bytes()
+        with patch.object(CAPTURER, '_validate_provider_envelope', side_effect=AssertionError('Independent')):
+            with pytest.raises(VERIFIER.VerificationError, match='boundary_handoff_source_mismatch'):
+                selected_archive_read(target, case, source_fixture)
+        assert before == target.read_bytes()
+
+
+def test_boundary_object_original_writer_source_is_not_invented_by_two_validators(source_fixture):
+    # Independent producer-source oracle: parse the actual manifest writer, not
+    # either capture/verifier table, and compare its declared field/file sets.
+    path = source_fixture.root / '.github/workflows/pulsemech_compute_current_run_export_candidate.yml'
+    document = yaml.load(path.read_bytes(), Loader=yaml.BaseLoader)
+    scripts = [s['run'] for job in document['jobs'].values() for s in job['steps'] if 'run' in s]
+    script = next(s for s in scripts if 'manifest_files: list[dict[str, Any]]' in s)
+    code = re.search(r"<<'PY'\n(.*?)\nPY(?:\n|$)", script, re.S).group(1)
+    tree = ast.parse(code)
+    assignments = {target.id: node.value for node in tree.body if isinstance(node, ast.Assign)
+                   for target in node.targets if isinstance(target, ast.Name)}
+    assert {key.value for key in assignments['copies'].keys} == {
+        'carrier.json', 'expectation.json', 'subject-input-packet.json',
+        'source-run-resolution.json', 'source-artifact-selection.json'}
+    assert {key.value for key in assignments['manifest'].keys} == {
+        'authority_boundary', 'control_plane_revision', 'document_type', 'file_count',
+        'files', 'manifest_scope', 'ok', 'schema_version', 'source_run_attempt',
+        'source_run_id', 'subject_revision'}
+    pre = mapping_source_document()['jobs']['pulse']['steps'][36]
+    assert pre['uses'].startswith('actions/upload-artifact@')
+    assert pre['with']['name'] == 'pulse-pre-attestation-${{ github.run_id }}-${{ github.run_attempt }}'
+    assert 'PULSE_safe_pack_v0/artifacts/' in pre['with']['path']
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_boundary_object_flat_original_envelope_is_supported(source_fixture, selected_archive_fixture, tmp_path, side):
+    case = selected_archive_case(selected_archive_fixture)
+    content = {name.removeprefix('candidate/'): raw for name, raw in boundary_original_members(case).items()}
+    for row in case.manifest['carrier_member_bindings']:
+        if row['role'].startswith('step3f_'): row['member'] = row['member'].removeprefix('candidate/')
+    boundary_replace_provider(case, content)
+    if side == 'capture':
+        result = boundary_provider_capture_check(case, source_fixture, tmp_path)
+        assert result.candidate_prefix == ''
+    else:
+        result = VERIFIER._check_boundary_state_bindings(source_fixture.plan, case.manifest, case.members)
+        assert result['state:step5c:step3f-current-run-expectation']['member'] == 'expectation.json'
+
+
+def test_boundary_object_equal_bytes_do_not_merge_distinct_member_roles(source_fixture, selected_archive_fixture):
+    case = selected_archive_case(selected_archive_fixture); content = boundary_original_members(case)
+    content['candidate/subject-input-packet.json'] = content['candidate/expectation.json']
+    boundary_replace_provider(case, content)
+    result = VERIFIER._check_boundary_state_bindings(source_fixture.plan, case.manifest, case.members)
+    first, second = [result['state:step5c:' + role] for role in ('step3f-current-run-expectation', 'step3f-subject-input-packet')]
+    assert first['sha256'] == second['sha256'] and first['size_bytes'] == second['size_bytes']
+    assert first['member'] != second['member'] and first['path_or_uri'] != second['path_or_uri']
+    row = next(row for row in case.manifest['carrier_member_bindings'] if row['role'] == 'step3f_expectation')
+    row['member'] = 'candidate/subject-input-packet.json'
+    with pytest.raises(VERIFIER.VerificationError, match='boundary_handoff_capture_binding_mismatch'):
+        VERIFIER._check_boundary_state_bindings(source_fixture.plan, case.manifest, case.members)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('mutation', ['both_bool_attempt', 'carrier_path_escape'])
+def test_boundary_object_matching_documents_do_not_authorize_invalid_identity(
+    source_fixture, selected_archive_fixture, tmp_path, side, mutation,
+):
+    case = selected_archive_case(selected_archive_fixture); content = boundary_original_members(case)
+    if mutation == 'both_bool_attempt':
+        for name in ('expectation.json', 'subject-input-packet.json'):
+            document = json.loads(content['candidate/' + name]); document['subject']['workflow_run_attempt'] = True
+            content['candidate/' + name] = canonical(document)
+    else:
+        document = json.loads(content['candidate/carrier.json'])
+        document['staged_relative_path'] = '../' + document['staged_relative_path']
+        content['candidate/carrier.json'] = canonical(document)
+    boundary_replace_provider(case, content)
+    with pytest.raises(CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError):
+        if side == 'capture': boundary_provider_capture_check(case, source_fixture, tmp_path)
+        else: VERIFIER._check_boundary_state_bindings(source_fixture.plan, case.manifest, case.members)
+
+
+@pytest.mark.parametrize('mutation', ['duplicate_member', 'symlink', 'crc_corrupt', 'duplicate_manifest', 'bad_json'])
+def test_boundary_object_original_zip_faults_fail_independently(
+    source_fixture, selected_archive_fixture, mutation,
+):
+    case = selected_archive_case(selected_archive_fixture); content = boundary_original_members(case)
+    target = 'candidate/expectation.json'
+    if mutation == 'bad_json':
+        content[target] = b'{"PRIVATE_BOUNDARY_CANARY": 1,"PRIVATE_BOUNDARY_CANARY": 2}\n'
+        boundary_replace_provider(case, content)
+    else:
+        stream = io.BytesIO()
+        with zipfile.ZipFile(stream, 'w', compression=zipfile.ZIP_STORED) as archive:
+            for name, raw in sorted(content.items()):
+                info = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0)); info.create_system = 3
+                info.external_attr = (stat.S_IFREG | 0o444) << 16
+                if name == target and mutation == 'symlink': info.external_attr = (stat.S_IFLNK | 0o777) << 16
+                archive.writestr(info, raw)
+            if mutation == 'duplicate_member':
+                with pytest.warns(UserWarning, match='Duplicate name'):
+                    archive.writestr(target, content[target])
+            elif mutation == 'duplicate_manifest':
+                archive.writestr('another/candidate-output-manifest.json', content['candidate/candidate-output-manifest.json'])
+        raw = stream.getvalue()
+        if mutation == 'crc_corrupt':
+            # Change one stored payload byte but leave its original ZIP CRC.
+            with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                offset = archive.getinfo(target).header_offset
+            start = offset + 30 + len(target.encode())
+            raw = raw[:start] + bytes([raw[start] ^ 1]) + raw[start + 1:]
+        package_replace_download(case, 'step3f_candidate_envelope', raw)
+        collection_timing_reseal(case)
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        VERIFIER._check_boundary_state_bindings(source_fixture.plan, case.manifest, case.members)
+    assert 'PRIVATE_BOUNDARY_CANARY' not in str(caught.value)
+
+
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('bad_parent', [
+    '../PRIVATE_BOUNDARY_CANARY', 'PRIVATE_BOUNDARY_CANARY space',
+    'PRIVATE_BOUNDARY_CANARY\n', 'PRIVATE_BOUNDARY_CANARY\\',
+    '/PRIVATE_BOUNDARY_CANARY', 'PRIVATE_BOUNDARY_CANARY\x00',
+    'PRIVATE_BOUNDARY_CANARY:', 'PRIVATE_BOUNDARY_CANARY' + 'x' * 301, None,
+])
+def test_boundary_object_staged_path_is_closed_and_private(
+    source_fixture, selected_archive_fixture, tmp_path, side, bad_parent,
+):
+    case = selected_archive_case(selected_archive_fixture); content = boundary_original_members(case)
+    metadata = json.loads(content['candidate/carrier.json'])
+    filename = metadata['staged_relative_path'].split('/')[-1]
+    metadata['staged_relative_path'] = None if bad_parent is None else bad_parent + '/' + filename
+    content['candidate/carrier.json'] = canonical(metadata)
+    boundary_replace_provider(case, content)
+    with pytest.raises(CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError) as caught:
+        if side == 'capture': boundary_provider_capture_check(case, source_fixture, tmp_path)
+        else: VERIFIER._check_boundary_state_bindings(source_fixture.plan, case.manifest, case.members)
+    assert 'PRIVATE_BOUNDARY_CANARY' not in str(caught.value)
+    if side == 'capture':
+        assert 'PRIVATE_BOUNDARY_CANARY' not in json.dumps(CAPTURER._failure(caught.value, exit_code=1))
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_boundary_object_original_exports_staging_path_is_supported(
+    source_fixture, selected_archive_fixture, tmp_path, side,
+):
+    case = selected_archive_case(selected_archive_fixture); content = boundary_original_members(case)
+    metadata = json.loads(content['candidate/carrier.json'])
+    metadata['staged_relative_path'] = 'exports/' + metadata['staged_relative_path']
+    content['candidate/carrier.json'] = canonical(metadata)
+    boundary_replace_provider(case, content)
+    if side == 'capture': boundary_provider_capture_check(case, source_fixture, tmp_path)
+    else: VERIFIER._check_boundary_state_bindings(source_fixture.plan, case.manifest, case.members)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('member', ['candidate-output-manifest.json', 'carrier.json',
+                                    'expectation.json', 'subject-input-packet.json'])
+def test_boundary_object_original_json_diagnostic_does_not_reflect_private_keys(
+    source_fixture, selected_archive_fixture, tmp_path, side, member,
+):
+    case = selected_archive_case(selected_archive_fixture); content = boundary_original_members(case)
+    name = 'candidate/' + member
+    content[name] = b'{"PRIVATE_BOUNDARY_CANARY":1,"PRIVATE_BOUNDARY_CANARY":2}\n'
+    boundary_replace_provider(case, content, repair_manifest=(member != 'candidate-output-manifest.json'))
+    with pytest.raises(CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError) as caught:
+        if side == 'capture': boundary_provider_capture_check(case, source_fixture, tmp_path)
+        else: VERIFIER._check_boundary_state_bindings(source_fixture.plan, case.manifest, case.members)
+    assert 'PRIVATE_BOUNDARY_CANARY' not in str(caught.value)
+    if side == 'capture':
+        assert 'PRIVATE_BOUNDARY_CANARY' not in json.dumps(CAPTURER._failure(caught.value, exit_code=1))
 
 
 if __name__ == '__main__':

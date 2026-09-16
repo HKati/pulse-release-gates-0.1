@@ -1434,6 +1434,14 @@ def _candidate_prefix(infos: Mapping[str, zipfile.ZipInfo]) -> tuple[str, str]:
     return prefix, manifest_member
 
 
+def _provider_handoff_json(raw: bytes, *, label: str) -> dict[str, Any]:
+    """Keep original strict parsing without reflecting private input diagnostics."""
+    try:
+        return _json_object(raw, label=label, canonical=True)
+    except CaptureError as exc:
+        raise CaptureError(exc.code, label, stage=exc.stage) from None
+
+
 def _validate_candidate_manifest(
     *,
     archive: zipfile.ZipFile,
@@ -1449,7 +1457,22 @@ def _validate_candidate_manifest(
         label="candidate-output-manifest.json",
         maximum=MAX_JSON_BYTES,
     )
-    manifest = _json_object(manifest_bytes, label="candidate_output_manifest", canonical=True)
+    manifest = _provider_handoff_json(manifest_bytes, label="candidate_output_manifest")
+    _require(set(manifest) == {
+        "authority_boundary", "control_plane_revision", "document_type", "file_count",
+        "files", "manifest_scope", "ok", "schema_version", "source_run_attempt",
+        "source_run_id", "subject_revision",
+    }, "candidate_manifest_fields_mismatch", stage="provider")
+    _require(manifest.get("ok") is True
+             and manifest.get("control_plane_revision") == source_commit,
+             "candidate_manifest_control_mismatch", stage="provider")
+    _require(type(manifest.get("source_run_id")) is int
+             and type(manifest.get("source_run_attempt")) is int
+             and type(manifest.get("file_count")) is int,
+             "candidate_manifest_integer_mismatch", stage="provider")
+    _require(_canonical_json_bytes(manifest.get("authority_boundary"))
+             == _canonical_json_bytes(EXPECTED_CANDIDATE_AUTHORITY_BOUNDARY),
+             "candidate_manifest_authority_mismatch", stage="provider")
     _require(manifest.get("schema_version") == "pulsemech_compute_current_run_export_candidate_output_manifest_v0", "candidate_manifest_version_mismatch", stage="provider")
     _require(manifest.get("document_type") == "pulsemech_compute_current_run_export_candidate_output_manifest", "candidate_manifest_type_mismatch", stage="provider")
     _require(manifest.get("manifest_scope") == "all_candidate_files_except_this_manifest", "candidate_manifest_scope_mismatch", stage="provider")
@@ -1475,6 +1498,15 @@ def _validate_candidate_manifest(
     }
     zip_names = {name for name in declared if name.endswith(".zip")}
     _require(set(declared) == expected_static | zip_names and len(zip_names) == 1, "candidate_manifest_file_set_mismatch", stage="provider")
+    _require(zip_names == {f"pulsemech-current-run-export-{subject_run_id}-1-v0.zip"},
+             "candidate_carrier_name_mismatch", stage="provider")
+    _require(all(name.startswith(prefix) for name in infos),
+             "candidate_envelope_inventory_mismatch", stage="provider")
+    _require([row["path"] for row in rows] == sorted(declared)
+             and all(set(row) == {"path", "sha256", "size_bytes"}
+                     and type(row["size_bytes"]) is int and row["size_bytes"] > 0
+                     for row in rows),
+             "candidate_manifest_rows_invalid", stage="provider")
     actual_files = {name[len(prefix):] for name in infos if name.startswith(prefix) and name != manifest_member}
     _require(actual_files == set(declared), "candidate_envelope_inventory_mismatch", stage="provider")
 
@@ -1551,13 +1583,16 @@ def _validate_provider_envelope(
             source_commit=source_commit,
         )
         try:
-            carrier_meta = _json_object(payloads["carrier.json"], label="step3f_carrier_metadata", canonical=True)
-            expectation = _json_object(payloads["expectation.json"], label="step3f_expectation", canonical=True)
-            packet = _json_object(payloads["subject-input-packet.json"], label="step3f_subject_input_packet", canonical=True)
+            carrier_meta = _provider_handoff_json(payloads["carrier.json"], label="step3f_carrier_metadata")
+            expectation = _provider_handoff_json(payloads["expectation.json"], label="step3f_expectation")
+            packet = _provider_handoff_json(payloads["subject-input-packet.json"], label="step3f_subject_input_packet")
             _require(carrier_meta.get("sha256") == carrier_binding.sha256, "provider_carrier_digest_mismatch", stage="provider")
             _require(carrier_meta.get("size_bytes") == carrier_binding.size_bytes, "provider_carrier_size_mismatch", stage="provider")
             carrier_filename = next(name for name in bindings if name.endswith(".zip"))
             staged = carrier_meta.get("staged_relative_path")
+            _require(isinstance(staged, str) and len(staged) <= 300
+                     and MEMBER_RE.fullmatch(staged) is not None,
+                     "provider_carrier_path_mismatch", stage="provider")
             _require(isinstance(staged, str) and PurePosixPath(staged).name == carrier_filename, "provider_carrier_path_mismatch", stage="provider")
             for label, document in (("expectation", expectation), ("packet", packet)):
                 carrier = document.get("carrier")
@@ -1568,10 +1603,15 @@ def _validate_provider_envelope(
             _require(packet.get("record_status") == "observed", "subject_packet_not_observed", stage="provider")
             subject = expectation.get("subject")
             _require(isinstance(subject, dict), "expectation_subject_missing", stage="provider")
+            _require(type(subject.get("workflow_run_id")) is int
+                     and type(subject.get("workflow_run_attempt")) is int,
+                     "provider_subject_integer_mismatch", stage="provider")
             _require(subject.get("workflow_run_id") == subject_run_id, "provider_subject_mismatch", "expectation.run_id", stage="provider")
             _require(subject.get("workflow_run_attempt") == 1, "provider_subject_mismatch", "expectation.attempt", stage="provider")
             _require(subject.get("source_commit") == source_commit, "provider_subject_mismatch", "expectation.source", stage="provider")
-            _require(packet.get("subject") == subject, "provider_packet_subject_mismatch", stage="provider")
+            _require(isinstance(packet.get("subject"), dict)
+                     and _canonical_json_bytes(packet["subject"]) == _canonical_json_bytes(subject),
+                     "provider_packet_subject_mismatch", stage="provider")
             archive_layout = expectation.get("archive_layout")
             _require(isinstance(archive_layout, dict), "provider_archive_layout_missing", stage="provider")
             root_prefix = archive_layout.get("outer_prefix")
@@ -2178,6 +2218,57 @@ def _validate_preserved_member_roles(
     return result
 
 
+
+# Content selectors, not new producing/consuming occurrence observations.
+_BOUNDARY_STATE_ROLES = {
+    "pre-attestation-pulse-artifacts": (
+        "package", "pre_attestation_pulse_artifact",
+        "artifact://pulse-pre-attestation-{workflow_run_id}-1", "none", True,
+        "execution:step5c:step:pulse:037", ["execution:step5c:step:release_grade_recorded_path:004"],
+    ),
+    "step3f-current-run-carrier": (
+        "carrier", "step3f_finalized_current_run_carrier",
+        "provider-artifact://step3f/current-run-carrier", "preservation_output", False,
+        None, ["execution:step5c:collector:post-run-platform-export"],
+    ),
+    "step3f-current-run-expectation": (
+        "expectation", "step3f_observed_expectation",
+        "provider-artifact://step3f/expectation.json", "preservation_output", False,
+        None, ["execution:step5c:collector:post-run-platform-export"],
+    ),
+    "step3f-subject-input-packet": (
+        "subject_input_packet", "step3f_observed_subject_input_packet",
+        "provider-artifact://step3f/subject-input-packet.json", "preservation_output", False,
+        None, ["execution:step5c:collector:post-run-platform-export"],
+    ),
+}
+
+
+def _validate_boundary_state_roles(plan: Mapping[str, Any]) -> None:
+    """Bind four already-preserved byte objects to their original plan roles.
+
+    The caller has checked selected ZIPs and the provider's original member
+    bindings. This check does not generate a runtime read or producer receipt.
+    """
+    rows = plan.get("state_templates")
+    _require(isinstance(rows, list), "boundary_state_plan_invalid", stage="state_member")
+    templates = {}
+    for row in rows:
+        _require(isinstance(row, dict) and isinstance(row.get("state_id"), str)
+                 and row["state_id"] not in templates,
+                 "boundary_state_plan_invalid", stage="state_member")
+        templates[row["state_id"]] = row
+    for role, (kind, description, locator, mutation, authority, producer, consumers) in _BOUNDARY_STATE_ROLES.items():
+        key = "state:step5c:" + role
+        expected = {"state_id": key, "state_type": kind, "role": description,
+                    "path_or_uri": locator, "mutation_class": mutation,
+                    "authority_bearing": authority, "producer_occurrence_id": producer,
+                    "required_consumer_occurrence_ids": consumers,
+                    "content_requirement": "exact_digest", "required": True}
+        _require(key in templates and _canonical_json_bytes(templates[key]) == _canonical_json_bytes(expected),
+                 "boundary_state_template_mismatch", stage="state_member")
+
+
 def _raw_response_bindings(
     *,
     acquisition_files: Mapping[str, FileSnapshot],
@@ -2731,6 +2822,7 @@ def build_capture(
         artifact_rows=artifact_rows, state_views=state_views,
     )
     _validate_preserved_member_roles(plan=plan, state_views=state_views, package_view=package_view)
+    _validate_boundary_state_roles(plan)
 
     capture_members = _capture_members(
         plan_snapshot=plan_snapshot,

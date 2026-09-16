@@ -1738,6 +1738,219 @@ def _preserved_member_states(
     return states
 
 
+
+# Independently encoded role contract. Never import capture/builder selectors.
+_BOUNDARY_STATE_ROLES = (
+    ("pre-attestation-pulse-artifacts", "package", "pre_attestation_pulse_artifact",
+     "artifact://pulse-pre-attestation-{workflow_run_id}-1", "none", True,
+     "execution:step5c:step:pulse:037", ("execution:step5c:step:release_grade_recorded_path:004",)),
+    ("step3f-current-run-carrier", "carrier", "step3f_finalized_current_run_carrier",
+     "provider-artifact://step3f/current-run-carrier", "preservation_output", False,
+     None, ("execution:step5c:collector:post-run-platform-export",)),
+    ("step3f-current-run-expectation", "expectation", "step3f_observed_expectation",
+     "provider-artifact://step3f/expectation.json", "preservation_output", False,
+     None, ("execution:step5c:collector:post-run-platform-export",)),
+    ("step3f-subject-input-packet", "subject_input_packet", "step3f_observed_subject_input_packet",
+     "provider-artifact://step3f/subject-input-packet.json", "preservation_output", False,
+     None, ("execution:step5c:collector:post-run-platform-export",)),
+)
+
+
+def _check_boundary_state_templates(plan: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
+    templates = _planned_state_templates(plan)
+    for role, kind, description, locator, mutation, authority, producer, consumers in _BOUNDARY_STATE_ROLES:
+        key = "state:step5c:" + role
+        expected = {"state_id": key, "state_type": kind, "role": description,
+                    "path_or_uri": locator, "mutation_class": mutation,
+                    "authority_bearing": authority, "producer_occurrence_id": producer,
+                    "required_consumer_occurrence_ids": list(consumers),
+                    "content_requirement": "exact_digest", "required": True}
+        require(key in templates and canonical_json_bytes(templates[key]) == canonical_json_bytes(expected),
+                "boundary_state_template_mismatch", stage="state_member")
+    return templates
+
+
+def _boundary_handoff_json(raw: bytes) -> dict[str, Any]:
+    try:
+        return parse_json_bytes(raw, label="boundary_handoff_json", maximum=16 * 1024 * 1024)
+    except (VerificationError, ValueError, RecursionError):
+        # Never include an input key, raw document or arbitrary member in logs.
+        raise VerificationError("boundary_handoff_json_invalid", stage="state_member") from None
+
+
+def _check_boundary_state_bindings(
+    plan: Mapping[str, Any], manifest: Mapping[str, Any], members: Mapping[str, bytes],
+) -> dict[str, dict[str, Any]]:
+    """Rehash original handoff objects; do not trust capture digest assertions.
+
+    This is exact-content/context binding, not a replacement Step 3F loader,
+    subject-input validator or existing-core replay. The latter remain required.
+    No inner carrier content is projected as an observed runtime read.
+    """
+    templates = _check_boundary_state_templates(plan)
+    _check_selected_archive_evidence(plan, manifest, members)
+    subject_id = manifest["subject"]["run_id"]
+    revision = plan["plan_identity"]["source_commit"]
+    envelope = members[CAPTURE_PROVIDER_ENVELOPE_MEMBER]
+    finite = plan["finite_limits"]
+    cap_count = finite.get("max_capture_members")
+    cap_bytes = finite.get("max_capture_uncompressed_bytes")
+    cap_single = finite.get("max_single_artifact_bytes")
+    require(type(cap_count) is int and 0 < cap_count <= MAX_CAPTURE_MEMBERS
+            and type(cap_bytes) is int and 0 < cap_bytes <= MAX_CAPTURE_BYTES
+            and type(cap_single) is int and 0 < cap_single <= 805306368,
+            "boundary_handoff_limits_invalid", stage="state_member")
+    try:
+        # These four archives are already checked in read_capture and the state
+        # projector. Count their original entries/expansion, not only file rows.
+        for member in (
+            "acquisition/subject/artifacts/pulse-pre-attestation.zip",
+            "acquisition/subject/artifacts/release-grade-recorded-path.zip",
+            "acquisition/subject/artifacts/release-grade-reference-run-v0.zip",
+            "acquisition/subject/artifacts/complete-release-grade-reference-package.zip",
+        ):
+            with zipfile.ZipFile(io.BytesIO(members[member]), "r") as archive:
+                entries = archive.infolist()
+                cap_count -= len(entries)
+                cap_bytes -= sum(info.file_size for info in entries)
+        require(cap_count > 0 and cap_bytes > 0, "boundary_handoff_budget_exhausted", stage="state_member")
+        with zipfile.ZipFile(io.BytesIO(envelope), "r") as archive:
+            entries = archive.infolist()
+            require(0 < len(entries) <= min(32, cap_count),
+                    "boundary_handoff_member_limit", stage="state_member")
+            candidates = [info for info in entries if info.filename == "candidate-output-manifest.json"
+                          or info.filename.endswith("/candidate-output-manifest.json")]
+            require(len(candidates) == 1, "boundary_handoff_manifest_not_unique", stage="state_member")
+            info = candidates[0]
+            require(0 < info.file_size <= min(cap_single, cap_bytes, 16 * 1024 * 1024),
+                    "boundary_handoff_json_size", stage="state_member")
+            # Bounded first read; full name/type/membership/CRC checks follow.
+            with archive.open(info, "r") as stream:
+                manifest_raw = stream.read(16 * 1024 * 1024 + 1)
+            require(len(manifest_raw) == info.file_size,
+                    "boundary_handoff_json_size", stage="state_member")
+            prefix = info.filename[:-len("candidate-output-manifest.json")]
+        original = _boundary_handoff_json(manifest_raw)
+        fields = {"authority_boundary", "control_plane_revision", "document_type", "file_count",
+                  "files", "manifest_scope", "ok", "schema_version", "source_run_attempt",
+                  "source_run_id", "subject_revision"}
+        require(set(original) == fields and original.get("ok") is True
+                and original.get("schema_version") == "pulsemech_compute_current_run_export_candidate_output_manifest_v0"
+                and original.get("document_type") == "pulsemech_compute_current_run_export_candidate_output_manifest"
+                and original.get("manifest_scope") == "all_candidate_files_except_this_manifest",
+                "boundary_handoff_manifest_profile", stage="state_member")
+        require(original.get("control_plane_revision") == revision
+                and original.get("subject_revision") == revision
+                and type(original.get("source_run_id")) is int and original["source_run_id"] == subject_id
+                and type(original.get("source_run_attempt")) is int and original["source_run_attempt"] == 1,
+                "boundary_handoff_source_mismatch", stage="state_member")
+        authority = {"activates_compute_gate": False, "candidate_only": True,
+                     "changes_gate_policy": False, "changes_release_authority": False,
+                     "creates_compute_budget": False, "creates_gate_result": False,
+                     "creates_release_decision": False, "non_active": True,
+                     "produces_runtime_observation": False, "produces_transition_relation": False}
+        require(canonical_json_bytes(original.get("authority_boundary")) == canonical_json_bytes(authority),
+                "boundary_handoff_authority_mismatch", stage="state_member")
+        carrier_name = f"pulsemech-current-run-export-{subject_id}-1-v0.zip"
+        names = {"carrier.json", "expectation.json", "subject-input-packet.json",
+                 "source-run-resolution.json", "source-artifact-selection.json", carrier_name}
+        rows = original.get("files")
+        require(type(original.get("file_count")) is int and original["file_count"] == 6
+                and isinstance(rows, list) and len(rows) == 6
+                and all(isinstance(row, dict) and set(row) == {"path", "sha256", "size_bytes"} for row in rows)
+                and [row["path"] for row in rows] == sorted(names),
+                "boundary_handoff_manifest_members", stage="state_member")
+        expected = frozenset(prefix + name for name in names | {"candidate-output-manifest.json"})
+        retained = frozenset(prefix + name for name in (
+            "candidate-output-manifest.json", "carrier.json", "expectation.json", "subject-input-packet.json"))
+        view, payloads, _ = _inspect_state_archive_bytes(
+            envelope, expected, member_limit=min(32, cap_count), single_limit=cap_single,
+            expansion_limit=cap_bytes, retained_members=retained,
+        )
+        require(payloads[prefix + "candidate-output-manifest.json"] == manifest_raw,
+                "boundary_handoff_manifest_changed", stage="state_member")
+    except VerificationError as exc:
+        if exc.code.startswith("state_archive_"):
+            raise VerificationError("boundary_handoff_" + exc.code[len("state_archive_"):], stage="state_member") from None
+        raise
+    except (KeyError, OSError, ValueError, RuntimeError, NotImplementedError, EOFError, zipfile.BadZipFile, zlib.error):
+        raise VerificationError("boundary_handoff_zip_invalid", stage="state_member") from None
+    for row in rows:
+        value = view[prefix + row["path"]]
+        require(type(row.get("size_bytes")) is int and row["size_bytes"] == value[1]
+                and row.get("sha256") == value[0],
+                "boundary_handoff_member_digest_mismatch", stage="state_member")
+    carrier_sha, carrier_size = view[prefix + carrier_name]
+    carrier_meta = _boundary_handoff_json(payloads[prefix + "carrier.json"])
+    documents = [_boundary_handoff_json(payloads[prefix + name])
+                 for name in ("expectation.json", "subject-input-packet.json")]
+    staged = carrier_meta.get("staged_relative_path")
+    require(type(staged) is str and len(staged) <= 300
+            and re.fullmatch(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*", staged) is not None
+            and all(part not in {".", ".."} for part in staged.split("/"))
+            and staged.split("/")[-1] == carrier_name,
+            "boundary_handoff_carrier_path", stage="state_member")
+    for value in [carrier_meta, *(document.get("carrier") for document in documents)]:
+        require(isinstance(value, dict) and value.get("sha256") == carrier_sha
+                and type(value.get("size_bytes")) is int and value["size_bytes"] == carrier_size,
+                "boundary_handoff_carrier_mismatch", stage="state_member")
+    for document in documents:
+        subject = document.get("subject")
+        require(document.get("record_status") == "observed" and isinstance(subject, dict)
+                and type(subject.get("workflow_run_id")) is int and subject["workflow_run_id"] == subject_id
+                and type(subject.get("workflow_run_attempt")) is int and subject["workflow_run_attempt"] == 1
+                and subject.get("source_commit") == revision,
+                "boundary_handoff_subject_mismatch", stage="state_member")
+    require(canonical_json_bytes(documents[0]["subject"]) == canonical_json_bytes(documents[1]["subject"]),
+            "boundary_handoff_subject_mismatch", stage="state_member")
+    declared_rows = manifest.get("carrier_member_bindings")
+    all_roles = {"complete_release_grade_reference_package", "package_completeness_report",
+                 "package_verification_report", "step3f_current_run_carrier", "step3f_expectation",
+                 "step3f_subject_input_packet"}
+    require(isinstance(declared_rows, list) and len(declared_rows) == 6
+            and all(isinstance(row, dict) and set(row) == {"role", "container_artifact_role", "member", "sha256", "size_bytes"}
+                    and type(row.get("role")) is str for row in declared_rows)
+            and {row["role"] for row in declared_rows} == all_roles,
+            "boundary_handoff_capture_bindings", stage="state_member")
+    result = {}
+    for state_role, binding_role, name in (
+        ("step3f-current-run-carrier", "step3f_current_run_carrier", carrier_name),
+        ("step3f-current-run-expectation", "step3f_expectation", "expectation.json"),
+        ("step3f-subject-input-packet", "step3f_subject_input_packet", "subject-input-packet.json"),
+    ):
+        value = view[prefix + name]
+        expected_binding = {"role": binding_role, "container_artifact_role": "step3f_candidate_envelope",
+                            "member": prefix + name, "sha256": value[0], "size_bytes": value[1]}
+        row = next(row for row in declared_rows if row["role"] == binding_role)
+        require(canonical_json_bytes(row) == canonical_json_bytes(expected_binding),
+                "boundary_handoff_capture_binding_mismatch", stage="state_member")
+        key = "state:step5c:" + state_role
+        result[key] = {"sha256": value[0], "size_bytes": value[1],
+                       "member": prefix + name, "path_or_uri": templates[key]["path_or_uri"],
+                       "media_type": "application/zip" if name == carrier_name else "application/json"}
+    key = "state:step5c:pre-attestation-pulse-artifacts"
+    member = "acquisition/subject/artifacts/pulse-pre-attestation.zip"
+    raw = members[member]
+    result[key] = {"sha256": sha256_bytes(raw), "size_bytes": len(raw), "member": member,
+                   "path_or_uri": f"artifact://pulse-pre-attestation-{subject_id}-1",
+                   "media_type": "application/zip"}
+    return result
+
+
+def _boundary_preserved_states(
+    plan: Mapping[str, Any], manifest: Mapping[str, Any], members: Mapping[str, bytes],
+    subject_run_key: str, release_candidate: str,
+) -> list[dict[str, Any]]:
+    bindings = _check_boundary_state_bindings(plan, manifest, members)
+    templates = _planned_state_templates(plan)
+    return [_state_record(templates[key], subject_run_key=subject_run_key,
+                         release_candidate=release_candidate,
+                         observed_time=manifest["capture_identity"]["capture_completed_utc"],
+                         source=binding, path_or_uri=binding["path_or_uri"],
+                         media_type=binding["media_type"])
+            for key, binding in sorted(bindings.items())]
+
+
 _COLLECTION_TIMING_MEMBER = "acquisition/control/collection-timing.json"
 _COLLECTION_TIMING_VERSION = "pulsemech_compute_whole_runtime_observation_collection_timing_v0"
 
@@ -1939,6 +2152,7 @@ def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, An
     state_views = _check_subject_state_archives(plan, manifest, members)
     package_view = _check_complete_package(plan, manifest, members, state_views)
     _check_preserved_member_roles(plan, state_views, package_view)
+    _check_boundary_state_bindings(plan, manifest, members)
     _check_collection_timing(plan, manifest, members)
     return manifest, members, raw
 
@@ -2528,7 +2742,9 @@ def _project_declared_states(
     for row in [*observed_states, *_terminal_artifact_states(
             plan, capture_manifest, capture_members, subject_run_key, release_candidate),
             *_preserved_member_states(plan, capture_manifest, capture_members,
-                                     subject_run_key, release_candidate)]:
+                                     subject_run_key, release_candidate),
+            *_boundary_preserved_states(plan, capture_manifest, capture_members,
+                                       subject_run_key, release_candidate)]:
         state_id = row.get("state_id")
         require(state_id in templates and state_id not in states, "state_projection_identity_conflict", stage="state")
         states[state_id] = dict(row)

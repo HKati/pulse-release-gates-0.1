@@ -628,6 +628,50 @@ its representation and evidence identity must remain explicit.
 | `state:step5c:package-run-metadata` | `exact_preserved_content` |
 | `state:step5c:effective-required-argument-list` | `checked_source_argv_derivation_with_runtime_receipt_gap` |
 
+### Preserved boundary-object content projection
+
+The pre-attestation artifact and three Step 3F handoff objects have separate
+state identities. Exact content is derived only from the retained original
+bytes, after source/run/attempt, selected-artifact and member binding checks:
+
+| State role | Exact byte object |
+| --- | --- |
+| `pre-attestation-pulse-artifacts` | Original selected `pulse-pre-attestation-<subject_run_id>-1` ZIP |
+| `step3f-current-run-carrier` | Original `pulsemech-current-run-export-<subject_run_id>-1-v0.zip` member of the selected provider envelope |
+| `step3f-current-run-expectation` | Original provider `expectation.json` member |
+| `step3f-subject-input-packet` | Original provider `subject-input-packet.json` member |
+
+The carrier ZIP is not `carrier.json`, the provider envelope itself, a
+reconstructed carrier, or the complete subject package. No directory digest
+is inferred from an archive digest. The concrete pre-attestation artifact URI
+retains the exact subject run ID. The three provider object locators retain
+their source-declared `provider-artifact://step3f/` roles; provider identity
+remains bound separately from the PULSE CI subject identity.
+
+Capture validates the source-declared role contract and the original provider
+manifest. The independent checker derives the three provider member digests
+and sizes again from original bytes, closes the candidate manifest/member set,
+checks its source and control revisions, subject/attempt, authority flags and
+carrier references, and compares the result with capture descriptors. The
+provider archive inspection retains finite member, single-file and expanded
+byte budgets, including the already inspected subject state/package archives.
+Rehashed enclosing inventories do not authorize a changed inner identity.
+Rejected provider JSON and staged-path diagnostics use fixed labels, not raw
+input keys or values.
+
+These states may carry `content_status: exact_digest` but retain
+`producer_execution_id: null` and no invented execution input/output edges.
+Their observation timestamp is the bound acquisition completion, not a newly
+asserted producer or consumer time. Payloads remain opaque: no source document,
+prompt, output or arbitrary content is copied into the runtime packet.
+
+This projection does not replace the existing Step 3F loader, subject-input
+validator or unstubbed existing-core replay. Exact byte identity is not a claim
+that every downstream document is semantically valid. The R2 profile is not
+activated by this increment; the pre-insertion ledger, final signed receipt,
+other unresolved state duties and derived-output obligations remain explicit.
+The `declared_state_evidence_incomplete` acceptance stop is unchanged.
+
 ## Artifact boundary
 
 Preserve the complete subject artifact metadata listing. The replacement
