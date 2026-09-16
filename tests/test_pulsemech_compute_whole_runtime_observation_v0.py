@@ -1671,50 +1671,32 @@ GENERIC_VALIDATOR = load_module('check_pulsemech_compute_runtime_observation_pac
 
 
 def runtime_projection_inputs(source_fixture, *, profile='example'):
+    """Fresh dictionaries from one immutable synthetic acquisition/capture.
+
+    This caches fixture bytes, not a verifier verdict. Every projection still
+    executes the selected-archive, inner-inventory and state-version checks.
+    The minimal provider envelope remains a transport fixture, not a full proof.
+    """
     f = source_fixture
-    jobs = example_jobs(f.plan, f.sha)
-    member = 'acquisition/subject/jobs-page-0001.json'
-    raw = canonical({'total_count': len(jobs), 'jobs': jobs})
-    artifacts, envelope = provider_fixture(f.plan, f.sha)
-    identity = minimal_capture_identity()
-    # The generic example profile uses an inclusive simulated observation
-    # window. The observed post-run profile admits earlier subject metadata.
-    if profile == 'example':
-        identity['capture_started_utc'] = EXAMPLE_START
-    manifest = {
-        'record_status': profile,
-        'subject': {'run_id': EXAMPLE_SUBJECT_ID, 'run_number': 11, 'run_attempt': 1,
-                    'head_sha': f.sha, 'event': 'workflow_dispatch'},
-        'capture_identity': identity,
-        'raw_response_bindings': [
-            {'role': 'subject_jobs_page',
-             'descriptor': {'member': member, 'sha256': digest(raw), 'size_bytes': len(raw)}}
-        ],
-    }
-    members = {member: raw, VERIFIER.CAPTURE_PROVIDER_ENVELOPE_MEMBER: envelope}
-    metadata, bindings = [], []
-    for offset, (role, name_template, relative) in enumerate(ACQUIRER.SUBJECT_TERMINAL_ARTIFACT_TEMPLATES, 1):
-        name, payload = name_template.format(run_id=EXAMPLE_SUBJECT_ID), artifacts[role]
-        identifier, path = 40000 + offset, 'acquisition/' + relative
-        members[path] = payload
-        row = artifact_row(identifier, name, payload, f.sha, EXAMPLE_SUBJECT_ID)
-        metadata.append(row)
-        bindings.append({
-            'artifact_role': 'subject_terminal_artifact', 'source_run_kind': 'subject',
-            'artifact_id': identifier, 'artifact_name': name,
-            'source_run_id': EXAMPLE_SUBJECT_ID, 'source_run_attempt': 1,
-            'created_utc': EXAMPLE_END, 'expires_utc': EXAMPLE_EXPIRY, 'expired': False,
-            'size_bytes': len(payload), 'github_sha256': digest(payload),
-            'exact_bytes_in_capture': True, 'downloaded_member': path,
-            'downloaded_sha256': digest(payload), 'downloaded_size_bytes': len(payload),
-        })
-    page_member = 'acquisition/subject/artifacts-page-0001.json'
-    page_raw = canonical({'total_count': len(metadata), 'artifacts': metadata})
-    members[page_member] = page_raw
-    manifest['raw_response_bindings'].append({'role': 'subject_artifacts_page',
-        'descriptor': {'member': page_member, 'sha256': digest(page_raw), 'size_bytes': len(page_raw)}})
-    manifest['artifact_bindings'] = bindings
-    return manifest, members
+    if not hasattr(f, '_projection_capture_bytes'):
+        directory = f.directory / 'runtime-projection-inputs'
+        directory.mkdir()
+        output = directory / 'acquisition'
+        acquire_example(f, output, ExampleTransport(f.plan, f.sha))
+        capture = construct_capture(f, SimpleNamespace(directory=directory, output=output))
+        f._projection_capture_bytes = tuple(sorted(capture.members.items()))
+    members = dict(f._projection_capture_bytes)
+    manifest = json.loads(members['capture.json'])
+    manifest['record_status'] = profile
+    # Retain the original mode-specific simulated window: inclusive for an
+    # example; collection after subject completion for post-run projection.
+    # This is not the acquired carrier's observed-mode runtime acceptance.
+    manifest['capture_identity']['capture_started_utc'] = EXAMPLE_START if profile == 'example' else EXAMPLE_END
+    # Synthetic observed-mode unit input, not relabelling a real acquisition.
+    case = selected_archive_case(SimpleNamespace(manifest=manifest, members=members))
+    case.index['record_status'] = profile
+    selected_archive_seal(case)
+    return case.manifest, case.members
 
 
 def runtime_projection_example(source_fixture, *, profile='example'):
@@ -2258,7 +2240,7 @@ def test_declared_state_inventory_preserves_all_requirements_and_honest_gaps(sou
     templates = {s['state_id']: s for s in f.plan['state_templates']}
     assert set(states) == set(templates) and len(states) == 62
     assert Counter(s['content_status'] for s in states.values()) == {
-        'exact_digest': 21, 'unavailable': 41,
+        'exact_digest': 46, 'unavailable': 16,
     }
     assert packet['coverage']['state_records'] == 62
     assert packet['coverage']['state_digest_capture_status'] == 'partial'
@@ -2362,9 +2344,10 @@ def state_rebind_artifact_page(manifest, members, page, ordinal=1):
 ])
 def test_terminal_state_rejects_mismatched_capture_metadata_or_exact_bytes(source_fixture, artifact_index, mutation):
     f=source_fixture; manifest, members=runtime_projection_inputs(f)
-    binding = manifest['artifact_bindings'][artifact_index]
+    binding = [row for row in manifest['artifact_bindings']
+               if row['artifact_role'] == 'subject_terminal_artifact'][artifact_index]
     page = json.loads(members['acquisition/subject/artifacts-page-0001.json'])
-    raw_row = page['artifacts'][artifact_index]
+    raw_row = next(row for row in page['artifacts'] if row['id'] == binding['artifact_id'])
     if mutation == 'wrong_run': binding['source_run_id'] += 1
     elif mutation == 'wrong_attempt': binding['source_run_attempt'] = 2
     elif mutation == 'wrong_artifact_id': binding['artifact_id'] += 50
@@ -2376,7 +2359,7 @@ def test_terminal_state_rejects_mismatched_capture_metadata_or_exact_bytes(sourc
         binding['size_bytes'] = binding['downloaded_size_bytes'] = len(members[member])
     elif mutation == 'wrong_size': binding['downloaded_size_bytes'] += 1
     elif mutation == 'missing_bytes': members.pop(binding['downloaded_member'])
-    elif mutation == 'missing_binding': manifest['artifact_bindings'].pop(artifact_index)
+    elif mutation == 'missing_binding': manifest['artifact_bindings'].remove(binding)
     elif mutation == 'duplicate_binding': manifest['artifact_bindings'].append(copy.deepcopy(binding))
     elif mutation == 'wrong_source_revision': raw_row['workflow_run']['head_sha'] = 'e' * 40
     elif mutation == 'wrong_branch': raw_row['workflow_run']['head_branch'] = 'other'
@@ -2398,8 +2381,12 @@ def test_terminal_state_metadata_page_closure_is_fail_closed(source_fixture, mut
     f=source_fixture; manifest, members=runtime_projection_inputs(f)
     page=json.loads(members['acquisition/subject/artifacts-page-0001.json'])
     if mutation == 'missing_page': members.pop('acquisition/subject/artifacts-page-0001.json')
-    elif mutation == 'duplicate_page': manifest['raw_response_bindings'].append(copy.deepcopy(manifest['raw_response_bindings'][-1]))
-    elif mutation == 'wrong_page_digest': manifest['raw_response_bindings'][-1]['descriptor']['sha256'] = 'd' * 64
+    elif mutation == 'duplicate_page':
+        binding = next(row for row in manifest['raw_response_bindings'] if row['role'] == 'subject_artifacts_page')
+        manifest['raw_response_bindings'].append(copy.deepcopy(binding))
+    elif mutation == 'wrong_page_digest':
+        binding = next(row for row in manifest['raw_response_bindings'] if row['role'] == 'subject_artifacts_page')
+        binding['descriptor']['sha256'] = 'd' * 64
     else:
         if mutation == 'duplicate_artifact': page['artifacts'][1]=copy.deepcopy(page['artifacts'][0])
         elif mutation == 'wrong_total': page['total_count'] += 1
@@ -2413,15 +2400,12 @@ def test_terminal_state_metadata_page_closure_is_fail_closed(source_fixture, mut
 
 
 def test_terminal_state_accepts_bounded_complete_multiple_pages(source_fixture):
-    f=source_fixture; manifest,members=runtime_projection_inputs(f)
-    page=json.loads(members['acquisition/subject/artifacts-page-0001.json'])
-    values=page['artifacts']
-    state_rebind_artifact_page(manifest,members,{'total_count':3,'artifacts':values[:1]})
-    second='acquisition/subject/artifacts-page-0002.json'
-    raw=canonical({'total_count':3,'artifacts':values[1:]});members[second]=raw
-    manifest['raw_response_bindings'].append({'role':'subject_artifacts_page',
-        'descriptor':{'member':second,'sha256':digest(raw),'size_bytes':len(raw)}})
-    packet=VERIFIER.build_runtime_packet(plan=f.plan,capture_manifest=manifest,capture_members=members,record_status='example')
+    f = source_fixture; manifest, members = runtime_projection_inputs(f)
+    case = selected_archive_two_pages(selected_archive_case(SimpleNamespace(manifest=manifest, members=members)))
+    packet = VERIFIER.build_runtime_packet(plan=f.plan, capture_manifest=case.manifest,
+        capture_members=case.members, record_status='example')
+    assert len(case.pages['subject']) == 2
+    assert case.index['subject_artifacts']['total_count'] == 7
     assert len(packet['state_observations']) == 62
 
 
@@ -3121,8 +3105,13 @@ def test_recorded_mapping_new_roles_remain_strict_and_unobserved(source_fixture,
     assert state['state_id'] in R2_CONTRACT_ROLES
     packet = runtime_projection_example(source_fixture)
     observation = next(s for s in packet['state_observations'] if s['state_id'] == state['state_id'])
-    assert observation['content_status'] == 'unavailable'
-    assert observation['sha256'] is None and observation['size_bytes'] is None
+    if role == 'pre-materialization-status':
+        assert observation['content_status'] == 'exact_digest'
+        assert observation['sha256'] is not None and observation['size_bytes'] > 0
+        assert observation['producer_execution_id'] is None
+    else:
+        assert observation['content_status'] == 'unavailable'
+        assert observation['sha256'] is None and observation['size_bytes'] is None
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(plan, packet, {})
     assert 'evidence_profile' not in plan and len(EVIDENCE_SCHEMA['oneOf']) == 4
@@ -3368,8 +3357,9 @@ def test_package_mapping_metadata_writers_and_readers_are_source_bound(source_fi
         assert filename in ast.literal_eval(declaration)
     packet = runtime_projection_example(source_fixture)
     observed = next(row for row in packet['state_observations'] if row['state_id'] == state['state_id'])
-    assert observed['content_status'] == 'unavailable'
-    assert observed['sha256'] is None and observed['size_bytes'] is None
+    assert observed['content_status'] == 'exact_digest'
+    assert observed['sha256'] is not None and observed['size_bytes'] > 0
+    assert observed['producer_execution_id'] is None
 
 
 @pytest.mark.parametrize('side', ['builder', 'checker'])
@@ -9635,6 +9625,312 @@ def test_complete_package_identical_wrong_selectors_in_both_sides_fail_source_or
     package_replace_members(case, dict(complete_package_source_oracle))
     for side in ('capture', 'verifier'):
         package_assert_rejected(side, case, source_fixture, tmp_path / side, 'package_member_set_mismatch')
+
+
+# ---------------------------------------------------------------------------
+# Preserved-member role/version binding: original bytes, not original reads.
+# The contract/source-plan oracle below does not read either selector table.
+# ---------------------------------------------------------------------------
+_PRESERVED_MEMBER_IDS = tuple(sorted(role for role, duty in re.findall(
+    r'\| `(state:step5c:[^`]+)` \| `([^`]+)` \|',
+    (ROOT / 'docs/compute/PULSEMECH_COMPUTE_WHOLE_RUNTIME_OBSERVATION_CONTRACT_v0.md').read_text(),
+) if duty == 'exact_preserved_content'))
+
+
+def preserved_member_oracle(plan, case):
+    """Resolve exact-source plan locators inside original fixture archives."""
+    templates = {row['state_id']: row for row in plan['state_templates']}
+    originals = {role: inner_members(case, role) for role in _INNER_ROLES}
+    originals[_PACKAGE_ROLE] = package_members(case)
+    result = {}
+    for identifier in _PRESERVED_MEMBER_IDS:
+        row = templates[identifier]; locator = row['path_or_uri']
+        if '#pre-release-required-materialization' in locator:
+            assert row['producer_occurrence_id'] == 'execution:step5c:step:pulse:013'
+            role = 'pre_attestation_pulse_artifacts'
+            name = locator.split('#')[0].split('artifacts/', 1)[1]
+        elif locator.startswith('${RUNNER_TEMP}/complete-release-grade-reference-package/'):
+            assert row['producer_occurrence_id'] == 'execution:step5c:step:assemble_release_grade_reference_package:005'
+            role = _PACKAGE_ROLE; name = locator.rsplit('/', 1)[1]
+        else:
+            assert locator.startswith('PULSE_safe_pack_v0/artifacts/') and '#' not in locator
+            role = 'release_grade_recorded_path'; name = locator.split('artifacts/', 1)[1]
+        raw = originals[role][name]
+        result[identifier] = dict(archive_role=role, member=name, source_locator=locator,
+            declared_origin_occurrence_id=row['producer_occurrence_id'],
+            sha256=digest(raw), size_bytes=len(raw))
+    return result
+
+
+@pytest.fixture(scope='module')
+def preserved_member_fixture(source_fixture, selected_archive_fixture, tmp_path_factory):
+    case = selected_archive_case(selected_archive_fixture)
+    output = tmp_path_factory.mktemp('preserved-member-views')
+    views = {side: inner_check(side, case, source_fixture.plan, output / side)
+             for side in ('capture', 'verifier')}
+    packages = {side: package_check(side, case, source_fixture.plan, output / (side + '-package'))
+                for side in ('capture', 'verifier')}
+    oracle = preserved_member_oracle(source_fixture.plan, case)
+    assert len(oracle) == 25
+    return SimpleNamespace(case=case, views=views, packages=packages, oracle=oracle)
+
+
+def preserved_member_call(side, plan, views, package):
+    if side == 'capture':
+        return CAPTURER._validate_preserved_member_roles(plan=plan, state_views=views, package_view=package)
+    return VERIFIER._check_preserved_member_roles(plan, views, package)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('identifier', _PRESERVED_MEMBER_IDS)
+def test_preserved_member_role_matches_source_plan_and_original_version(
+    source_fixture, preserved_member_fixture, side, identifier,
+):
+    f = preserved_member_fixture
+    before = canonical(source_fixture.plan), copy.deepcopy(f.views[side]), copy.deepcopy(f.packages[side])
+    result = preserved_member_call(side, source_fixture.plan, f.views[side], f.packages[side])
+    assert set(result) == set(_PRESERVED_MEMBER_IDS)
+    assert result[identifier] == f.oracle[identifier]
+    assert before == (canonical(source_fixture.plan), f.views[side], f.packages[side])
+    assert 'evidence_profile' not in source_fixture.plan
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('identifier', _PRESERVED_MEMBER_IDS)
+@pytest.mark.parametrize('mutation', ['locator', 'origin', 'missing'])
+def test_preserved_member_role_rejects_wrong_or_missing_source_version(
+    source_fixture, preserved_member_fixture, side, identifier, mutation,
+):
+    f = preserved_member_fixture; plan = copy.deepcopy(source_fixture.plan)
+    row = next(row for row in plan['state_templates'] if row['state_id'] == identifier)
+    if mutation == 'locator': row['path_or_uri'] += '/PRIVATE_STATE_CANARY'
+    elif mutation == 'origin': row['producer_occurrence_id'] = 'execution:step5c:step:pulse:037'
+    else: plan['state_templates'].remove(row)
+    error_type = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    with pytest.raises(error_type) as caught:
+        preserved_member_call(side, plan, f.views[side], f.packages[side])
+    assert caught.value.code == 'preserved_state_template_mismatch'
+    assert caught.value.stage == 'state_member' and 'PRIVATE_STATE_CANARY' not in str(caught.value)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('mutation', ['duplicate_role', 'missing_rows', 'nonobject_row', 'optional_role', 'loose_content'])
+def test_preserved_member_role_rejects_ambiguous_plan_or_weakened_obligation(
+    source_fixture, preserved_member_fixture, side, mutation,
+):
+    f = preserved_member_fixture; plan = copy.deepcopy(source_fixture.plan)
+    row = next(row for row in plan['state_templates'] if row['state_id'] == 'state:step5c:final-status')
+    if mutation == 'duplicate_role':
+        plan['state_templates'].append(copy.deepcopy(row)); code = 'preserved_state_identity_conflict'
+    elif mutation == 'missing_rows': plan.pop('state_templates'); code = 'preserved_state_plan_invalid'
+    elif mutation == 'nonobject_row': plan['state_templates'].append(None); code = 'preserved_state_plan_invalid'
+    else:
+        if mutation == 'optional_role': row['required'] = False
+        else: row['content_requirement'] = 'metadata_only'
+        code = 'preserved_state_template_mismatch'
+    error_type = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    with pytest.raises(error_type) as caught:
+        preserved_member_call(side, plan, f.views[side], f.packages[side])
+    assert caught.value.code == code
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('role', ['pre-materialization-status', 'final-status', 'package-run-metadata'])
+@pytest.mark.parametrize('mutation', ['missing', 'upper_sha', 'boolean_size', 'float_size', 'zero_size', 'bad_shape'])
+def test_preserved_member_role_never_accepts_missing_or_invalid_checked_identity(
+    source_fixture, preserved_member_fixture, side, role, mutation,
+):
+    f = preserved_member_fixture
+    views, package = copy.deepcopy(f.views[side]), copy.deepcopy(f.packages[side])
+    expected = f.oracle['state:step5c:' + role]
+    view = package if expected['archive_role'] == _PACKAGE_ROLE else views[expected['archive_role']]
+    name = expected['member']; sha, size = view[name]
+    if mutation == 'missing': view.pop(name); code = 'preserved_state_content_missing'
+    else:
+        code = 'preserved_state_content_invalid'
+        view[name] = {'upper_sha': (sha.upper(), size), 'boolean_size': (sha, True),
+                      'float_size': (sha, float(size)), 'zero_size': (sha, 0), 'bad_shape': None}[mutation]
+    error_type = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    with pytest.raises(error_type) as caught:
+        preserved_member_call(side, source_fixture.plan, views, package)
+    assert caught.value.code == code
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_preserved_member_role_equal_status_bytes_do_not_collapse_version_routes(
+    source_fixture, preserved_member_fixture, side,
+):
+    f = preserved_member_fixture; views = copy.deepcopy(f.views[side])
+    views['release_grade_recorded_path']['status.json'] = views['pre_attestation_pulse_artifacts']['status.json']
+    result = preserved_member_call(side, source_fixture.plan, views, f.packages[side])
+    before, after = (result['state:step5c:' + role] for role in ('pre-materialization-status', 'final-status'))
+    assert before['sha256'] == after['sha256']
+    assert before['member'] == after['member'] == 'status.json'
+    assert before['archive_role'] != after['archive_role']
+    assert before['source_locator'] != after['source_locator']
+    assert before['declared_origin_occurrence_id'] != after['declared_origin_occurrence_id']
+
+
+@pytest.mark.parametrize('role,wrong_member', [
+    ('quality-ledger-final', 'report_card.with_release_decision.html'),
+    ('release-decision-ledger-section', 'release_decision_v0.json'),
+    ('pre-materialization-status', 'status_baseline.json'),
+    ('package-run-metadata', 'package_digest_inventory_v0.json'),
+])
+def test_preserved_member_role_common_wrong_selectors_cannot_pass_source_oracle(
+    source_fixture, preserved_member_fixture, monkeypatch, role, wrong_member,
+):
+    # Both implementations agree on the same wrong selector. Exact-source plan
+    # locators still disagree; their agreement is not the test oracle.
+    f = preserved_member_fixture
+    for module, name in ((CAPTURER, 'PRESERVED_MEMBER_ROLE_SPECS'), (VERIFIER, 'PRESERVED_MEMBER_SELECTORS')):
+        selectors = dict(getattr(module, name)); old = selectors[role]
+        selectors[role] = (wrong_member, old[1]); monkeypatch.setattr(module, name, selectors)
+    for side, error_type in (('capture', CAPTURER.CaptureError), ('verifier', VERIFIER.VerificationError)):
+        with pytest.raises(error_type) as caught:
+            preserved_member_call(side, source_fixture.plan, f.views[side], f.packages[side])
+        assert caught.value.code == 'preserved_state_template_mismatch'
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_preserved_member_role_public_intake_executes_new_check_before_acceptance(
+    source_fixture, acquisition_fixture, selected_archive_fixture, tmp_path, monkeypatch, side,
+):
+    # Fault injection tests the public hook. Omitting that hook must make this
+    # test fail with DID NOT RAISE; no late runtime stub supplies the rejection.
+    if side == 'capture':
+        selectors = dict(CAPTURER.PRESERVED_MEMBER_ROLE_SPECS)
+        member, origin = selectors['final-status']
+        selectors['final-status'] = ('status_baseline.json', origin)
+        monkeypatch.setattr(CAPTURER, 'PRESERVED_MEMBER_ROLE_SPECS', selectors)
+        target = tmp_path / 'must-not-publish.zip'
+        with pytest.raises(CAPTURER.CaptureError) as caught:
+            CAPTURER.build_capture(repository_root=source_fixture.root, source_commit=source_fixture.sha,
+                plan_path=source_fixture.plan_path, plan_diagnostic_path=source_fixture.diagnostic,
+                expected_plan_sha256=source_fixture.plan_digest,
+                acquisition_directory=acquisition_fixture.output, output_path=target, record_status='example')
+        assert not target.exists()
+    else:
+        selectors = dict(VERIFIER.PRESERVED_MEMBER_SELECTORS)
+        member, origin = selectors['final-status']
+        selectors['final-status'] = ('status_baseline.json', origin)
+        monkeypatch.setattr(VERIFIER, 'PRESERVED_MEMBER_SELECTORS', selectors)
+        case = selected_archive_case(selected_archive_fixture)
+        with patch.object(CAPTURER, '_validate_preserved_member_roles', side_effect=AssertionError('Independent verification')):
+            with pytest.raises(VERIFIER.VerificationError) as caught:
+                selected_archive_read(selected_archive_fixture.path, case, source_fixture)
+    assert caught.value.code == 'preserved_state_template_mismatch' and caught.value.stage == 'state_member'
+
+
+def test_preserved_member_role_runtime_projection_has_exact_content_not_observed_reads(
+    source_fixture, preserved_member_fixture,
+):
+    f = preserved_member_fixture; manifest, members = runtime_projection_inputs(source_fixture)
+    before = dict(members), canonical(manifest)
+    with patch.object(zipfile.ZipFile, 'extract', side_effect=AssertionError('No extraction')):
+        with patch.object(zipfile.ZipFile, 'extractall', side_effect=AssertionError('No extraction')):
+            packet = VERIFIER.build_runtime_packet(plan=source_fixture.plan, capture_manifest=manifest,
+                                                   capture_members=members, record_status='example')
+    states = {row['state_id']: row for row in packet['state_observations']}
+    for identifier, expected in f.oracle.items():
+        row = states[identifier]
+        assert row['content_status'] == 'exact_digest'
+        assert (row['sha256'], row['size_bytes']) == (expected['sha256'], expected['size_bytes'])
+        assert row['path_or_uri'] == expected['source_locator']
+        assert row['producer_execution_id'] is None and row['schema_identity'] is None
+        assert all(identifier not in e['input_state_ids'] + e['output_state_ids'] for e in packet['executions'])
+    assert states['state:step5c:pre-materialization-status']['sha256'] != states['state:step5c:final-status']['sha256']
+    for role in ('quality-ledger-pre-authority', 'artifact-binding-attestation',
+                 'materialized-release-required-gate-set', 'effective-required-argument-list'):
+        row = states['state:step5c:' + role]
+        assert row['content_status'] == 'unavailable' and row['sha256'] is None
+    assert Counter(row['content_status'] for row in states.values()) == {'exact_digest': 46, 'unavailable': 16}
+    assert before == (members, canonical(manifest))
+    rendered = canonical(packet)
+    assert b'EXAMPLE controlled input' not in rendered and b'EXAMPLE controlled output' not in rendered
+    assert b'fixture_only' not in rendered and b'PRIVATE_STATE_CANARY' not in rendered
+    jsonschema.Draft202012Validator(GENERIC_SCHEMA).validate(packet)
+    checks, errors = GENERIC_VALIDATOR.semantic_checks(packet)
+    assert errors == [] and all(checks.values())
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, packet, {})
+
+
+@pytest.mark.parametrize('mutation', ['digest', 'size', 'pre_from_final', 'invented_origin', 'invented_read'])
+def test_preserved_member_role_packet_mutations_reject_on_rederivation(source_fixture, mutation):
+    manifest, members = runtime_projection_inputs(source_fixture)
+    packet = VERIFIER.build_runtime_packet(plan=source_fixture.plan, capture_manifest=manifest,
+                                           capture_members=members, record_status='example')
+    row = next(row for row in packet['state_observations'] if row['state_id'] == 'state:step5c:pre-materialization-status')
+    if mutation == 'digest': row['sha256'] = 'f' * 64
+    elif mutation == 'size': row['size_bytes'] += 1
+    elif mutation == 'pre_from_final':
+        final = next(item for item in packet['state_observations'] if item['state_id'] == 'state:step5c:final-status')
+        row.update(sha256=final['sha256'], size_bytes=final['size_bytes'])
+    elif mutation == 'invented_origin': row['producer_execution_id'] = 'execution:step5c:step:pulse:013'
+    else:
+        reader = next(e for e in packet['executions'] if e['execution_id'] == 'execution:step5c:step:release_grade_recorded_path:006')
+        reader['input_state_ids'].append(row['state_id'])
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        VERIFIER._require_state_projection(source_fixture.plan, packet, manifest, members)
+    assert caught.value.code == ('state_execution_binding_mismatch' if mutation == 'invented_read' else 'state_projection_mismatch')
+
+
+def test_preserved_member_role_projection_rechecks_resealed_inner_bytes_before_building(
+    source_fixture, selected_archive_fixture,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    content = package_members(case); metadata = json.loads(content['run_metadata_v0.json'])
+    metadata['run_id'] = EXAMPLE_PROVIDER_ID
+    content['run_metadata_v0.json'] = canonical(metadata)
+    package_replace_members(case, content, rehash_inventory=True)
+    # The original outer identities are deliberately resealed; only the inner
+    # run-role mismatch remains. A direct packet build cannot bypass it.
+    selected_archive_check('verifier', case, source_fixture.plan)
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        VERIFIER.build_runtime_packet(plan=source_fixture.plan, capture_manifest=case.manifest,
+                                       capture_members=case.members, record_status='example')
+    assert caught.value.code == 'package_metadata_identity_mismatch'
+
+
+def test_preserved_member_role_projection_two_fresh_processes_are_identical(
+    source_fixture, selected_archive_fixture, tmp_path,
+):
+    # This is packet-projection reproducibility, NOT a full existing-core replay
+    # or full Step 5C reconstruction. No core validation success is stubbed.
+    script = tmp_path / 'project.py'
+    script.write_text('''import importlib.util, json, sys
+from pathlib import Path
+root, plan_path, capture = map(Path, sys.argv[1:])
+spec = importlib.util.spec_from_file_location("step5c_projection", root / "tools/check_pulsemech_compute_whole_runtime_observation_v0.py")
+module = importlib.util.module_from_spec(spec); sys.modules[spec.name] = module; spec.loader.exec_module(module)
+plan = json.loads(plan_path.read_bytes())
+import zipfile
+with zipfile.ZipFile(capture) as archive:
+    context = archive.read(module.CAPTURE_EXPECTED_CONTEXT_MEMBER)
+manifest, members, raw = module.read_capture(capture,
+    schema=json.loads((root / module.SCHEMA_PATH).read_bytes()), plan=plan,
+    expected_plan_sha256=module.sha256_bytes(plan_path.read_bytes()), expected_context_raw=context,
+    record_status="example", source_commit=plan["plan_identity"]["source_commit"])
+packet = module.build_runtime_packet(plan=plan, capture_manifest=manifest, capture_members=members, record_status="example")
+sys.stdout.buffer.write(module.canonical_json_bytes(packet))
+''')
+    outputs = []
+    for index in (1, 2):
+        process = subprocess.run([sys.executable, '-I', '-B', str(script), str(source_fixture.root),
+            str(source_fixture.plan_path), str(selected_archive_fixture.path)],
+            cwd=tmp_path, env={'PATH': '/usr/bin:/bin', 'HOME': str(tmp_path), 'LANG': 'C'},
+            capture_output=True, timeout=60)
+        assert process.returncode == 0, process.stderr
+        (tmp_path / f'projection-{index}.json').write_bytes(process.stdout)
+        outputs.append(process.stdout)
+    assert outputs[0] == outputs[1]
+    packet = json.loads(outputs[0])
+    assert Counter(row['content_status'] for row in packet['state_observations']) == {'exact_digest': 46, 'unavailable': 16}
+    assert packet['coverage']['coverage_status'] == 'partial'
+    jsonschema.Draft202012Validator(GENERIC_SCHEMA).validate(packet)
+    checks, errors = GENERIC_VALIDATOR.semantic_checks(packet)
+    assert errors == [] and all(checks.values())
 
 
 if __name__ == '__main__':

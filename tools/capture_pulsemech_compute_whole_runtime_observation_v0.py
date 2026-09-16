@@ -2093,6 +2093,91 @@ def _validate_complete_package(
     return view
 
 
+# Original-member bindings for the 25 exact-preserved-content review roles.
+# The plan still has its legacy completion stop: this is not R2 activation.
+# These locators select bytes, not runtime read receipts or verified semantics.
+PRESERVED_MEMBER_ROLE_SPECS = {
+    'artifact-provenance-binding': ('artifact_provenance_binding_v0.json', 'release_grade_recorded_path:021'),
+    'final-status': ('status.json', 'release_grade_recorded_path:009'),
+    'final-status-summary': ('status_summary.json', 'release_grade_recorded_path:014'),
+    'llamaguard-attestation-bundle': ('external/llamaguard_summary.bundle.json', 'attest_llamaguard_current_run_summary:005'),
+    'llamaguard-attestation-envelope': ('external/llamaguard_summary.envelope.json', 'attest_llamaguard_current_run_summary:006'),
+    'llamaguard-attestation-verifier': ('external/llamaguard_attestation_verifier_v1.json', 'attest_llamaguard_current_run_summary:007'),
+    'llamaguard-evaluator-manifest': ('external/llamaguard_evaluator_manifest_v0.json', 'pulse:022'),
+    'llamaguard-raw-evidence': ('external/llamaguard_raw.jsonl', 'pulse:022'),
+    'llamaguard-summary': ('external/llamaguard_summary.json', 'pulse:023'),
+    'package-digest-inventory': ('package_digest_inventory_v0.json', 'assemble_release_grade_reference_package:005'),
+    'package-run-metadata': ('run_metadata_v0.json', 'assemble_release_grade_reference_package:005'),
+    'pre-materialization-status': ('status.json', 'pulse:013'),
+    'quality-ledger-final': ('report_card.html', 'release_grade_recorded_path:018'),
+    'recorded-candidate-index': ('recorded_release_candidate_index_v0.json', 'release_grade_recorded_path:006'),
+    'recorded-release-evidence-verifier': ('recorded_release_evidence_verifier_v0.json', 'release_grade_recorded_path:008'),
+    'release-authority-manifest': ('release_authority_v0.json', 'release_grade_recorded_path:017'),
+    'release-decision': ('release_decision_v0.json', 'release_grade_recorded_path:015'),
+    'release-decision-ledger-section': ('release_decision_v0_ledger_section.html', 'release_grade_recorded_path:016'),
+    'release-decision-report': ('report_card.with_release_decision.html', 'release_grade_recorded_path:019'),
+    'release-evidence-input-manifest': ('release_evidence_input_manifest_v0.json', 'release_grade_recorded_path:007'),
+    'release-grade-junit': ('reports/junit.xml', 'release_grade_recorded_path:023'),
+    'release-grade-sarif': ('reports/sarif.json', 'release_grade_recorded_path:023'),
+    'required-gate-evidence': ('required_gate_evidence_v0.json', 'pulse:011'),
+    'self-contained-evidence-floor': ('self_contained_pulse_evidence_floor_v0.json', 'pulse:018'),
+    'status-baseline': ('status_baseline.json', 'pulse:014'),
+}
+
+
+def _validate_preserved_member_roles(
+    *, plan: Mapping[str, Any], state_views: Mapping[str, Mapping[str, tuple[str, int]]],
+    package_view: Mapping[str, tuple[str, int]],
+) -> dict[str, dict[str, Any]]:
+    """Bind this invocation's checked member digests to declared state versions.
+
+    The source-bound plan determines the declared content origin. The original
+    archive determines preserved bytes. Neither supplies an original read or
+    executed-byte receipt. No payload is parsed, copied into JSON, or logged.
+    """
+    rows = plan.get("state_templates")
+    _require(isinstance(rows, list) and all(isinstance(row, dict) for row in rows),
+             "preserved_state_plan_invalid", stage="state_member")
+    templates: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        identifier = row.get("state_id")
+        _require(isinstance(identifier, str) and identifier not in templates,
+                 "preserved_state_identity_conflict", stage="state_member")
+        templates[identifier] = row
+    result: dict[str, dict[str, Any]] = {}
+    for role, (member, origin) in sorted(PRESERVED_MEMBER_ROLE_SPECS.items()):
+        identifier = "state:step5c:" + role
+        template = templates.get(identifier)
+        locator = "PULSE_safe_pack_v0/artifacts/" + member
+        archive_role = "release_grade_recorded_path"
+        if role == "pre-materialization-status":
+            locator += "#pre-release-required-materialization"
+            archive_role = "pre_attestation_pulse_artifacts"
+        elif role in {"package-digest-inventory", "package-run-metadata"}:
+            locator = "${RUNNER_TEMP}/complete-release-grade-reference-package/" + member
+            archive_role = "complete_release_grade_reference_package"
+        _require(template is not None and template.get("path_or_uri") == locator
+                 and template.get("producer_occurrence_id") == "execution:step5c:step:" + origin
+                 and template.get("required") is True
+                 and template.get("content_requirement") == "exact_digest",
+                 "preserved_state_template_mismatch", stage="state_member")
+        view = package_view if archive_role == "complete_release_grade_reference_package" else state_views.get(archive_role)
+        _require(isinstance(view, Mapping) and member in view,
+                 "preserved_state_content_missing", stage="state_member")
+        binding = view[member]
+        _require(isinstance(binding, tuple) and len(binding) == 2
+                 and isinstance(binding[0], str) and re.fullmatch(r"[0-9a-f]{64}", binding[0]) is not None
+                 and type(binding[1]) is int and binding[1] > 0,
+                 "preserved_state_content_invalid", stage="state_member")
+        result[identifier] = {
+            "archive_role": archive_role, "member": member,
+            "source_locator": locator,
+            "declared_origin_occurrence_id": template["producer_occurrence_id"],
+            "sha256": binding[0], "size_bytes": binding[1],
+        }
+    return result
+
+
 def _raw_response_bindings(
     *,
     acquisition_files: Mapping[str, FileSnapshot],
@@ -2547,10 +2632,11 @@ def build_capture(
     state_views = _validate_subject_state_archives(
         acquisition_files=acquisition_files, plan=plan, subject=subject,
     )
-    _validate_complete_package(
+    package_view = _validate_complete_package(
         acquisition_files=acquisition_files, plan=plan, subject=subject,
         artifact_rows=artifact_rows, state_views=state_views,
     )
+    _validate_preserved_member_roles(plan=plan, state_views=state_views, package_view=package_view)
 
     capture_members = _capture_members(
         plan_snapshot=plan_snapshot,

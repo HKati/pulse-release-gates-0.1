@@ -1623,6 +1623,121 @@ def _check_complete_package(
     return view
 
 
+# Original-member bindings for the 25 exact-preserved-content review roles.
+# The plan still has its legacy completion stop: this is not R2 activation.
+# These locators select bytes, not runtime read receipts or verified semantics.
+PRESERVED_MEMBER_SELECTORS = {
+    'artifact-provenance-binding': ('artifact_provenance_binding_v0.json', 'release_grade_recorded_path:021'),
+    'final-status': ('status.json', 'release_grade_recorded_path:009'),
+    'final-status-summary': ('status_summary.json', 'release_grade_recorded_path:014'),
+    'llamaguard-attestation-bundle': ('external/llamaguard_summary.bundle.json', 'attest_llamaguard_current_run_summary:005'),
+    'llamaguard-attestation-envelope': ('external/llamaguard_summary.envelope.json', 'attest_llamaguard_current_run_summary:006'),
+    'llamaguard-attestation-verifier': ('external/llamaguard_attestation_verifier_v1.json', 'attest_llamaguard_current_run_summary:007'),
+    'llamaguard-evaluator-manifest': ('external/llamaguard_evaluator_manifest_v0.json', 'pulse:022'),
+    'llamaguard-raw-evidence': ('external/llamaguard_raw.jsonl', 'pulse:022'),
+    'llamaguard-summary': ('external/llamaguard_summary.json', 'pulse:023'),
+    'package-digest-inventory': ('package_digest_inventory_v0.json', 'assemble_release_grade_reference_package:005'),
+    'package-run-metadata': ('run_metadata_v0.json', 'assemble_release_grade_reference_package:005'),
+    'pre-materialization-status': ('status.json', 'pulse:013'),
+    'quality-ledger-final': ('report_card.html', 'release_grade_recorded_path:018'),
+    'recorded-candidate-index': ('recorded_release_candidate_index_v0.json', 'release_grade_recorded_path:006'),
+    'recorded-release-evidence-verifier': ('recorded_release_evidence_verifier_v0.json', 'release_grade_recorded_path:008'),
+    'release-authority-manifest': ('release_authority_v0.json', 'release_grade_recorded_path:017'),
+    'release-decision': ('release_decision_v0.json', 'release_grade_recorded_path:015'),
+    'release-decision-ledger-section': ('release_decision_v0_ledger_section.html', 'release_grade_recorded_path:016'),
+    'release-decision-report': ('report_card.with_release_decision.html', 'release_grade_recorded_path:019'),
+    'release-evidence-input-manifest': ('release_evidence_input_manifest_v0.json', 'release_grade_recorded_path:007'),
+    'release-grade-junit': ('reports/junit.xml', 'release_grade_recorded_path:023'),
+    'release-grade-sarif': ('reports/sarif.json', 'release_grade_recorded_path:023'),
+    'required-gate-evidence': ('required_gate_evidence_v0.json', 'pulse:011'),
+    'self-contained-evidence-floor': ('self_contained_pulse_evidence_floor_v0.json', 'pulse:018'),
+    'status-baseline': ('status_baseline.json', 'pulse:014'),
+}
+
+
+def _check_preserved_member_roles(
+    plan: Mapping[str, Any], state_views: Mapping[str, Mapping[str, tuple[str, int]]],
+    package_view: Mapping[str, tuple[str, int]],
+) -> dict[str, dict[str, Any]]:
+    """Independently bind checked original members; never trust capture verdicts."""
+    rows = plan.get("state_templates")
+    require(isinstance(rows, list), "preserved_state_plan_invalid", stage="state_member")
+    templates: dict[str, Mapping[str, Any]] = {}
+    for row in rows:
+        require(isinstance(row, dict), "preserved_state_plan_invalid", stage="state_member")
+        key = row.get("state_id")
+        require(isinstance(key, str) and key not in templates,
+                "preserved_state_identity_conflict", stage="state_member")
+        templates[key] = row
+    bindings: dict[str, dict[str, Any]] = {}
+    for role in sorted(PRESERVED_MEMBER_SELECTORS):
+        member, declared_writer = PRESERVED_MEMBER_SELECTORS[role]
+        state_id = "state:step5c:" + role
+        row = templates.get(state_id)
+        # R33 preserves the post-R9 version. P37 preserves the pre-R9 version.
+        # The two routes stay different even when their bytes happen to agree.
+        if role == "pre-materialization-status":
+            archive_role = "pre_attestation_pulse_artifacts"
+            locator = "PULSE_safe_pack_v0/artifacts/" + member + "#pre-release-required-materialization"
+        elif role == "package-digest-inventory" or role == "package-run-metadata":
+            archive_role = "complete_release_grade_reference_package"
+            locator = "${RUNNER_TEMP}/complete-release-grade-reference-package/" + member
+        else:
+            archive_role = "release_grade_recorded_path"
+            locator = "PULSE_safe_pack_v0/artifacts/" + member
+        require(row is not None and row.get("path_or_uri") == locator
+                and row.get("producer_occurrence_id") == "execution:step5c:step:" + declared_writer
+                and row.get("content_requirement") == "exact_digest" and row.get("required") is True,
+                "preserved_state_template_mismatch", stage="state_member")
+        content = package_view if archive_role == "complete_release_grade_reference_package" else state_views.get(archive_role)
+        require(isinstance(content, Mapping) and member in content,
+                "preserved_state_content_missing", stage="state_member")
+        value = content[member]
+        require(isinstance(value, tuple) and len(value) == 2,
+                "preserved_state_content_invalid", stage="state_member")
+        sha, size = value
+        require(isinstance(sha, str) and re.fullmatch(r"[0-9a-f]{64}", sha) is not None
+                and type(size) is int and size > 0,
+                "preserved_state_content_invalid", stage="state_member")
+        bindings[state_id] = {
+            "archive_role": archive_role, "member": member,
+            "source_locator": locator,
+            "declared_origin_occurrence_id": row["producer_occurrence_id"],
+            "sha256": sha, "size_bytes": size,
+        }
+    return bindings
+
+
+def _preserved_member_states(
+    plan: Mapping[str, Any], manifest: Mapping[str, Any], members: Mapping[str, bytes],
+    subject_run_key: str, release_candidate: str,
+) -> list[dict[str, Any]]:
+    """Derive exact content, without promoting planned origins to observations.
+
+    Recheck inputs in this invocation: build_runtime_packet is also callable
+    without read_capture. No caller-provided digest map or cached capture
+    verdict may substitute for the selected archives and their inner checks.
+    """
+    _check_selected_archive_evidence(plan, manifest, members)
+    views = _check_subject_state_archives(plan, manifest, members)
+    package = _check_complete_package(plan, manifest, members, views)
+    bindings = _check_preserved_member_roles(plan, views, package)
+    templates = _planned_state_templates(plan)
+    states: list[dict[str, Any]] = []
+    for state_id, binding in bindings.items():
+        member = binding["member"]
+        media_type = ("text/html" if member.endswith(".html") else
+                      "application/xml" if member.endswith(".xml") else
+                      "application/x-ndjson" if member.endswith(".jsonl") else "application/json")
+        states.append(_state_record(
+            templates[state_id], subject_run_key=subject_run_key,
+            release_candidate=release_candidate,
+            observed_time=manifest["capture_identity"]["capture_completed_utc"],
+            source=binding, media_type=media_type,
+        ))
+    return states
+
+
 def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, Any], expected_plan_sha256: str, expected_context_raw: bytes, record_status: str, source_commit: str) -> tuple[dict[str, Any], dict[str, bytes], bytes]:
     raw = path.read_bytes()
     members = read_canonical_zip_bytes(
@@ -1691,7 +1806,8 @@ def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, An
     require(CAPTURE_PROVIDER_ENVELOPE_MEMBER in members, "provider_envelope_missing", stage="capture")
     _check_selected_archive_evidence(plan, manifest, members)
     state_views = _check_subject_state_archives(plan, manifest, members)
-    _check_complete_package(plan, manifest, members, state_views)
+    package_view = _check_complete_package(plan, manifest, members, state_views)
+    _check_preserved_member_roles(plan, state_views, package_view)
     return manifest, members, raw
 
 
@@ -2278,7 +2394,9 @@ def _project_declared_states(
     templates = _planned_state_templates(plan)
     states: dict[str, dict[str, Any]] = {}
     for row in [*observed_states, *_terminal_artifact_states(
-            plan, capture_manifest, capture_members, subject_run_key, release_candidate)]:
+            plan, capture_manifest, capture_members, subject_run_key, release_candidate),
+            *_preserved_member_states(plan, capture_manifest, capture_members,
+                                     subject_run_key, release_candidate)]:
         state_id = row.get("state_id")
         require(state_id in templates and state_id not in states, "state_projection_identity_conflict", stage="state")
         states[state_id] = dict(row)
