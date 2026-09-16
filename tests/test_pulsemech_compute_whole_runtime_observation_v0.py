@@ -2250,7 +2250,7 @@ def test_declared_state_inventory_preserves_all_requirements_and_honest_gaps(sou
     templates = {s['state_id']: s for s in f.plan['state_templates']}
     assert set(states) == set(templates) and len(states) == 62
     assert Counter(s['content_status'] for s in states.values()) == {
-        'exact_digest': 50, 'unavailable': 12,
+        'exact_digest': 53, 'unavailable': 9,
     }
     assert packet['coverage']['state_records'] == 62
     assert packet['coverage']['state_digest_capture_status'] == 'partial'
@@ -3115,13 +3115,14 @@ def test_recorded_mapping_new_roles_remain_strict_and_unobserved(source_fixture,
     assert state['state_id'] in R2_CONTRACT_ROLES
     packet = runtime_projection_example(source_fixture)
     observation = next(s for s in packet['state_observations'] if s['state_id'] == state['state_id'])
-    if role == 'pre-materialization-status':
-        assert observation['content_status'] == 'exact_digest'
-        assert observation['sha256'] is not None and observation['size_bytes'] > 0
-        assert observation['producer_execution_id'] is None
-    else:
-        assert observation['content_status'] == 'unavailable'
-        assert observation['sha256'] is None and observation['size_bytes'] is None
+    assert observation['content_status'] == 'exact_digest'
+    assert observation['sha256'] is not None and observation['size_bytes'] > 0
+    assert observation['producer_execution_id'] is None
+    if role == 'recorded-release-candidate-envelopes':
+        assert observation['schema_identity'] == 'pulsemech_step5c_preserved_tree_binding_v0'
+        assert observation['media_type'] == 'application/json'
+    assert all(state['state_id'] not in item['input_state_ids'] + item['output_state_ids']
+               for item in packet['executions'])
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(plan, packet, {})
     assert 'evidence_profile' not in plan and len(EVIDENCE_SCHEMA['oneOf']) == 4
@@ -6752,8 +6753,12 @@ def test_recorded_publication_keeps_runtime_intake_and_completion_unfinished(sou
         VERIFIER._require_declared_state_completion(source_fixture.plan, packet, {})
     state = next(row for row in packet['state_observations']
                  if row['state_id'] == 'state:step5c:recorded-release-candidate-envelopes')
-    assert state['content_status'] == 'unavailable'
-    assert state['sha256'] is None and state['size_bytes'] is None
+    assert state['content_status'] == 'exact_digest'
+    assert state['sha256'] is not None and state['size_bytes'] > 0
+    assert state['schema_identity'] == 'pulsemech_step5c_preserved_tree_binding_v0'
+    assert state['media_type'] == 'application/json' and state['producer_execution_id'] is None
+    assert all(state['state_id'] not in item['input_state_ids'] + item['output_state_ids']
+               for item in packet['executions'])
 
 
 # R27/R30 literal-file publications are source declarations, not new authority.
@@ -9854,7 +9859,7 @@ def test_preserved_member_role_runtime_projection_has_exact_content_not_observed
                  'materialized-release-required-gate-set', 'effective-required-argument-list'):
         row = states['state:step5c:' + role]
         assert row['content_status'] == 'unavailable' and row['sha256'] is None
-    assert Counter(row['content_status'] for row in states.values()) == {'exact_digest': 50, 'unavailable': 12}
+    assert Counter(row['content_status'] for row in states.values()) == {'exact_digest': 53, 'unavailable': 9}
     assert before == (members, canonical(manifest))
     rendered = canonical(packet)
     assert b'EXAMPLE controlled input' not in rendered and b'EXAMPLE controlled output' not in rendered
@@ -9936,7 +9941,7 @@ sys.stdout.buffer.write(module.canonical_json_bytes(packet))
         outputs.append(process.stdout)
     assert outputs[0] == outputs[1]
     packet = json.loads(outputs[0])
-    assert Counter(row['content_status'] for row in packet['state_observations']) == {'exact_digest': 50, 'unavailable': 12}
+    assert Counter(row['content_status'] for row in packet['state_observations']) == {'exact_digest': 53, 'unavailable': 9}
     assert packet['coverage']['coverage_status'] == 'partial'
     jsonschema.Draft202012Validator(GENERIC_SCHEMA).validate(packet)
     checks, errors = GENERIC_VALIDATOR.semantic_checks(packet)
@@ -10325,7 +10330,7 @@ sys.stdout.buffer.write(verifier.canonical_json_bytes(packet))
     assert packet['observation_boundary']['capture_started_utc'] == collection_stamp(12)
     assert packet['observation_boundary']['capture_completed_utc'] == collection_stamp(25)
     assert digest(f.capture.path.read_bytes()) == before
-    assert Counter(row['content_status'] for row in packet['state_observations']) == {'exact_digest': 50, 'unavailable': 12}
+    assert Counter(row['content_status'] for row in packet['state_observations']) == {'exact_digest': 53, 'unavailable': 9}
     assert packet['coverage']['coverage_status'] == 'partial'
 
 
@@ -10750,6 +10755,326 @@ def test_boundary_object_original_json_diagnostic_does_not_reflect_private_keys(
     assert 'PRIVATE_BOUNDARY_CANARY' not in str(caught.value)
     if side == 'capture':
         assert 'PRIVATE_BOUNDARY_CANARY' not in json.dumps(CAPTURER._failure(caught.value, exit_code=1))
+
+
+# ---------------------------------------------------------------------------
+# Three preserved trees: canonical relative-member inventories with an exact
+# original parent carrier. The description is not a ZIP or runtime-read receipt.
+# ---------------------------------------------------------------------------
+_TREE_CASES = (
+    ('advisory-reference-bundle', 'advisory_reference_bundle', '', 9),
+    ('release-authority-audit-bundle', 'advisory_reference_bundle', 'release-authority-audit-bundle/', 3),
+    ('recorded-release-candidate-envelopes', 'release_grade_recorded_path', 'recorded_release_candidates/', 3),
+)
+_TREE_FORMAT = 'pulsemech_step5c_preserved_tree_binding_v0'
+
+
+def tree_snapshots(case, directory):
+    directory.mkdir(parents=True, exist_ok=True)
+    snapshots = {}
+    for role, relative in _INNER_PATHS.items():
+        raw = case.members['acquisition/' + relative]
+        path = directory / (role + '.zip'); path.write_bytes(raw); path.chmod(0o444)
+        snapshots[relative] = CAPTURER._snapshot_file(
+            path, relative=relative, maximum=CAPTURER.MAX_CARRIER_MEMBER_BYTES, require_read_only=True)
+    return snapshots
+
+
+def tree_check(side, case, plan, directory, *, views=None):
+    if views is None:
+        # These are real independent checks, not precomputed PASS values.
+        selected_archive_check(side, case, plan)
+        views = inner_check(side, case, plan, directory / 'inner')
+    if side == 'verifier':
+        return VERIFIER._check_preserved_tree_roles(plan, case.manifest, case.members, views)
+    return CAPTURER._validate_preserved_tree_roles(
+        plan=plan, subject=case.manifest['subject'], acquisition_files=tree_snapshots(case, directory / 'trees'),
+        artifact_rows={row['role']: row for row in case.index['downloaded_artifacts']}, state_views=views)
+
+
+def tree_oracle(plan, case, role, archive_role, prefix):
+    # A separately written description recipe over original ZIP payloads. It
+    # reads neither production table nor a producer's calculated tree document.
+    selected, _, binding = selected_archive_rows(case, archive_role)
+    raw = case.members[binding['downloaded_member']]
+    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+        entries = sorted((item.filename[len(prefix):], archive.read(item)) for item in archive.infolist()
+                         if not item.is_dir() and item.filename.startswith(prefix))
+    template = next(row for row in plan['state_templates'] if row['state_id'] == 'state:step5c:' + role)
+    member_rows = [{'path': name, 'size_bytes': len(payload), 'sha256': digest(payload)} for name, payload in entries]
+    return canonical({
+        'schema_version': _TREE_FORMAT, 'state_id': template['state_id'],
+        'source_directory': template['path_or_uri'],
+        'declared_origin_occurrence_id': template['producer_occurrence_id'],
+        'subject': {'repository': 'HKati/pulse-release-gates-0.1', 'run_id': case.manifest['subject']['run_id'],
+                    'run_attempt': 1, 'source_commit': plan['plan_identity']['source_commit']},
+        'parent_carrier': {'archive_role': archive_role, 'artifact_id': selected['artifact_id'],
+                           'artifact_name': selected['artifact_name'], 'capture_member': binding['downloaded_member'],
+                           'sha256': digest(raw), 'size_bytes': len(raw)},
+        'member_prefix': prefix, 'member_count': len(member_rows),
+        'content_size_bytes': sum(len(payload) for _, payload in entries), 'members': member_rows,
+    })
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_preserved_tree_documents_equal_original_byte_oracle_without_mutation(
+    source_fixture, selected_archive_fixture, tmp_path, side,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    before = canonical(case.manifest), canonical(case.index), dict(case.members)
+    with patch.object(zipfile.ZipFile, 'extract', side_effect=AssertionError('No extraction')):
+        with patch.object(zipfile.ZipFile, 'extractall', side_effect=AssertionError('No extraction')):
+            actual = tree_check(side, case, source_fixture.plan, tmp_path)
+    assert len(actual) == 3
+    for role, archive, prefix, count in _TREE_CASES:
+        raw = actual['state:step5c:' + role]
+        assert raw == tree_oracle(source_fixture.plan, case, role, archive, prefix)
+        doc = json.loads(raw)
+        assert doc['member_count'] == count
+        assert len({row['path'] for row in doc['members']}) == count
+        assert [row['path'] for row in doc['members']] == sorted(row['path'] for row in doc['members'])
+        assert doc['content_size_bytes'] == sum(row['size_bytes'] for row in doc['members'])
+        assert digest(raw) != doc['parent_carrier']['sha256']
+        assert len(raw) != doc['content_size_bytes']
+        assert b'EXAMPLE controlled input' not in raw and b'EXAMPLE controlled output' not in raw
+    assert before == (canonical(case.manifest), canonical(case.index), case.members)
+
+
+@pytest.mark.parametrize('profile', ['example', 'observed'])
+def test_preserved_tree_runtime_projection_is_descriptor_identity_not_archive_or_read(
+    source_fixture, profile,
+):
+    manifest, members = runtime_projection_inputs(source_fixture, profile=profile)
+    case = selected_archive_case(SimpleNamespace(manifest=manifest, members=members))
+    packet = VERIFIER.build_runtime_packet(plan=source_fixture.plan, capture_manifest=manifest,
+                                          capture_members=members, record_status=profile)
+    states = {row['state_id']: row for row in packet['state_observations']}
+    for role, archive, prefix, _ in _TREE_CASES:
+        identifier = 'state:step5c:' + role; row = states[identifier]
+        raw = tree_oracle(source_fixture.plan, case, role, archive, prefix)
+        assert (row['sha256'], row['size_bytes']) == (digest(raw), len(raw))
+        assert row['schema_identity'] == _TREE_FORMAT and row['media_type'] == 'application/json'
+        assert row['content_status'] == 'exact_digest' and row['producer_execution_id'] is None
+        assert row['path_or_uri'] == json.loads(raw)['source_directory']
+        assert row['observed_at_utc'] == manifest['capture_identity']['capture_completed_utc']
+        assert all(identifier not in e['input_state_ids'] + e['output_state_ids'] for e in packet['executions'])
+    assert Counter(row['content_status'] for row in states.values()) == {'exact_digest': 53, 'unavailable': 9}
+    assert packet['coverage']['coverage_status'] == 'partial'
+    assert packet['coverage']['state_digest_capture_status'] == 'partial'
+    jsonschema.Draft202012Validator(GENERIC_SCHEMA).validate(packet)
+    checks, errors = GENERIC_VALIDATOR.semantic_checks(packet)
+    assert errors == [] and all(checks.values())
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, packet, {})
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('role,archive,prefix,count', _TREE_CASES)
+@pytest.mark.parametrize('field,value', [
+    ('path_or_uri', '../PRIVATE_TREE_CANARY'), ('producer_occurrence_id', None),
+    ('required_consumer_occurrence_ids', []), ('role', 'unreviewed-tree'), ('state_type', 'other'),
+    ('content_requirement', 'unavailable'), ('required', 1), ('authority_bearing', 0),
+    ('mutation_class', 'input'), ('extra_key', 'PRIVATE_TREE_CANARY'),
+])
+def test_preserved_tree_source_role_cannot_be_reinterpreted(
+    source_fixture, selected_archive_fixture, tmp_path, side, role, archive, prefix, count, field, value,
+):
+    case = selected_archive_case(selected_archive_fixture); plan = copy.deepcopy(source_fixture.plan)
+    row = next(row for row in plan['state_templates'] if row['state_id'] == 'state:step5c:' + role)
+    row[field] = value
+    with pytest.raises(CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError) as caught:
+        tree_check(side, case, plan, tmp_path)
+    expected = ('state_template_invalid' if side == 'verifier' and field in ('required', 'authority_bearing')
+                else 'preserved_tree_template_mismatch')
+    assert caught.value.code == expected
+    assert 'PRIVATE_TREE_CANARY' not in str(caught.value)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('mutation', ['missing', 'duplicate', 'not_row', 'not_list'])
+def test_preserved_tree_plan_requires_exact_unique_roles(source_fixture, selected_archive_fixture, tmp_path, side, mutation):
+    case = selected_archive_case(selected_archive_fixture); plan = copy.deepcopy(source_fixture.plan)
+    row = next(row for row in plan['state_templates'] if row['state_id'] == 'state:step5c:advisory-reference-bundle')
+    if mutation == 'missing': plan['state_templates'].remove(row)
+    elif mutation == 'duplicate': plan['state_templates'].append(copy.deepcopy(row))
+    elif mutation == 'not_row': plan['state_templates'].append('PRIVATE_TREE_CANARY')
+    else: plan['state_templates'] = None
+    with pytest.raises(CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError):
+        tree_check(side, case, plan, tmp_path)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('role,archive,prefix,count', _TREE_CASES)
+@pytest.mark.parametrize('mutation', ['drop', 'extra', 'wrong_root', 'bad_digest', 'boolean_size', 'zero_size'])
+def test_preserved_tree_closed_views_reject_invalid_member_bindings(
+    source_fixture, selected_archive_fixture, tmp_path, side, role, archive, prefix, count, mutation,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    views = inner_check(side, case, source_fixture.plan, tmp_path / 'verified-inner')
+    target = sorted(name for name in views[archive] if name.startswith(prefix))[0]
+    if mutation == 'drop': del views[archive][target]
+    elif mutation == 'extra': views[archive][prefix + 'PRIVATE_TREE_CANARY'] = ('a' * 64, 1)
+    elif mutation == 'wrong_root': views[archive]['wrong-root/' + target] = views[archive].pop(target)
+    elif mutation == 'bad_digest': views[archive][target] = ('PRIVATE_TREE_CANARY', 4)
+    elif mutation == 'boolean_size': views[archive][target] = (views[archive][target][0], True)
+    else: views[archive][target] = (views[archive][target][0], 0)
+    with pytest.raises(CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError) as caught:
+        tree_check(side, case, source_fixture.plan, tmp_path / 'derive', views=views)
+    assert caught.value.stage == 'state_tree'
+    assert 'PRIVATE_TREE_CANARY' not in str(caught.value)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('archive', ['advisory_reference_bundle', 'release_grade_recorded_path'])
+@pytest.mark.parametrize('mutation', ['artifact_id', 'name', 'run', 'attempt', 'kind', 'member', 'sha', 'size'])
+def test_preserved_tree_parent_identity_is_not_replaced_by_matching_members(
+    source_fixture, selected_archive_fixture, tmp_path, side, archive, mutation,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    views = inner_check(side, case, source_fixture.plan, tmp_path / 'verified-inner')
+    selected, _, binding = selected_archive_rows(case, archive)
+    changes = {
+        'artifact_id': ('artifact_id', True), 'name': ('artifact_name', 'PRIVATE_TREE_CANARY'),
+        'run': ('source_run_id', EXAMPLE_SUBJECT_ID + 1), 'attempt': ('source_run_attempt', True),
+        'kind': ('source_run_kind', 'provider'), 'member': ('downloaded_member', '../PRIVATE_TREE_CANARY'),
+        'sha': ('downloaded_sha256', 'a' * 64), 'size': ('downloaded_size_bytes', True),
+    }
+    field, value = changes[mutation]
+    selected[field] = value; binding[field] = value
+    with pytest.raises(CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError) as caught:
+        tree_check(side, case, source_fixture.plan, tmp_path / 'derive', views=views)
+    assert caught.value.stage == 'state_tree'
+    assert 'PRIVATE_TREE_CANARY' not in str(caught.value)
+
+
+@pytest.mark.parametrize('role,archive,prefix,count', _TREE_CASES)
+@pytest.mark.parametrize('mutation', ['archive_hash', 'sum_sizes', 'lost_schema', 'unavailable', 'origin', 'read'])
+def test_preserved_tree_forged_runtime_values_reject_on_independent_rederivation(
+    source_fixture, role, archive, prefix, count, mutation,
+):
+    manifest, members = runtime_projection_inputs(source_fixture)
+    case = selected_archive_case(SimpleNamespace(manifest=manifest, members=members))
+    packet = VERIFIER.build_runtime_packet(plan=source_fixture.plan, capture_manifest=manifest,
+                                          capture_members=members, record_status='example')
+    key = 'state:step5c:' + role
+    row = next(item for item in packet['state_observations'] if item['state_id'] == key)
+    doc = json.loads(tree_oracle(source_fixture.plan, case, role, archive, prefix))
+    if mutation == 'archive_hash': row.update(sha256=doc['parent_carrier']['sha256'], size_bytes=doc['parent_carrier']['size_bytes'])
+    elif mutation == 'sum_sizes': row['size_bytes'] = doc['content_size_bytes']
+    elif mutation == 'lost_schema': row['schema_identity'] = None
+    elif mutation == 'unavailable': row.update(content_status='unavailable', sha256=None, size_bytes=None)
+    elif mutation == 'origin': row['producer_execution_id'] = doc['declared_origin_occurrence_id']
+    else: packet['executions'][0]['input_state_ids'].append(key)
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        VERIFIER._require_state_projection(source_fixture.plan, packet, manifest, members)
+    assert caught.value.code in ('state_projection_mismatch', 'state_execution_binding_mismatch')
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_preserved_tree_inventory_order_is_canonical(source_fixture, selected_archive_fixture, tmp_path, side):
+    case = selected_archive_case(selected_archive_fixture)
+    views = inner_check(side, case, source_fixture.plan, tmp_path / 'verified-inner')
+    first = tree_check(side, case, source_fixture.plan, tmp_path / 'first', views=views)
+    reordered = {role: dict(reversed(list(view.items()))) for role, view in reversed(list(views.items()))}
+    second = tree_check(side, case, source_fixture.plan, tmp_path / 'second', views=reordered)
+    assert first == second
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_preserved_tree_new_carrier_with_same_content_has_new_bound_identity(
+    source_fixture, selected_archive_fixture, tmp_path, side,
+):
+    case = selected_archive_case(selected_archive_fixture); role = 'advisory_reference_bundle'
+    first = tree_check(side, case, source_fixture.plan, tmp_path / 'first')
+    payloads = inner_members(case, role)
+    raw = inner_zip_variant(payloads, 'deflated')
+    # This represents a DIFFERENT externally identified original artifact in
+    # the synthetic input. It cannot stand in for the prior archive identity.
+    inner_replace_raw(case, role, raw); collection_timing_reseal(case)
+    second = tree_check(side, case, source_fixture.plan, tmp_path / 'second')
+    for key in ('state:step5c:advisory-reference-bundle', 'state:step5c:release-authority-audit-bundle'):
+        a, b = json.loads(first[key]), json.loads(second[key])
+        assert a['members'] == b['members'] and a['content_size_bytes'] == b['content_size_bytes']
+        assert a['parent_carrier']['sha256'] != b['parent_carrier']['sha256'] and first[key] != second[key]
+
+
+def tree_selector_layout(side):
+    if side == 'capture':
+        return {role: (spec[6], spec[7], set(spec[8])) for role, spec in CAPTURER._PRESERVED_TREE_SPECS.items()}
+    return {row[0]: (row[7], row[8], set(row[9])) for row in VERIFIER._PRESERVED_TREE_SPECS}
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_preserved_tree_selectors_match_executed_source_layout(inner_source_oracle, side):
+    # inner_source_oracle executes the actual R22/R25 shell bodies and original
+    # candidate write_outputs serialization, rather than trusting either table.
+    expected = {role: (archive, prefix, {name[len(prefix):] for name in inner_source_oracle[archive]
+                                       if name.startswith(prefix)}) for role, archive, prefix, _ in _TREE_CASES}
+    assert tree_selector_layout(side) == expected
+
+
+@pytest.mark.parametrize('role,archive,prefix,count', _TREE_CASES)
+def test_preserved_tree_common_wrong_locator_is_detected_by_source_oracle(
+    inner_source_oracle, monkeypatch, role, archive, prefix, count,
+):
+    capture_specs = copy.deepcopy(CAPTURER._PRESERVED_TREE_SPECS)
+    spec = list(capture_specs[role]); wanted = list(spec[8]); old = wanted[0]; wanted[0] = 'wrong/' + old
+    spec[8] = tuple(wanted); capture_specs[role] = tuple(spec)
+    checker_specs = []
+    for original in VERIFIER._PRESERVED_TREE_SPECS:
+        row = list(original)
+        if row[0] == role: row[9] = frozenset((set(row[9]) - {old}) | {'wrong/' + old})
+        checker_specs.append(tuple(row))
+    monkeypatch.setattr(CAPTURER, '_PRESERVED_TREE_SPECS', capture_specs)
+    monkeypatch.setattr(VERIFIER, '_PRESERVED_TREE_SPECS', tuple(checker_specs))
+    assert tree_selector_layout('capture') == tree_selector_layout('verifier')
+    for side in ('capture', 'verifier'):
+        with pytest.raises(AssertionError):
+            test_preserved_tree_selectors_match_executed_source_layout(inner_source_oracle, side)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_preserved_tree_public_intake_cannot_omit_new_role_check(
+    source_fixture, acquisition_fixture, selected_archive_fixture, tmp_path, monkeypatch, side,
+):
+    # A wrong accepted role contract only in this validator must make its public
+    # entrypoint fail. Removing the call makes this permanent regression fail.
+    if side == 'capture':
+        wrong = copy.deepcopy(CAPTURER._PRESERVED_TREE_SPECS)
+        row = list(wrong['advisory-reference-bundle']); row[2] = 'PRIVATE_TREE_CANARY'; wrong['advisory-reference-bundle'] = tuple(row)
+        monkeypatch.setattr(CAPTURER, '_PRESERVED_TREE_SPECS', wrong)
+        target = tmp_path / 'must-not-publish.zip'
+        with pytest.raises(CAPTURER.CaptureError, match='preserved_tree_template_mismatch'):
+            CAPTURER.build_capture(repository_root=source_fixture.root, source_commit=source_fixture.sha,
+                plan_path=source_fixture.plan_path, plan_diagnostic_path=source_fixture.diagnostic,
+                expected_plan_sha256=source_fixture.plan_digest, acquisition_directory=acquisition_fixture.output,
+                output_path=target, record_status='example')
+        assert not target.exists()
+    else:
+        wrong = []
+        for original in VERIFIER._PRESERVED_TREE_SPECS:
+            row = list(original)
+            if row[0] == 'advisory-reference-bundle': row[3] = 'PRIVATE_TREE_CANARY'
+            wrong.append(tuple(row))
+        monkeypatch.setattr(VERIFIER, '_PRESERVED_TREE_SPECS', tuple(wrong))
+        case = selected_archive_case(selected_archive_fixture)
+        with patch.object(CAPTURER, '_validate_preserved_tree_roles', side_effect=AssertionError('Must remain independent')):
+            with pytest.raises(VERIFIER.VerificationError, match='preserved_tree_template_mismatch'):
+                selected_archive_read(selected_archive_fixture.path, case, source_fixture)
+
+
+def test_preserved_tree_derivation_independently_checks_original_archives(source_fixture, monkeypatch):
+    manifest, members = runtime_projection_inputs(source_fixture)
+    case = selected_archive_case(SimpleNamespace(manifest=manifest, members=members))
+    archive = 'advisory_reference_bundle'; content = inner_members(case, archive)
+    content['PRIVATE_TREE_CANARY.json'] = b'private content must never be printed'
+    inner_replace_members(case, archive, content); collection_timing_reseal(case)
+    with patch.object(CAPTURER, '_validate_preserved_tree_roles', side_effect=AssertionError('Independent verifier')):
+        with pytest.raises(VERIFIER.VerificationError) as caught:
+            VERIFIER.build_runtime_packet(plan=source_fixture.plan, capture_manifest=case.manifest,
+                                          capture_members=case.members, record_status='example')
+    assert caught.value.code == 'state_archive_member_set_mismatch'
+    assert 'PRIVATE_TREE_CANARY' not in str(caught.value)
 
 
 if __name__ == '__main__':

@@ -1708,6 +1708,113 @@ def _check_preserved_member_roles(
     return bindings
 
 
+# Independent tree selector/representation contract. No import of capture's
+# table, helper, derived document, or verdict is permitted here.
+PRESERVED_TREE_FORMAT = "pulsemech_step5c_preserved_tree_binding_v0"
+_PRESERVED_TREE_SPECS = (
+    ("recorded-release-candidate-envelopes", "candidate_state", "recorded_release_candidate_envelope_tree",
+     "PULSE_safe_pack_v0/artifacts/recorded_release_candidates/", True, "006",
+     ("007", "008", "009", "031", "033"), "release_grade_recorded_path", "recorded_release_candidates/",
+     frozenset(("refusal_delta_summary.json", "external_llamaguard.json", "detector_materialization.json"))),
+    ("release-authority-audit-bundle", "package", "final_release_authority_audit_bundle",
+     "PULSE_safe_pack_v0/artifacts/release_authority_audit_bundle/", True, "022",
+     ("assemble_release_grade_reference_package:005", "025", "028", "031"),
+     "advisory_reference_bundle", "release-authority-audit-bundle/",
+     frozenset(("status.json", "report_card.html", "release_authority_v0.json"))),
+    ("advisory-reference-bundle", "package", "advisory_release_grade_reference_bundle",
+     "${RUNNER_TEMP}/release-grade-reference-run-v0/", False, "025", ("032",),
+     "advisory_reference_bundle", "", frozenset((
+         "reports/sarif.json", "reports/junit.xml", "artifacts/status.json", "artifacts/report_card.html",
+         "artifacts/release_authority_v0.json", "artifacts/external/llamaguard_summary.json",
+         "release-authority-audit-bundle/status.json", "release-authority-audit-bundle/report_card.html",
+         "release-authority-audit-bundle/release_authority_v0.json"))),
+)
+
+
+def _check_preserved_tree_roles(
+    plan: Mapping[str, Any], manifest: Mapping[str, Any], members: Mapping[str, bytes],
+    state_views: Mapping[str, Mapping[str, tuple[str, int]]],
+) -> dict[str, bytes]:
+    """Reconstruct closed tree descriptions from this invocation's checked ZIPs.
+
+    Both callers first check the selected metadata, original ZIP bytes, inner
+    inventories/copies and complete package. No persisted inventory supplied
+    by the capture can replace these independently calculated bindings.
+    """
+    templates = _planned_state_templates(plan)
+    identity = plan.get("plan_identity", {})
+    subject = manifest.get("subject", {})
+    source = identity.get("source_commit")
+    run_id = subject.get("run_id")
+    require(identity.get("repository") == REPOSITORY and isinstance(source, str)
+            and re.fullmatch(r"[0-9a-f]{40}", source) is not None
+            and type(run_id) is int and run_id > 0 and subject.get("head_sha") == source
+            and type(subject.get("run_attempt")) is int and subject["run_attempt"] == 1,
+            "preserved_tree_subject_mismatch", stage="state_tree")
+    artifacts = manifest.get("artifact_bindings")
+    require(isinstance(artifacts, list) and all(isinstance(row, dict) for row in artifacts),
+            "preserved_tree_parent_mismatch", stage="state_tree")
+    layouts = {role: (member, names) for role, member, names in _STATE_ARCHIVE_LAYOUT}
+    documents: dict[str, bytes] = {}
+    for role, kind, description, locator, authority, writer, readers, archive_role, prefix, wanted in _PRESERVED_TREE_SPECS:
+        key = "state:step5c:" + role
+        occurrence = "execution:step5c:step:release_grade_recorded_path:"
+        origin = occurrence + writer
+        expected = {"state_id": key, "state_type": kind, "role": description, "path_or_uri": locator,
+                    "producer_occurrence_id": origin,
+                    "required_consumer_occurrence_ids": ["execution:step5c:step:" + r if ":" in r
+                                                        else occurrence + r for r in readers],
+                    "mutation_class": "none", "authority_bearing": authority,
+                    "required": True, "content_requirement": "exact_digest"}
+        require(key in templates and canonical_json_bytes(templates[key]) == canonical_json_bytes(expected),
+                "preserved_tree_template_mismatch", stage="state_tree")
+        capture_member, all_names = layouts[archive_role]
+        view = state_views.get(archive_role)
+        require(isinstance(view, Mapping) and set(view) == set(all_names),
+                "preserved_tree_parent_members_mismatch", stage="state_tree")
+        relative_names = {name[len(prefix):] for name in view if name.startswith(prefix)}
+        require(relative_names == wanted, "preserved_tree_members_mismatch", stage="state_tree")
+        inventory = []
+        for relative in sorted(relative_names):
+            binding = view[prefix + relative]
+            require(isinstance(binding, tuple) and len(binding) == 2,
+                    "preserved_tree_member_binding_invalid", stage="state_tree")
+            digest, size = binding
+            require(isinstance(digest, str) and re.fullmatch(r"[0-9a-f]{64}", digest) is not None
+                    and type(size) is int and size > 0,
+                    "preserved_tree_member_binding_invalid", stage="state_tree")
+            inventory.append({"path": relative, "sha256": digest, "size_bytes": size})
+        name = (f"release-grade-recorded-path-{run_id}-1" if archive_role == "release_grade_recorded_path"
+                else "release-grade-reference-run-v0")
+        choices = [row for row in artifacts if row.get("downloaded_member") == capture_member]
+        require(len(choices) == 1, "preserved_tree_parent_mismatch", stage="state_tree")
+        artifact = choices[0]
+        require(artifact.get("artifact_name") == name and artifact.get("artifact_role") == "subject_state_evidence_artifact"
+                and artifact.get("source_run_kind") == "subject" and artifact.get("exact_bytes_in_capture") is True
+                and type(artifact.get("source_run_id")) is int and artifact["source_run_id"] == run_id
+                and type(artifact.get("source_run_attempt")) is int and artifact["source_run_attempt"] == 1
+                and type(artifact.get("artifact_id")) is int and artifact["artifact_id"] > 0,
+                "preserved_tree_parent_mismatch", stage="state_tree")
+        raw = members.get(capture_member)
+        require(type(raw) is bytes and len(raw) > 0, "preserved_tree_parent_bytes_mismatch", stage="state_tree")
+        digest = sha256_bytes(raw)
+        require(artifact.get("github_sha256") == artifact.get("downloaded_sha256") == digest
+                and all(type(artifact.get(field)) is int and artifact[field] == len(raw)
+                        for field in ("size_bytes", "downloaded_size_bytes")),
+                "preserved_tree_parent_bytes_mismatch", stage="state_tree")
+        documents[key] = canonical_json_bytes({
+            "schema_version": PRESERVED_TREE_FORMAT,
+            "state_id": key, "source_directory": locator, "declared_origin_occurrence_id": origin,
+            "subject": {"repository": REPOSITORY, "run_id": run_id, "run_attempt": 1, "source_commit": source},
+            "parent_carrier": {"artifact_id": artifact["artifact_id"], "artifact_name": name,
+                               "archive_role": archive_role, "capture_member": capture_member,
+                               "sha256": digest, "size_bytes": len(raw)},
+            "member_prefix": prefix, "member_count": len(inventory),
+            "content_size_bytes": sum(item["size_bytes"] for item in inventory), "members": inventory,
+        })
+    return documents
+
+
 def _preserved_member_states(
     plan: Mapping[str, Any], manifest: Mapping[str, Any], members: Mapping[str, bytes],
     subject_run_key: str, release_candidate: str,
@@ -1722,6 +1829,7 @@ def _preserved_member_states(
     views = _check_subject_state_archives(plan, manifest, members)
     package = _check_complete_package(plan, manifest, members, views)
     bindings = _check_preserved_member_roles(plan, views, package)
+    tree_documents = _check_preserved_tree_roles(plan, manifest, members, views)
     templates = _planned_state_templates(plan)
     states: list[dict[str, Any]] = []
     for state_id, binding in bindings.items():
@@ -1734,6 +1842,13 @@ def _preserved_member_states(
             release_candidate=release_candidate,
             observed_time=manifest["capture_identity"]["capture_completed_utc"],
             source=binding, media_type=media_type,
+        ))
+    for state_id, document in sorted(tree_documents.items()):
+        states.append(_state_record(
+            templates[state_id], subject_run_key=subject_run_key,
+            release_candidate=release_candidate,
+            observed_time=manifest["capture_identity"]["capture_completed_utc"],
+            raw=document, media_type="application/json", schema_identity=PRESERVED_TREE_FORMAT,
         ))
     return states
 
@@ -2152,6 +2267,7 @@ def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, An
     state_views = _check_subject_state_archives(plan, manifest, members)
     package_view = _check_complete_package(plan, manifest, members, state_views)
     _check_preserved_member_roles(plan, state_views, package_view)
+    _check_preserved_tree_roles(plan, manifest, members, state_views)
     _check_boundary_state_bindings(plan, manifest, members)
     _check_collection_timing(plan, manifest, members)
     return manifest, members, raw

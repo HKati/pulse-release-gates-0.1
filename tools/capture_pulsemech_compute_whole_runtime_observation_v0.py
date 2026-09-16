@@ -2269,6 +2269,126 @@ def _validate_boundary_state_roles(plan: Mapping[str, Any]) -> None:
                  "boundary_state_template_mismatch", stage="state_member")
 
 
+# A directory is represented by a canonical, carrier-bound inventory. Its
+# digest is neither the archive digest nor the hash of a replacement ZIP.
+PRESERVED_TREE_FORMAT = "pulsemech_step5c_preserved_tree_binding_v0"
+_PRESERVED_TREE_SPECS = {
+    "advisory-reference-bundle": (
+        "package", "advisory_release_grade_reference_bundle",
+        "${RUNNER_TEMP}/release-grade-reference-run-v0/", False, "025", ("032",),
+        "advisory_reference_bundle", "", (
+            "artifacts/external/llamaguard_summary.json", "artifacts/release_authority_v0.json",
+            "artifacts/report_card.html", "artifacts/status.json",
+            "release-authority-audit-bundle/release_authority_v0.json",
+            "release-authority-audit-bundle/report_card.html", "release-authority-audit-bundle/status.json",
+            "reports/junit.xml", "reports/sarif.json",
+        ),
+    ),
+    "release-authority-audit-bundle": (
+        "package", "final_release_authority_audit_bundle",
+        "PULSE_safe_pack_v0/artifacts/release_authority_audit_bundle/", True, "022",
+        ("assemble_release_grade_reference_package:005", "025", "028", "031"),
+        "advisory_reference_bundle", "release-authority-audit-bundle/",
+        ("release_authority_v0.json", "report_card.html", "status.json"),
+    ),
+    "recorded-release-candidate-envelopes": (
+        "candidate_state", "recorded_release_candidate_envelope_tree",
+        "PULSE_safe_pack_v0/artifacts/recorded_release_candidates/", True, "006",
+        ("007", "008", "009", "031", "033"),
+        "release_grade_recorded_path", "recorded_release_candidates/",
+        ("detector_materialization.json", "external_llamaguard.json", "refusal_delta_summary.json"),
+    ),
+}
+
+
+def _validate_preserved_tree_roles(
+    *, plan: Mapping[str, Any], subject: Mapping[str, Any],
+    acquisition_files: Mapping[str, FileSnapshot], artifact_rows: Mapping[str, Mapping[str, Any]],
+    state_views: Mapping[str, Mapping[str, tuple[str, int]]],
+) -> dict[str, bytes]:
+    """Describe three checked trees, without generating runtime-read evidence.
+
+    Called only after this capture invocation validates the exact selected
+    archives, closed inner inventories, copy bindings and complete package.
+    This derived description is not inserted into original acquisition bytes.
+    The independent verifier reconstructs it rather than trusting this result.
+    """
+    rows = plan.get("state_templates")
+    _require(isinstance(rows, list), "preserved_tree_plan_invalid", stage="state_tree")
+    templates = {}
+    for row in rows:
+        _require(isinstance(row, dict) and isinstance(row.get("state_id"), str)
+                 and row["state_id"] not in templates,
+                 "preserved_tree_plan_invalid", stage="state_tree")
+        templates[row["state_id"]] = row
+    identity = plan.get("plan_identity", {})
+    source = identity.get("source_commit")
+    run_id = subject.get("run_id")
+    _require(identity.get("repository") == REPOSITORY
+             and isinstance(source, str) and re.fullmatch(r"[0-9a-f]{40}", source) is not None
+             and type(run_id) is int and run_id > 0 and subject.get("head_sha") == source
+             and type(subject.get("run_attempt")) is int and subject["run_attempt"] == 1,
+             "preserved_tree_subject_mismatch", stage="state_tree")
+    results: dict[str, bytes] = {}
+    for role, spec in sorted(_PRESERVED_TREE_SPECS.items()):
+        kind, description, locator, authority, producer, consumers, archive_role, prefix, expected = spec
+        state_id = "state:step5c:" + role
+        occurrence = "execution:step5c:step:release_grade_recorded_path:"
+        consumer_ids = [("execution:step5c:step:" + item) if ":" in item else occurrence + item
+                        for item in consumers]
+        required = {"state_id": state_id, "state_type": kind, "role": description,
+                    "path_or_uri": locator, "mutation_class": "none", "authority_bearing": authority,
+                    "producer_occurrence_id": occurrence + producer,
+                    "required_consumer_occurrence_ids": consumer_ids,
+                    "content_requirement": "exact_digest", "required": True}
+        _require(state_id in templates
+                 and _canonical_json_bytes(templates[state_id]) == _canonical_json_bytes(required),
+                 "preserved_tree_template_mismatch", stage="state_tree")
+        view = state_views.get(archive_role)
+        _require(isinstance(view, Mapping) and set(view) == set(STATE_ARCHIVE_MEMBERS[archive_role]),
+                 "preserved_tree_parent_members_mismatch", stage="state_tree")
+        selected = {name[len(prefix):]: binding for name, binding in view.items() if name.startswith(prefix)}
+        _require(set(selected) == set(expected), "preserved_tree_members_mismatch", stage="state_tree")
+        inventory = []
+        for relative in sorted(selected):
+            binding = selected[relative]
+            _require(isinstance(binding, tuple) and len(binding) == 2
+                     and isinstance(binding[0], str) and re.fullmatch(r"[0-9a-f]{64}", binding[0]) is not None
+                     and type(binding[1]) is int and binding[1] > 0,
+                     "preserved_tree_member_binding_invalid", stage="state_tree")
+            inventory.append({"path": relative, "sha256": binding[0], "size_bytes": binding[1]})
+        member = STATE_ARCHIVE_PATHS[archive_role]
+        snapshot = acquisition_files.get(member)
+        artifact = artifact_rows.get(archive_role)
+        name = ("release-grade-reference-run-v0" if archive_role == "advisory_reference_bundle"
+                else f"release-grade-recorded-path-{run_id}-1")
+        _require(isinstance(snapshot, FileSnapshot) and isinstance(artifact, Mapping)
+                 and artifact.get("artifact_name") == name and artifact.get("role") == archive_role
+                 and artifact.get("source_run_kind") == "subject"
+                 and type(artifact.get("source_run_id")) is int and artifact["source_run_id"] == run_id
+                 and type(artifact.get("source_run_attempt")) is int and artifact["source_run_attempt"] == 1
+                 and type(artifact.get("artifact_id")) is int and artifact["artifact_id"] > 0
+                 and artifact.get("downloaded_member") == member,
+                 "preserved_tree_parent_mismatch", stage="state_tree")
+        _verify_snapshot_unchanged(snapshot)
+        _require(artifact.get("downloaded_sha256") == artifact.get("github_sha256") == snapshot.sha256
+                 and all(type(artifact.get(key)) is int and artifact[key] == snapshot.size_bytes
+                         for key in ("size_bytes", "downloaded_size_bytes")),
+                 "preserved_tree_parent_bytes_mismatch", stage="state_tree")
+        results[state_id] = _canonical_json_bytes({
+            "schema_version": PRESERVED_TREE_FORMAT,
+            "state_id": state_id, "source_directory": locator,
+            "declared_origin_occurrence_id": required["producer_occurrence_id"],
+            "subject": {"repository": REPOSITORY, "run_id": run_id, "run_attempt": 1, "source_commit": source},
+            "parent_carrier": {"artifact_id": artifact["artifact_id"], "artifact_name": name,
+                               "archive_role": archive_role, "capture_member": ACQUISITION_PREFIX + member,
+                               "sha256": snapshot.sha256, "size_bytes": snapshot.size_bytes},
+            "member_prefix": prefix, "member_count": len(inventory),
+            "content_size_bytes": sum(item["size_bytes"] for item in inventory), "members": inventory,
+        })
+    return results
+
+
 def _raw_response_bindings(
     *,
     acquisition_files: Mapping[str, FileSnapshot],
@@ -2823,6 +2943,10 @@ def build_capture(
     )
     _validate_preserved_member_roles(plan=plan, state_views=state_views, package_view=package_view)
     _validate_boundary_state_roles(plan)
+    _validate_preserved_tree_roles(
+        plan=plan, subject=subject, acquisition_files=acquisition_files,
+        artifact_rows=artifact_rows, state_views=state_views,
+    )
 
     capture_members = _capture_members(
         plan_snapshot=plan_snapshot,

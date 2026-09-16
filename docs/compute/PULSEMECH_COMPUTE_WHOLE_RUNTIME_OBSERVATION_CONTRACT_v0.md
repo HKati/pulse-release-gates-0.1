@@ -628,6 +628,66 @@ its representation and evidence identity must remain explicit.
 | `state:step5c:package-run-metadata` | `exact_preserved_content` |
 | `state:step5c:effective-required-argument-list` | `checked_source_argv_derivation_with_runtime_receipt_gap` |
 
+### Carrier-bound preserved tree projection
+
+The three directory roles below use the closed original member inventories
+already checked during capture and independent intake. They are not replacement
+ZIPs and do not inherit a directory identity from a parent archive hash.
+
+| State role | Exact selected parent | Member prefix | File count |
+| --- | --- | --- | --- |
+| `advisory-reference-bundle` | Subject `release-grade-reference-run-v0` archive | Empty: entire root | 9 |
+| `release-authority-audit-bundle` | Same selected advisory archive | `release-authority-audit-bundle/` | 3 |
+| `recorded-release-candidate-envelopes` | Subject `release-grade-recorded-path-<run_id>-1` archive | `recorded_release_candidates/` | 3 |
+
+The audit tree uses the preserved final R22 version. Existing exact-copy checks
+also bind these files to the final recorded-path and complete-package copies.
+The candidate tree retains the original R6 envelope bytes and the existing
+candidate-index checks; it is not a new candidate evaluation. Advisory R25
+assembly and R32 publication remain distinct from the observer's description.
+
+Each role derives a `pulsemech_step5c_preserved_tree_binding_v0` JSON description
+with the following closed fields:
+
+- `schema_version`, `state_id`, `source_directory` and
+  `declared_origin_occurrence_id` identify the format and exact source-declared
+  directory/version. The origin is a declaration, not an observed producer.
+- `subject` contains `repository`, `run_id`, `run_attempt` and `source_commit`.
+- `parent_carrier` contains `artifact_id`, `artifact_name`, `archive_role`,
+  `capture_member`, `sha256` and `size_bytes` for the original selected ZIP.
+- `member_prefix` locates the tree within that carrier. `members` is the list
+  of `path`, `sha256`, `size_bytes` rows, sorted by relative `path`; paths have
+  the declared prefix removed. Each required regular file appears exactly once.
+- `member_count` is the length of that list; `content_size_bytes` is the sum of
+  its original uncompressed file sizes. Directory entries are not file rows.
+
+The description uses the existing canonical JSON encoding: sorted object keys,
+two-space indentation, UTF-8, and the single trailing newline. The runtime state's
+`sha256` and `size_bytes` describe those canonical description bytes, NOT the
+original ZIP, concatenated payloads, aggregate file size, or an observed filesystem
+snapshot. Its `media_type` is `application/json`; `schema_identity` names this
+closed representation, not a new generic-runtime schema or enum value. These
+bytes are deterministically re-derived from the capture, not inserted into or
+substituted for any original archive or acquired file. The enclosing plan and
+capture still determine example/observed status; this description creates no
+independent observation claim.
+
+Including the parent identity makes two differently identified ZIPs distinct
+even if their relative file contents agree. The advisory role binds both its
+entire tree and its exact archive; a subset or reconstructed ZIP is insufficient.
+Missing, additional, duplicate, unsafe, conflicting and wrongly versioned
+members retain the existing independent rejection boundaries and finite budgets.
+This projection adds no archive expansion or extraction pass: each side uses
+its own just-validated inner inventory, never the other side's verdict.
+
+Capture validates these role and parent bindings before publication. The separate
+verifier reconstructs them before intake succeeds and before runtime projection;
+final verification re-derives the expected state records rather than trusting
+claimed descriptor digests. These states retain `producer_execution_id: null`,
+no new execution input/output edges, and the bound acquisition-completion time.
+Only names, lengths, digests and public context enter the description, never raw
+payload text. The R2 profile and incomplete-evidence acceptance stop are unchanged.
+
 ### Preserved boundary-object content projection
 
 The pre-attestation artifact and three Step 3F handoff objects have separate
