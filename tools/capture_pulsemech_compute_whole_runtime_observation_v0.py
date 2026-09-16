@@ -1751,6 +1751,7 @@ def _state_archive_limits(plan: Mapping[str, Any]) -> tuple[int, int, int]:
 
 def _read_state_archive(
     snapshot: FileSnapshot, *, expected: tuple[str, ...], limits: tuple[int, int, int],
+    retained_members: frozenset[str] | None = None,
 ) -> tuple[dict[str, tuple[str, int]], dict[str, bytes], int]:
     """Stream/hash original members without extraction or payload diagnostics."""
     maximum_members, maximum_single, maximum_total = limits
@@ -1795,7 +1796,8 @@ def _read_state_archive(
                 files[name] = info
             _require(set(files) == wanted, "state_archive_member_set_mismatch", stage="state_archive")
             for name, info in files.items():
-                is_document = name == "recorded_release_candidate_index_v0.json" or name.startswith("recorded_release_candidates/")
+                is_document = (name in retained_members if retained_members is not None else
+                               name == "recorded_release_candidate_index_v0.json" or name.startswith("recorded_release_candidates/"))
                 if is_document:
                     _require(info.file_size <= MAX_JSON_BYTES, "state_archive_index_size_invalid", stage="state_archive")
                 chunks: list[bytes] = []
@@ -1915,6 +1917,180 @@ def _validate_subject_state_archives(
                  and binding.get("sha256") == before[name][0],
                  "state_archive_pre_state_binding_mismatch", stage="state_archive")
     return views
+
+
+# B5/B6 package selectors from the reviewed assembler and R22 audit copy.
+# The selected candidate tree has three entries. This closed profile does not
+# infer membership from the untrusted package's own digest inventory.
+COMPLETE_PACKAGE_COPY_SOURCES = {
+    "artifacts/required_gate_evidence_v0.json": "required_gate_evidence_v0.json",
+    "artifacts/status_baseline.json": "status_baseline.json",
+    "artifacts/recorded_release_candidate_index_v0.json": "recorded_release_candidate_index_v0.json",
+    "artifacts/release_evidence_input_manifest_v0.json": "release_evidence_input_manifest_v0.json",
+    "artifacts/recorded_release_evidence_verifier_v0.json": "recorded_release_evidence_verifier_v0.json",
+    "artifacts/external/llamaguard_raw.jsonl": "external/llamaguard_raw.jsonl",
+    "artifacts/external/llamaguard_evaluator_manifest_v0.json": "external/llamaguard_evaluator_manifest_v0.json",
+    "artifacts/external/llamaguard_summary.json": "external/llamaguard_summary.json",
+    "artifacts/external/llamaguard_summary.bundle.json": "external/llamaguard_summary.bundle.json",
+    "artifacts/external/llamaguard_summary.envelope.json": "external/llamaguard_summary.envelope.json",
+    "artifacts/external/llamaguard_attestation_verifier_v1.json": "external/llamaguard_attestation_verifier_v1.json",
+    "artifacts/status.json": "status.json",
+    "artifacts/release_decision_v0.json": "release_decision_v0.json",
+    "artifacts/artifact_provenance_binding_v0.json": "artifact_provenance_binding_v0.json",
+    "artifacts/release_authority_v0.json": "release_authority_v0.json",
+    "artifacts/report_card.html": "report_card.html",
+    "artifacts/recorded_release_candidates/detector_materialization.json": "recorded_release_candidates/detector_materialization.json",
+    "artifacts/recorded_release_candidates/external_llamaguard.json": "recorded_release_candidates/external_llamaguard.json",
+    "artifacts/recorded_release_candidates/refusal_delta_summary.json": "recorded_release_candidates/refusal_delta_summary.json",
+    "release-authority-audit-bundle/status.json": "status.json",
+    "release-authority-audit-bundle/report_card.html": "report_card.html",
+    "release-authority-audit-bundle/release_authority_v0.json": "release_authority_v0.json",
+}
+COMPLETE_PACKAGE_DOCUMENTS = frozenset({"package_digest_inventory_v0.json", "run_metadata_v0.json"})
+COMPLETE_PACKAGE_MEMBERS = tuple(sorted(set(COMPLETE_PACKAGE_COPY_SOURCES) | COMPLETE_PACKAGE_DOCUMENTS))
+PACKAGE_AUTHORITY_BOUNDARY = {
+    "creates_release_authority": False, "authorizes_release": False,
+    "blocks_release": False, "materializes_status": False,
+    "materializes_release_required": False, "verifies_recorded_release_evidence": False,
+    "replaces_check_gates": False, "package_only": True,
+}
+
+
+def _package_json(raw: bytes) -> dict[str, Any]:
+    try:
+        return _json_object(raw, label="package_document", canonical=False)
+    except (CaptureError, ValueError, RecursionError):
+        raise CaptureError("package_json_invalid", stage="package") from None
+
+
+def _package_authority_boundary(value: Any) -> bool:
+    return (isinstance(value, dict) and set(value) == set(PACKAGE_AUTHORITY_BOUNDARY)
+            and all(value[key] is expected for key, expected in PACKAGE_AUTHORITY_BOUNDARY.items()))
+
+
+def _validate_complete_package(
+    *, acquisition_files: Mapping[str, FileSnapshot], plan: Mapping[str, Any],
+    subject: Mapping[str, Any], artifact_rows: Mapping[str, dict[str, Any]],
+    state_views: Mapping[str, Mapping[str, tuple[str, int]]],
+) -> dict[str, tuple[str, int]]:
+    """Bind preserved package inventory/metadata; not a replay or R2 verdict.
+
+    state_views are the result of this invocation's preceding inner checks.
+    The package inventory is never trusted to choose its own required members.
+    Original byte identity does not prove a producer/consumer read occurrence.
+    """
+    try:
+        limits = _state_archive_limits(plan)
+    except CaptureError:
+        raise CaptureError("package_limits_invalid", stage="package") from None
+    used_bytes = sum(size for view in state_views.values() for _, size in view.values())
+    used_members = 0
+    try:
+        # Count original directory records too. Payloads were already streamed;
+        # this bounded metadata pass avoids rereading all preserved content.
+        for relative in STATE_ARCHIVE_PATHS.values():
+            snapshot = acquisition_files[relative]
+            _verify_snapshot_unchanged(snapshot)
+            with zipfile.ZipFile(snapshot.path, "r") as archive:
+                used_members += len(archive.infolist())
+            _verify_snapshot_unchanged(snapshot)
+        snapshot = acquisition_files.get("subject/artifacts/complete-release-grade-reference-package.zip")
+        _require(isinstance(snapshot, FileSnapshot), "package_missing", stage="package")
+        view, documents, _ = _read_state_archive(
+            snapshot, expected=COMPLETE_PACKAGE_MEMBERS,
+            limits=(limits[0] - used_members, limits[1], limits[2] - used_bytes),
+            retained_members=COMPLETE_PACKAGE_DOCUMENTS,
+        )
+    except CaptureError as exc:
+        if exc.code.startswith("state_archive_"):
+            raise CaptureError("package_" + exc.code.removeprefix("state_archive_"), stage="package") from None
+        raise
+    except (OSError, ValueError, RuntimeError, EOFError, zipfile.BadZipFile, zlib.error):
+        raise CaptureError("package_zip_invalid", stage="package") from None
+
+    inventory = _package_json(documents["package_digest_inventory_v0.json"])
+    _require(set(inventory) == {"schema_version", "algorithm", "file_count", "files", "authority_boundary"}
+             and inventory.get("schema_version") == "release_grade_reference_package_digest_inventory_v0"
+             and inventory.get("algorithm") == "sha256",
+             "package_inventory_profile_mismatch", stage="package")
+    _require(_package_authority_boundary(inventory.get("authority_boundary")),
+             "package_authority_mismatch", stage="package")
+    rows = inventory.get("files")
+    wanted = sorted(set(view) - {"package_digest_inventory_v0.json"})
+    _require(isinstance(rows, list) and type(inventory.get("file_count")) is int
+             and inventory["file_count"] == len(rows) == len(wanted),
+             "package_inventory_count_mismatch", stage="package")
+    declared = []
+    for row in rows:
+        _require(isinstance(row, dict) and set(row) == {"path", "sha256", "size_bytes"}
+                 and isinstance(row.get("path"), str) and row["path"] in wanted,
+                 "package_inventory_member_mismatch", stage="package")
+        name = row["path"]
+        _require(isinstance(row.get("sha256"), str) and re.fullmatch(r"[0-9a-f]{64}", row["sha256"]) is not None
+                 and type(row.get("size_bytes")) is int
+                 and (row["sha256"], row["size_bytes"]) == view[name],
+                 "package_inventory_content_mismatch", stage="package")
+        declared.append(name)
+    _require(declared == wanted, "package_inventory_member_mismatch", stage="package")
+
+    metadata = _package_json(documents["run_metadata_v0.json"])
+    keys = {"schema_version", "package_schema_version", "package_role", "created_utc", "repository",
+            "git_sha", "workflow_ref", "run_id", "run_attempt", "run_key", "release_candidate",
+            "source_inputs", "assembler", "authority_boundary"}
+    _require(set(metadata) == keys, "package_metadata_profile_mismatch", stage="package")
+    source = plan["plan_identity"]["source_commit"]
+    run_id = subject.get("run_id")
+    _require(type(run_id) is int and run_id > 0 and subject.get("head_sha") == source
+             and type(subject.get("run_attempt")) is int and subject["run_attempt"] == 1,
+             "package_metadata_identity_mismatch", stage="package")
+    fixed = {
+        "schema_version": "release_grade_reference_package_run_metadata_v0",
+        "package_schema_version": "release_grade_reference_package_v0",
+        "package_role": "complete_release_grade_reference_package",
+        "repository": REPOSITORY, "git_sha": source,
+        "workflow_ref": REPOSITORY + "/.github/workflows/pulse_ci.yml@refs/heads/main",
+        "run_id": run_id, "run_attempt": 1,
+        "run_key": f"GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+        # The original assembler receives GITHUB_REF_NAME, not the derived
+        # Step 5C pulse-ci-current-run:<id>:1 release-candidate identifier.
+        "release_candidate": "main",
+    }
+    _require(all(metadata.get(key) == value for key, value in fixed.items())
+             and type(metadata.get("run_id")) is int and type(metadata.get("run_attempt")) is int,
+             "package_metadata_identity_mismatch", stage="package")
+    _require(_package_authority_boundary(metadata.get("authority_boundary")),
+             "package_authority_mismatch", stage="package")
+    _require(metadata.get("assembler") == {
+        "tool": "assemble_release_grade_reference_package_v0.py", "version": "0.1.0"},
+        "package_assembler_mismatch", stage="package")
+    try:
+        created = _parse_utc(metadata.get("created_utc"), label="package_created")
+        published = _parse_utc(artifact_rows["complete_release_grade_reference_package"].get("created_utc"), label="package_published")
+        _require(len(metadata["created_utc"]) == 20
+                 and _parse_utc(subject.get("created_at"), label="package_subject_created") <= created <= published
+                 <= _parse_utc(subject.get("updated_at"), label="package_subject_completed"),
+                 "package_metadata_time_mismatch", stage="package")
+    except (CaptureError, ValueError, TypeError):
+        raise CaptureError("package_metadata_time_mismatch", stage="package") from None
+    roots = metadata.get("source_inputs")
+    suffixes = {"pulse_report": "pulse-report", "recorded_path": "release-grade-recorded-path",
+                "audit_bundle": "release-authority-audit-bundle", "artifact_binding": "release-authority-artifact-binding-v0"}
+    _require(isinstance(roots, dict) and set(roots) == set(suffixes),
+             "package_source_inputs_mismatch", stage="package")
+    common_roots = set()
+    for role, leaf in suffixes.items():
+        value = roots[role]
+        suffix = "/complete-release-grade-reference-inputs/" + leaf
+        _require(isinstance(value, str) and value.startswith("/") and value.endswith(suffix)
+                 and "\\" not in value and all(ord(char) >= 32 and ord(char) != 127 for char in value)
+                 and all(part not in {"", ".", ".."} for part in value.split("/")[1:]),
+                 "package_source_inputs_mismatch", stage="package")
+        common_roots.add(value[:-len(suffix)])
+    _require(len(common_roots) == 1, "package_source_inputs_mismatch", stage="package")
+    recorded = state_views["release_grade_recorded_path"]
+    for destination, origin in COMPLETE_PACKAGE_COPY_SOURCES.items():
+        _require(view[destination] == recorded[origin], "package_same_version_mismatch", stage="package")
+    return view
 
 
 def _raw_response_bindings(
@@ -2368,8 +2544,12 @@ def build_capture(
         artifact_rows=artifact_rows,
     )
 
-    _validate_subject_state_archives(
+    state_views = _validate_subject_state_archives(
         acquisition_files=acquisition_files, plan=plan, subject=subject,
+    )
+    _validate_complete_package(
+        acquisition_files=acquisition_files, plan=plan, subject=subject,
+        artifact_rows=artifact_rows, state_views=state_views,
     )
 
     capture_members = _capture_members(

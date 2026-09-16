@@ -1266,6 +1266,7 @@ _STATE_ARCHIVE_LAYOUT = (
 
 def _inspect_state_archive_bytes(
     raw: bytes, expected: frozenset[str], *, member_limit: int, single_limit: int, expansion_limit: int,
+    retained_members: frozenset[str] | None = None,
 ) -> tuple[dict[str, tuple[str, int]], dict[str, bytes], int]:
     """Inspect arbitrary original ZIP transport without extracting payloads."""
     require(type(raw) is bytes and raw, "state_archive_missing", stage="state_archive")
@@ -1315,7 +1316,8 @@ def _inspect_state_archive_bytes(
                     "state_archive_member_set_mismatch", stage="state_archive")
             for info in selected:
                 name = info.filename
-                retain_json = name.startswith("recorded_release_candidates/") or name == "recorded_release_candidate_index_v0.json"
+                retain_json = (name in retained_members if retained_members is not None else
+                               name.startswith("recorded_release_candidates/") or name == "recorded_release_candidate_index_v0.json")
                 if retain_json:
                     require(info.file_size <= 16 * 1024 * 1024, "state_archive_index_size_invalid", stage="state_archive")
                 digest = hashlib.sha256()
@@ -1455,6 +1457,172 @@ def _check_subject_state_archives(
     return views
 
 
+# This verifier owns its package selectors. The preserved assembler and the
+# actual copy steps are exercised by the independent source-layout regressions.
+_PACKAGE_COPY_GROUPS = (
+    ("artifacts/", (
+        "required_gate_evidence_v0.json", "status_baseline.json",
+        "recorded_release_candidate_index_v0.json", "release_evidence_input_manifest_v0.json",
+        "recorded_release_evidence_verifier_v0.json", "external/llamaguard_raw.jsonl",
+        "external/llamaguard_evaluator_manifest_v0.json", "external/llamaguard_summary.json",
+        "external/llamaguard_summary.bundle.json", "external/llamaguard_summary.envelope.json",
+        "external/llamaguard_attestation_verifier_v1.json", "status.json", "release_decision_v0.json",
+        "artifact_provenance_binding_v0.json", "release_authority_v0.json", "report_card.html",
+        "recorded_release_candidates/detector_materialization.json",
+        "recorded_release_candidates/external_llamaguard.json",
+        "recorded_release_candidates/refusal_delta_summary.json",
+    )),
+    ("release-authority-audit-bundle/", ("status.json", "report_card.html", "release_authority_v0.json")),
+)
+_PACKAGE_METADATA_MEMBERS = frozenset(("run_metadata_v0.json", "package_digest_inventory_v0.json"))
+_PACKAGE_FILE_SET = frozenset(prefix + name for prefix, names in _PACKAGE_COPY_GROUPS for name in names) | _PACKAGE_METADATA_MEMBERS
+
+
+def _check_package_authority(value: Any) -> None:
+    false_fields = {"creates_release_authority", "authorizes_release", "blocks_release",
+                    "materializes_status", "materializes_release_required",
+                    "verifies_recorded_release_evidence", "replaces_check_gates"}
+    require(isinstance(value, dict) and set(value) == false_fields | {"package_only"}
+            and value.get("package_only") is True and all(value[key] is False for key in false_fields),
+            "package_authority_mismatch", stage="package")
+
+
+def _parse_package_document(raw: bytes) -> dict[str, Any]:
+    try:
+        return _parse_state_archive_index(raw)
+    except (VerificationError, ValueError, RecursionError):
+        raise VerificationError("package_json_invalid", stage="package") from None
+
+
+def _check_complete_package(
+    plan: Mapping[str, Any], manifest: Mapping[str, Any], members: Mapping[str, bytes],
+    state_views: Mapping[str, Mapping[str, tuple[str, int]]],
+) -> dict[str, tuple[str, int]]:
+    """Independently bind original package files, inventory and run metadata.
+
+    No input paths are opened, no artifact is extracted and no field is copied
+    into a new observation record. Full semantic replay/R2 remain downstream.
+    """
+    finite = plan.get("finite_limits")
+    names = ("max_capture_members", "max_single_artifact_bytes", "max_capture_uncompressed_bytes")
+    caps = (MAX_CAPTURE_MEMBERS, 805306368, MAX_CAPTURE_BYTES)
+    require(isinstance(finite, Mapping)
+            and all(type(finite.get(k)) is int and 0 < finite[k] <= cap for k, cap in zip(names, caps)),
+            "package_limits_invalid", stage="package")
+    remaining_members = finite[names[0]]
+    remaining_bytes = finite[names[2]]
+    try:
+        # Account for the original directory entries as well as file entries in
+        # the three already-verified archives; do not reset their shared budget.
+        for role, relative, _ in _STATE_ARCHIVE_LAYOUT:
+            with zipfile.ZipFile(io.BytesIO(members[relative]), "r") as archive:
+                remaining_members -= len(archive.infolist())
+            remaining_bytes -= sum(binding[1] for binding in state_views[role].values())
+        raw = members.get("acquisition/subject/artifacts/complete-release-grade-reference-package.zip")
+        require(type(raw) is bytes and raw, "package_missing", stage="package")
+        view, payloads, _ = _inspect_state_archive_bytes(
+            raw, _PACKAGE_FILE_SET, member_limit=remaining_members,
+            single_limit=finite[names[1]], expansion_limit=remaining_bytes,
+            retained_members=_PACKAGE_METADATA_MEMBERS,
+        )
+    except VerificationError as exc:
+        if exc.code.startswith("state_archive_"):
+            raise VerificationError("package_" + exc.code[len("state_archive_"):], stage="package") from None
+        raise
+    except (OSError, ValueError, RuntimeError, EOFError, zipfile.BadZipFile, zlib.error):
+        raise VerificationError("package_zip_invalid", stage="package") from None
+
+    inventory = _parse_package_document(payloads["package_digest_inventory_v0.json"])
+    require(set(inventory) == {"schema_version", "algorithm", "file_count", "files", "authority_boundary"}
+            and inventory.get("schema_version") == "release_grade_reference_package_digest_inventory_v0"
+            and inventory.get("algorithm") == "sha256",
+            "package_inventory_profile_mismatch", stage="package")
+    _check_package_authority(inventory.get("authority_boundary"))
+    expected_members = set(view) - {"package_digest_inventory_v0.json"}
+    rows = inventory.get("files")
+    require(isinstance(rows, list) and type(inventory.get("file_count")) is int
+            and inventory["file_count"] == len(expected_members) == len(rows),
+            "package_inventory_count_mismatch", stage="package")
+    seen = set()
+    previous = ""
+    for entry in rows:
+        require(isinstance(entry, dict) and set(entry) == {"path", "sha256", "size_bytes"},
+                "package_inventory_member_mismatch", stage="package")
+        name = entry.get("path")
+        require(type(name) is str and name in expected_members and name not in seen and name > previous,
+                "package_inventory_member_mismatch", stage="package")
+        require(type(entry.get("sha256")) is str and re.fullmatch(r"[0-9a-f]{64}", entry["sha256"]) is not None
+                and type(entry.get("size_bytes")) is int and entry["size_bytes"] == view[name][1]
+                and entry["sha256"] == view[name][0],
+                "package_inventory_content_mismatch", stage="package")
+        seen.add(name)
+        previous = name
+    require(seen == expected_members, "package_inventory_member_mismatch", stage="package")
+
+    meta = _parse_package_document(payloads["run_metadata_v0.json"])
+    require(set(meta) == {"schema_version", "package_schema_version", "package_role", "created_utc",
+                         "repository", "git_sha", "workflow_ref", "run_id", "run_attempt", "run_key",
+                         "release_candidate", "source_inputs", "assembler", "authority_boundary"},
+            "package_metadata_profile_mismatch", stage="package")
+    subject = manifest["subject"]
+    source = plan["plan_identity"]["source_commit"]
+    run_id = subject.get("run_id")
+    require(type(run_id) is int and run_id > 0 and subject.get("head_sha") == source
+            and type(subject.get("run_attempt")) is int and subject["run_attempt"] == 1
+            and meta.get("schema_version") == "release_grade_reference_package_run_metadata_v0"
+            and meta.get("package_schema_version") == "release_grade_reference_package_v0"
+            and meta.get("package_role") == "complete_release_grade_reference_package"
+            and meta.get("repository") == REPOSITORY and meta.get("git_sha") == source
+            and meta.get("workflow_ref") == REPOSITORY + "/.github/workflows/pulse_ci.yml@refs/heads/main"
+            and type(meta.get("run_id")) is int and meta["run_id"] == run_id
+            and type(meta.get("run_attempt")) is int and meta["run_attempt"] == 1
+            and meta.get("run_key") == f"GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+            and meta.get("release_candidate") == "main",
+            "package_metadata_identity_mismatch", stage="package")
+    _check_package_authority(meta.get("authority_boundary"))
+    require(meta.get("assembler") == {"tool": "assemble_release_grade_reference_package_v0.py", "version": "0.1.0"},
+            "package_assembler_mismatch", stage="package")
+    # The selected assembler receives GITHUB_REF_NAME ('main'), not the Step 5C
+    # synthetic current-run subject name. These are different identity fields.
+    package_name = f"complete-release-grade-reference-package-{run_id}-1"
+    bindings = [row for row in manifest["artifact_bindings"] if row.get("artifact_name") == package_name]
+    require(len(bindings) == 1, "package_metadata_time_mismatch", stage="package")
+    try:
+        stamp = meta.get("created_utc")
+        require(type(stamp) is str and re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", stamp) is not None,
+                "package_metadata_time_mismatch", stage="package")
+        times = [parse_utc(subject.get("created_at"), label="package_subject_created"),
+                 parse_utc(stamp, label="package_created"),
+                 parse_utc(bindings[0].get("created_utc"), label="package_published"),
+                 parse_utc(subject.get("updated_at"), label="package_subject_completed")]
+        require(times == sorted(times), "package_metadata_time_mismatch", stage="package")
+    except (VerificationError, ValueError, TypeError):
+        raise VerificationError("package_metadata_time_mismatch", stage="package") from None
+    inputs = meta.get("source_inputs")
+    roles = (("audit_bundle", "release-authority-audit-bundle"),
+             ("artifact_binding", "release-authority-artifact-binding-v0"),
+             ("recorded_path", "release-grade-recorded-path"), ("pulse_report", "pulse-report"))
+    require(isinstance(inputs, dict) and set(inputs) == {role for role, _ in roles},
+            "package_source_inputs_mismatch", stage="package")
+    roots = []
+    for role, leaf in roles:
+        path = inputs[role]
+        require(type(path) is str and path.startswith("/") and "\\" not in path
+                and not any(ord(char) < 32 or ord(char) == 127 for char in path),
+                "package_source_inputs_mismatch", stage="package")
+        parts = path.split("/")
+        require(len(parts) >= 3 and parts[-2:] == ["complete-release-grade-reference-inputs", leaf]
+                and all(part and part not in {".", ".."} for part in parts[1:]),
+                "package_source_inputs_mismatch", stage="package")
+        roots.append(parts[:-2])
+    require(all(root == roots[0] for root in roots), "package_source_inputs_mismatch", stage="package")
+    recorded = state_views["release_grade_recorded_path"]
+    for prefix, names in _PACKAGE_COPY_GROUPS:
+        for name in names:
+            require(view[prefix + name] == recorded[name], "package_same_version_mismatch", stage="package")
+    return view
+
+
 def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, Any], expected_plan_sha256: str, expected_context_raw: bytes, record_status: str, source_commit: str) -> tuple[dict[str, Any], dict[str, bytes], bytes]:
     raw = path.read_bytes()
     members = read_canonical_zip_bytes(
@@ -1522,7 +1690,8 @@ def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, An
     require(subject.get("head_sha") == provider.get("head_sha") == source_commit, "capture_run_source_mismatch", stage="capture")
     require(CAPTURE_PROVIDER_ENVELOPE_MEMBER in members, "provider_envelope_missing", stage="capture")
     _check_selected_archive_evidence(plan, manifest, members)
-    _check_subject_state_archives(plan, manifest, members)
+    state_views = _check_subject_state_archives(plan, manifest, members)
+    _check_complete_package(plan, manifest, members, state_views)
     return manifest, members, raw
 
 

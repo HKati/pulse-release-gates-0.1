@@ -731,7 +731,7 @@ def provider_fixture(plan, source_commit, *, model_rows=None, subject_override=N
     for role, name_template, _ in ACQUIRER.SUBJECT_TERMINAL_ARTIFACT_TEMPLATES:
         name = name_template.format(run_id=EXAMPLE_SUBJECT_ID) + '.zip'
         subject_artifacts[role] = example_zip(
-            {VERIFIER.LLAMAGUARD_RAW_MEMBER: raw_model} if role == 'complete_release_grade_reference_package'
+            example_complete_package(source_commit, raw_model) if role == 'complete_release_grade_reference_package'
             else {'fixture-only.json': canonical({'record_status': 'example', 'purpose': role})})
         layout[CAPTURER.SUBJECT_DOWNLOAD_ROLES[role][1]] = name
     relative_members = {'original-github-artifacts/' + layout[CAPTURER.SUBJECT_DOWNLOAD_ROLES[role][1]]: raw
@@ -811,9 +811,11 @@ _INNER_ADVISORY_COPIES = {
 }
 
 
-def example_state_archive_members(source_commit):
+def example_state_archive_members(source_commit, *, raw_model=None):
     pre = {name: canonical({'record_status': 'example', 'member': name})
            for name in _INNER_PRE_MEMBERS}
+    if raw_model is not None:
+        pre['external/llamaguard_raw.jsonl'] = raw_model
     pre['status.json'] = canonical({'record_status': 'example', 'version': 'pre-R9',
         'content': 'OPAQUE_EXAMPLE_CANARY_pre_attestation_pulse_artifacts'})
     recorded = {**pre, **{name: canonical({'record_status': 'example', 'member': name})
@@ -847,6 +849,63 @@ def example_state_archive_members(source_commit):
             'release_grade_recorded_path': recorded, 'advisory_reference_bundle': advisory}
 
 
+# Independent literal EXAMPLE package layout. These payloads prove preservation
+# bindings only; they remain deliberately insufficient for full Step 3F replay.
+_EXAMPLE_PACKAGE_ARTIFACTS = (
+    'required_gate_evidence_v0.json', 'status_baseline.json',
+    'recorded_release_candidate_index_v0.json', 'release_evidence_input_manifest_v0.json',
+    'recorded_release_evidence_verifier_v0.json', 'external/llamaguard_raw.jsonl',
+    'external/llamaguard_evaluator_manifest_v0.json', 'external/llamaguard_summary.json',
+    'external/llamaguard_summary.bundle.json', 'external/llamaguard_summary.envelope.json',
+    'external/llamaguard_attestation_verifier_v1.json', 'status.json', 'release_decision_v0.json',
+    'artifact_provenance_binding_v0.json', 'release_authority_v0.json', 'report_card.html',
+    'recorded_release_candidates/detector_materialization.json',
+    'recorded_release_candidates/external_llamaguard.json',
+    'recorded_release_candidates/refusal_delta_summary.json',
+)
+_EXAMPLE_PACKAGE_BOUNDARY = {
+    'creates_release_authority': False, 'authorizes_release': False,
+    'blocks_release': False, 'materializes_status': False,
+    'materializes_release_required': False, 'verifies_recorded_release_evidence': False,
+    'replaces_check_gates': False, 'package_only': True,
+}
+
+
+def example_package_inventory(content):
+    rows = [{'path': name, 'sha256': digest(raw), 'size_bytes': len(raw)}
+            for name, raw in sorted(content.items()) if name != 'package_digest_inventory_v0.json']
+    return {'schema_version': 'release_grade_reference_package_digest_inventory_v0',
+            'algorithm': 'sha256', 'file_count': len(rows), 'files': rows,
+            'authority_boundary': dict(_EXAMPLE_PACKAGE_BOUNDARY)}
+
+
+def example_complete_package(source_commit, raw_model):
+    recorded = example_state_archive_members(source_commit, raw_model=raw_model)['release_grade_recorded_path']
+    content = {'artifacts/' + name: recorded[name] for name in _EXAMPLE_PACKAGE_ARTIFACTS}
+    for name in ('status.json', 'report_card.html', 'release_authority_v0.json'):
+        content['release-authority-audit-bundle/' + name] = recorded[name]
+    metadata = {
+        'schema_version': 'release_grade_reference_package_run_metadata_v0',
+        'package_schema_version': 'release_grade_reference_package_v0',
+        'package_role': 'complete_release_grade_reference_package',
+        'created_utc': EXAMPLE_END, 'repository': 'HKati/pulse-release-gates-0.1',
+        'git_sha': source_commit,
+        'workflow_ref': 'HKati/pulse-release-gates-0.1/.github/workflows/pulse_ci.yml@refs/heads/main',
+        'run_id': EXAMPLE_SUBJECT_ID, 'run_attempt': 1,
+        'run_key': f'GITHUB_RUN_ID={EXAMPLE_SUBJECT_ID}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI',
+        'release_candidate': 'main',
+        'source_inputs': {role: '/EXAMPLE/runner/complete-release-grade-reference-inputs/' + leaf
+            for role, leaf in [('pulse_report', 'pulse-report'), ('recorded_path', 'release-grade-recorded-path'),
+                              ('audit_bundle', 'release-authority-audit-bundle'),
+                              ('artifact_binding', 'release-authority-artifact-binding-v0')]},
+        'assembler': {'tool': 'assemble_release_grade_reference_package_v0.py', 'version': '0.1.0'},
+        'authority_boundary': dict(_EXAMPLE_PACKAGE_BOUNDARY),
+    }
+    content['run_metadata_v0.json'] = canonical(metadata)
+    content['package_digest_inventory_v0.json'] = canonical(example_package_inventory(content))
+    return content
+
+
 class ExampleTransport:
     """Exact endpoint allowlist; any unexpected or live request is a test error."""
     def __init__(self, plan, source_commit, *, change=None):
@@ -867,7 +926,9 @@ class ExampleTransport:
             self.downloads[identifier] = raw
             self.subject_artifacts.append(artifact_row(identifier, name.format(run_id=EXAMPLE_SUBJECT_ID), raw, source_commit, EXAMPLE_SUBJECT_ID))
         # Closed-layout examples, deliberately not complete inner R2 proofs.
-        state_archives = example_state_archive_members(source_commit)
+        with zipfile.ZipFile(io.BytesIO(artifacts['complete_release_grade_reference_package'])) as package:
+            raw_model = package.read('artifacts/external/llamaguard_raw.jsonl')
+        state_archives = example_state_archive_members(source_commit, raw_model=raw_model)
         for index, (role, name, _) in enumerate(_ADDITIONAL_SUBJECT_ARCHIVES, 5):
             raw = example_zip(state_archives[role])
             identifier = 40000 + index
@@ -9126,6 +9187,454 @@ def test_inner_archive_shared_wrong_locator_is_not_validated_by_agreement(inner_
     for side in ('capture', 'verifier'):
         with pytest.raises(AssertionError):
             test_inner_archive_selectors_match_executed_source_oracle(inner_source_oracle, side)
+
+
+# ---------------------------------------------------------------------------
+# Complete selected package: independent closed inventory + original metadata.
+# The enclosing EXAMPLE carrier is still not a full Step 3F/R2 semantic proof.
+# ---------------------------------------------------------------------------
+_PACKAGE_ROLE = 'complete_release_grade_reference_package'
+_PACKAGE_MEMBER = 'acquisition/subject/artifacts/complete-release-grade-reference-package.zip'
+_PACKAGE_DOCUMENTS = ('package_digest_inventory_v0.json', 'run_metadata_v0.json')
+_PACKAGE_EXAMPLE_FILES = tuple(sorted(
+    {'artifacts/' + name for name in _EXAMPLE_PACKAGE_ARTIFACTS}
+    | {'release-authority-audit-bundle/' + name for name in ('status.json', 'report_card.html', 'release_authority_v0.json')}
+    | set(_PACKAGE_DOCUMENTS)))
+
+
+def package_members(case):
+    with zipfile.ZipFile(io.BytesIO(case.members[_PACKAGE_MEMBER])) as archive:
+        return {info.filename: archive.read(info) for info in archive.infolist() if not info.is_dir()}
+
+
+def package_replace_download(case, role, raw):
+    selected, metadata, binding = selected_archive_rows(case, role)
+    case.members['acquisition/' + selected['downloaded_member']] = raw
+    selected.update(size_bytes=len(raw), downloaded_size_bytes=len(raw), github_sha256=digest(raw), downloaded_sha256=digest(raw))
+    binding.update(size_bytes=len(raw), downloaded_size_bytes=len(raw), github_sha256=digest(raw), downloaded_sha256=digest(raw))
+    metadata.update(size_in_bytes=len(raw), digest='sha256:' + digest(raw))
+
+
+def package_replace_raw(case, raw):
+    """Reseal the original copy in Step 3F too, never fix mutated inner evidence."""
+    package_replace_download(case, _PACKAGE_ROLE, raw)
+    selected, _, _ = selected_archive_rows(case, 'step3f_candidate_envelope')
+    with zipfile.ZipFile(io.BytesIO(case.members['acquisition/' + selected['downloaded_member']])) as archive:
+        outer = {info.filename: archive.read(info) for info in archive.infolist()}
+    prefix = 'candidate/'
+    expectation = json.loads(outer[prefix + 'expectation.json'])
+    layout = expectation['archive_layout']
+    carrier_meta = json.loads(outer[prefix + 'carrier.json'])
+    carrier_name = prefix + carrier_meta['staged_relative_path']
+    with zipfile.ZipFile(io.BytesIO(outer[carrier_name])) as archive:
+        nested = {info.filename: archive.read(info) for info in archive.infolist()}
+    original_member = layout['original_artifacts_prefix'] + layout['complete_package_name']
+    # The field name is defined by the already bound Step 3F layout, not by ZIP guessing.
+    nested[original_member] = raw
+    checksum_member = layout['outer_prefix'] + 'SHA256SUMS'
+    nested[checksum_member] = ''.join(
+        f'{digest(payload)}  {name.removeprefix(layout["outer_prefix"])}\n'
+        for name, payload in sorted(nested.items()) if name != checksum_member).encode()
+    carrier = example_zip(nested)
+    outer[carrier_name] = carrier
+    identity = {'sha256': digest(carrier), 'size_bytes': len(carrier)}
+    carrier_meta.update(identity); outer[prefix + 'carrier.json'] = canonical(carrier_meta)
+    for name in ('expectation.json', 'subject-input-packet.json'):
+        document = json.loads(outer[prefix + name]); document['carrier'] = dict(identity)
+        outer[prefix + name] = canonical(document)
+    output_manifest = json.loads(outer[prefix + 'candidate-output-manifest.json'])
+    for entry in output_manifest['files']:
+        payload = outer[prefix + entry['path']]
+        entry.update(sha256=digest(payload), size_bytes=len(payload))
+    outer[prefix + 'candidate-output-manifest.json'] = canonical(output_manifest)
+    for binding in case.manifest['carrier_member_bindings']:
+        name = binding['member']
+        payload = nested.get(name, outer.get(name))
+        assert payload is not None
+        binding.update(sha256=digest(payload), size_bytes=len(payload))
+    package_replace_download(case, 'step3f_candidate_envelope', example_zip(outer))
+    return selected_archive_seal(case)
+
+
+def package_replace_members(case, content, *, rehash_inventory=False):
+    if rehash_inventory:
+        content['package_digest_inventory_v0.json'] = canonical(example_package_inventory(content))
+    return package_replace_raw(case, example_zip(content))
+
+
+def package_check(side, case, plan, directory, *, state_plan=None):
+    original_plan = state_plan if state_plan is not None else plan
+    if side == 'verifier':
+        views = VERIFIER._check_subject_state_archives(original_plan, case.manifest, case.members)
+        return VERIFIER._check_complete_package(plan, case.manifest, case.members, views)
+    directory.mkdir(parents=True, exist_ok=True)
+    snapshots = {}
+    for role, relative in {**_INNER_PATHS, _PACKAGE_ROLE: _PACKAGE_MEMBER.removeprefix('acquisition/')}.items():
+        payload = case.members.get('acquisition/' + relative)
+        if payload is None:
+            continue
+        path = directory / (role + '.zip'); path.write_bytes(payload); path.chmod(0o444)
+        snapshots[relative] = CAPTURER._snapshot_file(path, relative=relative,
+            maximum=CAPTURER.MAX_CARRIER_MEMBER_BYTES, require_read_only=True)
+    views = CAPTURER._validate_subject_state_archives(acquisition_files=snapshots, plan=original_plan, subject=case.manifest['subject'])
+    return CAPTURER._validate_complete_package(acquisition_files=snapshots, plan=plan, subject=case.manifest['subject'],
+        artifact_rows={row['role']: row for row in case.index['downloaded_artifacts']}, state_views=views)
+
+
+def package_assert_rejected(side, case, source_fixture, directory, code):
+    # All repaired outer bindings must be acceptable. The new inner obligation,
+    # not a stale container hash or earlier state-archive failure, rejects.
+    selected_archive_check(side, case, source_fixture.plan)
+    error_type = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    with pytest.raises(error_type) as caught:
+        package_check(side, case, source_fixture.plan, directory)
+    assert caught.value.code == code
+    assert caught.value.stage == 'package'
+    assert 'PRIVATE_PACKAGE_CANARY' not in str(caught.value)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_complete_package_inventory_and_metadata_original_bytes_are_nonmutating(
+    selected_archive_fixture, source_fixture, tmp_path, side,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    before = dict(case.members), canonical(case.manifest)
+    with patch.object(zipfile.ZipFile, 'extract', side_effect=AssertionError('No extraction')):
+        with patch.object(zipfile.ZipFile, 'extractall', side_effect=AssertionError('No extraction')):
+            view = package_check(side, case, source_fixture.plan, tmp_path)
+    assert set(view) == set(_PACKAGE_EXAMPLE_FILES) and len(view) == 24
+    contents = package_members(case)
+    inventory = json.loads(contents[_PACKAGE_DOCUMENTS[0]])
+    assert inventory['file_count'] == len(inventory['files']) == 23
+    assert _PACKAGE_DOCUMENTS[1] in {row['path'] for row in inventory['files']}
+    assert _PACKAGE_DOCUMENTS[0] not in {row['path'] for row in inventory['files']}
+    assert view[_PACKAGE_DOCUMENTS[0]][0] != digest(case.members[_PACKAGE_MEMBER])
+    assert json.loads(contents[_PACKAGE_DOCUMENTS[1]])['release_candidate'] == 'main'
+    assert before == (case.members, canonical(case.manifest))
+    assert 'evidence_profile' not in source_fixture.plan
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('member', _PACKAGE_EXAMPLE_FILES)
+def test_complete_package_each_original_member_is_mandatory_after_resealing(
+    selected_archive_fixture, source_fixture, tmp_path, side, member,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    contents = package_members(case); del contents[member]
+    package_replace_members(case, contents, rehash_inventory=member != _PACKAGE_DOCUMENTS[0])
+    package_assert_rejected(side, case, source_fixture, tmp_path, 'package_member_set_mismatch')
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('mutation,code', [
+    ('algorithm', 'package_inventory_profile_mismatch'), ('schema', 'package_inventory_profile_mismatch'),
+    ('extra_field', 'package_inventory_profile_mismatch'), ('count', 'package_inventory_count_mismatch'),
+    ('boolean_count', 'package_inventory_count_mismatch'), ('float_count', 'package_json_invalid'),
+    ('missing_row', 'package_inventory_count_mismatch'), ('self_row', 'package_inventory_member_mismatch'),
+    ('duplicate_row', 'package_inventory_member_mismatch'), ('order', 'package_inventory_member_mismatch'),
+    ('unsafe_path', 'package_inventory_member_mismatch'), ('wrong_root', 'package_inventory_member_mismatch'),
+    ('extra_row_field', 'package_inventory_member_mismatch'), ('wrong_sha', 'package_inventory_content_mismatch'),
+    ('upper_sha', 'package_inventory_content_mismatch'), ('wrong_size', 'package_inventory_content_mismatch'),
+    ('boolean_size', 'package_inventory_content_mismatch'), ('float_size', 'package_json_invalid'),
+    ('metadata_unlisted', 'package_inventory_count_mismatch'),
+])
+def test_complete_package_digest_inventory_semantic_mutations_reject(
+    selected_archive_fixture, source_fixture, tmp_path, side, mutation, code,
+):
+    case = selected_archive_case(selected_archive_fixture); contents = package_members(case)
+    inventory = json.loads(contents[_PACKAGE_DOCUMENTS[0]])
+    row = inventory['files'][0]
+    if mutation == 'algorithm': inventory['algorithm'] = 'sha512'
+    elif mutation == 'schema': inventory['schema_version'] = 'unknown'
+    elif mutation == 'extra_field': inventory['PRIVATE_PACKAGE_CANARY'] = True
+    elif mutation == 'count': inventory['file_count'] += 1
+    elif mutation == 'boolean_count': inventory['file_count'] = True
+    elif mutation == 'float_count': inventory['file_count'] = float(inventory['file_count'])
+    elif mutation == 'missing_row': inventory['files'].pop(); inventory['file_count'] -= 1
+    elif mutation == 'self_row': row['path'] = _PACKAGE_DOCUMENTS[0]
+    elif mutation == 'duplicate_row': inventory['files'][1] = copy.deepcopy(row)
+    elif mutation == 'order': inventory['files'].reverse()
+    elif mutation == 'unsafe_path': row['path'] = '../PRIVATE_PACKAGE_CANARY'
+    elif mutation == 'wrong_root': row['path'] = 'PULSE_safe_pack_v0/' + row['path']
+    elif mutation == 'extra_row_field': row['PRIVATE_PACKAGE_CANARY'] = True
+    elif mutation == 'wrong_sha': row['sha256'] = 'f' * 64
+    elif mutation == 'upper_sha': row['sha256'] = row['sha256'].upper()
+    elif mutation == 'wrong_size': row['size_bytes'] += 1
+    elif mutation == 'boolean_size': row['size_bytes'] = True
+    elif mutation == 'float_size': row['size_bytes'] = float(row['size_bytes'])
+    elif mutation == 'metadata_unlisted':
+        inventory['files'] = [entry for entry in inventory['files'] if entry['path'] != _PACKAGE_DOCUMENTS[1]]
+        inventory['file_count'] -= 1
+    else: raise AssertionError(mutation)
+    contents[_PACKAGE_DOCUMENTS[0]] = canonical(inventory)
+    package_replace_members(case, contents)
+    package_assert_rejected(side, case, source_fixture, tmp_path, code)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('field,value,code', [
+    ('schema_version', 'unknown', 'package_metadata_identity_mismatch'),
+    ('package_schema_version', 'unknown', 'package_metadata_identity_mismatch'),
+    ('package_role', 'advisory_reference_bundle', 'package_metadata_identity_mismatch'),
+    ('repository', 'PRIVATE_PACKAGE_CANARY/other', 'package_metadata_identity_mismatch'),
+    ('git_sha', 'e' * 40, 'package_metadata_identity_mismatch'),
+    ('workflow_ref', 'HKati/pulse-release-gates-0.1/.github/workflows/pulse_ci.yml@refs/tags/v1.3.0', 'package_metadata_identity_mismatch'),
+    ('run_id', EXAMPLE_PROVIDER_ID, 'package_metadata_identity_mismatch'),
+    ('run_id', True, 'package_metadata_identity_mismatch'),
+    ('run_attempt', 2, 'package_metadata_identity_mismatch'),
+    ('run_attempt', True, 'package_metadata_identity_mismatch'),
+    ('run_attempt', 1.0, 'package_json_invalid'),
+    ('run_key', f'GITHUB_RUN_ID={EXAMPLE_SUBJECT_ID}|GITHUB_RUN_ATTEMPT=2|GITHUB_WORKFLOW=PULSE CI', 'package_metadata_identity_mismatch'),
+    ('release_candidate', f'pulse-ci-current-run:{EXAMPLE_SUBJECT_ID}:1', 'package_metadata_identity_mismatch'),
+    ('assembler', {'tool': 'PRIVATE_PACKAGE_CANARY', 'version': '0.1.0'}, 'package_assembler_mismatch'),
+    ('created_utc', '1999-12-31T23:59:59Z', 'package_metadata_time_mismatch'),
+    ('created_utc', '2000-01-01T00:10:01Z', 'package_metadata_time_mismatch'),
+    ('created_utc', '2000-01-01T00:05:00+00:00', 'package_metadata_time_mismatch'),
+    ('created_utc', '2000-01-01T00:05:00.000Z', 'package_metadata_time_mismatch'),
+    ('created_utc', 'PRIVATE_PACKAGE_CANARY', 'package_metadata_time_mismatch'),
+])
+def test_complete_package_run_metadata_rehashed_substitutions_reject(
+    selected_archive_fixture, source_fixture, tmp_path, side, field, value, code,
+):
+    case = selected_archive_case(selected_archive_fixture); content = package_members(case)
+    document = json.loads(content[_PACKAGE_DOCUMENTS[1]]); document[field] = value
+    content[_PACKAGE_DOCUMENTS[1]] = canonical(document)
+    package_replace_members(case, content, rehash_inventory=True)
+    package_assert_rejected(side, case, source_fixture, tmp_path, code)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('document_name', _PACKAGE_DOCUMENTS)
+@pytest.mark.parametrize('field', tuple(_EXAMPLE_PACKAGE_BOUNDARY))
+def test_complete_package_every_authority_boolean_remains_exact(
+    selected_archive_fixture, source_fixture, tmp_path, side, document_name, field,
+):
+    case = selected_archive_case(selected_archive_fixture); content = package_members(case)
+    document = json.loads(content[document_name]); document['authority_boundary'][field] = int(document['authority_boundary'][field])
+    content[document_name] = canonical(document)
+    package_replace_members(case, content, rehash_inventory=document_name == _PACKAGE_DOCUMENTS[1])
+    package_assert_rejected(side, case, source_fixture, tmp_path, 'package_authority_mismatch')
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('mutation', ['missing_field', 'extra_field', 'missing_input', 'extra_input', 'relative',
+    'wrong_leaf', 'mixed_roots', 'traversal', 'duplicate_separator', 'backslash', 'control', 'input_alias'])
+def test_complete_package_metadata_shape_and_assembly_input_roles_reject(
+    selected_archive_fixture, source_fixture, tmp_path, side, mutation,
+):
+    case = selected_archive_case(selected_archive_fixture); content = package_members(case)
+    document = json.loads(content[_PACKAGE_DOCUMENTS[1]])
+    roots = document['source_inputs']; code = 'package_source_inputs_mismatch'
+    if mutation == 'missing_field': document.pop('created_utc'); code = 'package_metadata_profile_mismatch'
+    elif mutation == 'extra_field': document['PRIVATE_PACKAGE_CANARY'] = True; code = 'package_metadata_profile_mismatch'
+    elif mutation == 'missing_input': roots.pop('audit_bundle')
+    elif mutation == 'extra_input': roots['PRIVATE_PACKAGE_CANARY'] = '/extra'
+    elif mutation == 'relative': roots['pulse_report'] = roots['pulse_report'].lstrip('/')
+    elif mutation == 'wrong_leaf': roots['pulse_report'] += '-other'
+    elif mutation == 'mixed_roots': roots['pulse_report'] = '/OTHER' + roots['pulse_report']
+    elif mutation == 'traversal': roots['pulse_report'] = '/a/../' + roots['pulse_report'].lstrip('/')
+    elif mutation == 'duplicate_separator': roots['pulse_report'] = '/' + roots['pulse_report']
+    elif mutation == 'backslash': roots['pulse_report'] = roots['pulse_report'].replace('/EXAMPLE/', '/EXAMPLE\\PRIVATE_PACKAGE_CANARY/')
+    elif mutation == 'control': roots['pulse_report'] = roots['pulse_report'].replace('/EXAMPLE/', '/PRIVATE_PACKAGE_CANARY\n/')
+    elif mutation == 'input_alias': roots['audit_bundle'] = roots['pulse_report']
+    else: raise AssertionError(mutation)
+    content[_PACKAGE_DOCUMENTS[1]] = canonical(document)
+    package_replace_members(case, content, rehash_inventory=True)
+    package_assert_rejected(side, case, source_fixture, tmp_path, code)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('document_name', _PACKAGE_DOCUMENTS)
+@pytest.mark.parametrize('bad', [b'[]', b'\xef\xbb\xbf{}', b'\xff', b'{"a":1,"a":2}',
+    b'{"a":NaN}', b'{"a":Infinity}', b'{"a":-0.0}', '{"a":"e\u0301"}'.encode(),
+    b'{"PRIVATE_PACKAGE_CANARY":'])
+def test_complete_package_json_rejections_do_not_disclose_preserved_values(
+    selected_archive_fixture, source_fixture, tmp_path, side, document_name, bad,
+):
+    case = selected_archive_case(selected_archive_fixture); content = package_members(case)
+    content[document_name] = bad
+    package_replace_members(case, content, rehash_inventory=document_name == _PACKAGE_DOCUMENTS[1])
+    package_assert_rejected(side, case, source_fixture, tmp_path, 'package_json_invalid')
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('member', [n for n in _PACKAGE_EXAMPLE_FILES if n not in _PACKAGE_DOCUMENTS])
+def test_complete_package_same_version_copies_cannot_be_replaced_after_rehash(
+    selected_archive_fixture, source_fixture, tmp_path, side, member,
+):
+    case = selected_archive_case(selected_archive_fixture); content = package_members(case)
+    content[member] += b'PRIVATE_PACKAGE_CANARY'
+    package_replace_members(case, content, rehash_inventory=True)
+    package_assert_rejected(side, case, source_fixture, tmp_path, 'package_same_version_mismatch')
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_complete_package_final_status_cannot_substitute_pre_materialization_version(
+    selected_archive_fixture, source_fixture, tmp_path, side,
+):
+    case = selected_archive_case(selected_archive_fixture); content = package_members(case)
+    content['artifacts/status.json'] = inner_members(case, 'pre_attestation_pulse_artifacts')['status.json']
+    package_replace_members(case, content, rehash_inventory=True)
+    package_assert_rejected(side, case, source_fixture, tmp_path, 'package_same_version_mismatch')
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('variant,code', [
+    ('traversal', 'package_member_name_invalid'), ('absolute', 'package_member_name_invalid'),
+    ('backslash', 'package_member_name_invalid'), ('duplicate', 'package_member_name_invalid'),
+    ('symlink', 'package_nonregular_member'), ('device', 'package_nonregular_member'),
+    ('encrypted', 'package_encoding_unsupported'), ('unsupported', 'package_encoding_unsupported'),
+    ('extra_directory', 'package_member_set_mismatch'), ('crc', 'package_zip_invalid'),
+    ('truncated', 'package_zip_invalid'), ('not_zip', 'package_zip_invalid'),
+])
+def test_complete_package_unsafe_original_zip_rejects_after_provider_and_outer_reseal(
+    selected_archive_fixture, source_fixture, tmp_path, side, variant, code,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    package_replace_raw(case, inner_zip_variant(package_members(case), variant))
+    package_assert_rejected(side, case, source_fixture, tmp_path, code)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('variant', ['deflated', 'directories', 'noncanonical_json'])
+def test_complete_package_preserves_original_supported_encoding_without_rewriting(
+    selected_archive_fixture, source_fixture, tmp_path, side, variant,
+):
+    case = selected_archive_case(selected_archive_fixture); content = package_members(case)
+    if variant == 'noncanonical_json':
+        content[_PACKAGE_DOCUMENTS[1]] = json.dumps(json.loads(content[_PACKAGE_DOCUMENTS[1]]), indent=4).encode()
+        content[_PACKAGE_DOCUMENTS[0]] = json.dumps(example_package_inventory(content), separators=(',', ':')).encode()
+        raw = example_zip(content)
+    else: raw = inner_zip_variant(content, variant)
+    package_replace_raw(case, raw)
+    before = dict(case.members)
+    assert len(package_check(side, case, source_fixture.plan, tmp_path)) == 24
+    assert case.members == before
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('budget', ['members', 'bytes', 'single', 'json'])
+def test_complete_package_shares_existing_finite_inner_archive_budgets(
+    selected_archive_fixture, source_fixture, tmp_path, side, budget, monkeypatch,
+):
+    case = selected_archive_case(selected_archive_fixture); plan = copy.deepcopy(source_fixture.plan)
+    contents = package_members(case)
+    roles = list(_INNER_ROLES)
+    sizes = [len(raw) for role in roles for raw in inner_members(case, role).values()] + list(map(len, contents.values()))
+    if budget == 'members':
+        plan['finite_limits']['max_capture_members'] = 71; code = 'package_member_limit_exceeded'
+    elif budget == 'bytes':
+        plan['finite_limits']['max_capture_uncompressed_bytes'] = sum(sizes) - 1; code = 'package_expansion_limit_exceeded'
+    elif budget == 'single':
+        plan['finite_limits']['max_single_artifact_bytes'] = 1; code = 'package_member_size_invalid'
+    else:
+        # Original JSON budget, not an expanded budget for the new documents.
+        content = dict(contents); content[_PACKAGE_DOCUMENTS[1]] = b' ' * (16 * 1024 * 1024 + 1)
+        package_replace_members(case, content, rehash_inventory=True); code = 'package_index_size_invalid'
+    error_type = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    with pytest.raises(error_type) as caught:
+        package_check(side, case, plan, tmp_path, state_plan=source_fixture.plan)
+    assert caught.value.code == code
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('mutation', ['metadata_source', 'inventory_sha', 'same_version'])
+def test_complete_package_public_entrypoints_reject_fully_resealed_semantic_failure(
+    selected_archive_fixture, source_fixture, tmp_path, side, mutation,
+):
+    case = selected_archive_case(selected_archive_fixture); content = package_members(case)
+    if mutation == 'metadata_source':
+        meta = json.loads(content[_PACKAGE_DOCUMENTS[1]]); meta['git_sha'] = 'f' * 40
+        content[_PACKAGE_DOCUMENTS[1]] = canonical(meta); code = 'package_metadata_identity_mismatch'
+        package_replace_members(case, content, rehash_inventory=True)
+    elif mutation == 'inventory_sha':
+        inventory = json.loads(content[_PACKAGE_DOCUMENTS[0]]); inventory['files'][0]['sha256'] = 'f' * 64
+        content[_PACKAGE_DOCUMENTS[0]] = canonical(inventory); code = 'package_inventory_content_mismatch'
+        package_replace_members(case, content)
+    else:
+        content['artifacts/report_card.html'] += b'PRIVATE_PACKAGE_CANARY'; code = 'package_same_version_mismatch'
+        package_replace_members(case, content, rehash_inventory=True)
+    selected_archive_check(side, case, source_fixture.plan)
+    if side == 'capture':
+        acquired = tmp_path / 'acquisition'; acquired.mkdir()
+        for name, raw in case.members.items():
+            if name.startswith('acquisition/'):
+                target = acquired / name.removeprefix('acquisition/')
+                target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(raw); target.chmod(0o444)
+        before = {p.relative_to(acquired): p.read_bytes() for p in acquired.rglob('*') if p.is_file()}
+        with pytest.raises(Exception) as caught:
+            construct_capture(source_fixture, SimpleNamespace(output=acquired, directory=tmp_path), 'not-published.zip')
+        assert type(caught.value).__name__ == 'CaptureError'
+        assert not (tmp_path / 'not-published.zip').exists()
+        assert before == {p.relative_to(acquired): p.read_bytes() for p in acquired.rglob('*') if p.is_file()}
+    else:
+        target = tmp_path / 'fully-resealed.zip'; selected_archive_write_capture(target, case)
+        before = target.read_bytes()
+        with patch.object(CAPTURER, '_validate_complete_package', side_effect=AssertionError('Independent checker only')):
+            with patch.object(VERIFIER, 'build_runtime_packet', side_effect=AssertionError('Must reject at read_capture')):
+                with pytest.raises(VERIFIER.VerificationError) as caught:
+                    selected_archive_read(target, case, source_fixture)
+        assert target.read_bytes() == before
+    assert caught.value.code == code and 'PRIVATE_PACKAGE_CANARY' not in str(caught.value)
+
+
+@pytest.fixture(scope='module')
+def complete_package_source_oracle(source_fixture, selected_archive_fixture, tmp_path_factory):
+    """Execute the unchanged assembler on controlled copied inputs, offline."""
+    root = tmp_path_factory.mktemp('complete-package-source-oracle')
+    inputs = root / 'complete-release-grade-reference-inputs'
+    leaves = {'pulse_report': 'pulse-report', 'recorded_path': 'release-grade-recorded-path',
+              'audit_bundle': 'release-authority-audit-bundle', 'artifact_binding': 'release-authority-artifact-binding-v0'}
+    dirs = {role: inputs / leaf for role, leaf in leaves.items()}
+    for path in dirs.values(): path.mkdir(parents=True)
+    case = selected_archive_case(selected_archive_fixture)
+    recorded = inner_members(case, 'release_grade_recorded_path')
+    for name, raw in recorded.items():
+        target = dirs['recorded_path'] / name; target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(raw)
+    for name in ('release_decision_v0.json', 'release_authority_v0.json', 'report_card.html'):
+        (dirs['pulse_report'] / name).write_bytes(recorded[name])
+    (dirs['artifact_binding'] / 'artifact_provenance_binding_v0.json').write_bytes(recorded['artifact_provenance_binding_v0.json'])
+    for name in ('status.json', 'release_authority_v0.json', 'report_card.html'):
+        (dirs['audit_bundle'] / name).write_bytes(recorded[name])
+    tool = ROOT / 'PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py'
+    output = root / 'package'
+    command = [sys.executable, '-I', '-B', str(tool), '--repo-root', str(root), '--out-dir', str(output),
+        '--pulse-report-dir', str(dirs['pulse_report']), '--recorded-path-dir', str(dirs['recorded_path']),
+        '--audit-bundle-dir', str(dirs['audit_bundle']), '--artifact-binding-dir', str(dirs['artifact_binding']),
+        '--repository', 'HKati/pulse-release-gates-0.1', '--git-sha', source_fixture.sha,
+        '--workflow-ref', 'HKati/pulse-release-gates-0.1/.github/workflows/pulse_ci.yml@refs/heads/main',
+        '--run-id', str(EXAMPLE_SUBJECT_ID), '--run-attempt', '1',
+        '--run-key', f'GITHUB_RUN_ID={EXAMPLE_SUBJECT_ID}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI',
+        '--release-candidate', 'main', '--created-utc', EXAMPLE_END]
+    result = subprocess.run(command, cwd=root, env={'PATH': '/usr/bin:/bin', 'HOME': str(root), 'LANG': 'C', 'LC_ALL': 'C'},
+                            capture_output=True, timeout=30, check=False)
+    assert result.returncode == 0, result.stderr.decode(errors='replace')
+    content = {p.relative_to(output).as_posix(): p.read_bytes() for p in output.rglob('*') if p.is_file()}
+    assert len(content) == 24
+    assert json.loads(content[_PACKAGE_DOCUMENTS[0]]) == example_package_inventory(content)
+    return content
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_complete_package_accepts_actual_source_assembler_not_just_matching_tables(
+    complete_package_source_oracle, selected_archive_fixture, source_fixture, tmp_path, side,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    package_replace_members(case, dict(complete_package_source_oracle))
+    assert set(package_check(side, case, source_fixture.plan, tmp_path)) == set(complete_package_source_oracle)
+
+
+def test_complete_package_identical_wrong_selectors_in_both_sides_fail_source_oracle(
+    complete_package_source_oracle, selected_archive_fixture, source_fixture, tmp_path, monkeypatch,
+):
+    wrong = set(complete_package_source_oracle)
+    wrong.remove('artifacts/report_card.html'); wrong.add('artifacts/report_card.with_release_decision.html')
+    monkeypatch.setattr(CAPTURER, 'COMPLETE_PACKAGE_MEMBERS', tuple(sorted(wrong)))
+    monkeypatch.setattr(VERIFIER, '_PACKAGE_FILE_SET', frozenset(wrong))
+    case = selected_archive_case(selected_archive_fixture)
+    package_replace_members(case, dict(complete_package_source_oracle))
+    for side in ('capture', 'verifier'):
+        package_assert_rejected(side, case, source_fixture, tmp_path / side, 'package_member_set_mismatch')
 
 
 if __name__ == '__main__':
