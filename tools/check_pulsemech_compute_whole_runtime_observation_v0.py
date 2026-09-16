@@ -1738,6 +1738,137 @@ def _preserved_member_states(
     return states
 
 
+_COLLECTION_TIMING_MEMBER = "acquisition/control/collection-timing.json"
+_COLLECTION_TIMING_VERSION = "pulsemech_compute_whole_runtime_observation_collection_timing_v0"
+
+
+def _check_collection_timing(
+    plan: Mapping[str, Any], manifest: Mapping[str, Any], members: Mapping[str, bytes],
+) -> dict[str, str]:
+    """Reconstruct both intervals from preserved inputs, not capture claims.
+
+    This is also invoked by direct packet construction and final verification.
+    It reads no present-day clock and trusts no previously cached verdict.
+    """
+    raw = members.get(_COLLECTION_TIMING_MEMBER)
+    require(type(raw) is bytes and 0 < len(raw) <= 16384,
+            "collection_timing_missing", stage="time")
+    timing = parse_json_bytes(raw, label="collection_timing", maximum=16384)
+    index_raw = members.get("acquisition/acquisition-index.json")
+    require(type(index_raw) is bytes, "collection_timing_index_missing", stage="time")
+    index = parse_json_bytes(index_raw, label="collection_timing_index", maximum=16 * 1024 * 1024)
+    descriptor = {"member": "control/collection-timing.json", "sha256": sha256_bytes(raw),
+                  "size_bytes": len(raw)}
+    require(canonical_json_bytes(index.get("collection_timing")) == canonical_json_bytes(descriptor),
+            "collection_timing_binding_mismatch", stage="time")
+    context_raw = members.get(CAPTURE_EXPECTED_CONTEXT_MEMBER)
+    require(type(context_raw) is bytes, "collection_timing_context_missing", stage="time")
+    context = parse_json_bytes(context_raw, label="collection_timing_context")
+    subject, provider = manifest["subject"], manifest["provider"]
+    revision = plan["plan_identity"]["source_commit"]
+    identity = manifest["capture_identity"]
+    fixed = {
+        "schema_version": _COLLECTION_TIMING_VERSION,
+        "record_status": manifest["record_status"], "repository": REPOSITORY,
+        "source_commit": revision,
+        "observer_source_sha256": _source_row(plan, "tools/acquire_pulsemech_compute_whole_runtime_observation_v0.py")["sha256"],
+        "acquisition_id": context.get("acquisition_id"),
+        "collector_run_key": context.get("collector_run_key"),
+        "subject_run_id": subject["run_id"], "subject_run_attempt": 1,
+        "provider_run_id": provider["run_id"], "provider_run_attempt": 1,
+        "clock_source": "observer_utc", "cross_source_clock_status": "not_verified",
+        "authority_boundary": AUTHORITY_BOUNDARY,
+    }
+    time_fields = {
+        "collection_started_utc", "collection_completed_utc", "final_download_started_utc",
+        "subject_terminal_requested_utc", "subject_terminal_received_utc",
+        "provider_terminal_requested_utc", "provider_terminal_received_utc",
+    }
+    require(set(timing) == set(fixed) | time_fields | {"anchors"},
+            "collection_timing_shape_invalid", stage="time")
+    require(canonical_json_bytes({key: timing[key] for key in fixed}) == canonical_json_bytes(fixed),
+            "collection_timing_context_mismatch", stage="time")
+    require(context.get("record_status") == manifest["record_status"]
+            and context.get("source_commit") == revision and context.get("repository") == REPOSITORY
+            and index.get("reference_context") == context
+            and index.get("acquisition_id") == context.get("acquisition_id")
+            and identity.get("acquisition_id") == context.get("acquisition_id")
+            and identity.get("collector_run_key") == context.get("collector_run_key"),
+            "collection_timing_context_mismatch", stage="time")
+    anchor_names = sorted((
+        "subject/dispatch-receipt.json", "provider/dispatch-receipt.json",
+        "subject/run-response.json", "provider/run-response.json", "provider/step3f-candidate-envelope.zip",
+    ))
+    # Paths are fixed by this reviewed acquisition profile, not the time record.
+    require(all("acquisition/" + name in members for name in anchor_names),
+            "collection_timing_anchor_missing", stage="time")
+    anchors = [{"member": name, "sha256": sha256_bytes(members["acquisition/" + name]),
+                "size_bytes": len(members["acquisition/" + name])} for name in anchor_names]
+    require(canonical_json_bytes(timing["anchors"]) == canonical_json_bytes(anchors),
+            "collection_timing_anchor_mismatch", stage="time")
+    receipts = {}
+    summary_map = {
+        "run_id": "id", "run_number": "run_number", "run_attempt": "run_attempt",
+        "workflow_name": "name", "workflow_path": "path", "event": "event",
+        "head_branch": "head_branch", "head_sha": "head_sha", "status": "status",
+        "conclusion": "conclusion", "run_url": "url", "html_url": "html_url",
+        "created_at": "created_at", "run_started_at": "run_started_at", "updated_at": "updated_at",
+    }
+    for kind, summary in (("subject", subject), ("provider", provider)):
+        run = parse_json_bytes(members["acquisition/" + kind + "/run-response.json"],
+                               label="collection_run", canonical=False)
+        derived = {field: run.get(source) for field, source in summary_map.items()}
+        derived["repository"] = run.get("repository", {}).get("full_name")
+        require(canonical_json_bytes(derived) == canonical_json_bytes(summary),
+                "collection_run_binding_mismatch", stage="time")
+        receipt = parse_json_bytes(members["acquisition/" + kind + "/dispatch-receipt.json"],
+                                   label="collection_dispatch")
+        require(receipt.get("record_status") == manifest["record_status"]
+                and receipt.get("repository") == REPOSITORY and receipt.get("source_commit") == revision
+                and type(receipt.get("response", {}).get("workflow_run_id")) is int
+                and receipt["response"]["workflow_run_id"] == summary["run_id"],
+                "collection_dispatch_binding_mismatch", stage="time")
+        receipts[kind] = receipt
+        run_times = [parse_utc(value, label="collection_run_timing") for value in (
+            run.get("created_at"), run.get("run_started_at"), run.get("updated_at"),
+            timing[kind + "_terminal_received_utc"],
+        )]
+        require(all(a <= b for a, b in zip(run_times, run_times[1:])),
+                "collection_run_time_invalid", stage="time")
+    ordered = [
+        receipts["subject"]["requested_utc"], receipts["subject"]["received_utc"],
+        timing["subject_terminal_requested_utc"], timing["subject_terminal_received_utc"],
+        timing["collection_started_utc"], receipts["provider"]["requested_utc"],
+        receipts["provider"]["received_utc"], timing["provider_terminal_requested_utc"],
+        timing["provider_terminal_received_utc"], timing["final_download_started_utc"],
+        timing["collection_completed_utc"],
+    ]
+    values = [parse_utc(value, label="collection_timing") for value in ordered]
+    require(all(a <= b for a, b in zip(values, values[1:])),
+            "collection_time_order_invalid", stage="time")
+    start, end = receipts["subject"]["requested_utc"], timing["collection_completed_utc"]
+    require(identity.get("capture_started_utc") == start
+            and identity.get("capture_completed_utc") == identity.get("manifest_created_utc") == end,
+            "collection_capture_time_mismatch", stage="time")
+    return {"acquisition_started_utc": start,
+            "collection_started_utc": timing["collection_started_utc"],
+            "collection_completed_utc": end}
+
+
+def _require_timing_projection(
+    plan: Mapping[str, Any], packet: Mapping[str, Any],
+    manifest: Mapping[str, Any], members: Mapping[str, bytes],
+) -> None:
+    timing = _check_collection_timing(plan, manifest, members)
+    key = "acquisition_started_utc" if manifest["record_status"] == "example" else "collection_started_utc"
+    boundary = packet.get("observation_boundary", {})
+    require(packet.get("record_status") == manifest["record_status"]
+            and boundary.get("capture_started_utc") == timing[key]
+            and boundary.get("capture_completed_utc") == timing["collection_completed_utc"]
+            and packet.get("packet_identity", {}).get("packet_created_utc") == timing["collection_completed_utc"],
+            "collection_runtime_time_mismatch", stage="time")
+
+
 def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, Any], expected_plan_sha256: str, expected_context_raw: bytes, record_status: str, source_commit: str) -> tuple[dict[str, Any], dict[str, bytes], bytes]:
     raw = path.read_bytes()
     members = read_canonical_zip_bytes(
@@ -1808,6 +1939,7 @@ def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, An
     state_views = _check_subject_state_archives(plan, manifest, members)
     package_view = _check_complete_package(plan, manifest, members, state_views)
     _check_preserved_member_roles(plan, state_views, package_view)
+    _check_collection_timing(plan, manifest, members)
     return manifest, members, raw
 
 
@@ -2959,7 +3091,12 @@ def build_runtime_packet(
     for execution in execution_index.values():
         execution["external_call_ids"].sort()
     executions = sorted(execution_index.values(), key=lambda row: row["execution_id"])
-    point = capture_manifest["capture_identity"]["capture_completed_utc"]
+    timing = _check_collection_timing(plan, capture_manifest, capture_members)
+    require(record_status == capture_manifest["record_status"], "capture_record_status_mismatch", stage="runtime")
+    point = timing["collection_completed_utc"]
+    # Example-mode containment is intentionally distinct in the unchanged
+    # generic contract. Observed post-run subject events precede collection.
+    window_start = timing["acquisition_started_utc" if record_status == "example" else "collection_started_utc"]
     workflow_source = _source_row(plan, SUBJECT_WORKFLOW_PATH)
     policy_source = _source_row(plan, POLICY_PATH)
     registry_source = _source_row(plan, REGISTRY_PATH)
@@ -3012,7 +3149,7 @@ def build_runtime_packet(
             "subject_run_key": subject_run_key,
             "observer_in_subject_totals": False,
             "subject_artifacts_mutated": False,
-            "capture_started_utc": capture_manifest["capture_identity"]["capture_started_utc"],
+            "capture_started_utc": window_start,
             "capture_completed_utc": point,
         },
         "authority_inputs": {
@@ -3814,6 +3951,7 @@ def _verification_record(
     )
     require(capture_members.get(CAPTURE_MANIFEST_MEMBER) == canonical_json_bytes(capture_manifest),
             "state_capture_manifest_mismatch", stage="state")
+    _require_timing_projection(plan, packet, capture_manifest, capture_members)
     _require_state_projection(plan, packet, capture_manifest, capture_members)
     _require_declared_state_completion(plan, packet, reconstruction_members)
     candidate_values = _materializer_candidate_values(

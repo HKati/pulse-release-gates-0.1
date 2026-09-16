@@ -370,6 +370,8 @@ class ReferenceContext:
 class RunResult:
     summary: dict[str, Any]
     raw_body: bytes
+    requested_utc: str
+    received_utc: str
 
 
 @dataclass(frozen=True)
@@ -1648,7 +1650,11 @@ def _wait_for_run(
                 expected_html_url=expected_html_url,
                 require_terminal=True,
             )
-            return RunResult(summary=_run_summary(value, workflow_name=workflow_name, workflow_path=workflow_path), raw_body=exchange.body)
+            return RunResult(
+                summary=_run_summary(value, workflow_name=workflow_name, workflow_path=workflow_path),
+                raw_body=exchange.body, requested_utc=exchange.requested_utc,
+                received_utc=exchange.received_utc,
+            )
         _require(status_value in allowed_nonterminal, "run_status_invalid", f"{role}:{status_value!r}", stage="run")
         remaining = deadline - monotonic()
         _require(remaining > 0, "subject_wait_timeout" if role == "subject" else "provider_wait_timeout", stage="run")
@@ -1872,6 +1878,75 @@ def _validate_aggregate_downloads(
     _require(total <= maximum, "aggregate_artifact_size_limit_exceeded", str(total), stage="artifact")
 
 
+COLLECTION_TIMING_MEMBER = "control/collection-timing.json"
+COLLECTION_TIMING_VERSION = "pulsemech_compute_whole_runtime_observation_collection_timing_v0"
+
+
+def _record_collection_timing(
+    *, staging: Path, context: ReferenceContext, observer_sha256: str,
+    subject: RunResult, provider: RunResult,
+    subject_receipt: Mapping[str, Any], provider_receipt: Mapping[str, Any],
+    collection_started: str, final_download_started: str, collection_completed: str,
+) -> None:
+    """Preserve actual observer samples, never substitute a run completion time.
+
+    The start sample is taken after storing the validated terminal subject
+    response and before collecting subject jobs. The final two samples bracket
+    the selected provider archive download call. They do not time later capture
+    packaging, independent verification or reconstruction.
+    """
+    ordered = [
+        subject_receipt["requested_utc"], subject_receipt["received_utc"],
+        subject.requested_utc, subject.received_utc, collection_started,
+        provider_receipt["requested_utc"], provider_receipt["received_utc"],
+        provider.requested_utc, provider.received_utc,
+        final_download_started, collection_completed,
+    ]
+    times = [_parse_utc(value, label="collection_timing") for value in ordered]
+    _require(all(left <= right for left, right in zip(times, times[1:])),
+             "collection_time_order_invalid", stage="time")
+    for run in (subject, provider):
+        created, started, completed, received = [
+            _parse_utc(value, label="collection_run_timing") for value in (
+                run.summary["created_at"], run.summary["run_started_at"],
+                run.summary["updated_at"], run.received_utc,
+            )
+        ]
+        _require(created <= started <= completed <= received,
+                 "collection_run_time_invalid", stage="time")
+    record = {
+        "schema_version": COLLECTION_TIMING_VERSION,
+        "record_status": context.record_status,
+        "repository": REPOSITORY,
+        "source_commit": context.source_commit,
+        "observer_source_sha256": observer_sha256,
+        "acquisition_id": context.acquisition_id,
+        "collector_run_key": context.collector_run_key,
+        "subject_run_id": subject.summary["run_id"],
+        "subject_run_attempt": 1,
+        "provider_run_id": provider.summary["run_id"],
+        "provider_run_attempt": 1,
+        "clock_source": "observer_utc",
+        "cross_source_clock_status": "not_verified",
+        "subject_terminal_requested_utc": subject.requested_utc,
+        "subject_terminal_received_utc": subject.received_utc,
+        "provider_terminal_requested_utc": provider.requested_utc,
+        "provider_terminal_received_utc": provider.received_utc,
+        "collection_started_utc": collection_started,
+        "final_download_started_utc": final_download_started,
+        "collection_completed_utc": collection_completed,
+        "anchors": [
+            _descriptor(staging, member) for member in sorted((
+                SUBJECT_DISPATCH_RECEIPT_MEMBER, PROVIDER_DISPATCH_RECEIPT_MEMBER,
+                SUBJECT_RUN_RESPONSE_MEMBER, PROVIDER_RUN_RESPONSE_MEMBER,
+                PROVIDER_ARTIFACT_MEMBER,
+            ))
+        ],
+        "authority_boundary": dict(AUTHORITY_BOUNDARY),
+    }
+    _write_new_file(staging, COLLECTION_TIMING_MEMBER, _canonical_json_bytes(record))
+
+
 def acquire_observation(
     *,
     repository_root: Path,
@@ -1886,6 +1961,7 @@ def acquire_observation(
     poll_interval_seconds: int = DEFAULT_POLL_INTERVAL_SECONDS,
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
+    utc_now: Callable[[], str] = _utc_now,
 ) -> dict[str, Any]:
     """Acquire and atomically publish one complete raw Step 5C input set."""
 
@@ -2019,6 +2095,7 @@ def acquire_observation(
             sleep=sleep,
         )
         _write_new_file(staging, SUBJECT_RUN_RESPONSE_MEMBER, subject_run.raw_body)
+        collection_started = utc_now()
 
         subject_jobs = _collect_pages(
             transport=transport,
@@ -2178,6 +2255,7 @@ def acquire_observation(
             source_commit=revision,
             max_single_bytes=limits.max_single_artifact_bytes,
         )
+        final_download_started = utc_now()
         provider_download = _download_selected_artifact(
             transport=transport,
             staging=staging,
@@ -2186,10 +2264,21 @@ def acquire_observation(
             member=PROVIDER_ARTIFACT_MEMBER,
             max_bytes=limits.max_single_artifact_bytes,
         )
+        collection_completed = utc_now()
         downloads.append(provider_download)
         _validate_aggregate_downloads(
             downloads,
             maximum=limits.max_aggregate_artifact_bytes,
+        )
+
+        _record_collection_timing(
+            staging=staging, context=reference_context,
+            observer_sha256=self_capture.sha256,
+            subject=subject_run, provider=provider_run,
+            subject_receipt=subject_receipt, provider_receipt=provider_receipt,
+            collection_started=collection_started,
+            final_download_started=final_download_started,
+            collection_completed=collection_completed,
         )
 
         inventory_without_index = _file_inventory(
@@ -2272,6 +2361,7 @@ def acquire_observation(
                 ],
                 key=lambda row: (row["source_run_kind"], row["artifact_name"]),
             ),
+            "collection_timing": _descriptor(staging, COLLECTION_TIMING_MEMBER),
             "collection_boundary": {
                 "collection_mode": "post_run_platform_export",
                 "pagination_closed": True,

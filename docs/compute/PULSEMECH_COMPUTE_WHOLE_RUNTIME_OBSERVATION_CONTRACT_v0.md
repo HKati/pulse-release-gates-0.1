@@ -739,6 +739,80 @@ producer-consumer state identity or another predeclared structural dependency.
 Different clock domains do not establish order by timestamp alone. Estimated
 duration is never represented as exact.
 
+### Acquisition interval and post-run collection interval
+
+These are distinct intervals; a subject dispatch timestamp is not a post-run
+collection start, and a provider run's `updated_at` is not the end of downloading
+its artifact.
+
+The acquisition tool preserves one closed, canonical observer record at
+`control/collection-timing.json`. Its schema identifier is
+`pulsemech_compute_whole_runtime_observation_collection_timing_v0`.
+`acquisition-index.json.collection_timing` binds its exact member name, SHA-256
+and byte count. Both capture construction and the independent verifier require
+this record; missing evidence has no inferred-time or legacy fallback.
+
+The record binds repository, reviewed source commit, acquisition ID, collector
+run key, exact acquisition-tool source digest, subject/provider run IDs and
+attempt 1, `record_status`, `clock_source = observer_utc`,
+`cross_source_clock_status = not_verified`, and the unchanged authority boundary.
+Its closed `anchors` list binds the exact original subject/provider dispatch
+receipts, terminal run-response bodies and selected Step 3F provider archive.
+No raw HTTP header, request body, prompt or model response is added to it.
+
+The recorded UTC samples are:
+
+- `subject_terminal_requested_utc` / `subject_terminal_received_utc`: the HTTP
+  exchange that returned the retained, validated terminal subject response.
+- `collection_started_utc`: sampled after that response has been preserved and
+  before the first subject job-metadata collection request.
+- `provider_terminal_requested_utc` / `provider_terminal_received_utc`: the
+  exchange returning the retained terminal provider response.
+- `final_download_started_utc` / `collection_completed_utc`: sampled immediately
+  before and after the selected provider-archive download call. The latter is
+  not copied from a platform run-completion field.
+
+The required order is subject dispatch request/receipt, terminal subject
+request/receipt, collection start, provider dispatch request/receipt, terminal
+provider request/receipt, final download start and collection completion.
+Nondecreasing order permits equal second-resolution samples. Both retained run
+summaries must agree with their original response bodies; their created,
+started and updated times must be ordered and not exceed the corresponding
+terminal receipt time. Inconsistent clocks fail closed; they are not shifted,
+clamped or relabelled as verified cross-source clock synchronization.
+
+The outer `capture_identity.capture_started_utc` remains the original subject
+**dispatch request** time. `capture_completed_utc` and the derived
+`manifest_created_utc` use the recorded collection-completion anchor. This outer
+interval covers subject dispatch through the final selected provider download,
+not prelaunch preparation or the later capture-packaging/verification process.
+The manifest timestamp is a deterministic derivation anchor, not a measurement
+of the time at which replay runs.
+
+For an **observed** `post_run_platform_export` runtime packet,
+`observation_boundary.capture_started_utc` instead uses the preserved
+`collection_started_utc`; its end and `packet_created_utc` use
+`collection_completed_utc`. Historical subject events precede collection; state
+observation timestamps remain within the collection interval. The independent
+verifier re-derives these bindings both on direct packet construction and before
+its final verification record. A generic-valid but freely shifted window is
+not sufficient.
+
+The unchanged generic **example** mode requires synthetic subject timestamps
+inside its example interval. It therefore retains the outer acquisition start,
+while using the same recorded end. Tests exercise the observed branch from
+observed-mode preparation and acquisition with an in-memory transport and
+scripted clock; these are synthetic test inputs, not hosted observations.
+
+Timing records are trusted-observer evidence bound to preserved inputs, not
+cryptographic clock attestations or a complete API-request trace. Rehashing a
+container does not permit an anchor substitution; a compromised trusted observer
+or a coordinated forgery of all original inputs is still outside the declared
+trust guarantee. Verification and reconstruction never use the present-day clock
+to repair or reinterpret these recorded times. This timing correction does not
+activate R2, complete missing state/read evidence or remove
+`declared_state_evidence_incomplete`.
+
 ## Generic runtime packet
 
 Step 5C derives one unchanged-v0 runtime packet:

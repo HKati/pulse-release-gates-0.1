@@ -972,7 +972,9 @@ class ExampleTransport:
             if changed is not None: status, document = changed
         raw = canonical(document) if document is not None else b''
         assert len(raw) <= max_response_bytes
-        return ACQUIRER.HttpExchange(status, {}, raw, EXAMPLE_START, EXAMPLE_END)
+        # Distinct dispatch and terminal clocks; all examples remain synthetic.
+        point = EXAMPLE_START if endpoint == ACQUIRER.SUBJECT_DISPATCH_ENDPOINT else EXAMPLE_END
+        return ACQUIRER.HttpExchange(status, {}, raw, point, point)
 
     def download_artifact(self, *, endpoint, destination, max_bytes):
         match = re.fullmatch(r'repos/HKati/pulse-release-gates-0\.1/actions/artifacts/(\d+)/zip', endpoint)
@@ -996,17 +998,18 @@ def reference_context(source_commit):
         collector_execution_id='execution:step5c:collector:post-run-platform-export')
 
 
-def acquire_example(source_fixture, destination, transport):
+def acquire_example(source_fixture, destination, transport, *, record_status='example', utc_now=None):
     f = source_fixture
     # Load the REAL implementation at its exact fixture installation path.
     spec = importlib.util.spec_from_file_location('step5c_example_installed_acquirer', f.root / 'tools' / (TOOL_NAMES[2] + '.py'))
     module = importlib.util.module_from_spec(spec); sys.modules[spec.name] = module; spec.loader.exec_module(module)
-    context = module.ReferenceContext(**reference_context(f.sha).__dict__)
+    context = module.ReferenceContext(**{**reference_context(f.sha).__dict__, 'record_status': record_status})
     with patch.object(socket, 'create_connection', side_effect=AssertionError('Live network is forbidden in examples')):
         return module.acquire_observation(repository_root=f.root, source_commit=f.sha,
              plan_path=f.plan_path, plan_diagnostic_path=f.diagnostic, expected_plan_sha256=f.plan_digest,
-             output_directory=destination, record_status='example', reference_context=context, transport=transport,
-             monotonic=lambda: 0.0, sleep=lambda _: pytest.fail('Completed example runs must not poll'))
+             output_directory=destination, record_status=record_status, reference_context=context, transport=transport,
+             monotonic=lambda: 0.0, sleep=lambda _: pytest.fail('Completed example runs must not poll'),
+             utc_now=(lambda: EXAMPLE_END) if utc_now is None else utc_now)
 
 
 @pytest.fixture(scope='module')
@@ -1032,14 +1035,14 @@ def test_actual_acquisition_uses_exact_dispatch_receipts(acquisition_fixture, so
     assert len([call for call in f.transport.calls if call[0] == 'DOWNLOAD']) == 7
 
 
-def construct_capture(source_fixture, acquisition_fixture, name='capture.zip'):
+def construct_capture(source_fixture, acquisition_fixture, name='capture.zip', *, record_status='example'):
     f = source_fixture; a = acquisition_fixture
     spec = importlib.util.spec_from_file_location('step5c_example_installed_capture', f.root / 'tools' / (TOOL_NAMES[3] + '.py'))
     module = importlib.util.module_from_spec(spec); sys.modules[spec.name] = module; spec.loader.exec_module(module)
     path = a.directory / name
     result = module.build_capture(repository_root=f.root, source_commit=f.sha, plan_path=f.plan_path,
              plan_diagnostic_path=f.diagnostic, expected_plan_sha256=f.plan_digest,
-             acquisition_directory=a.output, output_path=path, record_status='example')
+             acquisition_directory=a.output, output_path=path, record_status=record_status)
     with zipfile.ZipFile(path) as archive: members = {name: archive.read(name) for name in archive.namelist()}
     return SimpleNamespace(path=path, result=result, members=members, manifest=json.loads(members['capture.json']))
 
@@ -1688,14 +1691,20 @@ def runtime_projection_inputs(source_fixture, *, profile='example'):
     members = dict(f._projection_capture_bytes)
     manifest = json.loads(members['capture.json'])
     manifest['record_status'] = profile
-    # Retain the original mode-specific simulated window: inclusive for an
-    # example; collection after subject completion for post-run projection.
-    # This is not the acquired carrier's observed-mode runtime acceptance.
-    manifest['capture_identity']['capture_started_utc'] = EXAMPLE_START if profile == 'example' else EXAMPLE_END
+    # Both intervals now come from the actual mocked acquisition. Do not
+    # move a timestamp to satisfy the observed-mode generic time rule.
     # Synthetic observed-mode unit input, not relabelling a real acquisition.
     case = selected_archive_case(SimpleNamespace(manifest=manifest, members=members))
     case.index['record_status'] = profile
-    selected_archive_seal(case)
+    # This is still a synthetic projection-branch input, not live evidence.
+    # Its retained typed records and their content bindings must agree.
+    for relative in ('subject/dispatch-receipt.json', 'provider/dispatch-receipt.json',
+                     'expected_context.json', 'control/collection-timing.json'):
+        name = 'acquisition/' + relative
+        record = json.loads(case.members[name]); record['record_status'] = profile
+        case.members[name] = canonical(record)
+    case.index['reference_context'] = json.loads(case.members['acquisition/expected_context.json'])
+    collection_timing_reseal(case)
     return case.manifest, case.members
 
 
@@ -9931,6 +9940,392 @@ sys.stdout.buffer.write(module.canonical_json_bytes(packet))
     jsonschema.Draft202012Validator(GENERIC_SCHEMA).validate(packet)
     checks, errors = GENERIC_VALIDATOR.semantic_checks(packet)
     assert errors == [] and all(checks.values())
+
+
+
+# ---------------------------------------------------------------------------
+# Acquisition interval != post-run collection interval. All clocks, transports
+# and observed-mode inputs here are synthetic; no hosted acquisition is claimed.
+# ---------------------------------------------------------------------------
+_COLLECTION_TIME_RELATIVE = 'control/collection-timing.json'
+_COLLECTION_TIME_MEMBER = 'acquisition/' + _COLLECTION_TIME_RELATIVE
+_COLLECTION_ANCHORS = (
+    'provider/dispatch-receipt.json', 'provider/run-response.json',
+    'provider/step3f-candidate-envelope.zip', 'subject/dispatch-receipt.json',
+    'subject/run-response.json',
+)
+
+
+def collection_timing_reseal(case, *, repair_anchors=True):
+    """Explicit fixture operation; never used to repair a deliberate time fault."""
+    timing = json.loads(case.members[_COLLECTION_TIME_MEMBER])
+    if repair_anchors:
+        timing['anchors'] = [{'member': name, 'sha256': digest(case.members['acquisition/' + name]),
+                              'size_bytes': len(case.members['acquisition/' + name])}
+                             for name in _COLLECTION_ANCHORS]
+    raw = canonical(timing)
+    case.members[_COLLECTION_TIME_MEMBER] = raw
+    case.index['collection_timing'] = {'member': _COLLECTION_TIME_RELATIVE,
+                                       'sha256': digest(raw), 'size_bytes': len(raw)}
+    return selected_archive_seal(case)
+
+
+def collection_stamp(minute):
+    return f'2000-01-01T00:{minute:02d}:00Z'
+
+
+class CollectionClockTransport(ExampleTransport):
+    """Deliberately distinguish dispatch, run end, collection and download end."""
+    def __init__(self, plan, source_commit):
+        super().__init__(plan, source_commit)
+        self.clock_samples = []
+        self.provider.update(created_at=collection_stamp(13), run_started_at=collection_stamp(14),
+                             updated_at=collection_stamp(20))
+        self.provider_jobs[0].update(started_at=collection_stamp(14), completed_at=collection_stamp(20))
+        self.provider_artifacts[0]['created_at'] = collection_stamp(20)
+
+    def request(self, **kwargs):
+        exchange = super().request(**kwargs)
+        endpoint = kwargs['endpoint']
+        if endpoint == ACQUIRER.SUBJECT_DISPATCH_ENDPOINT:
+            start, end = 0, 1
+        elif endpoint == ACQUIRER.PROVIDER_DISPATCH_ENDPOINT:
+            start, end = 13, 14
+        elif endpoint == f'repos/{ACQUIRER.REPOSITORY}/actions/runs/{EXAMPLE_SUBJECT_ID}':
+            start, end = 10, 11
+        elif endpoint == f'repos/{ACQUIRER.REPOSITORY}/actions/runs/{EXAMPLE_PROVIDER_ID}':
+            start, end = 21, 22
+        else:
+            # Non-anchor exchange clocks are deliberately irrelevant to the
+            # projection. This unit does not claim a full API request trace.
+            return exchange
+        return replace(exchange, requested_utc=collection_stamp(start), received_utc=collection_stamp(end))
+
+    def utc_now(self):
+        ordinal = len(self.clock_samples)
+        last = self.calls[-1]
+        if ordinal == 0:
+            assert last[:2] == ('GET', f'repos/{ACQUIRER.REPOSITORY}/actions/runs/{EXAMPLE_SUBJECT_ID}')
+            value = collection_stamp(12)
+        elif ordinal == 1:
+            assert last[:2] == ('GET', f'repos/{ACQUIRER.REPOSITORY}/actions/runs/{EXAMPLE_PROVIDER_ID}/artifacts?per_page=100&page=1')
+            value = collection_stamp(23)
+        elif ordinal == 2:
+            assert last[:2] == ('DOWNLOAD', f'repos/{ACQUIRER.REPOSITORY}/actions/artifacts/40004/zip')
+            value = collection_stamp(25)
+        else:
+            pytest.fail('Unplanned observer clock read')
+        self.clock_samples.append(value)
+        return value
+
+
+@pytest.fixture(scope='module')
+def collection_observed_fixture(source_fixture, tmp_path_factory):
+    """Run the observed code paths from their beginning with a rejecting mock.
+
+    Unlike the earlier projection-only fixture, no capture timestamp or output
+    record_status is edited after acquisition. The Step 3F envelope remains the
+    same deliberately limited test carrier, not an accepted whole-runtime proof.
+    """
+    f = source_fixture
+    directory = tmp_path_factory.mktemp('collection-observed-synthetic')
+    result = cli(f.root, TOOL_NAMES[0], ['--repository-root', f.root, '--source-commit', f.sha,
+                                       '--record-status', 'observed'])
+    require_cli_success(result)
+    plan_path = directory / 'plan.json'; plan_path.write_bytes(result.stdout)
+    observed = SimpleNamespace(**{**vars(f), 'plan': json.loads(result.stdout),
+        'plan_path': plan_path, 'plan_raw': result.stdout, 'plan_digest': digest(result.stdout),
+        'directory': directory, 'diagnostic': directory / 'plan-check.json'})
+    checked = cli(f.root, TOOL_NAMES[1], ['--repository-root', f.root, '--plan', plan_path,
+        '--expected-source-commit', f.sha, '--expected-plan-sha256', observed.plan_digest,
+        '--expected-record-status', 'observed'])
+    require_cli_success(checked); observed.diagnostic.write_bytes(checked.stdout)
+    transport = CollectionClockTransport(observed.plan, f.sha)
+    output = directory / 'acquisition'
+    acquire_example(observed, output, transport, record_status='observed', utc_now=transport.utc_now)
+    capture = construct_capture(observed, SimpleNamespace(directory=directory, output=output),
+                                record_status='observed')
+    return SimpleNamespace(source=observed, transport=transport, output=output, capture=capture)
+
+
+def collection_validate(side, case, f, tmp_path):
+    if side == 'verifier':
+        return VERIFIER._check_collection_timing(f.plan, case.manifest, case.members)
+    directory = tmp_path / 'timing-inputs'; directory.mkdir()
+    snapshots = {}
+    for name, raw in case.members.items():
+        if not name.startswith('acquisition/'):
+            continue
+        relative = name.removeprefix('acquisition/')
+        path = directory / relative; path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+        snapshots[relative] = CAPTURER.FileSnapshot(path=path, relative=relative, size_bytes=len(raw),
+                                                  sha256=digest(raw), identity=())
+    return CAPTURER._validate_collection_timing(acquisition_files=snapshots, index=case.index,
+        plan=f.plan, subject=case.manifest['subject'], provider=case.manifest['provider'],
+        expected_context=json.loads(case.members['acquisition/expected_context.json']))
+
+
+def test_collection_observed_window_comes_from_actual_mocked_acquisition(collection_observed_fixture):
+    f = collection_observed_fixture; c = f.capture
+    assert f.transport.clock_samples == [collection_stamp(n) for n in (12, 23, 25)]
+    originals = dict(c.members)
+    plan = f.source.plan
+    manifest, members, raw = VERIFIER.read_capture(c.path, schema=EVIDENCE_SCHEMA, plan=plan,
+        expected_plan_sha256=f.source.plan_digest,
+        expected_context_raw=members_context(c.members), record_status='observed', source_commit=f.source.sha)
+    packet = VERIFIER.build_runtime_packet(plan=plan, capture_manifest=manifest,
+                                           capture_members=members, record_status='observed')
+    jsonschema.Draft202012Validator(GENERIC_SCHEMA).validate(packet)
+    checks, errors = GENERIC_VALIDATOR.semantic_checks(packet)
+    assert errors == [] and all(checks.values()), (checks, errors)
+    timing = json.loads(members[_COLLECTION_TIME_MEMBER])
+    assert timing['subject_terminal_received_utc'] == collection_stamp(11)
+    assert timing['collection_started_utc'] == collection_stamp(12)
+    assert timing['provider_terminal_received_utc'] == collection_stamp(22)
+    assert timing['final_download_started_utc'] == collection_stamp(23)
+    assert timing['collection_completed_utc'] == collection_stamp(25)
+    assert manifest['capture_identity']['capture_started_utc'] == collection_stamp(0)
+    assert manifest['capture_identity']['capture_completed_utc'] == collection_stamp(25)
+    assert manifest['provider']['updated_at'] == collection_stamp(20)
+    assert packet['observation_boundary']['capture_started_utc'] == collection_stamp(12)
+    assert packet['observation_boundary']['capture_completed_utc'] == collection_stamp(25)
+    assert packet['packet_identity']['packet_created_utc'] == collection_stamp(25)
+    assert packet['timing_basis']['cross_source_clock_status'] == 'not_verified'
+    assert packet['coverage']['coverage_status'] == 'partial' and packet['resource_measurements'] == []
+    assert len(packet['state_observations']) == 62 and len(packet['executions']) == 154
+    assert members == originals and raw == c.path.read_bytes()
+    VERIFIER._require_timing_projection(plan, packet, manifest, members)
+
+
+def members_context(members):
+    return members[VERIFIER.CAPTURE_EXPECTED_CONTEXT_MEMBER]
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('field,value', [
+    ('schema_version', 'unreviewed'), ('record_status', 'example'),
+    ('repository', 'other/repo'), ('source_commit', 'a' * 40),
+    ('observer_source_sha256', 'a' * 64), ('acquisition_id', 'other'),
+    ('collector_run_key', 'other'), ('subject_run_id', 10002),
+    ('provider_run_id', 10001), ('subject_run_attempt', True),
+    ('provider_run_attempt', 2), ('clock_source', 'github_platform'),
+    ('cross_source_clock_status', 'verified'), ('authority_boundary', {}),
+])
+def test_collection_timing_resealed_wrong_context_rejects(
+    collection_observed_fixture, tmp_path, side, field, value,
+):
+    f = collection_observed_fixture
+    case = selected_archive_case(f.capture)
+    timing = json.loads(case.members[_COLLECTION_TIME_MEMBER]); timing[field] = value
+    case.members[_COLLECTION_TIME_MEMBER] = canonical(timing)
+    collection_timing_reseal(case, repair_anchors=False)
+    error = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    with pytest.raises(error, match='collection_timing_context_mismatch'):
+        collection_validate(side, case, f.source, tmp_path)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('mutation', ['missing_record', 'missing_field', 'extra_field', 'noncanonical',
+    'wrong_index_digest', 'wrong_index_member', 'wrong_index_size', 'missing_index_binding'])
+def test_collection_timing_record_and_index_binding_are_required(
+    collection_observed_fixture, tmp_path, side, mutation,
+):
+    f = collection_observed_fixture; case = selected_archive_case(f.capture)
+    if mutation == 'missing_record':
+        case.members.pop(_COLLECTION_TIME_MEMBER)
+    elif mutation in ('missing_field', 'extra_field', 'noncanonical'):
+        timing = json.loads(case.members[_COLLECTION_TIME_MEMBER])
+        if mutation == 'missing_field': timing.pop('collection_started_utc')
+        elif mutation == 'extra_field': timing['raw_environment'] = {}
+        raw = (json.dumps(timing).encode() if mutation == 'noncanonical' else canonical(timing))
+        case.members[_COLLECTION_TIME_MEMBER] = raw
+        case.index['collection_timing'].update(sha256=digest(raw), size_bytes=len(raw))
+    elif mutation == 'missing_index_binding': case.index.pop('collection_timing')
+    else:
+        key, value = {'wrong_index_digest': ('sha256', 'f' * 64),
+                      'wrong_index_member': ('member', 'control/other-timing.json'),
+                      'wrong_index_size': ('size_bytes', True)}[mutation]
+        case.index['collection_timing'][key] = value
+    selected_archive_seal(case)
+    error = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    with pytest.raises(error): collection_validate(side, case, f.source, tmp_path)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('anchor', _COLLECTION_ANCHORS)
+def test_collection_timing_cannot_substitute_rehashed_original_anchor(
+    collection_observed_fixture, tmp_path, side, anchor,
+):
+    f = collection_observed_fixture; case = selected_archive_case(f.capture)
+    case.members['acquisition/' + anchor] += b'\n'
+    selected_archive_seal(case)  # Repair all outer hashes, not the retained observation anchor.
+    error = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    with pytest.raises(error, match='collection_timing_anchor_mismatch'):
+        collection_validate(side, case, f.source, tmp_path)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('field,value', [
+    ('subject_terminal_requested_utc', collection_stamp(0)),
+    ('subject_terminal_received_utc', collection_stamp(9)),
+    ('collection_started_utc', collection_stamp(9)),
+    ('collection_started_utc', collection_stamp(15)),
+    ('provider_terminal_requested_utc', collection_stamp(13)),
+    ('provider_terminal_received_utc', collection_stamp(19)),
+    ('final_download_started_utc', collection_stamp(21)),
+    ('collection_completed_utc', collection_stamp(20)),
+    ('collection_completed_utc', None), ('collection_started_utc', True),
+    ('collection_started_utc', '2000-02-30T00:12:00Z'),
+    ('collection_completed_utc', '2000-01-01T00:25:00+00:00'),
+])
+def test_collection_timing_rejects_reversed_missing_and_premature_times(
+    collection_observed_fixture, tmp_path, side, field, value,
+):
+    f = collection_observed_fixture; case = selected_archive_case(f.capture)
+    timing = json.loads(case.members[_COLLECTION_TIME_MEMBER]); timing[field] = value
+    case.members[_COLLECTION_TIME_MEMBER] = canonical(timing)
+    collection_timing_reseal(case, repair_anchors=False)
+    error = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    with pytest.raises(error): collection_validate(side, case, f.source, tmp_path)
+
+
+@pytest.mark.parametrize('field', ['capture_started_utc', 'capture_completed_utc', 'manifest_created_utc'])
+def test_collection_capture_claim_is_derived_not_freely_shiftable(collection_observed_fixture, field):
+    f = collection_observed_fixture; case = selected_archive_case(f.capture)
+    case.manifest['capture_identity'][field] = collection_stamp(30)
+    selected_archive_seal(case)
+    with pytest.raises(VERIFIER.VerificationError, match='collection_capture_time_mismatch'):
+        VERIFIER._check_collection_timing(f.source.plan, case.manifest, case.members)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier', 'projection'])
+def test_collection_public_intake_rejects_resealed_missing_time_evidence(
+    selected_archive_fixture, source_fixture, tmp_path, side,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    case.members.pop(_COLLECTION_TIME_MEMBER); selected_archive_seal(case)
+    if side == 'capture':
+        directory = tmp_path / 'originals'; directory.mkdir()
+        for name, raw in case.members.items():
+            if not name.startswith('acquisition/'): continue
+            path = directory / name.removeprefix('acquisition/')
+            path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(raw); path.chmod(0o444)
+        before = {p.relative_to(directory).as_posix(): p.read_bytes() for p in directory.rglob('*') if p.is_file()}
+        with pytest.raises(Exception, match='collection_timing_missing') as caught:
+            construct_capture(source_fixture, SimpleNamespace(directory=tmp_path, output=directory), 'must-not-exist.zip')
+        assert type(caught.value).__name__ == 'CaptureError'
+        assert not (tmp_path / 'must-not-exist.zip').exists()
+        assert before == {p.relative_to(directory).as_posix(): p.read_bytes() for p in directory.rglob('*') if p.is_file()}
+    elif side == 'verifier':
+        path = tmp_path / 'rehashed.zip'; selected_archive_write_capture(path, case)
+        with pytest.raises(VERIFIER.VerificationError, match='collection_timing_missing'):
+            selected_archive_read(path, case, source_fixture)
+    else:
+        with pytest.raises(VERIFIER.VerificationError, match='collection_timing_missing'):
+            VERIFIER.build_runtime_packet(plan=source_fixture.plan, capture_manifest=case.manifest,
+                                           capture_members=case.members, record_status='example')
+
+
+@pytest.mark.parametrize('mutation', ['acquisition_start', 'shifted_start', 'run_end', 'created_time'])
+def test_collection_runtime_projection_cannot_reintroduce_the_old_window(
+    collection_observed_fixture, mutation,
+):
+    f = collection_observed_fixture; c = f.capture
+    packet = VERIFIER.build_runtime_packet(plan=f.source.plan, capture_manifest=c.manifest,
+                                           capture_members=c.members, record_status='observed')
+    if mutation == 'acquisition_start':
+        packet['observation_boundary']['capture_started_utc'] = collection_stamp(0)
+        checks, errors = GENERIC_VALIDATOR.semantic_checks(packet)
+        assert checks['capture_window_and_packet_time_ok'] is False
+    elif mutation == 'shifted_start':
+        # Still generic-valid; exact input binding must reject this free choice.
+        packet['observation_boundary']['capture_started_utc'] = collection_stamp(13)
+        checks, errors = GENERIC_VALIDATOR.semantic_checks(packet)
+        assert errors == [] and all(checks.values())
+    elif mutation == 'run_end': packet['observation_boundary']['capture_completed_utc'] = collection_stamp(20)
+    else: packet['packet_identity']['packet_created_utc'] = collection_stamp(26)
+    with pytest.raises(VERIFIER.VerificationError, match='collection_runtime_time_mismatch'):
+        VERIFIER._require_timing_projection(f.source.plan, packet, c.manifest, c.members)
+
+
+@pytest.mark.parametrize('clock_values', [
+    [collection_stamp(9), collection_stamp(23), collection_stamp(25)],
+    [collection_stamp(12), collection_stamp(21), collection_stamp(25)],
+    [collection_stamp(12), collection_stamp(23), collection_stamp(20)],
+    [collection_stamp(12), collection_stamp(23), None],
+])
+def test_collection_acquirer_rejects_bad_clock_without_publishing(source_fixture, tmp_path, clock_values):
+    transport = CollectionClockTransport(source_fixture.plan, source_fixture.sha)
+    values = iter(clock_values); target = tmp_path / 'rejected-acquisition'
+    with pytest.raises(Exception) as caught:
+        acquire_example(source_fixture, target, transport, utc_now=lambda: next(values))
+    assert type(caught.value).__name__ == 'AcquisitionError'
+    assert not target.exists()
+    assert not list(tmp_path.glob('.step5c-acquisition.*'))
+
+
+def test_collection_replay_uses_preserved_time_not_present_clock(collection_observed_fixture):
+    f = collection_observed_fixture; c = f.capture
+    # A replay years later has the same recorded window. No retention-clock
+    # comparison or current wall-clock substitution belongs in the verifier.
+    with patch.object(VERIFIER.dt, 'datetime', wraps=VERIFIER.dt.datetime) as clock:
+        clock.now.side_effect = AssertionError('A replay must not sample the current time')
+        one = VERIFIER._check_collection_timing(f.source.plan, c.manifest, c.members)
+        two = VERIFIER._check_collection_timing(f.source.plan, c.manifest, c.members)
+    assert one == two
+
+
+def test_collection_timing_does_not_remove_state_completion_stop(source_fixture):
+    packet = runtime_projection_example(source_fixture)
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, packet, {})
+
+
+
+
+def test_collection_observed_projection_two_fresh_processes(collection_observed_fixture, tmp_path):
+    f = collection_observed_fixture
+    script = tmp_path / 'replay-observed-window.py'
+    script.write_text('''import importlib.util, json, sys, zipfile
+from pathlib import Path
+root, plan_path, capture_path = map(Path, sys.argv[1:])
+def load(name):
+    spec = importlib.util.spec_from_file_location(name, root / "tools" / (name + ".py"))
+    module = importlib.util.module_from_spec(spec); sys.modules[name] = module; spec.loader.exec_module(module)
+    return module
+verifier = load("check_pulsemech_compute_whole_runtime_observation_v0")
+generic = load("check_pulsemech_compute_runtime_observation_packet_v0")
+plan = json.loads(plan_path.read_bytes())
+with zipfile.ZipFile(capture_path) as archive:
+    context = archive.read(verifier.CAPTURE_EXPECTED_CONTEXT_MEMBER)
+manifest, members, _ = verifier.read_capture(capture_path,
+    schema=json.loads((root / verifier.SCHEMA_PATH).read_bytes()), plan=plan,
+    expected_plan_sha256=verifier.sha256_bytes(plan_path.read_bytes()),
+    expected_context_raw=context, record_status="observed", source_commit=plan["plan_identity"]["source_commit"])
+packet = verifier.build_runtime_packet(plan=plan, capture_manifest=manifest, capture_members=members, record_status="observed")
+checks, errors = generic.semantic_checks(packet)
+assert errors == [] and all(checks.values()), errors
+verifier._require_timing_projection(plan, packet, manifest, members)
+sys.stdout.buffer.write(verifier.canonical_json_bytes(packet))
+''')
+    outputs = []
+    before = digest(f.capture.path.read_bytes())
+    for ordinal in (1, 2):
+        result = subprocess.run([sys.executable, '-I', '-B', str(script), str(f.source.root),
+            str(f.source.plan_path), str(f.capture.path)], cwd=tmp_path,
+            env={'PATH': '/usr/bin:/bin', 'HOME': str(tmp_path), 'LANG': 'C'},
+            capture_output=True, timeout=60)
+        assert result.returncode == 0, result.stderr
+        (tmp_path / f'observed-projection-{ordinal}.json').write_bytes(result.stdout)
+        outputs.append(result.stdout)
+    assert outputs[0] == outputs[1]
+    packet = json.loads(outputs[0])
+    assert packet['observation_boundary']['capture_started_utc'] == collection_stamp(12)
+    assert packet['observation_boundary']['capture_completed_utc'] == collection_stamp(25)
+    assert digest(f.capture.path.read_bytes()) == before
+    assert Counter(row['content_status'] for row in packet['state_observations']) == {'exact_digest': 46, 'unavailable': 16}
+    assert packet['coverage']['coverage_status'] == 'partial'
 
 
 if __name__ == '__main__':

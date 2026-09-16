@@ -2393,6 +2393,100 @@ def _write_capture_zip(
                 pass
 
 
+COLLECTION_TIMING_MEMBER = "control/collection-timing.json"
+COLLECTION_TIMING_VERSION = "pulsemech_compute_whole_runtime_observation_collection_timing_v0"
+_COLLECTION_TIME_FIELDS = (
+    "subject_terminal_requested_utc", "subject_terminal_received_utc",
+    "provider_terminal_requested_utc", "provider_terminal_received_utc",
+    "collection_started_utc", "final_download_started_utc", "collection_completed_utc",
+)
+
+
+def _validate_collection_timing(
+    *, acquisition_files: Mapping[str, FileSnapshot], index: Mapping[str, Any],
+    plan: Mapping[str, Any], subject: Mapping[str, Any], provider: Mapping[str, Any],
+    expected_context: Mapping[str, Any],
+) -> dict[str, str]:
+    """Bind collection clocks to the frozen observer record and original inputs."""
+    snapshot = acquisition_files.get(COLLECTION_TIMING_MEMBER)
+    _require(snapshot is not None and 0 < snapshot.size_bytes <= 16384,
+             "collection_timing_missing", stage="time")
+    _require(_canonical_json_bytes(index.get("collection_timing")) ==
+             _canonical_json_bytes(_snapshot_descriptor(snapshot, member=COLLECTION_TIMING_MEMBER)),
+             "collection_timing_binding_mismatch", stage="time")
+    timing = _json_object(snapshot.path.read_bytes(), label="collection_timing", canonical=True)
+    source_rows = [row for row in plan.get("source_inventory", [])
+                   if isinstance(row, dict) and row.get("path") == ACQUIRE_PATH]
+    _require(len(source_rows) == 1, "collection_timing_source_missing", stage="time")
+    fixed = {
+        "schema_version": COLLECTION_TIMING_VERSION,
+        "record_status": index.get("record_status"),
+        "repository": REPOSITORY,
+        "source_commit": plan["plan_identity"]["source_commit"],
+        "observer_source_sha256": source_rows[0]["sha256"],
+        "acquisition_id": expected_context["acquisition_id"],
+        "collector_run_key": expected_context["collector_run_key"],
+        "subject_run_id": subject["run_id"], "subject_run_attempt": 1,
+        "provider_run_id": provider["run_id"], "provider_run_attempt": 1,
+        "clock_source": "observer_utc", "cross_source_clock_status": "not_verified",
+        "authority_boundary": dict(AUTHORITY_BOUNDARY),
+    }
+    _require(set(timing) == set(fixed) | set(_COLLECTION_TIME_FIELDS) | {"anchors"},
+             "collection_timing_shape_invalid", stage="time")
+    _require(_canonical_json_bytes({key: timing[key] for key in fixed}) ==
+             _canonical_json_bytes(fixed), "collection_timing_context_mismatch", stage="time")
+    anchor_members = sorted((SUBJECT_DISPATCH_RECEIPT_MEMBER, PROVIDER_DISPATCH_RECEIPT_MEMBER,
+                             SUBJECT_RUN_RESPONSE_MEMBER, PROVIDER_RUN_RESPONSE_MEMBER,
+                             PROVIDER_ENVELOPE_MEMBER))
+    _require(all(member in acquisition_files for member in anchor_members),
+             "collection_timing_anchor_missing", stage="time")
+    anchors = [_snapshot_descriptor(acquisition_files[member], member=member)
+               for member in anchor_members]
+    _require(_canonical_json_bytes(timing["anchors"]) == _canonical_json_bytes(anchors),
+             "collection_timing_anchor_mismatch", stage="time")
+    receipts = []
+    for kind, summary, run_member, receipt_member in (
+        ("subject", subject, SUBJECT_RUN_RESPONSE_MEMBER, SUBJECT_DISPATCH_RECEIPT_MEMBER),
+        ("provider", provider, PROVIDER_RUN_RESPONSE_MEMBER, PROVIDER_DISPATCH_RECEIPT_MEMBER),
+    ):
+        raw = _json_object(acquisition_files[run_member].path.read_bytes(), label=run_member)
+        derived = _run_summary_from_raw(raw, workflow_name=summary["workflow_name"],
+                                        workflow_path=summary["workflow_path"])
+        _require(_canonical_json_bytes(derived) == _canonical_json_bytes(summary),
+                 "collection_run_binding_mismatch", stage="time")
+        receipt = _json_object(acquisition_files[receipt_member].path.read_bytes(),
+                               label=receipt_member, canonical=True)
+        _require(receipt.get("record_status") == index.get("record_status")
+                 and receipt.get("repository") == REPOSITORY
+                 and receipt.get("source_commit") == fixed["source_commit"]
+                 and type(receipt.get("response", {}).get("workflow_run_id")) is int
+                 and receipt["response"]["workflow_run_id"] == summary["run_id"],
+                 "collection_dispatch_binding_mismatch", stage="time")
+        receipts.append(receipt)
+        created, started, completed, received = [
+            _parse_utc(value, label="collection_run_timing") for value in (
+                summary["created_at"], summary["run_started_at"], summary["updated_at"],
+                timing[kind + "_terminal_received_utc"],
+            )
+        ]
+        _require(created <= started <= completed <= received,
+                 "collection_run_time_invalid", stage="time")
+    first, second = receipts
+    values = [
+        first["requested_utc"], first["received_utc"],
+        timing["subject_terminal_requested_utc"], timing["subject_terminal_received_utc"],
+        timing["collection_started_utc"], second["requested_utc"], second["received_utc"],
+        timing["provider_terminal_requested_utc"], timing["provider_terminal_received_utc"],
+        timing["final_download_started_utc"], timing["collection_completed_utc"],
+    ]
+    ordered = [_parse_utc(value, label="collection_timing") for value in values]
+    _require(all(a <= b for a, b in zip(ordered, ordered[1:])),
+             "collection_time_order_invalid", stage="time")
+    return {"acquisition_started_utc": first["requested_utc"],
+            "collection_started_utc": timing["collection_started_utc"],
+            "collection_completed_utc": timing["collection_completed_utc"]}
+
+
 def build_capture(
     *,
     repository_root: Path,
@@ -2648,8 +2742,14 @@ def build_capture(
         _descriptor(item.member, item.sha256, item.size_bytes)
         for item in capture_members
     ]
-    capture_started = subject_receipt["receipt"]["requested_utc"]
-    capture_completed = provider["updated_at"]
+    timing = _validate_collection_timing(
+        acquisition_files=acquisition_files, index=index, plan=plan,
+        subject=subject, provider=provider, expected_context=expected_context,
+    )
+    # The outer carrier retains the dispatch-to-final-download interval.
+    # Only the generic observed packet uses the nested post-run interval.
+    capture_started = timing["acquisition_started_utc"]
+    capture_completed = timing["collection_completed_utc"]
     _require(
         _parse_utc(capture_started, label="capture_started_utc")
         <= _parse_utc(capture_completed, label="capture_completed_utc"),
