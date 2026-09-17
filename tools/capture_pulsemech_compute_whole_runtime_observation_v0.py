@@ -2599,6 +2599,146 @@ def _validate_d3_bindings(
     return {arg_id: argument_raw, value_id: _canonical_json_bytes(projection)}
 
 
+# D6 uses the already-preserved, reviewed workflow bytes. These selectors are
+# tied to this immutable source, not a search for any successful attestation.
+_D6_WORKFLOW_BLOB = "ad1f165ad695c65827c590cbef9466e300d6b6e9"
+_D6_ACTION_COMMIT = "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"
+_D6_JOB = "attest_release_grade_artifact_binding"
+_D6_JOB_NAME = "Release-grade artifact binding v0: attest"
+_D6_STEP_NAMES = ("Download final release-grade artifact binding",
+                  "Attest final release-grade artifact binding v0")
+_D6_A2_ORDINAL = 2
+
+
+def _validate_d6_action_metadata(
+    *, plan: Mapping[str, Any], subject: Mapping[str, Any],
+    raw_subject: Mapping[str, Any], jobs: Sequence[Mapping[str, Any]],
+    workflow_raw: bytes,
+) -> dict[str, Any]:
+    """Check original A2 platform evidence before publication, without a receipt.
+
+    The workflow pin covers the action inputs as well as the selected step.
+    Original bytes and metadata remain in the carrier; this return value is
+    an internal projection, not a signed receipt or an action-internal trace.
+    No source ordinal is inferred from a GitHub step number.
+    """
+    identity = plan.get("plan_identity", {})
+    revision = identity.get("source_commit")
+    _require(identity.get("repository") == REPOSITORY and isinstance(revision, str)
+             and SHA40_RE.fullmatch(revision) is not None,
+             "d6_source_identity_mismatch", stage="d6")
+    sources = [row for row in plan.get("source_inventory", [])
+               if isinstance(row, dict) and row.get("path") == SUBJECT_WORKFLOW_PATH]
+    _require(len(sources) == 1 and type(workflow_raw) is bytes
+             and 0 < len(workflow_raw) <= 1048576, "d6_source_missing", stage="d6")
+    source = sources[0]
+    blob = hashlib.sha1(b"blob %d\0" % len(workflow_raw) + workflow_raw).hexdigest()
+    _require(blob == _D6_WORKFLOW_BLOB == source.get("git_blob_sha1")
+             and source.get("revision") == revision
+             and source.get("sha256") == _sha256(workflow_raw)
+             and type(source.get("size_bytes")) is int and source["size_bytes"] == len(workflow_raw),
+             "d6_source_identity_mismatch", stage="d6")
+    job_id = "execution:step5c:job:" + _D6_JOB
+    planned = [row for row in plan.get("jobs", []) if isinstance(row, dict)
+               and (row.get("source_job_id") == _D6_JOB or row.get("occurrence_id") == job_id)]
+    _require(len(planned) == 1, "d6_plan_occurrence_mismatch", stage="d6")
+    job_plan = planned[0]
+    _require(job_plan.get("source_job_id") == _D6_JOB and job_plan.get("occurrence_id") == job_id
+             and job_plan.get("display_name") == _D6_JOB_NAME
+             and job_plan.get("expected_terminal_result") == "success"
+             and job_plan.get("needs") == ["release_grade_recorded_path"],
+             "d6_plan_occurrence_mismatch", stage="d6")
+    steps = job_plan.get("steps")
+    _require(isinstance(steps, list) and len(steps) == 2, "d6_plan_occurrence_mismatch", stage="d6")
+    action_source = {"kind": "github_action", "action_repository": "actions/attest",
+                     "action_ref": _D6_ACTION_COMMIT, "action_commit_sha": _D6_ACTION_COMMIT,
+                     "uses": "actions/attest@" + _D6_ACTION_COMMIT}
+    step_sources = ({"kind": "shell", "shell": "bash", "raw_command_included": False,
+                     "run_sha256": "8188e65e20586576260b52007fb7810890deb040c206d7e6e6d863ef33a9fe5d"},
+                    action_source)
+    for ordinal, step in enumerate(steps, 1):
+        _require(isinstance(step, dict)
+                 and step.get("occurrence_id") == f"execution:step5c:step:{_D6_JOB}:{ordinal:03d}"
+                 and type(step.get("source_ordinal")) is int and step["source_ordinal"] == ordinal
+                 and step.get("name") == _D6_STEP_NAMES[ordinal - 1]
+                 and step.get("expected_runtime_presence") is True
+                 and step.get("expected_terminal_result") == "success"
+                 and step.get("if_expression") is None
+                 and _canonical_json_bytes(step.get("source")) == _canonical_json_bytes(step_sources[ordinal - 1]),
+                 "d6_plan_occurrence_mismatch", stage="d6")
+    _require(steps[1]["source_ordinal"] == _D6_A2_ORDINAL,
+             "d6_plan_occurrence_mismatch", stage="d6")
+    state_id = "state:step5c:artifact-binding-attestation"
+    states = [row for row in plan.get("state_templates", [])
+              if isinstance(row, dict) and row.get("state_id") == state_id]
+    _require(len(states) == 1 and states[0].get("required") is True
+             and states[0].get("state_type") == "attestation"
+             and states[0].get("producer_occurrence_id") == steps[1]["occurrence_id"],
+             "d6_state_role_mismatch", stage="d6")
+    run_id = subject.get("run_id")
+    _require(type(run_id) is int and run_id > 0 and type(subject.get("run_attempt")) is int
+             and subject["run_attempt"] == 1 and subject.get("repository") == REPOSITORY
+             and subject.get("workflow_name") == SUBJECT_WORKFLOW_NAME
+             and subject.get("workflow_path") == SUBJECT_WORKFLOW_PATH
+             and subject.get("head_sha") == revision and subject.get("head_branch") == "main"
+             and subject.get("event") == "workflow_dispatch"
+             and subject.get("status") == "completed" and subject.get("conclusion") == "success",
+             "d6_subject_mismatch", stage="d6")
+    expected_raw = {"id": run_id, "run_attempt": 1, "head_sha": revision,
+                    "name": SUBJECT_WORKFLOW_NAME, "path": SUBJECT_WORKFLOW_PATH,
+                    "event": "workflow_dispatch", "head_branch": "main",
+                    "status": "completed", "conclusion": "success",
+                    "run_started_at": subject.get("run_started_at"), "updated_at": subject.get("updated_at")}
+    _require(_canonical_json_bytes({key: raw_subject.get(key) for key in expected_raw})
+             == _canonical_json_bytes(expected_raw)
+             and isinstance(raw_subject.get("repository"), dict)
+             and raw_subject["repository"].get("full_name") == REPOSITORY,
+             "d6_run_response_mismatch", stage="d6")
+    matches = [row for row in jobs if isinstance(row, dict) and row.get("name") == _D6_JOB_NAME]
+    _require(len(matches) == 1, "d6_job_occurrence_mismatch", stage="d6")
+    job = matches[0]
+    _require(type(job.get("id")) is int and job["id"] > 0
+             and sum(row.get("id") == job["id"] for row in jobs if isinstance(row, dict)) == 1
+             and type(job.get("run_id")) is int and job["run_id"] == run_id
+             and type(job.get("run_attempt")) is int and job["run_attempt"] == 1
+             and job.get("head_sha") == revision and job.get("status") == "completed"
+             and job.get("conclusion") == "success", "d6_job_identity_mismatch", stage="d6")
+    platform_steps = job.get("steps")
+    _require(isinstance(platform_steps, list) and 2 <= len(platform_steps) <= 1000,
+             "d6_step_occurrence_mismatch", stage="d6")
+    selected = []; numbers = []
+    for row in platform_steps:
+        _require(isinstance(row, dict) and type(row.get("number")) is int and row["number"] > 0,
+                 "d6_platform_step_number_invalid", stage="d6")
+        numbers.append(row["number"])
+        _require(isinstance(row.get("name"), str), "d6_step_occurrence_mismatch", stage="d6")
+        _require(row.get("status") == "completed", "d6_step_not_successful", stage="d6")
+        if row.get("name") in _D6_STEP_NAMES:
+            _require(row.get("conclusion") == "success", "d6_step_not_successful", stage="d6")
+            selected.append(row)
+        else:
+            _require(row.get("name") in EXPECTED_LIFECYCLE_NAMES
+                     and row.get("conclusion") in {"success", "skipped"},
+                     "d6_step_occurrence_mismatch", stage="d6")
+    _require(numbers == sorted(set(numbers)), "d6_platform_step_number_invalid", stage="d6")
+    _require([row["name"] for row in selected] == list(_D6_STEP_NAMES),
+             "d6_step_occurrence_mismatch", stage="d6")
+    action = selected[1]
+    try:
+        times = [_parse_utc(value, label="d6_time") for value in (
+            subject.get("run_started_at"), job.get("started_at"), action.get("started_at"),
+            action.get("completed_at"), job.get("completed_at"), subject.get("updated_at"))]
+    except CaptureError:
+        raise CaptureError("d6_timing_invalid", stage="d6") from None
+    _require(times == sorted(times), "d6_timing_invalid", stage="d6")
+    return {"job_id": job["id"], "source_ordinal": _D6_A2_ORDINAL,
+            "platform_step_number": action["number"], "source_commit": revision,
+            "subject_run_id": run_id, "subject_run_attempt": 1,
+            "job_started_utc": job["started_at"], "job_completed_utc": job["completed_at"],
+            "action_started_utc": action["started_at"], "action_completed_utc": action["completed_at"],
+            "action_source": action_source}
+
+
 def _raw_response_bindings(
     *,
     acquisition_files: Mapping[str, FileSnapshot],
@@ -3168,6 +3308,10 @@ def build_capture(
         plan=plan, subject=subject, sources=_d3_source_payloads(d3_sources),
         status_raw=d3_documents["status.json"], state_views=state_views,
         acquisition_files=acquisition_files, artifact_rows=artifact_rows,
+    )
+    _validate_d6_action_metadata(
+        plan=plan, subject=subject, raw_subject=raw_subject, jobs=subject_job_rows,
+        workflow_raw=_d3_source_payloads(d3_sources)[SUBJECT_WORKFLOW_PATH],
     )
     capture_members = _capture_members(
         d3_sources=d3_sources,

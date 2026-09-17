@@ -602,6 +602,41 @@ All existing mandatory LlamaGuard bundle, envelope, signature and verifier check
 remain required. An implementation finding a different unsupported mandatory
 relationship must stop for an explicit decision, not invent another gap rule.
 
+#### D6 action-metadata binding implementation boundary
+
+The capture checks the exact A1/A2 source sequence of the selected
+`attest_release_grade_artifact_binding` job against the original, pinned
+`.github/workflows/pulse_ci.yml` bytes already retained for offline D3 checks.
+The A2 `actions/attest` revision and original subject-path configuration are
+covered by that immutable workflow identity. No new source file, artifact
+selector or generic runtime enum is introduced.
+
+The separate verifier rechecks the original subject-run response and closed
+subject-job pages, including their original-byte descriptor bindings. It
+requires the exact selected job/run/attempt/source, successful A2 result and
+recorded job/action times contained in the subject interval. Missing or
+contradictory metadata is rejected, not replaced with a plan prediction.
+
+Source ordinal `2` and the platform's positive step `number` remain distinct.
+Platform numbers must be unique and increasing within the selected job; they
+need not start at one or be contiguous. The unchanged generic packet continues
+to use source ordinals. The original platform number remains in the raw input;
+no inferred platform number replaces it. Permitted platform lifecycle records
+remain outside the declared subject extent.
+
+Capture intake, direct runtime construction and final verification-record
+admission enforce this evidence boundary. The final check compares the A2
+record and its invocation/result metadata with the original preserved evidence,
+not merely with another internally consistent packet field. The enclosing
+step interval is not an internal network-call interval or signed-receipt time.
+
+This is platform-reported action metadata only. The final binding attestation
+state retains unavailable content, null content identity and no invented
+producer/read receipt. Mandatory LlamaGuard evidence is neither replaced nor
+weakened. The 62-role inventory, generic partial coverage, inactive R2 and
+`declared_state_evidence_incomplete` acceptance stop remain unchanged. This
+increment does not establish full existing-core replay or Step 5C acceptance.
+
 ### Complete review-role obligations
 
 The following table accounts for all R1 roles under the R2 target. It is not a

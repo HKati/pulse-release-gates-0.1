@@ -2402,6 +2402,269 @@ def _require_timing_projection(
             "collection_runtime_time_mismatch", stage="time")
 
 
+# Independently encoded D6 selector for the already-pinned workflow. Source
+# oracle regressions compare this recipe to the original YAML, not the capture
+# helper. An action result is never the signed receipt it may have produced.
+_D6_WORKFLOW_BLOB = "ad1f165ad695c65827c590cbef9466e300d6b6e9"
+_D6_ACTION_COMMIT = "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"
+_D6_JOB = "attest_release_grade_artifact_binding"
+_D6_JOB_NAME = "Release-grade artifact binding v0: attest"
+_D6_A2_ORDINAL = 2
+_D6_STEP_NAMES = ("Download final release-grade artifact binding",
+                  "Attest final release-grade artifact binding v0")
+
+
+def _check_d6_action_evidence(
+    plan: Mapping[str, Any], manifest: Mapping[str, Any], members: Mapping[str, bytes],
+) -> dict[str, Any]:
+    """Independently bind the original A2 observation, including raw page bytes.
+
+    Both offline intake and packet construction call this; a previously passed
+    capture is not evidence in a later invocation. Raw page numbers and source
+    ordinals are separate namespaces. Only the existing bounded inputs are read.
+    """
+    revision = plan.get("plan_identity", {}).get("source_commit")
+    require(plan.get("plan_identity", {}).get("repository") == REPOSITORY
+            and isinstance(revision, str) and SHA40_RE.fullmatch(revision) is not None,
+            "d6_source_identity_mismatch", stage="d6")
+    raw_source = members.get(D3_SOURCE_PREFIX + SUBJECT_WORKFLOW_PATH)
+    source_rows = [r for r in plan.get("source_inventory", [])
+                   if isinstance(r, dict) and r.get("path") == SUBJECT_WORKFLOW_PATH]
+    require(len(source_rows) == 1 and type(raw_source) is bytes and 0 < len(raw_source) <= 1048576,
+            "d6_source_missing", stage="d6")
+    source_row = source_rows[0]
+    source_blob = hashlib.sha1(b"blob %d\0" % len(raw_source) + raw_source).hexdigest()
+    require(source_blob == _D6_WORKFLOW_BLOB == source_row.get("git_blob_sha1")
+            and source_row.get("revision") == revision and source_row.get("sha256") == sha256_bytes(raw_source)
+            and type(source_row.get("size_bytes")) is int and source_row["size_bytes"] == len(raw_source),
+            "d6_source_identity_mismatch", stage="d6")
+    occurrence = "execution:step5c:job:" + _D6_JOB
+    plans = [p for p in plan.get("jobs", []) if isinstance(p, dict)
+             and (p.get("source_job_id") == _D6_JOB or p.get("occurrence_id") == occurrence)]
+    require(len(plans) == 1, "d6_plan_occurrence_mismatch", stage="d6")
+    planned = plans[0]; steps = planned.get("steps")
+    require(planned.get("display_name") == _D6_JOB_NAME and planned.get("source_job_id") == _D6_JOB
+            and planned.get("occurrence_id") == occurrence and planned.get("expected_terminal_result") == "success"
+            and planned.get("needs") == ["release_grade_recorded_path"]
+            and isinstance(steps, list) and len(steps) == 2, "d6_plan_occurrence_mismatch", stage="d6")
+    action_source = {"action_commit_sha": _D6_ACTION_COMMIT, "action_ref": _D6_ACTION_COMMIT,
+                     "action_repository": "actions/attest", "kind": "github_action",
+                     "uses": "actions/attest@" + _D6_ACTION_COMMIT}
+    expected_sources = [
+        {"kind": "shell", "raw_command_included": False, "shell": "bash",
+         "run_sha256": "8188e65e20586576260b52007fb7810890deb040c206d7e6e6d863ef33a9fe5d"}, action_source]
+    for position in range(2):
+        step = steps[position]
+        require(isinstance(step, dict) and step.get("name") == _D6_STEP_NAMES[position]
+                and type(step.get("source_ordinal")) is int and step["source_ordinal"] == position + 1
+                and step.get("occurrence_id") == f"execution:step5c:step:{_D6_JOB}:{position + 1:03d}"
+                and step.get("expected_runtime_presence") is True and step.get("expected_terminal_result") == "success"
+                and step.get("if_expression") is None
+                and canonical_json_bytes(step.get("source")) == canonical_json_bytes(expected_sources[position]),
+                "d6_plan_occurrence_mismatch", stage="d6")
+    require(steps[1]["source_ordinal"] == _D6_A2_ORDINAL, "d6_plan_occurrence_mismatch", stage="d6")
+    state_id = "state:step5c:artifact-binding-attestation"
+    state_rows = [s for s in plan.get("state_templates", []) if isinstance(s, dict) and s.get("state_id") == state_id]
+    require(len(state_rows) == 1 and state_rows[0].get("required") is True
+            and state_rows[0].get("state_type") == "attestation"
+            and state_rows[0].get("producer_occurrence_id") == steps[1]["occurrence_id"],
+            "d6_state_role_mismatch", stage="d6")
+    subject = manifest.get("subject", {})
+    run_id = subject.get("run_id")
+    require(type(run_id) is int and run_id > 0 and type(subject.get("run_attempt")) is int and subject["run_attempt"] == 1
+            and subject.get("repository") == REPOSITORY and subject.get("workflow_name") == SUBJECT_WORKFLOW_NAME
+            and subject.get("workflow_path") == SUBJECT_WORKFLOW_PATH and subject.get("head_sha") == revision
+            and subject.get("head_branch") == "main" and subject.get("event") == "workflow_dispatch"
+            and subject.get("status") == "completed" and subject.get("conclusion") == "success",
+            "d6_subject_mismatch", stage="d6")
+
+    def document(name: str) -> dict[str, Any]:
+        payload = members.get(name)
+        require(type(payload) is bytes and 0 < len(payload) <= 16 * 1024 * 1024,
+                "d6_raw_evidence_missing", stage="d6")
+        try:
+            return parse_json_bytes(payload, label="d6_raw_evidence", canonical=False, maximum=16 * 1024 * 1024)
+        except VerificationError:
+            raise VerificationError("d6_raw_evidence_invalid", stage="d6") from None
+
+    index = document("acquisition/acquisition-index.json")
+    raw_bindings = manifest.get("raw_response_bindings")
+    require(isinstance(raw_bindings, list) and all(isinstance(r, dict) and isinstance(r.get("descriptor"), dict) for r in raw_bindings),
+            "d6_raw_binding_mismatch", stage="d6")
+    acquired = index.get("member_inventory", {}).get("members")
+    require(isinstance(acquired, list), "d6_raw_binding_mismatch", stage="d6")
+
+    def bound_document(name: str, role: str) -> dict[str, Any]:
+        value = document(name)
+        payload = members[name]
+        wanted = {"member": name, "sha256": sha256_bytes(payload), "size_bytes": len(payload)}
+        matches = [r for r in raw_bindings if r.get("role") == role
+                   and isinstance(r.get("descriptor"), dict) and r["descriptor"].get("member") == name]
+        inventory_rows = [r for r in acquired if isinstance(r, dict) and r.get("member") == name.removeprefix("acquisition/")]
+        require(len(matches) == len(inventory_rows) == 1
+                and canonical_json_bytes(matches[0]["descriptor"]) == canonical_json_bytes(wanted)
+                and canonical_json_bytes(inventory_rows[0]) == canonical_json_bytes({**wanted, "member": name.removeprefix("acquisition/")}),
+                "d6_raw_binding_mismatch", stage="d6")
+        return value
+
+    raw_run = bound_document("acquisition/subject/run-response.json", "subject_run_response")
+    wanted_run = {"id": run_id, "run_attempt": 1, "head_sha": revision, "name": SUBJECT_WORKFLOW_NAME,
+                  "path": SUBJECT_WORKFLOW_PATH, "event": "workflow_dispatch", "head_branch": "main",
+                  "status": "completed", "conclusion": "success",
+                  "run_started_at": subject.get("run_started_at"), "updated_at": subject.get("updated_at")}
+    require(canonical_json_bytes({k: raw_run.get(k) for k in wanted_run}) == canonical_json_bytes(wanted_run)
+            and isinstance(raw_run.get("repository"), dict) and raw_run["repository"].get("full_name") == REPOSITORY,
+            "d6_run_response_mismatch", stage="d6")
+    page_info = index.get("subject_jobs", {})
+    names = page_info.get("page_members")
+    require(type(page_info.get("total_count")) is int and page_info["total_count"] == EXPECTED_JOB_COUNT
+            and isinstance(names, list) and 0 < len(names) <= EXPECTED_JOB_COUNT
+            and all(isinstance(n, str) and re.fullmatch(r"subject/jobs-page-[0-9]{4}\.json", n) for n in names)
+            and names == sorted(set(names)), "d6_job_page_closure_mismatch", stage="d6")
+    pages = [r for r in raw_bindings if r.get("role") == "subject_jobs_page"]
+    require([r.get("descriptor", {}).get("member") for r in pages] == ["acquisition/" + n for n in names],
+            "d6_job_page_closure_mismatch", stage="d6")
+    rows = []
+    for name in names:
+        page = bound_document("acquisition/" + name, "subject_jobs_page")
+        values = page.get("jobs")
+        require(type(page.get("total_count")) is int and page["total_count"] == EXPECTED_JOB_COUNT
+                and isinstance(values, list) and 0 < len(values) <= EXPECTED_JOB_COUNT
+                and all(isinstance(v, dict) for v in values), "d6_job_page_closure_mismatch", stage="d6")
+        rows.extend(values)
+    require(len(rows) == EXPECTED_JOB_COUNT, "d6_job_page_closure_mismatch", stage="d6")
+    selected = [row for row in rows if row.get("name") == _D6_JOB_NAME]
+    require(len(selected) == 1, "d6_job_occurrence_mismatch", stage="d6")
+    job = selected[0]
+    require(type(job.get("id")) is int and job["id"] > 0 and sum(r.get("id") == job["id"] for r in rows) == 1
+            and type(job.get("run_id")) is int and job["run_id"] == run_id
+            and type(job.get("run_attempt")) is int and job["run_attempt"] == 1
+            and job.get("head_sha") == revision and job.get("status") == "completed" and job.get("conclusion") == "success",
+            "d6_job_identity_mismatch", stage="d6")
+    actual_steps = job.get("steps")
+    require(isinstance(actual_steps, list) and 2 <= len(actual_steps) <= 1000,
+            "d6_step_occurrence_mismatch", stage="d6")
+    number = 0; selected_steps = []
+    for step in actual_steps:
+        require(isinstance(step, dict) and type(step.get("number")) is int and step["number"] > number,
+                "d6_platform_step_number_invalid", stage="d6")
+        number = step["number"]
+        require(isinstance(step.get("name"), str), "d6_step_occurrence_mismatch", stage="d6")
+        require(step.get("status") == "completed", "d6_step_not_successful", stage="d6")
+        if step["name"] in _D6_STEP_NAMES:
+            require(step.get("conclusion") == "success", "d6_step_not_successful", stage="d6")
+            selected_steps.append(step)
+        else:
+            require(step["name"] in {"Set up job", "Complete job", "Post Checkout", "Post Set up Python"}
+                    and step.get("conclusion") in {"success", "skipped"}, "d6_step_occurrence_mismatch", stage="d6")
+    require(tuple(s["name"] for s in selected_steps) == _D6_STEP_NAMES,
+            "d6_step_occurrence_mismatch", stage="d6")
+    action = selected_steps[-1]
+    try:
+        run_start, job_start, start, finish, job_finish, run_finish = [parse_utc(v, label="d6_time") for v in (
+            subject.get("run_started_at"), job.get("started_at"), action.get("started_at"),
+            action.get("completed_at"), job.get("completed_at"), subject.get("updated_at"))]
+    except VerificationError:
+        raise VerificationError("d6_timing_invalid", stage="d6") from None
+    require(run_start <= job_start <= start <= finish <= job_finish <= run_finish,
+            "d6_timing_invalid", stage="d6")
+    return {"job_id": job["id"], "source_ordinal": _D6_A2_ORDINAL,
+            "platform_step_number": action["number"], "source_commit": revision,
+            "subject_run_id": run_id, "subject_run_attempt": 1,
+            "job_started_utc": job["started_at"], "job_completed_utc": job["completed_at"],
+            "action_started_utc": action["started_at"], "action_completed_utc": action["completed_at"],
+            "action_source": action_source}
+
+
+def _require_d6_projection(
+    plan: Mapping[str, Any], packet: Mapping[str, Any],
+    manifest: Mapping[str, Any], members: Mapping[str, bytes],
+) -> None:
+    """Reject self-consistent packet edits against the original A2 evidence.
+
+    This does not call the execution projector to validate its own result.
+    In particular an internally valid shifted time or job ID is still rejected.
+    """
+    evidence = _check_d6_action_evidence(plan, manifest, members)
+    job_id = "execution:step5c:job:" + _D6_JOB
+    action_id = f"execution:step5c:step:{_D6_JOB}:002"
+    run_key = f"GITHUB_RUN_ID={evidence['subject_run_id']}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+    executions = packet.get("executions")
+    require(isinstance(executions, list) and all(isinstance(e, dict) for e in executions),
+            "d6_runtime_projection_mismatch", stage="d6")
+    for identifier, kind, prefix in ((job_id, "workflow_job", "job"), (action_id, "workflow_step", "action")):
+        matches = [e for e in executions if e.get("execution_id") == identifier]
+        require(len(matches) == 1, "d6_runtime_projection_mismatch", stage="d6")
+        actual = matches[0]
+        first, last = evidence[prefix + "_started_utc"], evidence[prefix + "_completed_utc"]
+        elapsed = parse_utc(last, label="d6_end") - parse_utc(first, label="d6_start")
+        expected = {
+            "execution_scope": "subject", "execution_kind": kind,
+            "parent_execution_id": None if kind == "workflow_job" else job_id,
+            "workflow_name": SUBJECT_WORKFLOW_NAME, "job_name": _D6_JOB_NAME,
+            "job_id": evidence["job_id"], "job_attempt": 1,
+            "step_name": None if kind == "workflow_job" else _D6_STEP_NAMES[1],
+            "step_number": None if kind == "workflow_job" else _D6_A2_ORDINAL,
+            "run_binding": {"subject_run_key": run_key, "execution_run_key": run_key,
+                            "binding_mode": "current_subject_run", "binding_complete": True},
+            "timing": {"timing_status": "complete", "started_utc": first, "completed_utc": last,
+                       "duration_ms": int(round(elapsed.total_seconds() * 1000)),
+                       "timestamp_source": "platform_reported", "duration_source": "derived_from_timestamps"},
+            "result": {"result_status": "complete", "lifecycle_status": "completed", "outcome": "success", "exit_code": None},
+            "capture_status": "complete",
+        }
+        if kind == "workflow_step":
+            source = evidence["action_source"]
+            expected.update(source_identity={
+                "identity_status": "exact", "source_kind": "github_action", "source_path_or_uri": source["uses"],
+                "source_revision": None, "source_sha256": None, "action_repository": "actions/attest",
+                "action_ref": _D6_ACTION_COMMIT, "action_commit_sha": _D6_ACTION_COMMIT, "container_image_digest": None},
+                command_identity={"command_kind": "github_action", "display_name": source["uses"],
+                    "command_sha256": sha256_bytes(canonical_json_bytes(source)), "arguments_sha256": None,
+                    "raw_command_included": False}, input_state_ids=[], output_state_ids=[])
+        require(canonical_json_bytes({k: actual.get(k) for k in expected}) == canonical_json_bytes(expected),
+                "d6_runtime_projection_mismatch", stage="d6")
+    # Invocation/result metadata only: no HTTP body or signed receipt appears.
+    action = next(e for e in executions if e.get("execution_id") == action_id)
+    call_id = f"call:step5c:{_D6_JOB}:002:github_attestation_action"
+    calls = [c for c in packet.get("external_calls", []) if isinstance(c, dict) and c.get("call_id") == call_id]
+    require(len(calls) == 1 and action.get("external_call_ids") == [call_id],
+            "d6_external_metadata_mismatch", stage="d6")
+    request_metadata = {"boundary": "github_action_invocation", "call_id": call_id,
+        "parent_execution_id": action_id, "subject_run_key": run_key,
+        "source_identity": action["source_identity"], "command_identity": action["command_identity"]}
+    response_metadata = {"boundary": "github_action_platform_result", "call_id": call_id,
+        "parent_execution_id": action_id, "subject_run_key": run_key,
+        "job_id": evidence["job_id"], "job_attempt": 1, "source_ordinal": _D6_A2_ORDINAL,
+        "step_name": _D6_STEP_NAMES[1], "platform_result": action["result"]}
+    def metadata_payload(value: Mapping[str, Any]) -> dict[str, Any]:
+        return {"capture_status": "metadata_only", "metadata_sha256": sha256_bytes(canonical_json_bytes(value)),
+                "body_sha256": None, "body_size_bytes": None, "state_ids": [], "raw_body_included": False}
+    expected_call = {
+        "call_id": call_id, "parent_execution_id": action_id, "subject_run_key": run_key,
+        "service_identity": {"provider": "GitHub", "service_name": "attestation", "transport": "github_actions",
+            "endpoint_origin": None, "operation": "github_attestation_action", "api_version": None, "identity_status": "partial"},
+        "request": {"method": "OTHER", "payload": metadata_payload(request_metadata),
+                    "authorization_material_included": False, "cookies_included": False},
+        "response": {"status_code": None, "payload": metadata_payload(response_metadata), "set_cookie_included": False},
+        "provider_request_id_sha256": None,
+        "timing": {"timing_status": "unknown", "started_utc": None, "completed_utc": None,
+                   "duration_ms": None, "timestamp_source": "unknown", "duration_source": "unknown"},
+        "result": action["result"], "retry_index": 0, "resource_measurement_ids": [], "capture_status": "partial",
+    }
+    require(canonical_json_bytes(calls[0]) == canonical_json_bytes(expected_call),
+            "d6_external_metadata_mismatch", stage="d6")
+    receipt = "state:step5c:artifact-binding-attestation"
+    states = packet.get("state_observations", [])
+    receipts = [s for s in states if isinstance(s, dict) and s.get("state_id") == receipt]
+    gap = {"state_type": "attestation", "path_or_uri": "attestation://artifact_provenance_binding_v0.json",
+           "content_status": "unavailable", "sha256": None, "size_bytes": None,
+           "media_type": None, "schema_identity": None, "producer_execution_id": None}
+    require(len(receipts) == 1 and canonical_json_bytes({k: receipts[0].get(k) for k in gap}) == canonical_json_bytes(gap)
+            and all(receipt not in e.get("input_state_ids", []) and receipt not in e.get("output_state_ids", []) for e in executions),
+            "d6_signed_receipt_gap_mismatch", stage="d6")
+
+
 def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, Any], expected_plan_sha256: str, expected_context_raw: bytes, record_status: str, source_commit: str) -> tuple[dict[str, Any], dict[str, bytes], bytes]:
     raw = path.read_bytes()
     members = read_canonical_zip_bytes(
@@ -2477,6 +2740,7 @@ def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, An
     _check_d3_bindings(plan, manifest, members, state_views, d3_documents["status.json"])
     _check_boundary_state_bindings(plan, manifest, members)
     _check_collection_timing(plan, manifest, members)
+    _check_d6_action_evidence(plan, manifest, members)
     return manifest, members, raw
 
 
@@ -3764,6 +4028,7 @@ def build_runtime_packet(
         "errors": [],
         "ok": True,
     }
+    _require_d6_projection(plan, packet, capture_manifest, capture_members)
     return packet
 
 
@@ -4492,6 +4757,7 @@ def _verification_record(
             "state_capture_manifest_mismatch", stage="state")
     _require_timing_projection(plan, packet, capture_manifest, capture_members)
     _require_state_projection(plan, packet, capture_manifest, capture_members)
+    _require_d6_projection(plan, packet, capture_manifest, capture_members)
     _require_declared_state_completion(plan, packet, reconstruction_members)
     candidate_values = _materializer_candidate_values(
         reconstruction_members[MATERIALIZER_REPORT_MEMBER],

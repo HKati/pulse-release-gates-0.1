@@ -11460,6 +11460,323 @@ def test_d3_public_false_projection_does_not_grant_release(source_fixture, profi
         VERIFIER._require_declared_state_completion(source_fixture.plan, packet, {})
 
 
+# ---------------------------------------------------------------------------
+# D6: exact final-binding A2 platform occurrence, not a signed receipt.
+# New implementation regressions; no claim about unavailable earlier D6 runs.
+# ---------------------------------------------------------------------------
+_D6_TEST_JOB = 'attest_release_grade_artifact_binding'
+_D6_TEST_JOB_OCC = 'execution:step5c:job:' + _D6_TEST_JOB
+_D6_TEST_ACTION = 'execution:step5c:step:' + _D6_TEST_JOB + ':002'
+_D6_TEST_RECEIPT = 'state:step5c:artifact-binding-attestation'
+
+
+def d6_case(source_fixture):
+    manifest, members = runtime_projection_inputs(source_fixture)
+    return selected_archive_case(SimpleNamespace(manifest=manifest, members=members))
+
+
+def d6_job_page(case):
+    for name in case.index['subject_jobs']['page_members']:
+        page = json.loads(case.members['acquisition/' + name])
+        for row in page['jobs']:
+            if row['name'] == 'Release-grade artifact binding v0: attest':
+                return 'acquisition/' + name, page, row
+    raise AssertionError('Missing synthetic D6 job')
+
+
+def d6_check(side, case, plan):
+    if side == 'verifier':
+        return VERIFIER._check_d6_action_evidence(plan, case.manifest, case.members)
+    rows = [row for name in case.index['subject_jobs']['page_members']
+            for row in json.loads(case.members['acquisition/' + name])['jobs']]
+    return CAPTURER._validate_d6_action_metadata(
+        plan=plan, subject=case.manifest['subject'], jobs=rows,
+        raw_subject=json.loads(case.members['acquisition/subject/run-response.json']),
+        workflow_raw=case.members.get(VERIFIER.D3_SOURCE_PREFIX + VERIFIER.SUBJECT_WORKFLOW_PATH))
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('offset', [0, 17, 498])
+def test_d6_positive_binds_platform_number_without_relabelling_source_ordinal(source_fixture, side, offset):
+    case = d6_case(source_fixture); name, page, job = d6_job_page(case)
+    for row in job['steps']: row['number'] += offset
+    case.members[name] = canonical(page); selected_archive_seal(case)
+    before = copy.deepcopy((source_fixture.plan, case.manifest, case.members))
+    evidence = d6_check(side, case, source_fixture.plan)
+    assert evidence['source_ordinal'] == 2 and evidence['platform_step_number'] == job['steps'][1]['number']
+    assert evidence['subject_run_id'] == EXAMPLE_SUBJECT_ID and evidence['subject_run_attempt'] == 1
+    assert evidence['source_commit'] == source_fixture.sha and evidence['job_id'] == job['id']
+    assert evidence['action_started_utc'] == job['steps'][1]['started_at']
+    assert before == (source_fixture.plan, case.manifest, case.members)
+
+
+_D6_JOB_FAULTS = [
+    ('run_id', 999999), ('run_id', True), ('run_attempt', 2), ('run_attempt', True),
+    ('id', True), ('id', 0), ('head_sha', 'a' * 40), ('status', 'in_progress'),
+    ('conclusion', 'failure'), ('conclusion', 'skipped'), ('started_at', None),
+    ('completed_at', None), ('started_at', 'not-a-time'),
+    ('completed_at', '1999-12-31T23:59:59Z'),
+]
+_D6_ACTION_FAULTS = [
+    ('number', 0), ('number', -1), ('number', True), ('number', '3'), ('number', None),
+    ('name', 'Attest current-run LlamaGuard summary'), ('name', None),
+    ('status', 'in_progress'), ('conclusion', 'failure'), ('conclusion', 'skipped'),
+    ('started_at', None), ('completed_at', None), ('started_at', 'not-a-time'),
+    ('completed_at', '2000-02-30T00:00:00Z'),
+    ('started_at', '1999-12-31T23:59:59Z'), ('completed_at', '2000-01-02T00:00:00Z'),
+]
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('layer,field,value', [('job', *item) for item in _D6_JOB_FAULTS]
+                         + [('action', *item) for item in _D6_ACTION_FAULTS])
+def test_d6_rejects_wrong_original_job_action_identity_result_and_time(source_fixture, side, layer, field, value):
+    case = d6_case(source_fixture); name, page, job = d6_job_page(case)
+    target = job if layer == 'job' else job['steps'][1]
+    target[field] = value
+    case.members[name] = canonical(page); selected_archive_seal(case)
+    error = CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError
+    with pytest.raises(error) as caught:
+        d6_check(side, case, source_fixture.plan)
+    assert caught.value.code.startswith('d6_')
+    assert 'not-a-time' not in str(caught.value)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('fault', ['missing', 'duplicate', 'reordered', 'duplicate_number', 'decreasing_number', 'duplicate_job_id'])
+def test_d6_requires_one_ordered_a2_occurrence_not_success_by_name(source_fixture, side, fault):
+    case = d6_case(source_fixture); name, page, job = d6_job_page(case)
+    if fault == 'missing': job['steps'].pop()
+    elif fault == 'duplicate':
+        duplicate = copy.deepcopy(job['steps'][-1]); duplicate['number'] += 1; job['steps'].append(duplicate)
+    elif fault == 'reordered': job['steps'].reverse()
+    elif fault == 'duplicate_number': job['steps'][1]['number'] = job['steps'][0]['number']
+    elif fault == 'decreasing_number': job['steps'][1]['number'] = 1
+    elif fault == 'duplicate_job_id': job['id'] = next(r['id'] for r in page['jobs'] if r is not job)
+    case.members[name] = canonical(page); selected_archive_seal(case)
+    with pytest.raises(CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError) as caught:
+        d6_check(side, case, source_fixture.plan)
+    assert caught.value.code.startswith('d6_')
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('fault', ['action_pin', 'uses', 'kind', 'source_ordinal', 'bool_ordinal',
+    'missing_job', 'job_display_name', 'skip_job', 'step_occurrence', 'step_skipped', 'not_present',
+    'wrong_state_producer', 'missing_state', 'optional_state', 'duplicate_state', 'source_revision'])
+def test_d6_rejects_rehashed_plan_role_and_action_substitution(source_fixture, side, fault):
+    case = d6_case(source_fixture); plan = copy.deepcopy(source_fixture.plan)
+    job = next(j for j in plan['jobs'] if j['source_job_id'] == _D6_TEST_JOB); step = job['steps'][1]
+    state = next(s for s in plan['state_templates'] if s['state_id'] == _D6_TEST_RECEIPT)
+    if fault == 'action_pin': step['source']['action_commit_sha'] = 'b' * 40
+    elif fault == 'uses': step['source']['uses'] = 'actions/attest@' + 'b' * 40
+    elif fault == 'kind': step['source']['kind'] = 'shell'
+    elif fault == 'source_ordinal': step['source_ordinal'] = 3
+    elif fault == 'bool_ordinal': step['source_ordinal'] = True
+    elif fault == 'missing_job': plan['jobs'].remove(job)
+    elif fault == 'job_display_name': job['display_name'] = 'Another attestation'
+    elif fault == 'skip_job': job['expected_terminal_result'] = 'skipped'
+    elif fault == 'step_occurrence': step['occurrence_id'] += ':other'
+    elif fault == 'step_skipped': step['expected_terminal_result'] = 'skipped'
+    elif fault == 'not_present': step['expected_runtime_presence'] = False
+    elif fault == 'wrong_state_producer': state['producer_occurrence_id'] = job['steps'][0]['occurrence_id']
+    elif fault == 'missing_state': plan['state_templates'].remove(state)
+    elif fault == 'optional_state': state['required'] = False
+    elif fault == 'duplicate_state': plan['state_templates'].append(copy.deepcopy(state))
+    elif fault == 'source_revision':
+        next(s for s in plan['source_inventory'] if s['path'] == '.github/workflows/pulse_ci.yml')['revision'] = 'c' * 40
+    with pytest.raises(CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError) as caught:
+        d6_check(side, case, plan)
+    assert caught.value.code.startswith('d6_')
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('fault', ['missing_source', 'different_source', 'raw_run_id', 'raw_attempt_bool', 'raw_workflow', 'raw_source'])
+def test_d6_requires_original_workflow_and_run_response_bytes(source_fixture, side, fault):
+    case = d6_case(source_fixture)
+    source_name = VERIFIER.D3_SOURCE_PREFIX + '.github/workflows/pulse_ci.yml'
+    if fault == 'missing_source': case.members.pop(source_name)
+    elif fault == 'different_source': case.members[source_name] += b'\n# not the pinned source\n'
+    else:
+        name = 'acquisition/subject/run-response.json'; doc = json.loads(case.members[name])
+        key, value = {'raw_run_id': ('id', 123), 'raw_attempt_bool': ('run_attempt', True),
+                      'raw_workflow': ('name', 'LlamaGuard'), 'raw_source': ('head_sha', 'e' * 40)}[fault]
+        doc[key] = value; case.members[name] = canonical(doc)
+    selected_archive_seal(case)
+    with pytest.raises(CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError) as caught:
+        d6_check(side, case, source_fixture.plan)
+    assert caught.value.code.startswith('d6_')
+
+
+@pytest.mark.parametrize('fault', ['missing_binding', 'wrong_hash', 'wrong_size', 'duplicate_page', 'missing_page', 'wrong_total', 'dropped_job'])
+def test_d6_offline_check_closes_original_job_pages_and_byte_bindings(source_fixture, fault):
+    case = d6_case(source_fixture); name, page, job = d6_job_page(case)
+    binding = next(r for r in case.manifest['raw_response_bindings'] if r['role'] == 'subject_jobs_page')
+    if fault == 'missing_binding': case.manifest['raw_response_bindings'].remove(binding)
+    elif fault == 'wrong_hash': binding['descriptor']['sha256'] = '0' * 64
+    elif fault == 'wrong_size': binding['descriptor']['size_bytes'] += 1
+    elif fault == 'duplicate_page': case.index['subject_jobs']['page_members'] *= 2
+    elif fault == 'missing_page': case.members.pop(name)
+    elif fault == 'wrong_total': page['total_count'] = 7; case.members[name] = canonical(page)
+    elif fault == 'dropped_job': page['jobs'].remove(job); case.members[name] = canonical(page)
+    if fault in ('duplicate_page', 'wrong_total', 'dropped_job'): selected_archive_seal(case)
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        VERIFIER._check_d6_action_evidence(source_fixture.plan, case.manifest, case.members)
+    assert caught.value.code.startswith('d6_')
+
+
+def d6_bad_number(case):
+    name, page, job = d6_job_page(case)
+    job['steps'][1]['number'] = job['steps'][0]['number']
+    case.members[name] = canonical(page)
+    return selected_archive_seal(case)
+
+
+def test_d6_public_capture_rejects_duplicate_platform_number_before_publication(source_fixture, tmp_path):
+    case = d6_bad_number(d6_case(source_fixture))
+    output = tmp_path / 'acquisition'; output.mkdir()
+    for name, raw in case.members.items():
+        if name.startswith('acquisition/'):
+            target = output / name.removeprefix('acquisition/'); target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(raw); target.chmod(0o444)
+    with pytest.raises(Exception) as caught:
+        construct_capture(source_fixture, SimpleNamespace(directory=tmp_path, output=output), 'no-capture.zip')
+    assert getattr(caught.value, 'code', None) == 'd6_platform_step_number_invalid'
+    assert not (tmp_path / 'no-capture.zip').exists()
+
+
+def test_d6_public_read_rejects_rehashed_duplicate_platform_number(source_fixture, tmp_path):
+    case = d6_bad_number(d6_case(source_fixture)); path = tmp_path / 'invalid-capture.zip'
+    selected_archive_write_capture(path, case)
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        selected_archive_read(path, case, source_fixture)
+    assert caught.value.code == 'd6_platform_step_number_invalid'
+
+
+def test_d6_public_projector_rechecks_raw_evidence_without_prior_read(source_fixture):
+    case = d6_bad_number(d6_case(source_fixture))
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        VERIFIER.build_runtime_packet(plan=source_fixture.plan, capture_manifest=case.manifest,
+                                     capture_members=case.members, record_status='example')
+    assert caught.value.code == 'd6_platform_step_number_invalid'
+
+
+@pytest.mark.parametrize('fault', ['action_time', 'job_time', 'platform_number_as_ordinal', 'other_job_id',
+    'attempt_bool', 'other_source', 'fake_exit_code', 'removed_action', 'duplicate_action',
+    'call_hash', 'call_time', 'call_body', 'call_parent', 'call_erased', 'signed_receipt', 'read_receipt'])
+def test_d6_final_projection_rejects_self_consistent_strength_or_identity_edits(source_fixture, fault):
+    case = d6_case(source_fixture); packet = runtime_projection_example(source_fixture)
+    action = next(e for e in packet['executions'] if e['execution_id'] == _D6_TEST_ACTION)
+    job = next(e for e in packet['executions'] if e['execution_id'] == _D6_TEST_JOB_OCC)
+    call = next(c for c in packet['external_calls'] if c['parent_execution_id'] == _D6_TEST_ACTION)
+    receipt = next(s for s in packet['state_observations'] if s['state_id'] == _D6_TEST_RECEIPT)
+    if fault in ('action_time', 'job_time'):
+        record = action if fault == 'action_time' else job
+        record['timing'] = VERIFIER._timing('2000-01-01T00:01:00Z', EXAMPLE_END)
+    elif fault == 'platform_number_as_ordinal': action['step_number'] = 3
+    elif fault == 'other_job_id': action['job_id'] += 100; job['job_id'] = action['job_id']
+    elif fault == 'attempt_bool': action['job_attempt'] = True
+    elif fault == 'other_source': action['source_identity']['action_commit_sha'] = 'd' * 40
+    elif fault == 'fake_exit_code': action['result']['exit_code'] = 0
+    elif fault == 'removed_action': packet['executions'].remove(action)
+    elif fault == 'duplicate_action': packet['executions'].append(copy.deepcopy(action))
+    elif fault == 'call_hash': call['response']['payload']['metadata_sha256'] = 'a' * 64
+    elif fault == 'call_time': call['timing'] = copy.deepcopy(action['timing'])
+    elif fault == 'call_body': call['response']['payload']['body_sha256'] = 'a' * 64
+    elif fault == 'call_parent': call['parent_execution_id'] = _D6_TEST_JOB_OCC
+    elif fault == 'call_erased': packet['external_calls'].remove(call)
+    elif fault == 'signed_receipt': receipt.update(content_status='exact_digest', sha256='a' * 64, size_bytes=1)
+    elif fault == 'read_receipt': action['input_state_ids'].append(_D6_TEST_RECEIPT)
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        VERIFIER._require_d6_projection(source_fixture.plan, packet, case.manifest, case.members)
+    assert caught.value.code in {'d6_runtime_projection_mismatch', 'd6_external_metadata_mismatch', 'd6_signed_receipt_gap_mismatch'}
+
+
+def test_d6_source_oracle_is_original_workflow_not_two_agreeing_implementations(source_fixture):
+    doc = yaml.safe_load((source_fixture.root / '.github/workflows/pulse_ci.yml').read_bytes())
+    job = doc['jobs']['attest_release_grade_artifact_binding']
+    occurrence = [i for i, s in enumerate(job['steps'], 1) if s.get('uses', '').startswith('actions/attest@')]
+    assert len(occurrence) == 1
+    ordinal = occurrence[0]; step = job['steps'][ordinal - 1]
+    assert step['with']['subject-path'] == 'attestation-subject/artifact_provenance_binding_v0.json'
+    assert step['with']['show-summary'] is True
+    assert job['needs'] == 'release_grade_recorded_path'
+    case = d6_case(source_fixture)
+    for side in ('capture', 'verifier'):
+        evidence = d6_check(side, case, source_fixture.plan)
+        assert evidence['source_ordinal'] == ordinal
+        assert evidence['action_source']['uses'] == step['uses']
+        assert evidence['action_source']['action_commit_sha'] == step['uses'].split('@')[1]
+    packet = runtime_projection_example(source_fixture)
+    action = next(e for e in packet['executions'] if e['execution_id'] == _D6_TEST_ACTION)
+    assert action['step_number'] == ordinal and action['step_name'] == step['name']
+    assert action['source_identity']['source_path_or_uri'] == step['uses']
+
+
+def test_d6_generic_valid_shift_is_rejected_and_final_admission_calls_d6(source_fixture, tmp_path):
+    f = source_fixture; case = d6_case(f); packet = runtime_projection_example(f)
+    action = next(e for e in packet['executions'] if e['execution_id'] == _D6_TEST_ACTION)
+    action['timing'] = VERIFIER._timing('2000-01-01T00:01:00Z', EXAMPLE_END)
+    jsonschema.Draft202012Validator(GENERIC_SCHEMA).validate(packet)
+    checks, errors = GENERIC_VALIDATOR.semantic_checks(packet)
+    assert errors == [] and all(checks.values())
+    prepared = VERIFIER.deterministic_zip_bytes(prepared_fixture_members(f), maximum_members=VERIFIER.MAX_PREPARED_MEMBERS, maximum_bytes=VERIFIER.MAX_PREPARED_BYTES)
+    capture = VERIFIER.deterministic_zip_bytes(case.members, maximum_members=VERIFIER.MAX_CAPTURE_MEMBERS, maximum_bytes=VERIFIER.MAX_CAPTURE_BYTES)
+    destination = tmp_path / 'must-not-publish'
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        VERIFIER._verification_record(root=f.root, source_commit=f.sha, prepared_path=destination,
+            prepared_raw=prepared, capture_path=destination, capture_raw=capture,
+            expected_context_path=destination, expected_context_raw=b'', expected_digest_path=destination,
+            expected_digest_raw=b'', capture_manifest=case.manifest,
+            reconstruction_members={VERIFIER.RUNTIME_PACKET_MEMBER: canonical(packet)}, reconstruction_raw=b'',
+            reconstructions=[], schema=EVIDENCE_SCHEMA, record_status='example')
+    assert caught.value.code == 'd6_runtime_projection_mismatch'
+    assert not destination.exists()
+
+
+def test_d6_metadata_success_keeps_signed_gap_and_incomplete_evidence_stop(source_fixture):
+    packet = runtime_projection_example(source_fixture)
+    receipt = next(s for s in packet['state_observations'] if s['state_id'] == _D6_TEST_RECEIPT)
+    assert receipt['content_status'] == 'unavailable' and receipt['producer_execution_id'] is None
+    assert len(packet['state_observations']) == 62
+    assert Counter(s['content_status'] for s in packet['state_observations']) == {'exact_digest': 55, 'unavailable': 7}
+    assert packet['coverage']['coverage_status'] == 'partial'
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        VERIFIER._require_declared_state_completion(source_fixture.plan, packet, {})
+    assert caught.value.code == 'declared_state_evidence_incomplete'
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_d6_platform_lifecycle_records_do_not_change_a2_identity(source_fixture, side):
+    case = d6_case(source_fixture); name, page, job = d6_job_page(case)
+    start = {'name': 'Set up job', 'number': 1, 'status': 'completed', 'conclusion': 'success',
+             'started_at': EXAMPLE_START, 'completed_at': EXAMPLE_START}
+    end = {**start, 'name': 'Complete job', 'number': 100, 'completed_at': EXAMPLE_END}
+    job['steps'] = [start, *job['steps'], end]
+    case.members[name] = canonical(page); selected_archive_seal(case)
+    result = d6_check(side, case, source_fixture.plan)
+    assert result['source_ordinal'] == 2 and result['platform_step_number'] == 3
+
+
+def test_d6_subject_jobs_multiple_pages_preserve_exact_a2_binding(source_fixture):
+    case = d6_case(source_fixture); name, page, job = d6_job_page(case)
+    new_names = ['subject/jobs-page-0001.json', 'subject/jobs-page-0002.json']
+    case.members.pop(name)
+    for member, rows in zip(new_names, (page['jobs'][:4], page['jobs'][4:])):
+        case.members['acquisition/' + member] = canonical({'total_count': 8, 'jobs': rows})
+    bindings = case.manifest['raw_response_bindings']
+    index = next(i for i, r in enumerate(bindings) if r['role'] == 'subject_jobs_page')
+    bindings[:] = [r for r in bindings if r['role'] != 'subject_jobs_page']
+    for i, member in enumerate(new_names):
+        raw = case.members['acquisition/' + member]
+        bindings.insert(index + i, {'role': 'subject_jobs_page', 'descriptor':
+            {'member': 'acquisition/' + member, 'sha256': digest(raw), 'size_bytes': len(raw)}})
+    case.index['subject_jobs']['page_members'] = new_names
+    selected_archive_seal(case)
+    left = d6_check('capture', case, source_fixture.plan)
+    right = d6_check('verifier', case, source_fixture.plan)
+    assert left == right and right['job_id'] == job['id']
+
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.
