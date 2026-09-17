@@ -822,7 +822,8 @@ def example_state_archive_members(source_commit, *, raw_model=None):
     recorded = {**pre, **{name: canonical({'record_status': 'example', 'member': name})
                          for name in _INNER_RECORDED_ONLY}}
     recorded['status.json'] = canonical({'record_status': 'example', 'version': 'post-R9',
-        'content': 'OPAQUE_EXAMPLE_CANARY_release_grade_recorded_path'})
+        'content': 'OPAQUE_EXAMPLE_CANARY_release_grade_recorded_path',
+        'gates': {name: True for name in yaml.safe_load((ROOT / 'pulse_gate_policy_v0.yml').read_text())['gates']['release_required']}})
     recorded['report_card.html'] = b'<p>OPAQUE_EXAMPLE_CANARY_advisory_reference_bundle</p>\n'
     run_key = f'GITHUB_RUN_ID={EXAMPLE_SUBJECT_ID}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI'
     binding = {'git_sha': source_commit, 'run_key': run_key}
@@ -2250,7 +2251,7 @@ def test_declared_state_inventory_preserves_all_requirements_and_honest_gaps(sou
     templates = {s['state_id']: s for s in f.plan['state_templates']}
     assert set(states) == set(templates) and len(states) == 62
     assert Counter(s['content_status'] for s in states.values()) == {
-        'exact_digest': 53, 'unavailable': 9,
+        'exact_digest': 55, 'unavailable': 7,
     }
     assert packet['coverage']['state_records'] == 62
     assert packet['coverage']['state_digest_capture_status'] == 'partial'
@@ -4144,8 +4145,18 @@ def test_required_argument_role_remains_unavailable_until_runtime_integration(so
     assert 'evidence_profile' not in plan
     packet = runtime_projection_example(source_fixture)
     state = next(row for row in packet['state_observations'] if row['state_id'] == REQUIRED_ARGUMENT_STATE)
-    assert state['content_status'] == 'unavailable'
-    assert state['sha256'] is None and state['size_bytes'] is None
+    # Keep the legacy case ID. D3 now integrates the exact source-derived
+    # description, while the original runtime argument receipt stays unavailable.
+    assert state['content_status'] == 'exact_digest'
+    assert state['schema_identity'] == 'step5c_effective_required_arguments_source_v0'
+    assert state['media_type'] == 'application/json'
+    manifest, members = runtime_projection_inputs(source_fixture)
+    retained = {}
+    views = VERIFIER._check_subject_state_archives(plan, manifest, members, d3_documents=retained)
+    document = VERIFIER._check_d3_bindings(plan, manifest, members, views, retained['status.json'])[REQUIRED_ARGUMENT_STATE]
+    assert (state['sha256'], state['size_bytes']) == (digest(document), len(document))
+    assert json.loads(document)['original_runtime_argv_receipt'] == 'unavailable'
+    assert all(REQUIRED_ARGUMENT_STATE not in e['input_state_ids'] + e['output_state_ids'] for e in packet['executions'])
     assert state['producer_execution_id'] is None
     assert packet['coverage']['coverage_status'] == 'partial'
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
@@ -9855,11 +9866,10 @@ def test_preserved_member_role_runtime_projection_has_exact_content_not_observed
         assert row['producer_execution_id'] is None and row['schema_identity'] is None
         assert all(identifier not in e['input_state_ids'] + e['output_state_ids'] for e in packet['executions'])
     assert states['state:step5c:pre-materialization-status']['sha256'] != states['state:step5c:final-status']['sha256']
-    for role in ('quality-ledger-pre-authority', 'artifact-binding-attestation',
-                 'materialized-release-required-gate-set', 'effective-required-argument-list'):
+    for role in ('quality-ledger-pre-authority', 'artifact-binding-attestation'):
         row = states['state:step5c:' + role]
         assert row['content_status'] == 'unavailable' and row['sha256'] is None
-    assert Counter(row['content_status'] for row in states.values()) == {'exact_digest': 53, 'unavailable': 9}
+    assert Counter(row['content_status'] for row in states.values()) == {'exact_digest': 55, 'unavailable': 7}
     assert before == (members, canonical(manifest))
     rendered = canonical(packet)
     assert b'EXAMPLE controlled input' not in rendered and b'EXAMPLE controlled output' not in rendered
@@ -9941,7 +9951,7 @@ sys.stdout.buffer.write(module.canonical_json_bytes(packet))
         outputs.append(process.stdout)
     assert outputs[0] == outputs[1]
     packet = json.loads(outputs[0])
-    assert Counter(row['content_status'] for row in packet['state_observations']) == {'exact_digest': 53, 'unavailable': 9}
+    assert Counter(row['content_status'] for row in packet['state_observations']) == {'exact_digest': 55, 'unavailable': 7}
     assert packet['coverage']['coverage_status'] == 'partial'
     jsonschema.Draft202012Validator(GENERIC_SCHEMA).validate(packet)
     checks, errors = GENERIC_VALIDATOR.semantic_checks(packet)
@@ -10330,7 +10340,7 @@ sys.stdout.buffer.write(verifier.canonical_json_bytes(packet))
     assert packet['observation_boundary']['capture_started_utc'] == collection_stamp(12)
     assert packet['observation_boundary']['capture_completed_utc'] == collection_stamp(25)
     assert digest(f.capture.path.read_bytes()) == before
-    assert Counter(row['content_status'] for row in packet['state_observations']) == {'exact_digest': 53, 'unavailable': 9}
+    assert Counter(row['content_status'] for row in packet['state_observations']) == {'exact_digest': 55, 'unavailable': 7}
     assert packet['coverage']['coverage_status'] == 'partial'
 
 
@@ -10858,7 +10868,7 @@ def test_preserved_tree_runtime_projection_is_descriptor_identity_not_archive_or
         assert row['path_or_uri'] == json.loads(raw)['source_directory']
         assert row['observed_at_utc'] == manifest['capture_identity']['capture_completed_utc']
         assert all(identifier not in e['input_state_ids'] + e['output_state_ids'] for e in packet['executions'])
-    assert Counter(row['content_status'] for row in states.values()) == {'exact_digest': 53, 'unavailable': 9}
+    assert Counter(row['content_status'] for row in states.values()) == {'exact_digest': 55, 'unavailable': 7}
     assert packet['coverage']['coverage_status'] == 'partial'
     assert packet['coverage']['state_digest_capture_status'] == 'partial'
     jsonschema.Draft202012Validator(GENERIC_SCHEMA).validate(packet)
@@ -11075,6 +11085,379 @@ def test_preserved_tree_derivation_independently_checks_original_archives(source
                                           capture_members=case.members, record_status='example')
     assert caught.value.code == 'state_archive_member_set_mismatch'
     assert 'PRIVATE_TREE_CANARY' not in str(caught.value)
+
+
+# ---------------------------------------------------------------------------
+# D3: source-derived arguments are not R9 status values or original argv.
+# The original workflow/helper and materializer selectors are separate oracles.
+# ---------------------------------------------------------------------------
+_D3_SOURCE_FILES = (*REQUIRED_ARGUMENT_INPUTS,
+    'PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py')
+_D3_PREFIX = 'prepared/d3-source/'
+_D3_VALUE_ID = 'state:step5c:materialized-release-required-gate-set'
+_D3_ARGUMENT_ID = 'state:step5c:effective-required-argument-list'
+_D3_RELEASE_GATES = ('detectors_materialized_ok', 'external_summaries_present',
+                     'external_all_pass', 'refusal_delta_evidence_present')
+
+
+def d3_check(side, case, plan, directory, *, status_raw=None, views=None):
+    documents = {}
+    if side == 'verifier':
+        if views is None:
+            views = VERIFIER._check_subject_state_archives(plan, case.manifest, case.members, d3_documents=documents)
+        status_raw = documents.get('status.json') if status_raw is None else status_raw
+        return VERIFIER._check_d3_bindings(plan, case.manifest, case.members, views, status_raw)
+    snapshots = tree_snapshots(case, directory)
+    if views is None:
+        views = CAPTURER._validate_subject_state_archives(
+            acquisition_files=snapshots, plan=plan, subject=case.manifest['subject'], d3_documents=documents)
+    status_raw = documents.get('status.json') if status_raw is None else status_raw
+    return CAPTURER._validate_d3_bindings(plan=plan, subject=case.manifest['subject'],
+        sources={name.removeprefix(_D3_PREFIX): raw for name, raw in case.members.items() if name.startswith(_D3_PREFIX)},
+        status_raw=status_raw, state_views=views, acquisition_files=snapshots,
+        artifact_rows={row['role']: row for row in case.index['downloaded_artifacts']})
+
+
+@pytest.fixture(scope='module')
+def d3_source_oracle(source_fixture, tmp_path_factory):
+    f = source_fixture; directory = tmp_path_factory.mktemp('d3-executed-source-oracle')
+    # Executes the unchanged R12 body, real policy CLI and real check_gates.
+    # The argv tap describes THIS synthetic local execution, never the subject.
+    test_required_argument_exact_r12_shell_oracle_on_synthetic_status(f, directory)
+    argv = json.loads((directory / 'r12-local-example/LOCAL_ONLY_argv.json').read_text())
+    sets = {}
+    for name in ('required', 'release_required'):
+        result = cli(f.root, 'policy_to_require_args', ['--policy', f.root / 'pulse_gate_policy_v0.yml',
+                                                      '--set', name, '--format', 'newline'])
+        require_cli_success(result); sets[name] = result.stdout.decode().splitlines()
+    code = ('import sys,json,yaml; from pathlib import Path; '
+            'sys.path.insert(0,sys.argv[1]); '
+            'import materialize_release_required_from_verifier_v0 as m; '
+            'errors=[]; values=m._extract_release_required_gates(yaml.safe_load(Path(sys.argv[2]).read_text()),errors); '
+            'print(json.dumps({"values":values,"errors":errors}))')
+    process = subprocess.run([sys.executable, '-I', '-B', '-c', code,
+        str(f.root / 'PULSE_safe_pack_v0/tools'), str(f.root / 'pulse_gate_policy_v0.yml')],
+        cwd=f.root, stdin=subprocess.DEVNULL, capture_output=True, timeout=30)
+    require_cli_success(process); result = json.loads(process.stdout); values = result['values']
+    assert result['errors'] == [] and values == sets['release_required']
+    body = mapping_source_document()['jobs']['release_grade_recorded_path']['steps'][11]['run']
+    # Third representation recipe using the actually executed source semantics.
+    argument = {'derivation_type': 'step5c_effective_required_arguments_source_v0',
+        'source_occurrence_id': 'execution:step5c:step:release_grade_recorded_path:012',
+        'source_command_sha256': digest(body.encode()),
+        'source_bindings': [{'path': name, 'sha256': digest((f.root / name).read_bytes())}
+                           for name in sorted(REQUIRED_ARGUMENT_INPUTS)],
+        'policy_path': 'pulse_gate_policy_v0.yml', 'selected_sets': ['required', 'release_required'],
+        'policy_set_members': sets, 'ordered_required_gate_ids': argv[4:],
+        'deduplication': 'first_seen_preserve_order', 'status_selector': argv[2], 'checker_path': argv[0],
+        'original_runtime_argv_receipt': 'unavailable', 'source_derived_only': True, 'authority_effect': 'none'}
+    assert len(argv[4:]) == 23 and len(values) == 4
+    return SimpleNamespace(argument=argument, argument_raw=canonical(argument), value_names=values, local_argv=argv)
+
+
+def d3_assert_source_oracle(documents, case, oracle):
+    assert documents[_D3_ARGUMENT_ID] == oracle.argument_raw
+    doc = json.loads(documents[_D3_VALUE_ID])
+    raw = inner_members(case, 'release_grade_recorded_path')['status.json']
+    assert doc['gate_values'] == {gate: json.loads(raw)['gates'][gate] for gate in oracle.value_names}
+    assert doc['parent_status']['sha256'] == digest(raw) and doc['parent_status']['size_bytes'] == len(raw)
+    assert doc['parent_status']['state_id'] == 'state:step5c:final-status'
+    assert doc['parent_status']['declared_origin_occurrence_id'].endswith('release_grade_recorded_path:009')
+    selected, _, binding = selected_archive_rows(case, 'release_grade_recorded_path')
+    assert doc['parent_carrier']['artifact_id'] == selected['artifact_id']
+    assert doc['parent_carrier']['sha256'] == digest(case.members[binding['downloaded_member']])
+    assert doc['parent_carrier']['capture_member'] == binding['downloaded_member']
+    assert doc['materialization_execution_proved'] is False and doc['authority_effect'] == 'none'
+    assert doc['original_runtime_argv_receipt'] == 'unavailable'
+    assert b'OPAQUE_EXAMPLE_CANARY' not in canonical(doc)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_d3_matches_executed_source_oracle(source_fixture, selected_archive_fixture, d3_source_oracle, tmp_path, side):
+    case = selected_archive_case(selected_archive_fixture)
+    before = canonical(case.manifest), canonical(source_fixture.plan), dict(case.members)
+    with patch.object(zipfile.ZipFile, 'extractall', side_effect=AssertionError('No extraction')):
+        documents = d3_check(side, case, source_fixture.plan, tmp_path)
+    d3_assert_source_oracle(documents, case, d3_source_oracle)
+    assert before == (canonical(case.manifest), canonical(source_fixture.plan), case.members)
+    assert source_fixture.plan['state_templates'] == json.loads(source_fixture.plan_raw)['state_templates']
+
+
+@pytest.mark.parametrize('path', _D3_SOURCE_FILES)
+def test_d3_capture_preserves_original_source_not_generated_success(source_fixture, selected_archive_fixture, path):
+    members = selected_archive_fixture.members
+    assert members[_D3_PREFIX + path] == (source_fixture.root / path).read_bytes()
+    assert {name for name in members if name.startswith(_D3_PREFIX)} == {_D3_PREFIX + p for p in _D3_SOURCE_FILES}
+    row = next(r for r in selected_archive_fixture.manifest['member_inventory']['members'] if r['member'] == _D3_PREFIX + path)
+    assert row['sha256'] == digest(members[row['member']]) and row['size_bytes'] == len(members[row['member']])
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('path', _D3_SOURCE_FILES)
+@pytest.mark.parametrize('mutation', ['missing', 'rehashed_source', 'stale_revision', 'wrong_size'])
+def test_d3_rejects_source_substitution_even_with_new_hashes(source_fixture, selected_archive_fixture, tmp_path, side, path, mutation):
+    case = selected_archive_case(selected_archive_fixture); plan = copy.deepcopy(source_fixture.plan)
+    name = _D3_PREFIX + path
+    row = next(row for row in plan['source_inventory'] if row['path'] == path)
+    if mutation == 'missing':
+        del case.members[name]; code = 'd3_source_set_mismatch'
+    elif mutation == 'rehashed_source':
+        raw = case.members[name] + b'\n# PRIVATE_D3_SOURCE_CANARY\n'; case.members[name] = raw
+        row.update(sha256=digest(raw), size_bytes=len(raw), git_blob_sha1=hashlib.sha1(b'blob %d\0' % len(raw) + raw).hexdigest())
+        code = 'd3_source_identity_mismatch'
+    elif mutation == 'stale_revision': row['revision'] = 'e' * 40; code = 'd3_source_identity_mismatch'
+    else: row['size_bytes'] += 1; code = 'd3_source_identity_mismatch'
+    selected_archive_seal(case)
+    with pytest.raises(CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError) as caught:
+        d3_check(side, case, plan, tmp_path)
+    assert caught.value.code == code and 'PRIVATE_D3_SOURCE_CANARY' not in str(caught.value)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('state_id', [_D3_VALUE_ID, _D3_ARGUMENT_ID])
+@pytest.mark.parametrize('field,value', [('path_or_uri', 'projection://wrong'), ('required', False),
+    ('producer_occurrence_id', 'execution:step5c:collector:post-run-platform-export'),
+    ('required_consumer_occurrence_ids', ['execution:step5c:step:release_grade_recorded_path:012']),
+    ('content_requirement', 'unavailable'), ('role', 'runtime_argv_receipt')])
+def test_d3_role_version_and_claims_cannot_be_reinterpreted(source_fixture, selected_archive_fixture, tmp_path, side, state_id, field, value):
+    plan = copy.deepcopy(source_fixture.plan); case = selected_archive_case(selected_archive_fixture)
+    next(row for row in plan['state_templates'] if row['state_id'] == state_id)[field] = value
+    with pytest.raises(CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError) as caught:
+        d3_check(side, case, plan, tmp_path)
+    assert caught.value.code in ('d3_template_mismatch', 'state_template_invalid')
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('gate', _D3_RELEASE_GATES)
+@pytest.mark.parametrize('value', [None, 1, 0, 'true', [], {}])
+def test_d3_named_values_are_never_truthiness_coerced(source_fixture, selected_archive_fixture, tmp_path, side, gate, value):
+    case = selected_archive_case(selected_archive_fixture)
+    views = inner_check(side, case, source_fixture.plan, tmp_path / 'views')
+    status = json.loads(inner_members(case, 'release_grade_recorded_path')['status.json'])
+    status['gates'][gate] = value; raw = canonical(status)
+    views['release_grade_recorded_path']['status.json'] = (digest(raw), len(raw))
+    with pytest.raises(CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError, match='d3_gate_value_type_invalid'):
+        d3_check(side, case, source_fixture.plan, tmp_path / 'check', views=views, status_raw=raw)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('gate', _D3_RELEASE_GATES)
+def test_d3_false_is_preserved_and_missing_is_not_false(source_fixture, selected_archive_fixture, tmp_path, side, gate):
+    case = selected_archive_case(selected_archive_fixture)
+    views = inner_check(side, case, source_fixture.plan, tmp_path / 'views')
+    status = json.loads(inner_members(case, 'release_grade_recorded_path')['status.json'])
+    status['gates'][gate] = False; raw = canonical(status)
+    views['release_grade_recorded_path']['status.json'] = (digest(raw), len(raw))
+    result = d3_check(side, case, source_fixture.plan, tmp_path / 'check', views=views, status_raw=raw)
+    assert json.loads(result[_D3_VALUE_ID])['gate_values'][gate] is False
+    del status['gates'][gate]; raw = canonical(status)
+    views['release_grade_recorded_path']['status.json'] = (digest(raw), len(raw))
+    with pytest.raises(CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError, match='d3_gate_value_missing'):
+        d3_check(side, case, source_fixture.plan, tmp_path / 'missing', views=views, status_raw=raw)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('raw', [b'[]', b'{', b'\xef\xbb\xbf{}', b'\xff', b'{"gates":[]}',
+    b'{"PRIVATE_D3_CANARY":1,"PRIVATE_D3_CANARY":2}', b'{"gates":{},"x":NaN}'])
+def test_d3_status_errors_do_not_reflect_payload(source_fixture, selected_archive_fixture, tmp_path, side, raw):
+    case = selected_archive_case(selected_archive_fixture)
+    views = inner_check(side, case, source_fixture.plan, tmp_path / 'views')
+    views['release_grade_recorded_path']['status.json'] = (digest(raw), len(raw))
+    with pytest.raises(CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError) as caught:
+        d3_check(side, case, source_fixture.plan, tmp_path / 'check', views=views, status_raw=raw)
+    assert caught.value.code == 'd3_status_json_invalid' and 'PRIVATE_D3_CANARY' not in str(caught.value)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_d3_unrelated_fractional_metrics_are_not_serialized(source_fixture, selected_archive_fixture, tmp_path, side):
+    case = selected_archive_case(selected_archive_fixture)
+    views = inner_check(side, case, source_fixture.plan, tmp_path / 'views')
+    status = json.loads(inner_members(case, 'release_grade_recorded_path')['status.json'])
+    status.update(PRIVATE_D3_CANARY={'accuracy': 0.875, 'text': 'unrelated private payload'})
+    raw = json.dumps(status).encode(); views['release_grade_recorded_path']['status.json'] = (digest(raw), len(raw))
+    outputs = d3_check(side, case, source_fixture.plan, tmp_path / 'check', views=views, status_raw=raw)
+    assert all(b'PRIVATE_D3_CANARY' not in value and b'unrelated private payload' not in value for value in outputs.values())
+    assert json.loads(outputs[_D3_VALUE_ID])['parent_status']['sha256'] == digest(raw)
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+@pytest.mark.parametrize('mutation', ['pre_status', 'later_manifest', 'same_values_other_bytes', 'extra_source'])
+def test_d3_no_pre_state_or_manifest_substitution(source_fixture, selected_archive_fixture, tmp_path, side, mutation):
+    case = selected_archive_case(selected_archive_fixture)
+    views = inner_check(side, case, source_fixture.plan, tmp_path / 'views')
+    content = inner_members(case, 'release_grade_recorded_path'); raw = content['status.json']
+    code = 'd3_status_binding_mismatch'
+    if mutation == 'pre_status': raw = inner_members(case, 'pre_attestation_pulse_artifacts')['status.json']
+    elif mutation == 'later_manifest': raw = content['release_authority_v0.json']
+    elif mutation == 'same_values_other_bytes': raw += b'\n'
+    else: case.members[_D3_PREFIX + 'extra.py'] = b'pass\n'; code = 'd3_source_set_mismatch'
+    with pytest.raises(CAPTURER.CaptureError if side == 'capture' else VERIFIER.VerificationError, match=code):
+        d3_check(side, case, source_fixture.plan, tmp_path / 'check', views=views, status_raw=raw)
+
+
+@pytest.mark.parametrize('profile', ['example', 'observed'])
+def test_d3_public_projection_still_has_no_origin_read_or_acceptance(source_fixture, d3_source_oracle, profile):
+    manifest, members = runtime_projection_inputs(source_fixture, profile=profile)
+    packet = VERIFIER.build_runtime_packet(plan=source_fixture.plan, capture_manifest=manifest,
+                                          capture_members=members, record_status=profile)
+    for state_id, schema in ((_D3_ARGUMENT_ID, 'step5c_effective_required_arguments_source_v0'),
+                             (_D3_VALUE_ID, 'pulsemech_step5c_gate_value_projection_v0')):
+        row = next(row for row in packet['state_observations'] if row['state_id'] == state_id)
+        assert row['content_status'] == 'exact_digest' and row['schema_identity'] == schema
+        assert row['producer_execution_id'] is None and row['media_type'] == 'application/json'
+        assert all(state_id not in e['input_state_ids'] + e['output_state_ids'] for e in packet['executions'])
+    assert Counter(row['content_status'] for row in packet['state_observations']) == {'exact_digest': 55, 'unavailable': 7}
+    assert len(packet['state_observations']) == 62 and packet['coverage']['coverage_status'] == 'partial'
+    VERIFIER._require_state_projection(source_fixture.plan, packet, manifest, members)
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, packet, {})
+
+
+@pytest.mark.parametrize('state_id', [_D3_ARGUMENT_ID, _D3_VALUE_ID])
+@pytest.mark.parametrize('mutation', ['digest', 'size', 'schema', 'unavailable', 'producer', 'read'])
+def test_d3_final_projection_rejects_rehashed_claim_changes(source_fixture, state_id, mutation):
+    manifest, members = runtime_projection_inputs(source_fixture)
+    packet = VERIFIER.build_runtime_packet(plan=source_fixture.plan, capture_manifest=manifest, capture_members=members, record_status='example')
+    row = next(row for row in packet['state_observations'] if row['state_id'] == state_id)
+    if mutation == 'digest': row['sha256'] = 'a' * 64
+    elif mutation == 'size': row['size_bytes'] += 1
+    elif mutation == 'schema': row['schema_identity'] = 'captured_runtime_argv'
+    elif mutation == 'unavailable': row.update(content_status='unavailable', sha256=None, size_bytes=None)
+    elif mutation == 'producer': row['producer_execution_id'] = 'execution:step5c:step:release_grade_recorded_path:009'
+    else: packet['executions'][0]['input_state_ids'].append(state_id)
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        VERIFIER._require_state_projection(source_fixture.plan, packet, manifest, members)
+    assert caught.value.code in ('state_projection_mismatch', 'state_execution_binding_mismatch')
+
+
+@pytest.mark.parametrize('entrypoint', ['capture', 'read_capture', 'projector'])
+def test_d3_public_entrypoints_cannot_omit_their_independent_check(
+    source_fixture, acquisition_fixture, selected_archive_fixture, tmp_path, monkeypatch, entrypoint,
+):
+    # Corrupt a private implementation constant, not the source-bound input.
+    # A removed public call would then let this regression unexpectedly succeed.
+    module = CAPTURER if entrypoint == 'capture' else VERIFIER
+    monkeypatch.setattr(module, '_D3_R12_COMMAND', '0' * 64)
+    if entrypoint == 'capture':
+        target = tmp_path / 'must-not-publish.zip'
+        with pytest.raises(CAPTURER.CaptureError, match='d3_occurrence_mismatch'):
+            CAPTURER.build_capture(repository_root=source_fixture.root, source_commit=source_fixture.sha,
+                plan_path=source_fixture.plan_path, plan_diagnostic_path=source_fixture.diagnostic,
+                expected_plan_sha256=source_fixture.plan_digest, acquisition_directory=acquisition_fixture.output,
+                output_path=target, record_status='example')
+        assert not target.exists()
+    elif entrypoint == 'read_capture':
+        with patch.object(CAPTURER, '_validate_d3_bindings', side_effect=AssertionError('No producer reuse')):
+            with pytest.raises(VERIFIER.VerificationError, match='d3_occurrence_mismatch'):
+                selected_archive_read(selected_archive_fixture.path, selected_archive_case(selected_archive_fixture), source_fixture)
+    else:
+        manifest, members = runtime_projection_inputs(source_fixture)
+        with pytest.raises(VERIFIER.VerificationError, match='d3_occurrence_mismatch'):
+            VERIFIER.build_runtime_packet(plan=source_fixture.plan, capture_manifest=manifest, capture_members=members, record_status='example')
+
+
+@pytest.mark.parametrize('side', ['capture', 'verifier'])
+def test_d3_common_wrong_order_cannot_be_validated_by_two_matching_implementations(
+    source_fixture, selected_archive_fixture, d3_source_oracle, tmp_path, monkeypatch, side,
+):
+    # This deliberately constructs a common-code-error control. A new locator
+    # alone cannot establish source truth: compare to the actual R12 execution.
+    original = {name: list(values) for name, values in d3_source_oracle.argument['policy_set_members'].items()}
+    original['required'].reverse()
+    monkeypatch.setattr(CAPTURER, '_d3_policy_sets', lambda raw: copy.deepcopy(original))
+    monkeypatch.setattr(VERIFIER, '_d3_policy_sets', lambda raw: copy.deepcopy(original))
+    wrong = copy.deepcopy(d3_source_oracle.argument)
+    wrong['policy_set_members'] = original
+    wrong['ordered_required_gate_ids'] = list(dict.fromkeys(original['required'] + original['release_required']))
+    plan = copy.deepcopy(source_fixture.plan)
+    next(row for row in plan['state_templates'] if row['state_id'] == _D3_ARGUMENT_ID)['path_or_uri'] = (
+        'projection://pulse_gate_policy_v0.yml#r12-source-required-arguments/sha256/' + digest(canonical(wrong)))
+    case = selected_archive_case(selected_archive_fixture)
+    actual = d3_check(side, case, plan, tmp_path)
+    assert actual[_D3_ARGUMENT_ID] == canonical(wrong)
+    with pytest.raises(AssertionError): d3_assert_source_oracle(actual, case, d3_source_oracle)
+
+
+@pytest.mark.parametrize('entrypoint', ['read_capture', 'projector'])
+def test_d3_public_intake_rejects_legacy_source_omission_after_outer_reseal(
+    source_fixture, selected_archive_fixture, tmp_path, entrypoint,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    for name in list(case.members):
+        if name.startswith(_D3_PREFIX): del case.members[name]
+    selected_archive_seal(case)
+    with pytest.raises(VERIFIER.VerificationError, match='d3_source_set_mismatch'):
+        if entrypoint == 'read_capture':
+            target = tmp_path / 'legacy.zip'; selected_archive_write_capture(target, case)
+            selected_archive_read(target, case, source_fixture)
+        else:
+            VERIFIER.build_runtime_packet(plan=source_fixture.plan, capture_manifest=case.manifest, capture_members=case.members, record_status='example')
+
+
+def d3_replace_final_status(case, raw):
+    content = inner_members(case, 'release_grade_recorded_path'); content['status.json'] = raw
+    inner_replace_members(case, 'release_grade_recorded_path', content)
+    content = inner_members(case, 'advisory_reference_bundle')
+    for name in ('artifacts/status.json', 'release-authority-audit-bundle/status.json'): content[name] = raw
+    inner_replace_members(case, 'advisory_reference_bundle', content)
+    content = package_members(case)
+    for name in ('artifacts/status.json', 'release-authority-audit-bundle/status.json'): content[name] = raw
+    package_replace_members(case, content, rehash_inventory=True)
+    collection_timing_reseal(case)
+
+
+@pytest.mark.parametrize('entrypoint', ['capture', 'read_capture', 'projector'])
+@pytest.mark.parametrize('mutation', ['missing_gate', 'nonboolean', 'duplicate_key', 'pre_as_final'])
+def test_d3_public_paths_reject_fully_resealed_wrong_status(
+    source_fixture, selected_archive_fixture, tmp_path, entrypoint, mutation,
+):
+    case = selected_archive_case(selected_archive_fixture)
+    status = json.loads(inner_members(case, 'release_grade_recorded_path')['status.json'])
+    if mutation == 'missing_gate':
+        del status['gates']['detectors_materialized_ok']; raw = canonical(status); code = 'd3_gate_value_missing'
+    elif mutation == 'nonboolean':
+        status['gates']['external_all_pass'] = 'PRIVATE_D3_CANARY'; raw = canonical(status); code = 'd3_gate_value_type_invalid'
+    elif mutation == 'duplicate_key':
+        raw = b'{"PRIVATE_D3_CANARY":1,"PRIVATE_D3_CANARY":2}'; code = 'd3_status_json_invalid'
+    else:
+        raw = inner_members(case, 'pre_attestation_pulse_artifacts')['status.json']; code = 'd3_status_json_invalid'
+    d3_replace_final_status(case, raw)
+    # All copy relationships, original provider carrier, outer sizes/digests
+    # and timing anchors have been repaired. The D3 semantic boundary must fire.
+    if entrypoint == 'capture':
+        acquired = tmp_path / 'acquisition'; acquired.mkdir()
+        for name, payload in case.members.items():
+            if name.startswith('acquisition/'):
+                target = acquired / name.removeprefix('acquisition/')
+                target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(payload); target.chmod(0o444)
+        with pytest.raises(Exception) as caught:
+            construct_capture(source_fixture, SimpleNamespace(output=acquired, directory=tmp_path), 'reject.zip')
+        assert type(caught.value).__name__ == 'CaptureError' and not (tmp_path / 'reject.zip').exists()
+    else:
+        with pytest.raises(VERIFIER.VerificationError) as caught:
+            if entrypoint == 'read_capture':
+                target = tmp_path / 'wrong-status.zip'; selected_archive_write_capture(target, case)
+                selected_archive_read(target, case, source_fixture)
+            else:
+                VERIFIER.build_runtime_packet(plan=source_fixture.plan, capture_manifest=case.manifest,
+                                              capture_members=case.members, record_status='example')
+    assert caught.value.code == code and 'PRIVATE_D3_CANARY' not in str(caught.value)
+
+
+@pytest.mark.parametrize('profile', ['example', 'observed'])
+def test_d3_public_false_projection_does_not_grant_release(source_fixture, profile):
+    manifest, members = runtime_projection_inputs(source_fixture, profile=profile)
+    case = selected_archive_case(SimpleNamespace(manifest=manifest, members=members))
+    status = json.loads(inner_members(case, 'release_grade_recorded_path')['status.json'])
+    status['gates']['external_all_pass'] = False; d3_replace_final_status(case, canonical(status))
+    packet = VERIFIER.build_runtime_packet(plan=source_fixture.plan, capture_manifest=case.manifest,
+                                          capture_members=case.members, record_status=profile)
+    documents = VERIFIER._check_d3_bindings(source_fixture.plan, case.manifest, case.members,
+        VERIFIER._check_subject_state_archives(source_fixture.plan, case.manifest, case.members), canonical(status))
+    assert json.loads(documents[_D3_VALUE_ID])['gate_values']['external_all_pass'] is False
+    assert packet['coverage']['coverage_status'] == 'partial'
+    with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(source_fixture.plan, packet, {})
 
 
 if __name__ == '__main__':

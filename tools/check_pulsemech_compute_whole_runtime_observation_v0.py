@@ -1366,6 +1366,7 @@ def _parse_state_archive_index(raw: bytes) -> dict[str, Any]:
 
 def _check_subject_state_archives(
     plan: Mapping[str, Any], manifest: Mapping[str, Any], members: Mapping[str, bytes],
+    *, d3_documents: dict[str, bytes] | None = None,
 ) -> dict[str, dict[str, tuple[str, int]]]:
     """Check member closure/copy identity independently; do not promote R2."""
     finite = plan.get("finite_limits", {})
@@ -1384,6 +1385,10 @@ def _check_subject_state_archives(
         hashes, captured_json, count = _inspect_state_archive_bytes(
             members.get(member), expected, member_limit=max_count - counts,
             single_limit=max_single, expansion_limit=max_expanded - totals,
+            retained_members=(frozenset(name for name in expected if name == "status.json"
+                              or name == "recorded_release_candidate_index_v0.json"
+                              or name.startswith("recorded_release_candidates/"))
+                              if d3_documents is not None and role == "release_grade_recorded_path" else None),
         )
         counts += count
         totals += sum(value[1] for value in hashes.values())
@@ -1392,6 +1397,8 @@ def _check_subject_state_archives(
         views[role] = hashes
         if role == "release_grade_recorded_path":
             documents = captured_json
+            if d3_documents is not None:
+                d3_documents["status.json"] = captured_json["status.json"]
     pre = views["pre_attestation_pulse_artifacts"]
     recorded = views["release_grade_recorded_path"]
     advisory = views["advisory_reference_bundle"]
@@ -1815,6 +1822,195 @@ def _check_preserved_tree_roles(
     return documents
 
 
+# Offline D3 input/representation contract. No capture helper is imported.
+D3_SOURCE_PREFIX = "prepared/d3-source/"
+D3_ARGUMENT_FORMAT = "step5c_effective_required_arguments_source_v0"
+D3_VALUE_FORMAT = "pulsemech_step5c_gate_value_projection_v0"
+_D3_SOURCE_PINS = (
+    ("tools/policy_to_require_args.py", "5b1d099485d0e3bfd90da3fff1213a4e949db850"),
+    ("pulse_gate_policy_v0.yml", "a311b424ad0f6c028b9c37b18572e7a09c721cdd"),
+    ("PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py", "a86aef9f2f5ccc6bb95997ee93eb6f9f95a8b85d"),
+    ("PULSE_safe_pack_v0/tools/check_gates.py", "2a593bdef31c9c8cb565b1c4ca3d16a1e3093735"),
+    (".github/workflows/pulse_ci.yml", "ad1f165ad695c65827c590cbef9466e300d6b6e9"),
+)
+_D3_R9 = "execution:step5c:step:release_grade_recorded_path:009"
+_D3_R12 = "execution:step5c:step:release_grade_recorded_path:012"
+_D3_R9_COMMAND = "fcaae397cb625cf262b00b2257171ee2e7f85773f47dbcf360116ae4f503e4bb"
+_D3_R12_COMMAND = "dababaec377d50eb83daa95fab958009089db11a207214bdbab1ea0156a0f81a"
+
+
+def _d3_policy_sets(raw: bytes) -> dict[str, list[str]]:
+    """Independently select the fixed source's two bare block lists."""
+    try:
+        text = "\n".join(re.sub(r"#.*$", "", line).rstrip()
+                         for line in raw.decode("utf-8", "strict").splitlines()) + "\n"
+        headings = list(re.finditer(r"(?m)^gates:\n", text))
+        require(len(headings) == 1, "d3_policy_shape_invalid", stage="d3")
+        tail = text[headings[0].end():]
+        stop = re.search(r"(?m)^\S", tail)
+        block = tail[:stop.start()] if stop else tail
+        result = {}
+        for name in ("required", "release_required"):
+            headers = list(re.finditer(r"(?m)^  " + name + r":\n", block))
+            require(len(headers) == 1, "d3_policy_shape_invalid", stage="d3")
+            rest = block[headers[0].end():]
+            end = re.search(r"(?m)^ {0,3}\S", rest)
+            body = rest[:end.start()] if end else rest
+            lines = [line for line in body.splitlines() if line]
+            require(bool(lines) and all(re.fullmatch(r"    - [a-z][a-z0-9_]*", line) for line in lines),
+                    "d3_policy_shape_invalid", stage="d3")
+            values = [line.removeprefix("    - ") for line in lines]
+            require(len(values) == len(set(values)), "d3_policy_shape_invalid", stage="d3")
+            result[name] = values
+        return result
+    except UnicodeError:
+        raise VerificationError("d3_policy_shape_invalid", stage="d3") from None
+
+
+def _check_d3_bindings(
+    plan: Mapping[str, Any], manifest: Mapping[str, Any], members: Mapping[str, bytes],
+    state_views: Mapping[str, Mapping[str, tuple[str, int]]], status_raw: bytes,
+) -> dict[str, bytes]:
+    """Derive D3 only from exact source copies and this invocation's status read.
+
+    The public intake and public packet projector both call this check. A valid
+    plan locator, capture verdict or packet hash is not a substitute for input
+    bytes. This is not the release checker or an original execution/argv receipt.
+    """
+    limits = plan.get("finite_limits", {})
+    maximum_members, maximum_bytes = limits.get("max_capture_members"), limits.get("max_capture_uncompressed_bytes")
+    require(type(maximum_members) is int and 0 < maximum_members <= MAX_CAPTURE_MEMBERS
+            and type(maximum_bytes) is int and 0 < maximum_bytes <= MAX_CAPTURE_BYTES,
+            "d3_capture_limits_invalid", stage="d3")
+    require(len(members) <= maximum_members and all(type(raw) is bytes for raw in members.values())
+            and sum(len(raw) for raw in members.values()) <= maximum_bytes,
+            "d3_capture_budget_exceeded", stage="d3")
+    wanted = {D3_SOURCE_PREFIX + path for path, _ in _D3_SOURCE_PINS}
+    require({name for name in members if name.startswith(D3_SOURCE_PREFIX)} == wanted,
+            "d3_source_set_mismatch", stage="d3")
+    identity = plan.get("plan_identity", {})
+    subject = manifest.get("subject", {})
+    revision, run_id = identity.get("source_commit"), subject.get("run_id")
+    require(identity.get("repository") == REPOSITORY and isinstance(revision, str)
+            and re.fullmatch(r"[0-9a-f]{40}", revision) is not None
+            and subject.get("head_sha") == revision and type(run_id) is int and run_id > 0
+            and type(subject.get("run_attempt")) is int and subject["run_attempt"] == 1,
+            "d3_subject_mismatch", stage="d3")
+    inventory = source_inventory_map(plan)
+    source_bindings = []
+    for path, pin in _D3_SOURCE_PINS:
+        raw = members[D3_SOURCE_PREFIX + path]
+        require(type(raw) is bytes and 0 < len(raw) <= 1048576, "d3_source_bytes_invalid", stage="d3")
+        oid = hashlib.sha1(b"blob %d\0" % len(raw) + raw).hexdigest()
+        row = inventory.get(path)
+        require(row is not None and oid == pin == row.git_blob_sha1 and row.revision == revision
+                and row.sha256 == sha256_bytes(raw) and type(row.size_bytes) is int and row.size_bytes == len(raw),
+                "d3_source_identity_mismatch", stage="d3")
+        source_bindings.append({"path": path, "sha256": sha256_bytes(raw)})
+    source_bindings.sort(key=lambda entry: entry["path"])
+    policy_path = "pulse_gate_policy_v0.yml"
+    sets = _d3_policy_sets(members[D3_SOURCE_PREFIX + policy_path])
+    jobs = plan.get("jobs")
+    require(isinstance(jobs, list), "d3_occurrence_mismatch", stage="d3")
+    for occurrence, command_hash, ordinal in ((_D3_R9, _D3_R9_COMMAND, 9), (_D3_R12, _D3_R12_COMMAND, 12)):
+        found = [step for job in jobs if isinstance(job, dict) and isinstance(job.get("steps"), list)
+                 for step in job["steps"] if isinstance(step, dict) and step.get("occurrence_id") == occurrence]
+        require(len(found) == 1, "d3_occurrence_mismatch", stage="d3")
+        item = found[0]
+        require(item.get("expected_runtime_presence") is True and item.get("expected_terminal_result") == "success"
+                and type(item.get("source_ordinal")) is int and item["source_ordinal"] == ordinal
+                and item.get("source") == {"kind": "shell", "run_sha256": command_hash,
+                                           "raw_command_included": False, "shell": "bash"},
+                "d3_occurrence_mismatch", stage="d3")
+    ordered = []
+    seen = set()
+    for name in ("required", "release_required"):
+        for value in sets[name]:
+            if value not in seen:
+                seen.add(value)
+                ordered.append(value)
+    arg_doc = {
+        "derivation_type": D3_ARGUMENT_FORMAT,
+        "policy_path": policy_path, "policy_set_members": sets,
+        "selected_sets": ["required", "release_required"], "ordered_required_gate_ids": ordered,
+        "source_bindings": [entry for entry in source_bindings
+                            if entry["path"] != "PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py"],
+        "source_occurrence_id": _D3_R12, "source_command_sha256": _D3_R12_COMMAND,
+        "checker_path": "PULSE_safe_pack_v0/tools/check_gates.py",
+        "status_selector": "PULSE_safe_pack_v0/artifacts/status.json", "deduplication": "first_seen_preserve_order",
+        "original_runtime_argv_receipt": "unavailable", "source_derived_only": True, "authority_effect": "none",
+    }
+    arg_raw = canonical_json_bytes(arg_doc)
+    arg_id = "state:step5c:effective-required-argument-list"
+    value_id = "state:step5c:materialized-release-required-gate-set"
+    templates = _planned_state_templates(plan)
+    specs = (
+        (arg_id, "other", "source_derived_required_arguments_runtime_receipt_unavailable",
+         "projection://pulse_gate_policy_v0.yml#r12-source-required-arguments/sha256/" + sha256_bytes(arg_raw),
+         None, "none", False),
+        (value_id, "candidate_state", "policy_selected_release_required_status_gate_values",
+         "projection://PULSE_safe_pack_v0/artifacts/status.json#policy-selected-release_required-gate-values",
+         _D3_R9, "materialized_gate_set", True),
+    )
+    for key, kind, description, locator, origin, mutation, authority in specs:
+        expected = {"state_id": key, "state_type": kind, "role": description, "path_or_uri": locator,
+                    "producer_occurrence_id": origin, "required_consumer_occurrence_ids": [],
+                    "mutation_class": mutation, "authority_bearing": authority,
+                    "required": True, "content_requirement": "exact_digest"}
+        require(key in templates and canonical_json_bytes(templates[key]) == canonical_json_bytes(expected),
+                "d3_template_mismatch", stage="d3")
+    require(type(status_raw) is bytes and 0 < len(status_raw) <= 16 * 1024 * 1024,
+            "d3_status_bytes_invalid", stage="d3")
+    digest, size = sha256_bytes(status_raw), len(status_raw)
+    require(state_views.get("release_grade_recorded_path", {}).get("status.json") == (digest, size),
+            "d3_status_binding_mismatch", stage="d3")
+    try:
+        status = parse_json_bytes(status_raw, label="d3_status", canonical=False, maximum=16 * 1024 * 1024)
+        require(isinstance(status.get("gates"), dict), "d3_status_json_invalid", stage="d3")
+    except (VerificationError, ValueError, UnicodeError, RecursionError):
+        raise VerificationError("d3_status_json_invalid", stage="d3") from None
+    gate_values = {}
+    for gate in sets["release_required"]:
+        require(gate in status["gates"], "d3_gate_value_missing", stage="d3")
+        require(type(status["gates"][gate]) is bool, "d3_gate_value_type_invalid", stage="d3")
+        gate_values[gate] = status["gates"][gate]
+    capture_member = "acquisition/subject/artifacts/release-grade-recorded-path.zip"
+    artifacts = manifest.get("artifact_bindings")
+    require(isinstance(artifacts, list), "d3_parent_mismatch", stage="d3")
+    choices = [entry for entry in artifacts if isinstance(entry, dict) and entry.get("downloaded_member") == capture_member]
+    require(len(choices) == 1, "d3_parent_mismatch", stage="d3")
+    artifact = choices[0]
+    archive = members.get(capture_member)
+    name = f"release-grade-recorded-path-{run_id}-1"
+    require(artifact.get("artifact_name") == name and artifact.get("artifact_role") == "subject_state_evidence_artifact"
+            and type(artifact.get("artifact_id")) is int and artifact["artifact_id"] > 0
+            and artifact.get("source_run_kind") == "subject" and type(artifact.get("source_run_id")) is int
+            and artifact["source_run_id"] == run_id and type(artifact.get("source_run_attempt")) is int
+            and artifact["source_run_attempt"] == 1 and artifact.get("exact_bytes_in_capture") is True
+            and type(archive) is bytes and len(archive) > 0, "d3_parent_mismatch", stage="d3")
+    archive_sha = sha256_bytes(archive)
+    require(artifact.get("github_sha256") == artifact.get("downloaded_sha256") == archive_sha
+            and all(type(artifact.get(field)) is int and artifact[field] == len(archive)
+                    for field in ("size_bytes", "downloaded_size_bytes")), "d3_parent_mismatch", stage="d3")
+    value_doc = {
+        "schema_version": D3_VALUE_FORMAT, "state_id": value_id,
+        "subject": {"source_commit": revision, "repository": REPOSITORY, "run_id": run_id, "run_attempt": 1},
+        "parent_status": {"state_id": "state:step5c:final-status", "declared_origin_occurrence_id": _D3_R9,
+                          "source_locator": "PULSE_safe_pack_v0/artifacts/status.json", "member": "status.json",
+                          "sha256": digest, "size_bytes": size},
+        "parent_carrier": {"capture_member": capture_member, "artifact_name": name,
+                           "artifact_id": artifact["artifact_id"], "archive_role": "release_grade_recorded_path",
+                           "sha256": archive_sha, "size_bytes": len(archive)},
+        "source_bindings": [entry for entry in source_bindings if entry["path"] in {
+            policy_path, ".github/workflows/pulse_ci.yml",
+            "PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py"}],
+        "policy_path": policy_path, "selected_policy_set": "release_required", "gate_values": gate_values,
+        "materialization_execution_proved": False, "original_runtime_argv_receipt": "unavailable",
+        "authority_effect": "none",
+    }
+    return {value_id: canonical_json_bytes(value_doc), arg_id: arg_raw}
+
+
 def _preserved_member_states(
     plan: Mapping[str, Any], manifest: Mapping[str, Any], members: Mapping[str, bytes],
     subject_run_key: str, release_candidate: str,
@@ -1826,10 +2022,12 @@ def _preserved_member_states(
     verdict may substitute for the selected archives and their inner checks.
     """
     _check_selected_archive_evidence(plan, manifest, members)
-    views = _check_subject_state_archives(plan, manifest, members)
+    d3_documents: dict[str, bytes] = {}
+    views = _check_subject_state_archives(plan, manifest, members, d3_documents=d3_documents)
     package = _check_complete_package(plan, manifest, members, views)
     bindings = _check_preserved_member_roles(plan, views, package)
     tree_documents = _check_preserved_tree_roles(plan, manifest, members, views)
+    d3_bindings = _check_d3_bindings(plan, manifest, members, views, d3_documents["status.json"])
     templates = _planned_state_templates(plan)
     states: list[dict[str, Any]] = []
     for state_id, binding in bindings.items():
@@ -1849,6 +2047,13 @@ def _preserved_member_states(
             release_candidate=release_candidate,
             observed_time=manifest["capture_identity"]["capture_completed_utc"],
             raw=document, media_type="application/json", schema_identity=PRESERVED_TREE_FORMAT,
+        ))
+    for state_id, document in sorted(d3_bindings.items()):
+        schema_identity = D3_ARGUMENT_FORMAT if state_id.endswith(":effective-required-argument-list") else D3_VALUE_FORMAT
+        states.append(_state_record(
+            templates[state_id], subject_run_key=subject_run_key, release_candidate=release_candidate,
+            observed_time=manifest["capture_identity"]["capture_completed_utc"],
+            raw=document, media_type="application/json", schema_identity=schema_identity,
         ))
     return states
 
@@ -2264,10 +2469,12 @@ def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, An
     require(subject.get("head_sha") == provider.get("head_sha") == source_commit, "capture_run_source_mismatch", stage="capture")
     require(CAPTURE_PROVIDER_ENVELOPE_MEMBER in members, "provider_envelope_missing", stage="capture")
     _check_selected_archive_evidence(plan, manifest, members)
-    state_views = _check_subject_state_archives(plan, manifest, members)
+    d3_documents: dict[str, bytes] = {}
+    state_views = _check_subject_state_archives(plan, manifest, members, d3_documents=d3_documents)
     package_view = _check_complete_package(plan, manifest, members, state_views)
     _check_preserved_member_roles(plan, state_views, package_view)
     _check_preserved_tree_roles(plan, manifest, members, state_views)
+    _check_d3_bindings(plan, manifest, members, state_views, d3_documents["status.json"])
     _check_boundary_state_bindings(plan, manifest, members)
     _check_collection_timing(plan, manifest, members)
     return manifest, members, raw

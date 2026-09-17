@@ -535,6 +535,52 @@ The pre-materialization status is a distinct version obtained through the exact
 pre-attestation member and transfer route. Equal bytes do not by themselves
 establish that two different occurrences supplied the same version.
 
+#### D3 source-copy and projection implementation slice
+
+The capture preserves five original, prelaunch-inventoried source files under
+`prepared/d3-source/`: `.github/workflows/pulse_ci.yml`, `pulse_gate_policy_v0.yml`,
+`tools/policy_to_require_args.py`, `PULSE_safe_pack_v0/tools/check_gates.py`, and
+`PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py`.
+These are public reviewed source copies, not additional subject archives,
+executed commands, or generated PASS records. The existing capture inventory
+covers every copy; existing finite carrier limits are not raised. The selected
+source profile requires their original Git blob, SHA-256, size, revision and
+prelaunch-inventory identity. Missing, stale, additional or changed copies
+reject even when enclosing inventories are rehashed. CLI entrypoints and the
+four-file preparation/capture handoff remain unchanged.
+
+The R12 object uses `step5c_effective_required_arguments_source_v0`, exactly the
+source-derivation format already bound in its plan locator. It preserves the
+`required` then `release_required` list order and first-seen deduplication,
+selected source and command hashes, status selector and checker path. No
+recorded argv is inferred from the derived list, workflow success or R17 manifest.
+
+The R9 object uses `pulsemech_step5c_gate_value_projection_v0`. It binds the
+original recorded-path archive, its exact final `status.json` member and declared
+state version, subject/run/source identity, original policy and materializer
+sources, and the policy-selected `release_required` boolean values. It does not
+project every status field, treat the top-level policy mapping as an artifact,
+or substitute pre-materialization status or later manifest values. Only the
+selected boolean gate values are emitted; unrelated fields and fractional
+metrics are not copied into new JSON or diagnostics. False remains false;
+missing entries and non-boolean values reject rather than becoming truthy PASS.
+This shape check is not the release decision or a replacement for `check_gates`.
+
+The status bytes are retained in memory during the existing bounded archive
+inspection, with the existing 16 MiB JSON limit, not read by a new extraction
+pass. Capture validates D3 before publication. The separate verifier checks the
+same boundaries with its own code before `read_capture` succeeds and whenever
+`build_runtime_packet` is called. Final verification re-derives both state
+representations rather than trusting recorded state hashes. No captured verifier
+verdict is reused; neither side executes the source copies during derivation.
+
+Both derived state records use `application/json` and the named format identity.
+Their digests describe these typed representations, not original argv bytes or
+a new materialization event. `producer_execution_id` stays null and no new
+runtime input/output edges are inferred. Original runtime argv is unavailable;
+materialization execution is not proved by this projection. The R2 profile,
+D1/D6 gaps and `declared_state_evidence_incomplete` acceptance stop remain unchanged.
+
 ### D5: advisory reference bundle
 
 Require the exact existing `release-grade-reference-run-v0` artifact and its
