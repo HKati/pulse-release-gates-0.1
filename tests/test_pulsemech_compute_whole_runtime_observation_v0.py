@@ -11882,6 +11882,183 @@ def test_summary_pin_renewal_each_mapping_rejects_a_stale_table(
         method(doc, sources)
     assert caught.value.code == code
 
+# The role oracle is deliberately independent of the producer's role table.
+_DOWNSTREAM_TEST_ROLES = {
+    'state:step5c:runtime-observation-packet': ('runtime-observation-packet.json', 'reconstruction://runtime-observation-packet.json', 'tools/check_pulsemech_compute_whole_runtime_observation_v0.py', []),
+    'state:step5c:runtime-observation-diagnostic': ('runtime-packet-diagnostic.json', 'reconstruction://runtime-observation-diagnostic.json', 'tools/check_pulsemech_compute_runtime_observation_packet_v0.py', ['runtime-observation-packet.json']),
+    'state:step5c:compute-binding-report': ('compute-binding-report.json', 'reconstruction://compute-binding-report.json', 'tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py', ['runtime-observation-packet.json']),
+    'state:step5c:planned-observed-relation': ('planned-observed-relation.json', 'reconstruction://planned-observed-relation.json', 'tools/build_pulsemech_compute_planned_observed_relation_v0.py', ['runtime-observation-packet.json', 'compute-binding-report.json']),
+    'state:step5c:folded-non-active-candidate-status': ('folded-candidate-status.json', 'reconstruction://folded-candidate-status.json', 'tools/fold_pulsemech_compute_planned_observed_relation_into_status_v0.py', ['planned-observed-relation.json']),
+}
+
+@pytest.fixture(scope='module')
+def downstream_real_outputs(tmp_path_factory):
+    # Reuse the existing data constructor, never a mocked producer or validator.
+    # This is a partial-runtime fixture, NOT full Step 5C acquisition/replay.
+    path = ROOT / 'tests/test_build_pulsemech_compute_binding_report_from_subject_input_v0.py'
+    spec = importlib.util.spec_from_file_location('step5c_downstream_input_fixture', path)
+    helper = importlib.util.module_from_spec(spec); sys.modules[spec.name] = helper; spec.loader.exec_module(helper)
+    extra = ['tools/plan_pulsemech_integration_v0.py'] + [p.relative_to(ROOT).as_posix() for p in (ROOT/'schemas').glob('pulsemech_integration*')]
+    helper._INTAKE_FIXTURE_SOURCES = tuple(dict.fromkeys(helper._INTAKE_FIXTURE_SOURCES + tuple(extra)))
+    helper._INTAKE_REPOSITORY = 'HKati/pulse-release-gates-0.1'
+    h = helper.current_run_intake_fixture.__wrapped__(tmp_path_factory)
+    runtime = helper._intake_runtime_fixture(h)
+    subject_packet = h.root/'external/subject-input-packet.json'; carrier=h.root/'staging/exports/current-run-9001-1.zip'
+    packet=json.loads(subject_packet.read_bytes()); revision=packet['subject']['source_commit']
+    proof=helper._intake_module(h.control/'tools/build_pulsemech_compute_current_run_artifact_observed_proof_v0.py','step5c_downstream_request_constructor')
+    request, manifest=proof._build_dynamic_plan_inputs(packet=packet,subject_components={'subject_policy':SimpleNamespace(bytes_value=(h.subject/'pulse_gate_policy_v0.yml').read_bytes())})
+    base=h.root/'baseline-proof';base.mkdir();(base/'request.json').write_bytes(canonical(request));(base/'component-manifest.json').write_bytes(canonical(manifest))
+    def execute(label,args):
+        return h.execute(label,[sys.executable,'-I','-B',h.control/args[0],*args[1:]],cwd=h.control)
+    plan=base/'current-run-plan.json'
+    execute('downstream_plan',['tools/plan_pulsemech_integration_v0.py','--request',base/'request.json','--component-manifest',base/'component-manifest.json','--source-root',h.subject,'--target-root',h.subject,'--output',plan])
+    report=base/'artifact-report.json'
+    report.write_bytes(execute('downstream_baseline_report',['tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py','--packet',subject_packet,'--carrier',carrier,'--repository-root',h.subject,'--analysis-run-key','analysis:synthetic-downstream:9001:1:baseline']))
+    relation=base/'planned-observed-relation.json'
+    relation.write_bytes(execute('downstream_baseline_relation',['tools/build_pulsemech_compute_planned_observed_relation_v0.py','--plan',plan,'--compute-report',report,'--tool-source-revision',revision]))
+    execute('downstream_baseline_fold',['tools/fold_pulsemech_compute_planned_observed_relation_into_status_v0.py','--status',h.root/'package/artifacts/status.json','--relation',relation,'--output',base/'folded-candidate-status.json'])
+    intake=h.root/'downstream-intake';intake.mkdir();shutil.copyfile(subject_packet,intake/subject_packet.name);shutil.copyfile(carrier,intake/'pulsemech-current-run-export-9001-1-v0.zip')
+    out=h.root/'downstream-outputs';out.mkdir()
+    before={str(p):p.read_bytes() for p in (subject_packet,carrier,runtime,plan,relation,base/'folded-candidate-status.json')}
+    outputs=VERIFIER._run_existing_pipeline(control_root=h.control,intake_directory=intake,baseline_proof=base,runtime_packet_path=runtime,output_root=out,source_commit=revision,subject_run_id=9001)
+    assert before=={name:Path(name).read_bytes() for name in before}
+    for name,raw in outputs.items():(out/name).write_bytes(raw)
+    # A minimal binding context exercises this helper only. It is not represented
+    # as a validated whole-runtime prelaunch plan or original acquisition record.
+    context={'state_templates':[],'source_inventory':[]}
+    for sid,(member,locator,source,inputs) in _DOWNSTREAM_TEST_ROLES.items():
+        context['state_templates'].append({'state_id':sid,'required':True,'authority_bearing':False,'path_or_uri':locator})
+        raw=(h.control/source).read_bytes()
+        context['source_inventory'].append({'path':source,'revision':revision,'sha256':hashlib.sha256(raw).hexdigest(),'size_bytes':len(raw)})
+    capture={'record_status':'observed','subject':{'run_id':9001},'capture_identity':{'capture_id':'synthetic-downstream-link-control'}}
+    values=VERIFIER._materializer_candidate_values(outputs['candidate-materializer-report.json'],outputs['folded-candidate-status.json'])
+    inv=VERIFIER._reconstruction_inventory(outputs=outputs,source_commit=revision,capture_manifest=capture,candidate_values=values,plan=context)
+    members=dict(outputs);members[VERIFIER.RECONSTRUCTION_INVENTORY_MEMBER]=inv
+    return SimpleNamespace(harness=h,context=context,packet=json.loads(runtime.read_bytes()),members=members,outputs=outputs,values=values,revision=revision)
+
+
+def test_downstream_five_roles_bind_actual_output_bytes(downstream_real_outputs):
+    f=downstream_real_outputs;before=canonical(f.packet)
+    VERIFIER._require_downstream_state_bindings(f.context,f.packet,f.members)
+    rows=json.loads(f.members[VERIFIER.RECONSTRUCTION_INVENTORY_MEMBER])['downstream_state_bindings']
+    assert len(rows)==5 and [r['state_id'] for r in rows]==sorted(_DOWNSTREAM_TEST_ROLES)
+    for row in rows:
+        member,locator,source,inputs=_DOWNSTREAM_TEST_ROLES[row['state_id']];raw=f.outputs[member]
+        assert row['declared_path_or_uri']==locator
+        assert row['output']=={'member':member,'sha256':hashlib.sha256(raw).hexdigest(),'size_bytes':len(raw)}
+        assert row['entrypoint_source']['path']==source
+        assert row['entrypoint_source']['sha256']==hashlib.sha256((f.harness.control/source).read_bytes()).hexdigest()
+        assert row['entrypoint_source']['revision']==f.revision
+        assert row['derived_input_members']==[{'member':n,'sha256':hashlib.sha256(f.outputs[n]).hexdigest(),'size_bytes':len(f.outputs[n])} for n in inputs]
+        assert row['producer_scope']=='reconstruction_process'
+        assert row['original_subject_execution_claimed'] is False and row['authority_effect']=='none'
+    assert canonical(f.packet)==before and f.values['candidate_all_true'] is False
+
+
+@pytest.mark.parametrize('sid',sorted(_DOWNSTREAM_TEST_ROLES))
+@pytest.mark.parametrize('mutation',['missing','wrong_member','wrong_digest','wrong_size','subject','source','producer_scope','authority','input'])
+def test_downstream_role_mutation_rejected_even_after_inventory_rehash(downstream_real_outputs,sid,mutation):
+    f=downstream_real_outputs;members=dict(f.members);inv=json.loads(members[VERIFIER.RECONSTRUCTION_INVENTORY_MEMBER]);row=next(r for r in inv['downstream_state_bindings'] if r['state_id']==sid)
+    if mutation=='missing':inv['downstream_state_bindings'].remove(row)
+    elif mutation=='wrong_member':row['output']['member']='other-output.json'
+    elif mutation=='wrong_digest':row['output']['sha256']='a'*64
+    elif mutation=='wrong_size':row['output']['size_bytes']+=1
+    elif mutation=='subject':row['subject_run_key']='other-run'
+    elif mutation=='source':row['entrypoint_source']['sha256']='b'*64
+    elif mutation=='producer_scope':row['producer_scope']='subject_execution'
+    elif mutation=='authority':row['authority_effect']='release_authority'
+    else:row['derived_input_members']=[{'member':'other.json','sha256':'c'*64,'size_bytes':1}]
+    members[VERIFIER.RECONSTRUCTION_INVENTORY_MEMBER]=canonical(inv)
+    # Regenerate a canonical outer carrier as well; the ZIP checksum cannot
+    # turn a changed role assertion into an authenticated derivation.
+    raw = VERIFIER.deterministic_zip_bytes(members, maximum_members=VERIFIER.MAX_RECONSTRUCTION_MEMBERS,
+        maximum_bytes=VERIFIER.MAX_RECONSTRUCTION_BYTES)
+    members = VERIFIER.read_canonical_zip_bytes(raw, label="role_mutation_control",
+        maximum_members=VERIFIER.MAX_RECONSTRUCTION_MEMBERS,
+        maximum_bytes=VERIFIER.MAX_RECONSTRUCTION_BYTES)
+    with pytest.raises(VERIFIER.VerificationError,match='downstream_role_'):VERIFIER._require_downstream_state_bindings(f.context,f.packet,members)
+
+
+@pytest.mark.parametrize('member',['runtime-observation-packet.json','runtime-packet-diagnostic.json','compute-binding-report.json','binding-report-diagnostic.json','planned-observed-relation.json','relation-diagnostic.json','candidate-materializer-report.json','folded-candidate-status.json'])
+def test_downstream_nonempty_success_placeholder_is_not_evidence(downstream_real_outputs,member):
+    outputs=dict(downstream_real_outputs.outputs);outputs[member]=canonical({"ok": True})
+    with pytest.raises(VERIFIER.VerificationError):VERIFIER._require_downstream_output_links(outputs)
+
+
+@pytest.mark.parametrize('mutation',['runtime_bytes','report_subject','report_runtime_digest','relation_report_digest','relation_runtime_digest','relation_subject','folded_bytes','materializer_relation','materializer_output','materializer_candidates','candidate_boolean','false_diagnostic','empty_diagnostic','wrong_diagnostic_tool','extra_output','missing_output'])
+def test_downstream_native_cross_document_links_reject_substitution(downstream_real_outputs,mutation):
+    d={n:json.loads(raw) for n,raw in downstream_real_outputs.outputs.items()};packet=d['runtime-observation-packet.json'];report=d['compute-binding-report.json'];relation=d['planned-observed-relation.json'];mat=d['candidate-materializer-report.json']
+    if mutation=='runtime_bytes':packet['producer']['producer_name']+=' changed'
+    elif mutation=='report_subject':report['subject']['workflow_run_number']+=1
+    elif mutation=='report_runtime_digest':report['runtime_binding']['index']['packet_inventory'][0]['sha256']='a'*64
+    elif mutation=='relation_report_digest':relation['observation_bindings']['compute_binding_report']['sha256']='a'*64
+    elif mutation=='relation_runtime_digest':relation['observation_bindings']['runtime_observation_packets'][0]['sha256']='a'*64
+    elif mutation=='relation_subject':relation['comparison_identity']['release_candidate_id']='other'
+    elif mutation=='folded_bytes':d['folded-candidate-status.json']['metrics']['git_sha']='a'*40
+    elif mutation=='materializer_relation':mat['relation_sha256']='a'*64
+    elif mutation=='materializer_output':mat['output_status_sha256']='a'*64
+    elif mutation=='materializer_candidates':mat.pop('candidate_gates')
+    elif mutation=='candidate_boolean':mat['candidate_all_true']=0
+    elif mutation=='false_diagnostic':d['runtime-packet-diagnostic.json']['ok']=False
+    elif mutation=='empty_diagnostic':d['runtime-packet-diagnostic.json']['checks']={}
+    elif mutation=='wrong_diagnostic_tool':d['runtime-packet-diagnostic.json']['tool']='unrelated-validator'
+    elif mutation=='extra_output':d['extra.json']={'ok':True}
+    else:d.pop('runtime-packet-diagnostic.json')
+    with pytest.raises(VERIFIER.VerificationError):VERIFIER._require_downstream_output_links({n:canonical(v) for n,v in d.items()})
+
+
+def test_downstream_role_binding_is_called_on_both_publication_paths():
+    for function in (VERIFIER.reconstruct,VERIFIER._verification_record):
+        tree=ast.parse(textwrap.dedent(inspect.getsource(function)))
+        calls=[n for n in ast.walk(tree) if isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id=='_require_downstream_state_bindings']
+        assert len(calls)==1
+
+
+def test_downstream_does_not_replace_incomplete_declared_state_guard(source_fixture,downstream_real_outputs):
+    f=source_fixture;packet=runtime_projection_example(f)
+    with pytest.raises(VERIFIER.VerificationError,match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(f.plan,packet,downstream_real_outputs.outputs)
+
+
+
+@pytest.mark.parametrize("mutation", ["duplicate_descriptor", "descriptor_boolean_size", "member_count_boolean",
+    "inventory_repository", "inventory_attempt", "inventory_candidate", "binding_version", "duplicate_role",
+    "malformed_report_subject", "malformed_runtime_index", "malformed_relation_binding", "malformed_status_gates"])
+def test_downstream_closed_inventory_and_container_failures(downstream_real_outputs, mutation):
+    f = downstream_real_outputs
+    members = dict(f.members)
+    inv = json.loads(members[VERIFIER.RECONSTRUCTION_INVENTORY_MEMBER])
+    if mutation == "duplicate_descriptor":
+        inv["members"].append(copy.deepcopy(inv["members"][0]))
+    elif mutation == "descriptor_boolean_size":
+        inv["members"][0]["size_bytes"] = True
+    elif mutation == "member_count_boolean":
+        inv["member_count"] = True
+    elif mutation == "inventory_repository":
+        inv["repository"] = "unrelated/repository"
+    elif mutation == "inventory_attempt":
+        inv["subject_run_attempt"] = True
+    elif mutation == "inventory_candidate":
+        inv["candidate_values"]["candidate_all_true"] = True
+    elif mutation == "binding_version":
+        inv["downstream_binding_version"] = "unreviewed_version"
+    elif mutation == "duplicate_role":
+        inv["downstream_state_bindings"][0] = copy.deepcopy(inv["downstream_state_bindings"][1])
+    else:
+        member = {"malformed_report_subject": "compute-binding-report.json",
+            "malformed_runtime_index": "compute-binding-report.json",
+            "malformed_relation_binding": "planned-observed-relation.json",
+            "malformed_status_gates": "folded-candidate-status.json"}[mutation]
+        document = json.loads(members[member])
+        if mutation == "malformed_report_subject": document["subject"] = []
+        elif mutation == "malformed_runtime_index": document["runtime_binding"]["index"] = None
+        elif mutation == "malformed_relation_binding": document["observation_bindings"]["compute_binding_report"] = []
+        else: document["gates"] = None
+        members[member] = canonical(document)
+    members[VERIFIER.RECONSTRUCTION_INVENTORY_MEMBER] = canonical(inv)
+    with pytest.raises(VERIFIER.VerificationError):
+        VERIFIER._require_downstream_state_bindings(f.context, f.packet, members)
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.

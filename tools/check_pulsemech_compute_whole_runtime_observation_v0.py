@@ -3172,6 +3172,208 @@ DERIVED_STATE_MEMBERS = {
 }
 
 
+# This is a derivation inventory, not an original subject execution receipt.
+# The diagnostic's declared role locator and its existing physical ZIP member
+# are deliberately distinct; do not rename either already-reviewed surface.
+DOWNSTREAM_BINDING_VERSION = "pulsemech_step5c_downstream_state_bindings_v0"
+_DOWNSTREAM_ROLE_SPECS = (
+    ("state:step5c:runtime-observation-packet", RUNTIME_PACKET_MEMBER,
+     "reconstruction://runtime-observation-packet.json", VERIFIER_PATH, ()),
+    ("state:step5c:runtime-observation-diagnostic", RUNTIME_DIAGNOSTIC_MEMBER,
+     "reconstruction://runtime-observation-diagnostic.json", RUNTIME_VALIDATOR_PATH,
+     (RUNTIME_PACKET_MEMBER,)),
+    ("state:step5c:compute-binding-report", BINDING_REPORT_MEMBER,
+     "reconstruction://compute-binding-report.json", BINDING_BRIDGE_PATH,
+     (RUNTIME_PACKET_MEMBER,)),
+    ("state:step5c:planned-observed-relation", RELATION_MEMBER,
+     "reconstruction://planned-observed-relation.json", RELATION_BUILDER_PATH,
+     (RUNTIME_PACKET_MEMBER, BINDING_REPORT_MEMBER)),
+    ("state:step5c:folded-non-active-candidate-status", FOLDED_STATUS_MEMBER,
+     "reconstruction://folded-candidate-status.json", CANDIDATE_MATERIALIZER_PATH,
+     (RELATION_MEMBER,)),
+)
+
+
+def _downstream_state_bindings(
+    plan: Mapping[str, Any], packet: Mapping[str, Any], outputs: Mapping[str, bytes],
+) -> list[dict[str, Any]]:
+    """Bind five roles outside the packet; never insert a packet self-digest.
+
+    Entry-point sources identify the named derivation responsibility, not an
+    exhaustive dependency closure. The checked plan source inventory and real
+    source-bound reconstruction remain mandatory. These rows alone prove no
+    original subject read, execution or acquisition.
+    """
+    templates = _planned_state_templates(plan)
+    subject = packet.get("subject", {})
+    result = []
+    for state_id, member, locator, tool_path, input_members in _DOWNSTREAM_ROLE_SPECS:
+        template = templates.get(state_id)
+        require(isinstance(template, dict) and template.get("required") is True
+                and template.get("authority_bearing") is False
+                and template.get("path_or_uri") == locator,
+                "downstream_role_plan_mismatch", state_id, stage="reconstruct")
+        source = _source_row(plan, tool_path)
+        require(source.get("revision") == subject.get("source_commit"),
+                "downstream_source_revision_mismatch", tool_path, stage="reconstruct")
+        raw = outputs.get(member)
+        require(isinstance(raw, bytes) and bool(raw), "downstream_output_missing", member, stage="reconstruct")
+        inputs = []
+        for name in input_members:
+            value = outputs.get(name)
+            require(isinstance(value, bytes) and bool(value), "downstream_input_missing", name, stage="reconstruct")
+            inputs.append(descriptor(name, value))
+        result.append({
+            "state_id": state_id, "declared_path_or_uri": locator,
+            "output": descriptor(member, raw), "derived_input_members": inputs,
+            "entrypoint_source": {key: source[key] for key in ("path", "revision", "sha256", "size_bytes")},
+            "subject_run_key": subject.get("subject_run_key"),
+            "release_candidate_id": subject.get("release_candidate_id"),
+            "source_commit": subject.get("source_commit"),
+            "producer_scope": "reconstruction_process",
+            "original_subject_execution_claimed": False, "authority_effect": "none",
+        })
+    return sorted(result, key=lambda row: row["state_id"])
+
+
+def _require_downstream_output_links(outputs: Mapping[str, bytes]) -> dict[str, Any]:
+    """Check native byte links, not a second analyzer or candidate derivation.
+
+    The existing validators execute in _run_existing_pipeline. A consistent
+    inventory is not a substitute for those executions or either full replay.
+    """
+    names = {RUNTIME_PACKET_MEMBER, RUNTIME_DIAGNOSTIC_MEMBER, BINDING_REPORT_MEMBER,
+             BINDING_DIAGNOSTIC_MEMBER, RELATION_MEMBER, RELATION_DIAGNOSTIC_MEMBER,
+             MATERIALIZER_REPORT_MEMBER, FOLDED_STATUS_MEMBER}
+    require(set(outputs) == names, "downstream_output_set_mismatch", stage="reconstruct")
+    docs = {name: parse_json_bytes(raw, label="downstream:" + name) for name, raw in outputs.items()}
+    packet, report, relation, materializer, status = (
+        docs[name] for name in (RUNTIME_PACKET_MEMBER, BINDING_REPORT_MEMBER,
+        RELATION_MEMBER, MATERIALIZER_REPORT_MEMBER, FOLDED_STATUS_MEMBER))
+    for name in (RUNTIME_PACKET_MEMBER, BINDING_REPORT_MEMBER, RELATION_MEMBER, MATERIALIZER_REPORT_MEMBER):
+        require(docs[name].get("ok") is True and docs[name].get("errors") == [],
+                "downstream_output_not_successful", name, stage="reconstruct")
+    for name, tool, version, kind, value in (
+        (RUNTIME_DIAGNOSTIC_MEMBER, "check_pulsemech_compute_runtime_observation_packet_v0",
+         RUNTIME_SCHEMA_VERSION, "packet_type", "pulsemech_compute_runtime_observation_packet"),
+        (BINDING_DIAGNOSTIC_MEMBER, "check_pulsemech_compute_binding_report_v0",
+         "pulsemech_compute_binding_report_v0", "report_type", "pulsemech_compute_binding_report"),
+        (RELATION_DIAGNOSTIC_MEMBER, "check_pulsemech_compute_planned_observed_relation_v0",
+         "pulsemech_compute_planned_observed_relation_v0", "relation_type", "pulsemech_compute_planned_observed_relation"),
+    ):
+        d = docs[name]
+        checks = d.get("checks")
+        require(set(d) == {"tool", "schema_version", kind, "ok", "schema_valid", "checks", "errors"}
+                and d.get("tool") == tool and d.get("schema_version") == version
+                and d.get(kind) == value and d.get("ok") is True and d.get("schema_valid") is True
+                and d.get("errors") == [] and isinstance(checks, dict) and bool(checks)
+                and all(v is True for v in checks.values()),
+                "downstream_diagnostic_invalid", name, stage="reconstruct")
+    subject = packet.get("subject")
+    require(isinstance(subject, dict) and isinstance(packet.get("packet_identity"), dict),
+            "downstream_subject_missing", stage="reconstruct")
+    # Native document shapes remain governed by the unchanged validators.
+    # Reject malformed containers here as a diagnostic, not an AttributeError.
+    for document, keys in ((report, ("subject", "analysis_boundary", "runtime_binding")),
+                           (relation, ("comparison_identity", "observation_bindings")),
+                           (status, ("gates",))):
+        require(all(isinstance(document.get(key), dict) for key in keys),
+                "downstream_link_container_invalid", stage="reconstruct")
+    report_subject = report["subject"]
+    pairs = ("repository", "source_commit", "release_candidate_id", "workflow_run_id",
+             "workflow_run_number", "workflow_run_attempt")
+    require(canonical_json_bytes({k: report_subject.get(k) for k in pairs}) ==
+            canonical_json_bytes({k: subject.get(k) for k in pairs})
+            and report.get("analysis_boundary", {}).get("subject_run_key") == subject.get("subject_run_key")
+            and report.get("analysis_boundary", {}).get("analysis_level") == "runtime_observed",
+            "downstream_report_subject_mismatch", stage="reconstruct")
+    digest = sha256_bytes(outputs[RUNTIME_PACKET_MEMBER])
+    runtime_binding = report.get("runtime_binding", {})
+    require(isinstance(runtime_binding.get("index"), dict),
+            "downstream_runtime_inventory_mismatch", stage="reconstruct")
+    inventory = runtime_binding["index"].get("packet_inventory")
+    require(isinstance(inventory, list) and len(inventory) == 1,
+            "downstream_runtime_inventory_mismatch", stage="reconstruct")
+    observed = inventory[0]
+    identity = packet["packet_identity"]
+    expected_packet = {"sha256": digest, "size_bytes": len(outputs[RUNTIME_PACKET_MEMBER]),
+                       "packet_id": identity.get("packet_id"), "packet_sequence": identity.get("packet_sequence"),
+                       "previous_packet_sha256": identity.get("previous_packet_sha256")}
+    require(isinstance(observed, dict) and canonical_json_bytes({k: observed.get(k) for k in expected_packet})
+            == canonical_json_bytes(expected_packet), "downstream_runtime_packet_mismatch", stage="reconstruct")
+    context = {"subject_repository": subject.get("repository"),
+               "subject_source_commit": subject.get("source_commit"),
+               "subject_run_key": subject.get("subject_run_key"),
+               "release_candidate_id": subject.get("release_candidate_id")}
+    require(canonical_json_bytes({k: relation.get("comparison_identity", {}).get(k) for k in context})
+            == canonical_json_bytes(context), "downstream_relation_subject_mismatch", stage="reconstruct")
+    bindings = relation.get("observation_bindings", {})
+    runtime_rows = bindings.get("runtime_observation_packets")
+    require(isinstance(bindings.get("compute_binding_report"), dict),
+            "downstream_relation_input_mismatch", stage="reconstruct")
+    require(bindings["compute_binding_report"].get("sha256") == sha256_bytes(outputs[BINDING_REPORT_MEMBER])
+            and isinstance(runtime_rows, list) and len(runtime_rows) == 1
+            and isinstance(runtime_rows[0], dict) and runtime_rows[0].get("sha256") == digest,
+            "downstream_relation_input_mismatch", stage="reconstruct")
+    require(materializer.get("tool") == "fold_pulsemech_compute_planned_observed_relation_into_status_v0"
+            and materializer.get("relation_validated") is True and materializer.get("output_status_written") is True
+            and materializer.get("relation_sha256") == sha256_bytes(outputs[RELATION_MEMBER])
+            and materializer.get("relation_record_id") == relation.get("comparison_identity", {}).get("relation_record_id")
+            and materializer.get("output_status_sha256") == sha256_bytes(outputs[FOLDED_STATUS_MEMBER])
+            and materializer.get("candidate_gate_set") == "compute_planned_observed_relation_candidate",
+            "downstream_materializer_binding_mismatch", stage="reconstruct")
+    gates = materializer.get("candidate_gates")
+    expected_gates = {"compute_transition_path_complete", "compute_transition_authority_binding_ok",
+                      "compute_transition_unbound_mutation_absent"}
+    require(isinstance(gates, dict) and set(gates) == expected_gates
+            and all(type(value) is bool for value in gates.values())
+            and canonical_json_bytes({key: status.get("gates", {}).get(key) for key in gates}) == canonical_json_bytes(gates)
+            and type(materializer.get("candidate_all_true")) is bool
+            and materializer["candidate_all_true"] == all(gates.values()),
+            "downstream_candidate_binding_mismatch", stage="reconstruct")
+    return packet
+
+
+def _require_downstream_state_bindings(
+    plan: Mapping[str, Any], packet: Mapping[str, Any], members: Mapping[str, bytes],
+) -> None:
+    outputs = {name: raw for name, raw in members.items() if name != RECONSTRUCTION_INVENTORY_MEMBER}
+    checked_packet = _require_downstream_output_links(outputs)
+    require(canonical_json_bytes(packet) == canonical_json_bytes(checked_packet),
+            "downstream_packet_projection_mismatch", stage="reconstruct")
+    inventory = parse_json_bytes(members.get(RECONSTRUCTION_INVENTORY_MEMBER, b""), label="downstream_inventory")
+    require(inventory.get("downstream_binding_version") == DOWNSTREAM_BINDING_VERSION,
+            "downstream_binding_version_mismatch", stage="reconstruct")
+    rows = inventory.get("downstream_state_bindings")
+    require(isinstance(rows, list) and len(rows) == 5,
+            "downstream_role_extent_mismatch", stage="reconstruct")
+    # Recompute each descriptor from its actual member, not from another row.
+    expected = _downstream_state_bindings(plan, packet, outputs)
+    require(canonical_json_bytes(rows) == canonical_json_bytes(expected),
+            "downstream_role_binding_mismatch", stage="reconstruct")
+    expected_members = [descriptor(name, raw) for name, raw in sorted(outputs.items())]
+    require(type(inventory.get("member_count")) is int and inventory["member_count"] == len(expected_members)
+            and canonical_json_bytes(inventory.get("members")) == canonical_json_bytes(expected_members),
+            "downstream_inventory_members_mismatch", stage="reconstruct")
+    materializer = parse_json_bytes(outputs[MATERIALIZER_REPORT_MEMBER], label="downstream_materializer")
+    expected_candidates = dict(materializer["candidate_gates"])
+    expected_candidates["candidate_all_true"] = materializer["candidate_all_true"]
+    require(canonical_json_bytes(inventory.get("candidate_values")) == canonical_json_bytes(expected_candidates),
+            "downstream_inventory_candidates_mismatch", stage="reconstruct")
+    subject = packet["subject"]
+    require(inventory.get("schema_version") == "pulsemech_compute_whole_runtime_observation_reconstruction_inventory_v0"
+            and inventory.get("repository") == REPOSITORY == subject.get("repository")
+            and inventory.get("manifest_scope") == "all_reconstruction_members_except_this_inventory"
+            and inventory.get("ok") is True and inventory.get("errors") == []
+            and canonical_json_bytes(inventory.get("authority_boundary")) == canonical_json_bytes(AUTHORITY_BOUNDARY)
+            and inventory.get("source_commit") == subject.get("source_commit")
+            and type(inventory.get("subject_run_id")) is int
+            and inventory["subject_run_id"] == subject.get("workflow_run_id")
+            and type(inventory.get("subject_run_attempt")) is int
+            and inventory["subject_run_attempt"] == subject.get("workflow_run_attempt"),
+            "downstream_inventory_subject_mismatch", stage="reconstruct")
+
+
 def _planned_state_templates(plan: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
     rows = plan.get("state_templates")
     require(isinstance(rows, list) and bool(rows), "state_plan_missing", stage="state")
@@ -4471,7 +4673,9 @@ def _reconstruction_inventory(
     source_commit: str,
     capture_manifest: Mapping[str, Any],
     candidate_values: Mapping[str, bool],
+    plan: Mapping[str, Any],
 ) -> bytes:
+    packet = _require_downstream_output_links(outputs)
     rows = [descriptor(name, raw) for name, raw in sorted(outputs.items())]
     value = {
         "schema_version": "pulsemech_compute_whole_runtime_observation_reconstruction_inventory_v0",
@@ -4485,6 +4689,8 @@ def _reconstruction_inventory(
         "member_count": len(rows),
         "members": rows,
         "candidate_values": dict(candidate_values),
+        "downstream_binding_version": DOWNSTREAM_BINDING_VERSION,
+        "downstream_state_bindings": _downstream_state_bindings(plan, packet, outputs),
         "authority_boundary": AUTHORITY_BOUNDARY,
         "reconstruction_boundary": {
             "dispatched_workflow": False,
@@ -4588,9 +4794,11 @@ def reconstruct(
             source_commit=source_commit,
             capture_manifest=capture_manifest,
             candidate_values=candidate_values,
+            plan=plan,
         )
         members = dict(outputs)
         members[RECONSTRUCTION_INVENTORY_MEMBER] = inventory_raw
+        _require_downstream_state_bindings(plan, packet, members)
         raw = deterministic_zip_bytes(
             members,
             maximum_members=MAX_RECONSTRUCTION_MEMBERS,
@@ -4759,6 +4967,7 @@ def _verification_record(
     _require_state_projection(plan, packet, capture_manifest, capture_members)
     _require_d6_projection(plan, packet, capture_manifest, capture_members)
     _require_declared_state_completion(plan, packet, reconstruction_members)
+    _require_downstream_state_bindings(plan, packet, reconstruction_members)
     candidate_values = _materializer_candidate_values(
         reconstruction_members[MATERIALIZER_REPORT_MEMBER],
         reconstruction_members[FOLDED_STATUS_MEMBER],

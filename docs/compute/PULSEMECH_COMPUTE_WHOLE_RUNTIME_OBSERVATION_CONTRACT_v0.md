@@ -1095,6 +1095,35 @@ diagnostic, compute-binding report and diagnostic, planned-observed relation and
 diagnostic, candidate-materializer report, folded non-active status and
 reconstruction inventory.
 
+### Downstream state-role bindings
+
+The reconstruction inventory includes the narrowly discriminated
+`pulsemech_step5c_downstream_state_bindings_v0` profile. It binds exactly five
+required derived state roles to actual output member descriptors, the exact
+subject/run/source and release candidate, the reviewed derivation entrypoint
+source, and the relevant other derived input members. These records remain
+outside the generic runtime packet; they neither add a packet self-digest nor
+rewrite unavailable packet states as original subject observations.
+
+The diagnostic role's declared locator remains
+`reconstruction://runtime-observation-diagnostic.json`. Its existing physical
+reconstruction member remains `runtime-packet-diagnostic.json`; the binding
+records this explicit mapping instead of renaming a previously reviewed path.
+
+The checker requires real runtime-bound report, relation and materializer
+byte links, successful nonempty validation diagnostics, exact three-candidate
+boolean correspondence and an exact five-role inventory. A nonempty placeholder,
+role substitution, stale digest, cross-subject record or self-consistent ZIP
+rehash alone does not discharge these duties. Entrypoint identities do not claim
+an exhaustive dependency closure; the validated source inventory, unchanged
+component validators and both source-bound full reconstructions remain required.
+An internally consistent derivation inventory alone is not execution evidence.
+
+This addition does not alter mapping families, D3/D6, original-runtime receipt
+gaps, R2 activation or `declared_state_evidence_incomplete`. Complete local tests
+or a partial-runtime downstream pipeline control are not two full Step 5C
+reconstructions or Step 5C acceptance. No reference dispatch is authorized.
+
 The final reference capsule contains exactly:
 
 ```text
