@@ -429,16 +429,46 @@ def _current_run_expectation(
     }
 
 
+def _bind_current_run_loader_source(
+    *, packet: dict[str, Any], captures: dict[str, CapturedFile],
+) -> CapturedFile:
+    """Bind executed loader bytes to the already Git-validated producer source.
+
+    The subject repository may differ from the observer installation. Reusing
+    the producer's loader requires the exact authenticated producer revision,
+    not whichever implementation happens to be installed at the same path.
+    This function is called only after unchanged packet validation and current-
+    run profile checks; it does not authenticate a self-declared packet alone.
+    """
+    expected = packet["producer"].get("producer_source_sha256")
+    if not isinstance(expected, str) or re.fullmatch(r"[0-9a-f]{64}", expected) is None:
+        raise AdapterError("current_run_loader_source_digest_invalid")
+    if "current_run_loader" not in captures:
+        captures["current_run_loader"] = capture_regular_file(
+            CURRENT_RUN_LOADER, label="current_run_loader", max_bytes=2 * 1024 * 1024,
+        )
+    captured = captures["current_run_loader"]
+    # Check the actual buffer too, including explicitly supplied captures.
+    if (captured.sha256 != expected or sha256_bytes(captured.data) != expected
+            or captured.size_bytes != len(captured.data)):
+        raise AdapterError("current_run_loader_source_mismatch")
+    return captured
+
+
 def _build_bundle_from_exact_bytes(
     *,
     packet: dict[str, Any],
     carrier: CapturedFile,
     artifact_bytes: dict[str, bytes],
     analyzer_core: Any,
+    dependency_captures: dict[str, CapturedFile] | None = None,
 ) -> Any:
     current_run = _current_run_expectation(packet, carrier)
     if current_run is not None:
-        captured_loader = capture_regular_file(CURRENT_RUN_LOADER, label="current_run_loader", max_bytes=2 * 1024 * 1024)
+        captured_loader = _bind_current_run_loader_source(
+            packet=packet,
+            captures=dependency_captures if dependency_captures is not None else {},
+        )
         loader = load_module_from_capture(captured_loader, "pulsemech_current_run_loader_for_subject_bridge_v0")
         return analyzer_core.load_current_run_observed_bundle(
             archive_path=CapturedPathView(carrier), archive_bytes=carrier.data,
@@ -564,7 +594,7 @@ def build_from_captured_inputs(
     if bounded_expected_context is not None or bounded_prelaunch_sha256 is not None:
         raise AdapterError("bounded_context_on_legacy_packet")
 
-    captures = dependency_captures or _capture_dependencies()
+    captures = dict(dependency_captures or _capture_dependencies())
     packet_validator = load_module_from_capture(
         captures["packet_validator"],
         "pulsemech_subject_input_packet_validator_v0_for_bridge",
@@ -604,6 +634,7 @@ def build_from_captured_inputs(
         carrier=carrier_capture,
         artifact_bytes=artifact_bytes,
         analyzer_core=analyzer_core,
+        dependency_captures=captures,
     )
     report = analyzer_core.build_report(
         bundle,

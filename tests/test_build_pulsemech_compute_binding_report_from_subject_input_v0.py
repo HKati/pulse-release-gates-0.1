@@ -1363,5 +1363,143 @@ def test_intake_schema_valid_foreign_runtime_is_not_the_subject(current_run_inta
     assert json.loads(result.stderr)["ok"] is False
     assert "runtime_packet_subject_context_mismatch" in result.stderr.decode()
 
+
+# Executed-loader binding: unit checks below use minimal metadata deliberately;
+# the CLI controls use the existing genuine producer/validator fixture instead.
+def test_loader_binding_registers_exact_capture_before_execution(tmp_path, monkeypatch):
+    bridge = ADAPTER_MODULE
+    path = tmp_path / "loader.py"
+    path.write_bytes(b"VALUE = 17\n")
+    monkeypatch.setattr(bridge, "CURRENT_RUN_LOADER", path)
+    packet = {"producer": {"producer_source_sha256": sha256_file(path)}}
+    captures = {}
+    captured = bridge._bind_current_run_loader_source(packet=packet, captures=captures)
+    assert captures == {"current_run_loader": captured}
+    assert captured.data == b"VALUE = 17\n"
+    assert captured.sha256 == packet["producer"]["producer_source_sha256"]
+
+
+@pytest.mark.parametrize("digest", [None, "", "g" * 64, "a" * 63, "a" * 65, True])
+def test_loader_binding_rejects_missing_or_malformed_source_digest(tmp_path, monkeypatch, digest):
+    bridge = ADAPTER_MODULE
+    monkeypatch.setattr(bridge, "CURRENT_RUN_LOADER", tmp_path / "must-not-be-opened.py")
+    captures = {}
+    with pytest.raises(bridge.AdapterError, match="current_run_loader_source_digest_invalid"):
+        bridge._bind_current_run_loader_source(
+            packet={"producer": {"producer_source_sha256": digest}}, captures=captures,
+        )
+    assert captures == {}
+
+
+@pytest.mark.parametrize("field", ["data", "sha256", "size_bytes"])
+def test_loader_binding_rejects_inconsistent_supplied_capture(tmp_path, field):
+    from dataclasses import replace
+    bridge = ADAPTER_MODULE
+    path = tmp_path / "loader.py"
+    path.write_bytes(b"VALUE = 17\n")
+    captured = bridge.capture_regular_file(path, label="test_loader")
+    changes = {"data": b"VALUE = 18\n", "sha256": "0" * 64,
+               "size_bytes": captured.size_bytes + 1}
+    faulty = replace(captured, **{field: changes[field]})
+    with pytest.raises(bridge.AdapterError, match="current_run_loader_source_mismatch"):
+        bridge._bind_current_run_loader_source(
+            packet={"producer": {"producer_source_sha256": captured.sha256}},
+            captures={"current_run_loader": faulty},
+        )
+
+
+def test_loader_binding_executes_authenticated_buffer_not_replaced_path(tmp_path):
+    bridge = ADAPTER_MODULE
+    path = tmp_path / "loader.py"
+    path.write_bytes(b"VALUE = 17\n")
+    captured = bridge.capture_regular_file(path, label="test_loader")
+    path.write_bytes(b"raise RuntimeError('replacement must not execute')\n")
+    selected = bridge._bind_current_run_loader_source(
+        packet={"producer": {"producer_source_sha256": captured.sha256}},
+        captures={"current_run_loader": captured},
+    )
+    assert selected is captured
+    module = bridge.load_module_from_capture(selected, "loader_binding_exact_buffer_test")
+    assert module.VALUE == 17
+    assert module.__pulsemech_source_sha256__ == captured.sha256
+
+
+def _loader_binding_separate_control(fixture, tmp_path):
+    """Copy observer only; the subject Git repository and its inputs stay fixed."""
+    observer = tmp_path / "observer"
+    shutil.copytree(fixture["harness"].control, observer)
+    records = tmp_path / "records"
+    records.mkdir()
+    return types.SimpleNamespace(control=observer, subject=fixture["harness"].subject,
+                                 root=records)
+
+
+def test_loader_binding_real_distinct_observer_identical_bytes(current_run_intake_reports, tmp_path):
+    f = current_run_intake_reports
+    h = _loader_binding_separate_control(f, tmp_path)
+    assert h.control.resolve() != h.subject.resolve()
+    packet = json.loads(f["packet"].read_bytes())
+    assert sha256_file(h.control / _INTAKE_WRAPPER) == packet["producer"]["producer_source_sha256"]
+    before = _intake_inventory(h.control)
+    result = _intake_cli(h, "loader_binding_identical_observer",
+        _intake_bridge_command(h, f["packet"], f["carrier"]),
+        inputs=(f["packet"], f["carrier"]))
+    assert result.returncode == 0, result.stderr.decode()
+    assert result.stdout == f["artifact"].read_bytes()
+    assert before == _intake_inventory(h.control)
+
+
+@pytest.mark.parametrize("mode", ["artifact", "runtime", "forged_packet_digest"])
+def test_loader_binding_real_cli_rejects_observer_substitution(current_run_intake_reports, tmp_path, mode):
+    f = current_run_intake_reports
+    h = _loader_binding_separate_control(f, tmp_path)
+    loader = h.control / _INTAKE_WRAPPER
+    original = loader.read_bytes()
+    marker = tmp_path / "must-not-execute.txt"
+    injected = (b"\n# Deliberately substituted observer loader, original checks retained.\n"
+                + f"Path({str(marker)!r}).write_text('executed', encoding='utf-8')\n".encode())
+    loader.write_bytes(original + injected)
+    (h.root / "loader_original.py").write_bytes(original)
+    (h.root / "loader_substituted.py").write_bytes(original + injected)
+    packet_path = f["packet"]
+    if mode == "forged_packet_digest":
+        packet = json.loads(packet_path.read_bytes())
+        packet["producer"]["producer_source_sha256"] = sha256_file(loader)
+        packet_path = tmp_path / "forged-packet.json"
+        packet_path.write_bytes(_intake_render(packet))
+    runtime = f["runtime"] if mode == "runtime" else None
+    inputs = (packet_path, f["carrier"]) + ((runtime,) if runtime else ())
+    before = _intake_inventory(h.control)
+    (h.root / "sources_before.json").write_bytes(_intake_render(before))
+    result = _intake_cli(h, "loader_binding_substitution_" + mode,
+        _intake_bridge_command(h, packet_path, f["carrier"], runtime), inputs=inputs)
+    after = _intake_inventory(h.control)
+    (h.root / "sources_after.json").write_bytes(_intake_render(after))
+    assert before == after
+    assert result.returncode == 1, result.stderr.decode()
+    assert result.stdout == b""
+    assert not marker.exists(), "the different loader executed before rejection"
+    error = ("producer_source_digest_mismatch" if mode == "forged_packet_digest"
+             else "current_run_loader_source_mismatch")
+    assert error in result.stderr.decode()
+
+
+def test_loader_binding_real_validated_inputs_reject_dependency_override(current_run_intake_reports, tmp_path):
+    f = current_run_intake_reports
+    bridge = ADAPTER_MODULE
+    path = tmp_path / "wrong-loader.py"
+    path.write_bytes(b"raise RuntimeError('unbound capture must not execute')\n")
+    deps = bridge._capture_dependencies()
+    deps["current_run_loader"] = bridge.capture_regular_file(path, label="substituted_dependency")
+    with pytest.raises(bridge.AdapterError, match="current_run_loader_source_mismatch"):
+        bridge.build_from_captured_inputs(
+            packet_capture=bridge.capture_regular_file(f["packet"], label="packet"),
+            carrier_capture=bridge.capture_regular_file(f["carrier"], label="carrier"),
+            repository_root=f["harness"].subject,
+            analysis_run_key="OFFLINE_ANALYSIS=dependency-substitution-control",
+            dependency_captures=deps,
+        )
+
+
 if __name__ == "__main__":
     check_build_pulsemech_compute_binding_report_from_subject_input_v0()
