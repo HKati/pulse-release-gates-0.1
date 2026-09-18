@@ -1833,7 +1833,7 @@ def _verify_source_recorded_equations(plan: dict[str, Any], workflow: dict[str, 
 # expands an archive, or treats a published report as an independent verdict.
 _PACKAGE_SEMANTIC_PINS = {
     "PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py": "8f01602e973b890eb2ae0928bd62dfd65e691f79",
-    "PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py": "f54c37a32329d191e213bb71a6818858285ff20a",
+    "PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py": "93bdf16c8afd8bc152dd69702f870c15491cbe0f",
     "tools/check_release_grade_package_complete_v1.py": "601e9a33097824b2055d908d25fad5667612c136",
 }
 _PACKAGE_ROLES = (
@@ -2460,7 +2460,7 @@ _PROVENANCE_SOURCE_PINS = {
     _PROVENANCE_VERIFY: "665398c8841e4dd9534875831c93c749c3ccf94b",
     _PROVENANCE_ASSEMBLER: "8f01602e973b890eb2ae0928bd62dfd65e691f79",
     "tools/check_release_grade_package_complete_v1.py": "601e9a33097824b2055d908d25fad5667612c136",
-    "PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py": "f54c37a32329d191e213bb71a6818858285ff20a",
+    "PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py": "93bdf16c8afd8bc152dd69702f870c15491cbe0f",
 }
 
 

@@ -11777,6 +11777,111 @@ def test_d6_subject_jobs_multiple_pages_preserve_exact_a2_binding(source_fixture
     assert left == right and right['job_id'] == job['id']
 
 
+
+# Package-verifier summary handoff: exact owner-reviewed byte renewal only.
+# Synthetic Git histories below are rejection controls, never upstream evidence.
+_SUMMARY_VERIFIER_PATH = 'PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py'
+_SUMMARY_VERIFIER_BLOB = '93bdf16c8afd8bc152dd69702f870c15491cbe0f'
+_SUMMARY_VERIFIER_PREVIOUS_BLOB = 'f54c37a32329d191e213bb71a6818858285ff20a'
+_SUMMARY_ADDITION = (
+    b'        "summary": {\n'
+    b'            "checks_total": len(checks),\n'
+    b'            "checks_failed": sum(check["passed"] is not True for check in checks),\n'
+    b'        },\n'
+)
+
+
+def _summary_git_blob(raw):
+    return hashlib.sha1(b'blob ' + str(len(raw)).encode('ascii') + b'\0' + raw).hexdigest()
+
+
+def test_summary_pin_renewal_binds_only_the_reviewed_four_line_addition():
+    raw = (ROOT / _SUMMARY_VERIFIER_PATH).read_bytes()
+    assert raw.count(_SUMMARY_ADDITION) == 1
+    assert _summary_git_blob(raw) == _SUMMARY_VERIFIER_BLOB
+    # A byte oracle independent of either plan's tables: removing exactly the
+    # approved addition recovers the original verifier's fixed Git identity.
+    assert _summary_git_blob(raw.replace(_SUMMARY_ADDITION, b'')) == _SUMMARY_VERIFIER_PREVIOUS_BLOB
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('table', ['_PACKAGE_SEMANTIC_PINS', '_PROVENANCE_SOURCE_PINS'])
+def test_summary_pin_renewal_both_tables_bind_the_exact_source(source_fixture, side, table):
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    raw = (source_fixture.root / _SUMMARY_VERIFIER_PATH).read_bytes()
+    assert _summary_git_blob(raw) == _SUMMARY_VERIFIER_BLOB
+    assert getattr(module, table)[_SUMMARY_VERIFIER_PATH] == _SUMMARY_VERIFIER_BLOB
+    source = next(x for x in source_fixture.plan['source_inventory'] if x['path'] == _SUMMARY_VERIFIER_PATH)
+    assert source['git_blob_sha1'] == _SUMMARY_VERIFIER_BLOB
+    assert source['sha256'] == digest(raw)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('mutation', ['summary_absent', 'unreviewed_addition'])
+def test_summary_pin_renewal_real_cli_rejects_unapproved_committed_source(
+    source_fixture, tmp_path, side, mutation,
+):
+    # Each rejection has real committed files and the real isolated CLI. No Git
+    # object read or validation result is mocked; only test input bytes change.
+    root = tmp_path / 'source'
+    root.mkdir()
+    for _, relative in BUILDER.SOURCE_ROLES:
+        target = root / relative
+        target.parent.mkdir(parents=True, exist_ok=True)
+        raw = (source_fixture.root / relative).read_bytes()
+        if relative == _SUMMARY_VERIFIER_PATH:
+            if mutation == 'summary_absent':
+                assert raw.count(_SUMMARY_ADDITION) == 1
+                raw = raw.replace(_SUMMARY_ADDITION, b'')
+                assert _summary_git_blob(raw) == _SUMMARY_VERIFIER_PREVIOUS_BLOB
+            else:
+                raw += b'\n# Intentional unreviewed source-identity negative control.\n'
+                assert _summary_git_blob(raw) != _SUMMARY_VERIFIER_BLOB
+        target.write_bytes(raw)
+    git_env = {'PATH': '/usr/bin:/bin', 'HOME': str(tmp_path), 'LANG': 'C', 'LC_ALL': 'C',
+               'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull,
+               'GIT_AUTHOR_NAME': 'Synthetic summary pin control', 'GIT_AUTHOR_EMAIL': 'example@example.invalid',
+               'GIT_COMMITTER_NAME': 'Synthetic summary pin control', 'GIT_COMMITTER_EMAIL': 'example@example.invalid',
+               'GIT_AUTHOR_DATE': EXAMPLE_START, 'GIT_COMMITTER_DATE': EXAMPLE_START}
+    for args in (['init', '-q'], ['add', '--all'], ['commit', '-q', '-m', 'Synthetic unapproved source control']):
+        result = subprocess.run(['/usr/bin/git', '-C', str(root), *args], env=git_env,
+                                capture_output=True, timeout=30, check=False)
+        assert result.returncode == 0, result.stderr
+    sha = subprocess.check_output(['/usr/bin/git', '-C', str(root), 'rev-parse', 'HEAD'],
+                                  env=git_env, timeout=10).decode().strip()
+    if side == 'builder':
+        result = cli(root, TOOL_NAMES[0], ['--repository-root', root, '--source-commit', sha,
+                                         '--record-status', 'example'])
+    else:
+        result = cli(root, TOOL_NAMES[1], ['--repository-root', root, '--plan', source_fixture.plan_path,
+                    '--expected-source-commit', sha, '--expected-plan-sha256', source_fixture.plan_digest,
+                    '--expected-record-status', 'example'])
+    assert result.returncode != 0
+    diagnostic = json.loads(result.stderr or result.stdout)
+    assert diagnostic['ok'] is False
+    assert diagnostic['error_code'] == 'reviewed_source_profile_mismatch'
+    assert _SUMMARY_VERIFIER_PATH in diagnostic['detail']
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('table', ['_PACKAGE_SEMANTIC_PINS', '_PROVENANCE_SOURCE_PINS'])
+def test_summary_pin_renewal_each_mapping_rejects_a_stale_table(
+    source_fixture, monkeypatch, side, table,
+):
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    sources = module._load_sources(source_fixture.root, source_fixture.sha)
+    doc = mapping_source_document()
+    monkeypatch.setitem(getattr(module, table), _SUMMARY_VERIFIER_PATH, _SUMMARY_VERIFIER_PREVIOUS_BLOB)
+    if table == '_PACKAGE_SEMANTIC_PINS':
+        method = module._package_source_projection if side == 'builder' else module._source_package_expectations
+        code = 'package_mapping_semantic_source_drift'
+    else:
+        method = module._provenance_source_projection if side == 'builder' else module._source_provenance_expectations
+        code = 'provenance_mapping_source_drift'
+    with pytest.raises(module.PlanError) as caught:
+        method(doc, sources)
+    assert caught.value.code == code
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.

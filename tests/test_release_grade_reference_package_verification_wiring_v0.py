@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import copy
+import hashlib
+import json
+import subprocess
+import sys
+import tempfile
+import types
 from pathlib import Path
 
 
@@ -245,6 +252,315 @@ def test_complete_package_verification_wiring_smoke_registered() -> None:
     )
 
 
+# These are synthetic package-content examples, not observed release runs,
+# signature-verification evidence, or a second package verifier. Each report
+# below is written by the actual verifier CLI; no success result is mocked.
+_SUMMARY_IDENTITY = {
+    "repository": "example-org/package-summary-fixture",
+    "git_sha": "a" * 40,
+    "workflow_ref": (
+        "example-org/package-summary-fixture/.github/workflows/pulse_ci.yml"
+        "@refs/heads/main"
+    ),
+    "run_id": "9001",
+    "run_attempt": "1",
+    "run_key": "GITHUB_RUN_ID=9001|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+}
+_SUMMARY_AUTHORITY_BOUNDARY = {
+    "read_only": True,
+    "creates_release_authority": False,
+    "authorizes_release": False,
+    "blocks_release": False,
+    "materializes_status": False,
+    "materializes_release_required": False,
+    "verifies_recorded_release_evidence_as_authority": False,
+    "replaces_check_gates": False,
+    "package_acceptance_only": True,
+}
+
+
+def _summary_json(value: object) -> bytes:
+    return (
+        json.dumps(value, sort_keys=True, ensure_ascii=False, allow_nan=False, indent=2)
+        + "\n"
+    ).encode("utf-8")
+
+
+def _summary_sha(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
+def _summary_package(directory: Path, *, extra_file: bool = False) -> None:
+    """Create internally bound test data; do not invent an acquired run."""
+    run = {key: _SUMMARY_IDENTITY[key]
+           for key in ("repository", "git_sha", "workflow_ref", "run_key")}
+    external = "artifacts/external/"
+    raw_name = external + "llamaguard_raw.jsonl"
+    evaluator_name = external + "llamaguard_evaluator_manifest_v0.json"
+    summary_name = external + "llamaguard_summary.json"
+    envelope_name = external + "llamaguard_summary.envelope.json"
+    bundle_name = external + "llamaguard_summary.bundle.json"
+    members = {
+        raw_name: _summary_json({"run": run}).replace(b"\n", b"") + b"\n",
+        evaluator_name: _summary_json({"run": run}),
+        bundle_name: _summary_json({"synthetic_signature_placeholder": True}),
+        "artifacts/report_card.html": b"<p>Synthetic package summary test</p>\n",
+        "release-authority-audit-bundle/example.json": _summary_json({"synthetic": True}),
+    }
+    members[summary_name] = _summary_json({
+        "evidence": {"raw_artifact_uri": raw_name,
+                     "raw_artifact_digest": _summary_sha(members[raw_name])},
+        "extensions": {"repository": run["repository"],
+                       "source_commit": run["git_sha"],
+                       "evaluator_manifest_sha256": _summary_sha(members[evaluator_name])},
+        "run": {"run_id": run["run_key"]},
+    })
+    members[envelope_name] = _summary_json({
+        "extensions": {"repository": run["repository"],
+                       "source_commit": run["git_sha"],
+                       "workflow_ref": run["workflow_ref"],
+                       "raw_evidence_sha256": _summary_sha(members[raw_name]),
+                       "bundle_sha256": _summary_sha(members[bundle_name])},
+        "summary_digest": {"algorithm": "sha256", "value": _summary_sha(members[summary_name])},
+        "signing": {"bundle_uri": bundle_name},
+    })
+    members[external + "llamaguard_attestation_verifier_v1.json"] = _summary_json({
+        "status": "verified", "errors": [],
+        "summary": {"sha256": _summary_sha(members[summary_name])},
+        "envelope": {"sha256": _summary_sha(members[envelope_name])},
+    })
+    members["run_metadata_v0.json"] = _summary_json({
+        **run, "run_id": 9001, "run_attempt": 1,
+        "authority_boundary": {"authorizes_release": False, "package_only": True},
+    })
+    for name in ("status.json", "status_baseline.json"):
+        members["artifacts/" + name] = _summary_json({
+            "metrics": {"git_sha": run["git_sha"], "run_key": run["run_key"]},
+        })
+    for name in ("required_gate_evidence_v0.json", "release_decision_v0.json",
+                 "artifact_provenance_binding_v0.json", "release_authority_v0.json",
+                 "release_evidence_input_manifest_v0.json",
+                 "recorded_release_candidate_index_v0.json"):
+        members["artifacts/" + name] = _summary_json({"synthetic": True})
+    members["artifacts/recorded_release_evidence_verifier_v0.json"] = _summary_json({
+        "status": "verified", "errors": [],
+    })
+    members["artifacts/recorded_release_candidates/synthetic.json"] = _summary_json({
+        "validation": {"status": "passed"},
+        "authority_boundary": {"creates_release_authority": False,
+                               "eligible_without_verifier": False},
+    })
+    if extra_file:
+        members["synthetic-extra.txt"] = b"Extra inventory entry; no new observation.\n"
+    members["package_digest_inventory_v0.json"] = _summary_json({
+        "schema_version": "release_grade_reference_package_digest_inventory_v0",
+        "algorithm": "sha256", "file_count": len(members),
+        "files": [{"path": name, "size_bytes": len(raw), "sha256": _summary_sha(raw)}
+                  for name, raw in sorted(members.items())],
+    })
+    for name, raw in members.items():
+        path = directory / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+
+
+def _summary_snapshot(directory: Path) -> dict[str, str]:
+    if not directory.exists():
+        return {}
+    return {p.relative_to(directory).as_posix(): _summary_sha(p.read_bytes())
+            for p in sorted(directory.rglob("*")) if p.is_file()}
+
+
+def _run_summary_verifier(
+    package: Path, output: Path, *, identity: dict[str, str] | None = None,
+) -> tuple[subprocess.CompletedProcess[str], dict[str, object]]:
+    expected = _SUMMARY_IDENTITY if identity is None else identity
+    command = [sys.executable, "-I", "-B", str(VERIFY_TOOL_PATH),
+               "--repo-root", str(REPO_ROOT), "--package-dir", str(package),
+               "--out", str(output)]
+    for key, value in expected.items():
+        command.extend(["--" + key.replace("_", "-"), value])
+    before = _summary_snapshot(package)
+    source_before = VERIFY_TOOL_PATH.read_bytes()
+    result = subprocess.run(command, cwd=REPO_ROOT, text=True,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                            timeout=30, check=False)
+    assert result.stderr == "", result.stderr
+    assert output.is_file(), result.stdout
+    report = json.loads(output.read_bytes())
+    assert isinstance(report, dict)
+    assert before == _summary_snapshot(package), "verifier mutated its input package"
+    assert source_before == VERIFY_TOOL_PATH.read_bytes(), "verifier source changed"
+    return result, report
+
+
+def _assert_summary_matches_checks(report: dict[str, object]) -> None:
+    checks = report["checks"]
+    summary = report["summary"]
+    assert isinstance(checks, list) and isinstance(summary, dict)
+    assert set(summary) == {"checks_total", "checks_failed"}
+    assert type(summary["checks_total"]) is int
+    assert type(summary["checks_failed"]) is int
+    passed = [item for item in checks if item["passed"] is True]
+    failed = [item for item in checks if item["passed"] is False]
+    assert len(passed) + len(failed) == len(checks)
+    assert summary["checks_total"] == len(checks)
+    assert summary["checks_failed"] == len(failed)
+    assert report["authority_boundary"] == _SUMMARY_AUTHORITY_BOUNDARY
+
+
+def _summary_consumer() -> types.ModuleType:
+    path = (REPO_ROOT / "tools" /
+            "build_pulsemech_compute_subject_input_packet_current_run_v0.py")
+    # Load the unchanged consumer from its actual bytes, without importing
+    # a test double or writing bytecode into the repository.
+    name = "package_summary_real_current_run_consumer"
+    module = types.ModuleType(name)
+    module.__file__ = str(path)
+    previous = sys.modules.get(name)
+    sys.modules[name] = module
+    try:
+        exec(compile(path.read_bytes(), str(path), "exec"), module.__dict__)
+    finally:
+        if previous is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = previous
+    return module
+
+
+def test_package_verifier_summary_successful_cli() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-summary-") as temp:
+        root = Path(temp)
+        _summary_package(root / "package")
+        result, report = _run_summary_verifier(root / "package", root / "report.json")
+        assert result.returncode == 0, result.stdout
+        assert report["status"] == "verified" and report["verified"] is True
+        assert report["errors"] == [] and report["checks"]
+        _assert_summary_matches_checks(report)
+        assert report["summary"]["checks_failed"] == 0
+
+
+def test_package_verifier_summary_tracks_actual_inventory() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-summary-") as temp:
+        root = Path(temp)
+        totals = []
+        for extra in (False, True):
+            package = root / ("extra" if extra else "base")
+            _summary_package(package, extra_file=extra)
+            result, report = _run_summary_verifier(package, root / (package.name + ".json"))
+            assert result.returncode == 0, result.stdout
+            _assert_summary_matches_checks(report)
+            totals.append(report["summary"]["checks_total"])
+        # One extra member adds its actual digest and size checks.
+        assert totals[1] == totals[0] + 2
+
+
+def test_package_verifier_summary_failed_checks_cli() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-summary-") as temp:
+        root = Path(temp)
+        package = root / "package"
+        _summary_package(package)
+        status = package / "artifacts/status.json"
+        status.write_bytes(_summary_json({"metrics": {"git_sha": "b" * 40,
+                                                     "run_key": "different-run"}}))
+        result, report = _run_summary_verifier(package, root / "report.json")
+        assert result.returncode == 1, result.stdout
+        assert report["status"] == "failed" and report["verified"] is False
+        assert report["errors"]
+        _assert_summary_matches_checks(report)
+        assert report["summary"]["checks_failed"] >= 3
+        ids = {row["check_id"] for row in report["checks"] if row["passed"] is False}
+        assert {"status.git_sha", "status.run_key",
+                "digest_inventory.digest:artifacts/status.json"} <= ids
+
+
+def test_package_verifier_summary_before_any_check_cli() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-summary-") as temp:
+        root = Path(temp)
+        result, report = _run_summary_verifier(root / "absent", root / "report.json")
+        assert result.returncode == 1, result.stdout
+        assert report["status"] == "failed" and report["verified"] is False
+        assert report["errors"] and "package_dir" in report["errors"][0]
+        assert report["checks"] == []
+        _assert_summary_matches_checks(report)
+        # No check ran. Zero failed checks is NOT a successful verification.
+        assert report["summary"] == {"checks_total": 0, "checks_failed": 0}
+
+
+def test_package_verifier_summary_invalid_identity_cli() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-summary-") as temp:
+        root = Path(temp)
+        _summary_package(root / "package")
+        identity = {**_SUMMARY_IDENTITY, "git_sha": "not-a-commit"}
+        result, report = _run_summary_verifier(root / "package", root / "report.json",
+                                             identity=identity)
+        assert result.returncode == 1, result.stdout
+        assert report["status"] == "failed" and report["verified"] is False
+        assert report["errors"] and "git_sha" in report["errors"][0]
+        assert report["checks"] == []
+        _assert_summary_matches_checks(report)
+
+
+def test_package_verifier_summary_partial_exception_cli() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-summary-") as temp:
+        root = Path(temp)
+        package = root / "package"
+        _summary_package(package)
+        (package / "artifacts/external/llamaguard_raw.jsonl").unlink()
+        result, report = _run_summary_verifier(package, root / "report.json")
+        assert result.returncode == 1, result.stdout
+        assert report["status"] == "failed" and report["verified"] is False
+        _assert_summary_matches_checks(report)
+        assert 0 < report["summary"]["checks_failed"] < report["summary"]["checks_total"]
+        # The terminal exception is an error, not a fabricated check record.
+        assert len(report["errors"]) > report["summary"]["checks_failed"]
+
+
+def test_current_run_consumer_accepts_verifier_emitted_summary() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-summary-") as temp:
+        root = Path(temp)
+        _summary_package(root / "package")
+        result, report = _run_summary_verifier(root / "package", root / "report.json")
+        assert result.returncode == 0, result.stdout
+        before = _summary_json(report)
+        consumer = _summary_consumer()
+        indexed = consumer._report_checks_by_id(document=report, label="package_verification")
+        assert set(indexed) == {row["check_id"] for row in report["checks"]}
+        assert len(indexed) == report["summary"]["checks_total"]
+        assert _summary_json(report) == before
+
+
+def test_current_run_consumer_rejects_missing_or_inconsistent_summary() -> None:
+    with tempfile.TemporaryDirectory(prefix="pulse-summary-") as temp:
+        root = Path(temp)
+        _summary_package(root / "package")
+        result, original = _run_summary_verifier(root / "package", root / "report.json")
+        assert result.returncode == 0, result.stdout
+        consumer = _summary_consumer()
+        for kind, expected_code in (
+            ("absent", "package_verification_summary_not_object"),
+            ("not_object", "package_verification_summary_not_object"),
+            ("wrong_total", "package_verification_checks_total"),
+            ("wrong_failed", "package_verification_checks_failed"),
+        ):
+            report = copy.deepcopy(original)
+            if kind == "absent":
+                report.pop("summary")
+            elif kind == "not_object":
+                report["summary"] = None
+            elif kind == "wrong_total":
+                report["summary"]["checks_total"] += 1
+            else:
+                report["summary"]["checks_failed"] = 1
+            try:
+                consumer._report_checks_by_id(document=report, label="package_verification")
+            except consumer.WrapperError as exc:
+                assert expected_code in str(exc), str(exc)
+            else:
+                raise AssertionError(f"consumer accepted {kind} summary")
+
+
 def main() -> int:
     test_complete_package_verification_job_order_and_dependencies()
     test_complete_package_verification_job_is_release_grade_only()
@@ -253,6 +569,14 @@ def main() -> int:
     test_complete_package_verification_uploads_report_artifact()
     test_complete_package_verification_is_non_authorizing()
     test_complete_package_verification_wiring_smoke_registered()
+    test_package_verifier_summary_successful_cli()
+    test_package_verifier_summary_tracks_actual_inventory()
+    test_package_verifier_summary_failed_checks_cli()
+    test_package_verifier_summary_before_any_check_cli()
+    test_package_verifier_summary_invalid_identity_cli()
+    test_package_verifier_summary_partial_exception_cli()
+    test_current_run_consumer_accepts_verifier_emitted_summary()
+    test_current_run_consumer_rejects_missing_or_inconsistent_summary()
     print(
         "release-grade reference package verification workflow wiring "
         "smoke passed"

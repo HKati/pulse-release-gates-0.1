@@ -1300,6 +1300,10 @@ def main(argv: list[str] | None = None) -> int:
             "path": str(package_dir) if package_dir is not None else str(args.package_dir),
         },
         "checks": checks,
+        "summary": {
+            "checks_total": len(checks),
+            "checks_failed": sum(check["passed"] is not True for check in checks),
+        },
         "errors": errors,
         "authority_boundary": dict(AUTHORITY_BOUNDARY),
     }
