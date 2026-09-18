@@ -155,6 +155,49 @@ class StrictJsonError(ValueError):
 
 
 @dataclass(frozen=True)
+class ArtifactObservationIdentity:
+    """Exact subject and locator identity, separate from analysis mechanics."""
+
+    repository: str
+    workflow: str
+    run_id: int
+    run_number: int
+    run_attempt: int
+    source_commit: str
+    run_key: str
+    release_candidate: str
+    archive_locator: str
+    manifest_locator: str
+    original_prefix: str
+    complete_package_name: str
+    completeness_archive_name: str
+    verification_archive_name: str
+    complete_package_sha256: str
+    complete_package_size: int
+    current_run: bool = False
+
+
+HISTORICAL_ARTIFACT_IDENTITY = ArtifactObservationIdentity(
+    repository=EXPECTED_REPOSITORY,
+    workflow=EXPECTED_WORKFLOW,
+    run_id=EXPECTED_RUN_ID,
+    run_number=EXPECTED_RUN_NUMBER,
+    run_attempt=EXPECTED_RUN_ATTEMPT,
+    source_commit=EXPECTED_SOURCE_COMMIT,
+    run_key=EXPECTED_RUN_KEY,
+    release_candidate="main",
+    archive_locator=ARCHIVE_DISPLAY_PATH,
+    manifest_locator=PRESERVATION_MANIFEST_DISPLAY_PATH,
+    original_prefix=ORIGINAL_PREFIX,
+    complete_package_name=COMPLETE_PACKAGE_NAME,
+    completeness_archive_name=COMPLETENESS_ARCHIVE_NAME,
+    verification_archive_name=VERIFICATION_ARCHIVE_NAME,
+    complete_package_sha256=EXPECTED_ARTIFACTS[COMPLETE_PACKAGE_NAME]["sha256"],
+    complete_package_size=EXPECTED_ARTIFACTS[COMPLETE_PACKAGE_NAME]["size_bytes"],
+)
+
+
+@dataclass(frozen=True)
 class ObservedBundle:
     archive_path: Path
     archive_sha256: str
@@ -175,6 +218,7 @@ class ObservedBundle:
     completeness_report: dict[str, Any]
     verification_report_bytes: bytes
     verification_report: dict[str, Any]
+    identity: ArtifactObservationIdentity = HISTORICAL_ARTIFACT_IDENTITY
 
 
 # ---------------------------------------------------------------------------
@@ -707,6 +751,50 @@ def load_observed_bundle(
     )
 
 
+def load_current_run_observed_bundle(
+    *, archive_path: Path, archive_bytes: bytes, expectation: dict[str, Any],
+    loader: Any,
+) -> ObservedBundle:
+    """Adapt the existing current-run loader's verified bundle to one analyzer.
+
+    The bridge supplies the expectation only after unchanged subject-input
+    validation and exact artifact-graph reconstruction. This function does not
+    grant observation extent or authority, and never rewrites carrier bytes.
+    """
+    carrier = expectation["carrier"]
+    require_equal(len(archive_bytes), carrier["size_bytes"], label="current_run_archive_size")
+    require_equal(sha256_bytes(archive_bytes), carrier["sha256"], label="current_run_archive_sha256")
+    checked = loader.load_current_run_bundle(
+        carrier_path=archive_path,
+        carrier_bytes=archive_bytes,
+        expectation=expectation,
+        max_total_uncompressed_bytes=loader.DEFAULT_MAX_TOTAL_UNCOMPRESSED_BYTES,
+    )
+    subject = expectation["subject"]
+    layout = expectation["archive_layout"]
+    package_name = layout["complete_package_name"]
+    package = checked.artifact_archives[package_name]
+    locator = "sha256:" + carrier["sha256"]
+    identity = ArtifactObservationIdentity(
+        repository=subject["repository"], workflow=subject["workflow_name"],
+        run_id=subject["workflow_run_id"], run_number=subject["workflow_run_number"],
+        run_attempt=subject["workflow_run_attempt"], source_commit=subject["source_commit"],
+        run_key=subject["subject_run_key"], release_candidate=subject["release_candidate_id"],
+        archive_locator=locator,
+        manifest_locator=locator + "!/" + layout["outer_prefix"] + "PRESERVATION_MANIFEST_v0.json",
+        original_prefix=layout["original_artifacts_prefix"],
+        complete_package_name=package_name,
+        completeness_archive_name=layout["completeness_archive_name"],
+        verification_archive_name=layout["verification_archive_name"],
+        complete_package_sha256=sha256_bytes(package), complete_package_size=len(package),
+        current_run=True,
+    )
+    require_equal(archive_path.stat().st_size, len(archive_bytes), label="current_run_archive_size_after_analysis")
+    require_equal(sha256_file(archive_path), carrier["sha256"], label="current_run_archive_sha_after_analysis")
+    fields = {name: getattr(checked, name) for name in ObservedBundle.__dataclass_fields__ if name != "identity"}
+    return ObservedBundle(**fields, identity=identity)
+
+
 # ---------------------------------------------------------------------------
 # Artifact-observed graph construction
 # ---------------------------------------------------------------------------
@@ -727,16 +815,18 @@ def package_record(bundle: ObservedBundle, path: str) -> dict[str, Any]:
         raise BuilderError(f"package_inventory_record_missing: {path}") from exc
 
 
-def package_uri(path: str) -> str:
-    return f"{COMPLETE_PACKAGE_NAME}!/{path}"
+def package_uri(
+    path: str, *, identity: ArtifactObservationIdentity = HISTORICAL_ARTIFACT_IDENTITY,
+) -> str:
+    if identity.current_run:
+        return outer_artifact_uri(identity.complete_package_name, identity=identity) + "!/" + path
+    return f"{identity.complete_package_name}!/{path}"
 
 
-def outer_artifact_uri(name: str) -> str:
-    return (
-        "PULSE_CI_6066_release_grade_artifact_preservation_v0.zip!/"
-        + ORIGINAL_PREFIX
-        + name
-    )
+def outer_artifact_uri(
+    name: str, *, identity: ArtifactObservationIdentity = HISTORICAL_ARTIFACT_IDENTITY,
+) -> str:
+    return identity.archive_locator + "!/" + identity.original_prefix + name
 
 
 def schema_identity(data: dict[str, Any], fallback: str | None = None) -> str | None:
@@ -932,6 +1022,7 @@ def build_report(
     if analyzer_core_source_sha256 is None:
         analyzer_core_source_sha256 = sha256_file(Path(__file__))
 
+    identity = bundle.identity
     manifest = bundle.manifest
     members = bundle.complete_package_members
 
@@ -984,12 +1075,12 @@ def build_report(
     )
 
     subject_run_key = run_metadata.get("run_key")
-    require_equal(subject_run_key, EXPECTED_RUN_KEY, label="run_metadata_run_key")
-    require_equal(run_metadata.get("repository"), EXPECTED_REPOSITORY, label="run_metadata_repository")
-    require_equal(run_metadata.get("run_id"), EXPECTED_RUN_ID, label="run_metadata_run_id")
-    require_equal(run_metadata.get("run_attempt"), EXPECTED_RUN_ATTEMPT, label="run_metadata_run_attempt")
-    require_equal(run_metadata.get("git_sha"), EXPECTED_SOURCE_COMMIT, label="run_metadata_git_sha")
-    require_equal(run_metadata.get("release_candidate"), "main", label="run_metadata_release_candidate")
+    require_equal(subject_run_key, identity.run_key, label="run_metadata_run_key")
+    require_equal(run_metadata.get("repository"), identity.repository, label="run_metadata_repository")
+    require_equal(run_metadata.get("run_id"), identity.run_id, label="run_metadata_run_id")
+    require_equal(run_metadata.get("run_attempt"), identity.run_attempt, label="run_metadata_run_attempt")
+    require_equal(run_metadata.get("git_sha"), identity.source_commit, label="run_metadata_git_sha")
+    require_equal(run_metadata.get("release_candidate"), identity.release_candidate, label="run_metadata_release_candidate")
 
     policy_sha = release_decision.get("policy_sha256")
     policy_id = release_authority.get("inputs", {}).get("gate_policy", {}).get("policy_id")
@@ -1079,11 +1170,11 @@ def build_report(
     package_inventory_bytes = members["package_digest_inventory_v0.json"]
     run_metadata_bytes = members["run_metadata_v0.json"]
 
-    require_equal(release_decision.get("git_sha"), EXPECTED_SOURCE_COMMIT, label="decision_git_sha")
+    require_equal(release_decision.get("git_sha"), identity.source_commit, label="decision_git_sha")
     require_equal(release_decision.get("status_sha256"), status_record["sha256"], label="decision_status_sha")
-    require_equal(final_status.get("metrics", {}).get("run_key"), EXPECTED_RUN_KEY, label="status_run_key")
-    require_equal(final_status.get("metrics", {}).get("git_sha"), EXPECTED_SOURCE_COMMIT, label="status_git_sha")
-    require_equal(verifier_report.get("run_identity", {}).get("run_key"), EXPECTED_RUN_KEY, label="verifier_run_key")
+    require_equal(final_status.get("metrics", {}).get("run_key"), identity.run_key, label="status_run_key")
+    require_equal(final_status.get("metrics", {}).get("git_sha"), identity.source_commit, label="status_git_sha")
+    require_equal(verifier_report.get("run_identity", {}).get("run_key"), identity.run_key, label="verifier_run_key")
     require_equal(verifier_report.get("status"), "verified", label="verifier_status")
     require_equal(verifier_report.get("errors"), [], label="verifier_errors")
 
@@ -1112,7 +1203,7 @@ def build_report(
         make_state_node(
             state_id="state:artifact-binding",
             state_type="manifest",
-            path_or_uri=package_uri("artifacts/artifact_provenance_binding_v0.json"),
+            path_or_uri=package_uri("artifacts/artifact_provenance_binding_v0.json", identity=identity),
             sha256=artifact_binding_record["sha256"],
             size_bytes=artifact_binding_record["size_bytes"],
             schema_id=schema_identity(artifact_binding),
@@ -1126,7 +1217,7 @@ def build_report(
         make_state_node(
             state_id="state:candidate-detector",
             state_type="candidate_state",
-            path_or_uri=package_uri("artifacts/recorded_release_candidates/detector_materialization.json"),
+            path_or_uri=package_uri("artifacts/recorded_release_candidates/detector_materialization.json", identity=identity),
             sha256=candidate_detector_record["sha256"],
             size_bytes=candidate_detector_record["size_bytes"],
             schema_id=schema_identity(candidate_detector),
@@ -1140,7 +1231,7 @@ def build_report(
         make_state_node(
             state_id="state:candidate-external",
             state_type="candidate_state",
-            path_or_uri=package_uri("artifacts/recorded_release_candidates/external_llamaguard.json"),
+            path_or_uri=package_uri("artifacts/recorded_release_candidates/external_llamaguard.json", identity=identity),
             sha256=candidate_external_record["sha256"],
             size_bytes=candidate_external_record["size_bytes"],
             schema_id=schema_identity(candidate_external),
@@ -1154,7 +1245,7 @@ def build_report(
         make_state_node(
             state_id="state:candidate-index",
             state_type="candidate_state",
-            path_or_uri=package_uri("artifacts/recorded_release_candidate_index_v0.json"),
+            path_or_uri=package_uri("artifacts/recorded_release_candidate_index_v0.json", identity=identity),
             sha256=candidate_index_record["sha256"],
             size_bytes=candidate_index_record["size_bytes"],
             schema_id=schema_identity(candidate_index),
@@ -1168,7 +1259,7 @@ def build_report(
         make_state_node(
             state_id="state:candidate-refusal",
             state_type="candidate_state",
-            path_or_uri=package_uri("artifacts/recorded_release_candidates/refusal_delta_summary.json"),
+            path_or_uri=package_uri("artifacts/recorded_release_candidates/refusal_delta_summary.json", identity=identity),
             sha256=candidate_refusal_record["sha256"],
             size_bytes=candidate_refusal_record["size_bytes"],
             schema_id=schema_identity(candidate_refusal),
@@ -1182,9 +1273,9 @@ def build_report(
         make_state_node(
             state_id="state:complete-package",
             state_type="package",
-            path_or_uri=outer_artifact_uri(COMPLETE_PACKAGE_NAME),
-            sha256=EXPECTED_ARTIFACTS[COMPLETE_PACKAGE_NAME]["sha256"],
-            size_bytes=EXPECTED_ARTIFACTS[COMPLETE_PACKAGE_NAME]["size_bytes"],
+            path_or_uri=outer_artifact_uri(identity.complete_package_name, identity=identity),
+            sha256=identity.complete_package_sha256,
+            size_bytes=identity.complete_package_size,
             schema_id=str(run_metadata.get("package_schema_version")),
             producer_node_id="compute:package-assembler",
             subject_run_key=subject_run_key,
@@ -1196,7 +1287,7 @@ def build_report(
         make_state_node(
             state_id="state:evidence-manifest",
             state_type="manifest",
-            path_or_uri=package_uri("artifacts/release_evidence_input_manifest_v0.json"),
+            path_or_uri=package_uri("artifacts/release_evidence_input_manifest_v0.json", identity=identity),
             sha256=evidence_manifest_record["sha256"],
             size_bytes=evidence_manifest_record["size_bytes"],
             schema_id=schema_identity(evidence_manifest),
@@ -1210,7 +1301,7 @@ def build_report(
         make_state_node(
             state_id="state:external-attestation-bundle",
             state_type="attestation",
-            path_or_uri=package_uri("artifacts/external/llamaguard_summary.bundle.json"),
+            path_or_uri=package_uri("artifacts/external/llamaguard_summary.bundle.json", identity=identity),
             sha256=external_bundle_record["sha256"],
             size_bytes=external_bundle_record["size_bytes"],
             schema_id="sigstore_bundle_v0",
@@ -1224,7 +1315,7 @@ def build_report(
         make_state_node(
             state_id="state:external-attestation-verifier",
             state_type="verifier_report",
-            path_or_uri=package_uri("artifacts/external/llamaguard_attestation_verifier_v1.json"),
+            path_or_uri=package_uri("artifacts/external/llamaguard_attestation_verifier_v1.json", identity=identity),
             sha256=external_attestation_verifier_record["sha256"],
             size_bytes=external_attestation_verifier_record["size_bytes"],
             schema_id=schema_identity(external_attestation_verifier),
@@ -1238,7 +1329,7 @@ def build_report(
         make_state_node(
             state_id="state:external-evaluator-manifest",
             state_type="manifest",
-            path_or_uri=package_uri("artifacts/external/llamaguard_evaluator_manifest_v0.json"),
+            path_or_uri=package_uri("artifacts/external/llamaguard_evaluator_manifest_v0.json", identity=identity),
             sha256=external_evaluator_manifest_record["sha256"],
             size_bytes=external_evaluator_manifest_record["size_bytes"],
             schema_id=schema_identity(external_evaluator_manifest),
@@ -1252,7 +1343,7 @@ def build_report(
         make_state_node(
             state_id="state:external-summary-envelope",
             state_type="attestation",
-            path_or_uri=package_uri("artifacts/external/llamaguard_summary.envelope.json"),
+            path_or_uri=package_uri("artifacts/external/llamaguard_summary.envelope.json", identity=identity),
             sha256=external_envelope_record["sha256"],
             size_bytes=external_envelope_record["size_bytes"],
             schema_id=schema_identity(external_envelope),
@@ -1266,7 +1357,7 @@ def build_report(
         make_state_node(
             state_id="state:external-raw-evidence",
             state_type="release_evidence",
-            path_or_uri=package_uri("artifacts/external/llamaguard_raw.jsonl"),
+            path_or_uri=package_uri("artifacts/external/llamaguard_raw.jsonl", identity=identity),
             sha256=external_raw_record["sha256"],
             size_bytes=external_raw_record["size_bytes"],
             schema_id="llamaguard_raw_jsonl_v0",
@@ -1322,7 +1413,7 @@ def build_report(
         make_state_node(
             state_id="state:external-summary",
             state_type="release_evidence",
-            path_or_uri=package_uri("artifacts/external/llamaguard_summary.json"),
+            path_or_uri=package_uri("artifacts/external/llamaguard_summary.json", identity=identity),
             sha256=external_summary_record["sha256"],
             size_bytes=external_summary_record["size_bytes"],
             schema_id=schema_identity(external_summary),
@@ -1350,7 +1441,7 @@ def build_report(
         make_state_node(
             state_id="state:final-status",
             state_type="status_artifact",
-            path_or_uri=package_uri("artifacts/status.json"),
+            path_or_uri=package_uri("artifacts/status.json", identity=identity),
             sha256=status_record["sha256"],
             size_bytes=status_record["size_bytes"],
             schema_id="status_v1",
@@ -1364,7 +1455,7 @@ def build_report(
         make_state_node(
             state_id="state:independent-verification",
             state_type="preservation_record",
-            path_or_uri=outer_artifact_uri(VERIFICATION_ARCHIVE_NAME) + "!/release_grade_reference_package_verification_v0.json",
+            path_or_uri=outer_artifact_uri(identity.verification_archive_name, identity=identity) + "!/release_grade_reference_package_verification_v0.json",
             sha256=sha256_bytes(bundle.verification_report_bytes),
             size_bytes=len(bundle.verification_report_bytes),
             schema_id=schema_identity(bundle.verification_report),
@@ -1392,7 +1483,7 @@ def build_report(
         make_state_node(
             state_id="state:package-completeness",
             state_type="preservation_record",
-            path_or_uri=outer_artifact_uri(COMPLETENESS_ARCHIVE_NAME) + "!/release_grade_package_completeness_v1.json",
+            path_or_uri=outer_artifact_uri(identity.completeness_archive_name, identity=identity) + "!/release_grade_package_completeness_v1.json",
             sha256=sha256_bytes(bundle.completeness_report_bytes),
             size_bytes=len(bundle.completeness_report_bytes),
             schema_id=schema_identity(bundle.completeness_report),
@@ -1406,7 +1497,7 @@ def build_report(
         make_state_node(
             state_id="state:package-inventory",
             state_type="manifest",
-            path_or_uri=package_uri("package_digest_inventory_v0.json"),
+            path_or_uri=package_uri("package_digest_inventory_v0.json", identity=identity),
             sha256=sha256_bytes(package_inventory_bytes),
             size_bytes=len(package_inventory_bytes),
             schema_id=schema_identity(bundle.package_inventory),
@@ -1434,7 +1525,7 @@ def build_report(
         make_state_node(
             state_id="state:preservation-manifest",
             state_type="preservation_record",
-            path_or_uri=PRESERVATION_MANIFEST_DISPLAY_PATH,
+            path_or_uri=identity.manifest_locator,
             sha256=sha256_bytes(bundle.manifest_bytes),
             size_bytes=len(bundle.manifest_bytes),
             schema_id=schema_identity(manifest),
@@ -1448,7 +1539,7 @@ def build_report(
         make_state_node(
             state_id="state:recorded-verifier-report",
             state_type="verifier_report",
-            path_or_uri=package_uri("artifacts/recorded_release_evidence_verifier_v0.json"),
+            path_or_uri=package_uri("artifacts/recorded_release_evidence_verifier_v0.json", identity=identity),
             sha256=verifier_record["sha256"],
             size_bytes=verifier_record["size_bytes"],
             schema_id=schema_identity(verifier_report),
@@ -1490,7 +1581,7 @@ def build_report(
         make_state_node(
             state_id="state:release-authority-manifest",
             state_type="reader_surface",
-            path_or_uri=package_uri("artifacts/release_authority_v0.json"),
+            path_or_uri=package_uri("artifacts/release_authority_v0.json", identity=identity),
             sha256=release_authority_record["sha256"],
             size_bytes=release_authority_record["size_bytes"],
             schema_id=schema_identity(release_authority),
@@ -1504,7 +1595,7 @@ def build_report(
         make_state_node(
             state_id="state:release-decision",
             state_type="decision_artifact",
-            path_or_uri=package_uri("artifacts/release_decision_v0.json"),
+            path_or_uri=package_uri("artifacts/release_decision_v0.json", identity=identity),
             sha256=decision_record["sha256"],
             size_bytes=decision_record["size_bytes"],
             schema_id=schema_identity(release_decision),
@@ -1518,7 +1609,7 @@ def build_report(
         make_state_node(
             state_id="state:report-card",
             state_type="reader_surface",
-            path_or_uri=package_uri("artifacts/report_card.html"),
+            path_or_uri=package_uri("artifacts/report_card.html", identity=identity),
             sha256=report_card_record["sha256"],
             size_bytes=report_card_record["size_bytes"],
             schema_id="text/html",
@@ -1532,7 +1623,7 @@ def build_report(
         make_state_node(
             state_id="state:required-gate-evidence",
             state_type="release_evidence",
-            path_or_uri=package_uri("artifacts/required_gate_evidence_v0.json"),
+            path_or_uri=package_uri("artifacts/required_gate_evidence_v0.json", identity=identity),
             sha256=required_record["sha256"],
             size_bytes=required_record["size_bytes"],
             schema_id=schema_identity(required_evidence),
@@ -1546,7 +1637,7 @@ def build_report(
         make_state_node(
             state_id="state:status-baseline",
             state_type="candidate_state",
-            path_or_uri=package_uri("artifacts/status_baseline.json"),
+            path_or_uri=package_uri("artifacts/status_baseline.json", identity=identity),
             sha256=status_baseline_record["sha256"],
             size_bytes=status_baseline_record["size_bytes"],
             schema_id="status_v1",
@@ -1592,7 +1683,7 @@ def build_report(
             source=source_identity(
                 source_kind="unknown",
                 path_or_uri=str(artifact_binding_producer_name) if artifact_binding_producer_name else None,
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=None,
             ),
             subject_run_key=subject_run_key,
@@ -1619,7 +1710,7 @@ def build_report(
             source=source_identity(
                 source_kind="repository_file",
                 path_or_uri=str(status_baseline["metrics"]["candidate_status_builder_path"]),
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=str(status_baseline["metrics"]["candidate_status_builder_sha256"]),
             ),
             subject_run_key=subject_run_key,
@@ -1638,7 +1729,7 @@ def build_report(
             source=source_identity(
                 source_kind="repository_file",
                 path_or_uri="PULSE_safe_pack_v0/tools/check_gates.py",
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=str(check_gates_source["evaluator_sha256"]),
             ),
             subject_run_key=subject_run_key,
@@ -1662,7 +1753,7 @@ def build_report(
             source=source_identity(
                 source_kind="unknown",
                 path_or_uri=None,
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=None,
             ),
             subject_run_key=subject_run_key,
@@ -1687,7 +1778,7 @@ def build_report(
             source=source_identity(
                 source_kind="repository_file",
                 path_or_uri=str(external_replay_verifier["path"]),
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=str(external_replay_verifier["sha256"]),
             ),
             subject_run_key=subject_run_key,
@@ -1712,7 +1803,7 @@ def build_report(
             source=source_identity(
                 source_kind="repository_file",
                 path_or_uri=str(external_envelope_builder["path"]),
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=str(external_envelope_builder["sha256"]),
             ),
             subject_run_key=subject_run_key,
@@ -1759,7 +1850,7 @@ def build_report(
             source=source_identity(
                 source_kind="repository_file",
                 path_or_uri=str(external_evaluator_manifest["producer"]["path"]),
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=str(external_evaluator_manifest["producer"]["sha256"]),
             ),
             subject_run_key=subject_run_key,
@@ -1781,7 +1872,7 @@ def build_report(
             source=source_identity(
                 source_kind="repository_file",
                 path_or_uri="PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py",
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=str(external_adapter_sha),
             ),
             subject_run_key=subject_run_key,
@@ -1833,7 +1924,7 @@ def build_report(
             source=source_identity(
                 source_kind="unknown",
                 path_or_uri=str(assembler_name) if assembler_name else None,
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=None,
             ),
             subject_run_key=subject_run_key,
@@ -1860,7 +1951,7 @@ def build_report(
             source=source_identity(
                 source_kind="unknown",
                 path_or_uri=str(completeness_tool) if completeness_tool else None,
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=None,
             ),
             subject_run_key=subject_run_key,
@@ -1879,7 +1970,7 @@ def build_report(
             source=source_identity(
                 source_kind="unknown",
                 path_or_uri=str(verification_tool) if verification_tool else None,
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=None,
             ),
             subject_run_key=subject_run_key,
@@ -1898,7 +1989,7 @@ def build_report(
             source=source_identity(
                 source_kind="repository_file",
                 path_or_uri=str(candidate_source["tool_path"]),
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=str(candidate_source["tool_sha256"]),
             ),
             subject_run_key=subject_run_key,
@@ -1935,7 +2026,7 @@ def build_report(
             source=source_identity(
                 source_kind="unknown",
                 path_or_uri=None,
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=None,
             ),
             subject_run_key=subject_run_key,
@@ -1961,7 +2052,7 @@ def build_report(
             source=source_identity(
                 source_kind="unknown",
                 path_or_uri=None,
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=None,
             ),
             subject_run_key=subject_run_key,
@@ -1986,7 +2077,7 @@ def build_report(
             source=source_identity(
                 source_kind="unknown",
                 path_or_uri=str(decision_producer_name) if decision_producer_name else None,
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=None,
             ),
             subject_run_key=subject_run_key,
@@ -2010,7 +2101,7 @@ def build_report(
             source=source_identity(
                 source_kind="unknown",
                 path_or_uri=None,
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=None,
             ),
             subject_run_key=subject_run_key,
@@ -2029,7 +2120,7 @@ def build_report(
             source=source_identity(
                 source_kind="repository_file",
                 path_or_uri=str(required_producer["tool_path"]),
-                revision=EXPECTED_SOURCE_COMMIT,
+                revision=identity.source_commit,
                 sha256=str(required_producer["tool_sha256"]),
             ),
             subject_run_key=subject_run_key,
@@ -2235,115 +2326,115 @@ def build_report(
     inputs = [
         {
             "role": "artifact_binding",
-            "path_or_uri": package_uri("artifacts/artifact_provenance_binding_v0.json"),
+            "path_or_uri": package_uri("artifacts/artifact_provenance_binding_v0.json", identity=identity),
             "sha256": artifact_binding_record["sha256"],
             "size_bytes": artifact_binding_record["size_bytes"],
         },
         {
             "role": "candidate_record",
-            "path_or_uri": package_uri("artifacts/recorded_release_candidate_index_v0.json"),
+            "path_or_uri": package_uri("artifacts/recorded_release_candidate_index_v0.json", identity=identity),
             "sha256": candidate_index_record["sha256"],
             "size_bytes": candidate_index_record["size_bytes"],
         },
         {
             "role": "evidence_manifest",
-            "path_or_uri": package_uri("artifacts/release_evidence_input_manifest_v0.json"),
+            "path_or_uri": package_uri("artifacts/release_evidence_input_manifest_v0.json", identity=identity),
             "sha256": evidence_manifest_record["sha256"],
             "size_bytes": evidence_manifest_record["size_bytes"],
         },
         {
             "role": "other",
-            "path_or_uri": package_uri("artifacts/external/llamaguard_attestation_verifier_v1.json"),
+            "path_or_uri": package_uri("artifacts/external/llamaguard_attestation_verifier_v1.json", identity=identity),
             "sha256": external_attestation_verifier_record["sha256"],
             "size_bytes": external_attestation_verifier_record["size_bytes"],
         },
         {
             "role": "other",
-            "path_or_uri": package_uri("artifacts/external/llamaguard_evaluator_manifest_v0.json"),
+            "path_or_uri": package_uri("artifacts/external/llamaguard_evaluator_manifest_v0.json", identity=identity),
             "sha256": external_evaluator_manifest_record["sha256"],
             "size_bytes": external_evaluator_manifest_record["size_bytes"],
         },
         {
             "role": "other",
-            "path_or_uri": package_uri("artifacts/external/llamaguard_raw.jsonl"),
+            "path_or_uri": package_uri("artifacts/external/llamaguard_raw.jsonl", identity=identity),
             "sha256": external_raw_record["sha256"],
             "size_bytes": external_raw_record["size_bytes"],
         },
         {
             "role": "other",
-            "path_or_uri": package_uri("artifacts/external/llamaguard_summary.bundle.json"),
+            "path_or_uri": package_uri("artifacts/external/llamaguard_summary.bundle.json", identity=identity),
             "sha256": external_bundle_record["sha256"],
             "size_bytes": external_bundle_record["size_bytes"],
         },
         {
             "role": "other",
-            "path_or_uri": package_uri("artifacts/external/llamaguard_summary.envelope.json"),
+            "path_or_uri": package_uri("artifacts/external/llamaguard_summary.envelope.json", identity=identity),
             "sha256": external_envelope_record["sha256"],
             "size_bytes": external_envelope_record["size_bytes"],
         },
         {
             "role": "final_status",
-            "path_or_uri": package_uri("artifacts/status.json"),
+            "path_or_uri": package_uri("artifacts/status.json", identity=identity),
             "sha256": status_record["sha256"],
             "size_bytes": status_record["size_bytes"],
         },
         {
             "role": "independent_verification_report",
-            "path_or_uri": outer_artifact_uri(VERIFICATION_ARCHIVE_NAME) + "!/release_grade_reference_package_verification_v0.json",
+            "path_or_uri": outer_artifact_uri(identity.verification_archive_name, identity=identity) + "!/release_grade_reference_package_verification_v0.json",
             "sha256": sha256_bytes(bundle.verification_report_bytes),
             "size_bytes": len(bundle.verification_report_bytes),
         },
         {
             "role": "other",
-            "path_or_uri": ARCHIVE_DISPLAY_PATH,
+            "path_or_uri": identity.archive_locator,
             "sha256": bundle.archive_sha256,
             "size_bytes": bundle.archive_size,
         },
         {
             "role": "other",
-            "path_or_uri": outer_artifact_uri(COMPLETE_PACKAGE_NAME),
-            "sha256": EXPECTED_ARTIFACTS[COMPLETE_PACKAGE_NAME]["sha256"],
-            "size_bytes": EXPECTED_ARTIFACTS[COMPLETE_PACKAGE_NAME]["size_bytes"],
+            "path_or_uri": outer_artifact_uri(identity.complete_package_name, identity=identity),
+            "sha256": identity.complete_package_sha256,
+            "size_bytes": identity.complete_package_size,
         },
         {
             "role": "other",
-            "path_or_uri": package_uri("artifacts/required_gate_evidence_v0.json"),
+            "path_or_uri": package_uri("artifacts/required_gate_evidence_v0.json", identity=identity),
             "sha256": required_record["sha256"],
             "size_bytes": required_record["size_bytes"],
         },
         {
             "role": "package_completeness_report",
-            "path_or_uri": outer_artifact_uri(COMPLETENESS_ARCHIVE_NAME) + "!/release_grade_package_completeness_v1.json",
+            "path_or_uri": outer_artifact_uri(identity.completeness_archive_name, identity=identity) + "!/release_grade_package_completeness_v1.json",
             "sha256": sha256_bytes(bundle.completeness_report_bytes),
             "size_bytes": len(bundle.completeness_report_bytes),
         },
         {
             "role": "package_inventory",
-            "path_or_uri": package_uri("package_digest_inventory_v0.json"),
+            "path_or_uri": package_uri("package_digest_inventory_v0.json", identity=identity),
             "sha256": sha256_bytes(package_inventory_bytes),
             "size_bytes": len(package_inventory_bytes),
         },
         {
             "role": "preservation_manifest",
-            "path_or_uri": PRESERVATION_MANIFEST_DISPLAY_PATH,
+            "path_or_uri": identity.manifest_locator,
             "sha256": sha256_bytes(bundle.manifest_bytes),
             "size_bytes": len(bundle.manifest_bytes),
         },
         {
             "role": "release_decision",
-            "path_or_uri": package_uri("artifacts/release_decision_v0.json"),
+            "path_or_uri": package_uri("artifacts/release_decision_v0.json", identity=identity),
             "sha256": decision_record["sha256"],
             "size_bytes": decision_record["size_bytes"],
         },
         {
             "role": "run_metadata",
-            "path_or_uri": package_uri("run_metadata_v0.json"),
+            "path_or_uri": package_uri("run_metadata_v0.json", identity=identity),
             "sha256": sha256_bytes(run_metadata_bytes),
             "size_bytes": len(run_metadata_bytes),
         },
         {
             "role": "verifier_report",
-            "path_or_uri": package_uri("artifacts/recorded_release_evidence_verifier_v0.json"),
+            "path_or_uri": package_uri("artifacts/recorded_release_evidence_verifier_v0.json", identity=identity),
             "sha256": verifier_record["sha256"],
             "size_bytes": verifier_record["size_bytes"],
         },
@@ -2386,12 +2477,12 @@ def build_report(
             "observer_in_subject_totals": False,
         },
         "subject": {
-            "repository": EXPECTED_REPOSITORY,
-            "workflow": EXPECTED_WORKFLOW,
-            "workflow_run_id": EXPECTED_RUN_ID,
-            "workflow_run_number": EXPECTED_RUN_NUMBER,
-            "workflow_run_attempt": EXPECTED_RUN_ATTEMPT,
-            "source_commit": EXPECTED_SOURCE_COMMIT,
+            "repository": identity.repository,
+            "workflow": identity.workflow,
+            "workflow_run_id": identity.run_id,
+            "workflow_run_number": identity.run_number,
+            "workflow_run_attempt": identity.run_attempt,
+            "source_commit": identity.source_commit,
             "release_candidate_id": release_candidate,
             "run_mode": str(manifest["run_mode"]),
             "active_policy_sets": sorted(release_decision["active_gate_sets"]),

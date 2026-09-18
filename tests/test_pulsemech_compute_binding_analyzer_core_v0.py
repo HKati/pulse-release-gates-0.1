@@ -1364,5 +1364,62 @@ def test_bounded_logical_state_identity_is_not_content_identity():
     assert core._bounded_state_id("results/allow/checker.stderr",artifact=True)!=core._bounded_state_id("results/allow/checker.stderr")
 
 
+
+
+# Current-run intake: metadata-only unit controls. These small objects are
+# not validated subject packets or evidence of a hosted execution.
+import ast
+import copy
+import dataclasses
+import io
+import zipfile
+
+_INTAKE_CORE = runtime_test_module("pulsemech_compute_binding_analyzer_core_v0.py")
+
+def _intake_function_source(source, name):
+    node = next(n for n in ast.parse(source).body
+                if isinstance(n, (ast.FunctionDef, ast.ClassDef)) and n.name == name)
+    return ast.get_source_segment(source, node)
+
+_INTAKE_UNCHANGED_FUNCTION_SHA256 = {'validate_preservation_manifest': '47a185eb72ab160fba94e90a8d7aabd5443a6eff47fa09f732fd66ccd7ee4556', 'validate_package_inventory': '59023a3fe6b389d47e8cbe63983660ef2236949c62ed4b7b80faac0076eabbd4', 'load_observed_bundle': '20992555c8a0547c2009c1a5c4d7dd5b0d7c26365aa4cdc70f9a1741209d8d47', 'index_runtime_packet_sources': 'b0f3a4e7e99c7aa275e8fbb74f16b3b2222f266edb2fe3977fac34747bfd3ca3', 'build_runtime_report': '9b7e7b2e5cb2f75a40448082e0481f2883641abadba545d1545e29ed93bf6bd9', '_bounded_support': '84b0e0a42df315d934d6015ce895715242d538ec63795595cf15a123207d34a3', 'build_bounded_reference_report': 'cfff6acf87500bfb032ef8d81ecbff0ecea7806813a0bc3c46e86b30bdde4b1d'}
+
+def test_intake_artifact_identity_is_immutable():
+ with pytest.raises(dataclasses.FrozenInstanceError):_INTAKE_CORE.HISTORICAL_ARTIFACT_IDENTITY.run_id=70000001
+
+@pytest.mark.parametrize('name',['file.json','artifacts/status.json'])
+def test_intake_historical_locator_bytes_unchanged(name):
+ assert _INTAKE_CORE.package_uri(name)==f'{_INTAKE_CORE.COMPLETE_PACKAGE_NAME}!/{name}'
+ assert _INTAKE_CORE.outer_artifact_uri(name)==_INTAKE_CORE.ARCHIVE_DISPLAY_PATH+'!/'+_INTAKE_CORE.ORIGINAL_PREFIX+name
+
+def test_intake_current_locators_retain_exact_carrier_and_nested_package():
+ ident=dataclasses.replace(_INTAKE_CORE.HISTORICAL_ARTIFACT_IDENTITY,current_run=True,archive_locator='sha256:'+'b'*64,
+     original_prefix='pulsemech-current-run-export-70000001-1-v0/original-github-artifacts/',
+     complete_package_name='complete-release-grade-reference-package-70000001-1.zip')
+ actual=_INTAKE_CORE.package_uri('artifacts/status.json',identity=ident)
+ assert actual=='sha256:'+'b'*64+'!/'+ident.original_prefix+ident.complete_package_name+'!/artifacts/status.json'
+ assert '6066' not in actual
+
+@pytest.mark.parametrize('name',['validate_preservation_manifest','validate_package_inventory','load_observed_bundle',
+ 'index_runtime_packet_sources','build_runtime_report','_bounded_support','build_bounded_reference_report'])
+def test_intake_historical_and_runtime_algorithms_are_textually_unchanged(name):
+    source = _intake_function_source(CORE.read_text(), name)
+    assert hashlib.sha256(source.encode()).hexdigest() == _INTAKE_UNCHANGED_FUNCTION_SHA256[name]
+
+def test_intake_report_uses_bound_identity_without_legacy_constants():
+ s=_intake_function_source(CORE.read_text(),'build_report');tree=ast.parse(s)
+ forbidden={'EXPECTED_RUN_KEY','EXPECTED_RUN_ID','EXPECTED_RUN_NUMBER','EXPECTED_RUN_ATTEMPT',
+ 'EXPECTED_REPOSITORY','EXPECTED_SOURCE_COMMIT','EXPECTED_WORKFLOW','EXPECTED_ARTIFACTS','COMPLETE_PACKAGE_NAME',
+ 'COMPLETENESS_ARCHIVE_NAME','VERIFICATION_ARCHIVE_NAME','PRESERVATION_MANIFEST_DISPLAY_PATH','ARCHIVE_DISPLAY_PATH'}
+ assert not {n.id for n in ast.walk(tree) if isinstance(n,ast.Name)}&forbidden
+ for n in ast.walk(tree):
+  if isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id in {'package_uri','outer_artifact_uri'}:
+   assert any(k.arg=='identity' for k in n.keywords)
+
+def test_intake_fixed_wrapper_still_reexports_single_core():
+ wrapper=runtime_test_module("build_pulsemech_compute_binding_report_v0.py")
+ assert wrapper.build_report.__module__=='pulsemech_compute_binding_analyzer_core_v0'
+ assert wrapper.load_observed_bundle.__module__=='pulsemech_compute_binding_analyzer_core_v0'
+
+
 if __name__ == "__main__":
     check_pulsemech_compute_binding_analyzer_core_v0()
