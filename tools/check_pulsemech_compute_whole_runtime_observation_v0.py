@@ -3190,7 +3190,7 @@ _DOWNSTREAM_ROLE_SPECS = (
      (RUNTIME_PACKET_MEMBER, BINDING_REPORT_MEMBER)),
     ("state:step5c:folded-non-active-candidate-status", FOLDED_STATUS_MEMBER,
      "reconstruction://folded-candidate-status.json", CANDIDATE_MATERIALIZER_PATH,
-     (RELATION_MEMBER,)),
+     (RUNTIME_PACKET_MEMBER, BINDING_REPORT_MEMBER, RELATION_MEMBER)),
 )
 
 

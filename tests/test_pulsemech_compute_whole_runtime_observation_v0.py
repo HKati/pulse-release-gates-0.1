@@ -11888,7 +11888,7 @@ _DOWNSTREAM_TEST_ROLES = {
     'state:step5c:runtime-observation-diagnostic': ('runtime-packet-diagnostic.json', 'reconstruction://runtime-observation-diagnostic.json', 'tools/check_pulsemech_compute_runtime_observation_packet_v0.py', ['runtime-observation-packet.json']),
     'state:step5c:compute-binding-report': ('compute-binding-report.json', 'reconstruction://compute-binding-report.json', 'tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py', ['runtime-observation-packet.json']),
     'state:step5c:planned-observed-relation': ('planned-observed-relation.json', 'reconstruction://planned-observed-relation.json', 'tools/build_pulsemech_compute_planned_observed_relation_v0.py', ['runtime-observation-packet.json', 'compute-binding-report.json']),
-    'state:step5c:folded-non-active-candidate-status': ('folded-candidate-status.json', 'reconstruction://folded-candidate-status.json', 'tools/fold_pulsemech_compute_planned_observed_relation_into_status_v0.py', ['planned-observed-relation.json']),
+    'state:step5c:folded-non-active-candidate-status': ('folded-candidate-status.json', 'reconstruction://folded-candidate-status.json', 'tools/fold_pulsemech_compute_planned_observed_relation_into_status_v0.py', ['runtime-observation-packet.json', 'compute-binding-report.json', 'planned-observed-relation.json']),
 }
 
 @pytest.fixture(scope='module')
@@ -11920,7 +11920,14 @@ def downstream_real_outputs(tmp_path_factory):
     intake=h.root/'downstream-intake';intake.mkdir();shutil.copyfile(subject_packet,intake/subject_packet.name);shutil.copyfile(carrier,intake/'pulsemech-current-run-export-9001-1-v0.zip')
     out=h.root/'downstream-outputs';out.mkdir()
     before={str(p):p.read_bytes() for p in (subject_packet,carrier,runtime,plan,relation,base/'folded-candidate-status.json')}
-    outputs=VERIFIER._run_existing_pipeline(control_root=h.control,intake_directory=intake,baseline_proof=base,runtime_packet_path=runtime,output_root=out,source_commit=revision,subject_run_id=9001)
+    # Record the real subprocess arguments without replacing execution/results.
+    pipeline_commands = []
+    original_run_process = VERIFIER.run_process
+    def record_pipeline_command(command, **kwargs):
+        pipeline_commands.append(tuple(str(value) for value in command))
+        return original_run_process(command, **kwargs)
+    with patch.object(VERIFIER, 'run_process', side_effect=record_pipeline_command):
+        outputs=VERIFIER._run_existing_pipeline(control_root=h.control,intake_directory=intake,baseline_proof=base,runtime_packet_path=runtime,output_root=out,source_commit=revision,subject_run_id=9001)
     assert before=={name:Path(name).read_bytes() for name in before}
     for name,raw in outputs.items():(out/name).write_bytes(raw)
     # A minimal binding context exercises this helper only. It is not represented
@@ -11934,7 +11941,9 @@ def downstream_real_outputs(tmp_path_factory):
     values=VERIFIER._materializer_candidate_values(outputs['candidate-materializer-report.json'],outputs['folded-candidate-status.json'])
     inv=VERIFIER._reconstruction_inventory(outputs=outputs,source_commit=revision,capture_manifest=capture,candidate_values=values,plan=context)
     members=dict(outputs);members[VERIFIER.RECONSTRUCTION_INVENTORY_MEMBER]=inv
-    return SimpleNamespace(harness=h,context=context,packet=json.loads(runtime.read_bytes()),members=members,outputs=outputs,values=values,revision=revision)
+    return SimpleNamespace(harness=h,context=context,packet=json.loads(runtime.read_bytes()),members=members,outputs=outputs,values=values,revision=revision,
+        pipeline_commands=tuple(pipeline_commands),
+        output_paths={name: runtime if name == 'runtime-observation-packet.json' else out/name for name in outputs})
 
 
 def test_downstream_five_roles_bind_actual_output_bytes(downstream_real_outputs):
@@ -11953,6 +11962,84 @@ def test_downstream_five_roles_bind_actual_output_bytes(downstream_real_outputs)
         assert row['producer_scope']=='reconstruction_process'
         assert row['original_subject_execution_claimed'] is False and row['authority_effect']=='none'
     assert canonical(f.packet)==before and f.values['candidate_all_true'] is False
+
+
+def _assert_downstream_fold_consumed_inputs(f, members):
+    # Derive direct input paths from the successfully executed command, not
+    # from either role table. This records supplied inputs, not OS read receipts.
+    tool = str(f.harness.control / 'tools/fold_pulsemech_compute_planned_observed_relation_into_status_v0.py')
+    commands = [command for command in f.pipeline_commands if command[3] == tool]
+    assert len(commands) == 1
+    arguments = commands[0][4:]
+    assert len(arguments) % 2 == 0
+    options = dict(zip(arguments[::2], arguments[1::2]))
+    assert len(options) * 2 == len(arguments)
+    input_paths = {Path(value).resolve() for flag, value in options.items() if flag != '--output'}
+    consumed = sorted(name for name, path in f.output_paths.items() if path.resolve() in input_paths)
+    assert set(consumed) == {
+        'runtime-observation-packet.json', 'compute-binding-report.json', 'planned-observed-relation.json',
+    }
+    # Check that the supplied files still contain the exact preserved outputs.
+    for name in consumed:
+        assert f.output_paths[name].read_bytes() == f.outputs[name]
+    inventory = json.loads(members[VERIFIER.RECONSTRUCTION_INVENTORY_MEMBER])
+    row = next(row for row in inventory['downstream_state_bindings']
+               if row['state_id'] == 'state:step5c:folded-non-active-candidate-status')
+    expected = [{'member': name, 'sha256': hashlib.sha256(f.outputs[name]).hexdigest(),
+                 'size_bytes': len(f.outputs[name])} for name in consumed]
+    assert sorted(row['derived_input_members'], key=lambda item: item['member']) == expected, (
+        'fold input bindings differ from the real command inputs'
+    )
+
+
+def test_downstream_fold_binds_every_consumed_derived_input(downstream_real_outputs):
+    _assert_downstream_fold_consumed_inputs(downstream_real_outputs, downstream_real_outputs.members)
+
+
+@pytest.mark.parametrize('omitted', [
+    ('runtime-observation-packet.json',),
+    ('compute-binding-report.json',),
+    ('runtime-observation-packet.json', 'compute-binding-report.json'),
+])
+def test_downstream_fold_omitted_inputs_rejected_after_rehash(downstream_real_outputs, omitted):
+    f = downstream_real_outputs
+    members = dict(f.members)
+    inventory = json.loads(members[VERIFIER.RECONSTRUCTION_INVENTORY_MEMBER])
+    row = next(row for row in inventory['downstream_state_bindings']
+               if row['state_id'] == 'state:step5c:folded-non-active-candidate-status')
+    assert len(row['derived_input_members']) == 3
+    row['derived_input_members'] = [item for item in row['derived_input_members'] if item['member'] not in omitted]
+    members[VERIFIER.RECONSTRUCTION_INVENTORY_MEMBER] = canonical(inventory)
+    raw = VERIFIER.deterministic_zip_bytes(members, maximum_members=VERIFIER.MAX_RECONSTRUCTION_MEMBERS,
+        maximum_bytes=VERIFIER.MAX_RECONSTRUCTION_BYTES)
+    members = VERIFIER.read_canonical_zip_bytes(raw, label='fold_input_omission_control',
+        maximum_members=VERIFIER.MAX_RECONSTRUCTION_MEMBERS, maximum_bytes=VERIFIER.MAX_RECONSTRUCTION_BYTES)
+    with pytest.raises(VERIFIER.VerificationError, match='downstream_role_binding_mismatch'):
+        VERIFIER._require_downstream_state_bindings(f.context, f.packet, members)
+
+
+@pytest.mark.parametrize('omitted', [
+    ('runtime-observation-packet.json',),
+    ('compute-binding-report.json',),
+    ('runtime-observation-packet.json', 'compute-binding-report.json'),
+])
+def test_downstream_fold_command_oracle_detects_common_table_omission(downstream_real_outputs, monkeypatch, omitted):
+    f = downstream_real_outputs
+    broken_specs = tuple(
+        spec[:-1] + (tuple(name for name in spec[-1] if name not in omitted),)
+        if spec[0] == 'state:step5c:folded-non-active-candidate-status' else spec
+        for spec in VERIFIER._DOWNSTREAM_ROLE_SPECS
+    )
+    monkeypatch.setattr(VERIFIER, '_DOWNSTREAM_ROLE_SPECS', broken_specs)
+    inventory = json.loads(f.members[VERIFIER.RECONSTRUCTION_INVENTORY_MEMBER])
+    inventory['downstream_state_bindings'] = VERIFIER._downstream_state_bindings(f.context, f.packet, f.outputs)
+    members = dict(f.members)
+    members[VERIFIER.RECONSTRUCTION_INVENTORY_MEMBER] = canonical(inventory)
+    # The intentionally broken shared table makes generation/checking agree.
+    VERIFIER._require_downstream_state_bindings(f.context, f.packet, members)
+    # The command-derived expectation must still detect the missing edges.
+    with pytest.raises(AssertionError, match='fold input bindings differ from the real command inputs'):
+        _assert_downstream_fold_consumed_inputs(f, members)
 
 
 @pytest.mark.parametrize('sid',sorted(_DOWNSTREAM_TEST_ROLES))
