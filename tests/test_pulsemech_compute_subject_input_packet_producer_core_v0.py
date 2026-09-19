@@ -709,5 +709,53 @@ def test_bounded_producer_refuses_wrong_prelaunch(bounded_reference_capture):
         adapter.build_subject_input(carrier_bytes=bounded_reference_capture[3],repository_root=ROOT,
             expected_context=bounded_reference_capture[0],expected_prelaunch_sha256="0"*64)
 
+
+def _main_label_profile_example():
+    from dataclasses import replace
+    core = import_module(PRODUCER_CORE, 'producer_core_label_contract')
+    key = 'GITHUB_RUN_ID=9001|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI'
+    profile = replace(core.FIXED_SOURCE_6066_PROFILE,
+        production_mode='current_run_export', packet_scope='current_run',
+        packet_identity_mode='current-run', carrier_kind='current_run_export_archive',
+        producer_source_path='tools/build_pulsemech_compute_subject_input_packet_current_run_v0.py',
+        expected_repository='HKati/pulse-release-gates-0.1', expected_source_commit='a'*40,
+        expected_run_key=key)
+    args = dict(profile=profile, packaged_label='main', repository=profile.expected_repository,
+        source_commit=profile.expected_source_commit, workflow_name='PULSE CI',
+        workflow_path='.github/workflows/pulse_ci.yml', source_ref='refs/heads/main',
+        event_name='workflow_dispatch', run_id=9001, run_attempt=1, run_key=key)
+    return core, args
+
+
+def test_current_run_main_label_has_one_exact_analysis_identity():
+    core, args = _main_label_profile_example()
+    assert core._current_run_analysis_candidate(**args) == 'pulse-ci-current-run:9001:1'
+    assert args['packaged_label'] == 'main'
+    # A package with a different exact label is not silently normalized.
+    for label in ('pulse-ci-current-run:9001:1', 'synthetic-current-run-9001-1', 'arbitrary'):
+        assert core._current_run_analysis_candidate(**dict(args, packaged_label=label)) == label
+
+
+def test_current_run_main_label_rejects_cross_context_and_profile():
+    from dataclasses import replace
+    core, args = _main_label_profile_example()
+    for key, value in [('repository', 'elsewhere/repo'), ('source_commit', 'b'*40),
+                       ('workflow_name', 'Another CI'), ('workflow_path', 'another.yml'),
+                       ('source_ref', 'refs/heads/other'), ('event_name', 'push'),
+                       ('run_id', 9002), ('run_id', True), ('run_attempt', 2),
+                       ('run_attempt', True), ('run_key', 'foreign-run')]:
+        with pytest.raises(core.BuilderError):
+            core._current_run_analysis_candidate(**dict(args, **{key:value}))
+    for field, value in [('packet_scope', 'historical'), ('packet_identity_mode', 'fixed'),
+                         ('carrier_kind', 'preserved_archive'), ('producer_source_path', 'other.py')]:
+        with pytest.raises(core.BuilderError):
+            core._current_run_analysis_candidate(**dict(args, profile=replace(args['profile'], **{field:value})))
+
+
+def test_noncurrent_profile_does_not_reinterpret_main_label():
+    core, args = _main_label_profile_example()
+    assert core._current_run_analysis_candidate(**dict(args, profile=core.FIXED_SOURCE_6066_PROFILE)) == 'main'
+
+
 if __name__ == "__main__":
     check_pulsemech_compute_subject_input_packet_producer_core_v0()

@@ -12146,6 +12146,38 @@ def test_downstream_closed_inventory_and_container_failures(downstream_real_outp
     with pytest.raises(VERIFIER.VerificationError):
         VERIFIER._require_downstream_state_bindings(f.context, f.packet, members)
 
+# Provider identity renewal follows the separately approved exact workflow bytes.
+_IDENTITY_PROVIDER_BLOB = "0ce36e0eb40493e610fc35a42eb13d5af9c3e09b"
+_IDENTITY_PROVIDER_OLD_BLOB = "79e4a355cc1eab4af26f6b16e7563424e67d05f2"
+
+
+def test_identity_provider_pin_is_the_reviewed_workflow_not_runtime_approval():
+    raw = (ROOT / BUILDER.PROVIDER_WORKFLOW_PATH).read_bytes()
+    assert hashlib.sha1(f"blob {len(raw)}\0".encode() + raw).hexdigest() == _IDENTITY_PROVIDER_BLOB
+    assert BUILDER.EXPECTED_PROVIDER_WORKFLOW_BLOB_SHA1 == _IDENTITY_PROVIDER_BLOB
+    assert PLAN_CHECKER.EXPECTED_PROVIDER_WORKFLOW_BLOB_SHA1 == _IDENTITY_PROVIDER_BLOB
+
+
+@pytest.mark.parametrize("side", ["builder", "checker"])
+def test_identity_provider_pin_is_in_the_source_bound_plan(source_fixture, side):
+    module = BUILDER if side == "builder" else PLAN_CHECKER
+    sources = module._load_sources(source_fixture.root, source_fixture.sha)
+    source = next(row for row in source_fixture.plan["source_inventory"] if row["path"] == module.PROVIDER_WORKFLOW_PATH)
+    assert source["git_blob_sha1"] == _IDENTITY_PROVIDER_BLOB
+    assert source["sha256"] == digest((source_fixture.root / module.PROVIDER_WORKFLOW_PATH).read_bytes())
+    assert sources
+
+
+@pytest.mark.parametrize("side", ["builder", "checker"])
+def test_identity_provider_pin_omission_fails_closed(source_fixture, monkeypatch, side):
+    module = BUILDER if side == "builder" else PLAN_CHECKER
+    monkeypatch.setattr(module, "EXPECTED_PROVIDER_WORKFLOW_BLOB_SHA1", _IDENTITY_PROVIDER_OLD_BLOB)
+    with pytest.raises(module.PlanError) as caught:
+        module._load_sources(source_fixture.root, source_fixture.sha)
+    assert caught.value.code == "reviewed_source_profile_mismatch"
+    assert module.PROVIDER_WORKFLOW_PATH in caught.value.detail
+
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.

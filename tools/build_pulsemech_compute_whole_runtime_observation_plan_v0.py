@@ -127,7 +127,7 @@ REQUIREMENTS_PATH = "requirements.txt"
 # change either subject workflow, the Step 3F provider, or the controlled case
 # set.  A future change requires a reviewed profile revision.
 EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 = "ad1f165ad695c65827c590cbef9466e300d6b6e9"
-EXPECTED_PROVIDER_WORKFLOW_BLOB_SHA1 = "79e4a355cc1eab4af26f6b16e7563424e67d05f2"
+EXPECTED_PROVIDER_WORKFLOW_BLOB_SHA1 = "0ce36e0eb40493e610fc35a42eb13d5af9c3e09b"
 EXPECTED_DATASET_BLOB_SHA1 = "3b6ca799f26c7374334c51c5c9c8ea26b35cf857"
 EXPECTED_LLAMAGUARD_RUNNER_BLOB_SHA1 = "058edf0d16383db41a5a4500caf4b484321d2e57"
 

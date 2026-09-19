@@ -175,6 +175,7 @@ class ArtifactObservationIdentity:
     complete_package_sha256: str
     complete_package_size: int
     current_run: bool = False
+    packaged_release_label: str | None = None
 
 
 HISTORICAL_ARTIFACT_IDENTITY = ArtifactObservationIdentity(
@@ -751,6 +752,50 @@ def load_observed_bundle(
     )
 
 
+def _current_run_packaged_release_label(
+    subject: dict[str, Any], run_metadata: dict[str, Any],
+) -> str:
+    """Keep preserved release metadata separate from the analysis candidate.
+
+    The subject-input validator has already bound the subject to its carrier.
+    Repeat the exact metadata relationship here before creating the immutable
+    analyzer identity; do not rewrite the carrier or admit arbitrary aliases.
+    """
+    packaged_label = run_metadata.get("release_candidate")
+    candidate = subject.get("release_candidate_id")
+    if not isinstance(packaged_label, str) or not packaged_label:
+        raise BuilderError("current_run_packaged_release_label_invalid")
+    bindings = {
+        "repository": "repository", "git_sha": "source_commit",
+        "run_id": "workflow_run_id", "run_attempt": "workflow_run_attempt",
+        "run_key": "subject_run_key", "workflow_ref": "workflow_ref",
+    }
+    for metadata_field, subject_field in bindings.items():
+        require_equal(run_metadata.get(metadata_field), subject.get(subject_field),
+                      label="current_run_package_" + metadata_field)
+    # Existing exact-label inputs keep their identity. Only the selected main
+    # workflow-dispatch profile has a different, run-derived analysis identity.
+    if packaged_label == candidate:
+        return packaged_label
+    require_equal(packaged_label, "main", label="current_run_packaged_release_label")
+    run_id, attempt = subject.get("workflow_run_id"), subject.get("workflow_run_attempt")
+    if type(run_id) is not int or run_id <= 0 or type(attempt) is not int or attempt <= 0:
+        raise BuilderError("current_run_release_label_run_identity_invalid")
+    for key, expected in {
+        "workflow_name": "PULSE CI", "workflow_path": ".github/workflows/pulse_ci.yml",
+        "source_ref": "refs/heads/main", "event_name": "workflow_dispatch",
+        "subject_run_key": f"GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT={attempt}|GITHUB_WORKFLOW=PULSE CI",
+        "release_candidate_id": f"pulse-ci-current-run:{run_id}:{attempt}",
+        "workflow_ref": f"{subject.get('repository')}/.github/workflows/pulse_ci.yml@refs/heads/main",
+    }.items():
+        require_equal(subject.get(key), expected, label="current_run_release_label_" + key)
+    if not isinstance(subject.get("repository"), str) or not subject["repository"]:
+        raise BuilderError("current_run_release_label_repository_invalid")
+    if re.fullmatch(r"[0-9a-f]{40}", str(subject.get("source_commit", ""))) is None:
+        raise BuilderError("current_run_release_label_source_invalid")
+    return packaged_label
+
+
 def load_current_run_observed_bundle(
     *, archive_path: Path, archive_bytes: bytes, expectation: dict[str, Any],
     loader: Any,
@@ -774,6 +819,10 @@ def load_current_run_observed_bundle(
     layout = expectation["archive_layout"]
     package_name = layout["complete_package_name"]
     package = checked.artifact_archives[package_name]
+    packaged_label = _current_run_packaged_release_label(
+        subject, load_json_bytes(checked.complete_package_members["run_metadata_v0.json"],
+                                 label="current_run_run_metadata"),
+    )
     locator = "sha256:" + carrier["sha256"]
     identity = ArtifactObservationIdentity(
         repository=subject["repository"], workflow=subject["workflow_name"],
@@ -787,7 +836,7 @@ def load_current_run_observed_bundle(
         completeness_archive_name=layout["completeness_archive_name"],
         verification_archive_name=layout["verification_archive_name"],
         complete_package_sha256=sha256_bytes(package), complete_package_size=len(package),
-        current_run=True,
+        current_run=True, packaged_release_label=packaged_label,
     )
     require_equal(archive_path.stat().st_size, len(archive_bytes), label="current_run_archive_size_after_analysis")
     require_equal(sha256_file(archive_path), carrier["sha256"], label="current_run_archive_sha_after_analysis")
@@ -1080,7 +1129,9 @@ def build_report(
     require_equal(run_metadata.get("run_id"), identity.run_id, label="run_metadata_run_id")
     require_equal(run_metadata.get("run_attempt"), identity.run_attempt, label="run_metadata_run_attempt")
     require_equal(run_metadata.get("git_sha"), identity.source_commit, label="run_metadata_git_sha")
-    require_equal(run_metadata.get("release_candidate"), identity.release_candidate, label="run_metadata_release_candidate")
+    packaged_label = (identity.packaged_release_label if identity.current_run
+                      and identity.packaged_release_label is not None else identity.release_candidate)
+    require_equal(run_metadata.get("release_candidate"), packaged_label, label="run_metadata_release_candidate")
 
     policy_sha = release_decision.get("policy_sha256")
     policy_id = release_authority.get("inputs", {}).get("gate_policy", {}).get("policy_id")
@@ -1185,7 +1236,7 @@ def build_report(
         else "BLOCK"
     )
 
-    release_candidate = str(run_metadata["release_candidate"])
+    release_candidate = identity.release_candidate
 
     # External digests that are recorded but whose source bytes are not part of
     # the preserved complete package remain state identities with unknown size.

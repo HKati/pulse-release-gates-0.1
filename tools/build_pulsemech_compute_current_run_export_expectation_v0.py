@@ -3297,6 +3297,44 @@ def _verify_observed_artifact_time_order(
         )
 
 
+def _verify_inline_artifact_binding_gate(
+    binding: dict[str, Any], *, subject: dict[str, Any], policy: dict[str, Any],
+    workflow_active_policy_sets: Sequence[str],
+) -> None:
+    """Verify the inline object's domain, bindings and policy-derived contents."""
+    run = binding.get("run")
+    carrier = binding.get("authority_carrier")
+    if not isinstance(run, dict) or not isinstance(carrier, dict):
+        raise BuilderError("inline_artifact_binding_structure_invalid")
+    for key, expected in {
+        "run_id": str(subject.get("workflow_run_id")), "git_sha": subject.get("source_commit"),
+        "run_key": subject.get("subject_run_key"), "run_mode": subject.get("run_mode"),
+    }.items():
+        if run.get(key) != expected:
+            raise BuilderError("inline_artifact_binding_run_" + key + "_mismatch")
+    for key, subject_field in {
+        "status_json": "final_status_sha256", "declared_gate_policy": "policy_sha256",
+        "release_decision": "release_decision_sha256",
+    }.items():
+        descriptor = carrier.get(key)
+        if not isinstance(descriptor, dict) or descriptor.get("sha256") != subject.get(subject_field):
+            raise BuilderError("inline_artifact_binding_" + key + "_mismatch")
+    gate = carrier.get("workflow_effective_required_gate_set")
+    expected = {
+        "effective_source": "workflow-effective:" + "+".join(workflow_active_policy_sets),
+        "policy_sets": list(workflow_active_policy_sets),
+        "gate_ids": _effective_required_gates(policy, workflow_active_policy_sets),
+    }
+    if not expected["gate_ids"]:
+        raise BuilderError("inline_gate_set_empty")
+    # This is the artifact-binding compact JSON domain, without a newline and
+    # excluding its own sha256 field. It is NOT the standalone PULSE-REF file.
+    digest = sha256_bytes(json.dumps(expected, sort_keys=True, separators=(",", ":"),
+                                    ensure_ascii=False, allow_nan=False).encode("utf-8"))
+    if gate != {**expected, "sha256": digest} or subject.get("materialized_gate_set_sha256") != digest:
+        raise BuilderError("inline_artifact_binding_gate_set_mismatch")
+
+
 def _verify_subject_artifacts(
     *,
     git_path: Path,
@@ -3309,6 +3347,7 @@ def _verify_subject_artifacts(
     final_status_path: Path,
     release_decision_path: Path,
     materialized_gate_set_path: Path | None,
+    artifact_binding_path: Path | None = None,
     carrier: dict[str, Any],
     expectation_created_utc: str,
     release_target: str,
@@ -3451,7 +3490,20 @@ def _verify_subject_artifacts(
     )
 
     materialized_sha = subject.get("materialized_gate_set_sha256")
-    if materialized_sha is None:
+    if artifact_binding_path is not None:
+        if materialized_gate_set_path is not None:
+            raise BuilderError("conflicting_gate_digest_input_domains")
+        if not isinstance(materialized_sha, str) or re.fullmatch(r"[0-9a-f]{64}", materialized_sha) is None:
+            raise BuilderError("inline_gate_set_subject_digest_invalid")
+        binding, _binding_bytes = load_json_object(
+            artifact_binding_path, label="artifact_binding", max_bytes=MAX_INPUT_BYTES,
+            canonical_required=False,
+        )
+        _verify_inline_artifact_binding_gate(
+            binding, subject=subject, policy=policy,
+            workflow_active_policy_sets=workflow_active_policy_sets,
+        )
+    elif materialized_sha is None:
         if materialized_gate_set_path is not None:
             raise BuilderError(
                 "materialized_gate_set_path_present_but_subject_digest_is_null"
@@ -3918,10 +3970,15 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--artifact-binding",
+        help="Original artifact-binding JSON containing the inline workflow-effective gate set; mutually exclusive with --materialized-gate-set.",
+    )
+    parser.add_argument(
         "--materialized-gate-set",
         help=(
-            "Materialized gate-set JSON; required exactly when the subject "
-            "carries a non-null materialized_gate_set_sha256."
+            "Standalone PULSE-REF materialized gate-set JSON for its exact digest "
+            "domain; do not supply together with --artifact-binding. Inline "
+            "artifact-binding gate digests use --artifact-binding instead."
         ),
     )
     parser.add_argument(
@@ -3979,6 +4036,7 @@ def _build(args: argparse.Namespace) -> bytes:
         if args.materialized_gate_set is not None
         else None
     )
+    artifact_binding_path = Path(args.artifact_binding) if args.artifact_binding is not None else None
     output_path = Path(args.output) if args.output is not None else None
 
     canonical_path_bindings = (
@@ -4015,6 +4073,8 @@ def _build(args: argparse.Namespace) -> bytes:
     ]
     if materialized_gate_set_path is not None:
         protected_paths.append(materialized_gate_set_path)
+    if artifact_binding_path is not None:
+        protected_paths.append(artifact_binding_path)
     _reject_unsafe_output(
         output_path,
         protected_paths=protected_paths,
@@ -4208,6 +4268,7 @@ def _build(args: argparse.Namespace) -> bytes:
         final_status_path=final_status_path,
         release_decision_path=release_decision_path,
         materialized_gate_set_path=materialized_gate_set_path,
+        artifact_binding_path=artifact_binding_path,
         carrier=builder_input["carrier"],
         expectation_created_utc=expectation_created_utc,
         release_target=release_target,

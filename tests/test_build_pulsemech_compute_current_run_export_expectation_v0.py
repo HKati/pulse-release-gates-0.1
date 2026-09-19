@@ -30,16 +30,19 @@ TEST_RELATIVE_PATH = (
     "tests/test_build_pulsemech_compute_current_run_export_expectation_v0.py"
 )
 
-EXPECTED_TOOL_LINES = 4306
-EXPECTED_TOOL_BYTES = 144793
+EXPECTED_TOOL_LINES = 4367
+EXPECTED_TOOL_BYTES = 148263
 EXPECTED_TOOL_SHA256 = (
-    "56893caab8f5198a5e4d64dc55638f2d7365ed1660b85514eabc7461cc15b767"
+    "2529f005676a7c0ff4e9f200f104db1ca9545d51930bf43f8d897c927657adef"
 )
-EXPECTED_TOOL_GIT_BLOB_SHA1 = "f7b22613c759d32d5de0b30c7e86989a0c85bb10"
+EXPECTED_TOOL_GIT_BLOB_SHA1 = "e95378aa2c0022119ebaf499ced0161770158598"
 
 
 EXPECTED_UNPARAMETERIZED_TESTS = frozenset(
     {
+        'test_inline_gate_handoff_preserves_the_compact_object_domain',
+        'test_inline_gate_handoff_rejects_rehashed_wrong_objects_and_sets',
+        'test_inline_gate_handoff_rejects_null_missing_and_cross_identity',
         "test_builder_artifact_identity_matches_reviewed_merge",
         "test_validation_dependencies_are_not_imported_at_module_load",
         "test_tools_tests_manifest_registers_builder_regression_exactly_once",
@@ -2592,6 +2595,85 @@ def test_direct_authoritative_launcher_rejects_terminal_pytest_early_exit() -> N
     assert b"collected " + expected_count + b" items" in result.stdout
     assert expected_count + b" passed" in result.stdout
     assert b"usage: pytest" not in result.stdout.lower()
+
+
+
+def _inline_gate_handoff_example():
+    subject = canonical_subject()
+    subject.update(run_mode='prod', active_policy_sets=['required', 'release_required'],
+                   release_candidate_id='pulse-ci-current-run:1001:1',
+                   final_status_sha256='1'*64, release_decision_sha256='2'*64,
+                   policy_sha256='3'*64)
+    policy = {'gates': {'required': ['gate_b', 'gate_a'],
+                        'release_required': ['gate_a', 'gate_c']}}
+    gate = {'effective_source': 'workflow-effective:required+release_required',
+            'policy_sets': ['required', 'release_required'],
+            'gate_ids': ['gate_b', 'gate_a', 'gate_c']}
+    digest = hashlib.sha256(json.dumps(gate, sort_keys=True, separators=(',', ':'),
+                                       ensure_ascii=False, allow_nan=False).encode()).hexdigest()
+    subject['materialized_gate_set_sha256'] = digest
+    binding = {'run': {'run_id': '1001', 'run_key': subject['subject_run_key'],
+                        'git_sha': subject['source_commit'], 'run_mode': 'prod'},
+               'authority_carrier': {
+                   'status_json': {'sha256': subject['final_status_sha256']},
+                   'declared_gate_policy': {'sha256': subject['policy_sha256']},
+                   'release_decision': {'sha256': subject['release_decision_sha256']},
+                   'workflow_effective_required_gate_set': dict(gate, sha256=digest)}}
+    return subject, policy, binding
+
+
+def test_inline_gate_handoff_preserves_the_compact_object_domain():
+    subject, policy, binding = _inline_gate_handoff_example()
+    original = copy.deepcopy(binding)
+    TOOL_MODULE._verify_inline_artifact_binding_gate(
+        binding, subject=subject, policy=policy,
+        workflow_active_policy_sets=['required', 'release_required'])
+    assert binding == original
+    gate = binding['authority_carrier']['workflow_effective_required_gate_set']
+    base = {key: value for key, value in gate.items() if key != 'sha256'}
+    # The file-domain newline and the gate-set document are NOT interchangeable.
+    newline_digest = hashlib.sha256(json.dumps(base, sort_keys=True, separators=(',', ':')).encode()+b'\n').hexdigest()
+    assert newline_digest != subject['materialized_gate_set_sha256']
+
+
+def test_inline_gate_handoff_rejects_rehashed_wrong_objects_and_sets():
+    for mutation in ('standalone', 'newline', 'own_digest', 'extra_key', 'gate_order', 'policy_sets', 'effective_source'):
+        subject, policy, binding = _inline_gate_handoff_example()
+        gate = binding['authority_carrier']['workflow_effective_required_gate_set']
+        if mutation == 'standalone':
+            gate = {'schema': 'pulse_ref_materialized_gate_sets_v0',
+                    'effective_required_gates': ['gate_b', 'gate_a', 'gate_c']}
+        elif mutation == 'extra_key': gate['extra'] = 'not in inline domain'
+        elif mutation == 'gate_order': gate['gate_ids'].reverse()
+        elif mutation == 'policy_sets': gate['policy_sets'].reverse()
+        elif mutation == 'effective_source': gate['effective_source'] = 'status.metrics.required_gates'
+        base = {key: value for key, value in gate.items() if key != 'sha256'}
+        if mutation == 'own_digest': base = dict(gate)
+        payload = json.dumps(base, sort_keys=True, separators=(',', ':')).encode()
+        if mutation == 'newline': payload += b'\n'
+        digest = hashlib.sha256(payload).hexdigest()
+        gate['sha256'] = digest
+        subject['materialized_gate_set_sha256'] = digest
+        binding['authority_carrier']['workflow_effective_required_gate_set'] = gate
+        with pytest.raises(TOOL_MODULE.BuilderError, match='inline_artifact_binding_gate_set_mismatch'):
+            TOOL_MODULE._verify_inline_artifact_binding_gate(binding, subject=subject, policy=policy,
+                workflow_active_policy_sets=['required', 'release_required'])
+
+
+def test_inline_gate_handoff_rejects_null_missing_and_cross_identity():
+    for field in ('materialized_gate_set_sha256', 'source_commit', 'subject_run_key',
+                  'workflow_run_id', 'run_mode', 'final_status_sha256', 'policy_sha256',
+                  'release_decision_sha256'):
+        subject, policy, binding = _inline_gate_handoff_example()
+        subject[field] = None if field == 'materialized_gate_set_sha256' else 'wrong'
+        with pytest.raises(TOOL_MODULE.BuilderError):
+            TOOL_MODULE._verify_inline_artifact_binding_gate(binding, subject=subject, policy=policy,
+                workflow_active_policy_sets=['required', 'release_required'])
+    subject, policy, binding = _inline_gate_handoff_example()
+    del binding['authority_carrier']['workflow_effective_required_gate_set']['sha256']
+    with pytest.raises(TOOL_MODULE.BuilderError):
+        TOOL_MODULE._verify_inline_artifact_binding_gate(binding, subject=subject, policy=policy,
+            workflow_active_policy_sets=['required', 'release_required'])
 
 
 if __name__ == "__main__":
