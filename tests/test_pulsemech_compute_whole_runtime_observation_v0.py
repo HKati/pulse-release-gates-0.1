@@ -12178,6 +12178,103 @@ def test_identity_provider_pin_omission_fails_closed(source_fixture, monkeypatch
     assert module.PROVIDER_WORKFLOW_PATH in caught.value.detail
 
 
+
+# ---------------------------------------------------------------------------
+# A recorded default's argument binding and literal share one call-local AST.
+# These oracles name exact values/errors; neither checker nor cached verdict
+# supplies the expected answer. All existing mapping tests remain registered.
+# ---------------------------------------------------------------------------
+_RECORDED_DEFAULT_LITERAL_SOURCE = (
+    'STATUS = "PULSE_safe_pack_v0/artifacts/status.json"\n'
+    'def main():\n'
+    '    parser.add_argument("--status", default=STATUS)\n'
+)
+
+
+@pytest.mark.parametrize('source,expected,error', [
+    (_RECORDED_DEFAULT_LITERAL_SOURCE.encode(), 'PULSE_safe_pack_v0/artifacts/status.json', None),
+    (_RECORDED_DEFAULT_LITERAL_SOURCE.replace('STATUS = ', 'STATUS: str = ').encode(),
+     'PULSE_safe_pack_v0/artifacts/status.json', None),
+    (_RECORDED_DEFAULT_LITERAL_SOURCE.replace('STATUS = ', 'OTHER = STATUS = ').encode(),
+     'PULSE_safe_pack_v0/artifacts/status.json', None),
+    (_RECORDED_DEFAULT_LITERAL_SOURCE.replace('PULSE_safe_pack_v0/', '${PACK_DIR}/').encode(),
+     'PULSE_safe_pack_v0/artifacts/status.json', None),
+    (_RECORDED_DEFAULT_LITERAL_SOURCE.replace('status.json', 'other.json').encode(),
+     'PULSE_safe_pack_v0/artifacts/other.json', None),
+    (b'def main():\n    parser.add_argument("--status", default=STATUS)\n',
+     None, 'python_constant_not_unique'),
+    (b'STATUS = "a"\nSTATUS = "b"\ndef main():\n    parser.add_argument("--status", default=STATUS)\n',
+     None, 'python_constant_not_unique'),
+    (b'STATUS = 1\ndef main():\n    parser.add_argument("--status", default=STATUS)\n',
+     None, 'python_constant_not_unique'),
+    (b'STATUS: str\ndef main():\n    parser.add_argument("--status", default=STATUS)\n',
+     None, 'python_constant_not_unique'),
+    (b'def main():\n    STATUS = "a"\n    parser.add_argument("--status", default=STATUS)\n',
+     None, 'python_constant_not_unique'),
+    (_RECORDED_DEFAULT_LITERAL_SOURCE.replace('default=STATUS', 'default=OTHER').encode(),
+     None, 'recorded_mapping_default_binding'),
+    (_RECORDED_DEFAULT_LITERAL_SOURCE.replace('default=STATUS', 'default="literal"').encode(),
+     None, 'recorded_mapping_default_binding'),
+    (_RECORDED_DEFAULT_LITERAL_SOURCE.replace(', default=STATUS', '').encode(),
+     None, 'recorded_mapping_default_binding'),
+    (_RECORDED_DEFAULT_LITERAL_SOURCE.replace('"--status"', '"--other"').encode(),
+     None, 'recorded_mapping_default_not_unique'),
+    ((_RECORDED_DEFAULT_LITERAL_SOURCE + '    parser.add_argument("--status", default=STATUS)\n').encode(),
+     None, 'recorded_mapping_default_not_unique'),
+    (_RECORDED_DEFAULT_LITERAL_SOURCE.replace('def main():', 'def other():').encode(),
+     None, 'recorded_mapping_main_not_unique'),
+    ((_RECORDED_DEFAULT_LITERAL_SOURCE + 'def main():\n    pass\n').encode(),
+     None, 'recorded_mapping_main_not_unique'),
+    (b'def main(:\n', None, 'recorded_mapping_python_source'),
+    (b'\xff', None, 'recorded_mapping_python_source'),
+], ids=['literal', 'annotated', 'multiple_targets', 'pack_root', 'changed_literal',
+        'missing_literal', 'duplicate_literal', 'nonstring_literal', 'unassigned_literal',
+        'nested_literal', 'wrong_binding', 'inline_default', 'missing_default',
+        'missing_flag', 'duplicate_flag', 'missing_main', 'duplicate_main',
+        'invalid_syntax', 'invalid_utf8'])
+def test_recorded_default_single_parse_preserves_values_and_errors(source, expected, error):
+    parser = ast.parse
+    with patch.object(BUILDER.ast, 'parse', wraps=parser) as parses:
+        if error is None:
+            assert BUILDER._recorded_default(source, '--status', 'STATUS', 'example.py') == expected
+        else:
+            with pytest.raises(BUILDER.PlanError) as caught:
+                BUILDER._recorded_default(source, '--status', 'STATUS', 'example.py')
+            assert caught.value.code == error
+    # Syntax errors reach ast.parse once; invalid UTF-8 fails before parsing.
+    assert parses.call_count == (0 if source == b'\xff' else 1)
+
+
+def test_recorded_default_syntax_is_not_retained_across_same_path_calls():
+    original = _RECORDED_DEFAULT_LITERAL_SOURCE.encode()
+    changed = original.replace(b'status.json', b'changed.json')
+    invalid = original.replace(b'default=STATUS', b'default=OTHER')
+    parser = ast.parse
+    with patch.object(BUILDER.ast, 'parse', wraps=parser) as parses:
+        assert BUILDER._recorded_default(original, '--status', 'STATUS', 'same.py').endswith('/status.json')
+        assert BUILDER._recorded_default(changed, '--status', 'STATUS', 'same.py').endswith('/changed.json')
+        with pytest.raises(BUILDER.PlanError) as caught:
+            BUILDER._recorded_default(invalid, '--status', 'STATUS', 'same.py')
+        assert caught.value.code == 'recorded_mapping_default_binding'
+        assert BUILDER._recorded_default(original, '--status', 'STATUS', 'same.py').endswith('/status.json')
+    assert parses.call_count == 4
+
+
+def test_recorded_default_literal_lookup_does_not_mutate_its_local_syntax():
+    parser = ast.parse
+    captured = []
+    def record(*args, **kwargs):
+        tree = parser(*args, **kwargs)
+        captured.append((tree, ast.dump(tree, include_attributes=True)))
+        return tree
+    with patch.object(BUILDER.ast, 'parse', side_effect=record):
+        assert BUILDER._recorded_default(
+            _RECORDED_DEFAULT_LITERAL_SOURCE.encode(), '--status', 'STATUS', 'example.py',
+        ) == 'PULSE_safe_pack_v0/artifacts/status.json'
+    assert len(captured) == 1
+    tree, before = captured[0]
+    assert ast.dump(tree, include_attributes=True) == before
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.

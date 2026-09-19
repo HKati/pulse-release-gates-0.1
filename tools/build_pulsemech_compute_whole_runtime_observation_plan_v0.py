@@ -1239,6 +1239,11 @@ def _python_constant(data: bytes, *, name: str, label: str) -> str:
         tree = ast.parse(data.decode("utf-8", errors="strict"), filename=label, mode="exec")
     except (UnicodeError, SyntaxError) as exc:
         raise PlanError("python_source_parse_failed", label) from exc
+    return _python_constant_from_tree(tree, name=name, label=label)
+
+
+def _python_constant_from_tree(tree: ast.Module, *, name: str, label: str) -> str:
+    """Read a literal from this call's parsed source; never retain syntax or results."""
     values: list[str] = []
     for node in tree.body:
         if not isinstance(node, (ast.Assign, ast.AnnAssign)):
@@ -1594,7 +1599,9 @@ def _recorded_default(source: bytes, flag: str, constant: str, path: str) -> str
     defaults = [kw.value for kw in calls[0].keywords if kw.arg == "default"]
     _require(len(defaults) == 1 and isinstance(defaults[0], ast.Name)
              and defaults[0].id == constant, "recorded_mapping_default_binding", flag)
-    return _mapping_path(_python_constant(source, name=constant, label=path))
+    # The argparse binding and its literal come from the same parsed bytes.
+    # Reuse only this local syntax tree, not a prior call's check or result.
+    return _mapping_path(_python_constant_from_tree(tree, name=constant, label=path))
 
 
 def _recorded_source_projection(workflow: dict[str, Any],
