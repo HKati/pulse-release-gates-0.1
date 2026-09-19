@@ -3363,25 +3363,138 @@ def merge_observation_maps(
             raise BuilderError(f"observation_identity_conflict: {observation_id}")
 
 
-def capture_current_run_document(path: Path, *, label: str) -> tuple[dict[str, Any], bytes]:
-    """Capture once; validation and locator construction use these same bytes."""
-    reject_symlink_chain(path)
-    flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
-    with os.fdopen(os.open(path, flags), "rb") as handle:
-        before = os.fstat(handle.fileno())
-        maximum = 64 * 1024 * 1024
-        if not stat.S_ISREG(before.st_mode) or not 0 < before.st_size <= maximum:
-            raise BuilderError(f"{label}_capture_not_bounded_regular_file")
-        raw = handle.read(maximum + 1)
-        after = os.fstat(handle.fileno())
-    fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns", "st_ctime_ns")
-    if len(raw) != before.st_size or any(getattr(before, k) != getattr(after, k) for k in fields):
-        raise BuilderError(f"{label}_changed_during_capture")
-    value = json.loads(raw.decode("utf-8"), object_pairs_hook=reject_duplicate_keys,
-                       parse_constant=reject_non_finite)
-    if not isinstance(value, dict):
-        raise BuilderError(f"{label}_not_object")
-    return value, raw
+class _CurrentRunInputCapture:
+    """Retain the checked directory chain and leaf until input revalidation."""
+
+    def __init__(self, path: Path, *, label: str) -> None:
+        self.label = label
+        self.descriptors: list[int] = []
+        self.parents: list[tuple[int, str, int, tuple[int, int]]] = []
+        self.leaf_parent = -1
+        self.leaf_name = ""
+        self.leaf = -1
+        self.identity: tuple[int, ...] = ()
+        self.raw = b""
+        try:
+            required_flags = ("O_DIRECTORY", "O_NOFOLLOW", "O_NONBLOCK", "O_CLOEXEC")
+            if (os.name != "posix" or not all(hasattr(os, flag) for flag in required_flags)
+                    or os.open not in os.supports_dir_fd
+                    or os.stat not in os.supports_dir_fd
+                    or os.stat not in os.supports_follow_symlinks):
+                raise BuilderError(f"{label}_capture_descriptor_support_unavailable")
+            # Do not resolve symlinks or erase a parent traversal before checking it.
+            if ".." in path.parts:
+                raise BuilderError(f"{label}_capture_parent_traversal_forbidden")
+            absolute = path if path.is_absolute() else Path.cwd() / path
+            if absolute.anchor != "/" or not absolute.name:
+                raise BuilderError(f"{label}_capture_path_invalid")
+            directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+            parent = os.open("/", directory_flags)
+            self.descriptors.append(parent)
+            for name in absolute.parts[1:-1]:
+                before = os.stat(name, dir_fd=parent, follow_symlinks=False)
+                if stat.S_ISLNK(before.st_mode):
+                    raise BuilderError(f"{label}_capture_parent_is_symlink")
+                if not stat.S_ISDIR(before.st_mode):
+                    raise BuilderError(f"{label}_capture_parent_not_directory")
+                child = os.open(name, directory_flags, dir_fd=parent)
+                self.descriptors.append(child)
+                opened = os.fstat(child)
+                identity = (before.st_dev, before.st_ino)
+                if not stat.S_ISDIR(opened.st_mode) or (opened.st_dev, opened.st_ino) != identity:
+                    raise BuilderError(f"{label}_capture_parent_identity_changed")
+                self.parents.append((parent, name, child, identity))
+                parent = child
+            self.leaf_parent, self.leaf_name = parent, absolute.name
+            before = os.stat(self.leaf_name, dir_fd=parent, follow_symlinks=False)
+            if stat.S_ISLNK(before.st_mode):
+                raise BuilderError(f"{label}_capture_is_symlink")
+            self._require_bounded_regular(before)
+            flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
+            self.leaf = os.open(self.leaf_name, flags, dir_fd=parent)
+            self.descriptors.append(self.leaf)
+            opened = os.fstat(self.leaf)
+            self._require_bounded_regular(opened)
+            self.identity = self._file_identity(before)
+            if self._file_identity(opened) != self.identity:
+                raise BuilderError(f"{label}_capture_file_identity_changed")
+            self._verify_chain()
+            self.raw = self._read_leaf()
+            self.verify()
+        except BaseException:
+            self.close()
+            raise
+
+    @staticmethod
+    def _file_identity(info: os.stat_result) -> tuple[int, ...]:
+        return (info.st_dev, info.st_ino, info.st_mode, info.st_nlink,
+                info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+    def _require_bounded_regular(self, info: os.stat_result) -> None:
+        if not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= 64 * 1024 * 1024:
+            raise BuilderError(f"{self.label}_capture_not_bounded_regular_file")
+
+    def _verify_chain(self) -> None:
+        for parent, name, descriptor, expected in self.parents:
+            info = os.stat(name, dir_fd=parent, follow_symlinks=False)
+            opened = os.fstat(descriptor)
+            if (not stat.S_ISDIR(info.st_mode) or not stat.S_ISDIR(opened.st_mode)
+                    or (info.st_dev, info.st_ino) != expected
+                    or (opened.st_dev, opened.st_ino) != expected):
+                raise BuilderError(f"{self.label}_capture_parent_identity_changed")
+        info = os.stat(self.leaf_name, dir_fd=self.leaf_parent, follow_symlinks=False)
+        if (self._file_identity(info) != self.identity
+                or self._file_identity(os.fstat(self.leaf)) != self.identity):
+            raise BuilderError(f"{self.label}_capture_file_identity_changed")
+
+    def _read_leaf(self) -> bytes:
+        os.lseek(self.leaf, 0, os.SEEK_SET)
+        remaining = 64 * 1024 * 1024 + 1
+        chunks: list[bytes] = []
+        while remaining:
+            chunk = os.read(self.leaf, min(remaining, 1024 * 1024))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        raw = b"".join(chunks)
+        if len(raw) != self.identity[4] or self._file_identity(os.fstat(self.leaf)) != self.identity:
+            raise BuilderError(f"{self.label}_changed_during_capture")
+        return raw
+
+    def verify(self) -> None:
+        # Reopen no pathname: check every saved edge and the same held leaf.
+        self._verify_chain()
+        if self._read_leaf() != self.raw:
+            raise BuilderError(f"{self.label}_changed_during_capture")
+        self._verify_chain()
+
+    def close(self) -> None:
+        while self.descriptors:
+            os.close(self.descriptors.pop())
+
+
+def capture_current_run_document(
+    path: Path, *, label: str,
+    captures: list[_CurrentRunInputCapture] | None = None,
+) -> tuple[dict[str, Any], bytes]:
+    """Validate and address the captured bytes, with no pathname rebinding."""
+    capture = _CurrentRunInputCapture(path, label=label)
+    try:
+        value = json.loads(capture.raw.decode("utf-8"), object_pairs_hook=reject_duplicate_keys,
+                           parse_constant=reject_non_finite)
+        if not isinstance(value, dict):
+            raise BuilderError(f"{label}_not_object")
+        capture.verify()
+        if captures is not None:
+            captures.append(capture)
+        return value, capture.raw
+    except BaseException:
+        capture.close()
+        raise
+    finally:
+        if captures is None:
+            capture.close()
 
 
 def current_run_input_locators(
@@ -3797,13 +3910,19 @@ def main() -> int:
     if expectations_path is not None:
         protected_paths.append(expectations_path)
 
+    current_run_captures: list[_CurrentRunInputCapture] = []
     try:
         reject_unsafe_output(
             output_path,
             protected_paths=protected_paths,
             subject_root=subject_root,
         )
-        protected_snapshots = snapshot_regular_files(protected_paths)
+        # Current-run plan/report inputs are captured and revalidated through
+        # held descriptors, never the legacy resolve()/pathname snapshot path.
+        snapshot_paths = [path for path in protected_paths
+                          if not args.current_run_content_locators
+                          or path not in (plan_path, report_path)]
+        protected_snapshots = snapshot_regular_files(snapshot_paths)
 
         schemas: dict[str, dict[str, Any]] = {}
         for label, path in (
@@ -3819,13 +3938,12 @@ def main() -> int:
         if args.current_run_content_locators:
             if packet_paths or expectations_path is not None:
                 raise BuilderError("current_run_locators_require_artifact_only_automatic_expectations")
-            plan, plan_bytes = capture_current_run_document(plan_path, label="plan")
-            report, report_bytes = capture_current_run_document(report_path, label="compute_report")
+            plan, plan_bytes = capture_current_run_document(
+                plan_path, label="plan", captures=current_run_captures)
+            report, report_bytes = capture_current_run_document(
+                report_path, label="compute_report", captures=current_run_captures)
             current_run_input_locators(plan=plan, plan_bytes=plan_bytes,
                                       report=report, report_bytes=report_bytes)
-            # Keep the snapshots tied to the buffers used, not an earlier pathname read.
-            protected_snapshots[plan_path.resolve(strict=True)] = (len(plan_bytes), sha256_bytes(plan_bytes))
-            protected_snapshots[report_path.resolve(strict=True)] = (len(report_bytes), sha256_bytes(report_bytes))
         else:
             plan, plan_bytes = load_json_document(plan_path, label="plan")
             report, report_bytes = load_json_document(report_path, label="compute_report")
@@ -3929,6 +4047,8 @@ def main() -> int:
                 label="generated_relation",
             )
 
+        for capture in current_run_captures:
+            capture.verify()
         verify_regular_file_snapshots(protected_snapshots)
         if output_path is not None:
             atomic_write_text(output_path, rendered)
@@ -3955,6 +4075,10 @@ def main() -> int:
         }
         sys.stderr.write(render_json(diagnostic))
         return 2
+
+    finally:
+        for capture in reversed(current_run_captures):
+            capture.close()
 
 
 # ---------------------------------------------------------------------------

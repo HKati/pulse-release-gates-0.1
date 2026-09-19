@@ -1237,5 +1237,295 @@ def test_current_run_content_locators_reject_runtime_or_external_expectations(cu
         assert b"current_run_locators_require_artifact_only_automatic_expectations" in result.stderr
         assert not (tmp_path / str(number) / "relation.json").exists()
 
+
+# PR #2880 / discussion_r4053371440: deterministic parent-component races.
+def _protected_capture_os(monkeypatch, **overrides):
+    """Intercept only this tool's I/O; every operation still uses the real OS."""
+    import os
+    from types import SimpleNamespace
+    proxy = SimpleNamespace(**vars(os))
+    for key, value in overrides.items():
+        setattr(proxy, key, value)
+    proxy.supports_dir_fd = set(os.supports_dir_fd) | {proxy.open, proxy.stat}
+    proxy.supports_follow_symlinks = set(os.supports_follow_symlinks) | {proxy.stat}
+    monkeypatch.setattr(BUILDER_MODULE, "os", proxy)
+    return proxy
+
+
+def _protected_capture_tree(tmp_path, label):
+    root = tmp_path / "checked"
+    inner = root / "nested"
+    inner.mkdir(parents=True)
+    path = inner / (label + ".json")
+    path.write_bytes(b'{"selected":"original"}')
+    replacement = tmp_path / "replacement"
+    replacement.mkdir()
+    (replacement / path.name).write_bytes(b'{"selected":"substituted"}')
+    nested = replacement / "nested"
+    nested.mkdir()
+    (nested / path.name).write_bytes(b'{"selected":"substituted"}')
+    return root, inner, path, replacement
+
+
+@pytest.mark.parametrize("label", ["plan", "compute_report"])
+@pytest.mark.parametrize("level", ["parent", "ancestor"])
+@pytest.mark.parametrize("replacement_kind", ["symlink", "directory"])
+def test_protected_current_run_capture_rejects_parent_swap_before_leaf_open(
+    tmp_path, monkeypatch, label, level, replacement_kind,
+):
+    import os
+    root, inner, path, replacement = _protected_capture_tree(tmp_path, label)
+    target = inner if level == "parent" else root
+    swapped = False
+
+    def raced_open(name, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if not swapped and Path(name).name == path.name:
+            swapped = True
+            target.rename(tmp_path / "detached")
+            if replacement_kind == "symlink":
+                target.symlink_to(replacement, target_is_directory=True)
+            else:
+                replacement.rename(target)
+        return os.open(name, flags, mode, dir_fd=dir_fd)
+
+    _protected_capture_os(monkeypatch, open=raced_open)
+    with pytest.raises(BUILDER_MODULE.BuilderError, match="capture_parent_identity_changed"):
+        BUILDER_MODULE.capture_current_run_document(path, label=label)
+    assert swapped
+
+
+@pytest.mark.parametrize("label", ["plan", "compute_report"])
+@pytest.mark.parametrize("replacement_kind", ["symlink", "directory"])
+def test_protected_current_run_capture_rejects_parent_swap_between_stat_and_open(
+    tmp_path, monkeypatch, label, replacement_kind,
+):
+    import os
+    root, inner, path, replacement = _protected_capture_tree(tmp_path, label)
+    swapped = False
+
+    def raced_open(name, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if not swapped and Path(name).name == "nested":
+            swapped = True
+            inner.rename(tmp_path / "detached")
+            if replacement_kind == "symlink":
+                inner.symlink_to(replacement, target_is_directory=True)
+            else:
+                replacement.rename(inner)
+        return os.open(name, flags, mode, dir_fd=dir_fd)
+
+    _protected_capture_os(monkeypatch, open=raced_open)
+    with pytest.raises((BUILDER_MODULE.BuilderError, OSError)):
+        BUILDER_MODULE.capture_current_run_document(path, label=label)
+    assert swapped
+
+
+@pytest.mark.parametrize("label", ["plan", "compute_report"])
+@pytest.mark.parametrize("same_bytes", [False, True])
+def test_protected_current_run_capture_rejects_leaf_replacement_before_open(
+    tmp_path, monkeypatch, label, same_bytes,
+):
+    import os
+    root, inner, path, replacement = _protected_capture_tree(tmp_path, label)
+    other = replacement / path.name
+    if same_bytes:
+        other.write_bytes(path.read_bytes())
+    swapped = False
+
+    def raced_open(name, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if not swapped and Path(name).name == path.name:
+            swapped = True
+            other.replace(path)
+        return os.open(name, flags, mode, dir_fd=dir_fd)
+
+    _protected_capture_os(monkeypatch, open=raced_open)
+    with pytest.raises(BUILDER_MODULE.BuilderError, match="capture_file_identity_changed"):
+        BUILDER_MODULE.capture_current_run_document(path, label=label)
+    assert swapped
+
+
+@pytest.mark.parametrize("label", ["plan", "compute_report"])
+@pytest.mark.parametrize("changed", ["parent", "ancestor", "leaf", "bytes"])
+def test_protected_current_run_capture_revalidates_held_identity(
+    tmp_path, label, changed,
+):
+    root, inner, path, replacement = _protected_capture_tree(tmp_path, label)
+    captures = []
+    value, raw = BUILDER_MODULE.capture_current_run_document(path, label=label, captures=captures)
+    assert value == {"selected": "original"}
+    assert raw == b'{"selected":"original"}'
+    assert len(captures) == 1
+    try:
+        captures[0].verify()
+        if changed in ("parent", "ancestor"):
+            target = inner if changed == "parent" else root
+            target.rename(tmp_path / "detached")
+            # Even equal-byte replacement must not rebind the captured pathname.
+            replacement.rename(target)
+            path.write_bytes(raw)
+            error = "capture_parent_identity_changed"
+        elif changed == "leaf":
+            other = replacement / path.name
+            other.write_bytes(raw)
+            other.replace(path)
+            error = "capture_file_identity_changed"
+        else:
+            path.write_bytes(b'{"selected":"modified"}')
+            error = "capture_file_identity_changed"
+        with pytest.raises(BUILDER_MODULE.BuilderError, match=error):
+            captures[0].verify()
+    finally:
+        captures[0].close()
+
+
+def test_protected_current_run_capture_never_resolves_or_reopens_full_path(tmp_path, monkeypatch):
+    import os
+    path = tmp_path / "input.json"
+    path.write_bytes(b'{ "a": 1 }\n')
+    opened = []
+
+    def checked_open(name, flags, mode=0o777, *, dir_fd=None):
+        opened.append((os.fspath(name), flags, dir_fd))
+        assert (name == "/" and dir_fd is None) or (dir_fd is not None and "/" not in os.fspath(name))
+        assert flags & os.O_NOFOLLOW
+        return os.open(name, flags, mode, dir_fd=dir_fd)
+
+    def forbidden_resolve(*args, **kwargs):
+        raise AssertionError("current-run capture must not resolve paths")
+
+    _protected_capture_os(monkeypatch, open=checked_open)
+    with monkeypatch.context() as local:
+        local.setattr(Path, "resolve", forbidden_resolve)
+        value, raw = BUILDER_MODULE.capture_current_run_document(path, label="plan")
+    assert value == {"a": 1} and raw == b'{ "a": 1 }\n'
+    assert opened[-1][0] == "input.json" and opened[-1][2] is not None
+    assert all(flags & os.O_DIRECTORY for _, flags, _ in opened[:-1])
+
+
+def test_protected_current_run_capture_anchors_relative_input(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "input.json").write_bytes(b'{"relative":true}')
+    value, raw = BUILDER_MODULE.capture_current_run_document(Path("input.json"), label="plan")
+    assert value == {"relative": True} and raw == b'{"relative":true}'
+
+
+def test_protected_current_run_capture_rejects_parent_traversal(tmp_path):
+    (tmp_path / "inner").mkdir()
+    path = tmp_path / "input.json"
+    path.write_bytes(b'{"a":1}')
+    with pytest.raises(BUILDER_MODULE.BuilderError, match="parent_traversal_forbidden"):
+        BUILDER_MODULE.capture_current_run_document(tmp_path / "inner" / ".." / path.name, label="plan")
+
+
+def test_protected_current_run_capture_fails_without_descriptor_support(tmp_path, monkeypatch):
+    path = tmp_path / "input.json"
+    path.write_bytes(b'{"a":1}')
+    proxy = _protected_capture_os(monkeypatch)
+    proxy.supports_dir_fd = set()
+    with pytest.raises(BUILDER_MODULE.BuilderError, match="descriptor_support_unavailable"):
+        BUILDER_MODULE.capture_current_run_document(path, label="plan")
+
+
+@pytest.mark.parametrize("kind", ["empty", "oversize", "directory", "fifo"])
+def test_protected_current_run_capture_rejects_unbounded_or_nonregular_input(tmp_path, kind):
+    import os
+    path = tmp_path / "input.json"
+    if kind == "directory":
+        path.mkdir()
+    elif kind == "fifo":
+        os.mkfifo(path)
+    else:
+        with path.open("wb") as handle:
+            if kind == "oversize":
+                handle.truncate(64 * 1024 * 1024 + 1)
+    with pytest.raises(BUILDER_MODULE.BuilderError, match="capture_not_bounded_regular_file"):
+        BUILDER_MODULE.capture_current_run_document(path, label="plan")
+
+
+@pytest.mark.parametrize("raw", [b'{"a":1}', b'{"a":1,"a":2}', b'[]', b'NaN', b'\xff'])
+def test_protected_current_run_capture_closes_all_acquired_descriptors(tmp_path, monkeypatch, raw):
+    import os
+    path = tmp_path / "input.json"
+    path.write_bytes(raw)
+    opened, closed = [], []
+
+    def tracked_open(name, flags, mode=0o777, *, dir_fd=None):
+        fd = os.open(name, flags, mode, dir_fd=dir_fd)
+        opened.append(fd)
+        return fd
+
+    def tracked_close(fd):
+        closed.append(fd)
+        return os.close(fd)
+
+    _protected_capture_os(monkeypatch, open=tracked_open, close=tracked_close)
+    if raw == b'{"a":1}':
+        assert BUILDER_MODULE.capture_current_run_document(path, label="plan") == ({"a": 1}, raw)
+    else:
+        with pytest.raises((BUILDER_MODULE.BuilderError, ValueError)):
+            BUILDER_MODULE.capture_current_run_document(path, label="plan")
+    assert opened
+    assert closed == list(reversed(opened))
+    for fd in opened:
+        with pytest.raises(OSError):
+            os.fstat(fd)
+
+
+def test_protected_current_run_cli_rejects_equal_byte_parent_rebinding_before_publication(
+    current_run_locator_outputs, tmp_path,
+):
+    import subprocess
+    f = current_run_locator_outputs
+    inputs = tmp_path / "inputs"
+    inputs.mkdir()
+    (inputs / "plan.json").write_bytes(f["plan"])
+    (inputs / "report.json").write_bytes(f["report"])
+    driver = tmp_path / "driver.py"
+    driver.write_text('''import importlib.util,json,os,sys
+from pathlib import Path
+p=Path(sys.argv[1]); directory=Path(sys.argv[2])
+spec=importlib.util.spec_from_file_location("protected_cli_probe",p)
+m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+original=m.invoke_json_validator
+snapshot=m.snapshot_regular_files
+
+def validate_then_swap(**kw):
+    result=original(**kw)
+    if kw["label"]=="generated_relation":
+        inputs=directory/"inputs"; inputs.rename(directory/"detached")
+        inputs.mkdir()
+        for old in (directory/"detached").iterdir():
+            (inputs/old.name).write_bytes(old.read_bytes())
+    return result
+
+def snapshots_without_current_inputs(paths):
+    paths=list(paths)
+    assert not any(x.name in ("plan.json","report.json") for x in paths)
+    return snapshot(paths)
+m.invoke_json_validator=validate_then_swap
+m.snapshot_regular_files=snapshots_without_current_inputs
+sys.argv=[str(p),*sys.argv[3:]]
+fds_before=set(os.listdir("/proc/self/fd"))
+code=m.main()
+assert set(os.listdir("/proc/self/fd"))==fds_before
+raise SystemExit(code)
+''')
+    command = [sys.executable, "-I", str(driver),
+        str(Path(f["control_root"]) / "tools/build_pulsemech_compute_planned_observed_relation_v0.py"),
+        str(tmp_path), "--plan", str(inputs / "plan.json"),
+        "--compute-report", str(inputs / "report.json"), "--tool-source-revision", f["source_commit"],
+        "--subject-root", f["subject_root"], "--output", str(tmp_path / "relation.json"),
+        "--current-run-content-locators"]
+    result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, timeout=90)
+    assert result.returncode == 2, result.stderr
+    assert result.stdout == b""
+    assert not (tmp_path / "relation.json").exists()
+    assert (tmp_path / "detached").is_dir()
+    assert "plan_capture_parent_identity_changed" in json.loads(result.stderr)["errors"][0]
+
+
 if __name__ == "__main__":
     check_build_pulsemech_compute_planned_observed_relation_v0()
