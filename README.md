@@ -122,6 +122,10 @@ See:
 
 - [PULSEmech Transition Meter](PULSEMECH_TRANSITION_METER.md)
 - [PULSEmech Technical Overview](PULSEMECH_TECHNICAL_OVERVIEW.md)
+- [Whole-system discovery — evidence-bound requirement matching](docs/PULSEMECH_TRANSITION_METER_WHOLE_SYSTEM_DISCOVERY_v0.md)
+  — Bounded Transition Meter application design for distinguishing relevant
+  components from verified system-level matches. Search integration is not
+  implemented; `authority_effect = none`.
 
 ## Canonical <img src="assets/brand/pulsemech-dark-badge.svg" alt="PULSEmech" height="30"> implementation path
 
