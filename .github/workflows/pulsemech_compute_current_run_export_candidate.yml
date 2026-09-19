@@ -1015,6 +1015,7 @@ jobs:
           parse_utc(source_updated, label="source_updated_utc")
 
           expected_run_metadata = {
+              "release_candidate": "main",
               "repository": os.environ["GITHUB_REPOSITORY"],
               "run_attempt": source_attempt,
               "run_id": source_run_id,
@@ -1232,6 +1233,12 @@ jobs:
           input_root = Path(os.environ["INPUT_ROOT"])
           status_path = input_root / "final-status.json"
           decision_path = input_root / "release-decision.json"
+          binding_path = input_root / "artifact-binding.json"
+          binding_bytes = complete_members.get("artifacts/artifact_provenance_binding_v0.json")
+          if not isinstance(binding_bytes, bytes):
+              fail("artifact_binding_member_missing")
+          binding_path.write_bytes(binding_bytes)
+          binding_path.chmod(0o444)
           status_path.write_bytes(final_status_bytes)
           decision_path.write_bytes(release_decision_bytes)
           status_path.chmod(0o444)
@@ -1278,6 +1285,7 @@ jobs:
                   "pulsemech_compute_current_run_candidate_carrier_observation"
               ),
               "final_status_path": str(status_path),
+              "artifact_binding_path": str(binding_path),
               "ok": True,
               "release_decision_path": str(decision_path),
               "schema_version": (
@@ -1486,6 +1494,16 @@ jobs:
 
           status_path = Path(observation["final_status_path"])
           decision_path = Path(observation["release_decision_path"])
+          binding_path = Path(observation["artifact_binding_path"])
+          binding = json.loads(regular_bytes(binding_path, label="artifact_binding").decode("utf-8"))
+          gate = binding.get("authority_carrier", {}).get("workflow_effective_required_gate_set")
+          if not isinstance(gate, dict) or set(gate) != {"effective_source", "policy_sets", "gate_ids", "sha256"}:
+              fail("inline_gate_set_object_invalid")
+          gate_payload = {key: gate[key] for key in ("effective_source", "policy_sets", "gate_ids")}
+          gate_digest = hashlib.sha256(json.dumps(gate_payload, sort_keys=True, separators=(",", ":"),
+                                                  ensure_ascii=False, allow_nan=False).encode("utf-8")).hexdigest()
+          if gate.get("sha256") != gate_digest:
+              fail("inline_gate_set_digest_mismatch")
           status_bytes = regular_bytes(status_path, label="final_status")
           decision_bytes = regular_bytes(decision_path, label="release_decision")
 
@@ -1541,7 +1559,7 @@ jobs:
               "decision": "ALLOW",
               "event_name": "workflow_dispatch",
               "final_status_sha256": hashlib.sha256(status_bytes).hexdigest(),
-              "materialized_gate_set_sha256": None,
+              "materialized_gate_set_sha256": gate_digest,
               "policy_id": policy_id,
               "policy_sha256": hashlib.sha256(policy_bytes).hexdigest(),
               "release_candidate_id": os.environ["RELEASE_CANDIDATE_ID"],
@@ -1597,6 +1615,7 @@ jobs:
               stream.write(f"input_path={input_path}\n")
               stream.write(f"status_path={status_path}\n")
               stream.write(f"decision_path={decision_path}\n")
+              stream.write(f"binding_path={binding_path}\n")
           PY
 
       - name: Produce observed current-run expectation
@@ -1614,6 +1633,7 @@ jobs:
           BUILDER_INPUT: ${{ steps.expectation_input.outputs.input_path }}
           FINAL_STATUS: ${{ steps.expectation_input.outputs.status_path }}
           RELEASE_DECISION: ${{ steps.expectation_input.outputs.decision_path }}
+          ARTIFACT_BINDING: ${{ steps.expectation_input.outputs.binding_path }}
         run: |
           set -euo pipefail
 
@@ -1654,6 +1674,7 @@ jobs:
             --control-plane-revision "${CONTROL_REVISION}" \
             --final-status "${FINAL_STATUS}" \
             --release-decision "${RELEASE_DECISION}" \
+            --artifact-binding "${ARTIFACT_BINDING}" \
             --output "${EXPECTATION_JSON}" \
             > "${EXPECTATION_STDOUT}"
 
