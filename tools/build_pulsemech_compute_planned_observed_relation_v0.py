@@ -4047,9 +4047,9 @@ def main() -> int:
                 label="generated_relation",
             )
 
+        verify_regular_file_snapshots(protected_snapshots)
         for capture in current_run_captures:
             capture.verify()
-        verify_regular_file_snapshots(protected_snapshots)
         if output_path is not None:
             atomic_write_text(output_path, rendered)
         sys.stdout.write(rendered)

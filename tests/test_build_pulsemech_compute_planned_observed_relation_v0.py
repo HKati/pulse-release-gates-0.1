@@ -1527,5 +1527,115 @@ raise SystemExit(code)
     assert "plan_capture_parent_identity_changed" in json.loads(result.stderr)["errors"][0]
 
 
+
+
+# PR #2880 / discussion_r4053989334: identity checks follow all snapshot work.
+@pytest.mark.parametrize(
+    ("label", "replacement", "publication"),
+    [("plan", "parent_equal", "file"), ("compute_report", "leaf_equal", "stdout")],
+)
+def test_current_run_identity_is_checked_after_other_snapshots(
+    current_run_locator_outputs, tmp_path, label, replacement, publication,
+):
+    """Use real validators and hashes; inject only the filesystem replacement."""
+    import subprocess
+    f = current_run_locator_outputs
+    inputs = tmp_path / "inputs"
+    for name, raw in (("plan", f["plan"]), ("compute_report", f["report"])):
+        directory = inputs / name
+        directory.mkdir(parents=True)
+        (directory / "document.json").write_bytes(raw)
+    driver = tmp_path / "driver.py"
+    driver.write_text(r"""import importlib.util,json,os,sys
+from pathlib import Path
+tool=Path(sys.argv[1]); directory=Path(sys.argv[2])
+label,replacement=sys.argv[3:5]
+spec=importlib.util.spec_from_file_location("late_identity_probe",tool)
+m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+original=m.verify_regular_file_snapshots
+state={"snapshot_calls":0,"hash_calls":0,"swapped":False}
+selected=directory/"inputs"/label/"document.json"
+
+def verify_with_late_replacement(snapshots):
+    state["snapshot_calls"]+=1
+    assert snapshots
+    assert all(directory/"inputs"/name/"document.json" not in snapshots
+               for name in ("plan","compute_report"))
+    real_hash=m.sha256_file
+    def hash_then_replace(path):
+        digest=real_hash(path)
+        state["hash_calls"]+=1
+        if replacement!="none" and not state["swapped"]:
+            raw=selected.read_bytes()
+            before=selected.stat()
+            if replacement.startswith("parent_"):
+                selected.parent.rename(directory/"detached")
+                selected.parent.mkdir()
+            else:
+                selected.rename(directory/"detached.json")
+            selected.write_bytes(raw+(b"\n" if replacement.endswith("_changed") else b""))
+            after=selected.stat()
+            state["swapped"]=True
+            state["inode_changed"]=(before.st_dev,before.st_ino)!=(after.st_dev,after.st_ino)
+            state["bytes_equal"]=selected.read_bytes()==raw
+        return digest
+    m.sha256_file=hash_then_replace
+    try:
+        return original(snapshots)
+    finally:
+        m.sha256_file=real_hash
+
+m.verify_regular_file_snapshots=verify_with_late_replacement
+sys.argv=[str(tool),*sys.argv[5:]]
+fds_before=set(os.listdir("/proc/self/fd"))
+code=m.main()
+state["main_returncode"]=code
+state["descriptors_closed"]=set(os.listdir("/proc/self/fd"))==fds_before
+(directory/"probe.json").write_text(json.dumps(state,sort_keys=True))
+assert state["descriptors_closed"]
+raise SystemExit(code)
+""")
+    output = tmp_path / "relation.json"
+    command = [
+        sys.executable, "-I", str(driver),
+        str(Path(f["control_root"]) / "tools/build_pulsemech_compute_planned_observed_relation_v0.py"),
+        str(tmp_path), label, replacement,
+        "--plan", str(inputs / "plan/document.json"),
+        "--compute-report", str(inputs / "compute_report/document.json"),
+        "--tool-source-revision", f["source_commit"],
+        "--subject-root", f["subject_root"], "--current-run-content-locators",
+    ]
+    if publication == "file":
+        command.extend(["--output", str(output)])
+    result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, timeout=90)
+    (tmp_path / "stdout.log").write_bytes(result.stdout)
+    (tmp_path / "stderr.log").write_bytes(result.stderr)
+    (tmp_path / "command.json").write_text(json.dumps(command))
+    state = json.loads((tmp_path / "probe.json").read_bytes())
+    assert state["snapshot_calls"] == 1 and state["hash_calls"] > 0
+    assert state["descriptors_closed"]
+    assert state["main_returncode"] == result.returncode
+    if replacement == "none":
+        assert not state["swapped"]
+        assert result.returncode == 0, result.stderr
+        assert result.stderr == b""
+        assert isinstance(json.loads(result.stdout), dict)
+        if publication == "file":
+            assert output.read_bytes() == result.stdout
+        else:
+            assert not output.exists()
+    else:
+        assert state["swapped"] and state["inode_changed"]
+        assert state["bytes_equal"] == replacement.endswith("_equal")
+        assert result.returncode == 2, (state, result.stderr)
+        assert result.stdout == b""
+        assert not output.exists()
+        kind = "parent" if replacement.startswith("parent_") else "file"
+        assert json.loads(result.stderr)["errors"] == [
+            f"{label}_capture_{kind}_identity_changed"
+        ]
+
+
 if __name__ == "__main__":
     check_build_pulsemech_compute_planned_observed_relation_v0()
