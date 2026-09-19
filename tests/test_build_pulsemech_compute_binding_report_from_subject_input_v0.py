@@ -940,7 +940,29 @@ def _intake_module(path: Path, name: str) -> Any:
     return result
 
 def _intake_inventory(root: Path) -> list[dict[str, Any]]:
-    return [{'path': p.relative_to(root).as_posix(), 'size_bytes': p.stat().st_size, 'sha256': _intake_sha(p.read_bytes())} for p in sorted(root.rglob('*')) if p.is_file() and '.git' not in p.parts]
+    """Inventory fixture files without traversing excluded Git metadata."""
+    def fail_on_walk_error(error: OSError) -> None:
+        # A source-tree scan failure must not become a partial inventory.
+        raise error
+
+    paths: list[Path] = []
+    for directory, subdirectories, filenames in os.walk(
+        root, topdown=True, onerror=fail_on_walk_error, followlinks=False,
+    ):
+        # Prune before descent: filtering rglob results is already too late.
+        subdirectories[:] = [name for name in subdirectories if name != ".git"]
+        paths.extend(Path(directory) / name for name in filenames if name != ".git")
+
+    result = []
+    for path in sorted(paths):
+        if ".git" in path.parts:
+            continue
+        info = path.stat()
+        if stat.S_ISREG(info.st_mode):
+            result.append({"path": path.relative_to(root).as_posix(),
+                           "size_bytes": info.st_size,
+                           "sha256": _intake_sha(path.read_bytes())})
+    return result
 
 def _intake_zip_bytes(values: dict[str, bytes]) -> bytes:
     stream = io.BytesIO()
@@ -1499,6 +1521,165 @@ def test_loader_binding_real_validated_inputs_reject_dependency_override(current
             analysis_run_key="OFFLINE_ANALYSIS=dependency-substitution-control",
             dependency_captures=deps,
         )
+
+
+@pytest.mark.parametrize("metadata_path", [".git", "nested/.git"])
+def test_intake_inventory_prunes_git_before_scanning(tmp_path, metadata_path):
+    root = tmp_path / "fixture"
+    (root / metadata_path / "objects/13").mkdir(parents=True)
+    (root / metadata_path / "objects/13/object").write_bytes(b"excluded Git storage")
+    (root / "source.py").write_bytes(b"source = 1\n")
+    # Isolate the audit hook in a subprocess: it observes real scandir calls
+    # even when pathlib has captured a reference to os.scandir at import time.
+    script = r'''import ast, hashlib, json, os, stat, sys
+from pathlib import Path
+from typing import Any
+root = Path(sys.argv[2])
+source = Path(sys.argv[1]).read_bytes()
+nodes = [node for node in ast.parse(source).body
+         if isinstance(node, ast.FunctionDef)
+         and node.name in ("_intake_sha", "_intake_inventory")]
+assert len(nodes) == 2
+exec(compile(ast.Module(body=nodes, type_ignores=[]), sys.argv[1], "exec"))
+visited = []
+def audit(event, args):
+    if event == "os.scandir":
+        relative = Path(args[0]).relative_to(root)
+        visited.append(relative.as_posix())
+        if ".git" in relative.parts:
+            raise RuntimeError("excluded_git_metadata_scanned")
+sys.addaudithook(audit)
+result = _intake_inventory(root)
+assert visited
+print(json.dumps({"inventory": result, "visited": visited}))
+'''
+    result = subprocess.run(
+        [sys.executable, "-I", "-B", "-c", script, __file__, str(root)],
+        stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=30,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    observed = json.loads(result.stdout)
+    assert observed["inventory"] == [{"path": "source.py", "size_bytes": 11,
+        "sha256": hashlib.sha256(b"source = 1\n").hexdigest()}]
+    assert observed["visited"]
+    assert not any(".git" in Path(path).parts for path in observed["visited"])
+
+
+def test_intake_inventory_preserves_exact_non_git_files_and_order(tmp_path):
+    root = tmp_path / "fixture"
+    values = {"z.bin": b"\x00\xff", "a.txt": b"top", "a/z.txt": b"nested",
+              ".github/workflows/fixture.yml": b"name: fixture\n",
+              ".gitignore": b"ignored-pattern\n", ".gitkeep": b"",
+              ".git-copy/source.py": b"not Git metadata"}
+    for name, raw in values.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+    metadata = root / ".git/objects/13"
+    metadata.mkdir(parents=True)
+    (metadata / "object").write_bytes(b"unrelated mutable Git storage")
+    expected = [{"path": p.relative_to(root).as_posix(),
+                 "size_bytes": len(values[p.relative_to(root).as_posix()]),
+                 "sha256": hashlib.sha256(values[p.relative_to(root).as_posix()]).hexdigest()}
+                for p in sorted(root / name for name in values)]
+    assert _intake_inventory(root) == expected
+    (root / "z.bin").write_bytes(b"different source bytes")
+    changed = _intake_inventory(root)
+    assert changed != expected
+    assert next(row for row in changed if row["path"] == "z.bin") == {
+        "path": "z.bin", "size_bytes": len(b"different source bytes"),
+        "sha256": hashlib.sha256(b"different source bytes").hexdigest()}
+
+
+def test_intake_inventory_excludes_git_worktree_file_before_stat_or_read(tmp_path, monkeypatch):
+    root = tmp_path / "fixture"
+    root.mkdir()
+    metadata = root / ".git"
+    metadata.write_bytes(b"gitdir: /outside/test-fixture\n")
+    (root / "source.py").write_bytes(b"source")
+    real_stat, real_read = Path.stat, Path.read_bytes
+
+    def guarded_stat(path, *args, **kwargs):
+        assert path != metadata, "excluded Git marker was statted"
+        return real_stat(path, *args, **kwargs)
+
+    def guarded_read(path):
+        assert path != metadata, "excluded Git marker was read"
+        return real_read(path)
+
+    with monkeypatch.context() as guard:
+        guard.setattr(Path, "stat", guarded_stat)
+        guard.setattr(Path, "read_bytes", guarded_read)
+        actual = _intake_inventory(root)
+    assert actual == [{"path": "source.py", "size_bytes": 6,
+                       "sha256": hashlib.sha256(b"source").hexdigest()}]
+
+
+@pytest.mark.parametrize("error_type", [FileNotFoundError, PermissionError])
+def test_intake_inventory_propagates_non_git_scan_errors(tmp_path, monkeypatch, error_type):
+    root = tmp_path / "fixture"
+    (root / "source").mkdir(parents=True)
+    (root / "source/module.py").write_bytes(b"must not silently disappear")
+    real_scandir = os.scandir
+    error = error_type("non-Git source scan failure")
+
+    def failing_scandir(path):
+        if Path(path) == root / "source":
+            raise error
+        return real_scandir(path)
+
+    with monkeypatch.context() as guard:
+        guard.setattr(os, "scandir", failing_scandir)
+        with pytest.raises(error_type) as caught:
+            _intake_inventory(root)
+    assert caught.value is error
+
+
+@pytest.mark.parametrize("error_type", [FileNotFoundError, PermissionError])
+def test_intake_inventory_propagates_non_git_read_errors(tmp_path, monkeypatch, error_type):
+    root = tmp_path / "fixture"
+    root.mkdir()
+    source = root / "source.py"
+    source.write_bytes(b"must be read")
+    real_read = Path.read_bytes
+    error = error_type("non-Git source read failure")
+
+    def failing_read(path):
+        if path == source:
+            raise error
+        return real_read(path)
+
+    with monkeypatch.context() as guard:
+        guard.setattr(Path, "read_bytes", failing_read)
+        with pytest.raises(error_type) as caught:
+            _intake_inventory(root)
+    assert caught.value is error
+
+
+def test_intake_inventory_rejects_disappearing_source_file(tmp_path, monkeypatch):
+    root = tmp_path / "fixture"
+    root.mkdir()
+    source = root / "source.py"
+    source.write_bytes(b"must be inventoried")
+    real_stat = Path.stat
+    error = FileNotFoundError("non-Git source vanished before stat")
+
+    def failing_stat(path, *args, **kwargs):
+        if path == source:
+            raise error
+        return real_stat(path, *args, **kwargs)
+
+    with monkeypatch.context() as guard:
+        guard.setattr(Path, "stat", failing_stat)
+        with pytest.raises(FileNotFoundError) as caught:
+            _intake_inventory(root)
+    assert caught.value is error
+
+
+def test_intake_inventory_rejects_missing_source_root(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        _intake_inventory(tmp_path / "missing-source-root")
 
 
 if __name__ == "__main__":
