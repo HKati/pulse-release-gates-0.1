@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -3362,6 +3363,172 @@ def merge_observation_maps(
             raise BuilderError(f"observation_identity_conflict: {observation_id}")
 
 
+class _CurrentRunInputCapture:
+    """Retain the checked directory chain and leaf until input revalidation."""
+
+    def __init__(self, path: Path, *, label: str) -> None:
+        self.label = label
+        self.descriptors: list[int] = []
+        self.parents: list[tuple[int, str, int, tuple[int, int]]] = []
+        self.leaf_parent = -1
+        self.leaf_name = ""
+        self.leaf = -1
+        self.identity: tuple[int, ...] = ()
+        self.raw = b""
+        try:
+            required_flags = ("O_DIRECTORY", "O_NOFOLLOW", "O_NONBLOCK", "O_CLOEXEC")
+            if (os.name != "posix" or not all(hasattr(os, flag) for flag in required_flags)
+                    or os.open not in os.supports_dir_fd
+                    or os.stat not in os.supports_dir_fd
+                    or os.stat not in os.supports_follow_symlinks):
+                raise BuilderError(f"{label}_capture_descriptor_support_unavailable")
+            # Do not resolve symlinks or erase a parent traversal before checking it.
+            if ".." in path.parts:
+                raise BuilderError(f"{label}_capture_parent_traversal_forbidden")
+            absolute = path if path.is_absolute() else Path.cwd() / path
+            if absolute.anchor != "/" or not absolute.name:
+                raise BuilderError(f"{label}_capture_path_invalid")
+            directory_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC
+            parent = os.open("/", directory_flags)
+            self.descriptors.append(parent)
+            for name in absolute.parts[1:-1]:
+                before = os.stat(name, dir_fd=parent, follow_symlinks=False)
+                if stat.S_ISLNK(before.st_mode):
+                    raise BuilderError(f"{label}_capture_parent_is_symlink")
+                if not stat.S_ISDIR(before.st_mode):
+                    raise BuilderError(f"{label}_capture_parent_not_directory")
+                child = os.open(name, directory_flags, dir_fd=parent)
+                self.descriptors.append(child)
+                opened = os.fstat(child)
+                identity = (before.st_dev, before.st_ino)
+                if not stat.S_ISDIR(opened.st_mode) or (opened.st_dev, opened.st_ino) != identity:
+                    raise BuilderError(f"{label}_capture_parent_identity_changed")
+                self.parents.append((parent, name, child, identity))
+                parent = child
+            self.leaf_parent, self.leaf_name = parent, absolute.name
+            before = os.stat(self.leaf_name, dir_fd=parent, follow_symlinks=False)
+            if stat.S_ISLNK(before.st_mode):
+                raise BuilderError(f"{label}_capture_is_symlink")
+            self._require_bounded_regular(before)
+            flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
+            self.leaf = os.open(self.leaf_name, flags, dir_fd=parent)
+            self.descriptors.append(self.leaf)
+            opened = os.fstat(self.leaf)
+            self._require_bounded_regular(opened)
+            self.identity = self._file_identity(before)
+            if self._file_identity(opened) != self.identity:
+                raise BuilderError(f"{label}_capture_file_identity_changed")
+            self._verify_chain()
+            self.raw = self._read_leaf()
+            self.verify()
+        except BaseException:
+            self.close()
+            raise
+
+    @staticmethod
+    def _file_identity(info: os.stat_result) -> tuple[int, ...]:
+        return (info.st_dev, info.st_ino, info.st_mode, info.st_nlink,
+                info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+    def _require_bounded_regular(self, info: os.stat_result) -> None:
+        if not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= 64 * 1024 * 1024:
+            raise BuilderError(f"{self.label}_capture_not_bounded_regular_file")
+
+    def _verify_chain(self) -> None:
+        for parent, name, descriptor, expected in self.parents:
+            info = os.stat(name, dir_fd=parent, follow_symlinks=False)
+            opened = os.fstat(descriptor)
+            if (not stat.S_ISDIR(info.st_mode) or not stat.S_ISDIR(opened.st_mode)
+                    or (info.st_dev, info.st_ino) != expected
+                    or (opened.st_dev, opened.st_ino) != expected):
+                raise BuilderError(f"{self.label}_capture_parent_identity_changed")
+        info = os.stat(self.leaf_name, dir_fd=self.leaf_parent, follow_symlinks=False)
+        if (self._file_identity(info) != self.identity
+                or self._file_identity(os.fstat(self.leaf)) != self.identity):
+            raise BuilderError(f"{self.label}_capture_file_identity_changed")
+
+    def _read_leaf(self) -> bytes:
+        os.lseek(self.leaf, 0, os.SEEK_SET)
+        remaining = 64 * 1024 * 1024 + 1
+        chunks: list[bytes] = []
+        while remaining:
+            chunk = os.read(self.leaf, min(remaining, 1024 * 1024))
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        raw = b"".join(chunks)
+        if len(raw) != self.identity[4] or self._file_identity(os.fstat(self.leaf)) != self.identity:
+            raise BuilderError(f"{self.label}_changed_during_capture")
+        return raw
+
+    def verify(self) -> None:
+        # Reopen no pathname: check every saved edge and the same held leaf.
+        self._verify_chain()
+        if self._read_leaf() != self.raw:
+            raise BuilderError(f"{self.label}_changed_during_capture")
+        self._verify_chain()
+
+    def close(self) -> None:
+        while self.descriptors:
+            os.close(self.descriptors.pop())
+
+
+def capture_current_run_document(
+    path: Path, *, label: str,
+    captures: list[_CurrentRunInputCapture] | None = None,
+) -> tuple[dict[str, Any], bytes]:
+    """Validate and address the captured bytes, with no pathname rebinding."""
+    capture = _CurrentRunInputCapture(path, label=label)
+    try:
+        value = json.loads(capture.raw.decode("utf-8"), object_pairs_hook=reject_duplicate_keys,
+                           parse_constant=reject_non_finite)
+        if not isinstance(value, dict):
+            raise BuilderError(f"{label}_not_object")
+        capture.verify()
+        if captures is not None:
+            captures.append(capture)
+        return value, capture.raw
+    except BaseException:
+        capture.close()
+        raise
+    finally:
+        if captures is None:
+            capture.close()
+
+
+def current_run_input_locators(
+    *, plan: dict[str, Any], plan_bytes: bytes,
+    report: dict[str, Any], report_bytes: bytes,
+) -> tuple[str, str]:
+    """Select only the artifact-observed current-run input contract, not an alias."""
+    for document, raw in ((plan, plan_bytes), (report, report_bytes)):
+        if json.loads(raw, object_pairs_hook=reject_duplicate_keys,
+                      parse_constant=reject_non_finite) != document:
+            raise BuilderError("current_run_locator_input_bytes_mismatch")
+    subject = report.get("subject", {})
+    boundary = report.get("analysis_boundary", {})
+    run_id, attempt = subject.get("workflow_run_id"), subject.get("workflow_run_attempt")
+    revision, repository = subject.get("source_commit"), subject.get("repository")
+    if (report.get("record_status") != "observed"
+            or "runtime_binding" in report or "report_profile" in report
+            or boundary.get("analysis_level") != "artifact_observed"
+            or subject.get("workflow") != "PULSE CI"
+            or type(run_id) is not int or run_id <= 0
+            or type(attempt) is not int or attempt <= 0
+            or not isinstance(revision, str) or re.fullmatch(r"[0-9a-f]{40}", revision) is None
+            or not isinstance(repository, str) or not repository
+            or subject.get("release_candidate_id") != f"pulse-ci-current-run:{run_id}:{attempt}"
+            or boundary.get("subject_run_key") !=
+                f"GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT={attempt}|GITHUB_WORKFLOW=PULSE CI"
+            or plan.get("source", {}).get("revision") != revision
+            or plan.get("source", {}).get("repository") != repository
+            or plan.get("target", {}).get("repository_id") != repository
+            or plan.get("target", {}).get("default_branch") != "main"):
+        raise BuilderError("current_run_locator_profile_mismatch")
+    return "sha256:" + sha256_bytes(plan_bytes), "sha256:" + sha256_bytes(report_bytes)
+
+
 def build_relation_record(
     *,
     plan: dict[str, Any],
@@ -3376,7 +3543,15 @@ def build_relation_record(
     tool_source_revision: str | None,
     expectations_bytes: bytes | None = None,
     bounded_inputs: dict[str, Any] | None = None,
+    current_run_content_locators: bool = False,
 ) -> dict[str, Any]:
+    if type(current_run_content_locators) is not bool:
+        raise BuilderError("current_run_locator_selection_invalid")
+    if current_run_content_locators:
+        if packets or bounded_inputs is not None or explicit_expectations:
+            raise BuilderError("current_run_locators_require_artifact_only_automatic_expectations")
+        plan_path_or_uri, report_path_or_uri = current_run_input_locators(
+            plan=plan, plan_bytes=plan_bytes, report=report, report_bytes=report_bytes)
     bounded_profile = report.get("report_profile") == "bounded_execution_reference_v0"
     if bounded_profile:
         explicit_expectations, expectations_bytes, tool_source_revision = _prepare_bounded_relation(
@@ -3670,6 +3845,10 @@ def parse_args() -> argparse.Namespace:
         help="Optional runtime-observation packet. Repeat for a packet chain.",
     )
     parser.add_argument("--relation-id")
+    parser.add_argument(
+        "--current-run-content-locators", action="store_true",
+        help="Bind artifact-observed current-run plan/report locators to captured bytes; legacy paths are the default.",
+    )
     parser.add_argument("--tool-source-revision")
     parser.add_argument("--plan-schema", default=str(DEFAULT_PLAN_SCHEMA))
     parser.add_argument("--report-schema", default=str(DEFAULT_REPORT_SCHEMA))
@@ -3731,13 +3910,19 @@ def main() -> int:
     if expectations_path is not None:
         protected_paths.append(expectations_path)
 
+    current_run_captures: list[_CurrentRunInputCapture] = []
     try:
         reject_unsafe_output(
             output_path,
             protected_paths=protected_paths,
             subject_root=subject_root,
         )
-        protected_snapshots = snapshot_regular_files(protected_paths)
+        # Current-run plan/report inputs are captured and revalidated through
+        # held descriptors, never the legacy resolve()/pathname snapshot path.
+        snapshot_paths = [path for path in protected_paths
+                          if not args.current_run_content_locators
+                          or path not in (plan_path, report_path)]
+        protected_snapshots = snapshot_regular_files(snapshot_paths)
 
         schemas: dict[str, dict[str, Any]] = {}
         for label, path in (
@@ -3750,8 +3935,18 @@ def main() -> int:
             validate_schema_document(schema, label=label)
             schemas[label] = schema
 
-        plan, plan_bytes = load_json_document(plan_path, label="plan")
-        report, report_bytes = load_json_document(report_path, label="compute_report")
+        if args.current_run_content_locators:
+            if packet_paths or expectations_path is not None:
+                raise BuilderError("current_run_locators_require_artifact_only_automatic_expectations")
+            plan, plan_bytes = capture_current_run_document(
+                plan_path, label="plan", captures=current_run_captures)
+            report, report_bytes = capture_current_run_document(
+                report_path, label="compute_report", captures=current_run_captures)
+            current_run_input_locators(plan=plan, plan_bytes=plan_bytes,
+                                      report=report, report_bytes=report_bytes)
+        else:
+            plan, plan_bytes = load_json_document(plan_path, label="plan")
+            report, report_bytes = load_json_document(report_path, label="compute_report")
         validate_document(schema=schemas["plan"], value=plan, label="plan")
         validate_document(schema=schemas["report"], value=report, label="compute_report")
 
@@ -3760,13 +3955,24 @@ def main() -> int:
         if "runtime_binding" in report:
             return runtime_profile_cli(args, report_bytes=report_bytes, plan_bytes=plan_bytes)
 
-        invoke_json_validator(
-            validator_path=report_validator_path,
-            schema_path=report_schema_path,
-            document_path=report_path,
-            document_flag="--report",
-            label="compute_report",
-        )
+        if args.current_run_content_locators:
+            with tempfile.TemporaryDirectory(prefix="pulsemech-current-run-relation-input-") as directory:
+                captured_report = Path(directory) / "report.json"
+                captured_report.write_bytes(report_bytes)
+                captured_report.chmod(0o400)
+                invoke_json_validator(
+                    validator_path=report_validator_path, schema_path=report_schema_path,
+                    document_path=captured_report, document_flag="--report", label="compute_report")
+                if captured_report.read_bytes() != report_bytes:
+                    raise BuilderError("current_run_report_capture_changed")
+        else:
+            invoke_json_validator(
+                validator_path=report_validator_path,
+                schema_path=report_schema_path,
+                document_path=report_path,
+                document_flag="--report",
+                label="compute_report",
+            )
 
         packet_documents: list[tuple[dict[str, Any], bytes, str]] = []
         for packet_path in packet_paths:
@@ -3818,6 +4024,7 @@ def main() -> int:
             explicit_expectations=explicit_expectations,
             relation_id=args.relation_id,
             tool_source_revision=tool_source_revision,
+            current_run_content_locators=args.current_run_content_locators,
         )
 
         validate_document(
@@ -3841,6 +4048,8 @@ def main() -> int:
             )
 
         verify_regular_file_snapshots(protected_snapshots)
+        for capture in current_run_captures:
+            capture.verify()
         if output_path is not None:
             atomic_write_text(output_path, rendered)
         sys.stdout.write(rendered)
@@ -3866,6 +4075,10 @@ def main() -> int:
         }
         sys.stderr.write(render_json(diagnostic))
         return 2
+
+    finally:
+        for capture in reversed(current_run_captures):
+            capture.close()
 
 
 # ---------------------------------------------------------------------------

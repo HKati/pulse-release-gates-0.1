@@ -1364,5 +1364,201 @@ def test_bounded_logical_state_identity_is_not_content_identity():
     assert core._bounded_state_id("results/allow/checker.stderr",artifact=True)!=core._bounded_state_id("results/allow/checker.stderr")
 
 
+
+
+# Current-run intake: metadata-only unit controls. These small objects are
+# not validated subject packets or evidence of a hosted execution.
+import ast
+import copy
+import dataclasses
+import io
+import zipfile
+
+_INTAKE_CORE = runtime_test_module("pulsemech_compute_binding_analyzer_core_v0.py")
+
+def _intake_function_source(source, name):
+    node = next(n for n in ast.parse(source).body
+                if isinstance(n, (ast.FunctionDef, ast.ClassDef)) and n.name == name)
+    return ast.get_source_segment(source, node)
+
+_INTAKE_UNCHANGED_FUNCTION_SHA256 = {'validate_preservation_manifest': '47a185eb72ab160fba94e90a8d7aabd5443a6eff47fa09f732fd66ccd7ee4556', 'validate_package_inventory': '59023a3fe6b389d47e8cbe63983660ef2236949c62ed4b7b80faac0076eabbd4', 'load_observed_bundle': '20992555c8a0547c2009c1a5c4d7dd5b0d7c26365aa4cdc70f9a1741209d8d47', 'index_runtime_packet_sources': 'b0f3a4e7e99c7aa275e8fbb74f16b3b2222f266edb2fe3977fac34747bfd3ca3', 'build_runtime_report': '9b7e7b2e5cb2f75a40448082e0481f2883641abadba545d1545e29ed93bf6bd9', '_bounded_support': '84b0e0a42df315d934d6015ce895715242d538ec63795595cf15a123207d34a3', 'build_bounded_reference_report': 'cfff6acf87500bfb032ef8d81ecbff0ecea7806813a0bc3c46e86b30bdde4b1d'}
+
+def test_intake_artifact_identity_is_immutable():
+ with pytest.raises(dataclasses.FrozenInstanceError):_INTAKE_CORE.HISTORICAL_ARTIFACT_IDENTITY.run_id=70000001
+
+@pytest.mark.parametrize('name',['file.json','artifacts/status.json'])
+def test_intake_historical_locator_bytes_unchanged(name):
+ assert _INTAKE_CORE.package_uri(name)==f'{_INTAKE_CORE.COMPLETE_PACKAGE_NAME}!/{name}'
+ assert _INTAKE_CORE.outer_artifact_uri(name)==_INTAKE_CORE.ARCHIVE_DISPLAY_PATH+'!/'+_INTAKE_CORE.ORIGINAL_PREFIX+name
+
+def test_intake_current_locators_retain_exact_carrier_and_nested_package():
+ ident=dataclasses.replace(_INTAKE_CORE.HISTORICAL_ARTIFACT_IDENTITY,current_run=True,archive_locator='sha256:'+'b'*64,
+     original_prefix='pulsemech-current-run-export-70000001-1-v0/original-github-artifacts/',
+     complete_package_name='complete-release-grade-reference-package-70000001-1.zip')
+ actual=_INTAKE_CORE.package_uri('artifacts/status.json',identity=ident)
+ assert actual=='sha256:'+'b'*64+'!/'+ident.original_prefix+ident.complete_package_name+'!/artifacts/status.json'
+ assert '6066' not in actual
+
+@pytest.mark.parametrize('name',['validate_preservation_manifest','validate_package_inventory','load_observed_bundle',
+ 'index_runtime_packet_sources','build_runtime_report','_bounded_support','build_bounded_reference_report'])
+def test_intake_historical_and_runtime_algorithms_are_textually_unchanged(name):
+    source = _intake_function_source(CORE.read_text(), name)
+    assert hashlib.sha256(source.encode()).hexdigest() == _INTAKE_UNCHANGED_FUNCTION_SHA256[name]
+
+def test_intake_report_uses_bound_identity_without_legacy_constants():
+ s=_intake_function_source(CORE.read_text(),'build_report');tree=ast.parse(s)
+ forbidden={'EXPECTED_RUN_KEY','EXPECTED_RUN_ID','EXPECTED_RUN_NUMBER','EXPECTED_RUN_ATTEMPT',
+ 'EXPECTED_REPOSITORY','EXPECTED_SOURCE_COMMIT','EXPECTED_WORKFLOW','EXPECTED_ARTIFACTS','COMPLETE_PACKAGE_NAME',
+ 'COMPLETENESS_ARCHIVE_NAME','VERIFICATION_ARCHIVE_NAME','PRESERVATION_MANIFEST_DISPLAY_PATH','ARCHIVE_DISPLAY_PATH'}
+ assert not {n.id for n in ast.walk(tree) if isinstance(n,ast.Name)}&forbidden
+ for n in ast.walk(tree):
+  if isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id in {'package_uri','outer_artifact_uri'}:
+   assert any(k.arg=='identity' for k in n.keywords)
+
+def test_intake_fixed_wrapper_still_reexports_single_core():
+ wrapper=runtime_test_module("build_pulsemech_compute_binding_report_v0.py")
+ assert wrapper.build_report.__module__=='pulsemech_compute_binding_analyzer_core_v0'
+ assert wrapper.load_observed_bundle.__module__=='pulsemech_compute_binding_analyzer_core_v0'
+
+
+# Current-run release-label handoff. These are explicit synthetic contract
+# examples; neither the data nor a successful local command is a hosted run.
+def _identity_label_example():
+    subject = {
+        "repository": "example-org/identity-subject", "source_commit": "a" * 40,
+        "workflow_name": "PULSE CI", "workflow_path": ".github/workflows/pulse_ci.yml",
+        "workflow_run_id": 9001, "workflow_run_number": 9017, "workflow_run_attempt": 1,
+        "subject_run_key": "GITHUB_RUN_ID=9001|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+        "source_ref": "refs/heads/main", "event_name": "workflow_dispatch",
+        "workflow_ref": "example-org/identity-subject/.github/workflows/pulse_ci.yml@refs/heads/main",
+        "release_candidate_id": "pulse-ci-current-run:9001:1",
+    }
+    metadata = {"release_candidate": "main", **{
+        target: subject[source] for target, source in {
+            "repository": "repository", "git_sha": "source_commit", "run_id": "workflow_run_id",
+            "run_attempt": "workflow_run_attempt", "run_key": "subject_run_key", "workflow_ref": "workflow_ref",
+        }.items()
+    }}
+    return subject, metadata
+
+
+def test_current_run_identity_keeps_main_and_analysis_candidate_distinct():
+    subject, metadata = _identity_label_example()
+    before = copy.deepcopy((subject, metadata))
+    assert _INTAKE_CORE._current_run_packaged_release_label(subject, metadata) == "main"
+    assert (subject, metadata) == before
+    identity = dataclasses.replace(_INTAKE_CORE.HISTORICAL_ARTIFACT_IDENTITY,
+        current_run=True, release_candidate=subject["release_candidate_id"], packaged_release_label="main")
+    assert identity.release_candidate == "pulse-ci-current-run:9001:1"
+    assert identity.packaged_release_label == "main"
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        identity.packaged_release_label = identity.release_candidate
+
+
+@pytest.mark.parametrize("field,value", [
+    ("release_candidate_id", "alias"),
+    ("release_candidate_id", "pulse-ci-current-run:9002:1"),
+    ("release_candidate_id", "pulse-ci-current-run:9001:2"),
+    ("workflow_run_id", True), ("workflow_run_id", 0),
+    ("workflow_run_attempt", False), ("workflow_run_attempt", -1),
+    ("workflow_name", "other"), ("workflow_path", ".github/workflows/other.yml"),
+    ("source_ref", "refs/heads/other"), ("event_name", "push"),
+    ("subject_run_key", "GITHUB_RUN_ID=9002|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"),
+    ("source_commit", "b" * 40), ("repository", "other/repository"),
+    ("workflow_ref", "example-org/identity-subject/.github/workflows/pulse_ci.yml@refs/heads/other"),
+])
+def test_current_run_identity_rejects_conflicting_subject(field, value):
+    subject, metadata = _identity_label_example()
+    subject[field] = value
+    with pytest.raises(_INTAKE_CORE.BuilderError):
+        _INTAKE_CORE._current_run_packaged_release_label(subject, metadata)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("release_candidate", "other"), ("release_candidate", "pulse-ci-current-run:9002:1"),
+    ("release_candidate", None), ("repository", "other/repository"),
+    ("git_sha", "b" * 40), ("run_id", 9002), ("run_attempt", 2),
+    ("run_key", "wrong"), ("workflow_ref", "wrong"),
+])
+def test_current_run_identity_rejects_conflicting_preserved_metadata(field, value):
+    subject, metadata = _identity_label_example()
+    metadata[field] = value
+    with pytest.raises(_INTAKE_CORE.BuilderError):
+        _INTAKE_CORE._current_run_packaged_release_label(subject, metadata)
+
+
+def test_current_run_identity_preserves_existing_exact_label_inputs():
+    subject, metadata = _identity_label_example()
+    metadata["release_candidate"] = subject["release_candidate_id"]
+    assert _INTAKE_CORE._current_run_packaged_release_label(subject, metadata) == subject["release_candidate_id"]
+    assert _INTAKE_CORE.HISTORICAL_ARTIFACT_IDENTITY.release_candidate == "main"
+    assert _INTAKE_CORE.HISTORICAL_ARTIFACT_IDENTITY.packaged_release_label is None
+
+
+
+# Frozen test-only driver: actual emitted package, expectation, packet, full
+# bundle intake, bridge, and report validation. No mocked successful command.
+_IDENTITY_EMITTED_HANDOFF_DRIVER = '"""Offline current-run identity candidate integration. All subject data is synthetic.\nRuns actual decision/binding/assembler/verifier/expectation/packet/loader commands.\nNo live API call, no patched validator result, no Step5C acceptance.\n"""\nfrom pathlib import Path\nimport sys, json, hashlib, importlib.util, shutil, inspect, zipfile, io, traceback, subprocess, datetime as dt, os\nW=Path(__file__).resolve().parent; S=Path(sys.argv[1]).resolve(); P=W/\'identity_emitted_handoff\'\nP.mkdir(exist_ok=False)\ndef j(v):return (json.dumps(v,sort_keys=True,indent=2,ensure_ascii=False)+\'\\n\').encode()\ndef dump(p,v):p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(j(v))\ndef sha(b):return hashlib.sha256(b).hexdigest()\ndef mod(path,name):\n spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);sys.modules[name]=m;spec.loader.exec_module(m);return m\ndef utc(t):return t.astimezone(dt.timezone.utc).strftime(\'%Y-%m-%dT%H:%M:%SZ\')\ndef zipdata(ms):\n b=io.BytesIO()\n with zipfile.ZipFile(b,\'w\',compression=zipfile.ZIP_DEFLATED) as z:\n  for name,value in sorted(ms.items()):\n   i=zipfile.ZipInfo(name,(2000,1,1,0,0,0));i.create_system=3;i.external_attr=(0o100444<<16);i.compress_type=zipfile.ZIP_DEFLATED;z.writestr(i,value)\n return b.getvalue()\ncommands=[]\nR=S\n\ndef run(name,args,expected=0):\n d=P/\'commands\'/name;d.mkdir(parents=True,exist_ok=False)\n record={\'argv\':list(map(str,args)),\'cwd\':str(R),\'started_utc\':dt.datetime.now(dt.timezone.utc).isoformat()}\n dump(d/\'command.json\',record)\n env=dict(os.environ)\n for key in (\'PYTHONPATH\',\'PYTHONHOME\',\'PYTEST_ADDOPTS\',\'PYTEST_PLUGINS\',\'GITHUB_SHA\'):env.pop(key,None)\n env.update(PYTHONDONTWRITEBYTECODE=\'1\',GIT_CONFIG_NOSYSTEM=\'1\',GIT_CONFIG_GLOBAL=\'/dev/null\',GIT_TERMINAL_PROMPT=\'0\')\n result=subprocess.run(record[\'argv\'],cwd=R,env=env,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=240)\n (d/\'stdout.log\').write_bytes(result.stdout);(d/\'stderr.log\').write_bytes(result.stderr)\n record.update(returncode=result.returncode,finished_utc=dt.datetime.now(dt.timezone.utc).isoformat());dump(d/\'result.json\',record);commands.append(record)\n print(name,result.returncode,flush=True)\n if expected is not None and result.returncode != expected:raise RuntimeError(name+\': \'+result.stderr.decode()[-6000:]+result.stdout.decode()[-1200:])\n return result\n\ndef cli(name,tool,args,expected=0):return run(name,[sys.executable,\'-I\',\'-B\',R/tool,*args],expected)\ntry:\n t=mod(S/\'tests/test_build_pulsemech_compute_binding_report_from_subject_input_v0.py\',\'own_source_bridge_fixture\')\n t._INTAKE_REPOSITORY=\'HKati/pulse-release-gates-0.1\'\n code=inspect.getsource(t._IntakeFixtureHarness)\n repl={\'synthetic-current-run-9001-1\':\'pulse-ci-current-run:9001:1\',"\'artifact_name\': n,":"\'artifact_name\': n[:-4],", "\'exports/current-run-9001-1.zip\'":"\'exports/pulsemech-current-run-export-9001-1-v0.zip\'"}\n for old,new in repl.items():assert code.count(old)==1,(old,code.count(old));code=code.replace(old,new)\n # Add schema-required fields only to the synthetic status input.\n code=code.replace("        status = load(\'artifacts/status.json\')\\n","        status = load(\'artifacts/status.json\')\\n        status.update(version=\'1.0.0\', created_utc=\'2026-09-17T20:00:00Z\')\\n")\n a=code.index("        decision = {\'required_gates_passed\'");b=code.index("        subject[\'release_decision_sha256\']",a)\n code=code[:a]+\'\'\'        generated = self.root / \'actual-generated-authority\'\n        generated.mkdir()\n        (generated/\'status.json\').write_bytes(members[\'artifacts/status.json\'])\n        self.execute(\'real_release_decision\', [sys.executable,\'-I\',\'-B\',self.control/\'PULSE_safe_pack_v0/tools/materialize_release_decision.py\',\n            \'--status\',generated/\'status.json\',\'--policy\',self.control/\'pulse_gate_policy_v0.yml\',\n            \'--target\',\'prod\',\'--status-schema\',self.control/\'schemas/status/status_v1.schema.json\',\n            \'--out\',generated/\'release_decision_v0.json\'])\n        members[\'artifacts/release_decision_v0.json\']=(generated/\'release_decision_v0.json\').read_bytes()\n\'\'\' + code[b:]\n needle="        save(\'artifacts/artifact_provenance_binding_v0.json\', binding)\\n";assert code.count(needle)==1\n code=code.replace(needle,\'\'\'        (generated/\'authority.json\').write_bytes(members[\'artifacts/release_authority_v0.json\'])\n        (generated/\'ledger.html\').write_bytes(members[\'artifacts/report_card.html\'])\n        self.execute(\'real_artifact_binding\', [sys.executable,\'-I\',\'-B\',self.control/\'PULSE_safe_pack_v0/tools/build_artifact_provenance_binding_v0.py\',\n            \'--status\',generated/\'status.json\',\'--policy\',self.control/\'pulse_gate_policy_v0.yml\',\n            \'--ledger\',generated/\'ledger.html\',\'--release-decision\',generated/\'release_decision_v0.json\',\n            \'--release-authority-manifest\',generated/\'authority.json\',\n            \'--policy-set\',\'required\',\'--policy-set\',\'release_required\',\'--out\',generated/\'binding.json\'])\n        members[\'artifacts/artifact_provenance_binding_v0.json\']=(generated/\'binding.json\').read_bytes()\n        binding=json.loads(members[\'artifacts/artifact_provenance_binding_v0.json\'])\n        subject[\'materialized_gate_set_sha256\']=binding[\'authority_carrier\'][\'workflow_effective_required_gate_set\'][\'sha256\']\n\'\'\')\n (P/\'fixture_data_driver.py\').write_text(code)\n exec(compile(code,str(P/\'fixture_data_driver.py\'),\'exec\'),t.__dict__)\n t._INTAKE_BASE=P;t._INTAKE_RAW=P/\'raw-source\'\n shutil.copytree(S,t._INTAKE_RAW,ignore=shutil.ignore_patterns(\'.git\',\'__pycache__\',\'.pytest_cache\'))\n dump(P/\'fixture_status.json\',{\'synthetic_input\':True,\'source_origin\':\'preserved current-run helper + new internal schema-compatible data and real authority tool calls\',\'upstream_head\':\'5f8bd8cdf75894d40e27d38dc8cb1ce4b813eb8e\',\'not_observed_reference\':True,\'helper_embedded_old_provenance_label_not_used\':True})\n h=t._IntakeFixtureHarness();h.build();R=h.control;revision=h.git(R,\'rev-parse\',\'HEAD\');A=P/\'assembly\';A.mkdir()\n dump(P/\'source_identity.json\',{\'local_source_revision\':revision,\'upstream_baseline\':\'5f8bd8cdf75894d40e27d38dc8cb1ce4b813eb8e\',\'candidate_sources\':t._intake_inventory(R),\'not_upstream_checkout\':True})\n old=json.loads((h.root/\'external/expectation.json\').read_bytes());art=h.root/\'package/artifacts\'\n decision=json.loads((art/\'release_decision_v0.json\').read_bytes());epoch=dt.datetime.fromisoformat(decision[\'created_utc\'].replace(\'Z\',\'+00:00\'))\n finalized=utc(epoch+dt.timedelta(minutes=4));created=utc(epoch+dt.timedelta(minutes=2));expires=utc(epoch+dt.timedelta(days=30));expected_time=finalized\n roots={k:A/\'inputs\'/n for k,n in [(\'pulse_report\',\'pulse-report\'),(\'recorded_path\',\'recorded-path\'),(\'audit_bundle\',\'audit-bundle\'),(\'artifact_binding\',\'artifact-binding\')]}\n for root in roots.values():root.mkdir(parents=True)\n assembler=mod(R/\'PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py\',\'real_assembler\')\n for key,name,destination in assembler.ARTIFACT_FILES:\n  (roots[key]/name).write_bytes((art/name).read_bytes() if (art/name).is_file() else (art/\'external\'/name).read_bytes())\n shutil.copytree(art/\'recorded_release_candidates\',roots[\'recorded_path\']/\'recorded_release_candidates\')\n for name in (\'status.json\',\'report_card.html\',\'release_authority_v0.json\'):(roots[\'audit_bundle\']/name).write_bytes((art/name).read_bytes())\n common=[\'--repository\',t._INTAKE_REPOSITORY,\'--git-sha\',revision,\'--workflow-ref\',old[\'subject\'][\'workflow_ref\'],\'--run-id\',\'9001\',\'--run-attempt\',\'1\',\'--run-key\',old[\'subject\'][\'subject_run_key\']]\n cli(\'assemble\',\'PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py\',[\'--repo-root\',R,\'--out-dir\',A/\'package\',\'--pulse-report-dir\',roots[\'pulse_report\'],\'--recorded-path-dir\',roots[\'recorded_path\'],\'--audit-bundle-dir\',roots[\'audit_bundle\'],\'--artifact-binding-dir\',roots[\'artifact_binding\'],*common,\'--release-candidate\',\'main\',\'--created-utc\',created])\n cli(\'completeness\',\'tools/check_release_grade_package_complete_v1.py\',[\'--package-dir\',A/\'package\',\'--out\',A/\'completeness.json\'])\n cli(\'verification\',\'PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py\',[\'--repo-root\',R,\'--package-dir\',A/\'package\',\'--out\',A/\'verification.json\',*common])\n # Preserve the original emitted bytes of every authority tool and report.\n package={p.relative_to(A/\'package\').as_posix():p.read_bytes() for p in (A/\'package\').rglob(\'*\') if p.is_file()};assert len(package)==24\n assert package[\'artifacts/release_decision_v0.json\']==(h.root/\'actual-generated-authority/release_decision_v0.json\').read_bytes()\n assert package[\'artifacts/artifact_provenance_binding_v0.json\']==(h.root/\'actual-generated-authority/binding.json\').read_bytes()\n assert json.loads(package[\'run_metadata_v0.json\'])[\'release_candidate\']==\'main\'\n layout=old[\'archive_layout\'];prefix=layout[\'outer_prefix\'];layout[\'expected_non_provider_artifact_count\']=len(package)+5\n providers={layout[\'complete_package_name\']:zipdata(package),layout[\'completeness_archive_name\']:zipdata({\'release_grade_package_completeness_v1.json\':(A/\'completeness.json\').read_bytes()}),layout[\'verification_archive_name\']:zipdata({\'release_grade_reference_package_verification_v0.json\':(A/\'verification.json\').read_bytes()})}\n with zipfile.ZipFile(h.root/\'staging\'/old[\'carrier\'][\'staged_relative_path\']) as z:manifest=json.loads(z.read(prefix+\'PRESERVATION_MANIFEST_v0.json\'))\n manifest[\'retention_risk\']={\'earliest_expiry_utc\':expires,\'original_github_artifacts_expire\':True,\'reason_for_preservation\':\'Explicit offline fixture, no observed run.\'}\n manifest.update(llamaguard_evidence_mode=\'hosted_full_runtime\',release_decision=\'PROD-PASS\',strict_external_evidence=True)\n v=json.loads((A/\'verification.json\').read_bytes());c=json.loads((A/\'completeness.json\').read_bytes())\n manifest[\'local_verification\'].update(complete_package_inventory_errors=[],complete_package_unlisted_members_excluding_inventory=[],independent_verification_errors=v[\'errors\'],independent_verification_status=v[\'status\'],structural_completeness_checks_failed=c[\'summary\'][\'checks_failed\'],structural_completeness_status=c[\'status\'])\n manifest[\'created_utc\']=finalized\n manifest[\'retention_risk\'][\'earliest_expiry_utc\']=expires\n for row in manifest[\'github_artifacts\']:\n  b=providers[row[\'file_name\']];row.update(downloaded_sha256=sha(b),downloaded_size_bytes=len(b),github_sha256=sha(b),size_bytes=len(b),created_at=created,expires_at=expires)\n manifest[\'local_verification\'].update(complete_package_inventory_entries=len(package)-1,complete_package_zip_members=len(package),independent_verification_checks_total=len(json.loads((A/\'verification.json\').read_bytes())[\'checks\']),structural_completeness_checks_total=len(json.loads((A/\'completeness.json\').read_bytes())[\'checks\']))\n visible={\'PRESERVATION_MANIFEST_v0.json\':j(manifest),\'README.md\':b\'Explicitly synthetic current-run identity test, not observed hosted evidence.\\n\',**{\'original-github-artifacts/\'+n:b for n,b in providers.items()}}\n visible[\'SHA256SUMS\']=\'\'.join(f\'{sha(b)}  {n}\\n\' for n,b in sorted(visible.items())).encode()\n folder=P/\'full-intake\';folder.mkdir();staging=P/\'staging\';carrier=staging/old[\'carrier\'][\'staged_relative_path\'];carrier.parent.mkdir(parents=True);carrier.write_bytes(zipdata({prefix+n:b for n,b in visible.items()}));carrier.chmod(0o444)\n cli(\'carrier\',\'tools/load_pulsemech_compute_current_run_export_carrier_v0.py\',[\'--staging-root\',staging,\'--staged-relative-path\',old[\'carrier\'][\'staged_relative_path\'],\'--root-prefix\',prefix,\'--carrier-id-namespace\',\'pulsemech/current-run-export\',\'--workflow-name\',\'PULSE CI\',\'--workflow-run-id\',\'9001\',\'--workflow-run-number\',\'9017\',\'--workflow-run-attempt\',\'1\',\'--subject-run-key\',old[\'subject\'][\'subject_run_key\'],\'--finalized-utc\',finalized,\'--ci-workflow-or-job-identity\',\'offline current-run identity fixture\',\'--control-plane-root\',R,\'--control-plane-revision\',revision,\'--output\',folder/\'carrier.json\'])\n subject=dict(old[\'subject\']);subject.update(release_candidate_id=\'pulse-ci-current-run:9001:1\',final_status_sha256=sha(package[\'artifacts/status.json\']),release_decision_sha256=sha(package[\'artifacts/release_decision_v0.json\']),materialized_gate_set_sha256=json.loads(package[\'artifacts/artifact_provenance_binding_v0.json\'])[\'authority_carrier\'][\'workflow_effective_required_gate_set\'][\'sha256\'])\n profile=dict(old[\'packet_producer_profile\']);profile.update(profile_id=\'pulsemech_current_run_export_candidate_v0\',expected_carrier_id_namespace=\'pulsemech/current-run-export\')\n builder_input={\'subject\':subject,\'authority_sources\':old[\'authority_sources\'],\'archive_layout\':layout,\'carrier\':json.loads((folder/\'carrier.json\').read_bytes()),\'packet_producer_profile\':profile}\n dump(folder/\'builder-input.json\',builder_input)\n args=[\'--input\',folder/\'builder-input.json\',\'--subject-root\',h.subject,\'--subject-repository\',t._INTAKE_REPOSITORY,\'--subject-revision\',revision,\'--workflow-name\',\'PULSE CI\',\'--workflow-path\',\'.github/workflows/pulse_ci.yml\',\'--workflow-run-id\',\'9001\',\'--workflow-run-number\',\'9017\',\'--workflow-run-attempt\',\'1\',\'--source-ref\',\'refs/heads/main\',\'--event-name\',\'workflow_dispatch\',\'--release-candidate-id\',subject[\'release_candidate_id\'],\'--run-mode\',\'prod\',\'--release-target\',\'prod\',\'--active-policy-set\',\'required\',\'--active-policy-set\',\'release_required\',\'--expectation-created-utc\',expected_time,\'--ci-workflow-or-job-identity\',\'offline current-run identity fixture\',\'--control-plane-root\',R,\'--control-plane-repository\',t._INTAKE_REPOSITORY,\'--control-plane-revision\',revision,\'--trusted-git\',\'/usr/bin/git\',\'--final-status\',A/\'package/artifacts/status.json\',\'--release-decision\',A/\'package/artifacts/release_decision_v0.json\',\'--artifact-binding\',A/\'package/artifacts/artifact_provenance_binding_v0.json\',\'--output\',folder/\'expectation.json\']\n cli(\'expectation\',\'tools/build_pulsemech_compute_current_run_export_expectation_v0.py\',args)\n e=json.loads((folder/\'expectation.json\').read_bytes());assert e[\'subject\']==subject\n cli(\'packet\',\'tools/build_pulsemech_compute_subject_input_packet_current_run_v0.py\',[\'--expectation\',folder/\'expectation.json\',\'--expectation-sha256\',sha((folder/\'expectation.json\').read_bytes()),\'--staging-root\',staging,\'--subject-root\',h.subject,\'--subject-repository\',t._INTAKE_REPOSITORY,\'--subject-revision\',revision,\'--control-plane-root\',R,\'--control-plane-repository\',t._INTAKE_REPOSITORY,\'--control-plane-revision\',revision,\'--packet-created-utc\',expected_time,\'--producer-run-key\',subject[\'subject_run_key\'],\'--ci-workflow-or-job-identity\',\'offline current-run identity fixture\',\'--trusted-git\',\'/usr/bin/git\',\'--output\',folder/\'subject-input-packet.json\'])\n cli(\'packet_validator\',\'tools/check_pulsemech_compute_subject_input_packet_v0.py\',[\'--schema\',R/\'schemas/pulsemech_compute_subject_input_packet_v0.schema.json\',\'--packet\',folder/\'subject-input-packet.json\',\'--carrier\',carrier,\'--repository-root\',h.subject])\n dump(P/\'stage1.json\',{\'ok\':True,\'fixture_only\':True,\'expectation_emitted_by_actual_builder\':True,\'packet_equals_expectation\':json.loads((folder/\'subject-input-packet.json\').read_bytes())[\'subject\']==e[\'subject\'],\'packaged_label\':\'main\',\'candidate\':subject[\'release_candidate_id\'],\'gate_digest\':subject[\'materialized_gate_set_sha256\'],\'source_revision\':revision,\'carrier\':str(carrier),\'commands\':commands,\'not_full_reconstruction\':True})\n print(\'STAGE 1 COMPLETE\',flush=True)\n loader=mod(R/\'tools/load_pulsemech_compute_current_run_export_candidate_bundle_v0.py\',\'identity_real_full_loader\')\n resolution={\'authority_boundary\':loader.EXPECTED_SOURCE_RESOLUTION_AUTHORITY,\'control_plane\':{\'repository\':t._INTAKE_REPOSITORY,\'revision\':revision,\'workflow_ref\':f\'{t._INTAKE_REPOSITORY}/{loader.PROVIDER_WORKFLOW_PATH}@refs/heads/main\'},\'document_type\':\'pulsemech_compute_current_run_candidate_source_resolution\',\'schema_version\':\'pulsemech_compute_current_run_candidate_source_resolution_v0\',\'ok\':True,\'source_run\':{\'event\':\'workflow_dispatch\',\'head_branch\':\'main\',\'html_url\':f\'https://github.com/{t._INTAKE_REPOSITORY}/actions/runs/9001\',\'release_candidate_id\':\'pulse-ci-current-run:9001:1\',\'repository\':t._INTAKE_REPOSITORY,\'run_attempt\':1,\'run_id\':9001,\'run_key\':e[\'subject\'][\'subject_run_key\'],\'run_number\':9017,\'source_ref\':\'refs/heads/main\',\'subject_revision\':revision,\'updated_utc\':finalized,\'workflow_name\':\'PULSE CI\',\'workflow_path\':loader.SOURCE_WORKFLOW_PATH}}\n dump(folder/\'source-run-resolution.json\',resolution)\n selection=[]\n for key in sorted(loader.SOURCE_ARTIFACT_ROLES):\n  name=f\'{loader.SOURCE_ARTIFACT_NAME_PREFIXES[key]}-9001-1\';row=next(r for r in manifest[\'github_artifacts\'] if r[\'artifact_name\']==name)\n  selection.append({\'key\':key,\'role\':loader.SOURCE_ARTIFACT_ROLES[key],\'artifact_id\':row[\'artifact_id\'],\'artifact_name\':name,\'created_at\':row[\'created_at\'],\'expires_at\':row[\'expires_at\'],\'download_file_name\':name+\'.zip\',\'expected_sha256\':row[\'downloaded_sha256\'],\'expected_size_bytes\':row[\'downloaded_size_bytes\']})\n dump(folder/\'source-artifact-selection.json\',{\'authority_boundary\':loader.EXPECTED_SELECTION_AUTHORITY,\'document_type\':\'pulsemech_compute_current_run_candidate_artifact_selection\',\'schema_version\':\'pulsemech_compute_current_run_candidate_artifact_selection_v0\',\'ok\':True,\'source_run_attempt\':1,\'source_run_id\':9001,\'artifacts\':selection})\n files={n:(folder/n).read_bytes() for n in [\'carrier.json\',\'expectation.json\',\'subject-input-packet.json\',\'source-run-resolution.json\',\'source-artifact-selection.json\']};files[carrier.name]=carrier.read_bytes()\n cm={\'authority_boundary\':loader.EXPECTED_MANIFEST_AUTHORITY,\'control_plane_revision\':revision,\'document_type\':\'pulsemech_compute_current_run_export_candidate_output_manifest\',\'schema_version\':\'pulsemech_compute_current_run_export_candidate_output_manifest_v0\',\'file_count\':len(files),\'files\':[{\'path\':n,\'sha256\':sha(raw),\'size_bytes\':len(raw)} for n,raw in sorted(files.items())],\'manifest_scope\':\'all_candidate_files_except_this_manifest\',\'ok\':True,\'source_run_attempt\':1,\'source_run_id\':9001,\'subject_revision\':revision}\n files[\'candidate-output-manifest.json\']=j(cm);envelope=zipdata(files);envpath=folder/\'step3f-envelope.zip\';envpath.write_bytes(envelope);envpath.chmod(0o444)\n checker=mod(R/\'tools/check_pulsemech_compute_whole_runtime_observation_v0.py\',\'identity_actual_step5c_checker\')\n capture={\'subject\':{\'run_id\':9001},\'provider\':{\'run_id\':9002,\'run_number\':9018,\'updated_at\':utc(epoch+dt.timedelta(minutes=7))},\'capture_identity\':{\'collector_run_key\':\'GITHUB_RUN_ID=9003|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSEmech compute whole-runtime observation reference\'},\'artifact_bindings\':[{\'artifact_role\':\'step3f_candidate_envelope\',\'artifact_id\':10004,\'artifact_name\':\'pulsemech-compute-current-run-export-candidate-9001-1\',\'created_utc\':utc(epoch+dt.timedelta(minutes=6)),\'expires_utc\':expires,\'github_sha256\':sha(envelope),\'size_bytes\':len(envelope)}]}\n dump(folder/\'minimal_capture_context.json\',capture)\n original=checker.run_process\n def record(command,**kwargs):\n  name=\'connected_\'+str(len(commands));d=P/\'commands\'/name;d.mkdir(parents=True)\n  meta={\'argv\':list(map(str,command)),\'cwd\':str(kwargs.get(\'cwd\')),\'source_revision\':revision,\'started_utc\':dt.datetime.now(dt.timezone.utc).isoformat()};dump(d/\'command.json\',meta)\n  result=original(command,**kwargs);(d/\'stdout.log\').write_bytes(result.stdout);(d/\'stderr.log\').write_bytes(result.stderr);meta.update(returncode=result.returncode,finished_utc=dt.datetime.now(dt.timezone.utc).isoformat());dump(d/\'result.json\',meta);commands.append(meta);print(name,result.returncode,flush=True);return result\n checker.run_process=record\n checker._load_step3f_intake(control_root=R,capture_manifest=capture,envelope_path=envpath,output_directory=folder/\'intake\',source_commit=revision)\n dump(P/\'stage2.json\',{\'full_candidate_bundle_loader_completed\':True,\'fixture_only\':True,\'not_full_step5c_reconstruction\':True,\'source_revision\':revision,\'original_expectation_packet_report_bytes\':True,\'commands\':commands})\n print(\'FULL BUNDLE LOADER COMPLETE\',flush=True)\n # The next orchestration comparison is a separate obligation; this control\n # proves the original bundle intake and actual bridge/report-validator path.\n result=cli(\'bridge\',\'tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py\',\n   [\'--packet\',folder/\'intake/subject-input-packet.json\',\'--carrier\',folder/\'intake\'/carrier.name,\n    \'--repository-root\',h.subject,\'--analysis-run-key\',\'analysis:step5c:9001:1:artifact-baseline\'])\n (folder/\'bridge-report.json\').write_bytes(result.stdout)\n cli(\'report_validator\',\'tools/check_pulsemech_compute_binding_report_v0.py\',\n   [\'--schema\',R/\'schemas/pulsemech_compute_binding_report_v0.schema.json\',\'--report\',folder/\'bridge-report.json\'])\n assert carrier.read_bytes()==(folder/\'intake\'/carrier.name).read_bytes()\n dump(P/\'SUCCESS.json\',{\'synthetic_only\':True,\'full_step5c_reconstruction\':False,\n     \'commands\':commands,\'source_revision\':revision,\'package_label\':\'main\',\n     \'analysis_candidate\':\'pulse-ci-current-run:9001:1\'})\nexcept Exception:\n (P/\'error.txt\').write_text(traceback.format_exc());print(traceback.format_exc(),flush=True);sys.exit(1)\n'
+
+@pytest.fixture(scope="module")
+def identity_emitted_handoff(tmp_path_factory):
+    work = tmp_path_factory.mktemp("current-run-identity-handoff")
+    driver = work / "run_identity_handoff.py"
+    driver.write_text(_IDENTITY_EMITTED_HANDOFF_DRIVER, encoding="utf-8")
+    command = [sys.executable, "-I", "-B", str(driver), str(ROOT)]
+    (work / "command.json").write_text(json.dumps(command, indent=2) + "\n")
+    with (work / "stdout.log").open("wb") as out, (work / "stderr.log").open("wb") as err:
+        result = subprocess.run(command, cwd=work, stdin=subprocess.DEVNULL,
+                                stdout=out, stderr=err, timeout=240, check=False)
+    (work / "exit_code.txt").write_text(str(result.returncode) + "\n")
+    assert result.returncode == 0, (work / "stdout.log").read_text()[-12000:] + (work / "stderr.log").read_text()
+    return work / "identity_emitted_handoff"
+
+
+def test_current_run_identity_emitted_package_is_not_relabelled(identity_emitted_handoff):
+    p = identity_emitted_handoff
+    metadata_bytes = (p / "assembly/package/run_metadata_v0.json").read_bytes()
+    assert json.loads(metadata_bytes)["release_candidate"] == "main"
+    packet = json.loads((p / "full-intake/subject-input-packet.json").read_bytes())
+    expectation = json.loads((p / "full-intake/expectation.json").read_bytes())
+    report = json.loads((p / "full-intake/bridge-report.json").read_bytes())
+    assert packet["subject"] == expectation["subject"]
+    assert packet["subject"]["release_candidate_id"] == "pulse-ci-current-run:9001:1"
+    assert report["subject"]["release_candidate_id"] == packet["subject"]["release_candidate_id"]
+    assert report["state_nodes"]
+    assert {row["release_candidate_id"] for row in report["state_nodes"]} == {"pulse-ci-current-run:9001:1"}
+    carrier_path = p / "full-intake/intake/pulsemech-current-run-export-9001-1-v0.zip"
+    with zipfile.ZipFile(carrier_path) as carrier:
+        payload = carrier.read("pulsemech-current-run-export-9001-1-v0/original-github-artifacts/complete-release-grade-reference-package-9001-1.zip")
+    with zipfile.ZipFile(io.BytesIO(payload)) as package:
+        assert package.read("run_metadata_v0.json") == metadata_bytes
+
+
+def test_current_run_identity_emitted_inline_digest_is_same_exact_object(identity_emitted_handoff):
+    p = identity_emitted_handoff
+    binding = json.loads((p / "assembly/package/artifacts/artifact_provenance_binding_v0.json").read_bytes())
+    gate_set = copy.deepcopy(binding["authority_carrier"]["workflow_effective_required_gate_set"])
+    recorded = gate_set.pop("sha256")
+    expected = hashlib.sha256(json.dumps(gate_set, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+    assert recorded == expected
+    for name in ("expectation.json", "subject-input-packet.json", "bridge-report.json"):
+        assert json.loads((p / "full-intake" / name).read_bytes())["subject"]["materialized_gate_set_sha256"] == recorded
+    emitted = (p / "assembly/verification.json").read_bytes()
+    carrier_path = p / "full-intake/intake/pulsemech-current-run-export-9001-1-v0.zip"
+    with zipfile.ZipFile(carrier_path) as carrier:
+        payload = carrier.read("pulsemech-current-run-export-9001-1-v0/original-github-artifacts/release-grade-reference-package-verification-9001-1.zip")
+    with zipfile.ZipFile(io.BytesIO(payload)) as verification:
+        assert verification.read("release_grade_reference_package_verification_v0.json") == emitted
+
+
+def test_current_run_identity_emitted_chain_has_real_successful_commands(identity_emitted_handoff):
+    record = json.loads((identity_emitted_handoff / "SUCCESS.json").read_bytes())
+    assert record["synthetic_only"] is True and record["full_step5c_reconstruction"] is False
+    commands = record["commands"]
+    assert len(commands) >= 10 and all(item["returncode"] == 0 for item in commands)
+    assert any("load_pulsemech_compute_current_run_export_candidate_bundle_v0.py" in item["argv"][3] for item in commands)
+    assert any("check_pulsemech_compute_binding_report_v0.py" in item["argv"][3] for item in commands)
+
+
 if __name__ == "__main__":
     check_pulsemech_compute_binding_analyzer_core_v0()

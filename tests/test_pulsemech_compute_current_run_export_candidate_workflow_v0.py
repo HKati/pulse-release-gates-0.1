@@ -27,15 +27,17 @@ TEST_RELATIVE_PATH = (
     "tests/test_pulsemech_compute_current_run_export_candidate_workflow_v0.py"
 )
 
-EXPECTED_WORKFLOW_LINES = 2150
-EXPECTED_WORKFLOW_BYTES = 92804
+EXPECTED_WORKFLOW_LINES = 2171
+EXPECTED_WORKFLOW_BYTES = 94315
 EXPECTED_WORKFLOW_SHA256 = (
-    "d09c396aefcdfba2ed73364d6fba8aee81d98aca310079151eaf5d4e2f7faf2a"
+    "2739295df5b5f2587e437015d57bd2ab209d4ad8fa45865ae610c4d85d9ed873"
 )
-EXPECTED_WORKFLOW_GIT_BLOB_SHA1 = "79e4a355cc1eab4af26f6b16e7563424e67d05f2"
+EXPECTED_WORKFLOW_GIT_BLOB_SHA1 = "0ce36e0eb40493e610fc35a42eb13d5af9c3e09b"
 
 EXPECTED_TESTS = frozenset(
     {
+        'test_workflow_preserves_main_label_and_original_binding_builder_input',
+        'test_workflow_hashes_only_the_original_inline_gate_object_domain',
         "test_workflow_artifact_identity_matches_reviewed_fix",
         "test_tools_tests_manifest_registers_workflow_regression_exactly_once",
         "test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract",
@@ -310,7 +312,7 @@ def test_workflow_artifact_identity_matches_reviewed_fix() -> None:
 
 def test_tools_tests_manifest_registers_workflow_regression_exactly_once() -> None:
     entries = manifest_entries()
-    assert len(entries) == 154
+    assert len(entries) == 155
     assert len(entries) == len(set(entries))
     assert entries.count(TEST_RELATIVE_PATH) == 1
     index = entries.index(TEST_RELATIVE_PATH)
@@ -765,6 +767,25 @@ def test_embedded_python_programs_compile() -> None:
     assert len(programs) == 7
     for index, program in enumerate(programs):
         ast.parse(program, filename=f"embedded-step3f-{index}.py", mode="exec")
+
+
+
+def test_workflow_preserves_main_label_and_original_binding_builder_input():
+    source=WORKFLOW.read_text(encoding='utf-8')
+    assert '"release_candidate": "main"' in source
+    assert 'binding_bytes = complete_members.get("artifacts/artifact_provenance_binding_v0.json")' in source
+    assert 'binding_path.write_bytes(binding_bytes)' in source
+    assert '"materialized_gate_set_sha256": gate_digest' in source
+    assert '"materialized_gate_set_sha256": None' not in source
+    assert '--artifact-binding "${ARTIFACT_BINDING}"' in source
+    assert '--materialized-gate-set' not in source
+
+
+def test_workflow_hashes_only_the_original_inline_gate_object_domain():
+    source=WORKFLOW.read_text(encoding='utf-8')
+    assert '"effective_source", "policy_sets", "gate_ids", "sha256"' in source
+    assert 'sort_keys=True, separators=(",", ":")' in source
+    assert 'gate.get("sha256") != gate_digest' in source
 
 
 if __name__ == "__main__":

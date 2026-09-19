@@ -1840,5 +1840,62 @@ def test_bounded_reference_semantics_recompute_from_carrier(bounded_reference_ca
     assert errors and not all(checks.values())
 
 
+
+def _main_label_packet_example():
+    repository = 'HKati/pulse-release-gates-0.1'
+    subject = {'repository': repository, 'workflow_name': 'PULSE CI',
+        'workflow_path': '.github/workflows/pulse_ci.yml', 'source_ref': 'refs/heads/main',
+        'workflow_ref': repository+'/.github/workflows/pulse_ci.yml@refs/heads/main',
+        'event_name': 'workflow_dispatch', 'release_candidate_id': 'pulse-ci-current-run:9001:1',
+        'workflow_run_id': 9001, 'workflow_run_attempt': 1, 'source_commit': 'a'*40,
+        'subject_run_key': 'GITHUB_RUN_ID=9001|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI'}
+    packet = {'subject': subject, 'record_status': 'observed',
+        'packet_identity': {'packet_scope':'current_run'},
+        'carrier': {'carrier_kind':'current_run_export_archive'},
+        'producer': {'production_mode':'current_run_export',
+                     'producer_source':'tools/build_pulsemech_compute_subject_input_packet_current_run_v0.py'},
+        'role_bindings': {'run_metadata':'metadata'}, 'artifacts': []}
+    metadata = {'release_candidate':'main', 'repository':repository, 'git_sha':'a'*40,
+        'run_id':9001, 'run_attempt':1, 'run_key':subject['subject_run_key'],
+        'workflow_ref':subject['workflow_ref']}
+    return packet, metadata
+
+
+def test_current_run_main_label_validation_preserves_both_identities():
+    packet, metadata = _main_label_packet_example()
+    original = copy.deepcopy((packet, metadata))
+    assert TOOL_MODULE._current_run_packaged_release_label(packet, metadata) == ('main', [])
+    _ok, errors = TOOL_MODULE._verify_subject_artifact_bindings(packet, parsed={'metadata':metadata})
+    assert 'run_metadata_subject_binding_mismatch' not in errors
+    assert 'current_run_packaged_release_label_mismatch' not in errors
+    assert (packet, metadata) == original
+
+
+def test_current_run_main_label_validation_rejects_alias_and_profile_confusion():
+    for path, value in [ (('subject','release_candidate_id'),'arbitrary'),
+                        (('subject','release_candidate_id'),'pulse-ci-current-run:9002:1'),
+                        (('subject','source_ref'),'refs/heads/other'),
+                        (('subject','event_name'),'push'),
+                        (('subject','workflow_run_id'),True),
+                        (('subject','workflow_run_attempt'),True),
+                        (('packet_identity','packet_scope'),'historical'),
+                        (('carrier','carrier_kind'),'historical_archive'),
+                        (('producer','producer_source'),'elsewhere.py') ]:
+        packet, metadata = _main_label_packet_example()
+        packet[path[0]][path[1]] = value
+        assert TOOL_MODULE._current_run_packaged_release_label(packet, metadata)[1]
+    packet, metadata = _main_label_packet_example()
+    packet['producer']['production_mode'] = 'fixed_source'
+    assert TOOL_MODULE._current_run_packaged_release_label(packet, metadata)[0] != 'main'
+
+
+def test_current_run_main_label_keeps_metadata_run_source_repository_ref_checks():
+    for key in ('repository','git_sha','run_id','run_attempt','run_key','workflow_ref'):
+        packet, metadata = _main_label_packet_example()
+        metadata[key] = 'other'
+        _ok, errors = TOOL_MODULE._verify_subject_artifact_bindings(packet, parsed={'metadata':metadata})
+        assert 'run_metadata_subject_binding_mismatch' in errors, (key, errors)
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

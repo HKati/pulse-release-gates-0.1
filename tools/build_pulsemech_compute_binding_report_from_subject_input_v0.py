@@ -33,6 +33,7 @@ REPORT_VALIDATOR = ROOT / "tools" / "check_pulsemech_compute_binding_report_v0.p
 FIXED_SOURCE_BUILDER = ROOT / "tools" / "build_pulsemech_compute_binding_report_v0.py"
 ANALYZER_CORE = ROOT / "tools" / "pulsemech_compute_binding_analyzer_core_v0.py"
 ANALYZER_CORE_MODULE = "pulsemech_compute_binding_analyzer_core_v0"
+CURRENT_RUN_LOADER = ROOT / "tools" / "build_pulsemech_compute_subject_input_packet_current_run_v0.py"
 
 DEFAULT_ANALYSIS_RUN_KEY = (
     "OFFLINE_ANALYSIS=pulsemech-compute-binding-fixed-source-6066-v0"
@@ -362,13 +363,117 @@ def _bound_artifact_bytes(
         ) from exc
 
 
+def _current_run_expectation(
+    packet: dict[str, Any], carrier: CapturedFile,
+) -> dict[str, Any] | None:
+    """Derive closed intake parameters from an already validated packet.
+
+    This is not an export expectation or an original runtime receipt. It is an
+    in-memory adapter input for the existing current-run archive verifier.
+    """
+    identity = packet.get("packet_identity", {})
+    producer = packet.get("producer", {})
+    carrier_record = packet.get("carrier", {})
+    profile = (identity.get("packet_scope"), producer.get("production_mode"), carrier_record.get("carrier_kind"))
+    expected = ("current_run", "current_run_export", "current_run_export_archive")
+    if not any(actual == required for actual, required in zip(profile, expected)):
+        return None
+    if profile != expected:
+        raise AdapterError("current_run_profile_conflict")
+    subject = packet.get("subject", {})
+    for name in ("workflow_run_id", "workflow_run_number", "workflow_run_attempt"):
+        if type(subject.get(name)) is not int or subject[name] <= 0:
+            raise AdapterError("current_run_subject_integer_invalid: " + name)
+    for name in ("repository", "workflow_name", "source_ref", "release_candidate_id"):
+        if not isinstance(subject.get(name), str) or not subject[name]:
+            raise AdapterError("current_run_subject_text_invalid: " + name)
+    if re.fullmatch(r"[0-9a-f]{40}", str(subject.get("source_commit", ""))) is None:
+        raise AdapterError("current_run_source_commit_invalid")
+    run_id, attempt = subject["workflow_run_id"], subject["workflow_run_attempt"]
+    run_key = f"GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT={attempt}|GITHUB_WORKFLOW={subject['workflow_name']}"
+    if any(value != run_key for value in (subject.get("subject_run_key"), identity.get("subject_run_key"), producer.get("producer_run_key"))):
+        raise AdapterError("current_run_subject_run_key_mismatch")
+    if producer.get("producer_source") != "tools/build_pulsemech_compute_subject_input_packet_current_run_v0.py":
+        raise AdapterError("current_run_producer_path_mismatch")
+    if identity.get("carrier_id") != carrier_record.get("carrier_id"):
+        raise AdapterError("current_run_carrier_identity_mismatch")
+    if carrier_record.get("sha256") != carrier.sha256 or type(carrier_record.get("size_bytes")) is not int or carrier_record["size_bytes"] != carrier.size_bytes:
+        raise AdapterError("current_run_carrier_bytes_mismatch")
+    prefix = f"pulsemech-current-run-export-{run_id}-{attempt}-v0/"
+    if carrier_record.get("root_prefix") != prefix.rstrip("/"):
+        raise AdapterError("current_run_carrier_root_mismatch")
+    if (carrier_record.get("immutable") is not True
+            or carrier_record.get("media_type") != "application/zip"
+            or carrier_record.get("artifact_payload_mode") != "external_carrier"):
+        raise AdapterError("current_run_carrier_contract_mismatch")
+    artifacts = packet.get("artifacts", [])
+    if not isinstance(artifacts, list) or len(artifacts) <= 3:
+        raise AdapterError("current_run_artifact_inventory_invalid")
+    providers = [row for row in artifacts if isinstance(row, dict) and isinstance(row.get("provider_binding"), dict)]
+    if len(providers) != 3:
+        raise AdapterError("current_run_provider_count_mismatch")
+    return {
+        "subject": json.loads(json.dumps(subject, allow_nan=False)),
+        "carrier": {"root_prefix": prefix, "sha256": carrier.sha256, "size_bytes": carrier.size_bytes},
+        "archive_layout": {
+            "layout_id": "pulsemech_current_run_export_layout_v0", "layout_version": "0.1.0",
+            "artifact_count_derivation": "provider_plus_non_provider", "outer_prefix": prefix,
+            "original_artifacts_prefix": prefix + "original-github-artifacts/",
+            "visible_members": {"preservation_manifest_name": "PRESERVATION_MANIFEST_v0.json",
+                "preservation_readme_name": "README.md", "preservation_checksums_name": "SHA256SUMS"},
+            "complete_package_name": f"complete-release-grade-reference-package-{run_id}-{attempt}.zip",
+            "completeness_archive_name": f"release-grade-package-completeness-{run_id}-{attempt}.zip",
+            "verification_archive_name": f"release-grade-reference-package-verification-{run_id}-{attempt}.zip",
+            "expected_provider_artifact_count": 3, "expected_non_provider_artifact_count": len(artifacts) - 3,
+        },
+    }
+
+
+def _bind_current_run_loader_source(
+    *, packet: dict[str, Any], captures: dict[str, CapturedFile],
+) -> CapturedFile:
+    """Bind executed loader bytes to the already Git-validated producer source.
+
+    The subject repository may differ from the observer installation. Reusing
+    the producer's loader requires the exact authenticated producer revision,
+    not whichever implementation happens to be installed at the same path.
+    This function is called only after unchanged packet validation and current-
+    run profile checks; it does not authenticate a self-declared packet alone.
+    """
+    expected = packet["producer"].get("producer_source_sha256")
+    if not isinstance(expected, str) or re.fullmatch(r"[0-9a-f]{64}", expected) is None:
+        raise AdapterError("current_run_loader_source_digest_invalid")
+    if "current_run_loader" not in captures:
+        captures["current_run_loader"] = capture_regular_file(
+            CURRENT_RUN_LOADER, label="current_run_loader", max_bytes=2 * 1024 * 1024,
+        )
+    captured = captures["current_run_loader"]
+    # Check the actual buffer too, including explicitly supplied captures.
+    if (captured.sha256 != expected or sha256_bytes(captured.data) != expected
+            or captured.size_bytes != len(captured.data)):
+        raise AdapterError("current_run_loader_source_mismatch")
+    return captured
+
+
 def _build_bundle_from_exact_bytes(
     *,
     packet: dict[str, Any],
     carrier: CapturedFile,
     artifact_bytes: dict[str, bytes],
     analyzer_core: Any,
+    dependency_captures: dict[str, CapturedFile] | None = None,
 ) -> Any:
+    current_run = _current_run_expectation(packet, carrier)
+    if current_run is not None:
+        captured_loader = _bind_current_run_loader_source(
+            packet=packet,
+            captures=dependency_captures if dependency_captures is not None else {},
+        )
+        loader = load_module_from_capture(captured_loader, "pulsemech_current_run_loader_for_subject_bridge_v0")
+        return analyzer_core.load_current_run_observed_bundle(
+            archive_path=CapturedPathView(carrier), archive_bytes=carrier.data,
+            expectation=current_run, loader=loader,
+        )
     manifest_bytes = _bound_artifact_bytes(
         packet=packet,
         artifact_bytes=artifact_bytes,
@@ -489,7 +594,7 @@ def build_from_captured_inputs(
     if bounded_expected_context is not None or bounded_prelaunch_sha256 is not None:
         raise AdapterError("bounded_context_on_legacy_packet")
 
-    captures = dependency_captures or _capture_dependencies()
+    captures = dict(dependency_captures or _capture_dependencies())
     packet_validator = load_module_from_capture(
         captures["packet_validator"],
         "pulsemech_subject_input_packet_validator_v0_for_bridge",
@@ -529,6 +634,7 @@ def build_from_captured_inputs(
         carrier=carrier_capture,
         artifact_bytes=artifact_bytes,
         analyzer_core=analyzer_core,
+        dependency_captures=captures,
     )
     report = analyzer_core.build_report(
         bundle,
