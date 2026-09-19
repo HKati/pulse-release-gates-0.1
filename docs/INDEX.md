@@ -74,6 +74,14 @@ moves between merged and open work, update this index.
 - Foundational transition-measurement architecture:
   [PULSEMECH_TRANSITION_METER.md](../PULSEMECH_TRANSITION_METER.md)
   **Foundational architecture.** Defines the evidence-bound transition between measured states as a separate measurement object and positions artifact-bound AI release authority as its first concrete PULSEmech implementation domain.
+- Whole-system discovery and evidence-bound requirement matching:
+  [PULSEMECH_TRANSITION_METER_WHOLE_SYSTEM_DISCOVERY_v0.md](PULSEMECH_TRANSITION_METER_WHOLE_SYSTEM_DISCOVERY_v0.md)
+  **Foundational architecture — bounded application design.** Defines
+  requirement-to-candidate mapping, relation-level evidence, the all-elements
+  completeness rule, acyclic assessment replay, and no-silent-completion
+  reporting. Separates retrieval availability from the derived search outcome.
+  Search integration is not implemented; verification scenarios are proposed
+  requirements, not executed tests; `authority_effect = none`.
 - Recursive self-improvement and transition provability:
   [PULSEMECH_RECURSIVE_SELF_IMPROVEMENT_AND_TRANSITION_PROVABILITY_v0.md](PULSEMECH_RECURSIVE_SELF_IMPROVEMENT_AND_TRANSITION_PROVABILITY_v0.md)
   **Foundational architecture.** Applies the transition-measurement principle
