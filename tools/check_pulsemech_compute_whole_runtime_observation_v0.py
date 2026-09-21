@@ -1369,56 +1369,10 @@ def _check_subject_state_archives(
     *, d3_documents: dict[str, bytes] | None = None,
 ) -> dict[str, dict[str, tuple[str, int]]]:
     """Check member closure/copy identity independently; do not promote R2."""
-    finite = plan.get("finite_limits", {})
-    require(isinstance(finite, Mapping), "state_archive_limits_invalid", stage="state_archive")
-    max_count = finite.get("max_capture_members")
-    max_single = finite.get("max_single_artifact_bytes")
-    max_expanded = finite.get("max_capture_uncompressed_bytes")
-    require(type(max_count) is int and 0 < max_count <= MAX_CAPTURE_MEMBERS
-            and type(max_single) is int and 0 < max_single <= 805306368
-            and type(max_expanded) is int and 0 < max_expanded <= MAX_CAPTURE_BYTES,
-            "state_archive_limits_invalid", stage="state_archive")
-    views = {}
-    documents = {}
-    totals = counts = 0
-    for role, member, expected in _STATE_ARCHIVE_LAYOUT:
-        hashes, captured_json, count = _inspect_state_archive_bytes(
-            members.get(member), expected, member_limit=max_count - counts,
-            single_limit=max_single, expansion_limit=max_expanded - totals,
-            retained_members=(frozenset(name for name in expected if name == "status.json"
-                              or name == "recorded_release_candidate_index_v0.json"
-                              or name.startswith("recorded_release_candidates/"))
-                              if d3_documents is not None and role == "release_grade_recorded_path" else None),
-        )
-        counts += count
-        totals += sum(value[1] for value in hashes.values())
-        require(counts <= max_count, "state_archive_member_limit_exceeded", stage="state_archive")
-        require(totals <= max_expanded, "state_archive_expansion_limit_exceeded", stage="state_archive")
-        views[role] = hashes
-        if role == "release_grade_recorded_path":
-            documents = captured_json
-            if d3_documents is not None:
-                d3_documents["status.json"] = captured_json["status.json"]
-    pre = views["pre_attestation_pulse_artifacts"]
-    recorded = views["release_grade_recorded_path"]
-    advisory = views["advisory_reference_bundle"]
-    unchanged = (
-        "status_baseline.json", "status_summary_baseline.md", "status_summary_baseline.json",
-        "required_gate_evidence_v0.json", "self_contained_pulse_evidence_floor_v0.json",
-        "refusal_delta_summary.json", "external/llamaguard_raw.jsonl",
-        "external/llamaguard_evaluator_manifest_v0.json", "external/llamaguard_summary.json",
+    views, documents = _inspect_subject_state_archive_contents(
+        plan, members, d3_documents=d3_documents,
     )
-    for member in unchanged:
-        require(pre[member] == recorded[member], "state_archive_same_version_mismatch", stage="state_archive")
-    # Explicit inverse groups avoid confusing pre-R9 status or root-level CI
-    # reports with the selected final/pack-local versions.
-    for member in ("status.json", "report_card.html", "release_authority_v0.json"):
-        require(recorded[member] == advisory["artifacts/" + member]
-                == advisory["release-authority-audit-bundle/" + member],
-                "state_archive_same_version_mismatch", stage="state_archive")
-    for origin, copy_name in (("external/llamaguard_summary.json", "artifacts/external/llamaguard_summary.json"),
-                              ("reports/junit.xml", "reports/junit.xml"), ("reports/sarif.json", "reports/sarif.json")):
-        require(recorded[origin] == advisory[copy_name], "state_archive_same_version_mismatch", stage="state_archive")
+    pre = views["pre_attestation_pulse_artifacts"]
     index = _parse_state_archive_index(documents["recorded_release_candidate_index_v0.json"])
     candidate_ids = ("detector_materialization", "external_llamaguard", "refusal_delta_summary")
     require(index.get("schema_version") == "recorded_release_candidate_index_v0"
@@ -1510,62 +1464,7 @@ def _check_complete_package(
     No input paths are opened, no artifact is extracted and no field is copied
     into a new observation record. Full semantic replay/R2 remain downstream.
     """
-    finite = plan.get("finite_limits")
-    names = ("max_capture_members", "max_single_artifact_bytes", "max_capture_uncompressed_bytes")
-    caps = (MAX_CAPTURE_MEMBERS, 805306368, MAX_CAPTURE_BYTES)
-    require(isinstance(finite, Mapping)
-            and all(type(finite.get(k)) is int and 0 < finite[k] <= cap for k, cap in zip(names, caps)),
-            "package_limits_invalid", stage="package")
-    remaining_members = finite[names[0]]
-    remaining_bytes = finite[names[2]]
-    try:
-        # Account for the original directory entries as well as file entries in
-        # the three already-verified archives; do not reset their shared budget.
-        for role, relative, _ in _STATE_ARCHIVE_LAYOUT:
-            with zipfile.ZipFile(io.BytesIO(members[relative]), "r") as archive:
-                remaining_members -= len(archive.infolist())
-            remaining_bytes -= sum(binding[1] for binding in state_views[role].values())
-        raw = members.get("acquisition/subject/artifacts/complete-release-grade-reference-package.zip")
-        require(type(raw) is bytes and raw, "package_missing", stage="package")
-        view, payloads, _ = _inspect_state_archive_bytes(
-            raw, _PACKAGE_FILE_SET, member_limit=remaining_members,
-            single_limit=finite[names[1]], expansion_limit=remaining_bytes,
-            retained_members=_PACKAGE_METADATA_MEMBERS,
-        )
-    except VerificationError as exc:
-        if exc.code.startswith("state_archive_"):
-            raise VerificationError("package_" + exc.code[len("state_archive_"):], stage="package") from None
-        raise
-    except (OSError, ValueError, RuntimeError, EOFError, zipfile.BadZipFile, zlib.error):
-        raise VerificationError("package_zip_invalid", stage="package") from None
-
-    inventory = _parse_package_document(payloads["package_digest_inventory_v0.json"])
-    require(set(inventory) == {"schema_version", "algorithm", "file_count", "files", "authority_boundary"}
-            and inventory.get("schema_version") == "release_grade_reference_package_digest_inventory_v0"
-            and inventory.get("algorithm") == "sha256",
-            "package_inventory_profile_mismatch", stage="package")
-    _check_package_authority(inventory.get("authority_boundary"))
-    expected_members = set(view) - {"package_digest_inventory_v0.json"}
-    rows = inventory.get("files")
-    require(isinstance(rows, list) and type(inventory.get("file_count")) is int
-            and inventory["file_count"] == len(expected_members) == len(rows),
-            "package_inventory_count_mismatch", stage="package")
-    seen = set()
-    previous = ""
-    for entry in rows:
-        require(isinstance(entry, dict) and set(entry) == {"path", "sha256", "size_bytes"},
-                "package_inventory_member_mismatch", stage="package")
-        name = entry.get("path")
-        require(type(name) is str and name in expected_members and name not in seen and name > previous,
-                "package_inventory_member_mismatch", stage="package")
-        require(type(entry.get("sha256")) is str and re.fullmatch(r"[0-9a-f]{64}", entry["sha256"]) is not None
-                and type(entry.get("size_bytes")) is int and entry["size_bytes"] == view[name][1]
-                and entry["sha256"] == view[name][0],
-                "package_inventory_content_mismatch", stage="package")
-        seen.add(name)
-        previous = name
-    require(seen == expected_members, "package_inventory_member_mismatch", stage="package")
-
+    view, payloads = _inspect_package_content_inventory(plan, members, state_views)
     meta = _parse_package_document(payloads["run_metadata_v0.json"])
     require(set(meta) == {"schema_version", "package_schema_version", "package_role", "created_utc",
                          "repository", "git_sha", "workflow_ref", "run_id", "run_attempt", "run_key",
@@ -1908,72 +1807,9 @@ def _check_d3_bindings(
                 "d3_source_identity_mismatch", stage="d3")
         source_bindings.append({"path": path, "sha256": sha256_bytes(raw)})
     source_bindings.sort(key=lambda entry: entry["path"])
-    policy_path = "pulse_gate_policy_v0.yml"
-    sets = _d3_policy_sets(members[D3_SOURCE_PREFIX + policy_path])
-    jobs = plan.get("jobs")
-    require(isinstance(jobs, list), "d3_occurrence_mismatch", stage="d3")
-    for occurrence, command_hash, ordinal in ((_D3_R9, _D3_R9_COMMAND, 9), (_D3_R12, _D3_R12_COMMAND, 12)):
-        found = [step for job in jobs if isinstance(job, dict) and isinstance(job.get("steps"), list)
-                 for step in job["steps"] if isinstance(step, dict) and step.get("occurrence_id") == occurrence]
-        require(len(found) == 1, "d3_occurrence_mismatch", stage="d3")
-        item = found[0]
-        require(item.get("expected_runtime_presence") is True and item.get("expected_terminal_result") == "success"
-                and type(item.get("source_ordinal")) is int and item["source_ordinal"] == ordinal
-                and item.get("source") == {"kind": "shell", "run_sha256": command_hash,
-                                           "raw_command_included": False, "shell": "bash"},
-                "d3_occurrence_mismatch", stage="d3")
-    ordered = []
-    seen = set()
-    for name in ("required", "release_required"):
-        for value in sets[name]:
-            if value not in seen:
-                seen.add(value)
-                ordered.append(value)
-    arg_doc = {
-        "derivation_type": D3_ARGUMENT_FORMAT,
-        "policy_path": policy_path, "policy_set_members": sets,
-        "selected_sets": ["required", "release_required"], "ordered_required_gate_ids": ordered,
-        "source_bindings": [entry for entry in source_bindings
-                            if entry["path"] != "PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py"],
-        "source_occurrence_id": _D3_R12, "source_command_sha256": _D3_R12_COMMAND,
-        "checker_path": "PULSE_safe_pack_v0/tools/check_gates.py",
-        "status_selector": "PULSE_safe_pack_v0/artifacts/status.json", "deduplication": "first_seen_preserve_order",
-        "original_runtime_argv_receipt": "unavailable", "source_derived_only": True, "authority_effect": "none",
-    }
-    arg_raw = canonical_json_bytes(arg_doc)
-    arg_id = "state:step5c:effective-required-argument-list"
-    value_id = "state:step5c:materialized-release-required-gate-set"
-    templates = _planned_state_templates(plan)
-    specs = (
-        (arg_id, "other", "source_derived_required_arguments_runtime_receipt_unavailable",
-         "projection://pulse_gate_policy_v0.yml#r12-source-required-arguments/sha256/" + sha256_bytes(arg_raw),
-         None, "none", False),
-        (value_id, "candidate_state", "policy_selected_release_required_status_gate_values",
-         "projection://PULSE_safe_pack_v0/artifacts/status.json#policy-selected-release_required-gate-values",
-         _D3_R9, "materialized_gate_set", True),
+    arg_id, arg_raw, value_id, digest, size, gate_values, policy_path = _derive_d3_projection_content(
+        plan, members, state_views, status_raw, source_bindings,
     )
-    for key, kind, description, locator, origin, mutation, authority in specs:
-        expected = {"state_id": key, "state_type": kind, "role": description, "path_or_uri": locator,
-                    "producer_occurrence_id": origin, "required_consumer_occurrence_ids": [],
-                    "mutation_class": mutation, "authority_bearing": authority,
-                    "required": True, "content_requirement": "exact_digest"}
-        require(key in templates and canonical_json_bytes(templates[key]) == canonical_json_bytes(expected),
-                "d3_template_mismatch", stage="d3")
-    require(type(status_raw) is bytes and 0 < len(status_raw) <= 16 * 1024 * 1024,
-            "d3_status_bytes_invalid", stage="d3")
-    digest, size = sha256_bytes(status_raw), len(status_raw)
-    require(state_views.get("release_grade_recorded_path", {}).get("status.json") == (digest, size),
-            "d3_status_binding_mismatch", stage="d3")
-    try:
-        status = parse_json_bytes(status_raw, label="d3_status", canonical=False, maximum=16 * 1024 * 1024)
-        require(isinstance(status.get("gates"), dict), "d3_status_json_invalid", stage="d3")
-    except (VerificationError, ValueError, UnicodeError, RecursionError):
-        raise VerificationError("d3_status_json_invalid", stage="d3") from None
-    gate_values = {}
-    for gate in sets["release_required"]:
-        require(gate in status["gates"], "d3_gate_value_missing", stage="d3")
-        require(type(status["gates"][gate]) is bool, "d3_gate_value_type_invalid", stage="d3")
-        gate_values[gate] = status["gates"][gate]
     capture_member = "acquisition/subject/artifacts/release-grade-recorded-path.zip"
     artifacts = manifest.get("artifact_bindings")
     require(isinstance(artifacts, list), "d3_parent_mismatch", stage="d3")
@@ -2438,37 +2274,7 @@ def _check_d6_action_evidence(
             and source_row.get("revision") == revision and source_row.get("sha256") == sha256_bytes(raw_source)
             and type(source_row.get("size_bytes")) is int and source_row["size_bytes"] == len(raw_source),
             "d6_source_identity_mismatch", stage="d6")
-    occurrence = "execution:step5c:job:" + _D6_JOB
-    plans = [p for p in plan.get("jobs", []) if isinstance(p, dict)
-             and (p.get("source_job_id") == _D6_JOB or p.get("occurrence_id") == occurrence)]
-    require(len(plans) == 1, "d6_plan_occurrence_mismatch", stage="d6")
-    planned = plans[0]; steps = planned.get("steps")
-    require(planned.get("display_name") == _D6_JOB_NAME and planned.get("source_job_id") == _D6_JOB
-            and planned.get("occurrence_id") == occurrence and planned.get("expected_terminal_result") == "success"
-            and planned.get("needs") == ["release_grade_recorded_path"]
-            and isinstance(steps, list) and len(steps) == 2, "d6_plan_occurrence_mismatch", stage="d6")
-    action_source = {"action_commit_sha": _D6_ACTION_COMMIT, "action_ref": _D6_ACTION_COMMIT,
-                     "action_repository": "actions/attest", "kind": "github_action",
-                     "uses": "actions/attest@" + _D6_ACTION_COMMIT}
-    expected_sources = [
-        {"kind": "shell", "raw_command_included": False, "shell": "bash",
-         "run_sha256": "8188e65e20586576260b52007fb7810890deb040c206d7e6e6d863ef33a9fe5d"}, action_source]
-    for position in range(2):
-        step = steps[position]
-        require(isinstance(step, dict) and step.get("name") == _D6_STEP_NAMES[position]
-                and type(step.get("source_ordinal")) is int and step["source_ordinal"] == position + 1
-                and step.get("occurrence_id") == f"execution:step5c:step:{_D6_JOB}:{position + 1:03d}"
-                and step.get("expected_runtime_presence") is True and step.get("expected_terminal_result") == "success"
-                and step.get("if_expression") is None
-                and canonical_json_bytes(step.get("source")) == canonical_json_bytes(expected_sources[position]),
-                "d6_plan_occurrence_mismatch", stage="d6")
-    require(steps[1]["source_ordinal"] == _D6_A2_ORDINAL, "d6_plan_occurrence_mismatch", stage="d6")
-    state_id = "state:step5c:artifact-binding-attestation"
-    state_rows = [s for s in plan.get("state_templates", []) if isinstance(s, dict) and s.get("state_id") == state_id]
-    require(len(state_rows) == 1 and state_rows[0].get("required") is True
-            and state_rows[0].get("state_type") == "attestation"
-            and state_rows[0].get("producer_occurrence_id") == steps[1]["occurrence_id"],
-            "d6_state_role_mismatch", stage="d6")
+    action_source = _check_d6_plan_occurrence(plan)
     subject = manifest.get("subject", {})
     run_id = subject.get("run_id")
     require(type(run_id) is int and run_id > 0 and type(subject.get("run_attempt")) is int and subject["run_attempt"] == 1
@@ -2541,33 +2347,7 @@ def _check_d6_action_evidence(
             and type(job.get("run_attempt")) is int and job["run_attempt"] == 1
             and job.get("head_sha") == revision and job.get("status") == "completed" and job.get("conclusion") == "success",
             "d6_job_identity_mismatch", stage="d6")
-    actual_steps = job.get("steps")
-    require(isinstance(actual_steps, list) and 2 <= len(actual_steps) <= 1000,
-            "d6_step_occurrence_mismatch", stage="d6")
-    number = 0; selected_steps = []
-    for step in actual_steps:
-        require(isinstance(step, dict) and type(step.get("number")) is int and step["number"] > number,
-                "d6_platform_step_number_invalid", stage="d6")
-        number = step["number"]
-        require(isinstance(step.get("name"), str), "d6_step_occurrence_mismatch", stage="d6")
-        require(step.get("status") == "completed", "d6_step_not_successful", stage="d6")
-        if step["name"] in _D6_STEP_NAMES:
-            require(step.get("conclusion") == "success", "d6_step_not_successful", stage="d6")
-            selected_steps.append(step)
-        else:
-            require(step["name"] in {"Set up job", "Complete job", "Post Checkout", "Post Set up Python"}
-                    and step.get("conclusion") in {"success", "skipped"}, "d6_step_occurrence_mismatch", stage="d6")
-    require(tuple(s["name"] for s in selected_steps) == _D6_STEP_NAMES,
-            "d6_step_occurrence_mismatch", stage="d6")
-    action = selected_steps[-1]
-    try:
-        run_start, job_start, start, finish, job_finish, run_finish = [parse_utc(v, label="d6_time") for v in (
-            subject.get("run_started_at"), job.get("started_at"), action.get("started_at"),
-            action.get("completed_at"), job.get("completed_at"), subject.get("updated_at"))]
-    except VerificationError:
-        raise VerificationError("d6_timing_invalid", stage="d6") from None
-    require(run_start <= job_start <= start <= finish <= job_finish <= run_finish,
-            "d6_timing_invalid", stage="d6")
+    action = _check_d6_action_steps(subject, job)
     return {"job_id": job["id"], "source_ordinal": _D6_A2_ORDINAL,
             "platform_step_number": action["number"], "source_commit": revision,
             "subject_run_id": run_id, "subject_run_attempt": 1,
@@ -5388,6 +5168,1462 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     sys.stdout.buffer.write(canonical_json_bytes(result))
     return 0
+
+
+
+# Local candidate preparation is deliberately separate from the production CLI.
+# It carries uncommitted tree identities and cannot create an accepted reference.
+def _local_r2_plan_check_process(
+    plan_raw: bytes, source_index_raw: bytes, source_members: dict[str, bytes], *,
+    expected_source_tree: str, expected_source_index_sha256: str, expected_plan_sha256: str,
+) -> bytes:
+    import base64
+    checker_path = 'tools/check_pulsemech_compute_whole_runtime_observation_plan_v0.py'
+    require(type(source_index_raw) is bytes and 0 < len(source_index_raw) <= 8 * 1024 * 1024
+            and sha256_bytes(source_index_raw) == expected_source_index_sha256,
+            'r2_source_index_mismatch', stage='local_r2')
+    index = parse_json_bytes(source_index_raw, label='local_r2_source_index')
+    rows = index.get('files')
+    require(type(rows) is list and 0 < len(rows) <= 4096, 'r2_source_inventory_invalid', stage='local_r2')
+    require(all(type(row) is dict and type(row.get('path')) is str for row in rows),
+            'r2_source_inventory_invalid', stage='local_r2')
+    by_path = {row['path']: row for row in rows}
+    require(len(by_path) == len(rows), 'r2_source_path_duplicate', stage='local_r2')
+    require(type(source_members) is dict and len(source_members) <= 256
+            and all(type(path) is str and type(raw) is bytes and len(raw) <= 8 * 1024 * 1024
+                    for path, raw in source_members.items()), 'r2_source_entry_invalid', stage='local_r2')
+    # Authenticate executable source BEFORE launching the child. The complete
+    # index, tree and 60-member source closure are rechecked independently there.
+    for path in (checker_path, VERIFIER_PATH):
+        row = by_path.get(path); raw = source_members.get(path)
+        require(type(row) is dict and type(raw) is bytes and len(raw) == row.get('size_bytes')
+                and sha256_bytes(raw) == row.get('sha256'), 'r2_executable_source_mismatch', path, stage='local_r2')
+    require(Path(__file__).read_bytes() == source_members[VERIFIER_PATH],
+            'r2_executed_verifier_source_mismatch', stage='local_r2')
+    location = Path(__file__).resolve().parent / Path(checker_path).name
+    require(location.read_bytes() == source_members[checker_path],
+            'r2_installed_plan_checker_mismatch', stage='local_r2')
+    require(type(plan_raw) is bytes and 0 < len(plan_raw) <= MAX_PLAN_BYTES,
+            'r2_plan_bytes_invalid', stage='local_r2')
+    request = {
+        'plan': base64.b64encode(plan_raw).decode('ascii'),
+        'index': base64.b64encode(source_index_raw).decode('ascii'),
+        'sources': {p: base64.b64encode(raw).decode('ascii') for p, raw in source_members.items()},
+        'tree': expected_source_tree, 'index_digest': expected_source_index_sha256,
+        'plan_digest': expected_plan_sha256,
+    }
+    driver = '''import base64, json, pathlib, sys, types
+r = json.load(sys.stdin)
+decode = lambda x: base64.b64decode(x, validate=True)
+p = pathlib.Path(sys.argv[1])
+m = types.ModuleType('independent_local_r2_plan_checker')
+m.__file__ = str(p); sys.modules[m.__name__] = m
+sources = {name: decode(raw) for name, raw in r['sources'].items()}
+code = sources['tools/check_pulsemech_compute_whole_runtime_observation_plan_v0.py']
+exec(compile(code, str(p), 'exec'), m.__dict__)
+try:
+    result = m._check_local_r2_plan(decode(r['plan']), decode(r['index']), sources,
+        expected_source_tree=r['tree'], expected_source_index_sha256=r['index_digest'],
+        expected_plan_sha256=r['plan_digest'])
+except m.PlanError as exc:
+    sys.stdout.buffer.write(m._canonical_json_bytes({'ok': False, 'error_code': exc.code}))
+    raise SystemExit(2)
+sys.stdout.buffer.write(m._canonical_json_bytes(result))
+'''
+    payload = canonical_json_bytes(request)
+    require(len(payload) <= MAX_PROCESS_STDOUT, 'r2_request_budget_exceeded', stage='local_r2')
+    try:
+        result = subprocess.run(
+            [sys.executable, '-I', '-B', '-c', driver, str(location)], input=payload,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False, timeout=120,
+            env={'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8'},
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise VerificationError('r2_plan_checker_execution_failed', stage='local_r2') from exc
+    require(len(result.stdout) <= 1024 * 1024 and len(result.stderr) <= 1024 * 1024,
+            'r2_plan_checker_output_budget_exceeded', stage='local_r2')
+    diagnostic = parse_json_bytes(result.stdout, label='local_r2_plan_check')
+    if result.returncode != 0:
+        code = diagnostic.get('error_code')
+        require(type(code) is str and re.fullmatch(r'[a-z0-9_]+', code) is not None,
+                'r2_plan_checker_failed', stage='local_r2')
+        raise VerificationError(code, stage='local_r2')
+    require(diagnostic.get('schema_version') == 'pulsemech_step5c_local_r2_plan_check_v0'
+            and diagnostic.get('ok') is True, 'r2_plan_checker_failed', stage='local_r2')
+    return result.stdout
+
+
+def _prepare_local_r2_bytes(
+    plan_raw: bytes, diagnostic_raw: bytes, source_index_raw: bytes, source_members: dict[str, bytes], *,
+    expected_source_tree: str, expected_source_index_sha256: str, expected_plan_sha256: str,
+) -> bytes:
+    """Prepare a closed local-only carrier; independently rerun the real plan checker."""
+    checked_raw = _local_r2_plan_check_process(
+        plan_raw, source_index_raw, source_members, expected_source_tree=expected_source_tree,
+        expected_source_index_sha256=expected_source_index_sha256, expected_plan_sha256=expected_plan_sha256,
+    )
+    require(type(diagnostic_raw) is bytes and diagnostic_raw == checked_raw,
+            'r2_plan_diagnostic_mismatch', stage='local_r2')
+    plan = parse_json_bytes(plan_raw, label='local_r2_plan')
+    members = {
+        'local-r2-plan.json': plan_raw,
+        'local-r2-plan-diagnostic.json': diagnostic_raw,
+        'expected-local-r2-plan.sha256': expected_plan_digest_bytes(expected_plan_sha256),
+        'local-r2-source-index.json': source_index_raw,
+        'local-r2-requirements.json': canonical_json_bytes(plan['local_requirement_binding']),
+        'local-r2-prospective-dispatch.json': canonical_json_bytes({
+            'subject': plan['subject_dispatch'], 'provider': plan['provider_dispatch'],
+            'local_boundary': plan['local_boundary'],
+        }),
+    }
+    members.update({'sources/' + path: raw for path, raw in source_members.items()})
+    return deterministic_zip_bytes(members, maximum_members=MAX_PREPARED_MEMBERS,
+                                   maximum_bytes=MAX_PREPARED_BYTES)
+
+
+def _local_r2_context_from_diagnostic(
+    diagnostic: Mapping[str, Any], *, expected_source_tree: str, expected_source_index_sha256: str,
+    expected_plan_sha256: str, expected_prepared_sha256: str, experiment_id: str,
+) -> bytes:
+    require(type(experiment_id) is str and re.fullmatch(r'local-r2:[A-Za-z0-9_.-]{1,80}', experiment_id)
+            is not None, 'r2_experiment_id_invalid', stage='local_r2')
+    canonical_sha256(expected_prepared_sha256, label='expected_local_prepared_sha256')
+    return canonical_json_bytes({
+        'schema_version': 'pulsemech_step5c_local_r2_expected_context_v0',
+        'record_status': 'local_candidate', 'experiment_id': experiment_id,
+        'repository': REPOSITORY,
+        'source_identity': {'kind': 'uncommitted_git_tree', 'git_tree_sha1': expected_source_tree,
+                            'source_index_sha256': expected_source_index_sha256},
+        'expected_plan_sha256': expected_plan_sha256,
+        'expected_prepared_sha256': expected_prepared_sha256,
+        'local_requirement_binding': diagnostic['local_requirement_binding'],
+        'authority_boundary': AUTHORITY_BOUNDARY,
+        'local_boundary': {'dispatch_authorized': False, 'R2_activated': False,
+                           'completion_evaluated': False, 'reference_acquired': False},
+    })
+
+
+def _build_local_r2_expected_context(
+    plan_raw: bytes, source_index_raw: bytes, source_members: dict[str, bytes], *,
+    expected_source_tree: str, expected_source_index_sha256: str, expected_plan_sha256: str,
+    expected_prepared_sha256: str, experiment_id: str,
+) -> bytes:
+    """Derive expected context from independently supplied source/plan pins, not capture fields."""
+    diagnostic = parse_json_bytes(_local_r2_plan_check_process(
+        plan_raw, source_index_raw, source_members, expected_source_tree=expected_source_tree,
+        expected_source_index_sha256=expected_source_index_sha256, expected_plan_sha256=expected_plan_sha256,
+    ), label='local_r2_plan_check')
+    return _local_r2_context_from_diagnostic(
+        diagnostic, expected_source_tree=expected_source_tree,
+        expected_source_index_sha256=expected_source_index_sha256, expected_plan_sha256=expected_plan_sha256,
+        expected_prepared_sha256=expected_prepared_sha256, experiment_id=experiment_id,
+    )
+
+
+def _read_local_r2_prepared(
+    prepared_raw: bytes, expected_context_raw: bytes, *, expected_source_tree: str,
+    expected_source_index_sha256: str, expected_plan_sha256: str,
+    expected_prepared_sha256: str, experiment_id: str,
+) -> tuple[dict[str, Any], dict[str, bytes]]:
+    require(type(prepared_raw) is bytes and 0 < len(prepared_raw) <= MAX_PREPARED_BYTES,
+            'r2_prepared_bytes_invalid', stage='local_r2')
+    require(sha256_bytes(prepared_raw) == expected_prepared_sha256,
+            'r2_prepared_digest_mismatch', stage='local_r2')
+    members = read_canonical_zip_bytes(prepared_raw, label='local_r2_prepared',
+        maximum_members=MAX_PREPARED_MEMBERS, maximum_bytes=MAX_PREPARED_BYTES)
+    base = {'local-r2-plan.json', 'local-r2-plan-diagnostic.json', 'expected-local-r2-plan.sha256',
+            'local-r2-source-index.json', 'local-r2-requirements.json', 'local-r2-prospective-dispatch.json'}
+    require(base.issubset(members), 'r2_prepared_member_missing', stage='local_r2')
+    sources = {name.removeprefix('sources/'): raw for name, raw in members.items() if name.startswith('sources/')}
+    require(set(members) == base | {'sources/' + name for name in sources},
+            'r2_prepared_member_inventory_mismatch', stage='local_r2')
+    require(members['expected-local-r2-plan.sha256'] == expected_plan_digest_bytes(expected_plan_sha256),
+            'r2_prepared_plan_digest_mismatch', stage='local_r2')
+    # Preparation and consumption independently repeat validation. A recorded
+    # successful diagnostic is compared with actual execution, never trusted alone.
+    checked_raw = _local_r2_plan_check_process(
+        members['local-r2-plan.json'], members['local-r2-source-index.json'], sources,
+        expected_source_tree=expected_source_tree, expected_source_index_sha256=expected_source_index_sha256,
+        expected_plan_sha256=expected_plan_sha256,
+    )
+    require(members['local-r2-plan-diagnostic.json'] == checked_raw,
+            'r2_plan_diagnostic_mismatch', stage='local_r2')
+    diagnostic = parse_json_bytes(checked_raw, label='local_r2_plan_check')
+    plan = parse_json_bytes(members['local-r2-plan.json'], label='local_r2_plan')
+    require(members['local-r2-requirements.json'] == canonical_json_bytes(plan['local_requirement_binding']),
+            'r2_prepared_binding_mismatch', stage='local_r2')
+    require(members['local-r2-prospective-dispatch.json'] == canonical_json_bytes({
+        'subject': plan['subject_dispatch'], 'provider': plan['provider_dispatch'],
+        'local_boundary': plan['local_boundary'],
+    }), 'r2_prepared_dispatch_mismatch', stage='local_r2')
+    expected = _local_r2_context_from_diagnostic(
+        diagnostic, expected_source_tree=expected_source_tree,
+        expected_source_index_sha256=expected_source_index_sha256, expected_plan_sha256=expected_plan_sha256,
+        expected_prepared_sha256=expected_prepared_sha256, experiment_id=experiment_id,
+    )
+    require(type(expected_context_raw) is bytes and expected_context_raw == expected,
+            'r2_expected_context_mismatch', stage='local_r2')
+    return plan, members
+
+
+# LOCAL_03 records remain outside all public schema and CLI alternatives.
+def _local_r2_transport_archive_inventory(raw: bytes) -> list[dict[str, Any]]:
+    """Bounded transport integrity only, not the source-prescribed inner member set.
+
+    Original archive bytes are never rewritten. D3/D6, package and signature
+    acceptance are deliberately not discharged by this structural inventory.
+    """
+    require(type(raw) is bytes and 0 < len(raw) <= 32 * 1024 * 1024,
+            'r2_archive_byte_budget', stage='local_r2')
+    records = []; seen = set(); total = 0
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as z:
+            infos = z.infolist()
+            require(0 < len(infos) <= 4096, 'r2_archive_member_budget', stage='local_r2')
+            for info in infos:
+                original = info.orig_filename
+                require(original == info.filename, 'r2_archive_member_invalid', stage='local_r2')
+                name = original[:-1] if info.is_dir() else original
+                safe_member(name, label='local_r2_archive_member')
+                require(name not in seen, 'r2_archive_member_duplicate', stage='local_r2')
+                seen.add(name)
+                kind = stat.S_IFMT(info.external_attr >> 16)
+                require(kind in ({0, stat.S_IFDIR} if info.is_dir() else {0, stat.S_IFREG})
+                        and not (not info.is_dir() and info.external_attr & 0x10),
+                        'r2_archive_member_invalid', stage='local_r2')
+                require(not info.flag_bits & 65 and info.compress_type in {zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED},
+                        'r2_archive_encoding_invalid', stage='local_r2')
+                require(0 <= info.file_size <= 32 * 1024 * 1024,
+                        'r2_archive_member_budget', stage='local_r2')
+                total += info.file_size
+                require(total <= 64 * 1024 * 1024, 'r2_archive_expansion_budget', stage='local_r2')
+                if info.is_dir():
+                    require(info.file_size == 0, 'r2_archive_directory_payload', stage='local_r2')
+                    continue
+                h = hashlib.sha256(); count = 0
+                with z.open(info) as stream:
+                    for chunk in iter(lambda: stream.read(HASH_CHUNK), b''):
+                        count += len(chunk)
+                        require(count <= info.file_size, 'r2_archive_member_size_mismatch', stage='local_r2')
+                        h.update(chunk)
+                require(count == info.file_size, 'r2_archive_member_size_mismatch', stage='local_r2')
+                records.append({'member': name, 'sha256': h.hexdigest(), 'size_bytes': count})
+        require(bool(records), 'r2_archive_empty', stage='local_r2')
+    except VerificationError:
+        raise
+    except (OSError, ValueError, RuntimeError, NotImplementedError, EOFError, zipfile.BadZipFile, zlib.error):
+        raise VerificationError('r2_archive_invalid', stage='local_r2') from None
+    return sorted(records, key=lambda row: row['member'])
+
+
+def _local_r2_transport_check(
+    members: Mapping[str, bytes], plan: Mapping[str, Any], context_raw: bytes,
+    schema_raw: bytes,
+) -> dict[str, Any]:
+    """Independently derive the finite local request/response path from checked inputs.
+
+    Caller must first validate the local prepared carrier and external context.
+    This function consumes no acquisition-producer result and imports no producer.
+    """
+    context = parse_json_bytes(context_raw, label='local_r2_context')
+    source = context['source_identity']; experiment = context['experiment_id']
+    schema = parse_source_schema(schema_raw)
+    definitions = schema['$defs']
+    subject_def = definitions['post_run_state_evidence_v1_subject_archives']
+    subject_roles = list(subject_def['required'])
+    subject_names = {r: subject_def['properties'][r]['const'] for r in subject_roles}
+    provider_name = definitions['post_run_state_evidence_v1_provider_artifact']['properties']['artifact_name_template']['const']
+    # This semantic selector comes from the independently bound normative schema,
+    # not the collector's artifact table or the acquired artifact list.
+    require(len(subject_roles) == 6 and len(set(subject_roles)) == 6,
+            'r2_selected_role_set_invalid', stage='local_r2')
+    transcript_raw = members.get('local-r2-transcript.json')
+    require(type(transcript_raw) is bytes, 'r2_transcript_missing', stage='local_r2')
+    transcript = parse_json_bytes(transcript_raw, label='local_r2_transcript')
+    require(set(transcript) == {'exchanges'} and type(transcript['exchanges']) is list
+            and 0 < len(transcript['exchanges']) <= 64, 'r2_transcript_invalid', stage='local_r2')
+    exchanges = transcript['exchanges']; cursor = 0
+    used = {'local-r2-context.json', 'local-r2-transcript.json', 'local-r2-acquisition.json'}
+    require(members.get('local-r2-context.json') == context_raw,
+            'r2_acquisition_context_mismatch', stage='local_r2')
+
+    def take(method: str, endpoint: str, request: dict[str, Any] | None = None, *, archive: bool = False):
+        nonlocal cursor
+        require(cursor < len(exchanges), 'r2_transcript_incomplete', stage='local_r2')
+        request_name = f'local-requests/{cursor:03}.json' if request is not None else None
+        response_name = f'local-responses/{cursor:03}.bin'
+        expected = {'sequence': cursor, 'method': method, 'endpoint': endpoint,
+                    'request_member': request_name, 'response_member': response_name, 'http_status': 200}
+        require(canonical_json_bytes(exchanges[cursor]) == canonical_json_bytes(expected),
+                'r2_exchange_binding_mismatch', stage='local_r2')
+        if request_name is not None:
+            require(members.get(request_name) == canonical_json_bytes(request),
+                    'r2_dispatch_request_mismatch', stage='local_r2')
+            used.add(request_name)
+        raw = members.get(response_name)
+        require(type(raw) is bytes and 0 < len(raw) <= (32 * 1024 * 1024 if archive else 16 * 1024 * 1024),
+                'r2_response_bytes_invalid', stage='local_r2')
+        used.add(response_name); cursor += 1
+        return (raw, response_name) if archive else parse_json_bytes(raw, label='local_r2_response')
+
+    runs = {}; archives = []; artifact_ids = set(); job_ids = set(); total_size = 0; expanded_size = 0
+    metadata_versions: set[str] = set()
+    for role in ('subject', 'provider'):
+        spec = plan[role + '_dispatch']
+        inputs = dict(spec['inputs']) if role == 'subject' else {'source_run_id': str(runs['subject'])}
+        request = {'ref': spec['ref'], 'inputs': inputs}
+        response = take('POST', spec['endpoint'], request)
+        run_id = response.get('workflow_run_id')
+        require(type(run_id) is int and run_id > 0 and run_id not in runs.values(),
+                'r2_simulated_run_identity_invalid', stage='local_r2')
+        require(response == {'workflow_run_id': run_id,
+                'run_url': f'https://api.github.com/repos/{REPOSITORY}/actions/runs/{run_id}',
+                'html_url': f'https://github.com/{REPOSITORY}/actions/runs/{run_id}'},
+                'r2_dispatch_response_mismatch', stage='local_r2')
+        runs[role] = run_id
+        endpoint = f'repos/{REPOSITORY}/actions/runs/{run_id}'
+        workflow_name = SUBJECT_WORKFLOW_NAME if role == 'subject' else PROVIDER_WORKFLOW_NAME
+        workflow_path = SUBJECT_WORKFLOW_PATH if role == 'subject' else PROVIDER_WORKFLOW_PATH
+        expected_run = {
+            'schema_version': 'pulsemech_step5c_local_r2_simulated_run_v0',
+            'record_status': 'local_candidate', 'simulation_only': True,
+            'source_identity': source, 'experiment_id': experiment, 'run_id': run_id,
+            'run_attempt': 1, 'workflow_name': workflow_name, 'workflow_path': workflow_path,
+            'event': 'workflow_dispatch', 'ref': spec['ref'], 'inputs': inputs,
+            'status': 'completed', 'conclusion': 'success',
+        }
+        run_document = take('GET', endpoint)
+        timed = run_document.get('schema_version') == _LOCAL_R2_TIMED_RUN_SCHEMA
+        if timed:
+            expected_run['schema_version'] = _LOCAL_R2_TIMED_RUN_SCHEMA
+            expected_run.update(_local_r2_run_time_fields(run_document))
+        require(canonical_json_bytes(run_document) == canonical_json_bytes(expected_run),
+                'r2_simulated_run_mismatch', stage='local_r2')
+        metadata_versions.add(run_document['schema_version'])
+        jobs = take('GET', endpoint + '/jobs?per_page=100&page=1')
+        expected_jobs = plan['jobs'] if role == 'subject' else [None]
+        require(set(jobs) == {'total_count', 'jobs'} and type(jobs['total_count']) is int
+                and jobs['total_count'] == len(expected_jobs) and type(jobs['jobs']) is list
+                and len(jobs['jobs']) == len(expected_jobs), 'r2_job_extent_mismatch', stage='local_r2')
+        for row, declared in zip(jobs['jobs'], expected_jobs):
+            require(type(row) is dict, 'r2_job_record_invalid', stage='local_r2')
+            job_id = row.get('id')
+            require(type(job_id) is int and job_id > 0 and job_id not in job_ids,
+                    'r2_job_identity_invalid', stage='local_r2'); job_ids.add(job_id)
+            expected_job = {'id': job_id, 'run_id': run_id, 'run_attempt': 1,
+                            'source_identity': source, 'status': 'completed',
+                            'conclusion': declared['expected_terminal_result'] if declared else 'success'}
+            if declared is not None:
+                expected_job['name'] = declared['display_name']
+                expected_job['steps'] = [{'occurrence_id': step['occurrence_id'], 'name': step['name'],
+                    'status': 'completed', 'conclusion': step['expected_terminal_result']}
+                    for step in declared['steps'] if step['expected_runtime_presence'] is True]
+            if timed:
+                expected_job.update(_local_r2_job_time_fields(row, run_document,
+                    expected_job.get('steps', [])))
+            require(canonical_json_bytes(row) == canonical_json_bytes(expected_job),
+                    'r2_job_or_step_binding_mismatch', stage='local_r2')
+        rows = []; total = None; page = 1
+        while total is None or len(rows) < total:
+            doc = take('GET', endpoint + f'/artifacts?per_page=100&page={page}')
+            require(set(doc) == {'total_count', 'artifacts'} and type(doc['total_count']) is int
+                    and 0 < doc['total_count'] <= 256 and type(doc['artifacts']) is list,
+                    'r2_artifact_pagination_invalid', stage='local_r2')
+            require(total is None or total == doc['total_count'], 'r2_artifact_pagination_invalid', stage='local_r2')
+            total = doc['total_count']
+            require(len(doc['artifacts']) == min(100, total - len(rows)) and doc['artifacts'],
+                    'r2_artifact_pagination_invalid', stage='local_r2')
+            rows.extend(doc['artifacts']); page += 1
+        by_name = {}
+        for row in rows:
+            require(type(row) is dict and set(row) == {'id', 'name', 'size_in_bytes', 'digest',
+                    'expired', 'run_id', 'run_attempt', 'source_identity'},
+                    'r2_artifact_metadata_invalid', stage='local_r2')
+            identifier = row['id']; name = row['name']; size = row['size_in_bytes']
+            require(type(identifier) is int and identifier > 0 and identifier not in artifact_ids
+                    and type(name) is str and 0 < len(name) <= 256 and name not in by_name,
+                    'r2_artifact_identity_invalid', stage='local_r2')
+            require(type(size) is int and 0 < size <= 32 * 1024 * 1024
+                    and type(row['digest']) is str and re.fullmatch(r'sha256:[0-9a-f]{64}', row['digest']) is not None,
+                    'r2_artifact_metadata_invalid', stage='local_r2')
+            require(row['expired'] is False and type(row['run_id']) is int and row['run_id'] == run_id
+                    and type(row['run_attempt']) is int and row['run_attempt'] == 1
+                    and canonical_json_bytes(row['source_identity']) == canonical_json_bytes(source),
+                    'r2_artifact_source_run_mismatch', stage='local_r2')
+            artifact_ids.add(identifier); by_name[name] = row
+        selectors = [(r, subject_names[r]) for r in subject_roles] if role == 'subject' else [('step3f_candidate_envelope', provider_name)]
+        for label, template in selectors:
+            name = template.format(subject_run_id=runs['subject'])
+            require(name in by_name, 'r2_selected_artifact_missing_or_duplicate', stage='local_r2')
+            row = by_name[name]
+            raw, member = take('GET', f"repos/{REPOSITORY}/actions/artifacts/{row['id']}/zip", archive=True)
+            require(len(raw) == row['size_in_bytes'] and 'sha256:' + sha256_bytes(raw) == row['digest'],
+                    'r2_artifact_bytes_mismatch', stage='local_r2')
+            total_size += len(raw)
+            require(total_size <= 64 * 1024 * 1024, 'r2_artifact_aggregate_budget', stage='local_r2')
+            inner = _local_r2_transport_archive_inventory(raw)
+            expanded_size += sum(r['size_bytes'] for r in inner)
+            require(expanded_size <= 128 * 1024 * 1024, 'r2_artifact_expansion_aggregate_budget', stage='local_r2')
+            archives.append({'role': label, 'source_run_kind': role, 'source_run_id': run_id,
+                'artifact_id': row['id'], 'artifact_name': name, 'member': member,
+                'sha256': sha256_bytes(raw), 'size_bytes': len(raw), 'transport_members': inner,
+                'source_prescribed_member_set_evaluated': False})
+    require(len(metadata_versions) == 1, 'r2_mixed_execution_metadata_profiles', stage='local_r2')
+    require(cursor == len(exchanges) and set(members) == used,
+            'r2_acquisition_member_inventory_mismatch', stage='local_r2')
+    expected_index = {
+        'schema_version': 'pulsemech_step5c_local_r2_acquisition_v0',
+        'record_status': 'local_candidate', 'simulation_only': True,
+        'validation_scope': 'synthetic_transport_identity_and_archive_bytes_only',
+        'role_evidence_evaluated': False, 'source_identity': source,
+        'local_requirement_binding': context['local_requirement_binding'],
+        'experiment_id': experiment, 'expected_plan_sha256': context['expected_plan_sha256'],
+        'expected_prepared_sha256': context['expected_prepared_sha256'],
+        'expected_context_sha256': sha256_bytes(context_raw),
+        'authority_boundary': context['authority_boundary'], 'local_boundary': context['local_boundary'],
+        'subject_run_id': runs['subject'], 'provider_run_id': runs['provider'],
+        'members': [{'member': name, 'size_bytes': len(raw), 'sha256': sha256_bytes(raw)}
+                    for name, raw in sorted(members.items()) if name != 'local-r2-acquisition.json'],
+    }
+    require(members.get('local-r2-acquisition.json') == canonical_json_bytes(expected_index),
+            'r2_acquisition_index_mismatch', stage='local_r2')
+    return {'source_identity': source, 'local_requirement_binding': context['local_requirement_binding'],
+            'experiment_id': experiment, 'subject_run_id': runs['subject'], 'provider_run_id': runs['provider'],
+            'record_status': 'local_candidate', 'simulation_only': True,
+            'role_evidence_evaluated': False, 'local_boundary': context['local_boundary'],
+            'authority_boundary': context['authority_boundary'], 'archive_inventory': archives}
+
+
+def _read_local_r2_acquisition(acquisition_raw: bytes, prepared_raw: bytes, expected_context_raw: bytes, *,
+                               expected_acquisition_sha256: str, **pins: Any) -> dict[str, Any]:
+    require(type(acquisition_raw) is bytes and len(acquisition_raw) <= 80 * 1024 * 1024
+            and sha256_bytes(acquisition_raw) == expected_acquisition_sha256,
+            'r2_acquisition_digest_mismatch', stage='local_r2')
+    plan, prepared_members = _read_local_r2_prepared(prepared_raw, expected_context_raw, **pins)
+    members = read_canonical_zip_bytes(acquisition_raw, label='local_r2_acquisition',
+                                     maximum_members=256, maximum_bytes=80 * 1024 * 1024)
+    return _local_r2_transport_check(members, plan, expected_context_raw,
+                                    prepared_members['sources/' + SCHEMA_PATH])
+
+
+def _read_local_r2_capture(capture_raw: bytes, prepared_raw: bytes, expected_context_raw: bytes, *,
+                           expected_capture_sha256: str, expected_acquisition_sha256: str, **pins: Any):
+    require(type(capture_raw) is bytes and len(capture_raw) <= 84 * 1024 * 1024
+            and sha256_bytes(capture_raw) == expected_capture_sha256,
+            'r2_capture_digest_mismatch', stage='local_r2')
+    members = read_canonical_zip_bytes(capture_raw, label='local_r2_capture',
+                                     maximum_members=3, maximum_bytes=84 * 1024 * 1024)
+    require(set(members) == {'local-r2-capture.json', 'local-r2-acquisition.zip', 'local-r2-context.json'},
+            'r2_capture_member_inventory_mismatch', stage='local_r2')
+    require(members['local-r2-context.json'] == expected_context_raw,
+            'r2_capture_context_mismatch', stage='local_r2')
+    checked = _read_local_r2_acquisition(members['local-r2-acquisition.zip'], prepared_raw, expected_context_raw,
+                                      expected_acquisition_sha256=expected_acquisition_sha256, **pins)
+    expected = {**checked, 'schema_version': 'pulsemech_step5c_local_r2_capture_v0',
+                'validation_scope': 'synthetic_transport_identity_and_archive_bytes_only',
+                'expected_acquisition_sha256': expected_acquisition_sha256,
+                'expected_prepared_sha256': pins['expected_prepared_sha256'],
+                'expected_plan_sha256': pins['expected_plan_sha256'],
+                'expected_context_sha256': sha256_bytes(expected_context_raw)}
+    require(members['local-r2-capture.json'] == canonical_json_bytes(expected),
+            'r2_capture_record_mismatch', stage='local_r2')
+    return expected, members
+
+def _inspect_subject_state_archive_contents(
+    plan: Mapping[str, Any], members: Mapping[str, bytes], *,
+    d3_documents: dict[str, bytes] | None = None,
+) -> tuple[dict[str, dict[str, tuple[str, int]]], dict[str, bytes]]:
+    """Shared byte/member/copy checks only; callers retain separate identity checks.
+
+    This is the unchanged content-scanning portion of the committed intake.
+    It neither checks candidate-envelope run identity nor accepts a local R2 role.
+    """
+    finite = plan.get("finite_limits", {})
+    require(isinstance(finite, Mapping), "state_archive_limits_invalid", stage="state_archive")
+    max_count = finite.get("max_capture_members")
+    max_single = finite.get("max_single_artifact_bytes")
+    max_expanded = finite.get("max_capture_uncompressed_bytes")
+    require(type(max_count) is int and 0 < max_count <= MAX_CAPTURE_MEMBERS
+            and type(max_single) is int and 0 < max_single <= 805306368
+            and type(max_expanded) is int and 0 < max_expanded <= MAX_CAPTURE_BYTES,
+            "state_archive_limits_invalid", stage="state_archive")
+    views = {}
+    documents = {}
+    totals = counts = 0
+    for role, member, expected in _STATE_ARCHIVE_LAYOUT:
+        hashes, captured_json, count = _inspect_state_archive_bytes(
+            members.get(member), expected, member_limit=max_count - counts,
+            single_limit=max_single, expansion_limit=max_expanded - totals,
+            retained_members=(frozenset(name for name in expected if name == "status.json"
+                              or name == "recorded_release_candidate_index_v0.json"
+                              or name.startswith("recorded_release_candidates/"))
+                              if d3_documents is not None and role == "release_grade_recorded_path" else None),
+        )
+        counts += count
+        totals += sum(value[1] for value in hashes.values())
+        require(counts <= max_count, "state_archive_member_limit_exceeded", stage="state_archive")
+        require(totals <= max_expanded, "state_archive_expansion_limit_exceeded", stage="state_archive")
+        views[role] = hashes
+        if role == "release_grade_recorded_path":
+            documents = captured_json
+            if d3_documents is not None:
+                d3_documents["status.json"] = captured_json["status.json"]
+    pre = views["pre_attestation_pulse_artifacts"]
+    recorded = views["release_grade_recorded_path"]
+    advisory = views["advisory_reference_bundle"]
+    unchanged = (
+        "status_baseline.json", "status_summary_baseline.md", "status_summary_baseline.json",
+        "required_gate_evidence_v0.json", "self_contained_pulse_evidence_floor_v0.json",
+        "refusal_delta_summary.json", "external/llamaguard_raw.jsonl",
+        "external/llamaguard_evaluator_manifest_v0.json", "external/llamaguard_summary.json",
+    )
+    for member in unchanged:
+        require(pre[member] == recorded[member], "state_archive_same_version_mismatch", stage="state_archive")
+    # Explicit inverse groups avoid confusing pre-R9 status or root-level CI
+    # reports with the selected final/pack-local versions.
+    for member in ("status.json", "report_card.html", "release_authority_v0.json"):
+        require(recorded[member] == advisory["artifacts/" + member]
+                == advisory["release-authority-audit-bundle/" + member],
+                "state_archive_same_version_mismatch", stage="state_archive")
+    for origin, copy_name in (("external/llamaguard_summary.json", "artifacts/external/llamaguard_summary.json"),
+                              ("reports/junit.xml", "reports/junit.xml"), ("reports/sarif.json", "reports/sarif.json")):
+        require(recorded[origin] == advisory[copy_name], "state_archive_same_version_mismatch", stage="state_archive")
+    return views, documents
+
+
+def _inspect_package_content_inventory(
+    plan: Mapping[str, Any], members: Mapping[str, bytes],
+    state_views: Mapping[str, Mapping[str, tuple[str, int]]], *,
+    retain_content: bool = False,
+) -> tuple[dict[str, tuple[str, int]], dict[str, bytes]]:
+    """Reuse exact package membership/digest inventory checks, not run admission.
+
+    Original metadata, assembler identity, time/source and cross-copy checks
+    remain in _check_complete_package. The local caller reports them as pending.
+    """
+    finite = plan.get("finite_limits")
+    names = ("max_capture_members", "max_single_artifact_bytes", "max_capture_uncompressed_bytes")
+    caps = (MAX_CAPTURE_MEMBERS, 805306368, MAX_CAPTURE_BYTES)
+    require(isinstance(finite, Mapping)
+            and all(type(finite.get(k)) is int and 0 < finite[k] <= cap for k, cap in zip(names, caps)),
+            "package_limits_invalid", stage="package")
+    remaining_members = finite[names[0]]
+    remaining_bytes = finite[names[2]]
+    try:
+        # Account for the original directory entries as well as file entries in
+        # the three already-verified archives; do not reset their shared budget.
+        for role, relative, _ in _STATE_ARCHIVE_LAYOUT:
+            with zipfile.ZipFile(io.BytesIO(members[relative]), "r") as archive:
+                remaining_members -= len(archive.infolist())
+            remaining_bytes -= sum(binding[1] for binding in state_views[role].values())
+        raw = members.get("acquisition/subject/artifacts/complete-release-grade-reference-package.zip")
+        require(type(raw) is bytes and raw, "package_missing", stage="package")
+        view, payloads, _ = _inspect_state_archive_bytes(
+            raw, _PACKAGE_FILE_SET, member_limit=remaining_members,
+            single_limit=finite[names[1]], expansion_limit=remaining_bytes,
+            retained_members=_PACKAGE_FILE_SET if retain_content else _PACKAGE_METADATA_MEMBERS,
+        )
+    except VerificationError as exc:
+        if exc.code.startswith("state_archive_"):
+            raise VerificationError("package_" + exc.code[len("state_archive_"):], stage="package") from None
+        raise
+    except (OSError, ValueError, RuntimeError, EOFError, zipfile.BadZipFile, zlib.error):
+        raise VerificationError("package_zip_invalid", stage="package") from None
+
+    inventory = _parse_package_document(payloads["package_digest_inventory_v0.json"])
+    require(set(inventory) == {"schema_version", "algorithm", "file_count", "files", "authority_boundary"}
+            and inventory.get("schema_version") == "release_grade_reference_package_digest_inventory_v0"
+            and inventory.get("algorithm") == "sha256",
+            "package_inventory_profile_mismatch", stage="package")
+    _check_package_authority(inventory.get("authority_boundary"))
+    expected_members = set(view) - {"package_digest_inventory_v0.json"}
+    rows = inventory.get("files")
+    require(isinstance(rows, list) and type(inventory.get("file_count")) is int
+            and inventory["file_count"] == len(expected_members) == len(rows),
+            "package_inventory_count_mismatch", stage="package")
+    seen = set()
+    previous = ""
+    for entry in rows:
+        require(isinstance(entry, dict) and set(entry) == {"path", "sha256", "size_bytes"},
+                "package_inventory_member_mismatch", stage="package")
+        name = entry.get("path")
+        require(type(name) is str and name in expected_members and name not in seen and name > previous,
+                "package_inventory_member_mismatch", stage="package")
+        require(type(entry.get("sha256")) is str and re.fullmatch(r"[0-9a-f]{64}", entry["sha256"]) is not None
+                and type(entry.get("size_bytes")) is int and entry["size_bytes"] == view[name][1]
+                and entry["sha256"] == view[name][0],
+                "package_inventory_content_mismatch", stage="package")
+        seen.add(name)
+        previous = name
+    require(seen == expected_members, "package_inventory_member_mismatch", stage="package")
+
+    return view, payloads
+
+
+def _local_r2_role_input_assessment(
+    plan: Mapping[str, Any], prepared_members: Mapping[str, bytes],
+    checked_capture: Mapping[str, Any], acquisition_members: Mapping[str, bytes],
+) -> dict[str, Any]:
+    """Bind role inputs after independent prepared/capture verification.
+
+    This deliberately does NOT evaluate full role admission. The existing
+    commit-native package, D3/D6, provider, signature and derivation checkers
+    cannot be bypassed by a content digest. Pending obligations are explicit.
+    Callers must authenticate outer bytes/pins via _assess_local_r2_role_inputs;
+    this internal pure stage accepts no previously recorded semantic verdict.
+    """
+    identity = plan.get('plan_identity', {}).get('source_identity')
+    require(type(identity) is dict and identity.get('kind') == 'uncommitted_git_tree'
+            and canonical_json_bytes(identity) == canonical_json_bytes(checked_capture.get('source_identity'))
+            and plan.get('record_status') == checked_capture.get('record_status') == 'local_candidate'
+            and canonical_json_bytes(plan.get('local_requirement_binding')) ==
+                canonical_json_bytes(checked_capture.get('local_requirement_binding')),
+            'r2_role_input_identity_mismatch', stage='local_r2_roles')
+    schema = parse_source_schema(prepared_members['sources/' + SCHEMA_PATH])
+    definition = schema['$defs']['post_run_state_evidence_v1_role_obligations']
+    templates = _planned_state_templates(plan)
+    require(set(templates) == set(definition['required']) == set(definition['properties'])
+            and len(templates) == 62, 'r2_role_obligation_set_mismatch', stage='local_r2_roles')
+    duties = {key: row['const'] for key, row in definition['properties'].items()}
+    selections = checked_capture.get('archive_inventory')
+    require(type(selections) is list and all(type(r) is dict for r in selections),
+            'r2_role_archive_set_mismatch', stage='local_r2_roles')
+    selected = {r['role']: r for r in selections}
+    wanted = set(schema['$defs']['post_run_state_evidence_v1_subject_archives']['required']) | {'step3f_candidate_envelope'}
+    require(len(selected) == len(selections) == 7 and set(selected) == wanted,
+            'r2_role_archive_set_mismatch', stage='local_r2_roles')
+    # The exact raw payload selected in the independently verified acquisition is
+    # consumed again here, not its persisted transport_members summary.
+    raw_by_role = {}
+    for role, row in selected.items():
+        raw = acquisition_members.get(row.get('member'))
+        require(type(raw) is bytes and len(raw) == row.get('size_bytes')
+                and sha256_bytes(raw) == row.get('sha256'),
+                'r2_role_archive_bytes_mismatch', stage='local_r2_roles')
+        raw_by_role[role] = raw
+    preserved = {name: raw_by_role[role] for role, name, _ in _STATE_ARCHIVE_LAYOUT}
+    preserved['acquisition/subject/artifacts/complete-release-grade-reference-package.zip'] = raw_by_role['complete_release_grade_reference_package']
+    # Shared ORIGINAL member and copy equations run on the received bytes. Only
+    # the identity-independent blocks were factored out of the committed path.
+    views, _ = _inspect_subject_state_archive_contents(plan, preserved)
+    package_view, _ = _inspect_package_content_inventory(plan, preserved, views)
+    recorded = views['release_grade_recorded_path']
+    for prefix, names in _PACKAGE_COPY_GROUPS:
+        for name in names:
+            require(package_view[prefix + name] == recorded[name],
+                    'package_same_version_mismatch', stage='package')
+    member_bindings = _check_preserved_member_roles(plan, views, package_view)
+    inventory = {r['path']: r for r in plan['source_inventory']}
+    assessed = {}
+
+    def parent(role: str) -> dict[str, Any]:
+        row = selected[role]
+        return {k: row[k] for k in ('role', 'artifact_id', 'artifact_name', 'source_run_kind',
+                                    'source_run_id', 'member', 'sha256', 'size_bytes')}
+
+    for key in sorted(templates):
+        template = templates[key]; duty = duties[key]
+        require(template.get('required') is True, 'r2_role_requiredness_mismatch', stage='local_r2_roles')
+        row = {'state_id': key, 'required_duty': duty,
+               'source_locator': template['path_or_uri'],
+               'declared_origin_occurrence_id': template['producer_occurrence_id'],
+               'input_binding': None, 'input_status': 'not_evaluated',
+               'role_obligation_satisfied': False}
+        if duty == 'exact_source_content':
+            path = template['path_or_uri']; source_row = inventory.get(path)
+            raw = prepared_members.get('sources/' + path)
+            require(template.get('producer_occurrence_id') is None and type(source_row) is dict
+                    and type(raw) is bytes and len(raw) > 0
+                    and source_row.get('revision_kind') == 'uncommitted_git_tree'
+                    and source_row.get('revision') == identity['git_tree_sha1']
+                    and source_row.get('sha256') == sha256_bytes(raw)
+                    and type(source_row.get('size_bytes')) is int and source_row['size_bytes'] == len(raw)
+                    and source_row.get('git_blob_sha1') == hashlib.sha1(b'blob %d\0' % len(raw) + raw).hexdigest(),
+                    'r2_role_source_bytes_mismatch', stage='local_r2_roles')
+            row['input_status'] = 'exact_source_bytes_bound'
+            row['input_binding'] = {'path': path, 'git_blob_sha1': source_row['git_blob_sha1'],
+                                    'sha256': sha256_bytes(raw), 'size_bytes': len(raw)}
+        elif key in member_bindings:
+            require(duty == 'exact_preserved_content', 'r2_role_duty_mismatch', stage='local_r2_roles')
+            binding = member_bindings[key]
+            row['input_status'] = 'exact_preserved_member_bytes_bound'
+            row['input_binding'] = {**binding, 'parent_archive': parent(binding['archive_role'])}
+        assessed[key] = row
+
+    for role, _, _, locator, _, _, _, archive_role, prefix, wanted_members in _PRESERVED_TREE_SPECS:
+        key = 'state:step5c:' + role; row = assessed[key]
+        require(row['required_duty'] == ('exact_preserved_tree_and_carrier' if role == 'advisory-reference-bundle'
+                                        else 'exact_preserved_tree')
+                and row['source_locator'] == locator, 'r2_role_duty_mismatch', stage='local_r2_roles')
+        content = views[archive_role]
+        relatives = {name[len(prefix):] for name in content if name.startswith(prefix)}
+        require(relatives == wanted_members, 'preserved_tree_members_mismatch', stage='state_tree')
+        tree_members = [{'path': name, 'sha256': content[prefix + name][0],
+                         'size_bytes': content[prefix + name][1]} for name in sorted(relatives)]
+        row['input_status'] = 'exact_preserved_tree_bytes_bound'
+        row['input_binding'] = {'parent_archive': parent(archive_role), 'member_prefix': prefix,
+                                'member_count': len(tree_members), 'members': tree_members}
+
+    archive_roles = {
+        'state:step5c:complete-release-grade-reference-package': 'complete_release_grade_reference_package',
+        'state:step5c:package-completeness-report': 'package_completeness_report',
+        'state:step5c:package-verification-report': 'package_verification_report',
+        'state:step5c:pre-attestation-pulse-artifacts': 'pre_attestation_pulse_artifacts',
+    }
+    for key, role in archive_roles.items():
+        row = assessed[key]
+        require(row['required_duty'] == 'exact_preserved_archive',
+                'r2_role_duty_mismatch', stage='local_r2_roles')
+        row['input_status'] = 'exact_archive_bytes_bound'
+        row['input_binding'] = parent(role)
+    source_keys = {k for k, r in assessed.items() if r['input_status'] == 'exact_source_bytes_bound'}
+    require(len(source_keys) == 6 and len(member_bindings) == 25,
+            'r2_role_input_coverage_mismatch', stage='local_r2_roles')
+    # This is the semantic stop, not an instruction to exempt these obligations.
+    # In particular valid inner filenames or a saved "ok" report cannot verify
+    # signatures, recorded-candidate semantics or the current-run provider path.
+    pending = [
+        'recorded_candidate_source_run_identity_and_semantics',
+        'complete_package_source_time_identity_and_real_verifier_replay',
+        'terminal_report_semantics_and_source_binding',
+        'step3f_provider_transitive_content_and_existing_core_validation',
+        'D3_status_policy_and_source_argv_derivation',
+        'D6_original_action_timing_platform_number_and_receipt_gap',
+        'mandatory_llamaguard_bundle_envelope_signature_and_case_validation',
+        'five_downstream_derivations_and_two_full_candidate_reconstructions',
+        'role_specific_completion_and_explicit_D1_gap_record',
+    ]
+    return {
+        'schema_version': 'pulsemech_step5c_local_r2_role_input_assessment_v0',
+        'record_status': 'local_candidate', 'simulation_only': True,
+        'assessment_status': 'incomplete', 'validation_scope': 'role_input_bytes_and_selected_member_copy_closure',
+        'source_identity': identity, 'local_requirement_binding': plan['local_requirement_binding'],
+        'experiment_id': checked_capture['experiment_id'],
+        'subject_run_id': checked_capture['subject_run_id'], 'provider_run_id': checked_capture['provider_run_id'],
+        'expected_capture_sha256': checked_capture['expected_capture_sha256'],
+        'expected_acquisition_sha256': checked_capture['expected_acquisition_sha256'],
+        'expected_plan_sha256': checked_capture['expected_plan_sha256'],
+        'expected_prepared_sha256': checked_capture['expected_prepared_sha256'],
+        'expected_context_sha256': checked_capture['expected_context_sha256'],
+        'roles': [assessed[k] for k in sorted(assessed)], 'role_count': len(assessed),
+        'input_bound_count': sum(r['input_binding'] is not None for r in assessed.values()),
+        'fully_satisfied_role_count': 0, 'role_evidence_evaluated': False,
+        'source_prescribed_member_sets_checked': sorted([r for r, _, _ in _STATE_ARCHIVE_LAYOUT]
+                                                       + ['complete_release_grade_reference_package']),
+        'pending_semantic_checks': pending,
+        'stronger_claim_gaps': {'D1_pre_insertion_content': 'unavailable',
+                               'D6_signed_receipt': 'unavailable',
+                               'original_runtime_reads': 'not_proven'},
+        'local_boundary': dict(plan['local_boundary']), 'authority_boundary': dict(plan['authority_boundary']),
+    }
+
+
+def _assess_local_r2_role_inputs(
+    capture_raw: bytes, prepared_raw: bytes, expected_context_raw: bytes, *,
+    expected_capture_sha256: str, expected_acquisition_sha256: str, **pins: Any,
+) -> bytes:
+    """Return a non-admitting local role-input report after actual independent checks.
+
+    No success wrapper or public reference entrypoint calls this function.
+    The old complete-state guard, D3/D6 and generic validators remain intact.
+    """
+    checked, capture_members = _read_local_r2_capture(
+        capture_raw, prepared_raw, expected_context_raw, expected_capture_sha256=expected_capture_sha256,
+        expected_acquisition_sha256=expected_acquisition_sha256, **pins,
+    )
+    plan, prepared_members = _read_local_r2_prepared(prepared_raw, expected_context_raw, **pins)
+    acquisition_members = read_canonical_zip_bytes(capture_members['local-r2-acquisition.zip'],
+        label='local_r2_role_acquisition', maximum_members=256, maximum_bytes=80 * 1024 * 1024)
+    return canonical_json_bytes(_local_r2_role_input_assessment(
+        plan, prepared_members, {**checked, 'expected_capture_sha256': expected_capture_sha256}, acquisition_members,
+    ))
+
+
+def _verify_local_r2_role_input_assessment(
+    assessment_raw: bytes, capture_raw: bytes, prepared_raw: bytes, expected_context_raw: bytes, *,
+    expected_assessment_sha256: str, expected_capture_sha256: str,
+    expected_acquisition_sha256: str, **pins: Any,
+) -> dict[str, Any]:
+    """Rederive all currently supported input checks; do not trust saved counts/status."""
+    require(type(assessment_raw) is bytes and 0 < len(assessment_raw) <= 1024 * 1024
+            and sha256_bytes(assessment_raw) == expected_assessment_sha256,
+            'r2_role_assessment_digest_mismatch', stage='local_r2_roles')
+    actual = _assess_local_r2_role_inputs(capture_raw, prepared_raw, expected_context_raw,
+        expected_capture_sha256=expected_capture_sha256,
+        expected_acquisition_sha256=expected_acquisition_sha256, **pins)
+    require(assessment_raw == actual, 'r2_role_assessment_mismatch', stage='local_r2_roles')
+    return parse_json_bytes(actual, label='local_r2_role_input_assessment')
+
+
+def _derive_d3_projection_content(
+    plan: Mapping[str, Any], members: Mapping[str, bytes],
+    state_views: Mapping[str, Mapping[str, tuple[str, int]]], status_raw: bytes,
+    source_bindings: list[dict[str, str]],
+) -> tuple[str, bytes, str, str, int, dict[str, bool], str]:
+    """Original D3 content equations; callers separately authenticate source/run."""
+    policy_path = "pulse_gate_policy_v0.yml"
+    sets = _d3_policy_sets(members[D3_SOURCE_PREFIX + policy_path])
+    jobs = plan.get("jobs")
+    require(isinstance(jobs, list), "d3_occurrence_mismatch", stage="d3")
+    for occurrence, command_hash, ordinal in ((_D3_R9, _D3_R9_COMMAND, 9), (_D3_R12, _D3_R12_COMMAND, 12)):
+        found = [step for job in jobs if isinstance(job, dict) and isinstance(job.get("steps"), list)
+                 for step in job["steps"] if isinstance(step, dict) and step.get("occurrence_id") == occurrence]
+        require(len(found) == 1, "d3_occurrence_mismatch", stage="d3")
+        item = found[0]
+        require(item.get("expected_runtime_presence") is True and item.get("expected_terminal_result") == "success"
+                and type(item.get("source_ordinal")) is int and item["source_ordinal"] == ordinal
+                and item.get("source") == {"kind": "shell", "run_sha256": command_hash,
+                                           "raw_command_included": False, "shell": "bash"},
+                "d3_occurrence_mismatch", stage="d3")
+    ordered = []
+    seen = set()
+    for name in ("required", "release_required"):
+        for value in sets[name]:
+            if value not in seen:
+                seen.add(value)
+                ordered.append(value)
+    arg_doc = {
+        "derivation_type": D3_ARGUMENT_FORMAT,
+        "policy_path": policy_path, "policy_set_members": sets,
+        "selected_sets": ["required", "release_required"], "ordered_required_gate_ids": ordered,
+        "source_bindings": [entry for entry in source_bindings
+                            if entry["path"] != "PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py"],
+        "source_occurrence_id": _D3_R12, "source_command_sha256": _D3_R12_COMMAND,
+        "checker_path": "PULSE_safe_pack_v0/tools/check_gates.py",
+        "status_selector": "PULSE_safe_pack_v0/artifacts/status.json", "deduplication": "first_seen_preserve_order",
+        "original_runtime_argv_receipt": "unavailable", "source_derived_only": True, "authority_effect": "none",
+    }
+    arg_raw = canonical_json_bytes(arg_doc)
+    arg_id = "state:step5c:effective-required-argument-list"
+    value_id = "state:step5c:materialized-release-required-gate-set"
+    templates = _planned_state_templates(plan)
+    specs = (
+        (arg_id, "other", "source_derived_required_arguments_runtime_receipt_unavailable",
+         "projection://pulse_gate_policy_v0.yml#r12-source-required-arguments/sha256/" + sha256_bytes(arg_raw),
+         None, "none", False),
+        (value_id, "candidate_state", "policy_selected_release_required_status_gate_values",
+         "projection://PULSE_safe_pack_v0/artifacts/status.json#policy-selected-release_required-gate-values",
+         _D3_R9, "materialized_gate_set", True),
+    )
+    for key, kind, description, locator, origin, mutation, authority in specs:
+        expected = {"state_id": key, "state_type": kind, "role": description, "path_or_uri": locator,
+                    "producer_occurrence_id": origin, "required_consumer_occurrence_ids": [],
+                    "mutation_class": mutation, "authority_bearing": authority,
+                    "required": True, "content_requirement": "exact_digest"}
+        require(key in templates and canonical_json_bytes(templates[key]) == canonical_json_bytes(expected),
+                "d3_template_mismatch", stage="d3")
+    require(type(status_raw) is bytes and 0 < len(status_raw) <= 16 * 1024 * 1024,
+            "d3_status_bytes_invalid", stage="d3")
+    digest, size = sha256_bytes(status_raw), len(status_raw)
+    require(state_views.get("release_grade_recorded_path", {}).get("status.json") == (digest, size),
+            "d3_status_binding_mismatch", stage="d3")
+    try:
+        status = parse_json_bytes(status_raw, label="d3_status", canonical=False, maximum=16 * 1024 * 1024)
+        require(isinstance(status.get("gates"), dict), "d3_status_json_invalid", stage="d3")
+    except (VerificationError, ValueError, UnicodeError, RecursionError):
+        raise VerificationError("d3_status_json_invalid", stage="d3") from None
+    gate_values = {}
+    for gate in sets["release_required"]:
+        require(gate in status["gates"], "d3_gate_value_missing", stage="d3")
+        require(type(status["gates"][gate]) is bool, "d3_gate_value_type_invalid", stage="d3")
+        gate_values[gate] = status["gates"][gate]
+    return arg_id, arg_raw, value_id, digest, size, gate_values, policy_path
+
+
+def _check_d6_plan_occurrence(plan: Mapping[str, Any]) -> dict[str, Any]:
+    """Original A2 declaration equations, after the caller checks source bytes."""
+    occurrence = "execution:step5c:job:" + _D6_JOB
+    plans = [p for p in plan.get("jobs", []) if isinstance(p, dict)
+             and (p.get("source_job_id") == _D6_JOB or p.get("occurrence_id") == occurrence)]
+    require(len(plans) == 1, "d6_plan_occurrence_mismatch", stage="d6")
+    planned = plans[0]; steps = planned.get("steps")
+    require(planned.get("display_name") == _D6_JOB_NAME and planned.get("source_job_id") == _D6_JOB
+            and planned.get("occurrence_id") == occurrence and planned.get("expected_terminal_result") == "success"
+            and planned.get("needs") == ["release_grade_recorded_path"]
+            and isinstance(steps, list) and len(steps) == 2, "d6_plan_occurrence_mismatch", stage="d6")
+    action_source = {"action_commit_sha": _D6_ACTION_COMMIT, "action_ref": _D6_ACTION_COMMIT,
+                     "action_repository": "actions/attest", "kind": "github_action",
+                     "uses": "actions/attest@" + _D6_ACTION_COMMIT}
+    expected_sources = [
+        {"kind": "shell", "raw_command_included": False, "shell": "bash",
+         "run_sha256": "8188e65e20586576260b52007fb7810890deb040c206d7e6e6d863ef33a9fe5d"}, action_source]
+    for position in range(2):
+        step = steps[position]
+        require(isinstance(step, dict) and step.get("name") == _D6_STEP_NAMES[position]
+                and type(step.get("source_ordinal")) is int and step["source_ordinal"] == position + 1
+                and step.get("occurrence_id") == f"execution:step5c:step:{_D6_JOB}:{position + 1:03d}"
+                and step.get("expected_runtime_presence") is True and step.get("expected_terminal_result") == "success"
+                and step.get("if_expression") is None
+                and canonical_json_bytes(step.get("source")) == canonical_json_bytes(expected_sources[position]),
+                "d6_plan_occurrence_mismatch", stage="d6")
+    require(steps[1]["source_ordinal"] == _D6_A2_ORDINAL, "d6_plan_occurrence_mismatch", stage="d6")
+    state_id = "state:step5c:artifact-binding-attestation"
+    state_rows = [s for s in plan.get("state_templates", []) if isinstance(s, dict) and s.get("state_id") == state_id]
+    require(len(state_rows) == 1 and state_rows[0].get("required") is True
+            and state_rows[0].get("state_type") == "attestation"
+            and state_rows[0].get("producer_occurrence_id") == steps[1]["occurrence_id"],
+            "d6_state_role_mismatch", stage="d6")
+    return action_source
+
+
+def _check_d6_action_steps(subject: Mapping[str, Any], job: Mapping[str, Any]) -> dict[str, Any]:
+    """Original raw-step numbering and nested-time equations; no source aliasing."""
+    actual_steps = job.get("steps")
+    require(isinstance(actual_steps, list) and 2 <= len(actual_steps) <= 1000,
+            "d6_step_occurrence_mismatch", stage="d6")
+    number = 0; selected_steps = []
+    for step in actual_steps:
+        require(isinstance(step, dict) and type(step.get("number")) is int and step["number"] > number,
+                "d6_platform_step_number_invalid", stage="d6")
+        number = step["number"]
+        require(isinstance(step.get("name"), str), "d6_step_occurrence_mismatch", stage="d6")
+        require(step.get("status") == "completed", "d6_step_not_successful", stage="d6")
+        if step["name"] in _D6_STEP_NAMES:
+            require(step.get("conclusion") == "success", "d6_step_not_successful", stage="d6")
+            selected_steps.append(step)
+        else:
+            require(step["name"] in {"Set up job", "Complete job", "Post Checkout", "Post Set up Python"}
+                    and step.get("conclusion") in {"success", "skipped"}, "d6_step_occurrence_mismatch", stage="d6")
+    require(tuple(s["name"] for s in selected_steps) == _D6_STEP_NAMES,
+            "d6_step_occurrence_mismatch", stage="d6")
+    action = selected_steps[-1]
+    try:
+        run_start, job_start, start, finish, job_finish, run_finish = [parse_utc(v, label="d6_time") for v in (
+            subject.get("run_started_at"), job.get("started_at"), action.get("started_at"),
+            action.get("completed_at"), job.get("completed_at"), subject.get("updated_at"))]
+    except VerificationError:
+        raise VerificationError("d6_timing_invalid", stage="d6") from None
+    require(run_start <= job_start <= start <= finish <= job_finish <= run_finish,
+            "d6_timing_invalid", stage="d6")
+    return action
+
+
+
+
+# LOCAL_05 keeps richer simulation metadata explicitly versioned. Production run
+# schemas/CLI remain unchanged, and no tree is ever substituted for a commit.
+_LOCAL_R2_TIMED_RUN_SCHEMA = 'pulsemech_step5c_local_r2_simulated_run_v1'
+
+
+def _local_r2_run_time_fields(document: Mapping[str, Any]) -> dict[str, str]:
+    fields = {k: document.get(k) for k in ('run_started_at', 'updated_at')}
+    try:
+        start, end = [parse_utc(fields[k], label='local_run_time') for k in fields]
+    except (VerificationError, TypeError, ValueError):
+        raise VerificationError('r2_run_time_invalid', stage='local_r2') from None
+    require(start <= end, 'r2_run_time_invalid', stage='local_r2')
+    return fields
+
+
+def _local_r2_job_time_fields(
+    job: Mapping[str, Any], run: Mapping[str, Any], declared_steps: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Check original synthetic page fields; never fill absent times or numbers."""
+    fields = {k: job.get(k) for k in ('started_at', 'completed_at', 'platform_steps')}
+    if job.get('conclusion') == 'skipped':
+        require(fields == {'started_at': None, 'completed_at': None, 'platform_steps': []}
+                and not declared_steps, 'r2_job_time_invalid', stage='local_r2')
+        return fields
+    try:
+        rs, js, je, re_ = [parse_utc(v, label='local_job_time') for v in (
+            run.get('run_started_at'), fields['started_at'], fields['completed_at'], run.get('updated_at'))]
+    except (VerificationError, TypeError, ValueError):
+        raise VerificationError('r2_job_time_invalid', stage='local_r2') from None
+    require(rs <= js <= je <= re_, 'r2_job_time_invalid', stage='local_r2')
+    steps = fields['platform_steps']
+    require(type(steps) is list and len(steps) <= 1000,
+            'r2_platform_step_set_invalid', stage='local_r2')
+    cursor = 0; number = 0; previous_finish = js
+    lifecycle = {'Set up job', 'Complete job', 'Post Checkout', 'Post Set up Python'}
+    for step in steps:
+        require(type(step) is dict and set(step) == {
+            'name', 'number', 'status', 'conclusion', 'started_at', 'completed_at'},
+            'r2_platform_step_set_invalid', stage='local_r2')
+        require(type(step['number']) is int and number < step['number'] <= 2147483647,
+                'r2_platform_step_number_invalid', stage='local_r2')
+        number = step['number']
+        require(type(step['name']) is str and step['status'] == 'completed',
+                'r2_platform_step_set_invalid', stage='local_r2')
+        if cursor < len(declared_steps) and step['name'] == declared_steps[cursor]['name']:
+            require(step['conclusion'] == declared_steps[cursor]['conclusion'],
+                    'r2_platform_step_result_mismatch', stage='local_r2')
+            cursor += 1
+        else:
+            require(step['name'] in lifecycle and step['conclusion'] in {'success', 'skipped'},
+                    'r2_platform_step_set_invalid', stage='local_r2')
+        if step['conclusion'] == 'skipped':
+            require(step['started_at'] is None and step['completed_at'] is None,
+                    'r2_platform_step_time_invalid', stage='local_r2')
+            continue
+        try:
+            start, finish = [parse_utc(step[k], label='local_step_time')
+                             for k in ('started_at', 'completed_at')]
+        except (VerificationError, TypeError, ValueError):
+            raise VerificationError('r2_platform_step_time_invalid', stage='local_r2') from None
+        require(previous_finish <= start <= finish <= je,
+                'r2_platform_step_time_invalid', stage='local_r2')
+        previous_finish = finish
+    require(cursor == len(declared_steps), 'r2_platform_step_set_invalid', stage='local_r2')
+    return fields
+
+
+def _local_r2_projection_sources(
+    plan: Mapping[str, Any], prepared_members: Mapping[str, bytes],
+) -> tuple[dict[str, bytes], list[dict[str, str]]]:
+    """Tree-native caller authentication for the unchanged D3/D6 source pins."""
+    identity = plan.get('plan_identity', {})
+    source = identity.get('source_identity', {})
+    require(identity.get('repository') == REPOSITORY and plan.get('record_status') == 'local_candidate'
+            and type(source) is dict and set(source) == {'kind', 'git_tree_sha1', 'source_index_sha256'}
+            and source.get('kind') == 'uncommitted_git_tree'
+            and type(source.get('git_tree_sha1')) is str and SHA40_RE.fullmatch(source['git_tree_sha1']) is not None
+            and type(source.get('source_index_sha256')) is str and SHA256_RE.fullmatch(source['source_index_sha256']) is not None
+            and 'source_commit' not in identity,
+            'r2_projection_source_identity_mismatch', stage='local_r2_projection')
+    inventory = plan.get('source_inventory')
+    require(type(inventory) is list and all(type(row) is dict for row in inventory),
+            'r2_projection_source_identity_mismatch', stage='local_r2_projection')
+    values = {}; bindings = []
+    for path, pin in _D3_SOURCE_PINS:
+        found = [row for row in inventory if row.get('path') == path]
+        raw = prepared_members.get('sources/' + path)
+        require(len(found) == 1 and type(raw) is bytes and 0 < len(raw) <= 1048576,
+                'r2_projection_source_bytes_missing', stage='local_r2_projection')
+        row = found[0]
+        require(row.get('revision_kind') == 'uncommitted_git_tree'
+                and row.get('revision') == source['git_tree_sha1']
+                and row.get('git_blob_sha1') == pin == hashlib.sha1(b'blob %d\0' % len(raw) + raw).hexdigest()
+                and row.get('sha256') == sha256_bytes(raw)
+                and type(row.get('size_bytes')) is int and row['size_bytes'] == len(raw),
+                'r2_projection_source_bytes_mismatch', stage='local_r2_projection')
+        values[D3_SOURCE_PREFIX + path] = raw
+        bindings.append({'path': path, 'sha256': sha256_bytes(raw)})
+    return values, sorted(bindings, key=lambda row: row['path'])
+
+
+def _local_r2_response_bytes(
+    members: Mapping[str, bytes], endpoint: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Select one raw response after full transcript/source/context verification."""
+    rows = parse_json_bytes(members['local-r2-transcript.json'], label='projection_transcript')['exchanges']
+    matches = [row for row in rows if row.get('method') == 'GET' and row.get('endpoint') == endpoint]
+    require(len(matches) == 1, 'r2_projection_raw_response_missing', stage='local_r2_projection')
+    name = matches[0]['response_member']; raw = members.get(name)
+    require(type(raw) is bytes and 0 < len(raw) <= 16 * 1024 * 1024,
+            'r2_projection_raw_response_missing', stage='local_r2_projection')
+    return parse_json_bytes(raw, label='projection_response'), descriptor(name, raw)
+
+
+def _local_r2_d6_metadata_projection(
+    plan: Mapping[str, Any], checked_capture: Mapping[str, Any],
+    acquisition_members: Mapping[str, bytes], sources: Mapping[str, bytes],
+) -> dict[str, Any]:
+    """A2 metadata in a bounded simulation; never verified signed attestation."""
+    action_source = _check_d6_plan_occurrence(plan)
+    source = plan['plan_identity']['source_identity']
+    raw_source = sources[D3_SOURCE_PREFIX + SUBJECT_WORKFLOW_PATH]
+    require(hashlib.sha1(b'blob %d\0' % len(raw_source) + raw_source).hexdigest() == _D6_WORKFLOW_BLOB,
+            'd6_source_identity_mismatch', stage='d6')
+    run_id = checked_capture['subject_run_id']
+    endpoint = f'repos/{REPOSITORY}/actions/runs/{run_id}'
+    run, run_binding = _local_r2_response_bytes(acquisition_members, endpoint)
+    require(run.get('schema_version') == _LOCAL_R2_TIMED_RUN_SCHEMA,
+            'r2_d6_timed_metadata_required', stage='local_r2_projection')
+    require(run.get('record_status') == 'local_candidate' and run.get('simulation_only') is True
+            and canonical_json_bytes(run.get('source_identity')) == canonical_json_bytes(source)
+            and type(run.get('run_id')) is int and run['run_id'] == run_id
+            and type(run.get('run_attempt')) is int and run['run_attempt'] == 1
+            and run.get('experiment_id') == checked_capture['experiment_id']
+            and run.get('workflow_name') == SUBJECT_WORKFLOW_NAME and run.get('workflow_path') == SUBJECT_WORKFLOW_PATH
+            and run.get('ref') == 'main' and run.get('event') == 'workflow_dispatch'
+            and run.get('status') == 'completed' and run.get('conclusion') == 'success',
+            'r2_d6_subject_mismatch', stage='local_r2_projection')
+    _local_r2_run_time_fields(run)
+    page, page_binding = _local_r2_response_bytes(acquisition_members, endpoint + '/jobs?per_page=100&page=1')
+    rows = page.get('jobs')
+    require(type(page.get('total_count')) is int and page['total_count'] == EXPECTED_JOB_COUNT
+            and type(rows) is list and len(rows) == EXPECTED_JOB_COUNT and all(type(r) is dict for r in rows),
+            'd6_job_page_closure_mismatch', stage='d6')
+    selected = [row for row in rows if row.get('name') == _D6_JOB_NAME]
+    require(len(selected) == 1, 'd6_job_occurrence_mismatch', stage='d6')
+    job = selected[0]
+    require(type(job.get('id')) is int and job['id'] > 0
+            and sum(r.get('id') == job['id'] for r in rows) == 1
+            and type(job.get('run_id')) is int and job['run_id'] == run_id
+            and type(job.get('run_attempt')) is int and job['run_attempt'] == 1
+            and canonical_json_bytes(job.get('source_identity')) == canonical_json_bytes(source)
+            and job.get('status') == 'completed' and job.get('conclusion') == 'success',
+            'r2_d6_job_identity_mismatch', stage='local_r2_projection')
+    declared = next(row for row in plan['jobs'] if row['source_job_id'] == _D6_JOB)
+    expected_steps = [{'occurrence_id': s['occurrence_id'], 'name': s['name'],
+                       'status': 'completed', 'conclusion': s['expected_terminal_result']}
+                      for s in declared['steps'] if s['expected_runtime_presence'] is True]
+    require(canonical_json_bytes(job.get('steps')) == canonical_json_bytes(expected_steps),
+            'd6_step_occurrence_mismatch', stage='d6')
+    _local_r2_job_time_fields(job, run, expected_steps)
+    # Only the raw captured platform-step view is adapted, not source identity.
+    # No source_commit/head_sha field is introduced here or in output documents.
+    action = _check_d6_action_steps(run, {**job, 'steps': job['platform_steps']})
+    return {
+        'schema_version': 'pulsemech_step5c_local_r2_d6_projection_v0',
+        'record_status': 'local_candidate', 'simulation_only': True,
+        'state_id': 'state:step5c:artifact-binding-attestation',
+        'source_identity': source, 'subject_run_id': run_id, 'subject_run_attempt': 1,
+        'job_id': job['id'], 'occurrence_id': declared['steps'][1]['occurrence_id'],
+        'source_ordinal': _D6_A2_ORDINAL, 'platform_step_number': action['number'],
+        'action_started_utc': action['started_at'], 'action_completed_utc': action['completed_at'],
+        'job_started_utc': job['started_at'], 'job_completed_utc': job['completed_at'],
+        'action_source': action_source,
+        'workflow_source': {'path': SUBJECT_WORKFLOW_PATH, 'git_blob_sha1': _D6_WORKFLOW_BLOB,
+                            'sha256': sha256_bytes(raw_source), 'size_bytes': len(raw_source)},
+        'raw_response_bindings': [run_binding, page_binding],
+        'evidence_kind': 'synthetic_action_occurrence_metadata',
+        'signed_receipt_content_status': 'unavailable', 'signed_receipt_verified': False,
+        'provider_execution_observed': False, 'authority_effect': 'none',
+    }
+
+
+def _local_r2_projection_assessment(
+    plan: Mapping[str, Any], prepared_members: Mapping[str, bytes],
+    checked_capture: Mapping[str, Any], acquisition_members: Mapping[str, bytes],
+) -> dict[str, Any]:
+    """Connect unchanged D3/D6 equations to checked tree-native local evidence.
+
+    Private stage: caller must reverify the prepared/capture and external pins.
+    It does not discharge package/signature/provider/derivation requirements.
+    """
+    input_record = _local_r2_role_input_assessment(plan, prepared_members, checked_capture, acquisition_members)
+    sources, bindings = _local_r2_projection_sources(plan, prepared_members)
+    selected = {r['role']: r for r in checked_capture['archive_inventory']}
+    original = {name: acquisition_members[selected[role]['member']] for role, name, _ in _STATE_ARCHIVE_LAYOUT}
+    views, documents = _inspect_subject_state_archive_contents(plan, original, d3_documents={})
+    status_raw = documents['status.json']
+    arg_id, arg_raw, value_id, status_sha, status_size, values, policy = _derive_d3_projection_content(
+        plan, sources, views, status_raw, bindings,
+    )
+    parent = selected['release_grade_recorded_path']
+    run_id = checked_capture['subject_run_id']
+    require(parent.get('source_run_kind') == 'subject' and type(parent.get('source_run_id')) is int
+            and parent['source_run_id'] == run_id
+            and parent.get('artifact_name') == f'release-grade-recorded-path-{run_id}-1',
+            'r2_projection_parent_mismatch', stage='local_r2_projection')
+    value_doc = {
+        'schema_version': 'pulsemech_step5c_local_r2_gate_value_projection_v0',
+        'record_status': 'local_candidate', 'simulation_only': True,
+        'state_id': value_id, 'source_identity': plan['plan_identity']['source_identity'],
+        'subject_run_id': run_id, 'subject_run_attempt': 1,
+        'parent_status': {'state_id': 'state:step5c:final-status', 'declared_origin_occurrence_id': _D3_R9,
+                          'source_locator': 'PULSE_safe_pack_v0/artifacts/status.json',
+                          'member': 'status.json', 'sha256': status_sha, 'size_bytes': status_size},
+        'parent_carrier': {k: parent[k] for k in ('role', 'artifact_id', 'artifact_name', 'member', 'sha256', 'size_bytes')},
+        'source_bindings': [r for r in bindings if r['path'] in {
+            policy, SUBJECT_WORKFLOW_PATH, 'PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py'}],
+        'policy_path': policy, 'selected_policy_set': 'release_required', 'gate_values': values,
+        'materialization_execution_proved': False, 'original_runtime_argv_receipt': 'unavailable',
+        'authority_effect': 'none',
+    }
+    d6 = _local_r2_d6_metadata_projection(plan, checked_capture, acquisition_members, sources)
+    duties = parse_source_schema(prepared_members['sources/' + SCHEMA_PATH])['$defs']['post_run_state_evidence_v1_role_obligations']['properties']
+    require(duties[value_id]['const'] == 'checked_status_policy_projection'
+            and duties[arg_id]['const'] == 'checked_source_argv_derivation_with_runtime_receipt_gap'
+            and duties[d6['state_id']]['const'] == 'required_action_metadata_with_receipt_gap'
+            and duties['state:step5c:quality-ledger-pre-authority']['const'] == 'required_explicit_content_gap',
+            'r2_projection_duty_mismatch', stage='local_r2_projection')
+    projections = {arg_id: parse_json_bytes(arg_raw, label='local_d3_arguments'), value_id: value_doc, d6['state_id']: d6}
+    pending = [p for p in input_record['pending_semantic_checks'] if p not in {
+        'D3_status_policy_and_source_argv_derivation', 'D6_original_action_timing_platform_number_and_receipt_gap'}]
+    return {
+        'schema_version': 'pulsemech_step5c_local_r2_projection_assessment_v0',
+        'record_status': 'local_candidate', 'simulation_only': True, 'assessment_status': 'incomplete',
+        'validation_scope': 'D3_content_derivations_and_D6_synthetic_occurrence_metadata',
+        'source_identity': input_record['source_identity'],
+        'local_requirement_binding': input_record['local_requirement_binding'],
+        'experiment_id': checked_capture['experiment_id'],
+        'source_input_assessment_sha256': sha256_bytes(canonical_json_bytes(input_record)),
+        'capture_bindings': {k: input_record[k] for k in (
+            'expected_capture_sha256', 'expected_acquisition_sha256', 'expected_plan_sha256',
+            'expected_prepared_sha256', 'expected_context_sha256')},
+        'projection_count': len(projections), 'projections': projections,
+        'projection_inventory': [{'state_id': key, 'sha256': sha256_bytes(canonical_json_bytes(value)),
+                                  'size_bytes': len(canonical_json_bytes(value))} for key, value in sorted(projections.items())],
+        'checked_subclaims': ['D3_actual_status_policy_values', 'D3_source_required_arguments',
+                              'D6_synthetic_A2_source_number_timing_and_raw_response_binding'],
+        'explicit_gap_records': [
+            {'state_id': 'state:step5c:quality-ledger-pre-authority', 'content_status': 'unavailable',
+             'content_sha256': None, 'stronger_pre_state_claim_proven': False},
+            {'state_id': d6['state_id'], 'signed_receipt_content_status': 'unavailable',
+             'signed_receipt_sha256': None, 'signed_receipt_verified': False},
+        ],
+        'fully_satisfied_role_count': 0, 'role_evidence_evaluated': False,
+        'pending_semantic_checks': pending,
+        'local_boundary': dict(plan['local_boundary']), 'authority_boundary': dict(plan['authority_boundary']),
+        'original_runtime_reads_proven': False, 'observed_platform_execution': False,
+    }
+
+
+def _assess_local_r2_projections(
+    capture_raw: bytes, prepared_raw: bytes, expected_context_raw: bytes, *,
+    expected_capture_sha256: str, expected_acquisition_sha256: str, **pins: Any,
+) -> bytes:
+    checked, capture_members = _read_local_r2_capture(
+        capture_raw, prepared_raw, expected_context_raw, expected_capture_sha256=expected_capture_sha256,
+        expected_acquisition_sha256=expected_acquisition_sha256, **pins,
+    )
+    plan, prepared = _read_local_r2_prepared(prepared_raw, expected_context_raw, **pins)
+    acquisition = read_canonical_zip_bytes(capture_members['local-r2-acquisition.zip'],
+        label='local_r2_projection_acquisition', maximum_members=256, maximum_bytes=80 * 1024 * 1024)
+    return canonical_json_bytes(_local_r2_projection_assessment(
+        plan, prepared, {**checked, 'expected_capture_sha256': expected_capture_sha256}, acquisition,
+    ))
+
+
+def _verify_local_r2_projection_assessment(
+    assessment_raw: bytes, capture_raw: bytes, prepared_raw: bytes, expected_context_raw: bytes, *,
+    expected_assessment_sha256: str, **pins: Any,
+) -> dict[str, Any]:
+    require(type(assessment_raw) is bytes and 0 < len(assessment_raw) <= 1024 * 1024
+            and sha256_bytes(assessment_raw) == expected_assessment_sha256,
+            'r2_projection_assessment_digest_mismatch', stage='local_r2_projection')
+    expected = _assess_local_r2_projections(capture_raw, prepared_raw, expected_context_raw, **pins)
+    require(assessment_raw == expected, 'r2_projection_assessment_mismatch', stage='local_r2_projection')
+    return parse_json_bytes(expected, label='local_r2_projection_assessment')
+
+
+# LOCAL_05 continuation: reuse the existing, pinned Step 3F content replay.
+# The local plan remains tree-native. A separately supplied *fixture commit
+# object* binds that exact tree to the commit-typed package fields. Neither a
+# package's own git_sha nor a tree hash may select this external source pin.
+_LOCAL_R2_PACKAGE_REPLAY_SOURCES = (
+    ('tools/build_pulsemech_compute_subject_input_packet_current_run_v0.py',
+     '41d3a4ffc9b796dc674f8f2ba83141d81bc204f9'),
+    ('PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py',
+     '93bdf16c8afd8bc152dd69702f870c15491cbe0f'),
+)
+
+
+def _local_r2_package_commit_binding(
+    plan: Mapping[str, Any], fixture_commit_raw: bytes, expected_fixture_commit: str,
+) -> dict[str, Any]:
+    """Verify a bounded parentless fixture commit, not a hosted/project commit.
+
+    The object bytes and expected object ID are separate caller-supplied inputs.
+    Content-addressing proves the commit-to-tree relation, not publication,
+    repository membership, a signature, or execution of that commit.
+    """
+    source = plan.get('plan_identity', {}).get('source_identity', {})
+    require(type(source) is dict and source.get('kind') == 'uncommitted_git_tree'
+            and type(source.get('git_tree_sha1')) is str
+            and SHA40_RE.fullmatch(source['git_tree_sha1']) is not None,
+            'r2_package_source_identity_invalid', stage='local_r2_package')
+    require(type(expected_fixture_commit) is str
+            and SHA40_RE.fullmatch(expected_fixture_commit) is not None
+            and expected_fixture_commit != source['git_tree_sha1'],
+            'r2_package_fixture_commit_pin_invalid', stage='local_r2_package')
+    require(type(fixture_commit_raw) is bytes and 0 < len(fixture_commit_raw) <= 65536
+            and b'\0' not in fixture_commit_raw and b'\r' not in fixture_commit_raw
+            and hashlib.sha1(b'commit %d\0' % len(fixture_commit_raw) + fixture_commit_raw).hexdigest()
+                == expected_fixture_commit,
+            'r2_package_fixture_commit_digest_mismatch', stage='local_r2_package')
+    header, separator, message = fixture_commit_raw.partition(b'\n\n')
+    lines = header.split(b'\n')
+    identity = rb'[^<>\n]+ <[^<>\s]+> [0-9]+ [+-][0-9]{4}'
+    require(separator == b'\n\n' and message.strip() and len(lines) == 3
+            and lines[0] == b'tree ' + source['git_tree_sha1'].encode('ascii')
+            and re.fullmatch(b'author ' + identity, lines[1]) is not None
+            and re.fullmatch(b'committer ' + identity, lines[2]) is not None,
+            'r2_package_fixture_commit_tree_or_profile_mismatch', stage='local_r2_package')
+    return {'kind': 'parentless_fixture_commit_object',
+            'git_commit_sha1': expected_fixture_commit,
+            'git_tree_sha1': source['git_tree_sha1'],
+            'commit_payload_sha256': sha256_bytes(fixture_commit_raw),
+            'commit_payload_size_bytes': len(fixture_commit_raw),
+            'project_commit_claimed': False, 'hosted_execution_claimed': False}
+
+
+def _local_r2_package_replay_sources(
+    plan: Mapping[str, Any], prepared_members: Mapping[str, bytes],
+) -> tuple[Any, list[dict[str, Any]]]:
+    """Load only the reviewed consumer bytes from the authenticated preparation.
+
+    The source verifier's pin identifies the meaning of the captured report.
+    The consumer executes its existing semantic checks; this function neither
+    imports a producer nor accepts an injected module/success verdict.
+    """
+    import types
+    source = plan['plan_identity']['source_identity']
+    inventory = plan['source_inventory']
+    values = {}; bindings = []
+    for path, blob in _LOCAL_R2_PACKAGE_REPLAY_SOURCES:
+        rows = [r for r in inventory if r.get('path') == path]
+        raw = prepared_members.get('sources/' + path)
+        require(len(rows) == 1 and type(raw) is bytes and 0 < len(raw) <= 1048576,
+                'r2_package_replay_source_missing', stage='local_r2_package')
+        row = rows[0]
+        require(row.get('revision_kind') == 'uncommitted_git_tree'
+                and row.get('revision') == source['git_tree_sha1']
+                and row.get('git_blob_sha1') == blob
+                    == hashlib.sha1(b'blob %d\0' % len(raw) + raw).hexdigest()
+                and row.get('sha256') == sha256_bytes(raw)
+                and type(row.get('size_bytes')) is int and row['size_bytes'] == len(raw),
+                'r2_package_replay_source_mismatch', stage='local_r2_package')
+        values[path] = raw
+        bindings.append({'path': path, 'git_blob_sha1': blob,
+                         'sha256': sha256_bytes(raw), 'size_bytes': len(raw)})
+    path = _LOCAL_R2_PACKAGE_REPLAY_SOURCES[0][0]
+    # dataclasses resolve annotations through sys.modules during definition.
+    # Restore its prior state and do not keep a mutable cross-call cache.
+    name = '_pulsemech_local_r2_package_consumer'
+    previous = sys.modules.get(name)
+    module = types.ModuleType(name)
+    module.__file__ = str(Path(__file__).resolve().parent / Path(path).name)
+    sys.modules[name] = module
+    try:
+        exec(compile(values[path], module.__file__, 'exec'), module.__dict__)
+    finally:
+        if previous is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = previous
+    return module, bindings
+
+
+def _local_r2_package_replay_assessment(
+    plan: Mapping[str, Any], prepared_members: Mapping[str, bytes],
+    checked_capture: Mapping[str, Any], acquisition_members: Mapping[str, bytes], *,
+    fixture_commit_raw: bytes, expected_fixture_commit: str,
+) -> dict[str, Any]:
+    """Connect source/run-bound package content and its terminal report to R2.
+
+    Callers must authenticate all outer input pins through the byte entrypoint.
+    This is a new non-admitting stage, not a rewrite of the old projections.
+    Publication timing, completeness reports, signatures and full provider/core
+    evaluation remain separate requirements even when this subcheck succeeds.
+    """
+    projection = _local_r2_projection_assessment(
+        plan, prepared_members, checked_capture, acquisition_members)
+    binding = _local_r2_package_commit_binding(plan, fixture_commit_raw, expected_fixture_commit)
+    consumer, source_bindings = _local_r2_package_replay_sources(plan, prepared_members)
+    selected = {r['role']: r for r in checked_capture['archive_inventory']}
+    run_id = checked_capture['subject_run_id']
+    role_names = {
+        'complete_release_grade_reference_package': f'complete-release-grade-reference-package-{run_id}-1',
+        'package_verification_report': f'release-grade-reference-package-verification-{run_id}-1',
+    }
+    parents = []
+    for role, artifact_name in role_names.items():
+        row = selected[role]
+        raw = acquisition_members[row['member']]
+        require(row.get('source_run_kind') == 'subject'
+                and type(row.get('source_run_id')) is int and row['source_run_id'] == run_id
+                and row.get('artifact_name') == artifact_name
+                and type(raw) is bytes and len(raw) == row.get('size_bytes')
+                and sha256_bytes(raw) == row.get('sha256'),
+                'r2_package_parent_binding_mismatch', stage='local_r2_package')
+        parents.append({k: row[k] for k in ('role', 'artifact_id', 'artifact_name', 'source_run_kind',
+                                          'source_run_id', 'member', 'sha256', 'size_bytes')})
+    original = {name: acquisition_members[selected[role]['member']]
+                for role, name, _ in _STATE_ARCHIVE_LAYOUT}
+    original['acquisition/subject/artifacts/complete-release-grade-reference-package.zip'] = (
+        acquisition_members[selected['complete_release_grade_reference_package']['member']])
+    views, _ = _inspect_subject_state_archive_contents(plan, original)
+    _, payloads = _inspect_package_content_inventory(plan, original, views, retain_content=True)
+    report_name = 'release_grade_reference_package_verification_v0.json'
+    report_archive = acquisition_members[selected['package_verification_report']['member']]
+    _, report_members, _ = _inspect_state_archive_bytes(
+        report_archive, frozenset({report_name}), member_limit=1,
+        single_limit=1048576, expansion_limit=1048576,
+        retained_members=frozenset({report_name}),
+    )
+    report_raw = report_members[report_name]
+    report = parse_json_bytes(report_raw, label='local_r2_package_report')
+    subject = {
+        'repository': REPOSITORY, 'source_commit': expected_fixture_commit,
+        'workflow_ref': REPOSITORY + '/' + SUBJECT_WORKFLOW_PATH + '@refs/heads/main',
+        'workflow_run_id': run_id, 'workflow_run_attempt': 1,
+        'subject_run_key': f'GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI',
+    }
+    # These are the original Step 3F functions, loaded from pinned source bytes.
+    # _validate_check_report itself invokes _replay_verification_semantics.
+    try:
+        inventory = consumer.parse_json_object(payloads['package_digest_inventory_v0.json'],
+                                               label='local_r2_package_inventory')
+        rows = consumer._validate_package_inventory(members=payloads, inventory=inventory)
+        consumer._validate_check_report(
+            document=report, schema_version='release_grade_reference_package_verification_v0',
+            status_field='status', status_value='verified', label='package_verification',
+            report_kind='verification', members=payloads, inventory=inventory,
+            inventory_rows=rows, subject=subject,
+        )
+    except consumer.WrapperError as exc:
+        raise VerificationError('r2_package_replay_rejected', str(exc), stage='local_r2_package') from None
+    run, run_binding = _local_r2_response_bytes(
+        acquisition_members, f'repos/{REPOSITORY}/actions/runs/{run_id}')
+    _local_r2_run_time_fields(run)
+    metadata = parse_json_bytes(payloads['run_metadata_v0.json'], label='local_r2_package_metadata')
+    stamps = (run['run_started_at'], metadata.get('created_utc'), report.get('checked_utc'), run['updated_at'])
+    try:
+        times = [parse_utc(value, label='local_r2_package_time') for value in stamps]
+        require(times == sorted(times), 'r2_package_time_order_mismatch', stage='local_r2_package')
+    except (VerificationError, TypeError, ValueError):
+        raise VerificationError('r2_package_time_order_mismatch', stage='local_r2_package') from None
+    ids = sorted(row['check_id'] for row in report['checks'])
+    return {
+        'schema_version': 'pulsemech_step5c_local_r2_package_replay_assessment_v0',
+        'record_status': 'local_candidate', 'simulation_only': True, 'assessment_status': 'incomplete',
+        'validation_scope': 'source_bound_Step3F_package_verification_semantic_replay',
+        'source_identity': projection['source_identity'], 'local_requirement_binding': projection['local_requirement_binding'],
+        'experiment_id': checked_capture['experiment_id'], 'capture_bindings': projection['capture_bindings'],
+        'projection_assessment_sha256': sha256_bytes(canonical_json_bytes(projection)),
+        'package_subject_identity': subject, 'fixture_commit_binding': binding,
+        'replay_source_bindings': source_bindings, 'parent_archives': parents,
+        'terminal_report': descriptor(report_name, report_raw), 'raw_run_response': run_binding,
+        'checked_check_ids': ids, 'checked_check_count': len(ids),
+        'package_member_count': len(payloads),
+        'package_verification_semantics_replayed': True,
+        'captured_terminal_report_revalidated': True,
+        'synthetic_run_time_order_checked': True,
+        'fresh_package_verifier_cli_executed': False,
+        'fully_satisfied_role_count': 0, 'role_evidence_evaluated': False,
+        'pending_semantic_checks': projection['pending_semantic_checks'],
+        'remaining_package_duties': ['complete_metadata_profile_and_publication_time',
+                                    'completeness_report_and_transitive_provider_validation',
+                                    'recorded_candidate_full_verifier_and_mandatory_signatures'],
+        'mandatory_llamaguard_signatures_verified': False,
+        'original_runtime_reads_proven': False, 'observed_platform_execution': False,
+        'local_boundary': dict(plan['local_boundary']), 'authority_boundary': dict(plan['authority_boundary']),
+    }
+
+
+def _assess_local_r2_package_replay(
+    capture_raw: bytes, prepared_raw: bytes, expected_context_raw: bytes, *,
+    fixture_commit_raw: bytes, expected_fixture_commit: str,
+    expected_capture_sha256: str, expected_acquisition_sha256: str, **pins: Any,
+) -> bytes:
+    """Authenticate the existing full capture/preparation before content replay."""
+    checked, capture_members = _read_local_r2_capture(
+        capture_raw, prepared_raw, expected_context_raw,
+        expected_capture_sha256=expected_capture_sha256,
+        expected_acquisition_sha256=expected_acquisition_sha256, **pins)
+    plan, prepared_members = _read_local_r2_prepared(prepared_raw, expected_context_raw, **pins)
+    acquisition = read_canonical_zip_bytes(
+        capture_members['local-r2-acquisition.zip'], label='local_r2_package_acquisition',
+        maximum_members=256, maximum_bytes=80 * 1024 * 1024)
+    return canonical_json_bytes(_local_r2_package_replay_assessment(
+        plan, prepared_members, {**checked, 'expected_capture_sha256': expected_capture_sha256}, acquisition,
+        fixture_commit_raw=fixture_commit_raw, expected_fixture_commit=expected_fixture_commit))
+
+
+def _verify_local_r2_package_replay_assessment(
+    assessment_raw: bytes, capture_raw: bytes, prepared_raw: bytes, expected_context_raw: bytes, *,
+    expected_assessment_sha256: str, **pins: Any,
+) -> dict[str, Any]:
+    """Recompute from original inputs; a stored green report is not a verdict."""
+    require(type(assessment_raw) is bytes and 0 < len(assessment_raw) <= 1048576
+            and sha256_bytes(assessment_raw) == expected_assessment_sha256,
+            'r2_package_assessment_digest_mismatch', stage='local_r2_package')
+    expected = _assess_local_r2_package_replay(capture_raw, prepared_raw, expected_context_raw, **pins)
+    require(assessment_raw == expected, 'r2_package_assessment_mismatch', stage='local_r2_package')
+    return parse_json_bytes(expected, label='local_r2_package_assessment')
 
 
 if __name__ == "__main__":

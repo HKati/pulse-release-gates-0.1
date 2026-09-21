@@ -724,6 +724,79 @@ def _strict_json_object(data: bytes, *, label: str) -> dict[str, Any]:
     return value
 
 
+# Independent, dormant R2 requirement-binding check for the local candidate.
+# Never import the builder or trust a binding's self-declared expected hash.
+# No existing plan/CLI/verification-record path is switched to R2 by this helper.
+_R2_LOCAL_REVIEWED_REQUIREMENTS_SHA256 = "19e451b51a7ff1bdb7d8242a1f486f2e8fd410e791516b7dd2ebf9a0dd93ecc1"
+_R2_LOCAL_REQUIRED_DEFINITIONS = (
+    "authority_boundary",
+    "post_run_state_evidence_v1_definition",
+    "post_run_state_evidence_v1_limitations",
+    "post_run_state_evidence_v1_profile_id",
+    "post_run_state_evidence_v1_provider_artifact",
+    "post_run_state_evidence_v1_role_obligations",
+    "post_run_state_evidence_v1_subject_archives",
+)
+
+
+def _verify_local_r2_requirement_binding(
+    binding: dict[str, Any], schema_bytes: bytes, *, expected_schema_sha256: str,
+) -> None:
+    """Check requirements identity only, not execution, completeness or activation."""
+    _require(type(schema_bytes) is bytes and 0 < len(schema_bytes) <= 8 * 1024 * 1024,
+             "r2_schema_bytes_invalid")
+    _require(type(expected_schema_sha256) is str
+             and re.fullmatch(r"[0-9a-f]{64}", expected_schema_sha256) is not None,
+             "r2_expected_schema_digest_invalid")
+    actual_digest = hashlib.sha256(schema_bytes).hexdigest()
+    _require(actual_digest == expected_schema_sha256, "r2_schema_source_mismatch")
+    document = _strict_json_object(schema_bytes, label=SCHEMA_PATH)
+    definitions = document.get("$defs")
+    _require(type(definitions) is dict, "r2_definition_missing")
+    # Enumerate the reviewed closure independently of the producer's graph walk.
+    selected: dict[str, Any] = {}
+    allowed_refs = {"#/$defs/" + name for name in _R2_LOCAL_REQUIRED_DEFINITIONS}
+    for name in _R2_LOCAL_REQUIRED_DEFINITIONS:
+        value = definitions.get(name)
+        _require(type(value) is dict, "r2_definition_missing")
+        selected[name] = value
+        nodes: list[Any] = [value]
+        while nodes:
+            node = nodes.pop()
+            if isinstance(node, dict):
+                if "$ref" in node:
+                    _require(type(node["$ref"]) is str and node["$ref"] in allowed_refs,
+                             "r2_definition_reference_invalid")
+                nodes.extend(node.values())
+            elif isinstance(node, list):
+                nodes.extend(node)
+    canonical_requirements = _canonical_json_bytes({
+        "$ref": "#/$defs/post_run_state_evidence_v1_definition",
+        "$defs": selected,
+    })
+    _require(hashlib.sha256(canonical_requirements).hexdigest()
+             == _R2_LOCAL_REVIEWED_REQUIREMENTS_SHA256, "r2_requirements_changed")
+    _require(type(binding) is dict, "r2_binding_not_object")
+    expected = {
+        "binding_version": "pulsemech_step5c_r2_local_requirements_binding_v0",
+        "candidate_scope": "local_only_not_activated",
+        "evidence_profile": "pulsemech_step5c_post_run_state_evidence_v1",
+        "topology_profile": "pulse_ci_hosted_release_grade_v0",
+        "requirements_sha256": _R2_LOCAL_REVIEWED_REQUIREMENTS_SHA256,
+        "schema_source": {
+            "path": SCHEMA_PATH,
+            "sha256": actual_digest,
+            "size_bytes": len(schema_bytes),
+        },
+        "authority_effect": "none",
+        "same_run_release_authority_eligible": False,
+        "active_gate_eligible": False,
+    }
+    # Canonical byte comparison also rejects 0/False and 1/True substitutions.
+    _require(_canonical_json_bytes(binding) == _canonical_json_bytes(expected),
+             "r2_binding_mismatch")
+
+
 def _git_environment(root: Path) -> dict[str, str]:
     return {
         "PATH": "/usr/bin:/bin",
@@ -824,6 +897,11 @@ def _load_sources(root: Path, source_commit: str) -> dict[str, GitObject]:
             path=path,
         )
 
+    _check_reviewed_source_pins(source_by_path)
+    return source_by_path
+
+
+def _check_reviewed_source_pins(source_by_path: dict[str, GitObject]) -> None:
     exact_pins = {
         SUBJECT_WORKFLOW_PATH: EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1,
         PROVIDER_WORKFLOW_PATH: EXPECTED_PROVIDER_WORKFLOW_BLOB_SHA1,
@@ -839,7 +917,6 @@ def _load_sources(root: Path, source_commit: str) -> dict[str, GitObject]:
     for path, expected in exact_pins.items():
         actual = source_by_path[path].blob_sha1
         _require(actual == expected, "reviewed_source_profile_mismatch", f"{path}: {actual}")
-    return source_by_path
 
 
 # This is syntax reuse, never a cached source check, mapping or verdict.
@@ -5016,6 +5093,18 @@ def _reconstruct_expected_plan(
     _require(head == revision, "checked_out_head_mismatch", f"head={head} source={revision}")
 
     source_by_path = _load_sources(root, revision)
+    plan = _assemble_expected_plan_from_sources(source_by_path, revision, record_status, plan_id)
+    _schema_validate(plan, source_by_path[SCHEMA_PATH].data)
+    # Rendering is also a final NFC/type check and is intentionally deterministic.
+    _canonical_json_bytes(plan)
+    return plan
+
+
+def _assemble_expected_plan_from_sources(
+    source_by_path: dict[str, GitObject], revision: str,
+    record_status: str, plan_id: str | None,
+) -> dict[str, Any]:
+    """Existing mapping assembly; callers validate their distinct record/source kinds."""
     subject_workflow = _parse_yaml_document(
         source_by_path[SUBJECT_WORKFLOW_PATH].data,
         label=SUBJECT_WORKFLOW_PATH,
@@ -5137,9 +5226,6 @@ def _reconstruct_expected_plan(
         "ok": True,
     }
 
-    _schema_validate(plan, source_by_path[SCHEMA_PATH].data)
-    # Rendering is also a final NFC/type check and is intentionally deterministic.
-    _canonical_json_bytes(plan)
     return plan
 
 
@@ -5670,6 +5756,153 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
+
+
+def _local_r2_checked_sources(
+    source_index_raw: bytes, source_members: dict[str, bytes], *,
+    expected_source_tree: str, expected_source_index_sha256: str,
+) -> dict[str, GitObject]:
+    """Independent finite index/tree and exact required-byte verification; no Git writes."""
+    _require(type(expected_source_tree) is str and re.fullmatch(r'[0-9a-f]{40}', expected_source_tree)
+             is not None, 'r2_expected_source_tree_invalid')
+    _require(type(expected_source_index_sha256) is str
+             and re.fullmatch(r'[0-9a-f]{64}', expected_source_index_sha256) is not None,
+             'r2_expected_source_index_invalid')
+    _require(type(source_index_raw) is bytes and 0 < len(source_index_raw) <= 8 * 1024 * 1024,
+             'r2_source_inventory_invalid')
+    _require(hashlib.sha256(source_index_raw).hexdigest() == expected_source_index_sha256,
+             'r2_source_index_mismatch')
+    index = _strict_json_object(source_index_raw, label='local_source_index')
+    _require(_canonical_json_bytes(index) == source_index_raw, 'r2_source_index_not_canonical')
+    _require(set(index) == {'source_kind', 'files'} and index['source_kind'] == 'uncommitted_git_tree',
+             'r2_source_inventory_invalid')
+    rows = index['files']
+    _require(type(rows) is list and 0 < len(rows) <= 4096, 'r2_source_inventory_invalid')
+    table: dict[str, dict[str, Any]] = {}
+    directories: dict[str, dict[str, tuple[str, str]]] = {'': {}}
+    total = 0
+    for row in rows:
+        _require(type(row) is dict and set(row) == {'path', 'git_mode', 'git_blob_sha1', 'sha256', 'size_bytes'},
+                 'r2_source_entry_invalid')
+        path = row['path']
+        _require(type(path) is str and 0 < len(path.encode('utf-8')) <= 1024
+                 and '\\' not in path and '\0' not in path
+                 and len(path.split('/')) <= 64
+                 and all(p not in {'', '.', '..', '.git'} for p in path.split('/')), 'r2_source_path_invalid')
+        _require(path not in table, 'r2_source_path_duplicate')
+        _require(type(row['git_mode']) is str and row['git_mode'] in {'100644', '100755'} and type(row['size_bytes']) is int
+                 and 0 <= row['size_bytes'] <= 8 * 1024 * 1024, 'r2_source_entry_invalid')
+        _require(type(row['git_blob_sha1']) is str and re.fullmatch(r'[0-9a-f]{40}', row['git_blob_sha1'])
+                 is not None and type(row['sha256']) is str and re.fullmatch(r'[0-9a-f]{64}', row['sha256'])
+                 is not None, 'r2_source_entry_invalid')
+        total += row['size_bytes']
+        _require(total <= 512 * 1024 * 1024, 'r2_source_budget_exceeded')
+        table[path] = row
+        parts = path.split('/')
+        for length in range(1, len(parts)):
+            parent = '/'.join(parts[:length - 1]); name = parts[length - 1]
+            previous = directories.setdefault(parent, {}).get(name)
+            _require(previous is None or previous[0] == '40000', 'r2_source_path_collision')
+            directories[parent][name] = ('40000', '/'.join(parts[:length]))
+            directories.setdefault('/'.join(parts[:length]), {})
+        parent = '/'.join(parts[:-1]); name = parts[-1]
+        _require(name not in directories[parent], 'r2_source_path_collision')
+        directories[parent][name] = (row['git_mode'], row['git_blob_sha1'])
+    _require([r['path'] for r in rows] == sorted(table), 'r2_source_index_order_mismatch')
+    hashes: dict[str, str] = {}
+    for parent in sorted(directories, key=lambda p: (len(p.split('/')) if p else 0, p), reverse=True):
+        entries = []
+        for name, (mode, value) in directories[parent].items():
+            oid = hashes[value] if mode == '40000' else value
+            entries.append((name.encode('utf-8') + (b'/' if mode == '40000' else b''),
+                            mode.encode() + b' ' + name.encode('utf-8') + b'\0' + bytes.fromhex(oid)))
+        payload = b''.join(raw for _, raw in sorted(entries))
+        hashes[parent] = hashlib.sha1(b'tree ' + str(len(payload)).encode() + b'\0' + payload).hexdigest()
+    _require(hashes[''] == expected_source_tree, 'r2_source_tree_mismatch')
+    required_paths = {path for _, path in SOURCE_ROLES}
+    _require(type(source_members) is dict and set(source_members) == required_paths,
+             'r2_source_member_set_mismatch')
+    result = {}
+    for role, path in SOURCE_ROLES:
+        _require(path in table, 'r2_required_source_missing', path)
+        row = table[path]; raw = source_members[path]
+        _require(type(raw) is bytes and 0 < len(raw) == row['size_bytes']
+                 and hashlib.sha256(raw).hexdigest() == row['sha256']
+                 and _sha1_git_blob(raw) == row['git_blob_sha1'], 'r2_source_bytes_mismatch', path)
+        result[path] = GitObject(role, path, expected_source_tree, row['git_mode'], row['git_blob_sha1'], raw)
+    _require(Path(__file__).read_bytes() == result[PLAN_CHECKER_PATH].data,
+             'r2_executed_checker_source_mismatch')
+    _check_reviewed_source_pins(result)
+    return result
+
+
+@_yaml_parse_scope()
+def _check_local_r2_plan(
+    plan_raw: bytes, source_index_raw: bytes, source_members: dict[str, bytes], *,
+    expected_source_tree: str, expected_source_index_sha256: str, expected_plan_sha256: str,
+) -> dict[str, Any]:
+    """Reconstruct the local prelaunch graph independently; never declare I/E complete."""
+    _require(type(expected_plan_sha256) is str and re.fullmatch(r'[0-9a-f]{64}', expected_plan_sha256)
+             is not None, 'r2_expected_plan_digest_invalid')
+    _require(type(plan_raw) is bytes and 0 < len(plan_raw) <= MAX_PLAN_BYTES, 'r2_plan_bytes_invalid')
+    _require(hashlib.sha256(plan_raw).hexdigest() == expected_plan_sha256, 'r2_plan_digest_mismatch')
+    plan = _strict_json_object(plan_raw, label='local_r2_plan')
+    _require(_canonical_json_bytes(plan) == plan_raw, 'r2_plan_not_canonical')
+    sources = _local_r2_checked_sources(
+        source_index_raw, source_members, expected_source_tree=expected_source_tree,
+        expected_source_index_sha256=expected_source_index_sha256,
+    )
+    binding = plan.get('local_requirement_binding')
+    _verify_local_r2_requirement_binding(binding, sources[SCHEMA_PATH].data,
+                                         expected_schema_sha256=sources[SCHEMA_PATH].sha256)
+    expected = _assemble_expected_plan_from_sources(
+        sources, expected_source_tree, 'example', f'step5c-plan:local-r2:{expected_source_tree}',
+    )
+    _schema_validate(expected, sources[SCHEMA_PATH].data)
+    expected['schema_version'] = 'pulsemech_step5c_local_r2_plan_v0'
+    expected['record_type'] = 'local_r2_prelaunch_plan'
+    expected['record_status'] = 'local_candidate'
+    identity = expected['plan_identity']
+    del identity['source_commit']
+    identity['source_identity'] = {
+        'kind': 'uncommitted_git_tree', 'git_tree_sha1': expected_source_tree,
+        'source_index_sha256': expected_source_index_sha256,
+    }
+    for key in ('builder', 'independent_checker'):
+        identity[key]['source_revision_kind'] = 'uncommitted_git_tree'
+    for row in expected['source_inventory']:
+        row['revision_kind'] = 'uncommitted_git_tree'
+    expected['local_requirement_binding'] = deepcopy(binding)
+    expected['local_boundary'] = {
+        'dispatch_authorized': False, 'R2_activated': False,
+        'completion_evaluated': False, 'reference_acquired': False,
+    }
+    _require(_canonical_json_bytes(expected) == plan_raw, 'r2_plan_reconstruction_mismatch')
+    _check_sorted_and_unique(plan)
+    workflow = _parse_yaml_document(sources[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH)
+    _verify_source_ledger_equations(plan, workflow)
+    for verify_equations in (
+        _verify_source_recorded_equations, _verify_source_package_equations,
+        _verify_source_required_argument_equations, _verify_source_bundle_equations,
+        _verify_source_provenance_equations, _verify_source_baseline_floor_equations,
+        _verify_source_preattest_preservation_equations, _verify_source_llamaguard_preservation_equations,
+        _verify_source_llamaguard_attestation_equations, _verify_source_llamaguard_production_equations,
+        _verify_source_pre_attestation_postcondition_equations, _verify_source_final_artifact_postcondition_equations,
+        _verify_source_recorded_publication_equations, _verify_source_authority_publication_equations,
+        _verify_source_report_publication_equations, _verify_source_residual_input_equations,
+    ):
+        verify_equations(plan, workflow, sources)
+    return {
+        'schema_version': 'pulsemech_step5c_local_r2_plan_check_v0',
+        'record_status': 'local_candidate', 'ok': True, 'errors': [],
+        'source_identity': deepcopy(identity['source_identity']),
+        'plan': {'sha256': expected_plan_sha256, 'size_bytes': len(plan_raw),
+                 'byte_identical_to_independent_reconstruction': True},
+        'checker': deepcopy(identity['independent_checker']),
+        'local_requirement_binding': deepcopy(binding), 'counts': _plan_counts(plan),
+        'authority_boundary': deepcopy(AUTHORITY_BOUNDARY),
+        'local_boundary': deepcopy(expected['local_boundary']),
+    }
 
 if __name__ == "__main__":
     raise SystemExit(main())

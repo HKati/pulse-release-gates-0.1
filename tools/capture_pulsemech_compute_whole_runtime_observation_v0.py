@@ -3526,5 +3526,68 @@ def main() -> int:
     return 0
 
 
+
+# LOCAL_03: simulation carrier, not a production capture or complete R2 verdict.
+def _local_r2_capture_verifier(prepared_raw: bytes, *, expected_prepared_sha256: str,
+                               expected_source_index_sha256: str):
+    """Load source-index-bound independent verifier bytes without importing acquisition."""
+    import types
+    _require(type(prepared_raw) is bytes and 0 < len(prepared_raw) <= 64 * 1024 * 1024
+             and _sha256(prepared_raw) == expected_prepared_sha256,
+             'r2_prepared_digest_mismatch', stage='local_r2')
+    try:
+        with zipfile.ZipFile(io.BytesIO(prepared_raw)) as z:
+            index_raw = z.read('local-r2-source-index.json')
+            _require(_sha256(index_raw) == expected_source_index_sha256,
+                     'r2_source_index_mismatch', stage='local_r2')
+            index = _json_object(index_raw, label='local_r2_index')
+            path = 'tools/check_pulsemech_compute_whole_runtime_observation_v0.py'
+            raw = z.read('sources/' + path)
+            own = z.read('sources/' + CAPTURE_PATH)
+            rows = index.get('files')
+            _require(type(rows) is list, 'r2_source_inventory_invalid', stage='local_r2')
+            matches = [r for r in rows if type(r) is dict and r.get('path') == path]
+            _require(len(matches) == 1 and _sha256(raw) == matches[0].get('sha256')
+                     and type(matches[0].get('size_bytes')) is int
+                     and len(raw) == matches[0]['size_bytes'],
+                     'r2_executable_source_mismatch', stage='local_r2')
+    except (KeyError, OSError, ValueError, zipfile.BadZipFile) as exc:
+        raise CaptureError('r2_prepared_intake_invalid', stage='local_r2') from exc
+    location = Path(__file__).resolve().parent / Path(path).name
+    _require(Path(__file__).read_bytes() == own and location.read_bytes() == raw,
+             'r2_executed_source_mismatch', stage='local_r2')
+    module = types.ModuleType('_step5c_local_r2_capture_consumer')
+    module.__file__ = str(location)
+    sys.modules[module.__name__] = module
+    exec(compile(raw, str(location), 'exec'), module.__dict__)
+    return module
+
+
+def _build_local_r2_capture_bytes(acquisition_raw: bytes, prepared_raw: bytes, expected_context_raw: bytes, *,
+                                 expected_acquisition_sha256: str, **pins: Any) -> bytes:
+    verifier = _local_r2_capture_verifier(prepared_raw,
+        expected_prepared_sha256=pins['expected_prepared_sha256'],
+        expected_source_index_sha256=pins['expected_source_index_sha256'])
+    checked = verifier._read_local_r2_acquisition(acquisition_raw, prepared_raw, expected_context_raw,
+                                               expected_acquisition_sha256=expected_acquisition_sha256, **pins)
+    # Check the existing acquisition/capture selector relationship as well as the
+    # independent schema-derived selectors. No existing selector table is edited.
+    existing = _selected_archive_expectations(checked['subject_run_id'], checked['provider_run_id'])
+    actual = {row['role']: (row['source_run_kind'], row['source_run_id'], row['artifact_name'])
+              for row in checked['archive_inventory']}
+    _require(actual == {role: value[:3] for role, value in existing.items()},
+             'r2_capture_selector_mismatch', stage='local_r2')
+    record = {**checked, 'schema_version': 'pulsemech_step5c_local_r2_capture_v0',
+              'validation_scope': 'synthetic_transport_identity_and_archive_bytes_only',
+              'expected_acquisition_sha256': expected_acquisition_sha256,
+              'expected_prepared_sha256': pins['expected_prepared_sha256'],
+              'expected_plan_sha256': pins['expected_plan_sha256'],
+              'expected_context_sha256': _sha256(expected_context_raw)}
+    raw = verifier.deterministic_zip_bytes({
+        'local-r2-capture.json': _canonical_json_bytes(record),
+        'local-r2-acquisition.zip': acquisition_raw, 'local-r2-context.json': expected_context_raw,
+    }, maximum_members=3, maximum_bytes=84 * 1024 * 1024)
+    return raw
+
 if __name__ == "__main__":
     raise SystemExit(main())

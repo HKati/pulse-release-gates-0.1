@@ -12275,6 +12275,2174 @@ def test_recorded_default_literal_lookup_does_not_mutate_its_local_syntax():
     tree, before = captured[0]
     assert ast.dump(tree, include_attributes=True) == before
 
+
+# ---------------------------------------------------------------------------
+# Local R2 requirement-binding prerequisite. These helpers are deliberately
+# disconnected from active record/CLI paths until the coordinated local
+# candidate is complete. This is not R2 activation or state-evidence acceptance.
+# ---------------------------------------------------------------------------
+def _local_r2_schema_bytes():
+    return (ROOT / BUILDER.SCHEMA_PATH).read_bytes()
+
+
+def _local_r2_binding(raw=None):
+    if raw is None:
+        raw = _local_r2_schema_bytes()
+    return BUILDER._build_local_r2_requirement_binding(
+        raw, expected_schema_sha256=hashlib.sha256(raw).hexdigest(),
+    )
+
+
+def _local_r2_verify(binding, raw=None):
+    if raw is None:
+        raw = _local_r2_schema_bytes()
+    return PLAN_CHECKER._verify_local_r2_requirement_binding(
+        binding, raw, expected_schema_sha256=hashlib.sha256(raw).hexdigest(),
+    )
+
+
+def _local_r2_contract_oracle(raw, binding):
+    """Independent contract assertions, not a call to either binding helper."""
+    definitions = json.loads(raw)['$defs']
+    prefix = 'post_run_state_evidence_v1_'
+    expected = r2_definition_example()  # Existing contract-derived obligation map.
+    fields = {
+        'role_obligations': 'role_obligations',
+        'required_subject_archives': 'subject_archives',
+        'required_provider_artifact': 'provider_artifact',
+        'limitations': 'limitations',
+    }
+    for field, suffix in fields.items():
+        definition = definitions[prefix + suffix]
+        assert set(definition['required']) == set(expected[field])
+        actual = {name: entry['const'] for name, entry in definition['properties'].items()}
+        assert actual == expected[field]
+    assert definitions[prefix + 'profile_id']['const'] == expected['evidence_profile']
+    assert binding['evidence_profile'] == expected['evidence_profile']
+    assert binding['topology_profile'] == expected['topology_profile']
+    assert binding['requirements_sha256'] == (
+        '19e451b51a7ff1bdb7d8242a1f486f2e8fd410e791516b7dd2ebf9a0dd93ecc1'
+    )
+
+
+def test_local_r2_binding_matches_contract_without_activating_a_record():
+    raw = _local_r2_schema_bytes()
+    before = bytes(raw)
+    binding = _local_r2_binding(raw)
+    _local_r2_contract_oracle(raw, binding)
+    assert _local_r2_verify(json.loads(canonical(binding)), raw) is None
+    assert raw == before
+    assert binding['candidate_scope'] == 'local_only_not_activated'
+    assert binding['schema_source'] == {
+        'path': BUILDER.SCHEMA_PATH, 'size_bytes': len(raw),
+        'sha256': hashlib.sha256(raw).hexdigest(),
+    }
+    assert not jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).is_valid(binding)
+    assert not any(name.startswith(R2_DEFINITION_PREFIX)
+                   for name in _schema_definition_reachability(EVIDENCE_SCHEMA))
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('supplied', [None, 1, '', 'a' * 63, 'A' * 64, 'a' * 64 + '\n'])
+def test_local_r2_binding_requires_exact_expected_digest(side, supplied):
+    raw = _local_r2_schema_bytes()
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    with pytest.raises(module.PlanError) as caught:
+        if side == 'builder':
+            module._build_local_r2_requirement_binding(raw, expected_schema_sha256=supplied)
+        else:
+            module._verify_local_r2_requirement_binding({}, raw, expected_schema_sha256=supplied)
+    assert caught.value.code == 'r2_expected_schema_digest_invalid'
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_local_r2_binding_rejects_wrong_expected_source_bytes(side):
+    raw = _local_r2_schema_bytes()
+    binding = _local_r2_binding(raw)
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    with pytest.raises(module.PlanError) as caught:
+        if side == 'builder':
+            module._build_local_r2_requirement_binding(raw, expected_schema_sha256='a' * 64)
+        else:
+            module._verify_local_r2_requirement_binding(binding, raw, expected_schema_sha256='a' * 64)
+    assert caught.value.code == 'r2_schema_source_mismatch'
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('kind', ['nonbytes', 'empty', 'oversize'])
+def test_local_r2_binding_bounds_source_bytes(side, kind):
+    raw = {'nonbytes': 'not bytes', 'empty': b'', 'oversize': b'x' * (8 * 1024 * 1024 + 1)}[kind]
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    with pytest.raises(module.PlanError) as caught:
+        if side == 'builder':
+            module._build_local_r2_requirement_binding(raw, expected_schema_sha256='a' * 64)
+        else:
+            module._verify_local_r2_requirement_binding({}, raw, expected_schema_sha256='a' * 64)
+    assert caught.value.code == 'r2_schema_bytes_invalid'
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('raw,error', [
+    (b'\xef\xbb\xbf{}', 'json_bom_rejected'),
+    (b'{"$defs":{},"$defs":{}}', 'duplicate_json_key'),
+    (b'{"a":NaN}', 'non_finite_json_number'),
+    (b'\xff', 'invalid_json'),
+    (b'[]', 'json_object_required'),
+])
+def test_local_r2_binding_keeps_strict_source_json(side, raw, error):
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    with pytest.raises(module.PlanError) as caught:
+        if side == 'builder':
+            module._build_local_r2_requirement_binding(raw, expected_schema_sha256=hashlib.sha256(raw).hexdigest())
+        else:
+            module._verify_local_r2_requirement_binding({}, raw, expected_schema_sha256=hashlib.sha256(raw).hexdigest())
+    assert caught.value.code == error
+
+
+_LOCAL_R2_BINDING_FIELDS = (
+    'binding_version', 'candidate_scope', 'evidence_profile', 'topology_profile',
+    'requirements_sha256', 'schema_source', 'authority_effect',
+    'same_run_release_authority_eligible', 'active_gate_eligible',
+)
+
+
+@pytest.mark.parametrize('field', _LOCAL_R2_BINDING_FIELDS)
+def test_local_r2_binding_rejects_missing_fields(field):
+    binding = _local_r2_binding()
+    del binding[field]
+    with pytest.raises(PLAN_CHECKER.PlanError) as caught:
+        _local_r2_verify(binding)
+    assert caught.value.code == 'r2_binding_mismatch'
+
+
+@pytest.mark.parametrize('field,value', [
+    ('binding_version', 'unknown'),
+    ('candidate_scope', 'production'),
+    ('evidence_profile', 'pulse_ci_hosted_release_grade_v0'),
+    ('evidence_profile', 'pulsemech_step5c_post_run_state_evidence_v0'),
+    ('topology_profile', R2_PROFILE_ID),
+    ('requirements_sha256', 'a' * 64),
+    ('authority_effect', 'allow'),
+    ('active_gate_eligible', True),
+    ('active_gate_eligible', 0),
+    ('same_run_release_authority_eligible', 0),
+    ('extra', False),
+])
+def test_local_r2_binding_rejects_swapped_stale_weakened_or_extra_fields(field, value):
+    binding = _local_r2_binding()
+    binding[field] = value
+    with pytest.raises(PLAN_CHECKER.PlanError) as caught:
+        _local_r2_verify(binding)
+    assert caught.value.code == 'r2_binding_mismatch'
+
+
+@pytest.mark.parametrize('field,value', [('path', 'other.json'), ('sha256', 'a' * 64),
+                                         ('size_bytes', 1), ('extra', True)])
+def test_local_r2_binding_rejects_source_descriptor_changes(field, value):
+    binding = _local_r2_binding()
+    binding['schema_source'][field] = value
+    with pytest.raises(PLAN_CHECKER.PlanError) as caught:
+        _local_r2_verify(binding)
+    assert caught.value.code == 'r2_binding_mismatch'
+
+
+@pytest.mark.parametrize('binding', [None, [], False, 0, 'binding'])
+def test_local_r2_binding_requires_an_object(binding):
+    with pytest.raises(PLAN_CHECKER.PlanError) as caught:
+        _local_r2_verify(binding)
+    assert caught.value.code == 'r2_binding_not_object'
+
+
+def _local_r2_mutated_schema(mutation):
+    document = json.loads(_local_r2_schema_bytes())
+    definitions = document['$defs']
+    prefix = 'post_run_state_evidence_v1_'
+    if mutation == 'role_strength':
+        definitions[prefix + 'role_obligations']['properties']['state:step5c:gate-policy']['const'] = 'required_explicit_content_gap'
+    elif mutation == 'role_omission':
+        role = 'state:step5c:gate-policy'
+        definitions[prefix + 'role_obligations']['required'].remove(role)
+        del definitions[prefix + 'role_obligations']['properties'][role]
+    elif mutation == 'archive_omission':
+        definitions[prefix + 'subject_archives']['required'].remove('advisory_reference_bundle')
+        del definitions[prefix + 'subject_archives']['properties']['advisory_reference_bundle']
+    elif mutation == 'receipt_promotion':
+        definitions[prefix + 'limitations']['properties']['final_binding_signed_receipt']['const'] = 'verified'
+    elif mutation == 'authority_promotion':
+        definitions['authority_boundary']['properties']['active_gate_eligible']['const'] = True
+    elif mutation == 'profile':
+        definitions[prefix + 'profile_id']['const'] = 'other_profile'
+    elif mutation == 'topology':
+        definitions[prefix + 'definition']['properties']['topology_profile']['const'] = 'other_topology'
+    elif mutation == 'external_ref':
+        definitions[prefix + 'definition']['properties']['authority_boundary']['$ref'] = 'https://invalid.example/schema'
+    elif mutation == 'missing_definition':
+        del definitions[prefix + 'provider_artifact']
+    else:
+        raise AssertionError(mutation)
+    return canonical(document)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('mutation', [
+    'role_strength', 'role_omission', 'archive_omission', 'receipt_promotion',
+    'authority_promotion', 'profile', 'topology', 'external_ref', 'missing_definition',
+])
+def test_local_r2_rehashed_source_does_not_authorize_changed_requirements(side, mutation):
+    raw = _local_r2_mutated_schema(mutation)
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    with pytest.raises(module.PlanError) as caught:
+        if side == 'builder':
+            module._build_local_r2_requirement_binding(raw, expected_schema_sha256=hashlib.sha256(raw).hexdigest())
+        else:
+            module._verify_local_r2_requirement_binding({}, raw, expected_schema_sha256=hashlib.sha256(raw).hexdigest())
+    assert caught.value.code == {
+        'external_ref': 'r2_definition_reference_invalid',
+        'missing_definition': 'r2_definition_missing',
+    }.get(mutation, 'r2_requirements_changed')
+
+
+def test_local_r2_binding_is_call_local_and_binds_schema_representation():
+    original = _local_r2_schema_bytes()
+    changed = original + b'\n'  # Same requirements, different actual source bytes.
+    first, second = _local_r2_binding(original), _local_r2_binding(changed)
+    assert first['requirements_sha256'] == second['requirements_sha256']
+    assert first['schema_source'] != second['schema_source']
+    assert _local_r2_verify(first, original) is None
+    assert _local_r2_verify(second, changed) is None
+    with pytest.raises(PLAN_CHECKER.PlanError) as caught:
+        _local_r2_verify(first, changed)
+    assert caught.value.code == 'r2_binding_mismatch'
+    second['schema_source']['path'] = 'mutated-result'
+    assert _local_r2_binding(original) == first
+
+
+def test_local_r2_checker_does_not_consume_a_builder_verdict():
+    binding = _local_r2_binding()
+    with patch.object(BUILDER, '_build_local_r2_requirement_binding', side_effect=AssertionError('must not be called')):
+        assert _local_r2_verify(binding) is None
+        bad = copy.deepcopy(binding)
+        bad['requirements_sha256'] = '0' * 64
+        with pytest.raises(PLAN_CHECKER.PlanError, match='r2_binding_mismatch'):
+            _local_r2_verify(bad)
+
+
+def test_local_r2_contract_oracle_detects_a_common_mode_weakened_requirement():
+    raw = _local_r2_mutated_schema('role_strength')
+    # Both implementations incorrectly agree when their reviewed pins are also
+    # altered. The independent contract oracle must still reject that agreement.
+    definitions = json.loads(raw)['$defs']
+    names = ['authority_boundary'] + [name for name in definitions if name.startswith(R2_DEFINITION_PREFIX)]
+    closure = {'$ref': '#/$defs/post_run_state_evidence_v1_definition',
+               '$defs': {name: definitions[name] for name in names}}
+    wrong_digest = hashlib.sha256(canonical(closure)).hexdigest()
+    with patch.object(BUILDER, '_R2_LOCAL_REQUIREMENTS_SHA256', wrong_digest), \
+         patch.object(PLAN_CHECKER, '_R2_LOCAL_REVIEWED_REQUIREMENTS_SHA256', wrong_digest):
+        binding = _local_r2_binding(raw)
+        assert _local_r2_verify(binding, raw) is None
+        with pytest.raises(AssertionError):
+            _local_r2_contract_oracle(raw, binding)
+
+
+def test_local_r2_helpers_have_no_active_call_sites():
+    # LOCAL_02 connects dormant helpers to one another, not to the public CLI.
+    # Follow reachability from actual public roots instead of forbidding every
+    # call between private helpers (the LOCAL_01-only property).
+    for module, roots in [
+        (BUILDER, {'main', 'build_plan'}),
+        (PLAN_CHECKER, {'main', 'check_plan', '_reconstruct_expected_plan'}),
+        (VERIFIER, {'main', 'prepare_carrier', 'read_prepared', 'read_capture'}),
+    ]:
+        tree = ast.parse(Path(module.__file__).read_bytes())
+        functions = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
+        todo = list(roots); seen = set()
+        while todo:
+            name = todo.pop()
+            if name in seen or name not in functions:
+                continue
+            seen.add(name)
+            todo.extend(node.func.id for node in ast.walk(functions[name])
+                        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name))
+        assert not any('local_r2' in name for name in seen)
+    assert len(EVIDENCE_SCHEMA['oneOf']) == 4
+
+
+def test_local_r2_binding_crosses_real_isolated_processes(tmp_path):
+    binding_path = tmp_path / 'requirement-binding.json'
+    scripts = [
+        """import hashlib, importlib.util, json, pathlib, sys
+root = pathlib.Path(sys.argv[1]); out = pathlib.Path(sys.argv[2])
+p = root / 'tools/build_pulsemech_compute_whole_runtime_observation_plan_v0.py'
+spec = importlib.util.spec_from_file_location('local_r2_producer', p)
+m = importlib.util.module_from_spec(spec); sys.modules[spec.name] = m; spec.loader.exec_module(m)
+raw = (root / m.SCHEMA_PATH).read_bytes()
+b = m._build_local_r2_requirement_binding(raw, expected_schema_sha256=hashlib.sha256(raw).hexdigest())
+with out.open('xb') as f: f.write(m._canonical_json_bytes(b))
+print(json.dumps({'stage':'requirement_binding_only','bytes':out.stat().st_size}))
+""",
+        """import hashlib, importlib.util, json, pathlib, sys
+root = pathlib.Path(sys.argv[1]); path = pathlib.Path(sys.argv[2])
+p = root / 'tools/check_pulsemech_compute_whole_runtime_observation_plan_v0.py'
+spec = importlib.util.spec_from_file_location('local_r2_consumer', p)
+m = importlib.util.module_from_spec(spec); sys.modules[spec.name] = m; spec.loader.exec_module(m)
+raw = (root / m.SCHEMA_PATH).read_bytes()
+b = json.loads(path.read_bytes())
+m._verify_local_r2_requirement_binding(b, raw, expected_schema_sha256=hashlib.sha256(raw).hexdigest())
+print(json.dumps({'stage':'requirement_binding_only','match':True}))
+""",
+    ]
+    for index, script in enumerate(scripts):
+        argv = [sys.executable, '-I', '-B', '-c', script, str(ROOT), str(binding_path)]
+        result = subprocess.run(argv, capture_output=True, timeout=30, check=False)
+        (tmp_path / f'process-{index}.json').write_text(json.dumps({
+            'argv': argv, 'exit': result.returncode,
+            'stdout': result.stdout.decode(), 'stderr': result.stderr.decode(),
+        }, indent=2) + '\n')
+        assert result.returncode == 0, result.stderr.decode()
+    _local_r2_contract_oracle(_local_r2_schema_bytes(), json.loads(binding_path.read_bytes()))
+
+
+
+# LOCAL_02: commit-free local plan/diagnostic/prepared/context connection.
+# All source pins are frozen outside the objects under test. No subject runs,
+# Git commits or public reference commands are invoked by these fixtures.
+def _r2c2_index_oracle(files):
+    def oid(kind, raw):
+        return hashlib.sha1(kind.encode() + b' ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+    rows = [{'path': p, 'git_mode': mode, 'git_blob_sha1': oid('blob', raw),
+             'sha256': digest(raw), 'size_bytes': len(raw)} for p, (mode, raw) in sorted(files.items())]
+    def subtree(prefix):
+        names = {}
+        for path, (mode, raw) in files.items():
+            if not path.startswith(prefix):
+                continue
+            name, separator, _ = path[len(prefix):].partition('/')
+            names[name] = ('40000', None) if separator else (mode, oid('blob', raw))
+        records = []
+        for name, (mode, blob) in names.items():
+            if mode == '40000':
+                blob = subtree(prefix + name + '/')
+            records.append((name.encode() + (b'/' if mode == '40000' else b''),
+                            mode.encode() + b' ' + name.encode() + b'\0' + bytes.fromhex(blob)))
+        return oid('tree', b''.join(raw for _, raw in sorted(records)))
+    return canonical({'source_kind': 'uncommitted_git_tree', 'files': rows}), subtree('')
+
+
+@pytest.fixture(scope='module')
+def r2c2_sources():
+    files = {}
+    for path in ROOT.rglob('*'):
+        if any(part in {'.git', '__pycache__', '.pytest_cache'} for part in path.relative_to(ROOT).parts):
+            continue
+        if path.is_dir():
+            continue
+        assert not path.is_symlink()
+        files[path.relative_to(ROOT).as_posix()] = ('100755' if path.stat().st_mode & 0o111 else '100644', path.read_bytes())
+    index_raw, tree = _r2c2_index_oracle(files)
+    return SimpleNamespace(files=files, index_raw=index_raw, tree=tree,
+        sources={path: files[path][1] for _, path in PLAN_CHECKER.SOURCE_ROLES},
+        pins={'expected_source_tree': tree, 'expected_source_index_sha256': digest(index_raw)})
+
+
+@pytest.fixture(scope='module')
+def r2c2_plan(r2c2_sources):
+    f = r2c2_sources
+    plan = BUILDER._build_local_r2_plan(f.files, **f.pins)
+    raw = canonical(plan); pins = {**f.pins, 'expected_plan_sha256': digest(raw)}
+    diagnostic = PLAN_CHECKER._check_local_r2_plan(raw, f.index_raw, f.sources, **pins)
+    return SimpleNamespace(source=f, value=plan, raw=raw, diagnostic=canonical(diagnostic), pins=pins)
+
+
+@pytest.fixture(scope='module')
+def r2c2_carrier(r2c2_plan):
+    f = r2c2_plan; s = f.source
+    raw = VERIFIER._prepare_local_r2_bytes(f.raw, f.diagnostic, s.index_raw, s.sources, **f.pins)
+    pins = {**f.pins, 'expected_prepared_sha256': digest(raw), 'experiment_id': 'local-r2:permanent-check'}
+    context = VERIFIER._build_local_r2_expected_context(f.raw, s.index_raw, s.sources, **pins)
+    return SimpleNamespace(plan=f, raw=raw, context=context, pins=pins)
+
+
+def test_r2c2_plan_uses_uncommitted_source_without_relabelling_a_commit(r2c2_plan):
+    f = r2c2_plan; p = f.value
+    assert p['record_type'] == 'local_r2_prelaunch_plan'
+    assert p['record_status'] == 'local_candidate'
+    identity = p['plan_identity']
+    assert 'source_commit' not in identity
+    assert identity['source_identity'] == {'kind': 'uncommitted_git_tree', 'git_tree_sha1': f.source.tree,
+        'source_index_sha256': digest(f.source.index_raw)}
+    assert all(row['revision'] == f.source.tree and row['revision_kind'] == 'uncommitted_git_tree'
+               for row in p['source_inventory'])
+    assert len(p['source_inventory']) == len(PLAN_CHECKER.SOURCE_ROLES) == 60
+    assert len(p['state_templates']) == 62
+    assert p['plan_identity']['profile'] != p['local_requirement_binding']['evidence_profile']
+    assert p['local_boundary'] == {'dispatch_authorized': False, 'R2_activated': False,
+                                  'completion_evaluated': False, 'reference_acquired': False}
+
+
+def test_r2c2_source_index_and_tree_match_an_independent_oracle(r2c2_sources):
+    f = r2c2_sources
+    raw, tree = BUILDER._local_r2_source_index(f.files)
+    assert raw == f.index_raw and tree == f.tree
+    checked = PLAN_CHECKER._local_r2_checked_sources(raw, f.sources, **f.pins)
+    assert set(checked) == set(f.sources)
+    assert all(checked[path].data == data for path, data in f.sources.items())
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+@pytest.mark.parametrize('field,value,code', [
+    ('expected_source_tree', '0' * 40, 'r2_source_tree_mismatch'),
+    ('expected_source_tree', False, 'r2_expected_source_tree_invalid'),
+    ('expected_source_index_sha256', '0' * 64, 'r2_source_index_mismatch'),
+    ('expected_source_index_sha256', 'a' * 40, 'r2_expected_source_index_invalid'),
+])
+def test_r2c2_rejects_external_source_pin_changes(r2c2_sources, side, field, value, code):
+    f = r2c2_sources; pins = {**f.pins, field: value}
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    with pytest.raises(module.PlanError) as caught:
+        if side == 'builder':
+            BUILDER._build_local_r2_plan(f.files, **pins)
+        else:
+            PLAN_CHECKER._local_r2_checked_sources(f.index_raw, f.sources, **pins)
+    assert caught.value.code == code
+
+
+@pytest.mark.parametrize('path', [BUILDER.SCHEMA_PATH, BUILDER.SUBJECT_WORKFLOW_PATH, BUILDER.BUILDER_PATH])
+def test_r2c2_actual_source_bytes_cannot_change_under_fixed_index(r2c2_sources, path):
+    f = r2c2_sources; files = dict(f.files); mode, raw = files[path]; files[path] = (mode, raw + b'\n')
+    with pytest.raises(BUILDER.PlanError, match='r2_source_tree_mismatch'):
+        BUILDER._build_local_r2_plan(files, **f.pins)
+    sources = {**f.sources, path: raw + b'\n'}
+    with pytest.raises(PLAN_CHECKER.PlanError, match='r2_source_bytes_mismatch'):
+        PLAN_CHECKER._local_r2_checked_sources(f.index_raw, sources, **f.pins)
+
+
+@pytest.mark.parametrize('change', ['missing', 'extra', 'wrong_type'])
+def test_r2c2_source_member_set_is_closed(r2c2_sources, change):
+    f = r2c2_sources; sources = dict(f.sources)
+    if change == 'missing':
+        del sources[BUILDER.SCHEMA_PATH]
+    elif change == 'extra':
+        sources['tools/unplanned.py'] = b'pass\n'
+    else:
+        sources[BUILDER.SCHEMA_PATH] = 'not bytes'
+    with pytest.raises(PLAN_CHECKER.PlanError) as caught:
+        PLAN_CHECKER._local_r2_checked_sources(f.index_raw, sources, **f.pins)
+    assert caught.value.code == ('r2_source_bytes_mismatch' if change == 'wrong_type' else 'r2_source_member_set_mismatch')
+
+
+@pytest.mark.parametrize('path', ['/absolute', 'a/../b', 'a//b', '.git/config', 'nested/.git/HEAD', 'a\\b', 'a\0b'])
+def test_r2c2_source_index_rejects_unsafe_paths(path):
+    with pytest.raises(BUILDER.PlanError, match='r2_source_path_invalid'):
+        BUILDER._local_r2_source_index({path: ('100644', b'x')})
+
+
+@pytest.mark.parametrize('fault', ['mode', 'duplicate', 'size_bool', 'extra_field', 'reverse', 'wrong_blob', 'kind'])
+def test_r2c2_rehashed_malformed_source_indexes_reject(r2c2_sources, fault):
+    f = r2c2_sources; index = json.loads(f.index_raw)
+    if fault == 'mode': index['files'][0]['git_mode'] = '120000'
+    elif fault == 'duplicate': index['files'].append(copy.deepcopy(index['files'][0]))
+    elif fault == 'size_bool': index['files'][0]['size_bytes'] = True
+    elif fault == 'extra_field': index['files'][0]['unchecked'] = True
+    elif fault == 'reverse': index['files'].reverse()
+    elif fault == 'wrong_blob': index['files'][0]['git_blob_sha1'] = 'a' * 40
+    else: index['source_kind'] = 'git_commit'
+    raw = canonical(index)
+    with pytest.raises(PLAN_CHECKER.PlanError) as caught:
+        PLAN_CHECKER._local_r2_checked_sources(raw, f.sources, expected_source_tree=f.tree,
+                                               expected_source_index_sha256=digest(raw))
+    assert caught.value.code == {'duplicate': 'r2_source_path_duplicate', 'reverse': 'r2_source_index_order_mismatch',
+        'wrong_blob': 'r2_source_tree_mismatch', 'kind': 'r2_source_inventory_invalid'}.get(fault, 'r2_source_entry_invalid')
+
+
+@pytest.mark.parametrize('fault', [
+    'schema_version', 'record_type', 'record_status', 'commit_alias', 'source_tree',
+    'source_index', 'activation', 'activation_integer', 'missing_binding', 'mixed_profile',
+    'changed_requirement', 'counts', 'locator', 'missing_state', 'checker_identity', 'extra_field',
+])
+def test_r2c2_rehashed_plan_cannot_change_meaning(r2c2_plan, fault):
+    f = r2c2_plan; plan = copy.deepcopy(f.value)
+    if fault in {'schema_version', 'record_type', 'record_status'}: plan[fault] = 'observed'
+    elif fault == 'commit_alias': plan['plan_identity']['source_commit'] = f.source.tree
+    elif fault == 'source_tree': plan['plan_identity']['source_identity']['git_tree_sha1'] = 'a' * 40
+    elif fault == 'source_index': plan['plan_identity']['source_identity']['source_index_sha256'] = 'a' * 64
+    elif fault == 'activation': plan['local_boundary']['R2_activated'] = True
+    elif fault == 'activation_integer': plan['local_boundary']['R2_activated'] = 0
+    elif fault == 'missing_binding': del plan['local_requirement_binding']
+    elif fault == 'mixed_profile': plan['local_requirement_binding']['evidence_profile'] = plan['plan_identity']['profile']
+    elif fault == 'changed_requirement': plan['local_requirement_binding']['requirements_sha256'] = 'a' * 64
+    elif fault == 'counts': plan['terminal_counts']['instantiated_steps'] = 144
+    elif fault == 'locator': plan['state_templates'][0]['path_or_uri'] = 'wrong.json'
+    elif fault == 'missing_state': plan['state_templates'].pop()
+    elif fault == 'checker_identity': plan['plan_identity']['independent_checker']['source_sha256'] = 'a' * 64
+    else: plan['extra'] = False
+    raw = canonical(plan);pins = {**f.pins, 'expected_plan_sha256': digest(raw)}
+    with pytest.raises(PLAN_CHECKER.PlanError) as caught:
+        PLAN_CHECKER._check_local_r2_plan(raw, f.source.index_raw, f.source.sources, **pins)
+    assert caught.value.code == ('r2_binding_not_object' if fault == 'missing_binding' else
+        'r2_binding_mismatch' if fault in {'mixed_profile', 'changed_requirement'} else 'r2_plan_reconstruction_mismatch')
+
+
+@pytest.mark.parametrize('suffix', [b'\n', b' '])
+def test_r2c2_plan_bytes_are_not_normalized_for_acceptance(r2c2_plan, suffix):
+    f = r2c2_plan; raw = f.raw + suffix
+    with pytest.raises(PLAN_CHECKER.PlanError, match='r2_plan_not_canonical'):
+        PLAN_CHECKER._check_local_r2_plan(raw, f.source.index_raw, f.source.sources,
+            **{**f.pins, 'expected_plan_sha256': digest(raw)})
+
+
+def test_r2c2_prepared_context_round_trip_runs_real_independent_checker(r2c2_carrier):
+    f = r2c2_carrier
+    # Instrument actual subprocess calls without replacing their execution.
+    actual_run = VERIFIER.subprocess.run
+    calls = []
+    def record(*args, **kwargs):
+        result = actual_run(*args, **kwargs); calls.append((args[0], result.returncode)); return result
+    with patch.object(VERIFIER.subprocess, 'run', side_effect=record):
+        plan, members = VERIFIER._read_local_r2_prepared(f.raw, f.context, **f.pins)
+    assert canonical(plan) == f.plan.raw
+    assert len(members) == 66
+    assert len(calls) == 1 and calls[0][1] == 0 and calls[0][0][1:3] == ['-I', '-B']
+    assert json.loads(f.context)['local_boundary']['R2_activated'] is False
+    assert 'reference_run_id' not in json.loads(f.context)
+    assert all(members['sources/' + path] == raw for path, raw in f.plan.source.sources.items())
+
+
+def test_r2c2_preparation_is_byte_deterministic_on_fixed_inputs(r2c2_carrier):
+    f = r2c2_carrier; p = f.plan
+    second = VERIFIER._prepare_local_r2_bytes(p.raw, p.diagnostic, p.source.index_raw, p.source.sources, **p.pins)
+    assert second == f.raw
+    # This is two preparations, NOT a two-process whole-runtime reconstruction.
+
+
+@pytest.mark.parametrize('target', ['plan', 'diagnostic', 'binding', 'dispatch', 'source', 'index', 'missing', 'extra', 'digest_file'])
+def test_r2c2_prepared_repacking_cannot_hide_input_changes(r2c2_carrier, target):
+    f = r2c2_carrier
+    members = VERIFIER.read_canonical_zip_bytes(f.raw, label='test', maximum_members=512, maximum_bytes=512 * 1024 * 1024)
+    if target == 'missing': del members['local-r2-plan.json']
+    elif target == 'extra': members['unchecked.txt'] = b'x'
+    elif target == 'source': members['sources/' + BUILDER.SUBJECT_WORKFLOW_PATH] += b'\n'
+    elif target == 'index': members['local-r2-source-index.json'] += b'\n'
+    elif target == 'digest_file': members['expected-local-r2-plan.sha256'] = b'0' * 64 + b'\n'
+    else:
+        names = {'plan': 'local-r2-plan.json', 'diagnostic': 'local-r2-plan-diagnostic.json',
+                 'binding': 'local-r2-requirements.json', 'dispatch': 'local-r2-prospective-dispatch.json'}
+        value = json.loads(members[names[target]]); value['forged'] = True
+        members[names[target]] = canonical(value)
+    raw = VERIFIER.deterministic_zip_bytes(members, maximum_members=512, maximum_bytes=512 * 1024 * 1024)
+    # Rehashing the container does not authorize changed members. Supply a
+    # correctly rebound outer context so rejection tests the inner boundary.
+    context = json.loads(f.context); context['expected_prepared_sha256'] = digest(raw)
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        VERIFIER._read_local_r2_prepared(raw, canonical(context), **{**f.pins, 'expected_prepared_sha256': digest(raw)})
+    assert caught.value.code == {
+        'plan': 'r2_plan_digest_mismatch', 'diagnostic': 'r2_plan_diagnostic_mismatch',
+        'binding': 'r2_prepared_binding_mismatch', 'dispatch': 'r2_prepared_dispatch_mismatch',
+        'source': 'r2_source_bytes_mismatch', 'index': 'r2_source_index_mismatch',
+        'missing': 'r2_prepared_member_missing', 'extra': 'r2_prepared_member_inventory_mismatch',
+        'digest_file': 'r2_prepared_plan_digest_mismatch',
+    }[target]
+
+
+@pytest.mark.parametrize('field', ['source_identity', 'expected_plan_sha256', 'expected_prepared_sha256',
+    'local_requirement_binding', 'experiment_id', 'local_boundary', 'record_status', 'extra'])
+def test_r2c2_expected_context_is_external_exact_and_not_silently_repaired(r2c2_carrier, field):
+    f = r2c2_carrier; context = json.loads(f.context);context[field] = 'wrong'
+    with pytest.raises(VERIFIER.VerificationError, match='r2_expected_context_mismatch'):
+        VERIFIER._read_local_r2_prepared(f.raw, canonical(context), **f.pins)
+
+
+def test_r2c2_a_self_declared_success_diagnostic_is_insufficient(r2c2_plan):
+    f = r2c2_plan; diagnostic = json.loads(f.diagnostic)
+    diagnostic['plan']['byte_identical_to_independent_reconstruction'] = 1
+    with pytest.raises(VERIFIER.VerificationError, match='r2_plan_diagnostic_mismatch'):
+        VERIFIER._prepare_local_r2_bytes(f.raw, canonical(diagnostic), f.source.index_raw, f.source.sources, **f.pins)
+
+
+def test_r2c2_common_wrong_ledger_mapping_is_not_closed_by_matching_assemblers(r2c2_sources):
+    f = r2c2_sources
+    def wrong(original):
+        def assemble(*args, **kwargs):
+            plan = original(*args, **kwargs)
+            next(s for s in plan['state_templates'] if s['state_id'] == 'state:step5c:release-decision-ledger-section')[
+                'path_or_uri'] = 'PULSE_safe_pack_v0/artifacts/common-wrong.html'
+            return plan
+        return assemble
+    with patch.object(BUILDER, '_assemble_plan_from_sources', side_effect=wrong(BUILDER._assemble_plan_from_sources)), \
+         patch.object(PLAN_CHECKER, '_assemble_expected_plan_from_sources', side_effect=wrong(PLAN_CHECKER._assemble_expected_plan_from_sources)):
+        plan = canonical(BUILDER._build_local_r2_plan(f.files, **f.pins))
+        with pytest.raises(PLAN_CHECKER.PlanError, match='source_mapping_'):
+            PLAN_CHECKER._check_local_r2_plan(plan, f.index_raw, f.sources,
+                **f.pins, expected_plan_sha256=digest(plan))
+
+
+@pytest.mark.parametrize('kind', ['plan', 'diagnostic', 'context'])
+def test_r2c2_production_root_schema_does_not_accept_local_candidate_records(r2c2_carrier, kind):
+    f = r2c2_carrier
+    raw = {'plan': f.plan.raw, 'diagnostic': f.plan.diagnostic, 'context': f.context}[kind]
+    assert not jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).is_valid(json.loads(raw))
+
+
+def test_r2c2_complete_state_guard_has_not_been_replaced_or_disabled():
+    names = {n.name: n for n in ast.parse(Path(VERIFIER.__file__).read_bytes()).body if isinstance(n, ast.FunctionDef)}
+    guard = names['_require_declared_state_completion']
+    assert any(isinstance(n, ast.Constant) and n.value == 'declared_state_evidence_incomplete' for n in ast.walk(guard))
+    calls = {n.func.id for n in ast.walk(names['build_verification_record'])
+             if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)} if 'build_verification_record' in names else set()
+    # Actual public record construction must retain the old guard's call.
+    assert any(n.name not in {k for k in names if 'local_r2' in k} and n.name != guard.name
+               and any(isinstance(c, ast.Call) and isinstance(c.func, ast.Name)
+                       and c.func.id == guard.name for c in ast.walk(n)) for n in names.values())
+
+
+def test_r2c2_local_context_can_only_be_created_from_independently_validated_plan(r2c2_carrier):
+    f = r2c2_carrier;p = f.plan;raw = p.raw + b'\n'
+    with pytest.raises(VERIFIER.VerificationError, match='r2_plan_not_canonical'):
+        VERIFIER._build_local_r2_expected_context(raw, p.source.index_raw, p.source.sources,
+            **{**f.pins, 'expected_plan_sha256': digest(raw)})
+
+
+@pytest.mark.parametrize('value,code', [('0' * 64, 'r2_plan_digest_mismatch'),
+    ('', 'r2_expected_plan_digest_invalid'), (True, 'r2_expected_plan_digest_invalid')])
+def test_r2c2_independently_supplied_plan_digest_is_required(r2c2_plan, value, code):
+    f = r2c2_plan
+    with pytest.raises(PLAN_CHECKER.PlanError) as caught:
+        PLAN_CHECKER._check_local_r2_plan(f.raw, f.source.index_raw, f.source.sources,
+            **{**f.pins, 'expected_plan_sha256': value})
+    assert caught.value.code == code
+
+
+def test_r2c2_independently_supplied_prepared_digest_is_required(r2c2_carrier):
+    f = r2c2_carrier
+    with pytest.raises(VERIFIER.VerificationError, match='r2_prepared_digest_mismatch'):
+        VERIFIER._read_local_r2_prepared(f.raw, f.context,
+            **{**f.pins, 'expected_prepared_sha256': '0' * 64})
+
+
+def test_r2c2_operations_do_not_mutate_or_cache_caller_owned_sources(r2c2_plan):
+    f = r2c2_plan; before = dict(f.source.files)
+    plan = BUILDER._build_local_r2_plan(f.source.files, **f.source.pins)
+    assert canonical(plan) == f.raw and f.source.files == before
+    plan['local_requirement_binding']['evidence_profile'] = 'caller-mutation'
+    assert canonical(BUILDER._build_local_r2_plan(f.source.files, **f.source.pins)) == f.raw
+    assert f.source.files == before
+
+
+# LOCAL_03 tests: commit-free simulated transport and capture binding.
+# Tiny ZIPs below prove transport/byte integrity, not package/D3/D6 acceptance.
+def _r2c3_script(carrier, *, subject_id=9001, provider_id=9002):
+    plan = carrier.plan.value
+    source = json.loads(carrier.context)['source_identity']
+    experiment = carrier.pins['experiment_id']
+    records = []; artifacts_by_role = {}
+    schema = EVIDENCE_SCHEMA['$defs']
+    subject = schema['post_run_state_evidence_v1_subject_archives']
+    provider = schema['post_run_state_evidence_v1_provider_artifact']
+    selectors = [(r, subject['properties'][r]['const']) for r in subject['required']]
+    for kind, run_id in [('subject', subject_id), ('provider', provider_id)]:
+        spec = plan[kind + '_dispatch']
+        inputs = spec['inputs'] if kind == 'subject' else {'source_run_id': str(subject_id)}
+        response = {'workflow_run_id': run_id,
+            'run_url': f'https://api.github.com/repos/{ACQUIRER.REPOSITORY}/actions/runs/{run_id}',
+            'html_url': f'https://github.com/{ACQUIRER.REPOSITORY}/actions/runs/{run_id}'}
+        records.append(('POST', spec['endpoint'], canonical({'ref': spec['ref'], 'inputs': inputs}), 200, canonical(response)))
+        endpoint = f'repos/{ACQUIRER.REPOSITORY}/actions/runs/{run_id}'
+        run = {'schema_version': 'pulsemech_step5c_local_r2_simulated_run_v0',
+            'record_status': 'local_candidate', 'simulation_only': True,
+            'source_identity': source, 'experiment_id': experiment, 'run_id': run_id, 'run_attempt': 1,
+            'workflow_name': ACQUIRER.SUBJECT_WORKFLOW_NAME if kind == 'subject' else ACQUIRER.PROVIDER_WORKFLOW_NAME,
+            'workflow_path': ACQUIRER.SUBJECT_WORKFLOW_PATH if kind == 'subject' else ACQUIRER.PROVIDER_WORKFLOW_PATH,
+            'event': 'workflow_dispatch', 'ref': 'main', 'inputs': inputs,
+            'status': 'completed', 'conclusion': 'success'}
+        records.append(('GET', endpoint, None, 200, canonical(run)))
+        jobs = []
+        for i, declaration in enumerate(plan['jobs'] if kind == 'subject' else [None]):
+            job = {'id': run_id * 10 + i, 'run_id': run_id, 'run_attempt': 1,
+                   'source_identity': source, 'status': 'completed',
+                   'conclusion': declaration['expected_terminal_result'] if declaration else 'success'}
+            if declaration is not None:
+                job['name'] = declaration['display_name']
+                job['steps'] = [{'occurrence_id': step['occurrence_id'], 'name': step['name'],
+                    'status': 'completed', 'conclusion': step['expected_terminal_result']}
+                    for step in declaration['steps'] if step['expected_runtime_presence'] is True]
+            jobs.append(job)
+        records.append(('GET', endpoint + '/jobs?per_page=100&page=1', None, 200,
+                        canonical({'total_count': len(jobs), 'jobs': jobs})))
+        rows = []; payloads = []
+        roles = selectors if kind == 'subject' else [('step3f_candidate_envelope', provider['properties']['artifact_name_template']['const'])]
+        for i, (role, template) in enumerate(roles):
+            artifact_id = run_id * 100 + i
+            raw = VERIFIER.deterministic_zip_bytes({'synthetic-transport-only.txt': ('not role evidence: ' + role + '\n').encode()},
+                                                   maximum_members=2, maximum_bytes=4096)
+            artifacts_by_role[role] = raw
+            rows.append({'id': artifact_id, 'name': template.format(subject_run_id=subject_id),
+                         'size_in_bytes': len(raw), 'digest': 'sha256:' + digest(raw), 'expired': False,
+                         'run_id': run_id, 'run_attempt': 1, 'source_identity': source})
+            payloads.append(('GET', f'repos/{ACQUIRER.REPOSITORY}/actions/artifacts/{artifact_id}/zip', None, 200, raw))
+        records.append(('GET', endpoint + '/artifacts?per_page=100&page=1', None, 200,
+                        canonical({'total_count': len(rows), 'artifacts': rows})))
+        records.extend(payloads)
+    return records, artifacts_by_role
+
+
+@pytest.fixture(scope='module')
+def r2c3_acquisition(r2c2_carrier):
+    records, archives = _r2c3_script(r2c2_carrier)
+    transport = ACQUIRER._LocalR2RecordedTransport(records)
+    raw = ACQUIRER._acquire_local_r2_bytes(r2c2_carrier.raw, r2c2_carrier.context,
+                                         transport=transport, **r2c2_carrier.pins)
+    members = VERIFIER.read_canonical_zip_bytes(raw, label='test_local_acq', maximum_members=256, maximum_bytes=80*1024*1024)
+    return SimpleNamespace(carrier=r2c2_carrier, records=records, archives=archives, raw=raw, members=members)
+
+
+def _r2c3_check(f, members):
+    return VERIFIER._local_r2_transport_check(members, f.carrier.plan.value, f.carrier.context,
+                                             f.carrier.plan.source.sources[VERIFIER.SCHEMA_PATH])
+
+
+def _r2c3_reindex(members):
+    index = json.loads(members['local-r2-acquisition.json'])
+    index['members'] = [{'member': n, 'sha256': digest(raw), 'size_bytes': len(raw)}
+                        for n, raw in sorted(members.items()) if n != 'local-r2-acquisition.json']
+    members['local-r2-acquisition.json'] = canonical(index)
+    return members
+
+
+def _r2c3_response_member(f, suffix):
+    rows = json.loads(f.members['local-r2-transcript.json'])['exchanges']
+    return next(row['response_member'] for row in rows if row['endpoint'].endswith(suffix))
+
+
+def test_r2c3_full_local_intake_and_independent_reader(r2c3_acquisition):
+    f = r2c3_acquisition
+    checked = VERIFIER._read_local_r2_acquisition(f.raw, f.carrier.raw, f.carrier.context,
+        expected_acquisition_sha256=digest(f.raw), **f.carrier.pins)
+    assert len(checked['archive_inventory']) == 7
+    assert checked['subject_run_id'] == 9001 and checked['provider_run_id'] == 9002
+    assert checked['role_evidence_evaluated'] is False and checked['simulation_only'] is True
+    assert checked['local_requirement_binding'] == f.carrier.plan.value['local_requirement_binding']
+    assert checked['source_identity']['kind'] == 'uncommitted_git_tree'
+    assert checked['local_boundary'] == f.carrier.plan.value['local_boundary']
+    assert all(f.members[row['member']] == f.archives[row['role']] for row in checked['archive_inventory'])
+    assert all(row['source_prescribed_member_set_evaluated'] is False for row in checked['archive_inventory'])
+
+
+def test_r2c3_full_capture_preserves_original_acquisition_and_context(r2c3_acquisition):
+    f = r2c3_acquisition
+    raw = CAPTURER._build_local_r2_capture_bytes(f.raw, f.carrier.raw, f.carrier.context,
+            expected_acquisition_sha256=digest(f.raw), **f.carrier.pins)
+    record, members = VERIFIER._read_local_r2_capture(raw, f.carrier.raw, f.carrier.context,
+            expected_capture_sha256=digest(raw), expected_acquisition_sha256=digest(f.raw), **f.carrier.pins)
+    assert members['local-r2-acquisition.zip'] == f.raw
+    assert members['local-r2-context.json'] == f.carrier.context
+    assert record['schema_version'] == 'pulsemech_step5c_local_r2_capture_v0'
+    assert record['role_evidence_evaluated'] is False
+    assert record['local_boundary']['R2_activated'] is False
+
+
+@pytest.mark.parametrize('field,value', [('source_identity', {'kind':'commit','git_tree_sha1':'a'*40}),
+    ('local_requirement_binding', {}), ('expected_plan_sha256','0'*64), ('expected_prepared_sha256','0'*64),
+    ('expected_context_sha256','0'*64), ('experiment_id','local-r2:foreign'), ('subject_run_id',9002),
+    ('provider_run_id',9001), ('role_evidence_evaluated',True), ('simulation_only',False),
+    ('record_status','observed'), ('local_boundary',{}), ('authority_boundary',{}), ('unexpected',True)])
+def test_r2c3_rehashed_acquisition_index_cannot_choose_identity_or_strength(r2c3_acquisition, field, value):
+    f = r2c3_acquisition; members = dict(f.members); index = json.loads(members['local-r2-acquisition.json'])
+    index[field] = value; members['local-r2-acquisition.json'] = canonical(index)
+    with pytest.raises(VERIFIER.VerificationError, match='r2_acquisition_index_mismatch'):
+        _r2c3_check(f, members)
+
+
+@pytest.mark.parametrize('field,value', [('source_identity',{}), ('source_commit','f'*40), ('experiment_id','local-r2:foreign'),
+    ('run_id',9002), ('run_attempt',2), ('run_attempt',True), ('ref','foreign'), ('event','push'),
+    ('workflow_name','foreign'), ('workflow_path','elsewhere.yml'), ('inputs',{}),
+    ('status','in_progress'), ('conclusion','cancelled'), ('record_status','observed'), ('simulation_only',False)])
+def test_r2c3_rehashed_simulated_run_cannot_replace_prelaunch_identity(r2c3_acquisition, field, value):
+    f = r2c3_acquisition; members = dict(f.members); name = _r2c3_response_member(f, '/runs/9001')
+    row = json.loads(members[name]); row[field] = value; members[name] = canonical(row); _r2c3_reindex(members)
+    with pytest.raises(VERIFIER.VerificationError, match='r2_simulated_run_mismatch'):
+        _r2c3_check(f, members)
+
+
+@pytest.mark.parametrize('fault,code', [('drop','r2_job_extent_mismatch'), ('duplicate','r2_job_identity_invalid'),
+    ('run','r2_job_or_step_binding_mismatch'), ('tree','r2_job_or_step_binding_mismatch'),
+    ('step_name','r2_job_or_step_binding_mismatch'), ('step_omission','r2_job_or_step_binding_mismatch'),
+    ('step_result','r2_job_or_step_binding_mismatch'), ('extra','r2_job_or_step_binding_mismatch')])
+def test_r2c3_predeclared_synthetic_job_and_step_bindings(r2c3_acquisition, fault, code):
+    f = r2c3_acquisition; m = dict(f.members); name = _r2c3_response_member(f, '/runs/9001/jobs?per_page=100&page=1')
+    doc = json.loads(m[name]); jobs = doc['jobs']; with_steps = next(row for row in jobs if row['steps'])
+    if fault == 'drop': jobs.pop()
+    elif fault == 'duplicate': jobs[1]['id'] = jobs[0]['id']
+    elif fault == 'run': jobs[0]['run_id'] = 9002
+    elif fault == 'tree': jobs[0]['source_identity'] = {'kind':'uncommitted_git_tree','git_tree_sha1':'0'*40}
+    elif fault == 'step_name': with_steps['steps'][0]['name'] = 'renamed'
+    elif fault == 'step_omission': with_steps['steps'].pop()
+    elif fault == 'step_result': with_steps['steps'][0]['conclusion'] = 'cancelled'
+    elif fault == 'extra': jobs[0]['arbitrary_metadata'] = True
+    m[name] = canonical(doc); _r2c3_reindex(m)
+    with pytest.raises(VERIFIER.VerificationError, match=code): _r2c3_check(f,m)
+
+
+@pytest.mark.parametrize('fault,code', [('missing','r2_selected_artifact_missing_or_duplicate'),
+    ('duplicate_id','r2_artifact_identity_invalid'), ('duplicate_name','r2_artifact_identity_invalid'),
+    ('size','r2_artifact_bytes_mismatch'), ('digest','r2_artifact_bytes_mismatch'),
+    ('expired','r2_artifact_source_run_mismatch'), ('run','r2_artifact_source_run_mismatch'),
+    ('attempt','r2_artifact_source_run_mismatch'), ('source','r2_artifact_source_run_mismatch'),
+    ('integer_bool','r2_artifact_identity_invalid'), ('unknown','r2_artifact_metadata_invalid'),
+    ('truncated','r2_artifact_pagination_invalid'), ('oversized_total','r2_artifact_pagination_invalid')])
+def test_r2c3_artifact_rows_do_not_override_run_source_or_bytes(r2c3_acquisition,fault,code):
+    f=r2c3_acquisition; m=dict(f.members);name=_r2c3_response_member(f,'/runs/9001/artifacts?per_page=100&page=1')
+    doc=json.loads(m[name]); row=doc['artifacts'][0]
+    if fault=='missing': row['name']='unexpected-name'
+    elif fault=='duplicate_id':doc['artifacts'][1]['id']=row['id']
+    elif fault=='duplicate_name':doc['artifacts'][1]['name']=row['name']
+    elif fault=='size':row['size_in_bytes']+=1
+    elif fault=='digest':row['digest']='sha256:'+'0'*64
+    elif fault=='expired':row['expired']=True
+    elif fault=='run':row['run_id']=9002
+    elif fault=='attempt':row['run_attempt']=True
+    elif fault=='source':row['source_identity']={}
+    elif fault=='integer_bool':row['id']=True
+    elif fault=='unknown':row['head_sha']='a'*40
+    elif fault=='truncated':doc['total_count']+=1
+    elif fault=='oversized_total':doc['total_count']=257
+    m[name]=canonical(doc);_r2c3_reindex(m)
+    with pytest.raises(VERIFIER.VerificationError,match=code):_r2c3_check(f,m)
+
+
+@pytest.mark.parametrize('fault,code', [('endpoint','r2_exchange_binding_mismatch'), ('status','r2_exchange_binding_mismatch'),
+    ('sequence','r2_exchange_binding_mismatch'), ('member','r2_exchange_binding_mismatch'),
+    ('request','r2_dispatch_request_mismatch'), ('response_url','r2_dispatch_response_mismatch'),
+    ('extra_member','r2_acquisition_member_inventory_mismatch'), ('missing_member','r2_response_bytes_invalid'),
+    ('unused_exchange','r2_acquisition_member_inventory_mismatch')])
+def test_r2c3_transcript_is_exact_not_an_accepted_producer_verdict(r2c3_acquisition,fault,code):
+    f=r2c3_acquisition;m=dict(f.members);doc=json.loads(m['local-r2-transcript.json']);row=doc['exchanges'][0]
+    if fault=='endpoint':row['endpoint']='repos/other/repo/dispatches'
+    elif fault=='status':row['http_status']=204
+    elif fault=='sequence':row['sequence']=True
+    elif fault=='member':row['response_member']='other.bin'
+    elif fault=='request':m[row['request_member']]=canonical({'ref':'main','inputs':{}})
+    elif fault=='response_url':
+        response=json.loads(m[row['response_member']]);response['run_url']='https://wrong.example';m[row['response_member']]=canonical(response)
+    elif fault=='extra_member':m['hidden.bin']=b'no'
+    elif fault=='missing_member':m.pop(row['response_member'])
+    elif fault=='unused_exchange':doc['exchanges'].append(dict(row))
+    m['local-r2-transcript.json']=canonical(doc);_r2c3_reindex(m)
+    with pytest.raises(VERIFIER.VerificationError,match=code):_r2c3_check(f,m)
+
+
+def test_r2c3_provider_request_uses_returned_subject_id_not_a_caller_alias(r2c3_acquisition):
+    f=r2c3_acquisition;m=dict(f.members);rows=json.loads(m['local-r2-transcript.json'])['exchanges']
+    name=next(row['request_member'] for row in rows if row['method']=='POST' and 'export_candidate' in row['endpoint'])
+    request=json.loads(m[name]);request['inputs']['source_run_id']='9009';m[name]=canonical(request);_r2c3_reindex(m)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_dispatch_request_mismatch'):_r2c3_check(f,m)
+
+
+@pytest.mark.parametrize('case', ['fake','subclass','used'])
+def test_r2c3_no_live_or_arbitrary_transport_can_be_selected(r2c2_carrier,case):
+    class NotRecorded:
+        def request(self,*args):raise AssertionError('must never be called')
+    class Subclass(ACQUIRER._LocalR2RecordedTransport):pass
+    f=r2c2_carrier;rows,_=_r2c3_script(f)
+    transport=NotRecorded() if case=='fake' else Subclass(rows) if case=='subclass' else ACQUIRER._LocalR2RecordedTransport(rows)
+    if case=='used':transport._used=True
+    with pytest.raises(ACQUIRER.AcquisitionError,match='r2_local_transport_required'):
+        ACQUIRER._acquire_local_r2_bytes(f.raw,f.context,transport=transport,**f.pins)
+
+
+def test_r2c3_script_is_immutable_and_has_no_fallback():
+    row=['GET','repos/HKati/pulse-release-gates-0.1/example',None,200,b'x'];rows=[row]
+    t=ACQUIRER._LocalR2RecordedTransport(rows);row[4]=b'changed';rows.clear()
+    assert t.request('GET',row[1],None,1)==(200,b'x');t.finish()
+    with pytest.raises(ACQUIRER.AcquisitionError,match='r2_transport_request_unmodelled'):t.request('GET',row[1],None,1)
+
+
+@pytest.mark.parametrize('fault,code',[('mismatch','r2_transport_request_mismatch'),('budget','r2_transport_response_budget'),
+    ('unused','r2_transport_unused_records')])
+def test_r2c3_script_rejects_wrong_requests_and_unused_responses(fault,code):
+    t=ACQUIRER._LocalR2RecordedTransport([('GET','repos/HKati/pulse-release-gates-0.1/example',None,200,b'xx')])
+    with pytest.raises(ACQUIRER.AcquisitionError,match=code):
+        if fault=='unused':t.finish()
+        else:t.request('POST' if fault=='mismatch' else 'GET','repos/HKati/pulse-release-gates-0.1/example',None,1 if fault=='budget' else 2)
+
+
+@pytest.mark.parametrize('fault,code',[('duplicate','r2_archive_member_duplicate'),('symlink','r2_archive_member_invalid'),
+    ('empty','r2_archive_empty'),('traversal','unsafe_member'),('invalid','r2_archive_invalid')])
+def test_r2c3_archive_transport_intake_rejects_unsafe_zip(fault,code):
+    stream=io.BytesIO()
+    if fault=='invalid':raw=b'not a zip'
+    else:
+        with zipfile.ZipFile(stream,'w') as z:
+            if fault=='empty':z.writestr('empty/',b'')
+            elif fault=='symlink':
+                info=zipfile.ZipInfo('link');info.create_system=3;info.external_attr=(stat.S_IFLNK|0o777)<<16;z.writestr(info,b'target')
+            else:
+                z.writestr('../escape' if fault=='traversal' else 'file',b'x')
+                if fault=='duplicate':
+                    import warnings
+                    with warnings.catch_warnings():warnings.simplefilter('ignore');z.writestr('file',b'y')
+        raw=stream.getvalue()
+    with pytest.raises(VERIFIER.VerificationError) as caught:VERIFIER._local_r2_transport_archive_inventory(raw)
+    assert caught.value.code==code
+
+
+def test_r2c3_archive_compression_and_member_bytes_are_not_normalized():
+    stream=io.BytesIO()
+    with zipfile.ZipFile(stream,'w',compression=zipfile.ZIP_DEFLATED) as z:z.writestr('payload.txt',b'exact original payload\n')
+    raw=stream.getvalue();before=digest(raw)
+    rows=VERIFIER._local_r2_transport_archive_inventory(raw)
+    assert rows==[{'member':'payload.txt','size_bytes':23,'sha256':digest(b'exact original payload\n')}]
+    assert digest(raw)==before
+
+
+@pytest.mark.parametrize('field,value',[('role_evidence_evaluated',True),('local_boundary',{}),('archive_inventory',[]),
+    ('record_status','observed'),('source_identity',{}),('unexpected',False)])
+def test_r2c3_rehashed_capture_cannot_promote_or_replace_bound_evidence(r2c3_acquisition,field,value):
+    f=r2c3_acquisition; checked=_r2c3_check(f,f.members)
+    record={**checked,'schema_version':'pulsemech_step5c_local_r2_capture_v0',
+        'validation_scope':'synthetic_transport_identity_and_archive_bytes_only',
+        'expected_acquisition_sha256':digest(f.raw),'expected_prepared_sha256':f.carrier.pins['expected_prepared_sha256'],
+        'expected_plan_sha256':f.carrier.pins['expected_plan_sha256'],'expected_context_sha256':digest(f.carrier.context)}
+    record[field]=value
+    raw=VERIFIER.deterministic_zip_bytes({'local-r2-capture.json':canonical(record),
+        'local-r2-context.json':f.carrier.context,'local-r2-acquisition.zip':f.raw},maximum_members=3,maximum_bytes=84*1024*1024)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_capture_record_mismatch'):
+        VERIFIER._read_local_r2_capture(raw,f.carrier.raw,f.carrier.context,expected_capture_sha256=digest(raw),
+            expected_acquisition_sha256=digest(f.raw),**f.carrier.pins)
+
+
+def test_r2c3_external_acquisition_digest_is_not_learned_from_the_carrier(r2c3_acquisition):
+    f=r2c3_acquisition
+    with pytest.raises(VERIFIER.VerificationError,match='r2_acquisition_digest_mismatch'):
+        VERIFIER._read_local_r2_acquisition(f.raw,f.carrier.raw,f.carrier.context,
+            expected_acquisition_sha256='0'*64,**f.carrier.pins)
+
+
+def test_r2c3_independent_verifier_does_not_call_the_acquisition_or_capture_producer(r2c3_acquisition):
+    f=r2c3_acquisition
+    with patch.object(ACQUIRER,'_acquire_local_r2_bytes',side_effect=AssertionError('producer forbidden')), \
+         patch.object(CAPTURER,'_build_local_r2_capture_bytes',side_effect=AssertionError('producer forbidden')):
+        assert len(_r2c3_check(f,f.members)['archive_inventory'])==7
+
+
+def test_r2c3_matching_collector_tables_do_not_override_normative_archive_role(r2c3_acquisition):
+    # A common-mode error in BOTH collection tables does not change the separately
+    # source-verified requirement schema consumed by the independent transport check.
+    f=r2c3_acquisition;m=dict(f.members);name=_r2c3_response_member(f,'/runs/9001/artifacts?per_page=100&page=1')
+    doc=json.loads(m[name]);doc['artifacts'][-1]['name']='wrong-advisory';m[name]=canonical(doc);_r2c3_reindex(m)
+    rows=tuple((r,'wrong-advisory' if r=='advisory_reference_bundle' else n,p) for r,n,p in ACQUIRER.SUBJECT_STATE_ARTIFACT_TEMPLATES)
+    original=CAPTURER._selected_archive_expectations
+    def matching(*args):
+        result=original(*args);role,run,_,path=result['advisory_reference_bundle']
+        result['advisory_reference_bundle']=(role,run,'wrong-advisory',path);return result
+    with patch.object(ACQUIRER,'SUBJECT_STATE_ARTIFACT_TEMPLATES',rows),patch.object(CAPTURER,'_selected_archive_expectations',matching):
+        with pytest.raises(VERIFIER.VerificationError,match='r2_selected_artifact_missing_or_duplicate'):_r2c3_check(f,m)
+
+
+def test_r2c3_local_helpers_remain_unreachable_from_public_entrypoints():
+    for module,roots in [(ACQUIRER,{'main','acquire_observation'}),(CAPTURER,{'main','build_capture'}),
+                         (VERIFIER,{'main','prepare_carrier','read_prepared','read_capture','run_reference','reconstruct'})]:
+        nodes={n.name:n for n in ast.parse(Path(module.__file__).read_bytes()).body if isinstance(n,ast.FunctionDef)}
+        pending=list(roots);seen=set()
+        while pending:
+            name=pending.pop()
+            if name in seen or name not in nodes:continue
+            seen.add(name);pending.extend(n.func.id for n in ast.walk(nodes[name]) if isinstance(n,ast.Call) and isinstance(n.func,ast.Name))
+        assert not any('local_r2' in name for name in seen)
+    assert len(EVIDENCE_SCHEMA['oneOf'])==4
+
+
+def test_r2c3_opaque_archive_bytes_cannot_claim_role_evidence(r2c3_acquisition):
+    f=r2c3_acquisition;result=_r2c3_check(f,f.members)
+    assert result['role_evidence_evaluated'] is False
+    assert result['local_boundary']['completion_evaluated'] is False
+    assert all(r['source_prescribed_member_set_evaluated'] is False for r in result['archive_inventory'])
+    for obj in [json.loads(f.members['local-r2-acquisition.json']),result]:
+        assert not jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).is_valid(obj)
+
+
+def test_r2c3_same_inputs_produce_identical_local_acquisition_bytes(r2c3_acquisition):
+    f=r2c3_acquisition
+    again=ACQUIRER._acquire_local_r2_bytes(f.carrier.raw,f.carrier.context,
+        transport=ACQUIRER._LocalR2RecordedTransport(f.records),**f.carrier.pins)
+    assert again==f.raw
+
+
+@pytest.mark.parametrize('side', ['acquire','capture'])
+@pytest.mark.parametrize('pin,code',[('expected_prepared_sha256','r2_prepared_digest_mismatch'),
+                                    ('expected_source_index_sha256','r2_source_index_mismatch')])
+def test_r2c3_preflight_authenticates_executable_source_before_loading(r2c2_carrier,side,pin,code):
+    f=r2c2_carrier;method=ACQUIRER._local_r2_acquisition_verifier if side=='acquire' else CAPTURER._local_r2_capture_verifier
+    kwargs={k:f.pins[k] for k in ('expected_prepared_sha256','expected_source_index_sha256')};kwargs[pin]='0'*64
+    with pytest.raises(RuntimeError) as caught:method(f.raw,**kwargs)
+    assert caught.value.code==code
+
+
+def test_r2c3_wrong_external_context_rejects_before_simulated_dispatch(r2c2_carrier):
+    f=r2c2_carrier;context=json.loads(f.context);context['experiment_id']='local-r2:wrong'
+    records,_=_r2c3_script(f);t=ACQUIRER._LocalR2RecordedTransport(records)
+    with pytest.raises(RuntimeError) as caught:ACQUIRER._acquire_local_r2_bytes(f.raw,canonical(context),transport=t,**f.pins)
+    assert caught.value.code=='r2_expected_context_mismatch'
+    assert t._position==0 and t._used is False
+
+
+def test_r2c3_failed_simulated_dispatch_does_not_return_acquisition(r2c2_carrier):
+    f=r2c2_carrier;records,_=_r2c3_script(f);r=records[0];records[0]=(*r[:3],204,r[4])
+    t=ACQUIRER._LocalR2RecordedTransport(records)
+    with pytest.raises(ACQUIRER.AcquisitionError,match='r2_transport_http_status'):
+        ACQUIRER._acquire_local_r2_bytes(f.raw,f.context,transport=t,**f.pins)
+    assert t._position==1
+
+
+def test_r2c3_multiple_artifact_pages_are_bound_without_latest_run_search(r2c2_carrier):
+    f=r2c2_carrier;records,_=_r2c3_script(f)
+    i=next(i for i,r in enumerate(records) if r[1].endswith('/runs/9001/artifacts?per_page=100&page=1'))
+    original=records[i];doc=json.loads(original[4]);rows=doc['artifacts']
+    for n in range(95):
+        row=dict(rows[0]);row.update(id=990000+n,name=f'unselected-{n}');rows.append(row)
+    records[i]=(*original[:4],canonical({'total_count':101,'artifacts':rows[:100]}))
+    records.insert(i+1,('GET',original[1][:-1]+'2',None,200,canonical({'total_count':101,'artifacts':rows[100:]})))
+    raw=ACQUIRER._acquire_local_r2_bytes(f.raw,f.context,transport=ACQUIRER._LocalR2RecordedTransport(records),**f.pins)
+    result=VERIFIER._read_local_r2_acquisition(raw,f.raw,f.context,expected_acquisition_sha256=digest(raw),**f.pins)
+    assert len(result['archive_inventory'])==7
+
+
+@pytest.mark.parametrize('suffix',['\n',' '])
+def test_r2c3_transport_metadata_bytes_are_not_normalized(r2c3_acquisition,suffix):
+    f=r2c3_acquisition;m=dict(f.members);name=_r2c3_response_member(f,'/runs/9001')
+    m[name]+=suffix.encode();_r2c3_reindex(m)
+    with pytest.raises(VERIFIER.VerificationError,match='noncanonical_json'):_r2c3_check(f,m)
+
+
+def test_r2c3_changed_downloaded_bytes_reject_even_with_updated_container_inventory(r2c3_acquisition):
+    f=r2c3_acquisition;m=dict(f.members);row=_r2c3_check(f,m)['archive_inventory'][0]
+    m[row['member']]+=b'changed';_r2c3_reindex(m)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_artifact_bytes_mismatch'):_r2c3_check(f,m)
+
+
+def test_r2c3_foreign_context_in_raw_acquisition_rejects(r2c3_acquisition):
+    f=r2c3_acquisition;m=dict(f.members);value=json.loads(m['local-r2-context.json']);value['experiment_id']='local-r2:elsewhere'
+    m['local-r2-context.json']=canonical(value);_r2c3_reindex(m)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_acquisition_context_mismatch'):_r2c3_check(f,m)
+
+
+def _r2c4_content_archives(directory):
+    """Input-binding ONLY fixture. No complete package, model or receipt claim.
+
+    Use older independent fixture literals, not the verifier's selector maps.
+    Only the inventory is emitted by the real assembler helper. Run metadata
+    is intentionally NOT a valid committed record.
+    """
+    pre = {n: canonical({'record_status': 'local_candidate', 'simulation_only': True,
+                        'fixture_scope': 'role-input-only', 'name': n}) for n in _INNER_PRE_MEMBERS}
+    pre['status.json'] = canonical({'version': 'before-R9', 'fixture_only': True})
+    recorded = {**pre, **{n: canonical({'record_status': 'local_candidate', 'simulation_only': True,
+                         'fixture_scope': 'role-input-only', 'name': n}) for n in _INNER_RECORDED_ONLY}}
+    recorded['status.json'] = canonical({'version': 'after-R9', 'fixture_only': True})
+    recorded.update({'recorded_release_candidates/'+name+'.json': canonical({'fixture_scope':'role-input-only','name':name})
+                     for name in _INNER_CANDIDATE_IDS})
+    advisory = {destination: recorded[source] for destination, source in _INNER_ADVISORY_COPIES.items()}
+    package = {'artifacts/' + n: recorded[n] for n in _EXAMPLE_PACKAGE_ARTIFACTS}
+    package.update({'release-authority-audit-bundle/' + n: recorded[n]
+                    for n in ('status.json', 'report_card.html', 'release_authority_v0.json')})
+    package['run_metadata_v0.json'] = canonical({'record_status': 'local_candidate',
+        'simulation_only': True, 'fixture_scope': 'NOT-valid-package-run-metadata'})
+    path = ROOT/'PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py'
+    spec = importlib.util.spec_from_file_location('r2c4_real_inventory_writer', path)
+    assembler = importlib.util.module_from_spec(spec); spec.loader.exec_module(assembler)
+    roots = {r: directory.parent/'real-assembler-inputs'/r
+             for r in ('recorded_path','pulse_report','artifact_binding','audit_bundle')}
+    raw_inputs = {'recorded_path': recorded,
+        'pulse_report': {n: recorded[n] for n in ('release_decision_v0.json','release_authority_v0.json','report_card.html')},
+        'artifact_binding': {'artifact_provenance_binding_v0.json': recorded['artifact_provenance_binding_v0.json']},
+        'audit_bundle': {n: recorded[n] for n in ('status.json','report_card.html','release_authority_v0.json')}}
+    for role, payloads in raw_inputs.items():
+        for name, raw in payloads.items():
+            out = roots[role]/name; out.parent.mkdir(parents=True,exist_ok=True); out.write_bytes(raw)
+    # Actually run the unchanged assembler's file-selection/copy stage, not a
+    # returned mock success. Identity/signature verification remains downstream.
+    assembler._stage_package(staging_dir=directory, roots=roots)
+    assembled = {p.relative_to(directory).as_posix():p.read_bytes() for p in directory.rglob('*') if p.is_file()}
+    assert assembled == {k:v for k,v in package.items() if k!='run_metadata_v0.json'}
+    (directory/'run_metadata_v0.json').write_bytes(package['run_metadata_v0.json'])
+    assembler._write_digest_inventory(directory/'package_digest_inventory_v0.json', directory)
+    package['package_digest_inventory_v0.json'] = (directory/'package_digest_inventory_v0.json').read_bytes()
+    return {'pre_attestation_pulse_artifacts': pre, 'release_grade_recorded_path': recorded,
+            'advisory_reference_bundle': advisory, 'complete_release_grade_reference_package': package}
+
+
+def _r2c4_script(carrier, contents):
+    records, archives = _r2c3_script(carrier)
+    for role, members in contents.items():
+        archives[role] = example_zip(members)
+    for i, item in enumerate(records):
+        method, endpoint, request, code, raw = item
+        if '/artifacts?per_page' not in endpoint:
+            continue
+        doc = json.loads(raw)
+        schema = EVIDENCE_SCHEMA['$defs']['post_run_state_evidence_v1_subject_archives']['properties']
+        for row in doc['artifacts']:
+            matching = [role for role, prop in schema.items() if prop['const'].format(subject_run_id=9001) == row['name']]
+            if not matching: continue
+            payload = archives[matching[0]]
+            row.update(size_in_bytes=len(payload), digest='sha256:' + digest(payload))
+            target = f"repos/{ACQUIRER.REPOSITORY}/actions/artifacts/{row['id']}/zip"
+            j = next(j for j, record in enumerate(records) if record[1] == target)
+            records[j] = (*records[j][:4], payload)
+        records[i] = (method, endpoint, request, code, canonical(doc))
+    return records, archives
+
+
+@pytest.fixture(scope='module')
+def r2c4_inputs(r2c2_carrier, tmp_path_factory):
+    f = r2c2_carrier; contents = _r2c4_content_archives(tmp_path_factory.mktemp('r2c4')/'package-inputs')
+    records, archives = _r2c4_script(f, contents)
+    raw = ACQUIRER._acquire_local_r2_bytes(f.raw, f.context,
+        transport=ACQUIRER._LocalR2RecordedTransport(records), **f.pins)
+    capture = CAPTURER._build_local_r2_capture_bytes(raw, f.raw, f.context,
+        expected_acquisition_sha256=digest(raw), **f.pins)
+    checked, _ = VERIFIER._read_local_r2_capture(capture, f.raw, f.context,
+        expected_capture_sha256=digest(capture), expected_acquisition_sha256=digest(raw), **f.pins)
+    checked = {**checked, 'expected_capture_sha256': digest(capture)}
+    prepared = VERIFIER.read_canonical_zip_bytes(f.raw, label='test_prepared',
+        maximum_members=VERIFIER.MAX_PREPARED_MEMBERS, maximum_bytes=VERIFIER.MAX_PREPARED_BYTES)
+    members = VERIFIER.read_canonical_zip_bytes(raw, label='test_acquisition', maximum_members=256, maximum_bytes=80*1024*1024)
+    return SimpleNamespace(carrier=f, contents=contents, records=records, archives=archives,
+        raw=raw, capture=capture, checked=checked, prepared=prepared, members=members)
+
+
+def _r2c4_assess(f, *, plan=None, prepared=None, checked=None, members=None):
+    return VERIFIER._local_r2_role_input_assessment(
+        plan if plan is not None else f.carrier.plan.value,
+        prepared if prepared is not None else f.prepared,
+        checked if checked is not None else f.checked,
+        members if members is not None else f.members)
+
+
+def _r2c4_changed_archive(f, role, contents):
+    members = dict(f.members); checked = copy.deepcopy(f.checked)
+    row = next(r for r in checked['archive_inventory'] if r['role'] == role)
+    raw = example_zip(contents)
+    members[row['member']] = raw; row.update(sha256=digest(raw), size_bytes=len(raw))
+    return checked, members
+
+
+def test_r2c4_closes_input_bindings_but_never_reports_complete_roles(r2c4_inputs):
+    f = r2c4_inputs; result = _r2c4_assess(f)
+    assert result['role_count'] == 62 and result['input_bound_count'] == 38
+    assert result['fully_satisfied_role_count'] == 0
+    assert result['assessment_status'] == 'incomplete' and result['role_evidence_evaluated'] is False
+    assert all(r['role_obligation_satisfied'] is False for r in result['roles'])
+    assert len(result['pending_semantic_checks']) == 9
+    assert result['source_prescribed_member_sets_checked'] == sorted(f.contents)
+    assert result['source_identity']['kind'] == 'uncommitted_git_tree'
+    assert not jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).is_valid(result)
+    assert result['local_boundary']['completion_evaluated'] is False
+    assert result['local_boundary']['R2_activated'] is False
+
+
+@pytest.mark.parametrize('state_id', sorted(k for k,v in EVIDENCE_SCHEMA['$defs']['post_run_state_evidence_v1_role_obligations']['properties'].items() if v['const']=='exact_source_content'))
+@pytest.mark.parametrize('fault', ['missing', 'changed'])
+def test_r2c4_every_source_role_uses_actual_prepared_bytes(r2c4_inputs, state_id, fault):
+    f = r2c4_inputs; plan = f.carrier.plan.value
+    path = next(r['path_or_uri'] for r in plan['state_templates'] if r['state_id']==state_id)
+    prepared = dict(f.prepared); key = 'sources/'+path
+    if fault == 'missing': prepared.pop(key)
+    else: prepared[key] += b'changed'
+    with pytest.raises(VERIFIER.VerificationError, match='r2_role_source_bytes_mismatch'):
+        _r2c4_assess(f, prepared=prepared)
+
+
+@pytest.mark.parametrize('role,member', [
+ ('pre_attestation_pulse_artifacts','status.json'),('pre_attestation_pulse_artifacts','status_baseline.json'),
+ ('release_grade_recorded_path','release_decision_v0_ledger_section.html'),
+ ('release_grade_recorded_path','report_card.with_release_decision.html'),
+ ('advisory_reference_bundle','reports/junit.xml'),
+ ('advisory_reference_bundle','release-authority-audit-bundle/status.json'),
+ ('complete_release_grade_reference_package','run_metadata_v0.json'),
+ ('complete_release_grade_reference_package','package_digest_inventory_v0.json')])
+def test_r2c4_closed_source_member_sets_reject_omissions_after_outer_rehash(r2c4_inputs, role, member):
+    f=r2c4_inputs; content=dict(f.contents[role]);content.pop(member)
+    checked,members=_r2c4_changed_archive(f,role,content)
+    code='package_member_set_mismatch' if role=='complete_release_grade_reference_package' else 'state_archive_member_set_mismatch'
+    with pytest.raises(VERIFIER.VerificationError,match=code):_r2c4_assess(f,checked=checked,members=members)
+
+
+@pytest.mark.parametrize('role',['pre_attestation_pulse_artifacts','release_grade_recorded_path','advisory_reference_bundle','complete_release_grade_reference_package'])
+@pytest.mark.parametrize('fault',['extra','empty'])
+def test_r2c4_extra_or_empty_members_cannot_be_made_valid_by_hashing(r2c4_inputs, role, fault):
+    f=r2c4_inputs;content=dict(f.contents[role])
+    if fault=='extra':content['unplanned.json']=b'{}\n'
+    else:content[next(iter(content))]=b''
+    checked,members=_r2c4_changed_archive(f,role,content)
+    prefix='package_' if role=='complete_release_grade_reference_package' else 'state_archive_'
+    code=prefix+('member_set_mismatch' if fault=='extra' else 'member_size_invalid')
+    with pytest.raises(VERIFIER.VerificationError,match=code):_r2c4_assess(f,checked=checked,members=members)
+
+
+@pytest.mark.parametrize('role,member',[(
+ 'pre_attestation_pulse_artifacts',n) for n in ('status_baseline.json','required_gate_evidence_v0.json','external/llamaguard_raw.jsonl')]+[
+ ('advisory_reference_bundle','artifacts/status.json'),('advisory_reference_bundle','release-authority-audit-bundle/report_card.html'),('advisory_reference_bundle','reports/junit.xml')])
+def test_r2c4_same_version_copies_reject_different_bytes(r2c4_inputs,role,member):
+    f=r2c4_inputs;content=dict(f.contents[role]);content[member]+=b'changed'
+    checked,members=_r2c4_changed_archive(f,role,content)
+    with pytest.raises(VERIFIER.VerificationError,match='state_archive_same_version_mismatch'):
+        _r2c4_assess(f,checked=checked,members=members)
+
+
+def test_r2c4_pre_status_is_not_conflated_with_final_status(r2c4_inputs):
+    rows={r['state_id']:r for r in _r2c4_assess(r2c4_inputs)['roles']}
+    pre=rows['state:step5c:pre-materialization-status']['input_binding'];final=rows['state:step5c:final-status']['input_binding']
+    assert pre['sha256']!=final['sha256']
+    assert pre['archive_role']=='pre_attestation_pulse_artifacts' and final['archive_role']=='release_grade_recorded_path'
+    assert pre['declared_origin_occurrence_id']!=final['declared_origin_occurrence_id']
+
+
+@pytest.mark.parametrize('field,value', [('file_count',0),('algorithm','sha1'),('files',[]),('authority_boundary',{})])
+def test_r2c4_real_inventory_writer_output_is_independently_checked(r2c4_inputs,field,value):
+    f=r2c4_inputs;content=dict(f.contents['complete_release_grade_reference_package'])
+    doc=json.loads(content['package_digest_inventory_v0.json']);doc[field]=value
+    content['package_digest_inventory_v0.json']=canonical(doc)
+    checked,members=_r2c4_changed_archive(f,'complete_release_grade_reference_package',content)
+    code={'file_count':'package_inventory_count_mismatch','algorithm':'package_inventory_profile_mismatch','files':'package_inventory_count_mismatch','authority_boundary':'package_authority_mismatch'}[field]
+    with pytest.raises(VERIFIER.VerificationError,match=code):_r2c4_assess(f,checked=checked,members=members)
+
+
+def test_r2c4_package_copy_cannot_escape_with_recomputed_internal_inventory(r2c4_inputs):
+    f=r2c4_inputs;content=dict(f.contents['complete_release_grade_reference_package'])
+    content['artifacts/status.json']+=b'changed'
+    content['package_digest_inventory_v0.json']=canonical(example_package_inventory(content))
+    checked,members=_r2c4_changed_archive(f,'complete_release_grade_reference_package',content)
+    with pytest.raises(VERIFIER.VerificationError,match='package_same_version_mismatch'):
+        _r2c4_assess(f,checked=checked,members=members)
+
+
+@pytest.mark.parametrize('key',[k for k,v in EVIDENCE_SCHEMA['$defs']['post_run_state_evidence_v1_role_obligations']['properties'].items() if v['const']=='exact_preserved_content'])
+def test_r2c4_each_preserved_role_has_correct_raw_member_and_parent(r2c4_inputs,key):
+    f=r2c4_inputs;row=next(r for r in _r2c4_assess(f)['roles'] if r['state_id']==key)
+    b=row['input_binding'];raw=f.contents[b['archive_role']][b['member']]
+    assert b['sha256']==digest(raw) and b['size_bytes']==len(raw)
+    assert b['parent_archive']['sha256']==digest(f.archives[b['archive_role']])
+    assert row['input_status']=='exact_preserved_member_bytes_bound'
+    assert row['role_obligation_satisfied'] is False
+
+
+@pytest.mark.parametrize('state',['quality-ledger-pre-authority','artifact-binding-attestation',
+ 'effective-required-argument-list','materialized-release-required-gate-set',
+ 'llamaguard-input:benign_factual_response','step3f-subject-input-packet','compute-binding-report'])
+def test_r2c4_input_binding_cannot_substitute_for_unexecuted_semantic_checks(r2c4_inputs,state):
+    result=_r2c4_assess(r2c4_inputs);row=next(r for r in result['roles'] if r['state_id']=='state:step5c:'+state)
+    assert row['input_binding'] is None and row['input_status']=='not_evaluated'
+    assert row['role_obligation_satisfied'] is False and result['fully_satisfied_role_count']==0
+
+
+def test_r2c4_old_tiny_transport_fixture_is_rejected_at_role_input_boundary(r2c3_acquisition):
+    f=r2c3_acquisition;prepared=VERIFIER.read_canonical_zip_bytes(f.carrier.raw,label='test_prepared',maximum_members=512,maximum_bytes=VERIFIER.MAX_PREPARED_BYTES)
+    checked={**_r2c3_check(f,f.members),'expected_capture_sha256':'a'*64,
+        'expected_acquisition_sha256':digest(f.raw), 'expected_plan_sha256':f.carrier.pins['expected_plan_sha256'],
+        'expected_prepared_sha256':digest(f.carrier.raw),'expected_context_sha256':digest(f.carrier.context)}
+    with pytest.raises(VERIFIER.VerificationError,match='state_archive_member_set_mismatch'):
+        VERIFIER._local_r2_role_input_assessment(f.carrier.plan.value,prepared,checked,f.members)
+
+
+def test_r2c4_complete_local_reader_reexecutes_checks(r2c4_inputs):
+    f=r2c4_inputs
+    raw=VERIFIER._assess_local_r2_role_inputs(f.capture,f.carrier.raw,f.carrier.context,
+        expected_capture_sha256=digest(f.capture),expected_acquisition_sha256=digest(f.raw),**f.carrier.pins)
+    assert json.loads(raw)==_r2c4_assess(f)
+    read=VERIFIER._verify_local_r2_role_input_assessment(raw,f.capture,f.carrier.raw,f.carrier.context,
+        expected_assessment_sha256=digest(raw),expected_capture_sha256=digest(f.capture),
+        expected_acquisition_sha256=digest(f.raw),**f.carrier.pins)
+    assert read['assessment_status']=='incomplete'
+
+
+@pytest.mark.parametrize('field,value',[('fully_satisfied_role_count',62),('role_evidence_evaluated',True),('pending_semantic_checks',[])])
+def test_r2c4_saved_success_or_removed_obligations_reject_after_rehash(r2c4_inputs,field,value):
+    f=r2c4_inputs;doc=_r2c4_assess(f);doc[field]=value;raw=canonical(doc)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_role_assessment_mismatch'):
+        VERIFIER._verify_local_r2_role_input_assessment(raw,f.capture,f.carrier.raw,f.carrier.context,
+            expected_assessment_sha256=digest(raw),expected_capture_sha256=digest(f.capture),
+            expected_acquisition_sha256=digest(f.raw),**f.carrier.pins)
+
+
+def test_r2c4_no_content_plaintext_or_fake_commit_leaks_into_assessment(r2c4_inputs):
+    raw=canonical(_r2c4_assess(r2c4_inputs))
+    assert b'NOT-valid-package-run-metadata' not in raw
+    assert b'"source_commit"' not in raw and b'"head_sha"' not in raw
+    assert b'"role_obligation_satisfied": true' not in raw
+
+
+def test_r2c4_same_bytes_different_source_metadata_does_not_create_a_pass(r2c4_inputs):
+    f=r2c4_inputs;checked=copy.deepcopy(f.checked);checked['source_identity']['git_tree_sha1']='0'*40
+    with pytest.raises(VERIFIER.VerificationError,match='r2_role_input_identity_mismatch'):
+        _r2c4_assess(f,checked=checked)
+
+
+def test_r2c4_byte_binding_does_not_claim_signed_receipt_validation(r2c4_inputs):
+    result=_r2c4_assess(r2c4_inputs)
+    assert 'mandatory_llamaguard_bundle_envelope_signature_and_case_validation' in result['pending_semantic_checks']
+    assert result['stronger_claim_gaps']['D6_signed_receipt']=='unavailable'
+    assert result['assessment_status']=='incomplete' and result['fully_satisfied_role_count']==0
+
+
+def test_r2c4_existing_original_identity_wrapper_still_rejects_fake_index(r2c4_inputs):
+    f=r2c4_inputs;members={name:f.archives[role] for role,name,_ in VERIFIER._STATE_ARCHIVE_LAYOUT}
+    VERIFIER._inspect_subject_state_archive_contents(f.carrier.plan.value,members)
+    with pytest.raises(VERIFIER.VerificationError,match='state_archive_candidate_inventory_mismatch'):
+        VERIFIER._check_subject_state_archives(f.carrier.plan.value,{},members)
+
+
+def test_r2c4_old_package_metadata_checks_remain_on_original_path(r2c4_inputs):
+    f=r2c4_inputs;members={name:f.archives[role] for role,name,_ in VERIFIER._STATE_ARCHIVE_LAYOUT}
+    members['acquisition/subject/artifacts/complete-release-grade-reference-package.zip']=f.archives['complete_release_grade_reference_package']
+    views,_=VERIFIER._inspect_subject_state_archive_contents(f.carrier.plan.value,members)
+    VERIFIER._inspect_package_content_inventory(f.carrier.plan.value,members,views)
+    with pytest.raises(VERIFIER.VerificationError,match='package_metadata_profile_mismatch'):
+        VERIFIER._check_complete_package(f.carrier.plan.value,{},members,views)
+
+
+
+def _r2c4_legacy_content_case(plan):
+    # Fresh scalar-only unit fixtures, NOT a Git commit object, historical
+    # acquisition or relabelling of this uncommitted candidate.
+    revision='a'*40
+    contents=example_state_archive_members(revision,raw_model=b'EXAMPLE MODEL BYTES\n')
+    members={name:example_zip(contents[role]) for role,name,_ in VERIFIER._STATE_ARCHIVE_LAYOUT}
+    members['acquisition/subject/artifacts/complete-release-grade-reference-package.zip']=example_zip(
+        example_complete_package(revision,b'EXAMPLE MODEL BYTES\n'))
+    p={'finite_limits':copy.deepcopy(plan['finite_limits']),
+       'plan_identity':{'repository':VERIFIER.REPOSITORY,'source_commit':revision}}
+    manifest={'subject':{'run_id':EXAMPLE_SUBJECT_ID,'run_attempt':1,'head_sha':revision,
+                         'created_at':EXAMPLE_START,'updated_at':EXAMPLE_END},
+              'artifact_bindings':[{'artifact_name':f'complete-release-grade-reference-package-{EXAMPLE_SUBJECT_ID}-1',
+                                    'created_utc':EXAMPLE_END}]}
+    return p,manifest,members
+
+
+def test_r2c4_factored_legacy_identity_and_package_paths_still_pass_same_fixture(r2c4_inputs):
+    p,m,a=_r2c4_legacy_content_case(r2c4_inputs.carrier.plan.value)
+    views=VERIFIER._check_subject_state_archives(p,m,a)
+    package=VERIFIER._check_complete_package(p,m,a,views)
+    assert set(views)=={r for r,_,_ in VERIFIER._STATE_ARCHIVE_LAYOUT}
+    assert set(package)==VERIFIER._PACKAGE_FILE_SET
+
+
+@pytest.mark.parametrize('fault,code',[('subject','state_archive_subject_mismatch'),
+    ('candidate','state_archive_candidate_binding_mismatch'),('pre','state_archive_pre_state_binding_mismatch')])
+def test_r2c4_factored_legacy_source_and_prestate_rejections_are_preserved(r2c4_inputs,fault,code):
+    p,m,a=_r2c4_legacy_content_case(r2c4_inputs.carrier.plan.value)
+    if fault=='subject':m['subject']['head_sha']='b'*40
+    else:
+        name='acquisition/subject/artifacts/release-grade-recorded-path.zip'
+        with zipfile.ZipFile(io.BytesIO(a[name])) as z:contents={n:z.read(n) for n in z.namelist()}
+        doc=json.loads(contents['recorded_release_candidate_index_v0.json'])
+        if fault=='candidate':doc['candidates']['external_llamaguard']['sha256']='0'*64
+        else:doc['source_bindings']['candidate_status']['sha256']='0'*64
+        contents['recorded_release_candidate_index_v0.json']=canonical(doc);a[name]=example_zip(contents)
+    with pytest.raises(VERIFIER.VerificationError,match=code):VERIFIER._check_subject_state_archives(p,m,a)
+
+
+@pytest.mark.parametrize('fault,code',[('candidate','package_metadata_identity_mismatch'),
+ ('time','package_metadata_time_mismatch'),('assembler','package_assembler_mismatch'),
+ ('input','package_source_inputs_mismatch')])
+def test_r2c4_factored_legacy_package_semantics_remain_mandatory(r2c4_inputs,fault,code):
+    p,m,a=_r2c4_legacy_content_case(r2c4_inputs.carrier.plan.value)
+    name='acquisition/subject/artifacts/complete-release-grade-reference-package.zip'
+    with zipfile.ZipFile(io.BytesIO(a[name])) as z:content={n:z.read(n) for n in z.namelist()}
+    doc=json.loads(content['run_metadata_v0.json'])
+    if fault=='candidate':doc['release_candidate']='arbitrary'
+    elif fault=='time':doc['created_utc']='1999-12-31T23:59:59Z'
+    elif fault=='assembler':doc['assembler']['version']='invalid'
+    else:doc['source_inputs']['audit_bundle']='relative/audit'
+    content['run_metadata_v0.json']=canonical(doc)
+    content['package_digest_inventory_v0.json']=canonical(example_package_inventory(content));a[name]=example_zip(content)
+    views=VERIFIER._check_subject_state_archives(p,m,a)
+    with pytest.raises(VERIFIER.VerificationError,match=code):VERIFIER._check_complete_package(p,m,a,views)
+
+
+def _r2c4_actual_assembler_layout_oracle(content, expected):
+    assert set(content)==set(expected), 'Actual assembler output differs from a repeated checker table'
+
+
+def test_r2c4_common_mode_package_table_error_is_not_a_source_oracle(r2c4_inputs):
+    f=r2c4_inputs;expected=set(VERIFIER._PACKAGE_FILE_SET)
+    _r2c4_actual_assembler_layout_oracle(f.contents['complete_release_grade_reference_package'],expected)
+    # Deliberately repeat the same missing member in both in-memory checker maps.
+    # The real assembler-produced member set (not a third copied role table)
+    # remains an independent witness of the missing content requirement.
+    wrong=expected-{'artifacts/external/llamaguard_summary.bundle.json'}
+    with patch.object(VERIFIER,'_PACKAGE_FILE_SET',frozenset(wrong)),patch.object(CAPTURER,'COMPLETE_PACKAGE_MEMBERS',tuple(sorted(wrong))):
+        assert set(CAPTURER.COMPLETE_PACKAGE_MEMBERS)==set(VERIFIER._PACKAGE_FILE_SET)
+        with pytest.raises(AssertionError,match='Actual assembler output'):
+            _r2c4_actual_assembler_layout_oracle(f.contents['complete_release_grade_reference_package'],VERIFIER._PACKAGE_FILE_SET)
+
+
+def test_r2c4_role_assessment_raw_payload_must_match_independent_pin(r2c4_inputs):
+    f=r2c4_inputs;raw=canonical(_r2c4_assess(f))
+    with pytest.raises(VERIFIER.VerificationError,match='r2_role_assessment_digest_mismatch'):
+        VERIFIER._verify_local_r2_role_input_assessment(raw,f.capture,f.carrier.raw,f.carrier.context,
+            expected_assessment_sha256='0'*64,expected_capture_sha256=digest(f.capture),
+            expected_acquisition_sha256=digest(f.raw),**f.carrier.pins)
+
+
+# LOCAL_05: D3 derivations and raw, timed A2 simulation. No Git commits or live calls.
+def _r2c5_policy_oracle(directory):
+    results = {}; directory.mkdir(parents=True, exist_ok=True)
+    for name in ('required', 'release_required'):
+        command = [sys.executable, '-I', '-B', str(ROOT/'tools/policy_to_require_args.py'),
+                   '--policy', str(ROOT/'pulse_gate_policy_v0.yml'), '--set', name, '--format', 'space']
+        with (directory/(name+'.stdout')).open('wb') as out, (directory/(name+'.stderr')).open('wb') as err:
+            process = subprocess.Popen(command, cwd=directory, stdout=out, stderr=err,
+                env={'PATH':'/usr/bin:/bin', 'HOME':str(directory), 'LANG':'C', 'LC_ALL':'C'})
+            code = process.wait(timeout=30)
+        (directory/(name+'.command.json')).write_bytes(canonical({'argv':command,'pid':process.pid,'exit':code}))
+        assert code == 0
+        results[name] = (directory/(name+'.stdout')).read_text().split()
+    return results
+
+
+def _r2c5_content_archives(directory):
+    contents = _r2c4_content_archives(directory)
+    oracle = _r2c5_policy_oracle(directory.parent/'policy-oracle')
+    old = contents['release_grade_recorded_path']['status.json']
+    status = canonical({'gates': {gate: i%2 == 0 for i,gate in enumerate(oracle['release_required'])},
+                        'fixture_only': True, 'version':'after-R9', 'metrics': {'unrelated':0.125}})
+    for group in contents.values():
+        for key in group:
+            if group[key] == old:group[key] = status
+    package = contents['complete_release_grade_reference_package']
+    for key,raw in package.items():
+        if key!='package_digest_inventory_v0.json':
+            p=directory/key;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(raw)
+    spec=importlib.util.spec_from_file_location('r2c5_inventory_writer',ROOT/'PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py')
+    assembler=importlib.util.module_from_spec(spec);spec.loader.exec_module(assembler)
+    assembler._write_digest_inventory(directory/'package_digest_inventory_v0.json',directory)
+    package['package_digest_inventory_v0.json']=(directory/'package_digest_inventory_v0.json').read_bytes()
+    return contents,oracle
+
+
+def _r2c5_script(carrier,contents):
+    records,archives=_r2c4_script(carrier,contents)
+    for i,(method,endpoint,request,status,raw) in enumerate(records):
+        if method!='GET' or '/actions/runs/' not in endpoint:continue
+        document=json.loads(raw)
+        if endpoint.endswith('/9001') or endpoint.endswith('/9002'):
+            document.update(schema_version='pulsemech_step5c_local_r2_simulated_run_v1',
+                            run_started_at='2026-01-01T00:01:00Z',updated_at='2026-01-01T00:20:00Z')
+        elif '/jobs?' in endpoint:
+            for job in document['jobs']:
+                if job['conclusion']=='skipped':
+                    job.update(started_at=None,completed_at=None,platform_steps=[]);continue
+                job.update(started_at='2026-01-01T00:02:00Z',completed_at='2026-01-01T00:19:00Z')
+                def step(name,number,conclusion='success'):
+                    return {'name':name,'number':number,'status':'completed','conclusion':conclusion,
+                            'started_at':'2026-01-01T00:03:00Z' if conclusion=='success' else None,
+                            'completed_at':'2026-01-01T00:03:00Z' if conclusion=='success' else None}
+                platform=[step('Set up job',1)]
+                for j,declared in enumerate(job.get('steps',[])):
+                    platform.append(step(declared['name'],7+4*j,declared['conclusion']))
+                platform.append(step('Complete job',15+4*len(job.get('steps',[]))))
+                job['platform_steps']=platform
+        else:continue
+        records[i]=(method,endpoint,request,status,canonical(document))
+    return records,archives
+
+
+@pytest.fixture(scope='module')
+def r2c5_inputs(r2c2_carrier,tmp_path_factory):
+    f=r2c2_carrier;contents,oracle=_r2c5_content_archives(tmp_path_factory.mktemp('r2c5')/'package')
+    records,archives=_r2c5_script(f,contents)
+    raw=ACQUIRER._acquire_local_r2_bytes(f.raw,f.context,transport=ACQUIRER._LocalR2RecordedTransport(records),**f.pins)
+    capture=CAPTURER._build_local_r2_capture_bytes(raw,f.raw,f.context,expected_acquisition_sha256=digest(raw),**f.pins)
+    checked,_=VERIFIER._read_local_r2_capture(capture,f.raw,f.context,expected_capture_sha256=digest(capture),expected_acquisition_sha256=digest(raw),**f.pins)
+    prepared=VERIFIER.read_canonical_zip_bytes(f.raw,label='r2c5_prepared',maximum_members=512,maximum_bytes=512*1024*1024)
+    members=VERIFIER.read_canonical_zip_bytes(raw,label='r2c5_acq',maximum_members=256,maximum_bytes=80*1024*1024)
+    return SimpleNamespace(carrier=f,raw=raw,capture=capture,checked={**checked,'expected_capture_sha256':digest(capture)},
+        prepared=prepared,members=members,records=records,archives=archives,contents=contents,oracle=oracle)
+
+
+def _r2c5_assess(f,*,plan=None,prepared=None,checked=None,members=None):
+    return VERIFIER._local_r2_projection_assessment(plan if plan is not None else f.carrier.plan.value,
+        prepared if prepared is not None else f.prepared,checked if checked is not None else f.checked,
+        members if members is not None else f.members)
+
+
+def _r2c5_run_or_page(f,members,kind):
+    name=_r2c3_response_member(f,'/9001' if kind=='run' else '/9001/jobs?per_page=100&page=1')
+    return name,json.loads(members[name])
+
+
+def _r2c5_assert_policy_projection(projections,oracle):
+    arguments=projections['state:step5c:effective-required-argument-list']
+    assert arguments['policy_set_members']==oracle
+    assert arguments['ordered_required_gate_ids']==list(dict.fromkeys(oracle['required']+oracle['release_required']))
+
+
+def test_r2c5_checks_d3_and_original_synthetic_a2(r2c5_inputs):
+    f=r2c5_inputs;result=_r2c5_assess(f)
+    assert result['projection_count']==3 and result['fully_satisfied_role_count']==0
+    assert result['assessment_status']=='incomplete' and len(result['pending_semantic_checks'])==7
+    assert result['role_evidence_evaluated'] is False and result['local_boundary']['completion_evaluated'] is False
+    assert result['local_boundary']['R2_activated'] is False
+    _r2c5_assert_policy_projection(result['projections'],f.oracle)
+    gate=result['projections']['state:step5c:materialized-release-required-gate-set']
+    expected=json.loads(f.contents['release_grade_recorded_path']['status.json'])['gates']
+    assert gate['gate_values']==expected and {type(v) for v in gate['gate_values'].values()}=={bool}
+    assert set(expected.values())=={True,False} and gate['materialization_execution_proved'] is False
+    a2=result['projections']['state:step5c:artifact-binding-attestation']
+    assert a2['source_ordinal']==2 and a2['platform_step_number']==11
+    assert a2['signed_receipt_verified'] is False and a2['signed_receipt_content_status']=='unavailable'
+    for binding in a2['raw_response_bindings']:assert digest(f.members[binding['member']])==binding['sha256']
+    assert not jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).is_valid(result)
+    assert 'source_commit' not in canonical(result).decode() and 'head_sha' not in canonical(result).decode()
+
+
+@pytest.mark.parametrize('path',[p for p,_ in VERIFIER._D3_SOURCE_PINS])
+@pytest.mark.parametrize('fault',['missing','changed','rehashed','wrong_tree','wrong_kind'])
+def test_r2c5_exact_projection_source_is_never_bypassed(r2c5_inputs,path,fault):
+    f=r2c5_inputs;p=copy.deepcopy(f.carrier.plan.value);raw=dict(f.prepared)
+    row=next(r for r in p['source_inventory'] if r['path']==path)
+    if fault=='missing':del raw['sources/'+path];code='r2_projection_source_bytes_missing'
+    else:
+        code='r2_projection_source_bytes_mismatch'
+        if fault in {'changed','rehashed'}:
+            raw['sources/'+path]+=b'\n'
+            if fault=='rehashed':
+                data=raw['sources/'+path];row.update(sha256=digest(data),size_bytes=len(data),git_blob_sha1=hashlib.sha1(b'blob %d\0'%len(data)+data).hexdigest())
+        elif fault=='wrong_tree':row['revision']='0'*40
+        else:row['revision_kind']='commit'
+    with pytest.raises(VERIFIER.VerificationError) as caught:VERIFIER._local_r2_projection_sources(p,raw)
+    assert caught.value.code==code
+
+
+@pytest.mark.parametrize('value',[None,0,1,'true',[],{}])
+def test_r2c5_d3_rejects_non_boolean_actual_values(r2c5_inputs,value):
+    f=r2c5_inputs;sources,bindings=VERIFIER._local_r2_projection_sources(f.carrier.plan.value,f.prepared)
+    status=json.loads(f.contents['release_grade_recorded_path']['status.json']);status['gates'][f.oracle['release_required'][0]]=value
+    raw=canonical(status);views={'release_grade_recorded_path':{'status.json':(digest(raw),len(raw))}}
+    with pytest.raises(VERIFIER.VerificationError) as caught:VERIFIER._derive_d3_projection_content(f.carrier.plan.value,sources,views,raw,bindings)
+    assert caught.value.code=='d3_gate_value_type_invalid'
+
+
+def test_r2c5_missing_gate_is_not_false(r2c5_inputs):
+    f=r2c5_inputs;sources,bindings=VERIFIER._local_r2_projection_sources(f.carrier.plan.value,f.prepared)
+    status=json.loads(f.contents['release_grade_recorded_path']['status.json']);del status['gates'][f.oracle['release_required'][0]]
+    raw=canonical(status);views={'release_grade_recorded_path':{'status.json':(digest(raw),len(raw))}}
+    with pytest.raises(VERIFIER.VerificationError) as caught:VERIFIER._derive_d3_projection_content(f.carrier.plan.value,sources,views,raw,bindings)
+    assert caught.value.code=='d3_gate_value_missing'
+
+
+@pytest.mark.parametrize('fault',['locator','producer','command','ordinal'])
+def test_r2c5_d3_uses_unchanged_source_equations(r2c5_inputs,fault):
+    f=r2c5_inputs;plan=copy.deepcopy(f.carrier.plan.value);sources,bindings=VERIFIER._local_r2_projection_sources(plan,f.prepared)
+    if fault in {'locator','producer'}:
+        row=next(r for r in plan['state_templates'] if r['state_id']=='state:step5c:effective-required-argument-list')
+        row['path_or_uri' if fault=='locator' else 'producer_occurrence_id']='wrong';code='d3_template_mismatch'
+    else:
+        row=next(s for j in plan['jobs'] for s in j['steps'] if s['occurrence_id']==VERIFIER._D3_R12)
+        if fault=='command':row['source']['run_sha256']='0'*64
+        else:row['source_ordinal']=13
+        code='d3_occurrence_mismatch'
+    raw=f.contents['release_grade_recorded_path']['status.json']
+    with pytest.raises(VERIFIER.VerificationError) as caught:VERIFIER._derive_d3_projection_content(plan,sources,{'release_grade_recorded_path':{'status.json':(digest(raw),len(raw))}},raw,bindings)
+    assert caught.value.code==code
+
+
+@pytest.mark.parametrize('fault,code',[
+    ('run_start_missing','r2_run_time_invalid'),('run_reversed','r2_run_time_invalid'),
+    ('job_start_missing','r2_job_time_invalid'),('job_outside_run','r2_job_time_invalid'),
+    ('step_number_bool','r2_platform_step_number_invalid'),('step_number_duplicate','r2_platform_step_number_invalid'),
+    ('step_missing','r2_platform_step_set_invalid'),('step_extra','r2_platform_step_set_invalid'),
+    ('step_result','r2_platform_step_result_mismatch'),('step_time_missing','r2_platform_step_time_invalid'),
+    ('step_outside_job','r2_platform_step_time_invalid'),('step_order','r2_platform_step_time_invalid'),
+    ('schema_unknown','r2_simulated_run_mismatch'),('mixed_version','r2_mixed_execution_metadata_profiles'),
+])
+def test_r2c5_rich_transcript_requires_exact_number_time_and_version(r2c5_inputs,fault,code):
+    f=r2c5_inputs;members=dict(f.members);name,run=_r2c5_run_or_page(f,members,'run');pn,page=_r2c5_run_or_page(f,members,'jobs')
+    job=next(j for j in page['jobs'] if j.get('name')==VERIFIER._D6_JOB_NAME);action=job['platform_steps'][2]
+    if fault=='run_start_missing':del run['run_started_at']
+    elif fault=='run_reversed':run['updated_at']='2025-01-01T00:00:00Z'
+    elif fault=='job_start_missing':del job['started_at']
+    elif fault=='job_outside_run':job['completed_at']='2026-01-02T00:00:00Z'
+    elif fault=='step_number_bool':action['number']=True
+    elif fault=='step_number_duplicate':action['number']=job['platform_steps'][1]['number']
+    elif fault=='step_missing':job['platform_steps'].pop(2)
+    elif fault=='step_extra':action['name']='Foreign action'
+    elif fault=='step_result':action['conclusion']='skipped'
+    elif fault=='step_time_missing':action['started_at']=None
+    elif fault=='step_outside_job':action['completed_at']='2026-01-02T00:00:00Z'
+    elif fault=='step_order':action['started_at']='2026-01-01T00:02:30Z'
+    elif fault=='schema_unknown':run['schema_version']='unknown'
+    else:
+        run['schema_version']='pulsemech_step5c_local_r2_simulated_run_v0';del run['run_started_at'];del run['updated_at']
+        for j in page['jobs']:
+            for k in ('started_at','completed_at','platform_steps'):del j[k]
+    members[name]=canonical(run);members[pn]=canonical(page);_r2c3_reindex(members)
+    with pytest.raises(VERIFIER.VerificationError) as caught:_r2c3_check(f,members)
+    assert caught.value.code==code
+
+
+@pytest.mark.parametrize('fault,code',[
+    ('run_source','r2_d6_subject_mismatch'),('run_attempt','r2_d6_subject_mismatch'),
+    ('job_source','r2_d6_job_identity_mismatch'),('job_attempt','r2_d6_job_identity_mismatch'),
+    ('job_duplicate','d6_job_occurrence_mismatch'),('wrong_action_pin','d6_plan_occurrence_mismatch'),
+    ('wrong_state_origin','d6_state_role_mismatch'),
+])
+def test_r2c5_a2_raw_evidence_is_bound_to_source_and_subject(r2c5_inputs,fault,code):
+    f=r2c5_inputs;members=dict(f.members);plan=copy.deepcopy(f.carrier.plan.value)
+    name,run=_r2c5_run_or_page(f,members,'run');pn,page=_r2c5_run_or_page(f,members,'jobs')
+    job=next(j for j in page['jobs'] if j.get('name')==VERIFIER._D6_JOB_NAME)
+    if fault=='run_source':run['source_identity']['git_tree_sha1']='0'*40
+    elif fault=='run_attempt':run['run_attempt']=True
+    elif fault=='job_source':job['source_identity']['git_tree_sha1']='0'*40
+    elif fault=='job_attempt':job['run_attempt']=True
+    elif fault=='job_duplicate':page['jobs'][0]=copy.deepcopy(job)
+    elif fault=='wrong_action_pin':next(j for j in plan['jobs'] if j['source_job_id']==VERIFIER._D6_JOB)['steps'][1]['source']['action_commit_sha']='0'*40
+    else:next(s for s in plan['state_templates'] if s['state_id']=='state:step5c:artifact-binding-attestation')['producer_occurrence_id']='wrong'
+    members[name]=canonical(run);members[pn]=canonical(page);sources,_=VERIFIER._local_r2_projection_sources(plan,f.prepared)
+    with pytest.raises(VERIFIER.VerificationError) as caught:VERIFIER._local_r2_d6_metadata_projection(plan,f.checked,members,sources)
+    assert caught.value.code==code
+
+
+def test_r2c5_v0_transport_does_not_supply_missing_action_times(r2c5_inputs):
+    f=r2c5_inputs;records,_=_r2c4_script(f.carrier,f.contents)
+    raw=ACQUIRER._acquire_local_r2_bytes(f.carrier.raw,f.carrier.context,transport=ACQUIRER._LocalR2RecordedTransport(records),**f.carrier.pins)
+    members=VERIFIER.read_canonical_zip_bytes(raw,label='old_transport',maximum_members=256,maximum_bytes=80*1024*1024)
+    checked=VERIFIER._local_r2_transport_check(members,f.carrier.plan.value,f.carrier.context,f.carrier.plan.source.sources[VERIFIER.SCHEMA_PATH])
+    sources,_=VERIFIER._local_r2_projection_sources(f.carrier.plan.value,f.prepared)
+    with pytest.raises(VERIFIER.VerificationError) as caught:VERIFIER._local_r2_d6_metadata_projection(f.carrier.plan.value,checked,members,sources)
+    assert caught.value.code=='r2_d6_timed_metadata_required'
+
+
+def test_r2c5_original_input_only_fixture_stays_negative(r2c4_inputs):
+    with pytest.raises(VERIFIER.VerificationError) as caught:_r2c5_assess(r2c4_inputs)
+    assert caught.value.code=='d3_status_json_invalid'
+
+
+def test_r2c5_saved_projection_reader_recomputes_instead_of_trusting_ok(r2c5_inputs):
+    f=r2c5_inputs;pins={**f.carrier.pins,'expected_capture_sha256':digest(f.capture),'expected_acquisition_sha256':digest(f.raw)}
+    raw=VERIFIER._assess_local_r2_projections(f.capture,f.carrier.raw,f.carrier.context,**pins)
+    assert json.loads(raw)==_r2c5_assess(f)
+    actual=VERIFIER._verify_local_r2_projection_assessment(raw,f.capture,f.carrier.raw,f.carrier.context,expected_assessment_sha256=digest(raw),**pins)
+    assert canonical(actual)==raw
+
+
+@pytest.mark.parametrize('fault',['signature_pass','drop_pending','alter_platform_number','different_gates','D1_fake_digest'])
+def test_r2c5_rehashed_projection_cannot_promote_a_gap(r2c5_inputs,fault):
+    f=r2c5_inputs;value=_r2c5_assess(f)
+    if fault=='signature_pass':value['projections']['state:step5c:artifact-binding-attestation']['signed_receipt_verified']=True
+    elif fault=='drop_pending':value['pending_semantic_checks']=[]
+    elif fault=='alter_platform_number':value['projections']['state:step5c:artifact-binding-attestation']['platform_step_number']=2
+    elif fault=='different_gates':value['projections']['state:step5c:materialized-release-required-gate-set']['gate_values']={}
+    else:value['explicit_gap_records'][0]['content_sha256']='0'*64
+    raw=canonical(value)
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        VERIFIER._verify_local_r2_projection_assessment(raw,f.capture,f.carrier.raw,f.carrier.context,
+            expected_assessment_sha256=digest(raw),expected_capture_sha256=digest(f.capture),expected_acquisition_sha256=digest(f.raw),**f.carrier.pins)
+    assert caught.value.code=='r2_projection_assessment_mismatch'
+
+
+def test_r2c5_common_wrong_argv_fails_real_policy_cli_oracle(r2c5_inputs,monkeypatch):
+    f=r2c5_inputs;original=VERIFIER._derive_d3_projection_content
+    def wrong(*args,**kw):
+        values=list(original(*args,**kw));doc=json.loads(values[1]);doc['ordered_required_gate_ids'].reverse();values[1]=canonical(doc);return tuple(values)
+    monkeypatch.setattr(VERIFIER,'_derive_d3_projection_content',wrong)
+    received=_r2c5_assess(f)
+    with pytest.raises(AssertionError):_r2c5_assert_policy_projection(received['projections'],f.oracle)
+
+
+def test_r2c5_d6_shared_action_guard_is_actually_executed(r2c5_inputs,monkeypatch):
+    calls=[];original=VERIFIER._check_d6_action_steps
+    def tracked(*args,**kw):calls.append(1);return original(*args,**kw)
+    monkeypatch.setattr(VERIFIER,'_check_d6_action_steps',tracked);_r2c5_assess(r2c5_inputs);assert calls==[1]
+
+
+def test_r2c5_projection_has_no_public_activation_route():
+    tree=ast.parse((ROOT/'tools/check_pulsemech_compute_whole_runtime_observation_v0.py').read_text())
+    functions={n.name:n for n in tree.body if isinstance(n,ast.FunctionDef)}
+    seen=set();todo=['main','run_reference','reconstruct']
+    while todo:
+        name=todo.pop()
+        if name in seen or name not in functions:continue
+        seen.add(name);todo.extend(n.func.id for n in ast.walk(functions[name]) if isinstance(n,ast.Call) and isinstance(n.func,ast.Name))
+    assert not seen & {'_assess_local_r2_projections','_local_r2_projection_assessment','_local_r2_d6_metadata_projection'}
+    assert '_require_declared_state_completion' in seen
+
+
+# Package-replay integration contract: use the actual existing verifier CLI
+# and the existing Step 3F consumer, not a second Step 5C implementation.
+# The helper's example-org / a*40 identifiers and signature placeholder are
+# synthetic scalar test data. They are not a LOCAL_05 commit, acquired run,
+# cryptographic signature proof, or complete R2 acceptance.
+@pytest.fixture(scope='module')
+def r2_package_replay_fixture(tmp_path_factory):
+    path = ROOT / 'tests/test_release_grade_reference_package_verification_wiring_v0.py'
+    spec = importlib.util.spec_from_file_location('step5c_existing_package_fixture', path)
+    helper = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(helper)
+    directory = tmp_path_factory.mktemp('r2-package-replay')
+    package = directory / 'package'
+    helper._summary_package(package)
+    process, report = helper._run_summary_verifier(package, directory / 'verifier-report.json')
+    assert process.returncode == 0, process.stdout
+    assert report['verified'] is True and report['errors'] == []
+    members = {p.relative_to(package).as_posix(): p.read_bytes()
+               for p in sorted(package.rglob('*')) if p.is_file()}
+    identity = helper._SUMMARY_IDENTITY
+    subject = {
+        'repository': identity['repository'],
+        'source_commit': identity['git_sha'],
+        'workflow_ref': identity['workflow_ref'],
+        'workflow_run_id': int(identity['run_id']),
+        'workflow_run_attempt': int(identity['run_attempt']),
+        'subject_run_key': identity['run_key'],
+    }
+    # Preserve actual CLI output; do not substitute a generated success report.
+    (directory / 'cli-result.json').write_bytes(canonical({
+        'argv': process.args, 'returncode': process.returncode,
+        'stdout': process.stdout, 'stderr': process.stderr,
+        'fixture_kind': 'existing_synthetic_package_content_example',
+        'signature_verification_claimed': False,
+    }))
+    return SimpleNamespace(consumer=helper._summary_consumer(), members=members,
+                           report=report, subject=subject, directory=directory)
+
+
+def _r2_package_replay(fixture, *, members=None, report=None, subject=None):
+    consumer = fixture.consumer
+    payloads = dict(fixture.members if members is None else members)
+    document = copy.deepcopy(fixture.report if report is None else report)
+    expected = copy.deepcopy(fixture.subject if subject is None else subject)
+    inventory = json.loads(payloads['package_digest_inventory_v0.json'])
+    rows = consumer._validate_package_inventory(members=payloads, inventory=inventory)
+    consumer._validate_check_report(
+        document=document,
+        schema_version='release_grade_reference_package_verification_v0',
+        status_field='status', status_value='verified', label='package_verification',
+        report_kind='verification', members=payloads, inventory=inventory,
+        inventory_rows=rows, subject=expected,
+    )
+
+
+def _r2_package_replay_reindex(members):
+    """Rehash only an in-memory negative input; never alter saved evidence."""
+    members = dict(members)
+    inventory = json.loads(members['package_digest_inventory_v0.json'])
+    inventory['files'] = [
+        {'path': name, 'sha256': digest(raw), 'size_bytes': len(raw)}
+        for name, raw in sorted(members.items())
+        if name != 'package_digest_inventory_v0.json'
+    ]
+    inventory['file_count'] = len(inventory['files'])
+    members['package_digest_inventory_v0.json'] = canonical(inventory)
+    return members
+
+
+def test_r2_package_replay_consumes_actual_cli_report_and_full_existing_semantics(r2_package_replay_fixture):
+    f = r2_package_replay_fixture
+    before = (dict(f.members), copy.deepcopy(f.report), copy.deepcopy(f.subject))
+    _r2_package_replay(f)
+    assert before == (f.members, f.report, f.subject)
+    # These are checked content relations, not merely nonempty summary counts.
+    ids = {row['check_id'] for row in f.report['checks']}
+    assert {'metadata.git_sha', 'metadata.run_id', 'status.git_sha',
+            'llamaguard.envelope.summary_digest', 'recorded_candidates.non_empty'} <= ids
+    assert f.report['summary']['checks_total'] == len(ids)
+    assert f.report['authority_boundary']['authorizes_release'] is False
+    assert f.report['authority_boundary']['package_acceptance_only'] is True
+
+
+@pytest.mark.parametrize('fault,path,keys,value,reason', [
+    ('metadata-repository', 'run_metadata_v0.json', ('repository',), 'different/repository',
+     'verification_metadata_repository_mismatch'),
+    ('metadata-source', 'run_metadata_v0.json', ('git_sha',), 'b' * 40,
+     'verification_metadata_git_sha_mismatch'),
+    ('metadata-run', 'run_metadata_v0.json', ('run_id',), 9002,
+     'verification_metadata_run_id_mismatch'),
+    ('metadata-authority', 'run_metadata_v0.json', ('authority_boundary', 'authorizes_release'), True,
+     'verification_metadata_authority_boundary_invalid'),
+    ('status-source', 'artifacts/status.json', ('metrics', 'git_sha'), 'b' * 40,
+     'verification_status_git_sha_mismatch'),
+    ('status-run', 'artifacts/status.json', ('metrics', 'run_key'), 'other-run',
+     'verification_status_run_key_mismatch'),
+    ('raw-run', 'artifacts/external/llamaguard_raw.jsonl', ('run', 'run_key'), 'other-run',
+     'verification_llamaguard_raw_0_run_key_mismatch'),
+    ('candidate-status', 'artifacts/recorded_release_candidates/synthetic.json', ('validation', 'status'), 'failed',
+     'verification_candidate_not_passed'),
+    ('candidate-authority', 'artifacts/recorded_release_candidates/synthetic.json', ('authority_boundary', 'eligible_without_verifier'), True,
+     'verification_candidate_authority_boundary_invalid'),
+    ('envelope-summary', 'artifacts/external/llamaguard_summary.envelope.json', ('summary_digest', 'value'), '0' * 64,
+     'envelope_summary_digest_invalid'),
+], ids=['metadata-repository', 'metadata-source', 'metadata-run', 'metadata-authority',
+        'status-source', 'status-run', 'raw-run', 'candidate-status',
+        'candidate-authority', 'envelope-summary'])
+def test_r2_package_replay_green_report_cannot_hide_rehashed_content_change(
+    r2_package_replay_fixture, fault, path, keys, value, reason,
+):
+    del fault
+    f = r2_package_replay_fixture
+    payloads = dict(f.members)
+    document = json.loads(payloads[path])
+    target = document
+    for key in keys[:-1]:
+        target = target[key]
+    target[keys[-1]] = value
+    payloads[path] = (json.dumps(document, sort_keys=True, allow_nan=False).encode() + b'\n'
+                      if path.endswith('.jsonl') else canonical(document))
+    payloads = _r2_package_replay_reindex(payloads)
+    # Prove the rejection reaches semantics, not a stale checksum.
+    inventory = json.loads(payloads['package_digest_inventory_v0.json'])
+    f.consumer._validate_package_inventory(members=payloads, inventory=inventory)
+    assert f.report['verified'] is True and f.report['summary']['checks_failed'] == 0
+    with pytest.raises(f.consumer.WrapperError, match=re.escape(reason)):
+        _r2_package_replay(f, members=payloads)
+
+
+@pytest.mark.parametrize('fault,reason', [
+    ('wrong-tool', 'package_verification_tool_mismatch'),
+    ('authority', 'package_verification_authority_boundary_mismatch'),
+    ('false-verified', 'package_verification_verified_mismatch'),
+    ('errors', 'package_verification_errors_mismatch'),
+    ('wrong-total', 'package_verification_checks_total_mismatch'),
+    ('missing-check', 'package_verification_check_identity_set_mismatch'),
+    ('extra-check', 'package_verification_check_identity_set_mismatch'),
+    ('duplicate-check', 'package_verification_duplicate_check_id'),
+    ('failed-check', 'package_verification_check_failed'),
+])
+def test_r2_package_replay_valid_package_requires_exact_terminal_report(
+    r2_package_replay_fixture, fault, reason,
+):
+    f = r2_package_replay_fixture
+    report = copy.deepcopy(f.report)
+    if fault == 'wrong-tool':
+        report['tool']['version'] = 'unreviewed'
+    elif fault == 'authority':
+        report['authority_boundary']['authorizes_release'] = True
+    elif fault == 'false-verified':
+        report['verified'] = False
+    elif fault == 'errors':
+        report['errors'] = ['recorded failure']
+    elif fault == 'wrong-total':
+        report['summary']['checks_total'] += 1
+    elif fault == 'missing-check':
+        report['checks'] = [row for row in report['checks'] if row['check_id'] != 'metadata.git_sha']
+        report['summary']['checks_total'] = len(report['checks'])
+    elif fault in {'extra-check', 'duplicate-check'}:
+        row = copy.deepcopy(report['checks'][0])
+        if fault == 'extra-check':
+            row['check_id'] = 'unrequested.extra.check'
+        report['checks'].append(row)
+        report['summary']['checks_total'] = len(report['checks'])
+    else:
+        report['checks'][0]['passed'] = False
+        report['summary']['checks_failed'] = 1
+    with pytest.raises(f.consumer.WrapperError, match=re.escape(reason)):
+        _r2_package_replay(f, report=report)
+
+
+def test_r2_package_replay_does_not_fill_commit_from_local_tree(r2_package_replay_fixture):
+    f = r2_package_replay_fixture
+    subject = copy.deepcopy(f.subject)
+    subject.pop('source_commit')
+    subject['source_identity'] = {'kind': 'uncommitted_git_tree', 'git_tree_sha1': 'a' * 40}
+    with pytest.raises(f.consumer.WrapperError, match='verification_subject_git_sha'):
+        _r2_package_replay(f, subject=subject)
+
+
+# Source/run-bound local R2 package replay. Commit-typed metadata uses a real
+# parentless commit in a disposable remote-less fixture, never the tree as a
+# commit and never a commit in the project repository.
+@pytest.fixture(scope='module')
+def r2c6_package_inputs(r2c2_carrier, tmp_path_factory):
+    from datetime import datetime, timedelta, timezone
+    f = r2c2_carrier
+    directory = tmp_path_factory.mktemp('r2c6-package-binding')
+    fixture = directory / 'fixture-repository'
+    fixture.mkdir()
+    for name, (mode, raw) in f.plan.source.files.items():
+        target = fixture / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(raw); target.chmod(int(mode, 8) & 0o777)
+    empty = directory / 'empty-hooks-and-template'; empty.mkdir()
+    env_git = {
+        'PATH': '/usr/bin:/bin', 'HOME': str(directory), 'LANG': 'C', 'LC_ALL': 'C',
+        'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull,
+        'GIT_TERMINAL_PROMPT': '0', 'GIT_SSH_COMMAND': '/bin/false',
+        'GIT_AUTHOR_NAME': 'Step5C local fixture', 'GIT_AUTHOR_EMAIL': 'fixture@example.invalid',
+        'GIT_COMMITTER_NAME': 'Step5C local fixture', 'GIT_COMMITTER_EMAIL': 'fixture@example.invalid',
+        'GIT_AUTHOR_DATE': EXAMPLE_START, 'GIT_COMMITTER_DATE': EXAMPLE_START,
+    }
+    git_records = []
+    def git(args):
+        argv = ['/usr/bin/git', '--no-replace-objects', '-c', 'protocol.allow=never',
+                '-c', 'credential.helper=', '-c', 'core.hooksPath=' + str(empty),
+                '-C', str(fixture), *args]
+        proc = subprocess.run(argv, env=env_git, capture_output=True, timeout=30)
+        git_records.append({'argv': argv, 'exit_code': proc.returncode,
+                            'stdout_hex': proc.stdout.hex(), 'stderr_hex': proc.stderr.hex()})
+        assert proc.returncode == 0, proc.stderr
+        return proc.stdout
+    try:
+        git(['init', '-q', '--template=' + str(empty)])
+        git(['add', '--all'])
+        git(['-c', 'commit.gpgsign=false', 'commit', '-q', '-m',
+             'Synthetic Step5C package fixture; not a project commit'])
+        commit = git(['rev-parse', '--verify', 'HEAD^{commit}']).decode().strip()
+        tree = git(['rev-parse', '--verify', 'HEAD^{tree}']).decode().strip()
+        commit_raw = git(['cat-file', 'commit', commit])
+        assert tree == f.plan.source.tree and commit != tree
+        assert git(['remote']) == b''
+        assert hashlib.sha1(b'commit %d\0' % len(commit_raw) + commit_raw).hexdigest() == commit
+    finally:
+        shutil.rmtree(fixture)
+    (directory / 'fixture-commit.raw').write_bytes(commit_raw)
+    (directory / 'fixture-git.json').write_bytes(canonical({
+        'commands': git_records, 'environment': env_git, 'tree': tree, 'commit': commit,
+        'fixture_removed': not fixture.exists(), 'project_commit_created': False,
+    }))
+    contents, oracle = _r2c5_content_archives(directory / 'package')
+    spec = importlib.util.spec_from_file_location('step5c_local_package_data',
+        ROOT / 'tests/test_release_grade_reference_package_verification_wiring_v0.py')
+    helper = importlib.util.module_from_spec(spec); spec.loader.exec_module(helper)
+    identity = {
+        'repository': VERIFIER.REPOSITORY, 'git_sha': commit,
+        'workflow_ref': VERIFIER.REPOSITORY + '/.github/workflows/pulse_ci.yml@refs/heads/main',
+        'run_id': '9001', 'run_attempt': '1',
+        'run_key': 'GITHUB_RUN_ID=9001|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI',
+    }
+    # This configures only the unchanged test-data constructor, not verifier code.
+    helper._SUMMARY_IDENTITY = identity
+    helper._summary_package(directory / 'semantic-template')
+    semantic = {q.relative_to(directory / 'semantic-template').as_posix(): q.read_bytes()
+                for q in (directory / 'semantic-template').rglob('*') if q.is_file()}
+    recorded = contents['release_grade_recorded_path']
+    replacements = {}
+    for name, old in recorded.items():
+        key = 'artifacts/' + name
+        if key in semantic:
+            value = semantic[key]
+            if name == 'status.json':
+                value = canonical({**json.loads(old), 'metrics': json.loads(value)['metrics']})
+            replacements[old] = value
+        elif name.startswith('recorded_release_candidates/'):
+            replacements[old] = semantic['artifacts/recorded_release_candidates/synthetic.json']
+    for group in contents.values():
+        for name, raw in list(group.items()):
+            if raw in replacements:
+                group[name] = replacements[raw]
+    created = (datetime.now(timezone.utc) - timedelta(seconds=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
+    package = contents['complete_release_grade_reference_package']
+    package['run_metadata_v0.json'] = canonical({**json.loads(semantic['run_metadata_v0.json']),
+                                               'created_utc': created})
+    package = _r2_package_replay_reindex(package)
+    contents['complete_release_grade_reference_package'] = package
+    for name, raw in package.items():
+        target = directory / 'package' / name
+        target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(raw)
+    proc, report = helper._run_summary_verifier(directory / 'package', directory / 'report.json', identity=identity)
+    assert proc.returncode == 0 and report['verified'] is True, proc.stdout
+    report_raw = (directory / 'report.json').read_bytes()
+    contents['package_verification_report'] = {'release_grade_reference_package_verification_v0.json': report_raw}
+    records, archives = _r2c5_script(f, contents)
+    # Newly authored simulation metadata surrounds the actual local CLI report.
+    # This is not a modification of historical evidence or a hosted-time claim.
+    pivot = datetime.fromisoformat(report['checked_utc'].replace('Z', '+00:00')) - timedelta(minutes=10)
+    epoch = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    def move_times(value):
+        if isinstance(value, dict): return {k: move_times(v) for k, v in value.items()}
+        if isinstance(value, list): return [move_times(v) for v in value]
+        if type(value) is str and re.fullmatch(r'2026-01-01T\d\d:\d\d:\d\dZ', value):
+            moment = datetime.fromisoformat(value.replace('Z', '+00:00'))
+            return (pivot + (moment - epoch)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        return value
+    for i, (method, endpoint, request, status, raw) in enumerate(records):
+        if method == 'GET' and '/actions/runs/' in endpoint:
+            records[i] = (method, endpoint, request, status, canonical(move_times(json.loads(raw))))
+    raw = ACQUIRER._acquire_local_r2_bytes(f.raw, f.context,
+        transport=ACQUIRER._LocalR2RecordedTransport(records), **f.pins)
+    capture = CAPTURER._build_local_r2_capture_bytes(raw, f.raw, f.context,
+        expected_acquisition_sha256=digest(raw), **f.pins)
+    pins = {**f.pins, 'expected_capture_sha256': digest(capture),
+            'expected_acquisition_sha256': digest(raw)}
+    checked, _ = VERIFIER._read_local_r2_capture(capture, f.raw, f.context, **pins)
+    prepared = VERIFIER.read_canonical_zip_bytes(f.raw, label='r2c6_prepared',
+        maximum_members=512, maximum_bytes=512*1024*1024)
+    members = VERIFIER.read_canonical_zip_bytes(raw, label='r2c6_acquisition',
+        maximum_members=256, maximum_bytes=80*1024*1024)
+    for name, data in {'prepared.zip': f.raw, 'capture.zip': capture, 'context.json': f.context,
+                       'acquisition.zip': raw, 'pins.json': canonical(pins),
+                       'cli-result.json': canonical({'argv': proc.args, 'exit_code': proc.returncode,
+                                                    'stdout': proc.stdout, 'stderr': proc.stderr})}.items():
+        (directory / name).write_bytes(data)
+    return SimpleNamespace(carrier=f, raw=raw, capture=capture, pins=pins,
+        checked={**checked, 'expected_capture_sha256': digest(capture)},
+        prepared=prepared, members=members, contents=contents, report=report, report_raw=report_raw,
+        commit=commit, commit_raw=commit_raw, directory=directory, oracle=oracle)
+
+
+def _r2c6_assess(f, *, checked=None, members=None, commit_raw=None, commit=None):
+    return VERIFIER._local_r2_package_replay_assessment(
+        f.carrier.plan.value, f.prepared, f.checked if checked is None else checked,
+        f.members if members is None else members,
+        fixture_commit_raw=f.commit_raw if commit_raw is None else commit_raw,
+        expected_fixture_commit=f.commit if commit is None else commit)
+
+
+def _r2c6_changed(f, *, package_change=None, report_change=None):
+    contents = copy.deepcopy(f.contents)
+    if package_change is not None:
+        name, mutate = package_change
+        old = contents['complete_release_grade_reference_package'][name]
+        doc = json.loads(old); mutate(doc)
+        new = canonical(doc)
+        for group in contents.values():
+            for key, value in list(group.items()):
+                if value == old: group[key] = new
+        contents['complete_release_grade_reference_package'] = _r2_package_replay_reindex(
+            contents['complete_release_grade_reference_package'])
+    if report_change is not None:
+        report = copy.deepcopy(f.report); report_change(report)
+        contents['package_verification_report'] = {
+            'release_grade_reference_package_verification_v0.json': canonical(report)}
+    members = dict(f.members); checked = copy.deepcopy(f.checked)
+    for row in checked['archive_inventory']:
+        if row['role'] not in contents: continue
+        raw = example_zip(contents[row['role']])
+        members[row['member']] = raw; row.update(sha256=digest(raw), size_bytes=len(raw))
+    return checked, members
+
+
+def test_r2c6_full_byte_entrypoint_and_saved_reader(r2c6_package_inputs):
+    f = r2c6_package_inputs
+    inputs = {'fixture_commit_raw': f.commit_raw, 'expected_fixture_commit': f.commit, **f.pins}
+    raw = VERIFIER._assess_local_r2_package_replay(f.capture, f.carrier.raw, f.carrier.context, **inputs)
+    document = VERIFIER._verify_local_r2_package_replay_assessment(raw, f.capture, f.carrier.raw,
+        f.carrier.context, expected_assessment_sha256=digest(raw), **inputs)
+    assert canonical(document) == raw == canonical(_r2c6_assess(f))
+    assert document['package_subject_identity']['source_commit'] == f.commit != f.carrier.plan.source.tree
+    assert document['fixture_commit_binding']['git_tree_sha1'] == f.carrier.plan.source.tree
+    assert document['checked_check_count'] == len(f.report['checks'])
+    assert document['package_verification_semantics_replayed'] is True
+    assert document['assessment_status'] == 'incomplete'
+    assert document['fully_satisfied_role_count'] == 0
+    assert document['mandatory_llamaguard_signatures_verified'] is False
+    assert document['local_boundary']['R2_activated'] is False
+    assert document['fresh_package_verifier_cli_executed'] is False
+    assert document['source_identity']['kind'] == 'uncommitted_git_tree'
+    assert 'source_commit' not in f.carrier.plan.value['plan_identity']
+    (f.directory / 'assessment.json').write_bytes(raw)
+
+
+@pytest.mark.parametrize('field,value,reason', [
+    ('repository', 'foreign/repository', 'verification_metadata_repository_mismatch'),
+    ('git_sha', 'b'*40, 'verification_metadata_git_sha_mismatch'),
+    ('run_id', 8001, 'verification_metadata_run_id_mismatch'),
+    ('run_attempt', 2, 'verification_metadata_run_attempt_mismatch'),
+    ('workflow_ref', 'foreign/workflow', 'verification_metadata_workflow_ref_mismatch'),
+    ('run_key', 'foreign-run', 'verification_metadata_run_key_mismatch'),
+])
+def test_r2c6_rehashed_package_identity_rejects(r2c6_package_inputs, field, value, reason):
+    f = r2c6_package_inputs
+    checked, members = _r2c6_changed(f, package_change=('run_metadata_v0.json', lambda d: d.update({field: value})))
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        _r2c6_assess(f, checked=checked, members=members)
+    assert caught.value.code == 'r2_package_replay_rejected'
+    assert reason in caught.value.detail
+
+
+@pytest.mark.parametrize('fault,reason', [
+    ('status', 'package_verification_status_mismatch'),
+    ('tool', 'package_verification_tool_mismatch'),
+    ('checks', 'package_verification_check_identity_set_mismatch'),
+    ('summary', 'package_verification_checks_total_mismatch'),
+    ('authority', 'package_verification_authority_boundary_mismatch'),
+])
+def test_r2c6_rehashed_report_rejects(r2c6_package_inputs, fault, reason):
+    def mutate(d):
+        if fault == 'status': d['status'] = 'failed'
+        elif fault == 'tool': d['tool']['version'] = 'unreviewed'
+        elif fault == 'checks':
+            d['checks'] = [r for r in d['checks'] if r['check_id'] != 'metadata.git_sha']
+            d['summary']['checks_total'] = len(d['checks'])
+        elif fault == 'summary': d['summary']['checks_total'] += 1
+        else: d['authority_boundary']['authorizes_release'] = True
+    f = r2c6_package_inputs; checked, members = _r2c6_changed(f, report_change=mutate)
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        _r2c6_assess(f, checked=checked, members=members)
+    assert caught.value.code == 'r2_package_replay_rejected' and reason in caught.value.detail
+
+
+@pytest.mark.parametrize('fault', ['changed-bytes', 'wrong-pin', 'tree-as-commit', 'other-tree', 'parented'])
+def test_r2c6_commit_object_is_external_and_tree_bound(r2c6_package_inputs, fault):
+    f = r2c6_package_inputs; raw = f.commit_raw; commit = f.commit
+    if fault == 'changed-bytes': raw += b'changed'
+    elif fault == 'wrong-pin': commit = 'f'*40
+    elif fault == 'tree-as-commit': commit = f.carrier.plan.source.tree
+    elif fault == 'other-tree':
+        raw = raw.replace(f.carrier.plan.source.tree.encode(), b'0'*40, 1)
+        commit = hashlib.sha1(b'commit %d\0'%len(raw)+raw).hexdigest()
+    else:
+        raw = raw.replace(b'\nauthor ', b'\nparent '+b'0'*40+b'\nauthor ', 1)
+        commit = hashlib.sha1(b'commit %d\0'%len(raw)+raw).hexdigest()
+    with pytest.raises(VERIFIER.VerificationError, match='r2_package_fixture_commit'):
+        VERIFIER._local_r2_package_commit_binding(f.carrier.plan.value, raw, commit)
+
+
+@pytest.mark.parametrize('path', [
+    'tools/build_pulsemech_compute_subject_input_packet_current_run_v0.py',
+    'PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py',
+])
+@pytest.mark.parametrize('fault', ['missing', 'bytes', 'rehashed'])
+def test_r2c6_pinned_replay_sources_reject_substitution(r2c6_package_inputs, path, fault):
+    f = r2c6_package_inputs; plan = copy.deepcopy(f.carrier.plan.value); prepared = dict(f.prepared)
+    if fault == 'missing': prepared.pop('sources/'+path)
+    else:
+        raw = prepared['sources/'+path] + b'\n'
+        prepared['sources/'+path] = raw
+        if fault == 'rehashed':
+            row = next(r for r in plan['source_inventory'] if r['path'] == path)
+            row.update(sha256=digest(raw), size_bytes=len(raw),
+                       git_blob_sha1=hashlib.sha1(b'blob %d\0'%len(raw)+raw).hexdigest())
+    with pytest.raises(VERIFIER.VerificationError, match='r2_package_replay_source'):
+        VERIFIER._local_r2_package_replay_sources(plan, prepared)
+
+
+@pytest.mark.parametrize('which', ['package', 'report'])
+def test_r2c6_terminal_times_use_preserved_raw_run(r2c6_package_inputs, which):
+    f = r2c6_package_inputs
+    if which == 'package':
+        args = {'package_change': ('run_metadata_v0.json', lambda d: d.update(created_utc='1900-01-01T00:00:00Z'))}
+    else:
+        args = {'report_change': lambda d: d.update(checked_utc='2100-01-01T00:00:00Z')}
+    checked, members = _r2c6_changed(f, **args)
+    with pytest.raises(VERIFIER.VerificationError, match='r2_package_time_order_mismatch'):
+        _r2c6_assess(f, checked=checked, members=members)
+
+
+@pytest.mark.parametrize('field,value', [('assessment_status','complete'), ('fully_satisfied_role_count',62),
+    ('mandatory_llamaguard_signatures_verified',True), ('pending_semantic_checks',[]),
+    ('observed_platform_execution',True)])
+def test_r2c6_saved_assessment_cannot_promote_missing_roles(r2c6_package_inputs, field, value):
+    f = r2c6_package_inputs; d = _r2c6_assess(f); d[field] = value; raw = canonical(d)
+    with pytest.raises(VERIFIER.VerificationError, match='r2_package_assessment_mismatch'):
+        VERIFIER._verify_local_r2_package_replay_assessment(raw, f.capture, f.carrier.raw, f.carrier.context,
+            expected_assessment_sha256=digest(raw), fixture_commit_raw=f.commit_raw,
+            expected_fixture_commit=f.commit, **f.pins)
+
+
+def test_r2c6_input_only_previous_package_is_not_promoted(r2c5_inputs, r2c6_package_inputs):
+    f = r2c5_inputs; current = r2c6_package_inputs
+    with pytest.raises(VERIFIER.VerificationError):
+        VERIFIER._local_r2_package_replay_assessment(f.carrier.plan.value, f.prepared, f.checked, f.members,
+            fixture_commit_raw=current.commit_raw, expected_fixture_commit=current.commit)
+
+
+def test_r2c6_exact_outer_capture_pin_remains_required(r2c6_package_inputs):
+    f = r2c6_package_inputs
+    with pytest.raises(VERIFIER.VerificationError, match='r2_capture_digest_mismatch'):
+        VERIFIER._assess_local_r2_package_replay(f.capture, f.carrier.raw, f.carrier.context,
+            fixture_commit_raw=f.commit_raw, expected_fixture_commit=f.commit,
+            **{**f.pins, 'expected_capture_sha256': '0'*64})
+
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.

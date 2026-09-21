@@ -2551,5 +2551,186 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
 
 
+
+# LOCAL_03: closed synthetic transport only; no public CLI reaches these helpers.
+class _LocalR2RecordedTransport:
+    """Finite immutable response script. Never delegates to a live transport.
+
+    Records are (method, endpoint, request bytes or None, status, response bytes).
+    Request mismatches, missing responses and unused script records all reject.
+    Endpoints are matched as labels, not fetched as network locations.
+    """
+
+    def __init__(self, records: Sequence[tuple[str, str, bytes | None, int, bytes]]) -> None:
+        _require(type(records) in {list, tuple} and 0 < len(records) <= 64,
+                 'r2_transport_script_invalid', stage='local_r2')
+        frozen = []
+        total = 0
+        for row in records:
+            _require(type(row) in {tuple, list} and len(row) == 5,
+                     'r2_transport_script_invalid', stage='local_r2')
+            method, endpoint, request, status, response = row
+            _require(method in {'GET', 'POST'} and type(endpoint) is str
+                     and endpoint.startswith('repos/HKati/pulse-release-gates-0.1/')
+                     and (request is None or type(request) is bytes)
+                     and type(status) is int and 100 <= status <= 599
+                     and type(response) is bytes and 0 < len(response) <= 32 * 1024 * 1024,
+                     'r2_transport_script_invalid', stage='local_r2')
+            _require(request is None or len(request) <= DEFAULT_MAX_API_JSON_BYTES,
+                     'r2_transport_script_invalid', stage='local_r2')
+            total += len(response) + (len(request) if request else 0)
+            _require(total <= 64 * 1024 * 1024, 'r2_transport_script_budget', stage='local_r2')
+            frozen.append((method, endpoint, request, status, response))
+        self._records = tuple(frozen)
+        self._position = 0
+        self._used = False
+
+    def request(self, method: str, endpoint: str, request: bytes | None, maximum: int) -> tuple[int, bytes]:
+        _require(self._position < len(self._records), 'r2_transport_request_unmodelled', stage='local_r2')
+        row = self._records[self._position]
+        _require(row[:3] == (method, endpoint, request), 'r2_transport_request_mismatch', stage='local_r2')
+        _require(len(row[4]) <= maximum, 'r2_transport_response_budget', stage='local_r2')
+        self._position += 1
+        return row[3], row[4]
+
+    def finish(self) -> None:
+        _require(self._position == len(self._records), 'r2_transport_unused_records', stage='local_r2')
+
+
+def _local_r2_acquisition_verifier(prepared_raw: bytes, *, expected_prepared_sha256: str,
+                                  expected_source_index_sha256: str):
+    """Authenticate captured verifier bytes before loading the independent consumer."""
+    import io
+    import types
+    import zipfile
+    _require(type(prepared_raw) is bytes and 0 < len(prepared_raw) <= 64 * 1024 * 1024
+             and _sha256(prepared_raw) == expected_prepared_sha256,
+             'r2_prepared_digest_mismatch', stage='local_r2')
+    try:
+        with zipfile.ZipFile(io.BytesIO(prepared_raw)) as z:
+            index_raw = z.read('local-r2-source-index.json')
+            _require(_sha256(index_raw) == expected_source_index_sha256,
+                     'r2_source_index_mismatch', stage='local_r2')
+            index = _strict_json_object(index_raw, label='local_r2_index')
+            path = 'tools/check_pulsemech_compute_whole_runtime_observation_v0.py'
+            raw = z.read('sources/' + path)
+            own = z.read('sources/' + ACQUIRE_PATH)
+            rows = index.get('files')
+            _require(type(rows) is list, 'r2_source_inventory_invalid', stage='local_r2')
+            matches = [r for r in rows if type(r) is dict and r.get('path') == path]
+            _require(len(matches) == 1 and _sha256(raw) == matches[0].get('sha256')
+                     and type(matches[0].get('size_bytes')) is int
+                     and len(raw) == matches[0]['size_bytes'],
+                     'r2_executable_source_mismatch', stage='local_r2')
+    except (KeyError, OSError, ValueError, zipfile.BadZipFile) as exc:
+        raise AcquisitionError('r2_prepared_intake_invalid', stage='local_r2') from exc
+    location = Path(__file__).resolve().parent / Path(path).name
+    _require(Path(__file__).read_bytes() == own and location.read_bytes() == raw,
+             'r2_executed_source_mismatch', stage='local_r2')
+    module = types.ModuleType('_step5c_local_r2_acquisition_consumer')
+    module.__file__ = str(location)
+    sys.modules[module.__name__] = module
+    exec(compile(raw, str(location), 'exec'), module.__dict__)
+    return module
+
+
+def _acquire_local_r2_bytes(prepared_raw: bytes, expected_context_raw: bytes, *,
+                            transport: _LocalR2RecordedTransport, **pins: Any) -> bytes:
+    """Record a local synthetic intake; no real dispatch, authority or role verdict.
+
+    The independent consumer rechecks source/plan/context and the complete transcript.
+    Downloaded archive bytes are preserved, not interpreted as accepted state evidence.
+    """
+    _require(type(transport) is _LocalR2RecordedTransport and transport._used is False
+             and transport._position == 0, 'r2_local_transport_required', stage='local_r2')
+    verifier = _local_r2_acquisition_verifier(prepared_raw,
+        expected_prepared_sha256=pins['expected_prepared_sha256'],
+        expected_source_index_sha256=pins['expected_source_index_sha256'])
+    plan, _ = verifier._read_local_r2_prepared(prepared_raw, expected_context_raw, **pins)
+    limits = _limits_from_plan(plan)
+    context = _strict_json_object(expected_context_raw, label='local_r2_context')
+    transport._used = True
+    members = {'local-r2-context.json': expected_context_raw}
+    transcript = []
+
+    def request(method: str, endpoint: str, value: dict[str, Any] | None, *, archive: bool = False) -> bytes:
+        request_raw = _canonical_json_bytes(value) if value is not None else None
+        # Local simulations have tighter memory ceilings; they never raise the plan budgets.
+        maximum = min(limits.max_single_artifact_bytes, 32 * 1024 * 1024) if archive else limits.max_api_json_bytes
+        status, response = transport.request(method, endpoint, request_raw, maximum)
+        _require(status == 200, 'r2_transport_http_status', stage='local_r2')
+        number = len(transcript)
+        response_name = f'local-responses/{number:03}.bin'
+        request_name = f'local-requests/{number:03}.json' if request_raw is not None else None
+        members[response_name] = response
+        if request_name is not None:
+            members[request_name] = request_raw
+        transcript.append({'sequence': number, 'method': method, 'endpoint': endpoint,
+                           'request_member': request_name, 'response_member': response_name,
+                           'http_status': status})
+        return response
+
+    runs: dict[str, int] = {}
+    total_downloaded = 0
+    for role in ('subject', 'provider'):
+        spec = plan[role + '_dispatch']
+        inputs = dict(spec['inputs']) if role == 'subject' else {'source_run_id': str(runs['subject'])}
+        response = _strict_json_object(request('POST', spec['endpoint'], {'ref': spec['ref'], 'inputs': inputs}),
+                                       label=role + '_local_dispatch')
+        run_id = _dispatch_response(response, role=role)['workflow_run_id']
+        _require(run_id not in runs.values(), 'r2_simulated_run_collision', stage='local_r2')
+        runs[role] = run_id
+        endpoint = f'repos/{REPOSITORY}/actions/runs/{run_id}'
+        request('GET', endpoint, None)
+        request('GET', endpoint + '/jobs?per_page=100&page=1', None)
+        rows = []
+        total = None
+        page = 1
+        while total is None or len(rows) < total:
+            body = _strict_json_object(request('GET', endpoint + f'/artifacts?per_page=100&page={page}', None),
+                                       label='local_artifacts')
+            number = body.get('total_count'); items = body.get('artifacts')
+            _require(type(number) is int and 0 < number <= limits.max_artifacts
+                     and type(items) is list and 0 < len(items) <= 100,
+                     'r2_artifact_pagination_invalid', stage='local_r2')
+            _require(total is None or total == number, 'r2_artifact_pagination_invalid', stage='local_r2')
+            total = number; rows.extend(items); page += 1
+            _require(len(rows) <= total and len(items) == min(100, total - len(rows) + len(items)),
+                     'r2_artifact_pagination_invalid', stage='local_r2')
+        templates = (SUBJECT_TERMINAL_ARTIFACT_TEMPLATES + SUBJECT_STATE_ARTIFACT_TEMPLATES if role == 'subject'
+                     else (('step3f_candidate_envelope', PROVIDER_ARTIFACT_TEMPLATE, PROVIDER_ARTIFACT_MEMBER),))
+        for _, template, _ in templates:
+            name = template.format(run_id=runs['subject'], subject_run_id=runs['subject'])
+            selected = [r for r in rows if type(r) is dict and r.get('name') == name]
+            _require(len(selected) == 1, 'r2_selected_artifact_missing_or_duplicate', stage='local_r2')
+            identifier = _positive_int(selected[0].get('id'), label='local_artifact_id')
+            raw = request('GET', f'repos/{REPOSITORY}/actions/artifacts/{identifier}/zip', None, archive=True)
+            total_downloaded += len(raw)
+            _require(total_downloaded <= min(limits.max_aggregate_artifact_bytes, 64 * 1024 * 1024),
+                     'r2_artifact_aggregate_budget', stage='local_r2')
+    transport.finish()
+    members['local-r2-transcript.json'] = _canonical_json_bytes({'exchanges': transcript})
+    index = {
+        'schema_version': 'pulsemech_step5c_local_r2_acquisition_v0',
+        'record_status': 'local_candidate', 'simulation_only': True,
+        'validation_scope': 'synthetic_transport_identity_and_archive_bytes_only',
+        'role_evidence_evaluated': False, 'source_identity': context['source_identity'],
+        'local_requirement_binding': context['local_requirement_binding'],
+        'experiment_id': context['experiment_id'], 'expected_plan_sha256': pins['expected_plan_sha256'],
+        'expected_prepared_sha256': pins['expected_prepared_sha256'],
+        'expected_context_sha256': _sha256(expected_context_raw),
+        'authority_boundary': context['authority_boundary'], 'local_boundary': context['local_boundary'],
+        'subject_run_id': runs['subject'], 'provider_run_id': runs['provider'],
+        'members': [{'member': name, 'size_bytes': len(raw), 'sha256': _sha256(raw)}
+                    for name, raw in sorted(members.items())],
+    }
+    members['local-r2-acquisition.json'] = _canonical_json_bytes(index)
+    raw = verifier.deterministic_zip_bytes(members, maximum_members=256, maximum_bytes=80 * 1024 * 1024)
+    # No producer PASS is consumed. The independent reader derives expected requests,
+    # selectors and raw byte bindings again. Every failure prevents a returned carrier.
+    verifier._read_local_r2_acquisition(raw, prepared_raw, expected_context_raw,
+        expected_acquisition_sha256=_sha256(raw), **pins)
+    return raw
+
 if __name__ == "__main__":
     raise SystemExit(main())
