@@ -14,6 +14,7 @@ This program intentionally fails when the implementation violates its contract.
 No xfail/skip or substituted success diagnostic masks a broken connected path.
 """
 from __future__ import annotations
+from contextlib import contextmanager
 import ast
 import inspect
 import textwrap
@@ -14197,21 +14198,65 @@ def test_r2_package_replay_does_not_fill_commit_from_local_tree(r2_package_repla
         _r2_package_replay(f, subject=subject)
 
 
+# Test-setup diagnostics only; these lines never become evidence or a verdict.
+def _r2c6_diagnostic_write(request, message):
+    """Write through pytest's live terminal, without masking a test exception."""
+    from contextlib import nullcontext
+    try:
+        manager = request.config.pluginmanager.getplugin('capturemanager')
+        reporter = request.config.pluginmanager.getplugin('terminalreporter')
+        # Suspend capture only for this diagnostic write, never for the stage body.
+        # TerminalReporter alone is still captured by pytest's default fd mode.
+        capture = manager.global_and_fixture_disabled() if manager is not None else nullcontext()
+        with capture:
+            if reporter is not None:
+                reporter.write_line(message + '\n', flush=True)
+            else:
+                print(message, file=sys.stderr, flush=True)
+    except Exception:
+        # Reporting is auxiliary. A broken terminal must not replace the real error.
+        pass
+
+
+@contextmanager
+def _r2c6_setup_stage(request, name):
+    """Expose a stage before running it and re-raise every original exception."""
+    import time
+    import traceback
+    started = time.perf_counter()
+    _r2c6_diagnostic_write(request, '[step5c:r2c6] BEGIN ' + name)
+    try:
+        yield
+    except BaseException:
+        elapsed = time.perf_counter() - started
+        _r2c6_diagnostic_write(request, f'[step5c:r2c6] ERROR {name} elapsed_s={elapsed:.6f}')
+        _r2c6_diagnostic_write(request, traceback.format_exc())
+        raise
+    else:
+        elapsed = time.perf_counter() - started
+        _r2c6_diagnostic_write(request, f'[step5c:r2c6] END {name} elapsed_s={elapsed:.6f}')
+
+
 # Source/run-bound local R2 package replay. Commit-typed metadata uses a real
 # parentless commit in a disposable remote-less fixture, never the tree as a
 # commit and never a commit in the project repository.
 @pytest.fixture(scope='module')
-def r2c6_package_inputs(r2c2_carrier, tmp_path_factory):
+def r2c6_package_inputs(r2c2_carrier, tmp_path_factory, request):
     from datetime import datetime, timedelta, timezone
     f = r2c2_carrier
-    directory = tmp_path_factory.mktemp('r2c6-package-binding')
-    fixture = directory / 'fixture-repository'
-    fixture.mkdir()
-    for name, (mode, raw) in f.plan.source.files.items():
-        target = fixture / name
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(raw); target.chmod(int(mode, 8) & 0o777)
-    empty = directory / 'empty-hooks-and-template'; empty.mkdir()
+    diagnostic_request = request
+    _r2c6_diagnostic_write(diagnostic_request,
+        f'[step5c:r2c6] runtime Python={sys.version.split()[0]} pytest={pytest.__version__} '
+        f'source_files={len(f.plan.source.files)} source_tree={f.plan.source.tree}')
+    with _r2c6_setup_stage(diagnostic_request, 'materialize-source'):
+        directory = tmp_path_factory.mktemp('r2c6-package-binding')
+        fixture = directory / 'fixture-repository'
+        fixture.mkdir()
+        for name, (mode, raw) in f.plan.source.files.items():
+            target = fixture / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(raw); target.chmod(int(mode, 8) & 0o777)
+        empty = directory / 'empty-hooks-and-template'; empty.mkdir()
     env_git = {
         'PATH': '/usr/bin:/bin', 'HOME': str(directory), 'LANG': 'C', 'LC_ALL': 'C',
         'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull,
@@ -14225,107 +14270,122 @@ def r2c6_package_inputs(r2c2_carrier, tmp_path_factory):
         argv = ['/usr/bin/git', '--no-replace-objects', '-c', 'protocol.allow=never',
                 '-c', 'credential.helper=', '-c', 'core.hooksPath=' + str(empty),
                 '-C', str(fixture), *args]
-        proc = subprocess.run(argv, env=env_git, capture_output=True, timeout=30)
-        git_records.append({'argv': argv, 'exit_code': proc.returncode,
-                            'stdout_hex': proc.stdout.hex(), 'stderr_hex': proc.stderr.hex()})
-        assert proc.returncode == 0, proc.stderr
-        return proc.stdout
+        with _r2c6_setup_stage(diagnostic_request, 'git-command:' + args[0]):
+            proc = subprocess.run(argv, env=env_git, capture_output=True, timeout=30)
+            git_records.append({'argv': argv, 'exit_code': proc.returncode,
+                                'stdout_hex': proc.stdout.hex(), 'stderr_hex': proc.stderr.hex()})
+            assert proc.returncode == 0, proc.stderr
+            return proc.stdout
     try:
-        git(['init', '-q', '--template=' + str(empty)])
-        git(['add', '--all'])
-        git(['-c', 'commit.gpgsign=false', 'commit', '-q', '-m',
-             'Synthetic Step5C package fixture; not a project commit'])
-        commit = git(['rev-parse', '--verify', 'HEAD^{commit}']).decode().strip()
-        tree = git(['rev-parse', '--verify', 'HEAD^{tree}']).decode().strip()
-        commit_raw = git(['cat-file', 'commit', commit])
-        assert tree == f.plan.source.tree and commit != tree
-        assert git(['remote']) == b''
-        assert hashlib.sha1(b'commit %d\0' % len(commit_raw) + commit_raw).hexdigest() == commit
+        with _r2c6_setup_stage(diagnostic_request, 'git-tree-binding'):
+            git(['init', '-q', '--template=' + str(empty)])
+            git(['add', '--all'])
+            git(['-c', 'commit.gpgsign=false', 'commit', '-q', '-m',
+                 'Synthetic Step5C package fixture; not a project commit'])
+            commit = git(['rev-parse', '--verify', 'HEAD^{commit}']).decode().strip()
+            tree = git(['rev-parse', '--verify', 'HEAD^{tree}']).decode().strip()
+            commit_raw = git(['cat-file', 'commit', commit])
+            _r2c6_diagnostic_write(diagnostic_request,
+                f'[step5c:r2c6] git_tree={tree} expected_tree={f.plan.source.tree} fixture_commit={commit}')
+            assert tree == f.plan.source.tree and commit != tree
+            assert git(['remote']) == b''
+            assert hashlib.sha1(b'commit %d\0' % len(commit_raw) + commit_raw).hexdigest() == commit
     finally:
-        shutil.rmtree(fixture)
-    (directory / 'fixture-commit.raw').write_bytes(commit_raw)
-    (directory / 'fixture-git.json').write_bytes(canonical({
-        'commands': git_records, 'environment': env_git, 'tree': tree, 'commit': commit,
-        'fixture_removed': not fixture.exists(), 'project_commit_created': False,
-    }))
-    contents, oracle = _r2c5_content_archives(directory / 'package')
-    spec = importlib.util.spec_from_file_location('step5c_local_package_data',
-        ROOT / 'tests/test_release_grade_reference_package_verification_wiring_v0.py')
-    helper = importlib.util.module_from_spec(spec); spec.loader.exec_module(helper)
-    identity = {
-        'repository': VERIFIER.REPOSITORY, 'git_sha': commit,
-        'workflow_ref': VERIFIER.REPOSITORY + '/.github/workflows/pulse_ci.yml@refs/heads/main',
-        'run_id': '9001', 'run_attempt': '1',
-        'run_key': 'GITHUB_RUN_ID=9001|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI',
-    }
-    # This configures only the unchanged test-data constructor, not verifier code.
-    helper._SUMMARY_IDENTITY = identity
-    helper._summary_package(directory / 'semantic-template')
-    semantic = {q.relative_to(directory / 'semantic-template').as_posix(): q.read_bytes()
-                for q in (directory / 'semantic-template').rglob('*') if q.is_file()}
-    recorded = contents['release_grade_recorded_path']
-    replacements = {}
-    for name, old in recorded.items():
-        key = 'artifacts/' + name
-        if key in semantic:
-            value = semantic[key]
-            if name == 'status.json':
-                value = canonical({**json.loads(old), 'metrics': json.loads(value)['metrics']})
-            replacements[old] = value
-        elif name.startswith('recorded_release_candidates/'):
-            replacements[old] = semantic['artifacts/recorded_release_candidates/synthetic.json']
-    for group in contents.values():
-        for name, raw in list(group.items()):
-            if raw in replacements:
-                group[name] = replacements[raw]
-    created = (datetime.now(timezone.utc) - timedelta(seconds=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
-    package = contents['complete_release_grade_reference_package']
-    package['run_metadata_v0.json'] = canonical({**json.loads(semantic['run_metadata_v0.json']),
-                                               'created_utc': created})
-    package = _r2_package_replay_reindex(package)
-    contents['complete_release_grade_reference_package'] = package
-    for name, raw in package.items():
-        target = directory / 'package' / name
-        target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(raw)
-    proc, report = helper._run_summary_verifier(directory / 'package', directory / 'report.json', identity=identity)
-    assert proc.returncode == 0 and report['verified'] is True, proc.stdout
-    report_raw = (directory / 'report.json').read_bytes()
-    contents['package_verification_report'] = {'release_grade_reference_package_verification_v0.json': report_raw}
-    records, archives = _r2c5_script(f, contents)
-    # Newly authored simulation metadata surrounds the actual local CLI report.
-    # This is not a modification of historical evidence or a hosted-time claim.
-    pivot = datetime.fromisoformat(report['checked_utc'].replace('Z', '+00:00')) - timedelta(minutes=10)
-    epoch = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    def move_times(value):
-        if isinstance(value, dict): return {k: move_times(v) for k, v in value.items()}
-        if isinstance(value, list): return [move_times(v) for v in value]
-        if type(value) is str and re.fullmatch(r'2026-01-01T\d\d:\d\d:\d\dZ', value):
-            moment = datetime.fromisoformat(value.replace('Z', '+00:00'))
-            return (pivot + (moment - epoch)).strftime('%Y-%m-%dT%H:%M:%SZ')
-        return value
-    for i, (method, endpoint, request, status, raw) in enumerate(records):
-        if method == 'GET' and '/actions/runs/' in endpoint:
-            records[i] = (method, endpoint, request, status, canonical(move_times(json.loads(raw))))
-    raw = ACQUIRER._acquire_local_r2_bytes(f.raw, f.context,
-        transport=ACQUIRER._LocalR2RecordedTransport(records), **f.pins)
-    capture = CAPTURER._build_local_r2_capture_bytes(raw, f.raw, f.context,
-        expected_acquisition_sha256=digest(raw), **f.pins)
-    pins = {**f.pins, 'expected_capture_sha256': digest(capture),
-            'expected_acquisition_sha256': digest(raw)}
-    checked, _ = VERIFIER._read_local_r2_capture(capture, f.raw, f.context, **pins)
-    prepared = VERIFIER.read_canonical_zip_bytes(f.raw, label='r2c6_prepared',
-        maximum_members=512, maximum_bytes=512*1024*1024)
-    members = VERIFIER.read_canonical_zip_bytes(raw, label='r2c6_acquisition',
-        maximum_members=256, maximum_bytes=80*1024*1024)
-    for name, data in {'prepared.zip': f.raw, 'capture.zip': capture, 'context.json': f.context,
-                       'acquisition.zip': raw, 'pins.json': canonical(pins),
-                       'cli-result.json': canonical({'argv': proc.args, 'exit_code': proc.returncode,
-                                                    'stdout': proc.stdout, 'stderr': proc.stderr})}.items():
-        (directory / name).write_bytes(data)
-    return SimpleNamespace(carrier=f, raw=raw, capture=capture, pins=pins,
-        checked={**checked, 'expected_capture_sha256': digest(capture)},
-        prepared=prepared, members=members, contents=contents, report=report, report_raw=report_raw,
-        commit=commit, commit_raw=commit_raw, directory=directory, oracle=oracle)
+        with _r2c6_setup_stage(diagnostic_request, 'remove-git-fixture'):
+            shutil.rmtree(fixture)
+    with _r2c6_setup_stage(diagnostic_request, 'save-git-binding'):
+        (directory / 'fixture-commit.raw').write_bytes(commit_raw)
+        (directory / 'fixture-git.json').write_bytes(canonical({
+            'commands': git_records, 'environment': env_git, 'tree': tree, 'commit': commit,
+            'fixture_removed': not fixture.exists(), 'project_commit_created': False,
+        }))
+    with _r2c6_setup_stage(diagnostic_request, 'build-content-archives'):
+        contents, oracle = _r2c5_content_archives(directory / 'package')
+    with _r2c6_setup_stage(diagnostic_request, 'build-semantic-template'):
+        spec = importlib.util.spec_from_file_location('step5c_local_package_data',
+            ROOT / 'tests/test_release_grade_reference_package_verification_wiring_v0.py')
+        helper = importlib.util.module_from_spec(spec); spec.loader.exec_module(helper)
+        identity = {
+            'repository': VERIFIER.REPOSITORY, 'git_sha': commit,
+            'workflow_ref': VERIFIER.REPOSITORY + '/.github/workflows/pulse_ci.yml@refs/heads/main',
+            'run_id': '9001', 'run_attempt': '1',
+            'run_key': 'GITHUB_RUN_ID=9001|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI',
+        }
+        # This configures only the unchanged test-data constructor, not verifier code.
+        helper._SUMMARY_IDENTITY = identity
+        helper._summary_package(directory / 'semantic-template')
+        semantic = {q.relative_to(directory / 'semantic-template').as_posix(): q.read_bytes()
+                    for q in (directory / 'semantic-template').rglob('*') if q.is_file()}
+    with _r2c6_setup_stage(diagnostic_request, 'bind-package-identity'):
+        recorded = contents['release_grade_recorded_path']
+        replacements = {}
+        for name, old in recorded.items():
+            key = 'artifacts/' + name
+            if key in semantic:
+                value = semantic[key]
+                if name == 'status.json':
+                    value = canonical({**json.loads(old), 'metrics': json.loads(value)['metrics']})
+                replacements[old] = value
+            elif name.startswith('recorded_release_candidates/'):
+                replacements[old] = semantic['artifacts/recorded_release_candidates/synthetic.json']
+        for group in contents.values():
+            for name, raw in list(group.items()):
+                if raw in replacements:
+                    group[name] = replacements[raw]
+        created = (datetime.now(timezone.utc) - timedelta(seconds=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        package = contents['complete_release_grade_reference_package']
+        package['run_metadata_v0.json'] = canonical({**json.loads(semantic['run_metadata_v0.json']),
+                                                   'created_utc': created})
+        package = _r2_package_replay_reindex(package)
+        contents['complete_release_grade_reference_package'] = package
+        for name, raw in package.items():
+            target = directory / 'package' / name
+            target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(raw)
+    with _r2c6_setup_stage(diagnostic_request, 'summary-verifier-cli'):
+        proc, report = helper._run_summary_verifier(directory / 'package', directory / 'report.json', identity=identity)
+        assert proc.returncode == 0 and report['verified'] is True, proc.stdout
+        report_raw = (directory / 'report.json').read_bytes()
+        contents['package_verification_report'] = {'release_grade_reference_package_verification_v0.json': report_raw}
+    with _r2c6_setup_stage(diagnostic_request, 'build-recorded-transport'):
+        records, archives = _r2c5_script(f, contents)
+        # Newly authored simulation metadata surrounds the actual local CLI report.
+        # This is not a modification of historical evidence or a hosted-time claim.
+        pivot = datetime.fromisoformat(report['checked_utc'].replace('Z', '+00:00')) - timedelta(minutes=10)
+        epoch = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        def move_times(value):
+            if isinstance(value, dict): return {k: move_times(v) for k, v in value.items()}
+            if isinstance(value, list): return [move_times(v) for v in value]
+            if type(value) is str and re.fullmatch(r'2026-01-01T\d\d:\d\d:\d\dZ', value):
+                moment = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                return (pivot + (moment - epoch)).strftime('%Y-%m-%dT%H:%M:%SZ')
+            return value
+        for i, (method, endpoint, request, status, raw) in enumerate(records):
+            if method == 'GET' and '/actions/runs/' in endpoint:
+                records[i] = (method, endpoint, request, status, canonical(move_times(json.loads(raw))))
+    with _r2c6_setup_stage(diagnostic_request, 'local-acquisition'):
+        raw = ACQUIRER._acquire_local_r2_bytes(f.raw, f.context,
+            transport=ACQUIRER._LocalR2RecordedTransport(records), **f.pins)
+    with _r2c6_setup_stage(diagnostic_request, 'local-capture'):
+        capture = CAPTURER._build_local_r2_capture_bytes(raw, f.raw, f.context,
+            expected_acquisition_sha256=digest(raw), **f.pins)
+        pins = {**f.pins, 'expected_capture_sha256': digest(capture),
+                'expected_acquisition_sha256': digest(raw)}
+    with _r2c6_setup_stage(diagnostic_request, 'independent-capture-read'):
+        checked, _ = VERIFIER._read_local_r2_capture(capture, f.raw, f.context, **pins)
+        prepared = VERIFIER.read_canonical_zip_bytes(f.raw, label='r2c6_prepared',
+            maximum_members=512, maximum_bytes=512*1024*1024)
+        members = VERIFIER.read_canonical_zip_bytes(raw, label='r2c6_acquisition',
+            maximum_members=256, maximum_bytes=80*1024*1024)
+    with _r2c6_setup_stage(diagnostic_request, 'save-bound-inputs'):
+        for name, data in {'prepared.zip': f.raw, 'capture.zip': capture, 'context.json': f.context,
+                           'acquisition.zip': raw, 'pins.json': canonical(pins),
+                           'cli-result.json': canonical({'argv': proc.args, 'exit_code': proc.returncode,
+                                                        'stdout': proc.stdout, 'stderr': proc.stderr})}.items():
+            (directory / name).write_bytes(data)
+        return SimpleNamespace(carrier=f, raw=raw, capture=capture, pins=pins,
+            checked={**checked, 'expected_capture_sha256': digest(capture)},
+            prepared=prepared, members=members, contents=contents, report=report, report_raw=report_raw,
+            commit=commit, commit_raw=commit_raw, directory=directory, oracle=oracle)
 
 
 def _r2c6_assess(f, *, checked=None, members=None, commit_raw=None, commit=None):
@@ -14491,6 +14551,156 @@ def test_r2c6_exact_outer_capture_pin_remains_required(r2c6_package_inputs):
         VERIFIER._assess_local_r2_package_replay(f.capture, f.carrier.raw, f.carrier.context,
             fixture_commit_raw=f.commit_raw, expected_fixture_commit=f.commit,
             **{**f.pins, 'expected_capture_sha256': '0'*64})
+
+
+# These cases test the diagnostic itself, not a substituted package verifier.
+def _r2c6_diagnostic_request(write_line):
+    reporter = SimpleNamespace(write_line=write_line)
+    return SimpleNamespace(config=SimpleNamespace(pluginmanager=SimpleNamespace(
+        getplugin=lambda name: reporter if name == 'terminalreporter' else None)))
+
+
+def test_r2c6_diagnostic_success_has_timed_begin_and_end():
+    messages = []
+    request = _r2c6_diagnostic_request(lambda message, **kw: messages.append((message, kw)))
+    body = []
+    with _r2c6_setup_stage(request, 'synthetic-success'):
+        body.append('executed-once')
+    assert body == ['executed-once']
+    assert messages[0] == ('[step5c:r2c6] BEGIN synthetic-success\n', {'flush': True})
+    assert re.fullmatch(r'\[step5c:r2c6\] END synthetic-success elapsed_s=\d+\.\d{6}\n', messages[1][0])
+    assert messages[1][1] == {'flush': True}
+    assert len(messages) == 2
+
+
+def test_r2c6_diagnostic_failure_preserves_exception_and_traceback():
+    messages = []
+    request = _r2c6_diagnostic_request(lambda message, **kw: messages.append(message))
+    original = ValueError('synthetic-stage-rejection')
+    with pytest.raises(ValueError) as caught:
+        with _r2c6_setup_stage(request, 'synthetic-failure'):
+            raise original
+    assert caught.value is original
+    assert len(messages) == 3
+    assert messages[1].startswith('[step5c:r2c6] ERROR synthetic-failure elapsed_s=')
+    assert 'Traceback (most recent call last)' in messages[2]
+    assert 'ValueError: synthetic-stage-rejection' in messages[2]
+    assert not any('[step5c:r2c6] END' in message for message in messages)
+
+
+def test_r2c6_diagnostic_timeout_is_not_retried_or_promoted():
+    messages = []
+    request = _r2c6_diagnostic_request(lambda message, **kw: messages.append(message))
+    original = subprocess.TimeoutExpired(['synthetic-command'], 30)
+    calls = []
+    with pytest.raises(subprocess.TimeoutExpired) as caught:
+        with _r2c6_setup_stage(request, 'synthetic-timeout'):
+            calls.append('attempt')
+            raise original
+    assert caught.value is original and caught.value.timeout == 30
+    assert calls == ['attempt']
+    assert any('TimeoutExpired' in message for message in messages)
+    assert not any('[step5c:r2c6] END' in message for message in messages)
+
+
+def test_r2c6_diagnostic_missing_terminal_uses_stderr(capsys):
+    request = SimpleNamespace(config=SimpleNamespace(pluginmanager=SimpleNamespace(getplugin=lambda name: None)))
+    _r2c6_diagnostic_write(request, 'synthetic-fallback')
+    captured = capsys.readouterr()
+    assert captured.out == '' and captured.err == 'synthetic-fallback\n'
+
+
+def test_r2c6_diagnostic_broken_terminal_does_not_change_success(monkeypatch):
+    def broken(*args, **kwargs):
+        raise OSError('synthetic-output-failure')
+    request = _r2c6_diagnostic_request(broken)
+    monkeypatch.setattr(sys, 'stderr', SimpleNamespace(write=broken, flush=broken))
+    body = []
+    with _r2c6_setup_stage(request, 'broken-output-success'):
+        body.append('executed-once')
+    assert body == ['executed-once']
+
+
+def test_r2c6_diagnostic_broken_terminal_does_not_replace_rejection(monkeypatch):
+    def broken(*args, **kwargs):
+        raise OSError('synthetic-output-failure')
+    request = _r2c6_diagnostic_request(broken)
+    monkeypatch.setattr(sys, 'stderr', SimpleNamespace(write=broken, flush=broken))
+    original = RuntimeError('original-synthetic-rejection')
+    with pytest.raises(RuntimeError) as caught:
+        with _r2c6_setup_stage(request, 'broken-output-failure'):
+            raise original
+    assert caught.value is original
+
+
+@pytest.mark.parametrize('capture_mode', ['fd', 'sys'])
+def test_r2c6_diagnostic_error_is_live_before_session_summary(tmp_path, capture_mode):
+    """A separate pytest process must expose the error before its session ends."""
+    import time
+    import xml.etree.ElementTree as ET
+    # Copy only these two diagnostic helpers. No project fixture/verifier is replaced.
+    source = ('from contextlib import contextmanager\nimport sys\n'
+              + inspect.getsource(_r2c6_diagnostic_write) + '\n'
+              + inspect.getsource(_r2c6_setup_stage))
+    release = tmp_path / 'allow-child-to-finish'
+    child = tmp_path / 'test_live_diagnostic.py'
+    child.write_text(source + '\n' + textwrap.dedent('''
+        import time
+        import pytest
+        from pathlib import Path
+
+        @pytest.fixture(scope='module')
+        def failing_setup(request):
+            with _r2c6_setup_stage(request, 'intentional-child-rejection'):
+                print('ordinary-output-stays-captured')
+                raise RuntimeError('intentional-child-error')
+
+        def test_first_intentional_failure(failing_setup):
+            raise AssertionError('failed fixture must prevent this call')
+
+        def test_second_wait_for_parent():
+            print('ordinary-after-error-stays-captured')
+            deadline = time.monotonic() + 20
+            while not Path(RELEASE).exists():
+                assert time.monotonic() < deadline, 'parent did not release child'
+                time.sleep(0.01)
+    ''').replace('RELEASE', repr(str(release))), encoding='utf-8')
+    log = tmp_path / 'child.log'
+    xml = tmp_path / 'child.xml'
+    env = dict(os.environ)
+    for key in ('PYTEST_ADDOPTS', 'PYTEST_PLUGINS', 'PYTEST_CURRENT_TEST'):
+        env.pop(key, None)
+    env['PYTEST_DISABLE_PLUGIN_AUTOLOAD'] = '1'
+    argv = [sys.executable, '-I', '-B', '-m', 'pytest', '-q', '-o', 'addopts=',
+            '-c', os.devnull, '--capture=' + capture_mode, '--junitxml=' + str(xml), str(child)]
+    with log.open('wb') as output:
+        process = subprocess.Popen(argv, cwd=tmp_path, env=env, stdout=output, stderr=subprocess.STDOUT)
+        try:
+            deadline = time.monotonic() + 15
+            while True:
+                live = log.read_text(encoding='utf-8')
+                if 'RuntimeError: intentional-child-error' in live:
+                    break
+                assert process.poll() is None, live
+                assert time.monotonic() < deadline, live
+                time.sleep(0.01)
+            assert process.poll() is None, 'diagnostic arrived only after process termination'
+            assert '[step5c:r2c6] ERROR intentional-child-rejection elapsed_s=' in live
+            assert 'Traceback (most recent call last)' in live
+            assert 'short test summary' not in live
+            assert 'ordinary-output-stays-captured\n' not in live
+            assert 'ordinary-after-error-stays-captured\n' not in live
+            release.write_text('finish\n', encoding='utf-8')
+            assert process.wait(timeout=30) == 1
+        finally:
+            if process.poll() is None:
+                process.kill()
+            process.wait(timeout=5)
+    suites = list(ET.parse(xml).getroot().iter('testsuite'))
+    assert sum(int(s.get('tests', '0')) for s in suites) == 2
+    assert sum(int(s.get('failures', '0')) for s in suites) == 0
+    assert sum(int(s.get('errors', '0')) for s in suites) == 1
+    assert sum(int(s.get('skipped', '0')) for s in suites) == 0
 
 
 if __name__ == '__main__':
