@@ -4233,8 +4233,16 @@ def _source_residual_input_expectations(
     pack = "PULSE_safe_pack_v0/tools/"
     candidate = pack + "build_recorded_release_candidates_v0.py"
     origin = pack + "build_release_grade_candidate_status_v0.py"
+    # Syntax only, private to this invocation. All source pins above and every
+    # literal/relationship check below still run; no verdict or fact is cached.
+    # Full source bytes and the filename bind each of the two private ASTs.
+    parsed_sources: dict[tuple[str, bytes], ast.Module] = {}
     def literal(path: str, key: str) -> str:
-        tree = ast.parse(sources[path].data, filename=path)
+        data = sources[path].data
+        parse_key = (path, data)
+        if parse_key not in parsed_sources:
+            parsed_sources[parse_key] = ast.parse(data, filename=path)
+        tree = parsed_sources[parse_key]
         declarations = [n.value for n in tree.body if isinstance(n, ast.Assign)
                         and any(isinstance(t, ast.Name) and t.id == key for t in n.targets)]
         _require(len(declarations) == 1, "residual_input_literal_not_unique", key)

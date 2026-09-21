@@ -7564,6 +7564,56 @@ def test_residual_input_extractors_are_separate_and_agree(recorded_source_object
     assert one['upload_selectors'] == mapping_source_document()['jobs']['pulse']['steps'][11]['with']['path'].splitlines()
 
 
+
+def test_residual_checker_python_syntax_is_private_to_each_call(recorded_source_objects):
+    workflow = mapping_source_document()
+    method = PLAN_CHECKER._source_residual_input_expectations
+    paths = {
+        'PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py',
+        'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py',
+    }
+    expected = BUILDER._residual_input_source_projection(workflow, recorded_source_objects)
+    with patch.object(PLAN_CHECKER.ast, 'parse', wraps=PLAN_CHECKER.ast.parse) as parser:
+        first = method(workflow, recorded_source_objects)
+        assert Counter(c.kwargs['filename'] for c in parser.call_args_list) == Counter({p: 1 for p in paths})
+        assert canonical(first) == canonical(expected)
+        # Returned facts are not the private syntax store and must not poison
+        # another invocation, even when its source bytes are identical.
+        first['locators']['final-status'] = 'mutated-return-value'
+        second = method(workflow, recorded_source_objects)
+        assert canonical(second) == canonical(expected)
+        assert Counter(c.kwargs['filename'] for c in parser.call_args_list) == Counter({p: 2 for p in paths})
+
+
+@pytest.mark.parametrize('path', [
+    'PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py',
+    'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py',
+])
+@pytest.mark.parametrize('fault', ['missing', 'changed', 'rehashed'])
+def test_residual_checker_syntax_reuse_keeps_source_rejection(recorded_source_objects, path, fault):
+    workflow = mapping_source_document()
+    method = PLAN_CHECKER._source_residual_input_expectations
+    expected = method(workflow, recorded_source_objects)
+    changed = dict(recorded_source_objects)
+    if fault == 'missing':
+        del changed[path]
+        code = 'residual_input_source_missing'
+    else:
+        raw = changed[path].data + b'\n# changed residual-source bytes\n'
+        fields = {'data': raw}
+        if fault == 'rehashed':
+            fields['blob_sha1'] = hashlib.sha1(b'blob %d\0' % len(raw) + raw).hexdigest()
+        changed[path] = replace(changed[path], **fields)
+        code = 'residual_input_source_drift'
+    # This observer does not substitute a successful check: the unchanged pin
+    # validation must reject before Python syntax is consumed at all.
+    with patch.object(PLAN_CHECKER.ast, 'parse', side_effect=AssertionError('source validation was bypassed')):
+        with pytest.raises(PLAN_CHECKER.PlanError) as caught:
+            method(workflow, changed)
+    assert caught.value.code == code
+    assert canonical(method(workflow, recorded_source_objects)) == canonical(expected)
+
+
 @pytest.mark.parametrize('path', RESIDUAL_NEW_SOURCES)
 def test_residual_input_new_dependencies_are_exact_once_in_plan_and_preparation(source_fixture, path):
     raw = (ROOT / path).read_bytes()
