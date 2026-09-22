@@ -14287,8 +14287,11 @@ def r2c6_package_inputs(r2c2_carrier, tmp_path_factory, request):
     }
     git_records = []
     def git(args):
+        # Keep the disposable repository quiescent before strict rmtree cleanup.
+        # Disable automatic maintenance per process, never in project/global config.
         argv = ['/usr/bin/git', '--no-replace-objects', '-c', 'protocol.allow=never',
                 '-c', 'credential.helper=', '-c', 'core.hooksPath=' + str(empty),
+                '-c', 'maintenance.auto=false', '-c', 'gc.auto=0',
                 '-C', str(fixture), *args]
         with _r2c6_setup_stage(diagnostic_request, 'git-command:' + args[0]):
             proc = subprocess.run(argv, env=env_git, capture_output=True, timeout=30)
@@ -14722,6 +14725,92 @@ def test_r2c6_diagnostic_error_is_live_before_session_summary(tmp_path, capture_
     assert sum(int(s.get('errors', '0')) for s in suites) == 1
     assert sum(int(s.get('skipped', '0')) for s in suites) == 0
 
+
+
+# Fixture-only lifecycle regressions: no authority or admission behavior changes.
+def _r2c6_tiny_git_carrier():
+    files = {'fixture.txt': ('100644', b'Synthetic Git lifecycle control.\n')}
+    _, tree = _r2c2_index_oracle(files)
+    return SimpleNamespace(plan=SimpleNamespace(source=SimpleNamespace(files=files, tree=tree)))
+
+
+def test_r2c6_git_commands_disable_automatic_maintenance(r2c6_package_inputs):
+    f = r2c6_package_inputs
+    record = json.loads((f.directory / 'fixture-git.json').read_bytes())
+    assert record['commands'] and record['fixture_removed'] is True
+    assert record['project_commit_created'] is False
+    assert not (f.directory / 'fixture-repository').exists()
+    for command in record['commands']:
+        argv = command['argv']
+        assert command['exit_code'] == 0
+        assert argv[:2] == ['/usr/bin/git', '--no-replace-objects']
+        options = [argv[i + 1] for i, arg in enumerate(argv[:-1]) if arg == '-c']
+        assert [v for v in options if v.startswith('maintenance.auto=')] == ['maintenance.auto=false']
+        assert [v for v in options if v.startswith('gc.auto=')] == ['gc.auto=0']
+
+
+@pytest.mark.parametrize('key,kind,expected', [
+    ('maintenance.auto', '--bool', b'false\n'),
+    ('gc.auto', '--int', b'0\n'),
+])
+def test_r2c6_git_effective_maintenance_config(r2c6_package_inputs, tmp_path, key, kind, expected):
+    record = json.loads((r2c6_package_inputs.directory / 'fixture-git.json').read_bytes())
+    argv = record['commands'][0]['argv']
+    # Query real Git using the same command prefix and sanitized environment.
+    prefix = argv[:argv.index('-C')]
+    proc = subprocess.run([*prefix, '-C', str(tmp_path), 'config', kind, key],
+        env=record['environment'], capture_output=True, timeout=30)
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout == expected
+
+
+@pytest.mark.parametrize('error_type', [FileNotFoundError, PermissionError, OSError])
+def test_r2c6_git_cleanup_errors_are_not_swallowed(tmp_path_factory, request, monkeypatch, error_type):
+    failure = error_type('controlled fixture cleanup failure')
+    removals = []
+    original_rmtree = shutil.rmtree
+    def fail_removal(path, *args, **kwargs):
+        assert Path(path).name == 'fixture-repository'
+        assert not args and not kwargs  # No ignore_errors or error-suppressing callback.
+        removals.append(Path(path))
+        raise failure
+    try:
+        with monkeypatch.context() as context:
+            context.setattr(shutil, 'rmtree', fail_removal)
+            with pytest.raises(error_type) as caught:
+                r2c6_package_inputs.__wrapped__(_r2c6_tiny_git_carrier(), tmp_path_factory, request)
+        assert caught.value is failure
+        assert len(removals) == 1
+        assert not (removals[0].parent / 'fixture-git.json').exists()
+    finally:
+        for path in removals:
+            original_rmtree(path)
+
+
+@pytest.mark.parametrize('fault', ['exit-code', 'timeout'])
+def test_r2c6_git_command_failures_are_not_retried(tmp_path_factory, request, monkeypatch, fault):
+    original_run = subprocess.run
+    attempts = []
+    timeout_error = subprocess.TimeoutExpired('controlled fixture commit', 30)
+    def fail_commit(argv, **kwargs):
+        if argv[0] == '/usr/bin/git' and 'commit' in argv:
+            attempts.append(Path(argv[argv.index('-C') + 1]))
+            if fault == 'timeout':
+                raise timeout_error
+            return subprocess.CompletedProcess(argv, 23, b'', b'controlled fixture commit failure')
+        return original_run(argv, **kwargs)
+    expected = subprocess.TimeoutExpired if fault == 'timeout' else AssertionError
+    with monkeypatch.context() as context:
+        context.setattr(subprocess, 'run', fail_commit)
+        with pytest.raises(expected) as caught:
+            r2c6_package_inputs.__wrapped__(_r2c6_tiny_git_carrier(), tmp_path_factory, request)
+    if fault == 'timeout':
+        assert caught.value is timeout_error
+    else:
+        assert 'controlled fixture commit failure' in str(caught.value)
+    assert len(attempts) == 1
+    assert not attempts[0].exists()
+    assert not (attempts[0].parent / 'fixture-git.json').exists()
 
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
