@@ -1730,7 +1730,7 @@ _D3_SOURCE_PINS = (
     ("pulse_gate_policy_v0.yml", "a311b424ad0f6c028b9c37b18572e7a09c721cdd"),
     ("PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py", "a86aef9f2f5ccc6bb95997ee93eb6f9f95a8b85d"),
     ("PULSE_safe_pack_v0/tools/check_gates.py", "2a593bdef31c9c8cb565b1c4ca3d16a1e3093735"),
-    (".github/workflows/pulse_ci.yml", "ad1f165ad695c65827c590cbef9466e300d6b6e9"),
+    (".github/workflows/pulse_ci.yml", "352181859e0ed77019137c19346378981ae28237"),
 )
 _D3_R9 = "execution:step5c:step:release_grade_recorded_path:009"
 _D3_R12 = "execution:step5c:step:release_grade_recorded_path:012"
@@ -2241,7 +2241,7 @@ def _require_timing_projection(
 # Independently encoded D6 selector for the already-pinned workflow. Source
 # oracle regressions compare this recipe to the original YAML, not the capture
 # helper. An action result is never the signed receipt it may have produced.
-_D6_WORKFLOW_BLOB = "ad1f165ad695c65827c590cbef9466e300d6b6e9"
+_D6_WORKFLOW_BLOB = "352181859e0ed77019137c19346378981ae28237"
 _D6_ACTION_COMMIT = "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"
 _D6_JOB = "attest_release_grade_artifact_binding"
 _D6_JOB_NAME = "Release-grade artifact binding v0: attest"
