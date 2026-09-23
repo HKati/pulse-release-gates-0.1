@@ -467,6 +467,33 @@ SOURCE_ROLES = (
     ('sarif_exporter_semantics', 'PULSE_safe_pack_v0/tools/status_to_sarif.py'),
 )
 
+# Additional exact source bytes required by the pending recorded-candidate and
+# LlamaGuard checks. Keep the public/legacy SOURCE_ROLES closure unchanged.
+# These local-only inputs are not subject occurrences, observed state roles,
+# signature results, or permission to activate R2.
+_LOCAL_R2_RECORDED_SOURCE_ROLES = (
+    ('recorded_required_evidence_schema',
+     'schemas/required_gate_evidence_v0.schema.json'),
+    ('recorded_status_schema',
+     'schemas/status/status_v1.schema.json'),
+    ('recorded_candidate_envelope_schema',
+     'schemas/recorded_release_candidate_envelope_v0.schema.json'),
+    ('recorded_external_summary_schema',
+     'schemas/external_summary_v1.schema.json'),
+    ('recorded_external_envelope_schema',
+     'schemas/external_summary_envelope_v1.schema.json'),
+    ('recorded_required_evidence_producer',
+     'PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py'),
+    ('recorded_input_manifest_schema',
+     'schemas/release_evidence_input_manifest_v0.schema.json'),
+    ('recorded_input_manifest_checker',
+     'PULSE_safe_pack_v0/tools/check_release_evidence_input_manifest_v0.py'),
+    ('llamaguard_evaluator_manifest_schema',
+     'PULSE_safe_pack_v0/schemas/llamaguard_evaluator_manifest_v0.schema.json'),
+)
+_LOCAL_R2_SOURCE_ROLES = SOURCE_ROLES + _LOCAL_R2_RECORDED_SOURCE_ROLES
+
+
 AUTHORITY_BOUNDARY = {
     "authority_effect": "none",
     "same_run_release_authority_eligible": False,
@@ -5827,11 +5854,11 @@ def _local_r2_checked_sources(
         payload = b''.join(raw for _, raw in sorted(entries))
         hashes[parent] = hashlib.sha1(b'tree ' + str(len(payload)).encode() + b'\0' + payload).hexdigest()
     _require(hashes[''] == expected_source_tree, 'r2_source_tree_mismatch')
-    required_paths = {path for _, path in SOURCE_ROLES}
+    required_paths = {path for _, path in _LOCAL_R2_SOURCE_ROLES}
     _require(type(source_members) is dict and set(source_members) == required_paths,
              'r2_source_member_set_mismatch')
     result = {}
-    for role, path in SOURCE_ROLES:
+    for role, path in _LOCAL_R2_SOURCE_ROLES:
         _require(path in table, 'r2_required_source_missing', path)
         row = table[path]; raw = source_members[path]
         _require(type(raw) is bytes and 0 < len(raw) == row['size_bytes']
@@ -5866,6 +5893,10 @@ def _check_local_r2_plan(
     expected = _assemble_expected_plan_from_sources(
         sources, expected_source_tree, 'example', f'step5c-plan:local-r2:{expected_source_tree}',
     )
+    expected['source_inventory'] = [
+        sources[path].descriptor()
+        for _, path in sorted(_LOCAL_R2_SOURCE_ROLES, key=lambda item: item[1])
+    ]
     _schema_validate(expected, sources[SCHEMA_PATH].data)
     expected['schema_version'] = 'pulsemech_step5c_local_r2_plan_v0'
     expected['record_type'] = 'local_r2_prelaunch_plan'

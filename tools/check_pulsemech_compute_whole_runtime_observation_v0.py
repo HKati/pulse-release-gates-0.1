@@ -5206,7 +5206,7 @@ def _local_r2_plan_check_process(
             and all(type(path) is str and type(raw) is bytes and len(raw) <= 8 * 1024 * 1024
                     for path, raw in source_members.items()), 'r2_source_entry_invalid', stage='local_r2')
     # Authenticate executable source BEFORE launching the child. The complete
-    # index, tree and 60-member source closure are rechecked independently there.
+    # index, tree and local source closure are rechecked independently there.
     for path in (checker_path, VERIFIER_PATH):
         row = by_path.get(path); raw = source_members.get(path)
         require(type(row) is dict and type(raw) is bytes and len(raw) == row.get('size_bytes')

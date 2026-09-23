@@ -12711,7 +12711,7 @@ def r2c2_sources():
         files[path.relative_to(ROOT).as_posix()] = ('100755' if path.stat().st_mode & 0o111 else '100644', path.read_bytes())
     index_raw, tree = _r2c2_index_oracle(files)
     return SimpleNamespace(files=files, index_raw=index_raw, tree=tree,
-        sources={path: files[path][1] for _, path in PLAN_CHECKER.SOURCE_ROLES},
+        sources={path: files[path][1] for _, path in PLAN_CHECKER._LOCAL_R2_SOURCE_ROLES},
         pins={'expected_source_tree': tree, 'expected_source_index_sha256': digest(index_raw)})
 
 
@@ -12743,7 +12743,7 @@ def test_r2c2_plan_uses_uncommitted_source_without_relabelling_a_commit(r2c2_pla
         'source_index_sha256': digest(f.source.index_raw)}
     assert all(row['revision'] == f.source.tree and row['revision_kind'] == 'uncommitted_git_tree'
                for row in p['source_inventory'])
-    assert len(p['source_inventory']) == len(PLAN_CHECKER.SOURCE_ROLES) == 60
+    assert len(p['source_inventory']) == len(PLAN_CHECKER._LOCAL_R2_SOURCE_ROLES) == 69
     assert len(p['state_templates']) == 62
     assert p['plan_identity']['profile'] != p['local_requirement_binding']['evidence_profile']
     assert p['local_boundary'] == {'dispatch_authorized': False, 'R2_activated': False,
@@ -12871,7 +12871,7 @@ def test_r2c2_prepared_context_round_trip_runs_real_independent_checker(r2c2_car
     with patch.object(VERIFIER.subprocess, 'run', side_effect=record):
         plan, members = VERIFIER._read_local_r2_prepared(f.raw, f.context, **f.pins)
     assert canonical(plan) == f.plan.raw
-    assert len(members) == 66
+    assert len(members) == 75
     assert len(calls) == 1 and calls[0][1] == 0 and calls[0][0][1:3] == ['-I', '-B']
     assert json.loads(f.context)['local_boundary']['R2_activated'] is False
     assert 'reference_run_id' not in json.loads(f.context)
@@ -15766,6 +15766,176 @@ def test_r2c9_full_entrypoint_requires_external_capture_digest(r2c9_provider_inp
     with pytest.raises(VERIFIER.VerificationError):
         VERIFIER._assess_local_r2_package_provider(f.capture,f.carrier.raw,f.carrier.context,
             fixture_commit_raw=f.commit_raw,expected_fixture_commit=f.commit,**pins)
+
+
+# R2C10: close only the local recorded/LlamaGuard source-input dependencies.
+# The public 60-source profile is unchanged. No full recorded replay, signature
+# verification, role admission or live observation is claimed by this stage.
+_R2C10_DEPENDENCIES = (
+    ('recorded_required_evidence_schema', 'schemas/required_gate_evidence_v0.schema.json'),
+    ('recorded_status_schema', 'schemas/status/status_v1.schema.json'),
+    ('recorded_candidate_envelope_schema', 'schemas/recorded_release_candidate_envelope_v0.schema.json'),
+    ('recorded_external_summary_schema', 'schemas/external_summary_v1.schema.json'),
+    ('recorded_external_envelope_schema', 'schemas/external_summary_envelope_v1.schema.json'),
+    ('recorded_required_evidence_producer', 'PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py'),
+    ('recorded_input_manifest_schema', 'schemas/release_evidence_input_manifest_v0.schema.json'),
+    ('recorded_input_manifest_checker', 'PULSE_safe_pack_v0/tools/check_release_evidence_input_manifest_v0.py'),
+    ('llamaguard_evaluator_manifest_schema', 'PULSE_safe_pack_v0/schemas/llamaguard_evaluator_manifest_v0.schema.json'),
+)
+
+
+def test_r2c10_dependency_inventory_is_explicit_independent_and_local_only():
+    # This list is deliberately not derived from either implementation's list.
+    # Equal omissions by builder and checker must not pass the regression.
+    expected = set(_R2C10_DEPENDENCIES)
+    assert len(expected) == 9
+    for module in (BUILDER, PLAN_CHECKER):
+        assert tuple(module._LOCAL_R2_RECORDED_SOURCE_ROLES) == _R2C10_DEPENDENCIES
+        assert len(module.SOURCE_ROLES) == 60
+        assert not expected.intersection(module.SOURCE_ROLES)
+        assert module._LOCAL_R2_SOURCE_ROLES == module.SOURCE_ROLES + _R2C10_DEPENDENCIES
+        assert len({role for role, _ in module._LOCAL_R2_SOURCE_ROLES}) == 69
+        assert len({path for _, path in module._LOCAL_R2_SOURCE_ROLES}) == 69
+
+
+def _r2c10_literal_constants(raw):
+    result = {}
+    for node in ast.parse(raw).body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
+            try:
+                result[node.targets[0].id] = ast.literal_eval(node.value)
+            except (ValueError, TypeError):
+                pass
+    return result
+
+
+def test_r2c10_dependency_paths_come_from_existing_core_sources_and_schema(r2c2_sources):
+    sources = r2c2_sources.sources
+    candidates = _r2c10_literal_constants(sources['PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py'])
+    manifest = _r2c10_literal_constants(sources['PULSE_safe_pack_v0/tools/build_release_evidence_input_manifest_v0.py'])
+    runner = _r2c10_literal_constants(sources['PULSE_safe_pack_v0/tools/run_llamaguard_current_evidence_v0.py'])
+    # The evidence producer is checked as source bytes, not re-executed here.
+    evidence_schema = json.loads(sources[candidates['REQUIRED_EVIDENCE_SCHEMA_PATH']])
+    producer_path = evidence_schema['$defs']['producer']['properties']['tool_path']['const']
+    required_paths = {candidates[key] for key in (
+        'REQUIRED_EVIDENCE_SCHEMA_PATH', 'STATUS_SCHEMA', 'ENVELOPE_SCHEMA_PATH',
+        'EXTERNAL_SUMMARY_SCHEMA_PATH', 'EXTERNAL_SUMMARY_ENVELOPE_SCHEMA_PATH')}
+    required_paths.update({manifest['MANIFEST_SCHEMA_PATH'], manifest['MANIFEST_CHECKER_PATH'],
+                           runner['MANIFEST_SCHEMA_REL'], producer_path})
+    assert required_paths == {path for _, path in _R2C10_DEPENDENCIES}
+
+
+@pytest.mark.parametrize('role,path', _R2C10_DEPENDENCIES)
+def test_r2c10_local_inventory_binds_each_dependency_to_exact_index_bytes(r2c2_plan, role, path):
+    f = r2c2_plan
+    index = {row['path']: row for row in json.loads(f.source.index_raw)['files']}
+    rows = [row for row in f.value['source_inventory'] if row['path'] == path]
+    assert len(rows) == 1 and rows[0]['role'] == role
+    row = rows[0]
+    assert row['revision'] == f.source.tree and row['revision_kind'] == 'uncommitted_git_tree'
+    assert row['executable'] is (index[path]['git_mode'] == '100755')
+    for key in ('git_blob_sha1', 'sha256', 'size_bytes'):
+        assert row[key] == index[path][key]
+    assert row['sha256'] == digest(f.source.sources[path])
+    assert row['size_bytes'] == len(f.source.sources[path])
+    if path.endswith('.schema.json'):
+        # Parse the preserved schema, not a substitute from the local checkout.
+        jsonschema.Draft202012Validator.check_schema(json.loads(f.source.sources[path]))
+
+
+@pytest.mark.parametrize('role,path', _R2C10_DEPENDENCIES)
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_r2c10_missing_dependency_cannot_be_replaced_by_index_or_checkout(r2c2_sources, role, path, side):
+    f = r2c2_sources
+    assert (ROOT / path).is_file()  # Its presence outside supplied bytes is insufficient.
+    if side == 'builder':
+        files = dict(f.files); del files[path]
+        index, tree = _r2c2_index_oracle(files)
+        with pytest.raises(BUILDER.PlanError, match='r2_required_source_missing'):
+            BUILDER._build_local_r2_plan(files, expected_source_tree=tree,
+                expected_source_index_sha256=digest(index))
+    else:
+        sources = dict(f.sources); del sources[path]
+        # The complete externally pinned index STILL contains the missing path.
+        with pytest.raises(PLAN_CHECKER.PlanError, match='r2_source_member_set_mismatch'):
+            PLAN_CHECKER._local_r2_checked_sources(f.index_raw, sources, **f.pins)
+
+
+@pytest.mark.parametrize('role,path', _R2C10_DEPENDENCIES)
+def test_r2c10_dependency_substitution_under_fixed_source_pins_is_rejected(r2c2_sources, role, path):
+    f = r2c2_sources
+    sources = {**f.sources, path: f.sources[path] + b'\n'}
+    with pytest.raises(PLAN_CHECKER.PlanError, match='r2_source_bytes_mismatch'):
+        PLAN_CHECKER._local_r2_checked_sources(f.index_raw, sources, **f.pins)
+
+
+@pytest.mark.parametrize('role,path', _R2C10_DEPENDENCIES)
+def test_r2c10_rehashed_plan_cannot_drop_a_required_dependency(r2c2_plan, role, path):
+    f = r2c2_plan; plan = copy.deepcopy(f.value)
+    plan['source_inventory'] = [row for row in plan['source_inventory'] if row['path'] != path]
+    raw = canonical(plan)
+    with pytest.raises(PLAN_CHECKER.PlanError, match='r2_plan_reconstruction_mismatch'):
+        PLAN_CHECKER._check_local_r2_plan(raw, f.source.index_raw, f.source.sources,
+            **{**f.pins, 'expected_plan_sha256': digest(raw)})
+
+
+@pytest.mark.parametrize('role,path', _R2C10_DEPENDENCIES)
+@pytest.mark.parametrize('change', ['missing', 'substituted'])
+def test_r2c10_rehashed_prepared_carrier_rechecks_dependency_content(r2c2_carrier, role, path, change):
+    f = r2c2_carrier
+    members = VERIFIER.read_canonical_zip_bytes(f.raw, label='r2c10-input',
+        maximum_members=VERIFIER.MAX_PREPARED_MEMBERS, maximum_bytes=VERIFIER.MAX_PREPARED_BYTES)
+    key = 'sources/' + path
+    if change == 'missing':
+        del members[key]
+    else:
+        members[key] += b'\n'
+    raw = VERIFIER.deterministic_zip_bytes(members, maximum_members=VERIFIER.MAX_PREPARED_MEMBERS,
+        maximum_bytes=VERIFIER.MAX_PREPARED_BYTES)
+    context = json.loads(f.context); context['expected_prepared_sha256'] = digest(raw)
+    code = 'r2_source_member_set_mismatch' if change == 'missing' else 'r2_source_bytes_mismatch'
+    with pytest.raises(VERIFIER.VerificationError, match=code):
+        VERIFIER._read_local_r2_prepared(raw, canonical(context),
+            **{**f.pins, 'expected_prepared_sha256': digest(raw)})
+
+
+def test_r2c10_prepared_dependencies_round_trip_without_public_profile_expansion(r2c2_carrier, source_fixture):
+    f = r2c2_carrier
+    plan, members = VERIFIER._read_local_r2_prepared(f.raw, f.context, **f.pins)
+    assert len(plan['source_inventory']) == 69 and len(members) == 75
+    assert len(source_fixture.plan['source_inventory']) == 60
+    for _, path in _R2C10_DEPENDENCIES:
+        assert members['sources/' + path] == f.plan.source.sources[path]
+        assert not (source_fixture.root / path).exists()
+    assert len(plan['state_templates']) == len(source_fixture.plan['state_templates']) == 62
+    assert plan['jobs'] == source_fixture.plan['jobs']
+    assert plan['state_templates'] == source_fixture.plan['state_templates']
+    assert plan['model_inference_templates'] == source_fixture.plan['model_inference_templates']
+    assert plan['external_operation_templates'] == source_fixture.plan['external_operation_templates']
+    assert plan['authority_boundary'] == source_fixture.plan['authority_boundary']
+    assert plan['local_boundary'] == {'dispatch_authorized': False, 'R2_activated': False,
+                                     'completion_evaluated': False, 'reference_acquired': False}
+
+
+def test_r2c10_legacy_source_set_is_not_silently_upgraded_to_local_closure(r2c2_plan):
+    f = r2c2_plan
+    legacy = {path: f.source.sources[path] for _, path in PLAN_CHECKER.SOURCE_ROLES}
+    with pytest.raises(VERIFIER.VerificationError, match='r2_source_member_set_mismatch'):
+        VERIFIER._prepare_local_r2_bytes(f.raw, f.diagnostic, f.source.index_raw, legacy, **f.pins)
+
+
+def test_r2c10_source_preparation_does_not_verify_signatures_or_admit_roles(r2c9_provider_inputs):
+    f = r2c9_provider_inputs
+    result = _r2c9_assess(f)
+    assert result['assessment_status'] == 'incomplete'
+    assert result['fully_satisfied_role_count'] == 0
+    assert result['mandatory_llamaguard_signatures_verified'] is False
+    assert result['remaining_package_duties'] == ['recorded_candidate_full_verifier_and_mandatory_signatures']
+    assert result['local_boundary'] == {'dispatch_authorized': False, 'R2_activated': False,
+                                       'completion_evaluated': False, 'reference_acquired': False}
+    assert result['observed_platform_execution'] is False
+    assert result['original_runtime_reads_proven'] is False
+
 
 
 if __name__ == '__main__':

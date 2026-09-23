@@ -457,6 +457,33 @@ SOURCE_ROLES = (
     ('sarif_exporter_semantics', 'PULSE_safe_pack_v0/tools/status_to_sarif.py'),
 )
 
+# Additional exact source bytes required by the pending recorded-candidate and
+# LlamaGuard checks. Keep the public/legacy SOURCE_ROLES closure unchanged.
+# These local-only inputs are not subject occurrences, observed state roles,
+# signature results, or permission to activate R2.
+_LOCAL_R2_RECORDED_SOURCE_ROLES = (
+    ('recorded_required_evidence_schema',
+     'schemas/required_gate_evidence_v0.schema.json'),
+    ('recorded_status_schema',
+     'schemas/status/status_v1.schema.json'),
+    ('recorded_candidate_envelope_schema',
+     'schemas/recorded_release_candidate_envelope_v0.schema.json'),
+    ('recorded_external_summary_schema',
+     'schemas/external_summary_v1.schema.json'),
+    ('recorded_external_envelope_schema',
+     'schemas/external_summary_envelope_v1.schema.json'),
+    ('recorded_required_evidence_producer',
+     'PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py'),
+    ('recorded_input_manifest_schema',
+     'schemas/release_evidence_input_manifest_v0.schema.json'),
+    ('recorded_input_manifest_checker',
+     'PULSE_safe_pack_v0/tools/check_release_evidence_input_manifest_v0.py'),
+    ('llamaguard_evaluator_manifest_schema',
+     'PULSE_safe_pack_v0/schemas/llamaguard_evaluator_manifest_v0.schema.json'),
+)
+_LOCAL_R2_SOURCE_ROLES = SOURCE_ROLES + _LOCAL_R2_RECORDED_SOURCE_ROLES
+
+
 AUTHORITY_BOUNDARY = {
     "authority_effect": "none",
     "same_run_release_authority_eligible": False,
@@ -4685,7 +4712,7 @@ def _build_local_r2_plan(
     _require(hashlib.sha256(index_raw).hexdigest() == expected_source_index_sha256,
              'r2_source_index_mismatch')
     sources: dict[str, GitObject] = {}
-    for role, path in SOURCE_ROLES:
+    for role, path in _LOCAL_R2_SOURCE_ROLES:
         _require(path in captured and len(captured[path][1]) > 0, 'r2_required_source_missing', path)
         mode, data = captured[path]
         sources[path] = GitObject(role, path, tree, mode, _sha1_git_blob(data), data)
@@ -4695,6 +4722,10 @@ def _build_local_r2_plan(
     # Same mapping assembler as the legacy path; only the final identity schema
     # differs. The internal SHA40 slot is never published as a commit claim.
     plan = _assemble_plan_from_sources(sources, tree, 'example', f'step5c-plan:local-r2:{tree}')
+    plan['source_inventory'] = [
+        sources[path].descriptor()
+        for _, path in sorted(_LOCAL_R2_SOURCE_ROLES, key=lambda item: item[1])
+    ]
     _schema_validate(plan, sources[SCHEMA_PATH].data)
     binding = _build_local_r2_requirement_binding(
         sources[SCHEMA_PATH].data, expected_schema_sha256=sources[SCHEMA_PATH].sha256,
