@@ -14357,8 +14357,18 @@ def r2c6_package_inputs(r2c2_carrier, tmp_path_factory, request):
                     group[name] = replacements[raw]
         created = (datetime.now(timezone.utc) - timedelta(seconds=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
         package = contents['complete_release_grade_reference_package']
-        package['run_metadata_v0.json'] = canonical({**json.loads(semantic['run_metadata_v0.json']),
-                                                   'created_utc': created})
+        spec = importlib.util.spec_from_file_location('r2c8_existing_metadata_writer',
+            ROOT / 'PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py')
+        assembler = importlib.util.module_from_spec(spec); spec.loader.exec_module(assembler)
+        metadata_path = directory / 'assembler-run-metadata.json'
+        input_root = directory / 'complete-release-grade-reference-inputs'
+        source_dirs = {role: input_root / leaf for role, leaf in (
+            ('recorded_path', 'release-grade-recorded-path'), ('pulse_report', 'pulse-report'),
+            ('artifact_binding', 'release-authority-artifact-binding-v0'),
+            ('audit_bundle', 'release-authority-audit-bundle'))}
+        assembler._write_run_metadata(metadata_path, **identity, release_candidate='main',
+            created_utc=created, source_dirs=source_dirs)
+        package['run_metadata_v0.json'] = metadata_path.read_bytes()
         package = _r2_package_replay_reindex(package)
         contents['complete_release_grade_reference_package'] = package
         for name, raw in package.items():
@@ -14384,7 +14394,18 @@ def r2c6_package_inputs(r2c2_carrier, tmp_path_factory, request):
             return value
         for i, (method, endpoint, request, status, raw) in enumerate(records):
             if method == 'GET' and '/actions/runs/' in endpoint:
-                records[i] = (method, endpoint, request, status, canonical(move_times(json.loads(raw))))
+                document = move_times(json.loads(raw))
+                if '/artifacts?' in endpoint:
+                    # Explicit new simulation metadata, never reconstructed from
+                    # a job end time or silently added to an old capture.
+                    for row in document['artifacts']:
+                        stamp = (created if row['name'].startswith('complete-release-grade-reference-package-')
+                                 else report['checked_utc'])
+                        expires = (datetime.fromisoformat(stamp.replace('Z', '+00:00'))
+                                   + timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
+                        row.update(schema_version='pulsemech_step5c_local_r2_simulated_artifact_v1',
+                                   created_at=stamp, expires_at=expires)
+                records[i] = (method, endpoint, request, status, canonical(document))
     with _r2c6_setup_stage(diagnostic_request, 'local-acquisition'):
         raw = ACQUIRER._acquire_local_r2_bytes(f.raw, f.context,
             transport=ACQUIRER._LocalR2RecordedTransport(records), **f.pins)
@@ -14859,7 +14880,6 @@ def test_r2c7_assessment_executes_exact_package_cli(r2c6_package_inputs, monkeyp
     assert value['assessment_status'] == 'incomplete' and value['fully_satisfied_role_count'] == 0
     assert value['local_boundary']['R2_activated'] is False
     assert value['remaining_package_duties'] == [
-        'complete_metadata_profile_and_publication_time',
         'completeness_report_and_transitive_provider_validation',
         'recorded_candidate_full_verifier_and_mandatory_signatures']
     assert f.members == before
@@ -15005,6 +15025,255 @@ def test_r2c7_saved_fresh_execution_claim_is_recomputed(r2c6_package_inputs, fie
         VERIFIER._verify_local_r2_package_replay_assessment(raw, f.capture, f.carrier.raw, f.carrier.context,
             expected_assessment_sha256=digest(raw), fixture_commit_raw=f.commit_raw,
             expected_fixture_commit=f.commit, **f.pins)
+
+
+
+# Full package metadata and explicit synthetic publication metadata. The old
+# untimed transport remains an incomplete stage, never evidence of publication.
+def _r2c8_metadata_inputs(f, *, members=None):
+    members = f.members if members is None else members
+    _, _, subject = _r2c7_fresh_inputs(f)
+    run, _ = VERIFIER._local_r2_response_bytes(members,
+        'repos/' + VERIFIER.REPOSITORY + '/actions/runs/9001')
+    meta = json.loads(f.contents['complete_release_grade_reference_package']['run_metadata_v0.json'])
+    return meta, f.report, subject, run, f.checked, members
+
+
+def _r2c8_publication_rows(f, members, *, role='complete_release_grade_reference_package'):
+    selection = next(row for row in f.checked['archive_inventory'] if row['role'] == role)
+    name = _r2c3_response_member(f, '/runs/9001/artifacts?per_page=100&page=1')
+    page = json.loads(members[name])
+    row = next(row for row in page['artifacts'] if row['id'] == selection['artifact_id'])
+    return name, page, row
+
+
+def _r2c8_assess_resealed(f, members):
+    # Rehash a changed transport and let both real intake readers validate it.
+    members = _r2c3_reindex(dict(members))
+    raw = VERIFIER.deterministic_zip_bytes(members, maximum_members=256,
+                                          maximum_bytes=80 * 1024 * 1024)
+    capture = CAPTURER._build_local_r2_capture_bytes(raw, f.carrier.raw, f.carrier.context,
+        expected_acquisition_sha256=digest(raw), **f.carrier.pins)
+    return json.loads(VERIFIER._assess_local_r2_package_replay(capture, f.carrier.raw, f.carrier.context,
+        expected_capture_sha256=digest(capture), expected_acquisition_sha256=digest(raw),
+        fixture_commit_raw=f.commit_raw, expected_fixture_commit=f.commit, **f.carrier.pins))
+
+
+def test_r2c8_actual_assembler_metadata_and_raw_publications_are_bound(r2c6_package_inputs, monkeypatch):
+    f = r2c6_package_inputs
+    calls = []; original = VERIFIER._check_package_metadata_profile
+    def tracked(meta, **kwargs):
+        calls.append((copy.deepcopy(meta), kwargs)); return original(meta, **kwargs)
+    monkeypatch.setattr(VERIFIER, '_check_package_metadata_profile', tracked)
+    value = _r2c6_assess(f)
+    assert len(calls) == 1
+    assert calls[0][0] == json.loads((f.directory / 'assembler-run-metadata.json').read_bytes())
+    assert calls[0][1] == {'source': f.commit, 'run_id': 9001}
+    result = value['package_metadata_publication']
+    assert result['metadata_profile_checked'] is True and result['publication_time_checked'] is True
+    assert result['simulation_only'] is True and result['observed_platform_execution'] is False
+    assert result['artifact_metadata_schema'] == 'pulsemech_step5c_local_r2_simulated_artifact_v1'
+    assert result['cross_source_clock_status'] == 'not_verified'
+    assert result['time_order_scope'] == 'supplied_utc_values_only'
+    for publication in result['publications']:
+        _, _, raw = _r2c8_publication_rows(f, f.members, role=publication['role'])
+        assert publication['created_utc'] == raw['created_at']
+        assert publication['expires_utc'] == raw['expires_at']
+        assert publication['artifact_id'] == raw['id']
+        archive = publication['archive']; actual = f.members[archive['member']]
+        assert archive['sha256'] == digest(actual) and archive['size_bytes'] == len(actual)
+    for binding in result['raw_response_bindings']:
+        assert binding['sha256'] == digest(f.members[binding['member']])
+    assert value['fresh_package_verifier_cli_executed'] is True
+    assert 'complete_metadata_profile_and_publication_time' not in value['remaining_package_duties']
+    assert value['mandatory_llamaguard_signatures_verified'] is False
+    assert value['fully_satisfied_role_count'] == 0 and value['assessment_status'] == 'incomplete'
+    assert value['local_boundary']['R2_activated'] is False
+    # Paths in original metadata are validated as data, not emitted as proof of reads.
+    assert str(f.directory).encode() not in canonical(result)
+
+
+@pytest.mark.parametrize('field', ['schema_version', 'package_schema_version', 'package_role',
+    'created_utc', 'repository', 'git_sha', 'workflow_ref', 'run_id', 'run_attempt',
+    'run_key', 'release_candidate', 'source_inputs', 'assembler', 'authority_boundary'])
+def test_r2c8_every_metadata_field_is_required(r2c6_package_inputs, field):
+    values = list(_r2c8_metadata_inputs(r2c6_package_inputs)); values[0].pop(field)
+    with pytest.raises(VERIFIER.VerificationError, match='package_metadata_profile_mismatch'):
+        VERIFIER._local_r2_package_metadata_publication(*values)
+
+
+@pytest.mark.parametrize('field,value,code', [
+    ('schema_version', 'other', 'package_metadata_identity_mismatch'),
+    ('package_schema_version', 'other', 'package_metadata_identity_mismatch'),
+    ('package_role', 'other', 'package_metadata_identity_mismatch'),
+    ('repository', 'other/repo', 'package_metadata_identity_mismatch'),
+    ('git_sha', 'a' * 40, 'package_metadata_identity_mismatch'),
+    ('workflow_ref', 'other/workflow', 'package_metadata_identity_mismatch'),
+    ('run_id', True, 'package_metadata_identity_mismatch'),
+    ('run_id', '9001', 'package_metadata_identity_mismatch'),
+    ('run_attempt', True, 'package_metadata_identity_mismatch'),
+    ('run_attempt', 2, 'package_metadata_identity_mismatch'),
+    ('run_key', 'other', 'package_metadata_identity_mismatch'),
+    ('release_candidate', 'synthetic-current-run-alias', 'package_metadata_identity_mismatch'),
+    ('assembler', {'tool': 'other', 'version': '0.1.0'}, 'package_assembler_mismatch'),
+    ('assembler', {'tool': 'assemble_release_grade_reference_package_v0.py', 'version': '9'}, 'package_assembler_mismatch'),
+    ('authority_boundary', {'package_only': True}, 'package_authority_mismatch'),
+    ('source_inputs', {}, 'package_source_inputs_mismatch'),
+    ('created_utc', '2026-01-01T00:00:00+00:00', 'package_metadata_time_mismatch'),
+    ('created_utc', '2026-02-30T00:00:00Z', 'r2_package_publication_time_mismatch'),
+    ('unexpected', 'extra', 'package_metadata_profile_mismatch'),
+])
+def test_r2c8_metadata_values_cannot_be_relabelled(r2c6_package_inputs, field, value, code):
+    values = list(_r2c8_metadata_inputs(r2c6_package_inputs)); values[0][field] = value
+    with pytest.raises(VERIFIER.VerificationError, match=code):
+        VERIFIER._local_r2_package_metadata_publication(*values)
+
+
+@pytest.mark.parametrize('fault', ['relative', 'other-root', 'traversal', 'empty-component',
+    'backslash', 'control', 'wrong-leaf', 'missing', 'extra'])
+def test_r2c8_source_input_paths_are_exact_unopened_data(r2c6_package_inputs, fault):
+    values = list(_r2c8_metadata_inputs(r2c6_package_inputs)); inputs = values[0]['source_inputs']
+    old = inputs['audit_bundle']
+    if fault == 'relative': inputs['audit_bundle'] = old[1:]
+    elif fault == 'other-root': inputs['audit_bundle'] = '/different' + old
+    elif fault == 'traversal': inputs['audit_bundle'] = '/a/../b' + old
+    elif fault == 'empty-component': inputs['audit_bundle'] = '/' + old
+    elif fault == 'backslash': inputs['audit_bundle'] = old.replace('/', '\\', 1)
+    elif fault == 'control': inputs['audit_bundle'] = '/a\n' + old
+    elif fault == 'wrong-leaf': inputs['audit_bundle'] = old + '-other'
+    elif fault == 'missing': inputs.pop('audit_bundle')
+    else: inputs['other'] = old
+    with pytest.raises(VERIFIER.VerificationError, match='package_source_inputs_mismatch'):
+        VERIFIER._local_r2_package_metadata_publication(*values)
+
+
+@pytest.mark.parametrize('role,position', [
+    ('complete_release_grade_reference_package', 'before-package'),
+    ('complete_release_grade_reference_package', 'after-report'),
+    ('package_verification_report', 'before-report'),
+])
+def test_r2c8_rehashed_publication_cannot_cross_its_content_time(r2c6_package_inputs, role, position):
+    from datetime import datetime, timedelta
+    f = r2c6_package_inputs; members = dict(f.members)
+    name, page, row = _r2c8_publication_rows(f, members, role=role)
+    meta, report, *_ = _r2c8_metadata_inputs(f)
+    stamp = meta['created_utc'] if position == 'before-package' else report['checked_utc']
+    time = datetime.fromisoformat(stamp.replace('Z', '+00:00'))
+    row['created_at'] = (time + timedelta(seconds=1 if position == 'after-report' else -1)).strftime('%Y-%m-%dT%H:%M:%SZ')
+    members[name] = canonical(page)
+    with pytest.raises(VERIFIER.VerificationError, match='r2_package_publication_time_mismatch'):
+        _r2c8_assess_resealed(f, members)
+
+
+@pytest.mark.parametrize('fault,code', [
+    ('created-missing', 'r2_artifact_metadata_invalid'),
+    ('expires-missing', 'r2_artifact_metadata_invalid'),
+    ('version', 'r2_artifact_metadata_invalid'),
+    ('extra', 'r2_artifact_metadata_invalid'),
+    ('mixed', 'r2_mixed_artifact_metadata_profiles'),
+    ('not-time', 'r2_artifact_time_invalid'),
+    ('boolean', 'r2_artifact_time_invalid'),
+    ('outside-run', 'r2_artifact_time_invalid'),
+    ('expired-order', 'r2_artifact_time_invalid'),
+])
+def test_r2c8_intake_rejects_changed_timing_metadata_even_after_rehash(r2c6_package_inputs, fault, code):
+    f = r2c6_package_inputs; members = dict(f.members)
+    name, page, row = _r2c8_publication_rows(f, members)
+    if fault == 'created-missing': row.pop('created_at')
+    elif fault == 'expires-missing': row.pop('expires_at')
+    elif fault == 'version': row['schema_version'] = 'future'
+    elif fault == 'extra': row['received_at'] = row['created_at']
+    elif fault == 'mixed':
+        for key in ('schema_version', 'created_at', 'expires_at'): row.pop(key)
+    elif fault == 'not-time': row['created_at'] = 'not-a-time'
+    elif fault == 'boolean': row['created_at'] = True
+    elif fault == 'outside-run': row['created_at'] = '2000-01-01T00:00:00Z'
+    else: row['expires_at'] = row['created_at']
+    members[name] = canonical(page); _r2c3_reindex(members)
+    with pytest.raises(VERIFIER.VerificationError, match=code):
+        VERIFIER._local_r2_transport_check(members, f.carrier.plan.value, f.carrier.context,
+            f.carrier.plan.source.sources[VERIFIER.SCHEMA_PATH])
+
+
+def test_r2c8_legacy_untimed_capture_stays_incomplete_not_silently_completed(r2c6_package_inputs):
+    f = r2c6_package_inputs; members = dict(f.members)
+    exchanges = json.loads(members['local-r2-transcript.json'])['exchanges']
+    for exchange in exchanges:
+        if '/artifacts?' not in exchange['endpoint']: continue
+        name = exchange['response_member']; page = json.loads(members[name])
+        for row in page['artifacts']:
+            for key in ('schema_version', 'created_at', 'expires_at'): row.pop(key)
+        members[name] = canonical(page)
+    _r2c3_reindex(members)
+    index = VERIFIER._local_r2_transport_check(members, f.carrier.plan.value, f.carrier.context,
+        f.carrier.plan.source.sources[VERIFIER.SCHEMA_PATH])
+    assert index['role_evidence_evaluated'] is False
+    with pytest.raises(VERIFIER.VerificationError, match='r2_package_publication_metadata_required'):
+        _r2c8_assess_resealed(f, members)
+
+
+@pytest.mark.parametrize('field,value', [('id', 42), ('name', 'wrong'), ('size_in_bytes', 1),
+    ('digest', 'sha256:' + '0' * 64), ('expired', True), ('run_id', 9002),
+    ('run_attempt', True), ('source_identity', {})])
+def test_r2c8_raw_publication_identity_is_not_replaced_by_capture_claim(r2c6_package_inputs, field, value):
+    f = r2c6_package_inputs; members = dict(f.members)
+    name, page, row = _r2c8_publication_rows(f, members); row[field] = value; members[name] = canonical(page)
+    with pytest.raises(VERIFIER.VerificationError, match='r2_package_publication_binding_mismatch'):
+        VERIFIER._local_r2_package_metadata_publication(*_r2c8_metadata_inputs(f, members=members))
+
+
+def test_r2c8_report_and_package_publication_are_not_run_end_proxies(r2c6_package_inputs):
+    f = r2c6_package_inputs; value = _r2c6_assess(f)['package_metadata_publication']
+    moments = value['ordered_times']
+    assert moments['package_published_utc'] != moments['run_completed_utc']
+    assert moments['report_published_utc'] != moments['run_completed_utc']
+    assert moments['package_created_utc'] != moments['report_checked_utc']
+
+
+def test_r2c8_new_publication_field_is_recomputed_from_original_inputs(r2c6_package_inputs):
+    f = r2c6_package_inputs; value = _r2c6_assess(f)
+    value['package_metadata_publication']['publications'][0]['created_utc'] = '2000-01-01T00:00:00Z'
+    raw = canonical(value)
+    with pytest.raises(VERIFIER.VerificationError, match='r2_package_assessment_mismatch'):
+        VERIFIER._verify_local_r2_package_replay_assessment(raw, f.capture, f.carrier.raw, f.carrier.context,
+            expected_assessment_sha256=digest(raw), fixture_commit_raw=f.commit_raw,
+            expected_fixture_commit=f.commit, **f.pins)
+
+
+
+@pytest.mark.parametrize('fault,code', [('assembler', 'package_assembler_mismatch'),
+    ('source-input', 'package_source_inputs_mismatch')])
+def test_r2c8_full_byte_path_rejects_bad_metadata_with_updated_inventory(r2c6_package_inputs, monkeypatch, fault, code):
+    f = r2c6_package_inputs
+    def change(doc):
+        if fault == 'assembler': doc['assembler']['version'] = 'not-the-selected-version'
+        else: doc['source_inputs']['pulse_report'] = 'relative/report'
+    checked, members = _r2c6_changed(f, package_change=('run_metadata_v0.json', change))
+    # Correct every outer byte binding; a metadata-only semantic fault remains.
+    name = _r2c3_response_member(f, '/runs/9001/artifacts?per_page=100&page=1')
+    page = json.loads(members[name])
+    for selection in checked['archive_inventory']:
+        for row in page['artifacts']:
+            if row['id'] == selection['artifact_id']:
+                raw = members[selection['member']]
+                row.update(size_in_bytes=len(raw), digest='sha256:' + digest(raw))
+    members[name] = canonical(page)
+    def forbidden(*args, **kwargs):
+        raise AssertionError('Bad metadata must fail before fresh execution')
+    monkeypatch.setattr(VERIFIER, 'run_process', forbidden)
+    with pytest.raises(VERIFIER.VerificationError, match=code):
+        _r2c8_assess_resealed(f, members)
+
+
+def test_r2c8_publication_at_equal_second_is_not_false_failure(r2c6_package_inputs):
+    f = r2c6_package_inputs
+    values = list(_r2c8_metadata_inputs(f)); members = dict(f.members)
+    # Time samples have second precision. Equality does not prove zero duration.
+    values[0]['created_utc'] = values[1]['checked_utc']
+    name, page, row = _r2c8_publication_rows(f, members)
+    row['created_at'] = values[1]['checked_utc']; members[name] = canonical(page); values[-1] = members
+    result = VERIFIER._local_r2_package_metadata_publication(*values)
+    assert result['publication_time_checked'] is True and result['observed_platform_execution'] is False
 
 
 if __name__ == '__main__':

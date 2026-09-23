@@ -1455,6 +1455,48 @@ def _parse_package_document(raw: bytes) -> dict[str, Any]:
         raise VerificationError("package_json_invalid", stage="package") from None
 
 
+def _check_package_metadata_profile(
+    meta: Mapping[str, Any], *, source: str, run_id: int,
+) -> None:
+    """Shared exact assembler metadata contract; no path is opened or executed."""
+    require(set(meta) == {"schema_version", "package_schema_version", "package_role", "created_utc",
+                         "repository", "git_sha", "workflow_ref", "run_id", "run_attempt", "run_key",
+                         "release_candidate", "source_inputs", "assembler", "authority_boundary"},
+            "package_metadata_profile_mismatch", stage="package")
+    require(type(run_id) is int and run_id > 0
+            and meta.get("schema_version") == "release_grade_reference_package_run_metadata_v0"
+            and meta.get("package_schema_version") == "release_grade_reference_package_v0"
+            and meta.get("package_role") == "complete_release_grade_reference_package"
+            and meta.get("repository") == REPOSITORY and meta.get("git_sha") == source
+            and meta.get("workflow_ref") == REPOSITORY + "/.github/workflows/pulse_ci.yml@refs/heads/main"
+            and type(meta.get("run_id")) is int and meta["run_id"] == run_id
+            and type(meta.get("run_attempt")) is int and meta["run_attempt"] == 1
+            and meta.get("run_key") == f"GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+            and meta.get("release_candidate") == "main",
+            "package_metadata_identity_mismatch", stage="package")
+    _check_package_authority(meta.get("authority_boundary"))
+    require(meta.get("assembler") == {"tool": "assemble_release_grade_reference_package_v0.py", "version": "0.1.0"},
+            "package_assembler_mismatch", stage="package")
+    inputs = meta.get("source_inputs")
+    roles = (("audit_bundle", "release-authority-audit-bundle"),
+             ("artifact_binding", "release-authority-artifact-binding-v0"),
+             ("recorded_path", "release-grade-recorded-path"), ("pulse_report", "pulse-report"))
+    require(isinstance(inputs, dict) and set(inputs) == {role for role, _ in roles},
+            "package_source_inputs_mismatch", stage="package")
+    roots = []
+    for role, leaf in roles:
+        path = inputs[role]
+        require(type(path) is str and path.startswith("/") and "\\" not in path
+                and not any(ord(char) < 32 or ord(char) == 127 for char in path),
+                "package_source_inputs_mismatch", stage="package")
+        parts = path.split("/")
+        require(len(parts) >= 3 and parts[-2:] == ["complete-release-grade-reference-inputs", leaf]
+                and all(part and part not in {".", ".."} for part in parts[1:]),
+                "package_source_inputs_mismatch", stage="package")
+        roots.append(parts[:-2])
+    require(all(root == roots[0] for root in roots), "package_source_inputs_mismatch", stage="package")
+
+
 def _check_complete_package(
     plan: Mapping[str, Any], manifest: Mapping[str, Any], members: Mapping[str, bytes],
     state_views: Mapping[str, Mapping[str, tuple[str, int]]],
@@ -1474,20 +1516,9 @@ def _check_complete_package(
     source = plan["plan_identity"]["source_commit"]
     run_id = subject.get("run_id")
     require(type(run_id) is int and run_id > 0 and subject.get("head_sha") == source
-            and type(subject.get("run_attempt")) is int and subject["run_attempt"] == 1
-            and meta.get("schema_version") == "release_grade_reference_package_run_metadata_v0"
-            and meta.get("package_schema_version") == "release_grade_reference_package_v0"
-            and meta.get("package_role") == "complete_release_grade_reference_package"
-            and meta.get("repository") == REPOSITORY and meta.get("git_sha") == source
-            and meta.get("workflow_ref") == REPOSITORY + "/.github/workflows/pulse_ci.yml@refs/heads/main"
-            and type(meta.get("run_id")) is int and meta["run_id"] == run_id
-            and type(meta.get("run_attempt")) is int and meta["run_attempt"] == 1
-            and meta.get("run_key") == f"GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
-            and meta.get("release_candidate") == "main",
+            and type(subject.get("run_attempt")) is int and subject["run_attempt"] == 1,
             "package_metadata_identity_mismatch", stage="package")
-    _check_package_authority(meta.get("authority_boundary"))
-    require(meta.get("assembler") == {"tool": "assemble_release_grade_reference_package_v0.py", "version": "0.1.0"},
-            "package_assembler_mismatch", stage="package")
+    _check_package_metadata_profile(meta, source=source, run_id=run_id)
     # The selected assembler receives GITHUB_REF_NAME ('main'), not the Step 5C
     # synthetic current-run subject name. These are different identity fields.
     package_name = f"complete-release-grade-reference-package-{run_id}-1"
@@ -1504,24 +1535,6 @@ def _check_complete_package(
         require(times == sorted(times), "package_metadata_time_mismatch", stage="package")
     except (VerificationError, ValueError, TypeError):
         raise VerificationError("package_metadata_time_mismatch", stage="package") from None
-    inputs = meta.get("source_inputs")
-    roles = (("audit_bundle", "release-authority-audit-bundle"),
-             ("artifact_binding", "release-authority-artifact-binding-v0"),
-             ("recorded_path", "release-grade-recorded-path"), ("pulse_report", "pulse-report"))
-    require(isinstance(inputs, dict) and set(inputs) == {role for role, _ in roles},
-            "package_source_inputs_mismatch", stage="package")
-    roots = []
-    for role, leaf in roles:
-        path = inputs[role]
-        require(type(path) is str and path.startswith("/") and "\\" not in path
-                and not any(ord(char) < 32 or ord(char) == 127 for char in path),
-                "package_source_inputs_mismatch", stage="package")
-        parts = path.split("/")
-        require(len(parts) >= 3 and parts[-2:] == ["complete-release-grade-reference-inputs", leaf]
-                and all(part and part not in {".", ".."} for part in parts[1:]),
-                "package_source_inputs_mismatch", stage="package")
-        roots.append(parts[:-2])
-    require(all(root == roots[0] for root in roots), "package_source_inputs_mismatch", stage="package")
     recorded = state_views["release_grade_recorded_path"]
     for prefix, names in _PACKAGE_COPY_GROUPS:
         for name in names:
@@ -5468,6 +5481,7 @@ def _local_r2_transport_check(
 
     runs = {}; archives = []; artifact_ids = set(); job_ids = set(); total_size = 0; expanded_size = 0
     metadata_versions: set[str] = set()
+    artifact_metadata_versions: set[str] = set()
     for role in ('subject', 'provider'):
         spec = plan[role + '_dispatch']
         inputs = dict(spec['inputs']) if role == 'subject' else {'source_run_id': str(runs['subject'])}
@@ -5536,9 +5550,17 @@ def _local_r2_transport_check(
             rows.extend(doc['artifacts']); page += 1
         by_name = {}
         for row in rows:
-            require(type(row) is dict and set(row) == {'id', 'name', 'size_in_bytes', 'digest',
-                    'expired', 'run_id', 'run_attempt', 'source_identity'},
-                    'r2_artifact_metadata_invalid', stage='local_r2')
+            require(type(row) is dict, 'r2_artifact_metadata_invalid', stage='local_r2')
+            base_keys = {'id', 'name', 'size_in_bytes', 'digest',
+                         'expired', 'run_id', 'run_attempt', 'source_identity'}
+            if set(row) == base_keys:
+                artifact_metadata_versions.add('legacy_untimed')
+            else:
+                require(set(row) == base_keys | {'schema_version', 'created_at', 'expires_at'}
+                        and row.get('schema_version') == _LOCAL_R2_TIMED_ARTIFACT_SCHEMA,
+                        'r2_artifact_metadata_invalid', stage='local_r2')
+                _local_r2_artifact_time_fields(row, run_document)
+                artifact_metadata_versions.add(_LOCAL_R2_TIMED_ARTIFACT_SCHEMA)
             identifier = row['id']; name = row['name']; size = row['size_in_bytes']
             require(type(identifier) is int and identifier > 0 and identifier not in artifact_ids
                     and type(name) is str and 0 < len(name) <= 256 and name not in by_name,
@@ -5569,6 +5591,7 @@ def _local_r2_transport_check(
                 'sha256': sha256_bytes(raw), 'size_bytes': len(raw), 'transport_members': inner,
                 'source_prescribed_member_set_evaluated': False})
     require(len(metadata_versions) == 1, 'r2_mixed_execution_metadata_profiles', stage='local_r2')
+    require(len(artifact_metadata_versions) == 1, 'r2_mixed_artifact_metadata_profiles', stage='local_r2')
     require(cursor == len(exchanges) and set(members) == used,
             'r2_acquisition_member_inventory_mismatch', stage='local_r2')
     expected_index = {
@@ -6103,6 +6126,7 @@ def _check_d6_action_steps(subject: Mapping[str, Any], job: Mapping[str, Any]) -
 # LOCAL_05 keeps richer simulation metadata explicitly versioned. Production run
 # schemas/CLI remain unchanged, and no tree is ever substituted for a commit.
 _LOCAL_R2_TIMED_RUN_SCHEMA = 'pulsemech_step5c_local_r2_simulated_run_v1'
+_LOCAL_R2_TIMED_ARTIFACT_SCHEMA = 'pulsemech_step5c_local_r2_simulated_artifact_v1'
 
 
 def _local_r2_run_time_fields(document: Mapping[str, Any]) -> dict[str, str]:
@@ -6113,6 +6137,24 @@ def _local_r2_run_time_fields(document: Mapping[str, Any]) -> dict[str, str]:
         raise VerificationError('r2_run_time_invalid', stage='local_r2') from None
     require(start <= end, 'r2_run_time_invalid', stage='local_r2')
     return fields
+
+
+def _local_r2_artifact_time_fields(
+    document: Mapping[str, Any], run: Mapping[str, Any],
+) -> dict[str, str]:
+    """Validate supplied simulated times, without inventing a publication time."""
+    require(run.get('schema_version') == _LOCAL_R2_TIMED_RUN_SCHEMA,
+            'r2_artifact_timed_run_required', stage='local_r2')
+    values = {key: document.get(key) for key in ('created_at', 'expires_at')}
+    try:
+        started, created, ended, expires = [parse_utc(value, label='local_artifact_time')
+            for value in (run.get('run_started_at'), values['created_at'],
+                          run.get('updated_at'), values['expires_at'])]
+    except (VerificationError, TypeError, ValueError):
+        raise VerificationError('r2_artifact_time_invalid', stage='local_r2') from None
+    require(started <= created <= ended and created < expires,
+            'r2_artifact_time_invalid', stage='local_r2')
+    return values
 
 
 def _local_r2_job_time_fields(
@@ -6575,6 +6617,92 @@ def _run_local_r2_package_verifier(
         return document
 
 
+def _local_r2_package_metadata_publication(
+    meta: Mapping[str, Any], report: Mapping[str, Any], subject: Mapping[str, Any],
+    run: Mapping[str, Any], checked_capture: Mapping[str, Any],
+    acquisition_members: Mapping[str, bytes],
+) -> dict[str, Any]:
+    """Bind full assembler metadata and two publication records to exact inputs.
+
+    Callers authenticate the preparation/capture/transcript before this adapter.
+    The commit argument is the content-addressed disposable fixture commit, not
+    a relabelled source tree. Synthetic times never become observed run evidence.
+    """
+    run_id = subject['workflow_run_id']
+    _check_package_metadata_profile(meta, source=subject['source_commit'], run_id=run_id)
+    require(type(meta.get('created_utc')) is str and re.fullmatch(
+            r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z', meta['created_utc']) is not None,
+            'package_metadata_time_mismatch', stage='package')
+    rows = []; bindings = []; total = None; page = 1
+    while total is None or len(rows) < total:
+        document, binding = _local_r2_response_bytes(acquisition_members,
+            f'repos/{REPOSITORY}/actions/runs/{run_id}/artifacts?per_page=100&page={page}')
+        count = document.get('total_count'); items = document.get('artifacts')
+        require(type(count) is int and 0 < count <= 256 and type(items) is list
+                and (total is None or total == count)
+                and len(items) == min(100, count - len(rows)) and bool(items)
+                and all(type(row) is dict for row in items),
+                'r2_artifact_pagination_invalid', stage='local_r2_package')
+        total = count; rows.extend(items); bindings.append(binding); page += 1
+    names = {
+        'complete_release_grade_reference_package': f'complete-release-grade-reference-package-{run_id}-1',
+        'package_verification_report': f'release-grade-reference-package-verification-{run_id}-1',
+    }
+    publications = []
+    for role, name in names.items():
+        selected = [row for row in checked_capture['archive_inventory'] if row.get('role') == role]
+        require(len(selected) == 1, 'r2_package_publication_binding_mismatch', stage='local_r2_package')
+        selected = selected[0]
+        matches = [row for row in rows if row.get('id') == selected.get('artifact_id')]
+        require(len(matches) == 1 and sum(row.get('name') == name for row in rows) == 1,
+                'r2_package_publication_binding_mismatch', stage='local_r2_package')
+        row = matches[0]
+        require(row.get('schema_version') == _LOCAL_R2_TIMED_ARTIFACT_SCHEMA,
+                'r2_package_publication_metadata_required', stage='local_r2_package')
+        require(set(row) == {'schema_version', 'id', 'name', 'size_in_bytes', 'digest',
+                            'expired', 'run_id', 'run_attempt', 'source_identity', 'created_at', 'expires_at'},
+                'r2_artifact_metadata_invalid', stage='local_r2_package')
+        raw = acquisition_members.get(selected.get('member'))
+        require(type(row.get('id')) is int and row['id'] > 0
+                and row.get('name') == name == selected.get('artifact_name')
+                and row.get('expired') is False
+                and type(row.get('run_id')) is int and row['run_id'] == run_id
+                and type(row.get('run_attempt')) is int and row['run_attempt'] == 1
+                and selected.get('source_run_kind') == 'subject'
+                and type(selected.get('source_run_id')) is int and selected['source_run_id'] == run_id
+                and canonical_json_bytes(row.get('source_identity')) == canonical_json_bytes(run['source_identity'])
+                and type(raw) is bytes and type(row.get('size_in_bytes')) is int
+                and row['size_in_bytes'] == selected.get('size_bytes') == len(raw)
+                and row.get('digest') == 'sha256:' + sha256_bytes(raw)
+                and selected.get('sha256') == sha256_bytes(raw),
+                'r2_package_publication_binding_mismatch', stage='local_r2_package')
+        _local_r2_artifact_time_fields(row, run)
+        publications.append({
+            'role': role, 'artifact_id': row['id'], 'artifact_name': name,
+            'archive': descriptor(selected['member'], raw),
+            'created_utc': row['created_at'], 'expires_utc': row['expires_at'],
+        })
+    stamps = (run['run_started_at'], meta['created_utc'], publications[0]['created_utc'],
+              report.get('checked_utc'), publications[1]['created_utc'], run['updated_at'])
+    try:
+        moments = [parse_utc(value, label='local_package_publication') for value in stamps]
+        require(moments == sorted(moments), 'r2_package_publication_time_mismatch', stage='local_r2_package')
+    except (VerificationError, TypeError, ValueError):
+        raise VerificationError('r2_package_publication_time_mismatch', stage='local_r2_package') from None
+    return {
+        'metadata_profile_checked': True, 'publication_time_checked': True,
+        'evidence_kind': 'synthetic_artifact_creation_metadata',
+        'record_status': 'local_candidate', 'simulation_only': True,
+        'original_runtime_reads_proven': False, 'observed_platform_execution': False,
+        'artifact_metadata_schema': _LOCAL_R2_TIMED_ARTIFACT_SCHEMA,
+        'cross_source_clock_status': 'not_verified',
+        'time_order_scope': 'supplied_utc_values_only',
+        'publications': publications, 'raw_response_bindings': bindings,
+        'ordered_times': dict(zip(('run_started_utc', 'package_created_utc', 'package_published_utc',
+                                  'report_checked_utc', 'report_published_utc', 'run_completed_utc'), stamps)),
+    }
+
+
 def _local_r2_package_replay_assessment(
     plan: Mapping[str, Any], prepared_members: Mapping[str, bytes],
     checked_capture: Mapping[str, Any], acquisition_members: Mapping[str, bytes], *,
@@ -6655,6 +6783,8 @@ def _local_r2_package_replay_assessment(
         require(times == sorted(times), 'r2_package_time_order_mismatch', stage='local_r2_package')
     except (VerificationError, TypeError, ValueError):
         raise VerificationError('r2_package_time_order_mismatch', stage='local_r2_package') from None
+    metadata_publication = _local_r2_package_metadata_publication(
+        metadata, report, subject, run, checked_capture, acquisition_members)
     fresh = _run_local_r2_package_verifier(
         prepared_members['sources/' + _LOCAL_R2_PACKAGE_REPLAY_SOURCES[1][0]], payloads, subject)
     try:
@@ -6694,13 +6824,13 @@ def _local_r2_package_replay_assessment(
         'package_verification_semantics_replayed': True,
         'captured_terminal_report_revalidated': True,
         'synthetic_run_time_order_checked': True,
+        'package_metadata_publication': metadata_publication,
         'fresh_package_verifier_cli_executed': True,
         'fresh_package_verifier_semantics_sha256': sha256_bytes(canonical_json_bytes(fresh_semantics)),
         'fresh_package_verifier_check_count': len(fresh['checks']),
         'fully_satisfied_role_count': 0, 'role_evidence_evaluated': False,
         'pending_semantic_checks': projection['pending_semantic_checks'],
-        'remaining_package_duties': ['complete_metadata_profile_and_publication_time',
-                                    'completeness_report_and_transitive_provider_validation',
+        'remaining_package_duties': ['completeness_report_and_transitive_provider_validation',
                                     'recorded_candidate_full_verifier_and_mandatory_signatures'],
         'mandatory_llamaguard_signatures_verified': False,
         'original_runtime_reads_proven': False, 'observed_platform_execution': False,
