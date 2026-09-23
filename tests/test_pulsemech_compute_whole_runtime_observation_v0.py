@@ -16611,6 +16611,274 @@ def test_r2c12_composed_assessment_is_recomputed_without_admission(r2c12_llamagu
     (f.directory/'llamaguard-content-assessment.json').write_bytes(raw)
 
 
+# R2C13: explicitly fake gh backend controls. These tests exercise core/command
+# wiring, not Sigstore cryptography; no synthetic output is a real signature.
+def _r2c13_backend(directory, output='[{"synthetic_backend_test_double":true}]', code=0):
+    directory.mkdir(parents=True, exist_ok=True); path=directory/'fake-gh'
+    script='#!'+sys.executable+'\n'+r'''
+import json, os, sys
+from pathlib import Path
+a=sys.argv[1:]; root=Path.cwd(); p=root/'PULSE_safe_pack_v0/artifacts/external'
+s=json.loads((p/'llamaguard_summary.json').read_bytes())
+assert a==['attestation','verify',str(p/'llamaguard_summary.json'),'--repo','HKati/pulse-release-gates-0.1',
+ '--bundle',str(p/'llamaguard_summary.bundle.json'),'--signer-workflow',
+ 'github.com/HKati/pulse-release-gates-0.1/.github/workflows/pulse_ci.yml',
+ '--source-digest',s['extensions']['source_commit'],'--predicate-type','https://slsa.dev/provenance/v1',
+ '--cert-oidc-issuer','https://token.actions.githubusercontent.com','--format','json']
+assert not {'GH_TOKEN','GITHUB_TOKEN','PYTHONPATH','GITHUB_SHA'}.intersection(os.environ)
+assert Path(os.environ['HOME']).parent==root.parent
+'''
+    path.write_text(script+'\nprint('+repr(output)+')\nraise SystemExit('+str(code)+')\n');path.chmod(0o700)
+    return path,digest(path.read_bytes())
+
+
+@pytest.fixture(scope='module')
+def r2c13_attestation_inputs(r2c12_llamaguard_inputs,tmp_path_factory):
+    f=r2c12_llamaguard_inputs; sources,_=VERIFIER._local_r2_attestation_sources(f.carrier.plan.value,f.prepared)
+    prefix='PULSE_safe_pack_v0/artifacts/external/'; repo='HKati/pulse-release-gates-0.1'
+    raw=f.contents['release_grade_recorded_path']['external/llamaguard_summary.json'];summary=json.loads(raw);sha=digest(raw)
+    bundle=canonical({'synthetic_signature_placeholder':True,'test_scope':'command_contract_only'})
+    workflow='.github/workflows/pulse_ci.yml';signer='repo:'+repo+':workflow:'+workflow
+    builder_path='PULSE_safe_pack_v0/tools/build_llamaguard_attestation_envelope_v1.py'
+    verifier_path='PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py'
+    stamp=json.loads(f.contents['complete_release_grade_reference_package']['run_metadata_v0.json'])['created_utc']
+    envelope_id='pulse_external_llamaguard_attestation_'+f.commit[:12]+'_'+sha[:12]
+    extension={'repository':repo,'source_commit':f.commit,'workflow_path':workflow,
+        'workflow_ref':repo+'/'+workflow+'@refs/heads/main','signer_workflow':'github.com/'+repo+'/'+workflow,
+        'predicate_type':'https://slsa.dev/provenance/v1','oidc_issuer':'https://token.actions.githubusercontent.com',
+        'attestation_id':'123','attestation_url':'https://github.com/'+repo+'/attestations/123',
+        'bundle_sha256':digest(bundle),'summary_sha256':sha,'raw_evidence_sha256':summary['evidence']['raw_artifact_digest'],
+        'dataset_sha256':summary['run']['dataset_digest'],'evaluator_manifest_sha256':summary['extensions']['evaluator_manifest_sha256'],
+        'subject_sha256':summary['subject']['digest'],'signer_policy_sha256':digest(sources['policy/external_signers_v1.yml']),
+        'threshold_policy_sha256':digest(sources['PULSE_safe_pack_v0/profiles/external_thresholds.yaml']),
+        'workflow_sha256':digest(sources[workflow]),'envelope_builder':{'id':'pulse_llamaguard_attestation_envelope_builder_v1',
+            'version':'1.0.0','path':builder_path,'sha256':digest(sources[builder_path])},
+        'canonical_replay_verifier':{'path':verifier_path,'sha256':digest(sources[verifier_path]),'required':True},
+        'producer_boundary':{'creates_release_authority':False,'materializes_status':False,
+            'materializes_release_required':False,'replaces_check_gates':False}}
+    envelope={'schema_version':'external_summary_envelope_v1','envelope_id':envelope_id,
+        'summary_ref':{'uri':prefix+'llamaguard_summary.json','schema_version':'external_summary_v1','summary_id':summary['summary_id']},
+        'summary_digest':{'algorithm':'sha256','value':sha},'signing':{'mode':'github-attestation','identity':signer,
+            'issuer':'https://token.actions.githubusercontent.com','bundle_uri':prefix+'llamaguard_summary.bundle.json'},
+        'verification':{'verified':True,'verified_at':stamp,'verifier':{'name':'actions/attest',
+            'version':'actions/attest@f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6'},
+            'result_reason':'Synthetic command-contract fixture, not cryptographic proof.'},
+        'policy_context':{'signer_policy_ref':'policy/external_signers_v1.yml',
+            'threshold_policy_ref':'PULSE_safe_pack_v0/profiles/external_thresholds.yaml',
+            'release_contribution':'required','fold_in_allowed':True},
+        'authority_boundary':'This external summary envelope does not define release authority. It records digest, signer, verification, and policy context for external evidence before any policy-controlled fold-in to status.json.',
+        'extensions':extension}
+    envelope_raw=canonical(envelope)
+    # This expected report is authored independently, not obtained by accepting
+    # a verifier failure. Only the external backend below is a test double.
+    report={'schema_version':'external_summary_attestation_verifier_v1','status':'verified','errors':[],
+        'summary':{'path':prefix+'llamaguard_summary.json','sha256':sha,'schema_version':'external_summary_v1','summary_id':summary['summary_id']},
+        'envelope':{'path':prefix+'llamaguard_summary.envelope.json','sha256':digest(envelope_raw),
+            'schema_version':'external_summary_envelope_v1','envelope_id':envelope_id},
+        'signer':{'mode':'github-attestation','identity':signer,'repository':repo,
+            'signer_workflow':'github.com/'+repo+'/'+workflow,'policy_path':'policy/external_signers_v1.yml'},
+        'attestation':{'backend':'gh-attestation','verified':True,'summary_sha256':sha,
+            'bundle_path':prefix+'llamaguard_summary.bundle.json','verified_attestation_count':1,
+            'command_contract':{'repository':repo,'signer_workflow':'github.com/'+repo+'/'+workflow,'source_digest':f.commit,
+                'predicate_type':'https://slsa.dev/provenance/v1','oidc_issuer':'https://token.actions.githubusercontent.com'}},
+        'authority_boundary':{'normative':False,'creates_release_authority':False,'materializes_status':False,
+            'materializes_release_required':False,'replaces_check_gates':False}}
+    changes={'external/llamaguard_summary.envelope.json':envelope_raw,'external/llamaguard_summary.bundle.json':bundle,
+        'external/llamaguard_attestation_verifier_v1.json':canonical(report)}
+    contents=copy.deepcopy(f.contents)
+    for group in contents.values():
+        for name in list(group):
+            key=name.removeprefix('artifacts/')
+            if key in changes: group[name]=changes[key]
+    updated=_r2c11_build_recorded_inputs(SimpleNamespace(**{**vars(f),'contents':contents}),tmp_path_factory)
+    gh,gh_sha=_r2c13_backend(tmp_path_factory.mktemp('r2c13-fake-backend'))
+    payloads={'PULSE_safe_pack_v0/artifacts/'+name:updated.contents['release_grade_recorded_path'][name]
+        for name in VERIFIER._LOCAL_R2_ATTESTATION_MEMBERS}
+    return SimpleNamespace(**{**vars(updated),'attestation_sources':sources,'attestation_payloads':payloads,
+        'attestation_spec':{'repository':repo,'commit':f.commit},'gh':gh,'gh_sha':gh_sha})
+
+
+def _r2c13_run(f,*,payloads=None,sources=None,gh=None,gh_sha=None):
+    return VERIFIER._run_local_r2_attestation(f.attestation_sources if sources is None else sources,
+        f.attestation_payloads if payloads is None else payloads,f.attestation_spec,
+        gh_executable=f.gh if gh is None else gh,expected_gh_sha256=f.gh_sha if gh_sha is None else gh_sha)
+
+
+def test_r2c13_core_command_wiring_with_explicit_fake_backend(r2c13_attestation_inputs):
+    f=r2c13_attestation_inputs;result=_r2c13_run(f)
+    assert result['report']==json.loads(f.attestation_payloads['PULSE_safe_pack_v0/artifacts/external/llamaguard_attestation_verifier_v1.json'])
+    assert result['backend_identity']=={'sha256':f.gh_sha,'size_bytes':f.gh.stat().st_size,
+        'trust_scope':'caller_pinned_local_executable','origin_authenticated_by_this_checker':False}
+    assert b'synthetic_signature_placeholder' in f.attestation_payloads['PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.bundle.json']
+
+
+@pytest.mark.parametrize('field,value',[
+    ('bundle_sha256','0'*64),('summary_sha256','0'*64),('raw_evidence_sha256','0'*64),('dataset_sha256','0'*64),
+    ('evaluator_manifest_sha256','0'*64),('subject_sha256','0'*64),('signer_policy_sha256','0'*64),
+    ('threshold_policy_sha256','0'*64),('workflow_sha256','0'*64),('source_commit','a'*40),('repository','other/repo'),
+    ('workflow_ref','wrong'),('signer_workflow','wrong'),('predicate_type','wrong'),('oidc_issuer','wrong'),
+    ('attestation_url','https://github.com/other/repo/attestations/123'),('attestation_id','0'),
+    ('canonical_replay_verifier',{'required':False}),('envelope_builder',{}),('producer_boundary',{})])
+def test_r2c13_rehashed_extension_bindings_reject(r2c13_attestation_inputs,field,value):
+    f=r2c13_attestation_inputs;payloads=dict(f.attestation_payloads);prefix='PULSE_safe_pack_v0/artifacts/external/'
+    doc=json.loads(payloads[prefix+'llamaguard_summary.envelope.json']);doc['extensions'][field]=value
+    payloads[prefix+'llamaguard_summary.envelope.json']=canonical(doc)
+    report=json.loads(payloads[prefix+'llamaguard_attestation_verifier_v1.json'])
+    report['envelope']['sha256']=digest(canonical(doc));payloads[prefix+'llamaguard_attestation_verifier_v1.json']=canonical(report)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_attestation_core_rejected'): _r2c13_run(f,payloads=payloads)
+
+
+@pytest.mark.parametrize('fault',['identity','action','verified','fold-in','bundle-path','issuer','time','id'])
+def test_r2c13_envelope_identity_policy_and_time_reject(r2c13_attestation_inputs,fault):
+    f=r2c13_attestation_inputs;payloads=dict(f.attestation_payloads);key='PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.envelope.json'
+    doc=json.loads(payloads[key])
+    if fault=='identity': doc['signing']['identity']='repo:other/repo:workflow:.github/workflows/pulse_ci.yml'
+    if fault=='action': doc['verification']['verifier']['version']='actions/attest@'+'a'*40
+    if fault=='verified': doc['verification']['verified']=1
+    if fault=='fold-in': doc['policy_context']['fold_in_allowed']=False
+    if fault=='bundle-path': doc['signing']['bundle_uri']='/tmp/unbound.json'
+    if fault=='issuer': doc['signing']['issuer']='https://untrusted.invalid'
+    if fault=='time': doc['verification']['verified_at']='2000-01-01T00:00:00Z'
+    if fault=='id': doc['envelope_id']='different-envelope'
+    payloads[key]=canonical(doc)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_attestation_core_rejected'): _r2c13_run(f,payloads=payloads)
+
+
+@pytest.mark.parametrize('output,code',[('[]',0),('{}',0),('not-json',0),('[{"x":1,"x":2}]',0),('[NaN]',0),('[{"synthetic":true}]',23)])
+def test_r2c13_backend_failure_cannot_reuse_saved_verified(r2c13_attestation_inputs,tmp_path,output,code):
+    f=r2c13_attestation_inputs;gh,sha=_r2c13_backend(tmp_path,output,code)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_attestation_core_rejected'): _r2c13_run(f,gh=gh,gh_sha=sha)
+
+
+@pytest.mark.parametrize('fault',['missing','relative','symlink','non-executable','digest','empty'])
+def test_r2c13_backend_requires_external_pin(r2c13_attestation_inputs,tmp_path,fault):
+    f=r2c13_attestation_inputs;gh,sha=_r2c13_backend(tmp_path)
+    if fault=='missing': gh.unlink()
+    if fault=='relative': gh=Path('fake-gh')
+    if fault=='symlink': link=tmp_path/'link';link.symlink_to(gh);gh=link
+    if fault=='non-executable': gh.chmod(0o600)
+    if fault=='digest': sha='0'*64
+    if fault=='empty': gh.write_bytes(b'');sha=digest(b'')
+    with patch.object(VERIFIER,'run_process',side_effect=AssertionError('must stop before launch')):
+        with pytest.raises(VERIFIER.VerificationError,match='r2_attestation_backend_'): _r2c13_run(f,gh=gh,gh_sha=sha)
+
+
+@pytest.mark.parametrize('path',[
+    'PULSE_safe_pack_v0/tools/build_llamaguard_attestation_envelope_v1.py',
+    'PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py',
+    'schemas/external_summary_envelope_v1.schema.json','policy/external_signers_v1.yml'])
+@pytest.mark.parametrize('fault',['missing','changed'])
+def test_r2c13_sources_never_fall_back(r2c13_attestation_inputs,path,fault):
+    f=r2c13_attestation_inputs;prepared=dict(f.prepared)
+    if fault=='missing': del prepared['sources/'+path]
+    else: prepared['sources/'+path]+=b'\n'
+    assert (ROOT/path).is_file()
+    with pytest.raises(VERIFIER.VerificationError,match='r2_attestation_source_'):
+        VERIFIER._local_r2_attestation_sources(f.carrier.plan.value,prepared)
+
+
+@pytest.mark.parametrize('fault',['exit','empty','invalid','report','mutation','backend-mutation','extra','timeout'])
+def test_r2c13_execution_and_mutation_reject(r2c13_attestation_inputs,fault):
+    f=r2c13_attestation_inputs;real=VERIFIER.run_process
+    def controlled(command,*,cwd,timeout):
+        assert command[1:3]==['-I','-B'] and timeout==150
+        if fault=='timeout': raise VERIFIER.VerificationError('controlled timeout')
+        result=real(command,cwd=cwd,timeout=timeout)
+        if fault in ('mutation','backend-mutation'):
+            p=cwd/'attestation-input.json' if fault=='mutation' else cwd.parent/'backend/gh'
+            p.chmod(0o700);p.write_bytes(p.read_bytes()+b'\n')
+        if fault=='extra': (cwd/'extra').write_bytes(b'x')
+        if fault=='exit': return VERIFIER.ProcessOutput(23,result.stdout,b'controlled')
+        if fault=='empty': return VERIFIER.ProcessOutput(0,b'',b'')
+        if fault=='invalid': return VERIFIER.ProcessOutput(0,b'{invalid',b'')
+        if fault=='report':
+            doc=json.loads(result.stdout);doc['report']['attestation']['verified']=1
+            return VERIFIER.ProcessOutput(0,canonical(doc),b'')
+        return result
+    with patch.object(VERIFIER,'run_process',side_effect=controlled):
+        with pytest.raises(VERIFIER.VerificationError): _r2c13_run(f)
+
+
+def test_r2c13_full_saved_report_not_only_digest(r2c13_attestation_inputs):
+    f=r2c13_attestation_inputs;payloads=dict(f.attestation_payloads)
+    name='PULSE_safe_pack_v0/artifacts/external/llamaguard_attestation_verifier_v1.json'
+    saved=json.loads(payloads[name]);saved['signer']['policy_path']='unrelated-policy.yml';payloads[name]=canonical(saved)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_attestation_core_rejected'): _r2c13_run(f,payloads=payloads)
+
+
+def test_r2c13_full_assessment_and_reader_recheck_backend(r2c13_attestation_inputs):
+    f=r2c13_attestation_inputs;pins={**f.pins,'fixture_commit_raw':f.commit_raw,'expected_fixture_commit':f.commit,
+        'gh_executable':f.gh,'expected_gh_sha256':f.gh_sha}
+    raw=VERIFIER._assess_local_r2_llamaguard_attestation(f.capture,f.carrier.raw,f.carrier.context,**pins)
+    result=VERIFIER._verify_local_r2_llamaguard_attestation_assessment(raw,f.capture,f.carrier.raw,f.carrier.context,
+        expected_assessment_sha256=digest(raw),**pins)
+    assert canonical(result)==raw and result['llamaguard_attestation']['fresh_attestation_core_executed'] is True
+    assert result['assessment_status']=='incomplete' and result['fully_satisfied_role_count']==0
+    assert result['mandatory_llamaguard_signatures_verified'] is False
+    assert result['local_boundary']=={'dispatch_authorized':False,'R2_activated':False,'completion_evaluated':False,'reference_acquired':False}
+    changed=copy.deepcopy(result);changed['llamaguard_attestation']['original_attestation_execution_proven']=True;bad=canonical(changed)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_attestation_assessment_mismatch'):
+        VERIFIER._verify_local_r2_llamaguard_attestation_assessment(bad,f.capture,f.carrier.raw,f.carrier.context,
+            expected_assessment_sha256=digest(bad),**pins)
+    with patch.object(VERIFIER,'_run_local_r2_attestation',side_effect=VERIFIER.VerificationError('fresh_recheck_failed')):
+        with pytest.raises(VERIFIER.VerificationError,match='fresh_recheck_failed'):
+            VERIFIER._verify_local_r2_llamaguard_attestation_assessment(raw,f.capture,f.carrier.raw,f.carrier.context,
+                expected_assessment_sha256=digest(raw),**pins)
+
+
+def test_r2c13_missing_backend_pin_not_inferred(r2c13_attestation_inputs):
+    f=r2c13_attestation_inputs
+    with pytest.raises(TypeError,match='expected_gh_sha256'):
+        VERIFIER._assess_local_r2_llamaguard_attestation(f.capture,f.carrier.raw,f.carrier.context,
+            fixture_commit_raw=f.commit_raw,expected_fixture_commit=f.commit,gh_executable=f.gh,**f.pins)
+
+
+@pytest.mark.parametrize('fault',['late','parent'])
+def test_r2c13_requires_subject_and_publication_order(r2c13_attestation_inputs,fault):
+    f=r2c13_attestation_inputs;checked=copy.deepcopy(f.checked);members=dict(f.members)
+    if fault=='parent':
+        next(row for row in checked['archive_inventory'] if row['role']=='release_grade_recorded_path')['source_run_kind']='provider'
+    else:
+        contents=dict(f.contents['release_grade_recorded_path']);name='external/llamaguard_summary.envelope.json'
+        doc=json.loads(contents[name]);doc['verification']['verified_at']='2099-01-01T00:00:00Z';contents[name]=canonical(doc)
+        _r2c9_archive_replace(members,checked,'release_grade_recorded_path',example_zip(contents))
+        changed=_r2c9_reseal(f,members);checked=changed.checked;members=changed.members
+    with patch.object(VERIFIER,'_run_local_r2_attestation',side_effect=AssertionError('must stop before backend')):
+        with pytest.raises(VERIFIER.VerificationError,match='r2_attestation_'):
+            VERIFIER._local_r2_llamaguard_attestation(f.carrier.plan.value,f.prepared,checked,members,commit=f.commit,
+                gh_executable=f.gh,expected_gh_sha256=f.gh_sha)
+
+
+
+@pytest.mark.parametrize('name',[
+    'llamaguard_raw.jsonl','llamaguard_evaluator_manifest_v0.json','llamaguard_summary.json',
+    'llamaguard_summary.bundle.json','llamaguard_summary.envelope.json','llamaguard_attestation_verifier_v1.json'])
+def test_r2c13_missing_member_stops_before_backend(r2c13_attestation_inputs,name):
+    f=r2c13_attestation_inputs;payloads=dict(f.attestation_payloads)
+    del payloads['PULSE_safe_pack_v0/artifacts/external/'+name]
+    with patch.object(VERIFIER,'run_process',side_effect=AssertionError('must not launch')):
+        with pytest.raises(VERIFIER.VerificationError,match='r2_attestation_payload_mismatch'):
+            _r2c13_run(f,payloads=payloads)
+
+
+def test_r2c13_backend_does_not_inherit_host_credentials(r2c13_attestation_inputs):
+    f=r2c13_attestation_inputs
+    with patch.dict(os.environ,{'GH_TOKEN':'synthetic-token','GITHUB_TOKEN':'synthetic-token',
+        'GITHUB_SHA':'a'*40,'PYTHONPATH':'/unbound','GH_CONFIG_DIR':'/unbound'},clear=False):
+        result=_r2c13_run(f)
+    assert result['report']['attestation']['command_contract']['source_digest']==f.commit
+
+
+def test_r2c13_cleanup_failure_cannot_return_verified(r2c13_attestation_inputs):
+    f=r2c13_attestation_inputs;real=VERIFIER.tempfile.TemporaryDirectory
+    class FailedCleanup(real):
+        def __exit__(self,*args):
+            super().__exit__(*args)
+            raise OSError('controlled attestation cleanup failure')
+    with patch.object(VERIFIER.tempfile,'TemporaryDirectory',FailedCleanup):
+        with pytest.raises(OSError,match='controlled attestation cleanup failure'): _r2c13_run(f)
+
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.

@@ -7802,5 +7802,316 @@ def _verify_local_r2_llamaguard_content_assessment(assessment_raw, capture_raw, 
     require(assessment_raw == expected, 'r2_llamaguard_content_assessment_mismatch', stage='local_r2_llamaguard_content')
     return parse_json_bytes(expected, label='r2_llamaguard_content_assessment')
 
+# R2C13: fresh existing-core attestation replay. The backend is an explicit
+# caller-pinned local executable, never a path/digest selected by the evidence.
+_LOCAL_R2_ATTESTATION_EXTRA_SOURCES = (
+    ('PULSE_safe_pack_v0/tools/build_llamaguard_attestation_envelope_v1.py', 'ecbef6ce1d2a48b5c466b79c916d1161de9df377'),
+    ('PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py', '7fa6539f614d3d30bb603c523889f38bf4c012c1'),
+    ('schemas/external_summary_envelope_v1.schema.json', 'ed2e7fe000232515f271a950f76113f4d45ce005'),
+    ('policy/external_signers_v1.yml', 'a40e47418d3b0e9de4ac903eed469a8107e20c2e'),
+)
+_LOCAL_R2_ATTESTATION_MEMBERS = _LOCAL_R2_LLAMAGUARD_CONTENT_MEMBERS + (
+    'external/llamaguard_summary.bundle.json',
+    'external/llamaguard_summary.envelope.json',
+    'external/llamaguard_attestation_verifier_v1.json',
+)
+_LOCAL_R2_ATTESTATION_DRIVER = r"""
+import hashlib, importlib.util, json, os, sys
+from pathlib import Path
+import yaml
+root = Path.cwd()
+def need(value, code):
+    if not value:
+        print(code, file=sys.stderr)
+        raise SystemExit(19)
+def pairs(items):
+    value = {}
+    for key, item in items:
+        need(key not in value, 'duplicate_json_key')
+        value[key] = item
+    return value
+def nonfinite(value): raise ValueError('nonfinite_json_number')
+def read(path): return json.loads(path.read_bytes(), object_pairs_hook=pairs, parse_constant=nonfinite)
+def canon(value): return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False, allow_nan=False).encode()
+def equal(a, b): return canon(a) == canon(b)
+def digest(path): return hashlib.sha256(path.read_bytes()).hexdigest()
+def load(path, name):
+    spec = importlib.util.spec_from_file_location(name, root/path)
+    module = importlib.util.module_from_spec(spec); sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+builder = load('PULSE_safe_pack_v0/tools/build_llamaguard_attestation_envelope_v1.py', 'r2c13_builder')
+core = load('PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py', 'r2c13_core')
+expected = read(root/'attestation-input.json')
+summary, envelope = read(root/builder.SUMMARY_REL), read(root/builder.ENVELOPE_REL)
+# These are document/source checks before the first backend invocation.
+builder._validate_schema(envelope, builder._load_checked_schema(root/builder.ENVELOPE_SCHEMA_REL, 'envelope schema'), 'envelope')
+verified_text, verified_at = builder._parse_utc(envelope['verification']['verified_at'], 'verified_at')
+binding = builder._validate_summary(repo_root=root, summary=summary, source_digest=expected['commit'],
+    repository=expected['repository'], signer_identity=builder.EXPECTED_SIGNER_IDENTITY,
+    verified_at=verified_at, raw_path=root/builder.RAW_REL, dataset_path=root/builder.DATASET_REL,
+    evaluator_manifest_path=root/builder.EVALUATOR_MANIFEST_REL)
+workflow = yaml.safe_load((root/builder.WORKFLOW_REL).read_bytes())
+steps = workflow['jobs']['attest_llamaguard_current_run_summary']['steps']
+actions = [row['uses'] for row in steps if row.get('id') == 'attest_llamaguard_summary']
+need(len(actions) == 1, 'attestation_action_occurrence_mismatch')
+extensions = envelope['extensions']
+identifier, url, action = builder._validate_attestation_metadata(repository=expected['repository'],
+    attestation_id=extensions['attestation_id'], attestation_url=extensions['attestation_url'],
+    action_ref=envelope['verification']['verifier']['version'])
+need(action == actions[0] and envelope['verification']['verifier']['name'] == 'actions/attest',
+     'attestation_action_pin_mismatch')
+summary_sha = digest(root/builder.SUMMARY_REL)
+need(envelope['envelope_id'] == 'pulse_external_llamaguard_attestation_'+expected['commit'][:12]+'_'+summary_sha[:12],
+     'attestation_envelope_id_mismatch')
+need(envelope['authority_boundary'] == builder.AUTHORITY_BOUNDARY, 'attestation_authority_mismatch')
+need(envelope['signing']['bundle_uri'] == builder.BUNDLE_REL
+     and envelope['signing']['issuer'] == core.GITHUB_OIDC_ISSUER, 'attestation_bundle_locator_mismatch')
+expected_extensions = {
+    'repository':expected['repository'], 'source_commit':expected['commit'],
+    'workflow_path':builder.WORKFLOW_REL,
+    'workflow_ref':expected['repository']+'/'+builder.WORKFLOW_REL+'@refs/heads/main',
+    'signer_workflow':'github.com/'+expected['repository']+'/'+builder.WORKFLOW_REL,
+    'predicate_type':core.SLSA_PROVENANCE_V1, 'oidc_issuer':core.GITHUB_OIDC_ISSUER,
+    'attestation_id':identifier, 'attestation_url':url,
+    'bundle_sha256':digest(root/builder.BUNDLE_REL), 'summary_sha256':summary_sha,
+    'raw_evidence_sha256':binding['raw_sha256'], 'dataset_sha256':binding['dataset_sha256'],
+    'evaluator_manifest_sha256':binding['evaluator_manifest_sha256'], 'subject_sha256':binding['subject_sha256'],
+    'signer_policy_sha256':digest(root/builder.SIGNER_POLICY_REL),
+    'threshold_policy_sha256':digest(root/builder.THRESHOLD_POLICY_REL), 'workflow_sha256':digest(root/builder.WORKFLOW_REL),
+    'envelope_builder':{'id':builder.BUILDER_ID,'version':builder.BUILDER_VERSION,
+        'path':builder.TOOL_REL,'sha256':digest(root/builder.TOOL_REL)},
+    'canonical_replay_verifier':{'path':builder.VERIFIER_REL,'sha256':digest(root/builder.VERIFIER_REL),'required':True},
+    'producer_boundary':{'creates_release_authority':False,'materializes_status':False,
+        'materializes_release_required':False,'replaces_check_gates':False},
+}
+need(equal(extensions, expected_extensions), 'attestation_extension_binding_mismatch')
+# No evidence-selected executable, inherited token/config, download or dispatch.
+# gh may consult its trust service; its fresh decision is not an original-run receipt.
+os.environ['HOME'] = str(root.parent/'home')
+os.environ['GH_CONFIG_DIR'] = str(root.parent/'home'/'gh')
+os.environ['XDG_CACHE_HOME'] = str(root.parent/'home'/'cache')
+report = core.verify_external_summary_attestation(repo_root=root,
+    summary_path=Path(builder.SUMMARY_REL), envelope_path=Path(builder.ENVELOPE_REL),
+    summary_schema_path=Path(core.SUMMARY_SCHEMA_PATH), envelope_schema_path=Path(core.ENVELOPE_SCHEMA_PATH),
+    signer_policy_path=Path(core.SIGNER_POLICY_PATH), expected_repository=expected['repository'],
+    expected_source_digest=expected['commit'], gh_executable=str(root.parent/'backend'/'gh'))
+need(report['status'] == 'verified' and report['errors'] == [], 'fresh_attestation_core_rejected')
+# The core report has relative paths and no replay wall clock. Compare its
+# complete semantics, not only a digest or the saved 'verified' string.
+need(equal(report, read(root/builder.VERIFIER_REPORT_REL)), 'saved_attestation_report_mismatch')
+print(canon({'schema_version':'pulsemech_step5c_local_r2_attestation_core_v0',
+    'report':report, 'verified_at':verified_text, 'bundle_sha256':digest(root/builder.BUNDLE_REL)}).decode())
+"""
+
+
+def _local_r2_attestation_sources(plan, prepared_members):
+    sources, bindings = _local_r2_llamaguard_content_sources(plan, prepared_members)
+    identity = plan['plan_identity']['source_identity']
+    for path, blob in _LOCAL_R2_ATTESTATION_EXTRA_SOURCES:
+        rows = [row for row in plan['source_inventory'] if row.get('path') == path]
+        raw = prepared_members.get('sources/' + path)
+        require(len(rows) == 1 and type(raw) is bytes and 0 < len(raw) <= 1048576,
+                'r2_attestation_source_missing', stage='local_r2_attestation')
+        row = rows[0]
+        require(row.get('revision_kind') == identity.get('kind') == 'uncommitted_git_tree'
+                and row.get('revision') == identity['git_tree_sha1']
+                and row.get('git_blob_sha1') == blob == hashlib.sha1(b'blob %d\0' % len(raw)+raw).hexdigest()
+                and row.get('sha256') == sha256_bytes(raw)
+                and type(row.get('size_bytes')) is int and row['size_bytes'] == len(raw),
+                'r2_attestation_source_mismatch', stage='local_r2_attestation')
+        sources[path] = raw
+        bindings.append({'path':path,'git_blob_sha1':blob,'sha256':sha256_bytes(raw),'size_bytes':len(raw)})
+    return sources, bindings
+
+
+def _local_r2_attestation_backend_bytes(path, expected_sha256):
+    """Snapshot an explicitly trusted local backend; never resolve evidence paths."""
+    stage = 'local_r2_attestation'
+    require(isinstance(path, Path) and path.is_absolute()
+            and type(expected_sha256) is str and re.fullmatch(r'[0-9a-f]{64}', expected_sha256) is not None,
+            'r2_attestation_backend_pin_required', stage=stage)
+    try:
+        require(path == path.resolve(strict=True), 'r2_attestation_backend_path_invalid', stage=stage)
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        try:
+            before = os.fstat(fd)
+            require(stat.S_ISREG(before.st_mode) and before.st_mode & 0o111
+                    and 0 < before.st_size <= 128*1024*1024,
+                    'r2_attestation_backend_file_invalid', stage=stage)
+            chunks = []; remaining = before.st_size
+            while remaining:
+                chunk = os.read(fd, min(1048576, remaining))
+                require(bool(chunk), 'r2_attestation_backend_changed', stage=stage)
+                chunks.append(chunk); remaining -= len(chunk)
+            raw = b''.join(chunks); after = os.fstat(fd)
+            def stamp(value):
+                return (value.st_dev,value.st_ino,value.st_mode,value.st_size,value.st_mtime_ns,value.st_ctime_ns)
+            require(stamp(before) == stamp(after) and not os.read(fd, 1),
+                    'r2_attestation_backend_changed', stage=stage)
+        finally:
+            os.close(fd)
+    except OSError as exc:
+        raise VerificationError('r2_attestation_backend_unavailable', stage=stage) from exc
+    require(sha256_bytes(raw) == expected_sha256, 'r2_attestation_backend_digest_mismatch', stage=stage)
+    return raw
+
+
+def _run_local_r2_attestation(sources, payloads, spec, *, gh_executable, expected_gh_sha256):
+    """Invoke the unchanged core and its backend. No saved-PASS fallback exists."""
+    stage = 'local_r2_attestation'
+    pins = _LOCAL_R2_LLAMAGUARD_CONTENT_SOURCES + _LOCAL_R2_ATTESTATION_EXTRA_SOURCES
+    require(set(sources) == {path for path, _ in pins}, 'r2_attestation_source_missing', stage=stage)
+    for path, blob in pins:
+        raw = sources[path]
+        require(type(raw) is bytes and 0 < len(raw) <= 1048576
+                and hashlib.sha1(b'blob %d\0' % len(raw)+raw).hexdigest() == blob,
+                'r2_attestation_source_mismatch', stage=stage)
+    require(set(payloads) == {'PULSE_safe_pack_v0/artifacts/'+name for name in _LOCAL_R2_ATTESTATION_MEMBERS}
+            and all(type(raw) is bytes and 0 < len(raw) <= 16*1024*1024 for raw in payloads.values()),
+            'r2_attestation_payload_mismatch', stage=stage)
+    require(type(spec) is dict and set(spec) == {'repository','commit'} and spec['repository'] == REPOSITORY
+            and type(spec['commit']) is str and re.fullmatch(r'[0-9a-f]{40}', spec['commit']) is not None,
+            'r2_attestation_subject_mismatch', stage=stage)
+    backend = _local_r2_attestation_backend_bytes(gh_executable, expected_gh_sha256)
+    inputs = {**sources, **payloads, 'attestation-input.json':canonical_json_bytes(spec)}
+    with tempfile.TemporaryDirectory(prefix='pulsemech-r2-attestation-') as temporary:
+        base = Path(temporary); workspace = base/'inputs'; workspace.mkdir()
+        (base/'home').mkdir(); (base/'backend').mkdir()
+        backend_path = base/'backend'/'gh'; _write_read_only(backend_path, backend); backend_path.chmod(0o500)
+        for name, raw in inputs.items():
+            safe_member(name, label='r2_attestation_input_path'); _write_read_only(workspace/name, raw)
+        initial = {name:(workspace/name).stat() for name in inputs}
+        backend_initial = backend_path.stat()
+        def unchanged():
+            found = set()
+            for path in workspace.rglob('*'):
+                info = path.lstat()
+                require(stat.S_ISDIR(info.st_mode) or stat.S_ISREG(info.st_mode),
+                        'r2_attestation_input_changed', stage=stage)
+                if stat.S_ISREG(info.st_mode):
+                    name = path.relative_to(workspace).as_posix(); before = initial.get(name)
+                    require(before is not None and (before.st_dev,before.st_ino,before.st_mode,before.st_size,
+                            before.st_mtime_ns,before.st_ctime_ns) == (info.st_dev,info.st_ino,info.st_mode,
+                            info.st_size,info.st_mtime_ns,info.st_ctime_ns) and path.read_bytes() == inputs[name],
+                            'r2_attestation_input_changed', stage=stage)
+                    found.add(name)
+            require(found == set(inputs), 'r2_attestation_input_changed', stage=stage)
+            info = backend_path.lstat()
+            require(stat.S_ISREG(info.st_mode) and (info.st_dev,info.st_ino,info.st_mode,info.st_size,
+                    info.st_mtime_ns,info.st_ctime_ns) == (backend_initial.st_dev,backend_initial.st_ino,
+                    backend_initial.st_mode,backend_initial.st_size,backend_initial.st_mtime_ns,backend_initial.st_ctime_ns)
+                    and backend_path.read_bytes() == backend,
+                    'r2_attestation_backend_changed', stage=stage)
+        unchanged()
+        try:
+            proc = run_process([sys.executable,'-I','-B','-c',_LOCAL_R2_ATTESTATION_DRIVER], cwd=workspace, timeout=150)
+        except VerificationError as exc:
+            raise VerificationError('r2_attestation_execution_failed', stage=stage) from exc
+        unchanged()
+        require(proc.returncode == 0, 'r2_attestation_core_rejected', str(proc.returncode), stage=stage)
+        require(0 < len(proc.stdout) <= 1048576 and len(proc.stderr) <= 1048576,
+                'r2_attestation_output_budget', stage=stage)
+        result = parse_json_bytes(proc.stdout, label='r2_attestation_result', canonical=False, maximum=1048576)
+    prefix = 'PULSE_safe_pack_v0/artifacts/external/'
+    saved = parse_json_bytes(payloads[prefix+'llamaguard_attestation_verifier_v1.json'], label='r2_saved_attestation', canonical=False)
+    envelope = parse_json_bytes(payloads[prefix+'llamaguard_summary.envelope.json'], label='r2_attestation_envelope', canonical=False)
+    report = result.get('report'); attestation = report.get('attestation') if type(report) is dict else None
+    require(set(result) == {'schema_version','report','verified_at','bundle_sha256'}
+            and result['schema_version'] == 'pulsemech_step5c_local_r2_attestation_core_v0'
+            and canonical_json_bytes(report) == canonical_json_bytes(saved)
+            and type(report) is dict and report.get('status') == 'verified' and report.get('errors') == []
+            and type(attestation) is dict and attestation.get('verified') is True
+            and type(attestation.get('verified_attestation_count')) is int and attestation['verified_attestation_count'] > 0
+            and attestation.get('backend') == 'gh-attestation'
+            and attestation.get('summary_sha256') == sha256_bytes(payloads[prefix+'llamaguard_summary.json'])
+            and attestation.get('bundle_path') == prefix+'llamaguard_summary.bundle.json'
+            and attestation.get('command_contract') == {'repository':REPOSITORY,
+                'signer_workflow':'github.com/'+REPOSITORY+'/.github/workflows/pulse_ci.yml',
+                'source_digest':spec['commit'], 'predicate_type':'https://slsa.dev/provenance/v1',
+                'oidc_issuer':'https://token.actions.githubusercontent.com'}
+            and result['verified_at'] == envelope.get('verification',{}).get('verified_at')
+            and result['bundle_sha256'] == sha256_bytes(payloads[prefix+'llamaguard_summary.bundle.json']),
+            'r2_attestation_result_mismatch', stage=stage)
+    return {**result, 'backend_identity':{'sha256':expected_gh_sha256,'size_bytes':len(backend),
+        'trust_scope':'caller_pinned_local_executable','origin_authenticated_by_this_checker':False}}
+
+
+def _local_r2_llamaguard_attestation(plan, prepared_members, checked_capture, acquisition_members, *,
+                                    commit, gh_executable, expected_gh_sha256):
+    stage = 'local_r2_attestation'
+    sources, bindings = _local_r2_attestation_sources(plan, prepared_members)
+    selected, metadata, archive, page = _local_r2_provider_publication(
+        acquisition_members, checked_capture, 'release_grade_recorded_path')
+    require(selected['source_run_kind'] == 'subject' and selected['source_run_id'] == checked_capture['subject_run_id'],
+            'r2_attestation_parent_mismatch', stage=stage)
+    names = next(names for key, _, names in _STATE_ARCHIVE_LAYOUT if key == 'release_grade_recorded_path')
+    _, members, _ = _inspect_state_archive_bytes(archive, names, member_limit=128,
+        single_limit=16*1024*1024, expansion_limit=64*1024*1024, retained_members=names)
+    payloads = {'PULSE_safe_pack_v0/artifacts/'+name:members[name] for name in _LOCAL_R2_ATTESTATION_MEMBERS}
+    envelope = parse_json_bytes(members['external/llamaguard_summary.envelope.json'], label='r2_attestation_envelope', canonical=False)
+    require(type(envelope.get('verification')) is dict, 'r2_attestation_verification_missing', stage=stage)
+    verified_at = parse_utc(envelope['verification'].get('verified_at'), label='r2_attestation_verified_at')
+    run_id = checked_capture['subject_run_id']
+    run, run_binding = _local_r2_response_bytes(acquisition_members, f'repos/{REPOSITORY}/actions/runs/{run_id}')
+    _local_r2_run_time_fields(run)
+    require(parse_utc(run['run_started_at'], label='r2_attestation_start') <= verified_at
+            <= parse_utc(metadata['created_at'], label='r2_attestation_publication')
+            <= parse_utc(run['updated_at'], label='r2_attestation_end'),
+            'r2_attestation_time_order_mismatch', stage=stage)
+    result = _run_local_r2_attestation(sources, payloads, {'repository':REPOSITORY,'commit':commit},
+        gh_executable=gh_executable, expected_gh_sha256=expected_gh_sha256)
+    return {'validation_scope':'preserved_envelope_bindings_and_fresh_existing_attestation_core',
+        'source_bindings':bindings, 'parent_archive':descriptor(selected['member'],archive),
+        'artifact_id':selected['artifact_id'], 'raw_metadata_page':page, 'raw_run_response':run_binding,
+        'input_members':[descriptor(name,members[name]) for name in _LOCAL_R2_ATTESTATION_MEMBERS],
+        'backend_identity':result['backend_identity'],'core_result_sha256':sha256_bytes(canonical_json_bytes(result)),
+        'fresh_attestation_core_executed':True,'fresh_backend_report_verified':True,
+        'saved_report_semantics_matched':True,'envelope_source_and_bundle_bindings_checked':True,
+        'signature_verification_scope':'current_replay_with_caller_pinned_backend',
+        'original_attestation_execution_proven':False,'full_recorded_verifier_executed':False,
+        'observed_model_execution_proven':False,'simulation_only':True,'observed_platform_execution':False,
+        'original_runtime_reads_proven':False,'time_order_scope':'supplied_utc_values_only',
+        'cross_source_clock_status':'not_verified'}
+
+
+def _local_r2_llamaguard_attestation_assessment(plan, prepared_members, checked_capture, acquisition_members, *,
+        fixture_commit_raw, expected_fixture_commit, gh_executable, expected_gh_sha256):
+    previous = _local_r2_llamaguard_content_assessment(plan, prepared_members, checked_capture, acquisition_members,
+        fixture_commit_raw=fixture_commit_raw, expected_fixture_commit=expected_fixture_commit)
+    attestation = _local_r2_llamaguard_attestation(plan, prepared_members, checked_capture, acquisition_members,
+        commit=expected_fixture_commit, gh_executable=gh_executable, expected_gh_sha256=expected_gh_sha256)
+    # Full recorded-candidate admission is still outstanding. The original-run
+    # signature/completion flags are not promoted by this current local replay.
+    return {**previous,'schema_version':'pulsemech_step5c_local_r2_attestation_assessment_v0',
+        'validation_scope':'package_provider_recorded_inputs_llamaguard_content_and_attestation_replay',
+        'llamaguard_content_assessment_sha256':sha256_bytes(canonical_json_bytes(previous)),
+        'llamaguard_attestation':attestation}
+
+
+def _assess_local_r2_llamaguard_attestation(capture_raw, prepared_raw, expected_context_raw, *,
+        fixture_commit_raw, expected_fixture_commit, gh_executable, expected_gh_sha256,
+        expected_capture_sha256, expected_acquisition_sha256, **pins):
+    checked, captured = _read_local_r2_capture(capture_raw, prepared_raw, expected_context_raw,
+        expected_capture_sha256=expected_capture_sha256, expected_acquisition_sha256=expected_acquisition_sha256, **pins)
+    plan, prepared = _read_local_r2_prepared(prepared_raw, expected_context_raw, **pins)
+    acquisition = read_canonical_zip_bytes(captured['local-r2-acquisition.zip'], label='r2_attestation_acquisition',
+        maximum_members=256, maximum_bytes=80*1024*1024)
+    return canonical_json_bytes(_local_r2_llamaguard_attestation_assessment(plan, prepared,
+        {**checked,'expected_capture_sha256':expected_capture_sha256}, acquisition,
+        fixture_commit_raw=fixture_commit_raw, expected_fixture_commit=expected_fixture_commit,
+        gh_executable=gh_executable, expected_gh_sha256=expected_gh_sha256))
+
+
+def _verify_local_r2_llamaguard_attestation_assessment(assessment_raw, capture_raw, prepared_raw, expected_context_raw, *,
+                                                   expected_assessment_sha256, **pins):
+    require(type(assessment_raw) is bytes and 0 < len(assessment_raw) <= 1048576
+            and sha256_bytes(assessment_raw) == expected_assessment_sha256,
+            'r2_attestation_assessment_digest_mismatch', stage='local_r2_attestation')
+    expected = _assess_local_r2_llamaguard_attestation(capture_raw, prepared_raw, expected_context_raw, **pins)
+    require(assessment_raw == expected, 'r2_attestation_assessment_mismatch', stage='local_r2_attestation')
+    return parse_json_bytes(expected, label='r2_attestation_assessment')
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
