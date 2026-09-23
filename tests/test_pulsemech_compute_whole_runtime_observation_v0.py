@@ -14458,7 +14458,8 @@ def test_r2c6_full_byte_entrypoint_and_saved_reader(r2c6_package_inputs):
     assert document['fully_satisfied_role_count'] == 0
     assert document['mandatory_llamaguard_signatures_verified'] is False
     assert document['local_boundary']['R2_activated'] is False
-    assert document['fresh_package_verifier_cli_executed'] is False
+    assert document['fresh_package_verifier_cli_executed'] is True
+    assert document['fresh_package_verifier_check_count'] == len(f.report['checks'])
     assert document['source_identity']['kind'] == 'uncommitted_git_tree'
     assert 'source_commit' not in f.carrier.plan.value['plan_identity']
     (f.directory / 'assessment.json').write_bytes(raw)
@@ -14811,6 +14812,200 @@ def test_r2c6_git_command_failures_are_not_retried(tmp_path_factory, request, mo
     assert len(attempts) == 1
     assert not attempts[0].exists()
     assert not (attempts[0].parent / 'fixture-git.json').exists()
+
+
+# Fresh package CLI integration: all positive paths execute the pinned existing
+# verifier. Fault injection below changes only negative-control behavior.
+def _r2c7_fresh_inputs(f):
+    return (f.prepared['sources/PULSE_safe_pack_v0/tools/verify_release_grade_reference_package_v0.py'],
+        f.contents['complete_release_grade_reference_package'], {
+            'repository': VERIFIER.REPOSITORY, 'source_commit': f.commit,
+            'workflow_ref': VERIFIER.REPOSITORY + '/.github/workflows/pulse_ci.yml@refs/heads/main',
+            'workflow_run_id': 9001, 'workflow_run_attempt': 1,
+            'subject_run_key': 'GITHUB_RUN_ID=9001|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI',
+        })
+
+
+def test_r2c7_assessment_executes_exact_package_cli(r2c6_package_inputs, monkeypatch):
+    f = r2c6_package_inputs
+    calls = []
+    original = VERIFIER.run_process
+    before = dict(f.members)
+    monkeypatch.setenv('GITHUB_TOKEN', 'CONTROL_TOKEN_MUST_NOT_REACH_CHILD')
+    monkeypatch.setenv('PYTHONPATH', '/CONTROL_PATH_MUST_NOT_REACH_CHILD')
+    def tracked(argv, **kw):
+        source, payloads, subject = _r2c7_fresh_inputs(f)
+        assert argv[:3] == [sys.executable, '-I', '-B']
+        assert Path(argv[3]).read_bytes() == source
+        assert kw['timeout'] == 120
+        package = Path(argv[argv.index('--package-dir') + 1])
+        assert {p.relative_to(package).as_posix(): p.read_bytes()
+                for p in package.rglob('*') if p.is_file()} == payloads
+        assert argv[argv.index('--git-sha') + 1] == f.commit
+        assert argv[argv.index('--run-id') + 1] == '9001'
+        assert argv[argv.index('--run-attempt') + 1] == '1'
+        assert not Path(argv[argv.index('--out') + 1]).exists()
+        child_env = VERIFIER._safe_env(kw['cwd'])
+        assert 'GITHUB_TOKEN' not in child_env and 'PYTHONPATH' not in child_env
+        calls.append((list(argv), kw['cwd']))
+        return original(argv, **kw)
+    monkeypatch.setattr(VERIFIER, 'run_process', tracked)
+    value = _r2c6_assess(f)
+    assert len(calls) == 1 and not calls[0][1].exists()
+    assert value['fresh_package_verifier_cli_executed'] is True
+    assert value['fresh_package_verifier_check_count'] == len(f.report['checks'])
+    assert re.fullmatch('[0-9a-f]{64}', value['fresh_package_verifier_semantics_sha256'])
+    assert value['mandatory_llamaguard_signatures_verified'] is False
+    assert value['assessment_status'] == 'incomplete' and value['fully_satisfied_role_count'] == 0
+    assert value['local_boundary']['R2_activated'] is False
+    assert value['remaining_package_duties'] == [
+        'complete_metadata_profile_and_publication_time',
+        'completeness_report_and_transitive_provider_validation',
+        'recorded_candidate_full_verifier_and_mandatory_signatures']
+    assert f.members == before
+    assert str(calls[0][1]).encode() not in canonical(value)
+
+
+def test_r2c7_two_fresh_executions_keep_deterministic_semantics(r2c6_package_inputs, monkeypatch):
+    calls = []
+    original = VERIFIER.run_process
+    def tracked(argv, **kw):
+        calls.append(Path(argv[argv.index('--package-dir') + 1]))
+        return original(argv, **kw)
+    monkeypatch.setattr(VERIFIER, 'run_process', tracked)
+    left = _r2c6_assess(r2c6_package_inputs)
+    right = _r2c6_assess(r2c6_package_inputs)
+    assert len(calls) == 2 and calls[0] != calls[1]
+    assert canonical(left) == canonical(right)
+    assert not any(p.exists() for p in calls)
+
+
+@pytest.mark.parametrize('fault', ['missing', 'changed', 'not-bytes'])
+def test_r2c7_unpinned_executable_never_runs(r2c6_package_inputs, monkeypatch, fault):
+    source, payloads, subject = _r2c7_fresh_inputs(r2c6_package_inputs)
+    source = b'' if fault == 'missing' else source + b'\n' if fault == 'changed' else source.decode()
+    def forbidden(*a, **kw):
+        raise AssertionError('Unpinned source must never reach a process')
+    monkeypatch.setattr(VERIFIER, 'run_process', forbidden)
+    with pytest.raises(VERIFIER.VerificationError, match='r2_fresh_package_verifier_source_mismatch'):
+        VERIFIER._run_local_r2_package_verifier(source, payloads, subject)
+
+
+@pytest.mark.parametrize('fault', ['missing', 'unexpected', 'not-bytes', 'empty', 'unsafe'])
+def test_r2c7_package_member_restrictions_precede_execution(r2c6_package_inputs, monkeypatch, fault):
+    source, payloads, subject = _r2c7_fresh_inputs(r2c6_package_inputs)
+    payloads = dict(payloads)
+    name = 'run_metadata_v0.json'
+    if fault == 'missing': payloads.pop(name)
+    elif fault == 'unexpected': payloads['unexpected.txt'] = b'x'
+    elif fault == 'unsafe': payloads['../outside.txt'] = b'x'
+    else: payloads[name] = 'not bytes' if fault == 'not-bytes' else b''
+    def forbidden(*a, **kw):
+        raise AssertionError('Invalid members must never reach a process')
+    monkeypatch.setattr(VERIFIER, 'run_process', forbidden)
+    with pytest.raises(VERIFIER.VerificationError, match='r2_fresh_package_member_set_or_budget'):
+        VERIFIER._run_local_r2_package_verifier(source, payloads, subject)
+
+
+@pytest.mark.parametrize('field,value', [('repository', 'foreign/repo'),
+    ('source_commit', 'not-a-commit'), ('workflow_run_id', True),
+    ('workflow_run_attempt', True), ('workflow_run_attempt', 2),
+    ('workflow_ref', 'foreign/workflow'), ('subject_run_key', 'foreign-run')])
+def test_r2c7_direct_subject_mismatches_never_run(r2c6_package_inputs, monkeypatch, field, value):
+    source, payloads, subject = _r2c7_fresh_inputs(r2c6_package_inputs)
+    def forbidden(*a, **kw):
+        raise AssertionError('Invalid identity must never reach a process')
+    monkeypatch.setattr(VERIFIER, 'run_process', forbidden)
+    with pytest.raises(VERIFIER.VerificationError, match='r2_fresh_package_subject_mismatch'):
+        VERIFIER._run_local_r2_package_verifier(source, payloads, {**subject, field: value})
+
+
+@pytest.mark.parametrize('fault,code', [
+    ('exit', 'r2_fresh_package_verifier_failed'),
+    ('execution', 'r2_fresh_package_verifier_execution_failed'),
+    ('missing-report', 'r2_fresh_package_verifier_report_missing_or_large'),
+])
+def test_r2c7_saved_success_never_replaces_failed_execution(r2c6_package_inputs, monkeypatch, fault, code):
+    attempts = []
+    def fail(argv, **kw):
+        attempts.append(argv)
+        if fault == 'execution':
+            raise VERIFIER.VerificationError('subprocess_execution_failed')
+        return VERIFIER.ProcessOutput(23 if fault == 'exit' else 0, b'', b'')
+    monkeypatch.setattr(VERIFIER, 'run_process', fail)
+    with pytest.raises(VERIFIER.VerificationError, match=code):
+        _r2c6_assess(r2c6_package_inputs)
+    assert len(attempts) == 1
+    assert not Path(attempts[0][attempts[0].index('--package-dir') + 1]).exists()
+
+
+@pytest.mark.parametrize('fault,code', [
+    ('status', 'r2_fresh_package_report_rejected'),
+    ('missing-check', 'r2_fresh_package_report_rejected'),
+    ('false-check', 'r2_fresh_package_report_rejected'),
+    ('summary', 'r2_fresh_package_report_rejected'),
+    ('authority', 'r2_fresh_package_report_rejected'),
+    ('time', 'r2_fresh_package_report_rejected'),
+    ('path', 'r2_fresh_package_verifier_report_path_mismatch'),
+    ('symlink', 'r2_fresh_package_verifier_report_missing_or_large'),
+    ('input-mutation', 'r2_fresh_package_input_changed'),
+    ('extra-file', 'r2_fresh_package_input_changed'),
+    ('large-report', 'r2_fresh_package_verifier_report_missing_or_large'),
+    ('large-stdout', 'r2_fresh_package_verifier_output_budget'),
+])
+def test_r2c7_fresh_reports_and_inputs_are_independently_checked(r2c6_package_inputs, monkeypatch, fault, code):
+    original = VERIFIER.run_process
+    calls = []
+    def corrupt(argv, **kw):
+        process = original(argv, **kw)
+        assert process.returncode == 0
+        calls.append(argv)
+        output = Path(argv[argv.index('--out') + 1])
+        package = Path(argv[argv.index('--package-dir') + 1])
+        doc = json.loads(output.read_bytes())
+        if fault == 'status': doc['status'] = 'failed'
+        elif fault == 'missing-check':
+            doc['checks'] = [r for r in doc['checks'] if r['check_id'] != 'metadata.git_sha']
+            doc['summary']['checks_total'] = len(doc['checks'])
+        elif fault == 'false-check': doc['checks'][0]['passed'] = False
+        elif fault == 'summary': doc['summary']['checks_total'] += 1
+        elif fault == 'authority': doc['authority_boundary']['authorizes_release'] = True
+        elif fault == 'time': doc['checked_utc'] = 'not-a-time'
+        elif fault == 'path': doc['package']['path'] = '/foreign/package'
+        elif fault == 'symlink':
+            output.unlink(); output.symlink_to(package / 'run_metadata_v0.json'); return process
+        elif fault == 'input-mutation':
+            p = package / 'run_metadata_v0.json'; p.chmod(0o600); p.write_bytes(b'changed'); return process
+        elif fault == 'extra-file':
+            (package / 'unexpected.txt').write_bytes(b'x'); return process
+        elif fault == 'large-report':
+            output.write_bytes(b'x' * (1048576 + 1)); return process
+        else:
+            return VERIFIER.ProcessOutput(0, b'x' * (1048576 + 1), b'')
+        output.write_bytes(canonical(doc))
+        return process
+    monkeypatch.setattr(VERIFIER, 'run_process', corrupt)
+    with pytest.raises(VERIFIER.VerificationError) as caught:
+        _r2c6_assess(r2c6_package_inputs)
+    assert caught.value.code == code
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize('field,value', [
+    ('fresh_package_verifier_cli_executed', False),
+    ('fresh_package_verifier_semantics_sha256', '0' * 64),
+    ('fresh_package_verifier_check_count', 0),
+])
+def test_r2c7_saved_fresh_execution_claim_is_recomputed(r2c6_package_inputs, field, value):
+    f = r2c6_package_inputs
+    document = _r2c6_assess(f)
+    document[field] = value
+    raw = canonical(document)
+    with pytest.raises(VERIFIER.VerificationError, match='r2_package_assessment_mismatch'):
+        VERIFIER._verify_local_r2_package_replay_assessment(raw, f.capture, f.carrier.raw, f.carrier.context,
+            expected_assessment_sha256=digest(raw), fixture_commit_raw=f.commit_raw,
+            expected_fixture_commit=f.commit, **f.pins)
+
 
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters

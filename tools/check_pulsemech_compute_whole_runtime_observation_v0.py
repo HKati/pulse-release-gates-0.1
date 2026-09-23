@@ -6487,6 +6487,94 @@ def _local_r2_package_replay_sources(
     return module, bindings
 
 
+def _run_local_r2_package_verifier(
+    verifier_raw: bytes, payloads: Mapping[str, bytes], subject: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Execute the existing pinned package CLI on the exact already-bound members.
+
+    This discharges only fresh package-verifier execution, not signatures,
+    provider validation, role admission or the observed reference route. The
+    caller authenticates preparation/capture/source/run before invoking it.
+    No executable path or successful report can be supplied by the caller.
+    """
+    path, blob = _LOCAL_R2_PACKAGE_REPLAY_SOURCES[1]
+    require(type(verifier_raw) is bytes and 0 < len(verifier_raw) <= 1048576
+            and hashlib.sha1(b'blob %d\0' % len(verifier_raw) + verifier_raw).hexdigest() == blob,
+            'r2_fresh_package_verifier_source_mismatch', stage='local_r2_package')
+    require(set(payloads) == _PACKAGE_FILE_SET
+            and all(type(raw) is bytes and 0 < len(raw) <= 32 * 1024 * 1024
+                    for raw in payloads.values())
+            and sum(map(len, payloads.values())) <= 64 * 1024 * 1024,
+            'r2_fresh_package_member_set_or_budget', stage='local_r2_package')
+    for name in payloads:
+        safe_member(name, label='r2_fresh_package_member')
+    # The source/commit relationship is independently checked by the caller.
+    # These assertions also keep direct use of this narrow helper fail-closed.
+    run_id = subject.get('workflow_run_id')
+    require(type(run_id) is int and run_id > 0
+            and subject.get('repository') == REPOSITORY
+            and type(subject.get('source_commit')) is str
+            and SHA40_RE.fullmatch(subject['source_commit']) is not None
+            and type(subject.get('workflow_run_attempt')) is int
+            and subject['workflow_run_attempt'] == 1
+            and subject.get('workflow_ref') == REPOSITORY + '/' + SUBJECT_WORKFLOW_PATH + '@refs/heads/main'
+            and subject.get('subject_run_key') == f'GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI',
+            'r2_fresh_package_subject_mismatch', stage='local_r2_package')
+    with tempfile.TemporaryDirectory(prefix='pulsemech-r2-package-') as directory:
+        workspace = Path(directory)
+        executable = workspace / path
+        package = workspace / 'package'
+        output = workspace / 'verification.json'
+        _write_read_only(executable, verifier_raw)
+        for name, raw in sorted(payloads.items()):
+            _write_read_only(package / name, raw)
+        expected = {path: verifier_raw, **{'package/' + name: raw for name, raw in payloads.items()}}
+
+        def verify_inputs(*, allow_report: bool) -> None:
+            files = {}
+            for item in workspace.rglob('*'):
+                metadata = item.lstat()
+                require(stat.S_ISDIR(metadata.st_mode) or stat.S_ISREG(metadata.st_mode),
+                        'r2_fresh_package_input_changed', stage='local_r2_package')
+                if stat.S_ISREG(metadata.st_mode):
+                    require(metadata.st_nlink == 1, 'r2_fresh_package_input_changed', stage='local_r2_package')
+                    files[item.relative_to(workspace).as_posix()] = item
+            require(set(files) == set(expected) | ({'verification.json'} if allow_report else set()),
+                    'r2_fresh_package_input_changed', stage='local_r2_package')
+            for name, raw in expected.items():
+                require(sha256_file(files[name]) == (sha256_bytes(raw), len(raw)),
+                        'r2_fresh_package_input_changed', stage='local_r2_package')
+
+        verify_inputs(allow_report=False)
+        command = [sys.executable, '-I', '-B', str(executable),
+            '--repo-root', str(workspace), '--package-dir', str(package), '--out', str(output),
+            '--repository', subject['repository'], '--git-sha', subject['source_commit'],
+            '--workflow-ref', subject['workflow_ref'], '--run-id', str(run_id),
+            '--run-attempt', '1', '--run-key', subject['subject_run_key']]
+        try:
+            process = run_process(command, cwd=workspace, timeout=120)
+        except VerificationError as exc:
+            raise VerificationError('r2_fresh_package_verifier_execution_failed', stage='local_r2_package') from exc
+        # Never emit child diagnostics (which can contain local paths or input
+        # text) as Step 5C evidence. Nonzero exit is not replaced by saved PASS.
+        require(process.returncode == 0, 'r2_fresh_package_verifier_failed', stage='local_r2_package')
+        require(len(process.stdout) <= 1048576 and len(process.stderr) <= 1048576,
+                'r2_fresh_package_verifier_output_budget', stage='local_r2_package')
+        require(output.is_file() and not output.is_symlink()
+                and 0 < output.stat().st_size <= 1048576,
+                'r2_fresh_package_verifier_report_missing_or_large', stage='local_r2_package')
+        verify_inputs(allow_report=True)
+        raw = output.read_bytes()
+        require(0 < len(raw) <= 1048576,
+                'r2_fresh_package_verifier_report_missing_or_large', stage='local_r2_package')
+        document = parse_json_bytes(raw, label='r2_fresh_package_verifier_report', canonical=False)
+        require(document.get('package') == {'path': str(package)},
+                'r2_fresh_package_verifier_report_path_mismatch', stage='local_r2_package')
+        # Report contents are independently replayed by the original Step 3F
+        # consumer below. A successful exit alone is never a verification verdict.
+        return document
+
+
 def _local_r2_package_replay_assessment(
     plan: Mapping[str, Any], prepared_members: Mapping[str, bytes],
     checked_capture: Mapping[str, Any], acquisition_members: Mapping[str, bytes], *,
@@ -6496,6 +6584,7 @@ def _local_r2_package_replay_assessment(
 
     Callers must authenticate all outer input pins through the byte entrypoint.
     This is a new non-admitting stage, not a rewrite of the old projections.
+    The existing package CLI also runs afresh on the authenticated bytes.
     Publication timing, completeness reports, signatures and full provider/core
     evaluation remain separate requirements even when this subcheck succeeds.
     """
@@ -6566,6 +6655,29 @@ def _local_r2_package_replay_assessment(
         require(times == sorted(times), 'r2_package_time_order_mismatch', stage='local_r2_package')
     except (VerificationError, TypeError, ValueError):
         raise VerificationError('r2_package_time_order_mismatch', stage='local_r2_package') from None
+    fresh = _run_local_r2_package_verifier(
+        prepared_members['sources/' + _LOCAL_R2_PACKAGE_REPLAY_SOURCES[1][0]], payloads, subject)
+    try:
+        consumer._validate_check_report(
+            document=fresh, schema_version='release_grade_reference_package_verification_v0',
+            status_field='status', status_value='verified', label='fresh_package_verification',
+            report_kind='verification', members=payloads, inventory=inventory,
+            inventory_rows=rows, subject=subject,
+        )
+    except consumer.WrapperError as exc:
+        raise VerificationError('r2_fresh_package_report_rejected', stage='local_r2_package') from exc
+    # The old terminal report remains bound to the original run above. The
+    # freshly executed verifier's clock and temporary path are checked, but do
+    # not become original-run timestamps or nondeterministic assessment fields.
+    # All included semantic fields must match the independently replayed report.
+    def semantic_result(document: Mapping[str, Any]) -> dict[str, Any]:
+        return {key: document[key] for key in
+                ('schema_version', 'status', 'verified', 'tool', 'summary', 'errors', 'authority_boundary')} | {
+            'checks': sorted(({'check_id': row['check_id'], 'passed': row['passed']}
+                              for row in document['checks']), key=lambda row: row['check_id'])}
+    fresh_semantics = semantic_result(fresh)
+    require(canonical_json_bytes(fresh_semantics) == canonical_json_bytes(semantic_result(report)),
+            'r2_fresh_package_semantics_mismatch', stage='local_r2_package')
     ids = sorted(row['check_id'] for row in report['checks'])
     return {
         'schema_version': 'pulsemech_step5c_local_r2_package_replay_assessment_v0',
@@ -6582,7 +6694,9 @@ def _local_r2_package_replay_assessment(
         'package_verification_semantics_replayed': True,
         'captured_terminal_report_revalidated': True,
         'synthetic_run_time_order_checked': True,
-        'fresh_package_verifier_cli_executed': False,
+        'fresh_package_verifier_cli_executed': True,
+        'fresh_package_verifier_semantics_sha256': sha256_bytes(canonical_json_bytes(fresh_semantics)),
+        'fresh_package_verifier_check_count': len(fresh['checks']),
         'fully_satisfied_role_count': 0, 'role_evidence_evaluated': False,
         'pending_semantic_checks': projection['pending_semantic_checks'],
         'remaining_package_duties': ['complete_metadata_profile_and_publication_time',
