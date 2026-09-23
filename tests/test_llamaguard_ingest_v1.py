@@ -928,6 +928,47 @@ def test_missing_tool_version_fails_closed(
     assert not fixture["summary"].exists()
 
 
+def test_evaluator_manifest_digest_is_explicit_for_downstream_consumer(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    assert _run(fixture) == 0
+    summary = _read_json(fixture['summary'])
+    assert summary['extensions']['evaluator_manifest_sha256'] == _sha256(fixture['evaluator_manifest'])
+    assert _schema_errors(fixture, summary) == []
+    assert summary['authority_boundary'] == AUTHORITY_BOUNDARY
+
+
+def test_changed_manifest_bytes_update_direct_and_composite_bindings(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    assert _run(fixture) == 0
+    before = _read_json(fixture['summary'])
+    manifest = _read_json(fixture['evaluator_manifest'])
+    manifest['configuration']['controlled_fixture_revision'] = 2
+    _write_json(fixture['evaluator_manifest'], manifest)
+    assert _run(fixture) == 0
+    after = _read_json(fixture['summary'])
+    assert after['extensions']['evaluator_manifest_sha256'] == _sha256(fixture['evaluator_manifest'])
+    assert before['extensions']['evaluator_manifest_sha256'] != after['extensions']['evaluator_manifest_sha256']
+    assert before['run']['evaluator_digest'] != after['run']['evaluator_digest']
+    assert before['evidence']['raw_artifact_digest'] == after['evidence']['raw_artifact_digest']
+
+
+def test_without_manifest_no_manifest_digest_is_invented(tmp_path: Path) -> None:
+    import importlib.util
+    fixture = _fixture(tmp_path)
+    # Load the exact adapter inside this fixture root so its own source digest
+    # remains an in-root input on the supported manifest-free path.
+    adapter = _copy_contract(fixture['repo'], 'PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py')
+    spec = importlib.util.spec_from_file_location('manifest_free_adapter', adapter)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.main(_arguments(fixture, evaluator_manifest=None)) == 0
+    summary = _read_json(fixture['summary'])
+    assert 'evaluator_manifest_sha256' not in summary['extensions']
+    assert 'evaluator_sha256' not in summary['extensions']
+    assert summary['extensions']['evaluator_source'] == 'PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py'
+    assert _schema_errors(fixture, summary) == []
+
+
 def main() -> int:
     return pytest.main([__file__, "-q"])
 

@@ -1063,6 +1063,11 @@ def _build_summary(
         },
     }
 
+    # Keep the manifest's exact byte binding available to downstream consumers.
+    # The composite evaluator_digest above is not this direct manifest digest.
+    if evaluator_manifest_sha is not None:
+        summary["extensions"]["evaluator_manifest_sha256"] = evaluator_manifest_sha
+
     _validate_summary_schema(
         summary,
         schema_path,

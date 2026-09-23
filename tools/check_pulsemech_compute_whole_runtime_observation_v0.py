@@ -7452,5 +7452,355 @@ def _verify_local_r2_recorded_inputs_assessment(assessment_raw, capture_raw, pre
     require(assessment_raw == expected, 'r2_recorded_inputs_assessment_mismatch', stage='local_r2_recorded_inputs')
     return parse_json_bytes(expected, label='r2_recorded_inputs_assessment')
 
+# R2C12: source-bound LlamaGuard controlled-record and canonical-summary content.
+# This is not a model invocation, attestation verification or role admission.
+_LOCAL_R2_LLAMAGUARD_CONTENT_SOURCES = (
+    ('.github/workflows/pulse_ci.yml', '352181859e0ed77019137c19346378981ae28237'),
+    ('PULSE_safe_pack_v0/tools/run_llamaguard_current_evidence_v0.py', '058edf0d16383db41a5a4500caf4b484321d2e57'),
+    ('PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py', 'b1416fb3675a3d4bb652eaa993ed14a51a96f9c2'),
+    ('PULSE_safe_pack_v0/examples/llamaguard_current_run_cases_v0.jsonl', '3b6ca799f26c7374334c51c5c9c8ea26b35cf857'),
+    ('PULSE_safe_pack_v0/requirements-llamaguard-v0.txt', 'dcf8c81a3a735572f3fc6413adcf1ba6f8fbaa97'),
+    ('PULSE_safe_pack_v0/schemas/llamaguard_evaluator_manifest_v0.schema.json', '4b534981a26786e110273e127a2befbd21f2e1ba'),
+    ('schemas/external_summary_v1.schema.json', '3cf447bdd4db26572549a7472130a8499d9c3db7'),
+    ('PULSE_safe_pack_v0/profiles/external_thresholds.yaml', '242913b569a09fa24f44672026037f09865adab7'),
+)
+_LOCAL_R2_LLAMAGUARD_CONTENT_MEMBERS = (
+    'external/llamaguard_raw.jsonl',
+    'external/llamaguard_evaluator_manifest_v0.json',
+    'external/llamaguard_summary.json',
+)
+_LOCAL_R2_LLAMAGUARD_CONTENT_DRIVER = r"""
+import hashlib, importlib.util, json, re, shlex, sys
+from pathlib import Path
+import yaml
+root = Path.cwd()
+def fail(code):
+    print(code, file=sys.stderr)
+    raise SystemExit(17)
+def need(value, code):
+    if not value: fail(code)
+def pairs(items):
+    value = {}
+    for key, item in items:
+        if key in value: fail('duplicate_json_key')
+        value[key] = item
+    return value
+def reject_constant(value): fail('nonfinite_json_number')
+def read(path):
+    return json.loads(path.read_bytes(), object_pairs_hook=pairs, parse_constant=reject_constant)
+def canon(value):
+    return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False, allow_nan=False).encode()
+def equal(left, right): return canon(left) == canon(right)
+def digest(path): return hashlib.sha256(path.read_bytes()).hexdigest()
+def load(path, name):
+    spec = importlib.util.spec_from_file_location(name, root/path)
+    module = importlib.util.module_from_spec(spec); sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+runner = load('PULSE_safe_pack_v0/tools/run_llamaguard_current_evidence_v0.py', 'r2c12_runner')
+ingest = load('PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py', 'r2c12_ingest')
+spec = read(root/'llamaguard-input.json')
+# The workflow bytes have a reviewed immutable pin. Resolve its literal
+# generation arguments; never use values supplied by the evaluator report.
+workflow = yaml.safe_load((root/runner.WORKFLOW_REL).read_bytes())
+steps = workflow['jobs']['pulse']['steps']
+producer = [row for row in steps if row.get('name') ==
+    'release-grade produce current-run LlamaGuard raw evidence']
+need(len(producer) == 1, 'producer_occurrence_mismatch')
+argv = shlex.split(producer[0]['run'].replace(chr(92)+chr(10), ' '))
+def literal_argument(flag):
+    need(argv.count(flag) == 1, 'generation_argument_ambiguous')
+    token = argv[argv.index(flag)+1]
+    need(re.fullmatch(r'[1-9][0-9]*', token) is not None, 'generation_argument_not_literal')
+    return int(token)
+max_tokens, threads = literal_argument('--max-new-tokens'), literal_argument('--torch-threads')
+need(max_tokens <= 128 and threads <= 64, 'generation_argument_budget')
+cases = runner._load_cases(root/runner.DATASET_REL)
+need(len(cases) == 6 and [row['case_id'] for row in cases] == spec['case_ids'], 'controlled_case_set_mismatch')
+manifest = read(root/runner.MANIFEST_REL)
+runner._validate_manifest_schema(manifest, root/runner.MANIFEST_SCHEMA_REL)
+run_key = f"GITHUB_RUN_ID={spec['run_id']}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+expected_run = {'repository': spec['repository'], 'git_sha': spec['commit'],
+    'run_key': run_key, 'run_id': spec['run_id'], 'run_attempt': 1,
+    'workflow_name': runner.WORKFLOW_NAME,
+    'workflow_ref': spec['repository']+'/'+runner.WORKFLOW_REL+'@refs/heads/main',
+    'workflow_path': runner.WORKFLOW_REL, 'release_candidate': 'main',
+    'created_utc': spec['created_utc']}
+model = {'id': runner.MODEL_ID, 'revision': runner.MODEL_REVISION, 'dtype': 'float32'}
+generation = {'manual_seed': 0, 'do_sample': False, 'num_beams': 1,
+              'pad_token_id': 0, 'max_new_tokens': max_tokens}
+need(equal(manifest['run'], expected_run), 'manifest_run_mismatch')
+need(equal(manifest['model'], model), 'manifest_model_mismatch')
+need(equal(manifest['producer'], {'path': runner.TOOL_REL,
+    'tool': 'run_llamaguard_current_evidence_v0.py', 'version': runner.TOOL_VERSION,
+    'sha256': digest(root/runner.TOOL_REL)}), 'manifest_producer_mismatch')
+need(equal(manifest['dataset'], {'path': runner.DATASET_REL,
+    'sha256': digest(root/runner.DATASET_REL), 'case_count': len(cases)}), 'manifest_dataset_mismatch')
+need(equal(manifest['schema_binding'], {'path': runner.MANIFEST_SCHEMA_REL,
+    'sha256': digest(root/runner.MANIFEST_SCHEMA_REL)}), 'manifest_schema_binding_mismatch')
+need(equal(manifest['authority_boundary'], runner.AUTHORITY_BOUNDARY), 'manifest_authority_mismatch')
+need(manifest['runtime']['device'] == 'cpu' and type(manifest['runtime']['torch_threads']) is int
+    and manifest['runtime']['torch_threads'] == threads
+    and equal(manifest['runtime']['generation'], generation), 'manifest_generation_mismatch')
+# These are consistency checks on declared version strings, not measurements
+# of installed packages or proof that this runtime actually executed.
+requirements = (root/'PULSE_safe_pack_v0/requirements-llamaguard-v0.txt').read_text().splitlines()
+version_keys = {'torch':'torch', 'transformers':'transformers',
+                'huggingface-hub':'huggingface_hub', 'safetensors':'safetensors'}
+pinned = {}
+for line in requirements:
+    if '==' in line:
+        name, version = line.strip().split('==', 1)
+        need(name in version_keys and name not in pinned, 'runtime_requirement_mismatch')
+        pinned[name] = version
+need(set(pinned) == set(version_keys), 'runtime_requirement_set_mismatch')
+need(all(manifest['runtime']['versions'][version_keys[key]] == value
+         for key, value in pinned.items()), 'declared_runtime_version_mismatch')
+raw_lines = (root/runner.RAW_REL).read_bytes().splitlines()
+need(len(raw_lines) == len(cases) and all(raw_lines), 'raw_record_count_mismatch')
+records = [json.loads(line, object_pairs_hook=pairs, parse_constant=reject_constant) for line in raw_lines]
+safe_count = unsafe_count = 0
+for index, (case, record) in enumerate(zip(cases, records)):
+    need(type(record) is dict and set(record) ==
+         {'case_id','input','output','llamaguard','model','run','inference'}, 'raw_record_shape_mismatch')
+    need(all(record[key] == case[key] and type(record[key]) is str
+             for key in ('case_id','input','output')), 'raw_controlled_case_mismatch')
+    expected_record_run = {key:value for key,value in expected_run.items() if key != 'workflow_path'}
+    expected_record_run['case_index'] = index
+    need(equal(record['run'], expected_record_run), 'raw_run_mismatch')
+    need(equal(record['model'], model), 'raw_model_mismatch')
+    classification = record['llamaguard']
+    need(type(classification) is dict and set(classification) == {'label','categories','raw_output'},
+         'classification_shape_mismatch')
+    label, categories, raw_output = runner._parse_model_output(classification['raw_output'])
+    need(equal(classification, {'label':label,'categories':categories,'raw_output':raw_output}),
+         'classification_parse_mismatch')
+    safe_count += label == 'safe'; unsafe_count += label == 'unsafe'
+    inference = record['inference']
+    need(type(inference) is dict and set(inference) ==
+        set(generation)|{'device','torch_threads','prompt_tokens','generated_tokens'}, 'inference_shape_mismatch')
+    need(equal({key:inference[key] for key in generation}, generation)
+        and inference['device'] == 'cpu' and type(inference['torch_threads']) is int
+        and inference['torch_threads'] == threads, 'raw_generation_mismatch')
+    need(type(inference['prompt_tokens']) is int and 0 < inference['prompt_tokens']
+        and type(inference['generated_tokens']) is int and 0 < inference['generated_tokens'] <= max_tokens,
+        'declared_token_count_invalid')
+need(equal(manifest['output'], {'raw_evidence_path':runner.RAW_REL,
+    'raw_evidence_sha256':digest(root/runner.RAW_REL), 'record_count':len(records),
+    'safe_count':safe_count, 'unsafe_count':unsafe_count}), 'manifest_output_mismatch')
+# Reuse the existing content API with the separately preserved canonical root
+# schema. The caller binds its bytes to the workflow's schema locator as well;
+# this is not an invocation of the ingest CLI or a substituted source file.
+rebuilt = ingest._build_summary(repo_root=root, raw_path=root/runner.RAW_REL,
+    dataset_path=root/runner.DATASET_REL, evaluator_manifest_path=root/runner.MANIFEST_REL,
+    schema_path=root/'schemas/external_summary_v1.schema.json', thresholds_path=root/ingest.THRESHOLDS_REL,
+    run_id=run_key, generated_at=spec['created_utc'], release_candidate='main', git_sha=spec['commit'],
+    repository=spec['repository'], signer_identity='repo:'+spec['repository']+':workflow:'+runner.WORKFLOW_REL,
+    tool_version=runner.MODEL_REVISION, adapter_version=ingest.ADAPTER_VERSION)
+need(equal(read(root/ingest.SUMMARY_REL), rebuilt), 'canonical_summary_mismatch')
+need(rebuilt['result']['passed'] is True and rebuilt['result']['release_contribution'] == 'required',
+     'selected_summary_not_passed')
+print(canon({'schema_version':'pulsemech_step5c_local_r2_llamaguard_content_core_v0',
+    'case_ids':[case['case_id'] for case in cases], 'record_count':len(records),
+    'safe_count':safe_count, 'unsafe_count':unsafe_count,
+    'run_identity':expected_run, 'model':model, 'generation':generation, 'torch_threads':threads,
+    'raw_sha256':digest(root/runner.RAW_REL), 'manifest_sha256':digest(root/runner.MANIFEST_REL),
+    'summary':rebuilt}).decode())
+"""
+
+
+def _local_r2_llamaguard_content_sources(plan, prepared_members):
+    source = plan['plan_identity']['source_identity']; values = {}; bindings = []
+    for path, blob in _LOCAL_R2_LLAMAGUARD_CONTENT_SOURCES:
+        rows = [row for row in plan['source_inventory'] if row.get('path') == path]
+        raw = prepared_members.get('sources/' + path)
+        require(len(rows) == 1 and type(raw) is bytes and 0 < len(raw) <= 1048576,
+                'r2_llamaguard_content_source_missing', stage='local_r2_llamaguard_content')
+        row = rows[0]
+        require(source.get('kind') == row.get('revision_kind') == 'uncommitted_git_tree'
+                and row.get('revision') == source['git_tree_sha1'] and row.get('git_blob_sha1') == blob
+                    == hashlib.sha1(b'blob %d\0' % len(raw) + raw).hexdigest()
+                and row.get('sha256') == sha256_bytes(raw)
+                and type(row.get('size_bytes')) is int and row['size_bytes'] == len(raw),
+                'r2_llamaguard_content_source_mismatch', stage='local_r2_llamaguard_content')
+        values[path] = raw
+        bindings.append({'path': path, 'git_blob_sha1': blob, 'sha256': sha256_bytes(raw), 'size_bytes': len(raw)})
+    # The workflow uses the pack-located copy. Verify byte identity through the
+    # complete, separately pinned source index; never read that path from disk.
+    index_raw = prepared_members['local-r2-source-index.json']
+    require(sha256_bytes(index_raw) == source['source_index_sha256'],
+            'r2_llamaguard_source_index_mismatch', stage='local_r2_llamaguard_content')
+    index = parse_json_bytes(index_raw, label='r2_llamaguard_source_index')
+    schema_path = 'PULSE_safe_pack_v0/schemas/external_summary_v1.schema.json'
+    rows = [row for row in index['files'] if row['path'] == schema_path]
+    raw = values['schemas/external_summary_v1.schema.json']
+    require(len(rows) == 1 and rows[0]['sha256'] == sha256_bytes(raw)
+            and type(rows[0]['size_bytes']) is int and rows[0]['size_bytes'] == len(raw)
+            and rows[0]['git_blob_sha1'] == hashlib.sha1(b'blob %d\0' % len(raw)+raw).hexdigest(),
+            'r2_llamaguard_workflow_schema_mismatch', stage='local_r2_llamaguard_content')
+    bindings.append({'path': schema_path, 'git_blob_sha1': rows[0]['git_blob_sha1'],
+                     'sha256': sha256_bytes(raw), 'size_bytes': len(raw),
+                     'binding_kind': 'indexed_byte_identity_to_preserved_root_schema'})
+    return values, bindings
+
+
+def _run_local_r2_llamaguard_content(sources, payloads, spec):
+    """Use existing parsing/schema/summary functions, with no model or gh call."""
+    stage = 'local_r2_llamaguard_content'
+    require(set(sources) == {path for path, _ in _LOCAL_R2_LLAMAGUARD_CONTENT_SOURCES},
+            'r2_llamaguard_content_source_missing', stage=stage)
+    for path, blob in _LOCAL_R2_LLAMAGUARD_CONTENT_SOURCES:
+        raw = sources[path]
+        require(type(raw) is bytes and 0 < len(raw) <= 1048576
+                and hashlib.sha1(b'blob %d\0' % len(raw)+raw).hexdigest() == blob,
+                'r2_llamaguard_content_source_mismatch', stage=stage)
+    require(set(payloads) == {'PULSE_safe_pack_v0/artifacts/'+name for name in _LOCAL_R2_LLAMAGUARD_CONTENT_MEMBERS}
+            and all(type(raw) is bytes and 0 < len(raw) <= 1048576 for raw in payloads.values()),
+            'r2_llamaguard_content_payload_mismatch', stage=stage)
+    require(set(spec) == {'repository','commit','run_id','created_utc','case_ids'}
+            and spec['repository'] == REPOSITORY and type(spec['commit']) is str
+            and SHA40_RE.fullmatch(spec['commit']) is not None and type(spec['run_id']) is int and spec['run_id'] > 0
+            and type(spec['case_ids']) is list and len(spec['case_ids']) == 6
+            and all(type(key) is str for key in spec['case_ids']) and len(set(spec['case_ids'])) == 6,
+            'r2_llamaguard_content_subject_mismatch', stage=stage)
+    parse_utc(spec['created_utc'], label='r2_llamaguard_content_created')
+    expected = {**sources, **payloads, 'llamaguard-input.json':canonical_json_bytes(spec)}
+    with tempfile.TemporaryDirectory(prefix='pulsemech-r2-llamaguard-content-') as temporary:
+        workspace = Path(temporary)
+        for name, raw in sorted(expected.items()):
+            safe_member(name, label='r2_llamaguard_content_path'); _write_read_only(workspace/name, raw)
+        def identity(item):
+            info = item.lstat()
+            return (info.st_dev,info.st_ino,info.st_size,info.st_mtime_ns,info.st_ctime_ns,info.st_mode,info.st_nlink)
+        snapshots = {name:identity(workspace/name) for name in expected}
+        def unchanged():
+            found = set()
+            for item in workspace.rglob('*'):
+                mode = item.lstat().st_mode
+                require(stat.S_ISDIR(mode) or stat.S_ISREG(mode), 'r2_llamaguard_content_input_changed', stage=stage)
+                if stat.S_ISREG(mode):
+                    name = item.relative_to(workspace).as_posix()
+                    require(name in expected and identity(item) == snapshots[name] and item.lstat().st_nlink == 1
+                            and sha256_file(item) == (sha256_bytes(expected[name]),len(expected[name])),
+                            'r2_llamaguard_content_input_changed', stage=stage)
+                    found.add(name)
+            require(found == set(expected), 'r2_llamaguard_content_input_changed', stage=stage)
+        unchanged()
+        try:
+            proc = run_process([sys.executable,'-I','-B','-c',_LOCAL_R2_LLAMAGUARD_CONTENT_DRIVER],
+                               cwd=workspace, timeout=60)
+        except VerificationError as exc:
+            raise VerificationError('r2_llamaguard_content_execution_failed', stage=stage) from exc
+        unchanged()
+        require(proc.returncode == 0, 'r2_llamaguard_content_core_rejected', str(proc.returncode), stage=stage)
+        require(0 < len(proc.stdout) <= 1048576 and len(proc.stderr) <= 1048576,
+                'r2_llamaguard_content_output_budget', stage=stage)
+        return parse_json_bytes(proc.stdout, label='r2_llamaguard_content_result', canonical=False, maximum=1048576)
+
+
+def _local_r2_llamaguard_content(plan, prepared_members, checked_capture, acquisition_members, *, commit):
+    stage = 'local_r2_llamaguard_content'
+    sources, bindings = _local_r2_llamaguard_content_sources(plan, prepared_members)
+    parents = []; originals = []; pages = []; publications = []
+    for role in ('pre_attestation_pulse_artifacts','release_grade_recorded_path'):
+        selected, metadata, raw, page = _local_r2_provider_publication(acquisition_members, checked_capture, role)
+        require(selected['source_run_kind'] == 'subject' and selected['source_run_id'] == checked_capture['subject_run_id'],
+                'r2_llamaguard_content_parent_mismatch', stage=stage)
+        names = next(names for key, _, names in _STATE_ARCHIVE_LAYOUT if key == role)
+        _, payloads, _ = _inspect_state_archive_bytes(raw, names, member_limit=128,
+            single_limit=16*1024*1024, expansion_limit=64*1024*1024, retained_members=names)
+        publications.append(metadata['created_at'])
+        originals.append({name:payloads[name] for name in _LOCAL_R2_LLAMAGUARD_CONTENT_MEMBERS})
+        parents.append({'role':role,'artifact_id':selected['artifact_id'],
+                        'artifact_name':selected['artifact_name'],'archive':descriptor(selected['member'],raw)})
+        pages.append(page)
+    require(originals[0] == originals[1], 'r2_llamaguard_content_copy_mismatch', stage=stage)
+    saved = originals[1]
+    manifest = parse_json_bytes(saved[_LOCAL_R2_LLAMAGUARD_CONTENT_MEMBERS[1]],
+                               label='r2_llamaguard_manifest', canonical=False, maximum=1048576)
+    require(type(manifest.get('run')) is dict, 'r2_llamaguard_manifest_run_missing', stage=stage)
+    stamp = manifest['run'].get('created_utc')
+    created = parse_utc(stamp, label='r2_llamaguard_content_created')
+    run_id = checked_capture['subject_run_id']
+    run, run_binding = _local_r2_response_bytes(acquisition_members, f'repos/{REPOSITORY}/actions/runs/{run_id}')
+    _local_r2_run_time_fields(run)
+    require(parse_utc(run['run_started_at'], label='r2_llamaguard_start') <= created
+            <= parse_utc(run['updated_at'], label='r2_llamaguard_end'),
+            'r2_llamaguard_content_time_outside_run', stage=stage)
+    require(all(created <= parse_utc(stamp, label='r2_llamaguard_publication') for stamp in publications),
+            'r2_llamaguard_content_publication_time', stage=stage)
+    rows = plan['model_inference_templates']
+    dataset_lines = [parse_json_bytes(line, label='r2_llamaguard_controlled_case', canonical=False)
+                     for line in sources['PULSE_safe_pack_v0/examples/llamaguard_current_run_cases_v0.jsonl'].splitlines() if line.strip()]
+    case_ids = [row['case_id'] for row in dataset_lines]
+    expected_ids = ['inference:step5c:llamaguard:'+key for key in case_ids]
+    require(len(rows) == len(case_ids) == 6 and [row.get('inference_id') for row in rows] == expected_ids,
+            'r2_llamaguard_content_plan_case_mismatch', stage=stage)
+    spec = {'repository':REPOSITORY,'commit':commit,'run_id':run_id,'created_utc':stamp,'case_ids':case_ids}
+    result = _run_local_r2_llamaguard_content(sources,
+        {'PULSE_safe_pack_v0/artifacts/'+name:raw for name,raw in saved.items()}, spec)
+    summary = parse_json_bytes(saved[_LOCAL_R2_LLAMAGUARD_CONTENT_MEMBERS[2]], label='r2_llamaguard_summary', canonical=False)
+    expected_run = {'repository':REPOSITORY,'git_sha':commit,'run_key':f'GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI',
+        'run_id':run_id,'run_attempt':1,'workflow_name':'PULSE CI',
+        'workflow_ref':REPOSITORY+'/.github/workflows/pulse_ci.yml@refs/heads/main',
+        'workflow_path':'.github/workflows/pulse_ci.yml','release_candidate':'main','created_utc':stamp}
+    require(set(result) == {'schema_version','case_ids','record_count','safe_count','unsafe_count','run_identity',
+                           'model','generation','torch_threads','raw_sha256','manifest_sha256','summary'}
+            and result['schema_version'] == 'pulsemech_step5c_local_r2_llamaguard_content_core_v0'
+            and result['case_ids'] == case_ids and type(result['record_count']) is int and result['record_count'] == 6
+            and type(result['safe_count']) is int and 0 <= result['safe_count'] <= 6
+            and type(result['unsafe_count']) is int and result['unsafe_count'] == 6-result['safe_count']
+            and canonical_json_bytes(result['run_identity']) == canonical_json_bytes(expected_run)
+            and canonical_json_bytes(result['model']) == canonical_json_bytes(manifest.get('model'))
+            and canonical_json_bytes(result['generation']) == canonical_json_bytes(manifest.get('runtime',{}).get('generation'))
+            and type(result['torch_threads']) is int and result['torch_threads'] == manifest.get('runtime',{}).get('torch_threads')
+            and result['raw_sha256'] == sha256_bytes(saved[_LOCAL_R2_LLAMAGUARD_CONTENT_MEMBERS[0]])
+            and result['manifest_sha256'] == sha256_bytes(saved[_LOCAL_R2_LLAMAGUARD_CONTENT_MEMBERS[1]])
+            and canonical_json_bytes(result['summary']) == canonical_json_bytes(summary),
+            'r2_llamaguard_content_result_mismatch', stage=stage)
+    return {'validation_scope':'six_source_controlled_records_evaluator_manifest_and_existing_core_summary',
+        'source_bindings':bindings,'parent_archives':parents,'raw_metadata_pages':pages,'raw_run_response':run_binding,
+        'input_members':[descriptor(name,raw) for name,raw in sorted(saved.items())], 'run_identity':expected_run,
+        'controlled_case_ids':case_ids,'checked_record_count':6,'safe_count':result['safe_count'],'unsafe_count':result['unsafe_count'],
+        'core_result_sha256':sha256_bytes(canonical_json_bytes(result)),
+        'controlled_case_content_checked':True,'evaluator_manifest_content_checked':True,'canonical_summary_replayed':True,
+        'model_inference_reexecuted':False,'observed_model_execution_proven':False,'runtime_installation_verified':False,
+        'attestation_envelope_verified':False,'mandatory_llamaguard_signatures_verified':False,
+        'full_recorded_verifier_executed':False,'simulation_only':True,'observed_platform_execution':False,
+        'original_runtime_reads_proven':False,'time_order_scope':'supplied_utc_values_only','cross_source_clock_status':'not_verified'}
+
+
+def _local_r2_llamaguard_content_assessment(plan, prepared_members, checked_capture, acquisition_members, *,
+                                           fixture_commit_raw, expected_fixture_commit):
+    previous = _local_r2_recorded_inputs_assessment(plan, prepared_members, checked_capture, acquisition_members,
+        fixture_commit_raw=fixture_commit_raw, expected_fixture_commit=expected_fixture_commit)
+    content = _local_r2_llamaguard_content(plan, prepared_members, checked_capture, acquisition_members,
+                                         commit=expected_fixture_commit)
+    return {**previous,'schema_version':'pulsemech_step5c_local_r2_llamaguard_content_assessment_v0',
+        'validation_scope':'package_provider_recorded_inputs_and_llamaguard_content',
+        'recorded_inputs_assessment_sha256':sha256_bytes(canonical_json_bytes(previous)), 'llamaguard_content':content}
+
+
+def _assess_local_r2_llamaguard_content(capture_raw, prepared_raw, expected_context_raw, *,
+    fixture_commit_raw, expected_fixture_commit, expected_capture_sha256, expected_acquisition_sha256, **pins):
+    checked, captured = _read_local_r2_capture(capture_raw, prepared_raw, expected_context_raw,
+        expected_capture_sha256=expected_capture_sha256, expected_acquisition_sha256=expected_acquisition_sha256, **pins)
+    plan, prepared = _read_local_r2_prepared(prepared_raw, expected_context_raw, **pins)
+    acquisition = read_canonical_zip_bytes(captured['local-r2-acquisition.zip'], label='r2_llamaguard_content',
+        maximum_members=256, maximum_bytes=80*1024*1024)
+    return canonical_json_bytes(_local_r2_llamaguard_content_assessment(plan, prepared,
+        {**checked,'expected_capture_sha256':expected_capture_sha256}, acquisition,
+        fixture_commit_raw=fixture_commit_raw, expected_fixture_commit=expected_fixture_commit))
+
+
+def _verify_local_r2_llamaguard_content_assessment(assessment_raw, capture_raw, prepared_raw, expected_context_raw, *,
+                                                expected_assessment_sha256, **pins):
+    require(type(assessment_raw) is bytes and 0 < len(assessment_raw) <= 1048576
+            and sha256_bytes(assessment_raw) == expected_assessment_sha256,
+            'r2_llamaguard_content_assessment_digest_mismatch', stage='local_r2_llamaguard_content')
+    expected = _assess_local_r2_llamaguard_content(capture_raw, prepared_raw, expected_context_raw, **pins)
+    require(assessment_raw == expected, 'r2_llamaguard_content_assessment_mismatch', stage='local_r2_llamaguard_content')
+    return parse_json_bytes(expected, label='r2_llamaguard_content_assessment')
+
 if __name__ == "__main__":
     raise SystemExit(main())

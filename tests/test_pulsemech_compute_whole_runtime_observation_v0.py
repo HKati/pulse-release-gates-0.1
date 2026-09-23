@@ -5700,7 +5700,7 @@ def lg_production_tools():
     result = {}
     for name, path, expected in (
         ('runner', 'PULSE_safe_pack_v0/tools/run_llamaguard_current_evidence_v0.py', '058edf0d16383db41a5a4500caf4b484321d2e57'),
-        ('ingester', LG_PRODUCTION_ADAPTER, 'b0e0479c4939110b08350655be234badffa189f1'),
+        ('ingester', LG_PRODUCTION_ADAPTER, 'b1416fb3675a3d4bb652eaa993ed14a51a96f9c2'),
     ):
         target = ROOT / path; data = target.read_bytes()
         assert hashlib.sha1(('blob ' + str(len(data)) + '\0').encode() + data).hexdigest() == expected
@@ -15947,8 +15947,11 @@ def test_r2c10_source_preparation_does_not_verify_signatures_or_admit_roles(r2c9
 # no signature backend is replaced with PASS and no full verifier is claimed.
 @pytest.fixture(scope='module')
 def r2c11_recorded_inputs(r2c6_package_inputs, tmp_path_factory):
+    return _r2c11_build_recorded_inputs(r2c6_package_inputs, tmp_path_factory)
+
+
+def _r2c11_build_recorded_inputs(f, tmp_path_factory):
     from datetime import datetime
-    f = r2c6_package_inputs
     directory = tmp_path_factory.mktemp('r2c11-author-inputs')
     source_values, _ = VERIFIER._local_r2_recorded_input_sources(f.carrier.plan.value, f.prepared)
     for name, raw in source_values.items():
@@ -16297,6 +16300,315 @@ def test_r2c11_new_stage_still_requires_external_capture_pin(r2c11_recorded_inpu
     with pytest.raises(TypeError,match='expected_capture_sha256'):
         VERIFIER._assess_local_r2_recorded_inputs(f.capture,f.carrier.raw,f.carrier.context,
             fixture_commit_raw=f.commit_raw,expected_fixture_commit=f.commit,**pins)
+
+
+# R2C12: synthetic controlled records and real core summary reconstruction.
+# No model, hosted execution, signature verifier or attestation backend is faked.
+def _r2c12_jsonl(records):
+    return b''.join((json.dumps(row, sort_keys=True, separators=(',', ':'), ensure_ascii=False, allow_nan=False)+'\n').encode()
+                    for row in records)
+
+
+def _r2c12_rebuild_summary(sources, payloads, spec, directory):
+    for name, raw in {**sources, **payloads}.items():
+        path = directory / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(raw)
+    path = directory / 'PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py'
+    module_spec = importlib.util.spec_from_file_location('r2c12_summary_data', path)
+    ingest = importlib.util.module_from_spec(module_spec); module_spec.loader.exec_module(ingest)
+    return ingest._build_summary(repo_root=directory, raw_path=directory/ingest.RAW_REL,
+        dataset_path=directory/'PULSE_safe_pack_v0/examples/llamaguard_current_run_cases_v0.jsonl',
+        evaluator_manifest_path=directory/'PULSE_safe_pack_v0/artifacts/external/llamaguard_evaluator_manifest_v0.json',
+        schema_path=directory/'schemas/external_summary_v1.schema.json', thresholds_path=directory/ingest.THRESHOLDS_REL,
+        run_id=f"GITHUB_RUN_ID={spec['run_id']}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+        generated_at=spec['created_utc'], release_candidate='main', git_sha=spec['commit'], repository=spec['repository'],
+        signer_identity='repo:'+spec['repository']+':workflow:.github/workflows/pulse_ci.yml',
+        tool_version='acf7aafa60f0410f8f42b1fa35e077d705892029', adapter_version=ingest.ADAPTER_VERSION)
+
+
+@pytest.fixture(scope='module')
+def r2c12_llamaguard_inputs(r2c6_package_inputs, tmp_path_factory):
+    f = r2c6_package_inputs
+    sources, _ = VERIFIER._local_r2_llamaguard_content_sources(f.carrier.plan.value, f.prepared)
+    cases = [json.loads(line) for line in sources[
+        'PULSE_safe_pack_v0/examples/llamaguard_current_run_cases_v0.jsonl'].splitlines() if line.strip()]
+    stamp = json.loads(f.contents['complete_release_grade_reference_package']['run_metadata_v0.json'])['created_utc']
+    spec = {'repository':'HKati/pulse-release-gates-0.1', 'commit':f.commit, 'run_id':9001,
+            'created_utc':stamp, 'case_ids':[row['case_id'] for row in cases]}
+    run = {'repository':spec['repository'], 'git_sha':f.commit,
+        'run_key':'GITHUB_RUN_ID=9001|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI',
+        'run_id':9001, 'run_attempt':1, 'workflow_name':'PULSE CI',
+        'workflow_ref':spec['repository']+'/.github/workflows/pulse_ci.yml@refs/heads/main',
+        'workflow_path':'.github/workflows/pulse_ci.yml', 'release_candidate':'main', 'created_utc':stamp}
+    model = {'id':'meta-llama/Llama-Guard-3-1B', 'revision':'acf7aafa60f0410f8f42b1fa35e077d705892029', 'dtype':'float32'}
+    generation = {'manual_seed':0, 'do_sample':False, 'num_beams':1, 'pad_token_id':0, 'max_new_tokens':20}
+    # Authored declarations only. Neither these labels/counts nor the version
+    # strings claim an actual model invocation or installed runtime measurement.
+    records = [{**case, 'llamaguard':{'label':'safe','categories':[],'raw_output':'safe'}, 'model':model,
+        'run':{**{key:value for key,value in run.items() if key != 'workflow_path'}, 'case_index':index},
+        'inference':{**generation,'device':'cpu','torch_threads':2,'prompt_tokens':100,'generated_tokens':1}}
+        for index,case in enumerate(cases)]
+    prefix = 'PULSE_safe_pack_v0/artifacts/external/'
+    raw = _r2c12_jsonl(records)
+    manifest = {'schema_version':'llamaguard_current_run_evaluator_v0', 'run':run, 'model':model,
+        'producer':{'path':'PULSE_safe_pack_v0/tools/run_llamaguard_current_evidence_v0.py',
+            'tool':'run_llamaguard_current_evidence_v0.py', 'version':'0.1.0',
+            'sha256':digest(sources['PULSE_safe_pack_v0/tools/run_llamaguard_current_evidence_v0.py'])},
+        'runtime':{'versions':{'python':'3.11.16','torch':'2.9.1+cpu','transformers':'4.57.6',
+            'huggingface_hub':'0.36.0','tokenizers':'0.22.2','safetensors':'0.7.0'},
+            'device':'cpu','torch_threads':2,'generation':generation},
+        'dataset':{'path':'PULSE_safe_pack_v0/examples/llamaguard_current_run_cases_v0.jsonl',
+            'sha256':digest(sources['PULSE_safe_pack_v0/examples/llamaguard_current_run_cases_v0.jsonl']), 'case_count':6},
+        'output':{'raw_evidence_path':prefix+'llamaguard_raw.jsonl','raw_evidence_sha256':digest(raw),
+            'record_count':6,'safe_count':6,'unsafe_count':0},
+        'schema_binding':{'path':'PULSE_safe_pack_v0/schemas/llamaguard_evaluator_manifest_v0.schema.json',
+            'sha256':digest(sources['PULSE_safe_pack_v0/schemas/llamaguard_evaluator_manifest_v0.schema.json'])},
+        'authority_boundary':{'creates_release_authority':False,'materializes_status':False,
+            'materializes_release_required':False,'creates_attestation':False,'replaces_check_gates':False}}
+    payloads = {prefix+'llamaguard_raw.jsonl':raw, prefix+'llamaguard_evaluator_manifest_v0.json':canonical(manifest)}
+    summary = _r2c12_rebuild_summary(sources,payloads,spec,tmp_path_factory.mktemp('r2c12-summary'))
+    payloads[prefix+'llamaguard_summary.json'] = canonical(summary)
+    contents = copy.deepcopy(f.contents)
+    for group in contents.values():
+        for name in list(group):
+            key = name[len('artifacts/'):] if name.startswith('artifacts/') else name
+            path = 'PULSE_safe_pack_v0/artifacts/'+key
+            if path in payloads: group[name] = payloads[path]
+    # Rebind the inherited synthetic envelope/report shapes to the newly
+    # authored records. The bundle retains its explicit synthetic placeholder;
+    # neither these saved statements nor a signature backend are verified here.
+    for group in contents.values():
+        prefix_in_group = 'artifacts/' if 'artifacts/external/llamaguard_summary.envelope.json' in group else ''
+        envelope_name = prefix_in_group+'external/llamaguard_summary.envelope.json'
+        report_name = prefix_in_group+'external/llamaguard_attestation_verifier_v1.json'
+        if envelope_name not in group: continue
+        envelope = json.loads(group[envelope_name])
+        envelope['summary_digest']['value'] = digest(payloads[prefix+'llamaguard_summary.json'])
+        envelope['extensions']['raw_evidence_sha256'] = digest(raw)
+        group[envelope_name] = canonical(envelope)
+        if report_name in group:
+            report = json.loads(group[report_name])
+            report['summary']['sha256'] = envelope['summary_digest']['value']
+            report['envelope']['sha256'] = digest(group[envelope_name])
+            group[report_name] = canonical(report)
+    newer = SimpleNamespace(**{**vars(f),'contents':contents})
+    result = _r2c11_build_recorded_inputs(newer,tmp_path_factory)
+    result.llamaguard_sources=sources; result.llamaguard_payloads=payloads; result.llamaguard_spec=spec
+    return result
+
+
+def _r2c12_content(f, *, prepared=None, members=None, checked=None, plan=None):
+    return VERIFIER._local_r2_llamaguard_content(f.carrier.plan.value if plan is None else plan,
+        f.prepared if prepared is None else prepared, f.checked if checked is None else checked,
+        f.members if members is None else members, commit=f.commit)
+
+
+def test_r2c12_core_content_replay_does_not_claim_model_or_signature_execution(r2c12_llamaguard_inputs):
+    f=r2c12_llamaguard_inputs
+    result=VERIFIER._run_local_r2_llamaguard_content(f.llamaguard_sources,f.llamaguard_payloads,f.llamaguard_spec)
+    assert result['case_ids']==f.llamaguard_spec['case_ids'] and result['record_count']==6
+    assert result['safe_count']==6 and result['unsafe_count']==0
+    assert result['summary']==json.loads(f.llamaguard_payloads[
+        'PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json'])
+    content=_r2c12_content(f)
+    assert content['controlled_case_content_checked'] is True and content['canonical_summary_replayed'] is True
+    assert content['evaluator_manifest_content_checked'] is True
+    assert len(content['source_bindings'])==9 and len(content['parent_archives'])==2
+    for key in ('model_inference_reexecuted','observed_model_execution_proven','runtime_installation_verified',
+                'attestation_envelope_verified','mandatory_llamaguard_signatures_verified',
+                'full_recorded_verifier_executed','observed_platform_execution','original_runtime_reads_proven'):
+        assert content[key] is False
+
+
+@pytest.mark.parametrize('fault', ['case-id','case-input','case-output','case-order','case-duplicate','case-missing',
+    'raw-run','raw-attempt','raw-model','raw-revision','raw-dtype','raw-sampling','raw-seed','raw-threads',
+    'raw-token-bool','raw-token-zero','raw-token-limit','label-output','categories','extra-raw-key',
+    'manifest-source','manifest-dataset','manifest-schema','manifest-run','manifest-model','manifest-versions',
+    'manifest-sampling','manifest-count','manifest-authority','summary-metric','summary-evidence','summary-claim',
+    'duplicate-json','nonfinite-json'])
+def test_r2c12_content_rejects_wrong_records_and_declarations(r2c12_llamaguard_inputs, fault):
+    f=r2c12_llamaguard_inputs; payloads=dict(f.llamaguard_payloads)
+    prefix='PULSE_safe_pack_v0/artifacts/external/'
+    records=[json.loads(line) for line in payloads[prefix+'llamaguard_raw.jsonl'].splitlines()]
+    manifest=json.loads(payloads[prefix+'llamaguard_evaluator_manifest_v0.json'])
+    summary=json.loads(payloads[prefix+'llamaguard_summary.json'])
+    if fault.startswith('case-'):
+        if fault=='case-order': records[0],records[1]=records[1],records[0]
+        elif fault=='case-duplicate': records[1]=copy.deepcopy(records[0])
+        elif fault=='case-missing': records.pop()
+        else: records[0][{'case-id':'case_id','case-input':'input','case-output':'output'}[fault]]+=' changed'
+    elif fault.startswith('raw-'):
+        if fault=='raw-run': records[0]['run']['run_id']+=1
+        elif fault=='raw-attempt': records[0]['run']['run_attempt']=2
+        elif fault in {'raw-model','raw-revision','raw-dtype'}:
+            records[0]['model'][{'raw-model':'id','raw-revision':'revision','raw-dtype':'dtype'}[fault]]='wrong'
+        else:
+            key,value={'raw-sampling':('do_sample',True),'raw-seed':('manual_seed',1),
+                'raw-threads':('torch_threads',3),'raw-token-bool':('prompt_tokens',True),
+                'raw-token-zero':('generated_tokens',0),'raw-token-limit':('generated_tokens',21)}[fault]
+            records[0]['inference'][key]=value
+    elif fault=='label-output': records[0]['llamaguard']['raw_output']='unsafe\nS1'
+    elif fault=='categories': records[0]['llamaguard']['categories']=['S1']
+    elif fault=='extra-raw-key': records[0]['verified']=True
+    elif fault.startswith('manifest-'):
+        if fault=='manifest-source': manifest['producer']['sha256']='0'*64
+        elif fault=='manifest-dataset': manifest['dataset']['sha256']='0'*64
+        elif fault=='manifest-schema': manifest['schema_binding']['sha256']='0'*64
+        elif fault=='manifest-run': manifest['run']['git_sha']='a'*40
+        elif fault=='manifest-model': manifest['model']['revision']='a'*40
+        elif fault=='manifest-versions': manifest['runtime']['versions']['torch']='0.0.0'
+        elif fault=='manifest-sampling': manifest['runtime']['generation']['do_sample']=True
+        elif fault=='manifest-count': manifest['output']['safe_count']=5
+        else: manifest['authority_boundary']['creates_release_authority']=True
+    elif fault.startswith('summary-'):
+        if fault=='summary-metric': summary['metrics'][0]['threshold']=0.99
+        elif fault=='summary-evidence': summary['evidence']['raw_artifact_digest']='0'*64
+        else: summary['result']['reason']='unrecomputed claim'
+    raw=_r2c12_jsonl(records)
+    if fault=='duplicate-json': raw=raw.replace(b'{',b'{"case_id":"duplicate",',1)
+    if fault=='nonfinite-json': raw=raw.replace(b'"prompt_tokens":100',b'"prompt_tokens":NaN',1)
+    # Rehash the manifest's raw binding so record defects are not merely stale digests.
+    manifest['output']['raw_evidence_sha256']=digest(raw)
+    payloads.update({prefix+'llamaguard_raw.jsonl':raw,
+        prefix+'llamaguard_evaluator_manifest_v0.json':canonical(manifest),prefix+'llamaguard_summary.json':canonical(summary)})
+    with pytest.raises(VERIFIER.VerificationError,match='r2_llamaguard_content_core_rejected'):
+        VERIFIER._run_local_r2_llamaguard_content(f.llamaguard_sources,payloads,f.llamaguard_spec)
+
+
+@pytest.mark.parametrize('field', ['case_id','input','output'])
+def test_r2c12_changed_controlled_case_is_rejected_after_summary_reconstruction(r2c12_llamaguard_inputs, tmp_path, field):
+    f=r2c12_llamaguard_inputs; payloads=dict(f.llamaguard_payloads); prefix='PULSE_safe_pack_v0/artifacts/external/'
+    records=[json.loads(line) for line in payloads[prefix+'llamaguard_raw.jsonl'].splitlines()]
+    records[0][field]+=' changed'; payloads[prefix+'llamaguard_raw.jsonl']=_r2c12_jsonl(records)
+    manifest=json.loads(payloads[prefix+'llamaguard_evaluator_manifest_v0.json'])
+    manifest['output']['raw_evidence_sha256']=digest(payloads[prefix+'llamaguard_raw.jsonl'])
+    payloads[prefix+'llamaguard_evaluator_manifest_v0.json']=canonical(manifest)
+    summary=_r2c12_rebuild_summary(f.llamaguard_sources,payloads,f.llamaguard_spec,tmp_path)
+    assert summary['result']['passed'] is True
+    payloads[prefix+'llamaguard_summary.json']=canonical(summary)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_llamaguard_content_core_rejected'):
+        VERIFIER._run_local_r2_llamaguard_content(f.llamaguard_sources,payloads,f.llamaguard_spec)
+
+
+@pytest.mark.parametrize('path', ['PULSE_safe_pack_v0/tools/run_llamaguard_current_evidence_v0.py',
+    'PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py',
+    'PULSE_safe_pack_v0/examples/llamaguard_current_run_cases_v0.jsonl',
+    'PULSE_safe_pack_v0/schemas/llamaguard_evaluator_manifest_v0.schema.json'])
+@pytest.mark.parametrize('change',['missing','changed'])
+def test_r2c12_missing_or_changed_source_cannot_fall_back_to_checkout(r2c12_llamaguard_inputs,path,change):
+    f=r2c12_llamaguard_inputs; prepared=dict(f.prepared); name='sources/'+path
+    assert (ROOT/path).is_file()
+    if change=='missing': del prepared[name]
+    else: prepared[name]+=b'\n'
+    with pytest.raises(VERIFIER.VerificationError,match='r2_llamaguard_content_source_'):
+        _r2c12_content(f,prepared=prepared)
+
+
+def _r2c12_replace_archive(f, members, checked, role, contents):
+    raw=example_zip(contents); _r2c9_archive_replace(members,checked,role,raw)
+    row=next(item for item in checked['archive_inventory'] if item['role']==role)
+    row.update(sha256=digest(raw),size_bytes=len(raw))
+
+
+@pytest.mark.parametrize('fault',['copy','outside-run','late-publication','plan-case'])
+def test_r2c12_archive_and_plan_bindings_reject_rehashed_substitutions(r2c12_llamaguard_inputs,fault):
+    f=r2c12_llamaguard_inputs; members=dict(f.members); checked=copy.deepcopy(f.checked)
+    plan=copy.deepcopy(f.carrier.plan.value)
+    if fault=='plan-case': plan['model_inference_templates'][0]['inference_id']='invented'
+    else:
+        for role in ('pre_attestation_pulse_artifacts','release_grade_recorded_path'):
+            values=dict(f.contents[role]); path='external/llamaguard_evaluator_manifest_v0.json'
+            manifest=json.loads(values[path])
+            if fault=='copy':
+                if role=='release_grade_recorded_path': continue
+                manifest['output']['safe_count']=5
+            elif fault=='outside-run': manifest['run']['created_utc']='1970-01-01T00:00:00Z'
+            else:
+                # Still inside the subject run, but after the preserved publication.
+                run,_=VERIFIER._local_r2_response_bytes(members,'repos/'+VERIFIER.REPOSITORY+'/actions/runs/9001')
+                manifest['run']['created_utc']=run['updated_at']
+            values[path]=canonical(manifest)
+            _r2c12_replace_archive(f,members,checked,role,values)
+    reason={'copy':'copy_mismatch','outside-run':'time_outside_run','late-publication':'publication_time',
+            'plan-case':'plan_case_mismatch'}[fault]
+    with pytest.raises(VERIFIER.VerificationError,match='r2_llamaguard_content_'+reason):
+        _r2c12_content(f,members=members,checked=checked,plan=plan)
+
+
+def test_r2c12_workflow_schema_locator_must_match_preserved_schema_bytes(r2c12_llamaguard_inputs):
+    f=r2c12_llamaguard_inputs; prepared=dict(f.prepared); plan=copy.deepcopy(f.carrier.plan.value)
+    index=json.loads(prepared['local-r2-source-index.json'])
+    row=next(row for row in index['files'] if row['path']=='PULSE_safe_pack_v0/schemas/external_summary_v1.schema.json')
+    row['sha256']='0'*64; prepared['local-r2-source-index.json']=canonical(index)
+    plan['plan_identity']['source_identity']['source_index_sha256']=digest(prepared['local-r2-source-index.json'])
+    with pytest.raises(VERIFIER.VerificationError,match='r2_llamaguard_workflow_schema_mismatch'):
+        _r2c12_content(f,prepared=prepared,plan=plan)
+
+
+@pytest.mark.parametrize('fault',['nonzero','malformed','oversized','timeout','input-change','extra-file'])
+def test_r2c12_execution_and_workspace_failures_never_become_success(r2c12_llamaguard_inputs,fault):
+    f=r2c12_llamaguard_inputs; seen=[]
+    def failed(argv,*,cwd,timeout,**kwargs):
+        seen.append(Path(cwd)); assert argv[1:4]==['-I','-B','-c'] and timeout==60
+        if fault=='timeout': raise VERIFIER.VerificationError('controlled_timeout')
+        if fault=='input-change':
+            p=Path(cwd)/'llamaguard-input.json'; p.chmod(0o600); p.write_bytes(b'{}\n')
+        if fault=='extra-file': (Path(cwd)/'unexpected.txt').write_bytes(b'new')
+        if fault=='nonzero': return VERIFIER.ProcessOutput(9,b'',b'controlled failure')
+        if fault=='malformed': return VERIFIER.ProcessOutput(0,b'not-json',b'')
+        if fault=='oversized': return VERIFIER.ProcessOutput(0,b'x'*(1048576+1),b'')
+        return VERIFIER.ProcessOutput(0,b'{}\n',b'')
+    with patch.object(VERIFIER,'run_process',side_effect=failed):
+        with pytest.raises(VERIFIER.VerificationError):
+            VERIFIER._run_local_r2_llamaguard_content(f.llamaguard_sources,f.llamaguard_payloads,f.llamaguard_spec)
+    assert seen and not any(path.exists() for path in seen)
+
+
+def test_r2c12_success_exit_without_required_content_is_rejected(r2c12_llamaguard_inputs):
+    with patch.object(VERIFIER,'run_process',return_value=VERIFIER.ProcessOutput(0,b'{"ok":true}\n',b'')):
+        with pytest.raises(VERIFIER.VerificationError,match='r2_llamaguard_content_result_mismatch'):
+            _r2c12_content(r2c12_llamaguard_inputs)
+
+
+def test_r2c12_cleanup_failure_is_propagated(r2c12_llamaguard_inputs):
+    f=r2c12_llamaguard_inputs; original=VERIFIER.tempfile.TemporaryDirectory.__exit__
+    def cleanup(self,*args):
+        original(self,*args)
+        raise OSError('controlled llamaguard content cleanup failure')
+    with patch.object(VERIFIER.tempfile.TemporaryDirectory,'__exit__',cleanup):
+        with pytest.raises(OSError,match='controlled llamaguard content cleanup failure'):
+            VERIFIER._run_local_r2_llamaguard_content(f.llamaguard_sources,f.llamaguard_payloads,f.llamaguard_spec)
+
+
+def test_r2c12_previous_fixture_is_not_silently_promoted(r2c11_recorded_inputs):
+    with pytest.raises(VERIFIER.VerificationError): _r2c12_content(r2c11_recorded_inputs)
+
+
+def test_r2c12_content_entrypoint_requires_external_capture_pin(r2c12_llamaguard_inputs):
+    f=r2c12_llamaguard_inputs; pins=dict(f.pins); pins.pop('expected_capture_sha256')
+    with pytest.raises(TypeError,match='expected_capture_sha256'):
+        VERIFIER._assess_local_r2_llamaguard_content(f.capture,f.carrier.raw,f.carrier.context,
+            fixture_commit_raw=f.commit_raw,expected_fixture_commit=f.commit,**pins)
+
+
+def test_r2c12_composed_assessment_is_recomputed_without_admission(r2c12_llamaguard_inputs):
+    f=r2c12_llamaguard_inputs; pins={**f.pins,'fixture_commit_raw':f.commit_raw,'expected_fixture_commit':f.commit}
+    raw=VERIFIER._assess_local_r2_llamaguard_content(f.capture,f.carrier.raw,f.carrier.context,**pins)
+    checked=VERIFIER._verify_local_r2_llamaguard_content_assessment(raw,f.capture,f.carrier.raw,f.carrier.context,
+        expected_assessment_sha256=digest(raw),**pins)
+    assert canonical(checked)==raw and checked['assessment_status']=='incomplete'
+    assert checked['fully_satisfied_role_count']==0 and checked['mandatory_llamaguard_signatures_verified'] is False
+    assert checked['remaining_package_duties']==['recorded_candidate_full_verifier_and_mandatory_signatures']
+    assert not any(checked['local_boundary'].values())
+    assert checked['recorded_input_replay']['input_manifest_replayed'] is True
+    assert checked['fresh_package_verifier_cli_executed'] is True
+    assert checked['llamaguard_content']['canonical_summary_replayed'] is True
+    assert str(f.directory).encode() not in raw
+    changed=json.loads(raw); changed['llamaguard_content']['mandatory_llamaguard_signatures_verified']=True
+    changed=canonical(changed)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_llamaguard_content_assessment_mismatch'):
+        VERIFIER._verify_local_r2_llamaguard_content_assessment(changed,f.capture,f.carrier.raw,f.carrier.context,
+            expected_assessment_sha256=digest(changed),**pins)
+    (f.directory/'llamaguard-content-assessment.json').write_bytes(raw)
 
 
 if __name__ == '__main__':
