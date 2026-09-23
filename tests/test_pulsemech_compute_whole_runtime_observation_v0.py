@@ -16879,6 +16879,275 @@ def test_r2c13_cleanup_failure_cannot_return_verified(r2c13_attestation_inputs):
         with pytest.raises(OSError,match='controlled attestation cleanup failure'): _r2c13_run(f)
 
 
+# R2C14: complete unchanged core, explicit fake backend, no real signatures.
+@pytest.fixture(scope='module')
+def r2c14_recorded_full_inputs(r2c13_attestation_inputs, tmp_path_factory):
+    f = r2c13_attestation_inputs
+    directory = tmp_path_factory.mktemp('r2c14-full-producer')
+    workspace = directory/'inputs'; workspace.mkdir()
+    sources, _ = VERIFIER._local_r2_recorded_input_sources(f.carrier.plan.value, f.prepared)
+    payloads = {'PULSE_safe_pack_v0/artifacts/'+name:raw
+                for name,raw in f.contents['release_grade_recorded_path'].items()}
+    payloads['PULSE_safe_pack_v0/artifacts/status.json'] = f.contents['pre_attestation_pulse_artifacts']['status.json']
+    for name, raw in {**sources, **payloads}.items():
+        path = workspace/name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(raw)
+    gh, _ = _r2c13_backend(directory/'backend')
+    # Full candidate replay supplies a validated source identity. Host tokens
+    # and PYTHONPATH remain forbidden by the existing command-contract double.
+    gh.write_text(gh.read_text().replace("'PYTHONPATH','GITHUB_SHA'", "'PYTHONPATH'"))
+    gh_sha = digest(gh.read_bytes())
+    (directory/'backend/gh').write_bytes(gh.read_bytes()); (directory/'backend/gh').chmod(0o700)
+    (directory/'home').mkdir()
+    (workspace/'fixture-spec.json').write_bytes(canonical(f.input_spec))
+    driver = r"""
+import json, os, sys, shutil
+from pathlib import Path
+root=Path.cwd(); spec=json.loads((root/'fixture-spec.json').read_bytes())
+os.environ.update(PATH=str(root.parent/'backend'),HOME=str(root.parent/'home'),
+ GH_CONFIG_DIR=str(root.parent/'home/gh'),XDG_CACHE_HOME=str(root.parent/'home/cache'),
+ GITHUB_SHA=spec['commit'],GITHUB_REPOSITORY=spec['repository'],PULSE_RUN_KEY=spec['run_key'],
+ SOURCE_DATE_EPOCH=str(spec['manifest_epoch']))
+sys.path.insert(0,str(root/'PULSE_safe_pack_v0/tools'))
+import build_recorded_release_candidates_v0 as candidates
+import build_release_evidence_input_manifest_v0 as manifests
+import check_recorded_release_evidence_v0 as recorded
+values,index,errors=candidates.build_canonical_candidates_for_replay(root)
+assert not errors and values is not None and index is not None,errors
+shutil.rmtree(root/candidates.OUT_DIR)
+candidates.write_outputs(root,root/candidates.OUT_DIR,root/candidates.INDEX,values,index)
+manifest,errors=manifests.build_manifest(repo=root,index_path=Path(manifests.INDEX_PATH),
+ envelope_schema_path=Path(manifests.ENVELOPE_SCHEMA_PATH),manifest_schema_path=Path(manifests.MANIFEST_SCHEMA_PATH),
+ policy_path=Path(manifests.POLICY_PATH),registry_path=Path(manifests.REGISTRY_PATH),tool_path=Path(manifests.TOOL_PATH))
+assert not errors and manifest is not None,errors
+(root/manifests.OUT_PATH).write_text(json.dumps(manifest,sort_keys=True,indent=2)+'\n')
+report=recorded.check_recorded_release_evidence(Path(manifests.OUT_PATH),root)
+assert report['status']=='verified' and report['errors']==[],report['errors']
+(root/'PULSE_safe_pack_v0/artifacts/recorded_release_evidence_verifier_v0.json').write_text(json.dumps(report,sort_keys=True,indent=2)+'\n')
+"""
+    proc = VERIFIER.run_process([sys.executable, '-I', '-B', '-c', driver], cwd=workspace, timeout=150)
+    assert proc.returncode == 0, proc.stderr.decode()
+    contents = copy.deepcopy(f.contents)
+    names = ('recorded_release_candidate_index_v0.json', 'release_evidence_input_manifest_v0.json',
+             'recorded_release_evidence_verifier_v0.json',
+             'recorded_release_candidates/detector_materialization.json',
+             'recorded_release_candidates/refusal_delta_summary.json',
+             'recorded_release_candidates/external_llamaguard.json')
+    changes = {name:(workspace/'PULSE_safe_pack_v0/artifacts'/name).read_bytes() for name in names}
+    for group in contents.values():
+        for name in list(group):
+            key = name.removeprefix('artifacts/')
+            if key in changes: group[name] = changes[key]
+    newer = _r2c9_build_provider_inputs(SimpleNamespace(**{**vars(f), 'contents':contents}), tmp_path_factory)
+    full_payloads = {'PULSE_safe_pack_v0/artifacts/'+name:raw
+                     for name,raw in newer.contents['release_grade_recorded_path'].items()}
+    full_payloads['PULSE_safe_pack_v0/artifacts/status.json'] = contents['pre_attestation_pulse_artifacts']['status.json']
+    return SimpleNamespace(**{**vars(newer), 'full_sources':sources, 'full_payloads':full_payloads,
+                              'full_spec':f.input_spec, 'gh':gh, 'gh_sha':gh_sha})
+
+
+def _r2c14_run(f, *, sources=None, payloads=None, spec=None, gh=None, gh_sha=None):
+    return VERIFIER._run_local_r2_recorded_full(f.full_sources if sources is None else sources,
+        f.full_payloads if payloads is None else payloads, f.full_spec if spec is None else spec,
+        gh_executable=f.gh if gh is None else gh, expected_gh_sha256=f.gh_sha if gh_sha is None else gh_sha)
+
+
+def test_r2c14_full_core_checks_all_candidates_relations_and_gates(r2c14_recorded_full_inputs):
+    f = r2c14_recorded_full_inputs; result = _r2c14_run(f); report = result['report']
+    assert report == json.loads(f.full_payloads[VERIFIER._LOCAL_R2_RECORDED_FULL_REPORT])
+    assert set(report['evidence_results']) == {'detector_materialization','refusal_delta_summary','external_llamaguard'}
+    assert set(report['gate_materialization_admissibility']) == {
+        'detectors_materialized_ok','external_summaries_present','external_all_pass','refusal_delta_evidence_present'}
+    assert set(report['relation_binding_results']) == {
+        'detector_materialization_to_gate_detectors_materialized_ok',
+        'detector_materialization_to_subject_for_detectors_materialized_ok',
+        'external_llamaguard_to_gate_external_all_pass',
+        'external_llamaguard_to_subject_for_external_all_pass',
+        'external_llamaguard_to_gate_external_summaries_present',
+        'external_llamaguard_to_subject_for_external_summaries_present',
+        'refusal_delta_summary_to_gate_refusal_delta_evidence_present',
+        'refusal_delta_summary_to_subject_for_refusal_delta_evidence_present',
+    }
+    assert all(row['status']=='verified' and not row['errors'] for row in report['relation_binding_results'].values())
+    assert all(row['admissible'] is True for row in report['gate_materialization_admissibility'].values())
+    assert result['backend_identity']['sha256'] == f.gh_sha
+    assert result['backend_identity']['origin_authenticated_by_this_checker'] is False
+    assert b'synthetic_signature_placeholder' in f.full_payloads['PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.bundle.json']
+
+
+@pytest.mark.parametrize('fault', ['status','candidate','relation','gate','identity','manifest','extra'])
+def test_r2c14_full_report_not_saved_success(r2c14_recorded_full_inputs, fault):
+    f=r2c14_recorded_full_inputs; payloads=dict(f.full_payloads); name=VERIFIER._LOCAL_R2_RECORDED_FULL_REPORT
+    report=json.loads(payloads[name])
+    if fault=='status': report['status']='failed'
+    if fault=='candidate': report['evidence_results']['external_llamaguard']['trusted_producer_verified']=False
+    if fault=='relation': report['relation_binding_results'].pop(next(iter(report['relation_binding_results'])))
+    if fault=='gate': report['gate_materialization_admissibility']['external_all_pass']['admissible']=False
+    if fault=='identity': report['run_identity']['git_sha']='a'*40
+    if fault=='manifest': report['manifest']['sha256']='0'*64
+    if fault=='extra': report['unbound_success']=True
+    payloads[name]=canonical(report)
+    with pytest.raises(VERIFIER.VerificationError, match='r2_recorded_full_core_rejected'):
+        _r2c14_run(f, payloads=payloads)
+
+
+@pytest.mark.parametrize('candidate', ['detector_materialization','refusal_delta_summary','external_llamaguard'])
+def test_r2c14_rehashed_candidate_semantics_rejected(r2c14_recorded_full_inputs, candidate):
+    f=r2c14_recorded_full_inputs; payloads=dict(f.full_payloads)
+    name='PULSE_safe_pack_v0/artifacts/recorded_release_candidates/'+candidate+'.json'
+    value=json.loads(payloads[name]); value['provenance']['producer_id']='synthetic_unbound_producer'
+    payloads[name]=canonical(value)
+    manifest_name='PULSE_safe_pack_v0/artifacts/release_evidence_input_manifest_v0.json'
+    manifest=json.loads(payloads[manifest_name]);manifest['candidate_evidence'][candidate]['expected_sha256']=digest(payloads[name])
+    payloads[manifest_name]=canonical(manifest)
+    with pytest.raises(VERIFIER.VerificationError, match='r2_recorded_full_core_rejected'):
+        _r2c14_run(f, payloads=payloads)
+
+
+@pytest.mark.parametrize('output,code', [('[]',0),('{}',0),('not-json',0),('[{"synthetic":true}]',23)])
+def test_r2c14_backend_failure_stops_full_replay(r2c14_recorded_full_inputs, tmp_path, output, code):
+    f=r2c14_recorded_full_inputs;gh,_=_r2c13_backend(tmp_path,output,code)
+    gh.write_text(gh.read_text().replace("'PYTHONPATH','GITHUB_SHA'", "'PYTHONPATH'"))
+    with pytest.raises(VERIFIER.VerificationError,match='r2_recorded_full_core_rejected'):
+        _r2c14_run(f,gh=gh,gh_sha=digest(gh.read_bytes()))
+
+
+@pytest.mark.parametrize('path', [
+    'PULSE_safe_pack_v0/tools/check_recorded_release_evidence_v0.py',
+    'PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py',
+    'PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py'])
+@pytest.mark.parametrize('fault',['missing','changed'])
+def test_r2c14_sources_do_not_fall_back(r2c14_recorded_full_inputs,path,fault):
+    f=r2c14_recorded_full_inputs; sources=dict(f.full_sources)
+    if fault=='missing': del sources[path]
+    else: sources[path]+=b'\n'
+    assert (ROOT/path).is_file()
+    with patch.object(VERIFIER,'run_process',side_effect=AssertionError('must stop before launch')):
+        with pytest.raises(VERIFIER.VerificationError,match='r2_recorded_full_source_'): _r2c14_run(f,sources=sources)
+
+
+@pytest.mark.parametrize('fault',['missing-member','extra-member','empty-member','run','attempt','repository','bool-id','epoch'])
+def test_r2c14_inputs_and_identity_are_closed(r2c14_recorded_full_inputs,fault):
+    f=r2c14_recorded_full_inputs; payloads=dict(f.full_payloads); spec=dict(f.full_spec)
+    if fault=='missing-member': del payloads[VERIFIER._LOCAL_R2_RECORDED_FULL_REPORT]
+    if fault=='extra-member': payloads['unexpected.json']=b'{}'
+    if fault=='empty-member': payloads[VERIFIER._LOCAL_R2_RECORDED_FULL_REPORT]=b''
+    if fault=='run': spec['run_id']+=1
+    if fault=='attempt': spec['run_key']=spec['run_key'].replace('ATTEMPT=1','ATTEMPT=2')
+    if fault=='repository': spec['repository']='other/repo'
+    if fault=='bool-id': spec['run_id']=True
+    if fault=='epoch': spec['manifest_epoch']=True
+    with patch.object(VERIFIER,'run_process',side_effect=AssertionError('must stop before launch')):
+        with pytest.raises(VERIFIER.VerificationError,match='r2_recorded_full_'): _r2c14_run(f,payloads=payloads,spec=spec)
+
+
+@pytest.mark.parametrize('fault',['exit','empty','bad-json','forged-report','mutation','backend-mutation','extra','timeout'])
+def test_r2c14_execution_errors_do_not_return_saved_result(r2c14_recorded_full_inputs,fault):
+    f=r2c14_recorded_full_inputs;real=VERIFIER.run_process
+    def controlled(command,*,cwd,timeout):
+        assert command[1:3]==['-I','-B'] and timeout==150
+        if fault=='timeout': raise VERIFIER.VerificationError('controlled timeout')
+        result=real(command,cwd=cwd,timeout=timeout)
+        if fault in ('mutation','backend-mutation'):
+            path=cwd/'recorded-verifier-input.json' if fault=='mutation' else cwd.parent/'backend/gh'
+            path.chmod(0o700);path.write_bytes(path.read_bytes()+b'\n')
+        if fault=='extra': (cwd/'extra').write_bytes(b'x')
+        if fault=='exit': return VERIFIER.ProcessOutput(23,result.stdout,b'controlled')
+        if fault=='empty': return VERIFIER.ProcessOutput(0,b'',b'')
+        if fault=='bad-json': return VERIFIER.ProcessOutput(0,b'{invalid',b'')
+        if fault=='forged-report':
+            doc=json.loads(result.stdout);doc['report']['evidence_results']={}
+            return VERIFIER.ProcessOutput(0,canonical(doc),b'')
+        return result
+    with patch.object(VERIFIER,'run_process',side_effect=controlled):
+        with pytest.raises(VERIFIER.VerificationError): _r2c14_run(f)
+
+
+def test_r2c14_unbound_manifest_path_is_not_read(r2c14_recorded_full_inputs):
+    f=r2c14_recorded_full_inputs;payloads=dict(f.full_payloads)
+    name='PULSE_safe_pack_v0/artifacts/release_evidence_input_manifest_v0.json';doc=json.loads(payloads[name])
+    doc['candidate_evidence']['external_llamaguard']['path']='/not-an-evidence-input.json';payloads[name]=canonical(doc)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_recorded_full_core_rejected'): _r2c14_run(f,payloads=payloads)
+
+
+def test_r2c14_final_status_cannot_replace_preserved_pre_state(r2c14_recorded_full_inputs):
+    f=r2c14_recorded_full_inputs;payloads=dict(f.full_payloads)
+    payloads['PULSE_safe_pack_v0/artifacts/status.json']=f.contents['release_grade_recorded_path']['status.json']
+    with pytest.raises(VERIFIER.VerificationError,match='r2_recorded_full_core_rejected'): _r2c14_run(f,payloads=payloads)
+
+
+def test_r2c14_cleanup_failure_propagates(r2c14_recorded_full_inputs):
+    f=r2c14_recorded_full_inputs;real=VERIFIER.tempfile.TemporaryDirectory
+    class FailedCleanup(real):
+        def __exit__(self,*args):
+            super().__exit__(*args)
+            raise OSError('controlled recorded-full cleanup failure')
+    with patch.object(VERIFIER.tempfile,'TemporaryDirectory',FailedCleanup):
+        with pytest.raises(OSError,match='controlled recorded-full cleanup failure'): _r2c14_run(f)
+
+
+def test_r2c14_composed_assessment_and_reader_require_fresh_full_replay(r2c14_recorded_full_inputs):
+    f=r2c14_recorded_full_inputs
+    pins={**f.pins,'fixture_commit_raw':f.commit_raw,'expected_fixture_commit':f.commit,
+          'gh_executable':f.gh,'expected_gh_sha256':f.gh_sha}
+    raw=VERIFIER._assess_local_r2_recorded_full(f.capture,f.carrier.raw,f.carrier.context,**pins)
+    value=VERIFIER._verify_local_r2_recorded_full_assessment(raw,f.capture,f.carrier.raw,f.carrier.context,
+        expected_assessment_sha256=digest(raw),**pins)
+    assert canonical(value)==raw and value['full_recorded_verifier_executed'] is True
+    assert value['recorded_candidate_full_verifier']['verified_candidate_ids']==[
+        'detector_materialization','external_llamaguard','refusal_delta_summary']
+    assert value['assessment_status']=='incomplete' and value['fully_satisfied_role_count']==0
+    assert value['mandatory_llamaguard_signatures_verified'] is False
+    assert value['local_boundary']=={'dispatch_authorized':False,'R2_activated':False,'completion_evaluated':False,'reference_acquired':False}
+    assert value['recorded_candidate_full_verifier']['required_gate_evaluators_reexecuted'] is False
+    with patch.object(VERIFIER,'_run_local_r2_recorded_full',side_effect=VERIFIER.VerificationError('fresh full replay failed')):
+        with pytest.raises(VERIFIER.VerificationError,match='fresh full replay failed'):
+            VERIFIER._verify_local_r2_recorded_full_assessment(raw,f.capture,f.carrier.raw,f.carrier.context,
+                expected_assessment_sha256=digest(raw),**pins)
+    changed=copy.deepcopy(value);changed['full_recorded_verifier_executed']=False;bad=canonical(changed)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_recorded_full_assessment_mismatch'):
+        VERIFIER._verify_local_r2_recorded_full_assessment(bad,f.capture,f.carrier.raw,f.carrier.context,
+            expected_assessment_sha256=digest(bad),**pins)
+    (f.directory/'recorded-full-assessment.json').write_bytes(raw)
+
+
+
+@pytest.mark.parametrize('candidate_id', [
+    'detector_materialization', 'refusal_delta_summary', 'external_llamaguard',
+])
+def test_r2c14_saved_report_cannot_replace_full_verifier(r2c14_recorded_full_inputs, candidate_id):
+    """A fully rehashed local fixture still requires canonical candidate replay."""
+    f = r2c14_recorded_full_inputs
+    payloads = dict(f.full_payloads)
+    prefix = 'PULSE_safe_pack_v0/artifacts/'
+    candidate_path = prefix + 'recorded_release_candidates/' + candidate_id + '.json'
+    value = json.loads(payloads[candidate_path])
+    value['provenance']['producer_version'] = 'synthetic-noncanonical-version'
+    payloads[candidate_path] = canonical(value)
+    candidate_digest = digest(payloads[candidate_path])
+
+    index_path = prefix + 'recorded_release_candidate_index_v0.json'
+    index = json.loads(payloads[index_path])
+    index['candidates'][candidate_id]['sha256'] = candidate_digest
+    payloads[index_path] = canonical(index)
+
+    manifest_path = prefix + 'release_evidence_input_manifest_v0.json'
+    manifest = json.loads(payloads[manifest_path])
+    manifest['candidate_evidence'][candidate_id]['expected_sha256'] = candidate_digest
+    payloads[manifest_path] = canonical(manifest)
+
+    report_path = VERIFIER._LOCAL_R2_RECORDED_FULL_REPORT
+    report = json.loads(payloads[report_path])
+    report['manifest']['sha256'] = digest(payloads[manifest_path])
+    for key in ('actual_sha256', 'expected_sha256'):
+        report['evidence_results'][candidate_id][key] = candidate_digest
+    payloads[report_path] = canonical(report)
+    assert report['status'] == 'verified' and report['errors'] == []
+    assert report['manifest']['sha256'] == digest(payloads[manifest_path])
+    assert manifest['candidate_evidence'][candidate_id]['expected_sha256'] == candidate_digest
+    with pytest.raises(VERIFIER.VerificationError, match='r2_recorded_full_core_rejected'):
+        _r2c14_run(f, payloads=payloads)
+
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.

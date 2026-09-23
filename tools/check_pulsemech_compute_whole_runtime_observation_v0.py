@@ -8113,5 +8113,237 @@ def _verify_local_r2_llamaguard_attestation_assessment(assessment_raw, capture_r
     return parse_json_bytes(expected, label='r2_attestation_assessment')
 
 
+
+# R2C14: full, unchanged recorded-candidate verifier in the inactive local path.
+# This replays candidate admission, not the original required-gate evaluations.
+_LOCAL_R2_RECORDED_FULL_REPORT = 'PULSE_safe_pack_v0/artifacts/recorded_release_evidence_verifier_v0.json'
+_LOCAL_R2_RECORDED_FULL_DRIVER = r"""
+import hashlib, json, os, sys
+from pathlib import Path
+root = Path.cwd()
+def need(value, code):
+    if not value:
+        print(code, file=sys.stderr)
+        raise SystemExit(21)
+def pairs(items):
+    out = {}
+    for key, value in items:
+        need(key not in out, 'duplicate_json_key')
+        out[key] = value
+    return out
+def nonfinite(value): raise ValueError('nonfinite_json_number')
+def read(path): return json.loads(path.read_bytes(), object_pairs_hook=pairs, parse_constant=nonfinite)
+def canon(value): return json.dumps(value, sort_keys=True, separators=(',', ':'), ensure_ascii=False, allow_nan=False).encode()
+spec = read(root/'recorded-verifier-input.json')
+# The existing candidate builder calls its attestation verifier with the default
+# executable name. Its ONLY search directory contains the caller-pinned copy.
+# No core function, subprocess result or signature check is replaced here.
+os.environ.update(PATH=str(root.parent/'backend'), HOME=str(root.parent/'home'),
+    GH_CONFIG_DIR=str(root.parent/'home/gh'), XDG_CACHE_HOME=str(root.parent/'home/cache'),
+    GITHUB_SHA=spec['commit'], GITHUB_REPOSITORY=spec['repository'],
+    PULSE_RUN_KEY=spec['run_key'], SOURCE_DATE_EPOCH=str(spec['manifest_epoch']))
+sys.path.insert(0, str(root/'PULSE_safe_pack_v0/tools'))
+import check_recorded_release_evidence_v0 as core
+manifest_path = Path('PULSE_safe_pack_v0/artifacts/release_evidence_input_manifest_v0.json')
+manifest = read(root/manifest_path)
+# Before the core follows any evidence locator, require that it names a supplied
+# regular input. This is a closed replay workspace, not a filesystem resolver.
+allowed = {p.relative_to(root).as_posix() for p in root.rglob('*') if p.is_file()}
+allowed.discard('recorded-verifier-input.json')
+def locators(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key in ('path', 'policy_path', 'registry_path', 'tool_path'):
+                need(isinstance(item, str) and item in allowed, 'unbound_recorded_input_locator')
+            else:
+                locators(item)
+    elif isinstance(value, list):
+        for item in value: locators(item)
+locators(manifest)
+for path in (root/'PULSE_safe_pack_v0/artifacts/recorded_release_candidates').glob('*.json'):
+    locators(read(path))
+report = core.check_recorded_release_evidence(manifest_path=manifest_path, repo_root=root)
+need(report.get('status') == core.VERIFIED and report.get('errors') == [], 'full_recorded_verifier_rejected')
+saved = read(root/'PULSE_safe_pack_v0/artifacts/recorded_release_evidence_verifier_v0.json')
+need(canon(report) == canon(saved), 'recorded_verifier_saved_report_mismatch')
+print(canon({'schema_version':'pulsemech_step5c_local_r2_recorded_full_core_v0', 'report':report}).decode())
+"""
+
+
+def _run_local_r2_recorded_full(sources, payloads, spec, *, gh_executable, expected_gh_sha256):
+    """Replay the complete existing verifier without modifying its implementation."""
+    stage = 'local_r2_recorded_full'
+    require(set(sources) == {path for path, _ in _LOCAL_R2_RECORDED_INPUT_SOURCES},
+            'r2_recorded_full_source_missing', stage=stage)
+    for path, blob in _LOCAL_R2_RECORDED_INPUT_SOURCES:
+        raw = sources[path]
+        require(type(raw) is bytes and 0 < len(raw) <= 1048576
+                and hashlib.sha1(b'blob %d\0' % len(raw) + raw).hexdigest() == blob,
+                'r2_recorded_full_source_mismatch', stage=stage)
+    names = next(names for role, _, names in _STATE_ARCHIVE_LAYOUT if role == 'release_grade_recorded_path')
+    require(set(payloads) == {'PULSE_safe_pack_v0/artifacts/'+name for name in names}
+            and all(type(raw) is bytes and 0 < len(raw) <= 16*1024*1024 for raw in payloads.values())
+            and sum(map(len, payloads.values())) <= 64*1024*1024,
+            'r2_recorded_full_payload_mismatch', stage=stage)
+    require(type(spec) is dict and set(spec) == {'repository','commit','run_id','run_key','manifest_epoch'}
+            and spec['repository'] == REPOSITORY
+            and type(spec['commit']) is str and re.fullmatch(r'[0-9a-f]{40}', spec['commit']) is not None
+            and type(spec['run_id']) is int and spec['run_id'] > 0
+            and spec['run_key'] == f"GITHUB_RUN_ID={spec['run_id']}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI"
+            and type(spec['manifest_epoch']) is int and spec['manifest_epoch'] >= 0,
+            'r2_recorded_full_subject_mismatch', stage=stage)
+    backend = _local_r2_attestation_backend_bytes(gh_executable, expected_gh_sha256)
+    inputs = {**sources, **payloads, 'recorded-verifier-input.json':canonical_json_bytes(spec)}
+    with tempfile.TemporaryDirectory(prefix='pulsemech-r2-recorded-full-') as temporary:
+        base = Path(temporary); workspace = base/'inputs'; workspace.mkdir()
+        (base/'home').mkdir(); (base/'backend').mkdir()
+        backend_path = base/'backend/gh'; _write_read_only(backend_path, backend); backend_path.chmod(0o500)
+        for name, raw in inputs.items():
+            safe_member(name, label='r2_recorded_full_input_path'); _write_read_only(workspace/name, raw)
+        def stamp(info):
+            return (info.st_dev, info.st_ino, info.st_mode, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+        initial = {name:stamp((workspace/name).lstat()) for name in inputs}
+        backend_initial = stamp(backend_path.lstat())
+        def unchanged():
+            found = set()
+            for path in workspace.rglob('*'):
+                info = path.lstat()
+                require(stat.S_ISDIR(info.st_mode) or stat.S_ISREG(info.st_mode),
+                        'r2_recorded_full_input_changed', stage=stage)
+                if stat.S_ISREG(info.st_mode):
+                    name = path.relative_to(workspace).as_posix()
+                    require(name in initial and stamp(info) == initial[name] and path.read_bytes() == inputs[name],
+                            'r2_recorded_full_input_changed', stage=stage)
+                    found.add(name)
+            require(found == set(inputs), 'r2_recorded_full_input_changed', stage=stage)
+            info = backend_path.lstat()
+            require(stat.S_ISREG(info.st_mode) and stamp(info) == backend_initial and backend_path.read_bytes() == backend,
+                    'r2_recorded_full_backend_changed', stage=stage)
+        unchanged()
+        try:
+            proc = run_process([sys.executable, '-I', '-B', '-c', _LOCAL_R2_RECORDED_FULL_DRIVER],
+                               cwd=workspace, timeout=150)
+        except VerificationError as exc:
+            raise VerificationError('r2_recorded_full_execution_failed', stage=stage) from exc
+        unchanged()
+        require(proc.returncode == 0, 'r2_recorded_full_core_rejected', str(proc.returncode), stage=stage)
+        require(0 < len(proc.stdout) <= 1048576 and len(proc.stderr) <= 1048576,
+                'r2_recorded_full_output_budget', stage=stage)
+        result = parse_json_bytes(proc.stdout, label='r2_recorded_full_result', canonical=False, maximum=1048576)
+    report = result.get('report')
+    saved = parse_json_bytes(payloads[_LOCAL_R2_RECORDED_FULL_REPORT], label='r2_recorded_full_saved', canonical=False)
+    manifest_path = 'PULSE_safe_pack_v0/artifacts/release_evidence_input_manifest_v0.json'
+    manifest = parse_json_bytes(payloads[manifest_path], label='r2_recorded_full_manifest', canonical=False)
+    identity = {'git_sha':spec['commit'], 'run_key':spec['run_key'], 'run_mode':'prod'}
+    require(set(result) == {'schema_version','report'}
+            and result['schema_version'] == 'pulsemech_step5c_local_r2_recorded_full_core_v0'
+            and type(report) is dict and report.get('schema_version') == 'recorded_release_evidence_verifier_v0'
+            and report.get('report_version') == '0.2.0' and report.get('status') == 'verified' and report.get('errors') == []
+            and canonical_json_bytes(report) == canonical_json_bytes(saved)
+            and canonical_json_bytes(report.get('run_identity')) == canonical_json_bytes(identity)
+            and canonical_json_bytes(report.get('subject')) == canonical_json_bytes(manifest.get('subject'))
+            and report.get('manifest') == {'path':manifest_path, 'sha256':sha256_bytes(payloads[manifest_path]),
+                                         'schema_version':'release_evidence_input_manifest_v0'},
+            'r2_recorded_full_result_mismatch', stage=stage)
+    for section, expected in (('evidence_results', manifest['candidate_evidence']),
+                              ('relation_binding_results', manifest['expected_relation_bindings']),
+                              ('gate_materialization_admissibility', manifest['expected_gate_materialization'])):
+        values = report.get(section)
+        require(type(values) is dict and values and set(values) == set(expected),
+                'r2_recorded_full_result_mismatch', stage=stage)
+        for row in values.values():
+            require(type(row) is dict and row.get('status') == 'verified' and row.get('errors') == []
+                    and (section != 'gate_materialization_admissibility' or row.get('admissible') is True),
+                    'r2_recorded_full_result_mismatch', stage=stage)
+    return {**result, 'backend_identity':{'sha256':expected_gh_sha256, 'size_bytes':len(backend),
+        'trust_scope':'caller_pinned_local_executable', 'origin_authenticated_by_this_checker':False}}
+
+
+def _local_r2_recorded_full_content(plan, prepared_members, checked_capture, acquisition_members, *,
+                                    commit, gh_executable, expected_gh_sha256):
+    stage = 'local_r2_recorded_full'
+    sources, bindings = _local_r2_recorded_input_sources(plan, prepared_members)
+    original = {}; parents = []; pages = []
+    for role in ('pre_attestation_pulse_artifacts', 'release_grade_recorded_path'):
+        selected, metadata, raw, page = _local_r2_provider_publication(acquisition_members, checked_capture, role)
+        require(selected['source_run_kind'] == 'subject'
+                and selected['source_run_id'] == checked_capture['subject_run_id'],
+                'r2_recorded_full_parent_mismatch', stage=stage)
+        names = next(names for key, _, names in _STATE_ARCHIVE_LAYOUT if key == role)
+        _, original[role], _ = _inspect_state_archive_bytes(raw, names, member_limit=128,
+            single_limit=16*1024*1024, expansion_limit=64*1024*1024, retained_members=names)
+        parents.append({'role':role, 'artifact_id':selected['artifact_id'], 'archive':descriptor(selected['member'], raw)})
+        pages.append(page)
+    pre = original['pre_attestation_pulse_artifacts']; saved = original['release_grade_recorded_path']
+    index = parse_json_bytes(saved['recorded_release_candidate_index_v0.json'], label='r2_recorded_full_index', canonical=False)
+    require(index.get('source_bindings', {}).get('candidate_status') == {
+        'path':'PULSE_safe_pack_v0/artifacts/status.json', 'sha256':sha256_bytes(pre['status.json'])},
+        'r2_recorded_full_pre_status_mismatch', stage=stage)
+    manifest = parse_json_bytes(saved['release_evidence_input_manifest_v0.json'], label='r2_recorded_full_manifest', canonical=False)
+    epoch = parse_utc(manifest.get('created_utc'), label='r2_recorded_full_time').timestamp()
+    require(epoch >= 0 and epoch == int(epoch), 'r2_recorded_full_time_precision', stage=stage)
+    run_id = checked_capture['subject_run_id']
+    payloads = {'PULSE_safe_pack_v0/artifacts/'+name:raw for name, raw in saved.items()}
+    # The file at the replay core's canonical status path is the captured PRE
+    # state, never a final state with fields removed. The final archive is intact.
+    payloads['PULSE_safe_pack_v0/artifacts/status.json'] = pre['status.json']
+    result = _run_local_r2_recorded_full(sources, payloads, {'repository':REPOSITORY, 'commit':commit,
+        'run_id':run_id, 'run_key':f'GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI',
+        'manifest_epoch':int(epoch)}, gh_executable=gh_executable, expected_gh_sha256=expected_gh_sha256)
+    report = result['report']
+    return {'validation_scope':'full_existing_recorded_candidate_verifier_with_current_attestation_backend',
+        'source_bindings':bindings, 'parent_archives':parents, 'raw_metadata_pages':pages,
+        'pre_materialization_status':{'archive_role':'pre_attestation_pulse_artifacts', **descriptor('status.json', pre['status.json'])},
+        'recorded_input_members':[descriptor(name, raw) for name, raw in sorted(saved.items())],
+        'backend_identity':result['backend_identity'], 'core_result_sha256':sha256_bytes(canonical_json_bytes(result)),
+        'verified_candidate_ids':sorted(report['evidence_results']),
+        'verified_relation_ids':sorted(report['relation_binding_results']),
+        'admissible_release_required_gate_ids':sorted(report['gate_materialization_admissibility']),
+        'full_recorded_verifier_executed':True, 'external_candidate_semantics_replayed':True,
+        'saved_full_report_semantics_matched':True, 'fresh_attestation_backend_required':True,
+        'required_gate_evaluators_reexecuted':False, 'original_runtime_reads_proven':False,
+        'signature_verification_scope':'current_replay_with_caller_pinned_backend',
+        'original_attestation_execution_proven':False, 'simulation_only':True, 'observed_platform_execution':False}
+
+
+def _local_r2_recorded_full_assessment(plan, prepared_members, checked_capture, acquisition_members, *,
+        fixture_commit_raw, expected_fixture_commit, gh_executable, expected_gh_sha256):
+    previous = _local_r2_llamaguard_attestation_assessment(plan, prepared_members, checked_capture, acquisition_members,
+        fixture_commit_raw=fixture_commit_raw, expected_fixture_commit=expected_fixture_commit,
+        gh_executable=gh_executable, expected_gh_sha256=expected_gh_sha256)
+    content = _local_r2_recorded_full_content(plan, prepared_members, checked_capture, acquisition_members,
+        commit=expected_fixture_commit, gh_executable=gh_executable, expected_gh_sha256=expected_gh_sha256)
+    # Keep the aggregate original-evidence duties and incomplete role boundary.
+    # A tested local replay is not public R2 integration or genuine signatures.
+    return {**previous, 'schema_version':'pulsemech_step5c_local_r2_recorded_full_assessment_v0',
+        'validation_scope':'package_provider_llamaguard_and_full_recorded_candidate_replay',
+        'llamaguard_attestation_assessment_sha256':sha256_bytes(canonical_json_bytes(previous)),
+        'full_recorded_verifier_executed':True, 'recorded_candidate_full_verifier':content}
+
+
+def _assess_local_r2_recorded_full(capture_raw, prepared_raw, expected_context_raw, *,
+        fixture_commit_raw, expected_fixture_commit, gh_executable, expected_gh_sha256,
+        expected_capture_sha256, expected_acquisition_sha256, **pins):
+    checked, captured = _read_local_r2_capture(capture_raw, prepared_raw, expected_context_raw,
+        expected_capture_sha256=expected_capture_sha256, expected_acquisition_sha256=expected_acquisition_sha256, **pins)
+    plan, prepared = _read_local_r2_prepared(prepared_raw, expected_context_raw, **pins)
+    acquisition = read_canonical_zip_bytes(captured['local-r2-acquisition.zip'], label='r2_recorded_full_acquisition',
+        maximum_members=256, maximum_bytes=80*1024*1024)
+    return canonical_json_bytes(_local_r2_recorded_full_assessment(plan, prepared,
+        {**checked, 'expected_capture_sha256':expected_capture_sha256}, acquisition,
+        fixture_commit_raw=fixture_commit_raw, expected_fixture_commit=expected_fixture_commit,
+        gh_executable=gh_executable, expected_gh_sha256=expected_gh_sha256))
+
+
+def _verify_local_r2_recorded_full_assessment(assessment_raw, capture_raw, prepared_raw, expected_context_raw, *,
+                                           expected_assessment_sha256, **pins):
+    require(type(assessment_raw) is bytes and 0 < len(assessment_raw) <= 1048576
+            and sha256_bytes(assessment_raw) == expected_assessment_sha256,
+            'r2_recorded_full_assessment_digest_mismatch', stage='local_r2_recorded_full')
+    expected = _assess_local_r2_recorded_full(capture_raw, prepared_raw, expected_context_raw, **pins)
+    require(assessment_raw == expected, 'r2_recorded_full_assessment_mismatch', stage='local_r2_recorded_full')
+    return parse_json_bytes(expected, label='r2_recorded_full_assessment')
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
