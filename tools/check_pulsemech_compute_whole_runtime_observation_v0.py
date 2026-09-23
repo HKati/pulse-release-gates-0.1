@@ -5507,10 +5507,15 @@ def _local_r2_transport_check(
             'status': 'completed', 'conclusion': 'success',
         }
         run_document = take('GET', endpoint)
-        timed = run_document.get('schema_version') == _LOCAL_R2_TIMED_RUN_SCHEMA
+        timed = run_document.get('schema_version') in (_LOCAL_R2_TIMED_RUN_SCHEMA, _LOCAL_R2_NUMBERED_RUN_SCHEMA)
         if timed:
-            expected_run['schema_version'] = _LOCAL_R2_TIMED_RUN_SCHEMA
+            expected_run['schema_version'] = run_document['schema_version']
             expected_run.update(_local_r2_run_time_fields(run_document))
+            if run_document['schema_version'] == _LOCAL_R2_NUMBERED_RUN_SCHEMA:
+                number = run_document.get('run_number')
+                require(type(number) is int and number > 0,
+                        'r2_run_number_invalid', stage='local_r2')
+                expected_run['run_number'] = number
         require(canonical_json_bytes(run_document) == canonical_json_bytes(expected_run),
                 'r2_simulated_run_mismatch', stage='local_r2')
         metadata_versions.add(run_document['schema_version'])
@@ -6126,6 +6131,8 @@ def _check_d6_action_steps(subject: Mapping[str, Any], job: Mapping[str, Any]) -
 # LOCAL_05 keeps richer simulation metadata explicitly versioned. Production run
 # schemas/CLI remain unchanged, and no tree is ever substituted for a commit.
 _LOCAL_R2_TIMED_RUN_SCHEMA = 'pulsemech_step5c_local_r2_simulated_run_v1'
+# A run number is independent evidence, never inferred from a run ID or packet.
+_LOCAL_R2_NUMBERED_RUN_SCHEMA = 'pulsemech_step5c_local_r2_simulated_run_v2'
 _LOCAL_R2_TIMED_ARTIFACT_SCHEMA = 'pulsemech_step5c_local_r2_simulated_artifact_v1'
 
 
@@ -6143,7 +6150,7 @@ def _local_r2_artifact_time_fields(
     document: Mapping[str, Any], run: Mapping[str, Any],
 ) -> dict[str, str]:
     """Validate supplied simulated times, without inventing a publication time."""
-    require(run.get('schema_version') == _LOCAL_R2_TIMED_RUN_SCHEMA,
+    require(run.get('schema_version') in (_LOCAL_R2_TIMED_RUN_SCHEMA, _LOCAL_R2_NUMBERED_RUN_SCHEMA),
             'r2_artifact_timed_run_required', stage='local_r2')
     values = {key: document.get(key) for key in ('created_at', 'expires_at')}
     try:
@@ -6269,7 +6276,7 @@ def _local_r2_d6_metadata_projection(
     run_id = checked_capture['subject_run_id']
     endpoint = f'repos/{REPOSITORY}/actions/runs/{run_id}'
     run, run_binding = _local_r2_response_bytes(acquisition_members, endpoint)
-    require(run.get('schema_version') == _LOCAL_R2_TIMED_RUN_SCHEMA,
+    require(run.get('schema_version') in (_LOCAL_R2_TIMED_RUN_SCHEMA, _LOCAL_R2_NUMBERED_RUN_SCHEMA),
             'r2_d6_timed_metadata_required', stage='local_r2_projection')
     require(run.get('record_status') == 'local_candidate' and run.get('simulation_only') is True
             and canonical_json_bytes(run.get('source_identity')) == canonical_json_bytes(source)
@@ -6868,6 +6875,278 @@ def _verify_local_r2_package_replay_assessment(
     expected = _assess_local_r2_package_replay(capture_raw, prepared_raw, expected_context_raw, **pins)
     require(assessment_raw == expected, 'r2_package_assessment_mismatch', stage='local_r2_package')
     return parse_json_bytes(expected, label='local_r2_package_assessment')
+
+
+_LOCAL_R2_PROVIDER_LOADER_BLOB = 'bbdf0d11eb8df6a4abc51cdeb7293177531adcb8'
+_LOCAL_R2_PROVIDER_BUDGET = 64 * 1024 * 1024
+_LOCAL_R2_PROVIDER_SUBJECT_ROLES = {
+    'complete': 'complete_release_grade_reference_package',
+    'completeness': 'package_completeness_report',
+    'verification': 'package_verification_report',
+}
+
+
+def _local_r2_provider_loader_source(plan, prepared_members):
+    """Load the existing Step 3F intake validators, not a second implementation."""
+    import types
+    raw = prepared_members.get('sources/' + STEP3F_LOADER_PATH)
+    rows = [row for row in plan['source_inventory'] if row['path'] == STEP3F_LOADER_PATH]
+    require(type(raw) is bytes and len(rows) == 1 and len(raw) <= 1048576,
+            'r2_provider_source_missing', stage='local_r2_provider')
+    row = rows[0]
+    require(row.get('revision_kind') == 'uncommitted_git_tree'
+            and row.get('revision') == plan['plan_identity']['source_identity']['git_tree_sha1']
+            and row.get('git_blob_sha1') == _LOCAL_R2_PROVIDER_LOADER_BLOB
+                == hashlib.sha1(b'blob %d\0' % len(raw) + raw).hexdigest()
+            and row.get('sha256') == sha256_bytes(raw)
+            and type(row.get('size_bytes')) is int and row['size_bytes'] == len(raw),
+            'r2_provider_source_mismatch', stage='local_r2_provider')
+    name = '_pulsemech_local_r2_provider_consumer'
+    previous = sys.modules.get(name)
+    module = types.ModuleType(name)
+    module.__file__ = str(Path(__file__).resolve().parent / Path(STEP3F_LOADER_PATH).name)
+    sys.modules[name] = module
+    try:
+        exec(compile(raw, module.__file__, 'exec'), module.__dict__)
+    finally:
+        if previous is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = previous
+    return module, descriptor(STEP3F_LOADER_PATH, raw) | {'git_blob_sha1': row['git_blob_sha1']}
+
+
+def _local_r2_provider_publication(members, checked, role):
+    """Resolve a selected archive back to its original, finite raw metadata page."""
+    selections = [r for r in checked['archive_inventory'] if r.get('role') == role]
+    require(len(selections) == 1, 'r2_provider_selection_missing', stage='local_r2_provider')
+    selection = selections[0]
+    raw = members.get(selection['member'])
+    run_id = selection['source_run_id']
+    prefix = f'repos/{REPOSITORY}/actions/runs/{run_id}/artifacts?per_page=100&page='
+    transcript = parse_json_bytes(members['local-r2-transcript.json'], label='r2_provider_transcript')
+    matches = []
+    for exchange in transcript['exchanges']:
+        if exchange['method'] == 'GET' and exchange['endpoint'].startswith(prefix):
+            page_raw = members[exchange['response_member']]
+            page = parse_json_bytes(page_raw, label='r2_provider_artifact_page')
+            for row in page['artifacts']:
+                if row.get('id') == selection['artifact_id']:
+                    matches.append((row, descriptor(exchange['response_member'], page_raw)))
+    require(len(matches) == 1, 'r2_provider_publication_missing', stage='local_r2_provider')
+    row, page_binding = matches[0]
+    require(type(raw) is bytes and row.get('schema_version') == _LOCAL_R2_TIMED_ARTIFACT_SCHEMA
+            and row.get('name') == selection['artifact_name'] and row.get('expired') is False
+            and type(row.get('run_id')) is int and row['run_id'] == run_id
+            and type(row.get('run_attempt')) is int and row['run_attempt'] == 1
+            and row.get('source_identity') == checked['source_identity']
+            and type(row.get('size_in_bytes')) is int and row['size_in_bytes'] == len(raw) == selection['size_bytes']
+            and row.get('digest') == 'sha256:' + sha256_bytes(raw)
+            and selection['sha256'] == sha256_bytes(raw),
+            'r2_provider_publication_binding_mismatch', stage='local_r2_provider')
+    return selection, row, raw, page_binding
+
+
+def _local_r2_provider_source_bindings(expectation, plan, prepared_members, commit):
+    """Bind nested control/authority claims to the independently checked full index.
+
+    A matching provider packet is not the source of its own trust pins. The full
+    index is already tree-checked by preparation; no filesystem paths from these
+    objects are opened, and no original runtime read is thereby proved.
+    """
+    index = parse_json_bytes(prepared_members['local-r2-source-index.json'], label='r2_provider_source_index')
+    by_path = {row['path']: row for row in index['files']}
+    claims = [(row, 'path', False) for row in expectation['trusted_control_plane']['components'].values()]
+    authority = expectation['authority_sources']
+    claims += [(authority[key], 'path_or_uri', True) for key in ('workflow', 'policy', 'gate_registry')]
+    claims += [(row, 'path_or_uri', True) for row in authority['additional_sources']]
+    bindings = {}
+    for claim, path_key, has_size in claims:
+        path = claim.get(path_key); source = by_path.get(path)
+        require(type(source) is dict and source.get('git_mode') in ('100644', '100755')
+                and claim.get('source_revision') == commit
+                and claim.get('sha256') == source['sha256']
+                and (not has_size or (type(claim.get('size_bytes')) is int and claim['size_bytes'] == source['size_bytes'])),
+                'r2_provider_nested_source_mismatch', stage='local_r2_provider')
+        bindings[path] = {'path': path, 'sha256': source['sha256'], 'size_bytes': source['size_bytes'],
+                          'git_blob_sha1': source['git_blob_sha1'], 'fixture_commit': commit}
+    return [bindings[path] for path in sorted(bindings)]
+
+
+def _local_r2_provider_content_assessment(plan, prepared_members, checked, members, *, commit, runs):
+    """Reuse the exact Step 3F loader's content validators and complete consumer.
+
+    This is local semantic intake of explicitly synthetic, preserved bytes. It
+    does not execute the provider workflow or the loader's Git/CLI publication
+    path, and does not finish recorded-candidate or signature verification.
+    """
+    loader, source_binding = _local_r2_provider_loader_source(plan, prepared_members)
+    consumer, _ = _local_r2_package_replay_sources(plan, prepared_members)
+    parent, publication, envelope_raw, page_binding = _local_r2_provider_publication(
+        members, checked, 'step3f_candidate_envelope')
+    subject_run, provider_run = runs['subject'], runs['provider']
+    require(parent['source_run_kind'] == 'provider' and parent['source_run_id'] == checked['provider_run_id'],
+            'r2_provider_parent_mismatch', stage='local_r2_provider')
+    try:
+        provider = loader._provider_artifact_from_args(argparse.Namespace(
+            repository=REPOSITORY, provider_workflow_name=provider_run['workflow_name'],
+            provider_workflow_path=provider_run['workflow_path'],
+            provider_workflow_run_id=provider_run['run_id'], provider_workflow_run_number=provider_run['run_number'],
+            provider_workflow_run_attempt=provider_run['run_attempt'], provider_workflow_event=provider_run['event'],
+            provider_workflow_head_branch=provider_run['ref'], provider_workflow_revision=commit,
+            provider_workflow_status=provider_run['status'], provider_workflow_conclusion=provider_run['conclusion'],
+            provider_workflow_updated_utc=provider_run['updated_at'],
+            provider_artifact_id=publication['id'], provider_artifact_name=publication['name'],
+            provider_artifact_created_utc=publication['created_at'], provider_artifact_expires_utc=publication['expires_at'],
+            provider_artifact_expired='false', provider_artifact_sha256=sha256_bytes(envelope_raw),
+            provider_artifact_size_bytes=len(envelope_raw)))
+        with zipfile.ZipFile(io.BytesIO(envelope_raw)) as archive:
+            infos = loader._zip_info_map(archive, label='r2_provider_envelope', flat=True,
+                max_members=loader.MAX_OUTER_MEMBERS, max_member_bytes=32 * 1024 * 1024,
+                max_total_uncompressed_bytes=_LOCAL_R2_PROVIDER_BUDGET)
+            raw_files = {name: loader._read_zip_member_bytes(archive, info, label='r2_provider_member',
+                max_bytes=loader.MAX_JSON_BYTES if name.endswith('.json') else 32 * 1024 * 1024)
+                for name, info in infos.items()}
+        def document(name):
+            return loader.parse_json_bytes(raw_files[name], label='r2_provider_document', canonical_required=True)
+        manifest = document(loader.CANDIDATE_MANIFEST_NAME)
+        declared, carrier_name = loader._validate_candidate_manifest(manifest, provider=provider,
+                                                                    outer_member_names=set(raw_files))
+        for name, row in declared.items():
+            require(sha256_bytes(raw_files[name]) == row['sha256'] and len(raw_files[name]) == row['size_bytes'],
+                    'r2_provider_member_binding_mismatch', stage='local_r2_provider')
+        subject = loader._validate_source_resolution(document(loader.SOURCE_RESOLUTION_NAME), provider=provider)
+        require(subject.repository == REPOSITORY and subject.source_run_id == subject_run['run_id']
+                and subject.source_run_number == subject_run['run_number'] and subject.source_run_attempt == 1
+                and subject.subject_revision == commit == manifest['subject_revision']
+                and subject.source_updated_utc == subject_run['updated_at'],
+                'r2_provider_subject_binding_mismatch', stage='local_r2_provider')
+        selection = loader._validate_source_selection(document(loader.SOURCE_SELECTION_NAME), subject=subject)
+        expected_archives = {}; parent_bindings = []
+        for key, role in _LOCAL_R2_PROVIDER_SUBJECT_ROLES.items():
+            selected, row, raw, original_page = _local_r2_provider_publication(members, checked, role)
+            expected = {'artifact_id': row['id'], 'artifact_name': row['name'], 'created_at': row['created_at'],
+                        'download_file_name': row['name'] + '.zip', 'expires_at': row['expires_at'],
+                        'expected_sha256': sha256_bytes(raw), 'expected_size_bytes': len(raw),
+                        'key': key, 'role': loader.SOURCE_ARTIFACT_ROLES[key]}
+            require(selected['source_run_kind'] == 'subject' and selected['source_run_id'] == subject_run['run_id']
+                    and canonical_json_bytes(selection[key]) == canonical_json_bytes(expected),
+                    'r2_provider_selected_subject_artifact_mismatch', stage='local_r2_provider')
+            expected_archives[expected['download_file_name']] = raw
+            parent_bindings.append({'role': role, 'artifact_id': row['id'], 'artifact_name': row['name'],
+                'archive': descriptor(selected['member'], raw), 'raw_metadata_page': original_page})
+        carrier_raw = raw_files[carrier_name]
+        metadata = document(loader.CARRIER_METADATA_NAME)
+        loader._validate_carrier_metadata(metadata, subject=subject, provider_revision=commit,
+            carrier_name=carrier_name, carrier_sha256=sha256_bytes(carrier_raw), carrier_size=len(carrier_raw))
+        expectation = document(loader.EXPECTATION_NAME)
+        loader._validate_expectation(expectation, subject=subject, carrier_metadata=metadata,
+                                     provider_revision=commit, selection=selection)
+        nested_sources = _local_r2_provider_source_bindings(expectation, plan, prepared_members, commit)
+        packet = document(loader.PACKET_NAME)
+        # Only the verified local carrier is materialized; all selected archives
+        # remain immutable bytes. Existing loader code opens it by directory fd.
+        with tempfile.TemporaryDirectory(prefix='pulsemech-r2-provider-') as temporary:
+            directory = Path(temporary); path = directory / carrier_name
+            path.write_bytes(carrier_raw); path.chmod(0o400)
+            directory_fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            before = path.stat()
+            try:
+                packet_result = loader._validate_packet(packet, subject=subject, carrier_metadata=metadata,
+                    expectation=expectation, provider_revision=commit, selection=selection,
+                    carrier_directory_descriptor=directory_fd, carrier_name=carrier_name,
+                    max_total_uncompressed_bytes=_LOCAL_R2_PROVIDER_BUDGET)
+                inner_result = loader._validate_inner_carrier(directory_fd, carrier_name, subject=subject,
+                    carrier_metadata=metadata, selection=selection, packet_verification=packet_result)
+                bundle = consumer.load_current_run_bundle(carrier_path=path, carrier_bytes=carrier_raw,
+                    expectation=expectation, max_total_uncompressed_bytes=_LOCAL_R2_PROVIDER_BUDGET)
+                require(bundle.artifact_archives == expected_archives,
+                        'r2_provider_original_archive_bytes_mismatch', stage='local_r2_provider')
+                after = path.stat()
+                require((before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, before.st_ctime_ns)
+                        == (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, after.st_ctime_ns)
+                        and path.read_bytes() == carrier_raw,
+                        'r2_provider_carrier_mutated', stage='local_r2_provider')
+            finally:
+                os.close(directory_fd)
+        # Supplied UTC consistency is checked separately from source clock trust.
+        _, completeness_meta, _, _ = _local_r2_provider_publication(members, checked, 'package_completeness_report')
+        package_meta = parse_json_bytes(bundle.complete_package_members['run_metadata_v0.json'], label='r2_package_metadata')
+        stamps = (subject_run['run_started_at'], package_meta['created_utc'],
+                  completeness_meta['created_at'],
+                  subject_run['updated_at'], provider_run['run_started_at'], publication['created_at'],
+                  provider_run['updated_at'])
+        times = [parse_utc(value, label='r2_provider_time') for value in stamps]
+        require(times == sorted(times), 'r2_provider_time_order_mismatch', stage='local_r2_provider')
+    except VerificationError:
+        raise
+    except (loader.BundleError, consumer.WrapperError, OSError, ValueError, KeyError, TypeError,
+            RuntimeError, EOFError, zipfile.BadZipFile, zlib.error) as exc:
+        # Avoid leaking arbitrary supplied metadata, filenames or contents.
+        raise VerificationError('r2_provider_content_rejected', type(exc).__name__, stage='local_r2_provider') from exc
+    return {'validation_scope': 'pinned_Step3F_content_intake_and_completeness_semantic_replay',
+        'loader_source_binding': source_binding, 'nested_source_bindings': nested_sources,
+        'provider_archive': descriptor(parent['member'], envelope_raw), 'raw_provider_metadata_page': page_binding,
+        'subject_archive_bindings': parent_bindings, 'nested_candidate_members': sorted(raw_files),
+        'carrier': descriptor(carrier_name, carrier_raw),
+        'completeness_report': descriptor('release_grade_package_completeness_v1.json', bundle.completeness_report_bytes),
+        'completeness_check_ids': sorted(row['check_id'] for row in bundle.completeness_report['checks']),
+        'packet_artifact_count': packet_result.artifacts_total,
+        'packet_role_bindings_total': packet_result.role_bindings_total,
+        'packet_role_bindings_resolved': packet_result.role_bindings_resolved,
+        'provider_artifacts_total': packet_result.provider_artifacts_total,
+        'provider_artifacts_bound': packet_result.provider_artifacts_bound,
+        'inner_carrier_validation': inner_result,
+        'selected_original_archive_bytes_verified': True, 'completeness_semantics_replayed': True,
+        'provider_loader_content_validated': True, 'provider_loader_cli_executed': False,
+        'time_order_scope': 'supplied_utc_values_only', 'cross_source_clock_status': 'not_verified',
+        'completeness_report_time_status': 'not_provided_by_core_report',
+        'provider_document_time_scope': 'core_source_updated_utc_binding_not_observed_creation_time',
+        'simulation_only': True, 'observed_platform_execution': False, 'original_runtime_reads_proven': False}
+
+
+def _local_r2_package_provider_assessment(plan, prepared_members, checked_capture, acquisition_members, *,
+                                         fixture_commit_raw, expected_fixture_commit):
+    runs = {}; run_bindings = []
+    for role in ('subject', 'provider'):
+        run_id = checked_capture[role + '_run_id']
+        run, binding = _local_r2_response_bytes(acquisition_members, f'repos/{REPOSITORY}/actions/runs/{run_id}')
+        require(run.get('schema_version') == _LOCAL_R2_NUMBERED_RUN_SCHEMA
+                and type(run.get('run_number')) is int and run['run_number'] > 0,
+                'r2_provider_numbered_run_metadata_required', stage='local_r2_provider')
+        runs[role] = run; run_bindings.append(binding)
+    previous = _local_r2_package_replay_assessment(plan, prepared_members, checked_capture, acquisition_members,
+        fixture_commit_raw=fixture_commit_raw, expected_fixture_commit=expected_fixture_commit)
+    result = _local_r2_provider_content_assessment(plan, prepared_members, checked_capture, acquisition_members,
+                                                 commit=expected_fixture_commit, runs=runs)
+    return {**previous, 'schema_version': 'pulsemech_step5c_local_r2_package_provider_assessment_v0',
+        'validation_scope': 'source_bound_package_completeness_and_transitive_provider_intake',
+        'package_replay_assessment_sha256': sha256_bytes(canonical_json_bytes(previous)),
+        'raw_numbered_run_responses': run_bindings, 'completeness_provider': result,
+        'remaining_package_duties': ['recorded_candidate_full_verifier_and_mandatory_signatures']}
+
+
+def _assess_local_r2_package_provider(capture_raw, prepared_raw, expected_context_raw, *,
+    fixture_commit_raw, expected_fixture_commit, expected_capture_sha256, expected_acquisition_sha256, **pins):
+    """New inactive local stage; earlier incomplete stage records keep their meaning."""
+    checked, capture_members = _read_local_r2_capture(capture_raw, prepared_raw, expected_context_raw,
+        expected_capture_sha256=expected_capture_sha256, expected_acquisition_sha256=expected_acquisition_sha256, **pins)
+    plan, prepared_members = _read_local_r2_prepared(prepared_raw, expected_context_raw, **pins)
+    acquisition = read_canonical_zip_bytes(capture_members['local-r2-acquisition.zip'],
+        label='local_r2_provider_acquisition', maximum_members=256, maximum_bytes=80 * 1024 * 1024)
+    return canonical_json_bytes(_local_r2_package_provider_assessment(plan, prepared_members,
+        {**checked, 'expected_capture_sha256': expected_capture_sha256}, acquisition,
+        fixture_commit_raw=fixture_commit_raw, expected_fixture_commit=expected_fixture_commit))
+
+
+def _verify_local_r2_package_provider_assessment(assessment_raw, capture_raw, prepared_raw, expected_context_raw, *,
+                                               expected_assessment_sha256, **pins):
+    require(type(assessment_raw) is bytes and 0 < len(assessment_raw) <= 1048576
+            and sha256_bytes(assessment_raw) == expected_assessment_sha256,
+            'r2_provider_assessment_digest_mismatch', stage='local_r2_provider')
+    expected = _assess_local_r2_package_provider(capture_raw, prepared_raw, expected_context_raw, **pins)
+    require(assessment_raw == expected, 'r2_provider_assessment_mismatch', stage='local_r2_provider')
+    return parse_json_bytes(expected, label='local_r2_provider_assessment')
 
 
 if __name__ == "__main__":

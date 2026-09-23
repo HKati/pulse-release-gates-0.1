@@ -15276,6 +15276,498 @@ def test_r2c8_publication_at_equal_second_is_not_false_failure(r2c6_package_inpu
     assert result['publication_time_checked'] is True and result['observed_platform_execution'] is False
 
 
+# R2C9: complete package/completeness plus the original Step 3F provider.
+# These fixtures are synthetic even though they exercise observed-profile core
+# formats. No saved PASS, signature check, source validator or replay is stubbed.
+def _r2c9_module(path, name):
+    spec = importlib.util.spec_from_file_location(name, ROOT / path)
+    module = importlib.util.module_from_spec(spec); previous = sys.modules.get(name)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        if previous is None: sys.modules.pop(name, None)
+        else: sys.modules[name] = previous
+    return module
+
+
+def _r2c9_archive_replace(members, checked, role, raw):
+    selection = next(row for row in checked['archive_inventory'] if row['role'] == role)
+    members[selection['member']] = raw
+    for exchange in json.loads(members['local-r2-transcript.json'])['exchanges']:
+        if '/artifacts?' not in exchange['endpoint']: continue
+        name = exchange['response_member']; page = json.loads(members[name])
+        for row in page['artifacts']:
+            if row['id'] == selection['artifact_id']:
+                row.update(size_in_bytes=len(raw), digest='sha256:' + digest(raw))
+        members[name] = canonical(page)
+
+
+def _r2c9_reseal(f, members):
+    members = _r2c3_reindex(dict(members))
+    raw = VERIFIER.deterministic_zip_bytes(members, maximum_members=256, maximum_bytes=80 * 1024 * 1024)
+    capture = CAPTURER._build_local_r2_capture_bytes(raw, f.carrier.raw, f.carrier.context,
+        expected_acquisition_sha256=digest(raw), **f.carrier.pins)
+    pins = {**f.carrier.pins, 'expected_capture_sha256': digest(capture), 'expected_acquisition_sha256': digest(raw)}
+    checked, _ = VERIFIER._read_local_r2_capture(capture, f.carrier.raw, f.carrier.context, **pins)
+    return SimpleNamespace(**{**vars(f), 'raw': raw, 'capture': capture, 'pins': pins, 'members': members,
+        'checked': {**checked, 'expected_capture_sha256': digest(capture)}})
+
+
+def _r2c9_assess(f):
+    return VERIFIER._local_r2_package_provider_assessment(f.carrier.plan.value, f.prepared, f.checked, f.members,
+        fixture_commit_raw=f.commit_raw, expected_fixture_commit=f.commit)
+
+
+@pytest.fixture(scope='module')
+def r2c9_provider_inputs(r2c6_package_inputs, tmp_path_factory):
+    from datetime import datetime, timedelta
+    f = r2c6_package_inputs; directory = tmp_path_factory.mktemp('r2c9-provider')
+    contents = copy.deepcopy(f.contents)
+    package = contents['complete_release_grade_reference_package']
+    old_package = dict(package)
+    status = json.loads(package['artifacts/status.json'])
+    status['gates']['detectors_materialized_ok'] = True
+    status['diagnostics'] = {'gates_stubbed': False, 'scaffold': False}
+    package['artifacts/status.json'] = canonical(status)
+    package['artifacts/report_card.html'] = b'<html><body>stub/scaffold marker state clear</body></html>\n'
+    decision = json.loads(package['artifacts/release_decision_v0.json'])
+    gates = list(dict.fromkeys(f.oracle['required'] + f.oracle['release_required']))
+    decision.update(decision='ALLOW', effective_required_gates=gates)
+    package['artifacts/release_decision_v0.json'] = canonical(decision)
+    gate_base = {'effective_source': 'workflow-effective:required+release_required',
+                 'policy_sets': ['required', 'release_required'], 'gate_ids': gates}
+    gate_digest = digest(json.dumps(gate_base, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode())
+    policy_sha = digest(f.carrier.plan.source.sources['pulse_gate_policy_v0.yml'])
+    package['artifacts/artifact_provenance_binding_v0.json'] = canonical({
+        'run': {'run_id': '9001', 'git_sha': f.commit,
+                'run_key': 'GITHUB_RUN_ID=9001|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI', 'run_mode': 'prod'},
+        'authority_carrier': {'status_json': {'sha256': digest(package['artifacts/status.json'])},
+            'declared_gate_policy': {'sha256': policy_sha},
+            'release_decision': {'sha256': digest(package['artifacts/release_decision_v0.json'])},
+            'workflow_effective_required_gate_set': dict(gate_base, sha256=gate_digest)}})
+    # All occurrences of a declared version retain exactly the same bytes.
+    for group in contents.values():
+        for name, raw in list(group.items()):
+            for path in ('artifacts/status.json', 'artifacts/report_card.html', 'artifacts/artifact_provenance_binding_v0.json',
+                         'artifacts/release_decision_v0.json'):
+                if Path(name).name == Path(path).name and raw == old_package[path]:
+                    group[name] = package[path]
+    package = _r2_package_replay_reindex(package)
+    contents['complete_release_grade_reference_package'] = package
+    for name, raw in package.items():
+        path = directory / 'package' / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(raw)
+    helper = _r2c9_module('tests/test_release_grade_reference_package_verification_wiring_v0.py', 'r2c9_summary_data')
+    identity = {'repository': VERIFIER.REPOSITORY, 'git_sha': f.commit,
+        'workflow_ref': VERIFIER.REPOSITORY + '/.github/workflows/pulse_ci.yml@refs/heads/main',
+        'run_id': '9001', 'run_attempt': '1',
+        'run_key': 'GITHUB_RUN_ID=9001|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI'}
+    proc, verification = helper._run_summary_verifier(directory / 'package', directory / 'verification.json', identity=identity)
+    assert proc.returncode == 0, verification
+    completeness_tool = _r2c9_module('tools/check_release_grade_package_complete_v1.py', 'r2c9_completeness_core')
+    completeness = completeness_tool.check_package(directory / 'package')
+    assert completeness['ok'] is True, completeness['errors']
+    contents['package_completeness_report'] = {'release_grade_package_completeness_v1.json': canonical(completeness)}
+    contents['package_verification_report'] = {'release_grade_reference_package_verification_v0.json': canonical(verification)}
+    members = dict(f.members)
+    for role, payloads in contents.items():
+        _r2c9_archive_replace(members, f.checked, role, example_zip(payloads))
+    # Author a new versioned simulation. Do not augment an old saved record and
+    # then claim a platform measurement. The old v0/v1 fixtures stay unchanged.
+    subject_run, _ = VERIFIER._local_r2_response_bytes(members, 'repos/' + VERIFIER.REPOSITORY + '/actions/runs/9001')
+    end = datetime.fromisoformat(subject_run['updated_at'].replace('Z', '+00:00'))
+    def stamp(seconds): return (end + timedelta(seconds=seconds)).strftime('%Y-%m-%dT%H:%M:%SZ')
+    for exchange in json.loads(members['local-r2-transcript.json'])['exchanges']:
+        endpoint = exchange['endpoint']; name = exchange['response_member']
+        if exchange['method'] != 'GET' or '/actions/runs/' not in endpoint: continue
+        doc = json.loads(members[name])
+        if endpoint.endswith('/9001') or endpoint.endswith('/9002'):
+            doc.update(schema_version='pulsemech_step5c_local_r2_simulated_run_v2',
+                       run_number=77 if endpoint.endswith('/9001') else 90)
+            if endpoint.endswith('/9002'): doc.update(run_started_at=stamp(1), updated_at=stamp(120))
+        elif '/9002/jobs?' in endpoint:
+            for job in doc['jobs']:
+                job.update(started_at=stamp(2), completed_at=stamp(119))
+                for step in job['platform_steps']:
+                    if step['conclusion'] == 'success': step.update(started_at=stamp(3), completed_at=stamp(3))
+        elif '/artifacts?' in endpoint:
+            for row in doc['artifacts']:
+                if '/9002/' in endpoint: row['created_at'] = stamp(100)
+                elif not row['name'].startswith('complete-release-grade-reference-package-'):
+                    row['created_at'] = verification['checked_utc']
+                row['expires_at'] = stamp(86400)
+        members[name] = canonical(doc)
+    f2 = _r2c9_reseal(f, members)
+    # The existing loader test provides document shapes only. Real core producer
+    # functions below build the packet; real completeness/verification supply its
+    # reports and counts. All fake source digests in the shape are replaced.
+    template = _r2c9_module('tests/test_load_pulsemech_compute_current_run_export_candidate_bundle_v0.py', 'r2c9_shape')
+    data = template.fixture(directory); loader = template.M
+    def convert(value):
+        if isinstance(value, dict): return {k: convert(v) for k, v in value.items()}
+        if isinstance(value, list): return [convert(v) for v in value]
+        if type(value) is int: return 9001 if value == 12345 else value
+        if type(value) is str:
+            return value.replace('12345', '9001').replace('1'*40, f.commit).replace('2'*40, f.commit).replace(
+                '2026-08-20T10:00:00Z', subject_run['updated_at'])
+        return value
+    expectation = convert(data['expectation']); carrier_meta = expectation['carrier']
+    selection = {}
+    for key, role in VERIFIER._LOCAL_R2_PROVIDER_SUBJECT_ROLES.items():
+        selected, row, raw, _ = VERIFIER._local_r2_provider_publication(f2.members, f2.checked, role)
+        selection[key] = {'artifact_id': row['id'], 'artifact_name': row['name'],
+            'created_at': row['created_at'], 'download_file_name': row['name'] + '.zip',
+            'expires_at': row['expires_at'], 'expected_sha256': digest(raw), 'expected_size_bytes': len(raw),
+            'key': key, 'role': loader.SOURCE_ARTIFACT_ROLES[key]}
+    source_selection = convert(data['source_selection']); source_selection['artifacts'] = [selection[k] for k in sorted(selection)]
+    source_resolution = convert(data['source_resolution'])
+    source_resolution['source_run']['html_url'] = 'https://github.com/' + VERIFIER.REPOSITORY + '/actions/runs/9001'
+    preservation = convert(data['preservation'])
+    # The existing core uses source.updated_utc as a deterministic document
+    # time binding, not as an observed provider creation timestamp.
+    preservation['created_utc'] = subject_run['updated_at']
+    preservation['github_artifacts'] = []
+    zip_by_name = {}
+    for key in sorted(selection, key=lambda k: selection[k]['download_file_name']):
+        row = selection[key]; selected = next(r for r in f2.checked['archive_inventory'] if r['role'] == VERIFIER._LOCAL_R2_PROVIDER_SUBJECT_ROLES[key])
+        zip_by_name[row['download_file_name']] = f2.members[selected['member']]
+        preservation['github_artifacts'].append({'artifact_id': row['artifact_id'], 'artifact_name': row['artifact_name'],
+            'created_at': row['created_at'], 'downloaded_sha256': row['expected_sha256'],
+            'downloaded_size_bytes': row['expected_size_bytes'], 'expires_at': row['expires_at'],
+            'file_name': row['download_file_name'], 'github_digest_match': True, 'github_sha256': row['expected_sha256'],
+            'github_size_match': True, 'role': row['role'], 'size_bytes': row['expected_size_bytes']})
+    preservation['retention_risk']['earliest_expiry_utc'] = stamp(86400)
+    preservation['local_verification'].update(complete_package_inventory_entries=len(package)-1,
+        complete_package_zip_members=len(package), structural_completeness_checks_total=len(completeness['checks']),
+        independent_verification_checks_total=len(verification['checks']))
+    root = carrier_meta['root_prefix']; carrier_name = carrier_meta['staged_relative_path'].split('/')[-1]
+    inner = {'PRESERVATION_MANIFEST_v0.json': canonical(preservation),
+             'README.md': b'Synthetic R2 provider fixture; no hosted execution or signature proof.\n'}
+    inner.update({'original-github-artifacts/' + name: raw for name, raw in zip_by_name.items()})
+    inner['SHA256SUMS'] = ''.join(digest(raw) + '  ' + name + '\n' for name, raw in sorted(inner.items())).encode()
+    carrier_raw = example_zip({root + name: raw for name, raw in inner.items()})
+    carrier_meta.update(sha256=digest(carrier_raw), size_bytes=len(carrier_raw), finalized_utc=subject_run['updated_at'])
+    expectation['archive_layout'].update(artifact_count_derivation='provider_plus_non_provider',
+        expected_non_provider_artifact_count=len(package)+5,
+        visible_members={'preservation_manifest_name': 'PRESERVATION_MANIFEST_v0.json',
+            'preservation_readme_name': 'README.md', 'preservation_checksums_name': 'SHA256SUMS'})
+    source_index = {r['path']: r for r in json.loads(f.prepared['local-r2-source-index.json'])['files']}
+    for row in expectation['trusted_control_plane']['components'].values(): row['sha256'] = source_index[row['path']]['sha256']
+    for producer, key in ((carrier_meta['producer'], 'carrier_loader'), (expectation['expectation_producer'], 'expectation_builder')):
+        producer['producer_source_sha256'] = expectation['trusted_control_plane']['components'][key]['sha256']
+    authority = expectation['authority_sources']
+    for row in [authority[k] for k in ('workflow','policy','gate_registry')] + authority['additional_sources']:
+        source = source_index[row['path_or_uri']]; row.update(sha256=source['sha256'], size_bytes=source['size_bytes'])
+    expectation['subject'].update(final_status_sha256=digest(package['artifacts/status.json']),
+        policy_sha256=policy_sha, release_decision_sha256=digest(package['artifacts/release_decision_v0.json']),
+        materialized_gate_set_sha256=gate_digest)
+    expectation['expectation_identity']['expectation_created_utc'] = subject_run['updated_at']
+    consumer = _r2c9_module('tools/build_pulsemech_compute_subject_input_packet_current_run_v0.py', 'r2c9_consumer')
+    core = _r2c9_module('tools/pulsemech_compute_subject_input_packet_producer_core_v0.py', 'r2c9_core')
+    validator = _r2c9_module('tools/check_pulsemech_compute_subject_input_packet_v0.py', 'r2c9_packet_validator')
+    carrier_tool = _r2c9_module('tools/load_pulsemech_compute_current_run_export_carrier_v0.py', 'r2c9_carrier_tool')
+    carrier_path = directory / carrier_name; carrier_path.write_bytes(carrier_raw)
+    bundle = consumer.load_current_run_bundle(carrier_path=carrier_path, carrier_bytes=carrier_raw,
+        expectation=expectation, max_total_uncompressed_bytes=64 * 1024 * 1024)
+    profile = consumer._derive_producer_profile(expectation=expectation, producer_core=core, carrier_path=carrier_path)
+    location = carrier_meta['staged_relative_path']
+    artifacts, documents = core.build_artifacts(carrier=location, bundle=bundle, validator=validator, profile=profile)
+    inputs = core.PacketInputs(profile, carrier_path, location, carrier_raw, bundle, artifacts,
+                              core.role_bindings(artifacts), documents)
+    consumer._bind_current_run_slug(producer_core=core, carrier_module=carrier_tool)
+    producer = convert(data['packet']['producer'])
+    producer['producer_source_sha256'] = expectation['trusted_control_plane']['components']['subject_input_producer_wrapper']['sha256']
+    packet = core.build_packet(inputs=inputs, subject=expectation['subject'],
+        sources=loader._canonical_packet_authority_sources(authority), producer=producer, packet_created_utc=subject_run['updated_at'])
+    files = {carrier_name: carrier_raw, 'carrier.json': canonical(carrier_meta), 'expectation.json': canonical(expectation),
+        'subject-input-packet.json': canonical(packet), 'source-run-resolution.json': canonical(source_resolution),
+        'source-artifact-selection.json': canonical(source_selection)}
+    manifest = convert(data['mf']); manifest['files'] = [{'path': name, 'sha256': digest(raw), 'size_bytes': len(raw)} for name, raw in sorted(files.items())]
+    files['candidate-output-manifest.json'] = canonical(manifest)
+    members = dict(f2.members)
+    _r2c9_archive_replace(members, f2.checked, 'step3f_candidate_envelope', example_zip(files))
+    result = _r2c9_reseal(f2, members)
+    result.directory = directory; result.contents = contents; result.provider_files = files
+    result.verification = verification; result.completeness = completeness
+    for name, raw in {'prepared.zip': f.carrier.raw, 'acquisition.zip': result.raw, 'capture.zip': result.capture,
+        'context.json': f.carrier.context, 'fixture-commit.raw': f.commit_raw,
+        'pins.json': canonical({**result.pins, 'expected_fixture_commit': f.commit})}.items():
+        (directory / name).write_bytes(raw)
+    return result
+
+
+def test_r2c9_full_byte_provider_path_is_incomplete_and_bound(r2c9_provider_inputs):
+    f = r2c9_provider_inputs
+    raw = VERIFIER._assess_local_r2_package_provider(f.capture, f.carrier.raw, f.carrier.context,
+        fixture_commit_raw=f.commit_raw, expected_fixture_commit=f.commit, **f.pins)
+    result = json.loads(raw)
+    assert result['assessment_status'] == 'incomplete' and result['fully_satisfied_role_count'] == 0
+    assert result['mandatory_llamaguard_signatures_verified'] is False
+    assert result['local_boundary']['R2_activated'] is False
+    assert result['fresh_package_verifier_cli_executed'] is True
+    assert result['remaining_package_duties'] == ['recorded_candidate_full_verifier_and_mandatory_signatures']
+    new = result['completeness_provider']
+    assert new['completeness_semantics_replayed'] is True and new['provider_loader_content_validated'] is True
+    assert new['provider_loader_cli_executed'] is False and new['observed_platform_execution'] is False
+    assert new['provider_artifacts_bound'] == new['provider_artifacts_total'] == 3
+    assert new['packet_role_bindings_resolved'] == new['packet_role_bindings_total']
+    assert len(new['completeness_check_ids']) == len(f.completeness['checks'])
+    assert len(new['nested_source_bindings']) == 14
+    assert canonical(result) == canonical(_r2c9_assess(f))
+    assert str(f.directory).encode() not in raw
+    (f.directory / 'assessment.json').write_bytes(raw)
+
+
+def _r2c9_content(f, *, files=None, members=None, checked=None):
+    members = dict(f.members if members is None else members)
+    checked = copy.deepcopy(f.checked if checked is None else checked)
+    if files is not None:
+        files = dict(files)
+        manifest = json.loads(files['candidate-output-manifest.json'])
+        manifest['files'] = [{'path': name, 'sha256': digest(raw), 'size_bytes': len(raw)}
+            for name, raw in sorted(files.items()) if name != 'candidate-output-manifest.json']
+        files['candidate-output-manifest.json'] = canonical(manifest)
+        raw = example_zip(files)
+        _r2c9_archive_replace(members, checked, 'step3f_candidate_envelope', raw)
+        selected = next(r for r in checked['archive_inventory'] if r['role'] == 'step3f_candidate_envelope')
+        selected.update(sha256=digest(raw), size_bytes=len(raw))
+    runs = {role: VERIFIER._local_r2_response_bytes(members,
+        'repos/' + VERIFIER.REPOSITORY + '/actions/runs/' + str(checked[role+'_run_id']))[0]
+        for role in ('subject','provider')}
+    return VERIFIER._local_r2_provider_content_assessment(f.carrier.plan.value, f.prepared,
+        checked, members, commit=f.commit, runs=runs)
+
+
+@pytest.mark.parametrize('fault', ['status', 'check-id', 'check-result', 'checks-empty', 'tool', 'summary'])
+def test_r2c9_completeness_is_replayed_after_all_layers_are_rehashed(r2c9_provider_inputs, fault):
+    f = r2c9_provider_inputs
+    files, members, checked = _r2c9_changed_completeness(f, fault)
+    with pytest.raises(VERIFIER.VerificationError, match='r2_provider_content_rejected'):
+        _r2c9_content(f, files=files, members=members, checked=checked)
+
+
+def _r2c9_changed_completeness(f, fault):
+    files = dict(f.provider_files); members = dict(f.members); checked = copy.deepcopy(f.checked)
+    report = copy.deepcopy(f.completeness)
+    if fault == 'status': report['status'] = 'incomplete'
+    elif fault == 'check-id': report['checks'][0]['check_id'] = 'invented_check'
+    elif fault == 'check-result': report['checks'][0]['passed'] = False
+    elif fault == 'checks-empty': report['checks'] = []
+    elif fault == 'tool': report['tool']['version'] = 'wrong'
+    else: report['summary']['required_files'] += 1
+    report_raw = canonical(report)
+    archive_raw = example_zip({'release_grade_package_completeness_v1.json': report_raw})
+    _r2c9_archive_replace(members, checked, 'package_completeness_report', archive_raw)
+    selected = next(r for r in checked['archive_inventory'] if r['role'] == 'package_completeness_report')
+    selected.update(sha256=digest(archive_raw), size_bytes=len(archive_raw))
+    selection = json.loads(files['source-artifact-selection.json'])
+    row = next(r for r in selection['artifacts'] if r['key'] == 'completeness')
+    row.update(expected_sha256=digest(archive_raw), expected_size_bytes=len(archive_raw))
+    files['source-artifact-selection.json'] = canonical(selection)
+    carrier_name = next(n for n in files if n.endswith('.zip'))
+    with zipfile.ZipFile(io.BytesIO(files[carrier_name])) as z: inner = {n:z.read(n) for n in z.namelist()}
+    root = json.loads(files['carrier.json'])['root_prefix']
+    inner[root+'original-github-artifacts/'+row['download_file_name']] = archive_raw
+    manifest = json.loads(inner[root+'PRESERVATION_MANIFEST_v0.json'])
+    preserved = next(r for r in manifest['github_artifacts'] if r['artifact_id'] == selected['artifact_id'])
+    preserved.update(downloaded_sha256=digest(archive_raw), github_sha256=digest(archive_raw),
+                     downloaded_size_bytes=len(archive_raw), size_bytes=len(archive_raw))
+    inner[root+'PRESERVATION_MANIFEST_v0.json'] = canonical(manifest)
+    inner[root+'SHA256SUMS'] = ''.join(digest(raw)+'  '+name.removeprefix(root)+'\n'
+        for name,raw in sorted(inner.items()) if name != root+'SHA256SUMS').encode()
+    carrier_raw = example_zip(inner); files[carrier_name] = carrier_raw
+    metadata = json.loads(files['carrier.json']); metadata.update(sha256=digest(carrier_raw), size_bytes=len(carrier_raw))
+    files['carrier.json'] = canonical(metadata)
+    expectation = json.loads(files['expectation.json']); expectation['carrier'] = metadata
+    files['expectation.json'] = canonical(expectation)
+    packet = json.loads(files['subject-input-packet.json'])
+    packet['carrier'].update(sha256=digest(carrier_raw), size_bytes=len(carrier_raw))
+    for artifact in packet['artifacts']:
+        name = artifact['member_path']
+        if name in inner: artifact.update(sha256=digest(inner[name]),size_bytes=len(inner[name]))
+        if artifact['role'] == 'package_completeness_report':
+            artifact.update(sha256=digest(report_raw), size_bytes=len(report_raw))
+        if artifact.get('provider_binding') is not None and artifact['provider_binding']['provider_artifact_id'] == str(selected['artifact_id']):
+            artifact['provider_binding'].update(provider_sha256=digest(archive_raw), provider_size_bytes=len(archive_raw))
+    files['subject-input-packet.json'] = canonical(packet)
+    return files, members, checked
+
+
+@pytest.mark.parametrize('name,fault', [
+    ('source-run-resolution.json','run-number'), ('source-run-resolution.json','source-revision'),
+    ('source-run-resolution.json','run-id'), ('source-artifact-selection.json','same-bytes-other-id'),
+    ('source-artifact-selection.json','publication-time'), ('carrier.json','digest'), ('carrier.json','document-time'),
+    ('expectation.json','source-hash'), ('expectation.json','authority-size'),
+    ('expectation.json','role-profile'), ('subject-input-packet.json','coverage'),
+    ('subject-input-packet.json','role'), ('subject-input-packet.json','member-digest'),
+    ('subject-input-packet.json','provider-binding'), ('subject-input-packet.json','authority'),
+    ('subject-input-packet.json','source-number'), ('subject-input-packet.json','gate-digest'),
+])
+def test_r2c9_provider_relations_not_only_outer_digests(r2c9_provider_inputs,name,fault):
+    f = r2c9_provider_inputs; files = dict(f.provider_files); doc = json.loads(files[name])
+    if fault == 'run-number': doc['source_run']['run_number'] += 1
+    elif fault == 'source-revision': doc['source_run']['subject_revision'] = 'a'*40
+    elif fault == 'run-id': doc['source_run']['run_id'] += 1
+    elif fault == 'same-bytes-other-id': doc['artifacts'][0]['artifact_id'] += 50
+    elif fault == 'publication-time': doc['artifacts'][0]['created_at'] = '2026-01-01T00:00:00Z'
+    elif fault == 'digest': doc['sha256'] = 'a'*64
+    elif fault == 'document-time': doc['finalized_utc'] = '2026-01-01T00:00:00Z'
+    elif fault == 'source-hash': doc['trusted_control_plane']['components']['subject_input_validator']['sha256'] = 'a'*64
+    elif fault == 'authority-size': doc['authority_sources']['policy']['size_bytes'] += 1
+    elif fault == 'role-profile': doc['packet_contract']['record_status'] = 'example'
+    elif fault == 'coverage': doc['coverage']['artifacts_total'] -= 1
+    elif fault == 'role': doc['role_bindings']['final_status'] = doc['role_bindings']['run_metadata']
+    elif fault == 'member-digest': doc['artifacts'][0]['sha256'] = 'a'*64
+    elif fault == 'provider-binding': next(r for r in doc['artifacts'] if r.get('provider_binding'))['provider_binding']['provider_artifact_id'] = '1'
+    elif fault == 'authority': doc['authority_boundary']['changes_release_authority'] = True
+    elif fault == 'source-number': doc['subject']['workflow_run_number'] += 1
+    else: doc['subject']['materialized_gate_set_sha256'] = None
+    files[name] = canonical(doc)
+    with pytest.raises(VERIFIER.VerificationError): _r2c9_content(f,files=files)
+
+
+@pytest.mark.parametrize('fault', ['missing-packet','extra-member','manifest-count','manifest-authority'])
+def test_r2c9_provider_member_closure_is_not_a_manifest_pass(r2c9_provider_inputs,fault):
+    f = r2c9_provider_inputs; files = dict(f.provider_files)
+    if fault == 'missing-packet': files.pop('subject-input-packet.json')
+    elif fault == 'extra-member': files['extra.txt'] = b'unplanned'
+    else:
+        doc = json.loads(files['candidate-output-manifest.json'])
+        if fault == 'manifest-count': doc['file_count'] += 1
+        else: doc['authority_boundary'] = {}
+        files['candidate-output-manifest.json'] = canonical(doc)
+    with pytest.raises(VERIFIER.VerificationError): _r2c9_content(f,files=files)
+
+
+@pytest.mark.parametrize('fault', ['missing','modified','tree','blob'])
+def test_r2c9_existing_provider_source_is_pinned(r2c9_provider_inputs,fault):
+    f = r2c9_provider_inputs; prepared = dict(f.prepared); plan = copy.deepcopy(f.carrier.plan.value)
+    path = 'sources/'+VERIFIER.STEP3F_LOADER_PATH
+    if fault == 'missing': prepared.pop(path)
+    elif fault == 'modified': prepared[path] += b'\n'
+    else:
+        row = next(r for r in plan['source_inventory'] if r['path'] == VERIFIER.STEP3F_LOADER_PATH)
+        row['revision' if fault == 'tree' else 'git_blob_sha1'] = 'a'*40
+    with pytest.raises(VERIFIER.VerificationError,match='r2_provider_source_'):
+        VERIFIER._local_r2_provider_loader_source(plan,prepared)
+
+
+@pytest.mark.parametrize('role', ['subject','provider'])
+@pytest.mark.parametrize('number', [None,False,0,-1,'77'])
+def test_r2c9_numbered_profile_requires_independent_positive_run_number(r2c9_provider_inputs,role,number):
+    f = r2c9_provider_inputs; members = dict(f.members)
+    run_id = f.checked[role+'_run_id']; name = _r2c3_response_member(f, '/runs/'+str(run_id))
+    doc=json.loads(members[name])
+    if number is None: doc.pop('run_number')
+    else: doc['run_number'] = number
+    members[name] = canonical(doc); _r2c3_reindex(members)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_run_number_invalid'):
+        VERIFIER._local_r2_transport_check(members,f.carrier.plan.value,f.carrier.context,
+                                          f.carrier.plan.source.sources[VERIFIER.SCHEMA_PATH])
+
+
+def test_r2c9_legacy_package_stage_does_not_gain_provider_acceptance(r2c6_package_inputs):
+    f = r2c6_package_inputs; previous = _r2c6_assess(f)
+    assert previous['remaining_package_duties'][0] == 'completeness_report_and_transitive_provider_validation'
+    with pytest.raises(VERIFIER.VerificationError,match='r2_provider_numbered_run_metadata_required'):
+        _r2c9_assess(f)
+
+
+def test_r2c9_saved_reader_recomputes_not_trusts_green(r2c9_provider_inputs):
+    f=r2c9_provider_inputs; raw=canonical(_r2c9_assess(f))
+    pins={'fixture_commit_raw':f.commit_raw,'expected_fixture_commit':f.commit,**f.pins}
+    actual=VERIFIER._verify_local_r2_package_provider_assessment(raw,f.capture,f.carrier.raw,f.carrier.context,
+        expected_assessment_sha256=digest(raw),**pins)
+    assert canonical(actual)==raw
+    actual['completeness_provider']['provider_artifacts_bound'] = 999
+    changed=canonical(actual)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_provider_assessment_mismatch'):
+        VERIFIER._verify_local_r2_package_provider_assessment(changed,f.capture,f.carrier.raw,f.carrier.context,
+            expected_assessment_sha256=digest(changed),**pins)
+
+
+def test_r2c9_fresh_package_cli_failure_still_blocks_provider(r2c9_provider_inputs,monkeypatch):
+    attempts=[]
+    def failed(*args,**kwargs):
+        attempts.append(1);return VERIFIER.ProcessOutput(23,b'',b'')
+    monkeypatch.setattr(VERIFIER,'run_process',failed)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_fresh_package_verifier_failed'):
+        _r2c9_assess(r2c9_provider_inputs)
+    assert len(attempts)==1
+
+
+def test_r2c9_actual_pinned_content_calls_and_cleanup(r2c9_provider_inputs,monkeypatch):
+    f=r2c9_provider_inputs; calls=[]; directories=[]; old=VERIFIER._local_r2_provider_loader_source
+    def tracked(*args):
+        module,binding=old(*args)
+        for name in ('_validate_candidate_manifest','_validate_source_resolution','_validate_source_selection',
+                     '_validate_carrier_metadata','_validate_expectation','_validate_packet','_validate_inner_carrier'):
+            original=getattr(module,name)
+            def observe(*args,_name=name,_original=original,**kwargs):
+                calls.append(_name)
+                if _name == '_validate_packet':
+                    directories.append(Path(os.readlink('/proc/self/fd/'+str(kwargs['carrier_directory_descriptor']))))
+                return _original(*args,**kwargs)
+            setattr(module,name,observe)
+        return module,binding
+    monkeypatch.setattr(VERIFIER,'_local_r2_provider_loader_source',tracked)
+    before=dict(f.members); result=_r2c9_content(f)
+    assert calls==['_validate_candidate_manifest','_validate_source_resolution','_validate_source_selection',
+                   '_validate_carrier_metadata','_validate_expectation','_validate_packet','_validate_inner_carrier']
+    assert f.members==before and result['selected_original_archive_bytes_verified'] is True
+    assert directories and all(not p.exists() for p in directories)
+
+
+def test_r2c9_full_byte_path_rejects_semantic_fault_after_rehash(r2c9_provider_inputs):
+    f=r2c9_provider_inputs; files,members,_=_r2c9_changed_completeness(f,'check-id')
+    manifest=json.loads(files['candidate-output-manifest.json'])
+    manifest['files']=[{'path':n,'sha256':digest(b),'size_bytes':len(b)} for n,b in sorted(files.items()) if n!='candidate-output-manifest.json']
+    files['candidate-output-manifest.json']=canonical(manifest)
+    _r2c9_archive_replace(members,f.checked,'step3f_candidate_envelope',example_zip(files))
+    bad=_r2c9_reseal(f,members)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_provider_content_rejected'):
+        VERIFIER._assess_local_r2_package_provider(bad.capture,bad.carrier.raw,bad.carrier.context,
+            fixture_commit_raw=bad.commit_raw,expected_fixture_commit=bad.commit,**bad.pins)
+
+
+@pytest.mark.parametrize('role', ['subject','provider'])
+def test_r2c9_mixed_run_metadata_profiles_are_rejected(r2c9_provider_inputs,role):
+    f=r2c9_provider_inputs; members=dict(f.members)
+    name=_r2c3_response_member(f,'/runs/'+str(f.checked[role+'_run_id']))
+    run=json.loads(members[name]); run['schema_version']='pulsemech_step5c_local_r2_simulated_run_v1'
+    run.pop('run_number');members[name]=canonical(run);_r2c3_reindex(members)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_mixed_execution_metadata_profiles'):
+        VERIFIER._local_r2_transport_check(members,f.carrier.plan.value,f.carrier.context,
+                                          f.carrier.plan.source.sources[VERIFIER.SCHEMA_PATH])
+
+
+def test_r2c9_provider_cannot_precede_the_selected_subject_completion(r2c9_provider_inputs):
+    f=r2c9_provider_inputs; members=dict(f.members)
+    subject,_=VERIFIER._local_r2_response_bytes(members,'repos/'+VERIFIER.REPOSITORY+'/actions/runs/9001')
+    name=_r2c3_response_member(f,'/runs/9002');run=json.loads(members[name])
+    run['run_started_at']=subject['run_started_at'];members[name]=canonical(run)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_provider_time_order_mismatch'):
+        _r2c9_content(f,members=members)
+
+
+def test_r2c9_temporary_carrier_cleanup_failure_is_not_accepted(r2c9_provider_inputs,monkeypatch):
+    original=VERIFIER.tempfile.TemporaryDirectory
+    class FailedCleanup(original):
+        def __exit__(self,*args):
+            result=super().__exit__(*args)
+            raise OSError('controlled temporary cleanup failure')
+    monkeypatch.setattr(VERIFIER.tempfile,'TemporaryDirectory',FailedCleanup)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_provider_content_rejected'):
+        _r2c9_content(r2c9_provider_inputs)
+
+
+def test_r2c9_full_entrypoint_requires_external_capture_digest(r2c9_provider_inputs):
+    f=r2c9_provider_inputs;pins={**f.pins,'expected_capture_sha256':'0'*64}
+    with pytest.raises(VERIFIER.VerificationError):
+        VERIFIER._assess_local_r2_package_provider(f.capture,f.carrier.raw,f.carrier.context,
+            fixture_commit_raw=f.commit_raw,expected_fixture_commit=f.commit,**pins)
+
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.
