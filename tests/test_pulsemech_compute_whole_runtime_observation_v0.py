@@ -15321,8 +15321,12 @@ def _r2c9_assess(f):
 
 @pytest.fixture(scope='module')
 def r2c9_provider_inputs(r2c6_package_inputs, tmp_path_factory):
+    return _r2c9_build_provider_inputs(r2c6_package_inputs, tmp_path_factory)
+
+
+def _r2c9_build_provider_inputs(f, tmp_path_factory):
     from datetime import datetime, timedelta
-    f = r2c6_package_inputs; directory = tmp_path_factory.mktemp('r2c9-provider')
+    directory = tmp_path_factory.mktemp('r2c9-provider')
     contents = copy.deepcopy(f.contents)
     package = contents['complete_release_grade_reference_package']
     old_package = dict(package)
@@ -15936,6 +15940,363 @@ def test_r2c10_source_preparation_does_not_verify_signatures_or_admit_roles(r2c9
     assert result['observed_platform_execution'] is False
     assert result['original_runtime_reads_proven'] is False
 
+
+
+
+# R2C11: fresh existing-core input replay. Fixture assertions are synthetic;
+# no signature backend is replaced with PASS and no full verifier is claimed.
+@pytest.fixture(scope='module')
+def r2c11_recorded_inputs(r2c6_package_inputs, tmp_path_factory):
+    from datetime import datetime
+    f = r2c6_package_inputs
+    directory = tmp_path_factory.mktemp('r2c11-author-inputs')
+    source_values, _ = VERIFIER._local_r2_recorded_input_sources(f.carrier.plan.value, f.prepared)
+    for name, raw in source_values.items():
+        target = directory / name; target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(raw)
+    contents = copy.deepcopy(f.contents)
+    saved = contents['release_grade_recorded_path']
+    stamp = json.loads(contents['complete_release_grade_reference_package']['run_metadata_v0.json'])['created_utc']
+    run_key = 'GITHUB_RUN_ID=9001|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI'
+    identity = {'git_sha': f.commit, 'run_key': run_key, 'run_mode': 'prod'}
+    subject = {'repository': 'HKati/pulse-release-gates-0.1', 'commit_sha': f.commit, 'release_candidate': 'main'}
+    required = yaml.safe_load(source_values['pulse_gate_policy_v0.yml'])['gates']['required']
+    release_required = yaml.safe_load(source_values['pulse_gate_policy_v0.yml'])['gates']['release_required']
+    evidence = {
+        'schema_version': 'required_gate_evidence_v0', 'created_utc': stamp,
+        'run_identity': identity, 'subject': subject,
+        'policy_binding': {'policy_path': 'pulse_gate_policy_v0.yml',
+            'policy_sha256': digest(source_values['pulse_gate_policy_v0.yml']), 'policy_set': 'required'},
+        'registry_binding': {'registry_path': 'pulse_gate_registry_v0.yml',
+                            'registry_sha256': digest(source_values['pulse_gate_registry_v0.yml'])},
+        'producer': {'id': 'pulse_recorded_required_gate_evaluator_v0', 'version': '0.1.0', 'trusted': True,
+            'tool_path': 'PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py',
+            'tool_sha256': digest(source_values['PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py'])},
+        'gates': {gate: {'value': True, 'status': 'passed', 'evaluation_id': 'synthetic.'+gate,
+            'evidence_artifacts': [{'path': 'pulse_gate_policy_v0.yml',
+                'sha256': digest(source_values['pulse_gate_policy_v0.yml']), 'kind': 'synthetic_input_reference',
+                'schema_version': None}], 'diagnostics': []} for gate in required},
+        'authority_boundary': {'normative': False, 'creates_release_authority': False,
+                              'materializes_release_required': False, 'replaces_check_gates': False},
+        'warnings': ['Synthetic schema-conforming input; per-gate evaluator results not replayed.']}
+    # Freshly authored source-bound inputs, not renamed historical evidence.
+    evidence_raw = canonical(evidence)
+    status = {'version': '1.0.0', 'created_utc': stamp, 'gates': {gate: True for gate in required},
+        'metrics': {'run_mode': 'prod', 'git_sha': f.commit, 'run_key': run_key,
+            'gate_policy_path': 'pulse_gate_policy_v0.yml',
+            'gate_policy_sha256': digest(source_values['pulse_gate_policy_v0.yml']),
+            'gate_registry_path': 'pulse_gate_registry_v0.yml',
+            'gate_registry_sha256': digest(source_values['pulse_gate_registry_v0.yml']),
+            'required_gate_evidence_path': 'PULSE_safe_pack_v0/artifacts/required_gate_evidence_v0.json',
+            'required_gate_evidence_sha256': digest(evidence_raw)},
+        'diagnostics': {'gates_stubbed': False, 'scaffold': False, 'candidate_status': True}}
+    pre_raw = canonical(status)
+    saved['required_gate_evidence_v0.json'] = evidence_raw
+    saved['status_baseline.json'] = pre_raw
+    saved['refusal_delta_summary.json'] = canonical({'schema_version': 'refusal_delta_summary_v0', 'n': 6, 'pass': True})
+    for name, raw in saved.items():
+        target = directory / 'PULSE_safe_pack_v0/artifacts' / name
+        target.parent.mkdir(parents=True, exist_ok=True); target.write_bytes(raw)
+    (directory / 'PULSE_safe_pack_v0/artifacts/status.json').write_bytes(pre_raw)
+    old_path = list(sys.path)
+    try:
+        sys.path.insert(0, str(ROOT / 'PULSE_safe_pack_v0/tools'))
+        c = _r2c9_module('PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py', 'r2c11_core_candidate_data')
+    finally:
+        sys.path[:] = old_path
+    m = _r2c9_module('PULSE_safe_pack_v0/tools/build_release_evidence_input_manifest_v0.py', 'r2c11_core_manifest_data')
+    errors = []
+    with patch.dict(os.environ, {'GITHUB_SHA': f.commit, 'GITHUB_REPOSITORY': subject['repository'],
+                                  'PULSE_RUN_KEY': run_key}, clear=True):
+        ctx = c.validate_base(repo=directory, status=status, evidence=evidence,
+            evidence_schema=json.loads(source_values[c.REQUIRED_EVIDENCE_SCHEMA_PATH]),
+            status_schema=json.loads(source_values[c.STATUS_SCHEMA]),
+            policy=yaml.safe_load(source_values[c.POLICY]), registry=yaml.safe_load(source_values[c.REGISTRY]),
+            status_path=directory/c.STATUS, evidence_path=directory/c.REQUIRED_EVIDENCE,
+            refusal_path=directory/c.REFUSAL, external_dir=directory/c.EXTERNAL_DIR,
+            policy_path=directory/c.POLICY, registry_path=directory/c.REGISTRY,
+            thresholds_path=directory/c.THRESHOLDS,
+            external_summary_schema_path=directory/c.EXTERNAL_SUMMARY_SCHEMA_PATH,
+            external_envelope_schema_path=directory/c.EXTERNAL_SUMMARY_ENVELOPE_SCHEMA_PATH,
+            external_signer_policy_path=directory/c.EXTERNAL_SIGNER_POLICY_PATH,
+            attestation_tool_path=directory/c.EXTERNAL_ATTESTATION_TOOL, tool_path=directory/c.TOOL, errors=errors)
+    assert ctx is not None and not errors, errors
+    env = {'SOURCE_DATE_EPOCH': str(int(datetime.fromisoformat(stamp.replace('Z','+00:00')).timestamp())),
+           'GITHUB_SHA': f.commit, 'GITHUB_REPOSITORY': subject['repository'], 'PULSE_RUN_KEY': run_key}
+    with patch.dict(os.environ, env, clear=True):
+        envelopes = {'detector_materialization': c.detector_candidate(ctx),
+                     'refusal_delta_summary': c.refusal_candidate(ctx, errors)}
+        external_path = 'PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json'
+        # This is only an authored external candidate assertion. Do not invoke
+        # fake gh, change signer policy or present it as verified external evidence.
+        envelopes['external_llamaguard'] = c.envelope(evidence_id='external_llamaguard',
+            evidence_kind='external_summary', run_identity=identity, policy_sha=ctx.policy_sha,
+            registry_sha=ctx.registry_sha, tool_sha=ctx.tool_sha, raw_path=external_path,
+            raw_sha=digest(saved['external/llamaguard_summary.json']), raw_kind='external_summary',
+            raw_schema='external_summary_v1', gates=['external_summaries_present', 'external_all_pass'],
+            checks=[c.validation_check('synthetic.external.input-shape', 'semantic',
+                'Synthetic input assertion; not a signature or semantic verification result.', ctx.tool_sha, [external_path])])
+        assert not errors, errors
+        index = {'schema_version': c.INDEX_SCHEMA, 'created_utc': stamp, 'run_identity': identity, 'subject': subject,
+            'policy_binding': {**evidence['policy_binding'], 'policy_set': 'required+release_required'},
+            'registry_binding': evidence['registry_binding'],
+            'source_bindings': {'candidate_status': {'path': c.STATUS, 'sha256': digest(pre_raw)},
+                'required_gate_evidence': {'path': c.REQUIRED_EVIDENCE, 'sha256': digest(evidence_raw),
+                                           'schema_version': c.REQUIRED_EVIDENCE_SCHEMA},
+                'external_thresholds': {'path': c.THRESHOLDS, 'sha256': ctx.thresholds_sha}},
+            'candidate_ids': sorted(envelopes), 'external_candidate_ids': ['external_llamaguard'],
+            'release_required_gates': release_required,
+            'authority_boundary': {'normative': False, 'creates_release_authority': False,
+                'materializes_release_required': False, 'eligible_without_verifier': False, 'replaces_check_gates': False}}
+        shutil.rmtree(directory / c.OUT_DIR)
+        c.write_outputs(directory, directory/c.OUT_DIR, directory/c.INDEX, envelopes, index)
+        manifest, errors = m.build_manifest(repo=directory, index_path=Path(m.INDEX_PATH),
+            envelope_schema_path=Path(m.ENVELOPE_SCHEMA_PATH), manifest_schema_path=Path(m.MANIFEST_SCHEMA_PATH),
+            policy_path=Path(m.POLICY_PATH), registry_path=Path(m.REGISTRY_PATH), tool_path=Path(m.TOOL_PATH))
+        assert not errors and manifest is not None, errors
+        (directory / m.OUT_PATH).write_bytes(canonical(manifest))
+    for name in ('recorded_release_candidate_index_v0.json', 'release_evidence_input_manifest_v0.json',
+                 *('recorded_release_candidates/'+key+'.json' for key in envelopes)):
+        saved[name] = (directory/'PULSE_safe_pack_v0/artifacts'/name).read_bytes()
+    # Rebind every selected copy; the provider fixture then regenerates actual
+    # package/completeness reports and all nested carrier/packet dependencies.
+    for group in contents.values():
+        for name in list(group):
+            key = name[len('artifacts/'):] if name.startswith('artifacts/') else name
+            if key in saved and key in {'required_gate_evidence_v0.json', 'status_baseline.json',
+                'refusal_delta_summary.json', 'recorded_release_candidate_index_v0.json',
+                'release_evidence_input_manifest_v0.json', *('recorded_release_candidates/'+k+'.json' for k in envelopes)}:
+                group[name] = saved[key]
+    contents['pre_attestation_pulse_artifacts']['status.json'] = pre_raw
+    newer = SimpleNamespace(**{**vars(f), 'contents': contents})
+    result = _r2c9_build_provider_inputs(newer, tmp_path_factory)
+    result.recorded_sources = source_values
+    result.input_spec = {'repository': subject['repository'], 'commit': f.commit, 'run_id': 9001,
+                        'run_key': run_key, 'manifest_epoch': int(env['SOURCE_DATE_EPOCH'])}
+    result.replay_payloads = {'PULSE_safe_pack_v0/artifacts/'+name: raw
+                             for name,raw in result.contents['release_grade_recorded_path'].items()}
+    result.replay_payloads[c.STATUS] = pre_raw
+    return result
+
+
+def _r2c11_content(f, *, members=None, checked=None, prepared=None):
+    return VERIFIER._local_r2_recorded_input_content(f.carrier.plan.value,
+        f.prepared if prepared is None else prepared, f.checked if checked is None else checked,
+        f.members if members is None else members, commit=f.commit)
+
+
+def test_r2c11_real_core_replay_keeps_signature_and_admission_open(r2c11_recorded_inputs):
+    f = r2c11_recorded_inputs
+    raw = VERIFIER._assess_local_r2_recorded_inputs(f.capture, f.carrier.raw, f.carrier.context,
+        fixture_commit_raw=f.commit_raw, expected_fixture_commit=f.commit, **f.pins)
+    result = json.loads(raw); new = result['recorded_input_replay']
+    assert result['assessment_status'] == 'incomplete' and result['fully_satisfied_role_count'] == 0
+    assert result['fresh_package_verifier_cli_executed'] is True
+    assert result['completeness_provider']['completeness_semantics_replayed'] is True
+    assert result['completeness_provider']['provider_loader_content_validated'] is True
+    assert result['remaining_package_duties'] == ['recorded_candidate_full_verifier_and_mandatory_signatures']
+    assert new['candidate_base_validated'] is True and new['input_manifest_replayed'] is True
+    assert new['input_manifest_integrity_checked'] is True
+    assert new['replayed_candidate_ids'] == ['detector_materialization', 'refusal_delta_summary']
+    assert len(new['indexed_candidate_ids']) == 3 and len(new['source_bindings']) == 16
+    for key in ('full_recorded_verifier_executed','external_candidate_semantics_replayed',
+                'mandatory_llamaguard_signatures_verified','required_gate_result_artifacts_replayed',
+                'observed_platform_execution','original_runtime_reads_proven'):
+        assert new[key] is False
+    assert not any(result['local_boundary'].values())
+    assert str(f.directory).encode() not in raw
+    assert canonical(result) == canonical(VERIFIER._local_r2_recorded_inputs_assessment(
+        f.carrier.plan.value, f.prepared, f.checked, f.members,
+        fixture_commit_raw=f.commit_raw, expected_fixture_commit=f.commit))
+    (f.directory / 'recorded-input-assessment.json').write_bytes(raw)
+
+
+@pytest.mark.parametrize('fault', ['stubbed','scaffold','not-candidate','missing-required','extra-gate',
+    'truthy-integer','required-failed','required-extra','producer-digest','policy-digest','registry-digest',
+    'evidence-digest','refusal-zero','refusal-false','candidate-content','manifest-relation','manifest-warning',
+    'external-raw-digest','external-truthy','duplicate-json'])
+def test_r2c11_existing_core_rejects_content_not_just_container_hashes(r2c11_recorded_inputs, fault):
+    f=r2c11_recorded_inputs; payloads=dict(f.replay_payloads)
+    prefix='PULSE_safe_pack_v0/artifacts/'
+    if fault in {'required-failed','required-extra','producer-digest'}:
+        name=prefix+'required_gate_evidence_v0.json'; doc=json.loads(payloads[name])
+        if fault=='required-failed':
+            doc['gates'][next(iter(doc['gates']))].update(value=False,status='failed',diagnostics=['controlled failure'])
+        elif fault=='required-extra': doc['gates']['undeclared_required']=copy.deepcopy(next(iter(doc['gates'].values())))
+        else: doc['producer']['tool_sha256']='0'*64
+        payloads[name]=canonical(doc)
+        status=json.loads(payloads[prefix+'status.json']); status['metrics']['required_gate_evidence_sha256']=digest(payloads[name])
+        payloads[prefix+'status.json']=canonical(status)
+    elif fault.startswith('refusal-'):
+        name=prefix+'refusal_delta_summary.json'; doc=json.loads(payloads[name])
+        doc['n' if fault=='refusal-zero' else 'pass']=0 if fault=='refusal-zero' else False
+        payloads[name]=canonical(doc)
+    elif fault in {'candidate-content','external-raw-digest','external-truthy'}:
+        key='detector_materialization' if fault=='candidate-content' else 'external_llamaguard'
+        name=prefix+'recorded_release_candidates/'+key+'.json'; doc=json.loads(payloads[name])
+        if fault=='candidate-content': doc['warnings']=['invented semantic claim']
+        elif fault=='external-raw-digest': doc['raw_evidence_binding']['sha256']='0'*64
+        else: doc['candidate_gate_values']['external_all_pass']=1
+        payloads[name]=canonical(doc)
+        index=json.loads(payloads[prefix+'recorded_release_candidate_index_v0.json'])
+        index['candidates'][key]['sha256']=digest(payloads[name])
+        payloads[prefix+'recorded_release_candidate_index_v0.json']=canonical(index)
+    elif fault.startswith('manifest-'):
+        name=prefix+'release_evidence_input_manifest_v0.json'; doc=json.loads(payloads[name])
+        if fault=='manifest-warning': doc['warnings']=['invented saved result']
+        else: del doc['expected_relation_bindings'][next(iter(doc['expected_relation_bindings']))]
+        payloads[name]=canonical(doc)
+    elif fault=='duplicate-json': payloads[prefix+'status.json']=b'{"version":"1.0.0","version":"1.0.0"}\n'
+    else:
+        name=prefix+'status.json'; doc=json.loads(payloads[name])
+        if fault in {'stubbed','scaffold','not-candidate'}:
+            doc['diagnostics'][{'stubbed':'gates_stubbed','scaffold':'scaffold','not-candidate':'candidate_status'}[fault]]=fault!='not-candidate'
+        elif fault=='missing-required': doc['gates'].pop(next(iter(doc['gates'])))
+        elif fault=='extra-gate': doc['gates']['external_all_pass']=True
+        elif fault=='truthy-integer': doc['gates'][next(iter(doc['gates']))]=1
+        else: doc['metrics'][{'policy-digest':'gate_policy_sha256','registry-digest':'gate_registry_sha256',
+                             'evidence-digest':'required_gate_evidence_sha256'}[fault]]='0'*64
+        payloads[name]=canonical(doc)
+    expected_code = ('11' if fault == 'duplicate-json' else
+        '13' if fault.startswith('refusal-') else
+        '15' if fault == 'candidate-content' else
+        '16' if fault.startswith('external-') else
+        '17' if fault.startswith('manifest-') else '12')
+    with pytest.raises(VERIFIER.VerificationError, match='r2_recorded_input_core_rejected') as caught:
+        VERIFIER._run_local_r2_recorded_inputs(f.recorded_sources,payloads,f.input_spec)
+    assert caught.value.detail == expected_code
+
+
+@pytest.mark.parametrize('name,change', [
+    ('recorded_release_candidate_index_v0.json','wrong-run'),
+    ('release_evidence_input_manifest_v0.json','wrong-subject'),
+    ('required_gate_evidence_v0.json','wrong-repository'),
+    ('recorded_release_candidate_index_v0.json','candidate-set'),
+    ('recorded_release_candidate_index_v0.json','final-status'),
+    ('release_evidence_input_manifest_v0.json','outside-time'),
+])
+def test_r2c11_rehashed_original_archives_still_bind_run_members_and_pre_state(r2c11_recorded_inputs, name, change):
+    f=r2c11_recorded_inputs; members=dict(f.members); checked=copy.deepcopy(f.checked)
+    payloads=dict(f.contents['release_grade_recorded_path']); doc=json.loads(payloads[name])
+    if change=='wrong-run': doc['run_identity']['run_key']='another-run'
+    elif change=='wrong-subject': doc['subject']['commit_sha']='a'*40
+    elif change=='wrong-repository': doc['subject']['repository']='other/repository'
+    elif change=='candidate-set': doc['candidate_ids'].pop()
+    elif change=='final-status': doc['source_bindings']['candidate_status']['sha256']=digest(payloads['status.json'])
+    else: doc['created_utc']='1970-01-01T00:00:00Z'
+    payloads[name]=canonical(doc)
+    def replace_archive(role, values):
+        raw=example_zip(values); _r2c9_archive_replace(members,checked,role,raw)
+        row=next(r for r in checked['archive_inventory'] if r['role']==role)
+        row.update(sha256=digest(raw),size_bytes=len(raw))
+    replace_archive('release_grade_recorded_path',payloads)
+    if name=='required_gate_evidence_v0.json':
+        pre=dict(f.contents['pre_attestation_pulse_artifacts']);pre[name]=payloads[name]
+        replace_archive('pre_attestation_pulse_artifacts',pre)
+    reason={'candidate-set':'candidate_set','final-status':'pre_status_binding',
+            'outside-time':'time_outside_run'}.get(change,'subject')
+    with pytest.raises(VERIFIER.VerificationError, match='r2_recorded_input_'+reason):
+        _r2c11_content(f,members=members,checked=checked)
+
+
+@pytest.mark.parametrize('source', [
+    'PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py',
+    'PULSE_safe_pack_v0/tools/build_release_evidence_input_manifest_v0.py',
+    'PULSE_safe_pack_v0/tools/check_release_evidence_input_manifest_v0.py',
+    'schemas/required_gate_evidence_v0.schema.json',
+    'PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py'])
+@pytest.mark.parametrize('change', ['missing','changed'])
+def test_r2c11_replay_never_uses_unbound_checkout_sources(r2c11_recorded_inputs,source,change):
+    f=r2c11_recorded_inputs; prepared=dict(f.prepared)
+    if change=='missing': del prepared['sources/'+source]
+    else: prepared['sources/'+source]+=b'\n'
+    assert (ROOT/source).is_file()
+    with pytest.raises(VERIFIER.VerificationError,match='r2_recorded_input_source_'):
+        _r2c11_content(f,prepared=prepared)
+
+
+@pytest.mark.parametrize('fault', ['exit','no-report','invalid-report','mutation','extra-file','timeout'])
+def test_r2c11_execution_failures_and_input_changes_are_not_saved_pass(r2c11_recorded_inputs,fault):
+    f=r2c11_recorded_inputs; actual=VERIFIER.run_process
+    def controlled(command,*,cwd,timeout):
+        assert command[1:3]==['-I','-B'] and timeout==120
+        if fault=='timeout': raise VERIFIER.VerificationError('controlled_execution_failure')
+        result=actual(command,cwd=cwd,timeout=timeout)
+        if fault=='mutation':
+            p=cwd/'PULSE_safe_pack_v0/artifacts/status.json';p.chmod(0o600);p.write_bytes(p.read_bytes()+b'\n')
+        if fault=='extra-file': (cwd/'unexpected.json').write_bytes(b'{}')
+        if fault=='exit': return VERIFIER.ProcessOutput(23,result.stdout,b'controlled')
+        if fault=='no-report': return VERIFIER.ProcessOutput(0,b'',b'')
+        if fault=='invalid-report': return VERIFIER.ProcessOutput(0,b'{invalid json}',b'')
+        return result
+    with patch.object(VERIFIER,'run_process',side_effect=controlled):
+        with pytest.raises(VERIFIER.VerificationError):
+            VERIFIER._run_local_r2_recorded_inputs(f.recorded_sources,f.replay_payloads,f.input_spec)
+
+
+def test_r2c11_old_synthetic_package_cannot_pass_new_recorded_input_semantics(r2c9_provider_inputs):
+    # Preserve the old, partial package stage. It must not become a stronger proof.
+    with pytest.raises(VERIFIER.VerificationError): _r2c11_content(r2c9_provider_inputs)
+
+
+def test_r2c11_bound_assessment_reader_recomputes_and_rejects_rehashed_claims(r2c11_recorded_inputs):
+    f=r2c11_recorded_inputs
+    pins={**f.pins,'fixture_commit_raw':f.commit_raw,'expected_fixture_commit':f.commit}
+    raw=VERIFIER._assess_local_r2_recorded_inputs(f.capture,f.carrier.raw,f.carrier.context,**pins)
+    checked=VERIFIER._verify_local_r2_recorded_inputs_assessment(raw,f.capture,f.carrier.raw,f.carrier.context,
+        expected_assessment_sha256=digest(raw),**pins)
+    assert canonical(checked)==raw
+    changed=json.loads(raw);changed['recorded_input_replay']['full_recorded_verifier_executed']=True
+    bad=canonical(changed)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_recorded_inputs_assessment_mismatch'):
+        VERIFIER._verify_local_r2_recorded_inputs_assessment(bad,f.capture,f.carrier.raw,f.carrier.context,
+            expected_assessment_sha256=digest(bad),**pins)
+
+
+
+
+def test_r2c11_final_status_cannot_be_used_as_pre_state_even_after_rehash(r2c11_recorded_inputs):
+    f=r2c11_recorded_inputs; values=dict(f.replay_payloads); prefix='PULSE_safe_pack_v0/artifacts/'
+    values[prefix+'status.json']=f.contents['release_grade_recorded_path']['status.json']
+    index=json.loads(values[prefix+'recorded_release_candidate_index_v0.json'])
+    index['source_bindings']['candidate_status']['sha256']=digest(values[prefix+'status.json'])
+    values[prefix+'recorded_release_candidate_index_v0.json']=canonical(index)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_recorded_input_core_rejected') as caught:
+        VERIFIER._run_local_r2_recorded_inputs(f.recorded_sources,values,f.input_spec)
+    assert caught.value.detail=='12'
+
+
+def test_r2c11_current_host_environment_does_not_relabel_replay(r2c11_recorded_inputs):
+    f=r2c11_recorded_inputs
+    with patch.dict(os.environ,{'GITHUB_SHA':'a'*40,'GITHUB_REPOSITORY':'unrelated/host',
+        'PULSE_RUN_KEY':'wrong-run','SOURCE_DATE_EPOCH':'0','PYTHONPATH':'/untrusted'},clear=False):
+        result=VERIFIER._run_local_r2_recorded_inputs(f.recorded_sources,f.replay_payloads,f.input_spec)
+    assert result['run_identity']['git_sha']==f.commit
+    assert result['manifest']['created_utc']==json.loads(f.replay_payloads[
+        'PULSE_safe_pack_v0/artifacts/release_evidence_input_manifest_v0.json'])['created_utc']
+
+
+def test_r2c11_success_exit_without_required_core_fields_is_rejected(r2c11_recorded_inputs):
+    f=r2c11_recorded_inputs
+    with patch.object(VERIFIER,'run_process',return_value=VERIFIER.ProcessOutput(0,b'{"ok":true}\n',b'')):
+        with pytest.raises(VERIFIER.VerificationError,match='r2_recorded_input_result_mismatch'):
+            _r2c11_content(f)
+
+
+def test_r2c11_cleanup_failure_is_not_converted_to_success(r2c11_recorded_inputs):
+    f=r2c11_recorded_inputs; original=VERIFIER.tempfile.TemporaryDirectory.__exit__
+    def cleanup(self,*args):
+        original(self,*args)
+        raise OSError('controlled recorded-input cleanup failure')
+    with patch.object(VERIFIER.tempfile.TemporaryDirectory,'__exit__',cleanup):
+        with pytest.raises(OSError,match='controlled recorded-input cleanup failure'):
+            VERIFIER._run_local_r2_recorded_inputs(f.recorded_sources,f.replay_payloads,f.input_spec)
+
+
+def test_r2c11_new_stage_still_requires_external_capture_pin(r2c11_recorded_inputs):
+    f=r2c11_recorded_inputs;pins=dict(f.pins);pins.pop('expected_capture_sha256')
+    with pytest.raises(TypeError,match='expected_capture_sha256'):
+        VERIFIER._assess_local_r2_recorded_inputs(f.capture,f.carrier.raw,f.carrier.context,
+            fixture_commit_raw=f.commit_raw,expected_fixture_commit=f.commit,**pins)
 
 
 if __name__ == '__main__':

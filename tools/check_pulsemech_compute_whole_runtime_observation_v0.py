@@ -7149,5 +7149,308 @@ def _verify_local_r2_package_provider_assessment(assessment_raw, capture_raw, pr
     return parse_json_bytes(expected, label='local_r2_provider_assessment')
 
 
+
+# R2C11: existing-core recorded input replay, not full evidence/signature verification.
+_LOCAL_R2_RECORDED_INPUT_SOURCES = (
+    ('PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py', '6dcf6826d2c04143b86c7f7b6dfd6c8c43d028f7'),
+    ('PULSE_safe_pack_v0/tools/check_recorded_release_evidence_v0.py', '561e72a8e2ea2d25faa2a80cbecf025192435c38'),
+    ('PULSE_safe_pack_v0/tools/build_release_evidence_input_manifest_v0.py', '95b457754514c0dea7ede27cd8b3204cf26f0a01'),
+    ('PULSE_safe_pack_v0/tools/check_release_evidence_input_manifest_v0.py', 'd373d493d3112b469efaba15bbd66e0e1c238b08'),
+    ('PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py', '7fa6539f614d3d30bb603c523889f38bf4c012c1'),
+    ('PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py', '01cce14e23923a6e83f0576849a3c43b4325cc42'),
+    ('schemas/required_gate_evidence_v0.schema.json', '25faa66e69e3b4292f0f12ae10bf4b68177b253a'),
+    ('schemas/status/status_v1.schema.json', '37b14b5d8766c803f41e0567e325a6ed1964a72f'),
+    ('schemas/recorded_release_candidate_envelope_v0.schema.json', 'ca7e6542f2f24f761fd2b57f8bebc82eaba68f28'),
+    ('schemas/release_evidence_input_manifest_v0.schema.json', '42dd3a45bb707372bb8486b928e08b77fd555f66'),
+    ('schemas/external_summary_v1.schema.json', '3cf447bdd4db26572549a7472130a8499d9c3db7'),
+    ('schemas/external_summary_envelope_v1.schema.json', 'ed2e7fe000232515f271a950f76113f4d45ce005'),
+    ('pulse_gate_policy_v0.yml', 'a311b424ad0f6c028b9c37b18572e7a09c721cdd'),
+    ('pulse_gate_registry_v0.yml', '64707427617202e31f0ff57eb215bf9caa4f0cfc'),
+    ('PULSE_safe_pack_v0/profiles/external_thresholds.yaml', '242913b569a09fa24f44672026037f09865adab7'),
+    ('policy/external_signers_v1.yml', 'a40e47418d3b0e9de4ac903eed469a8107e20c2e'),
+)
+
+_LOCAL_R2_RECORDED_INPUT_DRIVER = r"""
+import json, os, sys
+from pathlib import Path
+root = Path.cwd()
+sys.path.insert(0, str(root / 'PULSE_safe_pack_v0/tools'))
+import build_recorded_release_candidates_v0 as candidates
+import check_recorded_release_evidence_v0 as recorded
+import build_release_evidence_input_manifest_v0 as manifests
+import check_release_evidence_input_manifest_v0 as manifest_checker
+spec = json.loads((root / 'replay-input.json').read_text())
+os.environ.update(GITHUB_SHA=spec['commit'], GITHUB_REPOSITORY=spec['repository'],
+                  PULSE_RUN_KEY=spec['run_key'], SOURCE_DATE_EPOCH=str(spec['manifest_epoch']))
+errors = []
+def obj(path):
+    return candidates.load_json(root / path, path, errors)
+status = obj(candidates.STATUS)
+evidence = obj(candidates.REQUIRED_EVIDENCE)
+evidence_schema = obj(candidates.REQUIRED_EVIDENCE_SCHEMA_PATH)
+status_schema = obj(candidates.STATUS_SCHEMA)
+policy = candidates.load_yaml(root / candidates.POLICY, 'policy', errors)
+registry = candidates.load_yaml(root / candidates.REGISTRY, 'registry', errors)
+if errors:
+    raise SystemExit(11)
+ctx = candidates.validate_base(repo=root, status=status, evidence=evidence,
+    evidence_schema=evidence_schema, status_schema=status_schema, policy=policy, registry=registry,
+    status_path=root / candidates.STATUS, evidence_path=root / candidates.REQUIRED_EVIDENCE,
+    refusal_path=root / candidates.REFUSAL, external_dir=root / candidates.EXTERNAL_DIR,
+    policy_path=root / candidates.POLICY, registry_path=root / candidates.REGISTRY,
+    thresholds_path=root / candidates.THRESHOLDS,
+    external_summary_schema_path=root / candidates.EXTERNAL_SUMMARY_SCHEMA_PATH,
+    external_envelope_schema_path=root / candidates.EXTERNAL_SUMMARY_ENVELOPE_SCHEMA_PATH,
+    external_signer_policy_path=root / candidates.EXTERNAL_SIGNER_POLICY_PATH,
+    attestation_tool_path=root / candidates.EXTERNAL_ATTESTATION_TOOL,
+    tool_path=root / candidates.TOOL, errors=errors)
+if errors or ctx is None:
+    raise SystemExit(12)
+# These two core constructors have no signature backend. The external candidate
+# is NOT re-created or labelled verified by this input-only stage.
+fresh = {'detector_materialization': candidates.detector_candidate(ctx),
+         'refusal_delta_summary': candidates.refusal_candidate(ctx, errors)}
+if errors or any(value is None for value in fresh.values()):
+    raise SystemExit(13)
+for key, value in fresh.items():
+    saved = obj(candidates.OUT_DIR + '/' + key + '.json')
+    if errors:
+        raise SystemExit(14)
+    a = recorded._candidate_for_replay_comparison(saved, 'saved', errors)
+    b = recorded._candidate_for_replay_comparison(value, 'fresh', errors)
+    if errors or json.dumps(a, sort_keys=True, allow_nan=False) != json.dumps(b, sort_keys=True, allow_nan=False):
+        raise SystemExit(15)
+manifest, errors = manifests.build_manifest(repo=root, index_path=Path(manifests.INDEX_PATH),
+    envelope_schema_path=Path(manifests.ENVELOPE_SCHEMA_PATH),
+    manifest_schema_path=Path(manifests.MANIFEST_SCHEMA_PATH), policy_path=Path(manifests.POLICY_PATH),
+    registry_path=Path(manifests.REGISTRY_PATH), tool_path=Path(manifests.TOOL_PATH))
+if errors or manifest is None:
+    raise SystemExit(16)
+errors = manifest_checker.check_release_evidence_input_manifest(root / manifests.OUT_PATH,
+    schema_path=root / manifests.MANIFEST_SCHEMA_PATH)
+saved = obj(manifests.OUT_PATH)
+if errors or saved != manifest:
+    raise SystemExit(17)
+# Emit values produced by actual core calls; no stdout PASS token is accepted.
+print(json.dumps({'schema_version': 'pulsemech_step5c_local_r2_recorded_input_core_result_v0',
+    'run_identity': ctx.run_identity, 'subject': ctx.subject,
+    'required_gates': ctx.required, 'release_required_gates': ctx.release_required,
+    'replayed_candidates': sorted(fresh), 'manifest': manifest},
+    sort_keys=True, separators=(',', ':'), ensure_ascii=False, allow_nan=False))
+"""
+
+
+def _local_r2_recorded_input_sources(plan, prepared_members):
+    """Select only reviewed bytes already authenticated by the separate checker."""
+    source = plan['plan_identity']['source_identity']
+    inventory = plan['source_inventory']; values = {}; bindings = []
+    for path, blob in _LOCAL_R2_RECORDED_INPUT_SOURCES:
+        rows = [row for row in inventory if row.get('path') == path]
+        raw = prepared_members.get('sources/' + path)
+        require(len(rows) == 1 and type(raw) is bytes and 0 < len(raw) <= 1048576,
+                'r2_recorded_input_source_missing', stage='local_r2_recorded_inputs')
+        row = rows[0]
+        require(source.get('kind') == 'uncommitted_git_tree'
+                and row.get('revision_kind') == 'uncommitted_git_tree'
+                and row.get('revision') == source['git_tree_sha1']
+                and row.get('git_blob_sha1') == blob
+                    == hashlib.sha1(b'blob %d\0' % len(raw) + raw).hexdigest()
+                and row.get('sha256') == sha256_bytes(raw)
+                and type(row.get('size_bytes')) is int and row['size_bytes'] == len(raw),
+                'r2_recorded_input_source_mismatch', stage='local_r2_recorded_inputs')
+        values[path] = raw
+        bindings.append({'path': path, 'git_blob_sha1': blob,
+                         'sha256': sha256_bytes(raw), 'size_bytes': len(raw)})
+    return values, bindings
+
+
+def _run_local_r2_recorded_inputs(sources, payloads, spec):
+    """Run the unchanged core's input checks in an isolated, read-only copy.
+
+    This is deliberately not check_recorded_release_evidence(), the full
+    candidate builder, signature verification or a per-gate evaluator replay.
+    Missing or changed sources cannot be supplied by the project checkout.
+    """
+    require(set(sources) == {path for path, _ in _LOCAL_R2_RECORDED_INPUT_SOURCES},
+            'r2_recorded_input_source_missing', stage='local_r2_recorded_inputs')
+    for path, blob in _LOCAL_R2_RECORDED_INPUT_SOURCES:
+        raw = sources[path]
+        require(type(raw) is bytes and 0 < len(raw) <= 1048576
+                and hashlib.sha1(b'blob %d\0' % len(raw) + raw).hexdigest() == blob,
+                'r2_recorded_input_source_mismatch', stage='local_r2_recorded_inputs')
+    expected_members = next(names for role, _, names in _STATE_ARCHIVE_LAYOUT
+                            if role == 'release_grade_recorded_path')
+    require(set(payloads) == {'PULSE_safe_pack_v0/artifacts/' + name for name in expected_members}
+            and all(type(raw) is bytes and 0 < len(raw) <= 16 * 1024 * 1024 for raw in payloads.values())
+            and sum(map(len, payloads.values())) <= 64 * 1024 * 1024,
+            'r2_recorded_input_member_set_or_budget', stage='local_r2_recorded_inputs')
+    run_id = spec.get('run_id')
+    require(set(spec) == {'repository', 'commit', 'run_id', 'run_key', 'manifest_epoch'}
+            and spec['repository'] == REPOSITORY
+            and type(spec['commit']) is str and SHA40_RE.fullmatch(spec['commit']) is not None
+            and type(run_id) is int and run_id > 0
+            and spec['run_key'] == f'GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI'
+            and type(spec['manifest_epoch']) is int and spec['manifest_epoch'] >= 0,
+            'r2_recorded_input_subject_mismatch', stage='local_r2_recorded_inputs')
+    expected = {**sources, **payloads, 'replay-input.json': canonical_json_bytes(spec)}
+    with tempfile.TemporaryDirectory(prefix='pulsemech-r2-recorded-inputs-') as temporary:
+        workspace = Path(temporary)
+        for name, raw in sorted(expected.items()):
+            safe_member(name, label='r2_recorded_input_path')
+            _write_read_only(workspace / name, raw)
+        snapshots = {}
+        for name, raw in expected.items():
+            info = (workspace / name).lstat()
+            snapshots[name] = (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns, info.st_mode)
+        def unchanged():
+            files = {}
+            for item in workspace.rglob('*'):
+                info = item.lstat()
+                require(stat.S_ISDIR(info.st_mode) or stat.S_ISREG(info.st_mode),
+                        'r2_recorded_input_changed', stage='local_r2_recorded_inputs')
+                if stat.S_ISREG(info.st_mode):
+                    name = item.relative_to(workspace).as_posix()
+                    require(name in expected and info.st_nlink == 1
+                            and (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns, info.st_mode)
+                                == snapshots[name]
+                            and sha256_file(item) == (sha256_bytes(expected[name]), len(expected[name])),
+                            'r2_recorded_input_changed', stage='local_r2_recorded_inputs')
+                    files[name] = item
+            require(set(files) == set(expected), 'r2_recorded_input_changed', stage='local_r2_recorded_inputs')
+        unchanged()
+        try:
+            proc = run_process([sys.executable, '-I', '-B', '-c', _LOCAL_R2_RECORDED_INPUT_DRIVER],
+                               cwd=workspace, timeout=120)
+        except VerificationError as exc:
+            raise VerificationError('r2_recorded_input_execution_failed', stage='local_r2_recorded_inputs') from exc
+        unchanged()
+        require(proc.returncode == 0, 'r2_recorded_input_core_rejected',
+                str(proc.returncode), stage='local_r2_recorded_inputs')
+        require(0 < len(proc.stdout) <= 1048576 and len(proc.stderr) <= 1048576,
+                'r2_recorded_input_output_budget', stage='local_r2_recorded_inputs')
+        return parse_json_bytes(proc.stdout, label='r2_recorded_input_core_result', canonical=False, maximum=1048576)
+
+
+def _local_r2_recorded_input_content(plan, prepared_members, checked_capture, acquisition_members, *, commit):
+    """Validate original pre-R9 inputs; never replace them with final status."""
+    sources, bindings = _local_r2_recorded_input_sources(plan, prepared_members)
+    original = {}; parents = []; raw_pages = []
+    for role in ('pre_attestation_pulse_artifacts', 'release_grade_recorded_path'):
+        selected, metadata, raw, page = _local_r2_provider_publication(acquisition_members, checked_capture, role)
+        require(selected['source_run_kind'] == 'subject'
+                and selected['source_run_id'] == checked_capture['subject_run_id'],
+                'r2_recorded_input_parent_mismatch', stage='local_r2_recorded_inputs')
+        expected = next(names for key, _, names in _STATE_ARCHIVE_LAYOUT if key == role)
+        _, payloads, _ = _inspect_state_archive_bytes(raw, expected, member_limit=128,
+            single_limit=16*1024*1024, expansion_limit=64*1024*1024, retained_members=expected)
+        original[role] = payloads
+        parents.append({'role': role, 'artifact_id': selected['artifact_id'],
+                        'artifact_name': selected['artifact_name'], 'archive': descriptor(selected['member'], raw)})
+        raw_pages.append(page)
+    pre = original['pre_attestation_pulse_artifacts']; saved = original['release_grade_recorded_path']
+    for name in ('required_gate_evidence_v0.json', 'refusal_delta_summary.json',
+                 'external/llamaguard_summary.json', 'external/llamaguard_raw.jsonl',
+                 'external/llamaguard_evaluator_manifest_v0.json'):
+        require(pre[name] == saved[name], 'r2_recorded_input_copy_mismatch', stage='local_r2_recorded_inputs')
+    run_id = checked_capture['subject_run_id']
+    expected_run = {'git_sha': commit, 'run_key': f'GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI',
+                    'run_mode': 'prod'}
+    run, run_binding = _local_r2_response_bytes(acquisition_members, f'repos/{REPOSITORY}/actions/runs/{run_id}')
+    _local_r2_run_time_fields(run)
+    documents = {name: parse_json_bytes(saved[name], label='r2_recorded_input', canonical=False, maximum=1048576)
+                 for name in ('required_gate_evidence_v0.json', 'recorded_release_candidate_index_v0.json',
+                              'release_evidence_input_manifest_v0.json')}
+    for doc in documents.values():
+        subject = doc.get('subject')
+        require(canonical_json_bytes(doc.get('run_identity')) == canonical_json_bytes(expected_run)
+                and type(subject) is dict and subject.get('repository') == REPOSITORY
+                and subject.get('commit_sha') == commit and subject.get('release_candidate') == 'main',
+                'r2_recorded_input_subject_mismatch', stage='local_r2_recorded_inputs')
+    index = documents['recorded_release_candidate_index_v0.json']
+    manifest = documents['release_evidence_input_manifest_v0.json']
+    candidate_ids = ['detector_materialization', 'external_llamaguard', 'refusal_delta_summary']
+    require(index.get('candidate_ids') == candidate_ids and index.get('external_candidate_ids') == ['external_llamaguard']
+            and type(index.get('candidates')) is dict and sorted(index['candidates']) == candidate_ids,
+            'r2_recorded_input_candidate_set_mismatch', stage='local_r2_recorded_inputs')
+    for name in ('required_gate_evidence_v0.json', 'recorded_release_candidate_index_v0.json',
+                 'release_evidence_input_manifest_v0.json',
+                 *('recorded_release_candidates/' + key + '.json' for key in candidate_ids)):
+        doc = parse_json_bytes(saved[name], label='r2_recorded_input_timestamp', canonical=False, maximum=1048576)
+        stamp = parse_utc(doc.get('created_utc'), label='r2_recorded_input_created')
+        require(parse_utc(run['run_started_at'], label='r2_recorded_run_start') <= stamp
+                <= parse_utc(run['updated_at'], label='r2_recorded_run_end'),
+                'r2_recorded_input_time_outside_run', stage='local_r2_recorded_inputs')
+    # Canonical path must name captured pre-attestation bytes, never a filtered
+    # or reconstructed final status. Existing core checks repeat the digest tie.
+    expected_pre = {'path': 'PULSE_safe_pack_v0/artifacts/status.json', 'sha256': sha256_bytes(pre['status.json'])}
+    require(type(index.get('source_bindings')) is dict
+            and index['source_bindings'].get('candidate_status') == expected_pre,
+            'r2_recorded_input_pre_status_binding_mismatch', stage='local_r2_recorded_inputs')
+    payloads = {'PULSE_safe_pack_v0/artifacts/' + name: raw for name, raw in saved.items()}
+    payloads['PULSE_safe_pack_v0/artifacts/status.json'] = pre['status.json']
+    epoch = parse_utc(manifest['created_utc'], label='r2_recorded_manifest_time').timestamp()
+    require(epoch >= 0 and epoch == int(epoch), 'r2_recorded_input_timestamp_precision', stage='local_r2_recorded_inputs')
+    result = _run_local_r2_recorded_inputs(sources, payloads, {'repository': REPOSITORY, 'commit': commit,
+        'run_id': run_id, 'run_key': expected_run['run_key'], 'manifest_epoch': int(epoch)})
+    require(set(result) == {'schema_version', 'run_identity', 'subject', 'required_gates',
+                           'release_required_gates', 'replayed_candidates', 'manifest'}
+            and result['schema_version'] == 'pulsemech_step5c_local_r2_recorded_input_core_result_v0'
+            and canonical_json_bytes(result['run_identity']) == canonical_json_bytes(expected_run)
+            and canonical_json_bytes(result['subject']) == canonical_json_bytes(manifest['subject'])
+            and result['replayed_candidates'] == ['detector_materialization', 'refusal_delta_summary']
+            and canonical_json_bytes(result['manifest']) == canonical_json_bytes(manifest)
+            and type(result['required_gates']) is list and result['required_gates']
+            and result['release_required_gates'] == index['release_required_gates'],
+            'r2_recorded_input_result_mismatch', stage='local_r2_recorded_inputs')
+    return {'validation_scope': 'existing_core_pre_materialization_base_two_candidates_and_input_manifest',
+        'source_bindings': bindings, 'parent_archives': parents, 'raw_metadata_pages': raw_pages,
+        'raw_run_response': run_binding, 'run_identity': expected_run,
+        'pre_materialization_status': {'archive_role': 'pre_attestation_pulse_artifacts',
+                                      **descriptor('status.json', pre['status.json'])},
+        'recorded_input_members': [descriptor(name, raw) for name, raw in sorted(saved.items())],
+        'required_gates': result['required_gates'], 'release_required_gates': result['release_required_gates'],
+        'replayed_candidate_ids': result['replayed_candidates'], 'indexed_candidate_ids': candidate_ids,
+        'core_result_sha256': sha256_bytes(canonical_json_bytes(result)),
+        'candidate_base_validated': True, 'input_manifest_replayed': True, 'input_manifest_integrity_checked': True,
+        'external_candidate_semantics_replayed': False, 'full_recorded_verifier_executed': False,
+        'mandatory_llamaguard_signatures_verified': False, 'required_gate_result_artifacts_replayed': False,
+        'time_order_scope': 'supplied_utc_values_only', 'cross_source_clock_status': 'not_verified',
+        'replay_timestamp_scope': 'captured_manifest_time_not_fresh_observation',
+        'simulation_only': True, 'observed_platform_execution': False, 'original_runtime_reads_proven': False}
+
+
+def _local_r2_recorded_inputs_assessment(plan, prepared_members, checked_capture, acquisition_members, *,
+                                        fixture_commit_raw, expected_fixture_commit):
+    previous = _local_r2_package_provider_assessment(plan, prepared_members, checked_capture, acquisition_members,
+        fixture_commit_raw=fixture_commit_raw, expected_fixture_commit=expected_fixture_commit)
+    content = _local_r2_recorded_input_content(plan, prepared_members, checked_capture, acquisition_members,
+                                              commit=expected_fixture_commit)
+    return {**previous, 'schema_version': 'pulsemech_step5c_local_r2_recorded_inputs_assessment_v0',
+        'validation_scope': 'package_provider_and_existing_core_recorded_input_replay',
+        'package_provider_assessment_sha256': sha256_bytes(canonical_json_bytes(previous)),
+        'recorded_input_replay': content}
+
+
+def _assess_local_r2_recorded_inputs(capture_raw, prepared_raw, expected_context_raw, *,
+    fixture_commit_raw, expected_fixture_commit, expected_capture_sha256, expected_acquisition_sha256, **pins):
+    checked, capture_members = _read_local_r2_capture(capture_raw, prepared_raw, expected_context_raw,
+        expected_capture_sha256=expected_capture_sha256, expected_acquisition_sha256=expected_acquisition_sha256, **pins)
+    plan, prepared_members = _read_local_r2_prepared(prepared_raw, expected_context_raw, **pins)
+    acquisition = read_canonical_zip_bytes(capture_members['local-r2-acquisition.zip'], label='r2_recorded_inputs',
+        maximum_members=256, maximum_bytes=80*1024*1024)
+    return canonical_json_bytes(_local_r2_recorded_inputs_assessment(plan, prepared_members,
+        {**checked, 'expected_capture_sha256': expected_capture_sha256}, acquisition,
+        fixture_commit_raw=fixture_commit_raw, expected_fixture_commit=expected_fixture_commit))
+
+
+def _verify_local_r2_recorded_inputs_assessment(assessment_raw, capture_raw, prepared_raw, expected_context_raw, *,
+                                               expected_assessment_sha256, **pins):
+    require(type(assessment_raw) is bytes and 0 < len(assessment_raw) <= 1048576
+            and sha256_bytes(assessment_raw) == expected_assessment_sha256,
+            'r2_recorded_inputs_assessment_digest_mismatch', stage='local_r2_recorded_inputs')
+    expected = _assess_local_r2_recorded_inputs(capture_raw, prepared_raw, expected_context_raw, **pins)
+    require(assessment_raw == expected, 'r2_recorded_inputs_assessment_mismatch', stage='local_r2_recorded_inputs')
+    return parse_json_bytes(expected, label='r2_recorded_inputs_assessment')
+
 if __name__ == "__main__":
     raise SystemExit(main())
