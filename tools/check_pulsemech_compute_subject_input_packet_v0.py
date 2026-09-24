@@ -1676,9 +1676,19 @@ def _value_matches(left: Any, right: Any) -> bool:
     return str(left) == str(right)
 
 
-def _document_subject_identity_ok(document: Any, subject: dict[str, Any]) -> bool:
+def _document_subject_identity_ok(
+    document: Any,
+    subject: dict[str, Any],
+    *,
+    packaged_release_label: str | None = None,
+) -> bool:
     if isinstance(document, list):
-        return all(_document_subject_identity_ok(item, subject) for item in document)
+        return all(
+            _document_subject_identity_ok(
+                item, subject, packaged_release_label=packaged_release_label,
+            )
+            for item in document
+        )
     if not isinstance(document, dict):
         return True
 
@@ -1713,7 +1723,9 @@ def _document_subject_identity_ok(document: Any, subject: dict[str, Any]) -> boo
         compare(
             subject_block,
             "release_candidate",
-            subject.get("release_candidate_id"),
+            packaged_release_label
+            if packaged_release_label is not None
+            else subject.get("release_candidate_id"),
         )
         compare(
             subject_block,
@@ -1835,13 +1847,10 @@ def _verify_subject_artifact_bindings(
             if row.get("sha256") != subject.get(subject_field):
                 errors.append(f"subject_{binding_name}_digest_mismatch")
 
-    for artifact_id, document in parsed.items():
-        if not _document_subject_identity_ok(document, subject):
-            errors.append(f"artifact_subject_identity_mismatch: {artifact_id}")
-
     run_metadata = _bound_artifact_document(packet, parsed, "run_metadata")
     packaged_label, label_errors = _current_run_packaged_release_label(packet, run_metadata)
     errors.extend(label_errors)
+    document_release_label = None
     if isinstance(run_metadata, dict):
         expected = {
             "repository": subject.get("repository"),
@@ -1857,6 +1866,18 @@ def _verify_subject_artifact_bindings(
             for key, value in expected.items()
         ):
             errors.append("run_metadata_subject_binding_mismatch")
+        elif not label_errors:
+            # Recorded subject.release_candidate is the packaged release label.
+            # Only the independently checked profile AND the bound metadata may
+            # select it; release_candidate_id remains the analysis identity.
+            # Never rewrite a preserved document or accept a list of aliases.
+            document_release_label = packaged_label
+
+    for artifact_id, document in parsed.items():
+        if not _document_subject_identity_ok(
+            document, subject, packaged_release_label=document_release_label,
+        ):
+            errors.append(f"artifact_subject_identity_mismatch: {artifact_id}")
 
     final_status = _bound_artifact_document(packet, parsed, "final_status")
     if isinstance(final_status, dict):
