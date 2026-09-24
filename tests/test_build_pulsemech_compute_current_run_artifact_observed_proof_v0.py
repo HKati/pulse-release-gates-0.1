@@ -12,6 +12,7 @@ import os
 import stat
 import subprocess
 import sys
+import tempfile
 import time
 import zipfile
 from pathlib import Path
@@ -1907,9 +1908,11 @@ def _original_status_case(tmp_path: Path, raw: bytes) -> dict[str, Any]:
         "role_bindings": {"final_status": "artifact:fixture/status.json"},
         "subject": {"final_status_sha256": sha256_bytes(raw)},
     }
+    # Each invocation owns a fresh validator; never rewrite a finalized file.
+    component_root = Path(tempfile.mkdtemp(prefix="original-status-", dir=tmp_path))
     path = "tools/check_pulsemech_compute_subject_input_packet_v0.py"
     component = component_binding(role="subject_input_validator", path=path,
-        revision="a" * 40, value=(ROOT / path).read_bytes(), root=tmp_path)
+        revision="a" * 40, value=(ROOT / path).read_bytes(), root=component_root)
     return {"packet": packet, "carrier_bytes": carrier,
             "packet_validator_component": component}
 
@@ -1921,12 +1924,25 @@ def test_original_status_preserves_canonical_and_native_encoding(tmp_path: Path)
         json.dumps(value, separators=(",", ":"), ensure_ascii=True).encode(),
         (" \r\n" + json.dumps(value) + "\t ").encode()]
     assert len(set(forms)) == len(forms)
+    validators: dict[Path, tuple[bytes, os.stat_result]] = {}
     for raw in forms:
         case = _original_status_case(tmp_path, raw)
+        component = case["packet_validator_component"]
+        validator_path = component.worktree_path
+        assert validator_path not in validators
+        assert validator_path.read_bytes() == component.bytes_value
+        assert stat.S_IMODE(validator_path.stat().st_mode) == 0o444
+        validators[validator_path] = (validator_path.read_bytes(), validator_path.stat())
         before = copy.deepcopy(case["packet"])
         result = M._extract_final_status(**case)
         assert result == raw and sha256_bytes(result) == before["subject"]["final_status_sha256"]
         assert json.loads(result) == value and case["packet"] == before
+        for saved_path, (saved_bytes, saved_stat) in validators.items():
+            assert saved_path.read_bytes() == saved_bytes
+            current_stat = saved_path.stat()
+            assert current_stat.st_mode == saved_stat.st_mode
+            assert (current_stat.st_dev, current_stat.st_ino) == (saved_stat.st_dev, saved_stat.st_ino)
+            assert (current_stat.st_mtime_ns, current_stat.st_ctime_ns) == (saved_stat.st_mtime_ns, saved_stat.st_ctime_ns)
 
 
 def test_original_status_rejects_invalid_json_after_exact_digest_binding(tmp_path: Path) -> None:
