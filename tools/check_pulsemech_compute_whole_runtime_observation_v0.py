@@ -9240,5 +9240,291 @@ def _verify_local_r2_downstream(
     return parse_json_bytes(members[_LOCAL_R2_DOWNSTREAM_ASSESSMENT_MEMBER], label='r2_downstream_assessment')
 
 
+
+# R2C20: two complete local reconstructions, not original reference admission.
+_LOCAL_R2_RECONSTRUCTION_VERSION = 'pulsemech_step5c_local_r2_reconstruction_pair_v0'
+_LOCAL_R2_RECONSTRUCTION_ASSESSMENT_MEMBER = 'local-r2-reconstruction-assessment.json'
+_LOCAL_R2_RECONSTRUCTION_MEMBERS = frozenset({
+    'reconstruction-1.zip', 'reconstruction-2.zip', _LOCAL_R2_RECONSTRUCTION_ASSESSMENT_MEMBER,
+})
+_LOCAL_R2_RECONSTRUCTION_PLAN_CHECKER = 'tools/check_pulsemech_compute_whole_runtime_observation_plan_v0.py'
+_LOCAL_R2_RECONSTRUCTION_INPUT_LIMITS = {
+    'capture.zip': 84 * 1024 * 1024, 'prepared.zip': MAX_PREPARED_BYTES,
+    'context.json': MAX_JSON_BYTES, 'runtime-context.json': MAX_JSON_BYTES,
+    'fixture-commit.raw': 64 * 1024, 'backend/gh': 128 * 1024 * 1024,
+    'sources/' + VERIFIER_PATH: 8 * 1024 * 1024,
+    'sources/' + _LOCAL_R2_RECONSTRUCTION_PLAN_CHECKER: 8 * 1024 * 1024,
+}
+_LOCAL_R2_RECONSTRUCTION_DRIVER = r"""
+import hashlib, importlib.util, json, os, sys
+from pathlib import Path
+root = Path.cwd()
+request = json.loads((root/'inputs/request.json').read_bytes())
+entry = root/'inputs/sources'/request['verifier_path']
+raw = entry.read_bytes()
+if hashlib.sha256(raw).hexdigest() != request['verifier_sha256']:
+    raise ValueError('local reconstruction verifier bytes changed before import')
+spec = importlib.util.spec_from_file_location('_pulsemech_local_r2_reconstruction', entry)
+core = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = core
+spec.loader.exec_module(core)
+inputs = {}
+for row in request['inputs']:
+    name = row['member']
+    data = (root/'inputs'/core.safe_member(name, label='local_reconstruction_input')).read_bytes()
+    core.require(core.descriptor(name, data) == row, 'r2_reconstruction_input_changed', stage='local_r2_reconstruction')
+    inputs[name] = data
+pins = request['pins']
+pins.update(control_root=Path(request['control_root']), subject_root=Path(request['subject_root']),
+    fixture_commit_raw=inputs['fixture-commit.raw'], gh_executable=root/'inputs/backend/gh',
+    runtime_context_raw=inputs['runtime-context.json'])
+result = core._assess_local_r2_downstream(inputs['capture.zip'], inputs['prepared.zip'],
+    inputs['context.json'], **pins)
+core._write_read_only(root/'output/reconstruction.zip', result)
+sys.stdout.buffer.write(core.canonical_json_bytes({
+    'schema_version':'pulsemech_step5c_local_r2_reconstruction_process_v0',
+    'ordinal':request['ordinal'], 'process_id':os.getpid(),
+    'verifier_sha256':request['verifier_sha256'],
+    'input_binding_sha256':core.sha256_bytes(core.canonical_json_bytes(request['inputs'])),
+    'result':core.descriptor('reconstruction.zip', result), 'ok':True,
+}))
+"""
+
+
+
+def _snapshot_local_r2_reconstruction_inputs(root: Path, expected: Mapping[str, bytes]) -> dict[str, tuple[Any, ...]]:
+    """Preserve the validated carrier/backend budgets when sealing process inputs.
+
+    This exact, small input inventory can contain an 84 MiB capture or a
+    128 MiB backend. Do not accidentally apply the 32 MiB source-file limit.
+    """
+    stage = 'local_r2_reconstruction'
+    require(root.is_dir() and not root.is_symlink() and root.resolve() == root,
+            'r2_reconstruction_input_root_invalid', stage=stage)
+    directories = {str(parent) for name in expected for parent in PurePosixPath(name).parents
+                   if str(parent) != '.'}
+    files = {}; found_directories = set()
+    for count, path in enumerate(root.rglob('*')):
+        require(count < len(expected) + len(directories), 'r2_reconstruction_input_inventory_mismatch', stage=stage)
+        name = path.relative_to(root).as_posix(); info = path.lstat()
+        if stat.S_ISDIR(info.st_mode):
+            found_directories.add(name)
+            continue
+        require(name in expected and stat.S_ISREG(info.st_mode) and info.st_nlink == 1
+                and info.st_size == len(expected[name]), 'r2_reconstruction_input_changed', stage=stage)
+        def identity(value: os.stat_result) -> tuple[int, ...]:
+            return (value.st_dev, value.st_ino, value.st_mode, value.st_nlink,
+                    value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+        stamp = identity(info); digest = hashlib.sha256(); remaining = info.st_size
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, 'rb') as stream:
+            require(identity(os.fstat(stream.fileno())) == stamp, 'r2_reconstruction_input_changed', stage=stage)
+            while remaining:
+                chunk = stream.read(min(HASH_CHUNK, remaining))
+                require(bool(chunk), 'r2_reconstruction_input_changed', stage=stage)
+                remaining -= len(chunk); digest.update(chunk)
+            require(not stream.read(1) and identity(os.fstat(stream.fileno())) == stamp
+                    and identity(path.lstat()) == stamp and digest.hexdigest() == sha256_bytes(expected[name]),
+                    'r2_reconstruction_input_changed', stage=stage)
+        files[name] = (*stamp, digest.hexdigest())
+    require(set(files) == set(expected) and found_directories == directories,
+            'r2_reconstruction_input_inventory_mismatch', stage=stage)
+    return files
+
+
+def _run_local_r2_reconstruction_once(
+    ordinal: int, inputs: Mapping[str, bytes], pins: Mapping[str, Any], *,
+    control_root: Path, subject_root: Path,
+) -> tuple[bytes, dict[str, Any]]:
+    """Fresh isolated interpreter and output directory; never receive a saved result.
+
+    Both runs may read the same authenticated immutable source snapshots. The
+    first private workspace is removed before the next run starts. This does
+    not claim an OS sandbox or independently implemented verifier.
+    """
+    stage = 'local_r2_reconstruction'
+    require(type(ordinal) is int and ordinal in (1, 2), 'r2_reconstruction_ordinal_invalid', stage=stage)
+    require(set(inputs) == set(_LOCAL_R2_RECONSTRUCTION_INPUT_LIMITS),
+            'r2_reconstruction_input_inventory_mismatch', stage=stage)
+    require(all(type(raw) is bytes and 0 < len(raw) <= _LOCAL_R2_RECONSTRUCTION_INPUT_LIMITS[name]
+                for name, raw in inputs.items()), 'r2_reconstruction_input_budget', stage=stage)
+    rows = [descriptor(name, data) for name, data in sorted(inputs.items())]
+    request = {'ordinal': ordinal, 'inputs': rows, 'pins': dict(pins),
+        'control_root': str(control_root), 'subject_root': str(subject_root),
+        'verifier_path': VERIFIER_PATH, 'verifier_sha256': sha256_bytes(Path(__file__).read_bytes())}
+    with tempfile.TemporaryDirectory(prefix=f'pulsemech-r2-reconstruction-{ordinal}-') as temporary:
+        workspace = Path(temporary).resolve()
+        require(all(root != workspace and root not in workspace.parents and workspace not in root.parents
+                    for root in (control_root, subject_root)),
+                'r2_reconstruction_workspace_overlaps_source', stage=stage)
+        sealed = workspace / 'inputs'
+        for name, data in inputs.items():
+            _write_read_only(sealed / name, data)
+        (sealed / 'backend/gh').chmod(0o500)
+        request_raw = canonical_json_bytes(request)
+        _write_read_only(sealed / 'request.json', request_raw)
+        sealed_inputs = {**inputs, 'request.json': request_raw}
+        before = _snapshot_local_r2_reconstruction_inputs(sealed, sealed_inputs)
+        output = workspace / 'output'
+        output.mkdir(mode=0o700)
+        try:
+            process = run_process([sys.executable, '-I', '-B', '-c', _LOCAL_R2_RECONSTRUCTION_DRIVER],
+                cwd=workspace, timeout=PROCESS_TIMEOUT_SECONDS)
+            require_success(process, label=f'local_r2_reconstruction_{ordinal}')
+            diagnostic = parse_json_bytes(process.stdout, label='local_r2_reconstruction_process',
+                                          maximum=16384)
+            snapshot = _snapshot_local_r2_downstream_tree(output)
+            require(set(snapshot) == {'reconstruction.zip'} and snapshot['reconstruction.zip'][4] <= 16 * 1024 * 1024,
+                    'r2_reconstruction_output_inventory_mismatch', stage=stage)
+            result = (output / 'reconstruction.zip').read_bytes()
+            require(snapshot == _snapshot_local_r2_downstream_tree(output),
+                    'r2_reconstruction_output_changed', stage=stage)
+            require(type(diagnostic.get('process_id')) is int and diagnostic['process_id'] > 0
+                    and diagnostic['process_id'] != os.getpid()
+                    and type(diagnostic.get('ordinal')) is int and diagnostic['ordinal'] == ordinal
+                    and diagnostic == {
+                        'schema_version': 'pulsemech_step5c_local_r2_reconstruction_process_v0',
+                        'ordinal': ordinal, 'process_id': diagnostic['process_id'],
+                        'verifier_sha256': request['verifier_sha256'],
+                        'input_binding_sha256': sha256_bytes(canonical_json_bytes(rows)),
+                        'result': descriptor('reconstruction.zip', result), 'ok': True,
+                    } and diagnostic.get('ok') is True,
+                    'r2_reconstruction_process_binding_mismatch', stage=stage)
+        finally:
+            require(before == _snapshot_local_r2_reconstruction_inputs(sealed, sealed_inputs),
+                    'r2_reconstruction_input_changed', stage=stage)
+    # Only deterministic bindings belong in the portable result. PID and paths
+    # describe this invocation and are not preserved original-runtime evidence.
+    return result, diagnostic
+
+
+def _local_r2_reconstruction_pair_assessment(
+    first: bytes, second: bytes, *, inputs: Mapping[str, bytes],
+) -> dict[str, Any]:
+    """Compare complete fresh carriers plus their exact native output links."""
+    stage = 'local_r2_reconstruction'
+    views = []
+    for raw in (first, second):
+        require(type(raw) is bytes and 0 < len(raw) <= 16 * 1024 * 1024,
+                'r2_reconstruction_result_budget', stage=stage)
+        members = read_canonical_zip_bytes(raw, label='local_r2_reconstruction_result',
+            maximum_members=11, maximum_bytes=16 * 1024 * 1024)
+        require(set(members) == _LOCAL_R2_DOWNSTREAM_MEMBERS,
+                'r2_reconstruction_result_inventory_mismatch', stage=stage)
+        outputs = {name: data for name, data in members.items() if not name.startswith('local-r2-')}
+        _require_downstream_output_links(outputs)
+        assessment = parse_json_bytes(members[_LOCAL_R2_DOWNSTREAM_ASSESSMENT_MEMBER],
+                                      label='local_r2_reconstruction_downstream')
+        require(assessment.get('schema_version') == _LOCAL_R2_DOWNSTREAM_VERSION
+                and assessment.get('simulation_only') is True
+                and assessment.get('assessment_status') == 'incomplete'
+                and type(assessment.get('local_content_satisfied_role_count')) is int
+                and assessment['local_content_satisfied_role_count'] == 62
+                and assessment.get('pending_local_role_ids') == []
+                and type(assessment.get('fully_satisfied_role_count')) is int
+                and assessment['fully_satisfied_role_count'] == 0
+                and assessment.get('two_full_R2_reconstructions_completed') is False
+                and assessment.get('mandatory_llamaguard_signatures_verified') is False
+                and canonical_json_bytes(assessment.get('authority_boundary')) == canonical_json_bytes(AUTHORITY_BOUNDARY)
+                and canonical_json_bytes(assessment.get('local_boundary')) == canonical_json_bytes({'R2_activated': False,
+                    'completion_evaluated': False, 'dispatch_authorized': False, 'reference_acquired': False})
+                and assessment.get('derived_outputs') == [descriptor(n, b) for n, b in sorted(outputs.items())]
+                and members[_LOCAL_R2_RUNTIME_CONTEXT_MEMBER] == inputs['runtime-context.json'],
+                'r2_reconstruction_downstream_boundary_mismatch', stage=stage)
+        views.append((members, outputs, assessment))
+    require(first == second, 'r2_reconstructions_not_byte_identical', stage=stage)
+    previous = views[0][2]
+    return {**previous, 'schema_version': _LOCAL_R2_RECONSTRUCTION_VERSION,
+        'validation_scope': 'two_fresh_full_local_R2_reconstructions_not_original_reference_admission',
+        'two_full_R2_reconstructions_completed': True,
+        'original_reference_reconstructions_completed': False,
+        'reconstruction_comparison': {
+            'process_count': 2, 'separate_interpreters': True, 'separate_private_workspaces': True,
+            'shared_inputs': 'same_authenticated_immutable_source_snapshots_and_preserved_capture',
+            'previous_run_output_supplied_to_next_run': False,
+            'whole_carrier_byte_identical': True, 'all_eleven_members_identical': True,
+            'common_sha256': sha256_bytes(first), 'common_size_bytes': len(first)},
+        'reconstruction_inputs': [descriptor(name, data) for name, data in sorted(inputs.items())],
+        'reconstruction_outputs': [descriptor('reconstruction-1.zip', first),
+                                   descriptor('reconstruction-2.zip', second)],
+        'remaining_requirements': ['original_mandatory_signature_evidence',
+                                  'coordinated_public_R2_route_and_reference_admission'],
+    }
+
+
+def _assess_local_r2_reconstructions(
+    capture_raw: bytes, prepared_raw: bytes, expected_context_raw: bytes, *,
+    control_root: Path, subject_root: Path, fixture_commit_raw: bytes, expected_fixture_commit: str,
+    gh_executable: Path, expected_gh_sha256: str,
+    runtime_context_raw: bytes, expected_runtime_context_sha256: str,
+    expected_capture_sha256: str, expected_acquisition_sha256: str, **pins: Any,
+) -> bytes:
+    """Execute two whole local replays from frozen inputs, not two saved-reader calls."""
+    stage = 'local_r2_reconstruction'
+    checked, captured = _read_local_r2_capture(capture_raw, prepared_raw, expected_context_raw,
+        expected_capture_sha256=expected_capture_sha256, expected_acquisition_sha256=expected_acquisition_sha256, **pins)
+    plan, prepared = _read_local_r2_prepared(prepared_raw, expected_context_raw, **pins)
+    control_root = Path(os.path.abspath(os.fspath(control_root)))
+    subject_root = Path(os.path.abspath(os.fspath(subject_root)))
+    require(control_root != subject_root and control_root not in subject_root.parents
+            and subject_root not in control_root.parents,
+            'r2_downstream_source_roots_overlap', stage=stage)
+    protected = [(root, _local_r2_downstream_source_snapshot(root, plan, prepared,
+        fixture_commit_raw=fixture_commit_raw, fixture_commit=expected_fixture_commit))
+        for root in (control_root, subject_root)]
+    acquisition = read_canonical_zip_bytes(captured['local-r2-acquisition.zip'],
+        label='r2_reconstruction_acquisition', maximum_members=256, maximum_bytes=80 * 1024 * 1024)
+    _local_r2_runtime_context(plan, {**checked, 'expected_capture_sha256': expected_capture_sha256},
+        acquisition, runtime_context_raw, expected_sha256=expected_runtime_context_sha256,
+        fixture_commit=expected_fixture_commit)
+    backend = _local_r2_attestation_backend_bytes(gh_executable, expected_gh_sha256)
+    inputs = {'capture.zip': capture_raw, 'prepared.zip': prepared_raw, 'context.json': expected_context_raw,
+              'runtime-context.json': runtime_context_raw, 'fixture-commit.raw': fixture_commit_raw, 'backend/gh': backend,
+              **{'sources/' + name: prepared['sources/' + name]
+                 for name in (VERIFIER_PATH, _LOCAL_R2_RECONSTRUCTION_PLAN_CHECKER)}}
+    bound = {**pins, 'expected_fixture_commit': expected_fixture_commit,
+        'expected_gh_sha256': expected_gh_sha256, 'expected_runtime_context_sha256': expected_runtime_context_sha256,
+        'expected_capture_sha256': expected_capture_sha256, 'expected_acquisition_sha256': expected_acquisition_sha256}
+    results = []; processes = []
+    try:
+        for ordinal in (1, 2):
+            raw, process = _run_local_r2_reconstruction_once(ordinal, inputs, bound,
+                control_root=control_root, subject_root=subject_root)
+            results.append(raw); processes.append(process)
+        require(len(processes) == 2 and processes[0]['process_id'] != processes[1]['process_id'],
+                'r2_reconstruction_process_identity_reused', stage=stage)
+        assessment = _local_r2_reconstruction_pair_assessment(*results, inputs=inputs)
+        result = deterministic_zip_bytes({'reconstruction-1.zip': results[0], 'reconstruction-2.zip': results[1],
+            _LOCAL_R2_RECONSTRUCTION_ASSESSMENT_MEMBER: canonical_json_bytes(assessment)},
+            maximum_members=3, maximum_bytes=40 * 1024 * 1024)
+    finally:
+        for root, before in protected:
+            require(before == _snapshot_local_r2_downstream_tree(root), 'r2_downstream_input_changed', stage=stage)
+        require(backend == _local_r2_attestation_backend_bytes(gh_executable, expected_gh_sha256),
+                'r2_reconstruction_backend_changed', stage=stage)
+    return result
+
+
+def _verify_local_r2_reconstructions(
+    reconstruction_raw: bytes, capture_raw: bytes, prepared_raw: bytes, expected_context_raw: bytes, *,
+    expected_reconstruction_sha256: str, **pins: Any,
+) -> dict[str, Any]:
+    """Reexecute both complete local reconstructions; stored equality is not proof."""
+    stage = 'local_r2_reconstruction'
+    require(type(reconstruction_raw) is bytes and 0 < len(reconstruction_raw) <= 40 * 1024 * 1024
+            and sha256_bytes(reconstruction_raw) == expected_reconstruction_sha256,
+            'r2_reconstruction_pair_digest_mismatch', stage=stage)
+    members = read_canonical_zip_bytes(reconstruction_raw, label='local_r2_reconstruction_pair',
+        maximum_members=3, maximum_bytes=40 * 1024 * 1024)
+    require(set(members) == _LOCAL_R2_RECONSTRUCTION_MEMBERS,
+            'r2_reconstruction_pair_inventory_mismatch', stage=stage)
+    require(members['reconstruction-1.zip'] == members['reconstruction-2.zip'],
+            'r2_reconstructions_not_byte_identical', stage=stage)
+    expected = _assess_local_r2_reconstructions(capture_raw, prepared_raw, expected_context_raw, **pins)
+    require(reconstruction_raw == expected, 'r2_reconstruction_pair_replay_mismatch', stage=stage)
+    return parse_json_bytes(members[_LOCAL_R2_RECONSTRUCTION_ASSESSMENT_MEMBER],
+                            label='local_r2_reconstruction_assessment')
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

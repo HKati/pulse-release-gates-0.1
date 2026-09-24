@@ -18283,6 +18283,263 @@ def test_r2c19_external_source_bindings_remain_mandatory(r2c19_downstream,tmp_pa
             VERIFIER._local_r2_downstream_source_snapshot(t.t.control,t.plan,prepared,
                 fixture_commit_raw=t.f.commit_raw,fixture_commit=t.f.commit)
 
+
+# R2C20: two complete fresh local reconstructions from the same pinned inputs.
+@pytest.fixture(scope='module')
+def r2c20_reconstructions(r2c19_downstream, tmp_path_factory):
+    import time
+    t = r2c19_downstream
+    calls = []; diagnostics = []; workspaces = []; results = []
+    real_process = VERIFIER.run_process
+    real_once = VERIFIER._run_local_r2_reconstruction_once
+    inputs = {'capture.zip':t.f.capture, 'prepared.zip':t.f.carrier.raw, 'context.json':t.f.carrier.context,
+        'runtime-context.json':t.context_raw, 'fixture-commit.raw':t.f.commit_raw,
+        'backend/gh':t.f.gh.read_bytes(),
+        **{'sources/'+name:t.prepared['sources/'+name] for name in
+           (VERIFIER.VERIFIER_PATH, VERIFIER._LOCAL_R2_RECONSTRUCTION_PLAN_CHECKER)}}
+    # A saved expected carrier is test input only, not evidence of two runs.
+    # The real reader must execute two new whole chains before accepting it.
+    saved_assessment = VERIFIER._local_r2_reconstruction_pair_assessment(t.raw,t.raw,inputs=inputs)
+    saved = VERIFIER.deterministic_zip_bytes({'reconstruction-1.zip':t.raw,'reconstruction-2.zip':t.raw,
+        VERIFIER._LOCAL_R2_RECONSTRUCTION_ASSESSMENT_MEMBER:canonical(saved_assessment)},
+        maximum_members=3,maximum_bytes=40*1024*1024)
+    def record_process(command, **kwargs):
+        if tuple(command) == (sys.executable, '-I', '-B', '-c', VERIFIER._LOCAL_R2_RECONSTRUCTION_DRIVER):
+            root = kwargs['cwd']
+            # There is no previous result among this interpreter's inputs.
+            assert all(not prior.exists() for prior in workspaces)
+            request = json.loads((root/'inputs/request.json').read_bytes())
+            assert {row['member'] for row in request['inputs']} == set(VERIFIER._LOCAL_R2_RECONSTRUCTION_INPUT_LIMITS)
+            assert not list((root/'output').iterdir())
+            assert not (root/'inputs/reconstruction.zip').exists()
+            started = time.monotonic()
+            proc = real_process(command, **kwargs)
+            calls.append({'argv': list(command), 'cwd': str(root), 'exit': proc.returncode,
+                          'elapsed_s': time.monotonic()-started})
+            workspaces.append(root)
+            return proc
+        return real_process(command, **kwargs)
+    def record_once(*args, **kwargs):
+        raw, diagnostic = real_once(*args, **kwargs)
+        results.append(raw); diagnostics.append(diagnostic)
+        return raw, diagnostic
+    with patch.object(VERIFIER, 'run_process', side_effect=record_process), \
+         patch.object(VERIFIER, '_run_local_r2_reconstruction_once', side_effect=record_once):
+        verified = VERIFIER._verify_local_r2_reconstructions(saved, t.f.capture, t.f.carrier.raw, t.f.carrier.context,
+            expected_reconstruction_sha256=digest(saved), **t.pins)
+    raw = saved
+    assert len(calls) == len(diagnostics) == len(workspaces) == 2
+    assert all(not root.exists() for root in workspaces)
+    members = VERIFIER.read_canonical_zip_bytes(raw, label='r2c20_pair',
+        maximum_members=3, maximum_bytes=40*1024*1024)
+    assessment = json.loads(members[VERIFIER._LOCAL_R2_RECONSTRUCTION_ASSESSMENT_MEMBER])
+    pins = {key:value for key,value in t.pins.items()
+            if key not in {'control_root','subject_root','fixture_commit_raw','gh_executable','runtime_context_raw'}}
+    directory = tmp_path_factory.mktemp('r2c20-pair')
+    for name,data in inputs.items():
+        path=directory/'inputs'/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+    (directory/'source-roots.json').write_bytes(canonical({'control':str(t.t.control),'subject':str(t.t.subject)}))
+    for name, data in {'pair.zip':raw, 'assessment.json':canonical(assessment),
+        'native-processes.json':canonical(diagnostics), 'commands.json':canonical(calls),
+        'pins.json':canonical(pins)}.items():
+        (directory/name).write_bytes(data)
+    return SimpleNamespace(t=t, raw=raw, members=members, assessment=assessment, inputs=inputs,
+        pins=pins, calls=calls, diagnostics=diagnostics, results=results, directory=directory, verified=verified)
+
+
+def _r2c20_once(t, ordinal=1):
+    return VERIFIER._run_local_r2_reconstruction_once(ordinal, t.inputs, t.pins,
+        control_root=t.t.t.control, subject_root=t.t.t.subject)
+
+
+def test_r2c20_pair_reconstructs_all_eleven_members_in_separate_processes(r2c20_reconstructions):
+    t=r2c20_reconstructions; a=t.assessment
+    assert t.members['reconstruction-1.zip'] == t.members['reconstruction-2.zip'] == t.t.raw
+    assert t.results == [t.t.raw, t.t.raw]
+    assert [row['ordinal'] for row in t.diagnostics] == [1,2]
+    assert len({row['process_id'] for row in t.diagnostics}) == 2
+    assert all(type(row['process_id']) is int and row['process_id'] > 0
+               and row['process_id'] != os.getpid() and row['ok'] is True for row in t.diagnostics)
+    assert len({row['cwd'] for row in t.calls}) == 2 and all(row['exit']==0 for row in t.calls)
+    assert a['schema_version'] == 'pulsemech_step5c_local_r2_reconstruction_pair_v0'
+    assert a['two_full_R2_reconstructions_completed'] is True
+    assert a['original_reference_reconstructions_completed'] is False
+    assert a['assessment_status']=='incomplete' and a['fully_satisfied_role_count']==0
+    assert a['local_content_satisfied_role_count']==62 and a['pending_local_role_ids']==[]
+    assert a['mandatory_llamaguard_signatures_verified'] is False
+    assert a['comparison_complete'] is False and a['candidate_values']['candidate_all_true'] is False
+    assert a['explicit_gap_records'] == t.t.assessment['explicit_gap_records']
+    assert a['local_boundary'] == {'R2_activated':False,'completion_evaluated':False,
+        'dispatch_authorized':False,'reference_acquired':False}
+    assert a['remaining_requirements']==['original_mandatory_signature_evidence',
+        'coordinated_public_R2_route_and_reference_admission']
+    comparison=a['reconstruction_comparison']
+    assert comparison['process_count']==2 and comparison['whole_carrier_byte_identical'] is True
+    assert comparison['all_eleven_members_identical'] is True
+    assert comparison['previous_run_output_supplied_to_next_run'] is False
+    assert comparison['common_sha256']==digest(t.t.raw)
+    assert a['reconstruction_inputs']==[VERIFIER.descriptor(n,b) for n,b in sorted(t.inputs.items())]
+    for ordinal in (1,2):
+        members=VERIFIER.read_canonical_zip_bytes(t.members[f'reconstruction-{ordinal}.zip'],
+            label='r2c20_child',maximum_members=11,maximum_bytes=16*1024*1024)
+        assert len(members)==11 and members==t.t.members
+        # The earlier stage record is not retroactively upgraded.
+        assert json.loads(members['local-r2-downstream-assessment.json'])['two_full_R2_reconstructions_completed'] is False
+    portable=canonical(a)
+    assert b'process_id' not in portable
+    assert all(row['cwd'].encode() not in portable for row in t.calls)
+
+
+def test_r2c20_saved_pair_reader_reexecutes_both_complete_chains(r2c20_reconstructions):
+    t=r2c20_reconstructions
+    # The fixture exercises reader -> builder -> two isolated native executions
+    # once; the two tests inspect distinct obligations of that same real run.
+    assert t.verified==t.assessment and [row['ordinal'] for row in t.diagnostics]==[1,2]
+    assert len({row['process_id'] for row in t.diagnostics})==2
+    assert t.results==[t.members['reconstruction-1.zip'],t.members['reconstruction-2.zip']]
+
+
+@pytest.mark.parametrize('ordinal',[1,2])
+def test_r2c20_each_process_error_propagates(r2c20_reconstructions,ordinal):
+    t=r2c20_reconstructions; launched=[]
+    def fail(command,**kwargs):
+        launched.append(kwargs['cwd'])
+        assert command==[sys.executable,'-I','-B','-c',VERIFIER._LOCAL_R2_RECONSTRUCTION_DRIVER]
+        return VERIFIER.ProcessOutput(31,b'',b'controlled reconstruction failure')
+    with patch.object(VERIFIER,'run_process',side_effect=fail):
+        with pytest.raises(VERIFIER.VerificationError,match='subprocess_failed'):
+            _r2c20_once(t,ordinal)
+    assert len(launched)==1 and not launched[0].exists()
+
+
+@pytest.mark.parametrize('fault',['ordinal','boolean-ordinal','pid','parent-pid','source','inputs','result','ok','extra','invalid-json'])
+def test_r2c20_process_diagnostic_cannot_substitute_success(r2c20_reconstructions,fault):
+    t=r2c20_reconstructions
+    def corrupt(command,**kwargs):
+        root=kwargs['cwd']; request=json.loads((root/'inputs/request.json').read_bytes())
+        VERIFIER._write_read_only(root/'output/reconstruction.zip',t.t.raw)
+        doc={'schema_version':'pulsemech_step5c_local_r2_reconstruction_process_v0',
+            'ordinal':1,'process_id':os.getpid()+100000,
+            'verifier_sha256':request['verifier_sha256'],
+            'input_binding_sha256':digest(canonical(request['inputs'])),
+            'result':VERIFIER.descriptor('reconstruction.zip',t.t.raw),'ok':True}
+        if fault=='ordinal':doc['ordinal']=2
+        elif fault=='boolean-ordinal':doc['ordinal']=True
+        elif fault=='pid':doc['process_id']=True
+        elif fault=='parent-pid':doc['process_id']=os.getpid()
+        elif fault=='source':doc['verifier_sha256']='0'*64
+        elif fault=='inputs':doc['input_binding_sha256']='0'*64
+        elif fault=='result':doc['result']['sha256']='0'*64
+        elif fault=='ok':doc['ok']=1
+        elif fault=='extra':doc['extra']='not in diagnostic contract'
+        return VERIFIER.ProcessOutput(0,b'{bad json' if fault=='invalid-json' else canonical(doc),b'')
+    with patch.object(VERIFIER,'run_process',side_effect=corrupt):
+        with pytest.raises(VERIFIER.VerificationError):_r2c20_once(t)
+
+
+@pytest.mark.parametrize('fault',['changed','mode','missing','extra','symlink'])
+def test_r2c20_sealed_input_mutation_is_rejected_even_after_child_failure(r2c20_reconstructions,fault):
+    t=r2c20_reconstructions
+    def mutate(command,**kwargs):
+        root=kwargs['cwd']; path=root/'inputs/context.json'
+        if fault=='changed':path.chmod(0o600);path.write_bytes(path.read_bytes()+b'\n')
+        elif fault=='mode':path.chmod(0o600)
+        elif fault=='missing':path.unlink()
+        elif fault=='extra':(root/'inputs/extra.json').write_bytes(b'{}')
+        else:path.unlink();path.symlink_to(root/'inputs/request.json')
+        return VERIFIER.ProcessOutput(31,b'',b'controlled child failure')
+    with patch.object(VERIFIER,'run_process',side_effect=mutate):
+        with pytest.raises(VERIFIER.VerificationError,match='r2_reconstruction_input_'):_r2c20_once(t)
+
+
+@pytest.mark.parametrize('fault',['digest','missing','extra','unequal'])
+def test_r2c20_invalid_pair_rejects_before_replay(r2c20_reconstructions,fault):
+    t=r2c20_reconstructions; members=dict(t.members)
+    if fault=='missing':del members['reconstruction-2.zip']
+    elif fault=='extra':members['extra.json']=b'{}\n'
+    elif fault=='unequal':members['reconstruction-2.zip']+=b'not the same carrier'
+    raw=VERIFIER.deterministic_zip_bytes(members,maximum_members=4,maximum_bytes=40*1024*1024)
+    with patch.object(VERIFIER,'_assess_local_r2_reconstructions',side_effect=AssertionError('no replay permitted')):
+        with pytest.raises(VERIFIER.VerificationError):
+            VERIFIER._verify_local_r2_reconstructions(raw,t.t.f.capture,t.t.f.carrier.raw,t.t.f.carrier.context,
+                expected_reconstruction_sha256='0'*64 if fault=='digest' else digest(raw),**t.t.pins)
+
+
+@pytest.mark.parametrize('fault',['second-failure','same-pid','different-output'])
+def test_r2c20_pair_never_promotes_an_incomplete_or_reused_second_run(r2c20_reconstructions,fault):
+    t=r2c20_reconstructions; seen=[]
+    # Negative orchestration isolation: reuse real preserved first-run data,
+    # then break the second run. This is not a fresh positive reconstruction.
+    def second(ordinal,*args,**kwargs):
+        seen.append(ordinal)
+        if ordinal==2 and fault=='second-failure':raise VERIFIER.VerificationError('controlled_second_failure')
+        raw=t.t.raw; doc=dict(t.diagnostics[ordinal-1])
+        if ordinal==2 and fault=='same-pid':doc['process_id']=t.diagnostics[0]['process_id']
+        if ordinal==2 and fault=='different-output':
+            parts=dict(t.t.members);parts['local-r2-downstream-assessment.json']=canonical({**t.t.assessment,'extra':True})
+            raw=VERIFIER.deterministic_zip_bytes(parts,maximum_members=11,maximum_bytes=16*1024*1024)
+        return raw,doc
+    expected={'second-failure':'controlled_second_failure','same-pid':'r2_reconstruction_process_identity_reused',
+        'different-output':'r2_reconstructions_not_byte_identical'}[fault]
+    with patch.object(VERIFIER,'_run_local_r2_reconstruction_once',side_effect=second):
+        with pytest.raises(VERIFIER.VerificationError,match=expected):
+            VERIFIER._assess_local_r2_reconstructions(t.t.f.capture,t.t.f.carrier.raw,t.t.f.carrier.context,**t.t.pins)
+    assert seen==[1,2]
+
+
+def test_r2c20_rehashed_original_admission_claim_still_requires_fresh_execution(r2c20_reconstructions):
+    t=r2c20_reconstructions; members=dict(t.members)
+    forged=copy.deepcopy(t.assessment);forged['assessment_status']='complete';forged['fully_satisfied_role_count']=62
+    forged['local_boundary']['R2_activated']=True
+    members['local-r2-reconstruction-assessment.json']=canonical(forged)
+    raw=VERIFIER.deterministic_zip_bytes(members,maximum_members=3,maximum_bytes=40*1024*1024)
+    real=VERIFIER.run_process; attempts=[]
+    def fail(command,**kwargs):
+        if tuple(command)==(sys.executable,'-I','-B','-c',VERIFIER._LOCAL_R2_RECONSTRUCTION_DRIVER):
+            attempts.append(command);return VERIFIER.ProcessOutput(31,b'',b'fresh replay required')
+        return real(command,**kwargs)
+    with patch.object(VERIFIER,'run_process',side_effect=fail):
+        with pytest.raises(VERIFIER.VerificationError,match='subprocess_failed'):
+            VERIFIER._verify_local_r2_reconstructions(raw,t.t.f.capture,t.t.f.carrier.raw,t.t.f.carrier.context,
+                expected_reconstruction_sha256=digest(raw),**t.t.pins)
+    assert len(attempts)==1
+
+
+@pytest.mark.parametrize('fault',['missing','extra','oversize','ordinal'])
+def test_r2c20_input_contract_rejects_before_process(r2c20_reconstructions,fault):
+    t=r2c20_reconstructions; inputs=dict(t.inputs); ordinal=1
+    if fault=='missing':del inputs['prepared.zip']
+    elif fault=='extra':inputs['previous-result.zip']=t.t.raw
+    elif fault=='ordinal':ordinal=True
+    limits=dict(VERIFIER._LOCAL_R2_RECONSTRUCTION_INPUT_LIMITS)
+    if fault=='oversize':limits['capture.zip']=len(inputs['capture.zip'])-1
+    with patch.object(VERIFIER,'run_process',side_effect=AssertionError('must reject before process')), \
+         patch.object(VERIFIER,'_LOCAL_R2_RECONSTRUCTION_INPUT_LIMITS',limits):
+        with pytest.raises(VERIFIER.VerificationError):
+            VERIFIER._run_local_r2_reconstruction_once(ordinal,inputs,t.pins,
+                control_root=t.t.t.control,subject_root=t.t.t.subject)
+
+
+def test_r2c20_carrier_snapshot_does_not_inherit_source_file_budget(tmp_path):
+    raw=b'x'*(33*1024*1024);root=tmp_path/'sealed';root.mkdir()
+    (root/'capture.zip').write_bytes(raw)
+    before=VERIFIER._snapshot_local_r2_reconstruction_inputs(root,{'capture.zip':raw})
+    assert before['capture.zip'][4]==len(raw) and before['capture.zip'][7]==digest(raw)
+    assert before==VERIFIER._snapshot_local_r2_reconstruction_inputs(root,{'capture.zip':raw})
+
+
+def test_r2c20_cleanup_failure_cannot_return_reconstruction(r2c20_reconstructions):
+    t=r2c20_reconstructions; real=VERIFIER.tempfile.TemporaryDirectory
+    class BrokenCleanup:
+        def __init__(self,*args,**kwargs):self.inner=real(*args,**kwargs)
+        def __enter__(self):return self.inner.__enter__()
+        def __exit__(self,*args):
+            self.inner.__exit__(*args)
+            raise OSError('controlled reconstruction cleanup failure')
+    with patch.object(VERIFIER.tempfile,'TemporaryDirectory',BrokenCleanup), \
+         patch.object(VERIFIER,'run_process',return_value=VERIFIER.ProcessOutput(31,b'',b'controlled failure')):
+        with pytest.raises(OSError,match='controlled reconstruction cleanup failure'):_r2c20_once(t)
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.
