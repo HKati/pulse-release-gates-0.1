@@ -17148,6 +17148,226 @@ def test_r2c14_saved_report_cannot_replace_full_verifier(r2c14_recorded_full_inp
         _r2c14_run(f, payloads=payloads)
 
 
+# R2C15: all 62 roles accounted for; synthetic checks are not reference admission.
+def _r2c15_pins(f):
+    return {**f.pins, 'fixture_commit_raw': f.commit_raw, 'expected_fixture_commit': f.commit,
+            'gh_executable': f.gh, 'expected_gh_sha256': f.gh_sha}
+
+
+@pytest.fixture(scope='module')
+def r2c15_role_evidence(r2c14_recorded_full_inputs):
+    f = r2c14_recorded_full_inputs
+    pins = _r2c15_pins(f)
+    checked, captured = VERIFIER._read_local_r2_capture(f.capture, f.carrier.raw, f.carrier.context, **f.pins)
+    checked = {**checked, 'expected_capture_sha256': digest(f.capture)}
+    plan, prepared = VERIFIER._read_local_r2_prepared(f.carrier.raw, f.carrier.context,
+        **{k:v for k,v in f.pins.items() if k not in ('expected_capture_sha256', 'expected_acquisition_sha256')})
+    acquisition = VERIFIER.read_canonical_zip_bytes(captured['local-r2-acquisition.zip'],
+        label='r2c15_test_acquisition', maximum_members=256, maximum_bytes=80*1024*1024)
+    replay = VERIFIER._local_r2_recorded_full_assessment(plan, prepared, checked, acquisition,
+        fixture_commit_raw=f.commit_raw, expected_fixture_commit=f.commit,
+        gh_executable=f.gh, expected_gh_sha256=f.gh_sha)
+    inputs = VERIFIER._local_r2_role_input_assessment(plan, prepared, checked, acquisition)
+    projection = VERIFIER._local_r2_projection_assessment(plan, prepared, checked, acquisition)
+    extra = VERIFIER._local_r2_role_evidence_bindings(plan, checked, acquisition, replay, inputs)
+    return SimpleNamespace(f=f, pins=pins, plan=plan, prepared=prepared, checked=checked,
+                           acquisition=acquisition, replay=replay, inputs=inputs,
+                           projection=projection, extra=extra)
+
+
+def _r2c15_conditions(f, **changes):
+    values = {'plan': f.plan, 'role_inputs': f.inputs, 'projection': f.projection,
+              'replay': f.replay, 'content_bindings': f.extra}
+    values.update(changes)
+    return VERIFIER._local_r2_evaluate_role_conditions(**values)
+
+
+def _r2c15_rebind(inputs, projection, replay):
+    """Negative controls keep all outer summary digests internally consistent."""
+    projection = copy.deepcopy(projection); replay = copy.deepcopy(replay)
+    projection['source_input_assessment_sha256'] = digest(canonical(inputs))
+    replay['projection_assessment_sha256'] = digest(canonical(projection))
+    return projection, replay
+
+
+# Independent expectation: the reviewed contract table, not the new dispatcher.
+_R2C15_CONTRACT_DUTIES = dict(re.findall(
+    r'^\| `(state:step5c:[^`]+)` \| `([^`]+)` \|$',
+    (ROOT/'docs/compute/PULSEMECH_COMPUTE_WHOLE_RUNTIME_OBSERVATION_CONTRACT_v0.md').read_text(), re.M))
+_R2C15_DOWNSTREAM = {
+    'state:step5c:runtime-observation-packet', 'state:step5c:runtime-observation-diagnostic',
+    'state:step5c:compute-binding-report', 'state:step5c:planned-observed-relation',
+    'state:step5c:folded-non-active-candidate-status',
+}
+
+
+def test_r2c15_complete_local_evaluation_has_no_original_admission(r2c15_role_evidence):
+    t = r2c15_role_evidence; f = t.f
+    raw = VERIFIER._assess_local_r2_roles(f.capture, f.carrier.raw, f.carrier.context, **t.pins)
+    doc = json.loads(raw)
+    assert len(_R2C15_CONTRACT_DUTIES) == doc['role_count'] == 62
+    assert doc['local_content_satisfied_role_count'] == 57
+    assert set(doc['pending_local_role_ids']) == _R2C15_DOWNSTREAM
+    assert doc['assessment_status'] == 'incomplete'
+    assert doc['role_evidence_evaluated'] is True
+    assert doc['fully_satisfied_role_count'] == 0
+    assert doc['original_reference_admission_evaluated'] is False
+    assert doc['mandatory_llamaguard_signatures_verified'] is False
+    assert doc['full_recorded_verifier_executed'] is True
+    assert not any(doc['local_boundary'].values())
+    assert not any(row['role_obligation_satisfied'] for row in doc['roles'])
+    assert canonical(doc) == raw
+    (f.directory/'role-evaluation-assessment.json').write_bytes(raw)
+
+
+@pytest.mark.parametrize('role', sorted(_R2C15_CONTRACT_DUTIES))
+def test_r2c15_each_reviewed_role_has_its_own_evidence(r2c15_role_evidence, role):
+    t = r2c15_role_evidence; rows = _r2c15_conditions(t)
+    row = next(row for row in rows if row['state_id'] == role)
+    assert row['required_duty'] == _R2C15_CONTRACT_DUTIES[role]
+    assert row['declared_consumer_occurrence_ids'] == VERIFIER._planned_state_templates(t.plan)[role]['required_consumer_occurrence_ids']
+    assert row['local_condition_satisfied'] is (role not in _R2C15_DOWNSTREAM)
+    assert row['local_condition_status'] == ('pending' if role in _R2C15_DOWNSTREAM else 'satisfied')
+    assert bool(row['evidence_binding']) is (role not in _R2C15_DOWNSTREAM)
+    assert row['role_obligation_satisfied'] is False
+    assert row['simulation_only'] is True
+    assert row['original_runtime_reads_proven'] is False
+
+
+@pytest.mark.parametrize('fault', ['missing', 'duplicate', 'unknown'])
+def test_r2c15_role_extent_cannot_be_silently_reduced(r2c15_role_evidence, fault):
+    t=r2c15_role_evidence; inputs=copy.deepcopy(t.inputs)
+    if fault=='missing': inputs['roles'].pop()
+    elif fault=='duplicate': inputs['roles'][-1]=copy.deepcopy(inputs['roles'][0])
+    else: inputs['roles'][-1]['state_id']='state:step5c:unreviewed-role'
+    projection,replay=_r2c15_rebind(inputs,t.projection,t.replay)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_role_evaluation_extent_mismatch'):
+        _r2c15_conditions(t,role_inputs=inputs,projection=projection,replay=replay)
+
+
+@pytest.mark.parametrize('role', sorted(k for k,v in _R2C15_CONTRACT_DUTIES.items() if v.startswith('exact_') and v!='exact_provider_content'))
+def test_r2c15_exact_duty_never_accepts_missing_binding(r2c15_role_evidence, role):
+    t=r2c15_role_evidence; inputs=copy.deepcopy(t.inputs)
+    row=next(r for r in inputs['roles'] if r['state_id']==role); row['input_binding']=None
+    projection,replay=_r2c15_rebind(inputs,t.projection,t.replay)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_role_evaluation_exact_binding_missing'):
+        _r2c15_conditions(t,role_inputs=inputs,projection=projection,replay=replay)
+
+
+@pytest.mark.parametrize('role', sorted(k for k,v in _R2C15_CONTRACT_DUTIES.items() if v in ('exact_provider_content','checked_controlled_case_derivation')))
+def test_r2c15_case_and_provider_content_not_optional(r2c15_role_evidence, role):
+    t=r2c15_role_evidence; extra=copy.deepcopy(t.extra); del extra[role]
+    with pytest.raises(VERIFIER.VerificationError,match='r2_role_evaluation_content_set_mismatch'):
+        _r2c15_conditions(t,content_bindings=extra)
+
+
+@pytest.mark.parametrize('fault',['D1-digest','D1-content','D6-digest','D6-verified','missing','foreign-role'])
+def test_r2c15_only_reviewed_gaps_allowed_after_rehash(r2c15_role_evidence,fault):
+    t=r2c15_role_evidence; projection=copy.deepcopy(t.projection)
+    gaps=projection['explicit_gap_records']
+    if fault=='D1-digest':gaps[0]['content_sha256']='a'*64
+    elif fault=='D1-content':gaps[0]['content_status']='available'
+    elif fault=='D6-digest':gaps[1]['signed_receipt_sha256']='b'*64
+    elif fault=='D6-verified':gaps[1]['signed_receipt_verified']=True
+    elif fault=='missing':gaps.pop()
+    else:gaps[0]['state_id']='state:step5c:final-status'
+    projection,replay=_r2c15_rebind(t.inputs,projection,t.replay)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_role_evaluation_explicit_gaps_mismatch'):
+        _r2c15_conditions(t,projection=projection,replay=replay)
+
+
+@pytest.mark.parametrize('role',sorted(_R2C15_DOWNSTREAM))
+def test_r2c15_downstream_cannot_inherit_archive_success(r2c15_role_evidence,role):
+    t=r2c15_role_evidence;inputs=copy.deepcopy(t.inputs)
+    next(r for r in inputs['roles'] if r['state_id']==role)['input_binding']={'sha256':'a'*64,'size_bytes':1}
+    projection,replay=_r2c15_rebind(inputs,t.projection,t.replay)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_role_evaluation_downstream_substitution'):
+        _r2c15_conditions(t,role_inputs=inputs,projection=projection,replay=replay)
+
+
+@pytest.mark.parametrize('section,key',[
+    (None,'fresh_package_verifier_cli_executed'),(None,'full_recorded_verifier_executed'),
+    ('package_metadata_publication','publication_time_checked'),
+    ('completeness_provider','completeness_semantics_replayed'),
+    ('completeness_provider','provider_loader_content_validated'),
+    ('llamaguard_content','controlled_case_content_checked'),
+    ('llamaguard_attestation','fresh_attestation_core_executed'),
+    ('llamaguard_attestation','fresh_backend_report_verified'),
+    ('recorded_candidate_full_verifier','full_recorded_verifier_executed'),
+    ('recorded_candidate_full_verifier','saved_full_report_semantics_matched'),
+])
+@pytest.mark.parametrize('wrong',[False,1,'true',None])
+def test_r2c15_semantic_stage_requires_literal_success(r2c15_role_evidence,section,key,wrong):
+    t=r2c15_role_evidence;replay=copy.deepcopy(t.replay)
+    (replay if section is None else replay[section])[key]=wrong
+    with pytest.raises(VERIFIER.VerificationError,match='r2_role_evaluation_native_checks_missing'):
+        _r2c15_conditions(t,replay=replay)
+
+
+@pytest.mark.parametrize('fault',['source','requirements','projection','capture','experiment'])
+def test_r2c15_cross_stage_substitution_rejected(r2c15_role_evidence,fault):
+    t=r2c15_role_evidence;replay=copy.deepcopy(t.replay)
+    if fault=='source':replay['source_identity']['git_tree_sha1']='a'*40
+    elif fault=='requirements':replay['local_requirement_binding']['requirements_sha256']='b'*64
+    elif fault=='projection':replay['projection_assessment_sha256']='c'*64
+    elif fault=='capture':replay['capture_bindings']['expected_capture_sha256']='d'*64
+    else:replay['experiment_id']='other-experiment'
+    with pytest.raises(VERIFIER.VerificationError,match='r2_role_evaluation_(identity|chain)_mismatch'):
+        _r2c15_conditions(t,replay=replay)
+
+
+def test_r2c15_saved_reader_reruns_native_checks(r2c15_role_evidence):
+    t=r2c15_role_evidence;f=t.f
+    raw=VERIFIER._assess_local_r2_roles(f.capture,f.carrier.raw,f.carrier.context,**t.pins)
+    checked=VERIFIER._verify_local_r2_roles_assessment(raw,f.capture,f.carrier.raw,f.carrier.context,
+        expected_assessment_sha256=digest(raw),**t.pins)
+    assert canonical(checked)==raw
+    with patch.object(VERIFIER,'_run_local_r2_recorded_full',side_effect=VERIFIER.VerificationError('native replay unavailable')):
+        with pytest.raises(VERIFIER.VerificationError,match='native replay unavailable'):
+            VERIFIER._verify_local_r2_roles_assessment(raw,f.capture,f.carrier.raw,f.carrier.context,
+                expected_assessment_sha256=digest(raw),**t.pins)
+
+
+@pytest.mark.parametrize('fault',['role','count','admission'])
+def test_r2c15_rehashed_saved_verdict_not_authoritative(r2c15_role_evidence,fault):
+    t=r2c15_role_evidence;f=t.f
+    raw=VERIFIER._assess_local_r2_roles(f.capture,f.carrier.raw,f.carrier.context,**t.pins)
+    doc=json.loads(raw)
+    if fault=='role':doc['roles'][0]['local_condition_satisfied']=False
+    elif fault=='count':doc['local_content_satisfied_role_count']=62
+    else:doc['fully_satisfied_role_count']=62;doc['assessment_status']='complete'
+    bad=canonical(doc)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_roles_assessment_mismatch'):
+        VERIFIER._verify_local_r2_roles_assessment(bad,f.capture,f.carrier.raw,f.carrier.context,
+            expected_assessment_sha256=digest(bad),**t.pins)
+
+
+@pytest.mark.parametrize('role', [
+    'state:step5c:effective-required-argument-list',
+    'state:step5c:materialized-release-required-gate-set',
+    'state:step5c:artifact-binding-attestation',
+])
+def test_r2c15_projection_identity_cannot_be_relabelled(r2c15_role_evidence, role):
+    t=r2c15_role_evidence; projection=copy.deepcopy(t.projection)
+    field='source_occurrence_id' if role.endswith('effective-required-argument-list') else 'state_id'
+    projection['projections'][role][field]='wrong-identity'
+    projection,replay=_r2c15_rebind(t.inputs,projection,t.replay)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_role_evaluation_projection_identity'):
+        _r2c15_conditions(t,projection=projection,replay=replay)
+
+
+@pytest.mark.parametrize('fault', ['missing', 'bad-digest', 'boolean-size', 'negative-size'])
+def test_r2c15_content_descriptor_requires_exact_types(r2c15_role_evidence, fault):
+    t=r2c15_role_evidence; extra=copy.deepcopy(t.extra)
+    row=extra['state:step5c:step3f-subject-input-packet']['content']
+    if fault=='missing': row.clear()
+    elif fault=='bad-digest':row['sha256']='unknown'
+    elif fault=='boolean-size':row['size_bytes']=True
+    else:row['size_bytes']=-1
+    with pytest.raises(VERIFIER.VerificationError,match='r2_role_evaluation_content_binding_missing'):
+        _r2c15_conditions(t,content_bindings=extra)
+
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.

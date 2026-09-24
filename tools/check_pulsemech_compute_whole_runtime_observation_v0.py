@@ -8345,5 +8345,297 @@ def _verify_local_r2_recorded_full_assessment(assessment_raw, capture_raw, prepa
     return parse_json_bytes(expected, label='r2_recorded_full_assessment')
 
 
+# R2C15: role-specific LOCAL evidence accounting, never reference admission.
+_LOCAL_R2_ROLE_EVALUATION_VERSION = 'pulsemech_step5c_local_r2_role_evaluation_v0'
+
+
+def _local_r2_role_evidence_bindings(
+    plan: Mapping[str, Any], checked: Mapping[str, Any],
+    acquisition: Mapping[str, bytes], replay: Mapping[str, Any],
+    role_inputs: Mapping[str, Any],
+) -> dict[str, dict[str, Any]]:
+    """Project already core-validated provider/case bytes without new observations.
+
+    Only the private composed evaluator calls this after fresh full replay.
+    These descriptors bind content; they do not prove an original runtime read.
+    """
+    stage = 'local_r2_role_evaluation'
+    selected = {row['role']: row for row in checked['archive_inventory']}
+    parent = selected['step3f_candidate_envelope']
+    envelope = acquisition[parent['member']]
+    provider = replay['completeness_provider']
+    require(descriptor(parent['member'], envelope) == provider['provider_archive'],
+            'r2_role_provider_parent_mismatch', stage=stage)
+    carrier_name = provider['carrier']['member']
+    names = {
+        'state:step5c:step3f-current-run-carrier': carrier_name,
+        'state:step5c:step3f-current-run-expectation': 'expectation.json',
+        'state:step5c:step3f-subject-input-packet': 'subject-input-packet.json',
+    }
+    # The unchanged Step 3F loader has already checked this exact immutable
+    # buffer's closed inventory, expansion limits and member digests.
+    with zipfile.ZipFile(io.BytesIO(envelope), 'r') as archive:
+        payloads = {key: archive.read(name) for key, name in names.items()}
+    result = {
+        key: {'parent_archive': dict(parent), 'content': descriptor(names[key], raw)}
+        for key, raw in payloads.items()
+    }
+    require(result['state:step5c:step3f-current-run-carrier']['content'] == provider['carrier'],
+            'r2_role_provider_carrier_mismatch', stage=stage)
+
+    # Reuse the existing provider-to-raw-record projection. The content checker
+    # and full recorded verifier have checked these same captured case records.
+    records = _find_model_records(envelope)
+    templates = plan['model_inference_templates']
+    case_ids = [row['case_id'] for row in templates]
+    require(len(case_ids) == len(set(case_ids)) == 6 and set(records) == set(case_ids)
+            and replay['llamaguard_content']['controlled_case_ids'] == case_ids,
+            'r2_role_controlled_case_set_mismatch', stage=stage)
+    raw_binding = next(row['input_binding'] for row in role_inputs['roles']
+                       if row['state_id'] == 'state:step5c:llamaguard-raw-evidence')
+    states = _planned_state_templates(plan)
+    for template in templates:
+        case_id = template['case_id']
+        record = records[case_id]
+        for field in ('input', 'output'):
+            key = template[field + '_state_id']
+            require(key == 'state:step5c:llamaguard-' + field + ':' + case_id
+                    and key not in result and type(record.get(field)) is str
+                    and key in states,
+                    'r2_role_controlled_case_binding_mismatch', stage=stage)
+            origin = None if field == 'input' else template['parent_occurrence_id']
+            require(states[key]['producer_occurrence_id'] == origin,
+                    'r2_role_controlled_case_origin_mismatch', stage=stage)
+            result[key] = {
+                'parent_raw_evidence': raw_binding, 'case_id': case_id,
+                'field': field, 'encoding': 'utf-8',
+                'content': descriptor('case:' + case_id + '#' + field, record[field].encode('utf-8')),
+                'model_execution_observed': False,
+            }
+    return result
+
+
+def _local_r2_evaluate_role_conditions(
+    plan: Mapping[str, Any], role_inputs: Mapping[str, Any],
+    projection: Mapping[str, Any], replay: Mapping[str, Any],
+    content_bindings: Mapping[str, Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    """Reduce fresh private-stage outputs, not caller-supplied PASS records.
+
+    A local content-condition result is deliberately separate from original
+    reference admission. Unsupported downstream duties remain pending.
+    """
+    stage = 'local_r2_role_evaluation'
+    templates = _planned_state_templates(plan)
+    inputs = role_inputs.get('roles')
+    require(type(inputs) is list and all(type(row) is dict for row in inputs),
+            'r2_role_evaluation_rows_invalid', stage=stage)
+    by_id = {row.get('state_id'): row for row in inputs}
+    require(len(inputs) == len(by_id) == len(templates) == 62 and set(by_id) == set(templates),
+            'r2_role_evaluation_extent_mismatch', stage=stage)
+    for record in (role_inputs, projection, replay):
+        require(record.get('record_status') == 'local_candidate'
+                and record.get('simulation_only') is True
+                and canonical_json_bytes(record.get('source_identity')) ==
+                    canonical_json_bytes(plan['plan_identity']['source_identity'])
+                and canonical_json_bytes(record.get('local_requirement_binding')) ==
+                    canonical_json_bytes(plan['local_requirement_binding']),
+                'r2_role_evaluation_identity_mismatch', stage=stage)
+    require(role_inputs.get('experiment_id') == projection.get('experiment_id') == replay.get('experiment_id')
+            and projection.get('source_input_assessment_sha256') == sha256_bytes(canonical_json_bytes(role_inputs))
+            and replay.get('projection_assessment_sha256') == sha256_bytes(canonical_json_bytes(projection))
+            and canonical_json_bytes(projection.get('capture_bindings')) ==
+                canonical_json_bytes(replay.get('capture_bindings')),
+            'r2_role_evaluation_chain_mismatch', stage=stage)
+    checks = (
+        (replay, ('fresh_package_verifier_cli_executed', 'package_verification_semantics_replayed',
+                  'captured_terminal_report_revalidated', 'full_recorded_verifier_executed')),
+        (replay.get('package_metadata_publication', {}), ('metadata_profile_checked', 'publication_time_checked')),
+        (replay.get('completeness_provider', {}), ('completeness_semantics_replayed',
+                  'provider_loader_content_validated', 'selected_original_archive_bytes_verified')),
+        (replay.get('llamaguard_content', {}), ('controlled_case_content_checked',
+                  'evaluator_manifest_content_checked', 'canonical_summary_replayed')),
+        (replay.get('llamaguard_attestation', {}), ('fresh_attestation_core_executed',
+                  'fresh_backend_report_verified', 'saved_report_semantics_matched',
+                  'envelope_source_and_bundle_bindings_checked')),
+        (replay.get('recorded_candidate_full_verifier', {}), ('full_recorded_verifier_executed',
+                  'external_candidate_semantics_replayed', 'saved_full_report_semantics_matched')),
+    )
+    require(all(isinstance(record, Mapping) and all(record.get(key) is True for key in keys)
+                for record, keys in checks), 'r2_role_evaluation_native_checks_missing', stage=stage)
+    local_boundary = {'dispatch_authorized': False, 'R2_activated': False,
+                      'completion_evaluated': False, 'reference_acquired': False}
+    require(canonical_json_bytes(plan['local_boundary']) == canonical_json_bytes(local_boundary)
+            and replay.get('mandatory_llamaguard_signatures_verified') is False
+            and replay.get('observed_platform_execution') is False,
+            'r2_role_evaluation_claim_boundary', stage=stage)
+    expected_gaps = [
+        {'state_id': 'state:step5c:quality-ledger-pre-authority', 'content_status': 'unavailable',
+         'content_sha256': None, 'stronger_pre_state_claim_proven': False},
+        {'state_id': 'state:step5c:artifact-binding-attestation', 'signed_receipt_content_status': 'unavailable',
+         'signed_receipt_sha256': None, 'signed_receipt_verified': False},
+    ]
+    require(canonical_json_bytes(projection.get('explicit_gap_records')) == canonical_json_bytes(expected_gaps),
+            'r2_role_evaluation_explicit_gaps_mismatch', stage=stage)
+    gaps = {row['state_id']: row for row in expected_gaps}
+    exact_status = {
+        'exact_source_content': 'exact_source_bytes_bound',
+        'exact_preserved_content': 'exact_preserved_member_bytes_bound',
+        'exact_preserved_archive': 'exact_archive_bytes_bound',
+        'exact_preserved_tree': 'exact_preserved_tree_bytes_bound',
+        'exact_preserved_tree_and_carrier': 'exact_preserved_tree_bytes_bound',
+    }
+    projection_duties = {
+        'state:step5c:materialized-release-required-gate-set': 'checked_status_policy_projection',
+        'state:step5c:effective-required-argument-list': 'checked_source_argv_derivation_with_runtime_receipt_gap',
+        'state:step5c:artifact-binding-attestation': 'required_action_metadata_with_receipt_gap',
+    }
+    require(set(projection.get('projections', {})) == set(projection_duties),
+            'r2_role_evaluation_projection_set_mismatch', stage=stage)
+    expected_extra = {key for key, row in by_id.items()
+                      if row['required_duty'] in ('exact_provider_content', 'checked_controlled_case_derivation')}
+    require(len(expected_extra) == 15 and set(content_bindings) == expected_extra,
+            'r2_role_evaluation_content_set_mismatch', stage=stage)
+    rows = []
+    for key in sorted(templates):
+        template = templates[key]
+        source = by_id[key]
+        duty = source['required_duty']
+        require(source.get('source_locator') == template['path_or_uri']
+                and source.get('declared_origin_occurrence_id') == template['producer_occurrence_id']
+                and template.get('required') is True,
+                'r2_role_evaluation_template_mismatch', stage=stage)
+        evidence = None
+        pending = []
+        if duty in exact_status:
+            require(source.get('input_status') == exact_status[duty]
+                    and type(source.get('input_binding')) is dict and bool(source['input_binding']),
+                    'r2_role_evaluation_exact_binding_missing', stage=stage)
+            evidence = source['input_binding']
+        elif duty in ('exact_provider_content', 'checked_controlled_case_derivation'):
+            evidence = content_bindings[key]
+            content = evidence.get('content') if isinstance(evidence, Mapping) else None
+            require(isinstance(content, Mapping) and set(content) == {'member', 'sha256', 'size_bytes'}
+                    and type(content.get('member')) is str and bool(content['member'])
+                    and type(content.get('sha256')) is str and SHA256_RE.fullmatch(content['sha256']) is not None
+                    and type(content.get('size_bytes')) is int and content['size_bytes'] >= 0,
+                    'r2_role_evaluation_content_binding_missing', stage=stage)
+        elif key in projection_duties:
+            require(duty == projection_duties[key], 'r2_role_evaluation_duty_mismatch', stage=stage)
+            document = projection['projections'][key]
+            if key == 'state:step5c:effective-required-argument-list':
+                # The existing source-argv format deliberately has no state_id.
+                # Bind its original derivation identity, never rewrite it.
+                require(document.get('derivation_type') == D3_ARGUMENT_FORMAT
+                        and document.get('source_occurrence_id') == _D3_R12
+                        and document.get('source_command_sha256') == _D3_R12_COMMAND
+                        and document.get('source_derived_only') is True
+                        and document.get('original_runtime_argv_receipt') == 'unavailable',
+                        'r2_role_evaluation_projection_identity', stage=stage)
+            else:
+                require(document.get('state_id') == key,
+                        'r2_role_evaluation_projection_identity', stage=stage)
+            evidence = {'projection': descriptor('projection:' + key, canonical_json_bytes(document))}
+            if key in gaps:
+                evidence['explicit_gap'] = gaps[key]
+        elif key == 'state:step5c:quality-ledger-pre-authority':
+            require(duty == 'required_explicit_content_gap' and source.get('input_binding') is None,
+                    'r2_role_evaluation_pre_state_substitution', stage=stage)
+            evidence = {'explicit_gap': gaps[key]}
+        elif duty == 'checked_downstream_derivation':
+            require(key in DERIVED_STATE_MEMBERS and source.get('input_binding') is None,
+                    'r2_role_evaluation_downstream_substitution', stage=stage)
+            pending = ['existing_core_downstream_derivation_not_evaluated']
+        else:
+            raise VerificationError('r2_role_evaluation_unknown_duty', key, stage=stage)
+        rows.append({
+            'state_id': key, 'required_duty': duty,
+            'source_locator': template['path_or_uri'],
+            'declared_origin_occurrence_id': template['producer_occurrence_id'],
+            'declared_consumer_occurrence_ids': list(template['required_consumer_occurrence_ids']),
+            'local_condition_status': 'pending' if pending else 'satisfied',
+            'local_condition_satisfied': not pending, 'evidence_binding': evidence,
+            'pending_requirements': pending, 'simulation_only': True,
+            'role_obligation_satisfied': False, 'original_runtime_reads_proven': False,
+        })
+    require({row['state_id'] for row in rows if row['pending_requirements']} == set(DERIVED_STATE_MEMBERS),
+            'r2_role_evaluation_downstream_extent_mismatch', stage=stage)
+    return rows
+
+
+def _local_r2_role_evaluation_assessment(
+    plan: Mapping[str, Any], prepared: Mapping[str, bytes], checked: Mapping[str, Any],
+    acquisition: Mapping[str, bytes], *, fixture_commit_raw: bytes,
+    expected_fixture_commit: str, gh_executable: Path, expected_gh_sha256: str,
+) -> dict[str, Any]:
+    """Evaluate every declared role; unfinished derivations cannot become PASS."""
+    replay = _local_r2_recorded_full_assessment(
+        plan, prepared, checked, acquisition, fixture_commit_raw=fixture_commit_raw,
+        expected_fixture_commit=expected_fixture_commit, gh_executable=gh_executable,
+        expected_gh_sha256=expected_gh_sha256)
+    role_inputs = _local_r2_role_input_assessment(plan, prepared, checked, acquisition)
+    projection = _local_r2_projection_assessment(plan, prepared, checked, acquisition)
+    extra = _local_r2_role_evidence_bindings(plan, checked, acquisition, replay, role_inputs)
+    rows = _local_r2_evaluate_role_conditions(plan, role_inputs, projection, replay, extra)
+    return {
+        'schema_version': _LOCAL_R2_ROLE_EVALUATION_VERSION,
+        'record_status': 'local_candidate', 'simulation_only': True,
+        'assessment_status': 'incomplete', 'role_evidence_evaluated': True,
+        'validation_scope': 'role_specific_local_content_conditions_not_reference_admission',
+        'source_identity': replay['source_identity'],
+        'local_requirement_binding': replay['local_requirement_binding'],
+        'experiment_id': checked['experiment_id'], 'capture_bindings': replay['capture_bindings'],
+        'full_replay_assessment_sha256': sha256_bytes(canonical_json_bytes(replay)),
+        'role_input_assessment_sha256': sha256_bytes(canonical_json_bytes(role_inputs)),
+        'projection_assessment_sha256': sha256_bytes(canonical_json_bytes(projection)),
+        'roles': rows, 'role_count': len(rows),
+        'local_content_satisfied_role_count': sum(row['local_condition_satisfied'] for row in rows),
+        'pending_local_role_ids': [row['state_id'] for row in rows if row['pending_requirements']],
+        'fully_satisfied_role_count': 0, 'original_reference_admission_evaluated': False,
+        'full_recorded_verifier_executed': True,
+        'mandatory_llamaguard_signatures_verified': False,
+        'explicit_gap_records': projection['explicit_gap_records'],
+        'remaining_requirements': ['five_existing_core_downstream_derivations',
+            'two_full_source_bound_R2_reconstructions', 'original_mandatory_signature_evidence',
+            'coordinated_public_R2_route_and_reference_admission'],
+        'local_boundary': dict(plan['local_boundary']),
+        'authority_boundary': dict(plan['authority_boundary']),
+        'observed_platform_execution': False, 'original_runtime_reads_proven': False,
+    }
+
+
+def _assess_local_r2_roles(
+    capture_raw: bytes, prepared_raw: bytes, expected_context_raw: bytes, *,
+    fixture_commit_raw: bytes, expected_fixture_commit: str,
+    gh_executable: Path, expected_gh_sha256: str,
+    expected_capture_sha256: str, expected_acquisition_sha256: str, **pins: Any,
+) -> bytes:
+    """Private, inactive local entrypoint. No saved verdict input is accepted."""
+    checked, captured = _read_local_r2_capture(
+        capture_raw, prepared_raw, expected_context_raw,
+        expected_capture_sha256=expected_capture_sha256,
+        expected_acquisition_sha256=expected_acquisition_sha256, **pins)
+    plan, prepared = _read_local_r2_prepared(prepared_raw, expected_context_raw, **pins)
+    acquisition = read_canonical_zip_bytes(captured['local-r2-acquisition.zip'],
+        label='r2_role_evaluation_acquisition', maximum_members=256, maximum_bytes=80*1024*1024)
+    return canonical_json_bytes(_local_r2_role_evaluation_assessment(
+        plan, prepared, {**checked, 'expected_capture_sha256': expected_capture_sha256}, acquisition,
+        fixture_commit_raw=fixture_commit_raw, expected_fixture_commit=expected_fixture_commit,
+        gh_executable=gh_executable, expected_gh_sha256=expected_gh_sha256))
+
+
+def _verify_local_r2_roles_assessment(
+    assessment_raw: bytes, capture_raw: bytes, prepared_raw: bytes,
+    expected_context_raw: bytes, *, expected_assessment_sha256: str, **pins: Any,
+) -> dict[str, Any]:
+    """Replay original bound evidence again, including every mandatory core call."""
+    require(type(assessment_raw) is bytes and 0 < len(assessment_raw) <= 1048576
+            and sha256_bytes(assessment_raw) == expected_assessment_sha256,
+            'r2_roles_assessment_digest_mismatch', stage='local_r2_role_evaluation')
+    expected = _assess_local_r2_roles(capture_raw, prepared_raw, expected_context_raw, **pins)
+    require(assessment_raw == expected, 'r2_roles_assessment_mismatch', stage='local_r2_role_evaluation')
+    return parse_json_bytes(expected, label='r2_roles_assessment')
+
+
 if __name__ == "__main__":
     raise SystemExit(main())
