@@ -5,6 +5,7 @@ import argparse
 import ast
 import copy
 import hashlib
+import io
 import importlib.util
 import json
 import os
@@ -12,6 +13,7 @@ import stat
 import subprocess
 import sys
 import time
+import zipfile
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -35,12 +37,12 @@ FOLLOWING_COMPUTE_REGRESSION = (
     "tests/test_pulsemech_compute_current_run_artifact_observed_candidate_workflow_v0.py"
 )
 
-EXPECTED_TOOL_LINES = 2957
-EXPECTED_TOOL_BYTES = 109806
+EXPECTED_TOOL_LINES = 2968
+EXPECTED_TOOL_BYTES = 110457
 EXPECTED_TOOL_SHA256 = (
-    "16dd034ed96ede99beae1d1e014108b01e9f9b174ff93da1a6251cfd43f0534f"
+    "f3f3257ac8701a8fc9413aa63dcbe712f81739311ad665a91eec2a5238c6f373"
 )
-EXPECTED_TOOL_GIT_BLOB_SHA1 = "434dd13ebc9e0793173b0e9d15d944fb8fd605c0"
+EXPECTED_TOOL_GIT_BLOB_SHA1 = "fd26128789ae52d5b435a219822f40a893fdf559"
 
 EXPECTED_TESTS = frozenset(
     {
@@ -83,6 +85,7 @@ EXPECTED_TESTS = EXPECTED_TESTS | frozenset(
 )
 EXPECTED_TESTS = EXPECTED_TESTS | frozenset({'test_report_policy_order_actual_emitted_chain_reaches_step3g'})
 EXPECTED_TESTS = EXPECTED_TESTS | frozenset({'test_current_run_relation_locator_admission_rejects_omission_and_substitution', 'test_current_run_relation_locator_admission_binds_actual_input_bytes', 'test_current_run_relation_builder_selection_is_explicit'})
+EXPECTED_TESTS = EXPECTED_TESTS | frozenset({'test_original_status_preserves_canonical_and_native_encoding', 'test_original_status_cannot_substitute_equivalent_json_bytes', 'test_original_status_requires_complete_unchanged_artifact_graph', 'test_original_status_requires_resolved_exact_role_and_digest', 'test_original_status_rejects_invalid_json_after_exact_digest_binding', 'test_original_status_fix_keeps_generated_record_canonical_requirement'})
 EXPECTED_COLLECTED_TEST_ITEMS = len(EXPECTED_TESTS)
 CRITICAL_TESTS = frozenset(
     {
@@ -1882,6 +1885,105 @@ def test_current_run_relation_builder_selection_is_explicit(tmp_path: Path, monk
     source = TOOL.read_text()
     assert 'secrets.token_hex(16)' in source and 'os.O_NOFOLLOW' in source
 
+
+
+# Original final-status encoding: exercise the actual artifact resolver. These
+# small packets isolate extraction; the full native path is covered in Step 5C.
+def _original_status_case(tmp_path: Path, raw: bytes) -> dict[str, Any]:
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_STORED) as output:
+        info = zipfile.ZipInfo("fixture/status.json", (2020, 1, 1, 0, 0, 0))
+        info.external_attr = (stat.S_IFREG | 0o444) << 16
+        output.writestr(info, raw)
+    carrier = archive.getvalue()
+    packet = {
+        "carrier": {"path_or_uri": "fixture.zip", "root_prefix": "fixture",
+                    "sha256": sha256_bytes(carrier), "size_bytes": len(carrier)},
+        "artifacts": [{"artifact_id": "artifact:fixture/status.json",
+            "container_artifact_id": None, "member_path": "fixture/status.json",
+            "display_path_or_uri": "fixture.zip!/fixture/status.json",
+            "content_kind": "json", "media_type": "application/json",
+            "sha256": sha256_bytes(raw), "size_bytes": len(raw)}],
+        "role_bindings": {"final_status": "artifact:fixture/status.json"},
+        "subject": {"final_status_sha256": sha256_bytes(raw)},
+    }
+    path = "tools/check_pulsemech_compute_subject_input_packet_v0.py"
+    component = component_binding(role="subject_input_validator", path=path,
+        revision="a" * 40, value=(ROOT / path).read_bytes(), root=tmp_path)
+    return {"packet": packet, "carrier_bytes": carrier,
+            "packet_validator_component": component}
+
+
+def test_original_status_preserves_canonical_and_native_encoding(tmp_path: Path) -> None:
+    value = {"z": "árvíz", "gates": {"z": True, "a": False}, "a": 1}
+    forms = [canonical_json(value),
+        (json.dumps(value, indent=2, sort_keys=False, ensure_ascii=False) + "\n").encode(),
+        json.dumps(value, separators=(",", ":"), ensure_ascii=True).encode(),
+        (" \r\n" + json.dumps(value) + "\t ").encode()]
+    assert len(set(forms)) == len(forms)
+    for raw in forms:
+        case = _original_status_case(tmp_path, raw)
+        before = copy.deepcopy(case["packet"])
+        result = M._extract_final_status(**case)
+        assert result == raw and sha256_bytes(result) == before["subject"]["final_status_sha256"]
+        assert json.loads(result) == value and case["packet"] == before
+
+
+def test_original_status_rejects_invalid_json_after_exact_digest_binding(tmp_path: Path) -> None:
+    cases = [b'{"a":1,"a":2}', b'{"nested":{"a":1,"a":2}}',
+        b'\xef\xbb\xbf{}', b'{"a":"\xff"}', b'{', b'{}{}', b'[]', b'null',
+        b'{"a":NaN}', b'{"a":Infinity}', b'{"a":-Infinity}',
+        b'{"a":1e999}', b'{"a":[{"b":-1e999}]}']
+    for raw in cases:
+        case = _original_status_case(tmp_path, raw)
+        with pytest.raises(M.StrictJsonError):
+            M._extract_final_status(**case)
+
+
+def test_original_status_cannot_substitute_equivalent_json_bytes(tmp_path: Path) -> None:
+    native = b'{"z":1,"a":2}\n'
+    case = _original_status_case(tmp_path, native)
+    case["packet"]["subject"]["final_status_sha256"] = sha256_bytes(canonical_json(json.loads(native)))
+    with pytest.raises(M.ProofError, match="packet_final_status_digest_mismatch"):
+        M._extract_final_status(**case)
+    assert M._extract_final_status(**_original_status_case(tmp_path, native)) == native
+
+
+def test_original_status_requires_resolved_exact_role_and_digest(tmp_path: Path) -> None:
+    for change in ("missing_roles", "missing_role", "wrong_role", "boolean_role", "missing_digest", "wrong_digest"):
+        case = _original_status_case(tmp_path, b'{"gates":{}}')
+        packet = case["packet"]
+        if change == "missing_roles": del packet["role_bindings"]
+        elif change == "missing_role": packet["role_bindings"].clear()
+        elif change == "wrong_role": packet["role_bindings"]["final_status"] = "artifact:other"
+        elif change == "boolean_role": packet["role_bindings"]["final_status"] = True
+        elif change == "missing_digest": packet["subject"].clear()
+        else: packet["subject"]["final_status_sha256"] = "0" * 64
+        with pytest.raises(M.ProofError):
+            M._extract_final_status(**case)
+
+
+def test_original_status_requires_complete_unchanged_artifact_graph(tmp_path: Path) -> None:
+    for change in ("digest", "size", "member", "duplicate", "omitted", "carrier"):
+        case = _original_status_case(tmp_path, b'{"gates":{}}')
+        row = case["packet"]["artifacts"][0]
+        if change == "digest": row["sha256"] = "0" * 64
+        elif change == "size": row["size_bytes"] += 1
+        elif change == "member": row["member_path"] = "fixture/missing.json"
+        elif change == "duplicate": case["packet"]["artifacts"].append(copy.deepcopy(row))
+        elif change == "omitted": case["packet"]["artifacts"].clear()
+        else: case["carrier_bytes"] = b"not a zip"
+        with pytest.raises(M.ProofError, match="packet_artifact_graph_reconstruction"):
+            M._extract_final_status(**case)
+
+
+def test_original_status_fix_keeps_generated_record_canonical_requirement(tmp_path: Path) -> None:
+    raw = b'{"z":1,"a":2}\n'
+    assert M._extract_final_status(**_original_status_case(tmp_path, raw)) == raw
+    for label in ("generated_proof", "folded_candidate_status", "plan", "relation"):
+        with pytest.raises(M.StrictJsonError, match="not_canonical_json"):
+            M._parse_json_bytes(raw, label=label)
+        assert M._parse_json_bytes(canonical_json(json.loads(raw)), label=label) == json.loads(raw)
 
 if __name__ == "__main__":
     raise SystemExit(_run_authoritative_regression())

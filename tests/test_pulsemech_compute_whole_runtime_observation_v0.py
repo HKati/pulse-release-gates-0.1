@@ -15324,7 +15324,25 @@ def r2c9_provider_inputs(r2c6_package_inputs, tmp_path_factory):
     return _r2c9_build_provider_inputs(r2c6_package_inputs, tmp_path_factory)
 
 
-def _r2c9_build_provider_inputs(f, tmp_path_factory):
+def _r2c9_simulated_subject_window(subject_run, native_checked_utc):
+    """Author a new simulation frame; do not rewrite native or saved evidence.
+
+    A module-scoped fixture can outlive the earlier simulated terminal time.
+    Keep its original job/step timestamps, but let this NEW simulation include
+    the fresh native report. This is not a platform-time observation or a
+    relaxation of the capture verifier's publication-time predicate.
+    """
+    fields = VERIFIER._local_r2_run_time_fields(subject_run)
+    start = VERIFIER.parse_utc(fields['run_started_at'], label='fixture_run_start')
+    end = VERIFIER.parse_utc(fields['updated_at'], label='fixture_run_end')
+    checked = VERIFIER.parse_utc(native_checked_utc, label='fixture_native_report_time')
+    assert start <= checked, 'Native report predates the simulated subject start'
+    result = copy.deepcopy(subject_run)
+    result['updated_at'] = max(end, checked).strftime('%Y-%m-%dT%H:%M:%SZ')
+    return result
+
+
+def _r2c9_build_provider_inputs(f, tmp_path_factory, *, terminal_builder=None):
     from datetime import datetime, timedelta
     directory = tmp_path_factory.mktemp('r2c9-provider')
     contents = copy.deepcopy(f.contents)
@@ -15350,6 +15368,19 @@ def _r2c9_build_provider_inputs(f, tmp_path_factory):
             'declared_gate_policy': {'sha256': policy_sha},
             'release_decision': {'sha256': digest(package['artifacts/release_decision_v0.json'])},
             'workflow_effective_required_gate_set': dict(gate_base, sha256=gate_digest)}})
+    if terminal_builder is not None:
+        # Opt-in producer-complete fixture; the earlier partial fixtures stay partial.
+        package, produced, pre_status = terminal_builder(f, package, directory)
+        for role, group in contents.items():
+            for name in list(group):
+                key = name.removeprefix('artifacts/')
+                if role == 'advisory_reference_bundle':
+                    key = key.removeprefix('release-authority-audit-bundle/')
+                if key in produced:
+                    group[name] = produced[key]
+            if role == 'pre_attestation_pulse_artifacts':
+                group['status.json'] = pre_status
+        contents['release_grade_recorded_path'].update(produced)
     # All occurrences of a declared version retain exactly the same bytes.
     for group in contents.values():
         for name, raw in list(group.items()):
@@ -15379,6 +15410,7 @@ def _r2c9_build_provider_inputs(f, tmp_path_factory):
     # Author a new versioned simulation. Do not augment an old saved record and
     # then claim a platform measurement. The old v0/v1 fixtures stay unchanged.
     subject_run, _ = VERIFIER._local_r2_response_bytes(members, 'repos/' + VERIFIER.REPOSITORY + '/actions/runs/9001')
+    subject_run = _r2c9_simulated_subject_window(subject_run, verification['checked_utc'])
     end = datetime.fromisoformat(subject_run['updated_at'].replace('Z', '+00:00'))
     def stamp(seconds): return (end + timedelta(seconds=seconds)).strftime('%Y-%m-%dT%H:%M:%SZ')
     for exchange in json.loads(members['local-r2-transcript.json'])['exchanges']:
@@ -15388,6 +15420,7 @@ def _r2c9_build_provider_inputs(f, tmp_path_factory):
         if endpoint.endswith('/9001') or endpoint.endswith('/9002'):
             doc.update(schema_version='pulsemech_step5c_local_r2_simulated_run_v2',
                        run_number=77 if endpoint.endswith('/9001') else 90)
+            if endpoint.endswith('/9001'): doc['updated_at'] = subject_run['updated_at']
             if endpoint.endswith('/9002'): doc.update(run_started_at=stamp(1), updated_at=stamp(120))
         elif '/9002/jobs?' in endpoint:
             for job in doc['jobs']:
@@ -15462,6 +15495,9 @@ def _r2c9_build_provider_inputs(f, tmp_path_factory):
     authority = expectation['authority_sources']
     for row in [authority[k] for k in ('workflow','policy','gate_registry')] + authority['additional_sources']:
         source = source_index[row['path_or_uri']]; row.update(sha256=source['sha256'], size_bytes=source['size_bytes'])
+    if terminal_builder is not None:
+        authority['gate_registry']['registry_id'] = yaml.safe_load(
+            f.carrier.plan.source.sources['pulse_gate_registry_v0.yml'])['version']
     expectation['subject'].update(final_status_sha256=digest(package['artifacts/status.json']),
         policy_sha256=policy_sha, release_decision_sha256=digest(package['artifacts/release_decision_v0.json']),
         materialized_gate_set_sha256=gate_digest)
@@ -17616,6 +17652,389 @@ def test_r2c16_invalid_generated_packet_requires_fresh_validator(r2c16_runtime_i
         with pytest.raises(VERIFIER.VerificationError):
             VERIFIER._assess_local_r2_runtime(t.f.capture,t.f.carrier.raw,t.f.carrier.context,**t.pins)
 
+
+# R2C17: native terminal fixture producers over archived local reference inputs.
+# This is not a live model run, real-signature proof or complete Step 5C replay.
+def _r2c17_source_fixture(f, destination):
+    """Materialize the exact source snapshot in a new remote-free test repository."""
+    destination.mkdir()
+    for name, (mode, raw) in f.carrier.plan.source.files.items():
+        path = destination / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+        path.chmod(int(mode, 8) & 0o777)
+    empty = destination.parent / (destination.name + '-empty-git-config')
+    empty.mkdir()
+    env = {'PATH': '/usr/bin:/bin', 'HOME': str(empty), 'LANG': 'C', 'LC_ALL': 'C',
+           'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull,
+           'GIT_TERMINAL_PROMPT': '0', 'GIT_SSH_COMMAND': '/bin/false'}
+    def git(args, raw=None):
+        command = ['/usr/bin/git', '--no-replace-objects', '-c', 'protocol.allow=never',
+            '-c', 'credential.helper=', '-c', 'core.hooksPath=' + str(empty),
+            '-c', 'maintenance.auto=false', '-c', 'gc.auto=0', '-C', str(destination), *args]
+        result = subprocess.run(command, input=raw, env=env, capture_output=True, timeout=60)
+        assert result.returncode == 0, result.stderr.decode()
+        return result.stdout.decode().strip()
+    git(['init', '-q', '--template=' + str(empty)])
+    git(['add', '--all'])
+    assert git(['write-tree']) == f.carrier.plan.source.tree
+    assert git(['hash-object', '-t', 'commit', '-w', '--stdin'], f.commit_raw) == f.commit
+    git(['update-ref', 'HEAD', f.commit])
+    assert git(['remote']) == ''
+    assert git(['status', '--porcelain', '--untracked-files=no']) == ''
+    return destination
+
+
+def _r2c17_terminal_package(f, package, directory):
+    """Use native producers, not hand-authored successful terminal documents."""
+    root = _r2c17_source_fixture(f, directory / 'producer-source')
+    home = directory / 'home'; home.mkdir()
+    backend = directory / 'backend'; backend.mkdir()
+    gh = backend / 'gh'; gh.write_bytes(f.gh.read_bytes()); gh.chmod(0o700)
+    assert digest(gh.read_bytes()) == f.gh_sha
+    for name, raw in f.full_payloads.items():
+        path = root / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(raw)
+    artifacts = Path('PULSE_safe_pack_v0/artifacts')
+    (root / artifacts / 'report_card.html').write_bytes(package['artifacts/report_card.html'])
+    env = {'PATH': str(backend) + ':/usr/bin:/bin', 'HOME': str(home), 'LANG': 'C', 'LC_ALL': 'C',
+        'GH_CONFIG_DIR': str(home / 'gh'), 'XDG_CACHE_HOME': str(home / 'cache'),
+        'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_TERMINAL_PROMPT': '0',
+        'GIT_SSH_COMMAND': '/bin/false', 'GITHUB_SHA': f.commit,
+        'GITHUB_REPOSITORY': VERIFIER.REPOSITORY, 'PULSE_RUN_KEY': f.full_spec['run_key'],
+        'SOURCE_DATE_EPOCH': str(f.full_spec['manifest_epoch']), 'PYTHONDONTWRITEBYTECODE': '1',
+        'GITHUB_REF_NAME': 'main', 'GITHUB_REF': 'refs/heads/main', 'GITHUB_WORKFLOW': 'PULSE CI',
+        'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_RUN_ID': '9001', 'GITHUB_RUN_ATTEMPT': '1'}
+    stamp = json.loads(package['run_metadata_v0.json'])['created_utc']
+    commands = []
+    def run(tool, args):
+        command = [sys.executable, '-I', '-B', '-c',
+            "import runpy,sys; from pathlib import Path; p=Path(sys.argv[1]); "
+            "sys.path.insert(0,str(p.parent)); sys.argv=sys.argv[1:]; runpy.run_path(str(p),run_name='__main__')",
+            str(root / 'PULSE_safe_pack_v0/tools' / tool), *args]
+        result = subprocess.run(command, cwd=root, env=env, capture_output=True, timeout=150)
+        commands.append({'argv': command, 'exit': result.returncode,
+                         'stdout': result.stdout.decode(), 'stderr': result.stderr.decode()})
+        (directory / 'terminal-producer-commands.json').write_bytes(canonical(commands))
+        assert result.returncode == 0, commands[-1]
+    run('run_recorded_required_gate_evaluations_v0.py', ['--repo-root', str(root),
+        '--git-sha', f.commit, '--run-key', f.full_spec['run_key'], '--repository', VERIFIER.REPOSITORY,
+        '--release-candidate', 'main', '--timeout-seconds', '45'])
+    run('build_release_grade_candidate_status_v0.py', ['--repo-root', str(root)])
+    pre_status = (root / artifacts / 'status.json').read_bytes()
+    (root / artifacts / 'status_baseline.json').write_bytes(pre_status)
+    run('build_recorded_release_candidates_v0.py', ['--repo-root', str(root)])
+    run('build_release_evidence_input_manifest_v0.py', ['--repo-root', str(root)])
+    run('check_recorded_release_evidence_v0.py', ['--repo-root', str(root),
+        '--manifest', str(artifacts / 'release_evidence_input_manifest_v0.json'),
+        '--out-json', str(artifacts / 'recorded_release_evidence_verifier_v0.json')])
+    run('materialize_release_required_from_verifier_v0.py', [
+        '--status', str(artifacts / 'status.json'),
+        '--verifier-report', str(artifacts / 'recorded_release_evidence_verifier_v0.json'),
+        '--manifest', str(artifacts / 'release_evidence_input_manifest_v0.json'),
+        '--repo-root', str(root), '--policy', 'pulse_gate_policy_v0.yml',
+        '--registry', 'pulse_gate_registry_v0.yml', '--out', str(artifacts / 'status.json')])
+    run('materialize_release_decision.py', ['--status', str(artifacts / 'status.json'),
+        '--policy', 'pulse_gate_policy_v0.yml', '--target', 'prod',
+        '--out', str(artifacts / 'release_decision_v0.json'),
+        '--status-schema', 'schemas/status/status_v1.schema.json'])
+    run('build_release_authority_manifest_v0.py', ['--status', str(artifacts / 'status.json'),
+        '--policy', 'pulse_gate_policy_v0.yml', '--registry', 'pulse_gate_registry_v0.yml',
+        '--evaluator', 'PULSE_safe_pack_v0/tools/check_gates.py',
+        '--policy-set', 'required+release_required', '--run-mode', 'prod',
+        '--workflow-name', 'PULSE CI', '--event-name', 'workflow_dispatch',
+        '--ref', 'refs/heads/main', '--git-sha', f.commit, '--created-utc', stamp,
+        '--out', str(artifacts / 'release_authority_v0.json')])
+    run('build_artifact_provenance_binding_v0.py', ['--status', str(artifacts / 'status.json'),
+        '--policy', 'pulse_gate_policy_v0.yml', '--ledger', str(artifacts / 'report_card.html'),
+        '--release-decision', str(artifacts / 'release_decision_v0.json'),
+        '--release-authority-manifest', str(artifacts / 'release_authority_v0.json'),
+        '--policy-set', 'required', '--policy-set', 'release_required', '--created-utc', stamp,
+        '--out', str(artifacts / 'artifact_provenance_binding_v0.json')])
+    produced = {name: (root / artifacts / name).read_bytes() for name in (
+        'status.json', 'status_baseline.json', 'required_gate_evidence_v0.json',
+        'recorded_release_candidate_index_v0.json', 'release_evidence_input_manifest_v0.json',
+        'recorded_release_evidence_verifier_v0.json', 'release_decision_v0.json',
+        'release_authority_v0.json', 'artifact_provenance_binding_v0.json',
+        'recorded_release_candidates/detector_materialization.json',
+        'recorded_release_candidates/refusal_delta_summary.json',
+        'recorded_release_candidates/external_llamaguard.json')}
+    # Per pulse_ci.yml these evaluator files belong to the separate
+    # required-gate-diagnostics artifact, not the recorded-path upload.
+    # Preserve them in the producer workspace; do not add undeclared members
+    # to the closed subject-state archives or invent a captured diagnostic role.
+    result = {**package, **{'artifacts/' + name: raw for name, raw in produced.items()}}
+    for name in ('status.json', 'report_card.html', 'release_authority_v0.json'):
+        result['release-authority-audit-bundle/' + name] = result['artifacts/' + name]
+    return result, produced, pre_status
+
+
+@pytest.fixture(scope='module')
+def r2c17_native_inputs(r2c14_recorded_full_inputs, tmp_path_factory):
+    old = r2c14_recorded_full_inputs
+    before = canonical({role: {name: digest(raw) for name, raw in group.items()}
+                        for role, group in old.contents.items()})
+    f = _r2c9_build_provider_inputs(old, tmp_path_factory, terminal_builder=_r2c17_terminal_package)
+    assert canonical({role: {name: digest(raw) for name, raw in group.items()}
+                      for role, group in old.contents.items()}) == before
+    directory = tmp_path_factory.mktemp('r2c17-native-downstream')
+    control = _r2c17_source_fixture(f, directory / 'control')
+    subject = _r2c17_source_fixture(f, directory / 'subject')
+    selection, artifact, envelope, _ = VERIFIER._local_r2_provider_publication(
+        f.members, f.checked, 'step3f_candidate_envelope')
+    provider, _ = VERIFIER._local_r2_response_bytes(f.members,
+        f'repos/{VERIFIER.REPOSITORY}/actions/runs/9002')
+    manifest = {'subject': {'run_id': 9001},
+        'provider': {'run_id': 9002, 'run_number': provider['run_number'], 'updated_at': provider['updated_at']},
+        'capture_identity': {'collector_run_key': 'local-r2:runtime-projection:collector'},
+        'artifact_bindings': [{'artifact_role': 'step3f_candidate_envelope', 'artifact_id': artifact['id'],
+            'artifact_name': artifact['name'], 'created_utc': artifact['created_at'],
+            'expires_utc': artifact['expires_at'], 'github_sha256': digest(envelope), 'size_bytes': len(envelope)}]}
+    envelope_path = directory / 'provider.zip'; envelope_path.write_bytes(envelope); envelope_path.chmod(0o444)
+    calls = []; original = VERIFIER.run_process
+    def record(command, **kwargs):
+        result = original(command, **kwargs)
+        calls.append({'argv': list(map(str, command)), 'exit': result.returncode,
+                      'stdout': result.stdout.decode(), 'stderr': result.stderr.decode()})
+        (directory / 'native-commands.json').write_bytes(canonical(calls))
+        return result
+    with patch.object(VERIFIER, 'run_process', side_effect=record):
+        VERIFIER._load_step3f_intake(control_root=control, capture_manifest=manifest,
+            envelope_path=envelope_path, output_directory=directory / 'intake', source_commit=f.commit)
+    packet_path = directory / 'intake/subject-input-packet.json'
+    packet = json.loads(packet_path.read_bytes())
+    carrier_path = VERIFIER._find_unique(directory / 'intake', 'pulsemech-current-run-export-9001-1-v0.zip')
+    report = record([sys.executable, '-I', '-B',
+        str(control / 'tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py'),
+        '--packet', str(packet_path), '--carrier', str(carrier_path),
+        '--repository-root', str(control), '--analysis-run-key', 'local-r2:terminal-fixture:artifact-report'],
+        cwd=control)
+    assert report.returncode == 0, report.stderr.decode()
+    report_path = directory / 'artifact-report.json'; report_path.write_bytes(report.stdout)
+    diagnostic = record([sys.executable, '-I', '-B',
+        str(control / 'tools/check_pulsemech_compute_binding_report_v0.py'),
+        '--schema', str(control / 'schemas/pulsemech_compute_binding_report_v0.schema.json'),
+        '--report', str(report_path), '--subject-input', str(packet_path),
+        '--carrier', str(carrier_path), '--repository-root', str(control)], cwd=control)
+    assert diagnostic.returncode == 0, diagnostic.stderr.decode()
+    (directory / 'artifact-report-diagnostic.json').write_bytes(diagnostic.stdout)
+    (directory / 'probe-context.json').write_bytes(canonical({
+        'source_commit': f.commit, 'source_tree': f.carrier.plan.source.tree,
+        'capture_manifest': manifest, 'producer_directory': str(f.directory),
+        'simulation_only': True, 'original_reference_admission': False,
+        'real_signatures_verified': False}))
+    return SimpleNamespace(f=f, old=old, directory=directory, control=control, subject=subject,
+        manifest=manifest, calls=calls, packet=packet, report=json.loads(report.stdout),
+        diagnostic=json.loads(diagnostic.stdout))
+
+
+def test_r2c17_native_producers_and_independent_report_path(r2c17_native_inputs):
+    t = r2c17_native_inputs
+    commands = json.loads((t.f.directory / 'terminal-producer-commands.json').read_bytes())
+    assert [Path(row['argv'][5]).name for row in commands] == [
+        'run_recorded_required_gate_evaluations_v0.py', 'build_release_grade_candidate_status_v0.py',
+        'build_recorded_release_candidates_v0.py', 'build_release_evidence_input_manifest_v0.py',
+        'check_recorded_release_evidence_v0.py', 'materialize_release_required_from_verifier_v0.py',
+        'materialize_release_decision.py', 'build_release_authority_manifest_v0.py',
+        'build_artifact_provenance_binding_v0.py']
+    assert [row['exit'] for row in commands] == [0] * 9
+    assert [row['exit'] for row in t.calls] == [0, 0, 0]
+    assert all(row['argv'][1:3] == ['-I', '-B'] for row in commands + t.calls)
+    assert t.report['ok'] is True and t.report['errors'] == []
+    assert t.report['analysis_boundary']['analysis_level'] == 'artifact_observed'
+    assert t.diagnostic['ok'] is True and t.diagnostic['errors'] == []
+    assert all(value is True for value in t.diagnostic['checks'].values())
+
+
+def test_r2c17_native_gate_results_and_pre_state_bindings(r2c17_native_inputs):
+    t = r2c17_native_inputs
+    root = t.f.directory / 'producer-source'
+    recorded = t.f.contents['release_grade_recorded_path']
+    pre = t.f.contents['pre_attestation_pulse_artifacts']['status.json']
+    evidence = json.loads(recorded['required_gate_evidence_v0.json'])
+    assert set(evidence['gates']) == set(t.f.oracle['required'])
+    assert len(evidence['gates']) == 19
+    for gate_id, result in evidence['gates'].items():
+        assert result['value'] is True and result['status'] == 'passed'
+        references = [row for row in result['evidence_artifacts'] if row['kind'] == 'required_gate_evaluation']
+        assert len(references) == 1
+        ref = references[0]; raw = (root / ref['path']).read_bytes()
+        assert digest(raw) == ref['sha256']
+        assert ref['path'].removeprefix('PULSE_safe_pack_v0/artifacts/') not in recorded
+    workflow = yaml.load(t.f.carrier.plan.source.sources['.github/workflows/pulse_ci.yml'], Loader=yaml.BaseLoader)
+    steps = workflow['jobs']['release_grade_recorded_path']['steps']
+    upload = next(step for step in steps if step.get('name') == 'Upload release-grade recorded path artifacts')
+    paths = upload['with']['path'].splitlines()
+    assert not any('/required_gate_inputs/' in path for path in paths)
+    diagnostic = next(step for step in workflow['jobs']['pulse']['steps']
+        if step.get('name') == 'Upload release-grade required-gate diagnostics')
+    assert 'PULSE_safe_pack_v0/artifacts/required_gate_inputs/**' in diagnostic['with']['path'].splitlines()
+    status = json.loads(pre)
+    for prefix in ('candidate_status_builder', 'gate_policy', 'gate_registry'):
+        path = status['metrics'][prefix + '_path']
+        assert status['metrics'][prefix + '_sha256'] == digest(t.f.carrier.plan.source.files[path][1])
+    assert recorded['status_baseline.json'] == pre
+    assert set(status['gates']) == set(t.f.oracle['required'])
+
+
+def test_r2c17_terminal_status_bytes_are_not_silently_canonicalized(r2c17_native_inputs):
+    t = r2c17_native_inputs
+    root = t.f.directory / 'producer-source'
+    raw = (root / 'PULSE_safe_pack_v0/artifacts/status.json').read_bytes()
+    # Preserve the native materializer encoding, even when a later consumer
+    # requires a different encoding. No packet or subject digest may be rehashed
+    # to disguise an in-place rewrite of the original final state.
+    assert raw == t.f.contents['release_grade_recorded_path']['status.json']
+    assert raw == t.f.contents['advisory_reference_bundle']['artifacts/status.json']
+    assert t.packet['subject']['final_status_sha256'] == digest(raw)
+    assert t.report['subject']['final_status_sha256'] == digest(raw)
+    assert json.loads(raw) == json.loads(canonical(json.loads(raw)))
+    pre = t.f.contents['pre_attestation_pulse_artifacts']['status.json']
+    assert pre != raw
+    assert t.old.contents['release_grade_recorded_path']['status.json'] != raw
+
+
+def test_r2c17_registry_and_terminal_documents_come_from_the_bound_sources(r2c17_native_inputs):
+    t = r2c17_native_inputs
+    root = t.f.directory / 'producer-source/PULSE_safe_pack_v0/artifacts'
+    recorded = t.f.contents['release_grade_recorded_path']
+    for name in ('release_decision_v0.json', 'release_authority_v0.json',
+                 'artifact_provenance_binding_v0.json'):
+        assert recorded[name] == (root / name).read_bytes()
+    source_registry = yaml.safe_load(t.f.carrier.plan.source.sources['pulse_gate_registry_v0.yml'])
+    assert t.packet['authority_sources']['gate_registry']['registry_id'] == source_registry['version']
+    assert t.packet['subject']['release_candidate_id'] == 'pulse-ci-current-run:9001:1'
+    assert json.loads(recorded['recorded_release_candidate_index_v0.json'])['subject']['release_candidate'] == 'main'
+    advisory = t.f.contents['advisory_reference_bundle']
+    for name in ('status.json', 'report_card.html', 'release_authority_v0.json'):
+        assert recorded[name] == advisory['artifacts/' + name] == advisory['release-authority-audit-bundle/' + name]
+
+
+def test_r2c17_old_sparse_terminal_fixture_is_still_rejected(r2c17_native_inputs):
+    t = r2c17_native_inputs
+    directory = t.directory / 'old-input'; directory.mkdir()
+    packet_path = directory / 'packet.json'
+    packet_path.write_bytes(t.old.provider_files['subject-input-packet.json'])
+    carrier_name = next(name for name in t.old.provider_files if name.endswith('.zip'))
+    carrier_path = directory / carrier_name; carrier_path.write_bytes(t.old.provider_files[carrier_name])
+    process = VERIFIER.run_process([sys.executable, '-I', '-B',
+        str(t.control / 'tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py'),
+        '--packet', str(packet_path), '--carrier', str(carrier_path),
+        '--repository-root', str(t.control), '--analysis-run-key', 'local-r2:sparse-negative'], cwd=t.control)
+    assert process.returncode == 1, (process.stdout, process.stderr)
+    diagnostic = json.loads(process.stderr)
+    assert diagnostic['ok'] is False
+    errors = '\n'.join(diagnostic['errors'])
+    assert 'subject_input_packet_rejected' in errors
+    assert 'final_status_subject_binding_mismatch' in errors
+    (directory / 'rejection.json').write_bytes(process.stderr)
+
+
+
+# R2C18: retain authenticated native status bytes through the actual Step 3G CLI.
+@pytest.fixture(scope='module')
+def r2c18_native_baseline(r2c17_native_inputs):
+    t = r2c17_native_inputs
+    before = {p.name: p.read_bytes() for p in (t.directory / 'intake').iterdir() if p.is_file()}
+    status_path = t.f.directory / 'producer-source/PULSE_safe_pack_v0/artifacts/status.json'
+    status = status_path.read_bytes()
+    assert status != canonical(json.loads(status))
+    calls = []; original = VERIFIER.run_process
+    def record(command, **kwargs):
+        result = original(command, **kwargs)
+        calls.append({'argv': list(map(str, command)), 'exit': result.returncode,
+            'stdout': result.stdout.decode(), 'stderr': result.stderr.decode()})
+        (t.directory / 'native-step3g-commands.json').write_bytes(canonical(calls))
+        return result
+    output = t.directory / 'native-baseline-proof'
+    with patch.object(VERIFIER, 'run_process', side_effect=record):
+        VERIFIER._build_baseline_proof(control_root=t.control, subject_root=t.subject,
+            intake_directory=t.directory / 'intake', output_directory=output,
+            source_commit=t.f.commit, capture_manifest=t.manifest)
+    assert status_path.read_bytes() == status
+    assert before == {p.name: p.read_bytes() for p in (t.directory / 'intake').iterdir() if p.is_file()}
+    assert len(calls) == 1 and calls[0]['exit'] == 0
+    return SimpleNamespace(t=t, output=output, status=status, calls=calls, intake_before=before)
+
+
+def test_r2c18_native_step3g_preserves_status_and_generated_output_contract(r2c18_native_baseline):
+    b = r2c18_native_baseline; t = b.t
+    manifest = json.loads((b.output / 'artifact-observed-proof-manifest.json').read_bytes())
+    assert manifest['ok'] is True and manifest['errors'] == []
+    assert manifest['authority_boundary']['proof_is_release_authority'] is False
+    assert t.packet['subject']['final_status_sha256'] == digest(b.status)
+    report = json.loads((b.output / 'compute-binding-report.json').read_bytes())
+    assert report['subject']['final_status_sha256'] == digest(b.status)
+    assert report['analysis_boundary']['analysis_level'] == 'artifact_observed'
+    rows = manifest['output_layout']['files']
+    assert {row['path'] for row in rows} == {'compute-binding-report.json',
+        'current-run-plan.json', 'planned-observed-relation.json',
+        'candidate-materializer-report.json', 'folded-candidate-status.json'}
+    for row in rows:
+        raw = (b.output / row['path']).read_bytes()
+        assert digest(raw) == row['sha256'] and len(raw) == row['size_bytes']
+        assert raw == canonical(json.loads(raw))
+    folded = json.loads((b.output / 'folded-candidate-status.json').read_bytes())
+    original = json.loads(b.status)
+    for key, value in original['gates'].items():
+        assert folded['gates'][key] is value
+    assert t.f.contents['release_grade_recorded_path']['status.json'] == b.status
+    assert t.f.contents['advisory_reference_bundle']['artifacts/status.json'] == b.status
+
+
+def test_r2c18_native_step3g_rejects_source_and_repository_substitution(r2c18_native_baseline):
+    b = r2c18_native_baseline; t = b.t
+    command = b.calls[0]['argv']
+    for flag, replacement in (('--subject-revision', '0' * 40),
+            ('--control-plane-revision', '0' * 40),
+            ('--subject-repository', 'other/repository')):
+        args = list(command)
+        args[args.index(flag) + 1] = replacement
+        output = t.directory / ('rejected-' + flag.removeprefix('--'))
+        args[args.index('--output-directory') + 1] = str(output)
+        result = VERIFIER.run_process(args, cwd=t.control)
+        assert result.returncode == 2, (result.stdout, result.stderr)
+        assert not output.exists()
+        assert json.loads(result.stderr)['ok'] is False
+    assert b.intake_before == {p.name: p.read_bytes() for p in (t.directory / 'intake').iterdir() if p.is_file()}
+
+
+
+def test_r2c18_fresh_native_report_gets_a_new_simulated_terminal_frame():
+    original = {'schema_version': 'pulsemech_step5c_local_r2_simulated_run_v2',
+        'run_started_at': '2026-01-01T00:00:00Z', 'updated_at': '2026-01-01T00:10:00Z'}
+    before = copy.deepcopy(original)
+    for report_time, expected in (
+            ('2026-01-01T00:05:00Z', '2026-01-01T00:10:00Z'),
+            ('2026-01-01T00:10:00Z', '2026-01-01T00:10:00Z'),
+            ('2026-01-01T02:00:00Z', '2026-01-01T02:00:00Z')):
+        fresh = _r2c9_simulated_subject_window(original, report_time)
+        assert fresh['updated_at'] == expected and fresh is not original
+        row = {'created_at': report_time, 'expires_at': '2026-01-02T00:00:00Z'}
+        assert VERIFIER._local_r2_artifact_time_fields(row, fresh) == row
+        assert original == before
+    with pytest.raises(VERIFIER.VerificationError, match='r2_artifact_time_invalid'):
+        VERIFIER._local_r2_artifact_time_fields(
+            {'created_at': '2026-01-01T02:00:00Z', 'expires_at': '2026-01-02T00:00:00Z'}, original)
+
+
+def test_r2c18_simulation_window_does_not_waive_invalid_or_missing_times():
+    run = {'schema_version': 'pulsemech_step5c_local_r2_simulated_run_v2',
+        'run_started_at': '2026-01-01T00:00:00Z', 'updated_at': '2026-01-01T00:10:00Z'}
+    for bad in (None, '', 'not-a-time'):
+        with pytest.raises((VERIFIER.VerificationError, TypeError, ValueError)):
+            _r2c9_simulated_subject_window(run, bad)
+    with pytest.raises(AssertionError, match='predates'):
+        _r2c9_simulated_subject_window(run, '2025-12-31T23:59:59Z')
+    for field in ('run_started_at', 'updated_at'):
+        missing = copy.deepcopy(run); del missing[field]
+        with pytest.raises(VERIFIER.VerificationError):
+            _r2c9_simulated_subject_window(missing, '2026-01-01T00:05:00Z')
+    fresh = _r2c9_simulated_subject_window(run, '2026-01-01T02:00:00Z')
+    for row in ({'created_at': '2026-01-01T02:00:01Z', 'expires_at': '2026-01-02T00:00:00Z'},
+                {'created_at': '2026-01-01T02:00:00Z', 'expires_at': '2026-01-01T02:00:00Z'},
+                {'expires_at': '2026-01-02T00:00:00Z'}):
+        with pytest.raises(VERIFIER.VerificationError, match='r2_artifact_time_invalid'):
+            VERIFIER._local_r2_artifact_time_fields(row, fresh)
 
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters

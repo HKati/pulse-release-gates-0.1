@@ -1839,7 +1839,14 @@ def _extract_final_status(
     subject = _require_object(packet.get("subject"), label="packet_subject")
     if sha256_bytes(value) != subject.get("final_status_sha256"):
         raise ProofError("packet_final_status_digest_mismatch")
-    _parse_json_bytes(value, label="base_final_status", canonical_required=True)
+    # This is authenticated producer input, not one of our generated records.
+    # Keep its exact encoding and digest; the native materializer need not sort
+    # keys. Strict JSON and finite-value checks still apply before returning it.
+    parsed = _parse_json_bytes(value, label="base_final_status", canonical_required=False)
+    try:
+        render_json(parsed)  # Validation only: never replace the original bytes.
+    except ValueError as exc:
+        raise StrictJsonError("base_final_status_non_finite_value") from exc
     return value
 
 
@@ -2646,7 +2653,11 @@ def _build(args: argparse.Namespace) -> bytes:
             maximum=MAX_JSON_BYTES,
             require_canonical_json=True,
         )
-        base_status = _parse_json_bytes(final_status_bytes, label="base_status")
+        # The same original input was checked by _extract_final_status above.
+        # Its serialization is not the canonical generated candidate format.
+        base_status = _parse_json_bytes(
+            final_status_bytes, label="base_status", canonical_required=False,
+        )
         folded_status = _parse_json_bytes(
             folded_capture.bytes_value,
             label="folded_candidate_status",
