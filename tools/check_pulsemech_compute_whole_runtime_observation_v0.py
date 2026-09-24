@@ -8947,5 +8947,298 @@ def _verify_local_r2_runtime(
     return parse_json_bytes(members[_LOCAL_R2_RUNTIME_ASSESSMENT_MEMBER], label='r2_runtime_assessment')
 
 
+# R2C19: connect the remaining native outputs to LOCAL role conditions.
+# This accepts only separately supplied, exact remote-free fixture repositories.
+# It does not create/clone/update a repository, admit a reference or expose R2.
+_LOCAL_R2_DOWNSTREAM_VERSION = 'pulsemech_step5c_local_r2_downstream_derivation_v0'
+_LOCAL_R2_DOWNSTREAM_ASSESSMENT_MEMBER = 'local-r2-downstream-assessment.json'
+_LOCAL_R2_DOWNSTREAM_MEMBERS = frozenset({
+    RUNTIME_PACKET_MEMBER, RUNTIME_DIAGNOSTIC_MEMBER, BINDING_REPORT_MEMBER,
+    BINDING_DIAGNOSTIC_MEMBER, RELATION_MEMBER, RELATION_DIAGNOSTIC_MEMBER,
+    MATERIALIZER_REPORT_MEMBER, FOLDED_STATUS_MEMBER,
+    _LOCAL_R2_RUNTIME_CONTEXT_MEMBER, _LOCAL_R2_RUNTIME_ASSESSMENT_MEMBER,
+    _LOCAL_R2_DOWNSTREAM_ASSESSMENT_MEMBER,
+})
+
+
+def _snapshot_local_r2_downstream_tree(root: Path) -> dict[str, tuple[Any, ...]]:
+    """Bound and snapshot regular local inputs, including their Git metadata.
+
+    No atime comparison: ordinary reads may update it. Inode, mode, link count,
+    size, mtime, ctime and bytes must remain stable, including on failure paths.
+    """
+    stage = 'local_r2_downstream'
+    require(root.is_dir() and not root.is_symlink() and root.resolve() == root,
+            'r2_downstream_input_root_invalid', stage=stage)
+    result = {}; total = 0
+    for count, path in enumerate(root.rglob('*')):
+        require(count < 20000, 'r2_downstream_input_budget', stage=stage)
+        info = path.lstat()
+        require(stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode),
+                'r2_downstream_input_not_regular', stage=stage)
+        if stat.S_ISDIR(info.st_mode):
+            continue
+        require(info.st_nlink == 1 and 0 <= info.st_size <= 32 * 1024 * 1024,
+                'r2_downstream_input_file_invalid', stage=stage)
+        total += info.st_size
+        require(total <= 256 * 1024 * 1024 and len(result) < 20000,
+                'r2_downstream_input_budget', stage=stage)
+        def identity(value: os.stat_result) -> tuple[int, ...]:
+            return (value.st_dev, value.st_ino, value.st_mode, value.st_nlink,
+                    value.st_size, value.st_mtime_ns, value.st_ctime_ns)
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, 'rb') as stream:
+            require(identity(os.fstat(stream.fileno())) == identity(info),
+                    'r2_downstream_input_changed', stage=stage)
+            raw = stream.read(info.st_size + 1)
+            require(len(raw) == info.st_size and identity(os.fstat(stream.fileno())) == identity(info)
+                    and identity(path.lstat()) == identity(info),
+                    'r2_downstream_input_changed', stage=stage)
+        result[path.relative_to(root).as_posix()] = (*identity(info), sha256_bytes(raw))
+    return result
+
+
+def _local_r2_downstream_source_snapshot(
+    root: Path, plan: Mapping[str, Any], prepared: Mapping[str, bytes], *,
+    fixture_commit_raw: bytes, fixture_commit: str,
+) -> dict[str, tuple[Any, ...]]:
+    """Verify existing fixture sources; Git operations here are read-only.
+
+    The full index, not just named entrypoints, binds the executed working tree.
+    These parentless repositories are test inputs, not authenticated upstream
+    commits. Their paths are never persisted as original execution evidence.
+    """
+    stage = 'local_r2_downstream'
+    _local_r2_package_commit_binding(plan, fixture_commit_raw, fixture_commit)
+    require(root.is_absolute() and root.resolve() == root
+            and root != Path(__file__).resolve().parents[1]
+            and (root / '.git').is_dir() and not (root / '.git').is_symlink(),
+            'r2_downstream_fixture_repository_required', stage=stage)
+    before = _snapshot_local_r2_downstream_tree(root)
+    require(prepared.get('sources/' + VERIFIER_PATH) == Path(__file__).read_bytes(),
+            'r2_downstream_verifier_installation_mismatch', stage=stage)
+    index_raw = prepared['local-r2-source-index.json']
+    source = plan['plan_identity']['source_identity']
+    require(sha256_bytes(index_raw) == source['source_index_sha256'],
+            'r2_downstream_source_index_mismatch', stage=stage)
+    index = parse_json_bytes(index_raw, label='r2_downstream_source_index')
+    rows = index['files']; expected = {row['path']: row for row in rows}
+    actual_paths = {name for name in before if not name.startswith('.git/')}
+    require(len(expected) == len(rows) and actual_paths == set(expected),
+            'r2_downstream_source_inventory_mismatch', stage=stage)
+    for name, row in expected.items():
+        safe_member(name, label='r2_downstream_source_path')
+        require('.git' not in PurePosixPath(name).parts and row['git_mode'] in ('100644', '100755'),
+                'r2_downstream_source_inventory_mismatch', stage=stage)
+        value = before[name]
+        require(value[4] == row['size_bytes'] and value[7] == row['sha256']
+                and bool(value[2] & 0o111) == (row['git_mode'] == '100755'),
+                'r2_downstream_source_bytes_mismatch', name, stage=stage)
+    for name, raw in prepared.items():
+        if name.startswith('sources/'):
+            row = expected.get(name.removeprefix('sources/'))
+            require(row is not None and row['sha256'] == sha256_bytes(raw)
+                    and row['size_bytes'] == len(raw),
+                    'r2_downstream_prepared_source_mismatch', name, stage=stage)
+    # A retained parentless fixture has no remotes, includes, hooks, alternates,
+    # replacements or sparse checkout. Do not read an owner's project as one.
+    config = git(root, ['config', '--local', '--no-includes', '--null', '--list']).split(b'\0')[:-1]
+    require(len(config) == 4 and set(config) == {b'core.repositoryformatversion\n0', b'core.filemode\ntrue',
+                b'core.bare\nfalse', b'core.logallrefupdates\ntrue'},
+            'r2_downstream_fixture_config_mismatch', stage=stage)
+    require(not any(name.startswith(('.git/hooks/', '.git/refs/replace/'))
+                    or name in {'.git/objects/info/alternates', '.git/info/sparse-checkout', '.git/shallow'}
+                    for name in before), 'r2_downstream_fixture_config_mismatch', stage=stage)
+    validate_repository(root, fixture_commit)
+    require(git(root, ['remote']) == b''
+            and git(root, ['cat-file', 'commit', fixture_commit]) == fixture_commit_raw
+            and git(root, ['rev-parse', 'HEAD^{tree}']).strip().decode('ascii') == source['git_tree_sha1'],
+            'r2_downstream_source_commit_mismatch', stage=stage)
+    listing = git(root, ['ls-tree', '-r', '-z', '--full-tree', fixture_commit])
+    tree_rows = {}
+    for line in listing.split(b'\0'):
+        if not line:
+            continue
+        header, name_raw = line.split(b'\t', 1)
+        mode, kind, oid = header.decode('ascii').split(' ')
+        name = name_raw.decode('utf-8', errors='strict')
+        require(kind == 'blob' and name not in tree_rows,
+                'r2_downstream_source_tree_mismatch', stage=stage)
+        tree_rows[name] = (mode, oid)
+    require(tree_rows == {name: (row['git_mode'], row['git_blob_sha1']) for name, row in expected.items()},
+            'r2_downstream_source_tree_mismatch', stage=stage)
+    require(before == _snapshot_local_r2_downstream_tree(root),
+            'r2_downstream_input_changed', stage=stage)
+    return before
+
+
+def _run_local_r2_downstream(
+    plan: Mapping[str, Any], prepared: Mapping[str, bytes], checked: Mapping[str, Any],
+    acquisition: Mapping[str, bytes], runtime_members: Mapping[str, bytes], *,
+    control_root: Path, subject_root: Path, fixture_commit_raw: bytes, fixture_commit: str,
+) -> tuple[dict[str, bytes], dict[str, Any]]:
+    """Run Step 3F, Step 3G and the existing runtime-aware pipeline, without mocks.
+
+    Every output is freshly produced in a private directory. The two caller-
+    supplied fixture repositories and all sealed intermediate inputs are only
+    read. This is one local derivation, not two independent R2 reconstructions.
+    """
+    stage = 'local_r2_downstream'
+    control_root = Path(os.path.abspath(os.fspath(control_root)))
+    subject_root = Path(os.path.abspath(os.fspath(subject_root)))
+    require(control_root != subject_root and control_root not in subject_root.parents
+            and subject_root not in control_root.parents,
+            'r2_downstream_source_roots_overlap', stage=stage)
+    protected = []
+    for root in (control_root, subject_root):
+        protected.append((root, _local_r2_downstream_source_snapshot(root, plan, prepared,
+            fixture_commit_raw=fixture_commit_raw, fixture_commit=fixture_commit)))
+    packet_raw = runtime_members[RUNTIME_PACKET_MEMBER]
+    context_raw = runtime_members[_LOCAL_R2_RUNTIME_CONTEXT_MEMBER]
+    context, runs = _local_r2_runtime_context(plan, checked, acquisition, context_raw,
+        expected_sha256=sha256_bytes(context_raw), fixture_commit=fixture_commit)
+    _, artifact, envelope, _ = _local_r2_provider_publication(
+        acquisition, checked, 'step3f_candidate_envelope')
+    provider = runs['provider']
+    manifest = {'subject': {'run_id': checked['subject_run_id']},
+        'provider': {'run_id': provider['run_id'], 'run_number': provider['run_number'],
+                     'updated_at': provider['updated_at']},
+        'capture_identity': {'collector_run_key': context['collector_run_key']},
+        'artifact_bindings': [{'artifact_role': 'step3f_candidate_envelope',
+            'artifact_id': artifact['id'], 'artifact_name': artifact['name'],
+            'created_utc': artifact['created_at'], 'expires_utc': artifact['expires_at'],
+            'github_sha256': sha256_bytes(envelope), 'size_bytes': len(envelope)}]}
+    with tempfile.TemporaryDirectory(prefix='pulsemech-r2-downstream-') as temporary:
+        workspace = Path(temporary).resolve()
+        require(all(root not in workspace.parents and workspace not in root.parents
+                    and workspace != root for root in (control_root, subject_root)),
+                'r2_downstream_workspace_overlaps_source', stage=stage)
+        sealed = workspace / 'inputs'
+        _write_read_only(sealed / 'provider.zip', envelope)
+        _write_read_only(sealed / RUNTIME_PACKET_MEMBER, packet_raw)
+        protected.append((sealed, _snapshot_local_r2_downstream_tree(sealed)))
+        intake = workspace / 'intake'; baseline = workspace / 'baseline'; output = workspace / 'output'
+        output.mkdir()
+        try:
+            _load_step3f_intake(control_root=control_root, capture_manifest=manifest,
+                envelope_path=sealed / 'provider.zip', output_directory=intake, source_commit=fixture_commit)
+            protected.append((intake, _snapshot_local_r2_downstream_tree(intake)))
+            _build_baseline_proof(control_root=control_root, subject_root=subject_root,
+                intake_directory=intake, output_directory=baseline, source_commit=fixture_commit,
+                capture_manifest=manifest)
+            protected.append((baseline, _snapshot_local_r2_downstream_tree(baseline)))
+            outputs = _run_existing_pipeline(control_root=control_root, intake_directory=intake,
+                baseline_proof=baseline, runtime_packet_path=sealed / RUNTIME_PACKET_MEMBER,
+                output_root=output, source_commit=fixture_commit, subject_run_id=checked['subject_run_id'])
+            require(all(type(raw) is bytes and 0 < len(raw) <= 8 * 1024 * 1024 for raw in outputs.values())
+                    and sum(map(len, outputs.values())) <= 16 * 1024 * 1024,
+                    'r2_downstream_output_budget', stage=stage)
+            _require_downstream_output_links(outputs)
+            require(outputs[RUNTIME_PACKET_MEMBER] == packet_raw
+                    and outputs[RUNTIME_DIAGNOSTIC_MEMBER] == runtime_members[RUNTIME_DIAGNOSTIC_MEMBER],
+                    'r2_downstream_runtime_replaced', stage=stage)
+            baseline_status = _find_unique(baseline, FOLDED_STATUS_MEMBER).read_bytes()
+            materializer = parse_json_bytes(outputs[MATERIALIZER_REPORT_MEMBER], label='r2_downstream_materializer')
+            require(materializer.get('base_status_sha256') == sha256_bytes(baseline_status),
+                    'r2_downstream_fold_input_mismatch', stage=stage)
+            input_bindings = [descriptor('provider-envelope.zip', envelope)]
+            for prefix, root in (('step3f-intake', intake), ('artifact-baseline', baseline)):
+                input_bindings.extend(descriptor(prefix + '/' + name, (root / name).read_bytes())
+                    for name in sorted(_snapshot_local_r2_downstream_tree(root)))
+        finally:
+            for root, before in protected:
+                require(before == _snapshot_local_r2_downstream_tree(root),
+                        'r2_downstream_input_changed', stage=stage)
+    return outputs, {'input_bindings': input_bindings,
+        'full_source_index': descriptor('local-r2-source-index.json', prepared['local-r2-source-index.json']),
+        'provider_loader_cli_executed': True, 'artifact_baseline_cli_executed': True,
+        'existing_runtime_pipeline_executed': True, 'source_and_intermediate_inputs_unchanged': True,
+        'repository_mutation_performed': False, 'source_repository_scope': 'parentless_local_fixtures_only'}
+
+
+def _assess_local_r2_downstream(
+    capture_raw: bytes, prepared_raw: bytes, expected_context_raw: bytes, *,
+    control_root: Path, subject_root: Path, fixture_commit_raw: bytes, expected_fixture_commit: str,
+    gh_executable: Path, expected_gh_sha256: str,
+    runtime_context_raw: bytes, expected_runtime_context_sha256: str,
+    expected_capture_sha256: str, expected_acquisition_sha256: str, **pins: Any,
+) -> bytes:
+    """Connect all five native output roles locally; original admission stays closed."""
+    runtime_raw = _assess_local_r2_runtime(capture_raw, prepared_raw, expected_context_raw,
+        fixture_commit_raw=fixture_commit_raw, expected_fixture_commit=expected_fixture_commit,
+        gh_executable=gh_executable, expected_gh_sha256=expected_gh_sha256,
+        runtime_context_raw=runtime_context_raw, expected_runtime_context_sha256=expected_runtime_context_sha256,
+        expected_capture_sha256=expected_capture_sha256, expected_acquisition_sha256=expected_acquisition_sha256, **pins)
+    runtime = read_canonical_zip_bytes(runtime_raw, label='r2_downstream_runtime',
+        maximum_members=4, maximum_bytes=8 * 1024 * 1024)
+    previous = parse_json_bytes(runtime[_LOCAL_R2_RUNTIME_ASSESSMENT_MEMBER], label='r2_downstream_runtime_assessment')
+    pending = set(DERIVED_STATE_MEMBERS) - {'state:step5c:runtime-observation-packet',
+                                          'state:step5c:runtime-observation-diagnostic'}
+    require(previous.get('schema_version') == _LOCAL_R2_RUNTIME_VERSION
+            and previous.get('local_content_satisfied_role_count') == 59
+            and set(previous.get('pending_local_role_ids', [])) == pending
+            and previous.get('fully_satisfied_role_count') == 0
+            and previous.get('assessment_status') == 'incomplete' and previous.get('simulation_only') is True,
+            'r2_downstream_runtime_prerequisite_missing', stage='local_r2_downstream')
+    checked, captured = _read_local_r2_capture(capture_raw, prepared_raw, expected_context_raw,
+        expected_capture_sha256=expected_capture_sha256, expected_acquisition_sha256=expected_acquisition_sha256, **pins)
+    plan, prepared = _read_local_r2_prepared(prepared_raw, expected_context_raw, **pins)
+    acquisition = read_canonical_zip_bytes(captured['local-r2-acquisition.zip'],
+        label='r2_downstream_acquisition', maximum_members=256, maximum_bytes=80 * 1024 * 1024)
+    outputs, execution = _run_local_r2_downstream(plan, prepared,
+        {**checked, 'expected_capture_sha256': expected_capture_sha256}, acquisition, runtime,
+        control_root=control_root, subject_root=subject_root,
+        fixture_commit_raw=fixture_commit_raw, fixture_commit=expected_fixture_commit)
+    packet = _require_downstream_output_links(outputs)
+    native = _local_r2_native_fixture_view(plan, expected_fixture_commit)
+    bindings = _downstream_state_bindings(native, packet, outputs)
+    by_id = {row['state_id']: row for row in bindings}
+    require(set(by_id) == set(DERIVED_STATE_MEMBERS) and len(bindings) == 5,
+            'r2_downstream_role_extent_mismatch', stage='local_r2_downstream')
+    rows = [{**row, 'local_condition_status': 'satisfied', 'local_condition_satisfied': True,
+             'pending_requirements': [], 'evidence_binding': {
+                 **by_id[row['state_id']], 'scope': 'synthetic_native_derivation_not_original_observation'}}
+            if row['state_id'] in by_id else row for row in previous['roles']]
+    require(len(rows) == len({row['state_id'] for row in rows}) == 62
+            and all(row['local_condition_satisfied'] is True and row['pending_requirements'] == []
+                    and row['role_obligation_satisfied'] is False for row in rows),
+            'r2_downstream_role_conditions_incomplete', stage='local_r2_downstream')
+    relation = parse_json_bytes(outputs[RELATION_MEMBER], label='r2_downstream_relation')
+    assessment = {**previous, 'schema_version': _LOCAL_R2_DOWNSTREAM_VERSION,
+        'validation_scope': 'all_five_native_downstream_local_conditions_not_reference_admission',
+        'runtime_derivation': descriptor('local-r2-runtime-derivation.zip', runtime_raw),
+        'native_downstream_execution': execution, 'downstream_state_bindings': bindings,
+        'roles': rows, 'local_content_satisfied_role_count': 62, 'pending_local_role_ids': [],
+        'derived_outputs': [descriptor(name, raw) for name, raw in sorted(outputs.items())],
+        'remaining_requirements': ['two_full_source_bound_R2_reconstructions',
+            'original_mandatory_signature_evidence', 'coordinated_public_R2_route_and_reference_admission'],
+        'two_full_R2_reconstructions_completed': False,
+        'candidate_values': _materializer_candidate_values(outputs[MATERIALIZER_REPORT_MEMBER], outputs[FOLDED_STATUS_MEMBER]),
+        'comparison_complete': relation['summary']['comparison_complete'],
+    }
+    return deterministic_zip_bytes({**outputs,
+        _LOCAL_R2_RUNTIME_CONTEXT_MEMBER: runtime_context_raw,
+        _LOCAL_R2_RUNTIME_ASSESSMENT_MEMBER: runtime[_LOCAL_R2_RUNTIME_ASSESSMENT_MEMBER],
+        _LOCAL_R2_DOWNSTREAM_ASSESSMENT_MEMBER: canonical_json_bytes(assessment)},
+        maximum_members=11, maximum_bytes=16 * 1024 * 1024)
+
+
+def _verify_local_r2_downstream(
+    derivation_raw: bytes, capture_raw: bytes, prepared_raw: bytes, expected_context_raw: bytes, *,
+    expected_derivation_sha256: str, **pins: Any,
+) -> dict[str, Any]:
+    """Reexecute the native chain and compare exact bytes, not stored success flags."""
+    require(type(derivation_raw) is bytes and 0 < len(derivation_raw) <= 16 * 1024 * 1024
+            and sha256_bytes(derivation_raw) == expected_derivation_sha256,
+            'r2_downstream_derivation_digest_mismatch', stage='local_r2_downstream')
+    members = read_canonical_zip_bytes(derivation_raw, label='r2_downstream_derivation',
+        maximum_members=11, maximum_bytes=16 * 1024 * 1024)
+    require(set(members) == _LOCAL_R2_DOWNSTREAM_MEMBERS,
+            'r2_downstream_derivation_member_mismatch', stage='local_r2_downstream')
+    expected = _assess_local_r2_downstream(capture_raw, prepared_raw, expected_context_raw, **pins)
+    require(derivation_raw == expected, 'r2_downstream_derivation_mismatch', stage='local_r2_downstream')
+    return parse_json_bytes(members[_LOCAL_R2_DOWNSTREAM_ASSESSMENT_MEMBER], label='r2_downstream_assessment')
+
+
 if __name__ == "__main__":
     raise SystemExit(main())

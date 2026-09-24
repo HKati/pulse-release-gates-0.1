@@ -18036,6 +18036,253 @@ def test_r2c18_simulation_window_does_not_waive_invalid_or_missing_times():
         with pytest.raises(VERIFIER.VerificationError, match='r2_artifact_time_invalid'):
             VERIFIER._local_r2_artifact_time_fields(row, fresh)
 
+# R2C19: join the native downstream outputs to local roles, not original admission.
+@pytest.fixture(scope='module')
+def r2c19_downstream(r2c17_native_inputs, tmp_path_factory):
+    from datetime import timedelta
+    t = r2c17_native_inputs; f = t.f
+    plan, prepared = VERIFIER._read_local_r2_prepared(f.carrier.raw, f.carrier.context,
+        **{k: v for k, v in f.pins.items() if k not in ('expected_capture_sha256', 'expected_acquisition_sha256')})
+    checked = {**f.checked, 'expected_capture_sha256': digest(f.capture)}
+    provider, _ = VERIFIER._local_r2_response_bytes(f.members,
+        f'repos/{VERIFIER.REPOSITORY}/actions/runs/{checked["provider_run_id"]}')
+    begin = VERIFIER.parse_utc(provider['updated_at'], label='fixture_provider_end') + timedelta(seconds=60)
+    context = {'schema_version': 'pulsemech_step5c_local_r2_runtime_context_v0',
+        'record_status': 'local_candidate', 'simulation_only': True,
+        'observed_platform_execution': False, 'original_runtime_reads_proven': False,
+        'source_identity': plan['plan_identity']['source_identity'], 'fixture_commit': f.commit,
+        'experiment_id': checked['experiment_id'], 'capture_sha256': digest(f.capture),
+        'subject_run_id': checked['subject_run_id'], 'timing_scope': 'caller_supplied_simulated_collection_window',
+        'collector_run_key': 'local-r2:runtime-projection:collector',
+        'collection_started_utc': begin.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'collection_completed_utc': (begin + timedelta(seconds=60)).strftime('%Y-%m-%dT%H:%M:%SZ')}
+    context_raw = canonical(context)
+    pins = {**_r2c15_pins(f), 'control_root': t.control, 'subject_root': t.subject,
+        'runtime_context_raw': context_raw, 'expected_runtime_context_sha256': digest(context_raw)}
+    import time
+    calls = []; real = VERIFIER.run_process
+    def record(command, **kwargs):
+        started = time.monotonic()
+        result = real(command, **kwargs)
+        calls.append({'argv': list(map(str, command)), 'exit': result.returncode,
+                      'elapsed_s': time.monotonic() - started})
+        return result
+    with patch.object(VERIFIER, 'run_process', side_effect=record):
+        raw = VERIFIER._assess_local_r2_downstream(f.capture, f.carrier.raw, f.carrier.context, **pins)
+    members = VERIFIER.read_canonical_zip_bytes(raw, label='r2c19_fixture',
+        maximum_members=11, maximum_bytes=16 * 1024 * 1024)
+    assessment = json.loads(members['local-r2-downstream-assessment.json'])
+    runtime_members = {name: members[name] for name in ('runtime-observation-packet.json',
+        'runtime-packet-diagnostic.json', 'local-r2-runtime-context.json', 'local-r2-runtime-assessment.json')}
+    outputs = {name: data for name, data in members.items() if not name.startswith('local-r2-')}
+    directory = tmp_path_factory.mktemp('r2c19-local-downstream')
+    (directory/'downstream-derivation.zip').write_bytes(raw)
+    (directory/'runtime-context.json').write_bytes(context_raw)
+    (directory/'native-commands.json').write_bytes(canonical(calls))
+    (directory/'assessment.json').write_bytes(canonical(assessment))
+    return SimpleNamespace(t=t, f=f, plan=plan, prepared=prepared, checked=checked,
+        pins=pins, context_raw=context_raw, members=members, runtime_members=runtime_members,
+        outputs=outputs, assessment=assessment, raw=raw, calls=calls, directory=directory)
+
+
+def _r2c19_run(t, **changes):
+    values = {'control_root': t.t.control, 'subject_root': t.t.subject,
+        'fixture_commit_raw': t.f.commit_raw, 'fixture_commit': t.f.commit}
+    values.update(changes)
+    return VERIFIER._run_local_r2_downstream(t.plan, t.prepared, t.checked,
+        t.f.members, t.runtime_members, **values)
+
+
+_R2C19_NATIVE_TOOLS = (
+    'load_pulsemech_compute_current_run_export_candidate_bundle_v0.py',
+    'build_pulsemech_compute_current_run_artifact_observed_proof_v0.py',
+    'check_pulsemech_compute_runtime_observation_packet_v0.py',
+    'build_pulsemech_compute_binding_report_from_subject_input_v0.py',
+    'check_pulsemech_compute_binding_report_v0.py',
+    'build_pulsemech_compute_planned_observed_relation_v0.py',
+    'check_pulsemech_compute_planned_observed_relation_v0.py',
+    'fold_pulsemech_compute_planned_observed_relation_into_status_v0.py',
+)
+
+
+def test_r2c19_all_local_roles_bind_fresh_native_outputs(r2c19_downstream):
+    t=r2c19_downstream; a=t.assessment
+    assert a['schema_version'] == 'pulsemech_step5c_local_r2_downstream_derivation_v0'
+    assert len(a['roles']) == a['role_count'] == a['local_content_satisfied_role_count'] == 62
+    assert {row['state_id'] for row in a['roles']} == set(_R2C15_CONTRACT_DUTIES)
+    assert a['pending_local_role_ids'] == [] and a['assessment_status'] == 'incomplete'
+    assert a['fully_satisfied_role_count'] == 0 and a['two_full_R2_reconstructions_completed'] is False
+    assert a['comparison_complete'] is False and a['candidate_values']['candidate_all_true'] is False
+    assert a['mandatory_llamaguard_signatures_verified'] is False
+    assert a['original_reference_admission_evaluated'] is False
+    assert a['observed_platform_execution'] is False and a['original_runtime_reads_proven'] is False
+    assert a['local_boundary'] == {'R2_activated':False,'completion_evaluated':False,
+        'dispatch_authorized':False,'reference_acquired':False}
+    assert a['authority_boundary'] == VERIFIER.AUTHORITY_BOUNDARY
+    assert all(row['local_condition_satisfied'] is True and row['pending_requirements'] == []
+        and row['role_obligation_satisfied'] is False and row['original_runtime_reads_proven'] is False
+        for row in a['roles'])
+    parent=json.loads(t.members['local-r2-runtime-assessment.json'])
+    assert parent['local_content_satisfied_role_count'] == 59 and len(parent['pending_local_role_ids']) == 3
+    assert a['explicit_gap_records'] == parent['explicit_gap_records']
+    state_rows={row['state_id']:row for row in a['roles']}
+    assert len(a['downstream_state_bindings']) == 5
+    for sid,(member,locator,source,inputs) in _DOWNSTREAM_TEST_ROLES.items():
+        row=state_rows[sid]['evidence_binding']
+        assert row['output'] == {'member':member,'sha256':digest(t.outputs[member]),'size_bytes':len(t.outputs[member])}
+        assert row['declared_path_or_uri'] == locator and row['entrypoint_source']['path'] == source
+        assert row['entrypoint_source']['sha256'] == digest((t.t.control/source).read_bytes())
+        assert row['derived_input_members'] == [{'member':name,'sha256':digest(t.outputs[name]),
+            'size_bytes':len(t.outputs[name])} for name in inputs]
+        assert row['original_subject_execution_claimed'] is False
+    for name in _R2C19_NATIVE_TOOLS:
+        assert any(len(c['argv'])>3 and Path(c['argv'][3]).name==name and c['exit']==0 for c in t.calls), name
+    assert a['native_downstream_execution']['source_and_intermediate_inputs_unchanged'] is True
+    assert a['native_downstream_execution']['repository_mutation_performed'] is False
+
+
+def test_r2c19_reader_reexecutes_all_native_stages(r2c19_downstream):
+    t=r2c19_downstream; calls=[]; real=VERIFIER.run_process
+    def record(command, **kwargs):
+        calls.append(tuple(map(str,command))); return real(command, **kwargs)
+    with patch.object(VERIFIER,'run_process',side_effect=record):
+        actual=VERIFIER._verify_local_r2_downstream(t.raw,t.f.capture,t.f.carrier.raw,t.f.carrier.context,
+            expected_derivation_sha256=digest(t.raw),**t.pins)
+    assert actual==t.assessment
+    for name in _R2C19_NATIVE_TOOLS:
+        assert any(len(c)>3 and Path(c[3]).name==name for c in calls),name
+
+
+@pytest.mark.parametrize('tool',_R2C19_NATIVE_TOOLS)
+def test_r2c19_native_command_failure_is_not_replaced_by_saved_success(r2c19_downstream,tool):
+    t=r2c19_downstream; real=VERIFIER.run_process; invoked=[]
+    def fail(command, **kwargs):
+        if len(command)>3 and Path(command[3]).name==tool:
+            invoked.append(tool); return VERIFIER.ProcessOutput(23,b'',b'controlled local downstream failure')
+        return real(command,**kwargs)
+    with patch.object(VERIFIER,'run_process',side_effect=fail):
+        with pytest.raises(VERIFIER.VerificationError,match='subprocess_failed'):
+            _r2c19_run(t)
+    assert invoked==[tool]
+
+
+@pytest.mark.parametrize('fault',['changed','mode','missing','extra','symlink','hardlink','config','commit'])
+def test_r2c19_exact_fixture_source_is_required(r2c19_downstream,tmp_path,fault):
+    t=r2c19_downstream
+    root=tmp_path/'source';shutil.copytree(t.t.control,root)
+    path=root/'tools/check_pulsemech_compute_binding_report_v0.py'
+    raw=t.f.commit_raw
+    if fault=='changed':path.write_bytes(path.read_bytes()+b'\n')
+    elif fault=='mode':path.chmod(path.stat().st_mode ^ 0o111)
+    elif fault=='missing':path.unlink()
+    elif fault=='extra':(root/'unlisted-input.txt').write_text('not in the source index')
+    elif fault=='symlink':path.unlink();path.symlink_to(t.t.control/'tools/check_pulsemech_compute_binding_report_v0.py')
+    elif fault=='hardlink':path.unlink();os.link(t.t.control/'tools/check_pulsemech_compute_binding_report_v0.py',path)
+    elif fault=='config':
+        config=root/'.git/config';config.write_bytes(config.read_bytes()+b'\n[alias]\n\tunused = status\n')
+    elif fault=='commit':raw+=b'\n'
+    try:
+        with patch.object(VERIFIER,'run_process',side_effect=AssertionError('no native launch')):
+            with pytest.raises(VERIFIER.VerificationError):
+                VERIFIER._local_r2_downstream_source_snapshot(root,t.plan,t.prepared,
+                    fixture_commit_raw=raw,fixture_commit=t.f.commit)
+    finally:
+        if fault=='hardlink':path.unlink()
+
+
+@pytest.mark.parametrize('fault',['same','nested'])
+def test_r2c19_source_roots_must_be_separate(r2c19_downstream,fault):
+    t=r2c19_downstream
+    with pytest.raises(VERIFIER.VerificationError,match='r2_downstream_source_roots_overlap'):
+        _r2c19_run(t,subject_root=t.t.control if fault=='same' else t.t.control/'nested')
+
+
+@pytest.mark.parametrize('fault',['digest','missing-member','extra-member'])
+def test_r2c19_saved_carrier_inventory_is_closed_before_reexecution(r2c19_downstream,fault):
+    t=r2c19_downstream;members=dict(t.members)
+    if fault=='missing-member':del members['compute-binding-report.json']
+    elif fault=='extra-member':members['extra.json']=b'{}\n'
+    raw=VERIFIER.deterministic_zip_bytes(members,maximum_members=12,maximum_bytes=16*1024*1024)
+    with patch.object(VERIFIER,'_assess_local_r2_downstream',side_effect=AssertionError('must reject before replay')):
+        with pytest.raises(VERIFIER.VerificationError):
+            VERIFIER._verify_local_r2_downstream(raw,t.f.capture,t.f.carrier.raw,t.f.carrier.context,
+                expected_derivation_sha256='0'*64 if fault=='digest' else digest(raw),**t.pins)
+
+
+def test_r2c19_rehashed_assessment_cannot_claim_original_admission(r2c19_downstream):
+    t=r2c19_downstream;members=dict(t.members);a=copy.deepcopy(t.assessment)
+    a['fully_satisfied_role_count']=62;a['assessment_status']='complete'
+    a['local_boundary']['R2_activated']=True
+    members['local-r2-downstream-assessment.json']=canonical(a)
+    raw=VERIFIER.deterministic_zip_bytes(members,maximum_members=11,maximum_bytes=16*1024*1024)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_downstream_derivation_mismatch'):
+        VERIFIER._verify_local_r2_downstream(raw,t.f.capture,t.f.carrier.raw,t.f.carrier.context,
+            expected_derivation_sha256=digest(raw),**t.pins)
+
+
+@pytest.mark.parametrize('target',['source','git-index','intake','baseline'])
+def test_r2c19_mutated_inputs_reject_even_after_successful_child(r2c19_downstream,tmp_path,target):
+    t=r2c19_downstream;control=tmp_path/'control';subject=tmp_path/'subject'
+    shutil.copytree(t.t.control,control);shutil.copytree(t.t.subject,subject)
+    real=VERIFIER.run_process;seen=[]
+    def mutate(command,**kwargs):
+        result=real(command,**kwargs)
+        if len(command)>3 and Path(command[3]).name=='fold_pulsemech_compute_planned_observed_relation_into_status_v0.py':
+            if target=='source':path=control/'README.md'
+            elif target=='git-index':path=control/'.git/index'
+            elif target=='intake':path=Path(command[command.index('--subject-input')+1])
+            else:path=Path(command[command.index('--status')+1])
+            seen.append(str(path));path.chmod(0o644);path.write_bytes(path.read_bytes()+b'\n')
+        return result
+    with patch.object(VERIFIER,'run_process',side_effect=mutate):
+        with pytest.raises(VERIFIER.VerificationError,match='r2_downstream_input_changed'):
+            _r2c19_run(t,control_root=control,subject_root=subject)
+    assert len(seen)==1
+
+
+def test_r2c19_cleanup_failure_does_not_return_a_success_carrier(r2c19_downstream):
+    t=r2c19_downstream;real=VERIFIER.tempfile.TemporaryDirectory
+    class FailingCleanup(real):
+        def __exit__(self,*args):
+            super().__exit__(*args)
+            raise OSError('controlled downstream cleanup failure')
+    with patch.object(VERIFIER.tempfile,'TemporaryDirectory',FailingCleanup):
+        with pytest.raises(OSError,match='controlled downstream cleanup failure'):
+            _r2c19_run(t)
+
+
+def test_r2c19_runtime_self_hash_and_D1_D6_gaps_remain_absent(r2c19_downstream):
+    t=r2c19_downstream
+    packet=json.loads(t.outputs['runtime-observation-packet.json'])
+    states={row['state_id']:row for row in packet['state_observations']}
+    for sid in set(_DOWNSTREAM_TEST_ROLES)|{'state:step5c:quality-ledger-pre-authority',
+                                            'state:step5c:artifact-binding-attestation'}:
+        assert states[sid]['content_status']=='unavailable'
+        assert states[sid]['sha256'] is None
+    with pytest.raises(VERIFIER.VerificationError,match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(t.plan,packet,{})
+
+
+def test_r2c19_safe_local_git_config_order_is_not_an_encoding_requirement(r2c19_downstream,tmp_path):
+    t=r2c19_downstream;root=tmp_path/'source';shutil.copytree(t.t.control,root)
+    raw=b'[core]\n\tbare = false\n\tlogallrefupdates = true\n\tfilemode = true\n\trepositoryformatversion = 0\n'
+    (root/'.git/config').write_bytes(raw)
+    VERIFIER._local_r2_downstream_source_snapshot(root,t.plan,t.prepared,
+        fixture_commit_raw=t.f.commit_raw,fixture_commit=t.f.commit)
+    assert (root/'.git/config').read_bytes()==raw
+
+
+@pytest.mark.parametrize('fault',['index','prepared-source','installed-verifier'])
+def test_r2c19_external_source_bindings_remain_mandatory(r2c19_downstream,tmp_path,fault):
+    t=r2c19_downstream;prepared=dict(t.prepared)
+    if fault=='index':prepared['local-r2-source-index.json']+=b'\n'
+    elif fault=='prepared-source':prepared['sources/tools/check_pulsemech_compute_binding_report_v0.py']+=b'\n'
+    other=tmp_path/'other.py';other.write_bytes(Path(VERIFIER.__file__).read_bytes()+b'\n')
+    with patch.object(VERIFIER,'__file__',str(other) if fault=='installed-verifier' else VERIFIER.__file__):
+        with pytest.raises(VERIFIER.VerificationError):
+            VERIFIER._local_r2_downstream_source_snapshot(t.t.control,t.plan,prepared,
+                fixture_commit_raw=t.f.commit_raw,fixture_commit=t.f.commit)
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.
