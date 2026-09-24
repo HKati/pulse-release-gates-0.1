@@ -3852,49 +3852,18 @@ def _require_external_projection_extent(
             "external_operation_coverage_mismatch", stage="verify")
 
 
-def build_runtime_packet(
-    *,
-    plan: Mapping[str, Any],
-    capture_manifest: Mapping[str, Any],
-    capture_members: Mapping[str, bytes],
-    record_status: str,
+def _compose_runtime_packet(
+    *, plan: Mapping[str, Any], capture_manifest: Mapping[str, Any],
+    record_status: str, executions: list[dict[str, Any]], states: list[dict[str, Any]],
+    inferences: list[dict[str, Any]], external_calls: list[dict[str, Any]],
+    collector: Mapping[str, Any], window_start: str, point: str,
 ) -> dict[str, Any]:
-    require(record_status in {"example", "observed"}, "record_status_invalid", stage="runtime")
-    collection_mode = "example" if record_status == "example" else "post_run_platform_export"
+    """Format checked records only; callers retain their distinct trust boundaries."""
     subject = capture_manifest["subject"]
     subject_run_id = positive_int(subject.get("run_id"), label="subject_run_id")
     subject_run_key = f"GITHUB_RUN_ID={subject_run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW={SUBJECT_WORKFLOW_NAME}"
     release_candidate = f"pulse-ci-current-run:{subject_run_id}:1"
-    executions, execution_index = _job_and_step_records(
-        plan,
-        _capture_job_rows(capture_members, capture_manifest),
-        subject_run_key,
-    )
-    collector = _collector_record(plan, capture_manifest, subject_run_key)
-    execution_index[collector["execution_id"]] = collector
-    executions.append(collector)
-    states, inferences = _build_states_and_inferences(
-        plan,
-        execution_index,
-        capture_manifest,
-        capture_members[CAPTURE_PROVIDER_ENVELOPE_MEMBER],
-        subject_run_key,
-        release_candidate,
-    )
-    states = _project_declared_states(plan, capture_manifest, capture_members,
-        states, subject_run_key, release_candidate)
-    external_calls = _build_external_call_records(plan, execution_index, subject_run_key)
-    for call in external_calls:
-        execution_index[call["parent_execution_id"]]["external_call_ids"].append(call["call_id"])
-    for execution in execution_index.values():
-        execution["external_call_ids"].sort()
-    executions = sorted(execution_index.values(), key=lambda row: row["execution_id"])
-    timing = _check_collection_timing(plan, capture_manifest, capture_members)
-    require(record_status == capture_manifest["record_status"], "capture_record_status_mismatch", stage="runtime")
-    point = timing["collection_completed_utc"]
-    # Example-mode containment is intentionally distinct in the unchanged
-    # generic contract. Observed post-run subject events precede collection.
-    window_start = timing["acquisition_started_utc" if record_status == "example" else "collection_started_utc"]
+    collection_mode = "example" if record_status == "example" else "post_run_platform_export"
     workflow_source = _source_row(plan, SUBJECT_WORKFLOW_PATH)
     policy_source = _source_row(plan, POLICY_PATH)
     registry_source = _source_row(plan, REGISTRY_PATH)
@@ -4023,6 +3992,57 @@ def build_runtime_packet(
         "errors": [],
         "ok": True,
     }
+    return packet
+
+
+def build_runtime_packet(
+    *,
+    plan: Mapping[str, Any],
+    capture_manifest: Mapping[str, Any],
+    capture_members: Mapping[str, bytes],
+    record_status: str,
+) -> dict[str, Any]:
+    require(record_status in {"example", "observed"}, "record_status_invalid", stage="runtime")
+    collection_mode = "example" if record_status == "example" else "post_run_platform_export"
+    subject = capture_manifest["subject"]
+    subject_run_id = positive_int(subject.get("run_id"), label="subject_run_id")
+    subject_run_key = f"GITHUB_RUN_ID={subject_run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW={SUBJECT_WORKFLOW_NAME}"
+    release_candidate = f"pulse-ci-current-run:{subject_run_id}:1"
+    executions, execution_index = _job_and_step_records(
+        plan,
+        _capture_job_rows(capture_members, capture_manifest),
+        subject_run_key,
+    )
+    collector = _collector_record(plan, capture_manifest, subject_run_key)
+    execution_index[collector["execution_id"]] = collector
+    executions.append(collector)
+    states, inferences = _build_states_and_inferences(
+        plan,
+        execution_index,
+        capture_manifest,
+        capture_members[CAPTURE_PROVIDER_ENVELOPE_MEMBER],
+        subject_run_key,
+        release_candidate,
+    )
+    states = _project_declared_states(plan, capture_manifest, capture_members,
+        states, subject_run_key, release_candidate)
+    external_calls = _build_external_call_records(plan, execution_index, subject_run_key)
+    for call in external_calls:
+        execution_index[call["parent_execution_id"]]["external_call_ids"].append(call["call_id"])
+    for execution in execution_index.values():
+        execution["external_call_ids"].sort()
+    executions = sorted(execution_index.values(), key=lambda row: row["execution_id"])
+    timing = _check_collection_timing(plan, capture_manifest, capture_members)
+    require(record_status == capture_manifest["record_status"], "capture_record_status_mismatch", stage="runtime")
+    point = timing["collection_completed_utc"]
+    # Example-mode containment is intentionally distinct in the unchanged
+    # generic contract. Observed post-run subject events precede collection.
+    window_start = timing["acquisition_started_utc" if record_status == "example" else "collection_started_utc"]
+    packet = _compose_runtime_packet(
+        plan=plan, capture_manifest=capture_manifest, record_status=record_status,
+        executions=executions, states=states, inferences=inferences, external_calls=external_calls,
+        collector=collector, window_start=window_start, point=point,
+    )
     _require_d6_projection(plan, packet, capture_manifest, capture_members)
     return packet
 
@@ -8635,6 +8655,296 @@ def _verify_local_r2_roles_assessment(
     expected = _assess_local_r2_roles(capture_raw, prepared_raw, expected_context_raw, **pins)
     require(assessment_raw == expected, 'r2_roles_assessment_mismatch', stage='local_r2_role_evaluation')
     return parse_json_bytes(expected, label='r2_roles_assessment')
+
+
+# R2C16: native packet/diagnostic derivation on explicitly synthetic inputs.
+# The original R2 plan is never rewritten or admitted as a public plan. The
+# generic observed-form packet is confined to a simulation-labelled carrier;
+# it is not a newly acquired observation or an original runtime receipt.
+_LOCAL_R2_RUNTIME_CONTEXT_VERSION = 'pulsemech_step5c_local_r2_runtime_context_v0'
+_LOCAL_R2_RUNTIME_VERSION = 'pulsemech_step5c_local_r2_runtime_derivation_v0'
+_LOCAL_R2_RUNTIME_CONTEXT_MEMBER = 'local-r2-runtime-context.json'
+_LOCAL_R2_RUNTIME_ASSESSMENT_MEMBER = 'local-r2-runtime-assessment.json'
+_LOCAL_R2_RUNTIME_SOURCES = (
+    RUNTIME_VALIDATOR_PATH, RUNTIME_SCHEMA_PATH, POLICY_PATH, REGISTRY_PATH, SUBJECT_WORKFLOW_PATH,
+)
+
+
+def _local_r2_runtime_context(
+    plan: Mapping[str, Any], checked: Mapping[str, Any], acquisition: Mapping[str, bytes],
+    raw: bytes, *, expected_sha256: str, fixture_commit: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Check a separate caller-pinned simulated window; never infer collection times."""
+    stage = 'local_r2_runtime'
+    require(type(raw) is bytes and 0 < len(raw) <= 65536
+            and type(expected_sha256) is str and SHA256_RE.fullmatch(expected_sha256) is not None
+            and sha256_bytes(raw) == expected_sha256,
+            'r2_runtime_context_digest_mismatch', stage=stage)
+    value = parse_json_bytes(raw, label='r2_runtime_context')
+    fixed = {
+        'schema_version': _LOCAL_R2_RUNTIME_CONTEXT_VERSION,
+        'record_status': 'local_candidate', 'simulation_only': True,
+        'observed_platform_execution': False, 'original_runtime_reads_proven': False,
+        'source_identity': plan['plan_identity']['source_identity'],
+        'fixture_commit': fixture_commit, 'experiment_id': checked['experiment_id'],
+        'capture_sha256': checked['expected_capture_sha256'],
+        'subject_run_id': checked['subject_run_id'],
+        'timing_scope': 'caller_supplied_simulated_collection_window',
+    }
+    require(set(value) == set(fixed) | {'collector_run_key', 'collection_started_utc', 'collection_completed_utc'}
+            and canonical_json_bytes({key: value.get(key) for key in fixed}) == canonical_json_bytes(fixed),
+            'r2_runtime_context_binding_mismatch', stage=stage)
+    collector = value['collector_run_key']
+    require(type(collector) is str and collector.startswith('local-r2:') and 10 <= len(collector) <= 256
+            and all(32 <= ord(char) <= 126 for char in collector),
+            'r2_runtime_collector_key_invalid', stage=stage)
+    runs = {}
+    for kind in ('subject', 'provider'):
+        run_id = checked[kind + '_run_id']
+        run, _ = _local_r2_response_bytes(acquisition, f'repos/{REPOSITORY}/actions/runs/{run_id}')
+        require(run.get('schema_version') == _LOCAL_R2_NUMBERED_RUN_SCHEMA,
+                'r2_runtime_numbered_run_required', stage=stage)
+        positive_int(run.get('run_number'), label='r2_runtime_run_number')
+        _local_r2_run_time_fields(run)
+        runs[kind] = run
+    start = parse_utc(value['collection_started_utc'], label='r2_runtime_collection_start')
+    end = parse_utc(value['collection_completed_utc'], label='r2_runtime_collection_end')
+    require(max(parse_utc(run['updated_at'], label='r2_runtime_run_end') for run in runs.values())
+            <= start <= end, 'r2_runtime_collection_time_invalid', stage=stage)
+    return value, runs
+
+
+def _local_r2_native_fixture_view(plan: Mapping[str, Any], commit: str) -> dict[str, Any]:
+    """A formatter-only view of the checked commit-to-tree relation, not a new plan."""
+    return {**plan, 'plan_identity': {**plan['plan_identity'], 'source_commit': commit},
+            'source_inventory': [{**row, 'revision': commit, 'revision_kind': 'git_commit'}
+                                 for row in plan['source_inventory']]}
+
+
+def _local_r2_runtime_packet(
+    plan: Mapping[str, Any], prepared: Mapping[str, bytes], checked: Mapping[str, Any],
+    acquisition: Mapping[str, bytes], roles: Mapping[str, Any], context: Mapping[str, Any],
+    runs: Mapping[str, Any], *, fixture_commit: str,
+) -> dict[str, Any]:
+    """Reuse source mappings and native record constructors; preserve every visibility gap."""
+    stage = 'local_r2_runtime'
+    require(roles.get('schema_version') == _LOCAL_R2_ROLE_EVALUATION_VERSION
+            and roles.get('simulation_only') is True and roles.get('role_count') == 62
+            and roles.get('local_content_satisfied_role_count') == 57
+            and set(roles.get('pending_local_role_ids', [])) == set(DERIVED_STATE_MEMBERS),
+            'r2_runtime_role_prerequisite_missing', stage=stage)
+    native = _local_r2_native_fixture_view(plan, fixture_commit)
+    run = runs['subject']; subject_id = checked['subject_run_id']
+    key = f'GITHUB_RUN_ID={subject_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW={SUBJECT_WORKFLOW_NAME}'
+    candidate = f'pulse-ci-current-run:{subject_id}:1'
+    subject = {**run, 'head_sha': fixture_commit}
+    manifest = {'record_status': 'observed', 'subject': subject,
+                'capture_identity': {'collector_run_key': context['collector_run_key'],
+                                    'capture_completed_utc': context['collection_completed_utc']}}
+    page, _ = _local_r2_response_bytes(acquisition,
+        f'repos/{REPOSITORY}/actions/runs/{subject_id}/jobs?per_page=100&page=1')
+    # These fields remain synthetic data. The original pages and plan retain
+    # their tree identity and actual platform numbers in the outer assessment.
+    jobs = [{**row, 'head_sha': fixture_commit, 'steps': row['platform_steps']} for row in page['jobs']]
+    executions, index = _job_and_step_records(native, jobs, key)
+    collector = _collector_record(native, manifest, key)
+    index[collector['execution_id']] = collector
+    selected = {row['role']: row for row in checked['archive_inventory']}
+    provider = acquisition[selected['step3f_candidate_envelope']['member']]
+    state_list, inferences = _build_states_and_inferences(native, index, manifest, provider, key, candidate)
+    states = {row['state_id']: row for row in state_list}
+    templates = _planned_state_templates(plan)
+    input_rows = {row['state_id']: row for row in roles['roles']}
+    require(set(input_rows) == set(templates) and len(input_rows) == len(roles['roles']) == 62,
+            'r2_runtime_role_extent_mismatch', stage=stage)
+    preserved = {member: acquisition[selected[role]['member']] for role, member, _ in _STATE_ARCHIVE_LAYOUT}
+    views, _ = _inspect_subject_state_archive_contents(plan, preserved)
+    manifest['artifact_bindings'] = []
+    for role, member, _ in _STATE_ARCHIVE_LAYOUT:
+        binding = selected[role]; raw = preserved[member]
+        manifest['artifact_bindings'].append({
+            'artifact_id': binding['artifact_id'], 'artifact_name': binding['artifact_name'],
+            'artifact_role': 'subject_state_evidence_artifact', 'source_run_kind': 'subject',
+            'source_run_id': subject_id, 'source_run_attempt': 1, 'exact_bytes_in_capture': True,
+            'downloaded_member': member, 'github_sha256': sha256_bytes(raw),
+            'downloaded_sha256': sha256_bytes(raw), 'size_bytes': len(raw), 'downloaded_size_bytes': len(raw),
+        })
+    tree_documents = _check_preserved_tree_roles(native, manifest, preserved, views)
+    projections = _local_r2_projection_assessment(plan, prepared, checked, acquisition)
+    require(projections['explicit_gap_records'] == roles['explicit_gap_records']
+            and sha256_bytes(canonical_json_bytes(projections)) == roles['projection_assessment_sha256'],
+            'r2_runtime_projection_mismatch', stage=stage)
+    gaps = {'state:step5c:quality-ledger-pre-authority', 'state:step5c:artifact-binding-attestation'}
+    for state_id, template in sorted(templates.items()):
+        row = input_rows[state_id]
+        if state_id in states:
+            continue
+        options: dict[str, Any] = {}
+        if state_id in tree_documents:
+            options = {'raw': tree_documents[state_id], 'media_type': 'application/json',
+                       'schema_identity': PRESERVED_TREE_FORMAT}
+        elif state_id in projections['projections'] and state_id not in gaps:
+            options = {'raw': canonical_json_bytes(projections['projections'][state_id]),
+                       'media_type': 'application/json',
+                       'schema_identity': D3_ARGUMENT_FORMAT if state_id.endswith(':effective-required-argument-list')
+                       else D3_VALUE_FORMAT}
+        elif state_id not in gaps and state_id not in DERIVED_STATE_MEMBERS:
+            binding = row.get('evidence_binding')
+            require(type(binding) is dict, 'r2_runtime_state_binding_missing', state_id, stage=stage)
+            content = binding.get('content', binding)
+            require(type(content) is dict and type(content.get('sha256')) is str
+                    and SHA256_RE.fullmatch(content['sha256']) is not None
+                    and type(content.get('size_bytes')) is int and content['size_bytes'] >= 0,
+                    'r2_runtime_state_binding_invalid', state_id, stage=stage)
+            options = {'source': content}
+        states[state_id] = _state_record(template, subject_run_key=key, release_candidate=candidate,
+            observed_time=context['collection_completed_utc'], **options)
+    require(set(states) == set(templates), 'r2_runtime_state_extent_mismatch', stage=stage)
+    require({state_id for state_id, row in states.items() if row['content_status'] == 'unavailable'}
+            == gaps | set(DERIVED_STATE_MEMBERS), 'r2_runtime_state_gap_mismatch', stage=stage)
+    calls = _build_external_call_records(native, index, key)
+    for call in calls:
+        index[call['parent_execution_id']]['external_call_ids'].append(call['call_id'])
+    for execution in index.values():
+        execution['external_call_ids'].sort()
+    packet = _compose_runtime_packet(
+        plan=native, capture_manifest=manifest, record_status='observed',
+        executions=sorted(index.values(), key=lambda row: row['execution_id']),
+        states=sorted(states.values(), key=lambda row: row['state_id']), inferences=inferences,
+        external_calls=calls, collector=collector, window_start=context['collection_started_utc'],
+        point=context['collection_completed_utc'])
+    # Keep the simulation label visible even when a native member is inspected
+    # apart from its required enclosing local carrier. Native record_status
+    # retains the existing observed-form compatibility, not acquired evidence.
+    packet['producer']['producer_id'] = 'producer:pulsemech-step5c-local-r2-simulation-v0'
+    packet['producer']['producer_name'] = 'PULSEmech local R2 simulation; not an acquired observation'
+    packet['packet_identity']['packet_id'] = f'runtime-observation:step5c:local-r2:{subject_id}:1'
+    return packet
+
+
+def _run_local_r2_runtime_validator(
+    plan: Mapping[str, Any], prepared: Mapping[str, bytes], packet_raw: bytes,
+) -> tuple[bytes, list[dict[str, Any]]]:
+    """Execute preserved generic validator bytes; no saved diagnostic is accepted."""
+    stage = 'local_r2_runtime'
+    source_bytes = {}; bindings = []
+    for name in _LOCAL_R2_RUNTIME_SOURCES:
+        raw = prepared.get('sources/' + name)
+        expected = _source_row(plan, name)
+        require(type(raw) is bytes and raw and sha256_bytes(raw) == expected['sha256']
+                and len(raw) == expected['size_bytes']
+                and hashlib.sha1(b'blob %d\0' % len(raw) + raw).hexdigest() == expected['git_blob_sha1'],
+                'r2_runtime_source_bytes_mismatch', name, stage=stage)
+        source_bytes[name] = raw; bindings.append(descriptor(name, raw))
+    require(type(packet_raw) is bytes and 0 < len(packet_raw) <= 4 * 1024 * 1024,
+            'r2_runtime_packet_size_invalid', stage=stage)
+    with tempfile.TemporaryDirectory(prefix='pulsemech-r2-runtime-') as temporary:
+        root = Path(temporary)
+        all_inputs = {**source_bytes, RUNTIME_PACKET_MEMBER: packet_raw}
+        before = {}
+        for name, raw in all_inputs.items():
+            path = root / name; path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(raw); path.chmod(0o400)
+            info = path.stat()
+            before[name] = (info.st_dev, info.st_ino, info.st_mode, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+        process = run_process([sys.executable, '-I', '-B', str(root / RUNTIME_VALIDATOR_PATH),
+                               '--schema', str(root / RUNTIME_SCHEMA_PATH),
+                               '--packet', str(root / RUNTIME_PACKET_MEMBER)], cwd=root)
+        for name, raw in all_inputs.items():
+            path = root / name; info = path.lstat()
+            require(stat.S_ISREG(info.st_mode) and before[name] == (
+                info.st_dev, info.st_ino, info.st_mode, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+                and path.read_bytes() == raw, 'r2_runtime_inputs_changed', name, stage=stage)
+        diagnostic_raw = _normalize_diagnostic(require_success(process, label='r2_runtime_validator'),
+                                               label='r2_runtime_diagnostic')
+        diagnostic = parse_json_bytes(diagnostic_raw, label='r2_runtime_diagnostic')
+        checks = diagnostic.get('checks')
+        require(set(diagnostic) == {'tool', 'schema_version', 'packet_type', 'ok', 'schema_valid', 'checks', 'errors'}
+                and diagnostic.get('tool') == 'check_pulsemech_compute_runtime_observation_packet_v0'
+                and diagnostic.get('schema_version') == RUNTIME_SCHEMA_VERSION
+                and diagnostic.get('packet_type') == 'pulsemech_compute_runtime_observation_packet'
+                and diagnostic.get('ok') is True and diagnostic.get('schema_valid') is True
+                and diagnostic.get('errors') == [] and type(checks) is dict and bool(checks)
+                and all(value is True for value in checks.values()),
+                'r2_runtime_diagnostic_invalid', stage=stage)
+    return diagnostic_raw, bindings
+
+
+def _assess_local_r2_runtime(
+    capture_raw: bytes, prepared_raw: bytes, expected_context_raw: bytes, *,
+    fixture_commit_raw: bytes, expected_fixture_commit: str,
+    gh_executable: Path, expected_gh_sha256: str,
+    runtime_context_raw: bytes, expected_runtime_context_sha256: str,
+    expected_capture_sha256: str, expected_acquisition_sha256: str, **pins: Any,
+) -> bytes:
+    """Derive two downstream roles, keeping three pending and original admission closed."""
+    checked, captured = _read_local_r2_capture(capture_raw, prepared_raw, expected_context_raw,
+        expected_capture_sha256=expected_capture_sha256,
+        expected_acquisition_sha256=expected_acquisition_sha256, **pins)
+    checked = {**checked, 'expected_capture_sha256': expected_capture_sha256}
+    plan, prepared = _read_local_r2_prepared(prepared_raw, expected_context_raw, **pins)
+    acquisition = read_canonical_zip_bytes(captured['local-r2-acquisition.zip'],
+        label='r2_runtime_acquisition', maximum_members=256, maximum_bytes=80 * 1024 * 1024)
+    commit_binding = _local_r2_package_commit_binding(plan, fixture_commit_raw, expected_fixture_commit)
+    context, runs = _local_r2_runtime_context(plan, checked, acquisition, runtime_context_raw,
+        expected_sha256=expected_runtime_context_sha256, fixture_commit=expected_fixture_commit)
+    roles = _local_r2_role_evaluation_assessment(plan, prepared, checked, acquisition,
+        fixture_commit_raw=fixture_commit_raw, expected_fixture_commit=expected_fixture_commit,
+        gh_executable=gh_executable, expected_gh_sha256=expected_gh_sha256)
+    packet = _local_r2_runtime_packet(plan, prepared, checked, acquisition, roles, context, runs,
+                                      fixture_commit=expected_fixture_commit)
+    packet_raw = canonical_json_bytes(packet)
+    diagnostic_raw, sources = _run_local_r2_runtime_validator(plan, prepared, packet_raw)
+    outputs = {RUNTIME_PACKET_MEMBER: packet_raw, RUNTIME_DIAGNOSTIC_MEMBER: diagnostic_raw}
+    completed = {'state:step5c:runtime-observation-packet': RUNTIME_PACKET_MEMBER,
+                 'state:step5c:runtime-observation-diagnostic': RUNTIME_DIAGNOSTIC_MEMBER}
+    rows = []
+    for row in roles['roles']:
+        if row['state_id'] in completed:
+            name = completed[row['state_id']]
+            row = {**row, 'local_condition_status': 'satisfied', 'local_condition_satisfied': True,
+                   'pending_requirements': [], 'evidence_binding': {
+                       'output': descriptor(name, outputs[name]),
+                       'runtime_packet': descriptor(RUNTIME_PACKET_MEMBER, packet_raw),
+                       'scope': 'synthetic_native_derivation_not_original_observation'}}
+        rows.append(row)
+    assessment = {**roles, 'schema_version': _LOCAL_R2_RUNTIME_VERSION,
+        'validation_scope': 'synthetic_R2_runtime_packet_and_fresh_native_diagnostic_only',
+        'role_evaluation_sha256': sha256_bytes(canonical_json_bytes(roles)),
+        'runtime_context': descriptor(_LOCAL_R2_RUNTIME_CONTEXT_MEMBER, runtime_context_raw),
+        'native_source_binding': commit_binding,
+        'native_record_status': 'observed', 'native_observed_form_is_simulation_only': True,
+        'runtime_validator_cli_executed': True, 'runtime_validator_sources': sources,
+        'roles': rows, 'local_content_satisfied_role_count': sum(row['local_condition_satisfied'] for row in rows),
+        'pending_local_role_ids': [row['state_id'] for row in rows if row['pending_requirements']],
+        'derived_outputs': [descriptor(name, raw) for name, raw in sorted(outputs.items())],
+        'D6_action_metadata_projection': _local_r2_projection_assessment(plan, prepared, checked, acquisition)
+                                        ['projections']['state:step5c:artifact-binding-attestation'],
+        'remaining_requirements': ['three_existing_core_report_relation_candidate_derivations',
+            'two_full_source_bound_R2_reconstructions', 'original_mandatory_signature_evidence',
+            'coordinated_public_R2_route_and_reference_admission'],
+    }
+    return deterministic_zip_bytes({**outputs, _LOCAL_R2_RUNTIME_CONTEXT_MEMBER: runtime_context_raw,
+        _LOCAL_R2_RUNTIME_ASSESSMENT_MEMBER: canonical_json_bytes(assessment)},
+        maximum_members=4, maximum_bytes=8 * 1024 * 1024)
+
+
+def _verify_local_r2_runtime(
+    derivation_raw: bytes, capture_raw: bytes, prepared_raw: bytes, expected_context_raw: bytes, *,
+    expected_derivation_sha256: str, **pins: Any,
+) -> dict[str, Any]:
+    """Recompute packet and execute its validator again, never trust stored success."""
+    require(type(derivation_raw) is bytes and 0 < len(derivation_raw) <= 8 * 1024 * 1024
+            and sha256_bytes(derivation_raw) == expected_derivation_sha256,
+            'r2_runtime_derivation_digest_mismatch', stage='local_r2_runtime')
+    members = read_canonical_zip_bytes(derivation_raw, label='r2_runtime_derivation',
+        maximum_members=4, maximum_bytes=8 * 1024 * 1024)
+    require(set(members) == {RUNTIME_PACKET_MEMBER, RUNTIME_DIAGNOSTIC_MEMBER,
+                            _LOCAL_R2_RUNTIME_CONTEXT_MEMBER, _LOCAL_R2_RUNTIME_ASSESSMENT_MEMBER},
+            'r2_runtime_derivation_member_mismatch', stage='local_r2_runtime')
+    expected = _assess_local_r2_runtime(capture_raw, prepared_raw, expected_context_raw, **pins)
+    require(derivation_raw == expected, 'r2_runtime_derivation_mismatch', stage='local_r2_runtime')
+    return parse_json_bytes(members[_LOCAL_R2_RUNTIME_ASSESSMENT_MEMBER], label='r2_runtime_assessment')
 
 
 if __name__ == "__main__":

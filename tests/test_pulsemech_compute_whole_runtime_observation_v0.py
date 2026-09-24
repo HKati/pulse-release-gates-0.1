@@ -17368,6 +17368,255 @@ def test_r2c15_content_descriptor_requires_exact_types(r2c15_role_evidence, faul
         _r2c15_conditions(t,content_bindings=extra)
 
 
+# R2C16: first two native downstream outputs; no original observation claim.
+@pytest.fixture(scope='module')
+def r2c16_runtime_inputs(r2c15_role_evidence, tmp_path_factory):
+    from datetime import datetime, timedelta, timezone
+    t = r2c15_role_evidence; f = t.f
+    directory = tmp_path_factory.mktemp('r2c16-native-runtime')
+    provider, _ = VERIFIER._local_r2_response_bytes(t.acquisition,
+        f'repos/{VERIFIER.REPOSITORY}/actions/runs/9002')
+    # Explicit test data, never a fallback inside the production constructor.
+    begin = datetime.fromisoformat(provider['updated_at'].replace('Z', '+00:00')) + timedelta(seconds=60)
+    context = {'schema_version': 'pulsemech_step5c_local_r2_runtime_context_v0',
+        'record_status': 'local_candidate', 'simulation_only': True,
+        'observed_platform_execution': False, 'original_runtime_reads_proven': False,
+        'source_identity': t.plan['plan_identity']['source_identity'], 'fixture_commit': f.commit,
+        'experiment_id': t.checked['experiment_id'], 'capture_sha256': digest(f.capture),
+        'subject_run_id': 9001, 'timing_scope': 'caller_supplied_simulated_collection_window',
+        'collector_run_key': 'local-r2:runtime-projection:collector',
+        'collection_started_utc': begin.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'collection_completed_utc': (begin + timedelta(seconds=60)).strftime('%Y-%m-%dT%H:%M:%SZ')}
+    context_raw = canonical(context)
+    pins = {**t.pins, 'runtime_context_raw': context_raw, 'expected_runtime_context_sha256': digest(context_raw)}
+    calls = []
+    original = VERIFIER.run_process
+    def record(command, **kwargs):
+        calls.append(tuple(map(str, command)))
+        return original(command, **kwargs)
+    with patch.object(VERIFIER, 'run_process', side_effect=record):
+        raw = VERIFIER._assess_local_r2_runtime(f.capture, f.carrier.raw, f.carrier.context, **pins)
+    members = VERIFIER.read_canonical_zip_bytes(raw, label='r2c16_test', maximum_members=4,
+                                               maximum_bytes=8*1024*1024)
+    assessment = json.loads(members['local-r2-runtime-assessment.json'])
+    (directory/'runtime-derivation.zip').write_bytes(raw)
+    (directory/'runtime-context.json').write_bytes(context_raw)
+    inputs=directory/'inputs';inputs.mkdir()
+    for name,data in {'prepared.zip':f.carrier.raw,'context.json':f.carrier.context,
+        'capture.zip':f.capture,'acquisition.zip':f.raw,
+        'fixture-commit.raw':f.commit_raw,'fake-gh':f.gh.read_bytes(),
+        'runtime-context.json':context_raw}.items():
+        (inputs/name).write_bytes(data)
+    saved_pins={k:v for k,v in pins.items() if isinstance(v,(str,int,bool))}
+    (inputs/'pins.json').write_bytes(canonical(saved_pins))
+    return SimpleNamespace(t=t, f=f, pins=pins, context=context, context_raw=context_raw,
+        raw=raw, members=members, assessment=assessment, calls=calls, directory=directory)
+
+
+def test_r2c16_runtime_packet_and_real_diagnostic(r2c16_runtime_inputs):
+    t = r2c16_runtime_inputs; a = t.assessment
+    assert a['local_content_satisfied_role_count'] == 59
+    assert set(a['pending_local_role_ids']) == {'state:step5c:compute-binding-report',
+        'state:step5c:planned-observed-relation', 'state:step5c:folded-non-active-candidate-status'}
+    assert a['fully_satisfied_role_count'] == 0 and a['assessment_status'] == 'incomplete'
+    assert a['runtime_validator_cli_executed'] is True
+    assert a['native_observed_form_is_simulation_only'] is True
+    assert a['observed_platform_execution'] is False
+    assert a['mandatory_llamaguard_signatures_verified'] is False
+    assert not any(a['local_boundary'].values())
+    assert any(Path(call[3]).name == 'check_pulsemech_compute_runtime_observation_packet_v0.py'
+               for call in t.calls if len(call) > 3)
+    packet = json.loads(t.members['runtime-observation-packet.json'])
+    diagnostic = json.loads(t.members['runtime-packet-diagnostic.json'])
+    assert diagnostic['ok'] is True and diagnostic['schema_valid'] is True and diagnostic['errors'] == []
+    assert all(value is True for value in diagnostic['checks'].values())
+    assert len(packet['state_observations']) == 62
+    assert len(packet['model_inferences']) == 6
+    assert 'simulation' in packet['producer']['producer_name']
+    assert ':local-r2:' in packet['packet_identity']['packet_id']
+    assert packet['subject']['source_commit'] == t.f.commit != t.t.plan['plan_identity']['source_identity']['git_tree_sha1']
+    missing = {row['state_id'] for row in packet['state_observations'] if row['content_status'] == 'unavailable'}
+    assert missing == _R2C15_DOWNSTREAM | {'state:step5c:quality-ledger-pre-authority', 'state:step5c:artifact-binding-attestation'}
+    assert all(row['role_obligation_satisfied'] is False for row in a['roles'])
+    for name in ('runtime-observation-packet.json', 'runtime-packet-diagnostic.json'):
+        assert next(row for row in a['derived_outputs'] if row['member'] == name) == VERIFIER.descriptor(name,t.members[name])
+    assert a['D6_action_metadata_projection']['signed_receipt_content_status'] == 'unavailable'
+
+
+
+def _r2c16_context(t, value):
+    raw = canonical(value)
+    return VERIFIER._local_r2_runtime_context(t.t.plan, t.t.checked, t.t.acquisition, raw,
+        expected_sha256=digest(raw), fixture_commit=t.f.commit)
+
+
+@pytest.mark.parametrize('fault', ['schema', 'status', 'simulation', 'observation', 'reads', 'source',
+    'commit', 'capture', 'experiment', 'run', 'unknown', 'missing_start', 'missing_end',
+    'null_start', 'non_utc', 'before_runs', 'inverted', 'collector', 'collector_control', 'scope'])
+def test_r2c16_rehashed_runtime_context_faults(r2c16_runtime_inputs, fault):
+    t=r2c16_runtime_inputs; value=copy.deepcopy(t.context)
+    if fault=='schema': value['schema_version']='unknown'
+    elif fault=='status': value['record_status']='observed'
+    elif fault=='simulation': value['simulation_only']=False
+    elif fault=='observation': value['observed_platform_execution']=True
+    elif fault=='reads': value['original_runtime_reads_proven']=True
+    elif fault=='source': value['source_identity']['git_tree_sha1']='0'*40
+    elif fault=='commit': value['fixture_commit']='0'*40
+    elif fault=='capture': value['capture_sha256']='0'*64
+    elif fault=='experiment': value['experiment_id']='other'
+    elif fault=='run': value['subject_run_id']=9002
+    elif fault=='unknown': value['extra']=True
+    elif fault=='missing_start': del value['collection_started_utc']
+    elif fault=='missing_end': del value['collection_completed_utc']
+    elif fault=='null_start': value['collection_started_utc']=None
+    elif fault=='non_utc': value['collection_started_utc']='2020-01-01'
+    elif fault=='before_runs': value['collection_started_utc']='2000-01-01T00:00:00Z'
+    elif fault=='inverted': value['collection_started_utc'],value['collection_completed_utc']=value['collection_completed_utc'],value['collection_started_utc']
+    elif fault=='collector': value['collector_run_key']=''
+    elif fault=='collector_control': value['collector_run_key']='local-r2:collector\n'
+    else: value['timing_scope']='observed_collection_time'
+    with pytest.raises(VERIFIER.VerificationError): _r2c16_context(t,value)
+
+
+def test_r2c16_runtime_context_requires_external_digest(r2c16_runtime_inputs):
+    t=r2c16_runtime_inputs
+    with pytest.raises(VERIFIER.VerificationError,match='r2_runtime_context_digest_mismatch'):
+        VERIFIER._local_r2_runtime_context(t.t.plan,t.t.checked,t.t.acquisition,t.context_raw,
+            expected_sha256='0'*64,fixture_commit=t.f.commit)
+
+
+@pytest.mark.parametrize('name',[
+    'tools/check_pulsemech_compute_runtime_observation_packet_v0.py',
+    'schemas/pulsemech_compute_runtime_observation_packet_v0.schema.json',
+    'pulse_gate_policy_v0.yml','pulse_gate_registry_v0.yml','.github/workflows/pulse_ci.yml'])
+@pytest.mark.parametrize('fault',['missing','changed'])
+def test_r2c16_native_source_is_never_replaced_from_checkout(r2c16_runtime_inputs,name,fault):
+    t=r2c16_runtime_inputs; prepared=dict(t.t.prepared)
+    if fault=='missing': del prepared['sources/'+name]
+    else: prepared['sources/'+name]+=b'\n'
+    with pytest.raises(VERIFIER.VerificationError,match='r2_runtime_source_bytes_mismatch'):
+        VERIFIER._run_local_r2_runtime_validator(t.t.plan,prepared,t.members['runtime-observation-packet.json'])
+
+
+@pytest.mark.parametrize('fault',['schema','type','duplicate_state','digest','collector','identity','nonliteral_ok'])
+def test_r2c16_real_validator_rejects_bad_packet(r2c16_runtime_inputs,fault):
+    t=r2c16_runtime_inputs; packet=json.loads(t.members['runtime-observation-packet.json'])
+    if fault=='schema': packet['schema_version']='other'
+    elif fault=='type': packet['packet_type']='other'
+    elif fault=='duplicate_state': packet['state_observations'].append(packet['state_observations'][0])
+    elif fault=='digest': packet['state_observations'][0]['sha256']='not-a-digest'
+    elif fault=='collector': packet['observation_boundary']['collector_execution_id']='missing'
+    elif fault=='identity': packet['subject']['workflow_run_id']=0
+    else: packet['ok']=1
+    with pytest.raises(VERIFIER.VerificationError):
+        VERIFIER._run_local_r2_runtime_validator(t.t.plan,t.t.prepared,canonical(packet))
+
+
+@pytest.mark.parametrize('fault',['ok','schema','checks','empty_checks','errors','tool','extra'])
+def test_r2c16_successful_exit_without_valid_diagnostic_rejects(r2c16_runtime_inputs,fault):
+    t=r2c16_runtime_inputs; diagnostic=json.loads(t.members['runtime-packet-diagnostic.json'])
+    if fault=='ok': diagnostic['ok']=1
+    elif fault=='schema': diagnostic['schema_valid']='true'
+    elif fault=='checks': diagnostic['checks'][next(iter(diagnostic['checks']))]=1
+    elif fault=='empty_checks': diagnostic['checks']={}
+    elif fault=='errors': diagnostic['errors']=['controlled']
+    elif fault=='tool': diagnostic['tool']='other'
+    else: diagnostic['extra']=True
+    with patch.object(VERIFIER,'run_process',return_value=VERIFIER.ProcessOutput(0,canonical(diagnostic),b'')):
+        with pytest.raises(VERIFIER.VerificationError,match='r2_runtime_diagnostic_invalid'):
+            VERIFIER._run_local_r2_runtime_validator(t.t.plan,t.t.prepared,t.members['runtime-observation-packet.json'])
+
+
+def test_r2c16_native_validator_failure_propagates(r2c16_runtime_inputs):
+    t=r2c16_runtime_inputs
+    with patch.object(VERIFIER,'run_process',return_value=VERIFIER.ProcessOutput(23,b'{}',b'controlled')):
+        with pytest.raises(VERIFIER.VerificationError):
+            VERIFIER._run_local_r2_runtime_validator(t.t.plan,t.t.prepared,t.members['runtime-observation-packet.json'])
+
+
+def test_r2c16_native_validator_input_mutation_rejects(r2c16_runtime_inputs):
+    t=r2c16_runtime_inputs; original=VERIFIER.run_process
+    def mutate(command,**kwargs):
+        result=original(command,**kwargs)
+        path=Path(command[-1]);path.chmod(0o600);path.write_bytes(path.read_bytes()+b' ')
+        return result
+    with patch.object(VERIFIER,'run_process',side_effect=mutate):
+        with pytest.raises(VERIFIER.VerificationError,match='r2_runtime_inputs_changed'):
+            VERIFIER._run_local_r2_runtime_validator(t.t.plan,t.t.prepared,t.members['runtime-observation-packet.json'])
+
+
+def test_r2c16_native_validator_cleanup_failure_propagates(r2c16_runtime_inputs):
+    t=r2c16_runtime_inputs; actual=VERIFIER.tempfile.TemporaryDirectory
+    class CleanupFailure:
+        def __init__(self,*args,**kwargs):self.context=actual(*args,**kwargs)
+        def __enter__(self):return self.context.__enter__()
+        def __exit__(self,*args):
+            self.context.__exit__(*args)
+            raise OSError('controlled runtime cleanup failure')
+    with patch.object(VERIFIER.tempfile,'TemporaryDirectory',CleanupFailure):
+        with pytest.raises(OSError,match='controlled runtime cleanup failure'):
+            VERIFIER._run_local_r2_runtime_validator(t.t.plan,t.t.prepared,t.members['runtime-observation-packet.json'])
+
+
+def test_r2c16_formatter_view_does_not_reinterpret_original_plan(r2c16_runtime_inputs):
+    t=r2c16_runtime_inputs;before=canonical(t.t.plan)
+    view=VERIFIER._local_r2_native_fixture_view(t.t.plan,t.f.commit)
+    assert canonical(t.t.plan)==before
+    assert view['plan_identity']['source_commit']==t.f.commit
+    assert t.t.plan['plan_identity'].get('source_commit') is None
+    assert view['local_requirement_binding']==t.t.plan['local_requirement_binding']
+    assert view['record_status']==t.t.plan['record_status']=='local_candidate'
+    assert view['state_templates']==t.t.plan['state_templates']
+
+
+def test_r2c16_legacy_incomplete_stop_remains(r2c16_runtime_inputs):
+    t=r2c16_runtime_inputs;packet=json.loads(t.members['runtime-observation-packet.json'])
+    with pytest.raises(VERIFIER.VerificationError,match='declared_state_evidence_incomplete'):
+        VERIFIER._require_declared_state_completion(t.t.plan,packet,t.members)
+
+
+def test_r2c16_saved_reader_reexecutes_native_validator(r2c16_runtime_inputs):
+    t=r2c16_runtime_inputs;calls=[];original=VERIFIER.run_process
+    def record(command,**kwargs):
+        calls.append(tuple(map(str,command)));return original(command,**kwargs)
+    with patch.object(VERIFIER,'run_process',side_effect=record):
+        result=VERIFIER._verify_local_r2_runtime(t.raw,t.f.capture,t.f.carrier.raw,t.f.carrier.context,
+            expected_derivation_sha256=digest(t.raw),**t.pins)
+    assert result==t.assessment
+    assert any(Path(call[3]).name=='check_pulsemech_compute_runtime_observation_packet_v0.py'
+        for call in calls if len(call)>3)
+
+
+def test_r2c16_saved_packet_rehash_cannot_invent_a_pre_state(r2c16_runtime_inputs):
+    t=r2c16_runtime_inputs;members=dict(t.members)
+    packet=json.loads(members['runtime-observation-packet.json'])
+    row=next(row for row in packet['state_observations'] if row['state_id']=='state:step5c:quality-ledger-pre-authority')
+    row.update(content_status='exact_digest',sha256='0'*64,size_bytes=1)
+    members['runtime-observation-packet.json']=canonical(packet)
+    assessment=json.loads(members['local-r2-runtime-assessment.json'])
+    for row in assessment['derived_outputs']:
+        if row['member']=='runtime-observation-packet.json':row.update(VERIFIER.descriptor(row['member'],members[row['member']]))
+    for role in assessment['roles']:
+        binding=role.get('evidence_binding')
+        if isinstance(binding,dict) and 'runtime_packet' in binding:
+            binding['runtime_packet']=VERIFIER.descriptor('runtime-observation-packet.json',members['runtime-observation-packet.json'])
+            if binding['output']['member']=='runtime-observation-packet.json':binding['output']=binding['runtime_packet']
+    members['local-r2-runtime-assessment.json']=canonical(assessment)
+    raw=VERIFIER.deterministic_zip_bytes(members,maximum_members=4,maximum_bytes=8*1024*1024)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_runtime_derivation_mismatch'):
+        VERIFIER._verify_local_r2_runtime(raw,t.f.capture,t.f.carrier.raw,t.f.carrier.context,
+            expected_derivation_sha256=digest(raw),**t.pins)
+
+
+def test_r2c16_invalid_generated_packet_requires_fresh_validator(r2c16_runtime_inputs):
+    t=r2c16_runtime_inputs;original=VERIFIER._local_r2_runtime_packet
+    def malformed(*args,**kwargs):
+        packet=original(*args,**kwargs);packet['subject']['workflow_run_id']=0;return packet
+    with patch.object(VERIFIER,'_local_r2_runtime_packet',side_effect=malformed):
+        with pytest.raises(VERIFIER.VerificationError):
+            VERIFIER._assess_local_r2_runtime(t.f.capture,t.f.carrier.raw,t.f.carrier.context,**t.pins)
+
+
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters
     # or environment-supplied plugin/options can silently trim it.
