@@ -2731,8 +2731,25 @@ def test_r2_tag_cannot_upgrade_a_legacy_plan_through_the_current_checker(source_
 # come from workflow command arguments, not either plan table. Fault-injection
 # tests exercise the source-equation boundary; they are not acquired evidence.
 # ---------------------------------------------------------------------------
+# This is private, immutable INPUT syntax for the mapping regression fixtures,
+# never a cached projection, validation result, schema check or acceptance flag.
+# Retain at most one exact byte string. Every call rereads the file and receives
+# its own deep copy, so a mutation cannot contaminate another case or side.
+_MAPPING_SOURCE_SYNTAX = None
+
+
 def mapping_source_document():
-    return yaml.load((ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_text(encoding='utf-8'), Loader=yaml.BaseLoader)
+    global _MAPPING_SOURCE_SYNTAX
+    raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    saved = _MAPPING_SOURCE_SYNTAX
+    if saved is None or saved[0] != raw:
+        # Match Path.read_text's UTF-8 and universal-newline behavior exactly.
+        # Do not store failed decodes or failed parses, or invoke producer code.
+        with io.TextIOWrapper(io.BytesIO(raw), encoding='utf-8') as source:
+            document = yaml.load(source.read(), Loader=yaml.BaseLoader)
+        saved = (raw, document)
+        _MAPPING_SOURCE_SYNTAX = saved
+    return copy.deepcopy(saved[1])
 
 
 def independent_source_argument(document, ordinal, tool, option):
@@ -18892,6 +18909,72 @@ def test_r2_public_source_copy_rejects_changed_worktree_bytes(r2_public_plan_onl
     path.write_bytes(path.read_bytes() + b"\n# changed source copy\n")
     with pytest.raises(VERIFIER.VerificationError, match="r2_public_source_copy_mismatch"):
         VERIFIER._public_r2_source_snapshot(root, p.f.sha, p.plan)
+
+
+
+
+# Regression-fixture syntax reuse must never stand in for the mapping proof.
+def test_mapping_fixture_reuse_returns_isolated_inputs_not_verdicts():
+    global _MAPPING_SOURCE_SYNTAX
+    saved = _MAPPING_SOURCE_SYNTAX
+    _MAPPING_SOURCE_SYNTAX = None
+    try:
+        raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+        expected = yaml.load(raw.decode('utf-8'), Loader=yaml.BaseLoader)
+        original = yaml.load
+        with patch.object(yaml, 'load', wraps=original) as parser:
+            first = mapping_source_document()
+            first['jobs']['release_grade_recorded_path']['steps'][0]['name'] = 'changed case'
+            second = mapping_source_document()
+            second['jobs'].clear()
+            third = mapping_source_document()
+        assert parser.call_count == 1
+        assert third == expected and third is not expected
+        assert _MAPPING_SOURCE_SYNTAX[0] == raw
+        assert _MAPPING_SOURCE_SYNTAX[1] == expected
+    finally:
+        _MAPPING_SOURCE_SYNTAX = saved
+
+
+def test_mapping_fixture_reuse_keys_exact_bytes_not_path_or_digest():
+    global _MAPPING_SOURCE_SYNTAX
+    saved = _MAPPING_SOURCE_SYNTAX
+    _MAPPING_SOURCE_SYNTAX = None
+    first = b'jobs:\n  first: {}\n'
+    reformatted = b'jobs:\r\n  first: {}\r\n'
+    changed = b'jobs:\n  second: {}\n'
+    original = yaml.load
+    try:
+        with patch.object(Path, 'read_bytes', side_effect=[first, first, reformatted, changed, first]), \
+                patch.object(yaml, 'load', wraps=original) as parser:
+            results = [mapping_source_document() for _ in range(5)]
+        assert parser.call_count == 4  # exact-byte change invalidates the sole slot
+        assert results[0] == results[1] == results[2] == results[4] == {'jobs': {'first': {}}}
+        assert results[3] == {'jobs': {'second': {}}}
+        assert _MAPPING_SOURCE_SYNTAX[0] == first
+    finally:
+        _MAPPING_SOURCE_SYNTAX = saved
+
+
+@pytest.mark.parametrize('raw,error', [(b'\xff', UnicodeDecodeError), (b'jobs: [\n', yaml.YAMLError)])
+def test_mapping_fixture_reuse_does_not_hide_input_failures(raw, error):
+    global _MAPPING_SOURCE_SYNTAX
+    saved = _MAPPING_SOURCE_SYNTAX
+    _MAPPING_SOURCE_SYNTAX = None
+    try:
+        good = mapping_source_document()
+        warm = _MAPPING_SOURCE_SYNTAX
+        with patch.object(Path, 'read_bytes', return_value=raw):
+            for _ in range(2):
+                with pytest.raises(error):
+                    mapping_source_document()
+                assert _MAPPING_SOURCE_SYNTAX is warm
+        with patch.object(Path, 'read_bytes', side_effect=OSError('unavailable current source')):
+            with pytest.raises(OSError, match='unavailable current source'):
+                mapping_source_document()
+        assert mapping_source_document() == good
+    finally:
+        _MAPPING_SOURCE_SYNTAX = saved
 
 
 if __name__ == '__main__':
