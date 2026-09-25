@@ -465,7 +465,10 @@ def source_fixture(tmp_path_factory):
     root.mkdir()
     # This fixture needs no network, historical upstream object, copied .git,
     # source-pin substitution, or synthetic implementation dependency.
-    for _, relative in BUILDER.SOURCE_ROLES:
+    # Include the reviewed dependency closure so the same committed fixture can
+    # also build the new observed-profile plan. Legacy example plans still
+    # bind exactly their original 60 source roles.
+    for _, relative in BUILDER.PUBLIC_R2_SOURCE_ROLES:
         source = ROOT / relative
         assert source.is_file() and not source.is_symlink(), relative
         target = root / relative
@@ -2595,7 +2598,11 @@ def test_r2_schema_foundation_is_not_reachable_from_active_record_branches():
     ]
     added = {name for name in EVIDENCE_SCHEMA['$defs'] if name.startswith(R2_DEFINITION_PREFIX)}
     assert len(added) == 6
-    assert not added.intersection(_schema_definition_reachability(EVIDENCE_SCHEMA))
+    # Public integration makes the reviewed duties reachable through a bound
+    # existing record, never as a free-standing fifth record/accepted verdict.
+    reached = _schema_definition_reachability(EVIDENCE_SCHEMA)
+    assert R2_DEFINITION_PREFIX + 'definition' not in reached
+    assert R2_DEFINITION_PREFIX + 'role_obligations' in reached
     assert not jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).is_valid(r2_definition_example())
 
 
@@ -18539,6 +18546,279 @@ def test_r2c20_cleanup_failure_cannot_return_reconstruction(r2c20_reconstruction
     with patch.object(VERIFIER.tempfile,'TemporaryDirectory',BrokenCleanup), \
          patch.object(VERIFIER,'run_process',return_value=VERIFIER.ProcessOutput(31,b'',b'controlled failure')):
         with pytest.raises(OSError,match='controlled reconstruction cleanup failure'):_r2c20_once(t)
+
+
+# R2 public integration: native producer fixture, real public entrypoints,
+# explicit example-only transport/signature doubles. No hosted proof claimed.
+class _R2PublicExampleTransport:
+    def __init__(self, f):
+        self.calls = []; self.source_commit = f.commit; self.records = {}; self.downloads = {}
+        prefix = 'repos/' + ACQUIRER.REPOSITORY
+        self.records[ACQUIRER.MAIN_REF_ENDPOINT] = {'ref': 'refs/heads/main',
+            'object': {'type': 'commit', 'sha': f.commit}}
+        for kind, identifier in [('subject',9001),('provider',9002)]:
+            local, _ = VERIFIER._local_r2_response_bytes(f.members, prefix + '/actions/runs/' + str(identifier))
+            row = example_run(kind, f.commit)
+            row.update(id=identifier, run_number=local['run_number'], created_at=local['run_started_at'],
+                run_started_at=local['run_started_at'], updated_at=local['updated_at'],
+                url='https://api.github.com/' + prefix + '/actions/runs/' + str(identifier),
+                html_url='https://github.com/' + ACQUIRER.REPOSITORY + '/actions/runs/' + str(identifier))
+            self.records[prefix + '/actions/runs/' + str(identifier)] = row
+            self.records[ACQUIRER.SUBJECT_DISPATCH_ENDPOINT if kind=='subject' else ACQUIRER.PROVIDER_DISPATCH_ENDPOINT] = {
+                'workflow_run_id':identifier,'run_url':row['url'],'html_url':row['html_url']}
+            jobs,_ = VERIFIER._local_r2_response_bytes(f.members, prefix + '/actions/runs/' + str(identifier) + '/jobs?per_page=100&page=1')
+            public_jobs=[]
+            for j in jobs['jobs']:
+                new={key:copy.deepcopy(j[key]) for key in ('id','run_id','run_attempt','status','conclusion','started_at','completed_at')}
+                new.update(head_sha=f.commit,name=j.get('name','Build non-active current-run candidate'),
+                    steps=copy.deepcopy(j['platform_steps']),labels=['ubuntu-24.04'],runner_name='explicit-example-runner',
+                    runner_id=j['id']+100000,runner_group_id=1,runner_group_name='GitHub Actions')
+                public_jobs.append(new)
+            self.records[prefix + '/actions/runs/' + str(identifier) + '/attempts/1/jobs?per_page=100&page=1']={
+                'total_count':len(public_jobs),'jobs':public_jobs}
+            archives=[]
+            roles=[r['role'] for r in f.checked['archive_inventory'] if r['source_run_id']==identifier]
+            for role in roles:
+                _,a,raw,_=VERIFIER._local_r2_provider_publication(f.members,f.checked,role)
+                a2=artifact_row(a['id'],a['name'],raw,f.commit,identifier)
+                a2.update(created_at=a['created_at'],expires_at=a['expires_at'])
+                archives.append(a2);self.downloads[a['id']]=raw
+            self.records[prefix + '/actions/runs/' + str(identifier) + '/artifacts?per_page=100&page=1']={
+                'total_count':len(archives),'artifacts':archives}
+        self.now=self.records[prefix+'/actions/runs/9002']['updated_at']
+        self.clock_values=iter([self.records[prefix+'/actions/runs/9001']['updated_at'],self.now,self.now])
+
+    def utc_now(self):
+        return next(self.clock_values)
+
+    def request(self,*,method,endpoint,body,max_response_bytes):
+        self.calls.append((method,endpoint,body))
+        assert endpoint in self.records, 'Unexpected network endpoint: '+endpoint
+        expected='POST' if endpoint in (ACQUIRER.SUBJECT_DISPATCH_ENDPOINT,ACQUIRER.PROVIDER_DISPATCH_ENDPOINT) else 'GET'
+        assert method==expected
+        if method=='POST':
+            inputs=dict(ACQUIRER.SUBJECT_DISPATCH_INPUTS) if endpoint==ACQUIRER.SUBJECT_DISPATCH_ENDPOINT else {'source_run_id':'9001'}
+            assert json.loads(body)=={'ref':'main','inputs':inputs}
+        else:
+            assert body is None
+        raw=canonical(self.records[endpoint]);assert len(raw)<=max_response_bytes
+        if endpoint==ACQUIRER.MAIN_REF_ENDPOINT:
+            run=self.records['repos/'+ACQUIRER.REPOSITORY+'/actions/runs/9001']
+            point=run['updated_at'] if any(m=='POST' for m,_,_ in self.calls) else run['run_started_at']
+        elif endpoint==ACQUIRER.SUBJECT_DISPATCH_ENDPOINT:
+            point=self.records['repos/'+ACQUIRER.REPOSITORY+'/actions/runs/9001']['run_started_at']
+        elif endpoint==ACQUIRER.PROVIDER_DISPATCH_ENDPOINT:
+            point=self.records['repos/'+ACQUIRER.REPOSITORY+'/actions/runs/9002']['run_started_at']
+        elif '/actions/runs/9001' in endpoint:
+            point=self.records['repos/'+ACQUIRER.REPOSITORY+'/actions/runs/9001']['updated_at']
+        else:
+            point=self.now
+        return ACQUIRER.HttpExchange(200,{},raw,point,point)
+
+    def download_artifact(self,*,endpoint,destination,max_bytes):
+        self.calls.append(('DOWNLOAD',endpoint,None))
+        identifier=int(endpoint.split('/')[-2]);raw=self.downloads[identifier]
+        assert len(raw)<=max_bytes
+        with open(destination,'xb') as stream:stream.write(raw)
+        return ACQUIRER.DownloadResult(len(raw),digest(raw))
+
+
+@pytest.fixture(scope='module')
+def r2_public_handoff(r2c17_native_inputs,tmp_path_factory):
+    t=r2c17_native_inputs; f=t.f;directory=tmp_path_factory.mktemp('r2-public-integration')
+    root=_r2c17_source_fixture(f,directory/'source')
+    plan_path=directory/'plan.json';diagnostic=directory/'plan-check.json'
+    command=['--repository-root',str(root),'--source-commit',f.commit,'--record-status','example',
+        '--evidence-profile',BUILDER.PUBLIC_R2_PROFILE]
+    p=cli(root,TOOL_NAMES[0],command,timeout=120)
+    assert p.returncode==0,p.stderr
+    plan_path.write_bytes(p.stdout)
+    raw=plan_path.read_bytes();plan=json.loads(raw)
+    p=cli(root,TOOL_NAMES[1],['--repository-root',str(root),'--plan',str(plan_path),
+        '--expected-source-commit',f.commit,'--expected-plan-sha256',digest(raw),
+        '--expected-record-status','example'],timeout=120)
+    assert p.returncode==0,p.stderr
+    diagnostic.write_bytes(p.stdout)
+    source=SimpleNamespace(root=root,sha=f.commit,plan=plan,plan_path=plan_path,
+                           plan_digest=digest(raw),diagnostic=diagnostic)
+    transport=_R2PublicExampleTransport(f)
+    output=directory/'acquisition'
+    result=acquire_example(source,output,transport,utc_now=transport.utc_now)
+    acquisition=SimpleNamespace(directory=directory,output=output,result=result,transport=transport)
+    capture=construct_capture(source,acquisition)
+    prepared=directory/'prepared.zip'
+    p=cli(root,TOOL_NAMES[4],['prepare','--repository-root',str(root),'--source-commit',f.commit,
+        '--record-status','example','--plan',str(plan_path),'--plan-diagnostic',str(diagnostic),
+        '--expected-plan-sha256',digest(raw),'--output',str(prepared)],timeout=120)
+    assert p.returncode==0,p.stderr
+    expected_context=directory/'expected_context.json'
+    expected_context.write_bytes((output/'expected_context.json').read_bytes())
+    expected_digest=directory/'expected_plan.sha256';expected_digest.write_bytes(digest(raw).encode()+b'\n')
+    result=SimpleNamespace(t=t,f=f,source=source,directory=directory,transport=transport,acquisition=acquisition,
+        capture=capture,prepared=prepared,expected_context=expected_context,expected_digest=expected_digest)
+    (directory/'test-context.json').write_bytes(canonical({'source_commit':f.commit,
+        'source_root':str(root),'prepared':str(prepared),'capture':str(capture.path),
+        'expected_context':str(expected_context),'expected_digest':str(expected_digest),
+        'backend':str(f.gh),'backend_sha256':f.gh_sha,'simulation_only':True}))
+    return result
+
+
+def test_r2_public_actual_plan_acquisition_capture_prepare(r2_public_handoff):
+    f=r2_public_handoff;plan=f.source.plan
+    assert len(plan['source_inventory'])==73
+    assert len(plan['state_templates'])==62
+    assert plan['evidence_profile_binding']==f.capture.manifest['evidence_profile_binding']
+    assert f.capture.manifest['record_status']=='example'
+    assert len([row for row in f.transport.calls if row[0]=='DOWNLOAD'])==7
+    context=json.loads(f.expected_context.read_bytes())
+    assert 'evidence_profile_binding' not in context  # unchanged workflow four-file contract
+    assert context['expected_plan_sha256']==f.source.plan_digest
+    with zipfile.ZipFile(f.prepared) as z:
+        assert json.loads(z.read('source-inventory.json'))['evidence_profile_binding']==plan['evidence_profile_binding']
+        assert len([name for name in z.namelist() if name.startswith('sources/')])==73
+
+
+@pytest.fixture(scope='module')
+def r2_public_reconstruction(r2_public_handoff):
+    f=r2_public_handoff;out=f.directory/'verified-example'
+    p=cli(f.source.root,TOOL_NAMES[4],['run-reference','--repository-root',str(f.source.root),
+        '--source-commit',f.source.sha,'--record-status','example','--prepared',str(f.prepared),
+        '--capture',str(f.capture.path),'--expected-context',str(f.expected_context),
+        '--expected-plan-digest',str(f.expected_digest),'--output-directory',str(out),
+        '--example-signature-backend',str(f.f.gh),'--example-signature-backend-sha256',f.f.gh_sha],timeout=600)
+    (f.directory/'run-reference.stdout').write_bytes(p.stdout);(f.directory/'run-reference.stderr').write_bytes(p.stderr)
+    assert p.returncode==0,p.stderr
+    return SimpleNamespace(f=f,output=out,result=json.loads(p.stdout),
+        verification=json.loads((out/'verification_record_v0.json').read_bytes()))
+
+
+def test_r2_public_native_two_process_reconstruction(r2_public_reconstruction):
+    r=r2_public_reconstruction;v=r.verification
+    assert (r.output/'reconstruction-1.zip').read_bytes()==(r.output/'reconstruction-2.zip').read_bytes()
+    assert len({row['process_id'] for row in v['reconstructions']})==2
+    assert v['record_status']=='example' and v['result']['I']==v['result']['E']=='incomplete'
+    assert v['profile_admission']['satisfied_condition_count']==62
+    assert v['profile_admission']['original_role_admission_count']==0
+    assert v['profile_admission']['mandatory_llamaguard_signatures_verified'] is False
+    assert v['profile_admission']['D1_exact_pre_state_proven'] is False
+    assert v['profile_admission']['D6_signed_receipt_verified'] is False
+    assert v['authority_boundary']['active_gate_eligible'] is False
+
+
+
+@pytest.fixture(scope='module')
+def r2_public_plan_only(source_fixture):
+    f=source_fixture; path=f.directory/'public-profile-plan.json'
+    p=cli(f.root,TOOL_NAMES[0],[*f.build_args,'--evidence-profile',BUILDER.PUBLIC_R2_PROFILE])
+    require_cli_success(p);path.write_bytes(p.stdout)
+    c=cli(f.root,TOOL_NAMES[1],['--repository-root',f.root,'--plan',path,
+        '--expected-source-commit',f.sha,'--expected-plan-sha256',digest(p.stdout),
+        '--expected-record-status','example'])
+    require_cli_success(c)
+    return SimpleNamespace(f=f,plan=json.loads(p.stdout),raw=p.stdout,diagnostic=json.loads(c.stdout),path=path)
+
+
+def test_r2_public_plan_binds_exact_obligations_without_changing_mapping(r2_public_plan_only):
+    p=r2_public_plan_only
+    expected={k:v for k,v in p.f.plan.items() if k!='source_inventory'}
+    actual={k:v for k,v in p.plan.items() if k not in {'source_inventory','evidence_profile_binding'}}
+    assert actual==expected
+    assert p.plan['evidence_profile_binding']['role_obligations']==R2_CONTRACT_ROLES
+    assert p.plan['evidence_profile_binding']==p.diagnostic['evidence_profile_binding']
+    assert len(p.plan['source_inventory'])==73
+    assert all(row['revision']==p.f.sha and 'revision_kind' not in row for row in p.plan['source_inventory'])
+
+
+def test_r2_public_observed_plan_selects_profile_without_workflow_argument(r2_public_plan_only):
+    f=r2_public_plan_only.f
+    p=cli(f.root,TOOL_NAMES[0],['--repository-root',f.root,'--source-commit',f.sha,'--record-status','observed'])
+    require_cli_success(p)
+    plan=json.loads(p.stdout)
+    assert plan['record_status']=='observed'
+    assert plan['evidence_profile_binding']==r2_public_plan_only.plan['evidence_profile_binding']
+    assert jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).is_valid(plan)
+
+
+@pytest.mark.parametrize('stage', ['acquisition','capture','verification'])
+@pytest.mark.parametrize('fault', ['missing','other_profile','other_commit','other_duty','nonliteral_boundary'])
+def test_r2_public_stage_bindings_cannot_be_substituted(r2_public_plan_only,stage,fault):
+    f=r2_public_plan_only; record={'evidence_profile_binding':copy.deepcopy(f.plan['evidence_profile_binding'])}
+    if fault=='missing': record.pop('evidence_profile_binding')
+    elif fault=='other_profile': record['evidence_profile_binding']['evidence_profile']='old-or-unknown-profile'
+    elif fault=='other_commit': record['evidence_profile_binding']['source_commit']='0'*40
+    elif fault=='other_duty': record['evidence_profile_binding']['role_obligations']['state:step5c:quality-ledger-pre-authority']='exact_preserved_content'
+    else: record['evidence_profile_binding']['active_gate_eligible']=0
+    module={'acquisition':ACQUIRER,'capture':CAPTURER,'verification':VERIFIER}[stage]
+    checker=module._check_public_r2_profile if stage=='verification' else module._require_public_profile
+    with pytest.raises((module.VerificationError if stage=='verification' else
+                        module.AcquisitionError if stage=='acquisition' else module.CaptureError),
+                       match='r2_profile_binding_mismatch'):
+        checker(f.plan,record)
+
+
+@pytest.mark.parametrize('flag',['--example-signature-backend','--example-signature-backend-sha256','both'])
+def test_r2_public_observed_route_rejects_example_backend_before_inputs(tmp_path,flag):
+    options=['--example-signature-backend',str(tmp_path/'not-executed')] if flag=='--example-signature-backend' else \
+        ['--example-signature-backend-sha256','0'*64] if flag=='--example-signature-backend-sha256' else \
+        ['--example-signature-backend',str(tmp_path/'not-executed'),'--example-signature-backend-sha256','0'*64]
+    p=cli(ROOT,TOOL_NAMES[4],['run-reference','--source-commit','0'*40,'--record-status','observed',
+        '--prepared','absent','--capture','absent','--expected-context','absent','--expected-plan-digest','absent',
+        '--output-directory',str(tmp_path/'not-published'),*options])
+    assert p.returncode==2 and json.loads(p.stderr)['error_code']=='example_signature_backend_forbidden'
+    assert not (tmp_path/'not-published').exists()
+
+
+def test_r2_public_normative_source_change_cannot_self_authorize(r2_public_plan_only):
+    p=r2_public_plan_only; schema=copy.deepcopy(EVIDENCE_SCHEMA)
+    duties=schema['$defs']['post_run_state_evidence_v1_role_obligations']['properties']
+    duties['state:step5c:quality-ledger-pre-authority']['const']='exact_preserved_content'
+    for module in (BUILDER,PLAN_CHECKER):
+        with pytest.raises(module.PlanError,match='r2_requirements_changed'):
+            module._public_r2_requirement_binding(canonical(schema),p.f.sha)
+
+
+def test_r2_public_legacy_example_plan_is_not_silently_reinterpreted(source_fixture):
+    assert 'evidence_profile_binding' not in source_fixture.plan
+    assert 'evidence_profile_binding' not in source_fixture.diagnostic_doc
+    for module in (ACQUIRER,CAPTURER): module._require_public_profile(source_fixture.plan,{})
+    assert not VERIFIER._public_r2_selected(source_fixture.plan)
+
+
+def test_r2_public_four_file_snapshot_detects_byte_and_mode_changes(tmp_path):
+    paths=tuple(tmp_path/n for n in ('prepared.zip','capture.zip','expected_context.json','expected_plan.sha256'))
+    for p in paths:p.write_bytes(b'x')
+    before=VERIFIER._public_r2_file_snapshots(paths)
+    paths[2].write_bytes(b'y')
+    with pytest.raises(VERIFIER.VerificationError,match='r2_handoff_changed'):
+        VERIFIER._public_r2_unchanged_files(paths,before)
+    before=VERIFIER._public_r2_file_snapshots(paths);paths[0].chmod(0o444)
+    with pytest.raises(VERIFIER.VerificationError,match='r2_handoff_changed'):
+        VERIFIER._public_r2_unchanged_files(paths,before)
+
+
+
+
+def test_r2_public_source_copy_is_not_the_running_verifier_installation(r2_public_plan_only):
+    p = r2_public_plan_only
+    snapshot = VERIFIER._public_r2_source_snapshot(p.f.root, p.f.sha, p.plan)
+    assert VERIFIER.VERIFIER_PATH in snapshot
+    # Accepting a bound source copy must not disable the entrypoint's separate
+    # requirement to execute its own installed, commit-bound verifier.
+    with pytest.raises(VERIFIER.VerificationError, match="verifier_installation_path_mismatch"):
+        VERIFIER.verify_source_inventory(p.f.root, p.f.sha, p.plan)
+
+
+@pytest.mark.parametrize("relative", [VERIFIER.VERIFIER_PATH, VERIFIER.RUNTIME_VALIDATOR_PATH])
+def test_r2_public_source_copy_rejects_changed_worktree_bytes(r2_public_plan_only, tmp_path, relative):
+    p = r2_public_plan_only
+    root = tmp_path / "source-copy"
+    shutil.copytree(p.f.root, root)
+    path = root / relative
+    path.chmod(0o644)
+    path.write_bytes(path.read_bytes() + b"\n# changed source copy\n")
+    with pytest.raises(VERIFIER.VerificationError, match="r2_public_source_copy_mismatch"):
+        VERIFIER._public_r2_source_snapshot(root, p.f.sha, p.plan)
+
 
 if __name__ == '__main__':
     # The registered CI script runs the WHOLE program. No command-line filters

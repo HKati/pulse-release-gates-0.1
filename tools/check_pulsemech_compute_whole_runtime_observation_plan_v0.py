@@ -910,10 +910,10 @@ def _read_git_object(
     )
 
 
-def _load_sources(root: Path, source_commit: str) -> dict[str, GitObject]:
+def _load_sources(root: Path, source_commit: str, *, public_r2: bool = False) -> dict[str, GitObject]:
     source_by_path: dict[str, GitObject] = {}
     roles: set[str] = set()
-    for role, path in SOURCE_ROLES:
+    for role, path in (PUBLIC_R2_SOURCE_ROLES if public_r2 else SOURCE_ROLES):
         _require(role not in roles, "duplicate_source_role", role)
         _require(path not in source_by_path, "duplicate_source_path", path)
         roles.add(role)
@@ -5117,6 +5117,7 @@ def _reconstruct_expected_plan(
     source_commit: str,
     record_status: str,
     plan_id: str | None = None,
+    evidence_profile: str | None = None,
 ) -> dict[str, Any]:
     root = _validate_repository_root(repository_root)
     revision = _validate_source_commit(source_commit)
@@ -5127,8 +5128,12 @@ def _reconstruct_expected_plan(
     head = _git(root, ["rev-parse", "HEAD"]).decode("ascii", errors="strict").strip().lower()
     _require(head == revision, "checked_out_head_mismatch", f"head={head} source={revision}")
 
-    source_by_path = _load_sources(root, revision)
+    _require(evidence_profile in {None, PUBLIC_R2_PROFILE}, "r2_profile_unknown")
+    public_r2 = record_status == "observed" or evidence_profile == PUBLIC_R2_PROFILE
+    source_by_path = _load_sources(root, revision, public_r2=public_r2)
     plan = _assemble_expected_plan_from_sources(source_by_path, revision, record_status, plan_id)
+    if public_r2:
+        _bind_public_r2_plan(plan, source_by_path, revision)
     _schema_validate(plan, source_by_path[SCHEMA_PATH].data)
     # Rendering is also a final NFC/type check and is intentionally deterministic.
     _canonical_json_bytes(plan)
@@ -5553,7 +5558,12 @@ def check_plan(
         "plan_not_canonical_json",
     )
 
-    source_by_path = _load_sources(root, source_commit)
+    public_r2 = expected_record_status == "observed" or "evidence_profile_binding" in plan
+    source_by_path = _load_sources(root, source_commit, public_r2=public_r2)
+    if public_r2:
+        _require(plan.get("evidence_profile_binding") ==
+                 _public_r2_requirement_binding(source_by_path[SCHEMA_PATH].data, source_commit),
+                 "r2_profile_binding_mismatch")
     expected_checker_path = Path(
         os.path.abspath(os.fspath(root / PLAN_CHECKER_PATH))
     )
@@ -5647,6 +5657,7 @@ def check_plan(
         source_commit=source_commit,
         record_status=expected_record_status,
         plan_id=resolved_plan_id,
+        evidence_profile=PUBLIC_R2_PROFILE if public_r2 else None,
     )
     expected_bytes = _canonical_json_bytes(expected)
     expected_sha256 = hashlib.sha256(expected_bytes).hexdigest()
@@ -5683,6 +5694,7 @@ def check_plan(
             "reconstructed_sha256": expected_sha256,
             "byte_identical_to_independent_reconstruction": True,
         },
+        **({"evidence_profile_binding": plan["evidence_profile_binding"]} if public_r2 else {}),
         "counts": counts,
         "checks": {
             "isolated_python": True,
@@ -5942,6 +5954,47 @@ def _check_local_r2_plan(
         'authority_boundary': deepcopy(AUTHORITY_BOUNDARY),
         'local_boundary': deepcopy(expected['local_boundary']),
     }
+
+
+# Commit-bound R2 routing. Local candidates remain a separate record family.
+PUBLIC_R2_SOURCE_ROLES = _LOCAL_R2_SOURCE_ROLES + (('r2_llamaguard_pack_schema', 'PULSE_safe_pack_v0/schemas/external_summary_v1.schema.json'), ('r2_provider_expectation_schema', 'schemas/pulsemech_compute_current_run_export_expectation_v0.schema.json'), ('r2_provider_expectation_checker', 'tools/check_pulsemech_compute_current_run_export_expectation_v0.py'), ('r2_subject_input_producer_core', 'tools/pulsemech_compute_subject_input_packet_producer_core_v0.py'))
+
+PUBLIC_R2_PROFILE = 'pulsemech_step5c_post_run_state_evidence_v1'
+PUBLIC_R2_BINDING_VERSION = 'pulsemech_step5c_r2_commit_bound_requirements_v1'
+PUBLIC_R2_REVIEWED_REQUIREMENTS_SHA256 = "19e451b51a7ff1bdb7d8242a1f486f2e8fd410e791516b7dd2ebf9a0dd93ecc1"
+PUBLIC_R2_REQUIRED_DEFINITIONS = ('authority_boundary', 'post_run_state_evidence_v1_definition', 'post_run_state_evidence_v1_limitations', 'post_run_state_evidence_v1_profile_id', 'post_run_state_evidence_v1_provider_artifact', 'post_run_state_evidence_v1_role_obligations', 'post_run_state_evidence_v1_subject_archives')
+
+
+def _public_r2_requirement_binding(schema_bytes: bytes, source_commit: str) -> dict[str, Any]:
+    schema = _strict_json_object(schema_bytes, label="r2_source_schema")
+    definitions = schema.get("$defs")
+    _require(isinstance(definitions, dict) and all(name in definitions for name in PUBLIC_R2_REQUIRED_DEFINITIONS),
+             "r2_definition_missing")
+    closed = {"$ref": "#/$defs/post_run_state_evidence_v1_definition",
+              "$defs": {name: definitions[name] for name in PUBLIC_R2_REQUIRED_DEFINITIONS}}
+    _require(hashlib.sha256(_canonical_json_bytes(closed)).hexdigest() == PUBLIC_R2_REVIEWED_REQUIREMENTS_SHA256,
+             "r2_requirements_changed")
+    duties = definitions["post_run_state_evidence_v1_role_obligations"]
+    _require(set(duties["required"]) == set(duties["properties"]) and len(duties["required"]) == 62,
+             "r2_role_obligation_set_mismatch")
+    return {
+        "binding_version": PUBLIC_R2_BINDING_VERSION,
+        "evidence_profile": PUBLIC_R2_PROFILE, "topology_profile": PROFILE,
+        "requirements_sha256": PUBLIC_R2_REVIEWED_REQUIREMENTS_SHA256,
+        "source_commit": source_commit,
+        "schema_source": {"path": SCHEMA_PATH, "sha256": hashlib.sha256(schema_bytes).hexdigest(),
+                          "size_bytes": len(schema_bytes)},
+        "role_obligations": {key: value["const"] for key, value in duties["properties"].items()},
+        "authority_effect": "none", "same_run_release_authority_eligible": False,
+        "active_gate_eligible": False,
+    }
+
+
+def _bind_public_r2_plan(plan: dict[str, Any], sources: dict[str, GitObject], revision: str) -> None:
+    _require(set(sources) == {path for _, path in PUBLIC_R2_SOURCE_ROLES}, "r2_source_inventory_mismatch")
+    plan["source_inventory"] = sorted((sources[path].descriptor() for _, path in PUBLIC_R2_SOURCE_ROLES),
+                                      key=lambda row: row["path"])
+    plan["evidence_profile_binding"] = _public_r2_requirement_binding(sources[SCHEMA_PATH].data, revision)
 
 if __name__ == "__main__":
     raise SystemExit(main())

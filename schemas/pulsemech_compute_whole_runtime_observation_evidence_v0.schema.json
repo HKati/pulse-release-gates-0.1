@@ -1366,8 +1366,30 @@
         },
         "ok": {
           "const": true
+        },
+        "evidence_profile_binding": {
+          "$ref": "#/$defs/public_r2_commit_bound_binding"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "record_status": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "record_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "evidence_profile_binding"
+            ]
+          }
+        }
+      ]
     },
     "subject_dispatch_request": {
       "type": "object",
@@ -1521,8 +1543,30 @@
         },
         "ok": {
           "const": true
+        },
+        "evidence_profile_binding": {
+          "$ref": "#/$defs/public_r2_commit_bound_binding"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "record_status": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "record_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "evidence_profile_binding"
+            ]
+          }
+        }
+      ]
     },
     "provider_dispatch_receipt": {
       "type": "object",
@@ -1624,8 +1668,30 @@
         },
         "subject_workflow_run_id": {
           "$ref": "#/$defs/positive_integer"
+        },
+        "evidence_profile_binding": {
+          "$ref": "#/$defs/public_r2_commit_bound_binding"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "record_status": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "record_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "evidence_profile_binding"
+            ]
+          }
+        }
+      ]
     },
     "dispatch_receipt": {
       "oneOf": [
@@ -2231,8 +2297,30 @@
         },
         "ok": {
           "const": true
+        },
+        "evidence_profile_binding": {
+          "$ref": "#/$defs/public_r2_commit_bound_binding"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "record_status": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "record_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "evidence_profile_binding"
+            ]
+          }
+        }
+      ]
     },
     "verification_identity": {
       "type": "object",
@@ -2752,7 +2840,7 @@
           }
         },
         "result": {
-          "$ref": "#/$defs/verification_result"
+          "$ref": "#/$defs/public_r2_verification_result"
         },
         "runtime_packet_result": {
           "$ref": "#/$defs/runtime_packet_result"
@@ -2770,7 +2858,14 @@
           "minItems": 2,
           "maxItems": 2,
           "items": {
-            "$ref": "#/$defs/reconstruction_record"
+            "oneOf": [
+              {
+                "$ref": "#/$defs/reconstruction_record"
+              },
+              {
+                "$ref": "#/$defs/public_r2_reconstruction_record"
+              }
+            ]
           }
         },
         "reconstruction_comparison": {
@@ -2790,8 +2885,254 @@
         },
         "ok": {
           "const": true
+        },
+        "evidence_profile_binding": {
+          "$ref": "#/$defs/public_r2_commit_bound_binding"
+        },
+        "profile_admission": {
+          "$ref": "#/$defs/public_r2_profile_admission"
+        },
+        "runtime_packet_interpretation": {
+          "enum": [
+            "marked_example_in_generic_observed_form",
+            "acquired_post_run_platform_evidence"
+          ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "record_status": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "record_status"
+            ]
+          },
+          "then": {
+            "required": [
+              "evidence_profile_binding"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "evidence_profile_binding"
+            ]
+          },
+          "then": {
+            "required": [
+              "profile_admission"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "profile_admission"
+              ]
+            },
+            "properties": {
+              "result": {
+                "$ref": "#/$defs/verification_result"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "evidence_profile_binding",
+              "record_status"
+            ],
+            "properties": {
+              "record_status": {
+                "const": "example"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "properties": {
+                  "I": {
+                    "const": "incomplete"
+                  },
+                  "E": {
+                    "const": "incomplete"
+                  }
+                }
+              },
+              "profile_admission": {
+                "properties": {
+                  "assessment_status": {
+                    "const": "incomplete"
+                  },
+                  "simulation_only": {
+                    "const": true
+                  },
+                  "mandatory_llamaguard_signatures_verified": {
+                    "const": false
+                  },
+                  "original_role_admission_count": {
+                    "const": 0
+                  },
+                  "roles": {
+                    "items": {
+                      "properties": {
+                        "original_role_admitted": {
+                          "const": false
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "evidence_profile_binding",
+              "record_status"
+            ],
+            "properties": {
+              "record_status": {
+                "const": "observed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "properties": {
+                  "I": {
+                    "const": "complete"
+                  },
+                  "E": {
+                    "const": "complete"
+                  }
+                }
+              },
+              "profile_admission": {
+                "properties": {
+                  "assessment_status": {
+                    "const": "verified"
+                  },
+                  "simulation_only": {
+                    "const": false
+                  },
+                  "mandatory_llamaguard_signatures_verified": {
+                    "const": true
+                  },
+                  "original_role_admission_count": {
+                    "const": 62
+                  },
+                  "roles": {
+                    "items": {
+                      "properties": {
+                        "original_role_admitted": {
+                          "const": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "evidence_profile_binding"
+            ]
+          },
+          "then": {
+            "required": [
+              "runtime_packet_interpretation"
+            ],
+            "properties": {
+              "reconstructions": {
+                "items": {
+                  "$ref": "#/$defs/public_r2_reconstruction_record"
+                }
+              }
+            }
+          },
+          "else": {
+            "not": {
+              "required": [
+                "runtime_packet_interpretation"
+              ]
+            },
+            "properties": {
+              "reconstructions": {
+                "items": {
+                  "$ref": "#/$defs/reconstruction_record"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "evidence_profile_binding",
+              "record_status"
+            ],
+            "properties": {
+              "record_status": {
+                "const": "example"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "runtime_packet_interpretation": {
+                "const": "marked_example_in_generic_observed_form"
+              },
+              "runtime_packet_result": {
+                "properties": {
+                  "record_status": {
+                    "const": "observed"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "evidence_profile_binding",
+              "record_status"
+            ],
+            "properties": {
+              "record_status": {
+                "const": "observed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "runtime_packet_interpretation": {
+                "const": "acquired_post_run_platform_evidence"
+              },
+              "runtime_packet_result": {
+                "properties": {
+                  "record_status": {
+                    "const": "observed"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "post_run_state_evidence_v1_profile_id": {
       "const": "pulsemech_step5c_post_run_state_evidence_v1"
@@ -3188,6 +3529,2396 @@
         }
       },
       "$comment": "Inactive R2 normative definition, not an observation, a new fifth record type, or a verification result. It is deliberately not reachable from the root oneOf. Production records remain under the existing v0 entrypoints until the source-grounded mapping, producers, capture and verifier are changed together. This definition alone does not bind an actual run, verify source semantics, acquire an artifact, or authorize old/mixed-profile acceptance. The role map is a requirements inventory, not a claim of 62 runtime observations. Artifact names are prospective selectors; exact run, attempt, source, ID, byte, member and semantic checks remain mandatory in the coordinated implementation."
+    },
+    "public_r2_commit_bound_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "binding_version",
+        "evidence_profile",
+        "topology_profile",
+        "requirements_sha256",
+        "source_commit",
+        "schema_source",
+        "role_obligations",
+        "authority_effect",
+        "same_run_release_authority_eligible",
+        "active_gate_eligible"
+      ],
+      "properties": {
+        "binding_version": {
+          "const": "pulsemech_step5c_r2_commit_bound_requirements_v1"
+        },
+        "evidence_profile": {
+          "const": "pulsemech_step5c_post_run_state_evidence_v1"
+        },
+        "topology_profile": {
+          "const": "pulse_ci_hosted_release_grade_v0"
+        },
+        "requirements_sha256": {
+          "const": "19e451b51a7ff1bdb7d8242a1f486f2e8fd410e791516b7dd2ebf9a0dd93ecc1"
+        },
+        "source_commit": {
+          "$ref": "#/$defs/sha40"
+        },
+        "schema_source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ],
+          "properties": {
+            "path": {
+              "const": "schemas/pulsemech_compute_whole_runtime_observation_evidence_v0.schema.json"
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 8388608
+            }
+          }
+        },
+        "role_obligations": {
+          "$ref": "#/$defs/post_run_state_evidence_v1_role_obligations"
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "same_run_release_authority_eligible": {
+          "const": false
+        },
+        "active_gate_eligible": {
+          "const": false
+        }
+      },
+      "$comment": "A source-commit-bound requirement identity, not a verdict. The current public observed route requires this binding at each stage; untagged legacy records are not upgraded. The external four-file context remains unchanged and binds this identity through the exact prelaunch-plan SHA-256."
+    },
+    "public_r2_profile_admission": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_profile",
+        "assessment_status",
+        "role_count",
+        "satisfied_condition_count",
+        "original_role_admission_count",
+        "roles",
+        "D1_exact_pre_state_proven",
+        "D6_signed_receipt_verified",
+        "original_runtime_reads_proven",
+        "simulation_only",
+        "mandatory_llamaguard_signatures_verified"
+      ],
+      "properties": {
+        "evidence_profile": {
+          "const": "pulsemech_step5c_post_run_state_evidence_v1"
+        },
+        "assessment_status": {
+          "enum": [
+            "incomplete",
+            "verified"
+          ]
+        },
+        "role_count": {
+          "const": 62
+        },
+        "satisfied_condition_count": {
+          "const": 62
+        },
+        "original_role_admission_count": {
+          "enum": [
+            0,
+            62
+          ]
+        },
+        "roles": {
+          "type": "array",
+          "minItems": 62,
+          "maxItems": 62,
+          "prefixItems": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:advisory-reference-bundle"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_tree_and_carrier"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:artifact-binding-attestation"
+                },
+                "required_duty": {
+                  "const": "required_action_metadata_with_receipt_gap"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:artifact-provenance-binding"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:complete-release-grade-reference-package"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_archive"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:compute-binding-report"
+                },
+                "required_duty": {
+                  "const": "checked_downstream_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:effective-required-argument-list"
+                },
+                "required_duty": {
+                  "const": "checked_source_argv_derivation_with_runtime_receipt_gap"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:external-signer-policy"
+                },
+                "required_duty": {
+                  "const": "exact_source_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:final-status"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:final-status-summary"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:folded-non-active-candidate-status"
+                },
+                "required_duty": {
+                  "const": "checked_downstream_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:gate-policy"
+                },
+                "required_duty": {
+                  "const": "exact_source_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:gate-registry"
+                },
+                "required_duty": {
+                  "const": "exact_source_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-attestation-bundle"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-attestation-envelope"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-attestation-verifier"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-dataset"
+                },
+                "required_duty": {
+                  "const": "exact_source_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-evaluator-manifest"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-input:benign_factual_response"
+                },
+                "required_duty": {
+                  "const": "checked_controlled_case_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-input:credential_theft_refusal"
+                },
+                "required_duty": {
+                  "const": "checked_controlled_case_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-input:hate_content_refusal"
+                },
+                "required_duty": {
+                  "const": "checked_controlled_case_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-input:private_address_refusal"
+                },
+                "required_duty": {
+                  "const": "checked_controlled_case_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-input:self_harm_support"
+                },
+                "required_duty": {
+                  "const": "checked_controlled_case_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-input:violent_harm_refusal"
+                },
+                "required_duty": {
+                  "const": "checked_controlled_case_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-output:benign_factual_response"
+                },
+                "required_duty": {
+                  "const": "checked_controlled_case_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-output:credential_theft_refusal"
+                },
+                "required_duty": {
+                  "const": "checked_controlled_case_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-output:hate_content_refusal"
+                },
+                "required_duty": {
+                  "const": "checked_controlled_case_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-output:private_address_refusal"
+                },
+                "required_duty": {
+                  "const": "checked_controlled_case_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-output:self_harm_support"
+                },
+                "required_duty": {
+                  "const": "checked_controlled_case_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-output:violent_harm_refusal"
+                },
+                "required_duty": {
+                  "const": "checked_controlled_case_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-raw-evidence"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:llamaguard-summary"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:materialized-release-required-gate-set"
+                },
+                "required_duty": {
+                  "const": "checked_status_policy_projection"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:package-completeness-report"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_archive"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:package-digest-inventory"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:package-run-metadata"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:package-verification-report"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_archive"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:planned-observed-relation"
+                },
+                "required_duty": {
+                  "const": "checked_downstream_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:pre-attestation-pulse-artifacts"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_archive"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:pre-materialization-status"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:quality-ledger-final"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:quality-ledger-pre-authority"
+                },
+                "required_duty": {
+                  "const": "required_explicit_content_gap"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:recorded-candidate-index"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:recorded-release-candidate-envelopes"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_tree"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:recorded-release-evidence-verifier"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:release-authority-audit-bundle"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_tree"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:release-authority-manifest"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:release-decision"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:release-decision-ledger-section"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:release-decision-report"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:release-evidence-input-manifest"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:release-grade-junit"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:release-grade-sarif"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:required-gate-evidence"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:runtime-observation-diagnostic"
+                },
+                "required_duty": {
+                  "const": "checked_downstream_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:runtime-observation-packet"
+                },
+                "required_duty": {
+                  "const": "checked_downstream_derivation"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:self-contained-evidence-floor"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:status-baseline"
+                },
+                "required_duty": {
+                  "const": "exact_preserved_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:step3f-current-run-carrier"
+                },
+                "required_duty": {
+                  "const": "exact_provider_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:step3f-current-run-expectation"
+                },
+                "required_duty": {
+                  "const": "exact_provider_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:step3f-subject-input-packet"
+                },
+                "required_duty": {
+                  "const": "exact_provider_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:threshold-policy"
+                },
+                "required_duty": {
+                  "const": "exact_source_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "state_id",
+                "required_duty",
+                "condition_satisfied",
+                "original_role_admitted",
+                "evidence",
+                "original_runtime_read_proven"
+              ],
+              "properties": {
+                "state_id": {
+                  "const": "state:step5c:workflow-source"
+                },
+                "required_duty": {
+                  "const": "exact_source_content"
+                },
+                "condition_satisfied": {
+                  "const": true
+                },
+                "original_role_admitted": {
+                  "type": "boolean"
+                },
+                "evidence": {
+                  "type": "object",
+                  "minProperties": 1
+                },
+                "original_runtime_read_proven": {
+                  "const": false
+                }
+              }
+            }
+          ],
+          "items": false
+        },
+        "D1_exact_pre_state_proven": {
+          "const": false
+        },
+        "D6_signed_receipt_verified": {
+          "const": false
+        },
+        "original_runtime_reads_proven": {
+          "const": false
+        },
+        "simulation_only": {
+          "type": "boolean"
+        },
+        "mandatory_llamaguard_signatures_verified": {
+          "type": "boolean"
+        }
+      }
+    },
+    "public_r2_verification_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "I",
+        "E",
+        "R",
+        "comparison_complete",
+        "M",
+        "generic_runtime_coverage",
+        "expected_job_count",
+        "observed_job_count",
+        "expected_instantiated_step_count",
+        "observed_declared_step_count",
+        "expected_inference_count",
+        "observed_inference_count",
+        "missing_job_occurrence_ids",
+        "missing_step_occurrence_ids",
+        "missing_inference_ids",
+        "resource_axes_observed",
+        "resource_axes_unavailable",
+        "unobserved_reasons",
+        "authority_binding_complete",
+        "decision_closure_complete",
+        "candidate_values"
+      ],
+      "properties": {
+        "I": {
+          "enum": [
+            "incomplete",
+            "complete"
+          ]
+        },
+        "E": {
+          "enum": [
+            "incomplete",
+            "complete"
+          ]
+        },
+        "R": {
+          "const": "partial"
+        },
+        "comparison_complete": {
+          "const": false
+        },
+        "M": {
+          "const": "unavailable"
+        },
+        "generic_runtime_coverage": {
+          "const": "partial"
+        },
+        "expected_job_count": {
+          "const": 8
+        },
+        "observed_job_count": {
+          "const": 8
+        },
+        "expected_instantiated_step_count": {
+          "const": 145
+        },
+        "observed_declared_step_count": {
+          "const": 145
+        },
+        "expected_inference_count": {
+          "const": 6
+        },
+        "observed_inference_count": {
+          "const": 6
+        },
+        "missing_job_occurrence_ids": {
+          "const": []
+        },
+        "missing_step_occurrence_ids": {
+          "const": []
+        },
+        "missing_inference_ids": {
+          "const": []
+        },
+        "resource_axes_observed": {
+          "const": []
+        },
+        "resource_axes_unavailable": {
+          "const": [
+            "artifact_bytes_uploaded",
+            "cpu_seconds",
+            "external_api_calls",
+            "gpu_seconds",
+            "job_wall_seconds",
+            "memory_gb_seconds",
+            "model_input_tokens",
+            "model_output_tokens",
+            "network_bytes_received",
+            "network_bytes_sent",
+            "rerun_count",
+            "retry_count",
+            "runner_wall_seconds",
+            "step_wall_seconds",
+            "storage_bytes_written"
+          ]
+        },
+        "unobserved_reasons": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "direct_child_process_extent_unavailable",
+              "action_internal_operations_unavailable",
+              "package_manager_activity_unavailable",
+              "provider_internal_execution_unavailable",
+              "per_inference_timing_partial",
+              "resource_axis_unavailable"
+            ]
+          }
+        },
+        "authority_binding_complete": {
+          "const": false
+        },
+        "decision_closure_complete": {
+          "const": false
+        },
+        "candidate_values": {
+          "$ref": "#/$defs/candidate_values"
+        }
+      }
+    },
+    "public_r2_reconstruction_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ordinal",
+        "process_run_key",
+        "process_id",
+        "exit_code",
+        "completed",
+        "output_zip",
+        "inventory_member",
+        "inventory_sha256",
+        "inventory_size_bytes",
+        "dispatched_workflow",
+        "repeated_model_inference",
+        "used_current_time",
+        "used_randomness",
+        "ambient_environment_dependency",
+        "current_time_use_scope",
+        "randomness_use_scope",
+        "environment_use_scope",
+        "clock_and_staging_values_in_reconstructed_output"
+      ],
+      "properties": {
+        "ordinal": {
+          "enum": [
+            1,
+            2
+          ]
+        },
+        "process_run_key": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "process_id": {
+          "$ref": "#/$defs/positive_integer"
+        },
+        "exit_code": {
+          "const": 0
+        },
+        "completed": {
+          "const": true
+        },
+        "output_zip": {
+          "$ref": "#/$defs/file_descriptor"
+        },
+        "inventory_member": {
+          "const": "reconstruction_inventory_v0.json"
+        },
+        "inventory_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "inventory_size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8388608
+        },
+        "dispatched_workflow": {
+          "const": false
+        },
+        "repeated_model_inference": {
+          "const": false
+        },
+        "used_current_time": {
+          "const": true
+        },
+        "used_randomness": {
+          "const": true
+        },
+        "ambient_environment_dependency": {
+          "const": true
+        },
+        "current_time_use_scope": {
+          "const": "fresh_package_diagnostics_only"
+        },
+        "randomness_use_scope": {
+          "const": "private_staging_names_only"
+        },
+        "environment_use_scope": {
+          "const": "declared_trusted_runtime_and_signature_backend"
+        },
+        "clock_and_staging_values_in_reconstructed_output": {
+          "const": false
+        }
+      }
     }
   }
 }

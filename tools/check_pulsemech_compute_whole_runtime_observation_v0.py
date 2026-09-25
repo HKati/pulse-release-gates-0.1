@@ -594,7 +594,7 @@ def source_inventory_map(plan: Mapping[str, Any]) -> dict[str, SourceDescriptor]
     return result
 
 
-def verify_source_inventory(root: Path, source_commit: str, plan: Mapping[str, Any]) -> dict[str, bytes]:
+def _verify_source_inventory_bytes(root: Path, source_commit: str, plan: Mapping[str, Any]) -> dict[str, bytes]:
     inventory = source_inventory_map(plan)
     required = {
         VERIFIER_PATH,
@@ -625,6 +625,11 @@ def verify_source_inventory(root: Path, source_commit: str, plan: Mapping[str, A
         require(len(raw) == expected.size_bytes, "source_size_mismatch", path, stage="source")
         require(executable == expected.executable, "source_mode_mismatch", path, stage="source")
         result[path] = raw
+    return result
+
+
+def verify_source_inventory(root: Path, source_commit: str, plan: Mapping[str, Any]) -> dict[str, bytes]:
+    result = _verify_source_inventory_bytes(root, source_commit, plan)
     current = Path(__file__).resolve()
     expected_current = (root / VERIFIER_PATH).resolve()
     require(current == expected_current, "verifier_installation_path_mismatch", stage="source")
@@ -872,6 +877,7 @@ def validate_plan_and_diagnostic(
     require(binding.get("sha256") == expected_digest and binding.get("source_commit") == source_commit, "plan_diagnostic_binding_mismatch", stage="plan")
     require(binding.get("byte_identical_to_independent_reconstruction") is True, "plan_independent_reconstruction_missing", stage="plan")
     require(diagnostic.get("authority_boundary") == AUTHORITY_BOUNDARY, "plan_diagnostic_authority_mismatch", stage="plan")
+    _check_public_r2_profile(plan, diagnostic, schema)
     return plan
 
 
@@ -898,6 +904,7 @@ def prepare_carrier(
         record_status=record_status,
         schema=schema,
     )
+    _recheck_public_plan(root, source_commit, plan_raw, diagnostic_raw, record_status)
     sources = verify_source_inventory(root, source_commit, plan)
     source_rows = plan["source_inventory"]
     members: dict[str, bytes] = {
@@ -910,6 +917,8 @@ def prepare_carrier(
                 "record_status": record_status,
                 "repository": REPOSITORY,
                 "source_commit": source_commit,
+                **({"evidence_profile_binding": plan["evidence_profile_binding"]}
+                   if "evidence_profile_binding" in plan else {}),
                 "members": source_rows,
                 "authority_boundary": AUTHORITY_BOUNDARY,
                 "errors": [],
@@ -990,6 +999,8 @@ def read_prepared(path: Path, *, source_commit: str, expected_digest: str, recor
         "record_status": record_status,
         "repository": REPOSITORY,
         "source_commit": source_commit,
+        **({"evidence_profile_binding": plan["evidence_profile_binding"]}
+           if "evidence_profile_binding" in plan else {}),
         "members": plan["source_inventory"],
         "authority_boundary": AUTHORITY_BOUNDARY,
         "errors": [],
@@ -2242,9 +2253,12 @@ def _require_timing_projection(
     manifest: Mapping[str, Any], members: Mapping[str, bytes],
 ) -> None:
     timing = _check_collection_timing(plan, manifest, members)
-    key = "acquisition_started_utc" if manifest["record_status"] == "example" else "collection_started_utc"
+    public_example = _public_r2_example_packet(plan, manifest)
+    key = "acquisition_started_utc" if manifest["record_status"] == "example" and not public_example else "collection_started_utc"
     boundary = packet.get("observation_boundary", {})
-    require(packet.get("record_status") == manifest["record_status"]
+    if _public_r2_selected(plan):
+        _require_public_r2_packet_envelope(plan, packet, manifest)
+    require(packet.get("record_status") == ("observed" if public_example else manifest["record_status"])
             and boundary.get("capture_started_utc") == timing[key]
             and boundary.get("capture_completed_utc") == timing["collection_completed_utc"]
             and packet.get("packet_identity", {}).get("packet_created_utc") == timing["collection_completed_utc"],
@@ -2470,6 +2484,7 @@ def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, An
     manifest = parse_json_bytes(members[CAPTURE_MANIFEST_MEMBER], label="capture_manifest")
     validate_schema(schema, manifest, label="capture_manifest")
     require(manifest.get("record_type") == "capture_manifest" and manifest.get("record_status") == record_status, "capture_record_status_mismatch", stage="capture")
+    _check_public_r2_profile(plan, manifest, schema)
     identity = manifest.get("capture_identity")
     require(isinstance(identity, dict), "capture_identity_missing", stage="capture")
     require(identity.get("profile") == PROFILE and identity.get("scope") == SCOPE, "capture_scope_mismatch", stage="capture")
@@ -2524,6 +2539,11 @@ def read_capture(path: Path, *, schema: Mapping[str, Any], plan: Mapping[str, An
     require(subject.get("run_attempt") == provider.get("run_attempt") == 1, "capture_attempt_mismatch", stage="capture")
     require(subject.get("head_sha") == provider.get("head_sha") == source_commit, "capture_run_source_mismatch", stage="capture")
     require(CAPTURE_PROVIDER_ENVELOPE_MEMBER in members, "provider_envelope_missing", stage="capture")
+    if _public_r2_selected(plan):
+        for name in ("acquisition/acquisition-index.json", "acquisition/subject/dispatch-receipt.json",
+                     "acquisition/provider/dispatch-receipt.json"):
+            require(name in members, "r2_stage_record_missing", stage="capture")
+            _check_public_r2_profile(plan, parse_json_bytes(members[name], label="r2_stage_record"), schema)
     _check_selected_archive_evidence(plan, manifest, members)
     d3_documents: dict[str, bytes] = {}
     state_views = _check_subject_state_archives(plan, manifest, members, d3_documents=d3_documents)
@@ -4037,12 +4057,24 @@ def build_runtime_packet(
     point = timing["collection_completed_utc"]
     # Example-mode containment is intentionally distinct in the unchanged
     # generic contract. Observed post-run subject events precede collection.
-    window_start = timing["acquisition_started_utc" if record_status == "example" else "collection_started_utc"]
+    public_example = _public_r2_example_packet(plan, capture_manifest)
+    window_start = timing["acquisition_started_utc" if record_status == "example" and not public_example else "collection_started_utc"]
     packet = _compose_runtime_packet(
-        plan=plan, capture_manifest=capture_manifest, record_status=record_status,
+        plan=plan, capture_manifest=capture_manifest, record_status="observed" if public_example else record_status,
         executions=executions, states=states, inferences=inferences, external_calls=external_calls,
         collector=collector, window_start=window_start, point=point,
     )
+    if public_example:
+        # The unchanged generic schema permits ordered current-run policy identity
+        # only in post-run observed FORM. This is explicitly example data inside
+        # the source-bound example carrier, never an acquired-observation claim.
+        packet["producer"].update(
+            producer_id="producer:pulsemech-step5c-public-r2-example-v1",
+            producer_name="PULSEmech R2 example reconstruction; not an acquired observation")
+        packet["packet_identity"]["packet_id"] = (
+            f"runtime-observation:step5c:public-r2-example:{subject_run_id}:1")
+    if _public_r2_selected(plan):
+        _require_public_r2_packet_envelope(plan, packet, capture_manifest)
     _require_d6_projection(plan, packet, capture_manifest, capture_members)
     return packet
 
@@ -4529,7 +4561,10 @@ def reconstruct(
     output_path: Path,
     record_status: str,
     work_root: Path,
+    example_backend: Path | None = None,
+    example_backend_sha256: str | None = None,
 ) -> dict[str, Any]:
+    _public_r2_example_options(record_status, example_backend, example_backend_sha256)
     root = validate_repository(repository_root, source_commit)
     expected_digest_raw = expected_plan_digest_path.read_bytes()
     require(len(expected_digest_raw) == 65 and expected_digest_raw.endswith(b"\n"), "expected_plan_digest_file_invalid", stage="context")
@@ -4538,8 +4573,12 @@ def reconstruct(
     expected_context = _expected_context(expected_context_raw, source_commit=source_commit, expected_plan_sha256=expected_digest, record_status=record_status)
     schema_raw, _oid, _exec = git_blob(root, source_commit, SCHEMA_PATH)
     schema = parse_source_schema(schema_raw)
+    handoff_paths = (prepared_path, capture_path, expected_context_path, expected_plan_digest_path)
+    input_snapshot = _public_r2_file_snapshots(handoff_paths)
     plan, _prepared_members, _prepared_raw = read_prepared(prepared_path, source_commit=source_commit, expected_digest=expected_digest, record_status=record_status, schema=schema)
     verify_source_inventory(root, source_commit, plan)
+    _recheck_public_plan(root, source_commit, _prepared_members[PREPARED_PLAN_MEMBER],
+                         _prepared_members[PREPARED_DIAGNOSTIC_MEMBER], record_status)
     capture_manifest, capture_members, _capture_raw = read_capture(
         capture_path,
         schema=schema,
@@ -4554,12 +4593,21 @@ def reconstruct(
     stable = Path(os.path.abspath(os.fspath(work_root)))
     require(stable == FIXED_RECONSTRUCTION_ROOT, "reconstruction_root_not_canonical", str(stable), stage="reconstruct")
     require(not stable.exists(), "reconstruction_root_exists", str(stable), stage="reconstruct")
+    source_snapshots = []
+    intermediate_snapshots = []
+    if _public_r2_selected(plan):
+        require(stable != root and root not in stable.parents and stable not in root.parents,
+                "r2_reconstruction_workspace_overlaps_source", stage="reconstruct")
+        source_snapshots.append((root, _public_r2_source_snapshot(root, source_commit, plan)))
     stable.mkdir(mode=0o700, parents=True)
     try:
         control_root = stable / "control-plane"
         subject_root = stable / "subject"
         clone_at_revision(root, control_root, source_commit)
         clone_at_revision(root, subject_root, source_commit)
+        if _public_r2_selected(plan):
+            for source in (control_root, subject_root):
+                source_snapshots.append((source, _public_r2_source_snapshot(source, source_commit, plan)))
         envelope_path = stable / "step3f-candidate-envelope.zip"
         _candidate_envelope_to_file(capture_members, envelope_path)
         intake = stable / "intake"
@@ -4570,6 +4618,12 @@ def reconstruct(
             output_directory=intake,
             source_commit=source_commit,
         )
+        native_checks = None
+        if _public_r2_selected(plan):
+            intermediate_snapshots.append((intake, _snapshot_local_r2_downstream_tree(intake)))
+            native_checks = _public_r2_native_checks(root, plan, _prepared_members,
+                capture_manifest, capture_members, intake, record_status=record_status,
+                example_backend=example_backend, example_backend_sha256=example_backend_sha256)
         baseline = stable / "baseline-proof"
         _build_baseline_proof(
             control_root=control_root,
@@ -4579,6 +4633,8 @@ def reconstruct(
             source_commit=source_commit,
             capture_manifest=capture_manifest,
         )
+        if _public_r2_selected(plan):
+            intermediate_snapshots.append((baseline, _snapshot_local_r2_downstream_tree(baseline)))
         packet = build_runtime_packet(
             plan=plan,
             capture_manifest=capture_manifest,
@@ -4609,6 +4665,15 @@ def reconstruct(
             candidate_values=candidate_values,
             plan=plan,
         )
+        if _public_r2_selected(plan):
+            inventory = parse_json_bytes(inventory_raw, label="reconstruction_inventory")
+            inventory["evidence_profile_binding"] = plan["evidence_profile_binding"]
+            inventory["native_verification"] = native_checks
+            inventory["reconstruction_boundary"] = dict(PUBLIC_R2_EXECUTION_BOUNDARY)
+            inventory["runtime_packet_interpretation"] = _public_r2_packet_interpretation(plan)
+            inventory["profile_admission"] = _public_r2_role_admission(
+                plan, packet, capture_manifest, capture_members, outputs, native_checks)
+            inventory_raw = canonical_json_bytes(inventory)
         members = dict(outputs)
         members[RECONSTRUCTION_INVENTORY_MEMBER] = inventory_raw
         _require_downstream_state_bindings(plan, packet, members)
@@ -4617,8 +4682,22 @@ def reconstruct(
             maximum_members=MAX_RECONSTRUCTION_MEMBERS,
             maximum_bytes=MAX_RECONSTRUCTION_BYTES,
         )
-        digest, size = publish_bytes(output_path, raw)
-        return {
+        _public_r2_unchanged_files(handoff_paths, input_snapshot)
+        verify_source_inventory(root, source_commit, plan)
+    finally:
+        try:
+            for source, snapshot in source_snapshots:
+                require(_public_r2_source_snapshot(source, source_commit, plan) == snapshot,
+                        "r2_public_source_changed", stage="reconstruct")
+            for path, snapshot in intermediate_snapshots:
+                require(_snapshot_local_r2_downstream_tree(path) == snapshot,
+                        "r2_public_intermediate_changed", stage="reconstruct")
+            _public_r2_unchanged_files(handoff_paths, input_snapshot)
+        finally:
+            if stable.exists():
+                _remove_private_reconstruction_workspace(stable)
+    digest, size = publish_bytes(output_path, raw)
+    return {
             "tool": TOOL_ID,
             "version": TOOL_VERSION,
             "mode": "reconstruct",
@@ -4635,9 +4714,6 @@ def reconstruct(
             "authority_boundary": AUTHORITY_BOUNDARY,
             "errors": [],
         }
-    finally:
-        if stable.exists():
-            shutil.rmtree(stable)
 
 
 def _read_reconstruction(path: Path) -> tuple[dict[str, bytes], dict[str, Any], bytes]:
@@ -4779,7 +4855,23 @@ def _verification_record(
     _require_timing_projection(plan, packet, capture_manifest, capture_members)
     _require_state_projection(plan, packet, capture_manifest, capture_members)
     _require_d6_projection(plan, packet, capture_manifest, capture_members)
-    _require_declared_state_completion(plan, packet, reconstruction_members)
+    public_admission = None
+    if _public_r2_selected(plan):
+        inv = parse_json_bytes(reconstruction_members[RECONSTRUCTION_INVENTORY_MEMBER],
+                               label="reconstruction_inventory")
+        _check_public_r2_profile(plan, inv, schema)
+        native = inv.get("native_verification")
+        require(type(native) is dict, "r2_native_verification_missing", stage="r2_admission")
+        outputs = {name: raw for name, raw in reconstruction_members.items()
+                   if name != RECONSTRUCTION_INVENTORY_MEMBER}
+        public_admission = _public_r2_role_admission(plan, packet, capture_manifest,
+                                                    capture_members, outputs, native)
+        require(inv.get("profile_admission") == public_admission
+                and inv.get("reconstruction_boundary") == PUBLIC_R2_EXECUTION_BOUNDARY
+                and inv.get("runtime_packet_interpretation") == _public_r2_packet_interpretation(plan),
+                "r2_profile_admission_mismatch", stage="r2_admission")
+    else:
+        _require_declared_state_completion(plan, packet, reconstruction_members)
     _require_downstream_state_bindings(plan, packet, reconstruction_members)
     candidate_values = _materializer_candidate_values(
         reconstruction_members[MATERIALIZER_REPORT_MEMBER],
@@ -4855,7 +4947,7 @@ def _verification_record(
             "packet": descriptor(RUNTIME_PACKET_MEMBER, reconstruction_members[RUNTIME_PACKET_MEMBER]),
             "diagnostic": descriptor(RUNTIME_DIAGNOSTIC_MEMBER, reconstruction_members[RUNTIME_DIAGNOSTIC_MEMBER]),
             "schema_version": RUNTIME_SCHEMA_VERSION,
-            "record_status": record_status,
+            "record_status": packet["record_status"],
             "coverage_status": "partial",
             "packet_sequence": 0,
             "previous_packet_sha256": None,
@@ -4898,6 +4990,14 @@ def _verification_record(
         "errors": [],
         "ok": True,
     }
+    if public_admission is not None:
+        for row in record["reconstructions"]:
+            row.update(PUBLIC_R2_EXECUTION_BOUNDARY)
+        record["runtime_packet_interpretation"] = _public_r2_packet_interpretation(plan)
+        record["evidence_profile_binding"] = plan["evidence_profile_binding"]
+        record["profile_admission"] = public_admission
+        if record_status == "example":
+            record["result"]["I"] = record["result"]["E"] = "incomplete"
     validate_schema(schema, record, label="verification_record")
     return canonical_json_bytes(record)
 
@@ -4913,6 +5013,8 @@ def _spawn_reconstruction(
     expected_digest: Path,
     output: Path,
     record_status: str,
+    example_backend: Path | None = None,
+    example_backend_sha256: str | None = None,
 ) -> ReconstructionResult:
     command = [
         sys.executable,
@@ -4939,6 +5041,10 @@ def _spawn_reconstruction(
         "--work-root",
         str(FIXED_RECONSTRUCTION_ROOT),
     ]
+    _public_r2_example_options(record_status, example_backend, example_backend_sha256)
+    if example_backend is not None:
+        command.extend(["--example-signature-backend", str(example_backend),
+                        "--example-signature-backend-sha256", str(example_backend_sha256)])
     process = subprocess.Popen(
         command,
         cwd=root,
@@ -4947,7 +5053,14 @@ def _spawn_reconstruction(
         stderr=subprocess.PIPE,
         env=_safe_env(root),
     )
-    stdout, stderr = process.communicate(timeout=PROCESS_TIMEOUT_SECONDS * 2)
+    try:
+        stdout, stderr = process.communicate(timeout=PROCESS_TIMEOUT_SECONDS * 2)
+    except subprocess.TimeoutExpired as exc:
+        process.kill()
+        process.communicate()
+        raise VerificationError("reconstruction_process_timeout", str(ordinal), stage="verify") from exc
+    require(len(stdout) <= MAX_PROCESS_STDOUT and len(stderr) <= MAX_PROCESS_STDERR,
+            "reconstruction_process_output_budget", str(ordinal), stage="verify")
     require(process.returncode == 0, "reconstruction_process_failed", f"{ordinal}:{stderr.decode('utf-8', errors='replace')[:2000]}", stage="verify")
     result = parse_json_bytes(stdout, label=f"reconstruction_{ordinal}_diagnostic", canonical=False)
     require(result.get("ok") is True and result.get("output_sha256") == sha256_file(output)[0], "reconstruction_diagnostic_mismatch", str(ordinal), stage="verify")
@@ -4972,8 +5085,13 @@ def run_reference(
     expected_plan_digest_path: Path,
     output_directory: Path,
     record_status: str,
+    example_backend: Path | None = None,
+    example_backend_sha256: str | None = None,
 ) -> dict[str, Any]:
+    _public_r2_example_options(record_status, example_backend, example_backend_sha256)
     root = validate_repository(repository_root, source_commit)
+    handoff_paths = (prepared_path, capture_path, expected_context_path, expected_plan_digest_path)
+    input_snapshot = _public_r2_file_snapshots(handoff_paths)
     destination = Path(os.path.abspath(os.fspath(output_directory)))
     require(not destination.exists() and not destination.is_symlink(), "output_already_exists", str(destination), stage="output")
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -4991,6 +5109,8 @@ def run_reference(
             expected_digest=expected_plan_digest_path,
             output=recon1_path,
             record_status=record_status,
+            **({"example_backend": example_backend, "example_backend_sha256": example_backend_sha256}
+               if example_backend is not None else {}),
         )
         reconstruction2 = _spawn_reconstruction(
             ordinal=2,
@@ -5002,7 +5122,10 @@ def run_reference(
             expected_digest=expected_plan_digest_path,
             output=recon2_path,
             record_status=record_status,
+            **({"example_backend": example_backend, "example_backend_sha256": example_backend_sha256}
+               if example_backend is not None else {}),
         )
+        _public_r2_unchanged_files(handoff_paths, input_snapshot)
         members1, inventory1, recon1_raw = _read_reconstruction(recon1_path)
         members2, inventory2, recon2_raw = _read_reconstruction(recon2_path)
         require(recon1_raw == recon2_raw, "reconstruction_mismatch", stage="verify")
@@ -5071,6 +5194,8 @@ def run_reference(
         capsule_staged = staging / REFERENCE_CAPSULE_NAME
         capsule_sha, capsule_size = publish_zip_from_files(capsule_staged, payloads)
 
+        _public_r2_unchanged_files(handoff_paths, input_snapshot)
+        verify_source_inventory(root, source_commit, plan)
         # Publish one closed directory by no-replacement rename.
         for path in staging.iterdir():
             if path.is_file():
@@ -5099,7 +5224,7 @@ def run_reference(
         }
     finally:
         if staging != Path("/") and staging.exists():
-            shutil.rmtree(staging)
+            _remove_private_reconstruction_workspace(staging)
 
 
 def failure(error: VerificationError, *, exit_code: int = 2) -> dict[str, Any]:
@@ -5153,6 +5278,10 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     run.add_argument("--expected-context", required=True)
     run.add_argument("--expected-plan-digest", required=True)
     run.add_argument("--output-directory", required=True)
+    for target in (reconstruct_parser, run):
+        target.add_argument("--example-signature-backend",
+            help="Pinned signature-test executable, accepted only with --record-status example.")
+        target.add_argument("--example-signature-backend-sha256")
     return parser.parse_args(argv)
 
 
@@ -5180,6 +5309,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 output_path=Path(args.output),
                 record_status=str(args.record_status),
                 work_root=Path(args.work_root),
+                example_backend=Path(args.example_signature_backend) if args.example_signature_backend else None,
+                example_backend_sha256=args.example_signature_backend_sha256,
             )
         else:
             result = run_reference(
@@ -5191,6 +5322,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 expected_plan_digest_path=Path(args.expected_plan_digest),
                 output_directory=Path(args.output_directory),
                 record_status=str(args.record_status),
+                example_backend=Path(args.example_signature_backend) if args.example_signature_backend else None,
+                example_backend_sha256=args.example_signature_backend_sha256,
             )
     except VerificationError as exc:
         sys.stderr.buffer.write(canonical_json_bytes(failure(exc)))
@@ -8961,7 +9094,7 @@ _LOCAL_R2_DOWNSTREAM_MEMBERS = frozenset({
 })
 
 
-def _snapshot_local_r2_downstream_tree(root: Path) -> dict[str, tuple[Any, ...]]:
+def _snapshot_local_r2_downstream_tree(root: Path, *, omit_git_objects: bool = False) -> dict[str, tuple[Any, ...]]:
     """Bound and snapshot regular local inputs, including their Git metadata.
 
     No atime comparison: ordinary reads may update it. Inode, mode, link count,
@@ -8971,7 +9104,23 @@ def _snapshot_local_r2_downstream_tree(root: Path) -> dict[str, tuple[Any, ...]]
     require(root.is_dir() and not root.is_symlink() and root.resolve() == root,
             'r2_downstream_input_root_invalid', stage=stage)
     result = {}; total = 0
-    for count, path in enumerate(root.rglob('*')):
+    def entries():
+        if not omit_git_objects:
+            yield from root.rglob('*')
+            return
+        # Immutable Git object storage may contain an unrelated full history.
+        # Do not recursively hash that history as if it were executed input.
+        # The public caller separately rechecks the selected commit/source bytes.
+        for directory, dirs, files in os.walk(root, followlinks=False):
+            base = Path(directory)
+            if base == root / '.git' and 'objects' in dirs:
+                objects = base / 'objects'
+                require(objects.is_dir() and not objects.is_symlink(),
+                        'r2_downstream_input_not_regular', stage=stage)
+                dirs.remove('objects')
+            for name in dirs + files:
+                yield base / name
+    for count, path in enumerate(entries()):
         require(count < 20000, 'r2_downstream_input_budget', stage=stage)
         info = path.lstat()
         require(stat.S_ISREG(info.st_mode) or stat.S_ISDIR(info.st_mode),
@@ -9524,6 +9673,597 @@ def _verify_local_r2_reconstructions(
     require(reconstruction_raw == expected, 'r2_reconstruction_pair_replay_mismatch', stage=stage)
     return parse_json_bytes(members[_LOCAL_R2_RECONSTRUCTION_ASSESSMENT_MEMBER],
                             label='local_r2_reconstruction_assessment')
+
+
+
+# The public R2 record family uses real commit/run identities throughout.
+PUBLIC_R2_PROFILE = "pulsemech_step5c_post_run_state_evidence_v1"
+PUBLIC_R2_BINDING_VERSION = "pulsemech_step5c_r2_commit_bound_requirements_v1"
+PUBLIC_R2_REQUIREMENTS_SHA256 = "19e451b51a7ff1bdb7d8242a1f486f2e8fd410e791516b7dd2ebf9a0dd93ecc1"
+
+
+def _public_r2_selected(plan: Mapping[str, Any]) -> bool:
+    return plan.get("record_status") == "observed" or "evidence_profile_binding" in plan
+
+
+def _check_public_r2_profile(plan: Mapping[str, Any], record: Mapping[str, Any],
+                             schema: Mapping[str, Any] | None = None) -> None:
+    binding = plan.get("evidence_profile_binding")
+    if _public_r2_selected(plan):
+        require(type(binding) is dict and binding.get("binding_version") == PUBLIC_R2_BINDING_VERSION
+                and binding.get("evidence_profile") == PUBLIC_R2_PROFILE
+                and binding.get("topology_profile") == PROFILE
+                and binding.get("source_commit") == plan["plan_identity"]["source_commit"]
+                and binding.get("requirements_sha256") == PUBLIC_R2_REQUIREMENTS_SHA256,
+                "r2_profile_binding_required", stage="plan")
+        source = _source_row(plan, SCHEMA_PATH)
+        require(binding.get("schema_source") == {"path": SCHEMA_PATH, "sha256": source["sha256"],
+                                                "size_bytes": source["size_bytes"]},
+                "r2_profile_schema_source_mismatch", stage="plan")
+        if schema is not None:
+            definitions = schema.get("$defs", {})
+            names = ("authority_boundary", "post_run_state_evidence_v1_definition",
+                     "post_run_state_evidence_v1_limitations", "post_run_state_evidence_v1_profile_id",
+                     "post_run_state_evidence_v1_provider_artifact", "post_run_state_evidence_v1_role_obligations",
+                     "post_run_state_evidence_v1_subject_archives")
+            require(all(name in definitions for name in names), "r2_definition_missing", stage="plan")
+            closure = {"$ref": "#/$defs/post_run_state_evidence_v1_definition",
+                       "$defs": {name: definitions[name] for name in names}}
+            require(sha256_bytes(canonical_json_bytes(closure)) == PUBLIC_R2_REQUIREMENTS_SHA256,
+                    "r2_requirements_changed", stage="plan")
+            duties = {key: value["const"] for key, value in
+                      definitions["post_run_state_evidence_v1_role_obligations"]["properties"].items()}
+            require(binding.get("role_obligations") == duties and len(duties) == 62,
+                    "r2_role_obligation_set_mismatch", stage="plan")
+    require(canonical_json_bytes(record.get("evidence_profile_binding")) == canonical_json_bytes(binding),
+            "r2_profile_binding_mismatch", stage="plan")
+
+
+def _recheck_public_plan(root: Path, source_commit: str, plan_raw: bytes,
+                         diagnostic_raw: bytes, record_status: str) -> None:
+    """Execute the exact independent checker; a saved equality bit is not enough."""
+    plan = parse_json_bytes(plan_raw, label="r2_prelaunch_plan")
+    if not _public_r2_selected(plan):
+        return
+    sources = verify_source_inventory(root, source_commit, plan)
+    checker_path = "tools/check_pulsemech_compute_whole_runtime_observation_plan_v0.py"
+    require((root / checker_path).read_bytes() == sources[checker_path],
+            "r2_executed_plan_checker_mismatch", stage="plan")
+    with tempfile.TemporaryDirectory(prefix="pulsemech-r2-plan-recheck-") as temporary:
+        path = Path(temporary) / "prelaunch-plan.json"
+        _write_read_only(path, plan_raw)
+        result = run_process([sys.executable, "-I", "-B", str(root / checker_path),
+            "--repository-root", str(root), "--plan", str(path),
+            "--expected-source-commit", source_commit, "--expected-plan-sha256", sha256_bytes(plan_raw),
+            "--expected-record-status", record_status,
+            "--expected-plan-id", plan["plan_identity"]["plan_id"]], cwd=root)
+        require_success(result, label="r2_independent_plan_checker")
+        require(result.stdout == diagnostic_raw and path.read_bytes() == plan_raw,
+                "r2_independent_plan_diagnostic_mismatch", stage="plan")
+        verify_source_inventory(root, source_commit, plan)
+
+
+def _public_r2_sources(plan, prepared_members, specifications):
+    """Select native core inputs from the authenticated COMMIT inventory."""
+    result = {}
+    source_commit = plan['plan_identity']['source_commit']
+    for path, pin in specifications:
+        row = _source_row(plan, path)
+        raw = prepared_members.get(PREPARED_SOURCE_PREFIX + path)
+        require(type(raw) is bytes and 0 < len(raw) <= 1048576
+                and row.get('revision') == source_commit and 'revision_kind' not in row
+                and row.get('git_blob_sha1') == pin
+                    == hashlib.sha1(b'blob %d\0' % len(raw) + raw).hexdigest()
+                and row.get('sha256') == sha256_bytes(raw)
+                and type(row.get('size_bytes')) is int and row['size_bytes'] == len(raw),
+                'r2_native_source_binding_mismatch', path, stage='r2_native')
+        result[path] = raw
+    return result
+
+
+def _public_r2_consumer(root, plan, prepared_members):
+    """Load the existing exact Step 3F consumer, not another content verifier."""
+    import types
+    sources = _public_r2_sources(plan, prepared_members, _LOCAL_R2_PACKAGE_REPLAY_SOURCES)
+    path = _LOCAL_R2_PACKAGE_REPLAY_SOURCES[0][0]
+    require((root / path).read_bytes() == sources[path], 'r2_native_consumer_source_mismatch', stage='r2_native')
+    name = '_pulsemech_commit_bound_package_consumer'
+    previous = sys.modules.get(name)
+    module = types.ModuleType(name); module.__file__ = str(root / path)
+    sys.modules[name] = module
+    try:
+        exec(compile(sources[path], module.__file__, 'exec'), module.__dict__)
+    finally:
+        if previous is None:
+            sys.modules.pop(name, None)
+        else:
+            sys.modules[name] = previous
+    return module, sources
+
+
+def _public_r2_backend(record_status, example_backend=None, example_backend_sha256=None):
+    """An example-only pinned backend can never enter an observed route.
+
+    Observed verification uses the installed GitHub CLI within the declared
+    trusted-host boundary, snapshots its exact executable and records its hash.
+    A hash identifies these bytes; it does not authenticate host integrity.
+    """
+    if example_backend is not None or example_backend_sha256 is not None:
+        require(record_status == 'example' and example_backend is not None
+                and example_backend_sha256 is not None,
+                'example_signature_backend_forbidden', stage='r2_native')
+        path = Path(example_backend)
+        digest = canonical_sha256(example_backend_sha256, label='example_signature_backend_sha256')
+        raw = _local_r2_attestation_backend_bytes(path, digest)
+        return path, digest, len(raw), 'explicit_example_test_double'
+    require(record_status == 'observed', 'r2_example_signature_backend_required', stage='r2_native')
+    located = shutil.which('gh', path='/usr/local/bin:/usr/bin:/bin')
+    require(located is not None, 'r2_signature_backend_unavailable', stage='r2_native')
+    path = Path(located).resolve(strict=True)
+    digest, _ = sha256_file(path)
+    raw = _local_r2_attestation_backend_bytes(path, digest)
+    return path, digest, len(raw), 'installed_cli_within_declared_trusted_host_boundary'
+
+
+def _public_r2_artifact(manifest, members, member):
+    rows = [row for row in manifest['artifact_bindings'] if row.get('downloaded_member') == member]
+    require(len(rows) == 1 and type(members.get(member)) is bytes,
+            'r2_native_artifact_missing', stage='r2_native')
+    row = rows[0]; raw = members[member]
+    require(row.get('exact_bytes_in_capture') is True
+            and row.get('github_sha256') == row.get('downloaded_sha256') == sha256_bytes(raw)
+            and type(row.get('size_bytes')) is int and row['size_bytes'] == len(raw)
+            and type(row.get('downloaded_size_bytes')) is int and row['downloaded_size_bytes'] == len(raw),
+            'r2_native_artifact_bytes_mismatch', stage='r2_native')
+    return row, raw
+
+
+def _public_r2_native_checks(root, plan, prepared_members, manifest, members, intake_directory, *,
+                             record_status, example_backend=None, example_backend_sha256=None):
+    """Run the completed native content/signature mechanics on public inputs.
+
+    No local-stage plan, simulated transcript, fixture commit or saved local
+    assessment is constructed. Low-level runners below accept bounded original
+    bytes plus a subject identity; their historical internal result envelopes
+    are not published as observations. Only the existing core reports and exact
+    input bindings enter this commit-bound result.
+    """
+    schema = parse_source_schema(prepared_members[PREPARED_SOURCE_PREFIX + SCHEMA_PATH])
+    _check_public_r2_profile(plan, manifest, schema)
+    commit = plan['plan_identity']['source_commit']
+    subject, provider = manifest['subject'], manifest['provider']
+    run_id = positive_int(subject['run_id'], label='r2_native_run_id')
+    run_key = f'GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI'
+    expected_subject = {'repository': REPOSITORY, 'source_commit': commit,
+        'workflow_ref': REPOSITORY + '/' + SUBJECT_WORKFLOW_PATH + '@refs/heads/main',
+        'workflow_run_id': run_id, 'workflow_run_attempt': 1, 'subject_run_key': run_key}
+    views, _ = _inspect_subject_state_archive_contents(plan, members)
+    _check_complete_package(plan, manifest, members, views)
+    _, package = _inspect_package_content_inventory(plan, members, views, retain_content=True)
+    consumer, package_sources = _public_r2_consumer(root, plan, prepared_members)
+
+    # The actual loader CLI already ran for this invocation. Its original
+    # immutable carrier is additionally reconciled with all selected originals.
+    carrier_path = _find_unique(intake_directory, f'pulsemech-current-run-export-{run_id}-1-v0.zip')
+    expectation_path = _find_unique(intake_directory, 'expectation.json')
+    carrier_raw = carrier_path.read_bytes()
+    expectation_raw = expectation_path.read_bytes()
+    expectation = parse_json_bytes(expectation_raw, label='r2_provider_expectation')
+    original_archives = {}
+    terminal = (
+        ('complete_release_grade_reference_package', 'acquisition/subject/artifacts/complete-release-grade-reference-package.zip'),
+        ('package_completeness_report', 'acquisition/subject/artifacts/release-grade-package-completeness.zip'),
+        ('package_verification_report', 'acquisition/subject/artifacts/release-grade-reference-package-verification.zip'),
+    )
+    artifacts = {}
+    for role, member in terminal:
+        row, raw = _public_r2_artifact(manifest, members, member)
+        require(row['source_run_kind'] == 'subject' and row['source_run_id'] == run_id,
+                'r2_native_subject_archive_mismatch', stage='r2_native')
+        artifacts[role] = row
+        original_archives[row['artifact_name'] + '.zip'] = raw
+    claims = [(row, 'path', False) for row in expectation['trusted_control_plane']['components'].values()]
+    authority = expectation['authority_sources']
+    claims += [(authority[key], 'path_or_uri', True) for key in ('workflow', 'policy', 'gate_registry')]
+    claims += [(row, 'path_or_uri', True) for row in authority['additional_sources']]
+    nested_sources = {}
+    for claim, locator, has_size in claims:
+        path = claim.get(locator)
+        require(type(path) is str, 'r2_provider_source_locator_invalid', stage='r2_native')
+        row = _source_row(plan, path)
+        raw = prepared_members.get(PREPARED_SOURCE_PREFIX + path)
+        require(type(raw) is bytes and row['revision'] == commit == claim.get('source_revision')
+                and row['sha256'] == claim.get('sha256') == sha256_bytes(raw)
+                and (not has_size or (type(claim.get('size_bytes')) is int and claim['size_bytes'] == len(raw))),
+                'r2_provider_nested_source_mismatch', stage='r2_native')
+        nested_sources[path] = descriptor(path, raw)
+    try:
+        bundle = consumer.load_current_run_bundle(carrier_path=carrier_path, carrier_bytes=carrier_raw,
+            expectation=expectation, max_total_uncompressed_bytes=64 * 1024 * 1024)
+        require(bundle.artifact_archives == original_archives and bundle.complete_package_members == package,
+                'r2_provider_original_archive_bytes_mismatch', stage='r2_native')
+        require(carrier_path.read_bytes() == carrier_raw and expectation_path.read_bytes() == expectation_raw,
+                'r2_provider_inputs_changed', stage='r2_native')
+        inventory = parse_json_bytes(package['package_digest_inventory_v0.json'], label='r2_package_inventory')
+        inventory_rows = consumer._validate_package_inventory(members=package, inventory=inventory)
+        original_report = bundle.verification_report
+        # This consumer checks the complete persisted report against its original
+        # package, not only a saved verified flag or an exit code.
+        consumer._validate_check_report(document=original_report,
+            schema_version='release_grade_reference_package_verification_v0', status_field='status',
+            status_value='verified', label='r2_original_verification', report_kind='verification',
+            members=package, inventory=inventory, inventory_rows=inventory_rows, subject=expected_subject)
+        fresh = _run_local_r2_package_verifier(package_sources[_LOCAL_R2_PACKAGE_REPLAY_SOURCES[1][0]],
+                                               package, expected_subject)
+        consumer._validate_check_report(document=fresh,
+            schema_version='release_grade_reference_package_verification_v0', status_field='status',
+            status_value='verified', label='r2_fresh_verification', report_kind='verification',
+            members=package, inventory=inventory, inventory_rows=inventory_rows, subject=expected_subject)
+    except consumer.WrapperError as exc:
+        raise VerificationError('r2_native_package_or_provider_rejected', stage='r2_native') from exc
+    def package_semantics(report):
+        return {key: report[key] for key in
+            ('schema_version', 'status', 'verified', 'tool', 'summary', 'errors', 'authority_boundary')} | {
+            'checks': sorted(({'check_id': row['check_id'], 'passed': row['passed']} for row in report['checks']),
+                             key=lambda row: row['check_id'])}
+    require(canonical_json_bytes(package_semantics(fresh)) == canonical_json_bytes(package_semantics(original_report)),
+            'r2_native_package_semantics_mismatch', stage='r2_native')
+    meta = parse_json_bytes(package['run_metadata_v0.json'], label='r2_package_metadata')
+    pub = _provider_artifact_binding(manifest)
+    times = [subject['run_started_at'], meta['created_utc'],
+             artifacts['complete_release_grade_reference_package']['created_utc'],
+             original_report['checked_utc'], artifacts['package_verification_report']['created_utc'],
+             subject['updated_at'], provider['run_started_at'], pub['created_utc'], provider['updated_at']]
+    stamps = [parse_utc(value, label='r2_native_publication_time') for value in times]
+    require(stamps == sorted(stamps), 'r2_native_publication_time_order_mismatch', stage='r2_native')
+    require(parse_utc(meta['created_utc'], label='r2_package_time') <=
+            parse_utc(artifacts['package_completeness_report']['created_utc'], label='r2_completeness_time') <=
+            parse_utc(subject['updated_at'], label='r2_subject_end'),
+            'r2_native_completeness_time_order_mismatch', stage='r2_native')
+
+    original = {}; parent_rows = {}
+    for role, member, names in _STATE_ARCHIVE_LAYOUT:
+        if role == 'advisory_reference_bundle':
+            continue
+        parent_rows[role], raw = _public_r2_artifact(manifest, members, member)
+        _, original[role], _ = _inspect_state_archive_bytes(raw, names, member_limit=128,
+            single_limit=16 * 1024 * 1024, expansion_limit=64 * 1024 * 1024, retained_members=names)
+    pre = original['pre_attestation_pulse_artifacts']; recorded = original['release_grade_recorded_path']
+    for name in ('required_gate_evidence_v0.json', 'refusal_delta_summary.json',
+                 *_LOCAL_R2_LLAMAGUARD_CONTENT_MEMBERS):
+        require(pre[name] == recorded[name], 'r2_native_pre_recorded_copy_mismatch', stage='r2_native')
+    expected_run = {'git_sha': commit, 'run_key': run_key, 'run_mode': 'prod'}
+    for name in ('required_gate_evidence_v0.json', 'recorded_release_candidate_index_v0.json',
+                 'release_evidence_input_manifest_v0.json'):
+        doc = parse_json_bytes(recorded[name], label='r2_native_recorded_subject', canonical=False)
+        require(doc.get('run_identity') == expected_run and isinstance(doc.get('subject'), dict)
+                and doc['subject'].get('repository') == REPOSITORY
+                and doc['subject'].get('commit_sha') == commit and doc['subject'].get('release_candidate') == 'main',
+                'r2_native_recorded_subject_mismatch', stage='r2_native')
+    for name in ('required_gate_evidence_v0.json', 'recorded_release_candidate_index_v0.json',
+                 'release_evidence_input_manifest_v0.json',
+                 *('recorded_release_candidates/' + key + '.json' for key in
+                   ('detector_materialization', 'external_llamaguard', 'refusal_delta_summary'))):
+        doc = parse_json_bytes(recorded[name], label='r2_native_recorded_time', canonical=False)
+        stamp = parse_utc(doc.get('created_utc'), label='r2_native_recorded_time')
+        require(parse_utc(subject['run_started_at'], label='r2_native_start') <= stamp <=
+                parse_utc(parent_rows['release_grade_recorded_path']['created_utc'], label='r2_native_publication'),
+                'r2_native_recorded_time_outside_run', stage='r2_native')
+    input_manifest = parse_json_bytes(recorded['release_evidence_input_manifest_v0.json'],
+                                     label='r2_native_input_manifest', canonical=False)
+    epoch = parse_utc(input_manifest['created_utc'], label='r2_manifest_epoch').timestamp()
+    require(epoch >= 0 and epoch == int(epoch), 'r2_manifest_epoch_invalid', stage='r2_native')
+    # The core consumed the original pre-R9 status. Do not reconstruct it by
+    # stripping final gates or rewrite the received archive to pass a checker.
+    payloads = {'PULSE_safe_pack_v0/artifacts/' + name: raw for name, raw in recorded.items()}
+    payloads['PULSE_safe_pack_v0/artifacts/status.json'] = pre['status.json']
+    spec = {'repository': REPOSITORY, 'commit': commit, 'run_id': run_id,
+            'run_key': run_key, 'manifest_epoch': int(epoch)}
+    recorded_sources = _public_r2_sources(plan, prepared_members, _LOCAL_R2_RECORDED_INPUT_SOURCES)
+    recorded_inputs = _run_local_r2_recorded_inputs(recorded_sources, payloads, spec)
+    require(recorded_inputs.get('run_identity') == expected_run
+            and recorded_inputs.get('manifest') == input_manifest,
+            'r2_native_recorded_inputs_mismatch', stage='r2_native')
+
+    llama_sources = _public_r2_sources(plan, prepared_members, _LOCAL_R2_LLAMAGUARD_CONTENT_SOURCES)
+    pack_schema = 'PULSE_safe_pack_v0/schemas/external_summary_v1.schema.json'
+    require(prepared_members.get(PREPARED_SOURCE_PREFIX + pack_schema) == llama_sources['schemas/external_summary_v1.schema.json'],
+            'r2_native_llamaguard_workflow_schema_mismatch', stage='r2_native')
+    evaluator = parse_json_bytes(recorded[_LOCAL_R2_LLAMAGUARD_CONTENT_MEMBERS[1]], label='r2_evaluator', canonical=False)
+    created = evaluator['run']['created_utc']
+    require(parse_utc(subject['run_started_at'], label='r2_start') <= parse_utc(created, label='r2_evaluator_time') <=
+            min(parse_utc(row['created_utc'], label='r2_llama_publication') for row in parent_rows.values()),
+            'r2_native_llamaguard_time_mismatch', stage='r2_native')
+    dataset = [parse_json_bytes(line, label='r2_controlled_case', canonical=False) for line in
+               llama_sources['PULSE_safe_pack_v0/examples/llamaguard_current_run_cases_v0.jsonl'].splitlines() if line.strip()]
+    case_ids = [row['case_id'] for row in dataset]
+    require(len(case_ids) == len(set(case_ids)) == 6
+            and case_ids == [row['case_id'] for row in plan['model_inference_templates']],
+            'r2_native_controlled_case_set_mismatch', stage='r2_native')
+    llama = _run_local_r2_llamaguard_content(llama_sources,
+        {'PULSE_safe_pack_v0/artifacts/' + name: recorded[name] for name in _LOCAL_R2_LLAMAGUARD_CONTENT_MEMBERS},
+        {'repository': REPOSITORY, 'commit': commit, 'run_id': run_id, 'created_utc': created, 'case_ids': case_ids})
+    expected_llama_run = {'repository': REPOSITORY, 'git_sha': commit, 'run_key': run_key,
+        'run_id': run_id, 'run_attempt': 1, 'workflow_name': SUBJECT_WORKFLOW_NAME,
+        'workflow_ref': expected_subject['workflow_ref'], 'workflow_path': SUBJECT_WORKFLOW_PATH,
+        'release_candidate': 'main', 'created_utc': created}
+    require(llama.get('case_ids') == case_ids and type(llama.get('record_count')) is int and llama['record_count'] == 6
+            and llama.get('run_identity') == expected_llama_run
+            and llama.get('raw_sha256') == sha256_bytes(recorded[_LOCAL_R2_LLAMAGUARD_CONTENT_MEMBERS[0]])
+            and llama.get('manifest_sha256') == sha256_bytes(recorded[_LOCAL_R2_LLAMAGUARD_CONTENT_MEMBERS[1]])
+            and llama.get('model') == evaluator.get('model')
+            and llama.get('generation') == evaluator.get('runtime', {}).get('generation')
+            and llama.get('torch_threads') == evaluator.get('runtime', {}).get('torch_threads')
+            and llama.get('summary') == parse_json_bytes(recorded[_LOCAL_R2_LLAMAGUARD_CONTENT_MEMBERS[2]],
+                                                        label='r2_native_summary', canonical=False),
+            'r2_native_llamaguard_content_mismatch', stage='r2_native')
+    backend, backend_sha, backend_size, backend_scope = _public_r2_backend(record_status, example_backend,
+                                                                          example_backend_sha256)
+    attestation_sources = _public_r2_sources(plan, prepared_members,
+        _LOCAL_R2_LLAMAGUARD_CONTENT_SOURCES + _LOCAL_R2_ATTESTATION_EXTRA_SOURCES)
+    attestation = _run_local_r2_attestation(attestation_sources,
+        {'PULSE_safe_pack_v0/artifacts/' + name: recorded[name] for name in _LOCAL_R2_ATTESTATION_MEMBERS},
+        {'repository': REPOSITORY, 'commit': commit}, gh_executable=backend, expected_gh_sha256=backend_sha)
+    require(parse_utc(subject['run_started_at'], label='r2_attestation_start') <=
+            parse_utc(attestation['verified_at'], label='r2_attestation_time') <=
+            parse_utc(parent_rows['release_grade_recorded_path']['created_utc'], label='r2_attestation_publication'),
+            'r2_native_attestation_time_mismatch', stage='r2_native')
+    recorded_full = _run_local_r2_recorded_full(recorded_sources, payloads, spec,
+        gh_executable=backend, expected_gh_sha256=backend_sha)
+    _local_r2_attestation_backend_bytes(backend, backend_sha)
+    # These are the original existing-core reports, not local assessment records.
+    return {
+        'schema_version': 'pulsemech_step5c_r2_native_verification_v1',
+        'record_status': record_status, 'evidence_profile_binding': plan['evidence_profile_binding'],
+        'source_commit': commit, 'subject_run_id': run_id, 'provider_run_id': provider['run_id'],
+        'package_semantics': package_semantics(fresh),
+        'completeness_report_sha256': sha256_bytes(bundle.completeness_report_bytes),
+        'verification_report_sha256': sha256_bytes(bundle.verification_report_bytes),
+        'provider_carrier_sha256': sha256_bytes(carrier_raw), 'provider_expectation_sha256': sha256_bytes(expectation_raw),
+        'nested_source_bindings': [nested_sources[name] for name in sorted(nested_sources)],
+        'pre_R9_status_sha256': sha256_bytes(pre['status.json']),
+        'recorded_input_manifest_sha256': sha256_bytes(recorded['release_evidence_input_manifest_v0.json']),
+        'controlled_case_ids': case_ids,
+        'llamaguard_summary_sha256': sha256_bytes(recorded[_LOCAL_R2_LLAMAGUARD_CONTENT_MEMBERS[2]]),
+        'attestation_report_sha256': sha256_bytes(canonical_json_bytes(attestation['report'])),
+        'recorded_verifier_report_sha256': sha256_bytes(canonical_json_bytes(recorded_full['report'])),
+        'signature_backend': {'sha256': backend_sha, 'size_bytes': backend_size, 'trust_scope': backend_scope},
+        'checks': {name: True for name in (
+            'fresh_package_cli', 'package_semantic_replay', 'original_publication_order',
+            'provider_original_archive_equality', 'provider_source_bindings', 'completeness_semantic_replay',
+            'original_pre_R9_input_verification', 'controlled_cases_and_canonical_summary',
+            'fresh_attestation_core_and_backend', 'full_recorded_candidate_verifier')},
+        'simulation_only': record_status == 'example',
+        'mandatory_llamaguard_signatures_verified': record_status == 'observed',
+        'original_runtime_reads_proven': False, 'authority_effect': 'none',
+    }
+
+
+def _public_r2_role_admission(plan, packet, manifest, capture_members, outputs, native_checks):
+    """Apply exactly the reviewed duties to already authenticated native inputs.
+
+    Source origin, captured bytes and observed reads remain different claims.
+    The two explicitly allowed visibility gaps are individually required; they
+    are never a general exemption for missing exact-content obligations.
+    """
+    stage = 'r2_admission'
+    _check_public_r2_profile(plan, native_checks)
+    require(native_checks.get('schema_version') == 'pulsemech_step5c_r2_native_verification_v1'
+            and native_checks.get('source_commit') == plan['plan_identity']['source_commit']
+            and native_checks.get('subject_run_id') == manifest['subject']['run_id']
+            and native_checks.get('provider_run_id') == manifest['provider']['run_id']
+            and native_checks.get('record_status') == plan['record_status'],
+            'r2_admission_native_identity_mismatch', stage=stage)
+    expected_checks = {'fresh_package_cli', 'package_semantic_replay', 'original_publication_order',
+        'provider_original_archive_equality', 'provider_source_bindings', 'completeness_semantic_replay',
+        'original_pre_R9_input_verification', 'controlled_cases_and_canonical_summary',
+        'fresh_attestation_core_and_backend', 'full_recorded_candidate_verifier'}
+    require(type(native_checks.get('checks')) is dict and set(native_checks['checks']) == expected_checks
+            and all(value is True for value in native_checks['checks'].values()),
+            'declared_state_evidence_incomplete', stage=stage)
+    example = plan['record_status'] == 'example'
+    require(native_checks.get('simulation_only') is example
+            and native_checks.get('mandatory_llamaguard_signatures_verified') is (not example),
+            'r2_admission_signature_boundary_mismatch', stage=stage)
+    # Independently repeat the public content/projection equations. No local
+    # source identity or local simulation projection is used at this boundary.
+    _require_state_projection(plan, packet, manifest, capture_members)
+    _require_timing_projection(plan, packet, manifest, capture_members)
+    _require_d6_projection(plan, packet, manifest, capture_members)
+    states = packet['state_observations']
+    by_id = {row['state_id']: row for row in states}
+    templates = _planned_state_templates(plan)
+    duties = plan['evidence_profile_binding']['role_obligations']
+    require(len(states) == len(by_id) == len(templates) == len(duties) == 62
+            and set(by_id) == set(templates) == set(duties),
+            'r2_admission_role_extent_mismatch', stage=stage)
+    downstream = {row['state_id']: row for row in _downstream_state_bindings(plan, packet, outputs)}
+    rows = []
+    gap_id = 'state:step5c:quality-ledger-pre-authority'
+    receipt_id = 'state:step5c:artifact-binding-attestation'
+    exact_duties = {'exact_source_content', 'exact_preserved_content', 'exact_preserved_archive',
+        'exact_preserved_tree', 'exact_preserved_tree_and_carrier', 'exact_provider_content',
+        'checked_controlled_case_derivation', 'checked_status_policy_projection',
+        'checked_source_argv_derivation_with_runtime_receipt_gap'}
+    for key in sorted(duties):
+        duty, state, template = duties[key], by_id[key], templates[key]
+        require(template['required'] is True, 'r2_admission_requiredness_mismatch', stage=stage)
+        if duty == 'checked_downstream_derivation':
+            require(key in downstream and state['sha256'] is None and state['content_status'] == 'unavailable',
+                    'r2_admission_downstream_cycle_or_missing', stage=stage)
+            evidence = downstream[key]['output']
+        elif duty == 'required_explicit_content_gap':
+            require(key == gap_id and state['content_status'] == 'unavailable'
+                    and state['sha256'] is None and state['size_bytes'] is None
+                    and state['producer_execution_id'] is None,
+                    'r2_admission_D1_gap_mismatch', stage=stage)
+            evidence = {'content_status': 'unavailable', 'stronger_pre_state_claim_proven': False}
+        elif duty == 'required_action_metadata_with_receipt_gap':
+            require(key == receipt_id and state['content_status'] == 'unavailable' and state['sha256'] is None,
+                    'r2_admission_D6_gap_mismatch', stage=stage)
+            # _require_d6_projection above independently binds successful A2 to
+            # its raw original platform metadata and checked source occurrence.
+            evidence = {'action_occurrence_metadata_checked': True, 'signed_receipt_content_status': 'unavailable',
+                        'signed_receipt_verified': False}
+        else:
+            require(duty in exact_duties and state['content_status'] == 'exact_digest'
+                    and type(state['sha256']) is str and SHA256_RE.fullmatch(state['sha256']) is not None
+                    and type(state['size_bytes']) is int and state['size_bytes'] >= 0,
+                    'declared_state_evidence_incomplete', key, stage=stage)
+            evidence = {'sha256': state['sha256'], 'size_bytes': state['size_bytes']}
+        rows.append({'state_id': key, 'required_duty': duty, 'condition_satisfied': True,
+                     'original_role_admitted': not example, 'evidence': evidence,
+                     'original_runtime_read_proven': False})
+    return {'evidence_profile': PUBLIC_R2_PROFILE, 'assessment_status': 'incomplete' if example else 'verified',
+        'role_count': 62, 'satisfied_condition_count': 62,
+        'original_role_admission_count': 0 if example else 62, 'roles': rows,
+        'D1_exact_pre_state_proven': False, 'D6_signed_receipt_verified': False,
+        'original_runtime_reads_proven': False, 'simulation_only': example,
+        'mandatory_llamaguard_signatures_verified': not example}
+
+
+def _public_r2_example_options(record_status, backend, digest):
+    if backend is None and digest is None:
+        return
+    require(record_status == "example" and backend is not None and digest is not None,
+            "example_signature_backend_forbidden", stage="r2_native")
+    _local_r2_attestation_backend_bytes(Path(backend),
+        canonical_sha256(digest, label="example_signature_backend_sha256"))
+
+
+def _public_r2_file_snapshots(paths):
+    """Snapshot exact four-file handoff without following links or retaining bodies."""
+    require(len(paths) == 4, "r2_handoff_file_set_mismatch", stage="context")
+    result = {}
+    limits = (MAX_PREPARED_BYTES, MAX_CAPTURE_BYTES, MAX_PLAN_BYTES, 65)
+    for path, limit in zip(paths, limits):
+        p = Path(path)
+        st = p.lstat()
+        require(stat.S_ISREG(st.st_mode) and st.st_nlink == 1
+                and 0 < st.st_size <= limit, "r2_handoff_file_invalid", stage="context")
+        def identity(v):
+            return (v.st_dev, v.st_ino, v.st_mode, v.st_nlink,
+                    v.st_size, v.st_mtime_ns, v.st_ctime_ns)
+        h = hashlib.sha256(); size = 0
+        with os.fdopen(os.open(p, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK), "rb") as stream:
+            require(identity(os.fstat(stream.fileno())) == identity(st),
+                    "r2_handoff_changed", stage="context")
+            while True:
+                block = stream.read(min(HASH_CHUNK, limit - size + 1))
+                if not block:
+                    break
+                size += len(block)
+                require(size <= limit, "r2_handoff_file_budget", stage="context")
+                h.update(block)
+            require(size == st.st_size and identity(os.fstat(stream.fileno())) == identity(st)
+                    and identity(p.lstat()) == identity(st), "r2_handoff_changed", stage="context")
+        result[str(p)] = (*identity(st), h.hexdigest())
+    return result
+
+
+def _public_r2_unchanged_files(paths, expected):
+    require(_public_r2_file_snapshots(paths) == expected, "r2_handoff_changed", stage="context")
+
+
+
+
+def _remove_private_reconstruction_workspace(path: Path) -> None:
+    """Remove this invocation's tree, including read-only core output directories.
+
+    Only private directory descriptors are made traversable/writable for
+    destruction. Original handoff files and caller source trees are outside
+    this root. Symlinks are not followed, and every cleanup failure propagates.
+    """
+    before = path.lstat()
+    require(stat.S_ISDIR(before.st_mode), "reconstruction_cleanup_root_invalid", stage="output")
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        opened = os.fstat(fd)
+        require((opened.st_dev, opened.st_ino) == (before.st_dev, before.st_ino),
+                "reconstruction_cleanup_root_changed", stage="output")
+        for _name, _directories, _files, current in os.fwalk(".", topdown=False,
+                                                         follow_symlinks=False, dir_fd=fd):
+            meta = os.fstat(current)
+            require(stat.S_ISDIR(meta.st_mode) and meta.st_dev == opened.st_dev,
+                    "reconstruction_cleanup_directory_invalid", stage="output")
+            os.fchmod(current, stat.S_IMODE(meta.st_mode) | 0o700)
+        after = path.lstat()
+        require((after.st_dev, after.st_ino) == (before.st_dev, before.st_ino),
+                "reconstruction_cleanup_root_changed", stage="output")
+    finally:
+        os.close(fd)
+    shutil.rmtree(path)
+
+
+
+
+PUBLIC_R2_EXECUTION_BOUNDARY = {
+    "dispatched_workflow": False,
+    "repeated_model_inference": False,
+    "used_current_time": True,
+    "used_randomness": True,
+    "ambient_environment_dependency": True,
+    "current_time_use_scope": "fresh_package_diagnostics_only",
+    "randomness_use_scope": "private_staging_names_only",
+    "environment_use_scope": "declared_trusted_runtime_and_signature_backend",
+    "clock_and_staging_values_in_reconstructed_output": False,
+}
+
+
+def _public_r2_example_packet(plan, manifest):
+    return _public_r2_selected(plan) and plan.get("record_status") == "example" and manifest.get("record_status") == "example"
+
+
+def _public_r2_packet_interpretation(plan):
+    return "marked_example_in_generic_observed_form" if plan["record_status"] == "example" else "acquired_post_run_platform_evidence"
+
+
+def _require_public_r2_packet_envelope(plan, packet, manifest):
+    """Bind the example/observation distinction outside the generic packet form.
+
+    No input/capture is relabelled. Only an explicitly bound example may use
+    the conspicuously named example producer, and it cannot admit original
+    roles or complete I/E. The acquired route requires the real producer.
+    """
+    require(plan.get("record_status") == manifest.get("record_status"),
+            "r2_runtime_record_status_mismatch", stage="runtime")
+    example = plan["record_status"] == "example"
+    run_id = manifest["subject"]["run_id"]
+    producer = packet.get("producer", {})
+    identity = packet.get("packet_identity", {})
+    require(packet.get("record_status") == "observed"
+            and producer.get("collection_mode") == "post_run_platform_export"
+            and packet.get("observation_boundary", {}).get("collector_mode") == "post_run_platform_export"
+            and packet.get("subject", {}).get("active_policy_sets") == ["required", "release_required"]
+            and identity.get("packet_scope") == "subject_run"
+            and identity.get("packet_id") == (f"runtime-observation:step5c:public-r2-example:{run_id}:1"
+                if example else f"runtime-observation:step5c:{run_id}:1")
+            and producer.get("producer_id") == ("producer:pulsemech-step5c-public-r2-example-v1"
+                if example else "producer:pulsemech-step5c-whole-runtime-observer-v0")
+            and producer.get("producer_name") == ("PULSEmech R2 example reconstruction; not an acquired observation"
+                if example else "PULSEmech Step 5C whole-runtime post-run observer"),
+            "r2_runtime_example_observation_boundary_mismatch", stage="runtime")
+
+
+def _public_r2_source_snapshot(root, source_commit, plan):
+    """Bind executed source plus Git control metadata, not unrelated history.
+
+    Git objects for the selected revision are independently read and checked
+    by verify_source_inventory. The full worktree and mutable Git controls
+    must retain identity and bytes; no privileged-host integrity is claimed.
+    """
+    before = _snapshot_local_r2_downstream_tree(root, omit_git_objects=True)
+    # The running verifier's installation is checked at the public entrypoint.
+    # A reconstruction source copy is not that installation. Check its selected
+    # Git objects AND every corresponding worktree file, including its verifier.
+    sources = _verify_source_inventory_bytes(root, source_commit, plan)
+    for relative, raw in sources.items():
+        path = root / relative
+        require(path.read_bytes() == raw, "r2_public_source_copy_mismatch",
+                relative, stage="source")
+    after = _snapshot_local_r2_downstream_tree(root, omit_git_objects=True)
+    require(before == after, "r2_public_source_changed", stage="reconstruct")
+    return before
 
 
 if __name__ == "__main__":

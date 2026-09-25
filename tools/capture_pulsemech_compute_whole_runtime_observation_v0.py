@@ -775,6 +775,7 @@ def _plan_contract(
     _require(diag_plan.get("record_status") == record_status, "plan_diagnostic_record_status_mismatch", stage="plan")
     _require(diag_plan.get("byte_identical_to_independent_reconstruction") is True, "plan_diagnostic_reconstruction_missing", stage="plan")
     _require(diagnostic.get("authority_boundary") == AUTHORITY_BOUNDARY, "plan_diagnostic_authority_boundary_mismatch", stage="plan")
+    _require_public_profile(plan, diagnostic)
     return plan
 
 
@@ -3137,6 +3138,7 @@ def build_capture(
     index_snapshot = acquisition_files[ACQUISITION_INDEX_MEMBER]
     _require(index_snapshot.size_bytes <= MAX_INDEX_BYTES, "acquisition_index_too_large", stage="acquisition")
     index = _json_object(index_snapshot.path.read_bytes(), label="acquisition_index", canonical=True)
+    _require_public_profile(plan, index)
     fixed_index = {
         "schema_version": ACQUISITION_SCHEMA_VERSION,
         "record_status": record_status,
@@ -3187,6 +3189,9 @@ def build_capture(
     provider_run_id = int(provider["run_id"])
     _require(provider_run_id != subject_run_id, "provider_subject_run_id_collision", stage="run")
 
+    for profile_member in (SUBJECT_DISPATCH_RECEIPT_MEMBER, PROVIDER_DISPATCH_RECEIPT_MEMBER):
+        _require_public_profile(plan, _json_object(acquisition_files[profile_member].path.read_bytes(),
+                                                 label="r2_dispatch_receipt", canonical=True))
     subject_receipt = _validate_dispatch_receipt(
         acquisition_files=acquisition_files,
         member=SUBJECT_DISPATCH_RECEIPT_MEMBER,
@@ -3430,6 +3435,8 @@ def build_capture(
         "errors": [],
         "ok": True,
     }
+    if "evidence_profile_binding" in plan:
+        manifest["evidence_profile_binding"] = plan["evidence_profile_binding"]
     _schema_validate(schema, manifest, label="capture_manifest")
     manifest_bytes = _canonical_json_bytes(manifest)
     _require(len(capture_members) + 1 <= max_members, "capture_member_limit_exceeded", stage="publication")
@@ -3588,6 +3595,22 @@ def _build_local_r2_capture_bytes(acquisition_raw: bytes, prepared_raw: bytes, e
         'local-r2-acquisition.zip': acquisition_raw, 'local-r2-context.json': expected_context_raw,
     }, maximum_members=3, maximum_bytes=84 * 1024 * 1024)
     return raw
+
+
+def _require_public_profile(plan: Mapping[str, Any], record: Mapping[str, Any]) -> None:
+    """Bind stage data to the exact independently checked plan, never upgrade it."""
+    binding = plan.get("evidence_profile_binding")
+    required = plan.get("record_status") == "observed" or binding is not None
+    if required:
+        _require(isinstance(binding, dict)
+                 and binding.get("binding_version") == "pulsemech_step5c_r2_commit_bound_requirements_v1"
+                 and binding.get("evidence_profile") == "pulsemech_step5c_post_run_state_evidence_v1"
+                 and binding.get("topology_profile") == PROFILE
+                 and binding.get("source_commit") == plan["plan_identity"]["source_commit"],
+                 "r2_profile_binding_required", stage="plan")
+    _require(_canonical_json_bytes(record.get("evidence_profile_binding")) == _canonical_json_bytes(binding),
+             "r2_profile_binding_mismatch", stage="plan")
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
