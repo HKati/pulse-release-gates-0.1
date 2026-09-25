@@ -2407,7 +2407,7 @@ _D3_SELECTOR = "tools/policy_to_require_args.py"
 _D3_CHECKER = "PULSE_safe_pack_v0/tools/check_gates.py"
 _D3_MATERIALIZER = "PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py"
 _D3_SOURCE_PINS = {
-    ".github/workflows/pulse_ci.yml": "352181859e0ed77019137c19346378981ae28237",
+    ".github/workflows/pulse_ci.yml": "db07510afb66fa6b92635066da8cdc02561cf32c",
     _D3_POLICY: "a311b424ad0f6c028b9c37b18572e7a09c721cdd",
     _D3_SELECTOR: "5b1d099485d0e3bfd90da3fff1213a4e949db850",
     _D3_CHECKER: "2a593bdef31c9c8cb565b1c4ca3d16a1e3093735",
@@ -2602,7 +2602,7 @@ def _validate_d3_bindings(
 
 # D6 uses the already-preserved, reviewed workflow bytes. These selectors are
 # tied to this immutable source, not a search for any successful attestation.
-_D6_WORKFLOW_BLOB = "352181859e0ed77019137c19346378981ae28237"
+_D6_WORKFLOW_BLOB = "db07510afb66fa6b92635066da8cdc02561cf32c"
 _D6_ACTION_COMMIT = "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"
 _D6_JOB = "attest_release_grade_artifact_binding"
 _D6_JOB_NAME = "Release-grade artifact binding v0: attest"

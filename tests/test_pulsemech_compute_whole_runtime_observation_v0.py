@@ -5074,19 +5074,23 @@ def test_floor_recorded_reader_closure_rejects_unreviewed_additions(source_fixtu
 def test_smoke_budget_is_the_only_subject_workflow_byte_change():
     raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
     before_job, job_bytes = raw.split(b'  tools-tests:\n')
-    assert job_bytes.count(b'    timeout-minutes: 45\n') == 1
-    # Preserve both the immediately preceding 30-minute bytes and the
-    # original 15-minute baseline; only this job's scalar may differ.
+    assert job_bytes.count(b'    timeout-minutes: 120\n') == 1
+    # Restore the immediate 45-minute predecessor and the older 30/15-minute
+    # baselines byte-for-byte; only this job's scalar may differ.
+    immediate = before_job + b'  tools-tests:\n' + job_bytes.replace(
+        b'    timeout-minutes: 120\n', b'    timeout-minutes: 45\n', 1)
+    immediate_blob = hashlib.sha1(b'blob ' + str(len(immediate)).encode() + b'\0' + immediate).hexdigest()
+    assert immediate_blob == '352181859e0ed77019137c19346378981ae28237'
     previous = before_job + b'  tools-tests:\n' + job_bytes.replace(
-        b'    timeout-minutes: 45\n', b'    timeout-minutes: 30\n', 1)
+        b'    timeout-minutes: 120\n', b'    timeout-minutes: 30\n', 1)
     previous_blob = hashlib.sha1(b'blob ' + str(len(previous)).encode() + b'\0' + previous).hexdigest()
     assert previous_blob == 'ad1f165ad695c65827c590cbef9466e300d6b6e9'
     restored = before_job + b'  tools-tests:\n' + job_bytes.replace(
-        b'    timeout-minutes: 45\n', b'    timeout-minutes: 15\n', 1)
+        b'    timeout-minutes: 120\n', b'    timeout-minutes: 15\n', 1)
     old_blob = hashlib.sha1(b'blob ' + str(len(restored)).encode() + b'\0' + restored).hexdigest()
     assert old_blob == 'adae42c8e9777d357ab5400ced5765de7059ed1e'
     job = yaml.load(raw, Loader=yaml.BaseLoader)['jobs']['tools-tests']
-    assert job['timeout-minutes'] == '45'
+    assert job['timeout-minutes'] == '120'
     assert 'continue-on-error' not in job
     assert all('continue-on-error' not in step for step in job['steps'])
 
@@ -5097,7 +5101,7 @@ def test_smoke_budget_all_workflow_pins_require_the_same_reviewed_bytes(side):
     path = module.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == '352181859e0ed77019137c19346378981ae28237'
+    assert current == 'db07510afb66fa6b92635066da8cdc02561cf32c'
     assert module.EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 == current
     for values in vars(module).values():
         if isinstance(values, dict) and path in values:
@@ -5110,7 +5114,7 @@ def test_smoke_budget_d3_d6_pins_require_the_same_reviewed_bytes(side):
     path = BUILDER.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == '352181859e0ed77019137c19346378981ae28237'
+    assert current == 'db07510afb66fa6b92635066da8cdc02561cf32c'
     pins = module._D3_SOURCE_PINS
     items = list(pins.items()) if isinstance(pins, dict) else list(pins)
     selected = [pin for name, pin in items if name == path]
@@ -5119,7 +5123,7 @@ def test_smoke_budget_d3_d6_pins_require_the_same_reviewed_bytes(side):
 
 
 @pytest.mark.parametrize('side', ['builder', 'checker'])
-@pytest.mark.parametrize('minutes', [15, 30, 31, 46])
+@pytest.mark.parametrize('minutes', [15, 30, 31, 46, 45, 119, 121])
 def test_smoke_budget_stale_or_unreviewed_rehashed_sources_fail_closed(
     source_fixture, monkeypatch, side, minutes,
 ):
@@ -5130,7 +5134,7 @@ def test_smoke_budget_stale_or_unreviewed_rehashed_sources_fail_closed(
         if kwargs.get('path') == module.SUBJECT_WORKFLOW_PATH:
             prefix, job = obj.data.split(b'  tools-tests:\n')
             data = prefix + b'  tools-tests:\n' + job.replace(
-                b'    timeout-minutes: 45\n',
+                b'    timeout-minutes: 120\n',
                 ('    timeout-minutes: %s\n' % minutes).encode(), 1)
             assert data != obj.data
             new_blob = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()

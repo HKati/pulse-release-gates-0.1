@@ -1754,7 +1754,7 @@ _D3_SOURCE_PINS = (
     ("pulse_gate_policy_v0.yml", "a311b424ad0f6c028b9c37b18572e7a09c721cdd"),
     ("PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py", "a86aef9f2f5ccc6bb95997ee93eb6f9f95a8b85d"),
     ("PULSE_safe_pack_v0/tools/check_gates.py", "2a593bdef31c9c8cb565b1c4ca3d16a1e3093735"),
-    (".github/workflows/pulse_ci.yml", "352181859e0ed77019137c19346378981ae28237"),
+    (".github/workflows/pulse_ci.yml", "db07510afb66fa6b92635066da8cdc02561cf32c"),
 )
 _D3_R9 = "execution:step5c:step:release_grade_recorded_path:009"
 _D3_R12 = "execution:step5c:step:release_grade_recorded_path:012"
@@ -2268,7 +2268,7 @@ def _require_timing_projection(
 # Independently encoded D6 selector for the already-pinned workflow. Source
 # oracle regressions compare this recipe to the original YAML, not the capture
 # helper. An action result is never the signed receipt it may have produced.
-_D6_WORKFLOW_BLOB = "352181859e0ed77019137c19346378981ae28237"
+_D6_WORKFLOW_BLOB = "db07510afb66fa6b92635066da8cdc02561cf32c"
 _D6_ACTION_COMMIT = "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"
 _D6_JOB = "attest_release_grade_artifact_binding"
 _D6_JOB_NAME = "Release-grade artifact binding v0: attest"
@@ -7608,7 +7608,7 @@ def _verify_local_r2_recorded_inputs_assessment(assessment_raw, capture_raw, pre
 # R2C12: source-bound LlamaGuard controlled-record and canonical-summary content.
 # This is not a model invocation, attestation verification or role admission.
 _LOCAL_R2_LLAMAGUARD_CONTENT_SOURCES = (
-    ('.github/workflows/pulse_ci.yml', '352181859e0ed77019137c19346378981ae28237'),
+    ('.github/workflows/pulse_ci.yml', 'db07510afb66fa6b92635066da8cdc02561cf32c'),
     ('PULSE_safe_pack_v0/tools/run_llamaguard_current_evidence_v0.py', '058edf0d16383db41a5a4500caf4b484321d2e57'),
     ('PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py', 'b1416fb3675a3d4bb652eaa993ed14a51a96f9c2'),
     ('PULSE_safe_pack_v0/examples/llamaguard_current_run_cases_v0.jsonl', '3b6ca799f26c7374334c51c5c9c8ea26b35cf857'),
