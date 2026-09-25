@@ -12403,6 +12403,66 @@ def _local_r2_contract_oracle(raw, binding):
     )
 
 
+# The public integration reuses only these source-pinned native runners and
+# byte/snapshot utilities. Local preparation, transport, assessments and saved
+# result readers remain unreachable. Keep the set exact: additions AND omissions
+# require review instead of accepting arbitrary functions named "local_r2".
+_PUBLIC_R2_SHARED_NATIVE_HELPERS = frozenset({
+    '_local_r2_attestation_backend_bytes',
+    '_run_local_r2_attestation',
+    '_run_local_r2_llamaguard_content',
+    '_run_local_r2_package_verifier',
+    '_run_local_r2_recorded_full',
+    '_run_local_r2_recorded_inputs',
+    '_snapshot_local_r2_downstream_tree',
+})
+
+
+def _assert_public_r2_schema_boundary(schema):
+    assert schema['oneOf'] == [
+        {'$ref': '#/$defs/prelaunch_plan'},
+        {'$ref': '#/$defs/dispatch_receipt'},
+        {'$ref': '#/$defs/capture_manifest'},
+        {'$ref': '#/$defs/verification_record'},
+    ]
+    assert {name for name in _schema_definition_reachability(schema)
+            if name.startswith(R2_DEFINITION_PREFIX)} == {
+        'post_run_state_evidence_v1_role_obligations',
+    }
+
+
+def _assert_public_r2_local_helper_boundary(tree, roots, allowed):
+    """Check direct named-call reachability, not arbitrary Python data flow.
+
+    The actual public CLI tests separately exercise execution, profile binding,
+    example-backend rejection and incomplete original-evidence admission.
+    """
+    functions = {node.name: node for node in tree.body
+                 if isinstance(node, ast.FunctionDef)}
+    assert roots <= set(functions)
+    todo = list(roots)
+    seen = set()
+    while todo:
+        name = todo.pop()
+        if name in seen or name not in functions:
+            continue
+        seen.add(name)
+        todo.extend(node.func.id for node in ast.walk(functions[name])
+                    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name))
+    actual = {name for name in seen if 'local_r2' in name}
+    assert actual == set(allowed), {
+        'unexpected_local_helpers': sorted(actual - set(allowed)),
+        'missing_native_helpers': sorted(set(allowed) - actual),
+    }
+    if allowed:
+        # Reuse must occur through the public native-check stage, not through a
+        # local assessment or saved PASS-reader that happens to call a runner.
+        assert '_public_r2_native_checks' in seen
+        calls = {node.func.id for node in ast.walk(functions['_public_r2_native_checks'])
+                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
+        assert {name for name in allowed if name.startswith('_run_')} <= calls
+
+
 def test_local_r2_binding_matches_contract_without_activating_a_record():
     raw = _local_r2_schema_bytes()
     before = bytes(raw)
@@ -12416,8 +12476,11 @@ def test_local_r2_binding_matches_contract_without_activating_a_record():
         'sha256': hashlib.sha256(raw).hexdigest(),
     }
     assert not jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).is_valid(binding)
-    assert not any(name.startswith(R2_DEFINITION_PREFIX)
-                   for name in _schema_definition_reachability(EVIDENCE_SCHEMA))
+    # Public R2 records may reference the reviewed role requirements, but the
+    # local binding and the dormant normative definition are not public records.
+    _assert_public_r2_schema_boundary(EVIDENCE_SCHEMA)
+    assert not jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).is_valid(
+        r2_definition_example())
 
 
 @pytest.mark.parametrize('side', ['builder', 'checker'])
@@ -12622,27 +12685,19 @@ def test_local_r2_contract_oracle_detects_a_common_mode_weakened_requirement():
             _local_r2_contract_oracle(raw, binding)
 
 
+
 def test_local_r2_helpers_have_no_active_call_sites():
-    # LOCAL_02 connects dormant helpers to one another, not to the public CLI.
-    # Follow reachability from actual public roots instead of forbidding every
-    # call between private helpers (the LOCAL_01-only property).
+    # Historical test name retained. The public integration may reuse exact
+    # native helpers, never the local-only plan, carrier or assessment paths.
     for module, roots in [
         (BUILDER, {'main', 'build_plan'}),
         (PLAN_CHECKER, {'main', 'check_plan', '_reconstruct_expected_plan'}),
         (VERIFIER, {'main', 'prepare_carrier', 'read_prepared', 'read_capture'}),
     ]:
         tree = ast.parse(Path(module.__file__).read_bytes())
-        functions = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
-        todo = list(roots); seen = set()
-        while todo:
-            name = todo.pop()
-            if name in seen or name not in functions:
-                continue
-            seen.add(name)
-            todo.extend(node.func.id for node in ast.walk(functions[name])
-                        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name))
-        assert not any('local_r2' in name for name in seen)
-    assert len(EVIDENCE_SCHEMA['oneOf']) == 4
+        allowed = _PUBLIC_R2_SHARED_NATIVE_HELPERS if module is VERIFIER else frozenset()
+        _assert_public_r2_local_helper_boundary(tree, roots, allowed)
+    _assert_public_r2_schema_boundary(EVIDENCE_SCHEMA)
 
 
 def test_local_r2_binding_crosses_real_isolated_processes(tmp_path):
@@ -13315,17 +13370,20 @@ def test_r2c3_matching_collector_tables_do_not_override_normative_archive_role(r
         with pytest.raises(VERIFIER.VerificationError,match='r2_selected_artifact_missing_or_duplicate'):_r2c3_check(f,m)
 
 
+
 def test_r2c3_local_helpers_remain_unreachable_from_public_entrypoints():
-    for module,roots in [(ACQUIRER,{'main','acquire_observation'}),(CAPTURER,{'main','build_capture'}),
-                         (VERIFIER,{'main','prepare_carrier','read_prepared','read_capture','run_reference','reconstruct'})]:
-        nodes={n.name:n for n in ast.parse(Path(module.__file__).read_bytes()).body if isinstance(n,ast.FunctionDef)}
-        pending=list(roots);seen=set()
-        while pending:
-            name=pending.pop()
-            if name in seen or name not in nodes:continue
-            seen.add(name);pending.extend(n.func.id for n in ast.walk(nodes[name]) if isinstance(n,ast.Call) and isinstance(n.func,ast.Name))
-        assert not any('local_r2' in name for name in seen)
-    assert len(EVIDENCE_SCHEMA['oneOf'])==4
+    # Local acquisition/capture and saved assessments stay disconnected. The
+    # seven reviewed native utilities are the only permitted reuse by verifier.
+    for module, roots in [
+        (ACQUIRER, {'main', 'acquire_observation'}),
+        (CAPTURER, {'main', 'build_capture'}),
+        (VERIFIER, {'main', 'prepare_carrier', 'read_prepared', 'read_capture',
+                    'run_reference', 'reconstruct'}),
+    ]:
+        tree = ast.parse(Path(module.__file__).read_bytes())
+        allowed = _PUBLIC_R2_SHARED_NATIVE_HELPERS if module is VERIFIER else frozenset()
+        _assert_public_r2_local_helper_boundary(tree, roots, allowed)
+    _assert_public_r2_schema_boundary(EVIDENCE_SCHEMA)
 
 
 def test_r2c3_opaque_archive_bytes_cannot_claim_role_evidence(r2c3_acquisition):
@@ -15950,10 +16008,26 @@ def test_r2c10_prepared_dependencies_round_trip_without_public_profile_expansion
     f = r2c2_carrier
     plan, members = VERIFIER._read_local_r2_prepared(f.raw, f.context, **f.pins)
     assert len(plan['source_inventory']) == 69 and len(members) == 75
-    assert len(source_fixture.plan['source_inventory']) == 60
+    legacy = source_fixture.plan
+    legacy_paths = {row['path'] for row in legacy['source_inventory']}
+    assert len(legacy['source_inventory']) == len(legacy_paths) == 60
+    assert legacy_paths == {path for _, path in BUILDER.SOURCE_ROLES}
+    legacy_members = prepared_fixture_members(source_fixture)
+    assert {name for name in legacy_members if name.startswith('sources/')} == {
+        'sources/' + path for path in legacy_paths}
+    assert 'evidence_profile_binding' not in legacy
+    assert 'evidence_profile_binding' not in source_fixture.diagnostic_doc
+    assert 'evidence_profile_binding' not in json.loads(legacy_members['source-inventory.json'])
+    assert not VERIFIER._public_r2_selected(legacy)
+    dependency_paths = {path for _, path in _R2C10_DEPENDENCIES}
+    assert len(dependency_paths) == 9 and legacy_paths.isdisjoint(dependency_paths)
+    assert {row['path'] for row in plan['source_inventory']} == legacy_paths | dependency_paths
     for _, path in _R2C10_DEPENDENCIES:
         assert members['sources/' + path] == f.plan.source.sources[path]
-        assert not (source_fixture.root / path).exists()
+        # The common checkout also supports public R2. Presence on disk does not
+        # admit these bytes into the unchanged legacy plan or prepared carrier.
+        assert (source_fixture.root / path).read_bytes() == f.plan.source.sources[path]
+        assert 'sources/' + path not in legacy_members
     assert len(plan['state_templates']) == len(source_fixture.plan['state_templates']) == 62
     assert plan['jobs'] == source_fixture.plan['jobs']
     assert plan['state_templates'] == source_fixture.plan['state_templates']
