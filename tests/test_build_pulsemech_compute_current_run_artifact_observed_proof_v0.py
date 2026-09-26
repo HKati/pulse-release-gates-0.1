@@ -2,15 +2,19 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import copy
 import hashlib
+import io
 import importlib.util
 import json
 import os
 import stat
 import subprocess
 import sys
+import tempfile
 import time
+import zipfile
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -34,12 +38,12 @@ FOLLOWING_COMPUTE_REGRESSION = (
     "tests/test_pulsemech_compute_current_run_artifact_observed_candidate_workflow_v0.py"
 )
 
-EXPECTED_TOOL_LINES = 2908
-EXPECTED_TOOL_BYTES = 106862
+EXPECTED_TOOL_LINES = 2968
+EXPECTED_TOOL_BYTES = 110457
 EXPECTED_TOOL_SHA256 = (
-    "47fdfefb95fdd2e8484ee6c6b014df632c7942e34059998fd45c0378fe8fd2a1"
+    "f3f3257ac8701a8fc9413aa63dcbe712f81739311ad665a91eec2a5238c6f373"
 )
-EXPECTED_TOOL_GIT_BLOB_SHA1 = "fa74cd02811587f24fcf81b717e72559e9f323e3"
+EXPECTED_TOOL_GIT_BLOB_SHA1 = "fd26128789ae52d5b435a219822f40a893fdf559"
 
 EXPECTED_TESTS = frozenset(
     {
@@ -77,6 +81,12 @@ EXPECTED_TESTS = frozenset(
         "test_builder_invokes_only_existing_nonactive_chain_and_not_check_gates",
     }
 )
+EXPECTED_TESTS = EXPECTED_TESTS | frozenset(
+    {'test_report_policy_order_does_not_sort_or_deduplicate_report', 'test_report_policy_order_rejects_malformed_packet_members', 'test_report_policy_order_rejects_missing_extra_or_duplicate_report_members', 'test_report_policy_order_retains_every_other_subject_comparison', 'test_report_policy_order_rejects_packet_membership_substitution', 'test_report_policy_order_accepts_both_packet_orders_without_mutation'}
+)
+EXPECTED_TESTS = EXPECTED_TESTS | frozenset({'test_report_policy_order_actual_emitted_chain_reaches_step3g'})
+EXPECTED_TESTS = EXPECTED_TESTS | frozenset({'test_current_run_relation_locator_admission_rejects_omission_and_substitution', 'test_current_run_relation_locator_admission_binds_actual_input_bytes', 'test_current_run_relation_builder_selection_is_explicit'})
+EXPECTED_TESTS = EXPECTED_TESTS | frozenset({'test_original_status_preserves_canonical_and_native_encoding', 'test_original_status_cannot_substitute_equivalent_json_bytes', 'test_original_status_requires_complete_unchanged_artifact_graph', 'test_original_status_requires_resolved_exact_role_and_digest', 'test_original_status_rejects_invalid_json_after_exact_digest_binding', 'test_original_status_fix_keeps_generated_record_canonical_requirement'})
 EXPECTED_COLLECTED_TEST_ITEMS = len(EXPECTED_TESTS)
 CRITICAL_TESTS = frozenset(
     {
@@ -545,7 +555,7 @@ def make_chain_documents(parts: Mapping[str, Any], fixture: Mapping[str, Any]) -
     analysis_run_key = "ANALYSIS_RUN=step-3g-artifact-observed-v0"
     producer_run_key = "PRODUCER_RUN=step-3g-artifact-observed-v0"
     report_subject = {
-        "active_policy_sets": subject["active_policy_sets"],
+        "active_policy_sets": sorted(subject["active_policy_sets"]),
         "decision": subject["decision"],
         "final_status_sha256": subject["final_status_sha256"],
         "materialized_gate_set_sha256": subject["materialized_gate_set_sha256"],
@@ -695,6 +705,23 @@ def make_chain_documents(parts: Mapping[str, Any], fixture: Mapping[str, Any]) -
         },
         "tool": {},
     }
+    # Literal fixture expectations for the current-run content-locator boundary.
+    # Do not obtain these expected paths from the production relation builder.
+    plan_digest = sha256_bytes(canonical_json(plan))
+    report_digest = sha256_bytes(canonical_json(report))
+    relation["plan_binding"]["path_or_uri"] = "sha256:" + plan_digest
+    relation["observation_bindings"]["compute_binding_report"] = {
+        "sha256": report_digest, "path_or_uri": "sha256:" + report_digest}
+    fields = ("action", "component_id", "reason", "source_path", "source_sha256",
+              "source_size_bytes", "target_path", "target_state")
+    bases = []
+    for operation in plan["operations"]:
+        digest = hashlib.sha256(json.dumps({k: operation[k] for k in fields},
+            ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        bases.append({"basis_kind": "integration_plan_operation", "source_sha256": digest,
+            "source_revision": plan["source"]["revision"],
+            "source_path_or_uri": "sha256:" + plan_digest + "#operation/" + digest})
+    relation["expectations"]["expectation:presence"] = {"basis_records": bases}
     candidate_gates = {
         "compute_transition_path_complete": False,
         "compute_transition_authority_binding_ok": False,
@@ -1637,6 +1664,342 @@ def test_builder_invokes_only_existing_nonactive_chain_and_not_check_gates(
     assert M.CLOSED_AUTHORITY_BOUNDARY["materializes_active_gate_state"] is False
     assert M.CLOSED_AUTHORITY_BOUNDARY["writes_subject_status"] is False
 
+
+# Policy membership and representation order are different contracts. These
+# comparisons do not alter the authenticated packet or any preserved carrier.
+def _policy_order_validate(case, report=None, packet=None):
+    M._validate_report(
+        case["report"] if report is None else report,
+        packet=case["packet"] if packet is None else packet,
+        components=case["control_components"],
+        analysis_run_key=case["analysis_run_key"],
+    )
+
+
+def test_report_policy_order_accepts_both_packet_orders_without_mutation(tmp_path: Path) -> None:
+    case = build_case(tmp_path)
+    for order in (["required", "release_required"], ["release_required", "required"]):
+        packet = copy.deepcopy(case["packet"])
+        packet["subject"]["active_policy_sets"] = order
+        report = copy.deepcopy(case["report"])
+        report["subject"]["active_policy_sets"] = ["release_required", "required"]
+        before = canonical_json({"packet": packet, "report": report})
+        _policy_order_validate(case, report, packet)
+        assert canonical_json({"packet": packet, "report": report}) == before
+
+
+def test_report_policy_order_rejects_malformed_packet_members(tmp_path: Path) -> None:
+    case = build_case(tmp_path)
+    for value in (None, "required", {}, [], [True], [3], [None], [""],
+                  ["required", "required"], ["required", []],
+                  ["release_required", "required", "required"]):
+        packet = copy.deepcopy(case["packet"])
+        packet["subject"]["active_policy_sets"] = value
+        with pytest.raises(M.ProofError, match="subject_active_policy_sets"):
+            _policy_order_validate(case, packet=packet)
+    packet = copy.deepcopy(case["packet"])
+    del packet["subject"]["active_policy_sets"]
+    with pytest.raises(M.ProofError, match="subject_active_policy_sets"):
+        _policy_order_validate(case, packet=packet)
+
+
+def test_report_policy_order_rejects_missing_extra_or_duplicate_report_members(tmp_path: Path) -> None:
+    case = build_case(tmp_path)
+    for value in ([], ["required"], ["release_required"],
+                  ["release_required", "required", "unapproved"],
+                  ["release_required", "required", "required"],
+                  ["release_required", "release_required", "required"],
+                  None, "required", {}, [False], ["required", None]):
+        report = copy.deepcopy(case["report"])
+        report["subject"]["active_policy_sets"] = value
+        with pytest.raises(M.ProofError, match="compute_report_subject_mismatch"):
+            _policy_order_validate(case, report=report)
+    report = copy.deepcopy(case["report"])
+    del report["subject"]["active_policy_sets"]
+    with pytest.raises(M.ProofError, match="compute_report_subject_mismatch"):
+        _policy_order_validate(case, report=report)
+
+
+def test_report_policy_order_does_not_sort_or_deduplicate_report(tmp_path: Path) -> None:
+    case = build_case(tmp_path)
+    for value in (["required", "release_required"],
+                  ["release_required", "required", "required"]):
+        report = copy.deepcopy(case["report"])
+        report["subject"]["active_policy_sets"] = value
+        before = canonical_json(report)
+        with pytest.raises(M.ProofError, match="compute_report_subject_mismatch"):
+            _policy_order_validate(case, report=report)
+        assert canonical_json(report) == before
+
+
+def test_report_policy_order_rejects_packet_membership_substitution(tmp_path: Path) -> None:
+    case = build_case(tmp_path)
+    for value in (["required"], ["release_required"],
+                  ["required", "release_required", "extra"],
+                  ["required", "unapproved"]):
+        packet = copy.deepcopy(case["packet"])
+        packet["subject"]["active_policy_sets"] = value
+        with pytest.raises(M.ProofError, match="compute_report_subject_mismatch"):
+            _policy_order_validate(case, packet=packet)
+
+
+def test_report_policy_order_retains_every_other_subject_comparison(tmp_path: Path) -> None:
+    case = build_case(tmp_path)
+    # Independent field list: a later dropped expected field must fail too.
+    mutations = {
+        "repository": "other/repository", "workflow": "Other CI",
+        "workflow_run_id": 9002, "workflow_run_number": 9018,
+        "workflow_run_attempt": 3, "source_commit": "b" * 40,
+        "release_candidate_id": "other-candidate", "run_mode": "demo",
+        "policy_id": "other-policy", "policy_sha256": "e" * 64,
+        "materialized_gate_set_sha256": "f" * 64,
+        "final_status_sha256": "d" * 64,
+        "release_decision_sha256": "c" * 64, "decision": "BLOCK",
+    }
+    assert set(case["report"]["subject"]) == set(mutations) | {"active_policy_sets"}
+    for field, value in mutations.items():
+        report = copy.deepcopy(case["report"])
+        assert report["subject"][field] != value
+        report["subject"][field] = value
+        with pytest.raises(M.ProofError, match="compute_report_subject_mismatch"):
+            _policy_order_validate(case, report=report)
+        report = copy.deepcopy(case["report"])
+        del report["subject"][field]
+        with pytest.raises(M.ProofError, match="compute_report_subject_mismatch"):
+            _policy_order_validate(case, report=report)
+    report = copy.deepcopy(case["report"])
+    report["subject"]["extra_field"] = "not accepted"
+    with pytest.raises(M.ProofError, match="compute_report_subject_mismatch"):
+        _policy_order_validate(case, report=report)
+
+
+def test_report_policy_order_actual_emitted_chain_reaches_step3g(tmp_path: Path) -> None:
+    # Reuse the existing source-identified, real-CLI fixture driver. Only the
+    # synthetic input factory is shared; the proof builder is never mocked.
+    source = (ROOT / "tests/test_pulsemech_compute_binding_analyzer_core_v0.py").read_text()
+    values = [node.value for node in ast.parse(source).body
+              if isinstance(node, ast.Assign) and any(
+                  isinstance(target, ast.Name) and target.id == "_IDENTITY_EMITTED_HANDOFF_DRIVER"
+                  for target in node.targets)]
+    assert len(values) == 1
+    existing_driver = ast.literal_eval(values[0])
+    continuation = """
+checker._build_baseline_proof(
+    control_root=R, subject_root=h.subject, intake_directory=folder/'intake',
+    output_directory=folder/'baseline-proof', source_commit=revision,
+    capture_manifest=capture,
+)
+checker._build_baseline_proof(
+    control_root=R, subject_root=h.subject, intake_directory=folder/'intake',
+    output_directory=folder/'different-baseline-proof', source_commit=revision,
+    capture_manifest=capture,
+)
+dump(P/'STEP3G_SUCCESS.json', {'record_status':'synthetic_only',
+    'source_revision':revision, 'commands':commands,
+    'full_step5c_reconstruction':False})
+"""
+    driver = tmp_path / "emitted_step3g.py"
+    driver.write_text(existing_driver + continuation)
+    command = [sys.executable, "-I", "-B", str(driver), str(ROOT)]
+    with (tmp_path / "stdout.log").open("wb") as out, (tmp_path / "stderr.log").open("wb") as err:
+        result = subprocess.run(command, cwd=tmp_path, stdin=subprocess.DEVNULL,
+                                stdout=out, stderr=err, timeout=300, check=False)
+    assert result.returncode == 0, (tmp_path / "stdout.log").read_text()[-8000:] + (tmp_path / "stderr.log").read_text()
+    emitted = tmp_path / "identity_emitted_handoff"
+    intake = emitted / "full-intake/intake"
+    proof = emitted / "full-intake/baseline-proof"
+    packet_bytes = (emitted / "full-intake/subject-input-packet.json").read_bytes()
+    assert (intake / "subject-input-packet.json").read_bytes() == packet_bytes
+    packet = json.loads(packet_bytes)
+    report = json.loads((proof / "compute-binding-report.json").read_bytes())
+    assert packet["subject"]["active_policy_sets"] == ["required", "release_required"]
+    assert report["subject"]["active_policy_sets"] == ["release_required", "required"]
+    other = emitted / "full-intake/different-baseline-proof"
+    # Compare original outputs verbatim, never normalize their locator fields.
+    for name in ("current-run-plan.json", "compute-binding-report.json", "planned-observed-relation.json"):
+        assert (proof / name).read_bytes() == (other / name).read_bytes()
+    relation = json.loads((proof / "planned-observed-relation.json").read_bytes())
+    pd = hashlib.sha256((proof / "current-run-plan.json").read_bytes()).hexdigest()
+    rd = hashlib.sha256((proof / "compute-binding-report.json").read_bytes()).hexdigest()
+    assert relation["plan_binding"]["path_or_uri"] == "sha256:" + pd
+    assert relation["observation_bindings"]["compute_binding_report"]["path_or_uri"] == "sha256:" + rd
+    for expectation in relation["expectations"].values():
+        for basis in expectation["basis_records"]:
+            if basis["basis_kind"] == "integration_plan_operation":
+                assert basis["source_path_or_uri"] == "sha256:" + pd + "#operation/" + basis["source_sha256"]
+    manifest = json.loads((proof / "artifact-observed-proof-manifest.json").read_bytes())
+    assert manifest["ok"] is True and manifest["errors"] == []
+    assert manifest["input_bindings"]["subject_input_packet"]["sha256"] == sha256_bytes(packet_bytes)
+    assert manifest["authority_boundary"]["proof_is_release_authority"] is False
+    rows = manifest["output_layout"]["files"]
+    assert {row["path"] for row in rows} == {
+        "compute-binding-report.json", "current-run-plan.json", "planned-observed-relation.json",
+        "candidate-materializer-report.json", "folded-candidate-status.json",
+    }
+    for row in rows:
+        raw = (proof / row["path"]).read_bytes()
+        assert row["sha256"] == sha256_bytes(raw) and row["size_bytes"] == len(raw)
+    record = json.loads((emitted / "STEP3G_SUCCESS.json").read_bytes())
+    assert record["record_status"] == "synthetic_only" and record["full_step5c_reconstruction"] is False
+    assert all(row["returncode"] == 0 for row in record["commands"])
+    assert any(row["argv"][3].endswith("/build_pulsemech_compute_current_run_artifact_observed_proof_v0.py")
+               for row in record["commands"])
+
+
+
+def test_current_run_relation_locator_admission_binds_actual_input_bytes(tmp_path: Path) -> None:
+    case = build_case(tmp_path)
+    args = {"plan_bytes": canonical_json(case["plan"]), "report_bytes": canonical_json(case["report"])}
+    M._validate_relation_input_locators(case["relation"], **args)
+    # Byte identities, not a re-rendered semantic projection or caller label.
+    for field in args:
+        bad = dict(args); bad[field] += b" "
+        with pytest.raises((M.ProofError, M.StrictJsonError), match="relation_content_locator_mismatch|locator_plan_not_canonical_json"):
+            M._validate_relation_input_locators(case["relation"], **bad)
+
+
+def test_current_run_relation_locator_admission_rejects_omission_and_substitution(tmp_path: Path) -> None:
+    case = build_case(tmp_path)
+    args = {"plan_bytes": canonical_json(case["plan"]), "report_bytes": canonical_json(case["report"])}
+    for target in ("plan", "report", "operation", "revision", "missing_basis", "duplicate_basis"):
+        for wrong in ("/tmp/random/location", "sha256:" + "0" * 64):
+            value = copy.deepcopy(case["relation"])
+            if target == "plan": value["plan_binding"]["path_or_uri"] = wrong
+            elif target == "report": value["observation_bindings"]["compute_binding_report"]["path_or_uri"] = wrong
+            else:
+                row = value["expectations"]["expectation:presence"]
+                if target == "operation": row["basis_records"][0]["source_path_or_uri"] = wrong
+                elif target == "revision": row["basis_records"][0]["source_revision"] = "0" * 40
+                elif target == "missing_basis": row["basis_records"] = []
+                else: row["basis_records"] *= 2
+            with pytest.raises(M.ProofError, match="relation_.*locator"):
+                M._validate_relation_input_locators(value, **args)
+
+
+def test_current_run_relation_builder_selection_is_explicit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    case = build_case(tmp_path)
+    patch_full_build(monkeypatch, case)
+    M._build(namespace_for(case, tmp_path / "proof"))
+    command = next(c for label, c in case["process_calls"] if label == "planned_observed_relation_builder")
+    assert command.count("--current-run-content-locators") == 1
+    assert all("--plan-path-or-uri" not in item for item in command)
+    source = TOOL.read_text()
+    assert 'secrets.token_hex(16)' in source and 'os.O_NOFOLLOW' in source
+
+
+
+# Original final-status encoding: exercise the actual artifact resolver. These
+# small packets isolate extraction; the full native path is covered in Step 5C.
+def _original_status_case(tmp_path: Path, raw: bytes) -> dict[str, Any]:
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_STORED) as output:
+        info = zipfile.ZipInfo("fixture/status.json", (2020, 1, 1, 0, 0, 0))
+        info.external_attr = (stat.S_IFREG | 0o444) << 16
+        output.writestr(info, raw)
+    carrier = archive.getvalue()
+    packet = {
+        "carrier": {"path_or_uri": "fixture.zip", "root_prefix": "fixture",
+                    "sha256": sha256_bytes(carrier), "size_bytes": len(carrier)},
+        "artifacts": [{"artifact_id": "artifact:fixture/status.json",
+            "container_artifact_id": None, "member_path": "fixture/status.json",
+            "display_path_or_uri": "fixture.zip!/fixture/status.json",
+            "content_kind": "json", "media_type": "application/json",
+            "sha256": sha256_bytes(raw), "size_bytes": len(raw)}],
+        "role_bindings": {"final_status": "artifact:fixture/status.json"},
+        "subject": {"final_status_sha256": sha256_bytes(raw)},
+    }
+    # Each invocation owns a fresh validator; never rewrite a finalized file.
+    component_root = Path(tempfile.mkdtemp(prefix="original-status-", dir=tmp_path))
+    path = "tools/check_pulsemech_compute_subject_input_packet_v0.py"
+    component = component_binding(role="subject_input_validator", path=path,
+        revision="a" * 40, value=(ROOT / path).read_bytes(), root=component_root)
+    return {"packet": packet, "carrier_bytes": carrier,
+            "packet_validator_component": component}
+
+
+def test_original_status_preserves_canonical_and_native_encoding(tmp_path: Path) -> None:
+    value = {"z": "árvíz", "gates": {"z": True, "a": False}, "a": 1}
+    forms = [canonical_json(value),
+        (json.dumps(value, indent=2, sort_keys=False, ensure_ascii=False) + "\n").encode(),
+        json.dumps(value, separators=(",", ":"), ensure_ascii=True).encode(),
+        (" \r\n" + json.dumps(value) + "\t ").encode()]
+    assert len(set(forms)) == len(forms)
+    validators: dict[Path, tuple[bytes, os.stat_result]] = {}
+    for raw in forms:
+        case = _original_status_case(tmp_path, raw)
+        component = case["packet_validator_component"]
+        validator_path = component.worktree_path
+        assert validator_path not in validators
+        assert validator_path.read_bytes() == component.bytes_value
+        assert stat.S_IMODE(validator_path.stat().st_mode) == 0o444
+        validators[validator_path] = (validator_path.read_bytes(), validator_path.stat())
+        before = copy.deepcopy(case["packet"])
+        result = M._extract_final_status(**case)
+        assert result == raw and sha256_bytes(result) == before["subject"]["final_status_sha256"]
+        assert json.loads(result) == value and case["packet"] == before
+        for saved_path, (saved_bytes, saved_stat) in validators.items():
+            assert saved_path.read_bytes() == saved_bytes
+            current_stat = saved_path.stat()
+            assert current_stat.st_mode == saved_stat.st_mode
+            assert (current_stat.st_dev, current_stat.st_ino) == (saved_stat.st_dev, saved_stat.st_ino)
+            assert (current_stat.st_mtime_ns, current_stat.st_ctime_ns) == (saved_stat.st_mtime_ns, saved_stat.st_ctime_ns)
+
+
+def test_original_status_rejects_invalid_json_after_exact_digest_binding(tmp_path: Path) -> None:
+    cases = [b'{"a":1,"a":2}', b'{"nested":{"a":1,"a":2}}',
+        b'\xef\xbb\xbf{}', b'{"a":"\xff"}', b'{', b'{}{}', b'[]', b'null',
+        b'{"a":NaN}', b'{"a":Infinity}', b'{"a":-Infinity}',
+        b'{"a":1e999}', b'{"a":[{"b":-1e999}]}']
+    for raw in cases:
+        case = _original_status_case(tmp_path, raw)
+        with pytest.raises(M.StrictJsonError):
+            M._extract_final_status(**case)
+
+
+def test_original_status_cannot_substitute_equivalent_json_bytes(tmp_path: Path) -> None:
+    native = b'{"z":1,"a":2}\n'
+    case = _original_status_case(tmp_path, native)
+    case["packet"]["subject"]["final_status_sha256"] = sha256_bytes(canonical_json(json.loads(native)))
+    with pytest.raises(M.ProofError, match="packet_final_status_digest_mismatch"):
+        M._extract_final_status(**case)
+    assert M._extract_final_status(**_original_status_case(tmp_path, native)) == native
+
+
+def test_original_status_requires_resolved_exact_role_and_digest(tmp_path: Path) -> None:
+    for change in ("missing_roles", "missing_role", "wrong_role", "boolean_role", "missing_digest", "wrong_digest"):
+        case = _original_status_case(tmp_path, b'{"gates":{}}')
+        packet = case["packet"]
+        if change == "missing_roles": del packet["role_bindings"]
+        elif change == "missing_role": packet["role_bindings"].clear()
+        elif change == "wrong_role": packet["role_bindings"]["final_status"] = "artifact:other"
+        elif change == "boolean_role": packet["role_bindings"]["final_status"] = True
+        elif change == "missing_digest": packet["subject"].clear()
+        else: packet["subject"]["final_status_sha256"] = "0" * 64
+        with pytest.raises(M.ProofError):
+            M._extract_final_status(**case)
+
+
+def test_original_status_requires_complete_unchanged_artifact_graph(tmp_path: Path) -> None:
+    for change in ("digest", "size", "member", "duplicate", "omitted", "carrier"):
+        case = _original_status_case(tmp_path, b'{"gates":{}}')
+        row = case["packet"]["artifacts"][0]
+        if change == "digest": row["sha256"] = "0" * 64
+        elif change == "size": row["size_bytes"] += 1
+        elif change == "member": row["member_path"] = "fixture/missing.json"
+        elif change == "duplicate": case["packet"]["artifacts"].append(copy.deepcopy(row))
+        elif change == "omitted": case["packet"]["artifacts"].clear()
+        else: case["carrier_bytes"] = b"not a zip"
+        with pytest.raises(M.ProofError, match="packet_artifact_graph_reconstruction"):
+            M._extract_final_status(**case)
+
+
+def test_original_status_fix_keeps_generated_record_canonical_requirement(tmp_path: Path) -> None:
+    raw = b'{"z":1,"a":2}\n'
+    assert M._extract_final_status(**_original_status_case(tmp_path, raw)) == raw
+    for label in ("generated_proof", "folded_candidate_status", "plan", "relation"):
+        with pytest.raises(M.StrictJsonError, match="not_canonical_json"):
+            M._parse_json_bytes(raw, label=label)
+        assert M._parse_json_bytes(canonical_json(json.loads(raw)), label=label) == json.loads(raw)
 
 if __name__ == "__main__":
     raise SystemExit(_run_authoritative_regression())

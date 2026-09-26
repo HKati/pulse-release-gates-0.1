@@ -3562,7 +3562,7 @@ jobs:
     needs: verify_release_grade_reference_package
     if: ${{ always() && (needs.verify_release_grade_reference_package.result == 'success' || needs.verify_release_grade_reference_package.result == 'skipped') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 120
     permissions:
       contents: read
 

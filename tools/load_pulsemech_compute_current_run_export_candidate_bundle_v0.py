@@ -335,6 +335,7 @@ PACKET_COVERAGE_KEYS = frozenset(
 )
 PACKET_RETAINED_ROLES = frozenset(
     {
+        "artifact_binding",
         "preservation_manifest",
         "package_inventory",
         "package_completeness_report",
@@ -2833,7 +2834,6 @@ def _validate_subject(
         "active_policy_sets": ["required", "release_required"],
         "decision": "ALLOW",
         "event_name": "workflow_dispatch",
-        "materialized_gate_set_sha256": None,
         "release_candidate_id": subject.release_candidate_id,
         "repository": subject.repository,
         "run_mode": "prod",
@@ -2856,6 +2856,7 @@ def _validate_subject(
                 f"expected={expected!r} actual={subject_document.get(field)!r}"
             )
     for field in (
+        "materialized_gate_set_sha256",
         "final_status_sha256",
         "policy_sha256",
         "release_decision_sha256",
@@ -4269,7 +4270,7 @@ def _validate_packet(
     if derived_coverage["coverage_status"] != "complete":
         raise BundleError("packet_derived_coverage_not_complete")
 
-    return PacketVerification(
+    verification = PacketVerification(
         artifact_index=artifacts,
         retained_artifact_bytes=retained,
         archive_members=archive_members,
@@ -4285,6 +4286,8 @@ def _validate_packet(
         missing_roles=missing_roles,
         unresolved_artifact_ids=unresolved_ids,
     )
+    _validate_current_run_identity_handoff(verification, subject=subject, expectation=expectation)
+    return verification
 
 
 def _parse_sha256sums(payload: bytes) -> dict[str, str]:
@@ -4382,6 +4385,58 @@ def _validate_positive_report_count(value: Any, *, label: str) -> int:
     if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
         raise BundleError(f"{label}_invalid: {value!r}")
     return value
+
+
+def _validate_current_run_identity_handoff(
+    verification: PacketVerification, *, subject: SourceSubject,
+    expectation: dict[str, Any],
+) -> None:
+    """Bind the derived analysis identity to the original package objects."""
+    packet_subject = expectation["subject"]
+    metadata = _packet_bound_json(verification, "run_metadata")
+    expected = {
+        "repository": subject.repository, "git_sha": subject.subject_revision,
+        "run_id": subject.source_run_id, "run_attempt": subject.source_run_attempt,
+        "run_key": subject.source_run_key,
+        "workflow_ref": f"{subject.repository}/{SOURCE_WORKFLOW_PATH}@{SOURCE_REF}",
+    }
+    if any(metadata.get(key) != value for key, value in expected.items()):
+        raise BundleError("current_run_package_identity_mismatch")
+    # main is an original release label, not rewritten packet metadata. Exact
+    # candidate-labelled packages retain strict equality; no other alias exists.
+    if metadata.get("release_candidate") not in ("main", subject.release_candidate_id):
+        raise BundleError("current_run_package_release_label_mismatch")
+    binding = _packet_bound_json(verification, "artifact_binding")
+    run = binding.get("run")
+    authority = binding.get("authority_carrier")
+    if not isinstance(run, dict) or not isinstance(authority, dict):
+        raise BundleError("current_run_artifact_binding_structure_invalid")
+    for key, value in {"run_id": str(subject.source_run_id), "git_sha": subject.subject_revision,
+                       "run_key": subject.source_run_key, "run_mode": "prod"}.items():
+        if run.get(key) != value:
+            raise BundleError("current_run_artifact_binding_run_mismatch")
+    for key, field in {"status_json": "final_status_sha256", "declared_gate_policy": "policy_sha256",
+                       "release_decision": "release_decision_sha256"}.items():
+        row = authority.get(key)
+        if not isinstance(row, dict) or row.get("sha256") != packet_subject[field]:
+            raise BundleError("current_run_artifact_binding_subject_mismatch")
+    gate = authority.get("workflow_effective_required_gate_set")
+    if not isinstance(gate, dict) or set(gate) != {"effective_source", "policy_sets", "gate_ids", "sha256"}:
+        raise BundleError("current_run_inline_gate_object_invalid")
+    gate_ids = gate.get("gate_ids")
+    if not isinstance(gate_ids, list) or not gate_ids or any(
+        not isinstance(g, str) or not g or g != g.strip() for g in gate_ids
+    ) or len(gate_ids) != len(set(gate_ids)):
+        raise BundleError("current_run_inline_gate_ids_invalid")
+    base = {key: gate[key] for key in ("effective_source", "policy_sets", "gate_ids")}
+    digest = sha256_bytes(json.dumps(base, sort_keys=True, separators=(",", ":"),
+                                    ensure_ascii=False, allow_nan=False).encode("utf-8"))
+    decision = _packet_bound_json(verification, "release_decision")
+    if (gate["effective_source"] != "workflow-effective:required+release_required"
+        or gate["policy_sets"] != ["required", "release_required"]
+        or gate["sha256"] != digest or packet_subject["materialized_gate_set_sha256"] != digest
+        or decision.get("effective_required_gates") != gate_ids):
+        raise BundleError("current_run_inline_gate_digest_mismatch")
 
 
 def _derive_preservation_local_verification(

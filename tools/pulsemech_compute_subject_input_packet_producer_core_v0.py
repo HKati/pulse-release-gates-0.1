@@ -1525,6 +1525,41 @@ def git_source(
     )
 
 
+def _current_run_analysis_candidate(
+    *, profile: ProducerProfile, packaged_label: str,
+    repository: str, source_commit: str, workflow_name: str, workflow_path: str,
+    source_ref: str, event_name: str, run_id: int, run_attempt: int, run_key: str,
+) -> str:
+    """Bind the selected main release label without rewriting preserved metadata.
+
+    Exact-label profiles retain their previous identity. Only the selected
+    current-run wrapper may derive an analysis candidate from the main label.
+    """
+    if profile.production_mode != "current_run_export" or packaged_label != "main":
+        return packaged_label
+    expected = {
+        "packet_scope": "current_run",
+        "packet_identity_mode": "current-run",
+        "carrier_kind": "current_run_export_archive",
+        "producer_source_path": "tools/build_pulsemech_compute_subject_input_packet_current_run_v0.py",
+    }
+    for key, value in expected.items():
+        require_equal(getattr(profile, key), value, label="current_run_label_" + key)
+    require(type(run_id) is int and run_id > 0, "current_run_label_run_id_invalid")
+    require(type(run_attempt) is int and run_attempt > 0, "current_run_label_attempt_invalid")
+    require_equal(repository, profile.expected_repository, label="current_run_label_repository")
+    require_equal(source_commit, profile.expected_source_commit, label="current_run_label_source")
+    canonical_sha40(source_commit, label="current_run_label_source")
+    require_equal(workflow_name, "PULSE CI", label="current_run_label_workflow")
+    require_equal(workflow_path, ".github/workflows/pulse_ci.yml", label="current_run_label_workflow_path")
+    require_equal(source_ref, "refs/heads/main", label="current_run_label_ref")
+    require_equal(event_name, "workflow_dispatch", label="current_run_label_event")
+    expected_key = f"GITHUB_RUN_ID={run_id}|GITHUB_RUN_ATTEMPT={run_attempt}|GITHUB_WORKFLOW=PULSE CI"
+    require_equal(run_key, expected_key, label="current_run_label_run_key")
+    require_equal(run_key, profile.expected_run_key, label="current_run_label_profile_run_key")
+    return f"pulse-ci-current-run:{run_id}:{run_attempt}"
+
+
 def build_subject_and_sources(
     *,
     inputs: PacketInputs,
@@ -1624,6 +1659,13 @@ def build_subject_and_sources(
     event_name = non_empty_string(
         authority.get("run_identity", {}).get("event_name"),
         label="event_name",
+    )
+    release_candidate = _current_run_analysis_candidate(
+        profile=profile, packaged_label=release_candidate,
+        repository=repository, source_commit=source_commit,
+        workflow_name=workflow_name, workflow_path=workflow_path,
+        source_ref=source_ref, event_name=event_name,
+        run_id=run_id, run_attempt=run_attempt, run_key=run_key,
     )
     active_sets = manifest.get("active_policy_sets")
     require(isinstance(active_sets, list) and bool(active_sets), "policy_sets_invalid")

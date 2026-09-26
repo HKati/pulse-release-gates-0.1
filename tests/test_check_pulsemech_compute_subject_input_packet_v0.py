@@ -1840,5 +1840,225 @@ def test_bounded_reference_semantics_recompute_from_carrier(bounded_reference_ca
     assert errors and not all(checks.values())
 
 
+
+def _main_label_packet_example():
+    repository = 'HKati/pulse-release-gates-0.1'
+    subject = {'repository': repository, 'workflow_name': 'PULSE CI',
+        'workflow_path': '.github/workflows/pulse_ci.yml', 'source_ref': 'refs/heads/main',
+        'workflow_ref': repository+'/.github/workflows/pulse_ci.yml@refs/heads/main',
+        'event_name': 'workflow_dispatch', 'release_candidate_id': 'pulse-ci-current-run:9001:1',
+        'workflow_run_id': 9001, 'workflow_run_attempt': 1, 'source_commit': 'a'*40,
+        'subject_run_key': 'GITHUB_RUN_ID=9001|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI'}
+    packet = {'subject': subject, 'record_status': 'observed',
+        'packet_identity': {'packet_scope':'current_run'},
+        'carrier': {'carrier_kind':'current_run_export_archive'},
+        'producer': {'production_mode':'current_run_export',
+                     'producer_source':'tools/build_pulsemech_compute_subject_input_packet_current_run_v0.py'},
+        'role_bindings': {'run_metadata':'metadata'}, 'artifacts': []}
+    metadata = {'release_candidate':'main', 'repository':repository, 'git_sha':'a'*40,
+        'run_id':9001, 'run_attempt':1, 'run_key':subject['subject_run_key'],
+        'workflow_ref':subject['workflow_ref']}
+    return packet, metadata
+
+
+def test_current_run_main_label_validation_preserves_both_identities():
+    packet, metadata = _main_label_packet_example()
+    original = copy.deepcopy((packet, metadata))
+    assert TOOL_MODULE._current_run_packaged_release_label(packet, metadata) == ('main', [])
+    _ok, errors = TOOL_MODULE._verify_subject_artifact_bindings(packet, parsed={'metadata':metadata})
+    assert 'run_metadata_subject_binding_mismatch' not in errors
+    assert 'current_run_packaged_release_label_mismatch' not in errors
+    assert (packet, metadata) == original
+
+
+def test_current_run_main_label_validation_rejects_alias_and_profile_confusion():
+    for path, value in [ (('subject','release_candidate_id'),'arbitrary'),
+                        (('subject','release_candidate_id'),'pulse-ci-current-run:9002:1'),
+                        (('subject','source_ref'),'refs/heads/other'),
+                        (('subject','event_name'),'push'),
+                        (('subject','workflow_run_id'),True),
+                        (('subject','workflow_run_attempt'),True),
+                        (('packet_identity','packet_scope'),'historical'),
+                        (('carrier','carrier_kind'),'historical_archive'),
+                        (('producer','producer_source'),'elsewhere.py') ]:
+        packet, metadata = _main_label_packet_example()
+        packet[path[0]][path[1]] = value
+        assert TOOL_MODULE._current_run_packaged_release_label(packet, metadata)[1]
+    packet, metadata = _main_label_packet_example()
+    packet['producer']['production_mode'] = 'fixed_source'
+    assert TOOL_MODULE._current_run_packaged_release_label(packet, metadata)[0] != 'main'
+
+
+def test_current_run_main_label_keeps_metadata_run_source_repository_ref_checks():
+    for key in ('repository','git_sha','run_id','run_attempt','run_key','workflow_ref'):
+        packet, metadata = _main_label_packet_example()
+        metadata[key] = 'other'
+        _ok, errors = TOOL_MODULE._verify_subject_artifact_bindings(packet, parsed={'metadata':metadata})
+        assert 'run_metadata_subject_binding_mismatch' in errors, (key, errors)
+
+
+
+# The current-run packet has an analysis identity. Recorded producer documents
+# retain the packaged release label; these are two fields, not interchangeable
+# aliases. These focused cases exercise the artifact-subject binding stage.
+def _recorded_main_label_example(schema_version="recorded_release_candidate_index_v0"):
+    value, metadata = _main_label_packet_example()
+    value["subject"]["run_mode"] = "prod"
+    document = {
+        "schema_version": schema_version,
+        "subject": {
+            "repository": "HKati/pulse-release-gates-0.1",
+            "commit_sha": "a" * 40,
+            "release_candidate": "main",
+        },
+        "run_identity": {
+            "git_sha": "a" * 40,
+            "run_key": "GITHUB_RUN_ID=9001|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI",
+            "run_mode": "prod",
+        },
+    }
+    return value, metadata, document
+
+
+@pytest.mark.parametrize("schema_version", [
+    "recorded_release_candidate_index_v0",
+    "recorded_release_evidence_verifier_v0",
+    "release_evidence_input_manifest_v0",
+    "required_gate_evidence_v0",
+])
+def test_recorded_packaged_label_binds_without_rewriting_inputs(schema_version):
+    value, metadata, document = _recorded_main_label_example(schema_version)
+    before = render_packet({"packet": value, "metadata": metadata, "document": document})
+    ok, errors = TOOL_MODULE._verify_subject_artifact_bindings(
+        value, parsed={"metadata": metadata, "recorded": document},
+    )
+    assert ok is True and errors == []
+    assert value["subject"]["release_candidate_id"] == "pulse-ci-current-run:9001:1"
+    assert document["subject"]["release_candidate"] == "main"
+    assert render_packet({"packet": value, "metadata": metadata, "document": document}) == before
+
+
+@pytest.mark.parametrize("container,field,replacement", [
+    ("subject", "repository", "other/repository"),
+    ("subject", "commit_sha", "b" * 40),
+    ("subject", "source_commit", "b" * 40),
+    ("subject", "release_candidate", "arbitrary-label"),
+    ("subject", "release_candidate", "pulse-ci-current-run:9001:1"),
+    ("subject", "release_candidate_id", "main"),
+    ("subject", "release_candidate_id", "pulse-ci-current-run:9002:1"),
+    ("subject", "subject_run_key", "other-run"),
+    ("run_identity", "git_sha", "b" * 40),
+    ("run_identity", "run_key", "other-run"),
+    ("run_identity", "run_id", 9002),
+    ("run_identity", "run_attempt", 2),
+    ("run_identity", "ref", "refs/heads/other"),
+    ("run_identity", "run_mode", "core"),
+])
+def test_recorded_packaged_label_never_relaxes_other_identity_fields(container, field, replacement):
+    value, metadata, document = _recorded_main_label_example()
+    document[container][field] = replacement
+    ok, errors = TOOL_MODULE._verify_subject_artifact_bindings(
+        value, parsed={"metadata": metadata, "recorded": document},
+    )
+    assert ok is False
+    assert "artifact_subject_identity_mismatch: recorded" in errors
+
+
+def test_recorded_release_candidate_id_stays_the_analysis_identity():
+    value, metadata, document = _recorded_main_label_example()
+    document["subject"]["release_candidate_id"] = "pulse-ci-current-run:9001:1"
+    ok, errors = TOOL_MODULE._verify_subject_artifact_bindings(
+        value, parsed={"metadata": metadata, "recorded": document},
+    )
+    assert ok is True and errors == []
+
+
+@pytest.mark.parametrize("field", ["repository", "git_sha", "run_id", "run_attempt", "run_key", "workflow_ref"])
+@pytest.mark.parametrize("fault", ["changed", "missing"])
+def test_recorded_label_requires_the_bound_metadata_identity(field, fault):
+    value, metadata, document = _recorded_main_label_example()
+    if fault == "missing":
+        del metadata[field]
+    else:
+        metadata[field] = "different-identity"
+    ok, errors = TOOL_MODULE._verify_subject_artifact_bindings(
+        value, parsed={"metadata": metadata, "recorded": document},
+    )
+    assert ok is False
+    assert "run_metadata_subject_binding_mismatch" in errors
+    assert "artifact_subject_identity_mismatch: recorded" in errors
+
+
+@pytest.mark.parametrize("container,field,replacement", [
+    ("subject", "release_candidate_id", "arbitrary"),
+    ("subject", "release_candidate_id", "pulse-ci-current-run:9002:1"),
+    ("subject", "source_ref", "refs/heads/other"),
+    ("subject", "event_name", "push"),
+    ("subject", "workflow_run_attempt", True),
+    ("packet_identity", "packet_scope", "historical"),
+    ("carrier", "carrier_kind", "historical_archive"),
+    ("producer", "producer_source", "unbound-producer.py"),
+])
+def test_recorded_label_requires_the_exact_current_run_profile(container, field, replacement):
+    value, metadata, document = _recorded_main_label_example()
+    value[container][field] = replacement
+    ok, errors = TOOL_MODULE._verify_subject_artifact_bindings(
+        value, parsed={"metadata": metadata, "recorded": document},
+    )
+    assert ok is False
+    assert "current_run_packaged_release_label_mismatch" in errors
+    assert "artifact_subject_identity_mismatch: recorded" in errors
+
+
+@pytest.mark.parametrize("mode", ["fixed_source_adapter", "post_run_export", "bounded_reference"])
+def test_recorded_main_label_is_not_an_alias_in_other_profiles(mode):
+    value, metadata, document = _recorded_main_label_example()
+    value["producer"]["production_mode"] = mode
+    ok, errors = TOOL_MODULE._verify_subject_artifact_bindings(
+        value, parsed={"metadata": metadata, "recorded": document},
+    )
+    assert ok is False
+    assert "artifact_subject_identity_mismatch: recorded" in errors
+    # The default identity comparison is unchanged for those profiles.
+    metadata["release_candidate"] = value["subject"]["release_candidate_id"]
+    document["subject"]["release_candidate"] = value["subject"]["release_candidate_id"]
+    ok, errors = TOOL_MODULE._verify_subject_artifact_bindings(
+        value, parsed={"metadata": metadata, "recorded": document},
+    )
+    assert ok is True and errors == []
+
+
+@pytest.mark.parametrize("bound", [False, True])
+def test_unbound_or_absent_metadata_cannot_select_recorded_label(bound):
+    value, metadata, document = _recorded_main_label_example()
+    if not bound:
+        value["role_bindings"] = {}
+    parsed = {"unbound_metadata": metadata, "recorded": document}
+    ok, errors = TOOL_MODULE._verify_subject_artifact_bindings(value, parsed=parsed)
+    assert ok is False
+    assert "artifact_subject_identity_mismatch: recorded" in errors
+
+
+def test_recorded_default_document_checker_still_has_no_main_alias():
+    value, _metadata, document = _recorded_main_label_example()
+    assert TOOL_MODULE._document_subject_identity_ok(document, value["subject"]) is False
+    document["subject"]["release_candidate"] = value["subject"]["release_candidate_id"]
+    assert TOOL_MODULE._document_subject_identity_ok(document, value["subject"]) is True
+
+
+@pytest.mark.parametrize("different_second_record", [False, True])
+def test_recorded_label_relation_applies_to_every_jsonl_record(different_second_record):
+    value, metadata, document = _recorded_main_label_example()
+    documents = [document, copy.deepcopy(document)]
+    if different_second_record:
+        documents[1]["subject"]["release_candidate"] = "unrelated"
+    before = copy.deepcopy(documents)
+    ok, errors = TOOL_MODULE._verify_subject_artifact_bindings(
+        value, parsed={"metadata": metadata, "recorded": documents},
+    )
+    assert ok is (not different_second_record)
+    assert errors == (["artifact_subject_identity_mismatch: recorded"] if different_second_record else [])
+    assert documents == before
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

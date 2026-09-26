@@ -1769,6 +1769,18 @@ def _validate_report(
     if analysis.get("subject_run_key") != packet_subject.get("subject_run_key"):
         raise ProofError("compute_report_subject_run_key_mismatch")
     report_subject = _require_object(report.get("subject"), label="report_subject")
+    active_sets = _require_list(
+        packet_subject.get("active_policy_sets"),
+        label="subject_active_policy_sets",
+    )
+    if (
+        not active_sets
+        or any(not isinstance(item, str) or not item for item in active_sets)
+        or len(active_sets) != len(set(active_sets))
+    ):
+        raise ProofError("subject_active_policy_sets_invalid")
+    # The packet preserves its input order; reports use canonical sorted order.
+    # Validate before sorting so duplicate or malformed members are not erased.
     expected_subject = {
         "repository": packet_subject.get("repository"),
         "workflow": packet_subject.get("workflow_name"),
@@ -1778,7 +1790,7 @@ def _validate_report(
         "source_commit": packet_subject.get("source_commit"),
         "release_candidate_id": packet_subject.get("release_candidate_id"),
         "run_mode": packet_subject.get("run_mode"),
-        "active_policy_sets": packet_subject.get("active_policy_sets"),
+        "active_policy_sets": sorted(active_sets),
         "policy_id": packet_subject.get("policy_id"),
         "policy_sha256": packet_subject.get("policy_sha256"),
         "materialized_gate_set_sha256": packet_subject.get(
@@ -1827,7 +1839,14 @@ def _extract_final_status(
     subject = _require_object(packet.get("subject"), label="packet_subject")
     if sha256_bytes(value) != subject.get("final_status_sha256"):
         raise ProofError("packet_final_status_digest_mismatch")
-    _parse_json_bytes(value, label="base_final_status", canonical_required=True)
+    # This is authenticated producer input, not one of our generated records.
+    # Keep its exact encoding and digest; the native materializer need not sort
+    # keys. Strict JSON and finite-value checks still apply before returning it.
+    parsed = _parse_json_bytes(value, label="base_final_status", canonical_required=False)
+    try:
+        render_json(parsed)  # Validation only: never replace the original bytes.
+    except ValueError as exc:
+        raise StrictJsonError("base_final_status_non_finite_value") from exc
     return value
 
 
@@ -1947,6 +1966,40 @@ def _validate_relation(
     # Findings, unresolved reasons and false candidate consequences are intentionally retained.
     if not isinstance(findings, dict):
         raise ProofError("relation_findings_not_object")
+
+
+def _validate_relation_input_locators(
+    relation: dict[str, Any], *, plan_bytes: bytes, report_bytes: bytes,
+) -> None:
+    """Independently check exact content locators before consuming the relation."""
+    plan = _parse_json_bytes(plan_bytes, label="locator_plan")
+    plan_digest, report_digest = sha256_bytes(plan_bytes), sha256_bytes(report_bytes)
+    plan_binding = _require_object(relation.get("plan_binding"), label="locator_plan_binding")
+    report_binding = _require_object(
+        _require_object(relation.get("observation_bindings"), label="locator_observation_bindings").get("compute_binding_report"),
+        label="locator_report_binding")
+    for binding, digest in ((plan_binding, plan_digest), (report_binding, report_digest)):
+        if binding.get("sha256") != digest or binding.get("path_or_uri") != "sha256:" + digest:
+            raise ProofError("relation_content_locator_mismatch")
+    # This entrypoint supplies no explicit expectations: every plan operation
+    # must have exactly one automatically constructed operation basis.
+    fields = ("action", "component_id", "reason", "source_path", "source_sha256",
+              "source_size_bytes", "target_path", "target_state")
+    expected = {sha256_bytes(json.dumps({k: op[k] for k in fields},
+        ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False).encode("utf-8"))
+        for op in plan["operations"]}
+    seen: list[str] = []
+    for expectation in _require_object(relation.get("expectations"), label="locator_expectations").values():
+        for basis in _require_object(expectation, label="locator_expectation").get("basis_records", []):
+            if basis.get("basis_kind") != "integration_plan_operation":
+                continue
+            digest = basis.get("source_sha256")
+            if (digest not in expected or basis.get("source_revision") != plan["source"]["revision"]
+                    or basis.get("source_path_or_uri") != "sha256:" + plan_digest + "#operation/" + digest):
+                raise ProofError("relation_operation_locator_mismatch")
+            seen.append(digest)
+    if len(seen) != len(expected) or set(seen) != expected:
+        raise ProofError("relation_operation_locator_inventory_mismatch")
 
 
 def _validate_materialization(
@@ -2507,6 +2560,7 @@ def _build(args: argparse.Namespace) -> bytes:
                 sys.executable,
                 "-I",
                 str(control_components["relation_builder"].worktree_path),
+                "--current-run-content-locators",
                 "--plan",
                 str(proof_path / PLAN_OUTPUT_NAME),
                 "--compute-report",
@@ -2557,6 +2611,8 @@ def _build(args: argparse.Namespace) -> bytes:
             label="planned_observed_relation",
         )
         _validate_relation(relation, report=report, plan=plan)
+        _validate_relation_input_locators(
+            relation, plan_bytes=plan_capture.bytes_value, report_bytes=bridge_result.stdout)
         _chmod_file_at(proof_fd, RELATION_OUTPUT_NAME, 0o400)
 
         materializer_result = _process_or_fail(
@@ -2597,7 +2653,11 @@ def _build(args: argparse.Namespace) -> bytes:
             maximum=MAX_JSON_BYTES,
             require_canonical_json=True,
         )
-        base_status = _parse_json_bytes(final_status_bytes, label="base_status")
+        # The same original input was checked by _extract_final_status above.
+        # Its serialization is not the canonical generated candidate format.
+        base_status = _parse_json_bytes(
+            final_status_bytes, label="base_status", canonical_required=False,
+        )
         folded_status = _parse_json_bytes(
             folded_capture.bytes_value,
             label="folded_candidate_status",

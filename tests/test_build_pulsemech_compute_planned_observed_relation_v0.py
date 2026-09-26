@@ -1097,119 +1097,544 @@ def test_bounded_relation_build_requires_captured_sources_not_a_flag():
 
 
 
-# PR #2876: context admission must precede authenticated replay bootstrap.
-def _review_2876_builder_args(builder, path, tmp_path):
-    from argparse import Namespace
-    return Namespace(subject_input=str(tmp_path / "subject.json"), carrier=str(tmp_path / "carrier.zip"),
-        expected_context=str(path), expected_prelaunch_sha256="0" * 64,
-        runtime_packet=[str(tmp_path / "runtime.json")], runtime_extent=None,
-        repository_root=str(builder.ROOT), expectations=None, relation_id=None, tool_source_revision=None,
-        report_validator=builder.DEFAULT_REPORT_VALIDATOR, relation_validator=builder.DEFAULT_RELATION_VALIDATOR,
-        plan_schema=builder.DEFAULT_PLAN_SCHEMA, report_schema=builder.DEFAULT_REPORT_SCHEMA,
-        runtime_packet_schema=builder.DEFAULT_PACKET_SCHEMA, runtime_packet_validator=builder.DEFAULT_PACKET_VALIDATOR,
-        relation_schema=builder.DEFAULT_RELATION_SCHEMA, output=None)
+
+@pytest.fixture(scope="module")
+def current_run_locator_outputs(tmp_path_factory):
+    """Real tool emissions on explicitly synthetic input; never mocked success."""
+    import ast, subprocess
+    directory = tmp_path_factory.mktemp("current-run-locator")
+    source = (ROOT / "tests/test_pulsemech_compute_binding_analyzer_core_v0.py").read_text()
+    values = [node.value for node in ast.parse(source).body if isinstance(node, ast.Assign)
+              and any(isinstance(t, ast.Name) and t.id == "_IDENTITY_EMITTED_HANDOFF_DRIVER" for t in node.targets)]
+    assert len(values) == 1
+    continuation = """
+checker._build_baseline_proof(control_root=R,subject_root=h.subject,
+    intake_directory=folder/'intake',output_directory=folder/'baseline-proof',
+    source_commit=revision,capture_manifest=capture)
+dump(P/'LOCATOR_INPUTS.json',{'control_root':str(R),'subject_root':str(h.subject),
+    'source_commit':revision,'record_status':'synthetic_only'})
+"""
+    driver = directory / "driver.py"
+    driver.write_text(ast.literal_eval(values[0]) + continuation)
+    with (directory / "stdout.log").open("wb") as out, (directory / "stderr.log").open("wb") as err:
+        result = subprocess.run([sys.executable,"-I","-B",str(driver),str(ROOT)],
+            cwd=directory,stdin=subprocess.DEVNULL,stdout=out,stderr=err,timeout=300)
+    assert result.returncode == 0, (directory / "stdout.log").read_text()[-5000:] + (directory / "stderr.log").read_text()
+    emitted = directory / "identity_emitted_handoff"
+    meta = json.loads((emitted / "LOCATOR_INPUTS.json").read_bytes())
+    proof = emitted / "full-intake/baseline-proof"
+    return {**meta, "directory": directory, "plan": (proof / "current-run-plan.json").read_bytes(),
+            "report": (proof / "compute-binding-report.json").read_bytes()}
 
 
-@pytest.mark.parametrize("kind", ["symlink", "parent_symlink", "directory", "oversized",
-    "duplicate", "nonfinite", "nonobject", "invalid_json", "invalid_utf8", "bom"])
-def test_review_2876_builder_rejects_context_before_bootstrap(kind, tmp_path, monkeypatch):
-    builder = _bounded_unit_module("build_pulsemech_compute_planned_observed_relation_v0.py")
-    raw = b'{"source_commit":"' + b'a' * 40 + b'"}'
-    path = tmp_path / "context.json"
+def _locator_command(f, directory, *, stable=True, plan_bytes=None, report_bytes=None, extra=()):
+    import subprocess
+    directory.mkdir()
+    plan = f["plan"] if plan_bytes is None else plan_bytes
+    report = f["report"] if report_bytes is None else report_bytes
+    (directory / "input-plan.json").write_bytes(plan)
+    (directory / "input-report.json").write_bytes(report)
+    command = [sys.executable,"-I",str(Path(f["control_root"]) / "tools/build_pulsemech_compute_planned_observed_relation_v0.py"),
+        "--plan",str(directory / "input-plan.json"),"--compute-report",str(directory / "input-report.json"),
+        "--tool-source-revision",f["source_commit"],"--subject-root",f["subject_root"],
+        "--output",str(directory / "relation.json"), *extra]
+    if stable: command += ["--current-run-content-locators"]
+    result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, timeout=90)
+    (directory / "command.json").write_text(json.dumps(command))
+    (directory / "stdout.log").write_bytes(result.stdout)
+    (directory / "stderr.log").write_bytes(result.stderr)
+    (directory / "exit-code.txt").write_text(str(result.returncode)+"\n")
+    assert (directory / "input-plan.json").read_bytes() == plan
+    assert (directory / "input-report.json").read_bytes() == report
+    return result
+
+
+def test_current_run_content_locators_are_path_independent(current_run_locator_outputs, tmp_path):
+    import hashlib
+    f = current_run_locator_outputs
+    first = _locator_command(f, tmp_path / "first")
+    second = _locator_command(f, tmp_path / "unrelated-random-storage")
+    assert first.returncode == second.returncode == 0, first.stderr + second.stderr
+    assert first.stdout == second.stdout
+    relation = json.loads(first.stdout)
+    pd, rd = hashlib.sha256(f["plan"]).hexdigest(), hashlib.sha256(f["report"]).hexdigest()
+    assert relation["plan_binding"]["path_or_uri"] == "sha256:" + pd
+    assert relation["observation_bindings"]["compute_binding_report"]["path_or_uri"] == "sha256:" + rd
+    for row in relation["expectations"].values():
+        for basis in row["basis_records"]:
+            if basis["basis_kind"] == "integration_plan_operation":
+                assert basis["source_path_or_uri"] == "sha256:" + pd + "#operation/" + basis["source_sha256"]
+
+
+def test_current_run_content_locators_bind_exact_not_reserialized_bytes(current_run_locator_outputs, tmp_path):
+    import hashlib
+    f = current_run_locator_outputs
+    results = []
+    for ordinal, raw in enumerate((f["plan"], f["plan"] + b" ")):
+        result = _locator_command(f, tmp_path / str(ordinal), plan_bytes=raw)
+        assert result.returncode == 0, result.stderr
+        relation = json.loads(result.stdout)
+        assert relation["plan_binding"]["path_or_uri"] == "sha256:" + hashlib.sha256(raw).hexdigest()
+        results.append(relation)
+    assert results[0]["expectations"] != results[1]["expectations"]
+
+
+def test_current_run_content_locators_leave_legacy_default_unchanged(current_run_locator_outputs, tmp_path):
+    f = current_run_locator_outputs
+    result = _locator_command(f, tmp_path / "legacy", stable=False)
+    assert result.returncode == 0, result.stderr
+    relation = json.loads(result.stdout)
+    assert relation["plan_binding"]["path_or_uri"] == str(tmp_path / "legacy/input-plan.json")
+    assert relation["observation_bindings"]["compute_binding_report"]["path_or_uri"] == str(tmp_path / "legacy/input-report.json")
+
+
+@pytest.mark.parametrize("change", ["candidate", "run", "attempt", "revision", "repository", "workflow", "record_status", "runtime", "bounded", "target_ref", "plan_revision"])
+def test_current_run_content_locators_reject_profile_confusion(current_run_locator_outputs, change):
+    import copy
+    f = current_run_locator_outputs
+    plan, report = json.loads(f["plan"]), json.loads(f["report"])
+    fields = {"candidate":"release_candidate_id", "run":"workflow_run_id", "attempt":"workflow_run_attempt",
+              "revision":"source_commit", "repository":"repository", "workflow":"workflow"}
+    if change in fields:
+        report["subject"][fields[change]] = {"run":True,"attempt":2}.get(change, "other")
+    elif change == "record_status": report["record_status"] = "example"
+    elif change == "runtime": report["runtime_binding"] = {}
+    elif change == "bounded": report["report_profile"] = "bounded_execution_reference_v0"
+    elif change == "target_ref": plan["target"]["default_branch"] = "other"
+    else: plan["source"]["revision"] = "a" * 40
+    with pytest.raises(BUILDER_MODULE.BuilderError, match="current_run_locator_profile_mismatch"):
+        BUILDER_MODULE.current_run_input_locators(plan=plan, plan_bytes=json.dumps(plan).encode(),
+            report=report, report_bytes=json.dumps(report).encode())
+
+
+@pytest.mark.parametrize("field", ["plan", "report"])
+def test_current_run_content_locators_reject_document_buffer_mismatch(current_run_locator_outputs, field):
+    f = current_run_locator_outputs
+    args = {"plan":json.loads(f["plan"]),"plan_bytes":f["plan"],"report":json.loads(f["report"]),"report_bytes":f["report"]}
+    args[field] = {}
+    with pytest.raises(BUILDER_MODULE.BuilderError, match="current_run_locator_input_bytes_mismatch"):
+        BUILDER_MODULE.current_run_input_locators(**args)
+
+
+def test_current_run_content_locator_capture_rejects_symlink_and_duplicate_json(tmp_path):
+    p = tmp_path / "document.json"; p.write_bytes(b'{"a":1}')
+    value, raw = BUILDER_MODULE.capture_current_run_document(p,label="test")
+    assert value == {"a":1} and raw == b'{"a":1}'
+    link = tmp_path / "link.json"; link.symlink_to(p)
+    with pytest.raises(BUILDER_MODULE.BuilderError, match="symlink"):
+        BUILDER_MODULE.capture_current_run_document(link,label="test")
+    p.write_bytes(b'{"a":1,"a":2}')
+    with pytest.raises((BUILDER_MODULE.BuilderError,ValueError)):
+        BUILDER_MODULE.capture_current_run_document(p,label="test")
+
+
+def test_current_run_content_locators_reject_runtime_or_external_expectations(current_run_locator_outputs, tmp_path):
+    f = current_run_locator_outputs
+    for number, option in enumerate(("--runtime-packet", "--expectations")):
+        result = _locator_command(f, tmp_path / str(number), extra=(option,str(tmp_path / "not-consumed.json")))
+        assert result.returncode == 2
+        assert b"current_run_locators_require_artifact_only_automatic_expectations" in result.stderr
+        assert not (tmp_path / str(number) / "relation.json").exists()
+
+
+# PR #2880 / discussion_r4053371440: deterministic parent-component races.
+def _protected_capture_os(monkeypatch, **overrides):
+    """Intercept only this tool's I/O; every operation still uses the real OS."""
+    import os
+    from types import SimpleNamespace
+    proxy = SimpleNamespace(**vars(os))
+    for key, value in overrides.items():
+        setattr(proxy, key, value)
+    proxy.supports_dir_fd = set(os.supports_dir_fd) | {proxy.open, proxy.stat}
+    proxy.supports_follow_symlinks = set(os.supports_follow_symlinks) | {proxy.stat}
+    monkeypatch.setattr(BUILDER_MODULE, "os", proxy)
+    return proxy
+
+
+def _protected_capture_tree(tmp_path, label):
+    root = tmp_path / "checked"
+    inner = root / "nested"
+    inner.mkdir(parents=True)
+    path = inner / (label + ".json")
+    path.write_bytes(b'{"selected":"original"}')
+    replacement = tmp_path / "replacement"
+    replacement.mkdir()
+    (replacement / path.name).write_bytes(b'{"selected":"substituted"}')
+    nested = replacement / "nested"
+    nested.mkdir()
+    (nested / path.name).write_bytes(b'{"selected":"substituted"}')
+    return root, inner, path, replacement
+
+
+@pytest.mark.parametrize("label", ["plan", "compute_report"])
+@pytest.mark.parametrize("level", ["parent", "ancestor"])
+@pytest.mark.parametrize("replacement_kind", ["symlink", "directory"])
+def test_protected_current_run_capture_rejects_parent_swap_before_leaf_open(
+    tmp_path, monkeypatch, label, level, replacement_kind,
+):
+    import os
+    root, inner, path, replacement = _protected_capture_tree(tmp_path, label)
+    target = inner if level == "parent" else root
+    swapped = False
+
+    def raced_open(name, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if not swapped and Path(name).name == path.name:
+            swapped = True
+            target.rename(tmp_path / "detached")
+            if replacement_kind == "symlink":
+                target.symlink_to(replacement, target_is_directory=True)
+            else:
+                replacement.rename(target)
+        return os.open(name, flags, mode, dir_fd=dir_fd)
+
+    _protected_capture_os(monkeypatch, open=raced_open)
+    with pytest.raises(BUILDER_MODULE.BuilderError, match="capture_parent_identity_changed"):
+        BUILDER_MODULE.capture_current_run_document(path, label=label)
+    assert swapped
+
+
+@pytest.mark.parametrize("label", ["plan", "compute_report"])
+@pytest.mark.parametrize("replacement_kind", ["symlink", "directory"])
+def test_protected_current_run_capture_rejects_parent_swap_between_stat_and_open(
+    tmp_path, monkeypatch, label, replacement_kind,
+):
+    import os
+    root, inner, path, replacement = _protected_capture_tree(tmp_path, label)
+    swapped = False
+
+    def raced_open(name, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if not swapped and Path(name).name == "nested":
+            swapped = True
+            inner.rename(tmp_path / "detached")
+            if replacement_kind == "symlink":
+                inner.symlink_to(replacement, target_is_directory=True)
+            else:
+                replacement.rename(inner)
+        return os.open(name, flags, mode, dir_fd=dir_fd)
+
+    _protected_capture_os(monkeypatch, open=raced_open)
+    with pytest.raises((BUILDER_MODULE.BuilderError, OSError)):
+        BUILDER_MODULE.capture_current_run_document(path, label=label)
+    assert swapped
+
+
+@pytest.mark.parametrize("label", ["plan", "compute_report"])
+@pytest.mark.parametrize("same_bytes", [False, True])
+def test_protected_current_run_capture_rejects_leaf_replacement_before_open(
+    tmp_path, monkeypatch, label, same_bytes,
+):
+    import os
+    root, inner, path, replacement = _protected_capture_tree(tmp_path, label)
+    other = replacement / path.name
+    if same_bytes:
+        other.write_bytes(path.read_bytes())
+    swapped = False
+
+    def raced_open(name, flags, mode=0o777, *, dir_fd=None):
+        nonlocal swapped
+        if not swapped and Path(name).name == path.name:
+            swapped = True
+            other.replace(path)
+        return os.open(name, flags, mode, dir_fd=dir_fd)
+
+    _protected_capture_os(monkeypatch, open=raced_open)
+    with pytest.raises(BUILDER_MODULE.BuilderError, match="capture_file_identity_changed"):
+        BUILDER_MODULE.capture_current_run_document(path, label=label)
+    assert swapped
+
+
+@pytest.mark.parametrize("label", ["plan", "compute_report"])
+@pytest.mark.parametrize("changed", ["parent", "ancestor", "leaf", "bytes"])
+def test_protected_current_run_capture_revalidates_held_identity(
+    tmp_path, label, changed,
+):
+    root, inner, path, replacement = _protected_capture_tree(tmp_path, label)
+    captures = []
+    value, raw = BUILDER_MODULE.capture_current_run_document(path, label=label, captures=captures)
+    assert value == {"selected": "original"}
+    assert raw == b'{"selected":"original"}'
+    assert len(captures) == 1
+    try:
+        captures[0].verify()
+        if changed in ("parent", "ancestor"):
+            target = inner if changed == "parent" else root
+            target.rename(tmp_path / "detached")
+            # Even equal-byte replacement must not rebind the captured pathname.
+            replacement.rename(target)
+            path.write_bytes(raw)
+            error = "capture_parent_identity_changed"
+        elif changed == "leaf":
+            other = replacement / path.name
+            other.write_bytes(raw)
+            other.replace(path)
+            error = "capture_file_identity_changed"
+        else:
+            path.write_bytes(b'{"selected":"modified"}')
+            error = "capture_file_identity_changed"
+        with pytest.raises(BUILDER_MODULE.BuilderError, match=error):
+            captures[0].verify()
+    finally:
+        captures[0].close()
+
+
+def test_protected_current_run_capture_never_resolves_or_reopens_full_path(tmp_path, monkeypatch):
+    import os
+    path = tmp_path / "input.json"
+    path.write_bytes(b'{ "a": 1 }\n')
+    opened = []
+
+    def checked_open(name, flags, mode=0o777, *, dir_fd=None):
+        opened.append((os.fspath(name), flags, dir_fd))
+        assert (name == "/" and dir_fd is None) or (dir_fd is not None and "/" not in os.fspath(name))
+        assert flags & os.O_NOFOLLOW
+        return os.open(name, flags, mode, dir_fd=dir_fd)
+
+    def forbidden_resolve(*args, **kwargs):
+        raise AssertionError("current-run capture must not resolve paths")
+
+    _protected_capture_os(monkeypatch, open=checked_open)
+    with monkeypatch.context() as local:
+        local.setattr(Path, "resolve", forbidden_resolve)
+        value, raw = BUILDER_MODULE.capture_current_run_document(path, label="plan")
+    assert value == {"a": 1} and raw == b'{ "a": 1 }\n'
+    assert opened[-1][0] == "input.json" and opened[-1][2] is not None
+    assert all(flags & os.O_DIRECTORY for _, flags, _ in opened[:-1])
+
+
+def test_protected_current_run_capture_anchors_relative_input(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "input.json").write_bytes(b'{"relative":true}')
+    value, raw = BUILDER_MODULE.capture_current_run_document(Path("input.json"), label="plan")
+    assert value == {"relative": True} and raw == b'{"relative":true}'
+
+
+def test_protected_current_run_capture_rejects_parent_traversal(tmp_path):
+    (tmp_path / "inner").mkdir()
+    path = tmp_path / "input.json"
+    path.write_bytes(b'{"a":1}')
+    with pytest.raises(BUILDER_MODULE.BuilderError, match="parent_traversal_forbidden"):
+        BUILDER_MODULE.capture_current_run_document(tmp_path / "inner" / ".." / path.name, label="plan")
+
+
+def test_protected_current_run_capture_fails_without_descriptor_support(tmp_path, monkeypatch):
+    path = tmp_path / "input.json"
+    path.write_bytes(b'{"a":1}')
+    proxy = _protected_capture_os(monkeypatch)
+    proxy.supports_dir_fd = set()
+    with pytest.raises(BUILDER_MODULE.BuilderError, match="descriptor_support_unavailable"):
+        BUILDER_MODULE.capture_current_run_document(path, label="plan")
+
+
+@pytest.mark.parametrize("kind", ["empty", "oversize", "directory", "fifo"])
+def test_protected_current_run_capture_rejects_unbounded_or_nonregular_input(tmp_path, kind):
+    import os
+    path = tmp_path / "input.json"
     if kind == "directory":
         path.mkdir()
-    elif kind == "parent_symlink":
-        target = tmp_path / "real"; target.mkdir(); (target / "context.json").write_bytes(raw)
-        link = tmp_path / "link"; link.symlink_to(target, target_is_directory=True)
-        path = link / "context.json"
-    elif kind == "symlink":
-        target = tmp_path / "target.json"; target.write_bytes(raw); path.symlink_to(target)
+    elif kind == "fifo":
+        os.mkfifo(path)
     else:
-        raw = {"oversized": raw + b' ' * 65537, "duplicate": b'{"x":1,"x":2}',
-            "nonfinite": b'{"x":NaN}', "nonobject": b'[]', "invalid_json": b'{',
-            "invalid_utf8": b'\xff', "bom": b'\xef\xbb\xbf{}'}[kind]
-        path.write_bytes(raw)
-    def forbidden(*args, **kwargs):
-        raise AssertionError("context reached replay bootstrap before admission")
-    monkeypatch.setattr(builder, "_bounded_report_checker", forbidden)
-    with pytest.raises((builder.BuilderError, ValueError, OSError)):
-        builder.bounded_profile_cli(_review_2876_builder_args(builder, path, tmp_path),
-            report_bytes=b'{}', plan_bytes=b'{}')
+        with path.open("wb") as handle:
+            if kind == "oversize":
+                handle.truncate(64 * 1024 * 1024 + 1)
+    with pytest.raises(BUILDER_MODULE.BuilderError, match="capture_not_bounded_regular_file"):
+        BUILDER_MODULE.capture_current_run_document(path, label="plan")
 
 
-def test_review_2876_builder_fifo_is_rejected_without_a_writer(tmp_path):
-    # Bound the regression process itself: a broken reader must fail the test,
-    # never hang the test runner while waiting for a FIFO writer.
+@pytest.mark.parametrize("raw", [b'{"a":1}', b'{"a":1,"a":2}', b'[]', b'NaN', b'\xff'])
+def test_protected_current_run_capture_closes_all_acquired_descriptors(tmp_path, monkeypatch, raw):
     import os
+    path = tmp_path / "input.json"
+    path.write_bytes(raw)
+    opened, closed = [], []
+
+    def tracked_open(name, flags, mode=0o777, *, dir_fd=None):
+        fd = os.open(name, flags, mode, dir_fd=dir_fd)
+        opened.append(fd)
+        return fd
+
+    def tracked_close(fd):
+        closed.append(fd)
+        return os.close(fd)
+
+    _protected_capture_os(monkeypatch, open=tracked_open, close=tracked_close)
+    if raw == b'{"a":1}':
+        assert BUILDER_MODULE.capture_current_run_document(path, label="plan") == ({"a": 1}, raw)
+    else:
+        with pytest.raises((BUILDER_MODULE.BuilderError, ValueError)):
+            BUILDER_MODULE.capture_current_run_document(path, label="plan")
+    assert opened
+    assert closed == list(reversed(opened))
+    for fd in opened:
+        with pytest.raises(OSError):
+            os.fstat(fd)
+
+
+def test_protected_current_run_cli_rejects_equal_byte_parent_rebinding_before_publication(
+    current_run_locator_outputs, tmp_path,
+):
     import subprocess
-    import sys
-    fifo = tmp_path / "context"; os.mkfifo(fifo)
-    code = r"""
-import importlib.util, sys
+    f = current_run_locator_outputs
+    inputs = tmp_path / "inputs"
+    inputs.mkdir()
+    (inputs / "plan.json").write_bytes(f["plan"])
+    (inputs / "report.json").write_bytes(f["report"])
+    driver = tmp_path / "driver.py"
+    driver.write_text('''import importlib.util,json,os,sys
 from pathlib import Path
-p=Path(sys.argv[1]); spec=importlib.util.spec_from_file_location('review_test',p)
-m=importlib.util.module_from_spec(spec);sys.modules[spec.name]=m;spec.loader.exec_module(m)
-b=m._bounded_unit_module('build_pulsemech_compute_planned_observed_relation_v0.py')
-def forbidden(*a,**kw): raise AssertionError('FIFO reached replay bootstrap')
-b._bounded_report_checker=forbidden
-try:
- b.bounded_profile_cli(m._review_2876_builder_args(b,Path(sys.argv[2]),Path(sys.argv[2]).parent),report_bytes=b'{}',plan_bytes=b'{}')
-except (b.BuilderError,ValueError,OSError):
- print('bounded-context-rejected')
-else: raise AssertionError('FIFO accepted')
-"""
-    process = subprocess.run([sys.executable, "-I", "-B", "-c", code, __file__, str(fifo)],
-        stdin=subprocess.DEVNULL, capture_output=True, timeout=8, check=False)
-    assert process.returncode == 0, process.stderr.decode()
-    assert process.stdout.strip() == b"bounded-context-rejected"
+p=Path(sys.argv[1]); directory=Path(sys.argv[2])
+spec=importlib.util.spec_from_file_location("protected_cli_probe",p)
+m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+original=m.invoke_json_validator
+snapshot=m.snapshot_regular_files
+
+def validate_then_swap(**kw):
+    result=original(**kw)
+    if kw["label"]=="generated_relation":
+        inputs=directory/"inputs"; inputs.rename(directory/"detached")
+        inputs.mkdir()
+        for old in (directory/"detached").iterdir():
+            (inputs/old.name).write_bytes(old.read_bytes())
+    return result
+
+def snapshots_without_current_inputs(paths):
+    paths=list(paths)
+    assert not any(x.name in ("plan.json","report.json") for x in paths)
+    return snapshot(paths)
+m.invoke_json_validator=validate_then_swap
+m.snapshot_regular_files=snapshots_without_current_inputs
+sys.argv=[str(p),*sys.argv[3:]]
+fds_before=set(os.listdir("/proc/self/fd"))
+code=m.main()
+assert set(os.listdir("/proc/self/fd"))==fds_before
+raise SystemExit(code)
+''')
+    command = [sys.executable, "-I", str(driver),
+        str(Path(f["control_root"]) / "tools/build_pulsemech_compute_planned_observed_relation_v0.py"),
+        str(tmp_path), "--plan", str(inputs / "plan.json"),
+        "--compute-report", str(inputs / "report.json"), "--tool-source-revision", f["source_commit"],
+        "--subject-root", f["subject_root"], "--output", str(tmp_path / "relation.json"),
+        "--current-run-content-locators"]
+    result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, timeout=90)
+    assert result.returncode == 2, result.stderr
+    assert result.stdout == b""
+    assert not (tmp_path / "relation.json").exists()
+    assert (tmp_path / "detached").is_dir()
+    assert "plan_capture_parent_identity_changed" in json.loads(result.stderr)["errors"][0]
 
 
-def test_review_2876_builder_reuses_original_context_bytes(tmp_path, monkeypatch):
-    from types import SimpleNamespace
-    builder = _bounded_unit_module("build_pulsemech_compute_planned_observed_relation_v0.py")
-    checker = _bounded_unit_module("check_pulsemech_compute_binding_report_v0.py")
-    raw = b'{ "source_commit": "' + b'a' * 40 + b'" }\n'
-    path = tmp_path / "context.json"; path.write_bytes(raw)
-    args = _review_2876_builder_args(builder, path, tmp_path)
-    for p in (args.subject_input, args.carrier, args.runtime_packet[0]): Path(p).write_bytes(b'{}')
-    calls = []
-    def source_checker(root, context):
-        assert context == json.loads(raw)
-        path.write_bytes(b'invalid replacement; must not be parsed')
-        def intake(**kw):
-            calls.append(kw)
-            assert kw.get("expected_context_bytes") == raw
-            assert kw.get("expected_context_path") is None
-            return checker.bounded_inputs_from_paths(**kw)
-        return SimpleNamespace(bounded_inputs_from_paths=intake)
-    class StopBeforeRelation(Exception): pass
-    def construct(**kw):
-        assert kw["bounded_inputs"]["expected_context"] == json.loads(raw)
-        raise StopBeforeRelation
-    monkeypatch.setattr(builder, "_bounded_report_checker", source_checker)
-    monkeypatch.setattr(builder, "build_relation_record", construct)
-    with pytest.raises(StopBeforeRelation):
-        builder.bounded_profile_cli(args, report_bytes=b'{}', plan_bytes=b'{}')
-    assert len(calls) == 1
 
 
-def test_review_2876_builder_context_limit_positive_and_capture_change(tmp_path, monkeypatch):
-    builder = _bounded_unit_module("build_pulsemech_compute_planned_observed_relation_v0.py")
-    path = tmp_path / "context.json"; raw = b'{}' + b' ' * 65534; path.write_bytes(raw)
-    assert builder._capture_bounded_expected_context(path) == raw
-    original = builder.os.read
-    changed = False
-    def read_and_change(fd, count):
-        nonlocal changed
-        assert 0 < count <= 65537
-        data = original(fd, count)
-        if not changed:
-            changed = True
-            path.write_bytes(b'{"changed":true}')
-        return data
-    monkeypatch.setattr(builder.os, "read", read_and_change)
-    with pytest.raises(ValueError, match="changed_during_capture"):
-        builder._capture_bounded_expected_context(path)
+# PR #2880 / discussion_r4053989334: identity checks follow all snapshot work.
+@pytest.mark.parametrize(
+    ("label", "replacement", "publication"),
+    [("plan", "parent_equal", "file"), ("compute_report", "leaf_equal", "stdout")],
+)
+def test_current_run_identity_is_checked_after_other_snapshots(
+    current_run_locator_outputs, tmp_path, label, replacement, publication,
+):
+    """Use real validators and hashes; inject only the filesystem replacement."""
+    import subprocess
+    f = current_run_locator_outputs
+    inputs = tmp_path / "inputs"
+    for name, raw in (("plan", f["plan"]), ("compute_report", f["report"])):
+        directory = inputs / name
+        directory.mkdir(parents=True)
+        (directory / "document.json").write_bytes(raw)
+    driver = tmp_path / "driver.py"
+    driver.write_text(r"""import importlib.util,json,os,sys
+from pathlib import Path
+tool=Path(sys.argv[1]); directory=Path(sys.argv[2])
+label,replacement=sys.argv[3:5]
+spec=importlib.util.spec_from_file_location("late_identity_probe",tool)
+m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+original=m.verify_regular_file_snapshots
+state={"snapshot_calls":0,"hash_calls":0,"swapped":False}
+selected=directory/"inputs"/label/"document.json"
+
+def verify_with_late_replacement(snapshots):
+    state["snapshot_calls"]+=1
+    assert snapshots
+    assert all(directory/"inputs"/name/"document.json" not in snapshots
+               for name in ("plan","compute_report"))
+    real_hash=m.sha256_file
+    def hash_then_replace(path):
+        digest=real_hash(path)
+        state["hash_calls"]+=1
+        if replacement!="none" and not state["swapped"]:
+            raw=selected.read_bytes()
+            before=selected.stat()
+            if replacement.startswith("parent_"):
+                selected.parent.rename(directory/"detached")
+                selected.parent.mkdir()
+            else:
+                selected.rename(directory/"detached.json")
+            selected.write_bytes(raw+(b"\n" if replacement.endswith("_changed") else b""))
+            after=selected.stat()
+            state["swapped"]=True
+            state["inode_changed"]=(before.st_dev,before.st_ino)!=(after.st_dev,after.st_ino)
+            state["bytes_equal"]=selected.read_bytes()==raw
+        return digest
+    m.sha256_file=hash_then_replace
+    try:
+        return original(snapshots)
+    finally:
+        m.sha256_file=real_hash
+
+m.verify_regular_file_snapshots=verify_with_late_replacement
+sys.argv=[str(tool),*sys.argv[5:]]
+fds_before=set(os.listdir("/proc/self/fd"))
+code=m.main()
+state["main_returncode"]=code
+state["descriptors_closed"]=set(os.listdir("/proc/self/fd"))==fds_before
+(directory/"probe.json").write_text(json.dumps(state,sort_keys=True))
+assert state["descriptors_closed"]
+raise SystemExit(code)
+""")
+    output = tmp_path / "relation.json"
+    command = [
+        sys.executable, "-I", str(driver),
+        str(Path(f["control_root"]) / "tools/build_pulsemech_compute_planned_observed_relation_v0.py"),
+        str(tmp_path), label, replacement,
+        "--plan", str(inputs / "plan/document.json"),
+        "--compute-report", str(inputs / "compute_report/document.json"),
+        "--tool-source-revision", f["source_commit"],
+        "--subject-root", f["subject_root"], "--current-run-content-locators",
+    ]
+    if publication == "file":
+        command.extend(["--output", str(output)])
+    result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE, timeout=90)
+    (tmp_path / "stdout.log").write_bytes(result.stdout)
+    (tmp_path / "stderr.log").write_bytes(result.stderr)
+    (tmp_path / "command.json").write_text(json.dumps(command))
+    state = json.loads((tmp_path / "probe.json").read_bytes())
+    assert state["snapshot_calls"] == 1 and state["hash_calls"] > 0
+    assert state["descriptors_closed"]
+    assert state["main_returncode"] == result.returncode
+    if replacement == "none":
+        assert not state["swapped"]
+        assert result.returncode == 0, result.stderr
+        assert result.stderr == b""
+        assert isinstance(json.loads(result.stdout), dict)
+        if publication == "file":
+            assert output.read_bytes() == result.stdout
+        else:
+            assert not output.exists()
+    else:
+        assert state["swapped"] and state["inode_changed"]
+        assert state["bytes_equal"] == replacement.endswith("_equal")
+        assert result.returncode == 2, (state, result.stderr)
+        assert result.stdout == b""
+        assert not output.exists()
+        kind = "parent" if replacement.startswith("parent_") else "file"
+        assert json.loads(result.stderr)["errors"] == [
+            f"{label}_capture_{kind}_identity_changed"
+        ]
 
 
 if __name__ == "__main__":

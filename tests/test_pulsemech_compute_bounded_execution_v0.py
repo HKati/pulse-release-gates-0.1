@@ -459,7 +459,7 @@ def test_bounded_manual_workflow_and_registration_contract():
     assert setup_steps[0]['with']['python-version']==versions[0]
     entries=[line.split('#',1)[0].strip() for line in (ROOT/'ci/tools-tests.list').read_text().splitlines()]
     entries=[x for x in entries if x]
-    assert len(entries)==len(set(entries))==154
+    assert len(entries)==len(set(entries))==155
     assert entries.count('tests/test_pulsemech_compute_bounded_execution_v0.py')==1
 
 

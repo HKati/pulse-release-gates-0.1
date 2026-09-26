@@ -36,15 +36,19 @@ FOLLOWING_COMPUTE_ANCHOR = (
     "tests/test_pulsemech_compute_subject_input_packet_schema_v0.py"
 )
 
-EXPECTED_TOOL_LINES = 5503
-EXPECTED_TOOL_BYTES = 200118
+EXPECTED_TOOL_LINES = 5558
+EXPECTED_TOOL_BYTES = 203583
 EXPECTED_TOOL_SHA256 = (
-    "698bb10f84de263127ee57b9c014070073b1b6b35cfffc794a2b05a9f8be641e"
+    "887a4df2715b591ee0456771069bba299b130300f78e02c00a5639f8765f9543"
 )
-EXPECTED_TOOL_GIT_BLOB_SHA1 = "bd8541cef0bc1044c71928602ad2f0e590324d16"
+EXPECTED_TOOL_GIT_BLOB_SHA1 = "bbdf0d11eb8df6a4abc51cdeb7293177531adcb8"
 
 EXPECTED_TESTS = frozenset(
     {
+        'test_current_run_handoff_requires_the_nonnull_inline_digest',
+        'test_current_run_handoff_rejects_cross_package_identity',
+        'test_current_run_handoff_rejects_a_rehashed_wrong_gate_domain',
+        'test_current_run_handoff_retains_exact_candidate_label_compatibility',
         "test_loader_artifact_identity_matches_reviewed_fix",
         "test_tools_tests_manifest_registers_loader_regression_exactly_once",
         "test_authoritative_launcher_sanitizes_pytest_environment_and_requires_completed_contract",
@@ -320,6 +324,23 @@ def fixture(workdir: Path) -> dict[str, Any]:
       'artifacts/recorded_release_candidate_index_v0.json': j({'candidates':['candidate.json']}),
       'artifacts/recorded_release_candidates/candidate.json': j({'candidate':'ok'}),
     }
+    # Explicit synthetic objects for the strict current-run handoff contract.
+    # These are fixture data, not reports of an external execution.
+    gate_base={'effective_source':'workflow-effective:required+release_required',
+               'policy_sets':['required','release_required'], 'gate_ids':['fixture_gate']}
+    gate_digest=sha(json.dumps(gate_base,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode())
+    base_members['run_metadata_v0.json']=j({'repository':repository,'git_sha':subject_rev,
+        'run_id':source_id,'run_attempt':attempt,'run_key':source_key,
+        'workflow_ref':f'{repository}/{M.SOURCE_WORKFLOW_PATH}@refs/heads/main',
+        'release_candidate':'main'})
+    base_members['artifacts/release_decision_v0.json']=j({'decision':'ALLOW','effective_required_gates':['fixture_gate']})
+    base_members['artifacts/artifact_provenance_binding_v0.json']=j({
+        'run':{'run_id':str(source_id),'git_sha':subject_rev,'run_key':source_key,'run_mode':'prod'},
+        'authority_carrier':{
+            'status_json':{'sha256':sha(base_members['artifacts/status.json'])},
+            'declared_gate_policy':{'sha256':'3'*64},
+            'release_decision':{'sha256':sha(base_members['artifacts/release_decision_v0.json'])},
+            'workflow_effective_required_gate_set':dict(gate_base,sha256=gate_digest)}})
     inv_rows=[{'path':p,'sha256':sha(b),'size_bytes':len(b)} for p,b in sorted(base_members.items())]
     inventory=j({'files':inv_rows})
     complete_members={'package_digest_inventory_v0.json':inventory, **base_members}
@@ -370,7 +391,7 @@ def fixture(workdir: Path) -> dict[str, Any]:
     comps={k:component(p,provider_rev,'0' if 'schema' in k else '0.1.0') for k,p in paths.items()}
     carrier_meta={'artifact_payload_mode':'external_carrier','carrier_id':f'carrier:pulsemech/current-run-export/pulse-ci-{source_num}/v0','carrier_kind':'current_run_export_archive','finalized':True,'finalized_utc':updated,'immutable':True,'media_type':'application/zip','path_base':'current_run_export_staging_root','producer':{'ci_workflow_or_job_identity':'Step3F synthetic','producer_id':'producer:pulsemech-current-run-export-carrier-loader-v0','producer_name':'PULSEmech current-run export carrier loader','producer_run_key':source_key,'producer_source':paths['carrier_loader'],'producer_source_revision':provider_rev,'producer_source_sha256':comps['carrier_loader']['sha256'],'producer_version':'0.1.0','production_mode':'current_run_export_carrier_builder'},'provider_binding':None,'root_prefix':root_prefix,'sha256':sha(carrier),'size_bytes':len(carrier),'staged_relative_path':'exports/'+carrier_name}
     policy_sha='3'*64; final_sha=sha(base_members['artifacts/status.json']); decision_sha=sha(base_members['artifacts/release_decision_v0.json'])
-    subjdoc={'active_policy_sets':['required','release_required'],'decision':'ALLOW','event_name':'workflow_dispatch','final_status_sha256':final_sha,'materialized_gate_set_sha256':None,'policy_id':'pulse-gate-policy-v0','policy_sha256':policy_sha,'release_candidate_id':candidate_id,'release_decision_sha256':decision_sha,'repository':repository,'run_mode':'prod','source_commit':subject_rev,'source_ref':'refs/heads/main','subject_run_key':source_key,'workflow_name':'PULSE CI','workflow_path':M.SOURCE_WORKFLOW_PATH,'workflow_ref':f'{repository}/{M.SOURCE_WORKFLOW_PATH}@refs/heads/main','workflow_run_attempt':attempt,'workflow_run_id':source_id,'workflow_run_number':source_num}
+    subjdoc={'active_policy_sets':['required','release_required'],'decision':'ALLOW','event_name':'workflow_dispatch','final_status_sha256':final_sha,'materialized_gate_set_sha256':gate_digest,'policy_id':'pulse-gate-policy-v0','policy_sha256':policy_sha,'release_candidate_id':candidate_id,'release_decision_sha256':decision_sha,'repository':repository,'run_mode':'prod','source_commit':subject_rev,'source_ref':'refs/heads/main','subject_run_key':source_key,'workflow_name':'PULSE CI','workflow_path':M.SOURCE_WORKFLOW_PATH,'workflow_ref':f'{repository}/{M.SOURCE_WORKFLOW_PATH}@refs/heads/main','workflow_run_attempt':attempt,'workflow_run_id':source_id,'workflow_run_number':source_num}
     authority_sources={'workflow':{'path_or_uri':M.SOURCE_WORKFLOW_PATH,'role':'workflow','sha256':'4'*64,'size_bytes':1,'source_id':'source:workflow','source_revision':subject_rev,'workflow_name':'PULSE CI','workflow_ref':f'{repository}/{M.SOURCE_WORKFLOW_PATH}@refs/heads/main'},'policy':{'path_or_uri':'pulse_gate_policy_v0.yml','policy_id':'pulse-gate-policy-v0','role':'policy','sha256':policy_sha,'size_bytes':1,'source_id':'source:policy','source_revision':subject_rev},'gate_registry':{'path_or_uri':'pulse_gate_registry_v0.yml','registry_id':'pulse-gate-registry-v0','role':'gate_registry','sha256':'5'*64,'size_bytes':1,'source_id':'source:gate-registry','source_revision':subject_rev},'additional_sources':[{'path_or_uri':'policy/external_signers_v1.yml','role':'external_signer_policy','sha256':'6'*64,'size_bytes':1,'source_id':'source:external-signers','source_revision':subject_rev},{'path_or_uri':'PULSE_safe_pack_v0/profiles/external_thresholds.yaml','role':'threshold_policy','sha256':'7'*64,'size_bytes':1,'source_id':'source:thresholds','source_revision':subject_rev}]}
     expectation={'archive_layout':{'complete_package_name':selection['complete']['download_file_name'],'completeness_archive_name':selection['completeness']['download_file_name'],'expected_provider_artifact_count':3,'layout_id':'pulsemech_current_run_export_layout_v0','layout_version':'0.1.0','original_artifacts_prefix':root_prefix+'original-github-artifacts/','outer_prefix':root_prefix,'verification_archive_name':selection['verification']['download_file_name']},'authority_boundary':M.EXPECTED_EXPECTATION_AUTHORITY,'authority_sources':authority_sources,'carrier':carrier_meta,'content_boundary':M.EXPECTED_EXPECTATION_CONTENT,'document_type':'pulsemech_compute_current_run_export_expectation','errors':[],'expectation_identity':{'canonicalization':'json-sort-keys-utf8-newline','expectation_created_utc':updated,'expectation_id':f'current-run-export-expectation:{repository}/{source_id}/{attempt}','expectation_scope':'current_run_export','subject_run_key':source_key},'expectation_producer':{'ci_workflow_or_job_identity':'Step3F synthetic','producer_id':'producer:pulsemech-current-run-export-expectation-builder-v0','producer_name':'PULSEmech current-run export expectation builder','producer_run_key':source_key,'producer_source':paths['expectation_builder'],'producer_source_revision':provider_rev,'producer_source_sha256':comps['expectation_builder']['sha256'],'producer_version':'0.1.0','production_mode':'current_run_expectation_builder'},'ok':True,'packet_contract':{'artifact_payload_mode':'external_carrier','carrier_kind':'current_run_export_archive','packet_scope':'current_run','packet_type':'pulsemech_compute_subject_input_packet','production_mode':'current_run_export','record_status':'observed','schema_version':'pulsemech_compute_subject_input_packet_v0','write_mode':'subject_input_only'},'packet_producer_profile':{'expected_archive_layout_id':'pulsemech_current_run_export_layout_v0','expected_carrier_artifact_payload_mode':'external_carrier','expected_carrier_id_namespace':'pulsemech/current-run-export','expected_carrier_kind':'current_run_export_archive','expected_carrier_media_type':'application/zip','expected_packet_identity_mode':'current-run','expected_packet_scope':'current_run','expected_producer_source_path':paths['subject_input_producer_wrapper'],'expected_production_mode':'current_run_export','expected_repository':repository,'expected_signer_policy_path':'policy/external_signers_v1.yml','expected_source_commit':subject_rev,'expected_subject_run_key':source_key,'profile_id':'pulsemech_current_run_export_candidate_v0'},'record_status':'observed','schema_version':'pulsemech_compute_current_run_export_expectation_v0','subject':subjdoc,'trusted_control_plane':{'checkout_role':'protected_control_plane','components':comps,'repository':repository,'revision':provider_rev,'separate_from_subject_checkout':True,'subject_may_select_revision':False,'trust_mode':'protected_exact_revision'}}
 
@@ -1172,6 +1193,63 @@ def test_intake_does_not_create_authority_or_transition_state(
         "fold_pulsemech_compute_planned_observed_relation_into_status_v0.py",
     ):
         assert forbidden not in source
+
+
+
+def test_current_run_handoff_requires_the_nonnull_inline_digest(tmp_path):
+    data = fixture(tmp_path)
+    for absent in (False, True):
+        subject = copy.deepcopy(data['subjdoc'])
+        if absent: subject.pop('materialized_gate_set_sha256')
+        else: subject['materialized_gate_set_sha256'] = None
+        with pytest.raises(M.BundleError):
+            M._validate_subject(subject, subject=data['subj'])
+
+
+def test_current_run_handoff_rejects_cross_package_identity(tmp_path):
+    data = fixture(tmp_path)
+    verified = _verify_packet(data, tmp_path)
+    for key in ('repository','git_sha','run_id','run_attempt','run_key','workflow_ref','release_candidate'):
+        retained = dict(verified.retained_artifact_bytes)
+        aid = verified.role_bindings['run_metadata']
+        doc = json.loads(retained[aid]); doc[key] = 'foreign'
+        retained[aid] = j(doc)
+        broken = dataclasses.replace(verified, retained_artifact_bytes=retained)
+        with pytest.raises(M.BundleError):
+            M._validate_current_run_identity_handoff(broken, subject=data['subj'], expectation=data['expectation'])
+
+
+def test_current_run_handoff_rejects_a_rehashed_wrong_gate_domain(tmp_path):
+    data = fixture(tmp_path)
+    verified = _verify_packet(data, tmp_path)
+    for mode in ('standalone','newline','gates','extra','source','sets'):
+        retained = dict(verified.retained_artifact_bytes)
+        aid = verified.role_bindings['artifact_binding']
+        binding = json.loads(retained[aid]); gate = binding['authority_carrier']['workflow_effective_required_gate_set']
+        if mode == 'standalone': gate={'schema':'pulse_ref_materialized_gate_sets_v0','effective_required_gates':['fixture_gate']}
+        elif mode == 'gates': gate['gate_ids']=['another_gate']
+        elif mode == 'extra': gate['another']='value'
+        elif mode == 'source': gate['effective_source']='status.metrics.required_gates'
+        elif mode == 'sets': gate['policy_sets'].reverse()
+        base={key:value for key,value in gate.items() if key!='sha256'}
+        raw=json.dumps(base,sort_keys=True,separators=(',',':'),ensure_ascii=False).encode()
+        if mode == 'newline': raw+=b'\n'
+        gate['sha256']=sha(raw)
+        binding['authority_carrier']['workflow_effective_required_gate_set']=gate
+        retained[aid]=j(binding)
+        expectation=copy.deepcopy(data['expectation']); expectation['subject']['materialized_gate_set_sha256']=gate['sha256']
+        broken=dataclasses.replace(verified,retained_artifact_bytes=retained)
+        with pytest.raises(M.BundleError):
+            M._validate_current_run_identity_handoff(broken, subject=data['subj'], expectation=expectation)
+
+
+def test_current_run_handoff_retains_exact_candidate_label_compatibility(tmp_path):
+    data=fixture(tmp_path); verified=_verify_packet(data, tmp_path)
+    retained=dict(verified.retained_artifact_bytes)
+    aid=verified.role_bindings['run_metadata']; doc=json.loads(retained[aid])
+    doc['release_candidate']=data['subj'].release_candidate_id; retained[aid]=j(doc)
+    exact=dataclasses.replace(verified,retained_artifact_bytes=retained)
+    M._validate_current_run_identity_handoff(exact,subject=data['subj'],expectation=data['expectation'])
 
 
 if __name__ == "__main__":
