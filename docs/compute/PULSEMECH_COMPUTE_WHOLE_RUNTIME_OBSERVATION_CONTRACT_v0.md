@@ -210,7 +210,7 @@ checked-in bounds no weaker than:
 
 ```text
 single API request: 60 seconds
-subject wait: 90 minutes
+subject wait: 270 minutes
 Step 3F wait: 45 minutes
 jobs: 64
 platform step records: 2048

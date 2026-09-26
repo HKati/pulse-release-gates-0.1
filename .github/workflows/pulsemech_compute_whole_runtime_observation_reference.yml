@@ -25,7 +25,7 @@ jobs:
   acquisition:
     name: Prepare and acquire the exact non-active reference inputs
     runs-on: ubuntu-24.04
-    timeout-minutes: 180
+    timeout-minutes: 360
     permissions:
       contents: read
       actions: write

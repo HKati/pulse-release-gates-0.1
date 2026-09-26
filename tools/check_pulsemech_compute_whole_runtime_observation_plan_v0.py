@@ -156,7 +156,7 @@ PROVIDER_DISPATCH_ENDPOINT = (
 
 FINITE_LIMITS = {
     "api_request_timeout_seconds": 60,
-    "subject_wait_seconds": 5400,
+    "subject_wait_seconds": 16200,
     "provider_wait_seconds": 2700,
     "max_jobs": 64,
     "max_platform_step_records": 2048,

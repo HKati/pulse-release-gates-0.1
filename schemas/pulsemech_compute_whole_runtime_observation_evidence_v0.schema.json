@@ -1108,7 +1108,7 @@
           "const": 60
         },
         "subject_wait_seconds": {
-          "const": 5400
+          "const": 16200
         },
         "provider_wait_seconds": {
           "const": 2700

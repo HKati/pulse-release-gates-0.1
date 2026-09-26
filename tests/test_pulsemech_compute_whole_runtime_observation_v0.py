@@ -168,7 +168,7 @@ def test_workflow_closed_dispatch_and_permissions():
     assert JOBS['verification']['permissions'] == {'contents': 'read', 'actions': 'read'}
     assert JOBS['verification']['needs'] == 'acquisition'
     assert DOC['concurrency']['cancel-in-progress'] == 'false'
-    assert int(JOBS['acquisition']['timeout-minutes']) >= 90 + 45
+    assert int(JOBS['acquisition']['timeout-minutes']) >= 270 + 45 + 45
     assert int(JOBS['verification']['timeout-minutes']) > 60
 
 
