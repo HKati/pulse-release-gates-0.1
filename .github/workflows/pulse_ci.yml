@@ -374,11 +374,26 @@ jobs:
 
           if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
             STRICT="$(jq -r '.inputs.strict_external_evidence // "false"' "$GITHUB_EVENT_PATH")"
+            case "$STRICT" in
+              false|true)
+                ;;
+              *)
+                echo "::error::invalid strict_external_evidence: ${STRICT}"
+                exit 1
+                ;;
+            esac
             if [[ "$STRICT" == "true" ]]; then
               PULSE_IS_RELEASE=1
               PULSE_MODE="prod"
               PULSE_POLICY_SET="required"
             fi
+          fi
+
+          # Every accepted release must reach the hosted attestation and
+          # post-materialization validation path. Defaults cannot authorize a skip.
+          if (( PULSE_IS_RELEASE )) && [[ "$PULSE_LLAMAGUARD_EVIDENCE_MODE" != "hosted_full_runtime" ]]; then
+            echo "::error::release-grade execution requires hosted_full_runtime LlamaGuard evidence"
+            exit 1
           fi
 
           PULSE_RUN_KEY="GITHUB_RUN_ID=${GITHUB_RUN_ID:?}|GITHUB_RUN_ATTEMPT=${GITHUB_RUN_ATTEMPT:?}|GITHUB_WORKFLOW=${GITHUB_WORKFLOW:?}"
@@ -2392,9 +2407,51 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install jsonschema
+
+          ATTESTATION_LOCK="${GITHUB_WORKSPACE:?}/PULSE_safe_pack_v0/requirements-attestation-v0.lock"
+          if [[ ! -f "${ATTESTATION_LOCK}" || -L "${ATTESTATION_LOCK}" || ! -s "${ATTESTATION_LOCK}" ]]; then
+            echo "::error::Attestation dependency lock must be a nonempty regular non-symlink file"
+            exit 1
+          fi
+
+          # The lock is intentionally limited to the reviewed runner target.
+          python -I - <<'PY_RUNTIME'
+          import platform
+          import sys
+
+          if (sys.implementation.name != "cpython"
+                  or sys.version_info[:2] != (3, 11)
+                  or sys.platform != "linux"
+                  or platform.machine() != "x86_64"):
+              raise SystemExit("attestation lock requires CPython 3.11 / Linux x86_64")
+          print("attestation runtime:", sys.version, platform.platform())
+          PY_RUNTIME
+
+          # Bootstrap from this interpreter's bundled installer; never upgrade from the network.
+          ATTESTATION_VENV="$(mktemp -d "${RUNNER_TEMP:?}/pulse-attestation-venv.XXXXXXXX")"
+          python -I -m venv "${ATTESTATION_VENV}"
+          ATTESTATION_PYTHON="${ATTESTATION_VENV}/bin/python"
+          "${ATTESTATION_PYTHON}" -I -m pip --version
+          PIP_CONFIG_FILE=/dev/null "${ATTESTATION_PYTHON}" -I -m pip \
+            --isolated --disable-pip-version-check --no-cache-dir --require-virtualenv \
+            install --index-url https://pypi.org/simple \
+            --require-hashes --only-binary=:all: \
+            --requirement "${ATTESTATION_LOCK}"
+          PIP_CONFIG_FILE=/dev/null "${ATTESTATION_PYTHON}" -I -m pip \
+            --isolated --disable-pip-version-check --require-virtualenv check
+          "${ATTESTATION_PYTHON}" -I - <<'PY_IMPORTS'
+          import site
+          import sys
+
+          if sys.prefix == sys.base_prefix or site.ENABLE_USER_SITE is not False:
+              raise SystemExit("attestation dependencies require an isolated virtual environment")
+          import yaml
+          import jsonschema
+          print("attestation dependency imports: OK")
+          PY_IMPORTS
+
+          # Publish the interpreter for subsequent envelope/verification steps only on success.
+          printf '%s\n' "${ATTESTATION_VENV}/bin" >> "${GITHUB_PATH:?}"
 
       - name: Download current-run LlamaGuard evidence
         shell: bash
