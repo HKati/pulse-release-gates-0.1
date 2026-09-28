@@ -7,6 +7,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Preserve current-run hosted LlamaGuard evidence before required-gate rejection
+  in #2886. Move the existing identity/producer/summary/upload sequence directly
+  after reset, before the unchanged 19-gate evaluator. Derive evidence readiness
+  only from successful upload; let the existing attestation job consume those
+  bytes after a failed candidate job without treating attestation as acceptance.
+  Bind the recorded path to both upstream jobs and explicitly BLOCK rejected
+  candidates before downloading candidate artifacts. Valid candidate paths retain
+  the existing post-materialization checks; failed candidates are never given a
+  fabricated status or release-decision artifact. Preserve all 19 requirements,
+  13 unsupported rejections, separate checker, permissions and time budgets.
+  Rebind exact workflow source pins and occurrence mappings together. Controlled
+  offline producer/adapter/native-gate and routing regressions are not evidence
+  of live model inference, GitHub upload or signature verification. This revises
+  the initial correction's ordering/conditional-graph preservation below; it does
+  not retroactively rebind historical carriers or authorize a reference dispatch.
 - Separate the Step 5C terminal regression profiles under #2886: assert native
   rejection under the unchanged 19-gate repository policy, and exercise positive
   reconstruction under the explicitly named six-recipe TEST policy
@@ -15,7 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   tree before producing evidence. Keep all native producer and checker logic,
   release-required duties, mutation/replay checks and non-authority boundaries.
   This is not a passing 19-gate release or hosted-reference readiness; hosted
-  evidence ordering remains separate unfinished work.
+  evidence ordering is addressed by the separate correction above.
 - Preserve the source-pinned isolated attestation pip installation in both
   Step 5C external-operation mappings. Keep the original operation-count and
   unknown-result regressions; reject an omitted installation even after the
@@ -35,8 +50,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   certification.
 - Bind that lock as the 74th public R2 prelaunch source input in the independent
   plan implementations, while retaining 62 state obligations and the existing
-  60-source legacy / 69-source local profiles. Preserve workflow job/step order,
-  permissions, budgets and historical carriers. No reference run or Step 5C
+  60-source legacy / 69-source local profiles. This initial installation correction
+  preserved workflow job/step order; the explicit hosted-ordering revision above
+  supersedes that ordering constraint, not permissions, budgets or historical carriers. No reference run or Step 5C
   acceptance is claimed: #2879 remains open and substantive gate-evidence gaps
   continue to block successful-reference readiness.
 - Clarify that correction verification independence is provided by the separate

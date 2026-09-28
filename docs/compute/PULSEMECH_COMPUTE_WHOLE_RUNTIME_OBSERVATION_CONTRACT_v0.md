@@ -13,7 +13,7 @@ establish the target for the replacement mapping under this contract:
 evidence profile:
 pulsemech_step5c_post_run_state_evidence_v1
 
-workflow topology profile, unchanged:
+workflow topology profile (R2 evidence amendment; source revision below):
 pulse_ci_hosted_release_grade_v0
 ```
 
@@ -1311,11 +1311,13 @@ semantics remain in force. Capture and verification retain the exact corrected
 plan/source bindings; old plans and preserved carriers keep their original
 identities and are not rewritten to match this source.
 
-Only the two existing release-preflight and attestation-install `run` bodies
-change in the subject workflow. Job/step identities, ordering, input and
-conditional graph, permissions and time budgets are preserved. Source pins
-must match these exact bodies and the independently rejecting candidate
-builder, not just a newly assigned workflow hash.
+The initial correction changes only the existing release-preflight and
+attestation-install `run` bodies while preserving subject ordering. The explicit
+hosted-evidence ordering revision below additionally changes the order of the
+existing steps, their source occurrence bindings and the two named job guards.
+Permissions, time budgets, action revisions and the existing job/step names are
+preserved. Source pins must match the exact revised bodies and independent
+mapping equations, not just a newly assigned workflow hash.
 
 Correction acceptance requires the coordinated source set, dependency evidence,
 short assembly checks, full required regressions and consolidated source review.
@@ -1367,7 +1369,70 @@ The test profile is never written over the repository policy and is not an
 allow-list entry in production tools. Its successful reconstruction does not
 prove 19-gate admission, original execution, hosted model/signature evidence,
 Step 5C acceptance or release readiness. Historical fixtures retain their
-original policy scope. Hosted-evidence ordering remains a separate correction.
+original policy scope. Hosted-evidence ordering is handled separately below.
+
+
+### Hosted evidence preservation before candidate rejection (#2886)
+
+This bounded source revision starts from correction head
+`d166eff0b30999387f508b9e6531b3a3724f12a0`. The revised
+`.github/workflows/pulse_ci.yml` Git blob is
+`d46ec426962a3cc9dc23c560bf87b2f2a6a74945`. The public/local/legacy
+plan and capture checkers require the revised source bytes; no historical
+carrier is edited or silently reinterpreted under this revision. The evidence
+profile, 62 state duties and 74/69/60 source-closure sizes remain unchanged.
+The topology profile retains its name but its exact source-pinned step order
+and conditional dependency graph are explicitly revised, not claimed unchanged.
+
+After the existing release preflight and output reset, the common current-run
+identity is initialized, followed by the existing hosted runtime setup, raw
+producer, canonical summary adapter and three-member evidence upload. They now
+precede the native required-gate evaluation and candidate-status builder. In the
+`pulse` source step list, identity is P11, hosted runtime identity/install are
+P12/P13, raw production and summary are P14/P15, and evidence upload is P16.
+Required-gate evaluation, diagnostics upload and candidate admission are
+P17/P18/P19. Baseline copy/validation, prod-mode validation and evidence-floor
+build/upload are P20-P24. P25 onward and other jobs' step ordinals are unchanged.
+These are source step ordinals, not runner setup/post-step log numbers.
+
+`pulse.outputs.llamaguard_evidence_ready` derives only from the successful
+`llamaguard_evidence_upload` step outcome. It is evidence availability, not
+candidate acceptance or release authority. The attestation job explicitly
+checks cancellation, the release event/mode, this readiness value and a terminal
+`pulse` result of success or failure. A missing or failed upload, canceled run,
+non-release event or invalid mode must not grant access to this path. The
+existing attestation producer, separate verifier and attested evidence upload
+remain unchanged; no external person's approval is introduced.
+
+The recorded path needs both `pulse` and the successful attestation job. Its
+first candidate download step checks `needs.pulse.result` and returns an
+explicit nonzero BLOCK before downloading or consuming candidate bytes unless
+that result is exactly `success`. Thus an attested summary cannot promote a
+rejected candidate. The unchanged 19-gate policy still rejects all 13 unsupported
+gates, retains their diagnostics, and leaves the release path blocked. No
+passing `status.json`, fabricated candidate or artificial final decision JSON
+is constructed to make downstream success-only checks run on rejected evidence.
+Here BLOCK denotes the nonzero CI/no-release-authority outcome. When a candidate
+is valid, the existing restored-candidate, attestation-verification,
+post-materialization, combined-policy and final-authority checks remain required.
+When a candidate is rejected, their successful execution is not claimed.
+
+The controlled preservation regression uses the complete unchanged repository
+policy and evaluator plan, not the six-recipe reconstruction TEST profile. It
+executes the actual workflow shell, producer with controlled model/network
+boundaries, canonical adapter, native 19-gate evaluator and separate candidate
+builder; checks their source/run bindings and failed-result artifact hashes;
+and verifies preservation of exactly the declared upload bytes in a local TEST
+archive before and after rejection. Missing/malformed raw evidence must fail
+summary creation and cannot make the evidence-ready route eligible. Guard
+matrices cover tag/strict-dispatch success and failure, missing evidence,
+attestation failure, pull requests and cancellation. These are offline tests,
+not a GitHub runner, real model inference, remote upload or verified signature.
+
+The existing positive reconstruction profile remains separately tested. Full
+required CI and source review must follow the coordinated source update. A green
+pull-request run in which hosted jobs are skipped is not a live hosted proof,
+and this correction does not authorize a reference run or Step 5C acceptance.
 
 ## Tests and handoffs
 

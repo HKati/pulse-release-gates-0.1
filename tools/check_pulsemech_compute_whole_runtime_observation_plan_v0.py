@@ -138,7 +138,7 @@ EXPECTED_ATTESTATION_LOCK_BLOB_SHA1 = "18a17a1259e258ebfa603d4d2b5cfaf4487145c9"
 # surfaces.  Adding Step 5C files changes the commit but must not silently
 # change either subject workflow, the Step 3F provider, or the controlled case
 # set.  A future change requires a reviewed profile revision.
-EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 = "6086519b9d90f84f093170245dc54017f9d720d8"
+EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 = "d46ec426962a3cc9dc23c560bf87b2f2a6a74945"
 EXPECTED_PROVIDER_WORKFLOW_BLOB_SHA1 = "0ce36e0eb40493e610fc35a42eb13d5af9c3e09b"
 EXPECTED_DATASET_BLOB_SHA1 = "3b6ca799f26c7374334c51c5c9c8ea26b35cf857"
 EXPECTED_LLAMAGUARD_RUNNER_BLOB_SHA1 = "058edf0d16383db41a5a4500caf4b484321d2e57"
@@ -190,20 +190,20 @@ PULSE_STEP_NAMES = (
     "CI pack layout preflight (fail-closed on release-grade)",
     "Run pack gating pipeline",
     "release-grade reset candidate evidence outputs",
+    "release-grade initialize current-run evidence identity",
+    "release-grade initialize LlamaGuard runtime identity",
+    "release-grade install pinned LlamaGuard runtime",
+    "release-grade produce current-run LlamaGuard raw evidence",
+    "release-grade build canonical LlamaGuard summary",
+    "release-grade upload current-run LlamaGuard evidence",
     "release-grade record current-run required-gate evidence",
     "Upload release-grade required-gate diagnostics",
     "release-grade build non-stubbed prod candidate status",
     "Preserve baseline status.json (pre-augment)",
     "ci: schema validate status_baseline.json (status_v1)",
     "ci: require prod run_mode on release-grade runs",
-    "release-grade initialize current-run evidence identity",
     "release-grade build self-contained PULSE evidence floor",
     "upload self-contained PULSE evidence floor",
-    "release-grade initialize LlamaGuard runtime identity",
-    "release-grade install pinned LlamaGuard runtime",
-    "release-grade produce current-run LlamaGuard raw evidence",
-    "release-grade build canonical LlamaGuard summary",
-    "release-grade upload current-run LlamaGuard evidence",
     "Show main status.json (head)",
     "Compute external evidence list (for snapshot)",
     "Export baseline summary for snapshot (pre-augment)",
@@ -1227,7 +1227,7 @@ def _step_external_operations(
                 detected.append(("github_artifact_listing", "gh-artifact-listing"))
             else:
                 detected.append(("github_run_metadata_retrieval", "gh-api"))
-        if job_id == "pulse" and ordinal == 22:
+        if job_id == "pulse" and ordinal == 14:
             detected.extend(
                 [
                     ("huggingface_model_revision_lookup", "hf-revision"),
@@ -1313,7 +1313,7 @@ def _build_jobs(
             )
             model_inference_ids = (
                 [f"inference:step5c:llamaguard:{case_id}" for case_id in EXPECTED_CASE_IDS]
-                if job_id == "pulse" and step_ordinal == 22
+                if job_id == "pulse" and step_ordinal == 14
                 else []
             )
             built = {
@@ -1817,7 +1817,7 @@ def _source_recorded_expectations(workflow: dict[str, Any],
              and arguments[10]["--max-errors"] == "20", "recorded_mapping_post_status_guard")
     pulse = jobs.get("pulse", {}).get("steps", [])
     _require(len(pulse) >= 37, "recorded_mapping_origin_missing")
-    origin = _recorded_source_commands(pulse[12], pack + "build_release_grade_candidate_status_v0.py", ("--repo-root", "--out"))[0]
+    origin = _recorded_source_commands(pulse[18], pack + "build_release_grade_candidate_status_v0.py", ("--repo-root", "--out"))[0]
     _require(origin["--repo-root"] == "${GITHUB_WORKSPACE}"
              and _checked_mapping_path(origin["--out"]) == final, "recorded_mapping_status_origin")
     restore_body = rows[3].get("run", "")
@@ -1855,7 +1855,7 @@ def _source_recorded_expectations(workflow: dict[str, Any],
     return {"locators": locators,
             "steps": {_step_id(_RECORDED_SEMANTIC_JOB, n): {"inputs": tuple(names[x] for x in ins), "outputs": tuple(names[x] for x in outs)}
                       for n, (ins, outs) in equations.items()},
-            "pre_status_origin": _step_id("pulse", 13), "pre_status_restore": _step_id(_RECORDED_SEMANTIC_JOB, 4)}
+            "pre_status_origin": _step_id("pulse", 19), "pre_status_restore": _step_id(_RECORDED_SEMANTIC_JOB, 4)}
 
 
 def _apply_recorded_source_expectations(states: list[dict[str, Any]],
@@ -2236,7 +2236,7 @@ def _apply_package_source_expectations(states: list[dict[str, Any]], steps: dict
 _REQUIRED_ARGUMENT_ROLE = "effective-required-argument-list"
 _REQUIRED_ARGUMENT_RUN_SHA256 = "dababaec377d50eb83daa95fab958009089db11a207214bdbab1ea0156a0f81a"
 _REQUIRED_ARGUMENT_SOURCE_PINS = {
-    ".github/workflows/pulse_ci.yml": "6086519b9d90f84f093170245dc54017f9d720d8",
+    ".github/workflows/pulse_ci.yml": "d46ec426962a3cc9dc23c560bf87b2f2a6a74945",
     "pulse_gate_policy_v0.yml": "a311b424ad0f6c028b9c37b18572e7a09c721cdd",
     "tools/policy_to_require_args.py": "5b1d099485d0e3bfd90da3fff1213a4e949db850",
     "PULSE_safe_pack_v0/tools/check_gates.py": "2a593bdef31c9c8cb565b1c4ca3d16a1e3093735",
@@ -2394,7 +2394,7 @@ def _verify_source_required_argument_equations(
 # inspects copy and handoff source; it does not trust either constructed plan.
 _BUNDLE_ROLES = ("release-authority-audit-bundle", "advisory-reference-bundle")
 _BUNDLE_SOURCE_PINS = {
-    ".github/workflows/pulse_ci.yml": "6086519b9d90f84f093170245dc54017f9d720d8",
+    ".github/workflows/pulse_ci.yml": "d46ec426962a3cc9dc23c560bf87b2f2a6a74945",
     "PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py": "8f01602e973b890eb2ae0928bd62dfd65e691f79",
 }
 
@@ -2451,7 +2451,7 @@ def _source_bundle_expectations(workflow: dict[str, Any], sources: dict[str, Git
     ledger = _source_ledger_expectations(workflow)
     paths = dict(ledger["locators"])
     paths.update({"final-status": ledger["status"], audit: audit_root + "/", advisory: advisory_root + "/",
-                  "llamaguard-summary": _checked_mapping_export(workflow["jobs"]["pulse"]["steps"][22], "SUMMARY")})
+                  "llamaguard-summary": _checked_mapping_export(workflow["jobs"]["pulse"]["steps"][14], "SUMMARY")})
     _require(paths[advisory] == ledger["locators"][advisory], "bundle_mapping_root_disagreement")
     candidate_roles = ("final-status", "quality-ledger-final", "release-authority-manifest",
                        "llamaguard-summary", "release-grade-junit", "release-grade-sarif", audit, advisory)
@@ -2599,7 +2599,7 @@ _PROVENANCE_ASSEMBLER = "PULSE_safe_pack_v0/tools/assemble_release_grade_referen
 _PROVENANCE_ROLE = "artifact-provenance-binding"
 _PROVENANCE_JOB = "release_grade_recorded_path"
 _PROVENANCE_SOURCE_PINS = {
-    SUBJECT_WORKFLOW_PATH: "6086519b9d90f84f093170245dc54017f9d720d8",
+    SUBJECT_WORKFLOW_PATH: "d46ec426962a3cc9dc23c560bf87b2f2a6a74945",
     _PROVENANCE_BUILD: "d3f07cbbf8fd38831a42d8fe8e891c23df4c7792",
     _PROVENANCE_VERIFY: "665398c8841e4dd9534875831c93c749c3ccf94b",
     _PROVENANCE_ASSEMBLER: "8f01602e973b890eb2ae0928bd62dfd65e691f79",
@@ -2811,20 +2811,20 @@ def _source_baseline_floor_expectations(workflow: dict[str, Any], sources: dict[
     _require(_parse_yaml_document(sources[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH) == workflow,
              "floor_mapping_workflow_drift")
     rows = workflow["jobs"]["pulse"]["steps"]
-    call = _recorded_source_commands(rows[17], _FLOOR_BUILD_PATH, _FLOOR_FLAGS)[0]
-    baseline = _checked_mapping_export(rows[13], "DST")
-    status = _checked_mapping_export(rows[13], "SRC")
-    made = _recorded_source_commands(rows[12], "PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py",
+    call = _recorded_source_commands(rows[22], _FLOOR_BUILD_PATH, _FLOOR_FLAGS)[0]
+    baseline = _checked_mapping_export(rows[19], "DST")
+    status = _checked_mapping_export(rows[19], "SRC")
+    made = _recorded_source_commands(rows[18], "PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py",
                                      ("--repo-root", "--out"))[0]
     _require(_checked_mapping_path(made["--out"]) == status == _checked_mapping_path(call["--status"])
              and baseline != status, "floor_mapping_status_version")
-    _require(re.findall(r'^cp (.*)$', rows[13]["run"], re.M) == ['"$SRC" "$DST"'], "floor_mapping_baseline_copy")
-    guard = _recorded_source_commands(rows[14], "tools/validate_status_schema.py", ("--schema", "--status"))[0]
+    _require(re.findall(r'^cp (.*)$', rows[19]["run"], re.M) == ['"$SRC" "$DST"'], "floor_mapping_baseline_copy")
+    guard = _recorded_source_commands(rows[20], "tools/validate_status_schema.py", ("--schema", "--status"))[0]
     _require(guard.get("--status") == "$STATUS" and guard.get("--schema") == "$SCHEMA"
-             and _checked_mapping_export(rows[14], "STATUS") == baseline
-             and _checked_mapping_export(rows[14], "SCHEMA") == "schemas/status/status_v1.schema.json",
+             and _checked_mapping_export(rows[20], "STATUS") == baseline
+             and _checked_mapping_export(rows[20], "SCHEMA") == "schemas/status/status_v1.schema.json",
              "floor_mapping_baseline_guard")
-    snippet = rows[15]["run"].partition("python - <<'PY'\n")[2].removesuffix("PY\n")
+    snippet = rows[21]["run"].partition("python - <<'PY'\n")[2].removesuffix("PY\n")
     _require(bool(snippet), "floor_mapping_status_guard_source")
     inline = ast.parse(snippet)
     _require(any(isinstance(n, ast.Assign) and ast.dump(n.targets[0]) == ast.dump(ast.Name(id="p", ctx=ast.Store()))
@@ -2851,27 +2851,27 @@ def _source_baseline_floor_expectations(workflow: dict[str, Any], sources: dict[
              and call["--repo-root"] == made["--repo-root"] == "${GITHUB_WORKSPACE}"
              and call["--external-model-status"] == "not_required_for_tier0", "floor_mapping_context")
     _require(len(set(paths.values()) | {baseline, floor}) == 6, "floor_mapping_path_alias")
-    _require(_checked_mapping_export(rows[17], "FLOOR") == floor
-             and 'sha256sum "${FLOOR}"' in rows[17]["run"], "floor_mapping_output_hash")
-    _require(rows[18]["uses"].startswith("actions/upload-artifact@")
-             and rows[18]["with"]["path"].splitlines() == [floor]
-             and rows[18]["with"]["if-no-files-found"] == "error", "floor_mapping_upload")
+    _require(_checked_mapping_export(rows[22], "FLOOR") == floor
+             and 'sha256sum "${FLOOR}"' in rows[22]["run"], "floor_mapping_output_hash")
+    _require(rows[23]["uses"].startswith("actions/upload-artifact@")
+             and rows[23]["with"]["path"].splitlines() == [floor]
+             and rows[23]["with"]["if-no-files-found"] == "error", "floor_mapping_upload")
     roles = {"status": "pre-materialization-status", "gate_policy": "gate-policy",
              "gate_registry": "gate-registry", "required_gate_evidence": "required-gate-evidence"}
     locators = {roles[name]: path for name, path in paths.items()}
     locators["pre-materialization-status"] += "#pre-release-required-materialization"
     locators.update({"status-baseline": baseline, "self-contained-evidence-floor": floor})
-    edges = {14: (["pre-materialization-status"], ["status-baseline"]),
-             15: (["status-baseline"], []), 16: (["pre-materialization-status"], []),
-             18: (sorted(roles[name] for name, _ in refs), ["self-contained-evidence-floor"]),
-             19: (["self-contained-evidence-floor"], [])}
+    edges = {20: (["pre-materialization-status"], ["status-baseline"]),
+             21: (["status-baseline"], []), 22: (["pre-materialization-status"], []),
+             23: (sorted(roles[name] for name, _ in refs), ["self-contained-evidence-floor"]),
+             24: (["self-contained-evidence-floor"], [])}
     return {"locators": locators,
-            "producers": {"status-baseline": _step_id("pulse", 14), "self-contained-evidence-floor": _step_id("pulse", 18)},
+            "producers": {"status-baseline": _step_id("pulse", 20), "self-contained-evidence-floor": _step_id("pulse", 23)},
             "steps": {_step_id("pulse", ordinal): {"inputs": values[0], "outputs": values[1]} for ordinal, values in edges.items()}}
 
 
 def _install_baseline_floor_projection(states: list[dict[str, Any]], steps: dict[tuple[str, int], dict[str, Any]], facts: dict[str, Any]) -> None:
-    """Replace only the owned P14/P15/P16/P18/P19 selected-state equations."""
+    """Replace only the owned P20/P21/P22/P23/P24 selected-state equations."""
     by_role = {row["state_id"].removeprefix("state:step5c:"): row for row in states}
     for role, path in facts["locators"].items():
         _require(role in by_role, "floor_mapping_role_missing", role)
@@ -2982,16 +2982,16 @@ def _source_preattest_preservation_expectations(workflow: dict[str, Any], source
     floor = _source_baseline_floor_expectations(workflow, sources)
     local = {role: floor["locators"][role] for role in
              ("pre-materialization-status", "status-baseline", "required-gate-evidence", "self-contained-evidence-floor")}
-    runner = _recorded_source_commands(pulse[21], LLAMAGUARD_RUNNER_PATH, _PRESERVATION_RUNNER_FLAGS)[0]
+    runner = _recorded_source_commands(pulse[13], LLAMAGUARD_RUNNER_PATH, _PRESERVATION_RUNNER_FLAGS)[0]
     summary_flags = ("--repo-root", "--in", "--dataset", "--evaluator-manifest", "--out", "--schema", "--thresholds",
                      "--run-id", "--generated-at", "--release-candidate", "--git-sha", "--repository", "--signer-identity", "--tool-version")
-    summary = _recorded_source_commands(pulse[22], "PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py", summary_flags)[0]
+    summary = _recorded_source_commands(pulse[14], "PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py", summary_flags)[0]
     external = {"llamaguard-raw-evidence": _checked_mapping_path(summary["--in"]),
                 "llamaguard-evaluator-manifest": _checked_mapping_path(summary["--evaluator-manifest"]),
                 "llamaguard-summary": _checked_mapping_path(summary["--out"])}
     _require(external["llamaguard-raw-evidence"] == _checked_mapping_path(runner["--raw-out"])
              and external["llamaguard-evaluator-manifest"] == _checked_mapping_path(runner["--manifest-out"])
-             and external["llamaguard-summary"] == _checked_mapping_export(pulse[22], "SUMMARY"),
+             and external["llamaguard-summary"] == _checked_mapping_export(pulse[14], "SUMMARY"),
              "preservation_mapping_external_handoff")
     local.update(external)
     physical = {locator.split("#", 1)[0]: role for role, locator in local.items()}
@@ -3000,11 +3000,11 @@ def _source_preattest_preservation_expectations(workflow: dict[str, Any], source
     _require(len(readers) == 4 and "pre-materialization-status" in readers, "preservation_mapping_restore_role_extent")
     publisher, restorer = _step_id("pulse", 37), _step_id(_RECORDED_SEMANTIC_JOB, 4)
     return {"locators": {**local, _PRESERVATION_ARCHIVE_ROLE: "artifact://" + name},
-            "origins": {"pre-materialization-status": _step_id("pulse", 13),
-                        "required-gate-evidence": _step_id("pulse", 11), **floor["producers"],
-                        "llamaguard-raw-evidence": _step_id("pulse", 22),
-                        "llamaguard-evaluator-manifest": _step_id("pulse", 22),
-                        "llamaguard-summary": _step_id("pulse", 23), _PRESERVATION_ARCHIVE_ROLE: publisher},
+            "origins": {"pre-materialization-status": _step_id("pulse", 19),
+                        "required-gate-evidence": _step_id("pulse", 17), **floor["producers"],
+                        "llamaguard-raw-evidence": _step_id("pulse", 14),
+                        "llamaguard-evaluator-manifest": _step_id("pulse", 14),
+                        "llamaguard-summary": _step_id("pulse", 15), _PRESERVATION_ARCHIVE_ROLE: publisher},
             "upload_paths": sorted(supplied), "restored_paths": sorted(paths),
             "unmodeled_upload_paths": sorted(set(supplied) - set(physical)),
             "unmodeled_restore_paths": sorted(set(paths) - set(physical)),
@@ -3094,7 +3094,7 @@ def _source_llamaguard_preservation_expectations(workflow: dict[str, Any], sourc
     duties: dict[str, Any] = {}
     handoffs = []
     for reader_job, reader_no, writer_job, writer_no, variable, count in (
-        (_LG_PRESERVATION_JOB, 4, "pulse", 24, "CANONICAL_DIR", 3),
+        (_LG_PRESERVATION_JOB, 4, "pulse", 16, "CANONICAL_DIR", 3),
         ("release_grade_recorded_path", 5, _LG_PRESERVATION_JOB, 8, "CANONICAL_EXTERNAL", 6),
     ):
         reader = jobs[reader_job]["steps"][reader_no - 1]
@@ -3159,9 +3159,9 @@ def _source_llamaguard_preservation_expectations(workflow: dict[str, Any], sourc
                          "download_directory": download_root, "requires_nonempty": count == 6,
                          "upload_condition": publisher.get("if"), "restore_condition": reader.get("if"),
                          "archive_state_modeled": False})
-    content_origins = {"llamaguard-raw-evidence": _step_id("pulse", 22),
-                       "llamaguard-evaluator-manifest": _step_id("pulse", 22),
-                       "llamaguard-summary": _step_id("pulse", 23),
+    content_origins = {"llamaguard-raw-evidence": _step_id("pulse", 14),
+                       "llamaguard-evaluator-manifest": _step_id("pulse", 14),
+                       "llamaguard-summary": _step_id("pulse", 15),
                        "llamaguard-attestation-bundle": _step_id(_LG_PRESERVATION_JOB, 5),
                        "llamaguard-attestation-envelope": _step_id(_LG_PRESERVATION_JOB, 6),
                        "llamaguard-attestation-verifier": _step_id(_LG_PRESERVATION_JOB, 7)}
@@ -3328,8 +3328,8 @@ def _source_llamaguard_attestation_expectations(workflow: dict[str, Any], source
     l5, l6, l7 = (_step_id(job, n) for n in (5, 6, 7))
     return {"locators": locators,
             "origins": {"workflow-source": None, "threshold-policy": None, "external-signer-policy": None,
-                        "llamaguard-dataset": None, "llamaguard-raw-evidence": _step_id("pulse", 22),
-                        "llamaguard-evaluator-manifest": _step_id("pulse", 22), "llamaguard-summary": _step_id("pulse", 23),
+                        "llamaguard-dataset": None, "llamaguard-raw-evidence": _step_id("pulse", 14),
+                        "llamaguard-evaluator-manifest": _step_id("pulse", 14), "llamaguard-summary": _step_id("pulse", 15),
                         "llamaguard-attestation-bundle": l5, "llamaguard-attestation-envelope": l6,
                         "llamaguard-attestation-verifier": l7},
             "steps": {l5: {"inputs": ["llamaguard-summary"], "outputs": ["llamaguard-attestation-bundle"]},
@@ -3413,12 +3413,12 @@ def _source_llamaguard_production_expectations(workflow: dict[str, Any], sources
     _require(workflow == _parse_yaml_document(sources[SUBJECT_WORKFLOW_PATH].data, label=SUBJECT_WORKFLOW_PATH),
              "lg_production_workflow_drift")
     rows = workflow["jobs"]["pulse"]["steps"]
-    ingest = _recorded_source_commands(rows[22], _LG_INGEST_PATH, (
+    ingest = _recorded_source_commands(rows[14], _LG_INGEST_PATH, (
         "--repo-root", "--in", "--dataset", "--evaluator-manifest", "--out", "--schema",
         "--thresholds", "--run-id", "--generated-at", "--release-candidate", "--git-sha",
         "--repository", "--signer-identity", "--tool-version",
     ))[0]
-    runner_args = _recorded_source_commands(rows[21], LLAMAGUARD_RUNNER_PATH, (
+    runner_args = _recorded_source_commands(rows[13], LLAMAGUARD_RUNNER_PATH, (
         "--repo-root", "--dataset", "--raw-out", "--manifest-out", "--manifest-schema",
         "--model-revision", "--token-env", "--repository", "--git-sha", "--run-key",
         "--workflow-ref", "--release-candidate", "--created-utc", "--torch-threads", "--max-new-tokens",
@@ -3502,7 +3502,7 @@ def _source_llamaguard_production_expectations(workflow: dict[str, Any], sources
     # Traversal establishes the declared dependency, NOT identity validation of
     # the acquired rows. The independent runtime boundary still has to do that.
     case_ids = _load_case_ids(sources[LLAMAGUARD_DATASET_PATH].data)
-    p22, p23 = _step_id("pulse", 22), _step_id("pulse", 23)
+    p22, p23 = _step_id("pulse", 14), _step_id("pulse", 15)
     input_roles = ["llamaguard-input:" + case for case in case_ids]
     output_roles = ["llamaguard-output:" + case for case in case_ids]
     origins = {role: None for role in ("threshold-policy", "llamaguard-dataset", *input_roles)}
@@ -4326,7 +4326,7 @@ def _source_residual_input_expectations(
     _require(threshold == THRESHOLD_POLICY_PATH, "residual_input_threshold_handoff")
     pulse = parsed["jobs"]["pulse"]["steps"]
     rows = parsed["jobs"]["release_grade_recorded_path"]["steps"]
-    upload = pulse[11]
+    upload = pulse[17]
     selectors = upload["with"]["path"].splitlines()
     _require(selectors == [evidence, "PULSE_safe_pack_v0/artifacts/required_gate_inputs/**",
                            "PULSE_safe_pack_v0/artifacts/required_gate_evidence_logs/**"], "residual_input_transport_selectors")
@@ -4373,14 +4373,14 @@ def _source_residual_input_expectations(
     p = lambda n: _step_id("pulse", n)
     l = lambda n: _step_id("attest_llamaguard_current_run_summary", n)
     candidate_index, candidate_dir = literal(candidate, "INDEX"), literal(candidate, "OUT_DIR") + "/"
-    equations = {p(12): ((evidence,), ()), p(13): ((evidence, policy, registry), (pre,)),
+    equations = {p(18): ((evidence,), ()), p(19): ((evidence, policy, registry), (pre,)),
                  p(50): ((pre, registry), ()), p(51): ((policy, registry), ()),
                  r(6): (common, (candidate_index, candidate_dir)),
                  r(8): ((manifest, candidate_dir, *common), (verification,)),
                  r(23): ((status_env, policy), (junit, sarif))}
-    writers = {pre: p(13), final: r(9), evidence: p(11), candidate_index: r(6), candidate_dir: r(6),
+    writers = {pre: p(19), final: r(9), evidence: p(17), candidate_index: r(6), candidate_dir: r(6),
                manifest: r(7), verification: r(8), junit: r(23), sarif: r(23),
-               ext + "llamaguard_summary.json": p(23), ext + "llamaguard_raw.jsonl": p(22),
+               ext + "llamaguard_summary.json": p(15), ext + "llamaguard_raw.jsonl": p(14),
                ext + "llamaguard_summary.envelope.json": l(6), ext + "llamaguard_summary.bundle.json": l(5),
                ext + "llamaguard_attestation_verifier_v1.json": l(7)}
     for job in _RESIDUAL_CHECKOUT_JOBS:
@@ -4392,7 +4392,7 @@ def _source_residual_input_expectations(
             "origins": {role: writers.get(path) for path, role in names.items()},
             "steps": {oid: {"inputs": sorted(names[path] for path in ins), "outputs": sorted(names[path] for path in outs)}
                       for oid, (ins, outs) in sorted(equations.items())},
-            "transport_occurrences": [p(12)], "source_anchor_occurrences": sorted(_step_id(j, 1) for j in _RESIDUAL_CHECKOUT_JOBS),
+            "transport_occurrences": [p(18)], "source_anchor_occurrences": sorted(_step_id(j, 1) for j in _RESIDUAL_CHECKOUT_JOBS),
             "upload_selectors": selectors, "upload_if_no_files_found": "warn",
             "export_policy_set_order": ["required", "release_required"],
             "export_gate_ids": list(dict.fromkeys(g for values in _source_required_policy_members(sources[POLICY_PATH].data).values() for g in values)),
@@ -4535,7 +4535,7 @@ def _build_states(
         "declared_gate_policy",
         POLICY_PATH,
         producer=None,
-        consumers=[st("pulse", 11), st("pulse", 50), st("pulse", 51), st("release_grade_recorded_path", 21)],
+        consumers=[st("pulse", 17), st("pulse", 50), st("pulse", 51), st("release_grade_recorded_path", 21)],
         authority=True,
     )
     registry = add(
@@ -4544,7 +4544,7 @@ def _build_states(
         "gate_registry",
         REGISTRY_PATH,
         producer=None,
-        consumers=[st("pulse", 11), st("pulse", 50), st("pulse", 51), st("release_grade_recorded_path", 21)],
+        consumers=[st("pulse", 17), st("pulse", 50), st("pulse", 51), st("release_grade_recorded_path", 21)],
         authority=True,
     )
     threshold = add(
@@ -4553,7 +4553,7 @@ def _build_states(
         "external_threshold_policy",
         THRESHOLD_POLICY_PATH,
         producer=None,
-        consumers=[st("pulse", 23), st("pulse", 35), st("release_grade_recorded_path", 6), st("release_grade_recorded_path", 8)],
+        consumers=[st("pulse", 15), st("pulse", 35), st("release_grade_recorded_path", 6), st("release_grade_recorded_path", 8)],
         authority=True,
     )
     signer = add(
@@ -4571,7 +4571,7 @@ def _build_states(
         "controlled_llamaguard_case_dataset",
         LLAMAGUARD_DATASET_PATH,
         producer=None,
-        consumers=[st("pulse", 22)],
+        consumers=[st("pulse", 14)],
         authority=True,
     )
 
@@ -4580,8 +4580,8 @@ def _build_states(
         "release_evidence",
         "current_run_required_gate_evidence",
         "PULSE_safe_pack_v0/artifacts/required_gate_evidence_v0.json",
-        producer=st("pulse", 11),
-        consumers=[st("pulse", 12), st("pulse", 13), st("release_grade_recorded_path", 4)],
+        producer=st("pulse", 17),
+        consumers=[st("pulse", 18), st("pulse", 19), st("release_grade_recorded_path", 4)],
         authority=True,
     )
     status_baseline = add(
@@ -4589,7 +4589,7 @@ def _build_states(
         "status",
         "pre_augmentation_status",
         "PULSE_safe_pack_v0/artifacts/status_baseline.json",
-        producer=st("pulse", 14),
+        producer=st("pulse", 20),
         consumers=[st("release_grade_recorded_path", 4)],
         authority=True,
     )
@@ -4598,7 +4598,7 @@ def _build_states(
         "release_evidence",
         "self_contained_pulse_evidence_floor",
         "PULSE_safe_pack_v0/artifacts/self_contained_pulse_evidence_floor_v0.json",
-        producer=st("pulse", 18),
+        producer=st("pulse", 23),
         consumers=[st("release_grade_recorded_path", 4)],
         authority=True,
     )
@@ -4607,8 +4607,8 @@ def _build_states(
         "release_evidence",
         "llamaguard_raw_evidence",
         "PULSE_safe_pack_v0/artifacts/external/llamaguard_raw.jsonl",
-        producer=st("pulse", 22),
-        consumers=[st("pulse", 23)],
+        producer=st("pulse", 14),
+        consumers=[st("pulse", 15)],
         authority=True,
     )
     evaluator_manifest = add(
@@ -4616,8 +4616,8 @@ def _build_states(
         "manifest",
         "llamaguard_evaluator_manifest",
         "PULSE_safe_pack_v0/artifacts/external/llamaguard_evaluator_manifest_v0.json",
-        producer=st("pulse", 22),
-        consumers=[st("pulse", 23)],
+        producer=st("pulse", 14),
+        consumers=[st("pulse", 15)],
         authority=True,
     )
     summary = add(
@@ -4625,7 +4625,7 @@ def _build_states(
         "release_evidence",
         "canonical_llamaguard_summary",
         "PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json",
-        producer=st("pulse", 23),
+        producer=st("pulse", 15),
         consumers=[st("pulse", 35), st("attest_llamaguard_current_run_summary", 5)],
         authority=True,
     )
@@ -4953,22 +4953,22 @@ def _build_states(
         step_by_key,
         inputs=[
             ("pulse", 1, workflow),
-            ("pulse", 11, policy),
-            ("pulse", 11, registry),
-            ("pulse", 22, dataset),
-            ("pulse", 23, raw_evidence),
-            ("pulse", 23, evaluator_manifest),
-            ("pulse", 23, threshold),
+            ("pulse", 17, policy),
+            ("pulse", 17, registry),
+            ("pulse", 14, dataset),
+            ("pulse", 15, raw_evidence),
+            ("pulse", 15, evaluator_manifest),
+            ("pulse", 15, threshold),
             ("pulse", 35, summary),
             ("pulse", 35, threshold),
             ("release_grade_recorded_path", 4, preattestation),
             ("release_grade_recorded_path", 8, signer),
         ],
         outputs=[
-            ("pulse", 11, required_gate),
-            ("pulse", 22, raw_evidence),
-            ("pulse", 22, evaluator_manifest),
-            ("pulse", 23, summary),
+            ("pulse", 17, required_gate),
+            ("pulse", 14, raw_evidence),
+            ("pulse", 14, evaluator_manifest),
+            ("pulse", 15, summary),
             ("pulse", 37, preattestation),
             ("attest_llamaguard_current_run_summary", 5, attestation_bundle),
             ("attest_llamaguard_current_run_summary", 6, attestation_envelope),
@@ -4986,7 +4986,7 @@ def _build_states(
             f"llamaguard_case_input:{case_id}",
             f"dataset://{LLAMAGUARD_DATASET_PATH}#{case_id}/input",
             producer=None,
-            consumers=[st("pulse", 22)],
+            consumers=[st("pulse", 14)],
             authority=True,
         )
         output_state = add(
@@ -4994,14 +4994,14 @@ def _build_states(
             "release_evidence",
             f"llamaguard_case_output:{case_id}",
             f"artifact://llamaguard_raw.jsonl#{case_id}/classification",
-            producer=st("pulse", 22),
-            consumers=[st("pulse", 23)],
+            producer=st("pulse", 14),
+            consumers=[st("pulse", 15)],
             authority=True,
         )
         _bind_step_states(
             step_by_key,
-            inputs=[("pulse", 22, input_state)],
-            outputs=[("pulse", 22, output_state)],
+            inputs=[("pulse", 14, input_state)],
+            outputs=[("pulse", 14, output_state)],
         )
 
     _apply_source_ledger_expectations(states, step_by_key, source_projection)
@@ -5047,7 +5047,7 @@ def _build_model_inferences(
     model_id: str,
     model_revision: str,
 ) -> list[dict[str, Any]]:
-    parent = _step_id("pulse", 22)
+    parent = _step_id("pulse", 14)
     result = []
     for case_id in case_ids:
         result.append(

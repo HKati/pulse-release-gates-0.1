@@ -194,7 +194,10 @@ def test_attestation_job_is_hosted_external_model_only() -> None:
 
     for token in (
         "github.event_name != 'pull_request'",
+        "!cancelled()",
         "needs.pulse.result == 'success'",
+        "needs.pulse.result == 'failure'",
+        "needs.pulse.outputs.llamaguard_evidence_ready == 'true'",
         "strict_external_evidence == 'true'",
         "startsWith(github.ref, 'refs/tags/v')",
         "startsWith(github.ref, 'refs/tags/V')",
