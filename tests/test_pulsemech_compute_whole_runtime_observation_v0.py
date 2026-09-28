@@ -179,7 +179,7 @@ def test_action_pins_and_handoff_selector():
         'actions/checkout': '3d3c42e5aac5ba805825da76410c181273ba90b1',
         'actions/setup-python': '5fda3b95a4ea91299a34e894583c3862153e4b97',
         'actions/upload-artifact': '043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
-        'actions/download-artifact': 'd3f86a106a0bac45b974a628896c90dbdf5c8093',
+        'actions/download-artifact': '3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c',
     }
     for job in JOBS.values():
         assert job['runs-on'] == 'ubuntu-24.04'
@@ -198,10 +198,50 @@ def test_action_pins_and_handoff_selector():
                     assert options['if-no-files-found'] == 'error'
                     assert options['compression-level'] == '0'
                 if action == 'actions/download-artifact':
-                    assert options['artifact-ids'] == '${{ needs.acquisition.outputs.handoff_artifact_id }}'
-                    assert options['run-id'] == '${{ github.run_id }}'
-                    assert options['repository'] == '${{ github.repository }}'
-                    assert 'name' not in options and 'pattern' not in options
+                    # v8.0.1 retains the direct single-ID destination used by
+                    # v4.3.0 with merge-multiple=true. Its pinned defaults keep
+                    # decompression enabled and digest mismatches fail-closed.
+                    assert options == {
+                        'artifact-ids': '${{ needs.acquisition.outputs.handoff_artifact_id }}',
+                        'github-token': '${{ github.token }}',
+                        'repository': '${{ github.repository }}',
+                        'run-id': '${{ github.run_id }}',
+                        'path': '${{ runner.temp }}/pulsemech-step5c-verification/input',
+                        'merge-multiple': 'true',
+                    }
+
+
+@pytest.mark.parametrize('field,value', [
+    ('uses', 'actions/download-artifact@v8.0.1'),
+    ('uses', 'actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093'),
+    ('artifact-ids', ''),
+    ('artifact-ids', '23456,789'),
+    ('github-token', '${{ secrets.OTHER_TOKEN }}'),
+    ('repository', 'other/repository'),
+    ('run-id', '999'),
+    ('path', '${{ github.workspace }}'),
+    ('path', '${{ runner.temp }}/pulsemech-step5c-verification/input/nested'),
+    ('merge-multiple', 'false'),
+    ('name', 'pulsemech-step5c-inputs'),
+    ('pattern', '*'),
+    ('skip-decompress', 'true'),
+    ('digest-mismatch', 'ignore'),
+    ('digest-mismatch', 'info'),
+    ('digest-mismatch', 'warn'),
+])
+def test_reference_download_guard_rejects_unreviewed_changes(monkeypatch, field, value):
+    # Exercise the actual guard against a copied workflow, not a second
+    # validator that could agree with its own expected result.
+    job = copy.deepcopy(JOBS['verification'])
+    download = next(step for step in job['steps']
+                    if step.get('uses', '').startswith('actions/download-artifact@'))
+    if field == 'uses':
+        download[field] = value
+    else:
+        download['with'][field] = value
+    monkeypatch.setitem(JOBS, 'verification', job)
+    with pytest.raises(AssertionError):
+        test_action_pins_and_handoff_selector()
 
 
 RUNS = [(name, n, step['run']) for name, job in JOBS.items() for n, step in enumerate(job['steps']) if 'run' in step]
