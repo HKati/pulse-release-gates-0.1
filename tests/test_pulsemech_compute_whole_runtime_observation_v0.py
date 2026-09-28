@@ -2017,6 +2017,92 @@ def test_external_shell_steps_do_not_supply_successful_individual_call_results(s
         assert call['request']['payload']['capture_status'] == templates[call['call_id']]['capture_requirement']
 
 
+# Source-pinned attestation-install mapping: the real shell uses an isolated
+# interpreter variable and pip options before the continued install command.
+# Keep the original projection counts and unknown-result boundary unchanged.
+@pytest.mark.parametrize('engine', [BUILDER, PLAN_CHECKER], ids=['builder', 'checker'])
+@pytest.mark.parametrize('presence', [True, False], ids=['present', 'not-instantiated'])
+def test_attestation_pip_mapping_preserves_the_reviewed_install(engine, presence):
+    workflow = yaml.load((ROOT / '.github/workflows/pulse_ci.yml').read_text(), Loader=yaml.BaseLoader)
+    step = workflow['jobs']['attest_llamaguard_current_run_summary']['steps'][2]
+    assert step['name'] == 'Install Python deps for LlamaGuard attestation envelope'
+    operation_id = 'call:step5c:attest_llamaguard_current_run_summary:003:python-packages'
+    parent_id = 'execution:step5c:step:attest_llamaguard_current_run_summary:003'
+    operations = {}
+    references = engine._step_external_operations(
+        job_id='attest_llamaguard_current_run_summary', ordinal=3, step=step,
+        occurrence_id=parent_id, expected_runtime_presence=presence, operations=operations,
+    )
+    assert references == [operation_id]
+    assert operations == {operation_id: {
+        'call_id': operation_id, 'operation_class': 'python_package_installation',
+        'owner': 'subject', 'parent_occurrence_id': parent_id, 'required': presence,
+        'capture_requirement': 'not_recorded',
+        'authorization_material_included': False, 'cookies_included': False,
+    }}
+
+
+@pytest.mark.parametrize('engine', [BUILDER, PLAN_CHECKER], ids=['builder', 'checker'])
+@pytest.mark.parametrize('mutation', [
+    'check-only', 'version-only', 'comment-only', 'echo-only',
+    'other-interpreter', 'missing-hash-guard', 'other-job', 'other-step',
+])
+def test_attestation_pip_mapping_does_not_invent_an_install(engine, mutation):
+    workflow = yaml.load((ROOT / '.github/workflows/pulse_ci.yml').read_text(), Loader=yaml.BaseLoader)
+    step = copy.deepcopy(workflow['jobs']['attest_llamaguard_current_run_summary']['steps'][2])
+    job_id, ordinal = 'attest_llamaguard_current_run_summary', 3
+    if mutation == 'check-only':
+        step['run'] = 'PIP_CONFIG_FILE=/dev/null "${ATTESTATION_PYTHON}" -I -m pip --isolated check\n'
+    elif mutation == 'version-only':
+        step['run'] = '"${ATTESTATION_PYTHON}" -I -m pip --version\n'
+    elif mutation == 'comment-only':
+        step['run'] = '\n'.join('# ' + line for line in step['run'].splitlines()) + '\n'
+    elif mutation == 'echo-only':
+        step['run'] = "printf '%s\\n' '\"${ATTESTATION_PYTHON}\" -I -m pip --isolated install'\n"
+    elif mutation == 'other-interpreter':
+        step['run'] = step['run'].replace('"${ATTESTATION_PYTHON}"', '"${OTHER_PYTHON}"')
+    elif mutation == 'missing-hash-guard':
+        step['run'] = step['run'].replace('--require-hashes ', '')
+    elif mutation == 'other-job':
+        job_id = 'an_unreviewed_job'
+    elif mutation == 'other-step':
+        ordinal = 4
+    operations = {}
+    references = engine._step_external_operations(
+        job_id=job_id, ordinal=ordinal, step=step,
+        occurrence_id=f'execution:step5c:step:{job_id}:{ordinal:03d}',
+        expected_runtime_presence=True, operations=operations,
+    )
+    assert references == [] and operations == {}
+
+
+def test_attestation_pip_mapping_omission_is_rejected_after_rehash(source_fixture, tmp_path):
+    f = source_fixture
+    plan = copy.deepcopy(f.plan)
+    operation_id = 'call:step5c:attest_llamaguard_current_run_summary:003:python-packages'
+    parent_id = 'execution:step5c:step:attest_llamaguard_current_run_summary:003'
+    matches = [row for row in plan['external_operation_templates'] if row['call_id'] == operation_id]
+    assert len(matches) == 1
+    plan['external_operation_templates'].remove(matches[0])
+    step = next(s for j in plan['jobs'] for s in j['steps'] if s['occurrence_id'] == parent_id)
+    assert step['external_operation_ids'].count(operation_id) == 1
+    step['external_operation_ids'].remove(operation_id)
+    path = tmp_path / 'omitted-attestation-operation.json'
+    path.write_bytes(canonical(plan))
+    # Rehash both mutually consistent omissions. Only the independent
+    # source-bound reconstruction can restore the missing required template.
+    result = cli(f.root, TOOL_NAMES[1], [
+        '--repository-root', f.root, '--plan', path,
+        '--expected-source-commit', f.sha,
+        '--expected-plan-sha256', digest(path.read_bytes()),
+        '--expected-record-status', 'example',
+    ])
+    assert result.returncode == 1, (result.returncode, result.stdout, result.stderr)
+    diagnostic = json.loads(result.stdout)
+    assert diagnostic['ok'] is False and diagnostic['errors']
+    assert 'plan_reconstruction_mismatch' in str(diagnostic), diagnostic
+
+
 def test_external_action_metadata_digests_bind_exact_source_occurrence_and_platform_result(source_fixture):
     packet = runtime_projection_example(source_fixture)
     index = {row['execution_id']: row for row in packet['executions']}

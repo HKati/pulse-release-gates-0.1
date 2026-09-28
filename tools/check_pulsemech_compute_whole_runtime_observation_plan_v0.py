@@ -1150,6 +1150,35 @@ def _add_operation(
     return call_id
 
 
+def _has_reviewed_attestation_package_installation(
+    *, job_id: str, ordinal: int, run: str,
+) -> bool:
+    """Recognize the isolated install in the exact source-pinned step.
+
+    This is a bounded mapping for the reviewed workflow, not an arbitrary
+    shell parser. Version checks, pip check and the local venv bootstrap
+    are not additional package-installation operations.
+    """
+    if job_id != "attest_llamaguard_current_run_summary" or ordinal != 3:
+        return False
+    expected = (
+        "PIP_CONFIG_FILE=/dev/null", "${ATTESTATION_PYTHON}", "-I", "-m", "pip",
+        "--isolated", "--disable-pip-version-check", "--no-cache-dir",
+        "--require-virtualenv", "install", "--index-url", "https://pypi.org/simple",
+        "--require-hashes", "--only-binary=:all:", "--requirement", "${ATTESTATION_LOCK}",
+    )
+    for line in run.replace("\\\n", " ").splitlines():
+        if not line.lstrip().startswith("PIP_CONFIG_FILE=/dev/null "):
+            continue
+        try:
+            tokens = tuple(shlex.split(line, comments=True, posix=True))
+        except ValueError:
+            continue
+        if tokens == expected:
+            return True
+    return False
+
+
 def _step_external_operations(
     *,
     job_id: str,
@@ -1183,7 +1212,13 @@ def _step_external_operations(
         detected: list[tuple[str, str]] = []
         if "apt-get " in lower or "apt-get\n" in lower:
             detected.append(("system_package_installation", "system-packages"))
-        if "pip install" in lower or "python -m pip" in lower:
+        if (
+            "pip install" in lower
+            or "python -m pip" in lower
+            or _has_reviewed_attestation_package_installation(
+                job_id=job_id, ordinal=ordinal, run=run,
+            )
+        ):
             detected.append(("python_package_installation", "python-packages"))
         if "gh run download" in lower:
             detected.append(("github_artifact_download", "gh-artifact-download"))
