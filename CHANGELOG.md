@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Repair the Step 5C historical-workflow regressions after the hosted-order
+  correction in #2886. Reverse only the reviewed ordering/guard/output delta in
+  test memory and verify the unchanged intermediate and historical Git blobs
+  before checking the original pre-acquisition graph and smoke-budget history.
+  Reject unreviewed edits before inversion; preserve job/step/input inventory,
+  permissions and budgets. This is a test-only correction: runtime workflow,
+  source pins, 19-gate policy and separate checker are unchanged.
 - Preserve current-run hosted LlamaGuard evidence before required-gate rejection
   in #2886. Move the existing identity/producer/summary/upload sequence directly
   after reset, before the unchanged 19-gate evaluator. Derive evidence readiness

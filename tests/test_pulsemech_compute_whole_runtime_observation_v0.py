@@ -5168,8 +5168,101 @@ _PRE_ACQUISITION_STEP_BASELINES = (
  )
 
 
+# The later hosted-order correction is a separate, reviewed delta. Undo only
+# that delta in TEST MEMORY before checking the original pre-acquisition and
+# smoke-budget history. Never update historical hashes to match current bytes.
+# Literal before/after fragments also retain the input's comments and spacing.
+_HOSTED_ORDER_HISTORICAL_REPLACEMENTS = (
+    (b"""    outputs:
+      # Evidence availability is not candidate admission or release authority.
+      llamaguard_evidence_ready: ${{ steps.llamaguard_evidence_upload.outcome == 'success' }}
+
+""", b''),
+    (b"""      - name: release-grade upload current-run LlamaGuard evidence
+        id: llamaguard_evidence_upload
+""", b"""      - name: release-grade upload current-run LlamaGuard evidence
+"""),
+    (b"""  attest_llamaguard_current_run_summary:
+    name: "LlamaGuard current-run summary: attest and verify"
+    needs: pulse
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && (needs.pulse.result == 'success' || needs.pulse.result == 'failure') && needs.pulse.outputs.llamaguard_evidence_ready == 'true' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
+""", b"""  attest_llamaguard_current_run_summary:
+    name: "LlamaGuard current-run summary: attest and verify"
+    needs: pulse
+    if: ${{ github.event_name != 'pull_request' && needs.pulse.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
+"""),
+    (b"""  release_grade_recorded_path:
+    name: "Release-grade recorded path: attested evidence to final authority artifacts"
+    needs: [pulse, attest_llamaguard_current_run_summary]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.attest_llamaguard_current_run_summary.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
+""", b"""  release_grade_recorded_path:
+    name: "Release-grade recorded path: attested evidence to final authority artifacts"
+    needs: attest_llamaguard_current_run_summary
+    if: ${{ github.event_name != 'pull_request' && needs.attest_llamaguard_current_run_summary.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
+"""),
+    (b"""      - name: Download pre-attestation pulse artifacts
+        shell: bash
+        env:
+          PULSE_CANDIDATE_JOB_RESULT: ${{ needs.pulse.result }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # An attested external summary cannot admit a rejected candidate.
+          # Stop before downloading or consuming any candidate/authority bytes.
+          if [[ "${PULSE_CANDIDATE_JOB_RESULT:-}" != "success" ]]; then
+            echo "::error::BLOCK: pre-attestation candidate was not accepted; hosted evidence remains preserved."
+            exit 1
+          fi
+
+""", b"""      - name: Download pre-attestation pulse artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+"""),
+ )
+
+
+def _workflow_before_hosted_evidence_ordering(raw=None):
+    if raw is None:
+        raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    # Inversion must not erase an unreviewed edit inside a replaced region.
+    assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
+        'd46ec426962a3cc9dc23c560bf87b2f2a6a74945'
+    ), 'unreviewed hosted-order workflow bytes'
+    for current, historical in _HOSTED_ORDER_HISTORICAL_REPLACEMENTS:
+        assert raw.count(current) == 1
+        raw = raw.replace(current, historical, 1)
+
+    # Current: identity, hosted capture/upload, candidate, evidence floor.
+    # Earlier: candidate, identity, evidence floor, hosted capture/upload.
+    names = (
+        'release-grade initialize current-run evidence identity',
+        'release-grade initialize LlamaGuard runtime identity',
+        'release-grade record current-run required-gate evidence',
+        'release-grade build self-contained PULSE evidence floor',
+        'Show main status.json (head)',
+    )
+    positions = []
+    for name in names:
+        marker = ('      - name: ' + name + '\n').encode()
+        assert raw.count(marker) == 1
+        positions.append(raw.index(marker))
+    assert positions == sorted(positions)
+    identity, hosted, candidate, floor, end = positions
+    raw = (raw[:identity] + raw[candidate:floor] + raw[identity:hosted]
+           + raw[floor:end] + raw[hosted:candidate] + raw[end:])
+    assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
+        '6086519b9d90f84f093170245dc54017f9d720d8'
+    ), 'pre-hosted-order checkpoint mismatch'
+    return raw
+
+
 def _workflow_before_pre_acquisition_correction():
-    raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    raw = _workflow_before_hosted_evidence_ordering()
     for name, baseline in _PRE_ACQUISITION_STEP_BASELINES:
         marker = ('      - name: ' + name + '\n').encode()
         assert raw.count(marker) == 1
@@ -5178,6 +5271,47 @@ def _workflow_before_pre_acquisition_correction():
         raw = raw[:start] + baseline + raw[end:]
     assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == 'db07510afb66fa6b92635066da8cdc02561cf32c'
     return raw
+
+
+def test_hosted_order_history_preserves_job_step_and_input_inventory():
+    current = yaml.load((ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes(), Loader=yaml.BaseLoader)
+    previous = yaml.load(_workflow_before_hosted_evidence_ordering(), Loader=yaml.BaseLoader)
+    assert list(current['jobs']) == list(previous['jobs'])
+    for name, job in current['jobs'].items():
+        before = previous['jobs'][name]
+        assert Counter(step['name'] for step in job['steps']) == Counter(
+            step['name'] for step in before['steps'])
+        for field in ('permissions', 'runs-on', 'timeout-minutes'):
+            assert job.get(field) == before.get(field)
+    # Dispatch inputs, trigger guards, concurrency and global permissions stay.
+    assert {k: v for k, v in current.items() if k != 'jobs'} == {
+        k: v for k, v in previous.items() if k != 'jobs'}
+
+
+@pytest.mark.parametrize(('before', 'after'), [
+    (b'    timeout-minutes: 120\n', b'    timeout-minutes: 121\n'),
+    (b'permissions:\n  contents: read\n', b'permissions:\n  contents: write\n'),
+    (b'        default: "false"\n', b'        default: "true"\n'),
+    (b"steps.llamaguard_evidence_upload.outcome == 'success'",
+     b"steps.llamaguard_evidence_upload.outcome == 'failure'"),
+    (b'        id: llamaguard_evidence_upload\n', b'        id: unreviewed_upload\n'),
+    (b"needs.pulse.outputs.llamaguard_evidence_ready == 'true'",
+     b"needs.pulse.outputs.llamaguard_evidence_ready == 'false'"),
+    (b'    needs: [pulse, attest_llamaguard_current_run_summary]\n',
+     b'    needs: attest_llamaguard_current_run_summary\n'),
+    (b'if [[ "${PULSE_CANDIDATE_JOB_RESULT:-}" != "success" ]]; then',
+     b'if [[ "${PULSE_CANDIDATE_JOB_RESULT:-}" == "success" ]]; then'),
+    (b'# Every accepted release must reach the hosted attestation and',
+     b'# UNREVIEWED preflight edit must not disappear during inversion'),
+], ids=['budget', 'permissions', 'dispatch', 'readiness-output', 'upload-id',
+        'attestation-guard', 'candidate-dependency', 'candidate-block', 'preflight'])
+def test_hosted_order_historical_inverse_rejects_unreviewed_bytes(before, after):
+    raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    assert raw.count(before) == 1
+    changed = raw.replace(before, after, 1)
+    assert changed != raw
+    with pytest.raises(AssertionError, match='unreviewed hosted-order workflow bytes'):
+        _workflow_before_hosted_evidence_ordering(changed)
 
 
 def test_historical_smoke_budget_is_the_only_pre_correction_workflow_byte_change():
@@ -19441,7 +19575,9 @@ def test_pre_acquisition_stale_lock_descriptor_rejected(r2_public_plan_only, tmp
 
 
 def test_pre_acquisition_workflow_preserves_job_step_and_input_graph():
-    current = yaml.load((ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes(), Loader=yaml.BaseLoader)
+    # This proof concerns the original pre-acquisition delta, not the later
+    # explicitly permitted hosted step reordering and candidate dependency.
+    current = yaml.load(_workflow_before_hosted_evidence_ordering(), Loader=yaml.BaseLoader)
     historical = yaml.load(_workflow_before_pre_acquisition_correction(), Loader=yaml.BaseLoader)
     selected = {
         ('pulse', 'CI pack layout preflight (fail-closed on release-grade)'),
