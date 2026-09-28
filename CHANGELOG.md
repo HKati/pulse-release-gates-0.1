@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- Prepare the bounded #2879 pre-acquisition correction following merged #2880.
+  Reject inconsistent strict-release inputs before publication of release flags;
+  retain hosted evidence materialization and post-materialization enforcement.
+  Remove assertion-only admission for the 13 unsupported required gates and
+  independently reject those results at candidate intake. All 19 required
+  entries and the six other evaluator recipes remain unchanged.
+- Pin the isolated LlamaGuard attestation installation to the complete seven-wheel
+  `PULSE_safe_pack_v0/requirements-attestation-v0.lock`, targeting CPython 3.11 on
+  Linux x86_64. Require hashes and wheels; remove the affected job's floating
+  pip/dependency installs. The supplied acquisition records CPython 3.11.16,
+  glibc 2.39 and bootstrap pip 24.0; this is not a general platform or security
+  certification.
+- Bind that lock as the 74th public R2 prelaunch source input in the independent
+  plan implementations, while retaining 62 state obligations and the existing
+  60-source legacy / 69-source local profiles. Preserve workflow job/step order,
+  permissions, budgets and historical carriers. No reference run or Step 5C
+  acceptance is claimed: #2879 remains open and substantive gate-evidence gaps
+  continue to block successful-reference readiness.
+- Clarify that correction verification independence is provided by the separate
+  checker and source-bound verification path, not by a mandatory external person
+  or third-party approval. Preserve positive regression coverage, required CI,
+  reconstruction checks, source review and fail-closed behavior. Draft-branch
+  transfer does not declare correction acceptance or reference readiness.
+
 ### Added
 - Record the completed bounded Step 5B observed execution, acquisition, preservation,
   independent replay and evidence-closure handoff under work order #2875.

@@ -1278,6 +1278,68 @@ interpreter, recorder, GitHub control plane or provider internals. Independent
 reconstruction proves deterministic derivation from preserved inputs, not a
 repeat of the original execution.
 
+## Pre-acquisition correction boundary (#2879)
+
+The bounded correction after merged #2880 starts from commit
+`c2c6aea121d59ce268b11aaf4c55064b488551c8`, tree
+`b9875923fd08e706b91d722b12d933b4d728c27b`. It is a prerequisite correction,
+not an acquired reference or a new whole-runtime evidence profile.
+
+The corrected source uses an early strict-release/hosted-evidence consistency
+check and a separate unsupported-gate admission check. All 19 required gate
+entries remain present. The 13 assertion-only reference recipes cannot supply
+normative PASS; the six other recipes retain their existing scope. Missing
+substantive evidence still requires rejection, not an invented evaluator.
+
+The LlamaGuard attestation job consumes
+`PULSE_safe_pack_v0/requirements-attestation-v0.lock` in a fresh virtual
+environment. Exact package versions, the complete active transitive closure,
+mandatory wheel hashes and wheel-only installation replace the affected
+floating installations. The selected target is CPython 3.11 / Linux x86_64;
+the supplied isolated dependency acquisition records CPython 3.11.16, glibc 2.39
+and bootstrap pip 24.0. It preserves actual wheel bytes, metadata and offline
+installation logs. This bounds the verified platform and package bytes; it
+is not a vulnerability-free certification or a PULSE reference execution.
+
+Both independent public R2 plan implementations now require the lock as an
+`attestation_dependency_lock` source descriptor, with exact reviewed blob,
+SHA-256, byte size, mode and source revision. The public source closure contains
+74 entries. The legacy 60-source and local 69-source closures are unchanged;
+the lock is not a 63rd observed state role. All 62 role duties, mandatory A2 and
+LlamaGuard evidence, D1/D6 limitations, partial coverage and non-authority
+semantics remain in force. Capture and verification retain the exact corrected
+plan/source bindings; old plans and preserved carriers keep their original
+identities and are not rewritten to match this source.
+
+Only the two existing release-preflight and attestation-install `run` bodies
+change in the subject workflow. Job/step identities, ordering, input and
+conditional graph, permissions and time budgets are preserved. Source pins
+must match these exact bodies and the independently rejecting candidate
+builder, not just a newly assigned workflow hash.
+
+Correction acceptance requires the coordinated source set, dependency evidence,
+short assembly checks, full required regressions and consolidated source review.
+
+Preserving positive regression coverage and the separate checker remains required;
+external independent validation by another person or a third party is not a
+prerequisite for this correction. Independence is a property of the verification
+path: the checker must verify the exact evidence, source/run bindings and required
+relations without importing or trusting the producer's acceptance verdict. It is
+not independence from the checked source; exact source binding remains mandatory.
+Required CI, reconstruction checks, source review and fail-closed behavior remain
+in scope. No external approval gate or trust-free acquisition claim is introduced.
+
+The coordinated correction may be transferred as an explicitly unfinished
+candidate to one development branch and draft PR. The known fixture conflict and
+unexecuted full regressions must remain visible. Completed full local regression
+is not a prerequisite for that transfer; successful required regressions and final
+source review remain correction-acceptance conditions. Committing a development
+candidate is not merge approval, reference readiness or Step 5C acceptance.
+
+Successful hosted-reference readiness is a separate decision. No live dispatch,
+Step 5D/6 work, active compute gate or issue closure is authorized by this
+correction; #2879 remains open while evidence obligations are unresolved.
+
 ## Tests and handoffs
 
 Permanent tests use `record_status: example`, deterministic mocked API responses
@@ -1318,10 +1380,12 @@ The implementation PR contains no invented future run, job, artifact, time,
 size, digest or PASS value. The actual reference is preserved only after a
 separate acquisition review.
 
-Step 5C does not modify PULSE CI release semantics, the generic checker,
-production policy, active policy sets, gate registry, existing #6066 evidence,
-Step 5B evidence, Quality Ledger, Transition Meter, Device Ledger, iPhone code,
-v1.3.0 or publication metadata.
+The accepted #2880 observation implementation did not modify PULSE CI release
+semantics. The separately scoped pre-acquisition correction above restores
+release-input and evidence-admission enforcement without changing the generic
+checker, production policy membership, active policy sets, gate registry,
+existing #6066 evidence, Step 5B evidence, Quality Ledger, Transition Meter,
+Device Ledger, iPhone code, v1.3.0 or publication metadata.
 
 Successful accepted Step 5C evidence may establish I and E only within the
 declared scope. R and C remain Step 5D work; M remains Step 6 work. It does not

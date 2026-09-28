@@ -5071,8 +5071,28 @@ def test_floor_recorded_reader_closure_rejects_unreviewed_additions(source_fixtu
 # Reviewed smoke-job budget amendment. Only the job time budget changes;
 # exact source identity, complete execution and failure propagation stay strict.
 # ---------------------------------------------------------------------------
-def test_smoke_budget_is_the_only_subject_workflow_byte_change():
+# Original merged step bodies are historical test data, not source inputs.
+# Recover the prior workflow solely to retain the older smoke-budget proof.
+_PRE_ACQUISITION_STEP_BASELINES = (
+    ('CI pack layout preflight (fail-closed on release-grade)', b'      - name: CI pack layout preflight (fail-closed on release-grade)\n        id: release_mode\n        shell: bash\n        run: |\n          set -euo pipefail\n\n          PULSE_IS_RELEASE=0\n          PULSE_MODE="core"\n          PULSE_POLICY_SET="core_required"\n\n          if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then\n            PULSE_IS_RELEASE=1\n            PULSE_MODE="prod"\n            PULSE_POLICY_SET="required"\n          fi\n\n          RAW_LLAMAGUARD_MODE="tier0_not_required"\n          if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then\n            RAW_LLAMAGUARD_MODE="$(jq -r \'.inputs.llamaguard_evidence_mode // "tier0_not_required"\' "$GITHUB_EVENT_PATH")"\n            case "$RAW_LLAMAGUARD_MODE" in\n              tier0_not_required|hosted_full_runtime)\n                ;;\n              *)\n                echo "::error::invalid llamaguard_evidence_mode: ${RAW_LLAMAGUARD_MODE}"\n                exit 1\n                ;;\n            esac\n          fi\n\n          if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then\n            PULSE_LLAMAGUARD_EVIDENCE_MODE="hosted_full_runtime"\n          else\n            PULSE_LLAMAGUARD_EVIDENCE_MODE="$RAW_LLAMAGUARD_MODE"\n          fi\n\n          if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then\n            STRICT="$(jq -r \'.inputs.strict_external_evidence // "false"\' "$GITHUB_EVENT_PATH")"\n            if [[ "$STRICT" == "true" ]]; then\n              PULSE_IS_RELEASE=1\n              PULSE_MODE="prod"\n              PULSE_POLICY_SET="required"\n            fi\n          fi\n\n          PULSE_RUN_KEY="GITHUB_RUN_ID=${GITHUB_RUN_ID:?}|GITHUB_RUN_ATTEMPT=${GITHUB_RUN_ATTEMPT:?}|GITHUB_WORKFLOW=${GITHUB_WORKFLOW:?}"\n\n          echo "PULSE_IS_RELEASE=${PULSE_IS_RELEASE}" >> "$GITHUB_ENV"\n          echo "PULSE_MODE=${PULSE_MODE}" >> "$GITHUB_ENV"\n          echo "PULSE_POLICY_SET=${PULSE_POLICY_SET}" >> "$GITHUB_ENV"\n          echo "PULSE_LLAMAGUARD_EVIDENCE_MODE=${PULSE_LLAMAGUARD_EVIDENCE_MODE}" >> "$GITHUB_ENV"\n          echo "PULSE_RUN_KEY=${PULSE_RUN_KEY}" >> "$GITHUB_ENV"\n\n          echo "is_release=${PULSE_IS_RELEASE}" >> "$GITHUB_OUTPUT"\n          echo "llamaguard_evidence_mode=${PULSE_LLAMAGUARD_EVIDENCE_MODE}" >> "$GITHUB_OUTPUT"\n\n          echo "Computed flags: IS_RELEASE=$PULSE_IS_RELEASE MODE=$PULSE_MODE POLICY_SET=$PULSE_POLICY_SET LLAMAGUARD_EVIDENCE_MODE=$PULSE_LLAMAGUARD_EVIDENCE_MODE"\n\n          EXTRA=()\n          if (( PULSE_IS_RELEASE )); then\n            EXTRA+=(--release-grade)\n          fi\n\n          python tools/check_pack_layout.py \\\n            --pack_dir "${{ env.PACK_DIR }}" \\\n            "${EXTRA[@]}"\n\n'),
+    ('Install Python deps for LlamaGuard attestation envelope', b'      - name: Install Python deps for LlamaGuard attestation envelope\n        shell: bash\n        run: |\n          set -euo pipefail\n          python -m pip install --upgrade pip\n          python -m pip install -r requirements.txt\n          python -m pip install jsonschema\n\n'),
+ )
+
+
+def _workflow_before_pre_acquisition_correction():
     raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    for name, baseline in _PRE_ACQUISITION_STEP_BASELINES:
+        marker = ('      - name: ' + name + '\n').encode()
+        assert raw.count(marker) == 1
+        start = raw.index(marker)
+        end = raw.index(b'      - name: ', start + len(marker))
+        raw = raw[:start] + baseline + raw[end:]
+    assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == 'db07510afb66fa6b92635066da8cdc02561cf32c'
+    return raw
+
+
+def test_historical_smoke_budget_is_the_only_pre_correction_workflow_byte_change():
+    raw = _workflow_before_pre_acquisition_correction()
     before_job, job_bytes = raw.split(b'  tools-tests:\n')
     assert job_bytes.count(b'    timeout-minutes: 120\n') == 1
     # Restore the immediate 45-minute predecessor and the older 30/15-minute
@@ -5101,7 +5121,7 @@ def test_smoke_budget_all_workflow_pins_require_the_same_reviewed_bytes(side):
     path = module.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == 'db07510afb66fa6b92635066da8cdc02561cf32c'
+    assert current == '6086519b9d90f84f093170245dc54017f9d720d8'
     assert module.EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 == current
     for values in vars(module).values():
         if isinstance(values, dict) and path in values:
@@ -5114,7 +5134,7 @@ def test_smoke_budget_d3_d6_pins_require_the_same_reviewed_bytes(side):
     path = BUILDER.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == 'db07510afb66fa6b92635066da8cdc02561cf32c'
+    assert current == '6086519b9d90f84f093170245dc54017f9d720d8'
     pins = module._D3_SOURCE_PINS
     items = list(pins.items()) if isinstance(pins, dict) else list(pins)
     selected = [pin for name, pin in items if name == path]
@@ -18760,7 +18780,7 @@ def r2_public_handoff(r2c17_native_inputs,tmp_path_factory):
 
 def test_r2_public_actual_plan_acquisition_capture_prepare(r2_public_handoff):
     f=r2_public_handoff;plan=f.source.plan
-    assert len(plan['source_inventory'])==73
+    assert len(plan['source_inventory'])==74
     assert len(plan['state_templates'])==62
     assert plan['evidence_profile_binding']==f.capture.manifest['evidence_profile_binding']
     assert f.capture.manifest['record_status']=='example'
@@ -18770,7 +18790,7 @@ def test_r2_public_actual_plan_acquisition_capture_prepare(r2_public_handoff):
     assert context['expected_plan_sha256']==f.source.plan_digest
     with zipfile.ZipFile(f.prepared) as z:
         assert json.loads(z.read('source-inventory.json'))['evidence_profile_binding']==plan['evidence_profile_binding']
-        assert len([name for name in z.namelist() if name.startswith('sources/')])==73
+        assert len([name for name in z.namelist() if name.startswith('sources/')])==74
 
 
 @pytest.fixture(scope='module')
@@ -18820,7 +18840,7 @@ def test_r2_public_plan_binds_exact_obligations_without_changing_mapping(r2_publ
     assert actual==expected
     assert p.plan['evidence_profile_binding']['role_obligations']==R2_CONTRACT_ROLES
     assert p.plan['evidence_profile_binding']==p.diagnostic['evidence_profile_binding']
-    assert len(p.plan['source_inventory'])==73
+    assert len(p.plan['source_inventory'])==74
     assert all(row['revision']==p.f.sha and 'revision_kind' not in row for row in p.plan['source_inventory'])
 
 
@@ -18979,6 +18999,117 @@ def test_mapping_fixture_reuse_does_not_hide_input_failures(raw, error):
         assert mapping_source_document() == good
     finally:
         _MAPPING_SOURCE_SYNTAX = saved
+
+
+
+
+# Pre-acquisition correction: bind the dependency lock without creating a state role.
+@pytest.mark.parametrize('module', [BUILDER, PLAN_CHECKER])
+def test_pre_acquisition_lock_public_source_closure(module):
+    path = 'PULSE_safe_pack_v0/requirements-attestation-v0.lock'
+    assert module.ATTESTATION_LOCK_PATH == path
+    assert [row for row in module.PUBLIC_R2_SOURCE_ROLES if row[1] == path] == [
+        ('attestation_dependency_lock', path)]
+    assert len(module.PUBLIC_R2_SOURCE_ROLES) == 74
+    assert len({role for role, _ in module.PUBLIC_R2_SOURCE_ROLES}) == 74
+    assert len({path for _, path in module.PUBLIC_R2_SOURCE_ROLES}) == 74
+    assert len(module.SOURCE_ROLES) == 60
+    assert len(module._LOCAL_R2_SOURCE_ROLES) == 69
+    assert all(p != path for _, p in module._LOCAL_R2_SOURCE_ROLES)
+    raw = (ROOT / path).read_bytes()
+    assert module._sha1_git_blob(raw) == module.EXPECTED_ATTESTATION_LOCK_BLOB_SHA1
+
+
+def test_pre_acquisition_lock_descriptor_is_exact(r2_public_plan_only):
+    f = r2_public_plan_only
+    path = BUILDER.ATTESTATION_LOCK_PATH
+    rows = [row for row in f.plan['source_inventory'] if row['path'] == path]
+    assert len(rows) == 1
+    source = BUILDER._read_git_object(f.f.root, f.f.sha,
+        role='attestation_dependency_lock', path=path)
+    assert rows[0] == source.descriptor()
+    assert len(f.plan['state_templates']) == 62
+    assert len(f.plan['evidence_profile_binding']['role_obligations']) == 62
+
+
+@pytest.mark.parametrize('module', [BUILDER, PLAN_CHECKER])
+def test_pre_acquisition_rehashed_lock_is_not_admitted(source_fixture, module):
+    f = source_fixture
+    sources = module._load_sources(f.root, f.sha, public_r2=True)
+    original = sources[module.ATTESTATION_LOCK_PATH]
+    changed = original.data + b'\n# changed lock, even with consistent descriptor\n'
+    sources[module.ATTESTATION_LOCK_PATH] = module.GitObject(
+        original.role, original.path, original.revision, original.mode,
+        module._sha1_git_blob(changed), changed)
+    with pytest.raises(module.PlanError, match='reviewed_source_profile_mismatch'):
+        module._check_reviewed_source_pins(sources)
+
+
+@pytest.mark.parametrize('module', [BUILDER, PLAN_CHECKER])
+def test_pre_acquisition_missing_lock_cannot_bind_public_profile(source_fixture, module):
+    f = source_fixture
+    sources = module._load_sources(f.root, f.sha, public_r2=True)
+    del sources[module.ATTESTATION_LOCK_PATH]
+    with pytest.raises(module.PlanError, match='r2_source_inventory_mismatch'):
+        module._bind_public_r2_plan({}, sources, f.sha)
+
+
+@pytest.mark.parametrize('fault', ['missing', 'sha256', 'size_bytes', 'git_blob_sha1', 'role'])
+def test_pre_acquisition_stale_lock_descriptor_rejected(r2_public_plan_only, tmp_path, fault):
+    f = r2_public_plan_only
+    plan = copy.deepcopy(f.plan)
+    row = next(row for row in plan['source_inventory'] if row['path'] == BUILDER.ATTESTATION_LOCK_PATH)
+    if fault == 'missing':
+        plan['source_inventory'].remove(row)
+    elif fault == 'sha256':
+        row[fault] = '0' * 64
+    elif fault == 'git_blob_sha1':
+        row[fault] = '0' * 40
+    elif fault == 'size_bytes':
+        row[fault] += 1
+    else:
+        row[fault] = 'unreviewed_lock_role'
+    raw = canonical(plan)
+    path = tmp_path / 'changed-plan.json'
+    path.write_bytes(raw)
+    result = cli(f.f.root, TOOL_NAMES[1], ['--repository-root', f.f.root,
+        '--plan', path, '--expected-source-commit', f.f.sha,
+        '--expected-plan-sha256', digest(raw), '--expected-record-status', 'example'])
+    assert result.returncode == 1, (result.stdout, result.stderr)
+    diagnostic = json.loads(result.stdout)
+    assert diagnostic['ok'] is False and diagnostic['record_status'] == 'rejected'
+    assert diagnostic['error_code'] == 'plan_reconstruction_mismatch'
+    assert diagnostic['authority_boundary']['active_gate_eligible'] is False
+
+
+def test_pre_acquisition_workflow_preserves_job_step_and_input_graph():
+    current = yaml.load((ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes(), Loader=yaml.BaseLoader)
+    historical = yaml.load(_workflow_before_pre_acquisition_correction(), Loader=yaml.BaseLoader)
+    selected = {
+        ('pulse', 'CI pack layout preflight (fail-closed on release-grade)'),
+        ('attest_llamaguard_current_run_summary', 'Install Python deps for LlamaGuard attestation envelope'),
+    }
+    changed = set()
+    for job, definition in current['jobs'].items():
+        for index, step in enumerate(definition['steps']):
+            previous = historical['jobs'][job]['steps'][index]
+            if step.get('run') != previous.get('run'):
+                key = (job, step['name'])
+                assert key in selected
+                changed.add(key)
+                step['run'] = previous['run']
+    assert changed == selected
+    assert current == historical
+
+
+@pytest.mark.parametrize('module', [BUILDER, PLAN_CHECKER])
+def test_pre_acquisition_independent_candidate_admission_pins(module):
+    path = 'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py'
+    raw = (ROOT / path).read_bytes()
+    current = module._sha1_git_blob(raw)
+    for table in (module._RECORDED_SEMANTIC_PINS, module._FLOOR_SOURCE_PINS,
+                  module._RESIDUAL_SOURCE_PINS):
+        assert table[path] == current
 
 
 if __name__ == '__main__':

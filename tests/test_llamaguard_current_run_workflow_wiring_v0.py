@@ -1,8 +1,14 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
+import os
 import re
+import subprocess
+import tempfile
 from pathlib import Path
+
+import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -377,9 +383,136 @@ def test_current_run_artifacts_are_archived_fail_closed() -> None:
     assert "if-no-files-found: error" in upload
 
 
+
+def _run_preflight_fixture(
+    *, event: str, ref: str, inputs: dict[str, object],
+    checker_exit: int = 0,
+) -> tuple[subprocess.CompletedProcess[str], str, str, list[str] | None]:
+    """Execute the actual preflight body with a local layout-call witness.
+
+    The witness records routing and propagates a chosen exit status; it does
+    not implement layout validation or claim hosted/release evidence.
+    """
+    workflow = yaml.safe_load(_workflow_text())
+    preflight = next(
+        step for step in workflow["jobs"]["pulse"]["steps"]
+        if step.get("id") == "release_mode"
+    )
+    with tempfile.TemporaryDirectory(prefix="pulse-preflight-") as directory:
+        root = Path(directory)
+        (root / "tools").mkdir()
+        (root / "PULSE_safe_pack_v0").mkdir()
+        (root / "tools/check_pack_layout.py").write_text(
+            "import json, os, sys\n"
+            "from pathlib import Path\n"
+            "Path(os.environ['LAYOUT_CALL']).write_text(json.dumps(sys.argv[1:]))\n"
+            "raise SystemExit(int(os.environ['LAYOUT_EXIT']))\n",
+            encoding="utf-8",
+        )
+        event_path = root / "event.json"
+        event_path.write_text(json.dumps({"inputs": inputs}), encoding="utf-8")
+        environment_path = root / "github.env"
+        output_path = root / "github.output"
+        environment_path.touch()
+        output_path.touch()
+        witness_path = root / "layout-call.json"
+        env = os.environ.copy()
+        env.update({
+            "GITHUB_EVENT_NAME": event, "GITHUB_REF": ref,
+            "GITHUB_EVENT_PATH": str(event_path),
+            "GITHUB_ENV": str(environment_path),
+            "GITHUB_OUTPUT": str(output_path),
+            "GITHUB_RUN_ID": "123", "GITHUB_RUN_ATTEMPT": "1",
+            "GITHUB_WORKFLOW": "PULSE CI", "GITHUB_WORKSPACE": str(root),
+            "LAYOUT_CALL": str(witness_path), "LAYOUT_EXIT": str(checker_exit),
+        })
+        body = preflight["run"].replace(
+            "${{ env.PACK_DIR }}", str(root / "PULSE_safe_pack_v0")
+        )
+        assert "${{" not in body, "fixture must resolve every Actions expression"
+        result = subprocess.run(
+            ["bash", "--noprofile", "--norc", "-c", body],
+            cwd=root, env=env, text=True, stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE, check=False, timeout=20,
+        )
+        call = json.loads(witness_path.read_text()) if witness_path.exists() else None
+        return result, environment_path.read_text(), output_path.read_text(), call
+
+
+def test_preflight_executes_supported_release_mode_matrix() -> None:
+    cases = (
+        ("push", "refs/heads/main", {}, False, "tier0_not_required"),
+        ("pull_request", "refs/pull/1/merge", {}, False, "tier0_not_required"),
+        ("workflow_dispatch", "refs/heads/main", {}, False, "tier0_not_required"),
+        ("workflow_dispatch", "refs/heads/main",
+         {"strict_external_evidence": False}, False, "tier0_not_required"),
+        ("workflow_dispatch", "refs/heads/main",
+         {"strict_external_evidence": "false", "llamaguard_evidence_mode": "hosted_full_runtime"},
+         False, "hosted_full_runtime"),
+        ("workflow_dispatch", "refs/heads/main",
+         {"strict_external_evidence": True, "llamaguard_evidence_mode": "hosted_full_runtime"},
+         True, "hosted_full_runtime"),
+        ("workflow_dispatch", "refs/heads/main",
+         {"strict_external_evidence": "true", "llamaguard_evidence_mode": "hosted_full_runtime"},
+         True, "hosted_full_runtime"),
+        ("push", "refs/tags/v-test", {}, True, "hosted_full_runtime"),
+        ("push", "refs/tags/V-test", {}, True, "hosted_full_runtime"),
+        ("workflow_dispatch", "refs/tags/v-test",
+         {"strict_external_evidence": True, "llamaguard_evidence_mode": "tier0_not_required"},
+         True, "hosted_full_runtime"),
+    )
+    for event, ref, inputs, release, mode in cases:
+        result, environment, output, call = _run_preflight_fixture(
+            event=event, ref=ref, inputs=inputs,
+        )
+        assert result.returncode == 0, (event, ref, inputs, result.stderr, result.stdout)
+        assert f"is_release={int(release)}\n" in output
+        assert f"llamaguard_evidence_mode={mode}\n" in output
+        assert f"PULSE_MODE={'prod' if release else 'core'}\n" in environment
+        assert f"PULSE_POLICY_SET={'required' if release else 'core_required'}\n" in environment
+        assert "PULSE_RUN_KEY=GITHUB_RUN_ID=123|GITHUB_RUN_ATTEMPT=1|GITHUB_WORKFLOW=PULSE CI\n" in environment
+        assert call is not None
+        assert ("--release-grade" in call) is release
+
+
+def test_preflight_rejects_inconsistent_release_before_outputs() -> None:
+    cases = [
+        ({"strict_external_evidence": True}, "requires hosted_full_runtime"),
+        ({"strict_external_evidence": "true", "llamaguard_evidence_mode": "tier0_not_required"},
+         "requires hosted_full_runtime"),
+        ({"strict_external_evidence": True, "llamaguard_evidence_mode": "unknown"},
+         "invalid llamaguard_evidence_mode"),
+    ]
+    for invalid in ("yes", "", 1, [], {"true": True}):
+        cases.append((
+            {"strict_external_evidence": invalid, "llamaguard_evidence_mode": "hosted_full_runtime"},
+            "invalid strict_external_evidence",
+        ))
+    for inputs, diagnostic in cases:
+        result, environment, output, call = _run_preflight_fixture(
+            event="workflow_dispatch", ref="refs/heads/main", inputs=inputs,
+        )
+        assert result.returncode != 0, inputs
+        assert diagnostic in result.stdout, (inputs, result.stdout, result.stderr)
+        assert environment == "" and output == "", "rejected input must not publish release flags"
+        assert call is None, "inconsistent input must stop before the layout/evidence path"
+
+
+def test_preflight_preserves_layout_failure() -> None:
+    result, _, _, call = _run_preflight_fixture(
+        event="workflow_dispatch", ref="refs/heads/main",
+        inputs={"strict_external_evidence": True, "llamaguard_evidence_mode": "hosted_full_runtime"},
+        checker_exit=9,
+    )
+    assert result.returncode == 9
+    assert call is not None and "--release-grade" in call
+
 def main() -> int:
     test_llamaguard_mode_input_defaults_to_tier0_not_required()
     test_preflight_exports_llamaguard_evidence_mode_and_run_key()
+    test_preflight_executes_supported_release_mode_matrix()
+    test_preflight_rejects_inconsistent_release_before_outputs()
+    test_preflight_preserves_layout_failure()
     test_llamaguard_release_steps_exist_in_mechanical_order()
     test_llamaguard_runtime_steps_are_hosted_mode_opt_in()
     test_strict_external_summary_precheck_is_hosted_mode_only()

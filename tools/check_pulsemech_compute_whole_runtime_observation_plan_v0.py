@@ -131,12 +131,14 @@ LLAMAGUARD_DATASET_PATH = (
 LLAMAGUARD_RUNNER_PATH = "PULSE_safe_pack_v0/tools/run_llamaguard_current_evidence_v0.py"
 LLAMAGUARD_REQUIREMENTS_PATH = "PULSE_safe_pack_v0/requirements-llamaguard-v0.txt"
 REQUIREMENTS_PATH = "requirements.txt"
+ATTESTATION_LOCK_PATH = "PULSE_safe_pack_v0/requirements-attestation-v0.lock"
+EXPECTED_ATTESTATION_LOCK_BLOB_SHA1 = "18a17a1259e258ebfa603d4d2b5cfaf4487145c9"
 
 # The selected v0 topology is intentionally tied to these reviewed subject
 # surfaces.  Adding Step 5C files changes the commit but must not silently
 # change either subject workflow, the Step 3F provider, or the controlled case
 # set.  A future change requires a reviewed profile revision.
-EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 = "db07510afb66fa6b92635066da8cdc02561cf32c"
+EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 = "6086519b9d90f84f093170245dc54017f9d720d8"
 EXPECTED_PROVIDER_WORKFLOW_BLOB_SHA1 = "0ce36e0eb40493e610fc35a42eb13d5af9c3e09b"
 EXPECTED_DATASET_BLOB_SHA1 = "3b6ca799f26c7374334c51c5c9c8ea26b35cf857"
 EXPECTED_LLAMAGUARD_RUNNER_BLOB_SHA1 = "058edf0d16383db41a5a4500caf4b484321d2e57"
@@ -393,7 +395,7 @@ _RECORDED_SEMANTIC_PINS = {
     'PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py':
         'a86aef9f2f5ccc6bb95997ee93eb6f9f95a8b85d',
     'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py':
-        '4298b7644acb0d8f7c50bbbac5308fb5038a501a',
+        '553a696640eedc559edced2bdf4f4ff171cf7685',
     'PULSE_safe_pack_v0/tools/check_gates.py':
         '2a593bdef31c9c8cb565b1c4ca3d16a1e3093735',
     'tools/policy_to_require_args.py':
@@ -941,6 +943,9 @@ def _check_reviewed_source_pins(source_by_path: dict[str, GitObject]) -> None:
     exact_pins.update(_RECORDED_SEMANTIC_PINS)
     exact_pins.update(_PACKAGE_SEMANTIC_PINS)
     exact_pins.update(_PROVENANCE_SOURCE_PINS)
+    # The public R2 loader requires this input; legacy/local closures stay unchanged.
+    if ATTESTATION_LOCK_PATH in source_by_path:
+        exact_pins[ATTESTATION_LOCK_PATH] = EXPECTED_ATTESTATION_LOCK_BLOB_SHA1
     for path, expected in exact_pins.items():
         actual = source_by_path[path].blob_sha1
         _require(actual == expected, "reviewed_source_profile_mismatch", f"{path}: {actual}")
@@ -2196,7 +2201,7 @@ def _apply_package_source_expectations(states: list[dict[str, Any]], steps: dict
 _REQUIRED_ARGUMENT_ROLE = "effective-required-argument-list"
 _REQUIRED_ARGUMENT_RUN_SHA256 = "dababaec377d50eb83daa95fab958009089db11a207214bdbab1ea0156a0f81a"
 _REQUIRED_ARGUMENT_SOURCE_PINS = {
-    ".github/workflows/pulse_ci.yml": "db07510afb66fa6b92635066da8cdc02561cf32c",
+    ".github/workflows/pulse_ci.yml": "6086519b9d90f84f093170245dc54017f9d720d8",
     "pulse_gate_policy_v0.yml": "a311b424ad0f6c028b9c37b18572e7a09c721cdd",
     "tools/policy_to_require_args.py": "5b1d099485d0e3bfd90da3fff1213a4e949db850",
     "PULSE_safe_pack_v0/tools/check_gates.py": "2a593bdef31c9c8cb565b1c4ca3d16a1e3093735",
@@ -2354,7 +2359,7 @@ def _verify_source_required_argument_equations(
 # inspects copy and handoff source; it does not trust either constructed plan.
 _BUNDLE_ROLES = ("release-authority-audit-bundle", "advisory-reference-bundle")
 _BUNDLE_SOURCE_PINS = {
-    ".github/workflows/pulse_ci.yml": "db07510afb66fa6b92635066da8cdc02561cf32c",
+    ".github/workflows/pulse_ci.yml": "6086519b9d90f84f093170245dc54017f9d720d8",
     "PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py": "8f01602e973b890eb2ae0928bd62dfd65e691f79",
 }
 
@@ -2559,7 +2564,7 @@ _PROVENANCE_ASSEMBLER = "PULSE_safe_pack_v0/tools/assemble_release_grade_referen
 _PROVENANCE_ROLE = "artifact-provenance-binding"
 _PROVENANCE_JOB = "release_grade_recorded_path"
 _PROVENANCE_SOURCE_PINS = {
-    SUBJECT_WORKFLOW_PATH: "db07510afb66fa6b92635066da8cdc02561cf32c",
+    SUBJECT_WORKFLOW_PATH: "6086519b9d90f84f093170245dc54017f9d720d8",
     _PROVENANCE_BUILD: "d3f07cbbf8fd38831a42d8fe8e891c23df4c7792",
     _PROVENANCE_VERIFY: "665398c8841e4dd9534875831c93c749c3ccf94b",
     _PROVENANCE_ASSEMBLER: "8f01602e973b890eb2ae0928bd62dfd65e691f79",
@@ -2752,7 +2757,7 @@ _FLOOR_BUILD_PATH = "PULSE_safe_pack_v0/tools/build_self_contained_pulse_evidenc
 _FLOOR_SOURCE_PINS = {
     SUBJECT_WORKFLOW_PATH: EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1,
     _FLOOR_BUILD_PATH: "2f7776e609ef7ef2fb8fcd40d5ee30e46ed46f6a",
-    "PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py": "4298b7644acb0d8f7c50bbbac5308fb5038a501a",
+    "PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py": "553a696640eedc559edced2bdf4f4ff171cf7685",
     "tools/validate_status_schema.py": "f329f882805615402a9fed99f67d4e7667891c06",
 }
 _FLOOR_FLAGS = (
@@ -4228,7 +4233,7 @@ def _verify_source_report_publication_equations(
 # Residual input reconciliation under the exact reviewed workflow. These are
 # source-declared reads/transport inputs, never observed runtime read receipts.
 _RESIDUAL_SOURCE_PINS = {'PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py': '6dcf6826d2c04143b86c7f7b6dfd6c8c43d028f7',
- 'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py': '4298b7644acb0d8f7c50bbbac5308fb5038a501a',
+ 'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py': '553a696640eedc559edced2bdf4f4ff171cf7685',
  'PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py': '7fa6539f614d3d30bb603c523889f38bf4c012c1',
  'PULSE_safe_pack_v0/tools/check_recorded_release_evidence_v0.py': '561e72a8e2ea2d25faa2a80cbecf025192435c38',
  'PULSE_safe_pack_v0/tools/status_to_junit.py': '3eea6c90d59fd1088db64dc1d1bcdce38e06e7a1',
@@ -5957,7 +5962,7 @@ def _check_local_r2_plan(
 
 
 # Commit-bound R2 routing. Local candidates remain a separate record family.
-PUBLIC_R2_SOURCE_ROLES = _LOCAL_R2_SOURCE_ROLES + (('r2_llamaguard_pack_schema', 'PULSE_safe_pack_v0/schemas/external_summary_v1.schema.json'), ('r2_provider_expectation_schema', 'schemas/pulsemech_compute_current_run_export_expectation_v0.schema.json'), ('r2_provider_expectation_checker', 'tools/check_pulsemech_compute_current_run_export_expectation_v0.py'), ('r2_subject_input_producer_core', 'tools/pulsemech_compute_subject_input_packet_producer_core_v0.py'))
+PUBLIC_R2_SOURCE_ROLES = _LOCAL_R2_SOURCE_ROLES + (('r2_llamaguard_pack_schema', 'PULSE_safe_pack_v0/schemas/external_summary_v1.schema.json'), ('r2_provider_expectation_schema', 'schemas/pulsemech_compute_current_run_export_expectation_v0.schema.json'), ('r2_provider_expectation_checker', 'tools/check_pulsemech_compute_current_run_export_expectation_v0.py'), ('r2_subject_input_producer_core', 'tools/pulsemech_compute_subject_input_packet_producer_core_v0.py')) + (("attestation_dependency_lock", ATTESTATION_LOCK_PATH),)
 
 PUBLIC_R2_PROFILE = 'pulsemech_step5c_post_run_state_evidence_v1'
 PUBLIC_R2_BINDING_VERSION = 'pulsemech_step5c_r2_commit_bound_requirements_v1'

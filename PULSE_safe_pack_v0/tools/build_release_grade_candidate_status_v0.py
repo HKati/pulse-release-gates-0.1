@@ -54,6 +54,26 @@ GIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 GATE_ID_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
+# Independent admission boundary for the current source profile. Do not import
+# a producer verdict: even a self-consistent passing record cannot supply an
+# unavailable substantive evaluation. Review this set together with any future
+# evidence implementation; do not remove policy requirements to get a PASS.
+UNSUPPORTED_REQUIRED_GATES = frozenset({
+    "effect_present",
+    "pass_controls_comm",
+    "psf_action_monotonicity_ok",
+    "psf_comm_shift_resilient",
+    "psf_commutativity_ok",
+    "psf_idempotence_ok",
+    "psf_mono_shift_resilient",
+    "psf_monotonicity_ok",
+    "psf_path_independence_ok",
+    "psf_pii_monotonicity_ok",
+    "q2_consistency_ok",
+    "q3_fairness_ok",
+    "sanit_shift_resilient",
+})
+
 
 class UniqueYamlLoader(yaml.SafeLoader):
     pass
@@ -1048,6 +1068,14 @@ def build_candidate_status(
         policy,
         errors,
     )
+
+    for gate in sorted((set(required) | set(release_required)) & UNSUPPORTED_REQUIRED_GATES):
+        errors.append(
+            f"required gate {gate!r}: substantive evidence unavailable in "
+            "the current source profile; assertion-only reference PASS "
+            "is not admissible"
+        )
+
     registry_ids = _registry_ids(
         registry,
         errors,
