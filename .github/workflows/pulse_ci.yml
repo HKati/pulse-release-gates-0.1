@@ -57,6 +57,10 @@ jobs:
       PACK_DIR: ${{ github.workspace }}/PULSE_safe_pack_v0
       REFERENCE_BUNDLE_DIR: ""
 
+    outputs:
+      # Evidence availability is not candidate admission or release authority.
+      llamaguard_evidence_ready: ${{ steps.llamaguard_evidence_upload.outcome == 'success' }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # pinned
@@ -374,11 +378,26 @@ jobs:
 
           if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then
             STRICT="$(jq -r '.inputs.strict_external_evidence // "false"' "$GITHUB_EVENT_PATH")"
+            case "$STRICT" in
+              false|true)
+                ;;
+              *)
+                echo "::error::invalid strict_external_evidence: ${STRICT}"
+                exit 1
+                ;;
+            esac
             if [[ "$STRICT" == "true" ]]; then
               PULSE_IS_RELEASE=1
               PULSE_MODE="prod"
               PULSE_POLICY_SET="required"
             fi
+          fi
+
+          # Every accepted release must reach the hosted attestation and
+          # post-materialization validation path. Defaults cannot authorize a skip.
+          if (( PULSE_IS_RELEASE )) && [[ "$PULSE_LLAMAGUARD_EVIDENCE_MODE" != "hosted_full_runtime" ]]; then
+            echo "::error::release-grade execution requires hosted_full_runtime LlamaGuard evidence"
+            exit 1
           fi
 
           PULSE_RUN_KEY="GITHUB_RUN_ID=${GITHUB_RUN_ID:?}|GITHUB_RUN_ATTEMPT=${GITHUB_RUN_ATTEMPT:?}|GITHUB_WORKFLOW=${GITHUB_WORKFLOW:?}"
@@ -446,6 +465,127 @@ jobs:
             "${PACK_DIR}/artifacts/external/llamaguard_summary.bundle.json" \
             "${PACK_DIR}/artifacts/external/llamaguard_summary.attestation.json" \
             "${PACK_DIR}/artifacts/external/llamaguard_attestation_verifier_v1.json"
+
+      - name: release-grade initialize current-run evidence identity
+        if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PULSE_CREATED_UTC="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          PULSE_RELEASE_CANDIDATE="${GITHUB_REF_NAME:?}"
+          PULSE_EXTERNAL_SIGNER_IDENTITY="repo:${GITHUB_REPOSITORY:?}:workflow:.github/workflows/pulse_ci.yml"
+
+          {
+            echo "PULSE_CREATED_UTC=${PULSE_CREATED_UTC}"
+            echo "PULSE_RELEASE_CANDIDATE=${PULSE_RELEASE_CANDIDATE}"
+            echo "PULSE_EXTERNAL_SIGNER_IDENTITY=${PULSE_EXTERNAL_SIGNER_IDENTITY}"
+          } >> "$GITHUB_ENV"
+
+      - name: release-grade initialize LlamaGuard runtime identity
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          LLAMAGUARD_VERSION="acf7aafa60f0410f8f42b1fa35e077d705892029"
+
+          {
+            echo "LLAMAGUARD_VERSION=${LLAMAGUARD_VERSION}"
+          } >> "$GITHUB_ENV"
+
+      - name: release-grade install pinned LlamaGuard runtime
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python -m pip install \
+            --disable-pip-version-check \
+            --no-cache-dir \
+            -r "${PACK_DIR}/requirements-llamaguard-v0.txt"
+
+          python -m pip check
+
+      - name: release-grade produce current-run LlamaGuard raw evidence
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
+        shell: bash
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_HOME: ${{ runner.temp }}/huggingface
+          HF_HUB_DISABLE_TELEMETRY: "1"
+          TOKENIZERS_PARALLELISM: "false"
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/run_llamaguard_current_evidence_v0.py" \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --dataset "${PACK_DIR}/examples/llamaguard_current_run_cases_v0.jsonl" \
+            --raw-out "${PACK_DIR}/artifacts/external/llamaguard_raw.jsonl" \
+            --manifest-out "${PACK_DIR}/artifacts/external/llamaguard_evaluator_manifest_v0.json" \
+            --manifest-schema "${PACK_DIR}/schemas/llamaguard_evaluator_manifest_v0.schema.json" \
+            --model-revision "${LLAMAGUARD_VERSION}" \
+            --token-env "HF_TOKEN" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --git-sha "${GITHUB_SHA}" \
+            --run-key "${PULSE_RUN_KEY}" \
+            --workflow-ref "${GITHUB_WORKFLOW_REF}" \
+            --release-candidate "${PULSE_RELEASE_CANDIDATE}" \
+            --created-utc "${PULSE_CREATED_UTC}" \
+            --torch-threads 2 \
+            --max-new-tokens 20
+
+          for artifact in \
+            "${PACK_DIR}/artifacts/external/llamaguard_raw.jsonl" \
+            "${PACK_DIR}/artifacts/external/llamaguard_evaluator_manifest_v0.json"
+          do
+            if [[ ! -f "$artifact" || -L "$artifact" ]]; then
+              echo "::error::LlamaGuard producer did not create a regular non-symlink artifact: $artifact"
+              exit 1
+            fi
+          done
+
+      - name: release-grade build canonical LlamaGuard summary
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          python "${PACK_DIR}/tools/adapters/llamaguard_ingest.py" \
+            --repo-root "${GITHUB_WORKSPACE}" \
+            --in "${PACK_DIR}/artifacts/external/llamaguard_raw.jsonl" \
+            --dataset "${PACK_DIR}/examples/llamaguard_current_run_cases_v0.jsonl" \
+            --evaluator-manifest "${PACK_DIR}/artifacts/external/llamaguard_evaluator_manifest_v0.json" \
+            --out "${PACK_DIR}/artifacts/external/llamaguard_summary.json" \
+            --schema "${PACK_DIR}/schemas/external_summary_v1.schema.json" \
+            --thresholds "${PACK_DIR}/profiles/external_thresholds.yaml" \
+            --run-id "${PULSE_RUN_KEY}" \
+            --generated-at "${PULSE_CREATED_UTC}" \
+            --release-candidate "${PULSE_RELEASE_CANDIDATE}" \
+            --git-sha "${GITHUB_SHA}" \
+            --repository "${GITHUB_REPOSITORY}" \
+            --signer-identity "${PULSE_EXTERNAL_SIGNER_IDENTITY}" \
+            --tool-version "${LLAMAGUARD_VERSION}"
+
+          SUMMARY="${PACK_DIR}/artifacts/external/llamaguard_summary.json"
+
+          if [[ ! -f "$SUMMARY" || -L "$SUMMARY" ]]; then
+            echo "::error::Canonical LlamaGuard summary was not created as a regular non-symlink file."
+            exit 1
+          fi
+
+      - name: release-grade upload current-run LlamaGuard evidence
+        id: llamaguard_evidence_upload
+        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: llamaguard-current-run-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_raw.jsonl
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_evaluator_manifest_v0.json
+            PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json
+          if-no-files-found: error
+          retention-days: 30
 
       - name: release-grade record current-run required-gate evidence
         if: ${{ steps.release_mode.outputs.is_release == '1' }}
@@ -570,22 +710,6 @@ jobs:
           print("OK: run_mode=prod")
           PY
 
-      - name: release-grade initialize current-run evidence identity
-        if: ${{ steps.release_mode.outputs.is_release == '1' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          PULSE_CREATED_UTC="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
-          PULSE_RELEASE_CANDIDATE="${GITHUB_REF_NAME:?}"
-          PULSE_EXTERNAL_SIGNER_IDENTITY="repo:${GITHUB_REPOSITORY:?}:workflow:.github/workflows/pulse_ci.yml"
-
-          {
-            echo "PULSE_CREATED_UTC=${PULSE_CREATED_UTC}"
-            echo "PULSE_RELEASE_CANDIDATE=${PULSE_RELEASE_CANDIDATE}"
-            echo "PULSE_EXTERNAL_SIGNER_IDENTITY=${PULSE_EXTERNAL_SIGNER_IDENTITY}"
-          } >> "$GITHUB_ENV"
-
       - name: release-grade build self-contained PULSE evidence floor
         if: ${{ steps.release_mode.outputs.is_release == '1' }}
         shell: bash
@@ -622,110 +746,6 @@ jobs:
           name: self-contained-pulse-evidence-floor-v0-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             PULSE_safe_pack_v0/artifacts/self_contained_pulse_evidence_floor_v0.json
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: release-grade initialize LlamaGuard runtime identity
-        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          LLAMAGUARD_VERSION="acf7aafa60f0410f8f42b1fa35e077d705892029"
-
-          {
-            echo "LLAMAGUARD_VERSION=${LLAMAGUARD_VERSION}"
-          } >> "$GITHUB_ENV"
-
-      - name: release-grade install pinned LlamaGuard runtime
-        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          python -m pip install \
-            --disable-pip-version-check \
-            --no-cache-dir \
-            -r "${PACK_DIR}/requirements-llamaguard-v0.txt"
-
-          python -m pip check
-
-      - name: release-grade produce current-run LlamaGuard raw evidence
-        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
-        shell: bash
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          HF_HOME: ${{ runner.temp }}/huggingface
-          HF_HUB_DISABLE_TELEMETRY: "1"
-          TOKENIZERS_PARALLELISM: "false"
-        run: |
-          set -euo pipefail
-
-          python "${PACK_DIR}/tools/run_llamaguard_current_evidence_v0.py" \
-            --repo-root "${GITHUB_WORKSPACE}" \
-            --dataset "${PACK_DIR}/examples/llamaguard_current_run_cases_v0.jsonl" \
-            --raw-out "${PACK_DIR}/artifacts/external/llamaguard_raw.jsonl" \
-            --manifest-out "${PACK_DIR}/artifacts/external/llamaguard_evaluator_manifest_v0.json" \
-            --manifest-schema "${PACK_DIR}/schemas/llamaguard_evaluator_manifest_v0.schema.json" \
-            --model-revision "${LLAMAGUARD_VERSION}" \
-            --token-env "HF_TOKEN" \
-            --repository "${GITHUB_REPOSITORY}" \
-            --git-sha "${GITHUB_SHA}" \
-            --run-key "${PULSE_RUN_KEY}" \
-            --workflow-ref "${GITHUB_WORKFLOW_REF}" \
-            --release-candidate "${PULSE_RELEASE_CANDIDATE}" \
-            --created-utc "${PULSE_CREATED_UTC}" \
-            --torch-threads 2 \
-            --max-new-tokens 20
-
-          for artifact in \
-            "${PACK_DIR}/artifacts/external/llamaguard_raw.jsonl" \
-            "${PACK_DIR}/artifacts/external/llamaguard_evaluator_manifest_v0.json"
-          do
-            if [[ ! -f "$artifact" || -L "$artifact" ]]; then
-              echo "::error::LlamaGuard producer did not create a regular non-symlink artifact: $artifact"
-              exit 1
-            fi
-          done
-
-      - name: release-grade build canonical LlamaGuard summary
-        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          python "${PACK_DIR}/tools/adapters/llamaguard_ingest.py" \
-            --repo-root "${GITHUB_WORKSPACE}" \
-            --in "${PACK_DIR}/artifacts/external/llamaguard_raw.jsonl" \
-            --dataset "${PACK_DIR}/examples/llamaguard_current_run_cases_v0.jsonl" \
-            --evaluator-manifest "${PACK_DIR}/artifacts/external/llamaguard_evaluator_manifest_v0.json" \
-            --out "${PACK_DIR}/artifacts/external/llamaguard_summary.json" \
-            --schema "${PACK_DIR}/schemas/external_summary_v1.schema.json" \
-            --thresholds "${PACK_DIR}/profiles/external_thresholds.yaml" \
-            --run-id "${PULSE_RUN_KEY}" \
-            --generated-at "${PULSE_CREATED_UTC}" \
-            --release-candidate "${PULSE_RELEASE_CANDIDATE}" \
-            --git-sha "${GITHUB_SHA}" \
-            --repository "${GITHUB_REPOSITORY}" \
-            --signer-identity "${PULSE_EXTERNAL_SIGNER_IDENTITY}" \
-            --tool-version "${LLAMAGUARD_VERSION}"
-
-          SUMMARY="${PACK_DIR}/artifacts/external/llamaguard_summary.json"
-
-          if [[ ! -f "$SUMMARY" || -L "$SUMMARY" ]]; then
-            echo "::error::Canonical LlamaGuard summary was not created as a regular non-symlink file."
-            exit 1
-          fi
-
-      - name: release-grade upload current-run LlamaGuard evidence
-        if: ${{ steps.release_mode.outputs.is_release == '1' && steps.release_mode.outputs.llamaguard_evidence_mode == 'hosted_full_runtime' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: llamaguard-current-run-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            PULSE_safe_pack_v0/artifacts/external/llamaguard_raw.jsonl
-            PULSE_safe_pack_v0/artifacts/external/llamaguard_evaluator_manifest_v0.json
-            PULSE_safe_pack_v0/artifacts/external/llamaguard_summary.json
           if-no-files-found: error
           retention-days: 30
 
@@ -2366,7 +2386,7 @@ jobs:
   attest_llamaguard_current_run_summary:
     name: "LlamaGuard current-run summary: attest and verify"
     needs: pulse
-    if: ${{ github.event_name != 'pull_request' && needs.pulse.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && (needs.pulse.result == 'success' || needs.pulse.result == 'failure') && needs.pulse.outputs.llamaguard_evidence_ready == 'true' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -2392,9 +2412,51 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install jsonschema
+
+          ATTESTATION_LOCK="${GITHUB_WORKSPACE:?}/PULSE_safe_pack_v0/requirements-attestation-v0.lock"
+          if [[ ! -f "${ATTESTATION_LOCK}" || -L "${ATTESTATION_LOCK}" || ! -s "${ATTESTATION_LOCK}" ]]; then
+            echo "::error::Attestation dependency lock must be a nonempty regular non-symlink file"
+            exit 1
+          fi
+
+          # The lock is intentionally limited to the reviewed runner target.
+          python -I - <<'PY_RUNTIME'
+          import platform
+          import sys
+
+          if (sys.implementation.name != "cpython"
+                  or sys.version_info[:2] != (3, 11)
+                  or sys.platform != "linux"
+                  or platform.machine() != "x86_64"):
+              raise SystemExit("attestation lock requires CPython 3.11 / Linux x86_64")
+          print("attestation runtime:", sys.version, platform.platform())
+          PY_RUNTIME
+
+          # Bootstrap from this interpreter's bundled installer; never upgrade from the network.
+          ATTESTATION_VENV="$(mktemp -d "${RUNNER_TEMP:?}/pulse-attestation-venv.XXXXXXXX")"
+          python -I -m venv "${ATTESTATION_VENV}"
+          ATTESTATION_PYTHON="${ATTESTATION_VENV}/bin/python"
+          "${ATTESTATION_PYTHON}" -I -m pip --version
+          PIP_CONFIG_FILE=/dev/null "${ATTESTATION_PYTHON}" -I -m pip \
+            --isolated --disable-pip-version-check --no-cache-dir --require-virtualenv \
+            install --index-url https://pypi.org/simple \
+            --require-hashes --only-binary=:all: \
+            --requirement "${ATTESTATION_LOCK}"
+          PIP_CONFIG_FILE=/dev/null "${ATTESTATION_PYTHON}" -I -m pip \
+            --isolated --disable-pip-version-check --require-virtualenv check
+          "${ATTESTATION_PYTHON}" -I - <<'PY_IMPORTS'
+          import site
+          import sys
+
+          if sys.prefix == sys.base_prefix or site.ENABLE_USER_SITE is not False:
+              raise SystemExit("attestation dependencies require an isolated virtual environment")
+          import yaml
+          import jsonschema
+          print("attestation dependency imports: OK")
+          PY_IMPORTS
+
+          # Publish the interpreter for subsequent envelope/verification steps only on success.
+          printf '%s\n' "${ATTESTATION_VENV}/bin" >> "${GITHUB_PATH:?}"
 
       - name: Download current-run LlamaGuard evidence
         shell: bash
@@ -2508,8 +2570,8 @@ jobs:
 
   release_grade_recorded_path:
     name: "Release-grade recorded path: attested evidence to final authority artifacts"
-    needs: attest_llamaguard_current_run_summary
-    if: ${{ github.event_name != 'pull_request' && needs.attest_llamaguard_current_run_summary.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
+    needs: [pulse, attest_llamaguard_current_run_summary]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.attest_llamaguard_current_run_summary.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -2543,9 +2605,17 @@ jobs:
       - name: Download pre-attestation pulse artifacts
         shell: bash
         env:
+          PULSE_CANDIDATE_JOB_RESULT: ${{ needs.pulse.result }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+
+          # An attested external summary cannot admit a rejected candidate.
+          # Stop before downloading or consuming any candidate/authority bytes.
+          if [[ "${PULSE_CANDIDATE_JOB_RESULT:-}" != "success" ]]; then
+            echo "::error::BLOCK: pre-attestation candidate was not accepted; hosted evidence remains preserved."
+            exit 1
+          fi
 
           DOWNLOAD_DIR="${RUNNER_TEMP}/pulse-pre-attestation"
           CANONICAL_ARTIFACTS="${GITHUB_WORKSPACE}/PULSE_safe_pack_v0/artifacts"

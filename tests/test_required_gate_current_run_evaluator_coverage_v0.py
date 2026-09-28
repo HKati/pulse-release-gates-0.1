@@ -1,19 +1,11 @@
 #!/usr/bin/env python3
-"""Lock release-grade required-gate evaluator coverage.
+"""Lock complete required-gate availability and fail-closed classification.
 
-The controlled strict release-grade run failed before status.json because the
-required-gate evidence producer correctly failed closed for required gates that
-still had no dedicated current-run evaluator.
-
-This test locks the next mechanical requirement:
-
-    every gate in pulse_gate_policy_v0.yml:gates.required
-    must have a dedicated checked-in current-run evaluator recipe.
-
-It does not require removing the unsupported/fail-closed helper entirely. That
-helper may remain for unknown or future gates. The invariant is narrower:
-nothing in the normative release-grade required set may still route through the
-unsupported fallback.
+All 19 canonical requirements retain their plan entries. The six existing
+recipes and 13 explicit unsupported entries form a complete, disjoint partition.
+A recipe backed only by recorded PASS assertions is not an admissible evaluator.
+CLI rejection and independent candidate admission are exercised in the existing
+release-grade candidate evidence-path suite; no requirement is dropped here.
 """
 
 from __future__ import annotations
@@ -48,7 +40,7 @@ TEST_PATH = (
 )
 TOOLS_TESTS_LIST = REPO_ROOT / "ci" / "tools-tests.list"
 
-FAILED_GATE_IDS_FROM_DIAGNOSTIC_RUN = {
+UNSUPPORTED_GATE_IDS = {
     "effect_present",
     "pass_controls_comm",
     "psf_action_monotonicity_ok",
@@ -179,50 +171,36 @@ def _flag_value(command: list[Any], flag: str) -> str | None:
     return value if isinstance(value, str) else None
 
 
-def test_every_required_gate_has_dedicated_current_run_recipe() -> None:
+def test_every_required_gate_has_explicit_disjoint_classification() -> None:
     required = set(_load_policy_required_gates())
     module = _load_evaluator_module()
-
     recipes = getattr(module, "RECIPES", None)
-    assert isinstance(recipes, dict), "evaluator must expose RECIPES mapping"
-
     unsupported_reasons = getattr(module, "UNSUPPORTED_REASONS", None)
+    assert isinstance(recipes, dict), "evaluator must expose RECIPES mapping"
     assert isinstance(unsupported_reasons, dict), (
         "evaluator must expose UNSUPPORTED_REASONS mapping"
     )
-
-    missing_recipes = sorted(required - set(recipes))
-    assert not missing_recipes, (
-        "every gates.required entry must have a dedicated current-run "
-        f"evaluator recipe; missing: {missing_recipes}"
+    assert len(required) == 19
+    assert set(recipes) == {
+        "pass_controls_refusal", "refusal_delta_pass", "pass_controls_sanit",
+        "sanitization_effective", "q1_grounded_ok", "q4_slo_ok",
+    }
+    assert set(unsupported_reasons) == UNSUPPORTED_GATE_IDS
+    assert not (set(recipes) & set(unsupported_reasons))
+    assert set(recipes) | set(unsupported_reasons) == required, (
+        "every policy requirement needs exactly one availability disposition"
     )
-
-    required_still_unsupported = sorted(required & set(unsupported_reasons))
-    assert not required_still_unsupported, (
-        "no gates.required entry may remain routed through the unsupported "
-        f"fallback; still unsupported: {required_still_unsupported}"
-    )
+    for gate, reason in unsupported_reasons.items():
+        assert isinstance(reason, str) and gate in reason
+        assert "insufficient evidence" in reason
 
 
-def test_previous_failed_required_gates_are_now_recipe_backed() -> None:
+def test_assertion_only_required_gates_have_no_normative_recipe() -> None:
     module = _load_evaluator_module()
-
-    recipes = getattr(module, "RECIPES", {})
-    unsupported_reasons = getattr(module, "UNSUPPORTED_REASONS", {})
-
-    missing = sorted(FAILED_GATE_IDS_FROM_DIAGNOSTIC_RUN - set(recipes))
-    unsupported = sorted(
-        FAILED_GATE_IDS_FROM_DIAGNOSTIC_RUN & set(unsupported_reasons)
-    )
-
-    assert not missing, (
-        "the gates that failed in the controlled strict release-grade "
-        f"diagnostic run must now be recipe-backed; missing: {missing}"
-    )
-    assert not unsupported, (
-        "the gates that failed in the controlled strict release-grade "
-        f"diagnostic run must no longer be unsupported: {unsupported}"
-    )
+    assert not (UNSUPPORTED_GATE_IDS & set(module.RECIPES))
+    assert set(module.UNSUPPORTED_REASONS) == UNSUPPORTED_GATE_IDS
+    for recipe in module.RECIPES.values():
+        assert not recipe.builder.endswith("build_required_gate_reference_summary_v0.py")
 
 
 def test_required_gate_recipes_are_checked_in_and_non_symlinked() -> None:
@@ -231,8 +209,11 @@ def test_required_gate_recipes_are_checked_in_and_non_symlinked() -> None:
     recipes = getattr(module, "RECIPES", {})
 
     for gate_id in required:
+        if gate_id in module.UNSUPPORTED_REASONS:
+            assert gate_id not in recipes
+            continue
         recipe = recipes.get(gate_id)
-        assert recipe is not None, f"missing recipe for {gate_id}"
+        assert recipe is not None, f"unclassified required gate: {gate_id}"
 
         for label, raw_path in _recipe_paths(recipe):
             path = _repo_relative_declared_path(raw_path)
@@ -337,8 +318,8 @@ def test_required_gate_current_run_evaluator_coverage_smoke_registered() -> None
 
 
 def main() -> int:
-    test_every_required_gate_has_dedicated_current_run_recipe()
-    test_previous_failed_required_gates_are_now_recipe_backed()
+    test_every_required_gate_has_explicit_disjoint_classification()
+    test_assertion_only_required_gates_have_no_normative_recipe()
     test_required_gate_recipes_are_checked_in_and_non_symlinked()
     test_required_gate_plan_remains_exactly_policy_required()
     test_required_gate_current_run_evaluator_coverage_smoke_registered()

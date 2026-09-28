@@ -35,6 +35,22 @@ SIGNER_IDENTITY = (
 REQUIRED_GATE = "q1_grounded_ok"
 UNSUPPORTED_GATE = "q2_consistency_ok"
 
+UNSUPPORTED_GATE_IDS = (
+    "effect_present",
+    "pass_controls_comm",
+    "psf_action_monotonicity_ok",
+    "psf_comm_shift_resilient",
+    "psf_commutativity_ok",
+    "psf_idempotence_ok",
+    "psf_mono_shift_resilient",
+    "psf_monotonicity_ok",
+    "psf_path_independence_ok",
+    "psf_pii_monotonicity_ok",
+    "q2_consistency_ok",
+    "q3_fairness_ok",
+    "sanit_shift_resilient",
+)
+
 RELEASE_REQUIRED_GATES = [
     "detectors_materialized_ok",
     "external_summaries_present",
@@ -346,6 +362,7 @@ def _artifact_ref(
 
 def _bootstrap_repo(
     tmp_path: Path,
+    required_gate: str = REQUIRED_GATE,
 ) -> Path:
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -423,19 +440,19 @@ def _bootstrap_repo(
 
     _write_text(
         repo / "pulse_gate_policy_v0.yml",
-        _policy_text(),
+        _policy_text(required_gate),
     )
 
     _write_text(
         repo / "pulse_gate_registry_v0.yml",
-        _registry_text(),
+        _registry_text(required_gate),
     )
 
     _write_json(
         repo
         / "PULSE_safe_pack_v0/profiles/"
         "required_gate_evaluations_v0.json",
-        _plan_payload(),
+        _plan_payload(required_gate),
     )
 
     _write_text(
@@ -744,7 +761,7 @@ llamaguard_violation_rate_max: 0.10
     result_relative = (
         "PULSE_safe_pack_v0/artifacts/"
         "required_gate_inputs/"
-        f"{REQUIRED_GATE}.json"
+        f"{required_gate}.json"
     )
 
     result_payload = {
@@ -753,10 +770,10 @@ llamaguard_violation_rate_max: 0.10
             "evaluation_result_v0"
         ),
         "created_utc": CREATED_UTC,
-        "gate_id": REQUIRED_GATE,
+        "gate_id": required_gate,
         "evaluation_id": (
             f"pulse.required."
-            f"{REQUIRED_GATE}.v0"
+            f"{required_gate}.v0"
         ),
         "pass": True,
         "status": "passed",
@@ -819,7 +836,7 @@ llamaguard_violation_rate_max: 0.10
             {
                 "check_id": (
                     "pulse.required."
-                    "q1_grounded_ok."
+                    f"{required_gate}."
                     "synthetic.v0"
                 ),
                 "kind": "contract",
@@ -917,12 +934,12 @@ llamaguard_violation_rate_max: 0.10
             ),
         },
         "gates": {
-            REQUIRED_GATE: {
+            required_gate: {
                 "value": True,
                 "status": "passed",
                 "evaluation_id": (
                     f"pulse.required."
-                    f"{REQUIRED_GATE}.v0"
+                    f"{required_gate}.v0"
                 ),
                 "evidence_artifacts": [
                     _artifact_ref(
@@ -1151,22 +1168,24 @@ def test_required_evidence_producer_rejects_incomplete_plan(
     )
 
 
+@pytest.mark.parametrize("gate_id", UNSUPPORTED_GATE_IDS)
 def test_unimplemented_required_gate_fails_closed_with_recorded_result(
     tmp_path: Path,
+    gate_id: str,
 ) -> None:
     repo = _bootstrap_repo(tmp_path)
 
     _write_text(
         repo / "pulse_gate_policy_v0.yml",
         _policy_text(
-            UNSUPPORTED_GATE
+            gate_id
         ),
     )
 
     _write_text(
         repo / "pulse_gate_registry_v0.yml",
         _registry_text(
-            UNSUPPORTED_GATE
+            gate_id
         ),
     )
 
@@ -1175,7 +1194,7 @@ def test_unimplemented_required_gate_fails_closed_with_recorded_result(
         / "PULSE_safe_pack_v0/profiles/"
         "required_gate_evaluations_v0.json",
         _plan_payload(
-            UNSUPPORTED_GATE
+            gate_id
         ),
     )
 
@@ -1194,21 +1213,21 @@ def test_unimplemented_required_gate_fails_closed_with_recorded_result(
         repo
         / "PULSE_safe_pack_v0/artifacts/"
         "required_gate_inputs/"
-        f"{UNSUPPORTED_GATE}.json"
+        f"{gate_id}.json"
     )
 
     env = _base_env()
 
     env[
         "PULSE_REQUIRED_GATE_ID"
-    ] = UNSUPPORTED_GATE
+    ] = gate_id
 
     env[
         "PULSE_REQUIRED_GATE_"
         "EVALUATION_ID"
     ] = (
         f"pulse.required."
-        f"{UNSUPPORTED_GATE}.v0"
+        f"{gate_id}.v0"
     )
 
     result = _run_tool(
@@ -1220,12 +1239,12 @@ def test_unimplemented_required_gate_fails_closed_with_recorded_result(
         "--repo-root",
         str(repo),
         "--gate-id",
-        UNSUPPORTED_GATE,
+        gate_id,
         "--out",
         (
             "PULSE_safe_pack_v0/artifacts/"
             "required_gate_inputs/"
-            f"{UNSUPPORTED_GATE}.json"
+            f"{gate_id}.json"
         ),
         env=env,
     )
@@ -1237,7 +1256,8 @@ def test_unimplemented_required_gate_fails_closed_with_recorded_result(
 
     assert payload["pass"] is False
     assert payload["status"] == "failed"
-    assert payload["diagnostics"]
+    assert any(gate_id in item and "insufficient evidence" in item
+               for item in payload["diagnostics"])
 
     assert (
         payload["checks"][0]["passed"]
@@ -1252,6 +1272,58 @@ def test_unimplemented_required_gate_fails_closed_with_recorded_result(
         ]
         is False
     )
+
+
+@pytest.mark.parametrize("gate_id", UNSUPPORTED_GATE_IDS)
+def test_aggregate_records_unsupported_required_gate_rejection(
+    tmp_path: Path, gate_id: str,
+) -> None:
+    repo = _bootstrap_repo(tmp_path, required_gate=gate_id)
+    result = _run_tool(
+        repo,
+        "PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py",
+        "--repo-root", str(repo),
+        "--git-sha", GIT_SHA, "--run-key", RUN_KEY,
+        "--repository", REPOSITORY,
+    )
+    assert result.returncode == 1, result.stderr
+    assert "candidate evidence was recorded" in result.stderr
+    aggregate = _read_json(
+        repo / "PULSE_safe_pack_v0/artifacts/required_gate_evidence_v0.json"
+    )
+    assert set(aggregate["gates"]) == {gate_id}
+    assert aggregate["gates"][gate_id]["value"] is False
+    payload = _read_json(
+        repo / f"PULSE_safe_pack_v0/artifacts/required_gate_inputs/{gate_id}.json"
+    )
+    assert payload["pass"] is False
+    assert payload["status"] == "failed"
+    assert any("insufficient evidence" in item for item in payload["diagnostics"])
+
+
+@pytest.mark.parametrize("gate_id", UNSUPPORTED_GATE_IDS)
+def test_candidate_independently_rejects_unsupported_passing_result(
+    tmp_path: Path, gate_id: str,
+) -> None:
+    # This is a contract fixture, not substantive gate evidence. Its positive
+    # default is retained by the existing bounded q1 builder-chain control.
+    # There is no upstream failure code or warning on which to base rejection.
+    repo = _bootstrap_repo(tmp_path, required_gate=gate_id)
+    payload = _read_json(
+        repo / f"PULSE_safe_pack_v0/artifacts/required_gate_inputs/{gate_id}.json"
+    )
+    assert payload["pass"] is True
+    assert payload["status"] == "passed"
+    assert payload["diagnostics"] == []
+    output = repo / "PULSE_safe_pack_v0/artifacts/status.json"
+    _write_json(output, {"gates": {gate_id: True}, "stale": True})
+    result = _build_candidate_status(repo)
+    assert result.returncode != 0
+    assert not output.exists(), "rejected evidence must not leave stale success"
+    assert f"required gate {gate_id!r}: substantive evidence unavailable" in result.stderr
+    assert "assertion-only reference PASS is not admissible" in result.stderr
+    assert result.stderr.count(" - ") == 1, result.stderr
+
 
 
 def test_candidate_status_rejects_tampered_gate_result(

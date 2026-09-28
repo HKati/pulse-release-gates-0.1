@@ -2,6 +2,8 @@
 
 All run/job/artifact IDs and clock values below are deterministic EXAMPLES.
 The source fixture is a new local Git repository, never an upstream commit.
+The native positive terminal fixture has its own six-recipe TEST policy and
+exact policy-pin revision; it is not a passing 19-gate repository release.
 HTTP and artifact retrieval use a rejecting in-memory transport: no live
 workflow, model inference, network request or production decision is performed.
 
@@ -48,7 +50,7 @@ DOC = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)
 JOBS = DOC['jobs']
 
 def load_module(name):
-    spec = importlib.util.spec_from_file_location('step5c_regression_' + name, SOURCES / (name + '.py'))
+    spec = importlib.util.spec_from_file_location(__name__ + '_' + name, SOURCES / (name + '.py'))
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -2017,6 +2019,92 @@ def test_external_shell_steps_do_not_supply_successful_individual_call_results(s
         assert call['request']['payload']['capture_status'] == templates[call['call_id']]['capture_requirement']
 
 
+# Source-pinned attestation-install mapping: the real shell uses an isolated
+# interpreter variable and pip options before the continued install command.
+# Keep the original projection counts and unknown-result boundary unchanged.
+@pytest.mark.parametrize('engine', [BUILDER, PLAN_CHECKER], ids=['builder', 'checker'])
+@pytest.mark.parametrize('presence', [True, False], ids=['present', 'not-instantiated'])
+def test_attestation_pip_mapping_preserves_the_reviewed_install(engine, presence):
+    workflow = yaml.load((ROOT / '.github/workflows/pulse_ci.yml').read_text(), Loader=yaml.BaseLoader)
+    step = workflow['jobs']['attest_llamaguard_current_run_summary']['steps'][2]
+    assert step['name'] == 'Install Python deps for LlamaGuard attestation envelope'
+    operation_id = 'call:step5c:attest_llamaguard_current_run_summary:003:python-packages'
+    parent_id = 'execution:step5c:step:attest_llamaguard_current_run_summary:003'
+    operations = {}
+    references = engine._step_external_operations(
+        job_id='attest_llamaguard_current_run_summary', ordinal=3, step=step,
+        occurrence_id=parent_id, expected_runtime_presence=presence, operations=operations,
+    )
+    assert references == [operation_id]
+    assert operations == {operation_id: {
+        'call_id': operation_id, 'operation_class': 'python_package_installation',
+        'owner': 'subject', 'parent_occurrence_id': parent_id, 'required': presence,
+        'capture_requirement': 'not_recorded',
+        'authorization_material_included': False, 'cookies_included': False,
+    }}
+
+
+@pytest.mark.parametrize('engine', [BUILDER, PLAN_CHECKER], ids=['builder', 'checker'])
+@pytest.mark.parametrize('mutation', [
+    'check-only', 'version-only', 'comment-only', 'echo-only',
+    'other-interpreter', 'missing-hash-guard', 'other-job', 'other-step',
+])
+def test_attestation_pip_mapping_does_not_invent_an_install(engine, mutation):
+    workflow = yaml.load((ROOT / '.github/workflows/pulse_ci.yml').read_text(), Loader=yaml.BaseLoader)
+    step = copy.deepcopy(workflow['jobs']['attest_llamaguard_current_run_summary']['steps'][2])
+    job_id, ordinal = 'attest_llamaguard_current_run_summary', 3
+    if mutation == 'check-only':
+        step['run'] = 'PIP_CONFIG_FILE=/dev/null "${ATTESTATION_PYTHON}" -I -m pip --isolated check\n'
+    elif mutation == 'version-only':
+        step['run'] = '"${ATTESTATION_PYTHON}" -I -m pip --version\n'
+    elif mutation == 'comment-only':
+        step['run'] = '\n'.join('# ' + line for line in step['run'].splitlines()) + '\n'
+    elif mutation == 'echo-only':
+        step['run'] = "printf '%s\\n' '\"${ATTESTATION_PYTHON}\" -I -m pip --isolated install'\n"
+    elif mutation == 'other-interpreter':
+        step['run'] = step['run'].replace('"${ATTESTATION_PYTHON}"', '"${OTHER_PYTHON}"')
+    elif mutation == 'missing-hash-guard':
+        step['run'] = step['run'].replace('--require-hashes ', '')
+    elif mutation == 'other-job':
+        job_id = 'an_unreviewed_job'
+    elif mutation == 'other-step':
+        ordinal = 4
+    operations = {}
+    references = engine._step_external_operations(
+        job_id=job_id, ordinal=ordinal, step=step,
+        occurrence_id=f'execution:step5c:step:{job_id}:{ordinal:03d}',
+        expected_runtime_presence=True, operations=operations,
+    )
+    assert references == [] and operations == {}
+
+
+def test_attestation_pip_mapping_omission_is_rejected_after_rehash(source_fixture, tmp_path):
+    f = source_fixture
+    plan = copy.deepcopy(f.plan)
+    operation_id = 'call:step5c:attest_llamaguard_current_run_summary:003:python-packages'
+    parent_id = 'execution:step5c:step:attest_llamaguard_current_run_summary:003'
+    matches = [row for row in plan['external_operation_templates'] if row['call_id'] == operation_id]
+    assert len(matches) == 1
+    plan['external_operation_templates'].remove(matches[0])
+    step = next(s for j in plan['jobs'] for s in j['steps'] if s['occurrence_id'] == parent_id)
+    assert step['external_operation_ids'].count(operation_id) == 1
+    step['external_operation_ids'].remove(operation_id)
+    path = tmp_path / 'omitted-attestation-operation.json'
+    path.write_bytes(canonical(plan))
+    # Rehash both mutually consistent omissions. Only the independent
+    # source-bound reconstruction can restore the missing required template.
+    result = cli(f.root, TOOL_NAMES[1], [
+        '--repository-root', f.root, '--plan', path,
+        '--expected-source-commit', f.sha,
+        '--expected-plan-sha256', digest(path.read_bytes()),
+        '--expected-record-status', 'example',
+    ])
+    assert result.returncode == 1, (result.returncode, result.stdout, result.stderr)
+    diagnostic = json.loads(result.stdout)
+    assert diagnostic['ok'] is False and diagnostic['errors']
+    assert 'plan_reconstruction_mismatch' in str(diagnostic), diagnostic
+
+
 def test_external_action_metadata_digests_bind_exact_source_occurrence_and_platform_result(source_fixture):
     packet = runtime_projection_example(source_fixture)
     index = {row['execution_id']: row for row in packet['executions']}
@@ -3158,7 +3246,7 @@ def test_recorded_mapping_restore_does_not_replace_content_origin(source_fixture
     states = {s['state_id']: s for s in source_fixture.plan['state_templates']}
     before = states['state:step5c:pre-materialization-status']
     after = states['state:step5c:final-status']
-    assert before['producer_occurrence_id'] == 'execution:step5c:step:pulse:013'
+    assert before['producer_occurrence_id'] == 'execution:step5c:step:pulse:019'
     assert after['producer_occurrence_id'] == 'execution:step5c:step:release_grade_recorded_path:009'
     assert before['path_or_uri'].split('#')[0] == after['path_or_uri']
     assert before['path_or_uri'] != after['path_or_uri']
@@ -3438,10 +3526,10 @@ def corrupt_package_mapping(plan, role, mutation):
         state['producer_occurrence_id'] = wrong
         all_steps[wrong]['output_state_ids'] = sorted(all_steps[wrong]['output_state_ids'] + [key])
     elif mutation == 'extra_writer':
-        step = all_steps['execution:step5c:step:pulse:022']
+        step = all_steps['execution:step5c:step:pulse:014']
         step['output_state_ids'] = sorted(step['output_state_ids'] + [key])
     elif mutation == 'consumer':
-        wrong = 'execution:step5c:step:pulse:022'
+        wrong = 'execution:step5c:step:pulse:014'
         state['required_consumer_occurrence_ids'] = sorted(set(state['required_consumer_occurrence_ids']) | {wrong})
         all_steps[wrong]['input_state_ids'] = sorted(set(all_steps[wrong]['input_state_ids']) | {key})
     elif mutation == 'strength':
@@ -3674,7 +3762,7 @@ def test_preattest_source_projections_agree_without_builder_execution(source_fix
     with patch.object(BUILDER, '_preattest_preservation_source_projection', side_effect=AssertionError('builder must not run')):
         checked = PLAN_CHECKER._source_preattest_preservation_expectations(doc, recorded_source_objects)
     assert canonical(built) == canonical(checked)
-    # The independent source checker reaches the actual P23 input/output
+    # The independent source checker reaches the actual P15 input/output
     # arguments and R4 hash loop, rather than importing the builder's projection.
     source = inspect.getsource(PLAN_CHECKER._source_preattest_preservation_expectations)
     assert '_preattest_preservation_source_projection(' not in source
@@ -3845,7 +3933,8 @@ def test_preattest_actual_restore_shell_with_local_mock_download(source_fixture,
     stub.chmod(0o755)
     env = {'PATH': str(bindir) + ':/usr/bin:/bin', 'HOME': str(tmp_path), 'LANG': 'C', 'LC_ALL': 'C',
            'GITHUB_WORKSPACE': str(root), 'RUNNER_TEMP': str(runner), 'GITHUB_RUN_ID': '10001',
-           'GITHUB_RUN_ATTEMPT': '1', 'GITHUB_REPOSITORY': 'example/step5c'}
+           'GITHUB_RUN_ATTEMPT': '1', 'GITHUB_REPOSITORY': 'example/step5c',
+           'PULSE_CANDIDATE_JOB_RESULT': 'success'}
     body = doc['jobs']['release_grade_recorded_path']['steps'][3]['run']
     result = subprocess.run(['/bin/bash', '-c', body], cwd=root, env=env, stdin=subprocess.DEVNULL,
                             capture_output=True, timeout=30)
@@ -4764,12 +4853,12 @@ FLOOR_ROLE_INPUTS = [
     ('--required-gate-evidence', 'required-gate-evidence'),
 ]
 FLOOR_LOCAL_EQUATIONS = [
-    (14, ['pre-materialization-status'], ['status-baseline']),
-    (15, ['status-baseline'], []),
-    (16, ['pre-materialization-status'], []),
-    (18, ['gate-policy', 'gate-registry', 'pre-materialization-status',
+    (20, ['pre-materialization-status'], ['status-baseline']),
+    (21, ['status-baseline'], []),
+    (22, ['pre-materialization-status'], []),
+    (23, ['gate-policy', 'gate-registry', 'pre-materialization-status',
           'required-gate-evidence'], ['self-contained-evidence-floor']),
-    (19, ['self-contained-evidence-floor'], []),
+    (24, ['self-contained-evidence-floor'], []),
 ]
 FLOOR_PLAN_MUTATIONS = [
     'missing_status', 'missing_policy', 'missing_registry', 'missing_evidence',
@@ -4802,15 +4891,15 @@ def test_floor_baseline_selected_local_equations_match_source_roles(source_fixtu
 
 @pytest.mark.parametrize('flag,role', FLOOR_ROLE_INPUTS)
 def test_floor_each_actual_file_loader_has_a_selected_input(source_fixture, flag, role):
-    body = mapping_source_document()['jobs']['pulse']['steps'][17]['run']
+    body = mapping_source_document()['jobs']['pulse']['steps'][22]['run']
     command = next(shlex.split(line) for line in body.replace('\\\n', ' ').splitlines()
                    if 'python "${PACK_DIR}/tools/build_self_contained_pulse_evidence_floor_v0.py"' in line)
     path = command[command.index(flag) + 1].replace('${PACK_DIR}/', 'PULSE_safe_pack_v0/')
     rows, steps = provenance_rows(source_fixture.plan)
     expected = path + ('#pre-release-required-materialization' if flag == '--status' else '')
     assert rows[role]['path_or_uri'] == expected
-    assert rows[role]['state_id'] in steps[('pulse', 18)]['input_state_ids']
-    assert steps[('pulse', 18)]['occurrence_id'] in rows[role]['required_consumer_occurrence_ids']
+    assert rows[role]['state_id'] in steps[('pulse', 23)]['input_state_ids']
+    assert steps[('pulse', 23)]['occurrence_id'] in rows[role]['required_consumer_occurrence_ids']
 
 
 @pytest.mark.parametrize('side', ['builder', 'checker'])
@@ -4822,21 +4911,21 @@ def test_floor_source_projection_separates_versions_and_pins_dependency(source_f
     assert set(facts) == {'locators', 'producers', 'steps'}
     assert len(facts['locators']) == 6 and len(facts['steps']) == 5
     assert facts['producers'] == {
-        'status-baseline': module._step_id('pulse', 14),
-        'self-contained-evidence-floor': module._step_id('pulse', 18),
+        'status-baseline': module._step_id('pulse', 20),
+        'self-contained-evidence-floor': module._step_id('pulse', 23),
     }
     inventory = {row['path']: row for row in source_fixture.plan['source_inventory']}
     dep = inventory[module._FLOOR_BUILD_PATH]
     assert dep['git_blob_sha1'] == '2f7776e609ef7ef2fb8fcd40d5ee30e46ed46f6a'
     assert dep['sha256'] == digest((ROOT / module._FLOOR_BUILD_PATH).read_bytes())
     states, steps = provenance_rows(source_fixture.plan)
-    assert states['pre-materialization-status']['producer_occurrence_id'] == steps[('pulse', 13)]['occurrence_id']
+    assert states['pre-materialization-status']['producer_occurrence_id'] == steps[('pulse', 19)]['occurrence_id']
     assert states['final-status']['producer_occurrence_id'] == steps[('release_grade_recorded_path', 9)]['occurrence_id']
-    for number in (14, 16, 18):
+    for number in (20, 22, 23):
         assert states['final-status']['state_id'] not in steps[('pulse', number)]['input_state_ids']
-    # Hashing the newly written floor within P18 is not a fabricated extra
+    # Hashing the newly written floor within P23 is not a fabricated extra
     # source-declared occurrence or a step-level self dependency.
-    assert states['self-contained-evidence-floor']['state_id'] not in steps[('pulse', 18)]['input_state_ids']
+    assert states['self-contained-evidence-floor']['state_id'] not in steps[('pulse', 23)]['input_state_ids']
 
 
 def corrupt_floor_plan(original, mutation):
@@ -4854,28 +4943,28 @@ def corrupt_floor_plan(original, mutation):
     missing = {'missing_status': 'pre-materialization-status', 'missing_policy': 'gate-policy',
                'missing_registry': 'gate-registry', 'missing_evidence': 'required-gate-evidence'}
     if mutation in missing:
-        edge(missing[mutation], 18, False)
+        edge(missing[mutation], 23, False)
     elif mutation in ('final_status_alias', 'baseline_as_floor_status'):
-        edge('pre-materialization-status', 18, False)
-        edge('final-status' if mutation == 'final_status_alias' else 'status-baseline', 18, True)
+        edge('pre-materialization-status', 23, False)
+        edge('final-status' if mutation == 'final_status_alias' else 'status-baseline', 23, True)
     elif mutation in ('missing_copy_input', 'final_status_copy_input'):
-        edge('pre-materialization-status', 14, False)
-        if mutation == 'final_status_copy_input': edge('final-status', 14, True)
+        edge('pre-materialization-status', 20, False)
+        if mutation == 'final_status_copy_input': edge('final-status', 20, True)
     elif mutation == 'guard_reads_final':
-        edge('pre-materialization-status', 16, False); edge('final-status', 16, True)
+        edge('pre-materialization-status', 22, False); edge('final-status', 22, True)
     elif mutation == 'baseline_guard_reads_status':
-        edge('status-baseline', 15, False); edge('pre-materialization-status', 15, True)
-    elif mutation == 'floor_self_read': edge('self-contained-evidence-floor', 18, True)
-    elif mutation == 'missing_upload_input': edge('self-contained-evidence-floor', 19, False)
+        edge('status-baseline', 21, False); edge('pre-materialization-status', 21, True)
+    elif mutation == 'floor_self_read': edge('self-contained-evidence-floor', 23, True)
+    elif mutation == 'missing_upload_input': edge('self-contained-evidence-floor', 24, False)
     elif mutation in ('publisher_as_producer', 'status_producer_as_copy'):
-        role, old, new = ('self-contained-evidence-floor', 18, 19) if mutation == 'publisher_as_producer' else ('status-baseline', 14, 13)
+        role, old, new = ('self-contained-evidence-floor', 23, 24) if mutation == 'publisher_as_producer' else ('status-baseline', 20, 19)
         sid = rows[role]['state_id']
         steps[('pulse', old)]['output_state_ids'].remove(sid)
         steps[('pulse', new)]['output_state_ids'].append(sid)
         steps[('pulse', new)]['output_state_ids'].sort()
         rows[role]['producer_occurrence_id'] = steps[('pulse', new)]['occurrence_id']
     elif mutation == 'duplicate_writer':
-        steps[('pulse', 17)]['output_state_ids'].append(rows['self-contained-evidence-floor']['state_id'])
+        steps[('pulse', 11)]['output_state_ids'].append(rows['self-contained-evidence-floor']['state_id'])
     elif mutation.startswith('wrong_') and mutation.endswith('_locator'):
         role = 'self-contained-evidence-floor' if mutation == 'wrong_floor_locator' else 'status-baseline'
         rows[role]['path_or_uri'] += '.wrong'
@@ -4884,8 +4973,8 @@ def corrupt_floor_plan(original, mutation):
         if mutation.startswith('optional_'): rows[role]['required'] = False
         else: rows[role]['content_requirement'] = 'metadata_only'
     elif mutation == 'wrong_mutation_class': rows['self-contained-evidence-floor']['mutation_class'] = 'preservation_output'
-    elif mutation == 'reverse_only': rows['gate-registry']['required_consumer_occurrence_ids'].remove(steps[('pulse', 18)]['occurrence_id'])
-    elif mutation == 'forward_only': steps[('pulse', 18)]['input_state_ids'].remove(rows['gate-registry']['state_id'])
+    elif mutation == 'reverse_only': rows['gate-registry']['required_consumer_occurrence_ids'].remove(steps[('pulse', 23)]['occurrence_id'])
+    elif mutation == 'forward_only': steps[('pulse', 23)]['input_state_ids'].remove(rows['gate-registry']['state_id'])
     elif mutation in ('missing_floor', 'missing_baseline'):
         sid = rows['self-contained-evidence-floor' if mutation == 'missing_floor' else 'status-baseline']['state_id']
         plan['state_templates'] = [x for x in plan['state_templates'] if x['state_id'] != sid]
@@ -4961,10 +5050,10 @@ def test_floor_semantic_source_drift_cannot_inherit_old_equations(source_fixture
 @pytest.mark.parametrize('mutation', ['copy_target', 'schema_target', 'status_guard', 'floor_status', 'floor_policy', 'floor_registry', 'floor_evidence', 'upload_target'])
 def test_floor_changed_workflow_is_not_silently_adapted(source_fixture, recorded_source_objects, side, mutation):
     doc = mapping_source_document(); rows = doc['jobs']['pulse']['steps']
-    if mutation == 'copy_target': rows[13]['run'] = rows[13]['run'].replace('status_baseline.json', 'wrong_baseline.json')
-    elif mutation == 'schema_target': rows[14]['run'] = rows[14]['run'].replace('status_baseline.json', 'status.json')
-    elif mutation == 'status_guard': rows[15]['run'] = rows[15]['run'].replace('status.json', 'status_baseline.json')
-    elif mutation == 'upload_target': rows[18]['with']['path'] += '.wrong'
+    if mutation == 'copy_target': rows[19]['run'] = rows[19]['run'].replace('status_baseline.json', 'wrong_baseline.json')
+    elif mutation == 'schema_target': rows[20]['run'] = rows[20]['run'].replace('status_baseline.json', 'status.json')
+    elif mutation == 'status_guard': rows[21]['run'] = rows[21]['run'].replace('status.json', 'status_baseline.json')
+    elif mutation == 'upload_target': rows[23]['with']['path'] += '.wrong'
     else:
         old, new = {
             'floor_status': ('--status "${PACK_DIR}/artifacts/status.json"', '--status "${PACK_DIR}/artifacts/status_baseline.json"'),
@@ -4972,7 +5061,7 @@ def test_floor_changed_workflow_is_not_silently_adapted(source_fixture, recorded
             'floor_registry': ('pulse_gate_registry_v0.yml', 'wrong_registry.yml'),
             'floor_evidence': ('required_gate_evidence_v0.json', 'wrong_evidence.json'),
         }[mutation]
-        assert old in rows[17]['run']; rows[17]['run'] = rows[17]['run'].replace(old, new)
+        assert old in rows[22]['run']; rows[22]['run'] = rows[22]['run'].replace(old, new)
     module, method = floor_source_method(side)
     with pytest.raises(module.PlanError, match='floor_mapping_workflow_drift'):
         method(doc, recorded_source_objects)
@@ -5005,7 +5094,7 @@ def test_floor_actual_shell_reads_current_pre_materialization_files_only(source_
     rows = mapping_source_document()['jobs']['pulse']['steps']
     # Resolve only this literal Actions expression into its fixed declared pack
     # directory. Both shell snippets execute only under this synthetic root.
-    copy_body = rows[13]['run'].replace('${{ env.PACK_DIR }}', 'PULSE_safe_pack_v0')
+    copy_body = rows[19]['run'].replace('${{ env.PACK_DIR }}', 'PULSE_safe_pack_v0')
     copy_result = subprocess.run(['/bin/bash', '-c', copy_body], cwd=root, env=env,
                                  stdin=subprocess.DEVNULL, capture_output=True, timeout=30)
     assert copy_result.returncode == 0, copy_result.stderr
@@ -5021,7 +5110,7 @@ def test_floor_actual_shell_reads_current_pre_materialization_files_only(source_
     elif fault == 'policy_missing': (root / files['gate_policy'][0]).write_bytes(b'gates:\n  release_required: [example_required]\n')
     elif fault == 'baseline_only_changed': baseline.write_bytes(b'not the floor input\n')
     before = {relative: (root / relative).read_bytes() for relative, _ in files.values()}
-    result = subprocess.run(['/bin/bash', '-c', rows[17]['run']], cwd=root, env=env,
+    result = subprocess.run(['/bin/bash', '-c', rows[22]['run']], cwd=root, env=env,
                             stdin=subprocess.DEVNULL, capture_output=True, timeout=30)
     out = pack / 'artifacts/self_contained_pulse_evidence_floor_v0.json'
     if fault not in (None, 'baseline_only_changed'):
@@ -5071,8 +5160,162 @@ def test_floor_recorded_reader_closure_rejects_unreviewed_additions(source_fixtu
 # Reviewed smoke-job budget amendment. Only the job time budget changes;
 # exact source identity, complete execution and failure propagation stay strict.
 # ---------------------------------------------------------------------------
-def test_smoke_budget_is_the_only_subject_workflow_byte_change():
+# Original merged step bodies are historical test data, not source inputs.
+# Recover the prior workflow solely to retain the older smoke-budget proof.
+_PRE_ACQUISITION_STEP_BASELINES = (
+    ('CI pack layout preflight (fail-closed on release-grade)', b'      - name: CI pack layout preflight (fail-closed on release-grade)\n        id: release_mode\n        shell: bash\n        run: |\n          set -euo pipefail\n\n          PULSE_IS_RELEASE=0\n          PULSE_MODE="core"\n          PULSE_POLICY_SET="core_required"\n\n          if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then\n            PULSE_IS_RELEASE=1\n            PULSE_MODE="prod"\n            PULSE_POLICY_SET="required"\n          fi\n\n          RAW_LLAMAGUARD_MODE="tier0_not_required"\n          if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then\n            RAW_LLAMAGUARD_MODE="$(jq -r \'.inputs.llamaguard_evidence_mode // "tier0_not_required"\' "$GITHUB_EVENT_PATH")"\n            case "$RAW_LLAMAGUARD_MODE" in\n              tier0_not_required|hosted_full_runtime)\n                ;;\n              *)\n                echo "::error::invalid llamaguard_evidence_mode: ${RAW_LLAMAGUARD_MODE}"\n                exit 1\n                ;;\n            esac\n          fi\n\n          if [[ "${GITHUB_REF:-}" == refs/tags/v* || "${GITHUB_REF:-}" == refs/tags/V* ]]; then\n            PULSE_LLAMAGUARD_EVIDENCE_MODE="hosted_full_runtime"\n          else\n            PULSE_LLAMAGUARD_EVIDENCE_MODE="$RAW_LLAMAGUARD_MODE"\n          fi\n\n          if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" ]]; then\n            STRICT="$(jq -r \'.inputs.strict_external_evidence // "false"\' "$GITHUB_EVENT_PATH")"\n            if [[ "$STRICT" == "true" ]]; then\n              PULSE_IS_RELEASE=1\n              PULSE_MODE="prod"\n              PULSE_POLICY_SET="required"\n            fi\n          fi\n\n          PULSE_RUN_KEY="GITHUB_RUN_ID=${GITHUB_RUN_ID:?}|GITHUB_RUN_ATTEMPT=${GITHUB_RUN_ATTEMPT:?}|GITHUB_WORKFLOW=${GITHUB_WORKFLOW:?}"\n\n          echo "PULSE_IS_RELEASE=${PULSE_IS_RELEASE}" >> "$GITHUB_ENV"\n          echo "PULSE_MODE=${PULSE_MODE}" >> "$GITHUB_ENV"\n          echo "PULSE_POLICY_SET=${PULSE_POLICY_SET}" >> "$GITHUB_ENV"\n          echo "PULSE_LLAMAGUARD_EVIDENCE_MODE=${PULSE_LLAMAGUARD_EVIDENCE_MODE}" >> "$GITHUB_ENV"\n          echo "PULSE_RUN_KEY=${PULSE_RUN_KEY}" >> "$GITHUB_ENV"\n\n          echo "is_release=${PULSE_IS_RELEASE}" >> "$GITHUB_OUTPUT"\n          echo "llamaguard_evidence_mode=${PULSE_LLAMAGUARD_EVIDENCE_MODE}" >> "$GITHUB_OUTPUT"\n\n          echo "Computed flags: IS_RELEASE=$PULSE_IS_RELEASE MODE=$PULSE_MODE POLICY_SET=$PULSE_POLICY_SET LLAMAGUARD_EVIDENCE_MODE=$PULSE_LLAMAGUARD_EVIDENCE_MODE"\n\n          EXTRA=()\n          if (( PULSE_IS_RELEASE )); then\n            EXTRA+=(--release-grade)\n          fi\n\n          python tools/check_pack_layout.py \\\n            --pack_dir "${{ env.PACK_DIR }}" \\\n            "${EXTRA[@]}"\n\n'),
+    ('Install Python deps for LlamaGuard attestation envelope', b'      - name: Install Python deps for LlamaGuard attestation envelope\n        shell: bash\n        run: |\n          set -euo pipefail\n          python -m pip install --upgrade pip\n          python -m pip install -r requirements.txt\n          python -m pip install jsonschema\n\n'),
+ )
+
+
+# The later hosted-order correction is a separate, reviewed delta. Undo only
+# that delta in TEST MEMORY before checking the original pre-acquisition and
+# smoke-budget history. Never update historical hashes to match current bytes.
+# Literal before/after fragments also retain the input's comments and spacing.
+_HOSTED_ORDER_HISTORICAL_REPLACEMENTS = (
+    (b"""    outputs:
+      # Evidence availability is not candidate admission or release authority.
+      llamaguard_evidence_ready: ${{ steps.llamaguard_evidence_upload.outcome == 'success' }}
+
+""", b''),
+    (b"""      - name: release-grade upload current-run LlamaGuard evidence
+        id: llamaguard_evidence_upload
+""", b"""      - name: release-grade upload current-run LlamaGuard evidence
+"""),
+    (b"""  attest_llamaguard_current_run_summary:
+    name: "LlamaGuard current-run summary: attest and verify"
+    needs: pulse
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && (needs.pulse.result == 'success' || needs.pulse.result == 'failure') && needs.pulse.outputs.llamaguard_evidence_ready == 'true' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
+""", b"""  attest_llamaguard_current_run_summary:
+    name: "LlamaGuard current-run summary: attest and verify"
+    needs: pulse
+    if: ${{ github.event_name != 'pull_request' && needs.pulse.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
+"""),
+    (b"""  release_grade_recorded_path:
+    name: "Release-grade recorded path: attested evidence to final authority artifacts"
+    needs: [pulse, attest_llamaguard_current_run_summary]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.attest_llamaguard_current_run_summary.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
+""", b"""  release_grade_recorded_path:
+    name: "Release-grade recorded path: attested evidence to final authority artifacts"
+    needs: attest_llamaguard_current_run_summary
+    if: ${{ github.event_name != 'pull_request' && needs.attest_llamaguard_current_run_summary.result == 'success' && (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/tags/V') || (github.event_name == 'workflow_dispatch' && github.event.inputs.strict_external_evidence == 'true' && github.event.inputs.llamaguard_evidence_mode == 'hosted_full_runtime')) }}
+"""),
+    (b"""      - name: Download pre-attestation pulse artifacts
+        shell: bash
+        env:
+          PULSE_CANDIDATE_JOB_RESULT: ${{ needs.pulse.result }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # An attested external summary cannot admit a rejected candidate.
+          # Stop before downloading or consuming any candidate/authority bytes.
+          if [[ "${PULSE_CANDIDATE_JOB_RESULT:-}" != "success" ]]; then
+            echo "::error::BLOCK: pre-attestation candidate was not accepted; hosted evidence remains preserved."
+            exit 1
+          fi
+
+""", b"""      - name: Download pre-attestation pulse artifacts
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+"""),
+ )
+
+
+def _workflow_before_hosted_evidence_ordering(raw=None):
+    if raw is None:
+        raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    # Inversion must not erase an unreviewed edit inside a replaced region.
+    assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
+        'd46ec426962a3cc9dc23c560bf87b2f2a6a74945'
+    ), 'unreviewed hosted-order workflow bytes'
+    for current, historical in _HOSTED_ORDER_HISTORICAL_REPLACEMENTS:
+        assert raw.count(current) == 1
+        raw = raw.replace(current, historical, 1)
+
+    # Current: identity, hosted capture/upload, candidate, evidence floor.
+    # Earlier: candidate, identity, evidence floor, hosted capture/upload.
+    names = (
+        'release-grade initialize current-run evidence identity',
+        'release-grade initialize LlamaGuard runtime identity',
+        'release-grade record current-run required-gate evidence',
+        'release-grade build self-contained PULSE evidence floor',
+        'Show main status.json (head)',
+    )
+    positions = []
+    for name in names:
+        marker = ('      - name: ' + name + '\n').encode()
+        assert raw.count(marker) == 1
+        positions.append(raw.index(marker))
+    assert positions == sorted(positions)
+    identity, hosted, candidate, floor, end = positions
+    raw = (raw[:identity] + raw[candidate:floor] + raw[identity:hosted]
+           + raw[floor:end] + raw[hosted:candidate] + raw[end:])
+    assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
+        '6086519b9d90f84f093170245dc54017f9d720d8'
+    ), 'pre-hosted-order checkpoint mismatch'
+    return raw
+
+
+def _workflow_before_pre_acquisition_correction():
+    raw = _workflow_before_hosted_evidence_ordering()
+    for name, baseline in _PRE_ACQUISITION_STEP_BASELINES:
+        marker = ('      - name: ' + name + '\n').encode()
+        assert raw.count(marker) == 1
+        start = raw.index(marker)
+        end = raw.index(b'      - name: ', start + len(marker))
+        raw = raw[:start] + baseline + raw[end:]
+    assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == 'db07510afb66fa6b92635066da8cdc02561cf32c'
+    return raw
+
+
+def test_hosted_order_history_preserves_job_step_and_input_inventory():
+    current = yaml.load((ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes(), Loader=yaml.BaseLoader)
+    previous = yaml.load(_workflow_before_hosted_evidence_ordering(), Loader=yaml.BaseLoader)
+    assert list(current['jobs']) == list(previous['jobs'])
+    for name, job in current['jobs'].items():
+        before = previous['jobs'][name]
+        assert Counter(step['name'] for step in job['steps']) == Counter(
+            step['name'] for step in before['steps'])
+        for field in ('permissions', 'runs-on', 'timeout-minutes'):
+            assert job.get(field) == before.get(field)
+    # Dispatch inputs, trigger guards, concurrency and global permissions stay.
+    assert {k: v for k, v in current.items() if k != 'jobs'} == {
+        k: v for k, v in previous.items() if k != 'jobs'}
+
+
+@pytest.mark.parametrize(('before', 'after'), [
+    (b'    timeout-minutes: 120\n', b'    timeout-minutes: 121\n'),
+    (b'permissions:\n  contents: read\n', b'permissions:\n  contents: write\n'),
+    (b'        default: "false"\n', b'        default: "true"\n'),
+    (b"steps.llamaguard_evidence_upload.outcome == 'success'",
+     b"steps.llamaguard_evidence_upload.outcome == 'failure'"),
+    (b'        id: llamaguard_evidence_upload\n', b'        id: unreviewed_upload\n'),
+    (b"needs.pulse.outputs.llamaguard_evidence_ready == 'true'",
+     b"needs.pulse.outputs.llamaguard_evidence_ready == 'false'"),
+    (b'    needs: [pulse, attest_llamaguard_current_run_summary]\n',
+     b'    needs: attest_llamaguard_current_run_summary\n'),
+    (b'if [[ "${PULSE_CANDIDATE_JOB_RESULT:-}" != "success" ]]; then',
+     b'if [[ "${PULSE_CANDIDATE_JOB_RESULT:-}" == "success" ]]; then'),
+    (b'# Every accepted release must reach the hosted attestation and',
+     b'# UNREVIEWED preflight edit must not disappear during inversion'),
+], ids=['budget', 'permissions', 'dispatch', 'readiness-output', 'upload-id',
+        'attestation-guard', 'candidate-dependency', 'candidate-block', 'preflight'])
+def test_hosted_order_historical_inverse_rejects_unreviewed_bytes(before, after):
     raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    assert raw.count(before) == 1
+    changed = raw.replace(before, after, 1)
+    assert changed != raw
+    with pytest.raises(AssertionError, match='unreviewed hosted-order workflow bytes'):
+        _workflow_before_hosted_evidence_ordering(changed)
+
+
+def test_historical_smoke_budget_is_the_only_pre_correction_workflow_byte_change():
+    raw = _workflow_before_pre_acquisition_correction()
     before_job, job_bytes = raw.split(b'  tools-tests:\n')
     assert job_bytes.count(b'    timeout-minutes: 120\n') == 1
     # Restore the immediate 45-minute predecessor and the older 30/15-minute
@@ -5101,7 +5344,7 @@ def test_smoke_budget_all_workflow_pins_require_the_same_reviewed_bytes(side):
     path = module.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == 'db07510afb66fa6b92635066da8cdc02561cf32c'
+    assert current == 'd46ec426962a3cc9dc23c560bf87b2f2a6a74945'
     assert module.EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 == current
     for values in vars(module).values():
         if isinstance(values, dict) and path in values:
@@ -5114,7 +5357,7 @@ def test_smoke_budget_d3_d6_pins_require_the_same_reviewed_bytes(side):
     path = BUILDER.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == 'db07510afb66fa6b92635066da8cdc02561cf32c'
+    assert current == 'd46ec426962a3cc9dc23c560bf87b2f2a6a74945'
     pins = module._D3_SOURCE_PINS
     items = list(pins.items()) if isinstance(pins, dict) else list(pins)
     selected = [pin for name, pin in items if name == path]
@@ -5184,7 +5427,7 @@ def test_smoke_budget_new_workflow_is_preserved_without_evidence_promotion(sourc
 LG_PRESERVATION_CURRENT = ('llamaguard-raw-evidence', 'llamaguard-evaluator-manifest', 'llamaguard-summary')
 LG_PRESERVATION_ATTESTED = LG_PRESERVATION_CURRENT + ('llamaguard-attestation-bundle', 'llamaguard-attestation-envelope', 'llamaguard-attestation-verifier')
 LG_PRESERVATION_STEPS = (
-    ('pulse', 24, LG_PRESERVATION_CURRENT),
+    ('pulse', 16, LG_PRESERVATION_CURRENT),
     ('attest_llamaguard_current_run_summary', 4, LG_PRESERVATION_CURRENT),
     ('attest_llamaguard_current_run_summary', 8, LG_PRESERVATION_ATTESTED),
     ('release_grade_recorded_path', 5, LG_PRESERVATION_ATTESTED),
@@ -5208,7 +5451,7 @@ def test_lg_preservation_source_selected_content_has_reciprocal_step_input(sourc
     rows, steps = provenance_rows(source_fixture.plan)
     row, step = rows[role], steps[(job, ordinal)]
     # Oracle is the literal workflow upload path, not either plan constructor.
-    publisher = ('pulse', 24) if len(next(r for j, n, r in LG_PRESERVATION_STEPS if (j, n) == (job, ordinal))) == 3 else ('attest_llamaguard_current_run_summary', 8)
+    publisher = ('pulse', 16) if len(next(r for j, n, r in LG_PRESERVATION_STEPS if (j, n) == (job, ordinal))) == 3 else ('attest_llamaguard_current_run_summary', 8)
     raw = mapping_source_document()['jobs'][publisher[0]]['steps'][publisher[1] - 1]
     assert row['path_or_uri'] in raw['with']['path'].splitlines()
     assert row['state_id'] in step['input_state_ids']
@@ -5249,7 +5492,7 @@ def test_lg_preservation_independent_checker_uses_hash_oracle_without_builder(so
 
 def corrupt_lg_preservation_plan(original, mutation):
     plan = copy.deepcopy(original); rows, steps = provenance_rows(plan)
-    current = ('pulse', 24); download = ('attest_llamaguard_current_run_summary', 4)
+    current = ('pulse', 16); download = ('attest_llamaguard_current_run_summary', 4)
     attested = ('attest_llamaguard_current_run_summary', 8); restore = ('release_grade_recorded_path', 5)
     def edge(role, target, add):
         row, step = rows[role], steps[target]; sid, oid = row['state_id'], step['occurrence_id']
@@ -5388,7 +5631,7 @@ def test_lg_preservation_actual_copy_shell_is_bounded_local_evidence(source_fixt
     root, incoming, runner, bindir = [tmp_path / v for v in ('workspace', 'incoming', 'runner', 'bin')]
     for directory in (root, incoming, runner, bindir): directory.mkdir()
     job, ordinal = ('attest_llamaguard_current_run_summary', 4) if phase == 'current' else ('release_grade_recorded_path', 5)
-    publisher_job, publisher_n = ('pulse', 24) if phase == 'current' else ('attest_llamaguard_current_run_summary', 8)
+    publisher_job, publisher_n = ('pulse', 16) if phase == 'current' else ('attest_llamaguard_current_run_summary', 8)
     doc = mapping_source_document(); selected = doc['jobs'][publisher_job]['steps'][publisher_n - 1]['with']['path'].splitlines()
     payloads = {relative: ('synthetic opaque input: ' + relative + '\n').encode() for relative in selected}
     for relative, raw in payloads.items():
@@ -5713,7 +5956,7 @@ def test_lg_attestation_mapping_still_cannot_satisfy_runtime_completion(source_f
 
 
 # ---------------------------------------------------------------------------
-# P22/P23 source-declared production and ingestion. The actual ingester hashes
+# P14/P15 source-declared production and ingestion. The actual ingester hashes
 # the dataset/manifest; it does not admit their identity or validate case IDs.
 # ---------------------------------------------------------------------------
 LG_PRODUCTION_ADAPTER = 'PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py'
@@ -5752,11 +5995,11 @@ def test_lg_production_missing_source_read_is_present(source_fixture, lg_product
     expected = ['llamaguard-dataset'] + ['llamaguard-output:' + row['case_id'] for row in cases]
     assert role in expected
     rows, steps = provenance_rows(source_fixture.plan)
-    p23 = steps[('pulse', 23)]
+    p23 = steps[('pulse', 15)]
     assert rows[role]['state_id'] in p23['input_state_ids']
     assert p23['occurrence_id'] in rows[role]['required_consumer_occurrence_ids']
     if role == 'llamaguard-dataset': assert rows[role]['path_or_uri'] == dataset
-    else: assert rows[role]['producer_occurrence_id'] == steps[('pulse', 22)]['occurrence_id']
+    else: assert rows[role]['producer_occurrence_id'] == steps[('pulse', 14)]['occurrence_id']
 
 
 @pytest.mark.parametrize('side', ['builder', 'checker'])
@@ -5773,10 +6016,10 @@ def test_lg_production_source_reads_preserve_ingester_limits(recorded_source_obj
     assert boundary['ingester_traverses_all_records'] is True
     assert boundary['ingester_checks_case_identity'] is False
     assert boundary['observed_consumption_proved'] is False
-    assert len(facts['steps'][module._step_id('pulse', 22)]['inputs']) == 7
-    assert len(facts['steps'][module._step_id('pulse', 22)]['outputs']) == 8
-    assert len(facts['steps'][module._step_id('pulse', 23)]['inputs']) == 10
-    assert facts['steps'][module._step_id('pulse', 23)]['outputs'] == ['llamaguard-summary']
+    assert len(facts['steps'][module._step_id('pulse', 14)]['inputs']) == 7
+    assert len(facts['steps'][module._step_id('pulse', 14)]['outputs']) == 8
+    assert len(facts['steps'][module._step_id('pulse', 15)]['inputs']) == 10
+    assert facts['steps'][module._step_id('pulse', 15)]['outputs'] == ['llamaguard-summary']
 
 
 def test_lg_production_separate_source_predicate_precedes_reconstruction(source_fixture, recorded_source_objects):
@@ -5793,7 +6036,7 @@ def test_lg_production_separate_source_predicate_precedes_reconstruction(source_
 
 def corrupt_lg_production_plan(original, mutation):
     plan = copy.deepcopy(original); rows, steps = provenance_rows(plan)
-    p22, p23 = steps[('pulse', 22)], steps[('pulse', 23)]
+    p22, p23 = steps[('pulse', 14)], steps[('pulse', 15)]
     if mutation.startswith('omit:'):
         role = mutation[5:]; row = rows[role]
         p23['input_state_ids'] = [sid for sid in p23['input_state_ids'] if sid != row['state_id']]
@@ -5818,7 +6061,7 @@ def corrupt_lg_production_plan(original, mutation):
 
 
 LG_PRODUCTION_MUTATIONS = tuple('omit:' + role for role in LG_PRODUCTION_NEW_INPUTS) + (
-    'invent:22:threshold-policy', 'invent:23:external-signer-policy', 'invent:23:workflow-source',
+    'invent:14:threshold-policy', 'invent:15:external-signer-policy', 'invent:15:workflow-source',
     'wrong_case_locator', 'wrong_case_origin', 'extra_writer', 'missing_reverse', 'optional',
     'metadata_only', 'non_authority', 'missing_role', 'duplicate_role', 'duplicate_step', 'self_input')
 
@@ -5830,7 +6073,7 @@ def test_lg_production_source_predicate_rejects_false_graph(source_fixture, reco
             corrupt_lg_production_plan(source_fixture.plan, mutation), mapping_source_document(), recorded_source_objects)
 
 
-@pytest.mark.parametrize('mutation', ['omit:llamaguard-dataset', 'omit:' + LG_PRODUCTION_NEW_INPUTS[1], 'invent:22:threshold-policy'])
+@pytest.mark.parametrize('mutation', ['omit:llamaguard-dataset', 'omit:' + LG_PRODUCTION_NEW_INPUTS[1], 'invent:14:threshold-policy'])
 def test_lg_production_common_wrong_answers_are_rejected(source_fixture, recorded_source_objects, mutation):
     answers = []
     for module in (BUILDER, PLAN_CHECKER):
@@ -5844,7 +6087,7 @@ def test_lg_production_common_wrong_answers_are_rejected(source_fixture, recorde
 
 
 @pytest.mark.parametrize('mutation', ['omit:llamaguard-dataset', 'omit:' + LG_PRODUCTION_NEW_INPUTS[1],
-                                      'invent:22:threshold-policy', 'invent:23:external-signer-policy'])
+                                      'invent:14:threshold-policy', 'invent:15:external-signer-policy'])
 def test_lg_production_rehashed_plan_rejected_by_isolated_checker(source_fixture, tmp_path, mutation):
     raw = canonical(corrupt_lg_production_plan(source_fixture.plan, mutation))
     jsonschema.Draft202012Validator(EVIDENCE_SCHEMA).validate(json.loads(raw))
@@ -5875,7 +6118,7 @@ def test_lg_production_sources_reject_drift(recorded_source_objects, side, path,
 @pytest.mark.parametrize('side', ['builder', 'checker'])
 @pytest.mark.parametrize('fault', ['dataset', 'input', 'output', 'version'])
 def test_lg_production_logical_workflow_substitution_rejected(recorded_source_objects, side, fault):
-    workflow = mapping_source_document(); step = workflow['jobs']['pulse']['steps'][22]
+    workflow = mapping_source_document(); step = workflow['jobs']['pulse']['steps'][14]
     replacements = {'dataset': ('--dataset', '--different-dataset'), 'input': ('--in ', '--other-input '),
                     'output': ('llamaguard_summary.json', 'other-summary.json'),
                     'version': ('${LLAMAGUARD_VERSION}', 'unreviewed-version')}
@@ -5894,7 +6137,7 @@ def test_lg_production_retains_unselected_graph_fields(recorded_source_objects, 
         before_states = module._build_states(before_steps, module.EXPECTED_CASE_IDS, workflow, recorded_source_objects)
     _, after_steps, _ = module._build_jobs(workflow)
     after_states = module._build_states(after_steps, module.EXPECTED_CASE_IDS, workflow, recorded_source_objects)
-    owned = {module._step_id('pulse', n) for n in (22, 23)}
+    owned = {module._step_id('pulse', n) for n in (14, 15)}
     for old, new in zip(before_states, after_states):
         old, new = copy.deepcopy(old), copy.deepcopy(new)
         for row in (old, new): row['required_consumer_occurrence_ids'] = [oid for oid in row['required_consumer_occurrence_ids'] if oid not in owned]
@@ -6035,7 +6278,7 @@ def test_pre_attest_postcondition_keeps_full_selector_and_partial_role_extent(re
     assert facts['read_basis'] == 'source_declared_file_hash_read'
     assert facts['observed_read_receipt'] is False
     assert facts['semantic_content_admission'] is False
-    assert facts['origins']['pre-materialization-status'] == module._step_id('pulse', 13)
+    assert facts['origins']['pre-materialization-status'] == module._step_id('pulse', 19)
     assert facts['locators']['pre-materialization-status'].endswith('#pre-release-required-materialization')
 
 
@@ -6351,7 +6594,7 @@ def corrupt_final_postcondition_plan(original, fault):
         elif operation == 'reverse': state['required_consumer_occurrence_ids'].remove(oid)
         else: raise AssertionError(fault)
     elif fault == 'locator': states['quality-ledger-final']['path_or_uri'] += '#pre-authority-insertion'
-    elif fault == 'origin': states['final-status']['producer_occurrence_id'] = BUILDER._step_id('pulse', 13)
+    elif fault == 'origin': states['final-status']['producer_occurrence_id'] = BUILDER._step_id('pulse', 19)
     elif fault == 'writer': reader['output_state_ids'] = [states['final-status']['state_id']]
     elif fault == 'required': states['final-status-summary']['required'] = False
     elif fault == 'content': states['llamaguard-attestation-bundle']['content_requirement'] = 'metadata_only'
@@ -6621,7 +6864,7 @@ def test_recorded_publication_separates_named_files_tree_and_unmodeled_remainder
     assert not {'artifact_id', 'artifact_digest', 'observed_members', 'archive_members'} & set(facts)
     assert facts['steps'] == {module._step_id('release_grade_recorded_path', 33): {
         'inputs': sorted(RECORDED_PUBLICATION_ROLES), 'outputs': []}}
-    assert facts['origins']['self-contained-evidence-floor'] == module._step_id('pulse', 18)
+    assert facts['origins']['self-contained-evidence-floor'] == module._step_id('pulse', 23)
     assert facts['origins']['recorded-release-candidate-envelopes'] == module._step_id('release_grade_recorded_path', 6)
 
 
@@ -7563,8 +7806,8 @@ RESIDUAL_REPLAY_INPUTS = ['pre-materialization-status', 'required-gate-evidence'
     'gate-registry', 'threshold-policy', 'external-signer-policy', 'llamaguard-summary',
     'llamaguard-raw-evidence', 'llamaguard-attestation-envelope', 'llamaguard-attestation-bundle']
 RESIDUAL_REVIEW_EQUATIONS = [
-    ('pulse', 12, ['required-gate-evidence'], []),
-    ('pulse', 13, ['required-gate-evidence', 'gate-policy', 'gate-registry'], ['pre-materialization-status']),
+    ('pulse', 18, ['required-gate-evidence'], []),
+    ('pulse', 19, ['required-gate-evidence', 'gate-policy', 'gate-registry'], ['pre-materialization-status']),
     ('pulse', 50, ['pre-materialization-status', 'gate-registry'], []),
     ('pulse', 51, ['gate-policy', 'gate-registry'], []),
     ('release_grade_recorded_path', 6, RESIDUAL_REPLAY_INPUTS,
@@ -7607,10 +7850,10 @@ def test_residual_input_extractors_are_separate_and_agree(recorded_source_object
     assert len(one['locators']) == 19 and len(one['steps']) == 13
     assert one['observed_read_receipt'] is False and one['semantic_content_admission'] is False
     assert one['selected_roles_exhaust_source_reads'] is False
-    assert one['transport_occurrences'] == ['execution:step5c:step:pulse:012']
+    assert one['transport_occurrences'] == ['execution:step5c:step:pulse:018']
     assert len(one['source_anchor_occurrences']) == 6
     assert one['upload_if_no_files_found'] == 'warn'
-    assert one['upload_selectors'] == mapping_source_document()['jobs']['pulse']['steps'][11]['with']['path'].splitlines()
+    assert one['upload_selectors'] == mapping_source_document()['jobs']['pulse']['steps'][17]['with']['path'].splitlines()
 
 
 
@@ -7702,9 +7945,9 @@ def test_residual_input_altered_workflow_does_not_reuse_good_syntax(recorded_sou
     with module._yaml_parse_scope():
         method(doc, recorded_source_objects)
         pulse = doc['jobs']['pulse']['steps']; rows = doc['jobs']['release_grade_recorded_path']['steps']
-        if fault == 'upload_selector': pulse[11]['with']['path'] += 'unreviewed/**\n'
-        elif fault == 'upload_condition': pulse[11]['if'] = '${{ true }}'
-        elif fault == 'warn_to_ignore': pulse[11]['with']['if-no-files-found'] = 'ignore'
+        if fault == 'upload_selector': pulse[17]['with']['path'] += 'unreviewed/**\n'
+        elif fault == 'upload_condition': pulse[17]['if'] = '${{ true }}'
+        elif fault == 'warn_to_ignore': pulse[17]['with']['if-no-files-found'] = 'ignore'
         elif fault == 'pulse_augment': pulse[37]['if'] = '${{ true }}'
         elif fault == 'export_status': rows[22]['run'] = rows[22]['run'].replace('artifacts/status.json', 'artifacts/status_baseline.json')
         elif fault == 'export_order': rows[22]['run'] = rows[22]['run'].replace('--set required', '--set release_required', 1)
@@ -7714,7 +7957,7 @@ def test_residual_input_altered_workflow_does_not_reuse_good_syntax(recorded_sou
 
 
 RESIDUAL_PLAN_FAULTS = [
-    'p12_missing_transport', 'p13_missing_evidence', 'p50_missing_registry', 'p50_false_policy',
+    'p18_missing_transport', 'p19_missing_evidence', 'p50_missing_registry', 'p50_false_policy',
     'p50_future_status', 'p51_false_status', 'p51_missing_policy', 'r6_missing_threshold',
     'r6_missing_required_evidence', 'r6_missing_lg_raw', 'r8_persisted_verifier', 'r8_index_instead',
     'r8_missing_envelope', 'r23_pre_status', 'r23_missing_policy', 'r23_invented_argv_receipt',
@@ -7729,8 +7972,8 @@ def corrupt_residual_input_plan(original, fault):
     plan = copy.deepcopy(original); states, steps = provenance_rows(plan)
     p, r = 'pulse', 'release_grade_recorded_path'
     edge = lambda job, n, role, present: residual_edge(plan, job, n, role, present)
-    if fault == 'p12_missing_transport': edge(p, 12, 'required-gate-evidence', False)
-    elif fault == 'p13_missing_evidence': edge(p, 13, 'required-gate-evidence', False)
+    if fault == 'p18_missing_transport': edge(p, 18, 'required-gate-evidence', False)
+    elif fault == 'p19_missing_evidence': edge(p, 19, 'required-gate-evidence', False)
     elif fault == 'p50_missing_registry': edge(p, 50, 'gate-registry', False)
     elif fault == 'p50_false_policy': edge(p, 50, 'gate-policy', True)
     elif fault == 'p50_future_status':
@@ -7753,13 +7996,13 @@ def corrupt_residual_input_plan(original, fault):
     elif fault == 'forward_only': steps[(r, 23)]['input_state_ids'].remove(states['gate-policy']['state_id'])
     elif fault == 'reverse_only': states['threshold-policy']['required_consumer_occurrence_ids'].remove(steps[(r, 6)]['occurrence_id'])
     elif fault == 'pre_status_alias': states['pre-materialization-status']['path_or_uri'] = states['final-status']['path_or_uri']
-    elif fault == 'transport_as_producer': states['required-gate-evidence']['producer_occurrence_id'] = steps[(p, 12)]['occurrence_id']
+    elif fault == 'transport_as_producer': states['required-gate-evidence']['producer_occurrence_id'] = steps[(p, 18)]['occurrence_id']
     elif fault == 'wrong_version_producer': states['pre-materialization-status']['producer_occurrence_id'] = steps[(r, 9)]['occurrence_id']
     elif fault == 'optional_threshold': states['threshold-policy']['required'] = False
     elif fault == 'metadata_only_evidence': states['required-gate-evidence']['content_requirement'] = 'metadata_only'
     elif fault == 'false_authority': states['release-grade-junit']['authority_bearing'] = True
     elif fault == 'wrong_mutation': states['final-status']['mutation_class'] = 'none'
-    elif fault == 'transport_as_writer': steps[(p, 12)]['output_state_ids'] = [states['required-gate-evidence']['state_id']]
+    elif fault == 'transport_as_writer': steps[(p, 18)]['output_state_ids'] = [states['required-gate-evidence']['state_id']]
     elif fault == 'missing_role': plan['state_templates'].remove(states['threshold-policy'])
     elif fault == 'outside_asymmetry':
         states['final-status']['required_consumer_occurrence_ids'] = sorted(
@@ -9771,7 +10014,7 @@ def preserved_member_oracle(plan, case):
     for identifier in _PRESERVED_MEMBER_IDS:
         row = templates[identifier]; locator = row['path_or_uri']
         if '#pre-release-required-materialization' in locator:
-            assert row['producer_occurrence_id'] == 'execution:step5c:step:pulse:013'
+            assert row['producer_occurrence_id'] == 'execution:step5c:step:pulse:019'
             role = 'pre_attestation_pulse_artifacts'
             name = locator.split('#')[0].split('artifacts/', 1)[1]
         elif locator.startswith('${RUNNER_TEMP}/complete-release-grade-reference-package/'):
@@ -9991,7 +10234,7 @@ def test_preserved_member_role_packet_mutations_reject_on_rederivation(source_fi
     elif mutation == 'pre_from_final':
         final = next(item for item in packet['state_observations'] if item['state_id'] == 'state:step5c:final-status')
         row.update(sha256=final['sha256'], size_bytes=final['size_bytes'])
-    elif mutation == 'invented_origin': row['producer_execution_id'] = 'execution:step5c:step:pulse:013'
+    elif mutation == 'invented_origin': row['producer_execution_id'] = 'execution:step5c:step:pulse:019'
     else:
         reader = next(e for e in packet['executions'] if e['execution_id'] == 'execution:step5c:step:release_grade_recorded_path:006')
         reader['input_state_ids'].append(row['state_id'])
@@ -12800,6 +13043,10 @@ def r2c2_sources():
 
 @pytest.fixture(scope='module')
 def r2c2_plan(r2c2_sources):
+    return _build_r2c2_plan(r2c2_sources)
+
+
+def _build_r2c2_plan(r2c2_sources):
     f = r2c2_sources
     plan = BUILDER._build_local_r2_plan(f.files, **f.pins)
     raw = canonical(plan); pins = {**f.pins, 'expected_plan_sha256': digest(raw)}
@@ -12809,6 +13056,10 @@ def r2c2_plan(r2c2_sources):
 
 @pytest.fixture(scope='module')
 def r2c2_carrier(r2c2_plan):
+    return _build_r2c2_carrier(r2c2_plan)
+
+
+def _build_r2c2_carrier(r2c2_plan):
     f = r2c2_plan; s = f.source
     raw = VERIFIER._prepare_local_r2_bytes(f.raw, f.diagnostic, s.index_raw, s.sources, **f.pins)
     pins = {**f.pins, 'expected_prepared_sha256': digest(raw), 'experiment_id': 'local-r2:permanent-check'}
@@ -13841,11 +14092,15 @@ def test_r2c4_role_assessment_raw_payload_must_match_independent_pin(r2c4_inputs
 
 
 # LOCAL_05: D3 derivations and raw, timed A2 simulation. No Git commits or live calls.
-def _r2c5_policy_oracle(directory):
+def _r2c5_policy_oracle(directory, *, policy_raw=None):
     results = {}; directory.mkdir(parents=True, exist_ok=True)
+    policy_path = ROOT / 'pulse_gate_policy_v0.yml'
+    if policy_raw is not None:
+        policy_path = directory / 'bound-policy.yml'
+        policy_path.write_bytes(policy_raw)
     for name in ('required', 'release_required'):
         command = [sys.executable, '-I', '-B', str(ROOT/'tools/policy_to_require_args.py'),
-                   '--policy', str(ROOT/'pulse_gate_policy_v0.yml'), '--set', name, '--format', 'space']
+                   '--policy', str(policy_path), '--set', name, '--format', 'space']
         with (directory/(name+'.stdout')).open('wb') as out, (directory/(name+'.stderr')).open('wb') as err:
             process = subprocess.Popen(command, cwd=directory, stdout=out, stderr=err,
                 env={'PATH':'/usr/bin:/bin', 'HOME':str(directory), 'LANG':'C', 'LC_ALL':'C'})
@@ -13856,9 +14111,9 @@ def _r2c5_policy_oracle(directory):
     return results
 
 
-def _r2c5_content_archives(directory):
+def _r2c5_content_archives(directory, *, policy_raw=None):
     contents = _r2c4_content_archives(directory)
-    oracle = _r2c5_policy_oracle(directory.parent/'policy-oracle')
+    oracle = _r2c5_policy_oracle(directory.parent/'policy-oracle', policy_raw=policy_raw)
     old = contents['release_grade_recorded_path']['status.json']
     status = canonical({'gates': {gate: i%2 == 0 for i,gate in enumerate(oracle['release_required'])},
                         'fixture_only': True, 'version':'after-R9', 'metrics': {'unrelated':0.125}})
@@ -14348,6 +14603,10 @@ def _r2c6_setup_stage(request, name):
 # commit and never a commit in the project repository.
 @pytest.fixture(scope='module')
 def r2c6_package_inputs(r2c2_carrier, tmp_path_factory, request):
+    return _build_r2c6_package_inputs(r2c2_carrier, tmp_path_factory, request)
+
+
+def _build_r2c6_package_inputs(r2c2_carrier, tmp_path_factory, request):
     from datetime import datetime, timedelta, timezone
     f = r2c2_carrier
     diagnostic_request = request
@@ -14409,7 +14668,8 @@ def r2c6_package_inputs(r2c2_carrier, tmp_path_factory, request):
             'fixture_removed': not fixture.exists(), 'project_commit_created': False,
         }))
     with _r2c6_setup_stage(diagnostic_request, 'build-content-archives'):
-        contents, oracle = _r2c5_content_archives(directory / 'package')
+        contents, oracle = _r2c5_content_archives(directory / 'package',
+            policy_raw=f.plan.source.sources['pulse_gate_policy_v0.yml'])
     with _r2c6_setup_stage(diagnostic_request, 'build-semantic-template'):
         spec = importlib.util.spec_from_file_location('step5c_local_package_data',
             ROOT / 'tests/test_release_grade_reference_package_verification_wiring_v0.py')
@@ -15584,6 +15844,11 @@ def _r2c9_build_provider_inputs(f, tmp_path_factory, *, terminal_builder=None):
     if terminal_builder is not None:
         authority['gate_registry']['registry_id'] = yaml.safe_load(
             f.carrier.plan.source.sources['pulse_gate_registry_v0.yml'])['version']
+        # Document shapes do not supply policy identity. Read the actual
+        # source-bound policy, including the separately named TEST profile.
+        policy_id = yaml.safe_load(f.carrier.plan.source.sources['pulse_gate_policy_v0.yml'])['policy']['id']
+        authority['policy']['policy_id'] = policy_id
+        expectation['subject']['policy_id'] = policy_id
     expectation['subject'].update(final_status_sha256=digest(package['artifacts/status.json']),
         policy_sha256=policy_sha, release_decision_sha256=digest(package['artifacts/release_decision_v0.json']),
         materialized_gate_set_sha256=gate_digest)
@@ -16465,6 +16730,10 @@ def _r2c12_rebuild_summary(sources, payloads, spec, directory):
 
 @pytest.fixture(scope='module')
 def r2c12_llamaguard_inputs(r2c6_package_inputs, tmp_path_factory):
+    return _build_r2c12_llamaguard_inputs(r2c6_package_inputs, tmp_path_factory)
+
+
+def _build_r2c12_llamaguard_inputs(r2c6_package_inputs, tmp_path_factory):
     f = r2c6_package_inputs
     sources, _ = VERIFIER._local_r2_llamaguard_content_sources(f.carrier.plan.value, f.prepared)
     cases = [json.loads(line) for line in sources[
@@ -16772,6 +17041,10 @@ assert Path(os.environ['HOME']).parent==root.parent
 
 @pytest.fixture(scope='module')
 def r2c13_attestation_inputs(r2c12_llamaguard_inputs,tmp_path_factory):
+    return _build_r2c13_attestation_inputs(r2c12_llamaguard_inputs, tmp_path_factory)
+
+
+def _build_r2c13_attestation_inputs(r2c12_llamaguard_inputs,tmp_path_factory):
     f=r2c12_llamaguard_inputs; sources,_=VERIFIER._local_r2_attestation_sources(f.carrier.plan.value,f.prepared)
     prefix='PULSE_safe_pack_v0/artifacts/external/'; repo='HKati/pulse-release-gates-0.1'
     raw=f.contents['release_grade_recorded_path']['external/llamaguard_summary.json'];summary=json.loads(raw);sha=digest(raw)
@@ -17020,6 +17293,10 @@ def test_r2c13_cleanup_failure_cannot_return_verified(r2c13_attestation_inputs):
 # R2C14: complete unchanged core, explicit fake backend, no real signatures.
 @pytest.fixture(scope='module')
 def r2c14_recorded_full_inputs(r2c13_attestation_inputs, tmp_path_factory):
+    return _build_r2c14_recorded_full_inputs(r2c13_attestation_inputs, tmp_path_factory)
+
+
+def _build_r2c14_recorded_full_inputs(r2c13_attestation_inputs, tmp_path_factory):
     f = r2c13_attestation_inputs
     directory = tmp_path_factory.mktemp('r2c14-full-producer')
     workspace = directory/'inputs'; workspace.mkdir()
@@ -17755,6 +18032,101 @@ def test_r2c16_invalid_generated_packet_requires_fresh_validator(r2c16_runtime_i
             VERIFIER._assess_local_r2_runtime(t.f.capture,t.f.carrier.raw,t.f.carrier.context,**t.pins)
 
 
+# The repository policy still requires all 19 gates. This separately named
+# TEST policy exercises native positive reconstruction for the six implemented
+# recipes; it cannot attest success under the repository policy. Policy, plan
+# and the exact literal pin revisions are bound before any evidence is built.
+_R2C17_SUPPORTED_REQUIRED = (
+    'pass_controls_refusal', 'refusal_delta_pass', 'pass_controls_sanit',
+    'sanitization_effective', 'q1_grounded_ok', 'q4_slo_ok',
+)
+_R2C17_UNSUPPORTED_REQUIRED = frozenset({
+    'effect_present', 'psf_monotonicity_ok', 'psf_mono_shift_resilient',
+    'pass_controls_comm', 'psf_commutativity_ok', 'psf_comm_shift_resilient',
+    'sanit_shift_resilient', 'psf_action_monotonicity_ok', 'psf_idempotence_ok',
+    'psf_path_independence_ok', 'psf_pii_monotonicity_ok', 'q2_consistency_ok',
+    'q3_fairness_ok',
+})
+_R2C17_FIXTURE_POLICY_ID = 'pulse-step5c-supported-terminal-fixture-v0'
+_R2C17_POLICY_PATH = 'pulse_gate_policy_v0.yml'
+_R2C17_PLAN_PATH = 'PULSE_safe_pack_v0/profiles/required_gate_evaluations_v0.json'
+_R2C17_ORIGINAL_POLICY_BLOB = b'a311b424ad0f6c028b9c37b18572e7a09c721cdd'
+# Only these literal policy pins change in the separate TEST source tree.
+# No validator predicate, source-check function or producer is replaced.
+_R2C17_TEST_PIN_FILES = {
+    'tools/build_pulsemech_compute_whole_runtime_observation_plan_v0.py': 1,
+    'tools/check_pulsemech_compute_whole_runtime_observation_plan_v0.py': 1,
+    'tools/capture_pulsemech_compute_whole_runtime_observation_v0.py': 1,
+    'tools/check_pulsemech_compute_whole_runtime_observation_v0.py': 2,
+}
+
+
+def _r2c17_supported_sources(original):
+    """Declare a new test source identity, never relabel the repository source."""
+    files = dict(original.files)
+    policy = yaml.safe_load(files[_R2C17_POLICY_PATH][1])
+    assert len(policy['gates']['required']) == 19
+    assert set(policy['gates']['required']) == (
+        set(_R2C17_SUPPORTED_REQUIRED) | _R2C17_UNSUPPORTED_REQUIRED)
+    policy['policy']['id'] = _R2C17_FIXTURE_POLICY_ID
+    policy['gates']['required'] = list(_R2C17_SUPPORTED_REQUIRED)
+    plan = json.loads(files[_R2C17_PLAN_PATH][1])
+    assert set(plan['evaluations']) == (
+        set(_R2C17_SUPPORTED_REQUIRED) | _R2C17_UNSUPPORTED_REQUIRED)
+    plan['evaluations'] = {gate: plan['evaluations'][gate] for gate in _R2C17_SUPPORTED_REQUIRED}
+    # Preserve the reviewed YAML grammar and all unselected policy bytes.
+    original_policy = files[_R2C17_POLICY_PATH][1]
+    assert BUILDER._sha1_git_blob(original_policy).encode() == _R2C17_ORIGINAL_POLICY_BLOB
+    policy_text = original_policy.decode()
+    policy_text, count = re.subn(r'(?m)^  id: pulse-gate-policy-v0$',
+        '  id: ' + _R2C17_FIXTURE_POLICY_ID, policy_text)
+    assert count == 1
+    policy_text, count = re.subn(r'(?m)^  required:\n(?:    - [a-z][a-z0-9_]*\n)+',
+        '  required:\n' + ''.join('    - ' + gate + '\n' for gate in _R2C17_SUPPORTED_REQUIRED), policy_text)
+    assert count == 1
+    policy_raw = ('# TEST ONLY: six supported recipes; not the repository release policy.\n' + policy_text).encode()
+    assert yaml.safe_load(policy_raw) == policy
+    files[_R2C17_POLICY_PATH] = (files[_R2C17_POLICY_PATH][0], policy_raw)
+    files[_R2C17_PLAN_PATH] = (files[_R2C17_PLAN_PATH][0], canonical(plan))
+    fixture_pin = BUILDER._sha1_git_blob(policy_raw).encode()
+    for path, count in _R2C17_TEST_PIN_FILES.items():
+        mode, raw = files[path]
+        assert raw.count(_R2C17_ORIGINAL_POLICY_BLOB) == count
+        files[path] = (mode, raw.replace(_R2C17_ORIGINAL_POLICY_BLOB, fixture_pin))
+    assert {name for name in files if files[name] != original.files[name]} == {
+        _R2C17_POLICY_PATH, _R2C17_PLAN_PATH, *_R2C17_TEST_PIN_FILES}
+    index_raw, tree = _r2c2_index_oracle(files)
+    assert tree != original.tree
+    return SimpleNamespace(files=files, index_raw=index_raw, tree=tree,
+        sources={path: files[path][1] for _, path in PLAN_CHECKER._LOCAL_R2_SOURCE_ROLES},
+        pins={'expected_source_tree': tree, 'expected_source_index_sha256': digest(index_raw)})
+
+
+@pytest.fixture(scope='module')
+def r2c17_supported_inputs(r2c2_sources, tmp_path_factory, request):
+    source = _r2c17_supported_sources(r2c2_sources)
+    root = tmp_path_factory.mktemp('r2c17-supported-source')
+    for relative, (mode, raw) in source.files.items():
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+        path.chmod(0o755 if mode == '100755' else 0o644)
+    # Load a distinct, on-disk source revision; never patch the installed
+    # repository checker or reuse a producer's verdict as verification.
+    name = 'step5c_supported_source_' + source.tree
+    spec = importlib.util.spec_from_file_location(name, root / Path(__file__).relative_to(ROOT))
+    profile = importlib.util.module_from_spec(spec)
+    sys.modules[name] = profile
+    spec.loader.exec_module(profile)
+    source.profile = profile
+    plan = profile._build_r2c2_plan(source)
+    carrier = profile._build_r2c2_carrier(plan)
+    package = profile._build_r2c6_package_inputs(carrier, tmp_path_factory, request)
+    content = profile._build_r2c12_llamaguard_inputs(package, tmp_path_factory)
+    attestation = profile._build_r2c13_attestation_inputs(content, tmp_path_factory)
+    return profile._build_r2c14_recorded_full_inputs(attestation, tmp_path_factory)
+
+
 # R2C17: native terminal fixture producers over archived local reference inputs.
 # This is not a live model run, real-signature proof or complete Step 5C replay.
 def _r2c17_source_fixture(f, destination):
@@ -17787,8 +18159,8 @@ def _r2c17_source_fixture(f, destination):
     return destination
 
 
-def _r2c17_terminal_package(f, package, directory):
-    """Use native producers, not hand-authored successful terminal documents."""
+def _r2c17_gate_stage(f, package, directory, *, expected_exit):
+    """Run both native admission tools; never turn their rejection into PASS."""
     root = _r2c17_source_fixture(f, directory / 'producer-source')
     home = directory / 'home'; home.mkdir()
     backend = directory / 'backend'; backend.mkdir()
@@ -17808,7 +18180,7 @@ def _r2c17_terminal_package(f, package, directory):
         'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_RUN_ID': '9001', 'GITHUB_RUN_ATTEMPT': '1'}
     stamp = json.loads(package['run_metadata_v0.json'])['created_utc']
     commands = []
-    def run(tool, args):
+    def run(tool, args, *, expected=0):
         command = [sys.executable, '-I', '-B', '-c',
             "import runpy,sys; from pathlib import Path; p=Path(sys.argv[1]); "
             "sys.path.insert(0,str(p.parent)); sys.argv=sys.argv[1:]; runpy.run_path(str(p),run_name='__main__')",
@@ -17817,11 +18189,21 @@ def _r2c17_terminal_package(f, package, directory):
         commands.append({'argv': command, 'exit': result.returncode,
                          'stdout': result.stdout.decode(), 'stderr': result.stderr.decode()})
         (directory / 'terminal-producer-commands.json').write_bytes(canonical(commands))
-        assert result.returncode == 0, commands[-1]
+        assert result.returncode == expected, commands[-1]
+        return result
+    # Remove the inherited synthetic seed: success must be newly produced.
+    (root / artifacts / 'status.json').unlink()
     run('run_recorded_required_gate_evaluations_v0.py', ['--repo-root', str(root),
         '--git-sha', f.commit, '--run-key', f.full_spec['run_key'], '--repository', VERIFIER.REPOSITORY,
-        '--release-candidate', 'main', '--timeout-seconds', '45'])
-    run('build_release_grade_candidate_status_v0.py', ['--repo-root', str(root)])
+        '--release-candidate', 'main', '--timeout-seconds', '45'], expected=expected_exit)
+    run('build_release_grade_candidate_status_v0.py', ['--repo-root', str(root)], expected=expected_exit)
+    return SimpleNamespace(root=root, artifacts=artifacts, stamp=stamp, run=run, commands=commands)
+
+
+def _r2c17_terminal_package(f, package, directory):
+    """Use native producers under the explicitly bound supported TEST policy."""
+    stage = _r2c17_gate_stage(f, package, directory, expected_exit=0)
+    root, artifacts, stamp, run = stage.root, stage.artifacts, stage.stamp, stage.run
     pre_status = (root / artifacts / 'status.json').read_bytes()
     (root / artifacts / 'status_baseline.json').write_bytes(pre_status)
     run('build_recorded_release_candidates_v0.py', ['--repo-root', str(root)])
@@ -17871,8 +18253,13 @@ def _r2c17_terminal_package(f, package, directory):
 
 
 @pytest.fixture(scope='module')
-def r2c17_native_inputs(r2c14_recorded_full_inputs, tmp_path_factory):
-    old = r2c14_recorded_full_inputs
+def r2c17_native_inputs(r2c17_supported_inputs, tmp_path_factory):
+    profile = r2c17_supported_inputs.carrier.plan.source.profile
+    return profile._build_r2c17_native_inputs(r2c17_supported_inputs, tmp_path_factory)
+
+
+def _build_r2c17_native_inputs(r2c17_supported_inputs, tmp_path_factory):
+    old = r2c17_supported_inputs
     before = canonical({role: {name: digest(raw) for name, raw in group.items()}
                         for role, group in old.contents.items()})
     f = _r2c9_build_provider_inputs(old, tmp_path_factory, terminal_builder=_r2c17_terminal_package)
@@ -17929,6 +18316,94 @@ def r2c17_native_inputs(r2c14_recorded_full_inputs, tmp_path_factory):
         diagnostic=json.loads(diagnostic.stdout))
 
 
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_r2c17_repository_tools_reject_six_gate_policy_rebinding(r2c2_plan, side):
+    original = r2c2_plan.source
+    changed = _r2c17_supported_sources(original)
+    files = dict(changed.files)
+    # Keep the actual installed tools. Rehashing a six-gate source policy
+    # alone must not expand the repository implementations' reviewed profile.
+    for path in _R2C17_TEST_PIN_FILES:
+        files[path] = original.files[path]
+    index, tree = _r2c2_index_oracle(files)
+    sources = {path: files[path][1] for _, path in PLAN_CHECKER._LOCAL_R2_SOURCE_ROLES}
+    pins = {'expected_source_tree': tree, 'expected_source_index_sha256': digest(index)}
+    if side == 'builder':
+        with pytest.raises(BUILDER.PlanError, match='required_argument_semantic_source_drift'):
+            BUILDER._build_local_r2_plan(files, **pins)
+    else:
+        with pytest.raises(PLAN_CHECKER.PlanError, match='required_argument_semantic_source_drift'):
+            PLAN_CHECKER._check_local_r2_plan(r2c2_plan.raw, index, sources,
+                expected_plan_sha256=digest(r2c2_plan.raw), **pins)
+
+
+def test_r2c17_supported_fixture_never_relabels_repository_policy(r2c2_sources, r2c17_native_inputs):
+    original = r2c2_sources.files
+    tested = r2c17_native_inputs.f.carrier.plan.source.files
+    assert set(original) == set(tested)
+    assert {name for name in original if original[name] != tested[name]} == {
+        _R2C17_POLICY_PATH, _R2C17_PLAN_PATH, *_R2C17_TEST_PIN_FILES}
+    fixture_pin = BUILDER._sha1_git_blob(tested[_R2C17_POLICY_PATH][1]).encode()
+    for name, count in _R2C17_TEST_PIN_FILES.items():
+        mode, raw = original[name]
+        assert raw.count(_R2C17_ORIGINAL_POLICY_BLOB) == count
+        assert tested[name] == (mode, raw.replace(_R2C17_ORIGINAL_POLICY_BLOB, fixture_pin))
+    # The installed repository-profile implementation still rejects this
+    # differently scoped policy, even under an internally consistent new tree.
+    source = r2c17_native_inputs.f.carrier.plan.source
+    with pytest.raises(BUILDER.PlanError, match='r2_executed_builder_source_mismatch'):
+        BUILDER._build_local_r2_plan(source.files, **source.pins)
+    fixture_plan = r2c17_native_inputs.f.carrier.plan
+    with pytest.raises(PLAN_CHECKER.PlanError, match='r2_executed_checker_source_mismatch'):
+        PLAN_CHECKER._check_local_r2_plan(fixture_plan.raw, source.index_raw, source.sources,
+            **fixture_plan.pins)
+    assert source.profile.VERIFIER is not VERIFIER
+    assert dict(VERIFIER._D3_SOURCE_PINS)[_R2C17_POLICY_PATH].encode() == _R2C17_ORIGINAL_POLICY_BLOB
+    original_policy = yaml.safe_load(original[_R2C17_POLICY_PATH][1])
+    tested_policy = yaml.safe_load(tested[_R2C17_POLICY_PATH][1])
+    assert original[_R2C17_POLICY_PATH][1] == (ROOT / _R2C17_POLICY_PATH).read_bytes()
+    assert len(original_policy['gates']['required']) == 19
+    assert tested_policy['policy']['id'] == _R2C17_FIXTURE_POLICY_ID
+    assert set(tested_policy['gates']['required']) == set(_R2C17_SUPPORTED_REQUIRED)
+    restored = copy.deepcopy(tested_policy)
+    restored['gates']['required'] = original_policy['gates']['required']
+    restored['policy']['id'] = original_policy['policy']['id']
+    assert restored == original_policy  # Including all release_required duties.
+    original_plan = json.loads(original[_R2C17_PLAN_PATH][1])
+    tested_plan = json.loads(tested[_R2C17_PLAN_PATH][1])
+    assert tested_plan['evaluations'] == {
+        gate: original_plan['evaluations'][gate] for gate in _R2C17_SUPPORTED_REQUIRED}
+    restored_plan = copy.deepcopy(tested_plan)
+    restored_plan['evaluations'] = original_plan['evaluations']
+    assert restored_plan == original_plan
+    assert r2c17_native_inputs.f.carrier.plan.source.tree != r2c2_sources.tree
+
+
+def test_r2c17_repository_policy_rejects_native_unsupported_gates(
+        r2c14_recorded_full_inputs, tmp_path):
+    f = r2c14_recorded_full_inputs
+    assert f.carrier.plan.source.files[_R2C17_POLICY_PATH][1] == (ROOT / _R2C17_POLICY_PATH).read_bytes()
+    package = f.contents['complete_release_grade_reference_package']
+    stage = _r2c17_gate_stage(f, package, tmp_path, expected_exit=1)
+    assert [row['exit'] for row in stage.commands] == [1, 1]
+    assert not (stage.root / stage.artifacts / 'status.json').exists()
+    evidence = json.loads((stage.root / stage.artifacts / 'required_gate_evidence_v0.json').read_bytes())
+    assert len(evidence['gates']) == 19
+    assert set(evidence['gates']) == set(f.oracle['required'])
+    for gate, row in evidence['gates'].items():
+        supported = gate in _R2C17_SUPPORTED_REQUIRED
+        assert row['value'] is supported
+        assert row['status'] == ('passed' if supported else 'failed')
+        refs = [ref for ref in row['evidence_artifacts'] if ref['kind'] == 'required_gate_evaluation']
+        assert len(refs) == 1
+        raw = (stage.root / refs[0]['path']).read_bytes()
+        assert digest(raw) == refs[0]['sha256']
+        assert json.loads(raw)['pass'] is supported
+        if not supported:
+            assert repr(gate) in stage.commands[-1]['stderr']
+    assert set(f.oracle['required']) - set(_R2C17_SUPPORTED_REQUIRED) == _R2C17_UNSUPPORTED_REQUIRED
+
+
 def test_r2c17_native_producers_and_independent_report_path(r2c17_native_inputs):
     t = r2c17_native_inputs
     commands = json.loads((t.f.directory / 'terminal-producer-commands.json').read_bytes())
@@ -17954,7 +18429,8 @@ def test_r2c17_native_gate_results_and_pre_state_bindings(r2c17_native_inputs):
     pre = t.f.contents['pre_attestation_pulse_artifacts']['status.json']
     evidence = json.loads(recorded['required_gate_evidence_v0.json'])
     assert set(evidence['gates']) == set(t.f.oracle['required'])
-    assert len(evidence['gates']) == 19
+    assert set(evidence['gates']) == set(_R2C17_SUPPORTED_REQUIRED)
+    assert len(evidence['gates']) == 6
     for gate_id, result in evidence['gates'].items():
         assert result['value'] is True and result['status'] == 'passed'
         references = [row for row in result['evidence_artifacts'] if row['kind'] == 'required_gate_evaluation']
@@ -18004,6 +18480,9 @@ def test_r2c17_registry_and_terminal_documents_come_from_the_bound_sources(r2c17
         assert recorded[name] == (root / name).read_bytes()
     source_registry = yaml.safe_load(t.f.carrier.plan.source.sources['pulse_gate_registry_v0.yml'])
     assert t.packet['authority_sources']['gate_registry']['registry_id'] == source_registry['version']
+    assert t.packet['subject']['policy_id'] == _R2C17_FIXTURE_POLICY_ID
+    assert t.packet['authority_sources']['policy']['policy_id'] == _R2C17_FIXTURE_POLICY_ID
+    assert t.packet['subject']['policy_sha256'] == digest(t.f.carrier.plan.source.sources[_R2C17_POLICY_PATH])
     assert t.packet['subject']['release_candidate_id'] == 'pulse-ci-current-run:9001:1'
     assert json.loads(recorded['recorded_release_candidate_index_v0.json'])['subject']['release_candidate'] == 'main'
     advisory = t.f.contents['advisory_reference_bundle']
@@ -18012,6 +18491,7 @@ def test_r2c17_registry_and_terminal_documents_come_from_the_bound_sources(r2c17
 
 
 def test_r2c17_old_sparse_terminal_fixture_is_still_rejected(r2c17_native_inputs):
+    VERIFIER = r2c17_native_inputs.f.carrier.plan.source.profile.VERIFIER
     t = r2c17_native_inputs
     directory = t.directory / 'old-input'; directory.mkdir()
     packet_path = directory / 'packet.json'
@@ -18035,6 +18515,7 @@ def test_r2c17_old_sparse_terminal_fixture_is_still_rejected(r2c17_native_inputs
 # R2C18: retain authenticated native status bytes through the actual Step 3G CLI.
 @pytest.fixture(scope='module')
 def r2c18_native_baseline(r2c17_native_inputs):
+    VERIFIER = r2c17_native_inputs.f.carrier.plan.source.profile.VERIFIER
     t = r2c17_native_inputs
     before = {p.name: p.read_bytes() for p in (t.directory / 'intake').iterdir() if p.is_file()}
     status_path = t.f.directory / 'producer-source/PULSE_safe_pack_v0/artifacts/status.json'
@@ -18084,6 +18565,7 @@ def test_r2c18_native_step3g_preserves_status_and_generated_output_contract(r2c1
 
 
 def test_r2c18_native_step3g_rejects_source_and_repository_substitution(r2c18_native_baseline):
+    VERIFIER = r2c18_native_baseline.t.f.carrier.plan.source.profile.VERIFIER
     b = r2c18_native_baseline; t = b.t
     command = b.calls[0]['argv']
     for flag, replacement in (('--subject-revision', '0' * 40),
@@ -18141,6 +18623,7 @@ def test_r2c18_simulation_window_does_not_waive_invalid_or_missing_times():
 # R2C19: join the native downstream outputs to local roles, not original admission.
 @pytest.fixture(scope='module')
 def r2c19_downstream(r2c17_native_inputs, tmp_path_factory):
+    VERIFIER = r2c17_native_inputs.f.carrier.plan.source.profile.VERIFIER
     from datetime import timedelta
     t = r2c17_native_inputs; f = t.f
     plan, prepared = VERIFIER._read_local_r2_prepared(f.carrier.raw, f.carrier.context,
@@ -18188,6 +18671,7 @@ def r2c19_downstream(r2c17_native_inputs, tmp_path_factory):
 
 
 def _r2c19_run(t, **changes):
+    VERIFIER = t.f.carrier.plan.source.profile.VERIFIER
     values = {'control_root': t.t.control, 'subject_root': t.t.subject,
         'fixture_commit_raw': t.f.commit_raw, 'fixture_commit': t.f.commit}
     values.update(changes)
@@ -18208,6 +18692,7 @@ _R2C19_NATIVE_TOOLS = (
 
 
 def test_r2c19_all_local_roles_bind_fresh_native_outputs(r2c19_downstream):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream; a=t.assessment
     assert a['schema_version'] == 'pulsemech_step5c_local_r2_downstream_derivation_v0'
     assert len(a['roles']) == a['role_count'] == a['local_content_satisfied_role_count'] == 62
@@ -18244,6 +18729,7 @@ def test_r2c19_all_local_roles_bind_fresh_native_outputs(r2c19_downstream):
 
 
 def test_r2c19_reader_reexecutes_all_native_stages(r2c19_downstream):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream; calls=[]; real=VERIFIER.run_process
     def record(command, **kwargs):
         calls.append(tuple(map(str,command))); return real(command, **kwargs)
@@ -18257,6 +18743,7 @@ def test_r2c19_reader_reexecutes_all_native_stages(r2c19_downstream):
 
 @pytest.mark.parametrize('tool',_R2C19_NATIVE_TOOLS)
 def test_r2c19_native_command_failure_is_not_replaced_by_saved_success(r2c19_downstream,tool):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream; real=VERIFIER.run_process; invoked=[]
     def fail(command, **kwargs):
         if len(command)>3 and Path(command[3]).name==tool:
@@ -18270,6 +18757,7 @@ def test_r2c19_native_command_failure_is_not_replaced_by_saved_success(r2c19_dow
 
 @pytest.mark.parametrize('fault',['changed','mode','missing','extra','symlink','hardlink','config','commit'])
 def test_r2c19_exact_fixture_source_is_required(r2c19_downstream,tmp_path,fault):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream
     root=tmp_path/'source';shutil.copytree(t.t.control,root)
     path=root/'tools/check_pulsemech_compute_binding_report_v0.py'
@@ -18294,6 +18782,7 @@ def test_r2c19_exact_fixture_source_is_required(r2c19_downstream,tmp_path,fault)
 
 @pytest.mark.parametrize('fault',['same','nested'])
 def test_r2c19_source_roots_must_be_separate(r2c19_downstream,fault):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream
     with pytest.raises(VERIFIER.VerificationError,match='r2_downstream_source_roots_overlap'):
         _r2c19_run(t,subject_root=t.t.control if fault=='same' else t.t.control/'nested')
@@ -18301,6 +18790,7 @@ def test_r2c19_source_roots_must_be_separate(r2c19_downstream,fault):
 
 @pytest.mark.parametrize('fault',['digest','missing-member','extra-member'])
 def test_r2c19_saved_carrier_inventory_is_closed_before_reexecution(r2c19_downstream,fault):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream;members=dict(t.members)
     if fault=='missing-member':del members['compute-binding-report.json']
     elif fault=='extra-member':members['extra.json']=b'{}\n'
@@ -18312,6 +18802,7 @@ def test_r2c19_saved_carrier_inventory_is_closed_before_reexecution(r2c19_downst
 
 
 def test_r2c19_rehashed_assessment_cannot_claim_original_admission(r2c19_downstream):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream;members=dict(t.members);a=copy.deepcopy(t.assessment)
     a['fully_satisfied_role_count']=62;a['assessment_status']='complete'
     a['local_boundary']['R2_activated']=True
@@ -18324,6 +18815,7 @@ def test_r2c19_rehashed_assessment_cannot_claim_original_admission(r2c19_downstr
 
 @pytest.mark.parametrize('target',['source','git-index','intake','baseline'])
 def test_r2c19_mutated_inputs_reject_even_after_successful_child(r2c19_downstream,tmp_path,target):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream;control=tmp_path/'control';subject=tmp_path/'subject'
     shutil.copytree(t.t.control,control);shutil.copytree(t.t.subject,subject)
     real=VERIFIER.run_process;seen=[]
@@ -18343,6 +18835,7 @@ def test_r2c19_mutated_inputs_reject_even_after_successful_child(r2c19_downstrea
 
 
 def test_r2c19_cleanup_failure_does_not_return_a_success_carrier(r2c19_downstream):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream;real=VERIFIER.tempfile.TemporaryDirectory
     class FailingCleanup(real):
         def __exit__(self,*args):
@@ -18354,6 +18847,7 @@ def test_r2c19_cleanup_failure_does_not_return_a_success_carrier(r2c19_downstrea
 
 
 def test_r2c19_runtime_self_hash_and_D1_D6_gaps_remain_absent(r2c19_downstream):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream
     packet=json.loads(t.outputs['runtime-observation-packet.json'])
     states={row['state_id']:row for row in packet['state_observations']}
@@ -18366,6 +18860,7 @@ def test_r2c19_runtime_self_hash_and_D1_D6_gaps_remain_absent(r2c19_downstream):
 
 
 def test_r2c19_safe_local_git_config_order_is_not_an_encoding_requirement(r2c19_downstream,tmp_path):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream;root=tmp_path/'source';shutil.copytree(t.t.control,root)
     raw=b'[core]\n\tbare = false\n\tlogallrefupdates = true\n\tfilemode = true\n\trepositoryformatversion = 0\n'
     (root/'.git/config').write_bytes(raw)
@@ -18376,6 +18871,7 @@ def test_r2c19_safe_local_git_config_order_is_not_an_encoding_requirement(r2c19_
 
 @pytest.mark.parametrize('fault',['index','prepared-source','installed-verifier'])
 def test_r2c19_external_source_bindings_remain_mandatory(r2c19_downstream,tmp_path,fault):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream;prepared=dict(t.prepared)
     if fault=='index':prepared['local-r2-source-index.json']+=b'\n'
     elif fault=='prepared-source':prepared['sources/tools/check_pulsemech_compute_binding_report_v0.py']+=b'\n'
@@ -18389,6 +18885,7 @@ def test_r2c19_external_source_bindings_remain_mandatory(r2c19_downstream,tmp_pa
 # R2C20: two complete fresh local reconstructions from the same pinned inputs.
 @pytest.fixture(scope='module')
 def r2c20_reconstructions(r2c19_downstream, tmp_path_factory):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     import time
     t = r2c19_downstream
     calls = []; diagnostics = []; workspaces = []; results = []
@@ -18450,11 +18947,13 @@ def r2c20_reconstructions(r2c19_downstream, tmp_path_factory):
 
 
 def _r2c20_once(t, ordinal=1):
+    VERIFIER = t.t.f.carrier.plan.source.profile.VERIFIER
     return VERIFIER._run_local_r2_reconstruction_once(ordinal, t.inputs, t.pins,
         control_root=t.t.t.control, subject_root=t.t.t.subject)
 
 
 def test_r2c20_pair_reconstructs_all_eleven_members_in_separate_processes(r2c20_reconstructions):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions; a=t.assessment
     assert t.members['reconstruction-1.zip'] == t.members['reconstruction-2.zip'] == t.t.raw
     assert t.results == [t.t.raw, t.t.raw]
@@ -18503,6 +19002,7 @@ def test_r2c20_saved_pair_reader_reexecutes_both_complete_chains(r2c20_reconstru
 
 @pytest.mark.parametrize('ordinal',[1,2])
 def test_r2c20_each_process_error_propagates(r2c20_reconstructions,ordinal):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions; launched=[]
     def fail(command,**kwargs):
         launched.append(kwargs['cwd'])
@@ -18516,6 +19016,7 @@ def test_r2c20_each_process_error_propagates(r2c20_reconstructions,ordinal):
 
 @pytest.mark.parametrize('fault',['ordinal','boolean-ordinal','pid','parent-pid','source','inputs','result','ok','extra','invalid-json'])
 def test_r2c20_process_diagnostic_cannot_substitute_success(r2c20_reconstructions,fault):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions
     def corrupt(command,**kwargs):
         root=kwargs['cwd']; request=json.loads((root/'inputs/request.json').read_bytes())
@@ -18541,6 +19042,7 @@ def test_r2c20_process_diagnostic_cannot_substitute_success(r2c20_reconstruction
 
 @pytest.mark.parametrize('fault',['changed','mode','missing','extra','symlink'])
 def test_r2c20_sealed_input_mutation_is_rejected_even_after_child_failure(r2c20_reconstructions,fault):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions
     def mutate(command,**kwargs):
         root=kwargs['cwd']; path=root/'inputs/context.json'
@@ -18556,6 +19058,7 @@ def test_r2c20_sealed_input_mutation_is_rejected_even_after_child_failure(r2c20_
 
 @pytest.mark.parametrize('fault',['digest','missing','extra','unequal'])
 def test_r2c20_invalid_pair_rejects_before_replay(r2c20_reconstructions,fault):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions; members=dict(t.members)
     if fault=='missing':del members['reconstruction-2.zip']
     elif fault=='extra':members['extra.json']=b'{}\n'
@@ -18569,6 +19072,7 @@ def test_r2c20_invalid_pair_rejects_before_replay(r2c20_reconstructions,fault):
 
 @pytest.mark.parametrize('fault',['second-failure','same-pid','different-output'])
 def test_r2c20_pair_never_promotes_an_incomplete_or_reused_second_run(r2c20_reconstructions,fault):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions; seen=[]
     # Negative orchestration isolation: reuse real preserved first-run data,
     # then break the second run. This is not a fresh positive reconstruction.
@@ -18590,6 +19094,7 @@ def test_r2c20_pair_never_promotes_an_incomplete_or_reused_second_run(r2c20_reco
 
 
 def test_r2c20_rehashed_original_admission_claim_still_requires_fresh_execution(r2c20_reconstructions):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions; members=dict(t.members)
     forged=copy.deepcopy(t.assessment);forged['assessment_status']='complete';forged['fully_satisfied_role_count']=62
     forged['local_boundary']['R2_activated']=True
@@ -18609,6 +19114,7 @@ def test_r2c20_rehashed_original_admission_claim_still_requires_fresh_execution(
 
 @pytest.mark.parametrize('fault',['missing','extra','oversize','ordinal'])
 def test_r2c20_input_contract_rejects_before_process(r2c20_reconstructions,fault):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions; inputs=dict(t.inputs); ordinal=1
     if fault=='missing':del inputs['prepared.zip']
     elif fault=='extra':inputs['previous-result.zip']=t.t.raw
@@ -18631,6 +19137,7 @@ def test_r2c20_carrier_snapshot_does_not_inherit_source_file_budget(tmp_path):
 
 
 def test_r2c20_cleanup_failure_cannot_return_reconstruction(r2c20_reconstructions):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions; real=VERIFIER.tempfile.TemporaryDirectory
     class BrokenCleanup:
         def __init__(self,*args,**kwargs):self.inner=real(*args,**kwargs)
@@ -18720,6 +19227,11 @@ class _R2PublicExampleTransport:
 
 @pytest.fixture(scope='module')
 def r2_public_handoff(r2c17_native_inputs,tmp_path_factory):
+    profile = r2c17_native_inputs.f.carrier.plan.source.profile
+    return profile._build_r2_public_handoff(r2c17_native_inputs, tmp_path_factory)
+
+
+def _build_r2_public_handoff(r2c17_native_inputs,tmp_path_factory):
     t=r2c17_native_inputs; f=t.f;directory=tmp_path_factory.mktemp('r2-public-integration')
     root=_r2c17_source_fixture(f,directory/'source')
     plan_path=directory/'plan.json';diagnostic=directory/'plan-check.json'
@@ -18760,7 +19272,7 @@ def r2_public_handoff(r2c17_native_inputs,tmp_path_factory):
 
 def test_r2_public_actual_plan_acquisition_capture_prepare(r2_public_handoff):
     f=r2_public_handoff;plan=f.source.plan
-    assert len(plan['source_inventory'])==73
+    assert len(plan['source_inventory'])==74
     assert len(plan['state_templates'])==62
     assert plan['evidence_profile_binding']==f.capture.manifest['evidence_profile_binding']
     assert f.capture.manifest['record_status']=='example'
@@ -18770,7 +19282,7 @@ def test_r2_public_actual_plan_acquisition_capture_prepare(r2_public_handoff):
     assert context['expected_plan_sha256']==f.source.plan_digest
     with zipfile.ZipFile(f.prepared) as z:
         assert json.loads(z.read('source-inventory.json'))['evidence_profile_binding']==plan['evidence_profile_binding']
-        assert len([name for name in z.namelist() if name.startswith('sources/')])==73
+        assert len([name for name in z.namelist() if name.startswith('sources/')])==74
 
 
 @pytest.fixture(scope='module')
@@ -18820,7 +19332,7 @@ def test_r2_public_plan_binds_exact_obligations_without_changing_mapping(r2_publ
     assert actual==expected
     assert p.plan['evidence_profile_binding']['role_obligations']==R2_CONTRACT_ROLES
     assert p.plan['evidence_profile_binding']==p.diagnostic['evidence_profile_binding']
-    assert len(p.plan['source_inventory'])==73
+    assert len(p.plan['source_inventory'])==74
     assert all(row['revision']==p.f.sha and 'revision_kind' not in row for row in p.plan['source_inventory'])
 
 
@@ -18979,6 +19491,119 @@ def test_mapping_fixture_reuse_does_not_hide_input_failures(raw, error):
         assert mapping_source_document() == good
     finally:
         _MAPPING_SOURCE_SYNTAX = saved
+
+
+
+
+# Pre-acquisition correction: bind the dependency lock without creating a state role.
+@pytest.mark.parametrize('module', [BUILDER, PLAN_CHECKER])
+def test_pre_acquisition_lock_public_source_closure(module):
+    path = 'PULSE_safe_pack_v0/requirements-attestation-v0.lock'
+    assert module.ATTESTATION_LOCK_PATH == path
+    assert [row for row in module.PUBLIC_R2_SOURCE_ROLES if row[1] == path] == [
+        ('attestation_dependency_lock', path)]
+    assert len(module.PUBLIC_R2_SOURCE_ROLES) == 74
+    assert len({role for role, _ in module.PUBLIC_R2_SOURCE_ROLES}) == 74
+    assert len({path for _, path in module.PUBLIC_R2_SOURCE_ROLES}) == 74
+    assert len(module.SOURCE_ROLES) == 60
+    assert len(module._LOCAL_R2_SOURCE_ROLES) == 69
+    assert all(p != path for _, p in module._LOCAL_R2_SOURCE_ROLES)
+    raw = (ROOT / path).read_bytes()
+    assert module._sha1_git_blob(raw) == module.EXPECTED_ATTESTATION_LOCK_BLOB_SHA1
+
+
+def test_pre_acquisition_lock_descriptor_is_exact(r2_public_plan_only):
+    f = r2_public_plan_only
+    path = BUILDER.ATTESTATION_LOCK_PATH
+    rows = [row for row in f.plan['source_inventory'] if row['path'] == path]
+    assert len(rows) == 1
+    source = BUILDER._read_git_object(f.f.root, f.f.sha,
+        role='attestation_dependency_lock', path=path)
+    assert rows[0] == source.descriptor()
+    assert len(f.plan['state_templates']) == 62
+    assert len(f.plan['evidence_profile_binding']['role_obligations']) == 62
+
+
+@pytest.mark.parametrize('module', [BUILDER, PLAN_CHECKER])
+def test_pre_acquisition_rehashed_lock_is_not_admitted(source_fixture, module):
+    f = source_fixture
+    sources = module._load_sources(f.root, f.sha, public_r2=True)
+    original = sources[module.ATTESTATION_LOCK_PATH]
+    changed = original.data + b'\n# changed lock, even with consistent descriptor\n'
+    sources[module.ATTESTATION_LOCK_PATH] = module.GitObject(
+        original.role, original.path, original.revision, original.mode,
+        module._sha1_git_blob(changed), changed)
+    with pytest.raises(module.PlanError, match='reviewed_source_profile_mismatch'):
+        module._check_reviewed_source_pins(sources)
+
+
+@pytest.mark.parametrize('module', [BUILDER, PLAN_CHECKER])
+def test_pre_acquisition_missing_lock_cannot_bind_public_profile(source_fixture, module):
+    f = source_fixture
+    sources = module._load_sources(f.root, f.sha, public_r2=True)
+    del sources[module.ATTESTATION_LOCK_PATH]
+    with pytest.raises(module.PlanError, match='r2_source_inventory_mismatch'):
+        module._bind_public_r2_plan({}, sources, f.sha)
+
+
+@pytest.mark.parametrize('fault', ['missing', 'sha256', 'size_bytes', 'git_blob_sha1', 'role'])
+def test_pre_acquisition_stale_lock_descriptor_rejected(r2_public_plan_only, tmp_path, fault):
+    f = r2_public_plan_only
+    plan = copy.deepcopy(f.plan)
+    row = next(row for row in plan['source_inventory'] if row['path'] == BUILDER.ATTESTATION_LOCK_PATH)
+    if fault == 'missing':
+        plan['source_inventory'].remove(row)
+    elif fault == 'sha256':
+        row[fault] = '0' * 64
+    elif fault == 'git_blob_sha1':
+        row[fault] = '0' * 40
+    elif fault == 'size_bytes':
+        row[fault] += 1
+    else:
+        row[fault] = 'unreviewed_lock_role'
+    raw = canonical(plan)
+    path = tmp_path / 'changed-plan.json'
+    path.write_bytes(raw)
+    result = cli(f.f.root, TOOL_NAMES[1], ['--repository-root', f.f.root,
+        '--plan', path, '--expected-source-commit', f.f.sha,
+        '--expected-plan-sha256', digest(raw), '--expected-record-status', 'example'])
+    assert result.returncode == 1, (result.stdout, result.stderr)
+    diagnostic = json.loads(result.stdout)
+    assert diagnostic['ok'] is False and diagnostic['record_status'] == 'rejected'
+    assert diagnostic['error_code'] == 'plan_reconstruction_mismatch'
+    assert diagnostic['authority_boundary']['active_gate_eligible'] is False
+
+
+def test_pre_acquisition_workflow_preserves_job_step_and_input_graph():
+    # This proof concerns the original pre-acquisition delta, not the later
+    # explicitly permitted hosted step reordering and candidate dependency.
+    current = yaml.load(_workflow_before_hosted_evidence_ordering(), Loader=yaml.BaseLoader)
+    historical = yaml.load(_workflow_before_pre_acquisition_correction(), Loader=yaml.BaseLoader)
+    selected = {
+        ('pulse', 'CI pack layout preflight (fail-closed on release-grade)'),
+        ('attest_llamaguard_current_run_summary', 'Install Python deps for LlamaGuard attestation envelope'),
+    }
+    changed = set()
+    for job, definition in current['jobs'].items():
+        for index, step in enumerate(definition['steps']):
+            previous = historical['jobs'][job]['steps'][index]
+            if step.get('run') != previous.get('run'):
+                key = (job, step['name'])
+                assert key in selected
+                changed.add(key)
+                step['run'] = previous['run']
+    assert changed == selected
+    assert current == historical
+
+
+@pytest.mark.parametrize('module', [BUILDER, PLAN_CHECKER])
+def test_pre_acquisition_independent_candidate_admission_pins(module):
+    path = 'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py'
+    raw = (ROOT / path).read_bytes()
+    current = module._sha1_git_blob(raw)
+    for table in (module._RECORDED_SEMANTIC_PINS, module._FLOOR_SOURCE_PINS,
+                  module._RESIDUAL_SOURCE_PINS):
+        assert table[path] == current
 
 
 if __name__ == '__main__':
