@@ -7,11 +7,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Separate the Step 5C terminal regression profiles under #2886: assert native
+  rejection under the unchanged 19-gate repository policy, and exercise positive
+  reconstruction under the explicitly named six-recipe TEST policy
+  `pulse-step5c-supported-terminal-fixture-v0`. Bind the test-only policy,
+  evaluation plan and exact literal policy-pin revisions to a distinct source
+  tree before producing evidence. Keep all native producer and checker logic,
+  release-required duties, mutation/replay checks and non-authority boundaries.
+  This is not a passing 19-gate release or hosted-reference readiness; hosted
+  evidence ordering remains separate unfinished work.
 - Preserve the source-pinned isolated attestation pip installation in both
   Step 5C external-operation mappings. Keep the original operation-count and
   unknown-result regressions; reject an omitted installation even after the
   plan and step-reference lists are consistently rehashed. This does not
-  resolve the separate terminal-fixture or hosted-evidence-ordering work.
+  by itself resolve the separate terminal-fixture or hosted-evidence-ordering work.
 - Prepare the bounded #2879 pre-acquisition correction following merged #2880.
   Reject inconsistent strict-release inputs before publication of release flags;
   retain hosted evidence materialization and post-materialization enforcement.

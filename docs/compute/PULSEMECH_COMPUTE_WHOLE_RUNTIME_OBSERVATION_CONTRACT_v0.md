@@ -1340,6 +1340,35 @@ Successful hosted-reference readiness is a separate decision. No live dispatch,
 Step 5D/6 work, active compute gate or issue closure is authorized by this
 correction; #2879 remains open while evidence obligations are unresolved.
 
+### Terminal regression profiles
+
+The current repository policy still requires all 19 gates. Its native recorded
+runner and candidate-status builder are tested for rejection: the six supported
+recipes produce their actual results, the 13 unsupported gates remain failed,
+and no passing candidate status may be manufactured by the fixture.
+
+Positive native terminal and reconstruction regressions use the explicitly
+named TEST policy `pulse-step5c-supported-terminal-fixture-v0`. That policy
+selects only the six existing supported required-gate recipes and preserves
+all other policy semantics, including every `release_required` duty. The test
+builds a distinct local source tree before creating any evidence. Only the test
+policy, its evaluation-plan selection, and five literal policy pins in the
+four plan/capture/verification source copies differ from the repository source.
+These source copies are loaded separately; no predicate, diagnostic, return
+code or native producer is replaced with a successful test double. The
+installed repository-profile builder and separate checker must reject this
+test-policy source even when its new hashes are internally consistent.
+
+Within that explicitly different source profile, the original native producer,
+independent validation, source-mutation, fresh-reexecution and two-process
+reconstruction checks remain executable. Policy identity in the subject packet
+is derived from the bound policy bytes, not inherited from a document template.
+The test profile is never written over the repository policy and is not an
+allow-list entry in production tools. Its successful reconstruction does not
+prove 19-gate admission, original execution, hosted model/signature evidence,
+Step 5C acceptance or release readiness. Historical fixtures retain their
+original policy scope. Hosted-evidence ordering remains a separate correction.
+
 ## Tests and handoffs
 
 Permanent tests use `record_status: example`, deterministic mocked API responses

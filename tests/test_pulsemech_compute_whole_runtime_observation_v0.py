@@ -2,6 +2,8 @@
 
 All run/job/artifact IDs and clock values below are deterministic EXAMPLES.
 The source fixture is a new local Git repository, never an upstream commit.
+The native positive terminal fixture has its own six-recipe TEST policy and
+exact policy-pin revision; it is not a passing 19-gate repository release.
 HTTP and artifact retrieval use a rejecting in-memory transport: no live
 workflow, model inference, network request or production decision is performed.
 
@@ -48,7 +50,7 @@ DOC = yaml.load(WORKFLOW.read_text(), Loader=yaml.BaseLoader)
 JOBS = DOC['jobs']
 
 def load_module(name):
-    spec = importlib.util.spec_from_file_location('step5c_regression_' + name, SOURCES / (name + '.py'))
+    spec = importlib.util.spec_from_file_location(__name__ + '_' + name, SOURCES / (name + '.py'))
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -12906,6 +12908,10 @@ def r2c2_sources():
 
 @pytest.fixture(scope='module')
 def r2c2_plan(r2c2_sources):
+    return _build_r2c2_plan(r2c2_sources)
+
+
+def _build_r2c2_plan(r2c2_sources):
     f = r2c2_sources
     plan = BUILDER._build_local_r2_plan(f.files, **f.pins)
     raw = canonical(plan); pins = {**f.pins, 'expected_plan_sha256': digest(raw)}
@@ -12915,6 +12921,10 @@ def r2c2_plan(r2c2_sources):
 
 @pytest.fixture(scope='module')
 def r2c2_carrier(r2c2_plan):
+    return _build_r2c2_carrier(r2c2_plan)
+
+
+def _build_r2c2_carrier(r2c2_plan):
     f = r2c2_plan; s = f.source
     raw = VERIFIER._prepare_local_r2_bytes(f.raw, f.diagnostic, s.index_raw, s.sources, **f.pins)
     pins = {**f.pins, 'expected_prepared_sha256': digest(raw), 'experiment_id': 'local-r2:permanent-check'}
@@ -13947,11 +13957,15 @@ def test_r2c4_role_assessment_raw_payload_must_match_independent_pin(r2c4_inputs
 
 
 # LOCAL_05: D3 derivations and raw, timed A2 simulation. No Git commits or live calls.
-def _r2c5_policy_oracle(directory):
+def _r2c5_policy_oracle(directory, *, policy_raw=None):
     results = {}; directory.mkdir(parents=True, exist_ok=True)
+    policy_path = ROOT / 'pulse_gate_policy_v0.yml'
+    if policy_raw is not None:
+        policy_path = directory / 'bound-policy.yml'
+        policy_path.write_bytes(policy_raw)
     for name in ('required', 'release_required'):
         command = [sys.executable, '-I', '-B', str(ROOT/'tools/policy_to_require_args.py'),
-                   '--policy', str(ROOT/'pulse_gate_policy_v0.yml'), '--set', name, '--format', 'space']
+                   '--policy', str(policy_path), '--set', name, '--format', 'space']
         with (directory/(name+'.stdout')).open('wb') as out, (directory/(name+'.stderr')).open('wb') as err:
             process = subprocess.Popen(command, cwd=directory, stdout=out, stderr=err,
                 env={'PATH':'/usr/bin:/bin', 'HOME':str(directory), 'LANG':'C', 'LC_ALL':'C'})
@@ -13962,9 +13976,9 @@ def _r2c5_policy_oracle(directory):
     return results
 
 
-def _r2c5_content_archives(directory):
+def _r2c5_content_archives(directory, *, policy_raw=None):
     contents = _r2c4_content_archives(directory)
-    oracle = _r2c5_policy_oracle(directory.parent/'policy-oracle')
+    oracle = _r2c5_policy_oracle(directory.parent/'policy-oracle', policy_raw=policy_raw)
     old = contents['release_grade_recorded_path']['status.json']
     status = canonical({'gates': {gate: i%2 == 0 for i,gate in enumerate(oracle['release_required'])},
                         'fixture_only': True, 'version':'after-R9', 'metrics': {'unrelated':0.125}})
@@ -14454,6 +14468,10 @@ def _r2c6_setup_stage(request, name):
 # commit and never a commit in the project repository.
 @pytest.fixture(scope='module')
 def r2c6_package_inputs(r2c2_carrier, tmp_path_factory, request):
+    return _build_r2c6_package_inputs(r2c2_carrier, tmp_path_factory, request)
+
+
+def _build_r2c6_package_inputs(r2c2_carrier, tmp_path_factory, request):
     from datetime import datetime, timedelta, timezone
     f = r2c2_carrier
     diagnostic_request = request
@@ -14515,7 +14533,8 @@ def r2c6_package_inputs(r2c2_carrier, tmp_path_factory, request):
             'fixture_removed': not fixture.exists(), 'project_commit_created': False,
         }))
     with _r2c6_setup_stage(diagnostic_request, 'build-content-archives'):
-        contents, oracle = _r2c5_content_archives(directory / 'package')
+        contents, oracle = _r2c5_content_archives(directory / 'package',
+            policy_raw=f.plan.source.sources['pulse_gate_policy_v0.yml'])
     with _r2c6_setup_stage(diagnostic_request, 'build-semantic-template'):
         spec = importlib.util.spec_from_file_location('step5c_local_package_data',
             ROOT / 'tests/test_release_grade_reference_package_verification_wiring_v0.py')
@@ -15690,6 +15709,11 @@ def _r2c9_build_provider_inputs(f, tmp_path_factory, *, terminal_builder=None):
     if terminal_builder is not None:
         authority['gate_registry']['registry_id'] = yaml.safe_load(
             f.carrier.plan.source.sources['pulse_gate_registry_v0.yml'])['version']
+        # Document shapes do not supply policy identity. Read the actual
+        # source-bound policy, including the separately named TEST profile.
+        policy_id = yaml.safe_load(f.carrier.plan.source.sources['pulse_gate_policy_v0.yml'])['policy']['id']
+        authority['policy']['policy_id'] = policy_id
+        expectation['subject']['policy_id'] = policy_id
     expectation['subject'].update(final_status_sha256=digest(package['artifacts/status.json']),
         policy_sha256=policy_sha, release_decision_sha256=digest(package['artifacts/release_decision_v0.json']),
         materialized_gate_set_sha256=gate_digest)
@@ -16571,6 +16595,10 @@ def _r2c12_rebuild_summary(sources, payloads, spec, directory):
 
 @pytest.fixture(scope='module')
 def r2c12_llamaguard_inputs(r2c6_package_inputs, tmp_path_factory):
+    return _build_r2c12_llamaguard_inputs(r2c6_package_inputs, tmp_path_factory)
+
+
+def _build_r2c12_llamaguard_inputs(r2c6_package_inputs, tmp_path_factory):
     f = r2c6_package_inputs
     sources, _ = VERIFIER._local_r2_llamaguard_content_sources(f.carrier.plan.value, f.prepared)
     cases = [json.loads(line) for line in sources[
@@ -16878,6 +16906,10 @@ assert Path(os.environ['HOME']).parent==root.parent
 
 @pytest.fixture(scope='module')
 def r2c13_attestation_inputs(r2c12_llamaguard_inputs,tmp_path_factory):
+    return _build_r2c13_attestation_inputs(r2c12_llamaguard_inputs, tmp_path_factory)
+
+
+def _build_r2c13_attestation_inputs(r2c12_llamaguard_inputs,tmp_path_factory):
     f=r2c12_llamaguard_inputs; sources,_=VERIFIER._local_r2_attestation_sources(f.carrier.plan.value,f.prepared)
     prefix='PULSE_safe_pack_v0/artifacts/external/'; repo='HKati/pulse-release-gates-0.1'
     raw=f.contents['release_grade_recorded_path']['external/llamaguard_summary.json'];summary=json.loads(raw);sha=digest(raw)
@@ -17126,6 +17158,10 @@ def test_r2c13_cleanup_failure_cannot_return_verified(r2c13_attestation_inputs):
 # R2C14: complete unchanged core, explicit fake backend, no real signatures.
 @pytest.fixture(scope='module')
 def r2c14_recorded_full_inputs(r2c13_attestation_inputs, tmp_path_factory):
+    return _build_r2c14_recorded_full_inputs(r2c13_attestation_inputs, tmp_path_factory)
+
+
+def _build_r2c14_recorded_full_inputs(r2c13_attestation_inputs, tmp_path_factory):
     f = r2c13_attestation_inputs
     directory = tmp_path_factory.mktemp('r2c14-full-producer')
     workspace = directory/'inputs'; workspace.mkdir()
@@ -17861,6 +17897,101 @@ def test_r2c16_invalid_generated_packet_requires_fresh_validator(r2c16_runtime_i
             VERIFIER._assess_local_r2_runtime(t.f.capture,t.f.carrier.raw,t.f.carrier.context,**t.pins)
 
 
+# The repository policy still requires all 19 gates. This separately named
+# TEST policy exercises native positive reconstruction for the six implemented
+# recipes; it cannot attest success under the repository policy. Policy, plan
+# and the exact literal pin revisions are bound before any evidence is built.
+_R2C17_SUPPORTED_REQUIRED = (
+    'pass_controls_refusal', 'refusal_delta_pass', 'pass_controls_sanit',
+    'sanitization_effective', 'q1_grounded_ok', 'q4_slo_ok',
+)
+_R2C17_UNSUPPORTED_REQUIRED = frozenset({
+    'effect_present', 'psf_monotonicity_ok', 'psf_mono_shift_resilient',
+    'pass_controls_comm', 'psf_commutativity_ok', 'psf_comm_shift_resilient',
+    'sanit_shift_resilient', 'psf_action_monotonicity_ok', 'psf_idempotence_ok',
+    'psf_path_independence_ok', 'psf_pii_monotonicity_ok', 'q2_consistency_ok',
+    'q3_fairness_ok',
+})
+_R2C17_FIXTURE_POLICY_ID = 'pulse-step5c-supported-terminal-fixture-v0'
+_R2C17_POLICY_PATH = 'pulse_gate_policy_v0.yml'
+_R2C17_PLAN_PATH = 'PULSE_safe_pack_v0/profiles/required_gate_evaluations_v0.json'
+_R2C17_ORIGINAL_POLICY_BLOB = b'a311b424ad0f6c028b9c37b18572e7a09c721cdd'
+# Only these literal policy pins change in the separate TEST source tree.
+# No validator predicate, source-check function or producer is replaced.
+_R2C17_TEST_PIN_FILES = {
+    'tools/build_pulsemech_compute_whole_runtime_observation_plan_v0.py': 1,
+    'tools/check_pulsemech_compute_whole_runtime_observation_plan_v0.py': 1,
+    'tools/capture_pulsemech_compute_whole_runtime_observation_v0.py': 1,
+    'tools/check_pulsemech_compute_whole_runtime_observation_v0.py': 2,
+}
+
+
+def _r2c17_supported_sources(original):
+    """Declare a new test source identity, never relabel the repository source."""
+    files = dict(original.files)
+    policy = yaml.safe_load(files[_R2C17_POLICY_PATH][1])
+    assert len(policy['gates']['required']) == 19
+    assert set(policy['gates']['required']) == (
+        set(_R2C17_SUPPORTED_REQUIRED) | _R2C17_UNSUPPORTED_REQUIRED)
+    policy['policy']['id'] = _R2C17_FIXTURE_POLICY_ID
+    policy['gates']['required'] = list(_R2C17_SUPPORTED_REQUIRED)
+    plan = json.loads(files[_R2C17_PLAN_PATH][1])
+    assert set(plan['evaluations']) == (
+        set(_R2C17_SUPPORTED_REQUIRED) | _R2C17_UNSUPPORTED_REQUIRED)
+    plan['evaluations'] = {gate: plan['evaluations'][gate] for gate in _R2C17_SUPPORTED_REQUIRED}
+    # Preserve the reviewed YAML grammar and all unselected policy bytes.
+    original_policy = files[_R2C17_POLICY_PATH][1]
+    assert BUILDER._sha1_git_blob(original_policy).encode() == _R2C17_ORIGINAL_POLICY_BLOB
+    policy_text = original_policy.decode()
+    policy_text, count = re.subn(r'(?m)^  id: pulse-gate-policy-v0$',
+        '  id: ' + _R2C17_FIXTURE_POLICY_ID, policy_text)
+    assert count == 1
+    policy_text, count = re.subn(r'(?m)^  required:\n(?:    - [a-z][a-z0-9_]*\n)+',
+        '  required:\n' + ''.join('    - ' + gate + '\n' for gate in _R2C17_SUPPORTED_REQUIRED), policy_text)
+    assert count == 1
+    policy_raw = ('# TEST ONLY: six supported recipes; not the repository release policy.\n' + policy_text).encode()
+    assert yaml.safe_load(policy_raw) == policy
+    files[_R2C17_POLICY_PATH] = (files[_R2C17_POLICY_PATH][0], policy_raw)
+    files[_R2C17_PLAN_PATH] = (files[_R2C17_PLAN_PATH][0], canonical(plan))
+    fixture_pin = BUILDER._sha1_git_blob(policy_raw).encode()
+    for path, count in _R2C17_TEST_PIN_FILES.items():
+        mode, raw = files[path]
+        assert raw.count(_R2C17_ORIGINAL_POLICY_BLOB) == count
+        files[path] = (mode, raw.replace(_R2C17_ORIGINAL_POLICY_BLOB, fixture_pin))
+    assert {name for name in files if files[name] != original.files[name]} == {
+        _R2C17_POLICY_PATH, _R2C17_PLAN_PATH, *_R2C17_TEST_PIN_FILES}
+    index_raw, tree = _r2c2_index_oracle(files)
+    assert tree != original.tree
+    return SimpleNamespace(files=files, index_raw=index_raw, tree=tree,
+        sources={path: files[path][1] for _, path in PLAN_CHECKER._LOCAL_R2_SOURCE_ROLES},
+        pins={'expected_source_tree': tree, 'expected_source_index_sha256': digest(index_raw)})
+
+
+@pytest.fixture(scope='module')
+def r2c17_supported_inputs(r2c2_sources, tmp_path_factory, request):
+    source = _r2c17_supported_sources(r2c2_sources)
+    root = tmp_path_factory.mktemp('r2c17-supported-source')
+    for relative, (mode, raw) in source.files.items():
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+        path.chmod(0o755 if mode == '100755' else 0o644)
+    # Load a distinct, on-disk source revision; never patch the installed
+    # repository checker or reuse a producer's verdict as verification.
+    name = 'step5c_supported_source_' + source.tree
+    spec = importlib.util.spec_from_file_location(name, root / Path(__file__).relative_to(ROOT))
+    profile = importlib.util.module_from_spec(spec)
+    sys.modules[name] = profile
+    spec.loader.exec_module(profile)
+    source.profile = profile
+    plan = profile._build_r2c2_plan(source)
+    carrier = profile._build_r2c2_carrier(plan)
+    package = profile._build_r2c6_package_inputs(carrier, tmp_path_factory, request)
+    content = profile._build_r2c12_llamaguard_inputs(package, tmp_path_factory)
+    attestation = profile._build_r2c13_attestation_inputs(content, tmp_path_factory)
+    return profile._build_r2c14_recorded_full_inputs(attestation, tmp_path_factory)
+
+
 # R2C17: native terminal fixture producers over archived local reference inputs.
 # This is not a live model run, real-signature proof or complete Step 5C replay.
 def _r2c17_source_fixture(f, destination):
@@ -17893,8 +18024,8 @@ def _r2c17_source_fixture(f, destination):
     return destination
 
 
-def _r2c17_terminal_package(f, package, directory):
-    """Use native producers, not hand-authored successful terminal documents."""
+def _r2c17_gate_stage(f, package, directory, *, expected_exit):
+    """Run both native admission tools; never turn their rejection into PASS."""
     root = _r2c17_source_fixture(f, directory / 'producer-source')
     home = directory / 'home'; home.mkdir()
     backend = directory / 'backend'; backend.mkdir()
@@ -17914,7 +18045,7 @@ def _r2c17_terminal_package(f, package, directory):
         'GITHUB_EVENT_NAME': 'workflow_dispatch', 'GITHUB_RUN_ID': '9001', 'GITHUB_RUN_ATTEMPT': '1'}
     stamp = json.loads(package['run_metadata_v0.json'])['created_utc']
     commands = []
-    def run(tool, args):
+    def run(tool, args, *, expected=0):
         command = [sys.executable, '-I', '-B', '-c',
             "import runpy,sys; from pathlib import Path; p=Path(sys.argv[1]); "
             "sys.path.insert(0,str(p.parent)); sys.argv=sys.argv[1:]; runpy.run_path(str(p),run_name='__main__')",
@@ -17923,11 +18054,21 @@ def _r2c17_terminal_package(f, package, directory):
         commands.append({'argv': command, 'exit': result.returncode,
                          'stdout': result.stdout.decode(), 'stderr': result.stderr.decode()})
         (directory / 'terminal-producer-commands.json').write_bytes(canonical(commands))
-        assert result.returncode == 0, commands[-1]
+        assert result.returncode == expected, commands[-1]
+        return result
+    # Remove the inherited synthetic seed: success must be newly produced.
+    (root / artifacts / 'status.json').unlink()
     run('run_recorded_required_gate_evaluations_v0.py', ['--repo-root', str(root),
         '--git-sha', f.commit, '--run-key', f.full_spec['run_key'], '--repository', VERIFIER.REPOSITORY,
-        '--release-candidate', 'main', '--timeout-seconds', '45'])
-    run('build_release_grade_candidate_status_v0.py', ['--repo-root', str(root)])
+        '--release-candidate', 'main', '--timeout-seconds', '45'], expected=expected_exit)
+    run('build_release_grade_candidate_status_v0.py', ['--repo-root', str(root)], expected=expected_exit)
+    return SimpleNamespace(root=root, artifacts=artifacts, stamp=stamp, run=run, commands=commands)
+
+
+def _r2c17_terminal_package(f, package, directory):
+    """Use native producers under the explicitly bound supported TEST policy."""
+    stage = _r2c17_gate_stage(f, package, directory, expected_exit=0)
+    root, artifacts, stamp, run = stage.root, stage.artifacts, stage.stamp, stage.run
     pre_status = (root / artifacts / 'status.json').read_bytes()
     (root / artifacts / 'status_baseline.json').write_bytes(pre_status)
     run('build_recorded_release_candidates_v0.py', ['--repo-root', str(root)])
@@ -17977,8 +18118,13 @@ def _r2c17_terminal_package(f, package, directory):
 
 
 @pytest.fixture(scope='module')
-def r2c17_native_inputs(r2c14_recorded_full_inputs, tmp_path_factory):
-    old = r2c14_recorded_full_inputs
+def r2c17_native_inputs(r2c17_supported_inputs, tmp_path_factory):
+    profile = r2c17_supported_inputs.carrier.plan.source.profile
+    return profile._build_r2c17_native_inputs(r2c17_supported_inputs, tmp_path_factory)
+
+
+def _build_r2c17_native_inputs(r2c17_supported_inputs, tmp_path_factory):
+    old = r2c17_supported_inputs
     before = canonical({role: {name: digest(raw) for name, raw in group.items()}
                         for role, group in old.contents.items()})
     f = _r2c9_build_provider_inputs(old, tmp_path_factory, terminal_builder=_r2c17_terminal_package)
@@ -18035,6 +18181,94 @@ def r2c17_native_inputs(r2c14_recorded_full_inputs, tmp_path_factory):
         diagnostic=json.loads(diagnostic.stdout))
 
 
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_r2c17_repository_tools_reject_six_gate_policy_rebinding(r2c2_plan, side):
+    original = r2c2_plan.source
+    changed = _r2c17_supported_sources(original)
+    files = dict(changed.files)
+    # Keep the actual installed tools. Rehashing a six-gate source policy
+    # alone must not expand the repository implementations' reviewed profile.
+    for path in _R2C17_TEST_PIN_FILES:
+        files[path] = original.files[path]
+    index, tree = _r2c2_index_oracle(files)
+    sources = {path: files[path][1] for _, path in PLAN_CHECKER._LOCAL_R2_SOURCE_ROLES}
+    pins = {'expected_source_tree': tree, 'expected_source_index_sha256': digest(index)}
+    if side == 'builder':
+        with pytest.raises(BUILDER.PlanError, match='required_argument_semantic_source_drift'):
+            BUILDER._build_local_r2_plan(files, **pins)
+    else:
+        with pytest.raises(PLAN_CHECKER.PlanError, match='required_argument_semantic_source_drift'):
+            PLAN_CHECKER._check_local_r2_plan(r2c2_plan.raw, index, sources,
+                expected_plan_sha256=digest(r2c2_plan.raw), **pins)
+
+
+def test_r2c17_supported_fixture_never_relabels_repository_policy(r2c2_sources, r2c17_native_inputs):
+    original = r2c2_sources.files
+    tested = r2c17_native_inputs.f.carrier.plan.source.files
+    assert set(original) == set(tested)
+    assert {name for name in original if original[name] != tested[name]} == {
+        _R2C17_POLICY_PATH, _R2C17_PLAN_PATH, *_R2C17_TEST_PIN_FILES}
+    fixture_pin = BUILDER._sha1_git_blob(tested[_R2C17_POLICY_PATH][1]).encode()
+    for name, count in _R2C17_TEST_PIN_FILES.items():
+        mode, raw = original[name]
+        assert raw.count(_R2C17_ORIGINAL_POLICY_BLOB) == count
+        assert tested[name] == (mode, raw.replace(_R2C17_ORIGINAL_POLICY_BLOB, fixture_pin))
+    # The installed repository-profile implementation still rejects this
+    # differently scoped policy, even under an internally consistent new tree.
+    source = r2c17_native_inputs.f.carrier.plan.source
+    with pytest.raises(BUILDER.PlanError, match='r2_executed_builder_source_mismatch'):
+        BUILDER._build_local_r2_plan(source.files, **source.pins)
+    fixture_plan = r2c17_native_inputs.f.carrier.plan
+    with pytest.raises(PLAN_CHECKER.PlanError, match='r2_executed_checker_source_mismatch'):
+        PLAN_CHECKER._check_local_r2_plan(fixture_plan.raw, source.index_raw, source.sources,
+            **fixture_plan.pins)
+    assert source.profile.VERIFIER is not VERIFIER
+    assert dict(VERIFIER._D3_SOURCE_PINS)[_R2C17_POLICY_PATH].encode() == _R2C17_ORIGINAL_POLICY_BLOB
+    original_policy = yaml.safe_load(original[_R2C17_POLICY_PATH][1])
+    tested_policy = yaml.safe_load(tested[_R2C17_POLICY_PATH][1])
+    assert original[_R2C17_POLICY_PATH][1] == (ROOT / _R2C17_POLICY_PATH).read_bytes()
+    assert len(original_policy['gates']['required']) == 19
+    assert tested_policy['policy']['id'] == _R2C17_FIXTURE_POLICY_ID
+    assert set(tested_policy['gates']['required']) == set(_R2C17_SUPPORTED_REQUIRED)
+    restored = copy.deepcopy(tested_policy)
+    restored['gates']['required'] = original_policy['gates']['required']
+    restored['policy']['id'] = original_policy['policy']['id']
+    assert restored == original_policy  # Including all release_required duties.
+    original_plan = json.loads(original[_R2C17_PLAN_PATH][1])
+    tested_plan = json.loads(tested[_R2C17_PLAN_PATH][1])
+    assert tested_plan['evaluations'] == {
+        gate: original_plan['evaluations'][gate] for gate in _R2C17_SUPPORTED_REQUIRED}
+    restored_plan = copy.deepcopy(tested_plan)
+    restored_plan['evaluations'] = original_plan['evaluations']
+    assert restored_plan == original_plan
+    assert r2c17_native_inputs.f.carrier.plan.source.tree != r2c2_sources.tree
+
+
+def test_r2c17_repository_policy_rejects_native_unsupported_gates(
+        r2c14_recorded_full_inputs, tmp_path):
+    f = r2c14_recorded_full_inputs
+    assert f.carrier.plan.source.files[_R2C17_POLICY_PATH][1] == (ROOT / _R2C17_POLICY_PATH).read_bytes()
+    package = f.contents['complete_release_grade_reference_package']
+    stage = _r2c17_gate_stage(f, package, tmp_path, expected_exit=1)
+    assert [row['exit'] for row in stage.commands] == [1, 1]
+    assert not (stage.root / stage.artifacts / 'status.json').exists()
+    evidence = json.loads((stage.root / stage.artifacts / 'required_gate_evidence_v0.json').read_bytes())
+    assert len(evidence['gates']) == 19
+    assert set(evidence['gates']) == set(f.oracle['required'])
+    for gate, row in evidence['gates'].items():
+        supported = gate in _R2C17_SUPPORTED_REQUIRED
+        assert row['value'] is supported
+        assert row['status'] == ('passed' if supported else 'failed')
+        refs = [ref for ref in row['evidence_artifacts'] if ref['kind'] == 'required_gate_evaluation']
+        assert len(refs) == 1
+        raw = (stage.root / refs[0]['path']).read_bytes()
+        assert digest(raw) == refs[0]['sha256']
+        assert json.loads(raw)['pass'] is supported
+        if not supported:
+            assert repr(gate) in stage.commands[-1]['stderr']
+    assert set(f.oracle['required']) - set(_R2C17_SUPPORTED_REQUIRED) == _R2C17_UNSUPPORTED_REQUIRED
+
+
 def test_r2c17_native_producers_and_independent_report_path(r2c17_native_inputs):
     t = r2c17_native_inputs
     commands = json.loads((t.f.directory / 'terminal-producer-commands.json').read_bytes())
@@ -18060,7 +18294,8 @@ def test_r2c17_native_gate_results_and_pre_state_bindings(r2c17_native_inputs):
     pre = t.f.contents['pre_attestation_pulse_artifacts']['status.json']
     evidence = json.loads(recorded['required_gate_evidence_v0.json'])
     assert set(evidence['gates']) == set(t.f.oracle['required'])
-    assert len(evidence['gates']) == 19
+    assert set(evidence['gates']) == set(_R2C17_SUPPORTED_REQUIRED)
+    assert len(evidence['gates']) == 6
     for gate_id, result in evidence['gates'].items():
         assert result['value'] is True and result['status'] == 'passed'
         references = [row for row in result['evidence_artifacts'] if row['kind'] == 'required_gate_evaluation']
@@ -18110,6 +18345,9 @@ def test_r2c17_registry_and_terminal_documents_come_from_the_bound_sources(r2c17
         assert recorded[name] == (root / name).read_bytes()
     source_registry = yaml.safe_load(t.f.carrier.plan.source.sources['pulse_gate_registry_v0.yml'])
     assert t.packet['authority_sources']['gate_registry']['registry_id'] == source_registry['version']
+    assert t.packet['subject']['policy_id'] == _R2C17_FIXTURE_POLICY_ID
+    assert t.packet['authority_sources']['policy']['policy_id'] == _R2C17_FIXTURE_POLICY_ID
+    assert t.packet['subject']['policy_sha256'] == digest(t.f.carrier.plan.source.sources[_R2C17_POLICY_PATH])
     assert t.packet['subject']['release_candidate_id'] == 'pulse-ci-current-run:9001:1'
     assert json.loads(recorded['recorded_release_candidate_index_v0.json'])['subject']['release_candidate'] == 'main'
     advisory = t.f.contents['advisory_reference_bundle']
@@ -18118,6 +18356,7 @@ def test_r2c17_registry_and_terminal_documents_come_from_the_bound_sources(r2c17
 
 
 def test_r2c17_old_sparse_terminal_fixture_is_still_rejected(r2c17_native_inputs):
+    VERIFIER = r2c17_native_inputs.f.carrier.plan.source.profile.VERIFIER
     t = r2c17_native_inputs
     directory = t.directory / 'old-input'; directory.mkdir()
     packet_path = directory / 'packet.json'
@@ -18141,6 +18380,7 @@ def test_r2c17_old_sparse_terminal_fixture_is_still_rejected(r2c17_native_inputs
 # R2C18: retain authenticated native status bytes through the actual Step 3G CLI.
 @pytest.fixture(scope='module')
 def r2c18_native_baseline(r2c17_native_inputs):
+    VERIFIER = r2c17_native_inputs.f.carrier.plan.source.profile.VERIFIER
     t = r2c17_native_inputs
     before = {p.name: p.read_bytes() for p in (t.directory / 'intake').iterdir() if p.is_file()}
     status_path = t.f.directory / 'producer-source/PULSE_safe_pack_v0/artifacts/status.json'
@@ -18190,6 +18430,7 @@ def test_r2c18_native_step3g_preserves_status_and_generated_output_contract(r2c1
 
 
 def test_r2c18_native_step3g_rejects_source_and_repository_substitution(r2c18_native_baseline):
+    VERIFIER = r2c18_native_baseline.t.f.carrier.plan.source.profile.VERIFIER
     b = r2c18_native_baseline; t = b.t
     command = b.calls[0]['argv']
     for flag, replacement in (('--subject-revision', '0' * 40),
@@ -18247,6 +18488,7 @@ def test_r2c18_simulation_window_does_not_waive_invalid_or_missing_times():
 # R2C19: join the native downstream outputs to local roles, not original admission.
 @pytest.fixture(scope='module')
 def r2c19_downstream(r2c17_native_inputs, tmp_path_factory):
+    VERIFIER = r2c17_native_inputs.f.carrier.plan.source.profile.VERIFIER
     from datetime import timedelta
     t = r2c17_native_inputs; f = t.f
     plan, prepared = VERIFIER._read_local_r2_prepared(f.carrier.raw, f.carrier.context,
@@ -18294,6 +18536,7 @@ def r2c19_downstream(r2c17_native_inputs, tmp_path_factory):
 
 
 def _r2c19_run(t, **changes):
+    VERIFIER = t.f.carrier.plan.source.profile.VERIFIER
     values = {'control_root': t.t.control, 'subject_root': t.t.subject,
         'fixture_commit_raw': t.f.commit_raw, 'fixture_commit': t.f.commit}
     values.update(changes)
@@ -18314,6 +18557,7 @@ _R2C19_NATIVE_TOOLS = (
 
 
 def test_r2c19_all_local_roles_bind_fresh_native_outputs(r2c19_downstream):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream; a=t.assessment
     assert a['schema_version'] == 'pulsemech_step5c_local_r2_downstream_derivation_v0'
     assert len(a['roles']) == a['role_count'] == a['local_content_satisfied_role_count'] == 62
@@ -18350,6 +18594,7 @@ def test_r2c19_all_local_roles_bind_fresh_native_outputs(r2c19_downstream):
 
 
 def test_r2c19_reader_reexecutes_all_native_stages(r2c19_downstream):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream; calls=[]; real=VERIFIER.run_process
     def record(command, **kwargs):
         calls.append(tuple(map(str,command))); return real(command, **kwargs)
@@ -18363,6 +18608,7 @@ def test_r2c19_reader_reexecutes_all_native_stages(r2c19_downstream):
 
 @pytest.mark.parametrize('tool',_R2C19_NATIVE_TOOLS)
 def test_r2c19_native_command_failure_is_not_replaced_by_saved_success(r2c19_downstream,tool):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream; real=VERIFIER.run_process; invoked=[]
     def fail(command, **kwargs):
         if len(command)>3 and Path(command[3]).name==tool:
@@ -18376,6 +18622,7 @@ def test_r2c19_native_command_failure_is_not_replaced_by_saved_success(r2c19_dow
 
 @pytest.mark.parametrize('fault',['changed','mode','missing','extra','symlink','hardlink','config','commit'])
 def test_r2c19_exact_fixture_source_is_required(r2c19_downstream,tmp_path,fault):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream
     root=tmp_path/'source';shutil.copytree(t.t.control,root)
     path=root/'tools/check_pulsemech_compute_binding_report_v0.py'
@@ -18400,6 +18647,7 @@ def test_r2c19_exact_fixture_source_is_required(r2c19_downstream,tmp_path,fault)
 
 @pytest.mark.parametrize('fault',['same','nested'])
 def test_r2c19_source_roots_must_be_separate(r2c19_downstream,fault):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream
     with pytest.raises(VERIFIER.VerificationError,match='r2_downstream_source_roots_overlap'):
         _r2c19_run(t,subject_root=t.t.control if fault=='same' else t.t.control/'nested')
@@ -18407,6 +18655,7 @@ def test_r2c19_source_roots_must_be_separate(r2c19_downstream,fault):
 
 @pytest.mark.parametrize('fault',['digest','missing-member','extra-member'])
 def test_r2c19_saved_carrier_inventory_is_closed_before_reexecution(r2c19_downstream,fault):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream;members=dict(t.members)
     if fault=='missing-member':del members['compute-binding-report.json']
     elif fault=='extra-member':members['extra.json']=b'{}\n'
@@ -18418,6 +18667,7 @@ def test_r2c19_saved_carrier_inventory_is_closed_before_reexecution(r2c19_downst
 
 
 def test_r2c19_rehashed_assessment_cannot_claim_original_admission(r2c19_downstream):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream;members=dict(t.members);a=copy.deepcopy(t.assessment)
     a['fully_satisfied_role_count']=62;a['assessment_status']='complete'
     a['local_boundary']['R2_activated']=True
@@ -18430,6 +18680,7 @@ def test_r2c19_rehashed_assessment_cannot_claim_original_admission(r2c19_downstr
 
 @pytest.mark.parametrize('target',['source','git-index','intake','baseline'])
 def test_r2c19_mutated_inputs_reject_even_after_successful_child(r2c19_downstream,tmp_path,target):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream;control=tmp_path/'control';subject=tmp_path/'subject'
     shutil.copytree(t.t.control,control);shutil.copytree(t.t.subject,subject)
     real=VERIFIER.run_process;seen=[]
@@ -18449,6 +18700,7 @@ def test_r2c19_mutated_inputs_reject_even_after_successful_child(r2c19_downstrea
 
 
 def test_r2c19_cleanup_failure_does_not_return_a_success_carrier(r2c19_downstream):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream;real=VERIFIER.tempfile.TemporaryDirectory
     class FailingCleanup(real):
         def __exit__(self,*args):
@@ -18460,6 +18712,7 @@ def test_r2c19_cleanup_failure_does_not_return_a_success_carrier(r2c19_downstrea
 
 
 def test_r2c19_runtime_self_hash_and_D1_D6_gaps_remain_absent(r2c19_downstream):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream
     packet=json.loads(t.outputs['runtime-observation-packet.json'])
     states={row['state_id']:row for row in packet['state_observations']}
@@ -18472,6 +18725,7 @@ def test_r2c19_runtime_self_hash_and_D1_D6_gaps_remain_absent(r2c19_downstream):
 
 
 def test_r2c19_safe_local_git_config_order_is_not_an_encoding_requirement(r2c19_downstream,tmp_path):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream;root=tmp_path/'source';shutil.copytree(t.t.control,root)
     raw=b'[core]\n\tbare = false\n\tlogallrefupdates = true\n\tfilemode = true\n\trepositoryformatversion = 0\n'
     (root/'.git/config').write_bytes(raw)
@@ -18482,6 +18736,7 @@ def test_r2c19_safe_local_git_config_order_is_not_an_encoding_requirement(r2c19_
 
 @pytest.mark.parametrize('fault',['index','prepared-source','installed-verifier'])
 def test_r2c19_external_source_bindings_remain_mandatory(r2c19_downstream,tmp_path,fault):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     t=r2c19_downstream;prepared=dict(t.prepared)
     if fault=='index':prepared['local-r2-source-index.json']+=b'\n'
     elif fault=='prepared-source':prepared['sources/tools/check_pulsemech_compute_binding_report_v0.py']+=b'\n'
@@ -18495,6 +18750,7 @@ def test_r2c19_external_source_bindings_remain_mandatory(r2c19_downstream,tmp_pa
 # R2C20: two complete fresh local reconstructions from the same pinned inputs.
 @pytest.fixture(scope='module')
 def r2c20_reconstructions(r2c19_downstream, tmp_path_factory):
+    VERIFIER = r2c19_downstream.f.carrier.plan.source.profile.VERIFIER
     import time
     t = r2c19_downstream
     calls = []; diagnostics = []; workspaces = []; results = []
@@ -18556,11 +18812,13 @@ def r2c20_reconstructions(r2c19_downstream, tmp_path_factory):
 
 
 def _r2c20_once(t, ordinal=1):
+    VERIFIER = t.t.f.carrier.plan.source.profile.VERIFIER
     return VERIFIER._run_local_r2_reconstruction_once(ordinal, t.inputs, t.pins,
         control_root=t.t.t.control, subject_root=t.t.t.subject)
 
 
 def test_r2c20_pair_reconstructs_all_eleven_members_in_separate_processes(r2c20_reconstructions):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions; a=t.assessment
     assert t.members['reconstruction-1.zip'] == t.members['reconstruction-2.zip'] == t.t.raw
     assert t.results == [t.t.raw, t.t.raw]
@@ -18609,6 +18867,7 @@ def test_r2c20_saved_pair_reader_reexecutes_both_complete_chains(r2c20_reconstru
 
 @pytest.mark.parametrize('ordinal',[1,2])
 def test_r2c20_each_process_error_propagates(r2c20_reconstructions,ordinal):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions; launched=[]
     def fail(command,**kwargs):
         launched.append(kwargs['cwd'])
@@ -18622,6 +18881,7 @@ def test_r2c20_each_process_error_propagates(r2c20_reconstructions,ordinal):
 
 @pytest.mark.parametrize('fault',['ordinal','boolean-ordinal','pid','parent-pid','source','inputs','result','ok','extra','invalid-json'])
 def test_r2c20_process_diagnostic_cannot_substitute_success(r2c20_reconstructions,fault):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions
     def corrupt(command,**kwargs):
         root=kwargs['cwd']; request=json.loads((root/'inputs/request.json').read_bytes())
@@ -18647,6 +18907,7 @@ def test_r2c20_process_diagnostic_cannot_substitute_success(r2c20_reconstruction
 
 @pytest.mark.parametrize('fault',['changed','mode','missing','extra','symlink'])
 def test_r2c20_sealed_input_mutation_is_rejected_even_after_child_failure(r2c20_reconstructions,fault):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions
     def mutate(command,**kwargs):
         root=kwargs['cwd']; path=root/'inputs/context.json'
@@ -18662,6 +18923,7 @@ def test_r2c20_sealed_input_mutation_is_rejected_even_after_child_failure(r2c20_
 
 @pytest.mark.parametrize('fault',['digest','missing','extra','unequal'])
 def test_r2c20_invalid_pair_rejects_before_replay(r2c20_reconstructions,fault):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions; members=dict(t.members)
     if fault=='missing':del members['reconstruction-2.zip']
     elif fault=='extra':members['extra.json']=b'{}\n'
@@ -18675,6 +18937,7 @@ def test_r2c20_invalid_pair_rejects_before_replay(r2c20_reconstructions,fault):
 
 @pytest.mark.parametrize('fault',['second-failure','same-pid','different-output'])
 def test_r2c20_pair_never_promotes_an_incomplete_or_reused_second_run(r2c20_reconstructions,fault):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions; seen=[]
     # Negative orchestration isolation: reuse real preserved first-run data,
     # then break the second run. This is not a fresh positive reconstruction.
@@ -18696,6 +18959,7 @@ def test_r2c20_pair_never_promotes_an_incomplete_or_reused_second_run(r2c20_reco
 
 
 def test_r2c20_rehashed_original_admission_claim_still_requires_fresh_execution(r2c20_reconstructions):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions; members=dict(t.members)
     forged=copy.deepcopy(t.assessment);forged['assessment_status']='complete';forged['fully_satisfied_role_count']=62
     forged['local_boundary']['R2_activated']=True
@@ -18715,6 +18979,7 @@ def test_r2c20_rehashed_original_admission_claim_still_requires_fresh_execution(
 
 @pytest.mark.parametrize('fault',['missing','extra','oversize','ordinal'])
 def test_r2c20_input_contract_rejects_before_process(r2c20_reconstructions,fault):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions; inputs=dict(t.inputs); ordinal=1
     if fault=='missing':del inputs['prepared.zip']
     elif fault=='extra':inputs['previous-result.zip']=t.t.raw
@@ -18737,6 +19002,7 @@ def test_r2c20_carrier_snapshot_does_not_inherit_source_file_budget(tmp_path):
 
 
 def test_r2c20_cleanup_failure_cannot_return_reconstruction(r2c20_reconstructions):
+    VERIFIER = r2c20_reconstructions.t.f.carrier.plan.source.profile.VERIFIER
     t=r2c20_reconstructions; real=VERIFIER.tempfile.TemporaryDirectory
     class BrokenCleanup:
         def __init__(self,*args,**kwargs):self.inner=real(*args,**kwargs)
@@ -18826,6 +19092,11 @@ class _R2PublicExampleTransport:
 
 @pytest.fixture(scope='module')
 def r2_public_handoff(r2c17_native_inputs,tmp_path_factory):
+    profile = r2c17_native_inputs.f.carrier.plan.source.profile
+    return profile._build_r2_public_handoff(r2c17_native_inputs, tmp_path_factory)
+
+
+def _build_r2_public_handoff(r2c17_native_inputs,tmp_path_factory):
     t=r2c17_native_inputs; f=t.f;directory=tmp_path_factory.mktemp('r2-public-integration')
     root=_r2c17_source_fixture(f,directory/'source')
     plan_path=directory/'plan.json';diagnostic=directory/'plan-check.json'
