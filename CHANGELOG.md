@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Align the Step 5C reference-workflow pin regression with the reviewed
+  `actions/download-artifact` v8.0.1 SHA in #2889. Preserve the exact single
+  current-run artifact ID, token/repository/run binding, direct destination
+  and `merge-multiple: true` handoff. Lock the complete input mapping so no
+  name/pattern fallback, decompression bypass or digest-mismatch downgrade
+  can enter unnoticed. The separately checked handoff bytes, source-bound
+  checker and 19-gate policy are unchanged; this does not dispatch or accept
+  a live Step 5C reference.
 - Repair the Step 5C historical-workflow regressions after the hosted-order
   correction in #2886. Reverse only the reviewed ordering/guard/output delta in
   test memory and verify the unchanged intermediate and historical Git blobs
