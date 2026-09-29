@@ -26,18 +26,18 @@ FLOOR_ARTIFACT_ENV = (
 )
 
 REQUIRED_ORDER = (
-    "release-grade record current-run required-gate evidence",
-    "release-grade build non-stubbed prod candidate status",
-    "Preserve baseline status.json (pre-augment)",
+    'release-grade initialize current-run evidence identity',
+    'release-grade initialize LlamaGuard runtime identity',
+    'release-grade install pinned LlamaGuard runtime',
+    'release-grade produce current-run LlamaGuard raw evidence',
+    'release-grade build canonical LlamaGuard summary',
+    'release-grade record current-run required-gate evidence',
+    'release-grade build non-stubbed prod candidate status',
+    'Preserve baseline status.json (pre-augment)',
     '"ci: schema validate status_baseline.json (status_v1)"',
     '"ci: require prod run_mode on release-grade runs"',
-    "release-grade initialize current-run evidence identity",
-    "release-grade build self-contained PULSE evidence floor",
-    "upload self-contained PULSE evidence floor",
-    "release-grade initialize LlamaGuard runtime identity",
-    "release-grade install pinned LlamaGuard runtime",
-    "release-grade produce current-run LlamaGuard raw evidence",
-    "release-grade build canonical LlamaGuard summary",
+    'release-grade build self-contained PULSE evidence floor',
+    'upload self-contained PULSE evidence floor',
 )
 
 FORBIDDEN_IN_FLOOR_STEP = (

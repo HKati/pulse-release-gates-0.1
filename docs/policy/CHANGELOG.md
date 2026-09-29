@@ -21,6 +21,24 @@ This changelog records **semantic** changes that can affect release gating outco
 
 ## Unreleased
 
+- #2879 pre-acquisition enforcement correction (following merged #2880):
+  - Reject inconsistent strict-release configurations before release flags are
+    published; retain evidence materialization, release-status validation,
+    no-stub checks and combined required/release-required enforcement ordering.
+  - Treat the 13 assertion-only reference recipes as explicitly unsupported,
+    unsuccessful evidence, with a separate candidate-admission rejection. This
+    corrects admission of insufficient evidence; it does not redefine the
+    declared gate properties, policy version, membership, identities or thresholds.
+  - Keep all 19 required plan entries and the six unaffected recipes. Existing
+    reference summaries remain labelled reference-only; their static PASS is
+    not a normative evaluation. No missing evaluator is supplied by this change.
+  - A security-corrected release path may still reject the proposed reference.
+    Successful-reference readiness and #2879 acceptance remain separate.
+  - Clarify the correction's verification boundary: preserve positive regression
+    coverage and the separate, source-bound checker; external independent validation
+    is not a correction prerequisite. Required CI, reconstruction, source review
+    and fail-closed acceptance remain unchanged; no external approval gate is added.
+
 - `pulse_gate_policy_v0.yml` / `pulse-gate-policy-v0` (policy 0.1.7):
   - Changed: declared the non-active `compute_planned_observed_relation_candidate` gate set containing exactly `compute_transition_path_complete`, `compute_transition_authority_binding_ok`, and `compute_transition_unbound_mutation_absent`.
   - Why: expose a policy-derived, candidate-only proof boundary for the completed planned-observed relation mechanism without activating compute enforcement.

@@ -13,7 +13,7 @@ establish the target for the replacement mapping under this contract:
 evidence profile:
 pulsemech_step5c_post_run_state_evidence_v1
 
-workflow topology profile, unchanged:
+workflow topology profile (R2 evidence amendment; source revision below):
 pulse_ci_hosted_release_grade_v0
 ```
 
@@ -1278,6 +1278,162 @@ interpreter, recorder, GitHub control plane or provider internals. Independent
 reconstruction proves deterministic derivation from preserved inputs, not a
 repeat of the original execution.
 
+## Pre-acquisition correction boundary (#2879)
+
+The bounded correction after merged #2880 starts from commit
+`c2c6aea121d59ce268b11aaf4c55064b488551c8`, tree
+`b9875923fd08e706b91d722b12d933b4d728c27b`. It is a prerequisite correction,
+not an acquired reference or a new whole-runtime evidence profile.
+
+The corrected source uses an early strict-release/hosted-evidence consistency
+check and a separate unsupported-gate admission check. All 19 required gate
+entries remain present. The 13 assertion-only reference recipes cannot supply
+normative PASS; the six other recipes retain their existing scope. Missing
+substantive evidence still requires rejection, not an invented evaluator.
+
+The LlamaGuard attestation job consumes
+`PULSE_safe_pack_v0/requirements-attestation-v0.lock` in a fresh virtual
+environment. Exact package versions, the complete active transitive closure,
+mandatory wheel hashes and wheel-only installation replace the affected
+floating installations. The selected target is CPython 3.11 / Linux x86_64;
+the supplied isolated dependency acquisition records CPython 3.11.16, glibc 2.39
+and bootstrap pip 24.0. It preserves actual wheel bytes, metadata and offline
+installation logs. This bounds the verified platform and package bytes; it
+is not a vulnerability-free certification or a PULSE reference execution.
+
+Both independent public R2 plan implementations now require the lock as an
+`attestation_dependency_lock` source descriptor, with exact reviewed blob,
+SHA-256, byte size, mode and source revision. The public source closure contains
+74 entries. The legacy 60-source and local 69-source closures are unchanged;
+the lock is not a 63rd observed state role. All 62 role duties, mandatory A2 and
+LlamaGuard evidence, D1/D6 limitations, partial coverage and non-authority
+semantics remain in force. Capture and verification retain the exact corrected
+plan/source bindings; old plans and preserved carriers keep their original
+identities and are not rewritten to match this source.
+
+The initial correction changes only the existing release-preflight and
+attestation-install `run` bodies while preserving subject ordering. The explicit
+hosted-evidence ordering revision below additionally changes the order of the
+existing steps, their source occurrence bindings and the two named job guards.
+Permissions, time budgets, action revisions and the existing job/step names are
+preserved. Source pins must match the exact revised bodies and independent
+mapping equations, not just a newly assigned workflow hash.
+
+Correction acceptance requires the coordinated source set, dependency evidence,
+short assembly checks, full required regressions and consolidated source review.
+
+Preserving positive regression coverage and the separate checker remains required;
+external independent validation by another person or a third party is not a
+prerequisite for this correction. Independence is a property of the verification
+path: the checker must verify the exact evidence, source/run bindings and required
+relations without importing or trusting the producer's acceptance verdict. It is
+not independence from the checked source; exact source binding remains mandatory.
+Required CI, reconstruction checks, source review and fail-closed behavior remain
+in scope. No external approval gate or trust-free acquisition claim is introduced.
+
+The coordinated correction may be transferred as an explicitly unfinished
+candidate to one development branch and draft PR. The known fixture conflict and
+unexecuted full regressions must remain visible. Completed full local regression
+is not a prerequisite for that transfer; successful required regressions and final
+source review remain correction-acceptance conditions. Committing a development
+candidate is not merge approval, reference readiness or Step 5C acceptance.
+
+Successful hosted-reference readiness is a separate decision. No live dispatch,
+Step 5D/6 work, active compute gate or issue closure is authorized by this
+correction; #2879 remains open while evidence obligations are unresolved.
+
+### Terminal regression profiles
+
+The current repository policy still requires all 19 gates. Its native recorded
+runner and candidate-status builder are tested for rejection: the six supported
+recipes produce their actual results, the 13 unsupported gates remain failed,
+and no passing candidate status may be manufactured by the fixture.
+
+Positive native terminal and reconstruction regressions use the explicitly
+named TEST policy `pulse-step5c-supported-terminal-fixture-v0`. That policy
+selects only the six existing supported required-gate recipes and preserves
+all other policy semantics, including every `release_required` duty. The test
+builds a distinct local source tree before creating any evidence. Only the test
+policy, its evaluation-plan selection, and five literal policy pins in the
+four plan/capture/verification source copies differ from the repository source.
+These source copies are loaded separately; no predicate, diagnostic, return
+code or native producer is replaced with a successful test double. The
+installed repository-profile builder and separate checker must reject this
+test-policy source even when its new hashes are internally consistent.
+
+Within that explicitly different source profile, the original native producer,
+independent validation, source-mutation, fresh-reexecution and two-process
+reconstruction checks remain executable. Policy identity in the subject packet
+is derived from the bound policy bytes, not inherited from a document template.
+The test profile is never written over the repository policy and is not an
+allow-list entry in production tools. Its successful reconstruction does not
+prove 19-gate admission, original execution, hosted model/signature evidence,
+Step 5C acceptance or release readiness. Historical fixtures retain their
+original policy scope. Hosted-evidence ordering is handled separately below.
+
+
+### Hosted evidence preservation before candidate rejection (#2886)
+
+This bounded source revision starts from correction head
+`d166eff0b30999387f508b9e6531b3a3724f12a0`. The revised
+`.github/workflows/pulse_ci.yml` Git blob is
+`d46ec426962a3cc9dc23c560bf87b2f2a6a74945`. The public/local/legacy
+plan and capture checkers require the revised source bytes; no historical
+carrier is edited or silently reinterpreted under this revision. The evidence
+profile, 62 state duties and 74/69/60 source-closure sizes remain unchanged.
+The topology profile retains its name but its exact source-pinned step order
+and conditional dependency graph are explicitly revised, not claimed unchanged.
+
+After the existing release preflight and output reset, the common current-run
+identity is initialized, followed by the existing hosted runtime setup, raw
+producer, canonical summary adapter and three-member evidence upload. They now
+precede the native required-gate evaluation and candidate-status builder. In the
+`pulse` source step list, identity is P11, hosted runtime identity/install are
+P12/P13, raw production and summary are P14/P15, and evidence upload is P16.
+Required-gate evaluation, diagnostics upload and candidate admission are
+P17/P18/P19. Baseline copy/validation, prod-mode validation and evidence-floor
+build/upload are P20-P24. P25 onward and other jobs' step ordinals are unchanged.
+These are source step ordinals, not runner setup/post-step log numbers.
+
+`pulse.outputs.llamaguard_evidence_ready` derives only from the successful
+`llamaguard_evidence_upload` step outcome. It is evidence availability, not
+candidate acceptance or release authority. The attestation job explicitly
+checks cancellation, the release event/mode, this readiness value and a terminal
+`pulse` result of success or failure. A missing or failed upload, canceled run,
+non-release event or invalid mode must not grant access to this path. The
+existing attestation producer, separate verifier and attested evidence upload
+remain unchanged; no external person's approval is introduced.
+
+The recorded path needs both `pulse` and the successful attestation job. Its
+first candidate download step checks `needs.pulse.result` and returns an
+explicit nonzero BLOCK before downloading or consuming candidate bytes unless
+that result is exactly `success`. Thus an attested summary cannot promote a
+rejected candidate. The unchanged 19-gate policy still rejects all 13 unsupported
+gates, retains their diagnostics, and leaves the release path blocked. No
+passing `status.json`, fabricated candidate or artificial final decision JSON
+is constructed to make downstream success-only checks run on rejected evidence.
+Here BLOCK denotes the nonzero CI/no-release-authority outcome. When a candidate
+is valid, the existing restored-candidate, attestation-verification,
+post-materialization, combined-policy and final-authority checks remain required.
+When a candidate is rejected, their successful execution is not claimed.
+
+The controlled preservation regression uses the complete unchanged repository
+policy and evaluator plan, not the six-recipe reconstruction TEST profile. It
+executes the actual workflow shell, producer with controlled model/network
+boundaries, canonical adapter, native 19-gate evaluator and separate candidate
+builder; checks their source/run bindings and failed-result artifact hashes;
+and verifies preservation of exactly the declared upload bytes in a local TEST
+archive before and after rejection. Missing/malformed raw evidence must fail
+summary creation and cannot make the evidence-ready route eligible. Guard
+matrices cover tag/strict-dispatch success and failure, missing evidence,
+attestation failure, pull requests and cancellation. These are offline tests,
+not a GitHub runner, real model inference, remote upload or verified signature.
+
+The existing positive reconstruction profile remains separately tested. Full
+required CI and source review must follow the coordinated source update. A green
+pull-request run in which hosted jobs are skipped is not a live hosted proof,
+and this correction does not authorize a reference run or Step 5C acceptance.
+
 ## Tests and handoffs
 
 Permanent tests use `record_status: example`, deterministic mocked API responses
@@ -1318,10 +1474,12 @@ The implementation PR contains no invented future run, job, artifact, time,
 size, digest or PASS value. The actual reference is preserved only after a
 separate acquisition review.
 
-Step 5C does not modify PULSE CI release semantics, the generic checker,
-production policy, active policy sets, gate registry, existing #6066 evidence,
-Step 5B evidence, Quality Ledger, Transition Meter, Device Ledger, iPhone code,
-v1.3.0 or publication metadata.
+The accepted #2880 observation implementation did not modify PULSE CI release
+semantics. The separately scoped pre-acquisition correction above restores
+release-input and evidence-admission enforcement without changing the generic
+checker, production policy membership, active policy sets, gate registry,
+existing #6066 evidence, Step 5B evidence, Quality Ledger, Transition Meter,
+Device Ledger, iPhone code, v1.3.0 or publication metadata.
 
 Successful accepted Step 5C evidence may establish I and E only within the
 declared scope. R and C remain Step 5D work; M remains Step 6 work. It does not

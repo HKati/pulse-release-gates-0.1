@@ -6,6 +6,76 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+- Align the Step 5C reference-workflow pin regression with the reviewed
+  `actions/download-artifact` v8.0.1 SHA in #2889. Preserve the exact single
+  current-run artifact ID, token/repository/run binding, direct destination
+  and `merge-multiple: true` handoff. Lock the complete input mapping so no
+  name/pattern fallback, decompression bypass or digest-mismatch downgrade
+  can enter unnoticed. The separately checked handoff bytes, source-bound
+  checker and 19-gate policy are unchanged; this does not dispatch or accept
+  a live Step 5C reference.
+- Repair the Step 5C historical-workflow regressions after the hosted-order
+  correction in #2886. Reverse only the reviewed ordering/guard/output delta in
+  test memory and verify the unchanged intermediate and historical Git blobs
+  before checking the original pre-acquisition graph and smoke-budget history.
+  Reject unreviewed edits before inversion; preserve job/step/input inventory,
+  permissions and budgets. This is a test-only correction: runtime workflow,
+  source pins, 19-gate policy and separate checker are unchanged.
+- Preserve current-run hosted LlamaGuard evidence before required-gate rejection
+  in #2886. Move the existing identity/producer/summary/upload sequence directly
+  after reset, before the unchanged 19-gate evaluator. Derive evidence readiness
+  only from successful upload; let the existing attestation job consume those
+  bytes after a failed candidate job without treating attestation as acceptance.
+  Bind the recorded path to both upstream jobs and explicitly BLOCK rejected
+  candidates before downloading candidate artifacts. Valid candidate paths retain
+  the existing post-materialization checks; failed candidates are never given a
+  fabricated status or release-decision artifact. Preserve all 19 requirements,
+  13 unsupported rejections, separate checker, permissions and time budgets.
+  Rebind exact workflow source pins and occurrence mappings together. Controlled
+  offline producer/adapter/native-gate and routing regressions are not evidence
+  of live model inference, GitHub upload or signature verification. This revises
+  the initial correction's ordering/conditional-graph preservation below; it does
+  not retroactively rebind historical carriers or authorize a reference dispatch.
+- Separate the Step 5C terminal regression profiles under #2886: assert native
+  rejection under the unchanged 19-gate repository policy, and exercise positive
+  reconstruction under the explicitly named six-recipe TEST policy
+  `pulse-step5c-supported-terminal-fixture-v0`. Bind the test-only policy,
+  evaluation plan and exact literal policy-pin revisions to a distinct source
+  tree before producing evidence. Keep all native producer and checker logic,
+  release-required duties, mutation/replay checks and non-authority boundaries.
+  This is not a passing 19-gate release or hosted-reference readiness; hosted
+  evidence ordering is addressed by the separate correction above.
+- Preserve the source-pinned isolated attestation pip installation in both
+  Step 5C external-operation mappings. Keep the original operation-count and
+  unknown-result regressions; reject an omitted installation even after the
+  plan and step-reference lists are consistently rehashed. This does not
+  by itself resolve the separate terminal-fixture or hosted-evidence-ordering work.
+- Prepare the bounded #2879 pre-acquisition correction following merged #2880.
+  Reject inconsistent strict-release inputs before publication of release flags;
+  retain hosted evidence materialization and post-materialization enforcement.
+  Remove assertion-only admission for the 13 unsupported required gates and
+  independently reject those results at candidate intake. All 19 required
+  entries and the six other evaluator recipes remain unchanged.
+- Pin the isolated LlamaGuard attestation installation to the complete seven-wheel
+  `PULSE_safe_pack_v0/requirements-attestation-v0.lock`, targeting CPython 3.11 on
+  Linux x86_64. Require hashes and wheels; remove the affected job's floating
+  pip/dependency installs. The supplied acquisition records CPython 3.11.16,
+  glibc 2.39 and bootstrap pip 24.0; this is not a general platform or security
+  certification.
+- Bind that lock as the 74th public R2 prelaunch source input in the independent
+  plan implementations, while retaining 62 state obligations and the existing
+  60-source legacy / 69-source local profiles. This initial installation correction
+  preserved workflow job/step order; the explicit hosted-ordering revision above
+  supersedes that ordering constraint, not permissions, budgets or historical carriers. No reference run or Step 5C
+  acceptance is claimed: #2879 remains open and substantive gate-evidence gaps
+  continue to block successful-reference readiness.
+- Clarify that correction verification independence is provided by the separate
+  checker and source-bound verification path, not by a mandatory external person
+  or third-party approval. Preserve positive regression coverage, required CI,
+  reconstruction checks, source review and fail-closed behavior. Draft-branch
+  transfer does not declare correction acceptance or reference readiness.
+
 ### Added
 - Record the completed bounded Step 5B observed execution, acquisition, preservation,
   independent replay and evidence-closure handoff under work order #2875.

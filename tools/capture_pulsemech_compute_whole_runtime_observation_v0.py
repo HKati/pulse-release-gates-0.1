@@ -2151,12 +2151,12 @@ PRESERVED_MEMBER_ROLE_SPECS = {
     'llamaguard-attestation-bundle': ('external/llamaguard_summary.bundle.json', 'attest_llamaguard_current_run_summary:005'),
     'llamaguard-attestation-envelope': ('external/llamaguard_summary.envelope.json', 'attest_llamaguard_current_run_summary:006'),
     'llamaguard-attestation-verifier': ('external/llamaguard_attestation_verifier_v1.json', 'attest_llamaguard_current_run_summary:007'),
-    'llamaguard-evaluator-manifest': ('external/llamaguard_evaluator_manifest_v0.json', 'pulse:022'),
-    'llamaguard-raw-evidence': ('external/llamaguard_raw.jsonl', 'pulse:022'),
-    'llamaguard-summary': ('external/llamaguard_summary.json', 'pulse:023'),
+    'llamaguard-evaluator-manifest': ('external/llamaguard_evaluator_manifest_v0.json', 'pulse:014'),
+    'llamaguard-raw-evidence': ('external/llamaguard_raw.jsonl', 'pulse:014'),
+    'llamaguard-summary': ('external/llamaguard_summary.json', 'pulse:015'),
     'package-digest-inventory': ('package_digest_inventory_v0.json', 'assemble_release_grade_reference_package:005'),
     'package-run-metadata': ('run_metadata_v0.json', 'assemble_release_grade_reference_package:005'),
-    'pre-materialization-status': ('status.json', 'pulse:013'),
+    'pre-materialization-status': ('status.json', 'pulse:019'),
     'quality-ledger-final': ('report_card.html', 'release_grade_recorded_path:018'),
     'recorded-candidate-index': ('recorded_release_candidate_index_v0.json', 'release_grade_recorded_path:006'),
     'recorded-release-evidence-verifier': ('recorded_release_evidence_verifier_v0.json', 'release_grade_recorded_path:008'),
@@ -2167,9 +2167,9 @@ PRESERVED_MEMBER_ROLE_SPECS = {
     'release-evidence-input-manifest': ('release_evidence_input_manifest_v0.json', 'release_grade_recorded_path:007'),
     'release-grade-junit': ('reports/junit.xml', 'release_grade_recorded_path:023'),
     'release-grade-sarif': ('reports/sarif.json', 'release_grade_recorded_path:023'),
-    'required-gate-evidence': ('required_gate_evidence_v0.json', 'pulse:011'),
-    'self-contained-evidence-floor': ('self_contained_pulse_evidence_floor_v0.json', 'pulse:018'),
-    'status-baseline': ('status_baseline.json', 'pulse:014'),
+    'required-gate-evidence': ('required_gate_evidence_v0.json', 'pulse:017'),
+    'self-contained-evidence-floor': ('self_contained_pulse_evidence_floor_v0.json', 'pulse:023'),
+    'status-baseline': ('status_baseline.json', 'pulse:020'),
 }
 
 
@@ -2407,7 +2407,7 @@ _D3_SELECTOR = "tools/policy_to_require_args.py"
 _D3_CHECKER = "PULSE_safe_pack_v0/tools/check_gates.py"
 _D3_MATERIALIZER = "PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py"
 _D3_SOURCE_PINS = {
-    ".github/workflows/pulse_ci.yml": "db07510afb66fa6b92635066da8cdc02561cf32c",
+    ".github/workflows/pulse_ci.yml": "d46ec426962a3cc9dc23c560bf87b2f2a6a74945",
     _D3_POLICY: "a311b424ad0f6c028b9c37b18572e7a09c721cdd",
     _D3_SELECTOR: "5b1d099485d0e3bfd90da3fff1213a4e949db850",
     _D3_CHECKER: "2a593bdef31c9c8cb565b1c4ca3d16a1e3093735",
@@ -2602,7 +2602,7 @@ def _validate_d3_bindings(
 
 # D6 uses the already-preserved, reviewed workflow bytes. These selectors are
 # tied to this immutable source, not a search for any successful attestation.
-_D6_WORKFLOW_BLOB = "db07510afb66fa6b92635066da8cdc02561cf32c"
+_D6_WORKFLOW_BLOB = "d46ec426962a3cc9dc23c560bf87b2f2a6a74945"
 _D6_ACTION_COMMIT = "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"
 _D6_JOB = "attest_release_grade_artifact_binding"
 _D6_JOB_NAME = "Release-grade artifact binding v0: attest"

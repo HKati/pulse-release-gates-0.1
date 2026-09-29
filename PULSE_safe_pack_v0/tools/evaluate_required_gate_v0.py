@@ -1132,113 +1132,79 @@ RECIPES: dict[str, Recipe] = {
         arguments=q4_args,
     ),
 
-    "effect_present": required_reference_recipe(
-        "effect_present",
-        (
-            "Effect-presence reference reducer emitted "
-            "literal pass=true from checked-in current-run "
-            "reference evidence."
-        ),
-    ),
-    "pass_controls_comm": required_reference_recipe(
-        "pass_controls_comm",
-        (
-            "Communication-control reference reducer emitted "
-            "literal pass=true from checked-in current-run "
-            "reference evidence."
-        ),
-    ),
-    "psf_monotonicity_ok": required_reference_recipe(
-        "psf_monotonicity_ok",
-        (
-            "PSF monotonicity reference reducer emitted "
-            "literal pass=true from checked-in current-run "
-            "reference evidence."
-        ),
-    ),
-    "psf_mono_shift_resilient": required_reference_recipe(
-        "psf_mono_shift_resilient",
-        (
-            "PSF monotonicity shift-resilience reference reducer "
-            "emitted literal pass=true from checked-in current-run "
-            "reference evidence."
-        ),
-    ),
-    "psf_commutativity_ok": required_reference_recipe(
-        "psf_commutativity_ok",
-        (
-            "PSF commutativity reference reducer emitted "
-            "literal pass=true from checked-in current-run "
-            "reference evidence."
-        ),
-    ),
-    "psf_comm_shift_resilient": required_reference_recipe(
-        "psf_comm_shift_resilient",
-        (
-            "PSF commutativity shift-resilience reference reducer "
-            "emitted literal pass=true from checked-in current-run "
-            "reference evidence."
-        ),
-    ),
-    "sanit_shift_resilient": required_reference_recipe(
-        "sanit_shift_resilient",
-        (
-            "Sanitization shift-resilience reference reducer emitted "
-            "literal pass=true from checked-in current-run "
-            "reference evidence."
-        ),
-    ),
-    "psf_action_monotonicity_ok": required_reference_recipe(
-        "psf_action_monotonicity_ok",
-        (
-            "PSF action-monotonicity reference reducer emitted "
-            "literal pass=true from checked-in current-run "
-            "reference evidence."
-        ),
-    ),
-    "psf_idempotence_ok": required_reference_recipe(
-        "psf_idempotence_ok",
-        (
-            "PSF idempotence reference reducer emitted "
-            "literal pass=true from checked-in current-run "
-            "reference evidence."
-        ),
-    ),
-    "psf_path_independence_ok": required_reference_recipe(
-        "psf_path_independence_ok",
-        (
-            "PSF path-independence reference reducer emitted "
-            "literal pass=true from checked-in current-run "
-            "reference evidence."
-        ),
-    ),
-    "psf_pii_monotonicity_ok": required_reference_recipe(
-        "psf_pii_monotonicity_ok",
-        (
-            "PSF PII-monotonicity reference reducer emitted "
-            "literal pass=true from checked-in current-run "
-            "reference evidence."
-        ),
-    ),
-    "q2_consistency_ok": required_reference_recipe(
-        "q2_consistency_ok",
-        (
-            "Q2 consistency reference reducer emitted "
-            "literal pass=true from checked-in current-run "
-            "reference evidence."
-        ),
-    ),
-    "q3_fairness_ok": required_reference_recipe(
-        "q3_fairness_ok",
-        (
-            "Q3 fairness reference reducer emitted "
-            "literal pass=true from checked-in current-run "
-            "reference evidence."
-        ),
-    ),
+
 }
 
-UNSUPPORTED_REASONS: dict[str, str] = {}
+# No assertion-only reference reducer is an admissible implementation
+# for these requirements. A future substantive path needs coordinated
+# producer and independent candidate-admission review before activation.
+UNSUPPORTED_REASONS: dict[str, str] = {
+    "effect_present": (
+        "effect_present: substantive "
+        "effect-presence evaluation is unavailable in this release path. "
+        "Assertion-only reference PASS is insufficient evidence."
+    ),
+    "pass_controls_comm": (
+        "pass_controls_comm: substantive "
+        "communication-control evaluation is unavailable in this release path. "
+        "Assertion-only reference PASS is insufficient evidence."
+    ),
+    "psf_monotonicity_ok": (
+        "psf_monotonicity_ok: substantive "
+        "PSF monotonicity evaluation is unavailable in this release path. "
+        "Assertion-only reference PASS is insufficient evidence."
+    ),
+    "psf_mono_shift_resilient": (
+        "psf_mono_shift_resilient: substantive "
+        "PSF monotonicity shift-resilience evaluation is unavailable in this release path. "
+        "Assertion-only reference PASS is insufficient evidence."
+    ),
+    "psf_commutativity_ok": (
+        "psf_commutativity_ok: substantive "
+        "PSF commutativity evaluation is unavailable in this release path. "
+        "Assertion-only reference PASS is insufficient evidence."
+    ),
+    "psf_comm_shift_resilient": (
+        "psf_comm_shift_resilient: substantive "
+        "PSF commutativity shift-resilience evaluation is unavailable in this release path. "
+        "Assertion-only reference PASS is insufficient evidence."
+    ),
+    "sanit_shift_resilient": (
+        "sanit_shift_resilient: substantive "
+        "sanitization shift-resilience evaluation is unavailable in this release path. "
+        "Assertion-only reference PASS is insufficient evidence."
+    ),
+    "psf_action_monotonicity_ok": (
+        "psf_action_monotonicity_ok: substantive "
+        "PSF action-monotonicity evaluation is unavailable in this release path. "
+        "Assertion-only reference PASS is insufficient evidence."
+    ),
+    "psf_idempotence_ok": (
+        "psf_idempotence_ok: substantive "
+        "PSF idempotence evaluation is unavailable in this release path. "
+        "Assertion-only reference PASS is insufficient evidence."
+    ),
+    "psf_path_independence_ok": (
+        "psf_path_independence_ok: substantive "
+        "PSF path-independence evaluation is unavailable in this release path. "
+        "Assertion-only reference PASS is insufficient evidence."
+    ),
+    "psf_pii_monotonicity_ok": (
+        "psf_pii_monotonicity_ok: substantive "
+        "PSF PII-monotonicity evaluation is unavailable in this release path. "
+        "Assertion-only reference PASS is insufficient evidence."
+    ),
+    "q2_consistency_ok": (
+        "q2_consistency_ok: substantive "
+        "Q2 agreement-group and Wilson-bound evaluation is unavailable in this release path. "
+        "Assertion-only reference PASS is insufficient evidence."
+    ),
+    "q3_fairness_ok": (
+        "q3_fairness_ok: substantive "
+        "Q3 slice-coverage and disparity evaluation is unavailable in this release path. "
+        "Assertion-only reference PASS is insufficient evidence."
+    ),
+}
 
 SPEC_BY_GATE = {
     "q1_grounded_ok": (
