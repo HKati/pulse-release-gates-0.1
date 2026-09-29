@@ -77,6 +77,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   transfer does not declare correction acceptance or reference readiness.
 
 ### Added
+- Add the first bounded reference-readiness unit under #2879: non-active Q2
+  reduction from explicitly typed final-answer/refusal groups, the unchanged
+  exact-match/Wilson/minimum-50-group metric contract, and a separately
+  implemented original-input recomputation checker. Require exact expected
+  group/manifest hashes, closed schemas, deterministic normalization and
+  no-replacement publication. A correctly verified FAIL remains a FAIL; no
+  caller or third-party approval is substituted for mechanical evidence.
+  Register permanent positive, malformed-input, rehashed-tamper, replay and
+  non-activation regressions. Record the 13-gate availability map and the
+  missing admissible-input/current-run-admission boundary. Keep the production
+  policy, all 13 unsupported rejections, Step 5C source pins and workflows
+  unchanged. This adds no live inference, successful reference or gate promotion.
 - Record the completed bounded Step 5B observed execution, acquisition, preservation,
   independent replay and evidence-closure handoff under work order #2875.
   - Implement the finite non-active checker/result-consumer observation path
