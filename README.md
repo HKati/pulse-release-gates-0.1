@@ -152,10 +152,14 @@ They do not independently produce release authority.
 
 ### Current implementation state
 
+Implementation, fixed-source execution evidence and reference acceptance are
+separate states. Previously exercised release layers below refer to their
+recorded source profiles; they do not establish a passing release on every
+later source revision.
 | Mechanical layer | State |
 |---|---|
-| Current-run required-gate evidence production | Implemented and exercised |
-| Non-stubbed release candidate state | Implemented and exercised |
+| Current-run required-gate evidence production | Implemented; the current release-grade profile explicitly rejects 13 unsupported gates while retaining all 19 required gates |
+| Non-stubbed release candidate state | Implemented; separate candidate admission rejects unsupported evidence rather than manufacturing a passing 19-gate candidate |
 | Recorded release-evidence verifier | Implemented and exercised |
 | Canonical candidate replay | Implemented and exercised |
 | Canonical verifier replay before materialization | Implemented and exercised |
@@ -179,7 +183,9 @@ They do not independently produce release authority.
 | Historical runtime-packet producer and preservation — Step 4B | Implemented and preserved — bounded `post_run_platform_export` profile, partial coverage, separate direct packet validation; `authority_effect = none` |
 | Runtime-bound report/relation construction and partial historical chain — Step 5A | Implemented, reviewed and accepted through #2872 / #2870; separate source-aware validation and non-active candidate publication; complete observed Step 5 proof remains open |
 | Bounded observed checker/consumer reference — Step 5B | Completed, preserved and independently replayed through #2876, owner-dispatched run `34402387728`, artifact `10123984621`, and #2877; six distinct checker/consumer processes; `0 → ready`, `1 → held`, `2 → held`; I/E/R complete, C true, M unavailable; whole runtime packet partial; `authority_effect = none` |
-| General live/current-run whole-runtime observation and complete Step 5 proof | Not implemented; Step 5B is limited to `six_declared_direct_processes_and_their_bound_io` |
+| Current-run whole-runtime observation — Step 5C implementation | Implemented through #2880, with the pre-acquisition correction merged through #2886; separate plan checking, acquisition, capture and source-bound reconstruction; non-active |
+| Actual Step 5C reference acquisition, preservation and acceptance | Pending under #2879; regression success and the supported TEST profile do not replace an actual accepted current-run reference |
+| Wider whole-runtime relational coverage and complete Step 5 proof | Not complete; wider R/C closure remains Step 5D work, and Step 5B retains its six-process scope |
 | Active or release-required compute enforcement | Not active |
 | Public PULSEmech Core execution record | Completed — PULSE CI #5728 |
 | Completed public non-stubbed release-grade run record | Completed — PULSE CI #6066 |
@@ -381,9 +387,11 @@ authority_binding_complete: false
 decision_closure_complete: false
 ```
 
-The implementation registered one new permanent regression program. The
-current tools-test manifest therefore contains **154 unique program paths**.
+The Step 5B implementation registered one new permanent regression program,
+bringing its historical tools-test manifest to **154 unique program paths**.
 The Step 5A section above retains its historical 153-program execution record.
+The current program inventory is maintained in [`ci/tools-tests.list`](ci/tools-tests.list);
+these historical counts are not current-manifest assertions.
 
 The preserved authority boundary remains:
 
@@ -400,6 +408,36 @@ deployment admission, active compute enforcement or Step 7 promotion complete.
 [Verified Step 5B result and remaining boundary](PULSEMECH_TECHNICAL_OVERVIEW.md#step-5b-bounded-observed-reference) ·
 [Exact preserved reference and replay record](preservation/compute_bounded_execution_reference_v0/run_34402387728_attempt_1/README.md) ·
 [Bounded acceptance record](https://github.com/HKati/pulse-release-gates-0.1/issues/2875#issuecomment-5609641514)
+
+
+### Step 5C implementation and reference boundary
+
+The selected current-run whole-runtime observation mechanism is implemented
+through [#2880](https://github.com/HKati/pulse-release-gates-0.1/pull/2880).
+The pre-acquisition correction in
+[#2886](https://github.com/HKati/pulse-release-gates-0.1/pull/2886) is also merged.
+It preserves the separate checker, exact source bindings, positive reconstruction
+coverage and fail-closed production admission.
+
+Here, whole-runtime means the predeclared selected workflow/job/step graph
+within the declared evidence profile, not every host process or provider-internal
+operation. The selected evidence profile retains its explicit visibility gaps.
+
+After valid release preflight, hosted evidence production and upload precede
+required-gate rejection. Preserved or attested evidence cannot promote a rejected
+candidate. All 19 required gates remain; the 13 unsupported gates still block the
+current release-grade path. A green PR run with hosted jobs skipped does not prove
+live inference, completed attestation or a successful 19-gate release reference.
+
+The actual current-run reference, exact preservation and separate source-bound
+reconstruction acceptance remain open under
+[#2879](https://github.com/HKati/pulse-release-gates-0.1/issues/2879).
+The six-supported-gate positive TEST profile is reconstruction test evidence,
+not a replacement production policy or an accepted Step 5C acquisition.
+Step 5D wider R/C closure, Step 6 resource measurement and Step 7 compute-policy
+promotion remain separate work; no active compute authority is added.
+
+[Step 5C evidence contract and acceptance boundary](docs/compute/PULSEMECH_COMPUTE_WHOLE_RUNTIME_OBSERVATION_CONTRACT_v0.md)
 
 ### Device Ledger bounded mechanical proof
 
@@ -555,16 +593,23 @@ It does not independently create release authority.
 
 ## Tier 0 self-contained PULSE evidence floor✅
 
-PULSE supports a self-contained Tier 0 evidence path that does not require hosted external model access.
+**Historical record — not a current release-dispatch procedure.**
 
-A controlled `workflow_dispatch` run on `main` passed with:
+The recorded Tier 0 run exercised a self-contained evidence-floor path without
+hosted external model access under its then-current workflow. Its recorded
+`workflow_dispatch` inputs were:
 
 ```text
 strict_external_evidence=true
 llamaguard_evidence_mode=tier0_not_required
 ```
 
-Observed result:
+The release preflight corrected in #2886 now rejects this combination:
+`strict_external_evidence=true` selects release-grade execution, which requires
+`hosted_full_runtime`. The record below is retained as historical evidence, not
+as an instruction to bypass that requirement or proof of current reference readiness.
+
+Historical observed result:
 
 PULSE CI
 → success
@@ -593,11 +638,15 @@ Tier 0 self-contained floor
 ≠ hosted external model evidence
 ≠ release authorization
 
-The Tier 0 floor records what PULSE can prove from its own artifact-bound mechanics. Hosted LlamaGuard / external model evidence remains a separate explicit opt-in lane.
+The recorded Tier 0 floor concerns the self-contained mechanics exercised in
+that run; it does not supply hosted model evidence. Hosted execution remains
+explicitly selected, and is mandatory for an accepted release-grade invocation
+under the corrected preflight. That invocation still requires substantive gate
+evidence; selecting hosted mode alone cannot produce release acceptance.
 
 ### Tier 0 external review recalibration
 
-The controlled Tier 0 run updates the external-review picture without changing release authority.
+The historical controlled Tier 0 run informs external review without changing release authority or the current release-input contract.
 
 - [Tier 0 external review recalibration v0](docs/TIER0_EXTERNAL_REVIEW_RECALIBRATION_v0.md) — distinguishes the public reader-surface caveat from the controlled Tier 0 self-contained evidence-floor milestone.
 
@@ -609,12 +658,13 @@ Tier 0 controlled run
 → self-contained PULSE evidence floor passed.
 
 Hosted external-model evidence
-→ separate opt-in lane, not claimed by Tier 0.
+→ not claimed by this historical Tier 0 record.
+→ required for release-grade execution under the corrected preflight.
 ```
 
 ### Public PULSEmech Core execution record
 
-A public, manually dispatched PULSEmech Core execution has completed successfully on the current `main` implementation.
+A public, manually dispatched PULSEmech Core execution completed successfully on the then-current `main`, at the fixed source identified below.
 
 - record: [PULSEmech Core Execution Record v0](docs/PULSEMECH_CORE_EXECUTION_RECORD_v0.md)
 - workflow: `PULSE CI #5728`
@@ -835,6 +885,13 @@ External review may inspect the mechanism, declared claims, implementation, and 
 
 External review cannot replace the artifact-bound release-authority path.
 
+A separately implemented checker is not an external validating authority.
+For the pre-acquisition correction, approval by another person or organization
+is not a prerequisite. Positive regressions, source review, exact evidence and
+source/run bindings, and the separate reconstruction/checking path remain
+required within the declared trust boundary. This does not claim trust-free
+acquisition or eliminate platform and runtime dependencies.
+
 `release_authority_v0` is an audit / traceability sidecar, not a second decision engine.
 
 Coverage scores and other metrics are descriptive unless they are explicitly promoted into declared policy, workflow-effective materialized required gates, and strict fail-closed CI enforcement.
@@ -1001,11 +1058,11 @@ recorded release evidence
 > PULSE CI #6066 is the completed fixed-source hosted release-grade baseline.
 >
 
-> The remaining active hardening surfaces include exact operational signer identities and current-run evidence paths for additional detector lanes, independent external reproduction, artifact-retention and portability verification, controlled failure variants, and further evidence-packet hardening.
+> > The remaining active hardening surfaces include exact operational signer identities and current-run evidence paths for additional detector lanes, artifact-retention and portability verification, controlled failure variants, and further evidence-packet hardening. External reproduction may provide complementary scrutiny; it is not an additional third-party approval prerequisite for the pre-acquisition correction and cannot replace the separate mechanical checks.
 > 
-> Implemented workflow capability does not itself establish a completed current-run proof. The #6066 record establishes that proof for the hosted LlamaGuard lane; every future detector lane and reproduction must independently preserve current-run evidence, recorded admission, declared policy, workflow-effective materialized required gates, and strict fail-closed CI enforcement.
+> > Implemented workflow capability does not itself establish a completed current-run proof. The #6066 record establishes its hosted LlamaGuard result at its recorded source and policy; it does not establish successful-reference readiness after #2886. Every new reference must separately preserve its exact evidence, source/run identity, recorded admission, declared policy, workflow-effective materialized required gates, and strict fail-closed CI enforcement.
 >
-> Open work is tracked as post-reference hardening work. It is not treated as release authority by assumption.
+> Open work includes post-reference hardening and the separate Step 5C reference prerequisites under #2879. Neither is treated as release authority or completed reference evidence by assumption.
 ---
 
 ## Start here
@@ -1850,11 +1907,15 @@ python scripts/inspect_paradox_v0.py \
 ### Repository layout
 
 ```
-- `PULSE_safe_pack_v0/` – self-contained PULSE safe-pack v0 (tools, core
-  policies and CI wiring; `pulse_policy.yml` is the CI source of truth)
-- `profiles/` – example / experimental profiles and threshold sets. These
-  are **not** used by CI unless explicitly referenced from
-  `PULSE_safe_pack_v0/pulse_policy.yml` or custom workflows.
+- `PULSE_safe_pack_v0/` – self-contained PULSE safe-pack v0: tools,
+  profiles, artifacts and supporting documentation.
+- `pulse_gate_policy_v0.yml` – repository-root canonical gate-set policy
+  for CI enforcement. It declares selected gate sets and enforcement
+  semantics; it is not the source of every metric threshold.
+- `PULSE_safe_pack_v0/profiles/` – safe-pack configuration and threshold
+  profiles; distinct from the repository-root gate-set policy.
+- `profiles/` – example / experimental profiles and threshold sets;
+  used only when explicitly selected by the relevant tool or workflow.
 
 ```
 
