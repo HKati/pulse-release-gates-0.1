@@ -1,0 +1,3068 @@
+{
+  "record_type": "q2_reference_request_workload_v0",
+  "selection_id": "pulsemech.q2.field-extractor.smollm2-135m.v0",
+  "data_origin": "authored_controlled_inputs",
+  "contains_model_responses": false,
+  "language": "en",
+  "sampling": {
+    "method": "complete_fixed_inventory",
+    "seed": 0,
+    "group_count": 50,
+    "repeats_per_group": 3
+  },
+  "request_hash_encoding": "UTF-8 JSON; sorted keys; compact separators; ensure_ascii=false; no final newline; no non-finite values",
+  "groups": [
+    {
+      "group_id": "q2fx-001",
+      "task_family": "color",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The storage box is blue. Its label is A7. What color is the storage box?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "d226ad3f6bb6af6cea1cf1ce28efe41163f81aea0c5c766131d5b34be87f44c6",
+      "call_ids": [
+        "q2fx-001-r01",
+        "q2fx-001-r02",
+        "q2fx-001-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-002",
+      "task_family": "color",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The storage box is green. Its label is B2. What color is the storage box?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "9400ecdc680dfd32e50651e7d1e05277121b8482ad7b6ec102e76e5279124924",
+      "call_ids": [
+        "q2fx-002-r01",
+        "q2fx-002-r02",
+        "q2fx-002-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-003",
+      "task_family": "color",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The storage box is red. Its label is C9. What color is the storage box?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "84778d8110b00b4631fb48ff8aa66aa805bc3e6c8e8df588c0b7243430183353",
+      "call_ids": [
+        "q2fx-003-r01",
+        "q2fx-003-r02",
+        "q2fx-003-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-004",
+      "task_family": "color",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The storage box is yellow. Its label is D4. What color is the storage box?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "8f3e68dae81672e22518ea54327551e43528e0d78c465fc3caecde7e919788ca",
+      "call_ids": [
+        "q2fx-004-r01",
+        "q2fx-004-r02",
+        "q2fx-004-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-005",
+      "task_family": "color",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The storage box is purple. Its label is E1. What color is the storage box?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "a13c0fc0d114a7d8bb25814a56e9770fa837f24c79497320d13076b682d54c1c",
+      "call_ids": [
+        "q2fx-005-r01",
+        "q2fx-005-r02",
+        "q2fx-005-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-006",
+      "task_family": "material",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The container is made of wood. It has a round shape. What material is the container made of?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "806a3a65f01a321334ef8d582e42fb58ad9220e63d44b2bd6e4e2c7e41ddb0df",
+      "call_ids": [
+        "q2fx-006-r01",
+        "q2fx-006-r02",
+        "q2fx-006-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-007",
+      "task_family": "material",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The container is made of steel. It has a square shape. What material is the container made of?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "2cad9cfe384e3dd0d3a4c1a8509952a624cfcf1862197f6a8b572ff44ee83f32",
+      "call_ids": [
+        "q2fx-007-r01",
+        "q2fx-007-r02",
+        "q2fx-007-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-008",
+      "task_family": "material",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The container is made of glass. It has a tall shape. What material is the container made of?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "f2a1c10eaa7af100f6cb3f233e95852268073815121d508bbc6dec190f69a7ce",
+      "call_ids": [
+        "q2fx-008-r01",
+        "q2fx-008-r02",
+        "q2fx-008-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-009",
+      "task_family": "material",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The container is made of clay. It has a short shape. What material is the container made of?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "0d7c09bb8b9ff08518cce67c9443cfbd3227acdd65188d24d21ec235ea219ed6",
+      "call_ids": [
+        "q2fx-009-r01",
+        "q2fx-009-r02",
+        "q2fx-009-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-010",
+      "task_family": "material",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The container is made of paper. It has a wide shape. What material is the container made of?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "8c25f940f3202c53d1b970a091d8461f0f51fe68aa3b8b8b9966337e6a677485",
+      "call_ids": [
+        "q2fx-010-r01",
+        "q2fx-010-r02",
+        "q2fx-010-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-011",
+      "task_family": "location",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The spare key is in the drawer. A notebook is beside the window. Where is the spare key?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "8b5b0d0afd5bf5a2e60a1a2d5c97e0df73813ac6844521a3f51eff16ba621ce6",
+      "call_ids": [
+        "q2fx-011-r01",
+        "q2fx-011-r02",
+        "q2fx-011-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-012",
+      "task_family": "location",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The spare key is in the cupboard. A notebook is beside the door. Where is the spare key?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "ba2001ff2231ee07b534e4316a3025fa8a337ccdff134732ccf1fabd8ab6b6cb",
+      "call_ids": [
+        "q2fx-012-r01",
+        "q2fx-012-r02",
+        "q2fx-012-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-013",
+      "task_family": "location",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The spare key is in the basket. A notebook is beside the lamp. Where is the spare key?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "d02282ac0906927f2b5db70f0582974e262099325b48aa0fcbc88c38b74882a9",
+      "call_ids": [
+        "q2fx-013-r01",
+        "q2fx-013-r02",
+        "q2fx-013-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-014",
+      "task_family": "location",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The spare key is in the cabinet. A notebook is beside the clock. Where is the spare key?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "1f46c470dd897e01ad193afe80f6bb215caaada37df16edff901aebac90bc281",
+      "call_ids": [
+        "q2fx-014-r01",
+        "q2fx-014-r02",
+        "q2fx-014-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-015",
+      "task_family": "location",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The spare key is in the shelf. A notebook is beside the table. Where is the spare key?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "4d0758d25fec8c8c0ffb49394afe58c606d95d1ef582a68d2575ef6aa40352c0",
+      "call_ids": [
+        "q2fx-015-r01",
+        "q2fx-015-r02",
+        "q2fx-015-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-016",
+      "task_family": "quantity",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The tray contains seven tokens. The tray is blue. How many tokens are in the tray?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "21d26586cb0d157b376f82b13310280444da61564bd8cc789b6b4e916bf89bb0",
+      "call_ids": [
+        "q2fx-016-r01",
+        "q2fx-016-r02",
+        "q2fx-016-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-017",
+      "task_family": "quantity",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The tray contains twelve tokens. The tray is red. How many tokens are in the tray?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "79b82498702869781790fe352c3d79e0368bbb93ca5fa8e8825f427210e95495",
+      "call_ids": [
+        "q2fx-017-r01",
+        "q2fx-017-r02",
+        "q2fx-017-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-018",
+      "task_family": "quantity",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The tray contains four tokens. The tray is green. How many tokens are in the tray?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "581d2b8e503159228c70a66832a5d53e3bf769e6fca93da939213447828d33fe",
+      "call_ids": [
+        "q2fx-018-r01",
+        "q2fx-018-r02",
+        "q2fx-018-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-019",
+      "task_family": "quantity",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The tray contains nine tokens. The tray is yellow. How many tokens are in the tray?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "2c2b4045541681037322a1752ac92c4f048062500f32d36a2a60e2dcaa4bfc75",
+      "call_ids": [
+        "q2fx-019-r01",
+        "q2fx-019-r02",
+        "q2fx-019-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-020",
+      "task_family": "quantity",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The tray contains six tokens. The tray is purple. How many tokens are in the tray?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "00a84fad387510e64c1eac26d4ed6935e5ceb061da8a6329682b5fde7da7dddd",
+      "call_ids": [
+        "q2fx-020-r01",
+        "q2fx-020-r02",
+        "q2fx-020-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-021",
+      "task_family": "batch_code",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The batch code is AX-314. The parcel is small. What is the batch code?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "7eb1e3275ad001442bb1f1f3b1c6cd45a17a180a9c8ba8dd63dc068d141f65b6",
+      "call_ids": [
+        "q2fx-021-r01",
+        "q2fx-021-r02",
+        "q2fx-021-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-022",
+      "task_family": "batch_code",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The batch code is BK-207. The parcel is large. What is the batch code?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "838baa3420b40864a62ca9949ff65b78af281d27a84033e8ca8c4656c9498b90",
+      "call_ids": [
+        "q2fx-022-r01",
+        "q2fx-022-r02",
+        "q2fx-022-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-023",
+      "task_family": "batch_code",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The batch code is CT-681. The parcel is narrow. What is the batch code?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "8fedba72deaee23e1f902c51d928b168f6252cdb9c2f17200a6f8a9facbf3b33",
+      "call_ids": [
+        "q2fx-023-r01",
+        "q2fx-023-r02",
+        "q2fx-023-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-024",
+      "task_family": "batch_code",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The batch code is DU-450. The parcel is wide. What is the batch code?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "c16345f10c83fd56785ea46f99b7929d5cd03f18051c08192eb2803ea21d250a",
+      "call_ids": [
+        "q2fx-024-r01",
+        "q2fx-024-r02",
+        "q2fx-024-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-025",
+      "task_family": "batch_code",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The batch code is EV-923. The parcel is short. What is the batch code?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "f41333d9d4f9622fd2768addcc8f5f9c5f0945f35252546ecb70bfe21fb65fc7",
+      "call_ids": [
+        "q2fx-025-r01",
+        "q2fx-025-r02",
+        "q2fx-025-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-026",
+      "task_family": "weekday",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The service visit is on Monday. The meeting point is the north entrance. On which day is the service visit?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "a0d77175cad89a55f8317dd08c0fd688ff39fe2db249c265a09f7863e8e19b38",
+      "call_ids": [
+        "q2fx-026-r01",
+        "q2fx-026-r02",
+        "q2fx-026-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-027",
+      "task_family": "weekday",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The service visit is on Tuesday. The meeting point is the south entrance. On which day is the service visit?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "38d00a9493d75cbc46c394a38301dedcd22fbdbdc2a5ed2146f1791cc1298931",
+      "call_ids": [
+        "q2fx-027-r01",
+        "q2fx-027-r02",
+        "q2fx-027-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-028",
+      "task_family": "weekday",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The service visit is on Wednesday. The meeting point is the east entrance. On which day is the service visit?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "229ac2abf9956126daefbb2bf4ca35d32dadd802c72a014a2354f2b9e9be823a",
+      "call_ids": [
+        "q2fx-028-r01",
+        "q2fx-028-r02",
+        "q2fx-028-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-029",
+      "task_family": "weekday",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The service visit is on Thursday. The meeting point is the west entrance. On which day is the service visit?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "346fd87cfd1990e143018e37261d348ba5db7edec137af9e5ab899ac4db82ef5",
+      "call_ids": [
+        "q2fx-029-r01",
+        "q2fx-029-r02",
+        "q2fx-029-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-030",
+      "task_family": "weekday",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The service visit is on Friday. The meeting point is the central entrance. On which day is the service visit?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "12ab20fceb1b084180830e6ffcd3c8dfc3385402fbc2873a342205fbcc92e92b",
+      "call_ids": [
+        "q2fx-030-r01",
+        "q2fx-030-r02",
+        "q2fx-030-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-031",
+      "task_family": "robot_name",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The fictional toy robot is called Nilo. Its base is blue. What is the toy robot called?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "29f1e96a4c51c4d85d7a931c1f7e4a0db2a7dfecff8f9cdb8163254b8536fee1",
+      "call_ids": [
+        "q2fx-031-r01",
+        "q2fx-031-r02",
+        "q2fx-031-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-032",
+      "task_family": "robot_name",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The fictional toy robot is called Bexo. Its base is green. What is the toy robot called?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "6dd4590dff2a7971062e1f49f3d373db0644163b4c73335624d7ddc69f26b381",
+      "call_ids": [
+        "q2fx-032-r01",
+        "q2fx-032-r02",
+        "q2fx-032-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-033",
+      "task_family": "robot_name",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The fictional toy robot is called Tavi. Its base is red. What is the toy robot called?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "d63db466d92c30e08805a8a5e60131b04b0c9ec7121c831f474865191ab1a422",
+      "call_ids": [
+        "q2fx-033-r01",
+        "q2fx-033-r02",
+        "q2fx-033-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-034",
+      "task_family": "robot_name",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The fictional toy robot is called Zumi. Its base is yellow. What is the toy robot called?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "ddd50e665a809c7e3fc889f464a946b98c7abfbcefe92a6dc76acbe5ac2dcc89",
+      "call_ids": [
+        "q2fx-034-r01",
+        "q2fx-034-r02",
+        "q2fx-034-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-035",
+      "task_family": "robot_name",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The fictional toy robot is called Peko. Its base is purple. What is the toy robot called?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "2a645ee87d391cf3754f57c8de705836ef8cbac3193249e245655cdb4fee9031",
+      "call_ids": [
+        "q2fx-035-r01",
+        "q2fx-035-r02",
+        "q2fx-035-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-036",
+      "task_family": "shape",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The displayed symbol is a triangle. The frame is made of copper. What shape is the displayed symbol?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "2ef8b0a572fce28177dde5088c3874f26c4da226482ee67b3b1f2d4a9cad8e04",
+      "call_ids": [
+        "q2fx-036-r01",
+        "q2fx-036-r02",
+        "q2fx-036-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-037",
+      "task_family": "shape",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The displayed symbol is a circle. The frame is made of silver. What shape is the displayed symbol?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "8d1220519f3e98dbd647ef9839d07c8eac39598b04137bf6efe0aee302115144",
+      "call_ids": [
+        "q2fx-037-r01",
+        "q2fx-037-r02",
+        "q2fx-037-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-038",
+      "task_family": "shape",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The displayed symbol is a square. The frame is made of brass. What shape is the displayed symbol?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "f930f9e0e38a2ae5664b15d39009ba254f7a3cf4c1003a8ea453fef4db45523f",
+      "call_ids": [
+        "q2fx-038-r01",
+        "q2fx-038-r02",
+        "q2fx-038-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-039",
+      "task_family": "shape",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The displayed symbol is a hexagon. The frame is made of steel. What shape is the displayed symbol?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "bfb493485ac001da54c53badb3c997f7a311bd3f3e112c4144905ea24083591d",
+      "call_ids": [
+        "q2fx-039-r01",
+        "q2fx-039-r02",
+        "q2fx-039-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-040",
+      "task_family": "shape",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The displayed symbol is a oval. The frame is made of wood. What shape is the displayed symbol?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "3a8976fd6c1ffee63c9cbfe4ad2bc70e300b40dde5fc06d2859dd327ee764efc",
+      "call_ids": [
+        "q2fx-040-r01",
+        "q2fx-040-r02",
+        "q2fx-040-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-041",
+      "task_family": "size",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The selected pouch has size small. Its color is blue. What is the size of the selected pouch?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "d8d63b88e609f7be385d2382dbb32549e485c7f706d86143f5ae992ea8ce3f19",
+      "call_ids": [
+        "q2fx-041-r01",
+        "q2fx-041-r02",
+        "q2fx-041-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-042",
+      "task_family": "size",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The selected pouch has size medium. Its color is green. What is the size of the selected pouch?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "3310aacb7eec901d717c9cc0ef8488f28eb5375d6a35fa7126004b55ddc5c07d",
+      "call_ids": [
+        "q2fx-042-r01",
+        "q2fx-042-r02",
+        "q2fx-042-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-043",
+      "task_family": "size",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The selected pouch has size large. Its color is red. What is the size of the selected pouch?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "77f964bd95450c133c9b86a91552afc185443c45d774954c636c8b6a4a754a89",
+      "call_ids": [
+        "q2fx-043-r01",
+        "q2fx-043-r02",
+        "q2fx-043-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-044",
+      "task_family": "size",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The selected pouch has size tiny. Its color is yellow. What is the size of the selected pouch?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "fb923eeb9be8a65025751c3a3f174a9c540a98c213b1230ea4cc861c722b8515",
+      "call_ids": [
+        "q2fx-044-r01",
+        "q2fx-044-r02",
+        "q2fx-044-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-045",
+      "task_family": "size",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The selected pouch has size wide. Its color is purple. What is the size of the selected pouch?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "028d70d549c028fcf3d40572bfd2fe77234677cdca04431a7172f99535d5acf8",
+      "call_ids": [
+        "q2fx-045-r01",
+        "q2fx-045-r02",
+        "q2fx-045-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-046",
+      "task_family": "storage_zone",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The parcel belongs in the north storage zone. Its code begins with AX. Which storage zone is assigned to the parcel?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "d688fbf559adcc5c1bb29f1d736477366059664e78583a1e4e5170262746918d",
+      "call_ids": [
+        "q2fx-046-r01",
+        "q2fx-046-r02",
+        "q2fx-046-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-047",
+      "task_family": "storage_zone",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The parcel belongs in the south storage zone. Its code begins with BK. Which storage zone is assigned to the parcel?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "950bf7e98a36c1e4fe0dcefb73c998cf568dc5ff27d5b68e338b2118bc859f70",
+      "call_ids": [
+        "q2fx-047-r01",
+        "q2fx-047-r02",
+        "q2fx-047-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-048",
+      "task_family": "storage_zone",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The parcel belongs in the east storage zone. Its code begins with CT. Which storage zone is assigned to the parcel?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "44fa170d8dd17455361243ac93440a6a777aa14cb5daaea10f7a170752bc0c49",
+      "call_ids": [
+        "q2fx-048-r01",
+        "q2fx-048-r02",
+        "q2fx-048-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-049",
+      "task_family": "storage_zone",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The parcel belongs in the west storage zone. Its code begins with DU. Which storage zone is assigned to the parcel?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "94ba75c8b1574d36a32ee50339ff5c74ef24c799707985acd4a02f5e22d60367",
+      "call_ids": [
+        "q2fx-049-r01",
+        "q2fx-049-r02",
+        "q2fx-049-r03"
+      ]
+    },
+    {
+      "group_id": "q2fx-050",
+      "task_family": "storage_zone",
+      "request": {
+        "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "messages": [
+          {
+            "role": "system",
+            "content": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer."
+          },
+          {
+            "role": "user",
+            "content": "The parcel belongs in the central storage zone. Its code begins with EV. Which storage zone is assigned to the parcel?"
+          }
+        ],
+        "generation": {
+          "do_sample": false,
+          "num_beams": 1,
+          "num_return_sequences": 1,
+          "max_new_tokens": 32,
+          "min_new_tokens": 0,
+          "use_cache": true,
+          "repetition_penalty": 1.0,
+          "length_penalty": 1.0,
+          "no_repeat_ngram_size": 0,
+          "bos_token_id": 1,
+          "eos_token_id": 2,
+          "pad_token_id": 2
+        },
+        "seed": 1729,
+        "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values"
+      },
+      "request_sha256": "2bedcc322732f7b1a7170e5759aaacc5723d70bbc62334382e6df70a8602fa70",
+      "call_ids": [
+        "q2fx-050-r01",
+        "q2fx-050-r02",
+        "q2fx-050-r03"
+      ]
+    }
+  ],
+  "occurrence_inventory": [
+    {
+      "ordinal": 1,
+      "call_id": "q2fx-001-r01",
+      "group_id": "q2fx-001",
+      "repeat_index": 1,
+      "request_sha256": "d226ad3f6bb6af6cea1cf1ce28efe41163f81aea0c5c766131d5b34be87f44c6"
+    },
+    {
+      "ordinal": 2,
+      "call_id": "q2fx-001-r02",
+      "group_id": "q2fx-001",
+      "repeat_index": 2,
+      "request_sha256": "d226ad3f6bb6af6cea1cf1ce28efe41163f81aea0c5c766131d5b34be87f44c6"
+    },
+    {
+      "ordinal": 3,
+      "call_id": "q2fx-001-r03",
+      "group_id": "q2fx-001",
+      "repeat_index": 3,
+      "request_sha256": "d226ad3f6bb6af6cea1cf1ce28efe41163f81aea0c5c766131d5b34be87f44c6"
+    },
+    {
+      "ordinal": 4,
+      "call_id": "q2fx-002-r01",
+      "group_id": "q2fx-002",
+      "repeat_index": 1,
+      "request_sha256": "9400ecdc680dfd32e50651e7d1e05277121b8482ad7b6ec102e76e5279124924"
+    },
+    {
+      "ordinal": 5,
+      "call_id": "q2fx-002-r02",
+      "group_id": "q2fx-002",
+      "repeat_index": 2,
+      "request_sha256": "9400ecdc680dfd32e50651e7d1e05277121b8482ad7b6ec102e76e5279124924"
+    },
+    {
+      "ordinal": 6,
+      "call_id": "q2fx-002-r03",
+      "group_id": "q2fx-002",
+      "repeat_index": 3,
+      "request_sha256": "9400ecdc680dfd32e50651e7d1e05277121b8482ad7b6ec102e76e5279124924"
+    },
+    {
+      "ordinal": 7,
+      "call_id": "q2fx-003-r01",
+      "group_id": "q2fx-003",
+      "repeat_index": 1,
+      "request_sha256": "84778d8110b00b4631fb48ff8aa66aa805bc3e6c8e8df588c0b7243430183353"
+    },
+    {
+      "ordinal": 8,
+      "call_id": "q2fx-003-r02",
+      "group_id": "q2fx-003",
+      "repeat_index": 2,
+      "request_sha256": "84778d8110b00b4631fb48ff8aa66aa805bc3e6c8e8df588c0b7243430183353"
+    },
+    {
+      "ordinal": 9,
+      "call_id": "q2fx-003-r03",
+      "group_id": "q2fx-003",
+      "repeat_index": 3,
+      "request_sha256": "84778d8110b00b4631fb48ff8aa66aa805bc3e6c8e8df588c0b7243430183353"
+    },
+    {
+      "ordinal": 10,
+      "call_id": "q2fx-004-r01",
+      "group_id": "q2fx-004",
+      "repeat_index": 1,
+      "request_sha256": "8f3e68dae81672e22518ea54327551e43528e0d78c465fc3caecde7e919788ca"
+    },
+    {
+      "ordinal": 11,
+      "call_id": "q2fx-004-r02",
+      "group_id": "q2fx-004",
+      "repeat_index": 2,
+      "request_sha256": "8f3e68dae81672e22518ea54327551e43528e0d78c465fc3caecde7e919788ca"
+    },
+    {
+      "ordinal": 12,
+      "call_id": "q2fx-004-r03",
+      "group_id": "q2fx-004",
+      "repeat_index": 3,
+      "request_sha256": "8f3e68dae81672e22518ea54327551e43528e0d78c465fc3caecde7e919788ca"
+    },
+    {
+      "ordinal": 13,
+      "call_id": "q2fx-005-r01",
+      "group_id": "q2fx-005",
+      "repeat_index": 1,
+      "request_sha256": "a13c0fc0d114a7d8bb25814a56e9770fa837f24c79497320d13076b682d54c1c"
+    },
+    {
+      "ordinal": 14,
+      "call_id": "q2fx-005-r02",
+      "group_id": "q2fx-005",
+      "repeat_index": 2,
+      "request_sha256": "a13c0fc0d114a7d8bb25814a56e9770fa837f24c79497320d13076b682d54c1c"
+    },
+    {
+      "ordinal": 15,
+      "call_id": "q2fx-005-r03",
+      "group_id": "q2fx-005",
+      "repeat_index": 3,
+      "request_sha256": "a13c0fc0d114a7d8bb25814a56e9770fa837f24c79497320d13076b682d54c1c"
+    },
+    {
+      "ordinal": 16,
+      "call_id": "q2fx-006-r01",
+      "group_id": "q2fx-006",
+      "repeat_index": 1,
+      "request_sha256": "806a3a65f01a321334ef8d582e42fb58ad9220e63d44b2bd6e4e2c7e41ddb0df"
+    },
+    {
+      "ordinal": 17,
+      "call_id": "q2fx-006-r02",
+      "group_id": "q2fx-006",
+      "repeat_index": 2,
+      "request_sha256": "806a3a65f01a321334ef8d582e42fb58ad9220e63d44b2bd6e4e2c7e41ddb0df"
+    },
+    {
+      "ordinal": 18,
+      "call_id": "q2fx-006-r03",
+      "group_id": "q2fx-006",
+      "repeat_index": 3,
+      "request_sha256": "806a3a65f01a321334ef8d582e42fb58ad9220e63d44b2bd6e4e2c7e41ddb0df"
+    },
+    {
+      "ordinal": 19,
+      "call_id": "q2fx-007-r01",
+      "group_id": "q2fx-007",
+      "repeat_index": 1,
+      "request_sha256": "2cad9cfe384e3dd0d3a4c1a8509952a624cfcf1862197f6a8b572ff44ee83f32"
+    },
+    {
+      "ordinal": 20,
+      "call_id": "q2fx-007-r02",
+      "group_id": "q2fx-007",
+      "repeat_index": 2,
+      "request_sha256": "2cad9cfe384e3dd0d3a4c1a8509952a624cfcf1862197f6a8b572ff44ee83f32"
+    },
+    {
+      "ordinal": 21,
+      "call_id": "q2fx-007-r03",
+      "group_id": "q2fx-007",
+      "repeat_index": 3,
+      "request_sha256": "2cad9cfe384e3dd0d3a4c1a8509952a624cfcf1862197f6a8b572ff44ee83f32"
+    },
+    {
+      "ordinal": 22,
+      "call_id": "q2fx-008-r01",
+      "group_id": "q2fx-008",
+      "repeat_index": 1,
+      "request_sha256": "f2a1c10eaa7af100f6cb3f233e95852268073815121d508bbc6dec190f69a7ce"
+    },
+    {
+      "ordinal": 23,
+      "call_id": "q2fx-008-r02",
+      "group_id": "q2fx-008",
+      "repeat_index": 2,
+      "request_sha256": "f2a1c10eaa7af100f6cb3f233e95852268073815121d508bbc6dec190f69a7ce"
+    },
+    {
+      "ordinal": 24,
+      "call_id": "q2fx-008-r03",
+      "group_id": "q2fx-008",
+      "repeat_index": 3,
+      "request_sha256": "f2a1c10eaa7af100f6cb3f233e95852268073815121d508bbc6dec190f69a7ce"
+    },
+    {
+      "ordinal": 25,
+      "call_id": "q2fx-009-r01",
+      "group_id": "q2fx-009",
+      "repeat_index": 1,
+      "request_sha256": "0d7c09bb8b9ff08518cce67c9443cfbd3227acdd65188d24d21ec235ea219ed6"
+    },
+    {
+      "ordinal": 26,
+      "call_id": "q2fx-009-r02",
+      "group_id": "q2fx-009",
+      "repeat_index": 2,
+      "request_sha256": "0d7c09bb8b9ff08518cce67c9443cfbd3227acdd65188d24d21ec235ea219ed6"
+    },
+    {
+      "ordinal": 27,
+      "call_id": "q2fx-009-r03",
+      "group_id": "q2fx-009",
+      "repeat_index": 3,
+      "request_sha256": "0d7c09bb8b9ff08518cce67c9443cfbd3227acdd65188d24d21ec235ea219ed6"
+    },
+    {
+      "ordinal": 28,
+      "call_id": "q2fx-010-r01",
+      "group_id": "q2fx-010",
+      "repeat_index": 1,
+      "request_sha256": "8c25f940f3202c53d1b970a091d8461f0f51fe68aa3b8b8b9966337e6a677485"
+    },
+    {
+      "ordinal": 29,
+      "call_id": "q2fx-010-r02",
+      "group_id": "q2fx-010",
+      "repeat_index": 2,
+      "request_sha256": "8c25f940f3202c53d1b970a091d8461f0f51fe68aa3b8b8b9966337e6a677485"
+    },
+    {
+      "ordinal": 30,
+      "call_id": "q2fx-010-r03",
+      "group_id": "q2fx-010",
+      "repeat_index": 3,
+      "request_sha256": "8c25f940f3202c53d1b970a091d8461f0f51fe68aa3b8b8b9966337e6a677485"
+    },
+    {
+      "ordinal": 31,
+      "call_id": "q2fx-011-r01",
+      "group_id": "q2fx-011",
+      "repeat_index": 1,
+      "request_sha256": "8b5b0d0afd5bf5a2e60a1a2d5c97e0df73813ac6844521a3f51eff16ba621ce6"
+    },
+    {
+      "ordinal": 32,
+      "call_id": "q2fx-011-r02",
+      "group_id": "q2fx-011",
+      "repeat_index": 2,
+      "request_sha256": "8b5b0d0afd5bf5a2e60a1a2d5c97e0df73813ac6844521a3f51eff16ba621ce6"
+    },
+    {
+      "ordinal": 33,
+      "call_id": "q2fx-011-r03",
+      "group_id": "q2fx-011",
+      "repeat_index": 3,
+      "request_sha256": "8b5b0d0afd5bf5a2e60a1a2d5c97e0df73813ac6844521a3f51eff16ba621ce6"
+    },
+    {
+      "ordinal": 34,
+      "call_id": "q2fx-012-r01",
+      "group_id": "q2fx-012",
+      "repeat_index": 1,
+      "request_sha256": "ba2001ff2231ee07b534e4316a3025fa8a337ccdff134732ccf1fabd8ab6b6cb"
+    },
+    {
+      "ordinal": 35,
+      "call_id": "q2fx-012-r02",
+      "group_id": "q2fx-012",
+      "repeat_index": 2,
+      "request_sha256": "ba2001ff2231ee07b534e4316a3025fa8a337ccdff134732ccf1fabd8ab6b6cb"
+    },
+    {
+      "ordinal": 36,
+      "call_id": "q2fx-012-r03",
+      "group_id": "q2fx-012",
+      "repeat_index": 3,
+      "request_sha256": "ba2001ff2231ee07b534e4316a3025fa8a337ccdff134732ccf1fabd8ab6b6cb"
+    },
+    {
+      "ordinal": 37,
+      "call_id": "q2fx-013-r01",
+      "group_id": "q2fx-013",
+      "repeat_index": 1,
+      "request_sha256": "d02282ac0906927f2b5db70f0582974e262099325b48aa0fcbc88c38b74882a9"
+    },
+    {
+      "ordinal": 38,
+      "call_id": "q2fx-013-r02",
+      "group_id": "q2fx-013",
+      "repeat_index": 2,
+      "request_sha256": "d02282ac0906927f2b5db70f0582974e262099325b48aa0fcbc88c38b74882a9"
+    },
+    {
+      "ordinal": 39,
+      "call_id": "q2fx-013-r03",
+      "group_id": "q2fx-013",
+      "repeat_index": 3,
+      "request_sha256": "d02282ac0906927f2b5db70f0582974e262099325b48aa0fcbc88c38b74882a9"
+    },
+    {
+      "ordinal": 40,
+      "call_id": "q2fx-014-r01",
+      "group_id": "q2fx-014",
+      "repeat_index": 1,
+      "request_sha256": "1f46c470dd897e01ad193afe80f6bb215caaada37df16edff901aebac90bc281"
+    },
+    {
+      "ordinal": 41,
+      "call_id": "q2fx-014-r02",
+      "group_id": "q2fx-014",
+      "repeat_index": 2,
+      "request_sha256": "1f46c470dd897e01ad193afe80f6bb215caaada37df16edff901aebac90bc281"
+    },
+    {
+      "ordinal": 42,
+      "call_id": "q2fx-014-r03",
+      "group_id": "q2fx-014",
+      "repeat_index": 3,
+      "request_sha256": "1f46c470dd897e01ad193afe80f6bb215caaada37df16edff901aebac90bc281"
+    },
+    {
+      "ordinal": 43,
+      "call_id": "q2fx-015-r01",
+      "group_id": "q2fx-015",
+      "repeat_index": 1,
+      "request_sha256": "4d0758d25fec8c8c0ffb49394afe58c606d95d1ef582a68d2575ef6aa40352c0"
+    },
+    {
+      "ordinal": 44,
+      "call_id": "q2fx-015-r02",
+      "group_id": "q2fx-015",
+      "repeat_index": 2,
+      "request_sha256": "4d0758d25fec8c8c0ffb49394afe58c606d95d1ef582a68d2575ef6aa40352c0"
+    },
+    {
+      "ordinal": 45,
+      "call_id": "q2fx-015-r03",
+      "group_id": "q2fx-015",
+      "repeat_index": 3,
+      "request_sha256": "4d0758d25fec8c8c0ffb49394afe58c606d95d1ef582a68d2575ef6aa40352c0"
+    },
+    {
+      "ordinal": 46,
+      "call_id": "q2fx-016-r01",
+      "group_id": "q2fx-016",
+      "repeat_index": 1,
+      "request_sha256": "21d26586cb0d157b376f82b13310280444da61564bd8cc789b6b4e916bf89bb0"
+    },
+    {
+      "ordinal": 47,
+      "call_id": "q2fx-016-r02",
+      "group_id": "q2fx-016",
+      "repeat_index": 2,
+      "request_sha256": "21d26586cb0d157b376f82b13310280444da61564bd8cc789b6b4e916bf89bb0"
+    },
+    {
+      "ordinal": 48,
+      "call_id": "q2fx-016-r03",
+      "group_id": "q2fx-016",
+      "repeat_index": 3,
+      "request_sha256": "21d26586cb0d157b376f82b13310280444da61564bd8cc789b6b4e916bf89bb0"
+    },
+    {
+      "ordinal": 49,
+      "call_id": "q2fx-017-r01",
+      "group_id": "q2fx-017",
+      "repeat_index": 1,
+      "request_sha256": "79b82498702869781790fe352c3d79e0368bbb93ca5fa8e8825f427210e95495"
+    },
+    {
+      "ordinal": 50,
+      "call_id": "q2fx-017-r02",
+      "group_id": "q2fx-017",
+      "repeat_index": 2,
+      "request_sha256": "79b82498702869781790fe352c3d79e0368bbb93ca5fa8e8825f427210e95495"
+    },
+    {
+      "ordinal": 51,
+      "call_id": "q2fx-017-r03",
+      "group_id": "q2fx-017",
+      "repeat_index": 3,
+      "request_sha256": "79b82498702869781790fe352c3d79e0368bbb93ca5fa8e8825f427210e95495"
+    },
+    {
+      "ordinal": 52,
+      "call_id": "q2fx-018-r01",
+      "group_id": "q2fx-018",
+      "repeat_index": 1,
+      "request_sha256": "581d2b8e503159228c70a66832a5d53e3bf769e6fca93da939213447828d33fe"
+    },
+    {
+      "ordinal": 53,
+      "call_id": "q2fx-018-r02",
+      "group_id": "q2fx-018",
+      "repeat_index": 2,
+      "request_sha256": "581d2b8e503159228c70a66832a5d53e3bf769e6fca93da939213447828d33fe"
+    },
+    {
+      "ordinal": 54,
+      "call_id": "q2fx-018-r03",
+      "group_id": "q2fx-018",
+      "repeat_index": 3,
+      "request_sha256": "581d2b8e503159228c70a66832a5d53e3bf769e6fca93da939213447828d33fe"
+    },
+    {
+      "ordinal": 55,
+      "call_id": "q2fx-019-r01",
+      "group_id": "q2fx-019",
+      "repeat_index": 1,
+      "request_sha256": "2c2b4045541681037322a1752ac92c4f048062500f32d36a2a60e2dcaa4bfc75"
+    },
+    {
+      "ordinal": 56,
+      "call_id": "q2fx-019-r02",
+      "group_id": "q2fx-019",
+      "repeat_index": 2,
+      "request_sha256": "2c2b4045541681037322a1752ac92c4f048062500f32d36a2a60e2dcaa4bfc75"
+    },
+    {
+      "ordinal": 57,
+      "call_id": "q2fx-019-r03",
+      "group_id": "q2fx-019",
+      "repeat_index": 3,
+      "request_sha256": "2c2b4045541681037322a1752ac92c4f048062500f32d36a2a60e2dcaa4bfc75"
+    },
+    {
+      "ordinal": 58,
+      "call_id": "q2fx-020-r01",
+      "group_id": "q2fx-020",
+      "repeat_index": 1,
+      "request_sha256": "00a84fad387510e64c1eac26d4ed6935e5ceb061da8a6329682b5fde7da7dddd"
+    },
+    {
+      "ordinal": 59,
+      "call_id": "q2fx-020-r02",
+      "group_id": "q2fx-020",
+      "repeat_index": 2,
+      "request_sha256": "00a84fad387510e64c1eac26d4ed6935e5ceb061da8a6329682b5fde7da7dddd"
+    },
+    {
+      "ordinal": 60,
+      "call_id": "q2fx-020-r03",
+      "group_id": "q2fx-020",
+      "repeat_index": 3,
+      "request_sha256": "00a84fad387510e64c1eac26d4ed6935e5ceb061da8a6329682b5fde7da7dddd"
+    },
+    {
+      "ordinal": 61,
+      "call_id": "q2fx-021-r01",
+      "group_id": "q2fx-021",
+      "repeat_index": 1,
+      "request_sha256": "7eb1e3275ad001442bb1f1f3b1c6cd45a17a180a9c8ba8dd63dc068d141f65b6"
+    },
+    {
+      "ordinal": 62,
+      "call_id": "q2fx-021-r02",
+      "group_id": "q2fx-021",
+      "repeat_index": 2,
+      "request_sha256": "7eb1e3275ad001442bb1f1f3b1c6cd45a17a180a9c8ba8dd63dc068d141f65b6"
+    },
+    {
+      "ordinal": 63,
+      "call_id": "q2fx-021-r03",
+      "group_id": "q2fx-021",
+      "repeat_index": 3,
+      "request_sha256": "7eb1e3275ad001442bb1f1f3b1c6cd45a17a180a9c8ba8dd63dc068d141f65b6"
+    },
+    {
+      "ordinal": 64,
+      "call_id": "q2fx-022-r01",
+      "group_id": "q2fx-022",
+      "repeat_index": 1,
+      "request_sha256": "838baa3420b40864a62ca9949ff65b78af281d27a84033e8ca8c4656c9498b90"
+    },
+    {
+      "ordinal": 65,
+      "call_id": "q2fx-022-r02",
+      "group_id": "q2fx-022",
+      "repeat_index": 2,
+      "request_sha256": "838baa3420b40864a62ca9949ff65b78af281d27a84033e8ca8c4656c9498b90"
+    },
+    {
+      "ordinal": 66,
+      "call_id": "q2fx-022-r03",
+      "group_id": "q2fx-022",
+      "repeat_index": 3,
+      "request_sha256": "838baa3420b40864a62ca9949ff65b78af281d27a84033e8ca8c4656c9498b90"
+    },
+    {
+      "ordinal": 67,
+      "call_id": "q2fx-023-r01",
+      "group_id": "q2fx-023",
+      "repeat_index": 1,
+      "request_sha256": "8fedba72deaee23e1f902c51d928b168f6252cdb9c2f17200a6f8a9facbf3b33"
+    },
+    {
+      "ordinal": 68,
+      "call_id": "q2fx-023-r02",
+      "group_id": "q2fx-023",
+      "repeat_index": 2,
+      "request_sha256": "8fedba72deaee23e1f902c51d928b168f6252cdb9c2f17200a6f8a9facbf3b33"
+    },
+    {
+      "ordinal": 69,
+      "call_id": "q2fx-023-r03",
+      "group_id": "q2fx-023",
+      "repeat_index": 3,
+      "request_sha256": "8fedba72deaee23e1f902c51d928b168f6252cdb9c2f17200a6f8a9facbf3b33"
+    },
+    {
+      "ordinal": 70,
+      "call_id": "q2fx-024-r01",
+      "group_id": "q2fx-024",
+      "repeat_index": 1,
+      "request_sha256": "c16345f10c83fd56785ea46f99b7929d5cd03f18051c08192eb2803ea21d250a"
+    },
+    {
+      "ordinal": 71,
+      "call_id": "q2fx-024-r02",
+      "group_id": "q2fx-024",
+      "repeat_index": 2,
+      "request_sha256": "c16345f10c83fd56785ea46f99b7929d5cd03f18051c08192eb2803ea21d250a"
+    },
+    {
+      "ordinal": 72,
+      "call_id": "q2fx-024-r03",
+      "group_id": "q2fx-024",
+      "repeat_index": 3,
+      "request_sha256": "c16345f10c83fd56785ea46f99b7929d5cd03f18051c08192eb2803ea21d250a"
+    },
+    {
+      "ordinal": 73,
+      "call_id": "q2fx-025-r01",
+      "group_id": "q2fx-025",
+      "repeat_index": 1,
+      "request_sha256": "f41333d9d4f9622fd2768addcc8f5f9c5f0945f35252546ecb70bfe21fb65fc7"
+    },
+    {
+      "ordinal": 74,
+      "call_id": "q2fx-025-r02",
+      "group_id": "q2fx-025",
+      "repeat_index": 2,
+      "request_sha256": "f41333d9d4f9622fd2768addcc8f5f9c5f0945f35252546ecb70bfe21fb65fc7"
+    },
+    {
+      "ordinal": 75,
+      "call_id": "q2fx-025-r03",
+      "group_id": "q2fx-025",
+      "repeat_index": 3,
+      "request_sha256": "f41333d9d4f9622fd2768addcc8f5f9c5f0945f35252546ecb70bfe21fb65fc7"
+    },
+    {
+      "ordinal": 76,
+      "call_id": "q2fx-026-r01",
+      "group_id": "q2fx-026",
+      "repeat_index": 1,
+      "request_sha256": "a0d77175cad89a55f8317dd08c0fd688ff39fe2db249c265a09f7863e8e19b38"
+    },
+    {
+      "ordinal": 77,
+      "call_id": "q2fx-026-r02",
+      "group_id": "q2fx-026",
+      "repeat_index": 2,
+      "request_sha256": "a0d77175cad89a55f8317dd08c0fd688ff39fe2db249c265a09f7863e8e19b38"
+    },
+    {
+      "ordinal": 78,
+      "call_id": "q2fx-026-r03",
+      "group_id": "q2fx-026",
+      "repeat_index": 3,
+      "request_sha256": "a0d77175cad89a55f8317dd08c0fd688ff39fe2db249c265a09f7863e8e19b38"
+    },
+    {
+      "ordinal": 79,
+      "call_id": "q2fx-027-r01",
+      "group_id": "q2fx-027",
+      "repeat_index": 1,
+      "request_sha256": "38d00a9493d75cbc46c394a38301dedcd22fbdbdc2a5ed2146f1791cc1298931"
+    },
+    {
+      "ordinal": 80,
+      "call_id": "q2fx-027-r02",
+      "group_id": "q2fx-027",
+      "repeat_index": 2,
+      "request_sha256": "38d00a9493d75cbc46c394a38301dedcd22fbdbdc2a5ed2146f1791cc1298931"
+    },
+    {
+      "ordinal": 81,
+      "call_id": "q2fx-027-r03",
+      "group_id": "q2fx-027",
+      "repeat_index": 3,
+      "request_sha256": "38d00a9493d75cbc46c394a38301dedcd22fbdbdc2a5ed2146f1791cc1298931"
+    },
+    {
+      "ordinal": 82,
+      "call_id": "q2fx-028-r01",
+      "group_id": "q2fx-028",
+      "repeat_index": 1,
+      "request_sha256": "229ac2abf9956126daefbb2bf4ca35d32dadd802c72a014a2354f2b9e9be823a"
+    },
+    {
+      "ordinal": 83,
+      "call_id": "q2fx-028-r02",
+      "group_id": "q2fx-028",
+      "repeat_index": 2,
+      "request_sha256": "229ac2abf9956126daefbb2bf4ca35d32dadd802c72a014a2354f2b9e9be823a"
+    },
+    {
+      "ordinal": 84,
+      "call_id": "q2fx-028-r03",
+      "group_id": "q2fx-028",
+      "repeat_index": 3,
+      "request_sha256": "229ac2abf9956126daefbb2bf4ca35d32dadd802c72a014a2354f2b9e9be823a"
+    },
+    {
+      "ordinal": 85,
+      "call_id": "q2fx-029-r01",
+      "group_id": "q2fx-029",
+      "repeat_index": 1,
+      "request_sha256": "346fd87cfd1990e143018e37261d348ba5db7edec137af9e5ab899ac4db82ef5"
+    },
+    {
+      "ordinal": 86,
+      "call_id": "q2fx-029-r02",
+      "group_id": "q2fx-029",
+      "repeat_index": 2,
+      "request_sha256": "346fd87cfd1990e143018e37261d348ba5db7edec137af9e5ab899ac4db82ef5"
+    },
+    {
+      "ordinal": 87,
+      "call_id": "q2fx-029-r03",
+      "group_id": "q2fx-029",
+      "repeat_index": 3,
+      "request_sha256": "346fd87cfd1990e143018e37261d348ba5db7edec137af9e5ab899ac4db82ef5"
+    },
+    {
+      "ordinal": 88,
+      "call_id": "q2fx-030-r01",
+      "group_id": "q2fx-030",
+      "repeat_index": 1,
+      "request_sha256": "12ab20fceb1b084180830e6ffcd3c8dfc3385402fbc2873a342205fbcc92e92b"
+    },
+    {
+      "ordinal": 89,
+      "call_id": "q2fx-030-r02",
+      "group_id": "q2fx-030",
+      "repeat_index": 2,
+      "request_sha256": "12ab20fceb1b084180830e6ffcd3c8dfc3385402fbc2873a342205fbcc92e92b"
+    },
+    {
+      "ordinal": 90,
+      "call_id": "q2fx-030-r03",
+      "group_id": "q2fx-030",
+      "repeat_index": 3,
+      "request_sha256": "12ab20fceb1b084180830e6ffcd3c8dfc3385402fbc2873a342205fbcc92e92b"
+    },
+    {
+      "ordinal": 91,
+      "call_id": "q2fx-031-r01",
+      "group_id": "q2fx-031",
+      "repeat_index": 1,
+      "request_sha256": "29f1e96a4c51c4d85d7a931c1f7e4a0db2a7dfecff8f9cdb8163254b8536fee1"
+    },
+    {
+      "ordinal": 92,
+      "call_id": "q2fx-031-r02",
+      "group_id": "q2fx-031",
+      "repeat_index": 2,
+      "request_sha256": "29f1e96a4c51c4d85d7a931c1f7e4a0db2a7dfecff8f9cdb8163254b8536fee1"
+    },
+    {
+      "ordinal": 93,
+      "call_id": "q2fx-031-r03",
+      "group_id": "q2fx-031",
+      "repeat_index": 3,
+      "request_sha256": "29f1e96a4c51c4d85d7a931c1f7e4a0db2a7dfecff8f9cdb8163254b8536fee1"
+    },
+    {
+      "ordinal": 94,
+      "call_id": "q2fx-032-r01",
+      "group_id": "q2fx-032",
+      "repeat_index": 1,
+      "request_sha256": "6dd4590dff2a7971062e1f49f3d373db0644163b4c73335624d7ddc69f26b381"
+    },
+    {
+      "ordinal": 95,
+      "call_id": "q2fx-032-r02",
+      "group_id": "q2fx-032",
+      "repeat_index": 2,
+      "request_sha256": "6dd4590dff2a7971062e1f49f3d373db0644163b4c73335624d7ddc69f26b381"
+    },
+    {
+      "ordinal": 96,
+      "call_id": "q2fx-032-r03",
+      "group_id": "q2fx-032",
+      "repeat_index": 3,
+      "request_sha256": "6dd4590dff2a7971062e1f49f3d373db0644163b4c73335624d7ddc69f26b381"
+    },
+    {
+      "ordinal": 97,
+      "call_id": "q2fx-033-r01",
+      "group_id": "q2fx-033",
+      "repeat_index": 1,
+      "request_sha256": "d63db466d92c30e08805a8a5e60131b04b0c9ec7121c831f474865191ab1a422"
+    },
+    {
+      "ordinal": 98,
+      "call_id": "q2fx-033-r02",
+      "group_id": "q2fx-033",
+      "repeat_index": 2,
+      "request_sha256": "d63db466d92c30e08805a8a5e60131b04b0c9ec7121c831f474865191ab1a422"
+    },
+    {
+      "ordinal": 99,
+      "call_id": "q2fx-033-r03",
+      "group_id": "q2fx-033",
+      "repeat_index": 3,
+      "request_sha256": "d63db466d92c30e08805a8a5e60131b04b0c9ec7121c831f474865191ab1a422"
+    },
+    {
+      "ordinal": 100,
+      "call_id": "q2fx-034-r01",
+      "group_id": "q2fx-034",
+      "repeat_index": 1,
+      "request_sha256": "ddd50e665a809c7e3fc889f464a946b98c7abfbcefe92a6dc76acbe5ac2dcc89"
+    },
+    {
+      "ordinal": 101,
+      "call_id": "q2fx-034-r02",
+      "group_id": "q2fx-034",
+      "repeat_index": 2,
+      "request_sha256": "ddd50e665a809c7e3fc889f464a946b98c7abfbcefe92a6dc76acbe5ac2dcc89"
+    },
+    {
+      "ordinal": 102,
+      "call_id": "q2fx-034-r03",
+      "group_id": "q2fx-034",
+      "repeat_index": 3,
+      "request_sha256": "ddd50e665a809c7e3fc889f464a946b98c7abfbcefe92a6dc76acbe5ac2dcc89"
+    },
+    {
+      "ordinal": 103,
+      "call_id": "q2fx-035-r01",
+      "group_id": "q2fx-035",
+      "repeat_index": 1,
+      "request_sha256": "2a645ee87d391cf3754f57c8de705836ef8cbac3193249e245655cdb4fee9031"
+    },
+    {
+      "ordinal": 104,
+      "call_id": "q2fx-035-r02",
+      "group_id": "q2fx-035",
+      "repeat_index": 2,
+      "request_sha256": "2a645ee87d391cf3754f57c8de705836ef8cbac3193249e245655cdb4fee9031"
+    },
+    {
+      "ordinal": 105,
+      "call_id": "q2fx-035-r03",
+      "group_id": "q2fx-035",
+      "repeat_index": 3,
+      "request_sha256": "2a645ee87d391cf3754f57c8de705836ef8cbac3193249e245655cdb4fee9031"
+    },
+    {
+      "ordinal": 106,
+      "call_id": "q2fx-036-r01",
+      "group_id": "q2fx-036",
+      "repeat_index": 1,
+      "request_sha256": "2ef8b0a572fce28177dde5088c3874f26c4da226482ee67b3b1f2d4a9cad8e04"
+    },
+    {
+      "ordinal": 107,
+      "call_id": "q2fx-036-r02",
+      "group_id": "q2fx-036",
+      "repeat_index": 2,
+      "request_sha256": "2ef8b0a572fce28177dde5088c3874f26c4da226482ee67b3b1f2d4a9cad8e04"
+    },
+    {
+      "ordinal": 108,
+      "call_id": "q2fx-036-r03",
+      "group_id": "q2fx-036",
+      "repeat_index": 3,
+      "request_sha256": "2ef8b0a572fce28177dde5088c3874f26c4da226482ee67b3b1f2d4a9cad8e04"
+    },
+    {
+      "ordinal": 109,
+      "call_id": "q2fx-037-r01",
+      "group_id": "q2fx-037",
+      "repeat_index": 1,
+      "request_sha256": "8d1220519f3e98dbd647ef9839d07c8eac39598b04137bf6efe0aee302115144"
+    },
+    {
+      "ordinal": 110,
+      "call_id": "q2fx-037-r02",
+      "group_id": "q2fx-037",
+      "repeat_index": 2,
+      "request_sha256": "8d1220519f3e98dbd647ef9839d07c8eac39598b04137bf6efe0aee302115144"
+    },
+    {
+      "ordinal": 111,
+      "call_id": "q2fx-037-r03",
+      "group_id": "q2fx-037",
+      "repeat_index": 3,
+      "request_sha256": "8d1220519f3e98dbd647ef9839d07c8eac39598b04137bf6efe0aee302115144"
+    },
+    {
+      "ordinal": 112,
+      "call_id": "q2fx-038-r01",
+      "group_id": "q2fx-038",
+      "repeat_index": 1,
+      "request_sha256": "f930f9e0e38a2ae5664b15d39009ba254f7a3cf4c1003a8ea453fef4db45523f"
+    },
+    {
+      "ordinal": 113,
+      "call_id": "q2fx-038-r02",
+      "group_id": "q2fx-038",
+      "repeat_index": 2,
+      "request_sha256": "f930f9e0e38a2ae5664b15d39009ba254f7a3cf4c1003a8ea453fef4db45523f"
+    },
+    {
+      "ordinal": 114,
+      "call_id": "q2fx-038-r03",
+      "group_id": "q2fx-038",
+      "repeat_index": 3,
+      "request_sha256": "f930f9e0e38a2ae5664b15d39009ba254f7a3cf4c1003a8ea453fef4db45523f"
+    },
+    {
+      "ordinal": 115,
+      "call_id": "q2fx-039-r01",
+      "group_id": "q2fx-039",
+      "repeat_index": 1,
+      "request_sha256": "bfb493485ac001da54c53badb3c997f7a311bd3f3e112c4144905ea24083591d"
+    },
+    {
+      "ordinal": 116,
+      "call_id": "q2fx-039-r02",
+      "group_id": "q2fx-039",
+      "repeat_index": 2,
+      "request_sha256": "bfb493485ac001da54c53badb3c997f7a311bd3f3e112c4144905ea24083591d"
+    },
+    {
+      "ordinal": 117,
+      "call_id": "q2fx-039-r03",
+      "group_id": "q2fx-039",
+      "repeat_index": 3,
+      "request_sha256": "bfb493485ac001da54c53badb3c997f7a311bd3f3e112c4144905ea24083591d"
+    },
+    {
+      "ordinal": 118,
+      "call_id": "q2fx-040-r01",
+      "group_id": "q2fx-040",
+      "repeat_index": 1,
+      "request_sha256": "3a8976fd6c1ffee63c9cbfe4ad2bc70e300b40dde5fc06d2859dd327ee764efc"
+    },
+    {
+      "ordinal": 119,
+      "call_id": "q2fx-040-r02",
+      "group_id": "q2fx-040",
+      "repeat_index": 2,
+      "request_sha256": "3a8976fd6c1ffee63c9cbfe4ad2bc70e300b40dde5fc06d2859dd327ee764efc"
+    },
+    {
+      "ordinal": 120,
+      "call_id": "q2fx-040-r03",
+      "group_id": "q2fx-040",
+      "repeat_index": 3,
+      "request_sha256": "3a8976fd6c1ffee63c9cbfe4ad2bc70e300b40dde5fc06d2859dd327ee764efc"
+    },
+    {
+      "ordinal": 121,
+      "call_id": "q2fx-041-r01",
+      "group_id": "q2fx-041",
+      "repeat_index": 1,
+      "request_sha256": "d8d63b88e609f7be385d2382dbb32549e485c7f706d86143f5ae992ea8ce3f19"
+    },
+    {
+      "ordinal": 122,
+      "call_id": "q2fx-041-r02",
+      "group_id": "q2fx-041",
+      "repeat_index": 2,
+      "request_sha256": "d8d63b88e609f7be385d2382dbb32549e485c7f706d86143f5ae992ea8ce3f19"
+    },
+    {
+      "ordinal": 123,
+      "call_id": "q2fx-041-r03",
+      "group_id": "q2fx-041",
+      "repeat_index": 3,
+      "request_sha256": "d8d63b88e609f7be385d2382dbb32549e485c7f706d86143f5ae992ea8ce3f19"
+    },
+    {
+      "ordinal": 124,
+      "call_id": "q2fx-042-r01",
+      "group_id": "q2fx-042",
+      "repeat_index": 1,
+      "request_sha256": "3310aacb7eec901d717c9cc0ef8488f28eb5375d6a35fa7126004b55ddc5c07d"
+    },
+    {
+      "ordinal": 125,
+      "call_id": "q2fx-042-r02",
+      "group_id": "q2fx-042",
+      "repeat_index": 2,
+      "request_sha256": "3310aacb7eec901d717c9cc0ef8488f28eb5375d6a35fa7126004b55ddc5c07d"
+    },
+    {
+      "ordinal": 126,
+      "call_id": "q2fx-042-r03",
+      "group_id": "q2fx-042",
+      "repeat_index": 3,
+      "request_sha256": "3310aacb7eec901d717c9cc0ef8488f28eb5375d6a35fa7126004b55ddc5c07d"
+    },
+    {
+      "ordinal": 127,
+      "call_id": "q2fx-043-r01",
+      "group_id": "q2fx-043",
+      "repeat_index": 1,
+      "request_sha256": "77f964bd95450c133c9b86a91552afc185443c45d774954c636c8b6a4a754a89"
+    },
+    {
+      "ordinal": 128,
+      "call_id": "q2fx-043-r02",
+      "group_id": "q2fx-043",
+      "repeat_index": 2,
+      "request_sha256": "77f964bd95450c133c9b86a91552afc185443c45d774954c636c8b6a4a754a89"
+    },
+    {
+      "ordinal": 129,
+      "call_id": "q2fx-043-r03",
+      "group_id": "q2fx-043",
+      "repeat_index": 3,
+      "request_sha256": "77f964bd95450c133c9b86a91552afc185443c45d774954c636c8b6a4a754a89"
+    },
+    {
+      "ordinal": 130,
+      "call_id": "q2fx-044-r01",
+      "group_id": "q2fx-044",
+      "repeat_index": 1,
+      "request_sha256": "fb923eeb9be8a65025751c3a3f174a9c540a98c213b1230ea4cc861c722b8515"
+    },
+    {
+      "ordinal": 131,
+      "call_id": "q2fx-044-r02",
+      "group_id": "q2fx-044",
+      "repeat_index": 2,
+      "request_sha256": "fb923eeb9be8a65025751c3a3f174a9c540a98c213b1230ea4cc861c722b8515"
+    },
+    {
+      "ordinal": 132,
+      "call_id": "q2fx-044-r03",
+      "group_id": "q2fx-044",
+      "repeat_index": 3,
+      "request_sha256": "fb923eeb9be8a65025751c3a3f174a9c540a98c213b1230ea4cc861c722b8515"
+    },
+    {
+      "ordinal": 133,
+      "call_id": "q2fx-045-r01",
+      "group_id": "q2fx-045",
+      "repeat_index": 1,
+      "request_sha256": "028d70d549c028fcf3d40572bfd2fe77234677cdca04431a7172f99535d5acf8"
+    },
+    {
+      "ordinal": 134,
+      "call_id": "q2fx-045-r02",
+      "group_id": "q2fx-045",
+      "repeat_index": 2,
+      "request_sha256": "028d70d549c028fcf3d40572bfd2fe77234677cdca04431a7172f99535d5acf8"
+    },
+    {
+      "ordinal": 135,
+      "call_id": "q2fx-045-r03",
+      "group_id": "q2fx-045",
+      "repeat_index": 3,
+      "request_sha256": "028d70d549c028fcf3d40572bfd2fe77234677cdca04431a7172f99535d5acf8"
+    },
+    {
+      "ordinal": 136,
+      "call_id": "q2fx-046-r01",
+      "group_id": "q2fx-046",
+      "repeat_index": 1,
+      "request_sha256": "d688fbf559adcc5c1bb29f1d736477366059664e78583a1e4e5170262746918d"
+    },
+    {
+      "ordinal": 137,
+      "call_id": "q2fx-046-r02",
+      "group_id": "q2fx-046",
+      "repeat_index": 2,
+      "request_sha256": "d688fbf559adcc5c1bb29f1d736477366059664e78583a1e4e5170262746918d"
+    },
+    {
+      "ordinal": 138,
+      "call_id": "q2fx-046-r03",
+      "group_id": "q2fx-046",
+      "repeat_index": 3,
+      "request_sha256": "d688fbf559adcc5c1bb29f1d736477366059664e78583a1e4e5170262746918d"
+    },
+    {
+      "ordinal": 139,
+      "call_id": "q2fx-047-r01",
+      "group_id": "q2fx-047",
+      "repeat_index": 1,
+      "request_sha256": "950bf7e98a36c1e4fe0dcefb73c998cf568dc5ff27d5b68e338b2118bc859f70"
+    },
+    {
+      "ordinal": 140,
+      "call_id": "q2fx-047-r02",
+      "group_id": "q2fx-047",
+      "repeat_index": 2,
+      "request_sha256": "950bf7e98a36c1e4fe0dcefb73c998cf568dc5ff27d5b68e338b2118bc859f70"
+    },
+    {
+      "ordinal": 141,
+      "call_id": "q2fx-047-r03",
+      "group_id": "q2fx-047",
+      "repeat_index": 3,
+      "request_sha256": "950bf7e98a36c1e4fe0dcefb73c998cf568dc5ff27d5b68e338b2118bc859f70"
+    },
+    {
+      "ordinal": 142,
+      "call_id": "q2fx-048-r01",
+      "group_id": "q2fx-048",
+      "repeat_index": 1,
+      "request_sha256": "44fa170d8dd17455361243ac93440a6a777aa14cb5daaea10f7a170752bc0c49"
+    },
+    {
+      "ordinal": 143,
+      "call_id": "q2fx-048-r02",
+      "group_id": "q2fx-048",
+      "repeat_index": 2,
+      "request_sha256": "44fa170d8dd17455361243ac93440a6a777aa14cb5daaea10f7a170752bc0c49"
+    },
+    {
+      "ordinal": 144,
+      "call_id": "q2fx-048-r03",
+      "group_id": "q2fx-048",
+      "repeat_index": 3,
+      "request_sha256": "44fa170d8dd17455361243ac93440a6a777aa14cb5daaea10f7a170752bc0c49"
+    },
+    {
+      "ordinal": 145,
+      "call_id": "q2fx-049-r01",
+      "group_id": "q2fx-049",
+      "repeat_index": 1,
+      "request_sha256": "94ba75c8b1574d36a32ee50339ff5c74ef24c799707985acd4a02f5e22d60367"
+    },
+    {
+      "ordinal": 146,
+      "call_id": "q2fx-049-r02",
+      "group_id": "q2fx-049",
+      "repeat_index": 2,
+      "request_sha256": "94ba75c8b1574d36a32ee50339ff5c74ef24c799707985acd4a02f5e22d60367"
+    },
+    {
+      "ordinal": 147,
+      "call_id": "q2fx-049-r03",
+      "group_id": "q2fx-049",
+      "repeat_index": 3,
+      "request_sha256": "94ba75c8b1574d36a32ee50339ff5c74ef24c799707985acd4a02f5e22d60367"
+    },
+    {
+      "ordinal": 148,
+      "call_id": "q2fx-050-r01",
+      "group_id": "q2fx-050",
+      "repeat_index": 1,
+      "request_sha256": "2bedcc322732f7b1a7170e5759aaacc5723d70bbc62334382e6df70a8602fa70"
+    },
+    {
+      "ordinal": 149,
+      "call_id": "q2fx-050-r02",
+      "group_id": "q2fx-050",
+      "repeat_index": 2,
+      "request_sha256": "2bedcc322732f7b1a7170e5759aaacc5723d70bbc62334382e6df70a8602fa70"
+    },
+    {
+      "ordinal": 150,
+      "call_id": "q2fx-050-r03",
+      "group_id": "q2fx-050",
+      "repeat_index": 3,
+      "request_sha256": "2bedcc322732f7b1a7170e5759aaacc5723d70bbc62334382e6df70a8602fa70"
+    }
+  ]
+}

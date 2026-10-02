@@ -345,7 +345,10 @@ Its requirements must not be reported as already enforced by runtime code.
 q2_reference_reduction: implemented
 q2_separate_recomputation: implemented
 q2_input_acquisition_contract: defined_in_this_section
-q2_evaluation_subject_selection: not_established
+q2_evaluation_subject_selection: reference_definition_fixed_in_section_6
+q2_materialized_reference_subject_binding: not_established
+q2_reference_runtime_qualified: false
+q2_reference_dispatch_ready: false
 q2_admissible_release_input: not_established
 q2_current_run_release_recipe: not_registered
 q2_independent_candidate_admission: still_unsupported
@@ -382,10 +385,11 @@ required decision record; they are not a newly implemented schema or CLI.
 | `execution_protocol` | Selected runtime/interface, source and dependency identities, seed behavior, finite call/time limits, attempt and retry rules. |
 | `origin_and_preservation` | Evidence source and trust boundary for actual calls, original-byte retention, privacy/publication rules and the independent verification path. |
 
-At the inspected source, this selection is not established. Do not insert a
-model name, endpoint, dataset or task merely to fill the record. Missing
-selection is a prerequisite blocker, not permission to run a convenient model
-and retroactively associate its results with the release.
+At the #2892 contract-only inspection baseline, this selection was not
+established. Section 6 now fixes one owner-operated reference definition and
+its authored workload. Its concrete model/task choice is not evidence that the
+application has been assembled or executed. Do not retroactively associate
+unrelated model results with the selected reference or a different release.
 
 ### 5.2 First grouping profile: exact request repeats
 
@@ -511,5 +515,290 @@ not third-party validation.
 
 No live acquisition, model call, production gate activation, successful
 19-gate release or Step 5C acceptance is performed by this contract change.
-#2879 remains open. The selected response-producing system and its actual
-release relationship remain unresolved; this contract must not hide that fact.
+#2879 remains open. Section 6 specifies the response-producing reference and
+the intended component relationship. Materialized release-artifact binding,
+qualified runtime bytes, actual acquisition and production admission remain
+unestablished; the selection must not hide those distinct states.
+
+## 6. Selected owner-operated reference: field extraction v0
+
+### 6.1 Decision and present change boundary
+
+Select `pulsemech-q2-field-extractor-v0`: a minimal owner-operated reference
+application, not a customer deployment, a new general assistant product, or a
+claim about every PULSE release. Its only task is to return a named value from
+one short, controlled English record. No external evaluator, institutional
+approval, paid inference endpoint or model training is required by this choice.
+Using upstream model/library artifacts and a GitHub-hosted machine still leaves
+those supply-chain and platform dependencies inside the declared trust boundary.
+
+The selected response-producing model is:
+
+```text
+repository: HuggingFaceTB/SmolLM2-135M-Instruct
+revision: 12fd25f77366fa6b3b4b768ec3050bf629380bac
+weights_file: model.safetensors
+expected_weights_sha256:
+  5af571cbf074e6d21a03528d2330792e532ca608f24ac70a143f6b369968ab8c
+```
+
+The revision and weights digest are selected from the upstream repository and
+file metadata, not measured here from downloaded weights. The upstream model
+card documents CPU use and the Apache-2.0 license. The choice is for a small,
+locally executable reference, not because it has passed this workload. No model
+responses were generated or inspected to choose the model, cases or settings.
+The nominal 135M model size and approximately 269 MB weights file are upstream
+metadata, not runtime memory measurements.
+
+The two new data files are:
+
+- [Concrete subject selection](../../PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json)
+- [Complete authored workload and call inventory](../../PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json)
+
+Their `record_type` fields name declarative records. They do not add a runtime
+schema or make the existing reducer consume these records directly. In
+particular, the request workload is not a Q2 answer-group input and contains
+no model responses, predicted PASS records or expected answers.
+
+This four-path change includes those two files, this readiness document and
+`CHANGELOG.md`. No tool, workflow, schema, dependency installation, test-manifest
+entry, production policy or existing source pin is changed by it. The existing
+document index already points to this readiness document.
+
+### 6.2 Exact reference definition and release relationship
+
+The selection record carries a canonical `release_subject.definition` whose
+SHA-256 is:
+
+```text
+c163462cad02f72ff78804f9032552be4b38cd7f5825690e44c7f2461831acbf
+```
+
+This digest identifies the selected model/configuration/interface definition.
+It is **not** the digest of an already assembled executable or a future release
+package. `materialized_artifact_sha256` is null deliberately. No future artifact
+hash, implementation commit, run ID, timestamp or execution result is invented.
+
+The reference release object is the field-extractor application itself. Its
+response-producing model/configuration is the one in that definition. Before
+actual acquisition, assembly must bind the real worker source, installed
+runtime closure, exact model/tokenizer files and relevant configuration into
+a materialized subject inventory. The capture must use that exact inventory.
+The candidate integration must separately carry and check the same subject
+identity before any of this evidence can be used for a release decision.
+
+The PULSE source commit identifies the evaluator/collection implementation;
+it is not substituted for the model or the reference artifact identity. A
+successful measurement on this application would not authorize an unrelated
+PULSE package, a different model, a customer system or a different configuration.
+This selection does not change the current Step 5C successful-subject graph or
+make the current 19-gate reference runnable. Its integration remains a separate
+source-bound task under 5.6, with no removal of required gates or evidence roles.
+
+### 6.3 Fixed request and occurrence inventory
+
+The workload contains exactly 50 distinct complete requests in ten controlled
+families, five records per family: color, material, location, quantity, batch
+code, weekday, fictional toy-robot name, shape, size and storage zone. All record
+content was authored for this reference; it is not collected user traffic.
+The intended evaluation population is this fixed finite set only.
+
+Each group contains one application-level request with explicit system/user
+messages, the selected model revision, generation configuration and context-reset
+rule. Each request has three planned calls. All 150 call IDs and ordinals are
+listed before execution, in group-major/repeat-minor order. No call ID represents
+an already observed execution. Equal outputs, if any, cannot be copied between
+slots or counted as independent calls without occurrence evidence.
+
+```text
+groups: 50
+repeats_per_group: 3
+planned_calls: 150
+sampling_seed: 0
+generation_seed_per_call: 1729
+attempts_per_call: 1
+retries: 0
+batch_size: 1
+workload_file_sha256:
+  663cb10b193830296626ba0bbc668d2f8774e844f2ec80d5f1592cd5a7186cc7
+```
+
+The dataset sampling seed does not claim that random case selection occurred:
+selection is the complete fixed inventory. Greedy decoding does not use a
+sampling distribution; the generation seed is fixed initialization metadata.
+Do not silently switch to sampling, change seeds, add cases, resume a partial
+run by splicing captures, or tune requests after observing their results.
+A changed model, workload or behavior-affecting setting requires a new selected
+revision and retains the earlier acquisition/result as a distinct record.
+
+The exact request digest uses UTF-8 JSON, sorted keys, compact separators,
+`ensure_ascii=false`, no non-finite values and no trailing newline. File digests
+instead identify the complete committed file bytes, including its final newline.
+The selection pins the workload file digest independently of eventual answers.
+
+This narrow exact-repeat/greedy profile measures agreement, not extraction
+accuracy or robustness to sampling or paraphrases. Consistently wrong or
+consistently unhelpful answers can agree. That limitation is retained rather
+than replacing Q2 with a correctness test. The existing exact-match Q2 scoring,
+minimum of 50 eligible groups and 0.90 Wilson lower-bound threshold are unchanged.
+With only 50 planned groups, any ineligible group leaves insufficient evidence;
+there is no post-result top-up. A correctly preserved FAIL is a valid measured
+outcome, not permission to choose a new passing subset.
+
+### 6.4 Runtime, generation and original-response extraction
+
+The concrete runtime target is GitHub-hosted `ubuntu-24.04`, x86_64, CPython
+3.11.16, PyTorch `2.8.0+cpu` and Transformers `4.57.6`. These are selected
+installation targets, **not** an installed or qualified dependency closure.
+The next implementation must materialize a complete wheel-only, hash-locked,
+CPU-only closure and test it under the actual native target before dispatch.
+No rolling `latest` model/runtime selection or fallback to another version is
+permitted. The Ubuntu label itself is not an immutable OS image; record the
+actual image/runtime identity and retain that platform limitation.
+
+The worker target is CPU float32, eager attention, one intra-op and one inter-op
+thread, evaluation/inference mode, deterministic algorithms, no quantization,
+no compilation, no remote custom code and no pretrained pickle loading. It
+loads only the eight selected snapshot files. ONNX variants, training state,
+training arguments and upstream run logs are outside the selected load path.
+The exact files must be checked before use; metadata-only inspection is not
+claimed as downloaded-file verification.
+
+Use the pinned tokenizer chat template with the explicit system/user messages
+and `add_generation_prompt=true`. Start every generation with fresh request
+state and no carried conversation or past-key-value cache. In-request caching
+may be used; cross-request answer or state reuse is forbidden. All calls use
+the same explicit greedy configuration in the workload: one beam, one returned
+sequence, maximum 32 new tokens and the model's selected token IDs (BOS 1,
+EOS/PAD 2). Capture the effective configuration rather than inheriting unseen
+behavioral overrides from a service or a changed generation configuration.
+
+Every returned occurrence must retain the exact input IDs, new output token IDs
+and full decoded continuation, with stop reason and its source/run/call binding.
+Decode with the pinned tokenizer using `skip_special_tokens=true` and
+`clean_up_tokenization_spaces=false`. The separate extraction checker must
+recompute decoding from retained token IDs and verify the original text bytes.
+No substring search, first-word extraction, JSON repair, answer replacement,
+semantic judge or producer-supplied PASS is used.
+
+For EOS-terminated generation, copy the **entire** decoded continuation into
+an `answer` record without trimming or normalization. An empty continuation is
+retained; the existing reducer classifies its empty normalized signature as
+UNKNOWN. A completed generation at the token cap without EOS maps to typed
+UNKNOWN under this predeclared extraction rule, with the original output kept.
+A missing occurrence, exception, process interruption or generation timeout is
+acquisition incompleteness instead, not a model-produced UNKNOWN response.
+
+This interface exposes no native refusal channel. Refusal is not inferred from
+keywords: a natural-language refusal remains generated answer text under this
+profile. Reserved answer-tag collisions still fail the existing Q2 input
+validation rather than being repaired or converted into passing evidence.
+
+The selected caps are 15 seconds per generation, 1,200 seconds for the capture
+phase, and 40 minutes for the separate manual workflow. They are finite
+operating limits, not measured execution times or a promise that the runtime
+fits them. Runtime qualification must check viability before the first scored
+acquisition without inspecting this workload's model scores or adapting it to
+pass. A cap failure retains the full 150-slot inventory and fails completeness.
+These limits do not alter the existing PULSE CI or Step 5C workflow budgets.
+
+### 6.5 Acquisition, preservation and independent checking boundary
+
+Only the later owner-authorized manual workflow may perform an actual scored
+capture. PR/push regression must not download model weights or run this workload
+through a live model. Preparation may obtain fixed upstream artifacts; the
+capture worker must execute from verified local bytes with networking disabled.
+An environment variable alone is not proof of network isolation. No inference
+service, API key, external reviewing person or organization is part of the path.
+
+Before launch, fix the selection/workload hashes and actual source/runtime/model
+inventory. Bind each observed call to its declared slot and the materialized
+reference subject. After capture, preserve original token/text and occurrence
+records, then derive groups and the existing dataset manifest. Fix the derived
+input digests in a separate handoff before reduction. Missing original bytes or
+unsupported execution origin prevents an accepted acquisition claim even if a
+recomputed Q2 score is mathematically valid.
+
+The separate capture checker may share pinned standard libraries/tokenization,
+but must not import or call the acquisition producer to establish its verdict.
+It independently checks request identity, inventory completeness, permitted
+outcomes and extraction, then invokes the existing Q2 checker on exact bound
+inputs. Sharing a tokenizer is an explicit common dependency, not an assertion
+that the model executed or that the trust boundary is eliminated.
+
+Runtime observation is established only within the reviewed worker/collector
+and GitHub platform boundary. Retained hashes do not prove behavior against a
+malicious platform or a party able to replace the trusted source and all fixed
+expectations. This is not provider-independent cryptographic proof of inference.
+A separate person does not fill those evidentiary gaps by approving the result.
+
+The authored input corpus is suitable for the requested repository review.
+Original generated responses and token records must be retained for checking,
+with their artifact visibility/publication decision reviewed before the actual
+capture dispatch. Do not print raw responses into general CI logs or publish
+them automatically to the repository or Zenodo. Credentials, authorization
+headers and raw environment remain forbidden. Step 5C packet privacy rules are
+not expanded by selecting this separate input-acquisition path.
+
+### 6.6 Complete next acquisition implementation inventory
+
+The next bounded implementation is the one selected CPU acquisition/extraction
+path below. These are **planned paths**, not existing implementations supplied
+by the selection change. Inspect the then-current source and freeze the complete
+result before owner upload. Any newly demonstrated dependency must be included
+in that review before upload, not discovered as an ordinary follow-up fix during
+CI. This inventory does not pre-authorize production Q2 admission.
+
+| Change | Planned repository path | Responsibility |
+| --- | --- | --- |
+| A | `PULSE_safe_pack_v0/tools/run_q2_reference_subject_v0.py` | One selected local model worker; original token/text response per bound call, no authority verdict. |
+| A | `PULSE_safe_pack_v0/tools/acquire_q2_reference_inputs_v0.py` | Prelaunch verification, fixed workload execution, complete terminal inventory, original capture and derived groups/manifest/handoff. |
+| A | `PULSE_safe_pack_v0/tools/check_q2_reference_capture_v0.py` | Separately implemented original-capture, occurrence, request and extraction validation. |
+| A | `PULSE_safe_pack_v0/requirements-q2-reference-v0.lock` | Complete native CPU wheel closure with exact hashes; separate from core and LlamaGuard dependencies. |
+| A | `PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json` | Actual staged model/tokenizer-file identity map for the selected immutable snapshot; no invented byte digests. |
+| A | `schemas/metrics/q2_reference_capture_v0.schema.json` | Closed, non-authorizing capture shape; actual versus synthetic test provenance kept distinct. |
+| A | `.github/workflows/q2_reference_acquisition_v0.yml` | Owner-authorized manual reference-input job; no release/policy mutation and no live model calls on PR/push. |
+| A | `tests/test_q2_reference_acquisition_v0.py` | Offline protocol/preflight/capture/checker regression program, including synthetic mutation cases and non-activation checks. |
+| M | `scripts/build_normative_shadow_inventory_v0.py` | Exact-path classification of the new workflow and applicable tool surfaces without authority promotion. |
+| M | `tests/test_build_normative_shadow_inventory_v0.py` | Corresponding exact inventory/category coverage. |
+| M | `ci/tools-tests.list` | Register the new offline test program once; keep the existing sequence. |
+| M | `tests/test_pulsemech_compute_bounded_execution_v0.py` | Reconcile the current-manifest count without changing historical counts or weakening checks. |
+| M | `tests/test_pulsemech_compute_current_run_export_candidate_workflow_v0.py` | Reconcile the current-manifest count without changing historical execution evidence. |
+| M | `tests/test_pulsemech_compute_current_run_artifact_observed_candidate_workflow_v0.py` | Reconcile the current-manifest count while preserving exact registration and source-bound coverage. |
+| M | `docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md` | Record the implemented boundary and actual validation state, not presumed model results. |
+| M | `CHANGELOG.md` | Record the bounded acquisition implementation and unchanged authority scope. |
+
+At this source, the planned one-program addition changes the current manifest
+from 156 to 157; all three count-sensitive tests are included together. The
+selection change itself leaves the 156-entry manifest untouched. Existing Q2
+reduction/checking and Step 5C source pins remain unchanged in the planned
+acquisition unit. Dispatcher/candidate admission and its dependent source closure
+remain the later separate integration, not an omitted part of this inventory.
+
+The next regression contract covers original-input replay; exact model/request
+and source mismatches; missing/duplicate/cross-run occurrences; attempted retries;
+exception/timeout versus completed-but-unextractable output; token/text and
+extraction substitution; rehashed tampering against separately fixed
+expectations; correct metric FAIL; and retained rejection at production intake.
+Do not count synthetic worker tests as actual model execution.
+
+Current exit condition: the concrete subject definition and full request/call
+inventory are reviewable and fixed. Actual model download, complete runtime
+lock, native execution qualification, acquisition implementation, owner dispatch,
+response preservation and release admission have **not** been completed by this
+change. Do not add a new generic design cycle for choosing the model/task: that
+choice is made here; the listed implementation is the next work.
+
+### 6.7 Upstream basis for the selection
+
+The following are external primary-source references used for component
+selection, not external validating authorities:
+
+- [Fixed SmolLM2 snapshot](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/tree/12fd25f77366fa6b3b4b768ec3050bf629380bac)
+- [Fixed weights identity](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/12fd25f77366fa6b3b4b768ec3050bf629380bac/model.safetensors)
+- [Model card and documented CPU use](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct)
+- [Selected model configuration](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/12fd25f77366fa6b3b4b768ec3050bf629380bac/config.json)
+- [Selected tokenizer configuration](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/12fd25f77366fa6b3b4b768ec3050bf629380bac/tokenizer_config.json)
+- [Transformers 4.57.6 distribution](https://pypi.org/project/transformers/4.57.6/)
+- [PyTorch versioned CPU installations](https://pytorch.org/get-started/previous-versions/)
+- [GitHub standard runner definitions](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
