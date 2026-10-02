@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
+from datetime import date
 from decimal import Decimal, localcontext
 import hashlib
 import json
@@ -99,10 +100,46 @@ def _decode(data: bytes) -> dict[str, Any]:
     return result
 
 
+def _checked_formats() -> FormatChecker:
+    # Independent component/range checks; never import the producer's parser.
+    # Instance-only registration also works without optional format packages.
+    formats = FormatChecker()
+
+    @formats.checks("date", raises=ValueError)
+    def check_date(value: Any) -> bool:
+        if not isinstance(value, str):
+            return True
+        parts = re.fullmatch(r"([0-9]{4})-([0-9]{2})-([0-9]{2})", value)
+        if parts is None:
+            return False
+        date(*(int(part) for part in parts.groups()))
+        return True
+
+    @formats.checks("date-time", raises=ValueError)
+    def check_timestamp(value: Any) -> bool:
+        if not isinstance(value, str):
+            return True
+        parts = re.fullmatch(
+            r"([0-9]{4})-([0-9]{2})-([0-9]{2})[Tt]"
+            r"([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\.[0-9]+)?"
+            r"(?:[Zz]|[+-]([0-9]{2}):([0-9]{2}))", value)
+        if parts is None:
+            return False
+        fields = parts.groups()
+        date(*(int(part) for part in fields[:3]))
+        # Preserve the ordinary-second format profile; no ISO normalization
+        # may turn an out-of-range time or zone offset into an accepted one.
+        if any(int(part) >= limit for part, limit in zip(fields[3:6], (24, 60, 60))):
+            return False
+        return fields[6] is None or (int(fields[6]) < 24 and int(fields[7]) < 60)
+
+    return formats
+
+
 def _schema_check(value: dict[str, Any], raw_schema: bytes) -> None:
     schema = _decode(raw_schema)
     Draft202012Validator.check_schema(schema)
-    validator = Draft202012Validator(schema, format_checker=FormatChecker())
+    validator = Draft202012Validator(schema, format_checker=_checked_formats())
     if not validator.is_valid(value):
         raise ValueError("contract_mismatch")
 

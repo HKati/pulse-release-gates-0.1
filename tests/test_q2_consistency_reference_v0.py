@@ -228,6 +228,192 @@ def test_manifest_contract_and_binding_rejected(tmp_path,mutation):
         verify(g,m,out)
 
 
+# Both format names need explicit validators: an unchecked anyOf branch
+# would otherwise admit every string, even when the other branch rejects it.
+DATE_FORMAT_CASES = [
+    ("date", "2026-01-01", True),
+    ("date", "2024-02-29", True),
+    ("date", "2000-02-29", True),
+    ("date", "1900-02-29", False),
+    ("date", "0000-01-01", False),
+    ("date", "2026-13-01", False),
+    ("date", "2026-01-32", False),
+    ("date", "20260101", False),
+    ("date", "2026-W01-1", False),
+    ("date", "2026-01-01\n", False),
+    ("date", "２０２６-01-01", False),
+    ("date", "", False),
+    ("date", None, False),
+    ("date", True, False),
+    ("date", 20260101, False),
+    ("date-time", "2026-01-01T00:00:00Z", True),
+    ("date-time", "2026-01-01t00:00:00z", True),
+    ("date-time", "2026-01-01T23:59:59.123456789+23:59", True),
+    ("date-time", "2024-02-29T01:02:03-00:00", True),
+    ("date-time", "0001-01-01T00:00:00Z", True),
+    ("date-time", "9999-12-31T23:59:59Z", True),
+    ("date-time", "2026-01-01", False),
+    ("date-time", "2025-02-29T00:00:00Z", False),
+    ("date-time", "2026-01-01T00:00:00", False),
+    ("date-time", "2026-01-01 00:00:00Z", False),
+    ("date-time", "2026-01-01T24:00:00Z", False),
+    ("date-time", "2026-01-01T00:60:00Z", False),
+    ("date-time", "2026-01-01T00:00:60Z", False),
+    ("date-time", "2026-01-01T00:00:00+24:00", False),
+    ("date-time", "2026-01-01T00:00:00+00:60", False),
+    ("date-time", "2026-01-01T00:00:00-01:60", False),
+    ("date-time", "2026-01-01T00:00:00+0000", False),
+    ("date-time", "2026-01-01T00:00:00+00:00:00", False),
+    ("date-time", "2026-01-01T00:00:00.Z", False),
+    ("date-time", "2026-01-01T00:00:00Z\n", False),
+    ("date-time", "２０２６-01-01T00:00:00Z", False),
+    ("date-time", None, False),
+    ("date-time", False, False),
+    ("date-time", 20260101, False),
+]
+
+
+@pytest.mark.parametrize("registry", ["missing", "permissive"])
+@pytest.mark.parametrize("format_name,value,accepted", DATE_FORMAT_CASES)
+def test_date_formats_are_explicit_and_instance_local(
+        monkeypatch, registry, format_name, value, accepted):
+    for name in ("date", "date-time"):
+        if registry == "missing":
+            monkeypatch.delitem(FormatChecker.checkers, name, raising=False)
+        else:
+            monkeypatch.setitem(FormatChecker.checkers, name, (lambda _: True, ()))
+    global_registry = dict(FormatChecker.checkers)
+    schema = encode({"type": "object", "properties": {
+        "value": {"type": "string", "format": format_name}}})
+    for validate in (BUILD._validate, CHECK._schema_check):
+        if accepted:
+            validate({"value": value}, schema)
+        else:
+            with pytest.raises(ValueError):
+                validate({"value": value}, schema)
+        assert FormatChecker.checkers == global_registry
+
+
+def set_manifest_time(manifest, field, value):
+    if field == "generated_at":
+        manifest[field] = value
+    else:
+        manifest["time_range"][field] = value
+
+
+def rebind_manifest_summary(manifest_file, summary_file, summary):
+    # Keep every digest and byte count current. A checker rejection must be
+    # caused by the invalid manifest, not a stale producer binding.
+    data = manifest_file.read_bytes()
+    summary["bindings"]["dataset_manifest"] = {
+        "sha256": digest(data), "size_bytes": len(data)}
+    summary_file.write_bytes(encode(summary))
+
+
+@pytest.mark.parametrize("field", ["from", "to", "generated_at"])
+@pytest.mark.parametrize("value", [
+    "yesterday", "2025-02-29", "2026-13-01", "20260101",
+    "2026-01-01T00:00:00", "2026-01-01 00:00:00Z",
+    "2026-01-01T24:00:00Z", "2026-01-01T00:00:00+00:60",
+    "2026-01-01T00:00:00Z\n", "２０２６-01-01", None,
+])
+def test_invalid_manifest_time_rejected_even_after_rebinding(
+        tmp_path, monkeypatch, field, value):
+    for name in ("date", "date-time"):
+        monkeypatch.delitem(FormatChecker.checkers, name, raising=False)
+    g, m, out, summary = produce(tmp_path)
+    manifest = json.loads(m.read_bytes())
+    set_manifest_time(manifest, field, value)
+    m.write_bytes(encode(manifest))
+    rebind_manifest_summary(m, out, summary)
+    with pytest.raises(ValueError):
+        BUILD.build(g, m, digest(g.read_bytes()), digest(m.read_bytes()))
+    with pytest.raises(ValueError):
+        verify(g, m, out)
+
+
+def test_generated_at_cannot_use_the_date_only_time_range_branch(tmp_path):
+    g, m, out, summary = produce(tmp_path)
+    manifest = json.loads(m.read_bytes())
+    manifest["generated_at"] = "2026-01-01"
+    m.write_bytes(encode(manifest))
+    rebind_manifest_summary(m, out, summary)
+    with pytest.raises(ValueError):
+        BUILD.build(g, m, digest(g.read_bytes()), digest(m.read_bytes()))
+    with pytest.raises(ValueError):
+        verify(g, m, out)
+
+
+@pytest.mark.parametrize("n,successes", [(50, 50), (50, 49), (49, 49)])
+@pytest.mark.parametrize("start,end,generated", [
+    ("2026-01-01", "2026-01-02", "2026-01-03T00:00:00Z"),
+    ("2024-02-29", "2024-03-01T00:00:00Z", "2024-03-01T01:02:03Z"),
+    ("2026-01-01t00:00:00z", "2026-01-01T00:00:01.123456789Z",
+     "2026-01-01t00:00:02.123456789z"),
+    ("2026-01-01T00:00:00+02:00", "2026-01-01T00:00:00-05:30",
+     "2026-01-02T00:00:00-00:00"),
+])
+def test_valid_manifest_time_preserves_metric_outcome_without_extras(
+        tmp_path, monkeypatch, n, successes, start, end, generated):
+    for name in ("date", "date-time"):
+        monkeypatch.delitem(FormatChecker.checkers, name, raising=False)
+
+    def change(manifest):
+        manifest["time_range"] = {"from": start, "to": end}
+        manifest["generated_at"] = generated
+
+    g, m, out, summary = produce(tmp_path, fixture_payload(n, successes), change)
+    assert summary["pass"] is (n == 50 and successes == 50)
+    assert verify(g, m, out) is summary["pass"]
+    assert summary["authority_effect"] == "none"
+    assert summary["production_gate_eligible"] is False
+
+
+# Exercise isolated CLI imports, not just in-process registry monkeypatching.
+# Blocking this optional import is deliberate even on machines with extras.
+NO_DATE_EXTRA_CLI = """
+import runpy
+import sys
+sys.modules['rfc3339_validator'] = None
+from jsonschema import FormatChecker
+for name in ('date', 'date-time'):
+    FormatChecker.checkers.pop(name, None)
+sys.argv = sys.argv[1:]
+runpy.run_path(sys.argv[0], run_name='__main__')
+"""
+
+
+@pytest.mark.parametrize("field", [None, "from", "to", "generated_at"])
+def test_cli_without_date_extra_checks_rebound_manifest(tmp_path, field):
+    g, m, out, summary = produce(tmp_path)
+    if field is not None:
+        manifest = json.loads(m.read_bytes())
+        set_manifest_time(manifest, field, "yesterday")
+        m.write_bytes(encode(manifest))
+        rebind_manifest_summary(m, out, summary)
+    published = tmp_path / "cli-summary.json"
+    prefix = [sys.executable, "-I", "-B", "-c", NO_DATE_EXTRA_CLI]
+    builder = subprocess.run(
+        [*prefix, str(BUILDER), *cli_args(g, m), "--out", str(published)],
+        capture_output=True, timeout=30)
+    checker = subprocess.run(
+        [*prefix, str(CHECKER), *cli_args(g, m), "--summary", str(out),
+         "--expected-summary-sha256", digest(out.read_bytes())],
+        capture_output=True, timeout=30)
+    if field is None:
+        assert builder.returncode == 0, builder.stderr
+        assert checker.returncode == 0, checker.stderr
+        assert published.read_bytes() == out.read_bytes()
+        assert json.loads(checker.stdout)["recomputed_pass"] is True
+    else:
+        assert builder.returncode == checker.returncode == 2
+        assert not published.exists()
+        assert not list(tmp_path.glob(".q2-*"))
+        assert not builder.stdout and not checker.stdout
+        assert builder.stderr == b"q2_reference_rejected\n"
+        assert checker.stderr == b"q2_reference_check_rejected\n"
+
+
 SUMMARY_MUTATIONS = {
  "pass":lambda d:d.update({"pass":False}),
  "pass_integer":lambda d:d.update({"pass":1}),

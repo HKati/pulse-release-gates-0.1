@@ -9,6 +9,7 @@ The original response records, not a precomputed result flag, are the input.
 from __future__ import annotations
 
 import argparse
+from datetime import date, datetime
 from decimal import Decimal, localcontext
 import hashlib
 import json
@@ -100,10 +101,41 @@ def _expected(data: bytes, digest: str) -> None:
         raise ValueError("expected_digest_mismatch")
 
 
+def _format_checker() -> FormatChecker:
+    # Register on this instance: optional jsonschema extras must not decide
+    # whether manifest dates are checked, or change other tools' registries.
+    checker = FormatChecker()
+
+    @checker.checks("date", raises=ValueError)
+    def date_format(value: Any) -> bool:
+        if not isinstance(value, str):
+            return True  # The schema's type keyword handles non-strings.
+        if re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}", value) is None:
+            return False
+        date.fromisoformat(value)
+        return True
+
+    @checker.checks("date-time", raises=ValueError)
+    def date_time_format(value: Any) -> bool:
+        if not isinstance(value, str):
+            return True
+        # Require seconds and a zone; ISO parsing alone is too permissive.
+        # Ordinary seconds (00..59), as in the existing format-checker profile.
+        pattern = (r"[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt]"
+                   r"[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?"
+                   r"(?:[Zz]|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])")
+        if re.fullmatch(pattern, value) is None:
+            return False
+        datetime.fromisoformat(value.upper())
+        return True
+
+    return checker
+
+
 def _validate(payload: dict[str, Any], schema: bytes) -> None:
     contract = _json(schema)
     Draft202012Validator.check_schema(contract)
-    errors = Draft202012Validator(contract, format_checker=FormatChecker()).iter_errors(payload)
+    errors = Draft202012Validator(contract, format_checker=_format_checker()).iter_errors(payload)
     if next(errors, None) is not None:
         raise ValueError("schema_rejected")
 
