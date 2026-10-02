@@ -332,13 +332,20 @@ institutional approval is not an additional prerequisite.
 
 ## 5. Finite next boundary: admissible Q2 input and coordinated admission
 
-Completing this unit resolves **the absence of a Q2 reference reducer and its
-separate recomputation path**. It does not resolve input authenticity or release
-admission. The readiness state after this unit is:
+The non-active reducer and separate recomputation checker are implemented
+through #2890. This continuation was inspected at source
+`6a1ede3a532a4a8e5d0d7f314fef3974c2682a0d`; that is an inspection baseline,
+not the identity of a future acquisition or of the commit adding this section.
+
+This section defines the next input-selection and acquisition contract. It
+implements no collector, extraction adapter, launch guard or release recipe.
+Its requirements must not be reported as already enforced by runtime code.
 
 ```text
-q2_reference_reduction: implemented_in_this_change
-q2_separate_recomputation: implemented_in_this_change
+q2_reference_reduction: implemented
+q2_separate_recomputation: implemented
+q2_input_acquisition_contract: defined_in_this_section
+q2_evaluation_subject_selection: not_established
 q2_admissible_release_input: not_established
 q2_current_run_release_recipe: not_registered
 q2_independent_candidate_admission: still_unsupported
@@ -346,19 +353,163 @@ unsupported_production_gate_count: 13
 successful_step5c_reference_ready: false
 ```
 
-Before a later Q2 integration unit, identify one admissible response-group
-snapshot, its dataset manifest, grouping/extraction procedure and exact
-source/run relationship. Archived evidence must remain labelled archived;
-synthetic test data must not be relabelled as actual acquisition.
+### 5.1 Fix the evaluated subject before choosing a model or input
 
-Then map the new reducer and checker into the existing dispatcher and separate
-candidate-admission path, with the real input/result pointers, all dependent
-Step 5C source closures, pins, fixtures and regressions reconciled together.
-Freeze that **next** complete inventory before owner upload; this document does
-not pre-authorize a partial pin-only change or silently remove Q2 from either
-unsupported set.
+The owner-directed continuation is new Q2 input acquisition/selection, not
+another search for a presumed lost original Q2 response export. No existing
+response export is selected by this document.
 
-If admissible Q2 inputs are not available, record that exact blocker. Do not
-create a generic capture framework or implement the other 12 gates as an
-unbounded prerequisite. #2879 remains open. README synchronization stays a
-separate small documentation change, not part of metric implementation.
+Distinguish the release artifact, the response-producing system being evaluated,
+and the evaluator. The PULSE repository commit identifies a repository source revision;
+it does not by itself identify the system that produced the answers. Neither
+an available hosted detector nor an arbitrary demonstration model becomes the
+Q2 evaluation subject merely because it can be executed.
+
+Before acquisition implementation or a run is authorized, record one concrete
+selection containing all of the following. These field names describe the
+required decision record; they are not a newly implemented schema or CLI.
+
+| Field | Required content |
+| --- | --- |
+| `selection_id` | Stable identifier for this input selection and its revision. |
+| `release_subject` | The release artifact/system identity and immutable version or digest to which Q2 evidence is intended to apply. |
+| `evaluation_subject` | The actual response-producing system, selected model/component versions, relevant configuration and state-reset boundary. |
+| `release_subject_relation` | Evidence of why this evaluated system/configuration is the subject of, or a relevant bound component of, that release. A matching display name is insufficient. |
+| `task_scope` | The concrete task, intended evaluation population and answer representation. State the limits of the resulting consistency claim. |
+| `request_source` | Exact source of the request set, selection procedure, permitted use and immutable request-set identity. |
+| `request_protocol` | Complete ordered group/repetition inventory, request payloads, initial context and all behavior-affecting generation parameters. |
+| `extraction_protocol` | Exact source/version of the response-to-typed-record mapping and its answer/refusal/unknown rules. |
+| `execution_protocol` | Selected runtime/interface, source and dependency identities, seed behavior, finite call/time limits, attempt and retry rules. |
+| `origin_and_preservation` | Evidence source and trust boundary for actual calls, original-byte retention, privacy/publication rules and the independent verification path. |
+
+At the inspected source, this selection is not established. Do not insert a
+model name, endpoint, dataset or task merely to fill the record. Missing
+selection is a prerequisite blocker, not permission to run a convenient model
+and retroactively associate its results with the release.
+
+### 5.2 First grouping profile: exact request repeats
+
+The design choice for the first acquisition is exact request repetition, a
+subset of the existing Q2 specification's repeats/paraphrases scope. This
+avoids introducing an unimplemented semantic-equivalence judge. It does not
+establish robustness to paraphrases or to arbitrary context changes.
+
+For each group, bind one complete application-level request and repeat it in
+separately identified calls against the same selected evaluation subject and
+fresh declared initial context. The model selection, system instructions,
+conversation, tool definitions and generation parameters are part of this
+request boundary. Transport identifiers may differ; they are not prompt text.
+
+An unchanged visible question with a changed hidden conversation, model or
+behavior-affecting configuration is not an exact repeat under this profile.
+Record any unavailable platform state as a limitation, not as verified equality.
+A seed declaration does not prove deterministic execution.
+
+Freeze group membership, the request bytes, repetition count and ordered call
+slots before the first call. Do not derive groups from observed answers or
+copy one response into multiple slots. Do not split one repeated request into
+multiple group IDs to inflate eligible coverage. Retain the existing bounds of
+2 to 32 responses per group and at most 10,000 groups; the concrete finite workload
+must be fixed by the selection rather than by these maximum bounds.
+
+The metric remains unchanged: at least 50 eligible groups and a Wilson 95%
+lower bound of at least 0.90. Plan the workload before observing results; do
+not add groups, stop early or rerun until a passing score appears. Exact
+agreement measures consistency under this protocol, not answer correctness.
+
+### 5.3 Preserve actual occurrences, including unsuccessful ones
+
+Every planned call slot requires its own occurrence identity and recorded
+terminal outcome. Preserve the request/result association, actual subject and
+runtime identifiers at their supported strength, and the available timing
+basis. Equal response bytes do not establish two separate executions.
+
+Set a finite retry rule before acquisition. Retain every attempted occurrence
+and its outcome, and make any selected attempt mechanically traceable to that
+rule. Do not silently replace failed or disagreeing answers with later ones.
+
+A missing call, transport failure, cancellation or timeout is an acquisition
+completeness problem. It is not a model-produced UNKNOWN answer. Keep the
+original inventory intact and reject a claim of complete acquisition when an
+obligation is unresolved. Preserve diagnostics without manufacturing responses.
+
+A returned response whose answer cannot be extracted may map to UNKNOWN only
+under the predeclared extraction rule. The reducer's existing eligibility and
+UNKNOWN-group accounting remain unchanged; do not hide missing acquisition by
+using its metric denominator rules.
+
+### 5.4 Original responses and deterministic extraction
+
+Bind every derived typed response to its exact original response bytes and
+its planned call slot. The extraction implementation must operate on the
+selected interface's actual response format, with exact field/byte locators
+and explicitly specified error behavior. Do not invent a universal completion
+parser before that interface and its response contract have been selected.
+
+Produce the existing `typed_final_answer_or_refusal_v0` records: `answer` with
+its extracted string, or typed `refusal`/`unknown` without an answer field.
+Do not infer a refusal from a keyword, silently repair an invalid response,
+accept an upstream PASS flag or substitute a model judge for extraction.
+Leave normalization and scoring to the existing reducer and separate checker.
+
+Keep original capture and derived groups distinct. Retain enough original
+content for a separate implementation to verify extraction and grouping;
+digests alone cannot reconstruct an unavailable response. This document does
+not authorize publication of raw prompts or responses. Fix the permitted
+controlled input set and its retention/publication boundary before collection.
+Never include credentials, authorization headers or raw environment data.
+Do not expand the Step 5C packet's existing privacy boundary.
+
+### 5.5 Bind the input before reduction; do not invent future output hashes
+
+Before calls, fix the selection, evaluated subject, evaluation source, request
+inventory, extraction/generation settings and acquisition procedure. Original
+response hashes are computed only after those responses actually exist.
+
+After capture, preserve its original bytes and occurrence records. Derive the
+Q2 group payload and existing dataset manifest without changing the originals.
+The manifest must bind the exact group payload, its full group count and seed.
+Fix the expected group/manifest digests in the separately preserved selection
+or handoff record before invoking the reducer. Do not take those expectations
+from the summary that is being verified.
+
+Content hashes bind bytes; they do not authenticate a model, prove execution,
+establish prelaunch ordering or create a release-subject relationship. Specify
+how the selected acquisition path supports each such claim. A run ID or a
+self-declared provenance field alone does not supply that evidence.
+
+Keep acquisition identity and later reduction identity separate. Current-run
+reduction of archived responses is not current-run model inference. Preserve
+the original acquisition time and source; do not relabel a new response set
+as a recovered historical export. The existing `archived_response_records`
+label remains a declaration, not an authentication mechanism.
+
+### 5.6 Completion and integration order
+
+The next implementation may start only after the concrete selection in 5.1
+is resolved and its complete changed-file/test inventory is fixed. It must
+implement that one selected acquisition/extraction path, not a generic capture
+framework or the other 12 unsupported gates.
+
+Validate the original-to-derived path separately, including missing/duplicate
+calls, changed requests, cross-subject/run substitution, forbidden retry
+selection, altered extraction and consistently rehashed tampering. Then run
+the existing Q2 reducer and separate recomputation checker on the exact bound
+inputs. A correct FAIL summary must remain a FAIL; checker exit 0 is not metric
+PASS, acquisition authentication or candidate admission.
+
+Only then prepare the coordinated existing dispatcher/candidate-admission
+integration, reconciling real input/result pointers, all dependent Step 5C
+source closures, pins, fixtures and regressions together. Do not remove Q2
+from either unsupported set through a partial or pin-only update.
+
+Source review, applicable regressions, separate checking and exact source/run
+binding remain required. Approval by an additional external person or
+organization is not a prerequisite; it cannot replace missing origin or
+execution evidence. Owner authorization to execute a selected acquisition is
+not third-party validation.
+
+No live acquisition, model call, production gate activation, successful
+19-gate release or Step 5C acceptance is performed by this contract change.
+#2879 remains open. The selected response-producing system and its actual
+release relationship remain unresolved; this contract must not hide that fact.
