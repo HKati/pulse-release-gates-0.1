@@ -1,0 +1,337 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://hkati.github.io/pulse-release-gates-0.1/schemas/metrics/q2_consistency_summary_v0.schema.json",
+  "title": "Non-active Q2 reference summary v0",
+  "description": "Structural summary contract. The separate checker must recompute from expected original groups and manifest bytes; schema validity is not semantic validity or release authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "spec_id",
+    "spec_version",
+    "record_status",
+    "method",
+    "bindings",
+    "counts",
+    "groups",
+    "consistency_rate",
+    "wilson_lower_bound",
+    "alpha",
+    "threshold",
+    "min_n_eligible_groups",
+    "insufficient_evidence",
+    "pass",
+    "authority_effect",
+    "production_gate_eligible"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "q2_consistency_summary_v0"
+    },
+    "spec_id": {
+      "const": "q2_consistency_v0"
+    },
+    "spec_version": {
+      "const": "0.1.0"
+    },
+    "record_status": {
+      "enum": [
+        "synthetic_fixture",
+        "archived_response_records"
+      ]
+    },
+    "method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "extraction_profile",
+        "normalization_order",
+        "comparator",
+        "unicode_version",
+        "grouping_authentication",
+        "inference_executed"
+      ],
+      "properties": {
+        "kind": {
+          "const": "deterministic_reference_reduction"
+        },
+        "extraction_profile": {
+          "const": "typed_final_answer_or_refusal_v0"
+        },
+        "normalization_order": {
+          "const": [
+            "trim_whitespace",
+            "casefold",
+            "normalize_unicode_nfkc"
+          ]
+        },
+        "comparator": {
+          "const": "exact_match"
+        },
+        "unicode_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "grouping_authentication": {
+          "const": "not_established"
+        },
+        "inference_executed": {
+          "const": false
+        }
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "groups",
+        "dataset_manifest",
+        "metric_spec",
+        "input_schema",
+        "manifest_schema",
+        "summary_schema"
+      ],
+      "properties": {
+        "groups": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "size_bytes"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "dataset_manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "size_bytes"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "metric_spec": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "size_bytes"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "input_schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "size_bytes"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "manifest_schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "size_bytes"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "summary_schema": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "size_bytes"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "groups_total",
+        "groups_eligible",
+        "consistent",
+        "inconsistent",
+        "unknown",
+        "responses_total",
+        "responses_eligible"
+      ],
+      "properties": {
+        "groups_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "groups_eligible": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "consistent": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "inconsistent": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unknown": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "responses_total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "responses_eligible": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "groups": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "group_id",
+          "label",
+          "responses_total",
+          "responses_eligible"
+        ],
+        "properties": {
+          "group_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,95}(?![\\s\\S])"
+          },
+          "label": {
+            "enum": [
+              "CONSISTENT",
+              "INCONSISTENT",
+              "UNKNOWN"
+            ]
+          },
+          "responses_total": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 32
+          },
+          "responses_eligible": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 32
+          }
+        }
+      }
+    },
+    "consistency_rate": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "wilson_lower_bound": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "alpha": {
+      "const": 0.05
+    },
+    "threshold": {
+      "const": 0.9
+    },
+    "min_n_eligible_groups": {
+      "const": 50
+    },
+    "insufficient_evidence": {
+      "type": "boolean"
+    },
+    "pass": {
+      "type": "boolean"
+    },
+    "authority_effect": {
+      "const": "none"
+    },
+    "production_gate_eligible": {
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "insufficient_evidence": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "pass": {
+            "const": false
+          }
+        }
+      }
+    }
+  ]
+}
