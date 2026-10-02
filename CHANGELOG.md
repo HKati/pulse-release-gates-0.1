@@ -7,6 +7,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Synchronize README implementation and evidence boundaries after #2886.
+  Distinguish merged Step 5C mechanics from pending actual reference
+  acquisition, preserve the historical Step 5B test count and #6066 record,
+  and label the old Tier 0 strict-dispatch combination as historical and
+  rejected by the corrected release preflight. Clarify that a separate
+  checker is not mandatory third-party approval, identify the canonical
+  root gate-set policy, and retain historical DOI/badge identities without
+  calling v1.0.2 current. Update the existing DOI-label regression without
+  changing DOI values, publication records, workflows or release authority.
 - Align the Step 5C reference-workflow pin regression with the reviewed
   `actions/download-artifact` v8.0.1 SHA in #2889. Preserve the exact single
   current-run artifact ID, token/repository/run binding, direct destination
