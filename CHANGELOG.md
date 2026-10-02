@@ -22,9 +22,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   and label the old Tier 0 strict-dispatch combination as historical and
   rejected by the corrected release preflight. Clarify that a separate
   checker is not mandatory third-party approval, identify the canonical
-  root gate-set policy, and retain historical DOI/badge identities without
-  calling v1.0.2 current. Update the existing DOI-label regression without
-  changing DOI values, publication records, workflows or release authority.
+  root gate-set policy, and preserve the existing DOI records, badge targets
+  and DOI regression unchanged. DOI-label changes were excluded from the
+  merged #2891 scope; publication records and release authority are unchanged.
 - Align the Step 5C reference-workflow pin regression with the reviewed
   `actions/download-artifact` v8.0.1 SHA in #2889. Preserve the exact single
   current-run artifact ID, token/repository/run binding, direct destination
@@ -95,6 +95,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   transfer does not declare correction acceptance or reference readiness.
 
 ### Added
+- Define the next Q2 input-selection and acquisition contract under #2879.
+  Require a concrete evaluated subject and its release relationship before
+  implementation or execution; do not substitute an arbitrary model or search
+  again for a presumed lost export. Specify predeclared exact-request repeats,
+  complete occurrence/attempt accounting, original-response extraction and
+  input handoff before existing reducer/checker use. This is a contract-only
+  change: selection and actual acquisition remain unresolved, with all 13
+  production-gate rejections unchanged.
 - Add the first bounded reference-readiness unit under #2879: non-active Q2
   reduction from explicitly typed final-answer/refusal groups, the unchanged
   exact-match/Wilson/minimum-50-group metric contract, and a separately
