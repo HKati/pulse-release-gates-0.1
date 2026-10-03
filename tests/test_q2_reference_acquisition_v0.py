@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Offline Q2 preparation protocol tests; all wheel/model payloads are synthetic.
+"""Offline Q2 preparation and recorded input-pin regressions.
 
-No model download, import, generation, service call or native qualification is
-performed here. Synthetic expectations are monkeypatched only in these tests;
-the production CLI has no switch accepting synthetic provenance or new models.
+Protocol wheel/model payloads are synthetic. The input-pin tests inspect small
+original metadata records from preparation run 37148637546, not model/wheel
+payloads. No model download, import, generation, service call, installation or
+native qualification is performed here. Synthetic expectations are confined
+to protocol tests; no production CLI accepts synthetic provenance or models.
 """
 from __future__ import annotations
 
@@ -493,8 +495,13 @@ def test_preparation_has_no_repository_write_or_auto_adoption():
     assert 'git push' not in text and 'gh pr' not in text and 'actions: write' not in text
     assert 'id-token: write' not in text and 'packages: write' not in text
     assert 'requirements-q2-reference-v0.lock' not in (ROOT / 'ci/tools-tests.list').read_text()
-    assert not (ROOT / 'PULSE_safe_pack_v0/requirements-q2-reference-v0.lock').exists()
-    assert not (ROOT / 'PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json').exists()
+    # The pins now enter through an explicit source-reviewed adoption, not
+    # through a preparation workflow write. The original candidates and the
+    # historical source closure stay bound by the recorded-input oracle.
+    _, checked, adopted = _check_recorded_input_pins(ROOT)
+    assert adopted['adoption']['scope'] == 'runtime_input_pins_only'
+    assert adopted['native_runtime_qualified'] is False
+    assert checked['capture_dispatch_authorized'] is False
 
 
 def _hygiene_python_sync_script():
@@ -584,7 +591,7 @@ def test_readiness_preparation_inventory_includes_hygiene_workflow():
     text = (ROOT / 'docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md').read_text(encoding='utf-8')
     section = text.split('### 7.1 Executable subset and unresolved byte inputs\n', 1)[1]
     section = section.split('### 7.2 What the preparation actually does', 1)[0]
-    assert 'This change contains thirteen repository\npaths:' in section
+    assert '#2894 contains thirteen repository paths:' in section
     assert '[the repository-hygiene workflow](../../.github/workflows/repo_hygiene.yml)' in section
     assert 'contains twelve repository paths' not in section
 
@@ -665,6 +672,305 @@ def test_q2_setup_keeps_exact_selection_before_preparation():
     assert setup['with']['python-version'] == selection['release_subject']['definition']['runtime_target']['python_target']
     preparation = [i for i, step in enumerate(steps) if 'prepare-runtime' in step.get('run', '')]
     assert len(preparation) == 1 and index < preparation[0]
+
+
+
+# Recorded metadata from the first actual preparation; not an inference fixture.
+# These anchors are fixed review expectations, not values accepted from a carrier.
+_INPUT_PIN_EVIDENCE = "PULSE_safe_pack_v0/examples/q2_runtime_preparation_v0/run_37148637546"
+_INPUT_PIN_LOCK = "PULSE_safe_pack_v0/requirements-q2-reference-v0.lock"
+_INPUT_PIN_MAP = "PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json"
+_INPUT_PIN_SOURCE = "77fc5d51896568db50a2a87f650711a65db8fe8c"
+_INPUT_PIN_RUN = "37148637546"
+_INPUT_PIN_ARCHIVE_SHA = "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9"
+_INPUT_PIN_RECORDS = {
+    "preparation.json": "832b3626e846c96e5d65052ea54c966aabf0ed5f3976ecc5d3b4a3ced006ef4f",
+    "q2-runtime-preparation-check.json": "8676b29834f376b44f08f96b19d60d1ab79a9f565167aabd25513cf8694037e3",
+    "q2_reference_model_files_v0.json": "b91289806a62957e2613f21afa950d4bf48b917074fde16d3e94681764d74078",
+    "requirements-q2-reference-v0.lock": "60cec54ed62df95b299cdeaf386afc7ed0b72f4fb7ec466cf82905bb40168d0f",
+}
+_INPUT_PIN_HEADER = (
+    "# Q2 reference runtime input pins; native qualification and capture remain pending.\n"
+)
+
+
+def _pin_json_bytes(value):
+    return (json.dumps(value, sort_keys=True, indent=2,
+                       ensure_ascii=False, allow_nan=False) + "\n").encode("utf-8")
+
+
+def _check_recorded_input_pins(root: Path):
+    """Test-only oracle for this one reviewed adoption, not a runtime verifier."""
+    evidence_dir = root / _INPUT_PIN_EVIDENCE
+    assert {p.name for p in evidence_dir.iterdir()} == set(_INPUT_PIN_RECORDS)
+    raw = {}
+    for name, expected_hash in _INPUT_PIN_RECORDS.items():
+        path = evidence_dir / name
+        assert path.is_file() and not path.is_symlink()
+        raw[name] = path.read_bytes()
+        assert hashlib.sha256(raw[name]).hexdigest() == expected_hash, name
+    preparation = json.loads(raw["preparation.json"])
+    checked = json.loads(raw["q2-runtime-preparation-check.json"])
+    candidate = json.loads(raw["q2_reference_model_files_v0.json"])
+    context = preparation["context"]
+    assert context["repository"] == "HKati/pulse-release-gates-0.1"
+    assert context["source_commit"] == _INPUT_PIN_SOURCE
+    assert context["run_id"] == _INPUT_PIN_RUN and context["run_attempt"] == 1
+    assert checked["preparation_sha256"] == _INPUT_PIN_RECORDS["preparation.json"]
+    assert checked["source_commit"] == _INPUT_PIN_SOURCE and checked["run_id"] == _INPUT_PIN_RUN
+    assert checked["candidate_bytes_verified"] is True
+    assert checked["offline_dependency_resolution_checked"] is True
+    assert checked["installation_performed"] is False
+    for key in ("native_runtime_qualified", "inference_executed",
+                "materialized_subject_bound", "capture_dispatch_authorized",
+                "production_gate_eligible"):
+        assert checked[key] is False and preparation["state"][key] is False
+    assert preparation["state"]["dependency_closure_status"] == "staged_review_candidate"
+    assert checked["dependency_closure_status"] == "staged_review_candidate"
+    assert checked["authority_effect"] == preparation["state"]["authority_effect"] == "none"
+
+    rows = preparation["files"]
+    entries = {row["path"]: row for row in rows}
+    assert len(entries) == len(rows) == 76
+    for name in ("requirements-q2-reference-v0.lock", "q2_reference_model_files_v0.json"):
+        assert entries[name]["sha256"] == hashlib.sha256(raw[name]).hexdigest()
+        assert entries[name]["size"] == len(raw[name])
+    assert len(candidate["files"]) == 8 and candidate["adopted"] is False
+    assert candidate["native_runtime_qualified"] is False
+    for row in candidate["files"]:
+        assert {key: row[key] for key in ("path", "sha256", "size")} == entries[row["path"]]
+    assert len(preparation["wheels"]) == 30
+    wheel_names = [row["name"] for row in preparation["wheels"]]
+    assert len(set(wheel_names)) == 30
+    versions = {row["name"]: row["version"] for row in preparation["wheels"]}
+    assert preparation["roots"] == {
+        "torch": "2.8.0+cpu", "transformers": "4.57.6",
+        "rfc8785": "0.1.4", "jsonschema": "4.25.1",
+    }
+    assert all(versions[name] == version for name, version in preparation["roots"].items())
+    expected_entries = "".join(
+        f'{row["name"]}=={row["version"]} --hash=sha256:{row["sha256"]}\n'
+        for row in sorted(preparation["wheels"], key=lambda row: row["name"])
+    ).encode("utf-8")
+    assert b"".join(raw["requirements-q2-reference-v0.lock"].splitlines(keepends=True)[1:]) == expected_entries
+    lock = (root / _INPUT_PIN_LOCK).read_bytes()
+    assert lock == _INPUT_PIN_HEADER.encode("utf-8") + expected_entries
+
+    # Bind the still-selected inputs, not the current tools/workflow to the
+    # historical preparation commit. Those executable sources must be allowed
+    # to evolve for the later worker/capture, with their own source binding.
+    selected_inputs = (
+        "PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json",
+        "PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json",
+    )
+    for rel in selected_inputs:
+        source = (root / rel).read_bytes()
+        assert hashlib.sha256(source).hexdigest() == entries["source/" + rel]["sha256"]
+        assert len(source) == entries["source/" + rel]["size"]
+
+    expected = copy.deepcopy(candidate)
+    expected["record_type"] = "q2_reference_model_files_v0"
+    expected["adopted"] = True
+    expected["adoption"] = {
+        "scope": "runtime_input_pins_only",
+        "repository": "HKati/pulse-release-gates-0.1",
+        "preparation_source_commit": _INPUT_PIN_SOURCE,
+        "preparation_run_id": _INPUT_PIN_RUN,
+        "preparation_run_attempt": 1,
+        "preparation_workflow": ".github/workflows/q2_reference_acquisition_v0.yml",
+        "target": {"os": "ubuntu-24.04", "architecture": "x86_64", "python": "3.11.16"},
+        "artifact": {
+            "id": 11282419957, "name": "q2-runtime-preparation-37148637546-1",
+            "sha256": _INPUT_PIN_ARCHIVE_SHA, "size": 508460811,
+        },
+        "source_records": {
+            name: {"path": _INPUT_PIN_EVIDENCE + "/" + name,
+                   "sha256": digest, "size": len(raw[name])}
+            for name, digest in _INPUT_PIN_RECORDS.items()
+        },
+        "repository_lock": {
+            "path": _INPUT_PIN_LOCK, "sha256": hashlib.sha256(lock).hexdigest(), "size": len(lock),
+        },
+    }
+    map_path = root / _INPUT_PIN_MAP
+    assert map_path.is_file() and not map_path.is_symlink()
+    assert map_path.read_bytes() == _pin_json_bytes(expected)
+    return preparation, checked, expected
+
+
+def _copy_input_pin_fixture(tmp_path: Path):
+    preparation = json.loads((ROOT / _INPUT_PIN_EVIDENCE / "preparation.json").read_bytes())
+    paths = [_INPUT_PIN_MAP, _INPUT_PIN_LOCK]
+    paths += [_INPUT_PIN_EVIDENCE + "/" + name for name in _INPUT_PIN_RECORDS]
+    paths += preparation["source_paths"]
+    for rel in paths:
+        dest = tmp_path / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes((ROOT / rel).read_bytes())
+    return tmp_path
+
+
+def test_recorded_runtime_input_pins_match_original_run():
+    preparation, checked, adopted = _check_recorded_input_pins(ROOT)
+    assert len(preparation["wheels"]) == 30 and len(adopted["files"]) == 8
+    assert adopted["adopted"] is True and adopted["native_runtime_qualified"] is False
+    assert checked["installation_performed"] is False
+
+
+@pytest.mark.parametrize("name", list(_INPUT_PIN_RECORDS))
+def test_input_pins_reject_changed_original_record(tmp_path, name):
+    root = _copy_input_pin_fixture(tmp_path)
+    path = root / _INPUT_PIN_EVIDENCE / name
+    path.write_bytes(path.read_bytes() + b"\n")
+    with pytest.raises(AssertionError):
+        _check_recorded_input_pins(root)
+
+
+@pytest.mark.parametrize("name", list(_INPUT_PIN_RECORDS))
+def test_input_pins_reject_rehashed_original_record(tmp_path, name):
+    root = _copy_input_pin_fixture(tmp_path)
+    path = root / _INPUT_PIN_EVIDENCE / name
+    raw = path.read_bytes() + b"\n"
+    path.write_bytes(raw)
+    map_path = root / _INPUT_PIN_MAP
+    adopted = json.loads(map_path.read_bytes())
+    adopted["adoption"]["source_records"][name].update(
+        sha256=hashlib.sha256(raw).hexdigest(), size=len(raw))
+    map_path.write_bytes(_pin_json_bytes(adopted))
+    with pytest.raises(AssertionError):
+        _check_recorded_input_pins(root)
+
+
+@pytest.mark.parametrize("rel", [_INPUT_PIN_MAP, _INPUT_PIN_LOCK] + [
+    _INPUT_PIN_EVIDENCE + "/" + name for name in _INPUT_PIN_RECORDS
+])
+def test_input_pins_reject_missing_adoption_file(tmp_path, rel):
+    root = _copy_input_pin_fixture(tmp_path)
+    (root / rel).unlink()
+    with pytest.raises((AssertionError, FileNotFoundError)):
+        _check_recorded_input_pins(root)
+
+
+@pytest.mark.parametrize("mutation", [
+    "remove_entry", "extra_entry", "duplicate_entry", "changed_version",
+    "changed_hash", "unhashed_entry", "direct_url", "index_option", "crlf",
+])
+def test_input_pins_reject_lock_substitution(tmp_path, mutation):
+    root = _copy_input_pin_fixture(tmp_path)
+    path = root / _INPUT_PIN_LOCK
+    raw = path.read_bytes()
+    entries = raw.splitlines(keepends=True)
+    if mutation == "remove_entry": raw = b"".join(entries[:-1])
+    elif mutation == "extra_entry": raw += b"extra==1.0 --hash=sha256:" + b"0" * 64 + b"\n"
+    elif mutation == "duplicate_entry": raw += entries[1]
+    elif mutation == "changed_version": raw = raw.replace(b"torch==2.8.0+cpu", b"torch==2.8.1+cpu")
+    elif mutation == "changed_hash": raw = raw.replace(b"sha256:", b"sha256:0", 1)
+    elif mutation == "unhashed_entry": raw = raw.replace(entries[1], entries[1].split(b" --hash")[0] + b"\n")
+    elif mutation == "direct_url": raw += b"extra @ https://example.invalid/extra.whl\n"
+    elif mutation == "index_option": raw += b"--extra-index-url https://example.invalid/\n"
+    elif mutation == "crlf": raw = raw.replace(b"\n", b"\r\n")
+    path.write_bytes(raw)
+    adopted_path = root / _INPUT_PIN_MAP
+    adopted = json.loads(adopted_path.read_bytes())
+    adopted["adoption"]["repository_lock"].update(sha256=hashlib.sha256(raw).hexdigest(), size=len(raw))
+    adopted_path.write_bytes(_pin_json_bytes(adopted))
+    with pytest.raises(AssertionError):
+        _check_recorded_input_pins(root)
+
+
+@pytest.mark.parametrize("index", range(8))
+@pytest.mark.parametrize("field", ["path", "sha256", "size"])
+def test_input_pins_reject_model_file_substitution(tmp_path, index, field):
+    root = _copy_input_pin_fixture(tmp_path)
+    path = root / _INPUT_PIN_MAP
+    adopted = json.loads(path.read_bytes())
+    if field == "path": adopted["files"][index][field] = "model/substitute.json"
+    elif field == "sha256": adopted["files"][index][field] = "0" * 64
+    else: adopted["files"][index][field] += 1
+    path.write_bytes(_pin_json_bytes(adopted))
+    with pytest.raises(AssertionError):
+        _check_recorded_input_pins(root)
+
+
+@pytest.mark.parametrize("mutation", [
+    "not_adopted", "qualified", "authority", "wrong_model", "wrong_revision",
+    "missing_model", "extra_model", "duplicate_model", "reordered_model",
+    "scope", "source", "run", "attempt", "workflow", "target",
+    "artifact_id", "artifact_digest", "artifact_name", "artifact_size", "extra_key",
+])
+def test_input_pins_reject_rebinding_or_authority_promotion(tmp_path, mutation):
+    root = _copy_input_pin_fixture(tmp_path)
+    path = root / _INPUT_PIN_MAP
+    adopted = json.loads(path.read_bytes())
+    binding = adopted["adoption"]
+    if mutation == "not_adopted": adopted["adopted"] = False
+    elif mutation == "qualified": adopted["native_runtime_qualified"] = True
+    elif mutation == "authority": adopted["authority_effect"] = "allow"
+    elif mutation == "wrong_model": adopted["model_repository"] += "-other"
+    elif mutation == "wrong_revision": adopted["model_revision"] = "0" * 40
+    elif mutation == "missing_model": adopted["files"].pop()
+    elif mutation == "extra_model": adopted["files"].append({"path": "model/extra.json"})
+    elif mutation == "duplicate_model": adopted["files"][-1] = copy.deepcopy(adopted["files"][0])
+    elif mutation == "reordered_model": adopted["files"].reverse()
+    elif mutation == "scope": binding["scope"] = "capture_authorized"
+    elif mutation == "source": binding["preparation_source_commit"] = "0" * 40
+    elif mutation == "run": binding["preparation_run_id"] = "37148637547"
+    elif mutation == "attempt": binding["preparation_run_attempt"] = 2
+    elif mutation == "workflow": binding["preparation_workflow"] = ".github/workflows/other.yml"
+    elif mutation == "target": binding["target"]["python"] = "3.13.5"
+    elif mutation == "artifact_id": binding["artifact"]["id"] += 1
+    elif mutation == "artifact_digest": binding["artifact"]["sha256"] = "0" * 64
+    elif mutation == "artifact_name": binding["artifact"]["name"] += "-other"
+    elif mutation == "artifact_size": binding["artifact"]["size"] += 1
+    elif mutation == "extra_key": adopted["production_gate_eligible"] = True
+    path.write_bytes(_pin_json_bytes(adopted))
+    with pytest.raises(AssertionError):
+        _check_recorded_input_pins(root)
+
+
+def test_input_pins_preserve_non_authorizing_original_evidence():
+    _, checked, adopted = _check_recorded_input_pins(ROOT)
+    assert checked["capture_dispatch_authorized"] is False
+    assert checked["production_gate_eligible"] is False
+    assert adopted["authority_effect"] == "none"
+    assert adopted["adoption"]["scope"] == "runtime_input_pins_only"
+
+
+def test_readiness_records_adoption_without_claiming_native_execution():
+    text = (ROOT / "docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md").read_text(encoding="utf-8")
+    section = text.split("## 8. Recorded runtime-input adoption — no native qualification\n", 1)[1]
+    assert "37148637546" in section and "11282419957" in section
+    assert _INPUT_PIN_ARCHIVE_SHA in section
+    assert "30 exact wheel entries" in section and "eight model/tokenizer files" in section
+    assert "does not install or execute" in section
+    assert "Original candidate records remain byte-for-byte unchanged" in section
+
+
+
+@pytest.mark.parametrize("rel", [
+    ".github/workflows/q2_reference_acquisition_v0.yml",
+    "PULSE_safe_pack_v0/tools/acquire_q2_reference_inputs_v0.py",
+    "PULSE_safe_pack_v0/tools/check_q2_reference_capture_v0.py",
+])
+def test_input_pins_do_not_rebind_original_preparation_to_future_consumer(tmp_path, rel):
+    root = _copy_input_pin_fixture(tmp_path)
+    source = root / rel
+    source.write_bytes(source.read_bytes() + b"\n# Test-only future consumer revision.\n")
+    preparation, _, adopted = _check_recorded_input_pins(root)
+    assert preparation["context"]["source_commit"] == _INPUT_PIN_SOURCE
+    assert adopted["adoption"]["preparation_source_commit"] == _INPUT_PIN_SOURCE
+
+
+@pytest.mark.parametrize("rel", [
+    "PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json",
+    "PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json",
+])
+def test_input_pins_reject_changed_selected_inputs(tmp_path, rel):
+    root = _copy_input_pin_fixture(tmp_path)
+    source = root / rel
+    source.write_bytes(source.read_bytes() + b"\n")
+    with pytest.raises(AssertionError):
+        _check_recorded_input_pins(root)
 
 
 if __name__ == '__main__':

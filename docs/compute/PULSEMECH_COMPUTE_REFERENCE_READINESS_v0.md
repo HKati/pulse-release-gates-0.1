@@ -857,8 +857,8 @@ model revision, fifty requests and 150 call slots remain byte-for-byte unchanged
 This phase is necessary to obtain the actual model and dependency bytes before
 committing the planned complete lock and model-file map. It is a bounded
 preparation step within 6.6, with the required repository-hygiene integration,
-not a replacement acquisition design. This change contains thirteen repository
-paths: the two tools, preparation workflow, one offline test program, the
+not a replacement acquisition design. The preparation implementation merged in
+#2894 contains thirteen repository paths: the two tools, preparation workflow, one offline test program, the
 inventory classifier and its test, the test manifest, the three current-count
 regressions, this document, the changelog, and
 [the repository-hygiene workflow](../../.github/workflows/repo_hygiene.yml).
@@ -869,15 +869,14 @@ symlinked file is rejected. Q2 must declare `3.11.16` exactly once on the shared
 `3.11` line; every other workflow retains exact `environment.yml` version
 equality. This does not change the selected runtime or preparation behavior.
 
-Four originally planned additions remain absent from the repository: the model
-worker, the adopted `requirements-q2-reference-v0.lock`, the adopted
-`profiles/q2_reference_model_files_v0.json`, and the original-capture schema.
-The preparation workflow produces candidate versions of the lock and model map
-as artifacts only. They must be reviewed against actual downloaded bytes and
-adopted before native qualification and the scored capture are implemented and
-accepted. No placeholder hashes or fabricated successful runtime records stand
-in for those files. The rest of 6.6 remains open, including capture, extraction,
-artifact/run binding and the existing reducer/checker handoff.
+At the preparation-only merge (#2894), four planned additions were still absent:
+the model worker, adopted lock, adopted model-file map and original-capture
+schema. Section 8 now adopts the two input-pin files from the first actual
+preparation, retaining their original candidate records separately. The model
+worker and original-capture schema remain absent. The preparation workflow
+continues to emit candidates, not automatic adoptions. Native qualification,
+capture, extraction, artifact/run binding and the reducer/checker handoff remain
+open; input adoption does not authorize a scored acquisition.
 
 ### 7.2 What the preparation actually does
 
@@ -979,17 +978,19 @@ that manual materialization or for the later native qualification.
 
 ### 7.4 Regression and authority boundary
 
-The new permanently registered
+The permanently registered
 [offline protocol test](../../tests/test_q2_reference_acquisition_v0.py) uses
-explicitly synthetic model/wheel bytes and synthetic source/run fixtures. It
+explicitly synthetic model/wheel bytes and synthetic source/run fixtures for
+its protocol tests. Section 8 adds separate regressions over the small original
+preparation metadata records; it does not stage real model/wheel payloads in CI. It
 tests the separate reconstruction, closed inventory, fixed source/run binding,
 malformed input, rehashed substitutions, no-inference CLI boundary and workflow
 scope. Synthetic expectations are confined to tests and are not selectable
 through a production CLI option. PR/push tests never download real weights or
 run a model. Test success is not evidence of a native preparation run.
 
-The current manifest changes from 156 to 157 programs. All original entries
-remain in their original order, and all three count-sensitive checks are updated
+At #2894, the manifest changed from 156 to 157 programs. All original entries
+remain in their original order, and all three count-sensitive checks were updated
 together without weakening registration or uniqueness. The new workflow and
 tools are classified by exact path as non-authorizing preparation carriers.
 
@@ -997,3 +998,127 @@ No current production policy, unsupported set, existing Q2 reduction/checking
 source, Step 5C source pin, README, DOI identity or publication record changes.
 All nineteen required gates and thirteen unsupported-gate rejections remain.
 #2879 stays open; this implementation is not Step 5C reference acceptance.
+
+## 8. Recorded runtime-input adoption — no native qualification
+
+### 8.1 Actual preparation and retained evidence
+
+The first owner-dispatched preparation, run `37148637546`, attempt `1`, used
+source commit `77fc5d51896568db50a2a87f650711a65db8fe8c` on `main`. The retained
+context identifies Ubuntu 24.04 x86_64, CPython 3.11.16 and runner image
+`20260927.320.1`. Its separate checker reports byte verification and offline
+dependency resolution with pip `26.2.1`; it reports no installation or inference.
+
+The original artifact is `q2-runtime-preparation-37148637546-1`,
+ID `11282419957`, size `508460811` bytes, SHA-256:
+
+```text
+b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9
+```
+
+The original preparation record SHA-256 is:
+
+```text
+832b3626e846c96e5d65052ea54c966aabf0ed5f3976ecc5d3b4a3ced006ef4f
+```
+
+Four original small records are retained under
+[`PULSE_safe_pack_v0/examples/q2_runtime_preparation_v0/run_37148637546/`](../../PULSE_safe_pack_v0/examples/q2_runtime_preparation_v0/run_37148637546/):
+`preparation.json`, `q2-runtime-preparation-check.json`,
+`q2_reference_model_files_v0.json` and `requirements-q2-reference-v0.lock`.
+
+Original candidate records remain byte-for-byte unchanged. In particular, their
+`adopted: false`, `staged_review_candidate` and negative qualification/authority
+fields describe the preparation event and are not rewritten retroactively.
+These are real run metadata, not synthetic model-output fixtures.
+
+The four records are a **metadata excerpt**, not the complete runtime bundle.
+The original artifact also contains all model files, wheel files, upstream
+metadata and source snapshots; none of those payloads is copied into this
+repository change. Preserve the original artifact separately. The excerpt
+cannot replace a future complete-byte check or make unavailable payloads usable.
+
+### 8.2 Exact repository input pins
+
+The reviewed input baseline consists of:
+
+- [`PULSE_safe_pack_v0/requirements-q2-reference-v0.lock`](../../PULSE_safe_pack_v0/requirements-q2-reference-v0.lock):
+  30 exact wheel entries, one version and one SHA-256 per distribution, including
+  the selected CPU Torch wheel. All requirement-entry bytes are unchanged from
+  the recorded candidate; only the explanatory first comment is updated.
+- [`PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json`](../../PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json):
+  the same eight model/tokenizer files for `HuggingFaceTB/SmolLM2-135M-Instruct`,
+  revision `12fd25f77366fa6b3b4b768ec3050bf629380bac`, with unchanged file sizes,
+  SHA-256 values and upstream Git/LFS identities.
+
+The repository model map is a derived `q2_reference_model_files_v0` record.
+Relative to the original candidate, only `record_type`, `adopted` and the added
+`adoption` binding change. `adopted: true` means **reviewed repository input pins
+only**, represented by `adoption.scope: runtime_input_pins_only`; it is not a
+native-runtime, inference, capture or release verdict. The map retains
+`native_runtime_qualified: false` and `authority_effect: none`.
+
+The closed `adoption` object binds the preparation repository/source/workflow,
+run ID and attempt, target, original artifact ID/name/size/digest, each of the
+four original records by path/size/SHA-256, and the repository lock by its exact
+path/size/SHA-256. The source commit here identifies the **preparation**, not the
+future consumer's source commit. A later worker/capture must bind its own source
+separately and preserve this input provenance instead of rebinding the old run.
+
+The preparation/checker code and its existing source list are unchanged.
+The original candidate map is still the format those preparation commands
+produce/check. The derived repository map is not passed in place of that
+candidate. No existing runtime command consumes `adopted` as permission.
+
+The four root versions remain `torch==2.8.0+cpu`, `transformers==4.57.6`,
+`rfc8785==0.1.4` and `jsonschema==4.25.1`. No transitive package is re-resolved,
+upgraded or replaced during adoption. These are the wheel identities captured
+in the recorded preparation, not a claim that any future resolver selects them.
+
+### 8.3 Review and regression scope
+
+The original archive digest was recomputed and matched to the Actions artifact
+digest. Its 78 entries comprise 76 manifest-listed payload files plus the
+preparation and separate-check records. Every listed file size and SHA-256 was
+checked against its actual archived bytes. The three separately supplied
+inputs and separate checker record matched their archived copies.
+
+The review also reconciled the eight model files with retained Git/LFS metadata,
+the selected BOS/EOS/PAD IDs with the actual configuration/tokenizer records,
+and all 30 wheel identities with their internal metadata and retained upstream
+records. Target Python requirements and active base dependencies were inspected.
+This is a byte/metadata review; it does not install or execute the libraries,
+qualify model imports, measure generation timing or prove network isolation.
+
+The existing registered Q2 offline program now locks the original record hashes
+and the exact candidate-to-repository transformation. Mutations cover missing
+records, changed/rehashed evidence, lock entries and hashes, model file identity,
+source/run/artifact rebinding and attempted authority promotion. The original
+protocol cases remain. The earlier test requiring both pin files to be absent
+now requires the exact reviewed adoption while retaining its no-workflow-write
+and no-permission-expansion assertions. No manifest entry or count changes.
+Tests over metadata do not stand in for the complete archive-byte review.
+
+The change touches nine repository paths: two input-pin additions, four
+unaltered original metadata records, the existing Q2 test program, this document
+and the changelog. No workflow, producer/checker source, inventory classifier,
+test manifest, core dependency set, policy, registry, Step 5C pin or DOI changes.
+
+### 8.4 Next boundary
+
+This adoption supplies the concrete lock and model-file map listed in 6.6.
+Next implement native runtime qualification and the selected worker/capture
+path against these exact inputs. Before using any payload, recheck the complete
+bundle and the adopted pins. The existing preparation and separate checker
+remain the basis for that staged-byte verification; adoption is not a bypass.
+
+The qualification/capture implementation must still establish its own source
+identity, installed runtime, verified local model loading, actual network
+isolation and finite operating bounds. Scored acquisition remains separately
+owner-authorized and must retain all 150 predeclared slots and original outputs.
+No scored calls or unrecorded viability trial are performed by this change.
+
+The metadata pins do not provide malicious-platform resistance or replace the
+separate checker. No additional validating person or organization is required.
+All 19 required gates and all 13 unsupported-gate rejections remain unchanged.
+No production Q2 admission or Step 5C/5D/6/7 acceptance is claimed. Keep #2879 open.

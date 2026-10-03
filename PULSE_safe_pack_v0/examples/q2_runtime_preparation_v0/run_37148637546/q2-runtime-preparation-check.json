@@ -1,0 +1,17 @@
+{
+  "authority_effect": "none",
+  "candidate_bytes_verified": true,
+  "capture_dispatch_authorized": false,
+  "dependency_closure_status": "staged_review_candidate",
+  "inference_executed": false,
+  "installation_performed": false,
+  "materialized_subject_bound": false,
+  "native_runtime_qualified": false,
+  "offline_dependency_resolution_checked": true,
+  "pip_version": "26.2.1",
+  "preparation_sha256": "832b3626e846c96e5d65052ea54c966aabf0ed5f3976ecc5d3b4a3ced006ef4f",
+  "production_gate_eligible": false,
+  "record_type": "q2_prepared_runtime_check_v0",
+  "run_id": "37148637546",
+  "source_commit": "77fc5d51896568db50a2a87f650711a65db8fe8c"
+}
