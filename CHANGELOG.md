@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Specify RFC 8785 JCS for the Q2 request and selected-definition hashes in
+  #2893, including exact numeric serialization. Regenerate all 50 request
+  digests, their 150 occurrence references, the definition digest and the
+  whole-workload file binding together. Keep prompts, call order and numeric
+  generation settings unchanged. Retain BOS 1, as declared by the pinned
+  Instruct model/generation configurations; do not replace it with BOS 0.
+  This fixes the selection contract only, without runtime or gate activation.
 - Fix both Q2 reference-readiness review blockers under #2890. Update the
   three current tools-manifest count regressions from 155 to 156 without
   weakening uniqueness, order or exact-registration checks. Validate manifest

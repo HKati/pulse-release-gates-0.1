@@ -571,7 +571,7 @@ The selection record carries a canonical `release_subject.definition` whose
 SHA-256 is:
 
 ```text
-c163462cad02f72ff78804f9032552be4b38cd7f5825690e44c7f2461831acbf
+688773b81fcf4f105b8770bc2dde9a68baf78aa76224e5c544cd0656109b07a5
 ```
 
 This digest identifies the selected model/configuration/interface definition.
@@ -620,7 +620,7 @@ attempts_per_call: 1
 retries: 0
 batch_size: 1
 workload_file_sha256:
-  663cb10b193830296626ba0bbc668d2f8774e844f2ec80d5f1592cd5a7186cc7
+  fa0412c6a702e220e5d0c8b09a5e854fe35ac89d4801977eeee0f2a6e5cae997
 ```
 
 The dataset sampling seed does not claim that random case selection occurred:
@@ -631,10 +631,33 @@ run by splicing captures, or tune requests after observing their results.
 A changed model, workload or behavior-affecting setting requires a new selected
 revision and retains the earlier acquisition/result as a distinct record.
 
-The exact request digest uses UTF-8 JSON, sorted keys, compact separators,
-`ensure_ascii=false`, no non-finite values and no trailing newline. File digests
-instead identify the complete committed file bytes, including its final newline.
-The selection pins the workload file digest independently of eventual answers.
+Both `request_hash_encoding` and `definition_hash_encoding` select the same
+canonicalization profile: **RFC 8785 JSON Canonicalization Scheme (JCS)**.
+A request hash covers only the corresponding `groups[i].request` object;
+`definition_sha256` covers only `release_subject.definition`, not its sibling
+hash/encoding fields. Each digest is lowercase SHA-256 of the UTF-8 JCS bytes,
+without a BOM or final newline. See [RFC 8785](https://www.rfc-editor.org/rfc/rfc8785).
+
+Apply JCS recursively, including its ECMAScript/IEEE-754 binary64 number
+serialization and unsigned UTF-16 property-name ordering. Preserve array order
+and string content without Unicode normalization. Reject duplicate property
+names, invalid Unicode, NaN and infinities. A plain sorted compact JSON encoder
+is not sufficient unless it implements these same rules.
+
+For example, `1`, `1.0` and `1e0` serialize as `1`; `-0.0` serializes as `0`.
+The stored penalty settings may retain their `1.0` spelling, but canonical
+hash input contains `1`. This changes byte representation, not the selected
+numeric generation values. Producer and separately implemented checker must
+use this same profile and verify common canonical byte/hash test vectors.
+
+File digests are different: `request_source.sha256` identifies the complete
+committed `requests.json` bytes, including its final newline, without JCS
+reserialization. Per-request hashes, all 150 occurrence references, the
+selected-definition hash and the whole-workload file hash are updated together.
+The selection pins that file digest independently of eventual answers.
+This profile applies only to the selected-definition and per-request digests;
+the existing Q2 answer-input/summary serialization, reducer/checker and
+preserved carriers are unchanged.
 
 This narrow exact-repeat/greedy profile measures agreement, not extraction
 accuracy or robustness to sampling or paraphrases. Consistently wrong or
@@ -670,8 +693,12 @@ state and no carried conversation or past-key-value cache. In-request caching
 may be used; cross-request answer or state reuse is forbidden. All calls use
 the same explicit greedy configuration in the workload: one beam, one returned
 sequence, maximum 32 new tokens and the model's selected token IDs (BOS 1,
-EOS/PAD 2). Capture the effective configuration rather than inheriting unseen
-behavioral overrides from a service or a changed generation configuration.
+EOS/PAD 2). At this exact Instruct revision, both `config.json` and
+`generation_config.json` declare BOS 1; `tokenizer_config.json` maps the BOS
+`<|im_start|>` token to ID 1. Keep that selected value. The staged files must
+be checked before execution; a different token configuration is not an
+implicit override. Capture the effective configuration rather than inheriting
+unseen behavioral overrides from a service or a changed generation configuration.
 
 Every returned occurrence must retain the exact input IDs, new output token IDs
 and full decoded continuation, with stop reason and its source/run/call binding.
@@ -778,8 +805,11 @@ remain the later separate integration, not an omitted part of this inventory.
 The next regression contract covers original-input replay; exact model/request
 and source mismatches; missing/duplicate/cross-run occurrences; attempted retries;
 exception/timeout versus completed-but-unextractable output; token/text and
-extraction substitution; rehashed tampering against separately fixed
-expectations; correct metric FAIL; and retained rejection at production intake.
+extraction substitution; staged Instruct BOS/EOS/PAD token identity; RFC 8785
+canonical byte/hash vectors for requests and definitions (including `1.0`
+versus `1`, negative zero, Unicode ordering and malformed JSON); rehashed
+tampering against separately fixed expectations; correct metric FAIL; and
+retained rejection at production intake.
 Do not count synthetic worker tests as actual model execution.
 
 Current exit condition: the concrete subject definition and full request/call
@@ -798,6 +828,7 @@ selection, not external validating authorities:
 - [Fixed weights identity](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/12fd25f77366fa6b3b4b768ec3050bf629380bac/model.safetensors)
 - [Model card and documented CPU use](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct)
 - [Selected model configuration](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/12fd25f77366fa6b3b4b768ec3050bf629380bac/config.json)
+- [Selected generation configuration](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/12fd25f77366fa6b3b4b768ec3050bf629380bac/generation_config.json)
 - [Selected tokenizer configuration](https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/12fd25f77366fa6b3b4b768ec3050bf629380bac/tokenizer_config.json)
 - [Transformers 4.57.6 distribution](https://pypi.org/project/transformers/4.57.6/)
 - [PyTorch versioned CPU installations](https://pytorch.org/get-started/previous-versions/)

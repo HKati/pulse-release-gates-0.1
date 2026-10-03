@@ -7,7 +7,8 @@
     "subject_id": "pulsemech-q2-field-extractor-v0",
     "scope": "owner_operated_minimal_reference_application",
     "identity_kind": "selected_definition_not_materialized_release_artifact",
-    "definition_sha256": "c163462cad02f72ff78804f9032552be4b38cd7f5825690e44c7f2461831acbf",
+    "definition_hash_encoding": "RFC 8785 JCS; UTF-8; no BOM; no final newline; SHA-256 lowercase hex",
+    "definition_sha256": "688773b81fcf4f105b8770bc2dde9a68baf78aa76224e5c544cd0656109b07a5",
     "definition": {
       "subject_id": "pulsemech-q2-field-extractor-v0",
       "implementation_kind": "single_offline_transformers_generate_path",
@@ -106,7 +107,7 @@
   },
   "request_source": {
     "path": "PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json",
-    "sha256": "663cb10b193830296626ba0bbc668d2f8774e844f2ec80d5f1592cd5a7186cc7",
+    "sha256": "fa0412c6a702e220e5d0c8b09a5e854fe35ac89d4801977eeee0f2a6e5cae997",
     "selection": "all_groups_in_recorded_order_no_outcome_based_selection",
     "data_origin": "authored_controlled_inputs",
     "publication_scope": "the_authored_inputs_only_no_credentials_or_personal_records"
@@ -230,6 +231,7 @@
     "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/tree/12fd25f77366fa6b3b4b768ec3050bf629380bac",
     "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/12fd25f77366fa6b3b4b768ec3050bf629380bac/model.safetensors",
     "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/12fd25f77366fa6b3b4b768ec3050bf629380bac/config.json",
+    "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/12fd25f77366fa6b3b4b768ec3050bf629380bac/generation_config.json",
     "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/12fd25f77366fa6b3b4b768ec3050bf629380bac/tokenizer_config.json",
     "https://pypi.org/project/transformers/4.57.6/",
     "https://pytorch.org/get-started/previous-versions/#v2-8-0",
