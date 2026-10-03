@@ -856,10 +856,18 @@ model revision, fifty requests and 150 call slots remain byte-for-byte unchanged
 
 This phase is necessary to obtain the actual model and dependency bytes before
 committing the planned complete lock and model-file map. It is a bounded
-preparation step within 6.6, not a replacement acquisition design. This change
-contains twelve repository paths: the two tools, workflow, one offline test
-program, the inventory classifier and its test, the test manifest, the three
-current-count regressions, this document and the changelog.
+preparation step within 6.6, with the required repository-hygiene integration,
+not a replacement acquisition design. This change contains thirteen repository
+paths: the two tools, preparation workflow, one offline test program, the
+inventory classifier and its test, the test manifest, the three current-count
+regressions, this document, the changelog, and
+[the repository-hygiene workflow](../../.github/workflows/repo_hygiene.yml).
+
+The hygiene guard requires every pinned workflow to exist as a regular file at
+its exact path before scanning version declarations; a missing, renamed or
+symlinked file is rejected. Q2 must declare `3.11.16` exactly once on the shared
+`3.11` line; every other workflow retains exact `environment.yml` version
+equality. This does not change the selected runtime or preparation behavior.
 
 Four originally planned additions remain absent from the repository: the model
 worker, the adopted `requirements-q2-reference-v0.lock`, the adopted

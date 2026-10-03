@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Address the #2894 hygiene and preparation-inventory review findings.
+  Require every pinned workflow to exist as a regular file at its exact path
+  before scanning Python declarations; reject missing, renamed or symlinked
+  paths. Exercise the actual guard in offline regressions and record all
+  thirteen preparation paths, including `.github/workflows/repo_hygiene.yml`,
+  in the readiness document. Preserve exact version checks, the selected
+  runtime, preparation behavior and the non-authorizing boundary.
 - Reconcile the Q2 preparation workflow's exact Python 3.11.16 pin with
   the repository's Python 3.11 line in the hygiene guard. Require that exact
   pin once at the declared Q2 workflow path; retain exact environment.yml

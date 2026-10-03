@@ -514,7 +514,7 @@ def _run_hygiene_python_sync(tmp_path, *, core_version='3.11', q2_text=None,
     """Execute the actual workflow guard, not a test-side copy of its policy."""
     (tmp_path / 'environment.yml').write_text(environment)
     workflows = tmp_path / '.github/workflows'
-    workflows.mkdir(parents=True)
+    workflows.mkdir(parents=True, exist_ok=True)
     core = {'name': 'synthetic core workflow', 'jobs': {'check': {'steps': [
         {'uses': 'actions/setup-python@synthetic', 'with': {'python-version': core_version}}
     ]}}}
@@ -537,9 +537,56 @@ def test_hygiene_accepts_core_line_and_exact_selected_q2_patch(tmp_path):
     assert 'exact patch pins verified' in result.stdout
 
 
-def test_hygiene_preserves_core_only_version_check(tmp_path):
+def test_hygiene_rejects_missing_pinned_workflow(tmp_path):
     result = _run_hygiene_python_sync(tmp_path)
-    assert result.returncode == 0, result.stdout + result.stderr
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert A.WORKFLOW in result.stdout
+    assert 'Pinned workflow must exist as a regular file at its exact path.' in result.stdout
+    assert 'exact patch pins verified' not in result.stdout
+
+
+@pytest.mark.parametrize('renamed', [
+    'other.yml', 'Q2_reference_acquisition_v0.yml',
+    'q2_reference_acquisition_v0.yaml', 'q2_reference_acquisition_v0.yml.disabled',
+])
+def test_hygiene_rejects_renamed_pinned_workflow_even_with_core_version(tmp_path, renamed):
+    # The alias otherwise satisfies the generic 3.11 rule; failure must be
+    # caused by the missing exact path, not by an unrelated version mismatch.
+    text = _q2_workflow_text().replace("python-version: '3.11.16'", "python-version: '3.11'")
+    result = _run_hygiene_python_sync(tmp_path, extra_workflows={renamed: text})
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert A.WORKFLOW in result.stdout
+    assert 'Pinned workflow must exist as a regular file at its exact path.' in result.stdout
+    assert 'exact patch pins verified' not in result.stdout
+    assert 'Python version drift detected' not in result.stdout
+
+
+@pytest.mark.parametrize('kind', ['directory', 'symlink', 'dangling_symlink'])
+def test_hygiene_rejects_non_regular_pinned_workflow(tmp_path, kind):
+    pinned = tmp_path / A.WORKFLOW
+    pinned.parent.mkdir(parents=True)
+    if kind == 'directory':
+        pinned.mkdir()
+    else:
+        target = tmp_path / 'synthetic-workflow.txt'
+        if kind == 'symlink':
+            target.write_text(_q2_workflow_text(), encoding='utf-8')
+        pinned.symlink_to(target)
+    result = _run_hygiene_python_sync(tmp_path)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert A.WORKFLOW in result.stdout
+    assert 'Pinned workflow must exist as a regular file at its exact path.' in result.stdout
+    assert 'exact patch pins verified' not in result.stdout
+    assert 'Traceback' not in result.stderr
+
+
+def test_readiness_preparation_inventory_includes_hygiene_workflow():
+    text = (ROOT / 'docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md').read_text(encoding='utf-8')
+    section = text.split('### 7.1 Executable subset and unresolved byte inputs\n', 1)[1]
+    section = section.split('### 7.2 What the preparation actually does', 1)[0]
+    assert 'This change contains thirteen repository\npaths:' in section
+    assert '[the repository-hygiene workflow](../../.github/workflows/repo_hygiene.yml)' in section
+    assert 'contains twelve repository paths' not in section
 
 
 @pytest.mark.parametrize('version', [
