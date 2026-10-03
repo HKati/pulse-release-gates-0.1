@@ -102,6 +102,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   transfer does not declare correction acceptance or reference readiness.
 
 ### Added
+- Implement the preparation-only subset of the selected Q2 acquisition path
+  under #2879: owner-dispatched staging of fixed model bytes and CPU wheel
+  candidates, exact source/run/file bindings, and a separately implemented
+  checker with offline hash-locked dependency resolution. Preserve candidate
+  lock/model maps as Actions artifacts for review, not fabricated repository
+  inputs. Register the offline protocol regression and exact-path inventory
+  classification; reconcile all three current-manifest counts to 157 while
+  retaining the original 156 entries. No model worker, installed-runtime
+  qualification, scored capture, Q2 admission or Step 5C acceptance is claimed.
 - Select the owner-operated Q2 field-extraction reference under #2879.
   Fix the SmolLM2-135M-Instruct revision and upstream expected weights digest,
   CPU runtime targets, 50 authored requests and 150 separately identified call

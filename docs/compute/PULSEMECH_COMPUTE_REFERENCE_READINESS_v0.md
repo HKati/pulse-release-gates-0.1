@@ -348,6 +348,8 @@ q2_input_acquisition_contract: defined_in_this_section
 q2_evaluation_subject_selection: reference_definition_fixed_in_section_6
 q2_materialized_reference_subject_binding: not_established
 q2_reference_runtime_qualified: false
+q2_runtime_byte_preparation_implementation: implemented_in_section_7
+q2_runtime_preparation_actual_run: not_recorded
 q2_reference_dispatch_ready: false
 q2_admissible_release_input: not_established
 q2_current_run_release_recipe: not_registered
@@ -521,6 +523,10 @@ qualified runtime bytes, actual acquisition and production admission remain
 unestablished; the selection must not hide those distinct states.
 
 ## 6. Selected owner-operated reference: field extraction v0
+
+Sections 6.1–6.7 preserve the #2893 selection milestone. Section 7 records
+the subsequently implemented runtime-byte preparation phase; it does not
+retroactively label the selection change as executed acquisition.
 
 ### 6.1 Decision and present change boundary
 
@@ -833,3 +839,153 @@ selection, not external validating authorities:
 - [Transformers 4.57.6 distribution](https://pypi.org/project/transformers/4.57.6/)
 - [PyTorch versioned CPU installations](https://pytorch.org/get-started/previous-versions/)
 - [GitHub standard runner definitions](https://docs.github.com/en/actions/reference/runners/github-hosted-runners)
+
+
+## 7. Runtime-byte preparation implementation — no inference
+
+### 7.1 Executable subset and unresolved byte inputs
+
+The first executable subset of the sixteen-path inventory in 6.6 is now
+implemented: `prepare-runtime` in
+[the acquisition tool](../../PULSE_safe_pack_v0/tools/acquire_q2_reference_inputs_v0.py),
+`verify-prepared-runtime` in
+[the separate checker](../../PULSE_safe_pack_v0/tools/check_q2_reference_capture_v0.py),
+and [the owner-dispatched preparation workflow](../../.github/workflows/q2_reference_acquisition_v0.yml).
+The capture subcommand deliberately does not exist in either tool. The selection,
+model revision, fifty requests and 150 call slots remain byte-for-byte unchanged.
+
+This phase is necessary to obtain the actual model and dependency bytes before
+committing the planned complete lock and model-file map. It is a bounded
+preparation step within 6.6, not a replacement acquisition design. This change
+contains twelve repository paths: the two tools, workflow, one offline test
+program, the inventory classifier and its test, the test manifest, the three
+current-count regressions, this document and the changelog.
+
+Four originally planned additions remain absent from the repository: the model
+worker, the adopted `requirements-q2-reference-v0.lock`, the adopted
+`profiles/q2_reference_model_files_v0.json`, and the original-capture schema.
+The preparation workflow produces candidate versions of the lock and model map
+as artifacts only. They must be reviewed against actual downloaded bytes and
+adopted before native qualification and the scored capture are implemented and
+accepted. No placeholder hashes or fabricated successful runtime records stand
+in for those files. The rest of 6.6 remains open, including capture, extraction,
+artifact/run binding and the existing reducer/checker handoff.
+
+### 7.2 What the preparation actually does
+
+The workflow accepts an exact reviewed `main` SHA and an explicit preparation
+confirmation, and requires an owner-originated first-attempt manual dispatch.
+It checks dispatch/workflow/checkout identity and requires the selected Ubuntu
+24.04 x86_64 / CPython 3.11.16 target before the producer contacts upstream
+services. A mismatched source, platform or target version is rejected; no
+floating version or alternative-model fallback is implemented.
+
+The producer stages exactly the eight selected snapshot files. It preserves
+fixed-revision upstream file metadata and compares actual file bytes with their
+upstream Git-blob or LFS identity, including the previously selected weights
+SHA-256. Model, generation and tokenizer BOS/EOS/PAD declarations are checked
+from the staged files. It does not load the model, tokenizer classes or weights.
+
+The selected CPU PyTorch wheel is taken only from the explicit CPU index and
+checked against its index SHA-256. The other wheels are resolved from PyPI;
+source distributions and build backends are excluded. Direct-URL dependency
+requirements and unselected GPU/extra Torch distributions are rejected before
+candidate acceptance. Each resolved wheel is independently matched to its
+versioned upstream distribution metadata and actual SHA-256.
+
+The root requirements are `torch==2.8.0+cpu`, `transformers==4.57.6`,
+`rfc8785==0.1.4` and `jsonschema==4.25.1`. The last two are explicitly selected
+support libraries for the already declared JCS profile and existing Q2 schema
+validation; they do not alter the model/generation definition. Their transitive
+closure is resolved into one-version/one-wheel, hash-pinned candidate entries.
+The resolver tool itself is part of the runner/bootstrap trust boundary, not a
+qualified model-runtime claim. The separate checker records its actual pip
+version when performing offline resolution.
+
+The producer and checker use standard-library code only. The checker does not
+import or call the producer. It independently reconstructs the model-file map
+and lock; checks all file hashes, exact source snapshots and caller-supplied
+source/run/preparation expectations; rejects extra, missing, linked or replaced
+files; and runs pip with `--dry-run --ignore-installed --no-index --require-hashes`
+against only the staged wheel directory. This checks dependency closure and
+native wheel selection without installing or importing the staged libraries.
+The input is checked again after resolver inspection.
+
+The workflow fixes `preparation.json`'s exact digest before this separate check.
+That hash is a byte binding, not an independently authenticated inference proof.
+The source and platform remain trusted as declared in 6.5. This phase does not
+claim malicious-platform resistance or perform the later network-isolated
+capture. Setup downloads are allowed; the later capture worker must still have
+actual network isolation, not merely offline environment variables.
+
+The existing JCS request/definition digests are preserved, not replaced with a
+new serializer. This preparer accepts only the exact already reviewed selection
+and workload bytes. Its own preparation files use a separately specified exact
+UTF-8, sorted-key, two-space-indented JSON file representation with a final
+newline. The full-file digest, not a claim of generic JCS serialization, binds
+those preparation files.
+
+### 7.3 Outputs, limits and next handoff
+
+After producer and checker success, preserve exactly one Actions artifact named
+`q2-runtime-preparation-<run-id>-1`. It contains the complete model files,
+wheel directory, original upstream metadata, fixed source snapshots, the two
+candidate identity/lock files, `preparation.json` and the separate check result.
+The artifact ID, artifact digest and preparation digest are exposed in the job
+summary. Only the exact verified directory and check result are uploaded; the
+private resolver logs and raw environment are excluded. Hidden files are enabled
+only to retain the verified `source/.github/workflows/` source snapshot.
+
+The source code, controlled requests, model files and public distribution
+metadata are the preparation publication scope. There are no generated model
+responses in this phase. The response-retention/publication review required by
+6.5 remains necessary before any later scored capture. Nothing is automatically
+committed, tagged, deployed or sent to Zenodo.
+
+The manual job retains the selected forty-minute bound. Preparation has an
+1800-second application deadline, bounded HTTP reads, no transport retry loop,
+a 64-wheel limit, per-file/metadata limits and a 1.5 GiB candidate-byte ceiling.
+The offline resolver has a 180-second bound. Existing PULSE CI and Step 5C time
+budgets are unchanged. Failure creates no accepted candidate or fallback PASS;
+the workflow does not publish an incomplete output as a verified artifact.
+
+Successful preparation establishes only a source/run-bound, byte-verified
+candidate dependency/model inventory and offline dependency resolution. It does
+not establish installation, native model compatibility, generation timing,
+network-isolated inference, a materialized release subject or Q2 admission.
+All of the following remain false:
+
+```text
+inference_executed
+native_runtime_qualified
+materialized_subject_bound
+capture_dispatch_authorized
+production_gate_eligible
+```
+
+After the source PR is reviewed, its CI passes and it is merged, the owner may
+start this preparation-only workflow against that exact merged source. Review
+the returned artifact before adopting its lock/map and continuing the remaining
+worker/capture/extraction implementation. Do not substitute a PR CI success for
+that manual materialization or for the later native qualification.
+
+### 7.4 Regression and authority boundary
+
+The new permanently registered
+[offline protocol test](../../tests/test_q2_reference_acquisition_v0.py) uses
+explicitly synthetic model/wheel bytes and synthetic source/run fixtures. It
+tests the separate reconstruction, closed inventory, fixed source/run binding,
+malformed input, rehashed substitutions, no-inference CLI boundary and workflow
+scope. Synthetic expectations are confined to tests and are not selectable
+through a production CLI option. PR/push tests never download real weights or
+run a model. Test success is not evidence of a native preparation run.
+
+The current manifest changes from 156 to 157 programs. All original entries
+remain in their original order, and all three count-sensitive checks are updated
+together without weakening registration or uniqueness. The new workflow and
+tools are classified by exact path as non-authorizing preparation carriers.
+
+No current production policy, unsupported set, existing Q2 reduction/checking
+source, Step 5C source pin, README, DOI identity or publication record changes.
+All nineteen required gates and thirteen unsupported-gate rejections remain.
+#2879 stays open; this implementation is not Step 5C reference acceptance.
