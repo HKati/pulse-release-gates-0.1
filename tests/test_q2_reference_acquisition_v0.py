@@ -497,5 +497,128 @@ def test_preparation_has_no_repository_write_or_auto_adoption():
     assert not (ROOT / 'PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json').exists()
 
 
+def _hygiene_python_sync_script():
+    workflow = yaml.safe_load((ROOT / '.github/workflows/repo_hygiene.yml').read_text())
+    steps = workflow['jobs']['hygiene_guardrails']['steps']
+    matches = [step['run'] for step in steps if step.get('name') ==
+               'Repo hygiene: enforce Python version sync (environment.yml vs workflows)']
+    assert len(matches) == 1
+    prefix, script = matches[0].split("python3 - <<'PY'\n", 1)
+    assert prefix.strip() == 'set -euo pipefail' and script.endswith('PY\n')
+    return script[:-3]
+
+
+def _run_hygiene_python_sync(tmp_path, *, core_version='3.11', q2_text=None,
+                             environment='dependencies: [python=3.11, pip]\n',
+                             extra_workflows=None):
+    """Execute the actual workflow guard, not a test-side copy of its policy."""
+    (tmp_path / 'environment.yml').write_text(environment)
+    workflows = tmp_path / '.github/workflows'
+    workflows.mkdir(parents=True)
+    core = {'name': 'synthetic core workflow', 'jobs': {'check': {'steps': [
+        {'uses': 'actions/setup-python@synthetic', 'with': {'python-version': core_version}}
+    ]}}}
+    (workflows / 'core.yml').write_text(yaml.safe_dump(core))
+    if q2_text is not None:
+        (workflows / 'q2_reference_acquisition_v0.yml').write_text(q2_text)
+    for name, content in (extra_workflows or {}).items():
+        (workflows / name).write_text(content)
+    return subprocess.run([sys.executable, '-I', '-c', _hygiene_python_sync_script()],
+                          cwd=tmp_path, capture_output=True, text=True, timeout=10)
+
+
+def _q2_workflow_text():
+    return (ROOT / A.WORKFLOW).read_text()
+
+
+def test_hygiene_accepts_core_line_and_exact_selected_q2_patch(tmp_path):
+    result = _run_hygiene_python_sync(tmp_path, q2_text=_q2_workflow_text())
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'exact patch pins verified' in result.stdout
+
+
+def test_hygiene_preserves_core_only_version_check(tmp_path):
+    result = _run_hygiene_python_sync(tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize('version', [
+    '3.11', '3.11.15', '3.11.17', '3.12.0', '3.110.16',
+    '3.11.16-rc1', '3.11.*', '${{ matrix.python }}',
+])
+def test_hygiene_rejects_q2_patch_drift_and_broader_selector(tmp_path, version):
+    original = "python-version: '3.11.16'"
+    text = _q2_workflow_text()
+    assert text.count(original) == 1
+    text = text.replace(original, f'python-version: {json.dumps(version)}')
+    result = _run_hygiene_python_sync(tmp_path, q2_text=text)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert 'q2_reference_acquisition_v0.yml' in result.stdout
+    assert '(expected 3.11.16)' in result.stdout
+
+
+@pytest.mark.parametrize('version', ['3.10', '3.12', '3.11.16', '3.11.17', '3.110', '3.11.*'])
+def test_hygiene_does_not_allow_patch_pins_in_other_workflows(tmp_path, version):
+    result = _run_hygiene_python_sync(tmp_path, core_version=version,
+                                     q2_text=_q2_workflow_text())
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert 'core.yml' in result.stdout and '(expected 3.11)' in result.stdout
+
+
+@pytest.mark.parametrize('replacement', [
+    '', "          python-version-file: '.python-version'\n",
+    "          python-version: '3.11.16'\n          python-version: '3.11.16'\n",
+    "          python-version: '3.11.16'\n          python-version: '3.11'\n",
+])
+def test_hygiene_rejects_missing_or_multiple_q2_declarations(tmp_path, replacement):
+    original = "          python-version: '3.11.16'\n"
+    text = _q2_workflow_text()
+    assert text.count(original) == 1
+    result = _run_hygiene_python_sync(tmp_path, q2_text=text.replace(original, replacement))
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert 'exactly one declaration of 3.11.16' in result.stdout
+
+
+@pytest.mark.parametrize('version', ['3.12', '3.11.16', '3.110'])
+def test_hygiene_requires_q2_patch_to_refine_the_core_line(tmp_path, version):
+    environment = f'dependencies: [python={version}, pip]\n'
+    result = _run_hygiene_python_sync(tmp_path, core_version=version,
+                                     environment=environment, q2_text=_q2_workflow_text())
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert 'a patch pin on environment.yml line' in result.stdout
+
+
+@pytest.mark.parametrize('name', [
+    'other.yml', 'Q2_reference_acquisition_v0.yml', 'q2_reference_acquisition_v0.yaml',
+])
+def test_hygiene_q2_patch_permission_is_exact_path_only(tmp_path, name):
+    result = _run_hygiene_python_sync(tmp_path, q2_text=_q2_workflow_text(),
+                                     extra_workflows={name: _q2_workflow_text()})
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert name in result.stdout and '(expected 3.11)' in result.stdout
+
+
+def test_hygiene_still_rejects_missing_environment_python(tmp_path):
+    result = _run_hygiene_python_sync(tmp_path, environment='dependencies: [pip]\n',
+                                     q2_text=_q2_workflow_text())
+    assert result.returncode == 1
+    assert 'No python=<version> dependency found in environment.yml' in result.stdout
+
+
+def test_q2_setup_keeps_exact_selection_before_preparation():
+    workflow = yaml.safe_load(_q2_workflow_text())
+    steps = workflow['jobs']['prepare']['steps']
+    setups = [(i, step) for i, step in enumerate(steps)
+              if step.get('uses', '').startswith('actions/setup-python@')]
+    assert len(setups) == 1
+    index, setup = setups[0]
+    selection = json.loads((ROOT / A.SELECTION).read_bytes())
+    assert setup['with']['python-version'] == '3.11.16'
+    assert setup['with']['python-version'] == selection['execution_protocol']['runtime_target']['python_target']
+    assert setup['with']['python-version'] == selection['release_subject']['definition']['runtime_target']['python_target']
+    preparation = [i for i, step in enumerate(steps) if 'prepare-runtime' in step.get('run', '')]
+    assert len(preparation) == 1 and index < preparation[0]
+
+
 if __name__ == '__main__':
     raise SystemExit(pytest.main(['-q','-c',os.devnull,str(Path(__file__).resolve())]))

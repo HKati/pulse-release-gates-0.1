@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Reconcile the Q2 preparation workflow's exact Python 3.11.16 pin with
+  the repository's Python 3.11 line in the hygiene guard. Require that exact
+  pin once at the declared Q2 workflow path; retain exact environment.yml
+  equality for every other workflow. Add offline regressions against the
+  actual hygiene step, including wrong, missing, duplicate and broadened pins.
+  Keep the selected runtime, acquisition workflow and runtime guards unchanged.
 - Specify RFC 8785 JCS for the Q2 request and selected-definition hashes in
   #2893, including exact numeric serialization. Regenerate all 50 request
   digests, their 150 occurrence references, the definition digest and the
