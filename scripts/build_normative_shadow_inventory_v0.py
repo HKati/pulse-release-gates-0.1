@@ -122,6 +122,42 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             ),
         )
 
+    if rel == ".github/workflows/q2_reference_acquisition_v0.yml":
+        return entry(
+            name=name,
+            path=rel,
+            surface_type="workflow",
+            primary_role="non-active Q2 runtime preparation workflow",
+            carrier_class="diagnostic_shadow",
+            authority_impacting="no",
+            authority_boundary=(
+                "Owner-dispatched staging of selected model bytes and a CPU "
+                "wheel-lock review candidate. Separate checking verifies file "
+                "bindings and offline dependency resolution only; it is not "
+                "model execution, native qualification or release admission."
+            ),
+            reads_artifacts=[
+                "exact reviewed main source and selected Q2 workload bytes",
+                "immutable model snapshot and upstream wheel metadata",
+            ],
+            writes_artifacts=[
+                "model-file identity map and complete staged wheel candidates",
+                "exact source/run-bound preparation manifest",
+                "separate prepared-runtime checker result",
+            ],
+            publishes_artifacts=["verified Q2 runtime preparation review candidate"],
+            required_gate_participation=False,
+            attestation_participation=False,
+            release_path_participation=False,
+            notes=(
+                "Preparation phase only; no model calls on dispatch, PR or push. "
+                "The capture command is not implemented in this phase. "
+                "Candidate preservation does not adopt the lock, activate Q2, "
+                "qualify the runtime or establish Step 5C acceptance. "
+                "authority_effect = none."
+            ),
+        )
+
     if rel == (
         ".github/workflows/"
         "pulsemech_compute_post_run_producer_input_capture_v0.yml"
@@ -866,6 +902,30 @@ def static_authority_entries(repo_root: Path) -> list[dict[str, Any]]:
             authority_boundary="Repository change-control carrier",
         ),
     ]
+
+    candidates.extend([
+        entry(
+            name="Q2 runtime preparation producer",
+            path="PULSE_safe_pack_v0/tools/acquire_q2_reference_inputs_v0.py",
+            surface_type="tool",
+            primary_role="non-active Q2 runtime-byte preparation",
+            carrier_class="audit_preservation",
+            authority_impacting="no",
+            authority_boundary="Stages review candidates only; no inference or admission.",
+        ),
+        entry(
+            name="Q2 prepared-runtime separate checker",
+            path="PULSE_safe_pack_v0/tools/check_q2_reference_capture_v0.py",
+            surface_type="tool",
+            primary_role="separate Q2 prepared-runtime candidate verification",
+            carrier_class="audit_preservation",
+            authority_impacting="no",
+            authority_boundary=(
+                "Verifies fixed bytes and offline dependency resolution, "
+                "not actual inference, native model qualification or release authority."
+            ),
+        ),
+    ])
 
     existing: list[dict[str, Any]] = []
     for item in candidates:

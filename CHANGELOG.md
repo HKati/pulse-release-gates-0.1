@@ -7,6 +7,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Address the #2894 hygiene and preparation-inventory review findings.
+  Require every pinned workflow to exist as a regular file at its exact path
+  before scanning Python declarations; reject missing, renamed or symlinked
+  paths. Exercise the actual guard in offline regressions and record all
+  thirteen preparation paths, including `.github/workflows/repo_hygiene.yml`,
+  in the readiness document. Preserve exact version checks, the selected
+  runtime, preparation behavior and the non-authorizing boundary.
+- Reconcile the Q2 preparation workflow's exact Python 3.11.16 pin with
+  the repository's Python 3.11 line in the hygiene guard. Require that exact
+  pin once at the declared Q2 workflow path; retain exact environment.yml
+  equality for every other workflow. Add offline regressions against the
+  actual hygiene step, including wrong, missing, duplicate and broadened pins.
+  Keep the selected runtime, acquisition workflow and runtime guards unchanged.
 - Specify RFC 8785 JCS for the Q2 request and selected-definition hashes in
   #2893, including exact numeric serialization. Regenerate all 50 request
   digests, their 150 occurrence references, the definition digest and the
@@ -102,6 +115,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   transfer does not declare correction acceptance or reference readiness.
 
 ### Added
+- Implement the preparation-only subset of the selected Q2 acquisition path
+  under #2879: owner-dispatched staging of fixed model bytes and CPU wheel
+  candidates, exact source/run/file bindings, and a separately implemented
+  checker with offline hash-locked dependency resolution. Preserve candidate
+  lock/model maps as Actions artifacts for review, not fabricated repository
+  inputs. Register the offline protocol regression and exact-path inventory
+  classification; reconcile all three current-manifest counts to 157 while
+  retaining the original 156 entries. No model worker, installed-runtime
+  qualification, scored capture, Q2 admission or Step 5C acceptance is claimed.
 - Select the owner-operated Q2 field-extraction reference under #2879.
   Fix the SmolLM2-135M-Instruct revision and upstream expected weights digest,
   CPU runtime targets, 50 authored requests and 150 separately identified call
