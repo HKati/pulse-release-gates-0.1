@@ -1,0 +1,121 @@
+name: Q2 reference runtime preparation v0
+
+# Preparation only. No PR/push trigger, model import, generation or Q2 admission.
+on:
+  workflow_dispatch:
+    inputs:
+      expected_source_sha:
+        description: "Exact reviewed main commit (40 lowercase hex characters)"
+        required: true
+        type: string
+      confirm_preparation:
+        description: "Prepare model/wheel review candidates only; no model calls"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: q2-reference-preparation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.repository == 'HKati/pulse-release-gates-0.1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+      CONFIRM_PREPARATION: ${{ inputs.confirm_preparation }}
+    steps:
+      - name: Check owner and exact dispatch context
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_ACTOR" = HKati
+          test "$GITHUB_TRIGGERING_ACTOR" = HKati
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          test "$CONFIRM_PREPARATION" = true
+          [[ "$EXPECTED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$EXPECTED_SOURCE_SHA" = "$GITHUB_SHA"
+          test "$EXPECTED_SOURCE_SHA" = "$GITHUB_WORKFLOW_SHA"
+
+      - name: Checkout exact reviewed source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up selected Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11.16'
+
+      - name: Stage exact model files and CPU wheel candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -I PULSE_safe_pack_v0/tools/acquire_q2_reference_inputs_v0.py \
+            prepare-runtime \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --expected-source-sha "$EXPECTED_SOURCE_SHA" \
+            --output-dir "$RUNNER_TEMP/q2-runtime-preparation"
+
+      - name: Fix candidate digest before separate checking
+        id: binding
+        shell: bash
+        run: |
+          set -euo pipefail
+          digest="$(sha256sum "$RUNNER_TEMP/q2-runtime-preparation/preparation.json" | cut -d ' ' -f 1)"
+          [[ "$digest" =~ ^[0-9a-f]{64}$ ]]
+          printf 'preparation_sha256=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+          printf 'Candidate preparation SHA-256: `%s`\n' "$digest" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Independently verify bytes and resolve the lock offline
+        env:
+          EXPECTED_PREPARATION_SHA256: ${{ steps.binding.outputs.preparation_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -I PULSE_safe_pack_v0/tools/check_q2_reference_capture_v0.py \
+            verify-prepared-runtime \
+            --input-dir "$RUNNER_TEMP/q2-runtime-preparation" \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --expected-preparation-sha256 "$EXPECTED_PREPARATION_SHA256" \
+            --expected-source-sha "$EXPECTED_SOURCE_SHA" \
+            --expected-run-id "$GITHUB_RUN_ID" \
+            --output "$RUNNER_TEMP/q2-runtime-preparation-check.json"
+
+      - name: Preserve verified candidate for owner review
+        id: artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: q2-runtime-preparation-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/q2-runtime-preparation
+            ${{ runner.temp }}/q2-runtime-preparation-check.json
+          # The exact verified source closure includes source/.github/workflows/.
+          include-hidden-files: true
+          if-no-files-found: error
+          overwrite: false
+          compression-level: 0
+          retention-days: 30
+
+      - name: Record preparation boundary
+        env:
+          ARTIFACT_ID: ${{ steps.artifact.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.artifact.outputs.artifact-digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            printf '\nArtifact ID: `%s`\n' "$ARTIFACT_ID"
+            printf 'Artifact digest: `%s`\n' "$ARTIFACT_DIGEST"
+            printf '\nVerified review candidate only. No installation or model execution.\n'
+            printf 'Native runtime qualification, capture and release admission remain pending.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
