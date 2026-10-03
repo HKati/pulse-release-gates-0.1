@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Specify RFC 8785 JCS for the Q2 request and selected-definition hashes in
+  #2893, including exact numeric serialization. Regenerate all 50 request
+  digests, their 150 occurrence references, the definition digest and the
+  whole-workload file binding together. Keep prompts, call order and numeric
+  generation settings unchanged. Retain BOS 1, as declared by the pinned
+  Instruct model/generation configurations; do not replace it with BOS 0.
+  This fixes the selection contract only, without runtime or gate activation.
 - Fix both Q2 reference-readiness review blockers under #2890. Update the
   three current tools-manifest count regressions from 155 to 156 without
   weakening uniqueness, order or exact-registration checks. Validate manifest
@@ -95,6 +102,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   transfer does not declare correction acceptance or reference readiness.
 
 ### Added
+- Select the owner-operated Q2 field-extraction reference under #2879.
+  Fix the SmolLM2-135M-Instruct revision and upstream expected weights digest,
+  CPU runtime targets, 50 authored requests and 150 separately identified call
+  slots before inference. Preserve the full-output extraction rule, zero
+  retries, bounded greedy scope and separate occurrence/extraction checking.
+  Record the complete next acquisition implementation inventory, including
+  workflow classification and all three manifest-count regressions.
+  This adds selected definitions and request data, not a collector, installed
+  runtime, model responses, materialized release artifact or production recipe.
+  All 19 required gates and 13 unsupported rejections remain unchanged.
 - Define the next Q2 input-selection and acquisition contract under #2879.
   Require a concrete evaluated subject and its release relationship before
   implementation or execution; do not substitute an arbitrary model or search

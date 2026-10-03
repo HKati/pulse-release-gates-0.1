@@ -1,0 +1,240 @@
+{
+  "record_type": "q2_reference_subject_selection_v0",
+  "selection_id": "pulsemech.q2.field-extractor.smollm2-135m.v0",
+  "state": "selected_definition_pre_acquisition",
+  "inspection_baseline": "a05abac2bed744761b597a59c67e14356318ca01",
+  "release_subject": {
+    "subject_id": "pulsemech-q2-field-extractor-v0",
+    "scope": "owner_operated_minimal_reference_application",
+    "identity_kind": "selected_definition_not_materialized_release_artifact",
+    "definition_hash_encoding": "RFC 8785 JCS; UTF-8; no BOM; no final newline; SHA-256 lowercase hex",
+    "definition_sha256": "688773b81fcf4f105b8770bc2dde9a68baf78aa76224e5c544cd0656109b07a5",
+    "definition": {
+      "subject_id": "pulsemech-q2-field-extractor-v0",
+      "implementation_kind": "single_offline_transformers_generate_path",
+      "model": {
+        "repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+        "revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+        "weights_path": "model.safetensors",
+        "weights_sha256": "5af571cbf074e6d21a03528d2330792e532ca608f24ac70a143f6b369968ab8c"
+      },
+      "runtime_target": {
+        "os_target": "ubuntu-24.04",
+        "architecture": "x86_64",
+        "python_target": "3.11.16",
+        "torch_target": "2.8.0+cpu",
+        "transformers_target": "4.57.6",
+        "device": "cpu",
+        "dtype": "float32",
+        "attention_implementation": "eager",
+        "torch_num_threads": 1,
+        "torch_num_interop_threads": 1,
+        "torch_deterministic_algorithms": true,
+        "model_eval": true,
+        "inference_mode": true,
+        "use_fast_tokenizer": true,
+        "trust_remote_code": false,
+        "use_safetensors": true,
+        "local_files_only_during_inference": true,
+        "compile": false,
+        "quantization": "none",
+        "dependency_closure_status": "not_yet_materialized_or_qualified"
+      },
+      "system_instruction": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer.",
+      "generation": {
+        "do_sample": false,
+        "num_beams": 1,
+        "num_return_sequences": 1,
+        "max_new_tokens": 32,
+        "min_new_tokens": 0,
+        "use_cache": true,
+        "repetition_penalty": 1.0,
+        "length_penalty": 1.0,
+        "no_repeat_ngram_size": 0,
+        "bos_token_id": 1,
+        "eos_token_id": 2,
+        "pad_token_id": 2
+      },
+      "context_reset": "new_generate_call_no_conversation_history_no_reused_past_key_values",
+      "random_seed_per_call": 1729,
+      "prompt_serialization": "pinned_tokenizer_apply_chat_template_add_generation_prompt_true",
+      "output_definition": "all_new_token_ids_and_full_decoded_continuation"
+    },
+    "materialized_artifact_sha256": null
+  },
+  "release_subject_relation": {
+    "relation_kind": "the_evaluated_model_configuration_is_the_selected_reference_application_definition",
+    "proof_status": "definition_fixed_runtime_and_artifact_binding_pending",
+    "not_a_claim_about": "arbitrary_PULSE_releases_or_other_models"
+  },
+  "evaluation_subject": {
+    "model_repository": "HuggingFaceTB/SmolLM2-135M-Instruct",
+    "model_revision": "12fd25f77366fa6b3b4b768ec3050bf629380bac",
+    "weights_file": "model.safetensors",
+    "expected_weights_sha256": "5af571cbf074e6d21a03528d2330792e532ca608f24ac70a143f6b369968ab8c",
+    "expected_weights_digest_origin": "upstream_Hugging_Face_file_metadata",
+    "weights_bytes_downloaded_and_verified_in_this_change": false,
+    "selected_snapshot_files": [
+      "config.json",
+      "generation_config.json",
+      "merges.txt",
+      "model.safetensors",
+      "special_tokens_map.json",
+      "tokenizer.json",
+      "tokenizer_config.json",
+      "vocab.json"
+    ],
+    "excluded_upstream_content": [
+      "onnx/",
+      "runs/",
+      "training_args.bin",
+      "trainer_state.json"
+    ],
+    "license_declared_by_upstream": "Apache-2.0"
+  },
+  "task_scope": {
+    "task_id": "controlled_english_field_extraction_v0",
+    "population": "only_the_50_fixed_authored_requests",
+    "claim": "exact_answer_agreement_across_three_fresh_greedy_calls_per_request",
+    "not_claimed": [
+      "answer_correctness",
+      "paraphrase_robustness",
+      "stochastic_sampling_robustness",
+      "natural_user_population_performance",
+      "general_model_certification"
+    ],
+    "expected_answers_included": false
+  },
+  "request_source": {
+    "path": "PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json",
+    "sha256": "fa0412c6a702e220e5d0c8b09a5e854fe35ac89d4801977eeee0f2a6e5cae997",
+    "selection": "all_groups_in_recorded_order_no_outcome_based_selection",
+    "data_origin": "authored_controlled_inputs",
+    "publication_scope": "the_authored_inputs_only_no_credentials_or_personal_records"
+  },
+  "request_protocol": {
+    "profile": "exact_request_repeats_v0",
+    "group_count": 50,
+    "repeats_per_group": 3,
+    "planned_call_count": 150,
+    "order": "group_major_repeat_minor",
+    "sampling_seed": 0,
+    "generation_seed_per_call": 1729,
+    "generation": {
+      "do_sample": false,
+      "num_beams": 1,
+      "num_return_sequences": 1,
+      "max_new_tokens": 32,
+      "min_new_tokens": 0,
+      "use_cache": true,
+      "repetition_penalty": 1.0,
+      "length_penalty": 1.0,
+      "no_repeat_ngram_size": 0,
+      "bos_token_id": 1,
+      "eos_token_id": 2,
+      "pad_token_id": 2
+    },
+    "system_instruction": "Read the short record. Return only the requested value, copied exactly from the record. Do not explain your answer.",
+    "batch_size": 1,
+    "resume_or_replace_run": false,
+    "response_reuse": false
+  },
+  "extraction_protocol": {
+    "profile": "full_generated_continuation_v0",
+    "input": "raw_generated_token_ids_and_decoded_text_per_call",
+    "decode": {
+      "skip_special_tokens": true,
+      "clean_up_tokenization_spaces": false
+    },
+    "answer": "copy_the_entire_decoded_continuation_without_trimming_or_parsing_when_eos_terminated",
+    "unknown": "completed_generation_reaching_token_limit_without_eos",
+    "empty_eos_terminated_text": "retain_empty_answer_string_existing_Q2_reducer_classifies_UNKNOWN",
+    "refusal": "not_inferred_no_native_refusal_channel_in_selected_interface",
+    "missing_call_or_runtime_failure": "acquisition_incomplete_not_UNKNOWN",
+    "reserved_answer_tags": "retain_raw_and_fail_existing_input_validation_no_repair",
+    "normalization_and_scoring": "existing_Q2_reducer_and_separate_checker_unchanged",
+    "implementation_status": "not_implemented_in_this_change"
+  },
+  "execution_protocol": {
+    "interface": "local_Transformers_AutoModelForCausalLM_generate",
+    "runner_target": "GitHub_hosted_ubuntu-24.04_x86_64_CPU",
+    "runtime_target": {
+      "os_target": "ubuntu-24.04",
+      "architecture": "x86_64",
+      "python_target": "3.11.16",
+      "torch_target": "2.8.0+cpu",
+      "transformers_target": "4.57.6",
+      "device": "cpu",
+      "dtype": "float32",
+      "attention_implementation": "eager",
+      "torch_num_threads": 1,
+      "torch_num_interop_threads": 1,
+      "torch_deterministic_algorithms": true,
+      "model_eval": true,
+      "inference_mode": true,
+      "use_fast_tokenizer": true,
+      "trust_remote_code": false,
+      "use_safetensors": true,
+      "local_files_only_during_inference": true,
+      "compile": false,
+      "quantization": "none",
+      "dependency_closure_status": "not_yet_materialized_or_qualified"
+    },
+    "network": "setup_downloads_only_no_model_service_calls_network_disabled_for_capture_worker",
+    "run_trigger": "owner_authorized_manual_dispatch_only_not_pull_request_or_push",
+    "attempts_per_call": 1,
+    "retries": 0,
+    "per_generation_timeout_seconds": 15,
+    "capture_phase_timeout_seconds": 1200,
+    "proposed_workflow_timeout_minutes": 40,
+    "limits_status": "selected_caps_not_measured_runtime",
+    "stop_rule": "no_metric_driven_early_stop_keep_all_150_obligations_fail_incomplete_on_budget_or_runtime_error"
+  },
+  "origin_and_preservation": {
+    "trust_boundary": [
+      "reviewed_local_worker_and_collector",
+      "verified_model_and_dependency_bytes",
+      "GitHub_hosted_OS_runtime_and_run_metadata"
+    ],
+    "independent_check": "separate_capture_extraction_check_then_existing_Q2_recomputation",
+    "required_records": [
+      "prelaunch_selection_and_workload",
+      "actual_source_and_runtime_inventory",
+      "model_file_hashes",
+      "all_planned_call_slots_and_terminal_outcomes",
+      "original_token_ids_and_decoded_text",
+      "original_capture_file_hashes",
+      "derived_groups_and_dataset_manifest",
+      "separately_fixed_handoff_digests"
+    ],
+    "public_input_scope": "controlled_authored_requests",
+    "response_publication": "retention_and_publication_review_before_actual_capture_dispatch_no_automatic_Zenodo_or_repository_publication",
+    "forbidden_records": [
+      "credentials",
+      "authorization_headers",
+      "raw_environment"
+    ],
+    "external_person_or_institutional_validation_required": false
+  },
+  "launch_readiness": {
+    "collector_implemented": false,
+    "complete_hashed_dependency_lock_available": false,
+    "model_and_tokenizer_bytes_verified": false,
+    "native_runtime_qualified": false,
+    "materialized_subject_bound": false,
+    "capture_dispatch_authorized": false
+  },
+  "authority_effect": "none",
+  "production_gate_eligible": false,
+  "inference_executed": false,
+  "sources": [
+    "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/tree/12fd25f77366fa6b3b4b768ec3050bf629380bac",
+    "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/12fd25f77366fa6b3b4b768ec3050bf629380bac/model.safetensors",
+    "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/12fd25f77366fa6b3b4b768ec3050bf629380bac/config.json",
+    "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/12fd25f77366fa6b3b4b768ec3050bf629380bac/generation_config.json",
+    "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/blob/12fd25f77366fa6b3b4b768ec3050bf629380bac/tokenizer_config.json",
+    "https://pypi.org/project/transformers/4.57.6/",
+    "https://pytorch.org/get-started/previous-versions/#v2-8-0",
+    "https://docs.github.com/en/actions/reference/runners/github-hosted-runners"
+  ]
+}
