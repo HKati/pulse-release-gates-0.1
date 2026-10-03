@@ -115,6 +115,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   transfer does not declare correction acceptance or reference readiness.
 
 ### Added
+- Adopt the Q2 runtime input pins from owner-dispatched preparation run
+  `37148637546` under #2879. Preserve 30 exact wheel requirements and eight
+  model/tokenizer identities, with original preparation/checker/candidate
+  metadata retained byte-for-byte. Bind the derived repository model map to
+  the artifact, source run and exact repository lock. Add offline regressions
+  for evidence, pin substitution and non-authorizing adoption boundaries.
+  Do not install libraries, execute inference, authorize capture or change
+  production gates; native qualification and acquisition remain pending.
 - Implement the preparation-only subset of the selected Q2 acquisition path
   under #2879: owner-dispatched staging of fixed model bytes and CPU wheel
   candidates, exact source/run/file bindings, and a separately implemented
