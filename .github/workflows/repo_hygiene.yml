@@ -64,6 +64,17 @@ jobs:
               ".github/workflows/q2_reference_acquisition_v0.yml": "3.11.16",
           }
 
+          missing_pins = []
+          for pinned_path in patch_pins:
+              pinned_workflow = pathlib.Path(pinned_path)
+              if pinned_workflow.is_symlink() or not pinned_workflow.is_file():
+                  missing_pins.append(pinned_path)
+          if missing_pins:
+              for pinned_path in sorted(missing_pins):
+                  print(f"::error file={pinned_path}::"
+                        "Pinned workflow must exist as a regular file at its exact path.")
+              sys.exit(1)
+
           mismatches = []
           for wf in sorted(workflows.glob("*.yml")) + sorted(workflows.glob("*.yaml")):
               text = wf.read_text(encoding="utf-8", errors="replace")
