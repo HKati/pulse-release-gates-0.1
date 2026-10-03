@@ -57,21 +57,36 @@ jobs:
               print("::error::No python=<version> dependency found in environment.yml")
               sys.exit(1)
 
+          # Q2 refines the core 3.11 line to the reviewed exact patch target.
+          # This is not a wildcard or a skip: Q2 must declare this pin once,
+          # and every other workflow retains exact environment.yml equality.
+          patch_pins = {
+              ".github/workflows/q2_reference_acquisition_v0.yml": "3.11.16",
+          }
+
           mismatches = []
           for wf in sorted(workflows.glob("*.yml")) + sorted(workflows.glob("*.yaml")):
               text = wf.read_text(encoding="utf-8", errors="replace")
-              for declared in version_re.findall(text):
-                  declared = declared.strip()
-                  if declared != env_version:
-                      mismatches.append((wf.as_posix(), declared))
+              declared_versions = [v.strip() for v in version_re.findall(text)]
+              expected = patch_pins.get(wf.as_posix(), env_version)
+              if wf.as_posix() in patch_pins:
+                  if expected.rsplit(".", 1)[0] != env_version:
+                      mismatches.append((wf.as_posix(), expected,
+                                         f"a patch pin on environment.yml line {env_version}"))
+                  if len(declared_versions) != 1:
+                      mismatches.append((wf.as_posix(), str(declared_versions),
+                                         f"exactly one declaration of {expected}"))
+              for declared in declared_versions:
+                  if declared != expected:
+                      mismatches.append((wf.as_posix(), declared, expected))
 
           if mismatches:
               print(f"::error::Python version drift detected. environment.yml uses {env_version}.")
-              for wf, declared in mismatches:
-                  print(f"::error file={wf}::python-version={declared} (expected {env_version})")
+              for wf, declared, expected in mismatches:
+                  print(f"::error file={wf}::python-version={declared} (expected {expected})")
               sys.exit(1)
 
-          print(f"OK: environment.yml python={env_version} matches all workflow python-version declarations.")
+          print(f"OK: core workflow declarations match environment.yml python={env_version}; exact patch pins verified.")
           PY
 
       - name: "Repo hygiene: validate workflow YAML files (fail-closed)"
