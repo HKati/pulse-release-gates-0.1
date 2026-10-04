@@ -122,6 +122,46 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             ),
         )
 
+    if rel == ".github/workflows/q2_reference_acquisition_v0.yml":
+        return entry(
+            name=name,
+            path=rel,
+            surface_type="workflow",
+            primary_role="non-active Q2 preparation and native diagnostic workflow",
+            carrier_class="diagnostic_shadow",
+            authority_impacting="no",
+            authority_boundary=(
+                "Owner-dispatched preparation or separately confirmed native "
+                "qualification of the adopted bytes with one fixed unscored "
+                "diagnostic. Independent checking does not admit a production "
+                "gate or the later 150-call acquisition."
+            ),
+            reads_artifacts=[
+                "exact reviewed main source and selected Q2 workload bytes",
+                "immutable model snapshot and upstream wheel metadata",
+            ],
+            writes_artifacts=[
+                "model-file identity map and complete staged wheel candidates",
+                "exact source/run-bound preparation manifest",
+                "separate prepared-runtime checker result",
+                "source-bound installation and external sandbox observations",
+                "one original diagnostic token/text record and separate checker result",
+                "non-authorizing qualification or bounded failure report",
+            ],
+            publishes_artifacts=["verified Q2 runtime preparation review candidate",
+                                 "separately consented native diagnostic evidence"],
+            required_gate_participation=False,
+            attestation_participation=False,
+            release_path_participation=False,
+            notes=(
+                "Preparation never runs a model. Only an explicit native-mode "
+                "owner dispatch may run the one unscored diagnostic; never PR/push. "
+                "Scored capture remains absent. Candidate preservation does not "
+                "activate Q2 or establish Step 5C acceptance. "
+                "authority_effect = none."
+            ),
+        )
+
     if rel == (
         ".github/workflows/"
         "pulsemech_compute_post_run_producer_input_capture_v0.yml"
@@ -866,6 +906,48 @@ def static_authority_entries(repo_root: Path) -> list[dict[str, Any]]:
             authority_boundary="Repository change-control carrier",
         ),
     ]
+
+    candidates.extend([
+        entry(
+            name="Q2 runtime preparation producer",
+            path="PULSE_safe_pack_v0/tools/acquire_q2_reference_inputs_v0.py",
+            surface_type="tool",
+            primary_role="non-active Q2 runtime-byte preparation",
+            carrier_class="audit_preservation",
+            authority_impacting="no",
+            authority_boundary="Stages review candidates only; no inference or admission.",
+        ),
+        entry(
+            name="Q2 prepared-runtime separate checker",
+            path="PULSE_safe_pack_v0/tools/check_q2_reference_capture_v0.py",
+            surface_type="tool",
+            primary_role="separate Q2 prepared-runtime candidate verification",
+            carrier_class="audit_preservation",
+            authority_impacting="no",
+            authority_boundary=(
+                "Verifies fixed bytes and offline dependency resolution, "
+                "not actual inference, native model qualification or release authority."
+            ),
+        ),
+    ])
+
+    for filename, role in (
+        ("qualify_q2_reference_runtime_v0.py", "external Q2 native diagnostic supervisor"),
+        ("run_q2_reference_subject_v0.py", "single local unscored Q2 diagnostic worker"),
+        ("check_q2_reference_qualification_v0.py", "separate Q2 native qualification checker"),
+    ):
+        candidates.append(entry(
+            name=role,
+            path="PULSE_safe_pack_v0/tools/" + filename,
+            surface_type="tool",
+            primary_role=role,
+            carrier_class="diagnostic_shadow",
+            authority_impacting="no",
+            authority_boundary=(
+                "One fixed unscored native diagnostic against adopted inputs. "
+                "Not scored acquisition, Q2 gate admission or release authority."
+            ),
+        ))
 
     existing: list[dict[str, Any]] = []
     for item in candidates:

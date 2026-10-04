@@ -739,3 +739,46 @@ def test_inventory_classifies_pulse_pd_smoke_without_drift(
     assert pulse_pd["primary_role"] == "diagnostic / shadow workflow"
     assert pulse_pd["authority_impacting"] == "conditional"
     assert inventory["drift_findings"] == []
+
+
+def test_inventory_classifies_q2_preparation_without_authority(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    relative = ".github/workflows/q2_reference_acquisition_v0.yml"
+    write_workflow(repo / relative, name="Q2 reference runtime preparation v0")
+    for filename in ("acquire_q2_reference_inputs_v0.py", "check_q2_reference_capture_v0.py"):
+        path = repo / "PULSE_safe_pack_v0" / "tools" / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# Synthetic inventory fixture, not an implementation.\n")
+    inventory = run_builder_for_repo(repo, tmp_path)
+    workflow = entry_by_path(inventory, relative)
+    assert workflow["primary_role"] == "non-active Q2 preparation and native diagnostic workflow"
+    assert workflow["carrier_class"] == "diagnostic_shadow"
+    assert workflow["authority_impacting"] == "no"
+    for path in (relative, "PULSE_safe_pack_v0/tools/acquire_q2_reference_inputs_v0.py",
+                 "PULSE_safe_pack_v0/tools/check_q2_reference_capture_v0.py"):
+        item = entry_by_path(inventory, path)
+        assert item["required_gate_participation"] is False
+        assert item["attestation_participation"] is False
+        assert item["release_path_participation"] is False
+        assert item["authority_impacting"] == "no"
+    assert inventory["drift_findings"] == []
+
+
+def test_inventory_classifies_native_tools_without_promoting_authority(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    paths = ["PULSE_safe_pack_v0/tools/" + name for name in (
+        "qualify_q2_reference_runtime_v0.py", "run_q2_reference_subject_v0.py",
+        "check_q2_reference_qualification_v0.py")]
+    for name in paths:
+        path = repo / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("# Synthetic inventory fixture only.\n")
+    inventory = run_builder_for_repo(repo, tmp_path)
+    for name in paths:
+        item = entry_by_path(inventory, name)
+        assert item["carrier_class"] == "diagnostic_shadow"
+        assert item["authority_impacting"] == "no"
+        assert item["required_gate_participation"] is False
+        assert item["attestation_participation"] is False
+        assert item["release_path_participation"] is False
+    assert inventory["drift_findings"] == []

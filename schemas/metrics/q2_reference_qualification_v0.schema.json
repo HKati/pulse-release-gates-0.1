@@ -1,0 +1,233 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "q2_reference_qualification_v0.schema.json",
+  "title": "Q2 single unscored native diagnostic qualification, not release authority",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "status",
+    "native_runtime_qualified",
+    "diagnostic_call_limit",
+    "scored_call_count",
+    "capture_dispatch_authorized",
+    "production_gate_eligible",
+    "authority_effect",
+    "error_code",
+    "context",
+    "preparation_source_commit",
+    "preparation_run_id",
+    "artifact_sha256",
+    "phase_start_ns",
+    "phase_end_ns",
+    "evidence",
+    "limitations"
+  ],
+  "properties": {
+    "record_type": {
+      "const": "q2_reference_qualification_v0"
+    },
+    "status": {
+      "enum": [
+        "qualified",
+        "failed"
+      ]
+    },
+    "native_runtime_qualified": {
+      "type": "boolean"
+    },
+    "diagnostic_call_limit": {
+      "const": 1,
+      "type": "integer"
+    },
+    "scored_call_count": {
+      "const": 0,
+      "type": "integer"
+    },
+    "capture_dispatch_authorized": {
+      "const": false
+    },
+    "production_gate_eligible": {
+      "const": false
+    },
+    "authority_effect": {
+      "const": "none"
+    },
+    "error_code": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,127}$"
+        }
+      ]
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "source_commit",
+        "workflow",
+        "run_id",
+        "run_attempt",
+        "actor",
+        "event",
+        "runner_image",
+        "python",
+        "os",
+        "architecture",
+        "kernel",
+        "libc",
+        "bootstrap_python_sha256",
+        "origin"
+      ],
+      "properties": {
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "workflow": {
+          "const": ".github/workflows/q2_reference_acquisition_v0.yml"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,19}$"
+        },
+        "run_attempt": {
+          "const": 1,
+          "type": "integer"
+        },
+        "actor": {
+          "const": "HKati"
+        },
+        "event": {
+          "const": "workflow_dispatch"
+        },
+        "runner_image": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]{1,128}$"
+        },
+        "python": {
+          "const": "3.11.16"
+        },
+        "os": {
+          "const": "ubuntu-24.04"
+        },
+        "architecture": {
+          "const": "x86_64"
+        },
+        "kernel": {
+          "type": "string",
+          "maxLength": 256
+        },
+        "libc": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        "bootstrap_python_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "origin": {
+          "const": "owner_dispatched_github_native_diagnostic"
+        }
+      }
+    },
+    "preparation_source_commit": {
+      "const": "77fc5d51896568db50a2a87f650711a65db8fe8c"
+    },
+    "preparation_run_id": {
+      "const": "37148637546"
+    },
+    "artifact_sha256": {
+      "const": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9"
+    },
+    "phase_start_ns": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "phase_end_ns": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "size",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 16777216
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    },
+    "limitations": {
+      "const": [
+        "GitHub host and bootstrap CPython/pip remain trusted",
+        "one diagnostic does not establish 150-call capture viability",
+        "no score, acquisition completeness, release admission or malicious-platform proof"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "qualified"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "native_runtime_qualified": {
+            "const": true
+          },
+          "error_code": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "native_runtime_qualified": {
+            "const": false
+          },
+          "error_code": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ]
+}

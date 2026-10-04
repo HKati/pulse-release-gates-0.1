@@ -7,6 +7,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Address the #2894 hygiene and preparation-inventory review findings.
+  Require every pinned workflow to exist as a regular file at its exact path
+  before scanning Python declarations; reject missing, renamed or symlinked
+  paths. Exercise the actual guard in offline regressions and record all
+  thirteen preparation paths, including `.github/workflows/repo_hygiene.yml`,
+  in the readiness document. Preserve exact version checks, the selected
+  runtime, preparation behavior and the non-authorizing boundary.
+- Reconcile the Q2 preparation workflow's exact Python 3.11.16 pin with
+  the repository's Python 3.11 line in the hygiene guard. Require that exact
+  pin once at the declared Q2 workflow path; retain exact environment.yml
+  equality for every other workflow. Add offline regressions against the
+  actual hygiene step, including wrong, missing, duplicate and broadened pins.
+  Keep the selected runtime, acquisition workflow and runtime guards unchanged.
+- Specify RFC 8785 JCS for the Q2 request and selected-definition hashes in
+  #2893, including exact numeric serialization. Regenerate all 50 request
+  digests, their 150 occurrence references, the definition digest and the
+  whole-workload file binding together. Keep prompts, call order and numeric
+  generation settings unchanged. Retain BOS 1, as declared by the pinned
+  Instruct model/generation configurations; do not replace it with BOS 0.
+  This fixes the selection contract only, without runtime or gate activation.
 - Fix both Q2 reference-readiness review blockers under #2890. Update the
   three current tools-manifest count regressions from 155 to 156 without
   weakening uniqueness, order or exact-registration checks. Validate manifest
@@ -22,9 +42,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   and label the old Tier 0 strict-dispatch combination as historical and
   rejected by the corrected release preflight. Clarify that a separate
   checker is not mandatory third-party approval, identify the canonical
-  root gate-set policy, and retain historical DOI/badge identities without
-  calling v1.0.2 current. Update the existing DOI-label regression without
-  changing DOI values, publication records, workflows or release authority.
+  root gate-set policy, and preserve the existing DOI records, badge targets
+  and DOI regression unchanged. DOI-label changes were excluded from the
+  merged #2891 scope; publication records and release authority are unchanged.
 - Align the Step 5C reference-workflow pin regression with the reviewed
   `actions/download-artifact` v8.0.1 SHA in #2889. Preserve the exact single
   current-run artifact ID, token/repository/run binding, direct destination
@@ -95,6 +115,52 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   transfer does not declare correction acceptance or reference readiness.
 
 ### Added
+- Implement the bounded Q2 native-qualification path after #2895: a separate
+  external supervisor, local model worker, independent checker, fixed unscored
+  diagnostic and closed report schema. Verify original/adopted byte bindings,
+  install only the hash-locked offline wheel closure in a fresh environment,
+  inspect kernel-backed isolation/limits and preserve original token/text records.
+  Keep the existing prepare-runtime tools unchanged and add a separately
+  confirmed manual workflow mode; retain all original preparation identities.
+  Extend the registered offline tests without changing the 157-program manifest.
+  Implementation/offline regression is not observed native qualification:
+  no model execution, workflow dispatch, 150-call capture, production Q2
+  admission or Step 5C acceptance occurs in this change. Keep #2879 open.
+- Adopt the Q2 runtime input pins from owner-dispatched preparation run
+  `37148637546` under #2879. Preserve 30 exact wheel requirements and eight
+  model/tokenizer identities, with original preparation/checker/candidate
+  metadata retained byte-for-byte. Bind the derived repository model map to
+  the artifact, source run and exact repository lock. Add offline regressions
+  for evidence, pin substitution and non-authorizing adoption boundaries.
+  Do not install libraries, execute inference, authorize capture or change
+  production gates; native qualification and acquisition remain pending.
+- Implement the preparation-only subset of the selected Q2 acquisition path
+  under #2879: owner-dispatched staging of fixed model bytes and CPU wheel
+  candidates, exact source/run/file bindings, and a separately implemented
+  checker with offline hash-locked dependency resolution. Preserve candidate
+  lock/model maps as Actions artifacts for review, not fabricated repository
+  inputs. Register the offline protocol regression and exact-path inventory
+  classification; reconcile all three current-manifest counts to 157 while
+  retaining the original 156 entries. No model worker, installed-runtime
+  qualification, scored capture, Q2 admission or Step 5C acceptance is claimed.
+- Select the owner-operated Q2 field-extraction reference under #2879.
+  Fix the SmolLM2-135M-Instruct revision and upstream expected weights digest,
+  CPU runtime targets, 50 authored requests and 150 separately identified call
+  slots before inference. Preserve the full-output extraction rule, zero
+  retries, bounded greedy scope and separate occurrence/extraction checking.
+  Record the complete next acquisition implementation inventory, including
+  workflow classification and all three manifest-count regressions.
+  This adds selected definitions and request data, not a collector, installed
+  runtime, model responses, materialized release artifact or production recipe.
+  All 19 required gates and 13 unsupported rejections remain unchanged.
+- Define the next Q2 input-selection and acquisition contract under #2879.
+  Require a concrete evaluated subject and its release relationship before
+  implementation or execution; do not substitute an arbitrary model or search
+  again for a presumed lost export. Specify predeclared exact-request repeats,
+  complete occurrence/attempt accounting, original-response extraction and
+  input handoff before existing reducer/checker use. This is a contract-only
+  change: selection and actual acquisition remain unresolved, with all 13
+  production-gate rejections unchanged.
 - Add the first bounded reference-readiness unit under #2879: non-active Q2
   reduction from explicitly typed final-answer/refusal groups, the unchanged
   exact-match/Wilson/minimum-50-group metric contract, and a separately
