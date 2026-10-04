@@ -184,8 +184,11 @@ jobs:
         run: |
           set -euo pipefail
           python_bin="$(python -c 'import os,sys; print(os.path.realpath(sys.executable))')"
+          # TERM retains the 1200s execution cap; KILL bounds cleanup separately.
+          # Service close: 2x10s + 5s; two watchdog stops: 2x15s.
+          # The 180s grace leaves 125s for evidence inventory/publication.
           sudo --preserve-env=GITHUB_REPOSITORY,GITHUB_EVENT_NAME,GITHUB_REF,GITHUB_ACTOR,GITHUB_TRIGGERING_ACTOR,GITHUB_RUN_ATTEMPT,GITHUB_SHA,GITHUB_WORKFLOW_SHA,GITHUB_WORKFLOW_REF,GITHUB_RUN_ID,ImageOS,ImageVersion \
-            /usr/bin/timeout --signal=TERM --kill-after=5s 1200s \
+            /usr/bin/timeout --signal=TERM --kill-after=180s 1200s \
             "$python_bin" -I -B PULSE_safe_pack_v0/tools/qualify_q2_reference_runtime_v0.py \
             qualify-runtime --repo-root "$GITHUB_WORKSPACE" \
             --expected-source-sha "$EXPECTED_SOURCE_SHA" \
