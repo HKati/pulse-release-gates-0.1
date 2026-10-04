@@ -1220,7 +1220,21 @@ proceed past its barrier on a declaration of "offline" alone.
 
 The fixed additional caps are 4 GiB memory, no swap, 64 tasks and one CPU quota.
 Each service has an external runtime cap; the entire qualification has a
-1,200-second outer timeout. The external supervisor gives the original response
+1,200-second outer execution timeout. At that boundary GNU `timeout` sends
+`SIGTERM`; `--kill-after=180s` gives the supervisor a separate, finite cleanup
+grace before `SIGKILL`. This does not change the execution deadline or grant
+another diagnostic. The nested failure path can spend 25 seconds closing
+the active service (two 10-second control calls and a 5-second client reap)
+and 30 seconds on two 15-second watchdog removals. The 180-second grace
+therefore leaves 125 seconds for evidence inventory, fsync, publication and
+staging removal. This is an operating allowance, not a guarantee against
+unbounded kernel/filesystem stalls. A timeout remains a failed step even
+when cleanup publishes its failure report; missing evidence never qualifies.
+The outer command is force-stopped after at most 1,380 nominal seconds;
+normal completion does not wait for the unused grace. The 40-minute job
+limit and always-run failure-artifact upload remain unchanged.
+
+The external supervisor gives the original response
 exactly 15 seconds from the nonblocking write boundary of the single generation
 command.
 A separate systemd fail-stop timer is armed beforehand for 20 seconds: its

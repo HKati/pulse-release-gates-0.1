@@ -1521,7 +1521,7 @@ def test_workflow_native_mode_is_manual_separate_and_explicitly_consented():
     assert 'CONFIRM_DIAGNOSTIC' in guard and 'case "$MODE"' in guard
     native = [s for s in steps if s.get('id') == 'qualify']
     assert len(native) == 1 and native[0]['if'] == "inputs.mode == 'qualify-runtime'"
-    assert '/usr/bin/timeout --signal=TERM --kill-after=5s 1200s' in native[0]['run']
+    assert '/usr/bin/timeout --signal=TERM --kill-after=180s 1200s' in native[0]['run']
     assert '--confirm-one-unscored-diagnostic' in native[0]['run']
     download = next(s for s in steps if 'curl --fail' in s.get('run', ''))
     assert download['if'] == "inputs.mode == 'qualify-runtime'"
@@ -2236,3 +2236,199 @@ def test_generation_window_post_write_scheduling_cannot_extend_deadline(monkeypa
     assert start == 100_000_000_000
     assert start + N.GENERATION_NS == 115_000_000_000
     assert start + N.GENERATION_NS - clock.ns == 11_000_000_000
+
+
+# Timeout cleanup regressions. No native runtime or model is executed: the real
+# supervisor is stopped during a synthetic source snapshot, before acquisition.
+def _qualification_timeout_spec():
+    import re
+    workflow = yaml.safe_load(_q2_workflow_text())
+    step = next(s for s in workflow['jobs']['prepare']['steps'] if s.get('id') == 'qualify')
+    matches = re.findall(
+        r'(/usr/bin/timeout)\s+--signal=(\w+)\s+--kill-after=(\d+)s\s+(\d+)s', step['run'])
+    assert len(matches) == 1, 'one explicit externally bounded qualification command is required'
+    binary, termination_signal, grace, execution = matches[0]
+    return binary, termination_signal, int(grace), int(execution)
+
+
+def test_timeout_cleanup_keeps_execution_cap_and_separate_finite_grace():
+    binary, termination_signal, grace, execution = _qualification_timeout_spec()
+    assert (binary, termination_signal, execution, grace) == ('/usr/bin/timeout', 'TERM', 1200, 180)
+    assert execution + grace == 1380
+    workflow = yaml.safe_load(_q2_workflow_text())
+    job = workflow['jobs']['prepare']
+    assert job['timeout-minutes'] == 40
+    # Archive acquisition has its own 180s cap; do not consume the upload margin.
+    assert 180 + execution + grace < job['timeout-minutes'] * 60
+    native = next(s for s in job['steps'] if s.get('id') == 'qualify')
+    assert native.get('continue-on-error', False) is False
+    assert '--preserve-status' not in native['run'] and '|| true' not in native['run']
+    upload = next(s for s in job['steps'] if
+        s.get('uses', '').startswith('actions/upload-artifact@') and
+        "inputs.mode == 'qualify-runtime'" in s.get('if', ''))
+    assert upload['if'] == "always() && inputs.mode == 'qualify-runtime' && steps.qualify.outcome != 'skipped'"
+    assert upload['with']['path'] == '${{ runner.temp }}/q2-native-qualification'
+    assert upload['with']['if-no-files-found'] == 'error'
+    assert upload['with']['overwrite'] is False
+
+
+@pytest.mark.parametrize('control_times_out', [False, True])
+def test_timeout_cleanup_grace_covers_real_cleanup_call_budgets(monkeypatch, control_times_out):
+    """Account for actual production close/removal calls, using virtual waits."""
+    import types
+    calls = []; waits = []; killed = []
+    default = N.control.__defaults__[0]
+    assert default == 15
+    def control(command, timeout=default, *, check=True):
+        calls.append((command, timeout, check))
+        if control_times_out:
+            raise subprocess.TimeoutExpired(command, timeout)
+        return subprocess.CompletedProcess(command, 0, stdout=b'', stderr=b'')
+    def wait(*, timeout):
+        waits.append(timeout)
+        raise subprocess.TimeoutExpired('synthetic systemd-run client', timeout)
+    monkeypatch.setattr(N, 'control', control)
+    monkeypatch.setattr(N.os, 'killpg', lambda pid, sig: killed.append((pid, sig)))
+    service = N.Service.__new__(N.Service)
+    service.unit = 'pulse-q2-' + 'd' * 24 + '-worker.service'
+    service.process = types.SimpleNamespace(pid=12345, poll=lambda: None, wait=wait,
+                                           stdin=io.BytesIO(), stdout=io.BytesIO())
+    service.reader = types.SimpleNamespace(close=lambda: None)
+    service.log = io.BytesIO()
+    service.close()
+    # exchange_diagnostic's finally and qualify's finally both remove the timer.
+    prefix = 'pulse-q2-' + 'd' * 24
+    N.remove_watchdog(prefix)
+    N.remove_watchdog(prefix)
+    assert [x[1] for x in calls] == [10, 10, 15, 15] and waits == [5]
+    assert all(x[2] is False for x in calls)
+    assert [x[0][1] for x in calls] == ['kill', 'stop', 'stop', 'stop']
+    assert killed == [(12345, N.signal.SIGKILL)]
+    assert service.log.closed and service.process.stdin.closed and service.process.stdout.closed
+    control_budget = sum(x[1] for x in calls) + sum(waits)
+    assert control_budget == 55
+    _, _, grace, _ = _qualification_timeout_spec()
+    assert grace - control_budget >= 120, 'reserve at least 120s for evidence I/O and publication'
+
+
+def _run_timeout_cleanup_probe(command, *, env=None, bound=20):
+    """Run only harmless test children; reap the complete test group on failure."""
+    import signal
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               env=env, start_new_session=True)
+    try:
+        stdout, stderr = process.communicate(timeout=bound)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        process.communicate(timeout=5)
+        pytest.fail('harmless timeout-cleanup regression exceeded its independent test bound')
+    finally:
+        if process.poll() is None:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            process.wait(timeout=5)
+    return subprocess.CompletedProcess(command, process.returncode, stdout=stdout, stderr=stderr)
+
+
+def test_timeout_cleanup_real_supervisor_publishes_failure_after_slow_cleanup(tmp_path):
+    """Real GNU timeout, SIGTERM handler, qualify finally, fsync and publication.
+
+    Only the execution duration is accelerated to 2s. The configured cleanup
+    grace is used unchanged; a 6s control double exceeds the former 5s grace.
+    The real model, installer, systemd and archive verifier are never started.
+    """
+    binary, termination_signal, grace, execution = _qualification_timeout_spec()
+    assert execution == 1200 and termination_signal == 'TERM'
+    child = tmp_path / 'synthetic-timeout-cleanup.py'
+    child.write_text(r'''
+import importlib.util, os, pathlib, subprocess, sys, tempfile, time
+module_path, case = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+spec = importlib.util.spec_from_file_location('synthetic_timeout_supervisor', module_path)
+n = importlib.util.module_from_spec(spec); spec.loader.exec_module(n)
+repo = case / 'source'; repo.mkdir()
+archive = case / 'not-a-runtime.zip'; archive.write_bytes(b'synthetic; never consumed')
+destination = case / 'artifact'
+real_mkdtemp = tempfile.mkdtemp
+n.tempfile.mkdtemp = lambda *, prefix, dir: real_mkdtemp(prefix=prefix, dir=case)
+n.check_context = lambda *a: {'origin': 'synthetic_timeout_cleanup', 'run_id': '1'}
+n.os.chown = lambda *a: None
+
+def snapshot(*args):
+    target = args[1]
+    n.save(target.parent / 'evidence' / 'partial-source.log', b'synthetic original evidence\n')
+    (case / 'snapshot-entered').write_bytes(b'no model or acquisition started\n')
+    time.sleep(60)
+    raise AssertionError('the external timeout did not stop the synthetic snapshot')
+
+def control(command, timeout=15, *, check=True):
+    assert command[0:2] == ['/usr/bin/systemctl', 'stop']
+    assert command[-2].endswith('-watchdog.timer')
+    (case / 'cleanup-entered').write_bytes(b'synthetic slow watchdog stop\n')
+    time.sleep(6)
+    (case / 'cleanup-finished').write_bytes(b'cleanup completed\n')
+    return subprocess.CompletedProcess(command, 0, stdout=b'', stderr=b'')
+
+def forbidden(*args, **kwargs):
+    raise AssertionError('native operations are forbidden in this offline regression')
+
+n.snapshot_sources = snapshot
+n.control = control
+n.bounded_local = forbidden
+n.run_service = forbidden
+n.Service = forbidden
+raise SystemExit(n.main(['qualify-runtime', '--repo-root', str(repo), '--archive', str(archive),
+    '--output-dir', str(destination), '--expected-source-sha', 'a' * 40,
+    '--confirm-one-unscored-diagnostic']))
+''', encoding='utf-8')
+    result = _run_timeout_cleanup_probe(
+        [binary, '--signal=TERM', f'--kill-after={grace}s', '2s', sys.executable, '-I', '-B',
+         str(child), str(TOOLS / 'qualify_q2_reference_runtime_v0.py'), str(tmp_path)],
+        env={'PATH': os.defpath, 'LANG': 'C.UTF-8'})
+    assert (tmp_path / 'snapshot-entered').is_file(), result.stderr.decode()
+    assert (tmp_path / 'cleanup-entered').is_file(), result.stderr.decode()
+    assert result.returncode == 124, (result.returncode, result.stdout, result.stderr)
+    assert (tmp_path / 'cleanup-finished').is_file()
+    destination = tmp_path / 'artifact'
+    report = json.loads((destination / 'qualification.json').read_bytes())
+    assert report['status'] == 'failed' and report['error_code'] == 'external_phase_timeout'
+    assert report['native_runtime_qualified'] is False
+    assert report['capture_dispatch_authorized'] is False and report['production_gate_eligible'] is False
+    assert report['scored_call_count'] == 0 and report['authority_effect'] == 'none'
+    assert report['context']['origin'] == 'synthetic_timeout_cleanup'
+    original = (destination / 'partial-source.log').read_bytes()
+    assert original == b'synthetic original evidence\n'
+    assert report['evidence'] == [{'path': 'partial-source.log', 'size': len(original),
+                                  'sha256': hashlib.sha256(original).hexdigest()}]
+    assert not (destination / 'original-response.json').exists()
+    assert not list(tmp_path.glob('pulse-q2-*'))
+
+
+@pytest.mark.parametrize('exit_code', [0, 7])
+def test_timeout_cleanup_unused_grace_does_not_delay_normal_exit(exit_code):
+    import time
+    binary, termination_signal, grace, execution = _qualification_timeout_spec()
+    start = time.monotonic()
+    result = _run_timeout_cleanup_probe(
+        [binary, f'--signal={termination_signal}', f'--kill-after={grace}s', f'{execution}s',
+         sys.executable, '-I', '-B', '-c', f'raise SystemExit({exit_code})'], bound=10)
+    assert result.returncode == exit_code
+    assert time.monotonic() - start < 10
+
+
+def test_timeout_cleanup_sigkill_backstop_remains_effective_for_a_stuck_child(tmp_path):
+    """Accelerate both durations; exercise real GNU SIGKILL without a 23min test."""
+    binary, termination_signal, grace, execution = _qualification_timeout_spec()
+    assert (termination_signal, grace, execution) == ('TERM', 180, 1200)
+    ready = tmp_path / 'ignoring-term'
+    result = _run_timeout_cleanup_probe(
+        [binary, '--signal=TERM', '--kill-after=0.2s', '2s', sys.executable, '-I', '-B', '-c',
+         'import pathlib,signal,sys,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); '
+         'pathlib.Path(sys.argv[1]).write_text("synthetic stuck child"); time.sleep(60)', str(ready)], bound=10)
+    assert ready.is_file()
+    # GNU timeout may itself receive the group SIGKILL: Popen then reports -9.
+    assert result.returncode in (-9, 137)
