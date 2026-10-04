@@ -1,9 +1,23 @@
-name: Q2 reference runtime preparation v0
+name: Q2 reference runtime preparation and qualification v0
 
-# Preparation only. No PR/push trigger, model import, generation or Q2 admission.
+# Manual only. Preparation does not infer. Qualification permits exactly one
+# fixed unscored diagnostic after explicit retention consent; no scored capture.
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: "Separate preparation or one unscored native diagnostic"
+        required: true
+        type: choice
+        default: prepare-runtime
+        options:
+          - prepare-runtime
+          - qualify-runtime
+      confirm_diagnostic_retention:
+        description: "Authorize one unscored diagnostic and retention of original token/text records in this Actions artifact"
+        required: true
+        default: false
+        type: boolean
       expected_source_sha:
         description: "Exact reviewed main commit (40 lowercase hex characters)"
         required: true
@@ -24,9 +38,14 @@ concurrency:
 jobs:
   prepare:
     if: github.repository == 'HKati/pulse-release-gates-0.1'
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
+      MODE: ${{ inputs.mode }}
+      CONFIRM_DIAGNOSTIC: ${{ inputs.confirm_diagnostic_retention }}
       EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
       CONFIRM_PREPARATION: ${{ inputs.confirm_preparation }}
     steps:
@@ -39,7 +58,17 @@ jobs:
           test "$GITHUB_ACTOR" = HKati
           test "$GITHUB_TRIGGERING_ACTOR" = HKati
           test "$GITHUB_RUN_ATTEMPT" = 1
-          test "$CONFIRM_PREPARATION" = true
+          case "$MODE" in
+            prepare-runtime)
+              test "$CONFIRM_PREPARATION" = true
+              test "$CONFIRM_DIAGNOSTIC" = false
+              ;;
+            qualify-runtime)
+              test "$CONFIRM_PREPARATION" = false
+              test "$CONFIRM_DIAGNOSTIC" = true
+              ;;
+            *) exit 1 ;;
+          esac
           [[ "$EXPECTED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
           test "$EXPECTED_SOURCE_SHA" = "$GITHUB_SHA"
           test "$EXPECTED_SOURCE_SHA" = "$GITHUB_WORKFLOW_SHA"
@@ -48,7 +77,8 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.sha }}
-          fetch-depth: 1
+          # Historical preparation blobs are checked at their original commit.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Set up selected Python
@@ -57,6 +87,7 @@ jobs:
           python-version: '3.11.16'
 
       - name: Stage exact model files and CPU wheel candidates
+        if: inputs.mode == 'prepare-runtime'
         shell: bash
         run: |
           set -euo pipefail
@@ -67,6 +98,7 @@ jobs:
             --output-dir "$RUNNER_TEMP/q2-runtime-preparation"
 
       - name: Fix candidate digest before separate checking
+        if: inputs.mode == 'prepare-runtime'
         id: binding
         shell: bash
         run: |
@@ -77,6 +109,7 @@ jobs:
           printf 'Candidate preparation SHA-256: `%s`\n' "$digest" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Independently verify bytes and resolve the lock offline
+        if: inputs.mode == 'prepare-runtime'
         env:
           EXPECTED_PREPARATION_SHA256: ${{ steps.binding.outputs.preparation_sha256 }}
         shell: bash
@@ -92,6 +125,7 @@ jobs:
             --output "$RUNNER_TEMP/q2-runtime-preparation-check.json"
 
       - name: Preserve verified candidate for owner review
+        if: inputs.mode == 'prepare-runtime'
         id: artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -107,6 +141,7 @@ jobs:
           retention-days: 30
 
       - name: Record preparation boundary
+        if: inputs.mode == 'prepare-runtime'
         env:
           ARTIFACT_ID: ${{ steps.artifact.outputs.artifact-id }}
           ARTIFACT_DIGEST: ${{ steps.artifact.outputs.artifact-digest }}
@@ -119,3 +154,62 @@ jobs:
             printf '\nVerified review candidate only. No installation or model execution.\n'
             printf 'Native runtime qualification, capture and release admission remain pending.\n'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Obtain the exact recorded runtime archive
+        if: inputs.mode == 'qualify-runtime'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="$RUNNER_TEMP/q2-recorded-runtime.zip"
+          test ! -e "$archive"
+          curl --fail --silent --show-error --location \
+            --proto '=https' --proto-redir '=https' --retry 0 \
+            --connect-timeout 15 --max-time 180 --max-filesize 508460811 \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/HKati/pulse-release-gates-0.1/actions/artifacts/11282419957/zip" \
+            --output "$archive"
+          test "$(stat -c %s "$archive")" = 508460811
+          printf '%s  %s\n' \
+            b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9 \
+            "$archive" | sha256sum --check --status
+
+      - name: Qualify the native runtime with one fixed unscored diagnostic
+        id: qualify
+        if: inputs.mode == 'qualify-runtime'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python_bin="$(python -c 'import os,sys; print(os.path.realpath(sys.executable))')"
+          sudo --preserve-env=GITHUB_REPOSITORY,GITHUB_EVENT_NAME,GITHUB_REF,GITHUB_ACTOR,GITHUB_TRIGGERING_ACTOR,GITHUB_RUN_ATTEMPT,GITHUB_SHA,GITHUB_WORKFLOW_SHA,GITHUB_WORKFLOW_REF,GITHUB_RUN_ID,ImageOS,ImageVersion \
+            /usr/bin/timeout --signal=TERM --kill-after=5s 1200s \
+            "$python_bin" -I -B PULSE_safe_pack_v0/tools/qualify_q2_reference_runtime_v0.py \
+            qualify-runtime --repo-root "$GITHUB_WORKSPACE" \
+            --expected-source-sha "$EXPECTED_SOURCE_SHA" \
+            --archive "$RUNNER_TEMP/q2-recorded-runtime.zip" \
+            --output-dir "$RUNNER_TEMP/q2-native-qualification" \
+            --confirm-one-unscored-diagnostic
+
+      - name: Preserve native diagnostic evidence including failures
+        if: always() && inputs.mode == 'qualify-runtime' && steps.qualify.outcome != 'skipped'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: q2-native-qualification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/q2-native-qualification
+          include-hidden-files: true
+          if-no-files-found: error
+          overwrite: false
+          retention-days: 30
+
+      - name: Record the non-authorizing native boundary
+        if: always() && inputs.mode == 'qualify-runtime' && steps.qualify.outcome != 'skipped'
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' \
+            'One fixed unscored diagnostic only. Read qualification.json and its separate checker evidence.' \
+            'Failure or missing evidence is not qualification. No 150-call acquisition or Q2 gate admission.' \
+            'All release requirements remain unchanged; #2879 stays open.' >> "$GITHUB_STEP_SUMMARY"
