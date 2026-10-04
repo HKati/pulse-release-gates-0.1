@@ -1122,3 +1122,222 @@ The metadata pins do not provide malicious-platform resistance or replace the
 separate checker. No additional validating person or organization is required.
 All 19 required gates and all 13 unsupported-gate rejections remain unchanged.
 No production Q2 admission or Step 5C/5D/6/7 acceptance is claimed. Keep #2879 open.
+
+## 9. Native qualification implementation — one unscored diagnostic only
+
+This is the bounded next implementation after #2895, based on main
+`bd5b8a65743999c0fae360dd1dd8ec3056b6f1e5` (tree
+`38cf717d954394c3e9d2547fa840fe7a2b024288`). Sections 6–8 retain the
+selection, preparation and input-adoption milestone boundaries. This section
+records the newer implementation boundary; it does not retroactively change
+any original evidence or declare that native qualification has run.
+
+**Implemented code is not an observed native qualification.** No selected
+model or Q2 wheel was installed or executed while preparing this change. No
+workflow was dispatched. Actual target execution and the original large
+artifact's byte recheck remain necessary before a native-qualified claim.
+The 150-call acquisition, extraction into scored groups, materialized release
+subject, reducer handoff, production admission and Step 5C acceptance remain
+outside this unit. Keep #2879 open.
+
+### 9.1 Complete bounded change inventory
+
+This unit has eleven repository paths; it adds five and replaces six:
+
+| Change | Repository path | Responsibility |
+| --- | --- | --- |
+| A | `PULSE_safe_pack_v0/tools/qualify_q2_reference_runtime_v0.py` | Root-owned source/input staging, independent preflight, actual isolated installation, external sandbox/limit enforcement, one diagnostic and evidence preservation. |
+| A | `PULSE_safe_pack_v0/tools/run_q2_reference_subject_v0.py` | The selected local model load and exactly one authorized diagnostic generation; original token/text records, no score. |
+| A | `PULSE_safe_pack_v0/tools/check_q2_reference_qualification_v0.py` | Separate input, installed-byte and diagnostic checker; never imports or invokes either producer or worker. |
+| A | `PULSE_safe_pack_v0/profiles/q2_reference_diagnostic_v0.json` | One fixed, unscored, non-workload diagnostic with no expected answer or result-driven selection. |
+| A | `schemas/metrics/q2_reference_qualification_v0.schema.json` | Closed qualification/failure report shape, not the planned 150-call capture schema. |
+| M | `.github/workflows/q2_reference_acquisition_v0.yml` | Preserve preparation and add a separately confirmed native-qualification mode to the existing manual workflow. |
+| M | `tests/test_q2_reference_acquisition_v0.py` | Extend the already registered offline program; preserve preparation and adoption coverage. |
+| M | `scripts/build_normative_shadow_inventory_v0.py` | Classify the dual-mode workflow and three added tools as non-authorizing diagnostic surfaces. |
+| M | `tests/test_build_normative_shadow_inventory_v0.py` | Exercise those exact-path classifications. |
+| M | `docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md` | This implementation/evidence boundary. |
+| M | `CHANGELOG.md` | Bounded implementation entry. |
+
+The two preparation Python tools remain byte-for-byte unchanged. The separate
+qualification supervisor/checker are necessary to leave their historical input
+contract intact, not a second acquisition architecture. The existing test
+manifest still contains exactly 157 programs, with the Q2 program registered
+once. No manifest-count, core CI, hygiene, policy, registry or source-pin change
+is needed. The selected subject, fifty requests, 150 obligations, adopted lock,
+adopted model map and all four original records are unchanged.
+
+### 9.2 Exact bytes and separate source identities
+
+The original preparation remains source
+`77fc5d51896568db50a2a87f650711a65db8fe8c`, run `37148637546`, attempt 1,
+artifact `11282419957`. The complete 508,460,811-byte ZIP must match the
+previously adopted SHA-256 before parsing; every one of its 78 file members is
+then checked against the preserved preparation and checker records. Changed,
+missing, extra, duplicate, linked, encrypted or unsafe members are rejected.
+The original preparation checker is reused as an independent verifier of the
+prepared bundle, with its Git lookup still fixed to the historical source.
+An exact-path `safe.directory` exception allows a root verifier to read the
+runner-owned checkout without changing repository or global Git configuration.
+
+The new consumer uses its own reviewed commit, workflow/run identity and exact
+source closure. Its scripts, schema, diagnostic and unchanged inputs are copied
+from matching Git blobs into root-owned staging. The old preparation source is
+never replaced by that consumer commit. Prelaunch records bind source, workload,
+selection, diagnostic, installed environment and the original artifact before
+any generation is authorized.
+
+### 9.3 Actual offline installation and external isolation
+
+The implementation requires the selected native Ubuntu 24.04/x86_64/CPython
+3.11.16 target, a systemd host with unified cgroup v2, and a root supervisor.
+There is no degraded path for a different Python, missing namespace support,
+missing control group, unavailable filter or failed privilege drop.
+
+Installation uses a fresh virtual environment, with no system site packages.
+The selected thirty wheels are installed with `--no-index`, `--require-hashes`,
+`--only-binary=:all:`, `--no-cache-dir` and the complete adopted lock. There is
+no source build, network fallback, dependency omission or version substitution.
+The standard-library `ensurepip` bootstrap is recorded separately; bootstrap
+setuptools is removed, leaving pip alone before the adopted installation.
+Bootstrap CPython, its standard library, pip and the operating system remain
+explicit trusted platform inputs, not falsely labelled adopted wheel entries.
+
+A separate checker re-reads the fixed wheels and compares their payloads to the
+installed files, checks the complete pip report, original wheel digests and
+closed environment inventory, and rejects unowned/importable additions or
+rehashed RECORD-only substitutions. Generated console launchers are separately
+listed and are not the worker invocation path. The environment is frozen under
+root ownership before model use, then independently recomputed again after the
+worker. Bytecode caches and system-site leakage are forbidden.
+
+The installer, installed-byte checker, worker and decoding checker use separate
+systemd services. `PrivateNetwork=yes`, an AF_UNIX-only socket family filter,
+a denied network-send/connect syscall set, empty capabilities and
+`NoNewPrivileges` operate below Python. Before each target exec, the external
+supervisor checks its actual MainPID, separate network namespace, dropped UID,
+capabilities, service properties and kernel cgroup values. The child cannot
+proceed past its barrier on a declaration of "offline" alone.
+
+The fixed additional caps are 4 GiB memory, no swap, 64 tasks and one CPU quota.
+Each service has an external runtime cap; the entire qualification has a
+1,200-second outer execution timeout. At that boundary GNU `timeout` sends
+`SIGTERM`; `--kill-after=180s` gives the supervisor a separate, finite cleanup
+grace before `SIGKILL`. This does not change the execution deadline or grant
+another diagnostic. The nested failure path can spend 25 seconds closing
+the active service (two 10-second control calls and a 5-second client reap)
+and 30 seconds on two 15-second watchdog removals. The 180-second grace
+therefore leaves 125 seconds for evidence inventory, fsync, publication and
+staging removal. This is an operating allowance, not a guarantee against
+unbounded kernel/filesystem stalls. A timeout remains a failed step even
+when cleanup publishes its failure report; missing evidence never qualifies.
+The outer command is force-stopped after at most 1,380 nominal seconds;
+normal completion does not wait for the unused grace. The 40-minute job
+limit and always-run failure-artifact upload remain unchanged.
+
+The external supervisor gives the original response
+exactly 15 seconds from the nonblocking write boundary of the single generation
+command.
+A separate systemd fail-stop timer is armed beforehand for 20 seconds: its
+five-second arming/cleanup allowance is not additional generation time. Before
+GO, the supervisor requires that the timer's conservative earliest expiry and
+the existing worker/phase caps all leave the complete response window. It also
+rechecks this at the write boundary; insufficient remaining time fails closed, without a
+shortened or extended accepted generation interval. A response received after
+15 seconds is rejected even while the fail-stop timer is still active. Timely
+response receipt is followed only by bounded worker exit within the already
+armed caps. Full-cgroup cleanup applies on success and failure. These are
+operating caps, not measured throughput or a guarantee of fit.
+
+Sandbox evidence and a one-call intent are flushed before arming. GO is a fixed
+nonblocking pipe write; the supervisor samples its monotonic timestamp
+immediately before that write, after pipe setup. It accepts only a complete
+write. Post-write scheduling delay cannot move the start forward or create
+extra generation time. Neither systemd control calls nor evidence
+fsyncs intervene before response receipt. Observed timing and any received
+original response are retained after worker cleanup, also on rejection; they
+are not represented as a pre-execution observation. The worker, separate
+checker, selected diagnostic, original runtime pins and preparation bindings
+are unchanged by this timing correction.
+Live evidence is staged under `/var/tmp`, outside the home paths hidden by
+`ProtectHome=yes`; it is copied to the runner artifact directory only after
+services stop. Do not weaken home protection to expose the checkout.
+
+### 9.4 One fixed diagnostic and separate recomputation
+
+The diagnostic is `diagnostic-0001`, using the fixed authored marker request in
+the new profile, not a request selected from the fifty scored groups. It has
+one attempt, no retries, no expected answer, no correctness test and no Q2
+score. Failure does not select another prompt, extend the budget or replace a
+response.
+
+The worker verifies local model/configuration bytes before imports and load,
+uses only the selected safetensors and fast tokenizer, and requires CPU
+float32, eager attention, one intra-/inter-op thread, evaluation/inference mode
+and deterministic algorithms. All selected greedy parameters and BOS 1/EOS 2/
+PAD 2 remain explicit. Compilation is disabled and `use_model_defaults=False`
+prevents the selected Transformers implementation from restoring model-specific
+generation defaults. The effective configuration is retained before the parent
+sends the one generation authorization.
+
+Original input/new token IDs, complete decoded text, its UTF-8 base64 bytes,
+stop reason and source/run/call identity are preserved. A separate UTF-8 text
+file is also retained. No trimming, first-word extraction, refusal inference,
+repair or answer grading occurs. A completed 32-token cap is a diagnostic
+completion, not a timeout; incomplete generation is failure, not UNKNOWN.
+This unit does not produce scored answer groups.
+
+The checker re-tokenizes the fixed messages, recomputes the full decoding and
+JCS definition binding using the pinned libraries, rechecks the installed
+payload and compares the original records, effective configuration and external
+occurrence/limit observations. It does not load a model or call generation.
+Shared tokenizer/JCS libraries and the trusted collector/host remain explicit
+common dependencies, not independent cryptographic proof of inference against
+a malicious platform.
+
+### 9.5 Dispatch and preservation boundary
+
+The existing manual workflow defaults to `prepare-runtime`. Its original
+confirmation remains required, with diagnostic consent false. Preparation still
+has no model call. The other mode, `qualify-runtime`, requires preparation
+confirmation false and explicit consent to one unscored diagnostic and retention
+of its original token/text records. Both modes retain owner/main/attempt-one and
+exact source/workflow checks. The expected source SHA must identify the reviewed
+commit containing this implementation, not substitute that SHA for the original
+preparation identity.
+
+The native mode obtains only the exact adopted artifact before entering the
+isolated phase. Unavailable/expired artifacts fail closed; no fresh unreviewed
+replacement is selected. Ordinary PR/push tests cannot enter this workflow.
+Raw responses stay in the explicitly authorized Actions artifact, not the
+repository, Zenodo or general CI output. Bounded failure evidence is retained;
+missing or failed checker evidence cannot produce a qualified report.
+
+A successful future report is limited to `one_unscored_diagnostic`.
+`authority_effect=none`, `production_gate_eligible=false`,
+`capture_dispatch_authorized=false` and `scored_call_count=0` remain mandatory.
+A report schema match alone is not a native observation or checker success.
+
+### 9.6 Offline verification versus still-unobserved behavior
+
+Offline regression covers the unchanged preparation/adoption path, exact source
+and retained-input binding, synthetic full archive attacks, installed-payload
+substitution, complete synthetic worker/checker protocol, original token/text
+mutations, missing/cross-run records, external deadline framing and cleanup,
+workflow/hygiene integration, schema and non-authority boundaries. The tests
+execute the actual installer body twice in fresh local environments with one
+tiny **synthetic** wheel: matching hashes install, mismatched hashes reject.
+Harmless child processes exercise real deadline and process-group termination.
+These are not installations of the adopted Q2 closure or model executions.
+
+The local verification environment is not the selected native target and has no
+usable systemd/network-namespace privilege. Kernel service observations in the
+regression suite are explicitly synthetic; command construction and syntax are
+not a substitute for observing enforcement on the target. The separate handoff
+records exact executed commands, final counts and logs, and distinguishes them
+from interrupted development runs.
+
+Still unobserved in this change: rechecking the complete original runtime ZIP,
+the thirty-wheel native installation, real model loading/generation, actual
+hosted namespace/cgroup/seccomp/timer enforcement, real token-to-text replay,
+and the changed workflow on its eventual reviewed GitHub head. No 150-call
+capture viability, production admission or Step 5C acceptance is asserted.

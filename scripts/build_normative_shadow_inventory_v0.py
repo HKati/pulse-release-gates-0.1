@@ -127,14 +127,14 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             name=name,
             path=rel,
             surface_type="workflow",
-            primary_role="non-active Q2 runtime preparation workflow",
+            primary_role="non-active Q2 preparation and native diagnostic workflow",
             carrier_class="diagnostic_shadow",
             authority_impacting="no",
             authority_boundary=(
-                "Owner-dispatched staging of selected model bytes and a CPU "
-                "wheel-lock review candidate. Separate checking verifies file "
-                "bindings and offline dependency resolution only; it is not "
-                "model execution, native qualification or release admission."
+                "Owner-dispatched preparation or separately confirmed native "
+                "qualification of the adopted bytes with one fixed unscored "
+                "diagnostic. Independent checking does not admit a production "
+                "gate or the later 150-call acquisition."
             ),
             reads_artifacts=[
                 "exact reviewed main source and selected Q2 workload bytes",
@@ -144,16 +144,20 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
                 "model-file identity map and complete staged wheel candidates",
                 "exact source/run-bound preparation manifest",
                 "separate prepared-runtime checker result",
+                "source-bound installation and external sandbox observations",
+                "one original diagnostic token/text record and separate checker result",
+                "non-authorizing qualification or bounded failure report",
             ],
-            publishes_artifacts=["verified Q2 runtime preparation review candidate"],
+            publishes_artifacts=["verified Q2 runtime preparation review candidate",
+                                 "separately consented native diagnostic evidence"],
             required_gate_participation=False,
             attestation_participation=False,
             release_path_participation=False,
             notes=(
-                "Preparation phase only; no model calls on dispatch, PR or push. "
-                "The capture command is not implemented in this phase. "
-                "Candidate preservation does not adopt the lock, activate Q2, "
-                "qualify the runtime or establish Step 5C acceptance. "
+                "Preparation never runs a model. Only an explicit native-mode "
+                "owner dispatch may run the one unscored diagnostic; never PR/push. "
+                "Scored capture remains absent. Candidate preservation does not "
+                "activate Q2 or establish Step 5C acceptance. "
                 "authority_effect = none."
             ),
         )
@@ -926,6 +930,24 @@ def static_authority_entries(repo_root: Path) -> list[dict[str, Any]]:
             ),
         ),
     ])
+
+    for filename, role in (
+        ("qualify_q2_reference_runtime_v0.py", "external Q2 native diagnostic supervisor"),
+        ("run_q2_reference_subject_v0.py", "single local unscored Q2 diagnostic worker"),
+        ("check_q2_reference_qualification_v0.py", "separate Q2 native qualification checker"),
+    ):
+        candidates.append(entry(
+            name=role,
+            path="PULSE_safe_pack_v0/tools/" + filename,
+            surface_type="tool",
+            primary_role=role,
+            carrier_class="diagnostic_shadow",
+            authority_impacting="no",
+            authority_boundary=(
+                "One fixed unscored native diagnostic against adopted inputs. "
+                "Not scored acquisition, Q2 gate admission or release authority."
+            ),
+        ))
 
     existing: list[dict[str, Any]] = []
     for item in candidates:
