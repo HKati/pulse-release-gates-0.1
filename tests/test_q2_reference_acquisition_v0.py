@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Offline Q2 preparation and recorded input-pin regressions.
+"""Offline Q2 preparation, adopted-input and native-diagnostic regressions.
 
-Protocol wheel/model payloads are synthetic. The input-pin tests inspect small
-original metadata records from preparation run 37148637546, not model/wheel
-payloads. No model download, import, generation, service call, installation or
-native qualification is performed here. Synthetic expectations are confined
-to protocol tests; no production CLI accepts synthetic provenance or models.
+Real Q2 metadata is inspected without model/wheel payload downloads. Native
+protocol tests use explicitly synthetic archives, wheels, tensors and framework
+doubles. Two installer-body tests actually install one tiny synthetic wheel into
+fresh offline virtual environments; neither installs the Q2 runtime closure.
+No actual model import/generation, systemd service, workflow dispatch or native
+qualification is performed. Synthetic expectations are confined to tests; no
+production CLI accepts synthetic provenance, alternative models or bypasses.
 """
 from __future__ import annotations
 
@@ -410,21 +412,21 @@ def test_capture_command_has_no_implementation_or_cli_bypass(script):
     assert proc.returncode==2 and b'invalid choice' in proc.stderr
 
 
-def test_workflow_is_manual_preparation_only_and_preserves_exact_sources():
+def test_workflow_preserves_manual_preparation_branch_and_exact_sources():
     payload=(ROOT/A.WORKFLOW).read_text();wf=yaml.safe_load(payload)
     triggers=wf.get('on',wf.get(True))
     assert set(triggers)=={'workflow_dispatch'}
     assert wf['permissions']=={'contents':'read'}
     job=wf['jobs']['prepare'];assert job['runs-on']=='ubuntu-24.04' and job['timeout-minutes']==40
-    steps=job['steps'];runs='\n'.join(x.get('run','') for x in steps)
+    steps=job['steps'];runs='\n'.join(x.get('run','') for x in steps if x.get('if')=="inputs.mode == 'prepare-runtime'")
     assert 'prepare-runtime' in runs and 'verify-prepared-runtime' in runs
     assert 'run_q2_reference_subject_v0.py' not in runs and 'build_q2_reference_summary.py' not in runs
     assert 'GITHUB_RUN_ATTEMPT' in steps[0]['run'] and 'GITHUB_WORKFLOW_SHA' in steps[0]['run']
     assert 'EXPECTED_SOURCE_SHA' in steps[0]['run']
-    uploads=[x for x in steps if x.get('uses','').startswith('actions/upload-artifact@')]
+    uploads=[x for x in steps if x.get('uses','').startswith('actions/upload-artifact@') and x.get('if')=="inputs.mode == 'prepare-runtime'"]
     assert len(uploads)==1 and uploads[0]['with']['include-hidden-files'] is True
     assert uploads[0]['with']['if-no-files-found']=='error' and uploads[0]['with']['overwrite'] is False
-    assert 'always()' not in payload and 'secrets.' not in payload and 'contents: write' not in payload
+    assert 'always()' not in uploads[0]['if'] and 'secrets.' not in payload and 'contents: write' not in payload
     entries=[l.split('#',1)[0].strip() for l in (ROOT/'ci/tools-tests.list').read_text().splitlines()]
     entries=[x for x in entries if x]
     assert len(entries)==len(set(entries))==157
@@ -670,7 +672,7 @@ def test_q2_setup_keeps_exact_selection_before_preparation():
     assert setup['with']['python-version'] == '3.11.16'
     assert setup['with']['python-version'] == selection['execution_protocol']['runtime_target']['python_target']
     assert setup['with']['python-version'] == selection['release_subject']['definition']['runtime_target']['python_target']
-    preparation = [i for i, step in enumerate(steps) if 'prepare-runtime' in step.get('run', '')]
+    preparation = [i for i, step in enumerate(steps) if 'acquire_q2_reference_inputs_v0.py' in step.get('run', '')]
     assert len(preparation) == 1 and index < preparation[0]
 
 
@@ -971,6 +973,908 @@ def test_input_pins_reject_changed_selected_inputs(tmp_path, rel):
     source.write_bytes(source.read_bytes() + b"\n")
     with pytest.raises(AssertionError):
         _check_recorded_input_pins(root)
+
+
+
+
+# Native qualification protocol tests. All model/tokenizer objects below are
+# explicit synthetic doubles. No real model, download or systemd job is started.
+N = load_module('q2_native_supervisor_under_test', TOOLS / 'qualify_q2_reference_runtime_v0.py')
+K = load_module('q2_native_checker_under_test', TOOLS / 'check_q2_reference_qualification_v0.py')
+W = load_module('q2_native_worker_under_test', TOOLS / 'run_q2_reference_subject_v0.py')
+
+
+def test_native_source_closure_and_fixed_diagnostic_agree():
+    assert N.SOURCES == K.SOURCE_PATHS
+    assert K.parse((ROOT / K.DIAGNOSTIC).read_bytes()) == K.DIAGNOSTIC_VALUE
+    assert W.MESSAGES == K.DIAGNOSTIC_VALUE['messages']
+    assert W.GENERATION == K.GENERATION
+    assert N.PREPARATION_SOURCE == K.ORIGINAL_SOURCE == _INPUT_PIN_SOURCE
+    assert N.ARCHIVE_SHA == K.ARCHIVE_SHA == _INPUT_PIN_ARCHIVE_SHA
+    assert N.ARCHIVE_SIZE == K.ARCHIVE_SIZE == 508460811
+    assert A.SOURCE_PATHS == (A.WORKFLOW, A.SELF, A.CHECKER, A.SELECTION, A.REQUESTS)
+    assert hashlib.sha256((TOOLS / 'acquire_q2_reference_inputs_v0.py').read_bytes()).hexdigest() == 'd82e103b601bc118a21001f315c70b8cbe9d8d94b05a6c40406ef9b328cf4609'
+    assert hashlib.sha256((TOOLS / 'check_q2_reference_capture_v0.py').read_bytes()).hexdigest() == 'beb0e3d3d9de451fb862090cb92267bc62191386528f1735feb2b3e4b04e02be'
+
+
+def test_native_revalidates_all_small_original_and_adopted_records():
+    prep, original, adopted = K.adopted_inputs(ROOT)
+    assert len(prep['files']) == 76 and len(prep['wheels']) == 30
+    assert set(original) == set(K.RECORDS)
+    assert adopted['native_runtime_qualified'] is False
+    assert adopted['adoption']['preparation_source_commit'] != 'bd5b8a65743999c0fae360dd1dd8ec3056b6f1e5'
+
+
+@pytest.mark.parametrize('name', list(K.FIXED_FILES))
+def test_native_rejects_rehashed_small_input_replacements(tmp_path, name):
+    for rel in K.FIXED_FILES:
+        path = tmp_path / rel; path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes((ROOT / rel).read_bytes())
+    path = tmp_path / name; path.write_bytes(path.read_bytes() + b'\n')
+    with pytest.raises(K.QualificationCheckError, match='fixed_repository_input_changed'):
+        K.adopted_inputs(tmp_path)
+
+
+@pytest.mark.parametrize('loader', [K.parse, N.strict_json, W.json_value])
+@pytest.mark.parametrize('raw', [b'{"a":1,"a":2}', b'{"a":NaN}', b'{"a":Infinity}', b'{"a":1e999}',
+                                  b'{"a":"\\ud800"}', b'\xef\xbb\xbf{}', b'\xff', b'{'])
+def test_native_readers_reject_ambiguous_records(loader, raw):
+    with pytest.raises((ValueError, UnicodeError)):
+        loader(raw)
+
+
+@pytest.mark.parametrize('reader', [K.read, N.safe_read, W.file_bytes])
+@pytest.mark.parametrize('mutation', ['file_symlink', 'parent_symlink', 'hardlink', 'fifo', 'oversize'])
+def test_native_file_readers_reject_unsafe_inputs(tmp_path, reader, mutation):
+    folder = tmp_path / 'folder'; folder.mkdir()
+    path = folder / 'in'; path.write_bytes(b'hello')
+    if mutation == 'file_symlink':
+        original = tmp_path / 'original'; path.rename(original); path.symlink_to(original)
+    elif mutation == 'parent_symlink':
+        alias = tmp_path / 'alias'; alias.symlink_to(folder, target_is_directory=True); path = alias / 'in'
+    elif mutation == 'hardlink':
+        os.link(path, tmp_path / 'other')
+    elif mutation == 'fifo':
+        path.unlink(); os.mkfifo(path)
+    with pytest.raises((ValueError, OSError)):
+        reader(path, 4 if mutation == 'oversize' else 100)
+
+
+@pytest.fixture
+def native_source(tmp_path):
+    repo = tmp_path / 'native-source'; repo.mkdir()
+    for rel in N.SOURCES:
+        path = repo / rel; path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes((ROOT / rel).read_bytes())
+    git(repo, 'init', '-q'); git(repo, 'add', '.')
+    git(repo, 'commit', '-q', '-m', 'Synthetic native source fixture; not project provenance')
+    return repo, git(repo, 'rev-parse', 'HEAD'), tmp_path / 'frozen-source'
+
+
+def test_native_source_snapshot_is_independently_bound_to_git_bytes(native_source):
+    repo, commit, snapshot = native_source
+    produced = N.snapshot_sources(repo, snapshot, commit)
+    checked = K.check_sources(snapshot, repo, commit)
+    assert produced == checked and len(checked) == len(N.SOURCES)
+    assert commit != K.ORIGINAL_SOURCE
+    assert K.adopted_inputs(snapshot)[0]['context']['source_commit'] == K.ORIGINAL_SOURCE
+
+
+@pytest.mark.parametrize('where', ['checkout', 'snapshot'])
+@pytest.mark.parametrize('name', [N.WORKER, N.CHECKER, N.DIAGNOSTIC, N.SCHEMA])
+def test_native_source_change_is_not_accepted_by_rehash(native_source, where, name):
+    repo, commit, snapshot = native_source
+    N.snapshot_sources(repo, snapshot, commit)
+    path = (repo if where == 'checkout' else snapshot) / name
+    path.write_bytes(path.read_bytes() + b'\n')
+    if where == 'checkout':
+        with pytest.raises(N.NativeQualificationError, match='source_checkout_bytes'):
+            N.snapshot_sources(repo, snapshot.parent / 'second', commit)
+    else:
+        with pytest.raises(K.QualificationCheckError, match='consumer_source_mismatch'):
+            K.check_sources(snapshot, repo, commit)
+
+
+def synthetic_native_archive(tmp_path, monkeypatch, mutation=None):
+    """78 tiny carrier members, explicitly NOT the actual 508 MB runtime."""
+    payloads = {f'data/fixture-{i:03d}': f'synthetic {i}\n'.encode() for i in range(76)}
+    prep = {'files': [{'path': p, 'size': len(raw), 'sha256': K.sha(raw)} for p, raw in payloads.items()]}
+    if mutation == 'manifest_hash': prep['files'][0]['sha256'] = '0' * 64
+    if mutation == 'manifest_size_bool': prep['files'][0]['size'] = True
+    if mutation == 'manifest_size': prep['files'][0]['size'] += 1
+    original = {'preparation.json': K.encoded(prep), 'q2-runtime-preparation-check.json': b'{}\n'}
+    pins = dict(K.RECORDS)
+    pins['preparation.json'] = K.sha(original['preparation.json'])
+    pins['q2-runtime-preparation-check.json'] = K.sha(original['q2-runtime-preparation-check.json'])
+    monkeypatch.setattr(K, 'RECORDS', pins)
+    contents = [('q2-runtime-preparation/' + p, data) for p, data in payloads.items()]
+    contents += [('q2-runtime-preparation/preparation.json', original['preparation.json']),
+                 ('q2-runtime-preparation-check.json', original['q2-runtime-preparation-check.json'])]
+    if mutation == 'missing': contents.pop(0)
+    elif mutation == 'extra': contents.append(('unselected', b'x'))
+    elif mutation == 'duplicate': contents[-1] = contents[0]
+    elif mutation == 'traversal': contents[0] = ('../outside', b'x')
+    elif mutation == 'rootless': contents = [(p.replace('q2-runtime-preparation/', ''), d) for p, d in contents]
+    elif mutation == 'payload': contents[0] = (contents[0][0], b'changed\n')
+    archive = tmp_path / 'synthetic.zip'
+    with zipfile.ZipFile(archive, 'w', compression=zipfile.ZIP_STORED) as z:
+        for i, (name, data) in enumerate(contents):
+            item = zipfile.ZipInfo(name)
+            item.create_system = 3
+            import stat as _stat
+            mode = _stat.S_IFREG | 0o644
+            if i == 0 and mutation == 'symlink': mode = _stat.S_IFLNK | 0o777
+            item.external_attr = mode << 16
+            z.writestr(item, data)
+    monkeypatch.setattr(K, 'ARCHIVE_SHA', K.sha(archive.read_bytes()))
+    monkeypatch.setattr(K, 'ARCHIVE_SIZE', archive.stat().st_size)
+    return archive, prep, original
+
+
+def test_native_archive_full_byte_roundtrip_is_only_synthetic(tmp_path, monkeypatch):
+    archive, prep, original = synthetic_native_archive(tmp_path, monkeypatch)
+    root = K.unpack_verified_archive(archive, tmp_path / 'unpacked', prep, original)
+    assert len(list(p for p in root.rglob('*') if p.is_file())) == 77
+    for row in prep['files']:
+        raw = (root / row['path']).read_bytes()
+        assert len(raw) == row['size'] and K.sha(raw) == row['sha256']
+
+
+@pytest.mark.parametrize('mutation', ['missing', 'extra', 'duplicate', 'traversal', 'rootless',
+                                     'payload', 'symlink', 'manifest_hash', 'manifest_size', 'manifest_size_bool'])
+def test_native_archive_rejects_rehashed_structural_or_payload_attacks(tmp_path, monkeypatch, mutation):
+    archive, prep, original = synthetic_native_archive(tmp_path, monkeypatch, mutation)
+    with pytest.raises((K.QualificationCheckError, zipfile.BadZipFile)):
+        K.unpack_verified_archive(archive, tmp_path / 'unpacked', prep, original)
+    assert not (tmp_path / 'outside').exists()
+
+
+@pytest.mark.parametrize('mutation', ['changed_byte', 'truncated', 'appended'])
+def test_native_archive_external_anchor_cannot_be_changed(tmp_path, monkeypatch, mutation):
+    archive, prep, original = synthetic_native_archive(tmp_path, monkeypatch)
+    raw = archive.read_bytes()
+    if mutation == 'changed_byte': raw = raw[:100] + bytes([raw[100] ^ 1]) + raw[101:]
+    elif mutation == 'truncated': raw = raw[:-1]
+    else: raw += b'x'
+    archive.write_bytes(raw)
+    with pytest.raises(K.QualificationCheckError):
+        K.unpack_verified_archive(archive, tmp_path / 'unpacked', prep, original)
+    assert not (tmp_path / 'unpacked').exists()
+
+
+def test_native_archive_does_not_replace_an_existing_destination(tmp_path, monkeypatch):
+    archive, prep, original = synthetic_native_archive(tmp_path, monkeypatch)
+    out = tmp_path / 'existing'; out.mkdir(); (out / 'sentinel').write_bytes(b'keep')
+    with pytest.raises(K.QualificationCheckError, match='staging_exists'):
+        K.unpack_verified_archive(archive, out, prep, original)
+    assert (out / 'sentinel').read_bytes() == b'keep'
+
+
+def native_wheel():
+    """A complete tiny offline test wheel. No model libraries or real weights."""
+    import base64 as _base64
+    name = 'fake_q2_native_fixture'; di = name + '-1.0.dist-info'
+    files = {
+        name + '/__init__.py': b'VALUE = "synthetic fixture; not inference evidence"\n',
+        di + '/METADATA': b'Metadata-Version: 2.1\nName: fake-q2-native-fixture\nVersion: 1.0\n\nSynthetic only.\n',
+        di + '/WHEEL': b'Wheel-Version: 1.0\nGenerator: synthetic-offline-test\nRoot-Is-Purelib: true\nTag: py3-none-any\n',
+    }
+    records = []
+    for path, data in files.items():
+        h = _base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b'=').decode()
+        records.append(f'{path},sha256={h},{len(data)}\n')
+    records.append(f'{di}/RECORD,,\n')
+    files[di + '/RECORD'] = ''.join(records).encode()
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w') as z:
+        for path, data in files.items(): z.writestr(path, data)
+    return name + '-1.0-py3-none-any.whl', buffer.getvalue(), files
+
+
+@pytest.fixture
+def installed_synthetic(tmp_path, monkeypatch):
+    import base64 as _base64
+    env = tmp_path / 'venv'; env.mkdir()
+    (env / 'pyvenv.cfg').write_text('include-system-site-packages = false\n')
+    (env / 'bin').mkdir(); (env / 'bin/python').write_bytes(b'NOT AN EXECUTABLE: synthetic fixture\n')
+    bootstrap = tmp_path / 'bootstrap.json'; bootstrap.write_bytes(K.encoded(K.tree_inventory(env)))
+    bundle = tmp_path / 'bundle'; (bundle / 'wheelhouse').mkdir(parents=True)
+    filename, raw, files = native_wheel()
+    wheel = bundle / 'wheelhouse' / filename; wheel.write_bytes(raw)
+    row = {'name': 'fake-q2-native-fixture', 'version': '1.0', 'path': 'wheelhouse/' + filename,
+           'size': len(raw), 'sha256': K.sha(raw)}
+    prep_raw = K.encoded({'wheels': [row]})
+    (bundle / 'preparation.json').write_bytes(prep_raw)
+    monkeypatch.setattr(K, 'RECORDS', {**K.RECORDS, 'preparation.json': K.sha(prep_raw)})
+    site = env / 'lib/python3.11/site-packages'
+    for name, data in files.items():
+        path = site / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(data)
+    di = site / 'fake_q2_native_fixture-1.0.dist-info'
+    (di / 'INSTALLER').write_bytes(b'pip\n')
+    record = (di / 'RECORD').read_bytes()
+    h = _base64.urlsafe_b64encode(hashlib.sha256(b'pip\n').digest()).rstrip(b'=').decode()
+    (di / 'RECORD').write_bytes(record + f'fake_q2_native_fixture-1.0.dist-info/INSTALLER,sha256={h},4\n'.encode())
+    report = {'version': '1', 'install': [{'metadata': {'name': row['name'], 'version': row['version']},
+              'download_info': {'url': wheel.as_uri(), 'archive_info': {'hashes': {'sha256': row['sha256']}}}}]}
+    pip_report = tmp_path / 'pip-report.json'; pip_report.write_bytes(K.encoded(report))
+    return env, bundle, bootstrap, pip_report
+
+
+def test_native_installation_checker_reconstructs_synthetic_wheel_payloads(installed_synthetic):
+    result = K.verify_installation(*installed_synthetic)
+    assert result['wheel_payload_file_count'] == 3
+    assert result['distributions'] == {'fake-q2-native-fixture': {'version': '1.0',
+        'metadata': 'lib/python3.11/site-packages/fake_q2_native_fixture-1.0.dist-info/METADATA'}}
+    assert result['authority_effect'] == 'none' and result['production_gate_eligible'] is False
+
+
+@pytest.mark.parametrize('mutation', ['payload', 'payload_and_record', 'extra_import', 'extra_pth',
+    'bootstrap', 'system_site', 'report_remote', 'report_version', 'report_hash', 'report_duplicate',
+    'report_missing', 'wheel_changed', 'preparation_rehash', 'record_unhashed', 'record_traversal', 'pyc'])
+def test_native_installation_checker_rejects_substitution(installed_synthetic, mutation):
+    import base64 as _base64
+    env, bundle, bootstrap, pip_report = installed_synthetic
+    site = env / 'lib/python3.11/site-packages'
+    package = site / 'fake_q2_native_fixture/__init__.py'
+    record = site / 'fake_q2_native_fixture-1.0.dist-info/RECORD'
+    if mutation in ('payload', 'payload_and_record'):
+        package.write_bytes(b'SUBSTITUTED = True\n')
+        if mutation == 'payload_and_record':
+            h = _base64.urlsafe_b64encode(hashlib.sha256(package.read_bytes()).digest()).rstrip(b'=').decode()
+            lines = record.read_text().splitlines(True)
+            lines[0] = f'fake_q2_native_fixture/__init__.py,sha256={h},{package.stat().st_size}\n'
+            record.write_text(''.join(lines))
+    elif mutation == 'extra_import': (site / 'unselected.py').write_bytes(b'x=1\n')
+    elif mutation == 'extra_pth': (site / 'unselected.pth').write_bytes(b'import unselected\n')
+    elif mutation == 'bootstrap': (env / 'bin/python').write_bytes(b'changed\n')
+    elif mutation == 'system_site': (env / 'pyvenv.cfg').write_text('include-system-site-packages = true\n')
+    elif mutation.startswith('report_'):
+        obj = K.parse(pip_report.read_bytes()); item = obj['install'][0]
+        if mutation == 'report_remote': item['download_info']['url'] = 'https://example.invalid/wheel.whl'
+        elif mutation == 'report_version': item['metadata']['version'] = '2.0'
+        elif mutation == 'report_hash': item['download_info']['archive_info']['hashes']['sha256'] = '0' * 64
+        elif mutation == 'report_duplicate': obj['install'] *= 2
+        else: obj['install'] = []
+        pip_report.write_bytes(K.encoded(obj))
+    elif mutation == 'wheel_changed':
+        path = next((bundle / 'wheelhouse').iterdir()); path.write_bytes(path.read_bytes() + b'changed')
+    elif mutation == 'preparation_rehash':
+        path = bundle / 'preparation.json'; path.write_bytes(path.read_bytes() + b'\n')
+    elif mutation == 'record_unhashed': record.write_bytes(record.read_bytes().replace(b'INSTALLER,sha256=', b'INSTALLER,,#'))
+    elif mutation == 'record_traversal': record.write_bytes(record.read_bytes() + b'../../../../../../etc/passwd,,\n')
+    elif mutation == 'pyc': (site / 'unselected.pyc').write_bytes(b'NOT BYTECODE\n')
+    with pytest.raises((K.QualificationCheckError, ValueError, OSError)):
+        K.verify_installation(*installed_synthetic)
+
+
+@pytest.mark.parametrize('bad_hash', [False, True])
+def test_actual_offline_installer_body_with_tiny_synthetic_wheel_only(tmp_path, bad_hash):
+    # Real subprocess, fresh venv, ensurepip, hash-locked --no-index pip.
+    # Host Python is recorded by the handoff; this is NOT native qualification,
+    # and no systemd isolation, real Q2 wheel, tokenizer or model is claimed.
+    filename, raw, _ = native_wheel()
+    wheelhouse = tmp_path / 'wheels'; wheelhouse.mkdir()
+    (wheelhouse / filename).write_bytes(raw)
+    lock = tmp_path / 'synthetic.lock'
+    lock.write_text('fake-q2-native-fixture==1.0 --hash=sha256:' + ('0' * 64 if bad_hash else K.sha(raw)) + '\n')
+    work = tmp_path / 'work'; work.mkdir()
+    result = subprocess.run([sys.executable, '-I', '-B', '-c', N.INSTALLER,
+        str(work), str(wheelhouse), str(lock), str(work)],
+        stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        env=N.clean_env(work), timeout=60)
+    if bad_hash:
+        assert result.returncode != 0
+        assert b'Expected sha256' in (work / 'pip-install.log').read_bytes()
+    else:
+        assert result.returncode == 0, result.stderr.decode()
+        report = json.loads((work / 'pip-report.json').read_bytes())
+        assert [x['metadata']['name'] for x in report['install']] == ['fake-q2-native-fixture']
+        assert report['install'][0]['download_info']['archive_info']['hashes']['sha256'] == K.sha(raw)
+        assert not list((work / 'venv').rglob('*.pyc'))
+        assert b'offline_installation_finished' in result.stdout
+
+
+def synthetic_response(new_ids=None, text=' quartz\n'):
+    import base64 as _base64
+    return {'record_type': 'q2_native_diagnostic_response_v0', 'binding': {},
+            'call_id': 'diagnostic-0001', 'attempt': 1, 'scored': False,
+            'input_ids': [1, 11, 12], 'new_token_ids': [41, 2] if new_ids is None else new_ids,
+            'text': text, 'text_utf8_base64': _base64.b64encode(text.encode()).decode(),
+            'stop_reason': 'eos' if new_ids is None or new_ids[-1] == 2 else 'token_limit',
+            'effective_generation': {}, 'runtime': {}}
+
+
+@pytest.mark.parametrize('text', ['', ' quartz\n', 'I refuse to answer.', 'Őrzött adat\n第二行', '__UNKNOWN__'])
+def test_native_checker_preserves_full_text_without_scoring_or_repair(text):
+    value = synthetic_response(text=text)
+    K.validate_tokens_and_text(value, [1, 11, 12], lambda ids: text)
+    assert value['text'] == text and value['scored'] is False
+
+
+def test_native_checker_accepts_completed_cap_but_not_a_timeout():
+    value = synthetic_response(new_ids=[41] * 32)
+    K.validate_tokens_and_text(value, [1, 11, 12], lambda ids: ' quartz\n')
+    value['stop_reason'] = 'timeout'
+    with pytest.raises(K.QualificationCheckError):
+        K.validate_tokens_and_text(value, [1, 11, 12], lambda ids: ' quartz\n')
+
+
+@pytest.mark.parametrize('mutation', ['extra', 'missing', 'call', 'attempt_bool', 'attempt_two', 'scored',
+    'input', 'input_bool', 'token_bool', 'negative', 'out_of_vocab', 'too_many', 'empty', 'short_no_eos',
+    'duplicate_eos', 'stop', 'trimmed', 'changed_utf8', 'decode_mismatch'])
+def test_native_checker_rejects_rehashed_token_text_records(mutation):
+    value = synthetic_response()
+    if mutation == 'extra': value['PASS'] = True
+    elif mutation == 'missing': del value['input_ids']
+    elif mutation == 'call': value['call_id'] = 'group-001-repeat-1'
+    elif mutation == 'attempt_bool': value['attempt'] = True
+    elif mutation == 'attempt_two': value['attempt'] = 2
+    elif mutation == 'scored': value['scored'] = True
+    elif mutation == 'input': value['input_ids'] = [1, 11, 13]
+    elif mutation == 'input_bool': value['input_ids'][0] = True
+    elif mutation == 'token_bool': value['new_token_ids'][0] = True
+    elif mutation == 'negative': value['new_token_ids'][0] = -1
+    elif mutation == 'out_of_vocab': value['new_token_ids'][0] = 49152
+    elif mutation == 'too_many': value['new_token_ids'] = [41] * 32 + [2]
+    elif mutation == 'empty': value['new_token_ids'] = []
+    elif mutation == 'short_no_eos': value['new_token_ids'] = [41]
+    elif mutation == 'duplicate_eos': value['new_token_ids'] = [2, 41, 2]
+    elif mutation == 'stop': value['stop_reason'] = 'timeout'
+    elif mutation == 'trimmed': value['text'] = value['text'].strip()
+    elif mutation == 'changed_utf8': value['text_utf8_base64'] = 'Y2hhbmdlZA=='
+    with pytest.raises(K.QualificationCheckError):
+        K.validate_tokens_and_text(value, [1, 11, 12], lambda ids: 'wrong' if mutation == 'decode_mismatch' else ' quartz\n')
+
+
+@pytest.mark.parametrize('tail,reason', [([2], 'eos'), ([41, 2], 'eos'), ([41] * 32, 'token_limit')])
+def test_worker_continuation_split_keeps_original_ids(tail, reason):
+    assert W.split_continuation([1, 11], [1, 11] + tail) == (tail, reason)
+
+
+@pytest.mark.parametrize('tail', [[], [41], [41] * 33, [2, 2], [True, 2], [-1, 2], [49152, 2]])
+def test_worker_never_turns_incomplete_execution_into_unknown(tail):
+    with pytest.raises(W.WorkerError):
+        W.split_continuation([1, 11], [1, 11] + tail)
+
+
+def test_worker_rejects_a_changed_generated_prompt_prefix():
+    with pytest.raises(W.WorkerError, match='generated_prefix_changed'):
+        W.split_continuation([1, 11], [1, 12, 41, 2])
+
+
+def synthetic_sandbox(stage='worker'):
+    return {'stage': stage, 'unit': 'pulse-q2-' + 'a' * 24 + '-' + stage + '.service', 'pid': 123,
+            'host_netns': 'net:[1]', 'child_netns': 'net:[2]', 'uid': 65534,
+            'no_new_privs': True, 'capabilities': '0000000000000000',
+            'ipv4_blocked': True, 'ipv6_blocked': True, 'memory_max': '4294967296',
+            'memory_swap_max': '0', 'pids_max': '64', 'cpu_max': '100000 100000',
+            'properties': {**{k: N.PROPERTIES[k] for k in ('PrivateNetwork', 'NoNewPrivileges',
+                'ProtectSystem', 'ProtectHome', 'KillMode', 'SendSIGKILL', 'User', 'Group',
+                'CapabilityBoundingSet', 'RestrictAddressFamilies')},
+                'RuntimeMaxUSec': {480: '8min', 300: '5min', 180: '3min'}[N.STAGES[stage]]}}
+
+
+@pytest.mark.parametrize('stage', list(N.STAGES))
+def test_checker_accepts_consistent_synthetic_kernel_observation_only(stage):
+    # This is protocol validation, not a real namespace or cgroup observation.
+    K.verify_sandbox_observation(synthetic_sandbox(stage), stage)
+
+
+@pytest.mark.parametrize('key,value', [('host_netns', 'net:[2]'), ('child_netns', 'declared_offline'),
+    ('uid', 0), ('uid', False), ('no_new_privs', False), ('no_new_privs', 1),
+    ('capabilities', 'ffffffffffffffff'), ('ipv4_blocked', False), ('ipv6_blocked', False),
+    ('memory_max', 'max'), ('memory_swap_max', 'max'), ('pids_max', 'max'), ('cpu_max', 'max 100000'),
+    ('pid', True), ('stage', 'installer'), ('unit', 'unrelated.service')])
+def test_checker_rejects_unenforced_or_self_declared_isolation(key, value):
+    observed = synthetic_sandbox(); observed[key] = value
+    with pytest.raises(K.QualificationCheckError):
+        K.verify_sandbox_observation(observed, 'worker')
+
+
+@pytest.mark.parametrize('property_name', ['PrivateNetwork', 'NoNewPrivileges', 'ProtectSystem', 'ProtectHome',
+    'KillMode', 'SendSIGKILL', 'User', 'Group', 'CapabilityBoundingSet', 'RestrictAddressFamilies', 'RuntimeMaxUSec'])
+def test_checker_requires_each_effective_service_control(property_name):
+    value = synthetic_sandbox(); value['properties'][property_name] = 'unavailable'
+    with pytest.raises(K.QualificationCheckError):
+        K.verify_sandbox_observation(value, 'worker')
+
+
+def test_service_command_uses_real_kernel_controls_and_no_credentials(tmp_path, monkeypatch):
+    for name in ('HF_TOKEN', 'GITHUB_TOKEN', 'HTTPS_PROXY', 'OPENAI_API_KEY', 'PYTHONPATH', 'LD_PRELOAD'):
+        monkeypatch.setenv(name, 'DO_NOT_INHERIT')
+    command = N.service_command('pulse-q2-' + 'a' * 24 + '-worker.service', 'worker',
+                                ['/fixed/venv/bin/python', '-I', '/fixed/worker.py'], tmp_path, Path('/fixed/python'))
+    for prop in ('PrivateNetwork=yes', 'NoNewPrivileges=yes', 'RestrictAddressFamilies=AF_UNIX',
+                 'MemoryMax=4294967296', 'MemorySwapMax=0', 'TasksMax=64',
+                 'KillMode=control-group', 'RuntimeMaxSec=180', 'ProtectSystem=strict'):
+        assert '--property=' + prop in command
+    assert '/usr/bin/env' in command and '-i' in command
+    assert 'DO_NOT_INHERIT' not in repr(command)
+    assert N.BARRIER in command and 'connect sendto sendmsg sendmmsg' in repr(command)
+
+
+def test_generation_watchdog_is_an_independent_systemd_timer(monkeypatch):
+    calls = []
+    def control(argv, **kwargs):
+        calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, stdout=b'', stderr=b'')
+    monkeypatch.setattr(N, 'control', control)
+    prefix = 'pulse-q2-' + 'a' * 24
+    timer = N.watchdog(prefix, prefix + '-worker.service')
+    assert timer == prefix + '-watchdog.timer'
+    assert '--on-active=15s' in calls[0] and '--timer-property=AccuracySec=1us' in calls[0]
+    assert '--kill-whom=all' in calls[0] and '--signal=KILL' in calls[0]
+    assert calls[1] == ['/usr/bin/systemctl', 'is-active', '--quiet', timer]
+
+
+def test_watchdog_failure_cannot_be_ignored(monkeypatch):
+    monkeypatch.setattr(N, 'control', lambda *a, **k: (_ for _ in ()).throw(N.NativeQualificationError('unavailable')))
+    with pytest.raises(N.NativeQualificationError):
+        N.watchdog('pulse-q2-' + 'a' * 24, 'pulse-q2-' + 'a' * 24 + '-worker.service')
+
+
+@pytest.mark.parametrize('payload,limit', [(b'first\nsecond\n', 100), (b'x' * 8192, 100)])
+def test_real_subprocess_framing_and_output_bound(payload, limit):
+    import time as _time
+    proc = subprocess.Popen([sys.executable, '-I', '-c', 'import os;os.write(1,' + repr(payload) + ')'],
+                            stdout=subprocess.PIPE, start_new_session=True)
+    reader = N.BoundedReader(proc.stdout, limit)
+    try:
+        if limit == 100 and len(payload) > limit:
+            with pytest.raises(N.NativeQualificationError, match='protocol_output_bound'):
+                reader.line(_time.monotonic() + 5)
+        else:
+            assert reader.line(_time.monotonic() + 5) == b'first\n'
+            assert reader.finish(_time.monotonic() + 5) == b'second\n'
+    finally:
+        proc.wait(timeout=5); reader.close(); proc.stdout.close()
+
+
+def test_real_harmless_subprocess_deadline_is_external_to_child():
+    import time as _time
+    import signal as _signal
+    proc = subprocess.Popen([sys.executable, '-I', '-c', 'import time;time.sleep(30)'],
+                            stdout=subprocess.PIPE, start_new_session=True)
+    reader = N.BoundedReader(proc.stdout)
+    started = _time.monotonic()
+    try:
+        with pytest.raises(N.NativeQualificationError, match='external_deadline_expired'):
+            reader.line(started + 0.1)
+        assert proc.poll() is None
+    finally:
+        os.killpg(proc.pid, _signal.SIGKILL); proc.wait(timeout=5)
+        reader.close(); proc.stdout.close()
+    assert _time.monotonic() - started < 3
+
+
+def test_real_local_checker_timeout_kills_its_process_group(tmp_path):
+    import time as _time
+    with pytest.raises(subprocess.TimeoutExpired):
+        N.bounded_local([sys.executable, '-I', '-c', 'import time;time.sleep(30)'],
+                        tmp_path / 'timeout.log', _time.monotonic() + 0.15)
+    assert (tmp_path / 'timeout.log').exists()
+
+
+@pytest.mark.parametrize('script,extras', [
+    ('qualify_q2_reference_runtime_v0.py', ['qualify-runtime', '--repo-root', '/unused', '--archive', '/unused',
+       '--output-dir', '/unused', '--expected-source-sha', '0' * 40]),
+    ('run_q2_reference_subject_v0.py', ['--source-root', '/unused', '--bundle', '/unused',
+       '--prelaunch', '/unused', '--expected-prelaunch-sha256', '0' * 64]),
+    ('check_q2_reference_qualification_v0.py', ['verify-inputs', '--archive', '/unused', '--staging', '/unused',
+       '--source-root', '/unused', '--repo-root', '/unused', '--expected-source-sha', '0' * 40, '--output', '/unused'])])
+@pytest.mark.parametrize('bypass', ['--skip-isolation', '--synthetic', '--model', '--retries', '--prompt'])
+def test_native_clis_have_no_runtime_or_model_bypass(script, extras, bypass):
+    result = subprocess.run([sys.executable, '-I', str(TOOLS / script), *extras, bypass, 'test'],
+                            capture_output=True, timeout=10)
+    assert result.returncode == 2 and b'unrecognized arguments' in result.stderr
+
+
+def test_native_qualification_needs_explicit_consent_before_any_work(tmp_path, monkeypatch):
+    monkeypatch.setattr(N, 'check_context', lambda *a: (_ for _ in ()).throw(AssertionError('must not run')))
+    with pytest.raises(N.NativeQualificationError, match='explicit_unscored_diagnostic_confirmation_required'):
+        N.qualify(tmp_path, tmp_path / 'missing.zip', tmp_path / 'out', '0' * 40, False)
+    assert not (tmp_path / 'out').exists()
+
+
+def test_native_checker_does_not_import_or_execute_producer_or_worker():
+    text = (TOOLS / 'check_q2_reference_qualification_v0.py').read_text()
+    tree = ast.parse(text)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            assert not any('qualify_q2_reference' in n.name or 'run_q2_reference' in n.name for n in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            assert not any(x in (node.module or '') for x in ('qualify_q2_reference', 'run_q2_reference'))
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            assert node.func.attr not in ('generate', 'from_pretrained') or (
+                node.func.attr == 'from_pretrained' and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == 'AutoTokenizer')
+    assert 'AutoModelForCausalLM' not in text
+
+
+def test_worker_load_and_generation_controls_are_explicit_in_source():
+    tree = ast.parse((TOOLS / 'run_q2_reference_subject_v0.py').read_text())
+    calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)]
+    loads = [n for n in calls if n.func.attr == 'from_pretrained']
+    assert len(loads) == 2
+    for call in loads:
+        kw = {k.arg: k.value for k in call.keywords}
+        assert isinstance(kw['local_files_only'], ast.Constant) and kw['local_files_only'].value is True
+        assert isinstance(kw['trust_remote_code'], ast.Constant) and kw['trust_remote_code'].value is False
+    model_call = next(n for n in loads if n.func.value.id == 'AutoModelForCausalLM')
+    kw = {k.arg: k.value for k in model_call.keywords}
+    assert kw['use_safetensors'].value is True and kw['attn_implementation'].value == 'eager'
+    generation = [n for n in calls if n.func.attr == 'generate']
+    assert len(generation) == 1
+    assert {k.arg: k.value for k in generation[0].keywords}['use_model_defaults'].value is False
+    assert not any(n.func.attr in ('compile', 'load', 'load_state_dict') for n in calls)
+
+
+def test_workflow_native_mode_is_manual_separate_and_explicitly_consented():
+    workflow = yaml.safe_load(_q2_workflow_text())
+    inputs = workflow.get('on', workflow.get(True))['workflow_dispatch']['inputs']
+    assert inputs['mode']['default'] == 'prepare-runtime'
+    assert inputs['mode']['options'] == ['prepare-runtime', 'qualify-runtime']
+    assert inputs['confirm_diagnostic_retention']['default'] is False
+    steps = workflow['jobs']['prepare']['steps']
+    guard = steps[0]['run']
+    assert 'CONFIRM_DIAGNOSTIC' in guard and 'case "$MODE"' in guard
+    native = [s for s in steps if s.get('id') == 'qualify']
+    assert len(native) == 1 and native[0]['if'] == "inputs.mode == 'qualify-runtime'"
+    assert '/usr/bin/timeout --signal=TERM --kill-after=5s 1200s' in native[0]['run']
+    assert '--confirm-one-unscored-diagnostic' in native[0]['run']
+    download = next(s for s in steps if 'curl --fail' in s.get('run', ''))
+    assert download['if'] == "inputs.mode == 'qualify-runtime'"
+    assert '11282419957/zip' in download['run'] and N.ARCHIVE_SHA in download['run']
+    assert '--retry 0' in download['run'] and '--location-trusted' not in download['run']
+    uploads = [s for s in steps if s.get('uses', '').startswith('actions/upload-artifact@')]
+    assert len(uploads) == 2
+    assert all(s['with']['overwrite'] is False and s['with']['include-hidden-files'] is True for s in uploads)
+    assert sum("inputs.mode == 'qualify-runtime'" in s['if'] for s in uploads) == 1
+    assert 'build_q2_reference_summary.py' not in _q2_workflow_text()
+    assert 'check_gates.py' not in _q2_workflow_text()
+
+
+def test_native_sources_have_python_311_syntax_without_execution():
+    for name in (N.SELF, N.CHECKER, N.WORKER):
+        ast.parse((ROOT / name).read_text(), feature_version=(3, 11))
+    ast.parse(N.INSTALLER, feature_version=(3, 11))
+    ast.parse(N.BARRIER, feature_version=(3, 11))
+
+
+def test_workflow_shell_syntax_is_valid_without_running_any_step(tmp_path):
+    workflow = yaml.safe_load(_q2_workflow_text())
+    for index, step in enumerate(workflow['jobs']['prepare']['steps']):
+        if 'run' not in step: continue
+        script = tmp_path / f'step-{index}.sh'; script.write_text(step['run'])
+        result = subprocess.run(['/bin/bash', '-n', str(script)], capture_output=True, timeout=10)
+        assert result.returncode == 0, result.stderr.decode()
+
+
+
+
+def synthetic_jcs_subset(value):
+    """Test double for this integral-number fixture, NOT a general JCS library."""
+    if type(value) is dict:
+        return b'{' + b','.join(synthetic_jcs_subset(k) + b':' + synthetic_jcs_subset(value[k])
+                               for k in sorted(value, key=lambda k: k.encode('utf-16-be'))) + b'}'
+    if type(value) is list:
+        return b'[' + b','.join(synthetic_jcs_subset(x) for x in value) + b']'
+    if type(value) is float:
+        assert value.is_integer(), 'Only the selected fixture integral-number subset is supported'
+        return str(int(value)).encode()
+    return json.dumps(value, ensure_ascii=False, allow_nan=False, separators=(',', ':')).encode()
+
+
+@pytest.fixture
+def diagnostic_synthetic(installed_synthetic, tmp_path, monkeypatch):
+    """Complete in-process protocol fixture with synthetic framework doubles."""
+    import contextlib
+    import types
+    import importlib.metadata
+    env, bundle, bootstrap, pip_report = installed_synthetic
+    source = tmp_path / 'source'
+    for name in N.SOURCES:
+        path = source / name; path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes((ROOT / name).read_bytes())
+    (bundle / 'model').mkdir()
+    model_rows = []
+    for name in sorted(W.MODEL_NAMES):
+        raw = (b'{"bos_token_id":1,"eos_token_id":2,"pad_token_id":2}\n'
+               if name in ('config.json', 'generation_config.json') else b'SYNTHETIC NON-MODEL BYTES\n')
+        (bundle / 'model' / name).write_bytes(raw)
+        model_rows.append({'path': 'model/' + name, 'size': len(raw), 'sha256': K.sha(raw)})
+    map_raw = K.encoded({'files': model_rows})
+    (source / W.MODEL_MAP).write_bytes(map_raw)
+    monkeypatch.setattr(W, 'PINNED_MAP', K.sha(map_raw))
+    monkeypatch.setattr(K, 'adopted_inputs', lambda root: None)
+    monkeypatch.setattr(K, 'native_target', lambda: None)
+    monkeypatch.setattr(W, 'platform', types.SimpleNamespace(
+        python_implementation=lambda: 'CPython', python_version=lambda: '3.11.16',
+        system=lambda: 'Linux', machine=lambda: 'x86_64',
+        freedesktop_os_release=lambda: {'ID': 'ubuntu', 'VERSION_ID': '24.04'}))
+    monkeypatch.setattr(W.os, 'getuid', lambda: 65534)
+    output = io.BytesIO()
+    fake_sys = types.SimpleNamespace(flags=types.SimpleNamespace(isolated=True),
+        prefix=str(env), base_prefix='/synthetic-bootstrap',
+        stdin=types.SimpleNamespace(buffer=io.BytesIO(b'GENERATE diagnostic-0001\n')),
+        stdout=types.SimpleNamespace(buffer=output))
+    monkeypatch.setattr(W, 'sys', fake_sys)
+    monkeypatch.setattr(K, 'sys', fake_sys)
+    class Tensor:
+        def __init__(self, data): self.data = data; self.shape = (len(data), len(data[0]))
+        def __getitem__(self, i): return types.SimpleNamespace(tolist=lambda: list(self.data[i]))
+    class Config:
+        def __init__(self, **kwargs): self.values = kwargs
+        def to_dict(self): return {'transformers_version': '4.57.6', **self.values}
+    torch = types.ModuleType('torch'); torch.__file__ = str(env / 'synthetic_torch.py')
+    torch.__version__ = '2.8.0+cpu'; torch.version = types.SimpleNamespace(cuda=None)
+    torch.float32 = 'torch.float32'; torch.long = 'torch.int64'
+    counters = {'generate': 0, 'model_load': 0, 'tokenizer_load': 0, 'seeds': [], 'threads': None, 'interop': None,
+                'deterministic': False, 'generation_kwargs': None}
+    torch.set_num_threads = lambda x: counters.update(threads=x)
+    torch.set_num_interop_threads = lambda x: counters.update(interop=x)
+    torch.use_deterministic_algorithms = lambda x: counters.update(deterministic=x)
+    torch.get_num_threads = lambda: counters['threads']
+    torch.get_num_interop_threads = lambda: counters['interop']
+    torch.are_deterministic_algorithms_enabled = lambda: counters['deterministic']
+    torch.manual_seed = lambda x: counters['seeds'].append(x)
+    torch.inference_mode = contextlib.nullcontext
+    torch.tensor = lambda data, **kw: Tensor(data)
+    torch.ones_like = lambda t: Tensor([[1] * len(t.data[0])])
+    class Tokenizer:
+        is_fast = True; bos_token_id = 1; eos_token_id = 2; pad_token_id = 2
+        def apply_chat_template(self, messages, **kwargs):
+            assert messages == W.MESSAGES
+            assert kwargs == {'tokenize': True, 'add_generation_prompt': True}
+            return [1, 11, 12]
+        def decode(self, ids, **kwargs):
+            assert kwargs == {'skip_special_tokens': True, 'clean_up_tokenization_spaces': False}
+            return ' quartz\n'
+    class LlamaForCausalLM:
+        training = True; is_quantized = False
+        config = types.SimpleNamespace(_attn_implementation='eager')
+        def to(self, device): assert device == 'cpu'; return self
+        def eval(self): self.training = False; return self
+        def parameters(self):
+            return [types.SimpleNamespace(device=types.SimpleNamespace(type='cpu'), dtype=torch.float32)]
+        def generate(self, **kwargs):
+            counters['generate'] += 1; counters['generation_kwargs'] = kwargs
+            assert kwargs['use_model_defaults'] is False
+            assert kwargs['generation_config'].values['disable_compile'] is True
+            assert counters['seeds'][-1] == 1729
+            return Tensor([kwargs['input_ids'].data[0] + [41, 2]])
+    def load_tokenizer(path, **kwargs):
+        counters['tokenizer_load'] += 1
+        assert Path(path) == bundle / 'model'
+        assert kwargs == {'local_files_only': True, 'trust_remote_code': False, 'use_fast': True}
+        return Tokenizer()
+    def load_model(path, **kwargs):
+        counters['model_load'] += 1
+        assert Path(path) == bundle / 'model'
+        assert kwargs == {'local_files_only': True, 'trust_remote_code': False, 'use_safetensors': True,
+                          'torch_dtype': torch.float32, 'attn_implementation': 'eager', 'device_map': None}
+        return LlamaForCausalLM()
+    transformers = types.ModuleType('transformers'); transformers.__file__ = str(env / 'synthetic_transformers.py')
+    transformers.__version__ = '4.57.6'; transformers.GenerationConfig = Config
+    transformers.AutoTokenizer = types.SimpleNamespace(from_pretrained=load_tokenizer)
+    transformers.AutoModelForCausalLM = types.SimpleNamespace(from_pretrained=load_model)
+    rfc = types.ModuleType('rfc8785'); rfc.__file__ = str(env / 'synthetic_rfc.py'); rfc.dumps = synthetic_jcs_subset
+    for name, mod in (('torch', torch), ('transformers', transformers), ('rfc8785', rfc)):
+        monkeypatch.setitem(sys.modules, name, mod)
+    old_version = importlib.metadata.version
+    versions = {'torch': '2.8.0+cpu', 'transformers': '4.57.6', 'rfc8785': '0.1.4'}
+    monkeypatch.setattr(importlib.metadata, 'version', lambda name: versions[name] if name in versions else old_version(name))
+    rows = [{'path': name, 'size': (source / name).stat().st_size,
+             'sha256': K.sha((source / name).read_bytes())} for name in N.SOURCES]
+    installation_raw = K.encoded(K.verify_installation(env, bundle, bootstrap, pip_report))
+    expected_source = 'c' * 40; expected_run = '123456'
+    pre = {'record_type': 'q2_native_prelaunch_v0', 'context': {
+        'source_commit': expected_source, 'run_id': expected_run, 'run_attempt': 1,
+        'repository': 'HKati/pulse-release-gates-0.1', 'actor': 'HKati', 'event': 'workflow_dispatch',
+        'workflow': N.WF}, 'source_files': rows, 'preparation_source_commit': K.ORIGINAL_SOURCE,
+        'preparation_run_id': K.ORIGINAL_RUN, 'artifact_sha256': K.ARCHIVE_SHA,
+        'selection_sha256': K.FIXED_FILES[K.SELECTION], 'workload_sha256': K.FIXED_FILES[K.WORKLOAD],
+        'diagnostic_sha256': K.sha((source / K.DIAGNOSTIC).read_bytes()),
+        'installation_sha256': K.sha(installation_raw),
+        'environment_inventory_sha256': K.sha(K.encoded(K.parse(installation_raw)['inventory'])),
+        'limits': {'generation_seconds': 15, 'phase_seconds': 1200, 'memory_bytes': 4294967296, 'tasks': 64},
+        'authority_effect': 'none', 'production_gate_eligible': False, 'scored_call_count': 0}
+    pre_raw = K.encoded(pre); pre_path = tmp_path / 'prelaunch.json'; pre_path.write_bytes(pre_raw)
+    assert W.run(source, bundle, pre_path, K.sha(pre_raw)) == 0
+    ready_raw, response_raw = [line + b'\n' for line in output.getvalue().splitlines()]
+    observation = {'sandbox': synthetic_sandbox(), 'generation_start_ns': 1000,
+        'response_received_ns': 2000, 'generation_deadline_ns': 15_000_001_000,
+        'watchdog_armed': True, 'watchdog_unit': 'pulse-q2-' + 'a' * 24 + '-watchdog.timer', 'worker_exit_code': 0}
+    arguments = [source, bundle, env, pre_raw, installation_raw, response_raw, ready_raw, observation,
+                 bootstrap, pip_report, synthetic_sandbox('installer'), synthetic_sandbox('installcheck'),
+                 expected_source, expected_run, K.sha(K.encoded(rows))]
+    return arguments, counters
+
+
+def test_native_worker_and_separate_checker_full_protocol_with_synthetic_doubles(diagnostic_synthetic):
+    arguments, counters = diagnostic_synthetic
+    assert counters['model_load'] == counters['generate'] == 1
+    assert counters['tokenizer_load'] == 1
+    result = K.verify_diagnostic(*arguments)
+    assert counters['generate'] == 1 and counters['model_load'] == 1
+    assert counters['tokenizer_load'] == 2  # independent prompt/decoding reconstruction
+    assert result['single_unscored_diagnostic_verified'] is True
+    assert result['qualification_scope'] == 'one_unscored_diagnostic'
+    assert result['authority_effect'] == 'none' and result['production_gate_eligible'] is False
+    assert result['malicious_platform_resistance'] is False
+    response = K.parse(arguments[5])
+    assert response['text'] == ' quartz\n' and response['new_token_ids'] == [41, 2]
+    assert response['effective_generation']['disable_compile'] is True
+
+
+@pytest.mark.parametrize('mutation', ['prelaunch_whitespace', 'prelaunch_extra', 'source_commit', 'run_id',
+    'run_attempt_bool', 'history_rebound', 'archive', 'scored_bool', 'authority', 'limit_bool', 'limit_relaxed',
+    'installation_bytes', 'source_scope', 'source_hash', 'diagnostic_hash', 'runtime_file', 'model_file',
+    'response_whitespace', 'response_binding', 'response_binding_bool', 'effective_sample', 'effective_sample_integer',
+    'effective_compile', 'runtime_compile', 'runtime_bool', 'runtime_threads', 'ready_binding', 'ready_extra',
+    'ready_runtime', 'late_response', 'negative_time', 'watchdog_missing', 'worker_failed', 'worker_exit_bool',
+    'installer_network', 'installer_memory', 'installcheck_namespace', 'worker_namespace', 'extra_observation', 'relaxed_stage_timeout', 'different_timer', 'different_installer'])
+def test_native_separate_checker_rejects_rehashed_full_protocol_mutations(diagnostic_synthetic, mutation):
+    args, _ = diagnostic_synthetic
+    args = list(args)
+    pre = K.parse(args[3]); response = K.parse(args[5]); ready = K.parse(args[6]); observation = copy.deepcopy(args[7])
+    if mutation == 'prelaunch_whitespace': args[3] += b'\n'
+    elif mutation == 'prelaunch_extra': pre['PASS'] = True
+    elif mutation == 'source_commit': pre['context']['source_commit'] = 'd' * 40
+    elif mutation == 'run_id': pre['context']['run_id'] = '9999'
+    elif mutation == 'run_attempt_bool': pre['context']['run_attempt'] = True
+    elif mutation == 'history_rebound': pre['preparation_source_commit'] = pre['context']['source_commit']
+    elif mutation == 'archive': pre['artifact_sha256'] = '0' * 64
+    elif mutation == 'scored_bool': pre['scored_call_count'] = False
+    elif mutation == 'authority': pre['production_gate_eligible'] = True
+    elif mutation == 'limit_bool': pre['limits']['tasks'] = True
+    elif mutation == 'limit_relaxed': pre['limits']['generation_seconds'] = 60
+    elif mutation == 'installation_bytes': args[4] += b'\n'
+    elif mutation == 'source_scope': pre['source_files'] = pre['source_files'][:-1]
+    elif mutation == 'source_hash': pre['source_files'][0]['sha256'] = '0' * 64
+    elif mutation == 'diagnostic_hash': pre['diagnostic_sha256'] = '0' * 64
+    elif mutation == 'runtime_file': (args[2] / 'bin/python').write_bytes(b'REPLACED\n')
+    elif mutation == 'model_file': (args[1] / 'model/model.safetensors').write_bytes(b'REPLACED\n')
+    elif mutation == 'response_whitespace': args[5] += b'\n'
+    elif mutation == 'response_binding': response['binding']['run_id'] = '9876'
+    elif mutation == 'response_binding_bool': response['binding']['run_attempt'] = True
+    elif mutation == 'effective_sample': response['effective_generation']['do_sample'] = True
+    elif mutation == 'effective_sample_integer': response['effective_generation']['do_sample'] = 0
+    elif mutation == 'effective_compile': response['effective_generation']['disable_compile'] = False
+    elif mutation == 'runtime_compile': response['runtime']['compile'] = True
+    elif mutation == 'runtime_bool': response['runtime']['evaluation'] = 1
+    elif mutation == 'runtime_threads': response['runtime']['threads'] = 2
+    elif mutation == 'ready_binding': ready['binding']['source_commit'] = 'd' * 40
+    elif mutation == 'ready_extra': ready['extra'] = True
+    elif mutation == 'ready_runtime': ready['runtime']['seed'] = 1730
+    elif mutation == 'late_response': observation['response_received_ns'] = observation['generation_deadline_ns'] + 1
+    elif mutation == 'negative_time': observation['generation_start_ns'] = -1
+    elif mutation == 'watchdog_missing': observation['watchdog_armed'] = False
+    elif mutation == 'worker_failed': observation['worker_exit_code'] = -9
+    elif mutation == 'worker_exit_bool': observation['worker_exit_code'] = False
+    elif mutation == 'installer_network': args[10]['ipv4_blocked'] = False
+    elif mutation == 'installer_memory': args[10]['memory_max'] = 'max'
+    elif mutation == 'installcheck_namespace': args[11]['child_netns'] = args[11]['host_netns']
+    elif mutation == 'worker_namespace': observation['sandbox']['child_netns'] = observation['sandbox']['host_netns']
+    elif mutation == 'extra_observation': observation['producer_pass'] = True
+    elif mutation == 'relaxed_stage_timeout': observation['sandbox']['properties']['RuntimeMaxUSec'] = '8min'
+    elif mutation == 'different_timer': observation['watchdog_unit'] = 'pulse-q2-' + 'b' * 24 + '-watchdog.timer'
+    elif mutation == 'different_installer': args[10]['unit'] = 'pulse-q2-' + 'b' * 24 + '-installer.service'
+    if mutation != 'prelaunch_whitespace': args[3] = K.encoded(pre)
+    if mutation != 'response_whitespace': args[5] = K.encoded(response)
+    args[6] = K.encoded(ready); args[7] = observation
+    with pytest.raises((K.QualificationCheckError, ValueError, OSError, KeyError)):
+        K.verify_diagnostic(*args)
+
+
+
+def test_native_git_trust_exception_is_exact_path_not_global(tmp_path, monkeypatch):
+    calls = []
+    def run(command, **kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0, stdout=b'synthetic blob', stderr=b'')
+    monkeypatch.setattr(K.subprocess, 'run', run)
+    assert K.git_blob(tmp_path, 'a' * 40, 'source.py') == b'synthetic blob'
+    assert 'safe.directory=' + str(tmp_path) in calls[0]
+    assert 'safe.directory=*' not in calls[0]
+    assert 'protocol.allow=never' in calls[0]
+    assert calls[0][-1] == 'a' * 40 + ':source.py'
+
+
+def test_native_historical_checker_uses_scoped_independent_git_reader(tmp_path, monkeypatch):
+    import types
+    captured = {}
+    class Loader:
+        def exec_module(self, module):
+            def inspect(*args):
+                captured['args'] = args
+                assert module.git_blob is K.git_blob
+                return 'synthetic-bound-result'
+            module.inspect_bundle = inspect
+    monkeypatch.setattr(K.importlib.util, 'spec_from_file_location', lambda *args: types.SimpleNamespace(loader=Loader()))
+    monkeypatch.setattr(K.importlib.util, 'module_from_spec', lambda spec: types.SimpleNamespace())
+    result = K.check_prepared_bytes(tmp_path / 'bundle', tmp_path / 'source', tmp_path / 'repo')
+    assert result == 'synthetic-bound-result'
+    assert captured['args'][2:4] == (K.ORIGINAL_SOURCE, K.ORIGINAL_RUN)
+
+
+def test_native_live_evidence_is_not_hidden_by_protect_home(tmp_path, monkeypatch):
+    # Run the real supervisor's early-failure/preservation path with a synthetic
+    # context and no systemd service, installation, model import or inference.
+    import tempfile
+    source = tmp_path / 'repo'; source.mkdir()
+    archive = tmp_path / 'invalid.zip'; archive.write_bytes(b'not the selected archive')
+    destination = tmp_path / 'runner-home' / 'qualification'; destination.parent.mkdir()
+    real_mkdtemp = tempfile.mkdtemp
+    observed = {}
+    def stage_dir(*, prefix, dir):
+        assert dir == '/var/tmp'
+        value = real_mkdtemp(prefix=prefix, dir=tmp_path)
+        observed['stage'] = Path(value)
+        return value
+    def snapshot(repo, target, expected):
+        target.mkdir()
+        assert target.parent / 'evidence' != destination
+        assert (target.parent / 'evidence').is_dir()
+        observed['live'] = target.parent / 'evidence'
+        return []
+    monkeypatch.setattr(N.tempfile, 'mkdtemp', stage_dir)
+    monkeypatch.setattr(N, 'check_context', lambda *args: {'origin': 'synthetic_failure_test'})
+    monkeypatch.setattr(N, 'snapshot_sources', snapshot)
+    monkeypatch.setattr(N, 'freeze', lambda path: None)
+    monkeypatch.setattr(N, 'remove_watchdog', lambda prefix: None)
+    monkeypatch.setattr(N.os, 'chown', lambda *args: None)
+    monkeypatch.setattr(N, 'run_service', lambda *args: pytest.fail('No service may run on invalid archive'))
+    assert N.qualify(source, archive, destination, 'a' * 40, True) == 1
+    report = json.loads((destination / 'qualification.json').read_bytes())
+    assert report['status'] == 'failed' and report['error_code'] == 'original_archive_digest'
+    assert report['native_runtime_qualified'] is False and report['scored_call_count'] == 0
+    assert not observed['stage'].exists()
+    assert N.PROPERTIES['ProtectHome'] == 'yes'
+
+
+def synthetic_qualification_report(status='qualified'):
+    return {
+        'record_type': 'q2_reference_qualification_v0', 'status': status,
+        'native_runtime_qualified': status == 'qualified', 'diagnostic_call_limit': 1,
+        'scored_call_count': 0, 'capture_dispatch_authorized': False,
+        'production_gate_eligible': False, 'authority_effect': 'none',
+        'error_code': None if status == 'qualified' else 'synthetic_failure',
+        'context': {'repository': N.REPOSITORY, 'source_commit': 'a' * 40, 'workflow': N.WF,
+                    'run_id': '12345', 'run_attempt': 1, 'actor': 'HKati', 'event': 'workflow_dispatch',
+                    'runner_image': 'synthetic-not-a-runner', 'python': '3.11.16', 'os': 'ubuntu-24.04',
+                    'architecture': 'x86_64', 'kernel': 'synthetic', 'libc': ['glibc', 'synthetic'],
+                    'bootstrap_python_sha256': '0' * 64, 'origin': 'owner_dispatched_github_native_diagnostic'},
+        'preparation_source_commit': N.PREPARATION_SOURCE, 'preparation_run_id': N.PREPARATION_RUN,
+        'artifact_sha256': N.ARCHIVE_SHA, 'phase_start_ns': 1, 'phase_end_ns': 2,
+        'evidence': [], 'limitations': [
+            'GitHub host and bootstrap CPython/pip remain trusted',
+            'one diagnostic does not establish 150-call capture viability',
+            'no score, acquisition completeness, release admission or malicious-platform proof']}
+
+
+@pytest.mark.parametrize('status', ['qualified', 'failed'])
+def test_qualification_schema_accepts_only_structural_synthetic_records(status):
+    import jsonschema
+    schema = json.loads((ROOT / N.SCHEMA).read_bytes())
+    jsonschema.Draft202012Validator.check_schema(schema)
+    jsonschema.Draft202012Validator(schema).validate(synthetic_qualification_report(status))
+
+
+@pytest.mark.parametrize('key,value', [
+    ('record_type', 'release_allow'), ('native_runtime_qualified', False),
+    ('diagnostic_call_limit', 2), ('diagnostic_call_limit', True),
+    ('scored_call_count', 150), ('scored_call_count', False),
+    ('capture_dispatch_authorized', True), ('production_gate_eligible', True),
+    ('authority_effect', 'allow'), ('error_code', 'failed'),
+    ('preparation_source_commit', 'a' * 40), ('preparation_run_id', '12345'),
+    ('artifact_sha256', '0' * 64), ('extra', 'not allowed')])
+def test_qualification_schema_rejects_promotions_and_mismatched_states(key, value):
+    import jsonschema
+    schema = json.loads((ROOT / N.SCHEMA).read_bytes())
+    report = synthetic_qualification_report(); report[key] = value
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.Draft202012Validator(schema).validate(report)
 
 
 if __name__ == '__main__':

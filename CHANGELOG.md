@@ -115,6 +115,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   transfer does not declare correction acceptance or reference readiness.
 
 ### Added
+- Implement the bounded Q2 native-qualification path after #2895: a separate
+  external supervisor, local model worker, independent checker, fixed unscored
+  diagnostic and closed report schema. Verify original/adopted byte bindings,
+  install only the hash-locked offline wheel closure in a fresh environment,
+  inspect kernel-backed isolation/limits and preserve original token/text records.
+  Keep the existing prepare-runtime tools unchanged and add a separately
+  confirmed manual workflow mode; retain all original preparation identities.
+  Extend the registered offline tests without changing the 157-program manifest.
+  Implementation/offline regression is not observed native qualification:
+  no model execution, workflow dispatch, 150-call capture, production Q2
+  admission or Step 5C acceptance occurs in this change. Keep #2879 open.
 - Adopt the Q2 runtime input pins from owner-dispatched preparation run
   `37148637546` under #2879. Preserve 30 exact wheel requirements and eight
   model/tokenizer identities, with original preparation/checker/candidate
