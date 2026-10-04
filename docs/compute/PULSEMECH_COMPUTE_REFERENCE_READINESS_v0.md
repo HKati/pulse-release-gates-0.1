@@ -1220,10 +1220,30 @@ proceed past its barrier on a declaration of "offline" alone.
 
 The fixed additional caps are 4 GiB memory, no swap, 64 tasks and one CPU quota.
 Each service has an external runtime cap; the entire qualification has a
-1,200-second outer timeout. An independent systemd timer is armed before the
-single generation authorization and kills the worker control group after 15
-seconds; a separate parent deadline and full-cgroup cleanup also apply. These
-are enforced operating caps, not measured throughput or a guarantee of fit.
+1,200-second outer timeout. The external supervisor gives the original response
+exactly 15 seconds from the nonblocking write boundary of the single generation
+command.
+A separate systemd fail-stop timer is armed beforehand for 20 seconds: its
+five-second arming/cleanup allowance is not additional generation time. Before
+GO, the supervisor requires that the timer's conservative earliest expiry and
+the existing worker/phase caps all leave the complete response window. It also
+rechecks this at the write boundary; insufficient remaining time fails closed, without a
+shortened or extended accepted generation interval. A response received after
+15 seconds is rejected even while the fail-stop timer is still active. Timely
+response receipt is followed only by bounded worker exit within the already
+armed caps. Full-cgroup cleanup applies on success and failure. These are
+operating caps, not measured throughput or a guarantee of fit.
+
+Sandbox evidence and a one-call intent are flushed before arming. GO is a fixed
+nonblocking pipe write; the supervisor samples its monotonic timestamp
+immediately before that write, after pipe setup. It accepts only a complete
+write. Post-write scheduling delay cannot move the start forward or create
+extra generation time. Neither systemd control calls nor evidence
+fsyncs intervene before response receipt. Observed timing and any received
+original response are retained after worker cleanup, also on rejection; they
+are not represented as a pre-execution observation. The worker, separate
+checker, selected diagnostic, original runtime pins and preparation bindings
+are unchanged by this timing correction.
 Live evidence is staged under `/var/tmp`, outside the home paths hidden by
 `ProtectHome=yes`; it is copied to the runner artifact directory only after
 services stop. Do not weaken home protection to expose the checkout.

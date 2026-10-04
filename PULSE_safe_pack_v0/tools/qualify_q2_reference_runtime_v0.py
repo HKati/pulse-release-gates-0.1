@@ -51,6 +51,11 @@ ARCHIVE_SHA = 'b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9'
 ARCHIVE_SIZE = 508460811
 MAX_CONTROL = 16 * 1024 * 1024
 STAGES = {'installer': 480, 'installcheck': 300, 'worker': 180, 'decodecheck': 180}
+GENERATION_NS = 15_000_000_000
+# The response still has exactly 15 seconds from the GO write boundary.
+# This separate pre-armed backstop includes a bounded arming/cleanup allowance;
+# it must never consume the response window or authorize a late response.
+WATCHDOG_SECONDS = 20
 PROPERTIES = {
     'User': '65534', 'Group': '65534', 'PrivateNetwork': 'yes',
     'RestrictAddressFamilies': 'AF_UNIX', 'SystemCallArchitectures': 'native',
@@ -356,7 +361,10 @@ def observe_service(unit, stage, frame, host_netns):
 class Service:
     def __init__(self, prefix, stage, command, work, python, log, phase_deadline):
         self.stage = stage; self.unit = prefix + '-' + stage + '.service'
-        self.deadline = min(phase_deadline, time.monotonic() + STAGES[stage] + 5)
+        # Taken before launching systemd: a conservative lower bound on its
+        # RuntimeMaxSec expiry, not the client's additional exit/cleanup margin.
+        self.runtime_deadline_ns = time.monotonic_ns() + STAGES[stage] * 1_000_000_000
+        self.deadline = min(phase_deadline, self.runtime_deadline_ns / 1e9 + 5)
         self.log = log.open('xb'); self.process = None; self.reader = None
         try:
             self.process = subprocess.Popen(service_command(self.unit, stage, command, work, python),
@@ -370,8 +378,21 @@ class Service:
             self.close(); raise
 
     def send(self, data):
+        require(type(data) is bytes and 0 < len(data) <= 512, 'control_command_bound')
         require(self.process.poll() is None, 'service_terminated_before_command')
-        self.process.stdin.write(data); self.process.stdin.flush()
+        # Both fixed commands fit the POSIX atomic-pipe-write minimum. Do not
+        # let a blocked stdin write or buffered flush hide in the timing boundary.
+        fd = self.process.stdin.fileno()
+        os.set_blocking(fd, False)
+        # Timestamp before the atomic write: a post-write scheduler pause must
+        # not move the deadline forward after the child was already authorized.
+        authorization_ns = time.monotonic_ns()
+        try:
+            written = os.write(fd, data)
+        except BlockingIOError as exc:
+            raise NativeQualificationError('control_pipe_not_writable') from exc
+        require(written == len(data), 'incomplete_control_write')
+        return authorization_ns
 
     def complete(self, *, empty_tail=False, deadline=None):
         deadline = min(self.deadline, deadline or self.deadline)
@@ -405,7 +426,7 @@ class Service:
 
 def watchdog(prefix, worker_unit):
     unit = prefix + '-watchdog'
-    control(['/usr/bin/systemd-run', '--quiet', '--unit=' + unit, '--on-active=15s',
+    control(['/usr/bin/systemd-run', '--quiet', '--unit=' + unit, '--on-active=' + str(WATCHDOG_SECONDS) + 's',
              '--timer-property=AccuracySec=1us', '--timer-property=RandomizedDelaySec=0',
              '/usr/bin/systemctl', 'kill', '--kill-whom=all', '--signal=KILL', worker_unit])
     control(['/usr/bin/systemctl', 'is-active', '--quiet', unit + '.timer'])
@@ -417,6 +438,67 @@ def remove_watchdog(prefix):
         control(['/usr/bin/systemctl', 'stop', prefix + '-watchdog.timer', prefix + '-watchdog.service'], check=False)
     except (OSError, subprocess.SubprocessError, NativeQualificationError):
         pass
+
+
+def exchange_diagnostic(service, prefix, output, phase_deadline):
+    """One GO; no fsync/control call inside the 15-second response interval.
+
+    The intent is durable before GO. Its observed write-boundary time and original
+    response are retained after stopping the worker, including failure paths.
+    The pre-armed timer is a separate bounded fail-stop backstop; acceptance
+    never uses its longer interval as the generation budget.
+    """
+    start_record = None; response_raw = None; observation = None
+    try:
+        save(output / 'worker-sandbox.json', encode(service.observation))
+        save(output / 'generation-intent.json', encode({
+            'call_id': 'diagnostic-0001', 'attempt': 1, 'generation_seconds': 15,
+            'state': 'permission_recorded_before_GO', 'scored': False, 'retries': 0}))
+        arm_begin = time.monotonic_ns()
+        timer = watchdog(prefix, service.unit)
+        # OnActiveSec cannot start before its creation request. Never grant GO
+        # unless even this earliest possible expiry leaves the complete window.
+        # The existing whole-worker and phase caps must also leave that window.
+        ceiling = min(arm_begin + WATCHDOG_SECONDS * 1_000_000_000,
+                      service.runtime_deadline_ns, int(phase_deadline * 1e9))
+        require(time.monotonic_ns() + GENERATION_NS < ceiling,
+                'full_generation_window_unavailable')
+        generation_start = service.send(b'GENERATE diagnostic-0001\n')
+        generation_deadline = generation_start + GENERATION_NS
+        start_record = {'call_id': 'diagnostic-0001', 'attempt': 1,
+            'generation_start_ns': generation_start, 'generation_deadline_ns': generation_deadline,
+            'watchdog_unit': timer, 'watchdog_armed': True,
+            'watchdog_arm_begin_ns': arm_begin,
+            'watchdog_earliest_deadline_ns': arm_begin + WATCHDOG_SECONDS * 1_000_000_000,
+            'state': 'GO_written_timing_retained_after_worker_stop'}
+        # Also reject loss of the full window before the nonblocking write.
+        # Such an incomplete attempt is stopped, never given a shorter window
+        # and then reported as a successful qualification.
+        require(generation_deadline < ceiling, 'full_generation_window_unavailable')
+        response_raw = service.reader.line(generation_deadline / 1e9)
+        received = time.monotonic_ns()
+        require(received <= generation_deadline, 'late_generation_response')
+        # A timely original response ends the response budget. Process exit has
+        # only the remainder of the already-armed backstop/stage/phase caps;
+        # no deadline is extended and no second model call is authorized.
+        _, rc = service.complete(empty_tail=True, deadline=ceiling / 1e9)
+        observation = {'sandbox': service.observation, 'generation_start_ns': generation_start,
+                       'response_received_ns': received, 'generation_deadline_ns': generation_deadline,
+                       'watchdog_armed': True, 'watchdog_unit': timer, 'worker_exit_code': rc}
+    finally:
+        # Stop before any potentially slow evidence flush, including rejection
+        # paths. Preserve a received response even when it is late or exit fails.
+        try:
+            service.close()
+        finally:
+            remove_watchdog(prefix)
+            if start_record is not None:
+                save(output / 'generation-start.json', encode(start_record))
+            if response_raw is not None:
+                save(output / 'original-response.json', response_raw)
+            if observation is not None:
+                save(output / 'occurrence.json', encode(observation))
+    return response_raw
 
 
 def bounded_local(command, log, deadline):
@@ -525,24 +607,9 @@ def qualify(repo, archive, output, expected, confirmed):
         ready = strict_json(ready_raw)
         require(ready.get('record_type') == 'q2_native_model_ready_v0', 'model_ready_required')
         save(output / 'model-ready.json', ready_raw)
-        timer = watchdog(prefix, service.unit)
-        generation_start = time.monotonic_ns()
-        generation_deadline = generation_start + 15_000_000_000
-        save(output / 'worker-sandbox.json', encode(service.observation))
-        save(output / 'generation-start.json', encode({'call_id': 'diagnostic-0001', 'attempt': 1,
-            'generation_start_ns': generation_start, 'generation_deadline_ns': generation_deadline,
-            'watchdog_unit': timer, 'watchdog_armed': True, 'state': 'authorization_recorded_before_GO'}))
-        service.send(b'GENERATE diagnostic-0001\n')
-        response_raw = service.reader.line(min(deadline, generation_deadline / 1e9))
-        received = time.monotonic_ns()
-        save(output / 'original-response.json', response_raw)
-        require(received <= generation_deadline, 'late_generation_response')
-        _, rc = service.complete(empty_tail=True, deadline=min(deadline, generation_deadline / 1e9))
-        observation = {'sandbox': service.observation, 'generation_start_ns': generation_start,
-                       'response_received_ns': received, 'generation_deadline_ns': generation_deadline,
-                       'watchdog_armed': True, 'watchdog_unit': timer, 'worker_exit_code': rc}
-        save(output / 'occurrence.json', encode(observation))
-        service.close(); service = None; remove_watchdog(prefix)
+        # exchange_diagnostic owns cleanup even when authorization/receipt fails.
+        worker_service = service; service = None
+        response_raw = exchange_diagnostic(worker_service, prefix, output, deadline)
         response = strict_json(response_raw)
         save(output / 'original-continuation.utf8', response['text'].encode('utf-8'))
         decode_work = stage_root / 'decodecheck'; writable_directory(decode_work)

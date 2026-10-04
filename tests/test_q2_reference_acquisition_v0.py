@@ -1402,7 +1402,8 @@ def test_generation_watchdog_is_an_independent_systemd_timer(monkeypatch):
     prefix = 'pulse-q2-' + 'a' * 24
     timer = N.watchdog(prefix, prefix + '-worker.service')
     assert timer == prefix + '-watchdog.timer'
-    assert '--on-active=15s' in calls[0] and '--timer-property=AccuracySec=1us' in calls[0]
+    assert '--on-active=20s' in calls[0] and '--timer-property=AccuracySec=1us' in calls[0]
+    assert N.GENERATION_NS == 15_000_000_000
     assert '--kill-whom=all' in calls[0] and '--signal=KILL' in calls[0]
     assert calls[1] == ['/usr/bin/systemctl', 'is-active', '--quiet', timer]
 
@@ -1879,3 +1880,359 @@ def test_qualification_schema_rejects_promotions_and_mismatched_states(key, valu
 
 if __name__ == '__main__':
     raise SystemExit(pytest.main(['-q','-c',os.devnull,str(Path(__file__).resolve())]))
+
+
+# Timing correction: deterministic clocks and synthetic services only. The
+# production supervisor functions execute unchanged; no systemd/model is run.
+@pytest.fixture
+def generation_window(tmp_path, monkeypatch):
+    import types
+    class Clock:
+        ns = 100_000_000_000
+        def monotonic_ns(self): return self.ns
+        def monotonic(self): return self.ns / 1e9
+        def advance(self, ns): self.ns += ns
+    clock = Clock()
+    state = types.SimpleNamespace(clock=clock, events=[], control_delays=[0, 0],
+        save_delays={}, response_delay=14_000_000_000, exit_delay=0, send_delay=0,
+        force_late_line=False, exit_failure=False, save_failure=None, go_count=0,
+        go_ns=None, received_ns=None, timer_deadline=None, timer_active=False,
+        closed=False, completed=False, response=b'{"text":"synthetic unscored response"}\n')
+    prefix = 'pulse-q2-' + 'a' * 24
+    state.prefix = prefix
+    state.output = tmp_path / 'timing-evidence'; state.output.mkdir()
+    state.phase_deadline = clock.monotonic() + 1200
+    real_save = N.save
+    def save(path, raw):
+        state.events.append(('save', path.name, clock.ns, state.closed, state.go_count))
+        clock.advance(state.save_delays.get(path.name, 0))
+        if path.name == state.save_failure: raise OSError('synthetic fsync failure')
+        real_save(path, raw)
+    def control(argv, **kwargs):
+        state.events.append(('control', tuple(argv), clock.ns, state.closed, state.go_count))
+        if argv[0] == '/usr/bin/systemd-run':
+            value = next(a for a in argv if a.startswith('--on-active='))
+            seconds = int(value.split('=')[1][:-1])
+            state.timer_deadline = clock.ns + seconds * 1_000_000_000
+            state.timer_active = True
+            clock.advance(state.control_delays[0])
+        elif 'is-active' in argv:
+            clock.advance(state.control_delays[1])
+            N.require(clock.ns < state.timer_deadline, 'synthetic_watchdog_expired')
+        elif 'stop' in argv:
+            state.timer_active = False
+        return subprocess.CompletedProcess(argv, 0, stdout=b'', stderr=b'')
+    def advance_bounded(target, deadline, *, allow_late=False):
+        if state.timer_active and target >= state.timer_deadline:
+            clock.ns = state.timer_deadline
+            raise N.NativeQualificationError('synthetic_watchdog_expired')
+        if target > int(deadline * 1e9) and not allow_late:
+            clock.ns = int(deadline * 1e9)
+            raise N.NativeQualificationError('external_deadline_expired')
+        clock.ns = target
+    class Reader:
+        def line(self, deadline):
+            if not state.go_count:
+                return b'{"record_type":"q2_native_model_ready_v0"}\n'
+            state.read_deadline = deadline
+            advance_bounded(state.go_ns + state.response_delay, deadline,
+                            allow_late=state.force_late_line)
+            state.received_ns = clock.ns
+            state.events.append(('response', None, clock.ns, state.closed, state.go_count))
+            return state.response
+    class SyntheticService:
+        unit = prefix + '-worker.service'
+        reader = Reader()
+        observation = synthetic_sandbox()
+        runtime_deadline_ns = clock.ns + 180_000_000_000
+        deadline = state.phase_deadline
+        def send(self, raw):
+            assert raw == b'GENERATE diagnostic-0001\n'
+            assert state.go_count == 0
+            clock.advance(state.send_delay)
+            state.go_count += 1; state.go_ns = clock.ns
+            state.events.append(('send', raw, clock.ns, state.closed, state.go_count))
+            return clock.ns
+        def complete(self, *, empty_tail=False, deadline=None):
+            assert empty_tail is True
+            state.exit_deadline = deadline
+            advance_bounded(clock.ns + state.exit_delay, deadline)
+            if state.exit_failure: raise N.NativeQualificationError('isolated_service_failed')
+            state.completed = True
+            return b'', 0
+        def close(self):
+            state.closed = True
+            state.events.append(('close', None, clock.ns, state.closed, state.go_count))
+    state.service = SyntheticService()
+    monkeypatch.setattr(N, 'time', clock)
+    monkeypatch.setattr(N, 'save', save)
+    monkeypatch.setattr(N, 'control', control)
+    return state
+
+
+def run_generation_window(state):
+    return N.exchange_diagnostic(state.service, state.prefix, state.output, state.phase_deadline)
+
+
+@pytest.mark.parametrize('delays', [(0, 0), (100_000_000, 100_000_000),
+    (1_000_000_000, 1_000_000_000), (2_000_000_000, 2_000_000_000),
+    (2_400_000_000, 2_400_000_000)])
+def test_generation_window_preserves_fifteen_seconds_after_slow_arming(generation_window, delays):
+    state = generation_window; state.control_delays = delays
+    state.response_delay = 14_999_999_999
+    assert run_generation_window(state) == state.response
+    occurrence = json.loads((state.output / 'occurrence.json').read_bytes())
+    assert occurrence['generation_start_ns'] == state.go_ns
+    assert occurrence['generation_deadline_ns'] - state.go_ns == 15_000_000_000
+    assert occurrence['response_received_ns'] == state.go_ns + state.response_delay
+    assert state.go_count == 1 and state.closed and state.completed and not state.timer_active
+
+
+@pytest.mark.parametrize('name', ['worker-sandbox.json', 'generation-intent.json',
+    'generation-start.json', 'original-response.json', 'occurrence.json'])
+def test_generation_window_slow_fsync_never_consumes_response_time(generation_window, name):
+    state = generation_window; state.save_delays[name] = 8_000_000_000
+    state.response_delay = 14_900_000_000
+    assert run_generation_window(state) == state.response
+    assert round(state.read_deadline * 1e9) - state.go_ns == 15_000_000_000
+    begin = next(i for i, row in enumerate(state.events) if row[0] == 'send')
+    end = next(i for i, row in enumerate(state.events) if row[0] == 'response')
+    assert not any(row[0] in ('save', 'control') for row in state.events[begin + 1:end])
+    intent = json.loads((state.output / 'generation-intent.json').read_bytes())
+    assert intent['state'] == 'permission_recorded_before_GO' and intent['generation_seconds'] == 15
+    assert next(row for row in state.events if row[:2] == ('save', 'generation-intent.json'))[4] == 0
+    for filename in ('generation-start.json', 'original-response.json', 'occurrence.json'):
+        assert next(row for row in state.events if row[:2] == ('save', filename))[3] is True
+    start = json.loads((state.output / 'generation-start.json').read_bytes())
+    assert start['state'] == 'GO_written_timing_retained_after_worker_stop'
+
+
+@pytest.mark.parametrize('delays', [(3_000_000_000, 2_000_000_000),
+    (3_000_000_000, 3_000_000_000), (5_000_000_000, 0),
+    (0, 6_000_000_000), (20_000_000_000, 0)])
+def test_generation_window_exhausted_backstop_refuses_before_go(generation_window, delays):
+    state = generation_window; state.control_delays = delays
+    with pytest.raises(N.NativeQualificationError): run_generation_window(state)
+    assert state.go_count == 0 and state.closed and not state.timer_active
+    assert not (state.output / 'generation-start.json').exists()
+    assert not (state.output / 'occurrence.json').exists()
+
+
+@pytest.mark.parametrize('cap', ['worker', 'phase'])
+@pytest.mark.parametrize('remaining', [0, 14_000_000_000, 15_000_000_000])
+def test_generation_window_never_borrows_from_a_stage_or_phase_cap(generation_window, cap, remaining):
+    state = generation_window
+    if cap == 'worker': state.service.runtime_deadline_ns = state.clock.ns + remaining
+    else: state.phase_deadline = (state.clock.ns + remaining) / 1e9
+    with pytest.raises(N.NativeQualificationError, match='full_generation_window_unavailable'):
+        run_generation_window(state)
+    assert state.go_count == 0 and state.closed
+
+
+def test_generation_window_rechecks_caps_across_command_delivery(generation_window):
+    state = generation_window; state.send_delay = 6_000_000_000
+    with pytest.raises(N.NativeQualificationError, match='full_generation_window_unavailable'):
+        run_generation_window(state)
+    assert state.go_count == 1 and state.closed and not state.completed
+    start = json.loads((state.output / 'generation-start.json').read_bytes())
+    assert start['generation_start_ns'] == state.go_ns
+    assert start['generation_deadline_ns'] == state.go_ns + 15_000_000_000
+    assert not (state.output / 'occurrence.json').exists()
+
+
+@pytest.mark.parametrize('offset', [0, 1, 1_000_000_000, 4_000_000_000])
+def test_generation_window_has_no_late_response_grace(generation_window, offset):
+    state = generation_window; state.response_delay = 15_000_000_000 + offset
+    state.force_late_line = True
+    if offset:
+        with pytest.raises(N.NativeQualificationError, match='late_generation_response'):
+            run_generation_window(state)
+        assert not (state.output / 'occurrence.json').exists()
+    else:
+        assert run_generation_window(state) == state.response
+        assert (state.output / 'occurrence.json').exists()
+    assert (state.output / 'original-response.json').read_bytes() == state.response
+    assert state.closed and not state.timer_active and state.go_count == 1
+
+
+def test_generation_window_no_response_is_a_failure_not_an_original_record(generation_window):
+    state = generation_window; state.response_delay = 16_000_000_000
+    with pytest.raises(N.NativeQualificationError, match='external_deadline_expired'):
+        run_generation_window(state)
+    assert state.closed and not state.timer_active
+    assert not (state.output / 'original-response.json').exists()
+    assert not (state.output / 'occurrence.json').exists()
+
+
+@pytest.mark.parametrize('delay', [0, 1_000_000_000, 4_000_000_000])
+def test_generation_window_timely_response_has_separate_bounded_exit(generation_window, delay):
+    state = generation_window; state.response_delay = 14_900_000_000; state.exit_delay = delay
+    assert run_generation_window(state) == state.response
+    assert state.completed and state.closed
+    assert state.exit_deadline <= state.timer_deadline / 1e9
+    assert state.read_deadline < state.exit_deadline
+
+
+@pytest.mark.parametrize('failure', ['exit_code', 'late_exit'])
+def test_generation_window_exit_failure_keeps_original_bytes_without_success(generation_window, failure):
+    state = generation_window
+    if failure == 'exit_code': state.exit_failure = True
+    else: state.exit_delay = 8_000_000_000
+    with pytest.raises(N.NativeQualificationError): run_generation_window(state)
+    assert state.closed and not state.timer_active
+    assert (state.output / 'original-response.json').read_bytes() == state.response
+    assert not (state.output / 'occurrence.json').exists()
+
+
+@pytest.mark.parametrize('filename', ['worker-sandbox.json', 'generation-intent.json',
+    'generation-start.json', 'original-response.json'])
+def test_generation_window_evidence_failure_cannot_leave_worker_running(generation_window, filename):
+    state = generation_window; state.save_failure = filename
+    with pytest.raises(OSError, match='synthetic fsync failure'): run_generation_window(state)
+    assert state.closed and not state.timer_active
+    if filename in ('worker-sandbox.json', 'generation-intent.json'): assert state.go_count == 0
+
+
+def test_generation_window_service_send_is_a_real_complete_nonblocking_pipe_write():
+    import types
+    import time as real_time
+    read_fd, write_fd = os.pipe()
+    try:
+        with os.fdopen(write_fd, 'wb', buffering=0) as stream:
+            service = N.Service.__new__(N.Service)
+            service.process = types.SimpleNamespace(stdin=stream, poll=lambda: None)
+            before = real_time.monotonic_ns()
+            delivered = service.send(b'GENERATE diagnostic-0001\n')
+            assert before <= delivered <= real_time.monotonic_ns()
+            assert os.get_blocking(write_fd) is False
+            assert os.read(read_fd, 512) == b'GENERATE diagnostic-0001\n'
+    finally:
+        os.close(read_fd)
+
+
+def test_generation_window_full_real_control_pipe_cannot_block():
+    import types
+    import time as real_time
+    read_fd, write_fd = os.pipe()
+    try:
+        with os.fdopen(write_fd, 'wb', buffering=0) as stream:
+            os.set_blocking(write_fd, False)
+            while True:
+                try: os.write(write_fd, b'x' * 4096)
+                except BlockingIOError: break
+            service = N.Service.__new__(N.Service)
+            service.process = types.SimpleNamespace(stdin=stream, poll=lambda: None)
+            before = real_time.monotonic()
+            with pytest.raises(N.NativeQualificationError, match='control_pipe_not_writable'):
+                service.send(b'GENERATE diagnostic-0001\n')
+            assert real_time.monotonic() - before < 1
+    finally:
+        os.close(read_fd)
+
+
+@pytest.mark.parametrize('payload', [b'', b'x' * 513, 'GENERATE diagnostic-0001\n'])
+def test_generation_window_control_command_must_fit_atomic_pipe_bound(payload):
+    service = N.Service.__new__(N.Service)
+    with pytest.raises(N.NativeQualificationError, match='control_command_bound'):
+        service.send(payload)
+
+
+def test_generation_window_partial_control_delivery_cannot_authorize(monkeypatch):
+    import types
+    service = N.Service.__new__(N.Service)
+    service.process = types.SimpleNamespace(stdin=types.SimpleNamespace(fileno=lambda: 123), poll=lambda: None)
+    monkeypatch.setattr(N, 'os', types.SimpleNamespace(set_blocking=lambda *a: None,
+                                                     write=lambda fd, raw: len(raw) - 1))
+    with pytest.raises(N.NativeQualificationError, match='incomplete_control_write'):
+        service.send(b'GENERATE diagnostic-0001\n')
+
+
+@pytest.fixture
+def timed_synthetic_qualification(generation_window, tmp_path, monkeypatch):
+    """Exercise qualify() itself; all installation/model services are doubles."""
+    import tempfile
+    state = generation_window
+    source = tmp_path / 'synthetic-repo'; source.mkdir()
+    archive = tmp_path / 'synthetic.zip'; archive.write_bytes(b'synthetic timing fixture; not runtime bytes')
+    destination = tmp_path / 'published-synthetic-evidence'
+    real_mkdtemp = tempfile.mkdtemp
+    monkeypatch.setattr(N.tempfile, 'mkdtemp', lambda *, prefix, dir: real_mkdtemp(prefix=prefix, dir=tmp_path))
+    monkeypatch.setattr(N, 'check_context', lambda *a: {'origin': 'synthetic_timing_fixture', 'run_id': '123'})
+    monkeypatch.setattr(N, 'ARCHIVE_SIZE', archive.stat().st_size)
+    monkeypatch.setattr(N, 'ARCHIVE_SHA', N.sha(archive.read_bytes()))
+    monkeypatch.setattr(N, 'freeze', lambda path: None)
+    monkeypatch.setattr(N, 'writable_directory', lambda path: path.mkdir())
+    monkeypatch.setattr(N.os, 'chown', lambda *a: None)
+    def snapshot(repo, target, expected):
+        target.mkdir()
+        for path in (N.SELECTION, N.WORKLOAD, N.DIAGNOSTIC):
+            item = target / path; item.parent.mkdir(parents=True, exist_ok=True)
+            item.write_bytes(b'{"origin":"synthetic_timing_fixture"}\n')
+        return []
+    monkeypatch.setattr(N, 'snapshot_sources', snapshot)
+    def input_check(command, log, deadline):
+        stage = Path(command[command.index('--staging') + 1]); (stage / 'bundle').mkdir(parents=True)
+        target = Path(command[command.index('--output') + 1])
+        target.write_bytes(N.encode({'source_files': [], 'preparation_source_commit': N.PREPARATION_SOURCE}))
+        log.write_bytes(b'synthetic input-check double; no runtime checked\n')
+    monkeypatch.setattr(N, 'bounded_local', input_check)
+    def run_service(prefix, stage, command, work, python, output, deadline):
+        if stage == 'installer':
+            (work / 'venv').mkdir()
+            for name in ('bootstrap.json', 'bootstrap-pip.log', 'pip-report.json', 'pip-install.log'):
+                (work / name).write_bytes(b'{}\n')
+        elif stage == 'installcheck':
+            (work / 'installation.json').write_bytes(N.encode({'inventory': []}))
+        elif stage == 'decodecheck':
+            (work / 'diagnostic-check.json').write_bytes(N.encode({
+                'native_runtime_qualified': True, 'original_decoding_verified': True,
+                'single_unscored_diagnostic_verified': True,
+                'response_sha256': command[command.index('--expected-response-sha256') + 1],
+                'prelaunch_sha256': command[command.index('--expected-prelaunch-sha256') + 1]}))
+        else: raise AssertionError('unexpected synthetic stage')
+    monkeypatch.setattr(N, 'run_service', run_service)
+    def worker_service(*args):
+        state.service.runtime_deadline_ns = state.clock.ns + 180_000_000_000
+        return state.service
+    monkeypatch.setattr(N, 'Service', worker_service)
+    def run():
+        rc = N.qualify(source, archive, destination, 'a' * 40, True)
+        return rc, json.loads((destination / 'qualification.json').read_bytes()), destination
+    return state, run
+
+
+@pytest.mark.parametrize('lag', ['arming', 'pre_go_fsync', 'response_fsync', 'combined'])
+def test_generation_window_full_supervisor_keeps_timely_response(timed_synthetic_qualification, lag):
+    state, run = timed_synthetic_qualification
+    state.response_delay = 14_000_000_000
+    if lag in ('arming', 'combined'): state.control_delays = [1_000_000_000, 1_000_000_000]
+    if lag in ('pre_go_fsync', 'combined'):
+        state.save_delays.update({'worker-sandbox.json': 3_000_000_000, 'generation-start.json': 3_000_000_000})
+    if lag in ('response_fsync', 'combined'): state.save_delays['original-response.json'] = 3_000_000_000
+    rc, report, destination = run()
+    assert rc == 0 and report['status'] == 'qualified'
+    assert report['context']['origin'] == 'synthetic_timing_fixture'
+    assert report['scored_call_count'] == 0 and report['authority_effect'] == 'none'
+    occurrence = json.loads((destination / 'occurrence.json').read_bytes())
+    assert occurrence['generation_start_ns'] == state.go_ns
+    assert occurrence['generation_deadline_ns'] == state.go_ns + 15_000_000_000
+    assert state.go_count == 1 and state.closed
+    assert (destination / 'original-response.json').read_bytes() == state.response
+
+
+def test_generation_window_post_write_scheduling_cannot_extend_deadline(monkeypatch):
+    import types
+    clock = types.SimpleNamespace(ns=100_000_000_000)
+    service = N.Service.__new__(N.Service)
+    service.process = types.SimpleNamespace(stdin=types.SimpleNamespace(fileno=lambda: 123), poll=lambda: None)
+    def write(fd, raw):
+        # Authorization has already entered the pipe at this point. Simulate
+        # the sender being descheduled before the syscall returns to Python.
+        clock.ns += 4_000_000_000
+        return len(raw)
+    monkeypatch.setattr(N, 'time', types.SimpleNamespace(monotonic_ns=lambda: clock.ns))
+    monkeypatch.setattr(N, 'os', types.SimpleNamespace(set_blocking=lambda *a: None, write=write))
+    start = service.send(b'GENERATE diagnostic-0001\n')
+    assert start == 100_000_000_000
+    assert start + N.GENERATION_NS == 115_000_000_000
+    assert start + N.GENERATION_NS - clock.ns == 11_000_000_000
