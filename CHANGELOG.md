@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Retain bounded native Q2 service-startup failure evidence before retrying
+  qualification after run `37231651986`. Record the stage, startup phase,
+  client exit observations, pre-cleanup systemd status and post-cleanup
+  unit-scoped journal, preserving raw output and explicit collection limits.
+  Keep the original failure, mandatory cleanup, isolation controls, generation
+  window, historical input bindings and all non-authorizing boundaries intact.
+  This adds diagnostics and offline regressions, not a proven runtime fix.
 - Address the #2894 hygiene and preparation-inventory review findings.
   Require every pinned workflow to exist as a regular file at its exact path
   before scanning Python declarations; reject missing, renamed or symlinked

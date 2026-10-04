@@ -358,6 +358,140 @@ def observe_service(unit, stage, frame, host_netns):
             **values, 'properties': props}
 
 
+STARTUP_DIAGNOSTIC_SECONDS = 2.0
+STARTUP_DIAGNOSTIC_BYTES = 64 * 1024
+STARTUP_DIAGNOSTIC_REAP_SECONDS = 1.0
+STARTUP_STATUS_PROPERTIES = (
+    'Id', 'LoadState', 'ActiveState', 'SubState', 'Result', 'MainPID',
+    'ExecMainCode', 'ExecMainStatus', 'ExecMainStartTimestamp',
+    'ExecMainExitTimestamp',
+)
+
+
+def bounded_startup_diagnostic(command):
+    """Retain a bounded raw prefix; a diagnostic never grants authority.
+
+    Do not use control()/communicate(): their PIPE capture is only size-checked
+    after allocation. Both stderr and stdout share this in-flight byte budget.
+    A fresh process group bounds descendants even if its leader exits early.
+    """
+    deadline = time.monotonic() + STARTUP_DIAGNOSTIC_SECONDS
+    proc = None; selector = None; raw = bytearray()
+    result = {'command': list(command), 'capture_status': 'unavailable',
+              'exit_code': None, 'output_limit_bytes': STARTUP_DIAGNOSTIC_BYTES,
+              'timeout_seconds': STARTUP_DIAGNOSTIC_SECONDS,
+              'reap_timeout_seconds': STARTUP_DIAGNOSTIC_REAP_SECONDS}
+    try:
+        proc = subprocess.Popen(command, stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, start_new_session=True,
+            env={'PATH': '/usr/bin:/bin', 'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8',
+                 'SYSTEMD_PAGER': 'cat', 'SYSTEMD_COLORS': '0'}, bufsize=0)
+        selector = selectors.DefaultSelector()
+        os.set_blocking(proc.stdout.fileno(), False)
+        selector.register(proc.stdout, selectors.EVENT_READ)
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0 or not selector.select(remaining):
+                result['capture_status'] = 'timeout'; break
+            chunk = os.read(proc.stdout.fileno(), min(16384, STARTUP_DIAGNOSTIC_BYTES + 1 - len(raw)))
+            if not chunk:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    result['capture_status'] = 'timeout'; break
+                result['exit_code'] = proc.wait(timeout=remaining)
+                result['capture_status'] = 'complete' if result['exit_code'] == 0 else 'command_failed'
+                break
+            raw.extend(chunk)
+            if len(raw) > STARTUP_DIAGNOSTIC_BYTES:
+                del raw[STARTUP_DIAGNOSTIC_BYTES:]
+                result['capture_status'] = 'output_limit'; break
+    except subprocess.TimeoutExpired:
+        result['capture_status'] = 'timeout'
+    except Exception as exc:
+        # Preserve only the class, not a possibly credential-bearing message.
+        result['capture_error_type'] = type(exc).__name__
+    finally:
+        if proc is not None:
+            # Never wait for EOF from a surviving descendant after a timeout.
+            try: os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError: pass
+            except OSError as exc: result['kill_error_type'] = type(exc).__name__
+            try: proc.wait(timeout=STARTUP_DIAGNOSTIC_REAP_SECONDS)
+            except subprocess.SubprocessError as exc: result['reap_error_type'] = type(exc).__name__
+            if proc.stdout is not None: proc.stdout.close()
+        if selector is not None: selector.close()
+    # An exit caused by our diagnostic cleanup is not an observed service exit.
+    result['output_bytes'] = len(raw); result['output_sha256'] = sha(raw)
+    return result, bytes(raw)
+
+
+def startup_diagnostic_command(unit, kind):
+    require(re.fullmatch(r'pulse-q2-[a-f0-9]{24}-[a-z]+\.service', unit), 'service_identity')
+    if kind == 'status':
+        return ['/usr/bin/systemctl', 'show', '--no-pager',
+                '--property=' + ','.join(STARTUP_STATUS_PROPERTIES), '--', unit]
+    require(kind == 'journal', 'startup_diagnostic_kind')
+    # --unit also retains PID 1's messages ABOUT the service. A bare
+    # _SYSTEMD_UNIT match would omit precisely those early setup failures.
+    return ['/usr/bin/journalctl', '--boot=0', '--no-pager', '--quiet',
+            '--lines=80', '--output=short-iso-precise', '--unit=' + unit]
+
+
+def preserve_startup_failure(service, phase, error, log):
+    """Snapshot before stop/reset, always clean up, then publish raw evidence.
+
+    At most two read-only diagnostic commands, each 2s + 1s reap. The first
+    bounded snapshot precedes cleanup so stop cannot erase the original status.
+    No diagnostic file flush occurs before service.close(). The journal is read
+    afterwards; unavailable/truncated data remains explicitly non-authorizing.
+    """
+    code = str(error) if isinstance(error, NativeQualificationError) else ''
+    record = {'record_type': 'q2_native_startup_failure_v0',
+              'unit': service.unit, 'stage': service.stage, 'startup_phase': phase,
+              'error_code': code if re.fullmatch(r'[a-z0-9_]{1,128}', code) else 'startup_exception',
+              'exception_type': type(error).__name__, 'authority_effect': 'none',
+              'native_runtime_qualified': False, 'capture_dispatch_authorized': False,
+              'client_exit_code_before_cleanup': None, 'client_exit_code_after_cleanup': None,
+              'diagnostics': {}}
+    captures = []
+    def capture(kind, timing):
+        metadata = {'observation_timing': timing, 'capture_status': 'unavailable'}
+        record['diagnostics'][kind] = metadata
+        try:
+            command = startup_diagnostic_command(service.unit, kind)
+            captured, raw = bounded_startup_diagnostic(command)
+            metadata.update(captured)
+            name = service.stage + '-startup-' + kind + '.log'
+            metadata['path'] = name
+            captures.append((name, raw, metadata))
+        except Exception as exc:
+            metadata['capture_error_type'] = type(exc).__name__
+    try:
+        if service.process is not None:
+            record['client_exit_code_before_cleanup'] = service.process.poll()
+        capture('status', 'before_service_cleanup')
+    except Exception as exc:
+        record['snapshot_error_type'] = type(exc).__name__
+    finally:
+        try:
+            service._startup_cleanup_attempted = True
+            service.close()
+        except Exception as exc:
+            record['cleanup_error_type'] = type(exc).__name__
+    if service.process is not None:
+        record['client_exit_code_after_cleanup'] = service.process.poll()
+    capture('journal', 'after_service_cleanup')
+    # Keep raw bytes separate from interpretation, including invalid UTF-8.
+    for name, raw, metadata in captures:
+        try:
+            save(log.parent / name, raw)
+            metadata['published'] = True
+        except Exception as exc:
+            metadata['published'] = False
+            metadata['publication_error_type'] = type(exc).__name__
+    save(log.parent / (service.stage + '-startup-failure.json'), encode(record))
+
+
 class Service:
     def __init__(self, prefix, stage, command, work, python, log, phase_deadline):
         self.stage = stage; self.unit = prefix + '-' + stage + '.service'
@@ -366,16 +500,31 @@ class Service:
         self.runtime_deadline_ns = time.monotonic_ns() + STAGES[stage] * 1_000_000_000
         self.deadline = min(phase_deadline, self.runtime_deadline_ns / 1e9 + 5)
         self.log = log.open('xb'); self.process = None; self.reader = None
+        startup_phase = 'service_launch'
         try:
             self.process = subprocess.Popen(service_command(self.unit, stage, command, work, python),
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.log,
                 env={'PATH': os.defpath, 'LANG': 'C.UTF-8'}, start_new_session=True, bufsize=0)
+            startup_phase = 'barrier_read'
             self.reader = BoundedReader(self.process.stdout)
             frame = strict_json(self.reader.line(min(self.deadline, time.monotonic() + 20)))
+            startup_phase = 'isolation_observation'
             self.observation = observe_service(self.unit, stage, frame, os.readlink('/proc/self/ns/net'))
+            startup_phase = 'exec_authorization'
             self.send(b'EXEC\n')
-        except BaseException:
-            self.close(); raise
+        except BaseException as exc:
+            self._startup_cleanup_attempted = False
+            try:
+                preserve_startup_failure(self, startup_phase, exc, log)
+            except BaseException:
+                # Diagnostic/publication failure must not replace the original
+                # cause or skip mandatory cleanup. It never permits a retry.
+                if not self._startup_cleanup_attempted:
+                    try: self.close()
+                    except BaseException: pass
+                try: print('Q2 startup failure diagnostics unavailable; original failure retained', file=sys.stderr)
+                except Exception: pass
+            raise
 
     def send(self, data):
         require(type(data) is bytes and 0 < len(data) <= 512, 'control_command_bound')
