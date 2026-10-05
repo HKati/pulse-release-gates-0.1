@@ -4,7 +4,7 @@
 
 ```yaml
 document_role: supporting_measurement_note
-repository_integration_status: proposed_not_applied
+repository_integration_status: documentation_with_companion_source
 canonical_dependency: PULSEMECH_TRANSITION_METER.md
 proposal_status: derived_workshop_application_with_finite_witness
 transition_path_application_status: specified_not_executed
@@ -52,13 +52,13 @@ that family. Let Z(w) be the declared target response or response statistic.
 Define the compatible set at evidence e:
 
 ```math
-K_F(e) = { w in W : P_F(w) = e }.
+K_F(e)=\{w\in W\mid P_F(w)=e\}.
 ```
 
 Define the remaining possible target values:
 
 ```math
-V_F(e) = { Z(w) : w in K_F(e) }.
+V_F(e)=\{Z(w)\mid w\in K_F(e)\}.
 ```
 
 The three exact-model outcomes are distinct:
@@ -80,7 +80,7 @@ knowledge of the system.
 If there exist w_0 and w_1 with
 
 ```math
-P_F(w_0) = P_F(w_1),  Z(w_0) != Z(w_1),
+P_F(w_0)=P_F(w_1),\qquad Z(w_0)\ne Z(w_1).
 ```
 
 no single-valued function of P_F alone can give the correct target for both.
@@ -89,16 +89,16 @@ projection does not eliminate this witness.
 
 ### 2.2 Extension without outcome leakage
 
-An additional independently specified relation observation Theta gives
+An additional independently specified relation observation $\Theta$ gives
 
 ```math
-P_Fplus(w) = (P_F(w), Theta(w)).
+P_{F^+}(w)=\bigl(P_F(w),\Theta(w)\bigr).
 ```
 
 On a fixed model and compatible evidence boundary,
 
 ```math
-K_Fplus(e, theta) subseteq K_F(e).
+K_{F^+}(e,\theta)\subseteq K_F(e).
 ```
 
 The target set can shrink, but no reduction is guaranteed: the added observation
@@ -128,11 +128,13 @@ Each single carrier has counts (2,2). Each pair, AB, AC, and BC, has counts
 not merely close within noise.
 
 The operating target is fixed to the empirical fraction of records with an odd
-number of active bits:
+number of active bits. Here $(a_i,b_i,c_i)$ is record $i$ in the four-record cohort:
 
 ```math
-z(a,b,c) = (a+b+c) mod 2,
-Z(w) = (1/4) sum over the four records of z(a,b,c).
+\begin{aligned}
+z(a,b,c)&=(a+b+c)\bmod 2,\\
+Z(w)&=\frac{1}{4}\sum_{i=1}^{4}z(a_i,b_i,c_i).
+\end{aligned}
 ```
 
 Thus Z(E)=0 and Z(O)=1. The target function is executable and is not supplied to
@@ -232,14 +234,14 @@ production enforcement mechanism. No such claim is made.
 
 ## 5. Relation order: a general finite witness family
 
-For n>=2, take the uniform finite ensembles of n-bit strings with even and odd
-parity. Each ensemble has 2^(n-1) rows.
+For $n\ge 2$, take the uniform finite ensembles of $n$-bit strings with even and odd
+parity. Each ensemble has $2^{n-1}$ rows.
 
-Select any nonempty proper subset S of the carriers, with |S|=k<n. Fix any
-assignment on S. There are 2^(n-k-1) completions of either parity, because at least
+Select any nonempty proper subset $S$ of the carriers, with $|S|=k<n$. Fix any
+assignment on $S$. There are $2^{n-k-1}$ completions of either parity, because at least
 one unassigned bit remains and it can determine the required parity.
 
-Each proper marginal is therefore uniform, with relative frequency 2^(-k), in
+Each proper marginal is therefore uniform, with relative frequency $2^{-k}$, in
 both ensembles. Yet full parity is always zero in one and always one in the
 other.
 
@@ -346,8 +348,9 @@ by a Workshop discrimination witness where a new meter capability is claimed.
 
 The next domain application must identify a concrete difference and the evidence
 that carries its joint relation. It must not infer physical completeness from the
-success of this finite example. No repository, active gate, policy, or authority
-configuration was modified by this package.
+success of this finite example. The original local experiment did not modify the
+repository. This publication adds documentation and a standalone synthetic
+reproduction harness; it changes no active gate, policy, or authority configuration.
 
 
 ### 8.1 Direct contribution to the Transition Meter
@@ -379,12 +382,15 @@ and supplies an executable diagnostic control for it.
 ### 8.2 Applying the sufficiency rule to transition claims
 
 For a future transition application, fix the system boundary, endpoint identities,
-domain rules, and admissible path set P_K(S0,S1). Let e be the acquired evidence.
+domain rules, and admissible path set $P_K(S_0,S_1)$. Let $e$ be the acquired evidence.
+Write $p\sim_K e$ when path $p$ is compatible with $e$ under the declared rule $K$.
 Define:
 
 ```math
-K_path(e) = { p in P_K(S0,S1) : p is compatible with e under rule K }.
-V_g(e) = { g(p) : p in K_path(e) }.
+\begin{aligned}
+K_{\mathrm{path}}(e)&=\{p\in P_K(S_0,S_1)\mid p\sim_K e\},\\
+V_g(e)&=\{g(p)\mid p\in K_{\mathrm{path}}(e)\}.
+\end{aligned}
 ```
 
 Here g is the declared target, fixed before assessment. It may ask whether a named
@@ -450,10 +456,11 @@ the target assessment. They must not replace the canonical multiaxial transition
 status. Missing access in this diagnostic machine produces a defined unresolved
 report; it does not assert an undefined physical transition or a zero effect.
 
-A minimal repository integration is this supporting document and a documentation
-index entry. A brief cross-reference in the canonical document can point to it
-without changing that document's definitions or active authority behavior. No new
-runtime subsystem or new canonical status axis is required by this result.
+The repository publication comprises this supporting document, its documentation
+index entry, and the companion evaluator, regression module, and reference result
+under `examples/relation_preserving_discrimination_v0/`. The canonical document's
+definitions, status axes, and active authority behavior are unchanged. The companion
+is a manually invoked synthetic example, not a new runtime subsystem or CI gate.
 
 ### 8.5 Readiness boundary
 
@@ -474,40 +481,50 @@ The contribution can be stated without overstating it:
 
 ## Reproduction
 
-This Markdown file can be placed on its own under `docs/`; it does not install
-or include the executable harness. The companion local evidence archive is
-`PULSEMECH_RELATION_PRESERVING_DISCRIMINATION_v0_LOCAL_ONLY.zip`. This note does not
-claim that archive is already published in, or retrievable from, the repository.
+The companion is versioned in this repository; no local-only archive or external
+download is required. Use all files from the same checkout revision:
 
-To reproduce the finite results, unpack the companion archive and enter its
-`pulsemech_relation_closure_v0/` directory, which contains both Python files. With
-Python 3.10 or later, run:
+| File | Role |
+|---|---|
+| [relation_closure_probe.py](../examples/relation_preserving_discrimination_v0/relation_closure_probe.py) | Fixed evaluator, finite fixtures, and result generator. |
+| [test_relation_closure_probe.py](../examples/relation_preserving_discrimination_v0/test_relation_closure_probe.py) | The 36 original synthetic regression tests. |
+| [results.json](../examples/relation_preserving_discrimination_v0/results.json) | Preserved deterministic reference result. |
+
+From the repository root, with Python 3.10 or later:
 
 ```sh
+cd examples/relation_preserving_discrimination_v0
 python -m unittest -v test_relation_closure_probe
-python relation_closure_probe.py --output results.json
+python relation_closure_probe.py --output results.reproduced.json
+python -c "from pathlib import Path; import hashlib; actual=hashlib.sha256(Path('results.reproduced.json').read_bytes()).hexdigest(); expected='cfd0de8d466a53cd3fe4ae748fa46dfad7b3c398ba086106fff453c75c96ccf3'; print(actual); raise SystemExit(0 if actual == expected else 1)"
 ```
 
-No third-party packages, web access, account credentials, or repository checkout
-are needed. The original execution recorded Python 3.13.5. The documentation-preparation
-recheck used Python 3.13.5, passed the same 36 tests, and regenerated
-a byte-identical `results.json`. These are local executions, not a repository CI
-run or a tested platform matrix.
+The final command returns a nonzero exit status on a digest mismatch. It hashes
+the newly generated bytes, not a result copied from the checked-in reference.
+The generator explicitly writes UTF-8 with LF line endings, independently of the
+host newline convention. The reference digest also describes UTF-8/LF bytes;
+a checkout that translates text files to CRLF can change the on-disk reference
+file bytes, but not the expected generated digest.
 
-Companion archive SHA-256:
+The evaluator and regression logic are preserved from the original local package.
+The only source adjustment for publication makes result-byte serialization
+explicit; it does not change the evaluator, fixtures, target, or result content.
 
-```text
-d6e643a46e9bd90b5b4ac10529904bdbb30bb4ea77afcffb4db68344f3a18a7f
-```
+No third-party packages, network access, account credentials, or local archive
+are needed after checkout. The original execution and the publication recheck
+used Python 3.13.5. The recheck passed the same 36 tests and regenerated the same
+15,182-byte result. These are local executions, not a repository CI run or a
+tested platform matrix. Compatibility with other Python versions is based on the
+language features used, not a tested version matrix.
 
-Reproduced `results.json` SHA-256:
+Reference and reproduced `results.json` SHA-256 (UTF-8/LF):
 
 ```text
 cfd0de8d466a53cd3fe4ae748fa46dfad7b3c398ba086106fff453c75c96ccf3
 ```
 
-These digests bind the cited local evidence package and result bytes. They do not
-substitute for the proofs, test execution, or physical validation.
+The digest binds the expected result bytes. It does not replace source review,
+execution of the commands, proof of the formal claims, or physical validation.
 
 ## Sources and boundaries
 

@@ -74,6 +74,15 @@ moves between merged and open work, update this index.
 - Foundational transition-measurement architecture:
   [PULSEMECH_TRANSITION_METER.md](../PULSEMECH_TRANSITION_METER.md)
   **Foundational architecture.** Defines the evidence-bound transition between measured states as a separate measurement object and positions artifact-bound AI release authority as its first concrete PULSEmech implementation domain.
+- Relation-preserving discrimination and evidence sufficiency:
+  [PULSEMECH_RELATION_PRESERVING_DISCRIMINATION_v0.md](PULSEMECH_RELATION_PRESERVING_DISCRIMINATION_v0.md)
+  **Reader / audit surface with an executable synthetic companion.** Records
+  target-relative joint-relation sufficiency, the finite witness, 36 local
+  regression tests, and fixed-evaluator binding-ablation controls. The companion
+  source and reference result are versioned under
+  `examples/relation_preserving_discrimination_v0/`. Transition-path application
+  is specified, not executed; no physical or quantum validation is claimed;
+  `authority_effect = none`.
 - Whole-system discovery and evidence-bound requirement matching:
   [PULSEMECH_TRANSITION_METER_WHOLE_SYSTEM_DISCOVERY_v0.md](PULSEMECH_TRANSITION_METER_WHOLE_SYSTEM_DISCOVERY_v0.md)
   **Foundational architecture — bounded application design.** Defines

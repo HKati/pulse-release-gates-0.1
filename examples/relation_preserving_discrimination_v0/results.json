@@ -1,0 +1,740 @@
+{
+  "artifact_role": "finite_synthetic_research_probe",
+  "authority_effect": "none",
+  "evaluator_id": "finite_joint_histogram_consistency_v0",
+  "target_id": "empirical_odd_parity_fraction_v0",
+  "domain": {
+    "n_bits": 3,
+    "n_records": 4,
+    "candidate_histograms": 330
+  },
+  "population_inference": false,
+  "quantum_experiment": false,
+  "fixtures": {
+    "even": [
+      [
+        0,
+        0,
+        0
+      ],
+      [
+        0,
+        1,
+        1
+      ],
+      [
+        1,
+        0,
+        1
+      ],
+      [
+        1,
+        1,
+        0
+      ]
+    ],
+    "odd": [
+      [
+        0,
+        0,
+        1
+      ],
+      [
+        0,
+        1,
+        0
+      ],
+      [
+        1,
+        0,
+        0
+      ],
+      [
+        1,
+        1,
+        1
+      ]
+    ]
+  },
+  "target_truth": {
+    "even": "0",
+    "odd": "1"
+  },
+  "machine_cases": {
+    "before": {
+      "even": {
+        "response": {
+          "definedness": "defined",
+          "semantic_state": "assessed:unresolved",
+          "output": {
+            "status": "unresolved",
+            "compatible_histogram_count": 2,
+            "possible_target_values": [
+              "0",
+              "1"
+            ]
+          },
+          "consequence": "diagnostic_only_no_external_effect"
+        },
+        "read_trace": [
+          {
+            "binding_id": "marginal_0",
+            "scope": [
+              0
+            ]
+          },
+          {
+            "binding_id": "marginal_1",
+            "scope": [
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_2",
+            "scope": [
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_01",
+            "scope": [
+              0,
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_02",
+            "scope": [
+              0,
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_12",
+            "scope": [
+              1,
+              2
+            ]
+          }
+        ]
+      },
+      "odd": {
+        "response": {
+          "definedness": "defined",
+          "semantic_state": "assessed:unresolved",
+          "output": {
+            "status": "unresolved",
+            "compatible_histogram_count": 2,
+            "possible_target_values": [
+              "0",
+              "1"
+            ]
+          },
+          "consequence": "diagnostic_only_no_external_effect"
+        },
+        "read_trace": [
+          {
+            "binding_id": "marginal_0",
+            "scope": [
+              0
+            ]
+          },
+          {
+            "binding_id": "marginal_1",
+            "scope": [
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_2",
+            "scope": [
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_01",
+            "scope": [
+              0,
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_02",
+            "scope": [
+              0,
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_12",
+            "scope": [
+              1,
+              2
+            ]
+          }
+        ]
+      }
+    },
+    "after": {
+      "even": {
+        "response": {
+          "definedness": "defined",
+          "semantic_state": "assessed:identified",
+          "output": {
+            "status": "identified",
+            "compatible_histogram_count": 1,
+            "possible_target_values": [
+              "0"
+            ]
+          },
+          "consequence": "diagnostic_only_no_external_effect"
+        },
+        "read_trace": [
+          {
+            "binding_id": "marginal_0",
+            "scope": [
+              0
+            ]
+          },
+          {
+            "binding_id": "marginal_1",
+            "scope": [
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_2",
+            "scope": [
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_01",
+            "scope": [
+              0,
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_02",
+            "scope": [
+              0,
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_12",
+            "scope": [
+              1,
+              2
+            ]
+          },
+          {
+            "binding_id": "joint_primary",
+            "scope": [
+              0,
+              1,
+              2
+            ]
+          }
+        ]
+      },
+      "odd": {
+        "response": {
+          "definedness": "defined",
+          "semantic_state": "assessed:identified",
+          "output": {
+            "status": "identified",
+            "compatible_histogram_count": 1,
+            "possible_target_values": [
+              "1"
+            ]
+          },
+          "consequence": "diagnostic_only_no_external_effect"
+        },
+        "read_trace": [
+          {
+            "binding_id": "marginal_0",
+            "scope": [
+              0
+            ]
+          },
+          {
+            "binding_id": "marginal_1",
+            "scope": [
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_2",
+            "scope": [
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_01",
+            "scope": [
+              0,
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_02",
+            "scope": [
+              0,
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_12",
+            "scope": [
+              1,
+              2
+            ]
+          },
+          {
+            "binding_id": "joint_primary",
+            "scope": [
+              0,
+              1,
+              2
+            ]
+          }
+        ]
+      }
+    },
+    "ablated": {
+      "even": {
+        "response": {
+          "definedness": "defined",
+          "semantic_state": "assessed:unresolved",
+          "output": {
+            "status": "unresolved",
+            "compatible_histogram_count": 2,
+            "possible_target_values": [
+              "0",
+              "1"
+            ]
+          },
+          "consequence": "diagnostic_only_no_external_effect"
+        },
+        "read_trace": [
+          {
+            "binding_id": "marginal_0",
+            "scope": [
+              0
+            ]
+          },
+          {
+            "binding_id": "marginal_1",
+            "scope": [
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_2",
+            "scope": [
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_01",
+            "scope": [
+              0,
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_02",
+            "scope": [
+              0,
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_12",
+            "scope": [
+              1,
+              2
+            ]
+          }
+        ]
+      },
+      "odd": {
+        "response": {
+          "definedness": "defined",
+          "semantic_state": "assessed:unresolved",
+          "output": {
+            "status": "unresolved",
+            "compatible_histogram_count": 2,
+            "possible_target_values": [
+              "0",
+              "1"
+            ]
+          },
+          "consequence": "diagnostic_only_no_external_effect"
+        },
+        "read_trace": [
+          {
+            "binding_id": "marginal_0",
+            "scope": [
+              0
+            ]
+          },
+          {
+            "binding_id": "marginal_1",
+            "scope": [
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_2",
+            "scope": [
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_01",
+            "scope": [
+              0,
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_02",
+            "scope": [
+              0,
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_12",
+            "scope": [
+              1,
+              2
+            ]
+          }
+        ]
+      }
+    },
+    "primary_ablated_backup_present": {
+      "even": {
+        "response": {
+          "definedness": "defined",
+          "semantic_state": "assessed:identified",
+          "output": {
+            "status": "identified",
+            "compatible_histogram_count": 1,
+            "possible_target_values": [
+              "0"
+            ]
+          },
+          "consequence": "diagnostic_only_no_external_effect"
+        },
+        "read_trace": [
+          {
+            "binding_id": "marginal_0",
+            "scope": [
+              0
+            ]
+          },
+          {
+            "binding_id": "marginal_1",
+            "scope": [
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_2",
+            "scope": [
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_01",
+            "scope": [
+              0,
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_02",
+            "scope": [
+              0,
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_12",
+            "scope": [
+              1,
+              2
+            ]
+          },
+          {
+            "binding_id": "joint_backup",
+            "scope": [
+              0,
+              1,
+              2
+            ]
+          }
+        ]
+      },
+      "odd": {
+        "response": {
+          "definedness": "defined",
+          "semantic_state": "assessed:identified",
+          "output": {
+            "status": "identified",
+            "compatible_histogram_count": 1,
+            "possible_target_values": [
+              "1"
+            ]
+          },
+          "consequence": "diagnostic_only_no_external_effect"
+        },
+        "read_trace": [
+          {
+            "binding_id": "marginal_0",
+            "scope": [
+              0
+            ]
+          },
+          {
+            "binding_id": "marginal_1",
+            "scope": [
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_2",
+            "scope": [
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_01",
+            "scope": [
+              0,
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_02",
+            "scope": [
+              0,
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_12",
+            "scope": [
+              1,
+              2
+            ]
+          },
+          {
+            "binding_id": "joint_backup",
+            "scope": [
+              0,
+              1,
+              2
+            ]
+          }
+        ]
+      }
+    },
+    "both_joint_paths_ablated": {
+      "even": {
+        "response": {
+          "definedness": "defined",
+          "semantic_state": "assessed:unresolved",
+          "output": {
+            "status": "unresolved",
+            "compatible_histogram_count": 2,
+            "possible_target_values": [
+              "0",
+              "1"
+            ]
+          },
+          "consequence": "diagnostic_only_no_external_effect"
+        },
+        "read_trace": [
+          {
+            "binding_id": "marginal_0",
+            "scope": [
+              0
+            ]
+          },
+          {
+            "binding_id": "marginal_1",
+            "scope": [
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_2",
+            "scope": [
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_01",
+            "scope": [
+              0,
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_02",
+            "scope": [
+              0,
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_12",
+            "scope": [
+              1,
+              2
+            ]
+          }
+        ]
+      },
+      "odd": {
+        "response": {
+          "definedness": "defined",
+          "semantic_state": "assessed:unresolved",
+          "output": {
+            "status": "unresolved",
+            "compatible_histogram_count": 2,
+            "possible_target_values": [
+              "0",
+              "1"
+            ]
+          },
+          "consequence": "diagnostic_only_no_external_effect"
+        },
+        "read_trace": [
+          {
+            "binding_id": "marginal_0",
+            "scope": [
+              0
+            ]
+          },
+          {
+            "binding_id": "marginal_1",
+            "scope": [
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_2",
+            "scope": [
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_01",
+            "scope": [
+              0,
+              1
+            ]
+          },
+          {
+            "binding_id": "marginal_02",
+            "scope": [
+              0,
+              2
+            ]
+          },
+          {
+            "binding_id": "marginal_12",
+            "scope": [
+              1,
+              2
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "controls": {
+    "no_evidence": {
+      "status": "unresolved",
+      "compatible_histogram_count": 330,
+      "possible_target_values": [
+        "0",
+        "1/4",
+        "1/2",
+        "3/4",
+        "1"
+      ]
+    },
+    "incompatible_joint_model": {
+      "status": "incompatible",
+      "compatible_histogram_count": 0,
+      "possible_target_values": []
+    },
+    "per_bin_tolerance_one": {
+      "status": "unresolved",
+      "compatible_histogram_count": 116,
+      "possible_target_values": [
+        "0",
+        "1/4",
+        "1/2",
+        "3/4",
+        "1"
+      ]
+    },
+    "narrow_first_bit_target": {
+      "status": "identified",
+      "compatible_histogram_count": 100,
+      "possible_target_values": [
+        "1/2"
+      ]
+    }
+  },
+  "parity_family": {
+    "max_n": 8,
+    "proper_projection_checks": 494,
+    "cases": [
+      {
+        "n": 2,
+        "rows_per_ensemble": 2,
+        "proper_scopes": 2
+      },
+      {
+        "n": 3,
+        "rows_per_ensemble": 4,
+        "proper_scopes": 6
+      },
+      {
+        "n": 4,
+        "rows_per_ensemble": 8,
+        "proper_scopes": 14
+      },
+      {
+        "n": 5,
+        "rows_per_ensemble": 16,
+        "proper_scopes": 30
+      },
+      {
+        "n": 6,
+        "rows_per_ensemble": 32,
+        "proper_scopes": 62
+      },
+      {
+        "n": 7,
+        "rows_per_ensemble": 64,
+        "proper_scopes": 126
+      },
+      {
+        "n": 8,
+        "rows_per_ensemble": 128,
+        "proper_scopes": 254
+      }
+    ]
+  }
+}
