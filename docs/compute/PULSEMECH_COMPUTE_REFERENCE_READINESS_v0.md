@@ -1394,3 +1394,125 @@ the thirty-wheel native installation, real model loading/generation, actual
 hosted namespace/cgroup/seccomp/timer enforcement, real token-to-text replay,
 and the changed workflow on its eventual reviewed GitHub head. No 150-call
 capture viability, production admission or Step 5C acceptance is asserted.
+
+## 10. Recorded successful native qualification — one unscored diagnostic
+
+Sections 7–9 preserve their preparation, adoption and implementation-review
+milestones. Their then-unobserved runtime state is not a denial of the later
+execution recorded here. The selected model, request workload and historical
+preparation records are not rewritten to label those earlier milestones as
+executed capture.
+
+### 10.1 Original run and distinct artifact identities
+
+Owner-dispatched run `37362661448`, attempt `1`, workflow run number `6`,
+completed successfully at source `60af89b6c90f767b283b80888f2b114fce94c4cf`.
+Its workflow is `.github/workflows/q2_reference_acquisition_v0.yml` on `main`.
+The original context records Ubuntu 24.04 x86_64, CPython 3.11.16, runner image
+`20260927.320.1`, kernel `6.17.0-1022-azure` and glibc 2.39.
+
+The native qualification archive is `q2-native-qualification-37362661448-1`,
+artifact ID `11367651833`, size `1128989` bytes, with SHA-256:
+
+```text
+98fd7666abf2117864249b1f027381969b404e0a5eb4085044b9062337df116d
+```
+
+It contains 39 members: `qualification.json` plus its 38 evidence entries.
+The original qualification report's SHA-256 is:
+
+```text
+2720a15ab727305e14048ff3000210efec4bd6550a58f196e168c55a3c40fe69
+```
+
+This is **not** the original runtime-input archive. That remains artifact
+`11282419957`, from preparation run `37148637546`, attempt 1, source
+`77fc5d51896568db50a2a87f650711a65db8fe8c`, with the size and digest in 8.1.
+`artifact_sha256` inside the original native report identifies that runtime
+input, not the containing qualification ZIP. Neither original source is
+rebound to the later commit that preserves these records.
+
+### 10.2 Repository projection and original-byte boundary
+
+The [recorded-qualification index](../../PULSE_safe_pack_v0/examples/q2_native_qualification_v0/run_37362661448/recorded-qualification.json)
+links the native run, its containing archive, the separate preparation archive
+and exactly four original report snapshots:
+
+- [qualification.json](../../PULSE_safe_pack_v0/examples/q2_native_qualification_v0/run_37362661448/qualification.json)
+- [diagnostic-check.json](../../PULSE_safe_pack_v0/examples/q2_native_qualification_v0/run_37362661448/diagnostic-check.json)
+- [input-check.json](../../PULSE_safe_pack_v0/examples/q2_native_qualification_v0/run_37362661448/input-check.json)
+- [prelaunch.json](../../PULSE_safe_pack_v0/examples/q2_native_qualification_v0/run_37362661448/prelaunch.json)
+
+These four files are byte-for-byte copies, including the original serialization.
+They contain report metadata, identities and digests, not original generated
+text or token arrays. The new index is a preservation record, not a fifth
+original runtime output, a signed attestation or an active launch input.
+
+The repository projection is deliberately **not the complete artifact**.
+Original generated text and token records stay in the owner-authorized Actions
+artifact and separately retained original archive, not the repository, general
+CI log or Zenodo. A complete byte/extraction replay requires the original
+qualification archive; a renewed installation/decoding verification additionally
+requires the original model/wheel archive and the declared native dependencies.
+Four metadata files cannot replace those missing bytes.
+
+The GitHub metadata reported expiry `2026-11-04T19:22:10Z` for the qualification
+artifact. Retain its exact original ZIP separately; a hosted URL is not permanent
+preservation. No tests in this change download either archive or execute a model.
+
+### 10.3 What was established, and what was not
+
+The original terminal report records `status=qualified`,
+`native_runtime_qualified=true`, and no error. The separate diagnostic check
+records `original_decoding_verified=true` and
+`single_unscored_diagnostic_verified=true`. The recorded chain passed input
+checking, offline installation, installed-byte checking, the local model's
+single diagnostic and separate token/text checking on the stated native target.
+
+The claimed scope remains **one unscored diagnostic on that run and source**:
+
+```text
+recorded_native_run: 37362661448 / attempt 1
+recorded_qualification_status: qualified
+qualification_scope: one_unscored_diagnostic
+scored_call_count: 0
+capture_dispatch_authorized: false
+production_gate_eligible: false
+authority_effect: none
+150_call_capture_completeness: not_established
+capture_subject_materialization: not_established
+current_run_q2_release_recipe: not_registered
+step5c_acceptance: not_established
+```
+
+This is not answer-correctness grading, a consistency score, a capacity proof
+for 150 calls or qualification of an arbitrary future worker revision. The
+trusted collector, pinned dependencies and GitHub platform remain explicit;
+metadata hashes do not prove inference against a malicious platform.
+Earlier failed native runs retain their original failed outcomes.
+
+### 10.4 Immediate implementation handoff
+
+The next executable unit remains the selected acquisition/extraction path in
+5.6 and 6.3–6.6, not a new model/task selection or another diagnostic feature.
+The existing preparation and diagnostic modes stay operational. Implement the
+complete 150-slot terminal inventory, request/original-token-text association,
+deterministic extraction, separate capture checking and exact reducer/manifest
+handoff together with their source-closure, schema and regression dependencies.
+Do not promote missing calls to UNKNOWN or substitute repeated copies for
+separate occurrences. Fix the complete changed-file inventory before upload.
+
+The capture must bind its own actual worker/runtime/model inventory before calls.
+Do not use this diagnostic run ID as the identity of a future capture, reuse its
+single response as scored input, or treat this preservation index as dispatch
+authorization. Actual capture still requires a separate owner-authorized run
+and its original-response retention decision after implementation review.
+Production Q2 admission remains the later coordinated integration under 5.6.
+
+This eight-path preservation unit changes no executable tool, workflow,
+model selection, dependency lock, existing source pin, policy or gate. It adds
+five metadata files (the index and four originals), extends the already
+registered startup regression module, and updates this document and changelog.
+The metadata regressions check pinned bytes, digest links, separate historical
+identities, narrow scope and a closed no-raw-response projection. They are not a
+new native run or a full native-artifact replay. #2879 remains open.

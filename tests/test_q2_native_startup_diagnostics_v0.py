@@ -800,3 +800,201 @@ def test_phase_failure_full_supervisor_publishes_failed_checker_sandbox(tmp_path
         assert inventory[name]['size']==len(raw)
     assert (destination/'installcheck.log').read_text()=='Q2 qualification check rejected: bootstrap_runtime_changed\n'
     assert not any((destination/name).exists() for name in ('installation.json','prelaunch.json','model-ready.json','original-response.json'))
+
+
+# Actual small report snapshots, not synthetic model output or a native rerun.
+# These constants are historical expectations from reviewed run 37362661448.
+# Do not replace them with the current checkout SHA when the repository evolves.
+RECORDED_NATIVE_ROOT = ROOT / 'PULSE_safe_pack_v0/examples/q2_native_qualification_v0/run_37362661448'
+RECORDED_NATIVE_SOURCE = '60af89b6c90f767b283b80888f2b114fce94c4cf'
+RECORDED_NATIVE_INDEX_SHA = '3e843964afe0cc838848936e48af4fcdf950117bf2ff0adb10d4079391a8da4d'
+RECORDED_NATIVE_REPORTS = {
+    'diagnostic-check.json': (651, 'd77c2dce6e1e15d831c3f4abd1729bac01275fbfd6c494aa166f73e8546f7d8f'),
+    'input-check.json': (2918, 'c327935a36cc21322740fda4cbf4745e8281767abd77ce00ce423c191eb8ea07'),
+    'prelaunch.json': (3965, '52df2892856b20aa07ad0eeec980616e9f4be0602880498b9b2aef688e964dc9'),
+    'qualification.json': (6640, '2720a15ab727305e14048ff3000210efec4bd6550a58f196e168c55a3c40fe69'),
+}
+
+
+def recorded_native_projection(root=RECORDED_NATIVE_ROOT):
+    """Test-only byte/metadata consistency; no producer or runtime verdict."""
+    assert {p.name for p in root.iterdir()} == set(RECORDED_NATIVE_REPORTS) | {'recorded-qualification.json'}
+    index_raw = N.safe_read(root / 'recorded-qualification.json', 65536)
+    assert N.sha(index_raw) == RECORDED_NATIVE_INDEX_SHA
+    index = N.strict_json(index_raw)
+    rows = []
+    records = {}
+    for name, (size, digest) in RECORDED_NATIVE_REPORTS.items():
+        raw = N.safe_read(root / name, 65536)
+        assert len(raw) == size and N.sha(raw) == digest
+        records[name] = N.strict_json(raw)
+        rows.append({'path': name, 'size': size, 'sha256': digest})
+    assert index['original_report_snapshots'] == rows
+    return index, records
+
+
+def test_recorded_native_report_projection_and_scope():
+    index, records = recorded_native_projection()
+    assert index['record_type'] == 'q2_recorded_native_qualification_v0'
+    assert index['record_status'] == 'recorded_reference'
+    assert index['scope'] == 'one_unscored_diagnostic'
+    assert index['native_run']['source_commit'] == RECORDED_NATIVE_SOURCE
+    assert index['native_run']['run_id'] == '37362661448'
+    assert type(index['native_run']['run_attempt']) is int and index['native_run']['run_attempt'] == 1
+    assert index['native_run']['run_number'] == 6
+    assert index['native_run']['event'] == 'workflow_dispatch'
+    assert index['qualification_archive']['artifact_id'] == 11367651833
+    assert index['qualification_archive']['size'] == 1128989
+    assert index['qualification_archive']['sha256'] == '98fd7666abf2117864249b1f027381969b404e0a5eb4085044b9062337df116d'
+    assert index['qualification_archive']['zip_member_count'] == 39
+    assert index['qualification_archive']['evidence_file_count'] == 38
+    assert index['repository_preservation'] == {
+        'profile': 'original_report_metadata_only',
+        'original_report_bytes_unchanged': True,
+        'complete_native_artifact_in_repository': False,
+        'original_generated_text_in_repository': False,
+        'original_token_records_in_repository': False,
+        'model_or_wheel_payloads_in_repository': False,
+        'full_replay_requires_original_artifacts': True,
+    }
+
+
+def test_recorded_native_does_not_rebind_preparation_or_later_source():
+    index, records = recorded_native_projection()
+    q, pre, inp = (records[k] for k in ('qualification.json', 'prelaunch.json', 'input-check.json'))
+    assert q['context'] == pre['context']
+    assert q['context']['source_commit'] == inp['consumer_source_commit'] == RECORDED_NATIVE_SOURCE
+    assert q['context']['run_id'] == '37362661448' and q['context']['run_attempt'] == 1
+    history = index['historical_preparation']
+    assert history['source_commit'] == '77fc5d51896568db50a2a87f650711a65db8fe8c'
+    assert history['source_commit'] != RECORDED_NATIVE_SOURCE
+    assert history['run_id'] == '37148637546' and history['run_attempt'] == 1
+    assert history['artifact_id'] == 11282419957 and history['archive_size'] == 508460811
+    assert history['archive_sha256'] == 'b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9'
+    assert q['artifact_sha256'] == pre['artifact_sha256'] == inp['archive_sha256'] == history['archive_sha256']
+    assert q['artifact_sha256'] != index['qualification_archive']['sha256']
+    for value in (q, pre, inp):
+        assert value['preparation_source_commit'] == history['source_commit']
+        assert value['preparation_run_id'] == history['run_id']
+
+
+def test_recorded_native_qualified_is_not_scored_or_release_authority():
+    index, records = recorded_native_projection()
+    q, diagnostic = records['qualification.json'], records['diagnostic-check.json']
+    assert q['status'] == 'qualified' and q['native_runtime_qualified'] is True
+    assert q['error_code'] is None and q['diagnostic_call_limit'] == 1
+    assert diagnostic['qualification_scope'] == 'one_unscored_diagnostic'
+    assert diagnostic['native_runtime_qualified'] is True
+    assert diagnostic['original_decoding_verified'] is True
+    assert diagnostic['single_unscored_diagnostic_verified'] is True
+    assert diagnostic['malicious_platform_resistance'] is False
+    for value in (q, diagnostic, records['prelaunch.json'], index['reported_result']):
+        assert type(value['scored_call_count']) is int and value['scored_call_count'] == 0
+    for value in (*records.values(), index, index['reported_result']):
+        assert value['authority_effect'] == 'none'
+        assert value['production_gate_eligible'] is False
+    assert q['capture_dispatch_authorized'] is index['capture_dispatch_authorized'] is False
+    assert index['reported_result'] == {
+        'status': 'qualified', 'native_runtime_qualified': True,
+        'original_decoding_verified': True, 'single_unscored_diagnostic_verified': True,
+        'scored_call_count': 0, 'capture_dispatch_authorized': False,
+        'production_gate_eligible': False, 'authority_effect': 'none',
+    }
+
+
+@pytest.mark.parametrize('name', ['diagnostic-check.json', 'input-check.json', 'prelaunch.json'])
+def test_recorded_native_original_report_digest_links(name):
+    _, records = recorded_native_projection()
+    evidence = records['qualification.json']['evidence']
+    assert len(evidence) == 38 and len({r['path'] for r in evidence}) == 38
+    row = next(r for r in evidence if r['path'] == name)
+    assert row == {'path': name, 'size': RECORDED_NATIVE_REPORTS[name][0],
+                   'sha256': RECORDED_NATIVE_REPORTS[name][1]}
+    diagnostic = records['diagnostic-check.json']
+    assert diagnostic['prelaunch_sha256'] == RECORDED_NATIVE_REPORTS['prelaunch.json'][1]
+    by_name = {r['path']: r for r in evidence}
+    assert diagnostic['response_sha256'] == by_name['original-response.json']['sha256']
+    assert diagnostic['ready_sha256'] == by_name['model-ready.json']['sha256']
+    assert records['prelaunch.json']['installation_sha256'] == by_name['installation.json']['sha256']
+
+
+@pytest.mark.parametrize('ordinal', range(15))
+def test_recorded_native_original_source_inventory_links(ordinal):
+    _, records = recorded_native_projection()
+    pre = records['prelaunch.json']; inp = records['input-check.json']
+    assert len(pre['source_files']) == len(inp['source_files']) == 15
+    assert pre['source_files'] == inp['source_files']
+    assert len({r['path'] for r in pre['source_files']}) == 15
+    row = pre['source_files'][ordinal]
+    evidence = {r['path']: r for r in records['qualification.json']['evidence']}
+    assert evidence['source/' + row['path']] == {**row, 'path': 'source/' + row['path']}
+    # Compare historical snapshots to each other, never to a moving checkout.
+
+
+@pytest.mark.parametrize('name', [*RECORDED_NATIVE_REPORTS, 'recorded-qualification.json'])
+def test_recorded_native_projection_contains_no_original_response_fields(name):
+    value = N.strict_json(N.safe_read(RECORDED_NATIVE_ROOT / name))
+    forbidden = {'text', 'text_utf8_base64', 'input_ids', 'new_token_ids', 'messages',
+                 'authorization', 'credentials', 'raw_environment'}
+    def walk(item):
+        if type(item) is dict:
+            assert not (set(item) & forbidden)
+            for child in item.values(): walk(child)
+        elif type(item) is list:
+            for child in item: walk(child)
+    walk(value)
+    assert not (RECORDED_NATIVE_ROOT / 'original-response.json').exists()
+    assert not (RECORDED_NATIVE_ROOT / 'original-continuation.utf8').exists()
+
+
+@pytest.fixture
+def recorded_native_copy(tmp_path):
+    import shutil
+    return Path(shutil.copytree(RECORDED_NATIVE_ROOT, tmp_path / 'projection'))
+
+
+@pytest.mark.parametrize('name', [*RECORDED_NATIVE_REPORTS, 'recorded-qualification.json'])
+def test_recorded_native_changed_or_reserialized_bytes_reject(recorded_native_copy, name):
+    path = recorded_native_copy / name
+    # Whitespace alone changes the original bytes, even if the JSON means the same.
+    path.write_bytes(path.read_bytes() + b' ')
+    with pytest.raises(AssertionError): recorded_native_projection(recorded_native_copy)
+
+
+@pytest.mark.parametrize('name', [*RECORDED_NATIVE_REPORTS, 'recorded-qualification.json'])
+def test_recorded_native_missing_report_rejects(recorded_native_copy, name):
+    (recorded_native_copy / name).unlink()
+    with pytest.raises(AssertionError): recorded_native_projection(recorded_native_copy)
+
+
+@pytest.mark.parametrize('name', [*RECORDED_NATIVE_REPORTS, 'recorded-qualification.json'])
+def test_recorded_native_linked_report_rejects(recorded_native_copy, tmp_path, name):
+    path = recorded_native_copy / name
+    target = tmp_path / 'linked-original'; target.write_bytes(path.read_bytes())
+    path.unlink(); path.symlink_to(target)
+    with pytest.raises(N.NativeQualificationError, match='linked_control_input'):
+        recorded_native_projection(recorded_native_copy)
+
+
+def test_recorded_native_extra_raw_response_is_not_published(recorded_native_copy):
+    (recorded_native_copy / 'original-response.json').write_bytes(b'{"text":"SYNTHETIC ONLY"}\n')
+    with pytest.raises(AssertionError): recorded_native_projection(recorded_native_copy)
+
+
+@pytest.mark.parametrize('field,new_value', [
+    ('status', 'qualified_for_capture'), ('native_runtime_qualified', False),
+    ('scored_call_count', 150), ('capture_dispatch_authorized', True),
+    ('production_gate_eligible', True), ('authority_effect', 'allow'),
+])
+def test_recorded_native_rehashed_promotion_cannot_change_expected_record(recorded_native_copy, field, new_value):
+    path = recorded_native_copy / 'qualification.json'
+    value = N.strict_json(path.read_bytes()); value[field] = new_value
+    raw = N.encode(value); path.write_bytes(raw)
+    index_path = recorded_native_copy / 'recorded-qualification.json'
+    index = N.strict_json(index_path.read_bytes())
+    for row in index['original_report_snapshots']:
+        if row['path'] == path.name:
+            row['sha256'] = N.sha(raw); row['size'] = len(raw)
+    index_path.write_bytes(N.encode(index))
+    # Rehashing the mutated reports/index cannot change the reviewed expectation.
+    with pytest.raises(AssertionError): recorded_native_projection(recorded_native_copy)
