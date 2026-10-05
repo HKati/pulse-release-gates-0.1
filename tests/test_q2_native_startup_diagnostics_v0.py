@@ -668,3 +668,135 @@ def test_run_mount_checks_effective_size_without_display_unit_assumptions(implem
     value=synthetic_run_mount()
     value['child_mountinfo']=value['child_mountinfo'].replace('size=16384k','size='+size)
     validate_mount(implementation,value)
+
+
+# Post-barrier failure retention is distinct from startup failure diagnostics.
+# No systemd command, model or selected runtime is executed by these tests.
+@pytest.mark.parametrize('stage', ['installer','installcheck','decodecheck'])
+@pytest.mark.parametrize('failure', [None,'rejected','timeout','interrupt'])
+def test_phase_failure_retains_preexec_sandbox_after_cleanup(tmp_path,monkeypatch,stage,failure):
+    events = []; observation = {'stage':stage,'origin':'synthetic_preexec_observation'}
+    error = (N.NativeQualificationError('isolated_service_failed') if failure == 'rejected' else
+             N.NativeQualificationError('external_phase_timeout') if failure == 'timeout' else
+             KeyboardInterrupt() if failure == 'interrupt' else None)
+    class Phase:
+        def __init__(self,*args): self.observation=observation; events.append('created')
+        def complete(self):
+            events.append('complete')
+            if error is not None: raise error
+        def close(self): events.append('cleanup')
+    monkeypatch.setattr(N,'Service',Phase)
+    original=N.save
+    def save(path,raw):
+        assert events[-1]=='cleanup'
+        events.append('save'); original(path,raw)
+    monkeypatch.setattr(N,'save',save)
+    def run(): return N.run_service(PREFIX,stage,['/never-executed'],tmp_path,Path(sys.executable),tmp_path,time.monotonic()+30)
+    if error is None:
+        assert run() == observation
+    else:
+        with pytest.raises(type(error)) as raised: run()
+        assert raised.value is error
+    assert events == ['created','complete','cleanup','save']
+    assert json.loads((tmp_path/(stage+'-sandbox.json')).read_bytes())==observation
+    assert not (tmp_path/'installation.json').exists()
+
+
+@pytest.mark.parametrize('failed_at', ['complete','cleanup','publication'])
+@pytest.mark.parametrize('cleanup_fails', [False,True])
+@pytest.mark.parametrize('publication_fails', [False,True])
+def test_phase_failure_preserves_first_error_and_always_attempts_both_finalizers(
+        tmp_path,monkeypatch,failed_at,cleanup_fails,publication_fails):
+    events=[]
+    first=N.NativeQualificationError('synthetic_primary_failure')
+    secondary=OSError('PRIVATE secondary failure')
+    class Phase:
+        observation={'origin':'synthetic'}
+        def __init__(self,*args): pass
+        def complete(self):
+            events.append('complete')
+            if failed_at=='complete': raise first
+        def close(self):
+            events.append('cleanup')
+            if failed_at=='cleanup': raise first
+            if cleanup_fails: raise secondary
+    def save(*args):
+        events.append('publication')
+        if failed_at=='publication': raise first
+        if publication_fails: raise secondary
+    monkeypatch.setattr(N,'Service',Phase);monkeypatch.setattr(N,'save',save)
+    expected=secondary if failed_at=='publication' and cleanup_fails else first
+    with pytest.raises(type(expected)) as raised:
+        N.run_service(PREFIX,'installcheck',['/never'],tmp_path,Path(sys.executable),tmp_path,time.monotonic()+30)
+    assert raised.value is expected
+    assert events==['complete','cleanup','publication']
+
+
+def test_phase_failure_startup_rejection_cannot_invent_sandbox(tmp_path,monkeypatch):
+    error=N.NativeQualificationError('unexpected_protocol_eof')
+    def reject(*args): raise error
+    monkeypatch.setattr(N,'Service',reject)
+    monkeypatch.setattr(N,'save',lambda *args:pytest.fail('no observation exists before accepted barrier'))
+    with pytest.raises(N.NativeQualificationError) as raised:
+        N.run_service(PREFIX,'installcheck',['/never'],tmp_path,Path(sys.executable),tmp_path,time.monotonic()+30)
+    assert raised.value is error
+
+
+def test_phase_failure_full_supervisor_publishes_failed_checker_sandbox(tmp_path,monkeypatch):
+    """Real qualify/run_service/checker CLI failure path; execution is synthetic."""
+    import tempfile
+    repo=tmp_path/'repo';repo.mkdir()
+    archive=tmp_path/'synthetic.zip';archive.write_bytes(b'INERT TEST ARCHIVE')
+    destination=tmp_path/'published';events=[]
+    original_mkdtemp=tempfile.mkdtemp
+    monkeypatch.setattr(N.tempfile,'mkdtemp',lambda *,prefix,dir:original_mkdtemp(prefix=prefix,dir=tmp_path))
+    monkeypatch.setattr(N,'check_context',lambda *args:{'origin':'synthetic_phase_retention','run_id':'123'})
+    monkeypatch.setattr(N,'ARCHIVE_SIZE',archive.stat().st_size)
+    monkeypatch.setattr(N,'ARCHIVE_SHA',N.sha(archive.read_bytes()))
+    def snapshot(_repo,target,_sha): target.mkdir();return []
+    monkeypatch.setattr(N,'snapshot_sources',snapshot)
+    monkeypatch.setattr(N,'freeze',lambda *args:None)
+    monkeypatch.setattr(N,'writable_directory',lambda path:path.mkdir())
+    monkeypatch.setattr(N.os,'chown',lambda *args:None)
+    monkeypatch.setattr(N,'remove_watchdog',lambda *args:None)
+    def preflight(command,log,deadline):
+        (log.parent.parent/'staged/bundle').mkdir(parents=True)
+        log.write_bytes(b'SYNTHETIC ONLY\n')
+        (log.parent/'input-check.json').write_bytes(N.encode({
+            'source_files':[],'preparation_source_commit':N.PREPARATION_SOURCE}))
+    monkeypatch.setattr(N,'bounded_local',preflight)
+    def rejected_target(): raise K.QualificationCheckError('bootstrap_runtime_changed')
+    monkeypatch.setattr(K,'native_target',rejected_target)
+    class Phase:
+        def __init__(self,prefix,stage,command,work,python,log,deadline):
+            assert stage in ('installer','installcheck'),'no worker or diagnostic may start'
+            self.stage=stage;self.command=command;self.work=work;self.log=log
+            self.observation={'stage':stage,'origin':'synthetic_preexec_observation'}
+            events.append(('start',stage))
+        def complete(self):
+            if self.stage=='installer':
+                (self.work/'venv').mkdir()
+                for name in ('bootstrap.json','bootstrap-pip.log','pip-report.json','pip-install.log'):
+                    (self.work/name).write_bytes(b'{}\n')
+            else:
+                import contextlib
+                argv=list(map(str,self.command[4:]))
+                with self.log.open('w') as log, contextlib.redirect_stderr(log):
+                    rc=K.main(argv)
+                assert rc==1
+                raise N.NativeQualificationError('isolated_service_failed')
+        def close(self): events.append(('close',self.stage))
+    monkeypatch.setattr(N,'Service',Phase)
+    assert N.qualify(repo,archive,destination,'a'*40,True)==1
+    report=json.loads((destination/'qualification.json').read_bytes())
+    assert report['status']=='failed' and report['error_code']=='isolated_service_failed'
+    assert report['native_runtime_qualified'] is False and report['scored_call_count']==0
+    assert report['capture_dispatch_authorized'] is False and report['production_gate_eligible'] is False
+    assert events==[('start','installer'),('close','installer'),('start','installcheck'),('close','installcheck')]
+    inventory={row['path']:row for row in report['evidence']}
+    for name in ('installer-sandbox.json','installcheck-sandbox.json','installcheck.log'):
+        raw=(destination/name).read_bytes()
+        assert inventory[name]['sha256']==hashlib.sha256(raw).hexdigest()
+        assert inventory[name]['size']==len(raw)
+    assert (destination/'installcheck.log').read_text()=='Q2 qualification check rejected: bootstrap_runtime_changed\n'
+    assert not any((destination/name).exists() for name in ('installation.json','prelaunch.json','model-ready.json','original-response.json'))

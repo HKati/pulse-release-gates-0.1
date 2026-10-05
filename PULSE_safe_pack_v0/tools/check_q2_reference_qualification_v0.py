@@ -303,6 +303,35 @@ def installed_path(member, distribution):
     return 'lib/python3.11/site-packages/' + member, False
 
 
+def frozen_bootstrap_inventory(raw):
+    """Derive the expected post-freeze rows without rewriting the bootstrap.
+
+    The bootstrap inventory precedes installation and root ownership. The
+    supervisor deterministically removes only group/other write permission
+    (mode & ~0o022). Keep every other field and bit exact, including hashes,
+    sizes, symlink targets and owner/execute/special permission bits.
+    """
+    rows = parse(raw)
+    check(type(rows) is list and 0 < len(rows) <= 100000, 'bootstrap_inventory_shape')
+    result = {}
+    for row in rows:
+        check(type(row) is dict and type(row.get('path')) is str, 'bootstrap_inventory_row')
+        name = row['path']; relative(name)
+        check(name not in result, 'duplicate_bootstrap_path')
+        if 'symlink' in row:
+            fields(row, 'path symlink', 'bootstrap_inventory_row')
+            check(name == 'lib64' and row['symlink'] == 'lib', 'bootstrap_inventory_symlink')
+            result[name] = dict(row)
+        else:
+            fields(row, 'path size sha256 mode', 'bootstrap_inventory_row')
+            check(type(row['size']) is int and 0 <= row['size'] <= MAX_FILE
+                  and type(row['sha256']) is str and re.fullmatch('[0-9a-f]{64}', row['sha256'])
+                  and type(row['mode']) is int and 0 <= row['mode'] <= 0o7777,
+                  'bootstrap_inventory_value')
+            result[name] = {**row, 'mode': row['mode'] & ~0o022}
+    return result
+
+
 def verify_installation(venv, bundle, bootstrap, pip_report):
     """Compare installed wheel payloads to fixed wheel bytes, not their RECORD claims.
 
@@ -332,7 +361,8 @@ def verify_installation(venv, bundle, bootstrap, pip_report):
     check(downloads == expected_packages, 'incomplete_installed_closure')
     actual_rows = tree_inventory(venv)
     actual = {x['path']: x for x in actual_rows}
-    before = {x['path']: x for x in parse(read(bootstrap))}
+    bootstrap_raw = read(bootstrap)
+    before = frozen_bootstrap_inventory(bootstrap_raw)
     wheel_owned = {}; generated = set(); launchers = set(); distributions = {}
     base = 'lib/python3.11/site-packages/'
     for row in prep['wheels']:
@@ -407,7 +437,7 @@ def verify_installation(venv, bundle, bootstrap, pip_report):
     return {'record_type': 'q2_native_installation_check_v0', 'distributions': distributions,
             'wheel_payload_file_count': len(wheel_owned),
             'generated_non_worker_launchers': sorted(launchers & set(actual)),
-            'bootstrap_inventory_sha256': sha(read(bootstrap)),
+            'bootstrap_inventory_sha256': sha(bootstrap_raw),
             'pip_report_sha256': sha(read(pip_report)), 'inventory': actual_rows,
             'authority_effect': 'none', 'production_gate_eligible': False}
 
@@ -705,9 +735,16 @@ def main(argv=None):
         print('Q2 qualification check completed; no release authority')
         return 0
     except (QualificationCheckError, OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError,
-            zipfile.BadZipFile, ImportError):
-        # Do not emit paths, environment, generated text or downloaded contents.
-        print('Q2 qualification check rejected: invalid_or_unavailable_evidence', file=sys.stderr)
+            zipfile.BadZipFile, ImportError) as exc:
+        # Only our own stable error codes, never an arbitrary exception message,
+        # path, environment, generated text or downloaded content. This line is
+        # retained in the phase log even when no successful output is produced.
+        code = 'invalid_or_unavailable_evidence'
+        if type(exc) is QualificationCheckError and len(exc.args) == 1:
+            candidate = exc.args[0]
+            if type(candidate) is str and re.fullmatch('[a-z][a-z0-9_]{0,95}', candidate):
+                code = candidate
+        print('Q2 qualification check rejected: ' + code, file=sys.stderr)
         return 1
 
 

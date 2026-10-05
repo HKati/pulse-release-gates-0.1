@@ -1210,6 +1210,27 @@ listed and are not the worker invocation path. The environment is frozen under
 root ownership before model use, then independently recomputed again after the
 worker. Bytecode caches and system-site leakage are forbidden.
 
+The original `bootstrap.json` remains a pre-installation inventory and is never
+rewritten to match a later result. The installed-byte checker derives its exact
+post-freeze expectation by applying `mode & ~0o022` to regular-file permission
+fields only. Paths, bytes, sizes, hashes, symlink targets and every other mode
+bit remain exact. A still-writable, over-restricted, deleted or substituted
+bootstrap file is rejected; the prior and frozen inventories are not treated
+as interchangeable. Duplicate or malformed bootstrap rows are rejected.
+
+Checker failures retain the bounded, checker-defined error code in the phase
+log. Arbitrary exception text, paths, credentials and generated text are not
+printed. After a successfully observed startup barrier, each non-worker phase
+retains its pre-EXEC sandbox record even if execution later fails, after the
+mandatory cleanup attempt. Cleanup or publication failures cannot replace an
+earlier execution error. A retained sandbox record is not evidence of phase
+success, and no failed installation check can advance to model loading.
+
+This corrects a reproduced bootstrap/freeze/checker inconsistency investigated
+after run `37310024905`; that run's generic installcheck log does not establish
+its first internal rejection code. Its failed qualification remains failed.
+New-head hosted validation and a separately authorized native run are required.
+
 The installer, installed-byte checker, worker and decoding checker use separate
 systemd services. `PrivateNetwork=yes`, an AF_UNIX-only socket family filter,
 a denied network-send/connect syscall set, empty capabilities and

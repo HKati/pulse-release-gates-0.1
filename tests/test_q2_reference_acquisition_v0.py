@@ -2438,3 +2438,236 @@ def test_timeout_cleanup_sigkill_backstop_remains_effective_for_a_stuck_child(tm
     assert ready.is_file()
     # GNU timeout may itself receive the group SIGKILL: Popen then reports -9.
     assert result.returncode in (-9, 137)
+
+
+# Bootstrap/freeze/checker correction. Permission observations are constructed
+# explicitly; only the inert one-wheel test below uses real offline pip.
+def freeze_test_environment(path, monkeypatch):
+    """Run the production chmod logic; ownership is simulated only without root."""
+    if os.geteuid() == 0:
+        N.freeze(path)
+        return
+    import types
+    proxy = types.SimpleNamespace(**vars(os))
+    proxy.geteuid = lambda: 0
+    proxy.chown = lambda *args: None
+    proxy.lchown = lambda *args: None
+    with monkeypatch.context() as local:
+        local.setattr(N, 'os', proxy)
+        N.freeze(path)
+
+
+def add_bootstrap_activation_files(installed, names, mode=0o777):
+    env, _bundle, bootstrap, _report = installed
+    rows = K.parse(bootstrap.read_bytes())
+    for name in names:
+        path = env / name
+        path.write_bytes(b'INERT SYNTHETIC ACTIVATION FILE; NEVER EXECUTED\n')
+        path.chmod(mode)
+    rows.extend(row for row in K.tree_inventory(env) if row['path'] in names)
+    bootstrap.write_bytes(K.encoded(rows))
+
+
+@pytest.mark.parametrize('names', [
+    ('bin/Activate.ps1',), ('bin/activate',), ('bin/activate.csh',),
+    ('bin/activate.fish',),
+    ('bin/Activate.ps1', 'bin/activate', 'bin/activate.csh', 'bin/activate.fish')])
+def test_freeze_boundary_original_bootstrap_survives_exact_chmod(installed_synthetic, monkeypatch, names):
+    add_bootstrap_activation_files(installed_synthetic, names)
+    env, _bundle, bootstrap, _report = installed_synthetic
+    original = bootstrap.read_bytes()
+    hashes = {r['path']: r.get('sha256') for r in K.tree_inventory(env)}
+    with pytest.raises(K.QualificationCheckError, match='^bootstrap_runtime_changed$'):
+        K.verify_installation(*installed_synthetic)
+    freeze_test_environment(env, monkeypatch)
+    result = K.verify_installation(*installed_synthetic)
+    assert bootstrap.read_bytes() == original
+    assert result['bootstrap_inventory_sha256'] == K.sha(original)
+    assert {r['path']: r.get('sha256') for r in result['inventory']} == hashes
+    actual = {r['path']: r for r in result['inventory']}
+    assert all(actual[name]['mode'] == 0o755 for name in names)
+    assert result['authority_effect'] == 'none' and result['production_gate_eligible'] is False
+    # A second freeze must be idempotent, not a second relaxation window.
+    freeze_test_environment(env, monkeypatch)
+    assert K.verify_installation(*installed_synthetic) == result
+
+
+@pytest.mark.parametrize('mode', [0o000, 0o400, 0o444, 0o600, 0o644, 0o666,
+                                   0o700, 0o750, 0o755, 0o775, 0o777, 0o4755, 0o2777])
+def test_freeze_boundary_expected_mode_is_one_exact_transform(mode):
+    row = {'path':'bin/bootstrap', 'size':3, 'sha256':K.sha(b'abc'), 'mode':mode}
+    raw = K.encoded([row]); original = dict(row)
+    result = K.frozen_bootstrap_inventory(raw)
+    assert result == {'bin/bootstrap':{**row, 'mode':mode & ~0o022}}
+    assert row == original and raw == K.encoded([row])
+
+
+@pytest.mark.parametrize('mutation', [
+    'still_writable', 'owner_write_removed', 'owner_execute_added', 'group_read_removed',
+    'other_execute_removed', 'setuid_added', 'content_changed', 'size_changed', 'deleted',
+    'linked_replacement', 'new_import', 'extra_pth'])
+def test_freeze_boundary_rejects_any_change_beyond_exact_freeze(installed_synthetic, monkeypatch, mutation):
+    add_bootstrap_activation_files(installed_synthetic, ('bin/activate',))
+    env, _bundle, bootstrap, _report = installed_synthetic
+    freeze_test_environment(env, monkeypatch)
+    assert K.verify_installation(*installed_synthetic)['authority_effect'] == 'none'
+    target = env / 'bin/activate'
+    if mutation == 'still_writable': target.chmod(0o777)
+    elif mutation == 'owner_write_removed': target.chmod(0o555)
+    elif mutation == 'owner_execute_added':
+        # A non-executable bootstrap file cannot gain execute permissions.
+        target.chmod(0o644)
+        rows = K.parse(bootstrap.read_bytes())
+        for row in rows:
+            if row['path'] == 'bin/activate': row['mode'] = 0o644
+        bootstrap.write_bytes(K.encoded(rows)); target.chmod(0o744)
+    elif mutation == 'group_read_removed': target.chmod(0o715)
+    elif mutation == 'other_execute_removed': target.chmod(0o754)
+    elif mutation == 'setuid_added': target.chmod(0o4755)
+    elif mutation == 'content_changed':
+        raw = target.read_bytes(); target.write_bytes(b'X' + raw[1:])
+    elif mutation == 'size_changed': target.write_bytes(target.read_bytes() + b'X')
+    elif mutation == 'deleted': target.unlink()
+    elif mutation == 'linked_replacement':
+        target.unlink(); target.symlink_to('python')
+    else:
+        suffix = '.pth' if mutation == 'extra_pth' else '.py'
+        (env / ('unowned' + suffix)).write_bytes(b'INERT_UNOWNED = 1\n')
+    with pytest.raises((K.QualificationCheckError, OSError)):
+        K.verify_installation(*installed_synthetic)
+
+
+@pytest.mark.parametrize('mutation', [
+    'not_list', 'empty', 'not_row', 'missing_path', 'duplicate', 'extra_key',
+    'missing_mode', 'bool_mode', 'float_mode', 'negative_mode', 'type_bits',
+    'bool_size', 'negative_size', 'bad_hash', 'unsafe_path',
+    'bad_symlink', 'other_symlink', 'symlink_extra'])
+def test_freeze_boundary_rejects_ambiguous_bootstrap_inventory(mutation):
+    row = {'path':'bin/activate', 'size':1, 'sha256':K.sha(b'x'), 'mode':0o777}
+    rows = [row]
+    if mutation == 'not_list': rows = {'row':row}
+    elif mutation == 'empty': rows = []
+    elif mutation == 'not_row': rows = [1]
+    elif mutation == 'missing_path': del row['path']
+    elif mutation == 'duplicate': rows = [row, dict(row)]
+    elif mutation == 'extra_key': row['allow'] = True
+    elif mutation == 'missing_mode': del row['mode']
+    elif mutation == 'bool_mode': row['mode'] = True
+    elif mutation == 'float_mode': row['mode'] = 493.0
+    elif mutation == 'negative_mode': row['mode'] = -1
+    elif mutation == 'type_bits': row['mode'] = 0o100755
+    elif mutation == 'bool_size': row['size'] = False
+    elif mutation == 'negative_size': row['size'] = -1
+    elif mutation == 'bad_hash': row['sha256'] = 'A'*64
+    elif mutation == 'unsafe_path': row['path'] = '../activate'
+    elif mutation == 'bad_symlink': rows = [{'path':'lib64','symlink':'/lib'}]
+    elif mutation == 'other_symlink': rows = [{'path':'bin/python','symlink':'python3'}]
+    elif mutation == 'symlink_extra': rows = [{'path':'lib64','symlink':'lib','mode':0o777}]
+    with pytest.raises(K.QualificationCheckError):
+        K.frozen_bootstrap_inventory(K.encoded(rows))
+
+
+def test_freeze_boundary_allowed_symlink_is_not_chmod_normalized():
+    raw = K.encoded([{'path':'lib64','symlink':'lib'}])
+    assert K.frozen_bootstrap_inventory(raw) == {'lib64':{'path':'lib64','symlink':'lib'}}
+
+
+def test_freeze_boundary_real_offline_pip_then_freeze_then_checker(tmp_path, monkeypatch):
+    """Real pip + unchanged freeze/checker; inert wheel in fixed test layout.
+
+    This uses the host Python, not a claim of native 3.11.16 qualification.
+    --target places the pure-Python test wheel at the checker's selected-layout
+    site-packages path even when the test host is another Python version.
+    Bootstrap runs in a real fresh venv; no activation script or model executes.
+    """
+    import venv as stdlib_venv
+    env = tmp_path / 'venv'
+    stdlib_venv.EnvBuilder(with_pip=True, symlinks=False).create(env)
+    bundle = tmp_path / 'bundle'; wheelhouse = bundle / 'wheelhouse'; wheelhouse.mkdir(parents=True)
+    filename, raw, _ = native_wheel()
+    wheel = wheelhouse / filename; wheel.write_bytes(raw)
+    row = {'name':'fake-q2-native-fixture','version':'1.0','path':'wheelhouse/'+filename,
+           'size':len(raw),'sha256':K.sha(raw)}
+    prep = K.encoded({'wheels':[row]}); (bundle/'preparation.json').write_bytes(prep)
+    monkeypatch.setattr(K, 'RECORDS', {**K.RECORDS, 'preparation.json':K.sha(prep)})
+    for name in ('activate','activate.csh','activate.fish','Activate.ps1'):
+        (env/'bin'/name).chmod(0o777)
+    def remove_caches():
+        for path in sorted(env.rglob('*'), reverse=True):
+            if path.is_file() and path.suffix in ('.pyc','.pyo'): path.unlink()
+            elif path.is_dir() and path.name == '__pycache__': path.rmdir()
+    remove_caches()
+    bootstrap = tmp_path/'bootstrap.json'; bootstrap.write_bytes(K.encoded(K.tree_inventory(env)))
+    original_bootstrap = bootstrap.read_bytes()
+    lock = tmp_path/'fixture.lock'
+    lock.write_text('fake-q2-native-fixture==1.0 --hash=sha256:'+K.sha(raw)+'\n')
+    report = tmp_path/'pip-report.json'
+    command = [str(env/'bin/python'),'-I','-B','-m','pip','--isolated',
+        '--disable-pip-version-check','--no-input','install','--no-index','--find-links',str(wheelhouse),
+        '--require-hashes','--only-binary=:all:','--no-cache-dir','--no-compile',
+        '--target',str(env/'lib/python3.11/site-packages'),'-r',str(lock),'--report',str(report)]
+    run = subprocess.run(command,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,
+                         env=N.clean_env(tmp_path),timeout=60)
+    assert run.returncode == 0, run.stderr.decode('utf-8','replace')
+    remove_caches()
+    hashes = {r['path']:r.get('sha256') for r in K.tree_inventory(env)}
+    freeze_test_environment(env,monkeypatch)
+    result = K.verify_installation(env,bundle,bootstrap,report)
+    assert set(result['distributions']) == {'fake-q2-native-fixture'}
+    assert {r['path']:r.get('sha256') for r in result['inventory']} == hashes
+    assert bootstrap.read_bytes() == original_bootstrap
+    assert result['bootstrap_inventory_sha256'] == K.sha(original_bootstrap)
+    assert result['authority_effect'] == 'none' and result['production_gate_eligible'] is False
+    # A real installed payload substitution must still fail even if RECORD is
+    # left available. The corrected bootstrap comparison cannot hide it.
+    payload = env/'lib/python3.11/site-packages/fake_q2_native_fixture/__init__.py'
+    payload.write_bytes(b'SUBSTITUTED = True\n')
+    with pytest.raises(K.QualificationCheckError,match='^installed_payload_mismatch$'):
+        K.verify_installation(env,bundle,bootstrap,report)
+
+
+@pytest.mark.parametrize('code', ['bootstrap_runtime_changed','installed_payload_mismatch',
+                                 'installation_preparation_not_fixed','duplicate_bootstrap_path'])
+def test_freeze_boundary_cli_retains_stable_checker_code(tmp_path,monkeypatch,capsys,code):
+    def reject(): raise K.QualificationCheckError(code)
+    monkeypatch.setattr(K,'native_target',reject)
+    output = tmp_path/'must-not-be-created.json'
+    args = ['verify-installation','--venv',str(tmp_path),'--bundle',str(tmp_path),
+            '--bootstrap-inventory',str(tmp_path/'b.json'),'--pip-report',str(tmp_path/'p.json'),
+            '--output',str(output)]
+    assert K.main(args) == 1
+    capture = capsys.readouterr()
+    assert capture.out == '' and capture.err == 'Q2 qualification check rejected: '+code+'\n'
+    assert not output.exists()
+
+
+@pytest.mark.parametrize('kind,value', [
+    ('os','/secret/path/token=SECRET'),('value','GENERATED PRIVATE TEXT'),
+    ('key','PRIVATE_CONTENT'),('type','PRIVATE_TYPE_MESSAGE'),
+    ('check','token=SECRET'),('check','first\nSECOND_LINE'),('check','x'*97),
+    ('check','UPPERCASE'),('check',''),('check',123)])
+def test_freeze_boundary_cli_does_not_render_arbitrary_exception_text(tmp_path,monkeypatch,capsys,kind,value):
+    cls = {'os':OSError,'value':ValueError,'key':KeyError,'type':TypeError,'check':K.QualificationCheckError}[kind]
+    def reject(): raise cls(value)
+    monkeypatch.setattr(K,'native_target',reject)
+    args = ['verify-installation','--venv',str(tmp_path),'--bundle',str(tmp_path),
+            '--bootstrap-inventory',str(tmp_path/'b'),'--pip-report',str(tmp_path/'p'),
+            '--output',str(tmp_path/'out')]
+    assert K.main(args) == 1
+    capture = capsys.readouterr()
+    assert capture.out == ''
+    assert capture.err == 'Q2 qualification check rejected: invalid_or_unavailable_evidence\n'
+    assert not (tmp_path/'out').exists()
+
+
+def test_freeze_boundary_failed_payload_cli_has_no_success_record(installed_synthetic,monkeypatch,capsys,tmp_path):
+    add_bootstrap_activation_files(installed_synthetic,('bin/activate',))
+    env,bundle,bootstrap,report = installed_synthetic
+    freeze_test_environment(env,monkeypatch)
+    (env/'bin/activate').chmod(0o777)
+    monkeypatch.setattr(K,'native_target',lambda:None)  # synthetic CLI framing, not target qualification
+    output = tmp_path/'installation.json'
+    assert K.main(['verify-installation','--venv',str(env),'--bundle',str(bundle),
+                   '--bootstrap-inventory',str(bootstrap),'--pip-report',str(report),'--output',str(output)]) == 1
+    assert capsys.readouterr().err == 'Q2 qualification check rejected: bootstrap_runtime_changed\n'
+    assert not output.exists()
