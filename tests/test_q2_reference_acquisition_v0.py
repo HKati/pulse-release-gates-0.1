@@ -1345,6 +1345,12 @@ def test_worker_rejects_a_changed_generated_prompt_prefix():
 def synthetic_sandbox(stage='worker'):
     return {'stage': stage, 'unit': 'pulse-q2-' + 'a' * 24 + '-' + stage + '.service', 'pid': 123,
             'host_netns': 'net:[1]', 'child_netns': 'net:[2]', 'uid': 65534,
+            'run_mount': {
+                'host_namespace': 'mnt:[1]', 'child_namespace': 'mnt:[2]',
+                'host_mountinfo': '10 1 0:20 / /run rw,nosuid,nodev - tmpfs tmpfs rw\n',
+                'child_mountinfo': '20 1 0:30 / /run rw,nosuid,nodev,noexec - tmpfs tmpfs rw,size=16384k\n',
+                'mount_stats': {'/run': {'device': '0:30', 'inode': 1, 'uid': 0,
+                                         'gid': 0, 'mode': 0o40755}}},
             'no_new_privs': True, 'capabilities': '0000000000000000',
             'ipv4_blocked': True, 'ipv6_blocked': True, 'memory_max': '4294967296',
             'memory_swap_max': '0', 'pids_max': '64', 'cpu_max': '100000 100000',

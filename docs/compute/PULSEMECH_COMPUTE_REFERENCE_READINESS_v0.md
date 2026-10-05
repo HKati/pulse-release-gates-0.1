@@ -1218,6 +1218,38 @@ supervisor checks its actual MainPID, separate network namespace, dropped UID,
 capabilities, service properties and kernel cgroup values. The child cannot
 proceed past its barrier on a declaration of "offline" alone.
 
+The host `/run` is hidden by a fresh service-local tmpfs requested as
+`TemporaryFileSystem=/run:rw,nosuid,nodev,noexec,size=16M,mode=0755`.
+`InaccessiblePaths=/tmp` remains; a whole-`/run` inaccessible mask is not used,
+because it conflicts with systemd mount-propagation setup. The root-owned 0755
+replacement is not a writable host directory for the unprivileged target.
+
+Before every `EXEC`, the supervisor reads the process's actual mount namespace,
+bounded host/child `/proc/*/mountinfo` records and mountpoint metadata through
+`/proc/<pid>/root`. The `/run` mount must be a distinct tmpfs not present in the
+host mount inventory, with `nosuid,nodev,noexec`, a verified 16 MiB size limit,
+root ownership and mode 0755.
+Both effective read-only and read-write mount states are accepted; neither
+exposes the host's `/run`. An ordinary host bind or a missing observation fails.
+The raw observations travel in `run_mount` inside each sandbox record and are
+revalidated by the separate checker without importing the supervisor.
+
+systemd's own per-unit `/run/systemd/incoming` propagation mount is permitted
+only read-only, root-owned, mode 0600 and bound to this exact service's
+propagation directory. It is not traversable by UID 65534. The optional
+`/run/user` and `/run/credentials` inaccessible-directory masks must be
+root-owned, read-only and mode 0000. Any other or stacked submount, readable
+incoming directory, missing stat or namespace change rejects startup before
+`EXEC`. This preserves systemd's setup path without opening host sockets or
+accepting a self-declared isolation flag. No retry or relaxed fallback is added.
+
+Run `37250080353`, attempt 1, retained installer status `226/NAMESPACE` before
+its barrier. The exact failing mount syscall was not retained. This targeted
+correction addresses the upstream-documented `/run` mask incompatibility;
+offline regressions and configuration review do not establish that the repaired
+Ubuntu native run has passed. Historical preparation/source/run/artifact
+bindings and the existing failure-evidence retention remain unchanged.
+
 The fixed additional caps are 4 GiB memory, no swap, 64 tasks and one CPU quota.
 Each service has an external runtime cap; the entire qualification has a
 1,200-second outer execution timeout. At that boundary GNU `timeout` sends
