@@ -7,6 +7,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Align native Q2 bootstrap validation with the existing root-freeze operation:
+  derive exact post-freeze permission bits without changing the original
+  inventory, file bytes or historical bindings. Retain bounded checker error
+  codes and post-barrier sandbox evidence on failed phases after cleanup.
+  Test the installation/freeze/checker boundary and preserve fail-closed
+  behavior; this does not promote the failed run `37310024905` to qualified.
 - Replace the native Q2 whole-`/run` inaccessible mask with a bounded,
   service-local tmpfs after the `226/NAMESPACE` failure in run `37250080353`.
   Verify actual mount namespaces, tmpfs identity, flags and root-only systemd

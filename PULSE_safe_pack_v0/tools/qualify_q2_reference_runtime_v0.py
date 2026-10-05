@@ -796,12 +796,28 @@ def bounded_local(command, log, deadline):
 
 def run_service(prefix, stage, command, work, python, output, deadline):
     service = Service(prefix, stage, command, work, python, output / (stage + '.log'), deadline)
+    # The observation was taken before EXEC; it is not proof of phase success.
+    # Keep it on post-barrier failures too, but flush only after mandatory
+    # cleanup has been attempted. Preserve the first error through both cleanup
+    # and publication failures; none of these paths permits a retry or advance.
+    error = None
     try:
         service.complete()
-        save(output / (stage + '-sandbox.json'), encode(service.observation))
-        return service.observation
-    finally:
+    except BaseException as exc:
+        error = exc
+    try:
         service.close()
+    except BaseException as exc:
+        if error is None:
+            error = exc
+    try:
+        save(output / (stage + '-sandbox.json'), encode(service.observation))
+    except BaseException as exc:
+        if error is None:
+            error = exc
+    if error is not None:
+        raise error
+    return service.observation
 
 
 def qualify(repo, archive, output, expected, confirmed):
