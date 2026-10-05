@@ -7,6 +7,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Replace the native Q2 whole-`/run` inaccessible mask with a bounded,
+  service-local tmpfs after the `226/NAMESPACE` failure in run `37250080353`.
+  Verify actual mount namespaces, tmpfs identity, flags and root-only systemd
+  propagation plumbing before `EXEC`; recheck retained observations in the
+  separate checker. Extend the already registered startup and acquisition
+  regressions without changing workflow, model, timing or historical inputs.
+  This is a targeted configuration correction, not a native qualification claim.
 - Retain bounded native Q2 service-startup failure evidence before retrying
   qualification after run `37231651986`. Record the stage, startup phase,
   client exit observations, pre-cleanup systemd status and post-cleanup

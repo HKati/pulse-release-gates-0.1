@@ -6,6 +6,7 @@ executed, and these tests cannot substitute for an owner-dispatched native run.
 """
 from __future__ import annotations
 
+import ast
 import hashlib
 import importlib.util
 import json
@@ -348,3 +349,322 @@ def test_interrupted_diagnostic_cannot_skip_cleanup_or_replace_eof(startup, monk
     with pytest.raises(N.NativeQualificationError, match='unexpected_protocol_eof'):
         run()
     assert events.count(('close',)) == 1
+
+
+# /run isolation correction. Fixtures below describe kernel records explicitly;
+# they are not native observations and cannot qualify the selected Q2 runtime.
+import io
+import stat
+from types import SimpleNamespace
+
+CHECKER_PATH = ROOT / 'PULSE_safe_pack_v0/tools/check_q2_reference_qualification_v0.py'
+CHECKER_SPEC = importlib.util.spec_from_file_location('q2_run_mount_checker_under_test', CHECKER_PATH)
+K = importlib.util.module_from_spec(CHECKER_SPEC)
+CHECKER_SPEC.loader.exec_module(K)
+
+
+def synthetic_run_mount(unit=UNIT, plumbing=True):
+    host = ('10 1 8:1 / / rw,relatime - ext4 /dev/sda1 rw\n'
+            '11 10 0:20 / /run rw,nosuid,nodev - tmpfs tmpfs rw\n')
+    child = ('20 1 8:1 / / ro,relatime - ext4 /dev/sda1 rw\n'
+             '21 20 0:30 / /run rw,nosuid,nodev,noexec - tmpfs tmpfs rw,size=16384k,mode=755\n')
+    stats = {'/run': {'device': '0:30', 'inode': 1, 'uid': 0, 'gid': 0, 'mode': 0o40755}}
+    if plumbing:
+        child += ('22 21 0:20 /systemd/propagate/' + unit +
+                  ' /run/systemd/incoming ro,nosuid,nodev master:1 - tmpfs tmpfs rw\n'
+                  '23 21 0:20 /systemd/inaccessible/dir /run/user ro,nosuid,nodev - tmpfs tmpfs rw\n'
+                  '24 21 0:20 /systemd/inaccessible/dir /run/credentials ro,nosuid,nodev - tmpfs tmpfs rw\n')
+        for path, mode in [('/run/systemd/incoming', 0o40600), ('/run/user', 0o40000),
+                           ('/run/credentials', 0o40000)]:
+            stats[path] = {'device': '0:20', 'inode': 9, 'uid': 0, 'gid': 0, 'mode': mode}
+    return {'host_namespace': 'mnt:[1]', 'child_namespace': 'mnt:[2]',
+            'host_mountinfo': host, 'child_mountinfo': child, 'mount_stats': stats}
+
+
+def validate_mount(implementation, value, unit=UNIT):
+    if implementation == 'supervisor':
+        return N.validate_run_mount(value, unit)
+    return K.verify_run_mount(value, unit)
+
+
+@pytest.mark.parametrize('implementation', ['supervisor', 'checker'])
+@pytest.mark.parametrize('stage', ['installer', 'installcheck', 'worker', 'decodecheck'])
+@pytest.mark.parametrize('plumbing', [False, True])
+def test_run_mount_accepts_distinct_tmpfs_and_inert_systemd_plumbing(implementation, stage, plumbing):
+    unit = PREFIX + '-' + stage + '.service'
+    validate_mount(implementation, synthetic_run_mount(unit, plumbing), unit)
+
+
+@pytest.mark.parametrize('implementation', ['supervisor', 'checker'])
+def test_run_mount_accepts_stricter_readonly_effective_tmpfs(implementation):
+    value = synthetic_run_mount()
+    value['child_mountinfo'] = value['child_mountinfo'].replace('/run rw,', '/run ro,')
+    validate_mount(implementation, value)
+
+
+MOUNT_MUTATIONS = [
+    'same_namespace', 'bad_namespace', 'missing_run', 'stacked_run', 'host_device',
+    'bind_subdirectory', 'not_tmpfs', 'missing_noexec', 'missing_nodev', 'missing_nosuid',
+    'missing_access_flag', 'conflicting_access_flags', 'host_bind_under_run',
+    'cross_unit_incoming', 'incoming_host_root', 'readable_incoming', 'executable_incoming',
+    'writable_incoming_mount', 'readable_user_mask', 'wrong_mask_root', 'unknown_mask',
+    'writable_run_directory', 'unprivileged_owner', 'unprivileged_group',
+    'symlink_run', 'missing_stat', 'extra_stat', 'wrong_stat_device', 'bool_inode',
+    'empty_host_mountinfo', 'bad_line', 'truncated_record', 'duplicate_id',
+    'escaped_host_bind', 'unsafe_path', 'bad_escape', 'oversized', 'too_many_lines',
+    'missing_evidence_field', 'extra_evidence_field', 'no_fresh_device',
+    'missing_size', 'larger_size', 'smaller_size', 'duplicate_size', 'fake_size',
+    'conflicting_suid', 'conflicting_dev', 'conflicting_exec',
+]
+
+
+def mutate_run_mount(value, mutation):
+    child = value['child_mountinfo']
+    if mutation == 'same_namespace': value['child_namespace'] = value['host_namespace']
+    elif mutation == 'bad_namespace': value['child_namespace'] = 'declared_private'
+    elif mutation == 'missing_run': child = '\n'.join(l for l in child.splitlines() if ' /run ' not in l) + '\n'
+    elif mutation == 'stacked_run': child += '25 21 0:31 / /run rw,nosuid,nodev,noexec - tmpfs tmpfs rw\n'
+    elif mutation == 'host_device': child = child.replace('0:30', '0:20'); value['mount_stats']['/run']['device'] = '0:20'
+    elif mutation == 'bind_subdirectory': child = child.replace('0:30 / /run', '0:30 /source /run')
+    elif mutation == 'not_tmpfs': child = child.replace('/run rw,nosuid,nodev,noexec - tmpfs', '/run rw,nosuid,nodev,noexec - ext4')
+    elif mutation in ('missing_noexec', 'missing_nodev', 'missing_nosuid'):
+        child = child.replace(',' + mutation.removeprefix('missing_'), '')
+    elif mutation == 'missing_access_flag': child = child.replace('/run rw,', '/run ')
+    elif mutation == 'conflicting_access_flags': child = child.replace('/run rw,', '/run ro,rw,')
+    elif mutation in ('host_bind_under_run', 'escaped_host_bind'):
+        path = '/run/host' if mutation == 'host_bind_under_run' else r'/run/\150ost'
+        child += '25 21 0:20 /systemd ' + path + ' ro - tmpfs tmpfs rw\n'
+        value['mount_stats']['/run/host'] = {'device':'0:20','inode':8,'uid':0,'gid':0,'mode':0o40755}
+    elif mutation == 'cross_unit_incoming': child = child.replace('/propagate/' + UNIT, '/propagate/' + UNIT.replace('a', 'b'))
+    elif mutation == 'incoming_host_root': child = child.replace('/systemd/propagate/' + UNIT, '/')
+    elif mutation == 'readable_incoming': value['mount_stats']['/run/systemd/incoming']['mode'] = 0o40604
+    elif mutation == 'executable_incoming': value['mount_stats']['/run/systemd/incoming']['mode'] = 0o40601
+    elif mutation == 'writable_incoming_mount': child = child.replace('/run/systemd/incoming ro,', '/run/systemd/incoming rw,')
+    elif mutation == 'readable_user_mask': value['mount_stats']['/run/user']['mode'] = 0o40400
+    elif mutation == 'wrong_mask_root': child = child.replace('/systemd/inaccessible/dir', '/user')
+    elif mutation == 'unknown_mask':
+        child = child.replace('/run/user ', '/run/other ')
+        value['mount_stats']['/run/other'] = value['mount_stats'].pop('/run/user')
+    elif mutation == 'writable_run_directory': value['mount_stats']['/run']['mode'] = 0o40777
+    elif mutation == 'unprivileged_owner': value['mount_stats']['/run']['uid'] = 65534
+    elif mutation == 'unprivileged_group': value['mount_stats']['/run']['gid'] = 65534
+    elif mutation == 'symlink_run': value['mount_stats']['/run']['mode'] = stat.S_IFLNK | 0o755
+    elif mutation == 'missing_stat': del value['mount_stats']['/run']
+    elif mutation == 'extra_stat': value['mount_stats']['/other'] = dict(value['mount_stats']['/run'])
+    elif mutation == 'wrong_stat_device': value['mount_stats']['/run']['device'] = '0:99'
+    elif mutation == 'bool_inode': value['mount_stats']['/run']['inode'] = True
+    elif mutation == 'empty_host_mountinfo': value['host_mountinfo'] = ''
+    elif mutation == 'bad_line': child += 'garbage\n'
+    elif mutation == 'truncated_record': child = child.rstrip('\n')
+    elif mutation == 'duplicate_id': child += child.splitlines()[0] + '\n'
+    elif mutation == 'unsafe_path': child = child.replace(' /run ', ' /run/../run ')
+    elif mutation == 'bad_escape': child = child.replace(' /run ', r' /\run ')
+    elif mutation == 'oversized': child += 'x' * 262144 + '\n'
+    elif mutation == 'too_many_lines': child = ''.join(f'{n+1} 1 0:1 / /x rw - tmpfs t rw\n' for n in range(4097))
+    elif mutation == 'missing_evidence_field': del value['host_mountinfo']
+    elif mutation == 'extra_evidence_field': value['declared_safe'] = True
+    elif mutation == 'no_fresh_device': value['host_mountinfo'] += '90 1 0:30 / /somewhere rw - tmpfs tmpfs rw\n'
+    elif mutation == 'missing_size': child = child.replace(',size=16384k', '')
+    elif mutation == 'larger_size': child = child.replace('size=16384k', 'size=32768k')
+    elif mutation == 'smaller_size': child = child.replace('size=16384k', 'size=8192k')
+    elif mutation == 'duplicate_size': child = child.replace('size=16384k', 'size=16384k,size=16384k')
+    elif mutation == 'fake_size': child = child.replace('size=16384k', 'size=16watts')
+    elif mutation.startswith('conflicting_'): child = child.replace('/run rw,','/run rw,'+mutation.removeprefix('conflicting_')+',')
+    else: raise AssertionError(mutation)
+    value['child_mountinfo'] = child
+    return value
+
+
+@pytest.mark.parametrize('implementation', ['supervisor', 'checker'])
+@pytest.mark.parametrize('mutation', MOUNT_MUTATIONS)
+def test_run_mount_rejects_missing_weak_or_substituted_evidence(implementation, mutation):
+    value = mutate_run_mount(synthetic_run_mount(), mutation)
+    with pytest.raises((N.NativeQualificationError, K.QualificationCheckError)):
+        validate_mount(implementation, value)
+
+
+@pytest.mark.parametrize('stage', ['installer', 'installcheck', 'worker', 'decodecheck'])
+def test_run_mount_service_command_preserves_other_controls(stage, tmp_path):
+    command = N.service_command(PREFIX + '-' + stage + '.service', stage,
+                                ['/never-executed'], tmp_path, Path(sys.executable))
+    props = dict(arg[len('--property='):].split('=', 1) for arg in command if arg.startswith('--property='))
+    assert props['InaccessiblePaths'] == '/tmp'
+    assert props['TemporaryFileSystem'] == '/run:rw,nosuid,nodev,noexec,size=16M,mode=0755'
+    assert props['PrivateNetwork'] == 'yes'
+    assert props['RestrictAddressFamilies'] == 'AF_UNIX'
+    assert props['SystemCallFilter'] == '~connect sendto sendmsg sendmmsg'
+    assert props['ProtectHome'] == 'yes' and props['ProtectSystem'] == 'strict'
+    assert props['NoNewPrivileges'] == 'yes' and props['CapabilityBoundingSet'] == ''
+    assert props['User'] == props['Group'] == '65534'
+    assert props['MemoryMax'] == '4294967296' and props['MemorySwapMax'] == '0'
+    assert props['TasksMax'] == '64' and props['CPUQuota'] == '100%'
+    assert props['RuntimeMaxSec'] == str({'installer':480,'installcheck':300,'worker':180,'decodecheck':180}[stage])
+    assert N.GENERATION_NS == 15_000_000_000 and N.WATCHDOG_SECONDS == 20
+
+
+@pytest.fixture
+def mount_kernel(monkeypatch):
+    value = synthetic_run_mount(); calls = []
+    original_stat = os.stat
+    original_readlink = os.readlink
+    original_read_text = Path.read_text
+    def readlink(path, *args, **kwargs):
+        path = os.fspath(path)
+        if path == '/proc/self/ns/mnt': return value['host_namespace']
+        if path == '/proc/123/ns/mnt': return value['child_namespace']
+        if path == '/proc/self/ns/net': return 'net:[1]'
+        if path == '/proc/123/ns/net': return 'net:[2]'
+        return original_readlink(path, *args, **kwargs)
+    def read_mountinfo(pid):
+        calls.append(('mountinfo', pid))
+        return value['host_mountinfo' if pid == 'self' else 'child_mountinfo']
+    def stat_call(path, *args, **kwargs):
+        path = os.fspath(path) if not isinstance(path, int) else path
+        if isinstance(path, str) and path.startswith('/proc/123/root/run'):
+            calls.append(('stat', path, kwargs.get('follow_symlinks')))
+            s = value['mount_stats'][path.removeprefix('/proc/123/root')]
+            major, minor = map(int, s['device'].split(':'))
+            return SimpleNamespace(st_dev=os.makedev(major,minor),st_ino=s['inode'],st_uid=s['uid'],st_gid=s['gid'],st_mode=s['mode'])
+        return original_stat(path, *args, **kwargs)
+    def read_text(path, *args, **kwargs):
+        name = str(path)
+        if name == '/proc/123/status':
+            return 'Uid:\t65534\t65534\t65534\t65534\nGid:\t65534\t65534\t65534\t65534\nNoNewPrivs:\t1\nCapEff:\t0000000000000000\n'
+        if name == '/proc/123/cgroup': return '0::/system.slice/' + UNIT + '\n'
+        if name.startswith('/sys/fs/cgroup/system.slice/' + UNIT + '/'):
+            return {'memory.max':'4294967296','memory.swap.max':'0','pids.max':'64','cpu.max':'100000 100000'}[path.name]
+        return original_read_text(path, *args, **kwargs)
+    monkeypatch.setattr(N, 'read_mountinfo', read_mountinfo, raising=False)
+    monkeypatch.setattr(os, 'readlink', readlink)
+    monkeypatch.setattr(os, 'stat', stat_call)
+    monkeypatch.setattr(Path, 'read_text', read_text)
+    return value, calls
+
+
+def test_run_mount_collector_reads_actual_proc_paths_and_checks_them(mount_kernel):
+    value, calls = mount_kernel
+    assert N.observe_run_mount(123, UNIT) == value
+    assert calls[:2] == [('mountinfo', 'self'), ('mountinfo', 123)]
+    assert set((c[1], c[2]) for c in calls if c[0] == 'stat') == {
+        ('/proc/123/root' + p, False) for p in value['mount_stats']}
+
+
+def test_run_mount_collector_rejects_namespace_change(mount_kernel, monkeypatch):
+    _, calls = mount_kernel
+    original = N.os.readlink; seen = 0
+    def changed(path, *args, **kwargs):
+        nonlocal seen
+        if path == '/proc/123/ns/mnt':
+            seen += 1
+            return 'mnt:[2]' if seen == 1 else 'mnt:[3]'
+        return original(path, *args, **kwargs)
+    monkeypatch.setattr(N.os, 'readlink', changed)
+    with pytest.raises(N.NativeQualificationError, match='^mount_namespace_changed$'):
+        N.observe_run_mount(123, UNIT)
+
+
+@pytest.mark.parametrize('fault', ['missing', 'oversized', 'invalid_utf8'])
+def test_run_mount_proc_read_is_bounded_and_has_no_fallback(monkeypatch, fault):
+    requests = []
+    class Stream(io.BytesIO):
+        def read(self, size=-1):
+            requests.append(size)
+            return super().read(size)
+    def opening(path, mode):
+        assert path == '/proc/123/mountinfo' and mode == 'rb'
+        if fault == 'missing': raise FileNotFoundError(path)
+        return Stream(b'x' * 262145 if fault == 'oversized' else b'\xff\n')
+    monkeypatch.setattr(N, 'open', opening, raising=False)
+    with pytest.raises((N.NativeQualificationError, UnicodeError, FileNotFoundError)):
+        N.read_mountinfo(123)
+    assert requests == ([] if fault == 'missing' else [262145])
+
+
+def test_run_mount_parser_reads_real_local_proc_without_claiming_isolation():
+    # Read only the current process. No mount, systemd unit or model is started.
+    assert N.run_mount_entries(N.read_mountinfo('self'))
+
+
+@pytest.mark.parametrize('mutation', [None, 'same_namespace', 'host_device', 'missing_noexec',
+                                      'executable_incoming', 'writable_run_directory'])
+def test_run_mount_verification_precedes_exec_and_keeps_startup_failure(startup, mount_kernel, monkeypatch, mutation):
+    run, events, output = startup
+    value, reads = mount_kernel
+    if mutation:
+        mutate_run_mount(value, mutation)
+    frame = {'pid':123, 'ipv4_blocked':True, 'ipv6_blocked':True}
+    body = ('import sys,json; print(' + repr(json.dumps(frame)) + ',flush=True); '
+            'raise SystemExit(0 if sys.stdin.buffer.readline(16)==b"EXEC\\n" else 71)')
+    monkeypatch.setattr(N, 'service_command', lambda *args: python_command(body))
+    def control(command, timeout=15, *, check=True):
+        events.append(('control', command[1], timeout))
+        props = {k:N.PROPERTIES[k] for k in N.OBSERVED_PROPERTIES if k in N.PROPERTIES}
+        props.update(MainPID='123', RuntimeMaxUSec='8min')
+        return subprocess.CompletedProcess(command,0, ''.join(k+'='+v+'\n' for k,v in props.items()).encode(), b'')
+    monkeypatch.setattr(N,'control',control)
+    original_send = N.Service.send
+    def send(service, data):
+        events.append(('send',data))
+        return original_send(service,data)
+    monkeypatch.setattr(N.Service,'send',send)
+    if mutation:
+        service = None
+        try:
+            with pytest.raises(N.NativeQualificationError): service = run()
+        finally:
+            if service is not None: service.close()
+        assert not any(e[0]=='send' for e in events)
+        report=json.loads((output/'installer-startup-failure.json').read_bytes())
+        assert report['startup_phase']=='isolation_observation'
+        assert report['native_runtime_qualified'] is False
+        assert events.count(('close',))==1
+    else:
+        service=run()
+        try:
+            assert service.observation['run_mount']==value
+            assert ('send',b'EXEC\n') in events and reads
+            assert service.complete(empty_tail=True)[1]==0
+        finally: service.close()
+        assert not (output/'installer-startup-failure.json').exists()
+
+
+def test_run_mount_regressions_remain_in_registered_pytest_module():
+    targets=[x.strip() for x in (ROOT/'ci/pytest-tests.list').read_text().splitlines()
+             if x.strip() and not x.lstrip().startswith('#')]
+    assert targets.count('tests/test_q2_native_startup_diagnostics_v0.py')==1
+
+
+def test_run_mount_checker_stays_separate_from_supervisor():
+    tree=ast.parse(CHECKER_PATH.read_text())
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            assert all('qualify_q2_reference_runtime_v0' not in x.name for x in node.names)
+        if isinstance(node, ast.ImportFrom):
+            assert 'qualify_q2_reference_runtime_v0' not in (node.module or '')
+    old=synthetic_run_mount()
+    del old['mount_stats']
+    with pytest.raises(K.QualificationCheckError): K.verify_run_mount(old,UNIT)
+
+
+@pytest.mark.parametrize('stage', ['installer', 'installcheck', 'worker', 'decodecheck'])
+def test_run_mount_checker_requires_run_evidence_on_every_stage(stage):
+    value = {'stage':stage,'unit':PREFIX+'-'+stage+'.service','pid':123,
+             'host_netns':'net:[1]','child_netns':'net:[2]','uid':65534,
+             'no_new_privs':True,'capabilities':'0000000000000000',
+             'ipv4_blocked':True,'ipv6_blocked':True,'memory_max':'4294967296',
+             'memory_swap_max':'0','pids_max':'64','cpu_max':'100000 100000',
+             'properties':{k:N.PROPERTIES[k] for k in N.OBSERVED_PROPERTIES if k in N.PROPERTIES}}
+    value['properties']['RuntimeMaxUSec']={'installer':'8min','installcheck':'5min',
+                                          'worker':'3min','decodecheck':'3min'}[stage]
+    # This old-format observation was accepted by the original checker. There
+    # is no compatibility fallback for absent /run evidence after this change.
+    with pytest.raises(K.QualificationCheckError, match='^sandbox_fields$'):
+        K.verify_sandbox_observation(value,stage)
+
+
+@pytest.mark.parametrize('implementation', ['supervisor', 'checker'])
+@pytest.mark.parametrize('size', ['16777216', '16m', '16M', '16384K'])
+def test_run_mount_checks_effective_size_without_display_unit_assumptions(implementation,size):
+    value=synthetic_run_mount()
+    value['child_mountinfo']=value['child_mountinfo'].replace('size=16384k','size='+size)
+    validate_mount(implementation,value)

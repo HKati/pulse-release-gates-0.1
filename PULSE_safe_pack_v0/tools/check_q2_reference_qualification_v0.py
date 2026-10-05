@@ -419,10 +419,85 @@ def native_target():
     check(osr.get('ID') == 'ubuntu' and osr.get('VERSION_ID') == '24.04', 'native_ubuntu_required')
 
 
+
+
+def verify_run_mount(value, unit):
+    """Recheck retained kernel mount records without importing the supervisor.
+
+    These are observations from the trusted external collector, not a child's
+    declaration and not a proof against a malicious host. Missing old-format
+    /run evidence is rejected, never silently grandfathered as qualified.
+    """
+    check(type(unit) is str and re.fullmatch(r'pulse-q2-[a-f0-9]{24}-[a-z]+\.service', unit), 'sandbox_unit')
+    fields(value, 'host_namespace child_namespace host_mountinfo child_mountinfo mount_stats', 'run_mount_fields')
+    host_ns = value['host_namespace']; child_ns = value['child_namespace']
+    check(type(host_ns) is str and type(child_ns) is str and host_ns != child_ns
+          and re.fullmatch(r'mnt:\[[1-9][0-9]*\]', host_ns)
+          and re.fullmatch(r'mnt:\[[1-9][0-9]*\]', child_ns), 'mount_namespace_not_separate')
+    def decoded_path(word):
+        check(re.search(r'\\(?!040|011|012|134)', word) is None, 'run_mountinfo_escape')
+        word = re.sub(r'\\(040|011|012|134)', lambda m: chr(int(m.group(1), 8)), word)
+        check(word.startswith('/') and (word == '/' or
+              all(x not in ('', '.', '..') for x in word[1:].split('/'))), 'run_mountinfo_path')
+        return word
+    def parse_mounts(raw):
+        check(type(raw) is str and 0 < len(raw.encode('utf-8')) <= 262144
+              and raw.endswith('\n') and '\x00' not in raw, 'run_mountinfo_bound')
+        lines = raw.splitlines(); check(0 < len(lines) <= 4096, 'run_mountinfo_bound')
+        seen = set(); result = []
+        for line in lines:
+            words = line.split(' ')
+            check(words.count('-') == 1, 'run_mountinfo_record')
+            index = words.index('-')
+            check(index >= 6 and len(words) == index + 4 and all(words)
+                  and re.fullmatch(r'[1-9][0-9]*', words[0])
+                  and re.fullmatch(r'[1-9][0-9]*', words[1])
+                  and re.fullmatch(r'(0|[1-9][0-9]*):(0|[1-9][0-9]*)', words[2]), 'run_mountinfo_record')
+            check(words[0] not in seen, 'run_mountinfo_duplicate_id'); seen.add(words[0])
+            result.append((words[2], decoded_path(words[3]), decoded_path(words[4]),
+                           set(words[5].split(',')), words[index + 1], words[index + 3].split(',')))
+        return result
+    host = parse_mounts(value['host_mountinfo']); child = parse_mounts(value['child_mountinfo'])
+    roots = [row for row in child if row[2] == '/run']
+    check(len(roots) == 1, 'run_mount_missing_or_stacked')
+    device, root, _, options, fs, super_options = roots[0]
+    check(fs == 'tmpfs' and root == '/' and device.startswith('0:') and device != '0:0'
+          and all(row[0] != device for row in host), 'host_run_not_hidden')
+    check({'nosuid', 'nodev', 'noexec'} <= options and not ({'suid', 'dev', 'exec'} & options)
+          and len(options & {'ro', 'rw'}) == 1, 'run_mount_flags')
+    size_options = [option[5:] for option in super_options if option.startswith('size=')]
+    check(len(size_options) == 1, 'run_tmpfs_size')
+    match = re.fullmatch(r'([1-9][0-9]*)([kKmMgG]?)', size_options[0])
+    check(match is not None, 'run_tmpfs_size')
+    multiplier = {'':1, 'k':1024, 'm':1048576, 'g':1073741824}[match[2].lower()]
+    check(int(match[1]) * multiplier == 16777216, 'run_tmpfs_size')
+    subtree = [row for row in child if row[2] == '/run' or row[2].startswith('/run/')]
+    names = [row[2] for row in subtree]
+    check(len(names) <= 4 and len(set(names)) == len(names), 'run_submount_scope')
+    stats = value['mount_stats']
+    check(type(stats) is dict and set(stats) == set(names), 'run_mount_stat_scope')
+    for dev, source, target, flags, _, _super_options in subtree:
+        s = stats[target]; fields(s, 'device inode uid gid mode', 'run_mount_stat')
+        check(type(s['device']) is str and s['device'] == dev
+              and all(type(s[k]) is int for k in ('inode', 'uid', 'gid', 'mode'))
+              and s['inode'] > 0 and s['uid'] == s['gid'] == 0 and stat.S_ISDIR(s['mode']), 'run_mount_stat')
+        if target == '/run':
+            check(s['mode'] == 0o40755, 'run_root_permissions')
+        else:
+            check('ro' in flags and 'rw' not in flags, 'run_submount_writable')
+            if target == '/run/systemd/incoming':
+                check(source in ('/systemd/propagate/' + unit, '/run/systemd/propagate/' + unit)
+                      and s['mode'] == 0o40600, 'run_incoming_not_private')
+            else:
+                check(target in ('/run/user', '/run/credentials')
+                      and source in ('/systemd/inaccessible/dir', '/run/systemd/inaccessible/dir')
+                      and s['mode'] == 0o40000, 'run_unexpected_submount')
+
+
 def verify_sandbox_observation(value, stage):
     fields(value, 'stage unit pid host_netns child_netns uid no_new_privs capabilities '
                   'ipv4_blocked ipv6_blocked memory_max memory_swap_max pids_max cpu_max '
-                  'properties', 'sandbox_fields')
+                  'properties run_mount', 'sandbox_fields')
     check(value['stage'] == stage and type(value['pid']) is int and value['pid'] > 0, 'sandbox_stage')
     check(re.fullmatch(r'pulse-q2-[a-f0-9]{24}-[a-z]+\.service', value['unit'])
           and value['unit'].endswith('-' + stage + '.service'), 'sandbox_unit')
@@ -444,6 +519,7 @@ def verify_sandbox_observation(value, stage):
         check(props.get(k) == v, 'service_property_mismatch')
     check(props.get('RuntimeMaxUSec') == {'installer': '8min', 'installcheck': '5min',
           'worker': '3min', 'decodecheck': '3min'}.get(stage), 'service_runtime_limit')
+    verify_run_mount(value['run_mount'], value['unit'])
 
 
 def validate_tokens_and_text(response, expected_input, decode):

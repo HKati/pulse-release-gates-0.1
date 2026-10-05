@@ -64,7 +64,8 @@ PROPERTIES = {
     'ProtectHome': 'yes', 'PrivateDevices': 'yes', 'ProtectControlGroups': 'yes',
     'ProtectKernelTunables': 'yes', 'ProtectKernelModules': 'yes',
     'RestrictNamespaces': 'yes', 'RestrictSUIDSGID': 'yes', 'LockPersonality': 'yes',
-    'RestrictRealtime': 'yes', 'InaccessiblePaths': '/run /tmp',
+    'RestrictRealtime': 'yes', 'InaccessiblePaths': '/tmp',
+    'TemporaryFileSystem': '/run:rw,nosuid,nodev,noexec,size=16M,mode=0755',
     'MemoryMax': '4294967296', 'MemorySwapMax': '0', 'TasksMax': '64',
     'CPUQuota': '100%', 'CPUQuotaPeriodSec': '100ms', 'LimitNOFILE': '256',
     'LimitFSIZE': '536870912', 'LimitCORE': '0',
@@ -322,6 +323,127 @@ def service_command(unit, stage, command, work, python):
     return args
 
 
+
+# A whole-/run InaccessiblePaths mask prevents systemd's mount-propagation
+# setup. Keep host /run hidden behind a fresh root-owned tmpfs instead. The
+# effective mount and its narrow root-only systemd plumbing are checked before
+# EXEC; the requested property alone is never accepted as isolation evidence.
+RUN_MOUNTINFO_BYTES = 256 * 1024
+RUN_MOUNTINFO_LINES = 4096
+
+
+def run_mount_entries(text):
+    require(type(text) is str and 0 < len(text.encode('utf-8')) <= RUN_MOUNTINFO_BYTES
+            and text.endswith('\n') and '\x00' not in text, 'run_mountinfo_bound')
+    lines = text.splitlines()
+    require(0 < len(lines) <= RUN_MOUNTINFO_LINES, 'run_mountinfo_bound')
+    entries = []; identifiers = set()
+    def path(word):
+        require(re.search(r'\\(?!040|011|012|134)', word) is None, 'run_mountinfo_escape')
+        value = re.sub(r'\\(040|011|012|134)', lambda m: chr(int(m[1], 8)), word)
+        require(value.startswith('/') and (value == '/' or
+                all(p not in ('', '.', '..') for p in value[1:].split('/'))), 'run_mountinfo_path')
+        return value
+    for line in lines:
+        parts = line.split(' ')
+        require(parts.count('-') == 1, 'run_mountinfo_record')
+        pivot = parts.index('-')
+        require(pivot >= 6 and len(parts) == pivot + 4 and all(parts)
+                and re.fullmatch(r'[1-9][0-9]*', parts[0])
+                and re.fullmatch(r'[1-9][0-9]*', parts[1])
+                and re.fullmatch(r'(0|[1-9][0-9]*):(0|[1-9][0-9]*)', parts[2]), 'run_mountinfo_record')
+        require(parts[0] not in identifiers, 'run_mountinfo_duplicate_id')
+        identifiers.add(parts[0])
+        entries.append({'device': parts[2], 'root': path(parts[3]), 'target': path(parts[4]),
+                        'options': set(parts[5].split(',')), 'fstype': parts[pivot + 1],
+                        'super_options': parts[pivot + 3].split(',')})
+    return entries
+
+
+def validate_run_mount(value, unit):
+    require(type(unit) is str and re.fullmatch(r'pulse-q2-[a-f0-9]{24}-[a-z]+\.service', unit), 'service_identity')
+    require(type(value) is dict and set(value) == {'host_namespace', 'child_namespace',
+            'host_mountinfo', 'child_mountinfo', 'mount_stats'}, 'run_mount_fields')
+    require(all(type(value[k]) is str and re.fullmatch(r'mnt:\[[1-9][0-9]*\]', value[k])
+            for k in ('host_namespace', 'child_namespace'))
+            and value['host_namespace'] != value['child_namespace'], 'mount_namespace_not_separate')
+    host = run_mount_entries(value['host_mountinfo'])
+    child = run_mount_entries(value['child_mountinfo'])
+    run = [e for e in child if e['target'] == '/run']
+    require(len(run) == 1, 'run_mount_missing_or_stacked')
+    run = run[0]
+    require(run['fstype'] == 'tmpfs' and run['root'] == '/'
+            and run['device'].startswith('0:') and run['device'] != '0:0'
+            and run['device'] not in {e['device'] for e in host}, 'host_run_not_hidden')
+    require({'nosuid', 'nodev', 'noexec'} <= run['options']
+            and not ({'suid', 'dev', 'exec'} & run['options'])
+            and len(run['options'] & {'ro', 'rw'}) == 1, 'run_mount_flags')
+    sizes = [o for o in run['super_options'] if o.startswith('size=')]
+    require(len(sizes) == 1, 'run_tmpfs_size')
+    size = re.fullmatch(r'size=([1-9][0-9]*)([kKmMgG]?)', sizes[0])
+    require(size is not None and int(size[1]) * (1024 ** {'': 0, 'k': 1, 'm': 2, 'g': 3}[size[2].lower()])
+            == 16 * 1024 * 1024, 'run_tmpfs_size')
+    mounts = [e for e in child if e['target'] == '/run' or e['target'].startswith('/run/')]
+    targets = [e['target'] for e in mounts]
+    require(len(mounts) <= 4 and len(set(targets)) == len(targets), 'run_submount_scope')
+    stats = value['mount_stats']
+    require(type(stats) is dict and set(stats) == set(targets), 'run_mount_stat_scope')
+    for entry in mounts:
+        target = entry['target']; s = stats[target]
+        require(type(s) is dict and set(s) == {'device', 'inode', 'uid', 'gid', 'mode'}
+                and type(s['device']) is str and s['device'] == entry['device']
+                and all(type(s[k]) is int for k in ('inode', 'uid', 'gid', 'mode'))
+                and s['inode'] > 0 and s['uid'] == 0 and s['gid'] == 0
+                and stat.S_ISDIR(s['mode']), 'run_mount_stat')
+        if target == '/run':
+            require(s['mode'] == stat.S_IFDIR | 0o755, 'run_root_permissions')
+            continue
+        # systemd >=252 needs its per-unit incoming bind mount even with an
+        # empty /run. It is root-only (0600), never traversable by UID 65534.
+        # ProtectHome / credential masks may also remain as inert 0000 dirs.
+        # Do not forbid this necessary plumbing or allow arbitrary host binds.
+        require('ro' in entry['options'] and 'rw' not in entry['options'], 'run_submount_writable')
+        if target == '/run/systemd/incoming':
+            roots = {'/systemd/propagate/' + unit, '/run/systemd/propagate/' + unit}
+            require(entry['root'] in roots and s['mode'] == stat.S_IFDIR | 0o600,
+                    'run_incoming_not_private')
+        else:
+            require(target in ('/run/user', '/run/credentials')
+                    and entry['root'] in ('/systemd/inaccessible/dir', '/run/systemd/inaccessible/dir')
+                    and s['mode'] == stat.S_IFDIR, 'run_unexpected_submount')
+    return value
+
+
+def read_mountinfo(pid):
+    # procfs reports size zero; do not use safe_read's regular-file size rule.
+    with open(f'/proc/{pid}/mountinfo', 'rb') as stream:
+        raw = stream.read(RUN_MOUNTINFO_BYTES + 1)
+    require(len(raw) <= RUN_MOUNTINFO_BYTES, 'run_mountinfo_bound')
+    return raw.decode('utf-8')
+
+
+def observe_run_mount(pid, unit):
+    require(type(pid) is int and pid > 1, 'run_mount_pid')
+    host_namespace = os.readlink('/proc/self/ns/mnt')
+    child_namespace = os.readlink(f'/proc/{pid}/ns/mnt')
+    host = read_mountinfo('self'); child = read_mountinfo(pid)
+    mounts = [e for e in run_mount_entries(child)
+              if e['target'] == '/run' or e['target'].startswith('/run/')]
+    require(len(mounts) <= 4, 'run_submount_scope')
+    snapshots = {}
+    for entry in mounts:
+        target = entry['target']
+        # Follow procfs's root magic link, not Path.resolve(), so lookup occurs
+        # in this process's actual mount view. Do not follow a final symlink.
+        s = os.stat(f'/proc/{pid}/root' + target, follow_symlinks=False)
+        snapshots[target] = {'device': f'{os.major(s.st_dev)}:{os.minor(s.st_dev)}',
+                            'inode': s.st_ino, 'uid': s.st_uid, 'gid': s.st_gid, 'mode': s.st_mode}
+    require(os.readlink('/proc/self/ns/mnt') == host_namespace
+            and os.readlink(f'/proc/{pid}/ns/mnt') == child_namespace, 'mount_namespace_changed')
+    return validate_run_mount({'host_namespace': host_namespace, 'child_namespace': child_namespace,
+            'host_mountinfo': host, 'child_mountinfo': child, 'mount_stats': snapshots}, unit)
+
+
 def observe_service(unit, stage, frame, host_netns):
     require(type(frame) is dict and set(frame) == {'pid', 'ipv4_blocked', 'ipv6_blocked'}, 'isolation_barrier_fields')
     pid = frame['pid']
@@ -352,10 +474,11 @@ def observe_service(unit, stage, frame, host_netns):
                'pids_max': 'pids.max', 'cpu_max': 'cpu.max'}.items()}
     require(values == {'memory_max': '4294967296', 'memory_swap_max': '0',
                        'pids_max': '64', 'cpu_max': '100000 100000'}, 'cgroup_limits_not_enforced')
+    run_mount = observe_run_mount(pid, unit)
     return {'stage': stage, 'unit': unit, 'pid': pid, 'host_netns': host_netns, 'child_netns': child_netns,
             'uid': 65534, 'no_new_privs': True, 'capabilities': '0000000000000000',
             'ipv4_blocked': frame['ipv4_blocked'], 'ipv6_blocked': frame['ipv6_blocked'],
-            **values, 'properties': props}
+            **values, 'properties': props, 'run_mount': run_mount}
 
 
 STARTUP_DIAGNOSTIC_SECONDS = 2.0
