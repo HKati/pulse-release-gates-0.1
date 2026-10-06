@@ -51,6 +51,7 @@ ARCHIVE_SHA = 'b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9'
 ARCHIVE_SIZE = 508460811
 MAX_CONTROL = 16 * 1024 * 1024
 STAGES = {'installer': 480, 'installcheck': 300, 'worker': 180, 'decodecheck': 180}
+CAPTURE_STAGES = {'capturecheck': 180, 'reduction': 180}
 GENERATION_NS = 15_000_000_000
 # The response still has exactly 15 seconds from the GO write boundary.
 # This separate pre-armed backstop includes a bounded arming/cleanup allowance;
@@ -312,9 +313,15 @@ class BoundedReader:
         self.selector.close()
 
 
-def service_command(unit, stage, command, work, python):
-    require(stage in STAGES and re.fullmatch(r'pulse-q2-[a-f0-9]{24}-[a-z]+\.service', unit), 'service_identity')
-    props = {**PROPERTIES, 'RuntimeMaxSec': str(STAGES[stage]),
+def service_command(unit, stage, command, work, python, *, capture_seconds=None):
+    require((stage in STAGES or stage in CAPTURE_STAGES or stage == 'captureworker') and re.fullmatch(r'pulse-q2-[a-f0-9]{24}-[a-z]+\.service', unit), 'service_identity')
+    if stage == 'captureworker':
+        require(type(capture_seconds) is int and 1 <= capture_seconds <= 1200, 'capture_lifetime_bound')
+        seconds = capture_seconds
+    else:
+        require(capture_seconds is None, 'no_generic_runtime_override')
+        seconds = {**STAGES, **CAPTURE_STAGES}[stage]
+    props = {**PROPERTIES, 'RuntimeMaxSec': str(seconds),
              'ReadWritePaths': str(work), 'WorkingDirectory': str(work)}
     args = ['/usr/bin/systemd-run', '--quiet', '--pipe', '--wait', '--unit=' + unit]
     args += ['--property=' + k + '=' + v for k, v in props.items()]
@@ -444,7 +451,7 @@ def observe_run_mount(pid, unit):
             'host_mountinfo': host, 'child_mountinfo': child, 'mount_stats': snapshots}, unit)
 
 
-def observe_service(unit, stage, frame, host_netns):
+def observe_service(unit, stage, frame, host_netns, *, capture_seconds=None):
     require(type(frame) is dict and set(frame) == {'pid', 'ipv4_blocked', 'ipv6_blocked'}, 'isolation_barrier_fields')
     pid = frame['pid']
     require(type(pid) is int and pid > 1 and frame['ipv4_blocked'] is True and frame['ipv6_blocked'] is True,
@@ -456,7 +463,13 @@ def observe_service(unit, stage, frame, host_netns):
     for key in ('PrivateNetwork', 'NoNewPrivileges', 'ProtectSystem', 'ProtectHome', 'KillMode',
                 'SendSIGKILL', 'User', 'Group', 'CapabilityBoundingSet', 'RestrictAddressFamilies'):
         require(props.get(key) == PROPERTIES[key], 'service_property_not_enforced')
-    require(props.get('RuntimeMaxUSec') == {180: '3min', 300: '5min', 480: '8min'}[STAGES[stage]], 'runtime_max_not_enforced')
+    if stage == 'captureworker':
+        require(type(capture_seconds) is int and 1 <= capture_seconds <= 1200
+                and duration_microseconds(props.get('RuntimeMaxUSec', '')) == capture_seconds * 1000000,
+                'capture_runtime_max_not_enforced')
+    else:
+        require(capture_seconds is None, 'no_generic_runtime_override')
+        require(props.get('RuntimeMaxUSec') == {180: '3min', 300: '5min', 480: '8min'}[{**STAGES, **CAPTURE_STAGES}[stage]], 'runtime_max_not_enforced')
     child_netns = os.readlink(f'/proc/{pid}/ns/net')
     require(child_netns != host_netns, 'network_namespace_not_isolated')
     status = dict(line.split(':', 1) for line in Path(f'/proc/{pid}/status').read_text().splitlines() if ':' in line)
@@ -478,7 +491,8 @@ def observe_service(unit, stage, frame, host_netns):
     return {'stage': stage, 'unit': unit, 'pid': pid, 'host_netns': host_netns, 'child_netns': child_netns,
             'uid': 65534, 'no_new_privs': True, 'capabilities': '0000000000000000',
             'ipv4_blocked': frame['ipv4_blocked'], 'ipv6_blocked': frame['ipv6_blocked'],
-            **values, 'properties': props, 'run_mount': run_mount}
+            **values, 'properties': props, 'run_mount': run_mount,
+            **({'capture_runtime_seconds': capture_seconds} if stage == 'captureworker' else {})}
 
 
 STARTUP_DIAGNOSTIC_SECONDS = 2.0
@@ -620,19 +634,30 @@ class Service:
         self.stage = stage; self.unit = prefix + '-' + stage + '.service'
         # Taken before launching systemd: a conservative lower bound on its
         # RuntimeMaxSec expiry, not the client's additional exit/cleanup margin.
-        self.runtime_deadline_ns = time.monotonic_ns() + STAGES[stage] * 1_000_000_000
+        launch_ns = time.monotonic_ns()
+        if stage == 'captureworker':
+            seconds = min(1200, (int(phase_deadline * 1e9) - launch_ns) // 1_000_000_000)
+            require(seconds >= 1, 'capture_phase_exhausted')
+        else:
+            seconds = {**STAGES, **CAPTURE_STAGES}[stage]
+        self.runtime_deadline_ns = launch_ns + seconds * 1_000_000_000
         self.deadline = min(phase_deadline, self.runtime_deadline_ns / 1e9 + 5)
         self.log = log.open('xb'); self.process = None; self.reader = None
         startup_phase = 'service_launch'
         try:
-            self.process = subprocess.Popen(service_command(self.unit, stage, command, work, python),
+            command_args = (service_command(self.unit, stage, command, work, python, capture_seconds=seconds)
+                            if stage == 'captureworker' else service_command(self.unit, stage, command, work, python))
+            self.process = subprocess.Popen(command_args,
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.log,
                 env={'PATH': os.defpath, 'LANG': 'C.UTF-8'}, start_new_session=True, bufsize=0)
             startup_phase = 'barrier_read'
-            self.reader = BoundedReader(self.process.stdout)
+            self.reader = (BoundedReader(self.process.stdout, limit=16 * 1024 * 1024)
+                           if stage == 'captureworker' else BoundedReader(self.process.stdout))
             frame = strict_json(self.reader.line(min(self.deadline, time.monotonic() + 20)))
             startup_phase = 'isolation_observation'
-            self.observation = observe_service(self.unit, stage, frame, os.readlink('/proc/self/ns/net'))
+            self.observation = (observe_service(self.unit, stage, frame, os.readlink('/proc/self/ns/net'),
+                                capture_seconds=seconds) if stage == 'captureworker' else
+                                observe_service(self.unit, stage, frame, os.readlink('/proc/self/ns/net')))
             startup_phase = 'exec_authorization'
             self.send(b'EXEC\n')
         except BaseException as exc:
@@ -962,6 +987,79 @@ def qualify(repo, archive, output, expected, confirmed):
         shutil.rmtree(stage_root)
     print('Q2 native diagnostic qualification ' + terminal + '; no scored capture or release authority')
     return 0 if terminal == 'qualified' else 1
+
+
+def duration_microseconds(value):
+    """Parse systemd's exact integral duration display; no floats or infinity."""
+    require(type(value) is str and bool(value), 'systemd_duration_shape')
+    scales = {'h': 3600000000, 'min': 60000000, 's': 1000000, 'ms': 1000, 'us': 1}
+    total = 0
+    for token in value.split():
+        m = re.fullmatch(r'([0-9]+)(h|min|s|ms|us)', token)
+        require(m is not None, 'systemd_duration_shape')
+        total += int(m[1]) * scales[m[2]]
+    return total
+
+
+def close_capture_service(service):
+    """Attempt normal cleanup, then require actual empty/removed service cgroup.
+
+    Unlike the diagnostic best-effort close, a capture cannot be accepted on a
+    missing cleanup observation. Callers preserve their earlier error separately.
+    """
+    error = None
+    try:
+        service.close()
+    except BaseException as exc:
+        error = exc
+    unit = service.unit
+    require(re.fullmatch(r'pulse-q2-[a-f0-9]{24}-[a-z]+\.service', unit), 'cleanup_unit_shape')
+    result = control(['/usr/bin/systemctl', 'show', unit, '--no-pager',
+                      '--property=LoadState,ActiveState,ControlGroup'], timeout=10, check=False)
+    lines = result.stdout.decode('utf-8', 'strict').splitlines()
+    require(len(lines) == 3 and all('=' in line for line in lines), 'capture_cleanup_property_shape')
+    values = dict(line.split('=', 1) for line in lines)
+    require(result.returncode in (0, 1, 4) and set(values) == {'LoadState', 'ActiveState', 'ControlGroup'},
+            'capture_cleanup_observation_missing')
+    require(values['LoadState'] in ('loaded', 'not-found') and values['ActiveState'] == 'inactive',
+            'capture_service_not_inactive')
+    require(values['ControlGroup'] in ('', '/system.slice/' + unit), 'capture_cleanup_cgroup_changed')
+    # Check the original service path too, even if systemd has unloaded the unit.
+    cg = Path('/sys/fs/cgroup/system.slice') / unit
+    if cg.exists():
+        members = [cg / 'cgroup.procs', *cg.rglob('cgroup.procs')]
+        require(all(p.read_text().strip() == '' for p in members), 'capture_cgroup_not_empty')
+    require(service.process is not None and service.process.poll() is not None, 'capture_client_not_reaped')
+    if error is not None:
+        raise error
+    return {'unit': unit, 'properties': values, 'cgroup_empty_or_removed': True, 'client_reaped': True}
+
+
+def disarm_capture_watchdog(prefix):
+    """Stop both units, then observe quiescence before any following GO.
+
+    A not-yet-activated transient service may be unloaded. We accept only a
+    parsed not-found/inactive observation, never a failed query with no data.
+    Unique per-slot timer names prevent reuse of a stale activation.
+    """
+    require(re.fullmatch(r'pulse-q2-[a-f0-9]{24}-call-[0-9]{3}', prefix), 'capture_timer_identity')
+    names = [prefix + '-watchdog.timer', prefix + '-watchdog.service']
+    stopped = control(['/usr/bin/systemctl', 'stop', *names], timeout=15, check=False)
+    require(stopped.returncode in (0, 1, 4, 5), 'capture_timer_stop_failed')
+    rows = []
+    for unit in names:
+        result = control(['/usr/bin/systemctl', 'show', unit, '--no-pager',
+                          '--property=LoadState,ActiveState'], timeout=5, check=False)
+        lines = result.stdout.decode('utf-8', 'strict').splitlines()
+        require(len(lines) == 2 and all('=' in line for line in lines), 'capture_timer_property_shape')
+        values = dict(line.split('=', 1) for line in lines)
+        require(result.returncode in (0, 1, 4) and set(values) == {'LoadState', 'ActiveState'},
+                'capture_timer_observation_missing')
+        require(values['LoadState'] in ('loaded', 'not-found') and values['ActiveState'] == 'inactive',
+                'capture_timer_not_disarmed')
+        rows.append({'unit': unit, **values})
+    return {'record_type': 'q2_capture_watchdog_closed_v0', 'stop_returncode': stopped.returncode,
+            'units': rows, 'closed_ns': time.monotonic_ns()}
 
 
 def main(argv=None):

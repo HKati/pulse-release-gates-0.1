@@ -394,16 +394,22 @@ def test_resolution_uses_only_staged_hash_locked_wheels(bundle,monkeypatch):
 
 
 def test_checker_is_separate_and_no_model_code_imported():
-    for path in [TOOLS/'acquire_q2_reference_inputs_v0.py',TOOLS/'check_q2_reference_capture_v0.py']:
-        tree=ast.parse(path.read_text())
-        imports=[]
-        for n in ast.walk(tree):
-            if isinstance(n,ast.Import):imports += [a.name for a in n.names]
-            elif isinstance(n,ast.ImportFrom):imports += [n.module or '']
-        assert not any(n.split('.')[0] in {'torch','transformers','huggingface_hub'} for n in imports)
+    # Imports are deferred to the explicit isolated capture-checking branch.
+    # Capture reconstruction may load the pinned tokenizer, never the model.
+    for path in [TOOLS/'acquire_q2_reference_inputs_v0.py', TOOLS/'check_q2_reference_capture_v0.py']:
+        tree = ast.parse(path.read_text())
+        for node in tree.body:
+            if isinstance(node, ast.Import):
+                assert all(a.name.split('.')[0] not in {'torch', 'transformers', 'huggingface_hub'} for a in node.names)
+            elif isinstance(node, ast.ImportFrom):
+                assert (node.module or '').split('.')[0] not in {'torch', 'transformers', 'huggingface_hub'}
         if path.name.startswith('check_'):
-            assert not any('acquire_q2' in n for n in imports)
-            assert 'importlib' not in imports and 'runpy' not in imports
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom):
+                    assert all(a.name != 'AutoModelForCausalLM' for a in node.names)
+                if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                    assert node.func.attr != 'generate'
+            assert "source_root / NATIVE_CHECKER" in path.read_text()
 
 
 @pytest.mark.parametrize("script",['acquire_q2_reference_inputs_v0.py','check_q2_reference_capture_v0.py'])
@@ -672,7 +678,7 @@ def test_q2_setup_keeps_exact_selection_before_preparation():
     assert setup['with']['python-version'] == '3.11.16'
     assert setup['with']['python-version'] == selection['execution_protocol']['runtime_target']['python_target']
     assert setup['with']['python-version'] == selection['release_subject']['definition']['runtime_target']['python_target']
-    preparation = [i for i, step in enumerate(steps) if 'acquire_q2_reference_inputs_v0.py' in step.get('run', '')]
+    preparation = [i for i, step in enumerate(steps) if step.get('if') == "inputs.mode == 'prepare-runtime'" and 'acquire_q2_reference_inputs_v0.py' in step.get('run', '')]
     assert len(preparation) == 1 and index < preparation[0]
 
 
@@ -993,8 +999,21 @@ def test_native_source_closure_and_fixed_diagnostic_agree():
     assert N.ARCHIVE_SHA == K.ARCHIVE_SHA == _INPUT_PIN_ARCHIVE_SHA
     assert N.ARCHIVE_SIZE == K.ARCHIVE_SIZE == 508460811
     assert A.SOURCE_PATHS == (A.WORKFLOW, A.SELF, A.CHECKER, A.SELECTION, A.REQUESTS)
-    assert hashlib.sha256((TOOLS / 'acquire_q2_reference_inputs_v0.py').read_bytes()).hexdigest() == 'd82e103b601bc118a21001f315c70b8cbe9d8d94b05a6c40406ef9b328cf4609'
-    assert hashlib.sha256((TOOLS / 'check_q2_reference_capture_v0.py').read_bytes()).hexdigest() == 'beb0e3d3d9de451fb862090cb92267bc62191386528f1735feb2b3e4b04e02be'
+    # The capture branch changes these current files. Preserve every original
+    # preparation function byte-for-byte instead of claiming the whole files are
+    # still the historical bytes. Historical artifact digests above stay fixed.
+    def original_function_digest(path, names):
+        text = path.read_text(encoding='utf-8'); tree = ast.parse(text)
+        definitions = {node.name: node for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
+        values = []
+        for name in names:
+            actual = 'preparation_main' if name == 'main' else name
+            body = ast.get_source_segment(text, definitions[actual])
+            if name == 'main': body = body.replace('def preparation_main(', 'def main(', 1)
+            values.append([name, body])
+        return hashlib.sha256(json.dumps(values, ensure_ascii=True, separators=(',', ':')).encode()).hexdigest()
+    assert original_function_digest(TOOLS / 'acquire_q2_reference_inputs_v0.py', ['require', 'digest', 'strict_json', 'encode', 'read_file', 'write_new', 'clean_env', 'git_bytes', 'check_context', 'fixed_sources', 'validate_model_metadata', 'bind_model_file', 'validate_tokens', 'torch_download_identity', 'project_name', 'wheel_identity', 'pypi_identity', 'pip_download', 'lock_bytes', 'build_file_index', 'prepare', 'main']) == '76c8f33778a38132f66c462566cec246a317fd03cf6b2b1c148a03ff563bbfd7'
+    assert original_function_digest(TOOLS / 'check_q2_reference_capture_v0.py', ['expect', 'sha256', 'load_json', 'json_file_bytes', 'keys', 'valid_path', 'bytes_at', 'git_blob', 'normalize_name', 'wheel_metadata', 'verify_tokens', 'verify_model', 'verify_wheels', 'inspect_bundle', 'resolve_offline', 'main']) == '8f706293d68e72e5b7ff8370c075aa50c1eb37ebef0716eef037ada27469108f'
 
 
 def test_native_revalidates_all_small_original_and_adopted_records():
@@ -1502,17 +1521,19 @@ def test_worker_load_and_generation_controls_are_explicit_in_source():
     tree = ast.parse((TOOLS / 'run_q2_reference_subject_v0.py').read_text())
     calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)]
     loads = [n for n in calls if n.func.attr == 'from_pretrained']
-    assert len(loads) == 2
+    assert len(loads) == 4  # Separate diagnostic and capture runtime entrypoints.
     for call in loads:
         kw = {k.arg: k.value for k in call.keywords}
         assert isinstance(kw['local_files_only'], ast.Constant) and kw['local_files_only'].value is True
         assert isinstance(kw['trust_remote_code'], ast.Constant) and kw['trust_remote_code'].value is False
-    model_call = next(n for n in loads if n.func.value.id == 'AutoModelForCausalLM')
-    kw = {k.arg: k.value for k in model_call.keywords}
-    assert kw['use_safetensors'].value is True and kw['attn_implementation'].value == 'eager'
+    model_calls = [n for n in loads if n.func.value.id == 'AutoModelForCausalLM']
+    assert len(model_calls) == 2
+    for model_call in model_calls:
+        kw = {k.arg: k.value for k in model_call.keywords}
+        assert kw['use_safetensors'].value is True and kw['attn_implementation'].value == 'eager'
     generation = [n for n in calls if n.func.attr == 'generate']
-    assert len(generation) == 1
-    assert {k.arg: k.value for k in generation[0].keywords}['use_model_defaults'].value is False
+    assert len(generation) == 2
+    assert all({k.arg: k.value for k in call.keywords}['use_model_defaults'].value is False for call in generation)
     assert not any(n.func.attr in ('compile', 'load', 'load_state_dict') for n in calls)
 
 
@@ -1520,7 +1541,7 @@ def test_workflow_native_mode_is_manual_separate_and_explicitly_consented():
     workflow = yaml.safe_load(_q2_workflow_text())
     inputs = workflow.get('on', workflow.get(True))['workflow_dispatch']['inputs']
     assert inputs['mode']['default'] == 'prepare-runtime'
-    assert inputs['mode']['options'] == ['prepare-runtime', 'qualify-runtime']
+    assert inputs['mode']['options'] == ['prepare-runtime', 'qualify-runtime', 'capture-reference']
     assert inputs['confirm_diagnostic_retention']['default'] is False
     steps = workflow['jobs']['prepare']['steps']
     guard = steps[0]['run']
@@ -1530,11 +1551,11 @@ def test_workflow_native_mode_is_manual_separate_and_explicitly_consented():
     assert '/usr/bin/timeout --signal=TERM --kill-after=180s 1200s' in native[0]['run']
     assert '--confirm-one-unscored-diagnostic' in native[0]['run']
     download = next(s for s in steps if 'curl --fail' in s.get('run', ''))
-    assert download['if'] == "inputs.mode == 'qualify-runtime'"
+    assert download['if'] == "inputs.mode == 'qualify-runtime' || inputs.mode == 'capture-reference'"
     assert '11282419957/zip' in download['run'] and N.ARCHIVE_SHA in download['run']
     assert '--retry 0' in download['run'] and '--location-trusted' not in download['run']
     uploads = [s for s in steps if s.get('uses', '').startswith('actions/upload-artifact@')]
-    assert len(uploads) == 2
+    assert len(uploads) == 3
     assert all(s['with']['overwrite'] is False and s['with']['include-hidden-files'] is True for s in uploads)
     assert sum("inputs.mode == 'qualify-runtime'" in s['if'] for s in uploads) == 1
     assert 'build_q2_reference_summary.py' not in _q2_workflow_text()
@@ -2671,3 +2692,756 @@ def test_freeze_boundary_failed_payload_cli_has_no_success_record(installed_synt
                    '--bootstrap-inventory',str(bootstrap),'--pip-report',str(report),'--output',str(output)]) == 1
     assert capsys.readouterr().err == 'Q2 qualification check rejected: bootstrap_runtime_changed\n'
     assert not output.exists()
+
+# Fixed 150-slot capture controls. Every tensor/model below is synthetic; no
+# actual framework/model import, download or native service occurs in this suite.
+@pytest.fixture
+def capture_synthetic(tmp_path):
+    import base64
+    import contextlib
+    import types
+    workload = json.loads((ROOT / A.REQUESTS).read_bytes())
+    slots = W.capture_slots(workload, synthetic_jcs_subset)
+    rows = [{'path': n, 'size': (ROOT / n).stat().st_size, 'sha256': K.sha((ROOT / n).read_bytes())}
+            for n in A.CAPTURE_SOURCE_PATHS]
+    ctx = {'repository': A.REPOSITORY, 'source_commit': 'c' * 40, 'workflow': A.WORKFLOW,
+           'run_id': '123456', 'run_attempt': 1, 'actor': 'HKati', 'event': 'workflow_dispatch',
+           'runner_image': 'synthetic-image', 'python': '3.11.16', 'os': 'ubuntu-24.04',
+           'architecture': 'x86_64', 'kernel': 'synthetic-kernel', 'libc': ['glibc', 'synthetic'],
+           'bootstrap_python_sha256': 'a' * 64, 'origin': 'owner_dispatched_github_q2_capture'}
+    pre = {'record_type': 'q2_capture_prelaunch_v0', 'record_status': 'native', 'context': ctx,
+        'source_files': rows, 'preparation_source_commit': N.PREPARATION_SOURCE, 'preparation_run_id': N.PREPARATION_RUN,
+        'artifact_sha256': N.ARCHIVE_SHA, 'selection_sha256': A.SELECTION_SHA256, 'workload_sha256': A.REQUESTS_SHA256,
+        'installation_sha256': 'b' * 64, 'environment_inventory_sha256': 'd' * 64,
+        'slots': slots, 'planned_calls': 150, 'limits': dict(A.CAPTURE_LIMITS),
+        'phase_start_ns': 1_000_000_000, 'phase_deadline_ns': 1201_000_000_000,
+        'started_at': '2026-10-06T00:00:00+00:00', 'authority_effect': 'none', 'production_gate_eligible': False}
+    class Tensor:
+        def __init__(self, data): self.data = data; self.shape = (len(data), len(data[0]))
+        def __getitem__(self, index): return types.SimpleNamespace(tolist=lambda: list(self.data[index]))
+    class Config:
+        def __init__(self, **kwargs): self.values = kwargs
+        def to_dict(self): return {'transformers_version': '4.57.6', **self.values}
+    config = Config(**W.GENERATION, disable_compile=True).to_dict()
+    counters = {'calls': 0, 'seeds': [], 'tensors': [], 'masks': [], 'configs': [], 'messages': []}
+    class Model:
+        def generate(self, **kw):
+            assert set(kw) == {'input_ids', 'attention_mask', 'generation_config', 'use_model_defaults'}
+            assert kw['use_model_defaults'] is False
+            counters['calls'] += 1
+            counters['tensors'].append(kw['input_ids']); counters['masks'].append(kw['attention_mask'])
+            counters['configs'].append(kw['generation_config'])
+            return Tensor([kw['input_ids'].data[0] + [41, 2]])
+    class Tokenizer:
+        def apply_chat_template(self, messages, **kw):
+            assert kw == {'tokenize': True, 'add_generation_prompt': True}
+            counters['messages'].append(copy.deepcopy(messages))
+            return [1, 10 + len(messages[1]['content'])]
+        def decode(self, ids, **kw):
+            assert kw == {'skip_special_tokens': True, 'clean_up_tokenization_spaces': False}
+            return ' original value\n' if ids == [41, 2] else ('' if ids == [2] else 'alternate')
+    torch = types.SimpleNamespace(long='int64', tensor=lambda data, **kw: Tensor(data),
+        ones_like=lambda value: Tensor([[1] * len(value.data[0])]), manual_seed=lambda seed: counters['seeds'].append(seed),
+        inference_mode=contextlib.nullcontext)
+    identity0 = {'prelaunch_sha256': K.sha(A.capture_encode(pre)), 'source_commit': ctx['source_commit'],
+                 'run_id': ctx['run_id'], 'run_attempt': 1}
+    ready = {'record_type': 'q2_capture_model_ready_v0', 'binding': identity0,
+             'effective_generation': config, 'runtime': dict(C.CAPTURE_RUNTIME)}
+    subject = {'record_type': 'q2_capture_subject_v0', 'prelaunch_sha256': identity0['prelaunch_sha256'],
+        'definition_sha256': W.DEFINITION_SHA, 'worker_sha256': K.sha((ROOT / W.SELF).read_bytes()),
+        'installation_sha256': pre['installation_sha256'], 'environment_inventory_sha256': pre['environment_inventory_sha256'],
+        'model_files': json.loads((ROOT / W.MODEL_MAP).read_bytes())['files'], 'platform': ctx,
+        'ready_sha256': K.sha(A.capture_encode(ready)), 'effective_generation': config, 'runtime': dict(C.CAPTURE_RUNTIME),
+        'authority_effect': 'none', 'production_gate_eligible': False}
+    identity = {**identity0, 'subject_sha256': K.sha(A.capture_encode(subject))}
+    commands = []
+    for slot in slots: commands += [('PREPARE ' + slot['call_id'] + '\n').encode(), ('GENERATE ' + slot['call_id'] + '\n').encode()]
+    commands.append(b'FINISH\n'); command_iter = iter(commands); frames = []
+    tokenizer = Tokenizer()
+    W.capture_session(Model(), tokenizer, torch, Config, dict(C.CAPTURE_RUNTIME), workload, slots,
+                      {'identity': identity, 'effective_generation': config}, lambda: next(command_iter), frames.append)
+    records = [(K.parse(frames[2 * i + 1]), K.parse(frames[2 * i])) for i in range(150)]
+    prefix = 'pulse-q2-' + 'a' * 24
+    obs = synthetic_sandbox()
+    def rename(v):
+        if isinstance(v, str): return v.replace('-worker.service', '-captureworker.service')
+        if isinstance(v, list): return [rename(x) for x in v]
+        if isinstance(v, dict): return {k: rename(x) for k, x in v.items()}
+        return v
+    obs = rename(obs); obs['stage'] = 'captureworker'; obs['capture_runtime_seconds'] = 1100
+    obs['properties']['RuntimeMaxUSec'] = '18min 20s'
+    occurrences = []; output = tmp_path / 'evidence'; output.mkdir()
+    for index, (slot, record) in enumerate(zip(slots, records)):
+        tick = 2_000_000_000 + index * 2_000_000_000
+        timerprefix = prefix + f'-call-{index + 1:03d}'
+        row = {'slot': slot, 'status': 'completed', 'ready_received_ns': tick, 'watchdog_arm_begin_ns': tick + 100,
+            'generation_start_ns': tick + 200, 'generation_deadline_ns': tick + 15_000_000_200,
+            'response_received_ns': tick + 1000, 'watchdog_armed': True,
+            'watchdog_unit': timerprefix + '-watchdog.timer', 'watchdog_closed': {
+                'record_type': 'q2_capture_watchdog_closed_v0', 'stop_returncode': 0,
+                'units': [{'unit': timerprefix + '-watchdog.' + suffix, 'LoadState': 'loaded', 'ActiveState': 'inactive'}
+                          for suffix in ('timer', 'service')], 'closed_ns': tick + 2000}}
+        for key, value in zip(('response', 'ready'), record):
+            path = output / 'calls' / (slot['call_id'] + '.' + key + '.json'); path.parent.mkdir(exist_ok=True)
+            data = A.capture_encode(value); path.write_bytes(data); row[key] = A.capture_record_row(path, output, data)
+        (output / 'calls' / (slot['call_id'] + '.utf8')).write_bytes(record[0]['text'].encode())
+        occurrences.append(row)
+    cleanup = {'unit': obs['unit'], 'properties': {'LoadState': 'not-found', 'ActiveState': 'inactive', 'ControlGroup': ''},
+               'cgroup_empty_or_removed': True, 'client_reaped': True}
+    terminal = {'record_type': 'q2_capture_transcript_v0', 'record_status': 'native', 'status': 'completed',
+        'error_code': None, 'binding': identity, 'occurrences': occurrences,
+        'worker_launch_ns': 1_500_000_000, 'worker_deadline_ns': 1101_500_000_000,
+        'worker_exit_code': 0, 'session_end': K.parse(frames[-1]), 'session_end_ns': 305_000_000_000,
+        'cleanup': cleanup, 'sandbox': obs, 'ended_at': '2026-10-06T00:05:10+00:00',
+        'authority_effect': 'none', 'production_gate_eligible': False}
+    return dict(pre=pre, subject=subject, ready=ready, terminal=terminal, records=records, workload=workload,
+                config=config, tokenizer=tokenizer, counters=counters, output=output, frames=frames, commands=commands,
+                model=Model, torch=torch, config_class=Config)
+
+
+def capture_reconstruct(f):
+    return C.capture_records(f['pre'], f['subject'], f['ready'], f['terminal'], f['records'], f['workload'],
+        synthetic_jcs_subset,
+        lambda messages: f['tokenizer'].apply_chat_template(messages, tokenize=True, add_generation_prompt=True),
+        lambda ids: f['tokenizer'].decode(ids, skip_special_tokens=True, clean_up_tokenization_spaces=False), f['config'])
+
+
+def test_capture_150_generate_invocations_and_independent_reconstruction(capture_synthetic):
+    f = capture_synthetic; counters = f['counters']
+    assert counters['calls'] == 150 and counters['seeds'] == [1729] * 150
+    for field in ('tensors', 'masks', 'configs'): assert len({id(x) for x in counters[field]}) == 150
+    assert len(f['frames']) == 301
+    groups, manifest = capture_reconstruct(f)
+    assert counters['calls'] == 150  # The checker never invokes the model double.
+    handoff = A.capture_derive(f['output'], f['pre'], f['terminal'], N)
+    assert groups == (f['output'] / 'groups.json').read_bytes()
+    assert manifest == (f['output'] / 'dataset-manifest.json').read_bytes()
+    assert handoff['groups_sha256'] == K.sha(groups)
+    parsed = json.loads(groups)
+    assert len(parsed['groups']) == 50 and sum(len(g['responses']) for g in parsed['groups']) == 150
+    assert parsed['groups'][0]['responses'][0]['answer'] == ' original value\n'
+
+
+def test_capture_source_closures_and_schema_preserve_existing_pins(capture_synthetic):
+    assert A.CAPTURE_SOURCE_PATHS == C.CAPTURE_SOURCES and len(C.CAPTURE_SOURCES) == 23
+    assert set(N.SOURCES) < set(C.CAPTURE_SOURCES)
+    f = capture_synthetic
+    for kind, value in [('prelaunch', f['pre']), ('subject', f['subject']), ('model_ready', f['ready']),
+                         ('transcript', f['terminal']), ('response', f['records'][0][0]), ('slot_ready', f['records'][0][1])]:
+        C.capture_schema_check(ROOT, kind, value)
+    C.capture_sandbox(f['terminal']['sandbox'], 'captureworker', K)
+
+
+@pytest.mark.parametrize('mutation', ['missing', 'duplicate', 'reorder', 'copy', 'subject', 'source', 'run', 'attempt_bool',
+    'late', 'deadline_short', 'deadline_long', 'ready_after_go', 'timer', 'timer_active', 'timer_missing', 'timer_late',
+    'timer_before_receive', 'arm_late', 'arm_too_early', 'worker_exit', 'worker_exit_bool', 'worker_lifetime',
+    'session_end', 'session_end_binding', 'session_end_count', 'cleanup', 'cleanup_active', 'terminal_status',
+    'authority', 'record_status', 'pre_limit', 'pre_slots', 'pre_phase', 'input_token', 'output_token', 'bool_token',
+    'text', 'base64', 'stop', 'sample', 'runtime', 'ready_binding', 'ready_input', 'ready_sample'])
+def test_capture_rejects_coherently_supplied_protocol_substitutions(capture_synthetic, mutation):
+    f = capture_synthetic; t = f['terminal']; o = t['occurrences'][0]; r, ready = f['records'][0]
+    if mutation == 'missing': t['occurrences'].pop()
+    elif mutation == 'duplicate': t['occurrences'][1] = copy.deepcopy(o)
+    elif mutation == 'reorder': t['occurrences'][0], t['occurrences'][1] = t['occurrences'][1], o
+    elif mutation == 'copy': f['records'][1] = copy.deepcopy(f['records'][0])
+    elif mutation in ('subject','source','run'):
+        r['binding'] = {**r['binding'], {'subject':'subject_sha256','source':'source_commit','run':'run_id'}[mutation]:'0'*64}
+    elif mutation == 'attempt_bool': r['slot'] = {**r['slot'], 'attempt': True}
+    elif mutation == 'late': o['response_received_ns'] = o['generation_deadline_ns'] + 1
+    elif mutation == 'deadline_short': o['generation_deadline_ns'] -= 1
+    elif mutation == 'deadline_long': o['generation_deadline_ns'] += 1
+    elif mutation == 'ready_after_go': o['ready_received_ns'] = o['generation_start_ns'] + 1
+    elif mutation == 'timer': o['watchdog_unit'] = 'other.timer'
+    elif mutation == 'timer_active': o['watchdog_closed']['units'][0]['ActiveState'] = 'active'
+    elif mutation == 'timer_missing': o['watchdog_armed'] = False
+    elif mutation == 'timer_late': o['watchdog_closed']['closed_ns'] = t['occurrences'][1]['ready_received_ns'] + 1
+    elif mutation == 'timer_before_receive': o['watchdog_closed']['closed_ns'] = o['response_received_ns'] - 1
+    elif mutation == 'arm_late': o['watchdog_arm_begin_ns'] = o['generation_start_ns'] + 1
+    elif mutation == 'arm_too_early': o['watchdog_arm_begin_ns'] -= 10_000_000_000
+    elif mutation == 'worker_exit': t['worker_exit_code'] = 1
+    elif mutation == 'worker_exit_bool': t['worker_exit_code'] = False
+    elif mutation == 'worker_lifetime': t['worker_deadline_ns'] = f['pre']['phase_deadline_ns'] + 1
+    elif mutation == 'session_end': t['session_end_ns'] = t['worker_deadline_ns'] + 1
+    elif mutation == 'session_end_binding': t['session_end']['binding'] = {}
+    elif mutation == 'session_end_count': t['session_end']['completed_calls'] = 149
+    elif mutation == 'cleanup': t['cleanup']['cgroup_empty_or_removed'] = False
+    elif mutation == 'cleanup_active': t['cleanup']['properties']['ActiveState'] = 'active'
+    elif mutation == 'terminal_status': t['status'] = 'failed'
+    elif mutation == 'authority': t['authority_effect'] = 'ALLOW'
+    elif mutation == 'record_status': t['record_status'] = 'synthetic'
+    elif mutation == 'pre_limit': f['pre']['limits']['generation_seconds'] = 16
+    elif mutation == 'pre_slots': f['pre']['slots'] = []
+    elif mutation == 'pre_phase': f['pre']['phase_deadline_ns'] += 1
+    elif mutation == 'input_token': r['input_ids'] = [1, 300]
+    elif mutation == 'output_token': r['new_token_ids'] = [42, 2]
+    elif mutation == 'bool_token': r['new_token_ids'] = [True, 2]
+    elif mutation == 'text': r['text'] += ' repaired'
+    elif mutation == 'base64': r['text_utf8_base64'] = ''
+    elif mutation == 'stop': r['stop_reason'] = 'timeout'
+    elif mutation == 'sample': r['effective_generation'] = {**r['effective_generation'], 'do_sample': True}
+    elif mutation == 'runtime': r['runtime'] = {**r['runtime'], 'threads': 2}
+    elif mutation == 'ready_binding': ready['binding'] = {}
+    elif mutation == 'ready_input': ready['input_ids'] = [1, 100]
+    elif mutation == 'ready_sample': ready['effective_generation'] = {}
+    with pytest.raises((C.CheckError, KeyError, TypeError, ValueError)):
+        capture_reconstruct(f)
+
+
+@pytest.mark.parametrize('kind', ['prelaunch','subject','model_ready','transcript','response','slot_ready'])
+def test_capture_schema_rejects_untracked_fields(capture_synthetic, kind):
+    f = capture_synthetic
+    value = copy.deepcopy({'prelaunch':f['pre'],'subject':f['subject'],'model_ready':f['ready'],
+                           'transcript':f['terminal'],'response':f['records'][0][0],'slot_ready':f['records'][0][1]}[kind])
+    value['PASS'] = True
+    with pytest.raises(C.CheckError, match='capture_schema'):
+        C.capture_schema_check(ROOT, kind, value)
+
+
+@pytest.mark.parametrize('mode', ['pass','fail','insufficient'])
+def test_capture_actual_reducer_cli_and_separate_checker_keep_metric_outcome(capture_synthetic, mode, tmp_path):
+    f = capture_synthetic; raw, manifest = capture_reconstruct(f)
+    groups = json.loads(raw)
+    if mode == 'fail': groups['groups'][0]['responses'][0]['answer'] = 'disagree'
+    if mode == 'insufficient':
+        for row in groups['groups'][0]['responses']: row.clear();row.update(response_id='insufficient-'+str(len(str(row))),kind='unknown')
+        # Independent IDs; one complete but ineligible agreement group.
+        groups['groups'][0]['responses'] = [{'response_id':'empty-'+str(i),'kind':'unknown'} for i in range(3)]
+    raw = A.capture_encode(groups); manifest = json.loads(manifest); manifest['hashes']['input_sha256'] = K.sha(raw)
+    manifest = A.capture_encode(manifest)
+    g = tmp_path/'groups.json'; m = tmp_path/'manifest.json';g.write_bytes(raw);m.write_bytes(manifest)
+    outputs = []
+    for attempt in (1, 2):
+        summary = tmp_path/f'summary-{attempt}.json'
+        common = ['--groups',str(g),'--dataset-manifest',str(m),'--expected-groups-sha256',K.sha(raw),
+                  '--expected-manifest-sha256',K.sha(manifest)]
+        built = subprocess.run([sys.executable,'-I','-B',str(ROOT/A.CAPTURE_REDUCER),*common,'--out',str(summary)],capture_output=True,timeout=15)
+        assert built.returncode == (0 if mode == 'pass' else 1), built.stderr
+        checked = subprocess.run([sys.executable,'-I','-B',str(ROOT/A.CAPTURE_SUMMARY_CHECKER),*common,
+            '--summary',str(summary),'--expected-summary-sha256',K.sha(summary.read_bytes())],capture_output=True,timeout=15)
+        assert checked.returncode == 0 and json.loads(checked.stdout)['recomputed_pass'] is (mode == 'pass')
+        outputs.append(summary.read_bytes())
+    assert outputs[0] == outputs[1]
+    altered = json.loads(outputs[0]); altered['counts']['groups_total'] += 1;summary.write_bytes(A.capture_encode(altered))
+    rejected = subprocess.run([sys.executable,'-I','-B',str(ROOT/A.CAPTURE_SUMMARY_CHECKER),*common,
+        '--summary',str(summary),'--expected-summary-sha256',K.sha(summary.read_bytes())],capture_output=True,timeout=15)
+    assert rejected.returncode == 2
+
+
+@pytest.mark.parametrize('token_ids,stop,text,expected_kind', [([41,2],'eos',' original value\n','answer'),
+    ([2],'eos','','answer'),([41]*32,'token_limit','alternate','unknown')])
+def test_capture_full_continuation_extraction_boundary(capture_synthetic,token_ids,stop,text,expected_kind):
+    import base64
+    f=capture_synthetic;r,ready=copy.deepcopy(f['records'][0]);r.update(new_token_ids=token_ids,stop_reason=stop,text=text,
+        text_utf8_base64=base64.b64encode(text.encode()).decode())
+    result=C.capture_target_response(r,ready,f['pre']['slots'][0],f['terminal']['binding'],
+        lambda messages:ready['input_ids'],lambda ids:text,[],f['config'])
+    assert result['kind']==expected_kind
+    assert ('answer' in result)==(expected_kind=='answer')
+    if expected_kind=='answer': assert result['answer']==text
+
+
+@pytest.mark.parametrize('mode',['prepare-runtime','qualify-runtime','capture-reference'])
+@pytest.mark.parametrize('preparation',[False,True])
+@pytest.mark.parametrize('diagnostic',[False,True])
+@pytest.mark.parametrize('capture',[False,True])
+def test_capture_exact_workflow_consent_matrix(mode,preparation,diagnostic,capture):
+    import os
+    wf=yaml.safe_load(_q2_workflow_text());guard=wf['jobs']['prepare']['steps'][0]['run']
+    env={'PATH':os.defpath,'MODE':mode,'CONFIRM_PREPARATION':str(preparation).lower(),
+         'CONFIRM_DIAGNOSTIC':str(diagnostic).lower(),'CONFIRM_CAPTURE':str(capture).lower(),
+         'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_REF':'refs/heads/main','GITHUB_ACTOR':'HKati',
+         'GITHUB_TRIGGERING_ACTOR':'HKati','GITHUB_RUN_ATTEMPT':'1','EXPECTED_SOURCE_SHA':'c'*40,
+         'GITHUB_SHA':'c'*40,'GITHUB_WORKFLOW_SHA':'c'*40}
+    run=subprocess.run(['/bin/bash','-c',guard],env=env,capture_output=True,timeout=5)
+    permitted={'prepare-runtime':(True,False,False),'qualify-runtime':(False,True,False),'capture-reference':(False,False,True)}
+    assert (run.returncode==0)==((preparation,diagnostic,capture)==permitted[mode])
+
+
+def test_capture_unconsented_cli_cannot_start_work(tmp_path,monkeypatch):
+    monkeypatch.setattr(A,'capture_native_module',lambda *args:pytest.fail('no helper import before consent'))
+    with pytest.raises(A.PreparationError,match='capture_confirmation_required'):
+        A.capture_reference(tmp_path,tmp_path/'no.zip',tmp_path/'out','0'*40,False)
+    assert not (tmp_path/'out').exists()
+
+@pytest.fixture
+def capture_io(capture_synthetic, diagnostic_synthetic, monkeypatch, tmp_path):
+    """Full capture checker I/O, with real tiny-wheel installed-byte rechecking.
+
+    Only platform/adoption and framework packages are explicit synthetic doubles.
+    All capture file parsing, hashes, inventories, schemas and reconstruction use
+    production functions. These are not original/native acquisition records.
+    """
+    import types
+    arguments, counters = diagnostic_synthetic
+    source, bundle, env = arguments[:3]; bootstrap, pip_report = arguments[8:10]
+    f = capture_synthetic
+    for name in A.CAPTURE_SOURCE_PATHS:
+        path=source/name
+        if not path.exists(): path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes((ROOT/name).read_bytes())
+    model_map=json.loads((source/W.MODEL_MAP).read_bytes())
+    for row in model_map['files']:
+        row.update(upstream_blob_sha1='0'*40,upstream_lfs_sha256=None)
+    (source/W.MODEL_MAP).write_bytes(A.capture_encode(model_map))
+    monkeypatch.setattr(W,'PINNED_MAP',K.sha((source/W.MODEL_MAP).read_bytes()))
+    installation_raw=K.encoded(K.verify_installation(env,bundle,bootstrap,pip_report))
+    pre=f['pre'];pre['source_files']=[{'path':n,'size':(source/n).stat().st_size,'sha256':K.sha((source/n).read_bytes())}
+                                    for n in A.CAPTURE_SOURCE_PATHS]
+    pre['installation_sha256']=K.sha(installation_raw)
+    pre['environment_inventory_sha256']=K.sha(A.capture_encode(K.parse(installation_raw)['inventory']))
+    pre_sha=K.sha(A.capture_encode(pre))
+    initial={'prelaunch_sha256':pre_sha,'source_commit':pre['context']['source_commit'],
+             'run_id':pre['context']['run_id'],'run_attempt':1}
+    f['ready']['binding']=dict(initial)
+    f['subject'].update(prelaunch_sha256=pre_sha,installation_sha256=pre['installation_sha256'],
+        environment_inventory_sha256=pre['environment_inventory_sha256'],model_files=model_map['files'],
+        ready_sha256=K.sha(A.capture_encode(f['ready'])))
+    identity={**initial,'subject_sha256':K.sha(A.capture_encode(f['subject']))}
+    terminal=f['terminal'];terminal['binding']=dict(identity);terminal['session_end']['binding']=dict(identity)
+    out=f['output']
+    for occ,(response,ready) in zip(terminal['occurrences'],f['records']):
+        for kind,obj in (('response',response),('ready',ready)):
+            obj['binding']=dict(identity);raw=A.capture_encode(obj)
+            path=out/'calls'/(occ['slot']['call_id']+'.'+kind+'.json');path.write_bytes(raw)
+            occ[kind]=A.capture_record_row(path,out,raw)
+        (out/'calls'/(occ['slot']['call_id']+'.intent.json')).write_bytes(A.capture_encode({
+            'slot':occ['slot'],'binding':identity,'generation_seconds':15,'retries':0,'intent':'before_GO'}))
+    for name,value in [('capture-prelaunch.json',pre),('capture-subject.json',f['subject']),
+        ('capture-model-ready.json',f['ready']),('transcript.json',terminal)]: (out/name).write_bytes(A.capture_encode(value))
+    (out/'installation.json').write_bytes(installation_raw);(out/'bootstrap.json').write_bytes(bootstrap.read_bytes())
+    (out/'pip-report.json').write_bytes(pip_report.read_bytes())
+    for stage in ('installer','installcheck'):
+        observation=synthetic_sandbox(stage)
+        (out/(stage+'-sandbox.json')).write_bytes(A.capture_encode(observation))
+        closed=copy.deepcopy(terminal['cleanup']);closed['unit']=observation['unit']
+        (out/(stage+'-cleanup.json')).write_bytes(A.capture_encode(closed))
+    handoff=A.capture_derive(out,pre,terminal,N)
+    # The unchanged independent installed-byte checker executes, but fixed real
+    # upstream model adoption is replaced by the declared eight inert test files.
+    monkeypatch.setattr(C,'capture_native',lambda root:K)
+    monkeypatch.setattr(C,'__file__',str(source/C.CHECKER_PATH))
+    checker_sys=types.SimpleNamespace(flags=types.SimpleNamespace(isolated=True),prefix=str(env),
+        base_prefix='/synthetic-bootstrap',stderr=sys.stderr)
+    monkeypatch.setattr(C,'sys',checker_sys)
+    f['tokenizer'].is_fast=True;f['tokenizer'].bos_token_id=1;f['tokenizer'].eos_token_id=f['tokenizer'].pad_token_id=2
+    def load_tokenizer(path,**kw):
+        assert Path(path)==bundle/'model'
+        assert kw=={'local_files_only':True,'trust_remote_code':False,'use_fast':True}
+        counters['tokenizer_load']+=1
+        return f['tokenizer']
+    monkeypatch.setattr(sys.modules['transformers'].AutoTokenizer,'from_pretrained',load_tokenizer)
+    args=types.SimpleNamespace(source_root=source,evidence=out,bundle=bundle,venv=env,
+        expected_source_sha=pre['context']['source_commit'],expected_run_id=pre['context']['run_id'],
+        expected_prelaunch_sha256=pre_sha,expected_subject_sha256=identity['subject_sha256'],
+        expected_transcript_sha256=handoff['transcript_sha256'],
+        expected_source_inventory_sha256=K.sha(A.capture_encode(pre['source_files'])),output=tmp_path/'capture-check.json')
+    f.update(args=args,capture_counters=counters,source=source,bundle=bundle,env=env)
+    return f
+
+
+def test_capture_full_original_io_separate_checker_and_worker_entrypoint(capture_io,monkeypatch):
+    import types
+    f=capture_io; counters=f['capture_counters'];previous=counters['generate']
+    result=C.capture_verified_inputs(f['args'])
+    assert result['verified_calls']==150 and result['decoding_and_extraction_verified'] is True
+    assert counters['generate']==previous  # Checking/tokenizing never generates.
+    output=io.BytesIO();commands=b'BIND '+f['args'].expected_subject_sha256.encode()+b'\n'+b''.join(f['commands'])
+    monkeypatch.setattr(W.sys,'stdin',types.SimpleNamespace(buffer=io.BytesIO(commands)))
+    monkeypatch.setattr(W.sys,'stdout',types.SimpleNamespace(buffer=output))
+    assert W.run_capture(f['source'],f['bundle'],f['output']/'capture-prelaunch.json',
+        f['args'].expected_prelaunch_sha256,f['output']/'capture-subject.json')==0
+    assert counters['generate']==previous+150 and counters['model_load']==2
+    frames=output.getvalue().splitlines(keepends=True)
+    assert len(frames)==303 and frames[0]==A.capture_encode(f['ready'])
+    for i,(response,ready) in enumerate(f['records']):
+        assert frames[2+2*i]==A.capture_encode(ready) and frames[3+2*i]==A.capture_encode(response)
+
+
+@pytest.mark.parametrize('mutation',['extra_file','missing_intent','intent_changed','response_bytes','ready_bytes',
+    'text_file','groups','manifest','handoff','prelaunch_bytes','subject_bytes','transcript_bytes',
+    'model_file','installed_file','source_snapshot','external_source','external_run','external_inventory',
+    'installer_sandbox','installcheck_cleanup'])
+def test_capture_full_io_rejects_original_and_handoff_substitution(capture_io,mutation):
+    f=capture_io;a=f['args'];out=f['output'];first='calls/'+f['pre']['slots'][0]['call_id']
+    targets={'response_bytes':first+'.response.json','ready_bytes':first+'.ready.json','text_file':first+'.utf8',
+        'groups':'groups.json','manifest':'dataset-manifest.json','handoff':'handoff.json',
+        'prelaunch_bytes':'capture-prelaunch.json','subject_bytes':'capture-subject.json','transcript_bytes':'transcript.json'}
+    if mutation in targets: p=out/targets[mutation];p.write_bytes(p.read_bytes()+b' ')
+    elif mutation=='extra_file': (out/'calls/undeclared.json').write_text('{}')
+    elif mutation=='missing_intent': (out/(first+'.intent.json')).unlink()
+    elif mutation=='intent_changed': (out/(first+'.intent.json')).write_text('{}')
+    elif mutation=='model_file': (f['bundle']/'model/tokenizer.json').write_bytes(b'changed')
+    elif mutation=='installed_file': (f['env']/'lib/python3.11/site-packages/fake_q2_native_fixture/__init__.py').write_bytes(b'changed')
+    elif mutation=='source_snapshot': (f['source']/A.CAPTURE_WORKER).write_bytes(b'# substituted\n')
+    elif mutation=='external_source': a.expected_source_sha='d'*40
+    elif mutation=='external_run': a.expected_run_id='654321'
+    elif mutation=='external_inventory': a.expected_source_inventory_sha256='d'*64
+    elif mutation=='installer_sandbox': (out/'installer-sandbox.json').write_text('{}')
+    elif mutation=='installcheck_cleanup': (out/'installcheck-cleanup.json').write_text('{}')
+    with pytest.raises((C.CheckError,K.QualificationCheckError,ValueError,KeyError,TypeError,OSError)):
+        C.capture_verified_inputs(a)
+    assert not a.output.exists()
+
+@pytest.fixture
+def capture_orchestrator(capture_synthetic, monkeypatch, tmp_path):
+    """Actual orchestrator/exchange/reducer with synthetic native service doubles.
+
+    The source/model/platform and installer service here are simulated. Framing,
+    timing decisions, 150-slot retention, file publication, separate reconstruction
+    and the two real reducer CLI processes are exercised without model imports.
+    """
+    import types
+    import uuid
+    f=capture_synthetic;state={'events':[],'fault':None,'clock':1_000_000_000,'active':None,'generated':0}
+    def now(): state['clock']+=100_000_000;return state['clock']
+    clock=types.SimpleNamespace(monotonic_ns=now,monotonic=lambda:now()/1e9)
+    monkeypatch.setattr(A,'time',clock)
+    monkeypatch.setattr(uuid,'uuid4',lambda:types.SimpleNamespace(hex='a'*32))
+    def save(path,raw):
+        if state['fault']=='publication' and path.name.endswith('.response.json'):
+            raise OSError('synthetic publication failure')
+        N.save(path,raw)
+    native=types.SimpleNamespace(safe_read=N.safe_read,save=save,strict_json=N.strict_json,SOURCES=N.SOURCES,
+        ARCHIVE_SIZE=7,ARCHIVE_SHA=K.sha(b'fixture'),PREPARATION_SOURCE=N.PREPARATION_SOURCE,PREPARATION_RUN=N.PREPARATION_RUN,
+        check_context=lambda *args:copy.deepcopy(f['pre']['context']),freeze=lambda p:None,
+        writable_directory=lambda p:p.mkdir(mode=0o755),INSTALLER=N.INSTALLER,clean_env=N.clean_env)
+    state['source_rows']=None
+    def snapshot(repo,target,expected,n):
+        rows=[]
+        for name in A.CAPTURE_SOURCE_PATHS:
+            raw=(repo/name).read_bytes();N.save(target/name,raw)
+            rows.append({'path':name,'size':len(raw),'sha256':K.sha(raw)})
+        state['source_rows']=rows;return rows
+    monkeypatch.setattr(A,'capture_snapshot',snapshot)
+    monkeypatch.setattr(A,'capture_native_module',lambda *args:native)
+    def bounded(command,log,deadline):
+        if state['fault']=='input':raise N.NativeQualificationError('synthetic_input_failure')
+        at=command.index('--staging');stage=Path(command[at+1]);(stage/'bundle').mkdir(parents=True)
+        preflight={'source_files':[r for r in state['source_rows'] if r['path'] in N.SOURCES],
+                   'preparation_source_commit':N.PREPARATION_SOURCE}
+        N.save(Path(command[command.index('--output')+1]),A.capture_encode(preflight));N.save(log,b'')
+    native.bounded_local=bounded
+    def observation(stage):
+        if stage in ('installer','installcheck'):return synthetic_sandbox(stage)
+        value=copy.deepcopy(f['terminal']['sandbox'])
+        if stage!='captureworker':
+            unit=value['unit'];new=unit.replace('-captureworker.service','-'+stage+'.service')
+            value=json.loads(json.dumps(value).replace(unit,new));value.pop('capture_runtime_seconds')
+            value['stage']=stage;value['properties']['RuntimeMaxUSec']='3min'
+        return value
+    def cleanup(unit):
+        return {'unit':unit,'properties':{'LoadState':'not-found','ActiveState':'inactive','ControlGroup':''},
+                'cgroup_empty_or_removed':True,'client_reaped':True}
+    def phase(n,prefix,stage,command,work,python,out,deadline):
+        state['events'].append(stage)
+        if stage=='installer':
+            (work/'venv/bin').mkdir(parents=True);(work/'venv/bin/python').write_bytes(b'not executable, service double only')
+            for name in ('bootstrap.json','bootstrap-pip.log','pip-report.json','pip-install.log'):N.save(work/name,b'{}\n')
+        if state['fault']==stage:raise N.NativeQualificationError('synthetic_'+stage+'_failure')
+        if stage=='installcheck':N.save(work/'installation.json',A.capture_encode({'inventory':[{'path':'synthetic','sha256':'a'*64}]}))
+        if stage=='capturecheck':
+            pre,subject,ready,terminal=[json.loads((out/name).read_bytes()) for name in
+                ('capture-prelaunch.json','capture-subject.json','capture-model-ready.json','transcript.json')]
+            records=[tuple(json.loads((out/'calls'/(s['call_id']+'.'+k+'.json')).read_bytes()) for k in ('response','ready'))
+                     for s in pre['slots']]
+            g,m=C.capture_records(pre,subject,ready,terminal,records,f['workload'],synthetic_jcs_subset,
+                lambda messages:f['tokenizer'].apply_chat_template(messages,tokenize=True,add_generation_prompt=True),
+                lambda ids:f['tokenizer'].decode(ids,skip_special_tokens=True,clean_up_tokenization_spaces=False),f['config'])
+            assert g==(out/'groups.json').read_bytes() and m==(out/'dataset-manifest.json').read_bytes()
+            h=json.loads((out/'handoff.json').read_bytes())
+            N.save(work/'capture-check.json',A.capture_encode({**h,'record_type':'q2_capture_check_v0',
+                'complete_original_capture_verified':True,'decoding_and_extraction_verified':True,'verified_calls':150}))
+        if stage=='reduction':
+            source=out.parent/'source'
+            with (out/'reduction.log').open('wb') as log:
+                result=subprocess.run([sys.executable,'-I','-B','-c',A.CAPTURE_REDUCTION_SCRIPT,source,out,work,
+                    K.sha((out/'groups.json').read_bytes()),K.sha((out/'dataset-manifest.json').read_bytes())],
+                    stdin=subprocess.DEVNULL,stdout=log,stderr=log,timeout=30)
+            assert result.returncode==0,(out/'reduction.log').read_text()
+        obs=observation(stage);N.save(out/(stage+'-sandbox.json'),A.capture_encode(obs))
+        N.save(out/(stage+'-cleanup.json'),A.capture_encode(cleanup(obs['unit'])))
+    monkeypatch.setattr(A,'capture_phase',phase)
+    class Service:
+        def __init__(self,prefix,stage,command,work,python,log,deadline):
+            state['events'].append('worker_start')
+            if state['fault']=='startup':raise N.NativeQualificationError('synthetic_startup_failure')
+            self.unit=prefix+'-captureworker.service';self.observation=observation('captureworker')
+            self.runtime_deadline_ns=now()+1100_000_000_000;self.deadline=self.runtime_deadline_ns/1e9
+            self.reader=types.SimpleNamespace(buffer=b'',selector=types.SimpleNamespace(select=lambda timeout:[]),line=self.line)
+            self.pre=json.loads(Path(command[command.index('--prelaunch')+1]).read_bytes());self.output=Path(command[command.index('--prelaunch')+1]).parent
+            identity={'prelaunch_sha256':K.sha(A.capture_encode(self.pre)),'source_commit':self.pre['context']['source_commit'],
+                      'run_id':self.pre['context']['run_id'],'run_attempt':1}
+            self.ready={'record_type':'q2_capture_model_ready_v0','binding':identity,'effective_generation':f['config'],
+                        'runtime':dict(C.CAPTURE_RUNTIME)}
+            if state['fault']=='model_ready':self.ready['binding']['run_id']='wrong'
+            self.pending=A.capture_encode(self.ready);self.index=0;self.identity=None
+        def line(self,deadline):
+            if self.pending is None:
+                self.reader.buffer=b'{"unfinished_synthetic_response":'
+                raise N.NativeQualificationError('synthetic_incomplete_frame')
+            raw=self.pending;self.pending=None
+            if state['fault']=='late' and state['generated']==1 and b'q2_capture_response_v0' in raw:
+                state['clock']+=16_000_000_000
+            return raw
+        def send(self,command):
+            stamp=now();state['events'].append(command.decode().strip())
+            if command.startswith(b'BIND '):
+                self.identity={**self.ready['binding'],'subject_sha256':command[5:-1].decode()}
+                self.pending=A.capture_encode({'record_type':'q2_capture_bound_v0','binding':self.identity})
+            elif command.startswith(b'PREPARE '):
+                assert state['active'] is None
+                slot=self.pre['slots'][self.index];assert command==('PREPARE '+slot['call_id']+'\n').encode()
+                ready=copy.deepcopy(f['records'][self.index][1]);ready['binding']=dict(self.identity)
+                if state['fault']=='prepare' and self.index==0:ready['slot']['call_id']='wrong'
+                self.pending=A.capture_encode(ready)
+                if state['fault']=='unsolicited':self.reader.selector.select=lambda timeout:[1]
+            elif command.startswith(b'GENERATE '):
+                assert state['active'] is not None;state['generated']+=1
+                response=copy.deepcopy(f['records'][self.index][0]);response['binding']=dict(self.identity)
+                self.pending=None if state['fault'] in ('partial','partial_and_cleanup') else A.capture_encode(response)
+                self.index+=1
+            elif command==b'FINISH\n':
+                assert self.index==150
+                self.pending=A.capture_encode({'record_type':'q2_capture_session_end_v0','binding':self.identity,'completed_calls':150})
+            return stamp
+        def complete(self,**kwargs):
+            if state['fault']=='exit':raise N.NativeQualificationError('synthetic_exit_failure')
+            return b'',0
+    native.Service=Service
+    def close(service):
+        state['events'].append('closed')
+        if state['fault'] in ('cleanup','partial_and_cleanup'):raise N.NativeQualificationError('synthetic_cleanup_failure')
+        return cleanup(service.unit)
+    native.close_capture_service=close
+    def watchdog(prefix,unit):
+        assert state['active'] is None;state['active']=prefix
+        if state['fault']=='slow_arm':state['clock']+=6_000_000_000
+        return prefix+'-watchdog.timer'
+    native.watchdog=watchdog
+    def disarm(prefix):
+        state['events'].append('disarmed')
+        if state['fault']=='stale_timer':raise N.NativeQualificationError('synthetic_stale_timer')
+        state['active']=None
+        return {'record_type':'q2_capture_watchdog_closed_v0','stop_returncode':0,'units':[
+            {'unit':prefix+'-watchdog.'+suffix,'LoadState':'not-found','ActiveState':'inactive'} for suffix in ('timer','service')],
+            'closed_ns':now()}
+    native.disarm_capture_watchdog=disarm
+    archive=tmp_path/'synthetic-input.zip';archive.write_bytes(b'fixture');destination=tmp_path/'published'
+    def execute():return A.capture_reference(ROOT,archive,destination,'c'*40,True)
+    state.update(execute=execute,destination=destination,native=native)
+    return state
+
+
+def test_capture_orchestrator_full_150_slot_publication_and_real_reducer(capture_orchestrator):
+    h=capture_orchestrator
+    assert h['execute']()==0
+    out=h['destination'];report=json.loads((out/'capture.json').read_bytes())
+    assert report['status']=='captured_metric_pass' and report['metric_pass'] is True
+    assert report['received_complete_slots']==150 and report['complete_original_capture_verified'] is True
+    assert h['generated']==150 and h['active'] is None
+    assert len(json.loads((out/'terminal-slots.json').read_bytes()))==150
+    assert report['authority_effect']=='none' and report['production_gate_eligible'] is False
+    for row in report['evidence']:
+        raw=(out/row['path']).read_bytes();assert len(raw)==row['size'] and K.sha(raw)==row['sha256']
+    C.capture_schema_check(ROOT,'report',report)
+
+
+@pytest.mark.parametrize('fault,expected_calls', [('input',0),('installer',0),('installcheck',0),('startup',0),
+    ('model_ready',0),('prepare',0),('unsolicited',0),('slow_arm',0),('partial',1),('late',1),('stale_timer',1),
+    ('publication',1),('partial_and_cleanup',1),('exit',150),('cleanup',150),('capturecheck',150),('reduction',150)])
+def test_capture_orchestrator_retains_full_extent_and_stops_after_failure(capture_orchestrator,fault,expected_calls):
+    h=capture_orchestrator;h['fault']=fault
+    assert h['execute']()==1
+    out=h['destination'];report=json.loads((out/'capture.json').read_bytes())
+    assert report['status']=='failed' and report['error_code'] and report['production_gate_eligible'] is False
+    slots=json.loads((out/'terminal-slots.json').read_bytes());assert len(slots)==150
+    assert [o['slot']['ordinal'] for o in slots]==list(range(1,151))
+    assert h['generated']==expected_calls
+    if expected_calls<150: assert all(o['status']=='not_attempted' for o in slots[max(expected_calls,1):])
+    if fault in ('partial','partial_and_cleanup'):
+        assert report['error_code']=='synthetic_incomplete_frame'
+        assert (out/'calls/q2fx-001-r01.partial.bin').read_bytes()==b'{"unfinished_synthetic_response":'
+    if fault=='late':assert (out/'calls/q2fx-001-r01.response.json').exists()
+    if fault in ('input','installer','installcheck','startup','model_ready','prepare','unsolicited','slow_arm',
+                 'partial','late','stale_timer','publication','partial_and_cleanup','exit','cleanup'):
+        assert 'capturecheck' not in h['events'] and not (out/'groups.json').exists()
+
+
+def test_capture_two_fresh_process_reconstructions_are_byte_identical(capture_synthetic,tmp_path):
+    f=capture_synthetic
+    payload={k:f[k] for k in ('pre','subject','ready','terminal','records','workload','config')}
+    payload['synthetic_fixture_only']=True
+    original=tmp_path/'synthetic-records.json';original.write_bytes(A.capture_encode(payload))
+    script=r'''
+import importlib.util,json,pathlib,sys
+root,original,dest=map(pathlib.Path,sys.argv[1:]);f=json.loads(original.read_bytes())
+assert f.pop('synthetic_fixture_only') is True
+spec=importlib.util.spec_from_file_location('independent_capture',root/'PULSE_safe_pack_v0/tools/check_q2_reference_capture_v0.py')
+c=importlib.util.module_from_spec(spec);spec.loader.exec_module(c)
+# Explicit synthetic JCS subset, not the production pinned-package implementation.
+def jcs(v):
+    if type(v) is dict:
+        return b'{'+b','.join(jcs(k)+b':'+jcs(v[k]) for k in sorted(v,key=lambda k:k.encode('utf-16be')))+b'}'
+    if type(v) is list:return b'['+b','.join(map(jcs,v))+b']'
+    if type(v) is float:
+        assert v.is_integer();return str(int(v)).encode()
+    return json.dumps(v,ensure_ascii=False,allow_nan=False,separators=(',',':')).encode()
+g,m=c.capture_records(f['pre'],f['subject'],f['ready'],f['terminal'],f['records'],f['workload'],jcs,
+    lambda messages:[1,10+len(messages[1]['content'])],lambda ids:' original value\n' if ids==[41,2] else '',f['config'])
+dest.mkdir();(dest/'groups.json').write_bytes(g);(dest/'manifest.json').write_bytes(m)
+'''
+    expected=capture_reconstruct(f)
+    for attempt in (1,2):
+        dest=tmp_path/('reconstructed-'+str(attempt))
+        result=subprocess.run([sys.executable,'-I','-B','-c',script,ROOT,original,dest],capture_output=True,timeout=15)
+        assert result.returncode==0,result.stderr
+        assert ((dest/'groups.json').read_bytes(),(dest/'manifest.json').read_bytes())==expected
+    payload['records'][0][0]['new_token_ids']=[42,2]
+    original.write_bytes(A.capture_encode(payload))
+    rejected=subprocess.run([sys.executable,'-I','-B','-c',script,ROOT,original,tmp_path/'rehashed-substitution'],capture_output=True,timeout=15)
+    assert rejected.returncode!=0 and not (tmp_path/'rehashed-substitution/groups.json').exists()
+
+
+@pytest.mark.parametrize('field',['GITHUB_EVENT_NAME','GITHUB_REF','GITHUB_ACTOR','GITHUB_TRIGGERING_ACTOR',
+    'GITHUB_RUN_ATTEMPT','GITHUB_SHA','GITHUB_WORKFLOW_SHA','GITHUB_REPOSITORY','GITHUB_WORKFLOW_REF','GITHUB_RUN_ID'])
+def test_capture_invalid_dispatch_cannot_import_local_helper(monkeypatch,field):
+    import importlib.util
+    expected='c'*40
+    env={'GITHUB_REPOSITORY':A.REPOSITORY,'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_REF':'refs/heads/main',
+        'GITHUB_ACTOR':'HKati','GITHUB_TRIGGERING_ACTOR':'HKati','GITHUB_RUN_ATTEMPT':'1','GITHUB_SHA':expected,
+        'GITHUB_WORKFLOW_SHA':expected,'GITHUB_WORKFLOW_REF':A.REPOSITORY+'/'+A.WORKFLOW+'@refs/heads/main','GITHUB_RUN_ID':'123456'}
+    for key,value in env.items():monkeypatch.setenv(key,value)
+    monkeypatch.setenv(field,'invalid')
+    monkeypatch.setattr(importlib.util,'spec_from_file_location',lambda *a,**k:pytest.fail('helper import must not occur'))
+    with pytest.raises(A.PreparationError):A.capture_native_module(ROOT,expected)
+
+
+@pytest.mark.parametrize('shape',['','main','--help','A'*40,'c'*39,'c'*41,None])
+def test_capture_invalid_sha_cannot_enter_source_import(shape):
+    with pytest.raises(A.PreparationError,match='capture_source_sha_shape'):A.capture_native_module(ROOT,shape)
+
+@pytest.mark.parametrize('fault',['none','truncated','wrong_response','extra_after_end','exit_nonzero'])
+def test_capture_real_process_framing_terminal_eof_and_reaping(capture_synthetic,tmp_path,fault):
+    import os
+    import signal
+    import time
+    import types
+    f=capture_synthetic;pre=f['pre'];start=time.monotonic_ns()
+    pre['phase_start_ns']=start;pre['phase_deadline_ns']=start+1200_000_000_000
+    initial={'prelaunch_sha256':K.sha(A.capture_encode(pre)),'source_commit':pre['context']['source_commit'],
+             'run_id':pre['context']['run_id'],'run_attempt':1}
+    f['ready']['binding']=dict(initial);subject=f['subject'];subject.update(prelaunch_sha256=initial['prelaunch_sha256'],
+        ready_sha256=K.sha(A.capture_encode(f['ready'])))
+    identity={**initial,'subject_sha256':K.sha(A.capture_encode(subject))}
+    records=copy.deepcopy(f['records'])
+    for response,ready in records:response['binding']=dict(identity);ready['binding']=dict(identity)
+    fixture=tmp_path/'inert-frame-fixture.json';fixture.write_bytes(A.capture_encode({'records':records,'identity':identity,'fault':fault}))
+    child=r'''
+import json,sys
+f=json.load(open(sys.argv[1]));identity=f['identity'];fault=f['fault']
+def emit(v):
+    sys.stdout.buffer.write((json.dumps(v,sort_keys=True,ensure_ascii=False,separators=(',',':'))+'\n').encode());sys.stdout.buffer.flush()
+assert sys.stdin.buffer.readline()==b'BIND '+identity['subject_sha256'].encode()+b'\n'
+emit({'record_type':'q2_capture_bound_v0','binding':identity})
+for index,(response,ready) in enumerate(f['records']):
+    call=ready['slot']['call_id']
+    assert sys.stdin.buffer.readline()==('PREPARE '+call+'\n').encode();emit(ready)
+    assert sys.stdin.buffer.readline()==('GENERATE '+call+'\n').encode()
+    if fault=='truncated' and index==0:
+        sys.stdout.buffer.write(b'{"partial":');sys.stdout.buffer.flush();sys.exit(7)
+    if fault=='wrong_response' and index==0:response['slot']['call_id']='wrong'
+    emit(response)
+assert sys.stdin.buffer.readline()==b'FINISH\n'
+emit({'record_type':'q2_capture_session_end_v0','binding':identity,'completed_calls':150})
+if fault=='extra_after_end':print('EXTRA',flush=True)
+sys.exit(7 if fault=='exit_nonzero' else 0)
+'''
+    log=(tmp_path/'child.log').open('wb')
+    process=subprocess.Popen([sys.executable,'-I','-S','-B','-c',child,fixture],stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE,stderr=log,start_new_session=True,bufsize=0)
+    service=object.__new__(N.Service);service.unit=f['terminal']['sandbox']['unit'];service.process=process
+    service.reader=N.BoundedReader(process.stdout,limit=16*1024*1024);service.observation=f['terminal']['sandbox']
+    service.runtime_deadline_ns=time.monotonic_ns()+1100_000_000_000;service.deadline=service.runtime_deadline_ns/1e9
+    service.log=log;service.stage='captureworker';closed=[]
+    def close(target):
+        closed.append(True)
+        if process.poll() is None:
+            try:os.killpg(process.pid,signal.SIGKILL)
+            except ProcessLookupError:pass
+        process.wait(timeout=5)
+        service.reader.close();process.stdin.close();process.stdout.close();log.close()
+        # Cgroup/kernel observations remain synthetic; child exit/reap is real.
+        return copy.deepcopy(f['terminal']['cleanup'])
+    def disarm(prefix):
+        return {'record_type':'q2_capture_watchdog_closed_v0','stop_returncode':0,'units':[
+            {'unit':prefix+'-watchdog.'+suffix,'LoadState':'not-found','ActiveState':'inactive'} for suffix in ('timer','service')],
+            'closed_ns':time.monotonic_ns()}
+    native=types.SimpleNamespace(strict_json=N.strict_json,save=N.save,
+        watchdog=lambda prefix,unit:prefix+'-watchdog.timer',disarm_capture_watchdog=disarm,close_capture_service=close)
+    out=tmp_path/'collected';out.mkdir();occurrences=[]
+    for slot in pre['slots']:
+        occurrences.append({'slot':slot,'status':'not_attempted','ready_received_ns':None,'generation_start_ns':None,
+            'generation_deadline_ns':None,'response_received_ns':None,'watchdog_arm_begin_ns':None,
+            'watchdog_armed':False,'watchdog_unit':None,'watchdog_closed':None,'ready':None,'response':None})
+    try:
+        if fault=='none':
+            terminal=A.capture_session_exchange(native,service,'pulse-q2-'+'a'*24,out,pre,A.capture_encode(subject),pre['slots'],occurrences)
+            assert terminal['status']=='completed' and len(terminal['occurrences'])==150
+            assert terminal['worker_exit_code']==0
+            g,m=C.capture_records(pre,subject,f['ready'],terminal,records,f['workload'],synthetic_jcs_subset,
+                lambda messages:[1,10+len(messages[1]['content'])],lambda ids:' original value\n',f['config'])
+            assert len(json.loads(g)['groups'])==50
+        else:
+            with pytest.raises((A.PreparationError,N.NativeQualificationError)):
+                A.capture_session_exchange(native,service,'pulse-q2-'+'a'*24,out,pre,A.capture_encode(subject),pre['slots'],occurrences)
+            terminal=json.loads((out/'transcript.json').read_bytes())
+            assert terminal['status']=='failed' and len(terminal['occurrences'])==150
+        assert closed and process.poll() is not None
+        if fault=='truncated':assert (out/'calls/q2fx-001-r01.partial.bin').read_bytes()==b'{"partial":'
+    finally:
+        if not closed:close(service)
+
+
+def test_capture_native_checker_import_rejects_changed_bytes_before_execution(tmp_path):
+    path=tmp_path/C.NATIVE_CHECKER;path.parent.mkdir(parents=True)
+    path.write_text("raise RuntimeError('untrusted helper executed')\n")
+    with pytest.raises(C.CheckError,match='capture_native_checker_source'):C.capture_native(tmp_path)
+    assert C.NATIVE_CHECKER_SHA256==K.sha((ROOT/C.NATIVE_CHECKER).read_bytes())
+
+
+def test_capture_native_helper_executes_exact_verified_buffer(monkeypatch):
+    import importlib.util
+    expected='c'*40
+    env={'GITHUB_REPOSITORY':A.REPOSITORY,'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_REF':'refs/heads/main',
+        'GITHUB_ACTOR':'HKati','GITHUB_TRIGGERING_ACTOR':'HKati','GITHUB_RUN_ATTEMPT':'1','GITHUB_SHA':expected,
+        'GITHUB_WORKFLOW_SHA':expected,'GITHUB_WORKFLOW_REF':A.REPOSITORY+'/'+A.WORKFLOW+'@refs/heads/main','GITHUB_RUN_ID':'123456'}
+    for k,v in env.items():monkeypatch.setenv(k,v)
+    monkeypatch.setattr(A.os,'geteuid',lambda:0)
+    raw=(ROOT/A.CAPTURE_NATIVE).read_bytes();reads=[]
+    def read(path,limit):reads.append(path);return raw
+    monkeypatch.setattr(A,'read_file',read)
+    monkeypatch.setattr(A.subprocess,'run',lambda *a,**kw:subprocess.CompletedProcess(a,0,raw,b''))
+    original=importlib.util.spec_from_file_location
+    def spec(name,path):
+        value=original(name,path)
+        value.loader.exec_module=lambda *a:pytest.fail('must not reread helper after checking bytes')
+        return value
+    monkeypatch.setattr(importlib.util,'spec_from_file_location',spec)
+    helper=A.capture_native_module(ROOT,expected)
+    assert helper.STAGES==N.STAGES and reads==[ROOT/A.CAPTURE_NATIVE]
+
+
+@pytest.mark.parametrize('fault',['ownership','rename'])
+def test_capture_publication_error_cannot_leave_successful_terminal_filename(capture_orchestrator,monkeypatch,fault):
+    h=capture_orchestrator
+    if fault=='ownership':
+        original=A.os.chown
+        def chown(path,*args,**kwargs):
+            if Path(path).name=='.capture-report.pending':raise OSError('synthetic ownership failure')
+            return original(path,*args,**kwargs)
+        monkeypatch.setattr(A.os,'chown',chown)
+    else:
+        def fail(*args,**kwargs):raise OSError('synthetic rename failure')
+        monkeypatch.setattr(A.os,'replace',fail)
+    with pytest.raises(OSError):h['execute']()
+    assert not (h['destination']/'capture.json').exists()
+    assert (h['destination']/'terminal-slots.json').is_file()

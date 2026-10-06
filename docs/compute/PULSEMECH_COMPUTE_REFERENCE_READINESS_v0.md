@@ -1516,3 +1516,179 @@ registered startup regression module, and updates this document and changelog.
 The metadata regressions check pinned bytes, digest links, separate historical
 identities, narrow scope and a closed no-raw-response projection. They are not a
 new native run or a full native-artifact replay. #2879 remains open.
+
+## 11. Selected 150-slot capture implementation — execution remains separate
+
+This section records the implementation following the owner-reviewed inventory
+in #2879, comment `6023217407`, prepared from main
+`928a8a2a2dfdc4d440f7294ba589dedaf01239db`. It does not change the original
+selection, preparation, qualification or preservation identities in sections
+6–10. No 150-call native acquisition is claimed by this implementation change.
+
+### 11.1 Separate entrypoints and owner consent
+
+The existing workflow gains one additional `capture-reference` mode. Its
+`confirm_capture_retention` input defaults to false and explicitly covers the
+fixed 150 planned calls and retention of original token/text records in the
+Actions artifact. Only the confirmation belonging to the selected mode may be
+true. The preparation and one-diagnostic defaults remain unchanged.
+
+The capture CLI rejects invalid source identities and dispatch context before
+importing its local native helper. The owner, repository, main ref, first attempt,
+workflow path and exact source/workflow SHA checks remain mandatory. Native
+installation and observation still require Ubuntu 24.04/x86_64/CPython 3.11.16,
+root supervision and the existing systemd/cgroup isolation. No synthetic-profile
+CLI, runtime-cap override, retry, resume, alternate model or PR/push inference
+path is introduced. Implementation tests do not dispatch this workflow.
+
+### 11.2 Materialized subject and independent source closure
+
+Capture rechecks the complete original runtime archive and its adopted bytes,
+uses the existing fresh-venv hash-required offline installer, retains the
+original bootstrap inventory and applies the unchanged root-freeze operation.
+The separate installed-byte checker must succeed before model loading.
+
+A capture-specific 23-file source closure binds the acquisition tool, worker,
+capture checker, native supervisor, unchanged independent native checker,
+workflow, both relevant native/capture schemas, fixed diagnostic, selected
+inputs, four historical preparation records, existing Q2 reducer and summary
+checker, Q2 spec/input/summary schemas and dataset-manifest schema. Current
+source snapshots must equal the reviewed commit's Git blobs. This closure does
+not enlarge or rename the old diagnostic's 15-file historical record.
+
+`capture-prelaunch.json` retains the full 150-slot inventory and actual source,
+installation and platform bindings. The loaded worker reports its effective
+configuration without generating an answer. The supervisor then materializes
+`capture-subject.json`, binding the selected definition, actual worker bytes,
+eight model/tokenizer files, installed inventory, interpreter/platform and
+loaded configuration. The worker acknowledges that exact subject digest before
+any capture GO. The old selection's null materialized-artifact field is not
+rewritten; this is a new capture-subject record, not a retrofit of old evidence.
+
+### 11.3 One loaded model, 150 separately authorized occurrences
+
+The capture worker has a distinct protocol:
+
+```text
+model-ready → materialized-subject BIND → subject acknowledgement
+→ (PREPARE slot → slot-ready → GENERATE slot → original response) × 150
+→ FINISH → session-end → EOF and successful exit
+```
+
+Each planned slot is accepted exactly once and in its fixed order. Every
+iteration creates fresh request tensors, attention mask and generation config;
+no conversation, past-key-value cache or generated result is reused across
+calls. The immutable loaded model/tokenizer may remain in the one session.
+The seed is reset to 1729 for each actual `model.generate` invocation.
+
+The supervisor writes a root-owned intent before GO, verifies slot readiness
+and binds the nonblocking authorization write and response receipt to its own
+monotonic clock. Each generation retains the full 15-second response window.
+Its independently armed 20-second fail-stop timer is not extra response time.
+Both timer units must be observed inactive before the next authorization.
+Insufficient remaining phase/worker time, stale timers and unsolicited output
+reject rather than shortening the accepted interval.
+
+The diagnostic worker's 180-second limit is unchanged. Only the explicitly
+selected capture worker receives a bounded lifetime derived from the remaining
+1200-second phase budget. The existing outer TERM deadline and separate
+180-second cleanup grace remain; no grace is borrowed for another generation.
+These are enforcement and acceptance limits, not a throughput guarantee or a
+claim about unbounded kernel stalls. The supervisor checks namespace, syscall,
+privilege, mount and cgroup protections before EXEC and observes cleanup after
+the session. Native capture viability remains untested by offline doubles.
+
+### 11.4 Original evidence and failure preservation
+
+Every completed slot retains its readiness, intent, original response JSON and
+complete UTF-8 continuation. Original input/new token IDs, effective configuration,
+request/slot identity, subject/run/source bindings, stop reason and external
+receipt times remain associated with that occurrence. Equal text is not copied
+to manufacture repeated executions.
+
+The terminal inventory always retains all 150 planned slots once fixed-input
+preflight has succeeded, including slots not attempted after termination,
+preparation failures and uncertain/failed attempts. Received records and bounded
+partial frames remain failure evidence where available. They are never filled
+in as successful responses or converted to model-produced UNKNOWN answers.
+The first error survives later cleanup/publication errors; no following GO is
+issued after rejection. Incomplete acquisition does not derive answer groups.
+
+`capture.json` is published after the evidence copies and staging removal, not
+before them. Missing publication is not success. The report separately records
+received extent, independent original-capture verification and the metric
+outcome. Phase logs and available installer/checker outputs are retained on
+failure without making them successful phase results.
+
+### 11.5 Separate reconstruction and existing Q2 reduction
+
+`check_q2_reference_capture_v0.py verify-capture` never imports or invokes the
+acquisition producer, worker or supervisor. It may use the unchanged independent
+native checker's installed-byte and mount-validation functions. It separately
+checks the 23-file source inventory, external prelaunch/subject/transcript
+expectations, subject assembly, complete call-file extent, per-slot authorizations,
+timers, cleanup and session termination. It retokenizes the exact requests and
+recomputes full decoding with the pinned local tokenizer, without generating.
+Installed runtime bytes are checked again at the end of verification.
+
+The extractor preserves complete EOS-terminated text without trimming. Empty
+EOS text remains an empty answer; a completed 32-token result without EOS becomes
+typed UNKNOWN. Missing execution is incompleteness, never UNKNOWN. No keyword
+refusal inference, answer repair or semantic judge is added.
+
+Producer-derived `groups.json` and `dataset-manifest.json` must equal the separate
+checker's reconstruction byte-for-byte. Their hashes are fixed in `handoff.json`
+before the unchanged Q2 reducer executes. A separate isolated reduction phase
+runs the existing builder and original-input summary checker, with explicit
+handling of builder exit 1. A valid failing metric remains FAIL. The independent
+capture checker succeeding does not mean metric PASS or production admission.
+
+| Terminal report status | Meaning | Capture command exit |
+| --- | --- | --- |
+| `captured_metric_pass` | Complete verified original capture, verified extraction and correctly reconstructed passing Q2 summary. | 0 |
+| `captured_metric_fail` | Complete verified original capture and extraction, with a correctly reconstructed failing Q2 summary, including insufficient eligible evidence. | 1 |
+| `failed` | Setup, execution, evidence, checking or publication did not complete successfully. Retained diagnostics do not authorize acceptance. | 1 |
+
+Every result keeps `authority_effect=none` and `production_gate_eligible=false`.
+No production recipe is registered, and Q2 remains in both unsupported admission
+sets. Production integration and Step 5C dependency reconciliation remain the
+later coordinated task in 5.6.
+
+### 11.6 Validation and remaining native boundary
+
+The changed acquisition/startup/inventory test modules are already registered;
+neither CI manifest is changed. The complete modules, the existing Q2 consistency
+module and the two existing production-rejection modules are run directly with
+pytest, not through an AST-selected test harness. The accompanying implementation
+review bundle records exact commands, unique case identifiers, interpreter,
+exit status, durations and the final source-file digests.
+
+Coverage includes the full 150-call synthetic worker, separately reconstructed
+original file I/O, two fresh-process reconstructions, actual existing reducer
+and summary-checker CLIs, real harmless multi-record subprocess framing/EOF/reap,
+existing real tiny-wheel offline installation/freeze checks, explicit synthetic
+systemd observations, timer and deadline failures, every phase's early termination,
+complete failed-slot retention, consent guards and continued production rejection.
+The preparation-function byte snapshots and historical records remain checked.
+
+Local execution uses CPython 3.13.5 in a reconstructed, byte-verified working
+source set. A local Git index supports existing path-membership assertions; it
+is not an upstream checkout history. No actual model package is imported or
+executed by these regressions. Tokenizer/framework/platform/adoption stand-ins
+in the new integration tests are explicitly synthetic. The test JCS stand-in
+covers only the selected integral-number fixture subset; native worker/checker
+execution requires the actual pinned `rfc8785` implementation and its vectors.
+
+Full repository CI, the hosted 3.11.16 test execution and the native 150-call
+workload are not local test claims. No quantum/physical validation, malicious-host
+resistance, answer correctness, future capture result or Step 5C acceptance is
+established. The prior successful one-diagnostic native run remains a distinct
+historical prerequisite, not a certificate of this new revision.
+
+Original generated records remain in the separately consented Actions artifact,
+not general CI logs, repository fixtures or Zenodo. Artifact retention is finite;
+full replay requires the exact original capture/runtime archives and declared
+dependencies. Owner dispatch follows review of the final implementation revision
+and its new source SHA; no old diagnostic response is reused as scored input.
+
+Keep #2879 open.

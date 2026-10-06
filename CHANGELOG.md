@@ -135,6 +135,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   transfer does not declare correction acceptance or reference readiness.
 
 ### Added
+- Implement the separately owner-confirmed Q2 `capture-reference` path for the
+  fixed 50-group/150-slot workload. Bind the actual worker/runtime/model inventory,
+  externally timed per-call permissions and original token/text records; preserve
+  full terminal extent on failure. Separately verify original capture and extraction
+  before the existing reducer/summary checker, retaining valid metric FAIL.
+  Keep preparation, one-diagnostic qualification, historical evidence, both test
+  manifests and all production admission requirements unchanged. Offline regression
+  evidence does not claim that a native 150-call acquisition has executed.
 - Preserve the successful one-unscored-diagnostic Q2 native qualification
   from run `37362661448`, attempt 1, with four byte-exact original report
   snapshots and a distinct run/artifact index. Keep raw generated text and

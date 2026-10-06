@@ -998,3 +998,83 @@ def test_recorded_native_rehashed_promotion_cannot_change_expected_record(record
     index_path.write_bytes(N.encode(index))
     # Rehashing the mutated reports/index cannot change the reviewed expectation.
     with pytest.raises(AssertionError): recorded_native_projection(recorded_native_copy)
+
+# Capture-specific helpers: diagnostic limits and the original exchange stay
+# unchanged. These tests never invoke systemd or a real model.
+@pytest.mark.parametrize('seconds',[1,15,180,1199,1200])
+def test_capture_service_lifetime_is_explicit_and_preserves_all_protections(seconds,tmp_path):
+    command=N.service_command(PREFIX+'-captureworker.service','captureworker',python_command('pass'),
+                              tmp_path,Path(sys.executable),capture_seconds=seconds)
+    assert '--property=RuntimeMaxSec='+str(seconds) in command
+    for name,value in N.PROPERTIES.items(): assert '--property='+name+'='+value in command
+    assert '--property=PrivateNetwork=yes' in command
+    assert '--property=KillMode=control-group' in command
+    assert N.STAGES['worker']==180 and N.STAGES=={'installer':480,'installcheck':300,'worker':180,'decodecheck':180}
+
+
+@pytest.mark.parametrize('seconds',[None,True,False,0,-1,1201,15.0,'15','infinity'])
+def test_capture_worker_rejects_invalid_lifetime(seconds,tmp_path):
+    with pytest.raises(N.NativeQualificationError,match='capture_lifetime_bound'):
+        N.service_command(PREFIX+'-captureworker.service','captureworker',python_command('pass'),
+                          tmp_path,Path(sys.executable),capture_seconds=seconds)
+
+
+@pytest.mark.parametrize('stage',['installer','installcheck','worker','decodecheck','capturecheck','reduction'])
+def test_capture_support_does_not_allow_generic_stage_budget_override(stage,tmp_path):
+    with pytest.raises(N.NativeQualificationError,match='no_generic_runtime_override'):
+        N.service_command(PREFIX+'-'+stage+'.service',stage,python_command('pass'),tmp_path,Path(sys.executable),capture_seconds=1200)
+
+
+@pytest.mark.parametrize('shown,expected',[('20min',1200000000),('18min 20s',1100000000),('1h 2min 3s',3723000000),('1000ms',1000000),('1us',1)])
+def test_capture_systemd_duration_uses_exact_integer_units(shown,expected):
+    assert N.duration_microseconds(shown)==expected
+
+
+@pytest.mark.parametrize('shown',['','infinity','nan','1.5s','3minute','-1s','20min BAD','20min\x00'])
+def test_capture_systemd_duration_rejects_unknown_display(shown):
+    with pytest.raises(N.NativeQualificationError): N.duration_microseconds(shown)
+
+
+@pytest.mark.parametrize('condition',['valid','unloaded','active','missing','failed_query','stop_failed','wrong_load','duplicate_property'])
+def test_capture_timer_requires_observed_quiescence(monkeypatch,condition):
+    calls=[]
+    def control(command,timeout=15,check=True):
+        calls.append(command)
+        if command[1]=='stop':return subprocess.CompletedProcess(command,2 if condition=='stop_failed' else 0,b'',b'')
+        raw=b'LoadState=not-found\nActiveState=inactive\n' if condition=='unloaded' else b'LoadState=loaded\nActiveState=inactive\n'
+        if condition=='active':raw=b'LoadState=loaded\nActiveState=active\n'
+        if condition=='missing':raw=b''
+        if condition=='wrong_load':raw=b'LoadState=error\nActiveState=inactive\n'
+        if condition=='duplicate_property':raw=b'LoadState=loaded\nActiveState=active\nActiveState=inactive\n'
+        return subprocess.CompletedProcess(command,5 if condition=='failed_query' else 0,raw,b'')
+    monkeypatch.setattr(N,'control',control)
+    if condition in ('valid','unloaded'):
+        record=N.disarm_capture_watchdog(PREFIX+'-call-001')
+        assert len(calls)==3 and len(record['units'])==2
+        assert all(r['ActiveState']=='inactive' for r in record['units'])
+    else:
+        with pytest.raises(N.NativeQualificationError):N.disarm_capture_watchdog(PREFIX+'-call-001')
+
+
+@pytest.mark.parametrize('condition',['valid','active','missing','foreign_cgroup','unreaped','close_error','duplicate_property'])
+def test_capture_cleanup_checks_process_and_cgroup_identity(monkeypatch,condition):
+    from types import SimpleNamespace
+    calls=[]
+    def close():
+        calls.append('close')
+        if condition=='close_error':raise OSError('synthetic first cleanup error')
+    service=SimpleNamespace(unit=PREFIX+'-captureworker.service',close=close,
+                            process=SimpleNamespace(poll=lambda:None if condition=='unreaped' else 0))
+    def control(command,**kwargs):
+        calls.append('show');raw=b'LoadState=not-found\nActiveState=inactive\nControlGroup=\n'
+        if condition=='active':raw=raw.replace(b'inactive',b'active')
+        if condition=='missing':raw=b''
+        if condition=='foreign_cgroup':raw=raw.replace(b'ControlGroup=\n',b'ControlGroup=/other\n')
+        if condition=='duplicate_property':raw+=b'ActiveState=inactive\n'
+        return subprocess.CompletedProcess(command,0,raw,b'')
+    monkeypatch.setattr(N,'control',control)
+    if condition=='valid':
+        result=N.close_capture_service(service);assert result['cgroup_empty_or_removed'] and result['client_reaped']
+    else:
+        with pytest.raises((N.NativeQualificationError,OSError)):N.close_capture_service(service)
+    assert calls[:2]==['close','show']
