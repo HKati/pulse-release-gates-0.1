@@ -135,6 +135,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   transfer does not declare correction acceptance or reference readiness.
 
 ### Added
+- Preserve the successful one-unscored-diagnostic Q2 native qualification
+  from run `37362661448`, attempt 1, with four byte-exact original report
+  snapshots and a distinct run/artifact index. Keep raw generated text and
+  token records outside the repository, retain the historical preparation
+  identity, and cover record integrity in the registered startup test module.
+  No capture dispatch, scored acquisition, runtime change or gate admission.
 - Implement the bounded Q2 native-qualification path after #2895: a separate
   external supervisor, local model worker, independent checker, fixed unscored
   diagnostic and closed report schema. Verify original/adopted byte bindings,
