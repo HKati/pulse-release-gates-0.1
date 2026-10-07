@@ -435,7 +435,7 @@ def test_workflow_preserves_manual_preparation_branch_and_exact_sources():
     assert 'always()' not in uploads[0]['if'] and 'secrets.' not in payload and 'contents: write' not in payload
     entries=[l.split('#',1)[0].strip() for l in (ROOT/'ci/tools-tests.list').read_text().splitlines()]
     entries=[x for x in entries if x]
-    assert len(entries)==len(set(entries))==157
+    assert len(entries)==len(set(entries))==161
     assert entries.count('tests/test_q2_reference_acquisition_v0.py')==1
 
 
@@ -525,7 +525,7 @@ def _hygiene_python_sync_script():
 
 def _run_hygiene_python_sync(tmp_path, *, core_version='3.11', q2_text=None,
                              environment='dependencies: [python=3.11, pip]\n',
-                             extra_workflows=None):
+                             extra_workflows=None, pulse_text=None, omit_pulse=False):
     """Execute the actual workflow guard, not a test-side copy of its policy."""
     (tmp_path / 'environment.yml').write_text(environment)
     workflows = tmp_path / '.github/workflows'
@@ -536,6 +536,9 @@ def _run_hygiene_python_sync(tmp_path, *, core_version='3.11', q2_text=None,
     (workflows / 'core.yml').write_text(yaml.safe_dump(core))
     if q2_text is not None:
         (workflows / 'q2_reference_acquisition_v0.yml').write_text(q2_text)
+    if not omit_pulse:
+        (workflows / 'pulse_ci.yml').write_text(pulse_text if pulse_text is not None else
+            (ROOT / '.github/workflows/pulse_ci.yml').read_text())
     for name, content in (extra_workflows or {}).items():
         (workflows / name).write_text(content)
     return subprocess.run([sys.executable, '-I', '-c', _hygiene_python_sync_script()],
@@ -665,6 +668,58 @@ def test_hygiene_still_rejects_missing_environment_python(tmp_path):
                                      q2_text=_q2_workflow_text())
     assert result.returncode == 1
     assert 'No python=<version> dependency found in environment.yml' in result.stdout
+
+
+def test_hygiene_checks_all_actual_repository_workflows_with_hosted_q2_pin():
+    result = subprocess.run([sys.executable, '-I', '-c', _hygiene_python_sync_script()],
+                            cwd=ROOT, capture_output=True, text=True, timeout=10)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'exact patch pins verified' in result.stdout
+
+
+@pytest.mark.parametrize('fault', [
+    'wrong_patch', 'old_minor', 'broad_selector', 'expression', 'other_job_patch',
+    'duplicate_pulse_setup', 'missing_pulse_setup', 'renamed_job', 'renamed_workflow',
+    'unparsed_declaration', 'same_job_other_action_pin', 'missing_other_setup_version',
+])
+def test_hygiene_hosted_patch_is_scoped_to_one_existing_pulse_setup(tmp_path, fault):
+    document = yaml.load((ROOT / '.github/workflows/pulse_ci.yml').read_text(), Loader=yaml.BaseLoader)
+    jobs = document['jobs']; pulse = jobs['pulse']['steps']
+    setup = next(step for step in pulse if step.get('uses', '').startswith('actions/setup-python@'))
+    other = next(step for name, job in jobs.items() if name != 'pulse' for step in job['steps']
+                 if step.get('uses', '').startswith('actions/setup-python@'))
+    if fault in ('wrong_patch', 'old_minor', 'broad_selector', 'expression'):
+        setup['with']['python-version'] = {'wrong_patch': '3.11.17', 'old_minor': '3.11',
+            'broad_selector': '3.11.*', 'expression': '${{ matrix.python }}'}[fault]
+    elif fault == 'other_job_patch': other['with']['python-version'] = '3.11.16'
+    elif fault == 'duplicate_pulse_setup': pulse.append(copy.deepcopy(setup))
+    elif fault == 'missing_pulse_setup': pulse.remove(setup)
+    elif fault == 'renamed_job': jobs['other_pulse'] = jobs.pop('pulse')
+    elif fault == 'same_job_other_action_pin': setup['uses'] = 'actions/setup-node@synthetic'
+    elif fault == 'missing_other_setup_version': other['with'].pop('python-version')
+    text = yaml.safe_dump(document, sort_keys=False)
+    if fault == 'unparsed_declaration': text += "\npython-version: '3.11.16'\n"
+    options = {'pulse_text': text}
+    if fault == 'renamed_workflow': options = {'omit_pulse': True, 'extra_workflows': {'PULSE_ci.yml': text}}
+    result = _run_hygiene_python_sync(tmp_path, q2_text=_q2_workflow_text(), **options)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert '.github/workflows/pulse_ci.yml' in result.stdout
+    assert 'exact patch pins verified' not in result.stdout and 'Traceback' not in result.stderr
+
+
+@pytest.mark.parametrize('kind', ['missing', 'directory', 'symlink', 'dangling_symlink'])
+def test_hygiene_requires_regular_hosted_workflow_at_exact_path(tmp_path, kind):
+    path = tmp_path / '.github/workflows/pulse_ci.yml'; path.parent.mkdir(parents=True)
+    if kind == 'directory': path.mkdir()
+    elif kind in ('symlink', 'dangling_symlink'):
+        target = tmp_path / 'synthetic-pulse.yml'
+        if kind == 'symlink': target.write_text((ROOT / '.github/workflows/pulse_ci.yml').read_text())
+        path.symlink_to(target)
+    result = _run_hygiene_python_sync(tmp_path, q2_text=_q2_workflow_text(), omit_pulse=True)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert '.github/workflows/pulse_ci.yml' in result.stdout
+    assert 'Pinned workflow must exist as a regular file at its exact path.' in result.stdout
+    assert 'Traceback' not in result.stderr
 
 
 def test_q2_setup_keeps_exact_selection_before_preparation():

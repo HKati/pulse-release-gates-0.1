@@ -33,7 +33,7 @@ SIGNER_IDENTITY = (
 )
 
 REQUIRED_GATE = "q1_grounded_ok"
-UNSUPPORTED_GATE = "q2_consistency_ok"
+UNSUPPORTED_GATE = "q3_fairness_ok"
 
 UNSUPPORTED_GATE_IDS = (
     "effect_present",
@@ -46,7 +46,6 @@ UNSUPPORTED_GATE_IDS = (
     "psf_monotonicity_ok",
     "psf_path_independence_ok",
     "psf_pii_monotonicity_ok",
-    "q2_consistency_ok",
     "q3_fairness_ok",
     "sanit_shift_resilient",
 )
@@ -87,6 +86,9 @@ CHAIN_FILES = [
     "schemas/status/status_v1.schema.json",
 ]
 
+
+# Exact Q2 dependency bytes belong to candidate fixture sources too.
+CHAIN_FILES += ['PULSE_safe_pack_v0/profiles/q2_reference_release_intake_v0.json', 'schemas/q2_release_intake_request_v0.schema.json', 'schemas/q2_release_intake_result_v0.schema.json', 'schemas/q2_release_subject_capsule_v0.schema.json', 'PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json', 'PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json', 'PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json', 'PULSE_safe_pack_v0/tools/build_q2_reference_summary.py', 'PULSE_safe_pack_v0/tools/check_q2_reference_summary.py', 'metrics/specs/q2_consistency_v0.yml', 'schemas/metrics/q2_consistency_input_v0.schema.json', 'schemas/metrics/q2_consistency_summary_v0.schema.json', 'schemas/dataset_manifest.schema.json', 'PULSE_safe_pack_v0/tools/q2_intake_io_v0.py', 'PULSE_safe_pack_v0/tools/load_q2_release_intake_v0.py', 'PULSE_safe_pack_v0/tools/evaluate_q2_archived_capture_v0.py', 'PULSE_safe_pack_v0/tools/check_q2_release_intake_v0.py', 'PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py', 'PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py', 'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py', '.github/workflows/pulse_ci.yml']
 
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()

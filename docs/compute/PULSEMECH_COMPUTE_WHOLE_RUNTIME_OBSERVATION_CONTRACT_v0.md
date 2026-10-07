@@ -1346,7 +1346,8 @@ correction; #2879 remains open while evidence obligations are unresolved.
 
 The current repository policy still requires all 19 gates. Its native recorded
 runner and candidate-status builder are tested for rejection: the six supported
-recipes produce their actual results, the 13 unsupported gates remain failed,
+recipes produce their actual results, twelve unsupported gates remain failed,
+and dedicated Q2 rejects missing/invalid input or its original valid FAIL,
 and no passing candidate status may be manufactured by the fixture.
 
 Positive native terminal and reconstruction regressions use the explicitly
@@ -1408,8 +1409,10 @@ The recorded path needs both `pulse` and the successful attestation job. Its
 first candidate download step checks `needs.pulse.result` and returns an
 explicit nonzero BLOCK before downloading or consuming candidate bytes unless
 that result is exactly `success`. Thus an attested summary cannot promote a
-rejected candidate. The unchanged 19-gate policy still rejects all 13 unsupported
-gates, retains their diagnostics, and leaves the release path blocked. No
+rejected candidate. The unchanged 19-gate policy retains twelve unsupported
+rejections plus the dedicated Q2 rejection. Thirteen false gates must not be
+reported as thirteen unsupported gates. Their diagnostics remain distinct and
+the release path remains blocked. No
 passing `status.json`, fabricated candidate or artificial final decision JSON
 is constructed to make downstream success-only checks run on rejected evidence.
 Here BLOCK denotes the nonzero CI/no-release-authority outcome. When a candidate
@@ -1488,3 +1491,42 @@ admission, active compute enforcement or Step 7 promotion.
 
 Refs #2879.
 Builds on #2870, #2872, #2875, #2876, #2877 and #2878.
+
+
+## Dedicated archived Q2 intake within the existing required-gate boundary
+
+The [Q2 archived intake contract](PULSEMECH_Q2_ARCHIVED_INTAKE_CONTRACT_v0.md)
+adds two exact prelaunch metadata inputs, `q2_intake_request` and
+`q2_intake_request_sha256`, to the existing subject dispatch and both reference
+jobs. Both independent plan implementations bind them before dispatch;
+acquisition, capture, verification and the independently reconstructed expected
+context carry and compare the same bytes. The future subject run ID remains in
+the dispatch response/current evaluation binding, never in an amended request.
+The full capture and separately supplied release capsule remain outside the
+repository and public artifact tree.
+
+The existing 60 source roles remain present with their original meanings.
+Nineteen current Q2 obligations yield 79 current entries, including the runner
+previously present only among local recorded dependencies. Deduplicated local
+R2 has 87 source entries and public R2 has 92. Candidate semantics are pinned in
+all three candidate families; D3/D6 and local recorded-input pins also refer to
+the coordinated sources. Fixture and export/carrier source closures follow
+these explicit additions. Their source presence does not constitute private Q2
+admission or a local R2 replay of the archived capture.
+
+The selected whole-runtime terminal profile is unchanged: eight jobs, seven
+successful and one permitted skipped job, 147 declared steps, 62 state duties,
+and six current LlamaGuard inference occurrences. The 150 historical Q2 calls
+remain outside current inference totals. No additional Q2 job or preparation/
+cleanup workflow step is introduced, and no successful-reference duty is
+removed to admit the original checked Q2 FAIL. Normal/error/timeout cleanup is
+supervised in the existing runner; SIGKILL/host-loss deletion is not established.
+
+The public Q2 result records input validity separately from metric success.
+A valid negative has `input_valid=true`, `metric_pass=false` and exit 1. An
+invalid intake has `input_valid=false`, `metric_pass=null` and exit 2. Both
+reject the production gate. Independent candidate admission retains the literal
+`pass=true` requirement and independently reacquires and checks private inputs;
+a producer PASS, remaining directory or public carrier cannot substitute for
+that check. Public R2 reconstruction, terminal testing, archive-only replay and
+live release subject verification remain separate claims.

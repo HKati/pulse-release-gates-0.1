@@ -136,6 +136,8 @@ MAIN_REF_ENDPOINT = (
 SUBJECT_DISPATCH_INPUTS = {
     "strict_external_evidence": "true",
     "llamaguard_evidence_mode": "hosted_full_runtime",
+    "q2_intake_request": "",
+    "q2_intake_request_sha256": "",
 }
 
 SUBJECT_TERMINAL_ARTIFACT_TEMPLATES = (
@@ -1147,6 +1149,36 @@ def _limits_from_plan(plan: dict[str, Any]) -> AcquisitionLimits:
     return AcquisitionLimits(**expected)
 
 
+
+def _q2_dispatch_inputs(plan, source_commit, record_status):
+    """Fixed prelaunch metadata; the dispatch response carries the future run ID."""
+    inputs = plan.get("subject_dispatch", {}).get("inputs")
+    _require(isinstance(inputs, dict) and set(inputs) == set(SUBJECT_DISPATCH_INPUTS),
+             "q2_dispatch_input_fields", stage="plan")
+    fields = {name: inputs.get(name) for name in ("q2_intake_request", "q2_intake_request_sha256")}
+    _require(all(type(value) is str for value in fields.values()), "q2_dispatch_input_type", stage="plan")
+    text, pin = fields["q2_intake_request"], fields["q2_intake_request_sha256"]
+    if not text and not pin:
+        _require(record_status == "example", "q2_dispatch_request_missing", stage="plan")
+    else:
+        raw = text.encode("utf-8", errors="strict")
+        _require(len(raw) <= 16384 and re.fullmatch(r"[0-9a-f]{64}", pin) is not None and
+                 hashlib.sha256(raw).hexdigest() == pin, "q2_dispatch_request_digest", stage="plan")
+        request = _strict_json_object(raw, label="q2_dispatch_request")
+        _require(request.get("evaluation_identity") == {
+            "repository": REPOSITORY, "source_commit": source_commit,
+            "workflow": SUBJECT_WORKFLOW_PATH, "event": "workflow_dispatch", "ref": SOURCE_REF},
+            "q2_dispatch_request_binding", stage="plan")
+    # A live CLI must project its own event inputs, not arbitrary carrier metadata.
+    # Independent plan reconstruction still verifies the closed request schema,
+    # committed selection, historical origins and the source closure.
+    for key, env_key in (("q2_intake_request", "PULSE_Q2_INTAKE_REQUEST"),
+                         ("q2_intake_request_sha256", "PULSE_Q2_INTAKE_REQUEST_SHA256")):
+        if env_key in os.environ:
+            _require(fields[key] == os.environ[env_key], "q2_dispatch_event_mismatch", stage="context")
+    return {**SUBJECT_DISPATCH_INPUTS, **fields}
+
+
 def _validate_plan_contract(
     *,
     plan_capture: CapturedFile,
@@ -1178,7 +1210,7 @@ def _validate_plan_contract(
         "accept": API_ACCEPT,
         "endpoint": SUBJECT_DISPATCH_ENDPOINT,
         "ref": DISPATCH_REF,
-        "inputs": dict(SUBJECT_DISPATCH_INPUTS),
+        "inputs": _q2_dispatch_inputs(plan, source_commit, record_status),
         "response_contract": {
             "http_status": 200,
             "required_fields": ["workflow_run_id", "run_url", "html_url"],
@@ -1364,7 +1396,9 @@ def _expected_context_document(
     *,
     context: ReferenceContext,
     expected_plan_sha256: str,
+    q2_inputs: Mapping[str, str] | None = None,
 ) -> dict[str, Any]:
+    q2_inputs = SUBJECT_DISPATCH_INPUTS if q2_inputs is None else q2_inputs
     return {
         "schema_version": EXPECTED_CONTEXT_SCHEMA_VERSION,
         "record_status": context.record_status,
@@ -1382,6 +1416,8 @@ def _expected_context_document(
         "collector_execution_id": context.collector_execution_id,
         "acquisition_id": context.acquisition_id,
         "expected_plan_sha256": expected_plan_sha256,
+        "q2_intake_request": q2_inputs["q2_intake_request"],
+        "q2_intake_request_sha256": q2_inputs["q2_intake_request_sha256"],
         "authority_boundary": dict(AUTHORITY_BOUNDARY),
         "errors": [],
         "ok": True,
@@ -2044,6 +2080,7 @@ def acquire_observation(
         expected_context = _expected_context_document(
             context=reference_context,
             expected_plan_sha256=expected_digest,
+            q2_inputs=plan["subject_dispatch"]["inputs"],
         )
         _write_new_file(
             staging,
@@ -2064,7 +2101,7 @@ def acquire_observation(
 
         subject_request = {
             "ref": DISPATCH_REF,
-            "inputs": dict(SUBJECT_DISPATCH_INPUTS),
+            "inputs": _q2_dispatch_inputs(plan, revision, record_status),
         }
         subject_receipt, subject_dispatch_response = _dispatch(
             transport=transport,
@@ -2523,6 +2560,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             record_status=str(args.record_status),
             environment=os.environ,
         )
+        _require(all(os.environ.get(key) for key in
+            ("PULSE_Q2_INTAKE_REQUEST", "PULSE_Q2_INTAKE_REQUEST_SHA256")),
+            "q2_dispatch_request_missing", stage="context")
         token = _sanitize_environment(str(args.token_env))
         transport = LiveGitHubTransport(
             token=token,

@@ -976,7 +976,9 @@
           "additionalProperties": false,
           "required": [
             "strict_external_evidence",
-            "llamaguard_evidence_mode"
+            "llamaguard_evidence_mode",
+            "q2_intake_request",
+            "q2_intake_request_sha256"
           ],
           "properties": {
             "strict_external_evidence": {
@@ -984,6 +986,14 @@
             },
             "llamaguard_evidence_mode": {
               "const": "hosted_full_runtime"
+            },
+            "q2_intake_request": {
+              "type": "string",
+              "maxLength": 16384
+            },
+            "q2_intake_request_sha256": {
+              "type": "string",
+              "pattern": "^([0-9a-f]{64})?$"
             }
           }
         },
@@ -1407,7 +1417,9 @@
           "additionalProperties": false,
           "required": [
             "strict_external_evidence",
-            "llamaguard_evidence_mode"
+            "llamaguard_evidence_mode",
+            "q2_intake_request",
+            "q2_intake_request_sha256"
           ],
           "properties": {
             "strict_external_evidence": {
@@ -1415,6 +1427,14 @@
             },
             "llamaguard_evidence_mode": {
               "const": "hosted_full_runtime"
+            },
+            "q2_intake_request": {
+              "type": "string",
+              "maxLength": 16384
+            },
+            "q2_intake_request_sha256": {
+              "type": "string",
+              "pattern": "^([0-9a-f]{64})?$"
             }
           }
         }

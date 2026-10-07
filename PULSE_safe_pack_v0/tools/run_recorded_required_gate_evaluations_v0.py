@@ -890,6 +890,12 @@ def run(
     list[str],
     bool,
 ]:
+    # Only the dedicated Q2 transport receives this private context. Remove it
+    # before any schema validation or public result formatting in this process.
+    q2_environment = dict(os.environ)
+    for name in tuple(os.environ):
+        if name.startswith("PULSE_Q2_"):
+            os.environ.pop(name, None)
     errors: list[str] = []
     repo = repo.resolve()
 
@@ -1175,8 +1181,8 @@ def run(
         rc: int | None = None
 
         if not diagnostics:
-            env = os.environ.copy()
-
+            env = (dict(q2_environment) if gate == "q2_consistency_ok" else
+                   {k: v for k, v in os.environ.items() if not k.startswith("PULSE_Q2_")})
             env.update(
                 {
                     "PULSE_REQUIRED_GATE_ID": gate,
@@ -1196,64 +1202,80 @@ def run(
                 }
             )
 
-            try:
-                result = subprocess.run(
-                    _expand(
-                        entry["command"],
-                        repo,
-                        gate,
-                    ),
-                    cwd=repo,
-                    env=env,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    timeout=timeout,
-                    check=False,
-                )
-
-                rc = result.returncode
-                stdout = result.stdout
-                stderr = result.stderr
-
-            except subprocess.TimeoutExpired as exc:
-                stdout = (
-                    exc.stdout.decode(
-                        errors="replace"
+            if gate == "q2_consistency_ok":
+                try:
+                    sys.path.insert(0, str(Path(__file__).resolve().parent))
+                    import q2_intake_io_v0 as q2_io
+                    support = repo / q2_io.PUBLIC_RESULT
+                    if support.is_symlink() or (support.exists() and not support.is_file()):
+                        rc = 2
+                    else:
+                        if support.exists():
+                            support.unlink()
+                        rc = q2_io.run_q2_command(_expand(entry["command"], repo, gate),
+                                                  repo=repo, environment=env, timeout=timeout)
+                except Exception:
+                    rc = 2
+                stdout = "q2_private_output_suppressed\n"
+                stderr = "" if rc == 0 else "q2_gate_rejected\n"
+            else:
+                try:
+                    result = subprocess.run(
+                        _expand(
+                            entry["command"],
+                            repo,
+                            gate,
+                        ),
+                        cwd=repo,
+                        env=env,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        timeout=timeout,
+                        check=False,
                     )
-                    if isinstance(
-                        exc.stdout,
-                        bytes,
-                    )
-                    else str(
-                        exc.stdout or ""
-                    )
-                )
 
-                stderr = (
-                    exc.stderr.decode(
-                        errors="replace"
-                    )
-                    if isinstance(
-                        exc.stderr,
-                        bytes,
-                    )
-                    else str(
-                        exc.stderr or ""
-                    )
-                )
+                    rc = result.returncode
+                    stdout = result.stdout
+                    stderr = result.stderr
 
-                diagnostics.append(
-                    "evaluation timed out after "
-                    f"{timeout} seconds"
-                )
+                except subprocess.TimeoutExpired as exc:
+                    stdout = (
+                        exc.stdout.decode(
+                            errors="replace"
+                        )
+                        if isinstance(
+                            exc.stdout,
+                            bytes,
+                        )
+                        else str(
+                            exc.stdout or ""
+                        )
+                    )
 
-            except OSError as exc:
-                diagnostics.append(
-                    "evaluation command could not run: "
-                    f"{exc}"
-                )
+                    stderr = (
+                        exc.stderr.decode(
+                            errors="replace"
+                        )
+                        if isinstance(
+                            exc.stderr,
+                            bytes,
+                        )
+                        else str(
+                            exc.stderr or ""
+                        )
+                    )
 
+                    diagnostics.append(
+                        "evaluation timed out after "
+                        f"{timeout} seconds"
+                    )
+
+                except OSError as exc:
+                    diagnostics.append(
+                        "evaluation command could not run: "
+                        f"{exc}"
+                    )
         stdout_path.write_text(
             stdout,
             encoding="utf-8",

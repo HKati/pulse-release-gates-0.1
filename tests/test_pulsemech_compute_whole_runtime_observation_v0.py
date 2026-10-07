@@ -93,6 +93,8 @@ def env(tmp_path):
         'GITHUB_OUTPUT': str(tmp_path / 'workflow-output'),
         'HANDOFF_ARTIFACT_ID': '23456',
         'EXPECTED_PLAN_SHA256': 'b' * 64,
+        'PULSE_Q2_INTAKE_REQUEST': '',
+        'PULSE_Q2_INTAKE_REQUEST_SHA256': '',
     }
 
 def execute(code, env):
@@ -132,6 +134,7 @@ def context_bytes(env):
     )
     return ACQUIRER._canonical_json_bytes(ACQUIRER._expected_context_document(
         context=context, expected_plan_sha256=env['EXPECTED_PLAN_SHA256'],
+        q2_inputs={k: env['PULSE_'+k.upper()] for k in ('q2_intake_request','q2_intake_request_sha256')},
     ))
 
 
@@ -162,7 +165,9 @@ def test_workflow_closed_dispatch_and_permissions():
     assert DOC['name'] == ACQUIRER.REFERENCE_WORKFLOW_NAME
     assert set(DOC['on']) == {'workflow_dispatch'}
     assert DOC['on']['workflow_dispatch']['inputs'] == {
-        'source_commit': {'description': 'Exact reviewed main commit (40 lowercase hexadecimal digits).', 'required': 'true', 'type': 'string'}
+        'source_commit': {'description': 'Exact reviewed main commit (40 lowercase hexadecimal digits).', 'required': 'true', 'type': 'string'},
+        'q2_intake_request': {'description': 'Exact reviewed metadata-only Q2 request, fixed before dispatch.', 'required': 'true', 'type': 'string'},
+        'q2_intake_request_sha256': {'description': 'Externally selected SHA-256 of the exact request bytes.', 'required': 'true', 'type': 'string'},
     }
     assert DOC['permissions'] == {'contents': 'read'}
     assert set(JOBS) == {'acquisition', 'verification'}
@@ -491,6 +496,11 @@ def cli(root, tool, args, *, isolated=True, timeout=60):
     command = [sys.executable, *(['-I'] if isolated else []), '-B', str(root / 'tools' / (tool + '.py')), *map(str, args)]
     clean = {'PATH': '/usr/bin:/bin', 'HOME': str(root), 'LANG': 'C', 'LC_ALL': 'C',
              'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_TERMINAL_PROMPT': '0'}
+    if tool == TOOL_NAMES[0] and '--record-status' in args and str(args[args.index('--record-status') + 1]) == 'observed':
+        from test_q2_release_intake_v0 import metadata_request
+        source = str(args[args.index('--source-commit') + 1])
+        raw = canonical(metadata_request(source))
+        clean.update(PULSE_Q2_INTAKE_REQUEST=raw.decode(), PULSE_Q2_INTAKE_REQUEST_SHA256=digest(raw))
     return subprocess.run(command, cwd=root, env=clean, stdin=subprocess.DEVNULL,
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, check=False)
 
@@ -509,7 +519,7 @@ def source_fixture(tmp_path_factory):
     # source-pin substitution, or synthetic implementation dependency.
     # Include the reviewed dependency closure so the same committed fixture can
     # also build the new observed-profile plan. Legacy example plans still
-    # bind exactly their original 60 source roles.
+    # retain all 60 original roles and bind the dedicated Q2 closure (79 total).
     for _, relative in BUILDER.PUBLIC_R2_SOURCE_ROLES:
         source = ROOT / relative
         assert source.is_file() and not source.is_symlink(), relative
@@ -551,7 +561,7 @@ def test_real_plan_cli_and_independent_checker(source_fixture):
     assert f.diagnostic_doc['plan']['byte_identical_to_independent_reconstruction'] is True
     assert f.diagnostic_doc['plan']['sha256'] == f.plan_digest
     assert f.plan['plan_identity']['source_commit'] == f.sha
-    assert len(f.plan['source_inventory']) == len(BUILDER.SOURCE_ROLES) == 60
+    assert len(f.plan['source_inventory']) == len(BUILDER._CURRENT_SOURCE_ROLES) == 79
 
 
 def test_two_separate_plan_processes_are_byte_identical(source_fixture):
@@ -957,6 +967,7 @@ def example_complete_package(source_commit, raw_model):
 class ExampleTransport:
     """Exact endpoint allowlist; any unexpected or live request is a test error."""
     def __init__(self, plan, source_commit, *, change=None):
+        self.plan = copy.deepcopy(plan)
         self.calls = []
         self.source_commit = source_commit
         self.change = change
@@ -996,7 +1007,7 @@ class ExampleTransport:
         elif endpoint in (ACQUIRER.SUBJECT_DISPATCH_ENDPOINT, ACQUIRER.PROVIDER_DISPATCH_ENDPOINT):
             assert method == 'POST'
             subject = endpoint == ACQUIRER.SUBJECT_DISPATCH_ENDPOINT
-            expected = {'ref': 'main', 'inputs': dict(ACQUIRER.SUBJECT_DISPATCH_INPUTS) if subject else {'source_run_id': str(EXAMPLE_SUBJECT_ID)}}
+            expected = {'ref': 'main', 'inputs': dict(self.plan['subject_dispatch']['inputs']) if subject else {'source_run_id': str(EXAMPLE_SUBJECT_ID)}}
             assert json.loads(body) == expected
             row = self.subject if subject else self.provider
             document = {'workflow_run_id': row['id'], 'run_url': row['url'], 'html_url': row['html_url']}
@@ -1669,7 +1680,7 @@ def test_two_real_prepares_preserve_the_complete_declared_source_set(
         assert diagnostic['record_status'] == 'example'
         assert diagnostic['output_sha256'] == digest(raw)
         assert diagnostic['output_size_bytes'] == len(raw)
-        assert diagnostic['member_count'] == len(expected_members) == 65
+        assert diagnostic['member_count'] == len(expected_members) == 84
         assert diagnostic['authority_boundary'] == VERIFIER.AUTHORITY_BOUNDARY
         plan, members, stored_raw = read_prepared_example(f, target)
         assert plan == f.plan and stored_raw == raw
@@ -3998,8 +4009,8 @@ def test_preattest_actual_restore_shell_with_local_mock_download(source_fixture,
 
 
 def test_preattest_mapping_does_not_promote_runtime_completion(source_fixture):
-    assert len(source_fixture.plan['state_templates']) == 62 and len(source_fixture.plan['source_inventory']) == 60
-    assert len(prepared_fixture_members(source_fixture)) == 65
+    assert len(source_fixture.plan['state_templates']) == 62 and len(source_fixture.plan['source_inventory']) == 79
+    assert len(prepared_fixture_members(source_fixture)) == 84
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary']['authority_effect'] == 'none'
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
@@ -4294,8 +4305,8 @@ def test_required_argument_predicate_runs_before_expected_reconstruction():
 def test_required_argument_role_remains_unavailable_until_runtime_integration(source_fixture):
     plan = source_fixture.plan
     assert len(plan['state_templates']) == 62
-    assert len(plan['source_inventory']) == 60
-    assert len(prepared_fixture_members(source_fixture)) == 65
+    assert len(plan['source_inventory']) == 79
+    assert len(prepared_fixture_members(source_fixture)) == 84
     assert 'evidence_profile' not in plan
     packet = runtime_projection_example(source_fixture)
     state = next(row for row in packet['state_observations'] if row['state_id'] == REQUIRED_ARGUMENT_STATE)
@@ -4618,8 +4629,8 @@ def test_bundle_actual_copy_shells_match_synthetic_preservation(tmp_path, source
 
 def test_bundle_mapping_does_not_change_role_inventory_or_runtime_acceptance(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 60
-    assert len(prepared_fixture_members(source_fixture)) == 65
+    assert len(source_fixture.plan['source_inventory']) == 79
+    assert len(prepared_fixture_members(source_fixture)) == 84
     source = (SOURCES / 'check_pulsemech_compute_whole_runtime_observation_v0.py').read_text()
     assert 'declared_state_evidence_incomplete' in source
     assert not any('artifact_id' in s for s in source_fixture.plan['state_templates'])
@@ -4876,8 +4887,8 @@ def test_provenance_exact_r21_shell_uses_five_synthetic_contents(source_fixture,
 
 def test_provenance_mapping_keeps_full_role_extent_and_unaccepted_evidence(source_fixture):
     plan = source_fixture.plan
-    assert len(plan['state_templates']) == 62 and len(plan['source_inventory']) == 60
-    assert len(prepared_fixture_members(source_fixture)) == 65
+    assert len(plan['state_templates']) == 62 and len(plan['source_inventory']) == 79
+    assert len(prepared_fixture_members(source_fixture)) == 84
     packet = runtime_projection_example(source_fixture)
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(plan, packet, {})
@@ -5171,8 +5182,8 @@ def test_floor_actual_shell_reads_current_pre_materialization_files_only(source_
 
 def test_floor_local_mapping_preserves_global_extent_and_runtime_acceptance_stop(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 60
-    assert len(prepared_fixture_members(source_fixture)) == 65
+    assert len(source_fixture.plan['source_inventory']) == 79
+    assert len(prepared_fixture_members(source_fixture)) == 84
     rows, steps = provenance_rows(source_fixture.plan)
     assert rows['status-baseline']['state_id'] != rows['pre-materialization-status']['state_id']
     assert rows['status-baseline']['state_id'] != rows['final-status']['state_id']
@@ -5266,13 +5277,35 @@ _HOSTED_ORDER_HISTORICAL_REPLACEMENTS = (
  )
 
 
+def _workflow_before_q2_intake(raw=None):
+    """Invert only the reviewed Q2 changes; retain every historical checkpoint.
+
+    The integration has separate current-input/topology tests. These historical
+    tests must compare the pre-Q2 workflows, never rebind their old Git blobs.
+    """
+    if raw is None:
+        raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
+        '19a8855241cad29b8abfcb9d1e77f88810021be4'
+    ), 'unreviewed hosted-order workflow bytes'
+    replacements = ((b'      q2_intake_request:\n        description: "Exact reviewed metadata-only Q2 intake request JSON"\n        required: false\n        default: ""\n        type: string\n      q2_intake_request_sha256:\n        description: "Externally selected SHA-256 of the exact Q2 request bytes"\n        required: false\n        default: ""\n        type: string\n', b'', 1), (b'    timeout-minutes: 45\n    permissions:\n      contents: read\n      actions: read\n', b'    timeout-minutes: 45\n    permissions:\n      contents: read\n', 1), (b'          python-version: "3.11.16"\n', b'          python-version: "3.11"\n', 1), (b'        env:\n          PULSE_Q2_INTAKE_REQUEST: ${{ github.event.inputs.q2_intake_request }}\n          PULSE_Q2_INTAKE_REQUEST_SHA256: ${{ github.event.inputs.q2_intake_request_sha256 }}\n          PULSE_Q2_TRANSPORT_TOKEN: ${{ github.token }}\n', b'', 2))
+    for current, previous, count in replacements:
+        assert raw.count(current) == count
+        raw = raw.replace(current, previous)
+    assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
+        'd46ec426962a3cc9dc23c560bf87b2f2a6a74945'
+    ), 'pre-Q2 integration checkpoint mismatch'
+    return raw
+
+
 def _workflow_before_hosted_evidence_ordering(raw=None):
     if raw is None:
         raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
     # Inversion must not erase an unreviewed edit inside a replaced region.
     assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
-        'd46ec426962a3cc9dc23c560bf87b2f2a6a74945'
+        '19a8855241cad29b8abfcb9d1e77f88810021be4'
     ), 'unreviewed hosted-order workflow bytes'
+    raw = _workflow_before_q2_intake(raw)
     for current, historical in _HOSTED_ORDER_HISTORICAL_REPLACEMENTS:
         assert raw.count(current) == 1
         raw = raw.replace(current, historical, 1)
@@ -5314,7 +5347,7 @@ def _workflow_before_pre_acquisition_correction():
 
 
 def test_hosted_order_history_preserves_job_step_and_input_inventory():
-    current = yaml.load((ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes(), Loader=yaml.BaseLoader)
+    current = yaml.load(_workflow_before_q2_intake(), Loader=yaml.BaseLoader)
     previous = yaml.load(_workflow_before_hosted_evidence_ordering(), Loader=yaml.BaseLoader)
     assert list(current['jobs']) == list(previous['jobs'])
     for name, job in current['jobs'].items():
@@ -5384,7 +5417,7 @@ def test_smoke_budget_all_workflow_pins_require_the_same_reviewed_bytes(side):
     path = module.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == 'd46ec426962a3cc9dc23c560bf87b2f2a6a74945'
+    assert current == '19a8855241cad29b8abfcb9d1e77f88810021be4'
     assert module.EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 == current
     for values in vars(module).values():
         if isinstance(values, dict) and path in values:
@@ -5397,7 +5430,7 @@ def test_smoke_budget_d3_d6_pins_require_the_same_reviewed_bytes(side):
     path = BUILDER.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == 'd46ec426962a3cc9dc23c560bf87b2f2a6a74945'
+    assert current == '19a8855241cad29b8abfcb9d1e77f88810021be4'
     pins = module._D3_SOURCE_PINS
     items = list(pins.items()) if isinstance(pins, dict) else list(pins)
     selected = [pin for name, pin in items if name == path]
@@ -5454,8 +5487,8 @@ def test_smoke_budget_new_workflow_is_preserved_without_evidence_promotion(sourc
     assert row['sha256'] == digest(data)
     assert prepared_fixture_members(source_fixture)['sources/' + BUILDER.SUBJECT_WORKFLOW_PATH] == data
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 60
-    assert len(prepared_fixture_members(source_fixture)) == 65
+    assert len(source_fixture.plan['source_inventory']) == 79
+    assert len(prepared_fixture_members(source_fixture)) == 84
     assert 'evidence_profile' not in source_fixture.plan
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
         VERIFIER._require_declared_state_completion(source_fixture.plan, runtime_projection_example(source_fixture), {})
@@ -5718,8 +5751,8 @@ def test_lg_preservation_actual_copy_shell_is_bounded_local_evidence(source_fixt
 
 def test_lg_preservation_keeps_full_state_profile_unfinished(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 60
-    assert len(prepared_fixture_members(source_fixture)) == 65
+    assert len(source_fixture.plan['source_inventory']) == 79
+    assert len(prepared_fixture_members(source_fixture)) == 84
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary']['authority_effect'] == 'none'
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
@@ -5986,8 +6019,8 @@ def test_lg_attestation_actual_summary_binding_reads_three_files(tmp_path, lg_at
 
 
 def test_lg_attestation_mapping_still_cannot_satisfy_runtime_completion(source_fixture):
-    assert len(source_fixture.plan['source_inventory']) == 60
-    assert len(prepared_fixture_members(source_fixture)) == 65
+    assert len(source_fixture.plan['source_inventory']) == 79
+    assert len(prepared_fixture_members(source_fixture)) == 84
     assert len(source_fixture.plan['state_templates']) == 62
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
@@ -6257,8 +6290,8 @@ def test_lg_production_hash_only_input_helper_is_not_content_admission(tmp_path,
 
 
 def test_lg_production_mapping_keeps_completion_closed(source_fixture):
-    assert len(source_fixture.plan['source_inventory']) == 60
-    assert len(prepared_fixture_members(source_fixture)) == 65
+    assert len(source_fixture.plan['source_inventory']) == 79
+    assert len(prepared_fixture_members(source_fixture)) == 84
     assert len(source_fixture.plan['state_templates']) == 62
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
@@ -6526,8 +6559,8 @@ def test_pre_attest_postcondition_hash_failure_does_not_reach_success(tmp_path):
 
 def test_pre_attest_postcondition_mapping_keeps_completion_and_inventory_unchanged(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 60
-    assert len(prepared_fixture_members(source_fixture)) == 65
+    assert len(source_fixture.plan['source_inventory']) == 79
+    assert len(prepared_fixture_members(source_fixture)) == 84
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary']['authority_effect'] == 'none'
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
@@ -6837,8 +6870,8 @@ def test_final_postcondition_hash_failure_propagates_without_success(tmp_path):
 
 def test_final_postcondition_keeps_completion_barrier_and_all_inventories(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 60
-    assert len(prepared_fixture_members(source_fixture)) == 65
+    assert len(source_fixture.plan['source_inventory']) == 79
+    assert len(prepared_fixture_members(source_fixture)) == 84
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
@@ -7087,8 +7120,8 @@ def test_recorded_publication_keeps_r26_hash_extent_distinct(source_fixture):
 
 def test_recorded_publication_keeps_runtime_intake_and_completion_unfinished(source_fixture):
     assert len(source_fixture.plan['state_templates']) == 62
-    assert len(source_fixture.plan['source_inventory']) == 60
-    assert len(prepared_fixture_members(source_fixture)) == 65
+    assert len(source_fixture.plan['source_inventory']) == 79
+    assert len(prepared_fixture_members(source_fixture)) == 84
     assert 'evidence_profile' not in source_fixture.plan
     assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
     packet = runtime_projection_example(source_fixture)
@@ -7324,8 +7357,8 @@ def test_authority_publication_keeps_other_selectors_and_runtime_boundary(source
         assert states['gate-policy']['state_id'] not in step['input_state_ids']
     r33 = PLAN_CHECKER._source_recorded_publication_expectations(mapping_source_document(), recorded_source_objects)
     assert len(r33['ordered_selectors']) == 27 and len(r33['unmodeled_file_selectors']) == 4
-    assert len(source_fixture.plan['source_inventory']) == 60
-    assert len(prepared_fixture_members(source_fixture)) == 65
+    assert len(source_fixture.plan['source_inventory']) == 79
+    assert len(prepared_fixture_members(source_fixture)) == 84
     assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
     assert 'evidence_profile' not in source_fixture.plan
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
@@ -7585,8 +7618,8 @@ def test_report_publication_keeps_generic_and_complete_acceptance_boundaries(sou
     assert states['self-contained-evidence-floor']['state_id'] not in steps[('release_grade_recorded_path', 26)]['input_state_ids']
     assert states['recorded-release-candidate-envelopes']['state_id'] not in steps[('release_grade_recorded_path', 26)]['input_state_ids']
     assert states['release-authority-audit-bundle']['state_id'] not in steps[('release_grade_recorded_path', 33)]['input_state_ids']
-    assert len(source_fixture.plan['source_inventory']) == 60
-    assert len(prepared_fixture_members(source_fixture)) == 65
+    assert len(source_fixture.plan['source_inventory']) == 79
+    assert len(prepared_fixture_members(source_fixture)) == 84
     assert source_fixture.plan['authority_boundary'] == BUILDER.AUTHORITY_BOUNDARY
     assert 'evidence_profile' not in source_fixture.plan
     with pytest.raises(VERIFIER.VerificationError, match='declared_state_evidence_incomplete'):
@@ -8235,8 +8268,8 @@ def test_residual_input_gate_order_matches_actual_policy_helper(recorded_source_
 
 def test_residual_input_complete_graph_and_noncompletion_boundaries(source_fixture, recorded_source_objects):
     plan = source_fixture.plan; states, steps = provenance_rows(plan)
-    assert len(states) == 62 and len(plan['source_inventory']) == 60
-    assert len(prepared_fixture_members(source_fixture)) == 65
+    assert len(states) == 62 and len(plan['source_inventory']) == 79
+    assert len(prepared_fixture_members(source_fixture)) == 84
     for step in steps.values():
         assert step['input_state_ids'] == sorted(s['state_id'] for s in states.values()
             if step['occurrence_id'] in s['required_consumer_occurrence_ids'])
@@ -12207,7 +12240,7 @@ def test_summary_pin_renewal_real_cli_rejects_unapproved_committed_source(
     # object read or validation result is mocked; only test input bytes change.
     root = tmp_path / 'source'
     root.mkdir()
-    for _, relative in BUILDER.SOURCE_ROLES:
+    for _, relative in BUILDER._CURRENT_SOURCE_ROLES:
         target = root / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         raw = (source_fixture.root / relative).read_bytes()
@@ -13117,7 +13150,7 @@ def test_r2c2_plan_uses_uncommitted_source_without_relabelling_a_commit(r2c2_pla
         'source_index_sha256': digest(f.source.index_raw)}
     assert all(row['revision'] == f.source.tree and row['revision_kind'] == 'uncommitted_git_tree'
                for row in p['source_inventory'])
-    assert len(p['source_inventory']) == len(PLAN_CHECKER._LOCAL_R2_SOURCE_ROLES) == 69
+    assert len(p['source_inventory']) == len(PLAN_CHECKER._LOCAL_R2_SOURCE_ROLES) == 87
     assert len(p['state_templates']) == 62
     assert p['plan_identity']['profile'] != p['local_requirement_binding']['evidence_profile']
     assert p['local_boundary'] == {'dispatch_authorized': False, 'R2_activated': False,
@@ -13245,7 +13278,7 @@ def test_r2c2_prepared_context_round_trip_runs_real_independent_checker(r2c2_car
     with patch.object(VERIFIER.subprocess, 'run', side_effect=record):
         plan, members = VERIFIER._read_local_r2_prepared(f.raw, f.context, **f.pins)
     assert canonical(plan) == f.plan.raw
-    assert len(members) == 75
+    assert len(members) == 93
     assert len(calls) == 1 and calls[0][1] == 0 and calls[0][0][1:3] == ['-I', '-B']
     assert json.loads(f.context)['local_boundary']['R2_activated'] is False
     assert 'reference_run_id' not in json.loads(f.context)
@@ -16224,9 +16257,9 @@ def test_r2c10_dependency_inventory_is_explicit_independent_and_local_only():
         assert tuple(module._LOCAL_R2_RECORDED_SOURCE_ROLES) == _R2C10_DEPENDENCIES
         assert len(module.SOURCE_ROLES) == 60
         assert not expected.intersection(module.SOURCE_ROLES)
-        assert module._LOCAL_R2_SOURCE_ROLES == module.SOURCE_ROLES + _R2C10_DEPENDENCIES
-        assert len({role for role, _ in module._LOCAL_R2_SOURCE_ROLES}) == 69
-        assert len({path for _, path in module._LOCAL_R2_SOURCE_ROLES}) == 69
+        assert module._LOCAL_R2_SOURCE_ROLES == module._CURRENT_SOURCE_ROLES + tuple(row for row in _R2C10_DEPENDENCIES if row not in module._CURRENT_SOURCE_ROLES)
+        assert len({role for role, _ in module._LOCAL_R2_SOURCE_ROLES}) == 87
+        assert len({path for _, path in module._LOCAL_R2_SOURCE_ROLES}) == 87
 
 
 def _r2c10_literal_constants(raw):
@@ -16330,14 +16363,14 @@ def test_r2c10_rehashed_prepared_carrier_rechecks_dependency_content(r2c2_carrie
             **{**f.pins, 'expected_prepared_sha256': digest(raw)})
 
 
-def test_r2c10_prepared_dependencies_round_trip_without_public_profile_expansion(r2c2_carrier, source_fixture):
+def test_r2c10_prepared_dependencies_round_trip_with_explicit_q2_source_closure(r2c2_carrier, source_fixture):
     f = r2c2_carrier
     plan, members = VERIFIER._read_local_r2_prepared(f.raw, f.context, **f.pins)
-    assert len(plan['source_inventory']) == 69 and len(members) == 75
+    assert len(plan['source_inventory']) == 87 and len(members) == 93
     legacy = source_fixture.plan
     legacy_paths = {row['path'] for row in legacy['source_inventory']}
-    assert len(legacy['source_inventory']) == len(legacy_paths) == 60
-    assert legacy_paths == {path for _, path in BUILDER.SOURCE_ROLES}
+    assert len(legacy['source_inventory']) == len(legacy_paths) == 79
+    assert legacy_paths == {path for _, path in BUILDER._CURRENT_SOURCE_ROLES}
     legacy_members = prepared_fixture_members(source_fixture)
     assert {name for name in legacy_members if name.startswith('sources/')} == {
         'sources/' + path for path in legacy_paths}
@@ -16346,14 +16379,14 @@ def test_r2c10_prepared_dependencies_round_trip_without_public_profile_expansion
     assert 'evidence_profile_binding' not in json.loads(legacy_members['source-inventory.json'])
     assert not VERIFIER._public_r2_selected(legacy)
     dependency_paths = {path for _, path in _R2C10_DEPENDENCIES}
-    assert len(dependency_paths) == 9 and legacy_paths.isdisjoint(dependency_paths)
+    assert len(dependency_paths) == 9 and legacy_paths & dependency_paths == {'PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py'}
     assert {row['path'] for row in plan['source_inventory']} == legacy_paths | dependency_paths
     for _, path in _R2C10_DEPENDENCIES:
         assert members['sources/' + path] == f.plan.source.sources[path]
         # The common checkout also supports public R2. Presence on disk does not
-        # admit these bytes into the unchanged legacy plan or prepared carrier.
+        # admit the other local-only dependencies into the current plan or carrier.
         assert (source_fixture.root / path).read_bytes() == f.plan.source.sources[path]
-        assert 'sources/' + path not in legacy_members
+        assert ('sources/' + path in legacy_members) == (path in legacy_paths)
     assert len(plan['state_templates']) == len(source_fixture.plan['state_templates']) == 62
     assert plan['jobs'] == source_fixture.plan['jobs']
     assert plan['state_templates'] == source_fixture.plan['state_templates']
@@ -18073,7 +18106,7 @@ def test_r2c16_invalid_generated_packet_requires_fresh_validator(r2c16_runtime_i
 
 
 # The repository policy still requires all 19 gates. This separately named
-# TEST policy exercises native positive reconstruction for the six implemented
+# TEST policy exercises native positive reconstruction for the six generic
 # recipes; it cannot attest success under the repository policy. Policy, plan
 # and the exact literal pin revisions are bound before any evidence is built.
 _R2C17_SUPPORTED_REQUIRED = (
@@ -18084,9 +18117,12 @@ _R2C17_UNSUPPORTED_REQUIRED = frozenset({
     'effect_present', 'psf_monotonicity_ok', 'psf_mono_shift_resilient',
     'pass_controls_comm', 'psf_commutativity_ok', 'psf_comm_shift_resilient',
     'sanit_shift_resilient', 'psf_action_monotonicity_ok', 'psf_idempotence_ok',
-    'psf_path_independence_ok', 'psf_pii_monotonicity_ok', 'q2_consistency_ok',
+    'psf_path_independence_ok', 'psf_pii_monotonicity_ok',
     'q3_fairness_ok',
 })
+# With absent private Q2 inputs, thirteen gates are false. Q2 has its own
+# invalid-input result and must not be relabelled as an unsupported recipe.
+_R2C17_FALSE_REQUIRED = _R2C17_UNSUPPORTED_REQUIRED | {'q2_consistency_ok'}
 _R2C17_FIXTURE_POLICY_ID = 'pulse-step5c-supported-terminal-fixture-v0'
 _R2C17_POLICY_PATH = 'pulse_gate_policy_v0.yml'
 _R2C17_PLAN_PATH = 'PULSE_safe_pack_v0/profiles/required_gate_evaluations_v0.json'
@@ -18107,12 +18143,12 @@ def _r2c17_supported_sources(original):
     policy = yaml.safe_load(files[_R2C17_POLICY_PATH][1])
     assert len(policy['gates']['required']) == 19
     assert set(policy['gates']['required']) == (
-        set(_R2C17_SUPPORTED_REQUIRED) | _R2C17_UNSUPPORTED_REQUIRED)
+        set(_R2C17_SUPPORTED_REQUIRED) | _R2C17_FALSE_REQUIRED)
     policy['policy']['id'] = _R2C17_FIXTURE_POLICY_ID
     policy['gates']['required'] = list(_R2C17_SUPPORTED_REQUIRED)
     plan = json.loads(files[_R2C17_PLAN_PATH][1])
     assert set(plan['evaluations']) == (
-        set(_R2C17_SUPPORTED_REQUIRED) | _R2C17_UNSUPPORTED_REQUIRED)
+        set(_R2C17_SUPPORTED_REQUIRED) | _R2C17_FALSE_REQUIRED)
     plan['evaluations'] = {gate: plan['evaluations'][gate] for gate in _R2C17_SUPPORTED_REQUIRED}
     # Preserve the reviewed YAML grammar and all unselected policy bytes.
     original_policy = files[_R2C17_POLICY_PATH][1]
@@ -18419,7 +18455,7 @@ def test_r2c17_supported_fixture_never_relabels_repository_policy(r2c2_sources, 
     assert r2c17_native_inputs.f.carrier.plan.source.tree != r2c2_sources.tree
 
 
-def test_r2c17_repository_policy_rejects_native_unsupported_gates(
+def test_r2c17_repository_policy_rejects_twelve_unsupported_and_invalid_q2(
         r2c14_recorded_full_inputs, tmp_path):
     f = r2c14_recorded_full_inputs
     assert f.carrier.plan.source.files[_R2C17_POLICY_PATH][1] == (ROOT / _R2C17_POLICY_PATH).read_bytes()
@@ -18438,10 +18474,26 @@ def test_r2c17_repository_policy_rejects_native_unsupported_gates(
         assert len(refs) == 1
         raw = (stage.root / refs[0]['path']).read_bytes()
         assert digest(raw) == refs[0]['sha256']
-        assert json.loads(raw)['pass'] is supported
-        if not supported:
+        result = json.loads(raw)
+        assert result['pass'] is supported
+        if gate in _R2C17_UNSUPPORTED_REQUIRED:
             assert repr(gate) in stage.commands[-1]['stderr']
-    assert set(f.oracle['required']) - set(_R2C17_SUPPORTED_REQUIRED) == _R2C17_UNSUPPORTED_REQUIRED
+        elif gate == 'q2_consistency_ok':
+            assert [check['check_id'] for check in result['checks']] == [
+                'pulse.required.q2_consistency_ok.intake.v0',
+                'pulse.required.q2_consistency_ok.metric.v0']
+            assert [check['exit_code'] for check in result['checks']] == [2, None]
+            assert result['diagnostics'] == ['q2_request_missing']
+            q2 = json.loads((stage.root / stage.artifacts /
+                'required_gate_inputs/q2_intake_result_v0.json').read_bytes())
+            assert q2['input_valid'] is False and q2['metric_pass'] is None
+            assert q2['process_exit'] == 2 and q2['cleanup'] == 'not_created'
+            assert q2['checks']['subject'] is False
+            assert q2['current_inference_count'] == 0 and q2['production_gate_eligible'] is False
+    assert len(_R2C17_UNSUPPORTED_REQUIRED) == 12
+    assert len(_R2C17_FALSE_REQUIRED) == 13
+    assert 'q2_consistency_ok' not in _R2C17_UNSUPPORTED_REQUIRED
+    assert set(f.oracle['required']) - set(_R2C17_SUPPORTED_REQUIRED) == _R2C17_FALSE_REQUIRED
 
 
 def test_r2c17_native_producers_and_independent_report_path(r2c17_native_inputs):
@@ -19312,7 +19364,7 @@ def _build_r2_public_handoff(r2c17_native_inputs,tmp_path_factory):
 
 def test_r2_public_actual_plan_acquisition_capture_prepare(r2_public_handoff):
     f=r2_public_handoff;plan=f.source.plan
-    assert len(plan['source_inventory'])==74
+    assert len(plan['source_inventory'])== 92
     assert len(plan['state_templates'])==62
     assert plan['evidence_profile_binding']==f.capture.manifest['evidence_profile_binding']
     assert f.capture.manifest['record_status']=='example'
@@ -19322,7 +19374,7 @@ def test_r2_public_actual_plan_acquisition_capture_prepare(r2_public_handoff):
     assert context['expected_plan_sha256']==f.source.plan_digest
     with zipfile.ZipFile(f.prepared) as z:
         assert json.loads(z.read('source-inventory.json'))['evidence_profile_binding']==plan['evidence_profile_binding']
-        assert len([name for name in z.namelist() if name.startswith('sources/')])==74
+        assert len([name for name in z.namelist() if name.startswith('sources/')])== 92
 
 
 @pytest.fixture(scope='module')
@@ -19372,7 +19424,7 @@ def test_r2_public_plan_binds_exact_obligations_without_changing_mapping(r2_publ
     assert actual==expected
     assert p.plan['evidence_profile_binding']['role_obligations']==R2_CONTRACT_ROLES
     assert p.plan['evidence_profile_binding']==p.diagnostic['evidence_profile_binding']
-    assert len(p.plan['source_inventory'])==74
+    assert len(p.plan['source_inventory'])== 92
     assert all(row['revision']==p.f.sha and 'revision_kind' not in row for row in p.plan['source_inventory'])
 
 
@@ -19542,11 +19594,11 @@ def test_pre_acquisition_lock_public_source_closure(module):
     assert module.ATTESTATION_LOCK_PATH == path
     assert [row for row in module.PUBLIC_R2_SOURCE_ROLES if row[1] == path] == [
         ('attestation_dependency_lock', path)]
-    assert len(module.PUBLIC_R2_SOURCE_ROLES) == 74
-    assert len({role for role, _ in module.PUBLIC_R2_SOURCE_ROLES}) == 74
-    assert len({path for _, path in module.PUBLIC_R2_SOURCE_ROLES}) == 74
+    assert len(module.PUBLIC_R2_SOURCE_ROLES) == 92
+    assert len({role for role, _ in module.PUBLIC_R2_SOURCE_ROLES}) == 92
+    assert len({path for _, path in module.PUBLIC_R2_SOURCE_ROLES}) == 92
     assert len(module.SOURCE_ROLES) == 60
-    assert len(module._LOCAL_R2_SOURCE_ROLES) == 69
+    assert len(module._LOCAL_R2_SOURCE_ROLES) == 87
     assert all(p != path for _, p in module._LOCAL_R2_SOURCE_ROLES)
     raw = (ROOT / path).read_bytes()
     assert module._sha1_git_blob(raw) == module.EXPECTED_ATTESTATION_LOCK_BLOB_SHA1

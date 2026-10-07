@@ -1194,11 +1194,6 @@ UNSUPPORTED_REASONS: dict[str, str] = {
         "PSF PII-monotonicity evaluation is unavailable in this release path. "
         "Assertion-only reference PASS is insufficient evidence."
     ),
-    "q2_consistency_ok": (
-        "q2_consistency_ok: substantive "
-        "Q2 agreement-group and Wilson-bound evaluation is unavailable in this release path. "
-        "Assertion-only reference PASS is insufficient evidence."
-    ),
     "q3_fairness_ok": (
         "q3_fairness_ok: substantive "
         "Q3 slice-coverage and disparity evaluation is unavailable in this release path. "
@@ -1345,7 +1340,7 @@ def run_recipe(
     stderr = ""
 
     if not diagnostics:
-        environment = os.environ.copy()
+        environment = {k: v for k, v in os.environ.items() if not k.startswith("PULSE_Q2_")}
 
         environment.update(
             {
@@ -1631,6 +1626,56 @@ def unsupported_check(
     return check, diagnostics, []
 
 
+
+def run_q2(ctx: Context, refs: dict[str, dict[str, Any]], environment=None):
+    """Dedicated intake: valid negative and unavailable input have distinct checks."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import q2_intake_io_v0 as q2_io
+    import load_q2_release_intake_v0 as q2_loader
+
+    errors: list[str] = []
+    output = safe_output(ctx.repo, Path(q2_io.PUBLIC_RESULT), errors)
+    record = None
+    try:
+        if output is None or errors:
+            raise q2_io.IntakeError("q2_public_record_rejected")
+        if output.exists() or output.is_symlink():
+            if output.is_symlink() or not output.is_file():
+                raise q2_io.IntakeError("q2_public_record_rejected")
+            output.unlink()
+        record = q2_loader.consume(ctx.repo, consumer="producer", environment=environment)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        q2_io.write_new(output, q2_io.encode(record))
+        add_ref(refs, ctx.repo, output, "q2_intake_metadata", "q2_release_intake_result_v0", errors)
+        for relative in q2_io.SOURCE_PATHS:
+            path = canonical_file(ctx.repo, relative, "Q2 source", errors)
+            if path is not None:
+                # build_result already binds this file as the evaluation tool.
+                # Recheck its exact bytes without changing that reference kind.
+                kind = "evaluation_tool" if relative == TOOL_PATH else "q2_intake_source"
+                add_ref(refs, ctx.repo, path, kind, None, errors)
+    except Exception as exc:
+        errors = [exc.code if isinstance(exc, q2_io.IntakeError) else "q2_internal_error"]
+    if errors:
+        errors = ["q2_public_record_rejected"] if record is not None else errors
+    valid = record is not None and record["input_valid"] is True and not errors
+    metric = record["metric_pass"] if valid else None
+    diagnostic = list(record["diagnostics"]) if record is not None and not errors else errors
+    diagnostic = diagnostic or ([] if metric is True else ["q2_input_unavailable"])
+    evidence = sorted(refs)
+    contract = {"check_id": "pulse.required.q2_consistency_ok.intake.v0", "kind": "contract",
+                "passed": valid, "exit_code": 0 if valid else 2,
+                "details": "Exact private capture/capsule and unchanged summary replay; release host remains unobserved.",
+                "command": ["internal", "q2-archived-intake-v0"], "evidence_paths": evidence,
+                "diagnostics": [] if valid else diagnostic}
+    metric_check = {"check_id": "pulse.required.q2_consistency_ok.metric.v0", "kind": "metric",
+                    "passed": metric is True, "exit_code": (0 if metric is True else 1) if valid else None,
+                    "details": "Original Q2 agreement groups and Wilson threshold; no new inference.",
+                    "command": ["internal", "q2-unchanged-reducer-and-checker"], "evidence_paths": evidence,
+                    "diagnostics": [] if metric is True else diagnostic}
+    return [contract, metric_check], diagnostic, []
+
+
 def identity(
     errors: list[str],
 ) -> tuple[
@@ -1710,6 +1755,12 @@ def build_result(
     list[str],
     bool,
 ]:
+    # Only the dedicated Q2 transport receives this private context. Remove it
+    # before any schema validation or public result formatting in this process.
+    q2_environment = dict(os.environ)
+    for name in tuple(os.environ):
+        if name.startswith("PULSE_Q2_"):
+            os.environ.pop(name, None)
     errors: list[str] = []
 
     if not GATE_ID_RE.fullmatch(gate_id):
@@ -1998,27 +2049,16 @@ def build_result(
     if ref_errors:
         return None, ref_errors, False
 
-    if gate_id in RECIPES:
-        check, diagnostics, warnings = (
-            run_recipe(
-                ctx,
-                RECIPES[gate_id],
-                refs,
-            )
-        )
-
+    if gate_id == "q2_consistency_ok":
+        checks, diagnostics, warnings = run_q2(ctx, refs, q2_environment)
+    elif gate_id in RECIPES:
+        check, diagnostics, warnings = run_recipe(ctx, RECIPES[gate_id], refs)
+        checks = [check]
     else:
-        check, diagnostics, warnings = (
-            unsupported_check(
-                ctx,
-                refs,
-            )
-        )
+        check, diagnostics, warnings = unsupported_check(ctx, refs)
+        checks = [check]
 
-    passed = (
-        check["passed"] is True
-        and not diagnostics
-    )
+    passed = all(check["passed"] is True for check in checks) and not diagnostics
 
     payload = {
         "schema_version": RESULT_SCHEMA,
@@ -2067,7 +2107,7 @@ def build_result(
             refs[key]
             for key in sorted(refs)
         ],
-        "checks": [check],
+        "checks": checks,
         "diagnostics": diagnostics,
         "warnings": warnings,
         "authority_boundary": {
@@ -2232,6 +2272,8 @@ def main(
             "see recorded diagnostics.",
             file=sys.stderr,
         )
+        if args.gate_id == "q2_consistency_ok" and not payload["checks"][0]["passed"]:
+            return 2
         return 1
 
     print(

@@ -1,0 +1,290 @@
+{
+  "record_type": "q2_reference_release_intake_profile_v0",
+  "profile_id": "q2_reference_release_intake_v0",
+  "record_status": "archived_capture_intake",
+  "capture_expectation": {
+    "repository": "HKati/pulse-release-gates-0.1",
+    "run_id": "37600313529",
+    "run_attempt": 1,
+    "source_commit": "fb7b247e24f18c5314fd44f7711bd49e15020364",
+    "artifact_id": 11472726606,
+    "archive_size_bytes": 1809263,
+    "archive_sha256": "88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6",
+    "subject_size_bytes": 4851,
+    "subject_sha256": "ae5f9994c2ad2d59dba57f28b194aae3b9951adc3ef9a4e220af0db80b55ae29"
+  },
+  "selection": {
+    "path": "PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json",
+    "sha256": "e81a9dd0a5080d84dae8c4bbfc843b46510f580e74254c1aed0dddbe76375f3e",
+    "selection_id": "pulsemech.q2.field-extractor.smollm2-135m.v0"
+  },
+  "subject_id": "pulsemech-q2-field-extractor-v0",
+  "definition_sha256": "688773b81fcf4f105b8770bc2dde9a68baf78aa76224e5c544cd0656109b07a5",
+  "comparison_profile": "q2_exact_payload_and_launch_v0",
+  "layout_profile": "q2_subject_capsule_v0",
+  "native_verification_mode": "archived_native_evidence_only",
+  "reduction_profile": "q2_archived_python311_unicode14_v0",
+  "replay_environment": {
+    "implementation": "CPython",
+    "python": [
+      3,
+      11,
+      16
+    ],
+    "unicode": "14.0.0"
+  },
+  "capture_members": 658,
+  "capture_expanded_bytes": 5887691,
+  "capture_file_bindings": {
+    "capture.json": {
+      "sha256": "598f5dfc14876be1d178b29e9be5c493dcbabff9ae684ba77339a29bdac9a840",
+      "size_bytes": 85528
+    },
+    "capture-prelaunch.json": {
+      "sha256": "31fe6d3ab36f682568efdf85ee4bfdf4d6deece3e86bbfe7dfd78a79774715ef",
+      "size_bytes": 31518
+    },
+    "capture-subject.json": {
+      "sha256": "ae5f9994c2ad2d59dba57f28b194aae3b9951adc3ef9a4e220af0db80b55ae29",
+      "size_bytes": 4851
+    },
+    "installation.json": {
+      "sha256": "166e157af42124a18879e924787a241596f27aa9d6f005e5600d78556571d93b",
+      "size_bytes": 3426025
+    },
+    "capture-check.json": {
+      "sha256": "28b5237f813144a1c196def552a81f7adb8e9f01cba31aa6e09e3774b66596d0",
+      "size_bytes": 809
+    },
+    "summary-check.json": {
+      "sha256": "2c0d1366ea4533bc327eff68dfaded1a09a265b1e1d357d865c7d8e04730161c",
+      "size_bytes": 102
+    },
+    "summary.json": {
+      "sha256": "8360ba21581ad83585be23a999f5aacef4ad4a6780ae16c259b7d0597ab85974",
+      "size_bytes": 5908
+    },
+    "reduction.json": {
+      "sha256": "88317f5984532394fcc1a0baa4330b1702e820a91daaf3bbd1291a86b02827c0",
+      "size_bytes": 417
+    },
+    "handoff.json": {
+      "sha256": "978726cce0470f98a3c6e7469ce9f265f08519b91255430f9bd9e03183105f36",
+      "size_bytes": 634
+    },
+    "groups.json": {
+      "sha256": "d94ce8527f687b3f8bdc8c74034e63aeafe5e36c97326ce953e3cb1ff0c73ddf",
+      "size_bytes": 17172
+    },
+    "dataset-manifest.json": {
+      "sha256": "3fa4a8a411f2416d75dafe38c50f0a936826b0df161d560645ebc69f78a438a1",
+      "size_bytes": 666
+    },
+    "transcript.json": {
+      "sha256": "ac883c56f67dbad3fe5ba0287992ab57376cbf833f0431f5944502632b96df27",
+      "size_bytes": 177944
+    },
+    "capture-model-ready.json": {
+      "sha256": "b2051423c6523814d2ef7ad820a551454cb7b04eaf2862de7639b5bcf33812d0",
+      "size_bytes": 2126
+    }
+  },
+  "archived_source_files": [
+    {
+      "path": ".github/workflows/q2_reference_acquisition_v0.yml",
+      "sha256": "7f9d8e66d981db7c672189d6b61b54531bebeb87d128fbf2a37cc6866a23a1de",
+      "size": 12248
+    },
+    {
+      "path": "PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json",
+      "sha256": "fa0412c6a702e220e5d0c8b09a5e854fe35ac89d4801977eeee0f2a6e5cae997",
+      "size": 100468
+    },
+    {
+      "path": "PULSE_safe_pack_v0/examples/q2_runtime_preparation_v0/run_37148637546/preparation.json",
+      "sha256": "832b3626e846c96e5d65052ea54c966aabf0ed5f3976ecc5d3b4a3ced006ef4f",
+      "size": 29638
+    },
+    {
+      "path": "PULSE_safe_pack_v0/examples/q2_runtime_preparation_v0/run_37148637546/q2-runtime-preparation-check.json",
+      "sha256": "8676b29834f376b44f08f96b19d60d1ab79a9f565167aabd25513cf8694037e3",
+      "size": 653
+    },
+    {
+      "path": "PULSE_safe_pack_v0/examples/q2_runtime_preparation_v0/run_37148637546/q2_reference_model_files_v0.json",
+      "sha256": "b91289806a62957e2613f21afa950d4bf48b917074fde16d3e94681764d74078",
+      "size": 2465
+    },
+    {
+      "path": "PULSE_safe_pack_v0/examples/q2_runtime_preparation_v0/run_37148637546/requirements-q2-reference-v0.lock",
+      "sha256": "60cec54ed62df95b299cdeaf386afc7ed0b72f4fb7ec466cf82905bb40168d0f",
+      "size": 2986
+    },
+    {
+      "path": "PULSE_safe_pack_v0/profiles/q2_reference_diagnostic_v0.json",
+      "sha256": "f9f7fec1dbb5970788df21bd5bc9c51467b9f3d6d5752802528fb5795cd7768b",
+      "size": 876
+    },
+    {
+      "path": "PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json",
+      "sha256": "7df82db50a623326e12c333b69e5ef621c169bdddc663425fd8ed8e4be307de2",
+      "size": 4454
+    },
+    {
+      "path": "PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json",
+      "sha256": "e81a9dd0a5080d84dae8c4bbfc843b46510f580e74254c1aed0dddbe76375f3e",
+      "size": 10284
+    },
+    {
+      "path": "PULSE_safe_pack_v0/requirements-q2-reference-v0.lock",
+      "sha256": "b5933b3e6867357ab906fe87b92eed9450a30687f3617ac9e3bd9501ae28a8de",
+      "size": 2986
+    },
+    {
+      "path": "PULSE_safe_pack_v0/tools/acquire_q2_reference_inputs_v0.py",
+      "sha256": "8ba3bc7fbd922883f9db64ba53301603e8846bd4d2015f1ba5dfcf28e1d7a2da",
+      "size": 60203
+    },
+    {
+      "path": "PULSE_safe_pack_v0/tools/build_q2_reference_summary.py",
+      "sha256": "a67c4b0727dbe9b226299a8f192be394096c5e4b6b139e206b3e01990c343430",
+      "size": 12862
+    },
+    {
+      "path": "PULSE_safe_pack_v0/tools/check_q2_reference_capture_v0.py",
+      "sha256": "4264684325e511af668a3b4062336060dbbc07715cfd186dcc000655015b513f",
+      "size": 52947
+    },
+    {
+      "path": "PULSE_safe_pack_v0/tools/check_q2_reference_qualification_v0.py",
+      "sha256": "25a09b19baae853344e2e656c261267dda8514c484f8477e59d1b60897bf34cc",
+      "size": 43658
+    },
+    {
+      "path": "PULSE_safe_pack_v0/tools/check_q2_reference_summary.py",
+      "sha256": "9838f604c8221ebf16ff8ec34874c2efa66df35e8df496e60ea1e8b4f87358e9",
+      "size": 12167
+    },
+    {
+      "path": "PULSE_safe_pack_v0/tools/qualify_q2_reference_runtime_v0.py",
+      "sha256": "5f1e05de390353f569a1fbba05a09e462f3a1587c3b2ad5de09c3e564e2554bf",
+      "size": 59835
+    },
+    {
+      "path": "PULSE_safe_pack_v0/tools/run_q2_reference_subject_v0.py",
+      "sha256": "37c932272da1579c3e1bf821fb5bde671ae756ede99aceb7deac58c85ee4b172",
+      "size": 26255
+    },
+    {
+      "path": "metrics/specs/q2_consistency_v0.yml",
+      "sha256": "bab4249805bf00099e95d5fc638d07a9537bd5b90195a54b3e4f88c192744ad4",
+      "size": 4097
+    },
+    {
+      "path": "schemas/dataset_manifest.schema.json",
+      "sha256": "7bd729958c65dfde432925a4d3fccbd50c846cca19c891411ed085166ecdfead",
+      "size": 5711
+    },
+    {
+      "path": "schemas/metrics/q2_consistency_input_v0.schema.json",
+      "sha256": "2c09f7c16bada21f48a13faf518f9b8e06a19fffe7fbd05ad40e01108138a969",
+      "size": 4147
+    },
+    {
+      "path": "schemas/metrics/q2_consistency_summary_v0.schema.json",
+      "sha256": "3a6bb2b6bf4bdd29101899a92b9f7c7bd65c763af5263fbced211eb7db1f8eac",
+      "size": 7789
+    },
+    {
+      "path": "schemas/metrics/q2_reference_capture_v0.schema.json",
+      "sha256": "aacc545f84f03c5d3f3257c8c0af72bb90f17d50518628235a5a55a2b0109f41",
+      "size": 29997
+    },
+    {
+      "path": "schemas/metrics/q2_reference_qualification_v0.schema.json",
+      "sha256": "79ad8518de0a1f013da498b6c6988a4fb017af65fd2c97efdf9be5f2e6acdbdf",
+      "size": 5225
+    }
+  ],
+  "replay_sources": {
+    "PULSE_safe_pack_v0/tools/build_q2_reference_summary.py": "a67c4b0727dbe9b226299a8f192be394096c5e4b6b139e206b3e01990c343430",
+    "PULSE_safe_pack_v0/tools/check_q2_reference_summary.py": "9838f604c8221ebf16ff8ec34874c2efa66df35e8df496e60ea1e8b4f87358e9",
+    "metrics/specs/q2_consistency_v0.yml": "bab4249805bf00099e95d5fc638d07a9537bd5b90195a54b3e4f88c192744ad4",
+    "schemas/dataset_manifest.schema.json": "7bd729958c65dfde432925a4d3fccbd50c846cca19c891411ed085166ecdfead",
+    "schemas/metrics/q2_consistency_input_v0.schema.json": "2c09f7c16bada21f48a13faf518f9b8e06a19fffe7fbd05ad40e01108138a969",
+    "schemas/metrics/q2_consistency_summary_v0.schema.json": "3a6bb2b6bf4bdd29101899a92b9f7c7bd65c763af5263fbced211eb7db1f8eac"
+  },
+  "source_components": [
+    "PULSE_safe_pack_v0/tools/run_q2_reference_subject_v0.py",
+    "PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json",
+    "PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json",
+    "PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json"
+  ],
+  "source_archive_mode": 384,
+  "model_capsule_mode": 420,
+  "mode_scope": "Runtime modes reproduce the installed inventory. Source mode preserves the archived source copies; model mode is an explicit capsule packaging requirement, not a measurement of a future host.",
+  "runtime_regular_files": 18485,
+  "runtime_links": [
+    {
+      "path": "lib64",
+      "symlink": "lib"
+    }
+  ],
+  "effective_generation_fields": 67,
+  "launch": {
+    "profile": "q2_reference_worker_launch_v0",
+    "wrapper": "none",
+    "argv_template": [
+      "runtime/bin/python",
+      "-I",
+      "-B",
+      "source/PULSE_safe_pack_v0/tools/run_q2_reference_subject_v0.py",
+      "--source-root",
+      "source",
+      "--bundle",
+      ".",
+      "--prelaunch",
+      "{prelaunch}",
+      "--expected-prelaunch-sha256",
+      "{prelaunch_sha256}",
+      "--mode",
+      "capture-reference",
+      "--subject",
+      "{subject_record}"
+    ],
+    "stdin_protocol": "bound_subject_then_ordered_GO_slots",
+    "working_directory": "private_capture_worker",
+    "execution_claim": "descriptor_only_not_executed"
+  },
+  "platform_requirement_keys": [
+    "python",
+    "bootstrap_python_sha256",
+    "os",
+    "architecture",
+    "runner_image",
+    "kernel",
+    "libc"
+  ],
+  "limits": {
+    "request_bytes": 16384,
+    "seconds": 240,
+    "capture_member_bytes": 4194304,
+    "capture_expanded_bytes": 8388608,
+    "capsule_archive_bytes": 2147483648,
+    "capsule_member_bytes": 1073741824,
+    "capsule_expanded_bytes": 1610612736,
+    "capsule_members": 20000
+  },
+  "authorization": {
+    "repository": "HKati/pulse-release-gates-0.1",
+    "actor": "HKati",
+    "event": "workflow_dispatch",
+    "workflow": ".github/workflows/pulse_ci.yml",
+    "ref": "refs/heads/main",
+    "run_attempt": 1
+  },
+  "release_capsule_present": false,
+  "release_artifact_digest": null,
+  "authority_effect": "none",
+  "current_inference_count": 0
+}

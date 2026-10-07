@@ -1,6 +1,38 @@
 # Step 5C reference readiness and first Q2 reduction unit
 
-## Status and inspected source
+## Current hosted Q2 integration status
+
+The coordinated implementation continues from main
+`288bb9a45764d2a30f72fdf4c417e9dd5b3087c5`, tree
+`50017e5bde2b95f75536db7e478c6e41b89ec1c3`, with 1,452 baseline files.
+The dedicated Q2 intake and independent candidate admission are implemented
+inside the existing required-gate path. The current partition is six generic
+recipes, one dedicated Q2 path and twelve unsupported requirements. The
+[archived intake contract](PULSEMECH_Q2_ARCHIVED_INTAKE_CONTRACT_v0.md) defines
+private IO, exact release-capsule comparison, current-run authorization,
+unchanged replay and the closed public result.
+
+The existing repository-hygiene Python guard also recognizes the exact
+3.11.16 patch in the single setup step of the PULSE job. Its acquisition rule
+and every other workflow/job declaration retain their previous requirements.
+This necessary existing-workflow dependency and the additional exact-count
+test consumer extend the reviewed 37-file inventory to 39 files; neither
+adds a workflow job or step. The actual guard runs over all repository
+workflows in the offline regressions.
+
+The original capture remains run `37600313529`, attempt `1`, executed source
+`fb7b247e24f18c5314fd44f7711bd49e15020364`, artifact `11472726606`:
+150 calls, 49 CONSISTENT, 0 INCONSISTENT, 1 UNKNOWN; 49 eligible groups against
+50 required, hence correctly checked FAIL. Its identities, input bytes,
+threshold and reports are unchanged. A real release capsule is not supplied.
+The implementation and synthetic controls do not establish that missing
+operational input, a production subject match, hosted execution or Step 5C
+readiness. #2879 remains open.
+
+The following earlier reduction-unit baseline is retained as historical context.
+Its original commit and file count are not execution identities of this change.
+
+## Historical reduction-unit status and inspected source
 
 This document continues work order
 [#2879](https://github.com/HKati/pulse-release-gates-0.1/issues/2879) after merged
@@ -22,11 +54,11 @@ These are baseline identities, not the identity of the later commit that adds
 this document and the Q2 implementation. A running Dependabot branch is not the
 source of this unit. The old correction is not reopened.
 
-**This unit supplies non-active Q2 reference reduction and a separate Q2
-recomputation checker. It does not register a Q2 release recipe, remove an
-unsupported gate, or make a successful Step 5C reference dispatch ready.**
+**The initial unit supplied non-active Q2 reduction and a separate checker.
+The dedicated current intake is described above; neither unit makes a
+successful Step 5C reference dispatch ready.**
 
-The baseline state is executable in the unchanged
+The current state is executable in the coordinated
 [dispatcher](../../PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py) and
 [candidate admission](../../PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py).
 All 19 requirements and four `release_required` obligations remain in the
@@ -41,8 +73,8 @@ skipped job, and the declared downstream artifact roles. The acquisition path
 requires the selected PULSE CI subject to complete successfully before the
 Step 3F export proceeds.
 
-The 13 unsupported requirements still reject at both evaluation and candidate
-admission. Preserving hosted evidence before that rejection does not create the
+The twelve unsupported requirements still reject at evaluation and candidate
+admission. Q2 separately rejects invalid intake or a valid negative metric. Preserving hosted evidence before that rejection does not create the
 later executions or artifacts required by the successful-reference profile.
 
 Consequently, the following are different results:
@@ -84,7 +116,7 @@ checks supplied assertion records; it does not recompute these properties.
 | `psf_idempotence_ok` | Idempotence invariant holds for the test suite. | Requires identified repeated applications and a bound equivalence rule for their outputs. Neither a display flag nor the general mathematical identity supplies the execution evidence. | Unsupported; unchanged. |
 | `psf_path_independence_ok` | Path-independence invariant holds for the test suite. | Requires predeclared alternative paths, common endpoint/comparison domain and admissible executions. Do not delete unobserved paths to obtain completeness. | Unsupported; unchanged. |
 | `psf_pii_monotonicity_ok` | PII monotonicity constraint holds for the test suite. | Requires a declared PII representation/order and admissible transformations, without inferring sensitive attributes. The gate intent is not a complete replacement protocol. | Unsupported; unchanged. |
-| `q2_consistency_ok` | Consistency passes under the defined evaluation protocol. | The existing Q2 specification defines agreement groups, normalization, exact comparison, Wilson lower-bound gating and minimum eligible-group evidence. This unit implements reduction and separate recomputation on a narrowly typed archived-record profile. Admissible release input selection and current-run admission remain unimplemented. | Non-active reducer/checker added; production gate remains unsupported. |
+| `q2_consistency_ok` | Consistency passes under the defined evaluation protocol. | The existing Q2 specification defines agreement groups, normalization, exact comparison, Wilson lower-bound gating and minimum eligible-group evidence. The unchanged reducer/checker now have dedicated private intake, exact capsule comparison and independently reacquiring admission. The real capsule is still missing; the original metric remains FAIL. | Dedicated Q2 path; invalid inputs or valid FAIL reject. No generic recipe or successful release binding is claimed. |
 | `q3_fairness_ok` | Fairness criteria pass under the defined evaluation protocol. | The existing Q3 specification defines marginal declared slices, Q1 labels, coverage limits and conservative disparity. No corresponding selected release recipe exists. It needs its own input contract and substantive calculation; it is not folded into Q2. | Unsupported; unchanged. |
 
 This is an availability conclusion about the inspected route, not a claim that

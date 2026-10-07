@@ -1754,7 +1754,7 @@ _D3_SOURCE_PINS = (
     ("pulse_gate_policy_v0.yml", "a311b424ad0f6c028b9c37b18572e7a09c721cdd"),
     ("PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py", "a86aef9f2f5ccc6bb95997ee93eb6f9f95a8b85d"),
     ("PULSE_safe_pack_v0/tools/check_gates.py", "2a593bdef31c9c8cb565b1c4ca3d16a1e3093735"),
-    (".github/workflows/pulse_ci.yml", "d46ec426962a3cc9dc23c560bf87b2f2a6a74945"),
+    (".github/workflows/pulse_ci.yml", "19a8855241cad29b8abfcb9d1e77f88810021be4"),
 )
 _D3_R9 = "execution:step5c:step:release_grade_recorded_path:009"
 _D3_R12 = "execution:step5c:step:release_grade_recorded_path:012"
@@ -2268,7 +2268,7 @@ def _require_timing_projection(
 # Independently encoded D6 selector for the already-pinned workflow. Source
 # oracle regressions compare this recipe to the original YAML, not the capture
 # helper. An action result is never the signed receipt it may have produced.
-_D6_WORKFLOW_BLOB = "d46ec426962a3cc9dc23c560bf87b2f2a6a74945"
+_D6_WORKFLOW_BLOB = "19a8855241cad29b8abfcb9d1e77f88810021be4"
 _D6_ACTION_COMMIT = "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"
 _D6_JOB = "attest_release_grade_artifact_binding"
 _D6_JOB_NAME = "Release-grade artifact binding v0: attest"
@@ -4576,6 +4576,9 @@ def reconstruct(
     handoff_paths = (prepared_path, capture_path, expected_context_path, expected_plan_digest_path)
     input_snapshot = _public_r2_file_snapshots(handoff_paths)
     plan, _prepared_members, _prepared_raw = read_prepared(prepared_path, source_commit=source_commit, expected_digest=expected_digest, record_status=record_status, schema=schema)
+    for field in ("q2_intake_request", "q2_intake_request_sha256"):
+        require(expected_context.get(field) == plan["subject_dispatch"]["inputs"][field],
+                "q2_expected_context_mismatch", stage="context")
     verify_source_inventory(root, source_commit, plan)
     _recheck_public_plan(root, source_commit, _prepared_members[PREPARED_PLAN_MEMBER],
                          _prepared_members[PREPARED_DIAGNOSTIC_MEMBER], record_status)
@@ -7310,7 +7313,7 @@ _LOCAL_R2_RECORDED_INPUT_SOURCES = (
     ('PULSE_safe_pack_v0/tools/build_release_evidence_input_manifest_v0.py', '95b457754514c0dea7ede27cd8b3204cf26f0a01'),
     ('PULSE_safe_pack_v0/tools/check_release_evidence_input_manifest_v0.py', 'd373d493d3112b469efaba15bbd66e0e1c238b08'),
     ('PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py', '7fa6539f614d3d30bb603c523889f38bf4c012c1'),
-    ('PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py', '01cce14e23923a6e83f0576849a3c43b4325cc42'),
+    ('PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py', 'eea0efcd8cca0ba4a27cf8d419a5cfe5befbe5e2'),
     ('schemas/required_gate_evidence_v0.schema.json', '25faa66e69e3b4292f0f12ae10bf4b68177b253a'),
     ('schemas/status/status_v1.schema.json', '37b14b5d8766c803f41e0567e325a6ed1964a72f'),
     ('schemas/recorded_release_candidate_envelope_v0.schema.json', 'ca7e6542f2f24f761fd2b57f8bebc82eaba68f28'),
@@ -7608,7 +7611,7 @@ def _verify_local_r2_recorded_inputs_assessment(assessment_raw, capture_raw, pre
 # R2C12: source-bound LlamaGuard controlled-record and canonical-summary content.
 # This is not a model invocation, attestation verification or role admission.
 _LOCAL_R2_LLAMAGUARD_CONTENT_SOURCES = (
-    ('.github/workflows/pulse_ci.yml', 'd46ec426962a3cc9dc23c560bf87b2f2a6a74945'),
+    ('.github/workflows/pulse_ci.yml', '19a8855241cad29b8abfcb9d1e77f88810021be4'),
     ('PULSE_safe_pack_v0/tools/run_llamaguard_current_evidence_v0.py', '058edf0d16383db41a5a4500caf4b484321d2e57'),
     ('PULSE_safe_pack_v0/tools/adapters/llamaguard_ingest.py', 'b1416fb3675a3d4bb652eaa993ed14a51a96f9c2'),
     ('PULSE_safe_pack_v0/examples/llamaguard_current_run_cases_v0.jsonl', '3b6ca799f26c7374334c51c5c9c8ea26b35cf857'),

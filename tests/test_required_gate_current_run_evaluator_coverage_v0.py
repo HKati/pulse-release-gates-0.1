@@ -2,7 +2,7 @@
 """Lock complete required-gate availability and fail-closed classification.
 
 All 19 canonical requirements retain their plan entries. The six existing
-recipes and 13 explicit unsupported entries form a complete, disjoint partition.
+recipes, one dedicated Q2 intake and 12 explicit unsupported entries form a complete, disjoint partition.
 A recipe backed only by recorded PASS assertions is not an admissible evaluator.
 CLI rejection and independent candidate admission are exercised in the existing
 release-grade candidate evidence-path suite; no requirement is dropped here.
@@ -51,7 +51,6 @@ UNSUPPORTED_GATE_IDS = {
     "psf_monotonicity_ok",
     "psf_path_independence_ok",
     "psf_pii_monotonicity_ok",
-    "q2_consistency_ok",
     "q3_fairness_ok",
     "sanit_shift_resilient",
 }
@@ -187,9 +186,10 @@ def test_every_required_gate_has_explicit_disjoint_classification() -> None:
     }
     assert set(unsupported_reasons) == UNSUPPORTED_GATE_IDS
     assert not (set(recipes) & set(unsupported_reasons))
-    assert set(recipes) | set(unsupported_reasons) == required, (
+    assert set(recipes) | set(unsupported_reasons) | {"q2_consistency_ok"} == required, (
         "every policy requirement needs exactly one availability disposition"
     )
+    assert callable(module.run_q2) and "q2_consistency_ok" not in recipes
     for gate, reason in unsupported_reasons.items():
         assert isinstance(reason, str) and gate in reason
         assert "insufficient evidence" in reason
@@ -209,7 +209,7 @@ def test_required_gate_recipes_are_checked_in_and_non_symlinked() -> None:
     recipes = getattr(module, "RECIPES", {})
 
     for gate_id in required:
-        if gate_id in module.UNSUPPORTED_REASONS:
+        if gate_id in module.UNSUPPORTED_REASONS or gate_id == "q2_consistency_ok":
             assert gate_id not in recipes
             continue
         recipe = recipes.get(gate_id)

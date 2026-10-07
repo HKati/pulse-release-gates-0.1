@@ -1,0 +1,702 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_status",
+    "input_valid",
+    "metric_pass",
+    "process_exit",
+    "diagnostics",
+    "checks",
+    "cleanup",
+    "request_sha256",
+    "evaluation_binding",
+    "capture_origin",
+    "release_artifact",
+    "metrics",
+    "replay_environment",
+    "source_bindings",
+    "comparison_scope",
+    "release_host_environment",
+    "native_verification",
+    "current_inference_count",
+    "authority_effect",
+    "production_gate_eligible"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "q2_release_intake_result_v0"
+    },
+    "record_status": {
+      "enum": [
+        "archived_capture_intake",
+        "synthetic_fixture"
+      ]
+    },
+    "input_valid": {
+      "type": "boolean"
+    },
+    "metric_pass": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "process_exit": {
+      "enum": [
+        0,
+        1,
+        2
+      ]
+    },
+    "diagnostics": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 16,
+      "items": {
+        "enum": [
+          "q2_admission_rejected",
+          "q2_archive_limit",
+          "q2_archive_rejected",
+          "q2_capture_rejected",
+          "q2_cleanup_failed",
+          "q2_context_rejected",
+          "q2_credential_missing",
+          "q2_digest_mismatch",
+          "q2_file_rejected",
+          "q2_input_unavailable",
+          "q2_internal_error",
+          "q2_json_rejected",
+          "q2_metric_failed",
+          "q2_min_eligible_groups_not_met",
+          "q2_public_record_rejected",
+          "q2_replay_environment",
+          "q2_replay_rejected",
+          "q2_request_digest_mismatch",
+          "q2_request_invalid",
+          "q2_request_missing",
+          "q2_schema_rejected",
+          "q2_selection_mismatch",
+          "q2_source_mismatch",
+          "q2_subject_mismatch",
+          "q2_summary_mismatch",
+          "q2_timeout",
+          "q2_transport_rejected",
+          "q2_unstable_input"
+        ]
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request",
+        "capture",
+        "subject",
+        "replay",
+        "summary"
+      ],
+      "properties": {
+        "request": {
+          "type": "boolean"
+        },
+        "capture": {
+          "type": "boolean"
+        },
+        "subject": {
+          "type": "boolean"
+        },
+        "replay": {
+          "type": "boolean"
+        },
+        "summary": {
+          "type": "boolean"
+        }
+      }
+    },
+    "cleanup": {
+      "enum": [
+        "not_created",
+        "verified_removed",
+        "not_established"
+      ]
+    },
+    "request_sha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evaluation_binding": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repository",
+            "source_commit",
+            "workflow",
+            "workflow_sha",
+            "ref",
+            "event",
+            "run_id",
+            "run_attempt",
+            "request_sha256"
+          ],
+          "properties": {
+            "repository": {
+              "const": "HKati/pulse-release-gates-0.1"
+            },
+            "source_commit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "workflow": {
+              "const": ".github/workflows/pulse_ci.yml"
+            },
+            "workflow_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "ref": {
+              "const": "refs/heads/main"
+            },
+            "event": {
+              "const": "workflow_dispatch"
+            },
+            "run_id": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*$",
+              "maxLength": 24
+            },
+            "run_attempt": {
+              "const": 1
+            },
+            "request_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "capture_origin": {
+      "const": {
+        "repository": "HKati/pulse-release-gates-0.1",
+        "run_id": "37600313529",
+        "run_attempt": 1,
+        "source_commit": "fb7b247e24f18c5314fd44f7711bd49e15020364",
+        "artifact_id": 11472726606,
+        "archive_size_bytes": 1809263,
+        "archive_sha256": "88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6",
+        "subject_size_bytes": 4851,
+        "subject_sha256": "ae5f9994c2ad2d59dba57f28b194aae3b9951adc3ef9a4e220af0db80b55ae29"
+      }
+    },
+    "release_artifact": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repository",
+            "artifact_id",
+            "archive_size_bytes",
+            "archive_sha256",
+            "capsule_manifest_sha256",
+            "subject_id",
+            "definition_sha256",
+            "layout_profile"
+          ],
+          "properties": {
+            "repository": {
+              "const": "HKati/pulse-release-gates-0.1"
+            },
+            "artifact_id": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "archive_size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483648
+            },
+            "archive_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "capsule_manifest_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "subject_id": {
+              "const": "pulsemech-q2-field-extractor-v0"
+            },
+            "definition_sha256": {
+              "const": "688773b81fcf4f105b8770bc2dde9a68baf78aa76224e5c544cd0656109b07a5"
+            },
+            "layout_profile": {
+              "const": "q2_subject_capsule_v0"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "metrics": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "groups_total",
+            "groups_eligible",
+            "consistent",
+            "inconsistent",
+            "unknown",
+            "responses_total",
+            "responses_eligible",
+            "wilson_lower_bound",
+            "threshold",
+            "min_n_eligible_groups"
+          ],
+          "properties": {
+            "groups_total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "groups_eligible": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "consistent": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "inconsistent": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "unknown": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "responses_total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "responses_eligible": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "wilson_lower_bound": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "threshold": {
+              "const": 0.9
+            },
+            "min_n_eligible_groups": {
+              "const": 50
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "replay_environment": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "implementation",
+            "python",
+            "unicode"
+          ],
+          "properties": {
+            "implementation": {
+              "type": "string",
+              "enum": [
+                "CPython"
+              ]
+            },
+            "python": {
+              "type": "array",
+              "prefixItems": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "integer"
+                }
+              ],
+              "items": false,
+              "minItems": 3,
+              "maxItems": 3
+            },
+            "unicode": {
+              "type": "string",
+              "pattern": "^[0-9]+[.][0-9]+[.][0-9]+$"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "source_bindings": {
+      "type": "array",
+      "maxItems": 21,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "sha256",
+          "size_bytes"
+        ],
+        "properties": {
+          "path": {
+            "enum": [
+              "PULSE_safe_pack_v0/profiles/q2_reference_release_intake_v0.json",
+              "schemas/q2_release_intake_request_v0.schema.json",
+              "schemas/q2_release_intake_result_v0.schema.json",
+              "schemas/q2_release_subject_capsule_v0.schema.json",
+              "PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json",
+              "PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json",
+              "PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json",
+              "PULSE_safe_pack_v0/tools/build_q2_reference_summary.py",
+              "PULSE_safe_pack_v0/tools/check_q2_reference_summary.py",
+              "metrics/specs/q2_consistency_v0.yml",
+              "schemas/metrics/q2_consistency_input_v0.schema.json",
+              "schemas/metrics/q2_consistency_summary_v0.schema.json",
+              "schemas/dataset_manifest.schema.json",
+              "PULSE_safe_pack_v0/tools/q2_intake_io_v0.py",
+              "PULSE_safe_pack_v0/tools/load_q2_release_intake_v0.py",
+              "PULSE_safe_pack_v0/tools/evaluate_q2_archived_capture_v0.py",
+              "PULSE_safe_pack_v0/tools/check_q2_release_intake_v0.py",
+              "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py",
+              "PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py",
+              "PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py",
+              ".github/workflows/pulse_ci.yml"
+            ]
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "comparison_scope": {
+      "const": "exact_capsule_payload_and_launch_descriptor"
+    },
+    "release_host_environment": {
+      "const": "not_observed"
+    },
+    "native_verification": {
+      "const": "archived_evidence_only"
+    },
+    "current_inference_count": {
+      "const": 0
+    },
+    "authority_effect": {
+      "const": "none"
+    },
+    "production_gate_eligible": {
+      "const": false
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "input_valid": {
+            "const": false
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "metric_pass": {
+            "type": "null"
+          },
+          "metrics": {
+            "type": "null"
+          },
+          "process_exit": {
+            "const": 2
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "input_valid": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "metric_pass": {
+            "type": "boolean"
+          },
+          "metrics": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "groups_total",
+              "groups_eligible",
+              "consistent",
+              "inconsistent",
+              "unknown",
+              "responses_total",
+              "responses_eligible",
+              "wilson_lower_bound",
+              "threshold",
+              "min_n_eligible_groups"
+            ],
+            "properties": {
+              "groups_total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "groups_eligible": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "consistent": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "inconsistent": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "unknown": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "responses_total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "responses_eligible": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "wilson_lower_bound": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "threshold": {
+                "const": 0.9
+              },
+              "min_n_eligible_groups": {
+                "const": 50
+              }
+            }
+          },
+          "cleanup": {
+            "const": "verified_removed"
+          },
+          "checks": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "request",
+              "capture",
+              "subject",
+              "replay",
+              "summary"
+            ],
+            "properties": {
+              "request": {
+                "const": true
+              },
+              "capture": {
+                "const": true
+              },
+              "subject": {
+                "const": true
+              },
+              "replay": {
+                "const": true
+              },
+              "summary": {
+                "const": true
+              }
+            }
+          },
+          "evaluation_binding": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "repository",
+              "source_commit",
+              "workflow",
+              "workflow_sha",
+              "ref",
+              "event",
+              "run_id",
+              "run_attempt",
+              "request_sha256"
+            ],
+            "properties": {
+              "repository": {
+                "const": "HKati/pulse-release-gates-0.1"
+              },
+              "source_commit": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "workflow": {
+                "const": ".github/workflows/pulse_ci.yml"
+              },
+              "workflow_sha": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "ref": {
+                "const": "refs/heads/main"
+              },
+              "event": {
+                "const": "workflow_dispatch"
+              },
+              "run_id": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*$",
+                "maxLength": 24
+              },
+              "run_attempt": {
+                "const": 1
+              },
+              "request_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          },
+          "release_artifact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "repository",
+              "artifact_id",
+              "archive_size_bytes",
+              "archive_sha256",
+              "capsule_manifest_sha256",
+              "subject_id",
+              "definition_sha256",
+              "layout_profile"
+            ],
+            "properties": {
+              "repository": {
+                "const": "HKati/pulse-release-gates-0.1"
+              },
+              "artifact_id": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "archive_size_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483648
+              },
+              "archive_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "capsule_manifest_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "subject_id": {
+                "const": "pulsemech-q2-field-extractor-v0"
+              },
+              "definition_sha256": {
+                "const": "688773b81fcf4f105b8770bc2dde9a68baf78aa76224e5c544cd0656109b07a5"
+              },
+              "layout_profile": {
+                "const": "q2_subject_capsule_v0"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "metric_pass": {
+            "const": false
+          },
+          "input_valid": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "process_exit": {
+            "const": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "metric_pass": {
+            "const": true
+          },
+          "input_valid": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "process_exit": {
+            "const": 0
+          },
+          "diagnostics": {
+            "maxItems": 0
+          }
+        }
+      }
+    }
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Q2 closed public intake metadata; never raw child output"
+}

@@ -855,6 +855,7 @@ def _expected_context(
     source_commit: str,
     expected_plan_sha256: str,
     record_status: str,
+    q2_inputs: Mapping[str, str],
 ) -> dict[str, Any]:
     context = _json_object(snapshot.path.read_bytes(), label="expected_context", canonical=True)
     expected_fixed = {
@@ -869,6 +870,8 @@ def _expected_context(
         "reference_run_attempt": 1,
         "collector_execution_id": "execution:step5c:collector:post-run-platform-export",
         "expected_plan_sha256": expected_plan_sha256,
+        "q2_intake_request": q2_inputs["q2_intake_request"],
+        "q2_intake_request_sha256": q2_inputs["q2_intake_request_sha256"],
         "authority_boundary": AUTHORITY_BOUNDARY,
         "errors": [],
         "ok": True,
@@ -2407,7 +2410,7 @@ _D3_SELECTOR = "tools/policy_to_require_args.py"
 _D3_CHECKER = "PULSE_safe_pack_v0/tools/check_gates.py"
 _D3_MATERIALIZER = "PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py"
 _D3_SOURCE_PINS = {
-    ".github/workflows/pulse_ci.yml": "d46ec426962a3cc9dc23c560bf87b2f2a6a74945",
+    ".github/workflows/pulse_ci.yml": "19a8855241cad29b8abfcb9d1e77f88810021be4",
     _D3_POLICY: "a311b424ad0f6c028b9c37b18572e7a09c721cdd",
     _D3_SELECTOR: "5b1d099485d0e3bfd90da3fff1213a4e949db850",
     _D3_CHECKER: "2a593bdef31c9c8cb565b1c4ca3d16a1e3093735",
@@ -2602,7 +2605,7 @@ def _validate_d3_bindings(
 
 # D6 uses the already-preserved, reviewed workflow bytes. These selectors are
 # tied to this immutable source, not a search for any successful attestation.
-_D6_WORKFLOW_BLOB = "d46ec426962a3cc9dc23c560bf87b2f2a6a74945"
+_D6_WORKFLOW_BLOB = "19a8855241cad29b8abfcb9d1e77f88810021be4"
 _D6_ACTION_COMMIT = "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"
 _D6_JOB = "attest_release_grade_artifact_binding"
 _D6_JOB_NAME = "Release-grade artifact binding v0: attest"
@@ -3162,6 +3165,7 @@ def build_capture(
         source_commit=revision,
         expected_plan_sha256=expected_plan,
         record_status=record_status,
+        q2_inputs=plan["subject_dispatch"]["inputs"],
     )
     _require(index.get("reference_context") == expected_context, "acquisition_reference_context_mismatch", stage="context")
     _require(index.get("acquisition_id") == expected_context["acquisition_id"], "acquisition_id_mismatch", stage="context")
