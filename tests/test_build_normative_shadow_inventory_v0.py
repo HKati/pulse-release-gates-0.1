@@ -751,7 +751,7 @@ def test_inventory_classifies_q2_preparation_without_authority(tmp_path: Path) -
         path.write_text("# Synthetic inventory fixture, not an implementation.\n")
     inventory = run_builder_for_repo(repo, tmp_path)
     workflow = entry_by_path(inventory, relative)
-    assert workflow["primary_role"] == "non-active Q2 preparation and native diagnostic workflow"
+    assert workflow["primary_role"] == "non-active Q2 preparation, diagnostic and selected capture workflow"
     assert workflow["carrier_class"] == "diagnostic_shadow"
     assert workflow["authority_impacting"] == "no"
     for path in (relative, "PULSE_safe_pack_v0/tools/acquire_q2_reference_inputs_v0.py",

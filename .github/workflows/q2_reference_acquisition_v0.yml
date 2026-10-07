@@ -1,20 +1,26 @@
-name: Q2 reference runtime preparation and qualification v0
+name: Q2 reference preparation, qualification and capture v0
 
 # Manual only. Preparation does not infer. Qualification permits exactly one
-# fixed unscored diagnostic after explicit retention consent; no scored capture.
+# fixed unscored diagnostic; capture has a separate explicit 150-slot consent.
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "Separate preparation or one unscored native diagnostic"
+        description: "Separate preparation, one unscored diagnostic, or the fixed 150-slot capture"
         required: true
         type: choice
         default: prepare-runtime
         options:
           - prepare-runtime
           - qualify-runtime
+          - capture-reference
       confirm_diagnostic_retention:
         description: "Authorize one unscored diagnostic and retention of original token/text records in this Actions artifact"
+        required: true
+        default: false
+        type: boolean
+      confirm_capture_retention:
+        description: "Authorize the fixed 150-call capture and retention of all original token/text records in this Actions artifact"
         required: true
         default: false
         type: boolean
@@ -45,6 +51,7 @@ jobs:
     timeout-minutes: 40
     env:
       MODE: ${{ inputs.mode }}
+      CONFIRM_CAPTURE: ${{ inputs.confirm_capture_retention }}
       CONFIRM_DIAGNOSTIC: ${{ inputs.confirm_diagnostic_retention }}
       EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
       CONFIRM_PREPARATION: ${{ inputs.confirm_preparation }}
@@ -62,10 +69,17 @@ jobs:
             prepare-runtime)
               test "$CONFIRM_PREPARATION" = true
               test "$CONFIRM_DIAGNOSTIC" = false
+              test "$CONFIRM_CAPTURE" = false
               ;;
             qualify-runtime)
               test "$CONFIRM_PREPARATION" = false
               test "$CONFIRM_DIAGNOSTIC" = true
+              test "$CONFIRM_CAPTURE" = false
+              ;;
+            capture-reference)
+              test "$CONFIRM_PREPARATION" = false
+              test "$CONFIRM_DIAGNOSTIC" = false
+              test "$CONFIRM_CAPTURE" = true
               ;;
             *) exit 1 ;;
           esac
@@ -156,7 +170,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Obtain the exact recorded runtime archive
-        if: inputs.mode == 'qualify-runtime'
+        if: inputs.mode == 'qualify-runtime' || inputs.mode == 'capture-reference'
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -216,3 +230,43 @@ jobs:
             'One fixed unscored diagnostic only. Read qualification.json and its separate checker evidence.' \
             'Failure or missing evidence is not qualification. No 150-call acquisition or Q2 gate admission.' \
             'All release requirements remain unchanged; #2879 stays open.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Capture the fixed 150-call reference and independently check extraction
+        id: capture
+        if: inputs.mode == 'capture-reference'
+        shell: bash
+        run: |
+          set -euo pipefail
+          python_bin="$(python -c 'import os,sys; print(os.path.realpath(sys.executable))')"
+          sudo --preserve-env=GITHUB_REPOSITORY,GITHUB_EVENT_NAME,GITHUB_REF,GITHUB_ACTOR,GITHUB_TRIGGERING_ACTOR,GITHUB_RUN_ATTEMPT,GITHUB_SHA,GITHUB_WORKFLOW_SHA,GITHUB_WORKFLOW_REF,GITHUB_RUN_ID,ImageOS,ImageVersion \
+            /usr/bin/timeout --signal=TERM --kill-after=180s 1200s \
+            "$python_bin" -I -B PULSE_safe_pack_v0/tools/acquire_q2_reference_inputs_v0.py \
+            capture-reference --repo-root "$GITHUB_WORKSPACE" \
+            --expected-source-sha "$EXPECTED_SOURCE_SHA" \
+            --archive "$RUNNER_TEMP/q2-recorded-runtime.zip" \
+            --output-dir "$RUNNER_TEMP/q2-reference-capture" \
+            --confirm-capture-retention
+
+      - name: Preserve original capture evidence including failures
+        if: always() && inputs.mode == 'capture-reference' && steps.capture.outcome != 'skipped'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: q2-reference-capture-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/q2-reference-capture
+          include-hidden-files: true
+          if-no-files-found: error
+          overwrite: false
+          compression-level: 6
+          retention-days: 30
+
+      - name: Record the non-authorizing capture boundary
+        if: always() && inputs.mode == 'capture-reference'
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            printf 'Fixed 150-slot capture only. Read capture.json, transcript.json, capture-check.json and reduction.json.\n'
+            printf 'Acquisition completeness, verified extraction, metric PASS/FAIL and workflow outcome are separate.\n'
+            printf 'A correct metric FAIL is retained without retry. Missing evidence is never complete capture.\n'
+            printf 'No production admission, release authority or Step 5C acceptance. Keep #2879 open.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
