@@ -135,6 +135,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   transfer does not declare correction acceptance or reference readiness.
 
 ### Added
+- docs(q2): preserve verified capture FAIL from native run `37600313529`,
+  attempt 1, without rebinding its original source. Retain five byte-exact
+  metadata reports and a separate preservation index: 150 verified calls,
+  49 eligible groups against a minimum of 50, and a correctly checked Q2 FAIL.
+  Extend the registered startup regression with closed-projection, digest-link,
+  historical-binding and rehashed-substitution checks. Keep original generated
+  text/tokens outside the repository and require the original archives for
+  full replay. No new capture, workflow, gate activation, candidate admission,
+  policy change or Step 5C acceptance; keep #2879 open.
 - Implement the separately owner-confirmed Q2 `capture-reference` path for the
   fixed 50-group/150-slot workload. Bind the actual worker/runtime/model inventory,
   externally timed per-call permissions and original token/text records; preserve
