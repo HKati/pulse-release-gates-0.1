@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulse:qrh003:admission-failure:v1",
+  "title": "Fail-closed diagnostic envelope; not an admitted runtime status",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "created_utc",
+    "gates",
+    "metrics",
+    "qrh"
+  ],
+  "properties": {
+    "version": {
+      "const": "qrh003_runtime_status_v1"
+    },
+    "created_utc": {
+      "const": null
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "qrh003_subject_bound",
+        "qrh003_scope_bound",
+        "qrh003_source_closure_verified",
+        "qrh003_build_closure_verified",
+        "qrh003_clean_builds_verified",
+        "qrh003_formal_match_verified",
+        "qrh003_axioms_verified",
+        "qrh003_execution_isolation_verified",
+        "qrh003_input_policy_binding_verified",
+        "qrh003_certificate_boundary_verified",
+        "qrh003_claim_semantics_verified",
+        "qrh003_independent_lean_review_verified",
+        "qrh003_independent_domain_review_verified"
+      ],
+      "properties": {
+        "qrh003_subject_bound": {
+          "const": false
+        },
+        "qrh003_scope_bound": {
+          "const": false
+        },
+        "qrh003_source_closure_verified": {
+          "const": false
+        },
+        "qrh003_build_closure_verified": {
+          "const": false
+        },
+        "qrh003_clean_builds_verified": {
+          "const": false
+        },
+        "qrh003_formal_match_verified": {
+          "const": false
+        },
+        "qrh003_axioms_verified": {
+          "const": false
+        },
+        "qrh003_execution_isolation_verified": {
+          "const": false
+        },
+        "qrh003_input_policy_binding_verified": {
+          "const": false
+        },
+        "qrh003_certificate_boundary_verified": {
+          "const": false
+        },
+        "qrh003_claim_semantics_verified": {
+          "const": false
+        },
+        "qrh003_independent_lean_review_verified": {
+          "const": false
+        },
+        "qrh003_independent_domain_review_verified": {
+          "const": false
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_mode",
+        "application_profile",
+        "run_key",
+        "git_sha"
+      ],
+      "properties": {
+        "run_mode": {
+          "const": "core"
+        },
+        "application_profile": {
+          "const": "openai_math_003_qrh_v0"
+        },
+        "run_key": {
+          "const": null
+        },
+        "git_sha": {
+          "const": "288bb9a45764d2a30f72fdf4c417e9dd5b3087c5"
+        }
+      }
+    },
+    "qrh": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_role",
+        "trust_domain",
+        "subject_commit",
+        "pulse_commit",
+        "profile_kind",
+        "admission_error",
+        "authority_granted_by_this_status"
+      ],
+      "properties": {
+        "record_role": {
+          "const": "admission_failure"
+        },
+        "trust_domain": {
+          "const": "UNVERIFIED"
+        },
+        "subject_commit": {
+          "const": "adc7f1241b42e322a6451854ab7e4b4c146bf78a"
+        },
+        "pulse_commit": {
+          "const": "288bb9a45764d2a30f72fdf4c417e9dd5b3087c5"
+        },
+        "profile_kind": {
+          "type": "string"
+        },
+        "admission_error": {
+          "type": "string",
+          "minLength": 1
+        },
+        "authority_granted_by_this_status": {
+          "const": false
+        }
+      }
+    }
+  }
+}

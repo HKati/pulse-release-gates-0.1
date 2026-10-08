@@ -915,6 +915,7 @@ index update neither predeclares that closure nor performs a new proof execution
 
 ### External challenge companions
 
+- [PULSEMECH_QRH003_AUDIT_REFERENCE_v0.md](PULSEMECH_QRH003_AUDIT_REFERENCE_v0.md) — **Isolated audit demonstrator.** OpenAI Math 003 source/admission/authority study, v0.1.2 observer, executable-binding and bundle-inventory corrections with 185 local fixture tests; preserved pilot `BLOCK` with `MATCH` replay. Native proof capture remains `NOT_IMPLEMENTED`.
 - [../parameter_golf_v0/README.md](../parameter_golf_v0/README.md) — Parameter Golf v0 shadow-only evidence companion.
 - [parameter_golf_submission_evidence_v0.md](parameter_golf_submission_evidence_v0.md) — Parameter Golf submission-evidence contract and reviewer receipt surface.
 

@@ -1,0 +1,196 @@
+{
+  "schema_version": "qrh003_repository_source_manifest_v1",
+  "implementation_revision": "v0.1.2",
+  "repository_path": "studies/openai_math_003_qrh_v0",
+  "inventory_scope": "All source-subset files except SOURCE_MANIFEST.json itself.",
+  "file_count_excluding_this_manifest": 37,
+  "total_bytes_excluding_this_manifest": 597582,
+  "manifest_is_authority_anchor": false,
+  "files": [
+    {
+      "path": "EVIDENCE_REFERENCE.json",
+      "size_bytes": 4876,
+      "sha256": "f7f4f0d06ba950b96beabf8af7e3116bfdc4f82f14c1da3c202aa685ba8cad0d"
+    },
+    {
+      "path": "README.md",
+      "size_bytes": 11107,
+      "sha256": "361abfd20d25a698bceb2c12c5ba0c501db16936252d0674c9926c32aa5e7597"
+    },
+    {
+      "path": "reference/claim_map.json",
+      "size_bytes": 92481,
+      "sha256": "d9498fa8959759693f1c22b2e0b8bd14563df76c6ae1ae34188f0bde2a696f1b"
+    },
+    {
+      "path": "reference/configurations.json",
+      "size_bytes": 1786,
+      "sha256": "80e9ddeb638adc9d183657ef49c66a105bd259d3d78412c6e7c9a10a7a9126ee"
+    },
+    {
+      "path": "reference/licenses/PULSE_LICENSE",
+      "size_bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "reference/licenses/comparator_LICENSE",
+      "size_bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "reference/licenses/lean4export_LICENSE",
+      "size_bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "reference/licenses/license_source_records.json",
+      "size_bytes": 1465,
+      "sha256": "4060f347d9a5e4461a666bc19b6df7ef9ab7ac3d699922efd6e5588d05cb8fa6"
+    },
+    {
+      "path": "reference/licenses/openai_math_LICENSE",
+      "size_bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "reference/licenses/openai_math_lean_LICENSE",
+      "size_bytes": 11357,
+      "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+    },
+    {
+      "path": "reference/pulse_runtime/NOTICE.md",
+      "size_bytes": 785,
+      "sha256": "e3448fceff90dd9862b35de1c4116de44d4252733be2ff55d47004f6375c9f06"
+    },
+    {
+      "path": "reference/pulse_runtime/PULSE_safe_pack_v0/tools/check_gates.py",
+      "size_bytes": 2535,
+      "sha256": "3a85ed757d5569e87364bd5de511dc1985c60d97e29ee3f782e08197fa4f5c8f"
+    },
+    {
+      "path": "reference/pulse_runtime/schemas/status/status_v1.schema.json",
+      "size_bytes": 1796,
+      "sha256": "2928575089852bc1b07dca9ac7d2d963b01b4707cb021a1a25c12c1ac885ab20"
+    },
+    {
+      "path": "reference/pulse_runtime/tools/policy_to_require_args.py",
+      "size_bytes": 5439,
+      "sha256": "5f4dc19c96d2204c8273f32269917ebbb9b57e2efe0c710756ae4f9712fdd94e"
+    },
+    {
+      "path": "reference/required_boundary_tests.json",
+      "size_bytes": 15394,
+      "sha256": "5deb2ce3b10d4b476de3885dc1f3032cc6b17c4624f4b9aae11d7848dd40b510"
+    },
+    {
+      "path": "reference/source_pins.json",
+      "size_bytes": 29696,
+      "sha256": "7533b305db866824d328533c51c82decce06373268df7f3c1cef1145a1c25762"
+    },
+    {
+      "path": "requirements-linux-x86_64-py312.lock",
+      "size_bytes": 375,
+      "sha256": "3b356a5abd2de116fd2f662c92c7b6429a65a0696e2fa3354dda11a5cd4d0a97"
+    },
+    {
+      "path": "schemas/README.md",
+      "size_bytes": 547,
+      "sha256": "134196dd0c20bc76054ffae29c7d23c3f562b83fdd91a00d3168c191e0cf5cef"
+    },
+    {
+      "path": "schemas/admission_failure.schema.json",
+      "size_bytes": 3647,
+      "sha256": "7afef6473a17bca05aaa10845d0faf7b227dc4997cae1e1abb3a7da99247dd1e"
+    },
+    {
+      "path": "schemas/status.schema.json",
+      "size_bytes": 35647,
+      "sha256": "fd428b0bca6427f1c1937f1803d38c0275748cf8ae683480e7df3ec924dbde4c"
+    },
+    {
+      "path": "tests/test_authority.py",
+      "size_bytes": 37353,
+      "sha256": "9a496411629b4cdff613ac5a413232c279986e5f2a25603d88e3326799967d1b"
+    },
+    {
+      "path": "tests/test_common.py",
+      "size_bytes": 3361,
+      "sha256": "c8f0d25f9d8aca13df4611719d13d9b878651da379a40ab14721db80e55f4d6e"
+    },
+    {
+      "path": "tests/test_content.py",
+      "size_bytes": 11853,
+      "sha256": "efe2df9c4ac567988b3f7d2f20a4133cf73da4a062cbbd4ee64c0651f7dda46e"
+    },
+    {
+      "path": "tests/test_preflight.py",
+      "size_bytes": 19334,
+      "sha256": "28e1a74dad8feac103736b1fe09fa12cf06dd1e444431a8e2f194146d88720af"
+    },
+    {
+      "path": "tests/test_sources.py",
+      "size_bytes": 32373,
+      "sha256": "d500cc93e937c5826e13c9d6c0a3c996b094bafa913aa25468cdb84fde15f50b"
+    },
+    {
+      "path": "tests/test_transition_report.py",
+      "size_bytes": 17529,
+      "sha256": "55a5723581035391450af6ed50a80174d686177b19c0128507bb4878077331db"
+    },
+    {
+      "path": "tools/acquire.py",
+      "size_bytes": 42100,
+      "sha256": "258c79e2cd7b3aaa1dc59319c57ff8766e67a0e1e363483807ce6d6a89d73a3d"
+    },
+    {
+      "path": "tools/audit.py",
+      "size_bytes": 22883,
+      "sha256": "3ac49f55979686c311e36425c6907f4f245dd97624edbe094c055b0b7e1b6c98"
+    },
+    {
+      "path": "tools/authority.py",
+      "size_bytes": 24158,
+      "sha256": "0b9903f027a157305bbcd5c3e3be6dacf6eb37f96619e0b514f8124cab021d33"
+    },
+    {
+      "path": "tools/collect.py",
+      "size_bytes": 19284,
+      "sha256": "1ddf125b657f7f87ffd751b81fa7ae451253a1fe76bcff827d538c93c94b8550"
+    },
+    {
+      "path": "tools/common.py",
+      "size_bytes": 8524,
+      "sha256": "a9481b928e67d2b1515c439cab3ddb1f79bb6d6f7eeaeab44a40846a327e9e26"
+    },
+    {
+      "path": "tools/preflight.py",
+      "size_bytes": 19038,
+      "sha256": "d701b2165311e05e456f7a2b9964dac19e6826483c58cac4f5ce76cc14325a0e"
+    },
+    {
+      "path": "tools/prepare.py",
+      "size_bytes": 10100,
+      "sha256": "9552566ddc9f931c13929d9db63a6b0623aa49a89664f2d340ffab5f0e2ccc4d"
+    },
+    {
+      "path": "tools/run_tests.py",
+      "size_bytes": 3055,
+      "sha256": "06cbe296ee66334a2fc927160301ad75fc247be45ea90f12f2a7a261be0ec674"
+    },
+    {
+      "path": "tools/source_closure.py",
+      "size_bytes": 26882,
+      "sha256": "76b3c7eb68f5c48f2f49bdd333487a7bcae6d870995b551cf25362dc82d18987"
+    },
+    {
+      "path": "tools/transition_report.py",
+      "size_bytes": 10257,
+      "sha256": "3ebcdf992f6b4922799a445f55fbf517651e1e1403a09de1319a1d4eca85a488"
+    },
+    {
+      "path": "tools/verify.py",
+      "size_bytes": 25137,
+      "sha256": "1efcabf4ce0cc8d5dc4e6e24b73f6bdeb2c52e31dfd9d43b247b0bc63d8dfbf7"
+    }
+  ]
+}

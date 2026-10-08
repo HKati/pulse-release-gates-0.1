@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+ feat/q2-hosted-integration-2879
 - Bind the hosted Q2 subject dispatch to a separately configured, API-verified
   `HKati` owner credential, preserving the intake's strict actor checks.
   Require the original reference owner/event/request binding before using the
@@ -36,6 +37,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   26 modified files plus 13 new files (39 total).
   A real release capsule and hosted subject binding remain operational inputs;
   this implementation creates neither a replacement capture nor release authority.
+=======
+ main
 - Close the three QRH003 review findings in #2907: report fresh recomputation
   without unsupported verifier-process provenance; hash and execute the same
   sealed executable snapshot for version and strict Landrun probes; reject

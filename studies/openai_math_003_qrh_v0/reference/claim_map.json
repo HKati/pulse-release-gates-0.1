@@ -1,0 +1,1740 @@
+{
+  "source_artifacts": {
+    "oai_scope_003": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/docs/003.md",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/docs/003.md",
+      "bytes": 1911,
+      "raw_sha256": "41e52ed718260e6feb1db218f8e97287e703cb63c6f16e6c36f5563e6e2395ce",
+      "git_blob_oid_sha1": "cf794e93da2e1a494434153f5b91f2990fe9fd60",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "oai_formalization_registry": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/formalization.yaml",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/formalization.yaml",
+      "bytes": 73925,
+      "raw_sha256": "2dcbd0d6e6a22475f53d49bfdfcac9b6d2b470653c332a9f56522f5be166edb9",
+      "git_blob_oid_sha1": "e0584d4993df01ec08233ab344ebc1b1039bf7f7",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "qrh_sept30_pdf": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "preprints/The-Quasi-Riemann-Hypothesis-September-30-2026/paper.pdf",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/The-Quasi-Riemann-Hypothesis-September-30-2026/paper.pdf",
+      "bytes": 1588969,
+      "raw_sha256": "8fe93046f8cf5ef1ba5969c89addc02d76311adc4ee907509ff9cd96f7ec99e7",
+      "git_blob_oid_sha1": "8132b77eeb270a70b25df8d6609f008e83e65d91",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "qrh_sept30_tex": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "preprints/The-Quasi-Riemann-Hypothesis-September-30-2026/build/paper.tex",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/The-Quasi-Riemann-Hypothesis-September-30-2026/build/paper.tex",
+      "bytes": 766316,
+      "raw_sha256": "42a5ee0febca59fd1def55cfd6c6808c322ef4237d7726303ea52f711deac6a3",
+      "git_blob_oid_sha1": "268c4e3206d460c617d3d2129742a72b831b3def",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "siegel_oct1_pdf": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "preprints/Uniform-exclusion-of-Landau-Siegel-zeros-October-1-2026/paper.pdf",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/Uniform-exclusion-of-Landau-Siegel-zeros-October-1-2026/paper.pdf",
+      "bytes": 404812,
+      "raw_sha256": "fab9f6e84ece2a37d834b2c031d8eb14e81413d9f6270791e7b5468b295214ef",
+      "git_blob_oid_sha1": "e31b1a244f251439b01d930c906f4e0c91dfc3a8",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "siegel_oct1_tex": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "preprints/Uniform-exclusion-of-Landau-Siegel-zeros-October-1-2026/build/paper.tex",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/Uniform-exclusion-of-Landau-Siegel-zeros-October-1-2026/build/paper.tex",
+      "bytes": 31166,
+      "raw_sha256": "b011ba9c1f55ee2164292492c55e0c6d75c458eb30d4808808f9953823b8ded4",
+      "git_blob_oid_sha1": "7e41c77c252348369ca0fb99cbe389271ba6ce86",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "mathlib_riemann_zeta": {
+      "repository": "https://github.com/leanprover-community/mathlib4",
+      "commit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+      "path": "Mathlib/NumberTheory/LSeries/RiemannZeta.lean",
+      "pinned_url": "https://github.com/leanprover-community/mathlib4/blob/d13f23b723b8a846827a245b89c10fc7d3f11612/Mathlib/NumberTheory/LSeries/RiemannZeta.lean",
+      "bytes": 12309,
+      "raw_sha256": "8d24b729a30f1fef0820f0f7c9cdbb5910df30dfac2c597eb666794bead08b1c",
+      "git_blob_oid_sha1": "b382f3d6c15762c9db38ddea5e1b572455631f27",
+      "source_identity_state": "MATCHES_VERIFIED_PINNED_SOURCE_CLOSURE_MANIFEST"
+    },
+    "mathlib_nonvanishing": {
+      "repository": "https://github.com/leanprover-community/mathlib4",
+      "commit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+      "path": "Mathlib/NumberTheory/LSeries/Nonvanishing.lean",
+      "pinned_url": "https://github.com/leanprover-community/mathlib4/blob/d13f23b723b8a846827a245b89c10fc7d3f11612/Mathlib/NumberTheory/LSeries/Nonvanishing.lean",
+      "bytes": 21793,
+      "raw_sha256": "d2bf62eb15f698613100bb63ba8ec2b65f78c294a070c501c299b5eb3ff2b230",
+      "git_blob_oid_sha1": "789e0aae6e9378c8f5c8a7a07a905830e20b5433",
+      "source_identity_state": "MATCHES_VERIFIED_PINNED_SOURCE_CLOSURE_MANIFEST"
+    },
+    "mathlib_dirichlet_continuation": {
+      "repository": "https://github.com/leanprover-community/mathlib4",
+      "commit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+      "path": "Mathlib/NumberTheory/LSeries/DirichletContinuation.lean",
+      "pinned_url": "https://github.com/leanprover-community/mathlib4/blob/d13f23b723b8a846827a245b89c10fc7d3f11612/Mathlib/NumberTheory/LSeries/DirichletContinuation.lean",
+      "bytes": 18967,
+      "raw_sha256": "7ef38fb53f462e19dfd6746fc1826423e55bb5e2672c2b5667e2fd4889f401b6",
+      "git_blob_oid_sha1": "89c72580697983d86706cff17ccbea2cee6475a3",
+      "source_identity_state": "MATCHES_VERIFIED_PINNED_SOURCE_CLOSURE_MANIFEST"
+    },
+    "mathlib_dirichlet_character_basic": {
+      "repository": "https://github.com/leanprover-community/mathlib4",
+      "commit": "d13f23b723b8a846827a245b89c10fc7d3f11612",
+      "path": "Mathlib/NumberTheory/DirichletCharacter/Basic.lean",
+      "pinned_url": "https://github.com/leanprover-community/mathlib4/blob/d13f23b723b8a846827a245b89c10fc7d3f11612/Mathlib/NumberTheory/DirichletCharacter/Basic.lean",
+      "bytes": 26329,
+      "raw_sha256": "f004670a9bedc23c4dfaeb61b90d5e613a6b604f9486640eb1ce4ae3699ef64e",
+      "git_blob_oid_sha1": "4569ebb8e61f683a9c89877f0cda4d3add4d766d",
+      "source_identity_state": "MATCHES_VERIFIED_PINNED_SOURCE_CLOSURE_MANIFEST"
+    },
+    "hecke_family": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/OAI/NumberTheory/DirichletL/Hecke/Family.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Hecke/Family.lean",
+      "bytes": 3888,
+      "raw_sha256": "9871d175749b34ec40cf66ccc14b4faa0a9ef08831cb3fa901c944e57c7b9ec6",
+      "git_blob_oid_sha1": "3d87da47cd57f0a4f11859c654e3e3202a519100",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "hecke_ideal_bridge": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/OAI/NumberTheory/DirichletL/Hecke/IdealBridge.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Hecke/IdealBridge.lean",
+      "bytes": 5193,
+      "raw_sha256": "6c1fc33b7372108323bf3af3d4ab6f6e454ea9896b89e78964463a8e35df735f",
+      "git_blob_oid_sha1": "bcb15758326db111dd0b007b79a58103a4fa659e",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "hecke_family_series": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/OAI/NumberTheory/DirichletL/Hecke/FamilySeries.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Hecke/FamilySeries.lean",
+      "bytes": 3066,
+      "raw_sha256": "e1f13693e9b19dcdca6ff4da5e2bba935790506dd253228372fdc23356ce946a",
+      "git_blob_oid_sha1": "445b25ae3b9c13d59ee0ac03c5c8d8b6777970d2",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "hecke_ray_family": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/OAI/NumberTheory/DirichletL/Hecke/RayFamily.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Hecke/RayFamily.lean",
+      "bytes": 2928,
+      "raw_sha256": "86c80381f402618d744802694f1f09a9ab6a197d8730bcdd50d99a646c871c7e",
+      "git_blob_oid_sha1": "5d7d3f9ca263d8165393e4b35b3c4dc1354565f7",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "ray_orthogonality": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/OAI/NumberTheory/DirichletL/RayOrthogonality.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/RayOrthogonality.lean",
+      "bytes": 8025,
+      "raw_sha256": "85ff7487c61c123c298ed50f372be88338689a5d9d83ed4827bae30664243eed",
+      "git_blob_oid_sha1": "1f6e3be50cf095a0f91f241d182bf393b9b3b7ab",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "ideal_character": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/OAI/NumberTheory/DirichletL/IdealCharacter.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/IdealCharacter.lean",
+      "bytes": 11400,
+      "raw_sha256": "ae9e08095d0eaa044a305e11db19c7d363302159897fcd54d07f65f952cc1f6e",
+      "git_blob_oid_sha1": "b07c7b3e309678863c8d3161a0e3cbadf307cefc",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "final_assembly_unconditional": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/OAI/NumberTheory/DirichletL/Detector/FinalAssemblyUnconditional.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Detector/FinalAssemblyUnconditional.lean",
+      "bytes": 1607,
+      "raw_sha256": "0f52159a2929e7b20646f8394589d25a1a637c2f78746ad9d1447871577af615",
+      "git_blob_oid_sha1": "e7c20910424837fb954796e1216f5aa453bbd5da",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "config_QuasiRiemannHypothesis": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/ComparatorChallenges/QuasiRiemannHypothesis.json",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/QuasiRiemannHypothesis.json",
+      "bytes": 353,
+      "raw_sha256": "46ebb7edc11f69536210f502b4bcbd36bbaf3f0872c16748b6c8ce43991bf320",
+      "git_blob_oid_sha1": "acf552468fc23c1a27d685d33983c58c50040542",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "challenge_QuasiRiemannHypothesis": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/ComparatorChallenges/QuasiRiemannHypothesis.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/QuasiRiemannHypothesis.lean",
+      "bytes": 169,
+      "raw_sha256": "065f8c9a01d28db78c8b1bfc5083b535082a2d2aac2230d563f98b8caa812cc5",
+      "git_blob_oid_sha1": "e7d1caf6c579dc9afbf0d2b01f79e5cd2511b028",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "solution_module_QuasiRiemannHypothesis": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/OAI/NumberTheory/DirichletL/Nonvanishing.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Nonvanishing.lean",
+      "bytes": 1247,
+      "raw_sha256": "d98c4a7e074469b429890e1c21b8cc76c410026525a776895293cdc0f9e6ae89",
+      "git_blob_oid_sha1": "46c67f4000906b1391a471d6e6396ac0da3c16a5",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "declaration_QuasiRiemannHypothesis_1": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/OAI/NumberTheory/DirichletL/Nonvanishing.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Nonvanishing.lean",
+      "bytes": 1247,
+      "raw_sha256": "d98c4a7e074469b429890e1c21b8cc76c410026525a776895293cdc0f9e6ae89",
+      "git_blob_oid_sha1": "46c67f4000906b1391a471d6e6396ac0da3c16a5",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "config_DirichletSevenEighths": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/ComparatorChallenges/DirichletSevenEighths.json",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/DirichletSevenEighths.json",
+      "bytes": 369,
+      "raw_sha256": "cfc8d85d49ec5f180e75990d95c59c45f9bd5b9f453a101308870b9c4df9e1d9",
+      "git_blob_oid_sha1": "a946bfcf544ad212fbd46056dbff913c2d75247c",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "challenge_DirichletSevenEighths": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/ComparatorChallenges/DirichletSevenEighths.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/DirichletSevenEighths.lean",
+      "bytes": 379,
+      "raw_sha256": "8fb13ad977bca104591fcbc6ef01a58496e7385053c9b1445f95749afc0eff54",
+      "git_blob_oid_sha1": "baa55bebc509e8aed472a293e884de5ae2884508",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "solution_module_DirichletSevenEighths": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/OAI/NumberTheory/DirichletL/Nonvanishing.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Nonvanishing.lean",
+      "bytes": 1247,
+      "raw_sha256": "d98c4a7e074469b429890e1c21b8cc76c410026525a776895293cdc0f9e6ae89",
+      "git_blob_oid_sha1": "46c67f4000906b1391a471d6e6396ac0da3c16a5",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "declaration_DirichletSevenEighths_1": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/OAI/NumberTheory/DirichletL/Nonvanishing.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Nonvanishing.lean",
+      "bytes": 1247,
+      "raw_sha256": "d98c4a7e074469b429890e1c21b8cc76c410026525a776895293cdc0f9e6ae89",
+      "git_blob_oid_sha1": "46c67f4000906b1391a471d6e6396ac0da3c16a5",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "config_HeckeSevenEighths": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/ComparatorChallenges/HeckeSevenEighths.json",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/HeckeSevenEighths.json",
+      "bytes": 377,
+      "raw_sha256": "04eb947847df3c1717bdb660f70a74600d0991490bb67d52cbcf0b3186e0bd5e",
+      "git_blob_oid_sha1": "139442c594171660b9e4ce80ab01aa978bb32c51",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "challenge_HeckeSevenEighths": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/ComparatorChallenges/HeckeSevenEighths.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/HeckeSevenEighths.lean",
+      "bytes": 10095,
+      "raw_sha256": "cb5e404fa65a502c0a9006b9ad45c28914feb79e4b7b1ffcf05e4af82ed0cfc2",
+      "git_blob_oid_sha1": "dbeb6414a5ddd497a321490a812a6987311fa101",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "solution_module_HeckeSevenEighths": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/OAI/NumberTheory/DirichletL/Hecke/Nonvanishing.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Hecke/Nonvanishing.lean",
+      "bytes": 1708,
+      "raw_sha256": "9e120752d0067e9b645f173846833396de6282dfa83dff7dc83b7fd500af47d5",
+      "git_blob_oid_sha1": "4fb158e2dc0d50f71a313ca1c6bdc56923c9d201",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "declaration_HeckeSevenEighths_1": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/OAI/NumberTheory/DirichletL/Hecke/Nonvanishing.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Hecke/Nonvanishing.lean",
+      "bytes": 1708,
+      "raw_sha256": "9e120752d0067e9b645f173846833396de6282dfa83dff7dc83b7fd500af47d5",
+      "git_blob_oid_sha1": "4fb158e2dc0d50f71a313ca1c6bdc56923c9d201",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "config_SiegelZeros": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/ComparatorChallenges/SiegelZeros.json",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/SiegelZeros.json",
+      "bytes": 422,
+      "raw_sha256": "620696740156c4503f27ac17760adf1b638f621ad81ab4cde7a0f8df32c4b643",
+      "git_blob_oid_sha1": "25989d64aa0ee538fed5921864ddfad283e61e27",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "challenge_SiegelZeros": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/ComparatorChallenges/SiegelZeros.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/SiegelZeros.lean",
+      "bytes": 904,
+      "raw_sha256": "bedaac0248a641910f79a380d9702d82c6bfbbfd3760a69d27c72c5d8fb136ce",
+      "git_blob_oid_sha1": "8bab3f83ef57af55c5826318b6c92df84117395f",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "solution_module_SiegelZeros": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/OAI/NumberTheory/SiegelZeros/Main.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/SiegelZeros/Main.lean",
+      "bytes": 1538,
+      "raw_sha256": "5b7b704e03aac2582e023fbf60edcb6d5a8a81913c4b03a096bcb1e0627f1689",
+      "git_blob_oid_sha1": "8d91d7cbf0de605e993f12f0904ec94dbc1817ac",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "declaration_SiegelZeros_1": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/OAI/NumberTheory/SiegelZeros/Conclusions/Theorem.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/SiegelZeros/Conclusions/Theorem.lean",
+      "bytes": 684,
+      "raw_sha256": "e9444a0cbee391a4443ebddd3ccf0a70aa857e0122321421ec984e748f9098bf",
+      "git_blob_oid_sha1": "9ed5a07a40ab668baa9b537d46fae0421dc47435",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    },
+    "declaration_SiegelZeros_2": {
+      "repository": "https://github.com/openai/math",
+      "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+      "path": "lean/OAI/NumberTheory/SiegelZeros/Characters/DirichletRealZeroBoundProof.lean",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/SiegelZeros/Characters/DirichletRealZeroBoundProof.lean",
+      "bytes": 737,
+      "raw_sha256": "501409712b2a4c294ff820c5602f3f4185b2a62307688ebea94d0130510ed260",
+      "git_blob_oid_sha1": "71c312c7a41036a6b28c2c7f06ab0d80de4ed762",
+      "source_identity_state": "GIT_TREE_MEMBERSHIP_AND_BLOB_BYTES_VERIFIED"
+    }
+  },
+  "source_signature_extraction_rule_hu": "A forrásfájl UTF-8 bájtjain belül a megnevezett theorem/lemma sor kezdetétől a deklaráció := tokenje előtti bájtig vett változatlan intervallum. A byte offsetek nullabázisúak, a vég kizáró; a sorok egybázisúak. A teljes nevet a konfiguráció és a source namespace együtt adja, ez még nem Lean-feloldás.",
+  "claims": [
+    {
+      "claim_id": "qrh003_zeta",
+      "manuscript": {
+        "pdf_source_ref": "qrh_sept30_pdf",
+        "pdf_raw_sha256": "8fe93046f8cf5ef1ba5969c89addc02d76311adc4ee907509ff9cd96f7ec99e7",
+        "pdf_page_1_based": 4,
+        "theorem_label": "Theorem 1.1",
+        "equation_label": null,
+        "tex_statement_excerpt": {
+          "source_ref": "qrh_sept30_tex",
+          "byte_start_0_based": 4567,
+          "byte_end_exclusive": 4834,
+          "line_start_1_based": 106,
+          "line_end_1_based": 111,
+          "excerpt_utf8": "\\begin{theorem}\\label{thm:main}\nEvery finite-order Hecke $L$-function over\n$F=\\mathbb Q(\\sqrt{-3})$ has no zero in $\\Re s>7/8$.\nThe same holds for every Dirichlet $L$-function, including $\\zeta(s)$.\nA pole at $s=1$ for a principal character is allowed.\n\\end{theorem}\n",
+          "excerpt_raw_sha256": "f4d89ddcaa7665f7f7bb2ea67855ed3ad66dded2412ba599e3e5b4d18b48bb1b",
+          "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED"
+        },
+        "pdf_claim_page_render_state": "RENDERED_AND_VISUALLY_INSPECTED",
+        "pdf_tex_statement_relation": "CLAIM_TEXT_CORRESPONDENCE_OBSERVED_AT_THIS_ANCHOR",
+        "tex_to_pdf_reproduction_state": "NOT_RUN"
+      },
+      "scope_binding": {
+        "source_ref": "oai_scope_003",
+        "scope_excerpt": {
+          "source_ref": "oai_scope_003",
+          "byte_start_0_based": 426,
+          "byte_end_exclusive": 923,
+          "line_start_1_based": 10,
+          "line_end_1_based": 12,
+          "excerpt_utf8": "The quasi-Riemann hypothesis asks for a fixed zero-free half-plane $\\Re s>\\theta$ with $\\theta<1$. The formalization gives $\\theta=7/8$ for the Riemann zeta function and every Dirichlet $L$-function, uniformly over all positive moduli and all characters. It also establishes the same bound for finite-order Hecke $L$-functions over $\\mathbb Q(\\sqrt{-3})$.\n\nThe principal-character poles at $s=1$ are excluded in the Dirichlet and Hecke statements. The paper's later applications are not included.\n",
+          "excerpt_raw_sha256": "39d341a2eaa6973f4a9f0b5c489f2a1657898c4bc504c12b30756ec75ebfb2e1",
+          "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED"
+        },
+        "comparator_link_line_1_based": 22,
+        "inclusion_state": "PUBLISHER_SCOPE_EXPLICITLY_INCLUDES_CLAIM_SOURCE_OBSERVED",
+        "scope_is_proof": false,
+        "requires_independent_scope_review": true
+      },
+      "targets": [
+        {
+          "target_id": "qrh003_zeta_export_1",
+          "declaration_full_name": "OAI.riemannZeta_ne_zero_of_seven_eighths_lt_re",
+          "challenge_module": "ComparatorChallenges.QuasiRiemannHypothesis",
+          "challenge_source_ref": "challenge_QuasiRiemannHypothesis",
+          "comparator_config_ref": "config_QuasiRiemannHypothesis",
+          "solution_module": "OAI.NumberTheory.DirichletL.Nonvanishing",
+          "solution_module_source_ref": "solution_module_QuasiRiemannHypothesis",
+          "actual_declaration_path": "lean/OAI/NumberTheory/DirichletL/Nonvanishing.lean",
+          "actual_declaration_source_ref": "declaration_QuasiRiemannHypothesis_1",
+          "challenge_signature": {
+            "source_ref": "challenge_QuasiRiemannHypothesis",
+            "byte_start_0_based": 31,
+            "byte_end_exclusive": 146,
+            "line_start_1_based": 5,
+            "line_end_1_based": 6,
+            "excerpt_utf8": "theorem riemannZeta_ne_zero_of_seven_eighths_lt_re\n    {s : ℂ} (hs : (7 / 8 : ℝ) < s.re) : riemannZeta s ≠ 0 ",
+            "excerpt_raw_sha256": "fe5463ea39d72c17e78fcae1b046b9f3b53099044502726c9651eeb4a8d70b0d",
+            "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED",
+            "representation": "SOURCE_SIGNATURE_PREFIX_BEFORE_COLON_EQUALS",
+            "includes_proof_body": false,
+            "is_elaborated_type": false,
+            "elaborated_type_sha256": null,
+            "elaborated_environment_sha256": null
+          },
+          "solution_signature": {
+            "source_ref": "declaration_QuasiRiemannHypothesis_1",
+            "byte_start_0_based": 1055,
+            "byte_end_exclusive": 1170,
+            "line_start_1_based": 29,
+            "line_end_1_based": 30,
+            "excerpt_utf8": "theorem riemannZeta_ne_zero_of_seven_eighths_lt_re\n    {s : ℂ} (hs : (7 / 8 : ℝ) < s.re) : riemannZeta s ≠ 0 ",
+            "excerpt_raw_sha256": "fe5463ea39d72c17e78fcae1b046b9f3b53099044502726c9651eeb4a8d70b0d",
+            "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED",
+            "representation": "SOURCE_SIGNATURE_PREFIX_BEFORE_COLON_EQUALS",
+            "includes_proof_body": false,
+            "is_elaborated_type": false,
+            "elaborated_type_sha256": null,
+            "elaborated_environment_sha256": null
+          },
+          "declaration_source_presence_state": "EXACT_SOURCE_DECLARATION_LOCATED",
+          "solution_module_export_state": "SOURCE_IMPORT_OR_LOCAL_DECLARATION_LOCATED_LEAN_NOT_RUN",
+          "full_name_resolution_state": "SOURCE_NAMESPACE_AND_CONFIG_MAPPING_RECORDED_LEAN_NOT_RUN",
+          "permitted_standard_axioms": [
+            "propext",
+            "Quot.sound",
+            "Classical.choice"
+          ],
+          "axiom_membership_rule": "ACTUAL_TRANSITIVE_AXIOMS_MUST_BE_SUBSET_OF_EXACT_STANDARD_ALLOWLIST",
+          "actual_axioms": null,
+          "proof_term_sha256": null,
+          "proof_dependency_graph_sha256": null,
+          "formal_match_state": "NOT_RUN",
+          "axiom_audit_state": "NOT_RUN",
+          "upstream_enable_nanoda": false
+        }
+      ],
+      "review_levels": {
+        "syntactic_correspondence": {
+          "state": "SOURCE_RELATIONS_RECORDED",
+          "evaluator_role": "assistant_source_inspection",
+          "scope_hu": "Pontos forrásbájtok, konfigurációs névlista, deklarációhely és kézirat/scope-hivatkozás. Nem elaborált tételazonosság.",
+          "receipt_sha256": null
+        },
+        "formal_theorem_identity": {
+          "state": "NOT_RUN",
+          "required_evidence_hu": "A és B futáshoz külön négy konfiguráció/öt export; izolált Comparator, típuskörnyezet és rekurzív definícióegyezés, trusted oldali export és kernel.",
+          "receipt_sha256": null
+        },
+        "mathematical_semantic_correspondence": {
+          "state": "NOT_REVIEWED",
+          "required_evidence_hu": "A konvencionális fogalmak, kvantorok, tartományok és kivételek teljes megfeleltetésének exact digesthez kötött szakterületi reviewja.",
+          "receipt_sha256": null
+        },
+        "independent_domain_acceptance": {
+          "state": "NOT_REVIEWED",
+          "required_evidence_hu": "Hitelesített, a deklarált függetlenségi és kompetenciaszabálynak megfelelő szakreview; saját scope-pal. Nem közösségi elfogadás.",
+          "reviewer_identity": null,
+          "receipt_sha256": null
+        }
+      },
+      "conventional_claim_hu": "A klasszikus Riemann-zétafüggvénynek a Re(s)>7/8 félsík póluson kívüli részében nincs zérusa.",
+      "formal_object_map": [
+        {
+          "conventional_object_hu": "A Dirichlet-sorból meromorf módon folytatott Riemann-zétafüggvény",
+          "formal_name": "riemannZeta",
+          "source_ref": "mathlib_riemann_zeta",
+          "mapping_state": "DEFINITION_SOURCE_IDENTIFIED_SEMANTIC_REVIEW_PENDING"
+        },
+        {
+          "conventional_object_hu": "Pólus az s=1 pontban",
+          "formal_behavior_hu": "A teljes Lean-függvény az s=1 pontban konvenció szerinti nemnulla értéket vesz fel. Ez a klasszikus pólusbeli véges érték állítására nem fordítható le.",
+          "source_refs": [
+            "mathlib_riemann_zeta",
+            "mathlib_nonvanishing"
+          ]
+        }
+      ],
+      "domain_quantifiers_and_exceptions": {
+        "variables": [
+          {
+            "name": "s",
+            "formal_type": "ℂ",
+            "scope": "universal"
+          }
+        ],
+        "assumptions": [
+          "(7 / 8 : ℝ) < s.re"
+        ],
+        "formal_conclusion": "riemannZeta s ≠ 0",
+        "classical_pole_exclusion": "s ≠ 1",
+        "formal_pole_exclusion": null,
+        "pole_difference_hu": "A formális tétel a teljesítés s=1 értékének nemnullaságát többletállításként tartalmazza.",
+        "boundary_included": false,
+        "height_bound": null
+      },
+      "obligations": [
+        {
+          "obligation_id": "zeta_re_half_plane",
+          "kind": "DOMAIN",
+          "question_hu": "A szigorú 7/8 határ, minden komplex s és korlátlan magasság maradjon meg; Re(s)=7/8 ne kapjon lefedettségi állítást.",
+          "source_refs": [],
+          "required_for_semantic_admission": true,
+          "current_state": "NOT_EVALUATED",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "zeta_series_identity",
+          "kind": "DEFINITION_BRIDGE",
+          "question_hu": "A riemannZeta a konvencionális sorral egyezzen Re(s)>1 esetén, és az analitikus folytatás ugyanazt a meromorf függvényt adja.",
+          "source_refs": [
+            "mathlib_riemann_zeta"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "zeta_pole_totalization",
+          "kind": "POLE_TOTALIZATION",
+          "question_hu": "A klasszikus pólusbeli kizárást és a Lean teljesített s=1 értékét külön clause-ként kezeljük; ne állítsunk közönséges ζ(1) értéket.",
+          "source_refs": [
+            "mathlib_riemann_zeta",
+            "mathlib_nonvanishing"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "zeta_resolved_identity",
+          "kind": "ELABORATED_IDENTITY",
+          "question_hu": "A használt riemannZeta/ℂ/ℝ/re és rendezés a pinned környezet megfelelő deklarációja legyen, ne azonos nevű árnyékdefiníció.",
+          "source_refs": [],
+          "required_for_semantic_admission": true,
+          "current_state": "NOT_EVALUATED",
+          "verification_receipt_sha256": null
+        }
+      ],
+      "excluded_claim_ids": [
+        "qrh003_boundary_seven_eighths",
+        "qrh003_rh_grh",
+        "qrh003_full_manuscript",
+        "qrh003_least_nonresidue_polylog",
+        "qrh003_vinogradov_consequence",
+        "qrh003_deterministic_square_roots"
+      ]
+    },
+    {
+      "claim_id": "qrh003_dirichlet",
+      "manuscript": {
+        "pdf_source_ref": "qrh_sept30_pdf",
+        "pdf_raw_sha256": "8fe93046f8cf5ef1ba5969c89addc02d76311adc4ee907509ff9cd96f7ec99e7",
+        "pdf_page_1_based": 4,
+        "theorem_label": "Theorem 1.1",
+        "equation_label": null,
+        "tex_statement_excerpt": {
+          "source_ref": "qrh_sept30_tex",
+          "byte_start_0_based": 4567,
+          "byte_end_exclusive": 4834,
+          "line_start_1_based": 106,
+          "line_end_1_based": 111,
+          "excerpt_utf8": "\\begin{theorem}\\label{thm:main}\nEvery finite-order Hecke $L$-function over\n$F=\\mathbb Q(\\sqrt{-3})$ has no zero in $\\Re s>7/8$.\nThe same holds for every Dirichlet $L$-function, including $\\zeta(s)$.\nA pole at $s=1$ for a principal character is allowed.\n\\end{theorem}\n",
+          "excerpt_raw_sha256": "f4d89ddcaa7665f7f7bb2ea67855ed3ad66dded2412ba599e3e5b4d18b48bb1b",
+          "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED"
+        },
+        "pdf_claim_page_render_state": "RENDERED_AND_VISUALLY_INSPECTED",
+        "pdf_tex_statement_relation": "CLAIM_TEXT_CORRESPONDENCE_OBSERVED_AT_THIS_ANCHOR",
+        "tex_to_pdf_reproduction_state": "NOT_RUN"
+      },
+      "scope_binding": {
+        "source_ref": "oai_scope_003",
+        "scope_excerpt": {
+          "source_ref": "oai_scope_003",
+          "byte_start_0_based": 426,
+          "byte_end_exclusive": 923,
+          "line_start_1_based": 10,
+          "line_end_1_based": 12,
+          "excerpt_utf8": "The quasi-Riemann hypothesis asks for a fixed zero-free half-plane $\\Re s>\\theta$ with $\\theta<1$. The formalization gives $\\theta=7/8$ for the Riemann zeta function and every Dirichlet $L$-function, uniformly over all positive moduli and all characters. It also establishes the same bound for finite-order Hecke $L$-functions over $\\mathbb Q(\\sqrt{-3})$.\n\nThe principal-character poles at $s=1$ are excluded in the Dirichlet and Hecke statements. The paper's later applications are not included.\n",
+          "excerpt_raw_sha256": "39d341a2eaa6973f4a9f0b5c489f2a1657898c4bc504c12b30756ec75ebfb2e1",
+          "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED"
+        },
+        "comparator_link_line_1_based": 23,
+        "inclusion_state": "PUBLISHER_SCOPE_EXPLICITLY_INCLUDES_CLAIM_SOURCE_OBSERVED",
+        "scope_is_proof": false,
+        "requires_independent_scope_review": true
+      },
+      "targets": [
+        {
+          "target_id": "qrh003_dirichlet_export_1",
+          "declaration_full_name": "OAI.DirichletCharacter.LFunction_ne_zero_of_seven_eighths_lt_re",
+          "challenge_module": "ComparatorChallenges.DirichletSevenEighths",
+          "challenge_source_ref": "challenge_DirichletSevenEighths",
+          "comparator_config_ref": "config_DirichletSevenEighths",
+          "solution_module": "OAI.NumberTheory.DirichletL.Nonvanishing",
+          "solution_module_source_ref": "solution_module_DirichletSevenEighths",
+          "actual_declaration_path": "lean/OAI/NumberTheory/DirichletL/Nonvanishing.lean",
+          "actual_declaration_source_ref": "declaration_DirichletSevenEighths_1",
+          "challenge_signature": {
+            "source_ref": "challenge_DirichletSevenEighths",
+            "byte_start_0_based": 99,
+            "byte_end_exclusive": 332,
+            "line_start_1_based": 8,
+            "line_end_1_based": 11,
+            "excerpt_utf8": "theorem LFunction_ne_zero_of_seven_eighths_lt_re\n    {q : ℕ} [NeZero q] (χ : DirichletCharacter ℂ q) {s : ℂ}\n    (hs : (7 / 8 : ℝ) < s.re) (hpole : ¬ (χ = 1 ∧ s = 1)) :\n    _root_.DirichletCharacter.LFunction χ s ≠ 0 ",
+            "excerpt_raw_sha256": "68e243f1189bd2179fb43b86e8354f6e192f6bde3c97ee7014e2add8beb29cf0",
+            "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED",
+            "representation": "SOURCE_SIGNATURE_PREFIX_BEFORE_COLON_EQUALS",
+            "includes_proof_body": false,
+            "is_elaborated_type": false,
+            "elaborated_type_sha256": null,
+            "elaborated_environment_sha256": null
+          },
+          "solution_signature": {
+            "source_ref": "declaration_DirichletSevenEighths_1",
+            "byte_start_0_based": 621,
+            "byte_end_exclusive": 854,
+            "line_start_1_based": 19,
+            "line_end_1_based": 22,
+            "excerpt_utf8": "theorem LFunction_ne_zero_of_seven_eighths_lt_re\n    {q : ℕ} [NeZero q] (χ : DirichletCharacter ℂ q) {s : ℂ}\n    (hs : (7 / 8 : ℝ) < s.re) (hpole : ¬ (χ = 1 ∧ s = 1)) :\n    _root_.DirichletCharacter.LFunction χ s ≠ 0 ",
+            "excerpt_raw_sha256": "68e243f1189bd2179fb43b86e8354f6e192f6bde3c97ee7014e2add8beb29cf0",
+            "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED",
+            "representation": "SOURCE_SIGNATURE_PREFIX_BEFORE_COLON_EQUALS",
+            "includes_proof_body": false,
+            "is_elaborated_type": false,
+            "elaborated_type_sha256": null,
+            "elaborated_environment_sha256": null
+          },
+          "declaration_source_presence_state": "EXACT_SOURCE_DECLARATION_LOCATED",
+          "solution_module_export_state": "SOURCE_IMPORT_OR_LOCAL_DECLARATION_LOCATED_LEAN_NOT_RUN",
+          "full_name_resolution_state": "SOURCE_NAMESPACE_AND_CONFIG_MAPPING_RECORDED_LEAN_NOT_RUN",
+          "permitted_standard_axioms": [
+            "propext",
+            "Quot.sound",
+            "Classical.choice"
+          ],
+          "axiom_membership_rule": "ACTUAL_TRANSITIVE_AXIOMS_MUST_BE_SUBSET_OF_EXACT_STANDARD_ALLOWLIST",
+          "actual_axioms": null,
+          "proof_term_sha256": null,
+          "proof_dependency_graph_sha256": null,
+          "formal_match_state": "NOT_RUN",
+          "axiom_audit_state": "NOT_RUN",
+          "upstream_enable_nanoda": false
+        }
+      ],
+      "review_levels": {
+        "syntactic_correspondence": {
+          "state": "SOURCE_RELATIONS_RECORDED",
+          "evaluator_role": "assistant_source_inspection",
+          "scope_hu": "Pontos forrásbájtok, konfigurációs névlista, deklarációhely és kézirat/scope-hivatkozás. Nem elaborált tételazonosság.",
+          "receipt_sha256": null
+        },
+        "formal_theorem_identity": {
+          "state": "NOT_RUN",
+          "required_evidence_hu": "A és B futáshoz külön négy konfiguráció/öt export; izolált Comparator, típuskörnyezet és rekurzív definícióegyezés, trusted oldali export és kernel.",
+          "receipt_sha256": null
+        },
+        "mathematical_semantic_correspondence": {
+          "state": "NOT_REVIEWED",
+          "required_evidence_hu": "A konvencionális fogalmak, kvantorok, tartományok és kivételek teljes megfeleltetésének exact digesthez kötött szakterületi reviewja.",
+          "receipt_sha256": null
+        },
+        "independent_domain_acceptance": {
+          "state": "NOT_REVIEWED",
+          "required_evidence_hu": "Hitelesített, a deklarált függetlenségi és kompetenciaszabálynak megfelelő szakreview; saját scope-pal. Nem közösségi elfogadás.",
+          "reviewer_identity": null,
+          "receipt_sha256": null
+        }
+      },
+      "conventional_claim_hu": "Minden pozitív modulus minden Dirichlet-L-függvénye zérusmentes Re(s)>7/8 mellett, a főkarakter s=1 pólusát megengedve.",
+      "formal_object_map": [
+        {
+          "conventional_object_hu": "Komplex értékű Dirichlet-karakter modulo pozitív q, nemegységeken nullával",
+          "formal_name": "DirichletCharacter ℂ q",
+          "source_ref": "mathlib_dirichlet_character_basic",
+          "mapping_state": "DEFINITION_SOURCE_IDENTIFIED_SEMANTIC_REVIEW_PENDING"
+        },
+        {
+          "conventional_object_hu": "A karakter Dirichlet-sorának meromorf folytatása",
+          "formal_name": "_root_.DirichletCharacter.LFunction",
+          "source_ref": "mathlib_dirichlet_continuation",
+          "mapping_state": "DEFINITION_SOURCE_IDENTIFIED_SEMANTIC_REVIEW_PENDING"
+        }
+      ],
+      "domain_quantifiers_and_exceptions": {
+        "variables": [
+          {
+            "name": "q",
+            "formal_type": "ℕ",
+            "scope": "universal",
+            "constraint": "NeZero q"
+          },
+          {
+            "name": "χ",
+            "formal_type": "DirichletCharacter ℂ q",
+            "scope": "universal"
+          },
+          {
+            "name": "s",
+            "formal_type": "ℂ",
+            "scope": "universal"
+          }
+        ],
+        "assumptions": [
+          "(7 / 8 : ℝ) < s.re",
+          "¬ (χ = 1 ∧ s = 1)"
+        ],
+        "formal_conclusion": "_root_.DirichletCharacter.LFunction χ s ≠ 0",
+        "q_one_included": true,
+        "requires_primitive": false,
+        "imprimitive_characters_included": true,
+        "principal_characters_included_except_pole": true,
+        "s_one_for_nonprincipal_included": true,
+        "parity_restriction": null,
+        "height_bound": null
+      },
+      "obligations": [
+        {
+          "obligation_id": "dirichlet_all_positive_moduli",
+          "kind": "QUANTIFIERS",
+          "question_hu": "NeZero q mellett minden pozitív természetes modulus szerepeljen, q=1-et is beleértve.",
+          "source_refs": [
+            "mathlib_dirichlet_character_basic"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "dirichlet_all_characters",
+          "kind": "DOMAIN",
+          "question_hu": "Ne kerüljön be rejtett primitivitási, paritási vagy nemfő-karakteres feltétel; imprimitive karakterek is benne vannak.",
+          "source_refs": [
+            "mathlib_dirichlet_character_basic"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "dirichlet_series_continuation",
+          "kind": "DEFINITION_BRIDGE",
+          "question_hu": "Az LFunction legyen a konvencionális L-sor folytatása; ne a konvergenciatartományon kívül totalizált LSeries függvényt helyettesítsük be.",
+          "source_refs": [
+            "mathlib_dirichlet_continuation"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "dirichlet_nonunit_and_euler_mask",
+          "kind": "DEFINITION_BRIDGE",
+          "question_hu": "A nemegységeken vett nulla és az imprimitive karakterek kihagyott Euler-faktorai feleljenek meg a kéziratnak.",
+          "source_refs": [
+            "mathlib_dirichlet_continuation",
+            "mathlib_dirichlet_character_basic"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "dirichlet_pole_logic",
+          "kind": "POLE_EXCEPTION",
+          "question_hu": "Csak a χ=1 és s=1 együttes esetét zárjuk ki; nemfő karakternél s=1 maradjon benne.",
+          "source_refs": [
+            "mathlib_dirichlet_continuation"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "dirichlet_root_name_resolution",
+          "kind": "ELABORATED_IDENTITY",
+          "question_hu": "Az explicit _root_.DirichletCharacter.LFunction ugyanahhoz a pinned deklarációhoz és definíciólezáráshoz oldódjon mindkét környezetben.",
+          "source_refs": [],
+          "required_for_semantic_admission": true,
+          "current_state": "NOT_EVALUATED",
+          "verification_receipt_sha256": null
+        }
+      ],
+      "excluded_claim_ids": [
+        "qrh003_boundary_seven_eighths",
+        "qrh003_rh_grh",
+        "qrh003_full_manuscript",
+        "qrh003_least_nonresidue_polylog",
+        "qrh003_vinogradov_consequence",
+        "qrh003_deterministic_square_roots"
+      ]
+    },
+    {
+      "claim_id": "qrh003_hecke_qsqrt_minus3",
+      "manuscript": {
+        "pdf_source_ref": "qrh_sept30_pdf",
+        "pdf_raw_sha256": "8fe93046f8cf5ef1ba5969c89addc02d76311adc4ee907509ff9cd96f7ec99e7",
+        "pdf_page_1_based": 4,
+        "theorem_label": "Theorem 1.1",
+        "equation_label": null,
+        "tex_statement_excerpt": {
+          "source_ref": "qrh_sept30_tex",
+          "byte_start_0_based": 4567,
+          "byte_end_exclusive": 4834,
+          "line_start_1_based": 106,
+          "line_end_1_based": 111,
+          "excerpt_utf8": "\\begin{theorem}\\label{thm:main}\nEvery finite-order Hecke $L$-function over\n$F=\\mathbb Q(\\sqrt{-3})$ has no zero in $\\Re s>7/8$.\nThe same holds for every Dirichlet $L$-function, including $\\zeta(s)$.\nA pole at $s=1$ for a principal character is allowed.\n\\end{theorem}\n",
+          "excerpt_raw_sha256": "f4d89ddcaa7665f7f7bb2ea67855ed3ad66dded2412ba599e3e5b4d18b48bb1b",
+          "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED"
+        },
+        "pdf_claim_page_render_state": "RENDERED_AND_VISUALLY_INSPECTED",
+        "pdf_tex_statement_relation": "CLAIM_TEXT_CORRESPONDENCE_OBSERVED_AT_THIS_ANCHOR",
+        "tex_to_pdf_reproduction_state": "NOT_RUN"
+      },
+      "scope_binding": {
+        "source_ref": "oai_scope_003",
+        "scope_excerpt": {
+          "source_ref": "oai_scope_003",
+          "byte_start_0_based": 426,
+          "byte_end_exclusive": 923,
+          "line_start_1_based": 10,
+          "line_end_1_based": 12,
+          "excerpt_utf8": "The quasi-Riemann hypothesis asks for a fixed zero-free half-plane $\\Re s>\\theta$ with $\\theta<1$. The formalization gives $\\theta=7/8$ for the Riemann zeta function and every Dirichlet $L$-function, uniformly over all positive moduli and all characters. It also establishes the same bound for finite-order Hecke $L$-functions over $\\mathbb Q(\\sqrt{-3})$.\n\nThe principal-character poles at $s=1$ are excluded in the Dirichlet and Hecke statements. The paper's later applications are not included.\n",
+          "excerpt_raw_sha256": "39d341a2eaa6973f4a9f0b5c489f2a1657898c4bc504c12b30756ec75ebfb2e1",
+          "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED"
+        },
+        "comparator_link_line_1_based": 24,
+        "inclusion_state": "PUBLISHER_SCOPE_EXPLICITLY_INCLUDES_CLAIM_SOURCE_OBSERVED",
+        "scope_is_proof": false,
+        "requires_independent_scope_review": true
+      },
+      "targets": [
+        {
+          "target_id": "qrh003_hecke_qsqrt_minus3_export_1",
+          "declaration_full_name": "OAI.SevenEighths.HeckeFamily.LFunction_ne_zero_of_seven_eighths_lt_re",
+          "challenge_module": "ComparatorChallenges.HeckeSevenEighths",
+          "challenge_source_ref": "challenge_HeckeSevenEighths",
+          "comparator_config_ref": "config_HeckeSevenEighths",
+          "solution_module": "OAI.NumberTheory.DirichletL.Hecke.Nonvanishing",
+          "solution_module_source_ref": "solution_module_HeckeSevenEighths",
+          "actual_declaration_path": "lean/OAI/NumberTheory/DirichletL/Hecke/Nonvanishing.lean",
+          "actual_declaration_source_ref": "declaration_HeckeSevenEighths_1",
+          "challenge_signature": {
+            "source_ref": "challenge_HeckeSevenEighths",
+            "byte_start_0_based": 9864,
+            "byte_end_exclusive": 10039,
+            "line_start_1_based": 237,
+            "line_end_1_based": 239,
+            "excerpt_utf8": "theorem LFunction_ne_zero_of_seven_eighths_lt_re\n    (χ : Character) {s : ℂ} (hs : (7 / 8 : ℝ) < s.re)\n    (hpole : ¬ (χ.residue = 1 ∧ s = 1)) : LFunction χ s ≠ 0 ",
+            "excerpt_raw_sha256": "a35e009e77772a6158ef413a463c4f99e993af9f93ecebac09ac230c20714548",
+            "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED",
+            "representation": "SOURCE_SIGNATURE_PREFIX_BEFORE_COLON_EQUALS",
+            "includes_proof_body": false,
+            "is_elaborated_type": false,
+            "elaborated_type_sha256": null,
+            "elaborated_environment_sha256": null
+          },
+          "solution_signature": {
+            "source_ref": "declaration_HeckeSevenEighths_1",
+            "byte_start_0_based": 407,
+            "byte_end_exclusive": 582,
+            "line_start_1_based": 13,
+            "line_end_1_based": 15,
+            "excerpt_utf8": "theorem LFunction_ne_zero_of_seven_eighths_lt_re\n    (χ : Character) {s : ℂ} (hs : (7 / 8 : ℝ) < s.re)\n    (hpole : ¬ (χ.residue = 1 ∧ s = 1)) : LFunction χ s ≠ 0 ",
+            "excerpt_raw_sha256": "a35e009e77772a6158ef413a463c4f99e993af9f93ecebac09ac230c20714548",
+            "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED",
+            "representation": "SOURCE_SIGNATURE_PREFIX_BEFORE_COLON_EQUALS",
+            "includes_proof_body": false,
+            "is_elaborated_type": false,
+            "elaborated_type_sha256": null,
+            "elaborated_environment_sha256": null
+          },
+          "declaration_source_presence_state": "EXACT_SOURCE_DECLARATION_LOCATED",
+          "solution_module_export_state": "SOURCE_IMPORT_OR_LOCAL_DECLARATION_LOCATED_LEAN_NOT_RUN",
+          "full_name_resolution_state": "SOURCE_NAMESPACE_AND_CONFIG_MAPPING_RECORDED_LEAN_NOT_RUN",
+          "permitted_standard_axioms": [
+            "propext",
+            "Quot.sound",
+            "Classical.choice"
+          ],
+          "axiom_membership_rule": "ACTUAL_TRANSITIVE_AXIOMS_MUST_BE_SUBSET_OF_EXACT_STANDARD_ALLOWLIST",
+          "actual_axioms": null,
+          "proof_term_sha256": null,
+          "proof_dependency_graph_sha256": null,
+          "formal_match_state": "NOT_RUN",
+          "axiom_audit_state": "NOT_RUN",
+          "upstream_enable_nanoda": false
+        }
+      ],
+      "review_levels": {
+        "syntactic_correspondence": {
+          "state": "SOURCE_RELATIONS_RECORDED",
+          "evaluator_role": "assistant_source_inspection",
+          "scope_hu": "Pontos forrásbájtok, konfigurációs névlista, deklarációhely és kézirat/scope-hivatkozás. Nem elaborált tételazonosság.",
+          "receipt_sha256": null
+        },
+        "formal_theorem_identity": {
+          "state": "NOT_RUN",
+          "required_evidence_hu": "A és B futáshoz külön négy konfiguráció/öt export; izolált Comparator, típuskörnyezet és rekurzív definícióegyezés, trusted oldali export és kernel.",
+          "receipt_sha256": null
+        },
+        "mathematical_semantic_correspondence": {
+          "state": "NOT_REVIEWED",
+          "required_evidence_hu": "A konvencionális fogalmak, kvantorok, tartományok és kivételek teljes megfeleltetésének exact digesthez kötött szakterületi reviewja.",
+          "receipt_sha256": null
+        },
+        "independent_domain_acceptance": {
+          "state": "NOT_REVIEWED",
+          "required_evidence_hu": "Hitelesített, a deklarált függetlenségi és kompetenciaszabálynak megfelelő szakreview; saját scope-pal. Nem közösségi elfogadás.",
+          "reviewer_identity": null,
+          "receipt_sha256": null
+        }
+      },
+      "conventional_claim_hu": "Minden véges rendű Hecke-L-függvény Q(√−3) felett zérusmentes Re(s)>7/8 mellett, a főkarakter s=1 pólusát megengedve.",
+      "formal_object_map": [
+        {
+          "conventional_object_hu": "Q(√−3)",
+          "formal_name": "OAI.SevenEighths.HeckeFamily.K",
+          "formal_definition_source_text": "CyclotomicField 3 ℚ",
+          "source_ref": "hecke_family",
+          "mapping_state": "SOURCE_IDENTIFIED_CONVENTIONAL_FIELD_IDENTIFICATION_REVIEW_PENDING"
+        },
+        {
+          "conventional_object_hu": "Az Eisenstein-számtest egészgyűrűje",
+          "formal_name": "OAI.SevenEighths.HeckeFamily.O",
+          "formal_definition_source_text": "NumberField.RingOfIntegers K",
+          "source_ref": "hecke_family",
+          "mapping_state": "SOURCE_IDENTIFIED_SEMANTIC_REVIEW_PENDING"
+        },
+        {
+          "conventional_object_hu": "Véges rendű ray-class/Hecke-karakter nemnulla egészideál modulushoz",
+          "formal_name": "OAI.SevenEighths.HeckeFamily.Character",
+          "source_refs": [
+            "hecke_family",
+            "hecke_ray_family",
+            "ray_orthogonality",
+            "ideal_character"
+          ],
+          "mapping_state": "EXISTING_BRIDGES_IDENTIFIED_EXHAUSTIVENESS_REVIEW_PENDING"
+        },
+        {
+          "conventional_object_hu": "Ideálsoros Hecke-L-függvény és annak folytatása",
+          "formal_name": "OAI.SevenEighths.HeckeFamily.LFunction",
+          "formal_definition_source_text": "continuedLattice χ s / 6",
+          "source_refs": [
+            "hecke_ideal_bridge",
+            "hecke_family_series"
+          ],
+          "mapping_state": "EXISTING_FORMAL_BRIDGES_SOURCE_IDENTIFIED_NOT_EXECUTED"
+        }
+      ],
+      "domain_quantifiers_and_exceptions": {
+        "variables": [
+          {
+            "name": "χ",
+            "formal_type": "OAI.SevenEighths.HeckeFamily.Character",
+            "scope": "universal"
+          },
+          {
+            "name": "s",
+            "formal_type": "ℂ",
+            "scope": "universal"
+          }
+        ],
+        "character_fields": [
+          "modulus : Ideal O",
+          "modulus_ne_bot : modulus ≠ ⊥",
+          "residue : MulChar (O ⧸ modulus) ℂ",
+          "unit_trivial : ∀ u : Oˣ, residue (Ideal.Quotient.mk modulus (u : O)) = 1",
+          "period : ℕ",
+          "period_pos : 0 < period",
+          "period_mem : (period : O) ∈ modulus"
+        ],
+        "assumptions": [
+          "(7 / 8 : ℝ) < s.re",
+          "¬ (χ.residue = 1 ∧ s = 1)"
+        ],
+        "formal_conclusion": "OAI.SevenEighths.HeckeFamily.LFunction χ s ≠ 0",
+        "requires_primitive": false,
+        "allowed_modulus_includes_unit_ideal_hu": "A modulus ≠ ⊥ feltétel nem zárja ki a teljes gyűrű ideálját; a konvencionális főkarakteres eset megfeleltetését ellenőrizni kell.",
+        "period_field_hu": "A létező Character.ofResidue konstrukció állít elő megfelelő periódust; a mező jelenléte önmagában nem bizonyít domainszűkítést.",
+        "boundary_included": false,
+        "height_bound": null
+      },
+      "obligations": [
+        {
+          "obligation_id": "hecke_field_identification",
+          "kind": "DEFINITION_BRIDGE",
+          "question_hu": "A CyclotomicField 3 ℚ valóban a Q(√−3) konvencionális testét reprezentálja, helyes egészgyűrűvel és beágyazással.",
+          "source_refs": [
+            "hecke_family",
+            "hecke_ideal_bridge"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "hecke_exhaustive_character_family",
+          "kind": "DOMAIN_EXHAUSTIVENESS",
+          "question_hu": "A quotient-unit, ray-class és véges rendű konvencionális Hecke-karakterek megfeleltetése kimerítő legyen a class number one/PID tény felhasználásával.",
+          "source_refs": [
+            "hecke_ray_family",
+            "ray_orthogonality",
+            "ideal_character"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "hecke_moduli_primitive_cases",
+          "kind": "QUANTIFIERS_AND_EXCEPTIONS",
+          "question_hu": "Minden nemnulla egészideál modulus, a teljes gyűrű ideálja és minden imprimitive prezentáció szerepeljen; ne legyen rejtett primitivitási szűkítés.",
+          "source_refs": [
+            "hecke_family",
+            "ideal_character"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "hecke_period_independence",
+          "kind": "REPRESENTATION_INDEPENDENCE",
+          "question_hu": "A hozzáadott pozitív periódus létezzen minden konvencionális karakterhez, és választása ne változtassa meg az L-függvényt az auditált tartományon.",
+          "source_refs": [
+            "hecke_family",
+            "hecke_family_series"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "hecke_ideal_coefficient_mask",
+          "kind": "DEFINITION_BRIDGE",
+          "question_hu": "Az ideálkoefficiensek és a nemrelatívprím ideálokon vett nulla feleljenek meg a szokásos ray-karakternek, a véges Eulerfaktor-törléssel együtt.",
+          "source_refs": [
+            "ideal_character",
+            "hecke_ray_family"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "hecke_norm_and_six",
+          "kind": "NORMALIZATION",
+          "question_hu": "A rácsnorma egyezzen a pozitív abszolút ideálnormával, és a hatszoros szorzó pontosan az egységasszociáltakat számolja.",
+          "source_refs": [
+            "hecke_ideal_bridge"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "hecke_series_analytic_continuation",
+          "kind": "DEFINITION_BRIDGE",
+          "question_hu": "A konvergáló ideálsor Re(s)>1-beli egyezése és a folytatás egyértelműsége azonosítsa a klasszikus Hecke-L-függvényt.",
+          "source_refs": [
+            "hecke_ideal_bridge",
+            "hecke_family_series"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "hecke_principal_pole",
+          "kind": "POLE_EXCEPTION",
+          "question_hu": "A χ.residue=1 formális feltétel pontosan a megfelelő főkarakteres pólust jelölje; a többi s=1 eset maradjon benne.",
+          "source_refs": [
+            "hecke_ray_family",
+            "hecke_ideal_bridge"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        }
+      ],
+      "excluded_claim_ids": [
+        "qrh003_boundary_seven_eighths",
+        "qrh003_other_number_fields",
+        "qrh003_infinite_order_hecke",
+        "qrh003_rh_grh",
+        "qrh003_full_manuscript",
+        "qrh003_least_nonresidue_polylog",
+        "qrh003_vinogradov_consequence",
+        "qrh003_deterministic_square_roots"
+      ]
+    },
+    {
+      "claim_id": "qrh003_siegel_uniform",
+      "manuscript": {
+        "pdf_source_ref": "siegel_oct1_pdf",
+        "pdf_raw_sha256": "fab9f6e84ece2a37d834b2c031d8eb14e81413d9f6270791e7b5468b295214ef",
+        "pdf_page_1_based": 1,
+        "theorem_label": "Theorem 1",
+        "equation_label": "(1.1)",
+        "tex_statement_excerpt": {
+          "source_ref": "siegel_oct1_tex",
+          "byte_start_0_based": 2223,
+          "byte_end_exclusive": 2508,
+          "line_start_1_based": 66,
+          "line_end_1_based": 73,
+          "excerpt_utf8": "\\begin{theorem}\\label{thm:main}\nThere is an absolute constant $c>0$ such that every real zero\n$\\beta\\in(0,1)$ of every primitive nonprincipal real Dirichlet\n$L$-function of conductor $q\\ge3$ satisfies\n\\begin{equation}\\label{eq:main}\n (1-\\beta)\\log q\\ge c.\n\\end{equation}\n\\end{theorem}\n",
+          "excerpt_raw_sha256": "c809ae8359f43b7e14cf39e88966601ba3dba45d1171b5b0e56802ee27b34d4d",
+          "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED"
+        },
+        "pdf_claim_page_render_state": "RENDERED_AND_VISUALLY_INSPECTED",
+        "pdf_tex_statement_relation": "CLAIM_TEXT_CORRESPONDENCE_OBSERVED_AT_THIS_ANCHOR",
+        "tex_to_pdf_reproduction_state": "NOT_RUN"
+      },
+      "scope_binding": {
+        "source_ref": "oai_scope_003",
+        "scope_excerpt": {
+          "source_ref": "oai_scope_003",
+          "byte_start_0_based": 924,
+          "byte_end_exclusive": 1393,
+          "line_start_1_based": 14,
+          "line_end_1_based": 16,
+          "excerpt_utf8": "The formalized result gives a uniform logarithmic exclusion region for Landau–Siegel zeros. There is one constant $c>0$ such that every primitive nonprincipal real Dirichlet character of conductor $q\\ge3$ and every real zero $0<\\beta<1$ of its $L$-function satisfy $1-\\beta\\ge c/\\log q$.\n\nBoth character parities are included. No explicit value of $c$ is given. This excludes real zeros in $1-c/\\log q<\\beta<1$, but does not rule out real zeros elsewhere in $(0,1)$.\n",
+          "excerpt_raw_sha256": "216fa0f43f571a4352bf0cc7960ad3fc07e75e809b3bb67731776b887ea37386",
+          "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED"
+        },
+        "comparator_link_line_1_based": 25,
+        "inclusion_state": "PUBLISHER_SCOPE_EXPLICITLY_INCLUDES_CLAIM_SOURCE_OBSERVED",
+        "scope_is_proof": false,
+        "requires_independent_scope_review": true
+      },
+      "targets": [
+        {
+          "target_id": "qrh003_siegel_uniform_export_1",
+          "declaration_full_name": "OAI.SiegelZeros.WeightedTorusJets.exists_absolute_real_zero_gap",
+          "challenge_module": "ComparatorChallenges.SiegelZeros",
+          "challenge_source_ref": "challenge_SiegelZeros",
+          "comparator_config_ref": "config_SiegelZeros",
+          "solution_module": "OAI.NumberTheory.SiegelZeros.Main",
+          "solution_module_source_ref": "solution_module_SiegelZeros",
+          "actual_declaration_path": "lean/OAI/NumberTheory/SiegelZeros/Conclusions/Theorem.lean",
+          "actual_declaration_source_ref": "declaration_SiegelZeros_1",
+          "challenge_signature": {
+            "source_ref": "challenge_SiegelZeros",
+            "byte_start_0_based": 82,
+            "byte_end_exclusive": 432,
+            "line_start_1_based": 8,
+            "line_end_1_based": 14,
+            "excerpt_utf8": "theorem exists_absolute_real_zero_gap :\n    ∃ c : ℝ, 0 < c ∧\n      ∀ (q : ℕ) [NeZero q], 3 ≤ q →\n      ∀ χ : DirichletCharacter ℂ q,\n        χ.IsPrimitive → χ ≠ 1 → (∀ a : ZMod q, (χ a).im = 0) →\n        ∀ β : ℝ, 0 < β → β < 1 → χ.LFunction (β : ℂ) = 0 →\n          c ≤ (1 - β) * Real.log (q : ℝ) ",
+            "excerpt_raw_sha256": "db935520b6ffae81aa181956bea138abfc14e1195e935dd5db1a7764895e8381",
+            "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED",
+            "representation": "SOURCE_SIGNATURE_PREFIX_BEFORE_COLON_EQUALS",
+            "includes_proof_body": false,
+            "is_elaborated_type": false,
+            "elaborated_type_sha256": null,
+            "elaborated_environment_sha256": null
+          },
+          "solution_signature": {
+            "source_ref": "declaration_SiegelZeros_1",
+            "byte_start_0_based": 141,
+            "byte_end_exclusive": 491,
+            "line_start_1_based": 11,
+            "line_end_1_based": 17,
+            "excerpt_utf8": "theorem exists_absolute_real_zero_gap :\n    ∃ c : ℝ, 0 < c ∧\n      ∀ (q : ℕ) [NeZero q], 3 ≤ q →\n      ∀ χ : DirichletCharacter ℂ q,\n        χ.IsPrimitive → χ ≠ 1 → (∀ a : ZMod q, (χ a).im = 0) →\n        ∀ β : ℝ, 0 < β → β < 1 → χ.LFunction (β : ℂ) = 0 →\n          c ≤ (1 - β) * Real.log (q : ℝ) ",
+            "excerpt_raw_sha256": "db935520b6ffae81aa181956bea138abfc14e1195e935dd5db1a7764895e8381",
+            "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED",
+            "representation": "SOURCE_SIGNATURE_PREFIX_BEFORE_COLON_EQUALS",
+            "includes_proof_body": false,
+            "is_elaborated_type": false,
+            "elaborated_type_sha256": null,
+            "elaborated_environment_sha256": null
+          },
+          "declaration_source_presence_state": "EXACT_SOURCE_DECLARATION_LOCATED",
+          "solution_module_export_state": "SOURCE_IMPORT_OR_LOCAL_DECLARATION_LOCATED_LEAN_NOT_RUN",
+          "full_name_resolution_state": "SOURCE_NAMESPACE_AND_CONFIG_MAPPING_RECORDED_LEAN_NOT_RUN",
+          "permitted_standard_axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ],
+          "axiom_membership_rule": "ACTUAL_TRANSITIVE_AXIOMS_MUST_BE_SUBSET_OF_EXACT_STANDARD_ALLOWLIST",
+          "actual_axioms": null,
+          "proof_term_sha256": null,
+          "proof_dependency_graph_sha256": null,
+          "formal_match_state": "NOT_RUN",
+          "axiom_audit_state": "NOT_RUN",
+          "upstream_enable_nanoda": false
+        },
+        {
+          "target_id": "qrh003_siegel_uniform_export_2",
+          "declaration_full_name": "OAI.SiegelZeros.WeightedTorusJets.dirichletRealZeroBound_proof",
+          "challenge_module": "ComparatorChallenges.SiegelZeros",
+          "challenge_source_ref": "challenge_SiegelZeros",
+          "comparator_config_ref": "config_SiegelZeros",
+          "solution_module": "OAI.NumberTheory.SiegelZeros.Main",
+          "solution_module_source_ref": "solution_module_SiegelZeros",
+          "actual_declaration_path": "lean/OAI/NumberTheory/SiegelZeros/Characters/DirichletRealZeroBoundProof.lean",
+          "actual_declaration_source_ref": "declaration_SiegelZeros_2",
+          "challenge_signature": {
+            "source_ref": "challenge_SiegelZeros",
+            "byte_start_0_based": 470,
+            "byte_end_exclusive": 864,
+            "line_start_1_based": 19,
+            "line_end_1_based": 25,
+            "excerpt_utf8": "theorem WeightedTorusJets.dirichletRealZeroBound_proof :\n    ∃ c : ℝ, 0 < c ∧ ∀ (q : ℕ) [NeZero q], 3 ≤ q →\n      ∀ χ : DirichletCharacter ℂ q,\n        χ.IsPrimitive → χ ≠ 1 → (∀ a : ZMod q, (χ a).im = 0) →\n        ∀ β : ℝ,\n          (0 < β ∧ β < 1 ∧ DirichletCharacter.LFunction χ (β : ℂ) = 0) →\n            c ≤ (1 - β) * Real.log (q : ℝ) ",
+            "excerpt_raw_sha256": "3841ad307dd101398f64e671132593efee57ce265886358bd6cb64cd7db3f006",
+            "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED",
+            "representation": "SOURCE_SIGNATURE_PREFIX_BEFORE_COLON_EQUALS",
+            "includes_proof_body": false,
+            "is_elaborated_type": false,
+            "elaborated_type_sha256": null,
+            "elaborated_environment_sha256": null
+          },
+          "solution_signature": {
+            "source_ref": "declaration_SiegelZeros_2",
+            "byte_start_0_based": 254,
+            "byte_end_exclusive": 648,
+            "line_start_1_based": 17,
+            "line_end_1_based": 23,
+            "excerpt_utf8": "theorem WeightedTorusJets.dirichletRealZeroBound_proof :\n    ∃ c : ℝ, 0 < c ∧ ∀ (q : ℕ) [NeZero q], 3 ≤ q →\n      ∀ χ : DirichletCharacter ℂ q,\n        χ.IsPrimitive → χ ≠ 1 → (∀ a : ZMod q, (χ a).im = 0) →\n        ∀ β : ℝ,\n          (0 < β ∧ β < 1 ∧ DirichletCharacter.LFunction χ (β : ℂ) = 0) →\n            c ≤ (1 - β) * Real.log (q : ℝ) ",
+            "excerpt_raw_sha256": "3841ad307dd101398f64e671132593efee57ce265886358bd6cb64cd7db3f006",
+            "extraction_state": "EXACT_SOURCE_BYTES_VERIFIED",
+            "representation": "SOURCE_SIGNATURE_PREFIX_BEFORE_COLON_EQUALS",
+            "includes_proof_body": false,
+            "is_elaborated_type": false,
+            "elaborated_type_sha256": null,
+            "elaborated_environment_sha256": null
+          },
+          "declaration_source_presence_state": "EXACT_SOURCE_DECLARATION_LOCATED",
+          "solution_module_export_state": "SOURCE_IMPORT_OR_LOCAL_DECLARATION_LOCATED_LEAN_NOT_RUN",
+          "full_name_resolution_state": "SOURCE_NAMESPACE_AND_CONFIG_MAPPING_RECORDED_LEAN_NOT_RUN",
+          "permitted_standard_axioms": [
+            "propext",
+            "Classical.choice",
+            "Quot.sound"
+          ],
+          "axiom_membership_rule": "ACTUAL_TRANSITIVE_AXIOMS_MUST_BE_SUBSET_OF_EXACT_STANDARD_ALLOWLIST",
+          "actual_axioms": null,
+          "proof_term_sha256": null,
+          "proof_dependency_graph_sha256": null,
+          "formal_match_state": "NOT_RUN",
+          "axiom_audit_state": "NOT_RUN",
+          "upstream_enable_nanoda": false
+        }
+      ],
+      "review_levels": {
+        "syntactic_correspondence": {
+          "state": "SOURCE_RELATIONS_RECORDED",
+          "evaluator_role": "assistant_source_inspection",
+          "scope_hu": "Pontos forrásbájtok, konfigurációs névlista, deklarációhely és kézirat/scope-hivatkozás. Nem elaborált tételazonosság.",
+          "receipt_sha256": null
+        },
+        "formal_theorem_identity": {
+          "state": "NOT_RUN",
+          "required_evidence_hu": "A és B futáshoz külön négy konfiguráció/öt export; izolált Comparator, típuskörnyezet és rekurzív definícióegyezés, trusted oldali export és kernel.",
+          "receipt_sha256": null
+        },
+        "mathematical_semantic_correspondence": {
+          "state": "NOT_REVIEWED",
+          "required_evidence_hu": "A konvencionális fogalmak, kvantorok, tartományok és kivételek teljes megfeleltetésének exact digesthez kötött szakterületi reviewja.",
+          "receipt_sha256": null
+        },
+        "independent_domain_acceptance": {
+          "state": "NOT_REVIEWED",
+          "required_evidence_hu": "Hitelesített, a deklarált függetlenségi és kompetenciaszabálynak megfelelő szakreview; saját scope-pal. Nem közösségi elfogadás.",
+          "reviewer_identity": null,
+          "receipt_sha256": null
+        }
+      },
+      "conventional_claim_hu": "Egy abszolút c>0 mellett minden q≥3 conductorú primitív nemfő valós Dirichlet-karakter minden 0<β<1 valós zérusára c≤(1−β)log q.",
+      "formal_object_map": [
+        {
+          "conventional_object_hu": "Primitív karakter és conductor q",
+          "formal_name": "DirichletCharacter.IsPrimitive",
+          "source_ref": "mathlib_dirichlet_character_basic",
+          "formal_definition_source_text": "conductor χ = n",
+          "mapping_state": "SOURCE_IDENTIFIED_SEMANTIC_REVIEW_PENDING"
+        },
+        {
+          "conventional_object_hu": "Valós karakter, mindkét paritás",
+          "formal_source_clause": "∀ a : ZMod q, (χ a).im = 0",
+          "mapping_state": "SOURCE_QUANTIFIER_CLAUSE_RECORDED_REVIEW_PENDING"
+        },
+        {
+          "conventional_object_hu": "A karakter L-függvényének valós zérusa",
+          "formal_source_clause": "DirichletCharacter.LFunction χ (β : ℂ) = 0",
+          "source_ref": "mathlib_dirichlet_continuation",
+          "mapping_state": "SOURCE_IDENTIFIED_SEMANTIC_REVIEW_PENDING"
+        },
+        {
+          "conventional_object_hu": "Természetes logaritmus",
+          "formal_name": "Real.log",
+          "mapping_state": "REQUIRES_PINNED_DECLARATION_AND_SEMANTIC_IDENTITY_CHECK"
+        }
+      ],
+      "domain_quantifiers_and_exceptions": {
+        "quantifier_order": [
+          "∃ c : ℝ, 0 < c",
+          "∀ q : ℕ with NeZero q and 3 ≤ q",
+          "∀ χ : DirichletCharacter ℂ q",
+          "χ.IsPrimitive → χ ≠ 1 → (∀ a : ZMod q, (χ a).im = 0)",
+          "∀ β : ℝ with 0 < β and β < 1 and LFunction χ (β : ℂ) = 0"
+        ],
+        "formal_conclusion": "c ≤ (1 - β) * Real.log (q : ℝ)",
+        "constant_may_depend_on_q_or_character_or_zero": false,
+        "explicit_constant_in_publisher_theorem": null,
+        "parities": "BOTH",
+        "principal_characters_excluded": true,
+        "q_below_three_excluded": true,
+        "beta_zero_or_one_excluded": true,
+        "all_real_zeros_in_unit_interval_excluded": false,
+        "internal_quadratic_field_exception_is_global_theorem_exception": false
+      },
+      "obligations": [
+        {
+          "obligation_id": "siegel_uniform_quantifier_order",
+          "kind": "QUANTIFIERS",
+          "question_hu": "Az egyetlen c>0 létezése minden q/χ/β előtt álljon; a konstans ne függjön a karaktertől vagy conductortól.",
+          "source_refs": [],
+          "required_for_semantic_admission": true,
+          "current_state": "NOT_EVALUATED",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "siegel_conductor_equals_level",
+          "kind": "DEFINITION_BRIDGE",
+          "question_hu": "A χ.IsPrimitive feltétel a modulus q és a konvencionális conductor azonosságát biztosítsa.",
+          "source_refs": [
+            "mathlib_dirichlet_character_basic"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "siegel_real_both_parities",
+          "kind": "DOMAIN",
+          "question_hu": "A valós karaktert minden maradékosztályon az imaginárius rész nullasága jelölje; mindkét paritás maradjon meg.",
+          "source_refs": [],
+          "required_for_semantic_admission": true,
+          "current_state": "NOT_EVALUATED",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "siegel_zero_gap_equivalence",
+          "kind": "CLAUSE_EQUIVALENCE",
+          "question_hu": "q≥3 alapján log q>0; ezzel az osztásos scope és szorzásos formális résállítás ekvivalenciája igazolható.",
+          "source_refs": [
+            "oai_scope_003"
+          ],
+          "required_for_semantic_admission": true,
+          "current_state": "SOURCE_EVIDENCE_IDENTIFIED_REVIEW_NOT_RUN",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "siegel_target_pair_equivalence",
+          "kind": "FORMAL_EQUIVALENCE",
+          "question_hu": "A curryzett és konjunkciós β-feltevésekkel megadott két exportot külön kell ellenőrizni, és az állítások ekvivalenciáját külön bizonyítékként lehet rögzíteni.",
+          "source_refs": [],
+          "required_for_semantic_admission": true,
+          "current_state": "NOT_EVALUATED",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "siegel_no_unstated_effective_constant",
+          "kind": "CLAIM_BOUNDARY",
+          "question_hu": "Az egzisztenciális tételből önmagában ne kommunikáljunk számszerű c-t vagy algoritmikusan kiszámított konstantst.",
+          "source_refs": [],
+          "required_for_semantic_admission": true,
+          "current_state": "NOT_EVALUATED",
+          "verification_receipt_sha256": null
+        },
+        {
+          "obligation_id": "siegel_no_full_interval_exclusion",
+          "kind": "CLAIM_BOUNDARY",
+          "question_hu": "Csak a 1−c/log q < β <1 rés zérusmentességét állítjuk, nem a teljes (0,1) intervallumét.",
+          "source_refs": [],
+          "required_for_semantic_admission": true,
+          "current_state": "NOT_EVALUATED",
+          "verification_receipt_sha256": null
+        }
+      ],
+      "excluded_claim_ids": [
+        "qrh003_siegel_all_real_zeros",
+        "qrh003_siegel_explicit_publisher_constant",
+        "qrh003_full_manuscript"
+      ]
+    }
+  ],
+  "existing_hecke_bridges": [
+    {
+      "declaration_full_name": "OAI.SevenEighths.HeckeFamily.Character.ofResidue",
+      "source_ref": "hecke_family",
+      "line_1_based": 31,
+      "local_declaration_name": "Character.ofResidue",
+      "declaration_presence": "SOURCE_LOCATED_NOT_LEAN_LOADED",
+      "purpose_hu": "A periódusmező konstrukciója véges hányadosból.",
+      "authorship_credit": "EXISTING_UPSTREAM_OPENAI_SOURCE",
+      "new_pulse_proof": false,
+      "kernel_or_axiom_verification_state": "NOT_RUN",
+      "semantic_exhaustiveness_review_state": "NOT_REVIEWED"
+    },
+    {
+      "declaration_full_name": "OAI.SevenEighths.HeckeFamily.coordinateEquiv",
+      "source_ref": "hecke_ideal_bridge",
+      "line_1_based": 26,
+      "local_declaration_name": "coordinateEquiv",
+      "declaration_presence": "SOURCE_LOCATED_NOT_LEAN_LOADED",
+      "purpose_hu": "A Z×Z koordináták és az egészgyűrű közti megfeleltetés.",
+      "authorship_credit": "EXISTING_UPSTREAM_OPENAI_SOURCE",
+      "new_pulse_proof": false,
+      "kernel_or_axiom_verification_state": "NOT_RUN",
+      "semantic_exhaustiveness_review_state": "NOT_REVIEWED"
+    },
+    {
+      "declaration_full_name": "OAI.SevenEighths.HeckeFamily.normForm_eq_absNorm_span",
+      "source_ref": "hecke_ideal_bridge",
+      "line_1_based": 33,
+      "local_declaration_name": "normForm_eq_absNorm_span",
+      "declaration_presence": "SOURCE_LOCATED_NOT_LEAN_LOADED",
+      "purpose_hu": "Rácsnorma és abszolút főideálnorma azonossága.",
+      "authorship_credit": "EXISTING_UPSTREAM_OPENAI_SOURCE",
+      "new_pulse_proof": false,
+      "kernel_or_axiom_verification_state": "NOT_RUN",
+      "semantic_exhaustiveness_review_state": "NOT_REVIEWED"
+    },
+    {
+      "declaration_full_name": "OAI.SevenEighths.HeckeFamily.continuedLattice_eq_six_ideal_tsum",
+      "source_ref": "hecke_ideal_bridge",
+      "line_1_based": 80,
+      "local_declaration_name": "continuedLattice_eq_six_ideal_tsum",
+      "declaration_presence": "SOURCE_LOCATED_NOT_LEAN_LOADED",
+      "purpose_hu": "A hatszoros egységnormalizálás konkrét ideálsoros hídja.",
+      "authorship_credit": "EXISTING_UPSTREAM_OPENAI_SOURCE",
+      "new_pulse_proof": false,
+      "kernel_or_axiom_verification_state": "NOT_RUN",
+      "semantic_exhaustiveness_review_state": "NOT_REVIEWED"
+    },
+    {
+      "declaration_full_name": "OAI.SevenEighths.HeckeFamily.LFunction_eq_ideal_tsum",
+      "source_ref": "hecke_ideal_bridge",
+      "line_1_based": 97,
+      "local_declaration_name": "LFunction_eq_ideal_tsum",
+      "declaration_presence": "SOURCE_LOCATED_NOT_LEAN_LOADED",
+      "purpose_hu": "Az L-függvény és ideálsor egyezése Re(s)>1 mellett.",
+      "authorship_credit": "EXISTING_UPSTREAM_OPENAI_SOURCE",
+      "new_pulse_proof": false,
+      "kernel_or_axiom_verification_state": "NOT_RUN",
+      "semantic_exhaustiveness_review_state": "NOT_REVIEWED"
+    },
+    {
+      "declaration_full_name": "OAI.SevenEighths.HeckeFamily.LFunction_differentiableAt",
+      "source_ref": "hecke_ideal_bridge",
+      "line_1_based": 102,
+      "local_declaration_name": "LFunction_differentiableAt",
+      "declaration_presence": "SOURCE_LOCATED_NOT_LEAN_LOADED",
+      "purpose_hu": "Differenciálhatóság az adott kivételekkel.",
+      "authorship_credit": "EXISTING_UPSTREAM_OPENAI_SOURCE",
+      "new_pulse_proof": false,
+      "kernel_or_axiom_verification_state": "NOT_RUN",
+      "semantic_exhaustiveness_review_state": "NOT_REVIEWED"
+    },
+    {
+      "declaration_full_name": "OAI.SevenEighths.HeckeFamily.LFunction_entire_nonprincipal",
+      "source_ref": "hecke_ideal_bridge",
+      "line_1_based": 110,
+      "local_declaration_name": "LFunction_entire_nonprincipal",
+      "declaration_presence": "SOURCE_LOCATED_NOT_LEAN_LOADED",
+      "purpose_hu": "Nemfő karakter esetén egész L-függvény.",
+      "authorship_credit": "EXISTING_UPSTREAM_OPENAI_SOURCE",
+      "new_pulse_proof": false,
+      "kernel_or_axiom_verification_state": "NOT_RUN",
+      "semantic_exhaustiveness_review_state": "NOT_REVIEWED"
+    },
+    {
+      "declaration_full_name": "OAI.SevenEighths.HeckeTheta.latticeL_eq_of_coefficients",
+      "source_ref": "hecke_family_series",
+      "line_1_based": 19,
+      "local_declaration_name": "latticeL_eq_of_coefficients",
+      "declaration_presence": "SOURCE_LOCATED_NOT_LEAN_LOADED",
+      "purpose_hu": "Periódusreprezentáció közötti egyezés azonos periodikus koefficienseknél.",
+      "authorship_credit": "EXISTING_UPSTREAM_OPENAI_SOURCE",
+      "new_pulse_proof": false,
+      "kernel_or_axiom_verification_state": "NOT_RUN",
+      "semantic_exhaustiveness_review_state": "NOT_REVIEWED"
+    },
+    {
+      "declaration_full_name": "OAI.SevenEighths.HeckeFamily.continuedLattice_eq_of_elementCoeff_eq",
+      "source_ref": "hecke_family_series",
+      "line_1_based": 57,
+      "local_declaration_name": "continuedLattice_eq_of_elementCoeff_eq",
+      "declaration_presence": "SOURCE_LOCATED_NOT_LEAN_LOADED",
+      "purpose_hu": "Azonos elemkoefficiensekből azonos folytatott rács-L-függvény.",
+      "authorship_credit": "EXISTING_UPSTREAM_OPENAI_SOURCE",
+      "new_pulse_proof": false,
+      "kernel_or_axiom_verification_state": "NOT_RUN",
+      "semantic_exhaustiveness_review_state": "NOT_REVIEWED"
+    },
+    {
+      "declaration_full_name": "OAI.SevenEighths.HeckeRayFamily.character",
+      "source_ref": "hecke_ray_family",
+      "line_1_based": 15,
+      "local_declaration_name": "character",
+      "declaration_presence": "SOURCE_LOCATED_NOT_LEAN_LOADED",
+      "purpose_hu": "A konkrét ray-karakter custom Character objektumba képezése.",
+      "authorship_credit": "EXISTING_UPSTREAM_OPENAI_SOURCE",
+      "new_pulse_proof": false,
+      "kernel_or_axiom_verification_state": "NOT_RUN",
+      "semantic_exhaustiveness_review_state": "NOT_REVIEWED"
+    },
+    {
+      "declaration_full_name": "OAI.SevenEighths.HeckeRayFamily.idealCoeff_character",
+      "source_ref": "hecke_ray_family",
+      "line_1_based": 18,
+      "local_declaration_name": "idealCoeff_character",
+      "declaration_presence": "SOURCE_LOCATED_NOT_LEAN_LOADED",
+      "purpose_hu": "Ideálkoefficiens és ray-karakter egyezése.",
+      "authorship_credit": "EXISTING_UPSTREAM_OPENAI_SOURCE",
+      "new_pulse_proof": false,
+      "kernel_or_axiom_verification_state": "NOT_RUN",
+      "semantic_exhaustiveness_review_state": "NOT_REVIEWED"
+    },
+    {
+      "declaration_full_name": "OAI.SevenEighths.HeckeRayFamily.principal_iff",
+      "source_ref": "hecke_ray_family",
+      "line_1_based": 21,
+      "local_declaration_name": "principal_iff",
+      "declaration_presence": "SOURCE_LOCATED_NOT_LEAN_LOADED",
+      "purpose_hu": "Főkarakterek megfeleltetése.",
+      "authorship_credit": "EXISTING_UPSTREAM_OPENAI_SOURCE",
+      "new_pulse_proof": false,
+      "kernel_or_axiom_verification_state": "NOT_RUN",
+      "semantic_exhaustiveness_review_state": "NOT_REVIEWED"
+    },
+    {
+      "declaration_full_name": "OAI.SevenEighths.RayOrthogonality.mem_rayCharacters_iff",
+      "source_ref": "ray_orthogonality",
+      "line_1_based": 97,
+      "local_declaration_name": "mem_rayCharacters_iff",
+      "declaration_presence": "SOURCE_LOCATED_NOT_LEAN_LOADED",
+      "purpose_hu": "A globális egységeken trivialitás azonosítása a ray-karakter tagsággal.",
+      "authorship_credit": "EXISTING_UPSTREAM_OPENAI_SOURCE",
+      "new_pulse_proof": false,
+      "kernel_or_axiom_verification_state": "NOT_RUN",
+      "semantic_exhaustiveness_review_state": "NOT_REVIEWED"
+    },
+    {
+      "declaration_full_name": "OAI.SevenEighths.RayOrthogonality.principalIdeals_iff_congruent_one",
+      "source_ref": "ray_orthogonality",
+      "line_1_based": 164,
+      "local_declaration_name": "principalIdeals_iff_congruent_one",
+      "declaration_presence": "SOURCE_LOCATED_NOT_LEAN_LOADED",
+      "purpose_hu": "A fő ray ideálok konvencionális kongruenciafeltétele.",
+      "authorship_credit": "EXISTING_UPSTREAM_OPENAI_SOURCE",
+      "new_pulse_proof": false,
+      "kernel_or_axiom_verification_state": "NOT_RUN",
+      "semantic_exhaustiveness_review_state": "NOT_REVIEWED"
+    },
+    {
+      "declaration_full_name": "OAI.SevenEighths.IdealCharacter.ofResidue_finite_deletion",
+      "source_ref": "ideal_character",
+      "line_1_based": 180,
+      "local_declaration_name": "ofResidue_finite_deletion",
+      "declaration_presence": "SOURCE_LOCATED_NOT_LEAN_LOADED",
+      "purpose_hu": "A modulusváltoztatás véges kihagyási maszkja.",
+      "authorship_credit": "EXISTING_UPSTREAM_OPENAI_SOURCE",
+      "new_pulse_proof": false,
+      "kernel_or_axiom_verification_state": "NOT_RUN",
+      "semantic_exhaustiveness_review_state": "NOT_REVIEWED"
+    }
+  ],
+  "excluded_claims": [
+    {
+      "claim_id": "qrh003_boundary_seven_eighths",
+      "statement_hu": "A Re(s)=7/8 határ zérusmentessége.",
+      "state": "OUT_OF_SCOPE",
+      "reason_code": "MAIN_CLAIM_STRICT_INEQUALITY",
+      "source_ref": "qrh_sept30_pdf",
+      "pdf_page_1_based": 4,
+      "anchor": "Theorem 1.1 utáni bekezdés"
+    },
+    {
+      "claim_id": "qrh003_rh_grh",
+      "statement_hu": "RH vagy GRH, minden nemtriviális zérus Re(s)=1/2 állítása.",
+      "state": "OUT_OF_SCOPE",
+      "reason_code": "NOT_ASSERTED_BY_THIS_RESULT",
+      "source_ref": "qrh_sept30_pdf",
+      "pdf_page_1_based": 4,
+      "anchor": "Theorem 1.1 utáni bekezdés"
+    },
+    {
+      "claim_id": "qrh003_full_manuscript",
+      "statement_hu": "A két kézirat teljes szövegének, minden bizonyítási lépésének és alkalmazásának formalizáltsága; különösen a teljes 199 oldalas QRH-kéziraté.",
+      "state": "OUT_OF_SCOPE",
+      "reason_code": "NO_SCOPE_COVERAGE",
+      "source_ref": "oai_scope_003",
+      "pdf_page_1_based": null,
+      "anchor": "Scope 12. sor"
+    },
+    {
+      "claim_id": "qrh003_least_nonresidue_polylog",
+      "statement_hu": "A legkisebb kvadratikus nemmaradék polilogaritmikus korlátja.",
+      "state": "OUT_OF_SCOPE",
+      "reason_code": "PUBLISHER_EXCLUDES_LATER_APPLICATIONS",
+      "source_ref": "qrh_sept30_pdf",
+      "pdf_page_1_based": 7,
+      "anchor": "Corollary 1.2"
+    },
+    {
+      "claim_id": "qrh003_vinogradov_consequence",
+      "statement_hu": "Vinogradov legkisebb kvadratikus nemmaradék következménye.",
+      "state": "OUT_OF_SCOPE",
+      "reason_code": "PUBLISHER_EXCLUDES_LATER_APPLICATIONS",
+      "source_ref": "qrh_sept30_pdf",
+      "pdf_page_1_based": 7,
+      "anchor": "Corollary 1.2"
+    },
+    {
+      "claim_id": "qrh003_deterministic_square_roots",
+      "statement_hu": "Determinisztikus négyzetgyökvonás páratlan prímtestben, log p-ben polinomidejű algoritmussal.",
+      "state": "OUT_OF_SCOPE",
+      "reason_code": "PUBLISHER_EXCLUDES_LATER_APPLICATIONS",
+      "source_ref": "qrh_sept30_pdf",
+      "pdf_page_1_based": 7,
+      "anchor": "Corollary 1.2"
+    },
+    {
+      "claim_id": "qrh003_alternative_eleven_twelfths",
+      "statement_hu": "Az október 5-i külön 11/12 bizonyítás auditja.",
+      "state": "OUT_OF_SCOPE",
+      "reason_code": "EXPLICITLY_EXCLUDED_ALTERNATIVE_RESULT",
+      "source_ref": null,
+      "pdf_page_1_based": null,
+      "anchor": null
+    },
+    {
+      "claim_id": "qrh003_other_number_fields",
+      "statement_hu": "Minden számtestre érvényes Hecke-eredmény.",
+      "state": "OUT_OF_SCOPE",
+      "reason_code": "OUTSIDE_STATED_FIELD",
+      "source_ref": null,
+      "pdf_page_1_based": null,
+      "anchor": null
+    },
+    {
+      "claim_id": "qrh003_infinite_order_hecke",
+      "statement_hu": "Végtelen rendű Hecke-karakterekre kiterjesztés.",
+      "state": "OUT_OF_SCOPE",
+      "reason_code": "OUTSIDE_FINITE_ORDER_SCOPE",
+      "source_ref": null,
+      "pdf_page_1_based": null,
+      "anchor": null
+    },
+    {
+      "claim_id": "qrh003_siegel_all_real_zeros",
+      "statement_hu": "Az összes valós zérus kizárása a teljes (0,1) intervallumból.",
+      "state": "OUT_OF_SCOPE",
+      "reason_code": "NOT_IMPLIED_BY_LOGARITHMIC_GAP",
+      "source_ref": "oai_scope_003",
+      "pdf_page_1_based": null,
+      "anchor": "Scope 16. sor"
+    },
+    {
+      "claim_id": "qrh003_siegel_explicit_publisher_constant",
+      "statement_hu": "A kiadott LS-tételben számszerű c konstans szerepel.",
+      "state": "OUT_OF_SCOPE",
+      "reason_code": "NO_EXPLICIT_PUBLISHER_CONSTANT",
+      "source_ref": "oai_scope_003",
+      "pdf_page_1_based": null,
+      "anchor": "Scope 16. sor"
+    }
+  ],
+  "logical_and_shared_proof_relations": [
+    {
+      "relation_id": "dirichlet_seven_eighths_entails_uniform_siegel_gap",
+      "kind": "CONDITIONAL_MATHEMATICAL_INFERENCE_NOT_EXECUTED_PROOF",
+      "premise_claim_ids": [
+        "qrh003_dirichlet"
+      ],
+      "conclusion_claim_ids": [
+        "qrh003_siegel_uniform"
+      ],
+      "additional_hypotheses": [
+        "q ≥ 3",
+        "0 < β < 1",
+        "β real",
+        "LFunction χ (β : ℂ) = 0"
+      ],
+      "derivation_hu": [
+        "A minden Dirichlet-karakterre érvényes 7/8 tétel érvényessége esetén egy ilyen β zérus nem lehet 7/8 fölött.",
+        "Ezért β≤7/8 és 1−β≥1/8.",
+        "q≥3 mellett log q≥log3>0.",
+        "Így (1−β)log q≥(log3)/8; a c=(log3)/8 pozitív konstans választása teljesíti az LS résállítást."
+      ],
+      "derived_constant_expression": "(Real.log 3) / 8",
+      "is_publisher_supplied_explicit_constant": false,
+      "lean_execution_state": "NOT_RUN",
+      "formal_proof_artifact_sha256": null,
+      "independent_verification_added": false,
+      "forbidden_inference_hu": "E logikai kapcsolatból nem következik, hogy a kiadott két proof ténylegesen független vagy hogy bármelyik sikeresen le lett fordítva."
+    },
+    {
+      "relation_id": "siegel_two_export_forms",
+      "kind": "SOURCE_OBSERVED_PROPOSITIONAL_REPACKAGING",
+      "targets": [
+        "OAI.SiegelZeros.WeightedTorusJets.exists_absolute_real_zero_gap",
+        "OAI.SiegelZeros.WeightedTorusJets.dirichletRealZeroBound_proof"
+      ],
+      "difference_hu": "A β>0, β<1 és L(β)=0 hipotézisek az egyik exportban curryzett implikációkként, a másikban konjunkcióként szerepelnek.",
+      "independent_mathematical_results_count": 1,
+      "formal_equivalence_proof_state": "NOT_RUN",
+      "separate_registered_target_verification_required": true
+    },
+    {
+      "relation_id": "qrh_exports_shared_final_assembly",
+      "kind": "SOURCE_OBSERVED_SHARED_ASSEMBLY_REFERENCE",
+      "claim_ids": [
+        "qrh003_zeta",
+        "qrh003_dirichlet",
+        "qrh003_hecke_qsqrt_minus3"
+      ],
+      "source_ref": "final_assembly_unconditional",
+      "source_observation_hu": "A zéta és Dirichlet export ProbeFinalAssemblyUnconditional végpontot hív; a Hecke export ugyanazon assembly detector_certified_bands értékét használja a feltételes Hecke-híddal.",
+      "proof_independence_state": "NOT_ESTABLISHED",
+      "elaborated_shared_dependency_graph_sha256": null,
+      "independent_evidence_count_may_not_be_inferred_from_filenames": true
+    }
+  ],
+  "schema_version": "qrh003_claim_map_v1",
+  "artifact_role": "declared_source_binding_map",
+  "authority": "NONE",
+  "independent_semantic_review": "NOT_REVIEWED",
+  "fresh_anchor_check_required": true
+}
