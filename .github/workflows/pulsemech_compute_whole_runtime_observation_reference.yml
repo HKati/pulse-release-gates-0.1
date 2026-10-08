@@ -88,6 +88,9 @@ jobs:
               "GITHUB_SHA": revision,
               "GITHUB_WORKFLOW_SHA": revision,
               "GITHUB_RUN_ATTEMPT": "1",
+              "GITHUB_ACTOR": "HKati",
+              "GITHUB_ACTOR_ID": "128643840",
+              "GITHUB_TRIGGERING_ACTOR": "HKati",
               "RUNNER_OS": "Linux",
               "RUNNER_ENVIRONMENT": "github-hosted",
           }
@@ -178,6 +181,7 @@ jobs:
       - name: Acquire exact PULSE CI and Step 3F runs
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          PULSE_Q2_OWNER_DISPATCH_TOKEN: ${{ secrets.PULSE_Q2_OWNER_DISPATCH_TOKEN }}
         run: |
           set -euo pipefail
           set -C
@@ -321,6 +325,9 @@ jobs:
               "GITHUB_SHA": revision,
               "GITHUB_WORKFLOW_SHA": revision,
               "GITHUB_RUN_ATTEMPT": "1",
+              "GITHUB_ACTOR": "HKati",
+              "GITHUB_ACTOR_ID": "128643840",
+              "GITHUB_TRIGGERING_ACTOR": "HKati",
               "RUNNER_OS": "Linux",
               "RUNNER_ENVIRONMENT": "github-hosted",
           }
