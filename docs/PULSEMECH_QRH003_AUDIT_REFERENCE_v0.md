@@ -8,7 +8,7 @@ with the quasi-Riemann hypothesis reference case. The study provides source
 observation, evidence admission, scoped offline decisions, decision replay
 and post-decision transition observation.
 
-The implementation is **v0.1.1**. Its native proof capture adapter is
+The repository implementation is **v0.1.2**. Its native proof capture adapter is
 **`NOT_IMPLEMENTED`**. The latest preserved source pilot produced **`BLOCK`**,
 and its decision replay produced **`MATCH`**. No production QRH certificate
 has been established. The audit result concerns the admitted evidence and
@@ -20,7 +20,7 @@ declared policy; it makes no judgment that the mathematical claim is false.
 | OpenAI Math subject commit | [`adc7f1241b42e322a6451854ab7e4b4c146bf78a`](https://github.com/openai/math/tree/adc7f1241b42e322a6451854ab7e4b4c146bf78a) |
 | PULSE primitive commit | [`288bb9a45764d2a30f72fdf4c417e9dd5b3087c5`](https://github.com/HKati/pulse-release-gates-0.1/tree/288bb9a45764d2a30f72fdf4c417e9dd5b3087c5) |
 | Latest historical source pilot | `qrh003-pilot-002-20261007`, implementation v0.1 |
-| Current source validation | 158 distinct local tests passed on 2026-10-08; zero skipped |
+| Current source validation | 185 distinct local tests passed on 2026-10-08; zero skipped |
 | Fixture evidence domain | `TEST` |
 | Native proof capture | `NOT_IMPLEMENTED` |
 
@@ -113,6 +113,27 @@ complete archive at
 It is TEST evidence. It does not replace or relabel the real historical
 pilot's `BLOCK` decision.
 
+## The v0.1.2 repository review correction
+
+PR #2907 review identified three additional implementation boundaries:
+
+| Finding | Corrected behavior | Regression evidence |
+| --- | --- | --- |
+| Replay can run through the Python API in the same process | Report fresh recomputation and explicitly leave verifier process provenance unrecorded | A real signed TEST decision, replay and observer execute their three recomputations in one process |
+| A tool pathname can change after hashing | Hash and execute one sealed memfd snapshot; use the same method for strict Landrun execution | Deterministic pathname replacement and in-place mutation cannot substitute the executed image |
+| A signed manifest can coexist with unsigned extra bundle files | Admit the exact physical file set, with only the root manifest and detached signature outside the artifact list | A valid signed fixture rejects unlisted status/diagnostic files, links, special objects and unrelated directories |
+
+The preflight binding covers the executable image, not its dynamic loader,
+interpreter, shared libraries or full native runtime. It requires Linux memfd
+sealing and `/proc/self/fd`; unavailable support or self-location/`$ORIGIN`
+incompatibility blocks the probe without mutable-path fallback. Native proof
+capture remains unimplemented.
+
+The inventory check observes the bundle during admission, without granting
+an immutable filesystem seal. Later evaluation uses the authenticated bytes
+already held in the admitted snapshot. The original signed historical bundle
+and verifier snapshot remain unchanged.
+
 ## Reading the evidence states
 
 **`BLOCK`** means the selected profile's conditions were not all established
@@ -121,9 +142,11 @@ reconstructed with the required byte equality. These outcomes can coexist.
 A completed checker can also produce `BLOCK`; path completion and permission
 are separate observations.
 
-The current suite contains 145 declared collector-boundary tests plus 13
-observer regressions. All 158 recorded distinct `PASS` outcomes in the local
-source-subset validation on 2026-10-08. They exercise fixture-based audit and
+The current suite contains 171 declared collector-boundary tests plus
+14 observer regressions. All 185 recorded distinct `PASS` outcomes in
+the local v0.1.2 source validation on 2026-10-08. All 145 original boundary
+IDs remain required; the new preflight and inventory regressions extend
+that set. They exercise fixture-based audit and
 authority mechanics. Native Lean proof execution was not part of that run.
 
 At the pinned PULSE baseline, the main
@@ -131,7 +154,7 @@ At the pinned PULSE baseline, the main
 [pytest list](../ci/pytest-tests.list) do not include the study suite. Run
 the study's own unittest runner in a fresh process with the environment
 specified by its README. Repository CI success alone is not evidence that
-these 158 cases ran.
+these 185 cases ran.
 
 ## Historical replay and new work
 
@@ -151,14 +174,16 @@ and replay requirements are recorded in
 Historical `pilot_002` replay uses its original anchor, bundle and decision,
 the preserved `runs/pilot_002/verifier_snapshot/tools/authority.py`, and the
 pinned PULSE runtime. The archive's `REPLAY_PILOT.md` gives the procedure.
-The v0.1.1 root verifier must not be substituted for that historical snapshot.
+The current root verifier must not be substituted for that historical snapshot.
 
 New work requires a fresh anchor for the actual local source and reference
 inventory. The source subset preserves 17 study Python files and two pinned
 PULSE Python primitives; its
 [source manifest](../studies/openai_math_003_qrh_v0/SOURCE_MANIFEST.json)
-covers that study directory. This documentation does not alter an existing
-anchor or grant authority to a new one.
+covers that study directory. The v0.1.2 source corrections are recorded
+separately from the immutable complete v0.1.1 distribution. This
+documentation does not alter an existing anchor or grant authority to a
+new one.
 
 ## Remaining work and acceptance boundary
 

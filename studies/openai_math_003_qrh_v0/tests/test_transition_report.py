@@ -9,6 +9,7 @@ injected subprocess timeout explicitly.
 from __future__ import annotations
 
 import copy
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -136,6 +137,28 @@ class TransitionReportTests(unittest.TestCase):
             ' -> BLOCK decision'))
         self.assertIn(failed.encode(), common.secure_read(decision_dir, 'checker.stdout'))
         self.assertFalse(list(decision_dir.rglob('certificate.json')))
+
+    def test_in_process_replay_claims_only_fresh_recomputation(self):
+        # The supported Python API can decide, replay and observe in this
+        # single process. Real primitive subprocesses do not supply process
+        # provenance for the enclosing verifier's decision recomputation.
+        compute = authority._compute
+        compute_pids = []
+
+        def observed_compute(*args, **kwargs):
+            compute_pids.append(os.getpid())
+            return compute(*args, **kwargs)
+
+        with mock.patch.object(authority, '_compute', side_effect=observed_compute), \
+                mock.patch.object(transition_report, '_compute', side_effect=observed_compute):
+            _, receipt, report, _, _ = self.capture()
+        self.assertEqual(compute_pids, [os.getpid()] * 3)
+        self.assertEqual(receipt['replay_status'], 'MATCH')
+        axis = report['axes']['reconstruction_reproducibility_status']
+        self.assertEqual(axis['state'], 'VERIFIED_DECISION_REPLAY_ONLY')
+        self.assertIn('Fresh recomputation', axis['scope'])
+        self.assertNotIn('new verifier process', axis['scope'].lower())
+        self.assertIn('process provenance is not recorded', axis['limitation'])
 
     def test_missing_runtime_replays_BLOCK_without_verifying_execution(self):
         captured = self.capture(pulse_root=self.fixture.home / 'missing-runtime')

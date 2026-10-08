@@ -4,11 +4,16 @@
 Python 3.10+ standard library only. Tool execution requires an expected SHA-256;
 unverified or mismatched executables are hashed but are not executed. Write each
 run to a NEW output directory. This is a host observation, not build evidence.
+Executions use sealed Linux memfd images. Tools requiring their original path,
+ELF $ORIGIN or adjacent resources can fail and must remain blocked; there is no
+pathname fallback. Image binding does not verify interpreters/shared libraries.
 """
 import argparse
+from contextlib import contextmanager
 import ctypes
 import datetime
 import errno
+import fcntl
 import hashlib
 import json
 import os
@@ -17,6 +22,7 @@ import platform
 import re
 import shutil
 import socket
+import stat
 import subprocess
 import time
 
@@ -32,6 +38,77 @@ LINUX_X86_64_DEFAULT_PINS = {
     'lake': '6f53827dab18010d6c690d14c8401cacabc1db958edb3552a877ed4cf1dd995d',
     'landrun': '6ada66a06669e8994e174a7271af2db636308e55a0d6ec896cc7d326b46727f6',
 }
+
+# Linux UAPI values from linux/fcntl.h. Some CPython builds expose memfd_create
+# but omit these fcntl names; the kernel operation and returned seals are still
+# required. There is no mutable-file or pathname-execution fallback.
+F_ADD_SEALS = getattr(fcntl, 'F_ADD_SEALS', 1033)
+F_GET_SEALS = getattr(fcntl, 'F_GET_SEALS', 1034)
+EXECUTABLE_SEALS = (getattr(fcntl, 'F_SEAL_SEAL', 0x0001)
+                    | getattr(fcntl, 'F_SEAL_SHRINK', 0x0002)
+                    | getattr(fcntl, 'F_SEAL_GROW', 0x0004)
+                    | getattr(fcntl, 'F_SEAL_WRITE', 0x0008))
+# Snapshots consume memory-backed storage; reject oversized inputs before copy.
+MAX_TOOL_SNAPSHOT_BYTES = 128 * 1024 * 1024
+
+
+@contextmanager
+def executable_snapshot(path):
+    """Yield sealed executable bytes; the original pathname is never executed.
+
+    Copy before sealing, then hash only the sealed copy. A source mutation
+    during copying must still produce the expected complete snapshot digest.
+    This binds the executable image, not its interpreter or shared libraries.
+    """
+    if platform.system() != 'Linux' or not hasattr(os, 'memfd_create'):
+        raise OSError(errno.ENOSYS, 'sealed executable snapshots require Linux memfd')
+    resolved = Path(path).resolve()
+    source_fd = snapshot_fd = None
+    try:
+        source_fd = os.open(resolved, os.O_RDONLY | os.O_CLOEXEC | os.O_NOFOLLOW | os.O_NONBLOCK)
+        source_stat = os.fstat(source_fd)
+        if not stat.S_ISREG(source_stat.st_mode):
+            raise OSError(errno.EINVAL, 'tool must be a regular file')
+        if source_stat.st_size > MAX_TOOL_SNAPSHOT_BYTES:
+            raise OSError(errno.EFBIG, 'tool exceeds sealed snapshot byte limit')
+        executable = bool(source_stat.st_mode & 0o111) and os.access(
+            '/proc/self/fd/' + str(source_fd), os.X_OK, effective_ids=True)
+        snapshot_fd = os.memfd_create('qrh-preflight-tool', os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+        os.fchmod(snapshot_fd, 0o700)
+        remaining = source_stat.st_size
+        while remaining:
+            block = os.read(source_fd, min(1024 * 1024, remaining))
+            if not block:
+                raise OSError(errno.EIO, 'tool shortened while snapshotting')
+            remaining -= len(block)
+            pending = memoryview(block)
+            while pending:
+                written = os.write(snapshot_fd, pending)
+                if written <= 0:
+                    raise OSError(errno.EIO, 'incomplete executable snapshot write')
+                pending = pending[written:]
+        os.close(source_fd)
+        source_fd = None
+        fcntl.fcntl(snapshot_fd, F_ADD_SEALS, EXECUTABLE_SEALS)
+        applied = fcntl.fcntl(snapshot_fd, F_GET_SEALS)
+        if applied & EXECUTABLE_SEALS != EXECUTABLE_SEALS:
+            raise OSError(errno.EPERM, 'executable snapshot is not fully sealed')
+        os.lseek(snapshot_fd, 0, os.SEEK_SET)
+        digest = hashlib.sha256()
+        for block in iter(lambda: os.read(snapshot_fd, 1024 * 1024), b''):
+            digest.update(block)
+        os.lseek(snapshot_fd, 0, os.SEEK_SET)
+        yield {'fd': snapshot_fd, 'path': '/proc/self/fd/' + str(snapshot_fd),
+               'resolved_path': str(resolved), 'sha256': digest.hexdigest(),
+               'bytes': os.fstat(snapshot_fd).st_size,
+               'mode': oct(source_stat.st_mode & 0o777), 'executable': executable,
+               'binding': {'method': 'LINUX_SEALED_MEMFD', 'seals': applied,
+                           'sha256': digest.hexdigest()}}
+    finally:
+        if source_fd is not None:
+            os.close(source_fd)
+        if snapshot_fd is not None:
+            os.close(snapshot_fd)
 
 
 def sha256(path):
@@ -69,7 +146,7 @@ class Recorder:
         self.raw_refs.append(ref)
         return ref
 
-    def command(self, name, argv, timeout=None, cwd=None):
+    def command(self, name, argv, timeout=None, cwd=None, *, pass_fds=(), executable_binding=None):
         timeout = self.timeout_seconds if timeout is None else timeout
         started = datetime.datetime.now(datetime.timezone.utc).isoformat()
         before = time.monotonic()
@@ -77,7 +154,8 @@ class Recorder:
         env = {k: os.environ[k] for k in ('PATH', 'LANG', 'LC_ALL', 'TZ') if k in os.environ}
         try:
             run = subprocess.run(argv, cwd=cwd, env=env, stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE, timeout=timeout, close_fds=True)
+                                 stderr=subprocess.PIPE, timeout=timeout, close_fds=True,
+                                 pass_fds=pass_fds)
             out, err, code, state = run.stdout, run.stderr, run.returncode, 'COMPLETED'
         except subprocess.TimeoutExpired as exc:
             out, err, code, state = exc.stdout or b'', exc.stderr or b'', None, 'TIMEOUT'
@@ -87,33 +165,44 @@ class Recorder:
                   'duration_s': time.monotonic() - before, 'exit_code': code, 'state': state,
                   'stdout_ref': self.raw(name + '.stdout', out),
                   'stderr_ref': self.raw(name + '.stderr', err)}
+        if executable_binding is not None:
+            record['executable_binding'] = executable_binding
         self.raw(name + '.command.json', (json.dumps(record, indent=2) + '\n').encode())
         return record, out.decode(errors='replace'), err.decode(errors='replace')
 
 
-def probe_tool(name, path, expected_sha256, recorder, version_pattern=None):
+def probe_tool(name, path, expected_sha256, recorder, version_pattern=None, *,
+               command_args=None, command_name=None):
     detail = {'requested_path': path, 'expected_sha256': expected_sha256, 'execution': 'NOT_RUN'}
     item = {'id': name, 'state': 'UNAVAILABLE', 'reason_code': 'TOOL_UNAVAILABLE_' + name.upper(), 'details': detail}
     if not path or not Path(path).is_file():
         return item
-    resolved = Path(path).resolve()
-    detail.update({'resolved_path': str(resolved), 'sha256': sha256(resolved),
-                   'bytes': resolved.stat().st_size, 'mode': oct(resolved.stat().st_mode & 0o777)})
-    if not expected_sha256:
-        item.update(state='NOT_VERIFIED', reason_code='TOOL_DIGEST_UNPINNED_' + name.upper())
+    try:
+        with executable_snapshot(path) as snapshot:
+            detail.update({key: snapshot[key] for key in ('resolved_path', 'sha256', 'bytes', 'mode')})
+            detail['execution_binding'] = snapshot['binding']
+            if not expected_sha256:
+                item.update(state='NOT_VERIFIED', reason_code='TOOL_DIGEST_UNPINNED_' + name.upper())
+                return item
+            if detail['sha256'] != expected_sha256:
+                item.update(state='FAIL', reason_code='TOOL_DIGEST_MISMATCH_' + name.upper())
+                return item
+            if not snapshot['executable']:
+                item.update(state='FAIL', reason_code='TOOL_NOT_EXECUTABLE_' + name.upper())
+                return item
+            if version_pattern is not None or command_args is not None:
+                arguments = ['--version'] if command_args is None else list(command_args)
+                record, out, err = recorder.command(
+                    command_name or name + '_version', [snapshot['path'], *arguments],
+                    pass_fds=(snapshot['fd'],), executable_binding=snapshot['binding'])
+                detail.update(execution=record, version_stdout=out, version_stderr=err)
+                if record['exit_code'] != 0 or (version_pattern is not None and not re.search(version_pattern, out + err)):
+                    item.update(state='FAIL', reason_code='TOOL_VERSION_FAILED_' + name.upper())
+                    return item
+    except (OSError, ValueError, RuntimeError) as exc:
+        detail['snapshot_error'] = repr(exc)
+        item.update(state='FAIL', reason_code='TOOL_SNAPSHOT_UNAVAILABLE_' + name.upper())
         return item
-    if detail['sha256'] != expected_sha256:
-        item.update(state='FAIL', reason_code='TOOL_DIGEST_MISMATCH_' + name.upper())
-        return item
-    if not os.access(resolved, os.X_OK):
-        item.update(state='FAIL', reason_code='TOOL_NOT_EXECUTABLE_' + name.upper())
-        return item
-    if version_pattern is not None:
-        record, out, err = recorder.command(name + '_version', [str(resolved), '--version'])
-        detail.update(execution=record, version_stdout=out, version_stderr=err)
-        if record['exit_code'] != 0 or not re.search(version_pattern, out + err):
-            item.update(state='FAIL', reason_code='TOOL_VERSION_FAILED_' + name.upper())
-            return item
     item.update(state='PASS', reason_code=None)
     return item
 
@@ -173,16 +262,25 @@ def collect(args, recorder):
         true = shutil.which('true')
         if true:
             # No --best-effort, --unrestricted-*, or fake-landrun is permitted.
-            argv = [landrun_item['details']['resolved_path']]
+            argv = []
             for path in ('/usr', '/bin', '/lib', '/lib64'):
                 if Path(path).exists():
                     argv.extend(['--rox', path])
             if Path('/etc/ld.so.cache').exists():
                 argv.extend(['--ro', '/etc/ld.so.cache'])
             argv.extend(['--', true])
-            record, out, err = recorder.command('landrun_strict_true', argv)
-            ok = record['exit_code'] == 0
-            add('landrun_strict_execution', 'PASS' if ok else 'FAIL', {'record': record, 'stdout': out, 'stderr': err}, None if ok else 'LANDRUN_STRICT_EXECUTION_FAILED')
+            # Re-snapshot and verify against the same pin: replacement between
+            # version and strict probes cannot execute a different image.
+            strict = probe_tool('landrun', landrun_item['details']['resolved_path'],
+                landrun_item['details']['expected_sha256'], recorder,
+                command_args=argv, command_name='landrun_strict_true')
+            details = strict['details']
+            ok = strict['state'] == 'PASS'
+            add('landrun_strict_execution', 'PASS' if ok else 'FAIL',
+                {'record': details['execution'], 'stdout': details.get('version_stdout', ''),
+                 'stderr': details.get('version_stderr', ''), 'pinned_tool': details,
+                 'tool_reason_code': strict['reason_code']},
+                None if ok else 'LANDRUN_STRICT_EXECUTION_FAILED')
         else:
             add('landrun_strict_execution', 'UNAVAILABLE', {}, 'TRUE_BINARY_UNAVAILABLE')
     else:

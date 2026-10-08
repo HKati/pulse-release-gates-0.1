@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Close the three QRH003 review findings in #2907: report fresh recomputation
+  without unsupported verifier-process provenance; hash and execute the same
+  sealed executable snapshot for version and strict Landrun probes; reject
+  physical bundle entries outside the signed inventory and its two root
+  control files. Add deterministic race and signed-bundle regressions, extend
+  the declared test set, and record the v0.1.2 source revision with fresh
+  hashes. Preserve the historical v0.1.1 archive, original pilot verifier,
+  production gate policy and existing CI workflows.
 - Align native Q2 bootstrap validation with the existing root-freeze operation:
   derive exact post-freeze permission bits without changing the original
   inventory, file bytes or historical bindings. Retain bounded checker error
@@ -135,10 +143,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   transfer does not declare correction acceptance or reference readiness.
 
 ### Added
-- Add the isolated [QRH003 v0.1.1 audit demonstrator](docs/PULSEMECH_QRH003_AUDIT_REFERENCE_v0.md)
+- Add the isolated [QRH003 v0.1.2 audit demonstrator](docs/PULSEMECH_QRH003_AUDIT_REFERENCE_v0.md)
   under `studies/openai_math_003_qrh_v0/`, with source/admission/authority
   mechanics, pinned PULSE primitives, schemas, source bindings, license
-  records and 158 local fixture tests. Include the observer correction
+  records and 185 local fixture tests. Include the observer correction
   separating matching decision replay from completed offline primitive
   execution, and link the audit reference from `docs/INDEX.md`.
   Preserve historical `BLOCK` / `MATCH`; native proof capture remains

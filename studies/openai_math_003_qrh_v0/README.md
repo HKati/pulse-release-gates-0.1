@@ -1,4 +1,4 @@
-# QRH003 audit demonstrator — v0.1.1
+# QRH003 audit demonstrator — v0.1.2
 
 This study implements source observation, evidence admission, offline release
 decisions and replay for the pinned OpenAI Math 003 reference case. Its scope
@@ -54,9 +54,33 @@ can coexist with a missing runtime. That case is reported as
 can still be verified. Thirteen regression tests cover the correction. The
 observer does not grant release authority.
 
+### v0.1.2 review corrections
+
+The repository revision addresses three findings from PR #2907:
+
+- The transition observer describes fresh byte-equal recomputation. It does
+  not assert a separate verifier process when no process provenance exists.
+- Tool preflight copies a bounded executable image into a Linux memfd, seals
+  it against writes and resizing, hashes the sealed bytes and executes that
+  same inherited descriptor. The strict Landrun probe uses the same binding
+  procedure. Missing sealing support, a digest mismatch or execution failure
+  blocks the probe; the original mutable pathname is never an execution fallback.
+- Bundle admission requires exactly the signed artifact files plus the root
+  `manifest.json` and detached `manifest.signature.json`. Directories must be
+  parents of declared paths. Extra files, unrelated empty directories, links
+  and special filesystem objects are rejected. Evaluation consumes the admitted
+  bytes held in memory; the check does not lock a directory against later writers.
+
+Preflight's memfd execution binds the executable image only. Its interpreter,
+dynamic loader and shared libraries remain part of the host/runtime boundary.
+Self-locating executables or binaries that rely on `$ORIGIN` may fail from a
+memfd; that failure remains a blocking result. No native toolchain or proof
+capture qualification is claimed by the local fixture suite.
+
 ## Run the source suite
 
-Use Linux x86_64, CPython 3.12, glibc 2.34 or newer, and Git. The lock selects
+Use Linux x86_64, CPython 3.12, glibc 2.34 or newer, and Git.
+Executable preflight requires Linux memfd sealing and accessible `/proc/self/fd`. The lock selects
 specific binary dependency artifacts for that environment. The unit tests do
 not require Lean, upstream proof execution or a native QRH build. Network
 access is required only for the installation command below; after installation
@@ -80,7 +104,7 @@ python3.12 -m venv "$QRH_WORK/venv"
   --output "$QRH_WORK/tests.json"
 ```
 
-Expected for this version: **158 distinct tests, all `PASS`, zero skipped**.
+Expected for this version: **185 distinct tests, all `PASS`, zero skipped**.
 Check the structured result, since unittest can return success when tests are
 skipped:
 
@@ -92,10 +116,10 @@ from pathlib import Path
 r = json.loads((Path(os.environ["QRH_WORK"]) / "tests.json").read_text())
 cases = r["tests"]
 assert r["return_code"] == 0 and r["timed_out"] is False
-assert r["tests_run"] == len(cases) == 158
-assert len({case["id"] for case in cases}) == 158
+assert r["tests_run"] == len(cases) == 185
+assert len({case["id"] for case in cases}) == 185
 assert all(case["outcome"] == "PASS" for case in cases)
-print("158 distinct PASS; zero skipped")
+print("185 distinct PASS; zero skipped")
 PY
 ```
 
@@ -119,7 +143,7 @@ The source checkout itself contains no wheel directory.
 At the pinned integration baseline, repository-root `pytest.ini` discovers
 `tests/`, and Tools smoke tests use `ci/tools-tests.list` and
 `ci/pytest-tests.list`. This study is not in those manifests. A successful
-repository CI run therefore does not establish that the 158 QRH tests ran.
+repository CI run therefore does not establish that the 185 QRH tests ran.
 Invoke the dedicated runner above in its own process. An eventual CI job
 must use the compatible dependency environment and check recorded outcomes.
 Do not import the study suite into an existing repository-wide pytest process:
@@ -145,9 +169,10 @@ configuration/evidence bundle and the repository. A locally generated key
 does not establish independent institutional identity or external trust.
 
 [required_boundary_tests.json](reference/required_boundary_tests.json)
-declares 145 collector-boundary test IDs. The complete suite additionally
-contains 13 observer regression tests, for 158 in total. This curation retains
-the declared boundary set unchanged.
+declares 171 collector-boundary test IDs. This preserves all 145
+original IDs and adds the preflight and bundle-inventory regressions. The
+complete suite also contains 14 observer regressions, for 185 tests.
+New configurations bind this revised declared set through a fresh anchor.
 
 Subsequent acquisition and collection need separately supplied pinned source,
 dependency and toolchain inputs. CLI options are available through each
@@ -180,15 +205,18 @@ remain diagnostic or TEST evidence; packaging them grants no proof authority.
 Historical `pilot_002` replay uses the archive's preserved
 `runs/pilot_002/verifier_snapshot/tools/authority.py`, its original anchor,
 bundle and decision, plus the pinned PULSE runtime. Follow the archive's
-`REPLAY_PILOT.md`. The v0.1.1 root verifier is not a substitute for the original
+`REPLAY_PILOT.md`. The current root verifier is not a substitute for the original
 anchored verifier. The source-only checkout lacks the historical run payloads
 and does not claim a fresh native proof run.
 
 ## Provenance
 
-The source subset preserves the selected implementation files byte-for-byte
-from the complete v0.1.1 distribution. The README, evidence reference and
-source manifest describe this repository-specific curation.
+The initial source subset copied 35 selected files byte-for-byte from the
+complete v0.1.1 distribution. Repository revision v0.1.2 intentionally
+changes the reviewed tools, regressions, preparation revision and declared
+test inventory. `EVIDENCE_REFERENCE.json` identifies each modified original
+and records both its baseline and current digest; `SOURCE_MANIFEST.json`
+covers the complete current study. The historical archive remains unchanged.
 
 See the [PULSE runtime notice](reference/pulse_runtime/NOTICE.md),
 [license records](reference/licenses/license_source_records.json) and

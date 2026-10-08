@@ -19,12 +19,12 @@ try:
     from . import audit
     from .common import (AuditError, GATE_IDS, SUBJECT_COMMIT, PULSE_COMMIT,
                          canonical_bytes, sha256_bytes, strict_loads, secure_read,
-                         verify_signed_receipt)
+                         verify_signed_receipt, _open_dir)
 except ImportError:
     import audit
     from common import (AuditError, GATE_IDS, SUBJECT_COMMIT, PULSE_COMMIT,
                         canonical_bytes, sha256_bytes, strict_loads, secure_read,
-                        verify_signed_receipt)
+                        verify_signed_receipt, _open_dir)
 
 PROFILE_ROOT = Path(__file__).absolute().parents[1]
 MINIMUM_VERIFIER_FILES = frozenset({
@@ -46,6 +46,7 @@ RESERVED_INPUT_PATHS = frozenset({
     'manifest.json', 'manifest.signature.json', 'status.json', 'materialized_required.json', 'decision.json',
     'certificate.json', 'replay_receipt.json',
 })
+BUNDLE_CONTROL_PATHS = frozenset({'manifest.json', 'manifest.signature.json'})
 MAX_TOTAL_ARTIFACT_BYTES = 512 * 1024 * 1024
 MAX_ARTIFACT_COUNT = 100000
 STATE_NAMES = frozenset({
@@ -227,6 +228,79 @@ def _verify_manifest_signature(root: Path, manifest_bytes: bytes,
     return seal, raw
 
 
+def _verify_bundle_inventory(root: Path, artifact_paths: set[str]) -> None:
+    """Observe an exact physical inventory without following directory links.
+
+    The manifest and its detached signature are the only root control files.
+    Every other regular file must be listed; directories must be implied by a
+    listed path. This admission-time observation does not lock the filesystem
+    against later writers. Evaluation uses the separately authenticated bytes
+    already held in the snapshot, never an unlisted physical file.
+    """
+    expected_files = artifact_paths | BUNDLE_CONTROL_PATHS
+    expected_dirs = set()
+    for name in expected_files:
+        parts = name.split('/')
+        expected_dirs.update('/'.join(parts[:i]) for i in range(1, len(parts)))
+    seen_files, seen_dirs = set(), set()
+    frames = []
+
+    def directory_stamp(info):
+        return (info.st_dev, info.st_ino, info.st_mtime_ns, info.st_ctime_ns)
+
+    def push_directory(fd, relative, listed_info=None):
+        try:
+            before = os.fstat(fd)
+            if listed_info is not None and (
+                    before.st_dev, before.st_ino) != (
+                        listed_info.st_dev, listed_info.st_ino):
+                fail('QRH003_BUNDLE_CHANGED_DURING_ADMISSION', relative)
+            iterator = os.scandir(fd)
+        except BaseException:
+            os.close(fd)
+            raise
+        frames.append((fd, relative, before, iterator))
+
+    try:
+        # _open_dir pins every root ancestor with O_DIRECTORY | O_NOFOLLOW.
+        push_directory(_open_dir(root), '')
+        while frames:
+            fd, relative, before, iterator = frames[-1]
+            entry = next(iterator, None)
+            if entry is None:
+                if directory_stamp(os.fstat(fd)) != directory_stamp(before):
+                    fail('QRH003_BUNDLE_CHANGED_DURING_ADMISSION', relative or '.')
+                frames.pop()
+                iterator.close()
+                os.close(fd)
+                continue
+            name = relative + '/' + entry.name if relative else entry.name
+            info = os.stat(entry.name, dir_fd=fd, follow_symlinks=False)
+            if stat.S_ISLNK(info.st_mode):
+                fail('QRH003_SYMLINK_REJECTED', name)
+            if stat.S_ISDIR(info.st_mode):
+                if name not in expected_dirs or name in seen_dirs:
+                    fail('QRH003_BUNDLE_INVENTORY_MISMATCH', name)
+                seen_dirs.add(name)
+                child = os.open(entry.name, os.O_RDONLY | os.O_DIRECTORY |
+                                os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=fd)
+                push_directory(child, name, info)
+            elif stat.S_ISREG(info.st_mode):
+                if name not in expected_files or name in seen_files:
+                    fail('QRH003_BUNDLE_INVENTORY_MISMATCH', name)
+                seen_files.add(name)
+            else:
+                fail('QRH003_NONREGULAR_BUNDLE_ENTRY', name)
+    except OSError as exc:
+        fail('QRH003_BUNDLE_INVENTORY_UNREADABLE', str(exc))
+    finally:
+        for fd, _, _, iterator in frames:
+            iterator.close()
+            os.close(fd)
+    if seen_files != expected_files or seen_dirs != expected_dirs:
+        fail('QRH003_BUNDLE_INVENTORY_MISMATCH', 'missing declared paths')
+
+
 def make_status(snapshot: dict, anchor: dict, evaluation: dict,
                 anchor_sha256: str, profile_kind: str) -> dict:
     """Runtime envelope; the root adapter may supply the full published schema."""
@@ -295,7 +369,7 @@ def verify_bundle(bundle_dir: os.PathLike | str, anchor_path: os.PathLike | str,
         require_object(artifact, 'artifact')
         exact_keys(artifact, {'path', 'sha256', 'bytes', 'role', 'evidence_class'}, 'artifact')
         name = logical_path(artifact['path'])
-        if name in files or name in RESERVED_INPUT_PATHS:
+        if name in files or name.split('/', 1)[0] in RESERVED_INPUT_PATHS:
             fail('QRH003_ARTIFACT_PATH_DUPLICATE_OR_RESERVED', name)
         wanted = digest(artifact['sha256'], name)
         length = artifact['bytes']
@@ -372,6 +446,7 @@ def verify_bundle(bundle_dir: os.PathLike | str, anchor_path: os.PathLike | str,
         require_object(payload['body'], 'receipt body')
         # Payload is untouched; authentication facts live beside it, not inside it.
         authenticated.append(payload)
+    _verify_bundle_inventory(root, set(files))
     snapshot = {'manifest': manifest, 'manifest_bytes': raw, 'files': files,
                 'receipts': authenticated, 'evidence_manifest_sha256': sha256_bytes(raw),
                 'manifest_signature': manifest_seal,

@@ -66,7 +66,7 @@ def prepare(output, private_key_path, trust_domain='PRODUCTION', required_test_i
     }
     profile = {
         'schema_version': 'qrh003_profile_v1', 'profile_id': 'openai_math_003_qrh_v0',
-        'revision': 'implementation-v0.1.1', 'trust_domain': trust_domain,
+        'revision': 'implementation-v0.1.2', 'trust_domain': trust_domain,
         'subject_commit': SUBJECT_COMMIT, 'pulse_commit': PULSE_COMMIT,
         'critical_artifacts': pins['files'], 'configurations': configurations,
         'claim_map_sha256': sha256_bytes(claim_bytes),

@@ -129,9 +129,9 @@ def report(bundle, anchor, decision_dir, replay_dir, pulse_root=None):
             'Untrusted native builder write attempts, external publisher paths and complete runtime closure are not tested.'),
         'reconstruction_reproducibility_status': axis(
             'VERIFIED_DECISION_REPLAY_ONLY',
-            'New verifier process reconstructed identical status, materialized required set and decision bytes',
+            'Fresh recomputation reproduced identical status, materialized required set and decision bytes',
             ['replay/replay_receipt.json'],
-            'This is neither a second source-to-proof build nor an independent host reproduction.'),
+            'Verifier process provenance is not recorded. This is neither a second source-to-proof build nor an independent host reproduction.'),
         'causal_sufficiency_status': axis(
             'TEST_POLICY_CONTROL_OBSERVED_MATH_NOT_APPLICABLE' if control('test_positive_TEST_only_emission_and_exact_replay') else 'NOT_ASSESSED',
             'The TEST authority control passes all declared gates and observes TEST-only emission',

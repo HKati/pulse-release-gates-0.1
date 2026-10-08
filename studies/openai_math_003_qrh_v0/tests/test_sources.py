@@ -21,6 +21,12 @@ import acquire
 import source_closure
 from common import AuditError, canonical_bytes, sha256_bytes
 
+try:
+    from . import test_authority as authority_fixtures
+except ImportError:
+    import test_authority as authority_fixtures
+from tools import common as bundle_common, verify as bundle_verify
+
 
 def git(root: Path, *args: str) -> str:
     completed = subprocess.run(["git", "-C", str(root), *args], capture_output=True,
@@ -425,6 +431,116 @@ class LockAndPatchPlanTests(unittest.TestCase):
         self.assertEqual(changed["discovery_status"], "PARTIAL_MATCH")
         self.assertEqual(changed["modules"]["Added"]["reasons"][0]["code"], "QRH003_EFFECTIVE_SOURCE_MODULE_DIGEST_MISMATCH")
         self.assertEqual(changed["resolution_failures"]["Ghost"]["code"], "QRH003_SOURCE_IMPORT_UNRESOLVED")
+
+
+class SignedBundleInventoryTests(unittest.TestCase):
+    """Real TEST signatures and admission; no native proof or gate spoofing.
+
+    Compose the existing signing fixture without importing its TestCase class
+    into this module, which would rediscover its unrelated test methods.
+    Every mutation starts from an actually admitted, closed signed bundle.
+    """
+
+    def setUp(self):
+        self.fixture = authority_fixtures.AuthorityBoundaryTests()
+        self.addCleanup(self.fixture.doCleanups)
+        self.fixture.setUp()
+        self.assert_admitted()
+
+    def assert_admitted(self):
+        result = bundle_verify.verify_bundle(self.fixture.bundle, self.fixture.anchor_path)
+        self.assertEqual(result['anchor']['trust_domain'], 'TEST')
+        self.assertEqual(set(result['snapshot']['files']), set(self.fixture.files))
+        self.assertEqual(result['snapshot']['manifest_signature_sha256'],
+                         sha256_bytes((self.fixture.bundle / 'manifest.signature.json').read_bytes()))
+        self.assertFalse(any(result['evaluation']['gates'].values()))
+        return result
+
+    def assert_rejected(self, code):
+        sealed = {name: (self.fixture.bundle / name).read_bytes()
+                  for name in ('manifest.json', 'manifest.signature.json')}
+        with self.assertRaises(bundle_common.AuditError) as raised:
+            bundle_verify.verify_bundle(self.fixture.bundle, self.fixture.anchor_path)
+        self.assertEqual(raised.exception.code, code)
+        self.assertEqual(sealed, {name: (self.fixture.bundle / name).read_bytes()
+                                  for name in sealed})
+
+    def test_signed_bundle_inventory_rejects_unlisted_status_after_sealing(self):
+        self.fixture.bundle.joinpath('status.json').write_bytes(b'{"gates":{"injected":true}}')
+        self.assert_rejected('QRH003_BUNDLE_INVENTORY_MISMATCH')
+
+    def test_signed_bundle_inventory_rejects_unlisted_nested_diagnostic(self):
+        self.fixture.bundle.joinpath('evidence/diagnostic.txt').write_bytes(b'unsigned diagnostic')
+        self.assert_rejected('QRH003_BUNDLE_INVENTORY_MISMATCH')
+
+    def test_signed_bundle_inventory_controls_are_exempt_only_at_root(self):
+        for name in ('manifest.json', 'manifest.signature.json'):
+            with self.subTest(name=name):
+                path = self.fixture.bundle / 'evidence' / name
+                path.write_bytes((self.fixture.bundle / name).read_bytes())
+                try:
+                    self.assert_rejected('QRH003_BUNDLE_INVENTORY_MISMATCH')
+                finally:
+                    path.unlink()
+
+    def test_signed_bundle_inventory_rejects_unlisted_empty_directory(self):
+        self.fixture.bundle.joinpath('evidence/unsigned').mkdir()
+        self.assert_rejected('QRH003_BUNDLE_INVENTORY_MISMATCH')
+
+    def test_signed_bundle_inventory_accepts_declared_nested_files(self):
+        # Nested control-like basenames are ordinary data only when explicitly
+        # listed and signed; only the two exact root files are control objects.
+        self.fixture.files['evidence/nested/status.json'] = b'{"record":"TEST data"}'
+        self.fixture.files['evidence/nested/manifest.json'] = b'{"record":"TEST manifest data"}'
+        self.fixture.files['logs/deeper/diagnostic.txt'] = b'listed diagnostic'
+        self.fixture.rebind()
+        self.assert_admitted()
+
+    def test_signed_bundle_inventory_rejects_unlisted_file_symlink(self):
+        outside = self.fixture.home / 'outside-data'
+        outside.write_bytes(b'unsigned data')
+        self.fixture.bundle.joinpath('unsigned-link').symlink_to(outside)
+        self.assert_rejected('QRH003_SYMLINK_REJECTED')
+
+    def test_signed_bundle_inventory_rejects_unlisted_directory_symlink(self):
+        outside = self.fixture.home / 'outside-directory'
+        outside.mkdir()
+        outside.joinpath('status.json').write_bytes(b'{}')
+        self.fixture.bundle.joinpath('unsigned-directory').symlink_to(outside, target_is_directory=True)
+        self.assert_rejected('QRH003_SYMLINK_REJECTED')
+
+    def test_signed_bundle_inventory_rejects_dangling_symlink(self):
+        self.fixture.bundle.joinpath('dangling').symlink_to(self.fixture.home / 'does-not-exist')
+        self.assert_rejected('QRH003_SYMLINK_REJECTED')
+
+    def test_signed_bundle_inventory_rejects_unlisted_fifo_without_opening_it(self):
+        os.mkfifo(self.fixture.bundle / 'unsigned-fifo')
+        self.assert_rejected('QRH003_NONREGULAR_BUNDLE_ENTRY')
+
+    def test_signed_bundle_inventory_rejects_missing_declared_member(self):
+        self.fixture.bundle.joinpath('evidence/control.json').unlink()
+        self.assert_rejected('UNSAFE_OR_MISSING_ARTIFACT')
+
+    def test_signed_bundle_inventory_rejects_signed_duplicate_member(self):
+        self.fixture.manifest['artifacts'].append(dict(self.fixture.manifest['artifacts'][0]))
+        self.fixture.write_manifest()
+        self.assert_rejected('QRH003_ARTIFACT_PATH_DUPLICATE_OR_RESERVED')
+
+    def test_signed_bundle_inventory_rejects_signed_reserved_members(self):
+        original = list(self.fixture.manifest['artifacts'])
+        for name in sorted(bundle_verify.RESERVED_INPUT_PATHS):
+            with self.subTest(name=name):
+                self.fixture.manifest['artifacts'] = original + [{
+                    'path': name, 'sha256': sha256_bytes(b'{}'), 'bytes': 2,
+                    'role': 'test_control', 'evidence_class': 'synthetic_fixture',
+                }]
+                self.fixture.write_manifest()
+                self.assert_rejected('QRH003_ARTIFACT_PATH_DUPLICATE_OR_RESERVED')
+
+    def test_signed_bundle_inventory_rejects_reserved_root_as_directory(self):
+        self.fixture.files['status.json/payload.json'] = b'{}'
+        self.fixture.rebind()
+        self.assert_rejected('QRH003_ARTIFACT_PATH_DUPLICATE_OR_RESERVED')
 
 
 if __name__ == "__main__":
