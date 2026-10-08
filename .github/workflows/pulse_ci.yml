@@ -37,6 +37,16 @@ on:
         options:
           - "tier0_not_required"
           - "hosted_full_runtime"
+      q2_intake_request:
+        description: "Exact reviewed metadata-only Q2 intake request JSON"
+        required: false
+        default: ""
+        type: string
+      q2_intake_request_sha256:
+        description: "Externally selected SHA-256 of the exact Q2 request bytes"
+        required: false
+        default: ""
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -52,6 +62,7 @@ jobs:
     timeout-minutes: 45
     permissions:
       contents: read
+      actions: read
 
     env:
       PACK_DIR: ${{ github.workspace }}/PULSE_safe_pack_v0
@@ -315,7 +326,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # pinned
         with:
-          python-version: "3.11"
+          python-version: "3.11.16"
 
       - name: Install Python deps
         shell: bash
@@ -589,6 +600,10 @@ jobs:
 
       - name: release-grade record current-run required-gate evidence
         if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        env:
+          PULSE_Q2_INTAKE_REQUEST: ${{ github.event.inputs.q2_intake_request }}
+          PULSE_Q2_INTAKE_REQUEST_SHA256: ${{ github.event.inputs.q2_intake_request_sha256 }}
+          PULSE_Q2_TRANSPORT_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
@@ -658,6 +673,10 @@ jobs:
 
       - name: release-grade build non-stubbed prod candidate status
         if: ${{ steps.release_mode.outputs.is_release == '1' }}
+        env:
+          PULSE_Q2_INTAKE_REQUEST: ${{ github.event.inputs.q2_intake_request }}
+          PULSE_Q2_INTAKE_REQUEST_SHA256: ${{ github.event.inputs.q2_intake_request_sha256 }}
+          PULSE_Q2_TRANSPORT_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail

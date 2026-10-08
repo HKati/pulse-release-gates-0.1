@@ -58,14 +58,17 @@ jobs:
               sys.exit(1)
 
           # Q2 refines the core 3.11 line to the reviewed exact patch target.
-          # This is not a wildcard or a skip: Q2 must declare this pin once,
-          # and every other workflow retains exact environment.yml equality.
+          # The acquisition workflow declares it once. Hosted intake refines
+          # only the existing pulse job; every other declaration stays exact.
           patch_pins = {
               ".github/workflows/q2_reference_acquisition_v0.yml": "3.11.16",
           }
+          scoped_patch_pins = {
+              ".github/workflows/pulse_ci.yml": ("pulse", "3.11.16"),
+          }
 
           missing_pins = []
-          for pinned_path in patch_pins:
+          for pinned_path in (*patch_pins, *scoped_patch_pins):
               pinned_workflow = pathlib.Path(pinned_path)
               if pinned_workflow.is_symlink() or not pinned_workflow.is_file():
                   missing_pins.append(pinned_path)
@@ -79,6 +82,51 @@ jobs:
           for wf in sorted(workflows.glob("*.yml")) + sorted(workflows.glob("*.yaml")):
               text = wf.read_text(encoding="utf-8", errors="replace")
               declared_versions = [v.strip() for v in version_re.findall(text)]
+              if wf.as_posix() in scoped_patch_pins:
+                  target_job, patch_version = scoped_patch_pins[wf.as_posix()]
+                  if patch_version.rsplit(".", 1)[0] != env_version:
+                      mismatches.append((wf.as_posix(), patch_version,
+                                         f"a patch pin on environment.yml line {env_version}"))
+                  try:
+                      document = yaml.load(text, Loader=yaml.BaseLoader)
+                  except yaml.YAMLError:
+                      document = None
+                  jobs = document.get("jobs") if isinstance(document, dict) else None
+                  if not isinstance(jobs, dict):
+                      mismatches.append((wf.as_posix(), "invalid jobs", "a jobs mapping"))
+                      continue
+                  structured_versions = []
+                  scoped_setups = 0
+                  for job_name, job in jobs.items():
+                      steps = job.get("steps") if isinstance(job, dict) else None
+                      if not isinstance(steps, list):
+                          mismatches.append((wf.as_posix(), str(job_name), "an explicit step list"))
+                          continue
+                      for step in steps:
+                          if not isinstance(step, dict):
+                              mismatches.append((wf.as_posix(), "invalid step", "a step mapping"))
+                              continue
+                          uses = step.get("uses", "")
+                          setup = isinstance(uses, str) and uses.startswith("actions/setup-python@")
+                          scoped = setup and job_name == target_job
+                          scoped_setups += int(scoped)
+                          parameters = step.get("with", {})
+                          has_version = isinstance(parameters, dict) and "python-version" in parameters
+                          if setup and not has_version:
+                              mismatches.append((wf.as_posix(), str(job_name), "an explicit python-version"))
+                          if has_version:
+                              declared = parameters["python-version"]
+                              structured_versions.append(declared)
+                              expected = patch_version if scoped else env_version
+                              if declared != expected:
+                                  mismatches.append((wf.as_posix(), declared, expected))
+                  if scoped_setups != 1:
+                      mismatches.append((wf.as_posix(), str(scoped_setups),
+                                         f"exactly one setup-python in job {target_job}"))
+                  if declared_versions != structured_versions:
+                      mismatches.append((wf.as_posix(), str(declared_versions),
+                                         "exactly the structured workflow version declarations"))
+                  continue
               expected = patch_pins.get(wf.as_posix(), env_version)
               if wf.as_posix() in patch_pins:
                   if expected.rsplit(".", 1)[0] != env_version:
