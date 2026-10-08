@@ -80,6 +80,9 @@ def env(tmp_path):
         'GITHUB_WORKFLOW': ACQUIRER.REFERENCE_WORKFLOW_NAME,
         'GITHUB_WORKFLOW_REF': f'{ACQUIRER.REPOSITORY}/{ACQUIRER.REFERENCE_WORKFLOW_PATH}@refs/heads/main',
         'GITHUB_EVENT_NAME': 'workflow_dispatch',
+        'GITHUB_ACTOR': 'HKati',
+        'GITHUB_ACTOR_ID': '128643840',
+        'GITHUB_TRIGGERING_ACTOR': 'HKati',
         'GITHUB_REF': 'refs/heads/main',
         'GITHUB_SHA': 'a' * 40,
         'GITHUB_WORKFLOW_SHA': 'a' * 40,
@@ -297,6 +300,8 @@ def test_valid_control_plane(code, env):
 
 
 MUTATIONS = [
+    ('GITHUB_ACTOR', 'github-actions[bot]'), ('GITHUB_ACTOR_ID', '41898282'),
+    ('GITHUB_TRIGGERING_ACTOR', 'other'),
     ('GITHUB_REPOSITORY', 'other/repository'), ('GITHUB_WORKFLOW', 'Other workflow'),
     ('GITHUB_WORKFLOW_REF', 'wrong'), ('GITHUB_EVENT_NAME', 'push'),
     ('GITHUB_REF', 'refs/heads/other'), ('GITHUB_SHA', 'c' * 40),
@@ -1063,10 +1068,25 @@ def acquire_example(source_fixture, destination, transport, *, record_status='ex
     spec = importlib.util.spec_from_file_location('step5c_example_installed_acquirer', f.root / 'tools' / (TOOL_NAMES[2] + '.py'))
     module = importlib.util.module_from_spec(spec); sys.modules[spec.name] = module; spec.loader.exec_module(module)
     context = module.ReferenceContext(**{**reference_context(f.sha).__dict__, 'record_status': record_status})
+    owner = None
+    if record_status == 'observed':
+        class FixtureOwnerTransport(module.OwnerSubjectDispatchTransport):
+            """Keep the real owner/request gate; replace only synthetic API IO."""
+            def _api_request(self, *, method, path, body, max_response_bytes):
+                if path == '/user':
+                    assert method == 'GET' and body is None
+                    raw = canonical({'login': 'HKati', 'id': 128643840, 'type': 'User'})
+                    assert len(raw) <= max_response_bytes
+                    return module.HttpExchange(200, {}, raw, EXAMPLE_START, EXAMPLE_START)
+                return transport.request(method=method, endpoint=path.removeprefix('/'),
+                                         body=body, max_response_bytes=max_response_bytes)
+        owner = FixtureOwnerTransport(token='SYNTHETIC_OFFLINE_OWNER_TOKEN',
+            expected_request=canonical({'ref': 'main', 'inputs': dict(f.plan['subject_dispatch']['inputs'])}))
     with patch.object(socket, 'create_connection', side_effect=AssertionError('Live network is forbidden in examples')):
         return module.acquire_observation(repository_root=f.root, source_commit=f.sha,
              plan_path=f.plan_path, plan_diagnostic_path=f.diagnostic, expected_plan_sha256=f.plan_digest,
              output_directory=destination, record_status=record_status, reference_context=context, transport=transport,
+             subject_dispatch_transport=owner,
              monotonic=lambda: 0.0, sleep=lambda _: pytest.fail('Completed example runs must not poll'),
              utc_now=(lambda: EXAMPLE_END) if utc_now is None else utc_now)
 

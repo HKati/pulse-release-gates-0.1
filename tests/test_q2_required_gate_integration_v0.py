@@ -53,13 +53,15 @@ def invocation(tmp_path):
          LOAD.REQUEST_ENV:raw.decode(),LOAD.DIGEST_ENV:IO.digest(raw),LOAD.TOKEN_ENV:'PRIVATE_TEST_TRANSPORT_TOKEN'}
     event={'inputs':{'strict_external_evidence':'true','llamaguard_evidence_mode':'hosted_full_runtime',
                     'q2_intake_request':raw.decode(),'q2_intake_request_sha256':IO.digest(raw)},
-           'ref':'main','sender':{'login':'HKati'},'repository':{'full_name':env['GITHUB_REPOSITORY']}}
+           'ref':'refs/heads/main','sender':{'login':'HKati'},'repository':{'full_name':env['GITHUB_REPOSITORY']}}
     event_path=tmp_path/'event.json';event_path.write_bytes(IO.encode(event));env['GITHUB_EVENT_PATH']=str(event_path)
     return SimpleNamespace(repo=repo,env=env,event=event,event_path=event_path,sha=sha)
 
 
-def test_trusted_preselection_and_actual_run_are_separate(invocation):
-    f=invocation;request,binding,sources=LOAD.trusted_invocation(f.repo,f.env)
+@pytest.mark.parametrize('event_ref', ['main', 'refs/heads/main'])
+def test_trusted_preselection_and_actual_run_are_separate(invocation,event_ref):
+    f=invocation;f.event['ref']=event_ref;f.event_path.write_bytes(IO.encode(f.event))
+    request,binding,sources=LOAD.trusted_invocation(f.repo,f.env)
     assert 'run_id' not in request['evaluation_identity']
     assert binding['run_id']==f.env['GITHUB_RUN_ID'] and binding['source_commit']==f.sha
     assert binding['request_sha256']==f.env[LOAD.DIGEST_ENV]
@@ -67,10 +69,17 @@ def test_trusted_preselection_and_actual_run_are_separate(invocation):
     assert all(row['sha256']==IO.digest((f.repo/row['path']).read_bytes()) for row in sources)
 
 
+@pytest.mark.parametrize('event_ref', ['refs/tags/main', 'refs/heads/other', 'refs/heads/main/', 'main\n', None, ['main']])
+def test_event_ref_cannot_select_a_tag_other_branch_or_alias(invocation,event_ref):
+    f=invocation;f.event['ref']=event_ref;f.event_path.write_bytes(IO.encode(f.event))
+    with pytest.raises(IO.IntakeError):LOAD.trusted_invocation(f.repo,f.env)
+
+
 @pytest.mark.parametrize('field,value',[
     ('GITHUB_REPOSITORY','attacker/repository'),('GITHUB_EVENT_NAME','pull_request'),
     ('GITHUB_REF','refs/heads/other'),('GITHUB_WORKFLOW_SHA','0'*40),
     ('GITHUB_WORKFLOW','Other'),('GITHUB_RUN_ATTEMPT','2'),('GITHUB_ACTOR','other'),
+    ('GITHUB_ACTOR','github-actions[bot]'),('GITHUB_TRIGGERING_ACTOR','github-actions[bot]'),
     ('GITHUB_TRIGGERING_ACTOR','other'),('GITHUB_ACTIONS','false'),('RUNNER_OS','Windows'),
     ('RUNNER_ENVIRONMENT','self-hosted'),('GITHUB_RUN_ID','9000'),('PULSE_RUN_KEY','other'),
     ('GITHUB_WORKSPACE','/tmp'),('GITHUB_WORKFLOW_REF','other')])
@@ -79,10 +88,11 @@ def test_matching_request_digest_cannot_authorize_wrong_context(invocation,field
     with pytest.raises(IO.IntakeError):LOAD.trusted_invocation(invocation.repo,env)
 
 
-@pytest.mark.parametrize('fault',['sender','ref','repository','request','digest','extra-input','source-bytes','source-mode'])
+@pytest.mark.parametrize('fault',['sender','bot-sender','ref','repository','request','digest','extra-input','source-bytes','source-mode'])
 def test_prelaunch_event_and_source_are_independent_authorization_inputs(invocation,fault):
     f=invocation;event=copy.deepcopy(f.event)
     if fault=='sender':event['sender']['login']='other'
+    elif fault=='bot-sender':event['sender']['login']='github-actions[bot]'
     elif fault=='ref':event['ref']='other'
     elif fault=='repository':event['repository']['full_name']='other/repo'
     elif fault=='request':event['inputs']['q2_intake_request']='{}'

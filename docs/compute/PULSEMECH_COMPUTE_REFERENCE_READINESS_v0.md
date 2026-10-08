@@ -20,6 +20,18 @@ test consumer extend the reviewed 37-file inventory to 39 files; neither
 adds a workflow job or step. The actual guard runs over all repository
 workflows in the offline regressions.
 
+The Q2 reference dispatch now requires the separately configured
+`PULSE_Q2_OWNER_DISPATCH_TOKEN` repository secret. The acquirer verifies its
+authenticated `HKati` user identity, while retaining the reference event's
+original owner and exact request binding. The secret is restricted to the
+existing acquisition step and one exact subject dispatch; installation-token
+observation/provider transport remains separate. This corrects the mismatch
+between an Actions installation-token dispatch and the Q2 intake's mandatory
+owner identity. The intake's actor checks remain strict. See the
+[credential contract](PULSEMECH_Q2_ARCHIVED_INTAKE_CONTRACT_v0.md#owner-bound-reference-dispatch-credential).
+The secret and the actual release capsule are operational prerequisites;
+their presence or a successful hosted run is not asserted by this change.
+
 The original capture remains run `37600313529`, attempt `1`, executed source
 `fb7b247e24f18c5314fd44f7711bd49e15020364`, artifact `11472726606`:
 150 calls, 49 CONSISTENT, 0 INCONSISTENT, 1 UNKNOWN; 49 eligible groups against

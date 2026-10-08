@@ -114,7 +114,16 @@ contents: read
 actions: write
 ```
 
-`actions: write` is used only to dispatch the two reviewed workflows.
+The installation token's `actions: write` permission supports the existing
+Step 3F provider dispatch. The owner-bound Q2 subject dispatch uses the separate
+step-scoped repository secret `PULSE_Q2_OWNER_DISPATCH_TOKEN`, restricted to this
+repository and Actions read/write. The live acquirer verifies its authenticated
+`HKati` user identity before the one exact subject POST; it cannot use that
+credential for provider dispatch or artifact downloads. Missing or mismatched
+owner credentials reject without falling back to the installation token.
+The original owner actor/ID/triggering actor and reference event inputs must
+also agree before the credential is used. See the
+[Q2 intake contract](PULSEMECH_Q2_ARCHIVED_INTAKE_CONTRACT_v0.md#owner-bound-reference-dispatch-credential).
 
 The independent verification job receives only:
 

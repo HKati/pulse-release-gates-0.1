@@ -134,7 +134,9 @@ def trusted_invocation(repo, environment, profile=None):
     expected_inputs = {"strict_external_evidence": "true", "llamaguard_evidence_mode": "hosted_full_runtime",
                        "q2_intake_request": environment[REQUEST_ENV],
                        "q2_intake_request_sha256": environment[DIGEST_ENV]}
-    io.require(event.get("inputs") == expected_inputs and event.get("ref") == "main" and
+    # The dispatch request uses "main"; GitHub's event may use the full branch ref.
+    # The trusted environment above still requires exactly refs/heads/main.
+    io.require(event.get("inputs") == expected_inputs and event.get("ref") in ("main", auth["ref"]) and
                event.get("sender", {}).get("login") == auth["actor"] and
                event.get("repository", {}).get("full_name") == auth["repository"],
                "q2_context_rejected")

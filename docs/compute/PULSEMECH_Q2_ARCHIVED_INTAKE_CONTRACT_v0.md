@@ -104,6 +104,60 @@ the verification job's own four-file handoff guard compare the same fields.
 Offline plan reconstruction is metadata/source validation, not authorization
 to retrieve private archives or a Q2 admission verdict.
 
+### Owner-bound reference dispatch credential
+
+The reference workflow dispatches the Q2 subject with the separate repository
+secret `PULSE_Q2_OWNER_DISPATCH_TOKEN`. Before the single subject POST, the
+acquisition tool requests `GET https://api.github.com/user` with that same
+credential and requires `login=HKati`, integer `id=128643840`, and `type=User`.
+The GitHub installation token does not satisfy this owner identity. Missing,
+expired, mismatched, oversized, malformed or redirected identity responses
+reject before dispatch; there is no fallback, retry or run-list search.
+
+Use an owner-created fine-grained personal access token restricted to
+`HKati/pulse-release-gates-0.1`, with Actions read/write and the default metadata
+read permission. The authenticated-user endpoint requires no additional
+fine-grained permission. This secret is an operational prerequisite, separate
+from the still-missing real release capsule. Neither is created by the code
+change. The token value must not be placed in the request, plan, repository,
+public artifact or review comment.
+
+The owner secret is exposed only to the existing acquisition step. Both
+reference jobs require the original actor and triggering actor to be `HKati`
+and the actor ID to be `128643840`. The live acquisition CLI also reads a
+bounded stable event file and compares the sender login/ID/type, repository,
+ref and all three original reference inputs with its environment. A matching
+request digest alone cannot authorize another actor to use the owner secret.
+The existing workflow/ref/source/attempt checks and independent plan replay
+remain required before dispatch.
+
+Both event consumers accept exactly the short `main` representation or the
+canonical `refs/heads/main` branch representation. The trusted environment
+still requires `GITHUB_REF=refs/heads/main`; tags, other branches and arbitrary
+aliases reject. This follows the full branch ref in GitHub's
+[official webhook example](https://github.com/octokit/webhooks/blob/main/payload-examples/api.github.com/workflow_dispatch/payload.json).
+The outbound dispatch body remains exactly `ref=main`; no request bytes or
+source identities are rewritten to normalize an incoming event.
+
+The owner transport is confined to one exact, already bound subject request.
+It clears its credential reference on success or failure, rejects reuse and
+cannot download artifacts or dispatch the provider. The separate
+`GITHUB_TOKEN` continues to handle observation, artifact transport and the
+existing Step 3F provider dispatch. It is not forwarded to the subject run:
+PULSE CI receives its own run-scoped token for the two existing private-intake
+consumers. The owner secret is removed from the acquisition environment and
+is absent from all child-process environments and public diagnostics.
+This is credential lifetime control, not a claim of memory zeroization after
+SIGKILL or host loss.
+
+The request bytes and digest remain unchanged across dispatch. The returned
+current run ID remains in the separate dispatch receipt and evaluation
+binding. Both Q2 consumers retain their own strict `HKati` event checks and
+independent reads; a bot-origin subject invocation is still rejected.
+
+API contracts: [authenticated user](https://docs.github.com/en/rest/users/users#get-the-authenticated-user)
+and [workflow dispatch](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event).
+
 ## Private IO, lifetime and public output
 
 `q2_intake_io_v0.py` holds regular file descriptors, rejects symlink path

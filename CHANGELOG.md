@@ -7,6 +7,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+- Bind the hosted Q2 subject dispatch to a separately configured, API-verified
+  `HKati` owner credential, preserving the intake's strict actor checks.
+  Require the original reference owner/event/request binding before using the
+  credential; confine it to one exact subject POST without token fallback or
+  retry. Keep observation/provider transport separate, sanitize authentication
+  failures, and test real loopback IO, isolated CLI rejection and independent
+  producer/admission entry. Accept GitHub's canonical main-branch event ref in
+  both event consumers and refresh both current Q2 plan source-pin maps. The
+  owner secret and real release capsule remain
+  operational prerequisites; the historical checked Q2-FAIL is unchanged.
 - Implement the dedicated archived Q2 intake in the existing required-gate
   dispatcher/runner and independently reacquiring candidate admission. Preserve
   capture `37600313529/1`, its executed source and original checked FAIL, the
@@ -26,6 +36,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   26 modified files plus 13 new files (39 total).
   A real release capsule and hosted subject binding remain operational inputs;
   this implementation creates neither a replacement capture nor release authority.
+- Close the three QRH003 review findings in #2907: report fresh recomputation
+  without unsupported verifier-process provenance; hash and execute the same
+  sealed executable snapshot for version and strict Landrun probes; reject
+  physical bundle entries outside the signed inventory and its two root
+  control files. Add deterministic race and signed-bundle regressions, extend
+  the declared test set, and record the v0.1.2 source revision with fresh
+  hashes. Preserve the historical v0.1.1 archive, original pilot verifier,
+  production gate policy and existing CI workflows.
 - Align native Q2 bootstrap validation with the existing root-freeze operation:
   derive exact post-freeze permission bits without changing the original
   inventory, file bytes or historical bindings. Retain bounded checker error
@@ -154,6 +172,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   transfer does not declare correction acceptance or reference readiness.
 
 ### Added
+- Add the isolated [QRH003 v0.1.2 audit demonstrator](docs/PULSEMECH_QRH003_AUDIT_REFERENCE_v0.md)
+  under `studies/openai_math_003_qrh_v0/`, with source/admission/authority
+  mechanics, pinned PULSE primitives, schemas, source bindings, license
+  records and 185 local fixture tests. Include the observer correction
+  separating matching decision replay from completed offline primitive
+  execution, and link the audit reference from `docs/INDEX.md`.
+  Preserve historical `BLOCK` / `MATCH`; native proof capture remains
+  `NOT_IMPLEMENTED`. Existing CI and production gate policy are unchanged.
 - docs(q2): preserve verified capture FAIL from native run `37600313529`,
   attempt 1, without rebinding its original source. Retain five byte-exact
   metadata reports and a separate preservation index: 150 verified calls,

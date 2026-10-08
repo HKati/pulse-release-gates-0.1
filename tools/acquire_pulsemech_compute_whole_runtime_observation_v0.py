@@ -25,8 +25,11 @@ Run the production CLI with isolated Python on Linux::
       --expected-plan-sha256 <64-hex digest> \
       --output-directory <absent directory>
 
-The live CLI requires the canonical GitHub Actions environment and a token in
-``GITHUB_TOKEN`` (or the variable selected by ``--token-env``).  Permanent
+The live CLI requires the canonical owner-started GitHub Actions environment,
+``GITHUB_TOKEN`` for observation/provider transport, and the separate
+``PULSE_Q2_OWNER_DISPATCH_TOKEN`` for the one Q2 subject dispatch. The latter
+must authenticate as the pinned owner; there is no installation-token fallback.
+Permanent
 regressions call :func:`acquire_observation` with a deterministic fake transport;
 they do not dispatch live workflows.
 """
@@ -92,6 +95,8 @@ PROFILE = "pulse_ci_hosted_release_grade_v0"
 SCOPE = "one_current_run_pulse_ci_hosted_release_grade_declared_workflow_graph_v0"
 REPOSITORY = "HKati/pulse-release-gates-0.1"
 OWNER = "HKati"
+OWNER_USER_ID = 128643840
+OWNER_DISPATCH_TOKEN_ENV = "PULSE_Q2_OWNER_DISPATCH_TOKEN"
 REPOSITORY_NAME = "pulse-release-gates-0.1"
 SOURCE_REF = "refs/heads/main"
 DISPATCH_REF = "main"
@@ -893,6 +898,67 @@ def _sanitize_environment(token_env: str) -> str:
     return token.strip()
 
 
+def _take_owner_dispatch_token() -> str:
+    """Remove the separate secret before any child process can inherit it."""
+    token = os.environ.pop(OWNER_DISPATCH_TOKEN_ENV, "")
+    _require(bool(token), "q2_owner_dispatch_token_missing", stage="authentication")
+    _require(isinstance(token, str) and 1 <= len(token) <= 512 and
+             all(33 <= ord(char) <= 126 for char in token),
+             "q2_owner_dispatch_token_invalid", stage="authentication")
+    return token
+
+
+def _authentication_object(data: bytes, *, error_code: str) -> dict[str, Any]:
+    """Parse bounded external metadata without publishing arbitrary key names."""
+    try:
+        value = json.loads(data.decode("utf-8", errors="strict"),
+                           object_pairs_hook=_reject_duplicate_keys,
+                           parse_constant=_reject_nonfinite)
+        _require(type(value) is dict, error_code, stage="authentication")
+        return value
+    except (AcquisitionError, UnicodeError, ValueError, RecursionError):
+        raise AcquisitionError(error_code, stage="authentication") from None
+
+
+def _reference_owner_inputs(*, source_commit: str, environment: Mapping[str, str]) -> dict[str, str]:
+    """Bind the owner credential's use to the original owner dispatch event."""
+    _require(environment.get("GITHUB_ACTOR") == OWNER and
+             environment.get("GITHUB_TRIGGERING_ACTOR") == OWNER and
+             environment.get("GITHUB_ACTOR_ID") == str(OWNER_USER_ID),
+             "q2_reference_owner_mismatch", stage="authentication")
+    raw = environment.get("PULSE_Q2_INTAKE_REQUEST", "")
+    pin = environment.get("PULSE_Q2_INTAKE_REQUEST_SHA256", "")
+    _require(isinstance(raw, str) and bool(raw) and isinstance(pin, str) and
+             SHA256_RE.fullmatch(pin) is not None,
+             "q2_dispatch_request_missing", stage="context")
+    try:
+        request_bytes = raw.encode("utf-8", errors="strict")
+    except UnicodeError:
+        raise AcquisitionError("q2_dispatch_request_invalid", stage="context") from None
+    _require(len(request_bytes) <= 16384 and _sha256(request_bytes) == pin,
+             "q2_dispatch_request_digest", stage="context")
+    path = environment.get("GITHUB_EVENT_PATH", "")
+    _require(bool(path), "q2_reference_event_missing", stage="authentication")
+    try:
+        event = _authentication_object(_capture_regular_file(
+            Path(path), label="reference_owner_event", max_bytes=512 * 1024).data,
+            error_code="q2_reference_event_invalid")
+    except AcquisitionError:
+        raise AcquisitionError("q2_reference_event_invalid", stage="authentication") from None
+    sender = event.get("sender")
+    repository = event.get("repository")
+    inputs = {"source_commit": source_commit, "q2_intake_request": raw,
+              "q2_intake_request_sha256": pin}
+    _require(isinstance(sender, dict) and sender.get("login") == OWNER and
+             type(sender.get("id")) is int and sender["id"] == OWNER_USER_ID and
+             sender.get("type") == "User" and isinstance(repository, dict) and
+             repository.get("full_name") == REPOSITORY and
+             event.get("ref") in (DISPATCH_REF, SOURCE_REF) and event.get("inputs") == inputs,
+             "q2_reference_event_mismatch", stage="authentication")
+    return {**SUBJECT_DISPATCH_INPUTS, "q2_intake_request": raw,
+            "q2_intake_request_sha256": pin}
+
+
 def _canonical_endpoint(endpoint: str) -> str:
     _require(isinstance(endpoint, str) and endpoint != "", "api_endpoint_missing", stage="network")
     _require(not endpoint.startswith("http"), "absolute_api_endpoint_rejected", stage="network")
@@ -946,6 +1012,17 @@ class LiveGitHubTransport:
     ) -> HttpExchange:
         path = _canonical_endpoint(endpoint)
         _require(method in {"GET", "POST"}, "api_method_not_allowed", method, stage="network")
+        return self._api_request(method=method, path=path, body=body,
+                                 max_response_bytes=max_response_bytes)
+
+    def _api_request(
+        self, *, method: str, path: str, body: bytes | None, max_response_bytes: int,
+    ) -> HttpExchange:
+        """One fixed GitHub host; the owner probe is the sole non-repository path."""
+        _require((path == "/user" and method == "GET" and body is None) or
+                 (path != "/user" and path == _canonical_endpoint(path) and
+                  method in {"GET", "POST"}),
+                 "api_endpoint_repository_mismatch", stage="network")
         _require(max_response_bytes > 0, "api_response_limit_invalid", stage="network")
         headers = {
             "Accept": API_ACCEPT,
@@ -1115,6 +1192,48 @@ class LiveGitHubTransport:
                     destination.unlink()
                 except OSError:
                     pass
+
+
+class OwnerSubjectDispatchTransport(LiveGitHubTransport):
+    """One exact subject dispatch, after a bounded authenticated-owner probe.
+
+    This credential cannot download artifacts or dispatch the provider. No
+    response from /user is persisted. Any exit consumes the credential; the
+    generic installation-token transport is never a fallback.
+    """
+
+    def __init__(self, *, token: str, expected_request: bytes,
+                 timeout_seconds: int = DEFAULT_API_REQUEST_TIMEOUT_SECONDS) -> None:
+        super().__init__(token=token, timeout_seconds=timeout_seconds)
+        self._expected_request = expected_request
+        self._used = False
+
+    def request(self, *, method: str, endpoint: str, body: bytes | None,
+                max_response_bytes: int) -> HttpExchange:
+        try:
+            _require(not self._used, "q2_owner_dispatch_already_used", stage="authentication")
+            self._used = True
+            _require(method == "POST" and endpoint == SUBJECT_DISPATCH_ENDPOINT and
+                     type(body) is bytes and body == self._expected_request,
+                     "q2_owner_dispatch_request_mismatch", stage="authentication")
+            identity = self._api_request(method="GET", path="/user", body=None,
+                                         max_response_bytes=16384)
+            _require(identity.status == 200, "q2_owner_dispatch_identity_unavailable",
+                     stage="authentication")
+            owner = _authentication_object(identity.body,
+                                            error_code="q2_owner_dispatch_identity_invalid")
+            _require(owner.get("login") == OWNER and owner.get("type") == "User" and
+                     type(owner.get("id")) is int and owner["id"] == OWNER_USER_ID,
+                     "q2_owner_dispatch_identity_mismatch", stage="authentication")
+            return super().request(method=method, endpoint=endpoint, body=body,
+                                   max_response_bytes=max_response_bytes)
+        finally:
+            self._token = ""
+
+    def download_artifact(self, **kwargs: Any) -> DownloadResult:
+        self._token = ""
+        self._used = True
+        raise AcquisitionError("q2_owner_dispatch_request_mismatch", stage="authentication")
 
 
 def _source_inventory_map(plan: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -1998,6 +2117,7 @@ def acquire_observation(
     record_status: str,
     reference_context: ReferenceContext,
     transport: GitHubTransport,
+    subject_dispatch_transport: OwnerSubjectDispatchTransport | None = None,
     poll_interval_seconds: int = DEFAULT_POLL_INTERVAL_SECONDS,
     monotonic: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
@@ -2069,6 +2189,14 @@ def acquire_observation(
         record_status=record_status,
     )
 
+    # Example fixtures use their explicit fake transport. Observed acquisition
+    # has no generic-token route to the owner-bound Q2 subject.
+    subject_transport: GitHubTransport = transport
+    if record_status == "observed":
+        _require(isinstance(subject_dispatch_transport, OwnerSubjectDispatchTransport),
+                 "q2_owner_dispatch_transport_required", stage="authentication")
+        subject_transport = subject_dispatch_transport
+
     output, parent = _validate_output_destination(output_directory)
     staging = Path(tempfile.mkdtemp(prefix=".step5c-acquisition.", dir=parent))
     staging.chmod(0o700)
@@ -2104,7 +2232,7 @@ def acquire_observation(
             "inputs": _q2_dispatch_inputs(plan, revision, record_status),
         }
         subject_receipt, subject_dispatch_response = _dispatch(
-            transport=transport,
+            transport=subject_transport,
             staging=staging,
             schema=schema,
             source_commit=revision,
@@ -2553,6 +2681,7 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parse_args(argv)
+    owner_transport = None
     try:
         source_commit = _canonical_sha40(str(args.source_commit), label="source_commit")
         context = _reference_context_from_environment(
@@ -2560,14 +2689,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             record_status=str(args.record_status),
             environment=os.environ,
         )
-        _require(all(os.environ.get(key) for key in
-            ("PULSE_Q2_INTAKE_REQUEST", "PULSE_Q2_INTAKE_REQUEST_SHA256")),
-            "q2_dispatch_request_missing", stage="context")
+        subject_inputs = _reference_owner_inputs(source_commit=source_commit, environment=os.environ)
+        _require(str(args.token_env) != OWNER_DISPATCH_TOKEN_ENV,
+                 "q2_owner_dispatch_transport_separation", stage="authentication")
         token = _sanitize_environment(str(args.token_env))
+        owner_token = _take_owner_dispatch_token()
+        _require(token != owner_token, "q2_owner_dispatch_transport_separation", stage="authentication")
         transport = LiveGitHubTransport(
             token=token,
             timeout_seconds=DEFAULT_API_REQUEST_TIMEOUT_SECONDS,
         )
+        owner_transport = OwnerSubjectDispatchTransport(
+            token=owner_token,
+            expected_request=_canonical_json_bytes({"ref": DISPATCH_REF, "inputs": subject_inputs}),
+        )
+        token = owner_token = None
         result = acquire_observation(
             repository_root=Path(args.repository_root),
             source_commit=source_commit,
@@ -2578,6 +2714,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             record_status=str(args.record_status),
             reference_context=context,
             transport=transport,
+            subject_dispatch_transport=owner_transport,
             poll_interval_seconds=int(args.poll_interval_seconds),
         )
         sys.stdout.buffer.write(_canonical_json_bytes(result))
@@ -2597,6 +2734,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             _canonical_json_bytes(_failure_diagnostic(wrapped, exit_code=2))
         )
         return 2
+    finally:
+        token = owner_token = None
+        os.environ.pop(OWNER_DISPATCH_TOKEN_ENV, None)
+        if owner_transport is not None:
+            owner_transport._token = ""
 
 
 
