@@ -1,0 +1,55 @@
+{
+  "schema_version": "qrh003_source_evidence_reference_v1",
+  "implementation_revision": "v0.1.1",
+  "repository_path": "studies/openai_math_003_qrh_v0",
+  "distribution_kind": "SOURCE_SUBSET",
+  "complete_distribution": {
+    "filename": "PULSEMECH_QRH003_IMPLEMENTATION_v0_1_1.zip",
+    "size_bytes": 23453781,
+    "sha256": "ce5737b01ae3b400bac96c092afb982a0af74a812692714e4c7cd094b61afbdc",
+    "public_download_url": null,
+    "availability": "Distributed separately; obtain and verify the exact archive.",
+    "contains": [
+      "historical runs",
+      "original anchored verifier snapshots",
+      "execution records",
+      "diagnostics",
+      "Python dependency wheels"
+    ],
+    "diagnostics_are_production_evidence": false
+  },
+  "source_preservation": {
+    "copied_file_count": 35,
+    "study_owned_python_files": 17,
+    "pinned_pulse_python_files": 2,
+    "selected_original_files_byte_identical": true
+  },
+  "subject_commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+  "pulse_primitive_commit": "288bb9a45764d2a30f72fdf4c417e9dd5b3087c5",
+  "latest_historical_source_pilot": {
+    "run_id": "qrh003-pilot-002-20261007",
+    "implementation_revision": "v0.1",
+    "decision": "BLOCK",
+    "replay": "MATCH",
+    "decision_sha256": "1383ee891397b686f4c12f96137a8e58ae1f8ed4b89c9232baac0b637e512276",
+    "native_proof_capture_adapter": "NOT_IMPLEMENTED",
+    "production_certificate_established": false,
+    "replay_instructions_in_complete_distribution": "studies/openai_math_003_qrh_v0/REPLAY_PILOT.md",
+    "verifier_in_complete_distribution": "studies/openai_math_003_qrh_v0/runs/pilot_002/verifier_snapshot/tools/authority.py",
+    "requires_original_anchor_bundle_decision_and_pinned_runtime": true,
+    "current_root_verifier_is_historical_verifier_substitute": false
+  },
+  "fresh_work": {
+    "new_anchor_required": true,
+    "native_capture_implemented": false,
+    "external_identity_certification_established_by_local_key": false
+  },
+  "test_scope": {
+    "expected_suite_cases": 158,
+    "declared_collector_boundary_cases": 145,
+    "additional_observer_regressions": 13,
+    "fixture_trust_domain": "TEST",
+    "mathematical_claim_tested": false,
+    "repository_ci_wiring_included": false
+  }
+}

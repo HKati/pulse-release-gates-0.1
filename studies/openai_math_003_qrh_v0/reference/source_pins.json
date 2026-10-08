@@ -1,0 +1,503 @@
+{
+  "schema_version": "qrh003_source_pins_v1",
+  "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+  "tree": "a8e3481a92772ee311cdc9dd6409cd7b927a3fc1",
+  "files": [
+    {
+      "path": "CONTENTS.md",
+      "sha256": "c492802b53fb4c4161e45fc678bb67bd526add72ca2635493a367ff7fb860bf9",
+      "bytes": 640371,
+      "git_blob_sha1": "8148d2c9077e611d5665a2ded93da68e5b608f0f",
+      "role": "upstream catalogue and release description",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/CONTENTS.md"
+    },
+    {
+      "path": "README.md",
+      "sha256": "af984f110f6583ba57ec1af907dc989bfce86713161e9c8b0543b052a138ff64",
+      "bytes": 4131,
+      "git_blob_sha1": "8ac0cb7dbf1f38ad3b7480310d4e1d9482f0cfe8",
+      "role": "upstream catalogue and release description",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/README.md"
+    },
+    {
+      "path": "lean/ComparatorChallenges/DirichletSevenEighths.json",
+      "sha256": "cfc8d85d49ec5f180e75990d95c59c45f9bd5b9f453a101308870b9c4df9e1d9",
+      "bytes": 369,
+      "git_blob_sha1": "a946bfcf544ad212fbd46056dbff913c2d75247c",
+      "role": "Comparator target selection and permitted axiom policy",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/DirichletSevenEighths.json"
+    },
+    {
+      "path": "lean/ComparatorChallenges/DirichletSevenEighths.lean",
+      "sha256": "8fb13ad977bca104591fcbc6ef01a58496e7385053c9b1445f95749afc0eff54",
+      "bytes": 379,
+      "git_blob_sha1": "baa55bebc509e8aed472a293e884de5ae2884508",
+      "role": "trusted challenge specification; intentional sorry stubs",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/DirichletSevenEighths.lean"
+    },
+    {
+      "path": "lean/ComparatorChallenges/HeckeSevenEighths.json",
+      "sha256": "04eb947847df3c1717bdb660f70a74600d0991490bb67d52cbcf0b3186e0bd5e",
+      "bytes": 377,
+      "git_blob_sha1": "139442c594171660b9e4ce80ab01aa978bb32c51",
+      "role": "Comparator target selection and permitted axiom policy",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/HeckeSevenEighths.json"
+    },
+    {
+      "path": "lean/ComparatorChallenges/HeckeSevenEighths.lean",
+      "sha256": "cb5e404fa65a502c0a9006b9ad45c28914feb79e4b7b1ffcf05e4af82ed0cfc2",
+      "bytes": 10095,
+      "git_blob_sha1": "dbeb6414a5ddd497a321490a812a6987311fa101",
+      "role": "trusted challenge specification; intentional sorry stubs",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/HeckeSevenEighths.lean"
+    },
+    {
+      "path": "lean/ComparatorChallenges/QuasiRiemannHypothesis.json",
+      "sha256": "46ebb7edc11f69536210f502b4bcbd36bbaf3f0872c16748b6c8ce43991bf320",
+      "bytes": 353,
+      "git_blob_sha1": "acf552468fc23c1a27d685d33983c58c50040542",
+      "role": "Comparator target selection and permitted axiom policy",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/QuasiRiemannHypothesis.json"
+    },
+    {
+      "path": "lean/ComparatorChallenges/QuasiRiemannHypothesis.lean",
+      "sha256": "065f8c9a01d28db78c8b1bfc5083b535082a2d2aac2230d563f98b8caa812cc5",
+      "bytes": 169,
+      "git_blob_sha1": "e7d1caf6c579dc9afbf0d2b01f79e5cd2511b028",
+      "role": "trusted challenge specification; intentional sorry stubs",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/QuasiRiemannHypothesis.lean"
+    },
+    {
+      "path": "lean/ComparatorChallenges/README.md",
+      "sha256": "051459a45da1bedd1c0a6585a5b5e5425c7c40a369f2922d7b519e2fd02333b0",
+      "bytes": 287,
+      "git_blob_sha1": "c1ac131559880e759c28caf79905ba4fe6194eb7",
+      "role": "upstream Comparator reproduction instructions",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/README.md"
+    },
+    {
+      "path": "lean/ComparatorChallenges/SiegelZeros.json",
+      "sha256": "620696740156c4503f27ac17760adf1b638f621ad81ab4cde7a0f8df32c4b643",
+      "bytes": 422,
+      "git_blob_sha1": "25989d64aa0ee538fed5921864ddfad283e61e27",
+      "role": "Comparator target selection and permitted axiom policy",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/SiegelZeros.json"
+    },
+    {
+      "path": "lean/ComparatorChallenges/SiegelZeros.lean",
+      "sha256": "bedaac0248a641910f79a380d9702d82c6bfbbfd3760a69d27c72c5d8fb136ce",
+      "bytes": 904,
+      "git_blob_sha1": "8bab3f83ef57af55c5826318b6c92df84117395f",
+      "role": "trusted challenge specification; intentional sorry stubs",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/ComparatorChallenges/SiegelZeros.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/DirichletL/Detector/FinalAssemblyCertifiedBands.lean",
+      "sha256": "d41f3d2a7fc675a1e72e02ff0be668a774120dc97ff007f04593d4a28c7e0675",
+      "bytes": 8626,
+      "git_blob_sha1": "8c7337e8f0755ba24fddab46a6630d58a32a9c86",
+      "role": "shared Dirichlet/zeta/Hecke proof assembly source",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Detector/FinalAssemblyCertifiedBands.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/DirichletL/Detector/FinalAssemblyUnconditional.lean",
+      "sha256": "0f52159a2929e7b20646f8394589d25a1a637c2f78746ad9d1447871577af615",
+      "bytes": 1607,
+      "git_blob_sha1": "e7c20910424837fb954796e1216f5aa453bbd5da",
+      "role": "shared Dirichlet/zeta/Hecke proof assembly source",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Detector/FinalAssemblyUnconditional.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/DirichletL/Foundation.lean",
+      "sha256": "ebfe6353a647f9e09bce1891343398e49094bc60f72b9b525f1e0fe97ee9e59d",
+      "bytes": 18060,
+      "git_blob_sha1": "6e5eb3e049dd725f960908ea1f80e80712318c8d",
+      "role": "explicit large local import aggregation",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Foundation.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/DirichletL/Hecke/ConditionalNonvanishing.lean",
+      "sha256": "b628ed950a6e85f6fc8014c951a1450b965f11c36539bd6830a577fa9c470804",
+      "bytes": 717,
+      "git_blob_sha1": "d8237adcd44559bc757dd1bf8ed9caab9d2c77e5",
+      "role": "actual implementation theorem root",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Hecke/ConditionalNonvanishing.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/DirichletL/Hecke/Family.lean",
+      "sha256": "9871d175749b34ec40cf66ccc14b4faa0a9ef08831cb3fa901c944e57c7b9ec6",
+      "bytes": 3888,
+      "git_blob_sha1": "3d87da47cd57f0a4f11859c654e3e3202a519100",
+      "role": "Hecke character/definition/series/continuation semantic bridge",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Hecke/Family.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/DirichletL/Hecke/FamilySeries.lean",
+      "sha256": "e1f13693e9b19dcdca6ff4da5e2bba935790506dd253228372fdc23356ce946a",
+      "bytes": 3066,
+      "git_blob_sha1": "445b25ae3b9c13d59ee0ac03c5c8d8b6777970d2",
+      "role": "Hecke character/definition/series/continuation semantic bridge",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Hecke/FamilySeries.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/DirichletL/Hecke/IdealBridge.lean",
+      "sha256": "6c1fc33b7372108323bf3af3d4ab6f6e454ea9896b89e78964463a8e35df735f",
+      "bytes": 5193,
+      "git_blob_sha1": "bcb15758326db111dd0b007b79a58103a4fa659e",
+      "role": "Hecke character/definition/series/continuation semantic bridge",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Hecke/IdealBridge.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/DirichletL/Hecke/Nonvanishing.lean",
+      "sha256": "9e120752d0067e9b645f173846833396de6282dfa83dff7dc83b7fd500af47d5",
+      "bytes": 1708,
+      "git_blob_sha1": "4fb158e2dc0d50f71a313ca1c6bdc56923c9d201",
+      "role": "actual implementation theorem root",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Hecke/Nonvanishing.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/DirichletL/Hecke/Primitive.lean",
+      "sha256": "6f1f8df20ee09e62dcafc8cbcd966761d0114302684965732159fb570902a7c6",
+      "bytes": 7497,
+      "git_blob_sha1": "f5a4d238a29a0528c52424263ca41db387c390a4",
+      "role": "Hecke character/definition/series/continuation semantic bridge",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Hecke/Primitive.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/DirichletL/Hecke/RayFamily.lean",
+      "sha256": "86c80381f402618d744802694f1f09a9ab6a197d8730bcdd50d99a646c871c7e",
+      "bytes": 2928,
+      "git_blob_sha1": "5d7d3f9ca263d8165393e4b35b3c4dc1354565f7",
+      "role": "Hecke character/definition/series/continuation semantic bridge",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Hecke/RayFamily.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/DirichletL/Hecke/Theta.lean",
+      "sha256": "5fe20e38278c74632a0b77aac4bc7a2b6217360378178e0b7dc5085cd73954c9",
+      "bytes": 10476,
+      "git_blob_sha1": "80c0dae9ed00c82f982c93a151e29d68bc064b79",
+      "role": "Hecke character/definition/series/continuation semantic bridge",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Hecke/Theta.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/DirichletL/IdealCharacter.lean",
+      "sha256": "ae9e08095d0eaa044a305e11db19c7d363302159897fcd54d07f65f952cc1f6e",
+      "bytes": 11400,
+      "git_blob_sha1": "b07c7b3e309678863c8d3161a0e3cbadf307cefc",
+      "role": "Hecke character/definition/series/continuation semantic bridge",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/IdealCharacter.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/DirichletL/Nonvanishing.lean",
+      "sha256": "d98c4a7e074469b429890e1c21b8cc76c410026525a776895293cdc0f9e6ae89",
+      "bytes": 1247,
+      "git_blob_sha1": "46c67f4000906b1391a471d6e6396ac0da3c16a5",
+      "role": "actual implementation theorem root",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/Nonvanishing.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/DirichletL/RayOrthogonality.lean",
+      "sha256": "85ff7487c61c123c298ed50f372be88338689a5d9d83ed4827bae30664243eed",
+      "bytes": 8025,
+      "git_blob_sha1": "1f6e3be50cf095a0f91f241d182bf393b9b3b7ab",
+      "role": "Hecke character/definition/series/continuation semantic bridge",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/DirichletL/RayOrthogonality.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/SiegelZeros/Characters/DirichletRealZeroBound.lean",
+      "sha256": "da5f407886723614f9d35c335eca6d26c73c67e015fb7823b7035d7c92917541",
+      "bytes": 1645,
+      "git_blob_sha1": "a67f6a3f7a13d07325742706d3c7ecd35d188a87",
+      "role": "actual Landau-Siegel theorem/proof source",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/SiegelZeros/Characters/DirichletRealZeroBound.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/SiegelZeros/Characters/DirichletRealZeroBoundProof.lean",
+      "sha256": "501409712b2a4c294ff820c5602f3f4185b2a62307688ebea94d0130510ed260",
+      "bytes": 737,
+      "git_blob_sha1": "71c312c7a41036a6b28c2c7f06ab0d80de4ed762",
+      "role": "actual Landau-Siegel theorem/proof source",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/SiegelZeros/Characters/DirichletRealZeroBoundProof.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/SiegelZeros/Conclusions/Theorem.lean",
+      "sha256": "e9444a0cbee391a4443ebddd3ccf0a70aa857e0122321421ec984e748f9098bf",
+      "bytes": 684,
+      "git_blob_sha1": "9ed5a07a40ab668baa9b537d46fae0421dc47435",
+      "role": "actual Landau-Siegel theorem/proof source",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/SiegelZeros/Conclusions/Theorem.lean"
+    },
+    {
+      "path": "lean/OAI/NumberTheory/SiegelZeros/Main.lean",
+      "sha256": "5b7b704e03aac2582e023fbf60edcb6d5a8a81913c4b03a096bcb1e0627f1689",
+      "bytes": 1538,
+      "git_blob_sha1": "8d91d7cbf0de605e993f12f0904ec94dbc1817ac",
+      "role": "Siegel solution import root",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/OAI/NumberTheory/SiegelZeros/Main.lean"
+    },
+    {
+      "path": "lean/README.md",
+      "sha256": "292ff9d539f494158dfbf68d989ba85a82782a4343b2fe43088f8fa62525bf1b",
+      "bytes": 650,
+      "git_blob_sha1": "f1ab618366051a4b3683b14ed2a0ac4bb7c620fb",
+      "role": "audited upstream source or build documentation",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/README.md"
+    },
+    {
+      "path": "lean/docs/003.md",
+      "sha256": "41e52ed718260e6feb1db218f8e97287e703cb63c6f16e6c36f5563e6e2395ce",
+      "bytes": 1911,
+      "git_blob_sha1": "cf794e93da2e1a494434153f5b91f2990fe9fd60",
+      "role": "003 declared formalization scope and exclusions",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/docs/003.md"
+    },
+    {
+      "path": "lean/formalization.yaml",
+      "sha256": "2dcbd0d6e6a22475f53d49bfdfcac9b6d2b470653c332a9f56522f5be166edb9",
+      "bytes": 73925,
+      "git_blob_sha1": "e0584d4993df01ec08233ab344ebc1b1039bf7f7",
+      "role": "shared formalization registry, scope/review metadata",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/formalization.yaml"
+    },
+    {
+      "path": "lean/lake-manifest.json",
+      "sha256": "cf6105a25d9dca2f166b241d9191bd12c7e13305890dc9c4d0952351cccc0794",
+      "bytes": 14622,
+      "git_blob_sha1": "67d01d2717d0aaff59fb8814bb53581b961f42b4",
+      "role": "42 resolved dependency lock entries",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/lake-manifest.json"
+    },
+    {
+      "path": "lean/lakefile.lean",
+      "sha256": "4cca977ebece444b6c999d99755c1ad3c93119bafc127ea761f7f703c7279e74",
+      "bytes": 15457,
+      "git_blob_sha1": "66c3867331c7c607ffc0e60955cc86cccf046e12",
+      "role": "executable Lake package configuration; reviewed as source, not executed",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/lakefile.lean"
+    },
+    {
+      "path": "lean/lean-toolchain",
+      "sha256": "d5edba4e4b8faad9c1baeadb265716d20d03be4d1a2647dc5e35b0c0325bea7b",
+      "bytes": 25,
+      "git_blob_sha1": "ba8ebf2dbaf6a668cd2a0e086186d6d569b69ff5",
+      "role": "upstream required Lean toolchain identifier",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/lean-toolchain"
+    },
+    {
+      "path": "lean/patches/AINTLIB-lean4341.patch",
+      "sha256": "076bee4cee068ad938e611d266bb32f7f1798189336087e88c08c8b3ac58dff1",
+      "bytes": 1332380,
+      "git_blob_sha1": "ef5fd2be6ee043fe405c150abba0b7a784822120",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/AINTLIB-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/AbsorptionCutoff-lean4341.patch",
+      "sha256": "8b35104dc12f807f594f7a61f7a183d967edcd0e601c7172e0e851e4c3adb3ba",
+      "bytes": 5131,
+      "git_blob_sha1": "2386161f30aa4691e22d4fc6864ee6847f59c20a",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/AbsorptionCutoff-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/ClassFieldTheory-lean4341.patch",
+      "sha256": "0275686e2febd9c14523a94cbfae105e6cf30997ed0b2a1ea28c84d0d0c12ba5",
+      "bytes": 1319196,
+      "git_blob_sha1": "dbc569846ae53c9b01701417922e218c73734a61",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/ClassFieldTheory-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/PrimeNumberTheoremAnd-lean4341.patch",
+      "sha256": "0890432340c0025973bcfe070b634355fa366cc831595f68526e4c73c8903d82",
+      "bytes": 1993197,
+      "git_blob_sha1": "924c5f6ec6fe88ba7788b420af4e3c3c7ac00abc",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/PrimeNumberTheoremAnd-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/SphereEversion-lean4341.patch",
+      "sha256": "5c7c8dba85e4636ed2fec14a5765e937f2b1c428eadb12168645b9d2c0046098",
+      "bytes": 539,
+      "git_blob_sha1": "33c9eea01e40afede1d4ad4a16d9c6a9a48f8d26",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/SphereEversion-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/StrongPNT-lean4341.patch",
+      "sha256": "2cac5cbef22987314f9293bebcf243d0a3341caaf0227925d1f8d4c31be924d7",
+      "bytes": 1248207,
+      "git_blob_sha1": "0269959e81418ffd738958089922f4eca4fec787",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/StrongPNT-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/Zeta3Irrational-lean4341.patch",
+      "sha256": "169eb72e9d12740688467a0e6abf63923a60ec5f7ce8f49ca4b3684a22418901",
+      "bytes": 169130,
+      "git_blob_sha1": "01fc1060d47bfa6886175de566cbdac633bc6858",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/Zeta3Irrational-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/belyi-lean4341.patch",
+      "sha256": "f54c2e211464c0f8194ce63a80a6562489f23f688b1c233efe3c2debfc1b9f66",
+      "bytes": 18708,
+      "git_blob_sha1": "82cdea551412b8ca4e1ca95b936bb9b30008c3c2",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/belyi-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/carleson-lean4341.patch",
+      "sha256": "8aa67adaeb6ef56967aa78c47a6c743f03ac72c125f503219a72dee5be23168c",
+      "bytes": 233447,
+      "git_blob_sha1": "7185ab1aedd905bbdc034200f6690267becaf279",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/carleson-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/elliptic-curves-lean4341.patch",
+      "sha256": "69e6575dae5797d43242694dc737b400b3e1e8fcb854094fead2a204a1f58632",
+      "bytes": 37979,
+      "git_blob_sha1": "fab72b9b04063c5c96f792f6d0b584d229b436ea",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/elliptic-curves-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/fixed-point-theorems-lean4341.patch",
+      "sha256": "d70872e41e80b25191538d1659c4aa3a001349b5bd16f806c9e3833a502516e5",
+      "bytes": 23143,
+      "git_blob_sha1": "1213fb0a7a24f0be2ba1b9a8db5af1434f02c4ec",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/fixed-point-theorems-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/formal-schemes-lean4341.patch",
+      "sha256": "5376716aa94fe0c6907570d650dd6604f170687c218cea7028d09b9f95877cea",
+      "bytes": 7995,
+      "git_blob_sha1": "9c11806b5836668ba59e4f485a30c6c5270e79eb",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/formal-schemes-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/genl-lean4341.patch",
+      "sha256": "3a9edd7dd539e98f81145a3b6cc980c9d62a821b7d41e2591f9aa5c557a7b6fa",
+      "bytes": 6516,
+      "git_blob_sha1": "d2ef990e3dab0d9d5ce8ad62ed08a559ab6a3cf9",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/genl-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/gromov-lean4341.patch",
+      "sha256": "26a1924bef774183a2e0865f144b782dc1f78eb0246993a31a5d63193b7781bb",
+      "bytes": 679242,
+      "git_blob_sha1": "60e39db95ff2e9abb30092d795d767763555b8c7",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/gromov-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/heights-lean4341.patch",
+      "sha256": "bd3b58a301df273a199d9a0fe486b25d194df176afe32583289d42b64ab583a3",
+      "bytes": 22638,
+      "git_blob_sha1": "0256e76da04bf980510c13b63f018088c5dd8580",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/heights-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/iut-lean4341.patch",
+      "sha256": "610ef069f7de5a5d500ead287287b60f193269ea4ddc0011101a9c7c98356dd4",
+      "bytes": 55593,
+      "git_blob_sha1": "e8c30d8fb73f32d3091006e0c0d54423281d6c22",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/iut-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/oka-lean4341.patch",
+      "sha256": "02995b860e7d566a10adc3488439d38abc06dcb317ae4576d504c71c921816e7",
+      "bytes": 117028,
+      "git_blob_sha1": "f397a61a148d22802ef59c2722aad8fdfad23f26",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/oka-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/orbicurve-cores-lean4341.patch",
+      "sha256": "4376110b9b7c823057cda21479a45de688c5138c81e5d4f1c050b632f168b93d",
+      "bytes": 37139,
+      "git_blob_sha1": "59f729289d198a5295e17890cb4dee307f31cebc",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/orbicurve-cores-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/pi1-lean4341.patch",
+      "sha256": "816e0d8123d5622c5b3415675638053ae31126a829e4f21d96f7af28db292f5f",
+      "bytes": 21899,
+      "git_blob_sha1": "407aac2b2dc9d042a7204eaa41da56fecde5137c",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/pi1-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/rellich-kondrachov-lean4341.patch",
+      "sha256": "0c121d8517dfeadc93ef24fe2deb56beec7cb3998e2552dee8f61c780b1408c8",
+      "bytes": 147331,
+      "git_blob_sha1": "43600843a74f7736b17db51af4783dc7ba69f6a2",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/rellich-kondrachov-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/schoenflies-lean-lean4341.patch",
+      "sha256": "4cbc255a2be785e6b617ecd61cdaf67e6d236d65a87f284380f2713670c8e350",
+      "bytes": 126127,
+      "git_blob_sha1": "eb0f300c7f84c4f99fcc02d5835cb46b6ef296ba",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/schoenflies-lean-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/tate-curves-theta-lean4341.patch",
+      "sha256": "885a19a0dc2d004aaece1987e2b7d2ff4745aef8881cbc53971a852cc5644c3f",
+      "bytes": 4905,
+      "git_blob_sha1": "02f7fb07df38bc9038c27c836460fd6d61d5ffb7",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/tate-curves-theta-lean4341.patch"
+    },
+    {
+      "path": "lean/patches/tempered-fundamental-groups-lean4341.patch",
+      "sha256": "f2e51b5f38459f11515c21801c92c39de85a8feb5f2b490ebbe07a93511a8860",
+      "bytes": 11824,
+      "git_blob_sha1": "4491cc15d9677e4922ad993fbd84801bf166fb15",
+      "role": "declared dependency compatibility/mathematical-source patch; execution not performed here",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/lean/patches/tempered-fundamental-groups-lean4341.patch"
+    },
+    {
+      "path": "preprints/The-Quasi-Riemann-Hypothesis-September-30-2026/build/paper.tex",
+      "sha256": "42a5ee0febca59fd1def55cfd6c6808c322ef4237d7726303ea52f711deac6a3",
+      "bytes": 766316,
+      "git_blob_sha1": "268c4e3206d460c617d3d2129742a72b831b3def",
+      "role": "corresponding manuscript TeX; PDF rebuild NOT_RUN",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/The-Quasi-Riemann-Hypothesis-September-30-2026/build/paper.tex"
+    },
+    {
+      "path": "preprints/The-Quasi-Riemann-Hypothesis-September-30-2026/paper.pdf",
+      "sha256": "8fe93046f8cf5ef1ba5969c89addc02d76311adc4ee907509ff9cd96f7ec99e7",
+      "bytes": 1588969,
+      "git_blob_sha1": "8132b77eeb270a70b25df8d6609f008e83e65d91",
+      "role": "requested pinned manuscript PDF",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/The-Quasi-Riemann-Hypothesis-September-30-2026/paper.pdf"
+    },
+    {
+      "path": "preprints/Uniform-exclusion-of-Landau-Siegel-zeros-October-1-2026/build/paper.tex",
+      "sha256": "b011ba9c1f55ee2164292492c55e0c6d75c458eb30d4808808f9953823b8ded4",
+      "bytes": 31166,
+      "git_blob_sha1": "7e41c77c252348369ca0fb99cbe389271ba6ce86",
+      "role": "corresponding manuscript TeX; PDF rebuild NOT_RUN",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/Uniform-exclusion-of-Landau-Siegel-zeros-October-1-2026/build/paper.tex"
+    },
+    {
+      "path": "preprints/Uniform-exclusion-of-Landau-Siegel-zeros-October-1-2026/paper.pdf",
+      "sha256": "fab9f6e84ece2a37d834b2c031d8eb14e81413d9f6270791e7b5468b295214ef",
+      "bytes": 404812,
+      "git_blob_sha1": "e31b1a244f251439b01d930c906f4e0c91dfc3a8",
+      "role": "requested pinned manuscript PDF",
+      "pinned_url": "https://github.com/openai/math/blob/adc7f1241b42e322a6451854ab7e4b4c146bf78a/preprints/Uniform-exclusion-of-Landau-Siegel-zeros-October-1-2026/paper.pdf"
+    }
+  ]
+}

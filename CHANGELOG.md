@@ -135,6 +135,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   transfer does not declare correction acceptance or reference readiness.
 
 ### Added
+- Add the isolated [QRH003 v0.1.1 audit demonstrator](docs/PULSEMECH_QRH003_AUDIT_REFERENCE_v0.md)
+  under `studies/openai_math_003_qrh_v0/`, with source/admission/authority
+  mechanics, pinned PULSE primitives, schemas, source bindings, license
+  records and 158 local fixture tests. Include the observer correction
+  separating matching decision replay from completed offline primitive
+  execution, and link the audit reference from `docs/INDEX.md`.
+  Preserve historical `BLOCK` / `MATCH`; native proof capture remains
+  `NOT_IMPLEMENTED`. Existing CI and production gate policy are unchanged.
 - docs(q2): preserve verified capture FAIL from native run `37600313529`,
   attempt 1, without rebinding its original source. Retain five byte-exact
   metadata reports and a separate preservation index: 150 verified calls,
