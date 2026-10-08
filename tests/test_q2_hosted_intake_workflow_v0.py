@@ -7,6 +7,7 @@ import io as bytesio
 import json
 import os
 from pathlib import Path
+import shutil
 import struct
 import subprocess
 import sys
@@ -62,6 +63,78 @@ def test_reference_metadata_fields_are_data_in_both_existing_jobs():
             assert job['env']['PULSE_'+field.upper()]=='${{ inputs.'+field+' }}'
             assert all('inputs.'+field not in step.get('run','') for step in job['steps'])
     assert all('PULSE_Q2_TRANSPORT_TOKEN' not in job.get('env',{}) for job in doc['jobs'].values())
+
+
+def test_tools_smoke_setup_pins_the_actual_replay_requirement():
+    doc = workflow('pulse_ci.yml')
+    profile = json.loads((ROOT / IO.PROFILE_PATH).read_bytes())
+    version = '.'.join(map(str, profile['replay_environment']['python']))
+    for job_name in ('pulse', 'tools-tests'):
+        setups = [step for step in doc['jobs'][job_name]['steps']
+                  if step.get('uses', '').startswith('actions/setup-python@')]
+        assert len(setups) == 1
+        assert setups[0]['with']['python-version'] == version
+    assert doc['jobs']['tools-tests']['timeout-minutes'] == '120'
+    assert all('continue-on-error' not in step for step in doc['jobs']['tools-tests']['steps'])
+
+
+def _run_actual_tools_smoke_step(tmp_path, interpreter, profile_fault=None):
+    """Run the committed shell step with one harmless manifest entry and real Python."""
+    profile_path = tmp_path / IO.PROFILE_PATH
+    profile_path.parent.mkdir(parents=True)
+    raw = (ROOT / IO.PROFILE_PATH).read_bytes()
+    if profile_fault == 'malformed':
+        raw = b'not-json: PRIVATE_PROFILE_CONTENT_MUST_NOT_BE_PRINTED'
+    elif profile_fault == 'unicode':
+        profile = json.loads(raw)
+        profile['replay_environment']['unicode'] = '99.0.0'
+        raw = IO.encode(profile)
+    if profile_fault != 'missing':
+        profile_path.write_bytes(raw)
+    (tmp_path / 'ci').mkdir()
+    (tmp_path / 'ci/tools-tests.list').write_text('tests/smoke_sentinel.py\n')
+    (tmp_path / 'tests').mkdir()
+    (tmp_path / 'tests/smoke_sentinel.py').write_text(
+        "from pathlib import Path\nPath('smoke_reached').write_text('executed')\n")
+    commands = tmp_path / 'commands'
+    commands.mkdir()
+    (commands / 'python').symlink_to(Path(interpreter).resolve())
+    steps = workflow('pulse_ci.yml')['jobs']['tools-tests']['steps']
+    source = next(step['run'] for step in steps
+                  if step.get('name', '').strip() == 'Run exporter + release-authority smoke tests')
+    environment = {'PATH': str(commands) + os.pathsep + os.defpath,
+                   'LANG': 'C.UTF-8', 'LC_ALL': 'C.UTF-8'}
+    return subprocess.run(['bash', '-c', source], cwd=tmp_path, env=environment,
+                          stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=20)
+
+
+@pytest.mark.parametrize('fault', [None, 'missing', 'malformed', 'unicode'],
+                         ids=['exact-runtime', 'missing-profile', 'malformed-profile', 'unicode-mismatch'])
+def test_actual_tools_smoke_step_checks_runtime_before_compiling_or_running(tmp_path, fault):
+    result = _run_actual_tools_smoke_step(tmp_path, sys.executable, fault)
+    if fault is None:
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert 'Q2 smoke replay environment verified:' in result.stdout
+        assert (tmp_path / 'smoke_reached').read_text() == 'executed'
+    else:
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert '::error::Q2 smoke replay environment' in result.stdout
+        assert not (tmp_path / 'smoke_reached').exists()
+        assert not (tmp_path / 'tests/__pycache__').exists()
+        assert 'Traceback' not in result.stderr
+        assert 'PRIVATE_PROFILE_CONTENT_MUST_NOT_BE_PRINTED' not in result.stdout + result.stderr
+
+
+def test_actual_other_python_stops_the_smoke_step_before_the_manifest(tmp_path):
+    interpreter = shutil.which('python3.12')
+    if interpreter is None:
+        pytest.skip('separate Python 3.12 interpreter not installed')
+    result = _run_actual_tools_smoke_step(tmp_path, interpreter)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert '::error::Q2 smoke replay environment mismatch:' in result.stdout
+    assert not (tmp_path / 'smoke_reached').exists()
+    assert not (tmp_path / 'tests/__pycache__').exists()
+    assert 'Traceback' not in result.stderr
 
 
 def test_full_current_source_closure_and_all_candidate_pin_families_agree():

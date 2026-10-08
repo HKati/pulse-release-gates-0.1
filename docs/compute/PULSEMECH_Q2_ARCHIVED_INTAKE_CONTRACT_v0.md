@@ -253,9 +253,12 @@ release host or re-establish the original native isolation environment.
 `build_q2_reference_summary.py`, `check_q2_reference_summary.py`, the Q2 metric
 specification and original summaries remain byte-for-byte unchanged. The replay
 checks actual CPython 3.11.16 and Unicode 14.0.0 plus behavior probes; no version
-strings are overwritten. The existing PULSE CI Python setup is pinned to that
-version. Unsupported Python/Unicode environments reject instead of rewriting
-the historical summary.
+strings are overwritten. The existing PULSE CI `pulse` and `tools-tests`
+Python setups are both pinned to that version. The tools manifest includes
+the real replay regressions, so its existing smoke step first compares the
+actual interpreter and Unicode database with the fixed replay profile.
+Runtime drift rejects before compilation or execution of the manifest.
+Unsupported environments reject without rewriting the historical summary.
 
 The reducer's new summary must equal the original summary bytes exactly. The
 separate checker independently verifies those bytes and input bindings. The
@@ -315,8 +318,10 @@ modules. This is a count-consumer correction, with no acquisition, capture,
 workload or historical source behavior changed. The second path is
 `.github/workflows/repo_hygiene.yml`: its previous version guard rejects the
 required CPython 3.11.16 declaration in the PULSE job. The guard now permits
-that exact patch only at the single `actions/setup-python` step in
-`pulse_ci.yml` job `pulse`. It retains the acquisition workflow's existing
+that exact patch at exactly one `actions/setup-python` step in each of the
+`pulse_ci.yml` jobs `pulse` and `tools-tests`. The latter executes the Q2
+replay regressions and must satisfy the same interpreter requirement.
+It retains the acquisition workflow's existing
 exact patch rule and exact environment.yml equality for every other
 declaration. It also checks regular pinned paths, structured/text declaration
 agreement, missing/duplicate setup steps and pins moved to other jobs. No job

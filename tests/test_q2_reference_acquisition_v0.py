@@ -707,6 +707,46 @@ def test_hygiene_hosted_patch_is_scoped_to_one_existing_pulse_setup(tmp_path, fa
     assert 'exact patch pins verified' not in result.stdout and 'Traceback' not in result.stderr
 
 
+@pytest.mark.parametrize('fault', [
+    'wrong_patch', 'old_minor', 'broad_selector', 'expression', 'missing_version',
+    'duplicate_setup', 'missing_setup', 'missing_job', 'renamed_job', 'wrong_action',
+    'unscoped_job_patch', 'swapped_job_versions',
+])
+def test_hygiene_rejects_tools_smoke_runtime_drift(tmp_path, fault):
+    document = yaml.load((ROOT / '.github/workflows/pulse_ci.yml').read_text(), Loader=yaml.BaseLoader)
+    jobs = document['jobs']
+    steps = jobs['tools-tests']['steps']
+    setup = next(step for step in steps if step.get('uses', '').startswith('actions/setup-python@'))
+    if fault in ('wrong_patch', 'old_minor', 'broad_selector', 'expression'):
+        setup['with']['python-version'] = {
+            'wrong_patch': '3.11.17', 'old_minor': '3.11',
+            'broad_selector': '3.11.*', 'expression': '${{ matrix.python }}',
+        }[fault]
+    elif fault == 'missing_version':
+        setup['with'].pop('python-version')
+    elif fault == 'duplicate_setup':
+        steps.append(copy.deepcopy(setup))
+    elif fault == 'missing_setup':
+        steps.remove(setup)
+    elif fault == 'missing_job':
+        jobs.pop('tools-tests')
+    elif fault == 'renamed_job':
+        jobs['other_tools'] = jobs.pop('tools-tests')
+    elif fault == 'wrong_action':
+        setup['uses'] = 'actions/setup-node@synthetic'
+    else:
+        other = next(step for name, job in jobs.items() if name not in ('pulse', 'tools-tests')
+                     for step in job['steps'] if step.get('uses', '').startswith('actions/setup-python@'))
+        other['with']['python-version'] = '3.11.16'
+        if fault == 'swapped_job_versions':
+            setup['with']['python-version'] = '3.11'
+    result = _run_hygiene_python_sync(tmp_path, q2_text=_q2_workflow_text(),
+                                     pulse_text=yaml.safe_dump(document, sort_keys=False))
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert '.github/workflows/pulse_ci.yml' in result.stdout
+    assert 'exact patch pins verified' not in result.stdout and 'Traceback' not in result.stderr
+
+
 @pytest.mark.parametrize('kind', ['missing', 'directory', 'symlink', 'dangling_symlink'])
 def test_hygiene_requires_regular_hosted_workflow_at_exact_path(tmp_path, kind):
     path = tmp_path / '.github/workflows/pulse_ci.yml'; path.parent.mkdir(parents=True)

@@ -5297,6 +5297,28 @@ _HOSTED_ORDER_HISTORICAL_REPLACEMENTS = (
  )
 
 
+def _workflow_before_q2_smoke_runtime(raw=None):
+    """Reverse only the reviewed CI runtime correction, preserving old source IDs."""
+    if raw is None:
+        raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
+        '251e1007d62aca70fc5ec001c5af34464e41f59c'
+    ), 'unreviewed hosted-order workflow bytes'
+    before_job, separator, tools_job = raw.partition(b'  tools-tests:\n')
+    assert separator and raw.count(separator) == 1
+    current = b'          python-version: "3.11.16"\n'
+    assert tools_job.count(current) == 1
+    tools_job = tools_job.replace(current, b'          python-version: "3.11"\n', 1)
+    preflight = b'          # Q2 replay is part of this manifest; reject runtime drift before the suite.\n          python -I -B - <<\'PY\'\n          import json\n          import platform\n          from pathlib import Path\n          import sys\n          import unicodedata\n\n          profile = Path("PULSE_safe_pack_v0/profiles/q2_reference_release_intake_v0.json")\n          try:\n              expected = json.loads(profile.read_text(encoding="utf-8"))["replay_environment"]\n          except (OSError, ValueError, KeyError, TypeError):\n              print("::error::Q2 smoke replay environment profile is missing or invalid.")\n              raise SystemExit(1)\n          actual = {"implementation": platform.python_implementation(),\n                    "python": list(sys.version_info[:3]),\n                    "unicode": unicodedata.unidata_version}\n          if actual != expected:\n              print("::error::Q2 smoke replay environment mismatch: " + json.dumps(actual, sort_keys=True))\n              raise SystemExit(1)\n          print("Q2 smoke replay environment verified: " + json.dumps(actual, sort_keys=True))\n          PY\n\n'
+    assert tools_job.count(preflight) == 1
+    tools_job = tools_job.replace(preflight, b'', 1)
+    restored = before_job + separator + tools_job
+    assert hashlib.sha1(b'blob ' + str(len(restored)).encode() + b'\0' + restored).hexdigest() == (
+        '19a8855241cad29b8abfcb9d1e77f88810021be4'
+    ), 'pre-Q2 smoke-runtime checkpoint mismatch'
+    return restored
+
+
 def _workflow_before_q2_intake(raw=None):
     """Invert only the reviewed Q2 changes; retain every historical checkpoint.
 
@@ -5305,6 +5327,7 @@ def _workflow_before_q2_intake(raw=None):
     """
     if raw is None:
         raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    raw = _workflow_before_q2_smoke_runtime(raw)
     assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
         '19a8855241cad29b8abfcb9d1e77f88810021be4'
     ), 'unreviewed hosted-order workflow bytes'
@@ -5323,7 +5346,7 @@ def _workflow_before_hosted_evidence_ordering(raw=None):
         raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
     # Inversion must not erase an unreviewed edit inside a replaced region.
     assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
-        '19a8855241cad29b8abfcb9d1e77f88810021be4'
+        '251e1007d62aca70fc5ec001c5af34464e41f59c'
     ), 'unreviewed hosted-order workflow bytes'
     raw = _workflow_before_q2_intake(raw)
     for current, historical in _HOSTED_ORDER_HISTORICAL_REPLACEMENTS:
@@ -5437,7 +5460,7 @@ def test_smoke_budget_all_workflow_pins_require_the_same_reviewed_bytes(side):
     path = module.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == '19a8855241cad29b8abfcb9d1e77f88810021be4'
+    assert current == '251e1007d62aca70fc5ec001c5af34464e41f59c'
     assert module.EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 == current
     for values in vars(module).values():
         if isinstance(values, dict) and path in values:
@@ -5450,7 +5473,7 @@ def test_smoke_budget_d3_d6_pins_require_the_same_reviewed_bytes(side):
     path = BUILDER.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == '19a8855241cad29b8abfcb9d1e77f88810021be4'
+    assert current == '251e1007d62aca70fc5ec001c5af34464e41f59c'
     pins = module._D3_SOURCE_PINS
     items = list(pins.items()) if isinstance(pins, dict) else list(pins)
     selected = [pin for name, pin in items if name == path]
@@ -5486,6 +5509,10 @@ def test_smoke_budget_unchanged_runner_finishes_or_propagates_failure(tmp_path, 
     workflow = yaml.load((ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes(), Loader=yaml.BaseLoader)
     step = next(s for s in workflow['jobs']['tools-tests']['steps']
                 if s['name'].strip() == 'Run exporter + release-authority smoke tests')
+    profile_path = 'PULSE_safe_pack_v0/profiles/q2_reference_release_intake_v0.json'
+    profile = tmp_path / profile_path
+    profile.parent.mkdir(parents=True)
+    profile.write_bytes((ROOT / profile_path).read_bytes())
     (tmp_path / 'ci').mkdir()
     (tmp_path / 'ci/tools-tests.list').write_text('first.py\nsecond.py\n')
     (tmp_path / 'first.py').write_text('raise SystemExit(%d)\n' % first_exit)
