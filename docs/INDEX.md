@@ -906,6 +906,7 @@ index update neither predeclares that closure nor performs a new proof execution
 - [gravity_record_protocol_appendix_v0_1.md](gravity_record_protocol_appendix_v0_1.md) — Gravity Record Protocol appendix.
 - [gravity_record_protocol_inputs_v0_1.md](gravity_record_protocol_inputs_v0_1.md) — Raw producer input contract.
 - [gravity_record_protocol_decodability_wall_v0_1.md](gravity_record_protocol_decodability_wall_v0_1.md) — Decodability threshold and critical-radius specification.
+- [gravity_record_protocol_decodability_wall_v0_2.md](gravity_record_protocol_decodability_wall_v0_2.md) — Explicit reconstruction rate, lambda-independent threshold, and synthetic validation.
 
 ---
 
