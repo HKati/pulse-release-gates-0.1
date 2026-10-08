@@ -1,0 +1,43 @@
+[
+  {
+    "claim_id": "qrh003_zeta",
+    "path": "lean/ComparatorChallenges/QuasiRiemannHypothesis.json",
+    "sha256": "46ebb7edc11f69536210f502b4bcbd36bbaf3f0872c16748b6c8ce43991bf320",
+    "challenge_module": "ComparatorChallenges.QuasiRiemannHypothesis",
+    "solution_module": "OAI.NumberTheory.DirichletL.Nonvanishing",
+    "theorem_exports": [
+      "OAI.riemannZeta_ne_zero_of_seven_eighths_lt_re"
+    ]
+  },
+  {
+    "claim_id": "qrh003_dirichlet",
+    "path": "lean/ComparatorChallenges/DirichletSevenEighths.json",
+    "sha256": "cfc8d85d49ec5f180e75990d95c59c45f9bd5b9f453a101308870b9c4df9e1d9",
+    "challenge_module": "ComparatorChallenges.DirichletSevenEighths",
+    "solution_module": "OAI.NumberTheory.DirichletL.Nonvanishing",
+    "theorem_exports": [
+      "OAI.DirichletCharacter.LFunction_ne_zero_of_seven_eighths_lt_re"
+    ]
+  },
+  {
+    "claim_id": "qrh003_hecke_qsqrt_minus3",
+    "path": "lean/ComparatorChallenges/HeckeSevenEighths.json",
+    "sha256": "04eb947847df3c1717bdb660f70a74600d0991490bb67d52cbcf0b3186e0bd5e",
+    "challenge_module": "ComparatorChallenges.HeckeSevenEighths",
+    "solution_module": "OAI.NumberTheory.DirichletL.Hecke.Nonvanishing",
+    "theorem_exports": [
+      "OAI.SevenEighths.HeckeFamily.LFunction_ne_zero_of_seven_eighths_lt_re"
+    ]
+  },
+  {
+    "claim_id": "qrh003_siegel_uniform",
+    "path": "lean/ComparatorChallenges/SiegelZeros.json",
+    "sha256": "620696740156c4503f27ac17760adf1b638f621ad81ab4cde7a0f8df32c4b643",
+    "challenge_module": "ComparatorChallenges.SiegelZeros",
+    "solution_module": "OAI.NumberTheory.SiegelZeros.Main",
+    "theorem_exports": [
+      "OAI.SiegelZeros.WeightedTorusJets.exists_absolute_real_zero_gap",
+      "OAI.SiegelZeros.WeightedTorusJets.dirichletRealZeroBound_proof"
+    ]
+  }
+]
