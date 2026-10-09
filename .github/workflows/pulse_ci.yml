@@ -3665,7 +3665,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # pinned
         with:
-          python-version: "3.11"
+          python-version: "3.11.16"
 
       - name: Install Python deps (tools-tests)
         shell: bash
@@ -3678,6 +3678,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
+          # Q2 replay is part of this manifest; reject runtime drift before the suite.
+          python -I -B - <<'PY'
+          import json
+          import platform
+          from pathlib import Path
+          import sys
+          import unicodedata
+
+          profile = Path("PULSE_safe_pack_v0/profiles/q2_reference_release_intake_v0.json")
+          try:
+              expected = json.loads(profile.read_text(encoding="utf-8"))["replay_environment"]
+          except (OSError, ValueError, KeyError, TypeError):
+              print("::error::Q2 smoke replay environment profile is missing or invalid.")
+              raise SystemExit(1)
+          actual = {"implementation": platform.python_implementation(),
+                    "python": list(sys.version_info[:3]),
+                    "unicode": unicodedata.unidata_version}
+          if actual != expected:
+              print("::error::Q2 smoke replay environment mismatch: " + json.dumps(actual, sort_keys=True))
+              raise SystemExit(1)
+          print("Q2 smoke replay environment verified: " + json.dumps(actual, sort_keys=True))
+          PY
 
           # tools-tests suite: read from manifest (field source of truth)
           list_file="ci/tools-tests.list"
