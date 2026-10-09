@@ -1,0 +1,167 @@
+{
+  "authority_effect": "none",
+  "capture_archive": {
+    "artifact_id": 11472726606,
+    "evidence_file_count": 657,
+    "name": "q2-reference-capture-37600313529-1",
+    "reported_created_at": "2026-10-07T09:28:25Z",
+    "reported_expires_at": "2026-11-06T09:28:24Z",
+    "sha256": "88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6",
+    "size": 1809263,
+    "zip_member_count": 658
+  },
+  "capture_dispatch_authorized": false,
+  "historical_preparation": {
+    "archive_sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9",
+    "archive_size": 508460811,
+    "artifact_id": 11282419957,
+    "run_attempt": 1,
+    "run_id": "37148637546",
+    "source_commit": "77fc5d51896568db50a2a87f650711a65db8fe8c"
+  },
+  "historical_qualification": {
+    "archive_sha256": "98fd7666abf2117864249b1f027381969b404e0a5eb4085044b9062337df116d",
+    "archive_size": 1128989,
+    "artifact_id": 11367651833,
+    "run_attempt": 1,
+    "run_id": "37362661448",
+    "scope": "one_unscored_diagnostic",
+    "scored_call_count": 0,
+    "source_commit": "60af89b6c90f767b283b80888f2b114fce94c4cf"
+  },
+  "limitations": [
+    "This index is a later metadata preservation record, not an original execution output, signed attestation or active input.",
+    "The five original reports preserve a complete native capture and a verified metric FAIL on the stated source/run only; no future revision is qualified.",
+    "The repository projection is not the complete 658-member capture archive. Its evidence paths are references to original archive members, not missing repository files.",
+    "Full original-to-derived replay requires the exact capture archive. Renewed native installed-byte and tokenizer checks additionally require the original runtime-input archive and the declared dependencies/environment.",
+    "This preservation does not rerun inference, native installation, tokenizer decoding or kernel isolation. Retained checker results remain distinct from new local metadata tests.",
+    "A current-run reduction of archived responses is not current-run model inference. Preserve inference_executed=false and grouping_authentication=not_established in the original reduction summary.",
+    "Hosted artifact retention is finite. Retain original archives separately; this record does not attest an owner-held durable copy.",
+    "Post-hoc content analysis is not a preregistered correctness score, a replacement Q2 result or evidence for changing the sample after capture.",
+    "An all-true candidate is not a Step 5C acceptance requirement. This capture alone is not complete Step 5C acceptance; integration and the remaining observation obligations are separate.",
+    "No new capture consent, production Q2 admission, policy input, active compute gate, release authority or Step 5D/6/7 acceptance is introduced.",
+    "Digests preserve byte identity within the reviewed collector, pinned dependencies and GitHub-host trust boundary; they do not prove inference against a malicious host."
+  ],
+  "native_run": {
+    "branch": "main",
+    "event": "workflow_dispatch",
+    "job_id": 112722808444,
+    "platform_reported_conclusion": "failure",
+    "run_attempt": 1,
+    "run_id": "37600313529",
+    "run_number": 7,
+    "source_commit": "fb7b247e24f18c5314fd44f7711bd49e15020364",
+    "url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/37600313529",
+    "workflow": ".github/workflows/q2_reference_acquisition_v0.yml"
+  },
+  "original_artifact_dependencies_not_copied": [
+    {
+      "path": "capture-prelaunch.json",
+      "sha256": "31fe6d3ab36f682568efdf85ee4bfdf4d6deece3e86bbfe7dfd78a79774715ef",
+      "size": 31518
+    },
+    {
+      "path": "capture-subject.json",
+      "sha256": "ae5f9994c2ad2d59dba57f28b194aae3b9951adc3ef9a4e220af0db80b55ae29",
+      "size": 4851
+    },
+    {
+      "path": "transcript.json",
+      "sha256": "ac883c56f67dbad3fe5ba0287992ab57376cbf833f0431f5944502632b96df27",
+      "size": 177944
+    },
+    {
+      "path": "groups.json",
+      "sha256": "d94ce8527f687b3f8bdc8c74034e63aeafe5e36c97326ce953e3cb1ff0c73ddf",
+      "size": 17172
+    },
+    {
+      "path": "dataset-manifest.json",
+      "sha256": "3fa4a8a411f2416d75dafe38c50f0a936826b0df161d560645ebc69f78a438a1",
+      "size": 666
+    },
+    {
+      "path": "handoff.json",
+      "sha256": "978726cce0470f98a3c6e7469ce9f265f08519b91255430f9bd9e03183105f36",
+      "size": 634
+    }
+  ],
+  "original_report_snapshots": [
+    {
+      "path": "capture-check.json",
+      "sha256": "28b5237f813144a1c196def552a81f7adb8e9f01cba31aa6e09e3774b66596d0",
+      "size": 809
+    },
+    {
+      "path": "capture.json",
+      "sha256": "598f5dfc14876be1d178b29e9be5c493dcbabff9ae684ba77339a29bdac9a840",
+      "size": 85528
+    },
+    {
+      "path": "reduction.json",
+      "sha256": "88317f5984532394fcc1a0baa4330b1702e820a91daaf3bbd1291a86b02827c0",
+      "size": 417
+    },
+    {
+      "path": "summary-check.json",
+      "sha256": "2c0d1366ea4533bc327eff68dfaded1a09a265b1e1d357d865c7d8e04730161c",
+      "size": 102
+    },
+    {
+      "path": "summary.json",
+      "sha256": "8360ba21581ad83585be23a999f5aacef4ad4a6780ae16c259b7d0597ab85974",
+      "size": 5908
+    }
+  ],
+  "production_gate_eligible": false,
+  "record_status": "recorded_reference",
+  "record_type": "q2_recorded_native_capture_v0",
+  "reported_result": {
+    "authority_effect": "none",
+    "builder_exit_code": 1,
+    "complete_original_capture_verified": true,
+    "consistency_rate": 1.0,
+    "counts": {
+      "consistent": 49,
+      "groups_eligible": 49,
+      "groups_total": 50,
+      "inconsistent": 0,
+      "responses_eligible": 147,
+      "responses_total": 150,
+      "unknown": 1
+    },
+    "decoding_and_extraction_verified": true,
+    "error_code": null,
+    "insufficient_evidence": true,
+    "metric_pass": false,
+    "min_n_eligible_groups": 50,
+    "planned_calls": 150,
+    "production_gate_eligible": false,
+    "received_complete_slots": 150,
+    "status": "captured_metric_fail",
+    "summary_checker_exit_code": 0,
+    "summary_checker_ok": true,
+    "summary_checker_recomputed_pass": false,
+    "threshold": 0.9,
+    "verified_calls": 150,
+    "wilson_lower_bound": 0.9273021807795037
+  },
+  "repository": "HKati/pulse-release-gates-0.1",
+  "repository_preservation": {
+    "answer_containing_groups_in_repository": false,
+    "complete_native_artifact_in_repository": false,
+    "full_replay_requires_original_artifacts": true,
+    "model_or_wheel_payloads_in_repository": false,
+    "original_generated_text_in_repository": false,
+    "original_report_bytes_unchanged": true,
+    "original_token_records_in_repository": false,
+    "owner_durable_archive_retention": "not_verified_by_this_record",
+    "profile": "original_report_metadata_only"
+  },
+  "scope": "fixed_150_call_q2_capture",
+  "trust_boundary": "reviewed_collector_pinned_dependencies_and_GitHub_host",
+  "work_order": {
+    "issue_number": 2879,
+    "preservation_inventory_comment_id": 6037092246
+  }
+}

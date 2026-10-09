@@ -1078,3 +1078,365 @@ def test_capture_cleanup_checks_process_and_cgroup_identity(monkeypatch,conditio
     else:
         with pytest.raises((N.NativeQualificationError,OSError)):N.close_capture_service(service)
     assert calls[:2]==['close','show']
+
+
+# Metadata-only snapshots from native capture 37600313529. This is a historical
+# regression expectation, not a runtime reader, launch input or inference replay.
+RECORDED_CAPTURE_ROOT = ROOT / 'PULSE_safe_pack_v0/examples/q2_reference_capture_v0/run_37600313529'
+RECORDED_CAPTURE_SOURCE = 'fb7b247e24f18c5314fd44f7711bd49e15020364'
+RECORDED_CAPTURE_INDEX_SHA = '7efd7e2bc152a2ff07df7313c765e6daa4bdef1f80a91bad8877293263f104de'
+RECORDED_CAPTURE_REPORTS = {
+    'capture-check.json': (809, '28b5237f813144a1c196def552a81f7adb8e9f01cba31aa6e09e3774b66596d0'),
+    'capture.json': (85528, '598f5dfc14876be1d178b29e9be5c493dcbabff9ae684ba77339a29bdac9a840'),
+    'reduction.json': (417, '88317f5984532394fcc1a0baa4330b1702e820a91daaf3bbd1291a86b02827c0'),
+    'summary-check.json': (102, '2c0d1366ea4533bc327eff68dfaded1a09a265b1e1d357d865c7d8e04730161c'),
+    'summary.json': (5908, '8360ba21581ad83585be23a999f5aacef4ad4a6780ae16c259b7d0597ab85974'),
+}
+RECORDED_CAPTURE_NAMES = (*RECORDED_CAPTURE_REPORTS, 'recorded-capture.json')
+RECORDED_CAPTURE_FORBIDDEN_KEYS = frozenset({
+    'text', 'text_utf8_base64', 'input_ids', 'new_token_ids', 'token_ids',
+    'messages', 'prompt', 'response_body', 'request_body', 'answer',
+    'authorization', 'credentials', 'raw_environment', 'environment_variables',
+})
+
+
+def _recorded_capture_no_raw_fields(value):
+    if type(value) is dict:
+        assert not (set(value) & RECORDED_CAPTURE_FORBIDDEN_KEYS)
+        for child in value.values():
+            _recorded_capture_no_raw_fields(child)
+    elif type(value) is list:
+        for child in value:
+            _recorded_capture_no_raw_fields(child)
+
+
+def recorded_capture_projection(root=RECORDED_CAPTURE_ROOT):
+    """Test-only closed byte projection. Never trusts a record's own new hash."""
+    assert root.is_dir() and not root.is_symlink()
+    assert {p.name for p in root.iterdir()} == set(RECORDED_CAPTURE_NAMES)
+    index_raw = N.safe_read(root / 'recorded-capture.json', 65536)
+    assert len(index_raw) == 7002 and N.sha(index_raw) == RECORDED_CAPTURE_INDEX_SHA
+    index = N.strict_json(index_raw)
+    records, rows = {}, []
+    for name, (size, digest) in RECORDED_CAPTURE_REPORTS.items():
+        # The original capture inventory is 85,528 bytes; do not truncate it to
+        # the smaller bound used for the older qualification report snapshots.
+        raw = N.safe_read(root / name, 128 * 1024)
+        assert len(raw) == size and N.sha(raw) == digest
+        records[name] = N.strict_json(raw)
+        rows.append({'path': name, 'size': size, 'sha256': digest})
+    assert index['original_report_snapshots'] == rows
+    for value in (index, *records.values()):
+        _recorded_capture_no_raw_fields(value)
+    return index, records
+
+
+def test_recorded_capture_closed_projection_and_archive_identity():
+    index, records = recorded_capture_projection()
+    assert index['record_type'] == 'q2_recorded_native_capture_v0'
+    assert index['record_status'] == 'recorded_reference'
+    assert index['scope'] == 'fixed_150_call_q2_capture'
+    assert index['repository'] == 'HKati/pulse-release-gates-0.1'
+    assert index['work_order'] == {'issue_number': 2879, 'preservation_inventory_comment_id': 6037092246}
+    assert index['native_run'] == {
+        'branch': 'main', 'event': 'workflow_dispatch', 'run_id': '37600313529',
+        'run_attempt': 1, 'run_number': 7, 'job_id': 112722808444,
+        'source_commit': RECORDED_CAPTURE_SOURCE,
+        'workflow': '.github/workflows/q2_reference_acquisition_v0.yml',
+        'platform_reported_conclusion': 'failure',
+        'url': 'https://github.com/HKati/pulse-release-gates-0.1/actions/runs/37600313529',
+    }
+    assert type(index['native_run']['run_attempt']) is int
+    assert index['capture_archive'] == {
+        'artifact_id': 11472726606, 'name': 'q2-reference-capture-37600313529-1',
+        'size': 1809263,
+        'sha256': '88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6',
+        'zip_member_count': 658, 'evidence_file_count': 657,
+        'reported_created_at': '2026-10-07T09:28:25Z',
+        'reported_expires_at': '2026-11-06T09:28:24Z',
+    }
+    assert len(records) == 5
+    # A checksum of the containing ZIP is not the checksum of capture.json.
+    assert index['capture_archive']['sha256'] != RECORDED_CAPTURE_REPORTS['capture.json'][1]
+
+
+def test_recorded_capture_keeps_preparation_qualification_and_capture_separate():
+    index, records = recorded_capture_projection()
+    native, _ = recorded_native_projection()
+    assert index['historical_preparation'] == native['historical_preparation']
+    qualification = index['historical_qualification']
+    assert qualification == {
+        'run_id': '37362661448', 'run_attempt': 1,
+        'source_commit': RECORDED_NATIVE_SOURCE,
+        'artifact_id': 11367651833, 'archive_size': 1128989,
+        'archive_sha256': '98fd7666abf2117864249b1f027381969b404e0a5eb4085044b9062337df116d',
+        'scope': 'one_unscored_diagnostic', 'scored_call_count': 0,
+    }
+    assert len({index['historical_preparation']['source_commit'],
+                qualification['source_commit'], RECORDED_CAPTURE_SOURCE}) == 3
+    assert len({index['historical_preparation']['artifact_id'],
+                qualification['artifact_id'], index['capture_archive']['artifact_id']}) == 3
+    context = records['capture.json']['context']
+    binding = records['capture-check.json']['binding']
+    assert context['source_commit'] == binding['source_commit'] == RECORDED_CAPTURE_SOURCE
+    assert context['run_id'] == binding['run_id'] == '37600313529'
+    assert type(context['run_attempt']) is type(binding['run_attempt']) is int
+    assert context['run_attempt'] == binding['run_attempt'] == 1
+    assert context['origin'] == 'owner_dispatched_github_q2_capture'
+    assert context['event'] == index['native_run']['event']
+    assert context['workflow'] == index['native_run']['workflow']
+    assert context['repository'] == index['repository']
+    assert context['python'] == '3.11.16' and context['os'] == 'ubuntu-24.04'
+    assert context['architecture'] == 'x86_64'
+    # Do not compare any historical executed-source field to a moving HEAD.
+
+
+def test_recorded_capture_verified_fail_and_reduction_meaning_are_unchanged():
+    index, records = recorded_capture_projection()
+    capture, check, reduction, summary, summary_check = (records[name] for name in (
+        'capture.json', 'capture-check.json', 'reduction.json', 'summary.json', 'summary-check.json'))
+    assert capture['record_status'] == 'native' and capture['status'] == 'captured_metric_fail'
+    assert capture['error_code'] is None
+    for value in (capture, check):
+        assert value['complete_original_capture_verified'] is True
+    assert check['decoding_and_extraction_verified'] is True
+    assert capture['planned_calls'] == capture['received_complete_slots'] == check['verified_calls'] == 150
+    assert summary['counts'] == {
+        'groups_total': 50, 'groups_eligible': 49, 'consistent': 49, 'inconsistent': 0,
+        'unknown': 1, 'responses_total': 150, 'responses_eligible': 147,
+    }
+    assert summary['consistency_rate'] == 1.0
+    assert summary['wilson_lower_bound'] == 0.9273021807795037 > summary['threshold'] == 0.9
+    assert summary['counts']['groups_eligible'] < summary['min_n_eligible_groups'] == 50
+    assert summary['insufficient_evidence'] is True
+    assert capture['metric_pass'] is reduction['metric_pass'] is summary['pass'] is False
+    assert reduction['builder_exit_code'] == 1 and reduction['checker_exit_code'] == 0
+    assert summary_check['ok'] is True and summary_check['recomputed_pass'] is False
+    assert summary['record_status'] == 'archived_response_records'
+    assert summary['method']['kind'] == 'deterministic_reference_reduction'
+    assert summary['method']['inference_executed'] is False
+    assert summary['method']['grouping_authentication'] == 'not_established'
+    assert summary['method']['unicode_version'] == '14.0.0'
+    result = index['reported_result']
+    assert result == {
+        'status': 'captured_metric_fail', 'error_code': None,
+        'planned_calls': 150, 'received_complete_slots': 150, 'verified_calls': 150,
+        'complete_original_capture_verified': True, 'decoding_and_extraction_verified': True,
+        'counts': summary['counts'], 'consistency_rate': 1.0,
+        'wilson_lower_bound': summary['wilson_lower_bound'], 'threshold': 0.9,
+        'min_n_eligible_groups': 50, 'insufficient_evidence': True, 'metric_pass': False,
+        'builder_exit_code': 1, 'summary_checker_exit_code': 0,
+        'summary_checker_ok': True, 'summary_checker_recomputed_pass': False,
+        'authority_effect': 'none', 'production_gate_eligible': False,
+    }
+    assert index['capture_dispatch_authorized'] is False
+    for value in (index, result, *records.values()):
+        assert value['authority_effect'] == 'none' and value['production_gate_eligible'] is False
+
+
+@pytest.mark.parametrize('ordinal', range(1, 51))
+def test_recorded_capture_original_group_labels_keep_unknown(ordinal):
+    _, records = recorded_capture_projection()
+    groups = records['summary.json']['groups']
+    assert len(groups) == 50
+    assert groups[ordinal - 1] == {
+        'group_id': f'q2fx-{ordinal:03d}',
+        'label': 'UNKNOWN' if ordinal == 44 else 'CONSISTENT',
+        'responses_eligible': 0 if ordinal == 44 else 3,
+        'responses_total': 3,
+    }
+
+
+def test_recorded_capture_digest_links_do_not_claim_missing_payload_replay():
+    index, records = recorded_capture_projection()
+    capture, check, reduction, summary = (records[name] for name in (
+        'capture.json', 'capture-check.json', 'reduction.json', 'summary.json'))
+    evidence = {row['path']: row for row in capture['evidence']}
+    assert len(evidence) == len(capture['evidence']) == 657
+    assert sum(name.startswith('source/') for name in evidence) == 23
+    assert sum(name.startswith('calls/') for name in evidence) == 600
+    for name, (size, digest) in RECORDED_CAPTURE_REPORTS.items():
+        if name != 'capture.json':
+            assert evidence[name] == {'path': name, 'size': size, 'sha256': digest}
+    dependencies = index['original_artifact_dependencies_not_copied']
+    assert [row['path'] for row in dependencies] == [
+        'capture-prelaunch.json', 'capture-subject.json', 'transcript.json',
+        'groups.json', 'dataset-manifest.json', 'handoff.json',
+    ]
+    for row in dependencies:
+        assert row == evidence[row['path']]
+        assert not (RECORDED_CAPTURE_ROOT / row['path']).exists()
+    assert check['binding']['prelaunch_sha256'] == evidence['capture-prelaunch.json']['sha256']
+    assert check['binding']['subject_sha256'] == evidence['capture-subject.json']['sha256']
+    assert check['transcript_sha256'] == evidence['transcript.json']['sha256']
+    for field, name, key in [('groups_sha256', 'groups.json', 'groups'),
+                             ('manifest_sha256', 'dataset-manifest.json', 'dataset_manifest')]:
+        assert check[field] == reduction[field] == evidence[name]['sha256']
+        assert summary['bindings'][key] == {'sha256': evidence[name]['sha256'],
+                                            'size_bytes': evidence[name]['size']}
+    assert reduction['summary_sha256'] == RECORDED_CAPTURE_REPORTS['summary.json'][1]
+    assert index['repository_preservation'] == {
+        'profile': 'original_report_metadata_only', 'original_report_bytes_unchanged': True,
+        'complete_native_artifact_in_repository': False, 'original_generated_text_in_repository': False,
+        'original_token_records_in_repository': False, 'answer_containing_groups_in_repository': False,
+        'model_or_wheel_payloads_in_repository': False, 'full_replay_requires_original_artifacts': True,
+        'owner_durable_archive_retention': 'not_verified_by_this_record',
+    }
+    assert index['trust_boundary'] == capture['trust_boundary'] == check['trust_boundary']
+    assert len(index['limitations']) == 11
+
+
+@pytest.fixture
+def recorded_capture_copy(tmp_path):
+    import shutil
+    return Path(shutil.copytree(RECORDED_CAPTURE_ROOT, tmp_path / 'capture-projection'))
+
+
+@pytest.mark.parametrize('name', RECORDED_CAPTURE_NAMES)
+def test_recorded_capture_reserialized_bytes_reject(recorded_capture_copy, name):
+    path = recorded_capture_copy / name
+    path.write_bytes(path.read_bytes() + b' ')
+    with pytest.raises(AssertionError):
+        recorded_capture_projection(recorded_capture_copy)
+
+
+@pytest.mark.parametrize('name', RECORDED_CAPTURE_NAMES)
+def test_recorded_capture_missing_file_reject(recorded_capture_copy, name):
+    (recorded_capture_copy / name).unlink()
+    with pytest.raises(AssertionError):
+        recorded_capture_projection(recorded_capture_copy)
+
+
+@pytest.mark.parametrize('name', RECORDED_CAPTURE_NAMES)
+def test_recorded_capture_nonregular_file_reject(recorded_capture_copy, name):
+    path = recorded_capture_copy / name
+    path.unlink()
+    path.mkdir()
+    with pytest.raises(N.NativeQualificationError):
+        recorded_capture_projection(recorded_capture_copy)
+
+
+@pytest.mark.parametrize('name', RECORDED_CAPTURE_NAMES)
+def test_recorded_capture_symlink_file_reject(recorded_capture_copy, tmp_path, name):
+    path = recorded_capture_copy / name
+    target = tmp_path / 'original'
+    target.write_bytes(path.read_bytes())
+    path.unlink()
+    path.symlink_to(target)
+    with pytest.raises(N.NativeQualificationError, match='linked_control_input'):
+        recorded_capture_projection(recorded_capture_copy)
+
+
+def test_recorded_capture_symlink_directory_reject(recorded_capture_copy, tmp_path):
+    linked = tmp_path / 'linked-projection'
+    linked.symlink_to(recorded_capture_copy, target_is_directory=True)
+    with pytest.raises(AssertionError):
+        recorded_capture_projection(linked)
+
+
+@pytest.mark.parametrize('name', ['groups.json', 'transcript.json', 'original-response.json',
+                                  'original-continuation.utf8', 'model.safetensors', '.hidden.json'])
+def test_recorded_capture_extra_payload_reject(recorded_capture_copy, name):
+    (recorded_capture_copy / name).write_bytes(b'SYNTHETIC ONLY: not an original response\n')
+    with pytest.raises(AssertionError):
+        recorded_capture_projection(recorded_capture_copy)
+
+
+@pytest.mark.parametrize('name', RECORDED_CAPTURE_NAMES)
+@pytest.mark.parametrize('field', ['authority_effect', 'production_gate_eligible'])
+def test_recorded_capture_rehashed_false_authority_reject(recorded_capture_copy, name, field):
+    path = recorded_capture_copy / name
+    value = N.strict_json(path.read_bytes())
+    value[field] = 'allow' if field == 'authority_effect' else True
+    raw = N.encode(value)
+    path.write_bytes(raw)
+    index_path = recorded_capture_copy / 'recorded-capture.json'
+    index = N.strict_json(index_path.read_bytes())
+    for row in index['original_report_snapshots']:
+        if row['path'] == name:
+            row['size'], row['sha256'] = len(raw), N.sha(raw)
+    index_path.write_bytes(N.encode(index))
+    with pytest.raises(AssertionError):
+        recorded_capture_projection(recorded_capture_copy)
+
+
+@pytest.mark.parametrize('section,field,value', [
+    ('native_run', 'source_commit', 'a' * 40),
+    ('native_run', 'run_id', '37600313530'),
+    ('native_run', 'run_attempt', 2),
+    ('native_run', 'run_attempt', True),
+    ('native_run', 'platform_reported_conclusion', 'success'),
+    ('historical_preparation', 'source_commit', RECORDED_CAPTURE_SOURCE),
+    ('historical_qualification', 'source_commit', RECORDED_CAPTURE_SOURCE),
+    ('capture_archive', 'artifact_id', 11282419957),
+    ('capture_archive', 'sha256', RECORDED_CAPTURE_REPORTS['capture.json'][1]),
+    ('reported_result', 'metric_pass', True),
+    ('reported_result', 'insufficient_evidence', False),
+    ('reported_result', 'min_n_eligible_groups', 49),
+    ('repository_preservation', 'complete_native_artifact_in_repository', True),
+    ('repository_preservation', 'full_replay_requires_original_artifacts', False),
+    ('repository_preservation', 'owner_durable_archive_retention', 'confirmed'),
+])
+def test_recorded_capture_self_rehashed_index_cannot_rebind(recorded_capture_copy, section, field, value):
+    path = recorded_capture_copy / 'recorded-capture.json'
+    index = N.strict_json(path.read_bytes())
+    index[section][field] = value
+    path.write_bytes(N.encode(index))
+    with pytest.raises(AssertionError):
+        recorded_capture_projection(recorded_capture_copy)
+
+
+@pytest.mark.parametrize('name,field,value', [
+    ('capture.json', 'metric_pass', True),
+    ('capture.json', 'status', 'captured_metric_pass'),
+    ('capture.json', 'error_code', 'timeout'),
+    ('capture-check.json', 'verified_calls', 149),
+    ('capture-check.json', 'complete_original_capture_verified', False),
+    ('reduction.json', 'metric_pass', True),
+    ('reduction.json', 'builder_exit_code', 0),
+    ('summary-check.json', 'recomputed_pass', True),
+    ('summary.json', 'pass', True),
+    ('summary.json', 'min_n_eligible_groups', 49),
+])
+def test_recorded_capture_coherently_rehashed_changed_report_reject(recorded_capture_copy, name, field, value):
+    # Update the report, containing inventory and index consistently. None of
+    # those self-updated hashes replaces the external historical expectations.
+    path = recorded_capture_copy / name
+    record = N.strict_json(path.read_bytes())
+    record[field] = value
+    path.write_bytes(N.encode(record))
+    capture_path = recorded_capture_copy / 'capture.json'
+    capture = N.strict_json(capture_path.read_bytes())
+    for row in capture['evidence']:
+        candidate = recorded_capture_copy / row['path']
+        if candidate.is_file():
+            raw = candidate.read_bytes()
+            row['size'], row['sha256'] = len(raw), N.sha(raw)
+    capture_path.write_bytes(N.encode(capture))
+    index_path = recorded_capture_copy / 'recorded-capture.json'
+    index = N.strict_json(index_path.read_bytes())
+    for row in index['original_report_snapshots']:
+        raw = (recorded_capture_copy / row['path']).read_bytes()
+        row['size'], row['sha256'] = len(raw), N.sha(raw)
+    index_path.write_bytes(N.encode(index))
+    with pytest.raises(AssertionError):
+        recorded_capture_projection(recorded_capture_copy)
+
+
+@pytest.mark.parametrize('key', sorted(RECORDED_CAPTURE_FORBIDDEN_KEYS))
+def test_recorded_capture_recursive_raw_field_guard_rejects(key):
+    with pytest.raises(AssertionError):
+        _recorded_capture_no_raw_fields({'nested': [{'nested_again': {key: 'SYNTHETIC ONLY'}}]})
+
+
+def test_recorded_capture_registered_startup_target_and_documentation():
+    entries = [line.strip() for line in (ROOT / 'ci/pytest-tests.list').read_text().splitlines()
+               if line.strip() and not line.lstrip().startswith('#')]
+    assert entries.count('tests/test_q2_native_startup_diagnostics_v0.py') == 1
+    text = (ROOT / 'docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md').read_text()
+    assert '## 12. Recorded native capture and verified Q2 FAIL' in text
+    for name in RECORDED_CAPTURE_NAMES:
+        assert f'run_37600313529/{name})' in text
+    assert '### 10.2 Repository projection and original-byte boundary' in text
+    assert '### 11.6 Validation and remaining native boundary' in text
+    assert 'docs(q2): preserve verified capture FAIL' in (ROOT / 'CHANGELOG.md').read_text()

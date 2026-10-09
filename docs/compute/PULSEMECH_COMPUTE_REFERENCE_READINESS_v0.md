@@ -1692,3 +1692,170 @@ dependencies. Owner dispatch follows review of the final implementation revision
 and its new source SHA; no old diagnostic response is reused as scored input.
 
 Keep #2879 open.
+
+
+## 12. Recorded native capture and verified Q2 FAIL
+
+This is the capture-preservation milestone under
+[#2879](https://github.com/HKati/pulse-release-gates-0.1/issues/2879), following
+its [reviewed nine-path inventory](https://github.com/HKati/pulse-release-gates-0.1/issues/2879#issuecomment-6037092246).
+Sections 6 through 11 retain their historical selection, preparation,
+qualification and implementation meanings. This section records the actual
+capture result; it neither rewrites those milestones nor starts another capture.
+
+### 12.1 Actual run and distinct original archives
+
+The owner-dispatched `capture-reference` execution was
+[run 37600313529](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/37600313529),
+attempt 1, workflow run number 7, job `112722808444`, on `main` at:
+
+```text
+executed_source_commit: fb7b247e24f18c5314fd44f7711bd49e15020364
+workflow: .github/workflows/q2_reference_acquisition_v0.yml
+platform_reported_conclusion: failure
+capture_status: captured_metric_fail
+error_code: null
+```
+
+The containing capture ZIP has this separately checked identity:
+
+```text
+artifact_name: q2-reference-capture-37600313529-1
+artifact_id: 11472726606
+size_bytes: 1809263
+zip_member_count: 658
+inventoried_evidence_files: 657
+sha256: 88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6
+```
+
+The original preparation remains run `37148637546` / attempt 1, source
+`77fc5d51896568db50a2a87f650711a65db8fe8c`, artifact `11282419957`, with the
+508,460,811-byte runtime-input ZIP and digest recorded in 8.1. The single
+unscored qualification remains run `37362661448` / attempt 1, source
+`60af89b6c90f767b283b80888f2b114fce94c4cf`, artifact `11367651833`, as recorded
+in section 10. These are three different executions and three different archives.
+None of their executed-source identities is rebound to the later preservation
+or integration commit. The capture ZIP digest is not the `capture.json` digest.
+
+### 12.2 Closed repository projection
+
+The [recorded-capture index](../../PULSE_safe_pack_v0/examples/q2_reference_capture_v0/run_37600313529/recorded-capture.json)
+binds the run, separate archive identities and exactly five original reports:
+
+- [capture.json](../../PULSE_safe_pack_v0/examples/q2_reference_capture_v0/run_37600313529/capture.json)
+- [capture-check.json](../../PULSE_safe_pack_v0/examples/q2_reference_capture_v0/run_37600313529/capture-check.json)
+- [reduction.json](../../PULSE_safe_pack_v0/examples/q2_reference_capture_v0/run_37600313529/reduction.json)
+- [summary.json](../../PULSE_safe_pack_v0/examples/q2_reference_capture_v0/run_37600313529/summary.json)
+- [summary-check.json](../../PULSE_safe_pack_v0/examples/q2_reference_capture_v0/run_37600313529/summary-check.json)
+
+These five files retain the exact original bytes, including serialization,
+negative results and non-authorizing fields. The index is a new metadata
+preservation record, not a sixth original execution report, signed attestation,
+new validator, dispatch consent or active policy input. Its snapshot sizes and
+hashes are checked against separately pinned expectations in the registered
+startup regression module, not accepted from a self-rehashed index.
+
+`capture.json` contains the original 657-entry evidence inventory. Its `path`
+values identify members of the complete capture archive, not files promised
+inside the repository projection. The index's
+`original_artifact_dependencies_not_copied` entries identify the original
+prelaunch, subject, transcript, groups, manifest and handoff records needed for
+replay. Naming and hashing these dependencies does not reproduce their bytes.
+The repository directory contains only the five reports and the index.
+
+### 12.3 Complete acquisition and negative metric are separate
+
+The retained native capture checker records 150 verified calls, complete
+original capture, and successful decoding and extraction. The terminal capture
+report records 150 planned and 150 received complete slots. The reduction
+retains these results:
+
+```text
+consistent_groups: 49
+inconsistent_groups: 0
+unknown_groups: 1
+eligible_groups: 49
+minimum_eligible_groups: 50
+eligible_responses: 147
+total_responses: 150
+consistency_rate: 1.0
+wilson_lower_bound: 0.9273021807795037
+threshold: 0.90
+insufficient_evidence: true
+metric_pass: false
+builder_exit_code: 1
+summary_checker_exit_code: 0
+summary_checker_ok: true
+summary_checker_recomputed_pass: false
+```
+
+The Wilson threshold is met, but the eligible-group minimum is not. All three
+`q2fx-044` occurrences reached the fixed 32-token limit without EOS, producing
+typed UNKNOWN under the predeclared extraction rule. They are completed but
+ineligible responses, not missing calls or timeouts. The other 49 groups are
+CONSISTENT. The failure conclusion is preserved; no extra calls, replacement,
+splicing, token-budget change, new cutoff or retrospective rescoring occurs.
+
+The original summary's `inference_executed=false` describes the deterministic
+reduction, not a denial of the separately recorded capture. Its
+`grouping_authentication=not_established` is also unchanged: a reduction summary
+alone does not authenticate upstream execution. The separate capture evidence
+keeps its own identity and declared trust boundary. A correct FAIL can pass
+summary verification without becoming metric PASS or candidate admission.
+
+Post-hoc inspection of task-following/content differences remains a separate
+analysis, not a preregistered answer-correctness score, a new Q2 comparator or
+permission to change the workload after observing responses. Q2 agreement does
+not establish answer correctness.
+
+### 12.4 Privacy, retention and replay limits
+
+Raw generated text, token arrays, answer-containing groups, full transcript and
+the complete original archive remain outside the repository, issue and general
+CI logs. The metadata projection is not a full replay package. Retain the exact
+capture ZIP separately; GitHub reported expiry `2026-11-06T09:28:24Z`. An artifact
+URL and a later metadata index do not attest durable owner-held retention.
+That owner-held copy remains unverified by this record.
+
+Full original-to-derived replay needs the exact capture archive. Renewed native
+installation/installed-byte and tokenizer verification additionally need the
+separate original runtime-input archive and the declared native environment and
+dependencies. Historical reports and metadata checks do not replace these bytes
+or constitute another kernel-isolation observation. The reviewed collector,
+pinned dependencies and GitHub host remain inside the trust boundary; checksums
+do not prove inference against a malicious host.
+
+### 12.5 Verification and remaining handoff
+
+This nine-path unit adds the five original reports and the new index, extends
+`tests/test_q2_native_startup_diagnostics_v0.py`, and updates this readiness
+record and the changelog. The already registered test module checks original
+byte identity, report/index links, distinct historical roles, unchanged FAIL,
+closed metadata scope and rejection of missing, extra, linked, changed or
+coherently rehashed substitutions and false authority. The complete module,
+including its earlier startup/qualification/capture-helper regressions, is run
+locally. Exact commands, executed test IDs, results, interpreter and limits
+belong to the delivery verification bundle. Metadata tests are not new native
+inference, a tokenizer replay or an independent repeat of the original run.
+
+No runtime tool, schema, workflow, test-manifest entry, policy, registry,
+unsupported-gate set, existing source pin or DOI value is changed. The original
+summary and capture schema meanings remain intact. Final-head repository CI and
+Codex review are separate from the delivered offline tests; repository merge
+and owner-held archival retention are not established merely by preparing files.
+
+After preservation is completed, continue the coordinated dispatcher and
+candidate-admission mapping under 5.6. Fix its full input/result, subject,
+source-closure, pin, fixture and regression inventory before implementation;
+do not partially remove Q2 from either unsupported set. Archived inference must
+not be relabelled as current-run model inference or automatically admitted as
+production input.
+
+An all-true candidate is not a Step 5C acceptance requirement. The actual
+partial, unresolved and false states must remain visible. This completed Q2
+capture alone is not acceptance of the complete Step 5C observation boundary.
+Step 5D relational work, Step 6 resource measurement and Step 7 promotion remain
+separate. All preserved results keep `authority_effect=none` and
+`production_gate_eligible=false`; this index authorizes no new capture.
+
+Keep #2879 open.

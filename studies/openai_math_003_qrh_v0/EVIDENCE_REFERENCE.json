@@ -1,0 +1,113 @@
+{
+  "schema_version": "qrh003_source_evidence_reference_v1",
+  "implementation_revision": "v0.1.2",
+  "repository_path": "studies/openai_math_003_qrh_v0",
+  "distribution_kind": "SOURCE_SUBSET",
+  "complete_distribution": {
+    "filename": "PULSEMECH_QRH003_IMPLEMENTATION_v0_1_1.zip",
+    "size_bytes": 23453781,
+    "sha256": "ce5737b01ae3b400bac96c092afb982a0af74a812692714e4c7cd094b61afbdc",
+    "public_download_url": null,
+    "availability": "Distributed separately; obtain and verify the exact archive.",
+    "contains": [
+      "historical runs",
+      "original anchored verifier snapshots",
+      "execution records",
+      "diagnostics",
+      "Python dependency wheels"
+    ],
+    "diagnostics_are_production_evidence": false,
+    "implementation_revision": "v0.1.1"
+  },
+  "source_preservation": {
+    "copied_file_count": 35,
+    "study_owned_python_files": 17,
+    "pinned_pulse_python_files": 2,
+    "selected_original_files_byte_identical": false,
+    "baseline_implementation_revision": "v0.1.1",
+    "byte_identical_original_file_count": 27,
+    "modified_original_file_count": 8,
+    "modified_original_files": [
+      {
+        "path": "reference/required_boundary_tests.json",
+        "baseline_sha256": "eeac38c654ea2ec8134efd346026a595a22cb08e2c308747a5c24ddc9860ca6a",
+        "current_sha256": "5deb2ce3b10d4b476de3885dc1f3032cc6b17c4624f4b9aae11d7848dd40b510"
+      },
+      {
+        "path": "tests/test_preflight.py",
+        "baseline_sha256": "151beed93f17492cb2a9c4ed3a22416fc6c70b1618cde9c1a365600aa17a1e88",
+        "current_sha256": "28e1a74dad8feac103736b1fe09fa12cf06dd1e444431a8e2f194146d88720af"
+      },
+      {
+        "path": "tests/test_sources.py",
+        "baseline_sha256": "a1d9615946df2aa6b3956322e6baef143c8e86ef7e605c8388ac2a17e7ccf1c2",
+        "current_sha256": "d500cc93e937c5826e13c9d6c0a3c996b094bafa913aa25468cdb84fde15f50b"
+      },
+      {
+        "path": "tests/test_transition_report.py",
+        "baseline_sha256": "97dd34b4580fe722f31d27b6ea4509ddc685bc98c5e82544400df6d11645c803",
+        "current_sha256": "55a5723581035391450af6ed50a80174d686177b19c0128507bb4878077331db"
+      },
+      {
+        "path": "tools/preflight.py",
+        "baseline_sha256": "63d6ff27e2fbe0c99416f06c03b465c73ad6371ed3a167da02b4cff8fc623253",
+        "current_sha256": "d701b2165311e05e456f7a2b9964dac19e6826483c58cac4f5ce76cc14325a0e"
+      },
+      {
+        "path": "tools/prepare.py",
+        "baseline_sha256": "ccece49dced9dffae3c8fe29fe751077f1265b49a6ea415b911136ec10b23ec9",
+        "current_sha256": "9552566ddc9f931c13929d9db63a6b0623aa49a89664f2d340ffab5f0e2ccc4d"
+      },
+      {
+        "path": "tools/transition_report.py",
+        "baseline_sha256": "90f6ecd56d43e687f72887ce0f51ad44d74e34ea316e893c58e0e37e3a174c8a",
+        "current_sha256": "3ebcdf992f6b4922799a445f55fbf517651e1e1403a09de1319a1d4eca85a488"
+      },
+      {
+        "path": "tools/verify.py",
+        "baseline_sha256": "c774a3a7d2d248e0bc92a2cade659a4b1ca9b139780c0f23d69da156d5d1ab07",
+        "current_sha256": "1efcabf4ce0cc8d5dc4e6e24b73f6bdeb2c52e31dfd9d43b247b0bc63d8dfbf7"
+      }
+    ]
+  },
+  "subject_commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+  "pulse_primitive_commit": "288bb9a45764d2a30f72fdf4c417e9dd5b3087c5",
+  "latest_historical_source_pilot": {
+    "run_id": "qrh003-pilot-002-20261007",
+    "implementation_revision": "v0.1",
+    "decision": "BLOCK",
+    "replay": "MATCH",
+    "decision_sha256": "1383ee891397b686f4c12f96137a8e58ae1f8ed4b89c9232baac0b637e512276",
+    "native_proof_capture_adapter": "NOT_IMPLEMENTED",
+    "production_certificate_established": false,
+    "replay_instructions_in_complete_distribution": "studies/openai_math_003_qrh_v0/REPLAY_PILOT.md",
+    "verifier_in_complete_distribution": "studies/openai_math_003_qrh_v0/runs/pilot_002/verifier_snapshot/tools/authority.py",
+    "requires_original_anchor_bundle_decision_and_pinned_runtime": true,
+    "current_root_verifier_is_historical_verifier_substitute": false
+  },
+  "fresh_work": {
+    "new_anchor_required": true,
+    "native_capture_implemented": false,
+    "external_identity_certification_established_by_local_key": false
+  },
+  "test_scope": {
+    "expected_suite_cases": 185,
+    "declared_collector_boundary_cases": 171,
+    "additional_observer_regressions": 14,
+    "fixture_trust_domain": "TEST",
+    "mathematical_claim_tested": false,
+    "repository_ci_wiring_included": false
+  },
+  "repository_correction": {
+    "pull_request": 2907,
+    "base_head": "adac8512d1ebea221df7ac9ede00510a30f41bed",
+    "implementation_revision": "v0.1.2",
+    "historical_complete_distribution_unchanged": true,
+    "findings": [
+      "unrecorded verifier process provenance",
+      "executable hash/launch replacement window",
+      "physical bundle files outside the signed manifest"
+    ],
+    "existing_anchors_reused": false
+  }
+}

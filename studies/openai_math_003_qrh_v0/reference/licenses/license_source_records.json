@@ -1,0 +1,41 @@
+[
+  {
+    "source": "openai_math",
+    "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+    "path": "LICENSE",
+    "available": true,
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "local_path": "reference/licenses/openai_math_LICENSE"
+  },
+  {
+    "source": "openai_math_lean",
+    "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+    "path": "lean/LICENSE",
+    "available": true,
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "local_path": "reference/licenses/openai_math_lean_LICENSE"
+  },
+  {
+    "source": "comparator",
+    "commit": "d03acab154d269c06e60e4de7e4cc85deebff94b",
+    "path": "LICENSE",
+    "available": true,
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "local_path": "reference/licenses/comparator_LICENSE"
+  },
+  {
+    "source": "lean4export",
+    "commit": "076e8e57707e813375e8f9da8bf989799ace9680",
+    "path": "LICENSE",
+    "available": true,
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "local_path": "reference/licenses/lean4export_LICENSE"
+  },
+  {
+    "source": "PULSE",
+    "url": "https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/288bb9a45764d2a30f72fdf4c417e9dd5b3087c5/LICENSE",
+    "available": true,
+    "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+    "local_path": "reference/licenses/PULSE_LICENSE"
+  }
+]
