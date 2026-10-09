@@ -1,5 +1,12 @@
 # Gravity Record Protocol — Decodability Wall (v0.1)
 
+> Historical v0.1: the implementation subtracts the frequency-ratio profile
+> `lambda`, whereas the concept below defines a separate information-rate
+> requirement `h_req`. No calibrated conversion between them is recorded.
+> Preserve v0.1 artifacts as historical results; do not interpret them as
+> implementing the `C(r) - h_req` criterion. Use the explicit-requirement
+> [v0.2 workflow](gravity_record_protocol_decodability_wall_v0_2.md) for new runs.
+
 ## Status (status_v1)
 - **Doc ID:** `gravity_record_protocol_decodability_wall_v0_1`
 - **Status:** Draft (spec-level: concept → implementation-backed)
