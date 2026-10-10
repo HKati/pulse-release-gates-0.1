@@ -7,6 +7,13 @@ to it. Existing files are never overwritten.
 """
 from __future__ import annotations
 
+# Direct scripts cannot establish source binding before their imports.
+if __name__ == "__main__":
+    import sys as _qrh_sys
+    print("QRH003_SOURCE_BOUND_LAUNCH_REQUIRED: use source_bound.py with python -I", file=_qrh_sys.stderr)
+    raise SystemExit(2)
+
+
 import argparse
 import datetime as dt
 from pathlib import Path
@@ -15,12 +22,12 @@ import sys
 try:
     from .common import (AuditError, GATE_IDS, SUBJECT_COMMIT, PULSE_COMMIT,
         canonical_bytes, sha256_bytes, sha256_file, read_json, secure_read,
-        exclusive_write, write_json)
+        exclusive_write, write_json, source_runtime)
     from .audit import PRODUCTION_KINDS
 except ImportError:
     from common import (AuditError, GATE_IDS, SUBJECT_COMMIT, PULSE_COMMIT,
         canonical_bytes, sha256_bytes, sha256_file, read_json, secure_read,
-        exclusive_write, write_json)
+        exclusive_write, write_json, source_runtime)
     from audit import PRODUCTION_KINDS
 
 ROOT = Path(__file__).absolute().parents[1]
@@ -35,6 +42,7 @@ def utc_now():
 
 
 def prepare(output, private_key_path, trust_domain='PRODUCTION', required_test_ids=()):
+    runtime = source_runtime()
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     from cryptography.hazmat.primitives import serialization
     output, key_path = Path(output).absolute(), Path(private_key_path).absolute()
@@ -47,9 +55,10 @@ def prepare(output, private_key_path, trust_domain='PRODUCTION', required_test_i
     output.mkdir(parents=True, mode=0o700)
     if not key_path.parent.is_dir():
         raise AuditError('QRH003_PRIVATE_KEY_DIRECTORY_MISSING')
-    pins = read_json(ROOT / 'reference/source_pins.json')
-    configurations = read_json(ROOT / 'reference/configurations.json')
-    claim_bytes = secure_read(ROOT, 'reference/claim_map.json')
+    from .common import strict_loads
+    pins = strict_loads(runtime.files['reference/source_pins.json'])
+    configurations = strict_loads(runtime.files['reference/configurations.json'])
+    claim_bytes = runtime.files['reference/claim_map.json']
     native_kinds = sorted(PRODUCTION_KINDS | {'bundle_seal'})
     capture_policy = {
         'schema_version': 'qrh003_capture_policy_v1', 'trust_domain': trust_domain,
@@ -63,10 +72,12 @@ def prepare(output, private_key_path, trust_domain='PRODUCTION', required_test_i
         'source_observation_route': 'FRESH_CURRENT_COLLECTOR_EXECUTION',
         'historical_unsigned_observation_admission': 'BLOCK',
         'stdout_success_word_is_proof': False,
+        'source_binding': runtime.contract(),
     }
     profile = {
         'schema_version': 'qrh003_profile_v1', 'profile_id': 'openai_math_003_qrh_v0',
-        'revision': 'implementation-v0.1.2', 'trust_domain': trust_domain,
+        'revision': 'implementation-v0.1.3', 'trust_domain': trust_domain,
+        'source_binding': runtime.contract(),
         'subject_commit': SUBJECT_COMMIT, 'pulse_commit': PULSE_COMMIT,
         'critical_artifacts': pins['files'], 'configurations': configurations,
         'claim_map_sha256': sha256_bytes(claim_bytes),
@@ -133,9 +144,7 @@ def prepare(output, private_key_path, trust_domain='PRODUCTION', required_test_i
             serialization.PrivateFormat.Raw, serialization.NoEncryption())
     public = key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
     exclusive_write(key_path, raw_key)
-    verifier_files = {}
-    for path in sorted(list((ROOT / 'tools').glob('*.py')) + list((ROOT / 'tests').glob('*.py'))):
-        verifier_files[path.relative_to(ROOT).as_posix()] = sha256_file(path)
+    verifier_files = dict(runtime.verifier_files)
     key_id = trust_domain.lower() + '-local-' + sha256_bytes(public)[:20]
     anchor = {
         'schema_version': 'qrh003_anchor_v1', 'trust_domain': trust_domain,
@@ -143,6 +152,7 @@ def prepare(output, private_key_path, trust_domain='PRODUCTION', required_test_i
         'profile_sha256': sha256_bytes(config_bytes['profile.json']),
         'policy_sha256': sha256_bytes(policy), 'registry_sha256': sha256_bytes(registry),
         'verifier_files': verifier_files,
+        'source_binding': runtime.contract(),
         'collector_keys': [{
             'key_id': key_id, 'public_key_hex': public.hex(), 'trust_domain': trust_domain,
             'collector_sha256': verifier_files['tools/collect.py'],
@@ -152,8 +162,8 @@ def prepare(output, private_key_path, trust_domain='PRODUCTION', required_test_i
         'required_sets': {'technical': list(GATE_IDS[:10]), 'semantic': list(GATE_IDS)},
         'anchor_origin': 'LOCAL_OPERATOR_BOOTSTRAP_REQUIRES_EXTERNAL_CUSTODY_FOR_EXTERNAL_AUTHORITY',
         'created_utc': utc_now(),
-        'reference_data': {str(path.relative_to(ROOT)): sha256_file(path)
-                           for path in sorted((ROOT / 'reference').glob('*.json'))},
+        'reference_data': {name: sha256_bytes(raw) for name, raw in runtime.files.items()
+                           if name.startswith('reference/') and name.endswith('.json')},
     }
     write_json(output / 'anchor.json', anchor)
     return {'configuration_directory': str(output), 'anchor_path': str(output / 'anchor.json'),

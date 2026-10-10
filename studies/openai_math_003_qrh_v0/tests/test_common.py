@@ -6,7 +6,6 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).absolute().parents[1]
-sys.path.insert(0, str(ROOT / 'tools'))
 from common import AuditError, strict_loads, canonical_bytes, secure_read, exclusive_write, sha256_file
 
 

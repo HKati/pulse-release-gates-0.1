@@ -8,7 +8,7 @@ with the quasi-Riemann hypothesis reference case. The study provides source
 observation, evidence admission, scoped offline decisions, decision replay
 and post-decision transition observation.
 
-The repository implementation is **v0.1.2**. Its native proof capture adapter is
+The repository implementation is **v0.1.3**. Its native proof capture adapter is
 **`NOT_IMPLEMENTED`**. The latest preserved source pilot produced **`BLOCK`**,
 and its decision replay produced **`MATCH`**. No production QRH certificate
 has been established. The audit result concerns the admitted evidence and
@@ -20,7 +20,7 @@ declared policy; it makes no judgment that the mathematical claim is false.
 | OpenAI Math subject commit | [`adc7f1241b42e322a6451854ab7e4b4c146bf78a`](https://github.com/openai/math/tree/adc7f1241b42e322a6451854ab7e4b4c146bf78a) |
 | PULSE primitive commit | [`288bb9a45764d2a30f72fdf4c417e9dd5b3087c5`](https://github.com/HKati/pulse-release-gates-0.1/tree/288bb9a45764d2a30f72fdf4c417e9dd5b3087c5) |
 | Latest historical source pilot | `qrh003-pilot-002-20261007`, implementation v0.1 |
-| Current source validation | 185 distinct local tests passed on 2026-10-08; zero skipped |
+| Current source validation | 220 distinct local tests passed on 2026-10-10; zero skipped; native proof execution excluded |
 | Fixture evidence domain | `TEST` |
 | Native proof capture | `NOT_IMPLEMENTED` |
 
@@ -134,6 +134,27 @@ an immutable filesystem seal. Later evaluation uses the authenticated bytes
 already held in the admitted snapshot. The original signed historical bundle
 and verifier snapshot remain unchanged.
 
+## The v0.1.3 Python source-binding correction
+
+A local signed TEST reproduction showed that an on-disk `.pyc` could execute
+different code while the verifier's anchored `.py` digests remained unchanged.
+The current [source-bound launcher](../studies/openai_math_003_qrh_v0/source_bound.py)
+verifies an independently approved source-manifest digest, captures the full
+declared inventory before study imports, and compiles and loads those exact
+source bytes. Existing caches and unlisted package initializers do not supply
+study code. Direct current tool scripts reject execution before their imports.
+
+The collector passes sealed launcher and manifest descriptors to preflight and
+test subprocesses. Each child verifies its own source snapshot. New anchors
+bind the manifest, launcher and loaded source digests; the verifier also checks
+current file digests. Historical anchors and verifier snapshots remain unchanged.
+
+The [contract](../studies/openai_math_003_qrh_v0/SOURCE_BINDING.md) makes the
+trusted launcher, caller-approved digest, Python/dependency environment and
+host explicit. Arbitrary imports in an already controlled interpreter are not
+a supported authority entry point. This correction adds no native proof
+capture, production gate or mathematical acceptance claim.
+
 ## Reading the evidence states
 
 **`BLOCK`** means the selected profile's conditions were not all established
@@ -142,19 +163,18 @@ reconstructed with the required byte equality. These outcomes can coexist.
 A completed checker can also produce `BLOCK`; path completion and permission
 are separate observations.
 
-The current suite contains 171 declared collector-boundary tests plus
-14 observer regressions. All 185 recorded distinct `PASS` outcomes in
-the local v0.1.2 source validation on 2026-10-08. All 145 original boundary
-IDs remain required; the new preflight and inventory regressions extend
-that set. They exercise fixture-based audit and
+The current suite contains 206 declared collector-boundary tests plus
+14 observer regressions, for 220 distinct cases. The v0.1.2 baseline recorded
+185 distinct `PASS` outcomes on 2026-10-08. The source-binding revision adds
+35 regressions while retaining all earlier test IDs. They exercise fixture-based audit and
 authority mechanics. Native Lean proof execution was not part of that run.
 
 At the pinned PULSE baseline, the main
 [Tools smoke list](../ci/tools-tests.list) and
 [pytest list](../ci/pytest-tests.list) do not include the study suite. Run
-the study's own unittest runner in a fresh process with the environment
-specified by its README. Repository CI success alone is not evidence that
-these 185 cases ran.
+the study's own unittest runner through its source-bound launcher in a fresh
+process with the environment and approved manifest digest specified by its README. Repository CI success alone is not evidence that
+these 220 cases ran.
 
 ## Historical replay and new work
 
@@ -177,10 +197,10 @@ pinned PULSE runtime. The archive's `REPLAY_PILOT.md` gives the procedure.
 The current root verifier must not be substituted for that historical snapshot.
 
 New work requires a fresh anchor for the actual local source and reference
-inventory. The source subset preserves 17 study Python files and two pinned
+inventory. The source subset contains 19 study Python files and two pinned
 PULSE Python primitives; its
 [source manifest](../studies/openai_math_003_qrh_v0/SOURCE_MANIFEST.json)
-covers that study directory. The v0.1.2 source corrections are recorded
+covers that study directory. The v0.1.2 review and v0.1.3 source-binding corrections are recorded
 separately from the immutable complete v0.1.1 distribution. This
 documentation does not alter an existing anchor or grant authority to a
 new one.

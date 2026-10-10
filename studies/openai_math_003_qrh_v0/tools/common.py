@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import secrets
 import stat
+import sys
 
 SUBJECT_COMMIT = "adc7f1241b42e322a6451854ab7e4b4c146bf78a"
 PULSE_COMMIT = "288bb9a45764d2a30f72fdf4c417e9dd5b3087c5"
@@ -31,6 +32,30 @@ class AuditError(Exception):
         self.code = str(code)
         self.detail = str(detail)
         super().__init__(self.code + (": " + self.detail if self.detail else ""))
+
+
+def source_runtime():
+    """Only the trusted source launcher establishes the supported API context."""
+    runtime = sys.modules.get('_qrh003_source_runtime')
+    if runtime is None:
+        raise AuditError('QRH003_SOURCE_BOUND_LAUNCH_REQUIRED')
+    return runtime
+
+
+def verify_source_anchor(anchor, root):
+    runtime = source_runtime()
+    if anchor.get('source_binding') != runtime.contract():
+        raise AuditError('QRH003_SOURCE_BINDING_ANCHOR_MISMATCH')
+    files = anchor.get('verifier_files')
+    required = {name for name in runtime.verifier_files
+                if name == 'source_bound.py' or name.startswith('tools/')}
+    if not isinstance(files, dict) or not required <= set(files):
+        raise AuditError('QRH003_VERIFIER_ANCHOR_INCOMPLETE')
+    for name, wanted in files.items():
+        if runtime.verifier_files.get(name) != wanted:
+            raise AuditError('QRH003_LOADED_SOURCE_ANCHOR_MISMATCH', name)
+        if sha256_bytes(secure_read(root, name)) != wanted:
+            raise AuditError('QRH003_VERIFIER_ANCHOR_MISMATCH', name)
 
 
 def _object_pairs(pairs):

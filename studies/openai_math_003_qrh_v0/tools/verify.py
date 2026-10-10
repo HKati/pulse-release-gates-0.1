@@ -6,6 +6,13 @@ Boolean is used as evidence. The host and this Python process are trusted.
 """
 from __future__ import annotations
 
+# Direct scripts cannot establish source binding before their imports.
+if __name__ == "__main__":
+    import sys as _qrh_sys
+    print("QRH003_SOURCE_BOUND_LAUNCH_REQUIRED: use source_bound.py with python -I", file=_qrh_sys.stderr)
+    raise SystemExit(2)
+
+
 import argparse
 import datetime as dt
 import os
@@ -19,12 +26,12 @@ try:
     from . import audit
     from .common import (AuditError, GATE_IDS, SUBJECT_COMMIT, PULSE_COMMIT,
                          canonical_bytes, sha256_bytes, strict_loads, secure_read,
-                         verify_signed_receipt, _open_dir)
+                         verify_signed_receipt, _open_dir, verify_source_anchor)
 except ImportError:
     import audit
     from common import (AuditError, GATE_IDS, SUBJECT_COMMIT, PULSE_COMMIT,
                         canonical_bytes, sha256_bytes, strict_loads, secure_read,
-                        verify_signed_receipt, _open_dir)
+                        verify_signed_receipt, _open_dir, verify_source_anchor)
 
 PROFILE_ROOT = Path(__file__).absolute().parents[1]
 MINIMUM_VERIFIER_FILES = frozenset({
@@ -32,6 +39,7 @@ MINIMUM_VERIFIER_FILES = frozenset({
     'tools/verify.py', 'tools/authority.py',
     'tools/acquire.py', 'tools/source_closure.py', 'tools/preflight.py',
     'tools/run_tests.py',
+    'tools/prepare.py', 'tools/transition_report.py', 'source_bound.py',
 })
 MANIFEST_KEYS = frozenset({
     'schema_version', 'trust_domain', 'run_key', 'created_utc', 'subject_commit',
@@ -140,7 +148,7 @@ def _load_anchor(anchor_path: Path, bundle_root: Path) -> tuple[dict, bytes]:
     required = {
         'schema_version', 'trust_domain', 'subject_commit', 'pulse_commit',
         'profile_sha256', 'policy_sha256', 'registry_sha256', 'verifier_files',
-        'collector_keys', 'required_sets',
+        'collector_keys', 'required_sets', 'source_binding',
     }
     if not required <= set(anchor):
         fail('QRH003_ANCHOR_INCOMPLETE', ','.join(sorted(required - set(anchor))))
@@ -167,6 +175,7 @@ def _load_anchor(anchor_path: Path, bundle_root: Path) -> tuple[dict, bytes]:
         actual = secure_read(PROFILE_ROOT, name)
         if sha256_bytes(actual) != wanted:
             fail('QRH003_VERIFIER_ANCHOR_MISMATCH', name)
+    verify_source_anchor(anchor, PROFILE_ROOT)
     return anchor, raw
 
 

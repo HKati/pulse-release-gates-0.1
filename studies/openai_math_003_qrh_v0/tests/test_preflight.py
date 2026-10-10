@@ -9,10 +9,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-SCRIPT = Path(__file__).resolve().parents[1] / 'tools' / 'preflight.py'
-spec = importlib.util.spec_from_file_location('qrh_preflight', SCRIPT)
-pf = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(pf)
+from tools import preflight as pf
 
 
 class PreflightFailClosedTests(unittest.TestCase):

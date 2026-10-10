@@ -5,16 +5,23 @@ edits status or decides a certificate. Its source digest is recorded separately
 because a post-decision report cannot be an input of its own earlier decision.
 """
 from __future__ import annotations
+
+# Direct scripts cannot establish source binding before their imports.
+if __name__ == "__main__":
+    import sys as _qrh_sys
+    print("QRH003_SOURCE_BOUND_LAUNCH_REQUIRED: use source_bound.py with python -I", file=_qrh_sys.stderr)
+    raise SystemExit(2)
+
 import argparse
 import datetime as dt
 from pathlib import Path
 import sys
 
 try:
-    from .common import AuditError, canonical_bytes, sha256_bytes, sha256_file, strict_loads, secure_read, write_json
+    from .common import AuditError, canonical_bytes, sha256_bytes, sha256_file, strict_loads, secure_read, write_json, source_runtime
     from .authority import _compute
 except ImportError:
-    from common import AuditError, canonical_bytes, sha256_bytes, sha256_file, strict_loads, secure_read, write_json
+    from common import AuditError, canonical_bytes, sha256_bytes, sha256_file, strict_loads, secure_read, write_json, source_runtime
     from authority import _compute
 
 
@@ -147,7 +154,7 @@ def report(bundle, anchor, decision_dir, replay_dir, pulse_root=None):
             'trust_domain': snapshot['manifest']['trust_domain'],
             'authority_effect': 'NONE', 'decision_sha256': digest,
             'evidence_manifest_sha256': snapshot['evidence_manifest_sha256'],
-            'observer_source_sha256': sha256_file(Path(__file__).absolute()),
+            'observer_source_sha256': source_runtime().verifier_files['tools/transition_report.py'],
             'decision_result': d['result'], 'axes': axes,
             'logical_roots': {'bundle': str(bundle), 'decision': str(decision_dir), 'replay': str(replay_dir)},
             'earlier_status_is_not_modified': True}
