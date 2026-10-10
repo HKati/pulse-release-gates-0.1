@@ -17,7 +17,6 @@ import unittest
 from unittest import mock
 
 ROOT = Path(__file__).absolute().parents[1]
-sys.path.insert(0, str(ROOT))
 try:
     from . import test_authority as authority_fixtures
 except ImportError:

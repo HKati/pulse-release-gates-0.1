@@ -5,7 +5,6 @@ import sys
 import unittest
 
 ROOT = Path(__file__).absolute().parents[1]
-sys.path.insert(0, str(ROOT / 'tools'))
 import audit
 from common import read_json, canonical_bytes, SUBJECT_COMMIT, PULSE_COMMIT
 

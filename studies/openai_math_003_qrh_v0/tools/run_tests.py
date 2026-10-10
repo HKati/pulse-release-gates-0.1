@@ -1,5 +1,12 @@
 """Run real unittest cases and preserve per-case outcomes as structured data."""
 from __future__ import annotations
+
+# Direct scripts cannot establish source binding before their imports.
+if __name__ == "__main__":
+    import sys as _qrh_sys
+    print("QRH003_SOURCE_BOUND_LAUNCH_REQUIRED: use source_bound.py with python -I", file=_qrh_sys.stderr)
+    raise SystemExit(2)
+
 import argparse
 import datetime as dt
 import io
@@ -8,11 +15,13 @@ import sys
 import time
 import traceback
 import unittest
+import fnmatch
+import importlib
 
 try:
-    from .common import canonical_bytes, write_json
+    from .common import canonical_bytes, write_json, source_runtime
 except ImportError:
-    from common import canonical_bytes, write_json
+    from common import canonical_bytes, write_json, source_runtime
 
 ROOT = Path(__file__).absolute().parents[1]
 
@@ -60,7 +69,14 @@ class Result(unittest.TextTestResult):
 def run(output, pattern='test_*.py'):
     stream = io.StringIO()
     started = dt.datetime.now(dt.timezone.utc).isoformat().replace('+00:00', 'Z')
-    suite = unittest.defaultTestLoader.discover(str(ROOT / 'tests'), pattern=pattern)
+    # Discover only the authenticated test inventory; never execute an unlisted
+    # file or .pyc merely because it appears in the test directory.
+    names = sorted(name for name in source_runtime().code
+                   if name.startswith('test_') and fnmatch.fnmatchcase(name + '.py', pattern))
+    if not names:
+        raise ValueError('QRH003_TEST_PATTERN_MATCHED_NO_ANCHORED_TESTS')
+    suite = unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromModule(
+        importlib.import_module(name)) for name in names)
     result = unittest.TextTestRunner(stream=stream, verbosity=2, resultclass=Result).run(suite)
     report = {'schema_version': 'qrh003_test_execution_v1', 'started_utc': started,
               'return_code': 0 if result.wasSuccessful() else 1, 'timed_out': False,

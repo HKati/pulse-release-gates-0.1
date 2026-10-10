@@ -1,4 +1,4 @@
-# QRH003 audit demonstrator — v0.1.2
+# QRH003 audit demonstrator — v0.1.3
 
 This study implements source observation, evidence admission, offline release
 decisions and replay for the pinned OpenAI Math 003 reference case. Its scope
@@ -16,7 +16,7 @@ not turn the decision into `ALLOW` or establish a mathematical proof.
 
 | Component | Commit |
 | --- | --- |
-| [OpenAI Math subject](https://github.com/openai/math/tree/adc7f1241b42e322a6451854ab7e4b4c146bf78a) | `adc7f1241b42e322a6451854ab7e4b4c146bf78a` |
+| [OpenAI Math subject](https://github.com/openai/math/tree/adc7f1241b42e322a6452204ab7e4b4c146bf78a) | `adc7f1241b42e322a6452204ab7e4b4c146bf78a` |
 | [PULSE primitives and integration baseline](https://github.com/HKati/pulse-release-gates-0.1/tree/288bb9a45764d2a30f72fdf4c417e9dd5b3087c5) | `288bb9a45764d2a30f72fdf4c417e9dd5b3087c5` |
 
 The nested [PULSE runtime](reference/pulse_runtime/NOTICE.md) retains the exact
@@ -28,6 +28,7 @@ version changes the verification basis.
 
 | Location | Role |
 | --- | --- |
+| `source_bound.py` | Required source-bound launcher for every current CLI |
 | `tools/prepare.py` | Create a fresh profile, local operator key and external anchor |
 | `tools/acquire.py`, `tools/source_closure.py` | Observe pinned source identities and static Lean imports |
 | `tools/preflight.py`, `tools/collect.py` | Record host/toolchain preflight and fresh source observations |
@@ -38,7 +39,7 @@ version changes the verification basis.
 | `schemas/` | Admitted status and admission-failure schemas |
 | `reference/` | Configuration, claim bindings, source pins, pinned primitives and license records |
 
-The distribution contains 17 study-owned Python files and two pinned PULSE
+The distribution contains 19 study-owned Python files and two pinned PULSE
 Python files. The [source manifest](SOURCE_MANIFEST.json) lists the exact
 repository files and hashes. Historical runs, diagnostic programs, generated
 reports and dependency wheels are supplied in a separate complete archive;
@@ -77,6 +78,26 @@ Self-locating executables or binaries that rely on `$ORIGIN` may fail from a
 memfd; that failure remains a blocking result. No native toolchain or proof
 capture qualification is claimed by the local fixture suite.
 
+### v0.1.3 Python source binding
+
+All current commands run through [source_bound.py](source_bound.py) in a fresh
+`python -I` process, with an independently approved source-manifest digest.
+It verifies the declared source/reference inventory before importing study
+code, then compiles and loads those exact source bytes. Existing `.pyc`
+files, unlisted package initializers and unlisted test files cannot replace
+that code. A source file hash is never treated as authentication of a cache.
+
+The collector starts preflight and test children using sealed launcher and
+manifest descriptors; each child independently checks its source inventory.
+Preparation records this binding in new anchors, and admission checks both
+the loaded source snapshot and current source files against the anchor.
+Direct legacy scripts reject execution before importing study code.
+
+The [source-binding contract](SOURCE_BINDING.md) defines the trusted entry
+point, bootstrap, subprocess and failure boundaries. It does not establish
+native proof execution or add release authority. Historical replay keeps its
+original verifier; old anchors cannot be silently upgraded to this revision.
+
 ## Run the source suite
 
 Use Linux x86_64, CPython 3.12, glibc 2.34 or newer, and Git.
@@ -95,16 +116,21 @@ set -eu
 QRH_ROOT="$PWD"
 QRH_WORK="$(mktemp -d /tmp/qrh003-work.XXXXXXXX)"
 export QRH_ROOT QRH_WORK
+# Obtain this digest from the independently reviewed release/PR record.
+: "${QRH_MANIFEST_SHA256:?set the approved SOURCE_MANIFEST.json SHA-256}"
+export QRH_MANIFEST_SHA256
 git --version
 python3.12 -m venv "$QRH_WORK/venv"
 "$QRH_WORK/venv/bin/python" -m pip install \
   --only-binary=:all: --require-hashes \
   -r "$QRH_ROOT/requirements-linux-x86_64-py312.lock"
-"$QRH_WORK/venv/bin/python" -B "$QRH_ROOT/tools/run_tests.py" \
+"$QRH_WORK/venv/bin/python" -I "$QRH_ROOT/source_bound.py" \
+  --root "$QRH_ROOT" --source-manifest-sha256 "$QRH_MANIFEST_SHA256" \
+  run_tests \
   --output "$QRH_WORK/tests.json"
 ```
 
-Expected for this version: **185 distinct tests, all `PASS`, zero skipped**.
+Expected for this version: **220 distinct tests, all `PASS`, zero skipped**.
 Check the structured result, since unittest can return success when tests are
 skipped:
 
@@ -116,10 +142,10 @@ from pathlib import Path
 r = json.loads((Path(os.environ["QRH_WORK"]) / "tests.json").read_text())
 cases = r["tests"]
 assert r["return_code"] == 0 and r["timed_out"] is False
-assert r["tests_run"] == len(cases) == 185
-assert len({case["id"] for case in cases}) == 185
+assert r["tests_run"] == len(cases) == 220
+assert len({case["id"] for case in cases}) == 220
 assert all(case["outcome"] == "PASS" for case in cases)
-print("185 distinct PASS; zero skipped")
+print("220 distinct PASS; zero skipped")
 PY
 ```
 
@@ -143,7 +169,7 @@ The source checkout itself contains no wheel directory.
 At the pinned integration baseline, repository-root `pytest.ini` discovers
 `tests/`, and Tools smoke tests use `ci/tools-tests.list` and
 `ci/pytest-tests.list`. This study is not in those manifests. A successful
-repository CI run therefore does not establish that the 185 QRH tests ran.
+repository CI run therefore does not establish that the 220 QRH tests ran.
 Invoke the dedicated runner above in its own process. An eventual CI job
 must use the compatible dependency environment and check recorded outcomes.
 Do not import the study suite into an existing repository-wide pytest process:
@@ -157,7 +183,9 @@ does not acquire sources or execute native proofs:
 
 ```bash
 install -d -m 700 "$QRH_WORK/private"
-"$QRH_WORK/venv/bin/python" -B "$QRH_ROOT/tools/prepare.py" \
+"$QRH_WORK/venv/bin/python" -I "$QRH_ROOT/source_bound.py" \
+  --root "$QRH_ROOT" --source-manifest-sha256 "$QRH_MANIFEST_SHA256" \
+  prepare \
   --output "$QRH_WORK/config" \
   --private-key "$QRH_WORK/private/collector.ed25519" \
   --trust-domain TEST \
@@ -169,20 +197,20 @@ configuration/evidence bundle and the repository. A locally generated key
 does not establish independent institutional identity or external trust.
 
 [required_boundary_tests.json](reference/required_boundary_tests.json)
-declares 171 collector-boundary test IDs. This preserves all 145
-original IDs and adds the preflight and bundle-inventory regressions. The
-complete suite also contains 14 observer regressions, for 185 tests.
+declares 206 collector-boundary test IDs. This preserves all 145
+original IDs and the v0.1.2 regressions, adding 35 source-binding cases. The
+complete suite also contains 14 observer regressions, for 220 tests.
 New configurations bind this revised declared set through a fresh anchor.
 
 Subsequent acquisition and collection need separately supplied pinned source,
-dependency and toolchain inputs. CLI options are available through each
-entry point's `--help`. Native A/B builds, formal comparison and axiom audit,
+dependency and toolchain inputs. CLI options are available through `source_bound.py --root ROOT
+--source-manifest-sha256 APPROVED_DIGEST COMMAND --help`. Native A/B builds, formal comparison and axiom audit,
 compiler-resolved source/runtime closure, and the required isolation evidence
 remain unestablished. Independent semantic/Lean/domain review intake is also
 not implemented.
 
-Always create a new anchor for new work. Preparation hashes the 17 local
-study Python files and the top-level reference JSON files actually present.
+Always create a new anchor for new work. Preparation uses the authenticated snapshot of 19 study Python files
+and the declared reference JSON inventory, including its launcher binding.
 The curated reference inventory is smaller than the complete distribution's
 inventory; a previous anchor must not be silently reused or edited to accept
 a different file set.
@@ -214,8 +242,9 @@ and does not claim a fresh native proof run.
 The initial source subset copied 35 selected files byte-for-byte from the
 complete v0.1.1 distribution. Repository revision v0.1.2 intentionally
 changes the reviewed tools, regressions, preparation revision and declared
-test inventory. `EVIDENCE_REFERENCE.json` identifies each modified original
-and records both its baseline and current digest; `SOURCE_MANIFEST.json`
+test inventory. The v0.1.3 source-binding correction is recorded separately.
+`EVIDENCE_REFERENCE.json` retains the v0.1.2 provenance record and lists the
+v0.1.3 changes against that source baseline; `SOURCE_MANIFEST.json`
 covers the complete current study. The historical archive remains unchanged.
 
 See the [PULSE runtime notice](reference/pulse_runtime/NOTICE.md),

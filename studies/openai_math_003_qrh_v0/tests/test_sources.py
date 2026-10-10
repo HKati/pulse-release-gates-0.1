@@ -16,7 +16,6 @@ import unittest
 from unittest import mock
 
 TOOLS = Path(__file__).resolve().parents[1] / "tools"
-sys.path.insert(0, str(TOOLS))
 import acquire
 import source_closure
 from common import AuditError, canonical_bytes, sha256_bytes

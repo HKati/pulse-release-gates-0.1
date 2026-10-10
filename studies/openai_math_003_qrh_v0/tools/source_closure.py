@@ -8,6 +8,13 @@ kernel axiom export, a Comparator result, or mathematical acceptance.
 """
 from __future__ import annotations
 
+# Direct scripts cannot establish source binding before their imports.
+if __name__ == "__main__":
+    import sys as _qrh_sys
+    print("QRH003_SOURCE_BOUND_LAUNCH_REQUIRED: use source_bound.py with python -I", file=_qrh_sys.stderr)
+    raise SystemExit(2)
+
+
 import argparse
 import bisect
 from collections import Counter, deque

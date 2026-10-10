@@ -17,7 +17,6 @@ from unittest import mock
 import sys
 
 ROOT = Path(__file__).absolute().parents[1]
-sys.path.insert(0, str(ROOT))
 from tools import authority, verify, audit, common, prepare
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
@@ -88,6 +87,7 @@ class AuthorityBoundaryTests(unittest.TestCase):
                                 'capture_policy_sha256': '2' * 64,
                                 'allowed_kinds': ['TEST_AUTHORITY_CONTROL', 'bundle_seal']}],
             'required_sets': {k: verify.expected_required(k) for k in ('technical', 'semantic')},
+            'source_binding': common.source_runtime().contract(),
         }
         self.rebind()
 
