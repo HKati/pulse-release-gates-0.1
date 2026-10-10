@@ -177,13 +177,23 @@ def test_plan_projection_binds_exact_prospective_request(side,fault):
         assert result=={'q2_intake_request':raw.decode(),'q2_intake_request_sha256':pin}
 
 
-def test_tools_registration_is_161_and_does_not_expand_pytest_manifest():
+def test_tools_registration_is_163_and_does_not_expand_pytest_manifest():
     modules=['tests/test_'+n+'.py' for n in ('q2_release_intake_v0','q2_release_subject_binding_v0',
-                                           'q2_required_gate_integration_v0','q2_hosted_intake_workflow_v0')]
+                                           'q2_required_gate_integration_v0','q2_hosted_intake_workflow_v0',
+                                           'q2_capsule_publication_v0','q2_negative_intake_verification_v0')]
     entries=[x.strip() for x in (ROOT/'ci/tools-tests.list').read_text().splitlines() if x.strip() and not x.lstrip().startswith('#')]
-    assert len(entries)==len(set(entries))==161
+    assert len(entries)==len(set(entries))==163
     pytest_entries=(ROOT/'ci/pytest-tests.list').read_text().splitlines()
     assert all(entries.count(name)==1 and name not in pytest_entries for name in modules)
+
+
+def test_negative_block_cannot_be_hidden_by_historical_fixture_restoration():
+    from test_pulsemech_compute_whole_runtime_observation_v0 import _workflow_before_q2_smoke_runtime
+    raw = (ROOT / '.github/workflows/pulse_ci.yml').read_bytes()
+    assert raw.count(b'--verify-recorded-negative') == 1
+    assert b'--verify-recorded-negative' not in _workflow_before_q2_smoke_runtime(raw)
+    with pytest.raises(AssertionError):
+        _workflow_before_q2_smoke_runtime(raw.replace(b'--verify-recorded-negative', b'--wrong-verifier'))
 
 
 class Response(bytesio.BytesIO):

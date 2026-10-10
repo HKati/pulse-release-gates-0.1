@@ -5302,8 +5302,14 @@ def _workflow_before_q2_smoke_runtime(raw=None):
     if raw is None:
         raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
     assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
-        '251e1007d62aca70fc5ec001c5af34464e41f59c'
+        '51636b49744e82879cd20cd968ef3e299afb1d11'
     ), 'unreviewed hosted-order workflow bytes'
+    negative_block = b'          # A checked historical FAIL remains a failed required gate.\n          if [[ -n "${PULSE_Q2_INTAKE_REQUEST:-}" || -n "${PULSE_Q2_INTAKE_REQUEST_SHA256:-}" ]]; then\n            set +e\n            python "${PACK_DIR}/tools/check_q2_release_intake_v0.py" \\\n              --repo-root "${GITHUB_WORKSPACE}" --verify-recorded-negative\n            Q2_NEGATIVE_VERIFICATION_RC=$?\n            set -e\n            echo "Q2 independent negative verification exit: ${Q2_NEGATIVE_VERIFICATION_RC}"\n            if [[ "${REQUIRED_GATE_RC}" -eq 0 ]]; then\n              echo "::error::Q2 historical negative intake cannot yield a successful required gate"\n              REQUIRED_GATE_RC=1\n            fi\n          fi\n\n'
+    assert raw.count(negative_block) == 1
+    raw = raw.replace(negative_block, b'', 1)
+    assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
+        '251e1007d62aca70fc5ec001c5af34464e41f59c'
+    ), 'pre-negative-verification workflow checkpoint mismatch'
     before_job, separator, tools_job = raw.partition(b'  tools-tests:\n')
     assert separator and raw.count(separator) == 1
     current = b'          python-version: "3.11.16"\n'
@@ -5346,7 +5352,7 @@ def _workflow_before_hosted_evidence_ordering(raw=None):
         raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
     # Inversion must not erase an unreviewed edit inside a replaced region.
     assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
-        '251e1007d62aca70fc5ec001c5af34464e41f59c'
+        '51636b49744e82879cd20cd968ef3e299afb1d11'
     ), 'unreviewed hosted-order workflow bytes'
     raw = _workflow_before_q2_intake(raw)
     for current, historical in _HOSTED_ORDER_HISTORICAL_REPLACEMENTS:
@@ -5460,7 +5466,7 @@ def test_smoke_budget_all_workflow_pins_require_the_same_reviewed_bytes(side):
     path = module.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == '251e1007d62aca70fc5ec001c5af34464e41f59c'
+    assert current == '51636b49744e82879cd20cd968ef3e299afb1d11'
     assert module.EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 == current
     for values in vars(module).values():
         if isinstance(values, dict) and path in values:
@@ -5473,7 +5479,7 @@ def test_smoke_budget_d3_d6_pins_require_the_same_reviewed_bytes(side):
     path = BUILDER.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == '251e1007d62aca70fc5ec001c5af34464e41f59c'
+    assert current == '51636b49744e82879cd20cd968ef3e299afb1d11'
     pins = module._D3_SOURCE_PINS
     items = list(pins.items()) if isinstance(pins, dict) else list(pins)
     selected = [pin for name, pin in items if name == path]

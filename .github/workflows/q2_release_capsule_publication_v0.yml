@@ -1,0 +1,119 @@
+name: Q2 release capsule publication v0
+
+# Manual owner publication of archived bytes. No inference, dispatch or authority.
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact reviewed main commit (40 lowercase hex characters)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: q2-release-capsule-publication
+  cancel-in-progress: false
+
+jobs:
+  build:
+    outputs:
+      artifact_id: ${{ steps.publish.outputs.artifact-id }}
+    if: github.repository == 'HKati/pulse-release-gates-0.1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PULSE_Q2_PUBLICATION_SOURCE: ${{ inputs.source_commit }}
+    steps:
+      - name: Check owner and source before checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_ACTOR" = HKati
+          test "$GITHUB_ACTOR_ID" = 128643840
+          test "$GITHUB_TRIGGERING_ACTOR" = HKati
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          [[ "$PULSE_Q2_PUBLICATION_SOURCE" =~ ^[0-9a-f]{40}$ ]]
+          test "$PULSE_Q2_PUBLICATION_SOURCE" = "$GITHUB_SHA"
+          test "$GITHUB_SHA" = "$GITHUB_WORKFLOW_SHA"
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up exact replay Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11.16'
+      - name: Reconstruct and independently verify before publication
+        env:
+          PULSE_Q2_PUBLICATION_TOKEN: ${{ github.token }}
+        run: >-
+          python -I -B PULSE_safe_pack_v0/tools/check_q2_release_capsule_publication_v0.py
+          build --repo-root "$GITHUB_WORKSPACE"
+      - name: Publish exact raw capsule
+        id: publish
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          # Direct upload uses this file's basename as the artifact name.
+          path: ${{ runner.temp }}/q2-capsule-publication/q2-release-subject-capsule-20261010.zip
+          archive: false
+          overwrite: false
+          if-no-files-found: error
+          retention-days: 30
+      - name: Preserve preupload receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: q2-capsule-preupload-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/q2-capsule-publication/publication.json
+          if-no-files-found: error
+          retention-days: 30
+
+  verify_download:
+    needs: build
+    if: github.repository == 'HKati/pulse-release-gates-0.1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      PULSE_Q2_PUBLICATION_SOURCE: ${{ inputs.source_commit }}
+    steps:
+      - name: Check owner and source before checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_ACTOR" = HKati
+          test "$GITHUB_ACTOR_ID" = 128643840
+          test "$GITHUB_TRIGGERING_ACTOR" = HKati
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          [[ "$PULSE_Q2_PUBLICATION_SOURCE" =~ ^[0-9a-f]{40}$ ]]
+          test "$PULSE_Q2_PUBLICATION_SOURCE" = "$GITHUB_SHA"
+          test "$GITHUB_SHA" = "$GITHUB_WORKFLOW_SHA"
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up exact replay Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11.16'
+      - name: Fresh artifact download and independent verification
+        env:
+          PULSE_Q2_PUBLICATION_TOKEN: ${{ github.token }}
+          PULSE_Q2_PUBLICATION_ARTIFACT_ID: ${{ needs.build.outputs.artifact_id }}
+        run: >-
+          python -I -B PULSE_safe_pack_v0/tools/check_q2_release_capsule_publication_v0.py
+          verify-download --repo-root "$GITHUB_WORKSPACE"
+      - name: Preserve observed roundtrip receipt
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: q2-capsule-roundtrip-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/q2-capsule-publication/publication.json
+          if-no-files-found: error
+          retention-days: 30

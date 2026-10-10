@@ -65,6 +65,7 @@ jobs:
           }
           scoped_patch_pins = {
               ".github/workflows/pulse_ci.yml": {"pulse": "3.11.16", "tools-tests": "3.11.16"},
+              ".github/workflows/q2_release_capsule_publication_v0.yml": {"build": "3.11.16", "verify_download": "3.11.16"},
           }
 
           missing_pins = []
