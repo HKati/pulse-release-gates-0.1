@@ -1,0 +1,129 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "request_id",
+    "evaluation_identity",
+    "selection",
+    "capture_expectation",
+    "release_subject",
+    "comparison_profile",
+    "reduction_profile",
+    "native_verification_mode"
+  ],
+  "properties": {
+    "record_type": {
+      "const": "q2_release_intake_request_v0"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$"
+    },
+    "evaluation_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "source_commit",
+        "workflow",
+        "event",
+        "ref"
+      ],
+      "properties": {
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "workflow": {
+          "const": ".github/workflows/pulse_ci.yml"
+        },
+        "event": {
+          "const": "workflow_dispatch"
+        },
+        "ref": {
+          "const": "refs/heads/main"
+        }
+      }
+    },
+    "selection": {
+      "const": {
+        "path": "PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json",
+        "sha256": "e81a9dd0a5080d84dae8c4bbfc843b46510f580e74254c1aed0dddbe76375f3e",
+        "selection_id": "pulsemech.q2.field-extractor.smollm2-135m.v0"
+      }
+    },
+    "capture_expectation": {
+      "const": {
+        "repository": "HKati/pulse-release-gates-0.1",
+        "run_id": "37600313529",
+        "run_attempt": 1,
+        "source_commit": "fb7b247e24f18c5314fd44f7711bd49e15020364",
+        "artifact_id": 11472726606,
+        "archive_size_bytes": 1809263,
+        "archive_sha256": "88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6",
+        "subject_size_bytes": 4851,
+        "subject_sha256": "ae5f9994c2ad2d59dba57f28b194aae3b9951adc3ef9a4e220af0db80b55ae29"
+      }
+    },
+    "release_subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "artifact_id",
+        "archive_size_bytes",
+        "archive_sha256",
+        "capsule_manifest_sha256",
+        "subject_id",
+        "definition_sha256",
+        "layout_profile"
+      ],
+      "properties": {
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "artifact_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "archive_size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483648
+        },
+        "archive_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "capsule_manifest_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "subject_id": {
+          "const": "pulsemech-q2-field-extractor-v0"
+        },
+        "definition_sha256": {
+          "const": "688773b81fcf4f105b8770bc2dde9a68baf78aa76224e5c544cd0656109b07a5"
+        },
+        "layout_profile": {
+          "const": "q2_subject_capsule_v0"
+        }
+      }
+    },
+    "comparison_profile": {
+      "const": "q2_exact_payload_and_launch_v0"
+    },
+    "reduction_profile": {
+      "const": "q2_archived_python311_unicode14_v0"
+    },
+    "native_verification_mode": {
+      "const": "archived_native_evidence_only"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Q2 exact preselected intake request; prospective identity has no run ID"
+}

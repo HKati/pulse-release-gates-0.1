@@ -128,7 +128,7 @@ EXPECTED_ATTESTATION_LOCK_BLOB_SHA1 = "18a17a1259e258ebfa603d4d2b5cfaf4487145c9"
 # surfaces.  Adding Step 5C files changes the commit but must not silently
 # change either subject workflow, the Step 3F provider, or the controlled case
 # set.  A future change requires a reviewed profile revision.
-EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 = "d46ec426962a3cc9dc23c560bf87b2f2a6a74945"
+EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 = "251e1007d62aca70fc5ec001c5af34464e41f59c"
 EXPECTED_PROVIDER_WORKFLOW_BLOB_SHA1 = "0ce36e0eb40493e610fc35a42eb13d5af9c3e09b"
 EXPECTED_DATASET_BLOB_SHA1 = "3b6ca799f26c7374334c51c5c9c8ea26b35cf857"
 EXPECTED_LLAMAGUARD_RUNNER_BLOB_SHA1 = "058edf0d16383db41a5a4500caf4b484321d2e57"
@@ -385,7 +385,7 @@ _RECORDED_SEMANTIC_PINS = {
     'PULSE_safe_pack_v0/tools/materialize_release_required_from_verifier_v0.py':
         'a86aef9f2f5ccc6bb95997ee93eb6f9f95a8b85d',
     'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py':
-        '553a696640eedc559edced2bdf4f4ff171cf7685',
+        '1677ad6fe967fa01cc3ef9a27315eddc8ada1797',
     'PULSE_safe_pack_v0/tools/check_gates.py':
         '2a593bdef31c9c8cb565b1c4ca3d16a1e3093735',
     'tools/policy_to_require_args.py':
@@ -483,8 +483,39 @@ _LOCAL_R2_RECORDED_SOURCE_ROLES = (
     ('llamaguard_evaluator_manifest_schema',
      'PULSE_safe_pack_v0/schemas/llamaguard_evaluator_manifest_v0.schema.json'),
 )
-_LOCAL_R2_SOURCE_ROLES = SOURCE_ROLES + _LOCAL_R2_RECORDED_SOURCE_ROLES
+_Q2_ARCHIVED_INTAKE_SOURCE_ROLES = (
+    ('q2_q2_reference_release_intake_v0', 'PULSE_safe_pack_v0/profiles/q2_reference_release_intake_v0.json'),
+    ('q2_q2_release_intake_request_v0_schema', 'schemas/q2_release_intake_request_v0.schema.json'),
+    ('q2_q2_release_intake_result_v0_schema', 'schemas/q2_release_intake_result_v0.schema.json'),
+    ('q2_q2_release_subject_capsule_v0_schema', 'schemas/q2_release_subject_capsule_v0.schema.json'),
+    ('q2_q2_reference_subject_v0', 'PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json'),
+    ('q2_q2_reference_model_files_v0', 'PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json'),
+    ('q2_requests', 'PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json'),
+    ('q2_build_q2_reference_summary', 'PULSE_safe_pack_v0/tools/build_q2_reference_summary.py'),
+    ('q2_check_q2_reference_summary', 'PULSE_safe_pack_v0/tools/check_q2_reference_summary.py'),
+    ('q2_q2_consistency_v0', 'metrics/specs/q2_consistency_v0.yml'),
+    ('q2_q2_consistency_input_v0_schema', 'schemas/metrics/q2_consistency_input_v0.schema.json'),
+    ('q2_q2_consistency_summary_v0_schema', 'schemas/metrics/q2_consistency_summary_v0.schema.json'),
+    ('q2_dataset_manifest_schema', 'schemas/dataset_manifest.schema.json'),
+    ('q2_q2_intake_io_v0', 'PULSE_safe_pack_v0/tools/q2_intake_io_v0.py'),
+    ('q2_load_q2_release_intake_v0', 'PULSE_safe_pack_v0/tools/load_q2_release_intake_v0.py'),
+    ('q2_evaluate_q2_archived_capture_v0', 'PULSE_safe_pack_v0/tools/evaluate_q2_archived_capture_v0.py'),
+    ('q2_check_q2_release_intake_v0', 'PULSE_safe_pack_v0/tools/check_q2_release_intake_v0.py'),
+    ('q2_evaluate_required_gate_v0', 'PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py'),
+)
+# Additional current source obligations. Existing role meanings stay intact;
+# neither these bytes nor local R2 establish a private Q2 metric replay.
+_Q2_ARCHIVED_INTAKE_SOURCE_ROLES += tuple(
+    row for row in _LOCAL_R2_RECORDED_SOURCE_ROLES
+    if row[0] == "recorded_required_evidence_producer")
+_CURRENT_SOURCE_ROLES = SOURCE_ROLES + _Q2_ARCHIVED_INTAKE_SOURCE_ROLES
 
+_LOCAL_R2_SOURCE_ROLES = _CURRENT_SOURCE_ROLES + tuple(
+    row for row in _LOCAL_R2_RECORDED_SOURCE_ROLES
+    if row not in _CURRENT_SOURCE_ROLES)
+
+
+_Q2_SOURCE_PINS = {'.github/workflows/pulse_ci.yml': '251e1007d62aca70fc5ec001c5af34464e41f59c', 'PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json': '11d180eef3adf80e644875bef713f4defec905e8', 'PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json': '20554d96544e91c025e8a5ba8ed84192a44c1478', 'PULSE_safe_pack_v0/profiles/q2_reference_release_intake_v0.json': 'da0a492ff2f62842dd5501b7f1ce5c61cab375a0', 'PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json': '4e0818f13968f66670270631feb6b1fc3be4c17e', 'PULSE_safe_pack_v0/tools/build_q2_reference_summary.py': 'a2a6cba5fbdef1d3206d3189750718e59699e00b', 'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py': '1677ad6fe967fa01cc3ef9a27315eddc8ada1797', 'PULSE_safe_pack_v0/tools/check_q2_reference_summary.py': '42ee1034297116326b700997ba0cbe246d93032c', 'PULSE_safe_pack_v0/tools/check_q2_release_intake_v0.py': '48e378d1d87764f28eb0567dc69655cf5fad98af', 'PULSE_safe_pack_v0/tools/evaluate_q2_archived_capture_v0.py': '23ef263e19c7e8c98b8ec819966fb85afb63bf48', 'PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py': '2568827d285105aad0a58a90f3ec508a6d971a47', 'PULSE_safe_pack_v0/tools/load_q2_release_intake_v0.py': '56e800e27b27caabefeec9784acad2eb8fe3282d', 'PULSE_safe_pack_v0/tools/q2_intake_io_v0.py': '7368ae2e265a875d0fd4de352d5efa4fa1cd8569', 'PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py': 'eea0efcd8cca0ba4a27cf8d419a5cfe5befbe5e2', 'metrics/specs/q2_consistency_v0.yml': '37314cb5090ac59ea46b609facb57a1d827edb51', 'schemas/dataset_manifest.schema.json': 'c36df74c6cb327d33b62e5d30d517b3af3b99a19', 'schemas/metrics/q2_consistency_input_v0.schema.json': '35e98ef810fe64026e9b71afeba56a291142040c', 'schemas/metrics/q2_consistency_summary_v0.schema.json': '91ae578feb7c82eca51c7fffc3894428a54a9ff2', 'schemas/q2_release_intake_request_v0.schema.json': '144ebe5abf9a73f8d925ae432976f7ea94ba468a', 'schemas/q2_release_intake_result_v0.schema.json': 'b8a0b0228f2e8d0fef331768030a3e4a298c633c', 'schemas/q2_release_subject_capsule_v0.schema.json': '76dd0e904ec195b12e7af40abdc631975c1150bc'}
 
 AUTHORITY_BOUNDARY = {
     "authority_effect": "none",
@@ -901,7 +932,7 @@ def _read_git_object(
 def _load_sources(root: Path, source_commit: str, *, public_r2: bool = False) -> dict[str, GitObject]:
     source_by_path: dict[str, GitObject] = {}
     roles: set[str] = set()
-    for role, path in (PUBLIC_R2_SOURCE_ROLES if public_r2 else SOURCE_ROLES):
+    for role, path in (PUBLIC_R2_SOURCE_ROLES if public_r2 else _CURRENT_SOURCE_ROLES):
         _require(role not in roles, "duplicate_source_role", role)
         _require(path not in source_by_path, "duplicate_source_path", path)
         roles.add(role)
@@ -926,6 +957,7 @@ def _check_reviewed_source_pins(source_by_path: dict[str, GitObject]) -> None:
         'PULSE_safe_pack_v0/tools/insert_release_decision_ledger_section.py': '5f0b8b43fa839dd6734edae265199bb5136b95ef',
         'PULSE_safe_pack_v0/tools/check_quality_ledger_status_parity.py': 'd65d9e13d0fe66c72f876c002f66156b16df4374',
     }
+    exact_pins.update(_Q2_SOURCE_PINS)
     exact_pins.update(_RECORDED_SEMANTIC_PINS)
     exact_pins.update(_PACKAGE_SEMANTIC_PINS)
     exact_pins.update(_PROVENANCE_SOURCE_PINS)
@@ -2130,7 +2162,7 @@ def _install_package_source_projection(states: list[dict[str, Any]], steps: dict
 _REQUIRED_ARGUMENT_ROLE = "effective-required-argument-list"
 _REQUIRED_ARGUMENT_RUN_SHA256 = "dababaec377d50eb83daa95fab958009089db11a207214bdbab1ea0156a0f81a"
 _REQUIRED_ARGUMENT_SOURCE_PINS = {
-    ".github/workflows/pulse_ci.yml": "d46ec426962a3cc9dc23c560bf87b2f2a6a74945",
+    ".github/workflows/pulse_ci.yml": "251e1007d62aca70fc5ec001c5af34464e41f59c",
     "pulse_gate_policy_v0.yml": "a311b424ad0f6c028b9c37b18572e7a09c721cdd",
     "tools/policy_to_require_args.py": "5b1d099485d0e3bfd90da3fff1213a4e949db850",
     "PULSE_safe_pack_v0/tools/check_gates.py": "2a593bdef31c9c8cb565b1c4ca3d16a1e3093735",
@@ -2238,7 +2270,7 @@ def _required_arguments_source_projection(
 # A copy or upload declaration is not an observed runtime read receipt.
 _BUNDLE_ROLES = ("release-authority-audit-bundle", "advisory-reference-bundle")
 _BUNDLE_SOURCE_PINS = {
-    ".github/workflows/pulse_ci.yml": "d46ec426962a3cc9dc23c560bf87b2f2a6a74945",
+    ".github/workflows/pulse_ci.yml": "251e1007d62aca70fc5ec001c5af34464e41f59c",
     "PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py": "8f01602e973b890eb2ae0928bd62dfd65e691f79",
 }
 
@@ -2418,7 +2450,7 @@ _PROVENANCE_ASSEMBLER = "PULSE_safe_pack_v0/tools/assemble_release_grade_referen
 _PROVENANCE_ROLE = "artifact-provenance-binding"
 _PROVENANCE_JOB = "release_grade_recorded_path"
 _PROVENANCE_SOURCE_PINS = {
-    SUBJECT_WORKFLOW_PATH: "d46ec426962a3cc9dc23c560bf87b2f2a6a74945",
+    SUBJECT_WORKFLOW_PATH: "251e1007d62aca70fc5ec001c5af34464e41f59c",
     _PROVENANCE_BUILD: "d3f07cbbf8fd38831a42d8fe8e891c23df4c7792",
     _PROVENANCE_VERIFY: "665398c8841e4dd9534875831c93c749c3ccf94b",
     _PROVENANCE_ASSEMBLER: "8f01602e973b890eb2ae0928bd62dfd65e691f79",
@@ -2550,7 +2582,7 @@ _FLOOR_BUILD_PATH = "PULSE_safe_pack_v0/tools/build_self_contained_pulse_evidenc
 _FLOOR_SOURCE_PINS = {
     SUBJECT_WORKFLOW_PATH: EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1,
     _FLOOR_BUILD_PATH: "2f7776e609ef7ef2fb8fcd40d5ee30e46ed46f6a",
-    "PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py": "553a696640eedc559edced2bdf4f4ff171cf7685",
+    "PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py": "1677ad6fe967fa01cc3ef9a27315eddc8ada1797",
     "tools/validate_status_schema.py": "f329f882805615402a9fed99f67d4e7667891c06",
 }
 _FLOOR_FLAGS = (
@@ -3630,7 +3662,7 @@ def _install_report_publication_projection(
 # Residual input reconciliation under the exact reviewed workflow. These are
 # source-declared reads/transport inputs, never observed runtime read receipts.
 _RESIDUAL_SOURCE_PINS = {'PULSE_safe_pack_v0/tools/build_recorded_release_candidates_v0.py': '6dcf6826d2c04143b86c7f7b6dfd6c8c43d028f7',
- 'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py': '553a696640eedc559edced2bdf4f4ff171cf7685',
+ 'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py': '1677ad6fe967fa01cc3ef9a27315eddc8ada1797',
  'PULSE_safe_pack_v0/tools/check_external_summary_attestation_v1.py': '7fa6539f614d3d30bb603c523889f38bf4c012c1',
  'PULSE_safe_pack_v0/tools/check_recorded_release_evidence_v0.py': '561e72a8e2ea2d25faa2a80cbecf025192435c38',
  'PULSE_safe_pack_v0/tools/status_to_junit.py': '3eea6c90d59fd1088db64dc1d1bcdce38e06e7a1',
@@ -4474,6 +4506,7 @@ def build_plan(
     record_status: str,
     plan_id: str | None = None,
     evidence_profile: str | None = None,
+    q2_intake_request: str | None = None, q2_intake_request_sha256: str | None = None,
 ) -> dict[str, Any]:
     root = _validate_repository_root(repository_root)
     revision = _validate_source_commit(source_commit)
@@ -4487,7 +4520,9 @@ def build_plan(
     _require(evidence_profile in {None, PUBLIC_R2_PROFILE}, "r2_profile_unknown")
     public_r2 = record_status == "observed" or evidence_profile == PUBLIC_R2_PROFILE
     source_by_path = _load_sources(root, revision, public_r2=public_r2)
-    plan = _assemble_plan_from_sources(source_by_path, revision, record_status, plan_id)
+    plan = _assemble_plan_from_sources(source_by_path, revision, record_status, plan_id,
+        os.environ.get("PULSE_Q2_INTAKE_REQUEST", "") if q2_intake_request is None else q2_intake_request,
+        os.environ.get("PULSE_Q2_INTAKE_REQUEST_SHA256", "") if q2_intake_request_sha256 is None else q2_intake_request_sha256)
     if public_r2:
         _bind_public_r2_plan(plan, source_by_path, revision)
     _schema_validate(plan, source_by_path[SCHEMA_PATH].data)
@@ -4496,9 +4531,58 @@ def build_plan(
     return plan
 
 
+
+def _q2_request_projection(sources, revision, record_status, request_text, request_digest):
+    """Metadata/source projection only; never an authorization to read private data."""
+    fields = {"q2_intake_request": request_text, "q2_intake_request_sha256": request_digest}
+    _require(all(type(v) is str for v in fields.values()), "q2_plan_request_type")
+    if fields == {"q2_intake_request": "", "q2_intake_request_sha256": ""}:
+        _require(record_status == "example", "q2_plan_request_missing")
+        return fields
+    raw = request_text.encode("utf-8", errors="strict")
+    _require(0 < len(raw) <= 16384 and re.fullmatch(r"[0-9a-f]{64}", request_digest) is not None and
+             hashlib.sha256(raw).hexdigest() == request_digest, "q2_plan_request_digest")
+    request = _strict_json_object(raw, label="q2_plan_request")
+    schema = _strict_json_object(sources["schemas/q2_release_intake_request_v0.schema.json"].data, label="q2_request_schema")
+    _require(jsonschema.Draft202012Validator(schema).is_valid(request), "q2_plan_request_schema")
+    profile = _strict_json_object(sources["PULSE_safe_pack_v0/profiles/q2_reference_release_intake_v0.json"].data, label="q2_intake_profile")
+    expected_identity = {"repository": REPOSITORY, "source_commit": revision,
+                         "workflow": SUBJECT_WORKFLOW_PATH, "event": "workflow_dispatch", "ref": SOURCE_REF}
+    _require(request["evaluation_identity"] == expected_identity and
+             request["capture_expectation"] == profile["capture_expectation"] and
+             request["selection"] == profile["selection"], "q2_plan_request_binding")
+    selected = sources[profile["selection"]["path"]].data
+    _require(hashlib.sha256(selected).hexdigest() == profile["selection"]["sha256"], "q2_plan_selection_binding")
+    return fields
+
+
+def _q2_workflow_source_obligations(workflow, sources):
+    inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+    for field in ("q2_intake_request", "q2_intake_request_sha256"):
+        _require(field in inputs and inputs[field].get("type") == "string" and
+                 inputs[field].get("default") == "" and inputs[field].get("required") == "false",
+                 "q2_workflow_input_declaration")
+    steps = workflow["jobs"]["pulse"]["steps"]
+    chosen = ("release-grade record current-run required-gate evidence",
+              "release-grade build non-stubbed prod candidate status")
+    expected = {"PULSE_Q2_INTAKE_REQUEST": "${{ github.event.inputs.q2_intake_request }}",
+                "PULSE_Q2_INTAKE_REQUEST_SHA256": "${{ github.event.inputs.q2_intake_request_sha256 }}",
+                "PULSE_Q2_TRANSPORT_TOKEN": "${{ github.token }}"}
+    for step in steps:
+        projected = {k: v for k, v in step.get("env", {}).items() if k.startswith("PULSE_Q2_")}
+        _require(projected == (expected if step.get("name") in chosen else {}), "q2_workflow_context_scope")
+        _require("inputs.q2_intake_request" not in str(step.get("run", "")), "q2_workflow_shell_injection")
+    _require(workflow["jobs"]["pulse"]["permissions"].get("actions") == "read", "q2_workflow_transport_permission")
+    setups = [step for step in steps if str(step.get("uses", "")).startswith("actions/setup-python@")]
+    _require(len(setups) == 1 and setups[0].get("with", {}).get("python-version") == "3.11.16",
+             "q2_workflow_replay_python")
+    _require(all(path in sources for _, path in _Q2_ARCHIVED_INTAKE_SOURCE_ROLES), "q2_source_closure_missing")
+
+
 def _assemble_plan_from_sources(
     source_by_path: dict[str, GitObject], revision: str,
     record_status: str, plan_id: str | None,
+    q2_intake_request: str = "", q2_intake_request_sha256: str = "",
 ) -> dict[str, Any]:
     """Existing mapping assembly; callers validate their distinct record/source kinds."""
     subject_workflow = _parse_yaml_document(
@@ -4516,6 +4600,9 @@ def _assemble_plan_from_sources(
     provider_triggers = provider_workflow.get("on")
     _require(isinstance(provider_triggers, dict) and set(provider_triggers) == {"workflow_dispatch"}, "provider_trigger_mismatch")
 
+    _q2_workflow_source_obligations(subject_workflow, source_by_path)
+    q2_fields = _q2_request_projection(source_by_path, revision, record_status,
+                                      q2_intake_request, q2_intake_request_sha256)
     jobs, step_by_key, external_operations = _build_jobs(subject_workflow)
     case_ids = _load_case_ids(source_by_path[LLAMAGUARD_DATASET_PATH].data)
     runner_bytes = source_by_path[LLAMAGUARD_RUNNER_PATH].data
@@ -4548,7 +4635,7 @@ def _assemble_plan_from_sources(
 
     source_inventory = [
         source_by_path[path].descriptor()
-        for _role, path in sorted(SOURCE_ROLES, key=lambda item: item[1])
+        for _role, path in sorted(_CURRENT_SOURCE_ROLES, key=lambda item: item[1])
     ]
 
     plan = {
@@ -4579,6 +4666,7 @@ def _assemble_plan_from_sources(
             "inputs": {
                 "strict_external_evidence": "true",
                 "llamaguard_evidence_mode": "hosted_full_runtime",
+                **q2_fields,
             },
             "response_contract": {
                 "http_status": 200,

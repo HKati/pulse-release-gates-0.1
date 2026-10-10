@@ -7,6 +7,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+ 
+- Bind the hosted Q2 subject dispatch to a separately configured, API-verified
+  `HKati` owner credential, preserving the intake's strict actor checks.
+  Require the original reference owner/event/request binding before using the
+  credential; confine it to one exact subject POST without token fallback or
+  retry. Keep observation/provider transport separate, sanitize authentication
+  failures, and test real loopback IO, isolated CLI rejection and independent
+  producer/admission entry. Accept GitHub's canonical main-branch event ref in
+  both event consumers and refresh both current Q2 plan source-pin maps. The
+  owner secret and real release capsule remain
+  operational prerequisites; the historical checked Q2-FAIL is unchanged.
+- Implement the dedicated archived Q2 intake in the existing required-gate
+  dispatcher/runner and independently reacquiring candidate admission. Preserve
+  capture `37600313529/1`, its executed source and original checked FAIL, the
+  unchanged reducer/checker, six generic recipes and twelve unsupported gates.
+  Carry both prelaunch request metadata fields through the existing workflows,
+  whole-runtime plans and acquisition/context checks; pin actual replay Python
+  3.11.16 and Unicode 14.0.0. Bound private archive IO, exact capsule bytes/modes,
+  process lifetime and closed metadata output, with cleanup on handled exits.
+  Coordinate candidate/source pins, carrier fixtures and 161 tools entries.
+  Extend the reviewed file inventory by the acquisition test
+  `tests/test_q2_reference_acquisition_v0.py`, whose exact-count assertion also
+  needs the 161-entry tools manifest. Also coordinate the existing
+  `.github/workflows/repo_hygiene.yml` guard: permit Python 3.11.16 only at
+  the single setup step in the PULSE job, preserving every other declaration
+  and the existing acquisition pin. Execute the actual guard over the full
+  repository workflow set and its negative cases. The complete inventory is
+  26 modified files plus 13 new files (39 total).
+  A real release capsule and hosted subject binding remain operational inputs;
+  this implementation creates neither a replacement capture nor release authority.
+ 
 - Close the three QRH003 review findings in #2907: report fresh recomputation
   without unsupported verifier-process provenance; hash and execute the same
   sealed executable snapshot for version and strict Landrun probes; reject

@@ -69,7 +69,6 @@ UNSUPPORTED_REQUIRED_GATES = frozenset({
     "psf_monotonicity_ok",
     "psf_path_independence_ok",
     "psf_pii_monotonicity_ok",
-    "q2_consistency_ok",
     "q3_fairness_ok",
     "sanit_shift_resilient",
 })
@@ -616,7 +615,14 @@ def _verify_result(
     registry_sha: str,
     plan_sha: str,
     errors: list[str],
+    q2_environment: dict[str, str] | None = None,
 ) -> list[str]:
+    # Direct per-result callers also keep credentials out of schema checks.
+    if q2_environment is None:
+        q2_environment = dict(os.environ)
+    for name in tuple(os.environ):
+        if name.startswith("PULSE_Q2_"):
+            os.environ.pop(name, None)
     result = _load_json(
         result_path,
         f"{gate} result",
@@ -821,6 +827,21 @@ def _verify_result(
             f"{gate} result diagnostics must be empty"
         )
 
+    if gate == "q2_consistency_ok" and not errors:
+        # The producer can be bypassed: read and verify the private inputs again.
+        q2_io = None
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            import q2_intake_io_v0 as q2_io
+            import check_q2_release_intake_v0 as q2_admission
+            if q2_io.PUBLIC_RESULT not in input_refs:
+                raise q2_io.IntakeError("q2_admission_rejected")
+            q2_admission.admit(repo, repo / q2_io.PUBLIC_RESULT, run_identity, subject,
+                               environment=q2_environment)
+        except Exception as exc:
+            code = exc.code if q2_io is not None and isinstance(exc, q2_io.IntakeError) else "q2_admission_rejected"
+            errors.append("q2_consistency_ok: " + code)
+
     warnings = result.get("warnings")
 
     if not isinstance(warnings, list):
@@ -888,6 +909,12 @@ def build_candidate_status(
     plan_path: Path,
     builder_path: Path,
 ) -> tuple[dict[str, Any] | None, list[str]]:
+    # Only the dedicated Q2 transport receives this private context. Remove it
+    # before any schema validation or public result formatting in this process.
+    q2_environment = dict(os.environ)
+    for name in tuple(os.environ):
+        if name.startswith("PULSE_Q2_"):
+            os.environ.pop(name, None)
     errors: list[str] = []
     repo = repo.resolve()
 
@@ -1388,6 +1415,7 @@ def build_candidate_status(
                 registry_sha=registry_sha,
                 plan_sha=plan_sha,
                 errors=local,
+                q2_environment=q2_environment if gate == "q2_consistency_ok" else {},
             )
 
             result_warnings.extend(

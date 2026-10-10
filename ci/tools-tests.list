@@ -164,3 +164,7 @@ ci/check_path_refs_exist.py
 tests/test_readme_release_authority_category_signal_v0.py
 tests/test_pulsemech_compute_bounded_execution_v0.py
 tests/test_pulsemech_compute_whole_runtime_observation_v0.py
+tests/test_q2_release_intake_v0.py
+tests/test_q2_release_subject_binding_v0.py
+tests/test_q2_required_gate_integration_v0.py
+tests/test_q2_hosted_intake_workflow_v0.py

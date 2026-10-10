@@ -1,0 +1,213 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "subject_id",
+    "definition_sha256",
+    "capture_subject_sha256",
+    "layout_profile",
+    "configuration",
+    "launch",
+    "platform_scope"
+  ],
+  "properties": {
+    "record_type": {
+      "const": "q2_release_subject_capsule_v0"
+    },
+    "subject_id": {
+      "const": "pulsemech-q2-field-extractor-v0"
+    },
+    "definition_sha256": {
+      "const": "688773b81fcf4f105b8770bc2dde9a68baf78aa76224e5c544cd0656109b07a5"
+    },
+    "capture_subject_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "layout_profile": {
+      "const": "q2_subject_capsule_v0"
+    },
+    "configuration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "effective_generation",
+        "runtime"
+      ],
+      "properties": {
+        "effective_generation": {
+          "const": {
+            "_from_model_config": false,
+            "assistant_confidence_threshold": 0.4,
+            "assistant_early_exit": null,
+            "assistant_lookbehind": 10,
+            "bad_words_ids": null,
+            "begin_suppress_tokens": null,
+            "bos_token_id": 1,
+            "cache_config": null,
+            "cache_implementation": null,
+            "constraints": null,
+            "decoder_start_token_id": null,
+            "disable_compile": true,
+            "diversity_penalty": 0.0,
+            "do_sample": false,
+            "dola_layers": null,
+            "early_stopping": false,
+            "encoder_no_repeat_ngram_size": 0,
+            "encoder_repetition_penalty": 1.0,
+            "eos_token_id": 2,
+            "epsilon_cutoff": 0.0,
+            "eta_cutoff": 0.0,
+            "exponential_decay_length_penalty": null,
+            "force_words_ids": null,
+            "forced_bos_token_id": null,
+            "forced_eos_token_id": null,
+            "guidance_scale": null,
+            "is_assistant": false,
+            "length_penalty": 1.0,
+            "low_memory": null,
+            "max_length": 20,
+            "max_matching_ngram_size": null,
+            "max_new_tokens": 32,
+            "max_time": null,
+            "min_length": 0,
+            "min_new_tokens": 0,
+            "min_p": null,
+            "no_repeat_ngram_size": 0,
+            "num_assistant_tokens": 20,
+            "num_assistant_tokens_schedule": "constant",
+            "num_beam_groups": 1,
+            "num_beams": 1,
+            "num_return_sequences": 1,
+            "output_attentions": false,
+            "output_hidden_states": false,
+            "output_logits": null,
+            "output_scores": false,
+            "pad_token_id": 2,
+            "penalty_alpha": null,
+            "prefill_chunk_size": null,
+            "prompt_lookup_num_tokens": null,
+            "remove_invalid_values": false,
+            "renormalize_logits": false,
+            "repetition_penalty": 1.0,
+            "return_dict_in_generate": false,
+            "return_legacy_cache": null,
+            "sequence_bias": null,
+            "stop_strings": null,
+            "suppress_tokens": null,
+            "target_lookbehind": 10,
+            "temperature": 1.0,
+            "token_healing": false,
+            "top_k": 50,
+            "top_p": 1.0,
+            "transformers_version": "4.57.6",
+            "typical_p": 1.0,
+            "use_cache": true,
+            "watermarking_config": null
+          }
+        },
+        "runtime": {
+          "const": {
+            "attention": "eager",
+            "compile": false,
+            "deterministic": true,
+            "device": "cpu",
+            "dtype": "torch.float32",
+            "evaluation": true,
+            "interop_threads": 1,
+            "model_class": "LlamaForCausalLM",
+            "model_defaults": false,
+            "quantization": "none",
+            "seed": 1729,
+            "threads": 1,
+            "torch": "2.8.0+cpu",
+            "transformers": "4.57.6"
+          }
+        }
+      }
+    },
+    "launch": {
+      "const": {
+        "profile": "q2_reference_worker_launch_v0",
+        "wrapper": "none",
+        "argv_template": [
+          "runtime/bin/python",
+          "-I",
+          "-B",
+          "source/PULSE_safe_pack_v0/tools/run_q2_reference_subject_v0.py",
+          "--source-root",
+          "source",
+          "--bundle",
+          ".",
+          "--prelaunch",
+          "{prelaunch}",
+          "--expected-prelaunch-sha256",
+          "{prelaunch_sha256}",
+          "--mode",
+          "capture-reference",
+          "--subject",
+          "{subject_record}"
+        ],
+        "stdin_protocol": "bound_subject_then_ordered_GO_slots",
+        "working_directory": "private_capture_worker",
+        "execution_claim": "descriptor_only_not_executed"
+      }
+    },
+    "platform_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requirements",
+        "release_host_verification"
+      ],
+      "properties": {
+        "requirements": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "python",
+            "bootstrap_python_sha256",
+            "os",
+            "architecture",
+            "runner_image",
+            "kernel",
+            "libc"
+          ],
+          "properties": {
+            "python": {
+              "const": "3.11.16"
+            },
+            "bootstrap_python_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "os": {
+              "const": "ubuntu-24.04"
+            },
+            "architecture": {
+              "const": "x86_64"
+            },
+            "runner_image": {
+              "const": "20261004.327.1"
+            },
+            "kernel": {
+              "const": "6.17.0-1022-azure"
+            },
+            "libc": {
+              "const": [
+                "glibc",
+                "2.39"
+              ]
+            }
+          }
+        },
+        "release_host_verification": {
+          "const": "not_observed"
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Q2 non-executable capsule manifest; payload bytes are verified separately"
+}

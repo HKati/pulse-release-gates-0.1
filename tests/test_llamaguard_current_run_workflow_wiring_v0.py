@@ -728,11 +728,20 @@ os.execv(REAL_PYTHON, [REAL_PYTHON, *sys.argv[1:]])
             assert hashlib.sha256(result_bytes).hexdigest() == result_ref['sha256']
             gate_result = json.loads(result_bytes)
             assert gate_result['gate_id'] == gate and gate_result['pass'] is False
-            assert any('substantive' in item for item in gate_result['diagnostics']), (gate, gate_result)
+            if gate == 'q2_consistency_ok':
+                metadata = json.loads((root / 'PULSE_safe_pack_v0/artifacts/required_gate_inputs/q2_intake_result_v0.json').read_bytes())
+                assert metadata['input_valid'] is False and metadata['metric_pass'] is None
+                assert metadata['diagnostics'] == ['q2_request_missing']
+            else:
+                assert any('substantive' in item for item in gate_result['diagnostics']), (gate, gate_result)
         # A separately invoked candidate builder must reject even when an
         # orchestration error tried to continue beyond the recorded nonzero.
         candidate = run('release-grade build non-stubbed prod candidate status', expected=1)
-        assert all(repr(gate) in candidate.stderr for gate in rejected)
+        assert all(repr(gate) in candidate.stderr for gate in rejected - {'q2_consistency_ok'})
+        # The twelve unsupported gates stop the full-policy admission before
+        # per-result checks. Q2 has its own invalid-input record above, and must
+        # not be relabelled as unsupported by this early rejection.
+        assert "required gate 'q2_consistency_ok': substantive" not in candidate.stderr
         assert not (pack / 'artifacts/status.json').exists()
         assert not (pack / 'artifacts/status_baseline.json').exists()
         assert expected_bytes == {name: (root / name).read_bytes() for name in selectors}

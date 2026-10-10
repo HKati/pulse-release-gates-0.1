@@ -560,17 +560,18 @@ def test_metric_spec_change_is_not_silently_adopted(tmp_path,monkeypatch):
     with pytest.raises(ValueError):verify(g,m,out)
 
 
-def test_production_gate_admission_remains_unchanged():
+def test_production_gate_literal_pass_remains_required_with_dedicated_intake():
     dispatcher=load_module(ROOT/'PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py','q2_dispatcher_unchanged')
     candidate = load_module(
         ROOT / 'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py',
         'q2_candidate_admission_unchanged',
     )
     found = candidate.UNSUPPORTED_REQUIRED_GATES
-    assert 'q2_consistency_ok' in found and len(found)==13
-    assert 'q2_consistency_ok' in dispatcher.UNSUPPORTED_REASONS
+    assert 'q2_consistency_ok' not in found and len(found)==12
+    assert 'q2_consistency_ok' not in dispatcher.UNSUPPORTED_REASONS
+    assert callable(dispatcher.run_q2)
     assert 'q2_consistency_ok' not in dispatcher.RECIPES
-    assert len(dispatcher.UNSUPPORTED_REASONS)==13 and len(dispatcher.RECIPES)==6
+    assert len(dispatcher.UNSUPPORTED_REASONS)==12 and len(dispatcher.RECIPES)==6
 
 
 def test_schemas_are_local_and_entrypoint_is_registered():

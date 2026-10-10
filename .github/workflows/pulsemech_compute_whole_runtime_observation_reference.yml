@@ -9,6 +9,14 @@ on:
         description: Exact reviewed main commit (40 lowercase hexadecimal digits).
         required: true
         type: string
+      q2_intake_request:
+        description: Exact reviewed metadata-only Q2 request, fixed before dispatch.
+        required: true
+        type: string
+      q2_intake_request_sha256:
+        description: Externally selected SHA-256 of the exact request bytes.
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -31,6 +39,8 @@ jobs:
       actions: write
     env:
       SOURCE_COMMIT_INPUT: ${{ inputs.source_commit }}
+      PULSE_Q2_INTAKE_REQUEST: ${{ inputs.q2_intake_request }}
+      PULSE_Q2_INTAKE_REQUEST_SHA256: ${{ inputs.q2_intake_request_sha256 }}
     outputs:
       plan_sha256: ${{ steps.preparation.outputs.plan_sha256 }}
       file_bindings: ${{ steps.bind_handoff.outputs.file_bindings }}
@@ -78,6 +88,9 @@ jobs:
               "GITHUB_SHA": revision,
               "GITHUB_WORKFLOW_SHA": revision,
               "GITHUB_RUN_ATTEMPT": "1",
+              "GITHUB_ACTOR": "HKati",
+              "GITHUB_ACTOR_ID": "128643840",
+              "GITHUB_TRIGGERING_ACTOR": "HKati",
               "RUNNER_OS": "Linux",
               "RUNNER_ENVIRONMENT": "github-hosted",
           }
@@ -168,6 +181,7 @@ jobs:
       - name: Acquire exact PULSE CI and Step 3F runs
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          PULSE_Q2_OWNER_DISPATCH_TOKEN: ${{ secrets.PULSE_Q2_OWNER_DISPATCH_TOKEN }}
         run: |
           set -euo pipefail
           set -C
@@ -263,6 +277,8 @@ jobs:
       actions: read
     env:
       SOURCE_COMMIT_INPUT: ${{ inputs.source_commit }}
+      PULSE_Q2_INTAKE_REQUEST: ${{ inputs.q2_intake_request }}
+      PULSE_Q2_INTAKE_REQUEST_SHA256: ${{ inputs.q2_intake_request_sha256 }}
       EXPECTED_PLAN_SHA256: ${{ needs.acquisition.outputs.plan_sha256 }}
       HANDOFF_FILE_BINDINGS: ${{ needs.acquisition.outputs.file_bindings }}
       HANDOFF_ARTIFACT_ID: ${{ needs.acquisition.outputs.handoff_artifact_id }}
@@ -309,6 +325,9 @@ jobs:
               "GITHUB_SHA": revision,
               "GITHUB_WORKFLOW_SHA": revision,
               "GITHUB_RUN_ATTEMPT": "1",
+              "GITHUB_ACTOR": "HKati",
+              "GITHUB_ACTOR_ID": "128643840",
+              "GITHUB_TRIGGERING_ACTOR": "HKati",
               "RUNNER_OS": "Linux",
               "RUNNER_ENVIRONMENT": "github-hosted",
           }
@@ -455,6 +474,8 @@ jobs:
               "collector_execution_id": "execution:step5c:collector:post-run-platform-export",
               "acquisition_id": f"step5c-acquisition:{run_id}-1",
               "expected_plan_sha256": plan_digest,
+              "q2_intake_request": env["PULSE_Q2_INTAKE_REQUEST"],
+              "q2_intake_request_sha256": env["PULSE_Q2_INTAKE_REQUEST_SHA256"],
               "authority_boundary": {
                   "authority_effect": "none",
                   "same_run_release_authority_eligible": False,
