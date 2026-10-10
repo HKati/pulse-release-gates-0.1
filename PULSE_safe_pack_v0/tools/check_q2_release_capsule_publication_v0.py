@@ -373,7 +373,7 @@ def supervise(repo, phase, environment=None):
                     download_bootstrap(p["bootstrap"], private / p["bootstrap"]["filename"], deadline)
                 else:
                     expected = {**binding, **p["capsule"], "artifact_id": artifact_id,
-                                "artifact_name": "q2-release-subject-capsule-" + binding["run_id"] + "-1"}
+                                "artifact_name": p["capsule"]["file_name"]}
                     download_artifact(transport, expected, private / "capsule.zip", deadline)
                 del transport
                 token = None

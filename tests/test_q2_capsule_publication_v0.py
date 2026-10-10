@@ -114,6 +114,65 @@ def test_original_artifact_metadata_is_exact(fault):
         with pytest.raises(IO.IntakeError): P.check_origin(a, r, expected)
 
 
+@pytest.mark.parametrize('fault', ['none', 'legacy-name', 'other-name', 'artifact-id', 'run-id',
+                                 'attempt', 'source', 'digest', 'size', 'repository'])
+def test_roundtrip_matches_direct_upload_basename_and_preserves_origin_checks(publication, monkeypatch, fault):
+    """Model the pinned action's basename rule; do not mock the origin verifier."""
+    f = publication
+    binding, _ = P.authorize(f.repo, f.env, f.profile)
+    workflow = yaml.load((f.repo / P.WORKFLOW).read_bytes(), Loader=yaml.BaseLoader)
+    upload = next(s for s in workflow['jobs']['build']['steps']
+                  if s.get('with', {}).get('archive') == 'false')
+    # With archive:false, the action ignores `name` and uses the file basename.
+    actual_name = upload['with']['path'].rsplit('/', 1)[-1]
+    assert actual_name == f.profile['capsule']['file_name']
+    capsule = {**binding, **f.profile['capsule'], 'artifact_id': 90001, 'artifact_name': actual_name}
+    f.env['PULSE_Q2_PUBLICATION_ARTIFACT_ID'] = str(capsule['artifact_id'])
+    metadata = {}
+    for expected in (f.profile['capture'], f.profile['preparation'], capsule):
+        artifact, run = origin(expected)
+        metadata[f'/actions/artifacts/{expected["artifact_id"]}'] = artifact
+        metadata[f'/actions/runs/{expected["run_id"]}/attempts/1'] = run
+    artifact = metadata['/actions/artifacts/90001']
+    run = metadata[f'/actions/runs/{binding["run_id"]}/attempts/1']
+    if fault == 'legacy-name': artifact['name'] = 'q2-release-subject-capsule-' + binding['run_id'] + '-1'
+    elif fault == 'other-name': artifact['name'] += '-other'
+    elif fault == 'artifact-id': artifact['id'] += 1
+    elif fault == 'run-id': artifact['workflow_run']['id'] += 1
+    elif fault == 'attempt': run['run_attempt'] = 2
+    elif fault == 'source': artifact['workflow_run']['head_sha'] = 'b' * 40
+    elif fault == 'digest': artifact['digest'] = 'sha256:' + '0' * 64
+    elif fault == 'size': artifact['size_in_bytes'] += 1
+    elif fault == 'repository': artifact['workflow_run']['repository_id'] = 1
+    downloads, installs, semantics = [], [], []
+    class Transport:
+        def download(self, repository, artifact_id, expected, destination, deadline):
+            assert repository == P.REPOSITORY
+            if artifact_id == 90001:
+                assert expected['artifact_name'] == actual_name
+            downloads.append(artifact_id)
+            destination.write_bytes(b'CONTROLLED_TRANSPORT_SEAM')
+    monkeypatch.setattr(IO, 'GitHubArtifactTransport', lambda token: Transport())
+    monkeypatch.setattr(P, 'api_json', lambda transport, path, deadline:
+                        {'object': {'sha': f.sha}} if path == '/git/ref/heads/main' else metadata[path])
+    monkeypatch.setattr(P, 'download_bootstrap', lambda expected, path, deadline: path.write_bytes(b'CONTROLLED_PIP'))
+    monkeypatch.setattr(P, 'install_verifier_dependencies', lambda *args: installs.append(True))
+    monkeypatch.setattr(P, 'verify_in_fresh_workspace', lambda *args: semantics.append(True))
+    out = Path(f.env['RUNNER_TEMP']) / 'q2-capsule-publication'
+    if fault == 'none':
+        value = P.supervise(f.repo, 'verify-download', f.env)
+        assert downloads[-1] == 90001 and installs == semantics == [True]
+        assert value['status'] == 'roundtrip_verified' and value['artifact_id'] == 90001
+        assert value['historical_metric_pass'] is False and value['historical_process_exit'] == 1
+        assert value['authority_effect'] == 'none' and value['production_gate_eligible'] is False
+        assert IO.strict_json((out / 'publication.json').read_bytes()) == value
+    else:
+        with pytest.raises(IO.IntakeError, match='q2_transport_rejected'):
+            P.supervise(f.repo, 'verify-download', f.env)
+        assert 90001 not in downloads and installs == semantics == []
+        assert not out.exists()
+
+
 @pytest.mark.parametrize('identifier', ['', '0', '-1', '1/zip', '1\n', '1?token=private', '9' * 25])
 def test_bad_roundtrip_locator_rejected_before_download(publication, monkeypatch, identifier):
     f = publication; f.env['PULSE_Q2_PUBLICATION_ARTIFACT_ID'] = identifier
@@ -206,6 +265,8 @@ def test_workflow_has_two_fresh_jobs_and_one_unwrapped_upload():
     assert len(raw) == 1
     assert raw[0]['uses'] == 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'
     assert raw[0]['with']['overwrite'] == 'false' and raw[0]['with']['if-no-files-found'] == 'error'
+    assert raw[0]['with']['path'].rsplit('/', 1)[-1] == P.load_profile(ROOT)['capsule']['file_name']
+    assert 'name' not in raw[0]['with']  # Ignored for direct upload; never advertise a second identity.
     assert 'secrets.' not in text and 'workflow-dispatch' not in text
 
 

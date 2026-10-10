@@ -59,7 +59,7 @@ jobs:
         id: publish
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: q2-release-subject-capsule-${{ github.run_id }}-${{ github.run_attempt }}
+          # Direct upload uses this file's basename as the artifact name.
           path: ${{ runner.temp }}/q2-capsule-publication/q2-release-subject-capsule-20261010.zip
           archive: false
           overwrite: false
