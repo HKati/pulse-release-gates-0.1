@@ -7,6 +7,13 @@ This does not authenticate an external institution or create expert review.
 """
 from __future__ import annotations
 
+# Direct scripts cannot establish source binding before their imports.
+if __name__ == "__main__":
+    import sys as _qrh_sys
+    print("QRH003_SOURCE_BOUND_LAUNCH_REQUIRED: use source_bound.py with python -I", file=_qrh_sys.stderr)
+    raise SystemExit(2)
+
+
 import argparse
 import datetime as dt
 import os
@@ -22,12 +29,12 @@ import traceback
 try:
     from .common import (AuditError, SUBJECT_COMMIT, PULSE_COMMIT,
         canonical_bytes, sha256_bytes, sha256_file, strict_loads, secure_read,
-        read_json, exclusive_write, write_json)
+        read_json, exclusive_write, write_json, source_runtime, verify_source_anchor)
     from . import acquire, source_closure
 except ImportError:
     from common import (AuditError, SUBJECT_COMMIT, PULSE_COMMIT,
         canonical_bytes, sha256_bytes, sha256_file, strict_loads, secure_read,
-        read_json, exclusive_write, write_json)
+        read_json, exclusive_write, write_json, source_runtime, verify_source_anchor)
     import acquire
     import source_closure
 
@@ -92,9 +99,7 @@ class Collector:
             raise AuditError('QRH003_COLLECTOR_ANCHOR_MISMATCH')
 
     def _verify_code(self):
-        for name, expected in self.anchor['verifier_files'].items():
-            if sha256_bytes(secure_read(ROOT, name)) != expected:
-                raise AuditError('QRH003_VERIFIER_ANCHOR_MISMATCH', name)
+        verify_source_anchor(self.anchor, ROOT)
 
     def add(self, name, data, role):
         if name in self.artifact_names:
@@ -144,7 +149,7 @@ class Collector:
         self.receipts.append({'payload_path': receipt_path,
             'signature_hex': self.key.sign(raw).hex(), 'key_id': self.key_record['key_id']})
 
-    def command(self, name, argv, timeout):
+    def command(self, name, argv, timeout, *, pass_fds=(), binding=None):
         """Capture real process status; no interpretation of the word success."""
         started, tick = utc_now(), time.monotonic()
         environment = {key: os.environ[key] for key in ('PATH', 'LANG', 'LC_ALL', 'TZ') if key in os.environ}
@@ -152,7 +157,8 @@ class Collector:
         timed_out, return_code, out, err, failure = False, None, b'', b'', None
         try:
             process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE, env=environment, close_fds=True, start_new_session=True)
+                stderr=subprocess.PIPE, env=environment, close_fds=True,
+                pass_fds=pass_fds, start_new_session=True)
             try:
                 out, err = process.communicate(timeout=timeout)
             except subprocess.TimeoutExpired:
@@ -170,8 +176,16 @@ class Collector:
                   'timed_out': timed_out, 'execution_error': failure,
                   'stdout_path': 'processes/' + name + '.stdout', 'stdout_sha256': sha256_bytes(out),
                   'stderr_path': 'processes/' + name + '.stderr', 'stderr_sha256': sha256_bytes(err)}
+        if binding is not None:
+            record['source_binding'] = binding
         self.add('processes/' + name + '.json', canonical_bytes(record) + b'\n', 'process_result')
         return record
+
+    def study_command(self, name, command, arguments, timeout):
+        runtime = source_runtime()
+        with runtime.child(command, arguments) as (argv, pass_fds):
+            return self.command(name, argv, timeout, pass_fds=pass_fds,
+                                binding=runtime.contract())
 
     def finish(self):
         self._verify_code()
@@ -238,7 +252,7 @@ def collect(args):
             'formal_theorem_identity': 'NOT_RUN', 'semantic_correspondence': 'NOT_REVIEWED'})
         progress('execution_preflight')
         preflight_dir = collector.output / 'preflight'
-        command = [sys.executable, str(ROOT / 'tools/preflight.py'), '--output', str(preflight_dir),
+        command = ['--output', str(preflight_dir),
                    '--timeout-seconds', str(args.preflight_timeout)]
         if args.toolchain_root:
             command.extend(['--toolchain-root', str(args.toolchain_root)])
@@ -252,7 +266,8 @@ def collect(args):
                 command.extend(['--' + name, str(path)])
             if digest:
                 command.extend(['--' + name + '-sha256', digest])
-        process = collector.command('preflight', command, timeout=max(60, args.preflight_timeout * 10))
+        process = collector.study_command('preflight', 'preflight', command,
+                                          timeout=max(60, args.preflight_timeout * 10))
         collector.register_existing(preflight_dir)
         if (preflight_dir / 'preflight.json').is_file():
             preflight = read_json(preflight_dir / 'preflight.json')
@@ -268,7 +283,7 @@ def collect(args):
         collector.observation('execution_preflight', preflight)
         progress('authority_boundary_tests')
         report_path = collector.output / 'test_execution.json'
-        test_process = collector.command('boundary_tests', [sys.executable, str(ROOT / 'tools/run_tests.py'),
+        test_process = collector.study_command('boundary_tests', 'run_tests', [
             '--output', str(report_path)], timeout=args.test_timeout)
         if report_path.is_file():
             # register_existing is directory-oriented; add the produced file

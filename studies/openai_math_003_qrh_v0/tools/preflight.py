@@ -8,6 +8,13 @@ Executions use sealed Linux memfd images. Tools requiring their original path,
 ELF $ORIGIN or adjacent resources can fail and must remain blocked; there is no
 pathname fallback. Image binding does not verify interpreters/shared libraries.
 """
+
+# Direct scripts cannot establish source binding before their imports.
+if __name__ == "__main__":
+    import sys as _qrh_sys
+    print("QRH003_SOURCE_BOUND_LAUNCH_REQUIRED: use source_bound.py with python -I", file=_qrh_sys.stderr)
+    raise SystemExit(2)
+
 import argparse
 from contextlib import contextmanager
 import ctypes
