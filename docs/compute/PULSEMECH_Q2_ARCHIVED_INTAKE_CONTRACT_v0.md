@@ -342,3 +342,93 @@ the central directory and rejects prefixes, padding and unindexed payload.
 A separately authored synthetic fixture exercises the full 18,485-file runtime
 cardinality, including corruption of its last file; its bytes are test data,
 not the missing real release capsule.
+
+
+## Bounded capsule publication and verified negative intake
+
+The manual `q2_release_capsule_publication_v0.yml` workflow has two separate
+jobs, `build` and `verify_download`, on Ubuntu 24.04 / CPython 3.11.16. Its only
+input is `source_commit`: the reviewed main commit must equal the dispatch,
+workflow, checkout and API-observed main identities. Both jobs require the
+original HKati user (ID 128643840), triggering actor, main ref and first attempt.
+The event and a separate 26-path publication source closure are checked before
+payload transport. The existing intake source-role closure is unchanged.
+
+Both jobs install the eight verifier dependencies exclusively from the pinned
+preparation archive. The publication profile binds each wheel's name, version,
+archive member, size and SHA-256. The pinned pip 24.0 bootstrap installs them
+with `--no-index`, `--no-deps`, `--require-hashes`, `--only-binary=:all:` and
+`--force-reinstall`; an already installed version cannot replace the verified
+bytes. The receipt includes these exact dependency identities. The credentialed
+supervisor uses only the standard library before this installation; installer
+and semantic children receive the restricted, credential-free environment.
+
+The closed publication profile fixes preparation artifact 11282419957
+(run 37148637546/1), capture artifact 11472726606 (run 37600313529/1), their
+original source commits and full archive digests, the official CPython
+3.11.16 bootstrap and pip 24.0 wheel. API origin, attempt, expiry, size and
+digest checks precede each download. No latest-by-name replacement, caller URL,
+command, alternate profile or caller-selected interpreter is accepted.
+Read-only transport credentials are absent from private build/replay children
+and storage redirects. Bounded ZIP/TAR parsing, private 0700 staging, finite
+process lifetimes and verified cleanup apply; an existing output is rejected.
+The bootstrap TAR is hashed and parsed through the same held file descriptor.
+Mutation or replacement is rejected before the extracted interpreter can run.
+
+The builder reconstructs historical installation path strings as data and
+checks the complete runtime inventory before packing. It executes the pinned
+bootstrap and installer, never the reconstructed interpreter, worker or model.
+All 18,499 capsule members have fixed content and modes; the only runtime
+symlink is `lib64 -> lib`. Packing fixes lexical order, timestamp
+2026-10-10 00:00:00, Unix attributes, DEFLATE level 6, empty extra/comment fields
+and no ZIP64. The required complete ZIP is 452,116,385 bytes with SHA-256
+`3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734`.
+A compression or payload difference stops publication; the expected identity
+must never be silently updated. The observed Python/Unicode/zlib environment
+is recorded in the receipt.
+
+Before upload, the separate checker verifies the full capsule and original
+capture using the existing independent byte-comparison/replay function. These
+parameters are not a fabricated authenticated intake request. The capsule
+is checked by an internal `check-private` subprocess in a new, sibling private
+directory. Only freshly copied, digest-checked capture/capsule archives and
+supervisor-authored source context enter that directory; builder verdicts,
+replay files and other residue do not. Its closed result is checked against
+the expected binding, and both private directories must be removed before a
+public receipt is written. This internal CLI alone cannot authenticate or
+publish a receipt. The raw capsule
+upload uses pinned `actions/upload-artifact`, `archive: false`, no overwrite,
+one exact ZIP path and 30-day retention. The second job independently checks
+the actual artifact's current run/source origin, downloads it afresh and repeats
+the complete comparison. Only this job can emit `roundtrip_verified` with the
+observed artifact ID. `preupload_verified` carries no future artifact ID.
+A failed post-upload verification may leave an artifact but no accepted
+roundtrip receipt. No workflow dispatch or release decision follows automatically.
+
+The existing required-gate step additionally invokes
+`check_q2_release_intake_v0.py --verify-recorded-negative` when either Q2
+request field is present. This mode independently authenticates, reacquires,
+replays and compares all metadata against the producer's fixed public record.
+It requires valid input, all five checks, `metric_pass: false`, inner
+`process_exit: 1`, exact request/source/run/artifact binding and verified cleanup.
+A complete match atomically creates, without overwrite:
+
+`PULSE_safe_pack_v0/artifacts/required_gate_inputs/q2_intake_independent_result_v0.json`.
+
+Its outer exit 0 means only that the historical negative result was verified.
+The original required-gate nonzero exit is retained. A zero gate exit with this
+historical negative request fails closed. Missing/partial input, mismatch,
+timeout, cleanup uncertainty or unsafe/stale output produces no accepted
+independent result. With both request fields empty, the prior shell path remains.
+The existing diagnostics upload retains both metadata files; no new PULSE CI
+job or step is added. The existing `admit` API remains strictly PASS-only.
+
+Hosted publication/roundtrip and the later owner-triggered direct PULSE CI run
+are not established by local regression tests. A later request needs the actual
+verified artifact ID and the then-current reviewed main commit. Direct PULSE CI
+also runs its existing LlamaGuard work and can stop before Q2. The whole-runtime
+reference acquirer's successful-subject requirement is unchanged and must not
+be relaxed to accept this expected FAIL. The 49 eligible groups remain below
+the required 50, the twelve unsupported policy requirements remain unsupported,
+and issue #2879 is not closed by this publication work. No new inference,
+release-host observation, ALLOW decision or production certificate is claimed.

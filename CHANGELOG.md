@@ -7,6 +7,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [Unreleased]
 
 ### Fixed
+
+- Add owner-only Q2 capsule reconstruction/publication and a separate fresh-job
+  artifact roundtrip verifier. Bind the original archives, official bootstrap,
+  every payload byte/mode and the complete deterministic ZIP; execute no model.
+  Add independently reacquired negative intake metadata while retaining the
+  historical metric FAIL and original nonzero required-gate exit. Coordinate
+  current source pins and two tools-test registrations; preserve PASS-only
+  admission and all release-authority boundaries. Hosted publication and the
+  later direct PULSE CI negative intake remain separately executed operations.
  
 - Bind the hosted Q2 subject dispatch to a separately configured, API-verified
   `HKati` owner credential, preserving the intake's strict actor checks.

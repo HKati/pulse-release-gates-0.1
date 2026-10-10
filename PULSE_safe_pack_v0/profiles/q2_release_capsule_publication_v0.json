@@ -1,0 +1,170 @@
+{
+  "record_type": "q2_release_capsule_publication_profile_v0",
+  "authorization": {
+    "repository": "HKati/pulse-release-gates-0.1",
+    "workflow": ".github/workflows/q2_release_capsule_publication_v0.yml",
+    "workflow_name": "Q2 release capsule publication v0",
+    "actor": "HKati",
+    "actor_id": 128643840,
+    "event": "workflow_dispatch",
+    "ref": "refs/heads/main",
+    "run_attempt": 1
+  },
+  "source_paths": [
+    ".github/workflows/pulse_ci.yml",
+    ".github/workflows/q2_release_capsule_publication_v0.yml",
+    "PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json",
+    "PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json",
+    "PULSE_safe_pack_v0/profiles/q2_reference_release_intake_v0.json",
+    "PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json",
+    "PULSE_safe_pack_v0/profiles/q2_release_capsule_publication_v0.json",
+    "PULSE_safe_pack_v0/tools/build_q2_reference_summary.py",
+    "PULSE_safe_pack_v0/tools/build_q2_release_capsule_v0.py",
+    "PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py",
+    "PULSE_safe_pack_v0/tools/check_q2_reference_summary.py",
+    "PULSE_safe_pack_v0/tools/check_q2_release_capsule_publication_v0.py",
+    "PULSE_safe_pack_v0/tools/check_q2_release_intake_v0.py",
+    "PULSE_safe_pack_v0/tools/evaluate_q2_archived_capture_v0.py",
+    "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py",
+    "PULSE_safe_pack_v0/tools/load_q2_release_intake_v0.py",
+    "PULSE_safe_pack_v0/tools/q2_intake_io_v0.py",
+    "PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py",
+    "metrics/specs/q2_consistency_v0.yml",
+    "schemas/dataset_manifest.schema.json",
+    "schemas/metrics/q2_consistency_input_v0.schema.json",
+    "schemas/metrics/q2_consistency_summary_v0.schema.json",
+    "schemas/q2_release_capsule_publication_v0.schema.json",
+    "schemas/q2_release_intake_request_v0.schema.json",
+    "schemas/q2_release_intake_result_v0.schema.json",
+    "schemas/q2_release_subject_capsule_v0.schema.json"
+  ],
+  "preparation": {
+    "repository": "HKati/pulse-release-gates-0.1",
+    "artifact_id": 11282419957,
+    "run_id": "37148637546",
+    "run_attempt": 1,
+    "source_commit": "77fc5d51896568db50a2a87f650711a65db8fe8c",
+    "artifact_name": "q2-runtime-preparation-37148637546-1",
+    "archive_size_bytes": 508460811,
+    "archive_sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9"
+  },
+  "capture": {
+    "repository": "HKati/pulse-release-gates-0.1",
+    "run_id": "37600313529",
+    "run_attempt": 1,
+    "source_commit": "fb7b247e24f18c5314fd44f7711bd49e15020364",
+    "artifact_id": 11472726606,
+    "archive_size_bytes": 1809263,
+    "archive_sha256": "88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6",
+    "subject_size_bytes": 4851,
+    "subject_sha256": "ae5f9994c2ad2d59dba57f28b194aae3b9951adc3ef9a4e220af0db80b55ae29",
+    "artifact_name": "q2-reference-capture-37600313529-1"
+  },
+  "bootstrap": {
+    "url": "https://github.com/actions/python-versions/releases/download/3.11.16-31661435402/python-3.11.16-linux-24.04-x64.tar.gz",
+    "filename": "python-3.11.16-linux-24.04-x64.tar.gz",
+    "archive_size_bytes": 92555692,
+    "archive_sha256": "07b61e35f30861939ff95314297921de8f57cd48f85bb18d777651b3ea45f2ee",
+    "interpreter_sha256": "a15ccdaf07655a8667a3687b13171486c9a265d92273ba3ad820fbb64d2cfecc"
+  },
+  "pip": {
+    "url": "https://files.pythonhosted.org/packages/8a/6a/19e9fe04fca059ccf770861c7d5721ab4c2aebc539889e97c7977528a53b/pip-24.0-py3-none-any.whl",
+    "filename": "pip-24.0-py3-none-any.whl",
+    "archive_size_bytes": 2110226,
+    "archive_sha256": "ba0d021a166865d2265246961bec0152ff124de910c5cc39f1156ce3fa7c69dc"
+  },
+  "capsule": {
+    "file_name": "q2-release-subject-capsule-20261010.zip",
+    "archive_size_bytes": 452116385,
+    "archive_sha256": "3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734",
+    "capsule_manifest_sha256": "8dfa1b9df8ed7fbd8ea8b749555ba73ebf24f5d8aeb187d15c51163137a0c857",
+    "members": 18499,
+    "expanded_bytes": 1142892836
+  },
+  "packing": {
+    "date_time": [
+      2026,
+      10,
+      10,
+      0,
+      0,
+      0
+    ],
+    "compression": "DEFLATE",
+    "compression_level": 6,
+    "allow_zip64": false,
+    "create_system": 3
+  },
+  "limits": {
+    "seconds": 900,
+    "minimum_free_bytes": 8589934592,
+    "preparation_members": 78,
+    "preparation_expanded_bytes": 508443131,
+    "member_bytes": 314572800,
+    "bootstrap_members": 10545,
+    "bootstrap_expanded_bytes": 305323346,
+    "bootstrap_member_bytes": 52428800,
+    "capsule_member_bytes": 536870912
+  },
+  "authority_effect": "none",
+  "production_gate_eligible": false,
+  "current_inference_count": 0,
+  "verifier_wheels": [
+    {
+      "name": "attrs",
+      "version": "26.1.0",
+      "path": "wheelhouse/attrs-26.1.0-py3-none-any.whl",
+      "size": 67548,
+      "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"
+    },
+    {
+      "name": "jsonschema",
+      "version": "4.25.1",
+      "path": "wheelhouse/jsonschema-4.25.1-py3-none-any.whl",
+      "size": 90040,
+      "sha256": "3fba0169e345c7175110351d456342c364814cfcf3b964ba4587f22915230a63"
+    },
+    {
+      "name": "jsonschema-specifications",
+      "version": "2025.9.1",
+      "path": "wheelhouse/jsonschema_specifications-2025.9.1-py3-none-any.whl",
+      "size": 18437,
+      "sha256": "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe"
+    },
+    {
+      "name": "pyyaml",
+      "version": "6.0.3",
+      "path": "wheelhouse/pyyaml-6.0.3-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl",
+      "size": 806638,
+      "sha256": "b8bb0864c5a28024fac8a632c443c87c5aa6f215c0b126c449ae1a150412f31d"
+    },
+    {
+      "name": "referencing",
+      "version": "0.37.0",
+      "path": "wheelhouse/referencing-0.37.0-py3-none-any.whl",
+      "size": 26766,
+      "sha256": "381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231"
+    },
+    {
+      "name": "rfc8785",
+      "version": "0.1.4",
+      "path": "wheelhouse/rfc8785-0.1.4-py3-none-any.whl",
+      "size": 9240,
+      "sha256": "520d690b448ecf0703691c76e1a34a24ddcd4fc5bc41d589cb7c58ec651bcd48"
+    },
+    {
+      "name": "rpds-py",
+      "version": "2026.6.3",
+      "path": "wheelhouse/rpds_py-2026.6.3-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+      "size": 371315,
+      "sha256": "9c1255b302953c86a486b81d330d5ee1d5bd937691ce271b6be0ef0e299eaab7"
+    },
+    {
+      "name": "typing-extensions",
+      "version": "4.16.0",
+      "path": "wheelhouse/typing_extensions-4.16.0-py3-none-any.whl",
+      "size": 45571,
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"
+    }
+  ]
+}

@@ -619,6 +619,20 @@ jobs:
           REQUIRED_GATE_RC=$?
           set -e
 
+          # A checked historical FAIL remains a failed required gate.
+          if [[ -n "${PULSE_Q2_INTAKE_REQUEST:-}" || -n "${PULSE_Q2_INTAKE_REQUEST_SHA256:-}" ]]; then
+            set +e
+            python "${PACK_DIR}/tools/check_q2_release_intake_v0.py" \
+              --repo-root "${GITHUB_WORKSPACE}" --verify-recorded-negative
+            Q2_NEGATIVE_VERIFICATION_RC=$?
+            set -e
+            echo "Q2 independent negative verification exit: ${Q2_NEGATIVE_VERIFICATION_RC}"
+            if [[ "${REQUIRED_GATE_RC}" -eq 0 ]]; then
+              echo "::error::Q2 historical negative intake cannot yield a successful required gate"
+              REQUIRED_GATE_RC=1
+            fi
+          fi
+
           EVIDENCE="${PACK_DIR}/artifacts/required_gate_evidence_v0.json"
 
           if [[ -f "${EVIDENCE}" && ! -L "${EVIDENCE}" ]]; then

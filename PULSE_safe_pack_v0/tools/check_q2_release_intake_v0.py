@@ -210,9 +210,18 @@ def admit(repo, public_path, run_identity, subject, *, environment=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--private-input", type=Path, required=True)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--private-input", type=Path)
+    mode.add_argument("--verify-recorded-negative", action="store_true")
     parser.add_argument("--repo-root", type=Path, required=True)
     args = parser.parse_args()
+    if args.verify_recorded_negative:
+        try:
+            verify_recorded_negative(args.repo_root.resolve(strict=True))
+            return 0  # Verification succeeded; the recorded metric exit remains 1.
+        except Exception as exc:
+            print(exc.code if isinstance(exc, io.IntakeError) else "q2_internal_error")
+            return 2
     result = None
     try:
         repo = args.repo_root.resolve(strict=True)
@@ -239,6 +248,74 @@ def main():
     except Exception:
         return 2
     return result["process_exit"]
+
+
+INDEPENDENT_RESULT = io.PACK + "artifacts/required_gate_inputs/q2_intake_independent_result_v0.json"
+
+
+def _publish_negative(path, raw):
+    """Atomic, no-overwrite publication through held, non-symlink directories."""
+    path = path.absolute()
+    io.require(".." not in path.parts, "q2_file_rejected")
+    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    directory = os.open("/", flags)
+    temporary = ".q2-negative-" + os.urandom(16).hex()
+    created, published = False, False
+    try:
+        for part in path.parts[1:-1]:
+            child = os.open(part, flags, dir_fd=directory)
+            os.close(directory)
+            directory = child
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                     0o600, dir_fd=directory)
+        created = True
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(raw)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.link(temporary, path.name, src_dir_fd=directory, dst_dir_fd=directory,
+                follow_symlinks=False)
+        published = True
+    finally:
+        try:
+            if created:
+                try:
+                    os.unlink(temporary, dir_fd=directory)
+                except OSError:
+                    if published:
+                        os.unlink(path.name, dir_fd=directory)
+                    raise
+        finally:
+            os.close(directory)
+
+
+def verify_recorded_negative(repo, *, environment=None):
+    """Reacquire and replay the fixed historical FAIL; never admit a candidate."""
+    private_environment = dict(os.environ if environment is None else environment)
+    for name in tuple(os.environ):
+        if name.startswith("PULSE_Q2_"):
+            os.environ.pop(name, None)
+    destination = repo / INDEPENDENT_RESULT
+    io.require(not os.path.lexists(destination), "q2_public_record_rejected")
+    recorded_raw = io.read_file(repo / io.PUBLIC_RESULT, 128 * 1024)
+    schema = io.read_file(repo / io.RESULT_SCHEMA, 128 * 1024)
+    recorded = io.strict_json(recorded_raw)
+    io.validate(recorded, schema)
+    # Fresh authentication, downloads, semantic subprocess and verified cleanup.
+    current = loader.consume(repo, consumer="admission", environment=private_environment)
+    io.validate(current, schema)
+    io.require(current["record_status"] == "archived_capture_intake" and
+               current["input_valid"] is True and current["metric_pass"] is False and
+               type(current["process_exit"]) is int and current["process_exit"] == 1 and
+               set(current["checks"]) == {"request", "capture", "subject", "replay", "summary"} and
+               all(value is True for value in current["checks"].values()) and
+               current["cleanup"] == "verified_removed" and
+               current["evaluation_binding"] is not None and current["source_bindings"] and
+               io.encode(recorded) == io.encode(current) and
+               io.read_file(repo / io.PUBLIC_RESULT, 128 * 1024) == recorded_raw,
+               "q2_admission_rejected")
+    _publish_negative(destination, io.encode(current))
+    return current
 
 
 if __name__ == "__main__":
