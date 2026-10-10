@@ -10,12 +10,12 @@
     {
       "path": "EVIDENCE_REFERENCE.json",
       "size_bytes": 10307,
-      "sha256": "7c938f1a61d8f1edc3dc982c8342734f443abbcc0f2087150064b33e7c1f55d5"
+      "sha256": "83c1b9e8d1e4b6e34c789438a17d82c4a6948a9393bc6188a77375845f22d0a9"
     },
     {
       "path": "README.md",
       "size_bytes": 12853,
-      "sha256": "500a94192528490b41dedcf821c22fd81353ff17cdb112500303f292b9dc8fe4"
+      "sha256": "e312d1198e533c1a4d1242ec7b351720897988d372cf3a8fa8aa8cf4a0c69737"
     },
     {
       "path": "SOURCE_BINDING.md",

@@ -16,7 +16,7 @@ not turn the decision into `ALLOW` or establish a mathematical proof.
 
 | Component | Commit |
 | --- | --- |
-| [OpenAI Math subject](https://github.com/openai/math/tree/adc7f1241b42e322a6452204ab7e4b4c146bf78a) | `adc7f1241b42e322a6452204ab7e4b4c146bf78a` |
+| [OpenAI Math subject](https://github.com/openai/math/tree/adc7f1241b42e322a6451854ab7e4b4c146bf78a) | `adc7f1241b42e322a6451854ab7e4b4c146bf78a` |
 | [PULSE primitives and integration baseline](https://github.com/HKati/pulse-release-gates-0.1/tree/288bb9a45764d2a30f72fdf4c417e9dd5b3087c5) | `288bb9a45764d2a30f72fdf4c417e9dd5b3087c5` |
 
 The nested [PULSE runtime](reference/pulse_runtime/NOTICE.md) retains the exact
