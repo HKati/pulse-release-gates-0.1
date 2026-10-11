@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Declare the existing `rfc8785==0.1.4` canonicalizer in `requirements.txt`
+  after run #7023 exposed the missing Q2 tokenizer test dependency in Tools
+  smoke. Preserve workflow source pins, native execution contracts and the
+  historical FAIL/BLOCK.
+
 - Add the owner-only Q2 native tokenizer unit with closed source/input/output
   contracts, immutable capsule projection, four externally isolated occurrences,
   exact historical negative reduction and independent receipt replay. Add
