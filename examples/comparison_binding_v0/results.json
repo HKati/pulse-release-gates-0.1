@@ -1,0 +1,469 @@
+{
+  "package_status": "OFFLINE_SYNTHETIC_REFERENCE",
+  "test_result": "PASS",
+  "python_version": "3.12.14",
+  "authority_effect": "none",
+  "release_authority_activation": false,
+  "implementation_scope": "offline_synthetic_comparison_with_diagnostic_status_views",
+  "schema_sha256": "998ad1619a3e2bcfb0c796b9b7ec53f4325aca9cb5c631b7a8c546114e6f3c3b",
+  "evaluator_sha256": "77ec79de76de49317b525838a9725a21634b7c7ee8950124133510029adabd78",
+  "fixture_sha256": {
+    "01_expansion_fixed_support.json": "9cc7126d0942997e5e739d274e5c622289431eb6871e56aacc188e75c3b8afd6",
+    "02_contraction_fixed_support.json": "6a4e976a2c033d7fc9f6c0b6a68f0e5acf7b1b83cf2656d78c6f1e22d50eca41",
+    "03_reduced_support_with_flattening.json": "f9541e47e71b7672cf4187a4ceaf4d4ef895bceb5d98308e185ab0945309bccc"
+  },
+  "physical_validation": "not_performed",
+  "geometric_candidate_count": 4,
+  "materialized_fixture_count": 3,
+  "schema_validation": "strict_supported_subset_plus_bounded_semantic_adapter",
+  "general_json_schema_conformance": "not_claimed",
+  "tests": {
+    "base_twelve": {
+      "run": 12,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "missing_domain": {
+      "run": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "independent_review": {
+      "run": 5,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "status_binding": {
+      "run": 6,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    }
+  },
+  "fixture_results": [
+    {
+      "file": "fixtures/01_expansion_fixed_support.json",
+      "curvature_only_response": [
+        "defined",
+        "UNRESOLVED",
+        2,
+        [
+          -1,
+          1
+        ],
+        "diagnostic_only"
+      ],
+      "primary_support_response": [
+        "defined",
+        "IDENTIFIED",
+        1,
+        [
+          1
+        ],
+        "diagnostic_only"
+      ],
+      "backup_support_response": [
+        "defined",
+        "IDENTIFIED",
+        1,
+        [
+          1
+        ],
+        "diagnostic_only"
+      ],
+      "both_support_routes_response": [
+        "defined",
+        "IDENTIFIED",
+        1,
+        [
+          1
+        ],
+        "diagnostic_only"
+      ],
+      "all_support_routes_ablated_response": [
+        "defined",
+        "UNRESOLVED",
+        2,
+        [
+          -1,
+          1
+        ],
+        "diagnostic_only"
+      ],
+      "field_status": "OBSERVED_ON_COMMON_SUPPORT",
+      "global_scalar_field_identity": "IDENTIFIED_EQUAL",
+      "delta_status_counts": {
+        "observed": 64
+      },
+      "geometry_status_views": {
+        "curvature_only": {
+          "record_status": "synthetic_diagnostic",
+          "claim_id": "sign_of_physical_volume_change_of_declared_domain_v0",
+          "claim_scope": "declared_four_candidate_geometric_model_v0",
+          "target_assessment": {
+            "definedness": "defined",
+            "identification_status": "UNRESOLVED",
+            "compatible_candidate_count": 2,
+            "possible_target_values": [
+              -1,
+              1
+            ]
+          },
+          "status_axes": {
+            "observation_status": "partially_observed",
+            "binding_status": "partially_bound",
+            "consistency_status": "ambiguous",
+            "reproduction_status": "bounded_replay_only",
+            "causal_status": "not_evaluated",
+            "authority_status": "diagnostic"
+          },
+          "physical_transition_path_evaluated": false,
+          "authority_effect": "none"
+        },
+        "support_bound": {
+          "record_status": "synthetic_diagnostic",
+          "claim_id": "sign_of_physical_volume_change_of_declared_domain_v0",
+          "claim_scope": "declared_four_candidate_geometric_model_v0",
+          "target_assessment": {
+            "definedness": "defined",
+            "identification_status": "IDENTIFIED",
+            "compatible_candidate_count": 1,
+            "possible_target_values": [
+              1
+            ]
+          },
+          "status_axes": {
+            "observation_status": "reconstructed",
+            "binding_status": "bound",
+            "consistency_status": "consistent",
+            "reproduction_status": "bounded_replay_only",
+            "causal_status": "not_evaluated",
+            "authority_status": "diagnostic"
+          },
+          "physical_transition_path_evaluated": false,
+          "authority_effect": "none"
+        }
+      },
+      "scalar_field_status_view": {
+        "record_status": "synthetic_diagnostic",
+        "claim_id": "scalar_field_identity_on_declared_support_v0",
+        "claim_scope": "finite_rational_scalar_field_under_identity_transport_v0",
+        "target_assessment": {
+          "comparison_status": "OBSERVED_ON_COMMON_SUPPORT",
+          "global_scalar_field_identity": "IDENTIFIED_EQUAL"
+        },
+        "status_axes": {
+          "observation_status": "reconstructed",
+          "binding_status": "bound",
+          "consistency_status": "consistent",
+          "reproduction_status": "bounded_replay_only",
+          "causal_status": "not_evaluated",
+          "authority_status": "diagnostic"
+        },
+        "physical_transition_path_evaluated": false,
+        "authority_effect": "none"
+      }
+    },
+    {
+      "file": "fixtures/02_contraction_fixed_support.json",
+      "curvature_only_response": [
+        "defined",
+        "IDENTIFIED",
+        2,
+        [
+          -1
+        ],
+        "diagnostic_only"
+      ],
+      "primary_support_response": [
+        "defined",
+        "IDENTIFIED",
+        1,
+        [
+          -1
+        ],
+        "diagnostic_only"
+      ],
+      "backup_support_response": [
+        "defined",
+        "IDENTIFIED",
+        1,
+        [
+          -1
+        ],
+        "diagnostic_only"
+      ],
+      "both_support_routes_response": [
+        "defined",
+        "IDENTIFIED",
+        1,
+        [
+          -1
+        ],
+        "diagnostic_only"
+      ],
+      "all_support_routes_ablated_response": [
+        "defined",
+        "IDENTIFIED",
+        2,
+        [
+          -1
+        ],
+        "diagnostic_only"
+      ],
+      "field_status": "OBSERVED_ON_COMMON_SUPPORT",
+      "global_scalar_field_identity": "IDENTIFIED_EQUAL",
+      "delta_status_counts": {
+        "observed": 64
+      },
+      "geometry_status_views": {
+        "curvature_only": {
+          "record_status": "synthetic_diagnostic",
+          "claim_id": "sign_of_physical_volume_change_of_declared_domain_v0",
+          "claim_scope": "declared_four_candidate_geometric_model_v0",
+          "target_assessment": {
+            "definedness": "defined",
+            "identification_status": "IDENTIFIED",
+            "compatible_candidate_count": 2,
+            "possible_target_values": [
+              -1
+            ]
+          },
+          "status_axes": {
+            "observation_status": "partially_observed",
+            "binding_status": "partially_bound",
+            "consistency_status": "consistent",
+            "reproduction_status": "bounded_replay_only",
+            "causal_status": "not_evaluated",
+            "authority_status": "diagnostic"
+          },
+          "physical_transition_path_evaluated": false,
+          "authority_effect": "none"
+        },
+        "support_bound": {
+          "record_status": "synthetic_diagnostic",
+          "claim_id": "sign_of_physical_volume_change_of_declared_domain_v0",
+          "claim_scope": "declared_four_candidate_geometric_model_v0",
+          "target_assessment": {
+            "definedness": "defined",
+            "identification_status": "IDENTIFIED",
+            "compatible_candidate_count": 1,
+            "possible_target_values": [
+              -1
+            ]
+          },
+          "status_axes": {
+            "observation_status": "reconstructed",
+            "binding_status": "bound",
+            "consistency_status": "consistent",
+            "reproduction_status": "bounded_replay_only",
+            "causal_status": "not_evaluated",
+            "authority_status": "diagnostic"
+          },
+          "physical_transition_path_evaluated": false,
+          "authority_effect": "none"
+        }
+      },
+      "scalar_field_status_view": {
+        "record_status": "synthetic_diagnostic",
+        "claim_id": "scalar_field_identity_on_declared_support_v0",
+        "claim_scope": "finite_rational_scalar_field_under_identity_transport_v0",
+        "target_assessment": {
+          "comparison_status": "OBSERVED_ON_COMMON_SUPPORT",
+          "global_scalar_field_identity": "IDENTIFIED_EQUAL"
+        },
+        "status_axes": {
+          "observation_status": "reconstructed",
+          "binding_status": "bound",
+          "consistency_status": "consistent",
+          "reproduction_status": "bounded_replay_only",
+          "causal_status": "not_evaluated",
+          "authority_status": "diagnostic"
+        },
+        "physical_transition_path_evaluated": false,
+        "authority_effect": "none"
+      }
+    },
+    {
+      "file": "fixtures/03_reduced_support_with_flattening.json",
+      "curvature_only_response": [
+        "defined",
+        "UNRESOLVED",
+        2,
+        [
+          -1,
+          1
+        ],
+        "diagnostic_only"
+      ],
+      "primary_support_response": [
+        "defined",
+        "IDENTIFIED",
+        1,
+        [
+          -1
+        ],
+        "diagnostic_only"
+      ],
+      "backup_support_response": [
+        "defined",
+        "IDENTIFIED",
+        1,
+        [
+          -1
+        ],
+        "diagnostic_only"
+      ],
+      "both_support_routes_response": [
+        "defined",
+        "IDENTIFIED",
+        1,
+        [
+          -1
+        ],
+        "diagnostic_only"
+      ],
+      "all_support_routes_ablated_response": [
+        "defined",
+        "UNRESOLVED",
+        2,
+        [
+          -1,
+          1
+        ],
+        "diagnostic_only"
+      ],
+      "field_status": "OBSERVED_ON_COMMON_SUPPORT",
+      "global_scalar_field_identity": "NOT_EQUAL_SUPPORT",
+      "delta_status_counts": {
+        "observed": 1,
+        "outside_target_support": 63
+      },
+      "geometry_status_views": {
+        "curvature_only": {
+          "record_status": "synthetic_diagnostic",
+          "claim_id": "sign_of_physical_volume_change_of_declared_domain_v0",
+          "claim_scope": "declared_four_candidate_geometric_model_v0",
+          "target_assessment": {
+            "definedness": "defined",
+            "identification_status": "UNRESOLVED",
+            "compatible_candidate_count": 2,
+            "possible_target_values": [
+              -1,
+              1
+            ]
+          },
+          "status_axes": {
+            "observation_status": "partially_observed",
+            "binding_status": "partially_bound",
+            "consistency_status": "ambiguous",
+            "reproduction_status": "bounded_replay_only",
+            "causal_status": "not_evaluated",
+            "authority_status": "diagnostic"
+          },
+          "physical_transition_path_evaluated": false,
+          "authority_effect": "none"
+        },
+        "support_bound": {
+          "record_status": "synthetic_diagnostic",
+          "claim_id": "sign_of_physical_volume_change_of_declared_domain_v0",
+          "claim_scope": "declared_four_candidate_geometric_model_v0",
+          "target_assessment": {
+            "definedness": "defined",
+            "identification_status": "IDENTIFIED",
+            "compatible_candidate_count": 1,
+            "possible_target_values": [
+              -1
+            ]
+          },
+          "status_axes": {
+            "observation_status": "reconstructed",
+            "binding_status": "bound",
+            "consistency_status": "consistent",
+            "reproduction_status": "bounded_replay_only",
+            "causal_status": "not_evaluated",
+            "authority_status": "diagnostic"
+          },
+          "physical_transition_path_evaluated": false,
+          "authority_effect": "none"
+        }
+      },
+      "scalar_field_status_view": {
+        "record_status": "synthetic_diagnostic",
+        "claim_id": "scalar_field_identity_on_declared_support_v0",
+        "claim_scope": "finite_rational_scalar_field_under_identity_transport_v0",
+        "target_assessment": {
+          "comparison_status": "OBSERVED_ON_COMMON_SUPPORT",
+          "global_scalar_field_identity": "NOT_EQUAL_SUPPORT"
+        },
+        "status_axes": {
+          "observation_status": "reconstructed",
+          "binding_status": "bound",
+          "consistency_status": "consistent",
+          "reproduction_status": "bounded_replay_only",
+          "causal_status": "not_evaluated",
+          "authority_status": "diagnostic"
+        },
+        "physical_transition_path_evaluated": false,
+        "authority_effect": "none"
+      }
+    }
+  ],
+  "missingness_examples": {
+    "missing_target_sample": {
+      "status": "unobserved",
+      "value": null,
+      "missing_endpoints": [
+        "target"
+      ]
+    },
+    "missing_target_sample_global_scalar_field_identity": "UNRESOLVED",
+    "measured_target_zero": {
+      "status": "observed",
+      "value": "-1"
+    },
+    "removed_target_support": {
+      "status": "outside_target_support",
+      "value": null
+    }
+  },
+  "sensor_loss_example": {
+    "same_observed_projection_as_fixture_c": true,
+    "bound_volume_change_response": [
+      "defined",
+      "IDENTIFIED",
+      1,
+      [
+        1
+      ],
+      "diagnostic_only"
+    ],
+    "fixture_c_bound_volume_change_response": [
+      "defined",
+      "IDENTIFIED",
+      1,
+      [
+        -1
+      ],
+      "diagnostic_only"
+    ],
+    "missing_target_sample": {
+      "status": "unobserved",
+      "value": null,
+      "missing_endpoints": [
+        "target"
+      ]
+    },
+    "global_scalar_field_identity": "UNRESOLVED"
+  },
+  "limits": [
+    "finite synthetic model only",
+    "identity transport only",
+    "no physical transition-path or causal-necessity proof",
+    "support backup is an independent enabled read path to the same receipt",
+    "no adversarial process-isolation proof or release-authority activation"
+  ]
+}
