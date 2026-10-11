@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Bind SARIF upload to a separate checkout of the already verified source SHA
+  and reject a mismatched checkout HEAD before publication. Preserve trusted
+  default-branch verification, artifact/run binding and fork exclusion; add
+  regressions for matching, default-branch and unavailable upload checkouts.
+
 - Add owner-only Q2 capsule reconstruction/publication and a separate fresh-job
   artifact roundtrip verifier. Bind the original archives, official bootstrap,
   every payload byte/mode and the complete deterministic ZIP; execute no model.

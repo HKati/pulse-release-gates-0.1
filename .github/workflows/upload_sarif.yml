@@ -47,11 +47,36 @@ jobs:
             --artifact-root "_pulse_artifacts" \
             --github-output "${GITHUB_OUTPUT}"
 
+      - name: Checkout verified SARIF source commit
+        if: steps.target.outputs.skip == 'false'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.target.outputs.sha }}
+          path: _pulse_sarif_source
+          persist-credentials: false
+
+      - name: Verify SARIF upload checkout identity
+        if: steps.target.outputs.skip == 'false'
+        shell: bash
+        env:
+          EXPECTED_SARIF_SHA: ${{ steps.target.outputs.sha }}
+          SARIF_CHECKOUT_PATH: ${{ github.workspace }}/_pulse_sarif_source
+        run: |
+          set -euo pipefail
+
+          actual_sha="$(git -C "$SARIF_CHECKOUT_PATH" rev-parse --verify HEAD)"
+          if [[ "$actual_sha" != "$EXPECTED_SARIF_SHA" ]]; then
+            printf '%s\n' '::error::SARIF upload checkout does not match verified target' >&2
+            exit 1
+          fi
+
       - name: Upload SARIF to GitHub code scanning
         if: steps.target.outputs.skip == 'false'
         uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           sarif_file: ${{ steps.target.outputs.sarif_path }}
+          # The upload action resolves commit_oid from this checkout's Git HEAD.
+          checkout_path: ${{ github.workspace }}/_pulse_sarif_source
           ref: ${{ steps.target.outputs.ref }}
           sha: ${{ steps.target.outputs.sha }}
           category: pulse-gates
