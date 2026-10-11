@@ -183,6 +183,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   transfer does not declare correction acceptance or reference readiness.
 
 ### Added
+- Add the non-authoritative Transition Meter `comparison_binding v0` carrier
+  and an offline synthetic companion. Separate system support from successful
+  observation coverage, reject missing/null bindings and preserve unavailable
+  differences without zero imputation. Include three geometric fixtures,
+  32 companion regressions and two integration tests; expose target-scoped
+  diagnostic views through the six existing canonical status groups. Register
+  the integration entrypoint in the existing targeted pytest manifest. Keep
+  physical path and causal claims unexecuted and release authority unchanged.
 - Add the isolated [QRH003 v0.1.2 audit demonstrator](docs/PULSEMECH_QRH003_AUDIT_REFERENCE_v0.md)
   under `studies/openai_math_003_qrh_v0/`, with source/admission/authority
   mechanics, pinned PULSE primitives, schemas, source bindings, license

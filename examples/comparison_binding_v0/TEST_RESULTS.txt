@@ -1,0 +1,56 @@
+[base_twelve]
+test_t01_equal_curvature_projection (test_comparison_probe.BaseTwelveChecks.test_t01_equal_curvature_projection) ... ok
+test_t02_opposite_bound_volume_changes (test_comparison_probe.BaseTwelveChecks.test_t02_opposite_bound_volume_changes) ... ok
+test_t03_fixed_support_contraction_control (test_comparison_probe.BaseTwelveChecks.test_t03_fixed_support_contraction_control) ... ok
+test_t04_curvature_only_is_unresolved (test_comparison_probe.BaseTwelveChecks.test_t04_curvature_only_is_unresolved) ... ok
+test_t05_bound_full_support_identifies_expansion (test_comparison_probe.BaseTwelveChecks.test_t05_bound_full_support_identifies_expansion) ... ok
+test_t06_bound_reduced_support_identifies_extent_reduction (test_comparison_probe.BaseTwelveChecks.test_t06_bound_reduced_support_identifies_extent_reduction) ... ok
+test_t07_backup_survives_primary_ablation_for_a (test_comparison_probe.BaseTwelveChecks.test_t07_backup_survives_primary_ablation_for_a) ... ok
+test_t08_backup_survives_primary_ablation_for_c (test_comparison_probe.BaseTwelveChecks.test_t08_backup_survives_primary_ablation_for_c) ... ok
+test_t09_narrow_target_does_not_require_unique_configuration (test_comparison_probe.BaseTwelveChecks.test_t09_narrow_target_does_not_require_unique_configuration) ... ok
+test_t10_missing_reference_binding_is_unbound (test_comparison_probe.BaseTwelveChecks.test_t10_missing_reference_binding_is_unbound) ... ok
+test_t11_changed_unmapped_observer_is_unbound (test_comparison_probe.BaseTwelveChecks.test_t11_changed_unmapped_observer_is_unbound) ... ok
+test_t12_conflicting_supports_do_not_vacuously_identify (test_comparison_probe.BaseTwelveChecks.test_t12_conflicting_supports_do_not_vacuously_identify) ... ok
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.018s
+
+OK
+[missing_domain]
+test_z01_missing_sample_cannot_be_zero_filled (test_missing_domain.MissingDomainChecks.test_z01_missing_sample_cannot_be_zero_filled) ... ok
+test_z02_omitted_coverage_binding_is_rejected (test_missing_domain.MissingDomainChecks.test_z02_omitted_coverage_binding_is_rejected) ... ok
+test_z03_unknown_coverage_is_not_empty_coverage (test_missing_domain.MissingDomainChecks.test_z03_unknown_coverage_is_not_empty_coverage) ... ok
+test_z04_measured_zero_is_preserved_as_a_measurement (test_missing_domain.MissingDomainChecks.test_z04_measured_zero_is_preserved_as_a_measurement) ... ok
+test_z05_removed_support_has_no_numeric_field_extension (test_missing_domain.MissingDomainChecks.test_z05_removed_support_has_no_numeric_field_extension) ... ok
+test_z06_unknown_system_support_is_not_an_empty_system (test_missing_domain.MissingDomainChecks.test_z06_unknown_system_support_is_not_an_empty_system) ... ok
+test_z07_unknown_source_support_keeps_replay_and_status_views_unbound (test_missing_domain.MissingDomainChecks.test_z07_unknown_source_support_keeps_replay_and_status_views_unbound) ... ok
+test_z08_two_known_empty_supports_cannot_identify_a_scalar_field (test_missing_domain.MissingDomainChecks.test_z08_two_known_empty_supports_cannot_identify_a_scalar_field) ... ok
+test_z09_known_nonfull_source_stays_outside_the_geometric_profile (test_missing_domain.MissingDomainChecks.test_z09_known_nonfull_source_stays_outside_the_geometric_profile) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.059s
+
+OK
+[independent_review]
+test_r01_per_cell_matrix_preserves_missingness_and_measured_zero (test_independent_review.IndependentReviewChecks.test_r01_per_cell_matrix_preserves_missingness_and_measured_zero) ... ok
+test_r02_both_endpoints_reject_null_and_omitted_bindings (test_independent_review.IndependentReviewChecks.test_r02_both_endpoints_reject_null_and_omitted_bindings) ... ok
+test_r03_claimed_coverage_cannot_hide_missing_or_null_sample (test_independent_review.IndependentReviewChecks.test_r03_claimed_coverage_cannot_hide_missing_or_null_sample) ... ok
+test_r04_internal_evidence_requires_explicit_types_and_binding_flags (test_independent_review.IndependentReviewChecks.test_r04_internal_evidence_requires_explicit_types_and_binding_flags) ... ok
+test_r05_sensor_loss_is_not_system_support_reduction (test_independent_review.IndependentReviewChecks.test_r05_sensor_loss_is_not_system_support_reduction) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.049s
+
+OK
+[status_binding]
+test_s01_all_six_axes_are_explicit_and_non_authoritative (test_status_binding.StatusBindingChecks.test_s01_all_six_axes_are_explicit_and_non_authoritative) ... ok
+test_s02_identified_narrow_target_does_not_complete_endpoint_bindings (test_status_binding.StatusBindingChecks.test_s02_identified_narrow_target_does_not_complete_endpoint_bindings) ... ok
+test_s03_unbound_is_not_an_empty_compatible_set (test_status_binding.StatusBindingChecks.test_s03_unbound_is_not_an_empty_compatible_set) ... ok
+test_s04_conflicting_endpoint_receipts_remain_conflicting (test_status_binding.StatusBindingChecks.test_s04_conflicting_endpoint_receipts_remain_conflicting) ... ok
+test_s05_measured_difference_does_not_complete_unobserved_samples (test_status_binding.StatusBindingChecks.test_s05_measured_difference_does_not_complete_unobserved_samples) ... ok
+test_s06_sensor_loss_does_not_promote_scalar_identity_from_geometry (test_status_binding.StatusBindingChecks.test_s06_sensor_loss_does_not_promote_scalar_identity_from_geometry) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.029s
+
+OK
