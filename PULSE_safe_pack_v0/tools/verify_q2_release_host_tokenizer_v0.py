@@ -21,6 +21,7 @@ import signal
 import stat
 import subprocess
 import sys
+import tarfile
 import tempfile
 import time
 import unicodedata
@@ -221,6 +222,87 @@ def host_record(env, p):
                all(host[k] == v for k, v in p["native_requirements"].items()) and
                sys.base_prefix == p["bootstrap_prefix"], "q2_replay_environment")
     return host
+
+
+def prepare_bootstrap_library(private, p, budget):
+    """Prepare the exact stock library before any subject can be launched.
+
+    setup-python's release installer upgrades pip and creates bytecode. Rebuild
+    only the pinned interpreter's library from the authenticated stock archive;
+    never execute its setup.sh or pip. Verify a separate staging tree before
+    replacing the installed library, then recheck the complete installed tree.
+    This is privileged preparation, outside the four measured occurrences.
+    """
+    io.require(os.geteuid() == 0, "q2_context_rejected")
+    base = Path(p["bootstrap_prefix"])
+    io.require(base.is_absolute() and ".." not in base.parts and base.is_dir() and
+               not any(q.is_symlink() for q in (base, *base.parents)) and
+               stat.S_ISDIR((base / "lib").lstat().st_mode), "q2_file_rejected")
+    archive_path = private / "bootstrap.tar.gz"
+    expected = p["bootstrap"]
+    io.require(io.file_binding(archive_path, expected["archive_size_bytes"], budget) ==
+               {k: expected[k] for k in ("archive_size_bytes", "archive_sha256")}, "q2_digest_mismatch")
+    interpreter = io.read_file(base / "bin/python3.11", 1024 * 1024,
+                               p["bootstrap_python_sha256"], budget)
+    stage = private / "bootstrap-library"; stage.mkdir(mode=0o700)
+    try:
+        (stage / "bin").mkdir(mode=0o700)
+        io.write_new(stage / "bin/python3.11", interpreter)
+        names, count, expanded = set(), 0, 0
+        with tarfile.open(archive_path, "r:gz") as archive:
+            for item in archive:
+                budget.remaining(); count += 1; expanded += item.size
+                io.require(0 <= item.size and count <= independent.BOOTSTRAP_MEMBER_COUNT and
+                           expanded <= independent.BOOTSTRAP_EXPANDED_BYTES and not item.islnk(),
+                           "q2_archive_limit")
+                name = item.name.removeprefix("./")
+                if name == ".":
+                    io.require(item.isdir(), "q2_archive_rejected"); continue
+                independent.bootstrap_member(name, item.isreg())
+                io.require(name not in names and (item.isdir() or item.isreg() or item.issym()) and
+                           not item.mode & 0o7000, "q2_archive_rejected")
+                names.add(name)
+                if name != "lib" and not name.startswith("lib/"): continue
+                path = stage / name
+                io.require(not any(q.is_symlink() for q in (path, *path.parents)), "q2_archive_rejected")
+                path.parent.mkdir(parents=True, exist_ok=True)
+                if item.isdir():
+                    path.mkdir(mode=0o755, exist_ok=True)
+                elif item.issym():
+                    target = Path(name).parent / item.linkname
+                    io.require(not Path(item.linkname).is_absolute() and ".." not in target.parts,
+                               "q2_archive_rejected")
+                    os.symlink(item.linkname, path)
+                else:
+                    source = archive.extractfile(item)
+                    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+                    with source, os.fdopen(fd, "wb") as destination:
+                        size = 0
+                        while True:
+                            budget.remaining(); raw = source.read(65536)
+                            if not raw: break
+                            size += len(raw); io.require(size <= item.size, "q2_archive_rejected")
+                            destination.write(raw)
+                        io.require(size == item.size, "q2_archive_rejected")
+                        destination.flush(); os.fsync(destination.fileno())
+                    os.chmod(path, item.mode & 0o777)
+        io.require(count == independent.BOOTSTRAP_MEMBER_COUNT and
+                   expanded == independent.BOOTSTRAP_EXPANDED_BYTES, "q2_archive_rejected")
+        library_sha = independent.verify_bootstrap(archive_path, {**p, "bootstrap_prefix": str(stage)}, budget)
+        # The target is a fixed profile path, outside the preserved capsule.
+        # Removing the old tree also removes installer-created bytecode and
+        # distribution metadata; overwriting stock files would leave extras.
+        library = base / "lib"
+        io.require(stat.S_ISDIR(library.lstat().st_mode) and
+                   not any(q.is_symlink() for q in (base, *base.parents)), "q2_file_rejected")
+        budget.remaining(); shutil.rmtree(library)
+        io.require(not os.path.lexists(library), "q2_file_rejected")
+        budget.remaining(); shutil.copytree(stage / "lib", library, symlinks=True)
+        io.require(independent.verify_bootstrap(archive_path, p, budget) == library_sha, "q2_replay_environment")
+        return library_sha
+    finally:
+        shutil.rmtree(stage)
+        io.require(not os.path.lexists(stage), "q2_cleanup_failed")
 
 
 def projected_copy(source, destination, expected, origin, relative, budget, archive_mode=None, executable=False):
@@ -514,7 +596,7 @@ def supervise(repo, environment=None, bootstrap_snapshot=None):
             transport.download_bootstrap(pub["bootstrap"], private / "bootstrap.tar.gz", budget)
             transport.download_bootstrap(pub["pip"], private / pub["pip"]["filename"], budget)
             del client; token = None
-            bootstrap_lib = independent.verify_bootstrap(private / "bootstrap.tar.gz", p, budget)
+            bootstrap_lib = prepare_bootstrap_library(private, p, budget)
             prepared = {"repo": repo, "path": private}
             prepared["verifier_rows"] = prepare_verifier(prepared, root, p, budget)
             independent.bind_collector_dependencies(root / "verifier", prepared["verifier_rows"], p, budget)

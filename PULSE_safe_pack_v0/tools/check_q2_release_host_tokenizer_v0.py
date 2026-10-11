@@ -70,6 +70,8 @@ PUBLIC_FILES = ("request.json", "prelaunch.json", "projection.json",
                 "input-check.json", "tokenizer-check.json", "result.json")
 VERIFIER_MODULES = ("attr", "attrs", "jsonschema", "jsonschema_specifications", "yaml",
                     "referencing", "rfc8785", "rpds", "typing_extensions")
+BOOTSTRAP_MEMBER_COUNT = 10545
+BOOTSTRAP_EXPANDED_BYTES = 305323346
 
 
 class Budget:
@@ -298,7 +300,8 @@ def verify_bootstrap(path, p, budget):
     with tarfile.open(path, "r:gz") as archive:
         for item in archive:
             budget.remaining(); count += 1; expanded += item.size
-            io.require(count <= 10545 and expanded <= 305323346 and not item.islnk(), "q2_archive_limit")
+            io.require(count <= BOOTSTRAP_MEMBER_COUNT and expanded <= BOOTSTRAP_EXPANDED_BYTES and
+                       not item.islnk(), "q2_archive_limit")
             name = item.name.removeprefix("./")
             if name == ".":
                 io.require(item.isdir(), "q2_archive_rejected"); continue
@@ -324,7 +327,8 @@ def verify_bootstrap(path, p, budget):
                 d = payload_binding(actual, 1024 * 1024 * 1024, budget)
                 io.require(d == {"archive_size_bytes": size, "archive_sha256": h.hexdigest()}, "q2_replay_environment")
                 rows.append({"path": name, "size_bytes": size, "sha256": h.hexdigest()})
-        io.require(count == 10545 and expanded == 305323346, "q2_archive_rejected")
+        io.require(count == BOOTSTRAP_MEMBER_COUNT and expanded == BOOTSTRAP_EXPANDED_BYTES,
+                   "q2_archive_rejected")
     actual_names = {f.relative_to(base).as_posix() for f in (base / "lib").rglob("*") if f.is_file() or f.is_symlink()}
     io.require(actual_names == {r["path"] for r in rows}, "q2_replay_environment")
     io.read_file(base / "bin/python3.11", 1024 * 1024, p["bootstrap_python_sha256"], budget)
