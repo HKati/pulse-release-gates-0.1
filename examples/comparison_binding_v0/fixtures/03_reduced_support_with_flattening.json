@@ -1,0 +1,506 @@
+{
+  "fixture_id": "fixture_c",
+  "record_status": "synthetic_review_fixture",
+  "comparison_binding": {
+    "schema_version": "comparison_binding_v0",
+    "authority_effect": "none",
+    "reference_domain_ref": {
+      "artifact_id": "reference_domain",
+      "sha256": "c4fa6c8aacf04c05092aa1ac09457d686d568eba9a8068b1d7e520533a2491c6"
+    },
+    "field_type_ref": {
+      "artifact_id": "field_type",
+      "sha256": "dc11fdc5f5065823afbe26fa3b4653587a3d489ca08767715b3b5f66981f4cc5"
+    },
+    "source": {
+      "state_ref": {
+        "artifact_id": "source_state",
+        "sha256": "ab55cf9b64c3287906fc89d9ffcd7fee5990983183a698c818f4b4c5e9c87ccd"
+      },
+      "metric_ref": {
+        "artifact_id": "source_metric",
+        "sha256": "354bf432d46fcace25ddab718c4a69fb6a1963b7e4b641b91e253768b74261eb"
+      },
+      "system_support": {
+        "status": "known",
+        "ref": {
+          "artifact_id": "source_support",
+          "sha256": "ba309d1eb8a4cb7f383f493887c2ed9d27d9d1e2f0ed936e7a671344f5f277f8"
+        }
+      },
+      "observation_coverage": {
+        "status": "known",
+        "ref": {
+          "artifact_id": "source_coverage",
+          "sha256": "0b3c7b405090ef2d852a70a2000e3441e045a09bea6f3f6489ef97a6d3fa0e2d"
+        }
+      },
+      "observation_frame_ref": {
+        "artifact_id": "source_frame",
+        "sha256": "40db63a69cce81cbfd4d4a4b6bff3305116ae99b6727a326a10784904cd54d08"
+      }
+    },
+    "target": {
+      "state_ref": {
+        "artifact_id": "target_state",
+        "sha256": "88ce7f550d7c5287896fd6cd2cb77c06053154a80e66c70eb7c121aae09638cc"
+      },
+      "metric_ref": {
+        "artifact_id": "target_metric",
+        "sha256": "c93b3150bad3851a2dd5d6b0170f66d0bb63f6baea4b39613a78eb190be76367"
+      },
+      "system_support": {
+        "status": "known",
+        "ref": {
+          "artifact_id": "target_support",
+          "sha256": "b2c6efad58f6672f71ac830314a2ef7d115f19d0cbaf2194f7e7cac42ea1f1f5"
+        }
+      },
+      "observation_coverage": {
+        "status": "known",
+        "ref": {
+          "artifact_id": "target_coverage",
+          "sha256": "54318d46bede26e2928c3b1929f9a3ec417e7c75c24e5721248010233677489b"
+        }
+      },
+      "observation_frame_ref": {
+        "artifact_id": "target_frame",
+        "sha256": "40db63a69cce81cbfd4d4a4b6bff3305116ae99b6727a326a10784904cd54d08"
+      }
+    },
+    "transport_ref": {
+      "artifact_id": "transport",
+      "sha256": "2fde86afd75185fb7bd831074501dd724eb87da4e343158d158ae5f550065752"
+    },
+    "observation_normalization_ref": {
+      "artifact_id": "normalization",
+      "sha256": "108e89cb102dbcfaf4418f1dcc25ea8b605b2cbdf5e4d7463889e370190abc1a"
+    },
+    "comparison_rule_ref": {
+      "artifact_id": "comparison_rule",
+      "sha256": "28f12e539846a87f176ff12b4fadb60f0eec88de3d2e790d3ddf0a4d4cc3faf7"
+    }
+  },
+  "artifacts": {
+    "reference_domain": {
+      "payload": {
+        "kind": "finite_reference_partition_v0",
+        "dimension": 3,
+        "cells": [
+          "cell:000",
+          "cell:001",
+          "cell:002",
+          "cell:003",
+          "cell:004",
+          "cell:005",
+          "cell:006",
+          "cell:007",
+          "cell:008",
+          "cell:009",
+          "cell:010",
+          "cell:011",
+          "cell:012",
+          "cell:013",
+          "cell:014",
+          "cell:015",
+          "cell:016",
+          "cell:017",
+          "cell:018",
+          "cell:019",
+          "cell:020",
+          "cell:021",
+          "cell:022",
+          "cell:023",
+          "cell:024",
+          "cell:025",
+          "cell:026",
+          "cell:027",
+          "cell:028",
+          "cell:029",
+          "cell:030",
+          "cell:031",
+          "cell:032",
+          "cell:033",
+          "cell:034",
+          "cell:035",
+          "cell:036",
+          "cell:037",
+          "cell:038",
+          "cell:039",
+          "cell:040",
+          "cell:041",
+          "cell:042",
+          "cell:043",
+          "cell:044",
+          "cell:045",
+          "cell:046",
+          "cell:047",
+          "cell:048",
+          "cell:049",
+          "cell:050",
+          "cell:051",
+          "cell:052",
+          "cell:053",
+          "cell:054",
+          "cell:055",
+          "cell:056",
+          "cell:057",
+          "cell:058",
+          "cell:059",
+          "cell:060",
+          "cell:061",
+          "cell:062",
+          "cell:063"
+        ],
+        "cell_reference_volume": "1/64",
+        "sectional_curvature": "1"
+      },
+      "sha256": "c4fa6c8aacf04c05092aa1ac09457d686d568eba9a8068b1d7e520533a2491c6"
+    },
+    "field_type": {
+      "payload": {
+        "kind": "rational_scalar_field_v0",
+        "fiber_map": "identity_v0",
+        "unit": "dimensionless"
+      },
+      "sha256": "dc11fdc5f5065823afbe26fa3b4653587a3d489ca08767715b3b5f66981f4cc5"
+    },
+    "source_support": {
+      "payload": {
+        "kind": "system_support_v0",
+        "cells": [
+          "cell:000",
+          "cell:001",
+          "cell:002",
+          "cell:003",
+          "cell:004",
+          "cell:005",
+          "cell:006",
+          "cell:007",
+          "cell:008",
+          "cell:009",
+          "cell:010",
+          "cell:011",
+          "cell:012",
+          "cell:013",
+          "cell:014",
+          "cell:015",
+          "cell:016",
+          "cell:017",
+          "cell:018",
+          "cell:019",
+          "cell:020",
+          "cell:021",
+          "cell:022",
+          "cell:023",
+          "cell:024",
+          "cell:025",
+          "cell:026",
+          "cell:027",
+          "cell:028",
+          "cell:029",
+          "cell:030",
+          "cell:031",
+          "cell:032",
+          "cell:033",
+          "cell:034",
+          "cell:035",
+          "cell:036",
+          "cell:037",
+          "cell:038",
+          "cell:039",
+          "cell:040",
+          "cell:041",
+          "cell:042",
+          "cell:043",
+          "cell:044",
+          "cell:045",
+          "cell:046",
+          "cell:047",
+          "cell:048",
+          "cell:049",
+          "cell:050",
+          "cell:051",
+          "cell:052",
+          "cell:053",
+          "cell:054",
+          "cell:055",
+          "cell:056",
+          "cell:057",
+          "cell:058",
+          "cell:059",
+          "cell:060",
+          "cell:061",
+          "cell:062",
+          "cell:063"
+        ]
+      },
+      "sha256": "ba309d1eb8a4cb7f383f493887c2ed9d27d9d1e2f0ed936e7a671344f5f277f8"
+    },
+    "source_coverage": {
+      "payload": {
+        "kind": "successful_observation_coverage_v0",
+        "cells": [
+          "cell:000",
+          "cell:001",
+          "cell:002",
+          "cell:003",
+          "cell:004",
+          "cell:005",
+          "cell:006",
+          "cell:007",
+          "cell:008",
+          "cell:009",
+          "cell:010",
+          "cell:011",
+          "cell:012",
+          "cell:013",
+          "cell:014",
+          "cell:015",
+          "cell:016",
+          "cell:017",
+          "cell:018",
+          "cell:019",
+          "cell:020",
+          "cell:021",
+          "cell:022",
+          "cell:023",
+          "cell:024",
+          "cell:025",
+          "cell:026",
+          "cell:027",
+          "cell:028",
+          "cell:029",
+          "cell:030",
+          "cell:031",
+          "cell:032",
+          "cell:033",
+          "cell:034",
+          "cell:035",
+          "cell:036",
+          "cell:037",
+          "cell:038",
+          "cell:039",
+          "cell:040",
+          "cell:041",
+          "cell:042",
+          "cell:043",
+          "cell:044",
+          "cell:045",
+          "cell:046",
+          "cell:047",
+          "cell:048",
+          "cell:049",
+          "cell:050",
+          "cell:051",
+          "cell:052",
+          "cell:053",
+          "cell:054",
+          "cell:055",
+          "cell:056",
+          "cell:057",
+          "cell:058",
+          "cell:059",
+          "cell:060",
+          "cell:061",
+          "cell:062",
+          "cell:063"
+        ]
+      },
+      "sha256": "0b3c7b405090ef2d852a70a2000e3441e045a09bea6f3f6489ef97a6d3fa0e2d"
+    },
+    "source_state": {
+      "payload": {
+        "state_id": "fixture_c:source",
+        "step_index": 0,
+        "curvature_observation": "1",
+        "field_observations": {
+          "cell:000": "1",
+          "cell:001": "1",
+          "cell:002": "1",
+          "cell:003": "1",
+          "cell:004": "1",
+          "cell:005": "1",
+          "cell:006": "1",
+          "cell:007": "1",
+          "cell:008": "1",
+          "cell:009": "1",
+          "cell:010": "1",
+          "cell:011": "1",
+          "cell:012": "1",
+          "cell:013": "1",
+          "cell:014": "1",
+          "cell:015": "1",
+          "cell:016": "1",
+          "cell:017": "1",
+          "cell:018": "1",
+          "cell:019": "1",
+          "cell:020": "1",
+          "cell:021": "1",
+          "cell:022": "1",
+          "cell:023": "1",
+          "cell:024": "1",
+          "cell:025": "1",
+          "cell:026": "1",
+          "cell:027": "1",
+          "cell:028": "1",
+          "cell:029": "1",
+          "cell:030": "1",
+          "cell:031": "1",
+          "cell:032": "1",
+          "cell:033": "1",
+          "cell:034": "1",
+          "cell:035": "1",
+          "cell:036": "1",
+          "cell:037": "1",
+          "cell:038": "1",
+          "cell:039": "1",
+          "cell:040": "1",
+          "cell:041": "1",
+          "cell:042": "1",
+          "cell:043": "1",
+          "cell:044": "1",
+          "cell:045": "1",
+          "cell:046": "1",
+          "cell:047": "1",
+          "cell:048": "1",
+          "cell:049": "1",
+          "cell:050": "1",
+          "cell:051": "1",
+          "cell:052": "1",
+          "cell:053": "1",
+          "cell:054": "1",
+          "cell:055": "1",
+          "cell:056": "1",
+          "cell:057": "1",
+          "cell:058": "1",
+          "cell:059": "1",
+          "cell:060": "1",
+          "cell:061": "1",
+          "cell:062": "1",
+          "cell:063": "1"
+        }
+      },
+      "sha256": "ab55cf9b64c3287906fc89d9ffcd7fee5990983183a698c818f4b4c5e9c87ccd"
+    },
+    "source_metric": {
+      "payload": {
+        "kind": "uniform_scale_spatial_metric_v0",
+        "scale_factor": "1"
+      },
+      "sha256": "354bf432d46fcace25ddab718c4a69fb6a1963b7e4b641b91e253768b74261eb"
+    },
+    "source_frame": {
+      "payload": {
+        "operator_id": "synthetic_curvature_and_scalar_samples_v0",
+        "units": {
+          "curvature": "reference_length^-2",
+          "volume": "reference_length^3",
+          "field": "dimensionless",
+          "scale_factor": "dimensionless"
+        },
+        "resolution": "exact_reference_cell_samples_v0",
+        "boundary_condition": "declared_support_no_extension_v0",
+        "uncertainty": {
+          "kind": "exact_synthetic_v0",
+          "epsilon": "0"
+        },
+        "clock": "synthetic_step_index_v0"
+      },
+      "sha256": "40db63a69cce81cbfd4d4a4b6bff3305116ae99b6727a326a10784904cd54d08"
+    },
+    "target_support": {
+      "payload": {
+        "kind": "system_support_v0",
+        "cells": [
+          "cell:000"
+        ]
+      },
+      "sha256": "b2c6efad58f6672f71ac830314a2ef7d115f19d0cbaf2194f7e7cac42ea1f1f5"
+    },
+    "target_coverage": {
+      "payload": {
+        "kind": "successful_observation_coverage_v0",
+        "cells": [
+          "cell:000"
+        ]
+      },
+      "sha256": "54318d46bede26e2928c3b1929f9a3ec417e7c75c24e5721248010233677489b"
+    },
+    "target_state": {
+      "payload": {
+        "state_id": "fixture_c:target",
+        "step_index": 1,
+        "curvature_observation": "1/4",
+        "field_observations": {
+          "cell:000": "1"
+        }
+      },
+      "sha256": "88ce7f550d7c5287896fd6cd2cb77c06053154a80e66c70eb7c121aae09638cc"
+    },
+    "target_metric": {
+      "payload": {
+        "kind": "uniform_scale_spatial_metric_v0",
+        "scale_factor": "2"
+      },
+      "sha256": "c93b3150bad3851a2dd5d6b0170f66d0bb63f6baea4b39613a78eb190be76367"
+    },
+    "target_frame": {
+      "payload": {
+        "operator_id": "synthetic_curvature_and_scalar_samples_v0",
+        "units": {
+          "curvature": "reference_length^-2",
+          "volume": "reference_length^3",
+          "field": "dimensionless",
+          "scale_factor": "dimensionless"
+        },
+        "resolution": "exact_reference_cell_samples_v0",
+        "boundary_condition": "declared_support_no_extension_v0",
+        "uncertainty": {
+          "kind": "exact_synthetic_v0",
+          "epsilon": "0"
+        },
+        "clock": "synthetic_step_index_v0"
+      },
+      "sha256": "40db63a69cce81cbfd4d4a4b6bff3305116ae99b6727a326a10784904cd54d08"
+    },
+    "transport": {
+      "payload": {
+        "kind": "identity_on_reference_labels_v0",
+        "fiber_map": "identity_v0",
+        "reference_domain_ref": {
+          "artifact_id": "reference_domain",
+          "sha256": "c4fa6c8aacf04c05092aa1ac09457d686d568eba9a8068b1d7e520533a2491c6"
+        }
+      },
+      "sha256": "2fde86afd75185fb7bd831074501dd724eb87da4e343158d158ae5f550065752"
+    },
+    "normalization": {
+      "payload": {
+        "kind": "identity_v0",
+        "accepted_operator": "synthetic_curvature_and_scalar_samples_v0",
+        "accepted_units": {
+          "curvature": "reference_length^-2",
+          "volume": "reference_length^3",
+          "field": "dimensionless",
+          "scale_factor": "dimensionless"
+        },
+        "common_codomain": "bound_curvature_and_scalar_samples_v0"
+      },
+      "sha256": "108e89cb102dbcfaf4418f1dcc25ea8b605b2cbdf5e4d7463889e370190abc1a"
+    },
+    "comparison_rule": {
+      "payload": {
+        "target": "sign_of_physical_volume_change_of_declared_domain_v0",
+        "geometric_model": "four_uniform_scale_support_candidates_v0",
+        "field_comparator": "difference_on_common_observed_support_v0",
+        "missing_sample": "unobserved_no_numeric_imputation",
+        "outside_support": "outside_support_no_zero_extension",
+        "nonempty_consistency_required": true,
+        "uncertainty_model": "exact_synthetic_v0",
+        "authority_effect": "none"
+      },
+      "sha256": "28f12e539846a87f176ff12b4fadb60f0eec88de3d2e790d3ddf0a4d4cc3faf7"
+    }
+  }
+}

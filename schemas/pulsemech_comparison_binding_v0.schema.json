@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Minimal comparison_binding — workbook draft v0",
+  "description": "Reference-based, non-authoritative binding carrier. Shape and digest checks do not establish the scientific validity of referenced artifacts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "authority_effect",
+    "reference_domain_ref",
+    "field_type_ref",
+    "source",
+    "target",
+    "transport_ref",
+    "observation_normalization_ref",
+    "comparison_rule_ref"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "comparison_binding_v0"
+    },
+    "authority_effect": {
+      "const": "none"
+    },
+    "reference_domain_ref": {
+      "$ref": "#/$defs/artifact_ref"
+    },
+    "field_type_ref": {
+      "$ref": "#/$defs/artifact_ref",
+      "description": "Binds value/fiber type and permitted field comparison."
+    },
+    "source": {
+      "$ref": "#/$defs/endpoint"
+    },
+    "target": {
+      "$ref": "#/$defs/endpoint"
+    },
+    "transport_ref": {
+      "$ref": "#/$defs/artifact_ref",
+      "description": "Evidence for typed correspondence on the relevant common support; not a self-asserted verification flag."
+    },
+    "observation_normalization_ref": {
+      "$ref": "#/$defs/artifact_ref",
+      "description": "The common interpretation is fixed before comparison; normalization must be verified by the domain adapter."
+    },
+    "comparison_rule_ref": {
+      "$ref": "#/$defs/artifact_ref",
+      "description": "Binds target, admissible model, comparator, uncertainty, nonempty consistency and missing-data rules."
+    }
+  },
+  "$defs": {
+    "artifact_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "sha256"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_:-]*$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "domain_binding": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "ref"
+          ],
+          "properties": {
+            "status": {
+              "const": "known"
+            },
+            "ref": {
+              "$ref": "#/$defs/artifact_ref"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "reason"
+          ],
+          "properties": {
+            "status": {
+              "const": "unknown"
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      ]
+    },
+    "endpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state_ref",
+        "system_support",
+        "observation_coverage",
+        "metric_ref",
+        "observation_frame_ref"
+      ],
+      "properties": {
+        "state_ref": {
+          "$ref": "#/$defs/artifact_ref"
+        },
+        "system_support": {
+          "$ref": "#/$defs/domain_binding",
+          "description": "Physical/declared field-domain membership. This is distinct from observation coverage."
+        },
+        "observation_coverage": {
+          "$ref": "#/$defs/domain_binding",
+          "description": "Successfully acquired, endpoint-bound sample coverage. Unknown is not an empty set."
+        },
+        "metric_ref": {
+          "$ref": "#/$defs/artifact_ref"
+        },
+        "observation_frame_ref": {
+          "$ref": "#/$defs/artifact_ref",
+          "description": "Binds operator, units, resolution, boundary conditions, time context and uncertainty."
+        }
+      }
+    }
+  }
+}

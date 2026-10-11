@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import re
+import subprocess
 import tempfile
 from pathlib import Path
 from typing import Any, Callable
@@ -661,6 +663,8 @@ def test_workflow_wiring_preserves_privileged_boundary() -> None:
         "Checkout trusted SARIF binding verifier",
         "Download pulse-report artifact",
         "Verify workflow-run and SARIF artifact binding",
+        "Checkout verified SARIF source commit",
+        "Verify SARIF upload checkout identity",
         "Upload SARIF to GitHub code scanning",
     ]
 
@@ -685,7 +689,25 @@ def test_workflow_wiring_preserves_privileged_boundary() -> None:
     assert "tools/check_sarif_workflow_run_binding_v0.py" in verify["run"]
     assert '--run-id "${{ github.event.workflow_run.id }}"' in verify["run"]
 
-    upload = steps[3]
+    source_checkout = steps[3]
+    assert source_checkout["if"] == "steps.target.outputs.skip == 'false'"
+    assert source_checkout["uses"] == checkout["uses"]
+    assert source_checkout["with"] == {
+        "ref": "${{ steps.target.outputs.sha }}",
+        "path": "_pulse_sarif_source",
+        "persist-credentials": False,
+    }
+
+    identity = steps[4]
+    assert identity["if"] == "steps.target.outputs.skip == 'false'"
+    assert identity["shell"] == "bash"
+    assert identity["env"] == {
+        "EXPECTED_SARIF_SHA": "${{ steps.target.outputs.sha }}",
+        "SARIF_CHECKOUT_PATH": "${{ github.workspace }}/_pulse_sarif_source",
+    }
+    assert all(step.get("continue-on-error", False) is False for step in steps)
+
+    upload = steps[5]
     assert re.fullmatch(
         r"github/codeql-action/upload-sarif@[0-9a-f]{40}",
         upload["uses"],
@@ -693,10 +715,81 @@ def test_workflow_wiring_preserves_privileged_boundary() -> None:
     assert upload["if"] == "steps.target.outputs.skip == 'false'"
     assert upload["with"] == {
         "sarif_file": "${{ steps.target.outputs.sarif_path }}",
+        "checkout_path": "${{ github.workspace }}/_pulse_sarif_source",
         "ref": "${{ steps.target.outputs.ref }}",
         "sha": "${{ steps.target.outputs.sha }}",
         "category": "pulse-gates",
     }
+
+
+def _exercise_upload_checkout_identity(case: str) -> subprocess.CompletedProcess[str]:
+    workflow = yaml.safe_load(WORKFLOW_PATH.read_text(encoding="utf-8"))
+    guard = next(
+        step for step in workflow["jobs"]["upload-sarif"]["steps"]
+        if step["name"] == "Verify SARIF upload checkout identity"
+    )
+    env = os.environ.copy()
+    env["GIT_CONFIG_NOSYSTEM"] = "1"
+    env["GIT_CONFIG_GLOBAL"] = os.devnull
+
+    with tempfile.TemporaryDirectory(prefix="sarif-checkout-identity-") as tmp:
+        workspace = Path(tmp)
+        trusted = workspace / "trusted"
+        source = workspace / "_pulse_sarif_source"
+        trusted.mkdir()
+
+        def git(path: Path, *args: str) -> str:
+            completed = subprocess.run(
+                ["git", "-C", str(path), "-c", "user.name=SARIF Test",
+                 "-c", "user.email=sarif-test@example.invalid", *args],
+                env=env, check=True, capture_output=True, text=True, timeout=10,
+            )
+            return completed.stdout.strip()
+
+        git(trusted, "init", "--quiet", "--initial-branch=main")
+        (trusted / "sample.txt").write_text("trusted main\n", encoding="utf-8")
+        git(trusted, "add", "sample.txt")
+        git(trusted, "commit", "--quiet", "-m", "trusted main")
+        default_sha = git(trusted, "rev-parse", "HEAD")
+        git(trusted, "switch", "--quiet", "-c", "analyzed")
+        (trusted / "sample.txt").write_text("analyzed source\n", encoding="utf-8")
+        git(trusted, "commit", "--quiet", "-am", "analyzed source")
+        verified_sha = git(trusted, "rev-parse", "HEAD")
+        git(trusted, "switch", "--quiet", "main")
+        assert git(trusted, "rev-parse", "HEAD") == default_sha != verified_sha
+        git(workspace, "clone", "--quiet", "--no-hardlinks", str(trusted), str(source))
+
+        if case == "matching":
+            git(source, "checkout", "--quiet", "--detach", verified_sha)
+        elif case == "default_branch":
+            assert git(source, "rev-parse", "HEAD") == default_sha
+        elif case == "missing_checkout":
+            source = workspace / "missing"
+        else:
+            raise AssertionError(f"unsupported checkout case: {case}")
+
+        env["EXPECTED_SARIF_SHA"] = verified_sha
+        env["SARIF_CHECKOUT_PATH"] = str(source)
+        return subprocess.run(
+            ["bash", "--noprofile", "--norc", "-e", "-o", "pipefail", "-c", guard["run"]],
+            cwd=trusted, env=env, capture_output=True, text=True, timeout=10,
+        )
+
+
+def test_upload_checkout_accepts_verified_source_with_different_trusted_head() -> None:
+    result = _exercise_upload_checkout_identity("matching")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_upload_checkout_rejects_default_branch_head() -> None:
+    result = _exercise_upload_checkout_identity("default_branch")
+    assert result.returncode != 0
+    assert "does not match verified target" in result.stderr
+
+
+def test_upload_checkout_rejects_missing_git_checkout() -> None:
+    result = _exercise_upload_checkout_identity("missing_checkout")
+    assert result.returncode != 0
 
 
 def main() -> int:
@@ -716,6 +809,9 @@ def main() -> int:
         test_paginated_commit_association_is_bounded,
         test_source_uses_only_commit_bound_fallback,
         test_workflow_wiring_preserves_privileged_boundary,
+        test_upload_checkout_accepts_verified_source_with_different_trusted_head,
+        test_upload_checkout_rejects_default_branch_head,
+        test_upload_checkout_rejects_missing_git_checkout,
     ]
     for test in tests:
         test()

@@ -21,6 +21,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   worker/model capture, creates no authority, preserves historical FAIL/BLOCK,
   and still requires separately acquired and preserved native owner-run evidence.
 
+- Bind SARIF upload to a separate checkout of the already verified source SHA
+  and reject a mismatched checkout HEAD before publication. Preserve trusted
+  default-branch verification, artifact/run binding and fork exclusion; add
+  regressions for matching, default-branch and unavailable upload checkouts.
+
 - Add owner-only Q2 capsule reconstruction/publication and a separate fresh-job
   artifact roundtrip verifier. Bind the original archives, official bootstrap,
   every payload byte/mode and the complete deterministic ZIP; execute no model.
@@ -196,6 +201,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   transfer does not declare correction acceptance or reference readiness.
 
 ### Added
+- Add the non-authoritative Transition Meter `comparison_binding v0` carrier
+  and an offline synthetic companion. Separate system support from successful
+  observation coverage, reject missing/null bindings and preserve unavailable
+  differences without zero imputation. Include three geometric fixtures,
+  32 companion regressions and two integration tests; expose target-scoped
+  diagnostic views through the six existing canonical status groups. Register
+  the integration entrypoint in the existing targeted pytest manifest. Keep
+  physical path and causal claims unexecuted and release authority unchanged.
 - Add the isolated [QRH003 v0.1.2 audit demonstrator](docs/PULSEMECH_QRH003_AUDIT_REFERENCE_v0.md)
   under `studies/openai_math_003_qrh_v0/`, with source/admission/authority
   mechanics, pinned PULSE primitives, schemas, source bindings, license

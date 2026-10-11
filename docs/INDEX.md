@@ -83,6 +83,16 @@ moves between merged and open work, update this index.
   `examples/relation_preserving_discrimination_v0/`. Transition-path application
   is specified, not executed; no physical or quantum validation is claimed;
   `authority_effect = none`.
+- Field comparison binding and missing observation support:
+  [PULSEMECH_FIELD_COMPARISON_BINDING_v0.md](PULSEMECH_FIELD_COMPARISON_BINDING_v0.md)
+  **Reader / audit surface with an executable synthetic companion.** Adds a
+  minimal reference-based comparison carrier, three geometric fixtures and
+  target-scoped views using the six canonical status groups. Separates system
+  support from successful sample coverage and preserves missing values without
+  zero imputation. The companion has 32 regression methods and two integration
+  tests registered in the existing targeted pytest manifest; general field
+  transport, physical path identity and causality are not claimed;
+  `authority_effect = none`.
 - Whole-system discovery and evidence-bound requirement matching:
   [PULSEMECH_TRANSITION_METER_WHOLE_SYSTEM_DISCOVERY_v0.md](PULSEMECH_TRANSITION_METER_WHOLE_SYSTEM_DISCOVERY_v0.md)
   **Foundational architecture — bounded application design.** Defines
