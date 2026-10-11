@@ -170,3 +170,6 @@ tests/test_q2_required_gate_integration_v0.py
 tests/test_q2_hosted_intake_workflow_v0.py
 tests/test_q2_capsule_publication_v0.py
 tests/test_q2_negative_intake_verification_v0.py
+
+tests/test_q2_release_host_tokenizer_v0.py
+tests/test_q2_release_host_tokenizer_workflow_v0.py

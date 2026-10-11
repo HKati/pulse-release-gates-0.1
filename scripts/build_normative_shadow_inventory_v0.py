@@ -122,6 +122,30 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             ),
         )
 
+    if rel == ".github/workflows/q2_release_host_tokenizer_verification_v0.yml":
+        forbidden = ("actions/attest@", "materialize_release_decision", "release_authority_v0.json",
+                     "release_decision_v0.json", "pulse_gate_registry", "pulse_gate_policy", "id-token: write")
+        if (name != "Q2 native release-host tokenizer verification v0"
+                or "verify_q2_release_host_tokenizer_v0.py" not in text
+                or any(token in text for token in forbidden)):
+            return entry(
+                name=name, path=rel, surface_type="workflow", primary_role="unclassified workflow",
+                carrier_class="advisory", authority_impacting="conditional",
+                authority_boundary="Changed Q2 tokenizer boundary requires explicit carrier review",
+                notes="No generic workflow-name or authority-path exemption.",
+            )
+        return entry(
+            name=name, path=rel, surface_type="workflow",
+            primary_role="non-authorizing Q2 native tokenizer verification workflow",
+            carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary="Four owner-dispatched tokenizer/reduction checks; zero model calls and no gate admission.",
+            reads_artifacts=["fixed capture, preparation, published capsule and observed roundtrip receipt"],
+            writes_artifacts=["source/input/projection-bound native tokenizer metadata or bounded rejection"],
+            publishes_artifacts=["non-authorizing Q2 tokenizer evidence"],
+            required_gate_participation=False, attestation_participation=False, release_path_participation=False,
+            notes="Historical FAIL/BLOCK remains; worker/model readiness and full release-host verification remain open.",
+        )
+
     if rel == ".github/workflows/q2_reference_acquisition_v0.yml":
         return entry(
             name=name,
@@ -951,6 +975,17 @@ def static_authority_entries(repo_root: Path) -> list[dict[str, Any]]:
                 "the qualification checker remains diagnostic-only. "
                 "No Q2 gate admission or release authority."
             ),
+        ))
+
+    for filename, role in (
+        ("verify_q2_release_host_tokenizer_v0.py", "external Q2 tokenizer-only execution supervisor"),
+        ("check_q2_release_host_tokenizer_v0.py", "independent Q2 tokenizer input, replay and evidence checker"),
+    ):
+        candidates.append(entry(
+            name=role, path="PULSE_safe_pack_v0/tools/" + filename, surface_type="tool",
+            primary_role=role, carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary="No worker/model launch, fresh inference, production gate, certificate or release authority.",
+            required_gate_participation=False, attestation_participation=False, release_path_participation=False,
         ))
 
     existing: list[dict[str, Any]] = []

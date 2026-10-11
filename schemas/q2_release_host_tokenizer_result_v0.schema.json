@@ -1,0 +1,2016 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "scope",
+    "binding",
+    "source_bindings",
+    "inputs",
+    "request_sha256",
+    "prelaunch_sha256",
+    "projection_sha256",
+    "phase_start_ns",
+    "phase_deadline_ns",
+    "occurrences",
+    "host",
+    "archived_platform_requirements",
+    "platform_matches",
+    "full_archived_platform_match",
+    "metrics",
+    "claims",
+    "cleanup",
+    "independent_check",
+    "clock_relation",
+    "resource_measurement"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "q2_release_host_tokenizer_result_v0"
+    },
+    "status": {
+      "const": "native_tokenizer_verified"
+    },
+    "scope": {
+      "const": "q2_archived_native_tokenizer_only_v0"
+    },
+    "binding": {
+      "$ref": "#/$defs/binding"
+    },
+    "source_bindings": {
+      "type": "array",
+      "minItems": 29,
+      "maxItems": 29,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "size_bytes",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "enum": [
+              ".github/workflows/q2_release_host_tokenizer_verification_v0.yml",
+              "PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json",
+              "PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json",
+              "PULSE_safe_pack_v0/profiles/q2_reference_release_intake_v0.json",
+              "PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json",
+              "PULSE_safe_pack_v0/profiles/q2_release_capsule_publication_v0.json",
+              "PULSE_safe_pack_v0/profiles/q2_release_host_tokenizer_verification_v0.json",
+              "PULSE_safe_pack_v0/tools/build_q2_reference_summary.py",
+              "PULSE_safe_pack_v0/tools/check_q2_reference_capture_v0.py",
+              "PULSE_safe_pack_v0/tools/check_q2_reference_qualification_v0.py",
+              "PULSE_safe_pack_v0/tools/check_q2_reference_summary.py",
+              "PULSE_safe_pack_v0/tools/check_q2_release_capsule_publication_v0.py",
+              "PULSE_safe_pack_v0/tools/check_q2_release_host_tokenizer_v0.py",
+              "PULSE_safe_pack_v0/tools/check_q2_release_intake_v0.py",
+              "PULSE_safe_pack_v0/tools/evaluate_q2_archived_capture_v0.py",
+              "PULSE_safe_pack_v0/tools/load_q2_release_intake_v0.py",
+              "PULSE_safe_pack_v0/tools/q2_intake_io_v0.py",
+              "PULSE_safe_pack_v0/tools/qualify_q2_reference_runtime_v0.py",
+              "PULSE_safe_pack_v0/tools/verify_q2_release_host_tokenizer_v0.py",
+              "metrics/specs/q2_consistency_v0.yml",
+              "schemas/dataset_manifest.schema.json",
+              "schemas/metrics/q2_consistency_input_v0.schema.json",
+              "schemas/metrics/q2_consistency_summary_v0.schema.json",
+              "schemas/metrics/q2_reference_capture_v0.schema.json",
+              "schemas/metrics/q2_reference_qualification_v0.schema.json",
+              "schemas/q2_release_capsule_publication_v0.schema.json",
+              "schemas/q2_release_host_tokenizer_request_v0.schema.json",
+              "schemas/q2_release_host_tokenizer_result_v0.schema.json",
+              "schemas/q2_release_subject_capsule_v0.schema.json"
+            ]
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2097152
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "uniqueItems": true
+    },
+    "inputs": {
+      "const": {
+        "capture": {
+          "repository": "HKati/pulse-release-gates-0.1",
+          "run_id": "37600313529",
+          "run_attempt": 1,
+          "source_commit": "fb7b247e24f18c5314fd44f7711bd49e15020364",
+          "artifact_id": 11472726606,
+          "archive_size_bytes": 1809263,
+          "archive_sha256": "88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6",
+          "subject_size_bytes": 4851,
+          "subject_sha256": "ae5f9994c2ad2d59dba57f28b194aae3b9951adc3ef9a4e220af0db80b55ae29",
+          "artifact_name": "q2-reference-capture-37600313529-1"
+        },
+        "preparation": {
+          "repository": "HKati/pulse-release-gates-0.1",
+          "artifact_id": 11282419957,
+          "run_id": "37148637546",
+          "run_attempt": 1,
+          "source_commit": "77fc5d51896568db50a2a87f650711a65db8fe8c",
+          "artifact_name": "q2-runtime-preparation-37148637546-1",
+          "archive_size_bytes": 508460811,
+          "archive_sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9"
+        },
+        "capsule": {
+          "file_name": "q2-release-subject-capsule-20261010.zip",
+          "archive_size_bytes": 452116385,
+          "archive_sha256": "3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734",
+          "capsule_manifest_sha256": "8dfa1b9df8ed7fbd8ea8b749555ba73ebf24f5d8aeb187d15c51163137a0c857",
+          "members": 18499,
+          "expanded_bytes": 1142892836,
+          "repository": "HKati/pulse-release-gates-0.1",
+          "workflow": ".github/workflows/q2_release_capsule_publication_v0.yml",
+          "run_id": "38097352170",
+          "run_attempt": 1,
+          "source_commit": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+          "artifact_id": 11686701538,
+          "artifact_name": "q2-release-subject-capsule-20261010.zip"
+        },
+        "roundtrip": {
+          "repository": "HKati/pulse-release-gates-0.1",
+          "workflow": ".github/workflows/q2_release_capsule_publication_v0.yml",
+          "run_id": "38097352170",
+          "run_attempt": 1,
+          "source_commit": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+          "artifact_id": 11686476032,
+          "artifact_name": "q2-capsule-roundtrip-38097352170-1",
+          "archive_size_bytes": 2911,
+          "archive_sha256": "288880eedbff4ae812d7d2020e2c55aa4814b4d9f08076473a9755ace90bcdd0"
+        }
+      }
+    },
+    "request_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "prelaunch_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "projection_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "phase_start_ns": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "phase_deadline_ns": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9223372036854775807
+    },
+    "occurrences": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "$ref": "#/$defs/occurrence"
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "python",
+        "bootstrap_python_sha256",
+        "os",
+        "architecture",
+        "runner_image",
+        "kernel",
+        "libc"
+      ],
+      "properties": {
+        "python": {
+          "type": "string",
+          "maxLength": 300000
+        },
+        "bootstrap_python_sha256": {
+          "type": "string",
+          "maxLength": 300000
+        },
+        "os": {
+          "type": "string",
+          "maxLength": 300000
+        },
+        "architecture": {
+          "type": "string",
+          "maxLength": 300000
+        },
+        "runner_image": {
+          "type": "string",
+          "maxLength": 300000
+        },
+        "kernel": {
+          "type": "string",
+          "maxLength": 300000
+        },
+        "libc": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 4096,
+          "items": {
+            "type": "string",
+            "maxLength": 300000
+          }
+        }
+      }
+    },
+    "archived_platform_requirements": {
+      "const": {
+        "python": "3.11.16",
+        "bootstrap_python_sha256": "a15ccdaf07655a8667a3687b13171486c9a265d92273ba3ad820fbb64d2cfecc",
+        "os": "ubuntu-24.04",
+        "architecture": "x86_64",
+        "runner_image": "20261004.327.1",
+        "kernel": "6.17.0-1022-azure",
+        "libc": [
+          "glibc",
+          "2.39"
+        ]
+      }
+    },
+    "platform_matches": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "python",
+        "bootstrap_python_sha256",
+        "os",
+        "architecture",
+        "runner_image",
+        "kernel",
+        "libc"
+      ],
+      "properties": {
+        "python": {
+          "type": "boolean"
+        },
+        "bootstrap_python_sha256": {
+          "type": "boolean"
+        },
+        "os": {
+          "type": "boolean"
+        },
+        "architecture": {
+          "type": "boolean"
+        },
+        "runner_image": {
+          "type": "boolean"
+        },
+        "kernel": {
+          "type": "boolean"
+        },
+        "libc": {
+          "type": "boolean"
+        }
+      }
+    },
+    "full_archived_platform_match": {
+      "type": "boolean"
+    },
+    "metrics": {
+      "const": {
+        "consistent": 49,
+        "groups_eligible": 49,
+        "groups_total": 50,
+        "inconsistent": 0,
+        "responses_eligible": 147,
+        "responses_total": 150,
+        "unknown": 1,
+        "wilson_lower_bound": 0.9273021807795037,
+        "threshold": 0.9,
+        "min_n_eligible_groups": 50
+      }
+    },
+    "claims": {
+      "const": {
+        "authority_effect": "none",
+        "production_gate_eligible": false,
+        "active_gate_eligible": false,
+        "same_run_release_authority_eligible": false,
+        "current_inference_count": 0,
+        "worker_launch_executed": false,
+        "model_weights_loaded": false,
+        "full_release_host_verified": false,
+        "historical_metric_pass": false
+      }
+    },
+    "cleanup": {
+      "const": "verified_removed"
+    },
+    "independent_check": {
+      "const": "evidence_reconstructed"
+    },
+    "clock_relation": {
+      "const": "not_verified"
+    },
+    "resource_measurement": {
+      "const": "unavailable"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "q2_release_host_tokenizer_result_v0",
+  "$defs": {
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "workflow",
+        "source_commit",
+        "run_id",
+        "run_attempt",
+        "job_name",
+        "job_id"
+      ],
+      "properties": {
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "workflow": {
+          "const": ".github/workflows/q2_release_host_tokenizer_verification_v0.yml"
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "run_id": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,23}$"
+        },
+        "run_attempt": {
+          "const": 1
+        },
+        "job_name": {
+          "const": "verify_host"
+        },
+        "job_id": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,23}$"
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "stage",
+        "expected_exit",
+        "argv",
+        "input_bindings",
+        "outputs"
+      ],
+      "properties": {
+        "id": {
+          "enum": [
+            "input_check",
+            "tokenizer_check",
+            "summary_builder",
+            "summary_checker"
+          ]
+        },
+        "stage": {
+          "enum": [
+            "capturecheck",
+            "reduction"
+          ]
+        },
+        "expected_exit": {
+          "enum": [
+            0,
+            1
+          ]
+        },
+        "argv": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 30,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "input_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "producer",
+              "sha256"
+            ],
+            "properties": {
+              "name": {
+                "enum": [
+                  "projection.json",
+                  "input-check.json",
+                  "groups.json",
+                  "dataset-manifest.json",
+                  "summary.json"
+                ]
+              },
+              "producer": {
+                "enum": [
+                  "supervisor",
+                  "input_check",
+                  "tokenizer_check",
+                  "summary_builder",
+                  "summary_checker"
+                ]
+              },
+              "sha256": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "enum": [
+              "input-check.json",
+              "tokenizer-check.json",
+              "groups.json",
+              "dataset-manifest.json",
+              "summary.json",
+              "summary-check.json"
+            ]
+          }
+        }
+      }
+    },
+    "prelaunch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "scope",
+        "binding",
+        "request_sha256",
+        "source_bindings",
+        "inputs",
+        "projection_root",
+        "projection_sha256",
+        "bootstrap_lib_sha256",
+        "occurrences",
+        "phase_start_ns",
+        "phase_deadline_ns",
+        "claims"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "q2_tokenizer_prelaunch_v0"
+        },
+        "scope": {
+          "const": "q2_archived_native_tokenizer_only_v0"
+        },
+        "binding": {
+          "$ref": "#/$defs/binding"
+        },
+        "request_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "source_bindings": {
+          "type": "array",
+          "minItems": 29,
+          "maxItems": 29,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "size_bytes",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "enum": [
+                  ".github/workflows/q2_release_host_tokenizer_verification_v0.yml",
+                  "PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json",
+                  "PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json",
+                  "PULSE_safe_pack_v0/profiles/q2_reference_release_intake_v0.json",
+                  "PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json",
+                  "PULSE_safe_pack_v0/profiles/q2_release_capsule_publication_v0.json",
+                  "PULSE_safe_pack_v0/profiles/q2_release_host_tokenizer_verification_v0.json",
+                  "PULSE_safe_pack_v0/tools/build_q2_reference_summary.py",
+                  "PULSE_safe_pack_v0/tools/check_q2_reference_capture_v0.py",
+                  "PULSE_safe_pack_v0/tools/check_q2_reference_qualification_v0.py",
+                  "PULSE_safe_pack_v0/tools/check_q2_reference_summary.py",
+                  "PULSE_safe_pack_v0/tools/check_q2_release_capsule_publication_v0.py",
+                  "PULSE_safe_pack_v0/tools/check_q2_release_host_tokenizer_v0.py",
+                  "PULSE_safe_pack_v0/tools/check_q2_release_intake_v0.py",
+                  "PULSE_safe_pack_v0/tools/evaluate_q2_archived_capture_v0.py",
+                  "PULSE_safe_pack_v0/tools/load_q2_release_intake_v0.py",
+                  "PULSE_safe_pack_v0/tools/q2_intake_io_v0.py",
+                  "PULSE_safe_pack_v0/tools/qualify_q2_reference_runtime_v0.py",
+                  "PULSE_safe_pack_v0/tools/verify_q2_release_host_tokenizer_v0.py",
+                  "metrics/specs/q2_consistency_v0.yml",
+                  "schemas/dataset_manifest.schema.json",
+                  "schemas/metrics/q2_consistency_input_v0.schema.json",
+                  "schemas/metrics/q2_consistency_summary_v0.schema.json",
+                  "schemas/metrics/q2_reference_capture_v0.schema.json",
+                  "schemas/metrics/q2_reference_qualification_v0.schema.json",
+                  "schemas/q2_release_capsule_publication_v0.schema.json",
+                  "schemas/q2_release_host_tokenizer_request_v0.schema.json",
+                  "schemas/q2_release_host_tokenizer_result_v0.schema.json",
+                  "schemas/q2_release_subject_capsule_v0.schema.json"
+                ]
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2097152
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          },
+          "uniqueItems": true
+        },
+        "inputs": {
+          "const": {
+            "capture": {
+              "repository": "HKati/pulse-release-gates-0.1",
+              "run_id": "37600313529",
+              "run_attempt": 1,
+              "source_commit": "fb7b247e24f18c5314fd44f7711bd49e15020364",
+              "artifact_id": 11472726606,
+              "archive_size_bytes": 1809263,
+              "archive_sha256": "88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6",
+              "subject_size_bytes": 4851,
+              "subject_sha256": "ae5f9994c2ad2d59dba57f28b194aae3b9951adc3ef9a4e220af0db80b55ae29",
+              "artifact_name": "q2-reference-capture-37600313529-1"
+            },
+            "preparation": {
+              "repository": "HKati/pulse-release-gates-0.1",
+              "artifact_id": 11282419957,
+              "run_id": "37148637546",
+              "run_attempt": 1,
+              "source_commit": "77fc5d51896568db50a2a87f650711a65db8fe8c",
+              "artifact_name": "q2-runtime-preparation-37148637546-1",
+              "archive_size_bytes": 508460811,
+              "archive_sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9"
+            },
+            "capsule": {
+              "file_name": "q2-release-subject-capsule-20261010.zip",
+              "archive_size_bytes": 452116385,
+              "archive_sha256": "3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734",
+              "capsule_manifest_sha256": "8dfa1b9df8ed7fbd8ea8b749555ba73ebf24f5d8aeb187d15c51163137a0c857",
+              "members": 18499,
+              "expanded_bytes": 1142892836,
+              "repository": "HKati/pulse-release-gates-0.1",
+              "workflow": ".github/workflows/q2_release_capsule_publication_v0.yml",
+              "run_id": "38097352170",
+              "run_attempt": 1,
+              "source_commit": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+              "artifact_id": 11686701538,
+              "artifact_name": "q2-release-subject-capsule-20261010.zip"
+            },
+            "roundtrip": {
+              "repository": "HKati/pulse-release-gates-0.1",
+              "workflow": ".github/workflows/q2_release_capsule_publication_v0.yml",
+              "run_id": "38097352170",
+              "run_attempt": 1,
+              "source_commit": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+              "artifact_id": 11686476032,
+              "artifact_name": "q2-capsule-roundtrip-38097352170-1",
+              "archive_size_bytes": 2911,
+              "archive_sha256": "288880eedbff4ae812d7d2020e2c55aa4814b4d9f08076473a9755ace90bcdd0"
+            }
+          }
+        },
+        "projection_root": {
+          "type": "string",
+          "pattern": "^/var/lib/pulse-q2-tokenizer-[a-z0-9_]{8}/projection$"
+        },
+        "projection_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "bootstrap_lib_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "occurrences": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/plan"
+          }
+        },
+        "phase_start_ns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "phase_deadline_ns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "claims": {
+          "const": {
+            "authority_effect": "none",
+            "production_gate_eligible": false,
+            "active_gate_eligible": false,
+            "same_run_release_authority_eligible": false,
+            "current_inference_count": 0,
+            "worker_launch_executed": false,
+            "model_weights_loaded": false,
+            "full_release_host_verified": false,
+            "historical_metric_pass": false
+          }
+        }
+      }
+    },
+    "projection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "trees"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "q2_tokenizer_projection_v0"
+        },
+        "trees": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "inputs",
+            "capsule",
+            "source",
+            "historical",
+            "verifier"
+          ],
+          "properties": {
+            "inputs": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 20000,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "path",
+                      "origin",
+                      "archive_mode",
+                      "kind",
+                      "uid",
+                      "gid",
+                      "mode",
+                      "size_bytes",
+                      "sha256"
+                    ],
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                        "maxLength": 4096
+                      },
+                      "origin": {
+                        "type": "string",
+                        "pattern": "^(input|capsule|source|historical|verifier):[A-Za-z0-9_./-]+$"
+                      },
+                      "archive_mode": {
+                        "oneOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 511
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "kind": {
+                        "const": "file"
+                      },
+                      "uid": {
+                        "const": 0
+                      },
+                      "gid": {
+                        "const": 65534
+                      },
+                      "mode": {
+                        "enum": [
+                          288,
+                          360
+                        ]
+                      },
+                      "size_bytes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1073741824
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "path",
+                      "origin",
+                      "archive_mode",
+                      "kind",
+                      "uid",
+                      "gid",
+                      "target"
+                    ],
+                    "properties": {
+                      "path": {
+                        "enum": [
+                          "runtime/lib64",
+                          "lib64"
+                        ]
+                      },
+                      "origin": {
+                        "enum": [
+                          "capsule:runtime/lib64",
+                          "verifier:lib64"
+                        ]
+                      },
+                      "archive_mode": {
+                        "const": 511
+                      },
+                      "kind": {
+                        "const": "symlink"
+                      },
+                      "uid": {
+                        "const": 0
+                      },
+                      "gid": {
+                        "const": 65534
+                      },
+                      "target": {
+                        "const": "lib"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "capsule": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 20000,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "path",
+                      "origin",
+                      "archive_mode",
+                      "kind",
+                      "uid",
+                      "gid",
+                      "mode",
+                      "size_bytes",
+                      "sha256"
+                    ],
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                        "maxLength": 4096
+                      },
+                      "origin": {
+                        "type": "string",
+                        "pattern": "^(input|capsule|source|historical|verifier):[A-Za-z0-9_./-]+$"
+                      },
+                      "archive_mode": {
+                        "oneOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 511
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "kind": {
+                        "const": "file"
+                      },
+                      "uid": {
+                        "const": 0
+                      },
+                      "gid": {
+                        "const": 65534
+                      },
+                      "mode": {
+                        "enum": [
+                          288,
+                          360
+                        ]
+                      },
+                      "size_bytes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1073741824
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "path",
+                      "origin",
+                      "archive_mode",
+                      "kind",
+                      "uid",
+                      "gid",
+                      "target"
+                    ],
+                    "properties": {
+                      "path": {
+                        "enum": [
+                          "runtime/lib64",
+                          "lib64"
+                        ]
+                      },
+                      "origin": {
+                        "enum": [
+                          "capsule:runtime/lib64",
+                          "verifier:lib64"
+                        ]
+                      },
+                      "archive_mode": {
+                        "const": 511
+                      },
+                      "kind": {
+                        "const": "symlink"
+                      },
+                      "uid": {
+                        "const": 0
+                      },
+                      "gid": {
+                        "const": 65534
+                      },
+                      "target": {
+                        "const": "lib"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "source": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 20000,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "path",
+                      "origin",
+                      "archive_mode",
+                      "kind",
+                      "uid",
+                      "gid",
+                      "mode",
+                      "size_bytes",
+                      "sha256"
+                    ],
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                        "maxLength": 4096
+                      },
+                      "origin": {
+                        "type": "string",
+                        "pattern": "^(input|capsule|source|historical|verifier):[A-Za-z0-9_./-]+$"
+                      },
+                      "archive_mode": {
+                        "oneOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 511
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "kind": {
+                        "const": "file"
+                      },
+                      "uid": {
+                        "const": 0
+                      },
+                      "gid": {
+                        "const": 65534
+                      },
+                      "mode": {
+                        "enum": [
+                          288,
+                          360
+                        ]
+                      },
+                      "size_bytes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1073741824
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "path",
+                      "origin",
+                      "archive_mode",
+                      "kind",
+                      "uid",
+                      "gid",
+                      "target"
+                    ],
+                    "properties": {
+                      "path": {
+                        "enum": [
+                          "runtime/lib64",
+                          "lib64"
+                        ]
+                      },
+                      "origin": {
+                        "enum": [
+                          "capsule:runtime/lib64",
+                          "verifier:lib64"
+                        ]
+                      },
+                      "archive_mode": {
+                        "const": 511
+                      },
+                      "kind": {
+                        "const": "symlink"
+                      },
+                      "uid": {
+                        "const": 0
+                      },
+                      "gid": {
+                        "const": 65534
+                      },
+                      "target": {
+                        "const": "lib"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "historical": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 20000,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "path",
+                      "origin",
+                      "archive_mode",
+                      "kind",
+                      "uid",
+                      "gid",
+                      "mode",
+                      "size_bytes",
+                      "sha256"
+                    ],
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                        "maxLength": 4096
+                      },
+                      "origin": {
+                        "type": "string",
+                        "pattern": "^(input|capsule|source|historical|verifier):[A-Za-z0-9_./-]+$"
+                      },
+                      "archive_mode": {
+                        "oneOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 511
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "kind": {
+                        "const": "file"
+                      },
+                      "uid": {
+                        "const": 0
+                      },
+                      "gid": {
+                        "const": 65534
+                      },
+                      "mode": {
+                        "enum": [
+                          288,
+                          360
+                        ]
+                      },
+                      "size_bytes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1073741824
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "path",
+                      "origin",
+                      "archive_mode",
+                      "kind",
+                      "uid",
+                      "gid",
+                      "target"
+                    ],
+                    "properties": {
+                      "path": {
+                        "enum": [
+                          "runtime/lib64",
+                          "lib64"
+                        ]
+                      },
+                      "origin": {
+                        "enum": [
+                          "capsule:runtime/lib64",
+                          "verifier:lib64"
+                        ]
+                      },
+                      "archive_mode": {
+                        "const": 511
+                      },
+                      "kind": {
+                        "const": "symlink"
+                      },
+                      "uid": {
+                        "const": 0
+                      },
+                      "gid": {
+                        "const": 65534
+                      },
+                      "target": {
+                        "const": "lib"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "verifier": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 20000,
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "path",
+                      "origin",
+                      "archive_mode",
+                      "kind",
+                      "uid",
+                      "gid",
+                      "mode",
+                      "size_bytes",
+                      "sha256"
+                    ],
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                        "maxLength": 4096
+                      },
+                      "origin": {
+                        "type": "string",
+                        "pattern": "^(input|capsule|source|historical|verifier):[A-Za-z0-9_./-]+$"
+                      },
+                      "archive_mode": {
+                        "oneOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 511
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "kind": {
+                        "const": "file"
+                      },
+                      "uid": {
+                        "const": 0
+                      },
+                      "gid": {
+                        "const": 65534
+                      },
+                      "mode": {
+                        "enum": [
+                          288,
+                          360
+                        ]
+                      },
+                      "size_bytes": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 1073741824
+                      },
+                      "sha256": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$"
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "path",
+                      "origin",
+                      "archive_mode",
+                      "kind",
+                      "uid",
+                      "gid",
+                      "target"
+                    ],
+                    "properties": {
+                      "path": {
+                        "enum": [
+                          "runtime/lib64",
+                          "lib64"
+                        ]
+                      },
+                      "origin": {
+                        "enum": [
+                          "capsule:runtime/lib64",
+                          "verifier:lib64"
+                        ]
+                      },
+                      "archive_mode": {
+                        "const": 511
+                      },
+                      "kind": {
+                        "const": "symlink"
+                      },
+                      "uid": {
+                        "const": 0
+                      },
+                      "gid": {
+                        "const": 65534
+                      },
+                      "target": {
+                        "const": "lib"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "input_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "occurrence_id",
+        "prelaunch_sha256",
+        "projection_sha256",
+        "inputs",
+        "authority_effect",
+        "production_gate_eligible",
+        "active_gate_eligible",
+        "same_run_release_authority_eligible",
+        "current_inference_count",
+        "worker_launch_executed",
+        "model_weights_loaded",
+        "full_release_host_verified",
+        "historical_metric_pass"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "q2_native_tokenizer_input_check_v0"
+        },
+        "occurrence_id": {
+          "const": "input_check"
+        },
+        "prelaunch_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "projection_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "inputs": {
+          "const": {
+            "capture": {
+              "repository": "HKati/pulse-release-gates-0.1",
+              "run_id": "37600313529",
+              "run_attempt": 1,
+              "source_commit": "fb7b247e24f18c5314fd44f7711bd49e15020364",
+              "artifact_id": 11472726606,
+              "archive_size_bytes": 1809263,
+              "archive_sha256": "88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6",
+              "subject_size_bytes": 4851,
+              "subject_sha256": "ae5f9994c2ad2d59dba57f28b194aae3b9951adc3ef9a4e220af0db80b55ae29",
+              "artifact_name": "q2-reference-capture-37600313529-1"
+            },
+            "preparation": {
+              "repository": "HKati/pulse-release-gates-0.1",
+              "artifact_id": 11282419957,
+              "run_id": "37148637546",
+              "run_attempt": 1,
+              "source_commit": "77fc5d51896568db50a2a87f650711a65db8fe8c",
+              "artifact_name": "q2-runtime-preparation-37148637546-1",
+              "archive_size_bytes": 508460811,
+              "archive_sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9"
+            },
+            "capsule": {
+              "file_name": "q2-release-subject-capsule-20261010.zip",
+              "archive_size_bytes": 452116385,
+              "archive_sha256": "3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734",
+              "capsule_manifest_sha256": "8dfa1b9df8ed7fbd8ea8b749555ba73ebf24f5d8aeb187d15c51163137a0c857",
+              "members": 18499,
+              "expanded_bytes": 1142892836,
+              "repository": "HKati/pulse-release-gates-0.1",
+              "workflow": ".github/workflows/q2_release_capsule_publication_v0.yml",
+              "run_id": "38097352170",
+              "run_attempt": 1,
+              "source_commit": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+              "artifact_id": 11686701538,
+              "artifact_name": "q2-release-subject-capsule-20261010.zip"
+            },
+            "roundtrip": {
+              "repository": "HKati/pulse-release-gates-0.1",
+              "workflow": ".github/workflows/q2_release_capsule_publication_v0.yml",
+              "run_id": "38097352170",
+              "run_attempt": 1,
+              "source_commit": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+              "artifact_id": 11686476032,
+              "artifact_name": "q2-capsule-roundtrip-38097352170-1",
+              "archive_size_bytes": 2911,
+              "archive_sha256": "288880eedbff4ae812d7d2020e2c55aa4814b4d9f08076473a9755ace90bcdd0"
+            }
+          }
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "active_gate_eligible": {
+          "const": false
+        },
+        "same_run_release_authority_eligible": {
+          "const": false
+        },
+        "current_inference_count": {
+          "const": 0
+        },
+        "worker_launch_executed": {
+          "const": false
+        },
+        "model_weights_loaded": {
+          "const": false
+        },
+        "full_release_host_verified": {
+          "const": false
+        },
+        "historical_metric_pass": {
+          "const": false
+        }
+      }
+    },
+    "tokenizer_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "occurrence_id",
+        "prelaunch_sha256",
+        "verified_calls",
+        "groups_sha256",
+        "manifest_sha256",
+        "runtime_versions",
+        "tokenizer_class",
+        "tokenizer_module",
+        "configuration_sha256",
+        "authority_effect",
+        "production_gate_eligible",
+        "active_gate_eligible",
+        "same_run_release_authority_eligible",
+        "current_inference_count",
+        "worker_launch_executed",
+        "model_weights_loaded",
+        "full_release_host_verified",
+        "historical_metric_pass"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "q2_native_tokenizer_check_v0"
+        },
+        "occurrence_id": {
+          "const": "tokenizer_check"
+        },
+        "prelaunch_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "verified_calls": {
+          "const": 150
+        },
+        "groups_sha256": {
+          "const": "d94ce8527f687b3f8bdc8c74034e63aeafe5e36c97326ce953e3cb1ff0c73ddf"
+        },
+        "manifest_sha256": {
+          "const": "3fa4a8a411f2416d75dafe38c50f0a936826b0df161d560645ebc69f78a438a1"
+        },
+        "runtime_versions": {
+          "const": {
+            "torch": "2.8.0+cpu",
+            "transformers": "4.57.6",
+            "rfc8785": "0.1.4",
+            "tokenizers": "0.22.2",
+            "jsonschema": "4.25.1"
+          }
+        },
+        "tokenizer_class": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_]{1,128}$"
+        },
+        "tokenizer_module": {
+          "type": "string",
+          "pattern": "^lib/python3\\.11/site-packages/transformers/[A-Za-z0-9_./-]+\\.py$",
+          "maxLength": 1024
+        },
+        "configuration_sha256": {
+          "const": "1c9bf603f74f0f616f3abfa452b4725921534ca3afbced3ad4d46abc5ec6ddc4"
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "active_gate_eligible": {
+          "const": false
+        },
+        "same_run_release_authority_eligible": {
+          "const": false
+        },
+        "current_inference_count": {
+          "const": 0
+        },
+        "worker_launch_executed": {
+          "const": false
+        },
+        "model_weights_loaded": {
+          "const": false
+        },
+        "full_release_host_verified": {
+          "const": false
+        },
+        "historical_metric_pass": {
+          "const": false
+        }
+      }
+    },
+    "isolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capabilities",
+        "child_netns",
+        "cpu_max",
+        "host_netns",
+        "ipv4_blocked",
+        "ipv6_blocked",
+        "memory_max",
+        "memory_swap_max",
+        "no_new_privs",
+        "pid",
+        "pids_max",
+        "properties",
+        "run_mount",
+        "stage",
+        "uid",
+        "unit"
+      ],
+      "properties": {
+        "capabilities": {
+          "type": "string",
+          "maxLength": 300000
+        },
+        "child_netns": {
+          "type": "string",
+          "maxLength": 300000
+        },
+        "cpu_max": {
+          "type": "string",
+          "maxLength": 300000
+        },
+        "host_netns": {
+          "type": "string",
+          "maxLength": 300000
+        },
+        "ipv4_blocked": {
+          "type": "boolean"
+        },
+        "ipv6_blocked": {
+          "type": "boolean"
+        },
+        "memory_max": {
+          "type": "string",
+          "maxLength": 300000
+        },
+        "memory_swap_max": {
+          "type": "string",
+          "maxLength": 300000
+        },
+        "no_new_privs": {
+          "type": "boolean"
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "pids_max": {
+          "type": "string",
+          "maxLength": 300000
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "CapabilityBoundingSet",
+            "Group",
+            "KillMode",
+            "NoNewPrivileges",
+            "PrivateNetwork",
+            "ProtectHome",
+            "ProtectSystem",
+            "RestrictAddressFamilies",
+            "RuntimeMaxUSec",
+            "SendSIGKILL",
+            "User"
+          ],
+          "properties": {
+            "CapabilityBoundingSet": {
+              "type": "string",
+              "maxLength": 300000
+            },
+            "Group": {
+              "type": "string",
+              "maxLength": 300000
+            },
+            "KillMode": {
+              "type": "string",
+              "maxLength": 300000
+            },
+            "NoNewPrivileges": {
+              "type": "string",
+              "maxLength": 300000
+            },
+            "PrivateNetwork": {
+              "type": "string",
+              "maxLength": 300000
+            },
+            "ProtectHome": {
+              "type": "string",
+              "maxLength": 300000
+            },
+            "ProtectSystem": {
+              "type": "string",
+              "maxLength": 300000
+            },
+            "RestrictAddressFamilies": {
+              "type": "string",
+              "maxLength": 300000
+            },
+            "RuntimeMaxUSec": {
+              "type": "string",
+              "maxLength": 300000
+            },
+            "SendSIGKILL": {
+              "type": "string",
+              "maxLength": 300000
+            },
+            "User": {
+              "type": "string",
+              "maxLength": 300000
+            }
+          }
+        },
+        "run_mount": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "child_mountinfo",
+            "child_namespace",
+            "host_mountinfo",
+            "host_namespace",
+            "mount_stats"
+          ],
+          "properties": {
+            "child_mountinfo": {
+              "type": "string",
+              "maxLength": 300000
+            },
+            "child_namespace": {
+              "type": "string",
+              "maxLength": 300000
+            },
+            "host_mountinfo": {
+              "type": "string",
+              "maxLength": 300000
+            },
+            "host_namespace": {
+              "type": "string",
+              "maxLength": 300000
+            },
+            "mount_stats": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "/run"
+              ],
+              "properties": {
+                "/run": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "device",
+                    "gid",
+                    "inode",
+                    "mode",
+                    "uid"
+                  ],
+                  "properties": {
+                    "device": {
+                      "type": "string",
+                      "maxLength": 300000
+                    },
+                    "gid": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "inode": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "mode": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "uid": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    }
+                  }
+                },
+                "/run/user": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "device",
+                    "gid",
+                    "inode",
+                    "mode",
+                    "uid"
+                  ],
+                  "properties": {
+                    "device": {
+                      "type": "string",
+                      "maxLength": 300000
+                    },
+                    "gid": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "inode": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "mode": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "uid": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    }
+                  }
+                },
+                "/run/credentials": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "device",
+                    "gid",
+                    "inode",
+                    "mode",
+                    "uid"
+                  ],
+                  "properties": {
+                    "device": {
+                      "type": "string",
+                      "maxLength": 300000
+                    },
+                    "gid": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "inode": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "mode": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "uid": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    }
+                  }
+                },
+                "/run/systemd/incoming": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "device",
+                    "gid",
+                    "inode",
+                    "mode",
+                    "uid"
+                  ],
+                  "properties": {
+                    "device": {
+                      "type": "string",
+                      "maxLength": 300000
+                    },
+                    "gid": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "inode": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "mode": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    },
+                    "uid": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 18446744073709551615
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "stage": {
+          "enum": [
+            "capturecheck",
+            "reduction"
+          ]
+        },
+        "uid": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "unit": {
+          "type": "string",
+          "pattern": "^pulse-q2-[0-9a-f]{24}-(capturecheck|reduction)\\.service$"
+        }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "unit",
+        "properties",
+        "cgroup_empty_or_removed",
+        "client_reaped"
+      ],
+      "properties": {
+        "unit": {
+          "type": "string",
+          "pattern": "^pulse-q2-[0-9a-f]{24}-(capturecheck|reduction)\\.service$"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "LoadState",
+            "ActiveState",
+            "ControlGroup"
+          ],
+          "properties": {
+            "LoadState": {
+              "enum": [
+                "loaded",
+                "not-found"
+              ]
+            },
+            "ActiveState": {
+              "const": "inactive"
+            },
+            "ControlGroup": {
+              "type": "string",
+              "maxLength": 256
+            }
+          }
+        },
+        "cgroup_empty_or_removed": {
+          "const": true
+        },
+        "client_reaped": {
+          "const": true
+        }
+      }
+    },
+    "occurrence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "status",
+        "argv",
+        "expected_exit",
+        "exit_code",
+        "unit",
+        "pid",
+        "launch_ns",
+        "isolation_observed_ns",
+        "exec_ns",
+        "exit_ns",
+        "cleanup_ns",
+        "output_frozen_ns",
+        "stdout_eof",
+        "isolation",
+        "input_bindings",
+        "cleanup",
+        "projection_after_sha256",
+        "outputs"
+      ],
+      "properties": {
+        "id": {
+          "enum": [
+            "input_check",
+            "tokenizer_check",
+            "summary_builder",
+            "summary_checker"
+          ]
+        },
+        "status": {
+          "const": "completed"
+        },
+        "argv": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 30,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        },
+        "expected_exit": {
+          "enum": [
+            0,
+            1
+          ]
+        },
+        "exit_code": {
+          "enum": [
+            0,
+            1
+          ]
+        },
+        "unit": {
+          "type": "string",
+          "pattern": "^pulse-q2-[0-9a-f]{24}-(capturecheck|reduction)\\.service$"
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 2147483647
+        },
+        "launch_ns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "isolation_observed_ns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "exec_ns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "exit_ns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "cleanup_ns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "output_frozen_ns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "stdout_eof": {
+          "const": true
+        },
+        "isolation": {
+          "$ref": "#/$defs/isolation"
+        },
+        "input_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "producer",
+              "sha256"
+            ],
+            "properties": {
+              "name": {
+                "enum": [
+                  "projection.json",
+                  "input-check.json",
+                  "groups.json",
+                  "dataset-manifest.json",
+                  "summary.json"
+                ]
+              },
+              "producer": {
+                "enum": [
+                  "supervisor",
+                  "input_check",
+                  "tokenizer_check",
+                  "summary_builder",
+                  "summary_checker"
+                ]
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
+        "cleanup": {
+          "$ref": "#/$defs/cleanup"
+        },
+        "projection_after_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "outputs": {
+          "type": "object",
+          "minProperties": 1,
+          "maxProperties": 3,
+          "additionalProperties": false,
+          "properties": {
+            "input-check.json": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "tokenizer-check.json": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "groups.json": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "dataset-manifest.json": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "summary.json": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "summary-check.json": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      }
+    }
+  }
+}
