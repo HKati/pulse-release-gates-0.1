@@ -8,6 +8,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Add the owner-only Q2 native tokenizer unit with closed source/input/output
+  contracts, immutable capsule projection, four externally isolated occurrences,
+  exact historical negative reduction and independent receipt replay. Add
+  positive/negative offline regressions, a manual-only pinned workflow and exact
+  hygiene/classification/test registrations. This implementation executes no
+  worker/model capture, creates no authority, preserves historical FAIL/BLOCK,
+  and still requires separately acquired and preserved native owner-run evidence.
+
 - Add owner-only Q2 capsule reconstruction/publication and a separate fresh-job
   artifact roundtrip verifier. Bind the original archives, official bootstrap,
   every payload byte/mode and the complete deterministic ZIP; execute no model.
