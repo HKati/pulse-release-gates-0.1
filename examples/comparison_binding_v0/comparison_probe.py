@@ -211,7 +211,8 @@ def geometry_evidence(fixture, enabled_bindings=()):
     target = binding["target"]
     source_state = resolve(fixture, source["state_ref"])
     target_state = resolve(fixture, target["state_ref"])
-    if known_cells(fixture, source["system_support"]) != FULL:
+    source_support = known_cells(fixture, source["system_support"])
+    if source_support is not None and source_support != FULL:
         raise ContractError("the geometric witness requires the fixed source support")
     if exact(resolve(fixture, source["metric_ref"])["scale_factor"]) != 1:
         raise ContractError("the geometric witness requires source scale 1")
@@ -226,7 +227,8 @@ def geometry_evidence(fixture, enabled_bindings=()):
         target_curvature=exact(target_state["curvature_observation"]),
         primary_support=members if "primary_support" in enabled else None,
         backup_support=members if "backup_support" in enabled else None,
-        reference_binding_valid=True, observation_binding_valid=observation_valid,
+        reference_binding_valid=source_support is not None,
+        observation_binding_valid=observation_valid,
     )
 
 
@@ -289,6 +291,10 @@ def compare_field(fixture):
         else:
             item = {"status": "observed", "value": str(exact(samples[1][cell]) - exact(samples[0][cell]))}
         deltas[cell] = item
+    if not source_support and not target_support:
+        return {"status": "INCOMPATIBLE", "global_scalar_field_identity": "UNRESOLVED",
+                "reason": "nonempty_declared_support_required", "deltas": deltas,
+                "authority_effect": "none"}
     observed = [item for item in deltas.values() if item["status"] == "observed"]
     unobserved = [item for item in deltas.values() if item["status"] == "unobserved"]
     if source_support != target_support:
@@ -308,7 +314,7 @@ def _status_axes(observation, binding, consistency):
     # Neither target identification nor replay evaluates a physical cause.
     return {"observation_status": observation, "binding_status": binding,
             "consistency_status": consistency, "reproduction_status": "bounded_replay_only",
-            "causal_status": "not_evaluated", "authority_status": "diagnostic"}
+            "causal_status": "not_evaluated", "authority_status": "none"}
 
 
 def geometry_status_view(evidence):
@@ -342,6 +348,8 @@ def field_status_view(fixture):
         raise ContractError("scalar bounded replay changed the response")
     if result["status"] == "UNBOUND":
         observation, binding, consistency = "not_observed", "unbound", "internally_incomplete"
+    elif result["status"] == "INCOMPATIBLE":
+        observation, binding, consistency = "not_observed", "bound", "conflicting"
     else:
         observation = "partially_observed" if result["status"] == "PARTIALLY_OBSERVED" else "reconstructed"
         binding = "bound"

@@ -89,7 +89,7 @@ moves between merged and open work, update this index.
   minimal reference-based comparison carrier, three geometric fixtures and
   target-scoped views using the six canonical status groups. Separates system
   support from successful sample coverage and preserves missing values without
-  zero imputation. The companion has 29 regression methods and two integration
+  zero imputation. The companion has 32 regression methods and two integration
   tests registered in the existing targeted pytest manifest; general field
   transport, physical path identity and causality are not claimed;
   `authority_effect = none`.

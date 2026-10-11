@@ -13,7 +13,7 @@ test_t11_changed_unmapped_observer_is_unbound (test_comparison_probe.BaseTwelveC
 test_t12_conflicting_supports_do_not_vacuously_identify (test_comparison_probe.BaseTwelveChecks.test_t12_conflicting_supports_do_not_vacuously_identify) ... ok
 
 ----------------------------------------------------------------------
-Ran 12 tests in 0.025s
+Ran 12 tests in 0.018s
 
 OK
 [missing_domain]
@@ -23,9 +23,12 @@ test_z03_unknown_coverage_is_not_empty_coverage (test_missing_domain.MissingDoma
 test_z04_measured_zero_is_preserved_as_a_measurement (test_missing_domain.MissingDomainChecks.test_z04_measured_zero_is_preserved_as_a_measurement) ... ok
 test_z05_removed_support_has_no_numeric_field_extension (test_missing_domain.MissingDomainChecks.test_z05_removed_support_has_no_numeric_field_extension) ... ok
 test_z06_unknown_system_support_is_not_an_empty_system (test_missing_domain.MissingDomainChecks.test_z06_unknown_system_support_is_not_an_empty_system) ... ok
+test_z07_unknown_source_support_keeps_replay_and_status_views_unbound (test_missing_domain.MissingDomainChecks.test_z07_unknown_source_support_keeps_replay_and_status_views_unbound) ... ok
+test_z08_two_known_empty_supports_cannot_identify_a_scalar_field (test_missing_domain.MissingDomainChecks.test_z08_two_known_empty_supports_cannot_identify_a_scalar_field) ... ok
+test_z09_known_nonfull_source_stays_outside_the_geometric_profile (test_missing_domain.MissingDomainChecks.test_z09_known_nonfull_source_stays_outside_the_geometric_profile) ... ok
 
 ----------------------------------------------------------------------
-Ran 6 tests in 0.019s
+Ran 9 tests in 0.059s
 
 OK
 [independent_review]
@@ -36,7 +39,7 @@ test_r04_internal_evidence_requires_explicit_types_and_binding_flags (test_indep
 test_r05_sensor_loss_is_not_system_support_reduction (test_independent_review.IndependentReviewChecks.test_r05_sensor_loss_is_not_system_support_reduction) ... ok
 
 ----------------------------------------------------------------------
-Ran 5 tests in 0.077s
+Ran 5 tests in 0.049s
 
 OK
 [status_binding]
@@ -48,6 +51,6 @@ test_s05_measured_difference_does_not_complete_unobserved_samples (test_status_b
 test_s06_sensor_loss_does_not_promote_scalar_identity_from_geometry (test_status_binding.StatusBindingChecks.test_s06_sensor_loss_does_not_promote_scalar_identity_from_geometry) ... ok
 
 ----------------------------------------------------------------------
-Ran 6 tests in 0.046s
+Ran 6 tests in 0.029s
 
 OK

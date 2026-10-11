@@ -14,7 +14,8 @@ from comparison_probe import (FIXTURE_NAMES, MODEL, SCHEMA_PATH, compare_field,
     field_status_view, geometry_evidence, geometry_status_view, load_fixture, replay, resolve)
 from make_fixtures import rewrite_artifact
 from test_comparison_probe import BaseTwelveChecks
-from test_missing_domain import MissingDomainChecks, with_missing_target_sample
+from test_missing_domain import (MissingDomainChecks, with_endpoint_support,
+                                with_missing_target_sample)
 from test_independent_review import IndependentReviewChecks, with_sensor_loss
 from test_status_binding import StatusBindingChecks
 
@@ -27,7 +28,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     output = args.output_dir.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    suites = [('base_twelve', BaseTwelveChecks, 12), ('missing_domain', MissingDomainChecks, 6),
+    suites = [('base_twelve', BaseTwelveChecks, 12), ('missing_domain', MissingDomainChecks, 9),
               ('independent_review', IndependentReviewChecks, 5), ('status_binding', StatusBindingChecks, 6)]
     stream = io.StringIO()
     totals = {}
@@ -58,6 +59,11 @@ def main(argv=None):
                 'support_bound': geometry_status_view(geometry_evidence(fixture, ('primary_support',)))},
             'scalar_field_status_view': field_status_view(fixture)})
     missing = compare_field(with_missing_target_sample(fixtures[0]))
+    unknown_source = deepcopy(fixtures[0])
+    unknown_source['comparison_binding']['source']['system_support'] = {
+        'status': 'unknown', 'reason': 'source membership receipt unavailable'}
+    empty_supports = with_endpoint_support(fixtures[0], 'source', ())
+    empty_supports = with_endpoint_support(empty_supports, 'target', ())
     zero_fixture = deepcopy(fixtures[0])
     zero_state = deepcopy(zero_fixture['artifacts']['target_state']['payload'])
     zero_state['field_observations']['cell:063'] = '0'
@@ -85,7 +91,10 @@ def main(argv=None):
             'missing_target_sample': missing['deltas']['cell:063'],
             'missing_target_sample_global_scalar_field_identity': missing['global_scalar_field_identity'],
             'measured_target_zero': zero['deltas']['cell:063'],
-            'removed_target_support': removed['deltas']['cell:063']},
+            'removed_target_support': removed['deltas']['cell:063'],
+            'unknown_source_support_geometry_status_view': geometry_status_view(
+                geometry_evidence(unknown_source, ('primary_support',))),
+            'known_empty_supports_scalar_status_view': field_status_view(empty_supports)},
         'sensor_loss_example': {
             'same_observed_projection_as_fixture_c': all(target_states[0][key] == target_states[1][key]
                 for key in ('curvature_observation', 'field_observations')),
@@ -100,7 +109,7 @@ def main(argv=None):
     (output / 'results.json').write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n',
                                      encoding='utf-8', newline='\n')
     (output / 'TEST_RESULTS.txt').write_text(stream.getvalue(), encoding='utf-8', newline='\n')
-    print(f"12 base + 6 missing-domain + 5 review + 6 status-binding checks: {'PASS' if passed else 'FAIL'}")
+    print(f"12 base + 9 missing-domain + 5 review + 6 status-binding checks: {'PASS' if passed else 'FAIL'}")
     print('3 fixtures; diagnostic only; authority_effect=none')
     return 0 if passed else 1
 

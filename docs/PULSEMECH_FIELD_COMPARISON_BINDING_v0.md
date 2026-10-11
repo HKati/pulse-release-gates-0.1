@@ -141,12 +141,12 @@ identity labels and the unit-test `PASS` do not replace these groups.
 
 | Canonical group | Diagnostic binding in this example |
 |---|---|
-| `observation_status` | Derived complete comparison → `reconstructed`; missing comparison coverage/support → `partially_observed`; unbound comparison → `not_observed`. These refer to synthetic comparison evidence, not physical observation. |
+| `observation_status` | Derived complete comparison → `reconstructed`; missing comparison coverage/support → `partially_observed`; unbound comparison or no admissible scalar domain → `not_observed`. These refer to synthetic comparison evidence, not physical observation. |
 | `binding_status` | Required claim bindings available → `bound`; support still unresolved in a geometry projection → `partially_bound`; unusable comparison meaning → `unbound`; contradictory endpoint-support receipts → `identity_conflict`. |
-| `consistency_status` | One target value → `consistent`; several values or unresolved scalar identity → `ambiguous`; empty compatible set → `conflicting`; unbound comparison → `internally_incomplete`. |
+| `consistency_status` | One target value → `consistent`; several values or unresolved scalar identity → `ambiguous`; an `INCOMPATIBLE` assessment → `conflicting`; unbound comparison → `internally_incomplete`. |
 | `reproduction_status` | The same evidence is evaluated again and equality is checked → `bounded_replay_only`. This does not assert physical or cross-instrument reproduction. |
 | `causal_status` | Always `not_evaluated`; this example has no path or causal experiment. |
-| `authority_status` | Always `diagnostic`, with `authority_effect: none`; no policy activation. |
+| `authority_status` | Always `none`, with `authority_effect: none`; no policy activation. The diagnostic role is expressed by `record_status: synthetic_diagnostic` outside the canonical axis. |
 
 The more specific obligations discussed during contract design fit inside these
 existing groups and the claim/evidence structure:
@@ -206,8 +206,10 @@ control uses an in-memory copy of A.
 |---|---|---|
 | Sample absent on retained support | `unobserved`, `value: null` | Agreeing remaining samples leave full identity unresolved. |
 | Coverage unknown | `unbound`, `value: null` | The field comparison is UNBOUND; unknown is not empty. |
+| Source system support unknown | `unbound`, `value: null` | Scalar comparison and geometric replay are UNBOUND; geometric candidate count and target values remain unknown. |
 | Coverage binding omitted or null | Contract rejection | No result promotion. |
 | Known empty acquisition coverage | All retained points unobserved | Does not establish a zero field. |
+| Both declared system supports known empty | `outside_both_supports`, `value: null` | Scalar comparison is INCOMPATIBLE under the nonempty rule; full scalar identity remains unresolved. |
 | Target measured 0, source measured 1 | `observed`, value `"-1"` | Measured difference is retained. |
 | Verified removed target support | `outside_target_support`, `value: null` | Support inequality; no zero extension. |
 
@@ -219,11 +221,11 @@ Any future consumer must preserve this distinction at its own boundary.
 | Test group | Methods | Coverage |
 |---|---:|---|
 | T01–T12 | 12 | Geometry, equal projections, support discrimination, backup routes, narrow targets, unbound frames and conflicting evidence. |
-| Z01–Z06 | 6 | Missing samples, omitted/unknown coverage, empty acquisition, measured zero and removed/unknown support. |
+| Z01–Z09 | 9 | Missing samples, omitted/unknown coverage, empty acquisition, measured zero, removed/unknown support, unknown-source replay, empty declared supports and the fixed-source geometric profile. |
 | R01–R05 | 5 | Sixteen per-cell combinations, twelve endpoint binding controls, four absent/null sample controls, strict internal packet types and sensor loss. |
 | S01–S06 | 6 | Explicit six-axis views, incomplete bindings despite identification, conflict, partial observation and claim separation. |
 
-The 29 companion methods and two integration tests run through
+The 32 companion methods and two integration tests run through
 `tests/test_comparison_binding_v0.py`, registered in the existing targeted pytest
 manifest. No workflow edits are required. The
 [reference result](../examples/comparison_binding_v0/results.json) records actual

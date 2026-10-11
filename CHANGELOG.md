@@ -187,7 +187,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   and an offline synthetic companion. Separate system support from successful
   observation coverage, reject missing/null bindings and preserve unavailable
   differences without zero imputation. Include three geometric fixtures,
-  29 companion regressions and two integration tests; expose target-scoped
+  32 companion regressions and two integration tests; expose target-scoped
   diagnostic views through the six existing canonical status groups. Register
   the integration entrypoint in the existing targeted pytest manifest. Keep
   physical path and causal claims unexecuted and release authority unchanged.

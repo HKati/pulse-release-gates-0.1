@@ -28,7 +28,8 @@ class StatusBindingChecks(unittest.TestCase):
                 self.assertEqual(set(axes), expected_keys)
                 self.assertEqual(axes['reproduction_status'], 'bounded_replay_only')
                 self.assertEqual(axes['causal_status'], 'not_evaluated')
-                self.assertEqual(axes['authority_status'], 'diagnostic')
+                self.assertEqual(axes['authority_status'], 'none')
+                self.assertEqual(view['record_status'], 'synthetic_diagnostic')
                 self.assertEqual(view['authority_effect'], 'none')
                 self.assertFalse(view['physical_transition_path_evaluated'])
 

@@ -19,7 +19,7 @@ python examples/comparison_binding_v0/run_review.py --output-dir /tmp/pulsemech-
 python tests/test_comparison_binding_v0.py
 ```
 
-The first command runs 29 companion test methods and writes `results.json` and
+The first command runs 32 companion test methods and writes `results.json` and
 `TEST_RESULTS.txt` to the selected directory. The second runs two integration
 tests, including a fresh companion execution and reference-result comparison.
 The comparison permits different interpreter-version metadata; every semantic
@@ -44,7 +44,7 @@ python -m unittest discover -s examples/comparison_binding_v0 -p 'test_*.py' -v
 | `make_fixtures.py` | Deterministic generator of the three supplied fixtures. |
 | `fixtures/*.json` | Expansion, fixed-support contraction and reduced-support examples. |
 | `test_comparison_probe.py` | T01–T12: twelve original geometric/binding tests. |
-| `test_missing_domain.py` | Z01–Z06: six missing-data tests. |
+| `test_missing_domain.py` | Z01–Z09: nine missing-data and support-boundary tests. |
 | `test_independent_review.py` | R01–R05: independent counterexamples and strict internal packet checks. |
 | `test_status_binding.py` | S01–S06: keep target identification separate from binding completeness, observation, cause and authority. |
 | `run_review.py` | Executes the fixed inventory and writes reference-shaped reports. |
@@ -57,15 +57,20 @@ JCS. A digest binds those encoded payload bytes, not the measurement or producer
 ## Missingness and proof scope
 
 Missing observations retain `unobserved` and `value: null`. Unknown support or
-coverage produces `UNBOUND`; an omitted or null binding is rejected. A measured
+coverage produces `UNBOUND` for scalar comparison; unknown source support also
+keeps geometric replay `UNBOUND`. An omitted or null binding is rejected. A measured
 zero remains numeric: target 0 minus source 1 is `"-1"`. Verified removed support
 is reported separately and receives no numerical field extension.
+
+Two known empty system supports produce an `INCOMPATIBLE` scalar comparison
+under the declared nonempty rule, with unresolved identity and no numeric deltas.
 
 `global_scalar_field_identity` concerns only the finite scalar field on its
 declared support. It does not assert metric, full-configuration or transition
 identity. Diagnostic status views serialize all six canonical status groups,
 but identify only their named comparison claim. They perform same-model bounded
-replay and leave causal evaluation unperformed.
+replay and leave causal evaluation unperformed. Canonical `authority_status`
+remains `none`; `record_status: synthetic_diagnostic` carries the diagnostic role.
 
 The candidate set contains four scale/support combinations. Its closure is not
 exhaustive physical-path closure. The primary and backup paths reach the same

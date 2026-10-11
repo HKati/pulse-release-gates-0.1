@@ -2,7 +2,8 @@
 from copy import deepcopy
 import unittest
 
-from comparison_probe import (ContractError, FIXTURE_NAMES, compare_field,
+from comparison_probe import (ContractError, FIXTURE_NAMES, SMALL, compare_field,
+                              field_status_view, geometry_evidence, geometry_status_view,
                               load_fixture, replay, validate_fixture)
 from make_fixtures import rewrite_artifact
 
@@ -15,6 +16,22 @@ def with_missing_target_sample(fixture, cell='cell:063'):
     state = deepcopy(fixture['artifacts']['target_state']['payload'])
     del state['field_observations'][cell]
     rewrite_artifact(fixture, 'target_state', state)
+    return fixture
+
+
+def with_endpoint_support(fixture, label, cells):
+    """Bind a known endpoint support and its actual samples to the same cells."""
+    fixture = deepcopy(fixture)
+    for suffix in ('support', 'coverage'):
+        name = label + '_' + suffix
+        payload = deepcopy(fixture['artifacts'][name]['payload'])
+        payload['cells'] = sorted(cells)
+        rewrite_artifact(fixture, name, payload)
+    name = label + '_state'
+    state = deepcopy(fixture['artifacts'][name]['payload'])
+    state['field_observations'] = {
+        cell: state['field_observations'][cell] for cell in sorted(cells)}
+    rewrite_artifact(fixture, name, state)
     return fixture
 
 
@@ -86,6 +103,54 @@ class MissingDomainChecks(unittest.TestCase):
         self.assertEqual(report['status'], 'UNBOUND')
         self.assertTrue(all(item['value'] is None for item in report['deltas'].values()))
         self.assertEqual(replay(fixture, ('primary_support',))[1:4], ('UNRESOLVED', 2, (-1,1)))
+
+    def test_z07_unknown_source_support_keeps_replay_and_status_views_unbound(self):
+        paths = ((), ('primary_support',), ('backup_support',),
+                 ('primary_support', 'backup_support'))
+        for name in FIXTURE_NAMES:
+            fixture = load_fixture(name)
+            fixture['comparison_binding']['source']['system_support'] = {
+                'status': 'unknown', 'reason': 'source membership receipt unavailable'}
+            validate_fixture(fixture)
+            self.assertEqual(field_status_view(fixture)['status_axes']['binding_status'], 'unbound')
+            for enabled in paths:
+                with self.subTest(fixture=name, paths=enabled):
+                    self.assertEqual(replay(fixture, enabled),
+                                     ('defined', 'UNBOUND', None, None, 'diagnostic_only'))
+                    view = geometry_status_view(geometry_evidence(fixture, enabled))
+                    self.assertEqual(view['target_assessment']['identification_status'], 'UNBOUND')
+                    self.assertIsNone(view['target_assessment']['compatible_candidate_count'])
+                    self.assertIsNone(view['target_assessment']['possible_target_values'])
+                    self.assertEqual(view['status_axes']['binding_status'], 'unbound')
+                    self.assertEqual(view['status_axes']['consistency_status'], 'internally_incomplete')
+
+    def test_z08_two_known_empty_supports_cannot_identify_a_scalar_field(self):
+        for name in FIXTURE_NAMES:
+            with self.subTest(fixture=name):
+                fixture = with_endpoint_support(load_fixture(name), 'source', ())
+                fixture = with_endpoint_support(fixture, 'target', ())
+                validate_fixture(fixture)
+                report = compare_field(fixture)
+                self.assertEqual(report['status'], 'INCOMPATIBLE')
+                self.assertEqual(report['global_scalar_field_identity'], 'UNRESOLVED')
+                self.assertTrue(all(item['status'] == 'outside_both_supports'
+                                    and item['value'] is None for item in report['deltas'].values()))
+                view = field_status_view(fixture)
+                self.assertEqual(view['status_axes']['observation_status'], 'not_observed')
+                self.assertEqual(view['status_axes']['binding_status'], 'bound')
+                self.assertEqual(view['status_axes']['consistency_status'], 'conflicting')
+
+    def test_z09_known_nonfull_source_stays_outside_the_geometric_profile(self):
+        for cells in (SMALL, frozenset()):
+            with self.subTest(source_support=cells):
+                fixture = with_endpoint_support(self.a, 'source', cells)
+                validate_fixture(fixture)
+                with self.assertRaisesRegex(ContractError, 'fixed source support'):
+                    geometry_evidence(fixture, ('primary_support',))
+                # One known empty endpoint still proves support inequality;
+                # it must not be confused with unknown support or empty equality.
+                self.assertEqual(compare_field(fixture)['global_scalar_field_identity'],
+                                 'NOT_EQUAL_SUPPORT')
 
 
 if __name__ == '__main__':
