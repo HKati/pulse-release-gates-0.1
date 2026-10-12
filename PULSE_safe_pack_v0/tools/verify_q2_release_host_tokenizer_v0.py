@@ -439,6 +439,46 @@ class OccurrenceFailure(ValueError):
         self.observation = observation
 
 
+def expose_projection(run_directory):
+    """Permit descriptor-walking readers without exposing collector payloads."""
+    private, root = run_directory / "private", run_directory / "projection"
+    io.require(set(p.name for p in run_directory.iterdir()) == {"private", "projection"},
+               "q2_file_rejected")
+    for path in (run_directory, private, root):
+        io.require(path.is_dir() and not path.is_symlink(), "q2_file_rejected")
+    io.require(stat.S_IMODE(private.stat().st_mode) == 0o700, "q2_file_rejected")
+    os.chown(private, 0, 0)
+    # _open_regular opens every ancestor O_RDONLY|O_DIRECTORY|O_NOFOLLOW.
+    # Execute-only (0711) is insufficient. Read access to the run directory
+    # reveals just these two fixed names; private remains root-only 0700.
+    for path in (root, run_directory):
+        os.chown(path, 0, 65534); os.chmod(path, 0o550)
+
+
+def failure_detail(error, fallback="q2_replay_rejected"):
+    """Closed diagnostic vocabulary; exception messages never cross this edge."""
+    code = getattr(error, "code", None)
+    if type(code) is str and code in io.ERROR_CODES:
+        return {"error_code": code, "reason": code}
+    known = {"external_deadline_expired", "protocol_output_bound", "cleanup_unit_shape",
+             "capture_cleanup_property_shape", "capture_cleanup_observation_missing",
+             "capture_service_not_inactive", "capture_cleanup_cgroup_changed",
+             "capture_cgroup_not_empty", "capture_client_not_reaped"}
+    reason = error.args[0] if isinstance(error, native.NativeQualificationError) and len(error.args) == 1 else None
+    return {"error_code": fallback, "reason": reason if type(reason) is str and reason in known else "unknown"}
+
+
+def child_error_code(path):
+    """A bounded, non-authoritative hint; never publish raw child stderr."""
+    try:
+        raw = io.read_file(path, 128 * 1024)
+        allowed = {code.encode("ascii"): code for code in io.ERROR_CODES}
+        matches = {allowed[line] for line in raw.splitlines() if line in allowed}
+        return next(iter(matches)) if len(matches) == 1 else "unknown"
+    except Exception:
+        return "unknown"
+
+
 def complete_expected(service, expected_exit, budget):
     """Exit 1 is allowed only for the predeclared negative metric builder."""
     deadline = min(service.deadline, service.runtime_deadline_ns / 1e9, budget.end)
@@ -446,6 +486,9 @@ def complete_expected(service, expected_exit, budget):
     io.require(len(tail) <= 128 * 1024, "q2_archive_limit")
     left = deadline - time.monotonic(); io.require(left > 0, "q2_timeout")
     rc = service.process.wait(timeout=left)
+    # Keep the actual terminal exit even when it fails the declared contract.
+    # A later cleanup kill/wait must not be mistaken for this completed exit.
+    service.completed_exit_code = rc
     io.require(type(expected_exit) is int and expected_exit in (0, 1) and rc == expected_exit,
                "q2_replay_rejected")
     return tail, rc
@@ -492,11 +535,15 @@ def run_occurrence(root, private, declared, projection, pre, p, budget):
         input_bindings.append({**row, "sha256": io.digest(raw)})
     independent.check_projection(root, projection, p, budget)
     service, error, cleanup, record = None, None, None, None
+    cleanup_error, cleanup_verified = None, False
+    phase = "startup"
+    log = private / (declared["id"] + ".stderr")
     try:
         prefix = "pulse-q2-" + uuid.uuid4().hex[:24]
         service = ObservedService.__new__(ObservedService)
         service.__init__(prefix, declared["stage"], declared["argv"], work,
-            root / "verifier/bin/python", private / (declared["id"] + ".stderr"), budget.end)
+            root / "verifier/bin/python", log, budget.end)
+        phase = "completion"
         tail, rc = complete_expected(service, declared["expected_exit"], budget)
         exit_ns = time.monotonic_ns()
         record = {"id": declared["id"], "status": "completed", "argv": declared["argv"],
@@ -514,33 +561,40 @@ def run_occurrence(root, private, declared, projection, pre, p, budget):
             try:
                 with phase_boundary(cleanup_seconds(budget)):
                     cleanup = native.close_capture_service(service)
+                    cleanup_path = independent.TOOLS + "check_q2_reference_capture_v0.py"
+                    cleanup_sha = next(r["sha256"] for r in pre["source_bindings"] if r["path"] == cleanup_path)
+                    cleanup_checker = independent.import_bound(root / "source", cleanup_path, cleanup_sha)
+                    cleanup_checker.capture_cleanup_check(cleanup, service.unit)
+                    cleanup_verified = True
             except BaseException as exc:
-                if error is None: error = exc
-    if error is not None:
-        partial = {"id": declared["id"], "status": "failed", "unit": getattr(service, "unit", None),
-                   "pid": getattr(service, "observation", {}).get("pid"),
-                   "exec_ns": getattr(service, "exec_ns", None), "cleanup": cleanup}
-        raise OccurrenceFailure(error.code if isinstance(error, io.IntakeError) else "q2_replay_rejected", partial) from None
+                cleanup_error = exc
+                if error is None: error, phase = exc, "cleanup"
     try:
-        io.require(record is not None and cleanup is not None, "q2_cleanup_failed")
+        if error is not None: raise error
+        phase = "post_execution"
+        io.require(record is not None and cleanup_verified, "q2_cleanup_failed")
         record["cleanup"] = cleanup; record["cleanup_ns"] = time.monotonic_ns()
         budget.remaining()
         independent.check_projection(root, projection, p, budget)
-        cleanup_path = independent.TOOLS + "check_q2_reference_capture_v0.py"
-        cleanup_sha = next(r["sha256"] for r in pre["source_bindings"] if r["path"] == cleanup_path)
-        cleanup_checker = independent.import_bound(root / "source", cleanup_path, cleanup_sha)
-        cleanup_checker.capture_cleanup_check(cleanup, record["unit"])
         io.require(independent.verify_bootstrap(root / "inputs/bootstrap.tar.gz", p, budget) == pre["bootstrap_lib_sha256"],
                    "q2_replay_environment")
         record["projection_after_sha256"] = io.digest(io.encode(projection))
+        phase = "output_freeze"
         record["outputs"] = freeze_output(work, root / "handoff" / declared["id"], declared, tail, p, budget)
         record["output_frozen_ns"] = time.monotonic_ns()
         return record
     except BaseException as exc:
+        detail = failure_detail(exc, "q2_cleanup_failed" if phase == "cleanup" else "q2_replay_rejected")
         partial = {"id": declared["id"], "status": "failed", "unit": getattr(service, "unit", None),
                    "pid": getattr(service, "observation", {}).get("pid"),
-                   "exec_ns": getattr(service, "exec_ns", None), "cleanup": cleanup}
-        raise OccurrenceFailure(exc.code if isinstance(exc, io.IntakeError) else "q2_replay_rejected", partial) from None
+                   "exec_ns": getattr(service, "exec_ns", None), "stage": declared["stage"],
+                   "failure_phase": phase, "failure": detail,
+                   "expected_exit": declared["expected_exit"],
+                   "exit_code": getattr(service, "completed_exit_code", None),
+                   "child_error_code": child_error_code(log),
+                   "cleanup": cleanup if cleanup_verified else None, "cleanup_verified": cleanup_verified,
+                   "cleanup_error": failure_detail(cleanup_error, "q2_cleanup_failed") if cleanup_error else None}
+        raise OccurrenceFailure(detail["error_code"], partial) from None
 
 
 def atomic_publish(directory, name, raw):
@@ -570,10 +624,11 @@ def supervise(repo, environment=None, bootstrap_snapshot=None):
     for key in tuple(os.environ):
         if key.startswith("PULSE_Q2_"): os.environ.pop(key, None)
     budget = independent.Budget(1200)
-    root, private, output, binding = None, None, None, None
+    root, private, run_directory, output, binding = None, None, None, None, None
     records = []
     accepted, error, cleaned = None, None, False
     bootstrap_cleaned = bootstrap_snapshot is None
+    cleanup_errors = {}
     try:
         with phase_boundary(1200):
             p = independent.load_profile(repo)
@@ -585,9 +640,10 @@ def supervise(repo, environment=None, bootstrap_snapshot=None):
                        shutil.disk_usage(Path("/var/lib")).free >= 8 * 1024**3, "q2_file_rejected")
             destination = parent / "q2-native-tokenizer"; destination.mkdir(mode=0o755)
             output = destination
-            private = Path(tempfile.mkdtemp(prefix="pulse-q2-tokenizer-", dir="/var/lib"))
-            os.chmod(private, 0o700)
-            root = private / "projection"; root.mkdir(mode=0o700)
+            run_directory = Path(tempfile.mkdtemp(prefix="pulse-q2-tokenizer-", dir="/var/lib"))
+            os.chmod(run_directory, 0o700)
+            private = run_directory / "private"; private.mkdir(mode=0o700)
+            root = run_directory / "projection"; root.mkdir(mode=0o700)
             client = io.GitHubArtifactTransport(token)
             binding = authenticate_current(client, binding, budget)
             for role, filename in independent.ARCHIVE_FILES.items():
@@ -615,9 +671,7 @@ def supervise(repo, environment=None, bootstrap_snapshot=None):
             freeze_directories(control)
             for name in ("work", "handoff"):
                 (root / name).mkdir(mode=0o550); os.chown(root / name, 0, 65534)
-            # Traverse-only parent permits UID 65534 to reach the projection.
-            # Incoming archives/logs stay root-private, not subject-readable.
-            os.chmod(private, 0o711); os.chown(root, 0, 65534); os.chmod(root, 0o550)
+            expose_projection(run_directory)
             independent.check_prelaunch(root / "source", pre, request_raw, projection_raw, p)
             for declared in pre["occurrences"]:
                 records.append(run_occurrence(root, private, declared, projection, pre, p, budget))
@@ -653,14 +707,15 @@ def supervise(repo, environment=None, bootstrap_snapshot=None):
         error = exc
     finally:
         token = None
-        if private is not None:
+        if run_directory is not None:
             try:
                 with phase_boundary(cleanup_seconds(budget)):
-                    shutil.rmtree(private)
-                    io.require(not os.path.lexists(private), "q2_cleanup_failed")
+                    shutil.rmtree(run_directory)
+                    io.require(not os.path.lexists(run_directory), "q2_cleanup_failed")
                     cleaned = True
             except BaseException as exc:
-                if error is None: error = exc
+                cleanup_errors["run_directory"] = failure_detail(exc, "q2_cleanup_failed")
+                if error is None: error = io.IntakeError("q2_cleanup_failed")
         if bootstrap_snapshot is not None:
             try:
                 with phase_boundary(cleanup_seconds(budget)):
@@ -668,7 +723,8 @@ def supervise(repo, environment=None, bootstrap_snapshot=None):
                     io.require(not os.path.lexists(bootstrap_snapshot), "q2_cleanup_failed")
                     bootstrap_cleaned = True
             except BaseException as exc:
-                if error is None: error = exc
+                cleanup_errors["bootstrap_snapshot"] = failure_detail(exc, "q2_cleanup_failed")
+                if error is None: error = io.IntakeError("q2_cleanup_failed")
     if error is None:
         try:
             io.require(accepted is not None and cleaned and bootstrap_cleaned, "q2_cleanup_failed")
@@ -678,9 +734,13 @@ def supervise(repo, environment=None, bootstrap_snapshot=None):
         else:
             return accepted
     if output is not None:
+        service_cleanup_verified = not isinstance(error, OccurrenceFailure) or error.observation.get("cleanup_verified") is True
         diagnostic = {"record_type": "q2_native_tokenizer_failure_v0", "status": "rejected",
             "error_code": error.code if isinstance(error, (io.IntakeError, OccurrenceFailure)) else "q2_replay_rejected",
-            "cleanup": "verified_removed" if cleaned and bootstrap_cleaned else "not_verified",
+            "cleanup": "verified_removed" if cleaned and bootstrap_cleaned and service_cleanup_verified else "not_verified",
+            "directory_cleanup": {"run_directory": "not_created" if run_directory is None else "verified_removed" if cleaned else "not_verified",
+                                  "bootstrap_snapshot": "not_required" if bootstrap_snapshot is None else "verified_removed" if bootstrap_cleaned else "not_verified"},
+            "cleanup_errors": cleanup_errors,
             "occurrences": [{"id": n, "status": "completed" if i < len(records) else "not_started"}
                             for i, n in enumerate(independent.OCCURRENCES)], "claims": independent.CLAIMS}
         if isinstance(error, OccurrenceFailure):

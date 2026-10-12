@@ -14,6 +14,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -548,7 +549,99 @@ def test_cleanup_grace_is_shared_not_reset(monkeypatch):
     with pytest.raises(C.io.IntakeError):S.cleanup_seconds(budget)
 
 
-@pytest.mark.parametrize('fault',[None,'startup','exit','no_eof','cleanup','cleanup_evidence',
+def test_projection_descriptor_access_keeps_private_payloads_separate(tmp_path, monkeypatch):
+    """Real descriptor IO with owner-mode equivalents of subject permissions.
+
+    This is not UID-65534/systemd evidence. Ownership is explicitly doubled;
+    the zero group permissions on private are exercised as zero owner access.
+    """
+    run = tmp_path/'run'; run.mkdir(mode=0o700)
+    private = run/'private'; private.mkdir(mode=0o700)
+    projection = run/'projection'; projection.mkdir(mode=0o700)
+    payload = projection/'profile.json'; payload.write_bytes(b'{"fixed":true}'); payload.chmod(0o440)
+    secret = private/'archive.zip'; secret.write_bytes(b'private archive')
+    ownership = []
+    monkeypatch.setattr(S.os, 'chown', lambda path, uid, gid: ownership.append((path, uid, gid)))
+    try:
+        # Same failure as the old parent's missing read permission. Traversal
+        # permits open(file), but the held-directory reader correctly rejects.
+        run.chmod(0o111)
+        assert payload.read_bytes() == b'{"fixed":true}'
+        try:
+            C.io.read_file(payload, 1024)
+        except C.io.IntakeError as exc:
+            assert exc.code == 'q2_file_rejected'
+        else:
+            pytest.skip('Descriptor permission test requires a reader without DAC bypass')
+        run.chmod(0o700)
+        S.expose_projection(run)
+        assert C.io.read_file(payload, 1024) == b'{"fixed":true}'
+        assert stat.S_IMODE(run.stat().st_mode) == stat.S_IMODE(projection.stat().st_mode) == 0o550
+        assert stat.S_IMODE(private.stat().st_mode) == 0o700
+        assert ownership == [(private, 0, 0), (projection, 0, 65534), (run, 0, 65534)]
+        private.chmod(0)  # Owner-mode equivalent of private's actual group bits.
+        with pytest.raises(C.io.IntakeError, match='q2_file_rejected'):
+            C.io.read_file(secret, 1024)
+        assert C.io.read_file(payload, 1024) == b'{"fixed":true}'
+    finally:
+        for directory in (run, private, projection): directory.chmod(0o700)
+
+
+@pytest.mark.parametrize('fault', ['extra_payload', 'private_mode', 'private_link', 'projection_link', 'ownership'])
+def test_projection_exposure_rejects_unsafe_layout(tmp_path, monkeypatch, fault):
+    run = tmp_path/'run'; run.mkdir(mode=0o700)
+    for name in ('private', 'projection'): (run/name).mkdir(mode=0o700)
+    calls = []
+    def own(*args):
+        calls.append(args)
+        if fault == 'ownership': raise PermissionError('fixture ownership failure')
+    monkeypatch.setattr(S.os, 'chown', own)
+    if fault == 'extra_payload': (run/'archive.zip').write_bytes(b'not private')
+    elif fault == 'private_mode': (run/'private').chmod(0o750)
+    elif fault.endswith('_link'):
+        path = run/fault.removesuffix('_link'); path.rmdir(); path.symlink_to(tmp_path, target_is_directory=True)
+    with pytest.raises((C.io.IntakeError, PermissionError)): S.expose_projection(run)
+    assert stat.S_IMODE(run.stat().st_mode) == 0o700
+    assert fault == 'ownership' or calls == []
+
+
+@pytest.mark.parametrize('raw,expected', [
+    (b'q2_file_rejected\n', 'q2_file_rejected'),
+    (b'private-token=do-not-publish\nq2_file_rejected\n', 'q2_file_rejected'),
+    (b'q2_file_rejected\nq2_file_rejected\n', 'q2_file_rejected'),
+    (b'q2_file_rejected\nq2_timeout\n', 'unknown'),
+    (b'prefix q2_file_rejected\n', 'unknown'),
+    (b'private-token=do-not-publish\n', 'unknown'),
+    (b'', 'unknown'),
+    (b'q2_file_rejected\n'+b'x'*(128*1024), 'unknown'),
+])
+def test_child_diagnostics_are_bounded_closed_codes(tmp_path, raw, expected):
+    log = tmp_path/'private.stderr'; log.write_bytes(raw)
+    assert S.child_error_code(log) == expected
+
+
+@pytest.mark.parametrize('kind', ['missing', 'symlink', 'fifo'])
+def test_unavailable_child_diagnostics_do_not_replace_failure(tmp_path, kind):
+    log = tmp_path/'private.stderr'
+    if kind == 'symlink': log.symlink_to(tmp_path/'missing')
+    elif kind == 'fifo': os.mkfifo(log)
+    assert S.child_error_code(log) == 'unknown'
+
+
+@pytest.mark.parametrize('error,expected', [
+    (C.io.IntakeError('q2_file_rejected'), 'q2_file_rejected'),
+    (S.native.NativeQualificationError('capture_service_not_inactive'), 'capture_service_not_inactive'),
+    (S.native.NativeQualificationError('private-token=do-not-publish'), 'unknown'),
+    (OSError('private-token=do-not-publish'), 'unknown'),
+    (ValueError('q2_file_rejected'), 'unknown'),
+])
+def test_exception_diagnostics_never_publish_arbitrary_messages(error, expected):
+    detail = S.failure_detail(error, 'q2_cleanup_failed')
+    assert detail['reason'] == expected
+    assert 'do-not-publish' not in json.dumps(detail)
+
+
+@pytest.mark.parametrize('fault',[None,'startup','exit','exit_and_cleanup','no_eof','cleanup','cleanup_evidence',
                                  'projection_mutation','bootstrap_drift','extra_output','bad_output'])
 def test_occurrence_stops_and_reaps_before_any_accepted_handoff(tmp_path,monkeypatch,fault):
     """Real child/EOF/output; explicit kernel, ownership and bootstrap doubles.
@@ -567,7 +660,8 @@ def test_occurrence_stops_and_reaps_before_any_accepted_handoff(tmp_path,monkeyp
     script+=("time.sleep(2); " if fault=='no_eof' else '')
     script+="Path('summary.json').write_bytes("+('b\'{}\\n\'' if fault=='bad_output' else "Path(sys.argv[1]).read_bytes()")+"); "
     script+=("Path('unexpected.json').write_bytes(b'{}'); " if fault=='extra_output' else '')
-    script+='sys.exit('+('0' if fault=='exit' else '1')+')'
+    script+="sys.stderr.write('private-token=do-not-publish\\nq2_file_rejected\\n'); "
+    script+='sys.exit('+('0' if fault in ('exit','exit_and_cleanup') else '1')+')'
     declared={'id':'summary_builder','stage':'reduction','expected_exit':1,'outputs':['summary.json'],
               'input_bindings':[],'argv':[sys.executable,'-I','-B','-c',script,str(summary)]}
     pre={'bootstrap_lib_sha256':'b'*64,
@@ -578,7 +672,8 @@ def test_occurrence_stops_and_reaps_before_any_accepted_handoff(tmp_path,monkeyp
             launch=time.monotonic_ns();self.unit=prefix+'-'+stage+'.service'
             self.runtime_deadline_ns=launch+180_000_000_000
             self.deadline=min(phase_end,time.monotonic()+(0.05 if fault=='no_eof' else 3))
-            self.process=subprocess.Popen(command,cwd=work,stdout=subprocess.PIPE)
+            self.log=_log.open('xb')
+            self.process=subprocess.Popen(command,cwd=work,stdout=subprocess.PIPE,stderr=self.log)
             self.reader=S.native.BoundedReader(self.process.stdout);children.append(self)
             if fault=='startup':raise C.io.IntakeError('q2_context_rejected')
             self.observation={'pid':self.process.pid}
@@ -586,9 +681,10 @@ def test_occurrence_stops_and_reaps_before_any_accepted_handoff(tmp_path,monkeyp
     def close(service):
         closures.append(service.unit)
         if service.process.poll() is None:service.process.kill()
-        service.process.wait(timeout=2);service.reader.close();service.process.stdout.close()
+        service.process.wait(timeout=2);service.reader.close();service.process.stdout.close();service.log.close()
         if fault=='projection_mutation':helper.write_bytes(b'mutated after exit')
         if fault=='cleanup':raise C.io.IntakeError('q2_cleanup_failed')
+        if fault=='exit_and_cleanup':raise S.native.NativeQualificationError('capture_service_not_inactive')
         return {'unit':service.unit,'properties':{'LoadState':'not-found','ActiveState':'inactive','ControlGroup':''},
                 'cgroup_empty_or_removed':True,'client_reaped':fault!='cleanup_evidence'}
     def projection_check(_root,_projection,_profile,_budget):
@@ -610,6 +706,23 @@ def test_occurrence_stops_and_reaps_before_any_accepted_handoff(tmp_path,monkeyp
             with pytest.raises(S.OccurrenceFailure) as rejected:
                 S.run_occurrence(root,tmp_path,declared,{'fixture':True},pre,p,C.Budget(10))
             assert rejected.value.observation['status']=='failed'
+            observation = rejected.value.observation
+            assert 'do-not-publish' not in json.dumps(observation)
+            if fault in ('exit','exit_and_cleanup'):
+                assert observation['exit_code'] == 0 and observation['expected_exit'] == 1
+                assert observation['failure_phase'] == 'completion'
+                assert observation['child_error_code'] == 'q2_file_rejected'
+                assert rejected.value.code == 'q2_replay_rejected'
+                assert observation['cleanup_verified'] == (fault == 'exit')
+            if fault == 'exit_and_cleanup':
+                assert observation['cleanup_error'] == {'error_code':'q2_cleanup_failed',
+                    'reason':'capture_service_not_inactive'}
+                assert observation['cleanup'] is None
+            if fault in ('cleanup','cleanup_evidence'):
+                assert observation['failure_phase'] == 'cleanup'
+                assert observation['cleanup_verified'] is False
+                assert rejected.value.code == 'q2_cleanup_failed'
+            if fault in ('startup','no_eof'): assert observation['exit_code'] is None
             assert not (root/'handoff/summary_builder/summary.json').exists()
         assert len(children)==len(closures)==1 and children[0].process.poll() is not None
         assert not (tmp_path/'result.json').exists()
@@ -652,7 +765,8 @@ def test_failed_publication_removes_its_new_entry(tmp_path,monkeypatch,fault):
 
 
 @pytest.mark.parametrize('fault',[None,'bootstrap_preparation','first_occurrence','second_occurrence','receipt_replay',
-                                 'source_after_replay','private_cleanup','bootstrap_cleanup','final_publication'])
+                                 'source_after_replay','private_cleanup','bootstrap_cleanup','both_cleanups',
+                                 'execution_and_cleanup','final_publication'])
 def test_collector_publishes_acceptance_only_after_both_private_trees_removed(committed,tmp_path,monkeypatch,fault):
     """Collector integration with explicit transport/kernel/replay doubles.
 
@@ -667,6 +781,12 @@ def test_collector_publishes_acceptance_only_after_both_private_trees_removed(co
         'repository':{'full_name':C.REPOSITORY}}));env['GITHUB_EVENT_PATH']=str(event)
     bootstrap=tmp_path/'bootstrap-snapshot';bootstrap.mkdir();(bootstrap/'held-source.py').write_bytes(b'held source')
     private_paths=[];calls=[];replays=[]
+    actual_mkdtemp=S.tempfile.mkdtemp
+    def make_run_directory(**kwargs):
+        path=Path(actual_mkdtemp(prefix=kwargs['prefix'],dir=tmp_path))
+        private_paths.append(path)
+        return str(path)
+    monkeypatch.setattr(S.tempfile,'mkdtemp',make_run_directory)
     monkeypatch.setattr(S,'host_record',lambda *_args:dict(p['archived_platform_requirements']))
     monkeypatch.setattr(S.shutil,'disk_usage',lambda *_args:types.SimpleNamespace(free=9*1024**3))
     monkeypatch.setattr(S.io,'GitHubArtifactTransport',lambda *_args:object())
@@ -689,14 +809,17 @@ def test_collector_publishes_acceptance_only_after_both_private_trees_removed(co
     monkeypatch.setattr(C,'bind_collector_dependencies',bind)
     def materialize(_repo,private,root,_profile,_sources,_budget):
         assert preparation==['prepare','bind'] and private['verifier_rows']==['fixture verifier rows']
-        private_paths.append(private['path']);(root/'inputs').mkdir()
+        assert private['path'] == root.parent/'private' and root.parent == private_paths[0]
+        (root/'inputs').mkdir()
         return {'record_type':'q2_tokenizer_projection_v0','trees':{}},{'capture-subject.json':{'platform':p['archived_platform_requirements']}}
     monkeypatch.setattr(S,'materialize',materialize)
     def occurrence(root,_private,declared,*_args):
         index=len(calls);calls.append(declared['id'])
-        if (fault=='first_occurrence' and index==0) or (fault=='second_occurrence' and index==1):
+        assert _private == root.parent/'private' and stat.S_IMODE(_private.stat().st_mode) == 0o700
+        assert stat.S_IMODE(root.parent.stat().st_mode) == 0o550
+        if (fault in ('first_occurrence','execution_and_cleanup') and index==0) or (fault=='second_occurrence' and index==1):
             raise S.OccurrenceFailure('q2_replay_rejected',{'id':declared['id'],'status':'failed',
-                'unit':None,'pid':None,'exec_ns':None,'cleanup':None})
+                'unit':None,'pid':None,'exec_ns':None,'cleanup':None,'cleanup_verified':False})
         # The explicit kernel double also supplies root's native DAC ability.
         (root/'handoff').chmod(0o700)
         handoff=root/'handoff'/declared['id'];handoff.mkdir()
@@ -720,7 +843,7 @@ def test_collector_publishes_acceptance_only_after_both_private_trees_removed(co
         path=Path(path)
         if path==bootstrap or path in private_paths:
             assert not (runner/'q2-native-tokenizer/result.json').exists()
-            if (path==bootstrap and fault=='bootstrap_cleanup') or (path in private_paths and fault=='private_cleanup'):
+            if (path==bootstrap and fault in ('bootstrap_cleanup','both_cleanups')) or (path in private_paths and fault in ('private_cleanup','both_cleanups','execution_and_cleanup')):
                 raise OSError('fixture cleanup failure')
             # Ordinary CI/local root lacks the native runner's DAC capability;
             # this fixture restores deletion permissions, then deletes real data.
@@ -741,15 +864,20 @@ def test_collector_publishes_acceptance_only_after_both_private_trees_removed(co
             assert not (output/'result.json').exists()
             rejection=C.io.strict_json((output/'failure.json').read_bytes())
             assert rejection['status']=='rejected' and rejection['claims']==C.CLAIMS
-            assert rejection['cleanup']==('not_verified' if fault in ('private_cleanup','bootstrap_cleanup') else 'verified_removed')
-            if fault in ('first_occurrence','second_occurrence'):
-                failed=0 if fault=='first_occurrence' else 1
+            assert rejection['cleanup']==('not_verified' if fault in ('private_cleanup','bootstrap_cleanup','both_cleanups','first_occurrence','second_occurrence','execution_and_cleanup') else 'verified_removed')
+            assert rejection['directory_cleanup']['run_directory']==('not_verified' if fault in ('private_cleanup','both_cleanups','execution_and_cleanup') else 'verified_removed')
+            assert rejection['directory_cleanup']['bootstrap_snapshot']==('not_verified' if fault in ('bootstrap_cleanup','both_cleanups') else 'verified_removed')
+            assert set(rejection['cleanup_errors']) == ({'run_directory','bootstrap_snapshot'} if fault=='both_cleanups' else
+                {'run_directory'} if fault in ('private_cleanup','execution_and_cleanup') else {'bootstrap_snapshot'} if fault=='bootstrap_cleanup' else set())
+            if fault in ('first_occurrence','second_occurrence','execution_and_cleanup'):
+                assert rejection['error_code']=='q2_replay_rejected'
+                failed=1 if fault=='second_occurrence' else 0
                 assert len(calls)==failed+1
                 assert rejection['occurrences'][failed]['status']=='failed'
                 assert all(r['status']=='not_started' for r in rejection['occurrences'][failed+1:])
             if fault == 'bootstrap_preparation':
                 assert not calls and all(r['status']=='not_started' for r in rejection['occurrences'])
-        assert len(replays)==(0 if fault in ('bootstrap_preparation','first_occurrence','second_occurrence') else 1)
+        assert len(replays)==(0 if fault in ('bootstrap_preparation','first_occurrence','second_occurrence','execution_and_cleanup') else 1)
     finally:
         for path in [bootstrap,*private_paths]:
             if path.exists():
