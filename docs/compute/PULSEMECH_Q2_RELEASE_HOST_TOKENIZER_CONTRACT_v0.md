@@ -105,6 +105,23 @@ metadata are retained. Historical absolute path strings remain data; the old
 installation checker and original full capture CLI are not run against a
 relocated tree.
 
+The fixed projection path remains
+`/var/lib/pulse-q2-tokenizer-<8-character-id>/projection`. Its run directory
+contains exactly two siblings: `private` and `projection`. Preparation starts
+with a root-only 0700 run directory. Before any subject launch, the run directory
+and projection root become root/65534 0550. The `private` directory remains
+root/root 0700 and holds acquired archives, preparation files, stderr and the
+candidate receipt. Only the two fixed sibling names are visible to the subject;
+private payloads are not exposed. Both siblings are removed with their enclosing
+run directory on handled completion or failure.
+
+The unchanged held-descriptor reader opens every ancestor with
+`O_RDONLY | O_DIRECTORY | O_NOFOLLOW`. A traverse-only 0711 ancestor is therefore
+insufficient even when ordinary file traversal succeeds. The layout supplies
+directory read permission without relaxing descriptor, alias or payload checks.
+Local permission regressions exercise this distinction; they do not establish
+native UID-65534/systemd execution.
+
 | Kind | Owner / group | Mode |
 | --- | --- | --- |
 | Directories | root / 65534 | 0550 |
@@ -205,6 +222,30 @@ sanitized `failure.json`; later occurrences stay explicitly `not_started`, and
 an observed failed occurrence is distinct. Failed cleanup never publishes
 `result.json`.
 
+Rejected occurrences retain their declared stage, failure phase, expected exit
+and actual completed exit when observed. An exit produced only by cleanup is
+not a completed subject exit. The primary error and a simultaneous cleanup error
+are separate. Error details use closed code vocabularies; unknown errors remain
+`unknown`. A private stderr read is bounded to 128 KiB and may contribute only
+one unambiguous exact-line Q2 error code. Missing, oversized, aliased, unreadable
+or ambiguous diagnostics yield `unknown`; raw text is never published. This code
+is a diagnostic hint, not independent evidence of the failure's root cause.
+
+Service cleanup is validated with the unchanged source-bound cleanup checker
+even after a failed execution. Its `cleanup_verified` flag cannot become true
+from directory deletion alone. Failure metadata separately records run-directory
+and bootstrap-snapshot deletion and preserves both deletion errors when present.
+The aggregate `cleanup=verified_removed` requires all relevant directory removal
+and attempted-service cleanup evidence. Incomplete service cleanup leaves the
+aggregate `not_verified` even if both directory trees were removed. Cleanup
+verification failure never relaxes the existing inactive/cgroup/client checks.
+
+Run `38248867903/1` remains rejected. Its recorded directory removal and null
+occurrence cleanup do not establish verified service cleanup. The earlier
+`38174388350/1` bootstrap failure also remains rejected. Neither historical
+artifact is rewritten by this layout and diagnostic correction; a new owner-run
+acquisition is still required to establish native execution of the fixed source.
+
 ## Evidence and authority boundary
 
 The public metadata artifact's accepted inventory is exactly:
@@ -238,8 +279,9 @@ Publication sets the final file mode and synchronizes its contents before the
 exclusive link becomes visible. A failure while removing the temporary link or
 synchronizing the output directory removes the newly published entry. Existing
 files/directories are never overwritten or populated with failure diagnostics.
-The accepted result is published only after both private trees have been removed;
-final publication failure produces rejection metadata when possible.
+The accepted result is published only after the entire run directory (including
+both siblings) and the private bootstrap snapshot have been removed. Final
+publication failure produces rejection metadata when possible.
 
 ## Reviewed owner-run procedure
 

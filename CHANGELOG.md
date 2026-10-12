@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Separate Q2 tokenizer private collector data from the subject-readable
+  projection ancestor. Preserve the fixed projection path and held-descriptor
+  reader while supplying the directory read permission it requires. Retain
+  bounded failure phase, actual exit and closed error codes; report execution,
+  service cleanup and directory cleanup separately without publishing stderr.
+  Add positive/negative access and simultaneous-failure regressions. Native run
+  `38248867903/1` stays rejected; native execution of this correction remains
+  unverified. Preserve all input pins and historical 49/50 FAIL/release BLOCK.
+
 - Prepare the exact Q2 bootstrap library from the existing pinned CPython
   archive after the release installer upgrades pip. Verify a private staging
   tree before replacement, remove installer extras and recheck the installed
