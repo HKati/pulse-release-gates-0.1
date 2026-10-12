@@ -641,8 +641,114 @@ def test_exception_diagnostics_never_publish_arbitrary_messages(error, expected)
     assert 'do-not-publish' not in json.dumps(detail)
 
 
+def negative_terminal_fixture(tmp_path, monkeypatch):
+    """Explicit systemd/client doubles; real cgroup-file traversal, no native claim."""
+    unit='pulse-q2-'+'a'*24+'-reduction.service'
+    service=types.SimpleNamespace(unit=unit, tokenizer_terminal_contract=('summary_builder','reduction',1),
+        completed_exit_code=1, process=types.SimpleNamespace(poll=lambda:1), reader=types.SimpleNamespace(eof=True))
+    group_root=tmp_path/'cgroups';group_root.mkdir()
+    group=group_root/unit;group.mkdir();(group/'cgroup.procs').write_text('')
+    child=group/'child';child.mkdir();(child/'cgroup.procs').write_text('')
+    monkeypatch.setattr(S,'Path',lambda value:group_root if str(value)=='/sys/fs/cgroup/system.slice' else Path(value))
+    values={'LoadState':'loaded','ActiveState':'failed','ControlGroup':'/system.slice/'+unit,
+            'MainPID':'0','Result':'exit-code','ExecMainCode':'1','ExecMainStatus':'1'}
+    state={'show_rc':0,'reset_rc':0,'raw':None,'raise_show':False,'raise_reset':False}
+    commands=[]
+    def control(command,timeout=15,*,check=True):
+        commands.append(command)
+        assert command[0]=='/usr/bin/systemctl' and command[2]==service.unit
+        assert timeout==10 and check is False
+        if command[1]=='show':
+            if state['raise_show']:raise subprocess.TimeoutExpired(command,timeout)
+            raw=state['raw'] if state['raw'] is not None else ''.join(k+'='+v+'\n' for k,v in values.items()).encode()
+            return subprocess.CompletedProcess(command,state['show_rc'],raw,b'')
+        assert command==['/usr/bin/systemctl','reset-failed',unit]
+        if state['raise_reset']:raise subprocess.TimeoutExpired(command,timeout)
+        return subprocess.CompletedProcess(command,state['reset_rc'],b'',b'')
+    monkeypatch.setattr(S.native,'control',control)
+    return service,values,state,commands,group
+
+
+@pytest.mark.parametrize('state_name',['failed','inactive','unloaded','removed_cgroup'])
+def test_expected_negative_terminal_state_is_handled_without_changing_exit(tmp_path,monkeypatch,state_name):
+    service,values,state,commands,group=negative_terminal_fixture(tmp_path,monkeypatch)
+    if state_name=='inactive':values['ActiveState']='inactive'
+    elif state_name=='unloaded':
+        values.update(LoadState='not-found',ActiveState='inactive',ControlGroup='',Result='success',ExecMainStatus='0')
+        state['show_rc']=4
+    elif state_name=='removed_cgroup':shutil.rmtree(group)
+    S.settle_expected_negative(service)
+    assert [c[1] for c in commands]==(['show','reset-failed'] if state_name in ('failed','removed_cgroup') else ['show'])
+    assert service.completed_exit_code==1 and service.tokenizer_terminal_contract==('summary_builder','reduction',1)
+
+
+@pytest.mark.parametrize('fault',['input_check','tokenizer_check','summary_checker','wrong_stage','expected_zero',
+    'expected_bool','missing_contract','list_contract','short_contract','exit_zero','exit_two','exit_signal',
+    'exit_bool','exit_missing'])
+def test_terminal_reset_is_unavailable_outside_exact_negative_occurrence(tmp_path,monkeypatch,fault):
+    service,_values,_state,commands,_group=negative_terminal_fixture(tmp_path,monkeypatch)
+    if fault in ('input_check','tokenizer_check','summary_checker'):
+        service.tokenizer_terminal_contract=(fault,'reduction',1)
+    elif fault=='wrong_stage':service.tokenizer_terminal_contract=('summary_builder','capturecheck',1)
+    elif fault=='expected_zero':service.tokenizer_terminal_contract=('summary_builder','reduction',0)
+    elif fault=='expected_bool':service.tokenizer_terminal_contract=('summary_builder','reduction',True)
+    elif fault=='missing_contract':del service.tokenizer_terminal_contract
+    elif fault=='list_contract':service.tokenizer_terminal_contract=list(service.tokenizer_terminal_contract)
+    elif fault=='short_contract':service.tokenizer_terminal_contract=('summary_builder','reduction')
+    elif fault=='exit_missing':del service.completed_exit_code
+    else:service.completed_exit_code={'exit_zero':0,'exit_two':2,'exit_signal':-9,'exit_bool':True}[fault]
+    before=dict(vars(service))
+    S.settle_expected_negative(service)
+    assert commands==[] and vars(service)==before
+
+
+@pytest.mark.parametrize('fault',['active','activating','deactivating','load_error','main_pid','result_timeout',
+    'result_signal','exec_signal','exit_two','exit_zero','wrong_cgroup','show_rc','missing_property',
+    'duplicate_property','extra_property','malformed','oversized','utf8','show_timeout','reset_rc','reset_timeout',
+    'root_busy','child_busy','missing_cgroup_procs','client_running','client_wrong_exit','client_bool',
+    'missing_client','missing_eof','wrong_unit','injected_unit'])
+def test_negative_terminal_reset_rejects_unproven_or_changed_state(tmp_path,monkeypatch,fault):
+    service,values,state,commands,group=negative_terminal_fixture(tmp_path,monkeypatch)
+    if fault in ('active','activating','deactivating'):values['ActiveState']=fault
+    elif fault=='load_error':values['LoadState']='error'
+    elif fault=='main_pid':values['MainPID']='1234'
+    elif fault=='result_timeout':values['Result']='timeout'
+    elif fault=='result_signal':values['Result']='signal'
+    elif fault=='exec_signal':values['ExecMainCode']='2'
+    elif fault=='exit_two':values['ExecMainStatus']='2'
+    elif fault=='exit_zero':values['ExecMainStatus']='0'
+    elif fault=='wrong_cgroup':values['ControlGroup']='/system.slice/unrelated.service'
+    elif fault=='show_rc':state['show_rc']=5
+    elif fault=='missing_property':del values['Result']
+    elif fault=='duplicate_property':
+        state['raw']=''.join(k+'='+v+'\n' for k,v in values.items() if k!='Result').encode()+b'MainPID=0\n'
+    elif fault=='extra_property':values['Extra']='unexpected'
+    elif fault=='malformed':state['raw']=b'no-properties\n'
+    elif fault=='oversized':state['raw']=b'x'*4097
+    elif fault=='utf8':state['raw']=b'\xff'
+    elif fault=='show_timeout':state['raise_show']=True
+    elif fault=='reset_rc':state['reset_rc']=1
+    elif fault=='reset_timeout':state['raise_reset']=True
+    elif fault=='root_busy':(group/'cgroup.procs').write_text('1234\n')
+    elif fault=='child_busy':(group/'child/cgroup.procs').write_text('1234\n')
+    elif fault=='missing_cgroup_procs':(group/'cgroup.procs').unlink()
+    elif fault=='client_running':service.process.poll=lambda:None
+    elif fault=='client_wrong_exit':service.process.poll=lambda:2
+    elif fault=='client_bool':service.process.poll=lambda:True
+    elif fault=='missing_client':service.process=None
+    elif fault=='missing_eof':service.reader.eof=False
+    elif fault=='wrong_unit':service.unit='pulse-q2-'+'a'*24+'-capturecheck.service'
+    elif fault=='injected_unit':service.unit='--all'
+    with pytest.raises((C.io.IntakeError,OSError,UnicodeError,subprocess.SubprocessError)):
+        S.settle_expected_negative(service)
+    resets=[c for c in commands if c[1]=='reset-failed']
+    assert len(resets)==(1 if fault in ('reset_rc','reset_timeout') else 0)
+    assert service.completed_exit_code==1
+
+
 @pytest.mark.parametrize('fault',[None,'startup','exit','exit_and_cleanup','no_eof','cleanup','cleanup_evidence',
-                                 'projection_mutation','bootstrap_drift','extra_output','bad_output'])
+                                 'projection_mutation','bootstrap_drift','extra_output','bad_output',
+                                 'negative_failed_state','negative_reset_failure','negative_still_failed'])
 def test_occurrence_stops_and_reaps_before_any_accepted_handoff(tmp_path,monkeypatch,fault):
     """Real child/EOF/output; explicit kernel, ownership and bootstrap doubles.
 
@@ -667,7 +773,7 @@ def test_occurrence_stops_and_reaps_before_any_accepted_handoff(tmp_path,monkeyp
     pre={'bootstrap_lib_sha256':'b'*64,
          'source_bindings':[{'path':C.TOOLS+'check_q2_reference_capture_v0.py','sha256':expected_helper}]}
     children=[];closures=[];projection_checks=[]
-    class KernelDouble:
+    class KernelDouble(S.ObservedService):
         def __init__(self,prefix,stage,command,work,_python,_log,phase_end):
             launch=time.monotonic_ns();self.unit=prefix+'-'+stage+'.service'
             self.runtime_deadline_ns=launch+180_000_000_000
@@ -691,17 +797,42 @@ def test_occurrence_stops_and_reaps_before_any_accepted_handoff(tmp_path,monkeyp
         projection_checks.append(C.io.digest(helper.read_bytes()))
         C.io.require(projection_checks[-1]==expected_helper,'q2_source_mismatch')
     monkeypatch.setattr(S,'ObservedService',KernelDouble)
-    monkeypatch.setattr(S.native,'close_capture_service',close)
+    native_cleanup = fault in ('negative_failed_state','negative_reset_failure','negative_still_failed')
+    if native_cleanup:
+        # Actual service.close/cleanup/checker code with a labeled systemd double.
+        # A successful stop request leaves the failed terminal state unchanged.
+        state={'active':'failed'}
+        def control(command,timeout=15,*,check=True):
+            unit=children[-1].unit
+            assert command[-1]==unit or unit in command
+            if command[1]=='reset-failed':
+                closures.append('reset')
+                if fault=='negative_reset_failure':
+                    return subprocess.CompletedProcess(command,1,b'',b'private fixture failure')
+                if fault!='negative_still_failed':state['active']='inactive'
+                return subprocess.CompletedProcess(command,0,b'',b'')
+            if command[1]=='show':
+                values={'LoadState':'loaded','ActiveState':state['active'],'ControlGroup':'',
+                        'MainPID':'0','Result':'exit-code','ExecMainCode':'1','ExecMainStatus':'1'}
+                keys=next(arg.split('=',1)[1].split(',') for arg in command if arg.startswith('--property='))
+                return subprocess.CompletedProcess(command,0,
+                    ''.join(k+'='+values[k]+'\n' for k in keys).encode(),b'')
+            assert command[1] in ('kill','stop')
+            return subprocess.CompletedProcess(command,0,b'',b'')
+        monkeypatch.setattr(S.native,'control',control)
+    else:
+        monkeypatch.setattr(S.native,'close_capture_service',close)
     monkeypatch.setattr(C,'check_projection',projection_check)
     monkeypatch.setattr(C,'verify_bootstrap',lambda *_args:'c'*64 if fault=='bootstrap_drift' else 'b'*64)
     monkeypatch.setattr(os,'chown',lambda *_args:None)
     try:
-        if fault is None:
+        if fault in (None,'negative_failed_state'):
             result=S.run_occurrence(root,tmp_path,declared,{'fixture':True},pre,p,C.Budget(10))
             assert result['exit_code']==1 and result['stdout_eof'] is True
             assert result['outputs']=={'summary.json':p['historical_output_sha256']['summary.json']}
             assert result['exit_ns']<=result['cleanup_ns']<=result['output_frozen_ns']
             assert (root/'handoff/summary_builder/summary.json').read_bytes()==summary.read_bytes()
+            if native_cleanup:assert closures==['reset']
         else:
             with pytest.raises(S.OccurrenceFailure) as rejected:
                 S.run_occurrence(root,tmp_path,declared,{'fixture':True},pre,p,C.Budget(10))
@@ -718,7 +849,7 @@ def test_occurrence_stops_and_reaps_before_any_accepted_handoff(tmp_path,monkeyp
                 assert observation['cleanup_error'] == {'error_code':'q2_cleanup_failed',
                     'reason':'capture_service_not_inactive'}
                 assert observation['cleanup'] is None
-            if fault in ('cleanup','cleanup_evidence'):
+            if fault in ('cleanup','cleanup_evidence','negative_reset_failure','negative_still_failed'):
                 assert observation['failure_phase'] == 'cleanup'
                 assert observation['cleanup_verified'] is False
                 assert rejected.value.code == 'q2_cleanup_failed'
