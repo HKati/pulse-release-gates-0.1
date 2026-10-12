@@ -8,6 +8,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Prepare the exact Q2 bootstrap library from the existing pinned CPython
+  archive after the release installer upgrades pip. Verify a private staging
+  tree before replacement, remove installer extras and recheck the installed
+  closure before any subject launch. Add positive/negative preparation and
+  collector-failure regressions; preserve all pins and historical FAIL/BLOCK.
+  The failed native run `38174388350/1` remains rejected and unqualified.
+
 - Declare the existing `rfc8785==0.1.4` canonicalizer in `requirements.txt`
   after run #7023 exposed the missing Q2 tokenizer test dependency in Tools
   smoke. Preserve workflow source pins, native execution contracts and the

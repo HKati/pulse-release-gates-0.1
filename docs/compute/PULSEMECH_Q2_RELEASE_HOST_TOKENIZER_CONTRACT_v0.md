@@ -69,9 +69,10 @@ the capsule runtime.
 The collector builds and freezes this verifier before any schema/metric helper
 needs third-party dependencies. It checks the full tree, interpreter/configuration,
 all eight distribution identities and every loaded dependency's origin before
-using that verifier's site-packages. Cached external dependencies reject. Nothing
-is installed into the bootstrap Python. Empty directories created by venv are
-removed only from the fresh verifier before its closed inventory is frozen.
+using that verifier's site-packages. Cached external dependencies reject. No
+verifier dependencies are installed into the bootstrap Python. Empty directories
+created by venv are removed only from the fresh verifier before its closed
+inventory is frozen.
 Binary capsule extraction uses each inspected member's size within the fixed
 archive limit; it does not apply the shared JSON-read default to large libraries
 or model payloads. The shared archive reader and its default limit are unchanged.
@@ -127,6 +128,26 @@ The target requires actual CPython 3.11.16, Unicode 14.0.0, the exact bootstrap
 binary, Ubuntu 24.04 x86_64/glibc 2.39, root, systemd PID 1 and cgroup v2. The
 bootstrap archive and actual base-library inventory are rechecked. Preserved
 pyvenv.cfg must resolve its original base home to this verified bootstrap.
+
+The pinned GitHub release installer's `setup.sh` upgrades pip and can create
+extra distribution metadata and bytecode. After owner/source/host authorization
+and authenticated acquisition, the privileged collector prepares the stock
+base library from the existing pinned archive before building the verifier or
+launching any occurrence. It never executes the archived installer or pip.
+This preparation remains outside the four measured subject executions.
+
+Preparation checks the archive size/digest, interpreter digest, complete TAR
+member/expanded-byte bounds, names, kinds and non-escaping links. It constructs
+a separate private staging tree and applies the independent complete bootstrap
+check to it before touching the installed library. The fixed profile's `lib`
+directory is then removed and recreated from that verified tree; the installed
+closure must match the staged inventory digest. A version downgrade or an
+overwrite would leave installer extras, so neither establishes byte closure.
+The interpreter binary is unchanged. Target aliases, malformed archives,
+partial installation, drift or staging-cleanup failure reject and cannot start
+an occurrence or produce an accepted receipt. Handled failures also retain the
+collector's existing mandatory private-tree cleanup and bounded diagnostics.
+
 The bootstrap TAR's three exact stock regular filenames containing spaces use
 a closed exception list; the shared capsule ZIP name grammar is unchanged.
 An unlaunchable projection rejects; no old preparation directory is recreated,
@@ -301,6 +322,36 @@ transport doubles exercise validation and collector failure paths; real source
 guards, descriptor IO, subprocess EOF/exit, output freezing, publication/deletion
 ordering and the unchanged metric core run separately. The accepted native
 result remains pending the reviewed owner-run procedure above.
+
+## First owner-run failure and bootstrap preparation correction
+
+Native run [`38174388350/1`](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/38174388350)
+used reviewed source `c4b3873478e861b87ee2a41a4697b56cbe597c56` and exact request
+digest `d73ad7af928460729afaff7fb212d2ef37449ee32b277270381555cc6f93c072`.
+The Python setup log records stock pip 24.0 being replaced by pip 26.2.1. The
+bootstrap closure check rejected that changed library with
+`q2_replay_environment`. Artifact `11714817912` contains only `failure.json`:
+all four occurrences are `not_started`, cleanup is `verified_removed`, and all
+non-authorizing claims are preserved. Keep this failed run as rejected evidence.
+
+The correction's permanent preparation tests use small synthetic TARs with
+explicitly scaled member/size limits and a privilege double. They execute real
+descriptor IO, extraction, independent inventory checks, replacement and cleanup;
+they do not acquire native isolation or tokenizer evidence. The original large
+archive and actual CPython 3.11.16 library are checked separately during local
+preparation validation. A new owner-run receipt and independent replay are still
+required before claiming `native_tokenizer_verified`.
+
+Correction validation on actual CPython 3.11.16: **202 regression cases passed**
+(183 contract/preparation cases and 19 workflow cases, including 26 added cases).
+All 27 normative-inventory regressions also passed, for 229 distinct executed
+regression cases in this correction's verification scope.
+At a separately allocated local prefix, the corrected preparation rejected an
+extra library file before preparation, installed the original large archive's
+exact library and returned the unchanged inventory SHA-256
+`4e4f6f3425cb415c8f78d624db1c71b0dec3aba1add068b0ca5acb512cbff5fb`.
+These checks executed zero native occurrences and do not supersede the failed
+owner run or the pending native receipt.
 
 ## Regression and remaining Q2 work
 

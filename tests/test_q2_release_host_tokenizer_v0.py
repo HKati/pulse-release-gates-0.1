@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import io as binary_io
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
 import sys
+import tarfile
 import types
 import zipfile
 
@@ -26,6 +28,126 @@ sys.path.insert(0, str(TOOLS))
 import check_q2_release_host_tokenizer_v0 as C
 import verify_q2_release_host_tokenizer_v0 as S
 S.initialize_modules(ROOT)
+
+
+def bootstrap_library_fixture(tmp_path, monkeypatch, fault=None):
+    """Small archive with scaled limits; no native host/privilege claim."""
+    base = tmp_path / 'bootstrap'; (base / 'bin').mkdir(parents=True)
+    interpreter = b'fixture interpreter, never executed'
+    (base / 'bin/python3.11').write_bytes(interpreter)
+    (base / 'lib').mkdir(); (base / 'lib/installer-extra.pyc').write_bytes(b'drift')
+    private = tmp_path / 'private'; private.mkdir()
+    entries = [('.', tarfile.DIRTYPE, b''), ('lib', tarfile.DIRTYPE, b''),
+               ('lib/stock.py', tarfile.REGTYPE, b'fixed library'),
+               ('lib/empty', tarfile.REGTYPE, b''),
+               ('lib/pkgconfig/python-3.11.pc', tarfile.REGTYPE, b'fixed config'),
+               ('lib/pkgconfig/python3.pc', tarfile.SYMTYPE, 'python-3.11.pc'),
+               ('setup.sh', tarfile.REGTYPE, b'never execute archive scripts')]
+    extra = {
+        'traversal': ('lib/../escaped', tarfile.REGTYPE, b'bad'),
+        'absolute': ('/escaped', tarfile.REGTYPE, b'bad'),
+        'hardlink': ('lib/alias', tarfile.LNKTYPE, 'lib/stock.py'),
+        'escape_link': ('lib/alias', tarfile.SYMTYPE, '../../escaped'),
+        'absolute_link': ('lib/alias', tarfile.SYMTYPE, '/escaped'),
+        'device': ('lib/device', tarfile.CHRTYPE, b''),
+        'fifo': ('lib/fifo', tarfile.FIFOTYPE, b''),
+        'duplicate': ('lib/stock.py', tarfile.REGTYPE, b'duplicate'),
+        'linked_parent': ('lib/alias', tarfile.SYMTYPE, 'pkgconfig'),
+        'setuid': ('lib/setuid', tarfile.REGTYPE, b'bad mode'),
+    }
+    if fault in extra: entries.append(extra[fault])
+    if fault == 'linked_parent': entries.append(('lib/alias/child', tarfile.REGTYPE, b'bad alias'))
+    archive = private / 'bootstrap.tar.gz'
+    with tarfile.open(archive, 'w:gz') as output:
+        for name, kind, content in entries:
+            member = tarfile.TarInfo('./' + name if not name.startswith('/') else name)
+            member.type = kind; member.mode = 0o755 if kind == tarfile.DIRTYPE else 0o644
+            if fault == 'setuid' and name == 'lib/setuid': member.mode = 0o4644
+            if kind in (tarfile.SYMTYPE, tarfile.LNKTYPE): member.linkname = content
+            if kind == tarfile.REGTYPE:
+                member.size = len(content); output.addfile(member, binary_io.BytesIO(content))
+            else: output.addfile(member)
+    expanded = sum(len(content) for _, kind, content in entries if kind == tarfile.REGTYPE)
+    monkeypatch.setattr(C, 'BOOTSTRAP_MEMBER_COUNT', len(entries))
+    monkeypatch.setattr(C, 'BOOTSTRAP_EXPANDED_BYTES', expanded)
+    monkeypatch.setattr(S.os, 'geteuid', lambda: 0)
+    profile = {'bootstrap_prefix': str(base), 'bootstrap_python_sha256': C.io.digest(interpreter),
+               'bootstrap': {'archive_size_bytes': archive.stat().st_size,
+                             'archive_sha256': C.io.digest(archive.read_bytes())}}
+    return private, base, profile
+
+
+def test_bootstrap_preparation_replaces_drift_with_exact_verified_library(tmp_path, monkeypatch):
+    private, base, profile = bootstrap_library_fixture(tmp_path, monkeypatch)
+    with pytest.raises(C.io.IntakeError): C.verify_bootstrap(private/'bootstrap.tar.gz', profile, C.Budget(30))
+    original_interpreter = (base/'bin/python3.11').read_bytes()
+    observed = S.prepare_bootstrap_library(private, profile, C.Budget(30))
+    assert observed == C.verify_bootstrap(private/'bootstrap.tar.gz', profile, C.Budget(30))
+    assert (base/'lib/stock.py').read_bytes() == b'fixed library'
+    assert (base/'lib/empty').read_bytes() == b''
+    assert (base/'lib/pkgconfig/python3.pc').readlink().as_posix() == 'python-3.11.pc'
+    assert not (base/'lib/installer-extra.pyc').exists()
+    assert (base/'bin/python3.11').read_bytes() == original_interpreter
+    assert not (base/'setup.sh').exists() and not (private/'bootstrap-library').exists()
+    # A second preparation has the same closed inventory, with no accumulated extras.
+    assert S.prepare_bootstrap_library(private, profile, C.Budget(30)) == observed
+
+
+@pytest.mark.parametrize('fault', ['traversal', 'absolute', 'hardlink', 'escape_link', 'absolute_link',
+                                 'device', 'fifo', 'duplicate', 'linked_parent', 'setuid',
+                                 'archive_digest', 'interpreter_digest', 'count_limit', 'expanded_limit',
+                                 'archive_link', 'library_link', 'prefix_link', 'nonroot', 'existing_stage'])
+def test_bootstrap_preparation_rejects_before_changing_installed_library(tmp_path, monkeypatch, fault):
+    private, base, profile = bootstrap_library_fixture(tmp_path, monkeypatch, fault)
+    outside = tmp_path/'outside'; outside.mkdir(); (outside/'untouched').write_bytes(b'outside')
+    if fault == 'archive_digest': profile['bootstrap']['archive_sha256'] = '0'*64
+    elif fault == 'interpreter_digest': profile['bootstrap_python_sha256'] = '0'*64
+    elif fault == 'count_limit': monkeypatch.setattr(C, 'BOOTSTRAP_MEMBER_COUNT', C.BOOTSTRAP_MEMBER_COUNT-1)
+    elif fault == 'expanded_limit': monkeypatch.setattr(C, 'BOOTSTRAP_EXPANDED_BYTES', C.BOOTSTRAP_EXPANDED_BYTES-1)
+    elif fault == 'archive_link':
+        archive=private/'bootstrap.tar.gz'; archive.rename(private/'held.tar.gz'); archive.symlink_to('held.tar.gz')
+    elif fault == 'library_link':
+        (base/'lib').rename(base/'original-lib'); (base/'lib').symlink_to(outside, target_is_directory=True)
+    elif fault == 'prefix_link':
+        alias=tmp_path/'prefix-link'; alias.symlink_to(base, target_is_directory=True); profile['bootstrap_prefix']=str(alias)
+    elif fault == 'nonroot': monkeypatch.setattr(S.os, 'geteuid', lambda: 1001)
+    elif fault == 'existing_stage':
+        stage=private/'bootstrap-library'; stage.mkdir(); (stage/'untouched').write_bytes(b'existing')
+    with pytest.raises((C.io.IntakeError, FileExistsError)):
+        S.prepare_bootstrap_library(private, profile, C.Budget(30))
+    original=base/('original-lib' if fault == 'library_link' else 'lib')
+    assert (original/'installer-extra.pyc').read_bytes() == b'drift'
+    assert (outside/'untouched').read_bytes() == b'outside'
+    if fault == 'existing_stage': assert (private/'bootstrap-library/untouched').read_bytes() == b'existing'
+    else: assert not (private/'bootstrap-library').exists()
+
+
+@pytest.mark.parametrize('fault', ['staged_byte', 'installed_byte', 'installed_extra', 'copy_failure', 'staging_cleanup'])
+def test_bootstrap_preparation_rejects_drift_and_partial_installation(tmp_path, monkeypatch, fault):
+    private, base, profile = bootstrap_library_fixture(tmp_path, monkeypatch)
+    actual_verify=C.verify_bootstrap; actual_copy=S.shutil.copytree; actual_remove=S.shutil.rmtree
+    def verify(archive, current, budget):
+        if fault == 'staged_byte' and Path(current['bootstrap_prefix']) != base:
+            (Path(current['bootstrap_prefix'])/'lib/stock.py').write_bytes(b'tainted staging')
+        return actual_verify(archive, current, budget)
+    def copy(source, destination, *args, **kwargs):
+        if fault == 'copy_failure': raise OSError('fixture interrupted copy')
+        result=actual_copy(source, destination, *args, **kwargs)
+        if Path(destination) == base/'lib':
+            if fault == 'installed_byte': (base/'lib/stock.py').write_bytes(b'tainted installation')
+            elif fault == 'installed_extra': (base/'lib/extra.pyc').write_bytes(b'undeclared')
+        return result
+    def remove(path, *args, **kwargs):
+        if fault == 'staging_cleanup' and Path(path) == private/'bootstrap-library':
+            raise OSError('fixture staging cleanup failure')
+        return actual_remove(path, *args, **kwargs)
+    monkeypatch.setattr(C, 'verify_bootstrap', verify)
+    monkeypatch.setattr(S.shutil, 'copytree', copy)
+    monkeypatch.setattr(S.shutil, 'rmtree', remove)
+    with pytest.raises((C.io.IntakeError, OSError)):
+        S.prepare_bootstrap_library(private, profile, C.Budget(30))
+    if fault == 'staged_byte': assert (base/'lib/installer-extra.pyc').read_bytes() == b'drift'
+    assert (private/'bootstrap-library').exists() == (fault == 'staging_cleanup')
 
 
 def legacy():
@@ -529,7 +651,7 @@ def test_failed_publication_removes_its_new_entry(tmp_path,monkeypatch,fault):
     assert not list(tmp_path.iterdir())
 
 
-@pytest.mark.parametrize('fault',[None,'first_occurrence','second_occurrence','receipt_replay',
+@pytest.mark.parametrize('fault',[None,'bootstrap_preparation','first_occurrence','second_occurrence','receipt_replay',
                                  'source_after_replay','private_cleanup','bootstrap_cleanup','final_publication'])
 def test_collector_publishes_acceptance_only_after_both_private_trees_removed(committed,tmp_path,monkeypatch,fault):
     """Collector integration with explicit transport/kernel/replay doubles.
@@ -552,6 +674,10 @@ def test_collector_publishes_acceptance_only_after_both_private_trees_removed(co
     monkeypatch.setattr(S.transport,'download_artifact',lambda _client,_expected,destination,_budget:C.io.write_new(destination,b'fixture archive'))
     monkeypatch.setattr(S.transport,'download_bootstrap',lambda _expected,destination,_budget:C.io.write_new(destination,b'fixture bootstrap'))
     monkeypatch.setattr(C,'verify_bootstrap',lambda *_args:'b'*64)
+    def prepare_bootstrap(*_args):
+        if fault == 'bootstrap_preparation': raise C.io.IntakeError('q2_replay_environment')
+        return 'b'*64
+    monkeypatch.setattr(S,'prepare_bootstrap_library',prepare_bootstrap)
     monkeypatch.setattr(C,'check_prelaunch',lambda *_args:None)
     monkeypatch.setattr(os,'chown',lambda *_args:None)
     preparation=[]
@@ -621,7 +747,9 @@ def test_collector_publishes_acceptance_only_after_both_private_trees_removed(co
                 assert len(calls)==failed+1
                 assert rejection['occurrences'][failed]['status']=='failed'
                 assert all(r['status']=='not_started' for r in rejection['occurrences'][failed+1:])
-        assert len(replays)==(0 if fault in ('first_occurrence','second_occurrence') else 1)
+            if fault == 'bootstrap_preparation':
+                assert not calls and all(r['status']=='not_started' for r in rejection['occurrences'])
+        assert len(replays)==(0 if fault in ('bootstrap_preparation','first_occurrence','second_occurrence') else 1)
     finally:
         for path in [bootstrap,*private_paths]:
             if path.exists():
