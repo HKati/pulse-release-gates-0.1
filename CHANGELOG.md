@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Preserve the Q2 summary checker's original bounded stdout bytes when
+  freezing `summary-check.json`, after strict parsing and the closed expected
+  object check. Remove compact reserialization while retaining the original
+  historical digest, exact output inventory, producer bindings and mandatory
+  cleanup. Add positive and negative byte-preservation regressions. Run
+  `38304292049/1` stays rejected; native execution of this correction remains
+  unverified. Preserve all input/profile/workflow pins and historical 49/50
+  FAIL/release BLOCK.
+
 - Handle the Q2 tokenizer summary builder's expected exit-1 terminal state
   after stop/reap. Require matching systemd exit evidence, EOF, a reaped client
   and an empty original cgroup before resetting only that service's failed

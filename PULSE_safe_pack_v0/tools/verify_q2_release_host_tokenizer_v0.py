@@ -557,7 +557,8 @@ def freeze_output(work, handoff, declared, tail, p, budget):
         obj = io.strict_json(tail, 128 * 1024)
         io.require(io.encode(obj) == io.encode({"ok": True, "recomputed_pass": False, "authority_effect": "none",
                            "production_gate_eligible": False}), "q2_summary_mismatch")
-        io.write_new(work / "summary-check.json", io.encode(obj))
+        # The historical digest binds the checker's original stdout bytes.
+        io.write_new(work / "summary-check.json", tail)
     else:
         io.require(tail == b"", "q2_replay_rejected")
     expected_names = set(declared["outputs"])

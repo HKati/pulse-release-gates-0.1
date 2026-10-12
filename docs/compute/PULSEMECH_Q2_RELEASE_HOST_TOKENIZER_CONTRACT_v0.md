@@ -275,6 +275,42 @@ occurrence cleanup do not establish verified service cleanup. The earlier
 artifact is rewritten by this layout and diagnostic correction; a new owner-run
 acquisition is still required to establish native execution of the fixed source.
 
+### Summary-check stdout byte preservation
+
+Native run [`38304292049/1`](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/38304292049)
+used source `f9d9c7e65dc9ed39903668ab264c84105e44ab7d`. Its bounded failure
+artifact records completed input, tokenizer and summary-builder occurrences.
+The summary-checker process exited with its declared code 0; the occurrence
+then rejected during `output_freeze` with `q2_summary_mismatch`. The record
+reports verified service cleanup and aggregate cleanup `verified_removed`.
+No accepted result was published, and the run remains rejected.
+
+The unchanged checker emits a 102-byte JSON line whose SHA-256 is the original
+`2c0d1366ea4533bc327eff68dfaded1a09a265b1e1d357d865c7d8e04730161c`.
+The earlier supervisor parsed that line and compactly reserialized it into
+95 bytes, producing SHA-256
+`d5c669911b0c359bc468695de0d6552f59be78e7263a546d2fd0aabdcb89cacd`.
+These bytes describe the same JSON object but cannot satisfy the original
+historical digest. This serialization defect follows deterministically from
+the retained source. The failure artifact does not retain the raw stdout or
+private output file, and the semantic and digest checks share the same error
+code; the native metadata alone does not distinguish those rejection points.
+
+The supervisor retains the bounded strict-JSON and exact closed-object checks,
+then preserves the original stdout bytes as `summary-check.json`. The existing
+historical digest check must pass before those bytes become a frozen handoff.
+No whitespace, key order or final newline is rewritten. Semantically equivalent
+bytes with a different historical digest still reject. Output inventory,
+producer binding, immutable-input checks, permissions and mandatory cleanup
+remain unchanged.
+
+The correction preserves all historical output hashes and the original
+49/50 FAIL/release BLOCK. Local serialization and output-freezing regressions
+do not establish native execution of the correction. A fresh owner-run
+verification bound to the reviewed new source, followed by evidence review
+and independent replay, remains required. No inference, authority promotion,
+production certificate or full Q2 closure follows from this correction.
+
 ## Evidence and authority boundary
 
 The public metadata artifact's accepted inventory is exactly:

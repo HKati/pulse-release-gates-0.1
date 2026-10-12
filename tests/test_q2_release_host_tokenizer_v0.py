@@ -8,6 +8,7 @@ historical reducer/checker, descriptor IO, subprocess EOF and source guards run.
 from __future__ import annotations
 
 import copy
+import errno
 import importlib.util
 import io as binary_io
 import json
@@ -480,7 +481,63 @@ def test_150_record_replay_rejects_coherent_and_incoherent_substitution(protocol
         C.derive_records(ROOT, evidence, f["tokenizer"], f["config"])
 
 
-def test_existing_real_reducer_and_checker_keep_historical_negative(tmp_path):
+@pytest.fixture
+def checker_output_boundary(tmp_path, monkeypatch):
+    """Real files/modes; substitute ownership only if local chown is unsupported.
+
+    These output-contract checks establish no native isolation or ownership
+    evidence. Parsing, byte identity, held-descriptor IO and freezing stay real.
+    """
+    probe = tmp_path / "checker-ownership-probe"
+    probe.write_bytes(b"local ownership capability probe")
+    try:
+        os.chown(probe, 0, 65534)
+    except OSError as exc:
+        if exc.errno not in (errno.EPERM, errno.EINVAL):
+            raise
+        def ownership_double(_path, uid, gid):
+            assert (uid, gid) == (0, 65534)
+        monkeypatch.setattr(S.os, "chown", ownership_double)
+    finally:
+        probe.unlink()
+    work = tmp_path / "checker-output"; work.mkdir()
+    handoff = tmp_path / "checker-handoff"
+    try:
+        yield work, handoff
+    finally:
+        # Restore only this test's private directory for ordinary local cleanup.
+        if handoff.is_dir() and not handoff.is_symlink(): handoff.chmod(0o700)
+
+
+def historical_checker_stdout(p):
+    original = (ROOT / "PULSE_safe_pack_v0/examples/q2_reference_capture_v0/run_37600313529/summary-check.json").read_bytes()
+    assert len(original) == 102
+    assert C.io.digest(original) == p["historical_output_sha256"]["summary-check.json"] == (
+        "2c0d1366ea4533bc327eff68dfaded1a09a265b1e1d357d865c7d8e04730161c")
+    return original
+
+
+def freeze_checker_stdout(boundary, raw, p):
+    work, handoff = boundary
+    declared = C.execution_plan(work.parent / "projection", "0" * 64, p)[3]
+    assert declared["id"] == "summary_checker"
+    return S.freeze_output(work, handoff, declared, raw, p, C.Budget(10))
+
+
+def assert_frozen_checker_stdout(boundary, raw, p):
+    assert raw == historical_checker_stdout(p)
+    outputs = freeze_checker_stdout(boundary, raw, p)
+    work, handoff = boundary
+    assert outputs == {"summary-check.json": p["historical_output_sha256"]["summary-check.json"]}
+    assert (work / "summary-check.json").read_bytes() == raw
+    assert (handoff / "summary-check.json").read_bytes() == raw
+    assert stat.S_IMODE((handoff / "summary-check.json").stat().st_mode) == 0o440
+    assert stat.S_IMODE(handoff.stat().st_mode) == 0o550
+    assert {path.name for path in handoff.iterdir()} == {"summary-check.json"}
+    return outputs
+
+
+def test_existing_real_reducer_and_checker_keep_historical_negative(tmp_path, checker_output_boundary):
     p = C.load_profile(ROOT)
     archive = ROOT / "PULSE_safe_pack_v0/examples/q2_reference_capture_v0/run_37600313529"
     # Preserved metadata includes the exact summary, while response fixtures
@@ -509,6 +566,57 @@ def test_existing_real_reducer_and_checker_keep_historical_negative(tmp_path):
     assert check.returncode == 0 and json.loads(check.stdout)["recomputed_pass"] is False
     assert json.loads((archive / "summary.json").read_bytes())["counts"]["groups_eligible"] == 49
     assert p["claims"]["current_inference_count"] == 0
+    # Connect the actual unchanged checker CLI to the actual collector boundary;
+    # parsing stdout alone cannot establish preservation of its pinned bytes.
+    assert_frozen_checker_stdout(checker_output_boundary, check.stdout, p)
+
+
+def test_preserved_checker_stdout_freezes_without_reserialization(checker_output_boundary):
+    p = C.load_profile(ROOT)
+    assert_frozen_checker_stdout(checker_output_boundary, historical_checker_stdout(p), p)
+
+
+@pytest.mark.parametrize("representation", ["compact", "no_newline", "extra_newline", "crlf", "key_order", "leading_space"])
+def test_checker_stdout_rejects_equivalent_but_unbound_bytes(checker_output_boundary, representation):
+    p = C.load_profile(ROOT); original = historical_checker_stdout(p)
+    if representation == "compact": raw = C.io.encode(json.loads(original))
+    elif representation == "no_newline": raw = original[:-1]
+    elif representation == "extra_newline": raw = original + b"\n"
+    elif representation == "crlf": raw = original[:-1] + b"\r\n"
+    elif representation == "key_order":
+        raw = (json.dumps(dict(reversed(list(json.loads(original).items())))) + "\n").encode()
+    else: raw = b" " + original
+    assert raw != original and json.loads(raw) == json.loads(original)
+    with pytest.raises(C.io.IntakeError, match="^q2_summary_mismatch$"):
+        freeze_checker_stdout(checker_output_boundary, raw, p)
+    # The private directory may exist before the digest rejects, but no output
+    # crosses into an accepted producer handoff.
+    assert not (checker_output_boundary[1] / "summary-check.json").exists()
+
+
+@pytest.mark.parametrize("fault,code", [
+    ("pass", "q2_summary_mismatch"), ("ok_integer", "q2_summary_mismatch"),
+    ("false_integer", "q2_summary_mismatch"), ("extra_key", "q2_summary_mismatch"),
+    ("missing_key", "q2_summary_mismatch"), ("duplicate_key", "q2_json_rejected"),
+    ("trailing_json", "q2_json_rejected"), ("non_object", "q2_json_rejected"),
+    ("empty", "q2_json_rejected"),
+])
+def test_checker_stdout_retains_strict_semantics_and_parsing(checker_output_boundary, fault, code):
+    p = C.load_profile(ROOT); original = historical_checker_stdout(p)
+    obj = json.loads(original)
+    if fault == "pass": obj["recomputed_pass"] = True
+    elif fault == "ok_integer": obj["ok"] = 1
+    elif fault == "false_integer": obj["production_gate_eligible"] = 0
+    elif fault == "extra_key": obj["unexpected"] = False
+    elif fault == "missing_key": del obj["authority_effect"]
+    raw = (json.dumps(obj, sort_keys=True) + "\n").encode()
+    if fault == "duplicate_key": raw = original.replace(b'"ok": true', b'"ok": true, "ok": true')
+    elif fault == "trailing_json": raw = original + b"{}\n"
+    elif fault == "non_object": raw = b"[]\n"
+    elif fault == "empty": raw = b""
+    with pytest.raises(C.io.IntakeError, match="^" + code + "$"):
+        freeze_checker_stdout(checker_output_boundary, raw, p)
+    assert not (checker_output_boundary[1] / "summary-check.json").exists()
 
 
 @pytest.mark.parametrize("exit_code, expected, accepted", [(0,0,True),(1,1,True),(1,0,False),(0,1,False),(2,1,False),(-9,0,False)])
@@ -1220,6 +1328,34 @@ def test_complete_fixture_receipt_preserves_negative_and_platform_drift(receipt_
     repo,evidence,result,_=receipt_fixture
     assert C.validate_receipt(repo,evidence,evidence)==result
     assert result['full_archived_platform_match'] is False and result['claims']['full_release_host_verified'] is False
+
+
+@pytest.mark.parametrize("replace_with_compact_digest", [False, True], ids=["original_bytes", "compact_substitution"])
+def test_frozen_checker_digest_reaches_independent_receipt_validation(
+        receipt_fixture, checker_output_boundary, replace_with_compact_digest):
+    """Real freeze and receipt validation; archive/kernel evidence is synthetic.
+
+    The fixture's declared archive/origin doubles remain explicit. The positive
+    case derives its output hash from frozen bytes; the checker stays real.
+    """
+    repo, evidence, result, _ = receipt_fixture
+    p = C.load_profile(repo); original = historical_checker_stdout(p)
+    outputs = assert_frozen_checker_stdout(checker_output_boundary, original, p)
+    result = copy.deepcopy(result)
+    if replace_with_compact_digest:
+        compact = C.io.encode(json.loads(original))
+        assert len(compact) == 95
+        assert C.io.digest(compact) == "d5c669911b0c359bc468695de0d6552f59be78e7263a546d2fd0aabdcb89cacd"
+        outputs = {"summary-check.json": C.io.digest(compact)}
+    result["occurrences"][3]["outputs"] = outputs
+    (evidence / "result.json").write_bytes(C.io.encode(result))
+    if replace_with_compact_digest:
+        with pytest.raises(C.io.IntakeError, match="^q2_summary_mismatch$"):
+            C.validate_receipt(repo, evidence, evidence)
+    else:
+        assert C.validate_receipt(repo, evidence, evidence) == result
+        assert result["claims"]["historical_metric_pass"] is False
+        assert result["claims"]["current_inference_count"] == 0
 
 
 @pytest.mark.parametrize('fault',['missing','duplicate','reordered','argv','wrong_exit','timeout','no_eof','leftover_cgroup',
