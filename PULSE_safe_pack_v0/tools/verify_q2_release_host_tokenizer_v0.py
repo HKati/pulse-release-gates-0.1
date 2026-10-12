@@ -45,6 +45,10 @@ def initialize_modules(source):
     independent = importlib.import_module("check_q2_release_host_tokenizer_v0")
     native = importlib.import_module("qualify_q2_reference_runtime_v0")
     class BoundService(native.Service):
+        def close(self):
+            super().close()
+            settle_expected_negative(self)
+
         def send(self, data):
             if data == b"EXEC\n":
                 io.require(hasattr(self, "observation"), "q2_context_rejected")
@@ -479,6 +483,53 @@ def child_error_code(path):
         return "unknown"
 
 
+def settle_expected_negative(service):
+    """Clear only the declared reducer's observed exit-1 terminal state.
+
+    systemd may retain failed/exit-code after a process has exited normally
+    with the metric's expected negative code. This is bookkeeping after stop,
+    never a replacement for the shared inactive/cgroup/client cleanup check.
+    The recorded subject exit is neither changed nor inferred from cleanup.
+    """
+    contract = getattr(service, "tokenizer_terminal_contract", None)
+    completed = getattr(service, "completed_exit_code", None)
+    if (type(contract) is not tuple or len(contract) != 3 or
+            contract[:2] != ("summary_builder", "reduction") or
+            type(contract[2]) is not int or contract[2] != 1 or
+            type(completed) is not int or completed != 1):
+        return
+    unit = service.unit
+    io.require(re.fullmatch(r"pulse-q2-[a-f0-9]{24}-reduction\.service", unit) is not None,
+               "q2_cleanup_failed")
+    process = getattr(service, "process", None)
+    io.require(process is not None and type(process.poll()) is int and process.poll() == 1 and
+               getattr(getattr(service, "reader", None), "eof", None) is True, "q2_cleanup_failed")
+    fields = ("LoadState", "ActiveState", "ControlGroup", "MainPID", "Result", "ExecMainCode", "ExecMainStatus")
+    observed = native.control(["/usr/bin/systemctl", "show", unit, "--no-pager",
+                               "--property=" + ",".join(fields)], timeout=10, check=False)
+    io.require(type(observed.stdout) is bytes and len(observed.stdout) <= 4096, "q2_cleanup_failed")
+    lines = observed.stdout.decode("utf-8", "strict").splitlines()
+    io.require(observed.returncode in (0, 1, 4) and len(lines) == len(fields) and
+               all("=" in line for line in lines), "q2_cleanup_failed")
+    values = dict(line.split("=", 1) for line in lines)
+    io.require(set(values) == set(fields), "q2_cleanup_failed")
+    if values["LoadState"] in ("loaded", "not-found") and values["ActiveState"] == "inactive":
+        return  # The unchanged shared checker still verifies cgroup and client.
+    io.require(observed.returncode == 0 and values == {
+        "LoadState": "loaded", "ActiveState": "failed", "ControlGroup": values["ControlGroup"],
+        "MainPID": "0", "Result": "exit-code", "ExecMainCode": "1", "ExecMainStatus": "1"},
+        "q2_cleanup_failed")
+    io.require(values["ControlGroup"] in ("", "/system.slice/" + unit), "q2_cleanup_failed")
+    # Observe the original cgroup and every descendant before clearing state.
+    # A reset command alone proves neither termination nor successful cleanup.
+    cgroup = Path("/sys/fs/cgroup/system.slice") / unit
+    if cgroup.exists():
+        members = [cgroup / "cgroup.procs", *cgroup.rglob("cgroup.procs")]
+        io.require(all(path.read_text().strip() == "" for path in members), "q2_cleanup_failed")
+    reset = native.control(["/usr/bin/systemctl", "reset-failed", unit], timeout=10, check=False)
+    io.require(reset.returncode == 0, "q2_cleanup_failed")
+
+
 def complete_expected(service, expected_exit, budget):
     """Exit 1 is allowed only for the predeclared negative metric builder."""
     deadline = min(service.deadline, service.runtime_deadline_ns / 1e9, budget.end)
@@ -541,6 +592,7 @@ def run_occurrence(root, private, declared, projection, pre, p, budget):
     try:
         prefix = "pulse-q2-" + uuid.uuid4().hex[:24]
         service = ObservedService.__new__(ObservedService)
+        service.tokenizer_terminal_contract = (declared["id"], declared["stage"], declared["expected_exit"])
         service.__init__(prefix, declared["stage"], declared["argv"], work,
             root / "verifier/bin/python", log, budget.end)
         phase = "completion"

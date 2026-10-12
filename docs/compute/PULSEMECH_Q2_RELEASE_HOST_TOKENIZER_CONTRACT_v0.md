@@ -240,6 +240,35 @@ and attempted-service cleanup evidence. Incomplete service cleanup leaves the
 aggregate `not_verified` even if both directory trees were removed. Cleanup
 verification failure never relaxes the existing inactive/cgroup/client checks.
 
+The tokenizer supervisor handles one expected negative terminal case after the
+normal stop/reap sequence. Only the declared `summary_builder` / `reduction`
+occurrence with expected exit 1, an already recorded completed exit 1, stdout
+EOF and a reaped client with exit 1 is eligible. No startup failure, unexpected
+exit, other occurrence or cleanup-induced exit authorizes this operation.
+
+If systemd retains `loaded` / `failed`, the supervisor first requires
+`MainPID=0`, `Result=exit-code`, `ExecMainCode=1`, `ExecMainStatus=1`, the exact
+or empty service cgroup path, and an empty or removed original cgroup including
+descendants. It may then issue `systemctl reset-failed` for that exact service
+unit only. Missing, malformed, duplicate, oversized or inconsistent observations,
+remaining processes, command failure or timeout reject. An already inactive or
+unloaded service needs no reset. The original completed exit remains 1.
+
+Resetting terminal bookkeeping does not establish cleanup. The unchanged shared
+cleanup collector observes the final inactive state, original cgroup and reaped
+client again, and the unchanged source-bound checker validates that record.
+Only then may immutable-input rechecks and exact historical-output freezing
+continue. The builder's expected negative metric cannot become PASS through
+this operation; no retry or service restart is introduced.
+
+Run `38272639609/1` remains rejected. Its failure artifact reports completed
+input/tokenizer checks and the builder's expected exit 1, followed by
+`capture_service_not_inactive`; it does not retain the raw systemd state, and
+the summary checker never started. Local regressions use explicit systemd
+doubles with real process exit/EOF and filesystem checks. They do not establish
+native execution of this terminal-state correction; a new owner-run verification
+and evidence review remain required.
+
 Run `38248867903/1` remains rejected. Its recorded directory removal and null
 occurrence cleanup do not establish verified service cleanup. The earlier
 `38174388350/1` bootstrap failure also remains rejected. Neither historical

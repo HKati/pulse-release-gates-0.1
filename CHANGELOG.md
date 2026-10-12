@@ -8,6 +8,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Handle the Q2 tokenizer summary builder's expected exit-1 terminal state
+  after stop/reap. Require matching systemd exit evidence, EOF, a reaped client
+  and an empty original cgroup before resetting only that service's failed
+  state; retain the unchanged final cleanup collector and independent checker.
+  Preserve the original exit, exact historical output and fail-closed behavior.
+  Add targeted positive/negative regressions. Run `38272639609/1` stays rejected;
+  native execution of this correction remains unverified. Historical 49/50
+  FAIL/release BLOCK and all input, profile and workflow pins remain unchanged.
+
 - Separate Q2 tokenizer private collector data from the subject-readable
   projection ancestor. Preserve the fixed projection path and held-descriptor
   reader while supplying the directory read permission it requires. Retain
