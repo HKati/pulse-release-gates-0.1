@@ -481,3 +481,31 @@ Q2-3 run may supply Q2-2 readiness evidence to avoid a redundant run. Early EOF
 or killing the original worker before generation is not clean protocol completion.
 Historical 49/50 FAIL is never topped up or replaced. Other unavailable gates,
 Step 5C/5D, measurement and release authority stay separate; keep #2879 open.
+
+### Projection schema character-set correction (2026-10-13)
+
+Regular-file path and origin patterns in all five projection trees accept `+`
+and `@`, matching the existing archive reader character set. The original
+capsule includes `runtime/lib/python3.11/site-packages/torch-2.8.0+cpu.dist-info/METADATA`
+and `runtime/lib/python3.11/site-packages/torch/include/c10/util/C++17.h`.
+No original member is renamed, removed, repaired or regenerated. These patterns
+are not a substitute for `safe_member`: traversal, absolute paths, backslashes,
+empty/dot components, normalization and component-length checks remain enforced
+by the unchanged runtime guards. Exact inventories, original hashes,
+source/producer bindings, ownership/modes and restricted links are unchanged.
+
+Native run `38443305721/1` (job `115455145216`) remains rejected with
+`q2_schema_rejected`. Its retained artifact `11836328870` is 470 bytes,
+SHA-256 `5efe8f6158ece9b0ee74149845e55240d94ff1b6e42448441642383a91e97db5`.
+The failure record reports all four occurrences completed, directory cleanup
+`verified_removed` and no cleanup errors. The full rejected candidate was not
+preserved, so this evidence does not identify the first failing native schema
+field. The name mismatch is a separately reproducible defect; correcting it
+does not guarantee success of the next native run.
+
+Regressions validate the complete projection subschema and existing complete
+synthetic receipt path with both affected capsule names and an explicit `@`
+fixture. Kernel and archive transport records in that receipt are synthetic;
+full-schema validation is real. No new native verification, inference,
+production authority, Q2 closure or Step 5C acceptance is claimed.
+Historical 49/50 FAIL / release BLOCK remains unchanged.

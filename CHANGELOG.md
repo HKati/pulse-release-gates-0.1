@@ -8,6 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Align all Q2 projection regular-file path and origin character sets with
+  the existing archive reader for `+` and `@`. Add full projection-schema and
+  complete synthetic-receipt regressions with actual affected capsule names;
+  retain runtime path guards, exact inventories, original hashes, bindings,
+  ownership/modes, restricted links and fail-closed behavior. Run
+  `38443305721/1` remains rejected. Its retained failure lacks the full
+  candidate and does not identify the first failing native schema field.
+  This separately reproduced defect correction guarantees no future native
+  success or Q2/Step 5C acceptance. Historical 49/50 FAIL/release BLOCK remains
+  unchanged.
+
 - Preserve the Q2 summary checker's original bounded stdout bytes when
   freezing `summary-check.json`, after strict parsing and the closed expected
   object check. Remove compact reserialization while retaining the original

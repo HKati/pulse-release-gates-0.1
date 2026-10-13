@@ -1249,6 +1249,10 @@ def receipt_fixture(committed, prior, tmp_path, monkeypatch):
     row = {'path':'fixture.bin','origin':'input:fixture','archive_mode':None,'kind':'file',
            'uid':0,'gid':65534,'mode':0o440,'size_bytes':1,'sha256':'a'*64}
     for tree in ('inputs','capsule','historical','verifier'): projection['trees'][tree]=[dict(row)]
+    # Actual affected capsule spellings; bytes/transport/kernel remain synthetic.
+    projection['trees']['capsule'] = [
+        {**row, 'path': name, 'origin': 'capsule:' + name, 'archive_mode': 0o644}
+        for name in PROJECTION_SPECIAL_NAMES]
     projection['trees']['source']=[{'path':r['path'],'origin':'source:'+r['path'],'archive_mode':None,
         'kind':'file','uid':0,'gid':65534,'mode':0o440,'size_bytes':r['size_bytes'],'sha256':r['sha256']} for r in sources]
     projection_raw=C.io.encode(projection)
@@ -1393,6 +1397,78 @@ def test_fixture_receipt_rejects_incomplete_or_overstated_evidence(receipt_fixtu
     else:result['production_certificate']={}
     (evidence/'result.json').write_bytes(C.io.encode(result))
     with pytest.raises((C.io.IntakeError,ValueError,KeyError)):C.validate_receipt(repo,evidence,evidence)
+
+
+
+PROJECTION_SPECIAL_NAMES = (
+    'runtime/lib/python3.11/site-packages/torch-2.8.0+cpu.dist-info/METADATA',
+    'runtime/lib/python3.11/site-packages/torch/include/c10/util/C++17.h',
+    'runtime/lib/python3.11/site-packages/fixture@local/data.bin',
+)
+
+
+def projection_contract():
+    contract = json.loads((ROOT / C.RESULT_SCHEMA).read_bytes())
+    return {'$ref': '#/$defs/projection', '$defs': contract['$defs']}
+
+
+def test_full_projection_schema_special_names_and_original_rejection(receipt_fixture):
+    """Real full subschema validation; receipt kernel/transport are synthetic."""
+    _repo, evidence, _result, _token = receipt_fixture
+    projection = json.loads((evidence / 'projection.json').read_bytes())
+    contract = projection_contract()
+    C.io.validate(projection, C.io.encode(contract))
+    original = copy.deepcopy(contract)
+    for tree in original['$defs']['projection']['properties']['trees']['properties'].values():
+        props = tree['items']['oneOf'][0]['properties']
+        props['path']['pattern'] = r'^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$'
+        props['origin']['pattern'] = r'^(input|capsule|source|historical|verifier):[A-Za-z0-9_./-]+$'
+    for name in PROJECTION_SPECIAL_NAMES:
+        C.io.safe_member(name)
+        candidate = copy.deepcopy(projection)
+        row = candidate['trees']['capsule'][0]
+        row.update(path=name, origin='capsule:' + name)
+        C.io.validate(candidate, C.io.encode(contract))
+        with pytest.raises(C.io.IntakeError, match='^q2_schema_rejected$'):
+            C.io.validate(candidate, C.io.encode(original))
+    # Every regular-file branch uses the same reader-compatible character sets.
+    for tree in projection['trees']:
+        for name in PROJECTION_SPECIAL_NAMES:
+            candidate = copy.deepcopy(projection)
+            candidate['trees'][tree] = [{**projection['trees']['capsule'][0],
+                'path': name, 'origin': ('input' if tree == 'inputs' else tree) + ':' + name}]
+            C.io.validate(candidate, C.io.encode(contract))
+
+
+@pytest.mark.parametrize('name', ['', '/absolute', '../escape', 'a/../b',
+    'a/./b', 'a//b', './a', 'a/', 'a\\b', 'a b', 'a:b', 'a#b',
+    'a\n', '.', '..', 'é', 'a/' + 'b'*256])
+def test_projection_special_names_do_not_weaken_runtime_guard(name):
+    with pytest.raises(C.io.IntakeError):
+        C.io.safe_member(name)
+
+
+@pytest.mark.parametrize('fault', ['hash', 'extra', 'origin', 'link'])
+def test_special_name_tree_preserves_runtime_inventory_guards(projected, fault):
+    root, old, _rows = projected
+    root.chmod(0o750); (root/'source').chmod(0o750)
+    path = old.with_name('C++17@fixture.h'); old.rename(path)
+    row = C.file_row(path, 'source/' + path.name, 'source:' + path.name, 0o600)
+    rows = [row]
+    S.freeze_directories(root)
+    C.check_tree(root, rows, C.Budget(180))
+    if fault == 'hash': row['sha256'] = '0'*64
+    elif fault == 'extra': rows.append({**row, 'path': 'source/extra+@.h'})
+    elif fault == 'link':
+        (root/'source').chmod(0o750); path.unlink(); path.symlink_to('/etc/passwd'); (root/'source').chmod(0o550)
+    else:
+        source = {'path': row['path'], 'size_bytes': row['size_bytes'], 'sha256': row['sha256']}
+        row['origin'] = 'capsule:' + row['path']
+        with pytest.raises(C.io.IntakeError):
+            C.check_source_projection({'trees': {'source': rows}}, [source])
+        return
+    with pytest.raises((C.io.IntakeError, OSError)):
+        C.check_tree(root, rows, C.Budget(180))
 
 
 if __name__ == "__main__":
