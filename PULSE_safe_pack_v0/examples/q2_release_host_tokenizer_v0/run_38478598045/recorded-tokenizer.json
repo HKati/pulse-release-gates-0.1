@@ -1,0 +1,285 @@
+{
+  "record_type": "q2_1_native_tokenizer_preservation_v0",
+  "record_status": "bounded_checkpoint_metadata",
+  "scope": "q2_archived_native_tokenizer_only_v0",
+  "work_order": 2879,
+  "role": "documentation_and_evidence_preservation_only",
+  "native_receipt_binding": {
+    "job_id": "115575359765",
+    "job_name": "verify_host",
+    "repository": "HKati/pulse-release-gates-0.1",
+    "run_attempt": 1,
+    "run_id": "38478598045",
+    "source_commit": "d44bf963cbac377366e95ae7ac9e3603fff894a4",
+    "workflow": ".github/workflows/q2_release_host_tokenizer_verification_v0.yml"
+  },
+  "acquisition_source_tree_sha1": "e48b7cca5b82689ba9705688d95c1827029ab9a2",
+  "original_native_archive": {
+    "artifact_id": 11855986756,
+    "filename": "q2-native-tokenizer-38478598045-1.zip",
+    "size_bytes": 1045568,
+    "sha256": "98f091849baebf210ee6bb12b5e902607301b25277960f8c1f71244c95529834",
+    "retained_in_bundle": {
+      "path": "q2-offline-replay-38478598045-1.zip",
+      "member": "original_metadata/q2-native-tokenizer-38478598045-1.zip"
+    }
+  },
+  "evidence_directory": "evidence",
+  "evidence_files": [
+    {
+      "path": "evidence/input-check.json",
+      "size_bytes": 2394,
+      "sha256": "7d129090f7d420c344110a69114c15ed40c0b50bfee2f655af1f5ac13ba4b3f9"
+    },
+    {
+      "path": "evidence/prelaunch.json",
+      "size_bytes": 11289,
+      "sha256": "1153446578e0529ef466b64d3908b283d1bd6af4b091dce3e8a004f2fed39855"
+    },
+    {
+      "path": "evidence/projection.json",
+      "size_bytes": 6788954,
+      "sha256": "6ccd7195649ca6a989c26f2a234a143c312ca5a8cc04b8352bd05de29e53bb00"
+    },
+    {
+      "path": "evidence/request.json",
+      "size_bytes": 2186,
+      "sha256": "a7fb1947b567e9a0784173809f7eb65c325ff36693ca3415dfddfd0160d9ce2b"
+    },
+    {
+      "path": "evidence/result.json",
+      "size_bytes": 49200,
+      "sha256": "6b8077ba4a4ffc578cec37ded5df95d8198736e69a1ebdb802fac977207cf868"
+    },
+    {
+      "path": "evidence/tokenizer-check.json",
+      "size_bytes": 998,
+      "sha256": "8fa35e714a3f426beed530fc7568472d48e5927ddc0b063ff96923e8087264b8"
+    }
+  ],
+  "offline_replay_delivery": {
+    "path": "q2-offline-replay-38478598045-1.zip",
+    "size_bytes": 2211612,
+    "sha256": "66b7bfcc5b9bbfa72e2be843ba0d541d89adac6ae14e9ca1ad56af119da091a9",
+    "manifest_member": "manifest.json",
+    "manifest_sha256": "be2e8f9d5175eca9f1a13fa183099c06624770e1a2aa4ea016219b294873f5b9",
+    "delivery_inventory_member": "DELIVERY_INVENTORY.json",
+    "delivery_file_count": 65,
+    "recorded_success": {
+      "source_commit": "d44bf963cbac377366e95ae7ac9e3603fff894a4",
+      "python": "3.11.16",
+      "unicode": "14.0.0",
+      "exit_code": 0,
+      "stdout": "q2_tokenizer_evidence_reconstructed\n",
+      "stderr": "",
+      "completed_at_utc": "2026-10-13T23:15:47.930575+00:00",
+      "command_record_member": "logs/positive_after_local_restage.command.json",
+      "stdout_member": "logs/positive_after_local_restage.stdout",
+      "stderr_member": "logs/positive_after_local_restage.stderr"
+    },
+    "negative_controls": [
+      {
+        "name": "negative_changed_request_source",
+        "exit_code": 2,
+        "stderr": "q2_context_rejected\n",
+        "command_record_member": "logs/negative_changed_request_source.command.json",
+        "stdout_member": "logs/negative_changed_request_source.stdout",
+        "stderr_member": "logs/negative_changed_request_source.stderr"
+      },
+      {
+        "name": "negative_production_claim_true",
+        "exit_code": 2,
+        "stderr": "q2_schema_rejected\n",
+        "command_record_member": "logs/negative_production_claim_true.command.json",
+        "stdout_member": "logs/negative_production_claim_true.stdout",
+        "stderr_member": "logs/negative_production_claim_true.stderr"
+      },
+      {
+        "name": "negative_extra_evidence_file",
+        "exit_code": 2,
+        "stderr": "q2_file_rejected\n",
+        "command_record_member": "logs/negative_extra_evidence_file.command.json",
+        "stdout_member": "logs/negative_extra_evidence_file.stdout",
+        "stderr_member": "logs/negative_extra_evidence_file.stderr"
+      }
+    ],
+    "initial_failed_attempt_retained": {
+      "exit_code": 2,
+      "error_code": "q2_digest_mismatch",
+      "command_record_member": "logs/positive.command.json",
+      "staging_diagnostic_member": "local_input_staging_diagnostic.json",
+      "cause_of_local_copy_change": "not_established"
+    }
+  },
+  "original_input_archives_not_copied": [
+    {
+      "role": "capture",
+      "filename": "capture.zip",
+      "size_bytes": 1809263,
+      "sha256": "88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6",
+      "included_in_repository_payload": false,
+      "durable_owner_held_retention": "not_verified",
+      "original_identity": {
+        "repository": "HKati/pulse-release-gates-0.1",
+        "run_id": "37600313529",
+        "run_attempt": 1,
+        "source_commit": "fb7b247e24f18c5314fd44f7711bd49e15020364",
+        "artifact_id": 11472726606,
+        "archive_size_bytes": 1809263,
+        "archive_sha256": "88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6",
+        "subject_size_bytes": 4851,
+        "subject_sha256": "ae5f9994c2ad2d59dba57f28b194aae3b9951adc3ef9a4e220af0db80b55ae29",
+        "artifact_name": "q2-reference-capture-37600313529-1"
+      }
+    },
+    {
+      "role": "preparation",
+      "filename": "preparation.zip",
+      "size_bytes": 508460811,
+      "sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9",
+      "included_in_repository_payload": false,
+      "durable_owner_held_retention": "not_verified",
+      "original_identity": {
+        "repository": "HKati/pulse-release-gates-0.1",
+        "artifact_id": 11282419957,
+        "run_id": "37148637546",
+        "run_attempt": 1,
+        "source_commit": "77fc5d51896568db50a2a87f650711a65db8fe8c",
+        "artifact_name": "q2-runtime-preparation-37148637546-1",
+        "archive_size_bytes": 508460811,
+        "archive_sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9"
+      }
+    },
+    {
+      "role": "capsule",
+      "filename": "capsule.zip",
+      "size_bytes": 452116385,
+      "sha256": "3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734",
+      "included_in_repository_payload": false,
+      "durable_owner_held_retention": "not_verified",
+      "original_identity": {
+        "file_name": "q2-release-subject-capsule-20261010.zip",
+        "archive_size_bytes": 452116385,
+        "archive_sha256": "3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734",
+        "capsule_manifest_sha256": "8dfa1b9df8ed7fbd8ea8b749555ba73ebf24f5d8aeb187d15c51163137a0c857",
+        "members": 18499,
+        "expanded_bytes": 1142892836,
+        "repository": "HKati/pulse-release-gates-0.1",
+        "workflow": ".github/workflows/q2_release_capsule_publication_v0.yml",
+        "run_id": "38097352170",
+        "run_attempt": 1,
+        "source_commit": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+        "artifact_id": 11686701538,
+        "artifact_name": "q2-release-subject-capsule-20261010.zip"
+      }
+    },
+    {
+      "role": "roundtrip",
+      "filename": "roundtrip.zip",
+      "size_bytes": 2911,
+      "sha256": "288880eedbff4ae812d7d2020e2c55aa4814b4d9f08076473a9755ace90bcdd0",
+      "included_in_repository_payload": false,
+      "durable_owner_held_retention": "not_verified",
+      "original_identity": {
+        "repository": "HKati/pulse-release-gates-0.1",
+        "workflow": ".github/workflows/q2_release_capsule_publication_v0.yml",
+        "run_id": "38097352170",
+        "run_attempt": 1,
+        "source_commit": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+        "artifact_id": 11686476032,
+        "artifact_name": "q2-capsule-roundtrip-38097352170-1",
+        "archive_size_bytes": 2911,
+        "archive_sha256": "288880eedbff4ae812d7d2020e2c55aa4814b4d9f08076473a9755ace90bcdd0"
+      }
+    },
+    {
+      "role": "bootstrap",
+      "filename": "bootstrap.tar.gz",
+      "size_bytes": 92555692,
+      "sha256": "07b61e35f30861939ff95314297921de8f57cd48f85bb18d777651b3ea45f2ee",
+      "included_in_repository_payload": false,
+      "durable_owner_held_retention": "not_verified",
+      "original_identity": {
+        "url": "https://github.com/actions/python-versions/releases/download/3.11.16-31661435402/python-3.11.16-linux-24.04-x64.tar.gz",
+        "filename": "python-3.11.16-linux-24.04-x64.tar.gz",
+        "archive_size_bytes": 92555692,
+        "archive_sha256": "07b61e35f30861939ff95314297921de8f57cd48f85bb18d777651b3ea45f2ee",
+        "interpreter_sha256": "a15ccdaf07655a8667a3687b13171486c9a265d92273ba3ad820fbb64d2cfecc"
+      }
+    }
+  ],
+  "historical_metrics": {
+    "consistent": 49,
+    "groups_eligible": 49,
+    "groups_total": 50,
+    "inconsistent": 0,
+    "min_n_eligible_groups": 50,
+    "responses_eligible": 147,
+    "responses_total": 150,
+    "threshold": 0.9,
+    "unknown": 1,
+    "wilson_lower_bound": 0.9273021807795037
+  },
+  "claims": {
+    "active_gate_eligible": false,
+    "authority_effect": "none",
+    "current_inference_count": 0,
+    "full_release_host_verified": false,
+    "historical_metric_pass": false,
+    "model_weights_loaded": false,
+    "production_gate_eligible": false,
+    "same_run_release_authority_eligible": false,
+    "worker_launch_executed": false
+  },
+  "attribution": {
+    "native_observer": "Original owner-run GitHub job 115575359765; recorded process/kernel observations",
+    "offline_replay": "Existing unchanged checker CLI; archive, source, dependency, metric and recorded-evidence reconstruction",
+    "new_kernel_observation": false,
+    "organizationally_independent_audit": false
+  },
+  "previous_failed_native_run": {
+    "run_id": "38443305721",
+    "run_attempt": 1,
+    "status": "rejected"
+  },
+  "limitations": [
+    "This is a new preservation index, not an original execution report, policy input, signed attestation, or authorization to execute.",
+    "The unchanged replay ZIP retains its original task scripts, reports, logs and draft checkpoint as archived evidence; none is executed or promoted by this index.",
+    "Repository publication is the human owner's action. Preparing these files does not establish that they have been merged.",
+    "Only evidence/ is the closed six-file input directory for the existing replay CLI. This parent directory is not a valid evidence-directory argument.",
+    "Five large original input archives are identified but not included here. Hash bindings and temporary copies do not attest durable owner-held retention.",
+    "Recorded native process, timing, isolation and cleanup observations remain attributed to the original owner-run observer.",
+    "No full Q2, Step 5C/5D, production authorization, additional inference, or organizationally independent audit is established."
+  ],
+  "work_order_state": "open",
+  "recorded_native_outcome": {
+    "status": "native_tokenizer_verified",
+    "occurrences": [
+      {
+        "id": "input_check",
+        "status": "completed",
+        "expected_exit": 0,
+        "exit_code": 0
+      },
+      {
+        "id": "tokenizer_check",
+        "status": "completed",
+        "expected_exit": 0,
+        "exit_code": 0
+      },
+      {
+        "id": "summary_builder",
+        "status": "completed",
+        "expected_exit": 1,
+        "exit_code": 1
+      },
+      {
+        "id": "summary_checker",
+        "status": "completed",
+        "expected_exit": 0,
+        "exit_code": 0
+      }
+    ],
+    "cleanup": "verified_removed"
+  }
+}

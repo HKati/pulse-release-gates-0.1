@@ -675,6 +675,15 @@ Comparison basis: [v1.2.0...HEAD][Post-v1.2.0].
 
 #### Fixed
 
+- Fix the Q2-1 preservation check to verify all 29 historical source payloads
+  against the fixed acquisition commit/tree and original receipt bindings,
+  independently of current working-tree files or Git history. Add a separate
+  [later source preservation copy](tests/fixtures/q2_release_host_tokenizer_historical_source_d44bf963_v0.zip)
+  with raw Git commit/tree proofs and offline tamper/independence regressions.
+  Preserve all original native metadata, index and replay bytes, current-runtime
+  source guards, historical 49/50 FAIL/release BLOCK and non-authorizing claims.
+  Refs #2879; the work order remains open.
+
 - Closed Device Ledger verifier and proof-parity defects involving:
   - stale-session lifecycle acceptance;
   - interrupted-coverage gap reconstruction;
@@ -745,6 +754,15 @@ Comparison basis: [v1.2.0...HEAD][Post-v1.2.0].
   - Provenance: PR #2852.
 
 #### Docs
+
+- Preserve the bounded Q2-1 native tokenizer reference `38478598045/1` and
+  its separate canonical offline replay, with six unchanged metadata files,
+  the original replay delivery archive, a non-authorizing preservation index
+  and metadata-integrity regressions. Record the bounded checkpoint in the
+  existing readiness/contract/index documentation. Preserve the initial local
+  input-staging rejection and the historical 49/50 FAIL/release BLOCK. Large
+  original input archives are identified but not included; durable owner
+  custody remains unverified. No runtime, workflow, policy, threshold or authority change.
 
 - Synchronized the canonical
   [PULSEmech Technical Overview](PULSEMECH_TECHNICAL_OVERVIEW.md), README,
