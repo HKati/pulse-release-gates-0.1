@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import errno
+import hashlib
 import importlib.util
 import io as binary_io
 import json
@@ -1469,6 +1470,442 @@ def test_special_name_tree_preserves_runtime_inventory_guards(projected, fault):
         return
     with pytest.raises((C.io.IntakeError, OSError)):
         C.check_tree(root, rows, C.Budget(180))
+
+
+# Recorded Q2-1 preservation only. These checks read metadata/archive bytes;
+# they never invoke the archived scripts, native supervisor, tokenizer or replay.
+RECORDED_TOKENIZER_ROOT = ROOT / 'PULSE_safe_pack_v0/examples/q2_release_host_tokenizer_v0/run_38478598045'
+RECORDED_TOKENIZER_SOURCE = 'd44bf963cbac377366e95ae7ac9e3603fff894a4'
+RECORDED_TOKENIZER_TREE = 'e48b7cca5b82689ba9705688d95c1827029ab9a2'
+RECORDED_TOKENIZER_INDEX_SHA = 'cdd05228a5b3013c5f956818e5ebd6f876bd74ddea0e27b8bacbbe01e71a42ee'
+RECORDED_TOKENIZER_REPLAY = 'q2-offline-replay-38478598045-1.zip'
+RECORDED_TOKENIZER_ORIGINALS = {
+    'evidence/input-check.json': (2394, '7d129090f7d420c344110a69114c15ed40c0b50bfee2f655af1f5ac13ba4b3f9'),
+    'evidence/prelaunch.json': (11289, '1153446578e0529ef466b64d3908b283d1bd6af4b091dce3e8a004f2fed39855'),
+    'evidence/projection.json': (6788954, '6ccd7195649ca6a989c26f2a234a143c312ca5a8cc04b8352bd05de29e53bb00'),
+    'evidence/request.json': (2186, 'a7fb1947b567e9a0784173809f7eb65c325ff36693ca3415dfddfd0160d9ce2b'),
+    'evidence/result.json': (49200, '6b8077ba4a4ffc578cec37ded5df95d8198736e69a1ebdb802fac977207cf868'),
+    'evidence/tokenizer-check.json': (998, '8fa35e714a3f426beed530fc7568472d48e5927ddc0b063ff96923e8087264b8'),
+    RECORDED_TOKENIZER_REPLAY: (2211612, '66b7bfcc5b9bbfa72e2be843ba0d541d89adac6ae14e9ca1ad56af119da091a9'),
+}
+RECORDED_TOKENIZER_FILES = tuple(RECORDED_TOKENIZER_ORIGINALS) + ('recorded-tokenizer.json',)
+RECORDED_TOKENIZER_BINDING = {
+    'repository': 'HKati/pulse-release-gates-0.1',
+    'workflow': '.github/workflows/q2_release_host_tokenizer_verification_v0.yml',
+    'source_commit': RECORDED_TOKENIZER_SOURCE,
+    'run_id': '38478598045', 'run_attempt': 1,
+    'job_id': '115575359765', 'job_name': 'verify_host',
+}
+RECORDED_TOKENIZER_CLAIMS = {
+    'authority_effect': 'none', 'production_gate_eligible': False,
+    'active_gate_eligible': False, 'same_run_release_authority_eligible': False,
+    'current_inference_count': 0, 'worker_launch_executed': False,
+    'model_weights_loaded': False, 'full_release_host_verified': False,
+    'historical_metric_pass': False,
+}
+RECORDED_TOKENIZER_METRICS = {
+    'consistent': 49, 'groups_eligible': 49, 'groups_total': 50,
+    'inconsistent': 0, 'min_n_eligible_groups': 50,
+    'responses_eligible': 147, 'responses_total': 150,
+    'threshold': 0.9, 'unknown': 1, 'wilson_lower_bound': 0.9273021807795037,
+}
+RECORDED_TOKENIZER_INPUTS = {
+    'capture': (1809263, '88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6',
+                11472726606, '37600313529', 'fb7b247e24f18c5314fd44f7711bd49e15020364'),
+    'preparation': (508460811, 'b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9',
+                    11282419957, '37148637546', '77fc5d51896568db50a2a87f650711a65db8fe8c'),
+    'capsule': (452116385, '3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734',
+                11686701538, '38097352170', '3aa05dd7f8f95f30d75ab38bdb46419e3735c58c'),
+    'roundtrip': (2911, '288880eedbff4ae812d7d2020e2c55aa4814b4d9f08076473a9755ace90bcdd0',
+                  11686476032, '38097352170', '3aa05dd7f8f95f30d75ab38bdb46419e3735c58c'),
+    'bootstrap': (92555692, '07b61e35f30861939ff95314297921de8f57cd48f85bb18d777651b3ea45f2ee',
+                  None, None, None),
+}
+
+
+def _recorded_digest(raw):
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _recorded_regular_bytes(path):
+    info = path.lstat()
+    assert stat.S_ISREG(info.st_mode) and info.st_nlink == 1, 'not a single regular file'
+    return path.read_bytes()
+
+
+def _recorded_zip_members(raw):
+    """Read inert ZIP members in memory; never extract or execute their contents."""
+    with zipfile.ZipFile(binary_io.BytesIO(raw)) as archive:
+        names = archive.namelist()
+        assert len(names) == len(set(names)), 'duplicate archive member'
+        for member in archive.infolist():
+            assert not member.is_dir() and not member.filename.startswith('/')
+            assert '\\' not in member.filename
+            assert all(part not in ('', '.', '..') for part in member.filename.split('/'))
+            assert stat.S_IFMT(member.external_attr >> 16) in (0, stat.S_IFREG)
+        return {name: archive.read(name) for name in names}
+
+
+def recorded_tokenizer_projection(root=RECORDED_TOKENIZER_ROOT):
+    """Test-only immutable projection check, not a new policy/schema validator."""
+    assert stat.S_ISDIR(root.lstat().st_mode), 'linked or non-directory root'
+    assert stat.S_ISDIR((root / 'evidence').lstat().st_mode), 'linked evidence directory'
+    entries = {p.relative_to(root).as_posix() for p in root.rglob('*')}
+    assert entries == set(RECORDED_TOKENIZER_FILES) | {'evidence'}, 'closed eight-file projection'
+    assert {p.name for p in (root / 'evidence').iterdir()} == {
+        Path(name).name for name in RECORDED_TOKENIZER_ORIGINALS if name.startswith('evidence/')}
+    raw = {name: _recorded_regular_bytes(root / name) for name in RECORDED_TOKENIZER_FILES}
+    # Check original identities BEFORE reading any self-declared index digest.
+    for name, (size, digest) in RECORDED_TOKENIZER_ORIGINALS.items():
+        assert (len(raw[name]), _recorded_digest(raw[name])) == (size, digest), 'fixed original binding'
+    assert _recorded_digest(raw['recorded-tokenizer.json']) == RECORDED_TOKENIZER_INDEX_SHA, 'fixed index binding'
+    index = json.loads(raw['recorded-tokenizer.json'])
+    assert set(index) == {
+        'record_type', 'record_status', 'scope', 'work_order', 'role', 'native_receipt_binding',
+        'acquisition_source_tree_sha1', 'original_native_archive', 'evidence_directory',
+        'evidence_files', 'offline_replay_delivery', 'original_input_archives_not_copied',
+        'historical_metrics', 'claims', 'attribution', 'previous_failed_native_run',
+        'limitations', 'work_order_state', 'recorded_native_outcome',
+    }
+    assert index['evidence_directory'] == 'evidence'
+    assert index['evidence_files'] == [
+        {'path': name, 'size_bytes': size, 'sha256': digest}
+        for name, (size, digest) in RECORDED_TOKENIZER_ORIGINALS.items() if name.startswith('evidence/')]
+    delivery = _recorded_zip_members(raw[RECORDED_TOKENIZER_REPLAY])
+    assert len(delivery) == index['offline_replay_delivery']['delivery_file_count'] == 65
+    assert _recorded_digest(delivery['DELIVERY_INVENTORY.json']) == 'a2f93482290cf1b94ded135d91f7f6295659a75d62c9ed73b25f123c2e5fbf8e'
+    inventory = json.loads(delivery['DELIVERY_INVENTORY.json'])
+    assert inventory['self_excluded'] == 'DELIVERY_INVENTORY.json'
+    rows = inventory['files']
+    assert len(rows) == len({row['path'] for row in rows}) == 64
+    assert set(delivery) == {row['path'] for row in rows} | {'DELIVERY_INVENTORY.json'}
+    for row in rows:
+        assert set(row) == {'path', 'size_bytes', 'sha256'}
+        assert (len(delivery[row['path']]), _recorded_digest(delivery[row['path']])) == (row['size_bytes'], row['sha256'])
+    replay = index['offline_replay_delivery']
+    assert (replay['path'], replay['size_bytes'], replay['sha256']) == (
+        RECORDED_TOKENIZER_REPLAY, *RECORDED_TOKENIZER_ORIGINALS[RECORDED_TOKENIZER_REPLAY])
+    assert replay['manifest_member'] == 'manifest.json'
+    assert replay['manifest_sha256'] == _recorded_digest(delivery['manifest.json']) == 'be2e8f9d5175eca9f1a13fa183099c06624770e1a2aa4ea016219b294873f5b9'
+    native = index['original_native_archive']
+    assert native['artifact_id'] == 11855986756
+    assert native['filename'] == 'q2-native-tokenizer-38478598045-1.zip'
+    assert native['retained_in_bundle'] == {
+        'path': RECORDED_TOKENIZER_REPLAY,
+        'member': 'original_metadata/q2-native-tokenizer-38478598045-1.zip'}
+    native_raw = delivery[native['retained_in_bundle']['member']]
+    assert (len(native_raw), _recorded_digest(native_raw)) == (
+        1045568, '98f091849baebf210ee6bb12b5e902607301b25277960f8c1f71244c95529834')
+    assert (native['size_bytes'], native['sha256']) == (len(native_raw), _recorded_digest(native_raw))
+    originals = _recorded_zip_members(native_raw)
+    assert set(originals) == {Path(row['path']).name for row in index['evidence_files']}
+    for row in index['evidence_files']:
+        assert raw[row['path']] == delivery[row['path']] == originals[Path(row['path']).name]
+    records = {Path(name).name: json.loads(payload) for name, payload in raw.items()
+               if name.startswith('evidence/') and name != 'evidence/projection.json'}
+    return index, records, delivery
+
+
+def test_recorded_tokenizer_original_bytes_identity_and_non_authority():
+    index, records, delivery = recorded_tokenizer_projection()
+    assert index['record_type'] == 'q2_1_native_tokenizer_preservation_v0'
+    assert index['record_status'] == 'bounded_checkpoint_metadata'
+    assert index['scope'] == 'q2_archived_native_tokenizer_only_v0'
+    assert index['role'] == 'documentation_and_evidence_preservation_only'
+    assert index['work_order'] == 2879 and index['work_order_state'] == 'open'
+    assert index['native_receipt_binding'] == RECORDED_TOKENIZER_BINDING
+    assert index['acquisition_source_tree_sha1'] == RECORDED_TOKENIZER_TREE
+    request, prelaunch, result = (records[name] for name in ('request.json', 'prelaunch.json', 'result.json'))
+    assert request['source_commit'] == RECORDED_TOKENIZER_SOURCE
+    assert result['binding'] == prelaunch['binding'] == RECORDED_TOKENIZER_BINDING
+    assert type(result['binding']['run_attempt']) is int
+    assert result['status'] == 'native_tokenizer_verified' and result['cleanup'] == 'verified_removed'
+    outcome = {'status': result['status'], 'cleanup': result['cleanup'], 'occurrences': [
+        {key: row[key] for key in ('id', 'status', 'expected_exit', 'exit_code')}
+        for row in result['occurrences']]}
+    assert index['recorded_native_outcome'] == outcome
+    assert [(row['id'], row['status'], row['expected_exit'], row['exit_code']) for row in result['occurrences']] == [
+        ('input_check', 'completed', 0, 0), ('tokenizer_check', 'completed', 0, 0),
+        ('summary_builder', 'completed', 1, 1), ('summary_checker', 'completed', 0, 0)]
+    for claims in (index['claims'], result['claims'], prelaunch['claims'],
+                   *({key: records[name][key] for key in RECORDED_TOKENIZER_CLAIMS}
+                     for name in ('input-check.json', 'tokenizer-check.json'))):
+        assert claims == RECORDED_TOKENIZER_CLAIMS
+        assert type(claims['current_inference_count']) is int
+        assert all(claims[key] is False for key, value in RECORDED_TOKENIZER_CLAIMS.items() if value is False)
+    assert index['historical_metrics'] == result['metrics'] == RECORDED_TOKENIZER_METRICS
+    assert records['tokenizer-check.json']['verified_calls'] == 150
+    for field, name in [('request_sha256', 'request.json'), ('projection_sha256', 'projection.json')]:
+        assert prelaunch[field] == result[field] == RECORDED_TOKENIZER_ORIGINALS['evidence/' + name][1]
+    assert result['prelaunch_sha256'] == RECORDED_TOKENIZER_ORIGINALS['evidence/prelaunch.json'][1]
+    manifest = json.loads(delivery['manifest.json'])
+    assert manifest['source']['commit'] == RECORDED_TOKENIZER_SOURCE
+    assert manifest['source']['tree_sha1'] == RECORDED_TOKENIZER_TREE
+    assert manifest['native_receipt']['binding'] == RECORDED_TOKENIZER_BINDING
+    assert manifest['native_receipt']['artifact_id'] == 11855986756
+    assert manifest['claims'] == RECORDED_TOKENIZER_CLAIMS
+    assert manifest['historical_metrics'] == RECORDED_TOKENIZER_METRICS
+    assert manifest['source']['bound_files'] == prelaunch['source_bindings'] == result['source_bindings']
+    assert len(result['source_bindings']) == 29
+    for row in result['source_bindings']:
+        raw = (ROOT / row['path']).read_bytes()
+        assert (len(raw), _recorded_digest(raw)) == (row['size_bytes'], row['sha256'])
+    assert index['attribution'] == manifest['attribution']
+    assert index['attribution']['new_kernel_observation'] is False
+    assert index['attribution']['organizationally_independent_audit'] is False
+    assert index['previous_failed_native_run'] == {
+        'run_id': '38443305721', 'run_attempt': 1, 'status': 'rejected'}
+
+
+def test_recorded_tokenizer_prior_replay_logs_not_a_new_replay():
+    index, _records, delivery = recorded_tokenizer_projection()
+    manifest = json.loads(delivery['manifest.json'])
+    archived = {row['name']: row for row in json.loads(delivery['replay_results.json'])}
+    expected = {
+        'positive': (2, b'', b'q2_digest_mismatch\n'),
+        'positive_after_local_restage': (0, b'q2_tokenizer_evidence_reconstructed\n', b''),
+        'negative_changed_request_source': (2, b'', b'q2_context_rejected\n'),
+        'negative_production_claim_true': (2, b'', b'q2_schema_rejected\n'),
+        'negative_extra_evidence_file': (2, b'', b'q2_file_rejected\n'),
+    }
+    assert set(archived) == set(expected)
+    for name, (code, stdout, stderr) in expected.items():
+        command = json.loads(delivery['logs/' + name + '.command.json'])
+        assert command == archived[name]
+        assert command['exit_code'] == code
+        assert command['argv'][1:5] == ['-I', '-B', 'PULSE_safe_pack_v0/tools/check_q2_release_host_tokenizer_v0.py', 'replay']
+        for stream, value in [('stdout', stdout), ('stderr', stderr)]:
+            assert command[stream + '_file'] == name + '.' + stream
+            assert delivery['logs/' + name + '.' + stream] == value
+            assert command[stream + '_text'] == value.decode('utf-8')
+            assert command[stream + '_sha256'] == _recorded_digest(value)
+    assert manifest['canonical_replay'] == archived['positive_after_local_restage']
+    assert manifest['earlier_local_attempts'] == [archived['positive']]
+    assert manifest['negative_controls'] == [archived[name] for name in expected if name.startswith('negative_')]
+    replay = index['offline_replay_delivery']
+    success = replay['recorded_success']
+    assert success['source_commit'] == RECORDED_TOKENIZER_SOURCE
+    assert (success['exit_code'], success['stdout'], success['stderr']) == (0, 'q2_tokenizer_evidence_reconstructed\n', '')
+    assert success['completed_at_utc'] == archived['positive_after_local_restage']['completed_at_utc'] == '2026-10-13T23:15:47.930575+00:00'
+    for row in [success, *replay['negative_controls']]:
+        command = json.loads(delivery[row['command_record_member']])
+        assert command['exit_code'] == row['exit_code']
+        assert delivery[row['stderr_member']].decode() == row['stderr']
+        assert delivery[row['stdout_member']].decode() == row.get('stdout', '')
+    assert len(replay['negative_controls']) == 3
+    retained = replay['initial_failed_attempt_retained']
+    assert json.loads(delivery[retained['command_record_member']]) == archived['positive']
+    assert retained['exit_code'] == 2 and retained['error_code'] == 'q2_digest_mismatch'
+    diagnostic = json.loads(delivery[retained['staging_diagnostic_member']])
+    assert diagnostic['cause_of_prior_local_copy_change'] == retained['cause_of_local_copy_change'] == 'not_established'
+    assert diagnostic['initial_copy_observed']['size_bytes'] == 36700160
+    assert diagnostic['restaged_copy']['size_bytes'] == diagnostic['unchanged_original']['size_bytes'] == 452116385
+    assert diagnostic['restaged_copy']['sha256'] == diagnostic['unchanged_original']['sha256'] == RECORDED_TOKENIZER_INPUTS['capsule'][1]
+    for field in ('original_archive_modified', 'archive_rebuilt', 'source_modified', 'receipt_modified'):
+        assert diagnostic[field] is False
+    verifier = manifest['verifier']
+    assert verifier['python'] == success['python'] == '3.11.16'
+    assert verifier['unicode'] == success['unicode'] == '14.0.0'
+    assert verifier['system_site_packages'] is False and len(verifier['wheels']) == 8
+    assert manifest['bootstrap_interpreter']['binary_modified'] is False
+    assert manifest['bootstrap_interpreter']['ELF_RUNPATH_modified'] is False
+
+
+def test_recorded_tokenizer_original_inputs_have_no_durable_custody_claim():
+    index, _records, delivery = recorded_tokenizer_projection()
+    manifest = json.loads(delivery['manifest.json'])
+    original_rows = {row['role']: row for row in manifest['original_input_archives']}
+    rows = index['original_input_archives_not_copied']
+    assert [row['role'] for row in rows] == list(RECORDED_TOKENIZER_INPUTS)
+    assert len(rows) == 5
+    for row in rows:
+        role = row['role']; expected = RECORDED_TOKENIZER_INPUTS[role]
+        original = original_rows[role]
+        assert (row['size_bytes'], row['sha256']) == expected[:2]
+        assert (original['size_bytes'], original['sha256']) == expected[:2]
+        assert row['filename'] == original['filename'] == role + ('.tar.gz' if role == 'bootstrap' else '.zip')
+        assert row['included_in_repository_payload'] is False
+        assert row['durable_owner_held_retention'] == 'not_verified'
+        assert row['original_identity'] == original['expected_identity']
+        identity = row['original_identity']
+        assert (identity['archive_size_bytes'], identity['archive_sha256']) == expected[:2]
+        if role != 'bootstrap':
+            assert (identity['artifact_id'], identity['run_id'], identity['source_commit']) == expected[2:]
+            assert identity['run_attempt'] == 1 and type(identity['run_attempt']) is int
+        else:
+            assert identity['interpreter_sha256'] == 'a15ccdaf07655a8667a3687b13171486c9a265d92273ba3ad820fbb64d2cfecc'
+        assert not any(Path(name).name == row['filename'] for name in delivery)
+    assert any('not included' in limit and 'durable' in limit for limit in index['limitations'])
+
+
+@pytest.fixture
+def recorded_tokenizer_copy(tmp_path):
+    return Path(shutil.copytree(RECORDED_TOKENIZER_ROOT, tmp_path / 'recorded-tokenizer'))
+
+
+@pytest.mark.parametrize('name', RECORDED_TOKENIZER_FILES)
+@pytest.mark.parametrize('fault', ['missing', 'changed', 'directory', 'symlink', 'hardlink'])
+def test_recorded_tokenizer_file_substitutions_reject(recorded_tokenizer_copy, tmp_path, name, fault):
+    path = recorded_tokenizer_copy / name
+    if fault == 'changed':
+        path.write_bytes(path.read_bytes() + b' ')
+    elif fault == 'hardlink':
+        os.link(path, tmp_path / 'linked-copy')
+    else:
+        held = tmp_path / 'held-original'; held.write_bytes(path.read_bytes()); path.unlink()
+        if fault == 'directory': path.mkdir()
+        elif fault == 'symlink': path.symlink_to(held)
+    with pytest.raises((AssertionError, FileNotFoundError)):
+        recorded_tokenizer_projection(recorded_tokenizer_copy)
+
+
+@pytest.mark.parametrize('name', ['README.md', '.hidden', 'groups.json', 'model.safetensors',
+                                  'evidence/extra.json', 'evidence/recorded-tokenizer.json',
+                                  'evidence/replay.zip', 'evidence/empty-directory'])
+def test_recorded_tokenizer_extra_payload_or_directory_reject(recorded_tokenizer_copy, name):
+    path = recorded_tokenizer_copy / name
+    if name.endswith('directory'): path.mkdir()
+    else: path.write_bytes(b'SYNTHETIC ONLY: undeclared metadata\n')
+    with pytest.raises(AssertionError): recorded_tokenizer_projection(recorded_tokenizer_copy)
+
+
+@pytest.mark.parametrize('location', ['root', 'evidence'])
+def test_recorded_tokenizer_linked_directory_reject(recorded_tokenizer_copy, tmp_path, location):
+    if location == 'root':
+        alias = tmp_path / 'alias'; alias.symlink_to(recorded_tokenizer_copy, target_is_directory=True)
+    else:
+        path = recorded_tokenizer_copy / 'evidence'; path.rename(tmp_path / 'held-evidence')
+        path.symlink_to(tmp_path / 'held-evidence', target_is_directory=True); alias = recorded_tokenizer_copy
+    with pytest.raises(AssertionError): recorded_tokenizer_projection(alias)
+
+
+@pytest.mark.parametrize('field,value', [
+    ('source_commit', '0' * 40), ('run_id', '38443305721'), ('run_attempt', 2),
+    ('run_attempt', True), ('job_id', '115455145216'), ('job_name', 'other'),
+    ('repository', 'Other/repository'), ('workflow', '.github/workflows/other.yml'),
+])
+def test_recorded_tokenizer_coherent_identity_rehash_cannot_rebind(recorded_tokenizer_copy, field, value):
+    index_path = recorded_tokenizer_copy / 'recorded-tokenizer.json'
+    index = json.loads(index_path.read_bytes())
+    index['native_receipt_binding'][field] = value
+    for name in ('prelaunch.json', 'result.json'):
+        path = recorded_tokenizer_copy / 'evidence' / name
+        report = json.loads(path.read_bytes()); report['binding'][field] = value
+        path.write_text(json.dumps(report) + '\n')
+    _rewrite_recorded_index_hashes(recorded_tokenizer_copy, index)
+    with pytest.raises(AssertionError, match='fixed original binding'):
+        recorded_tokenizer_projection(recorded_tokenizer_copy)
+
+
+def _rewrite_recorded_index_hashes(root, index):
+    """Mutation fixture: refresh self-declarations, never the independent pins."""
+    for row in index['evidence_files']:
+        raw = (root / row['path']).read_bytes()
+        row.update(size_bytes=len(raw), sha256=_recorded_digest(raw))
+    raw = (root / RECORDED_TOKENIZER_REPLAY).read_bytes()
+    index['offline_replay_delivery'].update(size_bytes=len(raw), sha256=_recorded_digest(raw))
+    (root / 'recorded-tokenizer.json').write_text(json.dumps(index) + '\n')
+
+
+@pytest.mark.parametrize('claim', sorted(RECORDED_TOKENIZER_CLAIMS))
+def test_recorded_tokenizer_coherent_claim_rehash_cannot_authorize(recorded_tokenizer_copy, claim):
+    path = recorded_tokenizer_copy / 'evidence/result.json'
+    report = json.loads(path.read_bytes())
+    value = 'allow' if claim == 'authority_effect' else 1 if claim == 'current_inference_count' else True
+    report['claims'][claim] = value
+    path.write_text(json.dumps(report) + '\n')
+    index = json.loads((recorded_tokenizer_copy / 'recorded-tokenizer.json').read_bytes())
+    index['claims'][claim] = value
+    _rewrite_recorded_index_hashes(recorded_tokenizer_copy, index)
+    with pytest.raises(AssertionError, match='fixed original binding'):
+        recorded_tokenizer_projection(recorded_tokenizer_copy)
+
+
+@pytest.mark.parametrize('name', tuple(RECORDED_TOKENIZER_ORIGINALS))
+def test_recorded_tokenizer_reformatted_or_appended_original_and_rehashed_index_reject(recorded_tokenizer_copy, name):
+    path = recorded_tokenizer_copy / name
+    path.write_bytes(path.read_bytes() + b'\n')
+    index = json.loads((recorded_tokenizer_copy / 'recorded-tokenizer.json').read_bytes())
+    _rewrite_recorded_index_hashes(recorded_tokenizer_copy, index)
+    with pytest.raises(AssertionError, match='fixed original binding'):
+        recorded_tokenizer_projection(recorded_tokenizer_copy)
+
+
+@pytest.mark.parametrize('fault', ['extra_key', 'missing_key', 'artifact', 'tree', 'retention',
+    'included_input', 'input_identity', 'metric', 'occurrence_exit', 'positive_exit',
+    'negative_exit', 'initial_failure', 'archive_locator', 'manifest_locator',
+    'index_role', 'observer', 'prior_rejection', 'work_order', 'closed_work_order'])
+def test_recorded_tokenizer_index_alone_cannot_redefine_originals_or_scope(recorded_tokenizer_copy, fault):
+    path = recorded_tokenizer_copy / 'recorded-tokenizer.json'; index = json.loads(path.read_bytes())
+    if fault == 'extra_key': index['authorization'] = True
+    elif fault == 'missing_key': del index['limitations']
+    elif fault == 'artifact': index['original_native_archive']['artifact_id'] += 1
+    elif fault == 'tree': index['acquisition_source_tree_sha1'] = '0' * 40
+    elif fault == 'retention': index['original_input_archives_not_copied'][0]['durable_owner_held_retention'] = 'verified'
+    elif fault == 'included_input': index['original_input_archives_not_copied'][0]['included_in_repository_payload'] = True
+    elif fault == 'input_identity': index['original_input_archives_not_copied'][0]['original_identity']['run_id'] = '38478598045'
+    elif fault == 'metric': index['historical_metrics']['groups_eligible'] = 50
+    elif fault == 'occurrence_exit': index['recorded_native_outcome']['occurrences'][2]['exit_code'] = 0
+    elif fault == 'positive_exit': index['offline_replay_delivery']['recorded_success']['exit_code'] = 2
+    elif fault == 'negative_exit': index['offline_replay_delivery']['negative_controls'][0]['exit_code'] = 0
+    elif fault == 'initial_failure': del index['offline_replay_delivery']['initial_failed_attempt_retained']
+    elif fault == 'archive_locator': index['original_native_archive']['retained_in_bundle']['member'] = 'other.zip'
+    elif fault == 'manifest_locator': index['offline_replay_delivery']['manifest_member'] = 'other.json'
+    elif fault == 'index_role': index['role'] = 'policy_input'
+    elif fault == 'observer': index['attribution']['organizationally_independent_audit'] = True
+    elif fault == 'prior_rejection': index['previous_failed_native_run']['status'] = 'accepted'
+    elif fault == 'work_order': index['work_order'] = 2880
+    else: index['work_order_state'] = 'closed'
+    path.write_text(json.dumps(index) + '\n')
+    with pytest.raises(AssertionError, match='fixed index binding'):
+        recorded_tokenizer_projection(recorded_tokenizer_copy)
+
+
+def _recorded_remove_navigation_note(raw, prefix):
+    title, rest = raw.split(b'\n\n', 1)
+    note, body = rest.split(b'\n\n', 1)
+    assert note.startswith(prefix) and all(line.startswith(b'>') for line in note.splitlines())
+    return title + b'\n\n' + body
+
+
+def test_recorded_tokenizer_documentation_retains_all_historical_bytes_and_boundaries():
+    path = ROOT / 'docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md'
+    raw = path.read_bytes()
+    marker = b'\n## 13. Recorded Q2-1 native tokenizer and canonical replay checkpoint\n'
+    assert raw.count(marker) == 1
+    historical, section = raw.split(marker)
+    baseline = _recorded_remove_navigation_note(historical, b'> Latest bounded checkpoint:')
+    assert _recorded_digest(baseline) == '16404b30afdc941153f2128de85225e2c5d93d1ba582407e3018ab41061f8a84'
+    assert b'## Current hosted Q2 integration status\n' in baseline
+    contract_path = ROOT / 'docs/compute/PULSEMECH_Q2_RELEASE_HOST_TOKENIZER_CONTRACT_v0.md'
+    contract = contract_path.read_bytes()
+    baseline = _recorded_remove_navigation_note(contract, b'> Recorded bounded reference:')
+    assert _recorded_digest(baseline) == '0a2784f9472a89e7079c4cda043745639d6b6346765df82ecfb38295eb0f5277'
+    text = section.decode('utf-8')
+    for expected in (RECORDED_TOKENIZER_SOURCE, RECORDED_TOKENIZER_TREE, '38478598045/1',
+        '115575359765', '11855986756', 'not_verified', 'Keep #2879 open', '38443305721/1',
+        '49 eligible groups against 50 required', '147 eligible responses', 'one UNKNOWN',
+        'not new executions', '0, 0, 1, 0', 'cause was not', 'owner-run observer'):
+        assert expected in text
+    for key, value in RECORDED_TOKENIZER_CLAIMS.items():
+        assert key + '=' + ('false' if value is False else str(value)) in text
+    for name in ('recorded-tokenizer.json', 'evidence/', RECORDED_TOKENIZER_REPLAY):
+        assert 'run_38478598045/' + name + ')' in text
+    # The existing repository checker covers local paths. Check the new anchor
+    # too, since that checker intentionally ignores Markdown fragments.
+    anchor = '#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint'
+    assert anchor.encode() in raw and anchor.encode() in contract
+    index = (ROOT / 'docs/INDEX.md').read_text()
+    assert anchor in index
+    for name in (path.name, contract_path.name):
+        assert len([line for line in index.splitlines() if line.startswith('- [') and name in line]) == 1
+    changelog = (ROOT / 'CHANGELOG.md').read_text()
+    unreleased = changelog.split('## [Unreleased]\n', 1)[1].split('\n## [', 1)[0]
+    assert 'Preserve the bounded Q2-1 native tokenizer reference `38478598045/1`' in unreleased
+    assert 'custody remains unverified' in unreleased
+    entries = [line.strip() for line in (ROOT / 'ci/tools-tests.list').read_text().splitlines()
+               if line.strip() and not line.startswith('#')]
+    assert entries.count('tests/test_q2_release_host_tokenizer_v0.py') == 1 and len(entries) == 165
 
 
 if __name__ == "__main__":

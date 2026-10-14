@@ -1,5 +1,11 @@
 # Step 5C reference readiness and first Q2 reduction unit
 
+> Latest bounded checkpoint: [section 13](#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint)
+> records the preserved Q2-1 native tokenizer result and separate canonical replay.
+> Earlier sections, including the original "Current hosted Q2 integration status"
+> heading, retain their implementation-time meanings and are not a replacement
+> for this newer, narrowly scoped checkpoint. Full Q2/Step 5C remains open.
+
 ## Current hosted Q2 integration status
 
 The coordinated implementation continues from main
@@ -1903,3 +1909,85 @@ separate. All preserved results keep `authority_effect=none` and
 `production_gate_eligible=false`; this index authorizes no new capture.
 
 Keep #2879 open.
+
+## 13. Recorded Q2-1 native tokenizer and canonical replay checkpoint
+
+This checkpoint records scope `q2_archived_native_tokenizer_only_v0` under
+work order #2879. Sections 1–12 retain their earlier implementation, preparation
+and capture meanings. This is a separate tokenizer/reduction result, not a
+retroactive change to the original capture or a full Step 5C acceptance.
+
+### 13.1 Exact acquisition and preservation
+
+The original acquisition/replay source is `d44bf963cbac377366e95ae7ac9e3603fff894a4`,
+tree `e48b7cca5b82689ba9705688d95c1827029ab9a2`. Native run `38478598045/1`,
+job `115575359765`, produced metadata artifact `11855986756`:
+1,045,568 bytes, SHA-256 `98f091849baebf210ee6bb12b5e902607301b25277960f8c1f71244c95529834`.
+The request digest is `a7fb1947b567e9a0784173809f7eb65c325ff36693ca3415dfddfd0160d9ce2b`.
+These identities remain unchanged by the later preservation commit.
+
+The new [preservation index](../../PULSE_safe_pack_v0/examples/q2_release_host_tokenizer_v0/run_38478598045/recorded-tokenizer.json)
+binds the [closed six-file evidence directory](../../PULSE_safe_pack_v0/examples/q2_release_host_tokenizer_v0/run_38478598045/evidence/)
+and the [unchanged replay delivery ZIP](../../PULSE_safe_pack_v0/examples/q2_release_host_tokenizer_v0/run_38478598045/q2-offline-replay-38478598045-1.zip).
+The latter is 2,211,612 bytes, SHA-256 `66b7bfcc5b9bbfa72e2be843ba0d541d89adac6ae14e9ca1ad56af119da091a9`; its
+`original_metadata/q2-native-tokenizer-38478598045-1.zip` member preserves
+the complete original native ZIP. Its `manifest.json` member has SHA-256
+`be2e8f9d5175eca9f1a13fa183099c06624770e1a2aa4ea016219b294873f5b9`.
+The index is new preservation metadata, not an original execution report, a
+signed attestation, active gate input or permission to perform another run.
+
+Only `evidence/`, not its parent directory, is the existing replay CLI's
+six-file evidence input. The index and replay ZIP remain outside that directory.
+The replay ZIP retains the original archived audit records and task-local
+scripts unchanged. They are evidence, not new repository runtime entry points.
+
+### 13.2 Native result and separately recorded canonical replay
+
+The native receipt records all four predeclared occurrences as completed:
+`input_check`, `tokenizer_check`, `summary_builder`, `summary_checker`.
+The declared and observed exit codes are `0, 0, 1, 0`; the builder's required
+exit 1 preserves the original negative summary. Cleanup is `verified_removed`.
+
+The separate recorded canonical replay used the unchanged source checker in
+CPython 3.11.16 / Unicode 14.0.0 with the exact eight preserved dependencies,
+the unchanged bootstrap interpreter and fixed external pip. It returned exit 0,
+stdout `q2_tokenizer_evidence_reconstructed` followed by LF and empty stderr,
+completing at `2026-10-13T23:15:47.930575+00:00`.
+
+Three disposable negative evidence copies rejected through the same checker:
+changed request source (`q2_context_rejected`), an authorizing production claim
+(`q2_schema_rejected`), and an undeclared file (`q2_file_rejected`), each exit 2.
+Original evidence remained unchanged. The initial incomplete local capsule-copy
+rejection is retained in `logs/positive.*`; the final success is retained in
+`logs/positive_after_local_restage.*`. The local copy-change cause was not
+established. Recopying the same exact original did not rebuild or rebind inputs.
+
+These are preserved native and replay execution records, not new executions
+performed by this documentation update or by its metadata regressions. Recorded
+kernel/process/timing/cleanup observations remain attributed to the original
+owner-run observer; replay does not reacquire them or establish organizational
+independence.
+
+### 13.3 Retention and unchanged authority boundary
+
+The five large original replay inputs (`capture.zip`, `preparation.zip`,
+`capsule.zip`, `roundtrip.zip`, `bootstrap.tar.gz`) are named and hashed in the
+retained replay manifest but are not copied into this repository projection.
+Durable owner-held retention remains `not_verified` by this record. An Actions
+URL, recorded digest or temporary verifier copy is not evidence of durable
+byte custody. Raw prompts, generated responses, token arrays, model payloads
+and the large original archives remain outside this publication.
+
+The historical metric remains FAIL: 49 eligible groups against 50 required,
+150 recorded responses, 147 eligible responses and one UNKNOWN group. Original
+`claims` remain unchanged: `authority_effect=none`,
+`production_gate_eligible=false`, `active_gate_eligible=false`,
+`same_run_release_authority_eligible=false`, `current_inference_count=0`,
+`worker_launch_executed=false`, `model_weights_loaded=false`,
+`full_release_host_verified=false`, `historical_metric_pass=false`.
+
+Native run `38443305721/1` remains rejected. This checkpoint establishes neither
+full Q2 nor Step 5C/5D acceptance, a production release, another kernel
+observation or new inference. No policy, registry, runtime, workflow, threshold
+or original evidence is changed. Keep #2879 open. Other Q2 units remain
+separately governed.

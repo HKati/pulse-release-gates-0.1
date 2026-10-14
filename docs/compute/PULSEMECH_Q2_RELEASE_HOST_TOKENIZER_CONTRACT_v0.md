@@ -1,5 +1,12 @@
 # Q2 native release-host tokenizer contract v0
 
+> Recorded bounded reference: native run `38478598045/1` and its separate
+> canonical offline replay are preserved in
+> [readiness section 13](PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint).
+> The implementation-time requirements and earlier rejected runs below remain
+> historical records. This checkpoint does not change the contract, authorize
+> another execution or establish full Q2/Step 5C acceptance.
+
 This is the implementation contract for the first native Q2 unit, Q2-1, under
 open work order #2879. It implements a separately declared tokenizer/reduction
 boundary. Actual owner-run acquisition and accepted evidence preservation are

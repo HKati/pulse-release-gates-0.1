@@ -746,6 +746,15 @@ Comparison basis: [v1.2.0...HEAD][Post-v1.2.0].
 
 #### Docs
 
+- Preserve the bounded Q2-1 native tokenizer reference `38478598045/1` and
+  its separate canonical offline replay, with six unchanged metadata files,
+  the original replay delivery archive, a non-authorizing preservation index
+  and metadata-integrity regressions. Record the bounded checkpoint in the
+  existing readiness/contract/index documentation. Preserve the initial local
+  input-staging rejection and the historical 49/50 FAIL/release BLOCK. Large
+  original input archives are identified but not included; durable owner
+  custody remains unverified. No runtime, workflow, policy, threshold or authority change.
+
 - Synchronized the canonical
   [PULSEmech Technical Overview](PULSEMECH_TECHNICAL_OVERVIEW.md), README,
   compute workstream record, and documentation index with the merged
