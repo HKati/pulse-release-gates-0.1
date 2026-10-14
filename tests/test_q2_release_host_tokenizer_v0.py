@@ -1606,6 +1606,301 @@ def recorded_tokenizer_projection(root=RECORDED_TOKENIZER_ROOT):
     return index, records, delivery
 
 
+# A later preservation copy, separate from the original native/replay evidence.
+# Its historical code is read as data only; no Git, import or network is used.
+RECORDED_TOKENIZER_SOURCE_FIXTURE = 'tests/fixtures/q2_release_host_tokenizer_historical_source_d44bf963_v0.zip'
+RECORDED_TOKENIZER_SOURCE_FIXTURE_SIZE = 187238
+RECORDED_TOKENIZER_SOURCE_FIXTURE_SHA = 'ca9f1046354888d30615d3955a604f5ff0cfd87c46b5e34d8c318a92d8d0250e'
+
+RECORDED_TOKENIZER_SOURCE_PATHS = (
+    '.github/workflows/q2_release_host_tokenizer_verification_v0.yml',
+    'PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json',
+    'PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json',
+    'PULSE_safe_pack_v0/profiles/q2_reference_release_intake_v0.json',
+    'PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json',
+    'PULSE_safe_pack_v0/profiles/q2_release_capsule_publication_v0.json',
+    'PULSE_safe_pack_v0/profiles/q2_release_host_tokenizer_verification_v0.json',
+    'PULSE_safe_pack_v0/tools/build_q2_reference_summary.py',
+    'PULSE_safe_pack_v0/tools/check_q2_reference_capture_v0.py',
+    'PULSE_safe_pack_v0/tools/check_q2_reference_qualification_v0.py',
+    'PULSE_safe_pack_v0/tools/check_q2_reference_summary.py',
+    'PULSE_safe_pack_v0/tools/check_q2_release_capsule_publication_v0.py',
+    'PULSE_safe_pack_v0/tools/check_q2_release_host_tokenizer_v0.py',
+    'PULSE_safe_pack_v0/tools/check_q2_release_intake_v0.py',
+    'PULSE_safe_pack_v0/tools/evaluate_q2_archived_capture_v0.py',
+    'PULSE_safe_pack_v0/tools/load_q2_release_intake_v0.py',
+    'PULSE_safe_pack_v0/tools/q2_intake_io_v0.py',
+    'PULSE_safe_pack_v0/tools/qualify_q2_reference_runtime_v0.py',
+    'PULSE_safe_pack_v0/tools/verify_q2_release_host_tokenizer_v0.py',
+    'metrics/specs/q2_consistency_v0.yml',
+    'schemas/dataset_manifest.schema.json',
+    'schemas/metrics/q2_consistency_input_v0.schema.json',
+    'schemas/metrics/q2_consistency_summary_v0.schema.json',
+    'schemas/metrics/q2_reference_capture_v0.schema.json',
+    'schemas/metrics/q2_reference_qualification_v0.schema.json',
+    'schemas/q2_release_capsule_publication_v0.schema.json',
+    'schemas/q2_release_host_tokenizer_request_v0.schema.json',
+    'schemas/q2_release_host_tokenizer_result_v0.schema.json',
+    'schemas/q2_release_subject_capsule_v0.schema.json',
+)
+
+
+def _recorded_git_object_id(kind, raw):
+    return hashlib.sha1(kind.encode('ascii') + b' ' + str(len(raw)).encode('ascii') + b'\0' + raw).hexdigest()
+
+
+def _recorded_git_tree(raw):
+    """Parse the raw, hash-verified Git tree; names remain exact bytes."""
+    entries = {}; offset = 0
+    while offset < len(raw):
+        space = raw.find(b' ', offset); zero = raw.find(b'\0', space + 1)
+        assert space > offset and zero > space + 1 and zero + 21 <= len(raw), 'historical tree encoding'
+        mode, name = raw[offset:space], raw[space + 1:zero]
+        assert mode in (b'40000', b'100644', b'100755', b'120000', b'160000'), 'historical tree mode'
+        assert name not in entries and name not in (b'.', b'..') and b'/' not in name, 'historical tree path'
+        entries[name] = (mode, raw[zero + 1:zero + 21].hex())
+        offset = zero + 21
+    return entries
+
+
+def _recorded_historical_members(members, rows, source_commit, tree_sha1):
+    """Verify commit -> tree -> path -> blob, independently of ZIP declarations.
+
+    The public fixture reader pins the whole archive first. This inner check
+    also has independent commit/tree roots, so coherent payload/manifest/row
+    rehashing cannot redefine the preserved source. It never reads live code.
+    """
+    assert source_commit == RECORDED_TOKENIZER_SOURCE, 'fixed historical commit'
+    assert tree_sha1 == RECORDED_TOKENIZER_TREE, 'fixed historical tree'
+    assert type(rows) is list and len(rows) == 29, 'historical binding inventory'
+    assert all(type(row) is dict and set(row) == {'path', 'size_bytes', 'sha256'} for row in rows), 'historical binding fields'
+    assert tuple(row['path'] for row in rows) == RECORDED_TOKENIZER_SOURCE_PATHS, 'historical binding paths'
+    assert all(type(row['size_bytes']) is int and row['size_bytes'] > 0 for row in rows), 'historical binding size'
+    assert 'manifest.json' in members and 'git/commit.raw' in members, 'missing historical source proof'
+    commit = members['git/commit.raw']
+    assert _recorded_git_object_id('commit', commit) == RECORDED_TOKENIZER_SOURCE, 'historical commit object'
+    assert commit.split(b'\n', 1)[0] == b'tree ' + RECORDED_TOKENIZER_TREE.encode('ascii'), 'historical commit tree'
+    manifest = json.loads(members['manifest.json'])
+    assert set(manifest) == {'record_type', 'role', 'prepared_at_utc', 'repository',
+        'historical_source_commit', 'historical_tree_sha1', 'original_receipt_sha256',
+        'authority_effect', 'files', 'proof_members'}, 'historical manifest fields'
+    assert manifest['record_type'] == 'q2_tokenizer_historical_source_preservation_copy_v0'
+    assert manifest['role'] == 'later_preservation_copy_not_original_native_or_replay_evidence'
+    assert type(manifest['prepared_at_utc']) is str and manifest['prepared_at_utc'].endswith('+00:00')
+    assert manifest['repository'] == 'HKati/pulse-release-gates-0.1'
+    assert manifest['historical_source_commit'] == RECORDED_TOKENIZER_SOURCE, 'historical manifest commit'
+    assert manifest['historical_tree_sha1'] == RECORDED_TOKENIZER_TREE, 'historical manifest tree'
+    assert manifest['original_receipt_sha256'] == RECORDED_TOKENIZER_ORIGINALS['evidence/result.json'][1]
+    assert manifest['authority_effect'] == 'none'
+    proofs = {'git/commit.raw'}; files = []; payloads = {}; trees = {}
+    for row in rows:
+        object_id = RECORDED_TOKENIZER_TREE
+        parts = row['path'].split('/')
+        for i, part in enumerate(parts):
+            name = 'git/trees/' + object_id + '.raw'
+            assert name in members, 'missing historical tree'
+            proofs.add(name)
+            if object_id not in trees:
+                raw = members[name]
+                assert _recorded_git_object_id('tree', raw) == object_id, 'historical tree object'
+                trees[object_id] = _recorded_git_tree(raw)
+            assert part.encode('ascii') in trees[object_id], 'missing historical path'
+            mode, object_id = trees[object_id][part.encode('ascii')]
+            if i < len(parts) - 1:
+                assert mode == b'40000', 'historical parent is not a tree'
+            else:
+                assert mode in (b'100644', b'100755'), 'historical source is not a regular blob'
+        source_name = 'source/' + row['path']
+        assert source_name in members, 'missing historical source'
+        raw = members[source_name]
+        assert _recorded_git_object_id('blob', raw) == object_id, 'historical blob object'
+        assert (len(raw), _recorded_digest(raw)) == (row['size_bytes'], row['sha256']), 'historical receipt binding'
+        files.append({**row, 'git_mode': mode.decode('ascii'), 'git_blob_sha1': object_id})
+        payloads[row['path']] = raw
+    assert manifest['files'] == files, 'historical manifest file bindings'
+    assert manifest['proof_members'] == sorted(proofs), 'historical proof inventory'
+    assert set(members) == {'manifest.json', *proofs, *('source/' + path for path in payloads)}, 'closed historical source inventory'
+    return payloads
+
+
+def recorded_tokenizer_historical_source(rows, source_commit, tree_sha1, fixture=None):
+    """Fail closed on missing evidence, including in an offline/shallow checkout."""
+    path = ROOT / RECORDED_TOKENIZER_SOURCE_FIXTURE if fixture is None else fixture
+    raw = _recorded_regular_bytes(path)
+    assert (len(raw), _recorded_digest(raw)) == (
+        RECORDED_TOKENIZER_SOURCE_FIXTURE_SIZE, RECORDED_TOKENIZER_SOURCE_FIXTURE_SHA), 'fixed historical source fixture'
+    return _recorded_historical_members(_recorded_zip_members(raw), rows, source_commit, tree_sha1)
+
+
+def _recorded_historical_test_inputs():
+    # Read the independently pinned original receipt, not a current profile's
+    # source_paths list; future runtime source closure may legitimately evolve.
+    raw = _recorded_regular_bytes(RECORDED_TOKENIZER_ROOT / 'evidence/result.json')
+    assert (len(raw), _recorded_digest(raw)) == RECORDED_TOKENIZER_ORIGINALS['evidence/result.json']
+    rows = json.loads(raw)['source_bindings']
+    raw = _recorded_regular_bytes(ROOT / RECORDED_TOKENIZER_SOURCE_FIXTURE)
+    assert (len(raw), _recorded_digest(raw)) == (RECORDED_TOKENIZER_SOURCE_FIXTURE_SIZE, RECORDED_TOKENIZER_SOURCE_FIXTURE_SHA)
+    return _recorded_zip_members(raw), rows
+
+
+@pytest.mark.parametrize('path', RECORDED_TOKENIZER_SOURCE_PATHS)
+def test_recorded_historical_source_ignores_each_later_current_source_edit(tmp_path, monkeypatch, path):
+    current = tmp_path / 'later-current-source'; current.mkdir()
+    _members, rows = _recorded_historical_test_inputs()
+    payloads = recorded_tokenizer_historical_source(rows, RECORDED_TOKENIZER_SOURCE, RECORDED_TOKENIZER_TREE)
+    # Build an isolated candidate tree from verified historical bytes. Do not
+    # require the live runtime to keep these old paths present in the future.
+    for name, raw in payloads.items():
+        target = current / name; target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(raw)
+    fixture = current / RECORDED_TOKENIZER_SOURCE_FIXTURE
+    fixture.parent.mkdir(parents=True); shutil.copyfile(ROOT / RECORDED_TOKENIZER_SOURCE_FIXTURE, fixture)
+    target = current / path
+    # Appending whitespace is valid for Python, YAML and JSON in this closure.
+    target.write_bytes(target.read_bytes() + b'\n ')
+    original = next(row for row in rows if row['path'] == path)
+    raw = target.read_bytes()
+    assert (len(raw), _recorded_digest(raw)) != (original['size_bytes'], original['sha256'])
+    assert not (current / '.git').exists()
+    monkeypatch.setattr(sys.modules[__name__], 'ROOT', current)
+    # Run the complete preservation test, with all original evidence still
+    # pinned and the candidate current tree deliberately different.
+    test_recorded_tokenizer_original_bytes_identity_and_non_authority()
+
+
+def test_recorded_historical_source_needs_neither_current_payloads_nor_git(tmp_path, monkeypatch):
+    current = tmp_path / 'no-history'; current.mkdir()
+    target = current / RECORDED_TOKENIZER_SOURCE_FIXTURE
+    target.parent.mkdir(parents=True); shutil.copyfile(ROOT / RECORDED_TOKENIZER_SOURCE_FIXTURE, target)
+    assert not (current / '.git').exists()
+    assert all(not (current / path).exists() for path in RECORDED_TOKENIZER_SOURCE_PATHS)
+    monkeypatch.setattr(sys.modules[__name__], 'ROOT', current)
+    # Also prohibit commands: there is no implicit Git lookup, fetch or replay.
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError('historical preservation must not launch a process')
+    monkeypatch.setattr(subprocess, 'Popen', forbidden)
+    test_recorded_tokenizer_original_bytes_identity_and_non_authority()
+
+
+@pytest.mark.parametrize('field,value,code', [
+    ('commit', '0' * 40, 'fixed historical commit'),
+    ('commit', 'ad91de6fa2cece836de51502e9fc49e7c95c2bd9', 'fixed historical commit'),
+    ('tree', '0' * 40, 'fixed historical tree'),
+])
+def test_recorded_historical_source_rejects_changed_revision(field, value, code):
+    members, rows = _recorded_historical_test_inputs()
+    commit, tree = RECORDED_TOKENIZER_SOURCE, RECORDED_TOKENIZER_TREE
+    if field == 'commit': commit = value
+    else: tree = value
+    with pytest.raises(AssertionError, match=code):
+        _recorded_historical_members(members, rows, commit, tree)
+
+
+@pytest.mark.parametrize('path', RECORDED_TOKENIZER_SOURCE_PATHS)
+@pytest.mark.parametrize('fault', ['changed', 'missing', 'substituted', 'coherent_rehash'])
+def test_recorded_historical_source_rejects_each_payload_mutation(path, fault):
+    members, rows = _recorded_historical_test_inputs()
+    name = 'source/' + path
+    if fault == 'missing':
+        del members[name]; code = 'missing historical source'
+    else:
+        members[name] = members[name] + b'\n' if fault != 'substituted' else b'substituted historical source\n'
+        code = 'historical blob object'
+        if fault == 'coherent_rehash':
+            manifest = json.loads(members['manifest.json']); raw = members[name]
+            for row in rows:
+                if row['path'] == path: row.update(size_bytes=len(raw), sha256=_recorded_digest(raw))
+            for row in manifest['files']:
+                if row['path'] == path:
+                    row.update(size_bytes=len(raw), sha256=_recorded_digest(raw), git_blob_sha1=_recorded_git_object_id('blob', raw))
+            members['manifest.json'] = json.dumps(manifest).encode()
+    with pytest.raises(AssertionError, match=code):
+        _recorded_historical_members(members, rows, RECORDED_TOKENIZER_SOURCE, RECORDED_TOKENIZER_TREE)
+
+
+@pytest.mark.parametrize('fault', ['commit_bytes', 'missing_commit', 'root_tree_bytes',
+    'missing_root_tree', 'subtree_bytes', 'missing_subtree', 'coherent_tree_rehash',
+    'extra_source', 'extra_tree', 'extra_manifest_member', 'duplicate_binding',
+    'missing_binding', 'substitute_binding_path', 'reordered_binding', 'binding_hash',
+    'binding_size', 'binding_bool_size', 'binding_extra_field', 'manifest_commit',
+    'manifest_tree', 'manifest_blob', 'manifest_mode', 'manifest_missing_file',
+    'manifest_proof_inventory', 'manifest_role', 'manifest_authority', 'manifest_extra'])
+def test_recorded_historical_source_rejects_proof_inventory_and_binding_tampering(fault):
+    members, rows = _recorded_historical_test_inputs()
+    manifest = json.loads(members['manifest.json'])
+    root = 'git/trees/' + RECORDED_TOKENIZER_TREE + '.raw'
+    subtree = next(name for name in manifest['proof_members'] if name.startswith('git/trees/') and name != root)
+    code = None
+    if fault == 'commit_bytes': members['git/commit.raw'] += b'\n'; code = 'historical commit object'
+    elif fault == 'missing_commit': del members['git/commit.raw']; code = 'missing historical source proof'
+    elif fault == 'root_tree_bytes': members[root] += b'\0'; code = 'historical tree object'
+    elif fault == 'missing_root_tree': del members[root]; code = 'missing historical tree'
+    elif fault == 'subtree_bytes': members[subtree] += b'\0'; code = 'historical tree object'
+    elif fault == 'missing_subtree': del members[subtree]; code = 'missing historical tree'
+    elif fault == 'coherent_tree_rehash':
+        changed = members.pop(root) + b'\0'; digest = _recorded_git_object_id('tree', changed)
+        members['git/trees/' + digest + '.raw'] = changed
+        members['git/commit.raw'] = members['git/commit.raw'].replace(RECORDED_TOKENIZER_TREE.encode(), digest.encode(), 1)
+        manifest['historical_tree_sha1'] = digest
+        manifest['historical_source_commit'] = _recorded_git_object_id('commit', members['git/commit.raw'])
+        code = 'historical commit object'
+    elif fault == 'extra_source': members['source/extra.py'] = b'extra'; code = 'closed historical source inventory'
+    elif fault == 'extra_tree': members['git/trees/' + '0'*40 + '.raw'] = b''; code = 'closed historical source inventory'
+    elif fault == 'extra_manifest_member': members['extra.json'] = b'{}'; code = 'closed historical source inventory'
+    elif fault == 'duplicate_binding': rows[-1] = copy.deepcopy(rows[0]); code = 'historical binding paths'
+    elif fault == 'missing_binding': rows.pop(); code = 'historical binding inventory'
+    elif fault == 'substitute_binding_path': rows[0]['path'] = 'other.py'; code = 'historical binding paths'
+    elif fault == 'reordered_binding': rows.reverse(); code = 'historical binding paths'
+    elif fault == 'binding_hash': rows[0]['sha256'] = '0'*64; code = 'historical receipt binding'
+    elif fault == 'binding_size': rows[0]['size_bytes'] += 1; code = 'historical receipt binding'
+    elif fault == 'binding_bool_size': rows[0]['size_bytes'] = True; code = 'historical binding size'
+    elif fault == 'binding_extra_field': rows[0]['other'] = True; code = 'historical binding fields'
+    elif fault == 'manifest_commit': manifest['historical_source_commit'] = '0'*40; code = 'historical manifest commit'
+    elif fault == 'manifest_tree': manifest['historical_tree_sha1'] = '0'*40; code = 'historical manifest tree'
+    elif fault == 'manifest_blob': manifest['files'][0]['git_blob_sha1'] = '0'*40; code = 'historical manifest file bindings'
+    elif fault == 'manifest_mode': manifest['files'][0]['git_mode'] = '120000'; code = 'historical manifest file bindings'
+    elif fault == 'manifest_missing_file': manifest['files'].pop(); code = 'historical manifest file bindings'
+    elif fault == 'manifest_proof_inventory': manifest['proof_members'].pop(); code = 'historical proof inventory'
+    elif fault == 'manifest_role': manifest['role'] = 'original_native_evidence'
+    elif fault == 'manifest_authority': manifest['authority_effect'] = 'allow'
+    else: manifest['extra'] = True; code = 'historical manifest fields'
+    members['manifest.json'] = json.dumps(manifest).encode()
+    with pytest.raises(AssertionError, match=code):
+        _recorded_historical_members(members, rows, RECORDED_TOKENIZER_SOURCE, RECORDED_TOKENIZER_TREE)
+
+
+@pytest.mark.parametrize('fault', ['missing', 'changed', 'substituted_zip', 'appended', 'symlink', 'hardlink', 'directory'])
+def test_recorded_historical_source_carrier_fails_closed(tmp_path, fault):
+    _members, rows = _recorded_historical_test_inputs()
+    path = tmp_path / 'source.zip'
+    shutil.copyfile(ROOT / RECORDED_TOKENIZER_SOURCE_FIXTURE, path)
+    if fault == 'missing': path.unlink()
+    elif fault == 'changed': path.write_bytes(b'changed')
+    elif fault == 'substituted_zip': shutil.copyfile(RECORDED_TOKENIZER_ROOT / RECORDED_TOKENIZER_REPLAY, path)
+    elif fault == 'appended': path.write_bytes(path.read_bytes() + b'\n')
+    elif fault == 'symlink': path.unlink(); path.symlink_to(ROOT / RECORDED_TOKENIZER_SOURCE_FIXTURE)
+    elif fault == 'hardlink': os.link(path, tmp_path / 'alias.zip')
+    else: path.unlink(); path.mkdir()
+    with pytest.raises((AssertionError, FileNotFoundError)):
+        recorded_tokenizer_historical_source(rows, RECORDED_TOKENIZER_SOURCE, RECORDED_TOKENIZER_TREE, path)
+
+
+@pytest.mark.parametrize('fault', ['duplicate', 'absolute', 'traversal', 'backslash', 'directory', 'symlink'])
+def test_recorded_historical_source_zip_rejects_unsafe_members(fault):
+    # Exercise the archive parser below the fixed whole-carrier hash layer.
+    raw = binary_io.BytesIO()
+    with zipfile.ZipFile(raw, 'w') as archive:
+        archive.writestr('manifest.json', b'{}')
+        name = {'duplicate':'manifest.json', 'absolute':'/source/a', 'traversal':'source/../a',
+                'backslash':'source\\a', 'directory':'source/', 'symlink':'source/a'}[fault]
+        info = zipfile.ZipInfo(name)
+        info.external_attr = (stat.S_IFLNK | 0o777) << 16 if fault == 'symlink' else 0o100644 << 16
+        if fault == 'duplicate':
+            with pytest.warns(UserWarning, match='Duplicate name'): archive.writestr(info, b'other')
+        else: archive.writestr(info, b'other')
+    with pytest.raises(AssertionError): _recorded_zip_members(raw.getvalue())
+
+
 def test_recorded_tokenizer_original_bytes_identity_and_non_authority():
     index, records, delivery = recorded_tokenizer_projection()
     assert index['record_type'] == 'q2_1_native_tokenizer_preservation_v0'
@@ -1647,9 +1942,8 @@ def test_recorded_tokenizer_original_bytes_identity_and_non_authority():
     assert manifest['historical_metrics'] == RECORDED_TOKENIZER_METRICS
     assert manifest['source']['bound_files'] == prelaunch['source_bindings'] == result['source_bindings']
     assert len(result['source_bindings']) == 29
-    for row in result['source_bindings']:
-        raw = (ROOT / row['path']).read_bytes()
-        assert (len(raw), _recorded_digest(raw)) == (row['size_bytes'], row['sha256'])
+    recorded_tokenizer_historical_source(result['source_bindings'],
+        manifest['source']['commit'], manifest['source']['tree_sha1'])
     assert index['attribution'] == manifest['attribution']
     assert index['attribution']['new_kernel_observation'] is False
     assert index['attribution']['organizationally_independent_audit'] is False

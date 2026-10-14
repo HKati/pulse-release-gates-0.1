@@ -675,6 +675,15 @@ Comparison basis: [v1.2.0...HEAD][Post-v1.2.0].
 
 #### Fixed
 
+- Fix the Q2-1 preservation check to verify all 29 historical source payloads
+  against the fixed acquisition commit/tree and original receipt bindings,
+  independently of current working-tree files or Git history. Add a separate
+  [later source preservation copy](tests/fixtures/q2_release_host_tokenizer_historical_source_d44bf963_v0.zip)
+  with raw Git commit/tree proofs and offline tamper/independence regressions.
+  Preserve all original native metadata, index and replay bytes, current-runtime
+  source guards, historical 49/50 FAIL/release BLOCK and non-authorizing claims.
+  Refs #2879; the work order remains open.
+
 - Closed Device Ledger verifier and proof-parity defects involving:
   - stale-session lifecycle acceptance;
   - interrupted-coverage gap reconstruction;
