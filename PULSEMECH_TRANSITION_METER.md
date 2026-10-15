@@ -390,7 +390,29 @@ measured transition identity
 
 The missing object is not another value attached to `S0` or `S1`.
 
-The missing object is the evidence-bound relationship path that connects them.
+It is the evidence-bound relation change and path that connect the
+identified states.
+
+This distinction also applies to measurements of motion or flow.
+Describing movement along an available path is a different measurement
+task from establishing which relation change opened, closed, or
+redirected that path.
+
+For example, matching source, destination, and transfer-rate records
+do not by themselves establish whether a route was already open or
+had just been enabled by a permission change. Distinguishing those
+histories requires evidence bound to the relevant relation states,
+their changes, and the actual transfer.
+
+Motion, timing, and rate measurements may contribute to that evidence.
+They are not excluded from transition measurement; they must be bound
+to the specific relation and path being claimed. Any unresolved history
+or stronger causal claim must remain separately identified.
+
+> **Measuring what happened along a path does not, by itself, establish
+> which change made that path available. The Transition Meter binds
+> these questions through evidence rather than treating them as
+> interchangeable.**
 
 ---
 
