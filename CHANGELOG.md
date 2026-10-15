@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the separate Q2-2/Q2-3 fixed-capsule worker verification implementation:
+  explicit owner consent for one complete 150-call protocol and declared raw
+  Actions retention, strict historical-platform checks, unchanged worker and
+  metric tools, independent token/text and carrier reconstruction, and verified
+  service/watchdog/private-tree cleanup before exclusive publication.
+  Add closed profile/request/result contracts, one manual-only workflow, two
+  offline test programs, narrowly scoped hygiene/classification registration
+  and the [worker contract](docs/compute/PULSEMECH_Q2_RELEASE_HOST_WORKER_CONTRACT_v0.md).
+  Reconcile all seven test-manifest count consumers (165 to 167).
+  Native model loading/inference, acquisition, Q2-4 comparison/preservation and
+  full Q2/Step 5C/5D acceptance remain unverified; #2879 stays open.
+  Preserve Q2-1 original bytes and all historical 49/50 FAIL / release BLOCK
+  evidence. No policy, gate, threshold, README, DOI or active authority changes.
+
+
 ### Fixed
 
 - Align all Q2 projection regular-file path and origin character sets with

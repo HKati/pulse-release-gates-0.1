@@ -812,3 +812,34 @@ def test_inventory_rejects_changed_q2_tokenizer_authority_carrier(tmp_path: Path
     inventory = run_builder_for_repo(repo, tmp_path)
     assert entry_by_path(inventory, relative)["primary_role"] == "unclassified workflow"
     assert [r for r in inventory["drift_findings"] if r["path"] == relative]
+
+
+
+def test_inventory_classifies_exact_q2_worker_without_authority(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    relative = ".github/workflows/q2_release_host_worker_verification_v0.yml"
+    path = repo / relative; path.parent.mkdir(parents=True)
+    path.write_bytes((REPO_ROOT / relative).read_bytes())
+    names = ("q2_release_host_worker_contract_v0.py", "verify_q2_release_host_worker_v0.py",
+             "check_q2_release_host_worker_v0.py", "check_q2_release_host_worker_protocol_v0.py")
+    for name in names:
+        tool = repo / "PULSE_safe_pack_v0/tools" / name
+        tool.parent.mkdir(parents=True, exist_ok=True)
+        tool.write_text("# Explicit inert carrier fixture, no execution.\n")
+    inventory = run_builder_for_repo(repo, tmp_path)
+    for name in (relative, *("PULSE_safe_pack_v0/tools/" + name for name in names)):
+        item = entry_by_path(inventory, name)
+        assert item["authority_impacting"] == "no" and item["carrier_class"] == "audit_preservation"
+        assert item["required_gate_participation"] is False
+        assert item["attestation_participation"] is False and item["release_path_participation"] is False
+    assert inventory["drift_findings"] == []
+
+
+def test_inventory_requires_review_for_changed_q2_worker_carrier(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    relative = ".github/workflows/q2_release_host_worker_verification_v0.yml"
+    path = repo / relative; path.parent.mkdir(parents=True)
+    path.write_text((REPO_ROOT / relative).read_text() + "\n# materialize_release_decision\n")
+    inventory = run_builder_for_repo(repo, tmp_path)
+    assert entry_by_path(inventory, relative)["primary_role"] == "unclassified workflow"
+    assert [r for r in inventory["drift_findings"] if r["path"] == relative]
