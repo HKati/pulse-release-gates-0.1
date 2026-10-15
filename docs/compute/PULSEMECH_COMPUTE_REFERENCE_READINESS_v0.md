@@ -1991,3 +1991,25 @@ full Q2 nor Step 5C/5D acceptance, a production release, another kernel
 observation or new inference. No policy, registry, runtime, workflow, threshold
 or original evidence is changed. Keep #2879 open. Other Q2 units remain
 separately governed.
+
+
+## 14. Q2-2/Q2-3 combined worker implementation — native acquisition pending
+
+The separate [worker contract](PULSEMECH_Q2_RELEASE_HOST_WORKER_CONTRACT_v0.md)
+defines a combined model-ready and complete 150-slot capsule worker path, with
+one manually consented run, strict archived-platform identity, independent
+input/token/text/metric checks and verified terminal/custody boundaries.
+It adds no standalone Q2-2 diagnostic run and does not modify Q2-1.
+
+This is an implementation checkpoint, not an acquired native result. No new
+run/job/artifact identity, model load, inference or successful reference is
+asserted here. Actual owner-reviewed execution and retention consent, native
+acquisition, then Q2-4 independent historical/candidate comparison and accepted
+preservation remain required. Carrier replay does not reacquire kernel evidence
+or replace that later comparison. The complete path may correctly measure FAIL.
+
+Section 13 remains the actual bounded tokenizer checkpoint. Its original
+acquisition/replay source and preserved bytes are unchanged. Historical capture
+37600313529/1 retains 49 eligible groups against 50 required, metric FAIL and
+release BLOCK. No retry, top-up, gate promotion, Step 5C/5D closure or production
+authorization follows from this implementation. Keep #2879 open.

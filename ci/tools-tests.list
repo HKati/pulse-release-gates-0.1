@@ -173,3 +173,6 @@ tests/test_q2_negative_intake_verification_v0.py
 
 tests/test_q2_release_host_tokenizer_v0.py
 tests/test_q2_release_host_tokenizer_workflow_v0.py
+
+tests/test_q2_release_host_worker_protocol_v0.py
+tests/test_q2_release_host_worker_v0.py

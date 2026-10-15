@@ -1,0 +1,82 @@
+name: Q2 native release-host worker verification v0
+
+# Explicit owner consent for one complete 150-call capsule worker run. No release authority.
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact reviewed main commit (40 lowercase hex characters)
+        required: true
+        type: string
+      native_request:
+        description: Exact reviewed q2_release_host_worker_request_v0 JSON bytes
+        required: true
+        type: string
+      native_request_sha256:
+        description: SHA-256 of the exact native_request UTF-8 bytes
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: q2-native-release-host-worker
+  cancel-in-progress: false
+
+jobs:
+  verify_host:
+    if: github.repository == 'HKati/pulse-release-gates-0.1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PULSE_Q2_WORKER_SOURCE: ${{ inputs.source_commit }}
+      PULSE_Q2_WORKER_REQUEST: ${{ inputs.native_request }}
+      PULSE_Q2_WORKER_REQUEST_SHA256: ${{ inputs.native_request_sha256 }}
+    steps:
+      - name: Check owner and source before checkout
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_ACTOR" = HKati
+          test "$GITHUB_ACTOR_ID" = 128643840
+          test "$GITHUB_TRIGGERING_ACTOR" = HKati
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          [[ "$PULSE_Q2_WORKER_SOURCE" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$PULSE_Q2_WORKER_REQUEST_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          test "$PULSE_Q2_WORKER_SOURCE" = "$GITHUB_SHA"
+          test "$GITHUB_SHA" = "$GITHUB_WORKFLOW_SHA"
+      - name: Checkout exact source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Set up exact native Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11.16'
+      - name: Verify fixed worker and independently reconstruct the metric
+        shell: bash
+        env:
+          PULSE_Q2_WORKER_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          python_path="$(python -I -B -c 'import sys; print(sys.executable)')"
+          sudo --preserve-env=GITHUB_REPOSITORY,GITHUB_EVENT_NAME,GITHUB_REF,GITHUB_WORKFLOW_SHA,GITHUB_WORKFLOW,GITHUB_RUN_ATTEMPT,GITHUB_WORKFLOW_REF,GITHUB_ACTOR,GITHUB_TRIGGERING_ACTOR,GITHUB_ACTOR_ID,GITHUB_ACTIONS,GITHUB_WORKSPACE,GITHUB_SHA,GITHUB_RUN_ID,GITHUB_JOB,GITHUB_EVENT_PATH,RUNNER_OS,RUNNER_ENVIRONMENT,RUNNER_TEMP,ImageVersion,PULSE_Q2_WORKER_SOURCE,PULSE_Q2_WORKER_REQUEST,PULSE_Q2_WORKER_REQUEST_SHA256,PULSE_Q2_WORKER_TOKEN \
+            "$python_path" -I -B PULSE_safe_pack_v0/tools/verify_q2_release_host_worker_v0.py \
+            --repo-root "$GITHUB_WORKSPACE"
+      - name: Preserve separately authorized evidence carrier
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: q2-native-worker-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/q2-native-worker/evidence.zip
+            ${{ runner.temp }}/q2-native-worker/receipt.json
+            ${{ runner.temp }}/q2-native-worker/failure.json
+          if-no-files-found: error
+          overwrite: false
+          retention-days: 30
