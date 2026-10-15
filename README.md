@@ -19,7 +19,7 @@ It presents the release-transition machine, downstream authority closure,
 verified implementation state, completed proofs and current development
 boundary.
 
-**[Follow the current verified state and latest results](PULSEMECH_TECHNICAL_OVERVIEW.md#current-verified-state-and-latest-results)**
+**[Q2 reference readiness and preserved results](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md)**
 
 ## PULSEmech Transition Meter — The Missing Instrument Between Measured States
 
@@ -473,6 +473,14 @@ is separate proposed Q2-2/Q2-3 implementation, not a merged or acquired result
 of this checkpoint. A later implementation merge, explicitly authorized native
 execution, and Q2-4 comparison/preservation are distinct events. This section
 claims no completed full Q2, Step 5C/5D acceptance or production authorization.
+
+Subsequent implementation update: PR #2927 was merged as
+`a5a1bac8d46a8aaa73edfb5882ee29a200b4f84a`.
+This records implementation acceptance only; it does not establish
+completion of, or authorize, a native Q2-2/Q2-3 worker run.
+Q2-4 comparison and accepted native evidence preservation remain separate.
+The pinned checkpoint and original acquisition/replay identities above
+remain unchanged.
 
 [Historical capture and verified FAIL](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#12-recorded-native-capture-and-verified-q2-fail) ·
 [Q2-1 native result and separate replay](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint) ·
@@ -1024,7 +1032,7 @@ recorded release evidence
 ## Current verification checkpoint
 
 For the source-bound implementation and preserved Q2 results, use
-[Current verified state and latest results](PULSEMECH_TECHNICAL_OVERVIEW.md#current-verified-state-and-latest-results)
+[Q2 reference readiness and preserved results](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md)
 and the [Q2 checkpoint above](#q2-implementation-and-preserved-native-tokenizer-checkpoint).
 The RA1 and May 2026 records below retain their historical scopes; they are not
 the latest Q2 state or a new release authorization.
