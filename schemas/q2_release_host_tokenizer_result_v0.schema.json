@@ -699,12 +699,12 @@
                     "properties": {
                       "path": {
                         "type": "string",
-                        "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                        "pattern": "^[A-Za-z0-9_.+@-]+(?:/[A-Za-z0-9_.+@-]+)*$",
                         "maxLength": 4096
                       },
                       "origin": {
                         "type": "string",
-                        "pattern": "^(input|capsule|source|historical|verifier):[A-Za-z0-9_./-]+$"
+                        "pattern": "^(input|capsule|source|historical|verifier):[A-Za-z0-9_+@./-]+$"
                       },
                       "archive_mode": {
                         "oneOf": [
@@ -812,12 +812,12 @@
                     "properties": {
                       "path": {
                         "type": "string",
-                        "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                        "pattern": "^[A-Za-z0-9_.+@-]+(?:/[A-Za-z0-9_.+@-]+)*$",
                         "maxLength": 4096
                       },
                       "origin": {
                         "type": "string",
-                        "pattern": "^(input|capsule|source|historical|verifier):[A-Za-z0-9_./-]+$"
+                        "pattern": "^(input|capsule|source|historical|verifier):[A-Za-z0-9_+@./-]+$"
                       },
                       "archive_mode": {
                         "oneOf": [
@@ -925,12 +925,12 @@
                     "properties": {
                       "path": {
                         "type": "string",
-                        "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                        "pattern": "^[A-Za-z0-9_.+@-]+(?:/[A-Za-z0-9_.+@-]+)*$",
                         "maxLength": 4096
                       },
                       "origin": {
                         "type": "string",
-                        "pattern": "^(input|capsule|source|historical|verifier):[A-Za-z0-9_./-]+$"
+                        "pattern": "^(input|capsule|source|historical|verifier):[A-Za-z0-9_+@./-]+$"
                       },
                       "archive_mode": {
                         "oneOf": [
@@ -1038,12 +1038,12 @@
                     "properties": {
                       "path": {
                         "type": "string",
-                        "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                        "pattern": "^[A-Za-z0-9_.+@-]+(?:/[A-Za-z0-9_.+@-]+)*$",
                         "maxLength": 4096
                       },
                       "origin": {
                         "type": "string",
-                        "pattern": "^(input|capsule|source|historical|verifier):[A-Za-z0-9_./-]+$"
+                        "pattern": "^(input|capsule|source|historical|verifier):[A-Za-z0-9_+@./-]+$"
                       },
                       "archive_mode": {
                         "oneOf": [
@@ -1151,12 +1151,12 @@
                     "properties": {
                       "path": {
                         "type": "string",
-                        "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                        "pattern": "^[A-Za-z0-9_.+@-]+(?:/[A-Za-z0-9_.+@-]+)*$",
                         "maxLength": 4096
                       },
                       "origin": {
                         "type": "string",
-                        "pattern": "^(input|capsule|source|historical|verifier):[A-Za-z0-9_./-]+$"
+                        "pattern": "^(input|capsule|source|historical|verifier):[A-Za-z0-9_+@./-]+$"
                       },
                       "archive_mode": {
                         "oneOf": [

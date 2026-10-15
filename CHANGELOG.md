@@ -8,6 +8,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Align all Q2 projection regular-file path and origin character sets with
+  the existing archive reader for `+` and `@`. Add full projection-schema and
+  complete synthetic-receipt regressions with actual affected capsule names;
+  retain runtime path guards, exact inventories, original hashes, bindings,
+  ownership/modes, restricted links and fail-closed behavior. Run
+  `38443305721/1` remains rejected. Its retained failure lacks the full
+  candidate and does not identify the first failing native schema field.
+  This separately reproduced defect correction guarantees no future native
+  success or Q2/Step 5C acceptance. Historical 49/50 FAIL/release BLOCK remains
+  unchanged.
+
 - Preserve the Q2 summary checker's original bounded stdout bytes when
   freezing `summary-check.json`, after strict parsing and the closed expected
   object check. Remove compact reserialization while retaining the original
@@ -664,6 +675,15 @@ Comparison basis: [v1.2.0...HEAD][Post-v1.2.0].
 
 #### Fixed
 
+- Fix the Q2-1 preservation check to verify all 29 historical source payloads
+  against the fixed acquisition commit/tree and original receipt bindings,
+  independently of current working-tree files or Git history. Add a separate
+  [later source preservation copy](tests/fixtures/q2_release_host_tokenizer_historical_source_d44bf963_v0.zip)
+  with raw Git commit/tree proofs and offline tamper/independence regressions.
+  Preserve all original native metadata, index and replay bytes, current-runtime
+  source guards, historical 49/50 FAIL/release BLOCK and non-authorizing claims.
+  Refs #2879; the work order remains open.
+
 - Closed Device Ledger verifier and proof-parity defects involving:
   - stale-session lifecycle acceptance;
   - interrupted-coverage gap reconstruction;
@@ -734,6 +754,15 @@ Comparison basis: [v1.2.0...HEAD][Post-v1.2.0].
   - Provenance: PR #2852.
 
 #### Docs
+
+- Preserve the bounded Q2-1 native tokenizer reference `38478598045/1` and
+  its separate canonical offline replay, with six unchanged metadata files,
+  the original replay delivery archive, a non-authorizing preservation index
+  and metadata-integrity regressions. Record the bounded checkpoint in the
+  existing readiness/contract/index documentation. Preserve the initial local
+  input-staging rejection and the historical 49/50 FAIL/release BLOCK. Large
+  original input archives are identified but not included; durable owner
+  custody remains unverified. No runtime, workflow, policy, threshold or authority change.
 
 - Synchronized the canonical
   [PULSEmech Technical Overview](PULSEMECH_TECHNICAL_OVERVIEW.md), README,
