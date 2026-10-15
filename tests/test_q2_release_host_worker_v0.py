@@ -53,6 +53,70 @@ def no_network(monkeypatch):
     monkeypatch.setattr(socket.socket, 'connect', forbidden)
 
 
+class _FixtureModuleView:
+    """Override a module reference in this test only, never the shared module."""
+    def __init__(self, original, **overrides):
+        self._original = original
+        self.__dict__.update(overrides)
+
+    def __getattr__(self, name):
+        return getattr(self._original, name)
+
+
+def synthetic_privileged_filesystem(monkeypatch, tmp_path):
+    """Model root-only filesystem operations inside one disposable fixture.
+
+    File bytes, held-descriptor IO, exclusive publication and actual removal
+    remain real. Ownership and root's ability to write frozen directories are
+    explicitly synthetic: directories retain owner write access for the test
+    process. Files still receive their actual requested permission bits.
+    Nothing is created in /var/lib; the native location and UID/GID requests
+    are checked, recorded and mapped only into this test's temporary directory.
+    Neither this helper nor its records establish native isolation/ownership.
+    """
+    base = tmp_path.absolute()
+    real_os, real_tempfile = os, tempfile
+    ownership, modes, allocated = [], [], []
+
+    def local(path):
+        path = Path(path).absolute()
+        assert base in path.parents and '..' not in path.parts, 'fixture_path_scope'
+        assert not any(p.is_symlink() for p in (path, *path.parents)), 'fixture_link'
+        info = path.stat()
+        assert stat.S_ISDIR(info.st_mode) or stat.S_ISREG(info.st_mode), 'fixture_kind'
+        return path, info
+
+    def chown(path, uid, gid):
+        path, info = local(path)
+        assert type(uid) is int and type(gid) is int, 'fixture_owner_type'
+        assert (uid, gid) in ((0, 0), (0, 65534), (65534, 65534)), 'fixture_owner_scope'
+        ownership.append((path, uid, gid))
+        if stat.S_ISDIR(info.st_mode):
+            real_os.chmod(path, stat.S_IMODE(info.st_mode) | 0o700)
+
+    def chmod(path, mode):
+        path, info = local(path)
+        assert type(mode) is int and mode in (0o440, 0o550, 0o700), 'fixture_mode_scope'
+        modes.append((path, mode))
+        real_os.chmod(path, mode | 0o700 if stat.S_ISDIR(info.st_mode) else mode)
+
+    def mkdtemp(*, prefix, dir):
+        assert dir == '/var/lib', 'fixture_native_parent'
+        assert prefix in ('pulse-q2-worker-', 'pulse-q2-worker-bootstrap-'), 'fixture_native_prefix'
+        result = Path(real_tempfile.mkdtemp(prefix=prefix, dir=base))
+        # Drop a fixture parent's inherited setgid bit; retain the native 0700 contract.
+        result.chmod(0o700)
+        allocated.append(result)
+        return str(result)
+
+    view = _FixtureModuleView(real_os, chown=chown, chmod=chmod)
+    monkeypatch.setattr(S, 'os', view)
+    monkeypatch.setattr(S, 'tempfile', _FixtureModuleView(real_tempfile, mkdtemp=mkdtemp))
+    if S.U is not None:
+        monkeypatch.setattr(S.U, 'os', view)
+    return types.SimpleNamespace(ownership=ownership, modes=modes, allocated=allocated)
+
+
 def source_rows(root=ROOT):
     return [{'path': n, 'size_bytes': len((root / n).read_bytes()), 'sha256': C.digest((root / n).read_bytes())}
             for n in C.load_profile(root)['source_paths']]
@@ -398,6 +462,7 @@ def test_precleanup_verification_cannot_claim_cleanup(good_carrier):
 def runtime_fixture(monkeypatch,tmp_path,*,fault='none'):
     """Real source worker process and pipe/barrier; kernel and timers are doubles."""
     S.initialize_modules(ROOT);N=S.native
+    synthetic_privileged_filesystem(monkeypatch, tmp_path)
     root=tmp_path/'projection';private=tmp_path/'private';root.mkdir();private.mkdir()
     for sub in ('source','capsule/source','control','work','evidence'):(root/sub).mkdir(parents=True,exist_ok=True)
     for name in (C.WORKER,C.WORKLOAD,C.PACK+'profiles/q2_reference_subject_v0.json',C.PACK+'profiles/q2_reference_model_files_v0.json'):
@@ -600,13 +665,15 @@ def test_stdlib_preimport_bootstrap_holds_committed_bytes(git_source,tmp_path,mo
         (source/C.CHECKER).write_text('raise AssertionError("dirty helper imported")\n')
     if fault=='wrong_actor':env['GITHUB_ACTOR']='other'
     if fault=='wrong_workflow':env['GITHUB_WORKFLOW_REF']='wrong'
-    # Only root privilege is a synthetic observation; Git and held file IO are real.
+    # Root identity and /var/lib placement are synthetic; Git and held IO remain real.
+    fs = synthetic_privileged_filesystem(monkeypatch, tmp_path)
     monkeypatch.setattr(S.os,'geteuid',lambda:0)
     if fault!='none':
         with pytest.raises(ValueError):S.bootstrap_sources(source,env)
     else:
         snapshot=S.bootstrap_sources(source,env)
         try:
+            assert snapshot.parent == tmp_path and fs.allocated == [snapshot]
             assert stat.S_IMODE(snapshot.stat().st_mode)==0o700
             assert all((snapshot/n).read_bytes()==(source/n).read_bytes() for n in C.load_profile(source)['source_paths'])
         finally:shutil.rmtree(snapshot)
@@ -683,6 +750,15 @@ def full_supervisor_fixture(monkeypatch,tmp_path,git_source,fault):
     not turn supplied host records into observed native isolation or inference.
     """
     source,revision=git_source;S.initialize_modules(source)
+    fs = synthetic_privileged_filesystem(monkeypatch, tmp_path)
+    # The orchestration test does not execute these argv paths. Keep the exact
+    # native path grammar in its synthetic plan while real IO stays in tmp_path.
+    # The independent carrier checker and its path rejection remain unchanged.
+    def synthetic_execution_plan(root):
+        assert root.parent in fs.allocated and root.name == 'projection'
+        assert re.fullmatch(r'pulse-q2-worker-[a-z0-9_]{8}', root.parent.name)
+        return K.execution_plan(Path('/var/lib') / root.parent.name / 'projection')
+    monkeypatch.setattr(S, 'K', _FixtureModuleView(K, execution_plan=synthetic_execution_plan))
     env=owner_environment(source,revision,tmp_path)
     real_budget=S.T.Budget
     def budget(*args):
@@ -892,6 +968,62 @@ def test_actual_tokenizer_phase_with_explicit_module_doubles(tmp_path,good_carri
         with pytest.raises((P.ProtocolError,ValueError,KeyError)):K.tokenizer_check(root,ROOT,p,plan,output)
         assert list(output.iterdir())==[]
         if fault in ('native_target','runtime_version','module_origin','cuda'):assert loader_calls==[]
+
+
+def test_synthetic_privileged_io_is_local_and_does_not_patch_shared_modules(monkeypatch, tmp_path):
+    S.initialize_modules(ROOT)
+    original_chown, original_chmod, original_mkdtemp = os.chown, os.chmod, tempfile.mkdtemp
+    actual_uid, actual_gid = os.geteuid(), os.getegid()
+    with monkeypatch.context() as patch:
+        fs = synthetic_privileged_filesystem(patch, tmp_path)
+        assert os.chown is original_chown and os.chmod is original_chmod
+        assert tempfile.mkdtemp is original_mkdtemp and os.geteuid() == actual_uid
+        for prefix in ('pulse-q2-worker-', 'pulse-q2-worker-bootstrap-'):
+            root = Path(S.tempfile.mkdtemp(prefix=prefix, dir='/var/lib'))
+            assert root.parent == tmp_path and root in fs.allocated
+            S.os.chown(root, 0, 65534); S.os.chmod(root, 0o550)
+            payload = root / 'payload.json'
+            S.frozen_write(payload, b'{"fixture":"synthetic"}\n')
+            assert payload.read_bytes() == b'{"fixture":"synthetic"}\n'
+            assert (payload.stat().st_uid, payload.stat().st_gid) == (actual_uid, actual_gid)
+            assert stat.S_IMODE(payload.stat().st_mode) == 0o440
+            assert (root, 0, 65534) in fs.ownership and (root, 0o550) in fs.modes
+            assert (payload, 0, 65534) in fs.ownership
+            with pytest.raises((FileExistsError, ValueError)):
+                S.frozen_write(payload, b'overwrite is forbidden')
+            shutil.rmtree(root)
+            assert not root.exists()
+    assert S.os is os and S.tempfile is tempfile
+    assert S.U.os is os and os.chown is original_chown
+
+
+@pytest.mark.parametrize('fault', ['outside', 'symlink', 'parent_link', 'owner', 'owner_bool',
+                                  'mode', 'temporary_parent', 'temporary_prefix'])
+def test_synthetic_privileged_io_rejects_scope_drift(monkeypatch, tmp_path, fault):
+    S.initialize_modules(ROOT)
+    synthetic_privileged_filesystem(monkeypatch, tmp_path)
+    target = tmp_path / 'target'; target.mkdir()
+    if fault == 'outside':
+        operation = lambda: S.os.chown(tmp_path.parent, 0, 65534)
+    elif fault == 'symlink':
+        link = tmp_path / 'link'; link.symlink_to(target, target_is_directory=True)
+        operation = lambda: S.os.chown(link, 0, 65534)
+    elif fault == 'parent_link':
+        link = tmp_path / 'link'; link.symlink_to(target, target_is_directory=True)
+        (target / 'child').write_bytes(b'fixture')
+        operation = lambda: S.os.chown(link / 'child', 0, 65534)
+    elif fault == 'owner':
+        operation = lambda: S.os.chown(target, 123, 456)
+    elif fault == 'owner_bool':
+        operation = lambda: S.os.chown(target, False, 65534)
+    elif fault == 'mode':
+        operation = lambda: S.os.chmod(target, 0o777)
+    elif fault == 'temporary_parent':
+        operation = lambda: S.tempfile.mkdtemp(prefix='pulse-q2-worker-', dir='/tmp')
+    else:
+        operation = lambda: S.tempfile.mkdtemp(prefix='other-', dir='/var/lib')
+    with pytest.raises(AssertionError, match='fixture_'):
+        operation()
 
 
 if __name__ == '__main__':
