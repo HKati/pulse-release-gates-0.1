@@ -19,7 +19,7 @@ It presents the release-transition machine, downstream authority closure,
 verified implementation state, completed proofs and current development
 boundary.
 
-**[Follow the current verified state and latest results](PULSEMECH_TECHNICAL_OVERVIEW.md#current-verified-state-and-latest-results)**
+**[Q2 reference readiness and preserved results](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md)**
 
 ## PULSEmech Transition Meter — The Missing Instrument Between Measured States
 
@@ -34,6 +34,13 @@ These measurements establish what is measured.
 
 They do not automatically establish the evidence-bound identity of the
 transition that connected one measured system state to another.
+
+Measuring activity along an available path does not, by itself, establish which
+relation change opened, closed, or redirected it. Motion, timing, and rate
+measurements can contribute when bound to that specific relation and path;
+unresolved histories and stronger causal claims remain separate. This is the
+[section 4 clarification](PULSEMECH_TRANSITION_METER.md#4-state-measurement-is-not-transition-measurement),
+not a claim of a new implemented cross-domain instrument.
 
 ```text
 state
@@ -158,7 +165,7 @@ recorded source profiles; they do not establish a passing release on every
 later source revision.
 | Mechanical layer | State |
 |---|---|
-| Current-run required-gate evidence production | Implemented; the current release-grade profile explicitly rejects 13 unsupported gates while retaining all 19 required gates |
+| Current-run required-gate evidence production | Implemented; six generic recipes, one dedicated Q2 path and twelve unsupported requirements retain all 19 required gates. Invalid Q2 intake or a valid negative metric still blocks |
 | Non-stubbed release candidate state | Implemented; separate candidate admission rejects unsupported evidence rather than manufacturing a passing 19-gate candidate |
 | Recorded release-evidence verifier | Implemented and exercised |
 | Canonical candidate replay | Implemented and exercised |
@@ -184,6 +191,7 @@ later source revision.
 | Runtime-bound report/relation construction and partial historical chain — Step 5A | Implemented, reviewed and accepted through #2872 / #2870; separate source-aware validation and non-active candidate publication; complete observed Step 5 proof remains open |
 | Bounded observed checker/consumer reference — Step 5B | Completed, preserved and independently replayed through #2876, owner-dispatched run `34402387728`, artifact `10123984621`, and #2877; six distinct checker/consumer processes; `0 → ready`, `1 → held`, `2 → held`; I/E/R complete, C true, M unavailable; whole runtime packet partial; `authority_effect = none` |
 | Current-run whole-runtime observation — Step 5C implementation | Implemented through #2880, with the pre-acquisition correction merged through #2886; separate plan checking, acquisition, capture and source-bound reconstruction; non-active |
+| Q2 bounded capture and tokenizer checkpoint | Historical 150-call capture retains 49/50 FAIL / release BLOCK; Q2-1 native tokenizer run `38478598045/1` and its separate canonical replay are preserved through #2925. No full worker or Step 5C acceptance is implied |
 | Actual Step 5C reference acquisition, preservation and acceptance | Pending under #2879; regression success and the supported TEST profile do not replace an actual accepted current-run reference |
 | Wider whole-runtime relational coverage and complete Step 5 proof | Not complete; wider R/C closure remains Step 5D work, and Step 5B retains its six-process scope |
 | Active or release-required compute enforcement | Not active |
@@ -425,9 +433,11 @@ operation. The selected evidence profile retains its explicit visibility gaps.
 
 After valid release preflight, hosted evidence production and upload precede
 required-gate rejection. Preserved or attested evidence cannot promote a rejected
-candidate. All 19 required gates remain; the 13 unsupported gates still block the
-current release-grade path. A green PR run with hosted jobs skipped does not prove
-live inference, completed attestation or a successful 19-gate release reference.
+candidate. All 19 required gates remain: six generic recipes, one dedicated Q2
+path and twelve unsupported requirements. Unsupported requirements still block;
+Q2 separately rejects invalid intake or a valid negative metric. A green PR run
+with hosted jobs skipped does not prove live inference, completed attestation
+or a successful 19-gate release reference.
 
 The actual current-run reference, exact preservation and separate source-bound
 reconstruction acceptance remain open under
@@ -438,6 +448,44 @@ Step 5D wider R/C closure, Step 6 resource measurement and Step 7 compute-policy
 promotion remain separate work; no active compute authority is added.
 
 [Step 5C evidence contract and acceptance boundary](docs/compute/PULSEMECH_COMPUTE_WHOLE_RUNTIME_OBSERVATION_CONTRACT_v0.md)
+
+### Q2 implementation and preserved native tokenizer checkpoint
+
+At the documentation checkpoint `65b51603ea64d0878df28894572fd976be0a1a4f`
+(2026-10-15), the merged Q2 work extends the earlier Step 5C implementation:
+
+| Evidence or implementation | Bounded state |
+|---|---|
+| Original capture `37600313529/1` | All 150 calls completed; 147 eligible responses and 49 eligible groups against 50 required; one UNKNOWN group; correctly verified metric FAIL |
+| Dedicated archived Q2 intake and candidate admission | Implemented through #2906; input, capsule, source and current-run admission checks do not convert historical inference into current-run inference |
+| Published capsule and artifact roundtrip `38097352170/1` | Fixed original inputs for the later tokenizer check; publication alone proves no model loading or new inference |
+| Q2-1 native tokenizer `38478598045/1` | Four declared occurrences completed with exits `0 / 0 / 1 / 0`; verified cleanup; separate canonical offline replay; exact checkpoint preserved through #2925 |
+
+The Q2-1 acquisition/replay source remains
+`d44bf963cbac377366e95ae7ac9e3603fff894a4`; neither the preservation commit nor
+this documentation checkpoint replaces it. Q2-1 made zero new model calls and
+does not establish model readiness or the complete worker protocol. Historical
+49/50 FAIL / release BLOCK remains unchanged. Durable owner-held retention of
+the five original replay inputs remains `not_verified` in the preserved record.
+
+At this checkpoint, [PR #2927](https://github.com/HKati/pulse-release-gates-0.1/pull/2927)
+is separate proposed Q2-2/Q2-3 implementation, not a merged or acquired result
+of this checkpoint. A later implementation merge, explicitly authorized native
+execution, and Q2-4 comparison/preservation are distinct events. This section
+claims no completed full Q2, Step 5C/5D acceptance or production authorization.
+
+Subsequent implementation update: PR #2927 was merged as
+`a5a1bac8d46a8aaa73edfb5882ee29a200b4f84a`.
+This records implementation acceptance only; it does not establish
+completion of, or authorize, a native Q2-2/Q2-3 worker run.
+Q2-4 comparison and accepted native evidence preservation remain separate.
+The pinned checkpoint and original acquisition/replay identities above
+remain unchanged.
+
+[Historical capture and verified FAIL](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#12-recorded-native-capture-and-verified-q2-fail) ·
+[Q2-1 native result and separate replay](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint) ·
+[Dedicated intake contract](docs/compute/PULSEMECH_Q2_ARCHIVED_INTAKE_CONTRACT_v0.md)
+
 
 ### Device Ledger bounded mechanical proof
 
@@ -982,6 +1030,12 @@ recorded release evidence
 ```
 
 ## Current verification checkpoint
+
+For the source-bound implementation and preserved Q2 results, use
+[Q2 reference readiness and preserved results](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md)
+and the [Q2 checkpoint above](#q2-implementation-and-preserved-native-tokenizer-checkpoint).
+The RA1 and May 2026 records below retain their historical scopes; they are not
+the latest Q2 state or a new release authorization.
 
 - PULSE-REF RA1 operating proof: `docs/PULSE_REF_RA1_OPERATING_PROOF_v0.md`
 - RA1 operating proof smoke: `python tests/test_pulse_ref_ra1_operating_proof_smoke.py`

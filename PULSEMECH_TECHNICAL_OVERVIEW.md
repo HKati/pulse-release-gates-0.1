@@ -52,6 +52,8 @@ completed historical post-run producer-input capture
 bounded historical runtime-packet production and preservation
 accepted runtime-bound report/relation implementation and partial historical chain
 completed bounded observed checker/consumer reference with exact preservation and source-bound replay
+selected Step 5C implementation, dedicated Q2 intake and preserved native tokenizer/replay checkpoint
+merged Q2-2/Q2-3 implementation and separate pending native acceptance boundary
 Device Ledger bounded proof, deterministic Reproduction Capsule, and runnable demonstrator state
 foundational transition-measurement architecture
 external interoperability status
@@ -704,6 +706,13 @@ They do not independently create release authority.
 
 ## 10. Self-contained operation
 
+**Historical record — not a current release-dispatch procedure.** The fixed
+Tier 0 execution below retains its original outcome. The release preflight
+corrected in #2886 now rejects `strict_external_evidence=true` together with
+`llamaguard_evidence_mode=tier0_not_required`: release-grade execution requires
+`hosted_full_runtime`. A historical evidence-floor PASS is neither a bypass of
+that requirement nor proof of current successful-reference readiness.
+
 PULSEmech supports a self-contained evidence floor built from its own
 artifact-bound mechanics.
 
@@ -738,13 +747,14 @@ result:
 PASS
 ```
 
-This run proves a complete self-contained evidence floor under its declared
-Tier 0 policy surface.
+This recorded run established the self-contained evidence floor under its
+then-current Tier 0 policy surface. Its source, inputs and result remain
+historical; the command combination is not offered as a present procedure.
 
-PULSEmech also supports a hosted external-evidence lane as a separate,
-policy-selected path.
-
-The two paths share the same downstream release-authority mechanism.
+The hosted external-evidence lane is mandatory for a release-grade invocation
+under the corrected preflight. Substantive gate evidence and the connected
+downstream authority checks remain required; selecting hosted mode alone is
+not a release permission.
 
 ---
 
@@ -1809,6 +1819,14 @@ the current merged builder is absent.
 ---
 
 ## 15G. Foundational Transition Meter relation
+
+The section 4 clarification merged through #2926 distinguishes activity along
+an already available path from the relation change that made the path available.
+Matching endpoint and transfer-rate records alone need not distinguish those
+histories. Motion, timing and rate data remain usable when bound to the claimed
+relation and path; unresolved histories and causal claims retain separate
+evidence requirements. This improves the explanation, not the implementation
+or causal-proof status of the general-domain architecture.
 
 The PULSEmech Transition Meter is the broader foundational architecture within
 which artifact-bound AI release authority is the first concrete implementation
@@ -2997,44 +3015,171 @@ remain separate.
 
 ---
 
+## 15M. Step 5C implementation and preserved Q2 checkpoint
+
+This section records merged implementation and already preserved evidence through
+`a5a1bac8d46a8aaa73edfb5882ee29a200b4f84a` (2026-10-15), including #2927 after
+the earlier checkpoint `65b51603ea64d0878df28894572fd976be0a1a4f`. It does not repeat a
+native acquisition or replay, report a new test campaign, or change earlier
+source/run identities. The historical Step 4A/4B and Step 5A/5B records above
+retain their declared scopes.
+
+### Implemented path is not accepted whole-runtime reference
+
+The selected Step 5C workflow/job/step observation path was implemented through
+[#2880](https://github.com/HKati/pulse-release-gates-0.1/pull/2880) and corrected
+before acquisition through [#2886](https://github.com/HKati/pulse-release-gates-0.1/pull/2886).
+Here, whole-runtime refers to the predeclared selected graph and evidence
+profile, not every host process or provider-internal operation.
+
+The dedicated archived Q2 intake and independently reacquiring candidate
+admission were subsequently integrated through
+[#2906](https://github.com/HKati/pulse-release-gates-0.1/pull/2906). The selected
+route retains all 19 required gates: six generic recipes, one dedicated Q2
+path and twelve unsupported requirements. Unsupported requirements reject;
+invalid Q2 intake or a valid negative Q2 metric also rejects. This is implemented
+handling of evidence, not a passing 19-gate release reference.
+
+The [readiness record](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md)
+and [dedicated intake contract](docs/compute/PULSEMECH_Q2_ARCHIVED_INTAKE_CONTRACT_v0.md)
+separate regression success, correctly preserved evidence followed by BLOCK,
+successful reference acquisition and Step 5C/5D acceptance. The latter remain
+open under #2879. The recorded #6066 release result is not promoted to any later
+source revision.
+
+### Separate historical capture, capsule and tokenizer evidence
+
+| Subject | Original identity and result |
+|---|---|
+| Historical capture | Run `37600313529/1`, source `fb7b247e24f18c5314fd44f7711bd49e15020364`, artifact `11472726606`; 150 completed calls, 147 eligible responses, 49 eligible groups out of 50, one UNKNOWN group; metric FAIL |
+| Capsule publication and observed roundtrip | Run `38097352170/1`, publication source `3aa05dd7f8f95f30d75ab38bdb46419e3735c58c`; capsule artifact `11686701538`, roundtrip artifact `11686476032`; fixed later tokenizer inputs, not evidence of model loading |
+| Q2-1 native tokenizer | Run `38478598045/1`, source `d44bf963cbac377366e95ae7ac9e3603fff894a4`, job `115575359765`, artifact `11855986756`; four completed occurrences and `cleanup=verified_removed` |
+| Canonical replay and preservation | Separate recorded replay returned exit 0; original six metadata files and replay ZIP preserved through #2925, merge `c72a67ace7a507c08a977e1e4f0daebe72f8aa67` |
+
+The capture's one UNKNOWN group contains three completed token-limit responses,
+not absent calls or timeouts. The eligible-group minimum still fails; neither
+replay nor later publication tops up those samples. Q2 agreement is not an
+answer-correctness score.
+
+Q2-1 scope is `q2_archived_native_tokenizer_only_v0`. Its required/observed exits
+are `0 / 0 / 1 / 0` for `input_check`, `tokenizer_check`, `summary_builder` and
+`summary_checker`. The builder's declared exit 1 preserves the negative metric.
+The separate canonical replay used the unchanged checker with CPython 3.11.16 /
+Unicode 14.0.0 and the eight preserved dependencies. It does not reacquire the
+original kernel/process observations or establish an organizationally independent
+audit.
+
+The exact [native tokenizer and replay checkpoint](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint)
+records original archive identities, hashes, rejected runs and replay limits. The five
+original replay inputs are identified, but their durable owner-held retention
+remains `not_verified`. Temporary copies, hashes and artifact URLs are not
+proof of durable byte custody.
+
+```text
+historical_metric_pass: false
+current_inference_count: 0
+worker_launch_executed: false
+model_weights_loaded: false
+full_release_host_verified: false
+production_gate_eligible: false
+active_gate_eligible: false
+same_run_release_authority_eligible: false
+authority_effect: none
+```
+
+Those zero-inference and worker/model fields describe Q2-1, not a denial of the
+separate historical 150-call capture.
+
+### Merged worker implementation and pending native evidence
+
+At the earlier checkpoint `65b51603ea64d0878df28894572fd976be0a1a4f`,
+[#2927](https://github.com/HKati/pulse-release-gates-0.1/pull/2927) was a separate
+proposal. It was subsequently merged as
+`a5a1bac8d46a8aaa73edfb5882ee29a200b4f84a`, from final PR head
+`ac26cc3bcb3489b4c4b2526cef8a02eeecf61994`. The merge records implementation
+acceptance, not native execution or permission to execute.
+
+The [worker contract](docs/compute/PULSEMECH_Q2_RELEASE_HOST_WORKER_CONTRACT_v0.md)
+and [readiness section 14](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#14-q2-2q2-3-combined-worker-implementation--native-acquisition-pending)
+define the combined Q2-2/Q2-3 path using the unchanged full worker protocol.
+The two registered offline worker test programs bring `ci/tools-tests.list`
+to 167 unique program paths at this merged source. These are registered
+programs, not a count of passed test cases or a new native result.
+
+The remaining sequence is explicit owner execution and retention consent at
+the declared host boundary, one complete native worker run, then Q2-4 independent
+comparison and accepted preservation. The strict archived-platform requirements
+must still be met; the implementation merge does not establish that a currently
+available host meets them. A complete measurement can correctly return FAIL.
+No retry, threshold change, partial-run splicing, full Q2/Step 5C/5D closure or
+production authorization is implied. Other unsupported gates, Step 6 resource
+measurement and Step 7 promotion remain separate work; #2879 stays open.
+
+---
+
 <a id="current-verified-state-and-latest-results"></a>
 
 ## 16. Current verified state and latest results
 
+This is the source-bound documentation checkpoint identified below. Later
+repository changes and open-PR outcomes must be read from their own records;
+this checkpoint is not a newly acquired execution or a timeless claim that
+`main` cannot advance. [Section 15M](#15m-step-5c-implementation-and-preserved-q2-checkpoint)
+records the Q2 evidence and the separately merged worker implementation;
+native acquisition and Q2-4 acceptance remain pending.
+
 ```text
 state_date:
-2026-09-11
+2026-10-15
 
 merged_repository_state_recorded_through:
-PR #2877
+PR #2927
 
 merged_repository_state_basis:
-12b42736a9f8a1da16e3659a2d2099058207129b
+a5a1bac8d46a8aaa73edfb5882ee29a200b4f84a
 
 merged_repository_state_tree:
-b44c9f7cfa24c0dafbc8c38973fbbca37295f7d1
+f87d1003e8dcb5bc11aa66122a717b8fa04f86a5
+
+earlier_q2_documentation_checkpoint:
+2026-10-15 / PR #2926 / 65b51603ea64d0878df28894572fd976be0a1a4f /
+tree 01a8d604b996c5498b82ae80bc528764cad37936; original checkpoint retained
+
+previous_documentation_checkpoint:
+2026-09-11 / PR #2877 / 12b42736a9f8a1da16e3659a2d2099058207129b /
+tree b44c9f7cfa24c0dafbc8c38973fbbca37295f7d1; historical scope retained
 
 documentation_closure_scope:
-records completed Step 3G automation, historical Step 4A/4B, accepted Step 5A,
-and the completed bounded Step 5B checker/consumer reference with exact
-preservation and independent source-bound replay; no implementation, evidence,
-verification semantics, policy or authority changes are introduced by this
-documentation synchronization, whose own final checks and review remain separate
+preserves the earlier Step 3G, Step 4A/4B and Step 5A/5B records; adds selected
+Step 5C implementation, dedicated Q2 intake and the preserved Q2-1 native/replay
+checkpoint, plus merged Q2-2/Q2-3 implementation through #2927. Implementation
+acceptance is separate from native execution and Q2-4 acceptance. No new native
+execution, metric PASS, whole-runtime acceptance, verification semantics or
+release authority is created
 
 executable_compute_state_recorded_through:
-PR #2876
+selected Step 5C implementation #2880 / correction #2886; dedicated Q2 intake
+#2906; tokenizer implementation #2913 and corrections through #2921;
+combined Q2-2/Q2-3 worker implementation #2927; native worker result not established
 
-executable_compute_state_basis:
-c32508f8afb58381225fec0b426b85b00e32fe11
+bounded_step5b_executable_basis_retained:
+PR #2876 / c32508f8afb58381225fec0b426b85b00e32fe11
+
+q2_tokenizer_executable_and_acquisition_basis:
+PR #2921 / d44bf963cbac377366e95ae7ac9e3603fff894a4
+
+q2_tokenizer_preservation_basis:
+PR #2925 / c72a67ace7a507c08a977e1e4f0daebe72f8aa67
 
 historical_runtime_packet_producer_basis:
 PR #2867 / d7def834e8aa63911426550cf41b05f81c0b56b0
 
 foundational_architecture_state_recorded_through:
-PR #2817
+PR #2817 architecture / PR #2926 path-availability explanation
 
 foundational_architecture_state_basis:
-fbfa9b0c03003eef93b23489ab7cb6cc72a9edeb
+fbfa9b0c03003eef93b23489ab7cb6cc72a9edeb; explanation clarified at
+65b51603ea64d0878df28894572fd976be0a1a4f without a new implementation claim
 
 relational_release_authority_interpretation_recorded_through:
 PR #2820
@@ -3059,7 +3204,8 @@ release_authority_core:
 implemented, exercised and terminal
 
 tier0_self_contained_evidence_floor:
-completed and proven through PULSE CI #5830
+historical PULSE CI #5830 at its then-current source/policy; its strict_external_evidence=true
+plus tier0_not_required combination is rejected by the corrected release preflight
 
 release_grade_reference_execution:
 completed and preserved through PULSE CI #6066
@@ -3217,7 +3363,9 @@ runtime_observation_contract:
 implemented
 
 runtime_observation_producer:
-implemented for bounded historical post_run_platform_export only
+bounded historical post_run_platform_export and bounded Step 5B observer;
+selected current-run Step 5C implementation exists, without accepted complete
+whole-runtime reference evidence
 
 runtime_packet_preservation:
 PR #2868 / 55c6180dfbfd4055a558cf6b3e3883461a423f86
@@ -3240,8 +3388,9 @@ runtime_packet_coverage:
 partial; collector excluded; no active gate or same-run release authority
 
 live_current_run_runtime_observation_producer:
-not implemented as a general whole-runtime producer; Step 5B supplies only the
-declared six-process reference observer
+selected Step 5C workflow/job/step path implemented; no general all-host-process
+coverage or accepted full Step 5C reference is claimed. Step 5B retains its
+six-process scope; Q2-1 retains its separate tokenizer-only scope
 
 runtime_bound_report_and_relation_step5a:
 implemented, reviewed and accepted under #2870
@@ -3496,7 +3645,44 @@ same_run_release_authority_eligible=false / active_gate_eligible=false /
 authority_effect=none
 
 tools_test_manifest:
-154 active entries / 154 unique active entries
+167 unique program paths in ci/tools-tests.list at the merged #2927 source;
+registered program inventory, not a new passed-test-case or native-execution count
+
+earlier_q2_tools_test_manifest:
+165 unique program paths at 65b51603ea64d0878df28894572fd976be0a1a4f before #2927
+
+historical_step5b_tools_test_manifest:
+154 unique program paths at #2877; earlier 153/154 execution records remain unchanged
+
+required_gate_availability:
+19 required gates = 6 generic recipes + 1 dedicated Q2 path + 12 unsupported
+requirements; invalid Q2 intake or a valid negative metric still blocks
+
+q2_historical_capture:
+37600313529/1 / 150 completed calls / 147 eligible responses / 49 eligible groups
+out of 50 / 1 UNKNOWN group / verified metric FAIL / release BLOCK
+
+q2_native_tokenizer_checkpoint:
+38478598045/1 / source d44bf963cbac377366e95ae7ac9e3603fff894a4 /
+job 115575359765 / artifact 11855986756 / declared exits 0,0,1,0 /
+cleanup verified_removed / separate canonical replay preserved through #2925
+
+q2_native_tokenizer_claim_boundary:
+zero new inference / no model-weight load / no complete worker launch /
+authority_effect=none / production and active-gate eligibility false
+
+q2_original_replay_input_durable_owner_retention:
+not_verified in the preserved record; not a claim that original bytes are absent
+
+q2_combined_worker_implementation:
+merged PR #2927 / a5a1bac8d46a8aaa73edfb5882ee29a200b4f84a /
+final PR head ac26cc3bcb3489b4c4b2526cef8a02eeecf61994 /
+implementation acceptance only; native execution and Q2-4 acceptance not established
+
+q2_remaining_native_and_acceptance_boundary:
+explicit execution/retention consent, strict archived-platform requirements,
+complete native worker run, Q2-4 comparison and accepted preservation;
+full Q2 and Step 5C/5D acceptance remain open under #2879
 
 compute_resource_measurement:
 not implemented
@@ -3517,15 +3703,16 @@ transition_meter_general_domain_extension:
 foundational architecture
 
 current_development_boundary:
-compute — Step 3G automation, historical Step 4A/4B, accepted Step 5A and the
-completed bounded Step 5B checker/consumer reference are recorded. Step 5B
-proves one actual owner-dispatched six-process boundary with verified source,
-finite extent, downstream consumption, exact preservation and independent
-replay. The whole runtime packet remains partial, and a public dispatched
-Step 3F/3G proof instance is not claimed. Wider whole-runtime live/current-run
-observation, the complete Step 5 proof and comparison, Step 6 measurement and
-Step 7 promotion remain separate. Future operational current-run source capture
-must precede its authority decision
+compute — Step 3G, historical Step 4A/4B and accepted Step 5A/5B retain their
+original scopes. Selected Step 5C implementation, dedicated Q2 intake, historical
+Q2 FAIL and the preserved Q2-1 native tokenizer/replay checkpoint are recorded.
+Q2-2/Q2-3 implementation is merged through #2927, without native worker or
+Q2-4 acceptance. Full native worker acceptance, Q2-4 comparison/preservation,
+the twelve other unsupported
+requirements and complete Step 5C/5D remain open. The historical packet remains
+partial; no public dispatched Step 3F/3G proof instance, Step 6 resource measurement
+or Step 7 promotion is added. Future current-run source capture must precede
+its authority decision
 
 Device Ledger — bounded mechanical self-proof, exact .pulseledger export,
 deterministic Reproduction Capsule, canonical reproduction result and minimal
@@ -3602,12 +3789,21 @@ https://raw.githubusercontent.com/HKati/pulse-release-gates-0.1/main/PULSEMECH_T
 - [Step 5B bounded acceptance and canonical-sync authorization](https://github.com/HKati/pulse-release-gates-0.1/issues/2875#issuecomment-5609641514)
 - [Step 5B implementation, preserved replay and remaining whole-runtime boundary](#step-5b-bounded-observed-reference)
 
+### Later Step 5C and Q2 implementation and evidence
+
+- [Step 5C implementation and correction: #2880](https://github.com/HKati/pulse-release-gates-0.1/pull/2880) / [#2886](https://github.com/HKati/pulse-release-gates-0.1/pull/2886)
+- [Dedicated hosted Q2 intake and admission: #2906](https://github.com/HKati/pulse-release-gates-0.1/pull/2906)
+- [Preserved Q2-1 native tokenizer and separate replay: #2925](https://github.com/HKati/pulse-release-gates-0.1/pull/2925)
+- [Merged Q2-2/Q2-3 worker implementation: #2927](https://github.com/HKati/pulse-release-gates-0.1/pull/2927) — native execution and Q2-4 acceptance remain separate.
+- [Original identities, historical FAIL and remaining Q2 boundary](#15m-step-5c-implementation-and-preserved-q2-checkpoint)
+
 ### Latest foundational architecture sequence
 
 - [PR #2790 — add the PULSEmech Transition Meter](https://github.com/HKati/pulse-release-gates-0.1/pull/2790)
 - [PR #2794 — position PULSEmech as a transition-measurement architecture](https://github.com/HKati/pulse-release-gates-0.1/pull/2794)
 - [PR #2816 — define the transition-bounded computation architecture](https://github.com/HKati/pulse-release-gates-0.1/pull/2816)
 - [PR #2817 — integrate and close the reviewed transition-bounded computation architecture](https://github.com/HKati/pulse-release-gates-0.1/pull/2817)
+- [PR #2926 — clarify activity along a path versus the relation change that made it available](https://github.com/HKati/pulse-release-gates-0.1/pull/2926) — explanation only, not a new implemented measurement capability.
 
 ### Latest relational release-authority interpretation
 
@@ -3679,13 +3875,24 @@ attestation, universal cross-platform reproduction, release-decision
 integration, or general-purpose product layer is required to preserve this
 bounded closure.
 
-The separate compute workstream now includes completed Step 3G automation,
-historical Step 4A/4B in Sections 15I–15J, accepted Step 5A in Section 15K and
-the completed bounded Step 5B reference in Section 15L. Runtime-bound
-construction, the partial historical source-aware chain and one finite
-six-process checker/consumer observation are implemented and preserved.
-Whole-runtime live/current-run observation and complete Step 5 closure remain
-separate targets.
+The separate compute workstream includes completed Step 3G automation,
+historical Step 4A/4B in Sections 15I–15J, accepted Step 5A in Section 15K,
+the bounded Step 5B reference in Section 15L, and the later selected Step 5C
+implementation and Q2 checkpoint in Section 15M. Dedicated Q2 intake and the
+preserved native tokenizer/replay result do not establish complete whole-runtime
+acceptance. The combined worker implementation merged through #2927, actual
+full worker execution, Q2-4 comparison/preservation and full Step 5C/5D closure
+remain distinct.
+
+The next Q2 obligation is not another tokenizer-only run: retain Q2-1 and obtain
+the separately authorized complete worker evidence, followed by independent
+comparison and accepted preservation. Historical 49/50 FAIL / release BLOCK
+remains unchanged; successful regression or implementation merge is not native
+execution. The detailed [Q2 checkpoint](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint)
+remains the tokenizer evidence source. The merged worker implementation is
+recorded in [readiness section 14](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#14-q2-2q2-3-combined-worker-implementation--native-acquisition-pending)
+and the [worker contract](docs/compute/PULSEMECH_Q2_RELEASE_HOST_WORKER_CONTRACT_v0.md);
+remaining native acquisition and acceptance stay under #2879.
 
 The completed analyzer relation is:
 
