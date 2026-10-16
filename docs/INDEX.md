@@ -46,6 +46,20 @@ moves between merged and open work, update this index.
 
 - Canonical PULSEmech technical overview and current verified state:
   [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md)
+  **Source-bound implementation and evidence checkpoint.** Records the selected
+  Step 5C implementation, six generic recipes plus dedicated Q2 and twelve
+  unsupported requirements, historical Q2 FAIL and preserved Q2-1 tokenizer/replay.
+  The source checkpoint through merged #2927 separates implementation acceptance
+  from pending native worker acquisition and Q2-4 comparison/preservation;
+  full Q2/Step 5C/5D and production acceptance remain open.
+- Preserved Q2-1 native tokenizer and independent replay procedure:
+  [compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md — section 13](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint)
+  **Recorded bounded checkpoint.** Original run `38478598045/1`, original
+  acquisition/replay source and separate preservation remain distinct. Zero
+  new model calls, historical 49/50 FAIL / release BLOCK and unverified durable
+  owner-held input retention are preserved. The later worker implementation is
+  merged, but its native execution and acceptance remain separate; see the
+  [system-level Q2 boundary](../PULSEMECH_TECHNICAL_OVERVIEW.md#15m-step-5c-implementation-and-preserved-q2-checkpoint).
 - Completed Device Ledger bounded proof and deterministic Reproduction Capsule:
   [PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md](PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md)
   **Current implementation and completed bounded proof.** Records the exact

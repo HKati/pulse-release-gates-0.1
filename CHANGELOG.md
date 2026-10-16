@@ -495,6 +495,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Execute `tests/test_parameter_golf_submission_evidence_v0.py` through the CI pytest manifest (`ci/pytest-tests.list`).
 
 ### Docs
+- Synchronize README, the Technical Overview and the documentation index with
+  the source-bound Q2 checkpoint and subsequent #2927 implementation merge at
+  `a5a1bac8d46a8aaa73edfb5882ee29a200b4f84a` (2026-10-15).
+  Preserve the earlier `65b51603ea64d0878df28894572fd976be0a1a4f` checkpoint,
+  historical source/run identities and the original 150-call 49/50 FAIL.
+  Record dedicated Q2 intake, the preserved Q2-1 tokenizer/separate replay,
+  and merged Q2-2/Q2-3 implementation without claiming native worker execution
+  or Q2-4 acceptance. Separate the current 167-program manifest from the earlier
+  165-program checkpoint and historical proof counts. Clarify historical Tier 0
+  settings and the #2926 path-availability explanation. Preserve all 19 gates,
+  DOI declarations and non-authority boundaries. This documentation change adds
+  no acquisition, inference, gate activation or release authorization;
+  full Q2/Step 5C/5D acceptance remains open under #2879.
 - Synchronize the five existing canonical documentation surfaces with accepted
   Step 5A (#2872) and completion comment `5577131873` under closed work order #2870.
   - Record the exact implementation merge separately from historical subject,
