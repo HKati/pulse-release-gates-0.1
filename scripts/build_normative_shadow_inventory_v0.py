@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -120,6 +121,30 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
                 "Primary release-authority workflow. Produces, validates, "
                 "materializes, enforces, binds, and may attest authority artifacts."
             ),
+        )
+
+    if rel == ".github/workflows/q2_release_host_worker_verification_v0.yml":
+        # This exact reviewed carrier is non-authorizing, not every workflow
+        # containing a Q2 name. Any byte change needs renewed carrier review.
+        expected_sha256 = "0dd1fa2165b8c808dbec49cde73569b7a126fc77bad3c55e065c91435bd8b75e"
+        if (name != "Q2 native release-host worker verification v0"
+                or hashlib.sha256(text.encode("utf-8")).hexdigest() != expected_sha256):
+            return entry(
+                name=name, path=rel, surface_type="workflow", primary_role="unclassified workflow",
+                carrier_class="advisory", authority_impacting="conditional",
+                authority_boundary="Changed Q2 worker workflow requires exact carrier review",
+                notes="No workflow-name, permission or authority-path exemption.",
+            )
+        return entry(
+            name=name, path=rel, surface_type="workflow",
+            primary_role="non-authorizing Q2 capsule worker verification workflow",
+            carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary="One separately consented 150-call worker verification; no gate admission.",
+            reads_artifacts=["exact original capture, preparation, capsule and roundtrip inputs"],
+            writes_artifacts=["bounded source-bound worker evidence or rejection"],
+            publishes_artifacts=["separately consented 30-day Actions evidence carrier, not private storage"],
+            required_gate_participation=False, attestation_participation=False, release_path_participation=False,
+            notes="Historical FAIL/BLOCK remains; actual native execution, comparison and preservation are separate.",
         )
 
     if rel == ".github/workflows/q2_release_host_tokenizer_verification_v0.yml":
@@ -985,6 +1010,19 @@ def static_authority_entries(repo_root: Path) -> list[dict[str, Any]]:
             name=role, path="PULSE_safe_pack_v0/tools/" + filename, surface_type="tool",
             primary_role=role, carrier_class="audit_preservation", authority_impacting="no",
             authority_boundary="No worker/model launch, fresh inference, production gate, certificate or release authority.",
+            required_gate_participation=False, attestation_participation=False, release_path_participation=False,
+        ))
+
+    for filename, role in (
+        ("q2_release_host_worker_contract_v0.py", "closed Q2 worker request constructor"),
+        ("verify_q2_release_host_worker_v0.py", "external Q2 capsule worker execution supervisor"),
+        ("check_q2_release_host_worker_v0.py", "independent Q2 worker input, token, metric and carrier checker"),
+        ("check_q2_release_host_worker_protocol_v0.py", "Q2 worker protocol reconstruction component"),
+    ):
+        candidates.append(entry(
+            name=role, path="PULSE_safe_pack_v0/tools/" + filename, surface_type="tool",
+            primary_role=role, carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary="No active gate, policy, certificate or release authority; actual owner consent precedes calls.",
             required_gate_participation=False, attestation_participation=False, release_path_participation=False,
         ))
 
