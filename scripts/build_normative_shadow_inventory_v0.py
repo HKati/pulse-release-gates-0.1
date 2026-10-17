@@ -126,7 +126,7 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
     if rel == ".github/workflows/q2_release_host_worker_verification_v0.yml":
         # This exact reviewed carrier is non-authorizing, not every workflow
         # containing a Q2 name. Any byte change needs renewed carrier review.
-        expected_sha256 = "0dd1fa2165b8c808dbec49cde73569b7a126fc77bad3c55e065c91435bd8b75e"
+        expected_sha256 = "eb4cfca84cfbe2e2d479a1537c840e1d312a7b8a58a049c45c85ba33f2fd5e78"
         if (name != "Q2 native release-host worker verification v0"
                 or hashlib.sha256(text.encode("utf-8")).hexdigest() != expected_sha256):
             return entry(

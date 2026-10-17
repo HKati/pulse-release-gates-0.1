@@ -1,5 +1,9 @@
 # Q2 native release-host worker contract v0
 
+> This document retains the strict v0 platform contract. The separately selected
+> [reviewed native platform v1](PULSEMECH_Q2_NATIVE_PLATFORM_v1.md) uses a new
+> profile and request/result schemas; it does not relax or replace v0.
+
 ## Status and fixed scope
 
 This is the separate, non-authorizing implementation contract for combined Q2-2

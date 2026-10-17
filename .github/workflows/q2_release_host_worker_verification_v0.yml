@@ -9,7 +9,7 @@ on:
         required: true
         type: string
       native_request:
-        description: Exact reviewed q2_release_host_worker_request_v0 JSON bytes
+        description: Exact reviewed Q2 worker request JSON bytes (v0 strict or explicit v1 native platform)
         required: true
         type: string
       native_request_sha256:
