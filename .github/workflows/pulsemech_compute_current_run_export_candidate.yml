@@ -2132,7 +2132,7 @@ jobs:
           PY
 
       - name: Upload non-active current-run candidate
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: pulsemech-compute-current-run-export-candidate-${{ steps.source.outputs.source_run_id }}-${{ steps.source.outputs.source_run_attempt }}
           path: ${{ steps.verify.outputs.candidate_root }}/
