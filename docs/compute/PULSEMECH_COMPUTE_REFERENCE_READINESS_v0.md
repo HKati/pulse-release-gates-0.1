@@ -1,10 +1,12 @@
 # Step 5C reference readiness and first Q2 reduction unit
 
-> Latest bounded checkpoint: [section 13](#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint)
-> records the preserved Q2-1 native tokenizer result and separate canonical replay.
-> Earlier sections, including the original "Current hosted Q2 integration status"
-> heading, retain their implementation-time meanings and are not a replacement
-> for this newer, narrowly scoped checkpoint. Full Q2/Step 5C remains open.
+> Latest bounded checkpoint: [section 16](#16-recorded-q2-2q2-3-native-worker-and-offline-verification-checkpoint)
+> records native worker run `39057898256/1`, separate offline verification and
+> the limits of this metadata-only preservation record. [Section 13](#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint)
+> retains the earlier Q2-1 tokenizer/replay checkpoint. Sections 1–15, including
+> "Current hosted Q2 integration status" and the pending-acquisition wording in
+> implementation sections 14–15, keep their original checkpoint meanings.
+> Q2-4 comparison, durable owner-held custody and full Q2/Step 5C remain open.
 
 ## Current hosted Q2 integration status
 
@@ -2030,3 +2032,219 @@ for the permitted v1 tuple; Q2-4 comparability and accepted preservation remain
 unestablished. This is implementation status, not an actual native execution,
 new model result or authority decision. The earlier Q2-1 and 49/50 FAIL records
 above retain their original identities and outcomes. Keep #2879 open.
+
+
+## 16. Recorded Q2-2/Q2-3 native worker and offline verification checkpoint
+
+**Completed operational record; metadata-only preservation checkpoint.** This
+section records the separately owner-authorized native run and its later offline
+verification. It is not a new execution, a replacement for original evidence,
+a signed attestation, Q2-4 comparison acceptance or release authorization.
+Sections 1–15 retain their earlier checkpoint meanings, including the pending
+acquisition statements in the implementation-time sections 14 and 15. The actual
+subsequent acquisition is recorded here, not retroactively inserted into them.
+
+### 16.1 Exact native acquisition and original bytes
+
+| Identity | Recorded value |
+| --- | --- |
+| Repository | `HKati/pulse-release-gates-0.1` |
+| Native run / attempt | `39057898256 / 1` |
+| Job | `117469567405`, `verify_host` |
+| Executed source | `8f86ac9e787914e0b3b41228c56e866a115bea16` |
+| Executed source tree | `157a841b1e7c5c2136b7d77bd53fb9241a08735a` |
+| Workflow | `.github/workflows/q2_release_host_worker_verification_v0.yml` |
+| Selected platform contract | `reviewed_native_platform_v1` |
+| Native profile | `ubuntu24_20261012_334_1` |
+| Artifact | `12110163479`, `q2-native-worker-39057898256-1` |
+| GitHub-recorded artifact expiry | `2026-11-16T18:29:29Z` |
+
+The [original workflow run](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/39057898256)
+completed successfully. The [original Actions artifact](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/39057898256/artifacts/12110163479)
+is time-limited storage, not a permanent repository copy.
+
+| Selected byte object | Bytes | SHA-256 |
+| --- | ---: | --- |
+| Original Actions ZIP | 1475764 | `6f050557b9b6d779f62cd1c33a6930c25b0306c91ccec1caf9064dd648ec14b1` |
+| Inner `evidence.zip` | 1714200 | `fbc5cb739890f13c885beb2b2b4a76c204abd905058168c2bc213255897ba279` |
+| Native `result.json` | 121775 | `239916750e0c1b987af1569e7b0e96b18bf2f62adb4c0e65ab580598b7137a82` |
+| Submitted `request.json`, UTF-8 without terminal LF | 2798 | `0ea6343fad1031100fad22c4f349b5f67efbcab4045c5e1d7d1fb52ffa032d11` |
+| Native and independently recomputed `summary.json` | 5908 | `8e9d6630de41937bf3b8e9ddfe58daacac4074052df7720ff4cb02811f697669` |
+
+The original outer ZIP has exactly `evidence.zip` and `receipt.json`. The inner
+carrier has 618 unique members: 617 are bound by the result inventory and the
+result is separately bound by the receipt. All 150 calls have their four original
+files, for 600 call-specific members. These are original preserved byte
+identities, not the identity of this later documentation commit.
+
+### 16.2 Native completion is distinct from the metric decision
+
+The preserved native result records `status=native_worker_verified`,
+`completed_calls=150`, `model_ready_observed=true`,
+`worker_protocol_completed=true`, `cleanup=verified_removed` and
+`source_recheck=unchanged`.
+
+The four native phases are `input_check`, `worker`, `tokenizer_check` and
+`reduction_check`. Each outer service exited 0 and preserved its own ordering,
+isolation, termination and cleanup records. The tokenizer-check record covers
+150 calls. These kernel/process observations remain attributed to the original
+`owner_runner_privileged_observer_and_github_control_plane` trust boundary;
+checksums and local reconstruction do not establish a malicious-host-independent
+inference proof.
+
+The observed host matched all seven declared v1 native fields: runner image
+`20261012.334.1`, kernel `6.17.0-1022-azure` and the unchanged pinned
+Python/bootstrap, OS, architecture and libc requirements. The historical image
+remains `20261004.327.1`; the image difference and
+`full_archived_platform_match=false` are not erased by native admission.
+
+| Metric field | Preserved and separately reproduced result |
+| --- | ---: |
+| Total responses | 150 |
+| Eligible responses | 147 |
+| Total groups | 50 |
+| Eligible groups | 49 |
+| CONSISTENT / INCONSISTENT / UNKNOWN | 49 / 0 / 1 |
+| Minimum eligible groups | 50 |
+| `insufficient_evidence` | `true` |
+| `pass` / `metric_pass` | `false` |
+| Metric builder / independent checker exit | 1 / 0 |
+
+The UNKNOWN group is `q2fx-044`. The complete measurement is a valid negative
+result, not an Actions-processing failure. The reduction service correctly
+accepts builder exit 1 for this negative metric and requires checker exit 0.
+The summary's `method.inference_executed=false` describes its deterministic
+reduction, not a denial of the separately recorded 150-call acquisition.
+Its `grouping_authentication=not_established` also remains unchanged.
+
+No missing-response top-up, new cutoff, token-budget change, replacement,
+retrospective rescoring or cross-run response splicing is authorized. Q2
+agreement does not establish answer correctness. The original historical
+49/50 FAIL / release BLOCK and the Q2-1 tokenizer/replay checkpoint in
+[section 13](#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint)
+retain their own sources, scopes, run identities and evidence.
+
+### 16.3 Separate source-bound offline carrier verification
+
+The unchanged [carrier checker at the executed source](https://github.com/HKati/pulse-release-gates-0.1/blob/8f86ac9e787914e0b3b41228c56e866a115bea16/PULSE_safe_pack_v0/tools/check_q2_release_host_worker_v0.py)
+was run through its existing `--phase check-evidence` CLI with the selected
+inner archive and result digests above. It completed at
+`2026-10-17T18:54:17.998088+00:00`, exit 0, empty stderr and stdout
+`q2_worker_evidence_checked` followed by LF.
+
+All 42 held source files matched the executed commit's recorded Git-blob
+identities and the native plan's SHA-256/size bindings. This is the complete
+selected source closure, not a full repository checkout.
+
+The separately obtained semantic return is
+`record_type=q2_worker_carrier_reconstruction_v1`,
+`evidence_reconstructed=true`. The checker reconstructs the request/profile,
+source, protocol, token-map, group/manifest derivation, phase order, recorded
+isolation/cleanup and metric-record bindings. It does not reacquire the native
+host, run the model or repeat tokenization. Its original fields remain:
+
+```text
+native_origin_reacquired=false
+tokenization_reperformed=false
+metric_recomputed=false
+```
+
+Seven synthetic negative controls, performed only on disposable copies, all
+rejected: wrong selected result digest, missing last-call text, an unexpected
+member, coherently rehashed changed text, a rehashed wrong native image, a
+rehashed false historical-equivalence claim and wrong selected archive digest.
+There were no unexpected acceptances. The CLI, semantic return and repeated
+local reproductions refer to one original native result, not additional native
+runs. Independence here means separate producer/checker implementations, not
+an external organization's audit.
+
+### 16.4 Separate deterministic metric replay
+
+The unchanged [metric builder](https://github.com/HKati/pulse-release-gates-0.1/blob/8f86ac9e787914e0b3b41228c56e866a115bea16/PULSE_safe_pack_v0/tools/build_q2_reference_summary.py)
+and [metric checker](https://github.com/HKati/pulse-release-gates-0.1/blob/8f86ac9e787914e0b3b41228c56e866a115bea16/PULSE_safe_pack_v0/tools/check_q2_reference_summary.py)
+were separately executed against the original groups and manifest, with their
+selected SHA-256 values. The builder returned 1 and the checker returned 0;
+the recomputed summary and checker output were byte-identical to the original
+carrier members. The checker completed at `2026-10-17T18:59:59.581206+00:00`.
+
+This replay has its own `verification/metric_replay.json` record with
+`metric_recomputed=true`; it does not overwrite the carrier reconstruction's
+`metric_recomputed=false`. It made zero new model calls and performed no
+new tokenization or kernel observation. The reproduced summary identity is
+listed in 16.1.
+
+The recorded local replay used CPython 3.11.16 / Unicode 14.0.0 and the exact
+eight verifier dependency versions with profile-matched wheel hashes. The
+bootstrap interpreter bytes matched the pinned hash without ELF modification;
+temporary shared libraries were selected by `LD_LIBRARY_PATH`. The local kernel
+was `6.18.55` and libc glibc `2.41`, not the native GitHub host. Successful
+local reconstruction is not a new native-platform qualification or a full
+GitHub smoke result.
+
+### 16.5 Retention, record location and unresolved byte custody
+
+The separately delivered owner/reviewer bundle is
+`Q2_NATIVE_39057898256_OFFLINE_VERIFICATION.zip`, 3188208 bytes, SHA-256
+`16106b83ceca900fe3ea3545b00c2ecf523f2f705d8df2ef226884cb578331b3`. It contains the unchanged original
+Actions ZIP, the selected 42 source files, exact verifier wheels, replay
+records and reproduction material. It has 85 members, 84 bound by its manifest.
+The extracted delivery replay returned 0 with stdout
+`q2_preserved_worker_and_metric_replayed_no_new_inference` followed by LF.
+
+The following are member paths and exact hashes **inside that external bundle**,
+not files or downloadable links in this repository:
+
+| Recorded verification member | SHA-256 |
+| --- | --- |
+| `verification/carrier_execution.json` | `b33c626162d005c6136f2dc9fea515c2b7a18146daf2ccb326a468430ca6cdb8` |
+| `verification/carrier_reconstruction.json` | `2970fd9e8579341a464416f015f6aa0369a37b030d58dbc9b4803858b604280c` |
+| `verification/source_binding_check.json` | `2aaf6a3c2b3fc9df12bd8954c1ca4c59d05eaa00f88972cb1786dd577e67d556` |
+| `verification/metric_replay.json` | `2f04b934c033e6a6442ab39b0137affa6a5b23a13815ef1616e71e658faf0fac` |
+| `verification/negative_controls.json` | `e8102fe4d28815e3ec327e3d6e5904b053099870c1863c3a9db6cef8361be4a9` |
+
+This section publishes only selected identities, aggregate results and claim
+boundaries. It does not publish the original archives, raw generated text,
+token arrays, answer-containing groups, full transcript, model payload or the
+complete offline bundle. The 30-day Actions/raw-evidence consent is not
+interpreted as permission for permanent public repository storage.
+
+The owner/reviewer bundle was byte-checked and supplied, but its download to
+the owner's device and durable storage have not been observed. Durable
+owner-held retention remains **`not_verified`**. An artifact URL, a hash,
+a temporary verifier copy or this metadata checkpoint does not establish byte
+custody. The bundle also excludes the large original capture/preparation/capsule/
+roundtrip inputs and the 92 MB Python bootstrap; their historical retention
+and availability requirements are not closed by this record.
+
+The bundle's original `SELECTION.json` is not rewritten to claim that a later
+repository checkpoint or owner download already existed. Its preparation-time
+status and every original native/replay byte retain their original meaning.
+
+### 16.6 Remaining comparison and authority boundaries
+
+```text
+historical_comparability=not_established
+q2_comparison_accepted=false
+full_release_host_verified=false
+clock_relation=not_verified
+resource_measurement=unavailable
+authority_effect=none
+production_gate_eligible=false
+active_gate_eligible=false
+same_run_release_authority_eligible=false
+```
+
+Q2-2/Q2-3 now have a recorded native acquisition and separate successful offline
+verification; the broader Q2-4 historical comparison and accepted preservation
+are not declared complete. Identical aggregate counts do not establish equal
+historical outputs, experimental comparability or causal effects of the platform
+change. Any later comparison must retain its declared input selections, comparison
+domain, source/run distinction, platform difference and acceptance criteria;
+this post-acquisition checkpoint invents no pre-execution registration.
+
+The next handoff is to confirm the actual owner-held preservation of the exact
+bundle and separately fix/review the Q2-4 comparison criteria. No further model
+run is required or authorized by this record. Full Q2/Step 5C/5D acceptance,
+Step 6 resource measurement and production release remain separate. This change
+edits documentation only, not runtime, workflows, policies, gates, thresholds,
+DOIs, test manifests or original evidence. Keep #2879 open.
