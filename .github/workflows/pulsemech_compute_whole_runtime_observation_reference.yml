@@ -258,7 +258,7 @@ jobs:
       # This is an input handoff, not an accepted reference or release decision.
       - name: Upload exact non-active verification inputs
         id: upload_handoff
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: pulsemech-step5c-inputs-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/pulsemech-step5c/handoff/
@@ -515,7 +515,7 @@ jobs:
       # No always(), continue-on-error, candidate-all-true test or promotion.
       # The verifier publishes the capsule only after exact reconstruction equality.
       - name: Preserve the verified non-active reference capsule
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: pulsemech-whole-runtime-reference-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/pulsemech-step5c-verification/reference/reference_capsule_v0.zip
