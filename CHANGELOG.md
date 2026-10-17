@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Record Q2-2/Q2-3 native worker run `39057898256/1` at source
+  `8f86ac9e787914e0b3b41228c56e866a115bea16`, its 150 completed calls,
+  separate source-bound offline carrier verification and byte-identical
+  deterministic metric replay. Preserve the valid 49/50 FAIL, historical
+  platform difference and all original Q2/Q2-1 evidence identities. Add the
+  [metadata-only checkpoint](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#16-recorded-q2-2q2-3-native-worker-and-offline-verification-checkpoint)
+  and current documentation navigation; retain the earlier implementation
+  records unchanged. Publish no raw responses, token arrays or complete
+  evidence/replay archives. Durable owner-held retention remains `not_verified`;
+  Q2-4 comparison/acceptance and release authority remain separate. Documentation
+  only; no new inference, runtime or CI change. Keep #2879 open.
+
 - Add an explicit request-selected Q2 native-platform v1 extension alongside
   the unchanged strict archived-platform v0 profile and schemas. Admit only
   the reviewed Ubuntu 24.04 image `20261012.334.1` tuple; retain all original
