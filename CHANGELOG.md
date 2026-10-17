@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add an explicit request-selected Q2 native-platform v1 extension alongside
+  the unchanged strict archived-platform v0 profile and schemas. Admit only
+  the reviewed Ubuntu 24.04 image `20261012.334.1` tuple; retain all original
+  bootstrap, runtime, isolation and cleanup requirements. Bind separately
+  computed native/historical field comparisons into versioned plans/results
+  and independently reject profile mixing, downgrade and invented equality.
+  Extend the existing worker regression program and update only the manual
+  workflow input description and its exact carrier-classification digest.
+  Preserve Q2-1, the original worker/protocol, historical 49/50 FAIL / release
+  BLOCK, test manifests and authority boundaries. Actual native execution,
+  Q2-4 comparability and acceptance are not established. See the
+  [native platform contract](docs/compute/PULSEMECH_Q2_NATIVE_PLATFORM_v1.md).
+
 - Add the separate Q2-2/Q2-3 fixed-capsule worker verification implementation:
   explicit owner consent for one complete 150-call protocol and declared raw
   Actions retention, strict historical-platform checks, unchanged worker and

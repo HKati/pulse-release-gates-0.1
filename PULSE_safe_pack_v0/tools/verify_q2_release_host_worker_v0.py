@@ -95,11 +95,30 @@ def bootstrap_sources(repo, env):
             if entries[name] != [mode, "blob", blob]: raise ValueError("q2_source_mismatch")
             held[name] = raw
         return held
-    profile = "PULSE_safe_pack_v0/profiles/q2_release_host_worker_verification_v0.json"
-    first = checked([profile, "PULSE_safe_pack_v0/tools/verify_q2_release_host_worker_v0.py"])
     def pairs(items):
         if len({k for k, _ in items}) != len(items): raise ValueError("q2_source_mismatch")
         return dict(items)
+    request_text = env.get(REQUEST)
+    request_digest = env.get(DIGEST)
+    if not isinstance(request_text, str) or not isinstance(request_digest, str):
+        raise ValueError("q2_request_version_rejected")
+    request_bytes = request_text.encode("utf-8", "strict")
+    if (not 0 < len(request_bytes) <= 32768 or request_bytes.startswith(b"\xef\xbb\xbf") or
+            hashlib.sha256(request_bytes).hexdigest() != request_digest):
+        raise ValueError("q2_request_version_rejected")
+    def invalid_constant(_):
+        raise ValueError("q2_request_version_rejected")
+    request_value = json.loads(request_text, object_pairs_hook=pairs, parse_constant=invalid_constant)
+    if not isinstance(request_value, dict):
+        raise ValueError("q2_request_version_rejected")
+    pair = (request_value.get("schema_version"), request_value.get("platform_contract"))
+    if pair == ("q2_release_host_worker_request_v0", "strict_archived_platform_identity_v0"):
+        profile = "PULSE_safe_pack_v0/profiles/q2_release_host_worker_verification_v0.json"
+    elif pair == ("q2_release_host_worker_request_v1", "reviewed_native_platform_v1"):
+        profile = "PULSE_safe_pack_v0/profiles/q2_release_host_worker_verification_v1.json"
+    else:
+        raise ValueError("q2_request_version_rejected")
+    first = checked([profile, "PULSE_safe_pack_v0/tools/verify_q2_release_host_worker_v0.py"])
     p = json.loads(first[profile].decode("utf-8", "strict"), object_pairs_hook=pairs)
     names = p["source_paths"]
     if (not isinstance(names, list) or not 20 <= len(names) <= 60 or len(set(names)) != len(names) or
@@ -192,7 +211,9 @@ def initialize_modules(source):
 
 def authorize(repo, env):
     revision = env.get('GITHUB_SHA', '')
-    p = C.load_profile(repo)
+    raw_request = env.get(REQUEST)
+    C.require(type(raw_request) is str, 'owner_request_missing')
+    p = C.load_profile(repo, platform_contract=C.request_contract(raw_request.encode('utf-8', 'strict')))
     expected = {'GITHUB_REPOSITORY': C.REPOSITORY, 'GITHUB_EVENT_NAME': 'workflow_dispatch',
         'GITHUB_REF': 'refs/heads/main', 'GITHUB_WORKFLOW_SHA': revision, 'GITHUB_WORKFLOW': NAME,
         'GITHUB_RUN_ATTEMPT': '1', 'GITHUB_WORKFLOW_REF': C.REPOSITORY + '/' + C.WORKFLOW + '@refs/heads/main',
@@ -417,7 +438,10 @@ def supervise(repo, environment=None, bootstrap_snapshot=None):
     try:
         with U.phase_boundary(1200):
             p, binding, sources, request_raw = authorize(repo, env)
-            host = U.host_record(env, p)  # Strict seven-field equality before acquisition/calls.
+            # Both versions use the original host observer and pre-EXEC guards.
+            # A v0 mismatch is never retried under v1. Selection precedes observation.
+            host = U.host_record(env, p)
+            platform_fields = C.plan_platform_fields(p, host)
             parent = Path(env.get('RUNNER_TEMP', '')).absolute()
             C.require(parent.is_dir() and not any(p.is_symlink() for p in (parent, *parent.parents)) and
                       parent != repo and repo not in parent.parents and
@@ -446,7 +470,7 @@ def supervise(repo, environment=None, bootstrap_snapshot=None):
                 'projection_sha256': C.digest(C.encode(projection)), 'bootstrap_lib_sha256': bootstrap_lib,
                 'observer_contract_sha256': C.digest(C.encode({'source_bindings': sources, 'execution': K.execution_plan(root)})),
                 'execution': K.execution_plan(root), 'phase_start_ns': budget.start_ns,
-                'phase_deadline_ns': budget.start_ns + 1200_000_000_000, **P.NON_AUTHORITY}
+                'phase_deadline_ns': budget.start_ns + 1200_000_000_000, **P.NON_AUTHORITY, **platform_fields}
             for name, raw in [('request.json', request_raw), ('plan.json', C.encode(plan)), ('projection.json', C.encode(projection))]:
                 frozen_write(root / 'control' / name, raw)
                 frozen_write(root / 'evidence' / name, raw)
@@ -471,7 +495,8 @@ def supervise(repo, environment=None, bootstrap_snapshot=None):
                 'metric_pass': reduction['metric_pass'], 'historical_metric_pass': False,
                 'full_release_host_verified': False, 'q2_comparison_accepted': False,
                 'clock_relation': 'not_verified', 'resource_measurement': 'unavailable',
-                'observation_trust': 'owner_runner_privileged_observer_and_github_control_plane', **P.NON_AUTHORITY}
+                'observation_trust': 'owner_runner_privileged_observer_and_github_control_plane', **P.NON_AUTHORITY,
+                **C.result_platform_fields(p, host)}
     except BaseException as exc:
         error = exc
     finally:

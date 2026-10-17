@@ -2013,3 +2013,20 @@ acquisition/replay source and preserved bytes are unchanged. Historical capture
 37600313529/1 retains 49 eligible groups against 50 required, metric FAIL and
 release BLOCK. No retry, top-up, gate promotion, Step 5C/5D closure or production
 authorization follows from this implementation. Keep #2879 open.
+
+
+## 15. Explicit native platform v1 implementation extension
+
+The [reviewed native platform contract](PULSEMECH_Q2_NATIVE_PLATFORM_v1.md)
+adds an explicit request-selected execution target for the existing Q2-2/Q2-3
+worker path. The strict v0 profile and historical platform identities remain
+unchanged. The new target is Ubuntu 24.04 image `20261012.334.1` with kernel
+`6.17.0-1022-azure` and the unchanged exact Python/bootstrap/runtime conditions.
+Only that closed tuple is admitted; an arbitrary later image is not accepted.
+
+The v1 plan and result separately record native-requirement matches and
+historical-platform matches. Historical full-platform equality remains false
+for the permitted v1 tuple; Q2-4 comparability and accepted preservation remain
+unestablished. This is implementation status, not an actual native execution,
+new model result or authority decision. The earlier Q2-1 and 49/50 FAIL records
+above retain their original identities and outcomes. Keep #2879 open.

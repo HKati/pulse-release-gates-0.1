@@ -117,9 +117,9 @@ def synthetic_privileged_filesystem(monkeypatch, tmp_path):
     return types.SimpleNamespace(ownership=ownership, modes=modes, allocated=allocated)
 
 
-def source_rows(root=ROOT):
+def source_rows(root=ROOT, *, platform_contract=C.STRICT_PLATFORM):
     return [{'path': n, 'size_bytes': len((root / n).read_bytes()), 'sha256': C.digest((root / n).read_bytes())}
-            for n in C.load_profile(root)['source_paths']]
+            for n in C.load_profile(root, platform_contract=platform_contract)['source_paths']]
 
 
 def projection_sources(rows):
@@ -128,10 +128,10 @@ def projection_sources(rows):
         'size_bytes': r['size_bytes'], 'sha256': r['sha256']} for r in rows]
 
 
-def source_fixture(path):
+def source_fixture(path, *, platform_contract=C.STRICT_PLATFORM):
     """Disposable Git fixture, never a project development commit or remote."""
     path.mkdir()
-    for name in C.load_profile(ROOT)['source_paths']:
+    for name in C.load_profile(ROOT, platform_contract=platform_contract)['source_paths']:
         dest = path / name; dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / name, dest)
     env = {'PATH': '/usr/bin:/bin', 'HOME': str(path), 'LANG': 'C', 'LC_ALL': 'C',
@@ -152,8 +152,8 @@ def git_source(tmp_path_factory):
     return p, source_fixture(p)
 
 
-def owner_environment(source, revision, tmp_path):
-    request = C.encode(C.request_for(source, revision)).decode()
+def owner_environment(source, revision, tmp_path, *, platform_contract=C.STRICT_PLATFORM):
+    request = C.encode(C.request_for(source, revision, platform_contract=platform_contract)).decode()
     event = tmp_path / 'event.json'
     event.write_bytes(C.encode({'ref': 'main', 'sender': {'login': 'HKati', 'id': 128643840, 'type': 'User'},
         'repository': {'full_name': C.REPOSITORY}, 'inputs': {'source_commit': revision,
@@ -201,11 +201,14 @@ def phase_fixture(name, prefix, begin, end, outputs):
         'cleanup': cleanup, 'cleanup_ns': end, 'input_recheck': 'unchanged', 'outputs': outputs}
 
 
-def carrier_fixture(tmp_path, unknown=False, plan_override=None, source=ROOT):
+def carrier_fixture(tmp_path, unknown=False, plan_override=None, source=ROOT, *, platform_contract=C.STRICT_PLATFORM):
     """Original toy worker + actual frozen metric CLIs; all host records synthetic."""
-    p = C.load_profile(source); rows = source_rows(source)
+    if plan_override is not None and plan_override.get('record_type') == 'q2_worker_execution_plan_v1':
+        platform_contract = C.REVIEWED_PLATFORM
+    p = C.load_profile(source, platform_contract=platform_contract)
+    rows = source_rows(source, platform_contract=platform_contract)
     revision = plan_override['binding']['source_commit'] if plan_override is not None else 'c'*40
-    request = C.encode(C.request_for(source, revision))
+    request = C.encode(C.request_for(source, revision, platform_contract=platform_contract))
     projection = {'record_type': 'q2_tokenizer_projection_v0', 'trees': {'source': projection_sources(rows),
                   'inputs': [], 'capsule': [], 'historical': [], 'verifier': []}}
     plan = {'record_type': 'q2_worker_execution_plan_v0', 'scope': C.SCOPE,
@@ -216,6 +219,7 @@ def carrier_fixture(tmp_path, unknown=False, plan_override=None, source=ROOT):
         'execution': K.execution_plan(Path('/var/lib/pulse-q2-worker-synth001/projection')),
         'phase_start_ns': 1_000_000_000, 'phase_deadline_ns': 1201_000_000_000, **P.NON_AUTHORITY}
     plan['observer_contract_sha256'] = C.digest(C.encode({'source_bindings': rows, 'execution': plan['execution']}))
+    plan.update(C.plan_platform_fields(p, plan['host']))
     if plan_override is not None:
         plan = copy.deepcopy(plan_override)
     trace = F.fixture_trace(unknown)
@@ -279,6 +283,7 @@ def carrier_fixture(tmp_path, unknown=False, plan_override=None, source=ROOT):
         'metric_pass':not unknown,'historical_metric_pass':False,'full_release_host_verified':False,
         'q2_comparison_accepted':False,'clock_relation':'not_verified','resource_measurement':'unavailable',
         'observation_trust':'owner_runner_privileged_observer_and_github_control_plane',**P.NON_AUTHORITY}
+    result.update(C.result_platform_fields(p, plan['host']))
     buffers['result.json']=C.encode(result)
     return buffers
 
@@ -743,7 +748,7 @@ def test_carrier_physical_closed_extent(good_carrier,tmp_path,fault):
         with pytest.raises(P.ProtocolError):K.read_carrier(path,'0'*64 if fault=='wrong_hash' else C.digest(data))
 
 
-def full_supervisor_fixture(monkeypatch,tmp_path,git_source,fault):
+def full_supervisor_fixture(monkeypatch,tmp_path,git_source,fault,*,platform_contract=C.STRICT_PLATFORM):
     """Real orchestration/file custody; archive, host, service execution are fixtures.
 
     The separate worker adapter tests run real toy CLI processes. This test does
@@ -759,7 +764,7 @@ def full_supervisor_fixture(monkeypatch,tmp_path,git_source,fault):
         assert re.fullmatch(r'pulse-q2-worker-[a-z0-9_]{8}', root.parent.name)
         return K.execution_plan(Path('/var/lib') / root.parent.name / 'projection')
     monkeypatch.setattr(S, 'K', _FixtureModuleView(K, execution_plan=synthetic_execution_plan))
-    env=owner_environment(source,revision,tmp_path)
+    env=owner_environment(source,revision,tmp_path,platform_contract=platform_contract)
     real_budget=S.T.Budget
     def budget(*args):
         b=real_budget(*args);b.start_ns=1_000_000_000;return b
@@ -871,7 +876,8 @@ def test_available_python_313_stops_smoke_before_manifest(tmp_path):
 
 def checker_projection_fixture(tmp_path,good_carrier):
     root=tmp_path/'projection';(root/'control').mkdir(parents=True);(root/'source').mkdir()
-    for name in C.load_profile(ROOT)['source_paths']:
+    selected=C.request_contract(good_carrier['request.json'])
+    for name in C.load_profile(ROOT,platform_contract=selected)['source_paths']:
         dest=root/'source'/name;dest.parent.mkdir(parents=True,exist_ok=True);dest.write_bytes((ROOT/name).read_bytes())
     plan=C.parse(good_carrier['plan.json']);plan['execution']=K.execution_plan(root)
     plan['observer_contract_sha256']=C.digest(C.encode({'source_bindings':plan['source_bindings'],'execution':plan['execution']}))
@@ -1025,6 +1031,312 @@ def test_synthetic_privileged_io_rejects_scope_drift(monkeypatch, tmp_path, faul
     with pytest.raises(AssertionError, match='fixture_'):
         operation()
 
+
+
+# Separate native-platform v1 regressions. All hosts and model responses below
+# remain explicitly synthetic; no Actions dispatch, weight loading or native run.
+PRESERVED_PLATFORM_V0_SHA256 = {'PULSE_safe_pack_v0/profiles/q2_release_host_worker_verification_v0.json': 'daf0da5abfa0df925deb4c71db5d3f2d17dbb020bbbda99725018874b583ab00', 'schemas/q2_release_host_worker_request_v0.schema.json': '31810ae143c93456455c403f724c410eda547c666c70083da41abd61f0982fd5', 'schemas/q2_release_host_worker_result_v0.schema.json': 'e23e23af0a5115c96870cdf2b1309c30ae99c2166346a62a94c0bed14fa2b01e', 'PULSE_safe_pack_v0/profiles/q2_release_host_tokenizer_verification_v0.json': '82dc4088cea2521a031a63c5476d51434753780f9ad62f02d2ae5cafa053c83f', 'PULSE_safe_pack_v0/tools/verify_q2_release_host_tokenizer_v0.py': '35d10538f3321a006b9ff657db81dea4c6a65f928b763181afd3c644c4ac9efd', 'PULSE_safe_pack_v0/tools/check_q2_release_host_tokenizer_v0.py': 'ae1d4ebd38e05c8d50ba4f330f98c8976bc19be756001ecf2e714620b8b1f99b', 'PULSE_safe_pack_v0/tools/check_q2_release_host_worker_protocol_v0.py': '68f4ba73adecb97a8025d8af33873ea01e2d7ba2567a36bc6accff774569c1ae', 'PULSE_safe_pack_v0/tools/run_q2_reference_subject_v0.py': '37c932272da1579c3e1bf821fb5bde671ae756ede99aceb7deac58c85ee4b172', 'PULSE_safe_pack_v0/tools/acquire_q2_reference_inputs_v0.py': '8ba3bc7fbd922883f9db64ba53301603e8846bd4d2015f1ba5dfcf28e1d7a2da'}
+
+@pytest.mark.parametrize('path,expected', sorted(PRESERVED_PLATFORM_V0_SHA256.items()))
+def test_platform_v1_preserves_strict_and_historical_sources(path,expected):
+    assert hashlib.sha256((ROOT/path).read_bytes()).hexdigest()==expected
+
+
+@pytest.fixture(scope='module')
+def git_source_v1(tmp_path_factory):
+    p=tmp_path_factory.mktemp('q2-local-native-v1-source')/'repo'
+    return p,source_fixture(p,platform_contract=C.REVIEWED_PLATFORM)
+
+
+@pytest.fixture(scope='module')
+def native_v1_carrier(tmp_path_factory):
+    return carrier_fixture(tmp_path_factory.mktemp('q2-native-v1-carrier'),platform_contract=C.REVIEWED_PLATFORM)
+
+
+def test_platform_v1_is_explicit_and_legacy_remains_default(git_source_v1):
+    source,revision=git_source_v1
+    old=C.load_profile(source)
+    p=C.load_profile(source,platform_contract=C.REVIEWED_PLATFORM)
+    assert len(old['source_paths'])==39 and len(p['source_paths'])==42
+    assert old['native_requirements']==old['archived_platform_requirements']
+    assert p['archived_platform_requirements']==old['archived_platform_requirements']
+    assert p['native_requirements']['runner_image']=='20261012.334.1'
+    assert p['archived_platform_requirements']['runner_image']=='20261004.327.1'
+    assert C.request_for(source,revision)['schema_version']=='q2_release_host_worker_request_v0'
+    for contract,schema_path in [(C.STRICT_PLATFORM,C.REQUEST_SCHEMA),(C.REVIEWED_PLATFORM,C.REQUEST_SCHEMA_V1)]:
+        value=C.request_for(source,revision,platform_contract=contract);raw=C.encode(value)
+        Draft202012Validator(C.parse((source/schema_path).read_bytes())).validate(value)
+        assert C.check_request(source,raw,C.digest(raw),revision)==value
+        assert C.source_closure(source,revision,C.load_profile(source,platform_contract=contract)['source_paths'])
+
+
+@pytest.mark.parametrize('value', [None,True,1,'','latest','reviewed_native_platform_v2',{},[]])
+def test_platform_v1_no_implicit_profile_or_fallback(value):
+    with pytest.raises(P.ProtocolError):C.load_profile(ROOT,platform_contract=value)
+
+
+@pytest.mark.parametrize('schema,contract', [
+    ('q2_release_host_worker_request_v0',C.REVIEWED_PLATFORM),
+    ('q2_release_host_worker_request_v1',C.STRICT_PLATFORM),
+    ('q2_release_host_worker_request_v2',C.REVIEWED_PLATFORM),
+    (None,C.REVIEWED_PLATFORM),('q2_release_host_worker_request_v1',None),
+    (True,C.REVIEWED_PLATFORM),('q2_release_host_worker_request_v1','latest')])
+def test_platform_v1_schema_contract_crossovers_reject(schema,contract):
+    raw=C.encode({'schema_version':schema,'platform_contract':contract})
+    with pytest.raises(P.ProtocolError):C.request_contract(raw)
+
+
+@pytest.mark.parametrize('field', ['schema_version','scope','source_commit','profile_sha256','inputs',
+    'workload_sha256','worker_sha256','planned_calls','consent','platform_contract','retention',
+    'native_profile_id','authority_effect','production_gate_eligible','active_gate_eligible',
+    'same_run_release_authority_eligible','unexpected'])
+def test_platform_v1_rehashed_request_changes_reject(field):
+    value=C.request_for(ROOT,'c'*40,platform_contract=C.REVIEWED_PLATFORM);value[field]=None;raw=C.encode(value)
+    with pytest.raises(P.ProtocolError):C.check_request(ROOT,raw,C.digest(raw),'c'*40)
+
+
+@pytest.mark.parametrize('field', ['python','bootstrap_python_sha256','os','architecture','runner_image','kernel','libc'])
+@pytest.mark.parametrize('fault', ['changed','missing','boolean'])
+def test_platform_v1_each_host_field_is_mandatory(field,fault):
+    p=C.load_profile(ROOT,platform_contract=C.REVIEWED_PLATFORM);host=copy.deepcopy(p['native_requirements'])
+    if fault=='missing':del host[field]
+    else:host[field]=False if fault=='boolean' else ['wrong'] if field=='libc' else 'wrong'
+    with pytest.raises(P.ProtocolError):C.platform_evaluation(p,host)
+
+
+def test_platform_v1_reports_admission_not_identity_or_comparability():
+    p=C.load_profile(ROOT,platform_contract=C.REVIEWED_PLATFORM);out=C.platform_evaluation(p,p['native_requirements'])
+    assert out['native_requirement_fields_match'] is True
+    assert all(out['native_requirement_matches'].values())
+    assert out['historical_platform_matches']['runner_image'] is False
+    assert sum(out['historical_platform_matches'].values())==6
+    assert out['full_archived_platform_match'] is False and out['historical_comparability']=='not_established'
+    assert out['q2_comparison_accepted'] is False and out['full_release_host_verified'] is False
+    with pytest.raises(P.ProtocolError):C.plan_platform_fields(C.load_profile(ROOT),p['native_requirements'])
+    for image in ['20261004.327.1','20261019.335.1','ubuntu-24.04','latest','20261012.334.1\n']:
+        host={**p['native_requirements'],'runner_image':image}
+        with pytest.raises(P.ProtocolError):C.platform_evaluation(p,host)
+
+
+@pytest.mark.parametrize('key', ['inputs','bootstrap','retention','worker_limits','claims','archived_platform_requirements',
+    'native_requirements','source_paths','native_profile_id','platform_contract','record_type','unexpected'])
+def test_platform_v1_coherent_profile_and_schema_tampering_reject(git_source_v1,tmp_path,key):
+    source,_=git_source_v1;fixture=tmp_path/'source';shutil.copytree(source,fixture)
+    p=C.parse((fixture/C.PROFILE_V1).read_bytes());p[key]=None
+    schema=C.parse((fixture/C.REQUEST_SCHEMA_V1).read_bytes());schema['$defs']['profile']['const']=p
+    (fixture/C.PROFILE_V1).write_bytes(C.encode(p));(fixture/C.REQUEST_SCHEMA_V1).write_bytes(C.encode(schema))
+    with pytest.raises((P.ProtocolError,KeyError,TypeError)):C.load_profile(fixture,platform_contract=C.REVIEWED_PLATFORM)
+
+
+def test_platform_v1_metadata_cli_requires_separate_version_and_consent(git_source_v1):
+    source,revision=git_source_v1
+    argv=[sys.executable,'-I','-B',str(source/C.SELF),'--repo-root',str(source),'--source-commit',revision]
+    denied=subprocess.run(argv+['--platform-contract',C.REVIEWED_PLATFORM],capture_output=True,timeout=20)
+    assert denied.returncode==2 and denied.stdout==b''
+    for contract in [C.STRICT_PLATFORM,C.REVIEWED_PLATFORM]:
+        run=subprocess.run(argv+['--platform-contract',contract,'--authorize-150-and-actions-retention'],capture_output=True,timeout=20)
+        assert run.returncode==0 and run.stderr==b''
+        assert run.stdout==C.encode(C.request_for(source,revision,platform_contract=contract))
+    assert subprocess.check_output(['/usr/bin/git','remote'],cwd=source)==b''
+
+
+@pytest.mark.parametrize('fault',['none','wrong_digest','mixed_version','dirty_profile','dirty_schema','dirty_checker','duplicate'])
+def test_platform_v1_stdlib_guard_selects_only_committed_extent(git_source_v1,tmp_path,monkeypatch,fault):
+    original,revision=git_source_v1;source=tmp_path/'fixture';shutil.copytree(original,source)
+    env=owner_environment(source,revision,tmp_path,platform_contract=C.REVIEWED_PLATFORM)
+    fs=synthetic_privileged_filesystem(monkeypatch,tmp_path);monkeypatch.setattr(S.os,'geteuid',lambda:0)
+    if fault=='wrong_digest':env[S.DIGEST]='0'*64
+    elif fault=='mixed_version':
+        obj=C.parse(env[S.REQUEST].encode());obj['platform_contract']=C.STRICT_PLATFORM
+        env[S.REQUEST]=C.encode(obj).decode();env[S.DIGEST]=C.digest(env[S.REQUEST].encode())
+    elif fault.startswith('dirty_'):
+        name={'dirty_profile':C.PROFILE_V1,'dirty_schema':C.REQUEST_SCHEMA_V1,'dirty_checker':C.CHECKER}[fault]
+        (source/name).write_bytes(b'raise AssertionError("must not execute")\n')
+    elif fault=='duplicate':
+        env[S.REQUEST]='{"schema_version":"other",'+env[S.REQUEST][1:]
+        env[S.DIGEST]=C.digest(env[S.REQUEST].encode())
+    if fault!='none':
+        with pytest.raises(ValueError):S.bootstrap_sources(source,env)
+        assert fs.allocated==[]
+    else:
+        snapshot=S.bootstrap_sources(source,env)
+        try:
+            expected=C.load_profile(source,platform_contract=C.REVIEWED_PLATFORM)['source_paths']
+            assert len(expected)==42
+            assert sorted(p.relative_to(snapshot).as_posix() for p in snapshot.rglob('*') if p.is_file())==expected
+            assert all((snapshot/n).read_bytes()==(source/n).read_bytes() for n in expected)
+        finally:shutil.rmtree(snapshot)
+
+
+@pytest.mark.parametrize('unknown',[False,True])
+def test_platform_v1_complete_carrier_and_valid_metric_fail(tmp_path,unknown):
+    data=carrier_fixture(tmp_path,unknown=unknown,platform_contract=C.REVIEWED_PLATFORM)
+    result=K.verify_carrier(ROOT,data,C.digest(data['result.json']))
+    assert len(data)==618 and result['record_type']=='q2_worker_carrier_reconstruction_v1'
+    assert result['evidence_reconstructed'] is True
+    assert result['platform_evaluation']['full_archived_platform_match'] is False
+    assert result['platform_evaluation']['historical_comparability']=='not_established'
+    assert C.parse(data['result.json'])['metric_pass'] is (not unknown)
+    assert C.parse(data['reduction-check.json'])['builder_exit']==int(unknown)
+    assert C.parse(data['reduction-check.json'])['checker_exit']==0
+    assert all(result[k] is False for k in ['native_origin_reacquired','tokenization_reperformed','metric_recomputed'])
+
+
+@pytest.mark.parametrize('field', ['native_profile_id','observed_platform','native_requirements','archived_platform_requirements',
+    'native_requirement_matches','historical_platform_matches','native_requirement_fields_match',
+    'full_archived_platform_match','historical_comparability','q2_comparison_accepted','full_release_host_verified',
+    'authority_effect','production_gate_eligible','active_gate_eligible','same_run_release_authority_eligible','unexpected'])
+@pytest.mark.parametrize('target',['plan','result'])
+def test_platform_v1_independent_reconstruction_rejects_rehashed_claims(native_v1_carrier,field,target):
+    data=dict(native_v1_carrier);value=C.parse(data[target+'.json']);evaluation=value['platform_evaluation']
+    evaluation[field]=(False if field=='native_requirement_fields_match' else
+                       True if field not in ('authority_effect','historical_comparability') else 'accepted')
+    data[target+'.json']=C.encode(value)
+    final=C.parse(data['result.json'])
+    final['evidence_inventory']=C.inventory({k:v for k,v in data.items() if k!='result.json'})
+    data['result.json']=C.encode(final)
+    with pytest.raises((P.ProtocolError,ValueError,KeyError)):K.verify_carrier(ROOT,data,C.digest(data['result.json']))
+
+
+@pytest.mark.parametrize('fault',['plan_downgrade','result_downgrade','legacy_request','missing_plan_evaluation','missing_result_evaluation'])
+def test_platform_v1_cross_version_carrier_rejects(native_v1_carrier,fault):
+    data=dict(native_v1_carrier)
+    if fault=='legacy_request':data['request.json']=C.encode(C.request_for(ROOT,'c'*40))
+    else:
+        target='plan' if 'plan' in fault else 'result';obj=C.parse(data[target+'.json'])
+        if 'missing' in fault:del obj['platform_evaluation']
+        elif target=='plan':obj['record_type']='q2_worker_execution_plan_v0'
+        else:obj['schema_version']='q2_release_host_worker_result_v0'
+        data[target+'.json']=C.encode(obj)
+    final=C.parse(data['result.json']);final['evidence_inventory']=C.inventory({k:v for k,v in data.items() if k!='result.json'})
+    data['result.json']=C.encode(final)
+    with pytest.raises((P.ProtocolError,ValueError,KeyError)):K.verify_carrier(ROOT,data,C.digest(data['result.json']))
+
+
+@pytest.mark.parametrize('fault',['none','input_check','worker','tokenizer_check','reduction_check','cleanup','recheck','publication','final_verifier'])
+def test_platform_v1_full_supervisor_custody_and_failures(monkeypatch,tmp_path,git_source_v1,fault):
+    source,env,roots,phases,downloads,remove=full_supervisor_fixture(monkeypatch,tmp_path,git_source_v1,fault,
+                                                                 platform_contract=C.REVIEWED_PLATFORM)
+    try:
+        output=tmp_path/'q2-native-worker'
+        if fault=='none':
+            result=S.supervise(source,environment=env)
+            assert result['schema_version']=='q2_release_host_worker_result_v1'
+            assert result['platform_evaluation']['native_requirement_fields_match'] is True
+            assert result['platform_evaluation']['full_archived_platform_match'] is False
+            assert result['q2_comparison_accepted'] is False and result['full_release_host_verified'] is False
+            receipt=C.parse((output/'receipt.json').read_bytes())
+            data=K.read_carrier(output/'evidence.zip',receipt['archive_sha256'])
+            checked=K.verify_carrier(source,data,receipt['result_sha256'])
+            assert checked['platform_evaluation']==result['platform_evaluation']
+            assert phases==list(C.PHASES) and len(downloads)==6
+        else:
+            with pytest.raises((P.ProtocolError,ValueError,OSError)):S.supervise(source,environment=env)
+            assert not (output/'receipt.json').exists() and not (output/'evidence.zip').exists()
+            rejected=C.parse((output/'failure.json').read_bytes())
+            assert rejected['accepted_native_result'] is False and rejected['authority_effect']=='none'
+            assert rejected['cleanup']==('not_verified' if fault=='cleanup' else 'verified_removed')
+        if fault!='cleanup':assert all(not p.parent.exists() for p in roots)
+    finally:
+        for p in roots:
+            if p.parent.exists():remove(p.parent)
+
+
+@pytest.mark.parametrize('field',['python','bootstrap_python_sha256','os','architecture','runner_image','kernel','libc'])
+def test_platform_v1_host_mismatch_stops_before_acquisition(monkeypatch,tmp_path,git_source_v1,field):
+    source,env,roots,phases,downloads,_=full_supervisor_fixture(monkeypatch,tmp_path,git_source_v1,'none',
+                                                             platform_contract=C.REVIEWED_PLATFORM)
+    # An explicitly synthetic observation tests orchestration order, not the kernel.
+    def wrong_host(env,p):
+        observed=copy.deepcopy(p['native_requirements']);observed[field]='not-allowed';return observed
+    monkeypatch.setattr(S.U,'host_record',wrong_host)
+    with pytest.raises(P.ProtocolError):S.supervise(source,environment=env)
+    assert downloads==[] and phases==[] and roots==[]
+    assert not (tmp_path/'q2-native-worker/evidence.zip').exists()
+
+
+
+
+def test_platform_v1_request_binds_selected_profile_and_preserves_default_bytes():
+    # Captured from the unmodified baseline constructor using a synthetic revision.
+    strict = C.encode(C.request_for(ROOT, 'c' * 40))
+    assert len(strict) == 2762
+    assert C.digest(strict) == '9b5910eed0b36682d0807196508e81fe545d0273c92c1087c6f61619c2a14f4a'
+    value = C.request_for(ROOT, 'c' * 40, platform_contract=C.REVIEWED_PLATFORM)
+    selected_hash = hashlib.sha256((ROOT / C.PROFILE_V1).read_bytes()).hexdigest()
+    old_hash = hashlib.sha256((ROOT / C.PROFILE).read_bytes()).hexdigest()
+    assert value['profile_sha256'] == selected_hash != old_hash
+    value['profile_sha256'] = old_hash
+    raw = C.encode(value)
+    with pytest.raises(P.ProtocolError, match='request_contract_changed'):
+        C.check_request(ROOT, raw, C.digest(raw), 'c' * 40)
+
+
+@pytest.mark.parametrize('fault', ['none','plan_digest','request_digest','plan_noncanonical','source_bytes','projection_bytes',
+    'host','execution','clock','observer','profile','bootstrap'])
+def test_platform_v1_actual_phase_control_bindings(tmp_path,native_v1_carrier,monkeypatch,fault):
+    # Reuse the actual native-phase entry precondition test, with the v1 source
+    # extent and carrier. Only filesystem/archived bootstrap observations are
+    # test doubles, as in the existing v0 version of this test.
+    test_checker_preconditions_and_projection_bindings(tmp_path,native_v1_carrier,monkeypatch,fault)
+
+
+@pytest.mark.parametrize('target', ['plan','result'])
+@pytest.mark.parametrize('field', ['observed_platform','native_requirements','archived_platform_requirements',
+    'native_requirement_matches','historical_platform_matches','native_requirement_fields_match',
+    'full_archived_platform_match','historical_comparability','q2_comparison_accepted','full_release_host_verified'])
+def test_platform_v1_checker_recomputes_even_without_schema_predicate(native_v1_carrier,monkeypatch,target,field):
+    # Isolate the independently recomputed semantic comparison. Production still
+    # applies both the closed schema and this check; no repository guard changes.
+    data = dict(native_v1_carrier)
+    value = C.parse(data[target + '.json'])
+    evaluation = value['platform_evaluation']
+    if isinstance(evaluation[field], dict):
+        evaluation[field]['runner_image'] = 'substituted' if field.endswith('platform') or field.endswith('requirements') else True
+        if field == 'native_requirement_matches':
+            evaluation[field]['runner_image'] = False
+    elif isinstance(evaluation[field], bool):
+        evaluation[field] = not evaluation[field]
+    else:
+        evaluation[field] = 'established'
+    data[target + '.json'] = C.encode(value)
+    final = C.parse(data['result.json'])
+    final['plan_sha256'] = C.digest(data['plan.json'])
+    final['evidence_inventory'] = C.inventory({k:v for k,v in data.items() if k != 'result.json'})
+    data['result.json'] = C.encode(final)
+    validate = C.validate_json
+    def shared_schema(source, definition, obj):
+        if definition not in ('plan','result'):
+            return validate(source, definition, obj)
+    monkeypatch.setattr(C, 'validate_json', shared_schema)
+    with pytest.raises(P.ProtocolError, match=target + '_platform_evaluation'):
+        K.verify_carrier(ROOT, data, C.digest(data['result.json']))
+
+
+@pytest.mark.parametrize('count', [39,41,43])
+def test_platform_v1_schema_rejects_wrong_source_extent(native_v1_carrier,count):
+    plan = C.parse(native_v1_carrier['plan.json'])
+    rows = plan['source_bindings']
+    plan['source_bindings'] = rows[:count] if count <= len(rows) else rows + [rows[-1]]
+    with pytest.raises(P.ProtocolError, match='worker_schema_rejected'):
+        C.validate_json(ROOT, 'plan', plan)
+
+
+
+
+def test_platform_v1_phase_selection_and_digest_use_one_held_request(tmp_path,native_v1_carrier,monkeypatch):
+    root,plan=checker_projection_fixture(tmp_path,native_v1_carrier)
+    held=C.held_read;reads=[]
+    def read(path,*args,**kwargs):
+        if path==root/'control/request.json':
+            reads.append(path)
+            assert len(reads)==1, 'Request must not change between selection and validation'
+        return held(path,*args,**kwargs)
+    monkeypatch.setattr(C,'held_read',read)
+    monkeypatch.setattr(K.T,'check_projection',lambda *args:None)
+    monkeypatch.setattr(K.T,'verify_bootstrap',lambda *args:'3'*64)
+    _,p,observed,_=K.control_inputs(root,C.digest(C.encode(plan)),plan['request_sha256'])
+    assert p['platform_contract']==C.REVIEWED_PLATFORM and observed==plan and len(reads)==1
 
 if __name__ == '__main__':
     raise SystemExit(pytest.main([__file__]))

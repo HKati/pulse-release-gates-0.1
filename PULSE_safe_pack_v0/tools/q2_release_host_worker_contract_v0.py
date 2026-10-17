@@ -37,7 +37,115 @@ NEW_SOURCES = (PROFILE, REQUEST_SCHEMA, RESULT_SCHEMA, SELF, COLLECTOR, CHECKER,
                PROTOCOL, EXCHANGE, WORKER, WORKFLOW)
 
 
-def load_profile(source: Path) -> dict:
+STRICT_PLATFORM = 'strict_archived_platform_identity_v0'
+REVIEWED_PLATFORM = 'reviewed_native_platform_v1'
+PROFILE_V1 = PACK + 'profiles/q2_release_host_worker_verification_v1.json'
+REQUEST_SCHEMA_V1 = 'schemas/q2_release_host_worker_request_v1.schema.json'
+RESULT_SCHEMA_V1 = 'schemas/q2_release_host_worker_result_v1.schema.json'
+NATIVE_PROFILE_ID = 'ubuntu24_20261012_334_1'
+# One prospective execution target, not a blanket newer-image exemption.
+# The unchanged native host observer still requires root/systemd/cgroup v2,
+# the original bootstrap binary/library and actual pre-EXEC isolation evidence.
+NATIVE_V1 = {
+    'python': '3.11.16',
+    'bootstrap_python_sha256': 'a15ccdaf07655a8667a3687b13171486c9a265d92273ba3ad820fbb64d2cfecc',
+    'os': 'ubuntu-24.04', 'architecture': 'x86_64',
+    'runner_image': '20261012.334.1', 'kernel': '6.17.0-1022-azure',
+    'libc': ['glibc', '2.39'],
+}
+
+
+def request_contract(raw: bytes) -> str:
+    """Only an explicit matching schema/contract pair selects a version."""
+    value = parse(raw, 32768)
+    require(type(value) is dict, 'request_object')
+    pair = (value.get('schema_version'), value.get('platform_contract'))
+    if pair == ('q2_release_host_worker_request_v0', STRICT_PLATFORM):
+        return STRICT_PLATFORM
+    if pair == ('q2_release_host_worker_request_v1', REVIEWED_PLATFORM):
+        return REVIEWED_PLATFORM
+    raise ProtocolError('request_platform_version')
+
+
+def load_native_profile(source: Path) -> dict:
+    """Validate the entire closed v1 profile while preserving strict v0."""
+    old = load_profile(source)
+    p = parse(held_read(source / PROFILE_V1, 256 * 1024))
+    schema = parse(held_read(source / REQUEST_SCHEMA_V1, 512 * 1024))
+    same(p, schema['$defs']['profile']['const'], 'native_profile_contract_changed')
+    require(type(p) is dict and set(p) == set(old) | {'native_profile_id'}, 'native_profile_fields')
+    changed = {'record_type', 'platform_contract', 'native_requirements', 'source_paths'}
+    for key in set(old) - changed:
+        same(p[key], old[key], 'native_inherited_contract_changed')
+    require(p['record_type'] == 'q2_release_host_worker_profile_v1' and
+            p['platform_contract'] == REVIEWED_PLATFORM and
+            p['native_profile_id'] == NATIVE_PROFILE_ID, 'native_profile_identity')
+    same(p['native_requirements'], NATIVE_V1, 'native_requirement_changed')
+    same(p['source_paths'], sorted(set(old['source_paths']) |
+         {PROFILE_V1, REQUEST_SCHEMA_V1, RESULT_SCHEMA_V1}), 'native_source_extent')
+    return p
+
+
+def platform_evaluation(p: dict, observed: dict) -> dict:
+    """Compare acquired host fields; this does not acquire a host observation.
+
+    Execution admission is not historical platform identity, and neither proves
+    Q2-4 comparability. The independent checker recomputes this whole record.
+    """
+    require(p['platform_contract'] == REVIEWED_PLATFORM, 'native_platform_contract')
+    same(p['native_requirements'], NATIVE_V1, 'native_requirement_changed')
+    same(observed, p['native_requirements'], 'native_platform_mismatch')
+    keys = p['platform_keys']
+    require(set(observed) == set(keys) == set(p['archived_platform_requirements']), 'native_platform_fields')
+    native_matches = {k: encode(observed[k]) == encode(p['native_requirements'][k]) for k in keys}
+    historical_matches = {k: encode(observed[k]) == encode(p['archived_platform_requirements'][k]) for k in keys}
+    return {'record_type': 'q2_worker_platform_evaluation_v1',
+        'platform_contract': REVIEWED_PLATFORM, 'native_profile_id': NATIVE_PROFILE_ID,
+        'observed_platform': observed, 'native_requirements': p['native_requirements'],
+        'archived_platform_requirements': p['archived_platform_requirements'],
+        'native_requirement_matches': native_matches, 'historical_platform_matches': historical_matches,
+        'native_requirement_fields_match': all(native_matches.values()),
+        'full_archived_platform_match': all(historical_matches.values()),
+        'historical_comparability': 'not_established', 'q2_comparison_accepted': False,
+        'full_release_host_verified': False, **NON_AUTHORITY}
+
+
+def plan_platform_fields(p: dict, observed: dict) -> dict:
+    if p['platform_contract'] == STRICT_PLATFORM:
+        same(observed, p['native_requirements'], 'strict_platform_mismatch')
+        return {}
+    return {'record_type': 'q2_worker_execution_plan_v1',
+            'platform_evaluation': platform_evaluation(p, observed)}
+
+
+def result_platform_fields(p: dict, observed: dict) -> dict:
+    if p['platform_contract'] == STRICT_PLATFORM:
+        same(observed, p['native_requirements'], 'strict_platform_mismatch')
+        return {}
+    return {'schema_version': 'q2_release_host_worker_result_v1',
+            'platform_evaluation': platform_evaluation(p, observed)}
+
+
+def check_platform_binding(p: dict, plan: dict, result: dict | None = None) -> None:
+    """Reject downgrade, profile mixing, invented identity and stronger claims."""
+    expected = plan_platform_fields(p, plan['host'])
+    require(plan['record_type'] == expected.get('record_type', 'q2_worker_execution_plan_v0'), 'plan_platform_version')
+    if p['platform_contract'] == STRICT_PLATFORM:
+        require('platform_evaluation' not in plan and
+                (result is None or 'platform_evaluation' not in result), 'strict_platform_extension')
+    else:
+        same(plan.get('platform_evaluation'), expected['platform_evaluation'], 'plan_platform_evaluation')
+    if result is not None:
+        fields_v = result_platform_fields(p, plan['host'])
+        require(result['schema_version'] == fields_v.get('schema_version', 'q2_release_host_worker_result_v0'), 'result_platform_version')
+        if fields_v:
+            same(result.get('platform_evaluation'), fields_v['platform_evaluation'], 'result_platform_evaluation')
+
+
+def load_profile(source: Path, *, platform_contract: str = STRICT_PLATFORM) -> dict:
+    if platform_contract == REVIEWED_PLATFORM:
+        return load_native_profile(source)
+    require(platform_contract == STRICT_PLATFORM, 'unsupported_platform_contract')
     raw = held_read(source / PROFILE, 256 * 1024)
     p = parse(raw)
     schema = parse(held_read(source / REQUEST_SCHEMA, 512 * 1024))
@@ -92,22 +200,26 @@ def source_closure(source: Path, revision: str, names: list[str]) -> list[dict]:
     return rows
 
 
-def request_for(source: Path, revision: str) -> dict:
+def request_for(source: Path, revision: str, *, platform_contract: str = STRICT_PLATFORM) -> dict:
     require(re.fullmatch('[0-9a-f]{40}', revision or '') is not None, 'source_shape')
-    p = load_profile(source)
+    p = load_profile(source, platform_contract=platform_contract)
+    version = ({'schema_version': 'q2_release_host_worker_request_v1', 'native_profile_id': NATIVE_PROFILE_ID}
+               if platform_contract == REVIEWED_PLATFORM else {})
     return {'schema_version': 'q2_release_host_worker_request_v0', 'scope': SCOPE,
-            'source_commit': revision, 'profile_sha256': digest(held_read(source / PROFILE)),
+            'source_commit': revision, 'profile_sha256': digest(held_read(source /
+                (PROFILE_V1 if platform_contract == REVIEWED_PLATFORM else PROFILE))),
             'inputs': p['inputs'], 'workload_sha256': WORKLOAD_SHA256,
             'worker_sha256': WORKER_SHA256, 'planned_calls': 150,
             'consent': CONSENT, 'platform_contract': p['platform_contract'],
-            'retention': p['retention'], **NON_AUTHORITY}
+            'retention': p['retention'], **NON_AUTHORITY, **version}
 
 
 def check_request(source: Path, raw: bytes, expected: str, revision: str) -> dict:
     require(type(expected) is str and re.fullmatch('[0-9a-f]{64}', expected) is not None and
             digest(raw) == expected, 'request_digest_changed')
     value = parse(raw, 32768)
-    same(value, request_for(source, revision), 'request_contract_changed')
+    selected = request_contract(raw)
+    same(value, request_for(source, revision, platform_contract=selected), 'request_contract_changed')
     return value
 
 
@@ -138,7 +250,11 @@ def inventory(buffers: dict[str, bytes]) -> list[dict]:
 
 def validate_json(source: Path, definition: str, obj: dict) -> None:
     from jsonschema import Draft202012Validator
-    s = parse(held_read(source / RESULT_SCHEMA, 512 * 1024))
+    require(type(obj) is dict, 'worker_schema_rejected')
+    version_one = ((definition == 'plan' and obj.get('record_type') == 'q2_worker_execution_plan_v1') or
+                   (definition == 'result' and obj.get('schema_version') == 'q2_release_host_worker_result_v1'))
+    schema_path = RESULT_SCHEMA_V1 if version_one else RESULT_SCHEMA
+    s = parse(held_read(source / schema_path, 512 * 1024))
     validator = Draft202012Validator({'$ref': '#/$defs/' + definition, '$defs': s['$defs']})
     require(validator.is_valid(obj), 'worker_schema_rejected')
 
@@ -148,16 +264,17 @@ def main(argv=None):
     a = argparse.ArgumentParser(description=__doc__)
     a.add_argument('--repo-root', type=Path, required=True)
     a.add_argument('--source-commit', required=True)
+    a.add_argument('--platform-contract', choices=[STRICT_PLATFORM, REVIEWED_PLATFORM], default=STRICT_PLATFORM)
     a.add_argument('--authorize-150-and-actions-retention', action='store_true')
     args = a.parse_args(argv)
     try:
         require(args.authorize_150_and_actions_retention is True, 'explicit_future_owner_consent_required')
         source = args.repo_root.resolve(strict=True)
-        p = load_profile(source)
+        p = load_profile(source, platform_contract=args.platform_contract)
         source_closure(source, args.source_commit, p['source_paths'])
         # This constructs request bytes only; the authenticated owner dispatch is
         # still required. Nothing here calls GitHub or starts a worker.
-        sys.stdout.buffer.write(encode(request_for(source, args.source_commit)))
+        sys.stdout.buffer.write(encode(request_for(source, args.source_commit, platform_contract=args.platform_contract)))
         return 0
     except Exception:
         sys.stderr.write('q2_worker_request_rejected\n'); return 2

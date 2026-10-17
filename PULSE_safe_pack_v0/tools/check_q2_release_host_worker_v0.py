@@ -47,20 +47,22 @@ def execution_plan(root: Path) -> dict:
 
 
 def control_inputs(root: Path, expected_plan: str, expected_request: str):
-    source = root / 'source'; p = C.load_profile(source)
+    source = root / 'source'
+    selected_request = C.held_read(root / 'control/request.json', 32768)
+    p = C.load_profile(source, platform_contract=C.request_contract(selected_request))
     raw = C.held_read(root / 'control/plan.json')
     C.require(C.digest(raw) == expected_plan, 'plan_digest_changed')
     plan = C.parse(raw)
     C.require(C.encode(plan) == raw, 'plan_serialization_changed')
     C.validate_json(source, 'plan', plan)
     C.same(plan['execution'], execution_plan(root), 'execution_plan_changed')
-    req = C.held_read(root / 'control/request.json', 32768)
+    req = selected_request  # Validate the same held bytes that selected the profile.
     C.require(plan['request_sha256'] == expected_request, 'request_binding_changed')
     C.check_request(source, req, expected_request, plan['binding']['source_commit'])
     C.require(plan['scope'] == C.SCOPE and plan['binding']['workflow'] == C.WORKFLOW and
               plan['binding']['repository'] == C.REPOSITORY and plan['binding']['run_attempt'] == 1,
               'plan_context')
-    C.same(plan['host'], p['native_requirements'], 'strict_platform_mismatch')
+    C.check_platform_binding(p, plan)
     C.same(plan['execution']['worker_limits'], P.LIMITS, 'limit_contract_changed')
     C.require(plan['observer_contract_sha256'] == C.digest(C.encode({'source_bindings': plan['source_bindings'],
               'execution': plan['execution']})), 'observer_contract_binding')
@@ -265,9 +267,9 @@ def verify_carrier(source: Path, buffers: dict[str, bytes], expected_result: str
     plan = C.parse(buffers['plan.json']); C.validate_json(source, 'plan', plan)
     C.require(result['plan_sha256'] == C.digest(buffers['plan.json']), 'carrier_plan_binding')
     C.same(result['binding'], plan['binding'], 'carrier_run_binding')
-    p = C.load_profile(source)
+    p = C.load_profile(source, platform_contract=C.request_contract(buffers['request.json']))
     C.check_request(source, buffers['request.json'], plan['request_sha256'], result['binding']['source_commit'])
-    C.same(plan['host'], p['native_requirements'], 'carrier_host')
+    C.check_platform_binding(p, plan, result)
     C.require(C.encode(plan) == buffers['plan.json'], 'carrier_plan_serialization')
     command = plan['execution']['worker_argv_template']
     planned_root = Path(command[0]).parents[3]
@@ -373,9 +375,13 @@ def verify_carrier(source: Path, buffers: dict[str, bytes], expected_result: str
         previous = phase['cleanup_ns']
     C.require(result['private_cleanup_completed_ns'] >= previous and result['source_recheck'] == 'unchanged' and
               result['private_cleanup_completed_ns'] <= plan['phase_deadline_ns'] + 180_000_000_000, 'carrier_final_cleanup')
+    version_fields = {}
+    if p['platform_contract'] == C.REVIEWED_PLATFORM:
+        version_fields = {'record_type': 'q2_worker_carrier_reconstruction_v1',
+                          'platform_evaluation': C.platform_evaluation(p, plan['host'])}
     return {'record_type': 'q2_worker_carrier_reconstruction_v0', 'evidence_reconstructed': True,
         'native_origin_reacquired': False, 'tokenization_reperformed': False, 'metric_recomputed': False,
-        'historical_metric_pass': False, **P.NON_AUTHORITY}
+        'historical_metric_pass': False, **P.NON_AUTHORITY, **version_fields}
 
 
 
