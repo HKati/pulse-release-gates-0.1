@@ -19,7 +19,7 @@ It presents the release-transition machine, downstream authority closure,
 verified implementation state, completed proofs and current development
 boundary.
 
-**[Q2 reference readiness and preserved results](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md)**
+**[Q2 native worker and offline verification](#q2-native-worker-and-offline-verification)**
 
 ## PULSEmech Transition Meter — The Missing Instrument Between Measured States
 
@@ -192,6 +192,7 @@ later source revision.
 | Bounded observed checker/consumer reference — Step 5B | Completed, preserved and independently replayed through #2876, owner-dispatched run `34402387728`, artifact `10123984621`, and #2877; six distinct checker/consumer processes; `0 → ready`, `1 → held`, `2 → held`; I/E/R complete, C true, M unavailable; whole runtime packet partial; `authority_effect = none` |
 | Current-run whole-runtime observation — Step 5C implementation | Implemented through #2880, with the pre-acquisition correction merged through #2886; separate plan checking, acquisition, capture and source-bound reconstruction; non-active |
 | Q2 bounded capture and tokenizer checkpoint | Historical 150-call capture retains 49/50 FAIL / release BLOCK; Q2-1 native tokenizer run `38478598045/1` and its separate canonical replay are preserved through #2925. No full worker or Step 5C acceptance is implied |
+| Q2-2/Q2-3 native worker and separate offline verification | Completed native acquisition `39057898256/1`: 150 calls; source-bound carrier verification and byte-identical metric replay recorded. Metric FAIL (49/50 eligible groups); Q2-4 acceptance and durable owner-held retention remain open; `authority_effect = none` |
 | Actual Step 5C reference acquisition, preservation and acceptance | Pending under #2879; regression success and the supported TEST profile do not replace an actual accepted current-run reference |
 | Wider whole-runtime relational coverage and complete Step 5 proof | Not complete; wider R/C closure remains Step 5D work, and Step 5B retains its six-process scope |
 | Active or release-required compute enforcement | Not active |
@@ -486,6 +487,42 @@ remain unchanged.
 [Q2-1 native result and separate replay](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint) ·
 [Dedicated intake contract](docs/compute/PULSEMECH_Q2_ARCHIVED_INTAKE_CONTRACT_v0.md)
 
+
+### Q2 native worker and offline verification
+
+The separately owner-authorized [native worker run `39057898256/1`](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/39057898256)
+completed on source `8f86ac9e787914e0b3b41228c56e866a115bea16` under
+`reviewed_native_platform_v1`. The recorded result contains 150 completed model
+calls, model-readiness observation, a complete worker protocol, all four native
+phases, verified cleanup and an unchanged source recheck.
+
+The original [Actions artifact `12110163479`](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/39057898256/artifacts/12110163479)
+contains the 618-member evidence carrier and its receipt. A separate source-bound
+offline carrier check accepted that evidence against the exact 42-file source
+closure; all seven disposable negative controls rejected. A separate metric
+replay reproduced the original summary and checker output byte-for-byte. These
+local checks performed no new inference or native-host observation; the carrier
+replay used the preserved token map, not repeated tokenization.
+
+**Successful execution and evidence verification are not metric PASS.**
+The native result and separate metric replay retain 150 responses, 147 eligible
+responses and 49 eligible groups against 50 required: 49 CONSISTENT,
+0 INCONSISTENT and 1 UNKNOWN. The metric remains FAIL; the metric builder
+exited 1 and its separate checker exited 0.
+
+All seven v1 native platform fields match. Historical full-platform equality
+remains false; `historical_comparability=not_established` and
+`q2_comparison_accepted=false`. The earlier capture and Q2-1 records above retain
+their original identities and historical 49/50 FAIL / release BLOCK.
+
+Only metadata and aggregate results are published here. The raw Actions evidence
+has the separately authorized 30-day retention; durable owner-held retention
+remains `not_verified`. Full Q2/Step 5C/5D acceptance and release authorization
+remain open; `full_release_host_verified=false`, `authority_effect=none` and
+production, active-gate and same-run release-authority eligibility remain false.
+
+[Native and offline verification checkpoint — fixed documentation snapshot](https://github.com/HKati/pulse-release-gates-0.1/blob/94b441021500361cac97a2c4814d69f344e89915/docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#16-recorded-q2-2q2-3-native-worker-and-offline-verification-checkpoint) ·
+[Reviewed native platform contract](docs/compute/PULSEMECH_Q2_NATIVE_PLATFORM_v1.md)
 
 ### Device Ledger bounded mechanical proof
 
@@ -1031,9 +1068,10 @@ recorded release evidence
 
 ## Current verification checkpoint
 
-For the source-bound implementation and preserved Q2 results, use
-[Q2 reference readiness and preserved results](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md)
-and the [Q2 checkpoint above](#q2-implementation-and-preserved-native-tokenizer-checkpoint).
+For the recorded native Q2 result and separate source-bound offline verification,
+use the [Q2 native worker and offline verification checkpoint above](#q2-native-worker-and-offline-verification).
+The [Q2 reference readiness record](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md)
+retains the detailed implementation and historical checkpoint sequence.
 The RA1 and May 2026 records below retain their historical scopes; they are not
 the latest Q2 state or a new release authorization.
 
