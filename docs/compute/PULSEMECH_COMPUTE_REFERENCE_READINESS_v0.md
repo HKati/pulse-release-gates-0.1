@@ -1,12 +1,12 @@
 # Step 5C reference readiness and first Q2 reduction unit
 
-> Latest bounded checkpoint: [section 16](#16-recorded-q2-2q2-3-native-worker-and-offline-verification-checkpoint)
-> records native worker run `39057898256/1`, separate offline verification and
-> the limits of this metadata-only preservation record. [Section 13](#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint)
-> retains the earlier Q2-1 tokenizer/replay checkpoint. Sections 1–15, including
-> "Current hosted Q2 integration status" and the pending-acquisition wording in
-> implementation sections 14–15, keep their original checkpoint meanings.
-> Q2-4 comparison, durable owner-held custody and full Q2/Step 5C remain open.
+> Latest bounded checkpoint: [section 17](#17-recorded-q2-4-field-comparison-checkpoint)
+> records the completed field comparison of `37600313529/1` and `39057898256/1`.
+> [Section 16](#16-recorded-q2-2q2-3-native-worker-and-offline-verification-checkpoint)
+> retains native acquisition and offline verification; [section 13](#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint)
+> retains the earlier tokenizer/replay checkpoint. Sections 1–16 retain their
+> original checkpoint meanings. Full Q2-4 acceptance, durable owner-held custody
+> and full Q2/Step 5C/5D acceptance remain open.
 
 ## Current hosted Q2 integration status
 
@@ -2248,3 +2248,209 @@ run is required or authorized by this record. Full Q2/Step 5C/5D acceptance,
 Step 6 resource measurement and production release remain separate. This change
 edits documentation only, not runtime, workflows, policies, gates, thresholds,
 DOIs, test manifests or original evidence. Keep #2879 open.
+
+## 17. Recorded Q2-4 field-comparison checkpoint
+
+This metadata-only checkpoint records a completed local comparison of two
+preserved acquisitions. It does not establish full Q2-4 acceptance,
+historical platform equivalence, organizationally independent validation
+or release authorization.
+
+The comparison was performed after both acquisitions. Their aggregate
+results and some file digests were already known. The local comparison
+scope was fixed before the successful calculation; it is not a
+pre-acquisition registration or a blinded experiment.
+
+Sections 1–16 retain their original checkpoint meanings. Section 16
+records native acquisition and its separate offline verification;
+this section records the later cross-run field comparison.
+
+### 17.1 Selected acquisitions and comparison identity
+
+| Role | Run / attempt | Executed source commit | Artifact ID | Original Actions ZIP bytes |
+| --- | --- | --- | --- | ---: |
+| Historical capture | `37600313529/1` | `fb7b247e24f18c5314fd44f7711bd49e15020364` | `11472726606` | 1809263 |
+| Native worker | `39057898256/1` | `8f86ac9e787914e0b3b41228c56e866a115bea16` | `12110163479` | 1475764 |
+
+Selected original archive SHA-256 values:
+
+```text
+historical:
+88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6
+
+native:
+6f050557b9b6d779f62cd1c33a6930c25b0306c91ccec1caf9064dd648ec14b1
+
+previous native offline-verification bundle:
+16106b83ceca900fe3ea3545b00c2ecf523f2f705d8df2ef226884cb578331b3
+```
+
+The existing native offline-verification bundle is
+`Q2_NATIVE_39057898256_OFFLINE_VERIFICATION.zip`, 3188208 bytes.
+All three selected archives retained their original bytes in the
+recorded comparison's final input check.
+
+The local comparison used repository checkpoint
+`c0895b920399cafbc14aa9fd3b6d3b68671f0220` as documentation context,
+not as the source commit of the comparison helper.
+
+Recorded local identities:
+
+```text
+comparison source SHA-256:
+1017faca5e95cf1b05b543af7e0330cbae4f793e72d9094767a6a37b9a532dc4
+
+comparison scope SHA-256:
+ad204afb52514646c2a0b928119d41fe89f698e99522e7a67e83f6c045bd2f46
+
+COMPARISON_RESULT.json SHA-256:
+6fb23b0cd62e52a856babe75e4793926a54c132299e49f00ac3065586246ab10
+
+separate crosscheck source SHA-256:
+fad493255877605211516e98de3297280940390b993f753df1dd69e62e535f24
+```
+
+These identify local calculation material and its recorded output.
+They are not new native execution identities or release inputs.
+
+### 17.2 Pairing, bindings and compared fields
+
+The comparison accounted for the original 50-group, three-repeat workload
+and all 150 planned occurrences on each side. Pairing used the original
+group_id, repeat_index, ordinal, call_id and request_sha256 relationships,
+not generated-output similarity.
+
+Each side retained its own run, attempt, source, prelaunch, subject and
+transcript identities. Missing or duplicate occurrences were not removed,
+replaced or supplied from another run.
+
+The local checks covered the selected archive identities, closed member
+sets and inventory bindings: 657 historical evidence entries, 617 native
+result entries and 84 entries in the existing offline bundle. They also
+checked the 23 historical and 42 native source snapshots against their
+preserved bindings and the 600 original per-call files on each side.
+
+| Compared layer | Compared units | Equal | Different |
+| --- | ---: | ---: | ---: |
+| Planned occurrence and request identity | 150 calls | 150 | 0 |
+| Recorded input token IDs | 150 calls | 150 | 0 |
+| Effective generation configuration | 150 calls | 150 | 0 |
+| Recorded worker-runtime configuration | 150 calls | 150 | 0 |
+| Generated token IDs | 150 calls | 150 | 0 |
+| Original UTF-8 output bytes | 150 calls | 150 | 0 |
+| Recorded stop reason | 150 calls | 150 | 0 |
+| Recorded typed extraction | 150 calls | 150 | 0 |
+| Recorded group classification | 50 groups | 50 | 0 |
+
+The complete original groups.json bytes also match. Both acquisitions
+record 147 eos outcomes and three token_limit outcomes. The UNKNOWN group
+is q2fx-044 on both sides.
+
+These are comparisons of preserved fields, not new tokenization,
+extraction or metric calculation.
+
+### 17.3 Preserved differences and source limits
+
+None of the 150 complete response.json pairs is byte-identical.
+The separate crosscheck reports only these differing JSON paths:
+
+```text
+/binding/prelaunch_sha256
+/binding/run_id
+/binding/source_commit
+/binding/subject_sha256
+```
+
+The full summary.json files also differ. Their differing paths are:
+
+```text
+/bindings/dataset_manifest/sha256
+/bindings/dataset_manifest/size_bytes
+```
+
+Every other summary field matches. The original dataset manifests retain
+their separate dataset, source, run, time and descriptive identities.
+The original summary-check.json outputs are byte-identical.
+
+Ten selected source roles are byte-identical: worker, workload,
+subject definition, model-file profile, metric builder, separate metric
+checker, metric specification, input schema, summary schema and
+dataset-manifest schema. This does not assert equality of the complete
+collector source closures.
+
+The eight historical model/tokenizer inventory entries match the native
+projection inventory entries. This is an inventory and preserved-record
+comparison; the large model, complete runtime and bootstrap payloads were
+not reloaded or rehashed in this step.
+
+Six of seven selected platform fields match. The runner images differ:
+
+```text
+historical: 20261004.327.1
+native:     20261012.334.1
+```
+
+The observed output equality is bounded to these 150 recorded call pairs
+and the declared fields. It does not establish full platform identity,
+absence of a causal effect from the platform change or determinism of
+future executions.
+
+### 17.4 Recorded local validation and preservation boundary
+
+The recorded comparison CLI and its separate repeat both returned 0,
+with byte-identical comparison reports. A separately written crosscheck,
+which does not import the comparison helper, reread the original
+archives and matched all 150 per-call flag sets, aggregate counts and
+reported difference paths.
+
+The recorded local regression result is 30 passed, zero failed, zero
+errors and zero skipped on CPython 3.13.5. Python 3.11 grammar checks
+also passed. These are results of the local comparison work, not this
+documentation change's CI result.
+
+Two rejected helper-development attempts are retained in
+PREPARATION_HISTORY.json: an incorrect stop-label expectation and an
+incorrect interpretation of the dataset-manifest input hash.
+The corrections followed the original source definitions: token_limit
+and the groups.json binding. Neither original acquisition was changed.
+
+The externally delivered review material is
+`Q2_4_FIELD_COMPARISON_REVIEW.zip`. Its comparison scope, detailed result,
+crosscheck, validation records and helper sources remain separate from
+this repository documentation checkpoint.
+
+This section publishes selected identities, aggregate comparison results
+and limitations only. It does not copy raw generated text, token arrays,
+prompts, answer-containing groups, model payloads or original evidence
+archives into the repository. External bundle member names in this
+section are not repository download links.
+
+No new model calls, tokenization, metric replay, original carrier-verifier
+execution or native origin reacquisition occurred in the recorded
+comparison. The earlier carrier check and separate metric replay retain
+their own execution identities and meanings.
+
+The original metric remains FAIL on both sides: 150 total responses,
+147 eligible responses, 50 total groups, 49 eligible groups, 49 CONSISTENT,
+zero INCONSISTENT and one UNKNOWN, against a minimum of 50 eligible groups.
+The historical release BLOCK remains unchanged.
+
+```text
+comparison_completed_for_declared_fields=true
+q2_comparison_accepted=false
+historical_comparability=not_established
+full_release_host_verified=false
+owner_durable_retention=not_verified
+authority_effect=none
+```
+
+The next closure items are review of this bounded comparison and its
+preservation record, and evidence of durable owner-held custody of the
+required original inputs and review material. This metadata checkpoint
+does not establish that custody or close the historical large-input
+retention obligations.
+
+No runtime, workflow, policy, gate, threshold, test-manifest, DOI or
+original-evidence change belongs to this documentation checkpoint.
+Full Q2/Step 5C/5D acceptance and production authorization remain separate.
+Keep #2879 open.

@@ -44,13 +44,22 @@ moves between merged and open work, update this index.
 
 ## Start here
 
+- Recorded Q2-4 field comparison:
+  [compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md — section 17](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#17-recorded-q2-4-field-comparison-checkpoint)
+  **Completed local comparison; metadata-only checkpoint.**
+  Historical run `37600313529/1` and native run `39057898256/1`
+  have 150 paired calls with matching selected output fields.
+  Separate run identities, the runner-image difference and both 49/50 FAIL
+  results remain preserved. Full Q2-4 acceptance and durable owner-held
+  custody remain open; this is not organizationally independent validation.
 - Recorded Q2-2/Q2-3 native worker and separate offline verification:
   [compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md — section 16](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#16-recorded-q2-2q2-3-native-worker-and-offline-verification-checkpoint)
   **Completed operational record; metadata-only preservation checkpoint.**
   Native run `39057898256/1` completed 150 calls. The separate source-bound
   carrier check and metric replay succeeded; the metric remains a valid
-  49/50 FAIL. Raw evidence is not copied here, durable owner-held retention
-  remains `not_verified`, and Q2-4 comparison and release acceptance stay open.
+  49/50 FAIL. Raw evidence is not copied here. The later bounded comparison
+  is recorded in section 17; durable owner-held retention remains
+  `not_verified`, and full Q2-4 and release acceptance stay open.
 - Canonical PULSEmech technical overview and current verified state:
   [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md)
   **Dated source-bound implementation and evidence checkpoint.** Records the
@@ -359,7 +368,7 @@ Read these documents in this order:
 - [PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md](PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md) — **Current implementation and completed bounded proof.** Records the exact Device Ledger evidence-to-carrier path, deterministic `.pulseledger`, exact four-member `ZIP_STORED` Reproduction Capsule, two isolated byte-identical constructions, two exact positive standalone-verifier executions, targeted `package_signature_valid` rejection, canonical reproduction result, protected-source preservation, minimal runnable iPhone demonstrator, exact artifact export, and the preserved `authority_effect = none` / `external_validation_claim = none` boundary.
 - [EXTERNAL_VERIFICATION_PATH_v0.md](EXTERNAL_VERIFICATION_PATH_v0.md) — **Reviewer and operator path.** Separates the direct `pulsemech_device_ledger_v0` verification profile from the `pulsemech_device_ledger_reproduction_capsule_v0` construction and execution profile, including complete pinned reference-workflow dispatch, portable local proof replay, bounded inner runner execution, deterministic Swift-to-verifier reproduction, targeted fail-closed mutation checks and non-authorizing report fields.
 - [compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md) — **Current implementation and completed bounded proof.** Detailed compute contracts, completed Step 3G automation and regressions, exact historical Step 4A capture, bounded Step 4B preservation, accepted Step 5A runtime-bound construction and the completed Step 5B owner-dispatched six-process reference with exact preservation and source-bound replay; whole-runtime observation, complete Step 5 closure and later measurement remain separate.  
-- [compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#16-recorded-q2-2q2-3-native-worker-and-offline-verification-checkpoint) — **Implementation history and completed bounded operational records.** Section 16 records native worker run `39057898256/1`, separate offline carrier verification and byte-identical negative-metric replay, without public raw-evidence publication or established durable owner custody. Section 13 retains the earlier Q2-1 tokenizer checkpoint. Historical 49/50 FAIL / release BLOCK is unchanged; Q2-4 and full Q2/Step 5C/5D remain open under #2879.
+- [compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#17-recorded-q2-4-field-comparison-checkpoint) — **Implementation history and recorded bounded results.** Section 17 records the local comparison of historical run `37600313529/1` and native run `39057898256/1`: 150 paired calls with matching selected output fields, preserved run-binding and platform differences, and unchanged 49/50 FAIL. Section 16 retains native acquisition and separate offline verification; section 13 retains Q2-1. Full Q2-4 acceptance, durable owner-held custody and full Q2/Step 5C/5D remain open under #2879.
 - [compute/PULSEMECH_Q2_RELEASE_HOST_TOKENIZER_CONTRACT_v0.md](compute/PULSEMECH_Q2_RELEASE_HOST_TOKENIZER_CONTRACT_v0.md) — **Implementation contract with recorded bounded Q2-1 reference.** Closed tokenizer-only source/input/projection/result contracts, four isolated occurrences, preserved historical 49/50 FAIL, separate canonical replay and the reviewed owner-run procedure. The recorded checkpoint preserves earlier rejected runs; full model/worker/release-host verification and authority remain separate.
 - [compute/PULSEMECH_Q2_RELEASE_HOST_WORKER_CONTRACT_v0.md](compute/PULSEMECH_Q2_RELEASE_HOST_WORKER_CONTRACT_v0.md) — **Strict v0 implementation contract.** Combined Q2-2/Q2-3 fixed-capsule worker, explicit owner execution/retention consent, independent checks and fail-closed custody. The later acquisition used the explicit v1 extension, not strict historical-platform equality;
   see [section 16](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#16-recorded-q2-2q2-3-native-worker-and-offline-verification-checkpoint). Q2-4 acceptance remains separate.
