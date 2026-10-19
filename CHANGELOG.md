@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Record the bounded Q2-4 field comparison of historical run
+  `37600313529/1` and native run `39057898256/1` in the
+  [metadata-only comparison checkpoint](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#17-recorded-q2-4-field-comparison-checkpoint).
+  Preserve the selected input and calculation identities, 150 paired calls
+  with matching selected output fields, separate execution bindings and
+  the runner-image difference. Retain both original 49/50 FAIL results,
+  historical release BLOCK and all original evidence bytes.
+  Record the prior local comparison repeat, separate crosscheck and
+  30 passing local regressions without presenting them as this change's CI.
+  Full Q2-4 acceptance and durable owner-held custody remain open.
+  Documentation only; no raw payload publication, new inference, runtime,
+  workflow, policy, gate or test-manifest change. Keep #2879 open.
+
 - Record Q2-2/Q2-3 native worker run `39057898256/1` at source
   `8f86ac9e787914e0b3b41228c56e866a115bea16`, its 150 completed calls,
   separate source-bound offline carrier verification and byte-identical
