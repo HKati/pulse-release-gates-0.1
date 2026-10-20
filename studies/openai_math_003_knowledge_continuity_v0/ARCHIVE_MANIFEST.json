@@ -1,0 +1,112 @@
+{
+  "schema_version": "qrh003_m1_archive_reference_v0",
+  "record_type": "repository_preservation_of_static_inventory",
+  "prepared_at_utc": "2026-10-20T21:27:30.783569+00:00",
+  "prepared_against": {
+    "repository": "HKati/pulse-release-gates-0.1",
+    "commit": "2ca84e3e0c9709758adc48eb959f1b5e0c965c19",
+    "tree_sha1": "cf69e3fe4cc091a5a3dccaf2913fee97d607d060"
+  },
+  "subject": {
+    "repository": "openai/math",
+    "commit": "adc7f1241b42e322a6451854ab7e4b4c146bf78a",
+    "tree_sha1": "a8e3481a92772ee311cdc9dd6409cd7b927a3fc1",
+    "claim_id": "qrh003_zeta",
+    "formal_target": "OAI.riemannZeta_ne_zero_of_seven_eighths_lt_re"
+  },
+  "authority_effect": "none",
+  "m1_acceptance_status": "INCOMPLETE",
+  "reason_code": "REQUIRED_INPUT_A_SOURCE_COVERAGE_NOT_ESTABLISHED",
+  "handoff_ready": false,
+  "next_work_item": "Q-SOURCE-1",
+  "archive": {
+    "path": "PULSEMECH_QRH003_M1_v0_1_INCOMPLETE.zip",
+    "size_bytes": 1781765,
+    "sha256": "1d6a7ae6c060361190eba45471233d5f7e56504e24833fde185d9904304b53a5",
+    "member_count": 5,
+    "members": [
+      {
+        "path": "M1/CLAIM_CARD_QRH003_ZETA.json",
+        "size_bytes": 55024,
+        "sha256": "ffdcc44c856a6faffa4c27d01b67fdc908014cde39530dc69cbb450369b30b5f"
+      },
+      {
+        "path": "M1/EVIDENCE_RELATIONS.json",
+        "size_bytes": 98270,
+        "sha256": "d45ebca5ba89982c3e0e8a3ccecc7892a1562b2777ff42d5ec7ee8a698843d33"
+      },
+      {
+        "path": "M1/INPUTS_LOCK.json",
+        "size_bytes": 16369623,
+        "sha256": "227fba2dbcd56826340d5b53a77ef8b2d6686c44b312703ba1da516ee0f9c6a7"
+      },
+      {
+        "path": "M1/M1_AUDIT_TRAIL.md",
+        "size_bytes": 13843,
+        "sha256": "f1f0b4f398aa94c8ec448bd819dc2215908b2ae476ed36451334b55ad63760ca"
+      },
+      {
+        "path": "M1/OPEN_QUESTIONS.json",
+        "size_bytes": 16631,
+        "sha256": "7dba93d2f2ead806af465333101cf75f06dcd6cf57328e26906a7954d216d01b"
+      }
+    ],
+    "copy_method": "original archive bytes copied unchanged; no member reserialization or recompression",
+    "comparison_with_prepared_M1_archive": "BYTE_IDENTICAL"
+  },
+  "canonical_paths_scope": "M1/ paths are internal archive paths, not added repository-root directories",
+  "selected_source_coverage": {
+    "source": "M1/INPUTS_LOCK.json#/selected_source_coverage/summary",
+    "selected_historical_modules": 13688,
+    "selected_historical_source_bytes": 150238780,
+    "acquired_hash_matching_modules": 16,
+    "acquired_hash_matching_source_bytes": 149395,
+    "not_acquired_modules": 13672,
+    "not_acquired_source_bytes": 150089385,
+    "actual_byte_conflicts": 0,
+    "historical_static_baseline_is_complete_compiler_closure": false
+  },
+  "embedded_payloads": {
+    "count": 51,
+    "decoded_size_bytes": 884742,
+    "source": "M1/INPUTS_LOCK.json#/embedded_input_bytes"
+  },
+  "historical_result": {
+    "run_key": "qrh003-pilot-002-20261007",
+    "decision": "BLOCK",
+    "archived_replay": "MATCH",
+    "replay_scope": "decision_reconstruction_only",
+    "claim_count": 4,
+    "theorem_export_count": 5,
+    "selected_claim_is_family_member": true,
+    "certificate_emitted": false,
+    "native_proof_capture": "NOT_IMPLEMENTED",
+    "semantic_review": "NOT_REVIEWED"
+  },
+  "separate_required_archive": {
+    "path": "PULSEMECH_QRH003_IMPLEMENTATION_v0_1_1.zip",
+    "size_bytes": 23453781,
+    "sha256": "ce5737b01ae3b400bac96c092afb982a0af74a812692714e4c7cd094b61afbdc",
+    "included_in_this_directory": false,
+    "access": "separate owner-controlled acquisition",
+    "public_download_location_established": false
+  },
+  "reference_resolution": {
+    "historical_local_paths": "Provenance labels in original records, not public repository paths",
+    "owner_controlled_object_ids": "Identity labels, not access credentials or public download endpoints",
+    "missing_source_bytes": "Explicitly NOT_ACQUIRED; a hash or URL is not counted as byte possession"
+  },
+  "license_and_notice_reference": "THIRD_PARTY_NOTICES.md",
+  "preparation_execution_boundary": {
+    "repository_write_performed": false,
+    "project_tests": "NOT_RUN",
+    "ci": "NOT_RUN",
+    "native_proof": "NOT_RUN",
+    "historical_replay": "NOT_RUN",
+    "signature_verification": "NOT_RUN",
+    "new_observer": "NOT_RUN",
+    "external_messages_sent": false,
+    "checks_performed": "Static archive, JSON, payload, source-notice and repository-path inspection"
+  },
+  "preservation_scope": "Prepared repository copy of the M1 inventory; does not establish full source closure, proof acceptance or two-copy preservation of all original inputs"
+}

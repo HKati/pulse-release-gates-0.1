@@ -44,13 +44,6 @@ moves between merged and open work, update this index.
 
 ## Start here
 
-- Q2 repository-preservation metadata stage:
-  [Preservation stage contract](../preservation/q2_reference_closure_v0/PRESERVATION_CONTRACT_v0.md)
-  **Reader / audit surface; metadata-only proposal.** Records the planned five
-  outer archive identities, unchanged historical checks, component/notice
-  review and unresolved publication conditions. No archives, LFS pointers or
-  LFS attributes are included. This does not establish archive custody,
-  complete P2, change 49/50 FAIL or close Q2-4 / #2879.
 - Recorded Q2-4 field comparison:
   [compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md — section 17](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#17-recorded-q2-4-field-comparison-checkpoint)
   **Completed local comparison; metadata-only checkpoint.**
@@ -975,6 +968,7 @@ index update neither predeclares that closure nor performs a new proof execution
 - [QRH003 knowledge-continuity technical plan](PULSEMECH_QRH003_KNOWLEDGE_CONTINUITY_TECHNICAL_PLAN_v0.md) — **Pending operational target / design-only.** Canonical M1 paths, typed relation and review states, Transition Meter evidence limits.
 - [QRH003 knowledge-continuity experiment plan](PULSEMECH_QRH003_KNOWLEDGE_CONTINUITY_EXPERIMENT_PLAN_v0.md) — **Pending operational target / design-only.** K01–K20 planned controls, full negative-case coverage and predefined B1–T evaluation; all new trials `NOT_RUN`.
 - [QRH003 knowledge-continuity implementation plan](PULSEMECH_QRH003_KNOWLEDGE_CONTINUITY_IMPLEMENTATION_PLAN_v0.md) — **Pending operational target / design-only.** M1–M7 and source-bound M1 inputs; no new execution or release authority.
+- [QRH003 M1 inventory preservation](../studies/openai_math_003_knowledge_continuity_v0/README.md) — **Static inventory prepared; M1 `INCOMPLETE`.** Exact five-file archive, source-byte gap inventory, historical `BLOCK` / replay `MATCH`; native proof `NOT_RUN`, no new release authority.
 - [../parameter_golf_v0/README.md](../parameter_golf_v0/README.md) — Parameter Golf v0 shadow-only evidence companion.
 - [parameter_golf_submission_evidence_v0.md](parameter_golf_submission_evidence_v0.md) — Parameter Golf submission-evidence contract and reviewer receipt surface.
 
