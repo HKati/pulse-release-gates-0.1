@@ -1,0 +1,83 @@
+{
+  "authority_effect": "none",
+  "checkpoint_merge_commit": "b23c0499bce516953988da815eabb76df2bc97e1",
+  "coverage": "Only the four selected worker-profile prerequisite archives; not a claim that all historical project retention obligations are enumerated.",
+  "full_preservation_closed": false,
+  "further_historical_obligations": "Q2-1 original tokenizer/replay preservation and earlier preparation/qualification records retain their own declared custody obligations.",
+  "owner_durable_retention": "not_verified",
+  "q2_comparison_accepted": false,
+  "record_kind": "q2_4_owner_custody_handoff_boundary_v0",
+  "required_original_inputs_not_in_core": [
+    {
+      "note": "Required original input; not replaced by a new artifact or current source.",
+      "original_identity": {
+        "archive_sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9",
+        "archive_size_bytes": 508460811,
+        "artifact_id": 11282419957,
+        "artifact_name": "q2-runtime-preparation-37148637546-1",
+        "repository": "HKati/pulse-release-gates-0.1",
+        "run_attempt": 1,
+        "run_id": "37148637546",
+        "source_commit": "77fc5d51896568db50a2a87f650711a65db8fe8c"
+      },
+      "owner_copy_status": "not_verified",
+      "payload_in_this_handoff": false,
+      "provider_availability_rechecked_in_this_step": false,
+      "role": "preparation"
+    },
+    {
+      "note": "Required original input; not replaced by a new artifact or current source.",
+      "original_identity": {
+        "archive_sha256": "3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734",
+        "archive_size_bytes": 452116385,
+        "artifact_id": 11686701538,
+        "artifact_name": "q2-release-subject-capsule-20261010.zip",
+        "capsule_manifest_sha256": "8dfa1b9df8ed7fbd8ea8b749555ba73ebf24f5d8aeb187d15c51163137a0c857",
+        "expanded_bytes": 1142892836,
+        "file_name": "q2-release-subject-capsule-20261010.zip",
+        "members": 18499,
+        "repository": "HKati/pulse-release-gates-0.1",
+        "run_attempt": 1,
+        "run_id": "38097352170",
+        "source_commit": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+        "workflow": ".github/workflows/q2_release_capsule_publication_v0.yml"
+      },
+      "owner_copy_status": "not_verified",
+      "payload_in_this_handoff": false,
+      "provider_availability_rechecked_in_this_step": false,
+      "role": "capsule"
+    },
+    {
+      "note": "Required original input; not replaced by a new artifact or current source.",
+      "original_identity": {
+        "archive_sha256": "288880eedbff4ae812d7d2020e2c55aa4814b4d9f08076473a9755ace90bcdd0",
+        "archive_size_bytes": 2911,
+        "artifact_id": 11686476032,
+        "artifact_name": "q2-capsule-roundtrip-38097352170-1",
+        "repository": "HKati/pulse-release-gates-0.1",
+        "run_attempt": 1,
+        "run_id": "38097352170",
+        "source_commit": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+        "workflow": ".github/workflows/q2_release_capsule_publication_v0.yml"
+      },
+      "owner_copy_status": "not_verified",
+      "payload_in_this_handoff": false,
+      "provider_availability_rechecked_in_this_step": false,
+      "role": "roundtrip"
+    },
+    {
+      "original_identity": {
+        "archive_sha256": "07b61e35f30861939ff95314297921de8f57cd48f85bb18d777651b3ea45f2ee",
+        "archive_size_bytes": 92555692,
+        "filename": "python-3.11.16-linux-24.04-x64.tar.gz",
+        "interpreter_sha256": "a15ccdaf07655a8667a3687b13171486c9a265d92273ba3ad820fbb64d2cfecc",
+        "url": "https://github.com/actions/python-versions/releases/download/3.11.16-31661435402/python-3.11.16-linux-24.04-x64.tar.gz"
+      },
+      "owner_copy_status": "not_verified",
+      "payload_in_this_handoff": false,
+      "provider_availability_rechecked_in_this_step": false,
+      "role": "bootstrap"
+    }
+  ],
+  "unbundled_selected_original_bytes": 1053135799
+}

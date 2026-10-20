@@ -1,0 +1,15 @@
+{
+  "all_delivered_member_bytes_match": true,
+  "authority_effect": "none",
+  "checked_included_original_archives": 4,
+  "file": "Q2_4_OWNER_PRESERVATION_CORE.zip",
+  "full_retention_closed": false,
+  "manifest_bound_members": 11,
+  "member_count": 12,
+  "original_input_archives_unchanged": true,
+  "owner_device_copy_verified": false,
+  "raw_evidence_included": true,
+  "record_kind": "q2_4_owner_core_delivery_check_v0",
+  "sha256": "44228f9c38307b8d2ff5d8aaeea9c30a1b892dd12b8ce03a5e2b9a09155b1ca5",
+  "size_bytes": 6858628
+}

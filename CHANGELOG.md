@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add a self-contained Q2 repository-preservation metadata stage under
+  `preservation/q2_reference_closure_v0/`: exact planned archive identities, three
+  byte-preserved historical records, component review, supplemental notices
+  and an explicit split from future payload publication. Include no original
+  archive, LFS pointer or LFS attribute. Preserve the earlier 4/4 byte-check
+  result, original 49/50 FAIL / release BLOCK and all non-authorizing claims.
+  Record the bounded GNU build-ID/debuglink follow-up without asserting
+  source-RPM equivalence or closing P2. Full-payload P1-P5, LFS quota/budget,
+  later archive readback and full Q2-4 acceptance remain open.
+  No new inference, replay, runtime, workflow, policy, gate, README or DOI/SWH
+  change. Keep #2879 open.
+
 - Record the bounded Q2-4 field comparison of historical run
   `37600313529/1` and native run `39057898256/1` in the
   [metadata-only comparison checkpoint](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#17-recorded-q2-4-field-comparison-checkpoint).
