@@ -44,6 +44,13 @@ moves between merged and open work, update this index.
 
 ## Start here
 
+- Q2 repository-preservation metadata stage:
+  [Preservation stage contract](../preservation/q2_reference_closure_v0/PRESERVATION_CONTRACT_v0.md)
+  **Reader / audit surface; metadata-only proposal.** Records the planned five
+  outer archive identities, unchanged historical checks, component/notice
+  review and unresolved publication conditions. No archives, LFS pointers or
+  LFS attributes are included. This does not establish archive custody,
+  complete P2, change 49/50 FAIL or close Q2-4 / #2879.
 - Recorded Q2-4 field comparison:
   [compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md — section 17](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#17-recorded-q2-4-field-comparison-checkpoint)
   **Completed local comparison; metadata-only checkpoint.**

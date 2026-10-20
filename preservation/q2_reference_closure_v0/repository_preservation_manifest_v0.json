@@ -1,0 +1,572 @@
+{
+  "record_kind": "q2_repository_preservation_manifest_v0",
+  "status": "prepared_not_published",
+  "repository": "HKati/pulse-release-gates-0.1",
+  "namespace": "preservation/q2_reference_closure_v0",
+  "inspected_checkpoint": "b23c0499bce516953988da815eabb76df2bc97e1",
+  "preparation_base_commit": "0dc62502bec5e92417c06f429996a2a2ca0cb22b",
+  "preparation_base_tree": "edd7e5ea38c0cdc9f6c80b695b47cd6c09ea889b",
+  "selection_scope": "Exactly five outer objects: unchanged original core bundle plus preparation, capsule, roundtrip and bootstrap. Four earlier archives remain nested in the core.",
+  "archives": [
+    {
+      "role": "core_bundle",
+      "repository_path": "preservation/q2_reference_closure_v0/archives/Q2_4_OWNER_PRESERVATION_CORE.zip",
+      "filename": "Q2_4_OWNER_PRESERVATION_CORE.zip",
+      "archive_size_bytes": 6858628,
+      "archive_sha256": "44228f9c38307b8d2ff5d8aaeea9c30a1b892dd12b8ce03a5e2b9a09155b1ca5",
+      "storage": "regular_git",
+      "status": "prepared_not_published",
+      "original_identity": {
+        "file_name": "Q2_4_OWNER_PRESERVATION_CORE.zip",
+        "archive_size_bytes": 6858628,
+        "archive_sha256": "44228f9c38307b8d2ff5d8aaeea9c30a1b892dd12b8ce03a5e2b9a09155b1ca5",
+        "checkpoint_merge_commit": "b23c0499bce516953988da815eabb76df2bc97e1",
+        "origin_kind": "original_owner_handoff_container",
+        "artifact_id": null,
+        "run_id": null,
+        "run_attempt": null,
+        "source_commit": null,
+        "identity_note": "This outer container is not asserted to be a GitHub artifact or a new run. Its nested original archives retain their own identities."
+      },
+      "identity_source_record": "preservation/q2_reference_closure_v0/records/core_delivery/DELIVERY_CHECK.json",
+      "prior_byte_verification": {
+        "status": "prior_record_reused",
+        "record_path": "preservation/q2_reference_closure_v0/records/core_delivery/DELIVERY_CHECK.json",
+        "prior_copy_origin": "owner_supplied",
+        "not_a_new_inference_or_replay": true
+      },
+      "pre_publication": {
+        "payload_authorized": false,
+        "git_payload_published": false,
+        "lfs_object_uploaded": false,
+        "repository_readback_verified": false,
+        "published_commit": null,
+        "status": "prepared_not_published"
+      },
+      "publication": {
+        "payload_categories": [
+          "raw generated text and token IDs declared by the original core handoff",
+          "historical capture/worker evidence",
+          "offline verification and comparison records",
+          "documentation checkpoints and source-selection metadata"
+        ],
+        "intended_exposure": "Public GitHub repository-linked Git or LFS retrieval, only after separate exact authorization.",
+        "permanent_public_payload_authorization": "NOT_AUTHORIZED",
+        "required_owner_authorization": {
+          "repository": "HKati/pulse-release-gates-0.1",
+          "path": "preservation/q2_reference_closure_v0/archives/Q2_4_OWNER_PRESERVATION_CORE.zip",
+          "size_bytes": 6858628,
+          "sha256": "44228f9c38307b8d2ff5d8aaeea9c30a1b892dd12b8ce03a5e2b9a09155b1ca5",
+          "decision": "pending_explicit_per_object_publication_decision"
+        },
+        "redistribution_review": "PENDING",
+        "notice_requirements": "Authorize permanent public disclosure of this exact original container and all nested raw evidence; owner-device custody remains unverified."
+      },
+      "git_blob_representation": {
+        "kind": "original_archive",
+        "size_bytes": 6858628,
+        "sha256": "44228f9c38307b8d2ff5d8aaeea9c30a1b892dd12b8ce03a5e2b9a09155b1ca5"
+      },
+      "core_member_bindings": [
+        {
+          "path": "ATVETEL_HU.md",
+          "sha256": "227875d7426934b347835336b21ca330231011944fb149543405dd1e52160366",
+          "size_bytes": 4788
+        },
+        {
+          "path": "POST_MERGE_CHECK.json",
+          "sha256": "cd75b6f78f20e1bd6b37db556b3f893d18a5bbbfac2d37d2557200c47427fefb",
+          "size_bytes": 4452
+        },
+        {
+          "path": "REMAINING_ORIGINAL_INPUTS.json",
+          "sha256": "7461f47e4746ff7bb96e894f7c7b9f96a6801d0e3f5b92d8f364646bb110ff3f",
+          "size_bytes": 3941
+        },
+        {
+          "path": "archives/Q2_4_FIELD_COMPARISON_REVIEW.zip",
+          "sha256": "c14e7d0e3e9fa4166371ba06b835b69cfe00579a75a040b93fb5135ce8aba8e2",
+          "size_bytes": 78761
+        },
+        {
+          "path": "archives/Q2_NATIVE_39057898256_OFFLINE_VERIFICATION.zip",
+          "sha256": "16106b83ceca900fe3ea3545b00c2ecf523f2f705d8df2ef226884cb578331b3",
+          "size_bytes": 3188208
+        },
+        {
+          "path": "archives/q2-native-worker-39057898256-1.zip",
+          "sha256": "6f050557b9b6d779f62cd1c33a6930c25b0306c91ccec1caf9064dd648ec14b1",
+          "size_bytes": 1475764
+        },
+        {
+          "path": "archives/q2-reference-capture-37600313529-1.zip",
+          "sha256": "88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6",
+          "size_bytes": 1809263
+        },
+        {
+          "path": "merged_documentation/CHANGELOG.md",
+          "sha256": "4c863f2bd2d4f06cda7d3a2af40ea53bc232b369a51af769a1c0a5f7180d9dfe",
+          "size_bytes": 63647
+        },
+        {
+          "path": "merged_documentation/docs/INDEX.md",
+          "sha256": "f99246a497f504a707fcd524b6f159e68c4a82ad8b5431d8d07e999afcd024b0",
+          "size_bytes": 71214
+        },
+        {
+          "path": "merged_documentation/docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md",
+          "sha256": "79a4670569f48afe3de5fbcf396451d4f45abc23b334153309a46e28d93f9997",
+          "size_bytes": 143853
+        },
+        {
+          "path": "selection_source/q2_release_host_worker_verification_v0.json",
+          "sha256": "daf0da5abfa0df925deb4c71db5d3f2d17dbb020bbbda99725018874b583ab00",
+          "size_bytes": 10484
+        }
+      ],
+      "nested_archives_duplicated_as_outer_objects": false,
+      "embedded_manifest_binding": {
+        "path": "MANIFEST.json",
+        "size_bytes": 2385,
+        "sha256": "ac082576ffbe989718a25066c35e43f17f88417c04af3abb593bcdbd306bca13",
+        "prior_root_manifest_binding_check_reused": true
+      },
+      "included_in_metadata_stage": false,
+      "repository_presence_asserted": false
+    },
+    {
+      "role": "preparation",
+      "repository_path": "preservation/q2_reference_closure_v0/archives/q2-runtime-preparation-37148637546-1.zip",
+      "filename": "q2-runtime-preparation-37148637546-1.zip",
+      "archive_size_bytes": 508460811,
+      "archive_sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9",
+      "storage": "git_lfs",
+      "status": "prepared_not_published",
+      "original_identity": {
+        "archive_sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9",
+        "archive_size_bytes": 508460811,
+        "artifact_id": 11282419957,
+        "artifact_name": "q2-runtime-preparation-37148637546-1",
+        "repository": "HKati/pulse-release-gates-0.1",
+        "run_attempt": 1,
+        "run_id": "37148637546",
+        "source_commit": "77fc5d51896568db50a2a87f650711a65db8fe8c"
+      },
+      "identity_source_record": "preservation/q2_reference_closure_v0/records/REMAINING_ORIGINAL_INPUTS.json",
+      "prior_byte_verification": {
+        "status": "prior_record_reused",
+        "record_path": "preservation/q2_reference_closure_v0/records/Q2_REMAINING_INPUTS_CHECK.json",
+        "prior_copy_origin": "preexisting_task_copy",
+        "not_a_new_inference_or_replay": true
+      },
+      "pre_publication": {
+        "payload_authorized": false,
+        "git_payload_published": false,
+        "lfs_object_uploaded": false,
+        "repository_readback_verified": false,
+        "published_commit": null,
+        "status": "prepared_not_published"
+      },
+      "publication": {
+        "payload_categories": [
+          "pinned model weights and tokenizer assets",
+          "30 third-party wheel archives",
+          "upstream/preparation records and bounded source snapshot"
+        ],
+        "intended_exposure": "Public GitHub repository-linked Git or LFS retrieval, only after separate exact authorization.",
+        "permanent_public_payload_authorization": "NOT_AUTHORIZED",
+        "required_owner_authorization": {
+          "repository": "HKati/pulse-release-gates-0.1",
+          "path": "preservation/q2_reference_closure_v0/archives/q2-runtime-preparation-37148637546-1.zip",
+          "size_bytes": 508460811,
+          "sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9",
+          "decision": "pending_explicit_per_object_publication_decision"
+        },
+        "redistribution_review": "PENDING",
+        "notice_requirements": "Authorize redistribution of the exact model/tokenizer and wheelhouse closure with all required source/license notices; no model LICENSE/README is present in its model directory."
+      },
+      "git_blob_representation": {
+        "kind": "git_lfs_pointer",
+        "size_bytes": 134,
+        "sha256": "56ab8c0a91e6ab85eb8285515bc2853040a178ffb7c7a5b30b62459bd64ab837"
+      },
+      "lfs_binding": {
+        "oid": "sha256:b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9",
+        "size_bytes": 508460811,
+        "endpoint": "https://github.com/HKati/pulse-release-gates-0.1.git/info/lfs",
+        "remote_object_presence": "NOT_VERIFIED",
+        "pointer_is_not_payload": true
+      },
+      "included_in_metadata_stage": false,
+      "repository_presence_asserted": false
+    },
+    {
+      "role": "capsule",
+      "repository_path": "preservation/q2_reference_closure_v0/archives/q2-release-subject-capsule-20261010.zip",
+      "filename": "q2-release-subject-capsule-20261010.zip",
+      "archive_size_bytes": 452116385,
+      "archive_sha256": "3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734",
+      "storage": "git_lfs",
+      "status": "prepared_not_published",
+      "original_identity": {
+        "archive_sha256": "3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734",
+        "archive_size_bytes": 452116385,
+        "artifact_id": 11686701538,
+        "artifact_name": "q2-release-subject-capsule-20261010.zip",
+        "capsule_manifest_sha256": "8dfa1b9df8ed7fbd8ea8b749555ba73ebf24f5d8aeb187d15c51163137a0c857",
+        "expanded_bytes": 1142892836,
+        "file_name": "q2-release-subject-capsule-20261010.zip",
+        "members": 18499,
+        "repository": "HKati/pulse-release-gates-0.1",
+        "run_attempt": 1,
+        "run_id": "38097352170",
+        "source_commit": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+        "workflow": ".github/workflows/q2_release_capsule_publication_v0.yml"
+      },
+      "identity_source_record": "preservation/q2_reference_closure_v0/records/REMAINING_ORIGINAL_INPUTS.json",
+      "prior_byte_verification": {
+        "status": "prior_record_reused",
+        "record_path": "preservation/q2_reference_closure_v0/records/Q2_REMAINING_INPUTS_CHECK.json",
+        "prior_copy_origin": "preexisting_task_copy",
+        "not_a_new_inference_or_replay": true
+      },
+      "pre_publication": {
+        "payload_authorized": false,
+        "git_payload_published": false,
+        "lfs_object_uploaded": false,
+        "repository_readback_verified": false,
+        "published_commit": null,
+        "status": "prepared_not_published"
+      },
+      "publication": {
+        "payload_categories": [
+          "pinned model weights and tokenizer assets",
+          "compiled Python/runtime libraries and installed packages",
+          "bounded source snapshot and capsule manifest",
+          "54 existing license/notice records"
+        ],
+        "intended_exposure": "Public GitHub repository-linked Git or LFS retrieval, only after separate exact authorization.",
+        "permanent_public_payload_authorization": "NOT_AUTHORIZED",
+        "required_owner_authorization": {
+          "repository": "HKati/pulse-release-gates-0.1",
+          "path": "preservation/q2_reference_closure_v0/archives/q2-release-subject-capsule-20261010.zip",
+          "size_bytes": 452116385,
+          "sha256": "3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734",
+          "decision": "pending_explicit_per_object_publication_decision"
+        },
+        "redistribution_review": "PENDING",
+        "notice_requirements": "Authorize redistribution of the exact model/tokenizer and compiled runtime closure; review all package notices. Notice presence alone is not clearance; no model LICENSE/README is present in its model directory."
+      },
+      "git_blob_representation": {
+        "kind": "git_lfs_pointer",
+        "size_bytes": 134,
+        "sha256": "51fdce373da0b2a2b016d3a216a512d4adbcf88f2b26cffe53bf97ad210c211a"
+      },
+      "lfs_binding": {
+        "oid": "sha256:3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734",
+        "size_bytes": 452116385,
+        "endpoint": "https://github.com/HKati/pulse-release-gates-0.1.git/info/lfs",
+        "remote_object_presence": "NOT_VERIFIED",
+        "pointer_is_not_payload": true
+      },
+      "included_in_metadata_stage": false,
+      "repository_presence_asserted": false
+    },
+    {
+      "role": "roundtrip",
+      "repository_path": "preservation/q2_reference_closure_v0/archives/q2-capsule-roundtrip-38097352170-1.zip",
+      "filename": "q2-capsule-roundtrip-38097352170-1.zip",
+      "archive_size_bytes": 2911,
+      "archive_sha256": "288880eedbff4ae812d7d2020e2c55aa4814b4d9f08076473a9755ace90bcdd0",
+      "storage": "regular_git",
+      "status": "prepared_not_published",
+      "original_identity": {
+        "archive_sha256": "288880eedbff4ae812d7d2020e2c55aa4814b4d9f08076473a9755ace90bcdd0",
+        "archive_size_bytes": 2911,
+        "artifact_id": 11686476032,
+        "artifact_name": "q2-capsule-roundtrip-38097352170-1",
+        "repository": "HKati/pulse-release-gates-0.1",
+        "run_attempt": 1,
+        "run_id": "38097352170",
+        "source_commit": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+        "workflow": ".github/workflows/q2_release_capsule_publication_v0.yml"
+      },
+      "identity_source_record": "preservation/q2_reference_closure_v0/records/REMAINING_ORIGINAL_INPUTS.json",
+      "prior_byte_verification": {
+        "status": "prior_record_reused",
+        "record_path": "preservation/q2_reference_closure_v0/records/Q2_REMAINING_INPUTS_CHECK.json",
+        "prior_copy_origin": "provider_download",
+        "not_a_new_inference_or_replay": true
+      },
+      "pre_publication": {
+        "payload_authorized": false,
+        "git_payload_published": false,
+        "lfs_object_uploaded": false,
+        "repository_readback_verified": false,
+        "published_commit": null,
+        "status": "prepared_not_published"
+      },
+      "publication": {
+        "payload_categories": [
+          "original capsule-roundtrip verification records; content disclosure review remains pending"
+        ],
+        "intended_exposure": "Public GitHub repository-linked Git or LFS retrieval, only after separate exact authorization.",
+        "permanent_public_payload_authorization": "NOT_AUTHORIZED",
+        "required_owner_authorization": {
+          "repository": "HKati/pulse-release-gates-0.1",
+          "path": "preservation/q2_reference_closure_v0/archives/q2-capsule-roundtrip-38097352170-1.zip",
+          "size_bytes": 2911,
+          "sha256": "288880eedbff4ae812d7d2020e2c55aa4814b4d9f08076473a9755ace90bcdd0",
+          "decision": "pending_explicit_per_object_publication_decision"
+        },
+        "redistribution_review": "PENDING",
+        "notice_requirements": "Review the complete original record exposure and linked identities; do not infer public clearance from small size."
+      },
+      "git_blob_representation": {
+        "kind": "original_archive",
+        "size_bytes": 2911,
+        "sha256": "288880eedbff4ae812d7d2020e2c55aa4814b4d9f08076473a9755ace90bcdd0"
+      },
+      "included_in_metadata_stage": false,
+      "repository_presence_asserted": false
+    },
+    {
+      "role": "bootstrap",
+      "repository_path": "preservation/q2_reference_closure_v0/archives/python-3.11.16-linux-24.04-x64.tar.gz",
+      "filename": "python-3.11.16-linux-24.04-x64.tar.gz",
+      "archive_size_bytes": 92555692,
+      "archive_sha256": "07b61e35f30861939ff95314297921de8f57cd48f85bb18d777651b3ea45f2ee",
+      "storage": "git_lfs",
+      "status": "prepared_not_published",
+      "original_identity": {
+        "archive_sha256": "07b61e35f30861939ff95314297921de8f57cd48f85bb18d777651b3ea45f2ee",
+        "archive_size_bytes": 92555692,
+        "filename": "python-3.11.16-linux-24.04-x64.tar.gz",
+        "interpreter_sha256": "a15ccdaf07655a8667a3687b13171486c9a265d92273ba3ad820fbb64d2cfecc",
+        "url": "https://github.com/actions/python-versions/releases/download/3.11.16-31661435402/python-3.11.16-linux-24.04-x64.tar.gz"
+      },
+      "identity_source_record": "preservation/q2_reference_closure_v0/records/REMAINING_ORIGINAL_INPUTS.json",
+      "prior_byte_verification": {
+        "status": "prior_record_reused",
+        "record_path": "preservation/q2_reference_closure_v0/records/Q2_REMAINING_INPUTS_CHECK.json",
+        "prior_copy_origin": "provider_download",
+        "not_a_new_inference_or_replay": true
+      },
+      "pre_publication": {
+        "payload_authorized": false,
+        "git_payload_published": false,
+        "lfs_object_uploaded": false,
+        "repository_readback_verified": false,
+        "published_commit": null,
+        "status": "prepared_not_published"
+      },
+      "publication": {
+        "payload_categories": [
+          "CPython 3.11.16 executable/runtime/standard library",
+          "bundled pip/setuptools and vendored dependencies",
+          "existing license and notice members"
+        ],
+        "intended_exposure": "Public GitHub repository-linked Git or LFS retrieval, only after separate exact authorization.",
+        "permanent_public_payload_authorization": "NOT_AUTHORIZED",
+        "required_owner_authorization": {
+          "repository": "HKati/pulse-release-gates-0.1",
+          "path": "preservation/q2_reference_closure_v0/archives/python-3.11.16-linux-24.04-x64.tar.gz",
+          "size_bytes": 92555692,
+          "sha256": "07b61e35f30861939ff95314297921de8f57cd48f85bb18d777651b3ea45f2ee",
+          "decision": "pending_explicit_per_object_publication_decision"
+        },
+        "redistribution_review": "PENDING",
+        "notice_requirements": "Review the original CPython and bundled dependency redistribution/notice obligations; keep original license members unchanged."
+      },
+      "git_blob_representation": {
+        "kind": "git_lfs_pointer",
+        "size_bytes": 133,
+        "sha256": "e5e0f8bd4ee05a56bc14cf1d4cf4cc4133487fd0d40d2e22ca5e7b689c626418"
+      },
+      "lfs_binding": {
+        "oid": "sha256:07b61e35f30861939ff95314297921de8f57cd48f85bb18d777651b3ea45f2ee",
+        "size_bytes": 92555692,
+        "endpoint": "https://github.com/HKati/pulse-release-gates-0.1.git/info/lfs",
+        "remote_object_presence": "NOT_VERIFIED",
+        "pointer_is_not_payload": true
+      },
+      "included_in_metadata_stage": false,
+      "repository_presence_asserted": false
+    }
+  ],
+  "immutable_records": [
+    {
+      "path": "preservation/q2_reference_closure_v0/records/REMAINING_ORIGINAL_INPUTS.json",
+      "immutable_input_path": "inputs/REMAINING_ORIGINAL_INPUTS.json",
+      "size_bytes": 3941,
+      "sha256": "7461f47e4746ff7bb96e894f7c7b9f96a6801d0e3f5b92d8f364646bb110ff3f",
+      "handling": "byte_preserving_regular_git_copy",
+      "status": "prepared_not_published"
+    },
+    {
+      "path": "preservation/q2_reference_closure_v0/records/Q2_REMAINING_INPUTS_CHECK.json",
+      "immutable_input_path": "inputs/Q2_REMAINING_INPUTS_CHECK.json",
+      "size_bytes": 12824,
+      "sha256": "a333a6a36dff75583099b0018db07d8cbcffea3a0762c70599113833f8795ec9",
+      "handling": "byte_preserving_regular_git_copy",
+      "status": "prepared_not_published"
+    },
+    {
+      "path": "preservation/q2_reference_closure_v0/records/core_delivery/DELIVERY_CHECK.json",
+      "immutable_input_path": "inputs/DELIVERY_CHECK.json",
+      "size_bytes": 530,
+      "sha256": "081a3de75bb31dbe0cf15da5147cde0c820b9daf84f11f5141a5977b56e39ec0",
+      "handling": "byte_preserving_regular_git_copy",
+      "status": "prepared_not_published"
+    }
+  ],
+  "archive_totals": {
+    "selected_original_bytes": 1059994427,
+    "git_lfs_object_bytes": 1053132888,
+    "regular_git_archive_bytes": 6861539
+  },
+  "lfs_policy": {
+    "exact_paths": [
+      "preservation/q2_reference_closure_v0/archives/q2-runtime-preparation-37148637546-1.zip",
+      "preservation/q2_reference_closure_v0/archives/q2-release-subject-capsule-20261010.zip",
+      "preservation/q2_reference_closure_v0/archives/python-3.11.16-linux-24.04-x64.tar.gz"
+    ],
+    "repository_wide_patterns": false,
+    "preexisting_path_storage_changed": false,
+    "external_lfsconfig_added": false,
+    "account_storage_usage": "UNKNOWN",
+    "account_bandwidth_usage": "UNKNOWN",
+    "account_remaining_allowance": "UNKNOWN",
+    "account_budget": "UNKNOWN",
+    "account_cost_authorization": "NOT_AUTHORIZED",
+    "plan_allowance_used_as_remaining_quota": false,
+    "active_in_metadata_stage": false,
+    "attributes_included_in_metadata_stage": false
+  },
+  "consumer_handling": {
+    "ordinary_ci_lfs_fetch_required": false,
+    "ordinary_ci_representation": "Ten ordinary metadata/documentation Git blobs only; no new archive payload, LFS pointer, or .gitattributes file.",
+    "manual_payload_access": "Future, separately authorized full-payload stage only; no payload access is performed or required by the metadata-stage checks.",
+    "full_smudge_source_scan_warning": "Historical full-payload design warning only: any later payload publication must preserve the existing source-reader size limits. This metadata stage adds no LFS filters or objects.",
+    "workflow_runtime_policy_gate_metric_changes": false
+  },
+  "custody": {
+    "mechanism": "proposed_github_repository_regular_git_and_git_lfs",
+    "status": "prepared_not_published",
+    "published_commit": null,
+    "repository_retrieval_verified": false,
+    "owner_device_custody_established": false
+  },
+  "publication_conditions": [
+    {
+      "id": "P1",
+      "condition": "Exact permanent public payload authorization",
+      "status": "NOT_AUTHORIZED",
+      "required_decision": "Owner must explicitly authorize each of the five exact paths, sizes and SHA-256 values, including raw text, prompts/request evidence, token IDs and public Git/LFS exposure where present. Existing 30-day Actions consent is insufficient. No payload is authorized by this preparation."
+    },
+    {
+      "id": "P2",
+      "condition": "Component redistribution and notice scope",
+      "status": "DIRECT_STATIC_CONTINUATION_WITH_OPEN_REQUIREMENTS",
+      "required_decision": "Resolve model, tokenizer, wheelhouse, compiled runtime and CPython/dependency notices at the selected revisions. Existing root LICENSE/NOTICE and THIRD_PARTY_NOTICES.md do not establish blanket coverage. ASSETS_LICENSE.md requires exact third-party source/license inventory; a precise later metadata addition or an approved equivalent is required after review. Do not repack an original archive to manufacture clearance.",
+      "condition_complete": false,
+      "subject_to_owner_review": true,
+      "review_result": "Bootstrap access/static inventory and bounded notice/source checks progressed here. G1 partially resolved; G2/G3/G4/G5 remain open or owner-review. No redistribution clearance.",
+      "open_requirements": [
+        "G1",
+        "G2",
+        "G3",
+        "G4",
+        "G5"
+      ],
+      "proposed_notice_bindings": [
+        {
+          "repository_path": "ASSETS_LICENSE.md",
+          "size_bytes": 49882,
+          "sha256": "945528d2d97a3b5e12fca8bceb0ed2921ea6d11080342699cf0c2bc8cef3a49f"
+        },
+        {
+          "repository_path": "preservation/q2_reference_closure_v0/redistribution_review_v0.json",
+          "size_bytes": 1331653,
+          "sha256": "f7b583cba156f8de355b3627754beb71996123d4a3ed02fbac62b154b2c3b78c"
+        },
+        {
+          "repository_path": "preservation/q2_reference_closure_v0/THIRD_PARTY_NOTICES_v0.txt",
+          "size_bytes": 140935,
+          "sha256": "4eb28d75574664ea1eb7e746cddc8d822c29b45f29da4014ae31cc9faaef10ec"
+        }
+      ]
+    },
+    {
+      "id": "P3",
+      "condition": "Observed account LFS capacity and explicit cost boundary",
+      "status": "UNKNOWN",
+      "required_decision": "Observe current account storage, bandwidth and budget without changing billing, then authorize this exact 1,053,132,888-byte three-object LFS set and its public download exposure. No remaining allowance or budget is inferred from a plan; no upload probe has run."
+    },
+    {
+      "id": "P4",
+      "condition": "Independent publication authorization and fixed commit",
+      "status": "NOT_AUTHORIZED",
+      "required_decision": "Review this exact inventory, preserve any newer main changes, approve the final publication scope and any required notice-only additions, then separately authorize Git/LFS publication. No future commit, PR, upload, tag or release is invented here."
+    },
+    {
+      "id": "P5",
+      "condition": "Published-head CI and independent cold-cache repository readback",
+      "status": "NOT_PERFORMED",
+      "required_decision": "After separately authorized publication, complete applicable unchanged checks and the fixed-commit READBACK_TASK.md from an empty LFS cache against this repository endpoint. Local preparation logs are not PR-head CI or repository-backed retrieval evidence."
+    }
+  ],
+  "owner_durable_retention": "not_verified",
+  "historical_comparability": "not_established",
+  "q2_comparison_accepted": false,
+  "full_release_host_verified": false,
+  "authority_effect": "none",
+  "full_historical_retention_coverage": false,
+  "other_historical_obligations": "Q2-1 original tokenizer/replay preservation and earlier preparation/qualification records retain their own declared custody obligations.",
+  "future_readback_result": null,
+  "integration_context": {
+    "candidate_base_commit": "2ca84e3e0c9709758adc48eb959f1b5e0c965c19",
+    "earlier_prepared_base_preserved": "0dc62502bec5e92417c06f429996a2a2ca0cb22b",
+    "overlapping_current_main_path": "docs/INDEX.md",
+    "observed_main_blob_sha1": "2067187230a70ca81bab4256b8b031b515418559",
+    "current_main_delta_preserved": true,
+    "remote_repository_written": false,
+    "candidate_base_is_not_acquisition_source": true
+  },
+  "metadata_publication_stage": {
+    "kind": "q2_metadata_only_repository_stage_v0",
+    "status": "prepared_for_owner_review_not_published",
+    "base_commit": "2ca84e3e0c9709758adc48eb959f1b5e0c965c19",
+    "repository_paths": [
+      "ASSETS_LICENSE.md",
+      "CHANGELOG.md",
+      "docs/INDEX.md",
+      "preservation/q2_reference_closure_v0/PRESERVATION_CONTRACT_v0.md",
+      "preservation/q2_reference_closure_v0/THIRD_PARTY_NOTICES_v0.txt",
+      "preservation/q2_reference_closure_v0/records/Q2_REMAINING_INPUTS_CHECK.json",
+      "preservation/q2_reference_closure_v0/records/REMAINING_ORIGINAL_INPUTS.json",
+      "preservation/q2_reference_closure_v0/records/core_delivery/DELIVERY_CHECK.json",
+      "preservation/q2_reference_closure_v0/redistribution_review_v0.json",
+      "preservation/q2_reference_closure_v0/repository_preservation_manifest_v0.json"
+    ],
+    "repository_path_count": 10,
+    "scope_decision": "Separately reviewable metadata publication stage. The earlier full 16-path proposal remains the future payload target; this is not a reduced claim of full preservation.",
+    "earlier_full_proposal_path_count": 16,
+    "archive_payloads_included": false,
+    "lfs_pointers_included": false,
+    "lfs_attributes_included": false,
+    "raw_evidence_included": false,
+    "published_commit": null,
+    "full_payload_publication_conditions_complete": false,
+    "future_payload_approval_inferred": false,
+    "prior_full_candidate_package": {
+      "filename": "Q2_REPOSITORY_PRESERVATION_DIRECT_UPDATE_REVIEW.zip",
+      "size_bytes": 2392126,
+      "sha256": "a7c64e7260bac2b75f7be68ce26123351a22fcc5b30084070fe73ffc9fa58f03"
+    },
+    "archive_path_semantics": "Planned future destinations only. No archive path in this record asserts present repository bytes or a working download.",
+    "publication_conditions_scope": "Unchanged P1-P5 apply to full payload publication and its acceptance. Publishing this metadata neither fulfills nor waives them.",
+    "current_stage_ci": "NOT_RUN_ON_GITHUB",
+    "current_stage_remote_readback": "NOT_PERFORMED"
+  }
+}
