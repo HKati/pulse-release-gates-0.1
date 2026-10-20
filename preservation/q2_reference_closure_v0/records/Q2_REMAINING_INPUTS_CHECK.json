@@ -1,0 +1,289 @@
+{
+  "record_kind": "q2_remaining_original_inputs_byte_check_v0",
+  "verification_scope": "Exactly the four original archives selected by the unchanged REMAINING_ORIGINAL_INPUTS.json; archive byte identity only.",
+  "selection_manifest": {
+    "actual_filename": "REMAINING_ORIGINAL_INPUTS.json",
+    "measured_size_bytes": 3941,
+    "measured_sha256": "7461f47e4746ff7bb96e894f7c7b9f96a6801d0e3f5b92d8f364646bb110ff3f",
+    "expected_size_bytes": 3941,
+    "expected_sha256": "7461f47e4746ff7bb96e894f7c7b9f96a6801d0e3f5b92d8f364646bb110ff3f",
+    "size_matches_expected": true,
+    "sha256_matches_expected": true,
+    "status": "PASS",
+    "modified": false
+  },
+  "checkpoint_merge_commit_from_fixed_manifest": "b23c0499bce516953988da815eabb76df2bc97e1",
+  "candidate_search": {
+    "scope": "Task-accessible file inventory searched by selected archive names and short filename variants; current task workspace checked; no unrelated directory scan.",
+    "preexisting_task_copies_found": [
+      "preparation",
+      "capsule"
+    ],
+    "owner_supplied_original_copies_verified": false,
+    "selected_inputs_without_accessible_existing_candidate": [
+      "roundtrip",
+      "bootstrap"
+    ]
+  },
+  "inputs": [
+    {
+      "role": "preparation",
+      "selected_original_identity": {
+        "archive_sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9",
+        "archive_size_bytes": 508460811,
+        "artifact_id": 11282419957,
+        "artifact_name": "q2-runtime-preparation-37148637546-1",
+        "repository": "HKati/pulse-release-gates-0.1",
+        "run_attempt": 1,
+        "run_id": "37148637546",
+        "source_commit": "77fc5d51896568db50a2a87f650711a65db8fe8c"
+      },
+      "copy_origin": "preexisting_task_copy",
+      "actual_filename": "q2-runtime-preparation-37148637546-1.zip",
+      "measured_size_bytes": 508460811,
+      "measured_sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9",
+      "expected_size_bytes": 508460811,
+      "expected_sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9",
+      "size_matches_expected": true,
+      "sha256_matches_expected": true,
+      "status": "PASS",
+      "errors": [],
+      "unchecked_items": [
+        "Archive contents and internal integrity were not inspected; only original archive byte identity was verified."
+      ],
+      "provider_acquisition": {
+        "performed": false,
+        "reason": "A preexisting task copy was accessible and measured."
+      },
+      "provider_identity_checks": {
+        "performed": false,
+        "status": "NOT_PERFORMED",
+        "reason": "Preexisting task copy verified against the fixed selection manifest by measured size and SHA-256; no provider artifact metadata check performed for this copy."
+      },
+      "owner_supplied_copy_verified": false
+    },
+    {
+      "role": "capsule",
+      "selected_original_identity": {
+        "archive_sha256": "3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734",
+        "archive_size_bytes": 452116385,
+        "artifact_id": 11686701538,
+        "artifact_name": "q2-release-subject-capsule-20261010.zip",
+        "capsule_manifest_sha256": "8dfa1b9df8ed7fbd8ea8b749555ba73ebf24f5d8aeb187d15c51163137a0c857",
+        "expanded_bytes": 1142892836,
+        "file_name": "q2-release-subject-capsule-20261010.zip",
+        "members": 18499,
+        "repository": "HKati/pulse-release-gates-0.1",
+        "run_attempt": 1,
+        "run_id": "38097352170",
+        "source_commit": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+        "workflow": ".github/workflows/q2_release_capsule_publication_v0.yml"
+      },
+      "copy_origin": "preexisting_task_copy",
+      "actual_filename": "q2-release-subject-capsule-20261010.zip",
+      "measured_size_bytes": 452116385,
+      "measured_sha256": "3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734",
+      "expected_size_bytes": 452116385,
+      "expected_sha256": "3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734",
+      "size_matches_expected": true,
+      "sha256_matches_expected": true,
+      "status": "PASS",
+      "errors": [],
+      "unchecked_items": [
+        "Archive contents and internal integrity were not inspected; only original archive byte identity was verified.",
+        "capsule_manifest_sha256, expanded_bytes and members are preserved selection declarations; they were not independently recomputed."
+      ],
+      "provider_acquisition": {
+        "performed": false,
+        "reason": "A preexisting task copy was accessible and measured."
+      },
+      "provider_identity_checks": {
+        "performed": false,
+        "status": "NOT_PERFORMED",
+        "reason": "Preexisting task copy verified against the fixed selection manifest by measured size and SHA-256; no provider artifact metadata check performed for this copy."
+      },
+      "owner_supplied_copy_verified": false
+    },
+    {
+      "role": "roundtrip",
+      "selected_original_identity": {
+        "archive_sha256": "288880eedbff4ae812d7d2020e2c55aa4814b4d9f08076473a9755ace90bcdd0",
+        "archive_size_bytes": 2911,
+        "artifact_id": 11686476032,
+        "artifact_name": "q2-capsule-roundtrip-38097352170-1",
+        "repository": "HKati/pulse-release-gates-0.1",
+        "run_attempt": 1,
+        "run_id": "38097352170",
+        "source_commit": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+        "workflow": ".github/workflows/q2_release_capsule_publication_v0.yml"
+      },
+      "copy_origin": "provider_download",
+      "actual_filename": "q2-capsule-roundtrip-38097352170-1.zip",
+      "measured_size_bytes": 2911,
+      "measured_sha256": "288880eedbff4ae812d7d2020e2c55aa4814b4d9f08076473a9755ace90bcdd0",
+      "expected_size_bytes": 2911,
+      "expected_sha256": "288880eedbff4ae812d7d2020e2c55aa4814b4d9f08076473a9755ace90bcdd0",
+      "size_matches_expected": true,
+      "sha256_matches_expected": true,
+      "status": "PASS",
+      "errors": [],
+      "unchecked_items": [
+        "Archive contents and internal integrity were not inspected; only original archive byte identity was verified."
+      ],
+      "provider_acquisition": {
+        "performed": true,
+        "http_status": 200,
+        "original_archive_bytes_downloaded": true,
+        "archive_extracted": false,
+        "archive_repacked": false,
+        "copy_rebuilt": false,
+        "method": "Selected GitHub artifact ID downloaded through existing read-only access, then saved bytes measured locally."
+      },
+      "provider_identity_checks": {
+        "performed": true,
+        "status": "PASS",
+        "checks": {
+          "artifact_id": true,
+          "artifact_name": true,
+          "repository": true,
+          "run_id": true,
+          "run_attempt": true,
+          "source_commit": true,
+          "workflow": true,
+          "archive_size_metadata": true,
+          "digest_metadata": true,
+          "not_expired": true
+        },
+        "observed_artifact_metadata": {
+          "id": 11686476032,
+          "name": "q2-capsule-roundtrip-38097352170-1",
+          "size_in_bytes": 2911,
+          "digest": "sha256:288880eedbff4ae812d7d2020e2c55aa4814b4d9f08076473a9755ace90bcdd0",
+          "expired": false,
+          "expires_at": "2026-11-10T00:10:49Z",
+          "workflow_run": {
+            "id": 38097352170,
+            "repository_id": 1061766508,
+            "head_repository_id": 1061766508,
+            "head_branch": "main",
+            "head_sha": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c"
+          }
+        },
+        "observed_run_metadata": {
+          "id": 38097352170,
+          "run_attempt": 1,
+          "head_sha": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+          "path": ".github/workflows/q2_release_capsule_publication_v0.yml",
+          "repository": "HKati/pulse-release-gates-0.1",
+          "repository_id": 1061766508
+        }
+      }
+    },
+    {
+      "role": "bootstrap",
+      "selected_original_identity": {
+        "archive_sha256": "07b61e35f30861939ff95314297921de8f57cd48f85bb18d777651b3ea45f2ee",
+        "archive_size_bytes": 92555692,
+        "filename": "python-3.11.16-linux-24.04-x64.tar.gz",
+        "interpreter_sha256": "a15ccdaf07655a8667a3687b13171486c9a265d92273ba3ad820fbb64d2cfecc",
+        "url": "https://github.com/actions/python-versions/releases/download/3.11.16-31661435402/python-3.11.16-linux-24.04-x64.tar.gz"
+      },
+      "copy_origin": "provider_download",
+      "actual_filename": "python-3.11.16-linux-24.04-x64.tar.gz",
+      "measured_size_bytes": 92555692,
+      "measured_sha256": "07b61e35f30861939ff95314297921de8f57cd48f85bb18d777651b3ea45f2ee",
+      "expected_size_bytes": 92555692,
+      "expected_sha256": "07b61e35f30861939ff95314297921de8f57cd48f85bb18d777651b3ea45f2ee",
+      "size_matches_expected": true,
+      "sha256_matches_expected": true,
+      "status": "PASS",
+      "errors": [],
+      "unchecked_items": [
+        "Archive contents and internal integrity were not inspected; only original archive byte identity was verified.",
+        "interpreter_sha256 is a preserved selection declaration; it was not recomputed because the archive was not extracted."
+      ],
+      "provider_acquisition": {
+        "performed": true,
+        "http_status": 200,
+        "original_archive_bytes_downloaded": true,
+        "archive_extracted": false,
+        "archive_repacked": false,
+        "copy_rebuilt": false,
+        "method": "Only the exact release-asset URL in the fixed selection manifest was requested; native provider redirects followed; saved archive bytes measured locally."
+      },
+      "provider_identity_checks": {
+        "performed": true,
+        "status": "PASS",
+        "checks": {
+          "exact_url": true,
+          "repository": true,
+          "release_tag": true,
+          "filename": true,
+          "archive_size_metadata": true,
+          "digest_metadata": true,
+          "asset_uploaded": true,
+          "release_published": true
+        },
+        "observed_release_metadata": {
+          "id": 369638886,
+          "tag_name": "3.11.16-31661435402",
+          "draft": false,
+          "prerelease": false
+        },
+        "observed_asset_metadata": {
+          "id": 512391636,
+          "name": "python-3.11.16-linux-24.04-x64.tar.gz",
+          "size": 92555692,
+          "digest": "sha256:07b61e35f30861939ff95314297921de8f57cd48f85bb18d777651b3ea45f2ee",
+          "state": "uploaded",
+          "content_type": "application/json; charset=utf-8",
+          "browser_download_url": "https://github.com/actions/python-versions/releases/download/3.11.16-31661435402/python-3.11.16-linux-24.04-x64.tar.gz"
+        }
+      }
+    }
+  ],
+  "summary": {
+    "status": "PASS",
+    "pass_count": 4,
+    "mismatch_count": 0,
+    "unavailable_count": 0,
+    "measured_archive_bytes_total": 1053135799,
+    "preexisting_task_copy_verifications": 2,
+    "provider_download_verifications": 2,
+    "owner_supplied_copy_verifications": 0
+  },
+  "owner_durable_retention": "not_verified",
+  "q2_comparison_accepted": false,
+  "authority_effect": "none",
+  "claim_handling": {
+    "claims_not_modified": [
+      "owner_durable_retention",
+      "q2_comparison_accepted",
+      "historical_comparability",
+      "authority_effect"
+    ],
+    "historical_comparability_handling": "Not assessed, inferred or set. The fixed selection manifest does not contain this field.",
+    "durable_owner_held_storage_established": false,
+    "full_q2_4_acceptance_established": false,
+    "explanation": "Preexisting task-copy verification and provider acquisition are reported separately. Neither establishes durable owner-held storage or changes acceptance or authority claims."
+  },
+  "working_boundary": {
+    "disposable_directory_outside_repository": true,
+    "original_inputs_modified_deleted_or_replaced": false,
+    "archives_extracted_repacked_normalized_rebuilt_or_executed": false,
+    "q2_4_owner_preservation_core_rerun": false,
+    "inference_tokenization_metric_replay_field_comparison_or_smoke_suite_run": false,
+    "repository_files_branches_settings_secrets_or_dependabot_prs_modified": false,
+    "commits_push_pr_merge_or_workflow_dispatch_rerun": false,
+    "original_archives_or_raw_payloads_uploaded_to_repository": false
+  },
+  "errors": [],
+  "unchecked_items": [
+    "Durable storage on the owner's device was not established.",
+    "Full Q2-4 acceptance and historical comparability were not reassessed.",
+    "Archive members, internal digests and semantic validity were not inspected.",
+    "Inference, tokenization, metric replay, field comparison and smoke tests were not performed.",
+    "Historical preservation obligations beyond the four selected inputs were not evaluated."
+  ],
+  "checked_at_utc": "2026-10-19T18:50:28.136862+00:00"
+}
