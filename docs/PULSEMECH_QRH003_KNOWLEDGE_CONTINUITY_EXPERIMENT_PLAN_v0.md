@@ -17,7 +17,7 @@ A vizsgálat tárgya kizárólag qrh003_zeta. Fagyasztott subject: openai/math@a
 | B1: jelenlegi QRH003     | B0 + v0.1.3 README és eredeti, ellenőrzött v0.1.1 history packet, minden megőrzött korláttal.        | A meglévő QRH003 már önmagában mennyit old meg?   |
 | T: QH continuity overlay | B1 + claim card, reláció-státuszmátrix, nyitott kérdések, preservation index és handoff útmutató.    | Valóban ad-e nem redundáns többletet az új réteg? |
 
-Az összevetésben ugyanaz a subject-commit, archívumbázis, átvevői feladat, időmérési szabály és hozzáférési jog szerepel. A sorrendi tanulási torzítást váltakozó kar-sorrenddel és külön átvevőkkel csökkentjük; egyetlen átvevő esetén az eredmény leíró, nem általánosítható. A B0 kar nem köteles sikerre – az információhiány szintén mérés.
+Az összevetésben ugyanaz a subject-commit, archívumbázis, átvevői feladat, időmérési szabály és hozzáférési jog szerepel. Az M1 normatív tárgyak nevei: `M1/INPUTS_LOCK.json`, `M1/CLAIM_CARD_QRH003_ZETA.json`, `M1/EVIDENCE_RELATIONS.json`, `M1/OPEN_QUESTIONS.json`, `M1/M1_AUDIT_TRAIL.md`. A relációrekordokban a `relation_status` és az `expert_review_status` **külön** mezők; a szakreview szükségessége együtt létezhet hiánnyal vagy konfliktussal. A sorrendi tanulási torzítást váltakozó kar-sorrenddel és külön átvevőkkel csökkentjük; egyetlen átvevő esetén az eredmény leíró, nem általánosítható. A B0 kar nem köteles sikerre – az információhiány szintén mérés.
 
 ## 2. Előre rögzített próbastátusz
 
@@ -76,7 +76,7 @@ A történeti döntés BLOCK és replay MATCH már megőrzött eredmény: H0. Az
 
 ### 4.1 Gépi replay
 
-A későbbi végrehajtó az eredeti historical verifier snapshotot, az eredeti anchor/bundle/decision bájtokat és a pinned futási környezetet használja. Először függetlenül kiszámítja az archívum és belső tagjai digestjét, megvizsgálja a manifestet, majd kizárólag a korábbi REPLAY_PILOT.md szerint hajtja végre az offline replayt. A v0.1.3 aktuális root verifier nem cserélhető az eredeti v0.1 snapshotra.
+A későbbi végrehajtó az eredeti historical verifier snapshotot, az eredeti anchor/bundle/decision bájtokat és a pinned futási környezetet használja. Először függetlenül kiszámítja az archívum és belső tagjai digestjét, megvizsgálja a manifestet, majd kizárólag a korábbi REPLAY_PILOT.md szerint hajtja végre az offline replayt. Az **eredeti v0.1 verifier snapshot nem helyettesíthető** a jelenlegi v0.1.3 root verifierrel; a történeti replay kizárólag az eredeti ellenőrzővel és annak rögzített bemeneteivel értelmezhető.
 
 Megőrzendő: futási parancs és argumentumok, run/attempt, futtató exact hash, input manifest/hash, process exit és normatív output, döntés byte digest, \`MATCH\` vagy eltérés, host-rendszer azonosítói, független időbélyeg ha elérhető. Várható result a korábbi forrás alapján BLOCK / MATCH, de a független jövőbeli próba ma NOT_RUN.
 
@@ -92,18 +92,35 @@ A teljesítés dokumentumszintű: mind az öt válasz megfelel az előre rögzí
 |--------------------------|--------------------------------------------------------------------------------|----------------------------------------------------------------------------------|
 | Decision replay match    | Bájtazonos normatív döntés / érvényes jövőbeli offline futás                   | 1/1 kötelező a teljes kézhezvett replay-állításhoz; ma NOT_RUN.                  |
 | Overclaim count          | Proof/semantic/acceptance státusz téves VERIFIED-nek állítva                   | 0 tolerált; bármelyik hibás minősítés FAIL.                                      |
-| Negative-case prevention | K03–K19 szükséges elutasításai / végrehajtott informatív esetek                | Minden kötelező futtatott negatív próba meg kell feleljen; NOT_RUN nem a nevező. |
+| Negative-case prevention | **K03–K19 mind a 17 kötelező esetének PASS száma / 17**                      | **17/17 PASS** kötelező a teljes pilotlezáráshoz; `NOT_RUN` vagy `INCONCLUSIVE` → `PILOT_INCOMPLETE`, bármely `FAIL` → kísérleti FAIL. |
 | Retained byte coverage   | Hivatkozott kötelező bájttételek visszaolvasható száma / összes kötelező tétel | 100% a deklarált aktuális csomagban; külső szerver URL nem bájtmegőrzés.         |
 | Evidence-edge coverage   | E1–E7 közül refs + ellenőrzési státusz + known gap együtt rögzített élek száma | 7/7 elszámolt; lehet INCOMPLETE; nem 7/7 VERIFIED.                               |
 | Handoff task accuracy    | Öt kérdés közül helyesen és forrással megválaszolt                             | 5/5 szükséges a lokális átvehetőségi teljesítéshez.                              |
 | Continuation specificity | Nyitott kérdésnek van missing_edge, szükséges új bizonyíték, reproducer        | ≥1 helyes konkrét folytatási feladat.                                            |
-| Incremental utility      | T-kar helyes válaszpontossága / idő / hiányfelismerés B1-hez képest            | Előre rögzített metrikák szerint; nincs különbség → „nem kimutatható többlet”.   |
+| Incremental utility      | B1/T független átvevőinek **ötpontos pontosságát, hárompontos hiányfelismerését és időtartamát** hasonlítjuk előre rögzítetten. | A 5.1 pont pontos dominancia- és hatásküszöbét kell alkalmazni; a B0 kizárólag leíró kontroll. |
+
+### 5.1 Előre rögzített B1–T hasznossági döntési szabály
+
+**Minta és hozzárendelés:** legalább 3 független ember a **B1** és legalább 3 másik, a készítőtől független ember a **T** karban; tapasztalat alapján három előre kialakított párral, páronként véletlen karhozzárendeléssel. Egy résztvevő csak **egy kart** láthat, hogy ne tanulhassa át a másik csomag tartalmát. A B0 külön leíró kontroll; nem helyettesíti B1-et. Ha a minimum 3+3 fő vagy a hozzáférési azonosság hiányzik, hasznossági eredmény: `INCONCLUSIVE` (egyetlen 5/5 átvevőből H07 lokálisan még értékelhető, de nem állítható B1 fölötti többlet).
+
+**Előzetes megoldókulcs és pontozás:** mindkét karra azonos 5 Q1–Q5 feladat; egy válasz pontosan **1** pontot kap, ha tartalmilag helyes, **konkrét forráshorgonyt** tartalmaz és nem lép túl az igazolt határon, egyébként **0** (összesen 0–5). A kritikus hiányfelismerési kulcsot a karok kiadása előtt fagyasztjuk: (G1) natív proof capture `NOT_IMPLEMENTED`, (G2) szemantikai/domain review `NOT_REVIEWED`, (G3) teljes bináris/dependency closure nem igazolt. Pontonként 1 jár a helyesen és forrással azonosított hiányra; átvevőnként 0–3. Túlzó állítás (például `MATCH` ⇒ matematikai bizonyítás) **overclaim**, és biztonsági vétó. A kulcs, a feladatidő és a pontozó sem módosítható az első átadás után.
+
+**Időmérés:** a csomag megnyitásától az ötödik végleges válaszig, legfeljebb **40 perc (2400 s)**; be nem fejezett eset időértéke 2400 s, hiányzó válaszai 0 pont. A mért idő csak akkor rangsorolható teljesítésként, ha az öt válasz és a három kritikus hiány is helyes. Párok és karok időadatait egyenként archiváljuk; a két kar mediánját előre rögzített módon számoljuk. A review pontozását az átvevő személyazonosságától és karcímkéjétől elválasztva végezzük, amennyire technikailag lehetséges.
+
+**Biztonsági dominancia (kötelező előfeltétel):** mindhárom T-átvevőnek 5/5 helyes, forrásolt válasz, 3/3 helyes kritikus hiány és **0 overclaim** szükséges; ellenkező esetben nincs kimutatott hasznossági siker. T nem lehet gyengébb B1-nél sem a karátlag-pontosságban, sem a karátlag-hiányfelismerésben. Ez a feltétel megelőzi az időnyereség értékelését.
+
+**Minimális, előre rögzített effektus:** ha a dominancia teljesül, a nem redundáns, **leíró pilot-többlet** csak akkor `DEMONSTRATED`, ha az alábbiak közül legalább egy teljesül:
+
+1. **Pontosság/hiány előny:** `(átlag_T_ötpontosság − átlag_B1_ötpontosság) ≥ 1,00` **vagy** `(átlag_T_hárompont-hiányfelismerés − átlag_B1_hárompont-hiányfelismerés) ≥ 1,00`; emellett `medián_T_idő ≤ 1,10 × medián_B1_idő` (nincs 10%-nál nagyobb időromlás).
+2. **Időelőny változatlan tartalommal:** mindkét kar átlaga **5/5** és **3/3**, minden átvevő overclaim=0, továbbá `medián_T_idő ≤ 0,80 × medián_B1_idő` **és** a három előre párosított résztvevőpár közül legalább kettőnél T ideje kisebb B1 idejénél.
+
+Ha a dominancia megvan, de egyik effektusküszöb sem teljesül, eredmény: `NO_DEMONSTRABLE_INCREMENTAL_UTILITY`. Ha a minta, a korlátozott idő, az érvényes receipt vagy az öt kérdés bármelyike nem értékelhető, akkor `INCONCLUSIVE`; ezt nem írja felül egy látszólag gyorsabb T. A minimum 3+3 emberrel kapott különbség **nem általános populációs/statistikai bizonyítás**; csak az előre lezárt, körülhatárolt kísérlet leíró eredménye. Küszöböt vagy elsődleges metrikát az adatok megismerése után nem választunk át.
 
 ## 6. Lezárási döntési logika
 
 TECHNICAL HANDOFF READY csak H01–H06 teljes, érvényes és archivált rekordjával, az adott határra vonatkozó hiányok explicit leírásával jelölhető. HUMAN HANDOFF VERIFIED csak H07 tényleges független átadási próbája után állhat elő. Ha elvárt pozitív replayt nem tudunk végrehajtani, a gépi rész INCONCLUSIVE/NOT_RUN, nem PASS. A QRH003 audit result továbbra is BLOCK; nincs tanúsítvány.
 
-Kísérleti siker = valid döntés-replay + hibák helyes elutasítása + 5/5 emberi átadási eredmény + a hiányok megőrzése + legalább egy rögzített, nem redundáns előny a B1 kontrollhoz képest. A pilot fontos negatív eredménye is publikálható: bizonyítéklánc-átadás működik, de B1-hez képest mérhető többlet nincs; vagy a megőrzéshez/teljes replayhez még szükséges bájt hiányzik. Mindkettő levonható új matematikai állítás nélkül.
+**Teljes kísérleti sikerhez együtt szükséges:** K01 és K02 `PASS`; **K03–K19 mind a 17 negatív eset `PASS`**; K20 tényleges, H07-et alátámasztó emberi átadás `PASS`; M5 eredeti verifierrel végrehajtott, bizonyítékhoz kötött replay `MATCH`; H01–H06 dokumentáltan teljes; minden kötelező archivált bájt hozzáférhető; **és** az 5.1 pont szerinti B1–T érték `DEMONSTRATED`. Egyetlen kötelező `NOT_RUN` vagy `INCONCLUSIVE` eset mellett az összesített állapot `PILOT_INCOMPLETE`; igazolt hibás határviselkedés mellett `PILOT_FAIL`. A történeti BLOCK változatlan, production certificate nincs. K01 és K20 nem helyettesíti a 17 kötelező negatív próbát. A pilot érvényes, informatív negatív eredménye is rögzíthető: a határok reprodukálhatók, de **nincs kimutatható B1 fölötti többlet**, illetve egy szükséges byte vagy review még hiányzik. Ez nem „sikeres pilot”.
 
 Stop feltételek: sérült történeti archívum, hiányzó rögzített forráspár, váratlan source-binding konfliktus, bizonyítatlan reviewt állító címke, eltérő futás igazolása, nem reprodukálható döntés vagy tárolási/licencprobléma. A hibásan félbeszakított esetet lezáró receipt és oka együtt őrzendő.
 

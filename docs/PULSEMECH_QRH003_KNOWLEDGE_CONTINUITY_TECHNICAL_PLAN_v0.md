@@ -56,14 +56,20 @@ Authority: a Transition Meter itt diagnosztikai observer; authority_effect=none.
 
 ## 5. Új, additív adatszerződések – terv, nem implementáció
 
-| **Tervezett hordozó**                 | **Kötelező információ**                                                                                                                                                         | **Elhatárolás**                                                |
-|---------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------|
-| claim_card_qrh003_zeta_v0.json        | claim_id, natural_language_claim, manuscript_locator, pole_convention, formal_target, exact_scope, excluded_claims, evidence_refs, semantic_review_status.                      | A szöveg nem helyettesíti a hivatalos matematikai szakreviewt. |
-| evidence_relations_v0.json            | relation_id, source/target IDs, kind, required_obligation, evidence_refs, old/new state, artifact digest, verifier, event/observation time, confidence helyett konkrét státusz. | Minden él külön bizonyítékot igényel.                          |
-| transition_assessment_v0.json         | Nyolc történeti QRH003 observer-tengely, kapcsolódó evidenciák, korlátok, újrarenderelhető állapotmátrix.                                                                       | A történeti fájl érintetlen; új az overlay.                    |
-| open_questions_v0.json                | question_id, missing_edge, why_open, reproducer_instruction, required_expertise, blocking_scope, candidate_next_action, owner_or_unassigned.                                    | Nem tartalmaz megoldottnak jelölt feladatot bizonyíték nélkül. |
-| preservation_inventory_v0.json        | Path, bytes, full SHA-256, access, retention, owner, license record, exact runtime/pins, retrieval method, observed availability.                                               | URL/DOI/hash nem tárolja önmagában a szükséges bájtokat.       |
-| handoff_protocol_v0.md + receipt.json | Öt kötelező kérdés, vak átadó/átvevő eljárás, parancs-horgony, időbélyegek, válaszok és kategorizálás.                                                                          | Gépi replay és emberi átvehetőség külön rekord.                |
+Az alábbi **pontos útvonalak** a későbbi nem-repo munkakönyvtárhoz relatívak; a táblázat szerződés, nem jelenleg meglévő fájllista. Az M1 öt kimenetének neve mindhárom tervben azonos. Más elnevezés nem alternatív kanonikus azonosító.
+
+| Tervezett pontos útvonal | Kötelező információ | Státusz / szerep |
+| --- | --- | --- |
+| `M1/INPUTS_LOCK.json` | Repo/commit/tree, útvonal, bájtméret, teljes SHA-256, rendelkezésre állás, licenc és tényleges beszerzési horgony. | M1 normatív bemeneti leltár. |
+| `M1/CLAIM_CARD_QRH003_ZETA.json` | `claim_id`, természetes nyelvű állítás, PDF-hely, póluskonvenció, Lean cél, kizárások, review status. | A kézirati/formális kapcsolat önmagában nem szakreview. |
+| `M1/EVIDENCE_RELATIONS.json` | E1–E7 pontos forrás/cél/reláció, `evidence_refs`, hiány vagy konfliktus oka, `relation_status`, `expert_review_status`, hat `status_axes`. | Minden él külön, veszteségmentesen minősítve. |
+| `M1/OPEN_QUESTIONS.json` | `question_id`, hiányzó él, required evidence, reproducer, szakértelem, next action, owner. | A nyitott feladat megmarad nyitottnak. |
+| `M1/M1_AUDIT_TRAIL.md` | Statikus, read-only hozzáférések, forrásazonosságok, kizárt végrehajtások és M1 lezárási eredmény. | Nem replay, nem tanúsítvány. |
+| `M2/TRANSITION_ASSESSMENT.json` | Nyolc QRH003 tengely, hat kanonikus `status_axes` és minden per-él hivatkozás. | Nem módosítja a történeti reportot. |
+| `M3/PRESERVATION_INVENTORY.json`, `M3/CONTINUITY_STATUS.json` | Tényleges tárolt bájtok, access, ownership, retention, validáció/READY státusz. | Hash vagy URL önmagában nem elegendő. |
+| `M6/HANDOFF_PROTOCOL.md`, `M6/HANDOFF_RECEIPT.json` | Öt kérdés, segítés nélküli átadás, valódi résztvevői válaszok, idő és pontozás. | Replay és emberi értelmezés külön. |
+
+**Kötelező M1-relációs állapotkontraktus:** `relation_status` enum: `observed_and_bound | reconstructable | hypothesized | missing | conflicting`. E mellett **külön** `expert_review_status` enum: `not_required | required_pending | verified | rejected`. Az olvasható `requires_expert_review` értéke `true` pontosan akkor, ha `expert_review_status=required_pending`; ez nem hatodik, egymást kizáró relációállapot. Például egy reláció egyszerre lehet `conflicting` és `required_pending`, mindkét tény fennmarad. A korábbi `O/R/H/U/E` rövidítések **nem megengedett JSON-értékek** és nem fedik le önmagukban a szakreview-kötelezettséget. Minden rekord tartalmazzon pontos `reason_code`-ot, per-él bizonyítékazonosítót, valamint a központi Transition Meter hat külön státusztengelyét; az ok-okozat és az authority nem vezethető le a `relation_status` értékéből.
 
 ## 6. Relációk és kapufeltételek
 
@@ -113,7 +119,7 @@ Idegen commit, idegen claim/export, teljes definíciós zárat érintő módosí
 
 ## Forrásjegyzék és rögzített ellenőrzési határ
 
-**\[F1\]** OpenAI Math 003 – független PULSEmech audit terve (2026-10-07, 28 oldal): PULSEMECH_OPENAI_MATH_003_AUDIT_TERV_v0.docx; korábbi felmérés, nem jelenlegi natív proof-igazolás.
+**\[F1\]** 2026-10-07, 28 oldalas történeti auditterv: `PULSEMECH_OPENAI_MATH_003_AUDIT_TERV_v0.docx`; 82 686 bájt; SHA-256 `2cb23a9901cf4d50c2ba3b871bedc5ac2de1546bfeecf46f741014ea65a60e8e`. Kizárólag külön tulajdonosi Library-hozzáféréssel biztosan visszakeresett; nincs általános, nyilvános letöltési hely rögzítve. M1-nél opcionális történeti háttér, nem normatív input. A konkrét matematikai/source állításokat a pinned upstream és QRH003 reference alapján kell ellenőrizni.
 
 **\[F2\]** Rögzített upstream: https://github.com/openai/math/tree/adc7f1241b42e322a6451854ab7e4b4c146bf78a ; releváns útvonalak: preprints/The-Quasi-Riemann-Hypothesis-September-30-2026/paper.pdf; lean/docs/003.md; lean/ComparatorChallenges/QuasiRiemannHypothesis.{lean,json}; lean/OAI/NumberTheory/DirichletL/Nonvanishing.lean.
 

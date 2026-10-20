@@ -24,12 +24,14 @@ A munkacsomagok egymásra épülnek, de nem igényelnek automatikusan repoírás
 | **ID és csomag**                                | **Bemenet → konkrét kimenet**                                                                                   | **Lezárás / függőség**                                                          |
 |-------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------|
 | M1 – állításhatár és statikus bizonyítéktérkép  | A meglévő audit+repo+archívum → egy claim-card, rögzített input-lock, E1–E7 relation inventory, open questions. | NINCS új futás; pontos részletek a 4. fejezetben.                               |
-| M2 – TM minősítési overlay                      | M1 + történeti transition_report → nyolc tengely ref- és korláttérképe; hat canonical status_axes vetület.      | Minden élnek explicit O/R/H/U/E státusz, nincs math causal-promotion.           |
+| M2 – TM minősítési overlay                      | M1 + történeti transition_report → nyolc tengely ref- és korláttérképe; hat canonical status_axes vetület.      | Minden élnek külön `relation_status` és `expert_review_status`; nincs math causal-promotion. |
 | M3 – validáció és archiválási szerződés         | M1–M2 → JSON schema/validator és megőrzési leltár, kizárólag scratchben/future nem-repo csomagban.              | Hiányzó byte vagy review hamis READY-t nem eredményez.                          |
 | M4 – kontroll/negatív próbacsomag               | M3 → K01–K19 fixture manifestek, expected reason-code és tesztjegyzőkönyv-sablon.                               | B0/B1/T külön, minden eset NOT_RUN a tényleges tesztig.                         |
 | M5 – független offline decision replay          | Eredeti v0.1 snapshot + archive + lock → új execution receipt.                                                  | Külön owner-engedély; BLOCK/MATCH-t újra számolja, nem proofot.                 |
 | M6 – vak tudásátadási próba                     | M3–M5 után a B0/B1/T packet + előírt öt kérdés → átvevői receipt és pontozás.                                   | Tényleges független átvevő, nincs szóbeli segítség; status NOT_RUN addig.       |
 | M7 – megőrzés, összehasonlítás, partneri átadás | M1–M6 → 2 példányban olvasható archívum, license/access report, végleges gap & delta report.                    | Külső partner csak saját futás után nevezhető validálónak; DOI/SWH nem módosul. |
+
+A későbbi szakaszok pontos, **M1-től külön** útvonalai: `M2/TRANSITION_ASSESSMENT.json`, `M3/PRESERVATION_INVENTORY.json`, `M3/CONTINUITY_STATUS.json`, `M6/HANDOFF_PROTOCOL.md`, `M6/HANDOFF_RECEIPT.json`. Ezeket a mostani PR nem állítja elő, és a történeti QRH003 adatokat nem módosítják.
 
 ## 3. Erőforrások és tényleges kockázatok
 
@@ -51,15 +53,14 @@ Feladatszintű ráfordításbecslés: M1/M2 = kicsi (adatkapcsolati elemzés); M
 
 ### 4.1 Pontos bemenetek
 
-- A\) Korábbi auditterv: PULSEMECH_OPENAI_MATH_003_AUDIT_TERV_v0.docx (2026-10-07, 28 o.), különösen 2.3 forrásleltár, 3.1 claim-to-theorem, 3.3 pólus/szemantika, 4. bizonyítéki állapotgép.
+**Normatív, kötelező M1-bemenetek; az első tétel hiánya nem pótolható a történeti DOCX elolvasásával:**
 
-- B\) Upstream pinned: openai/math@adc7f1241b42e322a6451854ab7e4b4c146bf78a; két kézirat/PDF (7/8 és Landau–Siegel), QRH szeptember 30-i TeX, lean/docs/003.md, lean/formalization.yaml, QuasiRiemannHypothesis.lean/.json, OAI/NumberTheory/DirichletL/Nonvanishing.lean, pinned Mathlib definíciós fájlok.
+- **A – Rögzített upstream:** `openai/math@adc7f1241b42e322a6451854ab7e4b4c146bf78a`; QRH `paper.pdf` és `build/paper.tex` (September-30-2026), `lean/docs/003.md`, `lean/formalization.yaml`, `lean/ComparatorChallenges/QuasiRiemannHypothesis.{lean,json}`, `lean/OAI/NumberTheory/DirichletL/Nonvanishing.lean`, releváns Mathlib-definíciók és a rögzített dependency/patch-források. A Landau–Siegel-kézirat csak scope-kontextus, és ha nem szükséges az E1–E7 tárgyához, opcionális.
+- **B – Aktuális, rögzített QRH003 forrás:** `HKati/pulse-release-gates-0.1@c0895b920399cafbc14aa9fd3b6d3b68671f0220` → `studies/openai_math_003_qrh_v0/` `README.md`, `SOURCE_BINDING.md`, `SOURCE_MANIFEST.json`, `EVIDENCE_REFERENCE.json`, `reference/claim_map.json`, `reference/configurations.json`, `reference/required_boundary_tests.json`, `tools/authority.py`, `tools/transition_report.py`. A commit nem mozgó `main`-t jelent.
+- **C – Eredeti történeti bizonyítékbájtok:** `PULSEMECH_QRH003_IMPLEMENTATION_v0_1_1.zip`, **23 453 781 B**, SHA-256 `ce5737b01ae3b400bac96c092afb982a0af74a812692714e4c7cd094b61afbdc`; a `REPLAY_PILOT.md` és `runs/pilot_002/` eredeti verifier snapshot/anchor/bundle/decision/replay/report állományai. A teljes archívumot ténylegesen, hozzáférési jogosultsággal be kell szerezni, majd helyben ellenőrizni; puszta hash vagy URL nem elég. Ha nem hozzáférhető: `M1_INCOMPLETE: HISTORICAL_BYTES_UNAVAILABLE`.
+- **D – Külön megőrzött történeti eredményrekordok:** `PULSEMECH_QRH003_PILOT_002_DECISION.json`, `PULSEMECH_QRH003_PILOT_002_REPLAY.json`, `PULSEMECH_QRH003_PILOT_002_TRANSITION_METER.json`, `PULSEMECH_QRH003_PILOT_002_REPORT.json`. A belső ZIP-tagokkal csak a tényleges byte-összevetés után tekinthetők ugyanazon rekordoknak.
 
-- C\) QRH003 v0.1.3: HKati/pulse-release-gates-0.1@c0895b920399cafbc14aa9fd3b6d3b68671f0220 /studies/openai_math_003_qrh_v0/README.md, SOURCE_BINDING.md, SOURCE_MANIFEST.json, EVIDENCE_REFERENCE.json, reference/claim_map.json, reference/configurations.json, reference/required_boundary_tests.json, tools/authority.py, tools/transition_report.py.
-
-- D\) Történeti archívum: PULSEMECH_QRH003_IMPLEMENTATION_v0_1_1.zip, 23 453 781 B, SHA-256 ce5737b01ae3b400bac96c092afb982a0af74a812692714e4c7cd094b61afbdc; benne REPLAY_PILOT.md, runs/pilot_002/ verifier_snapshot, anchor, bundle, decision, replay és transition report. A források ellenőrzött olvasása nem jelent új döntési futást.
-
-- E\) Egyedi meglévő kimenetek: PULSEMECH_QRH003_PILOT_002_DECISION.json, \_REPLAY.json, \_TRANSITION_METER.json, \_REPORT.json. A történeti BLOCK/MATCH referenciát ezekből és a belső archív bájtokból kell összevetni.
+**Nem normatív, opcionális előzmény:** `PULSEMECH_OPENAI_MATH_003_AUDIT_TERV_v0.docx` (2026-10-07, 28 oldal) — **82 686 B**, SHA-256 `2cb23a9901cf4d50c2ba3b871bedc5ac2de1546bfeecf46f741014ea65a60e8e`. A készítő ChatGPT Libraryjében azonosított példány; nyilvános, önálló letöltési helye nem igazolt. Ha ezt ténylegesen felhasználjuk, a pontos bájtokat a jogosult tulajdonostól kell beszerezni, ellenőrizni, és a `M1/INPUTS_LOCK.json`-ban `optional_historical_reference` státusszal, beszerzésihorgony- és hozzáférési adatokkal rögzíteni. A DOCX hiánya önmagában **nem blokkolja** az M1-et, mert az egy-claim scope forrásait a pinned upstreamből és a QRH003 reference fájlokból kell újraolvasni. A DOCX korábban rögzített, nem önállóan igazolt eredményei történeti jelöléssel maradnak.
 
 ### 4.2 Kimeneti fájlok – az M1 végrehajtásakor
 
@@ -67,13 +68,21 @@ Feladatszintű ráfordításbecslés: M1/M2 = kicsi (adatkapcsolati elemzés); M
 |--------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
 | M1/INPUTS_LOCK.json            | Source-id, commit/tree, elérési út, teljes digest, méret, relevancia, megőrzési státusz, változás dátuma.                                              |
 | M1/CLAIM_CARD_QRH003_ZETA.json | Egy claim, PDF 1.1 tétel, Lean-célnév, pólusfeltétel, implicit definíciók, exclusions, semantic NOT_REVIEWED.                                          |
-| M1/EVIDENCE_RELATIONS.json     | E1–E7 forrás/target ID, relation_kind, evidence_refs, O/R/H/U/E státusz, confidence helyett reason.                                                    |
+| M1/EVIDENCE_RELATIONS.json     | E1–E7 forrás/cél és `relation_kind`, `evidence_refs`, `reason_code`, **`relation_status` és külön `expert_review_status`**, teljes hat `status_axes`. |
 | M1/OPEN_QUESTIONS.json         | Min. három konkrét nyitott kérdés: s=1 formal–classical mapping; natív Lean capture; teljes dependency/bináris closure; mindegyikhez closure evidence. |
 | M1/M1_AUDIT_TRAIL.md           | Csak read-only lépések és forrás-hivatkozások; mit nem hajtottunk végre; gépi és emberi státusz külön.                                                 |
 
+**Veszteségmentes státuszszótár az `M1/EVIDENCE_RELATIONS.json` fájlhoz:**
+
+- `relation_status`: `observed_and_bound`, `reconstructable`, `hypothesized`, `missing`, `conflicting` (kötelező, pontosan egy).
+- `expert_review_status`: `not_required`, `required_pending`, `verified`, `rejected` (kötelező, pontosan egy; a szakreview hiánya nem írhatja át a reláció megfigyelési státuszát).
+- `requires_expert_review = (expert_review_status == "required_pending")` (származtatott, olvasható jelzés). Például `relation_status="conflicting"` és `expert_review_status="required_pending"` egyidejűleg tárolható.
+- Hat külön kanonikus Transition Meter `status_axes`: observation, binding, consistency, reproduction, causal, authority; **egyik sem következtethető automatikusan** a fenti kettőből.
+- `O/R/H/U/E` betűk nem érvényes JSON enumértékek: nincs ötbetűs, információvesztő összevonás és nincs automatikus VERIFIED/ALLOW promóció.
+
 ### 4.3 Lépéssor és változtatási tilalom
 
-- 1\. A négy történeti kimenet és a v0.1.1 archive pontos digestjének egyeztetése az ismert reference rekordokkal; eltérés megőrzése és STOP. Nincs történeti fájl átírás.
+- 1\. Az **A–D kötelező** források és a v0.1.1 történeti archívum pontos digestjeinek egyeztetése az ismert reference rekordokkal; hiányzó normatív bájt esetén az érintett kapcsolatra `missing` és az M1-re `INCOMPLETE`, nem PASS. Eltérés vagy ütközés megőrzése és STOP. A DOCX csak opcionális E történeti kontextus. Nincs történeti fájl átírás.
 
 - 2\. A qrh003_zeta tétel PDF-oldal/tételszám, Challenge és implementációs deklaráció külön-külön azonosítása; a pinned Mathlib s=1 konvenció és formális scope megőrzése.
 
@@ -104,7 +113,7 @@ Végső zárócsomag várt állítása: „A qrh003_zeta tárgyú, pinned forrá
 
 ## Forrásjegyzék és rögzített ellenőrzési határ
 
-**\[F1\]** OpenAI Math 003 – független PULSEmech audit terve (2026-10-07, 28 oldal): PULSEMECH_OPENAI_MATH_003_AUDIT_TERV_v0.docx; korábbi felmérés, nem jelenlegi natív proof-igazolás.
+**\[F1\]** Történeti, opcionális auditterv: `PULSEMECH_OPENAI_MATH_003_AUDIT_TERV_v0.docx` (2026-10-07, 28 oldal), 82 686 bájt; SHA-256 `2cb23a9901cf4d50c2ba3b871bedc5ac2de1546bfeecf46f741014ea65a60e8e`. Csak külön owner-controlled Library-hozzáférés bizonyított; nincs nyilvános tárolási horgony. Az M1 normatív forrásai a pinned upstream és a meglévő QRH003 reference/bizonyítékbájtok, nem ez a DOCX.
 
 **\[F2\]** Rögzített upstream: https://github.com/openai/math/tree/adc7f1241b42e322a6451854ab7e4b4c146bf78a ; releváns útvonalak: preprints/The-Quasi-Riemann-Hypothesis-September-30-2026/paper.pdf; lean/docs/003.md; lean/ComparatorChallenges/QuasiRiemannHypothesis.{lean,json}; lean/OAI/NumberTheory/DirichletL/Nonvanishing.lean.
 
