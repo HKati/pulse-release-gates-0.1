@@ -28,6 +28,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   No new inference, replay, runtime, workflow, policy, gate, README or DOI/SWH
   change. Keep #2879 open.
 
+- Preserve the PULSEbox v0 technical design, revision 0.2 dated 2026-10-13,
+  as an [English repository edition](docs/PULSEBOX_V0_TECHNICAL_PLAN.md), with
+  the original Hungarian source retained byte-for-byte and a source identity
+  manifest. Document the separate execute/promote decisions, Execution Gate
+  and Device Gate, bounded receiver, contract fields and 54 planned negative
+  cases. Design preservation only: no PULSEbox implementation, activated gate,
+  prototype execution or new authority; all proposed cases remain `NOT_RUN`.
+
 - Record the bounded Q2-4 field comparison of historical run
   `37600313529/1` and native run `39057898256/1` in the
   [metadata-only comparison checkpoint](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#17-recorded-q2-4-field-comparison-checkpoint).
