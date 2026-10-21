@@ -1,0 +1,41 @@
+{
+  "record_kind": "pulsebox_design_source_preservation_v0",
+  "project": "PULSEbox v0",
+  "design_revision": "0.2",
+  "source_date": "2026-10-13",
+  "repository_edition_date": "2026-10-21",
+  "historical_repository": "HKati/pulse-release-gates-0.1",
+  "historical_source_commit": "d44bf963cbac377366e95ae7ac9e3603fff894a4",
+  "authority_effect": "none",
+  "implementation_status": "DESIGN_ONLY",
+  "prototype_execution": "NOT_RUN",
+  "negative_cases": {
+    "N01-N38": 38,
+    "D01-D16": 16,
+    "total": 54,
+    "execution_status": "NOT_RUN"
+  },
+  "original_source": {
+    "path": "docs/pulsebox_v0/source/PULSEbox_v0_muszaki_terv_2026-10-13.docx",
+    "language": "hu",
+    "preservation": "byte-for-byte",
+    "size_bytes": 86734,
+    "sha256": "a513c67d44defba64eb77f4ff6b9106c36e9d5c8b09e4e7016b3373514f1f49f",
+    "git_blob_sha1": "1e904a05813f777107424e5bc25ba532f0bb39e0"
+  },
+  "english_repository_edition": {
+    "path": "docs/PULSEBOX_V0_TECHNICAL_PLAN.md",
+    "language": "en",
+    "relationship": "Complete English documentary adaptation with a separate repository preservation note; not a new implementation or execution record.",
+    "size_bytes": 85471,
+    "sha256": "8125a64e22828700d73002037488872f51d58839f63905db9d748faeadc6c9fa",
+    "git_blob_sha1": "5476a717649280c5c5bbd5e831678b1dfcf5d5a4"
+  },
+  "preserved_structure": {
+    "source_tables": 32,
+    "source_reference_links": 25,
+    "canonical_transition_meter_axes": 6,
+    "subordinate_physical_review_fields": 8
+  },
+  "scope_note": "Runtime profiles, gate identifiers, contracts, hardware choices and test cases are proposals. Existing Device Ledger and discovery records retain their original non-authorizing and fixture boundaries."
+}
