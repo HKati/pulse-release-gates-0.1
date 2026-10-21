@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Preserve the 2026-10-20 QRH003 M1 knowledge-link inventory in a separate
+  [knowledge-continuity companion](studies/openai_math_003_knowledge_continuity_v0/README.md),
+  with the original five-file ZIP unchanged, byte/member identities and
+  retained source notices. Keep M1 acceptance `INCOMPLETE`, the exact
+  selected-source gaps, historical four-claim/five-export `BLOCK` / replay
+  `MATCH`, native capture `NOT_IMPLEMENTED` and semantic review `NOT_REVIEWED`.
+  Add documentation navigation. Static preservation only; no new proof,
+  replay or experiment; no policy, gate or workflow modification or authority
+  change.
+
 - Add a self-contained Q2 repository-preservation metadata stage under
   `preservation/q2_reference_closure_v0/`: exact planned archive identities, three
   byte-preserved historical records, component review, supplemental notices
