@@ -1,0 +1,27 @@
+{
+  "actual_model_calls": 0,
+  "authority_effect": "none",
+  "case_id": "Q3C-001",
+  "description": "Stable synthetic payload only. Runtime expected context and source pins are generated separately before reading any report. No historical run identity is asserted.",
+  "files": [
+    {
+      "path": "examples.jsonl",
+      "sha256": "290fc95ff4d5d87bedae4a598f645cba73b25424c8c7a6cdccc7e60557e21548",
+      "size_bytes": 78000
+    },
+    {
+      "path": "q1_labels.jsonl",
+      "sha256": "4227852bb42cfb050478eaf449962eb8e8432fb97918302020669a0b1d08f44a",
+      "size_bytes": 109600
+    },
+    {
+      "path": "dataset_manifest.json",
+      "sha256": "b97ef24eab43970bb16517d15af9ede72ea2c1fb443e2acd7265672600269a0b",
+      "size_bytes": 943
+    }
+  ],
+  "profile_id": "q3_input_recomputation_v0.1",
+  "record_type": "q3_synthetic_baseline_payload_inventory",
+  "source_design": "../case_expectations.json",
+  "synthetic_only": true
+}

@@ -1,0 +1,875 @@
+{
+  "authority_effect": "none",
+  "case_count": 42,
+  "cases": [
+    {
+      "case_id": "Q3C-001",
+      "expected": {
+        "comparable_groups": 2,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "max_missing_count": 0,
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "n_input": 400,
+        "n_pass": 400,
+        "n_q3_eligible": 400,
+        "reason_codes": [],
+        "small_group_union_count": 0
+      },
+      "title": "All-pass baseline with two adequately sized marginal groups"
+    },
+    {
+      "case_id": "Q3C-002",
+      "expected": {
+        "comparable_groups": 1,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "n_input": 199,
+        "n_pass": 199,
+        "n_q3_eligible": 199,
+        "reason_codes": [
+          "INSUFFICIENT_ELIGIBLE_TOTAL"
+        ],
+        "small_group_union_count": 0
+      },
+      "title": "Eligible total immediately below 200"
+    },
+    {
+      "case_id": "Q3C-003",
+      "expected": {
+        "comparable_groups": 1,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "n_input": 200,
+        "n_pass": 200,
+        "n_q3_eligible": 200,
+        "reason_codes": [],
+        "small_group_union_count": 0
+      },
+      "title": "Eligible total exactly 200"
+    },
+    {
+      "case_id": "Q3C-004",
+      "expected": {
+        "comparable_groups": 1,
+        "excluded_groups": 1,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "n_pass": 400,
+        "n_q3_eligible": 400,
+        "reason_codes": [],
+        "small_group_union_count": 29,
+        "small_group_union_fraction": {
+          "denominator": 400,
+          "numerator": 29
+        },
+        "undersized_group_diagnostics": {
+          "conservative_gap": null,
+          "included_in_disparity": false,
+          "n_eligible": 29,
+          "n_pass": 29,
+          "pass_rate": 1,
+          "wilson_lower": null,
+          "wilson_upper": null
+        }
+      },
+      "title": "A group of 29 is excluded only from its own disparity calculation"
+    },
+    {
+      "case_id": "Q3C-005",
+      "expected": {
+        "comparable_groups": 2,
+        "excluded_groups": 0,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "n_pass": 400,
+        "n_q3_eligible": 400,
+        "reason_codes": [
+          "WORST_GROUP_GAP"
+        ],
+        "small_group_union_count": 0,
+        "worst_gap_analytical_expression": "z^2 / (30 + z^2)",
+        "worst_gap_relation_to_threshold": "> 0.05"
+      },
+      "title": "A group of 30 is included and may fail despite all-pass labels"
+    },
+    {
+      "case_id": "Q3C-006",
+      "expected": {
+        "comparable_groups": 0,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "n_pass": 400,
+        "n_q3_eligible": 400,
+        "reason_codes": [
+          "SMALL_GROUP_COVERAGE",
+          "NO_INCLUDED_GROUPS"
+        ],
+        "small_group_union_count": 400,
+        "worst_group_gap": null
+      },
+      "title": "All marginal groups too small"
+    },
+    {
+      "case_id": "Q3C-007",
+      "expected": {
+        "coverage_fractions": null,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "n_fail": 0,
+        "n_input": 200,
+        "n_pass": 0,
+        "n_q1_eligible": 200,
+        "n_q3_eligible": 0,
+        "n_q3_unknown_excluded": 200,
+        "overall_pass_rate": null,
+        "overall_wilson_lower": null,
+        "overall_wilson_upper": null,
+        "reason_codes": [
+          "INSUFFICIENT_ELIGIBLE_TOTAL",
+          "NO_INCLUDED_GROUPS"
+        ],
+        "worst_group_gap": null
+      },
+      "title": "No Q3-eligible examples"
+    },
+    {
+      "case_id": "Q3C-008",
+      "expected": {
+        "comparable_groups": 1,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "missing_count_by_dimension": {
+          "region": 20
+        },
+        "missing_fraction_by_dimension": {
+          "region": {
+            "denominator": 400,
+            "numerator": 20
+          }
+        },
+        "n_pass": 400,
+        "n_q3_eligible": 400,
+        "reason_codes": [],
+        "small_group_union_count": 20
+      },
+      "title": "Missing fraction exactly 5 percent"
+    },
+    {
+      "case_id": "Q3C-009",
+      "expected": {
+        "comparable_groups": 1,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "missing_count_by_dimension": {
+          "region": 21
+        },
+        "n_q3_eligible": 400,
+        "reason_codes": [
+          "MISSING_GROUP_COVERAGE"
+        ],
+        "small_group_union_count": 21
+      },
+      "title": "Missing fraction exceeds 5 percent"
+    },
+    {
+      "case_id": "Q3C-010",
+      "expected": {
+        "comparable_groups": 1,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "n_pass": 400,
+        "n_q3_eligible": 400,
+        "reason_codes": [],
+        "small_group_union_count": 40,
+        "small_group_union_fraction": {
+          "denominator": 400,
+          "numerator": 40
+        }
+      },
+      "title": "Small-group union exactly 10 percent"
+    },
+    {
+      "case_id": "Q3C-011",
+      "expected": {
+        "comparable_groups": 1,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "n_q3_eligible": 400,
+        "reason_codes": [
+          "SMALL_GROUP_COVERAGE"
+        ],
+        "small_group_union_count": 41,
+        "small_group_union_fraction": {
+          "denominator": 400,
+          "numerator": 41
+        }
+      },
+      "title": "Small-group union exceeds 10 percent by one example"
+    },
+    {
+      "case_id": "Q3C-012",
+      "expected": {
+        "alternative_per_dimension_max": {
+          "coverage_would_pass": true,
+          "denominator": 400,
+          "numerator": 24
+        },
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "n_q3_eligible": 400,
+        "reason_codes": [
+          "SMALL_GROUP_COVERAGE"
+        ],
+        "small_count_by_dimension": {
+          "A": 24,
+          "B": 24
+        },
+        "small_group_union_count": 48,
+        "small_group_union_fraction": {
+          "denominator": 400,
+          "numerator": 48
+        }
+      },
+      "title": "Two disjoint small groups distinguish union from per-dimension maximum"
+    },
+    {
+      "case_id": "Q3C-013",
+      "expected": {
+        "alternative_per_dimension_max": {
+          "coverage_would_pass": true,
+          "denominator": 400,
+          "numerator": 24
+        },
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "n_q3_eligible": 400,
+        "reason_codes": [],
+        "small_count_by_dimension": {
+          "A": 24,
+          "B": 24
+        },
+        "small_group_union_count": 24,
+        "small_group_union_fraction": {
+          "denominator": 400,
+          "numerator": 24
+        },
+        "summed_memberships_are_not_union": 48
+      },
+      "title": "Overlapping small groups count the same examples once"
+    },
+    {
+      "case_id": "Q3C-014",
+      "expected": {
+        "comparable_groups": 4,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "n_pass": 400,
+        "n_q3_eligible": 400,
+        "reason_codes": [],
+        "small_group_union_count": 0,
+        "total_marginal_group_memberships": 800
+      },
+      "title": "Overall examples counted once across dimensions"
+    },
+    {
+      "case_id": "Q3C-015",
+      "expected": {
+        "comparable_groups": 3,
+        "group_B_large_n": 320,
+        "group_B_small_n": 80,
+        "group_B_small_pass": 80,
+        "illegal_global_pruning_discriminator": {
+          "would_change_group_B_small_n_to": 56,
+          "would_change_overall_n_to": 376,
+          "would_make_gap_exceed_threshold": true
+        },
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "n_pass": 400,
+        "n_q3_eligible": 400,
+        "reason_codes": [],
+        "small_group_union_count": 24,
+        "worst_gap_analytical_expression": "z^2 / (80 + z^2)",
+        "worst_gap_relation_to_threshold": "<= 0.05"
+      },
+      "title": "Union coverage does not prune other groups or the overall sample"
+    },
+    {
+      "case_id": "Q3C-016",
+      "expected": {
+        "comparable_groups": 1,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "n_input": 220,
+        "n_pass": 200,
+        "n_q1_eligible": 220,
+        "n_q3_eligible": 200,
+        "n_q3_unknown_excluded": 20,
+        "reason_codes": []
+      },
+      "title": "UNKNOWN excluded from Q3 but still represented in input accounting"
+    },
+    {
+      "case_id": "Q3C-017",
+      "expected": {
+        "comparable_groups": 1,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "n_fail": 200,
+        "n_pass": 200,
+        "n_q3_eligible": 400,
+        "n_q3_unknown_excluded": 0,
+        "overall_pass_rate": {
+          "denominator": 400,
+          "numerator": 200
+        },
+        "reason_codes": [
+          "WORST_GROUP_GAP"
+        ],
+        "worst_gap_relation_to_threshold": "> 0.05"
+      },
+      "title": "UNSUPPORTED is an eligible failure, not an exclusion"
+    },
+    {
+      "case_id": "Q3C-018",
+      "expected": {
+        "comparable_groups": 1,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "n_fail": 0,
+        "n_pass": 400,
+        "n_q3_eligible": 400,
+        "n_q3_unknown_excluded": 0,
+        "reason_codes": []
+      },
+      "title": "ABSTAIN is a pass outcome"
+    },
+    {
+      "case_id": "Q3C-019",
+      "expected": {
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "n_input": 420,
+        "n_pass": 400,
+        "n_q1_eligible": 400,
+        "n_q1_ineligible": 20,
+        "n_q3_eligible": 400,
+        "reason_codes": []
+      },
+      "title": "Empty context with explicit Q1 ineligibility is a valid exclusion"
+    },
+    {
+      "case_id": "Q3C-020",
+      "expected": {
+        "counts": null,
+        "coverage": null,
+        "decision": "FAIL_CLOSED_INVALID_INPUT",
+        "input_valid": false,
+        "input_validity": "INVALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "overall": null,
+        "reason_codes": [
+          "Q1_ELIGIBILITY_CONTRADICTION"
+        ],
+        "worst_group_gap": null
+      },
+      "title": "Empty context cannot assert Q1 eligibility"
+    },
+    {
+      "case_id": "Q3C-021",
+      "expected": {
+        "counts": null,
+        "coverage": null,
+        "decision": "FAIL_CLOSED_INVALID_INPUT",
+        "input_valid": false,
+        "input_validity": "INVALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "overall": null,
+        "reason_codes": [
+          "Q1_ELIGIBILITY_CONTRADICTION"
+        ],
+        "worst_group_gap": null
+      },
+      "title": "Nonempty context cannot be excluded in the initial narrow profile"
+    },
+    {
+      "case_id": "Q3C-022",
+      "expected": {
+        "counts": null,
+        "coverage": null,
+        "decision": "FAIL_CLOSED_INVALID_INPUT",
+        "input_valid": false,
+        "input_validity": "INVALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "overall": null,
+        "reason_codes": [
+          "SCHEMA_INVALID"
+        ],
+        "worst_group_gap": null
+      },
+      "title": "Null context is not silently converted to empty string"
+    },
+    {
+      "case_id": "Q3C-023",
+      "expected": {
+        "counts": null,
+        "coverage": null,
+        "decision": "FAIL_CLOSED_INVALID_INPUT",
+        "input_valid": false,
+        "input_validity": "INVALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "overall": null,
+        "reason_codes": [
+          "SCHEMA_INVALID"
+        ],
+        "worst_group_gap": null
+      },
+      "title": "Missing required context rejects the envelope"
+    },
+    {
+      "case_id": "Q3C-024",
+      "expected": {
+        "comparable_groups": 2,
+        "distinct_group_keys": 3,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "literal_sentinel_group_n": 80,
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "missing_count_by_dimension": {
+          "region": 20
+        },
+        "n_pass": 400,
+        "n_q3_eligible": 400,
+        "reason_codes": [],
+        "small_group_union_count": 20
+      },
+      "title": "Typed missing group is distinct from a literal sentinel string"
+    },
+    {
+      "case_id": "Q3C-025",
+      "expected": {
+        "comparable_groups": 6,
+        "distinct_group_keys": 6,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "max_missing_count": 0,
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "n_pass": 600,
+        "n_q3_eligible": 600,
+        "reason_codes": [],
+        "small_group_union_count": 0
+      },
+      "title": "Case, whitespace and Unicode forms are not normalized"
+    },
+    {
+      "case_id": "Q3C-026",
+      "expected": {
+        "applies_to_each_variant": true,
+        "counts": null,
+        "coverage": null,
+        "decision": "FAIL_CLOSED_INVALID_INPUT",
+        "input_valid": false,
+        "input_validity": "INVALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "overall": null,
+        "reason_codes": [
+          "GROUP_VALUE_INVALID"
+        ],
+        "worst_group_gap": null
+      },
+      "title": "Present invalid group values reject instead of becoming missing"
+    },
+    {
+      "case_id": "Q3C-027",
+      "expected": {
+        "counts": null,
+        "coverage": null,
+        "decision": "FAIL_CLOSED_INVALID_INPUT",
+        "input_valid": false,
+        "input_validity": "INVALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "overall": null,
+        "reason_codes": [
+          "SCHEMA_INVALID"
+        ],
+        "worst_group_gap": null
+      },
+      "title": "Ineligible rows cannot hide invalid labels"
+    },
+    {
+      "case_id": "Q3C-028",
+      "expected": {
+        "counts": null,
+        "coverage": null,
+        "decision": "FAIL_CLOSED_INVALID_INPUT",
+        "input_valid": false,
+        "input_validity": "INVALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "overall": null,
+        "reason_codes": [
+          "DUPLICATE_EXAMPLE_ID"
+        ],
+        "worst_group_gap": null
+      },
+      "title": "Duplicate example identity is rejected rather than deduplicated"
+    },
+    {
+      "case_id": "Q3C-029",
+      "expected": {
+        "counts": null,
+        "coverage": null,
+        "decision": "FAIL_CLOSED_INVALID_INPUT",
+        "input_valid": false,
+        "input_validity": "INVALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "overall": null,
+        "reason_codes": [
+          "SCHEMA_INVALID"
+        ],
+        "worst_group_gap": null
+      },
+      "title": "Missing dataset manifest"
+    },
+    {
+      "case_id": "Q3C-030",
+      "expected": {
+        "applies_to_each_variant": true,
+        "counts": null,
+        "coverage": null,
+        "decision": "FAIL_CLOSED_INVALID_INPUT",
+        "input_valid": false,
+        "input_validity": "INVALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "overall": null,
+        "reason_codes_by_variant": {
+          "duplicate_dimensions": [
+            "DUPLICATE_DIMENSION"
+          ],
+          "empty_dimensions": [
+            "SCHEMA_INVALID"
+          ],
+          "missing_dimensions": [
+            "SCHEMA_INVALID"
+          ]
+        },
+        "worst_group_gap": null
+      },
+      "title": "Absent, empty or duplicate slice declaration"
+    },
+    {
+      "case_id": "Q3C-031",
+      "expected": {
+        "applies_to_each_variant": true,
+        "counts": null,
+        "coverage": null,
+        "decision": "FAIL_CLOSED_INVALID_INPUT",
+        "input_valid": false,
+        "input_validity": "INVALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "overall": null,
+        "reason_codes": [
+          "FILE_BINDING_MISMATCH"
+        ],
+        "worst_group_gap": null
+      },
+      "title": "Changed required bytes fail their fixed declared file binding"
+    },
+    {
+      "case_id": "Q3C-032",
+      "expected": {
+        "counts": null,
+        "coverage": null,
+        "decision": "FAIL_CLOSED_INVALID_INPUT",
+        "input_valid": false,
+        "input_validity": "INVALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "overall": null,
+        "reason_codes": [
+          "INPUT_UNAVAILABLE"
+        ],
+        "worst_group_gap": null
+      },
+      "title": "Unavailable required original input is not satisfied by a pointer"
+    },
+    {
+      "case_id": "Q3C-033",
+      "expected": {
+        "authority_effect": "none",
+        "checker_accepts_summary": true,
+        "checker_error_codes": [],
+        "expected_checker_exit_code": 0,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "reason_codes": [
+          "WORST_GROUP_GAP"
+        ],
+        "verification_outcome": "VALID_NEGATIVE"
+      },
+      "title": "Separate checker accepts a correctly computed negative metric"
+    },
+    {
+      "case_id": "Q3C-034",
+      "expected": {
+        "actual_expected_metric_pass": true,
+        "checker_accepts_summary": false,
+        "checker_error_codes": [
+          "SUMMARY_MISMATCH"
+        ],
+        "expected_checker_exit_code": 1,
+        "expected_recomputed_n_pass": 400,
+        "expected_recomputed_n_q3_eligible": 400,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "reason_codes": [],
+        "verification_outcome": "REJECTED"
+      },
+      "title": "Separate checker rejects a tampered summary"
+    },
+    {
+      "case_id": "Q3C-035",
+      "expected": {
+        "counts": null,
+        "coverage": null,
+        "decision": "FAIL_CLOSED_INVALID_INPUT",
+        "input_valid": false,
+        "input_validity": "INVALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "overall": null,
+        "reason_codes": [
+          "LABEL_JOIN_MISMATCH"
+        ],
+        "worst_group_gap": null
+      },
+      "title": "Per-example label join cannot substitute another example"
+    },
+    {
+      "case_id": "Q3C-036",
+      "expected": {
+        "checker_accepts_summary": false,
+        "counts": null,
+        "coverage": null,
+        "decision": "FAIL_CLOSED_INVALID_INPUT",
+        "expected_checker_exit_code": 2,
+        "input_valid": false,
+        "input_validity": "INVALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "overall": null,
+        "reason_codes": [
+          "EXPECTED_CONTEXT_MISMATCH"
+        ],
+        "worst_group_gap": null
+      },
+      "title": "Self-consistent substitution cannot replace the fixed original external anchor"
+    },
+    {
+      "case_id": "Q3C-037",
+      "expected": {
+        "checker_accepts_summary": false,
+        "counts": null,
+        "coverage": null,
+        "decision": "FAIL_CLOSED_INVALID_INPUT",
+        "expected_checker_exit_code": 2,
+        "expected_context_sha256": null,
+        "input_valid": false,
+        "input_validity": "INVALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "overall": null,
+        "reason_codes": [
+          "MISSING_EXPECTED_CONTEXT"
+        ],
+        "worst_group_gap": null
+      },
+      "title": "Verified mode fails closed without caller-selected expected context"
+    },
+    {
+      "case_id": "Q3C-038",
+      "expected": {
+        "applies_to_each_variant": true,
+        "checker_accepts_summary": false,
+        "counts": null,
+        "coverage": null,
+        "decision": "FAIL_CLOSED_INVALID_INPUT",
+        "expected_checker_exit_code": 2,
+        "input_valid": false,
+        "input_validity": "INVALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "overall": null,
+        "reason_codes": [
+          "EXPECTED_CONTEXT_MISMATCH"
+        ],
+        "worst_group_gap": null
+      },
+      "title": "Observation-subject or reduction substitution is rejected despite identical metric counts"
+    },
+    {
+      "case_id": "Q3C-039",
+      "expected": {
+        "comparable_groups": 4,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "missing_count_by_dimension": {
+          "A": 80,
+          "B": 80
+        },
+        "missing_fraction_by_dimension": {
+          "A": {
+            "denominator": 2000,
+            "numerator": 80
+          },
+          "B": {
+            "denominator": 2000,
+            "numerator": 80
+          }
+        },
+        "missing_member_union_diagnostic_count": 160,
+        "missing_member_union_diagnostic_fraction": {
+          "denominator": 2000,
+          "numerator": 160
+        },
+        "n_fail": 0,
+        "n_input": 2000,
+        "n_pass": 2000,
+        "n_q3_eligible": 2000,
+        "reason_codes": [],
+        "small_group_union_count": 0,
+        "worst_gap_analytical_expression": "z^2 / (80 + z^2)",
+        "worst_gap_relation_to_threshold": "<= 0.05"
+      },
+      "title": "Missing coverage is per dimension, even when distinct missing members exceed five percent in union"
+    },
+    {
+      "case_id": "Q3C-040",
+      "expected": {
+        "applies_to_each_variant": true,
+        "comparable_groups_by_variant": {
+          "one_group": 1,
+          "two_groups": 2
+        },
+        "included_group_wilson_lower": 0,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "max_missing_count": 0,
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "n_fail": 400,
+        "n_input": 400,
+        "n_pass": 0,
+        "n_q3_eligible": 400,
+        "n_q3_unknown_excluded": 0,
+        "overall_pass_rate": 0,
+        "overall_wilson_lower": 0,
+        "reason_codes": [],
+        "small_group_union_count": 0,
+        "worst_gap_analytical_expression": "z^2 / (400 + z^2)",
+        "worst_gap_relation_to_threshold": "<= 0.05"
+      },
+      "title": "Uniformly unsupported responses can pass Q3 parity without passing Q1 quality"
+    },
+    {
+      "case_id": "Q3C-041",
+      "expected": {
+        "checker_accepts_summary": false,
+        "checker_error_codes": [
+          "SUMMARY_MISMATCH"
+        ],
+        "expected_checker_exit_code": 1,
+        "expected_recomputed_n_pass": 400,
+        "expected_recomputed_n_q3_eligible": 400,
+        "input_valid": true,
+        "input_validity": "VALID",
+        "metric_pass": true,
+        "metric_result": "PASS",
+        "reason_codes": [],
+        "verification_outcome": "REJECTED"
+      },
+      "title": "Report-only producer identity substitution rejects the report while input remains valid"
+    },
+    {
+      "case_id": "Q3C-042",
+      "expected": {
+        "checker_accepts_summary": false,
+        "counts": null,
+        "coverage": null,
+        "decision": "FAIL_CLOSED_INVALID_INPUT",
+        "expected_checker_exit_code": 2,
+        "input_valid": false,
+        "input_validity": "INVALID",
+        "metric_pass": false,
+        "metric_result": "FAIL",
+        "overall": null,
+        "reason_codes": [
+          "FILE_BINDING_MISMATCH"
+        ],
+        "worst_group_gap": null
+      },
+      "title": "Changed producer source bytes fail the caller-selected original source pin"
+    }
+  ],
+  "description": "Fixed expected predicates from the accepted Q3-1 design. Tests materialize independent synthetic bytes; this catalog does not claim model execution or actual runtime evidence.",
+  "profile_id": "q3_input_recomputation_v0.1",
+  "record_type": "q3_synthetic_conformance_expectations",
+  "source_design": "Q3_CONFORMANCE_CASES_v0_1.json",
+  "source_repository_commit": "bb3c4791bc9399d0085d10d0d29d6d8a5e2cbfca",
+  "synthetic_only": true
+}

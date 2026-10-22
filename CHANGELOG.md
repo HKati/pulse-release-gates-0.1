@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the separate Q3 `q3_input_recomputation_v0.1` reference profile,
+  standalone producer, independently implemented checker, closed input/result
+  schemas and synthetic conformance fixtures. Bind original example/label bytes
+  and the exact producer source to a caller-selected external expectation;
+  recompute marginal Wilson gaps and the accepted deduplicated-union small-group
+  coverage rule without pruning the overall population. Distinguish valid
+  metric FAIL from malformed input and report mismatch. Register the focused
+  pytest module in the existing targeted suite and document the
+  [reference contract](docs/compute/PULSEMECH_Q3_REFERENCE_RECOMPUTATION_v0.md).
+  Preserve canonical Q3 spec 0.1.1, Q2 code/history and 49/50 FAIL / release
+  BLOCK. This is a standalone Step 5C increment with synthetic tests, not real
+  Q3 acquisition, current-run release evidence or completed Step 5C/5D. No
+  policy, required-gate, dispatcher, workflow or admission activation;
+  `authority_effect = none`. Keep #2879 open.
+
 - Preserve the 2026-10-20 QRH003 M1 knowledge-link inventory in a separate
   [knowledge-continuity companion](studies/openai_math_003_knowledge_continuity_v0/README.md),
   with the original five-file ZIP unchanged, byte/member identities and
