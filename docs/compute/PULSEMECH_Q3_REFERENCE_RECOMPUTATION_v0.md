@@ -72,12 +72,19 @@ digests, and the producer identity. Select it independently before inspecting
 an untrusted report. Missing expectation fails closed; the tools do not generate
 one from a report or silently trust the supplied bundle as its own authority.
 
-Both tools additionally pin the exact input-schema bytes supported by this
-implementation to SHA-256
-`41e235d887822e9f7ced148bd06c7cee7cb02984ebb9a59e3f333f11497350e5`.
-A newly selected external digest cannot extend or weaken that input contract.
-An unsupported input schema fails with `FILE_BINDING_MISMATCH` before input
-validation; the producer exits 2 without creating a report.
+Both tools additionally pin the exact accepted profile and input-schema bytes
+supported by this implementation:
+
+| Resource | Required SHA-256 |
+| --- | --- |
+| Complete accepted profile | `e31e390d3ee5619bad082a6b04b7b556cfbed1690f97e35bc972816cb48db666` |
+| Input schema | `41e235d887822e9f7ced148bd06c7cee7cb02984ebb9a59e3f333f11497350e5` |
+
+A newly selected external digest cannot replace the declared decision rules or
+extend or weaken the input contract. An unsupported profile or input schema
+fails with `FILE_BINDING_MISMATCH` before its semantics are used; the producer
+exits 2 without creating a report. This binds the whole profile, including its
+`decisions`, rather than only its identifier and numerical parameters.
 
 The producer source closure is exactly one file:
 `PULSE_safe_pack_v0/tools/build_q3_reference_summary.py`. Its SHA-256, tool ID,
@@ -102,6 +109,11 @@ a partially processed subset.
 - Files are bounded regular-file snapshots. Symlinks and unsafe relative paths
   are rejected; there is no network retrieval. A file changing during a read is
   rejected. The same immutable bytes supply hashes and semantic processing.
+- Hardlink aliases share one snapshot per device/inode in each tool. A new path
+  to an already observed inode is checked against its recorded file identity;
+  a changed identity fails with `FILE_BINDING_MISMATCH`. This prevents combining
+  different versions of the same underlying file under different input names.
+  It does not establish a globally simultaneous snapshot of unrelated files.
 - JSON is strict UTF-8 without BOM, duplicate keys, nonfinite numbers or unpaired
   Unicode surrogates. JSONL requires nonempty LF-terminated lines and a final LF;
   blank lines and CRLF are rejected. Whole-file hashes include the final LF.

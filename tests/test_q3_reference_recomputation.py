@@ -562,6 +562,85 @@ class Q3ReferenceRecomputationTests(unittest.TestCase):
         fixture = fb.materialize(1, self.temp / "alternate-root", resources_root=resources)
         self.assert_valid(fixture)
 
+    def assert_reselected_profile_rejected(self, fixture, reference_result):
+        # A new external anchor selects the changed profile coherently. The
+        # implementation's supported contract must still reject its semantics.
+        profile_path = fixture.resources_root / fb.RESOURCE_PATHS["contract_sha256"]
+        selected_digest = fb.sha256(profile_path.read_bytes())
+        expected = fb.read_json(fixture.expected)
+        bundle = fb.read_json(fixture.bundle)
+        self.assertEqual(expected["contract_sha256"], selected_digest)
+        self.assertEqual(bundle["contract_bindings"]["contract_sha256"], selected_digest)
+        self.assertEqual(expected["input_bundle_sha256"], fb.sha256(fixture.bundle.read_bytes()))
+        self.assertNotEqual(selected_digest,
+                            fb.sha256((ROOT / fb.RESOURCE_PATHS["contract_sha256"]).read_bytes()))
+
+        summary = fixture.root / "new-summary.json"
+        producer = self.invoke(PRODUCER, [*self.roots_and_input(fixture), "--out", summary])
+        self.assertEqual(producer.returncode, 2, msg=producer.stdout + producer.stderr)
+        self.assertIn("FILE_BINDING_MISMATCH", producer.stderr)
+        self.assertFalse(summary.exists(), "An unsupported profile must not produce a report")
+
+        # Independently test the checker with the old hard-coded calculation
+        # and matching new outer bindings, not just a missing producer report.
+        forged = copy.deepcopy(reference_result)
+        forged["input_bundle_sha256"] = fb.sha256(fixture.bundle.read_bytes())
+        forged["expected_context_sha256"] = fb.sha256(fixture.expected.read_bytes())
+        fb.write_json(summary, forged)
+        receipt = self.check(fixture, summary, 2)
+        self.assertEqual(receipt["verification_result"], "INPUT_INVALID")
+        self.assertEqual(receipt["input_validity"], "INVALID")
+        self.assertEqual(receipt["reason_codes"], ["FILE_BINDING_MISMATCH"])
+        self.assertFalse(receipt["summary_matches"])
+        self.assertIsNone(receipt["independently_expected_summary_sha256"])
+
+    def test_reselected_profile_cannot_replace_union_with_per_dimension_maximum(self):
+        original = fb.materialize(12, self.temp / "supported-union")
+        reference_result, _ = self.assert_valid(original, False)
+        self.assertEqual(reference_result["coverage"]["excluded_in_any_dimension_count"], 48)
+        self.assertEqual(reference_result["coverage"]["excluded_in_any_dimension_fraction"], 0.12)
+        self.assertEqual(reference_result["coverage"]["max_per_dimension_small_group_fraction_diagnostic"], 0.06)
+        self.assertFalse(reference_result["coverage"]["small_group_coverage_ok"])
+
+        resources = fb.copy_resources(self.temp / "max-dimension-profile-resources")
+        profile_path = resources / fb.RESOURCE_PATHS["contract_sha256"]
+        profile = fb.read_json(profile_path)
+        decision = next(d for d in profile["decisions"] if d["id"] == "Q3_D01_SMALL_GROUP_UNION")
+        decision["rule"] = (
+            "Small-group coverage passes iff 10 * max_d(len(S_d)) <= len(E); "
+            "do not use the deduplicated union."
+        )
+        fb.write_json(profile_path, profile)
+        selected = fb.materialize(12, self.temp / "selected-max-dimension", resources_root=resources)
+        self.assert_reselected_profile_rejected(selected, reference_result)
+
+    def test_reselected_profile_cannot_change_recomputation_eligibility(self):
+        original = fb.materialize(7, self.temp / "supported-unknown-exclusion")
+        reference_result, _ = self.assert_valid(original, False)
+        self.assertEqual(reference_result["counts"]["n_unknown_ignored"], 200)
+        self.assertEqual(reference_result["counts"]["n_q3_eligible"], 0)
+
+        resources = fb.copy_resources(self.temp / "changed-eligibility-profile-resources")
+        profile_path = resources / fb.RESOURCE_PATHS["contract_sha256"]
+        profile = fb.read_json(profile_path)
+        # This semantic clause is outside decisions and the selected top-level
+        # checks. Pinning just Q3_D01 must not leave other contract claims open.
+        profile["recomputation_contract"]["eligible"] = (
+            "E contains every Q1-eligible example, including UNKNOWN labels."
+        )
+        fb.write_json(profile_path, profile)
+        selected = fb.materialize(7, self.temp / "selected-unknown-inclusion", resources_root=resources)
+        self.assert_reselected_profile_rejected(selected, reference_result)
+
+    def test_exact_profile_at_alternate_resources_root_remains_supported(self):
+        resources = fb.copy_resources(self.temp / "exact-profile-resources")
+        source = ROOT / fb.RESOURCE_PATHS["contract_sha256"]
+        copied = resources / fb.RESOURCE_PATHS["contract_sha256"]
+        self.assertEqual(copied.read_bytes(), source.read_bytes())
+        fixture = fb.materialize(1, self.temp / "exact-profile-alternate-root", resources_root=resources)
+        self.assert_valid(fixture)
+
+
     def test_fixed_pins_reject_changed_contract_or_schema_resources(self):
         for key, relative in fb.RESOURCE_PATHS.items():
             with self.subTest(resource=relative):
@@ -569,7 +648,7 @@ class Q3ReferenceRecomputationTests(unittest.TestCase):
                 fixture.resources_root = fb.copy_resources(fixture.root / "modified_resources")
                 path = fixture.resources_root / relative
                 path.write_bytes(path.read_bytes() + b" \n")
-                if key == "input_schema_sha256":
+                if key in ("contract_sha256", "input_schema_sha256"):
                     summary = fixture.root / "summary.json"
                     producer = self.invoke(PRODUCER, [*self.roots_and_input(fixture), "--out", summary])
                     self.assertEqual(producer.returncode, 2, msg=producer.stdout + producer.stderr)
@@ -781,6 +860,128 @@ class Q3ReferenceRecomputationTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, "RECEIPT_WRITE_FAILED")
         self.assertIs(caught.exception.__cause__, write_failure)
         self.assertEqual(destination.read_bytes(), b"new rec")
+
+    def producer_snapshot_module(self):
+        name = f"q3_producer_snapshot_test_{id(self)}"
+        spec = importlib.util.spec_from_file_location(name, PRODUCER)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        self.addCleanup(sys.modules.pop, name, None)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_producer_snapshot_unchanged_hardlink_reuses_original_bytes(self):
+        producer = self.producer_snapshot_module()
+        first = self.temp / "first.bin"
+        alias = self.temp / "alias.bin"
+        data = b"unchanged synthetic snapshot\n"
+        first.write_bytes(data)
+        os.link(first, alias)
+        snapshots = producer.Snapshots()
+        self.assertEqual(snapshots.read(first), data)
+        with mock.patch.object(producer.os, "read", side_effect=AssertionError("Hardlink bytes were read twice")):
+            self.assertEqual(snapshots.read(alias), data)
+
+    def test_producer_snapshot_rejects_rewritten_hardlink_with_same_length(self):
+        producer = self.producer_snapshot_module()
+        first = self.temp / "first.bin"
+        alias = self.temp / "alias.bin"
+        first.write_bytes(b"before\n")
+        os.link(first, alias)
+        snapshots = producer.Snapshots()
+        self.assertEqual(snapshots.read(first), b"before\n")
+        before = alias.stat()
+        alias.write_bytes(b"after!\n")
+        os.utime(alias, ns=(before.st_atime_ns, before.st_mtime_ns + 1_000_000_000))
+        after = alias.stat()
+        self.assertEqual((before.st_dev, before.st_ino, before.st_size),
+                         (after.st_dev, after.st_ino, after.st_size))
+        with self.assertRaises(producer.InputFailure) as caught:
+            snapshots.read(alias)
+        self.assertEqual(caught.exception.code, "FILE_BINDING_MISMATCH")
+
+    def test_producer_snapshot_distinct_inodes_remain_independent(self):
+        producer = self.producer_snapshot_module()
+        first = self.temp / "first.bin"
+        second = self.temp / "second.bin"
+        first.write_bytes(b"initial\n")
+        second.write_bytes(b"initial\n")
+        self.assertFalse(os.path.samefile(first, second))
+        snapshots = producer.Snapshots()
+        self.assertEqual(snapshots.read(first), b"initial\n")
+        second.write_bytes(b"changed\n")
+        self.assertEqual(snapshots.read(second), b"changed\n")
+        self.assertEqual(snapshots.read(first), b"initial\n")
+
+    def test_producer_snapshot_mutation_during_read_still_fails_closed(self):
+        producer = self.producer_snapshot_module()
+        path = self.temp / "changing.bin"
+        path.write_bytes(b"before\n")
+        original_read = os.read
+        changed = False
+
+        def read_then_rewrite(descriptor, length):
+            nonlocal changed
+            data = original_read(descriptor, length)
+            if data and not changed:
+                before = path.stat()
+                path.write_bytes(b"after!\n")
+                os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns + 1_000_000_000))
+                changed = True
+            return data
+
+        with mock.patch.object(producer.os, "read", side_effect=read_then_rewrite):
+            with self.assertRaises(producer.InputFailure) as caught:
+                producer.Snapshots().read(path)
+        self.assertTrue(changed)
+        self.assertEqual(caught.exception.code, "FILE_BINDING_MISMATCH")
+
+    def test_producer_hardlink_rewrite_cannot_mix_example_and_label_snapshots(self):
+        producer = self.producer_snapshot_module()
+        fixture = fb.materialize(1, self.temp / "hardlinked-artifacts")
+        examples_bytes = fixture.examples.read_bytes()
+        labels_bytes = fixture.labels.read_bytes()
+        self.assertNotEqual(examples_bytes, labels_bytes)
+        original_bundle = fixture.bundle.read_bytes()
+        original_expected = fixture.expected.read_bytes()
+        fixture.labels.unlink()
+        os.link(fixture.examples, fixture.labels)
+        self.assertTrue(os.path.samefile(fixture.examples, fixture.labels))
+        original_read = producer.Snapshots.read
+        examples_read = False
+        rewrites = 0
+
+        def rewrite_before_label_snapshot(snapshots, path):
+            nonlocal examples_read, rewrites
+            absolute = Path(os.path.abspath(os.fspath(path)))
+            if absolute == fixture.labels:
+                self.assertTrue(examples_read, "Mutation must follow the completed examples read")
+                before = fixture.labels.stat()
+                fixture.labels.write_bytes(labels_bytes)
+                os.utime(fixture.labels, ns=(before.st_atime_ns, before.st_mtime_ns + 1_000_000_000))
+                after = fixture.labels.stat()
+                self.assertEqual((before.st_dev, before.st_ino), (after.st_dev, after.st_ino))
+                rewrites += 1
+            data = original_read(snapshots, path)
+            if absolute == fixture.examples:
+                self.assertEqual(data, examples_bytes)
+                examples_read = True
+            return data
+
+        summary = fixture.root / "summary.json"
+        arguments = [*self.roots_and_input(fixture), "--out", summary]
+        with mock.patch.object(producer.Snapshots, "read", rewrite_before_label_snapshot):
+            exit_code = producer.main([os.fspath(argument) for argument in arguments])
+        self.assertEqual(rewrites, 1)
+        self.assertEqual(exit_code, 2)
+        result = fb.read_json(summary)
+        self.result_validator.validate(result)
+        self.assertEqual(result["input_validity"], "INVALID")
+        self.assertEqual(result["reason_codes"], ["FILE_BINDING_MISMATCH"])
+        self.assertFalse(result["pass"])
+        self.assertIsNone(result["counts"])
+        self.assertEqual(fixture.bundle.read_bytes(), original_bundle)
+        self.assertEqual(fixture.expected.read_bytes(), original_expected)
 
     def test_file_line_and_dimension_limits_fail_closed(self):
         for target in ("file", "line", "dimensions"):

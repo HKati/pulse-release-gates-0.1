@@ -27,6 +27,7 @@ from jsonschema.exceptions import SchemaError, ValidationError
 PROFILE_ID = "q3_input_recomputation_v0.1"
 SOURCE_PATH = "PULSE_safe_pack_v0/tools/build_q3_reference_summary.py"
 PROFILE_PATH = "PULSE_safe_pack_v0/profiles/q3_reference_recomputation_v0.json"
+PROFILE_SHA256 = "e31e390d3ee5619bad082a6b04b7b556cfbed1690f97e35bc972816cb48db666"
 INPUT_SCHEMA_PATH = "schemas/metrics/q3_input_bundle_v0.schema.json"
 INPUT_SCHEMA_SHA256 = "41e235d887822e9f7ced148bd06c7cee7cb02984ebb9a59e3f333f11497350e5"
 RESULT_SCHEMA_PATH = "schemas/metrics/q3_reference_summary_v0.schema.json"
@@ -112,10 +113,11 @@ def stat_identity(info: os.stat_result) -> tuple[int, ...]:
 
 
 class Snapshots:
-    """A single bounded, immutable byte snapshot per absolute input path."""
+    """Bounded immutable snapshots shared by stable hardlink aliases."""
 
     def __init__(self) -> None:
         self._bytes: dict[str, bytes] = {}
+        self._inodes: dict[tuple[int, int], tuple[bytes, tuple[int, ...]]] = {}
 
     def read(self, path: Path) -> bytes:
         key = os.path.abspath(os.fspath(path))
@@ -133,6 +135,13 @@ class Snapshots:
                 raise InputFailure("INPUT_UNAVAILABLE")
             if before.st_size > MAX_FILE_BYTES:
                 raise InputFailure("INPUT_LIMIT")
+            inode = (before.st_dev, before.st_ino)
+            if inode in self._inodes:
+                data, identity = self._inodes[inode]
+                if stat_identity(before) != identity:
+                    raise InputFailure("FILE_BINDING_MISMATCH")
+                self._bytes[key] = data
+                return data
             chunks = []
             length = 0
             while True:
@@ -148,6 +157,7 @@ class Snapshots:
                 raise InputFailure("FILE_BINDING_MISMATCH")
             data = b"".join(chunks)
             self._bytes[key] = data
+            self._inodes[inode] = (data, stat_identity(after))
             return data
         except OSError as exc:
             raise InputFailure("INPUT_UNAVAILABLE") from exc
@@ -315,8 +325,10 @@ def load_resources(root: Path, snapshots: Snapshots) -> dict:
              "result_schema_sha256": RESULT_SCHEMA_PATH,
              "dataset_manifest_schema_sha256": MANIFEST_SCHEMA_PATH}
     raw = {key: snapshots.read(relative_path(root, path)) for key, path in paths.items()}
-    # A caller may select inputs, but cannot redefine this implementation's
-    # accepted input language by rebinding a different schema in the anchor.
+    # Caller-selected digests cannot redefine this implementation's accepted
+    # profile semantics or input language. Check exact bytes before parsing.
+    if digest(raw["contract_sha256"]) != PROFILE_SHA256:
+        raise InputFailure("FILE_BINDING_MISMATCH")
     if digest(raw["input_schema_sha256"]) != INPUT_SCHEMA_SHA256:
         raise InputFailure("FILE_BINDING_MISMATCH")
     documents = {key: strict_json(data) for key, data in raw.items()}

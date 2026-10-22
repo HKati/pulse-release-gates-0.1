@@ -52,6 +52,9 @@ PERMANENT_BOUNDARIES = {
     "slice_metadata_correctness": "not_verified",
     "policy_activation": False,
 }
+PROFILE_SHA256 = (
+    "e31e390d3ee5619bad082a6b04b7b556cfbed1690f97e35bc972816cb48db666"
+)
 INPUT_SCHEMA_SHA256 = (
     "41e235d887822e9f7ced148bd06c7cee7cb02984ebb9a59e3f333f11497350e5"
 )
@@ -597,8 +600,10 @@ def independently_expected(
             raise InputProblem(
                 "FILE_BINDING_MISMATCH", "A resource disagrees with the selected external digest."
             )
-    # The external anchor selects input identity, not a new input language for
-    # this fixed implementation. Reject unsupported schema bytes before use.
+    # The external anchor cannot authorize different profile semantics or a new
+    # input language for this implementation. Reject unsupported bytes before use.
+    if resources["contract_sha256"].sha256 != PROFILE_SHA256:
+        raise InputProblem("FILE_BINDING_MISMATCH", "The supported profile was changed.")
     if resources["input_schema_sha256"].sha256 != INPUT_SCHEMA_SHA256:
         raise InputProblem("FILE_BINDING_MISMATCH", "The supported input schema was changed.")
     if resources["dataset_manifest_schema_sha256"].sha256 != MANIFEST_SCHEMA_SHA256:
