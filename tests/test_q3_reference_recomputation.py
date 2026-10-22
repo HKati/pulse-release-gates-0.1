@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 from jsonschema import Draft202012Validator
 
@@ -484,6 +485,83 @@ class Q3ReferenceRecomputationTests(unittest.TestCase):
         summary.write_bytes(json.dumps(original, ensure_ascii=False, separators=(",", ":")).encode("utf-8") + b"\n")
         self.check(fixture, summary, 1, receipt_name="receipt-noncanonical.json")
 
+    def assert_reselected_input_schema_rejected(self, fixture, reference_result):
+        # All attacker-selected outer bindings are coherent. Rejection must
+        # come from the implementation's supported schema, not a stale digest.
+        selected_schema = fixture.resources_root / fb.RESOURCE_PATHS["input_schema_sha256"]
+        selected_digest = fb.sha256(selected_schema.read_bytes())
+        expected = fb.read_json(fixture.expected)
+        bundle = fb.read_json(fixture.bundle)
+        self.assertEqual(expected["input_schema_sha256"], selected_digest)
+        self.assertEqual(bundle["contract_bindings"]["input_schema_sha256"], selected_digest)
+        self.assertEqual(expected["input_bundle_sha256"], fb.sha256(fixture.bundle.read_bytes()))
+        self.assertNotEqual(selected_digest,
+                            fb.sha256((ROOT / fb.RESOURCE_PATHS["input_schema_sha256"]).read_bytes()))
+
+        summary = fixture.root / "new-summary.json"
+        producer = self.invoke(PRODUCER, [*self.roots_and_input(fixture), "--out", summary])
+        self.assertEqual(producer.returncode, 2, msg=producer.stdout + producer.stderr)
+        self.assertIn("FILE_BINDING_MISMATCH", producer.stderr)
+        self.assertFalse(summary.exists(), "Unsupported schema must be rejected before a report is written")
+
+        # Seed a formerly self-consistent report with the matching supported
+        # calculation, then refresh its input bindings. This tests the checker
+        # separately from the fixed producer's refusal to create a report.
+        forged = copy.deepcopy(reference_result)
+        forged["input_bundle_sha256"] = fb.sha256(fixture.bundle.read_bytes())
+        forged["expected_context_sha256"] = fb.sha256(fixture.expected.read_bytes())
+        fb.write_json(summary, forged)
+        receipt = self.check(fixture, summary, 2)
+        self.assertEqual(receipt["verification_result"], "INPUT_INVALID")
+        self.assertEqual(receipt["input_validity"], "INVALID")
+        self.assertEqual(receipt["reason_codes"], ["FILE_BINDING_MISMATCH"])
+        self.assertFalse(receipt["summary_matches"])
+        self.assertIsNone(receipt["independently_expected_summary_sha256"])
+
+    def test_reselected_input_schema_cannot_extend_label_enum(self):
+        examples, labels, dimensions = fb.base_records()
+        for label in labels[:200]:
+            label["q1_grounded_label"] = "UNSUPPORTED"
+        original = fb.write_fixture(self.temp / "supported-labels", examples, labels, dimensions)
+        reference_result, _ = self.assert_valid(original, False)
+        self.assertEqual(reference_result["counts"]["n_fail"], 200)
+
+        resources = fb.copy_resources(self.temp / "extended-enum-resources")
+        schema_path = resources / fb.RESOURCE_PATHS["input_schema_sha256"]
+        schema = fb.read_json(schema_path)
+        schema["$defs"]["label_record"]["properties"]["q1_grounded_label"]["enum"].append("OTHER")
+        Draft202012Validator.check_schema(schema)
+        fb.write_json(schema_path, schema)
+        for label in labels[:200]:
+            label["q1_grounded_label"] = "OTHER"
+        selected = fb.write_fixture(self.temp / "other-labels", examples, labels, dimensions,
+                                    resources_root=resources)
+        self.assert_reselected_input_schema_rejected(selected, reference_result)
+
+    def test_reselected_input_schema_cannot_open_closed_example_records(self):
+        examples, labels, dimensions = fb.base_records()
+        original = fb.write_fixture(self.temp / "closed-records", examples, labels, dimensions)
+        reference_result, _ = self.assert_valid(original)
+
+        resources = fb.copy_resources(self.temp / "open-record-resources")
+        schema_path = resources / fb.RESOURCE_PATHS["input_schema_sha256"]
+        schema = fb.read_json(schema_path)
+        schema["$defs"]["example_record"]["additionalProperties"] = True
+        Draft202012Validator.check_schema(schema)
+        fb.write_json(schema_path, schema)
+        examples[0]["out_of_contract_field"] = "A selected digest cannot authorize this field."
+        selected = fb.write_fixture(self.temp / "open-records", examples, labels, dimensions,
+                                    resources_root=resources)
+        self.assert_reselected_input_schema_rejected(selected, reference_result)
+
+    def test_exact_input_schema_at_alternate_resources_root_remains_supported(self):
+        resources = fb.copy_resources(self.temp / "exact-resources")
+        source = ROOT / fb.RESOURCE_PATHS["input_schema_sha256"]
+        copied = resources / fb.RESOURCE_PATHS["input_schema_sha256"]
+        self.assertEqual(copied.read_bytes(), source.read_bytes())
+        fixture = fb.materialize(1, self.temp / "alternate-root", resources_root=resources)
+        self.assert_valid(fixture)
+
     def test_fixed_pins_reject_changed_contract_or_schema_resources(self):
         for key, relative in fb.RESOURCE_PATHS.items():
             with self.subTest(resource=relative):
@@ -491,28 +569,37 @@ class Q3ReferenceRecomputationTests(unittest.TestCase):
                 fixture.resources_root = fb.copy_resources(fixture.root / "modified_resources")
                 path = fixture.resources_root / relative
                 path.write_bytes(path.read_bytes() + b" \n")
-                self.assert_invalid(fixture)
+                if key == "input_schema_sha256":
+                    summary = fixture.root / "summary.json"
+                    producer = self.invoke(PRODUCER, [*self.roots_and_input(fixture), "--out", summary])
+                    self.assertEqual(producer.returncode, 2, msg=producer.stdout + producer.stderr)
+                    self.assertIn("FILE_BINDING_MISMATCH", producer.stderr)
+                    self.assertFalse(summary.exists())
+                    receipt = self.check(fixture, summary, 2)
+                    self.assertEqual(receipt["verification_result"], "INPUT_INVALID")
+                    self.assertEqual(receipt["reason_codes"], ["FILE_BINDING_MISMATCH"])
+                else:
+                    self.assert_invalid(fixture)
         with self.subTest(resource="missing_local_ref_with_new_explicit_anchor"):
             resources = fb.copy_resources(self.temp / "invalid-schema-resources")
             path = resources / fb.RESOURCE_PATHS["input_schema_sha256"]
             schema = fb.read_json(path)
             schema["$defs"]["example_record"] = {"$ref": "#/$defs/nonexistent_definition"}
             fb.write_json(path, schema)
-            # This is a deliberately selected, newly pinned synthetic resource
-            # snapshot, not a stale-digest attack. Reference resolution itself
-            # must fail closed even when schema structural checking succeeds.
+            # Refreshing the caller anchor cannot authorize unsupported schema
+            # semantics. Reject its bytes before parsing its local references.
             fixture = fb.materialize(1, self.temp / "bad-local-ref", resources_root=resources)
             summary = fixture.root / "summary.json"
             producer = self.invoke(PRODUCER, [*self.roots_and_input(fixture), "--out", summary])
             self.assertEqual(producer.returncode, 2, msg=producer.stdout + producer.stderr)
-            if summary.exists():
-                result = fb.read_json(summary)
-                self.result_validator.validate(result)
-                self.assertEqual(result["input_validity"], "INVALID")
-                self.assertIsNone(result["counts"])
+            self.assertIn("FILE_BINDING_MISMATCH", producer.stderr)
+            self.assertFalse(summary.exists())
             checker = self.invoke(CHECKER, [*self.roots_and_input(fixture), "--summary", summary,
                                             "--receipt", fixture.root / "receipt.json"])
             self.assertEqual(checker.returncode, 2, msg=checker.stdout + checker.stderr)
+            receipt = json.loads(checker.stdout)
+            self.assertEqual(receipt["verification_result"], "INPUT_INVALID")
+            self.assertEqual(receipt["reason_codes"], ["FILE_BINDING_MISMATCH"])
 
     def test_self_consistency_with_a_new_caller_anchor_is_not_origin_authentication(self):
         examples, labels, dimensions = fb.base_records()
@@ -562,6 +649,138 @@ class Q3ReferenceRecomputationTests(unittest.TestCase):
                                                   "--summary", summary, "--receipt", path])
                 self.assertEqual(completed.returncode, 2, msg=completed.stdout + completed.stderr)
                 self.assertEqual(path.read_bytes(), before, "Input/report bytes changed by receipt output")
+
+    def receipt_writer_module(self):
+        name = f"q3_checker_receipt_test_{id(self)}"
+        spec = importlib.util.spec_from_file_location(name, CHECKER)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        self.addCleanup(sys.modules.pop, name, None)
+        spec.loader.exec_module(module)
+        return module
+
+    def assert_receipt_failure_is_cleaned_up(self, failure):
+        checker = self.receipt_writer_module()
+        destination = self.temp / "receipt.json"
+        payload = b'{"receipt":"synthetic fault injection"}\n'
+        original_write = os.write
+        write_calls = 0
+        bytes_at_failure = None
+
+        def failing_write(descriptor, data):
+            nonlocal write_calls, bytes_at_failure
+            write_calls += 1
+            if failure == "zero_progress":
+                bytes_at_failure = os.fstat(descriptor).st_size
+                return 0
+            if write_calls == 1:
+                return original_write(descriptor, data[:7])
+            bytes_at_failure = os.fstat(descriptor).st_size
+            raise OSError("injected quota failure after partial write")
+
+        def failing_fsync(descriptor):
+            nonlocal bytes_at_failure
+            bytes_at_failure = os.fstat(descriptor).st_size
+            raise OSError("injected fsync failure")
+
+        operation = "fsync" if failure == "fsync" else "write"
+        injected = failing_fsync if failure == "fsync" else failing_write
+        with mock.patch.object(checker.os, operation, side_effect=injected):
+            with self.assertRaises(checker.InputProblem) as caught:
+                checker.write_receipt_new(str(destination), payload)
+        self.assertEqual(caught.exception.code, "RECEIPT_WRITE_FAILED")
+        self.assertEqual(bytes_at_failure, {"partial_write": 7, "zero_progress": 0,
+                                           "fsync": len(payload)}[failure])
+        self.assertFalse(destination.exists(), "Failed receipt must not retain the destination")
+        checker.write_receipt_new(str(destination), payload)
+        self.assertEqual(destination.read_bytes(), payload, "The same path must be reusable after cleanup")
+
+    def test_checker_receipt_partial_write_failure_cleans_up_and_allows_retry(self):
+        self.assert_receipt_failure_is_cleaned_up("partial_write")
+
+    def test_checker_receipt_zero_progress_cleans_up_and_allows_retry(self):
+        self.assert_receipt_failure_is_cleaned_up("zero_progress")
+
+    def test_checker_receipt_fsync_failure_cleans_up_and_allows_retry(self):
+        self.assert_receipt_failure_is_cleaned_up("fsync")
+
+    def test_checker_receipt_failure_preserves_preexisting_files_and_links(self):
+        checker = self.receipt_writer_module()
+        sentinel = b"existing evidence must remain unchanged\n"
+        for kind in ("regular", "hardlink", "symlink"):
+            with self.subTest(destination=kind):
+                target = self.temp / f"target-{kind}"
+                target.write_bytes(sentinel)
+                destination = self.temp / f"receipt-{kind}.json"
+                if kind == "regular":
+                    destination.write_bytes(sentinel)
+                elif kind == "hardlink":
+                    os.link(target, destination)
+                else:
+                    destination.symlink_to(target.name)
+                before = destination.lstat()
+                with mock.patch.object(checker.os, "write", side_effect=AssertionError("Existing output was opened for writing")):
+                    with self.assertRaises(checker.InputProblem) as caught:
+                        checker.write_receipt_new(str(destination), b"new receipt\n")
+                self.assertEqual(caught.exception.code, "RECEIPT_WRITE_FAILED")
+                after = destination.lstat()
+                self.assertEqual((after.st_dev, after.st_ino), (before.st_dev, before.st_ino))
+                self.assertEqual(destination.read_bytes(), sentinel)
+                self.assertEqual(target.read_bytes(), sentinel)
+                self.assertEqual(destination.is_symlink(), kind == "symlink")
+
+    def test_checker_receipt_failure_preserves_substituted_destination(self):
+        checker = self.receipt_writer_module()
+        original_write = os.write
+        sentinel = b"replacement evidence must remain unchanged\n"
+        for kind in ("regular", "symlink"):
+            with self.subTest(replacement=kind):
+                destination = self.temp / f"receipt-{kind}.json"
+                moved_receipt = self.temp / f"moved-{kind}.json"
+                target = self.temp / f"target-{kind}"
+                target.write_bytes(sentinel)
+                replacement_identity = None
+
+                def replace_then_fail(descriptor, data):
+                    nonlocal replacement_identity
+                    original_write(descriptor, data[:7])
+                    destination.rename(moved_receipt)
+                    if kind == "regular":
+                        destination.write_bytes(sentinel)
+                    else:
+                        destination.symlink_to(target.name)
+                    replacement = destination.lstat()
+                    replacement_identity = (replacement.st_dev, replacement.st_ino)
+                    raise OSError("injected write failure after destination substitution")
+
+                with mock.patch.object(checker.os, "write", side_effect=replace_then_fail):
+                    with self.assertRaises(checker.InputProblem) as caught:
+                        checker.write_receipt_new(str(destination), b"new receipt\n")
+                self.assertEqual(caught.exception.code, "RECEIPT_WRITE_FAILED")
+                after = destination.lstat()
+                self.assertEqual((after.st_dev, after.st_ino), replacement_identity)
+                self.assertEqual(destination.read_bytes(), sentinel)
+                self.assertEqual(target.read_bytes(), sentinel)
+                self.assertEqual(destination.is_symlink(), kind == "symlink")
+                self.assertEqual(moved_receipt.read_bytes(), b"new rec")
+
+    def test_checker_receipt_cleanup_failure_retains_original_error(self):
+        checker = self.receipt_writer_module()
+        destination = self.temp / "receipt.json"
+        original_write = os.write
+        write_failure = OSError("injected primary write failure")
+
+        def write_then_fail(descriptor, data):
+            original_write(descriptor, data[:7])
+            raise write_failure
+
+        with mock.patch.object(checker.os, "write", side_effect=write_then_fail):
+            with mock.patch.object(checker.os, "unlink", side_effect=OSError("injected cleanup denial")):
+                with self.assertRaises(checker.InputProblem) as caught:
+                    checker.write_receipt_new(str(destination), b"new receipt\n")
+        self.assertEqual(caught.exception.code, "RECEIPT_WRITE_FAILED")
+        self.assertIs(caught.exception.__cause__, write_failure)
+        self.assertEqual(destination.read_bytes(), b"new rec")
 
     def test_file_line_and_dimension_limits_fail_closed(self):
         for target in ("file", "line", "dimensions"):

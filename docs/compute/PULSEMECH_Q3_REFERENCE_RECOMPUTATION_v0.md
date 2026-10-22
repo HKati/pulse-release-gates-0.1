@@ -72,6 +72,13 @@ digests, and the producer identity. Select it independently before inspecting
 an untrusted report. Missing expectation fails closed; the tools do not generate
 one from a report or silently trust the supplied bundle as its own authority.
 
+Both tools additionally pin the exact input-schema bytes supported by this
+implementation to SHA-256
+`41e235d887822e9f7ced148bd06c7cee7cb02984ebb9a59e3f333f11497350e5`.
+A newly selected external digest cannot extend or weaken that input contract.
+An unsupported input schema fails with `FILE_BINDING_MISMATCH` before input
+validation; the producer exits 2 without creating a report.
+
 The producer source closure is exactly one file:
 `PULSE_safe_pack_v0/tools/build_q3_reference_summary.py`. Its SHA-256, tool ID,
 version and claimed Python version are selected by the expectation. The producer
@@ -233,6 +240,13 @@ overwriting an existing file.
 The checker emits a separate JSON receipt to stdout and optionally to a new
 `--receipt` file. Receipt success is a reconstruction result, not a second metric
 verdict or an external validating authority.
+
+If a receipt write or synchronization fails after creation, the checker attempts
+to remove the file it created, guarded by its device/inode identity. Existing
+destinations and observed replacements are preserved. Successful cleanup allows
+retrying the same path. If the filesystem also prevents cleanup, the original
+`RECEIPT_WRITE_FAILED` remains the reported failure; no successful receipt is
+claimed.
 
 Every result keeps `authority_effect="none"`, `production_gate_eligible=false`,
 `current_run_evidence=false`, `source_authentication="not_established"`,

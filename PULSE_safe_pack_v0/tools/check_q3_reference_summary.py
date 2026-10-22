@@ -52,6 +52,9 @@ PERMANENT_BOUNDARIES = {
     "slice_metadata_correctness": "not_verified",
     "policy_activation": False,
 }
+INPUT_SCHEMA_SHA256 = (
+    "41e235d887822e9f7ced148bd06c7cee7cb02984ebb9a59e3f333f11497350e5"
+)
 MANIFEST_SCHEMA_SHA256 = (
     "7bd729958c65dfde432925a4d3fccbd50c846cca19c891411ed085166ecdfead"
 )
@@ -594,6 +597,10 @@ def independently_expected(
             raise InputProblem(
                 "FILE_BINDING_MISMATCH", "A resource disagrees with the selected external digest."
             )
+    # The external anchor selects input identity, not a new input language for
+    # this fixed implementation. Reject unsupported schema bytes before use.
+    if resources["input_schema_sha256"].sha256 != INPUT_SCHEMA_SHA256:
+        raise InputProblem("FILE_BINDING_MISMATCH", "The supported input schema was changed.")
     if resources["dataset_manifest_schema_sha256"].sha256 != MANIFEST_SCHEMA_SHA256:
         raise InputProblem("FILE_BINDING_MISMATCH", "The baseline manifest schema was changed.")
 
@@ -803,11 +810,15 @@ def write_receipt_new(path: str, payload: bytes) -> None:
     """Never overwrite an input, existing receipt or a symlink."""
     parent = None
     descriptor = None
+    created = None
     try:
         parent, leaf = parent_descriptor(absolute_path(path))
         flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
         flags |= getattr(os, "O_CLOEXEC", 0)
         descriptor = os.open(leaf, flags, 0o600, dir_fd=parent)
+        created = os.fstat(descriptor)
+        if not stat.S_ISREG(created.st_mode):
+            raise OSError("receipt is not regular")
         written = 0
         while written < len(payload):
             amount = os.write(descriptor, payload[written:])
@@ -815,12 +826,20 @@ def write_receipt_new(path: str, payload: bytes) -> None:
                 raise OSError("receipt write did not progress")
             written += amount
         os.fsync(descriptor)
-    except InputProblem:
+    except BaseException as error:
+        if created is not None and parent is not None:
+            try:
+                current = os.stat(leaf, dir_fd=parent, follow_symlinks=False)
+                if (current.st_dev, current.st_ino) == (created.st_dev, created.st_ino):
+                    os.unlink(leaf, dir_fd=parent)
+            except OSError:
+                # Preserve the primary failure if cleanup is itself unavailable.
+                pass
+        if isinstance(error, OSError):
+            raise InputProblem(
+                "RECEIPT_WRITE_FAILED", "Receipt requires a new safe destination file."
+            ) from error
         raise
-    except OSError as error:
-        raise InputProblem(
-            "RECEIPT_WRITE_FAILED", "Receipt requires a new safe destination file."
-        ) from error
     finally:
         if descriptor is not None:
             os.close(descriptor)

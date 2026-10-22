@@ -28,6 +28,7 @@ PROFILE_ID = "q3_input_recomputation_v0.1"
 SOURCE_PATH = "PULSE_safe_pack_v0/tools/build_q3_reference_summary.py"
 PROFILE_PATH = "PULSE_safe_pack_v0/profiles/q3_reference_recomputation_v0.json"
 INPUT_SCHEMA_PATH = "schemas/metrics/q3_input_bundle_v0.schema.json"
+INPUT_SCHEMA_SHA256 = "41e235d887822e9f7ced148bd06c7cee7cb02984ebb9a59e3f333f11497350e5"
 RESULT_SCHEMA_PATH = "schemas/metrics/q3_reference_summary_v0.schema.json"
 MANIFEST_SCHEMA_PATH = "schemas/dataset_manifest.schema.json"
 MAX_FILE_BYTES = 67_108_864
@@ -314,6 +315,10 @@ def load_resources(root: Path, snapshots: Snapshots) -> dict:
              "result_schema_sha256": RESULT_SCHEMA_PATH,
              "dataset_manifest_schema_sha256": MANIFEST_SCHEMA_PATH}
     raw = {key: snapshots.read(relative_path(root, path)) for key, path in paths.items()}
+    # A caller may select inputs, but cannot redefine this implementation's
+    # accepted input language by rebinding a different schema in the anchor.
+    if digest(raw["input_schema_sha256"]) != INPUT_SCHEMA_SHA256:
+        raise InputFailure("FILE_BINDING_MISMATCH")
     documents = {key: strict_json(data) for key, data in raw.items()}
     input_schema = documents["input_schema_sha256"]
     output_schema = documents["result_schema_sha256"]
@@ -696,7 +701,10 @@ def main(argv: list[str] | None = None) -> int:
     try:
         identity = own_identity(script, snapshots)
         resources = load_resources(Path(args.resources_root), snapshots)
-    except (InputFailure, OSError, ValueError, TypeError, AttributeError):
+    except InputFailure as exc:
+        print(f"q3_reference: {exc.code}", file=sys.stderr)
+        return 2
+    except (OSError, ValueError, TypeError, AttributeError):
         print("q3_reference: SOURCE_UNAVAILABLE", file=sys.stderr)
         return 2
     try:
