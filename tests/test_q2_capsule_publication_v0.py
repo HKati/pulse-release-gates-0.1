@@ -45,6 +45,20 @@ def publication(invocation):
     return f
 
 
+@pytest.fixture
+def publication_disk_space(publication, monkeypatch):
+    """Opt-in disk seam for supervisor tests; the real profile stays unchanged."""
+    parent = Path(publication.env['RUNNER_TEMP']).absolute()
+    minimum = publication.profile['limits']['minimum_free_bytes']
+    state = SimpleNamespace(free=minimum + 1, paths=[])
+    def disk_usage(path):
+        assert Path(path) == parent
+        state.paths.append(Path(path))
+        return SimpleNamespace(free=state.free)
+    monkeypatch.setattr(P.shutil, 'disk_usage', disk_usage)
+    return state
+
+
 def test_publication_binds_all_executed_sources_to_a_real_local_git_fixture(publication):
     f = publication
     binding, sources = P.authorize(f.repo, f.env, f.profile)
@@ -116,7 +130,8 @@ def test_original_artifact_metadata_is_exact(fault):
 
 @pytest.mark.parametrize('fault', ['none', 'legacy-name', 'other-name', 'artifact-id', 'run-id',
                                  'attempt', 'source', 'digest', 'size', 'repository'])
-def test_roundtrip_matches_direct_upload_basename_and_preserves_origin_checks(publication, monkeypatch, fault):
+def test_roundtrip_matches_direct_upload_basename_and_preserves_origin_checks(
+        publication, publication_disk_space, monkeypatch, fault):
     """Model the pinned action's basename rule; do not mock the origin verifier."""
     f = publication
     binding, _ = P.authorize(f.repo, f.env, f.profile)
@@ -171,6 +186,7 @@ def test_roundtrip_matches_direct_upload_basename_and_preserves_origin_checks(pu
             P.supervise(f.repo, 'verify-download', f.env)
         assert 90001 not in downloads and installs == semantics == []
         assert not out.exists()
+    assert publication_disk_space.paths == [Path(f.env['RUNNER_TEMP']).absolute()]
 
 
 @pytest.mark.parametrize('identifier', ['', '0', '-1', '1/zip', '1\n', '1?token=private', '9' * 25])
@@ -210,7 +226,7 @@ def tar_case(tmp_path, fault):
 def test_bounded_tar_extraction_validates_before_materializing(tmp_path, fault):
     path, expected, limits = tar_case(tmp_path, fault); destination = tmp_path / 'extracted'
     if fault == 'none':
-        B.unpack_bootstrap(path, destination, expected, limits, IO.Deadline(5))
+        B.unpack_bootstrap(path, out := destination, expected, limits, IO.Deadline(5))
         assert (destination / 'bin/python3.11').read_bytes() == b'fixture'
         assert (destination / 'bin/file with spaces').read_bytes() == b'abc'
     else:
@@ -295,9 +311,10 @@ def test_closed_receipts_keep_preupload_separate_from_observed_roundtrip(publica
 
 
 @pytest.mark.parametrize('fault', ['none', 'roundtrip', 'main', 'timeout', 'disk', 'cleanup', 'existing', 'symlink', 'hardlink'])
-def test_supervisor_isolation_cleanup_and_output_lifecycle(publication, monkeypatch, tmp_path, fault):
+def test_supervisor_isolation_cleanup_and_output_lifecycle(
+        publication, publication_disk_space, monkeypatch, tmp_path, fault):
     """Control-plane seam test only; payload/transport are deliberately mocked."""
-    f = publication; children, stages = [], []
+    f = publication; children, stages, semantics, transports = [], [], [], []
     out = Path(f.env['RUNNER_TEMP']) / 'q2-capsule-publication'
     if fault == 'existing': out.mkdir(); (out / 'keep').write_bytes(b'prior')
     if fault == 'symlink':
@@ -306,7 +323,10 @@ def test_supervisor_isolation_cleanup_and_output_lifecycle(publication, monkeypa
         other = tmp_path / 'other'; other.write_bytes(b'prior'); os.link(other, out)
     monkeypatch.setenv('GITHUB_TOKEN', 'GENERIC_PRIVATE_CREDENTIAL')
     monkeypatch.setenv(P.TOKEN, 'PARENT_PRIVATE_CREDENTIAL')
-    monkeypatch.setattr(IO, 'GitHubArtifactTransport', lambda token: SimpleNamespace(token=token))
+    def transport(token):
+        transports.append(token)
+        return SimpleNamespace(token=token)
+    monkeypatch.setattr(IO, 'GitHubArtifactTransport', transport)
     monkeypatch.setattr(P, 'api_json', lambda *args: {'object': {'sha': 'b' * 40 if fault == 'main' else f.sha}})
     def download(_transport, _expected, destination, _deadline):
         stages.append(destination.parent)
@@ -323,6 +343,7 @@ def test_supervisor_isolation_cleanup_and_output_lifecycle(publication, monkeypa
         return 0
     monkeypatch.setattr(IO, 'private_process', child)
     def semantic(*args):
+        semantics.append(True)
         if fault == 'timeout': raise IO.IntakeError('q2_timeout')
         assert not any(k.startswith('PULSE_Q2_') for k in os.environ)
         return {'CONTROLLED_SEMANTIC_SEAM': True}
@@ -330,7 +351,7 @@ def test_supervisor_isolation_cleanup_and_output_lifecycle(publication, monkeypa
     monkeypatch.setattr(P, 'install_verifier_dependencies', lambda private, profile, deadline: installs.append(private))
     monkeypatch.setattr(P, 'verify_in_fresh_workspace', semantic)
     monkeypatch.setattr(P, 'copy_verified', lambda source, destination, *args: destination.write_bytes(source.read_bytes()))
-    if fault == 'disk': monkeypatch.setattr(P.shutil, 'disk_usage', lambda _: SimpleNamespace(free=0))
+    if fault == 'disk': publication_disk_space.free = 0
     if fault == 'cleanup':
         original = P.shutil.rmtree
         def cleanup(path, *args, **kwargs):
@@ -346,12 +367,61 @@ def test_supervisor_isolation_cleanup_and_output_lifecycle(publication, monkeypa
         assert not any(p.exists() for p in stages)
         assert IO.strict_json((out / 'publication.json').read_bytes()) == value
     else:
-        with pytest.raises((IO.IntakeError, OSError)): P.supervise(f.repo, 'build', f.env)
+        if fault in ('existing', 'symlink', 'hardlink'):
+            with pytest.raises(FileExistsError): P.supervise(f.repo, 'build', f.env)
+        else:
+            code = {'main': 'q2_source_mismatch', 'timeout': 'q2_timeout',
+                    'disk': 'q2_archive_limit', 'cleanup': 'q2_cleanup_failed'}[fault]
+            with pytest.raises(IO.IntakeError, match='^' + code + '$'):
+                P.supervise(f.repo, 'build', f.env)
         assert not (out / 'publication.json').exists()
         if fault == 'existing': assert (out / 'keep').read_bytes() == b'prior'
         elif fault == 'symlink': assert out.is_symlink()
         elif fault == 'hardlink': assert out.read_bytes() == b'prior'
         else: assert not out.exists()
+    # A different early rejection must not satisfy a later fault scenario.
+    reached_payload = fault in ('none', 'roundtrip', 'timeout', 'cleanup')
+    assert len(transports) == int(reached_payload or fault == 'main')
+    assert len(stages) == (3 if fault == 'roundtrip' else 2 if reached_payload else 0)
+    assert len(children) == int(fault in ('none', 'timeout', 'cleanup'))
+    assert len(installs) == int(reached_payload)
+    assert semantics == ([True] if reached_payload else [])
+    assert publication_disk_space.paths == [Path(f.env['RUNNER_TEMP']).absolute()]
+    if fault == 'cleanup':
+        assert stages[0].exists()  # The injected failure really left private data.
+        original(stages[0])  # Remove only this test's synthetic residue.
+    assert not any(p.exists() for p in stages)
+
+
+@pytest.mark.parametrize('phase', ['build', 'verify-download'])
+@pytest.mark.parametrize('free_offset', [-1, 0, 1], ids=['below', 'equal', 'above'])
+def test_supervisor_disk_threshold_precedes_transport(
+        publication, publication_disk_space, monkeypatch, phase, free_offset):
+    """Exercise the real guard at +/- one byte without allocating large files."""
+    f = publication
+    minimum = f.profile['limits']['minimum_free_bytes']
+    publication_disk_space.free = minimum + free_offset
+    if phase == 'verify-download': f.env['PULSE_Q2_PUBLICATION_ARTIFACT_ID'] = '90001'
+    parent = Path(f.env['RUNNER_TEMP']).absolute()
+    out = parent / 'q2-capsule-publication'
+    transports = []
+    class PreflightAccepted(Exception):
+        pass
+    def stop_before_network(token):
+        transports.append(token)
+        assert out.is_dir()
+        raise PreflightAccepted('controlled stop after disk preflight')
+    monkeypatch.setattr(IO, 'GitHubArtifactTransport', stop_before_network)
+    if free_offset < 0:
+        with pytest.raises(IO.IntakeError, match='^q2_archive_limit$'):
+            P.supervise(f.repo, phase, f.env)
+        assert transports == []
+    else:
+        # Stop at transport construction: acceptance here is not a publication.
+        with pytest.raises(PreflightAccepted): P.supervise(f.repo, phase, f.env)
+        assert transports == [f.env[P.TOKEN]]
+    assert publication_disk_space.paths == [parent]
+    assert not os.path.lexists(out)
 
 
 @pytest.mark.parametrize('job', ['build', 'verify_download'])

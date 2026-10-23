@@ -920,6 +920,14 @@ index update neither predeclares that closure nor performs a new proof execution
 
 ## Paradox field and edges
 
+- Paradoxon Diagram M1–M3 mechanical definition contract:
+  [PULSEMECH_PARADOX_M1_M3_DEFINITION_CONTRACT_v0_2.md](PULSEMECH_PARADOX_M1_M3_DEFINITION_CONTRACT_v0_2.md)
+  **Research contract candidate; not implemented.** Preserves the finite F0
+  profile, joint structural impact, persistence conditions, evidence
+  applicability, seven conditional derivations and hand-worked K01–K10 cases.
+  Representation fidelity, a common mechanical foundation and pilot readiness
+  remain open. No software tests or machine-checked proofs were performed;
+  software trials remain `NOT_RUN`; `authority_effect = none`.
 - [PULSE_paradox_field_v0_walkthrough.md](PULSE_paradox_field_v0_walkthrough.md) — Reading `paradox_field_v0`.
 - [Pulse_paradox_edges_v0_status.md](Pulse_paradox_edges_v0_status.md) — Status and roadmap for `paradox_edges_v0.jsonl`.
 - [paradox_edges_case_studies.md](paradox_edges_case_studies.md) — Fixture and non-fixture case studies.
