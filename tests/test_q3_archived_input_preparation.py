@@ -1,0 +1,1117 @@
+"""Synthetic, offline tests of Q3 preparation; never acquisition evidence."""
+from __future__ import annotations
+
+import ast
+import errno
+import importlib.util
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+from unittest import mock
+
+import pytest
+from jsonschema import Draft202012Validator
+
+ROOT = Path(__file__).absolute().parents[1]
+TOOL = ROOT / "PULSE_safe_pack_v0/tools/prepare_q3_archived_input_bundle_v0.py"
+
+
+def load(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+prep = load("q3_preparation_test_tool", TOOL)
+fb = load("q3_preparation_test_fixtures", ROOT / "tests/fixtures/q3_reference_v0/fixture_builder.py")
+ROLES = tuple(prep.ARTIFACT_NAMES)
+
+
+def selected(tmp_path, case=1):
+    fixture = fb.materialize(case, tmp_path / "originals", resources_root=ROOT, producer_source_root=ROOT)
+    bundle, expected = fb.read_json(fixture.bundle), fb.read_json(fixture.expected)
+    selection = {
+        "record_type": "q3_archived_input_selection_v0", "selection_id": "synthetic-selection-001",
+        "contract_profile": prep.PROFILE_ID,
+        **{key: bundle[key] for key in ("dataset_id", "reduction_id", "observation_subject")},
+        "selection_origin": {
+            "kind": "synthetic_test_anchor", "basis_reference": f"urn:pulse:test:case-{case}",
+            "access_use_basis": "Synthetic conformance data; not acquired evidence.",
+            "selected_before_scoring": True, "original_runtime_evidence_reference": None,
+        },
+        "artifacts": bundle["artifacts"], "resource_bindings": dict(prep.RESOURCE_SHA256),
+        "expected_producer": expected["expected_producer"],
+        "authority_effect": "none", "production_gate_eligible": False,
+    }
+    path = tmp_path / "selection.json"
+    path.write_bytes(prep.canonical(selection))
+    return fixture, path, selection, tmp_path / "prepared"
+
+
+def run(data, resources=ROOT, producer=ROOT):
+    fixture, path, _, output = data
+    return prep.prepare(path, fixture.root, resources, producer, output)
+
+
+def save(data):
+    data[1].write_bytes(prep.canonical(data[2]))
+
+
+def rejection(data, code=None, **kwargs):
+    with pytest.raises(prep.PreparationError) as caught:
+        run(data, **kwargs)
+    if code:
+        assert caught.value.code == code
+    assert not data[3].exists()
+    return caught.value
+
+
+def copied_resources(tmp_path):
+    root = fb.copy_resources(tmp_path / "resources", ROOT)
+    destination = root / prep.SELECTION_SCHEMA_PATH
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(ROOT / prep.SELECTION_SCHEMA_PATH, destination)
+    return root
+
+
+def invoke(tool, args, cwd):
+    return subprocess.run([sys.executable, str(tool), *map(str, args)], cwd=cwd,
+                          env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "PYTHONUTF8": "1"},
+                          capture_output=True, text=True, timeout=60, check=False)
+
+
+def score_and_check(output, expected_exit):
+    common = ["--bundle", output / "input_bundle.json", "--expected", output / "expected_context.json",
+              "--resources-root", ROOT, "--producer-source-root", ROOT]
+    summary = output / "summary.json"
+    producer = invoke(ROOT / fb.PRODUCER_PATH, [*common, "--out", summary], output)
+    assert producer.returncode == expected_exit, producer.stderr
+    checker = invoke(ROOT / fb.CHECKER_PATH, [*common, "--summary", summary], output)
+    assert checker.returncode == 0, checker.stdout + checker.stderr
+    receipt = json.loads(checker.stdout)
+    assert receipt["verification_result"] == "MATCH"
+    return fb.read_json(summary)
+
+
+def test_selection_schema_valid_and_pinned():
+    data = (ROOT / prep.SELECTION_SCHEMA_PATH).read_bytes()
+    assert prep.sha256(data) == prep.SELECTION_SCHEMA_SHA256
+    Draft202012Validator.check_schema(json.loads(data))
+
+
+@pytest.mark.parametrize("case,exit_code", [(1, 0), (12, 1), (7, 1)])
+def test_existing_producer_checker_roundtrip_preserves_result(tmp_path, case, exit_code):
+    data = selected(tmp_path, case)
+    originals = {role: (data[0].root / entry["path"]).read_bytes()
+                 for role, entry in data[2]["artifacts"].items()}
+    receipt = run(data)
+    assert receipt["preparation_result"] == "PREPARED"
+    for role, name in prep.ARTIFACT_NAMES.items():
+        assert (data[3] / name).read_bytes() == originals[role]
+        assert (data[0].root / data[2]["artifacts"][role]["path"]).read_bytes() == originals[role]
+    assert not (data[3] / "summary.json").exists()
+    result = score_and_check(data[3], exit_code)
+    assert result["pass"] is (exit_code == 0)
+    assert result["claims"]["authority_effect"] == "none"
+    assert result["claims"]["current_run_evidence"] is False
+    if case == 12:
+        assert result["coverage"]["excluded_in_any_dimension_count"] == 48
+    if case == 7:
+        assert result["counts"]["n_unknown_ignored"] == 200
+
+
+def test_exact_member_inventory_and_claims(tmp_path):
+    data = selected(tmp_path)
+    receipt = run(data)
+    out = data[3]
+    assert set(p.name for p in out.iterdir()) == {
+        *prep.ARTIFACT_NAMES.values(), "input_bundle.json", "expected_context.json",
+        "input_selection.json", "preparation_manifest.json"}
+    manifest_bytes = (out / "preparation_manifest.json").read_bytes()
+    assert prep.sha256(manifest_bytes) == receipt["preparation_manifest_sha256"]
+    manifest = json.loads(manifest_bytes)
+    for entry in manifest["members"]:
+        raw = (out / entry["path"]).read_bytes()
+        assert len(raw) == entry["size_bytes"]
+        assert prep.sha256(raw) == entry["sha256"]
+    assert len(manifest["members"]) == 6
+    assert (out / "input_selection.json").read_bytes() == data[1].read_bytes()
+    assert manifest["claims"] == prep.CLAIMS
+    assert manifest["original_runtime_identity_status"] == "unavailable"
+    assert manifest["expected_producer_runtime_status"] == "caller_selected_not_executed"
+    assert out.stat().st_mode & 0o777 == 0o700
+    assert all(p.stat().st_mode & 0o777 == 0o600 for p in out.iterdir())
+
+
+def test_same_selection_repeated_at_different_destination_is_deterministic(tmp_path):
+    data = selected(tmp_path)
+    run(data)
+    second = (*data[:3], tmp_path / "other")
+    run(second)
+    assert {p.name: p.read_bytes() for p in data[3].iterdir()} == {
+        p.name: p.read_bytes() for p in second[3].iterdir()}
+
+
+@pytest.mark.parametrize("role", ROLES)
+def test_changed_original_rejects_unchanged_selection(tmp_path, role):
+    data = selected(tmp_path)
+    path = data[0].root / data[2]["artifacts"][role]["path"]
+    path.write_bytes(path.read_bytes() + b" ")
+    rejection(data, "FILE_BINDING_MISMATCH")
+
+
+@pytest.mark.parametrize("role", ROLES)
+def test_wrong_selected_size_rejects(tmp_path, role):
+    data = selected(tmp_path)
+    data[2]["artifacts"][role]["size_bytes"] += 1
+    save(data)
+    rejection(data, "FILE_BINDING_MISMATCH")
+
+
+@pytest.mark.parametrize("field", ["dataset_id", "expected_producer", "selection_origin", "resource_bindings"])
+def test_missing_selection_field_rejects(tmp_path, field):
+    data = selected(tmp_path)
+    del data[2][field]
+    save(data)
+    rejection(data, "SELECTION_INVALID")
+
+
+def test_missing_selection_file_rejects(tmp_path):
+    data = selected(tmp_path)
+    data[1].unlink()
+    rejection(data, "INPUT_UNAVAILABLE")
+
+
+@pytest.mark.parametrize("location", ["root", "origin", "artifact", "producer"])
+def test_closed_selection_objects_reject_extras(tmp_path, location):
+    data = selected(tmp_path)
+    target = {"root": data[2], "origin": data[2]["selection_origin"],
+              "artifact": data[2]["artifacts"]["examples_jsonl"],
+              "producer": data[2]["expected_producer"]}[location]
+    target["report_derived_override"] = True
+    save(data)
+    rejection(data, "SELECTION_INVALID")
+
+
+@pytest.mark.parametrize("resource", list(prep.RESOURCE_PATHS))
+@pytest.mark.parametrize("coherent_rebind", [False, True])
+def test_modified_resources_cannot_reauthorize_themselves(tmp_path, resource, coherent_rebind):
+    data = selected(tmp_path)
+    resources = copied_resources(tmp_path)
+    path = resources / prep.RESOURCE_PATHS[resource]
+    changed = path.read_bytes() + b" \n"
+    path.write_bytes(changed)
+    if coherent_rebind:
+        data[2]["resource_bindings"][resource] = prep.sha256(changed)
+        save(data)
+    rejection(data, "SELECTION_INVALID" if coherent_rebind else "RESOURCE_BINDING_MISMATCH", resources=resources)
+
+
+def test_modified_selection_schema_rejects_before_use(tmp_path):
+    data = selected(tmp_path)
+    resources = copied_resources(tmp_path)
+    schema = resources / prep.SELECTION_SCHEMA_PATH
+    schema.write_bytes(schema.read_bytes() + b"\n")
+    rejection(data, "RESOURCE_BINDING_MISMATCH", resources=resources)
+
+
+@pytest.mark.parametrize("coherent_rebind", [False, True])
+def test_modified_producer_source_rejects_without_executing_it(tmp_path, coherent_rebind):
+    data = selected(tmp_path)
+    source = fb.copy_producer_source(tmp_path / "producer", ROOT)
+    path = source / prep.PRODUCER_PATH
+    path.write_bytes(path.read_bytes() + b"\nraise RuntimeError('must not execute')\n")
+    if coherent_rebind:
+        data[2]["expected_producer"]["source_files"][0]["sha256"] = prep.sha256(path.read_bytes())
+        save(data)
+    rejection(data, "SELECTION_INVALID" if coherent_rebind else "PRODUCER_BINDING_MISMATCH", producer=source)
+
+
+def test_exact_resources_and_producer_at_alternate_roots_supported(tmp_path):
+    data = selected(tmp_path)
+    resources = copied_resources(tmp_path)
+    source = fb.copy_producer_source(tmp_path / "producer", ROOT)
+    assert run(data, resources, source)["preparation_result"] == "PREPARED"
+
+
+@pytest.mark.parametrize("invalid", ["../examples.jsonl", "./examples.jsonl", "/etc/passwd", "a//b", "a/../b", "a\\b"])
+def test_unsafe_selected_path_rejects(tmp_path, invalid):
+    data = selected(tmp_path)
+    data[2]["artifacts"]["examples_jsonl"]["path"] = invalid
+    save(data)
+    rejection(data)
+
+
+def test_symlink_original_rejects(tmp_path):
+    data = selected(tmp_path)
+    path = data[0].examples
+    real = path.with_suffix(".real")
+    path.rename(real)
+    path.symlink_to(real)
+    rejection(data, "INPUT_UNAVAILABLE")
+
+
+def test_symlink_source_directory_rejects(tmp_path):
+    data = selected(tmp_path)
+    alias = tmp_path / "alias"
+    alias.symlink_to(data[0].root, target_is_directory=True)
+    with pytest.raises(prep.PreparationError, match="INPUT_UNAVAILABLE"):
+        prep.prepare(data[1], alias, ROOT, ROOT, data[3])
+    assert not data[3].exists()
+
+
+@pytest.mark.parametrize("kind", ["empty_directory", "populated_directory", "file", "symlink", "dangling_symlink"])
+def test_occupied_output_preserved(tmp_path, kind):
+    data = selected(tmp_path)
+    out = data[3]
+    if kind == "empty_directory":
+        out.mkdir()
+    elif kind == "populated_directory":
+        out.mkdir()
+        (out / "owner.txt").write_text("original")
+    elif kind == "file":
+        out.write_text("original")
+    elif kind == "symlink":
+        out.symlink_to(data[0].root, target_is_directory=True)
+    else:
+        out.symlink_to(tmp_path / "missing")
+    with pytest.raises(prep.PreparationError, match="OUTPUT_EXISTS"):
+        run(data)
+    if kind == "file":
+        assert out.read_text() == "original"
+    elif kind == "populated_directory":
+        assert (out / "owner.txt").read_text() == "original"
+    elif kind.endswith("symlink"):
+        assert out.is_symlink()
+    else:
+        assert not list(out.iterdir())
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+
+
+def test_symlink_output_parent_preserved(tmp_path):
+    data = selected(tmp_path)
+    target = tmp_path / "actual"
+    target.mkdir()
+    parent = tmp_path / "alias"
+    parent.symlink_to(target, target_is_directory=True)
+    rejection((*data[:3], parent / "new"), "OUTPUT_WRITE_FAILED")
+    assert not list(target.iterdir())
+
+
+def test_output_race_never_replaces_even_an_empty_directory(tmp_path):
+    data = selected(tmp_path)
+    native = prep.rename_no_replace
+    def race(fn, parent, old, new):
+        os.mkdir(new, dir_fd=parent)
+        native(fn, parent, old, new)
+    with mock.patch.object(prep, "rename_no_replace", side_effect=race):
+        with pytest.raises(prep.PreparationError, match="OUTPUT_EXISTS"):
+            run(data)
+    assert data[3].is_dir() and not list(data[3].iterdir())
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+
+
+@pytest.mark.parametrize("failure", ["partial_write", "zero_write", "file_fsync", "directory_fsync", "parent_fsync"])
+def test_interrupted_output_cleanup_and_retry(tmp_path, failure):
+    data = selected(tmp_path)
+    native_write, native_fsync = os.write, os.fsync
+    count = 0
+    def write(fd, b):
+        nonlocal count
+        count += 1
+        if failure == "zero_write":
+            return 0
+        if count == 1:
+            return native_write(fd, b[:7])
+        raise OSError(errno.ENOSPC, "synthetic quota failure")
+    def sync(fd):
+        nonlocal count
+        count += 1
+        # Seven file syncs, then stage directory, then publication parent.
+        selected_count = {"file_fsync": 1, "directory_fsync": 8, "parent_fsync": 9}[failure]
+        if count == selected_count:
+            raise OSError(errno.EIO, "synthetic sync failure")
+        return native_fsync(fd)
+    method = "write" if failure in ("partial_write", "zero_write") else "fsync"
+    with mock.patch.object(prep.os, method, side_effect=write if method == "write" else sync):
+        error = rejection(data, "OUTPUT_WRITE_FAILED")
+    assert error.cleanup_complete is True
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+    assert run(data)["preparation_result"] == "PREPARED"
+
+
+def test_cleanup_failure_never_claims_success_and_keeps_primary_error(tmp_path):
+    data = selected(tmp_path)
+    native_rename = prep.ensure_platform()
+    with mock.patch.object(prep, "ensure_platform", return_value=native_rename), \
+         mock.patch.object(prep.os, "write", side_effect=OSError(errno.ENOSPC, "quota")), \
+         mock.patch.object(prep.os, "unlink", side_effect=PermissionError("cleanup denied")):
+        error = rejection(data, "OUTPUT_WRITE_FAILED")
+    assert error.cleanup_complete is False
+    stages = list(tmp_path.glob(".q3-preparing-*"))
+    assert len(stages) == 1
+    assert not (stages[0] / "preparation_manifest.json").exists()
+    # Leftover staging is never reused as a successful package.
+    assert run(data)["preparation_result"] == "PREPARED"
+
+
+def test_cleanup_preserves_replaced_staged_file_and_unrelated_content(tmp_path):
+    data = selected(tmp_path)
+    native = prep.write_member
+    replaced_inode = None
+    def replace_then_fail(directory, name, raw, created):
+        nonlocal replaced_inode
+        native(directory, name, raw, created)
+        os.rename(name, "retained-original", src_dir_fd=directory, dst_dir_fd=directory)
+        replacement = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=directory)
+        os.write(replacement, b"replacement")
+        replaced_inode = os.fstat(replacement).st_ino
+        os.close(replacement)
+        raise OSError(errno.EIO, "injected interruption")
+    with mock.patch.object(prep, "write_member", side_effect=replace_then_fail):
+        error = rejection(data, "OUTPUT_WRITE_FAILED")
+    assert error.cleanup_complete is False
+    stage = next(tmp_path.glob(".q3-preparing-*"))
+    assert (stage / "retained-original").exists()
+    replacement = next(p for p in stage.iterdir() if p.stat().st_ino == replaced_inode)
+    assert replacement.read_bytes() == b"replacement"
+
+
+def test_parent_replacement_is_detected_and_replacement_is_preserved(tmp_path):
+    data = selected(tmp_path)
+    parent = tmp_path / "parent"
+    parent.mkdir()
+    data = (*data[:3], parent / "prepared")
+    original = prep.check_parent_binding
+    done = False
+    def replaced(path, expected):
+        nonlocal done
+        if not done:
+            parent.rename(tmp_path / "moved-parent")
+            parent.mkdir()
+            (parent / "owner.txt").write_text("keep")
+            done = True
+        return original(path, expected)
+    with mock.patch.object(prep, "check_parent_binding", side_effect=replaced):
+        rejection(data, "OUTPUT_BINDING_MISMATCH")
+    assert (parent / "owner.txt").read_text() == "keep"
+    assert not list((tmp_path / "moved-parent").iterdir())
+
+
+def test_changed_output_bytes_are_caught_before_publication(tmp_path):
+    data = selected(tmp_path)
+    native = prep.write_member
+    def corrupt(directory, name, raw, created):
+        native(directory, name, raw, created)
+        if name == "examples.jsonl":
+            fd = os.open(name, os.O_WRONLY, dir_fd=directory)
+            os.write(fd, b"!")
+            os.close(fd)
+    with mock.patch.object(prep, "write_member", side_effect=corrupt):
+        rejection(data, "OUTPUT_BINDING_MISMATCH")
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+
+
+def test_unsupported_no_replace_primitive_fails_closed(tmp_path):
+    data = selected(tmp_path)
+    def unsupported(*_args):
+        prep.ctypes.set_errno(errno.ENOSYS)
+        return -1
+    with mock.patch.object(prep, "ensure_platform", return_value=unsupported):
+        rejection(data, "UNSUPPORTED_FILESYSTEM")
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+
+
+def test_unsupported_platform_does_not_create_output(tmp_path):
+    data = selected(tmp_path)
+    with mock.patch.object(prep.sys, "platform", "win32"):
+        rejection(data, "UNSUPPORTED_FILESYSTEM")
+
+
+@pytest.mark.parametrize("raw", [b'{"x":1,"x":2}', b'{"x":NaN}', b'{"x":1e999}',
+                                 b'{"x":"\\ud800"}', b'\xef\xbb\xbf{}', b'\xff'])
+def test_strict_json_rejects_unsupported_encoding_and_numbers(raw):
+    with pytest.raises(prep.PreparationError, match="JSON_INVALID"):
+        prep.strict_json(raw)
+
+
+def test_selection_size_limit(tmp_path):
+    data = selected(tmp_path)
+    data[1].write_bytes(b" " * (prep.MAX_SELECTION_BYTES + 1))
+    rejection(data, "INPUT_LIMIT")
+
+
+@pytest.mark.parametrize("representation", ["crlf", "missing_final_lf", "blank_line", "invalid_utf8"])
+def test_preparation_never_normalizes_original_jsonl(tmp_path, representation):
+    data = selected(tmp_path)
+    raw = data[0].examples.read_bytes()
+    changed = {"crlf": raw.replace(b"\n", b"\r\n"), "missing_final_lf": raw[:-1],
+               "blank_line": raw + b"\n", "invalid_utf8": raw.replace(b"Synthetic", b"\xff", 1)}[representation]
+    fb.replace_examples_bytes(data[0], changed)
+    bundle = fb.read_json(data[0].bundle)
+    data[2]["artifacts"] = bundle["artifacts"]
+    save(data)
+    rejection(data)
+    assert data[0].examples.read_bytes() == changed
+
+
+@pytest.mark.parametrize("case,reason", [(28, "DUPLICATE_EXAMPLE_ID"), (35, "LABEL_BINDING_MISMATCH")])
+def test_source_join_failures_reject_before_copy(tmp_path, case, reason):
+    rejection(selected(tmp_path, case), reason)
+
+
+def test_selected_dataset_identity_must_match_manifest(tmp_path):
+    data = selected(tmp_path)
+    data[2]["dataset_id"] = "different-dataset"
+    save(data)
+    rejection(data, "MANIFEST_BINDING_MISMATCH")
+
+
+def test_prep_does_not_silently_validate_or_fix_eligibility(tmp_path):
+    data = selected(tmp_path, 20)  # Empty context, still labelled eligible: semantic inconsistency.
+    raw = data[0].labels.read_bytes()
+    receipt = run(data)
+    assert receipt["claims"]["full_q3_semantics_verified"] is False
+    assert (data[3] / "q1_labels.jsonl").read_bytes() == raw
+    args = ["--bundle", data[3] / "input_bundle.json", "--expected", data[3] / "expected_context.json",
+            "--resources-root", ROOT, "--producer-source-root", ROOT, "--out", data[3] / "summary.json"]
+    completed = invoke(ROOT / fb.PRODUCER_PATH, args, data[3])
+    assert completed.returncode == 2
+    assert fb.read_json(data[3] / "summary.json")["input_validity"] == "INVALID"
+
+
+def test_original_and_expected_producer_runtime_are_distinct(tmp_path):
+    data = selected(tmp_path)
+    data[2]["observation_subject"].update(kind="archived_input", runtime_identity=None)
+    data[2]["selection_origin"]["kind"] = "caller_selected_archived_input"
+    data[2]["expected_producer"]["python_version"] = "3.11.16"
+    save(data)
+    run(data)
+    expected = fb.read_json(data[3] / "expected_context.json")
+    assert expected["observation_subject"]["runtime_identity"] is None
+    assert expected["expected_producer"]["python_version"] == "3.11.16"
+    assert expected["expectation_origin"] == "caller_selected_archived_input"
+
+
+def test_claimed_original_runtime_requires_a_reference_but_is_not_authenticated(tmp_path):
+    data = selected(tmp_path)
+    data[2]["observation_subject"].update(kind="archived_input", runtime_identity={
+        "repository": "synthetic/test", "source_commit": "a" * 40, "run_id": "123", "run_attempt": 1})
+    data[2]["selection_origin"].update(kind="caller_selected_archived_input",
+        original_runtime_evidence_reference="urn:synthetic:declared-runtime")
+    save(data)
+    run(data)
+    manifest = fb.read_json(data[3] / "preparation_manifest.json")
+    assert manifest["original_runtime_identity_status"] == "caller_declared_not_verified"
+    assert manifest["claims"]["current_run_evidence"] is False
+
+
+def test_runtime_identity_without_reference_rejects(tmp_path):
+    data = selected(tmp_path)
+    data[2]["observation_subject"].update(kind="archived_input", runtime_identity={
+        "repository": "synthetic/test", "source_commit": "a" * 40, "run_id": "123", "run_attempt": 1})
+    data[2]["selection_origin"]["kind"] = "caller_selected_archived_input"
+    save(data)
+    rejection(data, "RUNTIME_DECLARATION_MISMATCH")
+
+
+def test_synthetic_cannot_be_silently_relabelled_archived(tmp_path):
+    data = selected(tmp_path)
+    data[2]["selection_origin"]["kind"] = "caller_selected_archived_input"
+    save(data)
+    rejection(data, "SELECTION_ORIGIN_MISMATCH")
+
+
+def test_selection_before_scoring_is_a_required_declaration(tmp_path):
+    data = selected(tmp_path)
+    data[2]["selection_origin"]["selected_before_scoring"] = False
+    save(data)
+    rejection(data, "SELECTION_INVALID")
+
+
+def test_snapshot_stable_hardlink_alias_reuses_bytes(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.write_bytes(b"original")
+    os.link(a, b)
+    snapshots = prep.Snapshots()
+    assert snapshots.read(a) == b"original"
+    with mock.patch.object(prep.os, "read", side_effect=AssertionError("second read")):
+        assert snapshots.read(b) == b"original"
+
+
+@pytest.mark.parametrize("repeat_path", [False, True])
+def test_snapshot_detects_same_length_rewrite(tmp_path, repeat_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.write_bytes(b"original")
+    os.link(a, b)
+    snapshots = prep.Snapshots()
+    snapshots.read(a)
+    before = b.stat()
+    b.write_bytes(b"changed!")
+    os.utime(b, ns=(before.st_atime_ns, before.st_mtime_ns + 1_000_000_000))
+    with pytest.raises(prep.PreparationError, match="FILE_BINDING_MISMATCH"):
+        snapshots.read(a if repeat_path else b)
+
+
+def test_snapshot_detects_mutation_during_read(tmp_path):
+    path = tmp_path / "original"
+    path.write_bytes(b"original")
+    native = os.read
+    changed = False
+    def mutate(fd, count):
+        nonlocal changed
+        raw = native(fd, count)
+        if raw and not changed:
+            before = path.stat()
+            path.write_bytes(b"changed!")
+            os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns + 1_000_000_000))
+            changed = True
+        return raw
+    with mock.patch.object(prep.os, "read", side_effect=mutate):
+        with pytest.raises(prep.PreparationError, match="FILE_BINDING_MISMATCH"):
+            prep.Snapshots().read(path)
+
+
+def test_final_source_recheck_prevents_late_mutation(tmp_path):
+    data = selected(tmp_path)
+    native = prep.build_package
+    def mutate(*args, **kwargs):
+        package = native(*args, **kwargs)
+        data[0].labels.write_bytes(data[0].labels.read_bytes() + b"\n")
+        return package
+    with mock.patch.object(prep, "build_package", side_effect=mutate):
+        rejection(data, "FILE_BINDING_MISMATCH")
+
+
+def test_metric_modules_and_execution_are_not_used_in_preparation(tmp_path):
+    data = selected(tmp_path)
+    tree = ast.parse(TOOL.read_text())
+    imports = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imports.extend(x.name for x in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            imports.append(node.module or "")
+    assert not any(x.startswith(("subprocess", "requests", "urllib", "importlib")) for x in imports)
+    assert "wilson(" not in TOOL.read_text()
+    with mock.patch.object(subprocess, "run", side_effect=AssertionError("must not execute another tool")):
+        assert run(data)["claims"]["metric_evaluated"] is False
+
+
+def test_cli_success_and_missing_selection_fail_closed(tmp_path):
+    data = selected(tmp_path)
+    args = ["--selection", data[1], "--source-root", data[0].root, "--out-dir", data[3],
+            "--resources-root", ROOT, "--producer-source-root", ROOT]
+    completed = invoke(TOOL, args, tmp_path)
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout)["preparation_result"] == "PREPARED"
+    assert completed.stderr == ""
+    data[1].unlink()
+    again = invoke(TOOL, args, tmp_path)
+    assert again.returncode == 2
+    assert again.stdout == ""
+    assert "INPUT_UNAVAILABLE" in again.stderr
+    assert "Traceback" not in again.stderr
+
+
+def test_receipt_delivery_failure_is_not_success(tmp_path, capsys):
+    data = selected(tmp_path)
+    sink = mock.Mock()
+    sink.buffer.write.side_effect = BrokenPipeError("simulated closed receipt consumer")
+    arguments = ["--selection", str(data[1]), "--source-root", str(data[0].root),
+                 "--out-dir", str(data[3]), "--resources-root", str(ROOT),
+                 "--producer-source-root", str(ROOT)]
+    with mock.patch.object(prep.sys, "stdout", sink):
+        assert prep.main(arguments) == 2
+    assert "RECEIPT_WRITE_FAILED" in capsys.readouterr().err
+    assert (data[3] / "preparation_manifest.json").is_file()
+    with pytest.raises(prep.PreparationError, match="OUTPUT_EXISTS"):
+        run(data)
+
+
+def test_end_to_end_changed_hardlink_alias_cannot_mix_originals(tmp_path):
+    data = selected(tmp_path)
+    examples = data[0].examples
+    labels = data[0].labels
+    original_labels = labels.read_bytes()
+    labels.unlink()
+    os.link(examples, labels)
+    native = prep.Snapshots.read
+    example_seen = False
+    changed = False
+    def alias_rewrite(snapshots, path, limit=prep.MAX_FILE_BYTES):
+        nonlocal example_seen, changed
+        if Path(path) == labels and not changed:
+            assert example_seen
+            before = labels.stat()
+            labels.write_bytes(original_labels)
+            os.utime(labels, ns=(before.st_atime_ns, before.st_mtime_ns + 1_000_000_000))
+            changed = True
+        raw = native(snapshots, path, limit)
+        if Path(path) == examples:
+            example_seen = True
+        return raw
+    with mock.patch.object(prep.Snapshots, "read", alias_rewrite):
+        rejection(data, "FILE_BINDING_MISMATCH")
+    assert changed
+
+
+def test_distinct_original_inodes_remain_independent(tmp_path):
+    first, second = tmp_path / "first", tmp_path / "second"
+    first.write_bytes(b"same")
+    second.write_bytes(b"same")
+    snapshots = prep.Snapshots()
+    snapshots.read(first)
+    second.write_bytes(b"next")
+    assert snapshots.read(second) == b"next"
+    assert snapshots.read(first) == b"same"
+
+
+def test_directory_and_fifo_are_not_input_files(tmp_path):
+    directory = tmp_path / "dir"
+    directory.mkdir()
+    fifo = tmp_path / "fifo"
+    os.mkfifo(fifo)
+    for path in (directory, fifo):
+        with pytest.raises(prep.PreparationError, match="INPUT_UNAVAILABLE"):
+            prep.Snapshots().read(path)
+
+
+def test_original_files_can_be_read_only(tmp_path):
+    data = selected(tmp_path)
+    for role in ROLES:
+        (data[0].root / data[2]["artifacts"][role]["path"]).chmod(0o400)
+    assert run(data)["preparation_result"] == "PREPARED"
+    for role in ROLES:
+        assert (data[0].root / data[2]["artifacts"][role]["path"]).stat().st_mode & 0o777 == 0o400
+
+
+def test_row_file_and_dimension_limits_are_not_silent_truncation(tmp_path):
+    data = selected(tmp_path)
+    for name, limit in (("MAX_LINE_BYTES", 10), ("MAX_ROWS", 1), ("MAX_DIMENSIONS", 0)):
+        with mock.patch.object(prep, name, limit):
+            rejection(data)
+    with pytest.raises(prep.PreparationError, match="INPUT_LIMIT"):
+        prep.Snapshots().read(data[0].examples, limit=10)
+
+
+# PR #2947 review regressions: all fixtures are synthetic and offline.
+def test_fix1_receipt_claims_do_not_mutate_later_preparations(tmp_path):
+    data = selected(tmp_path)
+    defaults = dict(prep.CLAIMS)
+    # Keep the regression's intentional mutation isolated even on the old code.
+    with mock.patch.object(prep, "CLAIMS", dict(defaults)):
+        first = run(data)
+        original_manifest = (data[3] / "preparation_manifest.json").read_bytes()
+        first["claims"]["authority_effect"] = "caller_annotation_not_authority"
+        first["claims"]["production_gate_eligible"] = True
+        first["claims"].pop("current_run_evidence")
+        first["claims"]["annotation"] = {"owner": "synthetic caller"}
+        second_data = (*data[:3], tmp_path / "second")
+        second = run(second_data)
+        second_manifest = fb.read_json(second_data[3] / "preparation_manifest.json")
+        assert prep.CLAIMS == defaults
+        assert first["claims"] is not prep.CLAIMS
+        assert second["claims"] == second_manifest["claims"] == defaults
+        assert second["claims"] is not first["claims"]
+        assert second["claims"] is not prep.CLAIMS
+        second["claims"].clear()
+        third_data = (*data[:3], tmp_path / "third")
+        third = run(third_data)
+        assert third["claims"] == defaults
+        assert fb.read_json(third_data[3] / "preparation_manifest.json")["claims"] == defaults
+        assert (data[3] / "preparation_manifest.json").read_bytes() == original_manifest
+
+
+@pytest.fixture
+def fix1_format_environment(request, monkeypatch):
+    from jsonschema import FormatChecker
+    mode = request.param
+    registry = {}
+    if mode != "missing":
+        def plugin(_value):
+            return mode == "accept_all"
+        registry = {name: (plugin, ()) for name in ("date", "date-time")}
+    expected_registry = dict(registry)
+    monkeypatch.setattr(FormatChecker, "checkers", registry)
+    isolated = load("q3_preparation_fix1_formats_" + mode, TOOL)
+    monkeypatch.setattr(sys.modules[__name__], "prep", isolated)
+    yield mode
+    # Deterministic registration must remain local to the preparer instance.
+    assert FormatChecker.checkers == expected_registry
+
+
+def fix1_set_manifest_time(data, value):
+    manifest = fb.read_json(data[0].manifest)
+    manifest["time_range"] = {"from": value, "to": value}
+    fb.write_json(data[0].manifest, manifest)
+    data[2]["artifacts"]["dataset_manifest"] = fb.artifact(data[0].manifest)
+    save(data)
+
+
+@pytest.mark.parametrize("fix1_format_environment", ["missing", "accept_all"], indirect=True)
+@pytest.mark.parametrize("value", [
+    "not-a-date", "2026-02-30", "2026-10-23T12:00:00",
+    "2026-10-23T12:00:00+00:99", "2026-10-23T12:00:00+24:00",
+    "2026-10-23T24:00:00Z",
+])
+def test_fix1_invalid_manifest_time_rejected_without_optional_plugins(
+        tmp_path, fix1_format_environment, value):
+    data = selected(tmp_path)
+    fix1_set_manifest_time(data, value)
+    original = data[0].manifest.read_bytes()
+    rejection(data, "MANIFEST_INVALID")
+    assert data[0].manifest.read_bytes() == original
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+
+
+@pytest.mark.parametrize("fix1_format_environment", ["missing", "reject_all"], indirect=True)
+@pytest.mark.parametrize("value", [
+    "2024-02-29", "2026-10-23T12:34:56Z",
+    "2026-10-23t12:34:56.123456z", "2026-10-23T12:34:56+05:30",
+])
+def test_fix1_valid_manifest_time_accepted_independently_of_optional_plugins(
+        tmp_path, fix1_format_environment, value):
+    data = selected(tmp_path)
+    fix1_set_manifest_time(data, value)
+    original = data[0].manifest.read_bytes()
+    assert run(data)["preparation_result"] == "PREPARED"
+    assert (data[3] / "dataset_manifest.json").read_bytes() == original
+
+
+@pytest.mark.parametrize("format_name,values", [
+    ("date", ["2024-02-29", "2026-02-29", "2026-1-01", "0000-01-01",
+              "2026-10-23", "２０２６-10-23", "not-a-date", 1, None]),
+    ("date-time", ["2026-10-23T12:34:56Z", "2026-10-23t12:34:56.1z",
+                   "2026-10-23T12:34:56-23:59", "2026-10-23T12:34:56+00:99",
+                   "2026-10-23T12:34:56+24:00", "2026-10-23T12:34:60Z",
+                   "2026-10-23T12:34:56", "2026-02-30T12:34:56Z",
+                   "2026-10-23 12:34:56Z", "not-a-date", 1, None]),
+])
+@pytest.mark.parametrize("fix1_format_environment", ["missing", "accept_all", "reject_all"], indirect=True)
+def test_fix1_date_format_semantics_match_unchanged_producer(
+        fix1_format_environment, format_name, values):
+    producer = load("q3_preparation_fix1_format_oracle", ROOT / fb.PRODUCER_PATH)
+    schema = {"format": format_name}
+    before = prep.rule(schema)
+    reference = producer.validator(schema)
+    assert [before.is_valid(value) for value in values] == [
+        reference.is_valid(value) for value in values]
+
+
+@pytest.mark.parametrize("role", ["examples_jsonl", "q1_labels_jsonl"])
+@pytest.mark.parametrize("position", ["prefix", "inside_record"])
+def test_fix1_bare_carriage_return_is_rejected_for_both_jsonl_roles(tmp_path, role, position):
+    data = selected(tmp_path)
+    source = data[0].root / data[2]["artifacts"][role]["path"]
+    raw = source.read_bytes()
+    changed = b"\r" + raw if position == "prefix" else raw.replace(b"{", b"{\r", 1)
+    assert b"\r" in changed and b"\r\n" not in changed
+    # The inserted byte is legal JSON whitespace, not a malformed JSON value.
+    assert json.loads(changed.split(b"\n", 1)[0]) == json.loads(raw.split(b"\n", 1)[0])
+    if role == "examples_jsonl":
+        # Bind every label to the changed raw example line, so a later digest
+        # mismatch cannot mask the representation bug under test.
+        fb.replace_examples_bytes(data[0], changed)
+    else:
+        source.write_bytes(changed)
+        manifest = fb.read_json(data[0].manifest)
+        manifest["hashes"]["labels_sha256"] = prep.sha256(changed)
+        fb.write_json(data[0].manifest, manifest)
+    for selected_role, name in prep.ARTIFACT_NAMES.items():
+        data[2]["artifacts"][selected_role] = fb.artifact(data[0].root / name)
+    save(data)
+    rejection(data, "INPUT_REPRESENTATION_INVALID")
+    assert source.read_bytes() == changed
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+
+
+def test_fix1_escaped_carriage_return_is_not_a_raw_carriage_return(tmp_path):
+    data = selected(tmp_path)
+    rows = [json.loads(line) for line in data[0].examples.read_bytes().splitlines()]
+    rows[0]["prompt"] += "\rsynthetic escaped content"
+    raw = b"\n".join(fb.row_bytes(row) for row in rows) + b"\n"
+    assert b"\\r" in raw and b"\r" not in raw
+    schema = json.loads((ROOT / prep.RESOURCE_PATHS["input_schema_sha256"]).read_bytes())
+    preparer_rows = prep.parse_rows(raw, prep.rule(schema, "example_record"))
+    producer = load("q3_preparation_fix1_jsonl_oracle", ROOT / fb.PRODUCER_PATH)
+    producer_rows = producer.jsonl_rows(raw)
+    assert len(preparer_rows) == len(producer_rows) == len(rows)
+    assert preparer_rows[rows[0]["example_id"]][0] == producer_rows[0][0] == rows[0]
+
+    fb.replace_examples_bytes(data[0], raw)
+    for role, name in prep.ARTIFACT_NAMES.items():
+        data[2]["artifacts"][role] = fb.artifact(data[0].root / name)
+    save(data)
+    assert run(data)["preparation_result"] == "PREPARED"
+    assert (data[3] / "examples.jsonl").read_bytes() == raw
+    assert score_and_check(data[3], 0)["pass"] is True
+
+
+# FIX2: runtime-independent hour bounds, exact modes and early stage cleanup.
+@pytest.mark.parametrize("fix1_format_environment", ["missing", "accept_all", "reject_all"], indirect=True)
+@pytest.mark.parametrize("value", [
+    "2026-10-23T24:00:00Z", "2026-10-23t24:00:00.000z",
+    "2026-10-23T24:00:00+05:30", "2026-10-23T24:00:00-23:59",
+    "2026-10-23T25:00:00Z", "2026-10-23T99:00:00Z",
+])
+def test_fix2_hour_rejected_before_even_a_permissive_runtime_parser(
+        tmp_path, fix1_format_environment, value):
+    import types
+    data = selected(tmp_path)
+    fix1_set_manifest_time(data, value)
+    original = data[0].manifest.read_bytes()
+    native = prep.datetime
+    parser = mock.Mock(return_value=native.datetime(2026, 10, 24, tzinfo=native.timezone.utc))
+    shim = types.SimpleNamespace(date=native.date,
+                                 datetime=types.SimpleNamespace(fromisoformat=parser))
+    with mock.patch.object(prep, "datetime", shim):
+        rejection(data, "MANIFEST_INVALID")
+    parser.assert_not_called()
+    assert data[0].manifest.read_bytes() == original
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+
+
+@pytest.mark.parametrize("value", [
+    "2026-10-23T00:00:00Z", "2026-10-23T23:59:59.123456Z",
+    "2026-10-23t23:59:59z", "2026-10-23T23:59:59+23:59",
+    "2026-10-23T00:00:00-23:59",
+])
+def test_fix2_hour_boundaries_keep_valid_original_bytes(tmp_path, value):
+    data = selected(tmp_path)
+    fix1_set_manifest_time(data, value)
+    original = data[0].manifest.read_bytes()
+    assert run(data)["preparation_result"] == "PREPARED"
+    assert (data[3] / "dataset_manifest.json").read_bytes() == original
+
+
+@pytest.mark.parametrize("mask", [0o000, 0o077, 0o177, 0o277, 0o477, 0o777])
+def test_fix2_private_output_modes_with_restrictive_umask(tmp_path, mask):
+    import stat
+    data = selected(tmp_path)
+    result = subprocess.run(
+        [sys.executable, str(TOOL), "--selection", str(data[1]),
+         "--source-root", str(data[0].root), "--out-dir", str(data[3])],
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        capture_output=True, text=True, timeout=60, check=False, umask=mask)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["preparation_result"] == "PREPARED"
+    assert stat.S_IMODE(data[3].stat().st_mode) == 0o700
+    assert len(list(data[3].iterdir())) == 7
+    assert all(stat.S_IMODE(p.stat().st_mode) == 0o600 for p in data[3].iterdir())
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+    # Existing producer/checker can consume the selected bytes unchanged.
+    assert score_and_check(data[3], 0)["pass"] is True
+
+
+def test_fix2_umask_0777_as_an_unprivileged_owner():
+    import tempfile
+    import stat
+    # Always execute as an unprivileged owner, including root-run test workers.
+    uid = 65534 if os.geteuid() == 0 else os.geteuid()
+    gid = 65534 if os.geteuid() == 0 else os.getegid()
+    with tempfile.TemporaryDirectory(prefix="q3-fix2-unprivileged-") as name:
+        root = Path(name)
+        data = selected(root)
+        resources = root / "tool-copy"
+        for relative in [prep.SOURCE_PATH, prep.SELECTION_SCHEMA_PATH,
+                         prep.PRODUCER_PATH, *prep.RESOURCE_PATHS.values()]:
+            target = resources / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / relative, target)
+        if os.geteuid() == 0:
+            for path in [root, *root.rglob("*")]:
+                os.chown(path, uid, gid)
+        options = {"user": uid, "group": gid, "extra_groups": []} if os.geteuid() == 0 else {}
+        script = '''
+import importlib.util, json, os, pathlib, stat, sys
+spec = importlib.util.spec_from_file_location("unprivileged_preparer", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+assert os.geteuid() != 0
+# Changing a process-wide umask is not a valid implementation of this fix.
+def forbidden_umask(*args):
+    raise AssertionError("preparer must not change process umask")
+os.umask = forbidden_umask
+result = module.main(sys.argv[2:])
+assert result == 0, result
+output = pathlib.Path(sys.argv[-1])
+assert stat.S_IMODE(output.stat().st_mode) == 0o700
+assert len(list(output.iterdir())) == 7
+for path in output.iterdir():
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert path.read_bytes()
+'''
+        try:
+            result = subprocess.run(
+                [sys.executable, "-c", script, str(resources / prep.SOURCE_PATH),
+                 "--selection", str(data[1]), "--source-root", str(data[0].root),
+                 "--resources-root", str(resources), "--producer-source-root", str(resources),
+                 "--out-dir", str(data[3])],
+                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, umask=0o777,
+                capture_output=True, text=True, timeout=60, check=False, **options)
+            assert result.returncode == 0, result.stderr
+            assert json.loads(result.stdout)["preparation_result"] == "PREPARED"
+        finally:
+            # Test-fixture cleanup also works against an unfixed mode-000 stage.
+            for parent, directories, _files in os.walk(root):
+                for directory in directories:
+                    os.chmod(Path(parent) / directory, 0o700)
+
+
+@pytest.mark.parametrize("phase", ["open", "fstat"])
+@pytest.mark.parametrize("number", [errno.EMFILE, errno.ENFILE, errno.EIO])
+def test_fix2_initial_stage_failure_is_cleaned_without_reopening(tmp_path, phase, number):
+    data = selected(tmp_path)
+    rename = prep.ensure_platform()
+    native_open, native_fstat = os.open, os.fstat
+    stage_fd = None
+    failed = False
+    def open_file(path, flags, *args, **kwargs):
+        nonlocal stage_fd, failed
+        is_stage = str(path).startswith(".q3-preparing-")
+        if is_stage and phase == "open":
+            failed = True
+            raise OSError(number, "synthetic initial stage open failure")
+        fd = native_open(path, flags, *args, **kwargs)
+        if is_stage:
+            stage_fd = fd
+        return fd
+    def fstat_file(fd):
+        nonlocal failed
+        if fd == stage_fd and phase == "fstat":
+            failed = True
+            raise OSError(number, "synthetic initial stage fstat failure")
+        return native_fstat(fd)
+    with mock.patch.object(prep, "ensure_platform", return_value=rename), \
+         mock.patch.object(prep.os, "open", side_effect=open_file), \
+         mock.patch.object(prep.os, "fstat", side_effect=fstat_file):
+        error = rejection(data, "OUTPUT_WRITE_FAILED")
+    assert failed
+    assert error.cleanup_complete is True
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+    assert run(data)["preparation_result"] == "PREPARED"
+
+
+@pytest.mark.parametrize("phase", ["initial_stat", "cleanup_stat", "rmdir"])
+def test_fix2_early_cleanup_failure_is_explicit_and_preserves_primary_error(tmp_path, phase):
+    data = selected(tmp_path)
+    rename = prep.ensure_platform()
+    native_open, native_stat, native_rmdir = os.open, os.stat, os.rmdir
+    failed_open = False
+    def open_file(path, flags, *args, **kwargs):
+        nonlocal failed_open
+        if str(path).startswith(".q3-preparing-"):
+            failed_open = True
+            raise OSError(errno.EMFILE, "synthetic stage open failure")
+        return native_open(path, flags, *args, **kwargs)
+    def stat_file(path, *args, **kwargs):
+        if str(path).startswith(".q3-preparing-") and (
+                phase == "initial_stat" or phase == "cleanup_stat" and failed_open):
+            raise OSError(errno.EIO, "synthetic ownership stat failure")
+        return native_stat(path, *args, **kwargs)
+    def remove(path, *args, **kwargs):
+        if str(path).startswith(".q3-preparing-") and phase == "rmdir":
+            raise PermissionError("synthetic cleanup denial")
+        return native_rmdir(path, *args, **kwargs)
+    with mock.patch.object(prep, "ensure_platform", return_value=rename), \
+         mock.patch.object(prep.os, "open", side_effect=open_file), \
+         mock.patch.object(prep.os, "stat", side_effect=stat_file), \
+         mock.patch.object(prep.os, "rmdir", side_effect=remove):
+        error = rejection(data, "OUTPUT_WRITE_FAILED")
+    assert error.cleanup_complete is False
+    assert len(list(tmp_path.glob(".q3-preparing-*"))) == 1
+    assert error.__cause__.errno == (errno.EIO if phase == "initial_stat" else errno.EMFILE)
+    # Neither residue nor an uncertain identity is reused as the next package.
+    assert run(data)["preparation_result"] == "PREPARED"
+    assert len(list(tmp_path.glob(".q3-preparing-*"))) == 1
+
+
+@pytest.mark.parametrize("kind", ["directory", "symlink", "unrelated_member"])
+def test_fix2_early_cleanup_preserves_replacement_or_unrelated_content(tmp_path, kind):
+    data = selected(tmp_path)
+    rename = prep.ensure_platform()
+    native_open = os.open
+    foreign = tmp_path / "foreign"
+    foreign.mkdir()
+    (foreign / "owner.txt").write_text("untouched")
+    original = tmp_path / "saved-original-stage"
+    observed = []
+    def open_file(path, flags, *args, **kwargs):
+        if str(path).startswith(".q3-preparing-"):
+            stage = tmp_path / path
+            observed.append(stage)
+            if kind == "unrelated_member":
+                (stage / "foreign.txt").write_text("do not remove")
+            else:
+                stage.rename(original)
+                if kind == "directory":
+                    stage.mkdir()
+                else:
+                    stage.symlink_to(foreign, target_is_directory=True)
+            raise OSError(errno.EMFILE, "synthetic failure after replacement")
+        return native_open(path, flags, *args, **kwargs)
+    with mock.patch.object(prep, "ensure_platform", return_value=rename), \
+         mock.patch.object(prep.os, "open", side_effect=open_file):
+        error = rejection(data, "OUTPUT_WRITE_FAILED")
+    assert error.cleanup_complete is False
+    assert len(observed) == 1 and observed[0].exists()
+    assert (foreign / "owner.txt").read_text() == "untouched"
+    if kind == "unrelated_member":
+        assert (observed[0] / "foreign.txt").read_text() == "do not remove"
+    elif kind == "symlink":
+        assert observed[0].is_symlink()
+    else:
+        assert observed[0].is_dir() and not list(observed[0].iterdir())
+
+
+def test_fix2_failed_mkdir_does_not_claim_or_remove_existing_stage(tmp_path):
+    data = selected(tmp_path)
+    stage = tmp_path / (".q3-preparing-" + "a" * 32)
+    stage.mkdir()
+    (stage / "owner.txt").write_text("preserve")
+    with mock.patch.object(prep.secrets, "token_hex", return_value="a" * 32):
+        error = rejection(data, "OUTPUT_WRITE_FAILED")
+    assert error.cleanup_complete is None
+    assert (stage / "owner.txt").read_text() == "preserve"
+
+
+@pytest.mark.parametrize("target", ["directory", "member"])
+@pytest.mark.parametrize("behavior", ["error", "wrong_mode"])
+def test_fix2_mode_setting_failure_never_publishes(tmp_path, target, behavior):
+    data = selected(tmp_path)
+    native_chmod, native_fchmod = os.chmod, os.fchmod
+    def chmod_file(path, mode, *args, **kwargs):
+        if behavior == "error":
+            raise PermissionError("synthetic directory chmod failure")
+        return native_chmod(path, 0o755, *args, **kwargs)
+    def fchmod_file(fd, mode):
+        if behavior == "error":
+            raise PermissionError("synthetic member fchmod failure")
+        return native_fchmod(fd, 0o644)
+    with mock.patch.object(prep.os, "chmod" if target == "directory" else "fchmod",
+                           side_effect=chmod_file if target == "directory" else fchmod_file):
+        error = rejection(data, "OUTPUT_WRITE_FAILED" if behavior == "error"
+                          else "OUTPUT_BINDING_MISMATCH")
+    assert error.cleanup_complete is True
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+    assert run(data)["preparation_result"] == "PREPARED"
+
+
+@pytest.mark.parametrize("target", ["directory", "member"])
+def test_fix2_modes_rechecked_after_publication(tmp_path, target):
+    data = selected(tmp_path)
+    native = prep.rename_no_replace
+    def rename(function, parent, old, new):
+        native(function, parent, old, new)
+        victim = data[3] if target == "directory" else data[3] / "examples.jsonl"
+        victim.chmod(0o755 if target == "directory" else 0o644)
+    with mock.patch.object(prep, "rename_no_replace", side_effect=rename):
+        error = rejection(data, "OUTPUT_BINDING_MISMATCH")
+    assert error.cleanup_complete is True
+    assert not list(tmp_path.glob(".q3-preparing-*"))

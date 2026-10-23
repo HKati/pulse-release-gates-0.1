@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Fix the second Q3-2A preparation review: reject lexical hour 24 before
+  runtime date-time parsing, explicitly restore and verify private output
+  modes independently of process umask, and retain staging ownership before
+  its initial open. Clean up still-owned empty stages without reopening them;
+  report incomplete cleanup when ownership cannot be established. Add
+  deterministic parser, restrictive-umask and early-failure regressions.
+  Preserve pinned producer/checker/resources, original bytes, non-authorizing
+  preparation and historical Q2 FAIL / release BLOCK. Keep #2879 open.
+
+- Fix Q3-2A preparation review findings: detach returned receipt claims from
+  module defaults, register deterministic date/date-time validation matching
+  the pinned producer without optional format plugins, and reject every raw
+  carriage-return byte in JSONL inputs. Add same-process mutation, format-plugin
+  independence, producer-parity and JSONL regressions. Preserve original input
+  bytes, unchanged producer/checker/resources, non-authorizing preparation and
+  the historical Q2 FAIL / release BLOCK. Refs #2879; keep the issue open.
+
+- Add the offline Q3-2A archived-input preparer, closed external-selection
+  schema and focused synthetic tests. Preserve selected manifest/examples/labels
+  and selection bytes; build the unchanged Q3 bundle/expected-context formats
+  before scoring. Pin supported resources and producer source, retain unknown
+  original runtime as null, and separate preparation from full Q3 semantic
+  validation, metric PASS, provenance authentication and authority. Publish only
+  into a new destination with no-replace semantics and bounded, identity-aware
+  failure cleanup. Document the
+  [preparation contract](docs/compute/PULSEMECH_Q3_ARCHIVED_INPUT_PREPARATION_v0.md)
+  and append its pytest registration. Existing Q3 implementation/resources and
+  Q2 history, including 49/50 FAIL / release BLOCK, remain unchanged. No model
+  call, acquisition, replay, policy, gate, workflow, README or DOI/SWH change;
+  `authority_effect = none`. Keep #2879 open.
+
 - Add the separate Q3 `q3_input_recomputation_v0.1` reference profile,
   standalone producer, independently implemented checker, closed input/result
   schemas and synthetic conformance fixtures. Bind original example/label bytes

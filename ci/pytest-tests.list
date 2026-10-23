@@ -21,3 +21,4 @@ tests/test_build_normative_shadow_inventory_v0.py
 tests/test_q2_native_startup_diagnostics_v0.py
 tests/test_comparison_binding_v0.py
 tests/test_q3_reference_recomputation.py
+tests/test_q3_archived_input_preparation.py

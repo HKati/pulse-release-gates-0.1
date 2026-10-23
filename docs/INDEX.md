@@ -44,6 +44,14 @@ moves between merged and open work, update this index.
 
 ## Start here
 
+- Offline Q3 archived-input preparation:
+  [Selected-original package preparation](compute/PULSEMECH_Q3_ARCHIVED_INPUT_PREPARATION_v0.md)
+  **Current implementation with synthetic conformance tests.** Packages separately
+  selected original bytes for the unchanged Q3 producer and checker, with pinned
+  resource/source identities and no-overwrite publication. Preparation is not
+  metric scoring, complete semantic validation, provenance authentication,
+  current-run evidence or release activation; `authority_effect = none`.
+  Real inputs and Step 5C/5D acceptance remain open; keep #2879 open.
 - Standalone Q3 input-bound reference recomputation:
   [Q3 reference profile, producer and independent checker](compute/PULSEMECH_Q3_REFERENCE_RECOMPUTATION_v0.md)
   **Current implementation with synthetic conformance tests.** Implements the

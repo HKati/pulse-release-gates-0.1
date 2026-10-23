@@ -1,0 +1,302 @@
+{
+  "$defs": {
+    "artifact": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "maxLength": 1024,
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))(?!.*//)[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "maximum": 67108864,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "type": "object"
+    },
+    "subject": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "synthetic_fixture"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "runtime_identity": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "synthetic_fixture",
+            "archived_input"
+          ]
+        },
+        "runtime_identity": {
+          "anyOf": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "repository": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "run_attempt": {
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "run_id": {
+                  "pattern": "^[1-9][0-9]*$",
+                  "type": "string"
+                },
+                "source_commit": {
+                  "pattern": "^[0-9a-f]{40}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "repository",
+                "source_commit",
+                "run_id",
+                "run_attempt"
+              ],
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_reference": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "subject_id": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "subject_id",
+        "source_reference",
+        "runtime_identity"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "urn:pulse:q3:archived-input-selection:v0",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "An external selection made before scoring. Declarations and hashes do not authenticate the selector, provenance, labels or a runtime. This fixed preparer profile accepts only the recorded Q3 resource and producer bytes.",
+  "properties": {
+    "artifacts": {
+      "additionalProperties": false,
+      "properties": {
+        "dataset_manifest": {
+          "$ref": "#/$defs/artifact"
+        },
+        "examples_jsonl": {
+          "$ref": "#/$defs/artifact"
+        },
+        "q1_labels_jsonl": {
+          "$ref": "#/$defs/artifact"
+        }
+      },
+      "required": [
+        "dataset_manifest",
+        "examples_jsonl",
+        "q1_labels_jsonl"
+      ],
+      "type": "object"
+    },
+    "authority_effect": {
+      "const": "none"
+    },
+    "contract_profile": {
+      "const": "q3_input_recomputation_v0.1"
+    },
+    "dataset_id": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "type": "string"
+    },
+    "expected_producer": {
+      "additionalProperties": false,
+      "properties": {
+        "python_version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "source_files": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "const": "PULSE_safe_pack_v0/tools/build_q3_reference_summary.py"
+              },
+              "sha256": {
+                "const": "1662ff2a60664f19716162d77303353dd012a335f267a24a7aba29b58f54e5a7"
+              }
+            },
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "type": "object"
+          },
+          "maxItems": 1,
+          "minItems": 1,
+          "type": "array"
+        },
+        "tool_id": {
+          "const": "PULSE_q3_reference"
+        },
+        "tool_version": {
+          "const": "0.1.0"
+        }
+      },
+      "required": [
+        "tool_id",
+        "tool_version",
+        "python_version",
+        "source_files"
+      ],
+      "type": "object"
+    },
+    "observation_subject": {
+      "$ref": "#/$defs/subject"
+    },
+    "production_gate_eligible": {
+      "const": false
+    },
+    "record_type": {
+      "const": "q3_archived_input_selection_v0"
+    },
+    "reduction_id": {
+      "maxLength": 4096,
+      "minLength": 1,
+      "type": "string"
+    },
+    "resource_bindings": {
+      "additionalProperties": false,
+      "properties": {
+        "contract_sha256": {
+          "const": "e31e390d3ee5619bad082a6b04b7b556cfbed1690f97e35bc972816cb48db666"
+        },
+        "dataset_manifest_schema_sha256": {
+          "const": "7bd729958c65dfde432925a4d3fccbd50c846cca19c891411ed085166ecdfead"
+        },
+        "input_schema_sha256": {
+          "const": "41e235d887822e9f7ced148bd06c7cee7cb02984ebb9a59e3f333f11497350e5"
+        },
+        "q1_spec_sha256": {
+          "const": "a63625ca894294e0fbe4febffdd143d22929dcaa44ea52a6aaa02453f0aac65f"
+        },
+        "q3_spec_sha256": {
+          "const": "58fc3ddbf636ffdcadc9ca3ce07e6051ff9801d49e9593b7c8e79970a08e782e"
+        },
+        "result_schema_sha256": {
+          "const": "fd8caccf408192d11c086ef6ff7b932437dff91debba758eacc28daa0d1ddb1e"
+        }
+      },
+      "required": [
+        "contract_sha256",
+        "input_schema_sha256",
+        "result_schema_sha256",
+        "dataset_manifest_schema_sha256",
+        "q1_spec_sha256",
+        "q3_spec_sha256"
+      ],
+      "type": "object"
+    },
+    "selection_id": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "selection_origin": {
+      "additionalProperties": false,
+      "properties": {
+        "access_use_basis": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "basis_reference": {
+          "maxLength": 4096,
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "caller_selected_archived_input",
+            "synthetic_test_anchor"
+          ]
+        },
+        "original_runtime_evidence_reference": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "selected_before_scoring": {
+          "const": true
+        }
+      },
+      "required": [
+        "kind",
+        "basis_reference",
+        "access_use_basis",
+        "selected_before_scoring",
+        "original_runtime_evidence_reference"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "record_type",
+    "selection_id",
+    "contract_profile",
+    "dataset_id",
+    "reduction_id",
+    "observation_subject",
+    "selection_origin",
+    "artifacts",
+    "resource_bindings",
+    "expected_producer",
+    "authority_effect",
+    "production_gate_eligible"
+  ],
+  "title": "Q3 caller-selected original inputs — preparation only",
+  "type": "object"
+}
