@@ -1,0 +1,908 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulse:q3:reference:0.1:result",
+  "title": "Q3 reference recomputation result — non-authority",
+  "description": "A correctly calculated negative metric is a valid result. Report matching is separate from metric PASS and release authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "contract_profile",
+    "input_bundle_sha256",
+    "expected_context_sha256",
+    "dataset_id",
+    "reduction_id",
+    "observation_subject",
+    "input_validity",
+    "metric_result",
+    "pass",
+    "reason_codes",
+    "counts",
+    "overall",
+    "dimensions",
+    "coverage",
+    "worst_group_gap",
+    "excluded_records",
+    "claims",
+    "implementation"
+  ],
+  "properties": {
+    "record_type": {
+      "const": "q3_recomputation_result"
+    },
+    "contract_profile": {
+      "const": "q3_input_recomputation_v0.1"
+    },
+    "input_bundle_sha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "expected_context_sha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "dataset_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "reduction_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "observation_subject": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "subject_id",
+            "source_reference",
+            "runtime_identity"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "synthetic_fixture",
+                "archived_input"
+              ]
+            },
+            "subject_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source_reference": {
+              "type": "string",
+              "minLength": 1
+            },
+            "runtime_identity": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "repository",
+                    "source_commit",
+                    "run_id",
+                    "run_attempt"
+                  ],
+                  "properties": {
+                    "repository": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "source_commit": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{40}$"
+                    },
+                    "run_id": {
+                      "type": "string",
+                      "pattern": "^[1-9][0-9]*$"
+                    },
+                    "run_attempt": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "synthetic_fixture"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "runtime_identity": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "input_validity": {
+      "enum": [
+        "VALID",
+        "INVALID"
+      ]
+    },
+    "metric_result": {
+      "enum": [
+        "PASS",
+        "FAIL"
+      ]
+    },
+    "pass": {
+      "type": "boolean"
+    },
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_]+$"
+      },
+      "uniqueItems": true
+    },
+    "counts": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "n_total",
+            "n_q1_ineligible",
+            "n_unknown_ignored",
+            "n_q3_eligible",
+            "n_pass",
+            "n_fail"
+          ],
+          "properties": {
+            "n_total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "n_q1_ineligible": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "n_unknown_ignored": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "n_q3_eligible": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "n_pass": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "n_fail": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "overall": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "pass_rate",
+            "wilson_lower",
+            "wilson_upper"
+          ],
+          "properties": {
+            "pass_rate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "wilson_lower": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "wilson_upper": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "dimensions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/dimension"
+      }
+    },
+    "coverage": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "denominator",
+            "excluded_in_any_dimension_count",
+            "excluded_in_any_dimension_fraction",
+            "max_per_dimension_small_group_fraction_diagnostic",
+            "missing_coverage_ok",
+            "small_group_coverage_ok"
+          ],
+          "properties": {
+            "denominator": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "excluded_in_any_dimension_count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "excluded_in_any_dimension_fraction": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "max_per_dimension_small_group_fraction_diagnostic": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "missing_coverage_ok": {
+              "type": "boolean"
+            },
+            "small_group_coverage_ok": {
+              "type": "boolean"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "worst_group_gap": {
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "excluded_records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "example_id",
+          "reason"
+        ],
+        "properties": {
+          "example_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "enum": [
+              "EMPTY_CONTEXT",
+              "UNKNOWN_IGNORED"
+            ]
+          }
+        }
+      }
+    },
+    "claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority_effect",
+        "production_gate_eligible",
+        "current_run_evidence",
+        "source_authentication",
+        "label_correctness",
+        "slice_metadata_correctness",
+        "policy_activation"
+      ],
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "current_run_evidence": {
+          "const": false
+        },
+        "source_authentication": {
+          "const": "not_established"
+        },
+        "label_correctness": {
+          "const": "not_verified"
+        },
+        "slice_metadata_correctness": {
+          "const": "not_verified"
+        },
+        "policy_activation": {
+          "const": false
+        }
+      }
+    },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool_id",
+        "tool_version",
+        "python_version",
+        "source_files"
+      ],
+      "properties": {
+        "tool_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tool_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "python_version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "sha256"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))(?!.*//)[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          },
+          "minItems": 1
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "pass": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "metric_result": {
+            "const": "PASS"
+          },
+          "input_validity": {
+            "const": "VALID"
+          },
+          "reason_codes": {
+            "maxItems": 0
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "metric_result": {
+            "const": "FAIL"
+          },
+          "reason_codes": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "input_validity": {
+            "const": "INVALID"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "pass": {
+            "const": false
+          },
+          "metric_result": {
+            "const": "FAIL"
+          },
+          "counts": {
+            "type": "null"
+          },
+          "overall": {
+            "type": "null"
+          },
+          "coverage": {
+            "type": "null"
+          },
+          "worst_group_gap": {
+            "type": "null"
+          },
+          "dimensions": {
+            "maxItems": 0
+          },
+          "excluded_records": {
+            "maxItems": 0
+          },
+          "dataset_id": {
+            "type": "null"
+          },
+          "reduction_id": {
+            "type": "null"
+          },
+          "observation_subject": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "counts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "n_total",
+              "n_q1_ineligible",
+              "n_unknown_ignored",
+              "n_q3_eligible",
+              "n_pass",
+              "n_fail"
+            ],
+            "properties": {
+              "n_total": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "n_q1_ineligible": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "n_unknown_ignored": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "n_q3_eligible": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "n_pass": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "n_fail": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "coverage": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "denominator",
+              "excluded_in_any_dimension_count",
+              "excluded_in_any_dimension_fraction",
+              "max_per_dimension_small_group_fraction_diagnostic",
+              "missing_coverage_ok",
+              "small_group_coverage_ok"
+            ],
+            "properties": {
+              "denominator": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "excluded_in_any_dimension_count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "excluded_in_any_dimension_fraction": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "max_per_dimension_small_group_fraction_diagnostic": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "missing_coverage_ok": {
+                "type": "boolean"
+              },
+              "small_group_coverage_ok": {
+                "type": "boolean"
+              }
+            }
+          },
+          "dataset_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reduction_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "observation_subject": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "subject_id",
+              "source_reference",
+              "runtime_identity"
+            ],
+            "properties": {
+              "kind": {
+                "enum": [
+                  "synthetic_fixture",
+                  "archived_input"
+                ]
+              },
+              "subject_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source_reference": {
+                "type": "string",
+                "minLength": 1
+              },
+              "runtime_identity": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "repository",
+                      "source_commit",
+                      "run_id",
+                      "run_attempt"
+                    ],
+                    "properties": {
+                      "repository": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "source_commit": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{40}$"
+                      },
+                      "run_id": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]*$"
+                      },
+                      "run_attempt": {
+                        "type": "integer",
+                        "minimum": 1
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "kind": {
+                      "const": "synthetic_fixture"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "runtime_identity": {
+                      "type": "null"
+                    }
+                  }
+                }
+              }
+            ]
+          },
+          "input_bundle_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "expected_context_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "dimensions": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "group": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "kind",
+        "value",
+        "n_eligible",
+        "n_pass",
+        "included_in_disparity",
+        "pass_rate",
+        "wilson_lower",
+        "wilson_upper",
+        "conservative_gap"
+      ],
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "value",
+            "missing"
+          ]
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "n_eligible": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "n_pass": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "included_in_disparity": {
+          "type": "boolean"
+        },
+        "pass_rate": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wilson_lower": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wilson_upper": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "conservative_gap": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "missing"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "value": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dimension",
+        "missing_count",
+        "missing_fraction",
+        "small_group_count",
+        "small_group_fraction",
+        "missing_coverage_ok",
+        "groups"
+      ],
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "minLength": 1
+        },
+        "missing_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_fraction": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "small_group_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "small_group_fraction": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "missing_coverage_ok": {
+          "type": "boolean"
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/group"
+          }
+        }
+      }
+    }
+  }
+}
