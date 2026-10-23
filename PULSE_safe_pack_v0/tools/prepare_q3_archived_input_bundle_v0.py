@@ -172,6 +172,9 @@ def valid_date_time(value: object) -> bool:
         return True
     if not DATE_TIME.fullmatch(value):
         return False
+    # RFC 3339 excludes hour 24 even when a runtime parser normalizes it.
+    if int(value[11:13]) > 23:
+        return False
     normalized = value.upper()
     if normalized.endswith("Z"):
         normalized = normalized[:-1] + "+00:00"
@@ -460,6 +463,11 @@ def write_member(directory: int, name: str, data: bytes,
                           | os.O_CLOEXEC, 0o600, dir_fd=directory)
     try:
         created[name] = inode(os.fstat(descriptor))
+        os.fchmod(descriptor, 0o600)
+        info = os.fstat(descriptor)
+        if (not stat.S_ISREG(info.st_mode) or inode(info) != created[name]
+                or stat.S_IMODE(info.st_mode) != 0o600):
+            raise PreparationError("OUTPUT_BINDING_MISMATCH")
         remaining = memoryview(data)
         while remaining:
             written = os.write(descriptor, remaining)
@@ -481,6 +489,7 @@ def verify_members(directory: int, package: dict[str, bytes],
         try:
             before = os.fstat(descriptor)
             if (not stat.S_ISREG(before.st_mode) or inode(before) != created[name]
+                    or stat.S_IMODE(before.st_mode) != 0o600
                     or before.st_size != len(expected)):
                 raise PreparationError("OUTPUT_BINDING_MISMATCH")
             hasher = hashlib.sha256()
@@ -493,16 +502,30 @@ def verify_members(directory: int, package: dict[str, bytes],
                 if count > len(expected):
                     raise PreparationError("OUTPUT_BINDING_MISMATCH")
                 hasher.update(piece)
-            if (identity(before) != identity(os.fstat(descriptor)) or count != len(expected)
-                    or hasher.hexdigest() != sha256(expected)):
+            after = os.fstat(descriptor)
+            if (identity(before) != identity(after) or stat.S_IMODE(after.st_mode) != 0o600
+                    or count != len(expected) or hasher.hexdigest() != sha256(expected)):
                 raise PreparationError("OUTPUT_BINDING_MISMATCH")
         finally:
             os.close(descriptor)
 
 
-def cleanup_owned(parent: int, name: str, directory: int, directory_identity: tuple[int, int],
+def check_output_directory(info: os.stat_result, expected: tuple[int, int]) -> None:
+    if (not stat.S_ISDIR(info.st_mode) or inode(info) != expected
+            or stat.S_IMODE(info.st_mode) != 0o700):
+        raise PreparationError("OUTPUT_BINDING_MISMATCH")
+
+
+def cleanup_owned(parent: int, name: str, directory: int | None,
+                  directory_identity: tuple[int, int],
                   created: dict[str, tuple[int, int]]) -> bool:
-    """Best effort, nonrecursive. Preserve replacements and unrelated entries."""
+    """Best effort, nonrecursive. Preserve replacements and unrelated entries.
+
+    An owned empty stage can be removed without reopening it after EMFILE or
+    an initial open/fstat failure. Never infer ownership from a cleanup read.
+    """
+    if created and directory is None:
+        return False
     complete = True
     ordered = sorted(created, key=lambda n: (n != "preparation_manifest.json", n))
     for member in ordered:
@@ -517,7 +540,8 @@ def cleanup_owned(parent: int, name: str, directory: int, directory_identity: tu
         except OSError:
             complete = False
     try:
-        if inode(os.stat(name, dir_fd=parent, follow_symlinks=False)) == directory_identity:
+        info = os.stat(name, dir_fd=parent, follow_symlinks=False)
+        if stat.S_ISDIR(info.st_mode) and inode(info) == directory_identity:
             os.rmdir(name, dir_fd=parent)
         else:
             complete = False
@@ -532,6 +556,7 @@ def publish(package: dict[str, bytes], output: Path, rename_function: Any) -> No
     parent = directory = None
     location = ""
     directory_identity = None
+    staging_created = False
     created: dict[str, tuple[int, int]] = {}
     try:
         parent, final = parent_directory(output)
@@ -544,25 +569,39 @@ def publish(package: dict[str, bytes], output: Path, rename_function: Any) -> No
             raise PreparationError("OUTPUT_EXISTS")
         location = ".q3-preparing-" + secrets.token_hex(16)
         os.mkdir(location, 0o700, dir_fd=parent)
+        staging_created = True
+        info = os.stat(location, dir_fd=parent, follow_symlinks=False)
+        if not stat.S_ISDIR(info.st_mode):
+            raise PreparationError("OUTPUT_BINDING_MISMATCH")
+        directory_identity = inode(info)
+        # Restore owner access before opening: mkdir's mode is masked by umask.
+        # The existing contract requires this parent to be caller-controlled.
+        # Do not change the process-wide umask or follow a replacement symlink.
+        os.chmod(location, 0o700, dir_fd=parent, follow_symlinks=False)
+        check_output_directory(os.stat(location, dir_fd=parent, follow_symlinks=False),
+                               directory_identity)
         directory = os.open(location, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
                             | os.O_CLOEXEC, dir_fd=parent)
-        directory_identity = inode(os.fstat(directory))
+        check_output_directory(os.fstat(directory), directory_identity)
         for name in sorted(package, key=lambda n: (n == "preparation_manifest.json", n)):
             write_member(directory, name, package[name], created)
         verify_members(directory, package, created)
+        check_output_directory(os.fstat(directory), directory_identity)
         os.fsync(directory)
         check_parent_binding(output, parent_identity)
         rename_no_replace(rename_function, parent, location, final)
         location = final
         os.fsync(parent)
         check_parent_binding(output, parent_identity)
-        if inode(os.stat(final, dir_fd=parent, follow_symlinks=False)) != directory_identity:
-            raise PreparationError("OUTPUT_BINDING_MISMATCH")
+        check_output_directory(os.stat(final, dir_fd=parent, follow_symlinks=False),
+                               directory_identity)
+        check_output_directory(os.fstat(directory), directory_identity)
         verify_members(directory, package, created)
     except BaseException as exc:
         complete = None
-        if directory is not None and directory_identity is not None:
-            complete = cleanup_owned(parent, location, directory, directory_identity, created)
+        if staging_created:
+            complete = (cleanup_owned(parent, location, directory, directory_identity, created)
+                        if directory_identity is not None else False)
         if isinstance(exc, (KeyboardInterrupt, SystemExit)):
             raise
         failure = exc if isinstance(exc, PreparationError) else PreparationError("OUTPUT_WRITE_FAILED")

@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Fix the second Q3-2A preparation review: reject lexical hour 24 before
+  runtime date-time parsing, explicitly restore and verify private output
+  modes independently of process umask, and retain staging ownership before
+  its initial open. Clean up still-owned empty stages without reopening them;
+  report incomplete cleanup when ownership cannot be established. Add
+  deterministic parser, restrictive-umask and early-failure regressions.
+  Preserve pinned producer/checker/resources, original bytes, non-authorizing
+  preparation and historical Q2 FAIL / release BLOCK. Keep #2879 open.
+
 - Fix Q3-2A preparation review findings: detach returned receipt claims from
   module defaults, register deterministic date/date-time validation matching
   the pinned producer without optional format plugins, and reject every raw

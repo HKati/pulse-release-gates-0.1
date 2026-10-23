@@ -851,3 +851,267 @@ def test_fix1_escaped_carriage_return_is_not_a_raw_carriage_return(tmp_path):
     assert run(data)["preparation_result"] == "PREPARED"
     assert (data[3] / "examples.jsonl").read_bytes() == raw
     assert score_and_check(data[3], 0)["pass"] is True
+
+
+# FIX2: runtime-independent hour bounds, exact modes and early stage cleanup.
+@pytest.mark.parametrize("fix1_format_environment", ["missing", "accept_all", "reject_all"], indirect=True)
+@pytest.mark.parametrize("value", [
+    "2026-10-23T24:00:00Z", "2026-10-23t24:00:00.000z",
+    "2026-10-23T24:00:00+05:30", "2026-10-23T24:00:00-23:59",
+    "2026-10-23T25:00:00Z", "2026-10-23T99:00:00Z",
+])
+def test_fix2_hour_rejected_before_even_a_permissive_runtime_parser(
+        tmp_path, fix1_format_environment, value):
+    import types
+    data = selected(tmp_path)
+    fix1_set_manifest_time(data, value)
+    original = data[0].manifest.read_bytes()
+    native = prep.datetime
+    parser = mock.Mock(return_value=native.datetime(2026, 10, 24, tzinfo=native.timezone.utc))
+    shim = types.SimpleNamespace(date=native.date,
+                                 datetime=types.SimpleNamespace(fromisoformat=parser))
+    with mock.patch.object(prep, "datetime", shim):
+        rejection(data, "MANIFEST_INVALID")
+    parser.assert_not_called()
+    assert data[0].manifest.read_bytes() == original
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+
+
+@pytest.mark.parametrize("value", [
+    "2026-10-23T00:00:00Z", "2026-10-23T23:59:59.123456Z",
+    "2026-10-23t23:59:59z", "2026-10-23T23:59:59+23:59",
+    "2026-10-23T00:00:00-23:59",
+])
+def test_fix2_hour_boundaries_keep_valid_original_bytes(tmp_path, value):
+    data = selected(tmp_path)
+    fix1_set_manifest_time(data, value)
+    original = data[0].manifest.read_bytes()
+    assert run(data)["preparation_result"] == "PREPARED"
+    assert (data[3] / "dataset_manifest.json").read_bytes() == original
+
+
+@pytest.mark.parametrize("mask", [0o000, 0o077, 0o177, 0o277, 0o477, 0o777])
+def test_fix2_private_output_modes_with_restrictive_umask(tmp_path, mask):
+    import stat
+    data = selected(tmp_path)
+    result = subprocess.run(
+        [sys.executable, str(TOOL), "--selection", str(data[1]),
+         "--source-root", str(data[0].root), "--out-dir", str(data[3])],
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+        capture_output=True, text=True, timeout=60, check=False, umask=mask)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["preparation_result"] == "PREPARED"
+    assert stat.S_IMODE(data[3].stat().st_mode) == 0o700
+    assert len(list(data[3].iterdir())) == 7
+    assert all(stat.S_IMODE(p.stat().st_mode) == 0o600 for p in data[3].iterdir())
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+    # Existing producer/checker can consume the selected bytes unchanged.
+    assert score_and_check(data[3], 0)["pass"] is True
+
+
+def test_fix2_umask_0777_as_an_unprivileged_owner():
+    import tempfile
+    import stat
+    # Always execute as an unprivileged owner, including root-run test workers.
+    uid = 65534 if os.geteuid() == 0 else os.geteuid()
+    gid = 65534 if os.geteuid() == 0 else os.getegid()
+    with tempfile.TemporaryDirectory(prefix="q3-fix2-unprivileged-") as name:
+        root = Path(name)
+        data = selected(root)
+        resources = root / "tool-copy"
+        for relative in [prep.SOURCE_PATH, prep.SELECTION_SCHEMA_PATH,
+                         prep.PRODUCER_PATH, *prep.RESOURCE_PATHS.values()]:
+            target = resources / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(ROOT / relative, target)
+        if os.geteuid() == 0:
+            for path in [root, *root.rglob("*")]:
+                os.chown(path, uid, gid)
+        options = {"user": uid, "group": gid, "extra_groups": []} if os.geteuid() == 0 else {}
+        script = '''
+import importlib.util, json, os, pathlib, stat, sys
+spec = importlib.util.spec_from_file_location("unprivileged_preparer", sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+assert os.geteuid() != 0
+# Changing a process-wide umask is not a valid implementation of this fix.
+def forbidden_umask(*args):
+    raise AssertionError("preparer must not change process umask")
+os.umask = forbidden_umask
+result = module.main(sys.argv[2:])
+assert result == 0, result
+output = pathlib.Path(sys.argv[-1])
+assert stat.S_IMODE(output.stat().st_mode) == 0o700
+assert len(list(output.iterdir())) == 7
+for path in output.iterdir():
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    assert path.read_bytes()
+'''
+        try:
+            result = subprocess.run(
+                [sys.executable, "-c", script, str(resources / prep.SOURCE_PATH),
+                 "--selection", str(data[1]), "--source-root", str(data[0].root),
+                 "--resources-root", str(resources), "--producer-source-root", str(resources),
+                 "--out-dir", str(data[3])],
+                env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}, umask=0o777,
+                capture_output=True, text=True, timeout=60, check=False, **options)
+            assert result.returncode == 0, result.stderr
+            assert json.loads(result.stdout)["preparation_result"] == "PREPARED"
+        finally:
+            # Test-fixture cleanup also works against an unfixed mode-000 stage.
+            for parent, directories, _files in os.walk(root):
+                for directory in directories:
+                    os.chmod(Path(parent) / directory, 0o700)
+
+
+@pytest.mark.parametrize("phase", ["open", "fstat"])
+@pytest.mark.parametrize("number", [errno.EMFILE, errno.ENFILE, errno.EIO])
+def test_fix2_initial_stage_failure_is_cleaned_without_reopening(tmp_path, phase, number):
+    data = selected(tmp_path)
+    rename = prep.ensure_platform()
+    native_open, native_fstat = os.open, os.fstat
+    stage_fd = None
+    failed = False
+    def open_file(path, flags, *args, **kwargs):
+        nonlocal stage_fd, failed
+        is_stage = str(path).startswith(".q3-preparing-")
+        if is_stage and phase == "open":
+            failed = True
+            raise OSError(number, "synthetic initial stage open failure")
+        fd = native_open(path, flags, *args, **kwargs)
+        if is_stage:
+            stage_fd = fd
+        return fd
+    def fstat_file(fd):
+        nonlocal failed
+        if fd == stage_fd and phase == "fstat":
+            failed = True
+            raise OSError(number, "synthetic initial stage fstat failure")
+        return native_fstat(fd)
+    with mock.patch.object(prep, "ensure_platform", return_value=rename), \
+         mock.patch.object(prep.os, "open", side_effect=open_file), \
+         mock.patch.object(prep.os, "fstat", side_effect=fstat_file):
+        error = rejection(data, "OUTPUT_WRITE_FAILED")
+    assert failed
+    assert error.cleanup_complete is True
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+    assert run(data)["preparation_result"] == "PREPARED"
+
+
+@pytest.mark.parametrize("phase", ["initial_stat", "cleanup_stat", "rmdir"])
+def test_fix2_early_cleanup_failure_is_explicit_and_preserves_primary_error(tmp_path, phase):
+    data = selected(tmp_path)
+    rename = prep.ensure_platform()
+    native_open, native_stat, native_rmdir = os.open, os.stat, os.rmdir
+    failed_open = False
+    def open_file(path, flags, *args, **kwargs):
+        nonlocal failed_open
+        if str(path).startswith(".q3-preparing-"):
+            failed_open = True
+            raise OSError(errno.EMFILE, "synthetic stage open failure")
+        return native_open(path, flags, *args, **kwargs)
+    def stat_file(path, *args, **kwargs):
+        if str(path).startswith(".q3-preparing-") and (
+                phase == "initial_stat" or phase == "cleanup_stat" and failed_open):
+            raise OSError(errno.EIO, "synthetic ownership stat failure")
+        return native_stat(path, *args, **kwargs)
+    def remove(path, *args, **kwargs):
+        if str(path).startswith(".q3-preparing-") and phase == "rmdir":
+            raise PermissionError("synthetic cleanup denial")
+        return native_rmdir(path, *args, **kwargs)
+    with mock.patch.object(prep, "ensure_platform", return_value=rename), \
+         mock.patch.object(prep.os, "open", side_effect=open_file), \
+         mock.patch.object(prep.os, "stat", side_effect=stat_file), \
+         mock.patch.object(prep.os, "rmdir", side_effect=remove):
+        error = rejection(data, "OUTPUT_WRITE_FAILED")
+    assert error.cleanup_complete is False
+    assert len(list(tmp_path.glob(".q3-preparing-*"))) == 1
+    assert error.__cause__.errno == (errno.EIO if phase == "initial_stat" else errno.EMFILE)
+    # Neither residue nor an uncertain identity is reused as the next package.
+    assert run(data)["preparation_result"] == "PREPARED"
+    assert len(list(tmp_path.glob(".q3-preparing-*"))) == 1
+
+
+@pytest.mark.parametrize("kind", ["directory", "symlink", "unrelated_member"])
+def test_fix2_early_cleanup_preserves_replacement_or_unrelated_content(tmp_path, kind):
+    data = selected(tmp_path)
+    rename = prep.ensure_platform()
+    native_open = os.open
+    foreign = tmp_path / "foreign"
+    foreign.mkdir()
+    (foreign / "owner.txt").write_text("untouched")
+    original = tmp_path / "saved-original-stage"
+    observed = []
+    def open_file(path, flags, *args, **kwargs):
+        if str(path).startswith(".q3-preparing-"):
+            stage = tmp_path / path
+            observed.append(stage)
+            if kind == "unrelated_member":
+                (stage / "foreign.txt").write_text("do not remove")
+            else:
+                stage.rename(original)
+                if kind == "directory":
+                    stage.mkdir()
+                else:
+                    stage.symlink_to(foreign, target_is_directory=True)
+            raise OSError(errno.EMFILE, "synthetic failure after replacement")
+        return native_open(path, flags, *args, **kwargs)
+    with mock.patch.object(prep, "ensure_platform", return_value=rename), \
+         mock.patch.object(prep.os, "open", side_effect=open_file):
+        error = rejection(data, "OUTPUT_WRITE_FAILED")
+    assert error.cleanup_complete is False
+    assert len(observed) == 1 and observed[0].exists()
+    assert (foreign / "owner.txt").read_text() == "untouched"
+    if kind == "unrelated_member":
+        assert (observed[0] / "foreign.txt").read_text() == "do not remove"
+    elif kind == "symlink":
+        assert observed[0].is_symlink()
+    else:
+        assert observed[0].is_dir() and not list(observed[0].iterdir())
+
+
+def test_fix2_failed_mkdir_does_not_claim_or_remove_existing_stage(tmp_path):
+    data = selected(tmp_path)
+    stage = tmp_path / (".q3-preparing-" + "a" * 32)
+    stage.mkdir()
+    (stage / "owner.txt").write_text("preserve")
+    with mock.patch.object(prep.secrets, "token_hex", return_value="a" * 32):
+        error = rejection(data, "OUTPUT_WRITE_FAILED")
+    assert error.cleanup_complete is None
+    assert (stage / "owner.txt").read_text() == "preserve"
+
+
+@pytest.mark.parametrize("target", ["directory", "member"])
+@pytest.mark.parametrize("behavior", ["error", "wrong_mode"])
+def test_fix2_mode_setting_failure_never_publishes(tmp_path, target, behavior):
+    data = selected(tmp_path)
+    native_chmod, native_fchmod = os.chmod, os.fchmod
+    def chmod_file(path, mode, *args, **kwargs):
+        if behavior == "error":
+            raise PermissionError("synthetic directory chmod failure")
+        return native_chmod(path, 0o755, *args, **kwargs)
+    def fchmod_file(fd, mode):
+        if behavior == "error":
+            raise PermissionError("synthetic member fchmod failure")
+        return native_fchmod(fd, 0o644)
+    with mock.patch.object(prep.os, "chmod" if target == "directory" else "fchmod",
+                           side_effect=chmod_file if target == "directory" else fchmod_file):
+        error = rejection(data, "OUTPUT_WRITE_FAILED" if behavior == "error"
+                          else "OUTPUT_BINDING_MISMATCH")
+    assert error.cleanup_complete is True
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+    assert run(data)["preparation_result"] == "PREPARED"
+
+
+@pytest.mark.parametrize("target", ["directory", "member"])
+def test_fix2_modes_rechecked_after_publication(tmp_path, target):
+    data = selected(tmp_path)
+    native = prep.rename_no_replace
+    def rename(function, parent, old, new):
+        native(function, parent, old, new)
+        victim = data[3] if target == "directory" else data[3] / "examples.jsonl"
+        victim.chmod(0o755 if target == "directory" else 0o644)
+    with mock.patch.object(prep, "rename_no_replace", side_effect=rename):
+        error = rejection(data, "OUTPUT_BINDING_MISMATCH")
+    assert error.cleanup_complete is True
+    assert not list(tmp_path.glob(".q3-preparing-*"))
