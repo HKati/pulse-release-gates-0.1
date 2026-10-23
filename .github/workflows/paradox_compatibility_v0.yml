@@ -1,0 +1,171 @@
+name: Paradoxon PD-SM-01 compatibility (manual)
+run-name: PD-SM-01 compatibility ${{ inputs.source_commit }}
+
+# Opt-in research experiment, never a production release gate.
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact reviewed main commit containing this workflow (40 lowercase hex)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paradox-compatibility-v0
+  cancel-in-progress: false
+
+jobs:
+  compatibility:
+    if: github.repository == 'HKati/pulse-release-gates-0.1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      PD_SOURCE_COMMIT: ${{ inputs.source_commit }}
+    steps:
+      - name: Check owner and exact source before checkout
+        id: guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_ACTOR" = HKati
+          test "$GITHUB_ACTOR_ID" = 128643840
+          test "$GITHUB_TRIGGERING_ACTOR" = HKati
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          [[ "$PD_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$PD_SOURCE_COMMIT" = "$GITHUB_SHA"
+          test "$GITHUB_SHA" = "$GITHUB_WORKFLOW_SHA"
+          mkdir -p "$RUNNER_TEMP/pd-sm-01-e2"
+          printf 'STARTED\n' > "$RUNNER_TEMP/pd-sm-01-e2/ACQUISITION_STATUS.txt"
+
+      - name: Checkout reviewed experiment code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          persist-credentials: false
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /examples/paradox_compatibility_v0/
+            /.github/workflows/paradox_compatibility_v0.yml
+
+      - name: Checkout the immutable historical source slice
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 102145d1f1c321811c52d9d20f92cc7289127b2b
+          path: frozen_source
+          persist-credentials: false
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /docs/PULSEMECH_PARADOX_M1_M3_DEFINITION_CONTRACT_v0_2.md
+            /docs/PULSEMECH_PARADOX_SOURCE_MAPPING_CASE_v0.md
+            /docs/examples/transitions_case_study_v0/
+            /scripts/paradox_field_adapter_v0.py
+            /scripts/export_paradox_edges_v0.py
+            /scripts/check_paradox_field_v0_contract.py
+            /scripts/check_paradox_edges_v0_contract.py
+            /scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py
+            /scripts/scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py
+
+      # Setup failures may be retained individually, but the final matrix requires
+      # all four exact observed versions; a missing setup can never give MATCH.
+      - name: Acquire CPython 3.11.14
+        id: py311
+        continue-on-error: true
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11.14'
+          architecture: x64
+          check-latest: false
+          update-environment: false
+      - name: Acquire CPython 3.12.12
+        id: py312
+        continue-on-error: true
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12.12'
+          architecture: x64
+          check-latest: false
+          update-environment: false
+      - name: Acquire CPython 3.13.5
+        id: py313
+        continue-on-error: true
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.13.5'
+          architecture: x64
+          check-latest: false
+          update-environment: false
+      - name: Acquire CPython 3.14.3
+        id: py314
+        continue-on-error: true
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.14.3'
+          architecture: x64
+          check-latest: false
+          update-environment: false
+
+      - name: Run source-bound cases and compare exact interpreter results
+        env:
+          PY311: ${{ steps.py311.outputs.python-path }}
+          PY312: ${{ steps.py312.outputs.python-path }}
+          PY313: ${{ steps.py313.outputs.python-path }}
+          PY314: ${{ steps.py314.outputs.python-path }}
+          PY311_STATUS: ${{ steps.py311.outcome }}
+          PY312_STATUS: ${{ steps.py312.outcome }}
+          PY313_STATUS: ${{ steps.py313.outcome }}
+          PY314_STATUS: ${{ steps.py314.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C tooling rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git -C frozen_source rev-parse HEAD)" = 102145d1f1c321811c52d9d20f92cc7289127b2b
+          out="$RUNNER_TEMP/pd-sm-01-e2"
+          code="$GITHUB_WORKSPACE/tooling/examples/paradox_compatibility_v0"
+          printf '%s %s\n' 3.11.14 "$PY311_STATUS" 3.12.12 "$PY312_STATUS" 3.13.5 "$PY313_STATUS" 3.14.3 "$PY314_STATUS" > "$out/SETUP_OUTCOMES.txt"
+          # No fallback controller or pretend interpreter version.
+          test "$PY313_STATUS" = success
+          test -x "$PY313"
+          "$PY313" -I -S -B "$code/test_matrix.py" > "$out/matrix-controls.stdout" 2> "$out/matrix-controls.stderr"
+          args=()
+          if [ "$PY311_STATUS" = success ] && [ -n "$PY311" ]; then args+=(--interpreter "3.11.14=$PY311"); fi
+          if [ "$PY312_STATUS" = success ] && [ -n "$PY312" ]; then args+=(--interpreter "3.12.12=$PY312"); fi
+          args+=(--interpreter "3.13.5=$PY313")
+          if [ "$PY314_STATUS" = success ] && [ -n "$PY314" ]; then args+=(--interpreter "3.14.3=$PY314"); fi
+          set +e
+          "$PY313" -I -S -B "$code/matrix.py" \
+            --source-root "$GITHUB_WORKSPACE/frozen_source" \
+            --output "$out/matrix" "${args[@]}" \
+            > "$out/matrix.stdout" 2> "$out/matrix.stderr"
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$out/matrix.exitcode"
+          cat "$out/matrix.stdout"
+          exit "$rc"
+
+      - name: Record incomplete setup when no matrix report exists
+        if: always() && steps.guard.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/pd-sm-01-e2"
+          if [ ! -f "$out/matrix/MATRIX.json" ]; then
+            printf '%s\n' '{"status":"INCOMPLETE","reason":"SETUP_OR_CONTROLLER_FAILED","cross_version_compatibility_established_for_declared_profile":false,"authority_effect":"none"}' > "$out/INCOMPLETE.json"
+          fi
+
+      - name: Preserve complete and failed experiment evidence
+        if: always() && steps.guard.outcome == 'success'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: pd-sm-01-e2-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pd-sm-01-e2/
+          if-no-files-found: error
+          overwrite: false
+          retention-days: 30

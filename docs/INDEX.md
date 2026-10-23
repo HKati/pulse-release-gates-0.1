@@ -935,6 +935,13 @@ index update neither predeclares that closure nor performs a new proof execution
   into M1–M3. Includes five analytical variants, checker-scope distinctions
   and explicit provenance limits. Full representation fidelity, real-system
   coverage and pilot readiness remain open; `authority_effect = none`.
+- Paradoxon PD-SM-01 explicit-interpreter compatibility matrix:
+  [Compatibility runner and manual workflow](../examples/paradox_compatibility_v0/README.md)
+  **Research validation tooling; hosted matrix not yet executed.** Reuses
+  the unchanged E0 reference, eight scenarios and eighteen regression methods
+  across four pinned CPython versions. A missing, failed or different result
+  prevents matrix success; no general portability or E1/MON-1 claim follows.
+  Manual dispatch only; no release activation; `authority_effect = none`.
 - [PULSE_paradox_field_v0_walkthrough.md](PULSE_paradox_field_v0_walkthrough.md) — Reading `paradox_field_v0`.
 - [Pulse_paradox_edges_v0_status.md](Pulse_paradox_edges_v0_status.md) — Status and roadmap for `paradox_edges_v0.jsonl`.
 - [paradox_edges_case_studies.md](paradox_edges_case_studies.md) — Fixture and non-fixture case studies.
