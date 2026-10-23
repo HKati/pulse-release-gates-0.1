@@ -20,7 +20,7 @@ independent_external_validation: not_claimed
 authority_effect: none
 ```
 
-No repository changes, test execution, producer execution, workflow dispatch, new measurement or proof-assistant run were performed for this case. The existing producer and checker programs were read, not executed. Files prepared for delivery are documentation, not generated Paradoxon outputs or verification receipts.
+This repository contribution is documentation-only: this case document and its entry in `docs/INDEX.md`. No runtime code, producer, checker, schema, policy or workflow is modified. During preparation of the source-mapping analysis, no project tests, producer programs, workflows, new measurements or proof assistants were run; the existing programs were inspected, not executed. The `NOT_RUN` fields above refer to execution of this case and its variants, not to the status of any later repository CI. Publishing or checking the documentation does not establish executed outcomes for V0–V4 or supply generated Paradoxon outputs or verification receipts.
 
 ## 0. Result and exact claim
 
@@ -209,11 +209,31 @@ $$
 q_{\rm context}(C),q_{\rm conditions}(C),q_{\rm support}(C)\bigr).
 $$
 
+In the field-projection formulas below, `e`, `t`, `g` and `m` denote the selected edge record and its resolved tension, gate and metric Atom records. They are record variables, distinct from the symbolic ID values listed in Section 3.1. Dotted names are the following explicitly defined field projections, not new JSON fields:
+
+| Projection | Exact record field | Value type in this case |
+|---|---|---|
+| `e.id` | `e["edge_id"]` | String ID. |
+| `e.src` | `e["src_atom_id"]` | String Atom ID. |
+| `e.dst` | `e["dst_atom_id"]` | String Atom ID. |
+| `e.tension` | `e["tension_atom_id"]` | String Atom ID. |
+| `t.id`, `g.id`, `m.id` | The corresponding record's `["atom_id"]` | String Atom ID. |
+| `t.gateAtomId` | `t["evidence"]["gate_atom_id"]` | String Atom ID. |
+| `t.metricAtomId` | `t["evidence"]["metric_atom_id"]` | String Atom ID. |
+| `t.srcAlias` | `t["evidence"]["src_atom_id"]` | String Atom ID. |
+| `t.dstAlias` | `t["evidence"]["dst_atom_id"]` | String Atom ID. |
+| `t.rule` | `t["evidence"]["rule"]` | Rule string. |
+| `e.type`, `t.type`, `g.type`, `m.type` | The corresponding record's `["type"]` | Type string. |
+| `e.severity`, `t.severity` | The corresponding record's `["severity"]` | Severity string. |
+| `e.rule` | `e["rule"]` | Rule string. |
+
+The copied summary objects `t["evidence"]["gate"]` and `t["evidence"]["metric"]` remain summaries, not endpoint IDs. They are relevant to `K_origin`; they are not operands of the ID equalities in `K_link`. The pinned producer and checkers use the ID fields named above for the endpoint bindings. [S7–S10]
+
 `q_roles` retains the common relation tuple, rather than separate endpoint sets:
 
 $$
 \bigl(e.id,e.type,e.src,e.dst,e.tension,\ t.id,
- t.gate,t.metric,t.srcAlias,t.dstAlias,\ g.type,m.type\bigr).
+ t.gateAtomId,t.metricAtomId,t.srcAlias,t.dstAlias,\ g.type,m.type\bigr).
 $$
 
 The other coordinates retain the declared source references/values, normalized context, condition values, and typed proof premises and their availability. Condition values are derived annotations: a stored `true` is not accepted instead of the record equalities or the source-bound derivation. The sufficiency argument uses the retained inputs and fixed semantics, not an unverified outcome label. Source-origin claims remain conditional on the independently checked bindings stated in the case. For partial descriptions:
@@ -236,8 +256,8 @@ $$
 \begin{aligned}
 K_{\rm link}(C) := {}&\operatorname{UniqueResolvedTyped}(e,t,g,m)\\
 &\land e.tension=t.id\\
-&\land e.src=t.gate=t.srcAlias=g.id\\
-&\land e.dst=t.metric=t.dstAlias=m.id\\
+&\land e.src=t.gateAtomId=t.srcAlias=g.id\\
+&\land e.dst=t.metricAtomId=t.dstAlias=m.id\\
 &\land e.severity=t.severity\\
 &\land e.rule=t.rule.
 \end{aligned}
@@ -310,10 +330,10 @@ for the declared semantic projection.
 
 **Change:** keep the baseline field and all its Atoms unchanged. In the selected edge, change only `dst_atom_id` from `mL` to the existing `mC`; retain `tension_atom_id=tL`, all source records and all other edge fields. No record or metric value is added or removed.
 
-**Manual witness:**
+**Manual witness:** let `t` be the unchanged tension record resolved by the ID `tL`; `mL` and `mC` remain the distinct metric ID values from Section 3.1.
 
 $$
-e.dst=mC,\qquad tL.metric=tL.dstAlias=mL,\qquad mC\ne mL.
+e.dst=mC,\qquad t.metricAtomId=t.dstAlias=mL,\qquad mC\ne mL.
 $$
 
 Therefore `K_link` is false. The distinction is visible in one common tuple even though the node counts, edge counts, source metric values and edge severity remain unchanged.
@@ -362,7 +382,7 @@ The exact latency claim is not refuted or rewritten. Its historical derivation r
 
 ## 7. M2 — Conditional completions and mutual constraints in this case
 
-Let `x` be the edge's destination role and `y` the tension's metric role. In the selected two-metric slice, the basic internal compatibility condition contains:
+Let `x = e.dst` be the edge's destination ID and `y = t.metricAtomId` the tension's metric endpoint ID. In the selected two-metric slice, the basic internal compatibility condition contains:
 
 $$
 x,y\in\{mL,mC\},\qquad x=y.
@@ -486,7 +506,7 @@ The next authorized research review can examine this exact mapping, particularly
 
 After acceptance, the smallest executable follow-up would materialize these five variants in an isolated setting, use explicit complete Atom/context inputs, and compare observed outcomes with the independently specified equalities. That is a later proposal, not an execution permission granted by this document. The monitoring/delegation pilot requires an additional system-level mapping before it can claim pre-execution safety.
 
-The proposed repository change for preserving this work is one new document at `docs/PULSEMECH_PARADOX_SOURCE_MAPPING_CASE_v0.md` and one accurately classified link under `Paradox field and edges` in `docs/INDEX.md`. The M1–M3 contract, existing case-study sources, code, checkers, policies, workflows, README, DOI and Software Heritage surfaces are not modified by this delivery.
+The repository scope for preserving this work is one case document at `docs/PULSEMECH_PARADOX_SOURCE_MAPPING_CASE_v0.md` and one accurately classified link under `Paradox field and edges` in `docs/INDEX.md`. The M1–M3 contract, existing case-study sources, code, checkers, policies, workflows, README, DOI and Software Heritage surfaces are not modified by this delivery.
 
 ## Source register
 
