@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import datetime
 import errno
 import hashlib
 import json
@@ -60,6 +61,11 @@ MAX_LINE_BYTES = 1_048_576
 MAX_ROWS = 100_000
 MAX_DIMENSIONS = 64
 RELATIVE = re.compile(r"[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*")
+DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+DATE_TIME = re.compile(
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}[Tt][0-9]{2}:[0-9]{2}:[0-9]{2}"
+    r"(?:\.[0-9]+)?(?:[Zz]|[+-][0-9]{2}:[0-9]{2})"
+)
 CLAIMS = {
     "authority_effect": "none", "production_gate_eligible": False,
     "current_run_evidence": False, "source_authentication": "not_established",
@@ -143,13 +149,50 @@ def _check_local_refs(value: Any) -> None:
             _check_local_refs(child)
 
 
+# Match the pinned producer locally; optional jsonschema plugins are not used.
+FORMATS = FormatChecker(formats=[])
+
+
+@FORMATS.checks("date")
+def valid_date(value: object) -> bool:
+    if not isinstance(value, str):
+        return True
+    if not DATE.fullmatch(value):
+        return False
+    try:
+        datetime.date.fromisoformat(value)
+        return True
+    except ValueError:
+        return False
+
+
+@FORMATS.checks("date-time")
+def valid_date_time(value: object) -> bool:
+    if not isinstance(value, str):
+        return True
+    if not DATE_TIME.fullmatch(value):
+        return False
+    normalized = value.upper()
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+    else:
+        # fromisoformat accepts overflowing offset minutes; RFC 3339 does not.
+        if int(normalized[-5:-3]) > 23 or int(normalized[-2:]) > 59:
+            return False
+    try:
+        parsed = datetime.datetime.fromisoformat(normalized)
+        return parsed.tzinfo is not None
+    except ValueError:
+        return False
+
+
 def rule(schema: dict[str, Any], definition: str | None = None) -> Draft202012Validator:
     _check_local_refs(schema)
     Draft202012Validator.check_schema(schema)
     if definition:
         schema = {"$schema": schema["$schema"], "$defs": schema["$defs"],
                   "$ref": "#/$defs/" + definition}
-    return Draft202012Validator(schema, format_checker=FormatChecker())
+    return Draft202012Validator(schema, format_checker=FORMATS)
 
 
 def validate(value: Any, schema_rule: Draft202012Validator, code: str) -> None:
@@ -263,7 +306,7 @@ def load_resources(root: Path, snapshots: Snapshots) -> dict[str, bytes]:
 
 
 def parse_rows(data: bytes, validator: Draft202012Validator) -> dict[str, tuple[dict, str]]:
-    if (not data or not data.endswith(b"\n") or b"\r\n" in data
+    if (not data or not data.endswith(b"\n") or b"\r" in data
             or data.startswith(b"\xef\xbb\xbf")):
         raise PreparationError("INPUT_REPRESENTATION_INVALID")
     lines = data.split(b"\n")[:-1]
@@ -565,7 +608,7 @@ def prepare(selection_path: Path, source_root: Path, resources_root: Path,
     publish(package, output, rename_function)
     return {"record_type": "q3_input_preparation_receipt_v0", "preparation_result": "PREPARED",
             "preparation_manifest_sha256": sha256(package["preparation_manifest.json"]),
-            "selection_sha256": sha256(selection_bytes), "claims": CLAIMS}
+            "selection_sha256": sha256(selection_bytes), "claims": dict(CLAIMS)}
 
 
 def main(argv: list[str] | None = None) -> int:

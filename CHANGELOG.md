@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Fix Q3-2A preparation review findings: detach returned receipt claims from
+  module defaults, register deterministic date/date-time validation matching
+  the pinned producer without optional format plugins, and reject every raw
+  carriage-return byte in JSONL inputs. Add same-process mutation, format-plugin
+  independence, producer-parity and JSONL regressions. Preserve original input
+  bytes, unchanged producer/checker/resources, non-authorizing preparation and
+  the historical Q2 FAIL / release BLOCK. Refs #2879; keep the issue open.
+
 - Add the offline Q3-2A archived-input preparer, closed external-selection
   schema and focused synthetic tests. Preserve selected manifest/examples/labels
   and selection bytes; build the unchanged Q3 bundle/expected-context formats

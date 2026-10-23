@@ -698,3 +698,156 @@ def test_row_file_and_dimension_limits_are_not_silent_truncation(tmp_path):
             rejection(data)
     with pytest.raises(prep.PreparationError, match="INPUT_LIMIT"):
         prep.Snapshots().read(data[0].examples, limit=10)
+
+
+# PR #2947 review regressions: all fixtures are synthetic and offline.
+def test_fix1_receipt_claims_do_not_mutate_later_preparations(tmp_path):
+    data = selected(tmp_path)
+    defaults = dict(prep.CLAIMS)
+    # Keep the regression's intentional mutation isolated even on the old code.
+    with mock.patch.object(prep, "CLAIMS", dict(defaults)):
+        first = run(data)
+        original_manifest = (data[3] / "preparation_manifest.json").read_bytes()
+        first["claims"]["authority_effect"] = "caller_annotation_not_authority"
+        first["claims"]["production_gate_eligible"] = True
+        first["claims"].pop("current_run_evidence")
+        first["claims"]["annotation"] = {"owner": "synthetic caller"}
+        second_data = (*data[:3], tmp_path / "second")
+        second = run(second_data)
+        second_manifest = fb.read_json(second_data[3] / "preparation_manifest.json")
+        assert prep.CLAIMS == defaults
+        assert first["claims"] is not prep.CLAIMS
+        assert second["claims"] == second_manifest["claims"] == defaults
+        assert second["claims"] is not first["claims"]
+        assert second["claims"] is not prep.CLAIMS
+        second["claims"].clear()
+        third_data = (*data[:3], tmp_path / "third")
+        third = run(third_data)
+        assert third["claims"] == defaults
+        assert fb.read_json(third_data[3] / "preparation_manifest.json")["claims"] == defaults
+        assert (data[3] / "preparation_manifest.json").read_bytes() == original_manifest
+
+
+@pytest.fixture
+def fix1_format_environment(request, monkeypatch):
+    from jsonschema import FormatChecker
+    mode = request.param
+    registry = {}
+    if mode != "missing":
+        def plugin(_value):
+            return mode == "accept_all"
+        registry = {name: (plugin, ()) for name in ("date", "date-time")}
+    expected_registry = dict(registry)
+    monkeypatch.setattr(FormatChecker, "checkers", registry)
+    isolated = load("q3_preparation_fix1_formats_" + mode, TOOL)
+    monkeypatch.setattr(sys.modules[__name__], "prep", isolated)
+    yield mode
+    # Deterministic registration must remain local to the preparer instance.
+    assert FormatChecker.checkers == expected_registry
+
+
+def fix1_set_manifest_time(data, value):
+    manifest = fb.read_json(data[0].manifest)
+    manifest["time_range"] = {"from": value, "to": value}
+    fb.write_json(data[0].manifest, manifest)
+    data[2]["artifacts"]["dataset_manifest"] = fb.artifact(data[0].manifest)
+    save(data)
+
+
+@pytest.mark.parametrize("fix1_format_environment", ["missing", "accept_all"], indirect=True)
+@pytest.mark.parametrize("value", [
+    "not-a-date", "2026-02-30", "2026-10-23T12:00:00",
+    "2026-10-23T12:00:00+00:99", "2026-10-23T12:00:00+24:00",
+    "2026-10-23T24:00:00Z",
+])
+def test_fix1_invalid_manifest_time_rejected_without_optional_plugins(
+        tmp_path, fix1_format_environment, value):
+    data = selected(tmp_path)
+    fix1_set_manifest_time(data, value)
+    original = data[0].manifest.read_bytes()
+    rejection(data, "MANIFEST_INVALID")
+    assert data[0].manifest.read_bytes() == original
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+
+
+@pytest.mark.parametrize("fix1_format_environment", ["missing", "reject_all"], indirect=True)
+@pytest.mark.parametrize("value", [
+    "2024-02-29", "2026-10-23T12:34:56Z",
+    "2026-10-23t12:34:56.123456z", "2026-10-23T12:34:56+05:30",
+])
+def test_fix1_valid_manifest_time_accepted_independently_of_optional_plugins(
+        tmp_path, fix1_format_environment, value):
+    data = selected(tmp_path)
+    fix1_set_manifest_time(data, value)
+    original = data[0].manifest.read_bytes()
+    assert run(data)["preparation_result"] == "PREPARED"
+    assert (data[3] / "dataset_manifest.json").read_bytes() == original
+
+
+@pytest.mark.parametrize("format_name,values", [
+    ("date", ["2024-02-29", "2026-02-29", "2026-1-01", "0000-01-01",
+              "2026-10-23", "２０２６-10-23", "not-a-date", 1, None]),
+    ("date-time", ["2026-10-23T12:34:56Z", "2026-10-23t12:34:56.1z",
+                   "2026-10-23T12:34:56-23:59", "2026-10-23T12:34:56+00:99",
+                   "2026-10-23T12:34:56+24:00", "2026-10-23T12:34:60Z",
+                   "2026-10-23T12:34:56", "2026-02-30T12:34:56Z",
+                   "2026-10-23 12:34:56Z", "not-a-date", 1, None]),
+])
+@pytest.mark.parametrize("fix1_format_environment", ["missing", "accept_all", "reject_all"], indirect=True)
+def test_fix1_date_format_semantics_match_unchanged_producer(
+        fix1_format_environment, format_name, values):
+    producer = load("q3_preparation_fix1_format_oracle", ROOT / fb.PRODUCER_PATH)
+    schema = {"format": format_name}
+    before = prep.rule(schema)
+    reference = producer.validator(schema)
+    assert [before.is_valid(value) for value in values] == [
+        reference.is_valid(value) for value in values]
+
+
+@pytest.mark.parametrize("role", ["examples_jsonl", "q1_labels_jsonl"])
+@pytest.mark.parametrize("position", ["prefix", "inside_record"])
+def test_fix1_bare_carriage_return_is_rejected_for_both_jsonl_roles(tmp_path, role, position):
+    data = selected(tmp_path)
+    source = data[0].root / data[2]["artifacts"][role]["path"]
+    raw = source.read_bytes()
+    changed = b"\r" + raw if position == "prefix" else raw.replace(b"{", b"{\r", 1)
+    assert b"\r" in changed and b"\r\n" not in changed
+    # The inserted byte is legal JSON whitespace, not a malformed JSON value.
+    assert json.loads(changed.split(b"\n", 1)[0]) == json.loads(raw.split(b"\n", 1)[0])
+    if role == "examples_jsonl":
+        # Bind every label to the changed raw example line, so a later digest
+        # mismatch cannot mask the representation bug under test.
+        fb.replace_examples_bytes(data[0], changed)
+    else:
+        source.write_bytes(changed)
+        manifest = fb.read_json(data[0].manifest)
+        manifest["hashes"]["labels_sha256"] = prep.sha256(changed)
+        fb.write_json(data[0].manifest, manifest)
+    for selected_role, name in prep.ARTIFACT_NAMES.items():
+        data[2]["artifacts"][selected_role] = fb.artifact(data[0].root / name)
+    save(data)
+    rejection(data, "INPUT_REPRESENTATION_INVALID")
+    assert source.read_bytes() == changed
+    assert not list(tmp_path.glob(".q3-preparing-*"))
+
+
+def test_fix1_escaped_carriage_return_is_not_a_raw_carriage_return(tmp_path):
+    data = selected(tmp_path)
+    rows = [json.loads(line) for line in data[0].examples.read_bytes().splitlines()]
+    rows[0]["prompt"] += "\rsynthetic escaped content"
+    raw = b"\n".join(fb.row_bytes(row) for row in rows) + b"\n"
+    assert b"\\r" in raw and b"\r" not in raw
+    schema = json.loads((ROOT / prep.RESOURCE_PATHS["input_schema_sha256"]).read_bytes())
+    preparer_rows = prep.parse_rows(raw, prep.rule(schema, "example_record"))
+    producer = load("q3_preparation_fix1_jsonl_oracle", ROOT / fb.PRODUCER_PATH)
+    producer_rows = producer.jsonl_rows(raw)
+    assert len(preparer_rows) == len(producer_rows) == len(rows)
+    assert preparer_rows[rows[0]["example_id"]][0] == producer_rows[0][0] == rows[0]
+
+    fb.replace_examples_bytes(data[0], raw)
+    for role, name in prep.ARTIFACT_NAMES.items():
+        data[2]["artifacts"][role] = fb.artifact(data[0].root / name)
+    save(data)
+    assert run(data)["preparation_result"] == "PREPARED"
+    assert (data[3] / "examples.jsonl").read_bytes() == raw
+    assert score_and_check(data[3], 0)["pass"] is True
