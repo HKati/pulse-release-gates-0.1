@@ -936,6 +936,13 @@ index update neither predeclares that closure nor performs a new proof execution
   Representation fidelity, a common mechanical foundation and pilot readiness
   remain open. No software tests or machine-checked proofs were performed;
   software trials remain `NOT_RUN`; `authority_effect = none`.
+- Paradoxon Diagram source mapping — gate–metric case:
+  [PULSEMECH_PARADOX_SOURCE_MAPPING_CASE_v0.md](PULSEMECH_PARADOX_SOURCE_MAPPING_CASE_v0.md)
+  **Research source-mapping case; manual derivations, not executed.** Maps
+  pinned example sources, Atom/tension/edge bindings and proof applicability
+  into M1–M3. Includes five analytical variants, checker-scope distinctions
+  and explicit provenance limits. Full representation fidelity, real-system
+  coverage and pilot readiness remain open; `authority_effect = none`.
 - [PULSE_paradox_field_v0_walkthrough.md](PULSE_paradox_field_v0_walkthrough.md) — Reading `paradox_field_v0`.
 - [Pulse_paradox_edges_v0_status.md](Pulse_paradox_edges_v0_status.md) — Status and roadmap for `paradox_edges_v0.jsonl`.
 - [paradox_edges_case_studies.md](paradox_edges_case_studies.md) — Fixture and non-fixture case studies.
