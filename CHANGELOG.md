@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the offline Q3-2A archived-input preparer, closed external-selection
+  schema and focused synthetic tests. Preserve selected manifest/examples/labels
+  and selection bytes; build the unchanged Q3 bundle/expected-context formats
+  before scoring. Pin supported resources and producer source, retain unknown
+  original runtime as null, and separate preparation from full Q3 semantic
+  validation, metric PASS, provenance authentication and authority. Publish only
+  into a new destination with no-replace semantics and bounded, identity-aware
+  failure cleanup. Document the
+  [preparation contract](docs/compute/PULSEMECH_Q3_ARCHIVED_INPUT_PREPARATION_v0.md)
+  and append its pytest registration. Existing Q3 implementation/resources and
+  Q2 history, including 49/50 FAIL / release BLOCK, remain unchanged. No model
+  call, acquisition, replay, policy, gate, workflow, README or DOI/SWH change;
+  `authority_effect = none`. Keep #2879 open.
+
 - Add the separate Q3 `q3_input_recomputation_v0.1` reference profile,
   standalone producer, independently implemented checker, closed input/result
   schemas and synthetic conformance fixtures. Bind original example/label bytes
