@@ -1,0 +1,473 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulse:q3:reference:0.1:input-bundle",
+  "title": "Q3 reference input bundle — non-authority",
+  "description": "Accepted standalone reference contract. Byte hashes, joins, dynamic slice types and external expectation equality require semantic checking; JSON Schema alone cannot establish them.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "contract_profile",
+    "dataset_id",
+    "reduction_id",
+    "observation_subject",
+    "artifacts",
+    "spec_bindings",
+    "contract_bindings",
+    "production_gate_eligible",
+    "authority_effect"
+  ],
+  "properties": {
+    "record_type": {
+      "const": "q3_input_bundle"
+    },
+    "contract_profile": {
+      "const": "q3_input_recomputation_v0.1"
+    },
+    "dataset_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reduction_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "observation_subject": {
+      "$ref": "#/$defs/subject"
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dataset_manifest",
+        "examples_jsonl",
+        "q1_labels_jsonl"
+      ],
+      "properties": {
+        "dataset_manifest": {
+          "$ref": "#/$defs/artifact"
+        },
+        "examples_jsonl": {
+          "$ref": "#/$defs/artifact"
+        },
+        "q1_labels_jsonl": {
+          "$ref": "#/$defs/artifact"
+        }
+      }
+    },
+    "spec_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "q1",
+        "q3_baseline"
+      ],
+      "properties": {
+        "q1": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "spec_id",
+            "spec_version",
+            "repository_path",
+            "git_blob_sha1",
+            "sha256"
+          ],
+          "properties": {
+            "spec_id": {
+              "const": "q1_groundedness_v0"
+            },
+            "spec_version": {
+              "const": "0.1.0"
+            },
+            "repository_path": {
+              "const": "metrics/specs/q1_groundedness_v0.yml"
+            },
+            "git_blob_sha1": {
+              "const": "16fe7da3cb8fa304a3186955f76cea6c02cf09d3"
+            },
+            "sha256": {
+              "const": "a63625ca894294e0fbe4febffdd143d22929dcaa44ea52a6aaa02453f0aac65f"
+            }
+          }
+        },
+        "q3_baseline": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "spec_id",
+            "spec_version",
+            "repository_path",
+            "git_blob_sha1",
+            "sha256"
+          ],
+          "properties": {
+            "spec_id": {
+              "const": "q3_fairness_v0"
+            },
+            "spec_version": {
+              "const": "0.1.1"
+            },
+            "repository_path": {
+              "const": "metrics/specs/q3_fairness_v0.yml"
+            },
+            "git_blob_sha1": {
+              "const": "4d1f6e1c4197e2465369585c78de4fd538957275"
+            },
+            "sha256": {
+              "const": "58fc3ddbf636ffdcadc9ca3ce07e6051ff9801d49e9593b7c8e79970a08e782e"
+            }
+          }
+        }
+      }
+    },
+    "contract_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_sha256",
+        "input_schema_sha256",
+        "result_schema_sha256",
+        "dataset_manifest_schema_sha256"
+      ],
+      "properties": {
+        "contract_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "input_schema_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "result_schema_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "dataset_manifest_schema_sha256": {
+          "const": "7bd729958c65dfde432925a4d3fccbd50c846cca19c891411ed085166ecdfead"
+        }
+      }
+    },
+    "production_gate_eligible": {
+      "const": false
+    },
+    "authority_effect": {
+      "const": "none"
+    }
+  },
+  "$defs": {
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))(?!.*//)[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "subject_id",
+        "source_reference",
+        "runtime_identity"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "synthetic_fixture",
+            "archived_input"
+          ]
+        },
+        "subject_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_reference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime_identity": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "repository",
+                "source_commit",
+                "run_id",
+                "run_attempt"
+              ],
+              "properties": {
+                "repository": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "source_commit": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{40}$"
+                },
+                "run_id": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]*$"
+                },
+                "run_attempt": {
+                  "type": "integer",
+                  "minimum": 1
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "synthetic_fixture"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "runtime_identity": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "example_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "example_id",
+        "prompt",
+        "response",
+        "context",
+        "metadata"
+      ],
+      "properties": {
+        "example_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prompt": {
+          "type": "string"
+        },
+        "response": {
+          "type": "string"
+        },
+        "context": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Only declared slice keys affect grouping. Their present values MUST be nonempty strings; dynamic-key enforcement is a semantic validation obligation."
+        }
+      }
+    },
+    "label_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "example_id",
+        "examples_sha256",
+        "example_line_sha256",
+        "q1_grounded_label",
+        "q1_eligible",
+        "q1_exclusion_reason"
+      ],
+      "properties": {
+        "example_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "examples_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "example_line_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "q1_grounded_label": {
+          "enum": [
+            "SUPPORTED",
+            "UNSUPPORTED",
+            "ABSTAIN",
+            "UNKNOWN"
+          ]
+        },
+        "q1_eligible": {
+          "type": "boolean"
+        },
+        "q1_exclusion_reason": {
+          "enum": [
+            null,
+            "empty_context"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "q1_eligible": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "q1_exclusion_reason": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "q1_exclusion_reason": {
+                "const": "empty_context"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "expected_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "contract_profile",
+        "input_bundle_sha256",
+        "contract_sha256",
+        "input_schema_sha256",
+        "result_schema_sha256",
+        "dataset_manifest_schema_sha256",
+        "dataset_id",
+        "reduction_id",
+        "observation_subject",
+        "expected_producer",
+        "expectation_origin",
+        "authority_effect"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "q3_expected_context"
+        },
+        "contract_profile": {
+          "const": "q3_input_recomputation_v0.1"
+        },
+        "input_bundle_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "contract_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "input_schema_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "result_schema_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "dataset_manifest_schema_sha256": {
+          "const": "7bd729958c65dfde432925a4d3fccbd50c846cca19c891411ed085166ecdfead"
+        },
+        "dataset_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reduction_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observation_subject": {
+          "$ref": "#/$defs/subject"
+        },
+        "expected_producer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tool_id",
+            "tool_version",
+            "python_version",
+            "source_files"
+          ],
+          "properties": {
+            "tool_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "tool_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "python_version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source_files": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "sha256"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))(?!.*//)[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                }
+              },
+              "minItems": 1
+            }
+          }
+        },
+        "expectation_origin": {
+          "enum": [
+            "synthetic_test_anchor",
+            "caller_selected_archived_input"
+          ]
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      }
+    }
+  }
+}

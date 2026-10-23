@@ -44,6 +44,16 @@ moves between merged and open work, update this index.
 
 ## Start here
 
+- Standalone Q3 input-bound reference recomputation:
+  [Q3 reference profile, producer and independent checker](compute/PULSEMECH_Q3_REFERENCE_RECOMPUTATION_v0.md)
+  **Current implementation with synthetic conformance tests.** Implements the
+  separately versioned `q3_input_recomputation_v0.1` profile, complete input and
+  label bindings, marginal Wilson-gap reconstruction and deduplicated-union
+  small-group coverage. An external caller-selected expectation and independent
+  checker protect the selected input/report relation. Real dataset provenance,
+  label correctness, current-run release applicability and full Step 5C/5D
+  remain open. Canonical Q3 spec 0.1.1 and historical Q2 49/50 FAIL are preserved;
+  no release activation, `authority_effect = none`; #2879 stays open.
 - Q2 repository-preservation metadata stage:
   [Preservation stage contract](../preservation/q2_reference_closure_v0/PRESERVATION_CONTRACT_v0.md)
   **Reader / audit surface; metadata-only proposal.** Records the planned five

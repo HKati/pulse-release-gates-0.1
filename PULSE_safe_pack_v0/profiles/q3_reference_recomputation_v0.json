@@ -1,0 +1,259 @@
+{
+  "record_type": "q3_reference_recomputation_profile",
+  "profile_id": "q3_input_recomputation_v0.1",
+  "profile_version": "0.1.0",
+  "status": "ACCEPTED_FOR_STANDALONE_IMPLEMENTATION",
+  "source_repository": "HKati/pulse-release-gates-0.1",
+  "source_commit": "bb3c4791bc9399d0085d10d0d29d6d8a5e2cbfca",
+  "approval": {
+    "basis": "Owner accepted the complete concrete Q3 profile after review, including deduplicated-union small-group coverage.",
+    "owner_response": "ok , hozd",
+    "scope": "Prepare and test standalone producer, independent checker and synthetic fixtures; no repository write or release integration.",
+    "draft_sha256": "1227ebebfd2f14e746ab6e36db36467f524f9a3c9df3bd053f2147eab1d90820"
+  },
+  "parameters": {
+    "alpha": 0.05,
+    "z": 1.959963984540054,
+    "min_n_eligible_total": 200,
+    "min_n_per_group": 30,
+    "max_missing_group_fraction": 0.05,
+    "max_excluded_fraction_due_to_small_groups": 0.1,
+    "max_worst_group_gap": 0.05
+  },
+  "limits": {
+    "max_file_bytes": 67108864,
+    "max_jsonl_line_bytes": 1048576,
+    "max_examples": 100000,
+    "max_dimensions": 64
+  },
+  "baseline_specifications": {
+    "q3_spec": {
+      "path": "metrics/specs/q3_fairness_v0.yml",
+      "git_blob_sha1": "4d1f6e1c4197e2465369585c78de4fd538957275",
+      "content_sha256": "58fc3ddbf636ffdcadc9ca3ce07e6051ff9801d49e9593b7c8e79970a08e782e"
+    },
+    "q1_spec": {
+      "path": "metrics/specs/q1_groundedness_v0.yml",
+      "git_blob_sha1": "16fe7da3cb8fa304a3186955f76cea6c02cf09d3",
+      "content_sha256": "a63625ca894294e0fbe4febffdd143d22929dcaa44ea52a6aaa02453f0aac65f"
+    },
+    "dataset_manifest_schema": {
+      "path": "schemas/dataset_manifest.schema.json",
+      "git_blob_sha1": "c36df74c6cb327d33b62e5d30d517b3af3b99a19",
+      "content_sha256": "7bd729958c65dfde432925a4d3fccbd50c846cca19c891411ed085166ecdfead"
+    }
+  },
+  "decisions": [
+    {
+      "id": "Q3_D01_SMALL_GROUP_UNION",
+      "status": "ACCEPTED_FOR_THIS_REFERENCE_PROFILE",
+      "rule": "Let E be Q3-eligible example IDs. For every declared dimension d, S_d contains IDs whose d-group has fewer than 30 eligible members. Use U = union(S_d); small-group coverage passes iff 10*len(U) <= len(E).",
+      "meaning": "Count each eligible example once if at least one declared dimension places it in an excluded small marginal group.",
+      "only_coverage": "U is not a global removal set. Keep every E member in the overall denominator and in all its otherwise eligible marginal groups. No iterative pruning.",
+      "retained_diagnostics": [
+        "Per-dimension excluded counts/fractions",
+        "Maximum per-dimension fraction"
+      ],
+      "alternative_considered": "Maximum per-dimension fraction as the normative measure would allow different dimensions to exclude disjoint sets while each stays below 10%. It is a defensible alternative not explicitly resolved by baseline 0.1.1.",
+      "recommendation_reason": "The union exposes the total distinct eligible examples affected by insufficient group evidence and avoids counting the same example more than once.",
+      "tradeoff": "Adding a dimension may cause coverage FAIL even when every dimension separately excludes <=10%; this is a real prospective semantic choice, despite unchanged numerical thresholds.",
+      "discriminator": {
+        "eligible": 400,
+        "excluded_counts_per_dimension": [
+          24,
+          24
+        ],
+        "disjoint_union": 48,
+        "disjoint_union_fraction": 0.12,
+        "disjoint_union_coverage": "FAIL",
+        "max_dimension_fraction": 0.06,
+        "max_dimension_alternative_coverage": "PASS",
+        "same_24_ids_union_fraction": 0.06,
+        "same_24_ids_union_coverage": "PASS"
+      },
+      "version_action": "Owner accepted the union rule for this separately versioned reference profile. Before release integration update canonical q3_fairness_v0 spec.version and contract documentation together; baseline 0.1.1 is unchanged here."
+    },
+    {
+      "id": "Q3_D02_GROUP_VALUES",
+      "status": "ACCEPTED_FOR_THIS_REFERENCE_PROFILE",
+      "rule": "A present declared metadata key must have a nonempty JSON string value. Preserve exact Unicode code points, case and whitespace. No trim, case-fold, Unicode normalization, numeric coercion or inferred values.",
+      "missing": "Only an absent key becomes (dimension, kind=missing, value=null), displayed as __MISSING__.",
+      "literal_sentinel": "An explicit '__MISSING__' string becomes (dimension, kind=value, value='__MISSING__') and is not missing.",
+      "reject": [
+        "present null",
+        "empty string",
+        "number",
+        "boolean",
+        "array",
+        "object",
+        "invalid Unicode surrogate"
+      ],
+      "unchanged_source_boundary": "Missingness still fails per dimension when 20*missing_count > N; it does not use the small-group union rule."
+    },
+    {
+      "id": "Q3_D03_CONTEXT_AND_ELIGIBILITY",
+      "status": "ACCEPTED_FOR_THIS_REFERENCE_PROFILE",
+      "rule": "Every example must carry prompt, response and context strings plus metadata object. Missing/null context is input INVALID; an empty string context is retained but is Q1-ineligible.",
+      "q1_binding": "Label record q1_eligible must equal (context != ''). In this first narrow profile, empty_context is the only supported Q1 exclusion reason; other exclusion protocols require an explicitly defined future adapter/profile, not a fabricated reason.",
+      "contradictions": "Reject empty context + q1_eligible=true; reject nonempty context + q1_eligible=false in this narrow profile. Do not silently fix either record.",
+      "legacy": "Q1 0.1.0 also calls missing context ineligible. This Q3 envelope requires context to be present and therefore rejects such legacy inputs as a whole, keeping original bytes; it never deletes or converts them to manufacture admissibility.",
+      "unknown": "After Q1 eligibility filtering, UNKNOWN is ignored for Q3. It is not UNSUPPORTED and not in the Q3 denominator.",
+      "count_partition": "n_total = n_q1_ineligible + n_unknown_ignored + n_q3_eligible; n_q3_eligible = n_pass + n_fail.",
+      "no_q1_summary_reuse": "The current Q1 builder counts eligible UNKNOWN rows and lacks the required example join. Never reuse its aggregate n_eligible or PASS as Q3 per-example proof."
+    },
+    {
+      "id": "Q3_D04_ZERO_AND_VALID_NEGATIVE",
+      "status": "ACCEPTED_FOR_THIS_REFERENCE_PROFILE",
+      "zero_eligible": "Valid input with N=0 produces metric FAIL, null overall rates/Wilson bounds/worst gap, null coverage fractions, zero counts, and explicit insufficient-evidence reason. Never NaN, infinity, or invented zero rates.",
+      "partial_diagnostics": "For 0<N<200 retain definable rates and group diagnostics but metric FAIL. For no included groups, worst gap=null and metric FAIL.",
+      "invalid_input": "Malformed/unbound input produces input_validity=INVALID, metric_result=FAIL, pass=false, null counts/overall/coverage, no fabricated groups, and explicit reason codes.",
+      "checker": "Checker exit 0 means a VALID input's report matches independent recomputation; it can accompany metric FAIL. It never means release PASS."
+    },
+    {
+      "id": "Q3_D05_WILSON_AND_OUTPUT",
+      "status": "ACCEPTED_FOR_THIS_REFERENCE_PROFILE",
+      "alpha": 0.05,
+      "interval": "two-sided 95% Wilson",
+      "z": 1.959963984540054,
+      "z_source": "Existing Q1 builder uses this fixed Z_95; Q3 baseline specifies alpha but not all implementation details.",
+      "arithmetic": "Finite IEEE-754 binary64 under a recorded Python version; fixed documented operation order below. Coverage decisions use integer cross-multiplication.",
+      "formula_order": [
+        "p=k/n",
+        "z2=z*z",
+        "den=1.0+z2/n",
+        "center=p+z2/(2.0*n)",
+        "margin=z*sqrt((p*(1.0-p)/n)+(z2/(4.0*n*n)))",
+        "lower=max(0.0,(center-margin)/den)",
+        "upper=min(1.0,(center+margin)/den)",
+        "gap=max(0.0,overall_upper-group_lower)"
+      ],
+      "decision": "Use unrounded computed gap <= 0.05 and every evidence condition. No epsilon or display rounding may turn FAIL into PASS.",
+      "determinism": "Sort dimensions and value strings by Unicode code point, missing before values; sort excluded records by example_id and reason codes lexicographically. Emit UTF-8 JSON with ensure_ascii=false, sort_keys=true, indent=2, allow_nan=false, exactly one final LF; no wall-clock timestamp.",
+      "checker_comparison": "Independently calculate the complete result using the declared arithmetic and canonical serialization. Compare all substantive data and identity fields; do not accept a different verdict within numeric tolerance. Expected arithmetic vectors may specify a diagnostic tolerance, never a gate relaxation.",
+      "limitations": "Cross-language/libm bitwise equality is not established; record the implementation/runtime and test it before extending the profile."
+    }
+  ],
+  "input_contract": {
+    "schema": "schemas/metrics/q3_input_bundle_v0.schema.json",
+    "root": "A small descriptor references exactly three independently readable files: dataset manifest, examples JSONL, Q1 labels JSONL. It binds both baseline specifications and this prospective contract.",
+    "definitions": {
+      "examples": "#/$defs/example_record",
+      "labels": "#/$defs/label_record",
+      "caller_expectation": "#/$defs/expected_context"
+    },
+    "acquisition": "This reference implementation performs no acquisition or model/API calls; tests provide synthetic bytes only.",
+    "strict_reading": [
+      "Read bounded regular files once into an immutable snapshot; calculate size and SHA-256 from those exact bytes before semantic processing. No network retrieval, symlink traversal, path escape or output overwrite of inputs.",
+      "Limits are prospective defaults: each file <=64 MiB, each JSONL line <=1 MiB, <=100000 examples, <=64 dimensions. Above-limit files fail with INPUT_LIMIT; these engineering limits do not change metric thresholds.",
+      "All files must be strict UTF-8 without BOM. Reject duplicate JSON keys, nonfinite numbers and unpaired Unicode surrogates at every nesting level.",
+      "JSONL uses one object per nonempty LF-terminated line, no blank lines and no CRLF. Hash the whole file including final LF; example_line_sha256 hashes the exact record bytes excluding its LF, without trimming or canonicalizing.",
+      "Labels are joined by unique example_id and exact example_line_sha256, never by array position. Each label also carries the SHA-256 of the entire examples file.",
+      "Validate every row, including rows later excluded from scoring. Reject duplicate IDs, missing/extra labels, malformed labels and contradictory eligibility.",
+      "Do not rewrite stored source evidence to make it conform; a future adapter must preserve original identities and document any transformation."
+    ],
+    "dataset_manifest_overlay": [
+      "Validate against the unchanged pinned schemas/dataset_manifest.schema.json, using its actual SHA-256. Check declared formats explicitly, not by assuming JSON Schema always enforces format.",
+      "Require slices.dimensions, at least one distinct nonempty dimension, exact key spelling; reject duplicate dimensions.",
+      "Require labels.ground_truth_source, labels.version and hashes.labels_sha256 for this Q3 label-file profile.",
+      "dataset_id equals descriptor dataset_id. hashes.input_sha256 equals actual examples bytes; hashes.labels_sha256 equals actual labels bytes.",
+      "sampling.n equals total examples before exclusions. For any strategy other than full, require an explicit seed and a documented selection protocol; Q3 performs no new sampling.",
+      "Source URI, time range, label origin and any source/run identifiers are retained claims; a matching hash is not proof that those claims are true."
+    ],
+    "acyclic_binding": "examples bytes -> labels with example and file bindings -> dataset manifest -> descriptor -> separate expected context -> report",
+    "caller_expected_context": [
+      "Caller selects expected input-bundle SHA-256, dataset_id, reduction_id, observation subject, contract/schema digests and pinned manifest schema before reading an untrusted producer report.",
+      "The expected context is a separate argument/file and is never generated by trusting report fields or auto-falling back to the supplied bundle.",
+      "Validate expected-context structure against #/$defs/expected_context and verify all its values against actual bytes; hash its exact bytes into the report.",
+      "expected_producer binds the producer tool/version, claimed Python version and unique sorted source-file paths/SHA-256 values. Verify the supplied producer source snapshot against those pins without importing or running it. The report implementation field must equal this caller-selected identity exactly. This is source consistency, not proof that this code/runtime actually executed.",
+      "The checker does not substitute its own identity into a producer result. Its own source/runtime identity belongs in a separate verification receipt/diagnostic; do not copy untrusted producer identity fields to manufacture an expected report.",
+      "Missing expected context fails closed for the verified mode. A synthetic test anchor is explicitly synthetic.",
+      "If an attacker may replace the expected anchor as well, this offline checker cannot prove original-source authenticity. Consistent self-rehashing alone is not trusted evidence."
+    ],
+    "preexisting_fixtures": "The 120-row Q1 reference labels and historical 150-call Q2 run are not Q3 datasets. Do not relabel, duplicate, top up or invent slice metadata for them."
+  },
+  "recomputation_contract": {
+    "validation_before_scoring": true,
+    "eligible": "E={example_id | validated q1_eligible=true and label in SUPPORTED, ABSTAIN, UNSUPPORTED}.",
+    "counting": "Overall successes/eligible counts each ID once. For each dimension every E member belongs to exactly one typed group, including missing. Group counts use E unchanged.",
+    "coverage_missing": "Per dimension, fail if 20*missing_count > N. At N=0 missing coverage is unavailable/false with null fractions.",
+    "coverage_small": "Accepted reference-profile union rule Q3_D01; fail if 10*union_count > N. At N=0 coverage is unavailable/false.",
+    "included_groups": "Include groups with n>=30 in disparity. Retain smaller groups, their counts and pass rates as diagnostics, with Wilson/gap fields null; they still participate in coverage.",
+    "positive_result": "N>=200; at least one included group; all per-dimension missing coverage passes; union small-group coverage passes; worst gap is defined and <=0.05.",
+    "reason_policy": "Return all applicable metric failure codes on valid input. At N=0 emit INSUFFICIENT_ELIGIBLE_TOTAL and NO_INCLUDED_GROUPS; null coverage fractions are unavailable, not evidence of an exceeded 5%/10% limit. For malformed input, deterministic ordered validation may stop at the first error; no numeric metrics may be emitted from a partial unvalidated input.",
+    "minimum_metric_reason_codes": [
+      "INSUFFICIENT_ELIGIBLE_TOTAL",
+      "MISSING_GROUP_COVERAGE",
+      "SMALL_GROUP_COVERAGE",
+      "NO_INCLUDED_GROUPS",
+      "WORST_GROUP_GAP"
+    ],
+    "minimum_input_reason_codes": [
+      "INPUT_LIMIT",
+      "INPUT_ENCODING",
+      "DUPLICATE_JSON_KEY",
+      "NONFINITE_NUMBER",
+      "SCHEMA_INVALID",
+      "MISSING_EXPECTED_CONTEXT",
+      "EXPECTED_CONTEXT_MISMATCH",
+      "FILE_BINDING_MISMATCH",
+      "DUPLICATE_EXAMPLE_ID",
+      "DUPLICATE_LABEL_ID",
+      "LABEL_JOIN_MISMATCH",
+      "MANIFEST_MISMATCH",
+      "DUPLICATE_DIMENSION",
+      "GROUP_VALUE_INVALID",
+      "Q1_ELIGIBILITY_CONTRADICTION",
+      "UNSUPPORTED_Q1_EXCLUSION",
+      "INPUT_UNAVAILABLE"
+    ],
+    "reason_code_registry": "Conformance case identifiers are not reason codes. Freeze the concrete code-to-case mapping during implementation review; reason strings must not substitute for checking counts and bindings.",
+    "reducer_exit_codes": {
+      "0": "VALID and metric PASS",
+      "1": "VALID and metric FAIL",
+      "2": "INVALID input or unrecoverable processing error"
+    },
+    "checker_exit_codes": {
+      "0": "VALID inputs and exact independently recomputed report match, including a genuine metric FAIL",
+      "1": "Report/schema/identity/count/decision mismatch",
+      "2": "Input or expected context invalid/unreadable"
+    },
+    "independence": "Checker must not import/call the producer or trust its groups, counts, eligible flags, verdict, self-hashes or cached summaries. Sharing non-semantic schemas is allowed; labels and metadata remain externally supplied evidence, not facts re-proven by arithmetic.",
+    "proves": [
+      "Exact input consistency with the selected expected anchor",
+      "Complete example-label join",
+      "Recomputation under the explicit prospective profile"
+    ],
+    "does_not_prove": [
+      "Q1 label semantic correctness",
+      "Dataset origin or representativeness",
+      "Slice metadata truth",
+      "Authentication of the original model/labeling run",
+      "Current-run release applicability",
+      "Release authority"
+    ],
+    "checker_reason_codes": [
+      "SUMMARY_MISMATCH"
+    ]
+  },
+  "schema_paths": {
+    "input": "schemas/metrics/q3_input_bundle_v0.schema.json",
+    "output": "schemas/metrics/q3_reference_summary_v0.schema.json"
+  },
+  "producer_identity": {
+    "tool_id": "PULSE_q3_reference",
+    "tool_version": "0.1.0",
+    "source_paths": [
+      "PULSE_safe_pack_v0/tools/build_q3_reference_summary.py"
+    ]
+  },
+  "permanent_boundaries": {
+    "authority_effect": "none",
+    "production_gate_eligible": false,
+    "current_run_evidence": false,
+    "source_authentication": "not_established",
+    "label_correctness": "not_verified",
+    "slice_metadata_correctness": "not_verified",
+    "policy_activation": false
+  },
+  "integration_boundary": "q3_fairness_ok remains unsupported in the release dispatcher and independent admission; update canonical Q3 spec/version and integrate all source/input/result/registration bindings in a later coordinated unit. Baseline Q3 0.1.1 is unchanged."
+}

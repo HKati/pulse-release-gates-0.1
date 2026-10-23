@@ -1,0 +1,35 @@
+{
+  "dataset_id": "q3-synthetic-conformance-v0",
+  "hashes": {
+    "input_sha256": "290fc95ff4d5d87bedae4a598f645cba73b25424c8c7a6cdccc7e60557e21548",
+    "labels_sha256": "4227852bb42cfb050478eaf449962eb8e8432fb97918302020669a0b1d08f44a"
+  },
+  "labels": {
+    "ground_truth_source": "synthetic-conformance-design",
+    "notes": "Programmed fixture labels, not verified model judgements.",
+    "version": "0.1.0"
+  },
+  "manifest_version": "1.0.0",
+  "pii_handling": {
+    "notes": "Entirely generated synthetic strings; no human data.",
+    "scrubbed": false
+  },
+  "sampling": {
+    "n": 400,
+    "strategy": "full"
+  },
+  "slices": {
+    "dimensions": [
+      "region"
+    ]
+  },
+  "source": {
+    "description": "Synthetic fixture; dates are fixture metadata, not acquisition evidence.",
+    "kind": "other",
+    "uri": "urn:pulse:synthetic:q3-conformance:v0"
+  },
+  "time_range": {
+    "from": "2026-10-22",
+    "to": "2026-10-22"
+  }
+}
