@@ -1,0 +1,574 @@
+{
+  "document_kind": "prepared_descriptive_expectations_not_an_execution_result",
+  "profile_id": "PD-SM-01-E0-v0",
+  "created_date": "2026-10-23",
+  "repository": "HKati/pulse-release-gates-0.1",
+  "selected_source_snapshot": "102145d1f1c321811c52d9d20f92cc7289127b2b",
+  "historical_semantic_snapshot": "cbeab94d8532482d34ab857bf38e9e56ae265f84",
+  "authorization": {
+    "implementation_and_local_execution": "separately_required",
+    "repository_writes": "not_authorized",
+    "ci_dispatch": "not_authorized"
+  },
+  "execution_status": "NOT_RUN",
+  "authority_effect": "none",
+  "source_slice_manifest": "SOURCE_BINDINGS.json",
+  "reference_environment": {
+    "platform": "Linux CPU",
+    "python_implementation": "CPython",
+    "python_version": "3.11.16",
+    "selection_kind": "proposed_case_reference_environment",
+    "network_during_execution": false,
+    "third_party_dependency_installation": false,
+    "environment_fallback": "ENVIRONMENT_UNAVAILABLE; do not substitute silently"
+  },
+  "selection": {
+    "gate": "gate_latency_budget",
+    "latency_metric": "p99_latency",
+    "cpu_metric": "cpu_util",
+    "metrics_csv_row_indices": {
+      "latency": 0,
+      "cpu": 1
+    },
+    "expected_metric_severity": {
+      "latency": "crit",
+      "cpu": "warn"
+    },
+    "expected_tension_and_edge_severity": {
+      "latency": "crit",
+      "cpu": "crit"
+    },
+    "expected_atom_counts": {
+      "gate_flip": 1,
+      "metric_delta": 2,
+      "overlay_change": 2,
+      "gate_metric_tension": 2,
+      "gate_overlay_tension": 2
+    },
+    "expected_edge_counts": {
+      "gate_metric_tension": 2,
+      "gate_overlay_tension": 2
+    }
+  },
+  "frozen_inference_boundary": {
+    "variant_id_is_an_inference_input": false,
+    "production_helpers_imported_by_reference": false,
+    "producer_or_checker_verdict_is_reference_truth": false,
+    "organization_independent_validation_claimed": false,
+    "predicate_outcomes_and_process_exits_separate": true
+  },
+  "scenarios": [
+    {
+      "scenario_id": "E00",
+      "source_variant": "V0",
+      "title": "Complete pinned baseline",
+      "mutation_contract": {
+        "kind": "none",
+        "outputs": "construct_from_original_programs_after_authorization",
+        "required_expected_counts": {
+          "atoms": 9,
+          "edges": 4
+        },
+        "wall_clock_flags": false,
+        "optional_status_or_g_field_inputs": false
+      },
+      "selected_subject": "latency",
+      "preconditions": [
+        "verified_pinned_source_slice",
+        "baseline_independently_checked",
+        "unique_source_bound_roles",
+        "complete_nonempty_atom_lookup",
+        "all_background_relations_retained",
+        "case_specific_evidence_view"
+      ],
+      "expected": {
+        "existing_programs": {
+          "field_checker": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          },
+          "edge_checker": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          },
+          "example_acceptance": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          }
+        },
+        "reference_relation_assessment": "SATISFIED",
+        "reference_source_assessment": "JUSTIFIED_WITHIN_FIXTURE_BOUNDARY",
+        "proof_applicability_assessment": "JUSTIFIED_FOR_SELECTED_TARGET",
+        "carrier_assessment": "CANONICAL",
+        "authority_effect": "none"
+      },
+      "interpretation_notes": [
+        "Counts are expectations, not present observations.",
+        "Producer success and checker success do not replace independent source reconstruction.",
+        "The original inputs describe a repository example, not authenticated production runs."
+      ],
+      "execution_status": "NOT_RUN",
+      "observed": null,
+      "expected_vs_observed": null
+    },
+    {
+      "scenario_id": "E10",
+      "source_variant": "V1",
+      "title": "Semantic enumeration permutation",
+      "mutation_contract": {
+        "kind": "permutation_in_reference_view_only",
+        "permutation": "reverse_identified_record_enumeration",
+        "carrier_byte_changes": 0,
+        "source_byte_changes": 0,
+        "protected_identity_changes": 0
+      },
+      "selected_subject": "latency",
+      "preconditions": [
+        "verified_pinned_source_slice",
+        "baseline_independently_checked",
+        "unique_source_bound_roles",
+        "complete_nonempty_atom_lookup",
+        "all_background_relations_retained",
+        "case_specific_evidence_view"
+      ],
+      "expected": {
+        "existing_programs": {
+          "field_checker": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          },
+          "edge_checker": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          },
+          "example_acceptance": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          }
+        },
+        "reference_relation_assessment": "SATISFIED",
+        "reference_source_assessment": "JUSTIFIED_WITHIN_FIXTURE_BOUNDARY",
+        "proof_applicability_assessment": "JUSTIFIED_FOR_SELECTED_TARGET",
+        "carrier_assessment": "CANONICAL",
+        "authority_effect": "none"
+      },
+      "interpretation_notes": [
+        "The independently defined semantic projection must be equal to the baseline projection.",
+        "This is not a claim that arbitrary serialized ordering is valid."
+      ],
+      "execution_status": "NOT_RUN",
+      "observed": null,
+      "expected_vs_observed": null
+    },
+    {
+      "scenario_id": "E11",
+      "source_variant": "V1",
+      "title": "Noncanonical field Atom-list order",
+      "mutation_contract": {
+        "kind": "reverse_complete_atom_list",
+        "target": "paradox_field_v0.atoms",
+        "record_field_changes": 0,
+        "edge_file_byte_changes": 0,
+        "source_byte_changes": 0,
+        "require_strict_descending_sort_key_pair": true
+      },
+      "selected_subject": "latency",
+      "preconditions": [
+        "verified_pinned_source_slice",
+        "baseline_independently_checked",
+        "unique_source_bound_roles",
+        "complete_nonempty_atom_lookup",
+        "all_background_relations_retained",
+        "case_specific_evidence_view"
+      ],
+      "expected": {
+        "existing_programs": {
+          "field_checker": {
+            "normal_completion": true,
+            "exit_code": "nonzero",
+            "diagnostic_fragment": "atoms are not deterministically ordered",
+            "structural_witness_required": true,
+            "timeout_or_crash_counts_as_expected_rejection": false
+          },
+          "edge_checker": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          },
+          "example_acceptance": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          }
+        },
+        "reference_relation_assessment": "SATISFIED",
+        "reference_source_assessment": "JUSTIFIED_WITHIN_FIXTURE_BOUNDARY",
+        "proof_applicability_assessment": "JUSTIFIED_FOR_SELECTED_TARGET",
+        "carrier_assessment": "FIELD_ORDER_INVALID",
+        "authority_effect": "none"
+      },
+      "interpretation_notes": [
+        "Checkers are probed independently even when field validation rejects.",
+        "Relation semantics remain preserved; a successful narrower checker cannot override invalid field ordering."
+      ],
+      "execution_status": "NOT_RUN",
+      "observed": null,
+      "expected_vs_observed": null
+    },
+    {
+      "scenario_id": "E12",
+      "source_variant": "V1",
+      "title": "Noncanonical edge JSONL order",
+      "mutation_contract": {
+        "kind": "reverse_complete_edge_line_sequence",
+        "record_field_changes": 0,
+        "field_file_byte_changes": 0,
+        "source_byte_changes": 0,
+        "require_strict_descending_sort_key_pair": true
+      },
+      "selected_subject": "latency",
+      "preconditions": [
+        "verified_pinned_source_slice",
+        "baseline_independently_checked",
+        "unique_source_bound_roles",
+        "complete_nonempty_atom_lookup",
+        "all_background_relations_retained",
+        "case_specific_evidence_view"
+      ],
+      "expected": {
+        "existing_programs": {
+          "field_checker": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          },
+          "edge_checker": {
+            "normal_completion": true,
+            "exit_code": "nonzero",
+            "diagnostic_fragment": "edges not in deterministic order",
+            "structural_witness_required": true,
+            "timeout_or_crash_counts_as_expected_rejection": false
+          },
+          "example_acceptance": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          }
+        },
+        "reference_relation_assessment": "SATISFIED",
+        "reference_source_assessment": "JUSTIFIED_WITHIN_FIXTURE_BOUNDARY",
+        "proof_applicability_assessment": "JUSTIFIED_FOR_SELECTED_TARGET",
+        "carrier_assessment": "EDGE_ORDER_INVALID",
+        "authority_effect": "none"
+      },
+      "interpretation_notes": [
+        "Example acceptance is not a replacement for the canonical-order contract.",
+        "The relation projection must stay equal to the baseline projection."
+      ],
+      "execution_status": "NOT_RUN",
+      "observed": null,
+      "expected_vs_observed": null
+    },
+    {
+      "scenario_id": "E13",
+      "source_variant": "V1",
+      "title": "Independent canonical restoration",
+      "mutation_contract": {
+        "kind": "sort_permuted_records_by_documented_keys",
+        "producer_rerun_for_repair": false,
+        "atom_key": [
+          "severity_rank",
+          "type",
+          "atom_id"
+        ],
+        "edge_key": [
+          "severity_rank",
+          "type",
+          "edge_id"
+        ],
+        "severity_rank": {
+          "crit": 0,
+          "warn": 1,
+          "info": 2
+        },
+        "parsed_records_must_equal_baseline": true
+      },
+      "selected_subject": "latency",
+      "preconditions": [
+        "verified_pinned_source_slice",
+        "baseline_independently_checked",
+        "unique_source_bound_roles",
+        "complete_nonempty_atom_lookup",
+        "all_background_relations_retained",
+        "case_specific_evidence_view"
+      ],
+      "expected": {
+        "existing_programs": {
+          "field_checker": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          },
+          "edge_checker": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          },
+          "example_acceptance": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          }
+        },
+        "reference_relation_assessment": "SATISFIED",
+        "reference_source_assessment": "JUSTIFIED_WITHIN_FIXTURE_BOUNDARY",
+        "proof_applicability_assessment": "JUSTIFIED_FOR_SELECTED_TARGET",
+        "carrier_assessment": "CANONICAL",
+        "authority_effect": "none"
+      },
+      "interpretation_notes": [
+        "Do not infer byte identity from semantic identity; compare bytes and record actual digests.",
+        "Both field and edge serializations must satisfy the existing contracts after restoration."
+      ],
+      "execution_status": "NOT_RUN",
+      "observed": null,
+      "expected_vs_observed": null
+    },
+    {
+      "scenario_id": "E20",
+      "source_variant": "V2",
+      "title": "Destination-only substitution",
+      "mutation_contract": {
+        "kind": "replace_one_field",
+        "target": "selected_latency_edge.dst_atom_id",
+        "from": "independently_derived_latency_atom_id",
+        "to": "independently_derived_cpu_atom_id",
+        "semantic_field_changes": 1,
+        "preserve": [
+          "edge_id",
+          "tension_atom_id",
+          "type",
+          "severity",
+          "rule",
+          "run_context",
+          "record_order",
+          "all_other_edges",
+          "entire_field_bytes",
+          "all_source_bytes"
+        ],
+        "recompute_edge_id": false
+      },
+      "selected_subject": "latency",
+      "preconditions": [
+        "verified_pinned_source_slice",
+        "baseline_independently_checked",
+        "unique_source_bound_roles",
+        "complete_nonempty_atom_lookup",
+        "all_background_relations_retained",
+        "case_specific_evidence_view"
+      ],
+      "expected": {
+        "existing_programs": {
+          "field_checker": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          },
+          "edge_checker": {
+            "normal_completion": true,
+            "exit_code": "nonzero",
+            "diagnostic_fragment": "dst_atom_id does not match tension.evidence.metric_atom_id",
+            "structural_witness_required": true,
+            "timeout_or_crash_counts_as_expected_rejection": false
+          },
+          "example_acceptance": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          }
+        },
+        "reference_relation_assessment": "VIOLATED",
+        "reference_source_assessment": "CONTRADICTED",
+        "proof_applicability_assessment": "NOT_JUSTIFIED",
+        "carrier_assessment": "ENDPOINT_BINDING_INVALID",
+        "authority_effect": "none"
+      },
+      "interpretation_notes": [
+        "A normal nonzero exit plus the specific diagnostic and exact unequal-ID witness is required.",
+        "Counts, metric values, field bytes and ordering must be unchanged.",
+        "Example acceptance is separately expected to accept its narrower summary/context checks.",
+        "This is not a physical CPU/latency failure claim."
+      ],
+      "execution_status": "NOT_RUN",
+      "observed": null,
+      "expected_vs_observed": null
+    },
+    {
+      "scenario_id": "E30",
+      "source_variant": "V3",
+      "title": "Unavailable metric-source justification",
+      "mutation_contract": {
+        "kind": "restrict_accepted_evidence_view",
+        "withhold": "metric_raw_source_binding_and_derived_accepted_premises",
+        "repository_source_deletion": false,
+        "carrier_byte_changes": 0,
+        "remove_metric_atom": false,
+        "rewrite_metric_values": false,
+        "fresh_assessment": true,
+        "prior_origin_proofs_or_closure_available": false,
+        "alternative_accepted_metric_source": false
+      },
+      "selected_subject": "latency",
+      "preconditions": [
+        "verified_pinned_source_slice",
+        "baseline_independently_checked",
+        "unique_source_bound_roles",
+        "complete_nonempty_atom_lookup",
+        "all_background_relations_retained",
+        "case_specific_evidence_view"
+      ],
+      "expected": {
+        "existing_programs": {
+          "field_checker": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          },
+          "edge_checker": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          },
+          "example_acceptance": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          }
+        },
+        "reference_relation_assessment": "SATISFIED",
+        "reference_source_assessment": "UNRESOLVED",
+        "proof_applicability_assessment": "NOT_JUSTIFIED",
+        "carrier_assessment": "CANONICAL",
+        "authority_effect": "none"
+      },
+      "interpretation_notes": [
+        "Unchanged output checkers can accept while source provenance is unresolved.",
+        "Copied metric summaries and recorded digest strings are not independently admitted raw-source evidence.",
+        "Correct uncertainty may match the test expectation but must not imply K_case or release approval.",
+        "No grounded proof in this profile is not factual falsity of the underlying relation."
+      ],
+      "execution_status": "NOT_RUN",
+      "observed": null,
+      "expected_vs_observed": null
+    },
+    {
+      "scenario_id": "E40",
+      "source_variant": "V4",
+      "title": "Separately justified CPU target selection",
+      "mutation_contract": {
+        "kind": "replace_assessed_subject_only",
+        "from": "existing_latency_relation",
+        "to": "existing_cpu_relation",
+        "global_correspondence_declares_replacement": true,
+        "carrier_byte_changes": 0,
+        "source_byte_changes": 0,
+        "duplicate_or_add_edge": false,
+        "source_metric_row": 1,
+        "old_latency_record_retained": true,
+        "require_new_cpu_bound_premises": true
+      },
+      "selected_subject": "cpu",
+      "preconditions": [
+        "verified_pinned_source_slice",
+        "baseline_independently_checked",
+        "unique_source_bound_roles",
+        "complete_nonempty_atom_lookup",
+        "all_background_relations_retained",
+        "case_specific_evidence_view"
+      ],
+      "expected": {
+        "existing_programs": {
+          "field_checker": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          },
+          "edge_checker": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          },
+          "example_acceptance": {
+            "normal_completion": true,
+            "exit_code": 0,
+            "diagnostic_fragment": null
+          }
+        },
+        "reference_relation_assessment": "SATISFIED",
+        "reference_source_assessment": "JUSTIFIED_WITHIN_FIXTURE_BOUNDARY",
+        "proof_applicability_assessment": "NEW_TARGET_PROOF_REQUIRED_AND_SEPARATELY_JUSTIFIED",
+        "carrier_assessment": "CANONICAL",
+        "authority_effect": "none"
+      },
+      "interpretation_notes": [
+        "The complete field still contains both latency and CPU relations.",
+        "A latency-specific certificate is inapplicable to the CPU claim.",
+        "CPU success neither refutes the latency claim nor satisfies an unchanged latency protection requirement."
+      ],
+      "execution_status": "NOT_RUN",
+      "observed": null,
+      "expected_vs_observed": null
+    }
+  ],
+  "harness_controls": [
+    {
+      "control_id": "G01",
+      "stimulus": "Missing, empty or ambiguous Atom lookup",
+      "requirement": "Refuse a complete coverage claim; record the current checker limitation without patching it.",
+      "execution_status": "NOT_RUN",
+      "observed": null
+    },
+    {
+      "control_id": "G02",
+      "stimulus": "Changed source bytes under an old binding",
+      "requirement": "Detect source mismatch even if short IDs and reported context labels look unchanged; verify the intended mutation.",
+      "execution_status": "NOT_RUN",
+      "observed": null
+    },
+    {
+      "control_id": "G03",
+      "stimulus": "Wrong diagnostic, crash or timeout",
+      "requirement": "Do not count the outcome as the intended negative witness; preserve MISMATCH or INCOMPLETE.",
+      "execution_status": "NOT_RUN",
+      "observed": null
+    },
+    {
+      "control_id": "G04",
+      "stimulus": "Stale accepted proof from V0 offered to restricted V3",
+      "requirement": "No metric-source premise or cached closure may enter the fresh restricted assessment.",
+      "execution_status": "NOT_RUN",
+      "observed": null
+    },
+    {
+      "control_id": "G05",
+      "stimulus": "Old latency certificate offered for CPU",
+      "requirement": "Reject target transfer; require separately bound CPU premises.",
+      "execution_status": "NOT_RUN",
+      "observed": null
+    },
+    {
+      "control_id": "G06",
+      "stimulus": "Missing required stage, case or log",
+      "requirement": "Overall comparison must be INCOMPLETE, never success by default.",
+      "execution_status": "NOT_RUN",
+      "observed": null
+    }
+  ],
+  "actual_run_summary": null
+}

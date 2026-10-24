@@ -85,6 +85,47 @@ jobs:
           for wf in sorted(workflows.glob("*.yml")) + sorted(workflows.glob("*.yaml")):
               text = wf.read_text(encoding="utf-8", errors="replace")
               declared_versions = [v.strip() for v in version_re.findall(text)]
+              # One explicit research-only matrix; ordinary and Q2 pins stay unchanged.
+              if wf.as_posix() == ".github/workflows/paradox_compatibility_v0.yml":
+                  if wf.is_symlink():
+                      mismatches.append((wf.as_posix(), "symlink", "regular compatibility workflow"))
+                      continue
+                  matrix_versions = ["3.11.14", "3.12.12", "3.13.5", "3.14.3"]
+                  matrix_ids = ["py311", "py312", "py313", "py314"]
+                  try:
+                      matrix_doc = yaml.load(text, Loader=yaml.BaseLoader)
+                  except yaml.YAMLError:
+                      matrix_doc = None
+                  matrix_jobs = matrix_doc.get("jobs") if isinstance(matrix_doc, dict) else None
+                  matrix_events = matrix_doc.get("on") if isinstance(matrix_doc, dict) else None
+                  if (not isinstance(matrix_events, dict) or set(matrix_events) != {"workflow_dispatch"}
+                          or not isinstance(matrix_jobs, dict) or set(matrix_jobs) != {"compatibility"}):
+                      mismatches.append((wf.as_posix(), "matrix scope", "manual-only compatibility job"))
+                      continue
+                  matrix_job = matrix_jobs["compatibility"]
+                  matrix_steps = matrix_job.get("steps") if isinstance(matrix_job, dict) else None
+                  if not isinstance(matrix_steps, list):
+                      mismatches.append((wf.as_posix(), "matrix steps", "explicit step list"))
+                      continue
+                  matrix_setups = []
+                  matrix_declared = []
+                  for step in matrix_steps:
+                      if not isinstance(step, dict):
+                          mismatches.append((wf.as_posix(), "matrix step", "step mapping"))
+                          continue
+                      uses = step.get("uses", "")
+                      parameters = step.get("with", {})
+                      setup = isinstance(uses, str) and uses.startswith("actions/setup-python@")
+                      if isinstance(parameters, dict) and "python-version" in parameters:
+                          matrix_declared.append(parameters["python-version"])
+                      if setup:
+                          matrix_setups.append((step.get("id"), parameters.get("python-version")
+                                                if isinstance(parameters, dict) else None))
+                  if (matrix_setups != list(zip(matrix_ids, matrix_versions))
+                          or matrix_declared != matrix_versions or declared_versions != matrix_versions):
+                      mismatches.append((wf.as_posix(), str(matrix_setups),
+                                         "exactly four ordered, ID-bound compatibility Python pins"))
+                  continue
               if wf.as_posix() in scoped_patch_pins:
                   job_pins = scoped_patch_pins[wf.as_posix()]
                   for patch_version in job_pins.values():
@@ -153,6 +194,9 @@ jobs:
 
           print(f"OK: core workflow declarations match environment.yml python={env_version}; exact patch pins verified.")
           PY
+
+      - name: "Repo hygiene: test the bounded compatibility exception"
+        run: python -B examples/paradox_compatibility_v0/test_workflow_guard.py
 
       - name: "Repo hygiene: validate workflow YAML files (fail-closed)"
         shell: bash

@@ -1,0 +1,115 @@
+{
+  "document_kind": "expected_source_identity_register_not_materialization_receipt",
+  "repository": "HKati/pulse-release-gates-0.1",
+  "selected_snapshot": "102145d1f1c321811c52d9d20f92cc7289127b2b",
+  "historical_semantic_snapshot": "cbeab94d8532482d34ab857bf38e9e56ae265f84",
+  "source_identity_basis": "Merged mapping register, selected connector source reads, and bounded commit comparison.",
+  "bounded_comparison": {
+    "base": "cbeab94d8532482d34ab857bf38e9e56ae265f84",
+    "head": "102145d1f1c321811c52d9d20f92cc7289127b2b",
+    "total_commits": 2,
+    "listed_changed_paths": 18,
+    "selected_four_inputs_or_six_programs_changed": false
+  },
+  "independent_source_bytes_materialized_in_this_preparation": false,
+  "new_sha256_measurement_of_source_files": "NOT_PERFORMED",
+  "pre_execution_requirement": "Verify all exact bytes against the expected Git blob identity, then record separate plain-file SHA-256 values; stop on mismatch.",
+  "files": [
+    {
+      "role": "research_contract",
+      "path": "docs/PULSEMECH_PARADOX_M1_M3_DEFINITION_CONTRACT_v0_2.md",
+      "snapshot": "102145d1f1c321811c52d9d20f92cc7289127b2b",
+      "expected_git_blob_sha1": "ad6543d8b2db91b2f8d1fa928e6a2d914fc6ca18",
+      "pinned_url": "https://github.com/HKati/pulse-release-gates-0.1/blob/102145d1f1c321811c52d9d20f92cc7289127b2b/docs/PULSEMECH_PARADOX_M1_M3_DEFINITION_CONTRACT_v0_2.md",
+      "future_materialized_file_sha256": null
+    },
+    {
+      "role": "corrected_mapping_case",
+      "path": "docs/PULSEMECH_PARADOX_SOURCE_MAPPING_CASE_v0.md",
+      "snapshot": "102145d1f1c321811c52d9d20f92cc7289127b2b",
+      "expected_git_blob_sha1": "03223a005401b68224f8b06963426eb88d1ded61",
+      "pinned_url": "https://github.com/HKati/pulse-release-gates-0.1/blob/102145d1f1c321811c52d9d20f92cc7289127b2b/docs/PULSEMECH_PARADOX_SOURCE_MAPPING_CASE_v0.md",
+      "future_materialized_file_sha256": null
+    },
+    {
+      "role": "gate_input",
+      "path": "docs/examples/transitions_case_study_v0/pulse_gate_drift_v0.csv",
+      "snapshot": "102145d1f1c321811c52d9d20f92cc7289127b2b",
+      "expected_git_blob_sha1": "e1aabd25974f2de48f57954f1c243cb619a59776",
+      "pinned_url": "https://github.com/HKati/pulse-release-gates-0.1/blob/102145d1f1c321811c52d9d20f92cc7289127b2b/docs/examples/transitions_case_study_v0/pulse_gate_drift_v0.csv",
+      "future_materialized_file_sha256": null
+    },
+    {
+      "role": "metric_input",
+      "path": "docs/examples/transitions_case_study_v0/pulse_metric_drift_v0.csv",
+      "snapshot": "102145d1f1c321811c52d9d20f92cc7289127b2b",
+      "expected_git_blob_sha1": "e9e92d80240297aab1111b7360ee677ba650d032",
+      "pinned_url": "https://github.com/HKati/pulse-release-gates-0.1/blob/102145d1f1c321811c52d9d20f92cc7289127b2b/docs/examples/transitions_case_study_v0/pulse_metric_drift_v0.csv",
+      "future_materialized_file_sha256": null
+    },
+    {
+      "role": "overlay_input",
+      "path": "docs/examples/transitions_case_study_v0/pulse_overlay_drift_v0.json",
+      "snapshot": "102145d1f1c321811c52d9d20f92cc7289127b2b",
+      "expected_git_blob_sha1": "c61d6bee0faa9b74ca00bf564900321400b2b21a",
+      "pinned_url": "https://github.com/HKati/pulse-release-gates-0.1/blob/102145d1f1c321811c52d9d20f92cc7289127b2b/docs/examples/transitions_case_study_v0/pulse_overlay_drift_v0.json",
+      "future_materialized_file_sha256": null
+    },
+    {
+      "role": "transitions_input",
+      "path": "docs/examples/transitions_case_study_v0/pulse_transitions_v0.json",
+      "snapshot": "102145d1f1c321811c52d9d20f92cc7289127b2b",
+      "expected_git_blob_sha1": "cdeb822818b65dba3ca9993176926369aa7a42ad",
+      "pinned_url": "https://github.com/HKati/pulse-release-gates-0.1/blob/102145d1f1c321811c52d9d20f92cc7289127b2b/docs/examples/transitions_case_study_v0/pulse_transitions_v0.json",
+      "future_materialized_file_sha256": null
+    },
+    {
+      "role": "field_producer",
+      "path": "scripts/paradox_field_adapter_v0.py",
+      "snapshot": "102145d1f1c321811c52d9d20f92cc7289127b2b",
+      "expected_git_blob_sha1": "5e7b5a8733692be4a52af893149a996717f1116e",
+      "pinned_url": "https://github.com/HKati/pulse-release-gates-0.1/blob/102145d1f1c321811c52d9d20f92cc7289127b2b/scripts/paradox_field_adapter_v0.py",
+      "future_materialized_file_sha256": null
+    },
+    {
+      "role": "edge_exporter",
+      "path": "scripts/export_paradox_edges_v0.py",
+      "snapshot": "102145d1f1c321811c52d9d20f92cc7289127b2b",
+      "expected_git_blob_sha1": "66c517931227bd0414cc4cd8b44d962503c38a3a",
+      "pinned_url": "https://github.com/HKati/pulse-release-gates-0.1/blob/102145d1f1c321811c52d9d20f92cc7289127b2b/scripts/export_paradox_edges_v0.py",
+      "future_materialized_file_sha256": null
+    },
+    {
+      "role": "field_checker",
+      "path": "scripts/check_paradox_field_v0_contract.py",
+      "snapshot": "102145d1f1c321811c52d9d20f92cc7289127b2b",
+      "expected_git_blob_sha1": "b5a2f2bb66cbb2f27a2cf0dab2baa3068c667008",
+      "pinned_url": "https://github.com/HKati/pulse-release-gates-0.1/blob/102145d1f1c321811c52d9d20f92cc7289127b2b/scripts/check_paradox_field_v0_contract.py",
+      "future_materialized_file_sha256": null
+    },
+    {
+      "role": "edge_checker",
+      "path": "scripts/check_paradox_edges_v0_contract.py",
+      "snapshot": "102145d1f1c321811c52d9d20f92cc7289127b2b",
+      "expected_git_blob_sha1": "f43f995e380e560bb0be0971615f7ddce549841f",
+      "pinned_url": "https://github.com/HKati/pulse-release-gates-0.1/blob/102145d1f1c321811c52d9d20f92cc7289127b2b/scripts/check_paradox_edges_v0_contract.py",
+      "future_materialized_file_sha256": null
+    },
+    {
+      "role": "acceptance_entrypoint",
+      "path": "scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py",
+      "snapshot": "102145d1f1c321811c52d9d20f92cc7289127b2b",
+      "expected_git_blob_sha1": "b1ffc61d6a1c9d714e5a6654322723e82bbc58e6",
+      "pinned_url": "https://github.com/HKati/pulse-release-gates-0.1/blob/102145d1f1c321811c52d9d20f92cc7289127b2b/scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py",
+      "future_materialized_file_sha256": null
+    },
+    {
+      "role": "acceptance_implementation",
+      "path": "scripts/scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py",
+      "snapshot": "102145d1f1c321811c52d9d20f92cc7289127b2b",
+      "expected_git_blob_sha1": "71a0b667c22daddbc21306f073b1ae9e94024a75",
+      "pinned_url": "https://github.com/HKati/pulse-release-gates-0.1/blob/102145d1f1c321811c52d9d20f92cc7289127b2b/scripts/scripts/check_paradox_examples_transitions_case_study_v0_acceptance.py",
+      "future_materialized_file_sha256": null
+    }
+  ]
+}

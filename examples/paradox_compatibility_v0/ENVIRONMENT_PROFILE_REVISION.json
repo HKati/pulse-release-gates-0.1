@@ -1,0 +1,18 @@
+{
+  "profile_id": "PD-SM-01-E0-py3135-v1",
+  "historical_profile_id": "PD-SM-01-E0-v0",
+  "historical_expectations_sha256": "209a03af55faca075d11131e9775f0edb6794479ac8564c99c2eff655f34ff07",
+  "authorization_basis": "Owner approved the separately identified local CPython 3.13.5 experiment after the environment-block report; implementation and bounded local execution only.",
+  "change": {
+    "field": "reference_environment.python_version",
+    "historical_value": "3.11.16",
+    "selected_value": "3.13.5"
+  },
+  "platform": "Linux CPU",
+  "implementation": "CPython",
+  "scenario_expectations_changed": false,
+  "source_pins_changed": false,
+  "repository_write_authorized": false,
+  "ci_dispatch_authorized": false,
+  "authority_effect": "none"
+}

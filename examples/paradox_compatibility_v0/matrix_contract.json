@@ -1,0 +1,49 @@
+{
+  "schema_version": "pd_sm_01_compatibility_v0",
+  "profile_id": "PD-SM-01-E2-compat-v0",
+  "source_snapshot": "102145d1f1c321811c52d9d20f92cc7289127b2b",
+  "historical_semantic_snapshot": "cbeab94d8532482d34ab857bf38e9e56ae265f84",
+  "required_versions": [
+    "3.11.14",
+    "3.12.12",
+    "3.13.5",
+    "3.14.3"
+  ],
+  "required_implementation": "CPython",
+  "required_platform": "Linux",
+  "required_machine": "x86_64",
+  "runtime_timeout_seconds": 240,
+  "scenario_ids": [
+    "E00",
+    "E10",
+    "E11",
+    "E12",
+    "E13",
+    "E20",
+    "E30",
+    "E40"
+  ],
+  "control_ids": [
+    "G01",
+    "G02",
+    "G03",
+    "G04",
+    "G05",
+    "G06"
+  ],
+  "regression_test_methods": 18,
+  "original_runner_gate": "3.13.5",
+  "core_sha256": {
+    "README.md": "9249ad37fb2defcdb59ef6a0ba7c8893e978a4d84940af89d9d356769832996f",
+    "case_expectations.json": "209a03af55faca075d11131e9775f0edb6794479ac8564c99c2eff655f34ff07",
+    "independent_reference.py": "d4bc8021f51ce6e4352fee35fbb935de8c48b6e0598d86fd9f960d308846954c",
+    "run_cases.py": "c53b0afab99aff894dff62b7d387500d3a45f13849ba027030441b00982c52e8",
+    "test_harness.py": "ed30aec16202351692347fd4a8e394da8b106e82b46578fd0ab630858c0ff83f"
+  },
+  "source_manifest_sha256": "b141d4aded9142c4ff81f0fbac652f3f3dbd3b0768ab26781d72751f58e383fb",
+  "environment_revision_sha256": "a312fbaadec63186ed1d6cb29760c39572d59bfdc9989692ff5802a6613a9649",
+  "scope": "Exact four CPython versions on Linux x86_64; unchanged E0 cases and controls only. E1 finite profiles and MON-1 are not included in this matrix.",
+  "authority_effect": "none",
+  "hosted_execution_status": "NOT_RUN",
+  "reference_choice": "Previously selected comparison versions, not a claim that they are the latest maintenance releases."
+}
