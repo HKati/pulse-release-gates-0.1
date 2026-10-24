@@ -44,6 +44,13 @@ moves between merged and open work, update this index.
 
 ## Start here
 
+- Q3 native token preflight and finite capture:
+  [Native capture contract](compute/PULSEMECH_Q3_NATIVE_CAPTURE_v0.md)
+  **Implementation for review; no native Q3 execution claimed.** Separates
+  zero-generation input tokenization from an explicitly authorized 204-task
+  capture, independent token/text checks and non-authorizing evidence retention.
+  Q1 labels and Q3 measurement remain separate; keep #2879 open.
+
 - Offline Q3 archived-input preparation:
   [Selected-original package preparation](compute/PULSEMECH_Q3_ARCHIVED_INPUT_PREPARATION_v0.md)
   **Current implementation with synthetic conformance tests.** Packages separately

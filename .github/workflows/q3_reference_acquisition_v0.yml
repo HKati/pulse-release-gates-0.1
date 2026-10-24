@@ -1,0 +1,101 @@
+name: Q3 native token preflight and capture v0
+
+# Manual only. Preflight never generates; capture needs a separate bound request.
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: "Exact reviewed main commit"
+        required: true
+        type: string
+      native_request:
+        description: "Closed Q3 request with explicit phase and retention authorization"
+        required: true
+        type: string
+      native_request_sha256:
+        description: "SHA-256 of the exact submitted UTF-8 request bytes"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: q3-native-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  acquire:
+    if: github.repository == 'HKati/pulse-release-gates-0.1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 270
+    permissions:
+      contents: read
+      actions: read
+    env:
+      EXPECTED_SOURCE_SHA: ${{ inputs.source_commit }}
+      Q3_NATIVE_REQUEST: ${{ inputs.native_request }}
+      Q3_NATIVE_REQUEST_SHA256: ${{ inputs.native_request_sha256 }}
+    steps:
+      - name: Check owner and exact manual context
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_ACTOR" = HKati
+          test "$GITHUB_TRIGGERING_ACTOR" = HKati
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          [[ "$EXPECTED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$Q3_NATIVE_REQUEST_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          test "$EXPECTED_SOURCE_SHA" = "$GITHUB_SHA"
+          test "$EXPECTED_SOURCE_SHA" = "$GITHUB_WORKFLOW_SHA"
+
+      - name: Checkout exact reviewed source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up the exact selected Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11.16'
+
+      - name: Run only the explicitly authorized Q3 phase
+        id: native
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python_bin="$(python -c 'import os,sys; print(os.path.realpath(sys.executable))')"
+          sudo --preserve-env=GITHUB_REPOSITORY,GITHUB_EVENT_NAME,GITHUB_REF,GITHUB_ACTOR,GITHUB_TRIGGERING_ACTOR,GITHUB_RUN_ATTEMPT,GITHUB_SHA,GITHUB_WORKFLOW_SHA,GITHUB_WORKFLOW_REF,GITHUB_RUN_ID,GITHUB_TOKEN,ImageOS,ImageVersion,RUNNER_TEMP \
+            /usr/bin/timeout --signal=TERM --kill-after=180s 15480s \
+            "$python_bin" -I -B PULSE_safe_pack_v0/tools/acquire_q3_reference_inputs_v0.py \
+            --repo-root "$GITHUB_WORKSPACE" --source-commit "$EXPECTED_SOURCE_SHA" \
+            --request "$Q3_NATIVE_REQUEST" --request-sha256 "$Q3_NATIVE_REQUEST_SHA256"
+
+      - name: Preserve bounded success or failure evidence
+        if: always() && steps.native.outcome != 'skipped'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: q3-reference-capture-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/q3-reference-capture/${{ github.run_id }}-${{ github.run_attempt }}/evidence.zip
+            ${{ runner.temp }}/q3-reference-capture/${{ github.run_id }}-${{ github.run_attempt }}/receipt.json
+            ${{ runner.temp }}/q3-reference-capture/${{ github.run_id }}-${{ github.run_attempt }}/failure.json
+          if-no-files-found: error
+          overwrite: false
+          compression-level: 0
+          retention-days: 30
+
+      - name: Record the non-authorizing boundary
+        if: always() && steps.native.outcome != 'skipped'
+        shell: bash
+        run: |
+          printf '%s\n' \
+            'Inspect the exact receipt and evidence. Preflight means zero generation.' \
+            'A capture is not Q1 labeling, Q3 scoring, current-run release evidence or release authority.' \
+            'Incomplete attempts remain incomplete. No automatic retries or top-up. Keep #2879 open.' >> "$GITHUB_STEP_SUMMARY"

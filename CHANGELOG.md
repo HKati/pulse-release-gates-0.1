@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add a bounded Q3 native token-preflight/capture implementation for review,
+  preserving the exact 204-task P2 stimulus frame and the existing Q2 path.
+  Separate zero-generation preflight from owner-authorized, single-attempt
+  acquisition; bind original requests/tokens/text, external supervision,
+  independent verification, cleanup and bounded non-authorizing publication.
+  Add offline regressions and narrow workflow/hygiene/classification registration.
+  No native execution, label correctness, metric PASS or release activation is
+  asserted by implementation. Preserve historical Q2 49/50 FAIL / release BLOCK.
+
 - Fix the second Q3-2A preparation review: reject lexical hour 24 before
   runtime date-time parsing, explicitly restore and verify private output
   modes independently of process umask, and retain staging ownership before
