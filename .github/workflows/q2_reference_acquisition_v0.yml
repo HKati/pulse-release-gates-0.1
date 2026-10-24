@@ -141,7 +141,7 @@ jobs:
       - name: Preserve verified candidate for owner review
         if: inputs.mode == 'prepare-runtime'
         id: artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: q2-runtime-preparation-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -212,7 +212,7 @@ jobs:
 
       - name: Preserve native diagnostic evidence including failures
         if: always() && inputs.mode == 'qualify-runtime' && steps.qualify.outcome != 'skipped'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: q2-native-qualification-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/q2-native-qualification
@@ -249,7 +249,7 @@ jobs:
 
       - name: Preserve original capture evidence including failures
         if: always() && inputs.mode == 'capture-reference' && steps.capture.outcome != 'skipped'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: q2-reference-capture-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/q2-reference-capture
