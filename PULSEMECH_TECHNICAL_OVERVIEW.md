@@ -66,6 +66,12 @@ results is:
 
 **[Current verified state and latest results](#current-verified-state-and-latest-results)**
 
+**Documentation update — 2026-10-25.** [Section 16](#current-verified-state-and-latest-results)
+now links the completed Paradoxon E2 execution and original-artifact preservation,
+the later Q2 native/comparison records, and the Q3 implementation records at
+`a248f5e21dd6163416bf54b23f12a09a12259e3f`. Section 15M and the retained
+2026-10-15 checkpoint keep their original source-bound historical scope.
+
 ---
 
 ## 1. System identity
@@ -3120,6 +3126,88 @@ measurement and Step 7 promotion remain separate work; #2879 stays open.
 <a id="current-verified-state-and-latest-results"></a>
 
 ## 16. Current verified state and latest results
+
+### Source-bound documentation checkpoint — 2026-10-25
+
+```text
+state_date: 2026-10-25
+repository_snapshot: a248f5e21dd6163416bf54b23f12a09a12259e3f
+latest_e2_preservation_pr: 2950
+record_role: documentation_checkpoint_over_existing_evidence
+new_experiment_execution: false
+authority_effect: none
+```
+
+#### Paradoxon PD-SM-01-E2 — completed execution and preservation
+
+| Evidence field | Recorded value |
+|---|---|
+| Profile | `PD-SM-01-E2-compat-v0` |
+| Hosted run / attempt | `40113600844/1` |
+| Workflow commit | `d4fee2e007eb97cee652bd62cde81aef57b79b1f` |
+| Immutable source commit | `102145d1f1c321811c52d9d20f92cc7289127b2b` |
+| Historical semantic commit | `cbeab94d8532482d34ab857bf38e9e56ae265f84` |
+| Observed runtimes | CPython 3.11.14, 3.12.12, 3.13.5, 3.14.3; Linux x86_64 |
+| Matrix result | `MATCH`; four completed runtime rows |
+| Matching scenario executions | 32/32; eight per runtime |
+| Successful regression-method executions | 72/72; eighteen per runtime |
+| Included control-group executions | 24; already included in the 72 methods |
+| Subprocess records | 192; forty-eight per runtime |
+| Semantic views | Four byte-identical files |
+| Original artifact | `12567154104`; `1334079` bytes; `1075` ZIP members |
+| Internal checksum entries | `1067` |
+| Repository preservation | #2950 / `a248f5e21dd6163416bf54b23f12a09a12259e3f` |
+
+```text
+original_artifact_sha256:
+9cbcd1c744a2bb3b7173611b8417f6be170a4d533121e7b2e3dfcdb69c54ecee
+
+common_semantic_view_sha256:
+627e2181899dd412b58e4e40f39d08ab50c107786346ccef6d123fc0989df6c5
+```
+
+The [execution result](docs/PULSEMECH_PARADOX_COMPATIBILITY_RESULT_v0.md)
+links the [original artifact ZIP](docs/evidence/PD_SM_01_E2_RUN_40113600844/pd-sm-01-e2-40113600844-1.zip)
+and its [checksum](docs/evidence/PD_SM_01_E2_RUN_40113600844/pd-sm-01-e2-40113600844-1.zip.sha256).
+This committed evidence is separate from the expiring Actions copy and from the
+separately prepared ChatGPT preservation wrapper.
+
+| Controlled case | Relation | Source justification | Proof applicability |
+|---|---|---|---|
+| E20 | `VIOLATED` | `CONTRADICTED` | `NOT_JUSTIFIED` |
+| E30 | `SATISFIED` | `UNRESOLVED` | `NOT_JUSTIFIED` |
+| E40 | `SATISFIED` | `JUSTIFIED_WITHIN_FIXTURE_BOUNDARY` | Old proof: `SUBJECT_MISMATCH`; new subject separately justified |
+
+The result covers the unchanged E0 cases on these four observed interpreters.
+E1 finite-domain checks and MON-1 enforcement remain separate records.
+The M1-M3 contract and source-mapping document retain their manual-derivation
+and preparation histories; the later E0/E2 results have their own identities.
+
+[Mechanical definition contract](docs/PULSEMECH_PARADOX_M1_M3_DEFINITION_CONTRACT_v0_2.md)
+→ [source mapping](docs/PULSEMECH_PARADOX_SOURCE_MAPPING_CASE_v0.md)
+→ [compatibility implementation](examples/paradox_compatibility_v0/README.md)
+→ [completed execution and evidence](docs/PULSEMECH_PARADOX_COMPATIBILITY_RESULT_v0.md).
+
+#### Later Q2 and Q3 records available at this checkpoint
+
+| Workstream | Recorded state | Existing record |
+|---|---|---|
+| Q2 native worker and offline verification | Run `39057898256/1`; 150 completed calls; separate carrier verification and metric replay; metric remains 49/50 FAIL | [Readiness section 16](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#16-recorded-q2-2q2-3-native-worker-and-offline-verification-checkpoint) |
+| Q2-4 bounded field comparison | 150 paired calls with matching selected output fields; distinct run/runner identities and both negative metrics preserved | [Readiness section 17](docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#17-recorded-q2-4-field-comparison-checkpoint) |
+| Q2 evidence publication/custody | Metadata stage only; full payload publication, durable custody and full Q2-4 acceptance remain open | [Preservation contract](preservation/q2_reference_closure_v0/PRESERVATION_CONTRACT_v0.md) |
+| Q3 reference recomputation | `q3_input_recomputation_v0.1`; implemented producer and separate checker with synthetic conformance evidence | [Q3 reference contract](docs/compute/PULSEMECH_Q3_REFERENCE_RECOMPUTATION_v0.md) |
+| Q3 archived-input preparation | Implemented preparation with synthetic conformance evidence; selected original-input execution is not established by those tests | [Q3 preparation contract](docs/compute/PULSEMECH_Q3_ARCHIVED_INPUT_PREPARATION_v0.md) |
+
+The later Q2 native execution is not pending in this checkpoint. Full Q2-4
+acceptance/custody and Step 5C/5D acceptance remain open. Historical Q2 FAIL /
+release BLOCK, the production gate set and the existing fail-closed authority
+path are unchanged. This navigation update adds no release eligibility.
+
+### Historical checkpoint — 2026-10-15 / through #2927
+
+The following checkpoint retains its original date, source and pending-work
+statements. The later native Q2 execution, bounded Q2 comparison and E2 result
+are recorded above; they do not rewrite those original observations.
 
 This is the source-bound documentation checkpoint identified below. Later
 repository changes and open-PR outcomes must be read from their own records;
