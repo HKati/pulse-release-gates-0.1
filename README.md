@@ -21,6 +21,24 @@ boundary.
 
 **[Q2 native worker and offline verification](#q2-native-worker-and-offline-verification)**
 
+## From AI output to an enforceable release decision
+
+A model can propose a change. Release permission comes from verified evidence.
+
+PULSEmech implements this boundary for AI release decisions: recorded
+evidence is bound to the exact artifact and run, checked against declared
+policy, and enforced through a fail-closed CI decision.
+
+Recorded evidence → artifact/run binding → declared policy
+→ verified required gates → ALLOW or BLOCK
+
+The release-authority path is implemented and exercised in recorded
+reference runs. Its source-bound results, verification evidence and
+current development boundaries are documented below.
+
+[Implementation and verified results](PULSEMECH_TECHNICAL_OVERVIEW.md#current-verified-state-and-latest-results)
+ · [Preserved transition cases and original execution evidence](docs/PULSEMECH_PARADOX_COMPATIBILITY_RESULT_v0.md)
+
 ## PULSEmech Transition Meter — The Missing Instrument Between Measured States
 
 The dominant measurement structure of present science records states and
