@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Fix Q3 native installation completion: consume and validate the exact installer
+  acknowledgement before the unchanged empty-tail, EOF and exit checks.
+  Add real-pipe regressions using the actual installer body with synthetic
+  venv/pip operations, including missing/malformed/duplicate output, nonzero
+  exits, deadlines, other phases and cleanup/interruption behavior. No native
+  execution, workflow, profile, input, metric or release-authority change.
+
 - Add a bounded Q3 native token-preflight/capture implementation for review,
   preserving the exact 204-task P2 stimulus frame and the existing Q2 path.
   Separate zero-generation preflight from owner-authorized, single-attempt

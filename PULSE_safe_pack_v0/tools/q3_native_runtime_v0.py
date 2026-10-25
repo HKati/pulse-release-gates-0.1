@@ -558,7 +558,14 @@ class Lifecycle:
 def phase(life,prefix,stage,command,work,python,logs,deadline,evidence):
     svc=life.start(prefix,stage,command,work,python,logs/(stage+'.log'),deadline)
     error=None
-    try:svc.complete()
+    try:
+        if stage == 'installer':
+            # The installer emits one acknowledgement before EOF. Consume only
+            # that exact record; complete() still requires no extra output and
+            # a successful process exit within the original service deadline.
+            require(svc.reader.line(svc.deadline) == b'offline_installation_finished\n',
+                    'installer_acknowledgement')
+        svc.complete()
     except BaseException as exc:error=exc
     try:closed=svc.close(min(deadline,time.monotonic()+30))
     except BaseException as exc:

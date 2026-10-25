@@ -320,3 +320,149 @@ def test_unknown_client_launch_identity_never_claims_reaped(tmp_path,monkeypatch
         b'LoadState=not-found\nActiveState=inactive\nControlGroup=\n',b''))
     with pytest.raises(ValueError,match='client_launch'):svc.close(time.monotonic()+5)
     assert svc.cleanup is None
+
+
+@pytest.fixture
+def phase_pipe(tmp_path, monkeypatch):
+    """Real phase/reader/EOF/exit checks; launch and cleanup are test doubles."""
+    class PipeService(R.Service):
+        def start(self):
+            self.process = subprocess.Popen(
+                self.command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE, bufsize=0)
+            self.reader = R.BoundedReader(self.process.stdout)
+            self.observation = {'synthetic_pipe_test': True, 'stage': self.stage}
+            self.closed_by_phase = False
+            return self
+
+        def close(self, deadline):
+            self.closed_by_phase = True
+            finish_child(self.process, self.reader)
+            if close_error[0] is not None:
+                raise close_error[0]
+            self.cleanup = {'synthetic_pipe_cleanup': True}
+            return self.cleanup
+
+    monkeypatch.setattr(R, 'Service', PipeService)
+    life = R.Lifecycle()
+    close_error = [None]
+    logs = tmp_path / 'logs'; logs.mkdir()
+    evidence_dir = tmp_path / 'evidence'; evidence_dir.mkdir()
+    work = tmp_path / 'work'; work.mkdir()
+
+    def invoke(stage, code, *, seconds=5, args=(), cleanup_error=None):
+        close_error[0] = cleanup_error
+        return R.phase(
+            life, 'pulse-q3-' + 'a' * 24, stage,
+            [sys.executable, '-I', '-B', '-c', code, *map(str, args)],
+            work, Path(sys.executable), logs, time.monotonic() + seconds,
+            evidence_dir)
+
+    invoke.life = life
+    invoke.work = work
+    invoke.evidence = evidence_dir
+    yield invoke
+    # An assertion failure in the test must not leave the synthetic child alive.
+    for svc in life.services:
+        if svc.process is not None and not svc.closed_by_phase:
+            finish_child(svc.process, svc.reader)
+
+
+def test_phase_accepts_actual_installer_acknowledgement_before_eof(phase_pipe):
+    # Execute the unchanged INSTALLER body in a child, but replace venv/pip only.
+    # Its real success print reaches the real BoundedReader and Service.complete.
+    # No dependency installation, systemd service or model execution occurs.
+    out = phase_pipe.work / 'installer-output'; out.mkdir()
+    driver = r'''
+import pathlib, subprocess, sys, venv
+class SyntheticEnvBuilder:
+    def __init__(self, **kwargs):
+        assert kwargs == {'with_pip': True, 'symlinks': False}
+    def create(self, path):
+        path.mkdir()
+        (path / 'synthetic-fixture.txt').write_bytes(b'not a runtime\n')
+venv.EnvBuilder = SyntheticEnvBuilder
+calls = []
+def fake_run(command, **kwargs):
+    calls.append(command)
+    assert 'pip' in command or 'import importlib.metadata' in command[-1]
+    return subprocess.CompletedProcess(command, 0)
+subprocess.run = fake_run
+'''
+    driver += '\nexec(compile(' + repr(R.INSTALLER) + ", '<actual-installer-body>', 'exec'))\n"
+    driver += 'assert len(calls) == 3\n'
+    svc = phase_pipe('installer', driver, args=(
+        phase_pipe.work, phase_pipe.work / 'wheelhouse',
+        phase_pipe.work / 'runtime.lock', out))
+    assert svc.process.returncode == 0 and svc.reader.eof
+    assert svc.closed_by_phase and svc.cleanup == {'synthetic_pipe_cleanup': True}
+    assert C.strict_json((phase_pipe.evidence / 'installer-sandbox.json').read_bytes()) == svc.observation
+    assert C.strict_json((phase_pipe.evidence / 'installer-cleanup.json').read_bytes()) == svc.cleanup
+    assert (out / 'bootstrap.json').is_file()
+
+
+@pytest.mark.parametrize('payload,exit_code,expected', [
+    (b'', 0, 'unexpected_protocol_eof'),
+    (b'offline_installation_finished', 0, 'unexpected_protocol_eof'),
+    (b'offline_installation_failed\n', 0, 'installer_acknowledgement'),
+    (b'offline_installation_finished\r\n', 0, 'installer_acknowledgement'),
+    (b'offline_installation_finished \n', 0, 'installer_acknowledgement'),
+    (b'offline_installation_finished\noffline_installation_finished\n', 0, 'extra_worker_output'),
+    (b'offline_installation_finished\nextra', 0, 'extra_worker_output'),
+    (b'offline_installation_finished\n', 72, 'isolated_service_failed'),
+])
+def test_phase_installer_acknowledgement_rejects_invalid_completion(
+        phase_pipe, payload, exit_code, expected):
+    code = 'import os;os.write(1,' + repr(payload) + ');os._exit(' + str(exit_code) + ')'
+    with pytest.raises(ValueError, match=expected):
+        phase_pipe('installer', code)
+    svc = phase_pipe.life.services[0]
+    assert svc.closed_by_phase and svc.process.poll() is not None
+    assert (phase_pipe.evidence / 'installer-cleanup.json').is_file()
+
+
+@pytest.mark.parametrize('stage', ['installcheck', 'preflight', 'decodecheck'])
+@pytest.mark.parametrize('payload', [b'', b'offline_installation_finished\n'])
+def test_phase_installer_acknowledgement_is_not_allowed_in_other_phases(
+        phase_pipe, stage, payload):
+    code = 'import os;os.write(1,' + repr(payload) + ')'
+    if payload:
+        with pytest.raises(ValueError, match='extra_worker_output'):
+            phase_pipe(stage, code)
+    else:
+        assert phase_pipe(stage, code).process.returncode == 0
+    assert phase_pipe.life.services[0].closed_by_phase
+
+
+@pytest.mark.parametrize('payload', [b'', b'offline_installation_finished\n'])
+def test_phase_installer_acknowledgement_does_not_extend_deadline(phase_pipe, payload):
+    code = 'import os,time;os.write(1,' + repr(payload) + ');time.sleep(30)'
+    with pytest.raises(ValueError, match='external_deadline_expired'):
+        phase_pipe('installer', code, seconds=0.3)
+    svc = phase_pipe.life.services[0]
+    assert svc.closed_by_phase and svc.process.poll() is not None
+
+
+@pytest.mark.parametrize('payload,expected', [
+    (b'offline_installation_finished\n', 'synthetic_cleanup_failure'),
+    (b'wrong_ack\n', 'installer_acknowledgement'),
+])
+def test_phase_installer_acknowledgement_keeps_cleanup_failure_semantics(
+        phase_pipe, payload, expected):
+    code = 'import os;os.write(1,' + repr(payload) + ')'
+    with pytest.raises(Exception, match=expected):
+        phase_pipe('installer', code, cleanup_error=OSError('synthetic_cleanup_failure'))
+    assert phase_pipe.life.services[0].closed_by_phase
+    assert not (phase_pipe.evidence / 'installer-cleanup.json').exists()
+
+
+@pytest.mark.parametrize('interruption', [OSError('synthetic_read_failure'), KeyboardInterrupt()])
+def test_phase_installer_acknowledgement_read_failure_still_closes(
+        phase_pipe, monkeypatch, interruption):
+    def fail_read(self, deadline):
+        raise interruption
+    monkeypatch.setattr(R.BoundedReader, 'line', fail_read)
+    with pytest.raises(type(interruption)) as caught:
+        phase_pipe('installer', 'import time;time.sleep(30)')
+    assert caught.value is interruption
+    assert phase_pipe.life.services[0].closed_by_phase
