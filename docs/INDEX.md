@@ -965,6 +965,14 @@ index update neither predeclares that closure nor performs a new proof execution
   `MATRIX MATCH` on CPython 3.11.14, 3.12.12, 3.13.5 and 3.14.3, Linux x86_64.
   Preserves the original GitHub Actions ZIP and SHA-256 alongside the result.
   E0 cases only; E1 and MON-1 remain separate; `authority_effect = none`.
+- Paradoxon PD-SM-01-E1 finite checks and MON-1 local enforcement:
+  [E1 / MON-1 local execution and original evidence](PULSEMECH_PARADOX_E1_MON1_RESULT_v0.md)
+  **Completed local execution record; bounded research evidence.** Preserves
+  8192 F1 rows, 4096 F2 rows and the selected 17-case MON-1 record.
+  The reported 13824 sub-base comparisons comprise 9728 strict withdrawals
+  and 4096 unchanged-base controls. Original ZIP, nested E0 and histories
+  remain unchanged; E2 portability and production authority remain separate.
+  `authority_effect = none`.
 - [PULSE_paradox_field_v0_walkthrough.md](PULSE_paradox_field_v0_walkthrough.md) — Reading `paradox_field_v0`.
 - [Pulse_paradox_edges_v0_status.md](Pulse_paradox_edges_v0_status.md) — Status and roadmap for `paradox_edges_v0.jsonl`.
 - [paradox_edges_case_studies.md](paradox_edges_case_studies.md) — Fixture and non-fixture case studies.
