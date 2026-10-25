@@ -198,6 +198,7 @@ later source revision.
 | Active or release-required compute enforcement | Not active |
 | Public PULSEmech Core execution record | Completed — PULSE CI #5728 |
 | Completed public non-stubbed release-grade run record | Completed — PULSE CI #6066 |
+| Paradoxon PD-SM-01-E2 interpreter compatibility | Completed and preserved through #2950: CPython 3.11.14, 3.12.12, 3.13.5 and 3.14.3 on Linux x86_64; `MATRIX MATCH`; [execution record and original evidence](docs/PULSEMECH_PARADOX_COMPATIBILITY_RESULT_v0.md); `authority_effect = none` |
 
 ### Completed historical producer-input capture — Step 4A
 
@@ -1067,6 +1068,22 @@ recorded release evidence
 ```
 
 ## Current verification checkpoint
+
+**Paradoxon PD-SM-01-E2 — completed execution and preservation**
+
+| Recorded field | Result |
+|---|---|
+| Run / attempt | `40113600844/1` |
+| Runtimes | CPython 3.11.14, 3.12.12, 3.13.5, 3.14.3; Linux x86_64 |
+| Matrix | `MATCH`; four byte-identical semantic views |
+| Executions | 32 matching scenario executions; 72 successful test-method executions; 192 subprocess records |
+| Preservation | #2950; original Actions ZIP and SHA-256 committed under `docs/evidence/` |
+
+The 24 control-group executions are included in the 72 test methods.
+E20 remains `VIOLATED`; E30 source justification remains `UNRESOLVED`;
+E40 reuse of the old proof remains `SUBJECT_MISMATCH`.
+[Execution/source bindings and original evidence](docs/PULSEMECH_PARADOX_COMPATIBILITY_RESULT_v0.md).
+Scope: E0 cases on the four named interpreters; `authority_effect = none`.
 
 For the recorded native Q2 result and separate source-bound offline verification,
 use the [Q2 native worker and offline verification checkpoint above](#q2-native-worker-and-offline-verification).
@@ -2062,6 +2079,10 @@ Curated entrypoints (repo-level docs under `docs/`):
 
 
 ### Paradox field & edges
+- [Paradoxon M1-M3 definition contract](docs/PULSEMECH_PARADOX_M1_M3_DEFINITION_CONTRACT_v0_2.md) — Research contract and manual derivations.
+- [PD-SM-01 source mapping](docs/PULSEMECH_PARADOX_SOURCE_MAPPING_CASE_v0.md) — Source-bound gate/metric/tension/edge case.
+- [PD-SM-01 compatibility implementation](examples/paradox_compatibility_v0/README.md) — Four-interpreter runner, controls and manual workflow.
+- [PD-SM-01-E2 completed execution](docs/PULSEMECH_PARADOX_COMPATIBILITY_RESULT_v0.md) — Run `40113600844/1`, `MATRIX MATCH`, preserved original ZIP and SHA-256.
 - [docs/PULSE_paradox_field_v0_walkthrough.md](docs/PULSE_paradox_field_v0_walkthrough.md) — How to read `paradox_field_v0`.
 - [docs/Pulse_paradox_edges_v0_status.md](docs/Pulse_paradox_edges_v0_status.md) — Status/roadmap for `paradox_edges_v0.jsonl`.
 - [docs/paradox_edges_case_studies.md](docs/paradox_edges_case_studies.md) — Case studies (fixture + non-fixture).
