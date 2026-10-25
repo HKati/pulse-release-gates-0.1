@@ -545,6 +545,8 @@ def _run_hygiene_python_sync(tmp_path, *, core_version='3.11', q2_text=None,
     (tmp_path / tokenizer).write_bytes((ROOT / tokenizer).read_bytes())
     worker = '.github/workflows/q2_release_host_worker_verification_v0.yml'
     (tmp_path / worker).write_bytes((ROOT / worker).read_bytes())
+    q3 = '.github/workflows/q3_reference_acquisition_v0.yml'
+    (tmp_path / q3).write_bytes((ROOT / q3).read_bytes())
     for name, content in (extra_workflows or {}).items():
         (workflows / name).write_text(content)
     return subprocess.run([sys.executable, '-I', '-c', _hygiene_python_sync_script()],

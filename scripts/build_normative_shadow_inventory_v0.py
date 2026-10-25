@@ -89,6 +89,22 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
     name_l = name.lower()
     identity_l = f"{rel_l}\n{file_l}\n{stem_l}\n{name_l}"
 
+    if rel == ".github/workflows/q3_reference_acquisition_v0.yml":
+        if (name != "Q3 native token preflight and capture v0"
+                or hashlib.sha256(text.encode("utf-8")).hexdigest() != "fc13039e6eaf01130d2f9854e68425d9ebba2fc6a7a21f29f6aba713b0385fbd"):
+            return entry(name=name, path=rel, surface_type="workflow",
+                         primary_role="unclassified workflow", carrier_class="advisory",
+                         authority_impacting="conditional",
+                         authority_boundary="Changed Q3 carrier requires exact source review")
+        return entry(name=name, path=rel, surface_type="workflow",
+                     primary_role="non-authorizing Q3 native token preflight and capture",
+                     carrier_class="audit_preservation", authority_impacting="no",
+                     authority_boundary="Separately consented zero-generation preflight or bounded capture; no gate admission.",
+                     reads_artifacts=["fixed Q3 tasks, contexts and exact runtime input archive"],
+                     writes_artifacts=["bounded original token/text evidence or explicit incompleteness"],
+                     publishes_artifacts=["30-day owner-consented Actions evidence; not private storage"],
+                     notes="No labeling, metric execution, required gate, attestation or release activation.")
+
     if rel == ".github/workflows/pulse_ci.yml":
         return entry(
             name=name,

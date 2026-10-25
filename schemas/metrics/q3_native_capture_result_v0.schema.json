@@ -1,0 +1,1015 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "record_type": {
+      "const": "q3_native_capture_result_v0"
+    },
+    "mode": {
+      "enum": [
+        "token-preflight",
+        "capture"
+      ]
+    },
+    "status": {
+      "enum": [
+        "complete",
+        "incomplete"
+      ]
+    },
+    "error_code": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]{0,95}$"
+        }
+      ]
+    },
+    "source_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "request_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "inventory": {
+      "type": "object",
+      "propertyNames": {
+        "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9223372036854775807
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "required": [
+          "size_bytes",
+          "sha256"
+        ]
+      }
+    },
+    "claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "current_run_evidence": {
+          "const": false
+        },
+        "label_correctness": {
+          "const": "not_verified"
+        },
+        "metric_evaluated": {
+          "const": false
+        },
+        "policy_activation": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "slice_metadata_correctness": {
+          "const": "not_verified"
+        },
+        "source_authentication": {
+          "const": "not_established"
+        }
+      },
+      "required": [
+        "authority_effect",
+        "current_run_evidence",
+        "label_correctness",
+        "metric_evaluated",
+        "policy_activation",
+        "production_gate_eligible",
+        "slice_metadata_correctness",
+        "source_authentication"
+      ]
+    }
+  },
+  "required": [
+    "record_type",
+    "mode",
+    "status",
+    "error_code",
+    "source_commit",
+    "request_sha256",
+    "inventory",
+    "claims"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "complete"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error_code": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "error_code": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulse:q3:native-capture-result:v0",
+  "title": "Q3 native capture; permanent non-authority",
+  "description": "Schema is a shape contract. Source/byte/phase/isolation/terminal checks are additional mandatory independent checks. Recorded successful checks are not freshly performed native operations.",
+  "$defs": {
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "q3_native_capture_receipt_v0"
+        },
+        "status": {
+          "enum": [
+            "complete",
+            "incomplete"
+          ]
+        },
+        "mode": {
+          "enum": [
+            "token-preflight",
+            "capture"
+          ]
+        },
+        "archive_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "archive_size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "result_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "request_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "token_map_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "claims": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "authority_effect": {
+              "const": "none"
+            },
+            "current_run_evidence": {
+              "const": false
+            },
+            "label_correctness": {
+              "const": "not_verified"
+            },
+            "metric_evaluated": {
+              "const": false
+            },
+            "policy_activation": {
+              "const": false
+            },
+            "production_gate_eligible": {
+              "const": false
+            },
+            "slice_metadata_correctness": {
+              "const": "not_verified"
+            },
+            "source_authentication": {
+              "const": "not_established"
+            }
+          },
+          "required": [
+            "authority_effect",
+            "current_run_evidence",
+            "label_correctness",
+            "metric_evaluated",
+            "policy_activation",
+            "production_gate_eligible",
+            "slice_metadata_correctness",
+            "source_authentication"
+          ]
+        }
+      },
+      "required": [
+        "record_type",
+        "status",
+        "mode",
+        "archive_sha256",
+        "archive_size_bytes",
+        "result_sha256",
+        "request_sha256",
+        "source_commit",
+        "token_map_sha256",
+        "claims"
+      ]
+    },
+    "token_map": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "q3_token_map_v0"
+        },
+        "profile_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "model_revision": {
+          "const": "12fd25f77366fa6b3b4b768ec3050bf629380bac"
+        },
+        "task_file_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "task_id": {
+                "type": "string"
+              },
+              "ordinal": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 204
+              },
+              "input_ids": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 7936,
+                "items": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 49151
+                }
+              },
+              "messages_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "logical_request_sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            },
+            "required": [
+              "task_id",
+              "ordinal",
+              "input_ids",
+              "messages_sha256",
+              "logical_request_sha256"
+            ]
+          },
+          "minItems": 204,
+          "maxItems": 204
+        }
+      },
+      "required": [
+        "record_type",
+        "profile_sha256",
+        "model_revision",
+        "task_file_sha256",
+        "rows"
+      ]
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "q3_response_v0"
+        },
+        "binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "prelaunch_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "source_commit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "run_id": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,19}$"
+            },
+            "run_attempt": {
+              "const": 1
+            },
+            "subject_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "prelaunch_sha256",
+            "source_commit",
+            "run_id",
+            "run_attempt",
+            "subject_sha256"
+          ]
+        },
+        "slot": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "task_id": {
+              "type": "string"
+            },
+            "ordinal": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 204
+            },
+            "attempt": {
+              "const": 1
+            }
+          },
+          "required": [
+            "task_id",
+            "ordinal",
+            "attempt"
+          ]
+        },
+        "input_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 7936,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 49151
+          }
+        },
+        "new_token_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 49151
+          }
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 16384
+        },
+        "text_utf8_base64": {
+          "type": "string"
+        },
+        "stop_reason": {
+          "enum": [
+            "eos",
+            "token_limit"
+          ]
+        },
+        "effective_generation": {
+          "type": "object",
+          "properties": {
+            "bos_token_id": {
+              "const": 1
+            },
+            "do_sample": {
+              "const": false
+            },
+            "eos_token_id": {
+              "const": 2
+            },
+            "length_penalty": {
+              "const": 1.0
+            },
+            "max_new_tokens": {
+              "const": 256
+            },
+            "min_new_tokens": {
+              "const": 0
+            },
+            "no_repeat_ngram_size": {
+              "const": 0
+            },
+            "num_beams": {
+              "const": 1
+            },
+            "num_return_sequences": {
+              "const": 1
+            },
+            "pad_token_id": {
+              "const": 2
+            },
+            "repetition_penalty": {
+              "const": 1.0
+            },
+            "use_cache": {
+              "const": true
+            }
+          },
+          "required": [
+            "bos_token_id",
+            "do_sample",
+            "eos_token_id",
+            "length_penalty",
+            "max_new_tokens",
+            "min_new_tokens",
+            "no_repeat_ngram_size",
+            "num_beams",
+            "num_return_sequences",
+            "pad_token_id",
+            "repetition_penalty",
+            "use_cache"
+          ]
+        },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "torch": {
+              "const": "2.8.0+cpu"
+            },
+            "transformers": {
+              "const": "4.57.6"
+            },
+            "device": {
+              "const": "cpu"
+            },
+            "dtype": {
+              "const": "float32"
+            },
+            "attention": {
+              "const": "eager"
+            },
+            "threads": {
+              "const": 1
+            },
+            "interop_threads": {
+              "const": 1
+            },
+            "deterministic": {
+              "const": true
+            },
+            "model_class": {
+              "const": "LlamaForCausalLM"
+            },
+            "evaluation": {
+              "const": true
+            },
+            "seed": {
+              "const": 1729
+            },
+            "compile": {
+              "const": false
+            },
+            "quantization": {
+              "const": "none"
+            }
+          },
+          "required": [
+            "torch",
+            "transformers",
+            "device",
+            "dtype",
+            "attention",
+            "threads",
+            "interop_threads",
+            "deterministic",
+            "model_class",
+            "evaluation",
+            "seed",
+            "compile",
+            "quantization"
+          ]
+        }
+      },
+      "required": [
+        "record_type",
+        "binding",
+        "slot",
+        "input_ids",
+        "new_token_ids",
+        "text",
+        "text_utf8_base64",
+        "stop_reason",
+        "effective_generation",
+        "runtime"
+      ]
+    },
+    "terminal": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "q3_capture_terminal_v0"
+        },
+        "mode": {
+          "enum": [
+            "token-preflight",
+            "capture"
+          ]
+        },
+        "binding": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "prelaunch_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "source_commit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "run_id": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]{0,19}$"
+            },
+            "run_attempt": {
+              "const": 1
+            }
+          },
+          "required": [
+            "prelaunch_sha256",
+            "source_commit",
+            "run_id",
+            "run_attempt"
+          ]
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "attempted_calls": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 204
+        },
+        "occurrences": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "task_id": {
+                "type": "string"
+              },
+              "ordinal": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 204
+              },
+              "attempt": {
+                "const": 1
+              },
+              "status": {
+                "enum": [
+                  "not_started",
+                  "not_requested",
+                  "preparation_failed",
+                  "attempt_uncertain",
+                  "length_terminated",
+                  "completed"
+                ]
+              },
+              "intent_saved_ns": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9223372036854775807
+              },
+              "watchdog_arm_begin_ns": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9223372036854775807
+              },
+              "generation_start_ns": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9223372036854775807
+              },
+              "generation_deadline_ns": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9223372036854775807
+              },
+              "response_received_ns": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9223372036854775807
+              },
+              "watchdog_closed_ns": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9223372036854775807
+              }
+            },
+            "required": [
+              "task_id",
+              "ordinal",
+              "attempt",
+              "status"
+            ]
+          },
+          "minItems": 204,
+          "maxItems": 204
+        },
+        "worker_exit_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stdout_eof": {
+          "type": "boolean"
+        },
+        "worker_deadline_ns": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "worker_exit_observed_ns": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ended_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "record_type",
+        "mode",
+        "binding",
+        "complete",
+        "error_code",
+        "attempted_calls",
+        "occurrences",
+        "worker_exit_code",
+        "stdout_eof",
+        "worker_deadline_ns",
+        "worker_exit_observed_ns",
+        "ended_at"
+      ]
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "os": {
+          "const": "ubuntu-24.04"
+        },
+        "architecture": {
+          "const": "x86_64"
+        },
+        "python": {
+          "const": "3.11.16"
+        },
+        "runner_image": {
+          "type": "string"
+        },
+        "kernel": {
+          "type": "string"
+        },
+        "libc": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "bootstrap_python_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "contract": {
+          "const": "q3_observed_ubuntu24_cpu_runtime_v0"
+        },
+        "historical_platform_equivalence": {
+          "const": false
+        }
+      },
+      "required": [
+        "os",
+        "architecture",
+        "python",
+        "runner_image",
+        "kernel",
+        "libc",
+        "bootstrap_python_sha256",
+        "contract",
+        "historical_platform_equivalence"
+      ]
+    },
+    "token_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "q3_native_token_check_v0"
+        },
+        "request_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "prelaunch_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "token_map_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "checked_tasks": {
+          "const": 204
+        },
+        "checked_responses": {
+          "enum": [
+            0,
+            204
+          ]
+        },
+        "tokenization_reperformed": {
+          "const": true
+        },
+        "generation_executed": {
+          "const": false
+        },
+        "examples_sha256": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "claims": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "authority_effect": {
+              "const": "none"
+            },
+            "current_run_evidence": {
+              "const": false
+            },
+            "label_correctness": {
+              "const": "not_verified"
+            },
+            "metric_evaluated": {
+              "const": false
+            },
+            "policy_activation": {
+              "const": false
+            },
+            "production_gate_eligible": {
+              "const": false
+            },
+            "slice_metadata_correctness": {
+              "const": "not_verified"
+            },
+            "source_authentication": {
+              "const": "not_established"
+            }
+          },
+          "required": [
+            "authority_effect",
+            "current_run_evidence",
+            "label_correctness",
+            "metric_evaluated",
+            "policy_activation",
+            "production_gate_eligible",
+            "slice_metadata_correctness",
+            "source_authentication"
+          ]
+        }
+      },
+      "required": [
+        "record_type",
+        "request_sha256",
+        "prelaunch_sha256",
+        "token_map_sha256",
+        "checked_tasks",
+        "checked_responses",
+        "tokenization_reperformed",
+        "generation_executed",
+        "examples_sha256",
+        "claims"
+      ]
+    },
+    "failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "q3_native_failure_v0"
+        },
+        "error_code": {
+          "type": "string"
+        },
+        "complete": {
+          "const": false
+        },
+        "claims": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "authority_effect": {
+              "const": "none"
+            },
+            "current_run_evidence": {
+              "const": false
+            },
+            "label_correctness": {
+              "const": "not_verified"
+            },
+            "metric_evaluated": {
+              "const": false
+            },
+            "policy_activation": {
+              "const": false
+            },
+            "production_gate_eligible": {
+              "const": false
+            },
+            "slice_metadata_correctness": {
+              "const": "not_verified"
+            },
+            "source_authentication": {
+              "const": "not_established"
+            }
+          },
+          "required": [
+            "authority_effect",
+            "current_run_evidence",
+            "label_correctness",
+            "metric_evaluated",
+            "policy_activation",
+            "production_gate_eligible",
+            "slice_metadata_correctness",
+            "source_authentication"
+          ]
+        }
+      },
+      "required": [
+        "record_type",
+        "error_code",
+        "complete",
+        "claims"
+      ]
+    },
+    "setup_failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "q3_native_setup_failure_v0"
+        },
+        "complete": {
+          "const": false
+        },
+        "error_code": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]{0,95}$"
+        },
+        "cleanup_complete": {
+          "type": "boolean"
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{40}$"
+        },
+        "claims": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "authority_effect": {
+              "const": "none"
+            },
+            "current_run_evidence": {
+              "const": false
+            },
+            "label_correctness": {
+              "const": "not_verified"
+            },
+            "metric_evaluated": {
+              "const": false
+            },
+            "policy_activation": {
+              "const": false
+            },
+            "production_gate_eligible": {
+              "const": false
+            },
+            "slice_metadata_correctness": {
+              "const": "not_verified"
+            },
+            "source_authentication": {
+              "const": "not_established"
+            }
+          },
+          "required": [
+            "authority_effect",
+            "current_run_evidence",
+            "label_correctness",
+            "metric_evaluated",
+            "policy_activation",
+            "production_gate_eligible",
+            "slice_metadata_correctness",
+            "source_authentication"
+          ]
+        }
+      },
+      "required": [
+        "record_type",
+        "complete",
+        "error_code",
+        "cleanup_complete",
+        "source_commit",
+        "claims"
+      ]
+    }
+  }
+}
