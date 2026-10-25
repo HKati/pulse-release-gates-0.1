@@ -1,0 +1,225 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "record_type": {
+      "const": "q3_native_capture_request_v0"
+    },
+    "mode": {
+      "enum": [
+        "token-preflight",
+        "capture"
+      ]
+    },
+    "repository": {
+      "const": "HKati/pulse-release-gates-0.1"
+    },
+    "source_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "profile_sha256": {
+      "const": "31680dc2a8b2a8d367239893e6a7abbc6587f8e6f3c6cff9f580f00425e9c16b"
+    },
+    "task_file_sha256": {
+      "const": "9f249d858818eb6396c79669bf3f6daf1108c1948d072891dcc6ce778982c0c9"
+    },
+    "authorization": {
+      "type": "string"
+    },
+    "approved_token_map_sha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "acquisition_phase_seconds": {
+          "const": 14400
+        },
+        "actions_retention_days": {
+          "const": 30
+        },
+        "artifact_publication_allowance_seconds": {
+          "const": 600
+        },
+        "automatic_retries": {
+          "const": 0
+        },
+        "context_window_contract": {
+          "const": 8192
+        },
+        "cpu_quota_percent": {
+          "const": 100
+        },
+        "max_attempts": {
+          "const": 204
+        },
+        "max_attempts_per_task": {
+          "const": 1
+        },
+        "max_evidence_carrier_uncompressed_bytes": {
+          "const": 268435456
+        },
+        "max_logical_request_utf8_bytes": {
+          "const": 16384
+        },
+        "max_new_tokens": {
+          "const": 256
+        },
+        "max_prompt_tokens": {
+          "const": 7936
+        },
+        "max_raw_frame_bytes": {
+          "const": 1048576
+        },
+        "max_response_utf8_bytes": {
+          "const": 16384
+        },
+        "memory_bytes": {
+          "const": 4294967296
+        },
+        "per_response_generation_deadline_seconds": {
+          "const": 60
+        },
+        "post_capture_independent_verification_seconds": {
+          "const": 300
+        },
+        "single_cleanup_grace_seconds": {
+          "const": 180
+        },
+        "warmup_or_diagnostic_generation_calls": {
+          "const": 0
+        },
+        "worker_tasks_max": {
+          "const": 64
+        },
+        "workflow_timeout_minutes": {
+          "const": 270
+        }
+      },
+      "required": [
+        "acquisition_phase_seconds",
+        "actions_retention_days",
+        "artifact_publication_allowance_seconds",
+        "automatic_retries",
+        "context_window_contract",
+        "cpu_quota_percent",
+        "max_attempts",
+        "max_attempts_per_task",
+        "max_evidence_carrier_uncompressed_bytes",
+        "max_logical_request_utf8_bytes",
+        "max_new_tokens",
+        "max_prompt_tokens",
+        "max_raw_frame_bytes",
+        "max_response_utf8_bytes",
+        "memory_bytes",
+        "per_response_generation_deadline_seconds",
+        "post_capture_independent_verification_seconds",
+        "single_cleanup_grace_seconds",
+        "warmup_or_diagnostic_generation_calls",
+        "worker_tasks_max",
+        "workflow_timeout_minutes"
+      ]
+    },
+    "claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "current_run_evidence": {
+          "const": false
+        },
+        "policy_activation": {
+          "const": false
+        },
+        "source_authentication": {
+          "const": "not_established"
+        },
+        "label_correctness": {
+          "const": "not_verified"
+        },
+        "slice_metadata_correctness": {
+          "const": "not_verified"
+        },
+        "metric_evaluated": {
+          "const": false
+        }
+      },
+      "required": [
+        "authority_effect",
+        "production_gate_eligible",
+        "current_run_evidence",
+        "policy_activation",
+        "source_authentication",
+        "label_correctness",
+        "slice_metadata_correctness",
+        "metric_evaluated"
+      ]
+    },
+    "new_spend_authorized": {
+      "const": 0
+    }
+  },
+  "required": [
+    "record_type",
+    "mode",
+    "repository",
+    "source_commit",
+    "profile_sha256",
+    "task_file_sha256",
+    "authorization",
+    "approved_token_map_sha256",
+    "limits",
+    "claims",
+    "new_spend_authorized"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "capture"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "approved_token_map_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "authorization": {
+            "const": "AUTHORIZE_204_SINGLE_ATTEMPT_CALLS_AND_30_DAY_ACTIONS_RAW_RETENTION"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "approved_token_map_sha256": {
+            "type": "null"
+          },
+          "authorization": {
+            "const": "AUTHORIZE_ZERO_GENERATION_TOKEN_PREFLIGHT_AND_30_DAY_ACTIONS_RETENTION"
+          }
+        }
+      }
+    }
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulse:q3:native-capture-request:v0",
+  "title": "Q3 native request; no execution on construction"
+}

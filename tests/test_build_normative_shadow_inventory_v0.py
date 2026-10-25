@@ -843,3 +843,27 @@ def test_inventory_requires_review_for_changed_q2_worker_carrier(tmp_path: Path)
     inventory = run_builder_for_repo(repo, tmp_path)
     assert entry_by_path(inventory, relative)["primary_role"] == "unclassified workflow"
     assert [r for r in inventory["drift_findings"] if r["path"] == relative]
+
+
+def test_q3_native_carrier_exact_bytes_are_non_authorizing(tmp_path):
+    inventory, _ = run_builder(tmp_path)
+    item = entry_by_path(inventory, '.github/workflows/q3_reference_acquisition_v0.yml')
+    assert item['authority_impacting'] == 'no'
+    assert item['carrier_class'] == 'audit_preservation'
+    assert not item['required_gate_participation']
+    assert not item['attestation_participation']
+    assert not item['release_path_participation']
+
+
+def test_q3_native_carrier_changed_bytes_do_not_inherit_exemption(tmp_path):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('q3_inventory_review', SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    relative = '.github/workflows/q3_reference_acquisition_v0.yml'
+    path = tmp_path / relative
+    path.parent.mkdir(parents=True)
+    path.write_bytes((REPO_ROOT / relative).read_bytes() + b'\n# altered carrier\n')
+    item = mod.classify_workflow(path, repo_root=tmp_path)
+    assert item['authority_impacting'] == 'conditional'
+    assert item['carrier_class'] == 'advisory'

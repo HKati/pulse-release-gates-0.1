@@ -49,6 +49,8 @@ def check_variant(mutation):
         for name, jobs in Q2_JOBS.items():
             (root / name).write_text(yaml.safe_dump(minimal_workflow(jobs), sort_keys=False))
         (root / '.github/workflows/ordinary.yml').write_text(yaml.safe_dump(minimal_workflow(['plain'], '3.11'), sort_keys=False))
+        (workflows_path := root / '.github/workflows/q3_reference_acquisition_v0.yml').write_text(
+            yaml.safe_dump(minimal_workflow(['acquire']), sort_keys=False))
         steps = doc['jobs']['compatibility']['steps']
         setups = [x for x in steps if x.get('uses', '').startswith('actions/setup-python@')]
         if mutation == 'version': setups[0]['with']['python-version'] = '3.11.15'
