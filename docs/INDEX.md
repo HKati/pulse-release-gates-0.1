@@ -87,13 +87,13 @@ moves between merged and open work, update this index.
   `not_verified`, and full Q2-4 and release acceptance stay open.
 - Canonical PULSEmech technical overview and current verified state:
   [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md)
-  **Dated source-bound implementation and evidence checkpoint.** Records the
-  selected Step 5C implementation, six generic recipes plus dedicated Q2 and twelve
-  unsupported requirements, historical Q2 FAIL and preserved Q2-1 tokenizer/replay.
-  Its checkpoint through merged #2927 retains the implementation-time distinction
-  from then-pending native acquisition; the later completed worker acquisition
-  and offline verification are recorded in section 16 linked above. Full
-  Q2/Step 5C/5D, Q2-4 and production acceptance remain separate.
+  **Dated source-bound implementation and evidence checkpoint.** The
+  2026-10-25 checkpoint at `a248f5e21dd6163416bf54b23f12a09a12259e3f`
+  links the completed E2 execution and original-artifact preservation through
+  #2950, the recorded Q2 native execution/field comparison, and the Q3
+  reference/preparation implementations. Earlier source-bound checkpoints
+  remain historical. Q2 49/50 FAIL, pending full Q2/Step 5C/5D acceptance
+  and non-active authority boundaries remain unchanged.
 - Preserved Q2-1 native tokenizer and independent replay procedure:
   [compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md — section 13](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint)
   **Recorded bounded checkpoint.** Original run `38478598045/1`, original
@@ -945,7 +945,9 @@ index update neither predeclares that closure nor performs a new proof execution
   coverage and pilot readiness remain open; `authority_effect = none`.
 - Paradoxon PD-SM-01 explicit-interpreter compatibility matrix:
   [Compatibility runner and manual workflow](../examples/paradox_compatibility_v0/README.md)
-  **Research validation tooling; hosted matrix not yet executed.** Reuses
+  **Research validation tooling; completed hosted execution recorded separately.**
+  See the [E2 result record](PULSEMECH_PARADOX_COMPATIBILITY_RESULT_v0.md)
+  for run `40113600844/1` and preserved original evidence. Reuses
   the unchanged E0 reference, eight scenarios and eighteen regression methods
   across four pinned CPython versions. A missing, failed or different result
   prevents matrix success; no general portability or E1/MON-1 claim follows.

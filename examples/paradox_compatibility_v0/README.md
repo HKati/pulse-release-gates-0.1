@@ -7,9 +7,40 @@
 **Authority effect:** `none`
 
 This directory makes the existing E0 experiment repeatable under four separately
-observed CPython interpreters. It does not assert that the four-version experiment
-has already run. It does not change the source-mapping document's historical
-`NOT_RUN` status: new executions have their own records.
+observed CPython interpreters. Implementation and execution have separate records.
+It does not change the source-mapping document's historical `NOT_RUN` status:
+new executions have their own records.
+
+## Completed hosted execution — 2026-10-24
+
+[PD-SM-01-E2 execution and preserved original evidence](../../docs/PULSEMECH_PARADOX_COMPATIBILITY_RESULT_v0.md)
+records the completed owner-dispatched run `40113600844/1`.
+
+| Recorded field | Value |
+|---|---|
+| Workflow commit | `d4fee2e007eb97cee652bd62cde81aef57b79b1f` |
+| Immutable source | `102145d1f1c321811c52d9d20f92cc7289127b2b` |
+| Runtimes | CPython 3.11.14, 3.12.12, 3.13.5, 3.14.3; Linux x86_64 |
+| Matrix | `MATCH`; four completed runtime rows |
+| Matching scenario executions | 32/32 |
+| Successful regression-method executions | 72/72, including 24 control-group executions |
+| Recorded subprocess invocations | 192 |
+| Semantic views | Four byte-identical files |
+| Preservation merge | #2950 / `a248f5e21dd6163416bf54b23f12a09a12259e3f` |
+
+The [original artifact ZIP](../../docs/evidence/PD_SM_01_E2_RUN_40113600844/pd-sm-01-e2-40113600844-1.zip)
+and its [SHA-256 file](../../docs/evidence/PD_SM_01_E2_RUN_40113600844/pd-sm-01-e2-40113600844-1.zip.sha256)
+are preserved in the repository. The Actions retention period does not remove
+this committed copy. Original artifact: `12567154104`, `1334079` bytes.
+
+E20 remains `VIOLATED`, E30 source justification remains `UNRESOLVED`, and
+E40 reuse of the old proof remains `SUBJECT_MISMATCH`. `MATCH` records the
+expected distinction in each case; `authority_effect: none`.
+
+The preparation validation and at-delivery `NOT_RUN` record below retain their
+historical meaning. They are not the status of the completed run above.
+`core/`, its original expectations, source bindings and environment revision
+remain unchanged. E1 and MON-1 are separate records.
 
 ## Exact scope
 
