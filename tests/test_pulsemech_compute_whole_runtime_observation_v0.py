@@ -185,7 +185,7 @@ def test_workflow_closed_dispatch_and_permissions():
 def test_action_pins_and_handoff_selector():
     expected = {
         'actions/checkout': '3d3c42e5aac5ba805825da76410c181273ba90b1',
-        'actions/setup-python': '5fda3b95a4ea91299a34e894583c3862153e4b97',
+        'actions/setup-python': '6d4fd22b20465ccc0f7354476588e8df7c9ca0e0',
         'actions/upload-artifact': '043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
         'actions/download-artifact':  '9000827ccba6bdab643e8b6fd33ac0654aef8333',
     }
@@ -5297,10 +5297,30 @@ _HOSTED_ORDER_HISTORICAL_REPLACEMENTS = (
  )
 
 
+def _workflow_before_setup_python_v710(raw):
+    """Test-only inverse of the exact reviewed setup-python pin refresh.
+
+    This restores historical test input bytes, never runtime admission.
+    Reject any other change before removing the dependency-only delta.
+    """
+    assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
+        '5d368d9e066c64eb18d7fc4d532946b55737f8e7'
+    ), 'unreviewed hosted-order workflow bytes'
+    current = b'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
+    previous = b'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
+    assert raw.count(current) == 6, 'unexpected setup-python v7.1.0 occurrence count'
+    restored = raw.replace(current, previous)
+    assert hashlib.sha1(b'blob ' + str(len(restored)).encode() + b'\0' + restored).hexdigest() == (
+        '51636b49744e82879cd20cd968ef3e299afb1d11'
+    ), 'pre-setup-python-v7.1.0 workflow checkpoint mismatch'
+    return restored
+
+
 def _workflow_before_q2_smoke_runtime(raw=None):
     """Reverse only the reviewed CI runtime correction, preserving old source IDs."""
     if raw is None:
         raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    raw = _workflow_before_setup_python_v710(raw)
     assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
         '51636b49744e82879cd20cd968ef3e299afb1d11'
     ), 'unreviewed hosted-order workflow bytes'
@@ -5352,7 +5372,7 @@ def _workflow_before_hosted_evidence_ordering(raw=None):
         raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
     # Inversion must not erase an unreviewed edit inside a replaced region.
     assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
-        '51636b49744e82879cd20cd968ef3e299afb1d11'
+        '5d368d9e066c64eb18d7fc4d532946b55737f8e7'
     ), 'unreviewed hosted-order workflow bytes'
     raw = _workflow_before_q2_intake(raw)
     for current, historical in _HOSTED_ORDER_HISTORICAL_REPLACEMENTS:
@@ -5466,7 +5486,7 @@ def test_smoke_budget_all_workflow_pins_require_the_same_reviewed_bytes(side):
     path = module.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == '51636b49744e82879cd20cd968ef3e299afb1d11'
+    assert current == '5d368d9e066c64eb18d7fc4d532946b55737f8e7'
     assert module.EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 == current
     for values in vars(module).values():
         if isinstance(values, dict) and path in values:
@@ -5479,7 +5499,7 @@ def test_smoke_budget_d3_d6_pins_require_the_same_reviewed_bytes(side):
     path = BUILDER.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == '51636b49744e82879cd20cd968ef3e299afb1d11'
+    assert current == '5d368d9e066c64eb18d7fc4d532946b55737f8e7'
     pins = module._D3_SOURCE_PINS
     items = list(pins.items()) if isinstance(pins, dict) else list(pins)
     selected = [pin for name, pin in items if name == path]
@@ -12615,7 +12635,7 @@ def test_downstream_closed_inventory_and_container_failures(downstream_real_outp
         VERIFIER._require_downstream_state_bindings(f.context, f.packet, members)
 
 # Provider identity renewal follows the separately approved exact workflow bytes.
-_IDENTITY_PROVIDER_BLOB = "0ce36e0eb40493e610fc35a42eb13d5af9c3e09b"
+_IDENTITY_PROVIDER_BLOB = "c9316f326e95073d05fb1b8171febb635082c7ad"
 _IDENTITY_PROVIDER_OLD_BLOB = "79e4a355cc1eab4af26f6b16e7563424e67d05f2"
 
 
