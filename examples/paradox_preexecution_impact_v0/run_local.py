@@ -143,16 +143,21 @@ def preflight(
     return record
 
 
-def _validate_runtime_ast(source: bytes, profile: dict[str, Any]) -> None:
-    """Third parser used only at the launch boundary."""
+def _validate_runtime_ast(source: bytes, profile: dict[str, Any]) -> str:
+    """Third parser used at launch; return the exact decoded text it checked."""
+    language = profile["candidate_language"]
+    require(len(source) <= int(language["max_source_bytes"]), "runtime_source_too_large")
+    require(not source.startswith(b"\xef\xbb\xbf"), "runtime_utf8_bom_not_allowed")
+    if language.get("final_newline_required"):
+        require(source.endswith(b"\n"), "runtime_final_newline_required")
     try:
-        text = source.decode("utf-8")
+        text = source.decode(language.get("encoding", "utf-8"))
         module = ast.parse(text, filename="<sealed-pd-sm-02-candidate>", mode="exec")
     except (UnicodeDecodeError, SyntaxError) as exc:
         raise LaunchError("runtime_source_parse", str(exc)) from exc
     require(len(module.body) == 1 and isinstance(module.body[0], ast.FunctionDef), "runtime_module_shape")
     fn = module.body[0]
-    require(fn.name == profile["candidate_language"]["entrypoint"], "runtime_entrypoint")
+    require(fn.name == language["entrypoint"], "runtime_entrypoint")
     require(not fn.decorator_list and fn.returns is None, "runtime_function_metadata")
     args = fn.args
     require(
@@ -160,7 +165,7 @@ def _validate_runtime_ast(source: bytes, profile: dict[str, Any]) -> None:
         and args.kwarg is None and not args.defaults and not args.kw_defaults,
         "runtime_arguments",
     )
-    allowed = set(profile["candidate_language"]["primitives"])
+    allowed = set(language["primitives"])
     aliases: set[str] = set()
     for statement in fn.body:
         if isinstance(statement, ast.Assign):
@@ -180,6 +185,15 @@ def _validate_runtime_ast(source: bytes, profile: dict[str, Any]) -> None:
                 or (isinstance(arg, ast.Name) and arg.id in aliases),
                 "runtime_call_argument",
             )
+    return text
+
+
+def _compile_runtime_candidate(source: bytes, profile: dict[str, Any]) -> Any:
+    # Compile the same decoded text inspected by all three parsers.  Passing
+    # bytes to compile() would re-interpret a Python encoding cookie and could
+    # create executable statements that were comments in the checked text.
+    text = _validate_runtime_ast(source, profile)
+    return compile(text, "<sealed-pd-sm-02-candidate>", "exec")
 
 
 def _seal_source(source: bytes) -> tuple[int, str]:
@@ -250,7 +264,7 @@ def _execute_in_child(
     try:
         source = os.read(source_fd, int(profile["candidate_language"]["max_source_bytes"]) + 1)
         require(sha256(source) == source_digest, "sealed_source_digest")
-        _validate_runtime_ast(source, profile)
+        candidate_code = _compile_runtime_candidate(source, profile)
         protected = profile["protected_contract"]
         binding = context["binding"]
         evidence = context["evidence"]
@@ -285,9 +299,17 @@ def _execute_in_child(
             require(state["request"] == expected and request_id == binding["request_id"], "runtime_request_mismatch")
 
         def require_unused(request_id: str) -> None:
+            require(
+                state["request"] is not None and state["request"]["request_id"] == request_id,
+                "runtime_request_id",
+            )
             require(request_id not in state["used"], "runtime_request_used")
 
         def reserve(request_id: str) -> None:
+            require(
+                state["request"] is not None and state["request"]["request_id"] == request_id,
+                "runtime_reservation_request",
+            )
             state["used"].add(request_id)
             state["reserved"].add(request_id)
 
@@ -355,7 +377,7 @@ def _execute_in_child(
             "append_sink": append_sink,
             "direct_sink_write": direct_sink_write,
         }
-        exec(compile(source, "<sealed-pd-sm-02-candidate>", "exec"), namespace, namespace)
+        exec(candidate_code, namespace, namespace)
         namespace[profile["candidate_language"]["entrypoint"]]()
         result = {
             "status": "COMPLETED",

@@ -299,3 +299,151 @@ def test_no_pilot_result_or_production_authority_is_claimed():
     assert PROFILE["report_contract"]["execution_observation_status"] == "NOT_RUN"
     assert PROFILE["production_gate_eligible"] is False
     assert PROFILE["authority_effect"] == "none"
+
+
+def _assess_source(source: bytes, context: dict | None = None) -> tuple[dict, dict]:
+    model, _exit = source_model.build_model_record(source, PROFILE)
+    report = check_impact.assess(source, PROFILE, model, context or CASES["P00"]["context"])
+    return model, report
+
+
+def test_launcher_compiles_the_same_utf8_decoded_text_as_all_validators():
+    # When bytes are passed to compile(), Python honors this cookie and turns
+    # the literal backslash-n in the final comment into a second statement.
+    # The closed-language parsers intentionally decode UTF-8 first.  The
+    # launcher must compile that exact checked text, not reinterpret the bytes.
+    source = (
+        "# coding: unicode_escape\n"
+        + CASES["P00"]["candidate_source"]
+        + "# \\n    append_sink(request_token)\n"
+    ).encode("utf-8")
+    model, report = _assess_source(source)
+    assert model["source_language_status"] == "SUPPORTED"
+    assert len(model["relations"]["effect_occurrences"]) == 1
+    assert report["assessment"] == "ESTABLISHED_CONDITIONAL"
+
+    calls: list[str] = []
+    namespace = {"__builtins__": {}}
+    for primitive in PROFILE["candidate_language"]["primitives"]:
+        if primitive == "append_sink":
+            namespace[primitive] = lambda request_id: calls.append(request_id)
+        else:
+            namespace[primitive] = lambda *args: None
+    exec(run_local._compile_runtime_candidate(source, PROFILE), namespace, namespace)
+    namespace[PROFILE["candidate_language"]["entrypoint"]]()
+    assert calls == ["request-0"]
+
+
+@pytest.mark.parametrize(
+    "mutation,blocked_operation",
+    [
+        (
+            lambda source: source.replace(
+                "    append_sink(request_token)\n", "    append_sink('request-1')\n"
+            ),
+            "append_sink",
+        ),
+        (
+            lambda source: source.replace(
+                "    reserve(request_token)\n", "    reserve('request-1')\n"
+            ),
+            "reserve",
+        ),
+    ],
+    ids=["effect-request-id", "reservation-request-id"],
+)
+def test_request_specific_effect_and_reservation_mismatches_are_not_launch_eligible(
+    mutation, blocked_operation
+):
+    source = mutation(CASES["P00"]["candidate_source"]).encode("utf-8")
+    _model, report = _assess_source(source)
+    assert report["assessment"] == "SAFETY_ONLY_NOT_ACCEPTABLE"
+    assert report["useful_operation_assessment"] == "NOT_SATISFIED"
+    healthy = next(row for row in report["finite_scenarios"] if row["scenario"] == "healthy")
+    assert healthy["effects"] == []
+    trace = healthy["attempts"][0]["trace"]
+    rejected = next(row for row in trace if row["operation"] == blocked_operation)
+    assert rejected["accepted"] is False
+    preflight = run_local.preflight(PROFILE, source, report, CASES["P00"]["context"])
+    assert preflight["status"] == "NO_UNCHECKED_LAUNCH"
+
+
+def test_request_binding_is_not_available_before_its_operation_position():
+    baseline = CASES["P00"]["candidate_source"]
+    binding = "    bind_request(request_token, target_name, payload_value)\n"
+    source = baseline.replace(binding, "").replace(
+        "    append_sink(request_token)\n",
+        "    append_sink(request_token)\n" + binding,
+    ).encode("utf-8")
+    _model, report = _assess_source(source)
+    assert report["assessment"] == "SAFETY_ONLY_NOT_ACCEPTABLE"
+    healthy = next(row for row in report["finite_scenarios"] if row["scenario"] == "healthy")
+    assert healthy["effects"] == []
+    request_guard = next(
+        row for row in healthy["attempts"][0]["trace"]
+        if row["operation"] == "require_request_match"
+    )
+    assert request_guard["accepted"] is False
+    assert healthy["attempts"][0]["bound_request"] is None
+
+
+UNSUPPORTED_SOURCE_CASES = [
+    pytest.param(b"#" * (int(PROFILE["candidate_language"]["max_source_bytes"]) + 1) + b"\n", id="source-too-large"),
+    pytest.param(b"def candidate():\n    actor('primary')\n# \xff\n", id="source-not-utf8"),
+    pytest.param(b"\xef\xbb\xbfdef candidate():\n    actor('primary')\n", id="bom"),
+    pytest.param(b"def candidate():\n    actor('primary')", id="missing-final-newline"),
+    pytest.param(b"def candidate(:\n    actor('primary')\n", id="syntax"),
+    pytest.param(
+        b"def candidate():\n    actor('primary')\ndef other():\n    actor('primary')\n",
+        id="module-shape",
+    ),
+    pytest.param(b"def other():\n    actor('primary')\n", id="entrypoint-name"),
+    pytest.param(b"@staticmethod\ndef candidate():\n    actor('primary')\n", id="decorator"),
+    pytest.param(b"def candidate(x):\n    actor('primary')\n", id="entrypoint-arguments"),
+    pytest.param(b"def candidate():\n    x, y = 'a', 'b'\n    actor('primary')\n", id="assignment-target"),
+    pytest.param(b"def candidate():\n    __value = 'primary'\n    actor('primary')\n", id="local-name"),
+    pytest.param(b"def candidate():\n    actor = 'primary'\n    actor(actor)\n", id="local-conflict"),
+    pytest.param(b"def candidate():\n    value = 'primary'\n    value = 'delegate'\n    actor(value)\n", id="local-reassignment"),
+    pytest.param(
+        ("def candidate():\n" + "".join(f"    x{i} = 'primary'\n" for i in range(17)) + "    actor(x0)\n").encode("utf-8"),
+        id="too-many-local-bindings",
+    ),
+    pytest.param(b"def candidate():\n    value = 1\n    actor('primary')\n", id="local-value"),
+    pytest.param(b"def candidate():\n    import os\n", id="unsupported-statement"),
+    pytest.param(b"def candidate():\n    obj.actor('primary')\n", id="indirect-call"),
+    pytest.param(b"def candidate():\n    unknown('primary')\n", id="unknown-primitive"),
+    pytest.param(b"def candidate():\n    actor(name='primary')\n", id="keyword-argument"),
+    pytest.param(b"def candidate():\n    actor()\n", id="primitive-arity"),
+    pytest.param(b"def candidate():\n    actor(missing)\n", id="unsupported-call-argument"),
+    pytest.param(b"def candidate():\n    actor('outside-domain')\n", id="argument-out-of-domain"),
+    pytest.param(b"def candidate():\n    value = 'primary'\n", id="no-primitive-operations"),
+    pytest.param(b"def candidate():\n    pass\n", id="empty-or-pass-entrypoint"),
+    pytest.param(
+        b"def candidate():\n"
+        b"    bind_request('request-0', 'scratch_sink_only', 'BOUND_MONITORED_EFFECT')\n"
+        b"    bind_request('request-0', 'scratch_sink_only', 'BOUND_MONITORED_EFFECT')\n",
+        id="duplicate-request-binding",
+    ),
+]
+
+
+@pytest.mark.parametrize("source", UNSUPPORTED_SOURCE_CASES)
+def test_every_independently_confirmed_closed_language_rejection_is_unresolved(source):
+    model, report = _assess_source(source)
+    assert model["source_language_status"] == "UNSUPPORTED"
+    assert report["assessment"] == "UNRESOLVED"
+    assert report["supported_profile_status"] == "UNSUPPORTED"
+    assert report["source_model_mapping_status"] == "INCOMPLETE"
+    assert report["candidate_imported_or_executed"] is False
+
+
+def test_false_mapper_unsupported_claim_for_supported_source_is_invalid_mapping():
+    source, model = build(CASES["P00"])
+    model = copy.deepcopy(model)
+    model["source_language_status"] = "UNSUPPORTED"
+    model["source_model_mapping_status"] = "INCOMPLETE"
+    model["error"] = {"code": "unsupported_statement", "detail": "fabricated"}
+    report = check_impact.assess(source, PROFILE, model, CASES["P00"]["context"])
+    assert report["assessment"] == "INVALID_MAPPING"
+    assert report["supported_profile_status"] == "SUPPORTED"
+    assert "mapper_claimed_unsupported_for_supported_source" in report["unresolved_critical_obligations"][0]

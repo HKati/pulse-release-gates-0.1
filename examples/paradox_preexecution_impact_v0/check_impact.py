@@ -19,6 +19,36 @@ from typing import Any, Iterable
 
 REPORT_SCHEMA = "pd_sm_02_impact_report_v0"
 
+# These codes describe an honest refusal of the closed candidate language.
+# They are used only after the mapper has emitted an UNSUPPORTED record and
+# the independent parser has confirmed that the exact source is outside the
+# profile.  A supported-model/source mismatch remains INVALID_MAPPING.
+UNSUPPORTED_SOURCE_CODES = {
+    "source_too_large",
+    "utf8_bom_not_allowed",
+    "final_newline_required",
+    "source_not_utf8",
+    "source_syntax_error",
+    "module_shape",
+    "entrypoint_name",
+    "function_metadata",
+    "entrypoint_arguments_not_allowed",
+    "assignment_target",
+    "local_name",
+    "local_binding_conflict",
+    "local_value",
+    "too_many_local_bindings",
+    "unsupported_statement",
+    "indirect_call_not_allowed",
+    "unknown_primitive",
+    "keyword_arguments_not_allowed",
+    "primitive_arity",
+    "unsupported_call_argument",
+    "argument_out_of_domain",
+    "no_primitive_operations",
+    "duplicate_request_binding",
+}
+
 
 class CheckError(ValueError):
     def __init__(self, code: str, detail: str = "") -> None:
@@ -205,15 +235,33 @@ def expected_relations(operations: list[dict[str, Any]], profile: dict[str, Any]
 
 
 def check_model(source: bytes, profile: dict[str, Any], model: dict[str, Any]) -> tuple[list[dict[str, Any]], dict[str, str]]:
-    if model.get("source_language_status") == "UNSUPPORTED":
-        # The independent parser decides whether this unsupported record is honest.
-        independently_parse(source, profile)
-        raise CheckError("mapper_claimed_unsupported_for_supported_source")
-    operations, aliases = independently_parse(source, profile)
+    # Validate identity bindings before interpreting an UNSUPPORTED claim.  A
+    # mismatched model must not obtain the less severe coverage classification.
     require(model.get("schema_version") == "pd_sm_02_source_model_v0", "model_schema")
     require(model.get("profile_id") == profile.get("profile_id"), "model_profile_id")
     require(model.get("candidate_sha256") == sha256(source), "model_candidate_binding")
     require(model.get("profile_sha256") == sha256(canonical_bytes(profile)), "model_profile_binding")
+
+    language_status = model.get("source_language_status")
+    if language_status == "UNSUPPORTED":
+        require(model.get("source_model_mapping_status") == "INCOMPLETE", "unsupported_model_status")
+        error = model.get("error")
+        require(isinstance(error, dict) and isinstance(error.get("code"), str), "unsupported_model_error")
+        try:
+            operations, _aliases = independently_parse(source, profile)
+            # Relation extraction is part of the closed source profile: a
+            # duplicate binding, for example, is an honest unsupported source
+            # condition only when the independent implementation also sees it.
+            expected_relations(operations, profile)
+        except CheckError as exc:
+            if exc.code not in UNSUPPORTED_SOURCE_CODES:
+                raise
+            detail = exc.code if not exc.detail else f"{exc.code}: {exc.detail}"
+            raise CheckError("unsupported_source_confirmed", detail) from exc
+        raise CheckError("mapper_claimed_unsupported_for_supported_source")
+
+    require(language_status == "SUPPORTED", "source_language_status")
+    operations, aliases = independently_parse(source, profile)
     require(model.get("operations") == operations, "model_operation_mismatch")
     require(model.get("private_constant_bindings") == aliases, "model_alias_mismatch")
     relations = expected_relations(operations, profile)
@@ -319,19 +367,17 @@ def simulate(
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     protected = profile["protected_contract"]
     required_obligation = protected["source_obligation"]
+    required_request = {
+        "request_id": protected["request_id"],
+        "target": protected["target"],
+        "payload": protected["payload"],
+    }
     all_scenarios: list[dict[str, Any]] = []
     counterexamples: list[dict[str, Any]] = []
     healthy_effects: list[dict[str, Any]] = []
-    exact_bound_request: dict[str, str] | None = None
-    for op in operations:
-        if op["primitive"] == "bind_request":
-            request_id, target, payload = op["args"]
-            require(exact_bound_request is None, "multiple_bound_requests")
-            exact_bound_request = {"request_id": request_id, "target": target, "payload": payload}
-    require(exact_bound_request is not None, "missing_bound_request")
 
     for scenario in profile["environment_scenarios"]:
-        request = submitted_request(scenario["submitted_request"], protected)
+        submitted = submitted_request(scenario["submitted_request"], protected)
         used: set[str] = set()
         monitor_capacity = int(protected["monitor_request_capacity"])
         effects: list[dict[str, Any]] = []
@@ -340,9 +386,11 @@ def simulate(
             blocked = False
             ack: dict[str, str] | None = None
             audit: dict[str, str] | None = None
-            reserved = False
+            reserved_request_ids: set[str] = set()
+            bound_request: dict[str, str] | None = None
             actor = "primary"
             trace: list[dict[str, Any]] = []
+
             for op in operations:
                 if blocked:
                     break
@@ -350,76 +398,187 @@ def simulate(
                 if primitive == "actor":
                     actor = args[0]
                 elif primitive == "bind_request":
-                    pass
+                    request_id, target, payload = args
+                    ok = bound_request is None
+                    trace.append({"operation": primitive, "accepted": ok, "request_id": request_id})
+                    if ok:
+                        bound_request = {"request_id": request_id, "target": target, "payload": payload}
+                    else:
+                        blocked = True
                 elif primitive == "require_source":
                     ok = args[0] in closure
                     trace.append({"operation": primitive, "accepted": ok})
                     blocked = not ok
                 elif primitive == "require_request_match":
-                    ok = request == exact_bound_request
-                    trace.append({"operation": primitive, "accepted": ok})
+                    request_id = args[0]
+                    ok = (
+                        bound_request is not None
+                        and bound_request == submitted
+                        and bound_request == required_request
+                        and request_id == bound_request["request_id"]
+                    )
+                    trace.append({"operation": primitive, "accepted": ok, "request_id": request_id})
                     blocked = not ok
                 elif primitive == "require_unused":
-                    ok = args[0] not in used
-                    trace.append({"operation": primitive, "accepted": ok})
+                    request_id = args[0]
+                    ok = (
+                        bound_request is not None
+                        and bound_request["request_id"] == request_id
+                        and request_id not in used
+                    )
+                    trace.append({"operation": primitive, "accepted": ok, "request_id": request_id})
                     blocked = not ok
                 elif primitive == "reserve":
-                    used.add(args[0])
-                    reserved = True
-                    trace.append({"operation": primitive, "accepted": True})
-                elif primitive == "broker_request":
-                    if monitor_capacity > 0:
-                        monitor_capacity -= 1
-                        ack, audit = monitor_result(scenario["monitor_mode"], request, scenario["joint_binding"])
+                    request_id = args[0]
+                    ok = bound_request is not None and bound_request["request_id"] == request_id
+                    trace.append({"operation": primitive, "accepted": ok, "request_id": request_id})
+                    if ok:
+                        used.add(request_id)
+                        reserved_request_ids.add(request_id)
                     else:
-                        ack, audit = None, None
-                    trace.append({"operation": primitive, "monitor_capacity_remaining": monitor_capacity})
-                elif primitive == "require_ack_match":
-                    ok = ack == request
-                    trace.append({"operation": primitive, "accepted": ok})
+                        blocked = True
+                elif primitive == "broker_request":
+                    actor_name, request_id = args
+                    binding_ok = (
+                        actor == actor_name
+                        and bound_request is not None
+                        and bound_request["request_id"] == request_id
+                    )
+                    capacity_ok = monitor_capacity > 0
+                    ok = binding_ok and capacity_ok
+                    if ok:
+                        monitor_capacity -= 1
+                        ack, audit = monitor_result(
+                            scenario["monitor_mode"], submitted, scenario["joint_binding"]
+                        )
+                    trace.append({
+                        "operation": primitive,
+                        "accepted": ok,
+                        "request_id": request_id,
+                        "monitor_capacity_remaining": monitor_capacity,
+                    })
                     blocked = not ok
-                elif primitive == "require_ack_present":
-                    ok = ack is not None
-                    trace.append({"operation": primitive, "accepted": ok})
+                elif primitive in {"require_ack_match", "require_ack_present"}:
+                    request_id = args[0]
+                    request_aligned = (
+                        bound_request is not None
+                        and bound_request["request_id"] == request_id
+                        and submitted["request_id"] == request_id
+                    )
+                    if primitive == "require_ack_match":
+                        ok = request_aligned and ack == submitted
+                    else:
+                        ok = request_aligned and ack is not None
+                    trace.append({"operation": primitive, "accepted": ok, "request_id": request_id})
                     blocked = not ok
-                elif primitive == "require_audit_match":
-                    ok = audit == request
-                    trace.append({"operation": primitive, "accepted": ok})
+                elif primitive in {"require_audit_match", "require_audit_present"}:
+                    request_id = args[0]
+                    request_aligned = (
+                        bound_request is not None
+                        and bound_request["request_id"] == request_id
+                        and submitted["request_id"] == request_id
+                    )
+                    if primitive == "require_audit_match":
+                        ok = request_aligned and audit == submitted
+                    else:
+                        ok = request_aligned and audit is not None
+                    trace.append({"operation": primitive, "accepted": ok, "request_id": request_id})
                     blocked = not ok
-                elif primitive == "require_audit_present":
-                    ok = audit is not None
-                    trace.append({"operation": primitive, "accepted": ok})
-                    blocked = not ok
-                elif primitive in {"append_sink", "direct_sink_write"}:
-                    request_id = args[-1]
-                    route = "broker_append" if primitive == "append_sink" else "direct_sink_write"
-                    effect_actor = protected["effect_actor"] if primitive == "append_sink" else args[0]
-                    prior_same_request = sum(1 for item in effects if item["request"]["request_id"] == request_id)
+                elif primitive == "append_sink":
+                    effect_request_id = args[0]
+                    executable = (
+                        bound_request is not None
+                        and bound_request["request_id"] == effect_request_id
+                        and effect_request_id in reserved_request_ids
+                    )
+                    if not executable:
+                        trace.append({
+                            "operation": primitive,
+                            "accepted": False,
+                            "request_id": effect_request_id,
+                            "reason": "effect_request_or_reservation",
+                        })
+                        blocked = True
+                        continue
+                    prior_same_request = sum(
+                        1 for item in effects if item["effect_request_id"] == effect_request_id
+                    )
+                    request_identity = (
+                        bound_request == submitted
+                        and bound_request == required_request
+                        and effect_request_id == submitted["request_id"]
+                    )
                     support = {
                         "source": required_obligation in closure,
-                        "program_request_binding": request == exact_bound_request,
-                        "intent": audit == request,
-                        "ack": ack == request,
-                        "audit": audit == request,
-                        "prerequisite_dependencies": route == "broker_append" and reserved,
+                        "program_request_binding": request_identity,
+                        "intent": audit == submitted and audit.get("request_id") == effect_request_id if audit else False,
+                        "ack": ack == submitted and ack.get("request_id") == effect_request_id if ack else False,
+                        "audit": audit == submitted and audit.get("request_id") == effect_request_id if audit else False,
+                        "prerequisite_dependencies": effect_request_id in reserved_request_ids,
                         "single_use": prior_same_request < int(protected["max_effects_per_request"]),
-                        "actor_route": route == "broker_append" and effect_actor == protected["effect_actor"],
+                        "actor_route": protected["effect_actor"] == "broker",
                     }
                     effect = {
                         "scenario": scenario["id"],
                         "attempt": attempt_index,
                         "operation_index": op["index"],
-                        "route": route,
-                        "actor": effect_actor,
-                        "request": dict(request),
+                        "route": "broker_append",
+                        "actor": protected["effect_actor"],
+                        "effect_request_id": effect_request_id,
+                        "bound_request": dict(bound_request),
+                        "request": dict(submitted),
+                        "reserved_request_ids": sorted(reserved_request_ids),
                         "support": support,
                         "invariant_satisfied": all(support.values()),
                     }
                     effects.append(effect)
-                    trace.append({"operation": primitive, "effect_index": len(effects) - 1})
+                    trace.append({"operation": primitive, "accepted": True, "effect_index": len(effects) - 1})
                     if not effect["invariant_satisfied"]:
                         counterexamples.append(effect)
-            attempts.append({"attempt": attempt_index, "blocked": blocked, "trace": trace})
+                elif primitive == "direct_sink_write":
+                    effect_request_id = args[1]
+                    prior_same_request = sum(
+                        1 for item in effects if item["effect_request_id"] == effect_request_id
+                    )
+                    request_identity = (
+                        bound_request is not None
+                        and bound_request == submitted
+                        and bound_request == required_request
+                        and effect_request_id == submitted["request_id"]
+                    )
+                    support = {
+                        "source": required_obligation in closure,
+                        "program_request_binding": request_identity,
+                        "intent": audit == submitted and audit.get("request_id") == effect_request_id if audit else False,
+                        "ack": ack == submitted and ack.get("request_id") == effect_request_id if ack else False,
+                        "audit": audit == submitted and audit.get("request_id") == effect_request_id if audit else False,
+                        "prerequisite_dependencies": False,
+                        "single_use": prior_same_request < int(protected["max_effects_per_request"]),
+                        "actor_route": False,
+                    }
+                    effect = {
+                        "scenario": scenario["id"],
+                        "attempt": attempt_index,
+                        "operation_index": op["index"],
+                        "route": "direct_sink_write",
+                        "actor": args[0],
+                        "effect_request_id": effect_request_id,
+                        "bound_request": dict(bound_request) if bound_request is not None else None,
+                        "request": dict(submitted),
+                        "reserved_request_ids": sorted(reserved_request_ids),
+                        "support": support,
+                        "invariant_satisfied": False,
+                    }
+                    effects.append(effect)
+                    trace.append({"operation": primitive, "accepted": True, "effect_index": len(effects) - 1})
+                    counterexamples.append(effect)
+            attempts.append({
+                "attempt": attempt_index,
+                "blocked": blocked,
+                "bound_request": dict(bound_request) if bound_request is not None else None,
+                "reserved_request_ids": sorted(reserved_request_ids),
+                "trace": trace,
+            })
         if scenario["id"] == "healthy":
             healthy_effects = list(effects)
         all_scenarios.append({"scenario": scenario["id"], "attempts": attempts, "effects": effects})
@@ -427,7 +586,9 @@ def simulate(
     useful = (
         len(healthy_effects) == int(protected["healthy_required_effects"])
         and all(item["invariant_satisfied"] for item in healthy_effects)
-        and healthy_effects[0]["request"] == exact_bound_request
+        and all(item["effect_request_id"] == protected["request_id"] for item in healthy_effects)
+        and all(item["bound_request"] == required_request for item in healthy_effects)
+        and all(item["request"] == required_request for item in healthy_effects)
     )
     return all_scenarios, {
         "counterexamples": counterexamples,
@@ -518,7 +679,7 @@ def assess(source: bytes, profile: dict[str, Any], model: dict[str, Any], contex
         try:
             operations, _aliases = check_model(source, profile, model)
         except CheckError as exc:
-            if exc.code in {"source_syntax_error", "unsupported_statement", "unknown_primitive", "indirect_call_not_allowed", "unsupported_call_argument"}:
+            if exc.code == "unsupported_source_confirmed":
                 report.update(
                     assessment="UNRESOLVED",
                     supported_profile_status="UNSUPPORTED",
@@ -528,7 +689,7 @@ def assess(source: bytes, profile: dict[str, Any], model: dict[str, Any], contex
                     invariant_assessment="NOT_EVALUATED",
                     useful_operation_assessment="NOT_EVALUATED",
                     proof_applicability_status="NOT_ESTABLISHED",
-                    unresolved_critical_obligations=[f"unsupported source semantics: {exc.code}"],
+                    unresolved_critical_obligations=[f"unsupported source semantics: {exc.detail}"],
                 )
                 return report
             if exc.code == "model_empty_or_inconsistent":

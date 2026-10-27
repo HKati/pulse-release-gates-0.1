@@ -65,7 +65,9 @@ only:
 Imports, attributes, subscripts, reflection, `eval`/`exec`, loops, recursion,
 conditionals, comprehensions, exception handling, arbitrary calls and native
 calls are unsupported. Unsupported source is `UNRESOLVED`; it is never treated
-as safe.
+as safe. The mapper and both independent parsers decode the bound bytes with the
+profile encoding. The launcher compiles that same decoded text rather than asking
+Python to reinterpret an encoding cookie in the original bytes.
 
 The recognized primitives encode:
 
@@ -101,6 +103,11 @@ request payload substitution
 two request attempts with one-request monitor lifetime
 ACK/audit joint-identity mismatch
 ```
+
+The simulation applies `bind_request`, request guards and reservations at their
+actual operation positions. A reservation is request-specific, and an effect is
+useful only when the effect, bound request, submitted request, reservation, ACK
+and audit identify the same request.
 
 For every modeled effect occurrence it checks jointly:
 
@@ -162,10 +169,11 @@ From this directory:
 python -I -B -m pytest -q test_preexecution.py
 ```
 
-Preparation result on CPython 3.13.5/Linux:
+Preparation result after the coordinated source/runtime-consistency fixes on
+CPython 3.13.5/Linux:
 
 ```text
-82 passed
+112 passed
 ```
 
 These are implementation regressions. They are not 24 native pilot passes and
