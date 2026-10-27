@@ -30,9 +30,9 @@ TEST_RELATIVE_PATH = (
 EXPECTED_WORKFLOW_LINES = 2171
 EXPECTED_WORKFLOW_BYTES = 94315
 EXPECTED_WORKFLOW_SHA256 = (
-    "69748d70321f37832b6f0996668b32b7e8b735708b097f7f0d0d63310764063c"
+    "b95a5bae67a3d2e50218ec3b40cc83c92891dab571a2ef37113307ef13506376"
 )
-EXPECTED_WORKFLOW_GIT_BLOB_SHA1 = "408a114f5e2a177cc1b4748b7cc39b67170d02ea"
+EXPECTED_WORKFLOW_GIT_BLOB_SHA1 = "bf0baf78f2e0230b5e027be7f61ec6a97556ff6f"
 
 EXPECTED_TESTS = frozenset(
     {
@@ -450,7 +450,7 @@ def test_all_reusable_actions_are_full_sha_pinned() -> None:
     assert action_uses == [
         "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
         "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-        "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+        "actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0",
         "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
     ]
     assert all(re.fullmatch(r"[^@]+@[0-9a-f]{40}", value) for value in action_uses)

@@ -31,9 +31,9 @@ TEST_RELATIVE_PATH = (
 EXPECTED_WORKFLOW_LINES = 2065
 EXPECTED_WORKFLOW_BYTES = 86927
 EXPECTED_WORKFLOW_SHA256 = (
-    "7c80c713b5bceb97b03bdc0638df17fac55fc94090b3a71285eab1e115366599"
+    "b54a2e521ed446e883f149b07f4822dbba6babde2f263c0f08e1e2e70ad03286"
 )
-EXPECTED_WORKFLOW_GIT_BLOB_SHA1 = "c422b0b50342876ee7ca094351b28d0beec98703"
+EXPECTED_WORKFLOW_GIT_BLOB_SHA1 = "536564a650e6bcada9b9e560fd23bb857a97d22f"
 
 EXPECTED_STEP_NAMES = (
     "Resolve exact Step 3F provider run and protected control plane",
@@ -54,9 +54,9 @@ EXPECTED_STEP_NAMES = (
 
 EXPECTED_REUSABLE_ACTIONS = (
     "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-    "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+    "actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0",
     "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-    "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+    "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
 )
 
 EXPECTED_CONTROL_PATHS = frozenset(
