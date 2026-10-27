@@ -1,0 +1,1073 @@
+{
+  "authority_effect": "none",
+  "case_count": 24,
+  "case_labels_are_test_driver_metadata_not_checker_inputs": true,
+  "cases": [
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "P00",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "ESTABLISHED_CONDITIONAL",
+      "kind": "positive",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Baseline, exact subject and complete evidence"
+    },
+    {
+      "candidate_source": "def candidate():\n    rid = 'request-0'\n    dst = 'scratch_sink_only'\n    body = 'BOUND_MONITORED_EFFECT'\n    proof_need = 'source.justified'\n    principal = 'primary'\n    actor(principal)\n    bind_request(rid, dst, body)\n    require_source(proof_need)\n    require_request_match(rid)\n    require_unused(rid)\n    reserve(rid)\n    broker_request(principal, rid)\n    require_ack_match(rid)\n    require_audit_match(rid)\n    append_sink(rid)\n",
+      "case_id": "P01",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "ESTABLISHED_CONDITIONAL",
+      "kind": "positive",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Private-local renaming"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'delegate'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "P02",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "ESTABLISHED_CONDITIONAL",
+      "kind": "positive",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Safe delegated request"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "P03",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "PROPERTY_DEPENDENT",
+      "kind": "positive",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Removal of a redundant check under fixed monitor lifetime"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "P04",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.secondary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            },
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.secondary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "ESTABLISHED_CONDITIONAL",
+      "kind": "positive",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Alternative valid justification"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    append_sink(request_token)\n",
+      "case_id": "N01",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "REFUTED_IN_MODEL",
+      "kind": "negative",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Write before monitor evidence"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    direct_sink_write('helper', request_token)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "N02",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "REFUTED_IN_MODEL",
+      "kind": "negative",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Unrestricted delegated helper"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "N03",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "REFUTED_IN_MODEL",
+      "kind": "negative",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "ACK without audit accepted"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_present(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "N04",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "REFUTED_IN_MODEL",
+      "kind": "negative",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Wrong ACK accepted"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "N05",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "REFUTED_IN_MODEL",
+      "kind": "negative",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Missing source admitted"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "N06",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "REFUTED_IN_MODEL",
+      "kind": "negative",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Request substitution accepted"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n    append_sink(request_token)\n",
+      "case_id": "N07",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "REFUTED_IN_MODEL",
+      "kind": "negative",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Two effects under one reservation"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    append_sink(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n",
+      "case_id": "N08",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "REFUTED_IN_MODEL",
+      "kind": "negative",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Safe endpoint after unsafe prefix"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n",
+      "case_id": "N09",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "SAFETY_ONLY_NOT_ACCEPTABLE",
+      "kind": "negative",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Disable all useful operation"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "N10",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [],
+          "rules": [
+            {
+              "conclusion": "support.b",
+              "premises": [
+                "support.a"
+              ]
+            },
+            {
+              "conclusion": "support.a",
+              "premises": [
+                "support.b"
+              ]
+            },
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "support.a"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "UNRESOLVED",
+      "kind": "negative",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Ungrounded evidence cycle"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_present(request_token)\n    require_audit_present(request_token)\n    append_sink(request_token)\n",
+      "case_id": "N11",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "REFUTED_IN_MODEL",
+      "kind": "negative",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Incompatible joint support"
+    },
+    {
+      "candidate_source": "def candidate():\n    import os\n    os.write(1, b\"x\")\n",
+      "case_id": "U01",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "UNRESOLVED",
+      "kind": "coverage",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Unknown or dynamic code"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    direct_sink_write('helper', request_token)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "U02",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "INVALID_MAPPING",
+      "kind": "coverage",
+      "launch_mutation": null,
+      "model_mutation": {
+        "kind": "remove_direct_effect_route"
+      },
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "model_tamper",
+      "title": "Omitted helper route"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "U03",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "INCONSISTENT_OR_INVALID",
+      "kind": "coverage",
+      "launch_mutation": null,
+      "model_mutation": {
+        "kind": "empty_configuration_domain"
+      },
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "model_tamper",
+      "title": "Empty or inconsistent model"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "B01",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "BINDING_REJECTED",
+      "kind": "binding",
+      "launch_mutation": {
+        "kind": "replace_candidate_source",
+        "replacement_source": "def candidate():\n    rid = 'request-0'\n    dst = 'scratch_sink_only'\n    body = 'BOUND_MONITORED_EFFECT'\n    proof_need = 'source.justified'\n    principal = 'primary'\n    actor(principal)\n    bind_request(rid, dst, body)\n    require_source(proof_need)\n    require_request_match(rid)\n    require_unused(rid)\n    reserve(rid)\n    broker_request(principal, rid)\n    require_ack_match(rid)\n    require_audit_match(rid)\n    append_sink(rid)\n"
+      },
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "launch_binding",
+      "title": "Post-assessment source replacement"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "B02",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "UNRESOLVED_OR_BINDING_REJECTED",
+      "kind": "binding",
+      "launch_mutation": {
+        "kind": "replace_context_environment",
+        "replacement_environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "multi_request_monitor_v1",
+          "scratch_target": "new_empty_regular_file"
+        }
+      },
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "launch_binding",
+      "title": "Changed environment or primitive"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "B03",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-other-target",
+          "target": "alternate_target"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "BINDING_REJECTED",
+      "kind": "binding",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Cross-target proof reuse"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "O01",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": false,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "OBSERVATION_INCOMPLETE",
+      "kind": "observer",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Missing or failed effect observer"
+    },
+    {
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "O02",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": false,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "expected_assessment": "NO_UNCHECKED_LAUNCH",
+      "kind": "observer",
+      "launch_mutation": null,
+      "model_mutation": null,
+      "observed_result": null,
+      "pilot_execution_status": "NOT_RUN",
+      "test_lane": "assessment",
+      "title": "Pre-execution boundary and bounded interruption"
+    }
+  ],
+  "expected_assessments_are_not_mapper_inputs": true,
+  "pilot_execution_status": "NOT_RUN",
+  "profile_id": "PD-SM-02-preexecution-impact-v0",
+  "schema_version": "pd_sm_02_fixtures_v0",
+  "status": "IMPLEMENTATION_TEST_OBLIGATIONS_NOT_PILOT_RESULTS"
+}
