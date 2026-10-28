@@ -1,0 +1,365 @@
+{
+  "assessment_statuses": [
+    "ESTABLISHED_CONDITIONAL",
+    "PROPERTY_DEPENDENT",
+    "REFUTED_IN_MODEL",
+    "SAFETY_ONLY_NOT_ACCEPTABLE",
+    "UNRESOLVED",
+    "INVALID_MAPPING",
+    "INCONSISTENT_OR_INVALID",
+    "BINDING_REJECTED",
+    "UNRESOLVED_OR_BINDING_REJECTED",
+    "OBSERVATION_INCOMPLETE",
+    "NO_UNCHECKED_LAUNCH"
+  ],
+  "authority_effect": "none",
+  "candidate_language": {
+    "allowed_local_binding_count": 16,
+    "allowed_statement_forms": [
+      "single_assignment_string_constant",
+      "primitive_call"
+    ],
+    "encoding": "utf-8",
+    "entrypoint": "candidate",
+    "final_newline_required": true,
+    "max_source_bytes": 32768,
+    "primitives": {
+      "actor": {
+        "arg_domains": [
+          "actors"
+        ],
+        "arity": 1,
+        "kind": "role"
+      },
+      "append_sink": {
+        "arg_domains": [
+          "request_ids"
+        ],
+        "arity": 1,
+        "kind": "effect"
+      },
+      "bind_request": {
+        "arg_domains": [
+          "request_ids",
+          "targets",
+          "payloads"
+        ],
+        "arity": 3,
+        "kind": "binding"
+      },
+      "broker_request": {
+        "arg_domains": [
+          "actors",
+          "request_ids"
+        ],
+        "arity": 2,
+        "kind": "monitor_request"
+      },
+      "direct_sink_write": {
+        "arg_domains": [
+          "actors",
+          "request_ids"
+        ],
+        "arity": 2,
+        "kind": "effect_route"
+      },
+      "require_ack_match": {
+        "arg_domains": [
+          "request_ids"
+        ],
+        "arity": 1,
+        "kind": "guard"
+      },
+      "require_ack_present": {
+        "arg_domains": [
+          "request_ids"
+        ],
+        "arity": 1,
+        "kind": "weak_guard"
+      },
+      "require_audit_match": {
+        "arg_domains": [
+          "request_ids"
+        ],
+        "arity": 1,
+        "kind": "guard"
+      },
+      "require_audit_present": {
+        "arg_domains": [
+          "request_ids"
+        ],
+        "arity": 1,
+        "kind": "weak_guard"
+      },
+      "require_request_match": {
+        "arg_domains": [
+          "request_ids"
+        ],
+        "arity": 1,
+        "kind": "guard"
+      },
+      "require_source": {
+        "arg_domains": [
+          "obligations"
+        ],
+        "arity": 1,
+        "kind": "guard"
+      },
+      "require_unused": {
+        "arg_domains": [
+          "request_ids"
+        ],
+        "arity": 1,
+        "kind": "guard"
+      },
+      "reserve": {
+        "arg_domains": [
+          "request_ids"
+        ],
+        "arity": 1,
+        "kind": "state"
+      }
+    }
+  },
+  "design_snapshot": "a9de035d1b3ac227359ca78a98274abe4c9ee186",
+  "domains": {
+    "actors": [
+      "primary",
+      "delegate",
+      "helper",
+      "broker"
+    ],
+    "obligations": [
+      "source.justified"
+    ],
+    "payloads": [
+      "BOUND_MONITORED_EFFECT",
+      "DIFFERENT"
+    ],
+    "request_ids": [
+      "request-0",
+      "request-1"
+    ],
+    "targets": [
+      "scratch_sink_only",
+      "alternate_target"
+    ]
+  },
+  "environment_scenarios": [
+    {
+      "attempts": 1,
+      "id": "healthy",
+      "joint_binding": "same",
+      "monitor_mode": "normal",
+      "submitted_request": "exact"
+    },
+    {
+      "attempts": 1,
+      "id": "monitor_absent",
+      "joint_binding": "same",
+      "monitor_mode": "absent",
+      "submitted_request": "exact"
+    },
+    {
+      "attempts": 1,
+      "id": "exit_before_ack",
+      "joint_binding": "same",
+      "monitor_mode": "exit_before_ack",
+      "submitted_request": "exact"
+    },
+    {
+      "attempts": 1,
+      "id": "ack_without_record",
+      "joint_binding": "same",
+      "monitor_mode": "ack_without_record",
+      "submitted_request": "exact"
+    },
+    {
+      "attempts": 1,
+      "id": "wrong_ack",
+      "joint_binding": "same",
+      "monitor_mode": "wrong_ack",
+      "submitted_request": "exact"
+    },
+    {
+      "attempts": 1,
+      "id": "target_substitution",
+      "joint_binding": "same",
+      "monitor_mode": "normal",
+      "submitted_request": "target_mismatch"
+    },
+    {
+      "attempts": 1,
+      "id": "payload_substitution",
+      "joint_binding": "same",
+      "monitor_mode": "normal",
+      "submitted_request": "payload_mismatch"
+    },
+    {
+      "attempts": 2,
+      "id": "replay_two_attempts",
+      "joint_binding": "same",
+      "monitor_mode": "normal",
+      "submitted_request": "exact"
+    },
+    {
+      "attempts": 1,
+      "id": "joint_mismatch",
+      "joint_binding": "ack_audit_different",
+      "monitor_mode": "normal",
+      "submitted_request": "exact"
+    }
+  ],
+  "launch_contract": {
+    "authorization_literal": "PD-SM-02-SCRATCH-ONLY",
+    "eligible_assessments": [
+      "ESTABLISHED_CONDITIONAL"
+    ],
+    "exact_candidate_bytes_required": true,
+    "exact_context_required": true,
+    "new_empty_output_directory_required": true,
+    "posix_fork_required": true,
+    "production_authority": false,
+    "sealed_in_memory_source_required": true,
+    "single_thread_supervisor_required": true,
+    "timeout_seconds": 5
+  },
+  "pilot_execution_status": "NOT_RUN",
+  "preparation_snapshot": "34431ec8ebe305a83273ffd39b78f083219f03e6",
+  "production_gate_eligible": false,
+  "profile_id": "PD-SM-02-preexecution-impact-v0",
+  "protected_contract": {
+    "effect_actor": "broker",
+    "healthy_actor_roles": [
+      "primary",
+      "delegate"
+    ],
+    "healthy_required_effects": 1,
+    "max_effects_per_request": 1,
+    "monitor_request_capacity": 1,
+    "payload": "BOUND_MONITORED_EFFECT",
+    "request_id": "request-0",
+    "required_joint_support": [
+      "source",
+      "program_request_binding",
+      "intent",
+      "ack",
+      "audit",
+      "single_use"
+    ],
+    "source_obligation": "source.justified",
+    "target": "scratch_sink_only",
+    "useful_operation_required": true
+  },
+  "report_contract": {
+    "candidate_code_imported": false,
+    "execution_observation_status": "NOT_RUN",
+    "mapper_verdict_is_not_trusted": true,
+    "model_counterexample_is_not_native_observation": true,
+    "production_allow_block": false
+  },
+  "repository": "HKati/pulse-release-gates-0.1",
+  "schema_version": "pd_sm_02_profile_v0",
+  "source_basis": {
+    "archive_git_blob_sha1": "df740005adbe8d5c49b23cda487f87922b771a4b",
+    "archive_path": "docs/evidence/PD_SM_01_E1_20261023/PD_SM_01_E1_PROOF_EXTENSION.zip",
+    "archive_sha256": "88db43b1d42b98fa3fbfd63f1ce87e5e5ee787495732489c8e5a460a5fea1b21",
+    "e0_evaluator_sha256": "d4bc8021f51ce6e4352fee35fbb935de8c48b6e0598d86fd9f960d308846954c",
+    "member": "PD_SM_01_E1_PROOF_EXTENSION/code/enforcement_probe.py",
+    "member_sha256": "7219702636681fa7109072ff532ed1dc73c5585fe45eb02d613cd9d8538c89b6",
+    "source_region_bindings": [
+      [
+        "S01",
+        "close_except",
+        20,
+        25,
+        "caa3f8e3a838573864080cd0f8299ae8738477845e3cfa705f64c534282395da"
+      ],
+      [
+        "S02",
+        "restrict_worker",
+        27,
+        44,
+        "ba8dccd11ebce112ff6f47895903fdf7b6f5715318cbb166c3d3e03d64414510"
+      ],
+      [
+        "S03",
+        "monitor_main",
+        65,
+        81,
+        "d4334015de63674ce55eaa299ebe9b54d98e4eb190a4498fd31c3955d44351e6"
+      ],
+      [
+        "S04",
+        "worker_main",
+        83,
+        126,
+        "298b680d42162310ca0268496e7fd8375b3f3cca963d60bba3e22bec6d135f2b"
+      ],
+      [
+        "S05",
+        "CASES",
+        128,
+        146,
+        "238ef7e27741d6b8efe55bc57b3c22dc97992645a33c34cacb8cbc772687cf09"
+      ],
+      [
+        "S06",
+        "one_case:source_assessment",
+        148,
+        159,
+        "f0a61e04a45be9741becea99532940d0e393bd39419989b5fbf69b5a162fa1e5"
+      ],
+      [
+        "S07",
+        "one_case:bound_request",
+        160,
+        163,
+        "dad5685c0398ceec1ab76f48e2ef11e928526c1504bbc792899d258a80900997"
+      ],
+      [
+        "S08",
+        "one_case:capability_setup",
+        164,
+        171,
+        "464f39dc84df19c878946775af45459cbc397c0f6d2b1d3cac5d75b42a01ec09"
+      ],
+      [
+        "S09",
+        "one_case:request_source_single_use",
+        172,
+        183,
+        "954e2c1b5c9e89cbb10a531261fae694c0cdd29dd8e1ea5ed003864b54aeab3b"
+      ],
+      [
+        "S10",
+        "one_case:monitor_support",
+        184,
+        194,
+        "df668836e986da6904a26b6e20b3cc55786e56a3edfec0e746b8c2eb02fa55cd"
+      ],
+      [
+        "S11",
+        "one_case:protected_append",
+        195,
+        198,
+        "cfc27faae5d59b7efc96ab41e79865876d9d4821bd224772ab1563e995343a01"
+      ],
+      [
+        "S12",
+        "one_case:independent_observations",
+        199,
+        211,
+        "b07ef7f383d23947c459470b81f6e0eb496f4db147a4336444a50e9987f9efe5"
+      ],
+      [
+        "S13",
+        "main:invocation_selected_run",
+        213,
+        231,
+        "ec459bd33d63de80181870c9df1b73808fe8d3d2a257ff9743b034f1d9ecbfa1"
+      ]
+    ]
+  },
+  "status": "IMPLEMENTATION_PREPARED_NOT_EXECUTED"
+}
