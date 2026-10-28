@@ -2199,7 +2199,7 @@ def test_recorded_tokenizer_documentation_retains_all_historical_bytes_and_bound
     assert 'custody remains unverified' in unreleased
     entries = [line.strip() for line in (ROOT / 'ci/tools-tests.list').read_text().splitlines()
                if line.strip() and not line.startswith('#')]
-    assert entries.count('tests/test_q2_release_host_tokenizer_v0.py') == 1 and len(entries) == 167
+    assert entries.count('tests/test_q2_release_host_tokenizer_v0.py') == 1 and len(entries) == 168
 
 
 if __name__ == "__main__":
