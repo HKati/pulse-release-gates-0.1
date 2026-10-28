@@ -52,7 +52,7 @@ def test_exact_pinned_actions_and_one_setup_step():
     assert [s['uses'] for s in steps if 'uses' in s] == [
         'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
         'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97',
-        'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a']
+        'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9']
     assert steps[1]['with'] == {'ref':'${{ github.sha }}','persist-credentials':'false'}
     assert steps[2]['with'] == {'python-version':'3.11.16'}
     assert steps[-1]['if'] == 'always()' and steps[-1]['with']['overwrite'] == 'false'

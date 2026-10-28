@@ -186,7 +186,7 @@ def test_action_pins_and_handoff_selector():
     expected = {
         'actions/checkout': '3d3c42e5aac5ba805825da76410c181273ba90b1',
         'actions/setup-python': '5fda3b95a4ea91299a34e894583c3862153e4b97',
-        'actions/upload-artifact': '043fb46d1a93c77aae656e7c1c64a875d1fc6a0a',
+        'actions/upload-artifact': 'cf430e030ddbb5b0abf93d22962f4752f3646cd9',
         'actions/download-artifact':  '9000827ccba6bdab643e8b6fd33ac0654aef8333',
     }
     for job in JOBS.values():
@@ -5297,10 +5297,33 @@ _HOSTED_ORDER_HISTORICAL_REPLACEMENTS = (
  )
 
 
+def _workflow_before_upload_artifact_v702(raw):
+    """Test-only inverse of the exact reviewed upload-artifact pin refresh.
+
+    Restore historical test input bytes, never runtime admission. Check both
+    the current and the historical Git blob before accepting the conversion.
+    """
+    assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
+        '9da3eb0a0f8a99071df444f08e9c49f14515ceb1'
+    ), 'unreviewed hosted-order workflow bytes'
+    current = b'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
+    previous = b'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'
+    reviewed_comment = current + b' # v7.0.2'
+    historical_comment = previous + b' # v7.0.1'
+    assert raw.count(reviewed_comment) == 3
+    restored = raw.replace(reviewed_comment, historical_comment)
+    restored = restored.replace(current, previous)
+    assert hashlib.sha1(b'blob ' + str(len(restored)).encode() + b'\0' + restored).hexdigest() == (
+        '51636b49744e82879cd20cd968ef3e299afb1d11'
+    ), 'pre-upload-artifact-v7.0.2 workflow checkpoint mismatch'
+    return restored
+
+
 def _workflow_before_q2_smoke_runtime(raw=None):
     """Reverse only the reviewed CI runtime correction, preserving old source IDs."""
     if raw is None:
         raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
+    raw = _workflow_before_upload_artifact_v702(raw)
     assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
         '51636b49744e82879cd20cd968ef3e299afb1d11'
     ), 'unreviewed hosted-order workflow bytes'
@@ -5352,7 +5375,7 @@ def _workflow_before_hosted_evidence_ordering(raw=None):
         raw = (ROOT / BUILDER.SUBJECT_WORKFLOW_PATH).read_bytes()
     # Inversion must not erase an unreviewed edit inside a replaced region.
     assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
-        '51636b49744e82879cd20cd968ef3e299afb1d11'
+        '9da3eb0a0f8a99071df444f08e9c49f14515ceb1'
     ), 'unreviewed hosted-order workflow bytes'
     raw = _workflow_before_q2_intake(raw)
     for current, historical in _HOSTED_ORDER_HISTORICAL_REPLACEMENTS:
@@ -5466,7 +5489,7 @@ def test_smoke_budget_all_workflow_pins_require_the_same_reviewed_bytes(side):
     path = module.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == '51636b49744e82879cd20cd968ef3e299afb1d11'
+    assert current == '9da3eb0a0f8a99071df444f08e9c49f14515ceb1'
     assert module.EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 == current
     for values in vars(module).values():
         if isinstance(values, dict) and path in values:
@@ -5479,7 +5502,7 @@ def test_smoke_budget_d3_d6_pins_require_the_same_reviewed_bytes(side):
     path = BUILDER.SUBJECT_WORKFLOW_PATH
     data = (ROOT / path).read_bytes()
     current = hashlib.sha1(b'blob ' + str(len(data)).encode() + b'\0' + data).hexdigest()
-    assert current == '51636b49744e82879cd20cd968ef3e299afb1d11'
+    assert current == '9da3eb0a0f8a99071df444f08e9c49f14515ceb1'
     pins = module._D3_SOURCE_PINS
     items = list(pins.items()) if isinstance(pins, dict) else list(pins)
     selected = [pin for name, pin in items if name == path]
@@ -7456,7 +7479,7 @@ def test_report_publication_preserves_four_selectors_and_unresolved_membership(r
     assert facts['ordered_selectors'] == [tree, 'badges/*.svg', 'reports/junit.xml', 'reports/sarif.json']
     assert facts['artifact_name'] == 'pulse-report'
     assert facts['artifact_tree_root'] == 'PULSE_safe_pack_v0/artifacts/'
-    assert facts['action_uses'] == 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'
+    assert facts['action_uses'] == 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
     assert facts['if_no_files_found'] == 'error' and facts['retention_days'] == 30
     assert sorted(facts['locators']) == _REPORT_PUBLICATION_ROLES
     assert facts['tree_roles'] == ['recorded-release-candidate-envelopes', 'release-authority-audit-bundle']
@@ -12615,7 +12638,7 @@ def test_downstream_closed_inventory_and_container_failures(downstream_real_outp
         VERIFIER._require_downstream_state_bindings(f.context, f.packet, members)
 
 # Provider identity renewal follows the separately approved exact workflow bytes.
-_IDENTITY_PROVIDER_BLOB = "0ce36e0eb40493e610fc35a42eb13d5af9c3e09b"
+_IDENTITY_PROVIDER_BLOB = "408a114f5e2a177cc1b4748b7cc39b67170d02ea"
 _IDENTITY_PROVIDER_OLD_BLOB = "79e4a355cc1eab4af26f6b16e7563424e67d05f2"
 
 

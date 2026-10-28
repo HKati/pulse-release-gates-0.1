@@ -30,9 +30,9 @@ TEST_RELATIVE_PATH = (
 EXPECTED_WORKFLOW_LINES = 2171
 EXPECTED_WORKFLOW_BYTES = 94315
 EXPECTED_WORKFLOW_SHA256 = (
-    "2739295df5b5f2587e437015d57bd2ab209d4ad8fa45865ae610c4d85d9ed873"
+    "69748d70321f37832b6f0996668b32b7e8b735708b097f7f0d0d63310764063c"
 )
-EXPECTED_WORKFLOW_GIT_BLOB_SHA1 = "0ce36e0eb40493e610fc35a42eb13d5af9c3e09b"
+EXPECTED_WORKFLOW_GIT_BLOB_SHA1 = "408a114f5e2a177cc1b4748b7cc39b67170d02ea"
 
 EXPECTED_TESTS = frozenset(
     {
@@ -451,7 +451,7 @@ def test_all_reusable_actions_are_full_sha_pinned() -> None:
         "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
         "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
         "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
-        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+        "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
     ]
     assert all(re.fullmatch(r"[^@]+@[0-9a-f]{40}", value) for value in action_uses)
 
@@ -661,7 +661,7 @@ def test_upload_occurs_only_after_final_reverification() -> None:
     assert final_index < upload_index < record_index
     upload = steps[upload_index]
     assert upload["uses"] == (
-        "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+        "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"
     )
     assert upload["with"]["path"] == "${{ steps.verify.outputs.candidate_root }}/"
     assert upload["with"]["if-no-files-found"] == "error"

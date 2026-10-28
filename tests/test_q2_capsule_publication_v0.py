@@ -279,7 +279,7 @@ def test_workflow_has_two_fresh_jobs_and_one_unwrapped_upload():
                 assert step['with']['python-version'] == '3.11.16'
             if step.get('with', {}).get('archive') == 'false': raw.append(step)
     assert len(raw) == 1
-    assert raw[0]['uses'] == 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a'
+    assert raw[0]['uses'] == 'actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
     assert raw[0]['with']['overwrite'] == 'false' and raw[0]['with']['if-no-files-found'] == 'error'
     assert raw[0]['with']['path'].rsplit('/', 1)[-1] == P.load_profile(ROOT)['capsule']['file_name']
     assert 'name' not in raw[0]['with']  # Ignored for direct upload; never advertise a second identity.
