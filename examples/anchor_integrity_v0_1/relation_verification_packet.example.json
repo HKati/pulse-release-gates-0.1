@@ -9,7 +9,7 @@
   "evidence_packet_binding": {
     "path": "examples/anchor_integrity_v0_1/evidence_packet.example.json",
     "schema_version": "anchor_integrity_evidence_packet_v0_1",
-    "sha256": "82c92dcd4da8ea8c6778997882820f00db9e8fd579b48945337aff25728f128d"
+    "sha256": "f704a71a0c5dd298297b5bed8cb857288a033140b6999761c7090bd690bd4429"
   },
   "packet_id": "relation-packet-example-001",
   "relations": [

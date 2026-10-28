@@ -74,7 +74,7 @@
       "value": 0.5
     }
   },
-  "input_sha256": "8893754d8f63d1029823b779a4acb266a09d667e38cd40a3478cd37c1feba280",
+  "input_sha256": "155b5325044baeb85fe93c6d1b1fb42d23175941f8f11c3858156a2b383bc712",
   "legacy_signal_summary": {
     "is_claim_evidence_coverage": false,
     "legacy_gate_signal_ratio": 0.8,

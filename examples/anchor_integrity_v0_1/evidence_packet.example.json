@@ -3,11 +3,11 @@
   "candidate_status": "diagnostic_only",
   "evidence_items": [
     {
-      "content_sha256": "e2b22d0806d790f0a27387e6dd5d25f84d8fd7acca04ee23d027978b6350d6d9",
+      "content_sha256": "4c34afdb60fbd56b752b94e8c1570b289b39f21b03654ba2c60a10f559bf2ae0",
       "evidence_id": "evidence-0001",
       "locator": {
-        "end_line": 126,
-        "start_line": 89,
+        "end_line": 142,
+        "start_line": 100,
         "type": "line_range"
       },
       "locator_verification": {
@@ -34,7 +34,7 @@
   "sources": [
     {
       "canonical_identifier": "scripts/anchor_integrity_adapter_v0.py@34431ec8ebe305a83273ffd39b78f083219f03e6",
-      "content_sha256": "e2b22d0806d790f0a27387e6dd5d25f84d8fd7acca04ee23d027978b6350d6d9",
+      "content_sha256": "3ceb60e9ca0a5d3a7d142bc91f5f51ca0376f54a37f33c3f359774f25c42f1d0",
       "identity_verification": {
         "reason": null,
         "result": "verified",

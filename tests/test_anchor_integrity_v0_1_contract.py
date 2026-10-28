@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import base64
+import hashlib
 import json
 from pathlib import Path
 
@@ -346,6 +348,326 @@ def test_examples_do_not_mutate_during_validation() -> None:
         before = deepcopy(payload)
         assert_valid(schema_name, payload)
         assert payload == before
+
+# Fixed-example byte checks only. This is not a production binding validator.
+# Decode historical source as data: never import/execute it or read current HEAD.
+PINNED_SOURCE_COMMIT = "34431ec8ebe305a83273ffd39b78f083219f03e6"
+PINNED_SOURCE_PATH = "scripts/anchor_integrity_adapter_v0.py"
+PINNED_SOURCE_BLOB = "3f4afe26be361fddda153f72dd20803183a85a8e"
+PINNED_SOURCE_SHA256 = (
+    "3ceb60e9ca0a5d3a7d142bc91f5f51ca0376f54a37f33c3f359774f25c42f1d0"
+)
+SOURCE_SNAPSHOT = (
+    ROOT / "tests" / "fixtures" / "anchor_integrity_v0_1"
+    / "adapter_v0_34431ec8.source.json"
+)
+EXAMPLE_PREFIX = "examples/anchor_integrity_v0_1/"
+PACKET_LINKS = (
+    ("relation_verification_packet.example.json", ("claim_packet_binding",),
+     "claim_packet.example.json"),
+    ("relation_verification_packet.example.json", ("evidence_packet_binding",),
+     "evidence_packet.example.json"),
+    ("anchor_integrity_input.example.json", ("packet_bindings", "claim_packet"),
+     "claim_packet.example.json"),
+    ("anchor_integrity_input.example.json", ("packet_bindings", "evidence_packet"),
+     "evidence_packet.example.json"),
+    ("anchor_integrity_input.example.json",
+     ("packet_bindings", "relation_verification_packet"),
+     "relation_verification_packet.example.json"),
+    ("anchor_integrity_output.example.json", ("input_sha256",),
+     "anchor_integrity_input.example.json"),
+)
+
+
+def _sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _decode_source_snapshot(snapshot: dict) -> bytes:
+    assert snapshot["record_role"] == "historical_source_bytes_for_fixture_regression"
+    assert snapshot["authority_effect"] == "none"
+    assert snapshot["source_repository"] == "HKati/pulse-release-gates-0.1"
+    assert snapshot["source_commit"] == PINNED_SOURCE_COMMIT
+    assert snapshot["source_path"] == PINNED_SOURCE_PATH
+    assert snapshot["git_blob_sha1"] == PINNED_SOURCE_BLOB
+    assert snapshot["content_sha256"] == PINNED_SOURCE_SHA256
+    assert snapshot["encoding"] == "base64"
+    data = base64.b64decode(snapshot["content_base64"], validate=True)
+    assert len(data) == snapshot["byte_length"] == 11457
+    git_object = b"blob " + str(len(data)).encode("ascii") + b"\0" + data
+    assert hashlib.sha1(git_object).hexdigest() == PINNED_SOURCE_BLOB
+    assert _sha256_bytes(data) == PINNED_SOURCE_SHA256
+    return data
+
+
+def _source_bytes() -> bytes:
+    return _decode_source_snapshot(load_json(SOURCE_SNAPSHOT))
+
+
+def _line_range_bytes(data: bytes, start: int, end: int) -> bytes:
+    """One-based inclusive LF-delimited lines, without byte normalization."""
+    parts = data.split(b"\n")
+    lines = [part + b"\n" for part in parts[:-1]]
+    if parts[-1]:
+        lines.append(parts[-1])
+    if type(start) is not int or type(end) is not int:
+        raise ValueError("line endpoints must be integers, not booleans")
+    if not 1 <= start <= end <= len(lines):
+        raise ValueError("line range is outside the preserved source")
+    return b"".join(lines[start - 1:end])
+
+
+def _assert_example_source_binding(evidence: dict, data: bytes) -> None:
+    # Check the external pin before accepting even self-consistent packet hashes.
+    assert _sha256_bytes(data) == PINNED_SOURCE_SHA256, "pinned source bytes"
+    assert len(evidence["sources"]) == len(evidence["evidence_items"]) == 1
+    source = evidence["sources"][0]
+    item = evidence["evidence_items"][0]
+    assert source["source_type"] == "repository_file"
+    assert source["revision"] == PINNED_SOURCE_COMMIT
+    assert source["canonical_identifier"] == (
+        PINNED_SOURCE_PATH + "@" + PINNED_SOURCE_COMMIT
+    )
+    assert source["source_id"] == item["source_id"] == "source-0001"
+    assert source["content_sha256"] == _sha256_bytes(data), "whole-source digest"
+    assert item["locator"] == {
+        "type": "line_range", "start_line": 100, "end_line": 142,
+    }, "complete proxy function locator"
+    selected = _line_range_bytes(
+        data, item["locator"]["start_line"], item["locator"]["end_line"]
+    )
+    assert item["content_sha256"] == _sha256_bytes(selected), "selected-content digest"
+    assert item["content_sha256"] != source["content_sha256"]
+
+
+def _packet_bytes() -> dict[str, bytes]:
+    return {
+        name: (EXAMPLE_DIR / name).read_bytes()
+        for name in SCHEMA_EXAMPLE_PAIRS.values()
+    }
+
+
+def _encode_example(payload: dict) -> bytes:
+    return (json.dumps(payload, indent=2, sort_keys=True) + "\n").encode("utf-8")
+
+
+def _assert_packet_link(packets: dict[str, bytes], link: tuple) -> None:
+    consumer_name, keys, target_name = link
+    value = json.loads(packets[consumer_name])
+    for key in keys:
+        value = value[key]
+    if keys == ("input_sha256",):
+        claimed = value
+    else:
+        assert value["path"] == EXAMPLE_PREFIX + target_name, "packet path"
+        assert value["schema_version"] == json.loads(packets[target_name])["schema_version"]
+        claimed = value["sha256"]
+    assert claimed == _sha256_bytes(packets[target_name]), (
+        f"packet digest: {consumer_name} -> {target_name}"
+    )
+
+
+def test_preserved_source_matches_baseline_git_blob_and_sha256() -> None:
+    data = _source_bytes()
+    inventory = load_json(BASELINE)
+    assert inventory["source_commit"] == PINNED_SOURCE_COMMIT
+    entry, = [
+        row for row in inventory["v0_source_files"]
+        if row["path"] == PINNED_SOURCE_PATH
+    ]
+    git_object = b"blob " + str(len(data)).encode("ascii") + b"\0" + data
+    assert entry["git_blob_sha1"] == hashlib.sha1(git_object).hexdigest()
+
+
+def test_verified_example_source_digest_matches_pinned_bytes() -> None:
+    source = example("evidence_packet.example.json")["sources"][0]
+    assert source["content_sha256"] == _sha256_bytes(_source_bytes())
+
+
+def test_verified_example_excerpt_digest_matches_selected_bytes() -> None:
+    evidence = example("evidence_packet.example.json")
+    item = evidence["evidence_items"][0]
+    selected = _line_range_bytes(
+        _source_bytes(), item["locator"]["start_line"], item["locator"]["end_line"]
+    )
+    assert item["content_sha256"] == _sha256_bytes(selected)
+
+
+def test_verified_example_locator_contains_the_complete_proxy_computation() -> None:
+    evidence = example("evidence_packet.example.json")
+    data = _source_bytes()
+    _assert_example_source_binding(evidence, data)
+    selected = _line_range_bytes(data, 100, 142)
+    assert len(selected) == 1813
+    assert selected.startswith(b"def _anchor_signals_from_status(")
+    assert selected.endswith(b"    return anchor_presence, anchor_coverage, evidence\n")
+    assert (
+        b"anchor_coverage = sum(1 for v in present if v) / float(len(present))"
+        in selected
+    )
+
+
+@pytest.mark.parametrize("link", PACKET_LINKS)
+def test_example_packet_link_matches_exact_file_bytes(link: tuple) -> None:
+    _assert_packet_link(_packet_bytes(), link)
+
+
+@pytest.mark.parametrize("link", PACKET_LINKS)
+def test_stale_packet_link_is_rejected(link: tuple) -> None:
+    packets = _packet_bytes()
+    consumer_name, keys, _ = link
+    consumer = json.loads(packets[consumer_name])
+    value = consumer
+    for key in keys[:-1]:
+        value = value[key]
+    if keys == ("input_sha256",):
+        value[keys[-1]] = "0" * 64
+    else:
+        value[keys[-1]]["sha256"] = "0" * 64
+    packets[consumer_name] = _encode_example(consumer)
+    with pytest.raises(AssertionError, match="packet digest"):
+        _assert_packet_link(packets, link)
+
+
+@pytest.mark.parametrize("name", (
+    "claim_packet.example.json", "evidence_packet.example.json",
+    "relation_verification_packet.example.json", "anchor_integrity_input.example.json",
+))
+def test_changed_packet_bytes_are_not_hidden_by_json_equivalence(name: str) -> None:
+    packets = _packet_bytes()
+    before = json.loads(packets[name])
+    packets[name] += b" "
+    assert json.loads(packets[name]) == before
+    with pytest.raises(AssertionError, match="packet digest"):
+        for link in PACKET_LINKS:
+            _assert_packet_link(packets, link)
+
+
+def test_whole_source_digest_cannot_substitute_for_excerpt_digest() -> None:
+    evidence = example("evidence_packet.example.json")
+    evidence["evidence_items"][0]["content_sha256"] = (
+        evidence["sources"][0]["content_sha256"]
+    )
+    with pytest.raises(AssertionError, match="selected-content digest"):
+        _assert_example_source_binding(evidence, _source_bytes())
+
+
+def test_original_incorrect_digest_is_rejected_after_outer_packets_are_rehashed() -> None:
+    packets = _packet_bytes()
+    evidence = json.loads(packets["evidence_packet.example.json"])
+    wrong_digest = "e2b22d0806d790f0a27387e6dd5d25f84d8fd7acca04ee23d027978b6350d6d9"
+    evidence["sources"][0]["content_sha256"] = wrong_digest
+    evidence["evidence_items"][0]["content_sha256"] = wrong_digest
+    assert_valid("anchor_integrity_evidence_packet_v0_1.schema.json", evidence)
+    packets["evidence_packet.example.json"] = _encode_example(evidence)
+    # Topological order: evidence -> relation -> input -> output.
+    for link in PACKET_LINKS:
+        consumer_name, keys, target_name = link
+        consumer = json.loads(packets[consumer_name])
+        value = consumer
+        for key in keys[:-1]:
+            value = value[key]
+        if keys == ("input_sha256",):
+            value[keys[-1]] = _sha256_bytes(packets[target_name])
+        else:
+            value[keys[-1]]["sha256"] = _sha256_bytes(packets[target_name])
+        packets[consumer_name] = _encode_example(consumer)
+    for link in PACKET_LINKS:
+        _assert_packet_link(packets, link)
+    with pytest.raises(AssertionError, match="whole-source digest"):
+        _assert_example_source_binding(evidence, _source_bytes())
+
+
+@pytest.mark.parametrize("location", ("before_excerpt", "inside_excerpt", "end_of_file"))
+def test_source_byte_changes_cannot_be_accepted_by_rehashing_evidence(location: str) -> None:
+    data = _source_bytes()
+    if location == "before_excerpt":
+        changed = b"!" + data[1:]
+    elif location == "inside_excerpt":
+        changed = data.replace(b'q4_slo_ok', b'q4_bad_ok', 1)
+    else:
+        changed = data + b"\n"
+    assert changed != data
+    evidence = example("evidence_packet.example.json")
+    evidence["sources"][0]["content_sha256"] = _sha256_bytes(changed)
+    evidence["evidence_items"][0]["content_sha256"] = _sha256_bytes(
+        _line_range_bytes(changed, 100, 142)
+    )
+    with pytest.raises(AssertionError, match="pinned source bytes"):
+        _assert_example_source_binding(evidence, changed)
+
+
+@pytest.mark.parametrize(("start", "end"), (
+    (0, 142), (-1, 142), (142, 100), (100, 1000000),
+    (True, 142), (100, False), ("100", 142), (100, 142.0),
+))
+def test_invalid_source_line_ranges_are_rejected(start: object, end: object) -> None:
+    with pytest.raises(ValueError):
+        _line_range_bytes(_source_bytes(), start, end)
+
+
+def test_line_selection_preserves_terminators_and_an_unterminated_final_line() -> None:
+    data = b"one\r\ntwo\nthree"
+    assert _line_range_bytes(data, 1, 2) == b"one\r\ntwo\n"
+    assert _line_range_bytes(data, 2, 3) == b"two\nthree"
+    assert _line_range_bytes(data, 3, 3) == b"three"
+
+
+def test_historical_source_snapshot_corruption_fails_closed() -> None:
+    snapshot = load_json(SOURCE_SNAPSHOT)
+    data = _source_bytes()
+    changed = b"!" + data[1:]
+    snapshot["content_base64"] = base64.b64encode(changed).decode("ascii")
+    with pytest.raises(AssertionError):
+        _decode_source_snapshot(snapshot)
+
+
+def test_historical_source_snapshot_rejects_invalid_base64() -> None:
+    snapshot = load_json(SOURCE_SNAPSHOT)
+    snapshot["content_base64"] = "!not-base64!"
+    with pytest.raises(ValueError):
+        _decode_source_snapshot(snapshot)
+
+
+def test_historical_source_snapshot_missing_bytes_fail_closed() -> None:
+    snapshot = load_json(SOURCE_SNAPSHOT)
+    del snapshot["content_base64"]
+    with pytest.raises(KeyError):
+        _decode_source_snapshot(snapshot)
+
+
+def test_source_binding_rejects_a_different_revision() -> None:
+    evidence = example("evidence_packet.example.json")
+    evidence["sources"][0]["revision"] = "0" * 40
+    with pytest.raises(AssertionError):
+        _assert_example_source_binding(evidence, _source_bytes())
+
+
+def test_source_binding_rejects_a_different_canonical_identifier() -> None:
+    evidence = example("evidence_packet.example.json")
+    evidence["sources"][0]["canonical_identifier"] = "other.py@" + PINNED_SOURCE_COMMIT
+    with pytest.raises(AssertionError):
+        _assert_example_source_binding(evidence, _source_bytes())
+
+
+def test_original_short_locator_is_rejected_even_with_its_correct_excerpt_digest() -> None:
+    evidence = example("evidence_packet.example.json")
+    item = evidence["evidence_items"][0]
+    item["locator"] = {"type": "line_range", "start_line": 89, "end_line": 126}
+    item["content_sha256"] = _sha256_bytes(_line_range_bytes(_source_bytes(), 89, 126))
+    with pytest.raises(AssertionError, match="complete proxy function locator"):
+        _assert_example_source_binding(evidence, _source_bytes())
+
+
+def test_source_snapshot_is_not_a_normative_or_executable_adapter() -> None:
+    snapshot = load_json(SOURCE_SNAPSHOT)
+    assert snapshot["authority_effect"] == "none"
+    assert SOURCE_SNAPSHOT.suffix == ".json"
+    assert "historical_source_bytes" in snapshot["record_role"]
+    # The actual v0 source is not needed or executed by the fixture regression.
+    assert SOURCE_SNAPSHOT.as_posix().endswith(
+        "tests/fixtures/anchor_integrity_v0_1/adapter_v0_34431ec8.source.json"
+    )
 
 
 if __name__ == "__main__":

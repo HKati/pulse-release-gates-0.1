@@ -41,6 +41,7 @@ This work package adds only:
 - five JSON Schema contracts;
 - five positive example documents;
 - negative schema-contract tests;
+- an encoded historical-source fixture and offline byte-binding regressions;
 - registration of the test in the two existing CI manifests;
 - a documentation-index reference.
 
@@ -161,6 +162,48 @@ An evidence item contains:
 Source presence is not support. A source may exist and still be mismatched,
 corrupt, unresolved, bound to a different subject, insufficient or
 contradictory.
+
+### 6.1. Example source bytes and digest reconstruction
+
+The example source is `scripts/anchor_integrity_adapter_v0.py` at the pinned
+baseline commit `34431ec8ebe305a83273ffd39b78f083219f03e6`, not the current
+working-tree version of that file. Its exact 11,457 bytes have:
+
+```text
+Git blob SHA-1:
+3f4afe26be361fddda153f72dd20803183a85a8e
+
+Whole-source SHA-256:
+3ceb60e9ca0a5d3a7d142bc91f5f51ca0376f54a37f33c3f359774f25c42f1d0
+```
+
+The regression fixture
+[`adapter_v0_34431ec8.source.json`](../tests/fixtures/anchor_integrity_v0_1/adapter_v0_34431ec8.source.json)
+stores those bytes as base64 data. Tests decode them and independently check
+the pinned commit/path metadata, byte length, Git blob identity and SHA-256.
+They do not import or execute the adapter, call the network or require Git
+history. A later working-tree adapter change must not silently rebind this
+historical example. Text checkout conversion of the JSON carrier does not
+change the decoded source bytes.
+
+For this example's `line_range` locator, line numbers are one-based and both
+endpoints are inclusive. Split the original bytes at LF boundaries and retain
+each selected line's original terminator. Do not trim whitespace, decode and
+re-encode text, normalize line endings or add a final newline. The evidence
+item selects lines **100 through 142**, the complete proxy-computation
+function including the arithmetic at line 139. Its `content_sha256` hashes
+only that selected byte sequence, not the whole file.
+
+Packet-link digests hash the exact stored UTF-8 JSON file bytes, including
+the final newline; they do not hash a parsed or reserialized JSON object.
+After evidence changes, refresh the relation packet's evidence binding,
+then the input packet bindings, and finally the output's `input_sha256`.
+The contract regression checks each of these links against actual bytes.
+
+These checks establish this fixed fixture's source and packet-byte bindings.
+They do not authenticate an external verifier, prove semantic entailment,
+validate the legacy-overlay reference, implement a general runtime binding
+validator or make the illustrative `supported` result release authority.
 
 ## 7. Measurement state and result
 
@@ -391,7 +434,12 @@ The first test package verifies at least these cases:
 13. response recommendations remain non-enforcing;
 14. unexpected fields are rejected;
 15. the test is registered exactly once in both CI manifests;
-16. the baseline inventory remains source-commit bound.
+16. the baseline inventory remains source-commit bound;
+17. the preserved source bytes match the pinned Git blob and SHA-256;
+18. the source and selected-content digests are reconstructed separately;
+19. example packet links match exact stored file bytes;
+20. stale digests, changed source bytes, invalid line ranges and rehashed
+    outer packets cannot conceal a wrong source-content binding.
 
 ## 16. Acceptance boundary for work package 1
 

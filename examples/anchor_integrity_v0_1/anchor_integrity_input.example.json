@@ -18,12 +18,12 @@
     "evidence_packet": {
       "path": "examples/anchor_integrity_v0_1/evidence_packet.example.json",
       "schema_version": "anchor_integrity_evidence_packet_v0_1",
-      "sha256": "82c92dcd4da8ea8c6778997882820f00db9e8fd579b48945337aff25728f128d"
+      "sha256": "f704a71a0c5dd298297b5bed8cb857288a033140b6999761c7090bd690bd4429"
     },
     "relation_verification_packet": {
       "path": "examples/anchor_integrity_v0_1/relation_verification_packet.example.json",
       "schema_version": "anchor_integrity_relation_verification_packet_v0_1",
-      "sha256": "30d6deb42d1a5c020915c97eb79f9d18190d1769870752891472fd3cbc8ea2a0"
+      "sha256": "166048ee5b1881c9483994a0320d3f50315bc080f7a6c0f1485489a00f4d1a2d"
     }
   },
   "paradox_graph_binding": null,
