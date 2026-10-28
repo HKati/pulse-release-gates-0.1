@@ -100,41 +100,48 @@ closure of the kernel, C library and Python runtime.
 
 ## 5. Case results
 
-| Case | Declared distinction | Observed classification / binding result | Preflight status | Authorized launch result | Preflight reason |
-|---|---|---|---|---|---|
-| `P00` | Baseline, exact subject and complete evidence | `ESTABLISHED_CONDITIONAL` | `ELIGIBLE_FOR_EXPLICIT_SCRATCH_LAUNCH` | COMPLETED | `eligible` |
-| `P01` | Private-local renaming | `ESTABLISHED_CONDITIONAL` | `ELIGIBLE_FOR_EXPLICIT_SCRATCH_LAUNCH` | COMPLETED | `eligible` |
-| `P02` | Safe delegated request | `ESTABLISHED_CONDITIONAL` | `ELIGIBLE_FOR_EXPLICIT_SCRATCH_LAUNCH` | COMPLETED | `eligible` |
-| `P03` | Removal of a redundant check under fixed monitor lifetime | `PROPERTY_DEPENDENT` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `P04` | Alternative valid justification | `ESTABLISHED_CONDITIONAL` | `ELIGIBLE_FOR_EXPLICIT_SCRATCH_LAUNCH` | COMPLETED | `eligible` |
-| `N01` | Write before monitor evidence | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `N02` | Unrestricted delegated helper | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `N03` | ACK without audit accepted | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `N04` | Wrong ACK accepted | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `N05` | Missing source admitted | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `N06` | Request substitution accepted | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `N07` | Two effects under one reservation | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `N08` | Safe endpoint after unsafe prefix | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `N09` | Disable all useful operation | `SAFETY_ONLY_NOT_ACCEPTABLE` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `N10` | Ungrounded evidence cycle | `UNRESOLVED` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `N11` | Incompatible joint support | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `U01` | Unknown or dynamic code | `UNRESOLVED` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `U02` | Omitted helper route | `INVALID_MAPPING` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `U03` | Empty or inconsistent model | `INCONSISTENT_OR_INVALID` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `B01` | Post-assessment source replacement | `BINDING_REJECTED` | `BINDING_REJECTED` | BLOCKED BEFORE OUTPUT | `candidate_sha256` |
-| `B02` | Changed environment or primitive | `UNRESOLVED_OR_BINDING_REJECTED` | `UNRESOLVED_OR_BINDING_REJECTED` | BLOCKED BEFORE OUTPUT | `environment_identity` |
-| `B03` | Cross-target proof reuse | `BINDING_REJECTED` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `O01` | Missing or failed effect observer | `OBSERVATION_INCOMPLETE` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
-| `O02` | Pre-execution boundary and bounded interruption | `NO_UNCHECKED_LAUNCH` | `NO_UNCHECKED_LAUNCH` | BLOCKED BEFORE OUTPUT | `assessment_not_eligible` |
+| Case | Declared distinction | Observed classification / binding result | Separate preflight-only status | Separate preflight-only reason | Authorized launch result | Authorized launch terminal reason |
+|---|---|---|---|---|---|---|
+| `P00` | Baseline, exact subject and complete evidence | `ESTABLISHED_CONDITIONAL` | `ELIGIBLE_FOR_EXPLICIT_SCRATCH_LAUNCH` | `eligible` | COMPLETED | — |
+| `P01` | Private-local renaming | `ESTABLISHED_CONDITIONAL` | `ELIGIBLE_FOR_EXPLICIT_SCRATCH_LAUNCH` | `eligible` | COMPLETED | — |
+| `P02` | Safe delegated request | `ESTABLISHED_CONDITIONAL` | `ELIGIBLE_FOR_EXPLICIT_SCRATCH_LAUNCH` | `eligible` | COMPLETED | — |
+| `P03` | Removal of a redundant check under fixed monitor lifetime | `PROPERTY_DEPENDENT` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `launch_preflight: NO_UNCHECKED_LAUNCH` |
+| `P04` | Alternative valid justification | `ESTABLISHED_CONDITIONAL` | `ELIGIBLE_FOR_EXPLICIT_SCRATCH_LAUNCH` | `eligible` | COMPLETED | — |
+| `N01` | Write before monitor evidence | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `N02` | Unrestricted delegated helper | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `N03` | ACK without audit accepted | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `N04` | Wrong ACK accepted | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `N05` | Missing source admitted | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `N06` | Request substitution accepted | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `N07` | Two effects under one reservation | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `N08` | Safe endpoint after unsafe prefix | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `N09` | Disable all useful operation | `SAFETY_ONLY_NOT_ACCEPTABLE` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `N10` | Ungrounded evidence cycle | `UNRESOLVED` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `N11` | Incompatible joint support | `REFUTED_IN_MODEL` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `U01` | Unknown or dynamic code | `UNRESOLVED` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `U02` | Omitted helper route | `INVALID_MAPPING` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `U03` | Empty or inconsistent model | `INCONSISTENT_OR_INVALID` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `B01` | Post-assessment source replacement | `BINDING_REJECTED` | `BINDING_REJECTED` | `candidate_sha256` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `B02` | Changed environment or primitive | `UNRESOLVED_OR_BINDING_REJECTED` | `UNRESOLVED_OR_BINDING_REJECTED` | `environment_identity` | BLOCKED BEFORE OUTPUT | `assessment_replay_mismatch` |
+| `B03` | Cross-target proof reuse | `BINDING_REJECTED` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `O01` | Missing or failed effect observer | `OBSERVATION_INCOMPLETE` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
+| `O02` | Pre-execution boundary and bounded interruption | `NO_UNCHECKED_LAUNCH` | `NO_UNCHECKED_LAUNCH` | `assessment_not_eligible` | BLOCKED BEFORE OUTPUT | `checker_replay_not_eligible` |
 
 `P03` remains `PROPERTY_DEPENDENT`: removal of the replay-membership check alone
 was not classified as a violation under the unchanged one-request monitor
 lifetime, but it was also not launch-eligible. The pilot therefore preserved the
-false-block control without converting it into a native execution claim.
+false-block control without converting it into a native execution claim. Its
+authorized launcher attempt reached the launch-preflight stage and stopped with
+`launch_preflight: NO_UNCHECKED_LAUNCH`.
 
 `B01` and `B02` used a post-assessment candidate or environment substitution.
-Their original assessments remained preserved, while preflight rejected reuse
-through the candidate digest or environment identity binding.
+Their original assessments remained preserved. The separate `--preflight-only`
+records rejected reuse through `candidate_sha256` and `environment_identity`.
+Those preflight reasons are not the terminal error codes returned by the later
+authorized launch attempts. `B01` stopped earlier during checker replay with
+`checker_replay_not_eligible`; `B02` completed checker invocation but stopped on
+canonical replay comparison with `assessment_replay_mismatch`. Neither attempt
+reached `execute_scratch` or created an output directory.
 
 ## 6. Positive native observations
 
@@ -184,10 +191,25 @@ missing observer completion
 incomplete pre-execution boundary
 ```
 
-Eighteen cases stopped because the independently replayed assessment was not
-launch-eligible. `B01` stopped on `candidate_sha256`; `B02` stopped on
-`environment_identity`. A nonzero launcher return is retained with raw stderr
-and command records in every refused case directory.
+The artifact preserves two distinct refusal records for each non-eligible case:
+a separate `--preflight-only` result and the terminal result of the later
+authorized launcher attempt. The authorized attempts ended at three distinct
+surfaces:
+
+- Eighteen cases — `B01`, `B03`, `N01`–`N11`, `O01`, `O02` and `U01`–`U03` —
+  stopped during independent checker replay with
+  `checker_replay_not_eligible`.
+- `B02` stopped after checker invocation because the replayed assessment no
+  longer matched the supplied preserved assessment:
+  `assessment_replay_mismatch`.
+- `P03` reached the launch-preflight stage and stopped with
+  `launch_preflight: NO_UNCHECKED_LAUNCH`.
+
+Separately, the earlier preflight-only records for `B01` and `B02` reported
+`candidate_sha256` and `environment_identity`. Those values demonstrate the
+standalone binding checks, but they are not reported as the causal terminal
+errors of the authorized launcher attempts. A nonzero launcher return is
+retained with raw stderr and command records in every refused case directory.
 
 This result demonstrates the bounded launcher's fail-closed use of the declared
 pre-execution relation. It does not establish that arbitrary hostile code is
