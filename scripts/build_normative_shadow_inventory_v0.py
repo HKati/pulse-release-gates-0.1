@@ -91,7 +91,7 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
 
     if rel == ".github/workflows/q3_reference_acquisition_v0.yml":
         if (name != "Q3 native token preflight and capture v0"
-                or hashlib.sha256(text.encode("utf-8")).hexdigest() != "fc13039e6eaf01130d2f9854e68425d9ebba2fc6a7a21f29f6aba713b0385fbd"):
+                or hashlib.sha256(text.encode("utf-8")).hexdigest() != "0185990e85911ed7493354971b633b347dd05d21fc823fd71f53281e40b4e3e6"):
             return entry(name=name, path=rel, surface_type="workflow",
                          primary_role="unclassified workflow", carrier_class="advisory",
                          authority_impacting="conditional",
@@ -142,7 +142,7 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
     if rel == ".github/workflows/q2_release_host_worker_verification_v0.yml":
         # This exact reviewed carrier is non-authorizing, not every workflow
         # containing a Q2 name. Any byte change needs renewed carrier review.
-        expected_sha256 = "eb4cfca84cfbe2e2d479a1537c840e1d312a7b8a58a049c45c85ba33f2fd5e78"
+        expected_sha256 = "d94dd605802c50914e8d405662e884d53cc86cc5e3df402c2ac6b319fe6fe552"
         if (name != "Q2 native release-host worker verification v0"
                 or hashlib.sha256(text.encode("utf-8")).hexdigest() != expected_sha256):
             return entry(

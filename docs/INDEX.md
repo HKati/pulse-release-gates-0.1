@@ -973,6 +973,16 @@ index update neither predeclares that closure nor performs a new proof execution
   and 4096 unchanged-base controls. Original ZIP, nested E0 and histories
   remain unchanged; E2 portability and production authority remain separate.
   `authority_effect = none`.
+- Paradoxon PD-SM-02 source-bound pre-execution scratch pilot:
+  [PD-SM-02 bounded scratch execution result](PULSEMECH_PARADOX_PREEXECUTION_SCRATCH_RESULT_v0.md)
+  **Completed bounded local execution record; source-bound scratch evidence.**
+  On merged implementation commit `4cb5f7dbe00cfbaf5bd50f77423e4d671fa71905`,
+  all 24 declared cases matched their classification or binding obligations.
+  Four launch-eligible cases completed one exact monitored 22-byte scratch
+  effect each; twenty non-eligible authorized launcher attempts stopped before
+  candidate execution and output-directory creation. CPython 3.13.5/Linux
+  x86_64 only; no production enforcement, release authority or general Python
+  analysis claim; `authority_effect = none`.
 - [PULSE_paradox_field_v0_walkthrough.md](PULSE_paradox_field_v0_walkthrough.md) — Reading `paradox_field_v0`.
 - [Pulse_paradox_edges_v0_status.md](Pulse_paradox_edges_v0_status.md) — Status and roadmap for `paradox_edges_v0.jsonl`.
 - [paradox_edges_case_studies.md](paradox_edges_case_studies.md) — Fixture and non-fixture case studies.

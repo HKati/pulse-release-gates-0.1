@@ -138,8 +138,8 @@ EXPECTED_ATTESTATION_LOCK_BLOB_SHA1 = "18a17a1259e258ebfa603d4d2b5cfaf4487145c9"
 # surfaces.  Adding Step 5C files changes the commit but must not silently
 # change either subject workflow, the Step 3F provider, or the controlled case
 # set.  A future change requires a reviewed profile revision.
-EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 = "51636b49744e82879cd20cd968ef3e299afb1d11"
-EXPECTED_PROVIDER_WORKFLOW_BLOB_SHA1 = "0ce36e0eb40493e610fc35a42eb13d5af9c3e09b"
+EXPECTED_SUBJECT_WORKFLOW_BLOB_SHA1 = "9da3eb0a0f8a99071df444f08e9c49f14515ceb1"
+EXPECTED_PROVIDER_WORKFLOW_BLOB_SHA1 = "408a114f5e2a177cc1b4748b7cc39b67170d02ea"
 EXPECTED_DATASET_BLOB_SHA1 = "3b6ca799f26c7374334c51c5c9c8ea26b35cf857"
 EXPECTED_LLAMAGUARD_RUNNER_BLOB_SHA1 = "058edf0d16383db41a5a4500caf4b484321d2e57"
 
@@ -525,7 +525,7 @@ _LOCAL_R2_SOURCE_ROLES = _CURRENT_SOURCE_ROLES + tuple(
     if row not in _CURRENT_SOURCE_ROLES)
 
 
-_Q2_SOURCE_PINS = {'.github/workflows/pulse_ci.yml': '51636b49744e82879cd20cd968ef3e299afb1d11', 'PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json': '11d180eef3adf80e644875bef713f4defec905e8', 'PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json': '20554d96544e91c025e8a5ba8ed84192a44c1478', 'PULSE_safe_pack_v0/profiles/q2_reference_release_intake_v0.json': 'da0a492ff2f62842dd5501b7f1ce5c61cab375a0', 'PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json': '4e0818f13968f66670270631feb6b1fc3be4c17e', 'PULSE_safe_pack_v0/tools/build_q2_reference_summary.py': 'a2a6cba5fbdef1d3206d3189750718e59699e00b', 'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py': '1677ad6fe967fa01cc3ef9a27315eddc8ada1797', 'PULSE_safe_pack_v0/tools/check_q2_reference_summary.py': '42ee1034297116326b700997ba0cbe246d93032c', 'PULSE_safe_pack_v0/tools/check_q2_release_intake_v0.py': '0b1294e869439047f99e66e0a4147c90e4f6f9d5', 'PULSE_safe_pack_v0/tools/evaluate_q2_archived_capture_v0.py': '23ef263e19c7e8c98b8ec819966fb85afb63bf48', 'PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py': '2568827d285105aad0a58a90f3ec508a6d971a47', 'PULSE_safe_pack_v0/tools/load_q2_release_intake_v0.py': '56e800e27b27caabefeec9784acad2eb8fe3282d', 'PULSE_safe_pack_v0/tools/q2_intake_io_v0.py': '7368ae2e265a875d0fd4de352d5efa4fa1cd8569', 'PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py': 'eea0efcd8cca0ba4a27cf8d419a5cfe5befbe5e2', 'metrics/specs/q2_consistency_v0.yml': '37314cb5090ac59ea46b609facb57a1d827edb51', 'schemas/dataset_manifest.schema.json': 'c36df74c6cb327d33b62e5d30d517b3af3b99a19', 'schemas/metrics/q2_consistency_input_v0.schema.json': '35e98ef810fe64026e9b71afeba56a291142040c', 'schemas/metrics/q2_consistency_summary_v0.schema.json': '91ae578feb7c82eca51c7fffc3894428a54a9ff2', 'schemas/q2_release_intake_request_v0.schema.json': '144ebe5abf9a73f8d925ae432976f7ea94ba468a', 'schemas/q2_release_intake_result_v0.schema.json': 'b8a0b0228f2e8d0fef331768030a3e4a298c633c', 'schemas/q2_release_subject_capsule_v0.schema.json': '76dd0e904ec195b12e7af40abdc631975c1150bc'}
+_Q2_SOURCE_PINS = {'.github/workflows/pulse_ci.yml': '9da3eb0a0f8a99071df444f08e9c49f14515ceb1', 'PULSE_safe_pack_v0/examples/q2_reference_field_extraction_v0/requests.json': '11d180eef3adf80e644875bef713f4defec905e8', 'PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json': '20554d96544e91c025e8a5ba8ed84192a44c1478', 'PULSE_safe_pack_v0/profiles/q2_reference_release_intake_v0.json': 'da0a492ff2f62842dd5501b7f1ce5c61cab375a0', 'PULSE_safe_pack_v0/profiles/q2_reference_subject_v0.json': '4e0818f13968f66670270631feb6b1fc3be4c17e', 'PULSE_safe_pack_v0/tools/build_q2_reference_summary.py': 'a2a6cba5fbdef1d3206d3189750718e59699e00b', 'PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py': '1677ad6fe967fa01cc3ef9a27315eddc8ada1797', 'PULSE_safe_pack_v0/tools/check_q2_reference_summary.py': '42ee1034297116326b700997ba0cbe246d93032c', 'PULSE_safe_pack_v0/tools/check_q2_release_intake_v0.py': '0b1294e869439047f99e66e0a4147c90e4f6f9d5', 'PULSE_safe_pack_v0/tools/evaluate_q2_archived_capture_v0.py': '23ef263e19c7e8c98b8ec819966fb85afb63bf48', 'PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py': '2568827d285105aad0a58a90f3ec508a6d971a47', 'PULSE_safe_pack_v0/tools/load_q2_release_intake_v0.py': '56e800e27b27caabefeec9784acad2eb8fe3282d', 'PULSE_safe_pack_v0/tools/q2_intake_io_v0.py': '7368ae2e265a875d0fd4de352d5efa4fa1cd8569', 'PULSE_safe_pack_v0/tools/run_recorded_required_gate_evaluations_v0.py': 'eea0efcd8cca0ba4a27cf8d419a5cfe5befbe5e2', 'metrics/specs/q2_consistency_v0.yml': '37314cb5090ac59ea46b609facb57a1d827edb51', 'schemas/dataset_manifest.schema.json': 'c36df74c6cb327d33b62e5d30d517b3af3b99a19', 'schemas/metrics/q2_consistency_input_v0.schema.json': '35e98ef810fe64026e9b71afeba56a291142040c', 'schemas/metrics/q2_consistency_summary_v0.schema.json': '91ae578feb7c82eca51c7fffc3894428a54a9ff2', 'schemas/q2_release_intake_request_v0.schema.json': '144ebe5abf9a73f8d925ae432976f7ea94ba468a', 'schemas/q2_release_intake_result_v0.schema.json': 'b8a0b0228f2e8d0fef331768030a3e4a298c633c', 'schemas/q2_release_subject_capsule_v0.schema.json': '76dd0e904ec195b12e7af40abdc631975c1150bc'}
 
 AUTHORITY_BOUNDARY = {
     "authority_effect": "none",
@@ -2142,7 +2142,7 @@ def _source_package_expectations(workflow: dict[str, Any], sources: dict[str, Gi
     for role, key, expected_output in zip(_PACKAGE_ROLES[:3], publication_steps, (package_dir, *report_paths)):
         step = source_steps[key]
         options = step.get("with", {})
-        _require(step.get("uses") == "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+        _require(step.get("uses") == "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"
                  and options.get("if-no-files-found") == "error", "package_mapping_upload_profile")
         output = _package_temp_path(options.get("path"), {})
         _require(output == expected_output, "package_mapping_publication_path", role)
@@ -2268,7 +2268,7 @@ def _apply_package_source_expectations(states: list[dict[str, Any]], steps: dict
 _REQUIRED_ARGUMENT_ROLE = "effective-required-argument-list"
 _REQUIRED_ARGUMENT_RUN_SHA256 = "dababaec377d50eb83daa95fab958009089db11a207214bdbab1ea0156a0f81a"
 _REQUIRED_ARGUMENT_SOURCE_PINS = {
-    ".github/workflows/pulse_ci.yml": "51636b49744e82879cd20cd968ef3e299afb1d11",
+    ".github/workflows/pulse_ci.yml": "9da3eb0a0f8a99071df444f08e9c49f14515ceb1",
     "pulse_gate_policy_v0.yml": "a311b424ad0f6c028b9c37b18572e7a09c721cdd",
     "tools/policy_to_require_args.py": "5b1d099485d0e3bfd90da3fff1213a4e949db850",
     "PULSE_safe_pack_v0/tools/check_gates.py": "2a593bdef31c9c8cb565b1c4ca3d16a1e3093735",
@@ -2426,7 +2426,7 @@ def _verify_source_required_argument_equations(
 # inspects copy and handoff source; it does not trust either constructed plan.
 _BUNDLE_ROLES = ("release-authority-audit-bundle", "advisory-reference-bundle")
 _BUNDLE_SOURCE_PINS = {
-    ".github/workflows/pulse_ci.yml": "51636b49744e82879cd20cd968ef3e299afb1d11",
+    ".github/workflows/pulse_ci.yml": "9da3eb0a0f8a99071df444f08e9c49f14515ceb1",
     "PULSE_safe_pack_v0/tools/assemble_release_grade_reference_package_v0.py": "8f01602e973b890eb2ae0928bd62dfd65e691f79",
 }
 
@@ -2468,7 +2468,7 @@ def _source_bundle_expectations(workflow: dict[str, Any], sources: dict[str, Git
     publications = {}
     for number, role in ((28, audit), (32, advisory)):
         item = steps[number - 1]; opts = item.get("with", {})
-        _require(item.get("uses") == "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+        _require(item.get("uses") == "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"
                  and opts.get("if-no-files-found") == "error", "bundle_mapping_upload_profile")
         name = opts.get("name")
         _require(isinstance(name, str) and re.fullmatch(r"[a-z0-9-]+", name), "bundle_mapping_upload_name")
@@ -2631,7 +2631,7 @@ _PROVENANCE_ASSEMBLER = "PULSE_safe_pack_v0/tools/assemble_release_grade_referen
 _PROVENANCE_ROLE = "artifact-provenance-binding"
 _PROVENANCE_JOB = "release_grade_recorded_path"
 _PROVENANCE_SOURCE_PINS = {
-    SUBJECT_WORKFLOW_PATH: "51636b49744e82879cd20cd968ef3e299afb1d11",
+    SUBJECT_WORKFLOW_PATH: "9da3eb0a0f8a99071df444f08e9c49f14515ceb1",
     _PROVENANCE_BUILD: "d3f07cbbf8fd38831a42d8fe8e891c23df4c7792",
     _PROVENANCE_VERIFY: "665398c8841e4dd9534875831c93c749c3ccf94b",
     _PROVENANCE_ASSEMBLER: "8f01602e973b890eb2ae0928bd62dfd65e691f79",
@@ -3175,7 +3175,7 @@ def _source_llamaguard_preservation_expectations(workflow: dict[str, Any], sourc
         uploaded = [_checked_mapping_path(line) for line in options["path"].splitlines()]
         _require(name == upload_name and re.fullmatch(r'[a-z0-9-]+-\{workflow_run_id\}-1', name) is not None,
                  "lg_preservation_artifact_name")
-        _require(publisher.get("uses") == "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a"
+        _require(publisher.get("uses") == "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9"
                  and options.get("if-no-files-found") == "error", "lg_preservation_upload_profile")
         _require(uploaded == digest_paths, "lg_preservation_upload_members")
         for leaf, path in zip(basenames, digest_paths):
@@ -3900,7 +3900,7 @@ def _source_recorded_publication_selectors(
     _require(len(uploads) == 1 and uploads[0][0] == 33, "recorded_publication_step_profile")
     number, upload = uploads[0]
     _require(sorted(upload) == ["name", "uses", "with"]
-             and upload.get("uses") == "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+             and upload.get("uses") == "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9",
              "recorded_publication_action_profile")
     fields = upload["with"]
     _require(sorted(fields) == ["if-no-files-found", "name", "path", "retention-days"]
@@ -4061,7 +4061,7 @@ def _source_authority_publication_expectations(
                  and row["name"] == expected_titles[position], "authority_publication_action_profile")
         owner, separator, revision = row["uses"].partition("@")
         _require(owner == "actions/upload-artifact" and separator == "@"
-                 and revision == "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+                 and revision == "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
                  "authority_publication_action_profile")
         opts = row["with"]
         _require(set(opts) == {"name", "path", "retention-days", "if-no-files-found"}
@@ -4171,7 +4171,7 @@ def _source_report_publication_selectors(
              and step["name"] == "Upload final pulse report", "report_publication_action_profile")
     action, separator, revision = step["uses"].partition("@")
     _require(action == "actions/upload-artifact" and separator == "@"
-             and revision == "043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+             and revision == "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
              "report_publication_action_profile")
     opts = step["with"]
     _require(set(opts) == {"path", "name", "retention-days", "if-no-files-found"}
