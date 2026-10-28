@@ -1,0 +1,237 @@
+{
+  "$id": "https://eplabsai.com/pulsemech/schemas/anchor_integrity_claim_packet_v0_1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority_effect": {
+      "const": "none"
+    },
+    "candidate_status": {
+      "const": "diagnostic_only"
+    },
+    "claim_set": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "materialization_status": {
+                "enum": [
+                  "complete",
+                  "partial"
+                ]
+              }
+            },
+            "required": [
+              "materialization_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "claims": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "claim_set_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "claims": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "claim_digest": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "claim_id": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              "claim_text": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "claim_type": {
+                "enum": [
+                  "factual",
+                  "numeric",
+                  "causal",
+                  "attribute",
+                  "assumption"
+                ],
+                "type": "string"
+              },
+              "locator": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "end": {
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "start": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "type": {
+                        "const": "character_span"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "start",
+                      "end"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "type": {
+                        "const": "json_pointer"
+                      },
+                      "value": {
+                        "pattern": "^/",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "end_line": {
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "start_line": {
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "type": {
+                        "const": "line_range"
+                      }
+                    },
+                    "required": [
+                      "type",
+                      "start_line",
+                      "end_line"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "qualifiers": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "claim_id",
+              "claim_text",
+              "claim_digest",
+              "locator",
+              "claim_type",
+              "qualifiers"
+            ],
+            "type": "object"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "materialization_method": {
+          "enum": [
+            "recorded_manual_v0_1",
+            "recorded_external_v0_1"
+          ],
+          "type": "string"
+        },
+        "materialization_status": {
+          "enum": [
+            "complete",
+            "partial",
+            "invalid"
+          ],
+          "type": "string"
+        },
+        "materialization_version": {
+          "const": "v0.1"
+        }
+      },
+      "required": [
+        "claim_set_id",
+        "materialization_status",
+        "materialization_method",
+        "materialization_version",
+        "claims"
+      ],
+      "type": "object"
+    },
+    "packet_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "anchor_integrity_claim_packet_v0_1"
+    },
+    "subject": {
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_response_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "source_response_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "subject_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject_id",
+        "run_id",
+        "source_response_id",
+        "source_response_sha256"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "candidate_status",
+    "authority_effect",
+    "packet_id",
+    "subject",
+    "claim_set"
+  ],
+  "title": "Anchor Integrity claim packet v0.1",
+  "type": "object"
+}

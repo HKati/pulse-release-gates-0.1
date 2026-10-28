@@ -1,0 +1,57 @@
+{
+  "authority_effect": "none",
+  "candidate_status": "diagnostic_only",
+  "evidence_items": [
+    {
+      "content_sha256": "e2b22d0806d790f0a27387e6dd5d25f84d8fd7acca04ee23d027978b6350d6d9",
+      "evidence_id": "evidence-0001",
+      "locator": {
+        "end_line": 126,
+        "start_line": 89,
+        "type": "line_range"
+      },
+      "locator_verification": {
+        "reason": null,
+        "result": "resolved",
+        "status": "completed"
+      },
+      "source_id": "source-0001",
+      "subject_binding": {
+        "expected_run_id": "run-example-001",
+        "expected_subject_id": "anchor-integrity-example-001",
+        "observed_run_id": "run-example-001",
+        "observed_subject_id": "anchor-integrity-example-001",
+        "verification": {
+          "reason": null,
+          "result": "satisfied",
+          "status": "completed"
+        }
+      }
+    }
+  ],
+  "packet_id": "evidence-packet-example-001",
+  "schema_version": "anchor_integrity_evidence_packet_v0_1",
+  "sources": [
+    {
+      "canonical_identifier": "scripts/anchor_integrity_adapter_v0.py@34431ec8ebe305a83273ffd39b78f083219f03e6",
+      "content_sha256": "e2b22d0806d790f0a27387e6dd5d25f84d8fd7acca04ee23d027978b6350d6d9",
+      "identity_verification": {
+        "reason": null,
+        "result": "verified",
+        "status": "completed"
+      },
+      "integrity_verification": {
+        "reason": null,
+        "result": "verified",
+        "status": "completed"
+      },
+      "revision": "34431ec8ebe305a83273ffd39b78f083219f03e6",
+      "source_id": "source-0001",
+      "source_type": "repository_file"
+    }
+  ],
+  "subject": {
+    "run_id": "run-example-001",
+    "subject_id": "anchor-integrity-example-001"
+  }
+}

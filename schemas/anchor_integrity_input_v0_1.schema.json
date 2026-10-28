@@ -1,0 +1,219 @@
+{
+  "$id": "https://eplabsai.com/pulsemech/schemas/anchor_integrity_input_v0_1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority_effect": {
+      "const": "none"
+    },
+    "baseline_commit": {
+      "pattern": "^[0-9a-f]{40}$",
+      "type": "string"
+    },
+    "candidate_status": {
+      "const": "diagnostic_only"
+    },
+    "legacy_overlay": {
+      "additionalProperties": false,
+      "properties": {
+        "is_claim_evidence_coverage": {
+          "const": false
+        },
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "anchor_integrity_v0"
+        },
+        "semantic_class": {
+          "const": "operational_proxy"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "schema_version",
+        "semantic_class",
+        "is_claim_evidence_coverage"
+      ],
+      "type": "object"
+    },
+    "packet_bindings": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_packet": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "anchor_integrity_claim_packet_v0_1"
+            },
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "schema_version"
+          ],
+          "type": "object"
+        },
+        "evidence_packet": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "anchor_integrity_evidence_packet_v0_1"
+            },
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "schema_version"
+          ],
+          "type": "object"
+        },
+        "relation_verification_packet": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "schema_version": {
+              "const": "anchor_integrity_relation_verification_packet_v0_1"
+            },
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "schema_version"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "claim_packet",
+        "evidence_packet",
+        "relation_verification_packet"
+      ],
+      "type": "object"
+    },
+    "paradox_graph_binding": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "schema_version": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "sha256": {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "schema_version"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "release_authority_activation": {
+      "const": false
+    },
+    "requested_checks": {
+      "additionalProperties": false,
+      "properties": {
+        "claim_evidence_binding": {
+          "const": true
+        },
+        "response_mode_recommendation": {
+          "const": true
+        },
+        "typed_evidence_cycle_check": {
+          "const": true
+        }
+      },
+      "required": [
+        "claim_evidence_binding",
+        "typed_evidence_cycle_check",
+        "response_mode_recommendation"
+      ],
+      "type": "object"
+    },
+    "schema_version": {
+      "const": "anchor_integrity_input_v0_1"
+    },
+    "subject": {
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subject_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject_id",
+        "run_id"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "candidate_status",
+    "authority_effect",
+    "release_authority_activation",
+    "baseline_commit",
+    "subject",
+    "legacy_overlay",
+    "packet_bindings",
+    "paradox_graph_binding",
+    "requested_checks"
+  ],
+  "title": "Anchor Integrity input binding v0.1",
+  "type": "object"
+}

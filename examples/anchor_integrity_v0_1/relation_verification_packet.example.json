@@ -1,0 +1,36 @@
+{
+  "authority_effect": "none",
+  "candidate_status": "diagnostic_only",
+  "claim_packet_binding": {
+    "path": "examples/anchor_integrity_v0_1/claim_packet.example.json",
+    "schema_version": "anchor_integrity_claim_packet_v0_1",
+    "sha256": "820d3ea8f5b80b3bb93fcbe142554ebf1342a0b7d0c0619738edad0ecbab2f2b"
+  },
+  "evidence_packet_binding": {
+    "path": "examples/anchor_integrity_v0_1/evidence_packet.example.json",
+    "schema_version": "anchor_integrity_evidence_packet_v0_1",
+    "sha256": "82c92dcd4da8ea8c6778997882820f00db9e8fd579b48945337aff25728f128d"
+  },
+  "packet_id": "relation-packet-example-001",
+  "relations": [
+    {
+      "binding_id": "binding-0001",
+      "claim_id": "claim-0001",
+      "evidence_id": "evidence-0001",
+      "relation_type": "supports",
+      "relation_verification": {
+        "reason": null,
+        "result": "supported",
+        "status": "completed"
+      },
+      "verifier_record_id": "verifier-record-0001"
+    }
+  ],
+  "schema_version": "anchor_integrity_relation_verification_packet_v0_1",
+  "subject": {
+    "run_id": "run-example-001",
+    "subject_id": "anchor-integrity-example-001"
+  },
+  "verification_method": "recorded_verifier_result_v0_1",
+  "verification_version": "v0.1"
+}
