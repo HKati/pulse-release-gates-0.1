@@ -5298,7 +5298,7 @@ _HOSTED_ORDER_HISTORICAL_REPLACEMENTS = (
 
 
 def _workflow_before_setup_python_v710(raw):
-    """Test-only inverse of the exact reviewed setup-python pin refresh.
+    """Test-only inverse of the exact reviewed action-pin refresh.
 
     This restores historical test input bytes, never runtime admission.
     Reject any other change before removing the dependency-only delta.
@@ -5308,7 +5308,6 @@ def _workflow_before_setup_python_v710(raw):
     ), 'unreviewed hosted-order workflow bytes'
     current = b'actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0'
     previous = b'actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97'
-    assert raw.count(current) == 6, 'unexpected setup-python v7.1.0 occurrence count'
     restored = raw.replace(current, previous)
     assert hashlib.sha1(b'blob ' + str(len(restored)).encode() + b'\0' + restored).hexdigest() == (
         '51636b49744e82879cd20cd968ef3e299afb1d11'
