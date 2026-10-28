@@ -78,7 +78,7 @@ jobs:
       - name: Acquire CPython 3.11.14
         id: py311
         continue-on-error: true
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.11.14'
           architecture: x64
@@ -87,7 +87,7 @@ jobs:
       - name: Acquire CPython 3.12.12
         id: py312
         continue-on-error: true
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.12.12'
           architecture: x64
@@ -96,7 +96,7 @@ jobs:
       - name: Acquire CPython 3.13.5
         id: py313
         continue-on-error: true
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.13.5'
           architecture: x64
@@ -105,7 +105,7 @@ jobs:
       - name: Acquire CPython 3.14.3
         id: py314
         continue-on-error: true
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.14.3'
           architecture: x64
