@@ -4,100 +4,144 @@ on:
   workflow_dispatch:
     inputs:
       source:
-        description: "Source image path"
+        description: "Source image path (tracked regular file in the selected main commit)"
         default: "hero_dark_4k.png"
         required: true
+        type: string
       bgcolor:
         description: "Background color"
         default: "#000000"
         required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: make-og-${{ github.ref }}
-  cancel-in-progress: true
+  group: make-og-main
+  cancel-in-progress: false
 
 jobs:
-  make_og:
+  generate:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-
-    # This job needs write access because it commits an asset back to the repo.
     permissions:
-      contents: write
-
+      contents: read
+    outputs:
+      artifact_id: ${{ steps.upload.outputs.artifact-id }}
+      image_sha256: ${{ steps.image.outputs.image_sha256 }}
     steps:
-      - name: Checkout
+      - name: Reject unauthorized dispatch before checkout
+        shell: bash
+        env:
+          OG_AUTHORIZED: >-
+            ${{ github.event_name == 'workflow_dispatch' &&
+                github.repository == 'HKati/pulse-release-gates-0.1' &&
+                github.repository_id == '1061766508' &&
+                github.repository_owner == 'HKati' &&
+                github.repository_owner_id == '128643840' &&
+                github.actor == 'HKati' && github.actor_id == '128643840' &&
+                github.triggering_actor == 'HKati' &&
+                github.ref == 'refs/heads/main' && github.ref_type == 'branch' &&
+                github.workflow_ref == 'HKati/pulse-release-gates-0.1/.github/workflows/make_org.yml@refs/heads/main' &&
+                github.workflow_sha == github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$OG_AUTHORIZED" != "true" ]; then
+            echo "::error::OG write rejected: unauthorized actor, repository, branch or workflow source."
+            exit 1
+          fi
+
+      - name: Checkout exact authorized source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          ref: ${{ github.sha }}
+          fetch-depth: 1
           persist-credentials: false
+
+      - name: Verify dispatch and checkout identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I tools/make_og_write_boundary_v0.py preflight
 
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
 
-      - name: Install Pillow
+      - name: Install Pillow in read-only job
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install "Pillow>=10,<12"
 
-      - name: Generate og_image_1200x630.png
+      - name: Generate bounded image candidate
+        id: image
         shell: bash
-        env:
-          SRC: ${{ inputs.source }}
-          BGCOLOR: ${{ inputs.bgcolor }}
         run: |
           set -euo pipefail
+          python -I tools/make_og_write_boundary_v0.py generate --bundle "$RUNNER_TEMP/og-candidate"
 
-          if [ ! -f "$SRC" ]; then
-            echo "::error::Source image not found: $SRC"
-            echo "Repo root listing:"
-            ls -la
-            exit 1
-          fi
+      - name: Upload this attempt's image candidate
+        id: upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: og-image-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/og-candidate/
+          if-no-files-found: error
+          overwrite: false
+          include-hidden-files: false
+          retention-days: 1
 
-          python - <<'PY'
-          from PIL import Image, ImageOps
-          import os
+  write_image:
+    needs: generate
+    if: >-
+      ${{ needs.generate.result == 'success' &&
+          github.event_name == 'workflow_dispatch' &&
+          github.repository == 'HKati/pulse-release-gates-0.1' &&
+          github.repository_id == '1061766508' &&
+          github.repository_owner == 'HKati' &&
+          github.repository_owner_id == '128643840' &&
+          github.actor == 'HKati' && github.actor_id == '128643840' &&
+          github.triggering_actor == 'HKati' &&
+          github.ref == 'refs/heads/main' && github.ref_type == 'branch' &&
+          github.workflow_ref == 'HKati/pulse-release-gates-0.1/.github/workflows/make_org.yml@refs/heads/main' &&
+          github.workflow_sha == github.sha }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      OG_ARTIFACT_ID: ${{ needs.generate.outputs.artifact_id }}
+      OG_EXPECTED_SHA256: ${{ needs.generate.outputs.image_sha256 }}
+    steps:
+      - name: Checkout exact authorized writer source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
 
-          src = os.environ.get("SRC", "hero_dark_4k.png")
-          out = "og_image_1200x630.png"
-          W, H = 1200, 630
-          bg = os.environ.get("BGCOLOR", "#000000")
+      - name: Recheck writer identity and candidate selection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I tools/make_og_write_boundary_v0.py preflight
 
-          im = Image.open(src).convert("RGB")
-          im2 = ImageOps.contain(im, (W, H))  # keep aspect ratio, no crop
-          canvas = Image.new("RGB", (W, H), bg)
-          canvas.paste(im2, ((W - im2.width)//2, (H - im2.height)//2))
-          canvas.save(out, "PNG")
-          print("wrote", out)
-          PY
+      - name: Download exact candidate from this run
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          artifact-ids: ${{ needs.generate.outputs.artifact_id }}
+          path: ${{ runner.temp }}/og-candidate/
+          merge-multiple: true
+          digest-mismatch: error
 
-      - name: Commit OG image [skip ci]
+      - name: Verify one-file commit and push to unchanged main
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-
-          git config user.name  "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git add og_image_1200x630.png
-          if git diff --cached --quiet; then
-            echo "No changes"
-            exit 0
-          fi
-
-          git commit -m "chore(assets): regenerate og_image_1200x630.png [skip ci]"
-
-          # Explicit token push (checkout does not persist credentials)
-          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-          git push
-
+          python3 -I tools/make_og_write_boundary_v0.py write --bundle "$RUNNER_TEMP/og-candidate"
