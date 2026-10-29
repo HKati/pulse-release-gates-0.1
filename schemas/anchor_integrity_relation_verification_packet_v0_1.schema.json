@@ -1,0 +1,280 @@
+{
+  "$id": "https://eplabsai.com/pulsemech/schemas/anchor_integrity_relation_verification_packet_v0_1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority_effect": {
+      "const": "none"
+    },
+    "candidate_status": {
+      "const": "diagnostic_only"
+    },
+    "claim_packet_binding": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "anchor_integrity_claim_packet_v0_1"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "schema_version"
+      ],
+      "type": "object"
+    },
+    "evidence_packet_binding": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema_version": {
+          "const": "anchor_integrity_evidence_packet_v0_1"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "schema_version"
+      ],
+      "type": "object"
+    },
+    "packet_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "relations": {
+      "items": {
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "else": {
+              "properties": {
+                "verifier_record_id": {
+                  "const": null
+                }
+              }
+            },
+            "if": {
+              "properties": {
+                "relation_verification": {
+                  "properties": {
+                    "status": {
+                      "const": "completed"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                }
+              },
+              "required": [
+                "relation_verification"
+              ]
+            },
+            "then": {
+              "properties": {
+                "verifier_record_id": {
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ],
+        "properties": {
+          "binding_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "claim_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "evidence_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "relation_type": {
+            "enum": [
+              "supports",
+              "contradicts",
+              "derived_from",
+              "contextualizes",
+              "references"
+            ],
+            "type": "string"
+          },
+          "relation_verification": {
+            "additionalProperties": false,
+            "allOf": [
+              {
+                "else": {
+                  "properties": {
+                    "reason": {
+                      "minLength": 1,
+                      "type": "string"
+                    },
+                    "result": {
+                      "const": null
+                    }
+                  }
+                },
+                "if": {
+                  "properties": {
+                    "status": {
+                      "const": "completed"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "result": {
+                      "enum": [
+                        "supported",
+                        "contradicted",
+                        "insufficient",
+                        "unresolved"
+                      ],
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            ],
+            "properties": {
+              "reason": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "result": {
+                "enum": [
+                  "supported",
+                  "contradicted",
+                  "insufficient",
+                  "unresolved",
+                  null
+                ],
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "not_requested",
+                  "not_run",
+                  "completed",
+                  "invalid_input",
+                  "failed",
+                  "not_applicable"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "status",
+              "result",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "verifier_record_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "binding_id",
+          "claim_id",
+          "evidence_id",
+          "relation_type",
+          "relation_verification",
+          "verifier_record_id"
+        ],
+        "type": "object"
+      },
+      "type": "array",
+      "uniqueItems": true
+    },
+    "schema_version": {
+      "const": "anchor_integrity_relation_verification_packet_v0_1"
+    },
+    "subject": {
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subject_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject_id",
+        "run_id"
+      ],
+      "type": "object"
+    },
+    "verification_method": {
+      "const": "recorded_verifier_result_v0_1"
+    },
+    "verification_version": {
+      "const": "v0.1"
+    }
+  },
+  "required": [
+    "schema_version",
+    "candidate_status",
+    "authority_effect",
+    "packet_id",
+    "subject",
+    "claim_packet_binding",
+    "evidence_packet_binding",
+    "verification_method",
+    "verification_version",
+    "relations"
+  ],
+  "title": "Anchor Integrity relation-verification packet v0.1",
+  "type": "object"
+}

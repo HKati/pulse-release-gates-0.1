@@ -1,0 +1,46 @@
+{
+  "authority_effect": "none",
+  "candidate_status": "diagnostic_only",
+  "claim_set": {
+    "claim_set_id": "claim-set-example-001",
+    "claims": [
+      {
+        "claim_digest": "0f6db55c02685e890800f5b611845542bf94f37943fbeb62d8dd69450b3a8231",
+        "claim_id": "claim-0001",
+        "claim_text": "The current adapter computes a proxy ratio from heterogeneous PULSE signals.",
+        "claim_type": "factual",
+        "locator": {
+          "end": 76,
+          "start": 0,
+          "type": "character_span"
+        },
+        "qualifiers": [
+          "current adapter"
+        ]
+      },
+      {
+        "claim_digest": "51d6e31b35a4d0762d16a271fc135e4ec32f0fa329ca9278a676574bf973b348",
+        "claim_id": "claim-0002",
+        "claim_text": "A source-presence signal does not prove a claim-level evidence relation.",
+        "claim_type": "factual",
+        "locator": {
+          "end": 149,
+          "start": 77,
+          "type": "character_span"
+        },
+        "qualifiers": []
+      }
+    ],
+    "materialization_method": "recorded_manual_v0_1",
+    "materialization_status": "complete",
+    "materialization_version": "v0.1"
+  },
+  "packet_id": "claim-packet-example-001",
+  "schema_version": "anchor_integrity_claim_packet_v0_1",
+  "subject": {
+    "run_id": "run-example-001",
+    "source_response_id": "response-example-001",
+    "source_response_sha256": "62b5b0c969b8e40471d7f73ab93c11cc506ad92c25c60b50a505f027807652cd",
+    "subject_id": "anchor-integrity-example-001"
+  }
+}
