@@ -95,12 +95,13 @@ moves between merged and open work, update this index.
 - Canonical PULSEmech technical overview and current verified state:
   [PULSEMECH_TECHNICAL_OVERVIEW.md](../PULSEMECH_TECHNICAL_OVERVIEW.md)
   **Dated source-bound implementation and evidence checkpoint.** The
-  2026-10-25 checkpoint at `a248f5e21dd6163416bf54b23f12a09a12259e3f`
-  links the completed E2 execution and original-artifact preservation through
-  #2950, the recorded Q2 native execution/field comparison, and the Q3
-  reference/preparation implementations. Earlier source-bound checkpoints
-  remain historical. Q2 49/50 FAIL, pending full Q2/Step 5C/5D acceptance
-  and non-active authority boundaries remain unchanged.
+  scoped 2026-10-30 Paradoxon checkpoint at
+  `72e8973e54d8f94422c0dabb264b8316ac8e4de6` links the preserved
+  PD-SM-01-E1 / MON-1 record, the #2957 PD-SM-02 implementation and its
+  separately preserved #2958 bounded local scratch result. The earlier E2,
+  Q2 and Q3 checkpoints retain their original dates and source identities.
+  Q2 49/50 FAIL, pending full Q2/Step 5C/5D acceptance and non-active
+  authority boundaries remain unchanged. No new execution is claimed.
 - Preserved Q2-1 native tokenizer and independent replay procedure:
   [compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md — section 13](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint)
   **Recorded bounded checkpoint.** Original run `38478598045/1`, original

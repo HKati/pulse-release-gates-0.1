@@ -1,6 +1,6 @@
 # PD-SM-02 — source-bound pre-execution impact companion v0
 
-Status: **implementation prepared; pilot execution NOT_RUN**.  
+Status: **implementation merged; separate bounded local pilot completed and preserved**.<br>
 Profile: `PD-SM-02-preexecution-impact-v0`.  
 Authority effect: `none`.
 
@@ -19,6 +19,33 @@ The implementation answers a deliberately narrow question:
 The source model is derived from candidate bytes. Case IDs and expected outcomes
 exist only in `fixtures.json` as test-driver metadata; they are not supplied to
 the mapper or checker.
+
+## Completed bounded local scratch pilot — 2026-10-27
+
+The [separate result record](../../docs/PULSEMECH_PARADOX_PREEXECUTION_SCRATCH_RESULT_v0.md)
+preserves the later owner-authorized bounded local execution. Implementation
+preparation and observed execution remain separate records.
+
+| Recorded field | Value |
+|---|---|
+| Implementation merge | #2957 / `4cb5f7dbe00cfbaf5bd50f77423e4d671fa71905` |
+| Result preservation merge | #2958 / `5bb3cae1ea562cbfde4b80f7bc3878bf3d92f6be` |
+| Runtime | CPython 3.13.5; Linux 6.18.55; x86_64; glibc 2.41 |
+| Recorded implementation regressions before pilot | `112 passed` |
+| Declared outcomes | `24 / 24` matched |
+| Eligible executions | `4 / 4` completed |
+| Positive effect | One exact monitored 22-byte effect and one matching `INTENT` record per executed case |
+| Non-eligible attempts | `20 / 20` stopped before candidate execution and output-directory creation |
+| Evidence archive SHA-256 | `c63f2ee6e2dfae21ec3736fbd99f8169b8c5b7a06a28c8a8a3e7dad2ac2fcd18` |
+
+The original `profile.json` and `fixtures.json` remain unchanged. Their
+`pilot_execution_status: NOT_RUN` and `observed_result: null` fields describe
+the implementation-time fixture records; they are not retroactively rewritten.
+The later execution has its own source-bound result, raw logs, observed outputs
+and closed evidence carrier. The historical seven-file implementation snapshot,
+including its preparation-time README, remains unchanged inside that carrier.
+This updated README is a later navigation document, not a replacement for the
+executed snapshot.
 
 ## Source and evidence basis
 
@@ -177,8 +204,11 @@ CPython 3.13.5/Linux:
 ```
 
 These are implementation regressions. They are not 24 native pilot passes and
-not a repository-wide CI result. No archived E1 program, candidate scratch
-effect or GitHub workflow was executed during preparation.
+not a repository-wide CI result. During implementation preparation, no archived
+E1 program, candidate scratch effect or GitHub workflow was executed. A later
+separately authorized bounded local pilot executed the four eligible candidates
+and preserved twenty pre-effect refusals in the separate result record linked
+above.
 
 Example non-executing assessment sequence:
 
@@ -221,15 +251,21 @@ The CLI execution path also requires `--model` and replays
 canonical JSON to that fresh result. The launcher executes only the closed AST
 language with an empty builtins namespace and scratch-only primitives.
 
-This launcher has **not been executed in this preparation**. Its use requires a
-separate owner authorization. It is not a complete sandbox, physical PULSEbox,
-production enforcement boundary or release authority.
+This launcher was **not executed during implementation preparation**. A later
+separately authorized bounded local pilot is preserved in the result record
+linked above. Every new native launch still requires separate explicit owner
+authorization; the historical pilot does not grant permission for another run.
+That execution does not turn the launcher into a complete sandbox, physical
+PULSEbox, production enforcement boundary or release authority.
 
 ## Boundaries
 
 ```text
-implementation_status: PREPARED_NOT_PUBLISHED
-pilot_execution_status: NOT_RUN
+implementation_status: MERGED
+implementation_merge: 4cb5f7dbe00cfbaf5bd50f77423e4d671fa71905
+pilot_execution_status: COMPLETED_BOUNDED_LOCAL_SEPARATE_RECORD
+pilot_result_record: docs/PULSEMECH_PARADOX_PREEXECUTION_SCRATCH_RESULT_v0.md
+pilot_preservation_merge: 5bb3cae1ea562cbfde4b80f7bc3878bf3d92f6be
 production_integration_status: NOT_IMPLEMENTED
 status_json_mutation: none
 registered_gate: none
