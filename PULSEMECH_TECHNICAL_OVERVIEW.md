@@ -66,11 +66,13 @@ results is:
 
 **[Current verified state and latest results](#current-verified-state-and-latest-results)**
 
-**Documentation update — 2026-10-25.** [Section 16](#current-verified-state-and-latest-results)
-now links the completed Paradoxon E2 execution and original-artifact preservation,
-the later Q2 native/comparison records, and the Q3 implementation records at
-`a248f5e21dd6163416bf54b23f12a09a12259e3f`. Section 15M and the retained
-2026-10-15 checkpoint keep their original source-bound historical scope.
+**Documentation update — 2026-10-30.** [Section 16](#current-verified-state-and-latest-results)
+adds a scoped Paradoxon checkpoint at repository snapshot
+`72e8973e54d8f94422c0dabb264b8316ac8e4de6`: preserved PD-SM-01-E1 / MON-1
+evidence, the #2957 PD-SM-02 implementation and its separately preserved #2958
+bounded local scratch result. The 2026-10-25 and 2026-10-15 checkpoints retain
+their original dates, source identities and historical scope. This is a
+navigation and documentation update, not a new execution or release decision.
 
 ---
 
@@ -3126,6 +3128,97 @@ measurement and Step 7 promotion remain separate work; #2879 stays open.
 <a id="current-verified-state-and-latest-results"></a>
 
 ## 16. Current verified state and latest results
+
+### Source-bound documentation checkpoint — 2026-10-30
+
+```text
+state_date: 2026-10-30
+repository_snapshot: 72e8973e54d8f94422c0dabb264b8316ac8e4de6
+checkpoint_scope: pd_sm_01_e1_mon1_and_pd_sm_02
+pd_sm_01_e1_mon1_preservation_pr: 2954
+pd_sm_01_e1_mon1_preservation_merge: a9de035d1b3ac227359ca78a98274abe4c9ee186
+pd_sm_02_implementation_pr: 2957
+pd_sm_02_implementation_merge: 4cb5f7dbe00cfbaf5bd50f77423e4d671fa71905
+pd_sm_02_result_preservation_pr: 2958
+pd_sm_02_result_preservation_merge: 5bb3cae1ea562cbfde4b80f7bc3878bf3d92f6be
+record_role: documentation_checkpoint_over_existing_evidence
+new_experiment_execution: false
+authority_effect: none
+```
+
+This scoped checkpoint summarizes existing Paradoxon records. It is not a new
+repository-wide implementation audit or a new experiment. The retained E2, Q2
+and Q3 checkpoints below keep their original scope.
+
+#### Paradoxon PD-SM-01-E1 / MON-1 — preserved bounded local evidence
+
+| Evidence field | Recorded value |
+|---|---|
+| F1 complete finite profile | `8192 / 8192` rows agree with the declared predicate |
+| F2 complete finite profile | `4096 / 4096` rows agree with the independent closure construction |
+| F2 sub-base comparisons | `13824`: `9728` strict withdrawals plus `4096` unchanged-base controls |
+| Selected MON-1 cases | `17 / 17` expected/observed matches |
+| Guarded exact effects | 3 |
+| Guarded cases without target-file effect | 13 |
+| Deliberately unguarded control | One expected 11-byte unmonitored write; not a safety PASS |
+| Recorded runtime | CPython 3.13.5; Linux x86_64 |
+| Original archive | `712329` bytes; `201` members |
+| Archive SHA-256 | `88db43b1d42b98fa3fbfd63f1ce87e5e5ee787495732489c8e5a460a5fea1b21` |
+| Repository preservation | #2954 / `a9de035d1b3ac227359ca78a98274abe4c9ee186` |
+
+The [E1 / MON-1 result](docs/PULSEMECH_PARADOX_E1_MON1_RESULT_v0.md)
+links the original preserved archive and its checksum. The archive retains the
+nested E0 package, original verifier, source bindings and development history.
+The hosted E2 result remains a separate E0 compatibility record; it does not
+establish cross-version F1/F2 or MON-1 compatibility.
+
+#### Paradoxon PD-SM-02 — pre-execution implementation and bounded scratch result
+
+| Evidence field | Recorded value |
+|---|---|
+| Profile | `PD-SM-02-preexecution-impact-v0` |
+| Merged implementation | #2957 / `4cb5f7dbe00cfbaf5bd50f77423e4d671fa71905` |
+| Preserved result | #2958 / `5bb3cae1ea562cbfde4b80f7bc3878bf3d92f6be` |
+| Recorded implementation regressions before pilot | `112 passed` |
+| Declared case outcomes | `24 / 24` matched their classification or binding obligations |
+| Launch-eligible cases | 4 |
+| Completed native scratch executions | `4 / 4` |
+| Completed effect | One exact monitored 22-byte effect and one matching `INTENT` record per executed case |
+| Non-eligible attempts | `20 / 20` stopped before candidate execution and output-directory creation |
+| Authorized-launch terminal distribution | 18 `checker_replay_not_eligible`; 1 `assessment_replay_mismatch`; 1 `launch_preflight: NO_UNCHECKED_LAUNCH` |
+| Recorded runtime | CPython 3.13.5; Linux 6.18.55; x86_64; glibc 2.41 |
+| Evidence archive | `329950` bytes; `473` members |
+| Archive SHA-256 | `c63f2ee6e2dfae21ec3736fbd99f8169b8c5b7a06a28c8a8a3e7dad2ac2fcd18` |
+| Internal manifest SHA-256 | `26083c5fffbfdbc4cef002db59663d6a0a262d5f36a737f8dcd4a5f20484d178` |
+
+The [implementation entrypoint](examples/paradox_preexecution_impact_v0/README.md)
+retains the closed-language model/checker/launcher contract. The
+[separate execution result](docs/PULSEMECH_PARADOX_PREEXECUTION_SCRATCH_RESULT_v0.md)
+preserves the exact source snapshot, assessments, preflight records, four
+completed outputs, twenty refusal records and the read-only package verifier.
+The fixture-level `NOT_RUN` fields remain historical implementation inputs and
+are not rewritten by the later result. The current documentation is separate
+from the unchanged seven-file snapshot preserved inside the evidence archive.
+
+For `B01`, `candidate_sha256` is the standalone preflight-only reason, while the
+authorized launch stopped at `checker_replay_not_eligible`. For `B02`, the
+standalone reason is `environment_identity`, while the launch stopped at
+`assessment_replay_mismatch`. Neither attempt reached `execute_scratch`.
+`P03` remains `PROPERTY_DEPENDENT` and was not executed.
+
+The current bounded research chain is:
+
+[Mechanical definition contract](docs/PULSEMECH_PARADOX_M1_M3_DEFINITION_CONTRACT_v0_2.md)
+→ [source mapping](docs/PULSEMECH_PARADOX_SOURCE_MAPPING_CASE_v0.md)
+→ [E1 / MON-1 evidence](docs/PULSEMECH_PARADOX_E1_MON1_RESULT_v0.md)
+→ [PD-SM-02 implementation](examples/paradox_preexecution_impact_v0/README.md)
+→ [bounded scratch result](docs/PULSEMECH_PARADOX_PREEXECUTION_SCRATCH_RESULT_v0.md).
+
+This checkpoint does not establish general Python-program analysis, complete
+source-to-runtime fidelity outside the declared language, multi-interpreter
+PD-SM-02 compatibility, hostile-code containment, production enforcement, a
+physical PULSEbox result or release eligibility. The local result remains
+project-produced evidence with `authority_effect: none`.
 
 ### Source-bound documentation checkpoint — 2026-10-25
 
