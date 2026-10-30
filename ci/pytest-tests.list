@@ -29,7 +29,5 @@ tests/test_q3_native_capture_v0.py
 tests/test_q3_native_capture_workflow_v0.py
 
 tests/test_make_og_write_boundary_v0.py
-security/sec-pages-01-binding-36f8ff5
 tests/test_check_pages_source_binding_v0.py
 tests/test_q3_preflight_preservation_v0.py
-main

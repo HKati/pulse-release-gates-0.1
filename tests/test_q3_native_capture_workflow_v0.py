@@ -111,7 +111,7 @@ def test_all_four_programs_registered_once_tools_manifest_unchanged():
         name='tests/test_q3_native_capture_'+suffix+'v0.py'
         assert entries.count(name)==1 and (ROOT/name).is_file()
     tools=[x.strip() for x in (ROOT/'ci/tools-tests.list').read_text().splitlines() if x.strip() and not x.startswith('#')]
-    assert len(tools)==len(set(tools))==170
+    assert len(tools)==len(set(tools))==171
     assert not [x for x in tools if 'q3_native_capture' in x]
 
 
