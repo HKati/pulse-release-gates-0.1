@@ -383,5 +383,110 @@ def test_unprefixed_image_cannot_replace_timestamped_evidence(historical):
     with pytest.raises(M.PostflightError):run(e,raw)
 
 
+IDENTITY_ANCHORS = [
+    ('EXPECTED_SOURCE_SHA', 'source_commit'),
+    ('Q3_NATIVE_REQUEST_SHA256', 'request_sha256'),
+]
+
+
+def equal_image_case(historical):
+    """Synthetic equal-image observation; never a new native execution."""
+    e, raw = case(historical)
+    raw['job.log'] = raw['job.log'].replace(
+        b'Version: 20261012.334.1', b'Version: 20261023.334.3')
+    repin(e, raw)
+    return e, raw
+
+
+def insert_anchor_occurrence(raw, label, payload, position='after'):
+    """Insert beside an existing anchor without removing valid occurrences."""
+    lines = raw['job.log'].splitlines(keepends=True)
+    indices = [i for i, line in enumerate(lines)
+               if re.fullmatch(rb'\S+\s+' + label.encode() + rb': [0-9a-f]+\r?\n', line)]
+    assert len(indices) >= 2, label
+    i = indices[0] if position == 'before' else indices[-1] + 1
+    sibling = lines[indices[0] if position == 'before' else indices[-1]]
+    timestamp = sibling.split(b' ', 1)[0]
+    lines.insert(i, timestamp + b' ' + payload.encode('utf-8') + b'\n')
+    raw['job.log'] = b''.join(lines)
+
+
+@pytest.mark.parametrize('label,key', IDENTITY_ANCHORS)
+@pytest.mark.parametrize('position', ['before', 'after'])
+@pytest.mark.parametrize('fault', [
+    'nonhex', 'empty', 'whitespace', 'uppercase', 'short', 'long',
+    'wrong_hex', 'suffix', 'embedded_space', 'no_separator_space',
+    'tab_separator', 'trailing_space', 'space_before_colon', 'missing_colon',
+])
+def test_every_identity_anchor_occurrence_validated(historical, label, key, position, fault):
+    e, raw = equal_image_case(historical)
+    expected = e[key]
+    variants = {
+        'nonhex': ': invalid',
+        'empty': ':',
+        'whitespace': ':   ',
+        'uppercase': ': ' + expected.upper(),
+        'short': ': ' + expected[:-1],
+        'long': ': ' + expected + '0',
+        'wrong_hex': ': ' + ('0' if expected[0] != '0' else '1') + expected[1:],
+        'suffix': ': ' + expected + '-invalid',
+        'embedded_space': ': ' + expected[:5] + ' ' + expected[5:],
+        'no_separator_space': ':' + expected,
+        'tab_separator': ':\t' + expected,
+        'trailing_space': ': ' + expected + ' ',
+        'space_before_colon': ' : ' + expected,
+        'missing_colon': ' ' + expected,
+    }
+    insert_anchor_occurrence(raw, label, '  ' + label + variants[fault], position)
+    repin(e, raw)  # Prove semantic rejection, not merely a stale input digest.
+    with pytest.raises(M.PostflightError, match='^LOG_REQUEST_SOURCE$'):
+        run(e, raw)
+
+
+@pytest.mark.parametrize('label,key', IDENTITY_ANCHORS)
+@pytest.mark.parametrize('indent', ['', '  ', '\t'])
+def test_repeated_matching_identity_anchors_remain_consistent(historical, label, key, indent):
+    e, raw = equal_image_case(historical)
+    insert_anchor_occurrence(raw, label, indent + label + ': ' + e[key])
+    repin(e, raw)
+    result = run(e, raw)
+    assert result['disposition'] == 'CONSISTENT_OFFLINE'
+    assert all(result[k] == v for k, v in M.BOUNDARIES.items())
+
+
+@pytest.mark.parametrize('label,key', IDENTITY_ANCHORS)
+def test_missing_identity_anchor_fails_closed(historical, label, key):
+    e, raw = equal_image_case(historical)
+    lines = raw['job.log'].splitlines(keepends=True)
+    kept = [line for line in lines if not re.fullmatch(
+        rb'\S+\s+' + label.encode() + rb': [0-9a-f]+\r?\n', line)]
+    assert len(kept) < len(lines)
+    raw['job.log'] = b''.join(kept)
+    repin(e, raw)
+    with pytest.raises(M.PostflightError, match='^LOG_REQUEST_SOURCE$'):
+        run(e, raw)
+
+
+@pytest.mark.parametrize('label,key', IDENTITY_ANCHORS)
+def test_similarly_named_field_is_not_an_identity_anchor(historical, label, key):
+    e, raw = equal_image_case(historical)
+    insert_anchor_occurrence(raw, label, '  ' + label + '_EXTRA: invalid')
+    repin(e, raw)
+    assert run(e, raw)['disposition'] == 'CONSISTENT_OFFLINE'
+
+
+@pytest.mark.parametrize('label,key', IDENTITY_ANCHORS)
+def test_cli_rejects_malformed_duplicate_identity_anchor(historical, tmp_path, label, key):
+    e, raw = equal_image_case(historical)
+    insert_anchor_occurrence(raw, label, '  ' + label + ': invalid')
+    repin(e, raw)
+    result = subprocess.run(cli_case(tmp_path, e, raw), capture_output=True, timeout=45)
+    assert result.returncode == 1 and result.stdout == b''
+    diagnostic = json.loads(result.stderr)
+    assert diagnostic['error_code'] == 'LOG_REQUEST_SOURCE'
+    assert diagnostic['disposition'] == 'REJECT_INVALID_OR_INCOMPLETE'
+    assert all(diagnostic[k] == v for k, v in M.BOUNDARIES.items())
+
+
 if __name__=='__main__':
     raise SystemExit(pytest.main([__file__,'-q']))

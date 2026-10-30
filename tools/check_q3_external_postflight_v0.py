@@ -314,10 +314,17 @@ def inspect_log(raw: bytes, e: dict, startup: dict) -> dict:
     version = versions[0][1]
     require(re.fullmatch(r'[A-Za-z0-9_.-]{1,128}', version) is not None, 'LOG_IMAGE_VALUE')
     payload = '\n'.join(v for _, _, v in parsed)
-    for label, expected in [('EXPECTED_SOURCE_SHA', e['source_commit']),
-                            ('Q3_NATIVE_REQUEST_SHA256', e['request_sha256'])]:
-        found = re.findall(r'^\s*' + label + r': ([0-9a-f]+)$', payload, re.M)
-        require(bool(found) and set(found) == {expected}, 'LOG_REQUEST_SOURCE')
+    for label, expected, width in [('EXPECTED_SOURCE_SHA', e['source_commit'], 40),
+                                   ('Q3_NATIVE_REQUEST_SHA256', e['request_sha256'], 64)]:
+        # Identify every field occurrence before validating its value. A malformed
+        # repeated anchor must not disappear just because it is not hexadecimal.
+        occurrences = [line for _, _, line in parsed
+                       if re.match(r'\s*' + re.escape(label) + r'(?=[:\s]|$)', line)]
+        require(bool(occurrences), 'LOG_REQUEST_SOURCE')
+        for line in occurrences:
+            match = re.fullmatch(r'\s*' + re.escape(label)
+                                 + r': ([0-9a-f]{' + str(width) + r'})', line)
+            require(match is not None and match[1] == expected, 'LOG_REQUEST_SOURCE')
     require(re.findall(r'^Complete job name: (\S+)$', payload, re.M) == ['acquire'], 'LOG_JOB')
     require(re.findall(r'^SHA256 digest of uploaded artifact is ([0-9a-f]{64})$', payload, re.M)
             == [e['inputs']['artifact.zip']['sha256']], 'LOG_ARTIFACT_DIGEST')
