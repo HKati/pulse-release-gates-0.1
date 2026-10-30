@@ -38,6 +38,7 @@ current development boundaries are documented below.
 
 [Implementation and verified results](PULSEMECH_TECHNICAL_OVERVIEW.md#current-verified-state-and-latest-results)
  · [Preserved transition cases and original execution evidence](docs/PULSEMECH_PARADOX_COMPATIBILITY_RESULT_v0.md)
+ · [PD-SM-02 bounded pre-execution result](docs/PULSEMECH_PARADOX_PREEXECUTION_SCRATCH_RESULT_v0.md)
 
 ## PULSEmech Transition Meter — The Missing Instrument Between Measured States
 
@@ -217,6 +218,8 @@ later source revision.
 | Public PULSEmech Core execution record | Completed — PULSE CI #5728 |
 | Completed public non-stubbed release-grade run record | Completed — PULSE CI #6066 |
 | Paradoxon PD-SM-01-E2 interpreter compatibility | Completed and preserved through #2950: CPython 3.11.14, 3.12.12, 3.13.5 and 3.14.3 on Linux x86_64; `MATRIX MATCH`; [execution record and original evidence](docs/PULSEMECH_PARADOX_COMPATIBILITY_RESULT_v0.md); `authority_effect = none` |
+| Paradoxon PD-SM-01-E1 finite checks and MON-1 local enforcement | Completed local evidence preserved through #2954 / `a9de035d1b3ac227359ca78a98274abe4c9ee186`: 8192 F1 rows, 4096 F2 rows and 17 selected MON-1 cases; original archive and nested E0 retained; E2 compatibility and production authority remain separate; [result and original evidence](docs/PULSEMECH_PARADOX_E1_MON1_RESULT_v0.md); `authority_effect = none` |
+| Paradoxon PD-SM-02 source-bound pre-execution impact | Implementation merged through #2957 / `4cb5f7dbe00cfbaf5bd50f77423e4d671fa71905`; bounded local scratch result preserved through #2958 / `5bb3cae1ea562cbfde4b80f7bc3878bf3d92f6be`: 112 recorded regressions, 24/24 declared outcomes, 4/4 eligible exact effects and 20/20 non-eligible attempts stopped before output creation; CPython 3.13.5/Linux x86_64 only; [result and evidence](docs/PULSEMECH_PARADOX_PREEXECUTION_SCRATCH_RESULT_v0.md); `authority_effect = none` |
 
 ### Completed historical producer-input capture — Step 4A
 
@@ -2099,8 +2102,11 @@ Curated entrypoints (repo-level docs under `docs/`):
 ### Paradox field & edges
 - [Paradoxon M1-M3 definition contract](docs/PULSEMECH_PARADOX_M1_M3_DEFINITION_CONTRACT_v0_2.md) — Research contract and manual derivations.
 - [PD-SM-01 source mapping](docs/PULSEMECH_PARADOX_SOURCE_MAPPING_CASE_v0.md) — Source-bound gate/metric/tension/edge case.
+- [PD-SM-01-E1 / MON-1 preserved local execution](docs/PULSEMECH_PARADOX_E1_MON1_RESULT_v0.md) — Complete F1/F2 finite records and the selected 17-case monitored-effect experiment.
 - [PD-SM-01 compatibility implementation](examples/paradox_compatibility_v0/README.md) — Four-interpreter runner, controls and manual workflow.
 - [PD-SM-01-E2 completed execution](docs/PULSEMECH_PARADOX_COMPATIBILITY_RESULT_v0.md) — Run `40113600844/1`, `MATRIX MATCH`, preserved original ZIP and SHA-256.
+- [PD-SM-02 pre-execution implementation](examples/paradox_preexecution_impact_v0/README.md) — Closed source language, separate mapper/checker and explicit scratch-launch boundary.
+- [PD-SM-02 completed bounded scratch result](docs/PULSEMECH_PARADOX_PREEXECUTION_SCRATCH_RESULT_v0.md) — 24/24 declared outcomes, 4/4 eligible exact effects and 20/20 pre-effect refusals with preserved evidence.
 - [docs/PULSE_paradox_field_v0_walkthrough.md](docs/PULSE_paradox_field_v0_walkthrough.md) — How to read `paradox_field_v0`.
 - [docs/Pulse_paradox_edges_v0_status.md](docs/Pulse_paradox_edges_v0_status.md) — Status/roadmap for `paradox_edges_v0.jsonl`.
 - [docs/paradox_edges_case_studies.md](docs/paradox_edges_case_studies.md) — Case studies (fixture + non-fixture).
