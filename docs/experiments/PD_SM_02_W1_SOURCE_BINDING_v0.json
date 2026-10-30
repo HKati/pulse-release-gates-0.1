@@ -1,0 +1,139 @@
+{
+  "archive": {
+    "bytes": 329950,
+    "manifest_entries": 471,
+    "manifest_raw_sha256": "26083c5fffbfdbc4cef002db59663d6a0a262d5f36a737f8dcd4a5f20484d178",
+    "member_root": "PD_SM_02_SCRATCH_PILOT_20261027/",
+    "members": 473,
+    "raw_sha256": "c63f2ee6e2dfae21ec3736fbd99f8169b8c5b7a06a28c8a8a3e7dad2ac2fcd18",
+    "repository_path": "docs/evidence/PD_SM_02_SCRATCH_PILOT_20261027/PD_SM_02_SCRATCH_PILOT_20261027.zip"
+  },
+  "authority_effect": "none",
+  "experiment_id": "PD-SM-02-W1",
+  "historical_implementation_commit": "4cb5f7dbe00cfbaf5bd50f77423e4d671fa71905",
+  "historical_result_preservation_commit": "5bb3cae1ea562cbfde4b80f7bc3878bf3d92f6be",
+  "hosted_ci_verification": false,
+  "inspected_repository_commit": "d04264496365ee681167b194b5a9aebb4991374a",
+  "new_execution": false,
+  "new_model_replay": false,
+  "next_required_evidence": [
+    "reviewed separate diagnostic harness source and compiled/runtime identity",
+    "per-primitive semantic equivalence report for selected healthy scenario",
+    "external containment controller and completed positive/negative admission probes",
+    "independent ordered effect/intent/ACK observer validation",
+    "explicit owner authorization bound to all final input and tool identities"
+  ],
+  "owner_authorization_for_w1": false,
+  "prepared_date": "2026-10-31",
+  "repository": "HKati/pulse-release-gates-0.1",
+  "schema_version": "pd_sm_02_w1_source_binding_v0",
+  "selection": {
+    "bytes": 46015,
+    "path": "PD_SM_02_W1_SELECTION_v0.json",
+    "raw_sha256": "a04ff29eba4fda99e575f1984bfa9e91622fdd02d4ddfb2e01966e25967d5620"
+  },
+  "source_authentication_boundary": "Public repository bindings and project-produced archive; no new provider attestation or third-party validation",
+  "source_files": [
+    {
+      "archive_member": "implementation_snapshot/check_impact.py",
+      "bytes": 38686,
+      "git_blob_sha1": "3cef3a623bafff032f993c96357a29294068f0d4",
+      "raw_sha256": "244c38c0c27ecd313328918b33c006d9273f01f5b4279be3dbf8f09c5888c9dd",
+      "repository_path": "examples/paradox_preexecution_impact_v0/check_impact.py"
+    },
+    {
+      "archive_member": "implementation_snapshot/fixtures.json",
+      "bytes": 47697,
+      "git_blob_sha1": "76542b40898d5c13deb9163addfed9fddb47ebe0",
+      "raw_sha256": "f815403ae44bdbf90f63654777f53ed998e9b1ade651cf1a0927287a7ec62a19",
+      "repository_path": "examples/paradox_preexecution_impact_v0/fixtures.json"
+    },
+    {
+      "archive_member": "implementation_snapshot/profile.json",
+      "bytes": 8974,
+      "git_blob_sha1": "1cd2e5928ff86e745deb8fb5a991e718448cfd7c",
+      "raw_sha256": "f9a469e7cf35a41e1812e1577a9c5cbb5370d537cebe54f5a16bee17aeec16d0",
+      "repository_path": "examples/paradox_preexecution_impact_v0/profile.json"
+    },
+    {
+      "archive_member": "implementation_snapshot/run_local.py",
+      "bytes": 22844,
+      "git_blob_sha1": "dbde9517f39082a854f31ef8b97be200c9efeb75",
+      "raw_sha256": "9646d7c4b25034a8ab5add881c9a4ce760fd0f1cf47ab37d69a389c5b2d89e68",
+      "repository_path": "examples/paradox_preexecution_impact_v0/run_local.py"
+    },
+    {
+      "archive_member": "implementation_snapshot/source_model.py",
+      "bytes": 14073,
+      "git_blob_sha1": "5c81b43f4bf5d02118058627c48371f8996b4d70",
+      "raw_sha256": "2bf013c8f3f645fe32d5084852756ebf58d519c3a46df78fe03ae84a373d7714",
+      "repository_path": "examples/paradox_preexecution_impact_v0/source_model.py"
+    },
+    {
+      "archive_member": "implementation_snapshot/test_preexecution.py",
+      "bytes": 19918,
+      "git_blob_sha1": "2571640af4893df8ec1e364ac39d412c4a1401ce",
+      "raw_sha256": "a92688932164e0bf32be21f5c885ef5f0f208a69f014e2caac235240cce170a0",
+      "repository_path": "examples/paradox_preexecution_impact_v0/test_preexecution.py"
+    }
+  ],
+  "source_regions": [
+    {
+      "end_line": 196,
+      "line_slice_rule": "UTF-8 decoded file, splitlines(), inclusive 1-based range joined by LF, no final LF",
+      "line_slice_sha256": "d04b847db73a460b9e1a44bea80c23feffa4328924400d5ab3481aeb1aa04955",
+      "repository_path": "examples/paradox_preexecution_impact_v0/run_local.py",
+      "start_line": 191,
+      "symbol": "_compile_runtime_candidate"
+    },
+    {
+      "end_line": 257,
+      "line_slice_rule": "UTF-8 decoded file, splitlines(), inclusive 1-based range joined by LF, no final LF",
+      "line_slice_sha256": "ed83f868b3b597bbaffa53fea755e4bcaced47f9734caa0ab3da97e10e881aee",
+      "repository_path": "examples/paradox_preexecution_impact_v0/run_local.py",
+      "start_line": 241,
+      "symbol": "_monitor"
+    },
+    {
+      "end_line": 292,
+      "line_slice_rule": "UTF-8 decoded file, splitlines(), inclusive 1-based range joined by LF, no final LF",
+      "line_slice_sha256": "faff471985d4104eaad1124b2cf794d4b9b90b364e55391a28f5c5f89283a131",
+      "repository_path": "examples/paradox_preexecution_impact_v0/run_local.py",
+      "start_line": 289,
+      "symbol": "bind_request"
+    },
+    {
+      "end_line": 314,
+      "line_slice_rule": "UTF-8 decoded file, splitlines(), inclusive 1-based range joined by LF, no final LF",
+      "line_slice_sha256": "efb8f9f4b793e1cd284e20d1f734ed871aaf42f572dbfd7e513a0163c87ab747",
+      "repository_path": "examples/paradox_preexecution_impact_v0/run_local.py",
+      "start_line": 308,
+      "symbol": "reserve"
+    },
+    {
+      "end_line": 335,
+      "line_slice_rule": "UTF-8 decoded file, splitlines(), inclusive 1-based range joined by LF, no final LF",
+      "line_slice_sha256": "55d5394d7963c5e99912e90f2336012c5cb37b8e3e9823a6425424198a71158f",
+      "repository_path": "examples/paradox_preexecution_impact_v0/run_local.py",
+      "start_line": 316,
+      "symbol": "broker_request"
+    },
+    {
+      "end_line": 359,
+      "line_slice_rule": "UTF-8 decoded file, splitlines(), inclusive 1-based range joined by LF, no final LF",
+      "line_slice_sha256": "aba94dc6764a0fb62ca6f86b4739f95b399eb56c7573bbcf00b6d44ae00ceaa6",
+      "repository_path": "examples/paradox_preexecution_impact_v0/run_local.py",
+      "start_line": 351,
+      "symbol": "append_sink"
+    },
+    {
+      "end_line": 362,
+      "line_slice_rule": "UTF-8 decoded file, splitlines(), inclusive 1-based range joined by LF, no final LF",
+      "line_slice_sha256": "1ee7f7c54c16d29448b0e01eb4d215e1b272f4241fd9e52dd9b23e1c414d71a1",
+      "repository_path": "examples/paradox_preexecution_impact_v0/run_local.py",
+      "start_line": 361,
+      "symbol": "direct_sink_write"
+    }
+  ],
+  "source_status": "six program/data files match the historical snapshot and the inspected repository commit; the later documentation README is not the executed historical README"
+}
