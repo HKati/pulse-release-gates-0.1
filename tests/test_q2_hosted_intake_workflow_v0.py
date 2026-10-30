@@ -182,7 +182,7 @@ def test_tools_registration_is_163_and_does_not_expand_pytest_manifest():
                                            'q2_required_gate_integration_v0','q2_hosted_intake_workflow_v0',
                                            'q2_capsule_publication_v0','q2_negative_intake_verification_v0')]
     entries=[x.strip() for x in (ROOT/'ci/tools-tests.list').read_text().splitlines() if x.strip() and not x.lstrip().startswith('#')]
-    assert len(entries)==len(set(entries))==171
+    assert len(entries)==len(set(entries))==172
     pytest_entries=(ROOT/'ci/pytest-tests.list').read_text().splitlines()
     assert all(entries.count(name)==1 and name not in pytest_entries for name in modules)
 
