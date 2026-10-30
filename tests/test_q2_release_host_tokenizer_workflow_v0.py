@@ -104,7 +104,7 @@ def test_no_model_loader_generation_or_legacy_relocated_capture_entry():
 def test_two_tools_tests_exactly_once_and_all_count_consumers():
     entries = [line.strip() for line in (ROOT / 'ci/tools-tests.list').read_text().splitlines()
                if line.strip() and not line.startswith('#')]
-    assert len(entries) == len(set(entries)) == 170
+    assert len(entries) == len(set(entries)) == 171
     for name in ('tests/test_q2_release_host_tokenizer_v0.py','tests/test_q2_release_host_tokenizer_workflow_v0.py'):
         assert entries.count(name) == 1
         assert name not in (ROOT / 'ci/pytest-tests.list').read_text()
@@ -112,7 +112,7 @@ def test_two_tools_tests_exactly_once_and_all_count_consumers():
     for name in ('test_q2_reference_acquisition_v0.py','test_q2_hosted_intake_workflow_v0.py',
                  'test_pulsemech_compute_bounded_execution_v0.py','test_pulsemech_compute_current_run_export_candidate_workflow_v0.py',
                  'test_pulsemech_compute_current_run_artifact_observed_candidate_workflow_v0.py'):
-        assert len(re.findall(r'==\s*170\b',(ROOT / 'tests' / name).read_text())) == 1
+        assert len(re.findall(r'==\s*171\b',(ROOT / 'tests' / name).read_text())) == 1
 
 
 @pytest.fixture(scope='module')
