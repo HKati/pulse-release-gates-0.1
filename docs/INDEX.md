@@ -992,6 +992,14 @@ index update neither predeclares that closure nor performs a new proof execution
   external containment, ordered observation and owner authorization remain
   prerequisites; normal admission and original evidence stay unchanged.
   `execution_status = NOT_RUN`; `authority_effect = none`.
+- Paradoxon PD-SM-02-W1 offline input and observation-record checker:
+  [W1 record-checker implementation and format](experiments/PD_SM_02_W1_RECORD_CHECKER_v0.md)
+  **Current implementation; offline record consistency only.** Binds the frozen
+  selection and original evidence; checks operation coverage and request/ACK
+  ordering separately from final bytes. Synthetic fixtures remain synthetic;
+  acquisition authenticity, containment, native witness observation and a new
+  execution authorization are not established by this checker.
+  `authority_effect = none`.
 - [PULSE_paradox_field_v0_walkthrough.md](PULSE_paradox_field_v0_walkthrough.md) — Reading `paradox_field_v0`.
 - [Pulse_paradox_edges_v0_status.md](Pulse_paradox_edges_v0_status.md) — Status and roadmap for `paradox_edges_v0.jsonl`.
 - [paradox_edges_case_studies.md](paradox_edges_case_studies.md) — Fixture and non-fixture case studies.

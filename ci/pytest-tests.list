@@ -32,3 +32,4 @@ tests/test_make_og_write_boundary_v0.py
 tests/test_check_pages_source_binding_v0.py
 tests/test_q3_preflight_preservation_v0.py
 tests/test_q3_external_postflight_v0.py
+tests/test_paradox_w1_records_v0.py
