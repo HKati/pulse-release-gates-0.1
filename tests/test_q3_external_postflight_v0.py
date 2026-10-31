@@ -305,7 +305,7 @@ def test_cli_missing_inputs_never_authorize(historical,tmp_path):
 
 
 def test_new_module_registered_once_in_both_manifests():
-    for name,count in [('tools-tests.list',172),('pytest-tests.list',28)]:
+    for name,count in [('tools-tests.list',173),('pytest-tests.list',29)]:
         entries=[line.split('#',1)[0].strip() for line in (ROOT/'ci'/name).read_text().splitlines()]
         entries=[e for e in entries if e]
         assert len(entries)==len(set(entries))==count
