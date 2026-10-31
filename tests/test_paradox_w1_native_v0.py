@@ -296,6 +296,13 @@ def test_transport_refuses_duplicate_readiness():
         timeout=2,on_line=lambda _:b'GO\n')
     assert r['termination']=='transport_or_admission_error' and 'duplicate_ready' in r['detail']
 
+def output_control_prefix(ready, padding=1000):
+    """Synthetic byte-for-byte shape of the pinned output-control producer."""
+    head=O.canonical(ready)+b'\n'
+    frame=O.canonical({'frame':'supervision_output','padding':'x'*padding})+b'\n'
+    return (head+frame*(65536//len(frame)+2))[:65536]
+
+
 class FakeDocker:
     """Synthetic backend only. Never calls subprocess, Docker or candidate code."""
     mode=None
@@ -339,7 +346,11 @@ class FakeDocker:
                 raw=bytes.fromhex(e['data']['bytes_hex'])[:7];e['data'].update(bytes_hex=raw.hex(),write_return=7);row['sink_hex']=raw.hex()
             frames+=frames_for(row,request['run_id'])
             self.containers[cid][0]['State'].update(Running=False,Status='exited',ExitCode=0,OOMKilled=False)
-        stdout=b''.join(O.canonical(f)+b'\n' for f in frames);stdout_path.write_bytes(stdout);stderr_path.write_bytes(b'')
+        stdout=b''.join(O.canonical(f)+b'\n' for f in frames)
+        if token and case=='probe-output':
+            # Exercise the actual cutoff shape, not only a complete ready frame.
+            stdout=output_control_prefix(ready)
+        stdout_path.write_bytes(stdout);stderr_path.write_bytes(b'')
         return {'returncode':rc,'termination':termination,'detail':detail,'execution_token_sent':token,'stdout':stdout,'stderr':b''}
 
 @pytest.mark.parametrize('mode,expected,tokens',[ (None,'CAPTURE_COMPLETED_UNATTESTED',5),
@@ -363,6 +374,173 @@ def test_controller_synthetic_backend_budget_stop_and_retention(package,monkeypa
         assert r['status']=='RECORDS_MISMATCH' and r['case_reports'][1]['recorded_inner_relation']=='PARTIAL_EFFECT'
         assert [x['status'] for x in r['case_reports'][2:]]==['NOT_RUN']*3
 
+
+
+@pytest.fixture
+def completed_capture(package,monkeypatch):
+    p,sha=package
+    monkeypatch.setattr(B,'Docker',FakeDocker)
+    monkeypatch.setattr(FakeDocker,'mode',None)
+    result=H.execute(p,sha,'I_AUTHORIZE_PD_SM_02_W1:'+sha)
+    assert result['status']=='CAPTURE_COMPLETED_UNATTESTED'
+    return p,sha
+
+
+def reclose_capture(package):
+    cap=package/'capture'
+    (cap/'MANIFEST.json').unlink()
+    H.close_manifest(cap)
+
+
+def assert_replay_boundary(result):
+    assert result['status']=='CAPTURE_RECORDS_REPLAYED'
+    assert result['record_status']=='RECORDS_CONSISTENT'
+    assert result['acquisition_authenticity']=='NOT_EXTERNALLY_VERIFIED'
+    assert result['native_witness_observed'] is None
+    assert result['containment_observed'] is None
+    assert result['execution_authorized'] is False
+    assert result['new_candidate_executions']==0 and result['authority_effect']=='none'
+
+
+@pytest.mark.parametrize('padding',[1,7,31,1000,4096,60000])
+def test_output_control_capped_tail_replays_without_changing_bytes(completed_capture,padding):
+    p,sha=completed_capture;d=p/'capture/probe-output'
+    ready=O.strict((d/'readiness.json').read_bytes())
+    raw=output_control_prefix(ready,padding)
+    assert len(raw)==65536
+    (d/'stdout.jsonl').write_bytes(raw);reclose_capture(p)
+    assert_replay_boundary(H.verify_capture(p,sha))
+    assert (d/'stdout.jsonl').read_bytes()==raw
+    manifest=O.strict((p/'capture/MANIFEST.json').read_bytes())
+    assert manifest['files']['probe-output/stdout.jsonl']=={'bytes':65536,'sha256':O.digest(raw)}
+
+
+@pytest.mark.parametrize('ending',[b'\n',b'{',b'\xc3',b'\xff'])
+def test_output_control_tail_is_opaque_but_preserved(completed_capture,ending):
+    p,sha=completed_capture;path=p/'capture/probe-output/stdout.jsonl'
+    raw=path.read_bytes()[:-1]+ending
+    assert len(raw)==65536
+    path.write_bytes(raw);reclose_capture(p)
+    assert_replay_boundary(H.verify_capture(p,sha))
+    assert path.read_bytes()==raw
+
+
+@pytest.mark.parametrize('mutation',[
+    'empty','truncated_ready','invalid_json','invalid_utf8','duplicate_key',
+    'missing_ready','wrong_request','wrong_case','wrong_runtime','oversized'])
+def test_output_control_readiness_and_size_remain_strict(completed_capture,mutation):
+    p,sha=completed_capture;d=p/'capture/probe-output'
+    ready=O.strict((d/'readiness.json').read_bytes())
+    raw=(d/'stdout.jsonl').read_bytes()
+    first,separator,tail=raw.partition(b'\n')
+    assert separator==b'\n'
+    if mutation=='empty': raw=b''
+    elif mutation=='truncated_ready': raw=first[:-1]
+    elif mutation=='invalid_json': raw=b'{not-json}\n'+tail
+    elif mutation=='invalid_utf8': raw=b'\xff\n'+tail
+    elif mutation=='duplicate_key': raw=b'{"frame":"ready","frame":"ready"}\n'+tail
+    elif mutation=='missing_ready': raw=O.canonical({'frame':'supervision_output'})+b'\n'+tail
+    elif mutation=='oversized': raw+=b'x'
+    else:
+        changed=copy.deepcopy(ready)
+        if mutation=='wrong_request': changed['request_sha256']='f'*64
+        elif mutation=='wrong_case': changed['case_id']='P00'
+        else: changed['runtime']['version']='3.11.0'
+        raw=(O.canonical(changed)+b'\n'+tail)[:65536]
+    (d/'stdout.jsonl').write_bytes(raw);reclose_capture(p)
+    with pytest.raises((O.CaptureError,B.BoundaryError)):
+        H.verify_capture(p,sha)
+
+
+@pytest.mark.parametrize('field,value',[
+    ('termination','exited'),('termination','timeout'),('termination','transport_or_admission_error'),
+    ('execution_token_sent',False),('execution_token_sent',1)])
+def test_truncated_control_requires_expected_termination_and_token(completed_capture,field,value):
+    p,sha=completed_capture;path=p/'capture/probe-output/transport.json'
+    obj=O.strict(path.read_bytes());obj[field]=value
+    path.write_bytes(O.canonical(obj)+b'\n');reclose_capture(p)
+    with pytest.raises(O.CaptureError,match='capture_supervision_control|capture_token_not_sent'):
+        H.verify_capture(p,sha)
+
+
+@pytest.mark.parametrize('label',['probe-time','P00','N01','N07','N08','N02'])
+def test_truncated_non_output_transcripts_stay_rejected(completed_capture,label):
+    p,sha=completed_capture;path=p/'capture'/label/'stdout.jsonl'
+    raw=path.read_bytes();assert raw.endswith(b'\n')
+    path.write_bytes(raw[:-1]);reclose_capture(p)
+    with pytest.raises(O.CaptureError,match='truncated_frame'):
+        H.verify_capture(p,sha)
+
+
+@pytest.mark.parametrize('label',['P00','N01','N07','N08','N02'])
+def test_candidate_tail_is_not_ignored_after_complete_readiness(completed_capture,label):
+    p,sha=completed_capture;path=p/'capture'/label/'stdout.jsonl'
+    path.write_bytes(path.read_bytes()+b'not-json\n');reclose_capture(p)
+    with pytest.raises(O.CaptureError,match='invalid_json'):
+        H.verify_capture(p,sha)
+
+
+def test_control_tail_remains_hash_bound(completed_capture):
+    p,sha=completed_capture;path=p/'capture/probe-output/stdout.jsonl'
+    raw=path.read_bytes();path.write_bytes(raw[:-1]+b'!')
+    # Deliberately retain the closed manifest: opaque is not unbound.
+    with pytest.raises(O.CaptureError,match='capture_member_binding'):
+        H.verify_capture(p,sha)
+
+
+@pytest.mark.parametrize('mutation,code',[(None,0),('control_ready',1),('candidate_tail',1)])
+def test_verify_capture_cli_control_cutoff_boundary(completed_capture,mutation,code):
+    p,sha=completed_capture
+    if mutation=='control_ready':
+        path=p/'capture/probe-output/stdout.jsonl'
+        path.write_bytes(b'{"frame":"wrong"}\n'+path.read_bytes().split(b'\n',1)[1])
+        reclose_capture(p)
+    elif mutation=='candidate_tail':
+        path=p/'capture/P00/stdout.jsonl';path.write_bytes(path.read_bytes()[:-1])
+        reclose_capture(p)
+    r=subprocess.run([sys.executable,'-I','-S','-B',str(TOOLS/'run_paradox_w1_native_v0.py'),
+        'verify-capture','--package',str(p),'--request-sha256',sha],
+        capture_output=True,timeout=20,check=False)
+    assert r.returncode==code and r.stderr==b''
+    report=O.strict(r.stdout)
+    if code==0: assert_replay_boundary(report)
+    else: assert report['status']=='BLOCKED'
+
+
+def test_real_bounded_process_cutoff_is_offline_replayable(package,monkeypatch):
+    # Only the benign output generator is a real process. Docker, the image,
+    # readiness fields and every candidate transcript remain synthetic.
+    # The generator reproduces the pinned control's 1000-character padding.
+    observed=[]
+    class StreamingOutputDocker(FakeDocker):
+        def capture(self,cid,request_sha,case,callback,stdout_path,stderr_path):
+            result=super().capture(cid,request_sha,case,callback,stdout_path,stderr_path)
+            if case!='probe-output': return result
+            first=O.canonical(probe(request_sha,case))+b'\n'
+            flood=O.canonical({'frame':'supervision_output','padding':'x'*1000})+b'\n'
+            code=("import os\n"
+                  f"os.write(1,{first!r})\n"
+                  "assert os.read(0,32)==b'GO\\n'\n"
+                  f"frame={flood!r}\n"
+                  "for _ in range(2048): os.write(1,frame)\n")
+            result=B.bounded_process([sys.executable,'-I','-S','-c',code],{'PATH':os.defpath},
+                timeout=5,stdout_limit=65536,
+                on_line=lambda raw: b'GO\n' if O.strict(raw).get('frame')=='ready' else None)
+            assert result['termination']=='output_limit' and result['execution_token_sent'] is True
+            assert result['stderr']==b'' and result['stdout']==output_control_prefix(probe(request_sha,case))
+            assert len(result['stdout'])==65536 and not result['stdout'].endswith(b'\n')
+            stdout_path.write_bytes(result['stdout']);stderr_path.write_bytes(result['stderr'])
+            observed.append(result['stdout'])
+            return result
+    monkeypatch.setattr(B,'Docker',StreamingOutputDocker)
+    monkeypatch.setattr(FakeDocker,'mode',None)
+    p,sha=package
+    assert H.execute(p,sha,'I_AUTHORIZE_PD_SM_02_W1:'+sha)['status']=='CAPTURE_COMPLETED_UNATTESTED'
+    assert len(observed)==1
+    with pytest.raises(O.CaptureError,match='truncated_frame'):
+        O.parse_frames(observed[0])  # The general parser remains strict.
+    assert_replay_boundary(H.verify_capture(p,sha))
+    assert (p/'capture/probe-output/stdout.jsonl').read_bytes()==observed[0]
 
 def test_runtime_cli_cannot_start_in_normal_process():
     r=subprocess.run([sys.executable,'-I','-S','-B',str(TOOLS/'paradox_w1_native_runtime_v0.py'),

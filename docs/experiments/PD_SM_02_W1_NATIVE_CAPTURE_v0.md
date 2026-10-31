@@ -199,6 +199,16 @@ reconstructs case records and replays the existing checker. It reports the recor
 status separately from acquisition authenticity. Hash-consistent fabricated evidence
 is still not externally authenticated acquisition.
 
+The output-limit control can stop at its 65,536-byte stdout cap inside a JSON line.
+For `probe-output` only, after checking the recorded `output_limit` termination
+and sent execution token, replay strictly parses the first complete readiness
+line and requires it to match the separately validated readiness record. The
+remaining capped bytes are retained unchanged as opaque stress-control output;
+the closed manifest still binds every byte. A missing, malformed, mismatched or
+incomplete readiness frame is rejected. The general frame parser, timeout-control
+transcript and all candidate transcripts retain strict complete-line framing.
+This exception does not accept a truncated candidate observation as complete.
+
 ## 7. Non-executing commands and later acquisition
 
 These are interfaces, not a claim that a native acquisition has occurred.

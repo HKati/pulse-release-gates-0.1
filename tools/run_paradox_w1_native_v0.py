@@ -330,7 +330,19 @@ def verify_capture(package,expected_sha):
             need(terminal[0]['Id']==cid and terminal[0]['Image']==req['image_id'] and
                  terminal[0]['State']['Running'] is False and terminal[0]['State']['OOMKilled'] is False
                  and terminal[0]['State']['ExitCode']==0,'capture_container_terminal')
-        frames=O.parse_frames(read_regular(d/'stdout.jsonl'))
+        transcript=read_regular(d/'stdout.jsonl')
+        if label=='probe-output':
+            # The expected output-limit cutoff can split the final stress frame.
+            # Bind the complete ready line; retain the remaining capped bytes as
+            # opaque, manifest-bound control output, not candidate observations.
+            need(len(transcript)<=65536,'capture_output_control_size')
+            first,newline,_tail=transcript.partition(b'\n')
+            need(newline==b'\n','capture_readiness_incomplete')
+            frames=O.parse_frames(first+newline)
+            need(len(frames)==1,'capture_readiness_frame')
+        else:
+            # Candidate and timeout-control transcripts still require full framing.
+            frames=O.parse_frames(transcript)
         need(frames and frames[0]==ready,'capture_readiness_binding')
         return frames
     if any(c['status']=='COMPLETE' for c in record['cases']):
