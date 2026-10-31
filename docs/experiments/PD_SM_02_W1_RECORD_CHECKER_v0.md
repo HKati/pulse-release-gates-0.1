@@ -110,6 +110,13 @@ The worker's operation begin/end pairs must match the selected source operations
 in order, with exact primitive arguments. Exceptions close the executed prefix;
 they do not imply execution of the remaining source operations.
 
+The `direct_effect_route_not_admitted` refusal is valid only at the executed
+`direct_sink_write` source operation, with the already checked operation index
+and arguments. The same error attached to `actor`, `bind_request` or another
+primitive is `INVALID_RECORD_OR_INPUT`, even when terminal status and effect
+counts match N02. A terminal error alone does not establish that the rejecting
+primitive was reached.
+
 Required event kinds, where applicable:
 
 ```text
@@ -165,6 +172,13 @@ control; changing the rejecting primitive into an actual writer is out of scope.
 These rows describe synthetic test inputs and record-checker outputs, not a new
 native experiment. Partial writes retain their byte count and `PARTIAL_EFFECT`
 classification; they are not normalized into a successful complete effect.
+The pinned `append_sink` records the actual write count and returns after fsync,
+including a count below 22. A consistent 0–21-byte prefix can therefore retain
+`RETURNED` and a `COMPLETED` candidate terminal without inventing an exception.
+It produces `RECORDS_MISMATCH` against the fixed full-write prediction, not an
+invalid-input result solely because the count is short. The exact byte-prefix,
+request/reservation and terminal-file bindings still apply; subsequent cases
+must remain `NOT_RUN` after that mismatch.
 
 ## 5. Result and authority boundary
 

@@ -475,6 +475,11 @@ def check_case(case, row, run_id):
         require((outcome=='RETURNED' and err is None) or
                 (outcome=='RAISED' and type(err) is str and
                  re.fullmatch(r'[a-z][a-z0-9_]{0,95}',err)), 'operation_error')
+        # This refusal belongs only to the pinned direct-write primitive.
+        # The begin event is already bound to its exact source index and args;
+        # a matching terminal error cannot stand in for reaching that operation.
+        if err=='direct_effect_route_not_admitted':
+            require(op['primitive']=='direct_sink_write', 'primitive_refusal_operation_binding')
         groups.append((op,begin,inner,end))
         if outcome=='RAISED': raised=err;break
     require(cursor==len(worker)-1, 'unmodeled_worker_event')
@@ -534,7 +539,8 @@ def check_case(case, row, run_id):
                     'effect_request_reservation_binding')
             require(raw==bound['payload'].encode()[:d['write_return']] and len(raw)==d['write_return'],
                     'effect_byte_binding')
-            if returned: require(d['write_return']==22,'returned_short_write')
+            # The pinned append returns after fsync with the actual count,
+            # even when short. Preserve that count for PARTIAL_EFFECT below.
             effect_total[args[0]]=effect_total.get(args[0],0)+1
             intent_before=any(before(x['event_id'],e['event_id']) for x in intents)
             ack_before=any(before(x['event_id'],e['event_id']) for x in acks)

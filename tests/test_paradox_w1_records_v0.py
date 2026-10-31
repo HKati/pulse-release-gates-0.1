@@ -354,15 +354,183 @@ def test_partial_write_retained_as_mismatch_not_safety_pass(record,admitted):
     c=record['cases'][0];write=event(c,'sink_write_completed')
     raw=bytes.fromhex(write['data']['bytes_hex'])[:7]
     write['data'].update(bytes_hex=raw.hex(),write_return=7);c['sink_hex']=raw.hex()
-    ends=[e for e in c['events'] if e['kind']=='op_end'];ends[-1]['data']={'outcome':'RAISED','error_code':'runtime_sink_short_write'}
-    event(c,'candidate_terminal')['data']={'status':'FAILED','exit_code':1,'error_code':'runtime_sink_short_write'}
-    event(c,'supervisor_terminal')['data']['exit_code']=1
+    # The pinned append records the actual count and returns after fsync;
+    # a faithful short-write record must not invent an exception.
+    assert event(c,'op_end',9)['data']=={'outcome':'RETURNED','error_code':None}
+    assert event(c,'candidate_terminal')['data']=={'status':'COMPLETED','exit_code':0,'error_code':None}
     stop_after(record,0)
     r=evaluate(record,admitted)
     assert r['status']=='RECORDS_MISMATCH'
     assert r['case_reports'][0]['recorded_inner_relation']=='PARTIAL_EFFECT'
     assert r['case_reports'][0]['sink_bytes']==7
     assert r['case_reports'][0]['record_prediction_match'] is False
+
+
+def refusal_at_operation(case, operation_index):
+    """Synthetic completed prefix ending with a refusal at one source operation."""
+    case['events']=[e for e in case['events']
+                    if e['operation_index'] is None or e['operation_index']<=operation_index]
+    end=next(e for e in case['events']
+             if e['kind']=='op_end' and e['operation_index']==operation_index)
+    end['data']={'outcome':'RAISED','error_code':'direct_effect_route_not_admitted'}
+    event(case,'candidate_terminal')['data']={
+        'status':'PRIMITIVE_REFUSED','exit_code':1,'error_code':'direct_effect_route_not_admitted'}
+    event(case,'supervisor_terminal')['data']['exit_code']=1
+    ids={e['event_id'] for e in case['events']}
+    case['message_links']=[link for link in case['message_links']
+                           if link['send'] in ids and link['receive'] in ids]
+    if not any(e['process']=='monitor' for e in case['events']):
+        case['processes']['monitor']=None
+    case['sink_hex']=''.join(e['data']['bytes_hex'] for e in case['events']
+                             if e['kind']=='sink_write_completed')
+    case['audit_hex']=''.join(e['data']['record_hex'] for e in case['events']
+                              if e['kind']=='intent_persisted')
+    renumber(case)
+
+
+def returned_write_count(record, case_index, write_index, count):
+    """Alter only a synthetic write count/bytes; keep normal operation completion."""
+    case=record['cases'][case_index]
+    write=event(case,'sink_write_completed',write_index)
+    raw=write['data']['request']['payload'].encode('utf-8')[:count]
+    write['data'].update(bytes_hex=raw.hex(),write_return=count)
+    case['sink_hex']=''.join(e['data']['bytes_hex'] for e in case['events']
+                             if e['kind']=='sink_write_completed')
+    end=next(e for e in case['events']
+             if e['kind']=='op_end' and e['operation_index']==write['operation_index'])
+    assert end['data']=={'outcome':'RETURNED','error_code':None}
+    assert event(case,'candidate_terminal')['data']=={
+        'status':'COMPLETED','exit_code':0,'error_code':None}
+    stop_after(record,case_index)
+    return case,write
+
+
+@pytest.mark.parametrize('case_index,operation_index',
+                         [(4,0),(4,1)]+[(0,i) for i in range(10)])
+def test_refusal_error_requires_executed_primitive(record,admitted,case_index,operation_index):
+    c=record['cases'][case_index]
+    refusal_at_operation(c,operation_index)
+    stop_after(record,case_index)
+    last=next(e for e in c['events']
+              if e['kind']=='op_begin' and e['operation_index']==operation_index)
+    assert last['data']['primitive']!='direct_sink_write'
+    with pytest.raises(C.Invalid,match='primitive_refusal_operation_binding'):
+        evaluate(record,admitted)
+
+
+def test_n02_refusal_matches_only_after_exact_source_bound_operation(record,admitted):
+    c=record['cases'][4]
+    executed=[e for e in c['events'] if e['kind']=='op_begin']
+    direct=next(op for op in admitted[0]['cases'][4]['operations']
+                if op['primitive']=='direct_sink_write')
+    assert executed[-1]['operation_index']==direct['index']==2
+    assert executed[-1]['data']=={'primitive':direct['primitive'],'args':direct['args']}
+    assert [e['operation_index'] for e in executed]==list(range(direct['index']+1))
+    r=evaluate(record,admitted)
+    assert r['status']=='RECORDS_CONSISTENT'
+    assert r['case_reports'][4]['record_prediction_match'] is True
+    assert r['case_reports'][4]['recorded_inner_relation']=='NO_EFFECT'
+    assert r['case_reports'][4]['effect_support']==[]
+    assert r['matching_primary_witness_records']==3
+    assert r['native_witness_observed'] is None
+
+
+@pytest.mark.parametrize('mutation',['primitive','arguments','position'])
+def test_early_refusal_cannot_impersonate_selected_operation(record,admitted,mutation):
+    c=record['cases'][4];refusal_at_operation(c,0)
+    begin=event(c,'op_begin')
+    if mutation=='primitive':
+        begin['data']={'primitive':'direct_sink_write','args':['helper','request-0']}
+    elif mutation=='arguments':
+        begin['data']['args']=['helper','request-0']
+    else:
+        begin['operation_index']=2
+    with pytest.raises(C.Invalid,match='source_operation_binding|operation_begin_order'):
+        evaluate(record,admitted)
+
+
+@pytest.mark.parametrize('count',range(22))
+@pytest.mark.parametrize('case_index,write_index',[(0,0),(1,0),(2,0),(2,1),(3,0)])
+def test_normally_returned_partial_writes_preserved(record,admitted,case_index,write_index,count):
+    c,write=returned_write_count(record,case_index,write_index,count)
+    r=evaluate(record,admitted);result=r['case_reports'][case_index]
+    assert r['status']=='RECORDS_MISMATCH'
+    assert result['status']=='RECORD_COMPLETE'
+    assert result['recorded_inner_relation']=='PARTIAL_EFFECT'
+    assert result['record_prediction_match'] is False
+    assert result['sink_bytes']==len(bytes.fromhex(c['sink_hex']))
+    assert result['effect_support'][write_index]['bytes']==count
+    assert result['effect_support'][write_index]['event_id']==write['event_id']
+    assert result['terminal']=={'status':'COMPLETED','exit_code':0,'error_code':None}
+    assert [x['status'] for x in r['case_reports'][case_index+1:]]==['NOT_RUN']*(4-case_index)
+    assert r['complete_case_records']==case_index+1
+    assert r['native_witness_observed'] is None and r['containment_observed'] is None
+    assert r['execution_authorized'] is False and r['authority_effect']=='none'
+
+
+@pytest.mark.parametrize('case_index,write_index',[(0,0),(1,0),(2,0),(2,1),(3,0)])
+def test_full_returned_writes_keep_original_predictions(record,admitted,case_index,write_index):
+    original=copy.deepcopy(record)
+    returned_write_count(record,case_index,write_index,22)
+    record['cases'][case_index+1:]=original['cases'][case_index+1:]
+    assert record==original
+    r=evaluate(record,admitted)
+    assert r['status']=='RECORDS_CONSISTENT'
+    assert all(c['record_prediction_match'] is True for c in r['case_reports'])
+
+
+@pytest.mark.parametrize('case_index',[0,1,2,3])
+def test_partial_return_still_requires_not_run_suffix(record,admitted,case_index):
+    suffix=copy.deepcopy(record['cases'][case_index+1:])
+    returned_write_count(record,case_index,0,7)
+    record['cases'][case_index+1:]=suffix
+    with pytest.raises(C.Invalid,match='stop_rule_violation'):
+        evaluate(record,admitted)
+
+
+@pytest.mark.parametrize('count',[-1,23,True,False])
+def test_returned_write_count_stays_bounded_and_strict(record,admitted,count):
+    event(record['cases'][0],'sink_write_completed')['data']['write_return']=count
+    with pytest.raises(C.Invalid,match='effect_write_return'):
+        evaluate(record,admitted)
+
+
+@pytest.mark.parametrize('mutation',['bytes','terminal','request'])
+def test_partial_return_does_not_relax_evidence_binding(record,admitted,mutation):
+    c,write=returned_write_count(record,0,0,7)
+    if mutation=='bytes': write['data']['bytes_hex']=b'WRONG!!'.hex()
+    elif mutation=='terminal': c['sink_hex']+='00'
+    else: write['data']['request']['request_id']='request-1'
+    with pytest.raises(C.Invalid): evaluate(record,admitted)
+
+
+@pytest.mark.parametrize('mutation,code,status',[
+    ('early_actor',1,'INVALID_RECORD_OR_INPUT'),
+    ('early_binding',1,'INVALID_RECORD_OR_INPUT'),
+    ('short_return',3,'RECORDS_MISMATCH'),
+    ('zero_return',3,'RECORDS_MISMATCH'),
+    ('full_return',0,'RECORDS_CONSISTENT'),
+    ('direct_refusal',0,'RECORDS_CONSISTENT'),
+])
+def test_cli_review_corrections(record,admitted,tmp_path,mutation,code,status):
+    if mutation=='early_actor': refusal_at_operation(record['cases'][4],0)
+    elif mutation=='early_binding': refusal_at_operation(record['cases'][4],1)
+    elif mutation in ('short_return','zero_return'):
+        returned_write_count(record,0,0,7 if mutation=='short_return' else 0)
+    path=tmp_path/'review_record.json';path.write_bytes(C.canonical(record))
+    result=subprocess.run([sys.executable,'-I','-S','-B',str(TOOL),'--repo-root',str(ROOT),
+                           '--observations',str(path)],capture_output=True,timeout=20,check=False)
+    assert result.returncode==code and result.stderr==b''
+    report=json.loads(result.stdout)
+    assert report['status']==status
+    assert report['native_witness_observed'] is None and report['containment_observed'] is None
+    assert report['execution_authorized'] is False and report['new_candidate_executions']==0
+    assert report['authority_effect']=='none'
+    if mutation.startswith('early_'):
+        assert report['reason']=='primitive_refusal_operation_binding'
+    elif mutation in ('short_return','zero_return'):
+        assert report['case_reports'][0]['recorded_inner_relation']=='PARTIAL_EFFECT'
+        assert report['case_reports'][0]['terminal']['status']=='COMPLETED'
 
 
 @pytest.fixture
