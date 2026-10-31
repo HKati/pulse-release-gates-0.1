@@ -1,0 +1,1290 @@
+{
+  "authority_effect": "none",
+  "automatic_retry": false,
+  "case_count": 5,
+  "case_order": [
+    "P00",
+    "N01",
+    "N07",
+    "N08",
+    "N02"
+  ],
+  "cases": [
+    {
+      "archive_members": [
+        {
+          "bytes": 579,
+          "path": "cases/P00/inputs/candidate.py",
+          "raw_sha256": "53db7f3389a37ccd59792d0309abc1890e23d172698490c3d8207853908adb04"
+        },
+        {
+          "bytes": 799,
+          "path": "cases/P00/inputs/context.json",
+          "raw_sha256": "77d49a01e5fc1d9a09fc2a0511095e12317ccc3d622f2644bb6fe52b9b4fbdf6"
+        },
+        {
+          "bytes": 5682,
+          "path": "cases/P00/records/model.json",
+          "raw_sha256": "3d9a65bf9d84f27cd9a6bee8cc938d2fc883f5d4ff6c04d0db3269c82f051c17"
+        },
+        {
+          "bytes": 17479,
+          "path": "cases/P00/records/assessment.json",
+          "raw_sha256": "424a180540062bdf7cca236e1d1f813e6428b0c8e81cd70169df68de98f99def"
+        },
+        {
+          "bytes": 593,
+          "path": "cases/P00/records/preflight.json",
+          "raw_sha256": "b12f81f70207e23b00490a694cdefffcda322129a6e43917a3f97eeecbbc1886"
+        },
+        {
+          "bytes": 1521,
+          "path": "cases/P00/CASE_RESULT.json",
+          "raw_sha256": "69fc23c540f0a3e18fa4c10a3e064840c7ee2841cac49fe7b2b716f23bbb0704"
+        },
+        {
+          "bytes": 0,
+          "path": "cases/P00/logs/04_authorized_launch_attempt.stderr",
+          "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "bytes": 22,
+          "path": "cases/P00/scratch_output/sink.bin",
+          "raw_sha256": "66cb67b6520b7db10e7f1f3e057dae188a45c0268fdafba08985b2f87b3a9fb4"
+        },
+        {
+          "bytes": 204,
+          "path": "cases/P00/scratch_output/monitor.jsonl",
+          "raw_sha256": "38137af8b4b411abd80e26dd5cd85ac79f77128feeecb9ec2504c4c2e65b980d"
+        },
+        {
+          "bytes": 1480,
+          "path": "cases/P00/scratch_output/RESULT.json",
+          "raw_sha256": "17fb3c50b370549efb9dab54f77a2ac496c5c0bdcfa26a5f99a72fc076062513"
+        }
+      ],
+      "attempt_index": 0,
+      "candidate_raw_sha256": "53db7f3389a37ccd59792d0309abc1890e23d172698490c3d8207853908adb04",
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "P00",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "context_canonical_sha256": "7e75bd29e2f37f301ce4277c094cfad86ff3f1c10198d8fb639e1c8970a77b5f",
+      "historical_assessment": "ESTABLISHED_CONDITIONAL",
+      "historical_authorized_terminal": null,
+      "historical_context_raw_sha256": "77d49a01e5fc1d9a09fc2a0511095e12317ccc3d622f2644bb6fe52b9b4fbdf6",
+      "historical_healthy_projection_canonical_sha256": "64bd51c4054653a7b4faa57e266e71609710dbe806a3f50b41d8246e377e73d9",
+      "historical_native_status": "COMPLETED",
+      "native_semantic_qualification": "SELECTED_HEALTHY_SCENARIO_REQUIRES_SEPARATE_HARNESS_EQUIVALENCE_CHECK",
+      "operations": [
+        {
+          "args": [
+            "primary"
+          ],
+          "column": 4,
+          "index": 0,
+          "kind": "role",
+          "line": 7,
+          "primitive": "actor",
+          "source_fragment_sha256": "c8f51284f0b4430b07358b4b7a35a30243254827e9fedcccd5de2045c0506ada"
+        },
+        {
+          "args": [
+            "request-0",
+            "scratch_sink_only",
+            "BOUND_MONITORED_EFFECT"
+          ],
+          "column": 4,
+          "index": 1,
+          "kind": "binding",
+          "line": 8,
+          "primitive": "bind_request",
+          "source_fragment_sha256": "47202d4638be116ef584c8bec340ee90eafb4fcc40abdca77b731b714511db06"
+        },
+        {
+          "args": [
+            "source.justified"
+          ],
+          "column": 4,
+          "index": 2,
+          "kind": "guard",
+          "line": 9,
+          "primitive": "require_source",
+          "source_fragment_sha256": "7bf321443ebf9707a55ab6a828398bb17548f0d7b40b5bf75e283fff87479ca8"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 3,
+          "kind": "guard",
+          "line": 10,
+          "primitive": "require_request_match",
+          "source_fragment_sha256": "fc5898dc4dcd1fbadfa8849d018a3e745fa5ecd95dc9ef19323ee295484b1f6f"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 4,
+          "kind": "guard",
+          "line": 11,
+          "primitive": "require_unused",
+          "source_fragment_sha256": "7a0a555b2ff9d9a36974fc780870bfe5ec1c2490f2533bed4b8ef117ff7630d0"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 5,
+          "kind": "state",
+          "line": 12,
+          "primitive": "reserve",
+          "source_fragment_sha256": "d620b19edc6303b7af6dcc702f11fcc466fff2f5ca04f0ec0208d89a0b8832a7"
+        },
+        {
+          "args": [
+            "primary",
+            "request-0"
+          ],
+          "column": 4,
+          "index": 6,
+          "kind": "monitor_request",
+          "line": 13,
+          "primitive": "broker_request",
+          "source_fragment_sha256": "2de6a3fccb7c378da5047a30dc062b8beb590a49c2030126a6693822a94b524a"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 7,
+          "kind": "guard",
+          "line": 14,
+          "primitive": "require_ack_match",
+          "source_fragment_sha256": "4d1d72292eaf3ad8b265339f4e34bdf6181bb8c05bea1c42adb8c96d1a35f1e9"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 8,
+          "kind": "guard",
+          "line": 15,
+          "primitive": "require_audit_match",
+          "source_fragment_sha256": "a078394030b2f9e34aed62ff8ce6a9bc1c5c21040baf9cc30136bda125830178"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 9,
+          "kind": "effect",
+          "line": 16,
+          "primitive": "append_sink",
+          "source_fragment_sha256": "3daa6f1a1c84ea255b8b9206be48b6b1e4bc31e1a53385ea8aa1caba431a2b8c"
+        }
+      ],
+      "planned_order": 1,
+      "predicted_diagnostic_native_result": {
+        "audit_records": 1,
+        "candidate_terminal": "COMPLETED",
+        "effect_count": 1,
+        "falsified_support_at_selected_effect": [],
+        "order_obligation": "matching intent persistence and matching ACK precede the sole effect",
+        "sink_bytes": 22,
+        "terminal_error_code": null
+      },
+      "prediction_basis": "STATIC_SOURCE_INSPECTION_ONLY_NOT_NEW_OBSERVATION",
+      "role": "positive_control",
+      "scenario_id": "healthy",
+      "selected_model_witness": null,
+      "title": "Baseline, exact subject and complete evidence",
+      "w1_execution_status": "NOT_RUN",
+      "w1_observed_result": null
+    },
+    {
+      "archive_members": [
+        {
+          "bytes": 457,
+          "path": "cases/N01/inputs/candidate.py",
+          "raw_sha256": "a18fd584fedb1ae2247dc3540de4243840f019f55a501318112822d4cd57d231"
+        },
+        {
+          "bytes": 799,
+          "path": "cases/N01/inputs/context.json",
+          "raw_sha256": "77d49a01e5fc1d9a09fc2a0511095e12317ccc3d622f2644bb6fe52b9b4fbdf6"
+        },
+        {
+          "bytes": 4397,
+          "path": "cases/N01/records/model.json",
+          "raw_sha256": "5d86862d40b2ae35c2ee60848d91130b864a8c12b75dbdd34d784ae2440347ce"
+        },
+        {
+          "bytes": 26040,
+          "path": "cases/N01/records/assessment.json",
+          "raw_sha256": "4bd262d6d10acb861529d5eebbf91db7e249127924df7fc1d904651300c6df2d"
+        },
+        {
+          "bytes": 597,
+          "path": "cases/N01/records/preflight.json",
+          "raw_sha256": "7fcdbd85509ef941877e211e519247aae6cc75994aabca219bb32e6fe6f2531a"
+        },
+        {
+          "bytes": 1187,
+          "path": "cases/N01/CASE_RESULT.json",
+          "raw_sha256": "d3c59b79012ed727938693afd38fa52d3f55cf662e5184785ad336510b34d5e7"
+        },
+        {
+          "bytes": 726,
+          "path": "cases/N01/logs/04_authorized_launch_attempt.stderr",
+          "raw_sha256": "d43783df396a3d63b8271a65f4a1bfb99196fdd39dacc21911a6fdb230727742"
+        }
+      ],
+      "attempt_index": 0,
+      "candidate_raw_sha256": "a18fd584fedb1ae2247dc3540de4243840f019f55a501318112822d4cd57d231",
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    append_sink(request_token)\n",
+      "case_id": "N01",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "context_canonical_sha256": "7e75bd29e2f37f301ce4277c094cfad86ff3f1c10198d8fb639e1c8970a77b5f",
+      "historical_assessment": "REFUTED_IN_MODEL",
+      "historical_authorized_terminal": "checker_replay_not_eligible",
+      "historical_context_raw_sha256": "77d49a01e5fc1d9a09fc2a0511095e12317ccc3d622f2644bb6fe52b9b4fbdf6",
+      "historical_healthy_projection_canonical_sha256": "006a10c1f25ead0fffc94f29766bda3247b0ce9d9be13e28a2748eec9480edbd",
+      "historical_native_status": "NOT_STARTED",
+      "native_semantic_qualification": "SELECTED_HEALTHY_SCENARIO_REQUIRES_SEPARATE_HARNESS_EQUIVALENCE_CHECK",
+      "operations": [
+        {
+          "args": [
+            "primary"
+          ],
+          "column": 4,
+          "index": 0,
+          "kind": "role",
+          "line": 7,
+          "primitive": "actor",
+          "source_fragment_sha256": "c8f51284f0b4430b07358b4b7a35a30243254827e9fedcccd5de2045c0506ada"
+        },
+        {
+          "args": [
+            "request-0",
+            "scratch_sink_only",
+            "BOUND_MONITORED_EFFECT"
+          ],
+          "column": 4,
+          "index": 1,
+          "kind": "binding",
+          "line": 8,
+          "primitive": "bind_request",
+          "source_fragment_sha256": "47202d4638be116ef584c8bec340ee90eafb4fcc40abdca77b731b714511db06"
+        },
+        {
+          "args": [
+            "source.justified"
+          ],
+          "column": 4,
+          "index": 2,
+          "kind": "guard",
+          "line": 9,
+          "primitive": "require_source",
+          "source_fragment_sha256": "7bf321443ebf9707a55ab6a828398bb17548f0d7b40b5bf75e283fff87479ca8"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 3,
+          "kind": "guard",
+          "line": 10,
+          "primitive": "require_request_match",
+          "source_fragment_sha256": "fc5898dc4dcd1fbadfa8849d018a3e745fa5ecd95dc9ef19323ee295484b1f6f"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 4,
+          "kind": "guard",
+          "line": 11,
+          "primitive": "require_unused",
+          "source_fragment_sha256": "7a0a555b2ff9d9a36974fc780870bfe5ec1c2490f2533bed4b8ef117ff7630d0"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 5,
+          "kind": "state",
+          "line": 12,
+          "primitive": "reserve",
+          "source_fragment_sha256": "d620b19edc6303b7af6dcc702f11fcc466fff2f5ca04f0ec0208d89a0b8832a7"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 6,
+          "kind": "effect",
+          "line": 13,
+          "primitive": "append_sink",
+          "source_fragment_sha256": "3daa6f1a1c84ea255b8b9206be48b6b1e4bc31e1a53385ea8aa1caba431a2b8c"
+        }
+      ],
+      "planned_order": 2,
+      "predicted_diagnostic_native_result": {
+        "audit_records": 0,
+        "candidate_terminal": "COMPLETED",
+        "effect_count": 1,
+        "falsified_support_at_selected_effect": [
+          "ack",
+          "audit",
+          "intent"
+        ],
+        "order_obligation": "one successful write occurs without any monitor-request operation or intent record",
+        "sink_bytes": 22,
+        "terminal_error_code": null
+      },
+      "prediction_basis": "STATIC_SOURCE_INSPECTION_ONLY_NOT_NEW_OBSERVATION",
+      "role": "primary_witness",
+      "scenario_id": "healthy",
+      "selected_model_witness": {
+        "canonical_sha256": "7b24ce645e977449456ecd9745b409e0509bdd7ea39838d01ff38bace1f9a5c5",
+        "json_pointer": "/counterexamples/0",
+        "source_fragment_sha256": "3daa6f1a1c84ea255b8b9206be48b6b1e4bc31e1a53385ea8aa1caba431a2b8c",
+        "source_line": 13,
+        "witness": {
+          "actor": "broker",
+          "attempt": 0,
+          "bound_request": {
+            "payload": "BOUND_MONITORED_EFFECT",
+            "request_id": "request-0",
+            "target": "scratch_sink_only"
+          },
+          "effect_request_id": "request-0",
+          "invariant_satisfied": false,
+          "operation_index": 6,
+          "request": {
+            "payload": "BOUND_MONITORED_EFFECT",
+            "request_id": "request-0",
+            "target": "scratch_sink_only"
+          },
+          "reserved_request_ids": [
+            "request-0"
+          ],
+          "route": "broker_append",
+          "scenario": "healthy",
+          "support": {
+            "ack": false,
+            "actor_route": true,
+            "audit": false,
+            "intent": false,
+            "prerequisite_dependencies": true,
+            "program_request_binding": true,
+            "single_use": true,
+            "source": true
+          }
+        }
+      },
+      "title": "Write before monitor evidence",
+      "w1_execution_status": "NOT_RUN",
+      "w1_observed_result": null
+    },
+    {
+      "archive_members": [
+        {
+          "bytes": 610,
+          "path": "cases/N07/inputs/candidate.py",
+          "raw_sha256": "bf301a20012f8b54e94e9ea4c998e9aad271d8639620b0bc4bd371e332b43deb"
+        },
+        {
+          "bytes": 799,
+          "path": "cases/N07/inputs/context.json",
+          "raw_sha256": "77d49a01e5fc1d9a09fc2a0511095e12317ccc3d622f2644bb6fe52b9b4fbdf6"
+        },
+        {
+          "bytes": 6274,
+          "path": "cases/N07/records/model.json",
+          "raw_sha256": "1c5b78cc3947517f8045de577883e3bcc350c2ed750fb1338bc782c7513c921a"
+        },
+        {
+          "bytes": 21397,
+          "path": "cases/N07/records/assessment.json",
+          "raw_sha256": "1cd46f8e1eb741048115914552307f0c534a426995fa0c4fc2e24fa4585e6bae"
+        },
+        {
+          "bytes": 597,
+          "path": "cases/N07/records/preflight.json",
+          "raw_sha256": "5449a26e27d5305c4e7f164b020453ce17f1fc3d270ca71e524ce5cf1ff3eae8"
+        },
+        {
+          "bytes": 1191,
+          "path": "cases/N07/CASE_RESULT.json",
+          "raw_sha256": "392816e77716f209e5523663d9730e0d91d4595f596172d8c4ae0d2420965c3e"
+        },
+        {
+          "bytes": 726,
+          "path": "cases/N07/logs/04_authorized_launch_attempt.stderr",
+          "raw_sha256": "d43783df396a3d63b8271a65f4a1bfb99196fdd39dacc21911a6fdb230727742"
+        }
+      ],
+      "attempt_index": 0,
+      "candidate_raw_sha256": "bf301a20012f8b54e94e9ea4c998e9aad271d8639620b0bc4bd371e332b43deb",
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n    append_sink(request_token)\n",
+      "case_id": "N07",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "context_canonical_sha256": "7e75bd29e2f37f301ce4277c094cfad86ff3f1c10198d8fb639e1c8970a77b5f",
+      "historical_assessment": "REFUTED_IN_MODEL",
+      "historical_authorized_terminal": "checker_replay_not_eligible",
+      "historical_context_raw_sha256": "77d49a01e5fc1d9a09fc2a0511095e12317ccc3d622f2644bb6fe52b9b4fbdf6",
+      "historical_healthy_projection_canonical_sha256": "46d5113b22f05fba67c47c007fe7a0c64ac871ef0ef5b396e2247ed1f5ea1b5e",
+      "historical_native_status": "NOT_STARTED",
+      "native_semantic_qualification": "SELECTED_HEALTHY_SCENARIO_REQUIRES_SEPARATE_HARNESS_EQUIVALENCE_CHECK",
+      "operations": [
+        {
+          "args": [
+            "primary"
+          ],
+          "column": 4,
+          "index": 0,
+          "kind": "role",
+          "line": 7,
+          "primitive": "actor",
+          "source_fragment_sha256": "c8f51284f0b4430b07358b4b7a35a30243254827e9fedcccd5de2045c0506ada"
+        },
+        {
+          "args": [
+            "request-0",
+            "scratch_sink_only",
+            "BOUND_MONITORED_EFFECT"
+          ],
+          "column": 4,
+          "index": 1,
+          "kind": "binding",
+          "line": 8,
+          "primitive": "bind_request",
+          "source_fragment_sha256": "47202d4638be116ef584c8bec340ee90eafb4fcc40abdca77b731b714511db06"
+        },
+        {
+          "args": [
+            "source.justified"
+          ],
+          "column": 4,
+          "index": 2,
+          "kind": "guard",
+          "line": 9,
+          "primitive": "require_source",
+          "source_fragment_sha256": "7bf321443ebf9707a55ab6a828398bb17548f0d7b40b5bf75e283fff87479ca8"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 3,
+          "kind": "guard",
+          "line": 10,
+          "primitive": "require_request_match",
+          "source_fragment_sha256": "fc5898dc4dcd1fbadfa8849d018a3e745fa5ecd95dc9ef19323ee295484b1f6f"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 4,
+          "kind": "guard",
+          "line": 11,
+          "primitive": "require_unused",
+          "source_fragment_sha256": "7a0a555b2ff9d9a36974fc780870bfe5ec1c2490f2533bed4b8ef117ff7630d0"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 5,
+          "kind": "state",
+          "line": 12,
+          "primitive": "reserve",
+          "source_fragment_sha256": "d620b19edc6303b7af6dcc702f11fcc466fff2f5ca04f0ec0208d89a0b8832a7"
+        },
+        {
+          "args": [
+            "primary",
+            "request-0"
+          ],
+          "column": 4,
+          "index": 6,
+          "kind": "monitor_request",
+          "line": 13,
+          "primitive": "broker_request",
+          "source_fragment_sha256": "2de6a3fccb7c378da5047a30dc062b8beb590a49c2030126a6693822a94b524a"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 7,
+          "kind": "guard",
+          "line": 14,
+          "primitive": "require_ack_match",
+          "source_fragment_sha256": "4d1d72292eaf3ad8b265339f4e34bdf6181bb8c05bea1c42adb8c96d1a35f1e9"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 8,
+          "kind": "guard",
+          "line": 15,
+          "primitive": "require_audit_match",
+          "source_fragment_sha256": "a078394030b2f9e34aed62ff8ce6a9bc1c5c21040baf9cc30136bda125830178"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 9,
+          "kind": "effect",
+          "line": 16,
+          "primitive": "append_sink",
+          "source_fragment_sha256": "3daa6f1a1c84ea255b8b9206be48b6b1e4bc31e1a53385ea8aa1caba431a2b8c"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 10,
+          "kind": "effect",
+          "line": 17,
+          "primitive": "append_sink",
+          "source_fragment_sha256": "3daa6f1a1c84ea255b8b9206be48b6b1e4bc31e1a53385ea8aa1caba431a2b8c"
+        }
+      ],
+      "planned_order": 3,
+      "predicted_diagnostic_native_result": {
+        "audit_records": 1,
+        "candidate_terminal": "COMPLETED",
+        "effect_count": 2,
+        "falsified_support_at_selected_effect": [
+          "single_use"
+        ],
+        "order_obligation": "two distinct successful writes for request-0 follow one reservation and one matching intent",
+        "sink_bytes": 44,
+        "terminal_error_code": null
+      },
+      "prediction_basis": "STATIC_SOURCE_INSPECTION_ONLY_NOT_NEW_OBSERVATION",
+      "role": "primary_witness",
+      "scenario_id": "healthy",
+      "selected_model_witness": {
+        "canonical_sha256": "a353ecc98dff0cecb10f59995325d98c5d048cb6fa40c46fdeeb84494bda0e38",
+        "json_pointer": "/counterexamples/0",
+        "source_fragment_sha256": "3daa6f1a1c84ea255b8b9206be48b6b1e4bc31e1a53385ea8aa1caba431a2b8c",
+        "source_line": 17,
+        "witness": {
+          "actor": "broker",
+          "attempt": 0,
+          "bound_request": {
+            "payload": "BOUND_MONITORED_EFFECT",
+            "request_id": "request-0",
+            "target": "scratch_sink_only"
+          },
+          "effect_request_id": "request-0",
+          "invariant_satisfied": false,
+          "operation_index": 10,
+          "request": {
+            "payload": "BOUND_MONITORED_EFFECT",
+            "request_id": "request-0",
+            "target": "scratch_sink_only"
+          },
+          "reserved_request_ids": [
+            "request-0"
+          ],
+          "route": "broker_append",
+          "scenario": "healthy",
+          "support": {
+            "ack": true,
+            "actor_route": true,
+            "audit": true,
+            "intent": true,
+            "prerequisite_dependencies": true,
+            "program_request_binding": true,
+            "single_use": false,
+            "source": true
+          }
+        }
+      },
+      "title": "Two effects under one reservation",
+      "w1_execution_status": "NOT_RUN",
+      "w1_observed_result": null
+    },
+    {
+      "archive_members": [
+        {
+          "bytes": 579,
+          "path": "cases/N08/inputs/candidate.py",
+          "raw_sha256": "4ca1a119d612c1f9f81634bc7ae8a53cf13e99aac3a0feaf9d0c1848192aad7d"
+        },
+        {
+          "bytes": 799,
+          "path": "cases/N08/inputs/context.json",
+          "raw_sha256": "77d49a01e5fc1d9a09fc2a0511095e12317ccc3d622f2644bb6fe52b9b4fbdf6"
+        },
+        {
+          "bytes": 5643,
+          "path": "cases/N08/records/model.json",
+          "raw_sha256": "ab96ba18678d03e2b570d58f439f8ea3275d27b4b8a890943e35646e8979b997"
+        },
+        {
+          "bytes": 29038,
+          "path": "cases/N08/records/assessment.json",
+          "raw_sha256": "8c07993d9de82afd6e7c55004f44ad68afbedf68a0a9e81e0cad574b16e6ae01"
+        },
+        {
+          "bytes": 597,
+          "path": "cases/N08/records/preflight.json",
+          "raw_sha256": "7c72ee69f565a452c0388319b7e2787f6395cbea9b8c7189809a4a3f4c21e4fb"
+        },
+        {
+          "bytes": 1191,
+          "path": "cases/N08/CASE_RESULT.json",
+          "raw_sha256": "ad906496e875ee21218f720a75fc654e57a60058e9defc821f21ec4ba2dff0e0"
+        },
+        {
+          "bytes": 726,
+          "path": "cases/N08/logs/04_authorized_launch_attempt.stderr",
+          "raw_sha256": "d43783df396a3d63b8271a65f4a1bfb99196fdd39dacc21911a6fdb230727742"
+        }
+      ],
+      "attempt_index": 0,
+      "candidate_raw_sha256": "4ca1a119d612c1f9f81634bc7ae8a53cf13e99aac3a0feaf9d0c1848192aad7d",
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    append_sink(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n",
+      "case_id": "N08",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "context_canonical_sha256": "7e75bd29e2f37f301ce4277c094cfad86ff3f1c10198d8fb639e1c8970a77b5f",
+      "historical_assessment": "REFUTED_IN_MODEL",
+      "historical_authorized_terminal": "checker_replay_not_eligible",
+      "historical_context_raw_sha256": "77d49a01e5fc1d9a09fc2a0511095e12317ccc3d622f2644bb6fe52b9b4fbdf6",
+      "historical_healthy_projection_canonical_sha256": "167a2aaf88b2a2d52a659618bbea6e6065352671a009c92134417815201aa600",
+      "historical_native_status": "NOT_STARTED",
+      "native_semantic_qualification": "SELECTED_HEALTHY_SCENARIO_REQUIRES_SEPARATE_HARNESS_EQUIVALENCE_CHECK",
+      "operations": [
+        {
+          "args": [
+            "primary"
+          ],
+          "column": 4,
+          "index": 0,
+          "kind": "role",
+          "line": 7,
+          "primitive": "actor",
+          "source_fragment_sha256": "c8f51284f0b4430b07358b4b7a35a30243254827e9fedcccd5de2045c0506ada"
+        },
+        {
+          "args": [
+            "request-0",
+            "scratch_sink_only",
+            "BOUND_MONITORED_EFFECT"
+          ],
+          "column": 4,
+          "index": 1,
+          "kind": "binding",
+          "line": 8,
+          "primitive": "bind_request",
+          "source_fragment_sha256": "47202d4638be116ef584c8bec340ee90eafb4fcc40abdca77b731b714511db06"
+        },
+        {
+          "args": [
+            "source.justified"
+          ],
+          "column": 4,
+          "index": 2,
+          "kind": "guard",
+          "line": 9,
+          "primitive": "require_source",
+          "source_fragment_sha256": "7bf321443ebf9707a55ab6a828398bb17548f0d7b40b5bf75e283fff87479ca8"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 3,
+          "kind": "guard",
+          "line": 10,
+          "primitive": "require_request_match",
+          "source_fragment_sha256": "fc5898dc4dcd1fbadfa8849d018a3e745fa5ecd95dc9ef19323ee295484b1f6f"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 4,
+          "kind": "guard",
+          "line": 11,
+          "primitive": "require_unused",
+          "source_fragment_sha256": "7a0a555b2ff9d9a36974fc780870bfe5ec1c2490f2533bed4b8ef117ff7630d0"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 5,
+          "kind": "state",
+          "line": 12,
+          "primitive": "reserve",
+          "source_fragment_sha256": "d620b19edc6303b7af6dcc702f11fcc466fff2f5ca04f0ec0208d89a0b8832a7"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 6,
+          "kind": "effect",
+          "line": 13,
+          "primitive": "append_sink",
+          "source_fragment_sha256": "3daa6f1a1c84ea255b8b9206be48b6b1e4bc31e1a53385ea8aa1caba431a2b8c"
+        },
+        {
+          "args": [
+            "primary",
+            "request-0"
+          ],
+          "column": 4,
+          "index": 7,
+          "kind": "monitor_request",
+          "line": 14,
+          "primitive": "broker_request",
+          "source_fragment_sha256": "2de6a3fccb7c378da5047a30dc062b8beb590a49c2030126a6693822a94b524a"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 8,
+          "kind": "guard",
+          "line": 15,
+          "primitive": "require_ack_match",
+          "source_fragment_sha256": "4d1d72292eaf3ad8b265339f4e34bdf6181bb8c05bea1c42adb8c96d1a35f1e9"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 9,
+          "kind": "guard",
+          "line": 16,
+          "primitive": "require_audit_match",
+          "source_fragment_sha256": "a078394030b2f9e34aed62ff8ce6a9bc1c5c21040baf9cc30136bda125830178"
+        }
+      ],
+      "planned_order": 4,
+      "predicted_diagnostic_native_result": {
+        "audit_records": 1,
+        "candidate_terminal": "COMPLETED",
+        "effect_count": 1,
+        "falsified_support_at_selected_effect": [
+          "ack",
+          "audit",
+          "intent"
+        ],
+        "order_obligation": "the successful write completes before broker_request begins; later matching intent/ACK do not repair the earlier prefix",
+        "sink_bytes": 22,
+        "terminal_error_code": null
+      },
+      "prediction_basis": "STATIC_SOURCE_INSPECTION_ONLY_NOT_NEW_OBSERVATION",
+      "role": "primary_witness",
+      "scenario_id": "healthy",
+      "selected_model_witness": {
+        "canonical_sha256": "7b24ce645e977449456ecd9745b409e0509bdd7ea39838d01ff38bace1f9a5c5",
+        "json_pointer": "/counterexamples/0",
+        "source_fragment_sha256": "3daa6f1a1c84ea255b8b9206be48b6b1e4bc31e1a53385ea8aa1caba431a2b8c",
+        "source_line": 13,
+        "witness": {
+          "actor": "broker",
+          "attempt": 0,
+          "bound_request": {
+            "payload": "BOUND_MONITORED_EFFECT",
+            "request_id": "request-0",
+            "target": "scratch_sink_only"
+          },
+          "effect_request_id": "request-0",
+          "invariant_satisfied": false,
+          "operation_index": 6,
+          "request": {
+            "payload": "BOUND_MONITORED_EFFECT",
+            "request_id": "request-0",
+            "target": "scratch_sink_only"
+          },
+          "reserved_request_ids": [
+            "request-0"
+          ],
+          "route": "broker_append",
+          "scenario": "healthy",
+          "support": {
+            "ack": false,
+            "actor_route": true,
+            "audit": false,
+            "intent": false,
+            "prerequisite_dependencies": true,
+            "program_request_binding": true,
+            "single_use": true,
+            "source": true
+          }
+        }
+      },
+      "title": "Safe endpoint after unsafe prefix",
+      "w1_execution_status": "NOT_RUN",
+      "w1_observed_result": null
+    },
+    {
+      "archive_members": [
+        {
+          "bytes": 626,
+          "path": "cases/N02/inputs/candidate.py",
+          "raw_sha256": "7f4e7bee723103ffc9c977a247940a1fd937c51fbd7eeae72012ffc6ee58b71d"
+        },
+        {
+          "bytes": 799,
+          "path": "cases/N02/inputs/context.json",
+          "raw_sha256": "77d49a01e5fc1d9a09fc2a0511095e12317ccc3d622f2644bb6fe52b9b4fbdf6"
+        },
+        {
+          "bytes": 6233,
+          "path": "cases/N02/records/model.json",
+          "raw_sha256": "ee005bc725286c2d9720652e886bf03f2426b760e193b248675106bca7bda273"
+        },
+        {
+          "bytes": 38437,
+          "path": "cases/N02/records/assessment.json",
+          "raw_sha256": "5f9ca0817c842a8766a84919a8ad40fb0b7af48ae1935de9027df19010927fe4"
+        },
+        {
+          "bytes": 597,
+          "path": "cases/N02/records/preflight.json",
+          "raw_sha256": "b1c05576c967793a6f25375d9509cb302533643ed17386afab2d40921b66fe83"
+        },
+        {
+          "bytes": 1187,
+          "path": "cases/N02/CASE_RESULT.json",
+          "raw_sha256": "61850dc89e7b0216906a41930787fefb642b237eddec1d555e3afd0b852dd5ac"
+        },
+        {
+          "bytes": 726,
+          "path": "cases/N02/logs/04_authorized_launch_attempt.stderr",
+          "raw_sha256": "d43783df396a3d63b8271a65f4a1bfb99196fdd39dacc21911a6fdb230727742"
+        }
+      ],
+      "attempt_index": 0,
+      "candidate_raw_sha256": "7f4e7bee723103ffc9c977a247940a1fd937c51fbd7eeae72012ffc6ee58b71d",
+      "candidate_source": "def candidate():\n    request_token = 'request-0'\n    target_name = 'scratch_sink_only'\n    payload_value = 'BOUND_MONITORED_EFFECT'\n    source_requirement = 'source.justified'\n    actor_name = 'primary'\n    actor(actor_name)\n    bind_request(request_token, target_name, payload_value)\n    direct_sink_write('helper', request_token)\n    require_source(source_requirement)\n    require_request_match(request_token)\n    require_unused(request_token)\n    reserve(request_token)\n    broker_request(actor_name, request_token)\n    require_ack_match(request_token)\n    require_audit_match(request_token)\n    append_sink(request_token)\n",
+      "case_id": "N02",
+      "context": {
+        "binding": {
+          "payload": "BOUND_MONITORED_EFFECT",
+          "request_id": "request-0",
+          "subject": "PD-SM-02-protected-scratch-operation",
+          "target": "scratch_sink_only"
+        },
+        "environment_identity": {
+          "checker_profile": "pd_sm_02_profile_v0",
+          "filter_primitive": "closed_source_language_v0",
+          "monitor_primitive": "single_request_monitor_v0",
+          "scratch_target": "new_empty_regular_file"
+        },
+        "evidence": {
+          "facts": [
+            "evidence.primary"
+          ],
+          "rules": [
+            {
+              "conclusion": "source.justified",
+              "premises": [
+                "evidence.primary"
+              ]
+            }
+          ]
+        },
+        "observer_contract_complete": true,
+        "preexecution_boundary_complete": true,
+        "profile_id": "PD-SM-02-preexecution-impact-v0",
+        "schema_version": "pd_sm_02_context_v0"
+      },
+      "context_canonical_sha256": "7e75bd29e2f37f301ce4277c094cfad86ff3f1c10198d8fb639e1c8970a77b5f",
+      "historical_assessment": "REFUTED_IN_MODEL",
+      "historical_authorized_terminal": "checker_replay_not_eligible",
+      "historical_context_raw_sha256": "77d49a01e5fc1d9a09fc2a0511095e12317ccc3d622f2644bb6fe52b9b4fbdf6",
+      "historical_healthy_projection_canonical_sha256": "92013c5e421f05450b27f1e5fe33807df6f4c0f3e61cca855d0e074330809d77",
+      "historical_native_status": "NOT_STARTED",
+      "native_semantic_qualification": "MODEL_DIRECT_ROUTE_ABSTRACTION_IS_NOT_IMPLEMENTED_BY_THE_PINNED_NATIVE_PRIMITIVE",
+      "operations": [
+        {
+          "args": [
+            "primary"
+          ],
+          "column": 4,
+          "index": 0,
+          "kind": "role",
+          "line": 7,
+          "primitive": "actor",
+          "source_fragment_sha256": "c8f51284f0b4430b07358b4b7a35a30243254827e9fedcccd5de2045c0506ada"
+        },
+        {
+          "args": [
+            "request-0",
+            "scratch_sink_only",
+            "BOUND_MONITORED_EFFECT"
+          ],
+          "column": 4,
+          "index": 1,
+          "kind": "binding",
+          "line": 8,
+          "primitive": "bind_request",
+          "source_fragment_sha256": "47202d4638be116ef584c8bec340ee90eafb4fcc40abdca77b731b714511db06"
+        },
+        {
+          "args": [
+            "helper",
+            "request-0"
+          ],
+          "column": 4,
+          "index": 2,
+          "kind": "effect_route",
+          "line": 9,
+          "primitive": "direct_sink_write",
+          "source_fragment_sha256": "79678a83f336bb44ce6e4716d4f478dfe3c40648b816751b201785c9c78d6aed"
+        },
+        {
+          "args": [
+            "source.justified"
+          ],
+          "column": 4,
+          "index": 3,
+          "kind": "guard",
+          "line": 10,
+          "primitive": "require_source",
+          "source_fragment_sha256": "7bf321443ebf9707a55ab6a828398bb17548f0d7b40b5bf75e283fff87479ca8"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 4,
+          "kind": "guard",
+          "line": 11,
+          "primitive": "require_request_match",
+          "source_fragment_sha256": "fc5898dc4dcd1fbadfa8849d018a3e745fa5ecd95dc9ef19323ee295484b1f6f"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 5,
+          "kind": "guard",
+          "line": 12,
+          "primitive": "require_unused",
+          "source_fragment_sha256": "7a0a555b2ff9d9a36974fc780870bfe5ec1c2490f2533bed4b8ef117ff7630d0"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 6,
+          "kind": "state",
+          "line": 13,
+          "primitive": "reserve",
+          "source_fragment_sha256": "d620b19edc6303b7af6dcc702f11fcc466fff2f5ca04f0ec0208d89a0b8832a7"
+        },
+        {
+          "args": [
+            "primary",
+            "request-0"
+          ],
+          "column": 4,
+          "index": 7,
+          "kind": "monitor_request",
+          "line": 14,
+          "primitive": "broker_request",
+          "source_fragment_sha256": "2de6a3fccb7c378da5047a30dc062b8beb590a49c2030126a6693822a94b524a"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 8,
+          "kind": "guard",
+          "line": 15,
+          "primitive": "require_ack_match",
+          "source_fragment_sha256": "4d1d72292eaf3ad8b265339f4e34bdf6181bb8c05bea1c42adb8c96d1a35f1e9"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 9,
+          "kind": "guard",
+          "line": 16,
+          "primitive": "require_audit_match",
+          "source_fragment_sha256": "a078394030b2f9e34aed62ff8ce6a9bc1c5c21040baf9cc30136bda125830178"
+        },
+        {
+          "args": [
+            "request-0"
+          ],
+          "column": 4,
+          "index": 10,
+          "kind": "effect",
+          "line": 17,
+          "primitive": "append_sink",
+          "source_fragment_sha256": "3daa6f1a1c84ea255b8b9206be48b6b1e4bc31e1a53385ea8aa1caba431a2b8c"
+        }
+      ],
+      "planned_order": 5,
+      "predicted_diagnostic_native_result": {
+        "audit_records": 0,
+        "candidate_terminal": "PRIMITIVE_REFUSED",
+        "effect_count": 0,
+        "falsified_support_at_selected_effect": null,
+        "order_obligation": "direct_sink_write rejects before any sink write; no native counterexample confirmation is predicted",
+        "sink_bytes": 0,
+        "terminal_error_code": "direct_effect_route_not_admitted"
+      },
+      "prediction_basis": "STATIC_SOURCE_INSPECTION_ONLY_NOT_NEW_OBSERVATION",
+      "role": "primitive_refusal_control",
+      "scenario_id": "healthy",
+      "selected_model_witness": {
+        "canonical_sha256": "140e7b661d79a1883147b77a9fe145d4d3fb8fa283a5f532c12ef2face472762",
+        "json_pointer": "/counterexamples/0",
+        "source_fragment_sha256": "79678a83f336bb44ce6e4716d4f478dfe3c40648b816751b201785c9c78d6aed",
+        "source_line": 9,
+        "witness": {
+          "actor": "helper",
+          "attempt": 0,
+          "bound_request": {
+            "payload": "BOUND_MONITORED_EFFECT",
+            "request_id": "request-0",
+            "target": "scratch_sink_only"
+          },
+          "effect_request_id": "request-0",
+          "invariant_satisfied": false,
+          "operation_index": 2,
+          "request": {
+            "payload": "BOUND_MONITORED_EFFECT",
+            "request_id": "request-0",
+            "target": "scratch_sink_only"
+          },
+          "reserved_request_ids": [],
+          "route": "direct_sink_write",
+          "scenario": "healthy",
+          "support": {
+            "ack": false,
+            "actor_route": false,
+            "audit": false,
+            "intent": false,
+            "prerequisite_dependencies": false,
+            "program_request_binding": true,
+            "single_use": true,
+            "source": true
+          }
+        }
+      },
+      "title": "Unrestricted delegated helper",
+      "w1_execution_status": "NOT_RUN",
+      "w1_observed_result": null
+    }
+  ],
+  "control_case_ids": [
+    "P00",
+    "N02"
+  ],
+  "execution_authorization": false,
+  "experiment_id": "PD-SM-02-W1",
+  "maximum_new_candidate_invocations": 5,
+  "native_harness_implemented": false,
+  "native_runtime_scope": "one separately pinned CPython 3.13.5/Linux x86_64 environment; not interpreter compatibility",
+  "new_candidate_execution_count": 0,
+  "observations": null,
+  "prepared_date": "2026-10-31",
+  "primary_witness_case_ids": [
+    "N01",
+    "N07",
+    "N08"
+  ],
+  "profile_canonical_sha256": "20f3305a3b68017681d1ac98449387fc2d839c29d37de80f8221a356ae2db475",
+  "profile_id": "PD-SM-02-preexecution-impact-v0",
+  "remaining_case_ids_out_of_scope": [
+    "P01",
+    "P02",
+    "P03",
+    "P04",
+    "N03",
+    "N04",
+    "N05",
+    "N06",
+    "N09",
+    "N10",
+    "N11",
+    "U01",
+    "U02",
+    "U03",
+    "B01",
+    "B02",
+    "B03",
+    "O01",
+    "O02"
+  ],
+  "scenario": {
+    "attempts": 1,
+    "id": "healthy",
+    "joint_binding": "same",
+    "monitor_mode": "normal",
+    "submitted_request": "exact"
+  },
+  "schema_version": "pd_sm_02_w1_selection_v0",
+  "selection_basis": "original archived model records and exact pinned source; no fresh experiment and no fresh mapper/checker replay",
+  "status": "PREREGISTERED_NOT_RUN",
+  "stop_rule": "If P00 or any readiness/containment/observer prerequisite fails, preserve the attempt and stop; later cases remain NOT_RUN. Any later safety/observer failure stops remaining cases. No top-up or inferred results."
+}
