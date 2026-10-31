@@ -627,5 +627,555 @@ def test_observer_preserves_stdio_as_partial_transcript_but_not_complete_candida
         O.assemble_case(fs,admitted[0]['cases'][0],records['run_id'])
 
 
+# Candidate-free admission regressions. All backend observations below are
+# synthetic; these tests do not exercise a live Docker daemon or W1 source.
+ADMISSION_SOURCE_COMMIT='25aec1ad8045afdf2ca6ba3ffcd2c6446faf31c5'
+ADMISSION_IMAGE='sha256:38e57556b63539e63344b97f802e7cbd85b70e2087ee703e360fcdfe337cbbb3'
+
+
+@pytest.fixture(scope='module')
+def admission_module():
+    return module('w1_admission_test',TOOLS/'run_paradox_w1_admission_v0.py')
+
+
+@pytest.fixture(scope='module')
+def admission_base(tmp_path_factory,admission_module):
+    p=tmp_path_factory.mktemp('admission_request')/'package'
+    result=admission_module.prepare(ROOT,p,ADMISSION_SOURCE_COMMIT,'synthetic_admission_test')
+    assert result['status']=='ADMISSION_REQUEST_PREPARED'
+    return p,result['request_sha256']
+
+
+@pytest.fixture
+def admission_package(tmp_path,admission_base):
+    src,sha=admission_base;p=tmp_path/'admission-package';shutil.copytree(src,p)
+    return p,sha
+
+
+class AdmissionDocker(FakeDocker):
+    """Candidate-rejecting synthetic transport with retained CLI command records."""
+    mode=None
+    instances=[]
+    violations=[]
+
+    def __init__(self,config_dir,log_dir):
+        super().__init__(config_dir,log_dir)
+        self.calls=[];self.started=[];self.logs=log_dir;self.counter=0
+        self.prefix=['/usr/bin/docker','--host',B.POLICY['docker_endpoint'],'--config',str(config_dir)]
+        type(self).instances.append(self)
+
+    def _command(self,args):
+        if args[0]=='info':
+            data={'ID':'synthetic-daemon','ServerVersion':'synthetic-docker',
+                  'OSType':'linux','Architecture':'x86_64','KernelVersion':os.uname().release,
+                  'CgroupVersion':'2','CgroupDriver':'systemd','SecurityOptions':['name=seccomp,profile=builtin']}
+            if self.mode=='bad_daemon':data['CgroupVersion']='1'
+            return O.canonical(data)
+        if args[:2]==['image','inspect']:
+            data=[{'Id':ADMISSION_IMAGE,'Os':'linux','Architecture':'amd64','Config':{'Volumes':None}}]
+            if self.mode=='bad_image':data[0]['Id']='sha256:'+'f'*64
+            return O.canonical(data)
+        if args[:2]==['container','inspect']:
+            return O.canonical(copy.deepcopy(self.containers[args[-1]]))
+        if args[:2]==['container','create']:
+            labels=[args[i+1] for i,x in enumerate(args) if x=='--label']
+            case=next(x.split('=',1)[1] for x in labels if x.startswith('pulse.w1.case='))
+            if case not in ('probe-time','probe-output'):
+                type(self).violations.append(('create',case))
+                raise AssertionError('Candidate reached admission transport')
+            mount=args[args.index('--mount')+1];stage=Path(mount.split('src=',1)[1].split(',dst=')[0])
+            assert {p.name for p in stage.iterdir()}=={'request.json','runtime.py','observer.py'}
+            req=O.strict((stage/'request.json').read_bytes())
+            assert req['cases']==[] and type(req['maximum_candidate_invocations']) is int
+            assert req['maximum_candidate_invocations']==0
+            result=super().command(args)
+            cid=result.decode().strip();self.containers[cid][0]['Image']=ADMISSION_IMAGE
+            if self.mode=='bad_outer':self.containers[cid][0]['HostConfig']['ReadonlyRootfs']=False
+            return result
+        return super().command(args)
+
+    def command(self,args,**kw):
+        self.calls.append(list(args));self.counter+=1
+        stem=self.logs/f'{self.counter:03d}'
+        stem.with_suffix('.command.json').write_bytes(O.canonical(self.prefix+args))
+        result={'returncode':0,'termination':'exited','detail':None,'execution_token_sent':False}
+        try:
+            raw=self._command(args)
+            if kw.get('projection') is not None:
+                raw=O.canonical(kw['projection'](O.strict(raw)))
+                result['metadata_projection']=True
+        except Exception:
+            raw=b'';result['returncode']=1
+            stem.with_suffix('.stdout').write_bytes(raw)
+            stem.with_suffix('.stderr').write_bytes(b'synthetic transport failure')
+            stem.with_suffix('.result.json').write_bytes(O.canonical(result))
+            raise
+        stem.with_suffix('.stdout').write_bytes(raw)
+        stem.with_suffix('.stderr').write_bytes(b'')
+        stem.with_suffix('.result.json').write_bytes(O.canonical(result))
+        return raw
+
+    def inspect(self,cid):
+        return O.strict(self.command(['container','inspect',cid],projection=B.project_inspect))
+
+    def capture(self,cid,request_sha,case,callback,stdout_path,stderr_path):
+        if case not in ('probe-time','probe-output'):
+            type(self).violations.append(('capture',case))
+            raise AssertionError('Candidate reached admission capture')
+        self.started.append(case)
+        def control_ready(ready):
+            ready['kernel_release']=os.uname().release
+            if self.mode=='bad_probe':ready['interfaces']=['eth0','lo']
+            if self.mode=='runtime_drift' and case=='probe-output':ready['python_sha256']='f'*64
+            if self.mode=='kernel_drift' and case=='probe-output':ready['kernel_release']='changed-kernel'
+            callback(ready)
+        result=super().capture(cid,request_sha,case,control_ready,stdout_path,stderr_path)
+        if self.mode=='wrong_timeout' and case=='probe-time':result['termination']='output_limit'
+        if self.mode=='wrong_output' and case=='probe-output':result['termination']='timeout'
+        return result
+
+
+@pytest.fixture
+def admission_backend(admission_module,monkeypatch):
+    A=admission_module
+    forbidden_calls=[]
+    def forbidden(*a,**k):
+        forbidden_calls.append((a,k))
+        pytest.fail('Native candidate path or process reached by admission test')
+    monkeypatch.setattr(A.H,'execute',forbidden)
+    monkeypatch.setattr(A.H,'prepare',forbidden)
+    monkeypatch.setattr(A.H,'checker',forbidden)
+    monkeypatch.setattr(A.B,'Docker',AdmissionDocker)
+    monkeypatch.setattr(AdmissionDocker,'mode',None)
+    monkeypatch.setattr(AdmissionDocker,'instances',[])
+    monkeypatch.setattr(AdmissionDocker,'violations',[])
+    yield A
+    # The controller deliberately retains BaseException failures. A forbidden
+    # call cannot hide inside its STOPPED result and make a negative test pass.
+    assert forbidden_calls==[] and AdmissionDocker.violations==[]
+
+
+def admission_authorization(sha):
+    return 'I_AUTHORIZE_PD_SM_02_W1_ADMISSION:'+sha
+
+
+def admission_host_context():
+    return {'github_repository':'HKati/pulse-release-gates-0.1',
+            'github_sha':ADMISSION_SOURCE_COMMIT,'github_workflow_sha':ADMISSION_SOURCE_COMMIT,
+            'github_run_id':'424242','github_run_attempt':'1','runner_os':'Linux',
+            'runner_arch':'X64','image_os':'ubuntu24','image_version':'synthetic-runner-1'}
+
+
+def assert_admission_boundary(result):
+    assert result['native_witness_observed'] is None
+    assert result['containment_observed'] is None
+    assert result['authority_effect']=='none'
+    assert result['execution_authorized'] is False
+    assert result['new_candidate_executions']==0
+
+
+def rewrite_admission_request(p,field,value):
+    req=O.strict((p/'request.json').read_bytes());req[field]=value
+    raw=O.canonical(req);(p/'request.json').write_bytes(raw)
+    return O.digest(raw)
+
+
+def reclose_admission(p):
+    cap=p/'admission';path=cap/'MANIFEST.json';obj=O.strict(path.read_bytes())
+    obj['files']={q.relative_to(cap).as_posix():{'bytes':len(raw),'sha256':O.digest(raw)}
+                  for q in sorted(cap.rglob('*')) if q.is_file() and q!=path
+                  for raw in [q.read_bytes()]}
+    path.write_bytes(O.canonical(obj)+b'\n')
+
+
+def test_admission_preparation_is_offline_and_contains_no_cases(admission_package,admission_module,monkeypatch,tmp_path):
+    A=admission_module
+    def forbidden(*a,**k):pytest.fail('Preparation contacted Docker or native execution')
+    monkeypatch.setattr(A.B,'Docker',forbidden);monkeypatch.setattr(A.H,'execute',forbidden)
+    monkeypatch.setattr(A.H,'prepare',forbidden);monkeypatch.setattr(A.H,'checker',forbidden)
+    p=tmp_path/'fresh-admission'
+    result=A.prepare(ROOT,p,ADMISSION_SOURCE_COMMIT,'preparation_only')
+    req=A.validate_package(p,result['request_sha256'])
+    assert req['schema_version']=='pd_sm_02_w1_admission_request_v0'
+    assert req['cases']==[] and req['maximum_candidate_invocations']==0
+    assert type(req['maximum_candidate_invocations']) is int
+    assert req['image_id']==ADMISSION_IMAGE
+    assert not (p/'cases').exists() and not (p/'frozen').exists()
+    assert not (p/'admission').exists() and not (p/'ADMISSION_CLAIM.json').exists()
+    assert not any(q.name=='candidate.py' for q in p.rglob('*'))
+
+
+@pytest.mark.parametrize('field,value',[
+    ('schema_version','pd_sm_02_w1_native_request_v0'),('cases',[{'case_id':'P00'}]),
+    ('maximum_candidate_invocations',5),('maximum_candidate_invocations',False),
+    ('execution_authorized',True),('authority_effect','allow'),('automatic_retry',True),
+    ('image_id','python:3.13.5-slim-bookworm'),('image_id','sha256:'+'a'*64)])
+def test_admission_rehashed_request_cannot_enable_candidate_execution(admission_package,admission_module,field,value):
+    p,_=admission_package;sha=rewrite_admission_request(p,field,value)
+    with pytest.raises((ValueError,TypeError,KeyError)):
+        admission_module.validate_package(p,sha)
+
+
+@pytest.mark.parametrize('name',[
+    'request.json','tools/run_paradox_w1_admission_v0.py',
+    'tools/run_paradox_w1_native_v0.py','tools/paradox_w1_native_runtime_v0.py',
+    'tools/paradox_w1_native_observer_v0.py','tools/paradox_w1_docker_boundary_v0.py'])
+def test_admission_package_byte_changes_are_rejected(admission_package,admission_module,name):
+    p,sha=admission_package;f=p/name;assert f.is_file();f.write_bytes(f.read_bytes()+b'\n')
+    with pytest.raises((ValueError,TypeError,KeyError)):
+        admission_module.validate_package(p,sha)
+
+
+@pytest.mark.parametrize('auth',['','I_AUTHORIZE_PD_SM_02_W1:'+REQ,'I_AUTHORIZE_PD_SM_02_W1_ADMISSION:'+REQ])
+def test_admission_wrong_authorization_precedes_side_effects(admission_package,admission_module,monkeypatch,auth):
+    p,sha=admission_package
+    def forbidden(*a,**k):pytest.fail('Docker contacted before admission authorization')
+    monkeypatch.setattr(admission_module.B,'Docker',forbidden)
+    with pytest.raises(ValueError):admission_module.run_admission(p,sha,auth)
+    assert not (p/'admission').exists() and not (p/'ADMISSION_CLAIM.json').exists()
+
+
+def test_native_controller_rejects_the_zero_budget_admission_request(admission_package):
+    p,sha=admission_package
+    with pytest.raises((ValueError,TypeError,KeyError)):
+        H.validate_package(p,sha)
+
+
+@pytest.mark.parametrize('mode,expected_controls',[
+    (None,2),('bad_daemon',0),('bad_image',0),('bad_outer',0),('bad_probe',1),
+    ('cleanup_failure',1),('runtime_drift',2),('kernel_drift',2),
+    ('wrong_timeout',1),('wrong_output',2)])
+def test_admission_stops_without_any_candidate_on_all_backend_paths(
+        admission_package,admission_backend,monkeypatch,mode,expected_controls):
+    A=admission_backend;p,sha=admission_package;monkeypatch.setattr(AdmissionDocker,'mode',mode)
+    result=A.run_admission(p,sha,admission_authorization(sha),host_context=admission_host_context())
+    expected='ADMISSION_COMPLETED_UNATTESTED' if mode is None else 'ADMISSION_STOPPED_WITH_EVIDENCE'
+    assert result['status']==expected
+    assert_admission_boundary(result)
+    assert (p/'admission/MANIFEST.json').is_file() and (p/'ADMISSION_CLAIM.json').is_file()
+    replay=A.verify_admission(p,sha)
+    assert replay['status']=='ADMISSION_RECORDS_REPLAYED' and replay['admission_status']==expected
+    assert_admission_boundary(replay)
+    started=[c for instance in AdmissionDocker.instances for c in instance.started]
+    assert started==['probe-time','probe-output'][:expected_controls]
+    for instance in AdmissionDocker.instances:
+        assert all(call[:2] not in (['image','pull'],['container','run']) for call in instance.calls)
+    with pytest.raises(ValueError):A.run_admission(p,sha,admission_authorization(sha),host_context=admission_host_context())
+
+
+@pytest.fixture
+def admission_completed(admission_package,admission_backend):
+    A=admission_backend;p,sha=admission_package
+    result=A.run_admission(p,sha,admission_authorization(sha),host_context=admission_host_context())
+    assert result['status']=='ADMISSION_COMPLETED_UNATTESTED'
+    return p,sha,A
+
+
+def test_admission_replay_is_offline_and_does_not_authorize_native_run(admission_completed,monkeypatch):
+    p,sha,A=admission_completed
+    def forbidden(*a,**k):pytest.fail('Offline replay tried to start a process')
+    monkeypatch.setattr(A.B,'Docker',forbidden);monkeypatch.setattr(subprocess,'Popen',forbidden)
+    result=A.verify_admission(p,sha)
+    assert result['status']=='ADMISSION_RECORDS_REPLAYED'
+    assert result['admission_status']=='ADMISSION_COMPLETED_UNATTESTED'
+    assert_admission_boundary(result)
+    assert not (p/'CLAIM.json').exists() and not (p/'capture').exists()
+
+
+@pytest.mark.parametrize('mutation',[
+    'ready','image','daemon','mount','cleanup','token','time_termination','output_termination',
+    'ready_transcript','runtime_drift','kernel_drift','authority','candidate_count','extra_candidate'])
+def test_admission_replay_rejects_rehashed_false_success(admission_completed,mutation):
+    p,sha,A=admission_completed;cap=p/'admission';x=None
+    if mutation=='ready':
+        path=cap/'probe-time/readiness.json';x=O.strict(path.read_bytes());x['interfaces']=['eth0','lo']
+    elif mutation=='image':
+        path=cap/'image_inspect.json';x=O.strict(path.read_bytes());x[0]['Id']='sha256:'+'f'*64
+    elif mutation=='daemon':
+        path=cap/'docker_info.json';x=O.strict(path.read_bytes());x['CgroupVersion']='1'
+    elif mutation=='mount':
+        path=cap/'probe-time/inspect_running.json';x=O.strict(path.read_bytes());x[0]['Mounts'][0]['RW']=True
+    elif mutation=='cleanup':
+        path=cap/'probe-time/cleanup.json';x=O.strict(path.read_bytes());x['removed_and_absence_checked']=False
+    elif mutation=='token':
+        path=cap/'probe-time/transport.json';x=O.strict(path.read_bytes());x['execution_token_sent']=False
+    elif mutation in ('time_termination','output_termination'):
+        label='probe-time' if mutation=='time_termination' else 'probe-output'
+        path=cap/label/'transport.json';x=O.strict(path.read_bytes());x['termination']='exited'
+    elif mutation=='ready_transcript':
+        path=cap/'probe-time/stdout.jsonl';raw=path.read_bytes();path.write_bytes(raw.replace(sha.encode(),REQ.encode()))
+    elif mutation in ('runtime_drift','kernel_drift'):
+        path=cap/'probe-output/readiness.json';x=O.strict(path.read_bytes())
+        x['python_sha256' if mutation=='runtime_drift' else 'kernel_release']='f'*64
+        transcript=cap/'probe-output/stdout.jsonl'
+        transcript.write_bytes((O.canonical(x)+b'\n'+transcript.read_bytes().partition(b'\n')[2])[:65536])
+    elif mutation in ('authority','candidate_count'):
+        path=cap/'summary.json';x=O.strict(path.read_bytes())
+        x['authority_effect' if mutation=='authority' else 'new_candidate_executions']='allow' if mutation=='authority' else 1
+    else:
+        (cap/'P00').mkdir();(cap/'P00/candidate.py').write_text('raise RuntimeError("never executed")\n')
+    if x is not None:path.write_bytes(O.canonical(x)+b'\n')
+    reclose_admission(p)
+    with pytest.raises((ValueError,TypeError,KeyError)):
+        A.verify_admission(p,sha)
+
+
+@pytest.mark.parametrize('label',['probe-time','probe-output'])
+def test_admission_replay_rejects_missing_control_even_with_new_manifest(admission_completed,label):
+    p,sha,A=admission_completed;shutil.rmtree(p/'admission'/label);reclose_admission(p)
+    with pytest.raises((ValueError,OSError,KeyError)):A.verify_admission(p,sha)
+
+
+@pytest.mark.parametrize('ending',[b'{',b'\xc3',b'\xff'])
+def test_admission_output_truncation_is_narrow_and_hash_bound(admission_completed,ending):
+    p,sha,A=admission_completed;path=p/'admission/probe-output/stdout.jsonl'
+    raw=path.read_bytes();assert len(raw)==65536
+    changed=raw[:-1]+ending;path.write_bytes(changed)
+    with pytest.raises(ValueError):A.verify_admission(p,sha)
+    reclose_admission(p)
+    assert A.verify_admission(p,sha)['status']=='ADMISSION_RECORDS_REPLAYED'
+    assert path.read_bytes()==changed
+
+
+def test_admission_timeout_transcript_stays_strict(admission_completed):
+    p,sha,A=admission_completed;path=p/'admission/probe-time/stdout.jsonl'
+    raw=path.read_bytes();assert raw.endswith(b'\n');path.write_bytes(raw[:-1]);reclose_admission(p)
+    with pytest.raises(ValueError):A.verify_admission(p,sha)
+
+
+@pytest.mark.parametrize('field,value',[
+    ('github_repository','elsewhere/other'),('github_sha','f'*40),
+    ('github_workflow_sha','e'*40),('github_run_attempt','2'),
+    ('runner_os','Windows'),('runner_arch','ARM64'),('image_os','ubuntu22'),
+    ('image_version',''),('github_run_id','not-a-run')])
+def test_admission_host_context_rejection_prevents_docker(
+        admission_package,admission_backend,field,value):
+    A=admission_backend;p,sha=admission_package;ctx=admission_host_context();ctx[field]=value
+    result=A.run_admission(p,sha,admission_authorization(sha),host_context=ctx)
+    assert result['status']=='ADMISSION_STOPPED_WITH_EVIDENCE'
+    assert_admission_boundary(result)
+    assert AdmissionDocker.instances==[]
+    assert (p/'ADMISSION_CLAIM.json').is_file() and (p/'admission/MANIFEST.json').is_file()
+
+
+@pytest.mark.parametrize('context',[None,{}, {'unknown':'value'}])
+def test_admission_requires_complete_host_context(admission_package,admission_backend,context):
+    A=admission_backend;p,sha=admission_package
+    result=A.run_admission(p,sha,admission_authorization(sha),host_context=context)
+    assert result['status']=='ADMISSION_STOPPED_WITH_EVIDENCE'
+    assert_admission_boundary(result)
+    assert AdmissionDocker.instances==[]
+
+
+@pytest.mark.parametrize('mutation',['missing','extra','wrong_image','wrong_control','cleanup_inventory'])
+def test_admission_command_record_replay_is_bound(admission_completed,mutation):
+    p,sha,A=admission_completed;logs=p/'admission/docker_commands'
+    commands=sorted(logs.glob('*.command.json'));assert commands
+    if mutation=='missing':
+        commands[0].unlink()
+    elif mutation=='extra':
+        source=commands[0]
+        (logs/'999.command.json').write_bytes(source.read_bytes())
+    else:
+        target=None
+        for command in commands:
+            args=O.strict(command.read_bytes())
+            if mutation=='wrong_image' and 'create' in args:
+                args[args.index(ADMISSION_IMAGE)]='sha256:'+'f'*64;target=command;break
+            if mutation=='wrong_control' and 'create' in args:
+                args[args.index('pulse.w1.case=probe-time')]='pulse.w1.case=P00';target=command;break
+            if mutation=='cleanup_inventory' and 'container' in args and 'ls' in args:
+                target=command.with_name(command.name.replace('.command.json','.stdout'))
+                target.write_bytes((p/'admission/probe-time/container.cid').read_bytes());break
+        assert target is not None
+        if mutation!='cleanup_inventory':target.write_bytes(O.canonical(args))
+    reclose_admission(p)
+    with pytest.raises((ValueError,TypeError,KeyError,OSError)):
+        A.verify_admission(p,sha)
+
+
+def test_admission_extra_package_file_cannot_smuggle_a_candidate(admission_package,admission_module):
+    p,sha=admission_package;(p/'candidate.py').write_text('raise RuntimeError("never executed")\n')
+    with pytest.raises((ValueError,TypeError,KeyError)):
+        admission_module.validate_package(p,sha)
+
+
+def test_admission_claim_is_not_a_native_claim(admission_completed):
+    p,sha,A=admission_completed
+    native_claim=p/'CLAIM.json'
+    native_claim.write_bytes((p/'ADMISSION_CLAIM.json').read_bytes())
+    with pytest.raises((ValueError,TypeError,KeyError)):
+        A.validate_package(p,sha)
+
+
+
+def admission_workflow():
+    import yaml
+    path=ROOT/'.github/workflows/paradox_w1_admission_v0.yml'
+    return yaml.load(path.read_bytes(),Loader=yaml.BaseLoader)
+
+
+def test_admission_workflow_is_single_manual_readonly_job():
+    data=admission_workflow()
+    assert set(data['on'])=={'workflow_dispatch'}
+    assert set(data['on']['workflow_dispatch']['inputs'])=={'source_commit','acknowledgement'}
+    assert data['permissions']=={'contents':'read'}
+    assert data['concurrency']['cancel-in-progress']=='false'
+    assert set(data['jobs'])=={'admission'}
+    job=data['jobs']['admission']
+    assert job['runs-on']=='ubuntu-24.04' and job['timeout-minutes']=='15'
+    assert job['if']=="github.repository == 'HKati/pulse-release-gates-0.1'"
+    for step in job['steps']:
+        assert step.get('continue-on-error','false')=='false'
+        if 'uses' in step:assert re.fullmatch(r'[^@]+@[0-9a-f]{40}',step['uses'])
+
+
+def test_admission_workflow_requires_owner_main_source_and_first_attempt():
+    steps=admission_workflow()['jobs']['admission']['steps']
+    assert steps[0]['id']=='guard'
+    guard=steps[0]['run']
+    for text in ['test "$GITHUB_EVENT_NAME" = workflow_dispatch',
+                 'test "$GITHUB_REF" = refs/heads/main','test "$GITHUB_ACTOR" = HKati',
+                 'test "$GITHUB_ACTOR_ID" = 128643840','test "$GITHUB_TRIGGERING_ACTOR" = HKati',
+                 'test "$GITHUB_RUN_ATTEMPT" = 1','test "$PD_SOURCE_COMMIT" = "$GITHUB_SHA"',
+                 'test "$GITHUB_SHA" = "$GITHUB_WORKFLOW_SHA"',
+                 'test "$PD_ADMISSION_ACKNOWLEDGEMENT" = ADMISSION_ONLY_ZERO_CANDIDATES']:
+        assert text in guard
+    checkout=next(x for x in steps if x['id']=='checkout')
+    assert checkout['with']['ref']=='${{ github.sha }}'
+    assert checkout['with']['persist-credentials']=='false'
+    assert checkout['with']['fetch-depth']=='1'
+    paths=checkout['with']['sparse-checkout'].splitlines()
+    assert '/tools/run_paradox_w1_admission_v0.py' in paths
+    assert '/.github/workflows/paradox_w1_admission_v0.yml' in paths
+    assert not any(p.startswith(('/examples/','/tests/','/docs/evidence/')) for p in paths)
+
+
+def test_admission_workflow_acquires_only_pinned_image_outside_controls():
+    steps=admission_workflow()['jobs']['admission']['steps'];by_id={s['id']:s for s in steps}
+    order=[s['id'] for s in steps]
+    assert order.index('verify') < order.index('image') < order.index('admission')
+    image=by_id['image']['run']
+    assert 'docker.io/library/python@sha256:a7cb177dc60dfa77b223192cd0d9e6ce1aac7cf9a569023d68e7c91b6371a718' in image
+    assert ADMISSION_IMAGE in image
+    assert 'image pull --platform linux/amd64 "$pd_image_reference"' in image
+    assert 'test "$(cat "$out/image-inspect.stdout")" = "$pd_expected_image"' in image
+    assert '--host unix:///var/run/docker.sock --config "$pd_docker_config"' in image
+    assert 'timeout --signal=TERM --kill-after=10s 240s' in image
+    assert 'image pull' not in by_id['admission']['run']
+    assert 'python:3.13.5-slim-bookworm' not in image
+
+
+def test_admission_workflow_contains_no_candidate_launch_or_write_authority():
+    data=admission_workflow();runs='\n'.join(s.get('run','') for s in data['jobs']['admission']['steps'])
+    text=(ROOT/'.github/workflows/paradox_w1_admission_v0.yml').read_text()
+    assert 'run_paradox_w1_admission_v0.py run-admission' in runs
+    assert '--authorize-admission "I_AUTHORIZE_PD_SM_02_W1_ADMISSION:$PD_REQUEST_SHA256"' in runs
+    for forbidden in ['I_AUTHORIZE_PD_SM_02_W1:', 'run_paradox_w1_native_v0.py execute',
+                      '--case-id','git push','gh workflow run','workflow_dispatch --',
+                      'contents: write','actions: write','id-token: write','secrets.']:
+        assert forbidden not in text
+
+
+def test_admission_workflow_replays_and_preserves_failed_attempts():
+    steps={s['id']:s for s in admission_workflow()['jobs']['admission']['steps']}
+    for key in ('replay','record','upload'):
+        assert steps[key]['if']=="always() && steps.guard.outcome == 'success'"
+    assert 'verify-admission' in steps['replay']['run']
+    assert 'ADMISSION_COMPLETED_UNATTESTED' in steps['record']['run']
+    assert "raise SystemExit(0 if completed else 1)" in steps['record']['run']
+    upload=steps['upload']['with']
+    assert upload['overwrite']=='false' and upload['retention-days']=='30'
+    assert upload['if-no-files-found']=='error'
+    assert upload['path']=='${{ runner.temp }}/pd-sm-02-w1-admission/'
+
+
+
+def test_admission_preserved_package_replays_after_moving(admission_completed,tmp_path):
+    p,sha,A=admission_completed;portable=tmp_path/'downloaded-admission'
+    shutil.copytree(p,portable)
+    shutil.rmtree(p)
+    result=A.verify_admission(portable,sha)
+    assert result['status']=='ADMISSION_RECORDS_REPLAYED'
+    assert result['admission_status']=='ADMISSION_COMPLETED_UNATTESTED'
+    assert_admission_boundary(result)
+
+
+@pytest.mark.parametrize('mode,exitcode',[(None,0),('bad_daemon',2),('bad_probe',2),('cleanup_failure',2)])
+def test_admission_cli_preserves_failure_exit_status(admission_package,admission_backend,monkeypatch,capsys,mode,exitcode):
+    A=admission_backend;p,sha=admission_package;monkeypatch.setattr(AdmissionDocker,'mode',mode)
+    context=p.parent/'host-context.json';context.write_bytes(O.canonical(admission_host_context()))
+    code=A.main(['run-admission','--package',str(p),'--request-sha256',sha,
+                 '--authorize-admission',admission_authorization(sha),'--host-context',str(context)])
+    report=O.strict(capsys.readouterr().out.encode())
+    assert code==exitcode and report['status']==('ADMISSION_COMPLETED_UNATTESTED' if mode is None else 'ADMISSION_STOPPED_WITH_EVIDENCE')
+    assert_admission_boundary(report)
+    code=A.main(['verify-admission','--package',str(p),'--request-sha256',sha])
+    replay=O.strict(capsys.readouterr().out.encode())
+    assert code==exitcode and replay['admission_status']==report['status']
+    assert_admission_boundary(replay)
+
+
+
+def test_admission_unknown_context_value_never_enters_retained_evidence(admission_package,admission_backend):
+    p,sha=admission_package;A=admission_backend
+    context=admission_host_context();marker=b'TOKEN_LEAK_TEST_DO_NOT_SAVE'
+    context['unapproved_metadata']=marker.decode()
+    report=A.run_admission(p,sha,admission_authorization(sha),host_context=context)
+    assert report['status']=='ADMISSION_STOPPED_WITH_EVIDENCE'
+    assert AdmissionDocker.instances==[]
+    for path in (p/'admission').rglob('*'):
+        if path.is_file():assert marker not in path.read_bytes()
+    assert marker not in (p/'ADMISSION_CLAIM.json').read_bytes()
+    assert_admission_boundary(A.verify_admission(p,sha))
+
+
+def test_admission_stopped_summary_cannot_skip_failed_first_control(admission_completed):
+    p,sha,A=admission_completed;path=p/'admission/summary.json'
+    summary=O.strict(path.read_bytes())
+    summary.update(status='ADMISSION_STOPPED_WITH_EVIDENCE',controls_completed=[],reason='synthetic failure')
+    assert summary['controls_started']==['probe-time','probe-output']
+    path.write_bytes(O.canonical(summary)+b'\n');reclose_admission(p)
+    with pytest.raises(ValueError):A.verify_admission(p,sha)
+
+
+def test_admission_orphan_command_output_cannot_hide_in_reclosed_manifest(admission_completed):
+    p,sha,A=admission_completed;logs=p/'admission/docker_commands'
+    (logs/'015.stdout').write_bytes(b'orphan output')
+    reclose_admission(p)
+    with pytest.raises(ValueError):A.verify_admission(p,sha)
+
+
+@pytest.mark.parametrize('mutation',['case_argument','entrypoint','image','extra_label','stage_root','cidfile_root'])
+def test_admission_stopped_evidence_still_checks_exact_create_command(admission_completed,mutation):
+    p,sha,A=admission_completed;cap=p/'admission'
+    path=cap/'summary.json';summary=O.strict(path.read_bytes())
+    summary.update(status='ADMISSION_STOPPED_WITH_EVIDENCE',controls_completed=['probe-time'],reason='synthetic second control failure')
+    path.write_bytes(O.canonical(summary)+b'\n')
+    path=None
+    for candidate in sorted((cap/'docker_commands').glob('*.command.json')):
+        args=O.strict(candidate.read_bytes())
+        if 'create' in args and 'pulse.w1.case=probe-output' in args:
+            path=candidate;break
+    assert path is not None
+    if mutation=='case_argument':args[-1]='P00'
+    elif mutation=='entrypoint':args[args.index('--entrypoint=/usr/bin/env')]='--entrypoint=/bin/sh'
+    elif mutation=='image':args[args.index(ADMISSION_IMAGE)]='sha256:'+'f'*64
+    elif mutation=='extra_label':
+        pos=args.index('create')+1;args[pos:pos]=['--label','pulse.w1.case=P00']
+    elif mutation=='stage_root':
+        idx=args.index('--mount')+1
+        args[idx]='type=bind,src=/different/stage/probe-output,dst=/inputs,readonly'
+    else:
+        args[args.index('--cidfile')+1]='/different/admission/probe-output/container.cid'
+    path.write_bytes(O.canonical(args));reclose_admission(p)
+    with pytest.raises((ValueError,TypeError,KeyError)):
+        A.verify_admission(p,sha)
+
+
+def test_admission_current_source_is_python311_syntax():
+    ast.parse((TOOLS/'run_paradox_w1_admission_v0.py').read_text(),feature_version=(3,11))
+
+
 if __name__=='__main__':
     raise SystemExit(pytest.main([__file__]))

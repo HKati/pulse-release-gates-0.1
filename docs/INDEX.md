@@ -1008,6 +1008,13 @@ index update neither predeclares that closure nor performs a new proof execution
   controls; no automatic execution, image pull or normal-launch bypass.
   Synthetic lifecycle tests do not establish live containment or native witnesses.
   `execution_authorized = false`; `authority_effect = none`.
+- Paradoxon PD-SM-02-W1 separate environment admission:
+  [Selected Linux/image target, zero-candidate controls and offline replay](experiments/PD_SM_02_W1_ADMISSION_v0.md)
+  **Implemented candidate-free path; live admission not run.** Selects the
+  GitHub-hosted Ubuntu 24.04 x64 runner class and an exact official Python image;
+  preserves registry metadata and uses a separate zero-budget request, claim,
+  manual workflow and control replay. Success cannot authorize a W1 experiment.
+  `maximum_candidate_invocations = 0`; `authority_effect = none`.
 - [PULSE_paradox_field_v0_walkthrough.md](PULSE_paradox_field_v0_walkthrough.md) — Reading `paradox_field_v0`.
 - [Pulse_paradox_edges_v0_status.md](Pulse_paradox_edges_v0_status.md) — Status and roadmap for `paradox_edges_v0.jsonl`.
 - [paradox_edges_case_studies.md](paradox_edges_case_studies.md) — Fixture and non-fixture case studies.
