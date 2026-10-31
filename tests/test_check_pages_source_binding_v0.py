@@ -523,7 +523,7 @@ def test_every_shell_block_parses(tmp_path):
         assert result.returncode==0, (step["name"],result.stderr.decode())
 
 
-@pytest.mark.parametrize("name,count", [("tools-tests.list",173),("pytest-tests.list",29)])
+@pytest.mark.parametrize("name,count", [("tools-tests.list",174),("pytest-tests.list",30)])
 def test_registered_once_and_all_existing_entries_preserved(name,count):
     values=[s.split("#",1)[0].strip() for s in (ROOT/"ci"/name).read_text().splitlines()]
     values=[s for s in values if s]
@@ -535,7 +535,7 @@ def test_registered_once_and_all_existing_entries_preserved(name,count):
     assert values.count("tests/test_anchor_integrity_v0_1_contract.py")==1
 
 
-@pytest.mark.parametrize("name,count", [("tools-tests.list",173),("pytest-tests.list",29)])
+@pytest.mark.parametrize("name,count", [("tools-tests.list",174),("pytest-tests.list",30)])
 @pytest.mark.parametrize("remnant", ["security/sec-pages-01-binding-36f8ff5", "main",
                                      "<<<<<<< branch", "=======", ">>>>>>> main"])
 def test_manifest_rejects_merge_remnants_even_when_count_matches(tmp_path, monkeypatch, name, count, remnant):
@@ -549,7 +549,7 @@ def test_manifest_rejects_merge_remnants_even_when_count_matches(tmp_path, monke
         test_registered_once_and_all_existing_entries_preserved(name,count)
 
 
-@pytest.mark.parametrize("name,count", [("tools-tests.list",173),("pytest-tests.list",29)])
+@pytest.mark.parametrize("name,count", [("tools-tests.list",174),("pytest-tests.list",30)])
 def test_manifest_cannot_drop_q3_while_keeping_pages_and_count(tmp_path, monkeypatch, name, count):
     raw=(ROOT/"ci"/name).read_text()
     q3="tests/test_q3_preflight_preservation_v0.py\n"
@@ -570,11 +570,11 @@ def test_python_311_grammar_and_all_count_consumers_updated():
         "test_q2_release_host_worker_v0.py","test_q3_native_capture_workflow_v0.py"]
     for name in consumers:
         text=(ROOT/"tests"/name).read_text()
-        assert len(re.findall(r"==\s*173\b",text))==1,name
+        assert len(re.findall(r"==\s*174\b",text))==1,name
         assert not re.search(r"==\s*(?:169|170|171|172)\b",text),name
         ast.parse(text,feature_version=(3,11))
     for name in ("test_q2_release_host_tokenizer_workflow_v0.py","test_q2_release_host_worker_v0.py"):
-        assert r"==\s*173\b" in (ROOT/"tests"/name).read_text()
+        assert r"==\s*174\b" in (ROOT/"tests"/name).read_text()
 
 
 @pytest.mark.parametrize("mode", ["manual_id", "latest", "workflow_run"])

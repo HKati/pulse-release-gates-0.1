@@ -632,7 +632,7 @@ def test_no_project_runtime_import_or_execution_in_checker():
 
 
 def test_registered_once_in_both_manifests_and_expected_counts():
-    for name,count in [('tools-tests.list',173),('pytest-tests.list',29)]:
+    for name,count in [('tools-tests.list',174),('pytest-tests.list',30)]:
         entries=[s.split('#',1)[0].strip() for s in (ROOT/'ci'/name).read_text().splitlines()]
         entries=[s for s in entries if s]
         assert len(entries)==len(set(entries))==count
@@ -650,15 +650,15 @@ def test_all_existing_inventory_count_consumers_synchronized():
         'test_q2_release_host_worker_v0.py','test_q3_native_capture_workflow_v0.py']
     for name in consumers:
         text=(ROOT/'tests'/name).read_text()
-        assert len(re.findall(r'==\s*173\b',text))==1,name
+        assert len(re.findall(r'==\s*174\b',text))==1,name
         assert not re.search(r'==\s*172\b',text),name
         ast.parse(text,feature_version=(3,11))
     for name in ('test_q2_release_host_tokenizer_workflow_v0.py','test_q2_release_host_worker_v0.py'):
-        assert r'==\s*173\b' in (ROOT/'tests'/name).read_text()
+        assert r'==\s*174\b' in (ROOT/'tests'/name).read_text()
     pages=(ROOT/'tests/test_check_pages_source_binding_v0.py').read_text()
     postflight=(ROOT/'tests/test_q3_external_postflight_v0.py').read_text()
-    assert '("tools-tests.list",173)' in pages and '("pytest-tests.list",29)' in pages
-    assert "('tools-tests.list',173)" in postflight and "('pytest-tests.list',29)" in postflight
+    assert '("tools-tests.list",174)' in pages and '("pytest-tests.list",30)' in pages
+    assert "('tools-tests.list',174)" in postflight and "('pytest-tests.list',30)" in postflight
 
 
 if __name__=='__main__':

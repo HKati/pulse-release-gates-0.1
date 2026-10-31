@@ -1000,6 +1000,14 @@ index update neither predeclares that closure nor performs a new proof execution
   acquisition authenticity, containment, native witness observation and a new
   execution authorization are not established by this checker.
   `authority_effect = none`.
+- Paradoxon PD-SM-02-W1 bounded diagnostic acquisition implementation:
+  [Native controller, observer and external boundary](experiments/PD_SM_02_W1_NATIVE_CAPTURE_v0.md)
+  **Implemented path; live-container admission and native W1 execution not run.**
+  Exact request and source closure; five fixed candidates; separate trusted
+  primitive instrumentation and collector; inspected Docker limits and admission
+  controls; no automatic execution, image pull or normal-launch bypass.
+  Synthetic lifecycle tests do not establish live containment or native witnesses.
+  `execution_authorized = false`; `authority_effect = none`.
 - [PULSE_paradox_field_v0_walkthrough.md](PULSE_paradox_field_v0_walkthrough.md) — Reading `paradox_field_v0`.
 - [Pulse_paradox_edges_v0_status.md](Pulse_paradox_edges_v0_status.md) — Status and roadmap for `paradox_edges_v0.jsonl`.
 - [paradox_edges_case_studies.md](paradox_edges_case_studies.md) — Fixture and non-fixture case studies.

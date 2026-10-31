@@ -598,13 +598,13 @@ COUNT_CONSUMERS=(
 def test_both_programs_once_and_all_seven_manifest_consumers():
     entries=[l.split('#',1)[0].strip() for l in (ROOT/'ci/tools-tests.list').read_text().splitlines()]
     entries=[l for l in entries if l]
-    assert len(entries)==len(set(entries))==173
+    assert len(entries)==len(set(entries))==174
     for n in ('tests/test_q2_release_host_worker_protocol_v0.py','tests/test_q2_release_host_worker_v0.py'):
         assert entries.count(n)==1 and n not in (ROOT/'ci/pytest-tests.list').read_text()
         assert 'pytest.main([__file__])' in (ROOT/n).read_text()
     for n in COUNT_CONSUMERS:
         text=(ROOT/'tests'/n).read_text()
-        assert re.search(r'==\s*173\b',text) and not re.search(r'==\s*165\b',text)
+        assert re.search(r'==\s*174\b',text) and not re.search(r'==\s*165\b',text)
 
 
 @pytest.fixture(scope='module')
