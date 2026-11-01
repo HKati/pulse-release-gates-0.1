@@ -98,8 +98,9 @@ jobs:
                         handle, sort_keys=True, separators=(',', ':'))
               handle.write('\n')
           PY
+          cd "$GITHUB_WORKSPACE/tooling"
           set +e
-          python3 -I -S -B tooling/tools/run_paradox_w1_admission_v0.py prepare \
+          python3 -I -S -B tools/run_paradox_w1_admission_v0.py prepare \
             --repo-root "$GITHUB_WORKSPACE/tooling" \
             --output "$out/package" --source-commit "$PD_SOURCE_COMMIT" \
             --run-id "gh-w1-admission-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
@@ -127,8 +128,9 @@ jobs:
         run: |
           set -euo pipefail
           out="$RUNNER_TEMP/pd-sm-02-w1-admission"
+          cd "$GITHUB_WORKSPACE/tooling"
           set +e
-          python3 -I -S -B tooling/tools/run_paradox_w1_admission_v0.py verify \
+          python3 -I -S -B tools/run_paradox_w1_admission_v0.py verify \
             --package "$out/package" --request-sha256 "$PD_REQUEST_SHA256" \
             > "$out/verify.stdout" 2> "$out/verify.stderr"
           rc=$?
@@ -194,8 +196,9 @@ jobs:
         run: |
           set -euo pipefail
           out="$RUNNER_TEMP/pd-sm-02-w1-admission"
+          cd "$GITHUB_WORKSPACE/tooling"
           set +e
-          python3 -I -S -B tooling/tools/run_paradox_w1_admission_v0.py run-admission \
+          python3 -I -S -B tools/run_paradox_w1_admission_v0.py run-admission \
             --package "$out/package" --request-sha256 "$PD_REQUEST_SHA256" \
             --authorize-admission "I_AUTHORIZE_PD_SM_02_W1_ADMISSION:$PD_REQUEST_SHA256" \
             --host-context "$out/host_context.json" \
@@ -219,8 +222,9 @@ jobs:
           fi
           pd_request_sha="$(cat "$out/REQUEST_SHA256.txt")"
           [[ "$pd_request_sha" =~ ^[0-9a-f]{64}$ ]]
+          cd "$GITHUB_WORKSPACE/tooling"
           set +e
-          python3 -I -S -B tooling/tools/run_paradox_w1_admission_v0.py verify-admission \
+          python3 -I -S -B tools/run_paradox_w1_admission_v0.py verify-admission \
             --package "$out/package" --request-sha256 "$pd_request_sha" \
             > "$out/replay.stdout" 2> "$out/replay.stderr"
           rc=$?

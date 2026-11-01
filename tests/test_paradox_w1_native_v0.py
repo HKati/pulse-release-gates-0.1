@@ -1177,5 +1177,75 @@ def test_admission_current_source_is_python311_syntax():
     ast.parse((TOOLS/'run_paradox_w1_admission_v0.py').read_text(),feature_version=(3,11))
 
 
+
+def admission_path_guard(workflow_path,repo_root,monkeypatch):
+    guard=module('w1_actual_path_guard',ROOT/'ci/check_path_refs_exist.py')
+    monkeypatch.setattr(guard,'ROOT',repo_root)
+    monkeypatch.setattr(guard,'iter_workflow_files',lambda:[workflow_path])
+    missing=[];guard.check_workflows(missing)
+    return missing
+
+
+def test_admission_workflow_passes_actual_static_path_guard(monkeypatch):
+    workflow_path=ROOT/'.github/workflows/paradox_w1_admission_v0.yml'
+    assert admission_path_guard(workflow_path,ROOT,monkeypatch)==[]
+
+
+def test_admission_actual_path_guard_rejects_checkout_prefix(tmp_path,monkeypatch):
+    workflow_path=tmp_path/'.github/workflows/paradox_w1_admission_v0.yml'
+    workflow_path.parent.mkdir(parents=True)
+    raw=(ROOT/'.github/workflows/paradox_w1_admission_v0.yml').read_text()
+    raw=raw.replace('python3 -I -S -B tools/', 'python3 -I -S -B tooling/tools/')
+    workflow_path.write_text(raw)
+    correct=tmp_path/'tools/run_paradox_w1_admission_v0.py';correct.parent.mkdir()
+    correct.write_bytes((TOOLS/correct.name).read_bytes())
+    assert admission_path_guard(workflow_path,tmp_path,monkeypatch)==[
+        ('.github/workflows/paradox_w1_admission_v0.yml','tooling/tools/run_paradox_w1_admission_v0.py')]*4
+
+
+@pytest.mark.parametrize('step_id',['prepare','verify','admission','replay'])
+def test_admission_workflow_script_resolves_in_checkout(tmp_path,admission_module,step_id):
+    import shlex
+    data=admission_workflow();job=data['jobs']['admission'];steps={s['id']:s for s in job['steps']}
+    workspace=tmp_path/'workspace';checkout=workspace/steps['checkout']['with']['path']
+    (checkout/'tools').mkdir(parents=True)
+    for name in admission_module.MODULES:
+        (checkout/'tools'/name).write_bytes((TOOLS/name).read_bytes())
+    step=steps[step_id];script=step['run']
+    guard=module('w1_runtime_path_guard',ROOT/'ci/check_path_refs_exist.py')
+    calls=[line for line in script.splitlines() if guard.PY_CALL_RE.search(line)]
+    assert len(calls)==1
+    line=calls[0];args=shlex.split(line.rstrip().removesuffix('\\'))
+    # Execute the real CLI help from the checkout context reached by this step;
+    # none of the prepare/execute/replay operations themselves is invoked.
+    args[0]=sys.executable;args.append('--help')
+    prefix=script.split(line,1)[0]
+    directory_commands=re.findall(r'(?m)^\s*cd\s+[^\n]+$',prefix)
+    check_script='set -euo pipefail\n'+'\n'.join(directory_commands)+'\nexec '+shlex.join(args)+'\n'
+    initial=step.get('working-directory',job.get('defaults',{}).get('run',{}).get('working-directory','.'))
+    initial=initial.replace('${{ github.workspace }}',str(workspace))
+    cwd=Path(initial) if Path(initial).is_absolute() else workspace/initial
+    result=subprocess.run(['bash','-c',check_script],cwd=cwd,
+        env={'PATH':os.defpath,'GITHUB_WORKSPACE':str(workspace),'RUNNER_TEMP':str(tmp_path)},
+        capture_output=True,text=True,timeout=10,check=False)
+    assert result.returncode==0,result.stdout+result.stderr
+    assert 'usage:' in result.stdout and result.stderr==''
+
+
+def test_admission_replay_without_request_does_not_require_checkout(tmp_path):
+    workspace=tmp_path/'workspace';workspace.mkdir()
+    runner=tmp_path/'runner';out=runner/'pd-sm-02-w1-admission';out.mkdir(parents=True)
+    job=admission_workflow()['jobs']['admission'];step=next(s for s in job['steps'] if s['id']=='replay')
+    initial=step.get('working-directory',job.get('defaults',{}).get('run',{}).get('working-directory','.'))
+    initial=initial.replace('${{ github.workspace }}',str(workspace))
+    cwd=Path(initial) if Path(initial).is_absolute() else workspace/initial
+    result=subprocess.run(['bash','-c',step['run']],cwd=cwd,
+        env={'PATH':os.defpath,'GITHUB_WORKSPACE':str(workspace),'RUNNER_TEMP':str(runner)},
+        capture_output=True,text=True,timeout=10,check=False)
+    assert result.returncode==0,result.stdout+result.stderr
+    assert (out/'replay.status').read_text()=='NOT_RUN_NO_PREPARED_REQUEST\n'
+    assert not (workspace/'tooling').exists() and not (out/'package').exists()
+
+
 if __name__=='__main__':
     raise SystemExit(pytest.main([__file__]))
