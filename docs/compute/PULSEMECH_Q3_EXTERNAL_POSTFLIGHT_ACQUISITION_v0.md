@@ -1,6 +1,7 @@
 # Q3 external postflight acquisition v0
 
-Status: implementation candidate for read-only external record acquisition.
+Status: merged read-only acquisition component; no standalone capture authority.
+Its unchanged implementation is reused by [capture handoff v1](PULSEMECH_Q3_CAPTURE_HANDOFF_v1.md).
 Preparation base: `25aec1ad8045afdf2ca6ba3ffcd2c6446faf31c5`.
 Tracking: #2879 remains open.
 
@@ -14,8 +15,10 @@ worker, profile, schema or workflow.
 
 This increment implements the transport/acquisition part of the external-source
 work. It is **not mandatory capture-handoff enforcement**, and it does not finish
-portable origin authentication. The existing native capture entry points still
-do not require this component. No capture permission follows from its exit code.
+portable origin authentication. The later [capture handoff v1](PULSEMECH_Q3_CAPTURE_HANDOFF_v1.md) makes fresh
+acquisition mandatory at the supported native controller entry. That integration
+is separate from this component: no standalone capture permission follows from
+this tool's exit code.
 
 The offline comparator stays byte-identical to the merged #2966 correction. Its
 reviewed SHA-256 is:
@@ -221,14 +224,17 @@ archive substitution, token isolation, redirect policy, resource bounds,
 partial preservation, output non-replacement, and CLI boundaries. They do not
 establish a live GitHub download, attestation or new native observation.
 
-The next capture integration must consume a fresh acquisition inside a reviewed
-trusted controller, or verify a separately designed durable origin attestation.
-It must not accept a saved acquisition JSON as proof of origin. It must bind the
-preflight to the later capture's distinct request/source/run, require separate
-owner consent, prevent copied/stale approvals and close every native capture
-entry path. Closed v0 schemas/readers and historical replay require an explicit
-version/migration decision. This delivery does not change that contract or
-silently enable the existing capture path.
+The [capture handoff v1](PULSEMECH_Q3_CAPTURE_HANDOFF_v1.md) uses the first of
+the previously specified integration choices: fresh acquisition consumed inside
+the reviewed trusted controller. It introduces no durable origin-attestation
+service and accepts no saved acquisition JSON as proof of origin or permission.
+The versioned outer request/carrier bind the later capture's distinct request,
+source and run, while the original closed native-v0 readers remain intact.
+
+The standalone acquisition script is unchanged. Its synthetic regressions do not
+establish a live acquisition. Handoff implementation acceptance, the separately
+authorized new preflight/capture and the later labeled Q3 measurement remain
+distinct records; no merge is itself execution authorization.
 
 ## Primary API references
 

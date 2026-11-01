@@ -87,7 +87,16 @@ def entry_guard(root,commit,raw,request_sha,env):
     exec(compile(snapshot[CONTRACT],module.__file__,'exec'),module.__dict__)
     p=module.load_profile(snapshot)
     module.require(set(p['source_files'])==set(SOURCE_FILES),'SOURCE_SCOPE')
-    r=module.validate_request(raw,p);module.require(r['source_commit']==commit,'REQUEST_SOURCE')
+    entry=module.strict_json(raw,128*1024)
+    if type(entry) is dict and entry.get('record_type')=='q3_capture_handoff_request_v1':
+        module.require(type(entry.get('native_request_utf8')) is str,'HANDOFF_NATIVE_REQUEST')
+        native_raw=entry['native_request_utf8'].encode('utf-8')
+        r=module.validate_request(native_raw,p)
+        module.require(r['mode']=='capture','HANDOFF_CAPTURE_ONLY')
+    else:
+        r=module.validate_request(raw,p)
+        module.require(r['mode']=='token-preflight','CAPTURE_HANDOFF_REQUIRED')
+    module.require(r['source_commit']==commit,'REQUEST_SOURCE')
     module.task_frame(snapshot,p)
     return module,p,r,snapshot
 
@@ -512,6 +521,29 @@ def execute(C,p,request,snapshot,root,raw,env):
     return 0 if status=='complete' else 1
 
 
+
+# The v0 execute/publish functions remain the internal native core and historical
+# regression seams, not public admission interfaces. Every supported execution
+# entry (this CLI and the existing manual workflow) reaches this mandatory path.
+HANDOFF_SOURCE='tools/q3_capture_handoff_v1.py'
+HANDOFF_SOURCES=('schemas/metrics/q3_capture_handoff_request_v1.schema.json',
+                 'tools/acquire_q3_external_postflight_v0.py',
+                 'tools/check_q3_external_postflight_v0.py',
+                 'tools/q3_capture_handoff_v1.py')
+
+
+def execute_handoff(C,p,request,snapshot,root,raw,env):
+    extra={}
+    for name in HANDOFF_SOURCES:
+        b=boot_read(root/name,128*1024)
+        entry_require(boot_git(root,['cat-file','blob',request['source_commit']+':'+name])==b)
+        extra[name]=b
+    mod=types.ModuleType('q3_verified_capture_handoff_v1');mod.__file__=str(root/HANDOFF_SOURCE)
+    exec(compile(extra[HANDOFF_SOURCE],mod.__file__,'exec',dont_inherit=True),mod.__dict__)
+    entry_require(tuple(mod.EXTRA_SOURCES)==HANDOFF_SOURCES)
+    return mod.run(C,p,request,snapshot,root,raw,env,extra,execute,control_plane,output_destination)
+
+
 def main(argv=None):
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--repo-root',type=Path,required=True);ap.add_argument('--source-commit',required=True)
@@ -520,6 +552,8 @@ def main(argv=None):
     try:
         raw=args.request.encode('utf-8');root=args.repo_root.absolute();env=dict(os.environ)
         C,p,request,snapshot=entry_guard(root,args.source_commit,raw,args.request_sha256,env)
+        if request['mode']=='capture':
+            return execute_handoff(C,p,request,snapshot,root,raw,env)
         return execute(C,p,request,snapshot,root,raw,env)
     except BaseException:
         print('Q3 rejected or final publication unavailable; no successful capture claimed.',file=sys.stderr)
