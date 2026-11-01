@@ -1036,5 +1036,543 @@ def test_acquisition_output_write_failure_cannot_report_complete(acquirer,histor
     assert (tmp_path/'out/failure.json').exists()
 
 
+# Mandatory capture handoff v1. All provider/process records below are explicitly
+# synthetic controls. The historical package is never modified on disk.
+HANDOFF_TOOL = ROOT / 'tools/q3_capture_handoff_v1.py'
+NATIVE_COLLECTOR = 'PULSE_safe_pack_v0/tools/acquire_q3_reference_inputs_v0.py'
+
+
+def handoff_module(root=ROOT):
+    spec=importlib.util.spec_from_file_location('q3_handoff_test', root/'tools/q3_capture_handoff_v1.py')
+    mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod);return mod
+
+
+def native_mod(root, name):
+    path=root/'PULSE_safe_pack_v0/tools'/(name+'.py')
+    spec=importlib.util.spec_from_file_location(name+'_handoff_test',path)
+    mod=importlib.util.module_from_spec(spec);spec.loader.exec_module(mod);return mod
+
+
+def current_native_sources(root=ROOT):
+    p=json.loads((root/M.PROFILE).read_bytes())
+    return {n:(root/n).read_bytes() for n in p['source_files']}
+
+
+def synthetic_bound_preflight(historical, source):
+    """Rebind a COPY to selected source bytes for positive integration controls.
+
+    This is not a new observation of the historical source or a correction of its
+    image discrepancy. Every changed fixture is independently marked synthetic.
+    """
+    e,raw=equal_image_case(historical);outer=M.unzip(raw['artifact.zip']);d=M.unzip(outer['evidence.zip'])
+    old=M.digest(d['prelaunch.json'])
+    for n,b in source.items():d['source/'+n]=b
+    pre=json.loads(d['prelaunch.json']);pre['source_files']={n:M.digest(b) for n,b in source.items()}
+    d['prelaunch.json']=M.encode(pre);new=M.digest(d['prelaunch.json'])
+    for n in list(d):
+        if not n.startswith('source/') and n not in ('prelaunch.json','result.json'):
+            d[n]=d[n].replace(old.encode(),new.encode())
+    result=json.loads(d['result.json']);result['inventory']={n:{'size_bytes':len(b),'sha256':M.digest(b)}
+        for n,b in d.items() if n!='result.json'}
+    d['result.json']=M.encode(result)
+    receipt=json.loads(outer['receipt.json']);inner=archive(d)
+    receipt.update(archive_sha256=M.digest(inner),archive_size_bytes=len(inner),result_sha256=M.digest(d['result.json']))
+    e['source_files']={n:{'sha256':M.digest(b),'git_blob_sha1':M.blob_id(b),'size_bytes':len(b)} for n,b in source.items()}
+    rebound_archive(e,raw,{'evidence.zip':inner,'receipt.json':M.encode(receipt)})
+    assert run(e,raw)['disposition']=='CONSISTENT_OFFLINE'
+    return e,raw
+
+
+def synthetic_native_capture(source, original_preflight, request, run_id):
+    """Finite TEST ONLY protocol carrier using synthetic responses, not inference."""
+    c=native_mod(ROOT,'q3_native_capture_contract_v0');p=c.load_profile(source);frame=c.task_frame(source,p)
+    k=native_mod(ROOT,'check_q3_native_capture_v0');a=native_mod(ROOT,'acquire_q3_reference_inputs_v0')
+    d=M.unzip(M.unzip(original_preflight['artifact.zip'])['evidence.zip']);d.pop('result.json')
+    d.update({'source/'+n:b for n,b in source.items()})
+    d['request.json']=c.encode(request)
+    plane=json.loads(d['control-plane.json']);plane.update(run_id=run_id,source_commit=request['source_commit'])
+    d['control-plane.json']=c.encode(plane)
+    pre=json.loads(d['prelaunch.json']);pre.update(request=request,source_commit=request['source_commit'],run_id=run_id,
+        source_files={n:c.digest(b) for n,b in source.items()},control_plane_sha256=c.digest(d['control-plane.json']))
+    d['prelaunch.json']=c.encode(pre)
+    binding={'prelaunch_sha256':c.digest(d['prelaunch.json']),'source_commit':request['source_commit'],'run_id':run_id,'run_attempt':1}
+    mapping=json.loads(d['token-map.json']);ms=c.digest(d['token-map.json'])
+    d['worker-ready.json']=c.encode({'record_type':'q3_worker_ready_v0','binding':binding,'mode':'capture'})
+    d['token-map-end.json']=c.encode({'record_type':'q3_token_map_end_v0','binding':binding,'token_map_sha256':ms,'task_count':204})
+    for row in mapping['rows']:d['tokens/'+row['task_id']+'.json']=c.encode({'record_type':'q3_token_row_v0','binding':binding,'row':row})
+    generation={**p['generation'],'disable_compile':True};runtime=k.expected_runtime(p)
+    d['model-ready.json']=c.encode({'record_type':'q3_model_ready_v0','binding':binding,'token_map_sha256':ms,
+        'effective_generation':generation,'runtime':runtime})
+    d['subject.json']=c.encode({'record_type':'q3_capture_subject_v0','binding':binding,
+        'model_ready_sha256':c.digest(d['model-ready.json']),'token_map_sha256':ms})
+    full={**binding,'subject_sha256':c.digest(d['subject.json'])}
+    d['bound.json']=c.encode({'record_type':'q3_bound_v0','binding':full})
+    sb=json.loads(d['worker-sandbox.json']);oldunit=sb['unit'];prefix=oldunit.rsplit('-preflight.service',1)[0]
+    sb['unit']=prefix+'-captureworker.service';sb['stage']='captureworker'
+    sb['run_mount']=json.loads(json.dumps(sb['run_mount']).replace(oldunit,sb['unit']))
+    sb['properties']['RuntimeMaxUSec']='14400s';sb['capture_runtime_seconds']=14400
+    d['worker-sandbox.json']=c.encode(sb)
+    cleanup=json.loads(d['worker-cleanup.json']);cleanup['unit']=sb['unit'];d['worker-cleanup.json']=c.encode(cleanup)
+    lifecycle=json.loads(d['lifecycle.json'])
+    for svc in lifecycle['services']:
+        if svc['unit']==oldunit:svc['unit']=sb['unit']
+    occ=[];timers=[];examples=[]
+    for task,row in zip(frame,mapping['rows']):
+        slot={'task_id':task['task_id'],'ordinal':task['ordinal'],'attempt':1};stem='calls/'+task['task_id']
+        moment=task['ordinal']*100_000_000_000
+        ready={'record_type':'q3_slot_ready_v0','binding':full,'slot':slot,'input_ids':row['input_ids'],
+            'effective_generation':generation,'runtime':runtime}
+        # Empty EOS text is an allowed synthetic transport observation, not a Q1 label.
+        response={**ready,'record_type':'q3_response_v0','new_token_ids':[2],'text':'','text_utf8_base64':'','stop_reason':'eos'}
+        d[stem+'.ready.json']=c.encode(ready);d[stem+'.response.json']=c.encode(response);d[stem+'.utf8']=b''
+        d[stem+'.intent.json']=c.encode({**slot,'binding':full,'intent':'before_GO'})
+        occ.append({**slot,'status':'completed','intent_saved_ns':moment,'watchdog_arm_begin_ns':moment+1,
+            'generation_start_ns':moment+2,'generation_deadline_ns':moment+60_000_000_002,
+            'response_received_ns':moment+3,'watchdog_closed_ns':moment+4})
+        timer=prefix+f"-call-{task['ordinal']:03d}"
+        timers.append({'prefix':timer,'closure':{'units':[{'unit':timer+'-watchdog'+suffix,
+            'LoadState':'not-found','ActiveState':'inactive'} for suffix in ('.timer','.service')],'closed_ns':moment+4}})
+        examples.append({'example_id':task['task_id'],'prompt':task['prompt'],'response':'','context':task['context'],
+                         'metadata':{'task_form':task['task_form']}})
+    lifecycle['timers']=timers;d['lifecycle.json']=c.encode(lifecycle)
+    d['examples.jsonl']=b''.join(c.encode(x) for x in examples)
+    d['session-end.json']=c.encode({'record_type':'q3_session_end_v0','binding':full,'completed_calls':204})
+    terminal=json.loads(d['terminal.json']);terminal.update(mode='capture',binding=binding,attempted_calls=204,
+        occurrences=occ,worker_deadline_ns=30_000_000_000_000,worker_exit_observed_ns=29_000_000_000_000)
+    d['terminal.json']=c.encode(terminal)
+    d['token-check.json']=c.encode({'record_type':'q3_native_token_check_v0','request_sha256':c.digest(d['request.json']),
+        'prelaunch_sha256':c.digest(d['prelaunch.json']),'token_map_sha256':ms,'checked_tasks':204,'checked_responses':204,
+        'tokenization_reperformed':True,'generation_executed':False,'examples_sha256':c.digest(d['examples.jsonl']),
+        'claims':dict(c.CLAIMS)})
+    assert k.validate_complete(source,d)['complete'] is True
+    inner,result=a.build_carrier(c,d,request,'complete',None)
+    receipt={'record_type':'q3_native_capture_receipt_v0','status':'complete','mode':'capture',
+        'archive_sha256':c.digest(inner),'archive_size_bytes':len(inner),'result_sha256':c.digest(c.encode(result)),
+        'request_sha256':c.digest(d['request.json']),'source_commit':request['source_commit'],
+        'token_map_sha256':ms,'claims':dict(c.CLAIMS)}
+    return {'evidence.zip':inner,'receipt.json':c.encode(receipt)}
+
+
+@pytest.fixture(scope='module')
+def handoff_case(historical):
+    h=handoff_module();source=current_native_sources();e,raw=synthetic_bound_preflight(historical,source)
+    extra={n:(ROOT/n).read_bytes() for n in h.EXTRA_SOURCES};a,m=h.components(ROOT,extra)
+    s=acquisition_selection(a,(e,raw));c=native_mod(ROOT,'q3_native_capture_contract_v0')
+    nr=json.loads(M.unzip(M.unzip(raw['artifact.zip'])['evidence.zip'])['request.json'])
+    nr.update(mode='capture',source_commit='c'*40,authorization=c.AUTHORIZATIONS['capture'],
+              approved_token_map_sha256=s['token_map_sha256'])
+    nb=c.encode(nr);sr=a.encode(s)
+    envelope={'record_type':h.REQUEST_TYPE,'repository':h.REPOSITORY,'capture_source_commit':nr['source_commit'],
+        'native_request_utf8':nb.decode(),'native_request_sha256':h.digest(nb),
+        'postflight_selection_utf8':sr.decode(),'postflight_selection_sha256':h.digest(sr),
+        'handoff_source_files':{n:h.pin(b) for n,b in extra.items()},'authorization':h.AUTHORIZATION}
+    current={'id':90001,'run_attempt':1,'head_sha':nr['source_commit'],'head_branch':'main',
+        'event':'workflow_dispatch','status':'in_progress','conclusion':None,'path':h.WORKFLOW,
+        'actor':{'login':'HKati'},'triggering_actor':{'login':'HKati'}}
+    native=synthetic_native_capture(source,raw,nr,'90001')
+    return {'h':h,'a':a,'m':m,'c':c,'source':source,'extra':extra,'s':s,'raw':raw,'envelope':envelope,
+            'nr':nr,'native':native,'current':current}
+
+
+def hvalidate(f,envelope=None,source=None,extra=None):
+    h=f['h'];e=envelope or f['envelope'];raw=h.encode(e)
+    return h.validate(raw,h.digest(raw),f['c'].encode(f['nr']),source or f['source'],extra or f['extra'],
+                      ROOT,f['a'],f['m'])
+
+
+def test_handoff_v1_request_preserves_v0_nested_contract(handoff_case):
+    f=handoff_case;e,r,s=hvalidate(f)
+    assert r==f['nr'] and s==f['s']
+    schema=json.loads((ROOT/f['h'].SCHEMA).read_bytes())
+    from jsonschema import Draft202012Validator
+    Draft202012Validator.check_schema(schema);Draft202012Validator(schema).validate(e)
+
+
+@pytest.mark.parametrize('key',sorted({'record_type','repository','capture_source_commit','native_request_utf8',
+    'native_request_sha256','postflight_selection_utf8','postflight_selection_sha256','handoff_source_files','authorization'}))
+@pytest.mark.parametrize('action',['missing','wrong'])
+def test_handoff_closed_envelope_rejects_invalid_fields(handoff_case,key,action):
+    e=copy.deepcopy(handoff_case['envelope'])
+    if action=='missing':e.pop(key)
+    else:e[key]=None
+    with pytest.raises((ValueError,KeyError,TypeError)):hvalidate(handoff_case,e)
+
+
+@pytest.mark.parametrize('key',['approved','authenticated','skip_postflight','saved_receipt','reader','callback','retry'])
+def test_handoff_envelope_has_no_override_or_adapter_inputs(handoff_case,key):
+    e=copy.deepcopy(handoff_case['envelope']);e[key]=True
+    with pytest.raises(ValueError,match='HANDOFF_REQUEST_FIELDS'):hvalidate(handoff_case,e)
+
+
+@pytest.mark.parametrize('name',['tools/q3_capture_handoff_v1.py','tools/acquire_q3_external_postflight_v0.py',
+    'tools/check_q3_external_postflight_v0.py','schemas/metrics/q3_capture_handoff_request_v1.schema.json'])
+def test_handoff_extra_source_substitution_rejected(handoff_case,name):
+    f=handoff_case;ex=dict(f['extra']);ex[name]+=b'\n'
+    with pytest.raises(ValueError,match='SOURCE_BINDING'):hvalidate(f,extra=ex)
+
+
+@pytest.mark.parametrize('name',['PULSE_safe_pack_v0/tools/acquire_q3_reference_inputs_v0.py',
+    '.github/workflows/q3_reference_acquisition_v0.yml','docs/compute/PULSEMECH_Q3_REFERENCE_RECOMPUTATION_v0.md'])
+def test_handoff_changed_native_source_cannot_reuse_preflight(handoff_case,name):
+    source=dict(handoff_case['source']);source[name]+=b'\n'
+    with pytest.raises(ValueError,match='NATIVE_SOURCE_COMPATIBILITY|FIXED_INPUT_CHANGED'):hvalidate(handoff_case,source=source)
+
+
+@pytest.mark.parametrize('field,value',[('id',True),('id',0),('run_attempt',True),('run_attempt',2),
+    ('head_sha','d'*40),('head_branch','other'),('event','push'),('status','completed'),('conclusion','success'),
+    ('path','other.yml'),('actor',{'login':'someone'}),('triggering_actor',{'login':'someone'})])
+def test_handoff_requires_actual_current_owner_dispatch(handoff_case,field,value):
+    f=handoff_case;r=copy.deepcopy(f['current']);r[field]=value
+    with pytest.raises(ValueError,match='HANDOFF_CURRENT_RUN'):
+        f['h'].current_run(M.encode(r),'90001','c'*40,f['s']['run_id'],M)
+
+
+def test_handoff_preflight_cannot_be_its_own_capture(handoff_case):
+    f=handoff_case
+    with pytest.raises(ValueError,match='HANDOFF_CURRENT_RUN'):
+        f['h'].current_run(M.encode(f['current']),'90001','c'*40,'90001',M)
+
+
+def hrun(f,tmp_path,monkeypatch,*,fault=None):
+    h=handoff_module();a,m=h.components(ROOT,f['extra'])
+    monkeypatch.setattr(h,'components',lambda root,sources:(a,m))
+    monkeypatch.setattr(a,'utc_now',lambda:M.stamp('2026-11-01T00:00:00Z'))
+    monkeypatch.setattr(h,'now',lambda:'2026-11-01T00:00:00Z')
+    if fault=='final_replay':monkeypatch.setattr(h,'check',lambda *args:(_ for _ in ()).throw(ValueError('SYNTHETIC_FINAL_REPLAY')))
+    if fault=='stage_cleanup':
+        import types
+        monkeypatch.setattr(h,'shutil',types.SimpleNamespace(rmtree=lambda *args:(_ for _ in ()).throw(OSError('synthetic cleanup'))))
+    monkeypatch.setattr(a.socket,'create_connection',lambda *args,**kw:pytest.fail('no live network in regressions'))
+    raw=dict(f['raw'])
+    if fault=='contradiction':raw['job.log']=raw['job.log'].replace(b'Version: 20261023.334.3',b'Version: 20261012.334.1')
+    adapter=AcquisitionAdapter(a,f['s'],raw,fail_at=4 if fault=='transport' else None)
+    current_path=a.API_PREFIX+'runs/90001/attempts/1';current_calls=[]
+    class Reader:
+        def __init__(self,token):assert token=='synthetic-never-sent';self.transfers=[]
+        def json(self,path):
+            if fault=='missing_network_token':raise ValueError('TOKEN_REQUIRED')
+            if path==current_path:
+                current_calls.append(path);r=copy.deepcopy(f['current'])
+                if fault=='current_changed' and len(current_calls)==2:r['head_sha']='d'*40
+                b=M.encode(r)
+                self.transfers.append({'endpoint':path,'sha256':M.digest(b),'size_bytes':len(b),'download_host':None})
+                return b
+            b=adapter.json(path);self.transfers.append(adapter.transfers[-1]);return b
+        def download(self,path,maximum):
+            b=adapter.download(path,maximum);row=dict(adapter.transfers[-1]);row['download_host']='synthetic.blob.core.windows.net'
+            self.transfers.append(row);return b
+    monkeypatch.setattr(a,'GitHubReader',Reader)
+    rt=tmp_path/'runner';rt.mkdir();out=tmp_path/'out';calls=[]
+    env={'GITHUB_TOKEN':'synthetic-never-sent','GITHUB_RUN_ID':'90001','GITHUB_RUN_ATTEMPT':'1',
+         'GITHUB_SHA':'c'*40,'RUNNER_TEMP':str(rt)}
+    def destination(c,env):out.mkdir(mode=0o700);return out,os.getuid(),os.getgid()
+    def native(c,p,r,source,root,raw,native_env):
+        calls.append((r,raw));assert len(current_calls)==2
+        assert native_env['RUNNER_TEMP']!=env['RUNNER_TEMP']
+        target=Path(native_env['RUNNER_TEMP'])/'q3-reference-capture/90001-1';target.mkdir(parents=True)
+        for name,b in f['native'].items():target.joinpath(name).write_bytes(b)
+        if fault=='native_raise':
+            (target/'failure.json').write_bytes(b'{"synthetic":true}\n');raise ValueError('SYNTHETIC_NATIVE_FAILURE')
+        if fault=='native_incomplete':return 1
+        if fault=='native_wrong_run':
+            # A coherently rebound run mismatch is tested separately through native replay.
+            target.joinpath('receipt.json').write_bytes(b'{}')
+        return 0
+    plane=lambda *args:{'run_id':'90001','source_commit':'c'*40}
+    rc=h.run(f['c'],f['c'].load_profile(f['source']),f['nr'],f['source'],ROOT,h.encode(f['envelope']),env,
+             f['extra'],native,plane,destination)
+    return h,rc,out,calls,current_calls,rt
+
+
+def test_handoff_live_sequence_calls_core_once_and_offline_replays(handoff_case,tmp_path,monkeypatch):
+    h,rc,out,calls,reads,rt=hrun(handoff_case,tmp_path,monkeypatch)
+    assert rc==0 and len(calls)==1 and len(reads)==2 and not list(rt.iterdir())
+    assert calls[0][1]==handoff_case['c'].encode(handoff_case['nr'])
+    raw=(out/'evidence.zip').read_bytes();receipt=json.loads((out/'receipt.json').read_bytes())
+    assert receipt['record_type']=='q3_capture_handoff_receipt_v1' and receipt['status']=='complete'
+    result=h.check(raw,h.digest(raw),h.digest(h.encode(handoff_case['envelope'])),'c'*40,'90001',ROOT,handoff_case['extra'])
+    assert result['complete'] is True and result['live_origin_reobserved'] is False
+    assert result['new_execution_authorized'] is False and result['saved_record_authenticates_origin'] is False
+    nested=h.unzip(raw)
+    for name,b in handoff_case['native'].items():assert nested['native/'+name]==b
+    assert set(p.name for p in out.iterdir())=={'evidence.zip','receipt.json'}
+    assert stat_mode(out)==0o700 and all(stat_mode(p)==0o600 for p in out.iterdir())
+
+
+@pytest.mark.parametrize('fault',['contradiction','transport','current_changed'])
+def test_handoff_denial_prevents_native_callback_and_preserves(handoff_case,tmp_path,monkeypatch,fault):
+    h,rc,out,calls,reads,rt=hrun(handoff_case,tmp_path,monkeypatch,fault=fault)
+    assert rc==2 and calls==[] and not list(rt.iterdir())
+    assert json.loads((out/'receipt.json').read_bytes())['status']=='rejected'
+    assert (out/'failure.json').exists()
+    d=h.unzip((out/'evidence.zip').read_bytes())
+    assert not any(n.startswith('native/') for n in d)
+    assert d['request.json']==h.encode(handoff_case['envelope'])
+    assert json.loads(d['bundle.json'])['error_code']
+
+
+@pytest.mark.parametrize('fault',['native_raise','native_incomplete','native_wrong_run'])
+def test_handoff_native_failures_remain_incomplete(handoff_case,tmp_path,monkeypatch,fault):
+    h,rc,out,calls,reads,rt=hrun(handoff_case,tmp_path,monkeypatch,fault=fault)
+    assert rc==1 and len(calls)==1 and not list(rt.iterdir())
+    assert json.loads((out/'receipt.json').read_bytes())['status']=='incomplete'
+    d=h.unzip((out/'evidence.zip').read_bytes());assert d['native/evidence.zip']==handoff_case['native']['evidence.zip']
+    if fault=='native_raise':assert 'native/failure.json' in d
+
+
+@pytest.fixture(scope='module')
+def handoff_complete_bytes(handoff_case,tmp_path_factory):
+    # Use a local MonkeyPatch scope so a later test cannot accidentally retain a transport double.
+    with pytest.MonkeyPatch.context() as mp:
+        h,rc,out,*_=hrun(handoff_case,tmp_path_factory.mktemp('handoff-complete'),mp)
+        assert rc==0
+        return out.joinpath('evidence.zip').read_bytes()
+
+
+def rebind_handoff_bundle(h,data):
+    record=json.loads(data['bundle.json']);record['inventory']={n:{'sha256':h.digest(b),'size_bytes':len(b)}
+        for n,b in data.items() if n!='bundle.json'}
+    data['bundle.json']=h.encode(record);return h.zip_bytes(data)
+
+
+@pytest.mark.parametrize('fault',['admission','comparison','missing_native','wrong_run','claim','staging',
+    'inventory','extra','after_metadata','selection','native_receipt','native_archive','current_run'])
+def test_handoff_replay_rejects_coherently_rehashed_false_completion(handoff_case,handoff_complete_bytes,fault):
+    f=handoff_case;h=f['h'];d=h.unzip(handoff_complete_bytes)
+    if fault=='admission':d['admission.json']=h.encode({'decision':'ADMIT_CURRENT_DISPATCH'})
+    elif fault=='comparison':d['postflight/comparison.json']=h.encode({'disposition':'CONSISTENT_OFFLINE'})
+    elif fault=='missing_native':del d['native/evidence.zip']
+    elif fault=='wrong_run':
+        v=json.loads(d['bundle.json']);v['capture_context']['run_id']='99999';d['bundle.json']=h.encode(v)
+    elif fault=='claim':
+        v=json.loads(d['bundle.json']);v['authority_effect']='allow';d['bundle.json']=h.encode(v)
+    elif fault=='staging':
+        v=json.loads(d['bundle.json']);v['staging_removed']=False;d['bundle.json']=h.encode(v)
+    elif fault=='inventory':
+        v=json.loads(d['bundle.json']);v['inventory']={};d['bundle.json']=h.encode(v)
+    elif fault=='extra':d['approval.json']=b'true'
+    elif fault=='after_metadata':d['postflight/run.after.json']=b'{}'
+    elif fault=='selection':d['postflight/selection.json']=b'{}'
+    elif fault=='native_receipt':d['native/receipt.json']=b'{}'
+    elif fault=='native_archive':d['native/evidence.zip']+=b'x'
+    elif fault=='current_run':
+        v=json.loads(d['capture-run.before.json']);v['event']='push';d['capture-run.before.json']=h.encode(v)
+    raw=h.zip_bytes(d) if fault=='inventory' else rebind_handoff_bundle(h,d)
+    with pytest.raises((ValueError,KeyError,TypeError,zipfile.BadZipFile)):
+        h.check(raw,h.digest(raw),h.digest(h.encode(f['envelope'])),'c'*40,'90001',ROOT,f['extra'])
+
+
+@pytest.mark.parametrize('field,value',[('archive','0'*64),('request','0'*64),('source','d'*40),('run','90002')])
+def test_handoff_replay_requires_independent_capture_anchors(handoff_case,handoff_complete_bytes,field,value):
+    f=handoff_case;h=f['h'];args=[h.digest(handoff_complete_bytes),h.digest(h.encode(f['envelope'])),'c'*40,'90001']
+    args[['archive','request','source','run'].index(field)]=value
+    with pytest.raises(ValueError):h.check(handoff_complete_bytes,*args,ROOT,f['extra'])
+
+
+def test_handoff_native_core_is_not_the_cli_admission_route():
+    a=native_mod(ROOT,'acquire_q3_reference_inputs_v0');tree=ast.parse((ROOT/NATIVE_COLLECTOR).read_text())
+    guard=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='entry_guard')
+    main=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='main')
+    assert 'CAPTURE_HANDOFF_REQUIRED' in ast.get_source_segment((ROOT/NATIVE_COLLECTOR).read_text(),guard)
+    text=ast.get_source_segment((ROOT/NATIVE_COLLECTOR).read_text(),main)
+    assert "request['mode']=='capture'" in text and 'return execute_handoff(' in text
+    assert tuple(a.HANDOFF_SOURCES)==handoff_module().EXTRA_SOURCES
+    workflow=(ROOT/M.WORKFLOW).read_text()
+    assert 'acquire_q3_reference_inputs_v0.py' in workflow and 'q3_capture_handoff_v1.py' not in workflow
+    assert 'contents: write' not in workflow and 'actions: write' not in workflow
+
+
+@pytest.mark.parametrize('mode',['token-preflight','capture'])
+def test_handoff_main_routes_to_exact_mandatory_path(monkeypatch,mode):
+    a=native_mod(ROOT,'acquire_q3_reference_inputs_v0');calls=[]
+    monkeypatch.setattr(a,'entry_guard',lambda *args:('C','P',{'mode':mode},{'source':'snapshot'}))
+    monkeypatch.setattr(a,'execute',lambda *args:calls.append('native') or 0)
+    monkeypatch.setattr(a,'execute_handoff',lambda *args:calls.append('handoff') or 0)
+    assert a.main(['--repo-root',str(ROOT),'--source-commit','a'*40,'--request','{}','--request-sha256',M.digest(b'{}')])==0
+    assert calls==(['native'] if mode=='token-preflight' else ['handoff'])
+
+
+@pytest.mark.parametrize('raw',[b'{}',b'[]',b'{"record_type":"q3_capture_handoff_request_v1"}',
+    b'{"record_type":"q3_capture_handoff_request_v1","record_type":"other"}'])
+def test_handoff_malformed_cli_cannot_reach_runtime(tmp_path,monkeypatch,raw):
+    a=native_mod(ROOT,'acquire_q3_reference_inputs_v0')
+    monkeypatch.setattr(a,'execute',lambda *args:pytest.fail('unvalidated native execution'))
+    monkeypatch.setattr(a,'execute_handoff',lambda *args:pytest.fail('unvalidated handoff'))
+    assert a.main(['--repo-root',str(tmp_path),'--source-commit','a'*40,'--request',raw.decode(),
+                   '--request-sha256',M.digest(raw)])==2
+
+
+def test_handoff_python311_grammar_and_no_generation_or_dispatch():
+    tree=ast.parse(HANDOFF_TOOL.read_text(),feature_version=(3,11))
+    assert not any(isinstance(n,ast.Attribute) and n.attr in ('generate','dispatch','create_workflow_dispatch') for n in ast.walk(tree))
+    main=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='main')
+    assert not any(isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and n.func.id=='run' for n in ast.walk(main))
+
+
+@pytest.fixture(scope='module')
+def handoff_checkout(handoff_case,tmp_path_factory):
+    """Commit exact source bytes locally; no upstream identity or execution claim."""
+    f=handoff_case;root=tmp_path_factory.mktemp('handoff-source')/'repo';root.mkdir()
+    for name,raw in {**f['source'],**f['extra']}.items():
+        path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(raw)
+    env={'PATH':'/usr/bin:/bin','HOME':str(root),'LANG':'C.UTF-8','GIT_CONFIG_NOSYSTEM':'1',
+         'GIT_CONFIG_GLOBAL':'/dev/null','GIT_AUTHOR_NAME':'Synthetic test',
+         'GIT_AUTHOR_EMAIL':'test@example.invalid','GIT_COMMITTER_NAME':'Synthetic test',
+         'GIT_COMMITTER_EMAIL':'test@example.invalid','GIT_AUTHOR_DATE':'2026-11-01T00:00:00Z',
+         'GIT_COMMITTER_DATE':'2026-11-01T00:00:00Z'}
+    for args in (['init','-q'],['add','.'],['commit','-q','-m','Synthetic handoff test only']):
+        result=subprocess.run(['/usr/bin/git','-c','core.hooksPath=/dev/null','-C',str(root),*args],
+                              env=env,capture_output=True,timeout=30)
+        assert result.returncode==0,result.stderr
+    commit=subprocess.check_output(['/usr/bin/git','-C',str(root),'rev-parse','HEAD'],env=env,timeout=10).decode().strip()
+    native=copy.deepcopy(f['nr']);native['source_commit']=commit;nb=f['c'].encode(native)
+    selection=f['a'].encode(f['s'])
+    h=handoff_module(root)
+    envelope=h.build_request(root,commit,nb,h.digest(nb),selection,h.digest(selection),h.AUTHORIZATION)
+    return root,commit,native,nb,selection,envelope
+
+
+def guarded_test_entry(root,commit,monkeypatch):
+    import types
+    a=native_mod(root,'acquire_q3_reference_inputs_v0')
+    monkeypatch.setattr(a,'sys',types.SimpleNamespace(flags=types.SimpleNamespace(isolated=1)))
+    monkeypatch.setattr(a.os,'geteuid',lambda:0)
+    env={'GITHUB_REPOSITORY':M.REPOSITORY,'GITHUB_EVENT_NAME':'workflow_dispatch',
+         'GITHUB_REF':'refs/heads/main','GITHUB_ACTOR':'HKati','GITHUB_TRIGGERING_ACTOR':'HKati',
+         'GITHUB_RUN_ATTEMPT':'1','GITHUB_SHA':commit,'GITHUB_WORKFLOW_SHA':commit,
+         'GITHUB_WORKFLOW_REF':M.REPOSITORY+'/'+M.WORKFLOW+'@refs/heads/main','GITHUB_RUN_ID':'90001'}
+    return a,env
+
+
+def test_handoff_actual_git_bound_entry_rejects_legacy_capture(handoff_checkout,monkeypatch):
+    root,commit,native,nb,_,_=handoff_checkout;a,env=guarded_test_entry(root,commit,monkeypatch)
+    monkeypatch.setattr(a,'api_bytes',lambda *args:pytest.fail('network before admission'))
+    with pytest.raises(ValueError,match='CAPTURE_HANDOFF_REQUIRED'):
+        a.entry_guard(root,commit,nb,M.digest(nb),env)
+
+
+@pytest.mark.parametrize('mode',['token-preflight','capture'])
+def test_handoff_actual_git_bound_entry_preserves_preflight_and_accepts_envelope(handoff_checkout,monkeypatch,mode):
+    root,commit,native,nb,_,envelope=handoff_checkout;a,env=guarded_test_entry(root,commit,monkeypatch)
+    if mode=='token-preflight':
+        c=native_mod(root,'q3_native_capture_contract_v0');r=copy.deepcopy(native)
+        r.update(mode=mode,approved_token_map_sha256=None,authorization=c.AUTHORIZATIONS[mode]);raw=c.encode(r)
+    else:raw=envelope
+    c,p,r,source=a.entry_guard(root,commit,raw,M.digest(raw),env)
+    assert r['mode']==mode and r['source_commit']==commit and len(source)==21
+
+
+def test_handoff_actual_entry_invalid_envelope_never_reaches_network(handoff_checkout,monkeypatch):
+    root,commit,_,_,_,envelope=handoff_checkout;a,env=guarded_test_entry(root,commit,monkeypatch)
+    e=json.loads(envelope);e['authorization']='not-authorized';raw=M.encode(e)
+    c,p,r,source=a.entry_guard(root,commit,raw,M.digest(raw),env)
+    monkeypatch.setattr(a,'control_plane',lambda *args:pytest.fail('network before authorization'))
+    monkeypatch.setattr(a,'execute',lambda *args:pytest.fail('native before authorization'))
+    with pytest.raises(ValueError,match='HANDOFF_AUTHORIZATION'):
+        a.execute_handoff(c,p,r,source,root,raw,env)
+
+
+def test_handoff_builder_cli_only_constructs_exact_request(handoff_checkout,tmp_path):
+    root,commit,_,nb,selection,envelope=handoff_checkout;h=handoff_module(root)
+    (tmp_path/'native.json').write_bytes(nb);(tmp_path/'selection.json').write_bytes(selection)
+    command=[sys.executable,'-I','-B',str(root/h.SELF),'build-request','--repo-root',str(root),
+        '--source-commit',commit,'--native-request',str(tmp_path/'native.json'),
+        '--native-request-sha256',h.digest(nb),'--selection',str(tmp_path/'selection.json'),
+        '--selection-sha256',h.digest(selection),'--authorization',h.AUTHORIZATION]
+    done=subprocess.run(command,capture_output=True,timeout=30)
+    assert done.returncode==0 and done.stdout==envelope and done.stderr==b''
+    assert set(p.name for p in tmp_path.iterdir())=={'native.json','selection.json'}
+    command[command.index('--authorization')+1]='NO'
+    rejected=subprocess.run(command,capture_output=True,timeout=30)
+    assert rejected.returncode==2 and rejected.stdout==b'' and b'Traceback' not in rejected.stderr
+
+
+@pytest.mark.parametrize('name',['tools/q3_capture_handoff_v1.py',
+    'schemas/metrics/q3_capture_handoff_request_v1.schema.json'])
+def test_handoff_loader_rejects_dirty_additional_sources_before_network(handoff_checkout,monkeypatch,name):
+    root,commit,_,_,_,envelope=handoff_checkout;a,env=guarded_test_entry(root,commit,monkeypatch)
+    c,p,r,source=a.entry_guard(root,commit,envelope,M.digest(envelope),env)
+    path=root/name;original=path.read_bytes()
+    monkeypatch.setattr(a,'control_plane',lambda *args:pytest.fail('network from dirty closure'))
+    monkeypatch.setattr(a,'execute',lambda *args:pytest.fail('native from dirty closure'))
+    try:
+        path.write_bytes(original+b'\n')
+        with pytest.raises(ValueError):a.execute_handoff(c,p,r,source,root,envelope,env)
+    finally:path.write_bytes(original)
+
+
+@pytest.mark.parametrize('field,value',[('metadata_recheck','CHANGED'),('acquirer_sha256','f'*64),
+    ('comparator_sha256','f'*64),('api_version','2099-01-01'),('saved_record_authenticates_origin',True),
+    ('transport_trust','self_asserted'),('started_at','2099-01-01T00:00:00Z'),
+    ('completed_at','2000-01-01T00:00:00Z'),('transfers',[]),('extra',True)])
+def test_handoff_saved_acquisition_claims_are_not_trusted_after_rehash(handoff_case,handoff_complete_bytes,field,value):
+    f=handoff_case;h=f['h'];d=h.unzip(handoff_complete_bytes)
+    ar=json.loads(d['postflight/acquisition.json']);ar[field]=value;d['postflight/acquisition.json']=M.encode(ar)
+    inv=json.loads(d['postflight/inventory.json']);body=d['postflight/acquisition.json']
+    inv['files']['acquisition.json']={'sha256':M.digest(body),'size_bytes':len(body)}
+    d['postflight/inventory.json']=M.encode(inv);raw=rebind_handoff_bundle(h,d)
+    with pytest.raises((ValueError,KeyError,TypeError)):
+        h.check(raw,h.digest(raw),h.digest(h.encode(f['envelope'])),'c'*40,'90001',ROOT,f['extra'])
+
+
+@pytest.mark.parametrize('field,value',[('endpoint','/unselected'),('sha256','f'*64),
+    ('size_bytes',True),('download_host','evil.invalid')])
+def test_handoff_transfer_bindings_survive_rehash(handoff_case,handoff_complete_bytes,field,value):
+    f=handoff_case;h=f['h'];d=h.unzip(handoff_complete_bytes);ar=json.loads(d['postflight/acquisition.json'])
+    ar['transfers'][4][field]=value;d['postflight/acquisition.json']=M.encode(ar)
+    inv=json.loads(d['postflight/inventory.json']);body=d['postflight/acquisition.json']
+    inv['files']['acquisition.json']={'sha256':M.digest(body),'size_bytes':len(body)}
+    d['postflight/inventory.json']=M.encode(inv);raw=rebind_handoff_bundle(h,d)
+    with pytest.raises(ValueError):h.check(raw,h.digest(raw),h.digest(h.encode(f['envelope'])),'c'*40,'90001',ROOT,f['extra'])
+
+
+@pytest.mark.parametrize('fault',['missing_network_token','final_replay','stage_cleanup'])
+def test_handoff_operational_failures_never_publish_complete(handoff_case,tmp_path,monkeypatch,fault):
+    h,rc,out,calls,reads,rt=hrun(handoff_case,tmp_path,monkeypatch,fault=fault)
+    assert rc!=0 and json.loads((out/'receipt.json').read_bytes())['status']!='complete'
+    assert (out/'failure.json').exists()
+    if fault=='missing_network_token':assert not calls
+    else:assert len(calls)==1
+
+
+@pytest.mark.parametrize('fault',['preexisting','write','readback','custody'])
+def test_handoff_publication_cannot_overwrite_or_leave_success(handoff_case,handoff_complete_bytes,tmp_path,monkeypatch,fault):
+    f=handoff_case;h=f['h'];out=tmp_path/'out';out.mkdir();record=json.loads(h.unzip(handoff_complete_bytes)['bundle.json'])
+    receipt={'record_type':'synthetic_test_receipt'};c=native_mod(ROOT,'q3_native_capture_contract_v0')
+    if fault=='preexisting':(out/'evidence.zip').write_bytes(b'preserve-existing')
+    elif fault=='write':
+        original=c.write_new
+        def write(path,raw,*args):
+            if path.name=='receipt.json':raise OSError('injected write failure')
+            return original(path,raw,*args)
+        monkeypatch.setattr(c,'write_new',write)
+    elif fault=='readback':
+        original=c.safe_read
+        def read(path,*args):
+            raw=original(path,*args)
+            return raw+b'x' if path.name=='receipt.json' and (out/'receipt.json').exists() else raw
+        monkeypatch.setattr(c,'safe_read',read)
+    else:monkeypatch.setattr(h.os,'fchown',lambda *args:(_ for _ in ()).throw(OSError('injected custody failure')))
+    with pytest.raises((OSError,ValueError)):
+        h.final_write(c,out,os.getuid(),os.getgid(),handoff_complete_bytes,record,receipt)
+    assert not (out/'receipt.json').exists()
+    if fault=='preexisting':assert (out/'evidence.zip').read_bytes()==b'preserve-existing'
+
+
+@pytest.mark.parametrize('name',['../escape','/absolute','native/../../escape','native\\escape','a//b','a/./b'])
+def test_handoff_archive_paths_reject_before_use(name):
+    h=handoff_module();buf=io.BytesIO()
+    with zipfile.ZipFile(buf,'w') as z:
+        i=zipfile.ZipInfo(name);i.external_attr=(0o100000|0o600)<<16;z.writestr(i,b'{}')
+    with pytest.raises(ValueError):h.unzip(buf.getvalue())
+
+
+def test_handoff_manifest_counts_remain_174_and_30():
+    for filename,count in [('tools-tests.list',174),('pytest-tests.list',30)]:
+        rows=[line.split('#',1)[0].strip() for line in (ROOT/'ci'/filename).read_text().splitlines()]
+        rows=[r for r in rows if r]
+        assert len(rows)==len(set(rows))==count and rows.count(TEST_PATH)==1
+
+
 if __name__=='__main__':
     raise SystemExit(pytest.main([__file__,'-q']))

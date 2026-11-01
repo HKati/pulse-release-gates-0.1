@@ -1,6 +1,7 @@
 # Q3 external postflight comparison v0
 
-Status: offline comparison component; no active capture-handoff enforcement.
+Status: offline comparison component; no authority in isolation.
+The mandatory controller integration is documented in [capture handoff v1](PULSEMECH_Q3_CAPTURE_HANDOFF_v1.md).
 Preparation base: `32d442dac168df287ee669ceada25870f8c73b31`.
 Tracking: #2879 remains open.
 
@@ -157,25 +158,24 @@ Pages module's manifest expectations are synchronized. Existing Pages and Q3
 preservation tests remain registered. The original native schemas, profile,
 collector, workflow and request constructor remain unchanged.
 
-## Next integration boundary — explicitly not implemented here
+## Controller integration and retained component boundary
 
-The read-only [acquisition companion](PULSEMECH_Q3_EXTERNAL_POSTFLIGHT_ACQUISITION_v0.md)
-can obtain this comparator's five inputs from exact GitHub identities and recheck
-metadata after download. It leaves this offline comparator unchanged. Its saved
-receipt is unsigned and cannot authenticate origin for a later reader; it does
-not make comparison mandatory on any native capture entry path.
+The [acquisition companion](PULSEMECH_Q3_EXTERNAL_POSTFLIGHT_ACQUISITION_v0.md)
+obtains the five inputs from exact GitHub identities and rechecks metadata.
+The [capture handoff v1](PULSEMECH_Q3_CAPTURE_HANDOFF_v1.md) now connects fresh
+acquisition and this unchanged comparator to the native controller's capture
+entry. A bare v0 capture request is rejected at that entry; a versioned envelope
+binds separate preflight/capture identities and owner consent.
 
-The current v0 request constructor still accepts a separately authorized capture
-with an `approved_token_map_sha256`. It does not require this new comparison.
-Therefore this component cannot be described as unbypassable capture enforcement.
+This offline comparator still grants no capture permission and authenticates no
+saved record's origin. Its code, outputs and historical checker pins are unchanged.
+The controller consumes a live acquisition inside its trusted process; it cannot
+accept a copied comparison or acquisition JSON as admission. Historical v0
+readers and the original image contradiction remain unchanged.
 
-The next increment must bind authenticated external evidence and this reviewed
-comparison to request preparation, preserve the later capture's separate source
-and run identities, reject copied or stale dispositions, and close every existing
-native capture entry path. Any closed-schema/profile change needs an explicit
-version/migration decision while retaining the original v0 reader.
-
-After that integration is reviewed and merged, a fresh zero-generation request
-may be prepared for its final exact source. Dispatch still needs explicit owner
-consent. This increment grants neither that consent nor 204-response capture,
-Q1 labeling, Q3 scoring, a production gate or release authority.
+The preparation-era manifest counts and unchanged-file statements above describe
+this component's original increment, not later repository state. The handoff
+increment leaves current manifests unchanged at 174/30 and extends the already
+registered module. A new preflight requires the final reviewed source and separate
+authorization. Q1 labels, actual Q3 measurement and production authority are not
+established by comparison or handoff implementation.
