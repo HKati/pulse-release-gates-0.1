@@ -40,7 +40,13 @@ def test_exact_manual_owner_scoped_workflow():
 def test_workflow_cannot_publish_workspace_models_or_hidden_logs():
     text=(ROOT/WF).read_text();d=workflow()
     up=[s for s in d['jobs']['acquire']['steps'] if s.get('uses','').startswith('actions/upload-artifact@')]
-    assert len(up)==1 and 'always()' in up[0]['if']
+    assert len(up)==2
+    assert 'always()' in up[0]['if']
+    assert up[1]['if']=="failure() && steps.image_initial.outcome != 'skipped'"
+    assert {s['with']['name'] for s in up} == {
+        'q3-reference-capture-${{ github.run_id }}-${{ github.run_attempt }}',
+        'q3-runner-image-${{ github.run_id }}-${{ github.run_attempt }}'}
+    up=[s for s in up if s['with']['name'].startswith('q3-reference-capture-')]
     assert up[0]['with']['retention-days']=='30' and up[0]['with']['overwrite']=='false'
     assert [x.rsplit('/',1)[-1] for x in up[0]['with']['path'].splitlines()]==['evidence.zip','receipt.json','failure.json']
     for forbidden in ['contents: write','id-token: write','actions: write','git push','gh pr','secrets.','pull_request_target']:
