@@ -488,5 +488,553 @@ def test_cli_rejects_malformed_duplicate_identity_anchor(historical, tmp_path, l
     assert all(diagnostic[k] == v for k, v in M.BOUNDARIES.items())
 
 
+
+# Read-only acquisition companion. All provider responses below are synthetic
+# adapters over preserved bytes; these tests are not new GitHub observations.
+ACQUIRE_TOOL = ROOT / 'tools/acquire_q3_external_postflight_v0.py'
+
+
+@pytest.fixture
+def acquirer(monkeypatch):
+    spec = importlib.util.spec_from_file_location('q3_acquisition_test', ACQUIRE_TOOL)
+    module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+    monkeypatch.setattr(module, 'utc_now', lambda: module.datetime(2026, 11, 1, tzinfo=module.timezone.utc))
+    monkeypatch.setattr(module.socket, 'create_connection',
+                        lambda *a, **k: pytest.fail('test attempted real network access'))
+    return module
+
+
+def acquisition_selection(acquirer, historical):
+    e, _ = case(historical)
+    return {'record_type': 'q3_external_postflight_acquisition_request_v0',
+            **{k: e[k] for k in acquirer.IDENTITIES},
+            'archive': e['inputs']['artifact.zip'], 'source_files': e['source_files'],
+            'comparator_sha256': e['verifier_sha256'],
+            'acquirer_sha256': M.digest(ACQUIRE_TOOL.read_bytes())}
+
+
+class AcquisitionAdapter:
+    def __init__(self, acquirer, selected, raw, after=None, fail_at=None):
+        self.a = acquirer; self.selected = selected; self.raw = raw
+        self.after = after or {}; self.fail_at = fail_at; self.calls = []
+        self.transfers = []; self.counts = {}
+        self.names = {v: k for k, v in acquirer.paths(selected).items()}
+
+    def take(self, path, download):
+        self.calls.append((path, download))
+        if len(self.calls) == self.fail_at:
+            raise self.a.AcquisitionError('HTTP_TRANSPORT')
+        name = self.names[path]
+        self.counts[name] = self.counts.get(name, 0) + 1
+        body = self.after.get(name, self.raw[name]) if self.counts[name] > 1 else self.raw[name]
+        self.transfers.append({'endpoint': path, 'sha256': self.a.digest(body),
+                               'size_bytes': len(body), 'download_host': None})
+        return body
+
+    def json(self, path): return self.take(path, False)
+    def download(self, path, maximum): return self.take(path, True)
+
+
+def acquisition_run(acquirer, historical, tmp_path, *, raw=None, after=None, selected=None):
+    selected = selected or acquisition_selection(acquirer, historical)
+    raw = raw or dict(historical[1])
+    module = acquirer.load_comparator()
+    selection_bytes = acquirer.encode(selected)
+    acquirer.select(selection_bytes, acquirer.digest(selection_bytes), module)
+    adapter = AcquisitionAdapter(acquirer, selected, raw, after=after)
+    output = tmp_path / 'acquisition'; store = acquirer.EvidenceDirectory(output)
+    try:
+        store.write('selection.json', selection_bytes)
+        result, body = acquirer.acquire(selected, adapter, store, module,
+            lambda: acquirer.datetime(2026, 11, 1, tzinfo=acquirer.timezone.utc))
+        store.finish()
+        return result, adapter, output
+    finally:
+        store.close()
+
+
+def test_acquisition_historical_discrepancy_is_preserved(acquirer, historical, tmp_path):
+    result, adapter, output = acquisition_run(acquirer, historical, tmp_path)
+    assert result['disposition'] == 'REJECT_EXTERNAL_CONTRADICTION'
+    assert len(adapter.calls) == 8
+    assert all('/attempts/1' in p for p, _ in adapter.calls if '/runs/' in p)
+    for n, b in historical[1].items(): assert (output/n).read_bytes() == b
+    inv = json.loads((output/'inventory.json').read_bytes())
+    assert set(inv['files']) == {p.name for p in output.iterdir()} - {'inventory.json'}
+    assert all(inv[k] == v for k, v in acquirer.BOUNDARIES.items())
+    for name, pin in inv['files'].items():
+        b = (output/name).read_bytes()
+        assert len(b) == pin['size_bytes'] and M.digest(b) == pin['sha256']
+    assert stat_mode(output) == 0o700
+    assert all(stat_mode(p) == 0o600 for p in output.iterdir())
+
+
+def stat_mode(path):
+    import stat
+    return stat.S_IMODE(path.stat().st_mode)
+
+
+def test_acquisition_synthetic_consistency_remains_non_authorizing(acquirer, historical, tmp_path):
+    e, raw = equal_image_case(historical)
+    result, adapter, output = acquisition_run(acquirer, historical, tmp_path, raw=raw)
+    assert result['disposition'] == 'CONSISTENT_OFFLINE'
+    assert result['capture_handoff_approved'] is False and result['authority_effect'] == 'none'
+    assert result['evidence_source_authentication'] == 'not_established_by_offline_comparison'
+    assert (output/'job.log').read_bytes() == raw['job.log']
+
+
+@pytest.mark.parametrize('key', ['source_commit','run_id','run_attempt','job_id','artifact_id',
+    'request_sha256','token_map_sha256','comparator_sha256','acquirer_sha256','repository',
+    'record_type','archive','source_files','extra'])
+def test_acquisition_closed_selection_rejected_before_network(acquirer, historical, key):
+    s = acquisition_selection(acquirer, historical)
+    s[key] = {'invalid': True} if key in ('archive','source_files') else None
+    body = acquirer.encode(s)
+    with pytest.raises((acquirer.AcquisitionError, M.PostflightError, ValueError)):
+        acquirer.select(body, acquirer.digest(body), acquirer.load_comparator())
+
+
+@pytest.mark.parametrize('raw', [b'{"a":1,"a":2}', b'{"a":NaN}', b'\xef\xbb\xbf{}', b'[]', b''])
+def test_acquisition_invalid_selection_json_fails_closed(acquirer, raw):
+    with pytest.raises(ValueError):
+        acquirer.select(raw, acquirer.digest(raw), acquirer.load_comparator())
+
+
+def test_acquisition_selection_digest_rejected(acquirer, historical):
+    b = acquirer.encode(acquisition_selection(acquirer, historical))
+    with pytest.raises(acquirer.AcquisitionError, match='SELECTION_DIGEST'):
+        acquirer.select(b, '0'*64, acquirer.load_comparator())
+
+
+def test_acquisition_unreviewed_comparator_not_loaded(acquirer, monkeypatch):
+    monkeypatch.setattr(acquirer, 'COMPARATOR_SHA256', '0'*64)
+    with pytest.raises(acquirer.AcquisitionError, match='UNREVIEWED_COMPARATOR'):
+        acquirer.load_comparator()
+
+
+@pytest.mark.parametrize('name,path,value', [
+    ('run.json',['id'],1), ('run.json',['run_attempt'],2),
+    ('run.json',['head_sha'],'0'*40), ('run.json',['status'],'in_progress'),
+    ('run.json',['conclusion'],'failure'), ('run.json',['event'],'push'),
+    ('run.json',['repository','id'],1), ('run.json',['actor','login'],'someone'),
+    ('jobs.json',['total_count'],2), ('jobs.json',['jobs',0,'id'],1),
+    ('artifact.json',['id'],1), ('artifact.json',['digest'],'sha256:'+'0'*64),
+    ('artifact.json',['expired'],True), ('artifact.json',['workflow_run','head_sha'],'0'*40),
+    ('artifact.json',['expires_at'],'2026-10-27T00:00:00Z'),
+])
+def test_acquisition_metadata_fault_stops_before_download(acquirer, historical, tmp_path, name, path, value):
+    s = acquisition_selection(acquirer,historical); raw = dict(historical[1])
+    modify_json(raw,name,path,value)
+    adapter = AcquisitionAdapter(acquirer,s,raw)
+    store = acquirer.EvidenceDirectory(tmp_path/'out')
+    try:
+        with pytest.raises(ValueError):
+            acquirer.acquire(s,adapter,store,acquirer.load_comparator(),
+                lambda: acquirer.datetime(2026,11,1,tzinfo=acquirer.timezone.utc))
+        assert not any(download for _, download in adapter.calls)
+        assert not (tmp_path/'out/artifact.zip').exists()
+    finally: store.close()
+
+
+@pytest.mark.parametrize('name', ['run.json','jobs.json','artifact.json'])
+def test_acquisition_ancillary_metadata_change_rejects(acquirer, historical, tmp_path, name):
+    after = dict(historical[1]); obj=json.loads(after[name]);obj['new_ancillary_field']='changed'
+    after[name]=M.encode(obj)
+    with pytest.raises(acquirer.AcquisitionError,match='METADATA_CHANGED_DURING_ACQUISITION'):
+        acquisition_run(acquirer,historical,tmp_path,after=after)
+    assert not (tmp_path/'acquisition/comparison.json').exists()
+    assert (tmp_path/'acquisition'/name.replace('.json','.after.json')).read_bytes()==after[name]
+
+
+@pytest.mark.parametrize('name', ['run.json','jobs.json','artifact.json'])
+def test_acquisition_json_whitespace_change_preserves_raw_bytes(acquirer,historical,tmp_path,name):
+    after=dict(historical[1]);after[name]=json.dumps(json.loads(after[name]),indent=3).encode()
+    result,_,output=acquisition_run(acquirer,historical,tmp_path,after=after)
+    assert result['disposition']=='REJECT_EXTERNAL_CONTRADICTION'
+    assert (output/name.replace('.json','.after.json')).read_bytes()==after[name]
+
+
+@pytest.mark.parametrize('fault',['changed','short','oversize'])
+def test_acquisition_archive_size_digest_faults_reject(acquirer,historical,tmp_path,fault):
+    raw=dict(historical[1]);b=raw['artifact.zip']
+    raw['artifact.zip']={'changed':b[:-1]+bytes([b[-1]^1]),'short':b[:-1],'oversize':b+b'x'}[fault]
+    with pytest.raises(acquirer.AcquisitionError,match='ARCHIVE_DIGEST_OR_SIZE|DOWNLOAD_SIZE'):
+        acquisition_run(acquirer,historical,tmp_path,raw=raw)
+    assert not (tmp_path/'acquisition/comparison.json').exists()
+
+
+@pytest.mark.parametrize('label,key', IDENTITY_ANCHORS)
+def test_acquisition_cannot_restore_malformed_log_anchor_pass(acquirer,historical,tmp_path,label,key):
+    _,raw=equal_image_case(historical)
+    insert_anchor_occurrence(raw,label,label+': invalid')
+    with pytest.raises(ValueError,match='LOG_REQUEST_SOURCE'):
+        acquisition_run(acquirer,historical,tmp_path,raw=raw)
+
+
+@pytest.mark.parametrize('value',[
+    'http://x.blob.core.windows.net/a', 'https://api.github.com/a',
+    'https://x.blob.core.windows.net.evil.test/a', 'https://evil.test/a',
+    'https://user@x.blob.core.windows.net/a', 'https://x.blob.core.windows.net:443/a',
+    'https://x.blob.core.windows.net/a#fragment', 'https://x.blob.core.windows.net\\evil/a',
+    '//x.blob.core.windows.net/a', 'file:///tmp/x', 'https://127.0.0.1/a',
+    'https://x..blob.core.windows.net/a','https://X.blob.core.windows.net/a',
+    'https://x.blob.core.windows.net//a','https://x.blob.core.windows.net/a\r\nInjected: value',
+    None, '', 'https://x.blob.core.windows.net/'+'a'*8192,
+])
+def test_acquisition_storage_redirect_restrictions(acquirer,value):
+    with pytest.raises(acquirer.AcquisitionError,match='STORAGE_URL'):acquirer.storage_url(value)
+
+
+@pytest.mark.parametrize('value',[
+    'https://example.blob.core.windows.net/container/log?sv=version&sig=sensitive',
+    'https://example.actions.githubusercontent.com/path?token=sensitive',
+])
+def test_acquisition_only_supported_https_storage_urls(acquirer,value):
+    assert acquirer.storage_url(value)==value
+
+
+@pytest.mark.parametrize('path',[
+    '/repos/other/repo/actions/runs/1/attempts/1',
+    '/repos/HKati/pulse-release-gates-0.1/actions/runs/1/attempts/2',
+    '/repos/HKati/pulse-release-gates-0.1/actions/runs/1/rerun',
+    '/repos/HKati/pulse-release-gates-0.1/actions/runs/1/cancel',
+    '/repos/HKati/pulse-release-gates-0.1/actions/workflows/q3.yml/dispatches',
+    '/repos/HKati/pulse-release-gates-0.1/actions/artifacts/01',
+    '/repos/HKati/pulse-release-gates-0.1/actions/artifacts/1?url=evil',
+    'https://evil.test/', '//evil.test/', '/../../secrets',
+])
+def test_acquisition_api_route_allowlist(acquirer,path):
+    with pytest.raises(acquirer.AcquisitionError,match='API_ENDPOINT'):acquirer.api_url(path)
+
+
+class AcquisitionHTTPResponse:
+    def __init__(self,status=200,body=b'{}',headers=None):
+        from email.message import Message
+        self.status=status;self.body=io.BytesIO(body);self.closed=False;self.headers=Message()
+        for k,v in (headers if headers is not None else [('Content-Type','application/json')]):
+            self.headers[k]=v
+    def read1(self,n):return self.body.read(n)
+    def close(self):self.closed=True
+
+
+def http_adapter(monkeypatch,acquirer,responses):
+    calls=[];handlers=[]
+    class Opener:
+        def open(self,request,timeout):
+            calls.append((request,timeout))
+            assert responses,'unexpected HTTP request or retry'
+            response=responses.pop(0)
+            if isinstance(response,BaseException):raise response
+            return response
+    def build(*h):handlers.append(h);return Opener()
+    monkeypatch.setattr(acquirer.urllib.request,'build_opener',build)
+    return calls,handlers
+
+
+def test_acquisition_storage_never_receives_api_credentials(acquirer,monkeypatch):
+    location='https://store.blob.core.windows.net/a?sig=sensitive-signed-value'
+    responses=[AcquisitionHTTPResponse(302,headers=[('Location',location)]),
+               AcquisitionHTTPResponse(body=b'zip',headers=[('Content-Length','3')])]
+    originals=list(responses);calls,handlers=http_adapter(monkeypatch,acquirer,responses)
+    reader=acquirer.GitHubReader('secret-token')
+    assert reader.download(acquirer.API_PREFIX+'artifacts/123/zip',10)==b'zip'
+    assert len(calls)==2 and not responses and all(r.closed for r in originals)
+    assert calls[0][0].get_header('Authorization')=='Bearer secret-token'
+    assert calls[1][0].get_header('Authorization') is None
+    assert all(r.get_method()=='GET' for r,_ in calls)
+    assert all(0<timeout<=acquirer.IO_TIMEOUT for _,timeout in calls)
+    for items in handlers:
+        assert any(isinstance(h,acquirer.urllib.request.ProxyHandler) and h.proxies=={} for h in items)
+        assert any(isinstance(h,acquirer.NoRedirect) for h in items)
+        tls=[h._context for h in items if isinstance(h,acquirer.urllib.request.HTTPSHandler)][0]
+        assert tls.check_hostname and tls.verify_mode==acquirer.ssl.CERT_REQUIRED
+    receipt=acquirer.encode(reader.transfers)
+    assert b'secret-token' not in receipt and b'sensitive-signed-value' not in receipt
+    assert b'store.blob.core.windows.net' in receipt
+
+
+@pytest.mark.parametrize('status',[301,303,307,308,401,403,404,410,429,500])
+def test_acquisition_unexpected_http_status_no_retry(acquirer,monkeypatch,status):
+    response=AcquisitionHTTPResponse(status,headers=[('Location','https://x.blob.core.windows.net/a')])
+    calls,_=http_adapter(monkeypatch,acquirer,[response]);reader=acquirer.GitHubReader('token')
+    with pytest.raises(acquirer.AcquisitionError,match='HTTP_STATUS'):
+        reader.json(acquirer.API_PREFIX+'artifacts/1')
+    assert len(calls)==1 and response.closed
+
+
+@pytest.mark.parametrize('status',[200,301,303,307,308,404,410,429])
+def test_acquisition_requires_exact_api_302_for_binary(acquirer,monkeypatch,status):
+    response=AcquisitionHTTPResponse(status,headers=[('Location','https://x.blob.core.windows.net/a')])
+    calls,_=http_adapter(monkeypatch,acquirer,[response]);reader=acquirer.GitHubReader('token')
+    with pytest.raises(acquirer.AcquisitionError,match='DOWNLOAD_REDIRECT_STATUS'):
+        reader.download(acquirer.API_PREFIX+'artifacts/1/zip',10)
+    assert len(calls)==1 and response.closed
+
+
+def test_acquisition_storage_second_redirect_rejected(acquirer,monkeypatch):
+    responses=[AcquisitionHTTPResponse(302,headers=[('Location','https://x.blob.core.windows.net/a')]),
+               AcquisitionHTTPResponse(302,headers=[('Location','https://evil.test/a')])]
+    calls,_=http_adapter(monkeypatch,acquirer,responses);reader=acquirer.GitHubReader('token')
+    with pytest.raises(acquirer.AcquisitionError,match='HTTP_STATUS'):
+        reader.download(acquirer.API_PREFIX+'jobs/1/logs',10)
+    assert len(calls)==2
+
+
+@pytest.mark.parametrize('headers,body',[
+    ([('Content-Type','application/json'),('Content-Length','9')],b'{}'),
+    ([('Content-Type','application/json'),('Content-Length','1')],b'{}'),
+    ([('Content-Type','application/json'),('Content-Length','0')],b''),
+    ([('Content-Type','application/json'),('Content-Length','-1')],b'{}'),
+    ([('Content-Type','application/json'),('Content-Length','999999999999')],b'{}'),
+    ([('Content-Type','application/json'),('Content-Length','2'),('Content-Length','2')],b'{}'),
+    ([('Content-Type','application/json'),('Content-Encoding','gzip')],b'{}'),
+    ([('Content-Type','text/html')],b'<html>error</html>'),
+    ([('Content-Type','application/json'),('Link','<https://evil.test/>; rel="next"')],b'{}'),
+    ([('Content-Type','application/json')],b''),
+])
+def test_acquisition_http_representation_faults(acquirer,monkeypatch,headers,body):
+    calls,_=http_adapter(monkeypatch,acquirer,[AcquisitionHTTPResponse(body=body,headers=headers)])
+    with pytest.raises(acquirer.AcquisitionError):
+        acquirer.GitHubReader('token').json(acquirer.API_PREFIX+'artifacts/1')
+    assert len(calls)==1
+
+
+def test_acquisition_http_chunked_size_limit(acquirer,monkeypatch):
+    response=AcquisitionHTTPResponse(body=b'x'*11,headers=[])
+    calls,_=http_adapter(monkeypatch,acquirer,[response])
+    with pytest.raises(acquirer.AcquisitionError,match='HTTP_SIZE'):
+        acquirer.GitHubReader('token')._get('https://x.blob.core.windows.net/a',10,False)
+    assert len(calls)==1 and response.closed
+
+
+@pytest.mark.parametrize('kind',['timeout','url_error','incomplete_read'])
+def test_acquisition_transport_errors_hide_provider_text(acquirer,monkeypatch,kind):
+    errors={'timeout':TimeoutError('secret-url'),
+            'url_error':acquirer.urllib.error.URLError('secret-token'),
+            'incomplete_read':acquirer.http.client.IncompleteRead(b'secret-content')}
+    calls,_=http_adapter(monkeypatch,acquirer,[errors[kind]])
+    with pytest.raises(acquirer.AcquisitionError,match='^HTTP_TRANSPORT$'):
+        acquirer.GitHubReader('token').json(acquirer.API_PREFIX+'artifacts/1')
+    assert len(calls)==1
+
+
+def test_acquisition_deadline_stops_before_connection(acquirer,monkeypatch):
+    reader=acquirer.GitHubReader('token');reader._deadline=0
+    calls,_=http_adapter(monkeypatch,acquirer,[])
+    with pytest.raises(acquirer.AcquisitionError,match='ACQUISITION_DEADLINE'):
+        reader.json(acquirer.API_PREFIX+'artifacts/1')
+    assert not calls
+
+
+@pytest.mark.parametrize('token',['','has space','bad\nheader',None,'x'*513])
+def test_acquisition_token_validation(acquirer,token):
+    with pytest.raises(acquirer.AcquisitionError,match='TOKEN_MISSING_OR_INVALID'):
+        acquirer.GitHubReader(token)
+
+
+def test_acquisition_reader_rejects_token_forwarding_to_arbitrary_endpoint(acquirer,monkeypatch):
+    calls,_=http_adapter(monkeypatch,acquirer,[]);reader=acquirer.GitHubReader('token')
+    with pytest.raises(acquirer.AcquisitionError,match='API_ENDPOINT'):
+        reader._get('https://api.github.com.evil.test/repos/x',10,True)
+    assert not calls
+
+
+@pytest.mark.parametrize('kind',['existing','symlink','parent_symlink'])
+def test_acquisition_output_never_overwrites_existing_or_follows_symlinks(acquirer,tmp_path,kind):
+    real=tmp_path/'real';real.mkdir();(real/'keep').write_bytes(b'unchanged')
+    path=real
+    if kind=='symlink': path=tmp_path/'alias';path.symlink_to(real)
+    elif kind=='parent_symlink':
+        link=tmp_path/'alias';link.symlink_to(real);path=link/'new'
+    with pytest.raises(OSError):acquirer.EvidenceDirectory(path)
+    assert (real/'keep').read_bytes()==b'unchanged' and not (real/'new').exists()
+
+
+def test_acquisition_existing_output_member_never_replaced(acquirer,tmp_path):
+    store=acquirer.EvidenceDirectory(tmp_path/'out')
+    try:
+        store.write('run.json',b'first')
+        with pytest.raises(FileExistsError):store.write('run.json',b'second')
+        assert (tmp_path/'out/run.json').read_bytes()==b'first'
+    finally:store.close()
+
+
+def test_acquisition_output_inventory_rejects_untracked_members(acquirer,tmp_path):
+    store=acquirer.EvidenceDirectory(tmp_path/'out')
+    try:
+        store.write('run.json',b'first');(tmp_path/'out/extra').write_bytes(b'x')
+        with pytest.raises(acquirer.AcquisitionError,match='OUTPUT_INVENTORY'):store.finish()
+    finally:store.close()
+
+
+def acquisition_cli_inputs(acquirer,historical,tmp_path):
+    selection=tmp_path/'selected.json';body=acquirer.encode(acquisition_selection(acquirer,historical))
+    selection.write_bytes(body)
+    return ['--selection',str(selection),'--selection-sha256',acquirer.digest(body)]
+
+
+def test_acquisition_cli_validate_only_has_no_network_or_output(acquirer,historical,tmp_path):
+    args=acquisition_cli_inputs(acquirer,historical,tmp_path)
+    env=os.environ.copy();env.pop('GITHUB_TOKEN',None)
+    result=subprocess.run([sys.executable,'-I','-B',str(ACQUIRE_TOOL),*args,'--validate-selection-only'],
+                          capture_output=True,env=env,timeout=15)
+    assert result.returncode==0,result.stderr
+    report=json.loads(result.stdout)
+    assert report['selection_valid'] is True and report['network_accessed'] is False
+    assert set(p.name for p in tmp_path.iterdir())=={'selected.json'}
+    assert all(report[k]==v for k,v in acquirer.BOUNDARIES.items())
+
+
+@pytest.mark.parametrize('fault',['no_consent','no_token','bad_hash','conflicting_validate'])
+def test_acquisition_cli_failure_before_network_or_output(acquirer,historical,tmp_path,fault,monkeypatch,capfd):
+    args=acquisition_cli_inputs(acquirer,historical,tmp_path)
+    monkeypatch.delenv('GITHUB_TOKEN',raising=False)
+    if fault=='no_token':args+=['--allow-network','--output-dir',str(tmp_path/'out')]
+    elif fault=='bad_hash':args[-1]='0'*64
+    elif fault=='conflicting_validate':args+=['--validate-selection-only','--allow-network']
+    assert acquirer.main(args)==1
+    stdout,stderr=capfd.readouterr();assert stdout==''
+    failure=json.loads(stderr)
+    assert failure['status']=='incomplete' and failure['new_execution_authorized'] is False
+    assert set(p.name for p in tmp_path.iterdir())=={'selected.json'}
+
+
+@pytest.mark.parametrize('equal_image',[False,True])
+def test_acquisition_cli_synthetic_adapter_receipt_inventory(acquirer,historical,tmp_path,monkeypatch,capfd,equal_image):
+    args=acquisition_cli_inputs(acquirer,historical,tmp_path)
+    s=acquisition_selection(acquirer,historical);raw=dict(historical[1])
+    if equal_image:_,raw=equal_image_case(historical)
+    adapter=AcquisitionAdapter(acquirer,s,raw)
+    monkeypatch.setattr(acquirer,'GitHubReader',lambda token:adapter)
+    output=tmp_path/'out'
+    assert acquirer.main(args+['--allow-network','--output-dir',str(output)])==(0 if equal_image else 2)
+    stdout,stderr=capfd.readouterr();assert stderr==''
+    receipt=json.loads(stdout);assert receipt==json.loads((output/'acquisition.json').read_bytes())
+    assert receipt['status']=='complete' and receipt['metadata_recheck']=='UNCHANGED'
+    assert all(receipt[k]==v for k,v in acquirer.BOUNDARIES.items())
+    inventory=json.loads((output/'inventory.json').read_bytes())['files']
+    assert set(inventory)=={p.name for p in output.iterdir()}-{'inventory.json'}
+    assert 'comparison.json' in inventory and 'failure.json' not in inventory
+
+
+@pytest.mark.parametrize('fail_at',[1,2,3,4,5,6,7,8])
+def test_acquisition_cli_partial_records_preserved_without_retry(acquirer,historical,tmp_path,monkeypatch,capfd,fail_at):
+    args=acquisition_cli_inputs(acquirer,historical,tmp_path)
+    adapter=AcquisitionAdapter(acquirer,acquisition_selection(acquirer,historical),dict(historical[1]),fail_at=fail_at)
+    monkeypatch.setattr(acquirer,'GitHubReader',lambda token:adapter)
+    output=tmp_path/'out'
+    assert acquirer.main(args+['--allow-network','--output-dir',str(output)])==1
+    stdout,stderr=capfd.readouterr();assert stdout==''
+    failure=json.loads(stderr);assert failure['error_code']=='HTTP_TRANSPORT'
+    assert len(adapter.calls)==fail_at and failure['status']=='incomplete'
+    assert not (output/'acquisition.json').exists() and not (output/'comparison.json').exists()
+    inventory=json.loads((output/'inventory.json').read_bytes())['files']
+    assert set(inventory)=={p.name for p in output.iterdir()}-{'inventory.json'}
+    assert set(inventory)>={'failure.json','selection.json'}
+    assert all(failure[k]==v for k,v in acquirer.BOUNDARIES.items())
+
+
+def test_acquisition_cannot_expose_dispatch_or_synthetic_cli_switches(acquirer):
+    source=ACQUIRE_TOOL.read_text();tree=ast.parse(source,feature_version=(3,11))
+    imports={a.name for n in ast.walk(tree) if isinstance(n,(ast.Import,ast.ImportFrom)) for a in n.names}
+    assert not imports.intersection({'torch','transformers','subprocess'})
+    assert 'method=\'GET\'' in source and 'method=\'POST\'' not in source
+    arguments={n.args[0].value for n in ast.walk(tree) if isinstance(n,ast.Call)
+               and isinstance(n.func,ast.Attribute) and n.func.attr=='add_argument'
+               and n.args and isinstance(n.args[0],ast.Constant)}
+    assert arguments=={'--selection','--selection-sha256','--output-dir',
+                        '--validate-selection-only','--allow-network'}
+
+
+def test_acquisition_old_offline_comparator_bytes_remain_pinned(acquirer):
+    assert M.digest(TOOL.read_bytes())==acquirer.COMPARATOR_SHA256
+    assert M.BOUNDARIES['capture_handoff_approved'] is False
+    assert M.BOUNDARIES['evidence_source_authentication']=='not_established_by_offline_comparison'
+
+
+
+
+@pytest.mark.parametrize('fault',['content','mode','hardlink','symlink','truncate'])
+def test_acquisition_inventory_checks_final_file_bytes(acquirer,tmp_path,fault):
+    directory=tmp_path/'out';store=acquirer.EvidenceDirectory(directory)
+    try:
+        store.write('run.json',b'first');path=directory/'run.json'
+        if fault=='content':path.write_bytes(b'other')
+        elif fault=='truncate':path.write_bytes(b'')
+        elif fault=='mode':path.chmod(0o644)
+        elif fault=='hardlink':os.link(path,tmp_path/'outside')
+        else:
+            path.unlink();external=tmp_path/'external';external.write_bytes(b'first');path.symlink_to(external)
+        with pytest.raises((acquirer.AcquisitionError,OSError)):store.finish()
+        assert not (directory/'inventory.json').exists()
+    finally:store.close()
+
+
+def test_acquisition_expiry_during_download_is_not_accepted(acquirer,historical,tmp_path):
+    s=acquisition_selection(acquirer,historical);adapter=AcquisitionAdapter(acquirer,s,dict(historical[1]))
+    times=iter([acquirer.datetime(2026,11,1,tzinfo=acquirer.timezone.utc),
+                acquirer.datetime(2026,12,1,tzinfo=acquirer.timezone.utc)])
+    store=acquirer.EvidenceDirectory(tmp_path/'out')
+    try:
+        with pytest.raises(acquirer.AcquisitionError,match='ARTIFACT_NOT_CURRENT'):
+            acquirer.acquire(s,adapter,store,acquirer.load_comparator(),lambda:next(times))
+        assert len(adapter.calls)==8 and not (tmp_path/'out/comparison.json').exists()
+    finally:store.close()
+
+
+def test_acquisition_urllib_http_error_302_is_handled_without_token_forwarding(acquirer,monkeypatch):
+    from email.message import Message
+    headers=Message();headers['Location']='https://x.blob.core.windows.net/a?sig=secret'
+    redirect=acquirer.urllib.error.HTTPError(acquirer.API_ROOT+acquirer.API_PREFIX+'artifacts/1/zip',
+                                           302,'Found',headers,io.BytesIO(b''))
+    calls,_=http_adapter(monkeypatch,acquirer,[redirect,AcquisitionHTTPResponse(body=b'abc',headers=[])])
+    reader=acquirer.GitHubReader('token')
+    assert reader.download(acquirer.API_PREFIX+'artifacts/1/zip',10)==b'abc'
+    assert calls[1][0].get_header('Authorization') is None
+
+
+def test_acquisition_duplicate_location_rejected(acquirer,monkeypatch):
+    response=AcquisitionHTTPResponse(302,headers=[('Location','https://x.blob.core.windows.net/a'),
+                                               ('Location','https://y.blob.core.windows.net/b')])
+    calls,_=http_adapter(monkeypatch,acquirer,[response])
+    with pytest.raises(acquirer.AcquisitionError,match='DUPLICATE_HTTP_HEADER'):
+        acquirer.GitHubReader('token').download(acquirer.API_PREFIX+'jobs/1/logs',10)
+    assert len(calls)==1 and response.closed
+
+
+def test_acquisition_no_redirect_handler_never_follows_automatically(acquirer):
+    assert acquirer.NoRedirect().redirect_request(None,None,302,'Found',{},'https://evil.test/') is None
+
+
+@pytest.mark.parametrize('fault',['link','parent_link','hardlink','empty','oversize','directory'])
+def test_acquisition_selected_source_reader_rejects_aliases(acquirer,tmp_path,fault):
+    path=tmp_path/'source';path.write_bytes(b'abc')
+    if fault=='link':q=tmp_path/'link';q.symlink_to(path);path=q
+    elif fault=='parent_link':
+        d=tmp_path/'dir';d.mkdir();(d/'source').write_bytes(b'abc')
+        link=tmp_path/'link';link.symlink_to(d);path=link/'source'
+    elif fault=='hardlink':os.link(path,tmp_path/'alias')
+    elif fault=='empty':path.write_bytes(b'')
+    elif fault=='directory':path=tmp_path
+    with pytest.raises((acquirer.AcquisitionError,OSError)):
+        acquirer.read_source(path,2 if fault=='oversize' else 4)
+
+
+def test_acquisition_output_write_failure_cannot_report_complete(acquirer,historical,tmp_path,monkeypatch,capfd):
+    args=acquisition_cli_inputs(acquirer,historical,tmp_path)
+    adapter=AcquisitionAdapter(acquirer,acquisition_selection(acquirer,historical),dict(historical[1]))
+    monkeypatch.setattr(acquirer,'GitHubReader',lambda token:adapter)
+    original=acquirer.EvidenceDirectory.write
+    def write(self,name,raw):
+        if name=='artifact.zip':raise OSError('sensitive-provider-diagnostic')
+        return original(self,name,raw)
+    monkeypatch.setattr(acquirer.EvidenceDirectory,'write',write)
+    assert acquirer.main(args+['--allow-network','--output-dir',str(tmp_path/'out')])==1
+    stdout,stderr=capfd.readouterr();assert stdout=='' and 'sensitive-provider-diagnostic' not in stderr
+    assert json.loads(stderr)['status']=='incomplete'
+    assert not (tmp_path/'out/acquisition.json').exists()
+    assert (tmp_path/'out/failure.json').exists()
+
+
 if __name__=='__main__':
     raise SystemExit(pytest.main([__file__,'-q']))

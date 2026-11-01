@@ -159,6 +159,12 @@ collector, workflow and request constructor remain unchanged.
 
 ## Next integration boundary — explicitly not implemented here
 
+The read-only [acquisition companion](PULSEMECH_Q3_EXTERNAL_POSTFLIGHT_ACQUISITION_v0.md)
+can obtain this comparator's five inputs from exact GitHub identities and recheck
+metadata after download. It leaves this offline comparator unchanged. Its saved
+receipt is unsigned and cannot authenticate origin for a later reader; it does
+not make comparison mandatory on any native capture entry path.
+
 The current v0 request constructor still accepts a separately authorized capture
 with an `approved_token_map_sha256`. It does not require this new comparison.
 Therefore this component cannot be described as unbypassable capture enforcement.
