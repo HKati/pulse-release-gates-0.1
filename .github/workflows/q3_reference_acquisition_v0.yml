@@ -58,6 +58,16 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Observe runner image before Python setup
+        id: image_initial
+        shell: bash
+        run: |
+          set -euo pipefail
+          /usr/bin/python3 -I -B PULSE_safe_pack_v0/tools/acquire_q3_reference_inputs_v0.py \
+            --repo-root "$GITHUB_WORKSPACE" --source-commit "$EXPECTED_SOURCE_SHA" \
+            --request "$Q3_NATIVE_REQUEST" --request-sha256 "$Q3_NATIVE_REQUEST_SHA256" \
+            --image-observation initial
+
       - name: Set up the exact selected Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:
@@ -71,7 +81,11 @@ jobs:
         run: |
           set -euo pipefail
           python_bin="$(python -c 'import os,sys; print(os.path.realpath(sys.executable))')"
-          sudo --preserve-env=GITHUB_REPOSITORY,GITHUB_EVENT_NAME,GITHUB_REF,GITHUB_ACTOR,GITHUB_TRIGGERING_ACTOR,GITHUB_RUN_ATTEMPT,GITHUB_SHA,GITHUB_WORKFLOW_SHA,GITHUB_WORKFLOW_REF,GITHUB_RUN_ID,GITHUB_TOKEN,ImageOS,ImageVersion,RUNNER_TEMP \
+          "$python_bin" -I -B PULSE_safe_pack_v0/tools/acquire_q3_reference_inputs_v0.py \
+            --repo-root "$GITHUB_WORKSPACE" --source-commit "$EXPECTED_SOURCE_SHA" \
+            --request "$Q3_NATIVE_REQUEST" --request-sha256 "$Q3_NATIVE_REQUEST_SHA256" \
+            --image-observation pre-sudo
+          sudo --preserve-env=GITHUB_REPOSITORY,GITHUB_EVENT_NAME,GITHUB_REF,GITHUB_ACTOR,GITHUB_TRIGGERING_ACTOR,GITHUB_RUN_ATTEMPT,GITHUB_SHA,GITHUB_WORKFLOW_SHA,GITHUB_WORKFLOW_REF,GITHUB_RUN_ID,GITHUB_JOB,GITHUB_TOKEN,ImageOS,ImageVersion,RUNNER_TEMP \
             /usr/bin/timeout --signal=TERM --kill-after=180s 15480s \
             "$python_bin" -I -B PULSE_safe_pack_v0/tools/acquire_q3_reference_inputs_v0.py \
             --repo-root "$GITHUB_WORKSPACE" --source-commit "$EXPECTED_SOURCE_SHA" \
@@ -86,6 +100,21 @@ jobs:
             ${{ runner.temp }}/q3-reference-capture/${{ github.run_id }}-${{ github.run_attempt }}/evidence.zip
             ${{ runner.temp }}/q3-reference-capture/${{ github.run_id }}-${{ github.run_attempt }}/receipt.json
             ${{ runner.temp }}/q3-reference-capture/${{ github.run_id }}-${{ github.run_attempt }}/failure.json
+          if-no-files-found: error
+          overwrite: false
+          compression-level: 0
+          retention-days: 30
+
+      - name: Preserve rejected runner image observations
+        if: failure() && steps.image_initial.outcome != 'skipped'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: q3-runner-image-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/q3-runner-image/${{ github.run_id }}-${{ github.run_attempt }}/initial.json
+            ${{ runner.temp }}/q3-runner-image/${{ github.run_id }}-${{ github.run_attempt }}/pre-sudo.json
+            ${{ runner.temp }}/q3-runner-image/${{ github.run_id }}-${{ github.run_attempt }}/root-entry.json
+            ${{ runner.temp }}/q3-runner-image/${{ github.run_id }}-${{ github.run_attempt }}/comparison.json
           if-no-files-found: error
           overwrite: false
           compression-level: 0

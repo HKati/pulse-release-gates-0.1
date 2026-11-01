@@ -91,7 +91,7 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
 
     if rel == ".github/workflows/q3_reference_acquisition_v0.yml":
         if (name != "Q3 native token preflight and capture v0"
-                or hashlib.sha256(text.encode("utf-8")).hexdigest() != "0185990e85911ed7493354971b633b347dd05d21fc823fd71f53281e40b4e3e6"):
+                or hashlib.sha256(text.encode("utf-8")).hexdigest() != "cbf8c3fe9f9fdb70a4d42a7035665189a90cb71dece7c25008b34422299667e7"):
             return entry(name=name, path=rel, surface_type="workflow",
                          primary_role="unclassified workflow", carrier_class="advisory",
                          authority_impacting="conditional",
