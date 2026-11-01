@@ -1,0 +1,292 @@
+name: Paradoxon W1 environment admission (manual)
+run-name: W1 admission only ${{ inputs.source_commit }}
+
+# Candidate-free environment controls; never a W1 experiment or release gate.
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact reviewed main commit containing this workflow (40 lowercase hex)
+        required: true
+        type: string
+      acknowledgement:
+        description: Enter ADMISSION_ONLY_ZERO_CANDIDATES to run only the environment controls
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paradox-w1-admission-v0
+  cancel-in-progress: false
+
+jobs:
+  admission:
+    if: github.repository == 'HKati/pulse-release-gates-0.1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PD_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      PD_ADMISSION_ACKNOWLEDGEMENT: ${{ inputs.acknowledgement }}
+    steps:
+      - name: Check owner and exact source before checkout
+        id: guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_ACTOR" = HKati
+          test "$GITHUB_ACTOR_ID" = 128643840
+          test "$GITHUB_TRIGGERING_ACTOR" = HKati
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          [[ "$PD_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$PD_SOURCE_COMMIT" = "$GITHUB_SHA"
+          test "$GITHUB_SHA" = "$GITHUB_WORKFLOW_SHA"
+          test "$PD_ADMISSION_ACKNOWLEDGEMENT" = ADMISSION_ONLY_ZERO_CANDIDATES
+          umask 077
+          mkdir "$RUNNER_TEMP/pd-sm-02-w1-admission"
+          printf 'STARTED\n' > "$RUNNER_TEMP/pd-sm-02-w1-admission/ACQUISITION_STATUS.txt"
+
+      - name: Checkout reviewed admission code and image metadata
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          persist-credentials: false
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /tools/run_paradox_w1_admission_v0.py
+            /tools/run_paradox_w1_native_v0.py
+            /tools/paradox_w1_docker_boundary_v0.py
+            /tools/paradox_w1_native_runtime_v0.py
+            /tools/paradox_w1_native_observer_v0.py
+            /tools/check_paradox_w1_records_v0.py
+            /docs/experiments/PD_SM_02_W1_ADMISSION_TARGET_v0.json
+            /docs/experiments/PD_SM_02_W1_IMAGE_v0/
+            /.github/workflows/paradox_w1_admission_v0.yml
+
+      - name: Prepare the zero-candidate request and record the selected host
+        id: prepare
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(git -C tooling rev-parse HEAD)" = "$PD_SOURCE_COMMIT"
+          git -C tooling diff --exit-code
+          git -C tooling diff --cached --exit-code
+          python3 -I -S -B -c 'import sys; assert sys.version_info >= (3, 11)'
+          out="$RUNNER_TEMP/pd-sm-02-w1-admission"
+          python3 -I -S -B - "$out/host_context.json" <<'PY'
+          import json, os, sys
+          names = {
+              'github_repository': 'GITHUB_REPOSITORY',
+              'github_sha': 'GITHUB_SHA',
+              'github_workflow_sha': 'GITHUB_WORKFLOW_SHA',
+              'github_run_id': 'GITHUB_RUN_ID',
+              'github_run_attempt': 'GITHUB_RUN_ATTEMPT',
+              'runner_os': 'RUNNER_OS',
+              'runner_arch': 'RUNNER_ARCH',
+              'image_os': 'ImageOS',
+              'image_version': 'ImageVersion',
+          }
+          with open(sys.argv[1], 'x', encoding='utf-8') as handle:
+              json.dump({key: os.environ.get(name, '') for key, name in names.items()},
+                        handle, sort_keys=True, separators=(',', ':'))
+              handle.write('\n')
+          PY
+          cd "$GITHUB_WORKSPACE/tooling"
+          set +e
+          python3 -I -S -B tools/run_paradox_w1_admission_v0.py prepare \
+            --repo-root "$GITHUB_WORKSPACE/tooling" \
+            --output "$out/package" --source-commit "$PD_SOURCE_COMMIT" \
+            --run-id "gh-w1-admission-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            > "$out/prepare.stdout" 2> "$out/prepare.stderr"
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$out/prepare.exitcode"
+          test "$rc" = 0
+          python3 -I -S -B - "$out" "$GITHUB_OUTPUT" <<'PY'
+          import hashlib, json, pathlib, re, sys
+          out = pathlib.Path(sys.argv[1])
+          result = json.loads((out / 'prepare.stdout').read_bytes())
+          sha = hashlib.sha256((out / 'package/request.json').read_bytes()).hexdigest()
+          assert re.fullmatch('[0-9a-f]{64}', sha) and result['request_sha256'] == sha
+          (out / 'REQUEST_SHA256.txt').write_text(sha + '\n', encoding='ascii')
+          with open(sys.argv[2], 'a', encoding='utf-8') as handle:
+              handle.write('request_sha256=' + sha + '\n')
+          PY
+
+      - name: Verify the prepared request offline
+        id: verify
+        env:
+          PD_REQUEST_SHA256: ${{ steps.prepare.outputs.request_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/pd-sm-02-w1-admission"
+          cd "$GITHUB_WORKSPACE/tooling"
+          set +e
+          python3 -I -S -B tools/run_paradox_w1_admission_v0.py verify \
+            --package "$out/package" --request-sha256 "$PD_REQUEST_SHA256" \
+            > "$out/verify.stdout" 2> "$out/verify.stderr"
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$out/verify.exitcode"
+          exit "$rc"
+
+      - name: Acquire the pinned Linux image outside the admission adapter
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          out="$RUNNER_TEMP/pd-sm-02-w1-admission"
+          # Fixed metadata, already checked by the request verifier. No tag input.
+          python3 -I -S -B - "$out/package/request.json" "$out/image_selection.json" \
+            tooling/docs/experiments/PD_SM_02_W1_ADMISSION_TARGET_v0.json <<'PY'
+          import json, pathlib, sys
+          request = json.loads(pathlib.Path(sys.argv[1]).read_bytes())
+          expected = {
+              'pull_reference': 'docker.io/library/python@sha256:a7cb177dc60dfa77b223192cd0d9e6ce1aac7cf9a569023d68e7c91b6371a718',
+              'image_id': 'sha256:38e57556b63539e63344b97f802e7cbd85b70e2087ee703e360fcdfe337cbbb3',
+              'platform': 'linux/amd64',
+          }
+          assert request['image_id'] == expected['image_id']
+          target = json.loads(pathlib.Path(sys.argv[3]).read_bytes())
+          assert all(target['image'][name] == value for name, value in expected.items())
+          pathlib.Path(sys.argv[2]).write_text(json.dumps(expected, sort_keys=True) + '\n', encoding='utf-8')
+          PY
+          pd_docker_config="$RUNNER_TEMP/pd-sm-02-w1-admission-docker-config"
+          mkdir "$pd_docker_config"
+          pd_docker="$(command -v docker)"
+          pd_image_reference=docker.io/library/python@sha256:a7cb177dc60dfa77b223192cd0d9e6ce1aac7cf9a569023d68e7c91b6371a718
+          pd_expected_image=sha256:38e57556b63539e63344b97f802e7cbd85b70e2087ee703e360fcdfe337cbbb3
+          set +e
+          timeout --signal=TERM --kill-after=10s 240s \
+            env -i PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 \
+            "$pd_docker" --host unix:///var/run/docker.sock --config "$pd_docker_config" \
+            image pull --platform linux/amd64 "$pd_image_reference" \
+            > "$out/image-pull.stdout" 2> "$out/image-pull.stderr"
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$out/image-pull.exitcode"
+          test "$rc" = 0
+          set +e
+          timeout --signal=TERM --kill-after=5s 20s \
+            env -i PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 \
+            "$pd_docker" --host unix:///var/run/docker.sock --config "$pd_docker_config" \
+            image inspect --format '{{.Id}}' "$pd_image_reference" \
+            > "$out/image-inspect.stdout" 2> "$out/image-inspect.stderr"
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$out/image-inspect.exitcode"
+          test "$rc" = 0
+          test "$(cat "$out/image-inspect.stdout")" = "$pd_expected_image"
+          printf 'EXACT_IMAGE_ID_MATCH\n' > "$out/image-binding.status"
+
+      - name: Run the two environment controls with zero candidates
+        id: admission
+        env:
+          PD_REQUEST_SHA256: ${{ steps.prepare.outputs.request_sha256 }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/pd-sm-02-w1-admission"
+          cd "$GITHUB_WORKSPACE/tooling"
+          set +e
+          python3 -I -S -B tools/run_paradox_w1_admission_v0.py run-admission \
+            --package "$out/package" --request-sha256 "$PD_REQUEST_SHA256" \
+            --authorize-admission "I_AUTHORIZE_PD_SM_02_W1_ADMISSION:$PD_REQUEST_SHA256" \
+            --host-context "$out/host_context.json" \
+            > "$out/admission.stdout" 2> "$out/admission.stderr"
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$out/admission.exitcode"
+          cat "$out/admission.stdout"
+          exit "$rc"
+
+      - name: Replay retained admission evidence offline, including failed attempts
+        id: replay
+        if: always() && steps.guard.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/pd-sm-02-w1-admission"
+          if [ ! -f "$out/package/request.json" ] || [ ! -f "$out/REQUEST_SHA256.txt" ]; then
+            printf 'NOT_RUN_NO_PREPARED_REQUEST\n' > "$out/replay.status"
+            exit 0
+          fi
+          pd_request_sha="$(cat "$out/REQUEST_SHA256.txt")"
+          [[ "$pd_request_sha" =~ ^[0-9a-f]{64}$ ]]
+          cd "$GITHUB_WORKSPACE/tooling"
+          set +e
+          python3 -I -S -B tools/run_paradox_w1_admission_v0.py verify-admission \
+            --package "$out/package" --request-sha256 "$pd_request_sha" \
+            > "$out/replay.stdout" 2> "$out/replay.stderr"
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$out/replay.exitcode"
+          cat "$out/replay.stdout"
+          exit "$rc"
+
+      - name: Record the complete or incomplete admission outcome
+        id: record
+        if: always() && steps.guard.outcome == 'success'
+        env:
+          PD_CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+          PD_PREPARE_OUTCOME: ${{ steps.prepare.outcome }}
+          PD_VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          PD_IMAGE_OUTCOME: ${{ steps.image.outcome }}
+          PD_ADMISSION_OUTCOME: ${{ steps.admission.outcome }}
+          PD_REPLAY_OUTCOME: ${{ steps.replay.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -I -S -B - "$RUNNER_TEMP/pd-sm-02-w1-admission" <<'PY'
+          import json, os, pathlib, sys
+          out = pathlib.Path(sys.argv[1])
+          outcomes = {name: os.environ['PD_' + name.upper() + '_OUTCOME']
+                      for name in ('checkout', 'prepare', 'verify', 'image', 'admission', 'replay')}
+          def report(name):
+              try:
+                  value = json.loads((out / name).read_bytes())
+                  return value if isinstance(value, dict) else {}
+              except (OSError, ValueError):
+                  return {}
+          admission = report('admission.stdout')
+          replay = report('replay.stdout')
+          completed = (all(value == 'success' for value in outcomes.values())
+                       and admission.get('status') == 'ADMISSION_COMPLETED_UNATTESTED'
+                       and replay.get('status') == 'ADMISSION_RECORDS_REPLAYED'
+                       and replay.get('admission_status') == 'ADMISSION_COMPLETED_UNATTESTED')
+          status = 'ADMISSION_COMPLETED_UNATTESTED' if completed else 'INCOMPLETE_OR_BLOCKED'
+          result = {'status': status, 'source_commit': os.environ['PD_SOURCE_COMMIT'],
+                    'step_outcomes': outcomes, 'admission_status': admission.get('status'),
+                    'replay_status': replay.get('status'), 'new_candidate_executions': 0,
+                    'native_witness_observed': None, 'containment_observed': None,
+                    'execution_authorized': False, 'authority_effect': 'none'}
+          (out / 'RESULT.json').write_text(json.dumps(result, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          (out / 'ACQUISITION_STATUS.txt').write_text(status + '\n', encoding='ascii')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as handle:
+              handle.write('## W1 environment admission\n\nStatus: `' + status + '`.\n\n')
+              handle.write('Two environment controls only; zero W1 candidate invocations. '
+                           'The retained result grants no candidate execution authorization. '
+                           'Authority effect: `none`.\n')
+          print(json.dumps(result, sort_keys=True))
+          raise SystemExit(0 if completed else 1)
+          PY
+
+      - name: Preserve request, acquisition logs, and complete or failed admission evidence
+        id: upload
+        if: always() && steps.guard.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pd-sm-02-w1-admission-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pd-sm-02-w1-admission/
+          if-no-files-found: error
+          overwrite: false
+          retention-days: 30
