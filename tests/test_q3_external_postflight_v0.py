@@ -1385,11 +1385,12 @@ def test_handoff_native_core_is_not_the_cli_admission_route():
 @pytest.mark.parametrize('mode',['token-preflight','capture'])
 def test_handoff_main_routes_to_exact_mandatory_path(monkeypatch,mode):
     a=native_mod(ROOT,'acquire_q3_reference_inputs_v0');calls=[]
-    monkeypatch.setattr(a,'entry_guard',lambda *args:('C','P',{'mode':mode},{'source':'snapshot'}))
+    monkeypatch.setattr(a,'entry_guard',lambda *args,**kwargs:('C','P',{'mode':mode},{'source':'snapshot'}))
+    monkeypatch.setattr(a,'image_gate',lambda *args:calls.append('image'))
     monkeypatch.setattr(a,'execute',lambda *args:calls.append('native') or 0)
     monkeypatch.setattr(a,'execute_handoff',lambda *args:calls.append('handoff') or 0)
     assert a.main(['--repo-root',str(ROOT),'--source-commit','a'*40,'--request','{}','--request-sha256',M.digest(b'{}')])==0
-    assert calls==(['native'] if mode=='token-preflight' else ['handoff'])
+    assert calls==(['image','native'] if mode=='token-preflight' else ['image','handoff'])
 
 
 @pytest.mark.parametrize('raw',[b'{}',b'[]',b'{"record_type":"q3_capture_handoff_request_v1"}',
@@ -1572,6 +1573,360 @@ def test_handoff_manifest_counts_remain_174_and_30():
         rows=[line.split('#',1)[0].strip() for line in (ROOT/'ci'/filename).read_text().splitlines()]
         rows=[r for r in rows if r]
         assert len(rows)==len(set(rows))==count and rows.count(TEST_PATH)==1
+
+
+
+# Runner-image guard: source-bound synthetic controls, never hosted observations.
+@pytest.fixture
+def image_case(tmp_path, monkeypatch):
+    a = native_mod(ROOT, 'acquire_q3_reference_inputs_v0')
+    c = native_mod(ROOT, 'q3_native_capture_contract_v0')
+    raw = b'{"synthetic":"image guard only"}'
+    env = {'GITHUB_RUN_ID': '90123', 'GITHUB_RUN_ATTEMPT': '1', 'GITHUB_JOB': 'acquire',
+           'RUNNER_TEMP': str(tmp_path), 'ImageOS': 'ubuntu24', 'ImageVersion': '20261026.354.1',
+           'GITHUB_TOKEN': 'DO_NOT_PUBLISH_SECRET'}
+    source = {a.SELF: (ROOT / a.SELF).read_bytes()}
+    request = {'source_commit': 'c'*40, 'mode': 'token-preflight'}
+    observed = {'environment': {'image_os': 'ubuntu24', 'image_version': '20261026.354.1'},
+        'worker': {'pid': 123, 'start_ticks': 456, 'executable': '/synthetic/runner/bin/Runner.Worker'},
+        'setup_info': {'sha256': 'a'*64, 'size_bytes': 123, 'image': 'ubuntu-24.04',
+                       'version': '20261026.354.1', 'error': None},
+        'imagedata': {'sha256': 'b'*64, 'size_bytes': 100, 'image': 'ubuntu-24.04',
+                      'version': '20261026.354.1', 'error': None}, 'errors': []}
+    monkeypatch.setattr(a, 'image_collect', lambda *args: copy.deepcopy(observed))
+    return a, c, request, source, raw, env, observed
+
+
+def image_records(f):
+    a,c,req,src,raw,env,_ = f
+    records = {}
+    for phase in a.IMAGE_STAGES:
+        record, directory = a.image_observe(c,req,src,raw,env,phase)
+        records[phase] = (directory/(phase+'.json')).read_bytes()
+    return records
+
+
+def image_rechain(a,c,records):
+    previous = None
+    for phase in a.IMAGE_STAGES:
+        r=json.loads(records[phase]);r['previous_sha256']=previous
+        records[phase]=c.encode(r);previous=c.digest(records[phase])
+
+
+def test_image_positive_chain_is_not_saved_capture_permission(image_case):
+    a,c,req,src,raw,env,_=image_case
+    records=image_records(image_case)
+    out=a.image_compare(c,records,a.image_binding(c,req,raw,env),c.digest(src[a.SELF]))
+    assert out['status']=='consistent'
+    assert out['capture_handoff_approved'] is False and out['authority_effect']=='none'
+    assert out['native_execution_started_at_comparison'] is False
+    assert b'DO_NOT_PUBLISH_SECRET' not in b''.join(records.values())
+
+
+@pytest.mark.parametrize('phase',['initial','pre-sudo','root-entry'])
+@pytest.mark.parametrize('field',['environment','setup_info','imagedata'])
+def test_image_conflicting_source_rejects_without_rewriting(image_case,phase,field):
+    a,c,req,src,raw,env,_=image_case;records=image_records(image_case)
+    r=json.loads(records[phase]);key='image_version' if field=='environment' else 'version'
+    r['observation'][field][key]='20261025.353.1';records[phase]=c.encode(r)
+    image_rechain(a,c,records);original=copy.deepcopy(records)
+    out=a.image_compare(c,records,a.image_binding(c,req,raw,env),c.digest(src[a.SELF]))
+    assert out['status']=='contradictory' and records==original
+    assert phase+':IMAGE_VALUES' in out['conflicts']
+
+
+@pytest.mark.parametrize('phase',['initial','pre-sudo','root-entry'])
+@pytest.mark.parametrize('fault',['missing','extra','binding','bool_attempt','observer','chain','source_missing',
+                                  'source_hash','bool_size','version','worker','errors','duplicate_json'])
+def test_image_partial_or_rebound_records_never_pass(image_case,phase,fault):
+    a,c,req,src,raw,env,_=image_case;records=image_records(image_case)
+    r=json.loads(records[phase])
+    if fault=='missing': records.pop(phase)
+    elif fault=='extra':r['approved']=True
+    elif fault=='binding':r['binding']['run_id']='99999'
+    elif fault=='bool_attempt':r['binding']['run_attempt']=True
+    elif fault=='observer':r['observer_sha256']='f'*64
+    elif fault=='chain':r['previous_sha256']='f'*64
+    elif fault=='source_missing':r['observation']['setup_info']=None
+    elif fault=='source_hash':r['observation']['imagedata']['sha256']='invalid'
+    elif fault=='bool_size':r['observation']['imagedata']['size_bytes']=True
+    elif fault=='version':r['observation']['setup_info']['version']='invalid'
+    elif fault=='worker':r['observation']['worker']['pid']=True
+    elif fault=='errors':r['observation']['errors']=['MISSING']
+    if fault not in ('missing','duplicate_json'):records[phase]=c.encode(r)
+    if fault=='duplicate_json':records[phase]=records[phase].replace(b'{',b'{"phase":"wrong",',1)
+    out=a.image_compare(c,records,a.image_binding(c,req,raw,env),c.digest(src[a.SELF]))
+    assert out['status']=='incomplete'
+
+
+@pytest.mark.parametrize('phase',['pre-sudo','root-entry'])
+@pytest.mark.parametrize('field',['worker','setup_info','imagedata','all_versions'])
+def test_image_same_job_temporal_drift_is_not_normalized(image_case,phase,field):
+    a,c,req,src,raw,env,_=image_case;records=image_records(image_case)
+    r=json.loads(records[phase]);o=r['observation']
+    if field=='worker':o['worker']['start_ticks']+=1
+    elif field=='all_versions':
+        o['environment']['image_version']='20261027.355.1'
+        for k in ('setup_info','imagedata'):o[k]['version']='20261027.355.1'
+    else:o[field]['sha256']='f'*64
+    records[phase]=c.encode(r);image_rechain(a,c,records)
+    out=a.image_compare(c,records,a.image_binding(c,req,raw,env),c.digest(src[a.SELF]))
+    assert out['status']=='contradictory'
+
+
+@pytest.mark.parametrize('fault',['missing','duplicate_group','bad_group','duplicate_key','ambiguous_alias',
+    'empty_version','duplicate_version','malformed_duplicate','indented_duplicate','wrong_type','bad_version'])
+def test_image_metadata_parser_fails_closed(fault):
+    a=native_mod(ROOT,'acquire_q3_reference_inputs_v0');c=native_mod(ROOT,'q3_native_capture_contract_v0')
+    group={'group':'Runner Image','detail':'Image: ubuntu-24.04\nVersion: 20261026.354.1'};d=[group]
+    if fault=='missing':d=[]
+    elif fault=='duplicate_group':d.append(dict(group))
+    elif fault=='bad_group':group['group']='Runner Image Provisioner'
+    elif fault=='ambiguous_alias':group['Group']='Runner Image'
+    elif fault=='empty_version':group['detail']='Image: ubuntu-24.04\nVersion: '
+    elif fault=='duplicate_version':group['detail']+='\nVersion: 20261026.354.1'
+    elif fault=='malformed_duplicate':group['detail']+='\nVersion: invalid'
+    elif fault=='indented_duplicate':group['detail']+='\n  Version: invalid'
+    elif fault=='wrong_type':group['detail']=True
+    elif fault=='bad_version':group['detail']='Image: ubuntu-24.04\nVersion: invalid'
+    raw=c.encode(d)
+    if fault=='duplicate_key':raw=raw.replace(b'"group":',b'"group":"other","group":')
+    with pytest.raises(ValueError):a.image_group(c,raw)
+
+
+@pytest.mark.parametrize('capitalized',[False,True])
+def test_image_parser_excludes_provisioner_and_private_groups(capitalized):
+    a=native_mod(ROOT,'acquire_q3_reference_inputs_v0');c=native_mod(ROOT,'q3_native_capture_contract_v0')
+    d=[{'group':'_internal_private','detail':'DO_NOT_PUBLISH'},
+       {'group':'Runner Image Provisioner','detail':'Version: 999'},
+       {'group':'Runner Image','detail':'Image: ubuntu-24.04\r\nVersion: 20261026.354.1\r\nIncluded Software: private'}]
+    if capitalized:d=[{k.capitalize():v for k,v in x.items()} for x in d]
+    assert a.image_group(c,c.encode(d))=={'image':'ubuntu-24.04','version':'20261026.354.1'}
+
+
+@pytest.mark.parametrize('value',[None,'','secret\nvalue','::error::secret','X'*129,True])
+def test_image_bad_environment_values_are_not_published(value):
+    a=native_mod(ROOT,'acquire_q3_reference_inputs_v0')
+    out,valid=a.image_environment({'ImageOS':'ubuntu24','ImageVersion':value,'GITHUB_TOKEN':'secret'})
+    assert not valid and out=={'image_os':'ubuntu24','image_version':None}
+
+
+def test_image_source_read_does_not_publish_other_metadata(tmp_path):
+    a=native_mod(ROOT,'acquire_q3_reference_inputs_v0');c=native_mod(ROOT,'q3_native_capture_contract_v0')
+    p=tmp_path/'setup';raw=c.encode([{'group':'Runner Image','detail':'Image: ubuntu-24.04\nVersion: 20261026.354.1'},
+                                  {'group':'_internal_token','detail':'DO_NOT_PUBLISH_SECRET'}]);p.write_bytes(raw)
+    r=a.image_source(c,p)
+    assert r['sha256']==c.digest(raw) and r['error'] is None
+    assert b'DO_NOT_PUBLISH_SECRET' not in c.encode(r)
+
+
+@pytest.mark.parametrize('kind',['symlink','parent_symlink','hardlink','fifo','missing','oversize'])
+def test_image_source_unreadable_or_aliased_stays_incomplete(tmp_path,kind):
+    a=native_mod(ROOT,'acquire_q3_reference_inputs_v0');c=native_mod(ROOT,'q3_native_capture_contract_v0')
+    p=tmp_path/'metadata';p.write_bytes(b'[]')
+    if kind=='symlink':q=tmp_path/'link';q.symlink_to(p);p=q
+    elif kind=='parent_symlink':q=tmp_path/'dirlink';q.symlink_to(tmp_path);p=q/'metadata'
+    elif kind=='hardlink':os.link(p,tmp_path/'alias')
+    elif kind=='fifo':p.unlink();os.mkfifo(p)
+    elif kind=='missing':p.unlink()
+    else:p.write_bytes(b'x'*(a.IMAGE_MAX+1))
+    assert a.image_source(c,p)['error'] is not None
+
+
+def fake_image_proc(tmp_path):
+    proc=tmp_path/'proc';root=tmp_path/'runner';(root/'bin').mkdir(parents=True)
+    worker=root/'bin/Runner.Worker';worker.write_bytes(b'not executable synthetic worker')
+    shell=tmp_path/'shell';shell.write_bytes(b'not executable synthetic shell')
+    for pid,parent,ticks,path in [(22,11,200,shell),(11,1,100,worker)]:
+        d=proc/str(pid);d.mkdir(parents=True)
+        # State is field 3, PPID field 4, starttime field 22.
+        tail=['S',str(parent)]+['0']*17+[str(ticks)]
+        (d/'stat').write_text(str(pid)+' (name with ) parentheses) '+' '.join(tail)+'\n')
+        (d/'exe').symlink_to(path)
+    return proc,root
+
+
+def test_image_actual_proc_parser_selects_ancestor_not_cache(tmp_path):
+    a=native_mod(ROOT,'acquire_q3_reference_inputs_v0');proc,root=fake_image_proc(tmp_path)
+    identity,selected=a.image_worker(proc,22)
+    assert selected==root and identity['pid']==11 and identity['start_ticks']==100
+
+
+@pytest.mark.parametrize('fault',['no_worker','stat_malformed','pid_cycle','exe_missing','wrong_bin'])
+def test_image_ambiguous_or_unreadable_worker_has_no_fallback(tmp_path,fault):
+    a=native_mod(ROOT,'acquire_q3_reference_inputs_v0');proc,root=fake_image_proc(tmp_path)
+    if fault=='no_worker':(proc/'11/exe').unlink();(proc/'11/exe').symlink_to(tmp_path/'shell')
+    elif fault=='stat_malformed':(proc/'11/stat').write_bytes(b'bad')
+    elif fault=='pid_cycle':(proc/'22/stat').write_text('22 (shell) '+' '.join(['S','22']+['0']*17+['200']))
+    elif fault=='exe_missing':(proc/'22/exe').unlink()
+    else:
+        p=tmp_path/'wrong/Runner.Worker';p.parent.mkdir();p.write_bytes(b'fake')
+        (proc/'11/exe').unlink();(proc/'11/exe').symlink_to(p)
+    with pytest.raises((ValueError,OSError)):a.image_worker(proc,22)
+
+
+def test_image_initial_observation_does_not_overwrite(image_case):
+    a,c,req,src,raw,env,_=image_case
+    a.image_observe(c,req,src,raw,env,'initial')
+    directory=Path(env['RUNNER_TEMP'])/'q3-runner-image/90123-1'
+    original=(directory/'initial.json').read_bytes()
+    with pytest.raises(FileExistsError):a.image_observe(c,req,src,raw,env,'initial')
+    assert (directory/'initial.json').read_bytes()==original
+
+
+@pytest.mark.parametrize('mode',['token-preflight','capture'])
+@pytest.mark.parametrize('fault',['conflict','missing','sudo_drift'])
+def test_image_actual_gate_stops_main_before_any_native_route(image_case,monkeypatch,mode,fault):
+    a,c,req,src,raw,env,observed=image_case;req['mode']=mode
+    a.image_observe(c,req,src,raw,env,'initial')
+    if fault!='missing':a.image_observe(c,req,src,raw,env,'pre-sudo')
+    if fault=='conflict':observed['setup_info']['version']='20261025.353.1'
+    elif fault=='sudo_drift':observed['environment']['image_version']='20261027.355.1'
+    monkeypatch.setattr(a,'entry_guard',lambda *args,**kwargs:(c,{},req,src))
+    for k,v in env.items():monkeypatch.setenv(k,v)
+    monkeypatch.setattr(a,'execute',lambda *args:pytest.fail('native call on rejected image'))
+    monkeypatch.setattr(a,'execute_handoff',lambda *args:pytest.fail('handoff on rejected image'))
+    assert a.main(['--repo-root',str(ROOT),'--source-commit',req['source_commit'],'--request',raw.decode(),
+                   '--request-sha256',c.digest(raw)])==2
+    d=Path(env['RUNNER_TEMP'])/'q3-runner-image/90123-1'
+    report=json.loads((d/'comparison.json').read_bytes())
+    assert report['status']==('incomplete' if fault=='missing' else 'contradictory')
+    assert report['native_execution_started_at_comparison'] is False
+    assert b'DO_NOT_PUBLISH_SECRET' not in b''.join(p.read_bytes() for p in d.glob('*.json'))
+    assert (d/'root-entry.json').stat().st_mode&0o777==0o644
+
+
+@pytest.mark.parametrize('mode',['token-preflight','capture'])
+def test_image_positive_main_checks_real_gate_before_route(image_case,monkeypatch,mode):
+    a,c,req,src,raw,env,_=image_case;req['mode']=mode
+    for phase in ('initial','pre-sudo'):a.image_observe(c,req,src,raw,env,phase)
+    monkeypatch.setattr(a,'entry_guard',lambda *args,**kwargs:(c,{},req,src))
+    for k,v in env.items():monkeypatch.setenv(k,v)
+    calls=[]
+    def native(*args):
+        report=json.loads((Path(env['RUNNER_TEMP'])/'q3-runner-image/90123-1/comparison.json').read_bytes())
+        assert report['status']=='consistent';calls.append(mode);return 0
+    monkeypatch.setattr(a,'execute',native);monkeypatch.setattr(a,'execute_handoff',native)
+    assert a.main(['--repo-root',str(ROOT),'--source-commit',req['source_commit'],'--request',raw.decode(),
+                   '--request-sha256',c.digest(raw)])==0
+    assert calls==[mode]
+
+
+def test_image_observation_cli_requires_real_source_and_cannot_execute(handoff_checkout,monkeypatch,tmp_path):
+    root,commit,_,_,_,_=handoff_checkout;c=native_mod(root,'q3_native_capture_contract_v0');a=native_mod(root,'acquire_q3_reference_inputs_v0')
+    request_raw=c.make_request(root,commit,'token-preflight',c.AUTHORIZATIONS['token-preflight'])
+    _,env=guarded_test_entry(root,commit,monkeypatch)
+    env.update(GITHUB_JOB='acquire',RUNNER_TEMP=str(tmp_path))
+    for k,v in env.items():monkeypatch.setenv(k,v)
+    import types
+    monkeypatch.setattr(a,'sys',types.SimpleNamespace(flags=types.SimpleNamespace(isolated=1),stderr=sys.stderr))
+    monkeypatch.setattr(a.os,'geteuid',lambda:1001)
+    monkeypatch.setattr(a,'image_collect',lambda *args:{'environment':{'image_os':None,'image_version':None},
+        'worker':None,'setup_info':None,'imagedata':None,'errors':['SYNTHETIC_MISSING']})
+    monkeypatch.setattr(a,'execute',lambda *args:pytest.fail('observation dispatched native'))
+    monkeypatch.setattr(a,'execute_handoff',lambda *args:pytest.fail('observation dispatched handoff'))
+    argv=['--repo-root',str(root),'--source-commit',commit,'--request',request_raw.decode(),
+          '--request-sha256',c.digest(request_raw),'--image-observation','initial']
+    assert a.main(argv)==0
+    record=json.loads((tmp_path/'q3-runner-image'/ (env['GITHUB_RUN_ID']+'-1')/'initial.json').read_bytes())
+    assert record['observer_sha256']==c.digest((root/a.SELF).read_bytes())
+    assert record['binding']['source_commit']==commit
+
+
+def test_image_workflow_observes_before_python_and_on_both_sides_of_sudo():
+    import yaml
+    workflow=yaml.load((ROOT/M.WORKFLOW).read_bytes(),Loader=yaml.BaseLoader)
+    steps=workflow['jobs']['acquire']['steps']
+    initial=next(i for i,s in enumerate(steps) if s.get('id')=='image_initial')
+    setup=next(i for i,s in enumerate(steps) if s.get('uses','').startswith('actions/setup-python@'))
+    native=next(s for s in steps if s.get('id')=='native')['run']
+    assert initial<setup and '--image-observation initial' in steps[initial]['run']
+    assert native.index('--image-observation pre-sudo')<native.index('sudo --preserve-env=')
+    assert 'GITHUB_RUN_ID,GITHUB_JOB,GITHUB_TOKEN' in native
+    main=ast.get_source_segment((ROOT/NATIVE_COLLECTOR).read_text(),
+          next(n for n in ast.parse((ROOT/NATIVE_COLLECTOR).read_text()).body if isinstance(n,ast.FunctionDef) and n.name=='main'))
+    assert main.index('image_gate(')<main.index('return execute_handoff(')<main.index('return execute(')
+    assert 'continue-on-error' not in json.dumps(workflow)
+
+
+def test_image_separate_artifact_has_closed_non_secret_members():
+    import yaml
+    workflow=yaml.load((ROOT/M.WORKFLOW).read_bytes(),Loader=yaml.BaseLoader)
+    uploads=[s for s in workflow['jobs']['acquire']['steps'] if s.get('uses','').startswith('actions/upload-artifact@')]
+    side=next(s for s in uploads if s['with']['name'].startswith('q3-runner-image-'))
+    assert len(uploads)==2 and side['with']['overwrite']=='false' and side['with']['retention-days']=='30'
+    assert side['if']=="failure() && steps.image_initial.outcome != 'skipped'"
+    assert [p.rsplit('/',1)[-1] for p in side['with']['path'].splitlines()]==list(native_mod(ROOT,'acquire_q3_reference_inputs_v0').IMAGE_FILES)
+    for forbidden in ['**','*.json','.setup_info','imagedata.json','.credentials']:
+        assert forbidden not in side['with']['path']
+
+
+
+
+@pytest.mark.parametrize('mode',['token-preflight','capture'])
+def test_image_actual_git_entry_refuses_missing_observation_before_network(handoff_checkout,monkeypatch,tmp_path,mode):
+    root,commit,native,nb,_,envelope=handoff_checkout
+    c=native_mod(root,'q3_native_capture_contract_v0')
+    a,env=guarded_test_entry(root,commit,monkeypatch)
+    import types
+    monkeypatch.setattr(a,'sys',types.SimpleNamespace(flags=types.SimpleNamespace(isolated=1),stderr=sys.stderr))
+    env.update(GITHUB_JOB='acquire',RUNNER_TEMP=str(tmp_path))
+    for k,v in env.items():monkeypatch.setenv(k,v)
+    raw=(c.make_request(root,commit,mode,c.AUTHORIZATIONS[mode]) if mode=='token-preflight' else envelope)
+    monkeypatch.setattr(a,'image_collect',lambda *args:{'environment':{'image_os':None,'image_version':None},
+        'worker':None,'setup_info':None,'imagedata':None,'errors':['SYNTHETIC_UNAVAILABLE']})
+    monkeypatch.setattr(a,'api_bytes',lambda *args:pytest.fail('network before image admission'))
+    monkeypatch.setattr(a,'execute',lambda *args:pytest.fail('native before image admission'))
+    monkeypatch.setattr(a,'execute_handoff',lambda *args:pytest.fail('capture before image admission'))
+    assert a.main(['--repo-root',str(root),'--source-commit',commit,'--request',raw.decode(),
+                   '--request-sha256',c.digest(raw)])==2
+    report=json.loads((tmp_path/'q3-runner-image'/ (env['GITHUB_RUN_ID']+'-1')/'comparison.json').read_bytes())
+    assert report['status']=='incomplete' and report['binding']['source_commit']==commit
+
+
+def test_image_observation_log_keeps_existing_postflight_and_single_artifact_contract(historical):
+    e,raw=equal_image_case(historical)
+    # Explicit synthetic log-format control, not an observed guard execution.
+    marker=b'2026-10-26T00:00:00Z Q3_RUNNER_IMAGE_COMPARISON {"synthetic":true,"authority_effect":"none"}\n'
+    raw['job.log']+=marker;repin(e,raw)
+    assert run(e,raw)['disposition']=='CONSISTENT_OFFLINE'
+    raw['job.log']+=b'2026-10-26T00:00:00Z SHA256 digest of uploaded artifact is '+b'a'*64+b'\n'
+    repin(e,raw)
+    with pytest.raises(ValueError,match='LOG_ARTIFACT_DIGEST'):run(e,raw)
+
+
+def test_image_collect_uses_live_worker_and_never_environment_file_override(monkeypatch):
+    a=native_mod(ROOT,'acquire_q3_reference_inputs_v0');c=native_mod(ROOT,'q3_native_capture_contract_v0')
+    worker={'pid':123,'start_ticks':456,'executable':'/fixed/runner/bin/Runner.Worker'};seen=[]
+    monkeypatch.setattr(a,'image_worker',lambda:(worker,Path('/fixed/runner')))
+    def read(path,limit):
+        seen.append(str(path));assert limit==a.IMAGE_MAX
+        return c.encode([{'group':'Runner Image','detail':'Image: ubuntu-24.04\nVersion: 20261026.354.1'}])
+    monkeypatch.setattr(c,'safe_read',read)
+    observation=a.image_collect(c,{'ImageOS':'ubuntu24','ImageVersion':'20261026.354.1',
+                                  'SETUP_INFO':'/evil','GITHUB_TOKEN':'DO_NOT_PUBLISH'})
+    assert seen==['/fixed/runner/.setup_info','/imagegeneration/imagedata.json']
+    assert observation['errors']==[] and 'DO_NOT_PUBLISH' not in c.encode(observation).decode()
+
+
+
+
+@pytest.mark.parametrize('fault',['comparison_exists','write_failure','output_symlink'])
+def test_image_gate_output_failure_never_reaches_native(image_case,monkeypatch,fault):
+    a,c,req,src,raw,env,_=image_case
+    for phase in ('initial','pre-sudo'):a.image_observe(c,req,src,raw,env,phase)
+    directory=Path(env['RUNNER_TEMP'])/'q3-runner-image/90123-1'
+    if fault=='comparison_exists':(directory/'comparison.json').write_bytes(b'original')
+    elif fault=='write_failure':monkeypatch.setattr(c,'write_new',lambda *a,**k:(_ for _ in ()).throw(OSError('synthetic')))
+    else:
+        moved=directory.with_name('held');directory.rename(moved);directory.symlink_to(moved)
+    monkeypatch.setattr(a,'entry_guard',lambda *args,**kwargs:(c,{},req,src))
+    for k,v in env.items():monkeypatch.setenv(k,v)
+    monkeypatch.setattr(a,'execute',lambda *args:pytest.fail('native despite preservation failure'))
+    monkeypatch.setattr(a,'execute_handoff',lambda *args:pytest.fail('handoff despite preservation failure'))
+    assert a.main(['--repo-root',str(ROOT),'--source-commit',req['source_commit'],'--request',raw.decode(),
+                   '--request-sha256',c.digest(raw)])==2
+    if fault=='comparison_exists':assert (directory/'comparison.json').read_bytes()==b'original'
 
 
 if __name__=='__main__':

@@ -68,8 +68,8 @@ def boot_git(root,args):
     entry_require(p.returncode==0 and len(p.stdout)<=16*1024*1024);return p.stdout
 
 
-def entry_guard(root,commit,raw,request_sha,env):
-    entry_require(os.geteuid()==0 and sys.flags.isolated)
+def entry_guard(root,commit,raw,request_sha,env,*,observation_only=False):
+    entry_require(sys.flags.isolated and (observation_only or os.geteuid()==0))
     entry_require(type(commit) is str and re.fullmatch(r'[a-f0-9]{40}',commit) is not None)
     entry_require(type(raw) is bytes and len(raw)<=128*1024 and hashlib.sha256(raw).hexdigest()==request_sha)
     expected={'GITHUB_REPOSITORY':REPOSITORY,'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_REF':'refs/heads/main',
@@ -544,14 +544,292 @@ def execute_handoff(C,p,request,snapshot,root,raw,env):
     return mod.run(C,p,request,snapshot,root,raw,env,extra,execute,control_plane,output_destination)
 
 
+# Same-job runner-image observations. These records do not authorize execution.
+# Keep this stdlib code in the already source-bound native controller: no new
+# executable dependency is silently added to the closed native-v0 source list.
+IMAGE_RECORD = 'q3_runner_image_observation_v0'
+IMAGE_REPORT = 'q3_runner_image_comparison_v0'
+IMAGE_STAGES = ('initial', 'pre-sudo', 'root-entry')
+IMAGE_FILES = ('initial.json', 'pre-sudo.json', 'root-entry.json', 'comparison.json')
+IMAGE_MAX = 256 * 1024
+
+
+def image_binding(C, request, raw, env):
+    C.require(env.get('GITHUB_JOB') == 'acquire', 'RUNNER_IMAGE_JOB')
+    return {'repository': REPOSITORY, 'workflow': WORKFLOW, 'job_key': 'acquire',
+            'run_id': env['GITHUB_RUN_ID'], 'run_attempt': 1,
+            'source_commit': request['source_commit'], 'request_sha256': C.digest(raw)}
+
+
+def image_directory(C, env, *, initial=False):
+    """Use only the current run's fixed directory; no user-selected report path."""
+    base = Path(env.get('RUNNER_TEMP', ''))
+    C.require(base.is_absolute() and str(base) != '/' and not any(
+        x.is_symlink() for x in (base, *base.parents)), 'RUNNER_IMAGE_OUTPUT_PATH')
+    C.require(base.is_dir(), 'RUNNER_IMAGE_OUTPUT_PATH')
+    run = env.get('GITHUB_RUN_ID', '')
+    C.require(re.fullmatch(r'[1-9][0-9]{0,19}', run) is not None
+              and env.get('GITHUB_RUN_ATTEMPT') == '1', 'RUNNER_IMAGE_RUN')
+    parent = base / 'q3-runner-image'
+    parent.mkdir(mode=0o700, exist_ok=True)
+    C.require(not parent.is_symlink() and parent.is_dir(), 'RUNNER_IMAGE_OUTPUT_PATH')
+    target = parent / (run + '-1')
+    # Initial acquisition never replaces another attempt's observations.
+    target.mkdir(mode=0o700, exist_ok=not initial)
+    C.require(not target.is_symlink() and target.is_dir(), 'RUNNER_IMAGE_OUTPUT_PATH')
+    return target
+
+
+def image_proc_identity(pid, proc_root=Path('/proc')):
+    """Bounded procfs parsing; start ticks distinguish a reused PID."""
+    with (proc_root / str(pid) / 'stat').open('rb') as f:
+        raw = f.read(16385)
+    if len(raw) > 16384 or not raw.startswith((str(pid) + ' (').encode()):
+        raise ValueError('RUNNER_IMAGE_WORKER')
+    tail = raw.rpartition(b') ')[2].split()
+    if len(tail) < 20 or not tail[1].isdigit() or not tail[19].isdigit():
+        raise ValueError('RUNNER_IMAGE_WORKER')
+    return int(tail[1]), int(tail[19])
+
+
+def image_worker(proc_root=Path('/proc'), start_pid=None):
+    """Resolve .setup_info from the actual ancestor Runner.Worker instance.
+
+    Never search a cache, scan unrelated processes or choose the first filename.
+    proc_root/start_pid are Python test seams, not accepted CLI arguments.
+    """
+    pid = os.getpid() if start_pid is None else start_pid
+    seen = set()
+    for _ in range(64):
+        if type(pid) is not int or pid <= 0 or pid in seen:
+            break
+        seen.add(pid)
+        parent, ticks = image_proc_identity(pid, proc_root)
+        # An unreadable ancestor executable is an incomplete observation, not
+        # permission to skip an unknown process and select another instance.
+        executable = os.readlink(proc_root / str(pid) / 'exe')
+        path = Path(executable)
+        if path.name == 'Runner.Worker':
+            if (not path.is_absolute() or ' (deleted)' in executable
+                    or not re.fullmatch(r'bin(?:\.[0-9]+(?:\.[0-9]+){1,3})?', path.parent.name)):
+                raise ValueError('RUNNER_IMAGE_WORKER')
+            disk = path.stat()
+            running = (proc_root / str(pid) / 'exe').stat()
+            if (disk.st_dev, disk.st_ino) != (running.st_dev, running.st_ino):
+                raise ValueError('RUNNER_IMAGE_WORKER')
+            if image_proc_identity(pid, proc_root) != (parent, ticks):
+                raise ValueError('RUNNER_IMAGE_WORKER')
+            return {'pid': pid, 'start_ticks': ticks, 'executable': executable}, path.parent.parent
+        pid = parent
+    raise ValueError('RUNNER_IMAGE_WORKER')
+
+
+def image_environment(env):
+    """Only two allowlisted fields; invalid raw values are never published."""
+    image_os = env.get('ImageOS')
+    version = env.get('ImageVersion')
+    valid_os = type(image_os) is str and re.fullmatch(r'ubuntu[0-9]{2}', image_os) is not None
+    valid_version = (type(version) is str and len(version) <= 128
+                     and re.fullmatch(r'[0-9]{8}\.[0-9]+\.[0-9]+', version) is not None)
+    return {'image_os': image_os if valid_os else None,
+            'image_version': version if valid_version else None}, valid_os and valid_version
+
+
+def image_group(C, raw):
+    """Extract exactly one Runner Image group, not Runner Image Provisioner."""
+    data = C.strict_json(raw, IMAGE_MAX)
+    C.require(type(data) is list and 0 < len(data) <= 64, 'RUNNER_IMAGE_GROUP')
+    matches = []
+    for item in data:
+        C.require(type(item) is dict, 'RUNNER_IMAGE_GROUP')
+        # JSON.NET's upstream reader is case-insensitive. Accept the two known
+        # serializations, but reject ambiguous duplicate aliases explicitly.
+        groups = [item[k] for k in ('group', 'Group') if k in item]
+        C.require(len(groups) <= 1, 'RUNNER_IMAGE_GROUP')
+        if groups == ['Runner Image']:
+            details = [item[k] for k in ('detail', 'Detail') if k in item]
+            C.require(len(details) == 1 and type(details[0]) is str, 'RUNNER_IMAGE_GROUP')
+            matches.append(details[0])
+    C.require(len(matches) == 1, 'RUNNER_IMAGE_GROUP')
+    lines = matches[0].replace('\r\n', '\n').split('\n')
+    values = {}
+    for label in ('Image', 'Version'):
+        # Collect all label occurrences before validating complete values.
+        found = re.findall(r'^[ \t]*' + label + r':([^\r\n]*)$', '\n'.join(lines), re.M)
+        C.require(len(found) == 1 and found[0].startswith(' '), 'RUNNER_IMAGE_FIELD')
+        values[label] = found[0][1:]
+    C.require(re.fullmatch(r'ubuntu-[0-9]{2}\.[0-9]{2}', values['Image']) is not None
+              and len(values['Version']) <= 128
+              and re.fullmatch(r'[0-9]{8}\.[0-9]+\.[0-9]+', values['Version']) is not None,
+              'RUNNER_IMAGE_FIELD')
+    return {'image': values['Image'], 'version': values['Version']}
+
+
+def image_source(C, path):
+    """Retain a digest of the source and only its allowed image fields."""
+    record = {'sha256': None, 'size_bytes': None, 'image': None, 'version': None, 'error': None}
+    try:
+        raw = C.safe_read(path, IMAGE_MAX)
+        record.update(sha256=C.digest(raw), size_bytes=len(raw))
+        record.update(image_group(C, raw))
+    except (OSError, ValueError, KeyError, TypeError, RecursionError):
+        record['error'] = 'RUNNER_IMAGE_SOURCE_UNREADABLE_OR_INVALID'
+    return record
+
+
+def image_collect(C, env):
+    environment, valid = image_environment(env)
+    record = {'environment': environment, 'worker': None,
+              'setup_info': None, 'imagedata': None, 'errors': []}
+    if not valid:
+        record['errors'].append('RUNNER_IMAGE_ENV_INVALID')
+    try:
+        worker, runner_root = image_worker()
+        record['worker'] = worker
+        record['setup_info'] = image_source(C, runner_root / '.setup_info')
+        if image_worker()[0] != worker:
+            record['errors'].append('RUNNER_IMAGE_WORKER_CHANGED')
+    except (OSError, ValueError, KeyError, TypeError):
+        record['errors'].append('RUNNER_IMAGE_WORKER_UNAVAILABLE')
+    record['imagedata'] = image_source(C, Path('/imagegeneration/imagedata.json'))
+    for name in ('setup_info', 'imagedata'):
+        if record[name] is None or record[name]['error'] is not None:
+            record['errors'].append('RUNNER_IMAGE_' + name.upper() + '_INCOMPLETE')
+    return record
+
+
+def image_observe(C, request, snapshot, raw, env, phase):
+    C.require(phase in IMAGE_STAGES, 'RUNNER_IMAGE_STAGE')
+    binding = image_binding(C, request, raw, env)
+    directory = image_directory(C, env, initial=phase == 'initial')
+    previous = None
+    previous_error = None
+    if phase != 'initial':
+        prior = IMAGE_STAGES[IMAGE_STAGES.index(phase) - 1] + '.json'
+        try:
+            previous = C.digest(C.safe_read(directory / prior, IMAGE_MAX))
+        except (OSError, ValueError):
+            previous_error = 'RUNNER_IMAGE_PREVIOUS_MISSING'
+    observed = image_collect(C, env)
+    if previous_error:
+        observed['errors'].append(previous_error)
+    record = {'record_type': IMAGE_RECORD, 'phase': phase, 'binding': binding,
+              'observer_sha256': C.digest(snapshot[SELF]), 'previous_sha256': previous,
+              'observed_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+              'observation': observed, 'authority_effect': 'none'}
+    C.write_new(directory / (phase + '.json'), C.encode(record), mode=0o644)
+    print('Q3_RUNNER_IMAGE_OBSERVATION ' + C.encode(record).decode('utf-8').rstrip('\n'), flush=True)
+    return record, directory
+
+
+def image_compare(C, records, binding, observer_sha):
+    """Recompute from observations; a stored status/approval is not an input."""
+    errors = []
+    conflicts = []
+    previous = None
+    for phase in IMAGE_STAGES:
+        raw = records.get(phase)
+        try:
+            r = C.strict_json(raw, IMAGE_MAX)
+            C.fields(r, {'record_type', 'phase', 'binding', 'observer_sha256', 'previous_sha256',
+                         'observed_at', 'observation', 'authority_effect'}, 'RUNNER_IMAGE_RECORD')
+            C.require(r['record_type'] == IMAGE_RECORD and r['phase'] == phase
+                      and C.encode(r['binding']) == C.encode(binding) and r['observer_sha256'] == observer_sha
+                      and r['authority_effect'] == 'none' and r['previous_sha256'] == previous,
+                      'RUNNER_IMAGE_BINDING')
+            C.require(type(r['observed_at']) is str and len(r['observed_at']) <= 64,
+                      'RUNNER_IMAGE_TIME')
+            o = r['observation']
+            C.fields(o, {'environment', 'worker', 'setup_info', 'imagedata', 'errors'}, 'RUNNER_IMAGE_RECORD')
+            C.require(o['errors'] == [], 'RUNNER_IMAGE_INCOMPLETE')
+            C.fields(o['environment'], {'image_os', 'image_version'}, 'RUNNER_IMAGE_RECORD')
+            ev, ok = image_environment({'ImageOS': o['environment']['image_os'],
+                                       'ImageVersion': o['environment']['image_version']})
+            C.require(ok and ev == o['environment'], 'RUNNER_IMAGE_ENV_INVALID')
+            worker = o['worker']
+            C.fields(worker, {'pid', 'start_ticks', 'executable'}, 'RUNNER_IMAGE_WORKER')
+            C.require(type(worker['pid']) is int and worker['pid'] > 0
+                      and type(worker['start_ticks']) is int and worker['start_ticks'] > 0
+                      and type(worker['executable']) is str
+                      and worker['executable'].endswith('/Runner.Worker'), 'RUNNER_IMAGE_WORKER')
+            versions = [ev['image_version']]
+            for name in ('setup_info', 'imagedata'):
+                src = o[name]
+                C.fields(src, {'sha256', 'size_bytes', 'image', 'version', 'error'}, 'RUNNER_IMAGE_RECORD')
+                C.require(src['error'] is None and C.sha256_string(src['sha256'])
+                          and type(src['size_bytes']) is int and 0 < src['size_bytes'] <= IMAGE_MAX
+                          and type(src['version']) is str and len(src['version']) <= 128
+                          and re.fullmatch(r'[0-9]{8}\.[0-9]+\.[0-9]+', src['version']) is not None,
+                          'RUNNER_IMAGE_SOURCE')
+                if src['image'] != 'ubuntu-24.04':
+                    conflicts.append(phase + ':IMAGE_LABEL')
+                versions.append(src['version'])
+            if ev['image_os'] != 'ubuntu24' or len(set(versions)) != 1:
+                conflicts.append(phase + ':IMAGE_VALUES')
+        except (OSError, ValueError, KeyError, TypeError, AttributeError, RecursionError):
+            errors.append(phase + ':INCOMPLETE_OR_INVALID')
+        previous = C.digest(raw) if type(raw) is bytes else None
+    if not errors:
+        observations = [C.strict_json(records[s], IMAGE_MAX)['observation'] for s in IMAGE_STAGES]
+        first = observations[0]
+        for phase, o in zip(IMAGE_STAGES[1:], observations[1:]):
+            if o['worker'] != first['worker']:
+                conflicts.append(phase + ':WORKER_CHANGED')
+            if o['environment'] != first['environment']:
+                conflicts.append(phase + ':ENVIRONMENT_CHANGED')
+            for name in ('setup_info', 'imagedata'):
+                if o[name] != first[name]:
+                    conflicts.append(phase + ':' + name.upper() + '_CHANGED')
+    status = 'incomplete' if errors else 'contradictory' if conflicts else 'consistent'
+    return {'record_type': IMAGE_REPORT, 'binding': binding, 'observer_sha256': observer_sha,
+            'status': status, 'errors': errors, 'conflicts': conflicts,
+            'observation_sha256': {s: C.digest(records[s]) if type(records.get(s)) is bytes else None
+                                   for s in IMAGE_STAGES},
+            'native_execution_started_at_comparison': False,
+            'capture_handoff_approved': False, 'authority_effect': 'none'}
+
+
+def image_gate(C, request, snapshot, raw, env):
+    """Run at the supported root entry, before either native execution route."""
+    _, directory = image_observe(C, request, snapshot, raw, env, 'root-entry')
+    records = {}
+    for phase in IMAGE_STAGES:
+        try:
+            records[phase] = C.safe_read(directory / (phase + '.json'), IMAGE_MAX)
+        except (OSError, ValueError):
+            records[phase] = None
+    report = image_compare(C, records, image_binding(C, request, raw, env), C.digest(snapshot[SELF]))
+    # Close the read/write interval; replacement is not silently accepted.
+    for phase, prior in records.items():
+        if prior is not None:
+            try:
+                unchanged = C.safe_read(directory / (phase + '.json'), IMAGE_MAX) == prior
+            except (OSError, ValueError):
+                unchanged = False
+            if not unchanged:
+                report['status'] = 'incomplete'
+                report['errors'].append(phase + ':RECORD_CHANGED')
+    C.write_new(directory / 'comparison.json', C.encode(report), mode=0o644)
+    print('Q3_RUNNER_IMAGE_COMPARISON ' + C.encode(report).decode('utf-8').rstrip('\n'), flush=True)
+    print('Q3 runner-image observation: ' + report['status'] + '; no execution permission in saved records.')
+    C.require(report['status'] == 'consistent', 'RUNNER_IMAGE_' + report['status'].upper())
+    return report
+
+
 def main(argv=None):
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--repo-root',type=Path,required=True);ap.add_argument('--source-commit',required=True)
     ap.add_argument('--request',required=True);ap.add_argument('--request-sha256',required=True)
+    ap.add_argument('--image-observation',choices=('initial','pre-sudo'))
     args=ap.parse_args(argv)
     try:
         raw=args.request.encode('utf-8');root=args.repo_root.absolute();env=dict(os.environ)
-        C,p,request,snapshot=entry_guard(root,args.source_commit,raw,args.request_sha256,env)
+        C,p,request,snapshot=entry_guard(root,args.source_commit,raw,args.request_sha256,env,
+                                       observation_only=args.image_observation is not None)
+        if args.image_observation is not None:
+            image_observe(C,request,snapshot,raw,env,args.image_observation)
+            return 0
+        image_gate(C,request,snapshot,raw,env)
         if request['mode']=='capture':
             return execute_handoff(C,p,request,snapshot,root,raw,env)
         return execute(C,p,request,snapshot,root,raw,env)
