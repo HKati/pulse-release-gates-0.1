@@ -1247,5 +1247,574 @@ def test_admission_replay_without_request_does_not_require_checkout(tmp_path):
     assert not (workspace/'tooling').exists() and not (out/'package').exists()
 
 
+# Hosted acquisition regressions. Every live boundary below is synthetic;
+# original archives and the workflow's read-only shell guards are exercised.
+HOSTED_REQUEST_SHA='655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a'
+HOSTED_ARCHIVE_SHA='dbb532a1447f6602f6a9dda53599bd8cbb163e60f94fc2c724178bb3700e8834'
+HOSTED_SOURCE='d'*40
+HOSTED_ARCHIVE=ROOT/'docs/evidence/PD_SM_02_W1_NATIVE_REQUEST_v0/PD_SM_02_W1_NATIVE_REQUEST_v0.zip'
+
+
+def hosted_workflow():
+    import yaml
+    return yaml.load((ROOT/'.github/workflows/paradox_w1_native_v0.yml').read_bytes(),Loader=yaml.BaseLoader)
+
+
+@pytest.fixture(scope='module')
+def hosted_module():
+    return module('w1_hosted_test',TOOLS/'paradox_w1_hosted_native_v0.py')
+
+
+@pytest.fixture(scope='module')
+def hosted_archive_files(hosted_module):
+    return hosted_module.read_archive(HOSTED_ARCHIVE.read_bytes())
+
+
+def test_hosted_original_archive_closes_manifest_and_frozen_request(hosted_module,hosted_archive_files):
+    files=hosted_archive_files
+    assert hosted_module.ARCHIVE_SHA256==HOSTED_ARCHIVE_SHA
+    assert hosted_module.REQUEST_SHA256==HOSTED_REQUEST_SHA
+    assert O.digest(HOSTED_ARCHIVE.read_bytes())==HOSTED_ARCHIVE_SHA
+    assert len(files)==56
+    manifest=O.strict(files['MANIFEST.json'])
+    assert len(manifest['files'])==54
+    assert set(files)==set(manifest['files'])|{'MANIFEST.json','MANIFEST.sha256'}
+    for name,binding in manifest['files'].items():
+        assert binding=={'bytes':len(files[name]),'sha256':O.digest(files[name])}
+    request=O.strict(files['package/request.json'])
+    assert O.digest(files['package/request.json'])==HOSTED_REQUEST_SHA
+    assert [row['case_id'] for row in request['cases']]==list(O.ORDER)
+    assert request['image_id']==ADMISSION_IMAGE and request['maximum_candidate_invocations']==5
+    assert request['execution_authorized'] is False and request['automatic_retry'] is False
+    assert request['run_id']=='pd-sm-02-w1-native-after-41362257003-01'
+    assert len([p for p in files if p.startswith('package/')])==21
+    for name in H.MODULES:
+        assert files['package/tools/'+name]==(TOOLS/name).read_bytes()
+
+
+@pytest.mark.parametrize('mutation',['truncate','flip_byte','append','empty'])
+def test_hosted_changed_archive_cannot_be_admitted(hosted_module,mutation):
+    raw=HOSTED_ARCHIVE.read_bytes()
+    if mutation=='truncate':raw=raw[:-1]
+    elif mutation=='flip_byte':raw=raw[:100]+bytes([raw[100]^1])+raw[101:]
+    elif mutation=='append':raw+=b'\n'
+    else:raw=b''
+    with pytest.raises(ValueError):
+        hosted_module.read_archive(raw)
+
+
+def test_hosted_original_request_remains_offline_verifiable_after_relocation(
+        hosted_archive_files,tmp_path,monkeypatch):
+    def forbidden(*args,**kwargs):pytest.fail('Hosted request verification reached a process or Docker')
+    monkeypatch.setattr(B,'Docker',forbidden)
+    monkeypatch.setattr(subprocess,'Popen',forbidden)
+    package=tmp_path/'relocated package';package.mkdir()
+    for name,raw in hosted_archive_files.items():
+        if name.startswith('package/'):
+            target=package/name.removeprefix('package/')
+            target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(raw)
+    request,selection,checker,receipt=H.validate_package(package,HOSTED_REQUEST_SHA)
+    assert receipt['status']=='PREPARATION_VALID' and receipt['new_candidate_executions']==0
+    assert [row['case_id'] for row in selection['cases']]==list(O.ORDER)
+    assert request['execution_authorized'] is False
+    assert len([p for p in package.rglob('*') if p.is_file()])==21
+    assert not (package/'CLAIM.json').exists() and not (package/'capture').exists()
+
+
+def hosted_environment(tmp_path):
+    return {'PATH':os.defpath,'GITHUB_REPOSITORY':'HKati/pulse-release-gates-0.1',
+        'GITHUB_EVENT_NAME':'workflow_dispatch','GITHUB_REF':'refs/heads/main',
+        'GITHUB_ACTOR':'HKati','GITHUB_ACTOR_ID':'128643840','GITHUB_TRIGGERING_ACTOR':'HKati',
+        'GITHUB_RUN_ATTEMPT':'1','GITHUB_RUN_ID':'123456789','GITHUB_SHA':HOSTED_SOURCE,
+        'GITHUB_WORKFLOW_SHA':HOSTED_SOURCE,
+        'GITHUB_WORKFLOW_REF':'HKati/pulse-release-gates-0.1/.github/workflows/paradox_w1_native_v0.yml@refs/heads/main',
+        'PD_SOURCE_COMMIT':HOSTED_SOURCE,'PD_REQUEST_SHA256':HOSTED_REQUEST_SHA,
+        'PD_NATIVE_ACKNOWLEDGEMENT':'I_AUTHORIZE_PD_SM_02_W1:'+HOSTED_REQUEST_SHA,
+        'RUNNER_OS':'Linux','RUNNER_ARCH':'X64','RUNNER_ENVIRONMENT':'github-hosted',
+        'ImageOS':'ubuntu24','ImageVersion':'20261102.1.0',
+        'RUNNER_TEMP':str(tmp_path),'GITHUB_WORKSPACE':str(tmp_path/'workspace')}
+
+
+@pytest.mark.parametrize('field,value',[
+    ('GITHUB_REPOSITORY','other/project'),('GITHUB_EVENT_NAME','push'),
+    ('GITHUB_REF','refs/heads/topic'),('GITHUB_ACTOR','other'),
+    ('GITHUB_ACTOR_ID','1'),('GITHUB_TRIGGERING_ACTOR','other'),
+    ('GITHUB_RUN_ATTEMPT','2'),('PD_SOURCE_COMMIT','bad'),
+    ('GITHUB_SHA','e'*40),('GITHUB_WORKFLOW_SHA','e'*40),
+    ('GITHUB_WORKFLOW_REF','HKati/pulse-release-gates-0.1/.github/workflows/paradox_w1_native_v0.yml@refs/heads/topic'),
+    ('PD_REQUEST_SHA256','f'*64),('PD_NATIVE_ACKNOWLEDGEMENT','ADMISSION_ONLY_ZERO_CANDIDATES'),
+    ('PD_NATIVE_ACKNOWLEDGEMENT','I_AUTHORIZE_PD_SM_02_W1:'+'f'*64),
+])
+def test_hosted_workflow_guard_rejects_before_output_creation(tmp_path,field,value):
+    env=hosted_environment(tmp_path);env[field]=value
+    step=next(s for s in hosted_workflow()['jobs']['capture']['steps'] if s['id']=='guard')
+    result=subprocess.run(['bash','-c',step['run']],cwd=tmp_path,env=env,
+        capture_output=True,text=True,timeout=10,check=False)
+    assert result.returncode!=0
+    assert list(tmp_path.iterdir())==[]
+
+
+def test_hosted_workflow_guard_accepts_exact_ack_and_refuses_local_reclaim(tmp_path):
+    env=hosted_environment(tmp_path)
+    step=next(s for s in hosted_workflow()['jobs']['capture']['steps'] if s['id']=='guard')
+    first=subprocess.run(['bash','-c',step['run']],cwd=tmp_path,env=env,
+        capture_output=True,text=True,timeout=10,check=False)
+    assert first.returncode==0,first.stderr
+    out=tmp_path/'pd-sm-02-w1-native'
+    assert {p.name for p in out.iterdir()}=={'ACQUISITION_STATUS.txt'}
+    assert (out/'ACQUISITION_STATUS.txt').read_text()=='STARTED\n'
+    second=subprocess.run(['bash','-c',step['run']],cwd=tmp_path,env=env,
+        capture_output=True,text=True,timeout=10,check=False)
+    assert second.returncode!=0
+    assert (out/'ACQUISITION_STATUS.txt').read_text()=='STARTED\n'
+
+
+def test_hosted_workflow_preserves_manual_readonly_single_attempt_boundary():
+    data=hosted_workflow();job=data['jobs']['capture'];steps={s['id']:s for s in job['steps']}
+    assert set(data['on'])=={'workflow_dispatch'}
+    assert set(data['on']['workflow_dispatch']['inputs'])=={'source_commit','request_sha256','acknowledgement'}
+    assert data['on']['workflow_dispatch']['inputs']['request_sha256']['default']==HOSTED_REQUEST_SHA
+    assert data['permissions']=={'contents':'read'}
+    assert data['concurrency']=={'group':'paradox-w1-native-v0','cancel-in-progress':'false'}
+    assert set(data['jobs'])=={'capture'} and job['runs-on']=='ubuntu-24.04'
+    assert job['timeout-minutes']=='15'
+    assert steps['checkout']['uses']=='actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1'
+    assert steps['checkout']['with']['persist-credentials']=='false'
+    assert steps['checkout']['with']['ref']=='${{ github.sha }}'
+    assert steps['upload']['uses']=='actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9'
+    assert steps['upload']['with']['overwrite']=='false'
+    assert steps['upload']['with']['if-no-files-found']=='error'
+    for name in ('replay','record','upload'):
+        assert steps[name]['if']=="always() && steps.guard.outcome == 'success'"
+    assert all('continue-on-error' not in step for step in job['steps'])
+    assert all('actions/setup-python' not in step.get('uses','') for step in job['steps'])
+    image=steps['image']['run']
+    assert 'docker.io/library/python@sha256:a7cb177dc60dfa77b223192cd0d9e6ce1aac7cf9a569023d68e7c91b6371a718' in image
+    assert 'image pull --platform linux/amd64' in image and 'python:3.13.5-slim-bookworm' not in image
+    assert 'tools/paradox_w1_hosted_native_v0.py capture' in steps['capture']['run']
+    assert 'tools/run_paradox_w1_native_v0.py execute' not in steps['capture']['run']
+
+
+def test_hosted_workflow_passes_actual_static_path_guard(monkeypatch):
+    workflow_path=ROOT/'.github/workflows/paradox_w1_native_v0.yml'
+    assert admission_path_guard(workflow_path,ROOT,monkeypatch)==[]
+
+
+@pytest.mark.parametrize('step_id',['prepare','verify','capture','replay','record'])
+def test_hosted_workflow_clis_resolve_from_checkout(tmp_path,step_id):
+    import shlex
+    job=hosted_workflow()['jobs']['capture'];steps={s['id']:s for s in job['steps']}
+    workspace=tmp_path/'workspace';checkout=workspace/steps['checkout']['with']['path']
+    (checkout/'tools').mkdir(parents=True)
+    for name in (*H.MODULES,'paradox_w1_hosted_native_v0.py'):
+        (checkout/'tools'/name).write_bytes((TOOLS/name).read_bytes())
+    step=steps[step_id];script=step['run']
+    guard=module('w1_hosted_runtime_path_guard',ROOT/'ci/check_path_refs_exist.py')
+    calls=[line for line in script.splitlines() if guard.PY_CALL_RE.search(line)]
+    assert len(calls)==1
+    line=calls[0];args=shlex.split(line.rstrip().removesuffix('\\'))
+    args[0]=sys.executable;args.append('--help')
+    prefix=script.split(line,1)[0]
+    directories=re.findall(r'(?m)^\s*cd\s+[^\n]+$',prefix)
+    check_script='set -euo pipefail\n'+'\n'.join(directories)+'\nexec '+shlex.join(args)+'\n'
+    result=subprocess.run(['bash','-c',check_script],cwd=workspace,
+        env={'PATH':os.defpath,'GITHUB_WORKSPACE':str(workspace),'RUNNER_TEMP':str(tmp_path)},
+        capture_output=True,text=True,timeout=10,check=False)
+    assert result.returncode==0,result.stdout+result.stderr
+    assert 'usage:' in result.stdout and result.stderr==''
+
+
+def test_hosted_replay_absent_capture_does_not_need_checkout(tmp_path):
+    env=hosted_environment(tmp_path);out=tmp_path/'pd-sm-02-w1-native';out.mkdir()
+    step=next(s for s in hosted_workflow()['jobs']['capture']['steps'] if s['id']=='replay')
+    result=subprocess.run(['bash','-c',step['run']],cwd=tmp_path,env=env,
+        capture_output=True,text=True,timeout=10,check=False)
+    assert result.returncode==0,result.stdout+result.stderr
+    assert (out/'replay.status').read_text()=='NOT_RUN_NO_CAPTURE\n'
+    assert not (out/'package').exists() and not (tmp_path/'workspace').exists()
+
+
+def test_hosted_missing_helper_failure_record_keeps_unknown_counts(tmp_path):
+    env=hosted_environment(tmp_path);out=tmp_path/'pd-sm-02-w1-native';out.mkdir()
+    env['GITHUB_STEP_SUMMARY']=str(tmp_path/'summary.md')
+    for name in ('checkout','prepare','verify','image','capture','replay'):
+        env['PD_'+name.upper()+'_OUTCOME']='failure' if name=='checkout' else 'skipped'
+    step=next(s for s in hosted_workflow()['jobs']['capture']['steps'] if s['id']=='record')
+    result=subprocess.run(['bash','-c',step['run']],cwd=tmp_path,env=env,
+        capture_output=True,text=True,timeout=10,check=False)
+    assert result.returncode!=0
+    record=O.strict((out/'RESULT.json').read_bytes())
+    assert record['status']=='INCOMPLETE_OR_BLOCKED'
+    assert record['candidate_tokens_sent'] is None and record['completed_case_records'] is None
+    assert record['native_witness_observed'] is None and record['containment_observed'] is None
+    assert record['execution_authorized'] is False and record['authority_effect']=='none'
+    assert not (out/'package').exists()
+    manifest=O.strict((out/'MANIFEST.json').read_bytes())
+    assert manifest['files']['RESULT.json']['sha256']==O.digest((out/'RESULT.json').read_bytes())
+
+
+@pytest.mark.parametrize('mutation,reason',[
+    ('traversal','archive_member_path'),('absolute','archive_member_path'),
+    ('duplicate','archive_duplicate_member'),('symlink','archive_member_type_or_size'),
+    ('stored','archive_member_type_or_size'),('payload','bundle_member_binding:README.md'),
+])
+def test_hosted_archive_structure_remains_closed_beneath_outer_pin(hosted_module,monkeypatch,mutation,reason):
+    import io
+    import stat
+    import zipfile
+    raw=HOSTED_ARCHIVE.read_bytes();target=io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(raw)) as source, zipfile.ZipFile(target,'w') as changed:
+        for original in source.infolist():
+            info=copy.copy(original);data=source.read(original)
+            if info.filename==hosted_module.BUNDLE_ROOT+'/README.md':
+                if mutation=='traversal':info.filename=hosted_module.BUNDLE_ROOT+'/../escape'
+                elif mutation=='absolute':info.filename='/'+info.filename
+                elif mutation=='duplicate':info.filename=hosted_module.BUNDLE_ROOT+'/LICENSE'
+                elif mutation=='symlink':info.external_attr=(stat.S_IFLNK|0o777)<<16
+                elif mutation=='stored':info.compress_type=zipfile.ZIP_STORED
+                else:data+=b'\n'
+            if mutation=='duplicate' and info.filename==hosted_module.BUNDLE_ROOT+'/LICENSE' and original.filename.endswith('/README.md'):
+                with pytest.warns(UserWarning,match='Duplicate name'):
+                    changed.writestr(info,data)
+            else:changed.writestr(info,data)
+    mutated=target.getvalue()
+    # Isolate the nested structural check; the production archive pin remains
+    # unchanged, and the preceding byte-substitution tests exercise that gate.
+    monkeypatch.setattr(hosted_module,'ARCHIVE_BYTES',len(mutated))
+    monkeypatch.setattr(hosted_module,'ARCHIVE_SHA256',O.digest(mutated))
+    with pytest.raises(ValueError,match=re.escape(reason)):
+        hosted_module.read_archive(mutated)
+
+
+@pytest.fixture
+def hosted_checkout(tmp_path,hosted_module):
+    repo=tmp_path/'checkout';repo.mkdir()
+    paths=[hosted_module.ARCHIVE_REL,Path(str(hosted_module.ARCHIVE_REL)+'.sha256'),
+           hosted_module.HELPER_REL,hosted_module.WORKFLOW_REL]
+    paths.extend(Path('tools')/name for name in H.MODULES)
+    for name in paths:
+        path=repo/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes((ROOT/name).read_bytes())
+    return repo
+
+
+@pytest.fixture
+def hosted_prepared(tmp_path,hosted_module):
+    out=tmp_path/'hosted-output';out.mkdir()
+    env=hosted_environment(tmp_path)
+    receipt=hosted_module.prepare(ROOT,out,HOSTED_SOURCE,environment=env)
+    return out,env,receipt
+
+
+def hosted_write_image_receipts(out,hosted):
+    (out/'image-binding.status').write_text('EXACT_IMAGE_ID_MATCH\n')
+    (out/'image-inspect.stdout').write_text(hosted.IMAGE_ID+'\n')
+    (out/'image_selection.json').write_bytes(O.canonical({
+        'image_id':hosted.IMAGE_ID,'pull_reference':hosted.PULL_REFERENCE,'platform':'linux/amd64'})+b'\n')
+
+
+def test_hosted_prepare_is_offline_and_extracts_only_original_package(
+        hosted_module,hosted_archive_files,tmp_path,monkeypatch):
+    def forbidden(*args,**kwargs):pytest.fail('Hosted preparation reached execution, Docker or a child process')
+    monkeypatch.setattr(hosted_module,'load_controller',forbidden)
+    monkeypatch.setattr(subprocess,'Popen',forbidden)
+    monkeypatch.setattr(B,'Docker',forbidden)
+    out=tmp_path/'output';out.mkdir()
+    (out/'ACQUISITION_STATUS.txt').write_text('STARTED\n')
+    env=hosted_environment(tmp_path);env['DOCKER_AUTH_CONFIG']='PRIVATE_ENVIRONMENT_SENTINEL'
+    with (out/'prepare.stdout').open('wb'), (out/'prepare.stderr').open('wb'):
+        receipt=hosted_module.prepare(ROOT,out,HOSTED_SOURCE,environment=env)
+    assert receipt['status']=='PRESERVED_REQUEST_PREPARED_NOT_AUTHORIZED'
+    assert receipt['request_sha256']==HOSTED_REQUEST_SHA and receipt['package_files']==21
+    assert receipt['new_candidate_executions']==0 and receipt['execution_authorized'] is False
+    package=out/'package';files={p.relative_to(package).as_posix():p.read_bytes() for p in package.rglob('*') if p.is_file()}
+    assert files=={name.removeprefix('package/'):raw for name,raw in hosted_archive_files.items() if name.startswith('package/')}
+    assert (out/'input'/hosted_module.ARCHIVE_REL.name).read_bytes()==HOSTED_ARCHIVE.read_bytes()
+    assert not (out/'image_selection.json').exists()
+    assert not (package/'CLAIM.json').exists() and not (package/'capture').exists()
+    assert all(b'PRIVATE_ENVIRONMENT_SENTINEL' not in p.read_bytes() for p in out.rglob('*') if p.is_file())
+    request,selection,checker,binding=H.validate_package(package,HOSTED_REQUEST_SHA)
+    assert binding['new_candidate_executions']==0 and request['run_id']==hosted_module.REQUEST_RUN_ID
+
+
+@pytest.mark.parametrize('field,value',[
+    ('GITHUB_ACTOR_ID','1'),('GITHUB_RUN_ATTEMPT','2'),('GITHUB_SHA','e'*40),
+    ('GITHUB_WORKFLOW_SHA','e'*40),('GITHUB_EVENT_NAME','pull_request'),
+    ('RUNNER_OS','Windows'),('RUNNER_ARCH','ARM64'),('RUNNER_ENVIRONMENT','self-hosted'),
+    ('ImageOS','ubuntu22'),('ImageVersion','synthetic-unbound-version'),
+    ('GITHUB_RUN_ID','0'),('GITHUB_RUN_ID',''),
+    ('PD_REQUEST_SHA256','f'*64),('PD_NATIVE_ACKNOWLEDGEMENT','I_AUTHORIZE_PD_SM_02_W1_ADMISSION:'+HOSTED_REQUEST_SHA),
+])
+def test_hosted_prepare_invalid_context_has_no_output_side_effects(hosted_module,tmp_path,field,value):
+    out=tmp_path/'output';out.mkdir();env=hosted_environment(tmp_path);env[field]=value
+    with pytest.raises(ValueError):hosted_module.prepare(ROOT,out,HOSTED_SOURCE,environment=env)
+    assert list(out.iterdir())==[]
+
+
+@pytest.mark.parametrize('mutation',['archive','sidecar','helper',*H.MODULES])
+def test_hosted_prepare_rejects_changed_archive_or_checked_out_source(
+        hosted_module,hosted_checkout,tmp_path,mutation):
+    if mutation=='archive':relative=hosted_module.ARCHIVE_REL
+    elif mutation=='sidecar':relative=Path(str(hosted_module.ARCHIVE_REL)+'.sha256')
+    elif mutation=='helper':relative=hosted_module.HELPER_REL
+    else:relative=Path('tools')/mutation
+    path=hosted_checkout/relative;raw=path.read_bytes();path.write_bytes(bytes([raw[0]^1])+raw[1:])
+    out=tmp_path/'output';out.mkdir()
+    with pytest.raises(ValueError):
+        hosted_module.prepare(hosted_checkout,out,HOSTED_SOURCE,environment=hosted_environment(tmp_path))
+    assert list(out.iterdir())==[]
+
+
+@pytest.mark.parametrize('entry',['package','unexpected.txt','execution_window.json'])
+def test_hosted_prepare_refuses_existing_output_inventory(hosted_module,tmp_path,entry):
+    out=tmp_path/'output';out.mkdir();(out/entry).write_bytes(b'preserved prior bytes\n')
+    with pytest.raises(ValueError,match='output_not_fresh'):
+        hosted_module.prepare(ROOT,out,HOSTED_SOURCE,environment=hosted_environment(tmp_path))
+    assert {p.name for p in out.iterdir()}=={entry}
+    assert (out/entry).read_bytes()==b'preserved prior bytes\n'
+
+
+@pytest.mark.parametrize('mutation',['case','extra_file','claim','capture','context','helper','archive'])
+def test_hosted_capture_revalidates_preparation_before_controller(
+        hosted_prepared,hosted_module,monkeypatch,mutation):
+    out,env,receipt=hosted_prepared;hosted_write_image_receipts(out,hosted_module)
+    if mutation=='case':
+        path=out/'package/cases/P00.json';path.write_bytes(path.read_bytes()+b'\n')
+    elif mutation=='extra_file':(out/'package/extra.py').write_bytes(b'pass\n')
+    elif mutation=='claim':(out/'package/CLAIM.json').write_bytes(b'{}')
+    elif mutation=='capture':(out/'package/capture').mkdir()
+    elif mutation=='context':env=dict(env,GITHUB_RUN_ID='987654321')
+    elif mutation=='helper':
+        path=out/'hosted_source'/hosted_module.HELPER_REL.name;path.write_bytes(path.read_bytes()+b'\n')
+    else:
+        path=out/'input'/hosted_module.ARCHIVE_REL.name;raw=path.read_bytes();path.write_bytes(raw[:-1])
+    def forbidden(*args,**kwargs):pytest.fail('Rejected hosted request reached controller loading')
+    monkeypatch.setattr(hosted_module,'load_controller',forbidden)
+    with pytest.raises(ValueError):
+        hosted_module.run_capture(out,HOSTED_SOURCE,HOSTED_REQUEST_SHA,'I_AUTHORIZE_PD_SM_02_W1:'+HOSTED_REQUEST_SHA,environment=env)
+    assert not (out/'execution_window.json').exists()
+
+
+@pytest.mark.parametrize('request_sha,authorization',[
+    (HOSTED_REQUEST_SHA,''),(HOSTED_REQUEST_SHA,'ADMISSION_ONLY_ZERO_CANDIDATES'),
+    (HOSTED_REQUEST_SHA,'I_AUTHORIZE_PD_SM_02_W1:'+'f'*64),
+    ('f'*64,'I_AUTHORIZE_PD_SM_02_W1:'+'f'*64),
+])
+def test_hosted_capture_wrong_authorization_blocks_before_any_write(
+        hosted_prepared,hosted_module,monkeypatch,request_sha,authorization):
+    out,env,receipt=hosted_prepared
+    before={str(p.relative_to(out)):p.read_bytes() for p in out.rglob('*') if p.is_file()}
+    def forbidden(*args,**kwargs):pytest.fail('Unauthorized hosted capture reached controller')
+    monkeypatch.setattr(hosted_module,'load_controller',forbidden)
+    with pytest.raises(ValueError,match='owner_authorization_required'):
+        hosted_module.run_capture(out,HOSTED_SOURCE,request_sha,authorization,environment=env)
+    assert {str(p.relative_to(out)):p.read_bytes() for p in out.rglob('*') if p.is_file()}==before
+
+
+def test_hosted_capture_rechecks_checkout_tool_closure_after_prepare(
+        hosted_prepared,hosted_checkout,hosted_module,monkeypatch):
+    out,env,receipt=hosted_prepared;hosted_write_image_receipts(out,hosted_module)
+    path=hosted_checkout/'tools/paradox_w1_native_runtime_v0.py'
+    path.write_bytes(path.read_bytes()+b'\n')
+    monkeypatch.setattr(hosted_module,'HERE',hosted_checkout/'tools')
+    def forbidden(*args,**kwargs):pytest.fail('Changed controller closure reached a child process or Docker')
+    monkeypatch.setattr(B,'Docker',forbidden);monkeypatch.setattr(subprocess,'Popen',forbidden)
+    with pytest.raises(ValueError,match='checked_out_source:paradox_w1_native_runtime_v0.py'):
+        hosted_module.run_capture(out,HOSTED_SOURCE,HOSTED_REQUEST_SHA,
+            'I_AUTHORIZE_PD_SM_02_W1:'+HOSTED_REQUEST_SHA,environment=env)
+    assert not (out/'execution_window.json').exists()
+    assert not (out/'package/CLAIM.json').exists() and not (out/'package/capture').exists()
+
+
+@pytest.fixture
+def hosted_completed(hosted_prepared,hosted_module,monkeypatch):
+    out,env,receipt=hosted_prepared
+    monkeypatch.setattr(sys.modules[__name__],'IMAGE',hosted_module.IMAGE_ID)
+    monkeypatch.setattr(B,'Docker',FakeDocker);monkeypatch.setattr(FakeDocker,'mode',None)
+    monkeypatch.setattr(hosted_module,'load_controller',lambda:H)
+    hosted_write_image_receipts(out,hosted_module)
+    summary=hosted_module.run_capture(out,HOSTED_SOURCE,HOSTED_REQUEST_SHA,
+        'I_AUTHORIZE_PD_SM_02_W1:'+HOSTED_REQUEST_SHA,environment=env)
+    assert summary['status']=='CAPTURE_COMPLETED_UNATTESTED'
+    replay=H.verify_capture(out/'package',HOSTED_REQUEST_SHA)
+    results={'prepare':receipt,'verify':{'status':'REQUEST_VALID_NOT_AUTHORIZED',
+        'new_candidate_executions':0,'execution_authorized':False,'authority_effect':'none'},
+        'capture':summary,'replay':replay}
+    for stem,data in results.items():(out/(stem+'.stdout')).write_bytes(O.canonical(data)+b'\n')
+    for stem in ('prepare','verify','image-pull','image-inspect','capture','replay'):
+        (out/(stem+'.exitcode')).write_bytes(b'0\n')
+    return out,{name:'success' for name in hosted_module.STEP_NAMES}
+
+
+def assert_hosted_result_closed(out,result):
+    assert O.strict((out/'RESULT.json').read_bytes())==result
+    assert (out/'ACQUISITION_STATUS.txt').read_text()==result['status']+'\n'
+    manifest=O.strict((out/'MANIFEST.json').read_bytes())
+    paths={p.relative_to(out).as_posix() for p in out.rglob('*') if p.is_file() and p!=out/'MANIFEST.json'}
+    assert set(manifest['files'])==paths
+    for name,binding in manifest['files'].items():
+        raw=(out/name).read_bytes();assert binding=={'bytes':len(raw),'sha256':O.digest(raw)}
+    assert result['native_witness_observed'] is None and result['containment_observed'] is None
+    assert result['execution_authorized'] is False and result['authority_effect']=='none'
+    assert result['artifact_upload']=='NOT_OBSERVED_BY_THIS_PREUPLOAD_RECORD'
+
+
+def test_hosted_completed_result_requires_real_offline_replay_and_closes_inventory(
+        hosted_completed,hosted_module,monkeypatch):
+    out,outcomes=hosted_completed
+    def forbidden(*args,**kwargs):pytest.fail('Hosted finalization reached a process or candidate path')
+    monkeypatch.setattr(H,'execute',forbidden);monkeypatch.setattr(B,'Docker',forbidden)
+    monkeypatch.setattr(subprocess,'Popen',forbidden)
+    result=hosted_module.record_result(out,HOSTED_SOURCE,outcomes)
+    assert result['status']=='CAPTURE_COMPLETED_UNATTESTED'
+    assert result['candidate_tokens_sent']==result['completed_case_records']==5
+    assert result['reason'] is None
+    assert_hosted_result_closed(out,result)
+    with pytest.raises(FileExistsError):hosted_module.record_result(out,HOSTED_SOURCE,outcomes)
+
+
+@pytest.mark.parametrize('mutation',[
+    'claim_request','claim_run_id','claim_attempt','claim_attempt_bool','claim_ack_integer',
+    'capture_stdout','capture_count','capture_count_bool','record_count','controls',
+    'summary_reason','window_started','window_signal','window_controller',
+    'verify_status','image_id','replay_stdout','rehashed_readiness','observation_case',
+])
+def test_hosted_finalizer_cannot_promote_mismatched_completed_evidence(
+        hosted_completed,hosted_module,mutation):
+    out,outcomes=hosted_completed;package=out/'package';reclose=False
+    if mutation.startswith('claim_'):
+        path=package/'CLAIM.json';data=O.strict(path.read_bytes())
+        key,value={'claim_request':('request_sha256','f'*64),'claim_run_id':('run_id','other'),
+            'claim_attempt':('attempt',2),'claim_attempt_bool':('attempt',True),
+            'claim_ack_integer':('owner_command_acknowledged',1)}[mutation]
+        data[key]=value
+    elif mutation in ('capture_count','capture_count_bool','record_count','controls','summary_reason'):
+        path=package/'capture/summary.json';data=O.strict(path.read_bytes())
+        key,value={'capture_count':('candidate_tokens_sent',4),'capture_count_bool':('candidate_tokens_sent',True),
+            'record_count':('completed_case_records',4),'controls':('supervision_controls_completed',[]),
+            'summary_reason':('reason','late safety failure')}[mutation]
+        data[key]=value;reclose=True
+        (out/'capture.stdout').write_bytes(O.canonical(data)+b'\n')
+    elif mutation=='capture_stdout':
+        path=out/'capture.stdout';data=O.strict(path.read_bytes());data['candidate_tokens_sent']=4
+    elif mutation.startswith('window_'):
+        path=out/'execution_window.json';data=O.strict(path.read_bytes())
+        key,value={'window_started':('state','STARTED'),'window_signal':('interruption_signal','SIGTERM'),
+            'window_controller':('controller_status','STOPPED_WITH_EVIDENCE')}[mutation]
+        data[key]=value
+    elif mutation=='verify_status':
+        path=out/'verify.stdout';data=O.strict(path.read_bytes());data['status']='BLOCKED'
+    elif mutation=='image_id':
+        path=out/'image_selection.json';data=O.strict(path.read_bytes());data['image_id']='sha256:'+'f'*64
+    elif mutation=='replay_stdout':
+        path=out/'replay.stdout';data=O.strict(path.read_bytes());data['record_status']='RECORDS_INCOMPLETE'
+    elif mutation=='rehashed_readiness':
+        path=package/'capture/P00/readiness.json';data=O.strict(path.read_bytes())
+        data['runtime']['version']='3.11.16';reclose=True
+    else:
+        path=package/'capture/observations.json';data=O.strict(path.read_bytes())
+        data['cases'][0]['case_id']='N01';reclose=True
+    path.write_bytes(O.canonical(data)+b'\n')
+    if reclose:reclose_capture(package)
+    result=hosted_module.record_result(out,HOSTED_SOURCE,outcomes)
+    assert result['status']=='INCOMPLETE_OR_BLOCKED'
+    assert result['candidate_tokens_sent'] is None and result['completed_case_records'] is None
+    assert result['reason']
+    assert_hosted_result_closed(out,result)
+
+
+def test_hosted_replayed_stopped_summary_with_consistent_records_is_not_completed(
+        hosted_completed,hosted_module):
+    out,outcomes=hosted_completed;package=out/'package'
+    path=package/'capture/summary.json';summary=O.strict(path.read_bytes())
+    summary['status']='STOPPED_WITH_EVIDENCE';summary['reason']='synthetic late stop'
+    path.write_bytes(O.canonical(summary)+b'\n');(out/'capture.stdout').write_bytes(path.read_bytes())
+    reclose_capture(package)
+    replay=H.verify_capture(package,HOSTED_REQUEST_SHA)
+    assert replay['status']=='CAPTURE_RECORDS_REPLAYED' and replay['record_status']=='RECORDS_CONSISTENT'
+    (out/'replay.stdout').write_bytes(O.canonical(replay)+b'\n')
+    result=hosted_module.record_result(out,HOSTED_SOURCE,outcomes)
+    assert result['status']=='INCOMPLETE_OR_BLOCKED'
+    assert result['candidate_tokens_sent'] is None and result['completed_case_records'] is None
+    assert_hosted_result_closed(out,result)
+
+
+@pytest.mark.parametrize('stem',['prepare','verify','image-pull','image-inspect','capture','replay'])
+def test_hosted_nonzero_exitcode_blocks_even_with_complete_native_records(
+        hosted_completed,hosted_module,stem):
+    out,outcomes=hosted_completed;(out/(stem+'.exitcode')).write_bytes(b'2\n')
+    result=hosted_module.record_result(out,HOSTED_SOURCE,outcomes)
+    assert result['status']=='INCOMPLETE_OR_BLOCKED' and result['reason']=='ValueError:step_exitcode:'+stem
+    assert_hosted_result_closed(out,result)
+
+
+@pytest.mark.parametrize('step',['checkout','prepare','verify','image','capture','replay'])
+def test_hosted_failed_workflow_step_blocks_even_with_complete_native_records(
+        hosted_completed,hosted_module,step):
+    out,outcomes=hosted_completed;outcomes[step]='failure'
+    result=hosted_module.record_result(out,HOSTED_SOURCE,outcomes)
+    assert result['status']=='INCOMPLETE_OR_BLOCKED' and result['reason']=='ValueError:workflow_step_incomplete'
+    assert result['candidate_tokens_sent'] is None
+    assert_hosted_result_closed(out,result)
+
+
+@pytest.mark.parametrize('capture_outcome,marker,expected',[
+    ('success',None,None),('cancelled',None,None),('skipped',None,0),
+    ('skipped','execution_window.json',None),('skipped','package/CLAIM.json',None),
+    ('skipped','package/capture',None),
+])
+def test_hosted_missing_capture_does_not_invent_zero_invocations(
+        hosted_prepared,hosted_module,capture_outcome,marker,expected):
+    out,env,receipt=hosted_prepared
+    if marker=='package/capture':(out/marker).mkdir()
+    elif marker:(out/marker).write_bytes(b'{}\n')
+    outcomes={name:'skipped' for name in hosted_module.STEP_NAMES};outcomes['capture']=capture_outcome
+    result=hosted_module.record_result(out,HOSTED_SOURCE,outcomes)
+    assert result['status']=='INCOMPLETE_OR_BLOCKED'
+    assert result['candidate_tokens_sent']==result['completed_case_records']==expected
+    assert_hosted_result_closed(out,result)
+
+
+@pytest.mark.parametrize('signal_name',['SIGALRM','SIGTERM','SIGINT'])
+@pytest.mark.parametrize('caught',[False,True])
+def test_hosted_soft_interruption_retains_window_and_never_reinvokes(
+        hosted_prepared,hosted_module,monkeypatch,signal_name,caught):
+    from types import SimpleNamespace
+    out,env,receipt=hosted_prepared;hosted_write_image_receipts(out,hosted_module)
+    signals=hosted_module.signal;handled=(signals.SIGALRM,signals.SIGTERM,signals.SIGINT)
+    previous={sig:object() for sig in handled};handlers=dict(previous);timers=[];calls=[]
+    def install(sig,handler):old=handlers[sig];handlers[sig]=handler;return old
+    monkeypatch.setattr(signals,'getsignal',lambda sig:handlers[sig])
+    monkeypatch.setattr(signals,'signal',install)
+    monkeypatch.setattr(signals,'getitimer',lambda which:(0.0,0.0))
+    monkeypatch.setattr(signals,'setitimer',lambda which,value:timers.append(value))
+    def execute(package,sha,authorization):
+        calls.append((package,sha,authorization))
+        try:handlers[getattr(signals,signal_name)](getattr(signals,signal_name),None)
+        except hosted_module.HostedInterruption:
+            assert all(handlers[sig]==signals.SIG_IGN for sig in handled)
+            assert timers[-1]==0
+            if caught:return {'status':'STOPPED_WITH_EVIDENCE'}
+            raise
+    monkeypatch.setattr(hosted_module,'load_controller',lambda:SimpleNamespace(execute=execute))
+    args=(out,HOSTED_SOURCE,HOSTED_REQUEST_SHA,'I_AUTHORIZE_PD_SM_02_W1:'+HOSTED_REQUEST_SHA)
+    if caught:assert hosted_module.run_capture(*args,environment=env)['status']=='STOPPED_WITH_EVIDENCE'
+    else:
+        with pytest.raises(hosted_module.HostedInterruption,match=signal_name):
+            hosted_module.run_capture(*args,environment=env)
+    window=O.strict((out/'execution_window.json').read_bytes())
+    assert window['state']==('RETURNED' if caught else 'EXCEPTION')
+    assert window['interruption_signal']==signal_name
+    assert window['controller_status']==('STOPPED_WITH_EVIDENCE' if caught else None)
+    assert handlers==previous and timers[0]==420 and timers[-1]==0
+    assert len(calls)==1 and calls[0][1]==HOSTED_REQUEST_SHA
+    with pytest.raises(FileExistsError):hosted_module.run_capture(*args,environment=env)
+    assert len(calls)==1
+
+
+def test_hosted_helper_and_added_tests_keep_python311_grammar():
+    ast.parse((TOOLS/'paradox_w1_hosted_native_v0.py').read_text(),feature_version=(3,11))
+    ast.parse(Path(__file__).read_text(),feature_version=(3,11))
+
+
 if __name__=='__main__':
     raise SystemExit(pytest.main([__file__]))

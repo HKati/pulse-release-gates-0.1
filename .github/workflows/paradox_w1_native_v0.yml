@@ -1,0 +1,271 @@
+name: Paradoxon W1 native capture (manual)
+run-name: W1 native ${{ inputs.request_sha256 }} at ${{ inputs.source_commit }}
+
+# One owner-dispatched local attempt of the preserved request; no release authority.
+on:
+  workflow_dispatch:
+    inputs:
+      source_commit:
+        description: Exact reviewed main commit containing this workflow (40 lowercase hex)
+        required: true
+        type: string
+      request_sha256:
+        description: Exact preserved five-case W1 native request SHA-256
+        required: true
+        default: 655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+        type: string
+      acknowledgement:
+        description: Enter I_AUTHORIZE_PD_SM_02_W1 followed by a colon and the exact request SHA-256
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paradox-w1-native-v0
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    if: github.repository == 'HKati/pulse-release-gates-0.1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      PD_SOURCE_COMMIT: ${{ inputs.source_commit }}
+      PD_REQUEST_SHA256: ${{ inputs.request_sha256 }}
+      PD_NATIVE_ACKNOWLEDGEMENT: ${{ inputs.acknowledgement }}
+    steps:
+      - name: Check owner and exact source and request before checkout
+        id: guard
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = HKati/pulse-release-gates-0.1
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_ACTOR" = HKati
+          test "$GITHUB_ACTOR_ID" = 128643840
+          test "$GITHUB_TRIGGERING_ACTOR" = HKati
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          [[ "$PD_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          test "$PD_SOURCE_COMMIT" = "$GITHUB_SHA"
+          test "$GITHUB_SHA" = "$GITHUB_WORKFLOW_SHA"
+          test "$GITHUB_WORKFLOW_REF" = HKati/pulse-release-gates-0.1/.github/workflows/paradox_w1_native_v0.yml@refs/heads/main
+          test "$PD_REQUEST_SHA256" = 655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a
+          test "$PD_NATIVE_ACKNOWLEDGEMENT" = "I_AUTHORIZE_PD_SM_02_W1:$PD_REQUEST_SHA256"
+          umask 077
+          mkdir "$RUNNER_TEMP/pd-sm-02-w1-native"
+          printf 'STARTED\n' > "$RUNNER_TEMP/pd-sm-02-w1-native/ACQUISITION_STATUS.txt"
+
+      - name: Checkout reviewed controller and preserved request
+        id: checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: tooling
+          persist-credentials: false
+          fetch-depth: 1
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /tools/paradox_w1_hosted_native_v0.py
+            /tools/run_paradox_w1_native_v0.py
+            /tools/paradox_w1_docker_boundary_v0.py
+            /tools/paradox_w1_native_runtime_v0.py
+            /tools/paradox_w1_native_observer_v0.py
+            /tools/check_paradox_w1_records_v0.py
+            /docs/evidence/PD_SM_02_W1_NATIVE_REQUEST_v0/
+            /.github/workflows/paradox_w1_native_v0.yml
+
+      - name: Validate the original archive and stage a fresh native package offline
+        id: prepare
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(git -C tooling rev-parse HEAD)" = "$PD_SOURCE_COMMIT"
+          git -C tooling diff --exit-code
+          git -C tooling diff --cached --exit-code
+          python3 -I -S -B -c 'import sys; assert sys.version_info >= (3, 11)'
+          out="$RUNNER_TEMP/pd-sm-02-w1-native"
+          cd "$GITHUB_WORKSPACE/tooling"
+          set +e
+          python3 -I -S -B tools/paradox_w1_hosted_native_v0.py prepare \
+            --repo-root "$GITHUB_WORKSPACE/tooling" --output "$out" \
+            --source-commit "$PD_SOURCE_COMMIT" \
+            > "$out/prepare.stdout" 2> "$out/prepare.stderr"
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$out/prepare.exitcode"
+          cat "$out/prepare.stdout"
+          exit "$rc"
+
+      - name: Verify the unchanged native request with its bound controller
+        id: verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/pd-sm-02-w1-native"
+          cd "$GITHUB_WORKSPACE/tooling"
+          set +e
+          python3 -I -S -B tools/run_paradox_w1_native_v0.py verify \
+            --package "$out/package" --request-sha256 "$PD_REQUEST_SHA256" \
+            > "$out/verify.stdout" 2> "$out/verify.stderr"
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$out/verify.exitcode"
+          exit "$rc"
+
+      - name: Acquire and identify the pinned Linux image outside native execution
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          out="$RUNNER_TEMP/pd-sm-02-w1-native"
+          python3 -I -S -B - "$out/package/request.json" "$out/image_selection.json" <<'PY'
+          import hashlib, json, pathlib, sys
+          raw = pathlib.Path(sys.argv[1]).read_bytes()
+          assert hashlib.sha256(raw).hexdigest() == '655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a'
+          request = json.loads(raw)
+          expected = {
+              'pull_reference': 'docker.io/library/python@sha256:a7cb177dc60dfa77b223192cd0d9e6ce1aac7cf9a569023d68e7c91b6371a718',
+              'image_id': 'sha256:38e57556b63539e63344b97f802e7cbd85b70e2087ee703e360fcdfe337cbbb3',
+              'platform': 'linux/amd64',
+          }
+          assert request['image_id'] == expected['image_id']
+          with open(sys.argv[2], 'x', encoding='utf-8') as handle:
+              json.dump(expected, handle, sort_keys=True, separators=(',', ':'))
+              handle.write('\n')
+          PY
+          pd_docker_config="$RUNNER_TEMP/pd-sm-02-w1-native-docker-config"
+          mkdir "$pd_docker_config"
+          pd_docker="$(command -v docker)"
+          pd_image_reference=docker.io/library/python@sha256:a7cb177dc60dfa77b223192cd0d9e6ce1aac7cf9a569023d68e7c91b6371a718
+          pd_expected_image=sha256:38e57556b63539e63344b97f802e7cbd85b70e2087ee703e360fcdfe337cbbb3
+          set +e
+          timeout --signal=TERM --kill-after=10s 240s \
+            env -i PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 \
+            "$pd_docker" --host unix:///var/run/docker.sock --config "$pd_docker_config" \
+            image pull --platform linux/amd64 "$pd_image_reference" \
+            > "$out/image-pull.stdout" 2> "$out/image-pull.stderr"
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$out/image-pull.exitcode"
+          test "$rc" = 0
+          set +e
+          timeout --signal=TERM --kill-after=5s 20s \
+            env -i PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 \
+            "$pd_docker" --host unix:///var/run/docker.sock --config "$pd_docker_config" \
+            image inspect --format '{{.Id}}' "$pd_image_reference" \
+            > "$out/image-inspect.stdout" 2> "$out/image-inspect.stderr"
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$out/image-inspect.exitcode"
+          test "$rc" = 0
+          test "$(cat "$out/image-inspect.stdout")" = "$pd_expected_image"
+          printf 'EXACT_IMAGE_ID_MATCH\n' > "$out/image-binding.status"
+
+      - name: Execute the live controls and fixed five-case plan once
+        id: capture
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/pd-sm-02-w1-native"
+          cd "$GITHUB_WORKSPACE/tooling"
+          set +e
+          python3 -I -S -B tools/paradox_w1_hosted_native_v0.py capture \
+            --output "$out" --source-commit "$PD_SOURCE_COMMIT" \
+            --request-sha256 "$PD_REQUEST_SHA256" \
+            --authorize "$PD_NATIVE_ACKNOWLEDGEMENT" \
+            > "$out/capture.stdout" 2> "$out/capture.stderr"
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$out/capture.exitcode"
+          cat "$out/capture.stdout"
+          exit "$rc"
+
+      - name: Replay retained capture evidence offline including stopped attempts
+        id: replay
+        if: always() && steps.guard.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/pd-sm-02-w1-native"
+          if [ ! -d "$out/package/capture" ]; then
+            printf 'NOT_RUN_NO_CAPTURE\n' > "$out/replay.status"
+            exit 0
+          fi
+          cd "$GITHUB_WORKSPACE/tooling"
+          set +e
+          python3 -I -S -B tools/run_paradox_w1_native_v0.py verify-capture \
+            --package "$out/package" --request-sha256 "$PD_REQUEST_SHA256" \
+            > "$out/replay.stdout" 2> "$out/replay.stderr"
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$out/replay.exitcode"
+          cat "$out/replay.stdout"
+          exit "$rc"
+
+      - name: Record the complete or incomplete native outcome
+        id: record
+        if: always() && steps.guard.outcome == 'success'
+        env:
+          PD_CHECKOUT_OUTCOME: ${{ steps.checkout.outcome }}
+          PD_PREPARE_OUTCOME: ${{ steps.prepare.outcome }}
+          PD_VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          PD_IMAGE_OUTCOME: ${{ steps.image.outcome }}
+          PD_CAPTURE_OUTCOME: ${{ steps.capture.outcome }}
+          PD_REPLAY_OUTCOME: ${{ steps.replay.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/pd-sm-02-w1-native"
+          if [ ! -f "$GITHUB_WORKSPACE/tooling/tools/paradox_w1_hosted_native_v0.py" ]; then
+            python3 -I -S -B - "$out" <<'PY'
+          import hashlib, json, os, pathlib, sys
+          out = pathlib.Path(sys.argv[1])
+          status = 'INCOMPLETE_OR_BLOCKED'
+          outcomes = {name: os.environ.get('PD_' + name.upper() + '_OUTCOME', '')
+                      for name in ('checkout', 'prepare', 'verify', 'image', 'capture', 'replay')}
+          result = {
+              'status': status, 'source_commit': os.environ['PD_SOURCE_COMMIT'],
+              'request_sha256': os.environ['PD_REQUEST_SHA256'],
+              'step_outcomes': outcomes, 'reason': 'hosted_helper_unavailable',
+              'candidate_tokens_sent': None, 'completed_case_records': None,
+              'native_witness_observed': None, 'containment_observed': None,
+              'model_native_correspondence': 'UNRESOLVED',
+              'execution_authorized': False, 'authority_effect': 'none',
+          }
+          (out / 'RESULT.json').write_text(json.dumps(result, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          (out / 'ACQUISITION_STATUS.txt').write_text(status + '\n', encoding='ascii')
+          files = {}
+          for path in sorted(out.rglob('*')):
+              if path.is_file() and path.relative_to(out).as_posix() != 'MANIFEST.json':
+                  raw = path.read_bytes()
+                  files[path.relative_to(out).as_posix()] = {'bytes': len(raw), 'sha256': hashlib.sha256(raw).hexdigest()}
+          (out / 'MANIFEST.json').write_text(json.dumps({
+              'schema_version': 'pd_sm_02_w1_hosted_failure_manifest_v0',
+              'files': files, 'authority_effect': 'none'}, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a', encoding='utf-8') as handle:
+              handle.write('## W1 native capture\n\nStatus: `INCOMPLETE_OR_BLOCKED`.\n\n'
+                           'The reviewed hosted helper was unavailable. Inspect the retained failure evidence. '
+                           'Authority effect: `none`.\n')
+          print(json.dumps(result, sort_keys=True))
+          PY
+            exit 1
+          fi
+          cd "$GITHUB_WORKSPACE/tooling"
+          python3 -I -S -B tools/paradox_w1_hosted_native_v0.py finalize \
+            --output "$out" --source-commit "$PD_SOURCE_COMMIT"
+
+      - name: Preserve request and complete or failed native evidence
+        id: upload
+        if: always() && steps.guard.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pd-sm-02-w1-native-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pd-sm-02-w1-native/
+          if-no-files-found: error
+          overwrite: false
+          retention-days: 30
