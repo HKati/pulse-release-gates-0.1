@@ -1,0 +1,590 @@
+{
+  "execution_status": "not_run",
+  "expectations": [
+    {
+      "acceptance_ids": [
+        "A05",
+        "A21",
+        "A24"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_01",
+      "rationale": "Positive identity control; preservation is unrelated to whether the approval claim is true in the world.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "PRESERVED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A05"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_02",
+      "rationale": "The proposed reference retains the same approver and shared request despite surface rearrangement.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "PRESERVED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A06"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_03",
+      "rationale": "The vocabulary is nearly unchanged, while the sender and recipient roles are reversed.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "CHANGED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A07"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_04",
+      "rationale": "Negation changes the selected assertion; evidence absence is not used as negation.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "CHANGED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A08",
+        "A17",
+        "A22"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_05",
+      "condition_witness": {
+        "after_condition": true,
+        "assignment": {
+          "approve_anna": true,
+          "approve_bela": false
+        },
+        "before_condition": false,
+        "scope": "Selected approval condition only; not a complete release decision or an observed event."
+      },
+      "rationale": "AND becomes inclusive OR in the selected joint approval condition.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "CHANGED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A08"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_06",
+      "rationale": "The necessary-condition direction is reversed; only-if and if are not interchangeable.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "CHANGED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A07"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_07",
+      "rationale": "On the declared two-person domain, one approver and one non-approver distinguish not-all from none.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "CHANGED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A05",
+        "A07"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_08",
+      "rationale": "The selected Boolean condition is equivalent by its finite truth table; this does not identify quoted utterances or events.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "PRESERVED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A09",
+        "A18"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_09",
+      "rationale": "Explicit permission has become an explicit observation claim. Faithfulness to the claim is not independent event evidence; past tense alone never establishes observation.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "CHANGED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A09"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_10",
+      "rationale": "Quoted content became the utterance own assertion.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "CHANGED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A06",
+        "A12"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_11",
+      "rationale": "All three roles remain represented; giver and recipient differ.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "CHANGED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A05",
+        "A12"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_12",
+      "rationale": "One sentence may map to a conjunction of two statements through an explicit relation-group correspondence.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "PRESERVED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A10"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_13",
+      "rationale": "The after-side extractor omitted a relation despite its unchanged source text; incomplete coverage cannot prove a break.",
+      "target_expectations": [
+        {
+          "assessment_state": "UNRESOLVED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "UNDETERMINED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A10"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_14",
+      "rationale": "Within the explicitly complete comparison scope, the selected Anna approval relation has no target continuation.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "BROKEN",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A11",
+        "A24"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_15",
+      "introduced_expectations": [
+        {
+          "evidence_status": "unsupported",
+          "novelty": "new_content",
+          "reason": "No support for the winning claim is supplied.",
+          "relation_id": "a_addition"
+        }
+      ],
+      "rationale": "The approval target is preserved; the winning claim is an independently assessed addition.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "PRESERVED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A11"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_16",
+      "introduced_expectations": [
+        {
+          "evidence_status": "supported",
+          "novelty": "derived_explicitization",
+          "relation_id": "a_addition",
+          "required_derivation": "Modus ponens from b_fact and b_rule under LOGIC_01."
+        }
+      ],
+      "rationale": "The explicit added conclusion is derivable under the named Boolean implication rule; it needs its own checked derivation.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "PRESERVED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A12"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_17",
+      "rationale": "The complete ternary relation changes although every unary and binary projection is equal.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "CHANGED",
+          "target_id": "target_main"
+        }
+      ],
+      "ternary_control": {
+        "after_tuples": [
+          [
+            0,
+            0,
+            1
+          ],
+          [
+            0,
+            1,
+            0
+          ],
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            1,
+            1,
+            1
+          ]
+        ],
+        "before_tuples": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            1
+          ],
+          [
+            1,
+            0,
+            1
+          ],
+          [
+            1,
+            1,
+            0
+          ]
+        ],
+        "pairwise_projection_axes": [
+          [
+            0,
+            1
+          ],
+          [
+            0,
+            2
+          ],
+          [
+            1,
+            2
+          ]
+        ]
+      }
+    },
+    {
+      "acceptance_ids": [
+        "A13",
+        "A14"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_18",
+      "rationale": "The declared two-reading reference narrows to Anna; an unrelated approval target remains stable across both readings.",
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "CHANGED",
+          "target_id": "target_main"
+        },
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "PRESERVED",
+          "target_id": "target_stable"
+        }
+      ],
+      "unresolved_question": "The actual winner is not established by the reported-content comparison."
+    },
+    {
+      "acceptance_ids": [
+        "A15"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_19",
+      "rationale": "An unspecified family is not an empty family and cannot prove preservation.",
+      "target_expectations": [
+        {
+          "assessment_state": "UNBOUND",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "UNDETERMINED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A15"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_20",
+      "rationale": "An actually empty family yields INCOMPATIBLE, never vacuous preservation.",
+      "target_expectations": [
+        {
+          "assessment_state": "INCOMPATIBLE",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "UNDETERMINED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A15"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_21",
+      "rationale": "One retained candidate cannot certify complete preservation after enumeration is truncated.",
+      "target_expectations": [
+        {
+          "assessment_state": "UNRESOLVED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "UNDETERMINED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A16"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_22",
+      "rationale": "The stated rule structure is unchanged; its unsupported cycle provides no grounded approval claim.",
+      "support_expectation": {
+        "grounded_claim_ids": [],
+        "unsupported_cycle_claim_ids": [
+          "claim_anna",
+          "claim_bela"
+        ]
+      },
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "PRESERVED",
+          "target_id": "target_main"
+        }
+      ]
+    },
+    {
+      "acceptance_ids": [
+        "A16",
+        "A17"
+      ],
+      "assumptions": [
+        "These authored annotations remain candidate_only in LRM-01.",
+        "The expected semantic classification is conditional on independent acceptance of the exact supplied reference interpretation, correspondence and stated coverage.",
+        "No world-truth, observed-processing or release-authority conclusion is requested."
+      ],
+      "case_id": "LRM_REF_23",
+      "rationale": "One premise is withdrawn, while the separate grounded Éva route can retain the selected derived support.",
+      "support_expectation": {
+        "grounded_after_withdrawal": [
+          "claim_eva",
+          "claim_bela"
+        ],
+        "recompute_from_retained_bases": true,
+        "retained_route": [
+          "claim_eva",
+          "rule_eb",
+          "claim_bela"
+        ]
+      },
+      "target_expectations": [
+        {
+          "assessment_state": "IDENTIFIED",
+          "claim_scope": "reference_interpretation",
+          "relation_state": "CHANGED",
+          "target_id": "target_main"
+        }
+      ]
+    }
+  ],
+  "provenance": "synthetic_reference",
+  "reference_status": "draft_synthetic_references",
+  "schema_version": "language_relation_expected_v0"
+}
