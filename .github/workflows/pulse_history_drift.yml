@@ -9,8 +9,6 @@ on:
 
 permissions:
   contents: read
-  # Cache save/restore may require Actions scope depending on repo settings.
-  actions: write
 
 concurrency:
   group: pulse-history-drift-${{ github.ref }}
