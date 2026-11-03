@@ -96,6 +96,7 @@ def test_historical_carrier_replays_but_image_mismatch_stays_blocked(historical)
     assert result['original_complete_status_preserved'] is True
     assert result['artifact_attempt_attestation'] is None
     assert result['artifact_creation_window_check'] == 'PASS_LIMITED'
+    assert result['native_checker_sha256'] == M.HISTORICAL_REVIEWED_CHECKERS
     assert raw == before
     assert all(result[k] == v for k, v in M.BOUNDARIES.items())
 
@@ -1058,6 +1059,17 @@ def current_native_sources(root=ROOT):
     return {n:(root/n).read_bytes() for n in p['source_files']}
 
 
+def synthetic_transport_record(source, request_raw, run_id):
+    """Explicitly fabricated retrieval for current-source protocol controls."""
+    from test_q3_native_capture_v0 import synthetic_transport_receipt
+    node=next(n for n in ast.parse(source[NATIVE_COLLECTOR]).body
+        if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name)
+            and t.id=='RUNTIME_TRANSPORT' for t in n.targets))
+    value=synthetic_transport_receipt(source,json.loads(request_raw),ast.literal_eval(node.value))
+    value['binding'].update(request_sha256=M.digest(request_raw),run_id=run_id)
+    return M.encode(value)
+
+
 def synthetic_bound_preflight(historical, source):
     """Rebind a COPY to selected source bytes for positive integration controls.
 
@@ -1068,6 +1080,8 @@ def synthetic_bound_preflight(historical, source):
     old=M.digest(d['prelaunch.json'])
     for n,b in source.items():d['source/'+n]=b
     pre=json.loads(d['prelaunch.json']);pre['source_files']={n:M.digest(b) for n,b in source.items()}
+    d['runtime-transport.json']=synthetic_transport_record(source,d['request.json'],pre['run_id'])
+    pre['runtime_transport_sha256']=M.digest(d['runtime-transport.json'])
     d['prelaunch.json']=M.encode(pre);new=M.digest(d['prelaunch.json'])
     for n in list(d):
         if not n.startswith('source/') and n not in ('prelaunch.json','result.json'):
@@ -1094,6 +1108,8 @@ def synthetic_native_capture(source, original_preflight, request, run_id):
     d['control-plane.json']=c.encode(plane)
     pre=json.loads(d['prelaunch.json']);pre.update(request=request,source_commit=request['source_commit'],run_id=run_id,
         source_files={n:c.digest(b) for n,b in source.items()},control_plane_sha256=c.digest(d['control-plane.json']))
+    d['runtime-transport.json']=synthetic_transport_record(source,d['request.json'],run_id)
+    pre['runtime_transport_sha256']=c.digest(d['runtime-transport.json'])
     d['prelaunch.json']=c.encode(pre)
     binding={'prelaunch_sha256':c.digest(d['prelaunch.json']),'source_commit':request['source_commit'],'run_id':run_id,'run_attempt':1}
     mapping=json.loads(d['token-map.json']);ms=c.digest(d['token-map.json'])
@@ -1155,7 +1171,9 @@ def synthetic_native_capture(source, original_preflight, request, run_id):
 
 @pytest.fixture(scope='module')
 def handoff_case(historical):
-    h=handoff_module();source=current_native_sources();e,raw=synthetic_bound_preflight(historical,source)
+    from test_q3_native_capture_v0 import synthetic_transport_source
+    h=handoff_module();source,_=synthetic_transport_source(current_native_sources())
+    e,raw=synthetic_bound_preflight(historical,source)
     extra={n:(ROOT/n).read_bytes() for n in h.EXTRA_SOURCES};a,m=h.components(ROOT,extra)
     s=acquisition_selection(a,(e,raw));c=native_mod(ROOT,'q3_native_capture_contract_v0')
     nr=json.loads(M.unzip(M.unzip(raw['artifact.zip'])['evidence.zip'])['request.json'])
@@ -1178,6 +1196,48 @@ def hvalidate(f,envelope=None,source=None,extra=None):
     h=f['h'];e=envelope or f['envelope'];raw=h.encode(e)
     return h.validate(raw,h.digest(raw),f['c'].encode(f['nr']),source or f['source'],extra or f['extra'],
                       ROOT,f['a'],f['m'])
+
+
+def test_historical_replay_does_not_satisfy_current_capture_checker(historical):
+    e,raw=case(historical)
+    data=M.unzip(M.unzip(raw['artifact.zip'])['evidence.zip'])
+    source={n[7:]:b for n,b in data.items() if n.startswith('source/')}
+    assert M.reviewed_checker_pins(source)==M.HISTORICAL_REVIEWED_CHECKERS
+    assert M.HISTORICAL_REVIEWED_CHECKERS!=M.REVIEWED_CHECKERS
+    with pytest.raises(ValueError,match='HANDOFF_NATIVE_CHECKER_VERSION'):
+        handoff_module().native_contract(source,ROOT,M)
+
+
+@pytest.mark.parametrize('fault',['missing','part_digest','source_commit'])
+def test_external_postflight_rejects_rehashed_transport_forgery(handoff_case,fault):
+    """Rehashing every surrounding record cannot make a false receipt valid."""
+    f=handoff_case;e=copy.deepcopy(f['s']);raw=dict(f['raw'])
+    # The acquirer selection embeds the same externally pinned observation fields.
+    e={k:v for k,v in e.items() if k in M.EXPECTED_FIELDS}
+    e['record_type']='q3_external_postflight_expectation_v0'
+    e['verifier_sha256']=M.digest(TOOL.read_bytes())
+    e['inputs']={n:{'size_bytes':len(b),'sha256':M.digest(b)} for n,b in raw.items()}
+    outer=M.unzip(raw['artifact.zip']);data=M.unzip(outer['evidence.zip'])
+    old=M.digest(data['prelaunch.json']);pre=json.loads(data['prelaunch.json'])
+    if fault=='missing':
+        del data['runtime-transport.json']
+    else:
+        transport=json.loads(data['runtime-transport.json'])
+        if fault=='part_digest':transport['parts'][0]['sha256']='0'*64
+        else:transport['binding']['source_commit']='0'*40
+        data['runtime-transport.json']=M.encode(transport)
+        pre['runtime_transport_sha256']=M.digest(data['runtime-transport.json'])
+    data['prelaunch.json']=M.encode(pre);new=M.digest(data['prelaunch.json'])
+    for name in list(data):
+        if not name.startswith('source/') and name not in ('prelaunch.json','result.json'):
+            data[name]=data[name].replace(old.encode(),new.encode())
+    result=json.loads(data['result.json'])
+    result['inventory']={n:{'size_bytes':len(b),'sha256':M.digest(b)} for n,b in data.items() if n!='result.json'}
+    data['result.json']=M.encode(result);inner=archive(data)
+    receipt=json.loads(outer['receipt.json'])
+    receipt.update(archive_sha256=M.digest(inner),archive_size_bytes=len(inner),result_sha256=M.digest(data['result.json']))
+    rebound_archive(e,raw,{'evidence.zip':inner,'receipt.json':M.encode(receipt)})
+    with pytest.raises(M.PostflightError,match='NATIVE_CARRIER_REJECTED'):run(e,raw)
 
 
 def test_handoff_v1_request_preserves_v0_nested_contract(handoff_case):

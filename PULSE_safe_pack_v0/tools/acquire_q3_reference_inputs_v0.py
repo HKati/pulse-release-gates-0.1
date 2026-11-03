@@ -38,6 +38,149 @@ CHECKER='PULSE_safe_pack_v0/tools/check_q3_native_capture_v0.py'
 SOURCE_FILES=('.github/workflows/q3_reference_acquisition_v0.yml', 'PULSE_safe_pack_v0/examples/q2_runtime_preparation_v0/run_37148637546/preparation.json', 'PULSE_safe_pack_v0/examples/q2_runtime_preparation_v0/run_37148637546/q2-runtime-preparation-check.json', 'PULSE_safe_pack_v0/examples/q2_runtime_preparation_v0/run_37148637546/q2_reference_model_files_v0.json', 'PULSE_safe_pack_v0/examples/q2_runtime_preparation_v0/run_37148637546/requirements-q2-reference-v0.lock', 'PULSE_safe_pack_v0/examples/q3_native_capture_v0/COMMON_INSTRUCTIONS.txt', 'PULSE_safe_pack_v0/examples/q3_native_capture_v0/SOURCE_CONTEXT_BINDINGS.json', 'PULSE_safe_pack_v0/examples/q3_native_capture_v0/TASKS_DRAFT.jsonl', 'PULSE_safe_pack_v0/examples/q3_native_capture_v0/TASK_ORDER.json', 'PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json', 'PULSE_safe_pack_v0/profiles/q3_native_capture_v0.json', 'PULSE_safe_pack_v0/requirements-q2-reference-v0.lock', 'PULSE_safe_pack_v0/tools/acquire_q3_reference_inputs_v0.py', 'PULSE_safe_pack_v0/tools/check_q3_native_capture_v0.py', 'PULSE_safe_pack_v0/tools/q3_native_capture_contract_v0.py', 'PULSE_safe_pack_v0/tools/q3_native_runtime_v0.py', 'PULSE_safe_pack_v0/tools/run_q3_reference_subject_v0.py', 'docs/compute/PULSEMECH_Q3_ARCHIVED_INPUT_PREPARATION_v0.md', 'docs/compute/PULSEMECH_Q3_REFERENCE_RECOMPUTATION_v0.md', 'schemas/metrics/q3_native_capture_request_v0.schema.json', 'schemas/metrics/q3_native_capture_result_v0.schema.json')
 
 
+# Transport selection is part of this already sealed controller source.  A
+# future activation requires a separately reviewed source change; no workflow
+# input, request URL or ambient environment variable can select another source.
+# The retained original identity is NOT a claim that its expired artifact was
+# freshly downloaded.  No repository part source has been approved or uploaded.
+RUNTIME_TRANSPORT = {
+    'kind': 'github-repository-parts-v0',
+    'repository': 'HKati/pulse-release-gates-0.1',
+    'commit': None,
+    'prefix': None,
+}
+RUNTIME_SPLIT_MANIFEST_SHA256 = '67eff809f8cf000f82b8365f1fc535ca82ffea167e2834488166915454c87f37'
+_RUNTIME_PARTS_SHA256 = '0f7af070258c3bb6206c240e00cfe5464169666fbaf9fa9540b68c7ee384d341'
+_RUNTIME_ORIGIN_SHA256 = '2f9d0516281bed710c68f27d61fad47eea996d0875212be64022a551dcc1621a'
+RUNTIME_ORIGIN = {'filename': 'q2-runtime-preparation-37148637546-1.zip',
+ 'size_bytes': 508460811,
+ 'sha256': 'b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9',
+ 'original_run_id': '37148637546',
+ 'original_run_attempt': 1,
+ 'original_artifact_id': 11282419957,
+ 'original_source_commit': '77fc5d51896568db50a2a87f650711a65db8fe8c'}
+RUNTIME_PARTS = ({'index': 1,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.001',
+  'size_bytes': 25423041,
+  'sha256': 'a99d34615119c69c5ba68054fa5e14e4e37828e8bbf12b569711886b7d373a0e',
+  'offset_start': 0,
+  'offset_end_exclusive': 25423041},
+ {'index': 2,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.002',
+  'size_bytes': 25423041,
+  'sha256': '08c8ce6e853524fe0812e97d7c7e8e32c56728eb002be10e1f748f0b335ccec6',
+  'offset_start': 25423041,
+  'offset_end_exclusive': 50846082},
+ {'index': 3,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.003',
+  'size_bytes': 25423041,
+  'sha256': 'bbdd47142671f1022f79d8c51ff1cf7f3ad36af64c35a1c07448a7d14e5be515',
+  'offset_start': 50846082,
+  'offset_end_exclusive': 76269123},
+ {'index': 4,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.004',
+  'size_bytes': 25423041,
+  'sha256': '8b0c3aee20f5492b76598dbcd4e2af984c6295f1955ed2cc8e01d5813cabed12',
+  'offset_start': 76269123,
+  'offset_end_exclusive': 101692164},
+ {'index': 5,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.005',
+  'size_bytes': 25423041,
+  'sha256': '19d689b4283374b6828973b3df216476627d4358a39ddd89c7f981de90d65d44',
+  'offset_start': 101692164,
+  'offset_end_exclusive': 127115205},
+ {'index': 6,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.006',
+  'size_bytes': 25423041,
+  'sha256': '971dd1cf636b68d2f41a3b67eaa176a3be645707b94a904e4c29808d3b9c3012',
+  'offset_start': 127115205,
+  'offset_end_exclusive': 152538246},
+ {'index': 7,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.007',
+  'size_bytes': 25423041,
+  'sha256': '6d6fad777bf3ef9014ade7fdf03c34f53af27140bfd6468d09d1f4ffe96b5617',
+  'offset_start': 152538246,
+  'offset_end_exclusive': 177961287},
+ {'index': 8,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.008',
+  'size_bytes': 25423041,
+  'sha256': '932044ee2b88b02e56cbea68d1c9cefc4abc5338142ed06b1d31c76c84f1affd',
+  'offset_start': 177961287,
+  'offset_end_exclusive': 203384328},
+ {'index': 9,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.009',
+  'size_bytes': 25423041,
+  'sha256': 'ee12b35b15a1efcbdc00ca5eff1db5021f93805ab809356d705d500a4cf06fb7',
+  'offset_start': 203384328,
+  'offset_end_exclusive': 228807369},
+ {'index': 10,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.010',
+  'size_bytes': 25423041,
+  'sha256': '70bbd9d6ffe9b7a71b7f6723946b634d7ecd8001d60aa185915d64268c7d3fbd',
+  'offset_start': 228807369,
+  'offset_end_exclusive': 254230410},
+ {'index': 11,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.011',
+  'size_bytes': 25423041,
+  'sha256': '4b5c14864c885831b9e0e999b2e210a02ea8b6ad3ea15f5b50f7f4ab7e912713',
+  'offset_start': 254230410,
+  'offset_end_exclusive': 279653451},
+ {'index': 12,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.012',
+  'size_bytes': 25423041,
+  'sha256': 'e5b4f8b667f08403c9fa0d1f4a4b49900f9ec3b8f4e6aa5a27db18ec1c3f1371',
+  'offset_start': 279653451,
+  'offset_end_exclusive': 305076492},
+ {'index': 13,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.013',
+  'size_bytes': 25423041,
+  'sha256': 'bc4ae5c262274fe6afba6f3f5e8f4aed9a18d4d9423c210223cd396b4a0858e1',
+  'offset_start': 305076492,
+  'offset_end_exclusive': 330499533},
+ {'index': 14,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.014',
+  'size_bytes': 25423041,
+  'sha256': '52c03baac0181133d6cde5aff69f086062828faa090c09912dba9eb5fd989f11',
+  'offset_start': 330499533,
+  'offset_end_exclusive': 355922574},
+ {'index': 15,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.015',
+  'size_bytes': 25423041,
+  'sha256': 'c773e46bfee0941fb74f618ad3cd53b9b95dc243cedcb11786d265cd9c140f49',
+  'offset_start': 355922574,
+  'offset_end_exclusive': 381345615},
+ {'index': 16,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.016',
+  'size_bytes': 25423041,
+  'sha256': 'fc1cc48947c2dd649ae3b3b2f71f5200511cd23e678633ddb97034f02f32752b',
+  'offset_start': 381345615,
+  'offset_end_exclusive': 406768656},
+ {'index': 17,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.017',
+  'size_bytes': 25423041,
+  'sha256': '157f3263139e31909481cf603caa5bb3e4a17e55cd740831987adc7571893cfc',
+  'offset_start': 406768656,
+  'offset_end_exclusive': 432191697},
+ {'index': 18,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.018',
+  'size_bytes': 25423041,
+  'sha256': 'da2e77f3e606ec22ba22c26d56c111314b5c31134d82981f22c214a823093061',
+  'offset_start': 432191697,
+  'offset_end_exclusive': 457614738},
+ {'index': 19,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.019',
+  'size_bytes': 25423041,
+  'sha256': '146b777c3be81578a6466fd51b48c76345c7749876dc784ce1e6c77efbe0907a',
+  'offset_start': 457614738,
+  'offset_end_exclusive': 483037779},
+ {'index': 20,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.020',
+  'size_bytes': 25423032,
+  'sha256': '6be9a0f37d32177b4da03be065df9956057b52bed75d57add0b2de7a1bdd7ae8',
+  'offset_start': 483037779,
+  'offset_end_exclusive': 508460811})
+
+
 class EntryRejected(ValueError):
     pass
 
@@ -136,7 +279,166 @@ def control_plane(C,request,env,token):
             'clock_relation':'not_verified'}
 
 
-def download_runtime(C,p,token,target,phase_deadline):
+def _runtime_archive_identity():
+    return {key:RUNTIME_ORIGIN[key] for key in ('filename','size_bytes','sha256')}
+
+
+def _validate_runtime_parts(C,parts,archive_identity):
+    """Validate an ordered inventory; production additionally pins its bytes.
+
+    The small explicit parameters are an offline-test seam, not a CLI/input
+    override.  download_runtime() uses only the sealed production constants.
+    """
+    C.fields(archive_identity,{'filename','size_bytes','sha256'},'RUNTIME_ARCHIVE_FIELDS')
+    filename=C.relative(archive_identity['filename'])
+    C.require('/' not in filename,'RUNTIME_ARCHIVE_FILENAME')
+    C.integer(archive_identity['size_bytes'],1,508460811,'RUNTIME_ARCHIVE_SIZE')
+    C.require(C.sha256_string(archive_identity['sha256']),'RUNTIME_ARCHIVE_DIGEST')
+    C.require(type(parts) in (list,tuple) and len(parts)==20,'RUNTIME_PART_COUNT')
+    offset=0
+    for ordinal,row in enumerate(parts,1):
+        C.fields(row,{'index','filename','size_bytes','sha256','offset_start','offset_end_exclusive'},
+                 'RUNTIME_PART_FIELDS')
+        C.require(type(row['index']) is int and row['index']==ordinal
+                  and row['filename']==filename+f'.{ordinal:03d}','RUNTIME_PART_ORDER')
+        C.integer(row['size_bytes'],1,25423041,'RUNTIME_PART_SIZE')
+        C.require(C.sha256_string(row['sha256']),'RUNTIME_PART_DIGEST')
+        C.require(type(row['offset_start']) is int and row['offset_start']==offset
+                  and type(row['offset_end_exclusive']) is int
+                  and row['offset_end_exclusive']==offset+row['size_bytes'],'RUNTIME_PART_OFFSETS')
+        offset+=row['size_bytes']
+    C.require(offset==archive_identity['size_bytes'],'RUNTIME_PART_TOTAL')
+
+
+def _runtime_source(C,source):
+    C.fields(source,{'kind','repository','commit','prefix'},'RUNTIME_TRANSPORT_FIELDS')
+    C.require(type(source['kind']) is str and source['kind'] in
+              ('original-actions-artifact-v0','github-repository-parts-v0')
+              and source['repository']==REPOSITORY,'RUNTIME_TRANSPORT_SCOPE')
+    if source['kind']=='original-actions-artifact-v0':
+        C.require(source['commit'] is None and source['prefix'] is None,'RUNTIME_ARTIFACT_SOURCE')
+    else:
+        C.require(source['commit'] is not None and source['prefix'] is not None,
+                  'RUNTIME_TRANSPORT_UNCONFIGURED')
+        C.require(type(source['commit']) is str and re.fullmatch(r'[a-f0-9]{40}',source['commit'])
+                  is not None and source['commit']!='0'*40,'RUNTIME_TRANSPORT_COMMIT')
+        C.relative(source['prefix'])
+    return dict(source)
+
+
+def runtime_transport_plan(C,p):
+    """Resolve only the descriptor sealed with this controller's source bytes."""
+    C.require(C.digest(C.encode(RUNTIME_ORIGIN))==_RUNTIME_ORIGIN_SHA256,'RUNTIME_ORIGIN_PIN')
+    expected={key:RUNTIME_ORIGIN[source] for key,source in
+              (('artifact_id','original_artifact_id'),('run_id','original_run_id'),
+               ('size_bytes','size_bytes'),('sha256','sha256'))}
+    C.require(C.encode(p['runtime_archive'])==C.encode(expected),'RUNTIME_ORIGIN_BINDING')
+    C.require(RUNTIME_SPLIT_MANIFEST_SHA256==
+              '67eff809f8cf000f82b8365f1fc535ca82ffea167e2834488166915454c87f37'
+              and C.digest(C.encode(RUNTIME_PARTS))==_RUNTIME_PARTS_SHA256,'RUNTIME_PARTS_PIN')
+    _validate_runtime_parts(C,RUNTIME_PARTS,_runtime_archive_identity())
+    source=_runtime_source(C,RUNTIME_TRANSPORT)
+    if source['kind']=='github-repository-parts-v0':
+        for row in RUNTIME_PARTS:C.relative(source['prefix']+'/'+row['filename'])
+    return source
+
+
+def _runtime_timeout(C,end):
+    remaining=end-time.monotonic()
+    C.require(remaining>0,'RUNTIME_DOWNLOAD_DEADLINE')
+    return min(15.0,remaining)
+
+
+def _open_runtime_part(C,token,source,part,end):
+    """Open one exact-commit raw Contents response without credential redirects."""
+    source=_runtime_source(C,source)
+    C.require(source['kind']=='github-repository-parts-v0','RUNTIME_PART_SOURCE')
+    filename=C.relative(part['filename']);C.require('/' not in filename,'RUNTIME_PART_FILENAME')
+    path=C.relative(source['prefix']+'/'+filename)
+    C.require(type(token) is str and 0<len(token)<=4096 and '\r' not in token and '\n' not in token,
+              'READ_TOKEN_REQUIRED')
+    quoted=urllib.parse.quote(path,safe='/')
+    endpoint='https://api.github.com/repos/'+REPOSITORY+'/contents/'+quoted+'?ref='+source['commit']
+    request=urllib.request.Request(endpoint,headers={
+        'Authorization':'Bearer '+token,'Accept':'application/vnd.github.raw+json',
+        'Accept-Encoding':'identity','X-GitHub-Api-Version':'2022-11-28','User-Agent':'PULSE-Q3-native-v0'})
+    try:
+        response=urllib.request.build_opener(NoRedirect()).open(request,timeout=_runtime_timeout(C,end))
+    except urllib.error.HTTPError as exc:
+        try:
+            C.require(exc.code in (301,302,303,307,308),'RUNTIME_PART_HTTP_STATUS')
+            # Only this exact immutable public raw path may receive a redirect.
+            # No bearer token, query credential or ambient request header follows.
+            raw_url='https://raw.githubusercontent.com/'+REPOSITORY+'/'+source['commit']+'/'+quoted
+            C.require(exc.headers.get('Location','')==raw_url,'RUNTIME_PART_REDIRECT_SOURCE')
+        finally:exc.close()
+        try:
+            response=urllib.request.build_opener(NoRedirect()).open(
+                urllib.request.Request(raw_url,headers={'Accept-Encoding':'identity'}),
+                timeout=_runtime_timeout(C,end))
+        except urllib.error.HTTPError as exc:
+            exc.close();raise C.ContractError('RUNTIME_PART_REDIRECT_CHAIN') from None
+    if response.status!=200:
+        response.close();raise C.ContractError('RUNTIME_PART_HTTP_STATUS')
+    try:
+        encodings=response.headers.get_all('Content-Encoding',[])
+        C.require(encodings in ([],['identity']),'RUNTIME_PART_CONTENT_ENCODING')
+    except BaseException:
+        response.close();raise
+    return response
+
+
+def _assemble_runtime_parts(C,parts,archive_identity,target,end,open_part):
+    """Stream and verify an ordered inventory; never execute archive contents."""
+    _validate_runtime_parts(C,parts,archive_identity)
+    C.require(time.monotonic()<end,'RUNTIME_DOWNLOAD_DEADLINE')
+    target=Path(target);created=False;identity=None;total=0;whole=hashlib.sha256();observed=[]
+    try:
+        with target.open('xb') as output:
+            created=True;st=os.fstat(output.fileno());identity=(st.st_dev,st.st_ino)
+            os.fchmod(output.fileno(),0o600)
+            for part in parts:
+                C.require(time.monotonic()<end,'RUNTIME_DOWNLOAD_DEADLINE')
+                count=0;digest=hashlib.sha256();start=total
+                with open_part(part) as response:
+                    read_once=getattr(response,'read1',None)
+                    C.require(callable(read_once),'RUNTIME_PART_STREAM_READER')
+                    while True:
+                        C.require(time.monotonic()<end,'RUNTIME_DOWNLOAD_DEADLINE')
+                        maximum=min(65536,part['size_bytes']-count+1)
+                        # HTTPResponse.read(n) may keep filling n bytes under a
+                        # slow trickle.  read1 returns after at most one buffered
+                        # read, allowing the absolute deadline to be rechecked.
+                        chunk=read_once(maximum)
+                        C.require(time.monotonic()<end,'RUNTIME_DOWNLOAD_DEADLINE')
+                        C.require(type(chunk) is bytes and len(chunk)<=maximum,'RUNTIME_PART_READ')
+                        if not chunk:break
+                        count+=len(chunk);total+=len(chunk)
+                        C.require(count<=part['size_bytes'] and total<=archive_identity['size_bytes'],
+                                  'RUNTIME_PART_DOWNLOAD_SIZE')
+                        digest.update(chunk);whole.update(chunk);output.write(chunk)
+                actual=digest.hexdigest()
+                C.require(count==part['size_bytes'] and actual==part['sha256'],'RUNTIME_PART_MISMATCH')
+                observed.append({'index':part['index'],'filename':part['filename'],'size_bytes':count,
+                                 'sha256':actual,'offset_start':start,'offset_end_exclusive':total})
+            archive_sha=whole.hexdigest()
+            C.require(total==archive_identity['size_bytes'] and archive_sha==archive_identity['sha256'],
+                      'RUNTIME_ARCHIVE_MISMATCH')
+            output.flush();os.fsync(output.fileno())
+            C.require(time.monotonic()<end,'RUNTIME_DOWNLOAD_DEADLINE')
+        return {'size_bytes':total,'sha256':archive_sha,'parts':observed}
+    except BaseException:
+        # An existing caller file is never removed; only this call's private
+        # inode may be discarded.  The outer lifecycle owns residual cleanup.
+        if created:
+            try:
+                st=target.lstat()
+                if (st.st_dev,st.st_ino)==identity:target.unlink()
+            except OSError:pass
+        raise
+
+
+def download_runtime_artifact(C,p,token,target,phase_deadline):
     a=p['runtime_archive'];base='/repos/'+REPOSITORY
     meta=C.strict_json(api_bytes(base+'/actions/artifacts/'+str(a['artifact_id']),token))
     C.require(type(meta['id']) is int and meta['id']==a['artifact_id'] and meta['expired'] is False
@@ -167,6 +469,25 @@ def download_runtime(C,p,token,target,phase_deadline):
             h.update(b);f.write(b)
         f.flush();os.fsync(f.fileno())
     C.require(total==a['size_bytes'] and h.hexdigest()==a['sha256'],'RUNTIME_ARCHIVE_MISMATCH')
+    return {'size_bytes':total,'sha256':h.hexdigest(),'parts':[]}
+
+
+def download_runtime(C,p,token,target,phase_deadline):
+    """Acquire exactly one source selected by the sealed controller, no fallback."""
+    source=runtime_transport_plan(C,p)
+    if source['kind']=='original-actions-artifact-v0':
+        observed=download_runtime_artifact(C,p,token,target,phase_deadline)
+        manifest_sha=None;parts=[]
+    else:
+        end=min(phase_deadline,time.monotonic()+180)
+        observed=_assemble_runtime_parts(C,RUNTIME_PARTS,_runtime_archive_identity(),target,end,
+            lambda part:_open_runtime_part(C,token,source,part,end))
+        manifest_sha=RUNTIME_SPLIT_MANIFEST_SHA256
+        parts=[{**row,'path':source['prefix']+'/'+row['filename']} for row in observed['parts']]
+    return {'record_type':'q3_runtime_transport_v0','transport':source,'origin':dict(RUNTIME_ORIGIN),
+            'split_manifest_sha256':manifest_sha,'parts':parts,
+            'archive_size_bytes':observed['size_bytes'],'archive_sha256':observed['sha256'],
+            'claims':dict(C.CLAIMS)}
 
 
 def load_sealed(name,path):
@@ -398,6 +719,8 @@ def setup_failure(C,output,uid,gid,request,exc):
 
 def execute(C,p,request,snapshot,root,raw,env):
     # No helper import or network operation before entry_guard returns.
+    # Inactive candidate configuration fails before even a control-plane query.
+    transport_source=runtime_transport_plan(C,p)
     token=env.get('GITHUB_TOKEN','');C.require(bool(token),'READ_TOKEN_REQUIRED')
     plane=control_plane(C,request,env,token)
     output,uid,gid=output_destination(C,env)
@@ -419,7 +742,12 @@ def execute(C,p,request,snapshot,root,raw,env):
         for name,b in snapshot.items():R.save(evidence/'source'/name,b)
         platform=R.platform_context();R.save(evidence/'platform.json',C.encode(platform))
         C.require(shutil.disk_usage(work).free>=6*1024**3,'INSUFFICIENT_WORK_DISK')
-        archive=work/'runtime.zip';download_runtime(C,p,token,archive,phase_deadline)
+        archive=work/'runtime.zip';transport=download_runtime(C,p,token,archive,phase_deadline)
+        C.require(transport['transport']==transport_source,'RUNTIME_TRANSPORT_SOURCE_DRIFT')
+        transport['binding']={'request_sha256':C.digest(raw),'source_commit':request['source_commit'],
+                              'run_id':env['GITHUB_RUN_ID'],'run_attempt':1,
+                              'controller_sha256':C.digest(snapshot[SELF])}
+        transport_raw=C.encode(transport);R.save(evidence/'runtime-transport.json',transport_raw)
         # Immutable selected bytes are inspected; archive code is never executed here.
         checked=K.verify_archive(archive,work/'staged',sources)
         R.save(evidence/'input-check.json',C.encode(checked))
@@ -441,6 +769,7 @@ def execute(C,p,request,snapshot,root,raw,env):
              'run_id':env['GITHUB_RUN_ID'],'run_attempt':1,'source_files':{n:C.digest(b) for n,b in snapshot.items()},
              'platform_sha256':C.digest(C.encode(platform)),'control_plane_sha256':C.digest(C.encode(plane)),
              'installation_sha256':C.digest(installation),
+             'runtime_transport_sha256':C.digest(transport_raw),
              'started_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),
              'clock_relation':'not_verified'}
         pre_raw=C.encode(pre);R.save(evidence/'prelaunch.json',pre_raw)
@@ -533,6 +862,9 @@ HANDOFF_SOURCES=('schemas/metrics/q3_capture_handoff_request_v1.schema.json',
 
 
 def execute_handoff(C,p,request,snapshot,root,raw,env):
+    # A missing payload source is not a reason to acquire or compare an old
+    # preflight, and never activates a fallback to the original artifact.
+    runtime_transport_plan(C,p)
     extra={}
     for name in HANDOFF_SOURCES:
         b=boot_read(root/name,128*1024)

@@ -241,6 +241,11 @@ def test_actual_worker_branch_with_explicit_runtime_doubles_never_generates(tmp_
     # No target dependency import: only the platform and tokenizer seam are replaced.
     from test_q3_native_capture_v0 import evidence
     source,data,r=evidence('token-preflight' if mode=='token-preflight' else 'capture')
+    # The transport fixture has an explicitly configured synthetic controller;
+    # bind the worker to those exact source bytes, not inactive production ROOT.
+    source_root=tmp_path/'synthetic-source'
+    for name,body in source.items():
+        target=source_root/name;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(body)
     pre=C.strict_json(data['prelaunch.json'])
     if mode=='capture_wrong_map':pre['request']['approved_token_map_sha256']='0'*64
     raw=C.encode(pre);path=tmp_path/'prelaunch.json';path.write_bytes(raw)
@@ -254,9 +259,9 @@ def test_actual_worker_branch_with_explicit_runtime_doubles_never_generates(tmp_
         m.setattr(W.sys,'stdin',types.SimpleNamespace(buffer=inp));m.setattr(W.sys,'stdout',types.SimpleNamespace(buffer=out))
         m.setattr(W,'load_tokenizer',lambda *a:Tokenizer())
         m.setattr(W,'load_model',lambda *a:pytest.fail('model load before capture boundary'))
-        if mode=='token-preflight':assert W.run(ROOT,tmp_path,path,C.digest(raw))==0
+        if mode=='token-preflight':assert W.run(source_root,tmp_path,path,C.digest(raw))==0
         else:
-            with pytest.raises(ValueError):W.run(ROOT,tmp_path,path,C.digest(raw))
+            with pytest.raises(ValueError):W.run(source_root,tmp_path,path,C.digest(raw))
     rows=[C.strict_json(x) for x in out.getvalue().splitlines()]
     assert len([x for x in rows if x['record_type']=='q3_token_row_v0'])==204
     assert not [x for x in rows if x['record_type']=='q3_response_v0']

@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Prepare an inactive, source-bound Q3 runtime transport for the exact twenty
+  preserved byte fragments. Verify each part and the original archive before
+  the existing independent archive check; bind retrieval evidence to prelaunch.
+  Retain exact historical checker replay while requiring the current checker
+  for capture handoff. Add offline transport and integration regressions.
+  The payload source remains unconfigured; no hosted retrieval, publication,
+  native execution, capture or release-authority change is asserted.
+
 - Fix Q3 native installation completion: consume and validate the exact installer
   acknowledgement before the unchanged empty-tail, EOF and exit checks.
   Add real-pipe regressions using the actual installer body with synthetic
