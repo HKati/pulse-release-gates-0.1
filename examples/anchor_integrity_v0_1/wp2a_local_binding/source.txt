@@ -1,0 +1,2 @@
+synthetic record
+value: 7

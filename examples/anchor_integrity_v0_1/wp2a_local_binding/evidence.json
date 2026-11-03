@@ -1,0 +1,57 @@
+{
+  "authority_effect": "none",
+  "candidate_status": "diagnostic_only",
+  "evidence_items": [
+    {
+      "content_sha256": "1f3a14d4c33c4d91cb78b6ad26a484f65e595656790d3143199d3d94af226f37",
+      "evidence_id": "evidence-1",
+      "locator": {
+        "end_line": 2,
+        "start_line": 2,
+        "type": "line_range"
+      },
+      "locator_verification": {
+        "reason": "synthetic_fixture_no_external_verification",
+        "result": null,
+        "status": "not_run"
+      },
+      "source_id": "source-1",
+      "subject_binding": {
+        "expected_run_id": "synthetic-run-001",
+        "expected_subject_id": "wp2a-synthetic-001",
+        "observed_run_id": "synthetic-run-001",
+        "observed_subject_id": "wp2a-synthetic-001",
+        "verification": {
+          "reason": "synthetic_fixture_no_external_verification",
+          "result": null,
+          "status": "not_run"
+        }
+      }
+    }
+  ],
+  "packet_id": "wp2a-evidence",
+  "schema_version": "anchor_integrity_evidence_packet_v0_1",
+  "sources": [
+    {
+      "canonical_identifier": "fixture:anchor-wp2a:source-1",
+      "content_sha256": "f9f7d689bbe12f74999386cd657149a675a662607e34cfcf152bf51674308ae9",
+      "identity_verification": {
+        "reason": "synthetic_fixture_no_external_verification",
+        "result": null,
+        "status": "not_run"
+      },
+      "integrity_verification": {
+        "reason": "synthetic_fixture_no_external_verification",
+        "result": null,
+        "status": "not_run"
+      },
+      "revision": null,
+      "source_id": "source-1",
+      "source_type": "provided_context"
+    }
+  ],
+  "subject": {
+    "run_id": "synthetic-run-001",
+    "subject_id": "wp2a-synthetic-001"
+  }
+}
