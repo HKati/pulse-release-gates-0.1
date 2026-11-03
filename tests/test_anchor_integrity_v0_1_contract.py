@@ -1190,5 +1190,513 @@ def test_wp2a_report_schema_rejects_nonrun_measured_results(part):
     report=_wp2_run(WP2_DEMO);report['unperformed_checks'][part]['result']='verified'
     with pytest.raises(_wp2_module().BindingError):_wp2_module().SchemaSet().validate('report',report)
 
+
+
+# WP2B: explicit JSON-pointer projection. All preceding WP1/WP2A tests remain.
+WP2B_DEMO = EXAMPLE_DIR / "wp2b_json_pointer"
+WP2B_INPUT_PIN = "2551b182d5b31477d94df8cadf94a38120499d4ebe72b780dd1f00b1fa7e605a"
+WP2B_CARRIERS_PIN = "dbed53cc547ea242cf3ef5111513b65dd8dd23a80d1994784a7c98ebf65be19e"
+
+
+@_wp2_lru_cache(maxsize=1)
+def _wp2b_pointer_module():
+    path = ROOT / "tools" / "anchor_integrity_json_pointer_v0_1.py"
+    spec = _wp2_importlib.spec_from_file_location("anchor_wp2b_projection_test", path)
+    module = _wp2_importlib.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _wp2b_fixture(tmp_path):
+    dest = tmp_path / "json-bundle"
+    _wp2_shutil.copytree(WP2B_DEMO, dest)
+    return dest
+
+
+def _wp2b_run(root, pins=None):
+    first, second = pins or (WP2B_INPUT_PIN, WP2B_CARRIERS_PIN)
+    m = _wp2_module()
+    return m.verify_bundle(root, "input.json", first, "carriers.json", second,
+                           profile=m.WP2B_PROFILE)
+
+
+def _wp2b_assert_limits(report):
+    assert report["schema_version"] == "anchor_integrity_binding_report_v0_2"
+    assert report["work_package"] == "WP2B"
+    assert report["json_pointer_profile"] == "rfc6901_source_spans_v1"
+    assert report["candidate_status"] == "diagnostic_only"
+    assert report["authority_effect"] == "none"
+    assert report["release_authority_activation"] is False
+    assert report["requested_checks_complete"] is False
+    for check in report["unperformed_checks"].values():
+        assert check["status"] == "not_run" and check["result"] is None
+    for check in report["checks"]:
+        if check["status"] != "completed":
+            assert check["result"] is None and check["reason"]
+    for relation in report["recorded_relation_results"]:
+        assert relation["accepted_as_semantic_support"] is False
+    m = _wp2_module()
+    m.SchemaSet(m.WP2B_PROFILE).validate("report", report)
+
+
+def test_wp2b_complete_demo_receipts_and_explicit_pins():
+    assert _wp2_hash(WP2B_DEMO / "input.json") == WP2B_INPUT_PIN
+    assert _wp2_hash(WP2B_DEMO / "carriers.json") == WP2B_CARRIERS_PIN
+    report = _wp2b_run(WP2B_DEMO)
+    assert report["status"] == "LOCAL_BINDINGS_CONSISTENT"
+    assert report["issues"] == []
+    assert report["counts"]["claims"] == 2
+    receipts = report["json_pointer_selections"]
+    assert len(receipts) == 3
+    assert receipts[-1]["projected_sha256"] == hashlib.sha256(b"7.00e+0").hexdigest()
+    assert receipts[0]["source_slice_sha256"] != receipts[0]["projected_sha256"]
+    assert receipts[0]["projected_sha256"] == hashlib.sha256(b"The recorded sample value is 7.").hexdigest()
+    for receipt in receipts:
+        data = (WP2B_DEMO / ("response.json" if receipt["purpose"] == "claim" else "source.json")).read_bytes()
+        raw = data[receipt["start_byte"]:receipt["end_byte"]]
+        assert hashlib.sha256(raw).hexdigest() == receipt["source_slice_sha256"]
+        assert hashlib.sha256(data).hexdigest() == receipt["source_sha256"]
+    assert report["implementation"]["json_pointer_module_sha256"] == _wp2_hash(
+        ROOT / "tools/anchor_integrity_json_pointer_v0_1.py")
+    _wp2b_assert_limits(report)
+
+
+@pytest.mark.parametrize("schema", ("anchor_integrity_local_carriers_v0_2.schema.json", "anchor_integrity_binding_report_v0_2.schema.json"))
+def test_wp2b_new_schema_valid_and_self_contained(schema):
+    value = load_json(SCHEMA_DIR / schema)
+    jsonschema.Draft202012Validator.check_schema(value)
+    _wp2_module()._assert_self_contained(value)
+
+
+def test_wp2b_is_not_implicitly_enabled_for_v02_carriers():
+    report = _wp2_run(WP2B_DEMO, (WP2B_INPUT_PIN, WP2B_CARRIERS_PIN))
+    assert report["status"] == "LOCAL_BINDINGS_INVALID"
+    assert _wp2_issue(report, "schema_invalid_carriers")
+    assert "json_pointer_selections" not in report
+    _wp2_assert_limits(report)
+
+
+def test_wp2b_requires_v02_carrier_and_never_falls_back_to_v01():
+    report = _wp2b_run(WP2_DEMO, (WP2_INPUT_PIN, WP2_CARRIERS_PIN))
+    assert report["status"] == "LOCAL_BINDINGS_INVALID"
+    assert _wp2_issue(report, "schema_invalid_carriers")
+    _wp2b_assert_limits(report)
+
+
+def test_wp2b_old_profile_keeps_json_pointer_incomplete(tmp_path):
+    root = _wp2b_fixture(tmp_path)
+    carrier = load_json(root / "carriers.json")
+    carrier["schema_version"] = "anchor_integrity_local_carriers_v0_1"
+    del carrier["json_pointer_profile"]
+    _wp2_write(root / "carriers.json", carrier)
+    report = _wp2_run(root, (WP2B_INPUT_PIN, _wp2_hash(root / "carriers.json")))
+    assert report["status"] == "LOCAL_BINDINGS_INCOMPLETE"
+    assert _wp2_issue(report, "json_pointer_projection_not_implemented")
+    _wp2_assert_limits(report)
+
+
+@pytest.mark.parametrize("value", (None, "", "unknown", "rfc6901_source_spans_v2", True, 1))
+def test_wp2b_wrong_or_missing_profile_is_rejected(tmp_path, value):
+    root = _wp2b_fixture(tmp_path)
+    p = root / "carriers.json"; carrier = load_json(p)
+    if value is None:
+        del carrier["json_pointer_profile"]
+    else:
+        carrier["json_pointer_profile"] = value
+    _wp2_write(p, carrier)
+    report = _wp2b_run(root, (WP2B_INPUT_PIN, _wp2_hash(p)))
+    assert report["status"] == "LOCAL_BINDINGS_INVALID"
+    assert _wp2_issue(report, "schema_invalid_carriers")
+    _wp2b_assert_limits(report)
+
+
+@pytest.mark.parametrize("pointer,token,kind", (
+    ("/list/0", b'"first"', "string"),
+    ("/list", b'["first", "second"]', "array"),
+    ("/", b"9", "number"),
+    ("/a~1b", b"1", "number"),
+    ("/tilde~0key", b"2", "number"),
+    ("/c%d", b"3", "number"),
+    ("/~01", b"4", "number"),
+    ("/~1", b"5", "number"),
+    ("/01", b"6", "number"),
+    ("/-", b"7", "number"),
+    ("/~0", b"8", "number"),
+))
+def test_wp2b_pointer_token_rules_and_object_numeric_keys(pointer, token, kind):
+    # Original fixture; covers the escaping and evaluation rules of RFC 6901.
+    raw = b'{"list": ["first", "second"], "":9, "a/b":1, "tilde~key":2, "c%d":3, "~1":4, "/":5, "01":6, "-":7, "~":8}'
+    selected, receipt = _wp2b_pointer_module().Document(raw).project(pointer, "evidence")
+    assert selected == token and receipt["selected_value_type"] == kind
+    assert raw[receipt["start_byte"]:receipt["end_byte"]] == token
+
+
+@pytest.mark.parametrize("token,kind", (
+    (b"null", "null"), (b"true", "boolean"), (b"false", "boolean"),
+    (b"0", "number"), (b"-0", "number"), (b"1.000e+02", "number"),
+    (b"1e99999", "number"), (b"-1e-99999", "number"),
+    (b"123456789012345678901234567890", "number"),
+    (b'"\\u0061"', "string"), (b'"a\\/b"', "string"),
+    (b'""', "string"), (b"[]", "array"), (b"{}", "object"),
+    (b'[ 1,\n 2 ]', "array"), (b'{ "z" : 1, "a" : 2 }', "object"),
+))
+def test_wp2b_evidence_preserves_exact_lexeme(token, kind):
+    raw = b' \r\n { "x" : \t' + token + b' \n}  '
+    selected, receipt = _wp2b_pointer_module().Document(raw).project("/x", "evidence")
+    assert selected == token
+    assert receipt["selected_value_type"] == kind
+    assert receipt["projection"] == "source_value_bytes"
+    assert receipt["projected_sha256"] == hashlib.sha256(token).hexdigest()
+    assert raw[receipt["start_byte"]:receipt["end_byte"]] == token
+
+
+@pytest.mark.parametrize("token,decoded", (
+    (b'"simple"', "simple"), (b'"\\u0061"', "a"),
+    (b'"\\u00e1rv\\u00edz"', "árvíz"),
+    ('"árvíz"'.encode(), "árvíz"),
+    (b'"\\ud83d\\ude00"', "😀"), ('"😀"'.encode(), "😀"),
+    (b'"a\\n\\t\\r\\b\\f\\u0000"', "a\n\t\r\b\f\0"),
+    (b'"a\\\\b\\/c\\\"d"', 'a\\b/c"d'),
+    ('"e\u0301"'.encode(), "e\u0301"), (b'""', ""),
+))
+def test_wp2b_claim_projection_decodes_strings_only_without_normalization(token, decoded):
+    raw = ' {"prefix":"😀", "claim": '.encode() + token + b"}"
+    selected, receipt = _wp2b_pointer_module().Document(raw).project("/claim", "claim")
+    assert selected == decoded.encode("utf-8")
+    assert receipt["projection"] == "decoded_string_utf8"
+    assert raw[receipt["start_byte"]:receipt["end_byte"]] == token
+
+
+@pytest.mark.parametrize("token", (b"1", b"null", b"false", b"true", b"[]", b"{}"))
+def test_wp2b_claim_projection_does_not_stringify_other_json_types(token):
+    m = _wp2b_pointer_module()
+    with pytest.raises(m.ProjectionError, match="^json_pointer_claim_requires_string$"):
+        m.Document(b'{"x":' + token + b'}').project("/x", "claim")
+
+
+@pytest.mark.parametrize("pointer,code", (
+    ("x", "json_pointer_syntax"), ("#/x", "json_pointer_syntax"),
+    ("/~", "json_pointer_syntax"), ("/~2", "json_pointer_syntax"),
+    ("/~~0", "json_pointer_syntax"), ("/x~01~", "json_pointer_syntax"),
+    ("/missing", "json_pointer_member_missing"),
+    ("/list/00", "json_pointer_array_index"), ("/list/01", "json_pointer_array_index"),
+    ("/list/-", "json_pointer_array_index"), ("/list/-1", "json_pointer_array_index"),
+    ("/list/+0", "json_pointer_array_index"), ("/list/ 0", "json_pointer_array_index"),
+    ("/list/٠", "json_pointer_array_index"), ("/list/０", "json_pointer_array_index"),
+    ("/list/0.0", "json_pointer_array_index"), ("/list/1e0", "json_pointer_array_index"),
+    ("/list/", "json_pointer_array_index"),
+    ("/list/1", "json_pointer_index_out_of_bounds"),
+    ("/list/" + "9" * 500, "json_pointer_index_out_of_bounds"),
+    ("/list/0/x", "json_pointer_scalar_traversal"),
+    ("/null/x", "json_pointer_scalar_traversal"),
+    ("/empty/0", "json_pointer_index_out_of_bounds"),
+    ("/a%2Fb", "json_pointer_member_missing"),
+    ("/e\u0301", "json_pointer_member_missing"),
+))
+def test_wp2b_bad_pointers_have_stable_errors(pointer, code):
+    m = _wp2b_pointer_module()
+    raw = '{"list":[1],"null":null,"empty":[],"a/b":2,"é":3}'.encode()
+    with pytest.raises(m.ProjectionError) as exc:
+        m.Document(raw).project(pointer, "evidence")
+    assert exc.value.code == code
+
+
+@pytest.mark.parametrize("pointer", (None, 0, True, [], {}))
+def test_wp2b_pointer_must_be_a_string(pointer):
+    m = _wp2b_pointer_module()
+    with pytest.raises(m.ProjectionError, match="^json_pointer_type$"):
+        m.Document(b'{}').project(pointer, "evidence")
+
+
+@pytest.mark.parametrize("raw", (
+    b'', b' ', b'{', b'[', b'{"x":}', b'{x:1}', b'{"x" 1}',
+    b'{"x":1,}', b'[1,]', b'[,1]', b'[1 2]', b'{"x":1 "y":2}',
+    b'true false', b'{}x', b'{"x":01}', b'{"x":-01}', b'{"x":+1}',
+    b'{"x":1.}', b'{"x":.1}', b'{"x":1e}', b'{"x":1e+}',
+    b'{"x":NaN}', b'{"x":Infinity}', b'{"x":-Infinity}', b'{"x":TRUE}',
+    b'/*comment*/{}', b'{"x":1//x\n}', b'{"x":1\x0b}',
+    b'"unterminated', b'"bad\\q"', b'"bad\\u000x"', b'"bad\n"',
+    b'"bad\x00"', b'"bad\\"', b'"\\ud800"', b'"\\udc00"',
+    b'"\\ud800x"', b'"\\ud800\\u0061"', b'{"\\ud800":1}',
+    b'\xef\xbb\xbf{}', b'\xff', b'{"x":"\xc0\xaf"}', b'{"x":"\xed\xa0\x80"}',
+))
+def test_wp2b_entire_json_document_is_checked(raw):
+    m = _wp2b_pointer_module()
+    with pytest.raises(m.ProjectionError):
+        m.Document(raw)
+
+
+@pytest.mark.parametrize("raw", (
+    b'{"a":1,"a":2}', b'{"a":1,"\\u0061":2}',
+    b'{"ok":1,"discarded":{"x":1,"x":2}}',
+    b'{"ok":1,"discarded":[{"x":1,"\\u0078":2}]}',
+    '{"😀":1,"\\ud83d\\ude00":2}'.encode(),
+))
+def test_wp2b_duplicate_decoded_keys_anywhere_are_rejected(raw):
+    m = _wp2b_pointer_module()
+    with pytest.raises(m.ProjectionError, match="^json_pointer_duplicate_key$"):
+        m.Document(raw)
+
+
+@pytest.mark.parametrize("key", ("", "a/b", "~", "~1", "a%b", "\0", "\n", "\"", "\\", "árvíz", "😀", "e\u0301"))
+def test_wp2b_member_keys_resolve_by_code_points(key):
+    raw = json.dumps({key: "value"}, ensure_ascii=True).encode()
+    pointer = "/" + key.replace("~", "~0").replace("/", "~1")
+    projected, receipt = _wp2b_pointer_module().Document(raw).project(pointer, "claim")
+    assert projected == b"value"
+    assert raw[receipt["start_byte"]:receipt["end_byte"]] == b'"value"'
+
+
+def test_wp2b_root_utility_support_does_not_relax_existing_packet_schemas(tmp_path):
+    m = _wp2b_pointer_module()
+    assert m.Document(b' \n [ 1 ] ').project("", "evidence")[0] == b'[ 1 ]'
+    root = _wp2b_fixture(tmp_path); p = root / "claims.json"; cp = load_json(p)
+    cp['claim_set']['claims'][0]['locator']['value'] = ""
+    _wp2_write(p, cp)
+    report = _wp2b_run(root, _wp2_rebind(root))
+    assert report['status'] == 'LOCAL_BINDINGS_INVALID'
+    assert _wp2_issue(report, 'schema_invalid_claims')
+
+
+@pytest.mark.parametrize("limit,value,raw,code", (
+    ("MAX_FILE_BYTES", 2, b"[0]", "json_pointer_file_limit"),
+    ("MAX_DEPTH", 2, b"[[[0]]]", "json_pointer_complexity_limit"),
+    ("MAX_NODES", 2, b"[0,1]", "json_pointer_complexity_limit"),
+    ("MAX_NODES", 2, b'{"a":1}', "json_pointer_complexity_limit"),
+    ("MAX_ITEMS", 1, b"[0,1]", "json_pointer_item_limit"),
+    ("MAX_ITEMS", 1, b'{"a":1,"b":2}', "json_pointer_item_limit"),
+))
+def test_wp2b_document_resource_limits(limit, value, raw, code, monkeypatch):
+    m = _wp2b_pointer_module(); monkeypatch.setattr(m, limit, value)
+    with pytest.raises(m.ProjectionError) as exc:
+        m.Document(raw)
+    assert exc.value.code == code
+
+
+def test_wp2b_document_at_exact_limits_is_accepted(monkeypatch):
+    m = _wp2b_pointer_module()
+    monkeypatch.setattr(m, "MAX_FILE_BYTES", 3)
+    monkeypatch.setattr(m, "MAX_DEPTH", 1)
+    monkeypatch.setattr(m, "MAX_ITEMS", 1)
+    monkeypatch.setattr(m, "MAX_NODES", 2)
+    assert m.Document(b"[0]").project("/0", "evidence")[0] == b"0"
+
+
+@pytest.mark.parametrize("pointer,code", (
+    ("/" + "x" * 4096, "json_pointer_length_limit"),
+    ("/" + "é" * 2048, "json_pointer_length_limit"),
+    ("/a" * 65, "json_pointer_token_limit"),
+    ("/\ud800", "json_pointer_invalid_unicode"),
+))
+def test_wp2b_pointer_limits(pointer, code):
+    m = _wp2b_pointer_module()
+    with pytest.raises(m.ProjectionError) as exc:
+        m.Document(b"{}").project(pointer, "evidence")
+    assert exc.value.code == code
+
+
+@pytest.mark.parametrize("value", ("x", b"x", None, True))
+def test_wp2b_unknown_projection_purpose_is_rejected(value):
+    m = _wp2b_pointer_module()
+    with pytest.raises(m.ProjectionError, match="^json_pointer_projection_purpose$"):
+        m.Document(b'{}').project("", value)
+
+
+@pytest.mark.parametrize("filename", ("input.json", "carriers.json", "claims.json", "evidence.json", "relations.json", "legacy.json", "response.json", "source.json"))
+def test_wp2b_missing_carriers_are_incomplete(tmp_path, filename):
+    root = _wp2b_fixture(tmp_path); (root / filename).unlink()
+    report = _wp2b_run(root)
+    assert report["status"] == "LOCAL_BINDINGS_INCOMPLETE"
+    assert _wp2_issue(report, "missing_carrier")
+    _wp2b_assert_limits(report)
+
+
+@pytest.mark.parametrize("filename", ("input.json", "carriers.json", "claims.json", "evidence.json", "relations.json", "legacy.json", "response.json", "source.json"))
+def test_wp2b_stale_root_or_source_hash_is_invalid(tmp_path, filename):
+    root = _wp2b_fixture(tmp_path); p = root / filename
+    p.write_bytes(p.read_bytes() + b"\n")
+    report = _wp2b_run(root)
+    assert report["status"] == "LOCAL_BINDINGS_INVALID"
+    _wp2b_assert_limits(report)
+
+
+@pytest.mark.parametrize("target,pointer,code", (
+    ("claims", "/statements/01", "json_pointer_array_index"),
+    ("claims", "/kind/0", "json_pointer_scalar_traversal"),
+    ("evidence", "/record/missing", "json_pointer_member_missing"),
+    ("evidence", "/record/~2", "json_pointer_syntax"),
+))
+def test_wp2b_bad_locator_remains_invalid_after_outer_rehash(tmp_path, target, pointer, code):
+    root = _wp2b_fixture(tmp_path); p = root / (target + ".json"); obj = load_json(p)
+    if target == 'claims':obj['claim_set']['claims'][0]['locator']['value'] = pointer
+    else: obj['evidence_items'][0]['locator']['value'] = pointer
+    _wp2_write(p, obj); report = _wp2b_run(root, _wp2_rebind(root))
+    assert report['status'] == 'LOCAL_BINDINGS_INVALID' and _wp2_issue(report, code)
+    _wp2b_assert_limits(report)
+
+
+def test_wp2b_rehashing_source_does_not_hide_changed_selected_lexeme(tmp_path):
+    root = _wp2b_fixture(tmp_path); source = root / 'source.json'
+    source.write_bytes(source.read_bytes().replace(b'7.00e+0', b'7'))
+    p = root / 'evidence.json'; ep = load_json(p)
+    ep['sources'][0]['content_sha256'] = _wp2_hash(source)
+    _wp2_write(p, ep)
+    report = _wp2b_run(root, _wp2_rebind(root))
+    assert report['status'] == 'LOCAL_BINDINGS_INVALID'
+    assert any(x['id']=='evidence:evidence-1.sha256' and x['result']=='mismatch' for x in report['checks'])
+    _wp2b_assert_limits(report)
+
+
+def test_wp2b_unchanged_selection_does_not_hide_changed_whole_source(tmp_path):
+    root = _wp2b_fixture(tmp_path); source = root / 'source.json'
+    source.write_bytes(source.read_bytes().replace(b'false', b'true'))
+    report = _wp2b_run(root)
+    assert report['status'] == 'LOCAL_BINDINGS_INVALID'
+    assert any(x['id'].startswith('source:') and x['id'].endswith('.sha256') and x['result']=='mismatch' for x in report['checks'])
+    assert any(x['id']=='evidence:evidence-1.sha256' and x['result']=='match' for x in report['checks'])
+
+
+@pytest.mark.parametrize('bad', (b'{"record":{"value":7.00e+0},"outside":{"x":1,"x":2}}', b'{"record":{"value":7.00e+0}} trailing'))
+def test_wp2b_rehashed_malformed_source_cannot_pass(tmp_path, bad):
+    root=_wp2b_fixture(tmp_path);(root/'source.json').write_bytes(bad)
+    p=root/'evidence.json';ep=load_json(p);ep['sources'][0]['content_sha256']=_wp2_hash(root/'source.json')
+    _wp2_write(p,ep);report=_wp2b_run(root,_wp2_rebind(root))
+    assert report['status']=='LOCAL_BINDINGS_INVALID'
+    assert not any(x['purpose']=='evidence' for x in report['json_pointer_selections'])
+    _wp2b_assert_limits(report)
+
+
+def test_wp2b_invalid_wins_over_missing_carrier(tmp_path):
+    root=_wp2b_fixture(tmp_path);(root/'response.json').unlink()
+    (root/'source.json').write_bytes(b'invalid')
+    report=_wp2b_run(root)
+    assert report['status']=='LOCAL_BINDINGS_INVALID'
+    assert {x['severity'] for x in report['issues']}=={'invalid','incomplete'}
+    _wp2b_assert_limits(report)
+
+
+def test_wp2b_report_determinism_and_input_non_interference(tmp_path):
+    root=_wp2b_fixture(tmp_path);before={p.name:p.read_bytes() for p in root.iterdir()}
+    a=_wp2b_run(root);b=_wp2b_run(root)
+    assert json.dumps(a,sort_keys=True)==json.dumps(b,sort_keys=True)
+    assert before=={p.name:p.read_bytes() for p in root.iterdir()}
+    _wp2b_assert_limits(a)
+
+
+def test_wp2b_line_and_character_locators_still_work_in_explicit_profile(tmp_path):
+    root=_wp2_fixture(tmp_path);p=root/'carriers.json';ca=load_json(p)
+    ca['schema_version']='anchor_integrity_local_carriers_v0_2'
+    ca['json_pointer_profile']='rfc6901_source_spans_v1';_wp2_write(p,ca)
+    report=_wp2b_run(root,(WP2_INPUT_PIN,_wp2_hash(p)))
+    assert report['status']=='LOCAL_BINDINGS_CONSISTENT'
+    assert report['json_pointer_selections']==[]
+    _wp2b_assert_limits(report)
+
+
+@pytest.mark.parametrize('field,value', (('requested_checks_complete',True),('authority_effect','release'),('release_authority_activation',True),('candidate_status','active')))
+def test_wp2b_report_cannot_promote_authority(field,value):
+    report=_wp2b_run(WP2B_DEMO);report[field]=value;m=_wp2_module()
+    with pytest.raises(m.BindingError):m.SchemaSet(m.WP2B_PROFILE).validate('report',report)
+
+
+@pytest.mark.parametrize('part',_wp2_module().UNPERFORMED)
+def test_wp2b_report_does_not_promote_unperformed_checks(part):
+    report=_wp2b_run(WP2B_DEMO);report['unperformed_checks'][part]['status']='completed'
+    report['unperformed_checks'][part]['result']='verified';m=_wp2_module()
+    with pytest.raises(m.BindingError):m.SchemaSet(m.WP2B_PROFILE).validate('report',report)
+
+
+@pytest.mark.parametrize('mutation',('claim_projection','claim_type','evidence_projection','module_hash','profile'))
+def test_wp2b_report_rejects_wrong_projection_identity(mutation):
+    report=_wp2b_run(WP2B_DEMO)
+    if mutation=='claim_projection':report['json_pointer_selections'][0]['projection']='source_value_bytes'
+    elif mutation=='claim_type':report['json_pointer_selections'][0]['selected_value_type']='number'
+    elif mutation=='evidence_projection':report['json_pointer_selections'][-1]['projection']='decoded_string_utf8'
+    elif mutation=='module_hash':del report['implementation']['json_pointer_module_sha256']
+    else:report['json_pointer_profile']='other'
+    m=_wp2_module()
+    with pytest.raises(m.BindingError):m.SchemaSet(m.WP2B_PROFILE).validate('report',report)
+
+
+def test_wp2b_parser_is_cached_per_exact_source_and_errors_cached(monkeypatch):
+    m=_wp2_module();review=m.Review(m.SchemaSet(m.WP2B_PROFILE));module=review._pointer_module
+    calls=[];original=module.Document
+    def counted(data):
+        calls.append(data);return original(data)
+    monkeypatch.setattr(module,'Document',counted)
+    raw=b'{"x":"ok","y":"also"}'
+    for i in range(2):
+        assert review.select(raw,{'type':'json_pointer','value':'/x'},'claim',f'c{i}')==b'ok'
+    bad=b'{broken'
+    for i in range(2):
+        with pytest.raises(m.BindingError):review.select(bad,{'type':'json_pointer','value':'/x'},'claim',f'e{i}')
+    assert calls==[raw,bad]
+
+
+def test_wp2b_projection_byte_budget_is_enforced(monkeypatch):
+    m=_wp2_module();monkeypatch.setattr(m,'MAX_POINTER_PROJECTION_BYTES',1)
+    report=_wp2b_run(WP2B_DEMO)
+    assert report['status']=='LOCAL_BINDINGS_INVALID'
+    assert _wp2_issue(report,'json_pointer_projection_budget')
+    assert report['json_pointer_selections']==[]
+
+
+def test_wp2b_projection_module_import_does_not_write_bytecode(tmp_path,monkeypatch):
+    m=_wp2_module();root=tmp_path/'installation';(root/'tools').mkdir(parents=True)
+    _wp2_shutil.copytree(ROOT/'schemas',root/'schemas')
+    _wp2_shutil.copyfile(ROOT/'tools/anchor_integrity_json_pointer_v0_1.py',root/'tools/anchor_integrity_json_pointer_v0_1.py')
+    monkeypatch.setattr(m,'ROOT',root);previous=_wp2_sys.dont_write_bytecode
+    m.Review(m.SchemaSet(m.WP2B_PROFILE))
+    assert _wp2_sys.dont_write_bytecode==previous
+    assert not (root/'tools/__pycache__').exists()
+
+
+def test_wp2b_unknown_cli_profile_fails_without_success_json():
+    result=_wp2_subprocess.run([_wp2_sys.executable,str(WP2_TOOL),'--bundle-root',str(WP2B_DEMO),'--input','input.json','--expected-input-sha256',WP2B_INPUT_PIN,'--carriers','carriers.json','--expected-carriers-sha256',WP2B_CARRIERS_PIN,'--profile','unrecognized'],capture_output=True,timeout=30)
+    assert result.returncode==2 and not result.stdout
+
+
+def test_wp2b_full_cli_returns_bounded_diagnostic_report():
+    result=_wp2_subprocess.run([_wp2_sys.executable,str(WP2_TOOL),'--bundle-root',str(WP2B_DEMO),'--input','input.json','--expected-input-sha256',WP2B_INPUT_PIN,'--carriers','carriers.json','--expected-carriers-sha256',WP2B_CARRIERS_PIN,'--profile','wp2b-json-pointer-v1'],capture_output=True,timeout=30)
+    assert result.returncode==0,result.stderr
+    report=json.loads(result.stdout);assert report['status']=='LOCAL_BINDINGS_CONSISTENT'
+    _wp2b_assert_limits(report)
+
+
+def test_wp2b_test_registration_reuses_existing_module():
+    for name in ('ci/tools-tests.list','ci/pytest-tests.list'):
+        entries=_manifest_entries(ROOT/name)
+        assert entries.count(TEST_PATH)==1
+
+
+def test_wp2b_projection_matches_independent_json_values_over_generated_trees():
+    # A deterministic synthetic corpus; compare resolution to JSON's decoded
+    # values while independently checking original token slices and receipts.
+    import random
+    rng=random.Random(4297)
+    m=_wp2b_pointer_module()
+    def tree(depth):
+        if depth==0 or rng.randrange(3)==0:return rng.choice([None,True,False,0,-3,1.25,'a/b','~1','árvíz','😀','e\u0301'])
+        if rng.randrange(2):return [tree(depth-1) for _ in range(rng.randrange(4))]
+        return {str(i)+rng.choice(['/','~','é','']):tree(depth-1) for i in range(rng.randrange(4))}
+    def walk(v,pointer=''):
+        yield pointer,v
+        if isinstance(v,dict):
+            for k,x in v.items():yield from walk(x,pointer+'/'+k.replace('~','~0').replace('/','~1'))
+        elif isinstance(v,list):
+            for i,x in enumerate(v):yield from walk(x,pointer+'/'+str(i))
+    count=0
+    for _ in range(80):
+        value=tree(4)
+        data=json.dumps(value,ensure_ascii=bool(rng.randrange(2)),indent=rng.choice([None,1,2])).encode()
+        doc=m.Document(data)
+        for pointer,expected in walk(value):
+            raw,receipt=doc.project(pointer,'evidence')
+            assert json.loads(raw)==expected
+            assert raw==data[receipt['start_byte']:receipt['end_byte']]
+            if isinstance(expected,str):assert doc.project(pointer,'claim')[0]==expected.encode()
+            count+=1
+    assert count>=200
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
