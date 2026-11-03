@@ -1,0 +1,48 @@
+{
+  "authority_effect": "none",
+  "candidate_status": "diagnostic_only",
+  "claim_set": {
+    "claim_set_id": "wp2a-claim-set",
+    "claims": [
+      {
+        "claim_digest": "4d228a0f6cdd189785ca1f773e2a8a52d2684a2b89797064f7dbe1aa2c160184",
+        "claim_id": "claim-1",
+        "claim_text": "The recorded sample value is 7.",
+        "claim_type": "factual",
+        "locator": {
+          "end": 31,
+          "start": 0,
+          "type": "character_span"
+        },
+        "qualifiers": [
+          "synthetic fixture"
+        ]
+      },
+      {
+        "claim_digest": "7bfb6df5e93fd5d77bbdb55f6296869e188f2918f458a796a97194546254a1ee",
+        "claim_id": "claim-2",
+        "claim_text": "No semantic support has been verified.",
+        "claim_type": "factual",
+        "locator": {
+          "end": 70,
+          "start": 32,
+          "type": "character_span"
+        },
+        "qualifiers": [
+          "synthetic fixture"
+        ]
+      }
+    ],
+    "materialization_method": "recorded_manual_v0_1",
+    "materialization_status": "complete",
+    "materialization_version": "v0.1"
+  },
+  "packet_id": "wp2a-claims",
+  "schema_version": "anchor_integrity_claim_packet_v0_1",
+  "subject": {
+    "run_id": "synthetic-run-001",
+    "source_response_id": "wp2a-response",
+    "source_response_sha256": "42a00a137bba7963274b04ecdd0b221cc7ae800e814cf9e84fa98ee59a5fd58a",
+    "subject_id": "wp2a-synthetic-001"
+  }
+}

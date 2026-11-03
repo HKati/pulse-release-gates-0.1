@@ -1,0 +1,18 @@
+{
+  "authority_effect": "none",
+  "candidate_status": "diagnostic_only",
+  "input_sha256": "be4865f6544ce1cc91b5af5dab89357b71fe4629a92ecc079de99f8e95af9d74",
+  "schema_version": "anchor_integrity_local_carriers_v0_1",
+  "source_response": {
+    "path": "response.txt",
+    "source_response_id": "wp2a-response"
+  },
+  "sources": [
+    {
+      "canonical_identifier": "fixture:anchor-wp2a:source-1",
+      "path": "source.txt",
+      "revision": null,
+      "source_id": "source-1"
+    }
+  ]
+}

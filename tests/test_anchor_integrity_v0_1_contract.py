@@ -670,5 +670,525 @@ def test_source_snapshot_is_not_a_normative_or_executable_adapter() -> None:
     )
 
 
+# WP2A executable local-binding tests. The preceding WP1 functions are retained.
+import contextlib as _wp2_contextlib
+import importlib.util as _wp2_importlib
+import io as _wp2_io
+import os as _wp2_os
+import shutil as _wp2_shutil
+import subprocess as _wp2_subprocess
+import sys as _wp2_sys
+from functools import lru_cache as _wp2_lru_cache
+
+WP2_DEMO = EXAMPLE_DIR / "wp2a_local_binding"
+WP2_TOOL = ROOT / "tools" / "check_anchor_integrity_bindings_v0_1.py"
+WP2_INPUT_PIN = "be4865f6544ce1cc91b5af5dab89357b71fe4629a92ecc079de99f8e95af9d74"
+WP2_CARRIERS_PIN = "4ad4b7301042f2b136cd13cc18f01f7b2d0b7ca823a3e46032e2f3d7e9c4e4b2"
+
+
+@_wp2_lru_cache(maxsize=1)
+def _wp2_module():
+    spec = _wp2_importlib.spec_from_file_location("anchor_wp2a_checker", WP2_TOOL)
+    module = _wp2_importlib.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _wp2_write(path, value):
+    path.write_text(json.dumps(value, sort_keys=True, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+
+
+def _wp2_hash(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _wp2_fixture(tmp_path):
+    dest = tmp_path / "bundle"
+    _wp2_shutil.copytree(WP2_DEMO, dest)
+    return dest
+
+
+def _wp2_rebind(root):
+    """Explicitly approve changed *test* roots, not an authentication operation."""
+    inp = load_json(root / "input.json")
+    rp = load_json(root / "relations.json")
+    for role, filename, rpkey in (("claim_packet", "claims.json", "claim_packet_binding"),
+                                  ("evidence_packet", "evidence.json", "evidence_packet_binding")):
+        inp["packet_bindings"][role]["sha256"] = _wp2_hash(root / filename)
+        rp[rpkey] = deepcopy(inp["packet_bindings"][role])
+    _wp2_write(root / "relations.json", rp)
+    inp["packet_bindings"]["relation_verification_packet"]["sha256"] = _wp2_hash(root / "relations.json")
+    inp["legacy_overlay"]["sha256"] = _wp2_hash(root / "legacy.json")
+    _wp2_write(root / "input.json", inp)
+    carrier = load_json(root / "carriers.json")
+    carrier["input_sha256"] = _wp2_hash(root / "input.json")
+    _wp2_write(root / "carriers.json", carrier)
+    return _wp2_hash(root / "input.json"), _wp2_hash(root / "carriers.json")
+
+
+def _wp2_run(root, pins=None, **kw):
+    first, second = pins or (WP2_INPUT_PIN, WP2_CARRIERS_PIN)
+    return _wp2_module().verify_bundle(root, kw.get("input_path", "input.json"), first,
+                                     kw.get("carriers_path", "carriers.json"), second)
+
+
+def _wp2_issue(report, code):
+    return any(x["code"] == code for x in report["issues"])
+
+
+def _wp2_assert_limits(report):
+    assert report["authority_effect"] == "none"
+    assert report["release_authority_activation"] is False
+    assert report["requested_checks_complete"] is False
+    for check in report["unperformed_checks"].values():
+        assert check["status"] == "not_run" and check["result"] is None
+    for check in report["checks"]:
+        if check["status"] != "completed":
+            assert check["result"] is None and check["reason"]
+    for relation in report["recorded_relation_results"]:
+        assert relation["accepted_as_semantic_support"] is False
+    _wp2_module().SchemaSet().validate("report", report)
+
+
+def test_wp2a_complete_local_demo_and_stable_pins():
+    assert _wp2_hash(WP2_DEMO / "input.json") == WP2_INPUT_PIN
+    assert _wp2_hash(WP2_DEMO / "carriers.json") == WP2_CARRIERS_PIN
+    report = _wp2_run(WP2_DEMO)
+    assert report["status"] == "LOCAL_BINDINGS_CONSISTENT"
+    assert report["issues"] == []
+    assert report["counts"] == {"claims": 2, "sources": 1, "evidence_items": 1,
+        "relations": 1, "claims_with_recorded_anchors": 1, "claims_without_recorded_anchors": 1}
+    _wp2_assert_limits(report)
+
+
+@pytest.mark.parametrize("role", ("claims", "evidence", "relations", "input", "carriers"))
+def test_wp2a_demo_packets_conform_to_unchanged_or_explicit_new_schema(role):
+    _wp2_module().SchemaSet().validate(role, load_json(WP2_DEMO / (role + ".json")))
+
+
+@pytest.mark.parametrize("filename", ("input.json", "carriers.json", "claims.json", "evidence.json", "relations.json", "legacy.json", "source.txt", "response.txt"))
+def test_wp2a_missing_carriers_remain_incomplete(tmp_path, filename):
+    root = _wp2_fixture(tmp_path)
+    (root / filename).unlink()
+    report = _wp2_run(root)
+    assert report["status"] == "LOCAL_BINDINGS_INCOMPLETE"
+    assert _wp2_issue(report, "missing_carrier")
+    _wp2_assert_limits(report)
+
+
+@pytest.mark.parametrize("filename", ("input.json", "carriers.json", "claims.json", "evidence.json", "relations.json", "legacy.json", "source.txt", "response.txt"))
+def test_wp2a_changed_bytes_are_invalid_under_fixed_expectations(tmp_path, filename):
+    root = _wp2_fixture(tmp_path)
+    p = root / filename
+    p.write_bytes(p.read_bytes() + b"\n")
+    report = _wp2_run(root)
+    assert report["status"] == "LOCAL_BINDINGS_INVALID"
+    _wp2_assert_limits(report)
+
+
+@pytest.mark.parametrize("value", ("", "0" * 63, "0" * 65, "A" * 64, "z" * 64, "0" * 64, None, True))
+@pytest.mark.parametrize("which", (0, 1))
+def test_wp2a_expected_roots_are_required_and_not_inferred(tmp_path, value, which):
+    pins = [WP2_INPUT_PIN, WP2_CARRIERS_PIN]
+    pins[which] = value
+    report = _wp2_run(_wp2_fixture(tmp_path), pins)
+    assert report["status"] == "LOCAL_BINDINGS_INVALID"
+    _wp2_assert_limits(report)
+
+
+@pytest.mark.parametrize("data", (b'{"x":1,"x":2}', b'{"x":{"a":1,"a":2}}', b'NaN', b'Infinity', b'-Infinity', b'1e9999', b'"\\ud800"', b'\xef\xbb\xbf{}', b'\xff', b'{bad}', b'{"x":1} trailing'))
+def test_wp2a_strict_json_rejects_ambiguous_or_invalid_values(data):
+    with pytest.raises(_wp2_module().BindingError):
+        _wp2_module().strict_json(data)
+
+
+@pytest.mark.parametrize("data,expected", ((b'{}', {}), (b'{"x":null}', {"x": None}), ('{"word":"árvíz"}'.encode(), {"word":"árvíz"}), (b'[true,1,1.5]', [True,1,1.5])))
+def test_wp2a_strict_json_accepts_regular_json(data, expected):
+    assert _wp2_module().strict_json(data) == expected
+
+
+@pytest.mark.parametrize("case", ("depth", "nodes", "items", "bytes"))
+def test_wp2a_json_resource_bounds(case, monkeypatch):
+    m = _wp2_module()
+    if case == "depth":
+        monkeypatch.setattr(m, "MAX_DEPTH", 3); data = b'[[[[0]]]]'
+    elif case == "nodes":
+        monkeypatch.setattr(m, "MAX_NODES", 2); data = b'[0,1,2]'
+    elif case == "items":
+        monkeypatch.setattr(m, "MAX_ITEMS", 2); data = b'[0,1,2]'
+    else:
+        monkeypatch.setattr(m, "MAX_FILE_BYTES", 2); data = b'[0]'
+    with pytest.raises(m.BindingError):
+        m.strict_json(data)
+
+
+@pytest.mark.parametrize("start,end", ((0,1),(-1,1),(2,1),(1,4),(True,1),(1,False),(1.0,2),(1,2.0),("1",2),(1,None)))
+def test_wp2a_invalid_line_bounds(start, end):
+    with pytest.raises(_wp2_module().BindingError):
+        _wp2_module().select_content(b"one\r\ntwo\nthree", {"type":"line_range","start_line":start,"end_line":end})
+
+
+@pytest.mark.parametrize("data,start,end,expected", ((b'a\r\nb\nc',1,2,b'a\r\nb\n'),(b'a\nb',2,2,b'b'),(b'a\n',1,1,b'a\n'),(b'\n',1,1,b'\n'),(b'a\rb',1,1,b'a\rb')))
+def test_wp2a_line_selection_is_exact_bytes(data,start,end,expected):
+    assert _wp2_module().select_content(data,{"type":"line_range","start_line":start,"end_line":end}) == expected
+
+
+@pytest.mark.parametrize("data,start,end", ((b'',1,1),(b'a\n',2,2)))
+def test_wp2a_no_phantom_line_after_final_lf(data,start,end):
+    with pytest.raises(_wp2_module().BindingError):
+        _wp2_module().select_content(data,{"type":"line_range","start_line":start,"end_line":end})
+
+
+@pytest.mark.parametrize("start,end", ((-1,1),(0,0),(2,1),(0,99),(True,1),(0,False),(0.0,1),(0,1.0),("0",1),(0,None)))
+def test_wp2a_invalid_character_bounds(start,end):
+    with pytest.raises(_wp2_module().BindingError):
+        _wp2_module().select_content(b'abc',{'type':'character_span','start':start,'end':end})
+
+
+@pytest.mark.parametrize("text,start,end,expected", (('árvíz',0,2,'ár'),('A😀B',1,2,'😀'),('e\u0301',0,1,'e'),('e\u0301',0,2,'e\u0301'),('x\r\ny',1,3,'\r\n')))
+def test_wp2a_unicode_offsets_do_not_normalize(text,start,end,expected):
+    assert _wp2_module().select_content(text.encode(),{'type':'character_span','start':start,'end':end}) == expected.encode()
+
+
+def test_wp2a_character_span_requires_utf8():
+    with pytest.raises(_wp2_module().BindingError,match='character_source_not_utf8'):
+        _wp2_module().select_content(b'\xff',{'type':'character_span','start':0,'end':1})
+
+
+@pytest.mark.parametrize("where", ("claim", "evidence"))
+def test_wp2a_json_pointer_is_explicitly_unimplemented(tmp_path, where):
+    root = _wp2_fixture(tmp_path)
+    p = root / ('claims.json' if where == 'claim' else 'evidence.json')
+    doc = load_json(p)
+    item = doc['claim_set']['claims'][0] if where == 'claim' else doc['evidence_items'][0]
+    item['locator'] = {'type':'json_pointer','value':'/text'}
+    _wp2_write(p,doc)
+    report = _wp2_run(root,_wp2_rebind(root))
+    assert report['status'] == 'LOCAL_BINDINGS_INCOMPLETE'
+    assert _wp2_issue(report,'json_pointer_projection_not_implemented')
+    _wp2_assert_limits(report)
+
+
+@pytest.mark.parametrize("path", ('../outside','/absolute','a/../../b','a\\b','C:/file','https://host/a','a//b','a/./b','./a','.','..','a/','a\n','a\x00','a.','a/%2e%2e/b','a b'))
+def test_wp2a_unsafe_relative_paths_are_rejected(path):
+    with pytest.raises(_wp2_module().BindingError):
+        _wp2_module().safe_relative(path)
+
+
+@pytest.mark.parametrize("where", ('input','packet','source','response','legacy'))
+def test_wp2a_no_path_escape_in_any_read_role(tmp_path,where):
+    root = _wp2_fixture(tmp_path)
+    if where == 'input':
+        report = _wp2_run(root,input_path='../outside')
+    else:
+        name = 'carriers.json' if where in ('source','response') else 'input.json'
+        p=root/name; doc=load_json(p)
+        if where=='packet':doc['packet_bindings']['claim_packet']['path']='../outside'
+        elif where=='legacy':doc['legacy_overlay']['path']='../outside'
+        elif where=='source':doc['sources'][0]['path']='../outside'
+        else:doc['source_response']['path']='../outside'
+        _wp2_write(p,doc)
+        report=_wp2_run(root,_wp2_rebind(root))
+    assert report['status']=='LOCAL_BINDINGS_INVALID'
+    assert _wp2_issue(report,'unsafe_relative_path')
+
+
+@pytest.mark.parametrize("kind", ('file_symlink','directory_symlink','hardlink','fifo'))
+def test_wp2a_link_and_special_file_carriers_are_rejected(tmp_path,kind):
+    root=_wp2_fixture(tmp_path); target=root/'source.txt'; data=target.read_bytes();target.unlink()
+    if kind=='file_symlink':
+        outside=tmp_path/'outside';outside.write_bytes(data);target.symlink_to(outside)
+    elif kind=='hardlink':
+        outside=tmp_path/'outside';outside.write_bytes(data);_wp2_os.link(outside,target)
+    elif kind=='fifo':
+        _wp2_os.mkfifo(target)
+    else:
+        outside=tmp_path/'other';outside.mkdir();(outside/'source.txt').write_bytes(data)
+        (root/'linked').symlink_to(outside,target_is_directory=True)
+        carrier=load_json(root/'carriers.json');carrier['sources'][0]['path']='linked/source.txt';_wp2_write(root/'carriers.json',carrier)
+    report=_wp2_run(root,_wp2_rebind(root))
+    assert report['status']=='LOCAL_BINDINGS_INVALID'
+
+
+@pytest.mark.parametrize("kind", ('duplicate_claim_id','duplicate_source_id','duplicate_evidence_id','duplicate_binding_id','duplicate_map_id'))
+def test_wp2a_unique_ids_are_required_beyond_unique_json_objects(tmp_path,kind):
+    root=_wp2_fixture(tmp_path)
+    filename={'duplicate_claim_id':'claims.json','duplicate_source_id':'evidence.json','duplicate_evidence_id':'evidence.json','duplicate_binding_id':'relations.json','duplicate_map_id':'carriers.json'}[kind]
+    p=root/filename;d=load_json(p)
+    if kind=='duplicate_claim_id':
+        d['claim_set']['claims'][1]['claim_id']=d['claim_set']['claims'][0]['claim_id']
+    else:
+        key={'duplicate_source_id':'sources','duplicate_evidence_id':'evidence_items','duplicate_binding_id':'relations','duplicate_map_id':'sources'}[kind]
+        item=deepcopy(d[key][0])
+        if kind in ('duplicate_source_id','duplicate_map_id'):item['canonical_identifier']='different'
+        elif kind=='duplicate_evidence_id':item['content_sha256']='0'*64
+        else:item['relation_type']='contextualizes'
+        d[key].append(item)
+    _wp2_write(p,d);report=_wp2_run(root,_wp2_rebind(root))
+    assert report['status']=='LOCAL_BINDINGS_INVALID'
+    assert any(x['code'].startswith('duplicate_') for x in report['issues'])
+
+
+@pytest.mark.parametrize("case", ('claim_subject','evidence_subject','relation_subject','response_id','source_name','source_revision','source_reference','claim_reference','evidence_reference','expected_subject','expected_run','observed_subject','observed_run','claim_digest','claim_span','selected_digest','packet_id'))
+def test_wp2a_rehashed_outer_packets_do_not_hide_inner_binding_errors(tmp_path,case):
+    root=_wp2_fixture(tmp_path)
+    filename = ('claims.json' if case in ('claim_subject','claim_digest','claim_span','packet_id') else
+                'relations.json' if case in ('relation_subject','claim_reference','evidence_reference') else
+                'carriers.json' if case in ('response_id','source_name','source_revision') else 'evidence.json')
+    p=root/filename;d=load_json(p)
+    if case.endswith('_subject') and case in ('claim_subject','evidence_subject','relation_subject'):d['subject']['subject_id']='other'
+    elif case=='response_id':d['source_response']['source_response_id']='other'
+    elif case=='source_name':d['sources'][0]['canonical_identifier']='other'
+    elif case=='source_revision':d['sources'][0]['revision']='other'
+    elif case=='source_reference':d['evidence_items'][0]['source_id']='other'
+    elif case=='claim_reference':d['relations'][0]['claim_id']='other'
+    elif case=='evidence_reference':d['relations'][0]['evidence_id']='other'
+    elif case in ('expected_subject','observed_subject'):d['evidence_items'][0]['subject_binding'][case+'_id']='other'
+    elif case in ('expected_run','observed_run'):d['evidence_items'][0]['subject_binding'][case+'_id']='other'
+    elif case=='claim_digest':d['claim_set']['claims'][0]['claim_digest']='0'*64
+    elif case=='claim_span':d['claim_set']['claims'][0]['locator']['end']-=1
+    elif case=='selected_digest':d['evidence_items'][0]['content_sha256']='0'*64
+    else:d['packet_id']='wp2a-evidence'
+    _wp2_write(p,d);report=_wp2_run(root,_wp2_rebind(root))
+    assert report['status']=='LOCAL_BINDINGS_INVALID'
+    _wp2_assert_limits(report)
+
+
+@pytest.mark.parametrize("case", ('response_map','source_map','observed_subject','observed_run','partial_claim_set','invalid_claim_set'))
+def test_wp2a_missing_recorded_measurements_do_not_become_success(tmp_path,case):
+    root=_wp2_fixture(tmp_path)
+    filename='carriers.json' if case.endswith('_map') else 'claims.json' if case.endswith('claim_set') else 'evidence.json'
+    p=root/filename;d=load_json(p)
+    if case=='response_map':d['source_response']=None
+    elif case=='source_map':d['sources']=[]
+    elif case in ('observed_subject','observed_run'):d['evidence_items'][0]['subject_binding'][case+'_id']=None
+    else:d['claim_set']['materialization_status']='partial' if case.startswith('partial') else 'invalid'
+    _wp2_write(p,d);report=_wp2_run(root,_wp2_rebind(root))
+    assert report['status']=='LOCAL_BINDINGS_INCOMPLETE'
+    _wp2_assert_limits(report)
+
+
+@pytest.mark.parametrize("declared", ('supported','contradicted','insufficient','unresolved'))
+def test_wp2a_recorded_verifier_labels_are_not_semantic_verification(tmp_path,declared):
+    root=_wp2_fixture(tmp_path);p=root/'relations.json';d=load_json(p)
+    r=d['relations'][0];r['relation_verification']={'status':'completed','result':declared,'reason':None};r['verifier_record_id']='unsigned-record';r['relation_type']='supports'
+    _wp2_write(p,d);report=_wp2_run(root,_wp2_rebind(root))
+    assert report['status']=='LOCAL_BINDINGS_CONSISTENT'
+    assert report['recorded_relation_results'][0]['declared_result']==declared
+    _wp2_assert_limits(report)
+
+
+def test_wp2a_fixed_root_rejects_consistently_rehashed_substitution(tmp_path):
+    root=_wp2_fixture(tmp_path);p=root/'claims.json';d=load_json(p)
+    d['claim_set']['claims'][0]['qualifiers'].append('substituted');_wp2_write(p,d)
+    _wp2_rebind(root)
+    assert _wp2_run(root)['status']=='LOCAL_BINDINGS_INVALID'
+    # Different explicitly supplied roots admit a different local object, not its truth.
+    report=_wp2_run(root,(_wp2_hash(root/'input.json'),_wp2_hash(root/'carriers.json')))
+    assert report['status']=='LOCAL_BINDINGS_CONSISTENT';_wp2_assert_limits(report)
+
+
+def test_wp2a_no_anchor_and_repeated_relations_do_not_inflate_claim_counts(tmp_path):
+    root=_wp2_fixture(tmp_path);p=root/'relations.json';d=load_json(p)
+    duplicate=deepcopy(d['relations'][0]);duplicate['binding_id']='binding-2';d['relations'].append(duplicate);_wp2_write(p,d)
+    report=_wp2_run(root,_wp2_rebind(root));assert report['counts']['claims_with_recorded_anchors']==1
+    d['relations']=[];_wp2_write(p,d);report=_wp2_run(root,_wp2_rebind(root))
+    assert report['status']=='LOCAL_BINDINGS_CONSISTENT'
+    assert report['counts']['claims_without_recorded_anchors']==2
+    _wp2_assert_limits(report)
+
+
+def test_wp2a_relation_cross_packet_hash_is_checked_separately(tmp_path):
+    root=_wp2_fixture(tmp_path);p=root/'relations.json';d=load_json(p)
+    d['claim_packet_binding']['sha256']='0'*64;_wp2_write(p,d)
+    inp=load_json(root/'input.json');inp['packet_bindings']['relation_verification_packet']['sha256']=_wp2_hash(p);_wp2_write(root/'input.json',inp)
+    carrier=load_json(root/'carriers.json');carrier['input_sha256']=_wp2_hash(root/'input.json');_wp2_write(root/'carriers.json',carrier)
+    report=_wp2_run(root,(_wp2_hash(root/'input.json'),_wp2_hash(root/'carriers.json')))
+    assert report['status']=='LOCAL_BINDINGS_INVALID'
+
+
+def test_wp2a_carrier_manifest_must_bind_exact_input(tmp_path):
+    root=_wp2_fixture(tmp_path);p=root/'carriers.json';d=load_json(p);d['input_sha256']='0'*64;_wp2_write(p,d)
+    assert _wp2_run(root,(WP2_INPUT_PIN,_wp2_hash(p)))['status']=='LOCAL_BINDINGS_INVALID'
+
+
+@pytest.mark.parametrize("name", ('input.json','carriers.json','claims.json','evidence.json','relations.json'))
+def test_wp2a_unexpected_fields_cannot_bypass_packet_schema(tmp_path,name):
+    root=_wp2_fixture(tmp_path);p=root/name;d=load_json(p);d['unknown']='forbidden';_wp2_write(p,d)
+    report=_wp2_run(root,_wp2_rebind(root));assert report['status']=='LOCAL_BINDINGS_INVALID'
+
+
+def test_wp2a_legacy_and_graph_are_byte_bound_not_semantically_accepted(tmp_path):
+    root=_wp2_fixture(tmp_path);_wp2_write(root/'graph.json',{'schema':'fixture_graph_v0','edges':['uninterpreted']})
+    inp=load_json(root/'input.json');inp['paradox_graph_binding']={'path':'graph.json','schema_version':'fixture_graph_v0','sha256':_wp2_hash(root/'graph.json')};_wp2_write(root/'input.json',inp)
+    report=_wp2_run(root,_wp2_rebind(root));assert report['status']=='LOCAL_BINDINGS_CONSISTENT';_wp2_assert_limits(report)
+    (root/'graph.json').write_bytes(b'{}');assert _wp2_run(root,(_wp2_hash(root/'input.json'),_wp2_hash(root/'carriers.json')))['status']=='LOCAL_BINDINGS_INVALID'
+
+
+def test_wp2a_no_network_schema_resolution():
+    for keyword in ('$ref','$dynamicRef','$recursiveRef'):
+        with pytest.raises(_wp2_module().BindingError,match='schema_reference_not_allowed'):
+            _wp2_module()._assert_self_contained({'properties':{'x':{keyword:'https://invalid/schema'}}})
+
+
+def test_wp2a_report_deterministic_and_bundle_bytes_unchanged(tmp_path):
+    root=_wp2_fixture(tmp_path);before={p.name:p.read_bytes() for p in root.iterdir()}
+    a=_wp2_run(root);b=_wp2_run(root)
+    assert a==b==_wp2_run(WP2_DEMO)
+    assert before=={p.name:p.read_bytes() for p in root.iterdir()}
+
+
+@pytest.mark.parametrize("case,exit_code", (('positive',0),('missing',2),('changed',1)))
+def test_wp2a_real_cli_exit_and_report_contract(tmp_path,case,exit_code):
+    root=_wp2_fixture(tmp_path)
+    if case=='missing':(root/'source.txt').unlink()
+    if case=='changed':(root/'source.txt').write_bytes(b'changed')
+    result=_wp2_subprocess.run([_wp2_sys.executable,str(WP2_TOOL),'--bundle-root',str(root),'--input','input.json','--expected-input-sha256',WP2_INPUT_PIN,'--carriers','carriers.json','--expected-carriers-sha256',WP2_CARRIERS_PIN],capture_output=True,text=True,timeout=30)
+    assert result.returncode==exit_code,result.stderr
+    report=json.loads(result.stdout);_wp2_assert_limits(report)
+    assert report==_wp2_run(root)
+
+
+def test_wp2a_cli_requires_caller_digest_expectations(tmp_path):
+    result=_wp2_subprocess.run([_wp2_sys.executable,str(WP2_TOOL),'--bundle-root',str(WP2_DEMO),'--input','input.json','--carriers','carriers.json'],capture_output=True,text=True,timeout=30)
+    assert result.returncode==2 and not result.stdout
+
+
+def test_wp2a_neither_new_manifest_registration_nor_gate_wiring_is_required():
+    for path in ('ci/tools-tests.list','ci/pytest-tests.list'):
+        assert _manifest_entries(ROOT/path).count(TEST_PATH)==1
+    source=WP2_TOOL.read_text(encoding='utf-8')
+    for unwanted in ('subprocess','urllib','requests','socket','eval(', 'exec(', 'os.system', 'check_gates.py'):
+        assert unwanted not in source
+
+
+@pytest.mark.parametrize("key", ('release_authority_activation','requested_checks_complete'))
+def test_wp2a_output_schema_rejects_authority_or_unperformed_check_promotion(key):
+    report=_wp2_run(WP2_DEMO);report[key]=True
+    with pytest.raises(_wp2_module().BindingError):
+        _wp2_module().SchemaSet().validate('report',report)
+
+@pytest.mark.parametrize('where',('source','response'))
+def test_wp2a_whole_source_hash_detects_changes_outside_selected_excerpt(tmp_path,where):
+    root=_wp2_fixture(tmp_path)
+    p=root/('source.txt' if where=='source' else 'response.txt')
+    p.write_bytes(p.read_bytes()+b'\nUnselected changed tail')
+    report=_wp2_run(root)
+    assert report['status']=='LOCAL_BINDINGS_INVALID'
+    key='source:source-1.sha256' if where=='source' else 'source_response.sha256'
+    assert any(x['id']==key and x['result']=='mismatch' for x in report['checks'])
+
+
+@pytest.mark.parametrize('case',('unknown_source','path_reuse','case_collision','legacy_tag'))
+def test_wp2a_carrier_closure_and_opaque_tags(tmp_path,case):
+    root=_wp2_fixture(tmp_path)
+    if case=='legacy_tag':
+        d=load_json(root/'legacy.json');d['schema']='wrong';_wp2_write(root/'legacy.json',d)
+    else:
+        d=load_json(root/'carriers.json')
+        if case=='unknown_source':
+            extra=deepcopy(d['sources'][0]);extra['source_id']='unknown';extra['path']='unknown.txt';d['sources'].append(extra)
+        elif case=='path_reuse':d['sources'][0]['path']='response.txt'
+        else:d['sources'][0]['path']='Response.txt';(root/'Response.txt').write_bytes((root/'source.txt').read_bytes())
+        _wp2_write(root/'carriers.json',d)
+    assert _wp2_run(root,_wp2_rebind(root))['status']=='LOCAL_BINDINGS_INVALID'
+
+
+def test_wp2a_both_null_run_ids_do_not_create_a_run_verification(tmp_path):
+    root=_wp2_fixture(tmp_path)
+    for file in ('input.json','claims.json','evidence.json','relations.json'):
+        d=load_json(root/file);d['subject']['run_id']=None
+        if file=='evidence.json':
+            d['evidence_items'][0]['subject_binding']['expected_run_id']=None
+            d['evidence_items'][0]['subject_binding']['observed_run_id']=None
+        _wp2_write(root/file,d)
+    report=_wp2_run(root,_wp2_rebind(root))
+    assert report['status']=='LOCAL_BINDINGS_CONSISTENT'
+    match=[x for x in report['checks'] if x['id']=='evidence:evidence-1.recorded_run_id']
+    assert len(match)==1 and match[0]['status']=='not_run' and match[0]['result'] is None
+    _wp2_assert_limits(report)
+
+
+def test_wp2a_verified_labels_cannot_promote_source_authentication(tmp_path):
+    root=_wp2_fixture(tmp_path);p=root/'evidence.json';d=load_json(p)
+    for key in ('identity_verification','integrity_verification'):
+        d['sources'][0][key]={'status':'completed','result':'verified','reason':None}
+    d['evidence_items'][0]['locator_verification']={'status':'completed','result':'resolved','reason':None}
+    d['evidence_items'][0]['subject_binding']['verification']={'status':'completed','result':'satisfied','reason':None}
+    _wp2_write(p,d);report=_wp2_run(root,_wp2_rebind(root))
+    assert report['status']=='LOCAL_BINDINGS_CONSISTENT'
+    _wp2_assert_limits(report)
+
+
+def test_wp2a_wrong_root_report_preserves_expected_and_observed_hash(tmp_path):
+    root=_wp2_fixture(tmp_path);p=root/'input.json';p.write_bytes(p.read_bytes()+b'\n')
+    report=_wp2_run(root)
+    assert report['expected_input_sha256']==WP2_INPUT_PIN
+    assert report['input_sha256']==_wp2_hash(p)!=WP2_INPUT_PIN
+    assert report['status']=='LOCAL_BINDINGS_INVALID'
+
+
+def test_wp2a_original_wp1_examples_are_not_relabelled_as_complete_runtime_inputs(tmp_path):
+    root=tmp_path/'legacy';dest=root/'examples/anchor_integrity_v0_1';dest.mkdir(parents=True)
+    for name in SCHEMA_EXAMPLE_PAIRS.values():
+        (dest/name).write_bytes((EXAMPLE_DIR/name).read_bytes())
+    inp=load_json(dest/'anchor_integrity_input.example.json')
+    carrier={'schema_version':'anchor_integrity_local_carriers_v0_1','candidate_status':'diagnostic_only','authority_effect':'none','input_sha256':_wp2_hash(dest/'anchor_integrity_input.example.json'),'source_response':None,'sources':[]}
+    _wp2_write(root/'carriers.json',carrier)
+    report=_wp2_module().verify_bundle(root,'examples/anchor_integrity_v0_1/anchor_integrity_input.example.json',carrier['input_sha256'],'carriers.json',_wp2_hash(root/'carriers.json'))
+    assert report['status']=='LOCAL_BINDINGS_INCOMPLETE'
+    assert _wp2_issue(report,'missing_carrier')
+    assert _wp2_issue(report,'source_response_not_supplied')
+    _wp2_assert_limits(report)
+
+
+@pytest.mark.parametrize('case',('file','total'))
+def test_wp2a_bounded_file_reads(case,tmp_path,monkeypatch):
+    m=_wp2_module();(tmp_path/'one').write_bytes(b'1234');(tmp_path/'two').write_bytes(b'5678')
+    with m.BundleReader(tmp_path) as reader:
+        if case=='file':
+            monkeypatch.setattr(m,'MAX_FILE_BYTES',3)
+            with pytest.raises(m.BindingError,match='file_limit_exceeded'):reader.read('one','one')
+        else:
+            monkeypatch.setattr(m,'MAX_TOTAL_BYTES',7);reader.read('one','one')
+            with pytest.raises(m.BindingError,match='bundle_limit_exceeded'):reader.read('two','two')
+
+
+def test_wp2a_reader_refuses_metadata_change_during_read(tmp_path,monkeypatch):
+    import types
+    m=_wp2_module();(tmp_path/'one').write_bytes(b'1234');original=m.os.fstat;calls=[]
+    def changed(fd):
+        s=original(fd);calls.append(fd)
+        if len(calls)==2:
+            return types.SimpleNamespace(**{key:getattr(s,key)+(1 if key=='st_mtime_ns' else 0) for key in ('st_mode','st_nlink','st_size','st_dev','st_ino','st_mtime_ns','st_ctime_ns')})
+        return s
+    with m.BundleReader(tmp_path) as reader:
+        monkeypatch.setattr(m.os,'fstat',changed)
+        with pytest.raises(m.BindingError,match='carrier_changed_during_read'):reader.read('one','one')
+
+
+def test_wp2a_installed_schema_failure_is_not_a_success_report(monkeypatch,capsys):
+    m=_wp2_module()
+    def unavailable():raise OSError('fixture installation failure')
+    monkeypatch.setattr(m,'SchemaSet',unavailable)
+    result=m.main(['--bundle-root',str(WP2_DEMO),'--input','input.json','--expected-input-sha256',WP2_INPUT_PIN,'--carriers','carriers.json','--expected-carriers-sha256',WP2_CARRIERS_PIN])
+    captured=capsys.readouterr();assert result==2 and not captured.out
+    assert 'installation error' in captured.err
+
+
+def test_wp2a_recorded_negative_source_labels_are_not_rewritten(tmp_path):
+    root=_wp2_fixture(tmp_path);p=root/'evidence.json';d=load_json(p)
+    d['sources'][0]['identity_verification']={'status':'completed','result':'mismatch','reason':'recorded external mismatch'}
+    _wp2_write(p,d);pins=_wp2_rebind(root);before=p.read_bytes();report=_wp2_run(root,pins)
+    assert report['status']=='LOCAL_BINDINGS_CONSISTENT'
+    assert p.read_bytes()==before
+    _wp2_assert_limits(report)
+
+
+@pytest.mark.parametrize('part',('source_identity_authentication','typed_evidence_cycle_check','semantic_support_verification','response_mode_recommendation'))
+def test_wp2a_report_schema_rejects_nonrun_measured_results(part):
+    report=_wp2_run(WP2_DEMO);report['unperformed_checks'][part]['result']='verified'
+    with pytest.raises(_wp2_module().BindingError):_wp2_module().SchemaSet().validate('report',report)
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
