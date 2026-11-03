@@ -31,8 +31,8 @@ ACQUIRER = 'tools/acquire_q3_external_postflight_v0.py'
 COMPARATOR = 'tools/check_q3_external_postflight_v0.py'
 CONTRACT = 'PULSE_safe_pack_v0/tools/q3_native_capture_contract_v0.py'
 EXTRA_SOURCES = tuple(sorted((SELF, SCHEMA, ACQUIRER, COMPARATOR)))
-ACQUIRER_SHA = '35b875e6885f56cfe601ae27c92f9acd98e8ddc8805aaeb498157ff7b04e7065'
-COMPARATOR_SHA = 'a0bbeb20ae368992883747277946f78a4926ffd71a276756ee611a81a047d16b'
+ACQUIRER_SHA = '2a80d1874f26f89cb2f8808c32e29b474ccfa39e4e274aa21a4a92460dc95ce5'
+COMPARATOR_SHA = '2fcefe7cb8f1a08c60f43e6d554617d6cff524f16d032aff1ef5090f1d6d46cd'
 AUTHORIZATION = 'AUTHORIZE_ONE_OWNER_CAPTURE_DISPATCH_WITH_FRESH_POSTFLIGHT_AND_30_DAY_RETENTION'
 REQUEST_TYPE = 'q3_capture_handoff_request_v1'
 REQUEST_FIELDS = {'record_type', 'repository', 'capture_source_commit',
@@ -105,6 +105,12 @@ def native_contract(native_sources, root, m):
     require(CONTRACT in native_sources and
         digest(native_sources[CONTRACT]) == m.REVIEWED_CHECKERS[Path(CONTRACT).name],
         'HANDOFF_NATIVE_CONTRACT_VERSION')
+    # Historical checkers remain replayable by external postflight. They cannot
+    # satisfy a new capture's current native checker requirement.
+    for name, pin in m.REVIEWED_CHECKERS.items():
+        path = 'PULSE_safe_pack_v0/tools/' + name
+        require(path in native_sources and digest(native_sources[path]) == pin,
+                'HANDOFF_NATIVE_CHECKER_VERSION')
     return compile_module('q3_handoff_native_contract', CONTRACT, native_sources[CONTRACT], root)
 
 

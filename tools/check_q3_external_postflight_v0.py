@@ -38,6 +38,12 @@ PROFILE = PACK + 'profiles/q3_native_capture_v0.json'
 PROFILE_SHA256 = '31680dc2a8b2a8d367239893e6a7abbc6587f8e6f3c6cff9f580f00425e9c16b'
 REVIEWED_CHECKERS = {
     'q3_native_capture_contract_v0.py': '1648bd22e8a0a65c0cf254739a02a0cd44b567a845434891641e6e82cad6e960',
+    'check_q3_native_capture_v0.py': 'a235086aa7d9099c7f918d6f8fe482cc8115f6f662ff88602ada912adda2273d',
+}
+# Retain exact historical replay without granting compatibility with a new
+# capture. Handoff requires the current REVIEWED_CHECKERS pair independently.
+HISTORICAL_REVIEWED_CHECKERS = {
+    'q3_native_capture_contract_v0.py': '1648bd22e8a0a65c0cf254739a02a0cd44b567a845434891641e6e82cad6e960',
     'check_q3_native_capture_v0.py': '9f4ef119555b96ec52dc7d13deb6e7d507b7b360df179b3b35f11ddfb01e6a6e',
 }
 INPUTS = ('artifact.zip', 'run.json', 'jobs.json', 'artifact.json', 'job.log')
@@ -337,13 +343,20 @@ def inspect_log(raw: bytes, e: dict, startup: dict) -> dict:
             'group_end_line': parsed[end][0], 'sha256': digest(raw)}
 
 
+def reviewed_checker_pins(source: dict[str, bytes]) -> dict[str, str]:
+    """Select one complete reviewed pair, never mix versions or trust a claim."""
+    observed = {name: digest(source[PACK + 'tools/' + name]) for name in REVIEWED_CHECKERS}
+    require(observed == REVIEWED_CHECKERS or observed == HISTORICAL_REVIEWED_CHECKERS,
+            'UNREVIEWED_NATIVE_CHECKER')
+    return observed
+
+
 def native_replay(inner: bytes, source: dict[str, bytes], e: dict) -> dict:
     """Load only reviewed archived checker bytes, never arbitrary supplied Python."""
-    for name, pin in REVIEWED_CHECKERS.items():
-        require(digest(source[PACK + 'tools/' + name]) == pin, 'UNREVIEWED_NATIVE_CHECKER')
+    pins = reviewed_checker_pins(source)
     with tempfile.TemporaryDirectory(prefix='q3-postflight-') as folder:
         root = Path(folder)
-        for name in REVIEWED_CHECKERS:
+        for name in pins:
             (root / name).write_bytes(source[PACK + 'tools/' + name])
         path = root / 'evidence.zip'; path.write_bytes(inner)
         spec = importlib.util.spec_from_file_location('q3_postflight_native_replay', root / 'check_q3_native_capture_v0.py')
@@ -393,6 +406,7 @@ def compare(expectation: bytes, expectation_sha256: str, raw: dict[str, bytes]) 
     equal_fields(control, {'repository': REPOSITORY, 'run_id': e['run_id'], 'run_attempt': e['run_attempt'],
         'source_commit': e['source_commit'], 'workflow': WORKFLOW, 'head_branch': 'main',
         'actor': 'HKati', 'triggering_actor': 'HKati', 'event': 'workflow_dispatch'}, 'CONTROL_BINDING')
+    pins = reviewed_checker_pins(source)
     replay = native_replay(outer['evidence.zip'], source, e)
     require(replay.get('complete') is True and replay.get('mode') == 'token-preflight'
             and replay.get('request_sha256') == e['request_sha256']
@@ -410,7 +424,7 @@ def compare(expectation: bytes, expectation_sha256: str, raw: dict[str, bytes]) 
             'job_id', 'artifact_id', 'request_sha256', 'token_map_sha256', 'verifier_sha256')},
         'expectation_sha256': expectation_sha256, 'input_bindings': e['inputs'],
         'source_selection_sha256': digest(encode(e['source_files'])),
-        'native_checker_sha256': dict(REVIEWED_CHECKERS),
+        'native_checker_sha256': pins,
         'image_comparison': {'match': match, 'startup': image,
             'carrier': {'value': recorded_image, 'member': 'platform.json', 'field': 'runner_image',
                         'sha256': digest(data['platform.json'])}},

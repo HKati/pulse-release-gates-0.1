@@ -3,9 +3,11 @@
 Kernel observations and installed payload inventories here are fabricated TEST
 DOUBLES. Passing these tests does not assert native qualification or inference.
 """
+import ast
 import base64
 import copy
 import errno
+from email.message import Message
 import io
 import json
 import os
@@ -22,6 +24,42 @@ from test_q3_native_capture_contract_v0 import ROOT, TOOLS, C, module, request, 
 from test_q3_native_capture_protocol_v0 import Tokenizer, W, R, P, FRAME
 K=module('check_q3_native_capture_v0')
 A=module('acquire_q3_reference_inputs_v0')
+
+
+def synthetic_transport_source(source,kind='github-repository-parts-v0'):
+    """Bind an explicit TEST descriptor into fabricated source bytes, not ROOT.
+
+    The committed controller deliberately has no active payload commit/path.
+    A positive synthetic carrier must not pretend those inactive bytes acquired
+    a runtime. Only this in-memory fixture copy gets a made-up source endpoint.
+    """
+    source=dict(source)
+    configured={'kind':kind,'repository':C.REPOSITORY,
+        'commit':'f'*40 if kind=='github-repository-parts-v0' else None,
+        'prefix':'synthetic-q3-runtime-parts' if kind=='github-repository-parts-v0' else None}
+    text=source[A.SELF].decode('utf-8');lines=text.splitlines(keepends=True)
+    assignments=[node for node in ast.parse(text).body if isinstance(node,ast.Assign)
+        and any(isinstance(target,ast.Name) and target.id=='RUNTIME_TRANSPORT' for target in node.targets)]
+    assert len(assignments)==1
+    node=assignments[0]
+    source[A.SELF]=(''.join(lines[:node.lineno-1])+'RUNTIME_TRANSPORT = '+repr(configured)+'\n'+
+                   ''.join(lines[node.end_lineno:])).encode('utf-8')
+    return source,configured
+
+
+def synthetic_transport_receipt(source,r,configured):
+    """Fabricated transport observations, never an actual provider download."""
+    parts=[]
+    if configured['kind']=='github-repository-parts-v0':
+        parts=[{**copy.deepcopy(row),'path':configured['prefix']+'/'+row['filename']}
+               for row in A.RUNTIME_PARTS]
+    return {'record_type':'q3_runtime_transport_v0','transport':dict(configured),
+        'origin':copy.deepcopy(A.RUNTIME_ORIGIN),
+        'split_manifest_sha256':A.RUNTIME_SPLIT_MANIFEST_SHA256 if parts else None,
+        'parts':parts,'archive_size_bytes':K.ARCHIVE_SIZE,'archive_sha256':K.ARCHIVE_SHA,
+        'binding':{'request_sha256':C.digest(C.encode(r)),'source_commit':r['source_commit'],
+                   'run_id':'12345','run_attempt':1,'controller_sha256':C.digest(source[A.SELF])},
+        'claims':dict(C.CLAIMS)}
 
 
 def sandbox(stage):
@@ -67,13 +105,15 @@ def installation_data(source):
     return {'bootstrap.json':C.encode(bootstrap),'pip-report.json':C.encode(pip),'installation.json':C.encode(output)}
 
 
-def evidence(mode='token-preflight'):
+def evidence(mode='token-preflight',transport_kind='github-repository-parts-v0'):
     """Synthetic test-only full carrier. There is no production CLI for this."""
     source={name:(ROOT/name).read_bytes() for name in P['source_files']}
+    source,transport=synthetic_transport_source(source,transport_kind)
     data={'source/'+n:b for n,b in source.items()};data.update(installation_data(source))
     r=request(mode);mapping=W.tokenize_frame(Tokenizer(),FRAME,P)
     if mode=='capture':r['approved_token_map_sha256']=C.digest(C.encode(mapping))
     data['request.json']=C.encode(r)
+    data['runtime-transport.json']=C.encode(synthetic_transport_receipt(source,r,transport))
     platform={'os':'ubuntu-24.04','architecture':'x86_64','python':'3.11.16','runner_image':'synthetic-test-only',
         'kernel':'synthetic','libc':['glibc','synthetic'],'bootstrap_python_sha256':'d'*64,
         'contract':'q3_observed_ubuntu24_cpu_runtime_v0','historical_platform_equivalence':False}
@@ -84,7 +124,9 @@ def evidence(mode='token-preflight'):
     pre={'record_type':'q3_native_prelaunch_v0','request':r,'source_commit':r['source_commit'],
         'run_id':'12345','run_attempt':1,'source_files':{n:C.digest(b) for n,b in source.items()},
         'platform_sha256':C.digest(data['platform.json']),'control_plane_sha256':C.digest(data['control-plane.json']),
-        'installation_sha256':C.digest(data['installation.json']),'started_at':'2026-10-24T00:00:00+00:00','clock_relation':'not_verified'}
+        'installation_sha256':C.digest(data['installation.json']),
+        'runtime_transport_sha256':C.digest(data['runtime-transport.json']),
+        'started_at':'2026-10-24T00:00:00+00:00','clock_relation':'not_verified'}
     data['prelaunch.json']=C.encode(pre)
     binding={'prelaunch_sha256':C.digest(data['prelaunch.json']),'source_commit':r['source_commit'],'run_id':'12345','run_attempt':1}
     data['worker-ready.json']=C.encode({'record_type':'q3_worker_ready_v0','binding':binding,'mode':mode})
@@ -349,7 +391,8 @@ def test_fixed_wheel_plus_filename_is_safe_not_source_path_relaxation():
     with pytest.raises(ValueError):C.relative(name)
 
 @pytest.mark.parametrize('mode,fault',[('token-preflight',None),('capture',None),('capture','decode'),
-    ('capture','worker'),('token-preflight','cleanup'),('token-preflight','source')])
+    ('capture','worker'),('token-preflight','cleanup'),('token-preflight','source'),
+    ('token-preflight','transport'),('token-preflight','archive')])
 def test_actual_controller_to_publication_with_explicit_native_doubles(tmp_path,monkeypatch,mode,fault):
     """Real controller/files/carrier; synthetic host/install/process/token phases.
 
@@ -357,17 +400,34 @@ def test_actual_controller_to_publication_with_explicit_native_doubles(tmp_path,
     It is explicitly not a native observation or actual model/tokenizer call.
     """
     source,fixture,r=evidence(mode);raw=C.encode(r);out=tmp_path/'out';out.mkdir()
-    host=tmp_path/'host';host.mkdir();loaded={};actual_path=Path;active=[]
+    host=tmp_path/'host';host.mkdir();loaded={};actual_path=Path;active=[];acquisition_events=[]
     monkeypatch.setattr(A,'Path',lambda x:host if x=='/var/lib' else actual_path(x))
     monkeypatch.setattr(A,'control_plane',lambda *a:C.strict_json(fixture['control-plane.json']))
     monkeypatch.setattr(A,'output_destination',lambda *a:(out,os.getuid(),os.getgid()))
-    monkeypatch.setattr(A,'download_runtime',lambda *a:None)
+    # Exercise the actual execute -> parts dispatcher -> archive-check route.
+    # Only the large byte stream is a TEST DOUBLE; its synthetic bytes never
+    # claim to be the real runtime or bypass a production entrypoint.
+    transport=C.strict_json(fixture['runtime-transport.json'])['transport']
+    monkeypatch.setattr(A,'RUNTIME_TRANSPORT',transport)
+    def assembled(contract,parts,identity,target,end,open_part):
+        acquisition_events.append('parts')
+        assert parts==A.RUNTIME_PARTS and identity==A._runtime_archive_identity()
+        if fault=='transport':raise C.ContractError('SYNTHETIC_TRANSPORT_FAILURE')
+        target.write_bytes(b'explicit synthetic archive double')
+        return {'size_bytes':K.ARCHIVE_SIZE,'sha256':K.ARCHIVE_SHA,
+                'parts':copy.deepcopy(list(A.RUNTIME_PARTS))}
+    monkeypatch.setattr(A,'_assemble_runtime_parts',assembled)
+    monkeypatch.setattr(A,'download_runtime_artifact',lambda *a,**k:pytest.fail('silent legacy fallback'))
+    monkeypatch.setattr(A,'_open_runtime_part',lambda *a,**k:pytest.fail('network from a synthetic carrier'))
     monkeypatch.setattr(A.shutil,'disk_usage',lambda *a:types.SimpleNamespace(free=10*1024**3))
     original_load=A.load_sealed
     def loader(name,path):
         mod=original_load(name,path)
         if name=='q3_verified_independent_checker':
             def archive(archive,destination,sources):
+                acquisition_events.append('archive')
+                assert archive.read_bytes()==b'explicit synthetic archive double'
+                if fault=='archive':raise C.ContractError('SYNTHETIC_ARCHIVE_FAILURE')
                 (destination/'bundle/wheelhouse').mkdir(parents=True)
                 return C.strict_json(fixture['input-check.json'])
             mod.verify_archive=archive;loaded['K']=mod
@@ -449,6 +509,7 @@ def test_actual_controller_to_publication_with_explicit_native_doubles(tmp_path,
                             'services':[s.cleanup for s in self.services],'timers':self.timers}
             mod.Lifecycle=Life
             def phase(life,prefix,stage,command,work,python,logs,deadline,ev):
+                if stage=='installer':acquisition_events.append('installer')
                 sb=sandbox(stage);sb['unit']=prefix+'-'+stage+'.service';cl=closure(stage);cl['unit']=sb['unit']
                 life.services.append(types.SimpleNamespace(cleanup=cl))
                 mod.save(ev/(stage+'-sandbox.json'),C.encode(sb));mod.save(ev/(stage+'-cleanup.json'),C.encode(cl))
@@ -475,6 +536,8 @@ def test_actual_controller_to_publication_with_explicit_native_doubles(tmp_path,
     rc=A.execute(C,P,r,source,ROOT,raw,{'GITHUB_TOKEN':'synthetic-token-never-sent','GITHUB_RUN_ID':'12345'})
     assert rc==(0 if fault is None else 1)
     receipt=C.strict_json((out/'receipt.json').read_bytes());assert receipt['status']==('complete' if fault is None else 'incomplete')
+    assert acquisition_events==(['parts'] if fault=='transport' else
+        ['parts','archive'] if fault=='archive' else ['parts','archive','installer'])
     assert all(s.calls==0 for s in active) if mode=='token-preflight' else all(s.calls==(1 if fault=='worker' else 204) for s in active)
     if fault!='cleanup':assert not list(host.iterdir())
     if fault is None:
@@ -493,3 +556,344 @@ def test_terminal_clock_evidence_cannot_be_missing_or_late(fault):
         else:x['ended_at']='2026-10-24T24:00:00+00:00'
     mutate(data,'terminal.json',change)
     with pytest.raises(ValueError):K.validate_complete(source,data)
+
+
+def tiny_transport_parts():
+    """Twenty small byte ranges for the private assembler's offline seam."""
+    filename='synthetic-runtime.zip'
+    blocks=[b'\0synthetic part '+str(i).encode('ascii')+b'!'*i for i in range(1,21)]
+    parts=[];offset=0
+    for i,block in enumerate(blocks,1):
+        parts.append({'index':i,'filename':filename+f'.{i:03d}','size_bytes':len(block),
+            'sha256':C.digest(block),'offset_start':offset,'offset_end_exclusive':offset+len(block)})
+        offset+=len(block)
+    identity={'filename':filename,'size_bytes':offset,'sha256':C.digest(b''.join(blocks))}
+    return parts,identity,blocks
+
+
+class ShortPartStream(io.BytesIO):
+    """A short-reading fake response; no sockets or runtime bytes are involved."""
+    status=200
+    def __init__(self,raw,content_encoding=None):
+        super().__init__(raw);self.read_sizes=[];self.headers=Message()
+        if content_encoding is not None:
+            values=content_encoding if isinstance(content_encoding,list) else [content_encoding]
+            for value in values:self.headers['Content-Encoding']=value
+    def getheader(self,name,default=None):return self.headers.get(name,default)
+    def read(self,size=-1):
+        raise AssertionError('buffer-filling read must not hide transport deadline checks')
+    def read1(self,size):
+        assert 0<size<=65536
+        self.read_sizes.append(size)
+        return super().read(min(size,3))
+
+
+def test_private_part_assembler_checks_short_reads_and_original_order(tmp_path):
+    parts,identity,blocks=tiny_transport_parts();opened=[];streams=[]
+    def open_part(row):
+        opened.append(row['index']);stream=ShortPartStream(blocks[row['index']-1]);streams.append(stream);return stream
+    path=tmp_path/'runtime.zip'
+    observed=A._assemble_runtime_parts(C,parts,identity,path,time.monotonic()+30,open_part)
+    assert path.read_bytes()==b''.join(blocks)
+    assert stat.S_IMODE(path.stat().st_mode)==0o600
+    assert observed=={'size_bytes':identity['size_bytes'],'sha256':identity['sha256'],'parts':parts}
+    assert opened==list(range(1,21)) and all(stream.closed for stream in streams)
+    assert all(len(stream.read_sizes)>1 for stream in streams)
+
+
+@pytest.mark.parametrize('fault',['missing','duplicate','reordered','name','path','bool_index','bool_size',
+    'offset_gap','offset_overlap','end','extra','digest','total'])
+def test_part_inventory_rejected_before_open_or_output(tmp_path,fault):
+    parts,identity,blocks=tiny_transport_parts()
+    if fault=='missing':parts.pop()
+    elif fault=='duplicate':parts[1]=copy.deepcopy(parts[0])
+    elif fault=='reordered':parts[0],parts[1]=parts[1],parts[0]
+    elif fault=='name':parts[0]['filename']='other.zip.001'
+    elif fault=='path':parts[0]['filename']='../'+parts[0]['filename']
+    elif fault=='bool_index':parts[0]['index']=True
+    elif fault=='bool_size':parts[0]['size_bytes']=True
+    elif fault=='offset_gap':parts[1]['offset_start']+=1
+    elif fault=='offset_overlap':parts[1]['offset_start']-=1
+    elif fault=='end':parts[0]['offset_end_exclusive']+=1
+    elif fault=='extra':parts[0]['url']='https://unreviewed.invalid/part'
+    elif fault=='digest':parts[0]['sha256']='invalid'
+    elif fault=='total':identity['size_bytes']+=1
+    path=tmp_path/'runtime.zip'
+    with pytest.raises(ValueError):
+        A._assemble_runtime_parts(C,parts,identity,path,time.monotonic()+30,
+            lambda row:pytest.fail('invalid manifest reached reader'))
+    assert not path.exists()
+
+
+@pytest.mark.parametrize('fault',['substitution','truncated','oversize','swapped','whole_digest','io_error','interrupt'])
+def test_part_byte_failure_removes_partial_output_without_retry(tmp_path,fault):
+    parts,identity,blocks=tiny_transport_parts();opened=[];streams=[]
+    if fault=='substitution':blocks[1]=b'?'*len(blocks[1])
+    elif fault=='truncated':blocks[1]=blocks[1][:-1]
+    elif fault=='oversize':blocks[1]+=b'!'
+    elif fault=='swapped':blocks[0],blocks[1]=blocks[1],blocks[0]
+    elif fault=='whole_digest':identity['sha256']='0'*64
+    def open_part(row):
+        opened.append(row['index'])
+        if row['index']==2 and fault=='io_error':raise OSError('synthetic transport I/O failure')
+        stream=ShortPartStream(blocks[row['index']-1]);streams.append(stream)
+        if row['index']==2 and fault=='interrupt':
+            def interrupted(size):raise KeyboardInterrupt()
+            stream.read1=interrupted
+        return stream
+    path=tmp_path/'runtime.zip'
+    expected=KeyboardInterrupt if fault=='interrupt' else OSError if fault=='io_error' else ValueError
+    with pytest.raises(expected):A._assemble_runtime_parts(C,parts,identity,path,time.monotonic()+30,open_part)
+    assert not path.exists()
+    assert len(opened)==len(set(opened)) and opened==list(range(1,len(opened)+1))
+    assert all(stream.closed for stream in streams)
+
+
+def test_part_deadline_is_checked_after_read_and_discards_partial_output(tmp_path,monkeypatch):
+    parts,identity,blocks=tiny_transport_parts();clock=[1.0];opened=[]
+    monkeypatch.setattr(A.time,'monotonic',lambda:clock[0])
+    def open_part(row):
+        opened.append(row['index']);stream=ShortPartStream(blocks[row['index']-1]);read=stream.read1
+        def expires(size):clock[0]=31.0;return read(size)
+        stream.read1=expires;return stream
+    path=tmp_path/'runtime.zip'
+    with pytest.raises(ValueError,match='DEADLINE'):A._assemble_runtime_parts(C,parts,identity,path,30.0,open_part)
+    assert opened==[1] and not path.exists()
+
+
+def test_slow_trickle_uses_single_reads_and_rechecks_the_overall_deadline(tmp_path,monkeypatch):
+    parts,identity,blocks=tiny_transport_parts();clock=[1.0];opened=[];streams=[]
+    monkeypatch.setattr(A.time,'monotonic',lambda:clock[0])
+    class Trickle(ShortPartStream):
+        def read1(self,size):
+            assert 0<size<=65536
+            self.read_sizes.append(size);clock[0]+=4.0
+            return io.BytesIO.read(self,1)
+    def open_part(row):
+        opened.append(row['index']);stream=Trickle(blocks[row['index']-1]);streams.append(stream);return stream
+    path=tmp_path/'runtime.zip'
+    with pytest.raises(ValueError,match='DEADLINE'):
+        A._assemble_runtime_parts(C,parts,identity,path,10.0,open_part)
+    # Bytes remain available and each read returned data. The overall deadline,
+    # rather than EOF or a socket-inactivity timeout, stops the slow transfer.
+    assert opened==[1] and len(streams[0].read_sizes)==3
+    assert streams[0].closed and not path.exists()
+
+
+def test_reader_without_single_read_api_cannot_fall_back_to_buffer_filling_read(tmp_path):
+    parts,identity,blocks=tiny_transport_parts();opened=[]
+    class Unsupported:
+        def __init__(self):self.closed=False
+        def __enter__(self):return self
+        def __exit__(self,*args):self.closed=True
+        def read(self,size):pytest.fail('unsafe read fallback')
+    stream=Unsupported()
+    def open_part(row):opened.append(row['index']);return stream
+    path=tmp_path/'runtime.zip'
+    with pytest.raises(ValueError,match='STREAM_READER'):
+        A._assemble_runtime_parts(C,parts,identity,path,time.monotonic()+30,open_part)
+    assert opened==[1] and stream.closed and not path.exists()
+
+
+@pytest.mark.parametrize('kind',['file','symlink'])
+def test_part_assembler_never_overwrites_or_removes_preexisting_target(tmp_path,kind):
+    parts,identity,blocks=tiny_transport_parts();target=tmp_path/'runtime.zip';original=tmp_path/'original'
+    original.write_bytes(b'existing owner bytes')
+    if kind=='file':target.write_bytes(b'existing target bytes')
+    else:target.symlink_to(original)
+    with pytest.raises((FileExistsError,ValueError)):
+        A._assemble_runtime_parts(C,parts,identity,target,time.monotonic()+30,
+                                 lambda row:pytest.fail('preexisting target reached reader'))
+    assert original.read_bytes()==b'existing owner bytes'
+    assert target.read_bytes()==(b'existing target bytes' if kind=='file' else b'existing owner bytes')
+    assert target.is_symlink()==(kind=='symlink')
+
+
+def configured_transport():
+    return {'kind':'github-repository-parts-v0','repository':C.REPOSITORY,
+            'commit':'f'*40,'prefix':'synthetic-q3-runtime-parts'}
+
+
+def test_shipped_transport_is_unconfigured_and_cannot_acquire(tmp_path,monkeypatch):
+    assert A.RUNTIME_TRANSPORT=={**configured_transport(),'commit':None,'prefix':None}
+    monkeypatch.setattr(A,'api_bytes',lambda *a,**k:pytest.fail('unconfigured source reached API'))
+    monkeypatch.setattr(A.urllib.request,'build_opener',lambda *a,**k:pytest.fail('unconfigured source reached HTTP'))
+    path=tmp_path/'runtime.zip'
+    with pytest.raises(ValueError,match='UNCONFIGURED'):A.download_runtime(C,P,'test-only-token',path,time.monotonic()+30)
+    assert not path.exists()
+
+
+@pytest.mark.parametrize('fault',['branch','tag','short_commit','uppercase_commit','zero_commit','bool_commit',
+    'missing_prefix','absolute_prefix','parent_prefix','encoded_prefix','foreign_repository','unknown_kind','extra_field'])
+def test_runtime_source_selection_rejects_unbound_or_unsafe_inputs(tmp_path,monkeypatch,fault):
+    source=configured_transport()
+    if fault=='branch':source['commit']='main'
+    elif fault=='tag':source['commit']='refs/tags/v1'
+    elif fault=='short_commit':source['commit']='f'*39
+    elif fault=='uppercase_commit':source['commit']='F'*40
+    elif fault=='zero_commit':source['commit']='0'*40
+    elif fault=='bool_commit':source['commit']=True
+    elif fault=='missing_prefix':source['prefix']=None
+    elif fault=='absolute_prefix':source['prefix']='/outside'
+    elif fault=='parent_prefix':source['prefix']='parts/../outside'
+    elif fault=='encoded_prefix':source['prefix']='parts%2f..'
+    elif fault=='foreign_repository':source['repository']='someone/another-repository'
+    elif fault=='unknown_kind':source['kind']='automatic-fallback'
+    elif fault=='extra_field':source['runtime_url']='https://unreviewed.invalid/runtime.zip'
+    monkeypatch.setattr(A,'RUNTIME_TRANSPORT',source)
+    monkeypatch.setattr(A,'api_bytes',lambda *a,**k:pytest.fail('rejected source reached API'))
+    monkeypatch.setattr(A.urllib.request,'build_opener',lambda *a,**k:pytest.fail('rejected source reached HTTP'))
+    path=tmp_path/'runtime.zip'
+    with pytest.raises(ValueError):A.download_runtime(C,P,'test-only-token',path,time.monotonic()+30)
+    assert not path.exists()
+
+
+@pytest.mark.parametrize('fault',['part_bytes','part_order','part_count','origin','profile_origin','manifest_pin'])
+def test_production_transport_pin_cannot_be_rebound(tmp_path,monkeypatch,fault):
+    monkeypatch.setattr(A,'RUNTIME_TRANSPORT',configured_transport());profile=copy.deepcopy(P)
+    if fault in ('part_bytes','part_order','part_count'):
+        parts=copy.deepcopy(list(A.RUNTIME_PARTS))
+        if fault=='part_bytes':parts[0]['sha256']='0'*64
+        elif fault=='part_order':parts[0],parts[1]=parts[1],parts[0]
+        else:parts.pop()
+        monkeypatch.setattr(A,'RUNTIME_PARTS',tuple(parts))
+    elif fault=='origin':
+        origin=copy.deepcopy(A.RUNTIME_ORIGIN);origin['original_artifact_id']+=1
+        monkeypatch.setattr(A,'RUNTIME_ORIGIN',origin)
+    elif fault=='profile_origin':profile['runtime_archive']['artifact_id']+=1
+    elif fault=='manifest_pin':monkeypatch.setattr(A,'RUNTIME_SPLIT_MANIFEST_SHA256','0'*64)
+    monkeypatch.setattr(A.urllib.request,'build_opener',lambda *a,**k:pytest.fail('bad pin reached HTTP'))
+    path=tmp_path/'runtime.zip'
+    with pytest.raises(ValueError):A.download_runtime(C,profile,'test-only-token',path,time.monotonic()+30)
+    assert not path.exists()
+
+
+def test_original_runtime_identity_and_split_are_not_replaced_by_transport():
+    assert A.RUNTIME_ORIGIN=={'filename':'q2-runtime-preparation-37148637546-1.zip','size_bytes':508460811,
+        'sha256':'b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9',
+        'original_run_id':'37148637546','original_run_attempt':1,'original_artifact_id':11282419957,
+        'original_source_commit':'77fc5d51896568db50a2a87f650711a65db8fe8c'}
+    assert C.digest(C.encode(A.RUNTIME_PARTS))=='0f7af070258c3bb6206c240e00cfe5464169666fbaf9fa9540b68c7ee384d341'
+    assert [row['size_bytes'] for row in A.RUNTIME_PARTS]==[25423041]*19+[25423032]
+    assert P['runtime_archive']['artifact_id']==11282419957
+
+
+def test_raw_contents_reader_uses_exact_commit_and_raw_media_type(monkeypatch):
+    source=configured_transport();part=A.RUNTIME_PARTS[0];calls=[];response=ShortPartStream(b'synthetic')
+    class Opener:
+        def open(self,req,timeout):calls.append((req,timeout));return response
+    def opener(*handlers):
+        assert len(handlers)==1 and isinstance(handlers[0],A.NoRedirect)
+        return Opener()
+    monkeypatch.setattr(A.urllib.request,'build_opener',opener)
+    result=A._open_runtime_part(C,'synthetic-token',source,part,time.monotonic()+5)
+    assert result is response and len(calls)==1
+    req,timeout=calls[0];headers={k.lower():v for k,v in req.header_items()}
+    assert req.full_url==('https://api.github.com/repos/'+C.REPOSITORY+'/contents/'+source['prefix']+'/'+
+                          part['filename']+'?ref='+source['commit'])
+    assert headers['accept']=='application/vnd.github.raw+json'
+    assert headers['authorization']=='Bearer synthetic-token'
+    assert headers['accept-encoding']=='identity' and 0<timeout<=5
+    response.close()
+
+
+@pytest.mark.parametrize('encoding',[None,'identity','gzip','br','identity,gzip',['identity','identity']])
+def test_raw_contents_requires_unambiguous_identity_encoding(monkeypatch,encoding):
+    source=configured_transport();part=A.RUNTIME_PARTS[0]
+    response=ShortPartStream(b'synthetic',content_encoding=encoding);calls=[]
+    class Opener:
+        def open(self,req,timeout):calls.append(req);return response
+    monkeypatch.setattr(A.urllib.request,'build_opener',lambda *handlers:Opener())
+    if encoding in (None,'identity'):
+        assert A._open_runtime_part(C,'synthetic-token',source,part,time.monotonic()+5) is response
+        response.close()
+    else:
+        with pytest.raises(ValueError,match='CONTENT_ENCODING'):
+            A._open_runtime_part(C,'synthetic-token',source,part,time.monotonic()+5)
+        assert response.closed
+    assert len(calls)==1 and not response.read_sizes
+
+
+@pytest.mark.parametrize('fault',[None,'foreign_host','mutable_ref','query','second_redirect','http_404'])
+def test_raw_redirect_is_single_exact_source_and_never_forwards_token(monkeypatch,fault):
+    source=configured_transport();part=A.RUNTIME_PARTS[0];calls=[];response=ShortPartStream(b'synthetic')
+    raw_url='https://raw.githubusercontent.com/'+C.REPOSITORY+'/'+source['commit']+'/'+source['prefix']+'/'+part['filename']
+    target=raw_url
+    if fault=='foreign_host':target=raw_url.replace('raw.githubusercontent.com','unreviewed.invalid')
+    elif fault=='mutable_ref':target=raw_url.replace(source['commit'],'main')
+    elif fault=='query':target+='?credential=not-allowed'
+    class Opener:
+        def open(self,req,timeout):
+            calls.append(req)
+            if len(calls)==1:
+                raise A.urllib.error.HTTPError(req.full_url,404 if fault=='http_404' else 302,'synthetic',{'Location':target},io.BytesIO())
+            if fault=='second_redirect':raise A.urllib.error.HTTPError(req.full_url,302,'synthetic',{'Location':raw_url},io.BytesIO())
+            return response
+    monkeypatch.setattr(A.urllib.request,'build_opener',lambda *handlers:Opener())
+    if fault is None:
+        assert A._open_runtime_part(C,'synthetic-token',source,part,time.monotonic()+5) is response
+        assert len(calls)==2 and calls[1].full_url==raw_url
+        assert 'authorization' not in {k.lower() for k,v in calls[1].header_items()}
+        response.close()
+    else:
+        with pytest.raises(ValueError):A._open_runtime_part(C,'synthetic-token',source,part,time.monotonic()+5)
+        assert len(calls)==(2 if fault=='second_redirect' else 1)
+        if len(calls)==2:assert 'authorization' not in {k.lower() for k,v in calls[1].header_items()}
+
+
+@pytest.mark.parametrize('kind',['github-repository-parts-v0','original-actions-artifact-v0'])
+def test_complete_transport_record_is_source_selected(kind):
+    source,data,r=evidence(transport_kind=kind)
+    assert K.validate_complete(source,data)['complete'] is True
+    receipt=C.strict_json(data['runtime-transport.json'])
+    assert receipt['transport']['kind']==kind
+    assert receipt['origin']['original_artifact_id']==11282419957
+    assert len(receipt['parts'])==(20 if kind=='github-repository-parts-v0' else 0)
+
+
+@pytest.mark.parametrize('fault',['missing','extra','kind','commit','prefix','request','source_commit','run_id',
+    'attempt_bool','controller','origin','archive_size','archive_hash','manifest','part_missing','part_duplicate',
+    'part_order','part_size','part_hash','part_path','authority','stale_digest'])
+def test_transport_receipt_coherent_rehash_cannot_hide_wrong_source_or_bytes(fault):
+    source,data,r=evidence();value=C.strict_json(data['runtime-transport.json'])
+    pre=C.strict_json(data['prelaunch.json'])
+    if fault=='missing':data.pop('runtime-transport.json')
+    else:
+        if fault=='extra':value['ready']=True
+        elif fault=='kind':value['transport']['kind']='original-actions-artifact-v0'
+        elif fault=='commit':value['transport']['commit']='e'*40
+        elif fault=='prefix':
+            value['transport']['prefix']='other-parts'
+            for row in value['parts']:row['path']='other-parts/'+row['filename']
+        elif fault=='request':value['binding']['request_sha256']='0'*64
+        elif fault=='source_commit':value['binding']['source_commit']='b'*40
+        elif fault=='run_id':value['binding']['run_id']='99999'
+        elif fault=='attempt_bool':value['binding']['run_attempt']=True
+        elif fault=='controller':value['binding']['controller_sha256']='0'*64
+        elif fault=='origin':value['origin']['original_artifact_id']+=1
+        elif fault=='archive_size':value['archive_size_bytes']-=1
+        elif fault=='archive_hash':value['archive_sha256']='0'*64
+        elif fault=='manifest':value['split_manifest_sha256']='0'*64
+        elif fault=='part_missing':value['parts'].pop()
+        elif fault=='part_duplicate':value['parts'][1]=copy.deepcopy(value['parts'][0])
+        elif fault=='part_order':value['parts'][0],value['parts'][1]=value['parts'][1],value['parts'][0]
+        elif fault=='part_size':value['parts'][0]['size_bytes']-=1
+        elif fault=='part_hash':value['parts'][0]['sha256']='0'*64
+        elif fault=='part_path':value['parts'][0]['path']='other/'+value['parts'][0]['filename']
+        elif fault=='authority':value['claims']['authority_effect']='allow'
+        elif fault=='stale_digest':value['binding']['run_id']='99999'
+        data['runtime-transport.json']=C.encode(value)
+        if fault!='stale_digest':pre['runtime_transport_sha256']=C.digest(data['runtime-transport.json'])
+    with pytest.raises(ValueError,match='runtime_transport'):
+        K.validate_runtime_transport(source,data,r,pre)
+
+
+def test_inactive_production_source_cannot_be_promoted_by_fabricated_receipt():
+    source,data,r=evidence();source[A.SELF]=(ROOT/A.SELF).read_bytes()
+    value=C.strict_json(data['runtime-transport.json'])
+    value['binding']['controller_sha256']=C.digest(source[A.SELF])
+    data['runtime-transport.json']=C.encode(value)
+    pre=C.strict_json(data['prelaunch.json']);pre['runtime_transport_sha256']=C.digest(data['runtime-transport.json'])
+    pre['source_files'][A.SELF]=C.digest(source[A.SELF])
+    with pytest.raises(ValueError,match='runtime_transport_unconfigured'):
+        K.validate_runtime_transport(source,data,r,pre)
