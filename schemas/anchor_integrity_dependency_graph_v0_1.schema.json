@@ -1,0 +1,193 @@
+{
+  "$id": "https://eplabsai.com/pulsemech/schemas/anchor_integrity_dependency_graph_v0_1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority_effect": {
+      "const": "none"
+    },
+    "candidate_status": {
+      "const": "diagnostic_only"
+    },
+    "claim_set_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "coverage": {
+      "const": "declared_edges_only"
+    },
+    "dependency_edges": {
+      "items": {
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "else": {
+              "properties": {
+                "from": {
+                  "properties": {
+                    "kind": {
+                      "const": "claim"
+                    }
+                  }
+                }
+              }
+            },
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "evidence_depends_on_claim"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "from": {
+                  "properties": {
+                    "kind": {
+                      "const": "evidence"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "properties": {
+          "edge_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "from": {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": [
+                  "claim",
+                  "evidence"
+                ]
+              },
+              "object_id": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "object_id"
+            ],
+            "type": "object"
+          },
+          "to": {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "const": "claim"
+              },
+              "object_id": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "object_id"
+            ],
+            "type": "object"
+          },
+          "type": {
+            "enum": [
+              "supported_by_claim",
+              "derived_from_claim",
+              "evidence_depends_on_claim",
+              "claim_depends_on_claim"
+            ]
+          }
+        },
+        "required": [
+          "edge_id",
+          "type",
+          "from",
+          "to"
+        ],
+        "type": "object"
+      },
+      "maxItems": 4096,
+      "type": "array"
+    },
+    "graph_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "packet_sha256": {
+      "additionalProperties": false,
+      "properties": {
+        "claims": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "evidence": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "relations": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "claims",
+        "evidence",
+        "relations"
+      ],
+      "type": "object"
+    },
+    "projection_profile": {
+      "const": "typed-dependencies-v1"
+    },
+    "release_authority_activation": {
+      "const": false
+    },
+    "schema_version": {
+      "const": "anchor_integrity_dependency_graph_v0_1"
+    },
+    "subject": {
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subject_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject_id",
+        "run_id"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "candidate_status",
+    "authority_effect",
+    "release_authority_activation",
+    "projection_profile",
+    "coverage",
+    "graph_id",
+    "subject",
+    "claim_set_id",
+    "packet_sha256",
+    "dependency_edges"
+  ],
+  "type": "object"
+}

@@ -2239,5 +2239,598 @@ def test_wp2c_manifest_cannot_select_code_or_schema_from_artifact(tmp_path):
     assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
     assert r['base_check']['status'] is None
 
+
+# WP2D: declared typed dependency cycles, not independent-anchor admission.
+WP2D_TOOL = ROOT / 'tools/check_anchor_integrity_dependency_cycles_v0_1.py'
+WP2D_DEMO = ROOT / 'examples/anchor_integrity_v0_1/wp2d_dependency_cycles'
+WP2D_PINS = (
+    '1e3a63612f274b9c3e3f518f0e9528386806403783d10fbd395b3348d8dc2574',
+    'ce21a2e7fbdd7f1dfbb3cfdcadd286329684be0bc2ff0a97f9d9953cc4474935',
+    '6719379a23cde24a122f8f82c81bb2245ac93a7e49de873295a18fa8532bbfa9',
+)
+
+
+def _wp2d_module():
+    spec = _wp2c_importlib.spec_from_file_location('wp2d_test_checker', WP2D_TOOL)
+    module = _wp2c_importlib.module_from_spec(spec)
+    previous = _wp2c_sys.dont_write_bytecode
+    _wp2c_sys.dont_write_bytecode = True
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        _wp2c_sys.dont_write_bytecode = previous
+    return module
+
+
+def _wp2d_fixture(tmp_path):
+    root = tmp_path / 'cycles'
+    _wp2c_shutil.copytree(WP2D_DEMO, root)
+    return root
+
+
+def _wp2d_refresh(root, bind_graph_packets=True, sync_records=True):
+    """Explicit synthetic-fixture rebinding; optionally leave graph assertions stale."""
+    rel = load_json(root / 'relations.json')
+    for key, name in [('claim_packet_binding', 'claims.json'), ('evidence_packet_binding', 'evidence.json')]:
+        rel[key]['sha256'] = _wp2c_hash(root / name)
+    _wp2c_write(root, 'relations.json', rel)
+    if bind_graph_packets:
+        graph = load_json(root / 'graph.json')
+        graph['packet_sha256'] = {key:_wp2c_hash(root/name) for key,name in
+                                 [('claims','claims.json'),('evidence','evidence.json'),('relations','relations.json')]}
+        _wp2c_write(root, 'graph.json', graph)
+    inp = load_json(root / 'input.json')
+    if inp['paradox_graph_binding'] is not None:
+        inp['paradox_graph_binding']['sha256'] = _wp2c_hash(root / inp['paradox_graph_binding']['path'])
+    _wp2c_write(root, 'input.json', inp)
+    if sync_records:
+        relations = {r['binding_id']:r for r in rel['relations']}
+        rs = load_json(root/'record-set.json')
+        for entry in rs['records']:
+            record = load_json(root/entry['path'])
+            relation = relations[entry['binding_id']]
+            record['binding']['relation_type'] = relation['relation_type']
+            record['verification'] = relation['relation_verification']
+            _wp2c_write(root, entry['path'], record)
+    return _wp2c_repin(root, sync_record_roots=True)
+
+
+def _wp2d_run(root=WP2D_DEMO, pins=None, module=None, profile='typed-dependencies-v1', binding='wp2b-json-pointer-v1'):
+    if pins is None:
+        pins = WP2D_PINS
+    m = module or _wp2d_module()
+    return m.verify_cycles(root, 'input.json', pins[0], 'carriers.json', pins[1],
+                           'record-set.json', pins[2], binding_profile=binding, cycle_profile=profile)
+
+
+def _wp2d_limits(report):
+    assert report['candidate_status'] == 'diagnostic_only'
+    assert report['authority_effect'] == 'none'
+    for key in ['release_authority_activation','requested_checks_complete',
+                'accepted_as_semantic_support','whole_response_cycle_freedom_established']:
+        assert report[key] is False
+    assert report['cycle_anchor_classification']['status'] == 'not_run'
+    assert report['cycle_anchor_classification']['result'] is None
+    for stage in report['unperformed_checks'].values():
+        assert stage['status'] == 'not_run' and stage['result'] is None
+
+
+def _wp2d_witnesses(report):
+    edges = {e['edge_key']:e for e in report['edges']}
+    for component in report['cyclic_components']:
+        nodes = component['witness']['nodes']
+        keys = component['witness']['edge_keys']
+        assert nodes[0] == nodes[-1]
+        assert len(nodes) == len(keys) + 1
+        assert len(set(nodes[:-1])) == len(nodes) - 1
+        assert set(nodes).issubset(component['nodes'])
+        for source, target, key in zip(nodes, nodes[1:], keys):
+            assert (edges[key]['from'], edges[key]['to']) == (source, target)
+            assert key in component['internal_edge_keys']
+
+
+def _wp2d_edge(edge_id='edge-1', edge_type='claim_depends_on_claim', source='claim-1', target='claim-2', kind='claim'):
+    return {'edge_id':edge_id,'type':edge_type,'from':{'kind':kind,'object_id':source},
+            'to':{'kind':'claim','object_id':target}}
+
+
+def test_wp2d_synthetic_cycle_has_exact_witness_without_semantic_promotion():
+    report = _wp2d_run()
+    assert report['status'] == 'LOCAL_DEPENDENCY_GRAPH_ANALYZED'
+    assert report['cycle_detection']['result'] == 'cycle_detected'
+    assert report['counts'] == {'nodes':3,'claims':2,'evidence_items':1,'explicit_edges':1,
+                                'derived_relation_edges':1,'ignored_relations':0,'edges':2,
+                                'components':2,'cyclic_components':1}
+    assert report['cyclic_components'][0]['witness'] == {
+        'nodes':['claim:claim-1','evidence:evidence-1','claim:claim-1'],
+        'edge_keys':['relation:binding-1','graph:evidence-return']}
+    _wp2d_witnesses(report)
+    _wp2d_limits(report)
+
+
+@pytest.mark.parametrize('edge_type',['supported_by_claim','derived_from_claim','claim_depends_on_claim','evidence_depends_on_claim'])
+def test_wp2d_reserved_types_have_explicit_direction(tmp_path, edge_type):
+    root=_wp2d_fixture(tmp_path);graph=load_json(root/'graph.json')
+    evidence=edge_type=='evidence_depends_on_claim'
+    graph['dependency_edges']=[_wp2d_edge(edge_type=edge_type,source='evidence-1' if evidence else 'claim-1',target='claim-1',kind='evidence' if evidence else 'claim')]
+    _wp2c_write(root,'graph.json',graph)
+    report=_wp2d_run(root,_wp2d_refresh(root))
+    assert report['cycle_detection']['result']=='cycle_detected'
+    _wp2d_witnesses(report);_wp2d_limits(report)
+
+
+@pytest.mark.parametrize('relation_type,expected',[('supports',1),('derived_from',1),('references',0),('contextualizes',0),('contradicts',0)])
+def test_wp2d_only_dependency_relations_become_claim_evidence_edges(tmp_path,relation_type,expected):
+    root=_wp2d_fixture(tmp_path);rel=load_json(root/'relations.json')
+    rel['relations'][0]['relation_type']=relation_type;_wp2c_write(root,'relations.json',rel)
+    report=_wp2d_run(root,_wp2d_refresh(root))
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_ANALYZED'
+    assert report['counts']['derived_relation_edges']==expected
+    assert report['counts']['ignored_relations']==1-expected
+    assert report['cycle_detection']['result']==('cycle_detected' if expected else 'no_cycle_detected_in_declared_graph')
+    _wp2d_limits(report)
+
+
+@pytest.mark.parametrize('verdict',['supported','contradicted','insufficient','unresolved'])
+def test_wp2d_recorded_verdict_does_not_erase_declared_dependency_or_authenticate_it(tmp_path,verdict):
+    root=_wp2d_fixture(tmp_path);rel=load_json(root/'relations.json')
+    rel['relations'][0]['relation_verification']['result']=verdict;_wp2c_write(root,'relations.json',rel)
+    report=_wp2d_run(root,_wp2d_refresh(root))
+    assert report['cycle_detection']['result']=='cycle_detected';_wp2d_limits(report)
+
+
+@pytest.mark.parametrize('state',['not_requested','not_run','invalid_input','failed','not_applicable'])
+def test_wp2d_uncompleted_relation_still_projects_its_declared_dependency(tmp_path,state):
+    root=_wp2d_fixture(tmp_path);rel=load_json(root/'relations.json')
+    rel['relations'][0].update(relation_verification={'status':state,'result':None,'reason':'synthetic_unperformed'},verifier_record_id=None)
+    _wp2c_write(root,'relations.json',rel);rs=load_json(root/'record-set.json');rs['records']=[];_wp2c_write(root,'record-set.json',rs)
+    report=_wp2d_run(root,_wp2d_refresh(root))
+    assert report['cycle_detection']['result']=='cycle_detected';_wp2d_limits(report)
+
+
+@pytest.mark.parametrize('mode',['acyclic','claim_self_loop','two_components','three_nodes','parallel_types'])
+def test_wp2d_topology_cases(tmp_path,mode):
+    root=_wp2d_fixture(tmp_path);graph=load_json(root/'graph.json')
+    if mode=='acyclic':graph['dependency_edges']=[]
+    elif mode=='claim_self_loop':graph['dependency_edges']=[_wp2d_edge(source='claim-2',target='claim-2')]
+    elif mode=='two_components':graph['dependency_edges'].append(_wp2d_edge(source='claim-2',target='claim-2'))
+    elif mode=='three_nodes':
+        graph['dependency_edges'][0]['to']['object_id']='claim-2'
+        graph['dependency_edges'].append(_wp2d_edge(source='claim-2',target='claim-1'))
+    else:
+        graph['dependency_edges']=[_wp2d_edge('a',source='claim-2',target='claim-2'),_wp2d_edge('b',edge_type='supported_by_claim',source='claim-2',target='claim-2')]
+    _wp2c_write(root,'graph.json',graph);report=_wp2d_run(root,_wp2d_refresh(root))
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_ANALYZED'
+    assert report['counts']['cyclic_components']==(0 if mode=='acyclic' else 2 if mode=='two_components' else 1)
+    if mode=='three_nodes':assert len(report['cyclic_components'][0]['nodes'])==3
+    _wp2d_witnesses(report);_wp2d_limits(report)
+
+
+@pytest.mark.parametrize('mutation',['subject','run','claims_digest','evidence_digest','relations_digest','claim_set'])
+def test_wp2d_rehashed_graph_must_match_retained_packet_identities(tmp_path,mutation):
+    root=_wp2d_fixture(tmp_path);graph=load_json(root/'graph.json')
+    if mutation=='subject':graph['subject']['subject_id']='other'
+    elif mutation=='run':graph['subject']['run_id']='other'
+    elif mutation=='claim_set':graph['claim_set_id']='other'
+    else:graph['packet_sha256'][mutation.split('_')[0]]='0'*64
+    _wp2c_write(root,'graph.json',graph);report=_wp2d_run(root,_wp2d_refresh(root,bind_graph_packets=False))
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INVALID'
+    assert report['cycle_detection']['result'] is None
+    assert report['record_check']['status']=='LOCAL_RECORD_BINDINGS_CONSISTENT'
+
+
+@pytest.mark.parametrize('mutation',['unknown_type','wrong_from_kind','wrong_to_kind','missing_edge_id','duplicate_id','duplicate_tuple','unknown_claim','unknown_evidence','cross_kind_id','extra_anchor','schema','profile','coverage','authority','candidate','activation'])
+def test_wp2d_graph_contract_rejects_ambiguous_or_promoted_inputs(tmp_path,mutation):
+    root=_wp2d_fixture(tmp_path);graph=load_json(root/'graph.json');edge=graph['dependency_edges'][0]
+    if mutation=='unknown_type':edge['type']='related_to'
+    elif mutation=='wrong_from_kind':edge['from']['kind']='claim'
+    elif mutation=='wrong_to_kind':edge['to']['kind']='evidence'
+    elif mutation=='missing_edge_id':del edge['edge_id']
+    elif mutation=='duplicate_id':graph['dependency_edges'].append(deepcopy(edge))
+    elif mutation=='duplicate_tuple':second=deepcopy(edge);second['edge_id']='other';graph['dependency_edges'].append(second)
+    elif mutation=='unknown_claim':edge['to']['object_id']='missing'
+    elif mutation=='unknown_evidence':edge['from']['object_id']='missing'
+    elif mutation=='cross_kind_id':edge['from']['object_id']='claim-1'
+    elif mutation=='extra_anchor':graph['independent_anchors']=['claim-1']
+    elif mutation=='schema':graph['schema_version']='unknown'
+    elif mutation=='profile':graph['projection_profile']='unknown'
+    elif mutation=='coverage':graph['coverage']='complete'
+    elif mutation=='authority':graph['authority_effect']='release'
+    elif mutation=='candidate':graph['candidate_status']='active'
+    else:graph['release_authority_activation']=True
+    _wp2c_write(root,'graph.json',graph);report=_wp2d_run(root,_wp2d_refresh(root))
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INVALID'
+    assert report['cycle_detection']['status']=='not_run'
+
+
+@pytest.mark.parametrize('name',['graph.json','record-1.json','source.json','claims.json','record-set.json'])
+def test_wp2d_missing_required_bytes_prevent_cycle_result(tmp_path,name):
+    root=_wp2d_fixture(tmp_path);(root/name).unlink();report=_wp2d_run(root)
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INCOMPLETE'
+    assert report['cycle_detection']['result'] is None
+    assert report['nodes']==[]
+
+
+@pytest.mark.parametrize('content',[b'{broken',b'{"x":1,"x":2}',b'[]',b'{"x":NaN}',b'\xff',b'{} trailing'])
+def test_wp2d_rehashed_malformed_graph_never_yields_measurement(tmp_path,content):
+    root=_wp2d_fixture(tmp_path);(root/'graph.json').write_bytes(content)
+    report=_wp2d_run(root,_wp2d_refresh(root,bind_graph_packets=False))
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INVALID'
+    assert report['cycle_detection']['result'] is None
+
+
+def test_wp2d_absent_graph_binding_is_incomplete_not_acyclic(tmp_path):
+    root=_wp2d_fixture(tmp_path);inp=load_json(root/'input.json');inp['paradox_graph_binding']=None
+    _wp2c_write(root,'input.json',inp);report=_wp2d_run(root,_wp2d_refresh(root))
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INCOMPLETE'
+    assert report['record_check']['status']=='LOCAL_RECORD_BINDINGS_CONSISTENT'
+    assert report['cycle_detection']['result'] is None
+
+
+def test_wp2d_other_graph_schema_is_not_silently_reinterpreted(tmp_path):
+    root=_wp2d_fixture(tmp_path);inp=load_json(root/'input.json');graph=load_json(root/'graph.json')
+    inp['paradox_graph_binding']['schema_version']='another_graph_v1';graph['schema_version']='another_graph_v1'
+    _wp2c_write(root,'input.json',inp);_wp2c_write(root,'graph.json',graph)
+    report=_wp2d_run(root,_wp2d_refresh(root))
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INVALID'
+    assert any(x['code']=='unsupported_dependency_graph_schema' for x in report['issues'])
+
+
+@pytest.mark.parametrize('which',[0,1,2])
+@pytest.mark.parametrize('bad',['0'*64,'bad',None])
+def test_wp2d_external_expectations_are_required(tmp_path,which,bad):
+    pins=list(WP2D_PINS);pins[which]=bad;report=_wp2d_run(_wp2d_fixture(tmp_path),pins)
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INVALID'
+    assert report['cycle_detection']['result'] is None
+
+
+@pytest.mark.parametrize('name',['input.json','carriers.json','graph.json','record-1.json','source.json'])
+def test_wp2d_changed_bytes_are_not_concealed_by_old_hashes(tmp_path,name):
+    root=_wp2d_fixture(tmp_path);p=root/name;p.write_bytes(p.read_bytes()+b' ')
+    report=_wp2d_run(root)
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INVALID'
+    assert report['cycle_detection']['result'] is None
+
+
+def test_wp2d_invalid_precedes_missing(tmp_path):
+    root=_wp2d_fixture(tmp_path);(root/'record-1.json').unlink();p=root/'source.json';p.write_bytes(p.read_bytes()+b' ')
+    report=_wp2d_run(root)
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INVALID'
+    assert report['cycle_detection']['result'] is None
+
+
+@pytest.mark.parametrize('kind',['symlink','hardlink','directory','fifo'])
+def test_wp2d_graph_uses_existing_safe_reader_boundary(tmp_path,kind):
+    root=_wp2d_fixture(tmp_path);p=root/'graph.json';data=p.read_bytes();p.unlink()
+    if kind in ('symlink','hardlink'):
+        other=root/'other.json';other.write_bytes(data)
+        if kind=='symlink':p.symlink_to(other)
+        else:_wp2c_os.link(other,p)
+    elif kind=='directory':p.mkdir()
+    else:_wp2c_os.mkfifo(p)
+    report=_wp2d_run(root)
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INVALID'
+    assert report['cycle_detection']['result'] is None
+
+
+@pytest.mark.parametrize('alias',['claims.json','source.json','record-1.json','record-set.json','carriers.json','input.json'])
+def test_wp2d_graph_cannot_alias_another_role(tmp_path,alias):
+    root=_wp2d_fixture(tmp_path);inp=load_json(root/'input.json');inp['paradox_graph_binding']['path']=alias
+    _wp2c_write(root,'input.json',inp)
+    # Binding an alias must fail even when callers re-pin the reachable roots.
+    report=_wp2d_run(root,_wp2d_refresh(root))
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INVALID'
+    assert report['cycle_detection']['result'] is None
+
+
+def test_wp2d_graph_uses_retained_bytes_after_record_check(tmp_path,monkeypatch):
+    root=_wp2d_fixture(tmp_path);m=_wp2d_module();records=m.load_record_checker()
+    original=records.RecordReview.records
+    def changed(self,reader,record_set,input_path):
+        original(self,reader,record_set,input_path)
+        (root/'graph.json').write_bytes(b'{"changed_after_read":true}')
+    monkeypatch.setattr(records.RecordReview,'records',changed)
+    monkeypatch.setattr(m,'load_record_checker',lambda:records)
+    report=_wp2d_run(root,module=m)
+    assert report['cycle_detection']['result']=='cycle_detected'
+    assert report['graph_binding']['observed_sha256']!=_wp2c_hash(root/'graph.json')
+    _wp2d_limits(report)
+
+
+@pytest.mark.parametrize('field,limit',[('MAX_GRAPH_NODES',2),('MAX_GRAPH_EDGES',1)])
+def test_wp2d_projection_budgets_reject_before_result(tmp_path,monkeypatch,field,limit):
+    m=_wp2d_module();monkeypatch.setattr(m,field,limit)
+    report=_wp2d_run(_wp2d_fixture(tmp_path),module=m)
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INVALID'
+    assert report['cycle_detection']['result'] is None
+
+
+def test_wp2d_input_edge_budget_is_bounded(tmp_path):
+    root=_wp2d_fixture(tmp_path);g=load_json(root/'graph.json')
+    g['dependency_edges']=[_wp2d_edge(str(i)) for i in range(4097)]
+    _wp2c_write(root,'graph.json',g);report=_wp2d_run(root,_wp2d_refresh(root))
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INVALID'
+    assert report['cycle_detection']['result'] is None
+
+
+@pytest.mark.parametrize('field,value',[('authority_effect','release'),('candidate_status','active'),('release_authority_activation',True),('requested_checks_complete',True),('accepted_as_semantic_support',True),('whole_response_cycle_freedom_established',True)])
+def test_wp2d_report_cannot_promote_structural_observation(field,value):
+    m=_wp2d_module();r=_wp2d_run(module=m);r[field]=value;records=m.load_record_checker();base=records.load_binding_checker()
+    with pytest.raises(base.BindingError):m.CycleSchemas(base).validate('report',r)
+
+
+@pytest.mark.parametrize('key',_wp2d_module().UNPERFORMED)
+def test_wp2d_unperformed_checks_reject_nonnull_results(key):
+    m=_wp2d_module();r=_wp2d_run(module=m);r['unperformed_checks'][key].update(status='completed',result='verified')
+    records=m.load_record_checker();base=records.load_binding_checker()
+    with pytest.raises(base.BindingError):m.CycleSchemas(base).validate('report',r)
+
+
+@pytest.mark.parametrize('result',['low','medium','high','anchored_cycle_observed','unanchored_cycle_detected','no_unanchored_cycle_detected'])
+def test_wp2d_no_anchor_or_risk_classification_is_fabricated(result):
+    m=_wp2d_module();r=_wp2d_run(module=m);r['cycle_anchor_classification'].update(status='completed',result=result)
+    base=m.load_record_checker().load_binding_checker()
+    with pytest.raises(base.BindingError):m.CycleSchemas(base).validate('report',r)
+
+
+@pytest.mark.parametrize('mutation',['erase_cycles','erase_result','false_acyclic','invalid_with_measurement','base_not_checked','issues_with_success','null_count'])
+def test_wp2d_report_schema_rejects_false_completed_shapes(mutation):
+    m=_wp2d_module();r=_wp2d_run(module=m)
+    if mutation=='erase_cycles':r['cyclic_components']=[]
+    elif mutation=='erase_result':r['cycle_detection']['result']=None
+    elif mutation=='false_acyclic':r['cycle_detection']['result']='no_cycle_detected_in_declared_graph'
+    elif mutation=='invalid_with_measurement':r['status']='LOCAL_DEPENDENCY_GRAPH_INVALID'
+    elif mutation=='base_not_checked':r['record_check']['status']=None
+    elif mutation=='issues_with_success':r['issues'].append({'code':'x','object_id':'x','severity':'incomplete'})
+    else:r['counts']['edges']=None
+    base=m.load_record_checker().load_binding_checker()
+    with pytest.raises(base.BindingError):m.CycleSchemas(base).validate('report',r)
+
+
+def _wp2d_simple_edges(pairs):
+    return [{'edge_key':'graph:e'+str(i),'from':a,'to':b} for i,(a,b) in enumerate(pairs)]
+
+
+def _wp2d_independent_components(nodes,pairs):
+    reach={(a,b) for a,b in pairs}
+    for middle in nodes:
+        for source in nodes:
+            for target in nodes:
+                if (source,middle) in reach and (middle,target) in reach:
+                    reach.add((source,target))
+    groups=set()
+    for source in nodes:
+        groups.add(tuple(sorted(n for n in nodes if n==source or ((source,n) in reach and (n,source) in reach))))
+    cyclic=sorted(g for g in groups if len(g)>1 or (g[0],g[0]) in reach)
+    return len(groups),cyclic
+
+
+def test_wp2d_algorithm_matches_all_512_directed_three_node_graphs():
+    m=_wp2d_module();nodes=['a','b','c'];possible=[(a,b) for a in nodes for b in nodes]
+    for mask in range(1<<len(possible)):
+        pairs=[pair for i,pair in enumerate(possible) if mask & (1<<i)]
+        edges=_wp2d_simple_edges(pairs);result=m.analyze_projection(nodes,edges)
+        count,cycles=_wp2d_independent_components(nodes,pairs)
+        assert result['component_count']==count,(mask,result)
+        assert [tuple(c['nodes']) for c in result['cyclic_components']]==cycles,(mask,result)
+        _wp2d_witnesses({'edges':edges,'cyclic_components':result['cyclic_components']})
+
+
+def test_wp2d_algorithm_matches_seeded_larger_graphs_and_permutations():
+    import random
+    rng=random.Random(2983);m=_wp2d_module();nodes=[str(i) for i in range(8)]
+    for _ in range(64):
+        pairs=[(a,b) for a in nodes for b in nodes if rng.randrange(6)==0]
+        edges=_wp2d_simple_edges(pairs);a=m.analyze_projection(nodes,edges)
+        count,cycles=_wp2d_independent_components(nodes,pairs)
+        assert a['component_count']==count
+        assert [tuple(c['nodes']) for c in a['cyclic_components']]==cycles
+        rng.shuffle(edges);order=nodes[:];rng.shuffle(order)
+        assert m.analyze_projection(order,edges)==a
+        _wp2d_witnesses({'edges':edges,'cyclic_components':a['cyclic_components']})
+
+
+@pytest.mark.parametrize('cycle',[False,True])
+def test_wp2d_long_graph_is_not_python_recursion_limited(cycle):
+    m=_wp2d_module();nodes=['n'+str(i) for i in range(5000)]
+    pairs=list(zip(nodes,nodes[1:]))
+    if cycle:pairs.append((nodes[-1],nodes[0]))
+    result=m.analyze_projection(nodes,_wp2d_simple_edges(pairs))
+    assert bool(result['cyclic_components'])==cycle
+    assert result['component_count']==(1 if cycle else len(nodes))
+
+
+@pytest.mark.parametrize('kind',['nodes','edges','duplicate_node','duplicate_key','bad_endpoint'])
+def test_wp2d_low_level_projection_rejects_invalid_inventory(kind,monkeypatch):
+    m=_wp2d_module();nodes=['a','b'];edges=_wp2d_simple_edges([('a','b')])
+    if kind=='nodes':monkeypatch.setattr(m,'MAX_GRAPH_NODES',1)
+    elif kind=='edges':monkeypatch.setattr(m,'MAX_GRAPH_EDGES',0)
+    elif kind=='duplicate_node':nodes.append('a')
+    elif kind=='duplicate_key':edges.append(deepcopy(edges[0]))
+    else:edges[0]['to']='missing'
+    with pytest.raises(ValueError):m.analyze_projection(nodes,edges)
+
+
+def test_wp2d_empty_projection_is_observed_only_with_zero_counts():
+    m=_wp2d_module();r=m.analyze_projection([],[])
+    assert r=={'component_count':0,'cyclic_components':[],'result':'no_cycle_detected_in_declared_graph'}
+
+
+def test_wp2d_partial_claim_set_is_not_whole_response_cycle_freedom(tmp_path):
+    root=_wp2d_fixture(tmp_path);claims=load_json(root/'claims.json');claims['claim_set']['materialization_status']='partial'
+    _wp2c_write(root,'claims.json',claims);report=_wp2d_run(root,_wp2d_refresh(root))
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INCOMPLETE'
+    assert report['claim_materialization_status'] is None
+    assert report['cycle_detection']['result'] is None;_wp2d_limits(report)
+
+
+def test_wp2d_report_is_deterministic_and_leaves_input_bytes_unchanged(tmp_path):
+    root=_wp2d_fixture(tmp_path);before={p.name:p.read_bytes() for p in root.iterdir()}
+    a=_wp2d_run(root);b=_wp2d_run(root)
+    assert a==b
+    assert before=={p.name:p.read_bytes() for p in root.iterdir()}
+
+
+def test_wp2d_existing_checkers_are_still_separate_and_do_not_claim_cycles():
+    old=_wp2c_run(WP2D_DEMO,WP2D_PINS)
+    assert old['status']=='LOCAL_RECORD_BINDINGS_CONSISTENT'
+    assert old['unperformed_checks']['typed_evidence_cycle_check']['result'] is None
+
+
+def _wp2d_command(root,pins=WP2D_PINS):
+    return [_wp2c_sys.executable,str(WP2D_TOOL),'--bundle-root',str(root),'--input','input.json',
+            '--expected-input-sha256',pins[0],'--carriers','carriers.json','--expected-carriers-sha256',pins[1],
+            '--record-set','record-set.json','--expected-record-set-sha256',pins[2],
+            '--binding-profile','wp2b-json-pointer-v1','--cycle-profile','typed-dependencies-v1']
+
+
+@pytest.mark.parametrize('case,code',[('cyclic',0),('acyclic',0),('invalid',1),('missing',2)])
+def test_wp2d_cli_codes_distinguish_measurement_from_admission(tmp_path,case,code):
+    root=_wp2d_fixture(tmp_path);pins=WP2D_PINS
+    if case=='acyclic':
+        g=load_json(root/'graph.json');g['dependency_edges']=[];_wp2c_write(root,'graph.json',g);pins=_wp2d_refresh(root)
+    elif case=='invalid':(root/'graph.json').write_bytes(b'bad')
+    elif case=='missing':(root/'graph.json').unlink()
+    result=_wp2c_subprocess.run(_wp2d_command(root,pins),capture_output=True,timeout=30)
+    assert result.returncode==code,result.stderr
+    report=json.loads(result.stdout);_wp2d_limits(report)
+    if case=='cyclic':assert report['cycle_detection']['result']=='cycle_detected'
+
+
+@pytest.mark.parametrize('option',['--expected-input-sha256','--expected-carriers-sha256','--expected-record-set-sha256','--binding-profile','--cycle-profile'])
+def test_wp2d_cli_requires_explicit_profiles_and_expectations(option):
+    command=_wp2d_command(WP2D_DEMO);index=command.index(option);del command[index:index+2]
+    result=_wp2c_subprocess.run(command,capture_output=True,timeout=30)
+    assert result.returncode==2 and not result.stdout
+
+
+def test_wp2d_api_rejects_unrecognized_cycle_profile():
+    report=_wp2d_run(profile='automatic')
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INVALID'
+    assert report['cycle_detection']['result'] is None
+
+
+def test_wp2d_cli_has_no_saved_approval_plugin_or_output_path():
+    result=_wp2c_subprocess.run([_wp2c_sys.executable,str(WP2D_TOOL),'--help'],capture_output=True,timeout=30)
+    assert result.returncode==0
+    for option in [b'--saved-report',b'--plugin',b'--output',b'--trust-all']:
+        assert option not in result.stdout
+
+
+def test_wp2d_missing_installation_returns_no_success_json(tmp_path):
+    target=tmp_path/'installation'/'tools'/WP2D_TOOL.name;target.parent.mkdir(parents=True)
+    _wp2c_shutil.copyfile(WP2D_TOOL,target);command=_wp2d_command(WP2D_DEMO);command[1]=str(target)
+    result=_wp2c_subprocess.run(command,capture_output=True,timeout=30)
+    assert result.returncode==2 and not result.stdout
+    assert b'Anchor cycle checker error:' in result.stderr
+
+
+def test_wp2d_fixed_import_does_not_write_bytecode(tmp_path,monkeypatch):
+    m=_wp2d_module();(tmp_path/'tools').mkdir()
+    _wp2c_shutil.copyfile(WP2C_TOOL,tmp_path/'tools'/WP2C_TOOL.name)
+    monkeypatch.setattr(m,'ROOT',tmp_path);previous=_wp2c_sys.dont_write_bytecode
+    m.load_record_checker()
+    assert _wp2c_sys.dont_write_bytecode==previous
+    assert not (tmp_path/'tools/__pycache__').exists()
+
+
+def test_wp2d_uses_registered_anchor_module_without_new_manifest_entries():
+    for path in ['ci/tools-tests.list','ci/pytest-tests.list']:
+        assert _manifest_entries(ROOT/path).count(TEST_PATH)==1
+    assert WP2D_TOOL.name not in (ROOT/'ci/tools-tests.list').read_text()
+
+
+@pytest.mark.parametrize('name',['anchor_integrity_dependency_graph_v0_1.schema.json','anchor_integrity_dependency_cycle_report_v0_1.schema.json'])
+def test_wp2d_schemas_are_self_contained_draft_2020_12(name):
+    schema=load_json(ROOT/'schemas'/name);jsonschema.Draft202012Validator.check_schema(schema)
+    base=_wp2_module();base._assert_self_contained(schema)
+
+
+def test_wp2d_documented_boundary_is_not_a_release_or_anchor_verdict():
+    text=(ROOT/'docs/ANCHOR_INTEGRITY_v0_1_WP2D_DEPENDENCY_CYCLES.md').read_text()
+    for phrase in ['declared_edges_only','Exit 0','not proof of semantic support',
+                   'cycle_anchor_classification','not an atomic filesystem snapshot']:
+        assert phrase in text
+
+
+
+
+def test_wp2d_native_wp2a_profile_keeps_its_existing_byte_rules(tmp_path):
+    root=tmp_path/'wp2a_cycles';_wp2c_shutil.copytree(WP2_DEMO,root)
+    inp=load_json(root/'input.json');claims=load_json(root/'claims.json')
+    graph=load_json(WP2D_DEMO/'graph.json')
+    graph.update(subject=inp['subject'],claim_set_id=claims['claim_set']['claim_set_id'],dependency_edges=[])
+    _wp2c_write(root,'graph.json',graph)
+    inp['paradox_graph_binding']={'path':'graph.json','sha256':_wp2c_hash(root/'graph.json'),'schema_version':graph['schema_version']}
+    _wp2c_write(root,'input.json',inp)
+    rs=load_json(WP2C_DEMO/'record-set.json');rs.update(binding_profile='wp2a',records=[])
+    _wp2c_write(root,'record-set.json',rs)
+    report=_wp2d_run(root,_wp2d_refresh(root),binding='wp2a')
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_ANALYZED'
+    assert report['cycle_detection']['result']=='no_cycle_detected_in_declared_graph'
+    assert report['implementation']['json_pointer_module_sha256'] is None
+    _wp2d_limits(report)
+
+
+def test_wp2d_graph_change_during_read_is_rejected(tmp_path,monkeypatch):
+    root=_wp2d_fixture(tmp_path);m=_wp2d_module();records=m.load_record_checker();base=records.load_binding_checker()
+    original=base.os.fstat;inode=(root/'graph.json').stat().st_ino;calls=[]
+    def changed(fd):
+        stat=original(fd)
+        if stat.st_ino==inode:
+            calls.append(fd)
+            if len(calls)==2:
+                class Mutated:
+                    def __getattr__(self,name):
+                        return getattr(stat,name)+1 if name=='st_mtime_ns' else getattr(stat,name)
+                return Mutated()
+        return stat
+    monkeypatch.setattr(base.os,'fstat',changed)
+    monkeypatch.setattr(records,'load_binding_checker',lambda:base)
+    monkeypatch.setattr(m,'load_record_checker',lambda:records)
+    report=_wp2d_run(root,module=m)
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INVALID'
+    assert any('carrier_changed_during_read' in i['code'] for i in report['issues'])
+    assert report['cycle_detection']['result'] is None
+
+
+def test_wp2d_bundle_cannot_supply_a_verifier_or_cycle_implementation(tmp_path):
+    root=_wp2d_fixture(tmp_path);graph=load_json(root/'graph.json')
+    graph['algorithm_path']='evil.py';_wp2c_write(root,'graph.json',graph)
+    (root/'evil.py').write_text("raise AssertionError('artifact code executed')")
+    report=_wp2d_run(root,_wp2d_refresh(root))
+    assert report['status']=='LOCAL_DEPENDENCY_GRAPH_INVALID'
+    assert report['cycle_detection']['result'] is None
+
+
+def test_wp2d_installation_schemas_cannot_resolve_external_refs(tmp_path,monkeypatch):
+    m=_wp2d_module();base=m.load_record_checker().load_binding_checker()
+    (tmp_path/'schemas').mkdir()
+    for name in m.SCHEMAS.values():
+        _wp2c_shutil.copyfile(ROOT/'schemas'/name,tmp_path/'schemas'/name)
+    path=tmp_path/'schemas'/m.SCHEMAS['graph'];value=load_json(path);value['$ref']='https://invalid.example/not_allowed'
+    path.write_text(json.dumps(value));monkeypatch.setattr(m,'ROOT',tmp_path)
+    with pytest.raises(base.BindingError):m.CycleSchemas(base)
+
+
+def test_wp2d_cli_reads_only_and_creates_no_bundle_files(tmp_path):
+    root=_wp2d_fixture(tmp_path);before={p.relative_to(root).as_posix():p.read_bytes() for p in root.rglob('*') if p.is_file()}
+    command=_wp2d_command(root)
+    result=_wp2c_subprocess.run(command,capture_output=True,timeout=30)
+    assert result.returncode==0
+    assert before=={p.relative_to(root).as_posix():p.read_bytes() for p in root.rglob('*') if p.is_file()}
+
+
+def test_wp2d_reordered_graph_declarations_keep_the_same_projection(tmp_path):
+    root=_wp2d_fixture(tmp_path);graph=load_json(root/'graph.json')
+    graph['dependency_edges'].append(_wp2d_edge(source='claim-2',target='claim-2'))
+    _wp2c_write(root,'graph.json',graph);a=_wp2d_run(root,_wp2d_refresh(root))
+    graph['dependency_edges'].reverse();_wp2c_write(root,'graph.json',graph)
+    b=_wp2d_run(root,_wp2d_refresh(root))
+    for key in ['nodes','edges','cyclic_components','cycle_detection','counts']:
+        assert a[key]==b[key]
+    assert a['graph_binding']['observed_sha256']!=b['graph_binding']['observed_sha256']
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
