@@ -1,0 +1,145 @@
+{
+  "$id": "https://eplabsai.com/pulsemech/schemas/anchor_integrity_verifier_record_set_v0_1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority_effect": {
+      "const": "none"
+    },
+    "binding_profile": {
+      "enum": [
+        "wp2a",
+        "wp2b-json-pointer-v1"
+      ]
+    },
+    "candidate_status": {
+      "const": "diagnostic_only"
+    },
+    "carriers_binding": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "maxLength": 512,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "input_binding": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "maxLength": 512,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "profile": {
+      "const": "local_verifier_record_bindings_v1"
+    },
+    "records": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "binding_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "expected_verifier": {
+            "additionalProperties": false,
+            "properties": {
+              "implementation_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "method_id": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              "method_version": {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              "verifier_id": {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "verifier_id",
+              "method_id",
+              "method_version",
+              "implementation_sha256"
+            ],
+            "type": "object"
+          },
+          "path": {
+            "maxLength": 512,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+            "type": "string"
+          },
+          "record_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "binding_id",
+          "path",
+          "sha256",
+          "expected_verifier"
+        ],
+        "type": "object"
+      },
+      "maxItems": 4096,
+      "type": "array"
+    },
+    "release_authority_activation": {
+      "const": false
+    },
+    "schema_version": {
+      "const": "anchor_integrity_verifier_record_set_v0_1"
+    }
+  },
+  "required": [
+    "schema_version",
+    "candidate_status",
+    "authority_effect",
+    "release_authority_activation",
+    "profile",
+    "binding_profile",
+    "input_binding",
+    "carriers_binding",
+    "records"
+  ],
+  "title": "anchor_integrity_verifier_record_set_v0_1 \u2014 local bindings only",
+  "type": "object"
+}
