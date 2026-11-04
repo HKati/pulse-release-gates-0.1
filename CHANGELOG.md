@@ -6,6 +6,46 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add Anchor Integrity v0.1
+  [WP2A local byte/reference checks](docs/ANCHOR_INTEGRITY_v0_1_WP2A_BINDINGS.md),
+  [WP2B opt-in JSON Pointer projections](docs/ANCHOR_INTEGRITY_v0_1_WP2B_JSON_POINTER.md)
+  and [WP2C materialized verifier-record bindings](docs/ANCHOR_INTEGRITY_v0_1_WP2C_VERIFIER_RECORDS.md).
+  Bind records to fresh base checks, exact packets and caller-pinned verifier
+  tuples; preserve existing profiles and historical fixtures. These diagnostic
+  checks do not establish verifier execution, provenance authentication or
+  semantic support, and do not complete the full adapter; `authority_effect = none`.
+
+- Add the [LRM-01 contract foundation](docs/PULSEMECH_LANGUAGE_RELATION_MEASUREMENT_v0_CONTRACT.md):
+  four closed schemas, a finite language profile, synthetic reference fixtures
+  and contract tests. Separate source-representation verification, relation
+  comparison and supported impact in the
+  [development plan](docs/PULSEMECH_LANGUAGE_RELATION_MEASUREMENT_v0_PLAN.md).
+  The runtime verifier, comparator, impact evaluator, extractor and replay
+  runner remain unimplemented. Contract-test success is not a language
+  measurement result; `authority_effect = none` and release activation remains false.
+
+- Add W1 [offline observation-record checking](docs/experiments/PD_SM_02_W1_RECORD_CHECKER_v0.md),
+  [candidate-free environment admission](docs/experiments/PD_SM_02_W1_ADMISSION_v0.md),
+  the [preserved native request](docs/experiments/PD_SM_02_W1_NATIVE_REQUEST_v0.md)
+  and [manual hosted native integration](docs/experiments/PD_SM_02_W1_HOSTED_NATIVE_v0.md).
+  Bind the guarded capture path to the exact source and request; retain separate
+  live controls, bounded execution, cleanup and offline replay. The original
+  hosted capture preservation in [PR #2984](https://github.com/HKati/pulse-release-gates-0.1/pull/2984)
+  remains pending and is not evidence preserved on `main`. Implementation and
+  internally consistent replay do not establish authenticated acquisition,
+  native/model correspondence or release authority; `authority_effect = none`.
+
+- Add the separate [QRH003 v0.1.3 Python source-binding correction](studies/openai_math_003_qrh_v0/SOURCE_BINDING.md).
+  Verify the caller-approved source manifest, capture and compile the declared
+  source inventory before study imports, and reject cache or unlisted-initializer
+  substitution. Pass sealed launcher/manifest descriptors to collector children,
+  which verify their own source snapshots. Record the previously documented
+  2026-10-10 local validation of 220 distinct cases, including 35 added regressions,
+  while retaining the earlier v0.1.2/185-case record.
+  Preserve historical anchors, the original pilot verifier and `BLOCK` / `MATCH`;
+  native proof capture remains `NOT_IMPLEMENTED`, with no new production gate
+  or mathematical acceptance claim.
+
 - Prepare an inactive, source-bound Q3 runtime transport for the exact twenty
   preserved byte fragments. Verify each part and the original archive before
   the existing independent archive check; bind retrieval evidence to prelaunch.

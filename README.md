@@ -221,6 +221,45 @@ later source revision.
 | Paradoxon PD-SM-01-E1 finite checks and MON-1 local enforcement | Completed local evidence preserved through #2954 / `a9de035d1b3ac227359ca78a98274abe4c9ee186`: 8192 F1 rows, 4096 F2 rows and 17 selected MON-1 cases; original archive and nested E0 retained; E2 compatibility and production authority remain separate; [result and original evidence](docs/PULSEMECH_PARADOX_E1_MON1_RESULT_v0.md); `authority_effect = none` |
 | Paradoxon PD-SM-02 source-bound pre-execution impact | Implementation merged through #2957 / `4cb5f7dbe00cfbaf5bd50f77423e4d671fa71905`; bounded local scratch result preserved through #2958 / `5bb3cae1ea562cbfde4b80f7bc3878bf3d92f6be`: 112 recorded regressions, 24/24 declared outcomes, 4/4 eligible exact effects and 20/20 non-eligible attempts stopped before output creation; CPython 3.13.5/Linux x86_64 only; [result and evidence](docs/PULSEMECH_PARADOX_PREEXECUTION_SCRATCH_RESULT_v0.md); `authority_effect = none` |
 
+### Recent development checkpoints — 2026-11-04
+
+This documentation checkpoint describes source
+[`1f6ad0961ec4dc576916248681651254996b6ea5`](https://github.com/HKati/pulse-release-gates-0.1/tree/1f6ad0961ec4dc576916248681651254996b6ea5).
+These increments retain their separate evidence scopes; they do not establish
+accepted current-run release evidence or complete Step 5C/5D.
+
+- **Anchor Integrity v0.1 — WP2A/B/C:** implemented offline diagnostic
+  [local byte/reference binding](docs/ANCHOR_INTEGRITY_v0_1_WP2A_BINDINGS.md),
+  [explicit JSON Pointer projection](docs/ANCHOR_INTEGRITY_v0_1_WP2B_JSON_POINTER.md)
+  and [materialized verifier-record binding](docs/ANCHOR_INTEGRITY_v0_1_WP2C_VERIFIER_RECORDS.md).
+  Matching records do not establish that the declared verifier ran or that its
+  declaration is true. Semantic verification and verifier trust admission remain
+  separate; `authority_effect = none`, `release_authority_activation = false`.
+- **Language Relation Measurement — LRM-01:** the
+  [contract foundation](docs/PULSEMECH_LANGUAGE_RELATION_MEASUREMENT_v0_CONTRACT.md),
+  schemas and synthetic reference fixtures are present. The source-mapping
+  verifier, relation comparator, impact evaluator, extractor and replay runner
+  are not implemented; `authority_effect = none`.
+- **QRH003 v0.1.3:** the [isolated offline audit demonstrator](docs/PULSEMECH_QRH003_AUDIT_REFERENCE_v0.md)
+  includes the Python source-binding correction. The historical pilot retains
+  `BLOCK` and replay `MATCH`; native proof capture is `NOT_IMPLEMENTED`, and no
+  production QRH certificate is established. Its local offline profile remains
+  separate from repository release authority.
+- **Q3:** [standalone recomputation](docs/compute/PULSEMECH_Q3_REFERENCE_RECOMPUTATION_v0.md)
+  and the separate [native preflight/capture implementation](docs/compute/PULSEMECH_Q3_NATIVE_CAPTURE_v0.md)
+  are present. The [runtime part transport](docs/compute/PULSEMECH_Q3_RUNTIME_PART_TRANSPORT_v0.md)
+  is inactive and unconfigured (`RUNTIME_TRANSPORT_UNCONFIGURED`); hosted retrieval
+  remains unverified. `q3_fairness_ok` remains unsupported in the release
+  dispatcher and independent admission; `authority_effect = none`.
+- **Paradoxon PD-SM-02-W1:** environment admission `41362257003/1` completed
+  with zero candidate invocations and status `ADMISSION_COMPLETED_UNATTESTED`.
+  The [preserved native request and prior admission](docs/experiments/PD_SM_02_W1_NATIVE_REQUEST_v0.md)
+  and [manual hosted native integration](docs/experiments/PD_SM_02_W1_HOSTED_NATIVE_v0.md)
+  are on this source. The separate native-capture evidence preservation
+  [PR #2984](https://github.com/HKati/pulse-release-gates-0.1/pull/2984) remains open
+  and is not part of this snapshot. Admission completion does not establish an
+  externally attested native witness; `authority_effect = none`.
+
 ### Completed historical producer-input capture — Step 4A
 
 The exact historical PULSE CI #6066 producer-input capture is preserved
@@ -1520,7 +1559,7 @@ In Core and release-grade paths, evidence is recorded into `status.json`, interp
 **Quality gates (Q₁–Q₄)** — product-facing release evidence:
 - Q₁ **Groundedness** — RAG factuality
 - Q₂ **Consistency** — answer agreement
-- Q₃ **Fairness** — parity and equalized odds
+- Q₃ **Fairness** — [quality parity across declared slices](metrics/specs/q3_fairness_v0.yml)
 - Q₄ **SLOs** — p95 latency and mean-cost evidence
 
 **Release-state outputs**
