@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""WP2A: offline byte/reference checks, never semantic or release authority.
+"""Anchor offline byte/reference checks; opt-in WP2B JSON Pointer projection.
+
+The default WP2A profile retains its original JSON-pointer-incomplete behavior.
+WP2B requires --profile wp2b-json-pointer-v1 and a separately pinned v0.2
+carrier manifest naming the exact projection profile. Neither is authority.
 
 The caller supplies two independently retained SHA-256 expectations. Those
 expectations bind this invocation; they do not authenticate who supplied them.
@@ -10,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import math
 import os
@@ -37,6 +42,9 @@ SCHEMAS = {
     "carriers": "anchor_integrity_local_carriers_v0_1.schema.json",
     "report": "anchor_integrity_binding_report_v0_1.schema.json",
 }
+WP2B_PROFILE = "wp2b-json-pointer-v1"
+JSON_POINTER_PROFILE = "rfc6901_source_spans_v1"
+MAX_POINTER_PROJECTION_BYTES = 64 * 1024 * 1024
 UNPERFORMED = (
     "source_identity_authentication", "acquisition_authentication",
     "subject_observation_authentication", "semantic_support_verification",
@@ -117,10 +125,17 @@ def _assert_self_contained(schema: Any) -> None:
 
 class SchemaSet:
     """Only reviewed repository schemas, never a bundle-selected schema."""
-    def __init__(self) -> None:
+    def __init__(self, profile: str = "wp2a") -> None:
+        if profile not in ("wp2a", WP2B_PROFILE):
+            raise BindingError("unknown_binding_profile")
+        self.profile = profile
+        names = dict(SCHEMAS)
+        if profile == WP2B_PROFILE:
+            names.update(carriers="anchor_integrity_local_carriers_v0_2.schema.json",
+                         report="anchor_integrity_binding_report_v0_2.schema.json")
         self.validators: dict[str, Any] = {}
         self.hashes: dict[str, str] = {}
-        for role, name in SCHEMAS.items():
+        for role, name in names.items():
             raw = (ROOT / "schemas" / name).read_bytes()
             schema = strict_json(raw)
             _assert_self_contained(schema)
@@ -301,6 +316,67 @@ class Review:
                                "schema_sha256": dict(schemas.hashes)},
         }
 
+
+        self._pointer_module = None
+        self._pointer_documents: dict[int, Any] = {}
+        self._pointer_errors: dict[int, tuple[bytes, str]] = {}
+        self._pointer_projected_bytes = 0
+        if schemas.profile == WP2B_PROFILE:
+            # Fixed reviewed implementation path, never selected by input data.
+            module_path = ROOT / "tools" / "anchor_integrity_json_pointer_v0_1.py"
+            spec = importlib.util.spec_from_file_location("anchor_json_pointer_wp2b", module_path)
+            if spec is None or spec.loader is None:
+                raise BindingError("json_pointer_implementation_unavailable")
+            module = importlib.util.module_from_spec(spec)
+            previous_bytecode_policy = sys.dont_write_bytecode
+            sys.dont_write_bytecode = True
+            try:
+                spec.loader.exec_module(module)
+            finally:
+                sys.dont_write_bytecode = previous_bytecode_policy
+            if module.PROFILE != JSON_POINTER_PROFILE:
+                raise BindingError("json_pointer_implementation_profile_mismatch")
+            self._pointer_module = module
+            self.report.update(
+                schema_version="anchor_integrity_binding_report_v0_2",
+                work_package="WP2B",
+                verification_scope="offline_bytes_recorded_links_and_json_projection",
+                json_pointer_profile=JSON_POINTER_PROFILE,
+                json_pointer_selections=[],
+            )
+            self.report["implementation"]["json_pointer_module_sha256"] = sha256(module_path.read_bytes())
+            for check in self.report["unperformed_checks"].values():
+                check["reason"] = "outside_wp2b_local_projection_scope"
+
+    def select(self, data: bytes, locator: dict[str, Any], purpose: str,
+               ident: str) -> bytes:
+        if locator.get("type") != "json_pointer" or self._pointer_module is None:
+            return select_content(data, locator)
+        module = self._pointer_module
+        if self._pointer_projected_bytes >= MAX_POINTER_PROJECTION_BYTES:
+            raise BindingError("json_pointer_projection_budget")
+        # BundleReader retains immutable bytes per invocation. Cache by identity,
+        # and retain data in both success and failure caches to prevent ID reuse.
+        key = id(data)
+        if key in self._pointer_errors:
+            raise BindingError(self._pointer_errors[key][1])
+        if key not in self._pointer_documents:
+            try:
+                self._pointer_documents[key] = module.Document(data)
+            except module.ProjectionError as exc:
+                self._pointer_errors[key] = (data, exc.code)
+                raise BindingError(exc.code) from exc
+        try:
+            selected, receipt = self._pointer_documents[key].project(locator.get("value"), purpose)
+        except module.ProjectionError as exc:
+            raise BindingError(exc.code) from exc
+        self._pointer_projected_bytes += len(selected) + receipt["end_byte"] - receipt["start_byte"]
+        if self._pointer_projected_bytes > MAX_POINTER_PROJECTION_BYTES:
+            raise BindingError("json_pointer_projection_budget")
+        receipt["object_id"] = ident
+        self.report["json_pointer_selections"].append(receipt)
+        return selected
+
     def issue(self, code: str, ident: str, severity: str = "invalid") -> None:
         self.report["issues"].append({"severity": severity, "code": code, "object_id": ident})
 
@@ -345,6 +421,8 @@ class Review:
             key=lambda x: (x["severity"], x["object_id"], x["code"]))
         self.report["checks"].sort(key=lambda x: (x["id"], x["status"], str(x["result"])))
         self.report["recorded_relation_results"].sort(key=lambda x: x["binding_id"])
+        if "json_pointer_selections" in self.report:
+            self.report["json_pointer_selections"].sort(key=lambda x: x["object_id"])
         severity = {x["severity"] for x in self.report["issues"]}
         self.report["status"] = ("LOCAL_BINDINGS_INVALID" if "invalid" in severity else
             "LOCAL_BINDINGS_INCOMPLETE" if "incomplete" in severity else "LOCAL_BINDINGS_CONSISTENT")
@@ -417,7 +495,7 @@ class Review:
         for claim_id, claim in sorted(claims.items()):
             self.check("claim:" + claim_id + ".text_digest", sha256(claim["claim_text"].encode("utf-8")) == claim["claim_digest"])
             if response is not None:
-                selection = self.attempt("claim:" + claim_id + ".locator", lambda c=claim: select_content(response, c["locator"]))
+                selection = self.attempt("claim:" + claim_id + ".locator", lambda c=claim, cid=claim_id: self.select(response, c["locator"], "claim", "claim:" + cid))
                 if selection is not None:
                     self.check("claim:" + claim_id + ".selected_text", selection == claim["claim_text"].encode("utf-8"))
         source_bytes: dict[str, bytes] = {}
@@ -456,7 +534,7 @@ class Review:
                     "status": "not_run", "result": None, "reason": "no_run_identity_declared"})
             data = source_bytes.get(source_id)
             if data is not None:
-                selected = self.attempt("evidence:" + evidence_id + ".locator", lambda d=data, i=item: select_content(d, i["locator"]))
+                selected = self.attempt("evidence:" + evidence_id + ".locator", lambda d=data, i=item, eid=evidence_id: self.select(d, i["locator"], "evidence", "evidence:" + eid))
                 if selected is not None:
                     self.check("evidence:" + evidence_id + ".sha256", sha256(selected) == item["content_sha256"])
         anchored = set()
@@ -476,8 +554,9 @@ class Review:
 
 
 def verify_bundle(root: Path, input_path: str, expected_input_sha256: str,
-                  carriers_path: str, expected_carriers_sha256: str) -> dict[str, Any]:
-    review = Review(SchemaSet())
+                  carriers_path: str, expected_carriers_sha256: str, *,
+                  profile: str = "wp2a") -> dict[str, Any]:
+    review = Review(SchemaSet() if profile == "wp2a" else SchemaSet(profile))
     try:
         with BundleReader(root) as reader:
             review.review(reader, input_path, expected_input_sha256,
@@ -494,10 +573,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--expected-input-sha256", required=True)
     parser.add_argument("--carriers", required=True, help="Local-carrier manifest path")
     parser.add_argument("--expected-carriers-sha256", required=True)
+    parser.add_argument("--profile", choices=("wp2a", WP2B_PROFILE), default="wp2a",
+                        help="WP2B requires its explicitly profiled v0.2 carriers")
     args = parser.parse_args(argv)
     try:
         report = verify_bundle(args.bundle_root, args.input, args.expected_input_sha256,
-                               args.carriers, args.expected_carriers_sha256)
+                               args.carriers, args.expected_carriers_sha256, profile=args.profile)
     except (OSError, jsonschema.exceptions.SchemaError, BindingError) as exc:
         # Local implementation/schema installation failure: no success-shaped report.
         print("Anchor binding checker installation error: " + type(exc).__name__, file=sys.stderr)

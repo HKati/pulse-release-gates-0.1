@@ -1,0 +1,36 @@
+{
+  "authority_effect": "none",
+  "candidate_status": "diagnostic_only",
+  "claim_packet_binding": {
+    "path": "claims.json",
+    "schema_version": "anchor_integrity_claim_packet_v0_1",
+    "sha256": "42cdfba0058d8203c7bb8985c6d4db402d1a0e8a947bf26b6556cd1d801a1517"
+  },
+  "evidence_packet_binding": {
+    "path": "evidence.json",
+    "schema_version": "anchor_integrity_evidence_packet_v0_1",
+    "sha256": "e668d47cc22dc458e5baa7c98098a533fea0a99644b2c9b36fdc746725465e0e"
+  },
+  "packet_id": "wp2b-relations",
+  "relations": [
+    {
+      "binding_id": "binding-1",
+      "claim_id": "claim-1",
+      "evidence_id": "evidence-1",
+      "relation_type": "references",
+      "relation_verification": {
+        "reason": "synthetic_fixture_no_external_verification",
+        "result": null,
+        "status": "not_run"
+      },
+      "verifier_record_id": null
+    }
+  ],
+  "schema_version": "anchor_integrity_relation_verification_packet_v0_1",
+  "subject": {
+    "run_id": "synthetic-run-001",
+    "subject_id": "wp2b-synthetic-001"
+  },
+  "verification_method": "recorded_verifier_result_v0_1",
+  "verification_version": "v0.1"
+}
