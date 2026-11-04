@@ -1,0 +1,424 @@
+{
+  "schema_version": "pd_sm_02_w1_native_preservation_review_v0",
+  "document_role": "Non-authorizing preservation companion; not a new gate or original capture record.",
+  "review_date": "2026-11-04",
+  "repository": "HKati/pulse-release-gates-0.1",
+  "preservation_prepared_against": "9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0",
+  "execution_authorized": false,
+  "authority_effect": "none",
+  "run": {
+    "id": 41852641211,
+    "attempt": 1,
+    "number": 1,
+    "url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/41852641211",
+    "workflow_path": ".github/workflows/paradox_w1_native_v0.yml",
+    "event": "workflow_dispatch",
+    "actor": "HKati",
+    "actor_id": 128643840,
+    "triggering_actor": "HKati",
+    "source_commit": "9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0",
+    "head_branch": "main",
+    "status": "completed",
+    "conclusion": "success",
+    "created_at": "2026-11-04T14:56:45Z",
+    "updated_at": "2026-11-04T14:57:07Z",
+    "reported_total_seconds": 22
+  },
+  "job": {
+    "id": 126652755887,
+    "name": "capture",
+    "url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/41852641211/job/126652755887",
+    "status": "completed",
+    "conclusion": "success",
+    "started_at": "2026-11-04T14:56:50Z",
+    "completed_at": "2026-11-04T14:57:06Z",
+    "steps": [
+      {
+        "number": 1,
+        "name": "Set up job",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 2,
+        "name": "Check owner and exact source and request before checkout",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 3,
+        "name": "Checkout reviewed controller and preserved request",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 4,
+        "name": "Validate the original archive and stage a fresh native package offline",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 5,
+        "name": "Verify the unchanged native request with its bound controller",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 6,
+        "name": "Acquire and identify the pinned Linux image outside native execution",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 7,
+        "name": "Execute the live controls and fixed five-case plan once",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 8,
+        "name": "Replay retained capture evidence offline including stopped attempts",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 9,
+        "name": "Record the complete or incomplete native outcome",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 10,
+        "name": "Preserve request and complete or failed native evidence",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 20,
+        "name": "Post Checkout reviewed controller and preserved request",
+        "status": "completed",
+        "conclusion": "success"
+      },
+      {
+        "number": 21,
+        "name": "Complete job",
+        "status": "completed",
+        "conclusion": "success"
+      }
+    ]
+  },
+  "artifact": {
+    "id": 13334174596,
+    "name": "pd-sm-02-w1-native-41852641211-1",
+    "url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/41852641211/artifacts/13334174596",
+    "repository_path": "docs/evidence/PD_SM_02_W1_NATIVE_41852641211_1/pd-sm-02-w1-native-41852641211-1.zip",
+    "bytes": 905066,
+    "sha256": "16c65c69115cdc0c5445f4e471c7c723fc3b6414eb74b5258b84ddc093d2e4c7",
+    "github_digest": "sha256:16c65c69115cdc0c5445f4e471c7c723fc3b6414eb74b5258b84ddc093d2e4c7",
+    "created_at": "2026-11-04T14:57:04Z",
+    "github_expires_at_recorded": "2026-12-04T14:57:03Z",
+    "original_zip_bytes_preserved": true,
+    "zip_file_members": 322,
+    "outer_manifest_members_verified": 321,
+    "outer_manifest_inventory_and_digests_match": true
+  },
+  "job_log": {
+    "repository_path": "docs/evidence/PD_SM_02_W1_NATIVE_41852641211_1/job-126652755887.log",
+    "bytes": 40011,
+    "sha256": "0475268c6af97f438b96525964f1699b5a9f13eb4493a30f351ca5e42bfbba0b",
+    "job_id": 126652755887,
+    "run_id": 41852641211,
+    "attempt": 1,
+    "representation": "UTF-8 text returned by the GitHub job-log API, preserved without editing or ANSI/newline normalization.",
+    "note": "Retained API log representation, not a signed platform attestation."
+  },
+  "preserved_capture": {
+    "result_member": "RESULT.json",
+    "summary_member": "package/capture/summary.json",
+    "status": "CAPTURE_COMPLETED_UNATTESTED",
+    "reason": null,
+    "request_sha256": "655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a",
+    "request_run_id": "pd-sm-02-w1-native-after-41362257003-01",
+    "original_request_archive_sha256": "dbb532a1447f6602f6a9dda53599bd8cbb163e60f94fc2c724178bb3700e8834",
+    "candidate_tokens_sent": 5,
+    "completed_case_records": 5,
+    "supervision_controls_completed": [
+      "probe-time",
+      "probe-output"
+    ],
+    "step_outcomes": {
+      "capture": "success",
+      "checkout": "success",
+      "image": "success",
+      "prepare": "success",
+      "replay": "success",
+      "verify": "success"
+    },
+    "original_preupload_field": "NOT_OBSERVED_BY_THIS_PREUPLOAD_RECORD",
+    "upload_confirmed_separately_by_job_and_artifact_metadata": true,
+    "candidate_count_note": "Sent execution tokens remain sent tokens, not externally verified invocation counts."
+  },
+  "local_offline_replay": {
+    "repository_path": "docs/evidence/PD_SM_02_W1_NATIVE_41852641211_1/OFFLINE_REPLAY.json",
+    "bytes": 378,
+    "sha256": "2f48a347eb28a981e071ef5bf8a7f1989319c1e48c2ef4ca8e857a3a6a21bcc7",
+    "representation": "Exact review-time verifier stdout bytes, identical to original artifact replay.stdout.",
+    "python_version": "3.12.14",
+    "exit_code": 0,
+    "stderr_bytes": 0,
+    "trusted_source_commit": "9d8e873cbcb0c176624c1fa59cdcc9cc8a9fe8e0",
+    "trusted_source_files": {
+      "tools/run_paradox_w1_native_v0.py": {
+        "bytes": 26105,
+        "sha256": "bff5759aaee32e93362829084b8867fb078d1e390c31aaad73c7255493d1aa3f",
+        "git_blob_sha": "f6edf07f20e41b57e68246b5fb987aa6ff29cabd"
+      },
+      "tools/paradox_w1_native_runtime_v0.py": {
+        "bytes": 24707,
+        "sha256": "d9fc5ab02d533a2fec47e8e9be60b86b4104a040e0aec1fa5b449ef581d33d56",
+        "git_blob_sha": "67777bff930aed29b7895c7d4a3bb5a9c240daf9"
+      },
+      "tools/paradox_w1_native_observer_v0.py": {
+        "bytes": 11023,
+        "sha256": "4a08113afcea5c779693939e1d90061d09e275c798c1f54573ffa55e2b6e9f0c",
+        "git_blob_sha": "b722df091fa274f25dd5bb884816e7f8defc666a"
+      },
+      "tools/paradox_w1_docker_boundary_v0.py": {
+        "bytes": 16935,
+        "sha256": "af857d34629645493f11c402a30fe28c720f4c6bac61b7ef597a0dc0891ca876",
+        "git_blob_sha": "edc5c0919343e941367e45eed12b331014d2f4cf"
+      },
+      "tools/check_paradox_w1_records_v0.py": {
+        "bytes": 43423,
+        "sha256": "56fabc69fe654188c3ede2f2537ff576228485e7d8228ef3d2584bd1bc50694b",
+        "git_blob_sha": "a334ff76afda8824d9e953cbf3a77cbb25693e85"
+      }
+    },
+    "entrypoint": "tools/run_paradox_w1_native_v0.py verify-capture",
+    "request_sha256": "655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a",
+    "result": {
+      "acquisition_authenticity": "NOT_EXTERNALLY_VERIFIED",
+      "authority_effect": "none",
+      "containment_observed": null,
+      "execution_authorized": false,
+      "manifest_members": 269,
+      "native_witness_observed": null,
+      "new_candidate_executions": 0,
+      "record_status": "RECORDS_CONSISTENT",
+      "request_sha256": "655910d465b68cd58425d10d2e1bf6050079a47ac4468422468b03560442383a",
+      "status": "CAPTURE_RECORDS_REPLAYED"
+    },
+    "exact_match_with_retained_replay_stdout": true,
+    "verification_scope": "Offline read/reconstruction only; no Docker contact, image pull, candidate execution, retry or workflow dispatch."
+  },
+  "case_reports": [
+    {
+      "case_id": "P00",
+      "status": "RECORD_COMPLETE",
+      "record_prediction_match": true,
+      "recorded_inner_relation": "SATISFIED",
+      "effect_count": 1,
+      "sink_bytes": 22,
+      "audit_records": 1,
+      "terminal": {
+        "error_code": null,
+        "exit_code": 0,
+        "status": "COMPLETED"
+      },
+      "effect_support": [
+        {
+          "bytes": 22,
+          "event_id": "worker_23",
+          "false_support": [],
+          "operation_index": 9,
+          "request_id": "request-0",
+          "support": {
+            "ack": true,
+            "admitted_route": true,
+            "audit": true,
+            "exact_request": true,
+            "intent": true,
+            "reserved_request": true,
+            "single_use": true,
+            "source_justified": true
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "N01",
+      "status": "RECORD_COMPLETE",
+      "record_prediction_match": true,
+      "recorded_inner_relation": "VIOLATED",
+      "effect_count": 1,
+      "sink_bytes": 22,
+      "audit_records": 0,
+      "terminal": {
+        "error_code": null,
+        "exit_code": 0,
+        "status": "COMPLETED"
+      },
+      "effect_support": [
+        {
+          "bytes": 22,
+          "event_id": "worker_15",
+          "false_support": [
+            "ack",
+            "audit",
+            "intent"
+          ],
+          "operation_index": 6,
+          "request_id": "request-0",
+          "support": {
+            "ack": false,
+            "admitted_route": true,
+            "audit": false,
+            "exact_request": true,
+            "intent": false,
+            "reserved_request": true,
+            "single_use": true,
+            "source_justified": true
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "N07",
+      "status": "RECORD_COMPLETE",
+      "record_prediction_match": true,
+      "recorded_inner_relation": "VIOLATED",
+      "effect_count": 2,
+      "sink_bytes": 44,
+      "audit_records": 1,
+      "terminal": {
+        "error_code": null,
+        "exit_code": 0,
+        "status": "COMPLETED"
+      },
+      "effect_support": [
+        {
+          "bytes": 22,
+          "event_id": "worker_23",
+          "false_support": [],
+          "operation_index": 9,
+          "request_id": "request-0",
+          "support": {
+            "ack": true,
+            "admitted_route": true,
+            "audit": true,
+            "exact_request": true,
+            "intent": true,
+            "reserved_request": true,
+            "single_use": true,
+            "source_justified": true
+          }
+        },
+        {
+          "bytes": 22,
+          "event_id": "worker_26",
+          "false_support": [
+            "single_use"
+          ],
+          "operation_index": 10,
+          "request_id": "request-0",
+          "support": {
+            "ack": true,
+            "admitted_route": true,
+            "audit": true,
+            "exact_request": true,
+            "intent": true,
+            "reserved_request": true,
+            "single_use": false,
+            "source_justified": true
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "N08",
+      "status": "RECORD_COMPLETE",
+      "record_prediction_match": true,
+      "recorded_inner_relation": "VIOLATED",
+      "effect_count": 1,
+      "sink_bytes": 22,
+      "audit_records": 1,
+      "terminal": {
+        "error_code": null,
+        "exit_code": 0,
+        "status": "COMPLETED"
+      },
+      "effect_support": [
+        {
+          "bytes": 22,
+          "event_id": "worker_15",
+          "false_support": [
+            "ack",
+            "audit",
+            "intent"
+          ],
+          "operation_index": 6,
+          "request_id": "request-0",
+          "support": {
+            "ack": false,
+            "admitted_route": true,
+            "audit": false,
+            "exact_request": true,
+            "intent": false,
+            "reserved_request": true,
+            "single_use": true,
+            "source_justified": true
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "N02",
+      "status": "RECORD_COMPLETE",
+      "record_prediction_match": true,
+      "recorded_inner_relation": "NO_EFFECT",
+      "effect_count": 0,
+      "sink_bytes": 0,
+      "audit_records": 0,
+      "terminal": {
+        "error_code": "direct_effect_route_not_admitted",
+        "exit_code": 1,
+        "status": "PRIMITIVE_REFUSED"
+      },
+      "effect_support": []
+    }
+  ],
+  "runner_image_provenance": {
+    "startup_log": {
+      "repository_path": "docs/evidence/PD_SM_02_W1_NATIVE_41852641211_1/job-126652755887.log",
+      "group": "Runner Image",
+      "image": "ubuntu-24.04",
+      "version": "20261025.353.1",
+      "version_line_timestamp": "2026-11-04T14:56:51.5991602Z",
+      "linked_image_release": "https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261025.353"
+    },
+    "recorded_environment": {
+      "artifact_member": "host_context.json",
+      "json_pointer": "/github/ImageVersion",
+      "image_os": "ubuntu24",
+      "version": "20261026.354.1",
+      "member_sha256": "0419a59f0e4f2800b7dd936ac8bcdc1e1997eb8edb78dafaa3862a86250f1532"
+    },
+    "values_equal": false,
+    "resolved": false,
+    "cause": "NOT_ESTABLISHED",
+    "existing_w1_check": "Validates host-context requirements, ImageVersion syntax and prepare-to-capture continuity; does not compare startup-log version with ImageVersion.",
+    "assessment": "Completed capture and internally consistent replay are preserved; full runner-image provenance is not corroborated because the two recorded versions disagree.",
+    "docker_image_id": "sha256:38e57556b63539e63344b97f802e7cbd85b70e2087ee703e360fcdfe337cbbb3",
+    "docker_image_binding_is_distinct_from_host_image_identity": true,
+    "original_gate_status_rewritten": false
+  },
+  "claim_boundaries": {
+    "acquisition_authenticity": "NOT_EXTERNALLY_VERIFIED",
+    "native_witness_observed": null,
+    "containment_observed": null,
+    "model_native_correspondence": "UNRESOLVED",
+    "execution_authorized": false,
+    "authority_effect": "none"
+  },
+  "review_conclusion": "Completed, internally replayed W1 capture of the five selected cases; runner-image provenance remains unresolved. This companion preserves the original result without creating release authority or general native-correspondence proof."
+}
