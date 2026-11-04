@@ -1698,5 +1698,546 @@ def test_wp2b_projection_matches_independent_json_values_over_generated_trees():
             count+=1
     assert count>=200
 
+
+# WP2C: materialized verifier-record bindings. No declaration becomes proof.
+import importlib.util as _wp2c_importlib
+import os as _wp2c_os
+import shutil as _wp2c_shutil
+import subprocess as _wp2c_subprocess
+import sys as _wp2c_sys
+
+WP2C_TOOL = ROOT / 'tools/check_anchor_integrity_verifier_records_v0_1.py'
+WP2C_DEMO = ROOT / 'examples/anchor_integrity_v0_1/wp2c_verifier_records'
+WP2C_INPUT_PIN = 'd7d16dfccf2dce237060e6b77fbb7da907227b1bd56f1275cfb623ce81cd59a8'
+WP2C_CARRIERS_PIN = '70a4d15ee35db21a605ef283c531724d921658fa8bc46ca68f6867925b2c91c4'
+WP2C_SET_PIN = 'a70299602a9aae82adcd4ff17278eef5a802ad72e05dbdae6fec64a9f98f188e'
+
+
+def _wp2c_module():
+    spec = _wp2c_importlib.spec_from_file_location('wp2c_test_checker', WP2C_TOOL)
+    module = _wp2c_importlib.module_from_spec(spec)
+    previous = _wp2c_sys.dont_write_bytecode
+    _wp2c_sys.dont_write_bytecode = True
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        _wp2c_sys.dont_write_bytecode = previous
+    return module
+
+
+def _wp2c_write(root, name, data):
+    (root / name).write_text(json.dumps(data, sort_keys=True, indent=2) + '\n', encoding='utf-8')
+
+
+def _wp2c_hash(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _wp2c_fixture(tmp_path):
+    root = tmp_path / 'records'
+    _wp2c_shutil.copytree(WP2C_DEMO, root)
+    return root
+
+
+def _wp2c_pins(root):
+    return tuple(_wp2c_hash(root / n) for n in ('input.json', 'carriers.json', 'record-set.json'))
+
+
+def _wp2c_repin(root, sync_record_roots=False):
+    """Rehash outer layers; do not fix inner binding assertions implicitly."""
+    rp = load_json(root / 'relations.json')
+    for k, f in [('claim_packet_binding', 'claims.json'), ('evidence_packet_binding', 'evidence.json')]:
+        rp[k]['sha256'] = _wp2c_hash(root / f)
+    _wp2c_write(root, 'relations.json', rp)
+    inp = load_json(root / 'input.json')
+    for k, f in [('claim_packet', 'claims.json'), ('evidence_packet', 'evidence.json'), ('relation_verification_packet', 'relations.json')]:
+        inp['packet_bindings'][k]['sha256'] = _wp2c_hash(root / f)
+    _wp2c_write(root, 'input.json', inp)
+    ca = load_json(root / 'carriers.json'); ca['input_sha256'] = _wp2c_hash(root / 'input.json')
+    _wp2c_write(root, 'carriers.json', ca)
+    rs = load_json(root / 'record-set.json')
+    rs['input_binding']['sha256'] = _wp2c_hash(root / 'input.json')
+    rs['carriers_binding']['sha256'] = _wp2c_hash(root / 'carriers.json')
+    for e in rs['records']:
+        path = root / e['path']
+        if path.is_file() and not path.is_symlink():
+            if sync_record_roots:
+                record = load_json(path)
+                record.update(input_sha256=_wp2c_hash(root/'input.json'), carriers_sha256=_wp2c_hash(root/'carriers.json'),
+                              packet_sha256={k:_wp2c_hash(root/n) for k,n in [('claims','claims.json'),('evidence','evidence.json'),('relations','relations.json')]})
+                _wp2c_write(root, e['path'], record)
+            e['sha256'] = _wp2c_hash(path)
+    _wp2c_write(root, 'record-set.json', rs)
+    return _wp2c_pins(root)
+
+
+def _wp2c_run(root=WP2C_DEMO, pins=None, profile='wp2b-json-pointer-v1', module=None):
+    if pins is None: pins = (WP2C_INPUT_PIN, WP2C_CARRIERS_PIN, WP2C_SET_PIN)
+    m = module or _wp2c_module()
+    return m.verify_records(root, 'input.json', pins[0], 'carriers.json', pins[1],
+                            'record-set.json', pins[2], binding_profile=profile)
+
+
+def _wp2c_limits(report):
+    assert report['candidate_status'] == 'diagnostic_only'
+    assert report['authority_effect'] == 'none'
+    assert report['release_authority_activation'] is False
+    assert report['requested_checks_complete'] is False
+    assert report['accepted_as_semantic_support'] is False
+    for check in report['unperformed_checks'].values():
+        assert check['status'] == 'not_run' and check['result'] is None and check['reason']
+    for row in report['records']: assert row['accepted_as_semantic_support'] is False
+    m = _wp2c_module(); m.RecordSchemas(m.load_binding_checker()).validate('report', report)
+
+
+def _wp2c_has(report, code):
+    return any(x['code'] == code for x in report['issues'])
+
+
+def test_wp2c_complete_synthetic_record_is_locally_matched_not_authenticated():
+    r = _wp2c_run()
+    assert r['status'] == 'LOCAL_RECORD_BINDINGS_CONSISTENT'
+    assert r['counts'] == {'completed_relations':1,'listed_records':1,'matching_records':1}
+    assert r['records'][0]['declared_result'] == 'unresolved'
+    assert r['records'][0]['expected_sha256'] == r['records'][0]['observed_sha256']
+    assert r['base_check']['status'] == 'LOCAL_BINDINGS_CONSISTENT'
+    _wp2c_limits(r)
+
+
+@pytest.mark.parametrize('which', range(3))
+@pytest.mark.parametrize('digest_value', ['0'*64, 'invalid', '', 'A'*64])
+def test_wp2c_rejects_missing_or_wrong_external_expectations(which, digest_value):
+    pins = [WP2C_INPUT_PIN,WP2C_CARRIERS_PIN,WP2C_SET_PIN]; pins[which] = digest_value
+    r = _wp2c_run(pins=pins)
+    assert r['status'] == 'LOCAL_RECORD_BINDINGS_INVALID'
+    assert r['counts']['matching_records'] is None
+    _wp2c_limits(r)
+
+
+@pytest.mark.parametrize('name', ['record-set.json','input.json','carriers.json','claims.json','evidence.json','relations.json','response.json','source.json','legacy.json','record-1.json'])
+def test_wp2c_missing_carriers_never_match(tmp_path, name):
+    root = _wp2c_fixture(tmp_path); (root/name).unlink(); r = _wp2c_run(root)
+    assert r['status'] == 'LOCAL_RECORD_BINDINGS_INCOMPLETE'
+    assert r['counts']['matching_records'] in (None,0)
+    _wp2c_limits(r)
+
+
+@pytest.mark.parametrize('path', ['../record-1.json','/tmp/record.json','a//b','./record.json','x/../record.json','a\\b','https://invalid/record','record.json.'])
+def test_wp2c_unsafe_record_paths_rejected(tmp_path, path):
+    root=_wp2c_fixture(tmp_path);rs=load_json(root/'record-set.json');rs['records'][0]['path']=path
+    _wp2c_write(root,'record-set.json',rs);r=_wp2c_run(root,_wp2c_pins(root))
+    assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+
+
+@pytest.mark.parametrize('path',['input.json','carriers.json','record-set.json','claims.json','evidence.json','relations.json','response.json','source.json','legacy.json'])
+def test_wp2c_record_cannot_reuse_any_checked_input_role(tmp_path,path):
+    root=_wp2c_fixture(tmp_path);rs=load_json(root/'record-set.json');rs['records'][0]['path']=path
+    rs['records'][0]['sha256']=_wp2c_hash(root/path);_wp2c_write(root,'record-set.json',rs)
+    r=_wp2c_run(root,_wp2c_pins(root));assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+    assert r['counts']['matching_records'] is None
+
+
+@pytest.mark.parametrize('kind',['duplicate_record_id','duplicate_binding_id','reused_path','case_collision'])
+def test_wp2c_manifest_uniqueness_checks(tmp_path,kind):
+    root=_wp2c_fixture(tmp_path);rs=load_json(root/'record-set.json');entry=deepcopy(rs['records'][0])
+    entry.update(record_id='second-record',binding_id='second-binding',path='second.json')
+    if kind=='duplicate_record_id':entry['record_id']=rs['records'][0]['record_id']
+    elif kind=='duplicate_binding_id':entry['binding_id']=rs['records'][0]['binding_id']
+    elif kind=='reused_path':entry['path']='record-1.json'
+    else:entry['path']='RECORD-1.json'
+    rs['records'].append(entry);_wp2c_write(root,'record-set.json',rs)
+    r=_wp2c_run(root,_wp2c_pins(root));assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+
+
+@pytest.mark.parametrize('key,value',[('profile','other'),('binding_profile','wp2a'),('input_binding',{'path':'other.json','sha256':'0'*64}),('carriers_binding',{'path':'carriers.json','sha256':'0'*64}),('candidate_status','active'),('authority_effect','release'),('release_authority_activation',True),('extra','value')])
+def test_wp2c_record_set_profile_roots_and_boundary_are_explicit(tmp_path,key,value):
+    root=_wp2c_fixture(tmp_path);rs=load_json(root/'record-set.json');rs[key]=value
+    _wp2c_write(root,'record-set.json',rs);r=_wp2c_run(root,_wp2c_pins(root))
+    assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+
+
+@pytest.mark.parametrize('field',[
+ 'record_id','subject.subject_id','subject.run_id','input_sha256','carriers_sha256',
+ 'packet_sha256.claims','packet_sha256.evidence','packet_sha256.relations',
+ 'binding.binding_id','binding.claim_id','binding.claim_digest','binding.evidence_id',
+ 'binding.source_id','binding.source_sha256','binding.evidence_sha256','binding.relation_type',
+ 'verifier.verifier_id','verifier.method_id','verifier.method_version','verifier.implementation_sha256',
+ 'verification.result','verification.reason'])
+def test_wp2c_rehashed_record_must_match_exact_linkage(tmp_path,field):
+    root=_wp2c_fixture(tmp_path);rec=load_json(root/'record-1.json');parts=field.split('.');target=rec
+    for p in parts[:-1]:target=target[p]
+    leaf=parts[-1]
+    if 'sha256' in leaf or 'digest' in leaf or parts[0]=='packet_sha256':value='0'*64
+    elif field=='binding.relation_type':value='supports'
+    elif field=='verification.result':value='supported'
+    else:value='different'
+    target[leaf]=value;_wp2c_write(root,'record-1.json',rec)
+    r=_wp2c_run(root,_wp2c_repin(root))
+    assert r['base_check']['status']=='LOCAL_BINDINGS_CONSISTENT'
+    assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+    assert _wp2c_has(r,'record_binding_mismatch')
+    assert r['counts']['matching_records']==0
+    _wp2c_limits(r)
+
+
+@pytest.mark.parametrize('field,value',[('schema_version','other'),('candidate_status','active'),('authority_effect','release'),('release_authority_activation',True),('new_code','raise RuntimeError()')])
+def test_wp2c_record_schema_is_closed(tmp_path,field,value):
+    root=_wp2c_fixture(tmp_path);rec=load_json(root/'record-1.json');rec[field]=value
+    _wp2c_write(root,'record-1.json',rec);r=_wp2c_run(root,_wp2c_repin(root))
+    assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+    assert r['records'][0]['result'] is None
+
+
+@pytest.mark.parametrize('field',['verifier','subject','packet_sha256','binding','verification','record_id'])
+def test_wp2c_missing_record_identity_is_not_accepted(tmp_path,field):
+    root=_wp2c_fixture(tmp_path);rec=load_json(root/'record-1.json');del rec[field]
+    _wp2c_write(root,'record-1.json',rec);r=_wp2c_run(root,_wp2c_repin(root))
+    assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+
+
+@pytest.mark.parametrize('label',['supported','contradicted','insufficient','unresolved'])
+def test_wp2c_all_recorded_labels_remain_untrusted_declarations(tmp_path,label):
+    root=_wp2c_fixture(tmp_path);rp=load_json(root/'relations.json');rec=load_json(root/'record-1.json')
+    rp['relations'][0]['relation_verification']['result']=label
+    rec['verification']['result']=label
+    _wp2c_write(root,'relations.json',rp);_wp2c_write(root,'record-1.json',rec)
+    r=_wp2c_run(root,_wp2c_repin(root,True))
+    assert r['status']=='LOCAL_RECORD_BINDINGS_CONSISTENT'
+    assert r['records'][0]['declared_result']==label
+    _wp2c_limits(r)
+
+
+@pytest.mark.parametrize('state',['not_requested','not_run','invalid_input','failed','not_applicable'])
+def test_wp2c_record_cannot_complete_an_unperformed_relation(tmp_path,state):
+    root=_wp2c_fixture(tmp_path);rp=load_json(root/'relations.json');rel=rp['relations'][0]
+    rel['verifier_record_id']=None
+    rel['relation_verification']={'status':state,'result':None,'reason':'not_executed'}
+    _wp2c_write(root,'relations.json',rp)
+    r=_wp2c_run(root,_wp2c_repin(root,True))
+    assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+    assert _wp2c_has(r,'record_without_completed_relation')
+    assert r['records'][0]['result'] is None
+
+
+def test_wp2c_manifest_record_id_cannot_be_substituted(tmp_path):
+    root=_wp2c_fixture(tmp_path);rs=load_json(root/'record-set.json');rs['records'][0]['record_id']='substituted'
+    _wp2c_write(root,'record-set.json',rs);r=_wp2c_run(root,_wp2c_pins(root))
+    assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+    assert 'manifest_record_id' in r['records'][0]['mismatched_fields']
+
+
+def test_wp2c_completed_relation_requires_materialized_record_entry(tmp_path):
+    root=_wp2c_fixture(tmp_path);rs=load_json(root/'record-set.json');rs['records']=[]
+    _wp2c_write(root,'record-set.json',rs);r=_wp2c_run(root,_wp2c_pins(root))
+    assert r['status']=='LOCAL_RECORD_BINDINGS_INCOMPLETE'
+    assert _wp2c_has(r,'verifier_record_not_listed')
+    assert r['counts']=={'completed_relations':1,'listed_records':0,'matching_records':0}
+
+
+def test_wp2c_empty_expected_set_has_zero_matched_records_not_semantic_completion(tmp_path):
+    root=_wp2c_fixture(tmp_path);rp=load_json(root/'relations.json');rp['relations']=[]
+    rs=load_json(root/'record-set.json');rs['records']=[]
+    _wp2c_write(root,'relations.json',rp);_wp2c_write(root,'record-set.json',rs)
+    r=_wp2c_run(root,_wp2c_repin(root))
+    assert r['status']=='LOCAL_RECORD_BINDINGS_CONSISTENT'
+    assert r['counts']=={'completed_relations':0,'listed_records':0,'matching_records':0}
+    assert r['records']==[]
+    _wp2c_limits(r)
+
+
+def test_wp2c_unreferenced_record_file_is_not_auto_discovered(tmp_path):
+    root=_wp2c_fixture(tmp_path);rs=load_json(root/'record-set.json');rs['records']=[]
+    _wp2c_write(root,'record-set.json',rs)
+    r=_wp2c_run(root,_wp2c_pins(root));assert _wp2c_has(r,'verifier_record_not_listed')
+
+
+def test_wp2c_one_record_id_cannot_cover_two_completed_relations(tmp_path):
+    root=_wp2c_fixture(tmp_path);rp=load_json(root/'relations.json');other=deepcopy(rp['relations'][0]);other['binding_id']='second-binding'
+    rp['relations'].append(other);_wp2c_write(root,'relations.json',rp)
+    r=_wp2c_run(root,_wp2c_repin(root,True))
+    assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+    assert _wp2c_has(r,'verifier_record_id_reused')
+    assert _wp2c_has(r,'verifier_record_not_listed')
+
+
+def test_wp2c_invalid_wins_over_missing_record(tmp_path):
+    root=_wp2c_fixture(tmp_path);rs=load_json(root/'record-set.json');extra=deepcopy(rs['records'][0])
+    extra.update(record_id='extra-record',binding_id='unknown-binding',path='extra.json')
+    rs['records'].append(extra);_wp2c_write(root,'record-set.json',rs);(root/'record-1.json').unlink()
+    r=_wp2c_run(root,_wp2c_pins(root))
+    assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+    assert {x['severity'] for x in r['issues']}=={'invalid','incomplete'}
+
+
+def test_wp2c_root_consistency_is_rerun_not_accepted_from_saved_json(tmp_path):
+    root=_wp2c_fixture(tmp_path)
+    (root/'saved-report.json').write_text('{"status":"LOCAL_BINDINGS_CONSISTENT"}')
+    (root/'source.json').write_text('{"record":{"value":999}}')
+    r=_wp2c_run(root)
+    assert r['base_check']['status']=='LOCAL_BINDINGS_INVALID'
+    assert r['records']==[] and r['counts']['matching_records'] is None
+
+
+def test_wp2c_report_deterministic_and_inputs_unchanged(tmp_path):
+    root=_wp2c_fixture(tmp_path);before={p.name:p.read_bytes() for p in root.iterdir()}
+    a=_wp2c_run(root);b=_wp2c_run(root)
+    assert a==b and before=={p.name:p.read_bytes() for p in root.iterdir()}
+    m=_wp2c_module();base=m.load_binding_checker()
+    br=base.verify_bundle(root,'input.json',WP2C_INPUT_PIN,'carriers.json',WP2C_CARRIERS_PIN,profile='wp2b-json-pointer-v1')
+    assert a['base_check']['report_sha256']==m.digest(m.report_bytes(br))
+
+
+def test_wp2c_shared_snapshot_not_reopened_after_base_check(tmp_path,monkeypatch):
+    root=_wp2c_fixture(tmp_path);m=_wp2c_module();original=m.RecordReview.run_base
+    def checked(self,reader,*args):
+        ok=original(self,reader,*args)
+        if ok:(root/'claims.json').write_text('changed after retained snapshot')
+        return ok
+    monkeypatch.setattr(m.RecordReview,'run_base',checked)
+    r=_wp2c_run(root,module=m)
+    assert r['status']=='LOCAL_RECORD_BINDINGS_CONSISTENT'
+    # The report describes retained pinned bytes, not a claim about later disk state.
+    _wp2c_limits(r)
+
+
+@pytest.mark.parametrize('kind',['symlink','hardlink','directory','fifo'])
+def test_wp2c_record_files_keep_existing_safe_reader_boundary(tmp_path,kind):
+    root=_wp2c_fixture(tmp_path);p=root/'record-1.json';raw=p.read_bytes();p.unlink()
+    if kind=='directory':p.mkdir()
+    elif kind=='fifo':_wp2c_os.mkfifo(p)
+    else:
+        target=tmp_path/'external';target.write_bytes(raw)
+        if kind=='symlink':p.symlink_to(target)
+        else:_wp2c_os.link(target,p)
+    r=_wp2c_run(root);assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+    assert r['counts']['matching_records']==0
+
+
+@pytest.mark.parametrize('content',[b'{"a":1,"a":2}',b'[]',b'{broken',b'{"x":NaN}',b'{"x":"\\ud800"}',b'\xff',b'{} trailing'])
+@pytest.mark.parametrize('filename',['record-set.json','record-1.json'])
+def test_wp2c_strict_record_json_rejects_ambiguous_or_malformed_bytes(tmp_path,content,filename):
+    root=_wp2c_fixture(tmp_path);(root/filename).write_bytes(content)
+    if filename=='record-1.json':
+        rs=load_json(root/'record-set.json');rs['records'][0]['sha256']=_wp2c_hash(root/filename);_wp2c_write(root,'record-set.json',rs)
+    r=_wp2c_run(root,_wp2c_pins(root));assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+    assert r['counts']['matching_records'] in (0,None)
+
+
+def test_wp2c_record_digest_checked_before_json_interpretation(tmp_path):
+    root=_wp2c_fixture(tmp_path);(root/'record-1.json').write_text('not json')
+    r=_wp2c_run(root);assert _wp2c_has(r,'record_digest_mismatch')
+    assert r['records'][0]['result']=='mismatch'
+
+
+@pytest.mark.parametrize('key,value',[('requested_checks_complete',True),('accepted_as_semantic_support',True),('release_authority_activation',True),('authority_effect','release'),('candidate_status','active')])
+def test_wp2c_report_cannot_be_promoted(key,value):
+    r=_wp2c_run();r[key]=value;m=_wp2c_module();base=m.load_binding_checker()
+    with pytest.raises(base.BindingError):m.RecordSchemas(base).validate('report',r)
+
+
+@pytest.mark.parametrize('key',_wp2c_module().UNPERFORMED)
+def test_wp2c_unperformed_checks_cannot_carry_results(key):
+    r=_wp2c_run();r['unperformed_checks'][key]={'status':'completed','result':'verified','reason':None}
+    m=_wp2c_module();base=m.load_binding_checker()
+    with pytest.raises(base.BindingError):m.RecordSchemas(base).validate('report',r)
+
+
+@pytest.mark.parametrize('mutation',['base_missing','base_invalid','issue','row_null','row_semantic','record_stage','unknown_field'])
+def test_wp2c_schema_rejects_false_consistent_reports(mutation):
+    r=_wp2c_run()
+    if mutation=='base_missing':r['base_check']['status']=None
+    elif mutation=='base_invalid':r['base_check']['status']='LOCAL_BINDINGS_INVALID'
+    elif mutation=='issue':r['issues']=[{'severity':'invalid','code':'mismatch','object_id':'test'}]
+    elif mutation=='row_null':r['records'][0]['result']=None
+    elif mutation=='row_semantic':r['records'][0]['accepted_as_semantic_support']=True
+    elif mutation=='record_stage':r['record_check']={'status':'not_run','result':None,'reason':'not_done'}
+    else:r['release_decision']='PASS'
+    m=_wp2c_module();base=m.load_binding_checker()
+    with pytest.raises(base.BindingError):m.RecordSchemas(base).validate('report',r)
+
+
+def test_wp2c_native_wp2a_mode_also_supports_record_binding(tmp_path):
+    root=tmp_path/'wp2a';_wp2c_shutil.copytree(WP2_DEMO,root)
+    rs=load_json(WP2C_DEMO/'record-set.json');rs.update(binding_profile='wp2a',records=[])
+    _wp2c_write(root,'record-set.json',rs)
+    r=_wp2c_run(root,_wp2c_repin(root),profile='wp2a')
+    assert r['status']=='LOCAL_RECORD_BINDINGS_CONSISTENT'
+    assert r['counts']['matching_records']==0
+    assert r['implementation']['json_pointer_module_sha256'] is None
+    _wp2c_limits(r)
+
+
+def test_wp2c_missing_base_bytes_prevent_record_stage(tmp_path):
+    root=_wp2c_fixture(tmp_path);(root/'source.json').unlink()
+    r=_wp2c_run(root)
+    assert r['base_check']['status']=='LOCAL_BINDINGS_INCOMPLETE'
+    assert r['record_check']['result'] is None and r['records']==[]
+
+
+def test_wp2c_record_count_budget(tmp_path,monkeypatch):
+    root=_wp2c_fixture(tmp_path);m=_wp2c_module();base=m.load_binding_checker()
+    monkeypatch.setattr(base,'MAX_ITEMS',0);monkeypatch.setattr(m,'load_binding_checker',lambda:base)
+    # Schema loading itself is bounded under this deliberately impossible limit.
+    with pytest.raises(base.BindingError):_wp2c_run(root,module=m)
+
+
+def test_wp2c_record_byte_and_total_budgets_are_shared(tmp_path,monkeypatch):
+    root=_wp2c_fixture(tmp_path);m=_wp2c_module();base=m.load_binding_checker()
+    size=sum(p.stat().st_size for p in root.iterdir() if p.is_file())
+    monkeypatch.setattr(base,'MAX_TOTAL_BYTES',size-1);monkeypatch.setattr(m,'load_binding_checker',lambda:base)
+    r=_wp2c_run(root,module=m)
+    assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+    assert _wp2c_has(r,'bundle_limit_exceeded')
+
+
+def test_wp2c_schema_reference_resolution_is_not_enabled(tmp_path,monkeypatch):
+    m=_wp2c_module();base=m.load_binding_checker();install=tmp_path/'install'
+    _wp2c_shutil.copytree(ROOT/'schemas',install/'schemas')
+    path=install/'schemas'/m.SCHEMAS['record'];schema=load_json(path);schema['$ref']='https://invalid.example/schema'
+    path.write_text(json.dumps(schema));monkeypatch.setattr(m,'ROOT',install)
+    with pytest.raises(base.BindingError,match='schema_reference_not_allowed'):m.RecordSchemas(base)
+
+
+def test_wp2c_fixed_checker_import_does_not_write_bytecode(tmp_path,monkeypatch):
+    m=_wp2c_module();install=tmp_path/'install';(install/'tools').mkdir(parents=True)
+    _wp2c_shutil.copyfile(ROOT/'tools/check_anchor_integrity_bindings_v0_1.py',install/'tools/check_anchor_integrity_bindings_v0_1.py')
+    monkeypatch.setattr(m,'ROOT',install);before=_wp2c_sys.dont_write_bytecode;m.load_binding_checker()
+    assert _wp2c_sys.dont_write_bytecode==before
+    assert not (install/'tools/__pycache__').exists()
+
+
+def test_wp2c_expected_verifier_is_pinned_but_not_authenticated(tmp_path):
+    root=_wp2c_fixture(tmp_path);rec=load_json(root/'record-1.json');rs=load_json(root/'record-set.json')
+    rec['verifier']['verifier_id']='self-declared-verifier'
+    rs['records'][0]['expected_verifier']=deepcopy(rec['verifier'])
+    _wp2c_write(root,'record-1.json',rec);_wp2c_write(root,'record-set.json',rs)
+    r=_wp2c_run(root,_wp2c_repin(root));assert r['status']=='LOCAL_RECORD_BINDINGS_CONSISTENT'
+    _wp2c_limits(r)
+
+
+def _wp2c_command(root,pins=None):
+    pins=pins or (WP2C_INPUT_PIN,WP2C_CARRIERS_PIN,WP2C_SET_PIN)
+    return [_wp2c_sys.executable,str(WP2C_TOOL),'--bundle-root',str(root),'--input','input.json','--expected-input-sha256',pins[0],'--carriers','carriers.json','--expected-carriers-sha256',pins[1],'--record-set','record-set.json','--expected-record-set-sha256',pins[2],'--binding-profile','wp2b-json-pointer-v1']
+
+
+@pytest.mark.parametrize('case,exit_code',[('positive',0),('wrong_record',1),('missing_record',2)])
+def test_wp2c_cli_exit_codes_and_stdout(tmp_path,case,exit_code):
+    root=_wp2c_fixture(tmp_path)
+    if case=='wrong_record':(root/'record-1.json').write_bytes(b'changed')
+    if case=='missing_record':(root/'record-1.json').unlink()
+    result=_wp2c_subprocess.run(_wp2c_command(root),capture_output=True,timeout=45)
+    assert result.returncode==exit_code,result.stderr
+    r=json.loads(result.stdout);_wp2c_limits(r)
+    assert not result.stderr
+
+
+@pytest.mark.parametrize('option',['--expected-input-sha256','--expected-carriers-sha256','--expected-record-set-sha256','--binding-profile'])
+def test_wp2c_cli_requires_all_explicit_root_expectations(option):
+    cmd=_wp2c_command(WP2C_DEMO);i=cmd.index(option);del cmd[i:i+2]
+    result=_wp2c_subprocess.run(cmd,capture_output=True,timeout=45)
+    assert result.returncode==2 and not result.stdout
+
+
+def test_wp2c_existing_anchor_registration_unchanged():
+    for name in ('ci/tools-tests.list','ci/pytest-tests.list'):
+        assert _manifest_entries(ROOT/name).count(TEST_PATH)==1
+
+
+def test_wp2c_new_schemas_validate_under_draft_2020_12():
+    m=_wp2c_module();base=m.load_binding_checker();schemas=m.RecordSchemas(base)
+    for name in m.SCHEMAS.values():
+        jsonschema.Draft202012Validator.check_schema(load_json(ROOT/'schemas'/name))
+    schemas.validate('set',load_json(WP2C_DEMO/'record-set.json'))
+    schemas.validate('record',load_json(WP2C_DEMO/'record-1.json'))
+
+
+def test_wp2c_documentation_retains_non_authentication_boundary():
+    text=(ROOT/'docs/ANCHOR_INTEGRITY_v0_1_WP2C_VERIFIER_RECORDS.md').read_text()
+    for value in ('verifier_execution_attestation','not_run','LOCAL_RECORD_BINDINGS_CONSISTENT','No verifier is executed','one retained','zero'):
+        assert value in text
+
+
+def test_wp2c_two_distinct_records_cover_two_completed_relations(tmp_path):
+    root=_wp2c_fixture(tmp_path);rp=load_json(root/'relations.json');rs=load_json(root/'record-set.json')
+    rel=deepcopy(rp['relations'][0]);rel.update(binding_id='binding-2',verifier_record_id='synthetic-record-2')
+    rp['relations'].append(rel);_wp2c_write(root,'relations.json',rp)
+    rec=load_json(root/'record-1.json');rec['record_id']='synthetic-record-2';rec['binding']['binding_id']='binding-2'
+    _wp2c_write(root,'record-2.json',rec)
+    entry=deepcopy(rs['records'][0]);entry.update(record_id='synthetic-record-2',binding_id='binding-2',path='record-2.json')
+    rs['records'].append(entry);_wp2c_write(root,'record-set.json',rs)
+    r=_wp2c_run(root,_wp2c_repin(root,True))
+    assert r['status']=='LOCAL_RECORD_BINDINGS_CONSISTENT'
+    assert r['counts']=={'completed_relations':2,'listed_records':2,'matching_records':2}
+    assert [x['binding_id'] for x in r['records']]==['binding-1','binding-2']
+    _wp2c_limits(r)
+
+
+def test_wp2c_record_manifest_list_limit_is_checked_before_file_open(tmp_path,monkeypatch):
+    root=_wp2c_fixture(tmp_path);rs=load_json(root/'record-set.json');template=rs['records'][0]
+    rs['records']=[dict(template,record_id=f'record-{i}',binding_id=f'binding-{i}',path=f'record-{i}.json') for i in range(33)]
+    _wp2c_write(root,'record-set.json',rs)
+    m=_wp2c_module();base=m.load_binding_checker();monkeypatch.setattr(base,'MAX_ITEMS',32)
+    monkeypatch.setattr(m,'load_binding_checker',lambda:base)
+    r=_wp2c_run(root,_wp2c_pins(root),module=m)
+    assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+    assert _wp2c_has(r,'item_limit_exceeded')
+    assert r['records']==[]
+
+
+def test_wp2c_record_file_size_limit_is_checked_before_interpretation(tmp_path):
+    root=_wp2c_fixture(tmp_path)
+    with (root/'record-1.json').open('wb') as f:f.truncate(8*1024*1024+1)
+    r=_wp2c_run(root)
+    assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+    assert _wp2c_has(r,'file_limit_exceeded')
+    assert r['records'][0]['observed_sha256'] is None
+
+
+def test_wp2c_changed_record_during_read_is_rejected(tmp_path,monkeypatch):
+    root=_wp2c_fixture(tmp_path);m=_wp2c_module();base=m.load_binding_checker()
+    original=base.os.read;target=(root/'record-1.json').stat().st_ino;changed=[]
+    def mutate(fd,size):
+        data=original(fd,size)
+        if base.os.fstat(fd).st_ino==target and not changed:
+            with (root/'record-1.json').open('ab') as stream:stream.write(b' ')
+            changed.append(True)
+        return data
+    monkeypatch.setattr(base.os,'read',mutate);monkeypatch.setattr(m,'load_binding_checker',lambda:base)
+    r=_wp2c_run(root,module=m)
+    assert changed and r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+    assert _wp2c_has(r,'carrier_changed_during_read')
+
+
+def test_wp2c_cli_does_not_create_output_files_or_mutate_inputs(tmp_path):
+    root=_wp2c_fixture(tmp_path);before={str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*') if p.is_file()}
+    result=_wp2c_subprocess.run(_wp2c_command(root),capture_output=True,timeout=45)
+    assert result.returncode==0,result.stderr
+    after={str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*') if p.is_file()}
+    assert before==after
+
+
+def test_wp2c_cli_has_no_saved_approval_or_output_override():
+    cmd=_wp2c_command(WP2C_DEMO)+['--saved-base-report','saved.json','--output','status.json']
+    result=_wp2c_subprocess.run(cmd,capture_output=True,timeout=45)
+    assert result.returncode==2 and not result.stdout
+
+
+def test_wp2c_missing_installed_schema_cli_returns_no_success_json(tmp_path):
+    install=tmp_path/'install';(install/'tools').mkdir(parents=True)
+    for name in ('check_anchor_integrity_verifier_records_v0_1.py','check_anchor_integrity_bindings_v0_1.py'):
+        _wp2c_shutil.copyfile(ROOT/'tools'/name,install/'tools'/name)
+    cmd=_wp2c_command(WP2C_DEMO);cmd[1]=str(install/'tools'/WP2C_TOOL.name)
+    result=_wp2c_subprocess.run(cmd,capture_output=True,timeout=45)
+    assert result.returncode==2 and not result.stdout
+    assert b'Anchor record checker error' in result.stderr
+
+
+def test_wp2c_manifest_cannot_select_code_or_schema_from_artifact(tmp_path):
+    root=_wp2c_fixture(tmp_path);rs=load_json(root/'record-set.json')
+    rs['verifier_plugin']='record-1.json';rs['schema_path']='record-1.json'
+    _wp2c_write(root,'record-set.json',rs);r=_wp2c_run(root,_wp2c_pins(root))
+    assert r['status']=='LOCAL_RECORD_BINDINGS_INVALID'
+    assert r['base_check']['status'] is None
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
