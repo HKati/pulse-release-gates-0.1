@@ -1,0 +1,963 @@
+{
+  "$id": "https://eplabsai.com/pulsemech/schemas/anchor_integrity_verifier_record_report_v0_1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "LOCAL_RECORD_BINDINGS_CONSISTENT"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "base_check": {
+            "properties": {
+              "report_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "status": {
+                "const": "LOCAL_BINDINGS_CONSISTENT"
+              }
+            }
+          },
+          "counts": {
+            "properties": {
+              "completed_relations": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "listed_records": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "matching_records": {
+                "minimum": 0,
+                "type": "integer"
+              }
+            }
+          },
+          "expected_digests": {
+            "properties": {
+              "carriers": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "input": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "record_set": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            }
+          },
+          "issues": {
+            "maxItems": 0
+          },
+          "observed_digests": {
+            "properties": {
+              "carriers": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "input": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "record_set": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            }
+          },
+          "record_check": {
+            "properties": {
+              "reason": {
+                "const": null
+              },
+              "result": {
+                "const": "match"
+              },
+              "status": {
+                "const": "completed"
+              }
+            }
+          },
+          "records": {
+            "items": {
+              "properties": {
+                "result": {
+                  "const": "match"
+                },
+                "status": {
+                  "const": "completed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "LOCAL_RECORD_BINDINGS_INVALID"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "issues": {
+            "contains": {
+              "properties": {
+                "severity": {
+                  "const": "invalid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "LOCAL_RECORD_BINDINGS_INCOMPLETE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "issues": {
+            "items": {
+              "properties": {
+                "severity": {
+                  "const": "incomplete"
+                }
+              }
+            },
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "accepted_as_semantic_support": {
+      "const": false
+    },
+    "authority_effect": {
+      "const": "none"
+    },
+    "base_check": {
+      "additionalProperties": false,
+      "properties": {
+        "report_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            null,
+            "LOCAL_BINDINGS_CONSISTENT",
+            "LOCAL_BINDINGS_INVALID",
+            "LOCAL_BINDINGS_INCOMPLETE"
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "report_sha256"
+      ],
+      "type": "object"
+    },
+    "binding_profile": {
+      "enum": [
+        "wp2a",
+        "wp2b-json-pointer-v1"
+      ]
+    },
+    "candidate_status": {
+      "const": "diagnostic_only"
+    },
+    "counts": {
+      "additionalProperties": false,
+      "properties": {
+        "completed_relations": {
+          "anyOf": [
+            {
+              "maximum": 4096,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "listed_records": {
+          "anyOf": [
+            {
+              "maximum": 4096,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "matching_records": {
+          "anyOf": [
+            {
+              "maximum": 4096,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "completed_relations",
+        "listed_records",
+        "matching_records"
+      ],
+      "type": "object"
+    },
+    "expected_digests": {
+      "additionalProperties": false,
+      "properties": {
+        "carriers": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "input": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "record_set": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "input",
+        "carriers",
+        "record_set"
+      ],
+      "type": "object"
+    },
+    "implementation": {
+      "additionalProperties": false,
+      "properties": {
+        "binding_checker_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "checker_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "json_pointer_module_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "schema_sha256": {
+          "additionalProperties": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "maxProperties": 9,
+          "minProperties": 9,
+          "type": "object"
+        }
+      },
+      "required": [
+        "checker_sha256",
+        "binding_checker_sha256",
+        "json_pointer_module_sha256",
+        "schema_sha256"
+      ],
+      "type": "object"
+    },
+    "issues": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          "object_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "invalid",
+              "incomplete"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "object_id",
+          "severity"
+        ],
+        "type": "object"
+      },
+      "maxItems": 100000,
+      "type": "array"
+    },
+    "observed_digests": {
+      "additionalProperties": false,
+      "properties": {
+        "carriers": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "input": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "record_set": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "input",
+        "carriers",
+        "record_set"
+      ],
+      "type": "object"
+    },
+    "profile": {
+      "const": "local_verifier_record_bindings_v1"
+    },
+    "record_check": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "reason": {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              "result": {
+                "const": null
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "match",
+                  "mismatch"
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "description": "Aggregate record-set comparison. An empty expected set can match with zero matched records; this is not semantic verification.",
+      "properties": {
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result": {
+          "enum": [
+            "match",
+            "mismatch",
+            null
+          ]
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "not_run"
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "result",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "records": {
+      "items": {
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "else": {
+              "properties": {
+                "reason": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "result": {
+                  "const": null
+                }
+              }
+            },
+            "if": {
+              "properties": {
+                "status": {
+                  "const": "completed"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "result": {
+                  "enum": [
+                    "match",
+                    "mismatch"
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "else": {
+              "properties": {
+                "declared_result": {
+                  "const": null
+                },
+                "reason": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "type": "string"
+                }
+              }
+            },
+            "if": {
+              "properties": {
+                "result": {
+                  "const": "match"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "declared_result": {
+                  "enum": [
+                    "supported",
+                    "contradicted",
+                    "insufficient",
+                    "unresolved"
+                  ],
+                  "type": "string"
+                },
+                "mismatched_fields": {
+                  "maxItems": 0
+                },
+                "observed_sha256": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "reason": {
+                  "const": null
+                },
+                "status": {
+                  "const": "completed"
+                }
+              }
+            }
+          }
+        ],
+        "properties": {
+          "accepted_as_semantic_support": {
+            "const": false
+          },
+          "binding_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "declared_result": {
+            "anyOf": [
+              {
+                "enum": [
+                  "supported",
+                  "contradicted",
+                  "insufficient",
+                  "unresolved"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expected_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "mismatched_fields": {
+            "items": {
+              "maxLength": 128,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 16,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "observed_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "record_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "result": {
+            "enum": [
+              "match",
+              "mismatch",
+              null
+            ]
+          },
+          "status": {
+            "enum": [
+              "completed",
+              "not_run"
+            ]
+          }
+        },
+        "required": [
+          "binding_id",
+          "record_id",
+          "expected_sha256",
+          "observed_sha256",
+          "status",
+          "result",
+          "reason",
+          "mismatched_fields",
+          "declared_result",
+          "accepted_as_semantic_support"
+        ],
+        "type": "object"
+      },
+      "maxItems": 4096,
+      "type": "array"
+    },
+    "release_authority_activation": {
+      "const": false
+    },
+    "requested_checks_complete": {
+      "const": false
+    },
+    "schema_version": {
+      "const": "anchor_integrity_verifier_record_report_v0_1"
+    },
+    "status": {
+      "enum": [
+        "LOCAL_RECORD_BINDINGS_CONSISTENT",
+        "LOCAL_RECORD_BINDINGS_INVALID",
+        "LOCAL_RECORD_BINDINGS_INCOMPLETE"
+      ]
+    },
+    "unperformed_checks": {
+      "additionalProperties": false,
+      "properties": {
+        "acquisition_authentication": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "claim_set_completeness": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "response_mode_recommendation": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "semantic_support_verification": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "source_identity_authentication": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "subject_observation_authentication": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "typed_evidence_cycle_check": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "verified_binding_coverage": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "verified_support_coverage": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "verifier_execution_attestation": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "verifier_identity_authentication": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "source_identity_authentication",
+        "acquisition_authentication",
+        "subject_observation_authentication",
+        "verifier_identity_authentication",
+        "verifier_execution_attestation",
+        "semantic_support_verification",
+        "typed_evidence_cycle_check",
+        "response_mode_recommendation",
+        "claim_set_completeness",
+        "verified_binding_coverage",
+        "verified_support_coverage"
+      ],
+      "type": "object"
+    },
+    "verification_scope": {
+      "const": "offline_bytes_and_recorded_verifier_links"
+    },
+    "work_package": {
+      "const": "WP2C"
+    }
+  },
+  "required": [
+    "schema_version",
+    "candidate_status",
+    "authority_effect",
+    "release_authority_activation",
+    "work_package",
+    "profile",
+    "verification_scope",
+    "requested_checks_complete",
+    "accepted_as_semantic_support",
+    "status",
+    "binding_profile",
+    "expected_digests",
+    "observed_digests",
+    "base_check",
+    "record_check",
+    "counts",
+    "records",
+    "issues",
+    "unperformed_checks",
+    "implementation"
+  ],
+  "title": "anchor_integrity_verifier_record_report_v0_1 \u2014 local bindings only",
+  "type": "object"
+}
