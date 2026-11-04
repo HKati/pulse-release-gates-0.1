@@ -44,13 +44,47 @@ moves between merged and open work, update this index.
 
 ## Start here
 
+The Q3, Anchor, LRM and W1 navigation entries below were checked on 2026-11-04
+against repository snapshot `1f6ad0961ec4dc576916248681651254996b6ea5`.
+Linked preparation and historical records retain their original scope and source
+identities. The open W1 preservation PR is identified separately from this main
+snapshot.
+
 - Q3 native token preflight and finite capture:
   [Native capture contract](compute/PULSEMECH_Q3_NATIVE_CAPTURE_v0.md)
-  **Implementation for review; no native Q3 execution claimed.** Separates
+  **Current implementation; historical zero-generation preflight recorded.** Separates
   zero-generation input tokenization from an explicitly authorized 204-task
   capture, independent token/text checks and non-authorizing evidence retention.
-  Q1 labels and Q3 measurement remain separate; keep #2879 open.
-
+  Recorded preflight `41350046443/1` retains a startup/native runner-image
+  contradiction that blocks its use for capture. It is not execution of the
+  later observation/transport code. Q1 labels, Q3 measurement and full Step 5C/5D
+  acceptance remain separate; keep #2879 open.
+- Q3 external postflight and mandatory capture handoff:
+  [Offline comparison](compute/PULSEMECH_Q3_EXTERNAL_POSTFLIGHT_COMPARISON_v0.md),
+  [read-only acquisition](compute/PULSEMECH_Q3_EXTERNAL_POSTFLIGHT_ACQUISITION_v0.md)
+  and [capture handoff v1](compute/PULSEMECH_Q3_CAPTURE_HANDOFF_v1.md)
+  **Current implementation; actual capture acceptance remains open.** The supported
+  controller consumes fresh acquired records and their comparison in the same
+  process; a saved verdict does not authorize capture. Original and current
+  source/run identities remain distinct, and offline replay does not authenticate
+  acquisition or supply new Q1/Q3 measurements.
+- Q3 early runner-image observation:
+  [Same-job observation and invocation gate](compute/PULSEMECH_Q3_RUNNER_IMAGE_OBSERVATION_v0.md)
+  **Current implementation; historical image contradictions retained.** Three
+  source-bound observation points reject inconsistent or incomplete local image
+  metadata before runtime acquisition. They do not repair platform metadata or
+  replace the external startup/native comparison. A fresh preflight from the
+  final reviewed source and separate acceptance remain required.
+- Q3 original runtime custody and transport:
+  [Owner-local custody](compute/q3_runtime_local_custody_v0/README.md) and
+  [twenty-part runtime transport](compute/PULSEMECH_Q3_RUNTIME_PART_TRANSPORT_v0.md)
+  **Recorded storage decision and inactive transport implementation.** The selected
+  original 508,460,811-byte archive retains its identity. Owner-local storage
+  replaces the earlier LFS proposal for this object; LFS and paid storage are not
+  authorized, and verification of the saved owner-machine copy is not observed.
+  The transport's payload commit and prefix remain unset:
+  `RUNTIME_TRANSPORT_UNCONFIGURED`; actual hosted retrieval is not verified.
+  This does not close the custody obligations for the other Q2 archives.
 - Offline Q3 archived-input preparation:
   [Selected-original package preparation](compute/PULSEMECH_Q3_ARCHIVED_INPUT_PREPARATION_v0.md)
   **Current implementation with synthetic conformance tests.** Packages separately
@@ -401,6 +435,28 @@ Read these documents in this order:
 - [PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md](PULSEMECH_DEVICE_LEDGER_BOUNDED_MECHANICAL_PROOF_v0.md) — **Current implementation and completed bounded proof.** Records the exact Device Ledger evidence-to-carrier path, deterministic `.pulseledger`, exact four-member `ZIP_STORED` Reproduction Capsule, two isolated byte-identical constructions, two exact positive standalone-verifier executions, targeted `package_signature_valid` rejection, canonical reproduction result, protected-source preservation, minimal runnable iPhone demonstrator, exact artifact export, and the preserved `authority_effect = none` / `external_validation_claim = none` boundary.
 - [EXTERNAL_VERIFICATION_PATH_v0.md](EXTERNAL_VERIFICATION_PATH_v0.md) — **Reviewer and operator path.** Separates the direct `pulsemech_device_ledger_v0` verification profile from the `pulsemech_device_ledger_reproduction_capsule_v0` construction and execution profile, including complete pinned reference-workflow dispatch, portable local proof replay, bounded inner runner execution, deterministic Swift-to-verifier reproduction, targeted fail-closed mutation checks and non-authorizing report fields.
 - [PULSEbox v0 technical plan](PULSEBOX_V0_TECHNICAL_PLAN.md) — **Design proposal; implementation and physical acceptance pending.** Preserves revision 0.2, separate execute/promote decisions and Execution/Device Gates, source identities and 54 planned negative cases (`NOT_RUN`); `authority_effect = none`.
+- Anchor Integrity v0.1 contracts and local diagnostic implementation:
+  [WP1 contract](ANCHOR_INTEGRITY_v0_1_CONTRACT.md),
+  [WP2A local bindings](ANCHOR_INTEGRITY_v0_1_WP2A_BINDINGS.md),
+  [WP2B explicit JSON Pointer projection](ANCHOR_INTEGRITY_v0_1_WP2B_JSON_POINTER.md)
+  and [WP2C materialized verifier-record bindings](ANCHOR_INTEGRITY_v0_1_WP2C_VERIFIER_RECORDS.md).
+  **Current local diagnostic implementation; full adapter remains incomplete.**
+  Checks exact local bytes and recorded references, explicitly selected pointer
+  projections, and materialized records against caller-pinned expectations.
+  WP2C reruns the base binding checker; it executes no semantic verifier and
+  does not authenticate a recorded verifier identity. Authentication, semantic
+  support, typed dependency-cycle evaluation and full coverage/disposition logic
+  remain separate. `requested_checks_complete = false`,
+  `accepted_as_semantic_support = false`; `authority_effect = none`.
+- Language Relation Measurement v0:
+  [LRM-01 contract](PULSEMECH_LANGUAGE_RELATION_MEASUREMENT_v0_CONTRACT.md) and
+  [LRM-01–LRM-06 development plan](PULSEMECH_LANGUAGE_RELATION_MEASUREMENT_v0_PLAN.md).
+  **Implemented contract foundation; measurement runtime not implemented.**
+  LRM-01 supplies a finite profile, four schemas, synthetic reference fixtures
+  and contract tests. Source/representation verification, relation comparison,
+  impact evaluation, automatic extraction and executable replay remain later
+  work. Synthetic result examples are specification material, not observed
+  language measurements; `authority_effect = none`.
 - [compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md) — **Current implementation and completed bounded proof.** Detailed compute contracts, completed Step 3G automation and regressions, exact historical Step 4A capture, bounded Step 4B preservation, accepted Step 5A runtime-bound construction and the completed Step 5B owner-dispatched six-process reference with exact preservation and source-bound replay; whole-runtime observation, complete Step 5 closure and later measurement remain separate.  
 - [compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#17-recorded-q2-4-field-comparison-checkpoint) — **Implementation history and recorded bounded results.** Section 17 records the local comparison of historical run `37600313529/1` and native run `39057898256/1`: 150 paired calls with matching selected output fields, preserved run-binding and platform differences, and unchanged 49/50 FAIL. Section 16 retains native acquisition and separate offline verification; section 13 retains Q2-1. Full Q2-4 acceptance, durable owner-held custody and full Q2/Step 5C/5D remain open under #2879.
 - [compute/PULSEMECH_Q2_RELEASE_HOST_TOKENIZER_CONTRACT_v0.md](compute/PULSEMECH_Q2_RELEASE_HOST_TOKENIZER_CONTRACT_v0.md) — **Implementation contract with recorded bounded Q2-1 reference.** Closed tokenizer-only source/input/projection/result contracts, four isolated occurrences, preserved historical 49/50 FAIL, separate canonical replay and the reviewed owner-run procedure. The recorded checkpoint preserves earlier rejected runs; full model/worker/release-host verification and authority remain separate.
@@ -448,7 +504,7 @@ It does not create authority beyond the artifact-bound path defined by the linke
 | Legacy verifier diagnostics and historical prerequisites | Preserves the earlier failure-only verifier-report line, expectation summaries, schema drafts and relation-promotion prerequisites without presenting them as the current admission path. | [PULSE_RELEASE_EVIDENCE_VERIFIER_v0.md](PULSE_RELEASE_EVIDENCE_VERIFIER_v0.md), [PULSE_RELEASE_EVIDENCE_EXPECTATION_SUMMARY_v0.md](PULSE_RELEASE_EVIDENCE_EXPECTATION_SUMMARY_v0.md), [PULSE_RELEASE_EVIDENCE_TRUSTED_VERIFIER_SCHEMA_DELTA_MAP_v0.md](PULSE_RELEASE_EVIDENCE_TRUSTED_VERIFIER_SCHEMA_DELTA_MAP_v0.md), [PULSE_RELEASE_EVIDENCE_TRUSTED_VERIFIER_SCHEMA_ONLY_DRAFT_BOUNDARY_v0.md](PULSE_RELEASE_EVIDENCE_TRUSTED_VERIFIER_SCHEMA_ONLY_DRAFT_BOUNDARY_v0.md), [PULSE_RELEASE_EVIDENCE_RELATION_BINDING_PROMOTION_PREREQUISITES_v0.md](PULSE_RELEASE_EVIDENCE_RELATION_BINDING_PROMOTION_PREREQUISITES_v0.md), [PULSE_EVIDENCE_FOLD_IN_ADMISSIBILITY_v0.md](PULSE_EVIDENCE_FOLD_IN_ADMISSIBILITY_v0.md) |
 | Release-grade reference and public record | Defines the completed-run contract and records the concrete first completed hosted execution. | [release_grade_reference_run_v0.md](release_grade_reference_run_v0.md), [RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md](RELEASE_GRADE_REFERENCE_RUN_NOTE_v0.md), [PULSE_RELEASE_GRADE_NEXT_RUN_PLAN_v0.md](PULSE_RELEASE_GRADE_NEXT_RUN_PLAN_v0.md) |
 | Reader surfaces | Shows recorded state without allowing dashboards, summaries, notebooks or Pages to become authority carriers. | [quality_ledger.md](quality_ledger.md), [PULSE_PUBLIC_SURFACE_CONTRACT_v0.md](PULSE_PUBLIC_SURFACE_CONTRACT_v0.md), [PULSE_PUBLIC_PRIVATE_ARTIFACT_BOUNDARY_v0.md](PULSE_PUBLIC_PRIVATE_ARTIFACT_BOUNDARY_v0.md), [PULSE_NATIVE_REVIEW_FRAME_v0.md](PULSE_NATIVE_REVIEW_FRAME_v0.md) |
-| Audit and provenance sidecars | Preserves digest-backed decision, binding, manifest, attestation-subject and cryptographic-verification state around the normative path. Anchor Integrity v0.1 remains a diagnostic contract candidate and does not enter the authority chain. | [ARTIFACT_PROVENANCE_BINDING_v0.md](ARTIFACT_PROVENANCE_BINDING_v0.md), [release_authority_manifest_v0.md](release_authority_manifest_v0.md), [RELEASE_AUTHORITY_ATTESTATION_SUBJECT_v0.md](RELEASE_AUTHORITY_ATTESTATION_SUBJECT_v0.md), [RELEASE_AUTHORITY_CRYPTOGRAPHIC_BINDING_v0.md](RELEASE_AUTHORITY_CRYPTOGRAPHIC_BINDING_v0.md), [ANCHOR_INTEGRITY_v0.md](ANCHOR_INTEGRITY_v0.md), [ANCHOR_INTEGRITY_v0_1_CONTRACT.md](ANCHOR_INTEGRITY_v0_1_CONTRACT.md) |
+| Audit and provenance sidecars | Preserves digest-backed decision, binding, manifest, attestation-subject and cryptographic-verification state around the normative path. Anchor Integrity v0.1 now implements local byte/reference checks, explicit JSON Pointer projection and materialized verifier-record bindings. These diagnostic checks do not authenticate provenance, execute semantic verifiers, complete the full adapter or enter the authority chain. | [ARTIFACT_PROVENANCE_BINDING_v0.md](ARTIFACT_PROVENANCE_BINDING_v0.md), [release_authority_manifest_v0.md](release_authority_manifest_v0.md), [RELEASE_AUTHORITY_ATTESTATION_SUBJECT_v0.md](RELEASE_AUTHORITY_ATTESTATION_SUBJECT_v0.md), [RELEASE_AUTHORITY_CRYPTOGRAPHIC_BINDING_v0.md](RELEASE_AUTHORITY_CRYPTOGRAPHIC_BINDING_v0.md), [ANCHOR_INTEGRITY_v0.md](ANCHOR_INTEGRITY_v0.md), [ANCHOR_INTEGRITY_v0_1_CONTRACT.md](ANCHOR_INTEGRITY_v0_1_CONTRACT.md), [WP2A](ANCHOR_INTEGRITY_v0_1_WP2A_BINDINGS.md), [WP2B](ANCHOR_INTEGRITY_v0_1_WP2B_JSON_POINTER.md), [WP2C](ANCHOR_INTEGRITY_v0_1_WP2C_VERIFIER_RECORDS.md) |
 | Diagnostic and shadow surfaces | Keeps EPF, paradox, topology, field, overlay and shadow inventory outputs diagnostic unless explicitly admitted through declared policy and strict enforcement. | [OPTIONAL_LAYERS.md](OPTIONAL_LAYERS.md), [NORMATIVE_SHADOW_INVENTORY_MODEL_v0.md](NORMATIVE_SHADOW_INVENTORY_MODEL_v0.md), [SHADOW_ARTIFACT_COMMON_v0.md](SHADOW_ARTIFACT_COMMON_v0.md), [PULSE_epf_shadow_quickstart_v0.md](PULSE_epf_shadow_quickstart_v0.md), [PULSE_paradox_core_v0.md](PULSE_paradox_core_v0.md), [PULSE_topology_overview_v0.md](PULSE_topology_overview_v0.md), [PULSE_decision_field_v0_overview.md](PULSE_decision_field_v0_overview.md) |
 | Future operational work | Collects portability, independent reproduction, HPC, later hardening and separately governed future promotion work. | [FUTURE_LIBRARY.md](FUTURE_LIBRARY.md), [FUTURE_READY_WORKMODE.md](FUTURE_READY_WORKMODE.md), [PULSE_HARDENING_BOUNDARY_MAP_v0.md](PULSE_HARDENING_BOUNDARY_MAP_v0.md), [UNREALIZED_DOCUMENTATION_PLANS_AUDIT_2026-06-05.md](UNREALIZED_DOCUMENTATION_PLANS_AUDIT_2026-06-05.md) |
 | Adoption and external review | Supports operator handoff, external review, governance packets and challenge packets while preserving the authority boundary. | [PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md](PULSE_REVIEWABLE_MECHANICS_CHECKLIST_v0.md), [EXTERNAL_VERIFICATION_PATH_v0.md](EXTERNAL_VERIFICATION_PATH_v0.md), [EXTERNAL_VERIFICATION_PACKET_v0.md](EXTERNAL_VERIFICATION_PACKET_v0.md), [GOVERNANCE_PACK_v0.md](GOVERNANCE_PACK_v0.md), [OPERATOR_HANDOFF_v0.md](OPERATOR_HANDOFF_v0.md), [OUTSIDE_REVIEW_RESPONSE.md](OUTSIDE_REVIEW_RESPONSE.md), [AUTHORITY_IMPACT_AUDIT_CHECKLIST_v0.md](AUTHORITY_IMPACT_AUDIT_CHECKLIST_v0.md) |
@@ -986,12 +1042,13 @@ index update neither predeclares that closure nor performs a new proof execution
   analysis claim; `authority_effect = none`.
 - Paradoxon PD-SM-02-W1 bounded native-witness experiment:
   [Source-bound selection and experiment contract](experiments/PD_SM_02_W1_CONTRACT_v0.md)
-  **Pending operational target; preregistered, not executed.** Fixes three
+  **Preregistered experiment contract; preparation-era status retained.** Fixes three
   healthy-scenario model witnesses (N01, N07, N08), a P00 positive control
-  and an N02 native-primitive refusal control. Separate diagnostic harness,
-  external containment, ordered observation and owner authorization remain
-  prerequisites; normal admission and original evidence stay unchanged.
-  `execution_status = NOT_RUN`; `authority_effect = none`.
+  and an N02 native-primitive refusal control. Its `NOT_RUN` declaration describes
+  the original preparation stage. Later admission, request preservation, hosted
+  integration and the separately pending native-run preservation are indexed
+  below. The original predictions and evidence remain unchanged;
+  `authority_effect = none`.
 - Paradoxon PD-SM-02-W1 offline input and observation-record checker:
   [W1 record-checker implementation and format](experiments/PD_SM_02_W1_RECORD_CHECKER_v0.md)
   **Current implementation; offline record consistency only.** Binds the frozen
@@ -1002,19 +1059,48 @@ index update neither predeclares that closure nor performs a new proof execution
   `authority_effect = none`.
 - Paradoxon PD-SM-02-W1 bounded diagnostic acquisition implementation:
   [Native controller, observer and external boundary](experiments/PD_SM_02_W1_NATIVE_CAPTURE_v0.md)
-  **Implemented path; live-container admission and native W1 execution not run.**
+  **Current implementation; later operational records remain separate.**
   Exact request and source closure; five fixed candidates; separate trusted
   primitive instrumentation and collector; inspected Docker limits and admission
-  controls; no automatic execution, image pull or normal-launch bypass.
+  controls; the native controller retains `--pull=never`, with no automatic
+  execution or normal-launch bypass.
   Synthetic lifecycle tests do not establish live containment or native witnesses.
   `execution_authorized = false`; `authority_effect = none`.
 - Paradoxon PD-SM-02-W1 separate environment admission:
   [Selected Linux/image target, zero-candidate controls and offline replay](experiments/PD_SM_02_W1_ADMISSION_v0.md)
-  **Implemented candidate-free path; live admission not run.** Selects the
+  **Current candidate-free implementation; completed admission recorded separately.** Selects the
   GitHub-hosted Ubuntu 24.04 x64 runner class and an exact official Python image;
   preserves registry metadata and uses a separate zero-budget request, claim,
-  manual workflow and control replay. Success cannot authorize a W1 experiment.
+  manual workflow and control replay. The
+  [preserved request record](experiments/PD_SM_02_W1_NATIVE_REQUEST_v0.md)
+  records admission `41362257003/1`: both `probe-time` and `probe-output`
+  completed and replayed with zero candidate invocations and
+  `ADMISSION_COMPLETED_UNATTESTED`. That admission does not authorize a W1
+  experiment or attest the later execution host.
   `maximum_candidate_invocations = 0`; `authority_effect = none`.
+- Paradoxon PD-SM-02-W1 preserved native request:
+  [Request archive, prior admission and offline preparation checks](experiments/PD_SM_02_W1_NATIVE_REQUEST_v0.md)
+  **Completed preparation record; request validity grants no execution permission.**
+  Preserves the exact 444,703-byte ZIP, twenty payloads, original admission archive
+  and source-bound validation receipts. Its `REQUEST_VALID_NOT_AUTHORIZED` and
+  five-case `NOT_RUN` declarations retain their preparation-time meaning.
+  No request payload or original evidence is rewritten by later integration.
+- Paradoxon PD-SM-02-W1 manual hosted integration:
+  [Hosted workflow, source/request guards and retained-result boundary](experiments/PD_SM_02_W1_HOSTED_NATIVE_v0.md)
+  **Current implementation; actual native-run preservation is tracked separately.**
+  Consumes the unchanged request, repeats both live controls on the actual host,
+  and supervises one owner-authorized five-case attempt with retained evidence
+  and offline replay. Its implementation-delivery `NOT_RUN` statement is not a
+  current assertion that no later run exists. A completed capture remains
+  unattested and creates no further execution permission or release authority.
+- Paradoxon PD-SM-02-W1 native-run preservation:
+  [Preservation PR #2984](https://github.com/HKati/pulse-release-gates-0.1/pull/2984)
+  **Open preservation PR as of 2026-11-04; outside the inspected main snapshot.**
+  Proposes preservation of actual run `41852641211/1`, its original capture,
+  separate source-bound replay and bounded review. Reviewed PR head:
+  `d23ed1b02c69df4fd51878067e93f381a8b5e11d`. Its evidence files are not yet
+  merged into main; capture completion does not establish external acquisition
+  authenticity, native-witness correspondence or release authority.
 - [PULSE_paradox_field_v0_walkthrough.md](PULSE_paradox_field_v0_walkthrough.md) — Reading `paradox_field_v0`.
 - [Pulse_paradox_edges_v0_status.md](Pulse_paradox_edges_v0_status.md) — Status and roadmap for `paradox_edges_v0.jsonl`.
 - [paradox_edges_case_studies.md](paradox_edges_case_studies.md) — Fixture and non-fixture case studies.
