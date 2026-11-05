@@ -1,0 +1,190 @@
+{
+  "$id": "https://eplabsai.com/pulsemech/schemas/anchor_integrity_execution_result_v0_1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority_effect": {
+      "const": "none"
+    },
+    "binding": {
+      "additionalProperties": false,
+      "properties": {
+        "binding_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "claim_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "claim_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "evidence_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "evidence_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "relation_type": {
+          "enum": [
+            "supports",
+            "contradicts",
+            "derived_from",
+            "contextualizes",
+            "references"
+          ],
+          "type": "string"
+        },
+        "source_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "source_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "binding_id",
+        "claim_id",
+        "claim_digest",
+        "evidence_id",
+        "source_id",
+        "source_sha256",
+        "evidence_sha256",
+        "relation_type"
+      ],
+      "type": "object"
+    },
+    "candidate_status": {
+      "const": "diagnostic_only"
+    },
+    "challenge": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "execution_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "release_authority_activation": {
+      "const": false
+    },
+    "request_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "anchor_integrity_execution_result_v0_1"
+    },
+    "subject": {
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subject_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject_id",
+        "run_id"
+      ],
+      "type": "object"
+    },
+    "verification": {
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result": {
+          "enum": [
+            "supported",
+            "contradicted",
+            "insufficient",
+            "unresolved"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "const": "completed"
+        }
+      },
+      "required": [
+        "status",
+        "result",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "verifier": {
+      "additionalProperties": false,
+      "properties": {
+        "implementation_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "method_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "method_version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "type": "string"
+        },
+        "verifier_id": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "verifier_id",
+        "method_id",
+        "method_version",
+        "implementation_sha256"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "candidate_status",
+    "authority_effect",
+    "release_authority_activation",
+    "execution_id",
+    "challenge",
+    "request_sha256",
+    "subject",
+    "verifier",
+    "binding",
+    "verification"
+  ],
+  "title": "anchor_integrity_execution_result_v0_1 - diagnostic contract only",
+  "type": "object"
+}
