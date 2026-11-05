@@ -1,0 +1,36 @@
+{
+  "authority_effect": "none",
+  "candidate_status": "diagnostic_only",
+  "keys": [
+    {
+      "key_id": "public-rfc8032-test-2",
+      "not_after_epoch": 1793923200,
+      "not_before_epoch": 1793750400,
+      "public_key_hex": "3d4017c3e843895a92b70aa74d1b7ebc9c982ccf2ec4968cc0cd55f12af4660c",
+      "public_key_sha256": "39f713d0a644253f04529421b9f51b9b08979d08295959c4f3990ee617f5139f",
+      "purpose": "verifier_record_statement",
+      "relation_types": [
+        "references"
+      ],
+      "results": [
+        "unresolved"
+      ],
+      "state": "active",
+      "verifier": {
+        "implementation_sha256": "b0e1244adc258ef7d5ce720b92f617f196558bacfc7bbf289cff7bddc81fa192",
+        "method_id": "synthetic-record-only",
+        "method_version": "1",
+        "verifier_id": "synthetic-verifier"
+      }
+    }
+  ],
+  "policy_id": "wp2e-public-test-policy",
+  "profile": "pinned-ed25519-record-signers-v1",
+  "release_authority_activation": false,
+  "schema_version": "anchor_integrity_signer_policy_v0_1",
+  "subject": {
+    "run_id": "synthetic-run-001",
+    "subject_id": "wp2b-synthetic-001"
+  },
+  "trust_domain": "TEST"
+}

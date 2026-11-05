@@ -2832,5 +2832,671 @@ def test_wp2d_reordered_graph_declarations_keep_the_same_projection(tmp_path):
     assert a['graph_binding']['observed_sha256']!=b['graph_binding']['observed_sha256']
 
 
+# WP2E: exact record signatures under a caller-pinned, separate policy.
+# The following private seed is PUBLIC RFC 8032 test material, never a credential.
+import tempfile as _wp2e_tempfile
+
+WP2E_TOOL = ROOT / 'tools/check_anchor_integrity_record_signatures_v0_1.py'
+WP2E_DEMO = ROOT / 'examples/anchor_integrity_v0_1/wp2e_record_signatures'
+WP2E_EPOCH = 1793836800
+WP2E_SEED = bytes.fromhex('4ccd089b28ff96da9db6c346ec114e0f5b8a319f35aba624da8cf6ed4fb8a6fb')
+WP2E_PINS = (
+    'd7d16dfccf2dce237060e6b77fbb7da907227b1bd56f1275cfb623ce81cd59a8',
+    '70a4d15ee35db21a605ef283c531724d921658fa8bc46ca68f6867925b2c91c4',
+    'a70299602a9aae82adcd4ff17278eef5a802ad72e05dbdae6fec64a9f98f188e',
+    '6dd6feb77a3c4cc4520e2f4950906a96a8e533d9d23455f8d0da77f47ff1ae8a',
+    '833e2a5c9cdbb021d4c59f0c5269e04cebe9b6c6c719ccc872a52d679950bb32',
+)
+
+
+def _wp2e_module():
+    spec = _wp2c_importlib.spec_from_file_location('wp2e_test_checker', WP2E_TOOL)
+    module = _wp2c_importlib.module_from_spec(spec)
+    old = _wp2c_sys.dont_write_bytecode
+    _wp2c_sys.dont_write_bytecode = True
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        _wp2c_sys.dont_write_bytecode = old
+    return module
+
+
+def _wp2e_fixture(tmp_path):
+    root = tmp_path / 'signed-example'
+    _wp2c_shutil.copytree(WP2E_DEMO, root)
+    return root / 'bundle', root / 'trust'
+
+
+def _wp2e_pins(pair):
+    bundle, trust = pair
+    return (*(_wp2c_hash(bundle / n) for n in ('input.json', 'carriers.json', 'record-set.json', 'signatures.json')),
+            _wp2c_hash(trust / 'policy.json'))
+
+
+def _wp2e_run(pair=None, pins=None, module=None, **options):
+    bundle, trust = pair or (WP2E_DEMO / 'bundle', WP2E_DEMO / 'trust')
+    pins = pins or WP2E_PINS
+    m = module or _wp2e_module()
+    kwargs = dict(trust_root=trust, trust_policy_path='policy.json', expected_trust_policy_sha256=pins[4],
+                  binding_profile='wp2b-json-pointer-v1', signature_profile=m.PROFILE,
+                  trust_domain='TEST', verification_time_epoch=WP2E_EPOCH)
+    kwargs.update(options)
+    return m.verify_signatures(bundle, 'input.json', pins[0], 'carriers.json', pins[1],
+                               'record-set.json', pins[2], 'signatures.json', pins[3], **kwargs)
+
+
+def _wp2e_limits(report):
+    assert report['candidate_status'] == 'diagnostic_only'
+    assert report['authority_effect'] == 'none'
+    for name in ('release_authority_activation', 'requested_checks_complete',
+                 'accepted_as_semantic_support', 'accepted_as_independent_anchor'):
+        assert report[name] is False
+    assert report['time_source'] == 'caller_supplied_not_authenticated'
+    for check in report['unperformed_checks'].values():
+        assert check['status'] == 'not_run' and check['result'] is None and check['reason']
+    for row in report['records']:
+        assert row['accepted_as_semantic_support'] is False
+        assert row['accepted_as_independent_anchor'] is False
+
+
+def _wp2e_has(report, code):
+    return any(i['code'] == code for i in report['issues'])
+
+
+def _wp2e_sign(message, seed=WP2E_SEED):
+    # Real OpenSSL signing in tests only. The production tool has no signing API.
+    with _wp2e_tempfile.TemporaryDirectory(prefix='anchor-test-sign-', dir='/tmp') as tmp:
+        d = Path(tmp)
+        (d / 'key.der').write_bytes(bytes.fromhex('302e020100300506032b657004220420') + seed)
+        (d / 'message').write_bytes(message)
+        p = _wp2c_subprocess.run(['/usr/bin/openssl', 'pkeyutl', '-sign', '-keyform', 'DER',
+                                  '-inkey', 'key.der', '-rawin', '-in', 'message', '-provider', 'default'],
+                                 cwd=d, env={'PATH':'/usr/bin:/bin','LC_ALL':'C','OPENSSL_CONF':'/dev/null'},
+                                 capture_output=True, timeout=10)
+        assert p.returncode == 0, p.stderr
+        assert len(p.stdout) == 64
+        return p.stdout
+
+
+def _wp2e_resign(pair, sync_record_roots=False):
+    b, t = pair
+    if sync_record_roots:
+        _wp2c_repin(b, True)
+    m = _wp2e_module()
+    policy = load_json(t / 'policy.json')
+    policy_hash = _wp2c_hash(t / 'policy.json')
+    record_set = load_json(b / 'record-set.json')
+    manifest = load_json(b / 'signatures.json')
+    manifest['record_set_binding'] = {'path':'record-set.json','sha256':_wp2c_hash(b / 'record-set.json')}
+    manifest['trust_policy_sha256'] = policy_hash
+    manifest['signatures'] = []
+    for n, entry in enumerate(record_set['records'], 1):
+        raw = (b / entry['path']).read_bytes()
+        sig = {'schema_version':'anchor_integrity_record_signature_v0_1', 'candidate_status':'diagnostic_only',
+               'authority_effect':'none','release_authority_activation':False,'signature_suite':'ed25519',
+               'signature_domain':m.DOMAIN,'record_id':entry['record_id'],'record_sha256':m.digest(raw),
+               'trust_policy_sha256':policy_hash,'key_id':policy['keys'][0]['key_id']}
+        sig['signature_hex'] = _wp2e_sign(m.signing_bytes(policy_hash, sig['key_id'], raw)).hex()
+        name = 'signature-' + str(n) + '.json'
+        _wp2c_write(b, name, sig)
+        manifest['signatures'].append({'record_id':entry['record_id'],'path':name,'sha256':_wp2c_hash(b / name)})
+    _wp2c_write(b, 'signatures.json', manifest)
+    return _wp2e_pins(pair)
+
+
+def _wp2e_refresh_envelope_manifest(pair):
+    b, _ = pair
+    manifest = load_json(b / 'signatures.json')
+    for entry in manifest['signatures']:
+        if (b / entry['path']).is_file():
+            entry['sha256'] = _wp2c_hash(b / entry['path'])
+    _wp2c_write(b, 'signatures.json', manifest)
+    return _wp2e_pins(pair)
+
+
+def test_wp2e_real_signature_demo_and_policy_boundary():
+    assert _wp2e_pins((WP2E_DEMO/'bundle', WP2E_DEMO/'trust')) == WP2E_PINS
+    r = _wp2e_run()
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_VERIFIED'
+    assert r['counts'] == {'required_records':1,'listed_signatures':1,'admitted_records':1}
+    assert r['signer_authentication']['result'] == 'test_key_signatures_verified'
+    assert r['records'][0]['signature_check']['result'] == 'valid'
+    assert r['records'][0]['policy_check']['result'] == 'authorized'
+    _wp2e_limits(r)
+
+
+@pytest.mark.parametrize('which', range(5))
+@pytest.mark.parametrize('bad', ['0'*64, 'ABC', None])
+def test_wp2e_every_expected_root_is_required_and_checked(which, bad):
+    pins = list(WP2E_PINS); pins[which] = bad
+    r = _wp2e_run(pins=pins)
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_INVALID'
+    assert r['signer_authentication']['result'] is None
+    _wp2e_limits(r)
+
+
+@pytest.mark.parametrize('name', ['input.json','carriers.json','record-set.json','source.json','record-1.json',
+                                  'signature-1.json','signatures.json','policy.json'])
+def test_wp2e_missing_material_never_authenticates(tmp_path, name):
+    pair = _wp2e_fixture(tmp_path); b, t = pair
+    (t / name if name == 'policy.json' else b / name).unlink()
+    r = _wp2e_run(pair)
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_INCOMPLETE'
+    assert r['signer_authentication']['status'] == 'not_run'
+
+
+@pytest.mark.parametrize('field,value,code', [
+    ('state','revoked','signer_key_revoked'),
+    ('not_before_epoch',WP2E_EPOCH+1,'signer_key_outside_validity'),
+    ('not_after_epoch',WP2E_EPOCH,'signer_key_outside_validity'),
+    ('relation_types',['supports'],'signer_relation_scope_mismatch'),
+    ('results',['supported'],'signer_result_scope_mismatch'),
+])
+def test_wp2e_authorization_constraints_are_enforced_after_real_resigning(tmp_path, field, value, code):
+    pair = _wp2e_fixture(tmp_path); b, t = pair
+    policy = load_json(t / 'policy.json'); policy['keys'][0][field] = value
+    _wp2c_write(t, 'policy.json', policy)
+    r = _wp2e_run(pair, _wp2e_resign(pair))
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_INVALID'
+    assert _wp2e_has(r, code)
+    assert r['records'][0]['policy_check']['result'] == 'denied'
+
+
+@pytest.mark.parametrize('field', ['verifier_id','method_id','method_version','implementation_sha256'])
+def test_wp2e_signature_key_cannot_impersonate_another_verifier_tuple(tmp_path, field):
+    pair = _wp2e_fixture(tmp_path); b, t = pair
+    p = load_json(t / 'policy.json'); p['keys'][0]['verifier'][field] = '0'*64 if field == 'implementation_sha256' else 'other'
+    _wp2c_write(t, 'policy.json', p)
+    r = _wp2e_run(pair, _wp2e_resign(pair))
+    assert _wp2e_has(r, 'signer_verifier_scope_mismatch')
+
+
+@pytest.mark.parametrize('field', ['subject_id','run_id'])
+def test_wp2e_policy_subject_and_run_are_not_wildcards(tmp_path, field):
+    pair = _wp2e_fixture(tmp_path); b, t = pair
+    p = load_json(t / 'policy.json'); p['subject'][field] = 'different'
+    _wp2c_write(t, 'policy.json', p)
+    r = _wp2e_run(pair, _wp2e_resign(pair))
+    assert _wp2e_has(r, 'policy_subject_mismatch')
+    assert r['records'] == []
+
+
+@pytest.mark.parametrize('epoch,ok', [(1793750399,False),(1793750400,True),(1793923199,True),(1793923200,False)])
+def test_wp2e_validity_interval_is_half_open_at_caller_supplied_time(epoch, ok):
+    r = _wp2e_run(verification_time_epoch=epoch)
+    assert (r['status'] == 'LOCAL_RECORD_SIGNATURES_VERIFIED') is ok
+    assert r['unperformed_checks']['trusted_clock_verification']['result'] is None
+
+
+@pytest.mark.parametrize('bad', [-1, True, 1.5, '1793836800', None, 253402300800])
+def test_wp2e_invalid_caller_time_is_not_coerced(bad):
+    with pytest.raises(ValueError):
+        _wp2e_run(verification_time_epoch=bad)
+
+
+def test_wp2e_test_policy_cannot_be_used_as_operator_policy():
+    r = _wp2e_run(trust_domain='OPERATOR')
+    assert _wp2e_has(r, 'trust_domain_mismatch')
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_INVALID'
+
+
+def test_wp2e_operator_policy_is_an_explicit_caller_trust_assumption(tmp_path):
+    # Synthetic test of the OPERATOR branch, not a real operational credential.
+    pair = _wp2e_fixture(tmp_path); b, t = pair
+    p = load_json(t / 'policy.json'); p['trust_domain'] = 'OPERATOR'
+    _wp2c_write(t, 'policy.json', p)
+    r = _wp2e_run(pair, _wp2e_resign(pair), trust_domain='OPERATOR')
+    assert r['signer_authentication']['result'] == 'authorized_key_signatures_verified'
+    assert r['unperformed_checks']['trust_policy_authorization_verification']['result'] is None
+    _wp2e_limits(r)
+
+
+@pytest.mark.parametrize('kind', ['same','inside','parent'])
+def test_wp2e_policy_root_must_be_disjoint_from_evidence_root(tmp_path, kind):
+    pair = _wp2e_fixture(tmp_path); b, t = pair
+    root = b if kind == 'same' else b/'trust' if kind == 'inside' else b.parent
+    if kind == 'inside': root.mkdir()
+    r = _wp2e_run(pair, trust_root=root)
+    assert _wp2e_has(r, 'trust_root_not_separate_from_bundle')
+
+
+@pytest.mark.parametrize('field,value', [('record_id','other-record'),('record_sha256','0'*64),
+                                        ('trust_policy_sha256','0'*64)])
+def test_wp2e_envelope_subject_substitution_rejected_even_when_rehashed(tmp_path, field, value):
+    pair = _wp2e_fixture(tmp_path); b, t = pair
+    s = load_json(b / 'signature-1.json'); s[field] = value
+    _wp2c_write(b, 'signature-1.json', s)
+    r = _wp2e_run(pair, _wp2e_refresh_envelope_manifest(pair))
+    assert _wp2e_has(r, 'signature_subject_mismatch')
+
+
+@pytest.mark.parametrize('field,value', [('signature_suite','none'),('signature_domain','wrong'),
+ ('public_key_hex','0'*64),('signed_message','invented'),('release_authority_activation',True),
+ ('authority_effect','release'),('candidate_status','active')])
+def test_wp2e_envelope_cannot_select_algorithm_key_or_authority(tmp_path, field, value):
+    pair = _wp2e_fixture(tmp_path); b, t = pair
+    s = load_json(b / 'signature-1.json'); s[field] = value
+    _wp2c_write(b, 'signature-1.json', s)
+    r = _wp2e_run(pair, _wp2e_refresh_envelope_manifest(pair))
+    assert _wp2e_has(r, 'schema_invalid_signature_signature')
+
+
+@pytest.mark.parametrize('bad', ['0'*128,'ff'*64,'ab', 'g'*128, '', 'AB'*64])
+def test_wp2e_invalid_or_noncanonical_signature_bytes_rejected(tmp_path, bad):
+    pair = _wp2e_fixture(tmp_path); b, _ = pair
+    s = load_json(b / 'signature-1.json'); s['signature_hex'] = bad
+    _wp2c_write(b, 'signature-1.json', s)
+    r = _wp2e_run(pair, _wp2e_refresh_envelope_manifest(pair))
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_INVALID'
+
+
+def test_wp2e_envelope_cannot_nominate_an_unlisted_key(tmp_path):
+    pair = _wp2e_fixture(tmp_path); b, _ = pair
+    s = load_json(b / 'signature-1.json'); s['key_id'] = 'unknown'
+    _wp2c_write(b, 'signature-1.json', s)
+    r = _wp2e_run(pair, _wp2e_refresh_envelope_manifest(pair))
+    assert _wp2e_has(r, 'signer_key_not_authorized')
+
+
+def test_wp2e_signature_is_bound_to_policy_bytes_not_just_key(tmp_path):
+    pair = _wp2e_fixture(tmp_path); b, t = pair
+    p = load_json(t / 'policy.json'); p['policy_id'] = 'another-policy'
+    _wp2c_write(t, 'policy.json', p); ph = _wp2c_hash(t / 'policy.json')
+    s = load_json(b / 'signature-1.json'); s['trust_policy_sha256'] = ph
+    _wp2c_write(b, 'signature-1.json', s)
+    a = load_json(b / 'signatures.json'); a['trust_policy_sha256'] = ph
+    _wp2c_write(b, 'signatures.json', a)
+    r = _wp2e_run(pair, _wp2e_refresh_envelope_manifest(pair))
+    assert _wp2e_has(r, 'record_signature_invalid')
+
+
+def test_wp2e_signature_is_bound_to_key_id_even_if_public_key_is_unchanged(tmp_path):
+    pair = _wp2e_fixture(tmp_path); b, t = pair
+    p = load_json(t / 'policy.json'); p['keys'][0]['key_id'] = 'renamed-key'
+    _wp2c_write(t, 'policy.json', p); ph = _wp2c_hash(t / 'policy.json')
+    s = load_json(b / 'signature-1.json'); s.update(key_id='renamed-key',trust_policy_sha256=ph)
+    _wp2c_write(b, 'signature-1.json', s)
+    a = load_json(b / 'signatures.json'); a['trust_policy_sha256'] = ph
+    _wp2c_write(b, 'signatures.json', a)
+    r = _wp2e_run(pair, _wp2e_refresh_envelope_manifest(pair))
+    assert _wp2e_has(r, 'record_signature_invalid')
+
+
+def test_wp2e_reformatted_record_with_refreshed_hashes_requires_new_signature(tmp_path):
+    pair = _wp2e_fixture(tmp_path); b, _ = pair
+    (b / 'record-1.json').write_text(json.dumps(load_json(b/'record-1.json'),separators=(',',':')))
+    rs = load_json(b/'record-set.json'); rs['records'][0]['sha256'] = _wp2c_hash(b/'record-1.json')
+    _wp2c_write(b,'record-set.json',rs)
+    s = load_json(b/'signature-1.json'); s['record_sha256'] = rs['records'][0]['sha256']
+    _wp2c_write(b,'signature-1.json',s)
+    a = load_json(b/'signatures.json'); a['record_set_binding']['sha256'] = _wp2c_hash(b/'record-set.json')
+    _wp2c_write(b,'signatures.json',a)
+    r = _wp2e_run(pair,_wp2e_refresh_envelope_manifest(pair))
+    assert r['record_check']['status'] == 'LOCAL_RECORD_BINDINGS_CONSISTENT'
+    assert _wp2e_has(r,'record_signature_invalid')
+
+
+@pytest.mark.parametrize('kind', ['empty','duplicate-id','duplicate-path','orphan','wrong-set','wrong-policy'])
+def test_wp2e_manifest_coverage_and_exact_roots(tmp_path, kind):
+    pair = _wp2e_fixture(tmp_path); b, _ = pair
+    a = load_json(b/'signatures.json')
+    if kind == 'empty': a['signatures'] = []
+    elif kind == 'duplicate-id': a['signatures'].append(deepcopy(a['signatures'][0]))
+    elif kind in ('duplicate-path','orphan'):
+        e = deepcopy(a['signatures'][0]); e['record_id'] = 'unlisted-record'
+        if kind == 'orphan': e['path'] = 'orphan.json'
+        a['signatures'].append(e)
+    elif kind == 'wrong-set': a['record_set_binding']['sha256'] = '0'*64
+    else: a['trust_policy_sha256'] = '0'*64
+    _wp2c_write(b,'signatures.json',a)
+    r = _wp2e_run(pair,_wp2e_pins(pair))
+    expected = 'LOCAL_RECORD_SIGNATURES_INCOMPLETE' if kind == 'empty' else 'LOCAL_RECORD_SIGNATURES_INVALID'
+    assert r['status'] == expected
+    assert r['signer_authentication']['result'] is None
+
+
+def test_wp2e_invalid_orphan_takes_precedence_over_missing_signature(tmp_path):
+    pair = _wp2e_fixture(tmp_path); b, _ = pair
+    a = load_json(b/'signatures.json'); a['signatures'][0]['record_id'] = 'orphan'
+    _wp2c_write(b,'signatures.json',a)
+    r = _wp2e_run(pair,_wp2e_pins(pair))
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_INVALID'
+    assert {x['severity'] for x in r['issues']} == {'invalid','incomplete'}
+
+
+def test_wp2e_zero_records_never_yield_positive_authentication(tmp_path):
+    pair = _wp2e_fixture(tmp_path); b, _ = pair
+    rp = load_json(b/'relations.json'); rp['relations'] = []
+    rs = load_json(b/'record-set.json'); rs['records'] = []
+    _wp2c_write(b,'relations.json',rp); _wp2c_write(b,'record-set.json',rs)
+    pins = _wp2e_resign(pair,True)
+    r = _wp2e_run(pair,pins)
+    assert r['record_check']['status'] == 'LOCAL_RECORD_BINDINGS_CONSISTENT'
+    assert _wp2e_has(r,'no_records_to_authenticate')
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_INCOMPLETE'
+
+
+def test_wp2e_two_records_are_authenticated_separately(tmp_path):
+    pair = _wp2e_fixture(tmp_path); b, _ = pair
+    rp = load_json(b/'relations.json'); second = deepcopy(rp['relations'][0])
+    second.update(binding_id='binding-2',verifier_record_id='synthetic-record-2')
+    rp['relations'].append(second); _wp2c_write(b,'relations.json',rp)
+    rec = load_json(b/'record-1.json'); rec['record_id'] = 'synthetic-record-2'; rec['binding']['binding_id'] = 'binding-2'
+    _wp2c_write(b,'record-2.json',rec)
+    rs = load_json(b/'record-set.json'); e = deepcopy(rs['records'][0])
+    e.update(record_id='synthetic-record-2',binding_id='binding-2',path='record-2.json')
+    rs['records'].append(e); _wp2c_write(b,'record-set.json',rs)
+    r = _wp2e_run(pair,_wp2e_resign(pair,True))
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_VERIFIED'
+    assert r['counts'] == {'required_records':2,'listed_signatures':2,'admitted_records':2}
+    (b/'signature-2.json').unlink()
+    r = _wp2e_run(pair,_wp2e_pins(pair))
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_INCOMPLETE'
+    assert r['counts']['admitted_records'] == 1
+
+
+@pytest.mark.parametrize('filename', ['policy.json','signatures.json','signature-1.json'])
+@pytest.mark.parametrize('kind', ['symlink','hardlink','directory','fifo'])
+def test_wp2e_new_files_preserve_safe_file_boundary(tmp_path, filename, kind):
+    pair = _wp2e_fixture(tmp_path); b, t = pair
+    p = (t if filename == 'policy.json' else b)/filename
+    raw = p.read_bytes(); p.unlink()
+    if kind == 'directory': p.mkdir()
+    elif kind == 'fifo': _wp2c_os.mkfifo(p)
+    else:
+        target = tmp_path/'target'; target.write_bytes(raw)
+        if kind == 'symlink': p.symlink_to(target)
+        else: _wp2c_os.link(target,p)
+    assert _wp2e_run(pair)['status'] == 'LOCAL_RECORD_SIGNATURES_INVALID'
+
+
+@pytest.mark.parametrize('path', ['../escape','/tmp/key','x\\y','./policy.json','a//b','policy.json.'])
+def test_wp2e_unsafe_policy_paths_rejected(path):
+    r = _wp2e_run(trust_policy_path=path)
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_INVALID'
+
+
+@pytest.mark.parametrize('alias', ['input.json','carriers.json','record-set.json','record-1.json','source.json','signatures.json'])
+def test_wp2e_signatures_cannot_alias_existing_carrier_roles(tmp_path, alias):
+    pair = _wp2e_fixture(tmp_path); b, _ = pair
+    a = load_json(b/'signatures.json'); a['signatures'][0]['path'] = alias
+    _wp2c_write(b,'signatures.json',a)
+    assert _wp2e_run(pair,_wp2e_pins(pair))['status'] == 'LOCAL_RECORD_SIGNATURES_INVALID'
+
+
+@pytest.mark.parametrize('name', ['policy.json','signatures.json','signature-1.json'])
+@pytest.mark.parametrize('bad', [b'{"x":1,"x":2}', b'{"x":NaN}', b'[]', b'\xff', b'{}\n{}'])
+def test_wp2e_strict_json_and_closed_shapes_are_required(tmp_path, name, bad):
+    pair = _wp2e_fixture(tmp_path); b, t = pair
+    p = (t if name == 'policy.json' else b)/name; p.write_bytes(bad)
+    pins = _wp2e_refresh_envelope_manifest(pair) if name == 'signature-1.json' else _wp2e_pins(pair)
+    assert _wp2e_run(pair,pins)['status'] == 'LOCAL_RECORD_SIGNATURES_INVALID'
+
+
+@pytest.mark.parametrize('change', ['duplicate-id','duplicate-key','wrong-key-digest','empty-interval'])
+def test_wp2e_policy_identity_and_key_integrity(tmp_path, change):
+    pair = _wp2e_fixture(tmp_path); b, t = pair
+    p = load_json(t/'policy.json')
+    if change.startswith('duplicate'):
+        k = deepcopy(p['keys'][0])
+        if change == 'duplicate-key': k['key_id'] = 'alias'
+        p['keys'].append(k)
+    elif change == 'wrong-key-digest': p['keys'][0]['public_key_sha256'] = '0'*64
+    else: p['keys'][0]['not_after_epoch'] = p['keys'][0]['not_before_epoch']
+    _wp2c_write(t,'policy.json',p)
+    r = _wp2e_run(pair,_wp2e_pins(pair))
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_INVALID' and r['records'] == []
+
+
+@pytest.mark.parametrize('y', [0,1,2**255-20,
+ 2707385501144840649318225287225658788936804267575313519463743609750303402022,
+ 55188659117513257062467267217118295137698188065244968500265048394206261417927,
+ 2**255-19,2**255-18,2**255-1])
+@pytest.mark.parametrize('sign', [0,1])
+def test_wp2e_torsion_and_noncanonical_keys_rejected_before_backend(tmp_path, y, sign):
+    pair = _wp2e_fixture(tmp_path); b, t = pair; m = _wp2e_module()
+    raw = (y | (sign<<255)).to_bytes(32,'little')
+    assert not m.point_encoding_allowed(raw)
+    p = load_json(t/'policy.json'); p['keys'][0].update(public_key_hex=raw.hex(),public_key_sha256=m.digest(raw))
+    _wp2c_write(t,'policy.json',p)
+    r = _wp2e_run(pair,_wp2e_pins(pair),module=m)
+    assert _wp2e_has(r,'policy_weak_or_noncanonical_key')
+    assert r['implementation']['crypto_backend'] is None
+
+
+def test_wp2e_backend_known_answer_and_weak_key_forgery_controls():
+    m = _wp2e_module(); v = m.OpenSSLVerifier()
+    assert v.verify(m.KAT_PUBLIC,m.KAT_SIGNATURE,m.KAT_MESSAGE)
+    assert not v.verify(m.KAT_PUBLIC,m.KAT_SIGNATURE,b'changed')
+    for key, sig in [(bytes(32),bytes(64)),(b'\1'+bytes(31),b'\1'+bytes(63))]:
+        assert not v.verify(key,sig,b'arbitrary message')
+    assert not v.verify(m.KAT_PUBLIC,m.KAT_SIGNATURE[:32]+m.SCALAR_ORDER.to_bytes(32,'little'),m.KAT_MESSAGE)
+
+
+def test_wp2e_no_fallback_when_backend_unavailable(tmp_path, monkeypatch, capsys):
+    m = _wp2e_module()
+    def fail(): raise RuntimeError('backend_missing')
+    monkeypatch.setattr(m,'OpenSSLVerifier',fail)
+    rc = m.main(_wp2e_command()[2:])
+    captured = capsys.readouterr()
+    assert rc == 2 and captured.out == '' and 'RuntimeError' in captured.err
+
+
+@pytest.mark.parametrize('kind', ['positive','negative'])
+def test_wp2e_selftest_rejects_broken_backend(monkeypatch, kind):
+    m = _wp2e_module()
+    monkeypatch.setattr(m.OpenSSLVerifier,'verify',lambda *args: kind == 'negative')
+    with pytest.raises(RuntimeError,match='self_test_failed'):
+        m.OpenSSLVerifier()
+
+
+def test_wp2e_subprocess_uses_fixed_executable_and_clean_environment(monkeypatch):
+    m = _wp2e_module(); real = m.subprocess.run; seen = []
+    monkeypatch.setenv('OPENSSL_CONF','/untrusted/config')
+    monkeypatch.setenv('LD_PRELOAD','/untrusted/library')
+    def checked(command,**kw):
+        seen.append(command)
+        assert command[0] == '/usr/bin/openssl'
+        assert kw['shell'] is False and kw['close_fds'] is True
+        assert kw['env']['OPENSSL_CONF'] == '/dev/null'
+        assert 'LD_PRELOAD' not in kw['env'] and 'OPENSSL_MODULES' not in kw['env']
+        assert 0 < kw['timeout'] <= 5
+        return real(command,**kw)
+    monkeypatch.setattr(m.subprocess,'run',checked)
+    r = _wp2e_run(module=m)
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_VERIFIED' and len(seen) == 4
+
+
+def test_wp2e_crypto_deadline_is_fail_closed(monkeypatch):
+    m = _wp2e_module(); v = m.OpenSSLVerifier(); v.deadline = -1
+    with pytest.raises(RuntimeError,match='time_budget'):
+        v.verify(m.KAT_PUBLIC,m.KAT_SIGNATURE,m.KAT_MESSAGE)
+
+
+@pytest.mark.parametrize('name', ['MAX_POLICY_BYTES','MAX_SIGNATURE_BYTES'])
+def test_wp2e_metadata_size_limits(tmp_path, monkeypatch, name):
+    pair = _wp2e_fixture(tmp_path); m = _wp2e_module(); monkeypatch.setattr(m,name,1)
+    r = _wp2e_run(pair,module=m)
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_INVALID'
+
+
+def test_wp2e_per_invocation_record_limit(tmp_path, monkeypatch):
+    pair = _wp2e_fixture(tmp_path); m = _wp2e_module(); monkeypatch.setattr(m,'MAX_SIGNATURES',0)
+    r = _wp2e_run(pair,module=m)
+    assert _wp2e_has(r,'base.signature_record_limit')
+
+
+def test_wp2e_record_bytes_retained_by_fresh_base_not_reopened(tmp_path, monkeypatch):
+    pair = _wp2e_fixture(tmp_path); b, _ = pair; m = _wp2e_module()
+    previous = m.SignatureReview.capture_previous
+    def change_after(self,*args):
+        result = previous(self,*args)
+        (b/'record-1.json').write_text('changed after read')
+        return result
+    monkeypatch.setattr(m.SignatureReview,'capture_previous',change_after)
+    r = _wp2e_run(pair,module=m)
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_VERIFIED'
+    assert r['records'][0]['record_sha256'] != _wp2c_hash(b/'record-1.json')
+
+
+def test_wp2e_saved_success_report_cannot_replace_fresh_binding(tmp_path):
+    pair = _wp2e_fixture(tmp_path); b, _ = pair
+    (b/'success.json').write_bytes(_wp2e_module().report_bytes(_wp2e_run()))
+    (b/'source.json').write_text('tampered')
+    r = _wp2e_run(pair)
+    assert r['record_check']['status'] == 'LOCAL_RECORD_BINDINGS_INVALID'
+    assert r['records'] == [] and r['signer_authentication']['result'] is None
+
+
+def test_wp2e_signed_supported_declaration_is_not_semantic_support(tmp_path):
+    pair = _wp2e_fixture(tmp_path); b, t = pair
+    rp = load_json(b/'relations.json'); rp['relations'][0]['relation_verification']['result'] = 'supported'
+    rec = load_json(b/'record-1.json'); rec['verification']['result'] = 'supported'
+    p = load_json(t/'policy.json'); p['keys'][0]['results'] = ['supported']
+    _wp2c_write(b,'relations.json',rp); _wp2c_write(b,'record-1.json',rec); _wp2c_write(t,'policy.json',p)
+    r = _wp2e_run(pair,_wp2e_resign(pair,True))
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_VERIFIED'
+    _wp2e_limits(r)
+
+
+def test_wp2e_signing_cyclic_fixture_does_not_anchor_cycle(tmp_path):
+    pair = _wp2e_fixture(tmp_path); b, t = pair
+    for p in WP2D_DEMO.iterdir():
+        if p.is_file(): (b/p.name).write_bytes(p.read_bytes())
+    p = load_json(t/'policy.json'); p['keys'][0]['relation_types'] = ['supports']
+    _wp2c_write(t,'policy.json',p)
+    r = _wp2e_run(pair,_wp2e_resign(pair))
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_VERIFIED'
+    cycle = _wp2d_run(b,_wp2c_pins(b))
+    assert cycle['cycle_detection']['result'] == 'cycle_detected'
+    assert cycle['cycle_anchor_classification']['result'] is None
+    assert r['unperformed_checks']['independent_anchor_admission']['result'] is None
+
+
+@pytest.fixture(scope='module')
+def wp2e_valid_report():
+    return _wp2e_run()
+
+
+@pytest.mark.parametrize('field', ['release_authority_activation','requested_checks_complete',
+ 'accepted_as_semantic_support','accepted_as_independent_anchor'])
+def test_wp2e_report_cannot_promote_authority(wp2e_valid_report,field):
+    r = deepcopy(wp2e_valid_report); r[field] = True
+    assert_invalid('anchor_integrity_record_signature_report_v0_1.schema.json',r)
+
+
+@pytest.mark.parametrize('part', _wp2e_module().UNPERFORMED)
+def test_wp2e_report_cannot_complete_unperformed_stages(wp2e_valid_report,part):
+    r = deepcopy(wp2e_valid_report); r['unperformed_checks'][part] = {'status':'completed','result':'verified','reason':None}
+    assert_invalid('anchor_integrity_record_signature_report_v0_1.schema.json',r)
+
+
+@pytest.mark.parametrize('part', ['signature_check','policy_check'])
+def test_wp2e_admitted_record_requires_actual_completed_checks(wp2e_valid_report,part):
+    r = deepcopy(wp2e_valid_report); r['records'][0][part] = {'status':'not_run','result':None,'reason':'not_done'}
+    assert_invalid('anchor_integrity_record_signature_report_v0_1.schema.json',r)
+
+
+def test_wp2e_test_result_cannot_be_relabelled_as_operator_result(wp2e_valid_report):
+    r = deepcopy(wp2e_valid_report); r['signer_authentication']['result'] = 'authorized_key_signatures_verified'
+    assert_invalid('anchor_integrity_record_signature_report_v0_1.schema.json',r)
+
+
+@pytest.mark.parametrize('schema', list(_wp2e_module().SCHEMAS.values()))
+def test_wp2e_new_schemas_are_closed_self_contained_draft202012(schema):
+    value = load_json(SCHEMA_DIR/schema)
+    jsonschema.Draft202012Validator.check_schema(value)
+    _wp2_module()._assert_self_contained(value)
+    assert value['additionalProperties'] is False
+
+
+def _wp2e_command():
+    b, t = WP2E_DEMO/'bundle', WP2E_DEMO/'trust'
+    cmd = [_wp2c_sys.executable,str(WP2E_TOOL),'--bundle-root',str(b)]
+    for n,pin in zip(('input','carriers','record-set','signatures'),WP2E_PINS[:4]):
+        cmd += ['--'+n,n+'.json','--expected-'+n+'-sha256',pin]
+    return cmd+['--trust-root',str(t),'--trust-policy','policy.json','--expected-trust-policy-sha256',WP2E_PINS[4],
+                '--binding-profile','wp2b-json-pointer-v1','--signature-profile','pinned-ed25519-record-signers-v1',
+                '--trust-domain','TEST','--verification-time-epoch',str(WP2E_EPOCH)]
+
+
+def test_wp2e_cli_really_verifies_and_stdout_is_only_report():
+    result = _wp2c_subprocess.run(_wp2e_command(),capture_output=True,timeout=30)
+    assert result.returncode == 0 and result.stderr == b''
+    r = json.loads(result.stdout)
+    assert r['status'] == 'LOCAL_RECORD_SIGNATURES_VERIFIED'
+    _wp2e_limits(r)
+
+
+@pytest.mark.parametrize('option', ['--expected-input-sha256','--expected-carriers-sha256','--expected-record-set-sha256',
+ '--expected-signatures-sha256','--trust-root','--trust-policy','--expected-trust-policy-sha256',
+ '--binding-profile','--signature-profile','--trust-domain','--verification-time-epoch'])
+def test_wp2e_cli_has_no_implicit_trust_defaults(option):
+    cmd = _wp2e_command(); i = cmd.index(option); del cmd[i:i+2]
+    result = _wp2c_subprocess.run(cmd,capture_output=True,timeout=30)
+    assert result.returncode == 2 and result.stdout == b''
+
+
+def test_wp2e_no_saved_report_or_output_overwrite_cli(tmp_path):
+    target = tmp_path/'status.json'; target.write_bytes(b'unchanged')
+    result = _wp2c_subprocess.run(_wp2e_command()+['--output',str(target),'--saved-report','success.json'],capture_output=True,timeout=30)
+    assert result.returncode == 2 and not result.stdout
+    assert target.read_bytes() == b'unchanged'
+
+
+def test_wp2e_deterministic_report_and_no_input_changes(tmp_path):
+    pair = _wp2e_fixture(tmp_path); root = pair[0].parent
+    before = {str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*') if p.is_file()}
+    a, b = _wp2e_run(pair), _wp2e_run(pair)
+    assert a == b
+    after = {str(p.relative_to(root)):p.read_bytes() for p in root.rglob('*') if p.is_file()}
+    assert before == after
+
+
+def test_wp2e_existing_manifest_registration_is_reused():
+    for name in ('ci/tools-tests.list','ci/pytest-tests.list'):
+        assert _manifest_entries(ROOT/name).count(TEST_PATH) == 1
+
+
+@pytest.mark.parametrize('part', ['public','nonce','scalar'])
+def test_wp2e_invalid_group_encodings_do_not_reach_openssl(monkeypatch, part):
+    m = _wp2e_module(); v = m.OpenSSLVerifier()
+    def forbidden(*args, **kwargs):
+        raise AssertionError('invalid encoding reached external verifier')
+    monkeypatch.setattr(v, '_run', forbidden)
+    key = m.KAT_PUBLIC
+    sig = m.KAT_SIGNATURE
+    if part == 'public': key = b'\1' + bytes(31)
+    elif part == 'nonce': sig = b'\1' + bytes(31) + sig[32:]
+    else: sig = sig[:32] + bytes(32)
+    assert not v.verify(key, sig, m.KAT_MESSAGE)
+
+
+def test_wp2e_message_domain_and_field_delimiters_are_exact():
+    m = _wp2e_module()
+    raw = b'{"record": "\\u00e9"}\r\n'
+    expected = b'PULSEMECH-ANCHOR-RECORD-SIGNATURE-V1\0' + b'0'*64 + b'\0key-1\0' + raw
+    assert m.signing_bytes('0'*64, 'key-1', raw) == expected
+    with pytest.raises(ValueError):
+        m.signing_bytes('0'*64, 'key\0other', raw)
+
+
+def test_wp2e_signature_byte_mutation_fails_even_when_all_outer_hashes_match(tmp_path):
+    pair = _wp2e_fixture(tmp_path); b, _ = pair
+    sig = load_json(b/'signature-1.json'); raw = bytearray.fromhex(sig['signature_hex'])
+    raw[40] ^= 1; sig['signature_hex'] = raw.hex()
+    _wp2c_write(b,'signature-1.json',sig)
+    r = _wp2e_run(pair,_wp2e_refresh_envelope_manifest(pair))
+    assert _wp2e_has(r,'record_signature_invalid')
+    assert r['records'][0]['signature_check']['result'] == 'invalid'
+
+
+def test_wp2e_no_signing_or_trusted_key_default_in_production_cli():
+    source = WP2E_TOOL.read_text()
+    assert "'-sign'" not in source and 'Ed25519PrivateKey' not in source
+    assert 'WP2E_SEED' not in source
+    assert "parser.add_argument('--trust-policy', required=True)" in source
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
