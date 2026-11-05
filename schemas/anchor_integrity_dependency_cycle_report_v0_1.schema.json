@@ -1,0 +1,1373 @@
+{
+  "$id": "https://eplabsai.com/pulsemech/schemas/anchor_integrity_dependency_cycle_report_v0_1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "else": {
+        "properties": {
+          "counts": {
+            "additionalProperties": false,
+            "properties": {
+              "claims": {
+                "const": null
+              },
+              "components": {
+                "const": null
+              },
+              "cyclic_components": {
+                "const": null
+              },
+              "derived_relation_edges": {
+                "const": null
+              },
+              "edges": {
+                "const": null
+              },
+              "evidence_items": {
+                "const": null
+              },
+              "explicit_edges": {
+                "const": null
+              },
+              "ignored_relations": {
+                "const": null
+              },
+              "nodes": {
+                "const": null
+              }
+            },
+            "required": [
+              "nodes",
+              "claims",
+              "evidence_items",
+              "explicit_edges",
+              "derived_relation_edges",
+              "ignored_relations",
+              "edges",
+              "components",
+              "cyclic_components"
+            ],
+            "type": "object"
+          },
+          "cycle_detection": {
+            "properties": {
+              "algorithm": {
+                "const": null
+              },
+              "reason": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "result": {
+                "const": null
+              },
+              "status": {
+                "const": "not_run"
+              }
+            }
+          },
+          "cyclic_components": {
+            "maxItems": 0
+          },
+          "edges": {
+            "maxItems": 0
+          },
+          "ignored_relations": {
+            "maxItems": 0
+          },
+          "nodes": {
+            "maxItems": 0
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "status": {
+            "const": "LOCAL_DEPENDENCY_GRAPH_ANALYZED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "counts": {
+            "additionalProperties": false,
+            "properties": {
+              "claims": {
+                "maximum": 8192,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "components": {
+                "maximum": 8192,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "cyclic_components": {
+                "maximum": 8192,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "derived_relation_edges": {
+                "maximum": 8192,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "edges": {
+                "maximum": 8192,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "evidence_items": {
+                "maximum": 8192,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "explicit_edges": {
+                "maximum": 8192,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "ignored_relations": {
+                "maximum": 8192,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "nodes": {
+                "maximum": 8192,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "nodes",
+              "claims",
+              "evidence_items",
+              "explicit_edges",
+              "derived_relation_edges",
+              "ignored_relations",
+              "edges",
+              "components",
+              "cyclic_components"
+            ],
+            "type": "object"
+          },
+          "cycle_detection": {
+            "properties": {
+              "algorithm": {
+                "const": "iterative_scc_and_directed_witness_v1"
+              },
+              "reason": {
+                "const": null
+              },
+              "result": {
+                "enum": [
+                  "cycle_detected",
+                  "no_cycle_detected_in_declared_graph"
+                ]
+              },
+              "status": {
+                "const": "completed"
+              }
+            }
+          },
+          "expected_digests": {
+            "additionalProperties": false,
+            "properties": {
+              "carriers": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "input": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "record_set": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "input",
+              "carriers",
+              "record_set"
+            ],
+            "type": "object"
+          },
+          "graph_binding": {
+            "additionalProperties": false,
+            "properties": {
+              "expected_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "observed_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "path": {
+                "minLength": 1,
+                "type": "string"
+              }
+            },
+            "required": [
+              "path",
+              "expected_sha256",
+              "observed_sha256"
+            ],
+            "type": "object"
+          },
+          "issues": {
+            "maxItems": 0
+          },
+          "observed_digests": {
+            "additionalProperties": false,
+            "properties": {
+              "carriers": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "input": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "record_set": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              }
+            },
+            "required": [
+              "input",
+              "carriers",
+              "record_set"
+            ],
+            "type": "object"
+          },
+          "record_check": {
+            "properties": {
+              "report_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "status": {
+                "const": "LOCAL_RECORD_BINDINGS_CONSISTENT"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "cycle_detection": {
+            "properties": {
+              "result": {
+                "const": "cycle_detected"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "counts": {
+            "properties": {
+              "cyclic_components": {
+                "minimum": 1,
+                "type": "integer"
+              }
+            }
+          },
+          "cyclic_components": {
+            "minItems": 1
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "cycle_detection": {
+            "properties": {
+              "result": {
+                "const": "no_cycle_detected_in_declared_graph"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "counts": {
+            "properties": {
+              "cyclic_components": {
+                "const": 0
+              }
+            }
+          },
+          "cyclic_components": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "LOCAL_DEPENDENCY_GRAPH_INVALID"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "issues": {
+            "contains": {
+              "properties": {
+                "severity": {
+                  "const": "invalid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "LOCAL_DEPENDENCY_GRAPH_INCOMPLETE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "issues": {
+            "not": {
+              "contains": {
+                "properties": {
+                  "severity": {
+                    "const": "invalid"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "accepted_as_semantic_support": {
+      "const": false
+    },
+    "authority_effect": {
+      "const": "none"
+    },
+    "binding_profile": {
+      "enum": [
+        "wp2a",
+        "wp2b-json-pointer-v1"
+      ]
+    },
+    "candidate_status": {
+      "const": "diagnostic_only"
+    },
+    "claim_materialization_status": {
+      "anyOf": [
+        {
+          "enum": [
+            "complete",
+            "partial",
+            "invalid"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "counts": {
+      "additionalProperties": false,
+      "properties": {
+        "claims": {
+          "anyOf": [
+            {
+              "maximum": 8192,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "components": {
+          "anyOf": [
+            {
+              "maximum": 8192,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cyclic_components": {
+          "anyOf": [
+            {
+              "maximum": 8192,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "derived_relation_edges": {
+          "anyOf": [
+            {
+              "maximum": 8192,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "edges": {
+          "anyOf": [
+            {
+              "maximum": 8192,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence_items": {
+          "anyOf": [
+            {
+              "maximum": 8192,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "explicit_edges": {
+          "anyOf": [
+            {
+              "maximum": 8192,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ignored_relations": {
+          "anyOf": [
+            {
+              "maximum": 8192,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "nodes": {
+          "anyOf": [
+            {
+              "maximum": 8192,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "nodes",
+        "claims",
+        "evidence_items",
+        "explicit_edges",
+        "derived_relation_edges",
+        "ignored_relations",
+        "edges",
+        "components",
+        "cyclic_components"
+      ],
+      "type": "object"
+    },
+    "cycle_anchor_classification": {
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "result": {
+          "const": null
+        },
+        "status": {
+          "const": "not_run"
+        }
+      },
+      "required": [
+        "status",
+        "result",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "cycle_detection": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "anyOf": [
+            {
+              "const": "iterative_scc_and_directed_witness_v1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "result": {
+          "anyOf": [
+            {
+              "enum": [
+                "cycle_detected",
+                "no_cycle_detected_in_declared_graph"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "not_run",
+            "completed"
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "result",
+        "algorithm",
+        "reason"
+      ],
+      "type": "object"
+    },
+    "cyclic_components": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "component_id": {
+            "pattern": "^scc-[1-9][0-9]*$",
+            "type": "string"
+          },
+          "internal_edge_keys": {
+            "items": {
+              "pattern": "^(graph|relation):[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 8192,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "nodes": {
+            "items": {
+              "pattern": "^(claim|evidence):[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            },
+            "maxItems": 8192,
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "witness": {
+            "additionalProperties": false,
+            "properties": {
+              "edge_keys": {
+                "items": {
+                  "pattern": "^(graph|relation):[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                  "type": "string"
+                },
+                "maxItems": 8192,
+                "minItems": 1,
+                "type": "array",
+                "uniqueItems": true
+              },
+              "nodes": {
+                "items": {
+                  "pattern": "^(claim|evidence):[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                  "type": "string"
+                },
+                "maxItems": 8193,
+                "minItems": 2,
+                "type": "array"
+              }
+            },
+            "required": [
+              "nodes",
+              "edge_keys"
+            ],
+            "type": "object"
+          }
+        },
+        "required": [
+          "component_id",
+          "nodes",
+          "internal_edge_keys",
+          "witness"
+        ],
+        "type": "object"
+      },
+      "maxItems": 8192,
+      "type": "array"
+    },
+    "edges": {
+      "items": {
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "else": {
+              "properties": {
+                "binding_id": {
+                  "const": null
+                },
+                "declared_relation_type": {
+                  "const": null
+                },
+                "edge_key": {
+                  "pattern": "^graph:"
+                },
+                "edge_type": {
+                  "enum": [
+                    "supported_by_claim",
+                    "derived_from_claim",
+                    "evidence_depends_on_claim",
+                    "claim_depends_on_claim"
+                  ]
+                }
+              }
+            },
+            "if": {
+              "properties": {
+                "origin": {
+                  "const": "relation_packet"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "binding_id": {
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                  "type": "string"
+                },
+                "declared_relation_type": {
+                  "enum": [
+                    "supports",
+                    "derived_from"
+                  ]
+                },
+                "edge_key": {
+                  "pattern": "^relation:"
+                },
+                "edge_type": {
+                  "const": "claim_to_evidence_relation"
+                },
+                "from": {
+                  "pattern": "^claim:"
+                },
+                "to": {
+                  "pattern": "^evidence:"
+                }
+              }
+            }
+          }
+        ],
+        "properties": {
+          "binding_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "declared_relation_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "supports",
+                  "derived_from"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "edge_key": {
+            "pattern": "^(graph|relation):[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "edge_type": {
+            "enum": [
+              "supported_by_claim",
+              "derived_from_claim",
+              "evidence_depends_on_claim",
+              "claim_depends_on_claim",
+              "claim_to_evidence_relation"
+            ]
+          },
+          "from": {
+            "pattern": "^(claim|evidence):[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "explicit_dependency_graph",
+              "relation_packet"
+            ]
+          },
+          "to": {
+            "pattern": "^(claim|evidence):[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "edge_key",
+          "from",
+          "to",
+          "edge_type",
+          "origin",
+          "binding_id",
+          "declared_relation_type"
+        ],
+        "type": "object"
+      },
+      "maxItems": 8192,
+      "type": "array"
+    },
+    "expected_digests": {
+      "additionalProperties": false,
+      "properties": {
+        "carriers": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "input": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "record_set": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "input",
+        "carriers",
+        "record_set"
+      ],
+      "type": "object"
+    },
+    "graph_binding": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observed_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "path": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "path",
+        "expected_sha256",
+        "observed_sha256"
+      ],
+      "type": "object"
+    },
+    "ignored_relations": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "binding_id": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+            "type": "string"
+          },
+          "reason": {
+            "const": "not_a_dependency_relation_in_this_profile"
+          },
+          "relation_type": {
+            "enum": [
+              "contradicts",
+              "contextualizes",
+              "references"
+            ]
+          }
+        },
+        "required": [
+          "binding_id",
+          "relation_type",
+          "reason"
+        ],
+        "type": "object"
+      },
+      "maxItems": 4096,
+      "type": "array"
+    },
+    "implementation": {
+      "additionalProperties": false,
+      "properties": {
+        "binding_checker_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "checker_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "json_pointer_module_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "record_checker_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "schema_sha256": {
+          "additionalProperties": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "minProperties": 1,
+          "type": "object"
+        }
+      },
+      "required": [
+        "checker_sha256",
+        "record_checker_sha256",
+        "binding_checker_sha256",
+        "json_pointer_module_sha256",
+        "schema_sha256"
+      ],
+      "type": "object"
+    },
+    "issues": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "object_id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "severity": {
+            "enum": [
+              "invalid",
+              "incomplete"
+            ]
+          }
+        },
+        "required": [
+          "code",
+          "object_id",
+          "severity"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "nodes": {
+      "items": {
+        "pattern": "^(claim|evidence):[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+        "type": "string"
+      },
+      "maxItems": 8192,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "observed_digests": {
+      "additionalProperties": false,
+      "properties": {
+        "carriers": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "input": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "record_set": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "input",
+        "carriers",
+        "record_set"
+      ],
+      "type": "object"
+    },
+    "profile": {
+      "const": "typed-dependencies-v1"
+    },
+    "record_check": {
+      "additionalProperties": false,
+      "properties": {
+        "report_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "anyOf": [
+            {
+              "enum": [
+                "LOCAL_RECORD_BINDINGS_CONSISTENT",
+                "LOCAL_RECORD_BINDINGS_INVALID",
+                "LOCAL_RECORD_BINDINGS_INCOMPLETE"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "report_sha256"
+      ],
+      "type": "object"
+    },
+    "release_authority_activation": {
+      "const": false
+    },
+    "requested_checks_complete": {
+      "const": false
+    },
+    "schema_version": {
+      "const": "anchor_integrity_dependency_cycle_report_v0_1"
+    },
+    "status": {
+      "enum": [
+        "LOCAL_DEPENDENCY_GRAPH_ANALYZED",
+        "LOCAL_DEPENDENCY_GRAPH_INVALID",
+        "LOCAL_DEPENDENCY_GRAPH_INCOMPLETE"
+      ]
+    },
+    "unperformed_checks": {
+      "additionalProperties": false,
+      "properties": {
+        "acquisition_authentication": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "claim_set_completeness": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "dependency_inventory_authentication": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "response_mode_recommendation": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "semantic_support_verification": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "source_identity_authentication": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "subject_observation_authentication": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "verified_binding_coverage": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "verified_support_coverage": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "verifier_execution_attestation": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        },
+        "verifier_identity_authentication": {
+          "additionalProperties": false,
+          "properties": {
+            "reason": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "result": {
+              "const": null
+            },
+            "status": {
+              "const": "not_run"
+            }
+          },
+          "required": [
+            "status",
+            "result",
+            "reason"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "source_identity_authentication",
+        "acquisition_authentication",
+        "subject_observation_authentication",
+        "verifier_identity_authentication",
+        "verifier_execution_attestation",
+        "semantic_support_verification",
+        "dependency_inventory_authentication",
+        "response_mode_recommendation",
+        "claim_set_completeness",
+        "verified_binding_coverage",
+        "verified_support_coverage"
+      ],
+      "type": "object"
+    },
+    "verification_scope": {
+      "const": "declared_typed_dependency_projection_only"
+    },
+    "whole_response_cycle_freedom_established": {
+      "const": false
+    },
+    "work_package": {
+      "const": "WP2D"
+    }
+  },
+  "required": [
+    "schema_version",
+    "work_package",
+    "profile",
+    "verification_scope",
+    "candidate_status",
+    "authority_effect",
+    "release_authority_activation",
+    "requested_checks_complete",
+    "accepted_as_semantic_support",
+    "whole_response_cycle_freedom_established",
+    "status",
+    "binding_profile",
+    "expected_digests",
+    "observed_digests",
+    "record_check",
+    "graph_binding",
+    "claim_materialization_status",
+    "counts",
+    "nodes",
+    "edges",
+    "ignored_relations",
+    "cyclic_components",
+    "cycle_detection",
+    "cycle_anchor_classification",
+    "unperformed_checks",
+    "issues",
+    "implementation"
+  ],
+  "type": "object"
+}
