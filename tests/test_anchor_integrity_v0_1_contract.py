@@ -3498,5 +3498,396 @@ def test_wp2e_no_signing_or_trusted_key_default_in_production_cli():
     assert "parser.add_argument('--trust-policy', required=True)" in source
 
 
+
+# WP2F: execution contract prerequisites, not execution attestation.
+WP2F_TOOL = ROOT / 'tools/check_anchor_integrity_execution_contract_v0_1.py'
+WP2F_DEMO = ROOT / 'examples/anchor_integrity_v0_1/wp2f_execution_contract'
+WP2F_PATHS = {'input':'input.json','carriers':'carriers.json','record_set':'record-set.json',
+             'signatures':'signatures.json','trust_policy':'policy.json',
+             'request':'execution/request.json','receipt':'execution/receipt.json'}
+WP2F_PINS = {'input': 'd7d16dfccf2dce237060e6b77fbb7da907227b1bd56f1275cfb623ce81cd59a8', 'carriers': '70a4d15ee35db21a605ef283c531724d921658fa8bc46ca68f6867925b2c91c4', 'record_set': '232d6a0c0ddaed97f6d9a4f175f3105a45a5edc5c105fff1c04111884c7b4756', 'signatures': '5773836e21bd75b543a20acd42d5207e360486cf16330da96d4370a19348c07a', 'trust_policy': 'c49350c60de03b58e2ce10579ac9b8013665e5d4ad7c1f91ba158e5c7add970f', 'request': 'ebcc2dbee3f1b70f9715de82ec04ce607902a2974b30daa27475419295f2ac6a', 'receipt': 'fe766b25a1d9e520844dce3ef43ec1f1275407ba878e3738bb11811a0711222c'}
+WP2F_ID = 'synthetic-execution-001'
+WP2F_CHALLENGE = '15' * 32
+
+
+def _wp2f_module():
+    spec = _wp2c_importlib.spec_from_file_location('wp2f_test_checker', WP2F_TOOL)
+    module = _wp2c_importlib.module_from_spec(spec)
+    old = _wp2c_sys.dont_write_bytecode
+    _wp2c_sys.dont_write_bytecode = True
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        _wp2c_sys.dont_write_bytecode = old
+    return module
+
+
+def _wp2f_fixture(tmp_path):
+    root = tmp_path / 'execution-contract'
+    _wp2c_shutil.copytree(WP2F_DEMO, root)
+    return root / 'bundle', root / 'trust'
+
+
+def _wp2f_pins(pair):
+    b, t = pair
+    return {k:_wp2c_hash((t if k == 'trust_policy' else b)/v)
+            for k,v in WP2F_PATHS.items()}
+
+
+def _wp2f_run(pair=None, pins=None, module=None, **kwargs):
+    b, t = pair or (WP2F_DEMO/'bundle', WP2F_DEMO/'trust')
+    m = module or _wp2f_module()
+    options = dict(paths=dict(WP2F_PATHS), expected_digests=pins or dict(WP2F_PINS),
+                   trust_root=t, binding_profile='wp2b-json-pointer-v1',
+                   signature_profile='pinned-ed25519-record-signers-v1', trust_domain='TEST',
+                   verification_time_epoch=WP2E_EPOCH, execution_profile=m.PROFILE,
+                   record_id='synthetic-record-1', execution_id=WP2F_ID, challenge=WP2F_CHALLENGE)
+    options.update(kwargs)
+    return m.check_execution_contract(b, **options)
+
+
+def _wp2f_write(pair, name, value):
+    _wp2c_write(pair[0], 'execution/' + name, value)
+
+
+def _wp2f_load(pair, name):
+    return load_json(pair[0] / 'execution' / name)
+
+
+def _wp2f_rehash(pair, sync_output_request=False):
+    """Refresh only outer contract links, not record statements or input claims."""
+    b, _ = pair
+    qh = _wp2c_hash(b/'execution/request.json')
+    if sync_output_request:
+        output = _wp2f_load(pair, 'stdout.json')
+        output['request_sha256'] = qh
+        _wp2f_write(pair, 'stdout.json', output)
+    receipt = _wp2f_load(pair, 'receipt.json')
+    receipt['request_sha256'] = qh
+    for k in ('stdout','stderr'):
+        path = b / receipt[k]['path']
+        if path.is_file() and not path.is_symlink():
+            receipt[k].update(sha256=_wp2c_hash(path),size_bytes=path.stat().st_size)
+    _wp2f_write(pair, 'receipt.json', receipt)
+    return _wp2f_pins(pair)
+
+
+def _wp2f_limits(report):
+    assert report['candidate_status'] == 'diagnostic_only'
+    assert report['authority_effect'] == 'none'
+    for k in ('release_authority_activation','requested_checks_complete',
+              'accepted_as_execution_evidence','accepted_as_semantic_support',
+              'accepted_as_independent_anchor'):
+        assert report[k] is False
+    for value in report['unperformed_checks'].values():
+        assert value['status'] == 'not_run' and value['result'] is None and value['reason']
+    m = _wp2f_module(); sig = m.load_signature_checker(); base = sig.load_record_checker().load_binding_checker()
+    m.ExecutionSchemas(base).validate('contract_report', report)
+
+
+def _wp2f_has(report, code):
+    return any(i['code'] == code for i in report['issues'])
+
+
+@pytest.mark.parametrize('role', ('request','receipt','result','contract_report'))
+def test_wp2f_schemas_are_closed_and_valid(role):
+    m = _wp2f_module(); schema = load_json(SCHEMA_DIR/m.SCHEMAS[role])
+    jsonschema.Draft202012Validator.check_schema(schema)
+    assert schema['additionalProperties'] is False
+    assert '$ref' not in json.dumps(schema)
+
+
+def test_wp2f_synthetic_contract_matches_without_claiming_a_real_execution():
+    assert _wp2f_pins((WP2F_DEMO/'bundle',WP2F_DEMO/'trust')) == WP2F_PINS
+    r = _wp2f_run()
+    assert r['status'] == 'LOCAL_EXECUTION_CONTRACT_CONSISTENT'
+    assert r['signature_check']['status'] == 'LOCAL_RECORD_SIGNATURES_VERIFIED'
+    assert r['signature_check']['signer_result'] == 'test_key_signatures_verified'
+    assert len(r['checked_objects']) == 9
+    assert r['receipt_declaration']['observation_basis'] == 'synthetic_fixture'
+    assert r['receipt_declaration']['recorded_result']['result'] == 'unresolved'
+    _wp2f_limits(r)
+
+
+@pytest.mark.parametrize('role,name', [('request','request.json'),('receipt','receipt.json'),('result','stdout.json')])
+@pytest.mark.parametrize('mutation', ['extra','authority','promotion','wrong_version'])
+def test_wp2f_contract_schema_rejects_promotions(role,name,mutation):
+    m = _wp2f_module(); d = load_json(WP2F_DEMO/'bundle/execution'/name)
+    if mutation=='extra': d['unreviewed'] = True
+    elif mutation=='authority': d['authority_effect'] = 'release'
+    elif mutation=='promotion': d['release_authority_activation'] = True
+    else: d['schema_version'] = 'other'
+    assert_invalid(m.SCHEMAS[role],d)
+
+
+@pytest.mark.parametrize('role,name', [('request','request.json'),('receipt','receipt.json'),('result','stdout.json')])
+def test_wp2f_every_required_field_is_required(role,name):
+    m = _wp2f_module(); d = load_json(WP2F_DEMO/'bundle/execution'/name)
+    schema = load_json(SCHEMA_DIR/m.SCHEMAS[role])
+    for field in schema['required']:
+        v = deepcopy(d); del v[field]
+        assert_invalid(m.SCHEMAS[role],v)
+
+
+@pytest.mark.parametrize('role', list(WP2F_PATHS))
+@pytest.mark.parametrize('value', ['0'*64,'bad',None])
+def test_wp2f_all_seven_external_pins_are_required_and_checked(role,value):
+    pins = dict(WP2F_PINS); pins[role] = value
+    r = _wp2f_run(pins=pins)
+    assert r['status'] == 'LOCAL_EXECUTION_CONTRACT_INVALID'
+    _wp2f_limits(r)
+
+
+@pytest.mark.parametrize('name', ['execution/request.json','execution/receipt.json','execution/stdout.json',
+    'execution/stderr.txt','execution/verifier.source.txt','execution/runtime.json','execution/claim.txt',
+    'execution/evidence.bin','execution/source.bin','signature-1.json','record-1.json','source.json'])
+def test_wp2f_missing_required_material_never_succeeds(tmp_path,name):
+    pair = _wp2f_fixture(tmp_path); (pair[0]/name).unlink()
+    r = _wp2f_run(pair)
+    assert r['status'] == 'LOCAL_EXECUTION_CONTRACT_INCOMPLETE'
+    _wp2f_limits(r)
+
+
+@pytest.mark.parametrize('name', ['execution/request.json','execution/receipt.json','execution/stdout.json',
+    'execution/stderr.txt','execution/verifier.source.txt','execution/runtime.json','execution/claim.txt',
+    'execution/evidence.bin','execution/source.bin','signature-1.json','record-1.json'])
+def test_wp2f_tampered_raw_bytes_are_rejected(tmp_path,name):
+    pair = _wp2f_fixture(tmp_path); p = pair[0]/name; p.write_bytes(p.read_bytes()+b' ')
+    r = _wp2f_run(pair)
+    assert r['status'] == 'LOCAL_EXECUTION_CONTRACT_INVALID'
+    _wp2f_limits(r)
+
+
+@pytest.mark.parametrize('field', ['execution_id','challenge','subject','verifier','binding'])
+def test_wp2f_rehashed_request_identity_substitutions_fail(tmp_path,field):
+    pair = _wp2f_fixture(tmp_path); q = _wp2f_load(pair,'request.json')
+    if field == 'execution_id': q[field]='different'
+    elif field == 'challenge': q[field]='ab'*32
+    elif field == 'subject': q[field]['run_id']='other-run'
+    elif field == 'verifier': q[field]['method_version']='999'
+    else: q[field]['claim_id']='different-claim'
+    _wp2f_write(pair,'request.json',q)
+    r = _wp2f_run(pair,_wp2f_rehash(pair,True))
+    assert r['status'] == 'LOCAL_EXECUTION_CONTRACT_INVALID'
+
+
+@pytest.mark.parametrize('field', ['record_binding','request_sha256','execution_id','challenge','subject',
+    'verifier','entrypoint_sha256','runtime_manifest_sha256','input_sha256','invocation'])
+def test_wp2f_rehashed_receipt_substitutions_fail(tmp_path,field):
+    pair = _wp2f_fixture(tmp_path); r = _wp2f_load(pair,'receipt.json')
+    if field=='record_binding':r[field]['sha256']='00'*32
+    elif field in ('request_sha256','entrypoint_sha256','runtime_manifest_sha256','challenge'):r[field]='ab'*32
+    elif field=='execution_id':r[field]='different'
+    elif field=='subject':r[field]['run_id']=None
+    elif field=='verifier':r[field]['method_id']='different'
+    elif field=='input_sha256':r[field]['evidence_content']='00'*32
+    else:r[field]['argv'].append('unexpected')
+    _wp2f_write(pair,'receipt.json',r)
+    result=_wp2f_run(pair,_wp2f_pins(pair)); assert result['status']=='LOCAL_EXECUTION_CONTRACT_INVALID'
+
+
+@pytest.mark.parametrize('role', ['claim_text','evidence_content','source_content'])
+def test_wp2f_rehashed_process_input_cannot_replace_signed_input(tmp_path,role):
+    pair=_wp2f_fixture(tmp_path);q=_wp2f_load(pair,'request.json');r=_wp2f_load(pair,'receipt.json')
+    p=pair[0]/q['inputs'][role]['path'];p.write_bytes(b'replacement')
+    q['inputs'][role].update(sha256=_wp2c_hash(p),size_bytes=p.stat().st_size)
+    r['input_sha256'][role]=_wp2c_hash(p)
+    _wp2f_write(pair,'request.json',q);_wp2f_write(pair,'receipt.json',r)
+    result=_wp2f_run(pair,_wp2f_rehash(pair,True))
+    assert result['status']=='LOCAL_EXECUTION_CONTRACT_INVALID'
+    assert _wp2f_has(result,'execution_input_'+role+'_mismatch')
+
+
+def test_wp2f_rehashed_source_identity_must_match_signed_verifier(tmp_path):
+    pair=_wp2f_fixture(tmp_path);q=_wp2f_load(pair,'request.json');r=_wp2f_load(pair,'receipt.json')
+    p=pair[0]/q['entrypoint']['path'];p.write_bytes(b'other source')
+    q['entrypoint'].update(sha256=_wp2c_hash(p),size_bytes=p.stat().st_size)
+    r['entrypoint_sha256']=_wp2c_hash(p)
+    _wp2f_write(pair,'request.json',q);_wp2f_write(pair,'receipt.json',r)
+    result=_wp2f_run(pair,_wp2f_rehash(pair,True))
+    assert _wp2f_has(result,'entrypoint_identity_mismatch')
+
+
+@pytest.mark.parametrize('field', ['execution_id','challenge','request_sha256','subject','verifier','binding','verification'])
+def test_wp2f_rehashed_stdout_must_match_request_and_signed_record(tmp_path,field):
+    pair=_wp2f_fixture(tmp_path);out=_wp2f_load(pair,'stdout.json')
+    if field=='execution_id':out[field]='other'
+    elif field in ('challenge','request_sha256'):out[field]='00'*32
+    elif field=='subject':out[field]['run_id']='other'
+    elif field=='verifier':out[field]['method_version']='2'
+    elif field=='binding':out[field]['source_id']='other'
+    else:out[field]['result']='supported'
+    _wp2f_write(pair,'stdout.json',out)
+    r=_wp2f_run(pair,_wp2f_rehash(pair));assert r['status']=='LOCAL_EXECUTION_CONTRACT_INVALID'
+
+
+@pytest.mark.parametrize('state,code,duration', [('failed',1,1),('timed_out',None,1001),('not_started',None,None)])
+def test_wp2f_noncompleted_receipt_never_admits_execution(tmp_path,state,code,duration):
+    pair=_wp2f_fixture(tmp_path);r=_wp2f_load(pair,'receipt.json')
+    r['process'].update(state=state,exit_code=code,duration_ms=duration)
+    _wp2f_write(pair,'receipt.json',r)
+    result=_wp2f_run(pair,_wp2f_pins(pair))
+    assert result['status']=='LOCAL_EXECUTION_CONTRACT_INCOMPLETE'
+    assert result['receipt_declaration']['recorded_result'] is None
+    _wp2f_limits(result)
+
+
+@pytest.mark.parametrize('stream',['stdout','stderr'])
+def test_wp2f_truncated_stream_never_counts_as_complete(tmp_path,stream):
+    pair=_wp2f_fixture(tmp_path);r=_wp2f_load(pair,'receipt.json')
+    r['process'][stream+'_complete']=False;_wp2f_write(pair,'receipt.json',r)
+    result=_wp2f_run(pair,_wp2f_pins(pair))
+    assert result['status']=='LOCAL_EXECUTION_CONTRACT_INCOMPLETE'
+    assert _wp2f_has(result,'recorded_stream_incomplete')
+
+
+@pytest.mark.parametrize('field,value',[('exit_code',1),('exit_code',None),('duration_ms',None),('duration_ms',-1),('state','attested')])
+def test_wp2f_inconsistent_terminal_declarations_are_invalid(tmp_path,field,value):
+    pair=_wp2f_fixture(tmp_path);r=_wp2f_load(pair,'receipt.json');r['process'][field]=value
+    _wp2f_write(pair,'receipt.json',r)
+    result=_wp2f_run(pair,_wp2f_pins(pair));assert result['status']=='LOCAL_EXECUTION_CONTRACT_INVALID'
+
+
+@pytest.mark.parametrize('field,value', [('duration_ms',1001),('duration_ms',100000)])
+def test_wp2f_completed_duration_must_fit_request(tmp_path,field,value):
+    pair=_wp2f_fixture(tmp_path);r=_wp2f_load(pair,'receipt.json');r['process'][field]=value
+    _wp2f_write(pair,'receipt.json',r)
+    result=_wp2f_run(pair,_wp2f_pins(pair));assert _wp2f_has(result,'recorded_duration_exceeds_limit')
+
+
+@pytest.mark.parametrize('path',['../outside','/tmp/outside','./x','x//y','a/../b','x\\y','a.','https://example.invalid/x'])
+def test_wp2f_unsafe_material_paths_are_rejected(tmp_path,path):
+    pair=_wp2f_fixture(tmp_path);q=_wp2f_load(pair,'request.json');q['entrypoint']['path']=path
+    _wp2f_write(pair,'request.json',q)
+    r=_wp2f_run(pair,_wp2f_rehash(pair,True));assert r['status']=='LOCAL_EXECUTION_CONTRACT_INVALID'
+
+
+@pytest.mark.parametrize('path',['input.json','record-1.json','signature-1.json','execution/request.json',
+                                'execution/receipt.json','execution/stdout.json','execution/claim.txt'])
+def test_wp2f_cross_role_reuse_is_invalid(tmp_path,path):
+    pair=_wp2f_fixture(tmp_path);q=_wp2f_load(pair,'request.json');q['entrypoint']['path']=path
+    _wp2f_write(pair,'request.json',q)
+    r=_wp2f_run(pair,_wp2f_rehash(pair,True));assert r['status']=='LOCAL_EXECUTION_CONTRACT_INVALID'
+
+
+@pytest.mark.parametrize('kind',['symlink','hardlink','fifo'])
+def test_wp2f_linked_or_special_material_is_not_admitted(tmp_path,kind):
+    import os
+    pair=_wp2f_fixture(tmp_path);p=pair[0]/'execution/verifier.source.txt';raw=p.read_bytes();p.unlink()
+    other=tmp_path/'outside';other.write_bytes(raw)
+    if kind=='symlink':p.symlink_to(other)
+    elif kind=='hardlink':os.link(other,p)
+    else:os.mkfifo(p)
+    r=_wp2f_run(pair);assert r['status']=='LOCAL_EXECUTION_CONTRACT_INVALID'
+
+
+@pytest.mark.parametrize('name',['request.json','receipt.json','stdout.json'])
+def test_wp2f_duplicate_json_keys_rejected_after_repin(tmp_path,name):
+    pair=_wp2f_fixture(tmp_path);p=pair[0]/'execution'/name
+    raw=p.read_bytes();p.write_bytes(raw.replace(b'{',b'{"authority_effect":"none",',1))
+    if name=='stdout.json':pins=_wp2f_rehash(pair)
+    else:pins=_wp2f_pins(pair)
+    r=_wp2f_run(pair,pins);assert r['status']=='LOCAL_EXECUTION_CONTRACT_INVALID'
+
+
+def test_wp2f_unattested_observer_label_does_not_become_attestation(tmp_path):
+    pair=_wp2f_fixture(tmp_path);r=_wp2f_load(pair,'receipt.json')
+    r['observation_basis']='unattested_observer_statement';r['observer']['observer_id']='claimed-institution'
+    _wp2f_write(pair,'receipt.json',r)
+    result=_wp2f_run(pair,_wp2f_pins(pair))
+    assert result['status']=='LOCAL_EXECUTION_CONTRACT_CONSISTENT'
+    _wp2f_limits(result)
+
+
+def test_wp2f_bad_record_signature_blocks_execution_comparison(tmp_path):
+    pair=_wp2f_fixture(tmp_path);s=load_json(pair[0]/'signature-1.json')
+    s['signature_hex']='00'*64;_wp2c_write(pair[0],'signature-1.json',s)
+    _wp2e_refresh_envelope_manifest(pair)
+    result=_wp2f_run(pair,_wp2f_pins(pair))
+    assert result['status']=='LOCAL_EXECUTION_CONTRACT_INVALID'
+    assert result['receipt_declaration'] is None
+    assert len(result['checked_objects'])==2
+
+
+def test_wp2f_argv_is_inert_data_and_cannot_execute_artifact_code(tmp_path):
+    pair=_wp2f_fixture(tmp_path);q=_wp2f_load(pair,'request.json');r=_wp2f_load(pair,'receipt.json')
+    marker=tmp_path/'EXECUTED'
+    q['invocation']['argv']=['/bin/sh','-c','touch '+str(marker)]
+    r['invocation']=deepcopy(q['invocation'])
+    _wp2f_write(pair,'request.json',q);_wp2f_write(pair,'receipt.json',r)
+    result=_wp2f_run(pair,_wp2f_rehash(pair,True))
+    assert result['status']=='LOCAL_EXECUTION_CONTRACT_CONSISTENT'
+    assert not marker.exists();_wp2f_limits(result)
+
+
+@pytest.mark.parametrize('field',['accepted_as_execution_evidence','accepted_as_semantic_support',
+                                  'accepted_as_independent_anchor','requested_checks_complete','release_authority_activation'])
+def test_wp2f_report_cannot_promote_authority(field):
+    r=_wp2f_run();r[field]=True
+    assert_invalid('anchor_integrity_execution_contract_report_v0_1.schema.json',r)
+
+
+@pytest.mark.parametrize('check',_wp2f_module().UNPERFORMED)
+def test_wp2f_report_cannot_promote_unperformed_checks(check):
+    r=_wp2f_run();r['unperformed_checks'][check].update(status='completed',result='verified')
+    assert_invalid('anchor_integrity_execution_contract_report_v0_1.schema.json',r)
+
+
+def test_wp2f_schema_rejects_success_with_noncompleted_process_or_missing_checks():
+    r=_wp2f_run()
+    for mode in ('process','signature','objects','issue','contract','result'):
+        v=deepcopy(r)
+        if mode=='process':v['receipt_declaration']['process']['stdout_complete']=False
+        elif mode=='signature':v['signature_check']['status']=None
+        elif mode=='objects':v['checked_objects']=[]
+        elif mode=='issue':v['issues']=[{'code':'x','object_id':'x','severity':'incomplete'}]
+        elif mode=='contract':v['contract_check']=_wp2f_module().not_run()
+        else:v['receipt_declaration']['recorded_result']=None
+        assert_invalid('anchor_integrity_execution_contract_report_v0_1.schema.json',v)
+
+
+def test_wp2f_repeated_checks_do_not_change_inputs_and_are_deterministic(tmp_path):
+    pair=_wp2f_fixture(tmp_path)
+    before={str(p.relative_to(tmp_path)):p.read_bytes() for p in tmp_path.rglob('*') if p.is_file()}
+    a=_wp2f_run(pair);b=_wp2f_run(pair)
+    assert a==b
+    assert before=={str(p.relative_to(tmp_path)):p.read_bytes() for p in tmp_path.rglob('*') if p.is_file()}
+
+
+def _wp2f_cli():
+    m=_wp2f_module()
+    cmd=[_wp2c_sys.executable,str(WP2F_TOOL),'--bundle-root',str(WP2F_DEMO/'bundle'),
+         '--trust-root',str(WP2F_DEMO/'trust')]
+    for k,v in WP2F_PATHS.items():cmd += ['--'+k.replace('_','-'),v,'--expected-'+k.replace('_','-')+'-sha256',WP2F_PINS[k]]
+    cmd += ['--binding-profile','wp2b-json-pointer-v1','--signature-profile','pinned-ed25519-record-signers-v1',
+            '--execution-profile',m.PROFILE,'--trust-domain','TEST','--verification-time-epoch',str(WP2E_EPOCH),
+            '--record-id','synthetic-record-1','--execution-id',WP2F_ID,'--challenge',WP2F_CHALLENGE]
+    return cmd
+
+
+def test_wp2f_real_cli_reports_only_contract_consistency():
+    p=_wp2c_subprocess.run(_wp2f_cli(),capture_output=True,timeout=45)
+    assert p.returncode==0,p.stderr
+    r=json.loads(p.stdout);assert r['status']=='LOCAL_EXECUTION_CONTRACT_CONSISTENT';_wp2f_limits(r)
+
+
+def test_wp2f_unknown_cli_profile_emits_no_success_report():
+    cmd=_wp2f_cli();cmd[cmd.index('--execution-profile')+1]='unknown'
+    p=_wp2c_subprocess.run(cmd,capture_output=True,timeout=30)
+    assert p.returncode==2 and not p.stdout
+
+
+def test_wp2f_missing_backend_cannot_become_a_reported_success(monkeypatch):
+    m=_wp2f_module();sig=m.load_signature_checker()
+    def fail():raise RuntimeError('missing_test_backend')
+    monkeypatch.setattr(sig,'OpenSSLVerifier',fail);monkeypatch.setattr(m,'load_signature_checker',lambda:sig)
+    with pytest.raises(RuntimeError):_wp2f_run(module=m)
+
+
+def test_wp2f_registration_uses_existing_module_without_manifest_changes():
+    for name in ('ci/tools-tests.list','ci/pytest-tests.list'):
+        assert _manifest_entries(ROOT/name).count(TEST_PATH)==1
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
