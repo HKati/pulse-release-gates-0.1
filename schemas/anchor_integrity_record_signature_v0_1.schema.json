@@ -1,0 +1,60 @@
+{
+  "$id": "https://eplabsai.com/pulsemech/schemas/anchor_integrity_record_signature_v0_1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority_effect": {
+      "const": "none"
+    },
+    "candidate_status": {
+      "const": "diagnostic_only"
+    },
+    "key_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "record_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "record_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "release_authority_activation": {
+      "const": false
+    },
+    "schema_version": {
+      "const": "anchor_integrity_record_signature_v0_1"
+    },
+    "signature_domain": {
+      "const": "PULSEMECH-ANCHOR-RECORD-SIGNATURE-V1"
+    },
+    "signature_hex": {
+      "pattern": "^[0-9a-f]{128}$",
+      "type": "string"
+    },
+    "signature_suite": {
+      "const": "ed25519"
+    },
+    "trust_policy_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "candidate_status",
+    "authority_effect",
+    "release_authority_activation",
+    "signature_suite",
+    "signature_domain",
+    "record_id",
+    "record_sha256",
+    "trust_policy_sha256",
+    "key_id",
+    "signature_hex"
+  ],
+  "title": "anchor_integrity_record_signature_v0_1",
+  "type": "object"
+}
