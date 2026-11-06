@@ -66,15 +66,22 @@ def _joint_limits(mappings: dict, profile: dict) -> None:
                 mapping.update(result="unresolved", reason="joint variant resource bound exceeded")
 
 
-def _target_roots_checked(document: dict, side: str, mapping: dict) -> bool:
+def _target_roots_checked(document: dict, side: str, mapping: dict, *,
+                          target_id: str | None = None) -> bool:
+    """Require all requested roots, or one obligation's target, in every variant."""
     variants = mapping.get("details", {}).get("checked_variants", [])
     if not variants:
         return False
     checked = set.intersection(*[set(row["checked_relation_ids"]) for row in variants])
     groups = {row["group_id"]: row["relation_ids"]
               for row in document["representations"][side]["groups"]}
+    selected_targets = document["measurement_request"]["targets"]
+    if target_id is not None:
+        selected_targets = [row for row in selected_targets if row["target_id"] == target_id]
+        if not selected_targets:
+            return False
     needed = set()
-    for target in document["measurement_request"]["targets"]:
+    for target in selected_targets:
         for identifier in target[f"{side}_ids"]:
             needed.update(groups.get(identifier, [identifier]))
     return needed <= checked
@@ -210,7 +217,8 @@ def verify_input(input_path: Path, *, package_root: Path | None = None,
                 continue
             mapping = mappings[selected]
             profile_closed = (mapping["result"] == "pass" and not external_context
-                              and _target_roots_checked(document, selected, mapping))
+                              and _target_roots_checked(document, selected, mapping,
+                                                        target_id=obligation["target_id"]))
             reference_closed = (accepted[selected]["result"] == "pass"
                                 and document["representation_basis"][selected]["basis"] == "accepted_reference"
                                 and mapping["result"] != "fail" and complete_family)

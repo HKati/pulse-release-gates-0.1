@@ -823,6 +823,74 @@ def test_profile_acceptance_cannot_exceed_the_checked_closure(tmp_path, mutation
         assert check(result, "coverage.coverage_main")["result"] != "pass"
 
 
+def add_unchecked_auxiliary_target(payload: dict, side: str, granularity: str) -> None:
+    main = payload["measurement_request"]["targets"][0]
+    auxiliary = deepcopy(main)
+    auxiliary.update(target_id="target_aux", required_obligation_ids=["coverage_aux"],
+                     granularity=granularity)
+    main["granularity"] = granularity
+    for selected in ("before", "after"):
+        representation = payload["representations"][selected]
+        main_ids = list(main[f"{selected}_ids"])
+        auxiliary_ids = list(main_ids)
+        if side in (selected, "both"):
+            helper = deepcopy(representation["relations"][0])
+            helper["relation_id"] = selected[0] + "_unchecked_helper"
+            representation["relations"].append(helper)
+            auxiliary_ids.append(helper["relation_id"])
+        if granularity == "relation_group":
+            for name, relation_ids, target in (("main", main_ids, main),
+                                                ("aux", auxiliary_ids, auxiliary)):
+                group_id = selected[0] + "_" + name + "_group"
+                representation["groups"].append({"group_id": group_id, "relation_ids": relation_ids})
+                target[f"{selected}_ids"] = [group_id]
+        else:
+            auxiliary[f"{selected}_ids"] = auxiliary_ids
+    payload["measurement_request"]["targets"].append(auxiliary)
+    obligation = payload["coverage_obligations"][0]
+    obligation.update(side=side, source_ids=["source_" + selected for selected in ("before", "after")
+                                            if side in (selected, "both")])
+    payload["coverage_obligations"].append(
+        dict(obligation, obligation_id="coverage_aux", target_id="target_aux"))
+
+
+@pytest.mark.parametrize("side", ("before", "after", "both"))
+@pytest.mark.parametrize("granularity", ("relation", "relation_group"))
+@pytest.mark.parametrize("auxiliary_first", (False, True))
+def test_coverage_closure_is_local_to_obligation_target(tmp_path, side, granularity, auxiliary_first):
+    payload = base_input()
+    payload["coverage_obligations"][0].update(
+        side=side, source_ids=["source_" + selected for selected in ("before", "after")
+                               if side in (selected, "both")])
+    original = check(verified(tmp_path, payload), "coverage.coverage_main")
+    assert original["result"] == "pass"
+    add_unchecked_auxiliary_target(payload, side, granularity)
+    if auxiliary_first:
+        payload["measurement_request"]["targets"].reverse()
+        payload["coverage_obligations"].reverse()
+    result = verified(tmp_path, payload)
+    for selected in ("before", "after"):
+        assert check(result, "mapping." + selected)["result"] == "pass"
+    assert check(result, "coverage.coverage_main") == original
+    auxiliary = check(result, "coverage.coverage_aux")
+    assert auxiliary["target_ids"] == ["target_aux"]
+    assert auxiliary["result"] == "unresolved"
+    assert auxiliary["evidence_refs"] == []
+
+
+@pytest.mark.parametrize("granularity", ("relation", "relation_group"))
+def test_profile_basis_still_requires_every_selected_target(tmp_path, granularity):
+    fixture = trusted_fixture(tmp_path, "profile_verified")
+    add_unchecked_auxiliary_target(fixture["payload"], "before", granularity)
+    rebind_review_to_payload(fixture)
+    result = verify_trusted(fixture)
+    assert check(result, "acceptance.before")["result"] == "pass"
+    assert check(result, "mapping.before")["result"] == "pass"
+    assert check(result, "coverage.coverage_main")["result"] == "pass"
+    assert check(result, "coverage.coverage_aux")["result"] == "unresolved"
+    assert basis(result, "before")["representation_basis"] == "candidate_only"
+
+
 @pytest.mark.parametrize("family", ("unknown", "empty", "truncated"))
 def test_independent_review_does_not_close_an_incomplete_interpretation_family(tmp_path, family):
     fixture = trusted_fixture(tmp_path)
@@ -881,6 +949,47 @@ def test_processing_evidence_binds_actual_operation_sources_and_context(tmp_path
     assert check(result, "processing")["result"] == "pass"
     assert check(result, "source.context")["result"] == "pass"
     assert result["status_axes"]["causal_status"] == "not_evaluated"
+
+
+@pytest.mark.parametrize("side", ("before", "after", "both", "context"))
+@pytest.mark.parametrize("binding_state", ("bound", "record_missing", "both_missing"))
+def test_processing_covers_context_required_by_any_obligation_side(tmp_path, side, binding_state):
+    fixture = processing_fixture(tmp_path)
+    payload = fixture["payload"]
+    payload["measurement_request"]["targets"][0]["context_source_ids"] = []
+    obligation = payload["coverage_obligations"][0]
+    obligation.update(side=side, source_ids=["source_" + selected for selected in ("before", "after")
+                                            if side in (selected, "both")] + ["context_1"])
+    if binding_state != "bound":
+        fixture["processing"]["source_bindings"] = [
+            row for row in fixture["processing"]["source_bindings"] if row["role"] != "context"]
+    if binding_state == "both_missing":
+        payload["processing_binding"]["context_source_ids"] = []
+    fixture["input_path"].write_bytes(encoded(payload))
+    fixture["processing"]["input_ref"]["content_sha256"] = digest(fixture["input_path"].read_bytes())
+    write_trust(fixture)
+    if binding_state == "both_missing":
+        with pytest.raises(InputError, match="processing binding omits a required context source"):
+            verify_trusted(fixture)
+    else:
+        result = verify_trusted(fixture)
+        assert check(result, "source.context")["result"] == "pass"
+        processing = check(result, "processing")
+        assert processing["status"] == "completed"
+        assert processing["result"] == ("pass" if binding_state == "bound" else "fail")
+
+
+def test_unreferenced_context_is_not_added_to_processing_requirements(tmp_path):
+    fixture = processing_fixture(tmp_path)
+    payload = fixture["payload"]
+    payload["measurement_request"]["targets"][0]["context_source_ids"] = []
+    payload["processing_binding"]["context_source_ids"] = []
+    fixture["processing"]["source_bindings"] = [
+        row for row in fixture["processing"]["source_bindings"] if row["role"] != "context"]
+    fixture["input_path"].write_bytes(encoded(payload))
+    fixture["processing"]["input_ref"]["content_sha256"] = digest(fixture["input_path"].read_bytes())
+    write_trust(fixture)
+    assert check(verify_trusted(fixture), "processing")["result"] == "pass"
 
 
 @pytest.mark.parametrize("mutation", ("processing_id", "input", "profile", "source_hash", "source_revision",

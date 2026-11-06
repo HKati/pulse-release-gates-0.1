@@ -190,8 +190,8 @@ def validate_structure(document: dict, profile: dict) -> None:
         _references(processing["context_source_ids"], {key: sources[key] for key in context},
                     "processing context source")
         relevant = {key for target in targets.values() for key in target["context_source_ids"]}
-        relevant |= {key for row in obligations.values() if row["side"] == "context"
-                     for key in row["source_ids"]}
+        relevant |= {key for row in obligations.values()
+                     for key in row["source_ids"] if key in context}
         _require(relevant <= set(processing["context_source_ids"]),
                  "processing binding omits a required context source")
 
