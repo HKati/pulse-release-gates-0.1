@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the [LRM-02 source and representation verifier](docs/PULSEMECH_LANGUAGE_RELATION_INPUT_VERIFIER_v0.md):
+  strict input loading, exact UTF-8 source/span bindings, typed reference closure,
+  a separate parser for the preserved 22 HU/EN controlled-language productions,
+  independently configured reference acceptance and exact processing-record bindings.
+  Preserve candidate scopes, incomplete interpretation families and unperformed
+  checks in the existing verification artifact. Register the runtime regressions
+  and synchronize the shared test-manifest count guards. The historical LRM-01
+  profile and fixtures remain unchanged; comparison, impact, extraction and
+  replay remain later work packages. No release authority is activated.
+
 - Add Anchor Integrity v0.1
   [WP2A local byte/reference checks](docs/ANCHOR_INTEGRITY_v0_1_WP2A_BINDINGS.md),
   [WP2B opt-in JSON Pointer projections](docs/ANCHOR_INTEGRITY_v0_1_WP2B_JSON_POINTER.md)

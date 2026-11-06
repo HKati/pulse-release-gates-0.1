@@ -306,7 +306,7 @@ def test_cli_missing_inputs_never_authorize(historical,tmp_path):
 
 
 def test_new_module_registered_once_in_both_manifests():
-    for name,count in [('tools-tests.list',175),('pytest-tests.list',31)]:
+    for name,count in [('tools-tests.list',176),('pytest-tests.list',32)]:
         entries=[line.split('#',1)[0].strip() for line in (ROOT/'ci'/name).read_text().splitlines()]
         entries=[e for e in entries if e]
         assert len(entries)==len(set(entries))==count
@@ -1628,8 +1628,8 @@ def test_handoff_archive_paths_reject_before_use(name):
     with pytest.raises(ValueError):h.unzip(buf.getvalue())
 
 
-def test_handoff_manifest_counts_remain_175_and_31():
-    for filename,count in [('tools-tests.list',175),('pytest-tests.list',31)]:
+def test_handoff_manifest_counts_remain_176_and_32():
+    for filename,count in [('tools-tests.list',176),('pytest-tests.list',32)]:
         rows=[line.split('#',1)[0].strip() for line in (ROOT/'ci'/filename).read_text().splitlines()]
         rows=[r for r in rows if r]
         assert len(rows)==len(set(rows))==count and rows.count(TEST_PATH)==1
