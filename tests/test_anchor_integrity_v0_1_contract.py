@@ -4361,5 +4361,543 @@ def test_wp2g_authorized_unattested_statement_does_not_become_observed_execution
     assert report['observation_basis']=='unattested_observer_statement';_wp2g_limits(report)
 
 
+
+# WP2H: fresh diagnostic integration; no authority or semantic promotion.
+WP2H_TOOL = ROOT / 'tools/build_anchor_integrity_diagnostic_v0_1.py'
+WP2H_DEMO = ROOT / 'examples/anchor_integrity_v0_1/wp2h_diagnostic_integration'
+
+
+def _wp2h_module():
+    import importlib.util
+    import sys
+    spec = importlib.util.spec_from_file_location('anchor_wp2h_test', WP2H_TOOL)
+    module = importlib.util.module_from_spec(spec)
+    previous = sys.dont_write_bytecode
+    sys.dont_write_bytecode = True
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        sys.dont_write_bytecode = previous
+    return module
+
+
+def _wp2h_fixture(tmp_path, receipt=False):
+    import shutil
+    config = tmp_path / 'selection'
+    shutil.copytree(WP2H_DEMO / 'selection', config)
+    if receipt:
+        b, t, o = _wp2g_fixture(tmp_path / 'g')
+        return config, b, t, o, 'receipt.json'
+    b = tmp_path / 'bundle'
+    shutil.copytree(WP2H_DEMO / 'cycle-bundle', b)
+    return config, b, None, None, 'cycle.json'
+
+
+def _wp2h_run(fixture=None, module=None, expected=None):
+    if fixture is None:
+        fixture = (WP2H_DEMO/'selection', WP2H_DEMO/'cycle-bundle', None, None, 'cycle.json')
+    c, b, t, o, name = fixture
+    m = module or _wp2h_module()
+    return m.build_diagnostic(b, selection_root=c, selection_path=name,
+        expected_selection_sha256=expected or _wp2c_hash(c/name), trust_root=t, observer_trust_root=o)
+
+
+def _wp2h_repin(fixture, *, refresh=True):
+    c, b, t, o, name = fixture
+    selection = load_json(c/name)
+    if refresh:
+        _wp2d_refresh(b)
+    for role, ref in selection['bindings'].items():
+        root = t if role == 'trust_policy' else o if role == 'observer_policy' else b
+        ref['sha256'] = _wp2c_hash(root/ref['path'])
+    _wp2c_write(c, name, selection)
+    return _wp2c_hash(c/name)
+
+
+def _wp2h_limits(report):
+    assert report['candidate_status'] == 'diagnostic_only'
+    assert report['authority_effect'] == 'none'
+    for key in ('release_authority_activation', 'requested_checks_complete',
+                'accepted_as_execution_evidence', 'accepted_as_semantic_support',
+                'accepted_as_independent_anchor', 'whole_response_completeness_established',
+                'whole_response_cycle_freedom_established', 'legacy_v0_replaced', 'wp1_output_emitted'):
+        assert report[key] is False
+    assert report['loop_risk'] is None
+    assert report['cycle_anchor_classification']['result'] is None
+    for key in ('verified_binding_coverage', 'verified_support_coverage'):
+        v = report['coverage'][key]
+        assert v['value'] is v['numerator'] is v['denominator'] is None
+        assert v['status'] in ('not_run', 'not_applicable')
+    assert report['response_recommendation']['mode'] in ('BOUNDARY', 'ASK_FOR_ANCHOR')
+    assert report['response_recommendation']['enforced'] is False
+    for c in report['claim_diagnostics']:
+        assert c['disposition'] == 'unresolved'
+        assert c['accepted_as_semantic_support'] is False
+    for v in report['unperformed_checks'].values():
+        assert v['status'] == 'not_run' and v['result'] is None
+    assert_valid('anchor_integrity_diagnostic_report_v0_1.schema.json', report)
+    _wp2h_module().validate_arithmetic(report)
+
+
+@pytest.mark.parametrize('role', ['selection', 'report'])
+def test_wp2h_new_schemas_are_self_contained(role):
+    schema = load_json(SCHEMA_DIR/f'anchor_integrity_diagnostic_{role}_v0_1.schema.json')
+    jsonschema.Draft202012Validator.check_schema(schema)
+    _wp2h_module().load_installed('check_anchor_integrity_bindings_v0_1.py')._assert_self_contained(schema)
+
+
+@pytest.mark.parametrize('name', ['cycle.json', 'receipt.json'])
+def test_wp2h_pinned_selection_examples_validate(name):
+    assert_valid('anchor_integrity_diagnostic_selection_v0_1.schema.json', load_json(WP2H_DEMO/'selection'/name))
+
+
+def test_wp2h_proxy_presence_and_support_are_separate():
+    r = _wp2h_run()
+    assert r['status'] == 'LOCAL_DIAGNOSTIC_BUILT'
+    assert r['legacy_operational_proxy']['reported_value'] == 1.0
+    assert r['coverage']['anchor_presence_coverage']['value'] == 0.5
+    assert r['coverage']['anchor_presence_coverage']['numerator'] == 1
+    assert r['coverage']['anchor_presence_coverage']['denominator'] == 2
+    assert r['cycle_detection']['result'] == 'cycle_detected'
+    assert r['response_recommendation']['mode'] == 'BOUNDARY'
+    assert r['cyclic_components'][0]['witness']['nodes'][0] == r['cyclic_components'][0]['witness']['nodes'][-1]
+    _wp2h_limits(r)
+
+
+def test_wp2h_cycle_stage_matches_standalone_fresh_checker():
+    r = _wp2h_run()
+    b = WP2H_DEMO/'cycle-bundle'
+    pins = tuple(_wp2c_hash(b/n) for n in ('input.json','carriers.json','record-set.json'))
+    d = _wp2d_run(b,pins)
+    m = _wp2h_module()
+    assert r['stage_receipts']['dependency_cycles']['report_sha256'] == m.digest(m.report_bytes(d))
+    assert r['cycle_detection'] == d['cycle_detection']
+    assert r['cyclic_components'] == d['cyclic_components']
+
+
+def test_wp2h_receipt_pipeline_preserves_narrow_authentication():
+    f = (WP2H_DEMO/'selection',WP2G_DEMO/'bundle',WP2G_DEMO/'trust',WP2G_DEMO/'observer-trust','receipt.json')
+    r = _wp2h_run(f)
+    assert r['status'] == 'LOCAL_DIAGNOSTIC_BUILT'
+    assert r['authenticated_receipt_statement'] is True
+    assert r['receipt_scope']['covers_all_claims'] is False
+    assert r['receipt_scope']['observation_basis'] == 'synthetic_fixture'
+    assert r['receipt_scope']['verification_time_epoch'] == WP2E_EPOCH
+    assert r['receipt_scope']['time_source'] == 'caller_supplied_not_authenticated'
+    assert r['record_signature_authentication']['result'] == 'test_key_signatures_verified'
+    assert r['receipt_statement_authentication']['result'] == 'test_key_receipt_signature_verified'
+    assert r['cycle_detection']['result'] is None
+    assert r['stage_receipts']['dependency_cycles']['executed'] is False
+    standalone = _wp2g_run()
+    m = _wp2h_module()
+    assert r['stage_receipts']['receipt_signature']['report_sha256'] == m.digest(m.report_bytes(standalone))
+    _wp2h_limits(r)
+
+
+@pytest.mark.parametrize('proxy',[0,0.25,0.75,1])
+def test_wp2h_numeric_proxy_does_not_drive_coverage_or_recommendation(tmp_path, proxy):
+    f = _wp2h_fixture(tmp_path);c,b,_,_,_ = f
+    before = _wp2h_run(f)
+    legacy = load_json(b/'legacy.json');legacy['invariants']['anchor_coverage'] = proxy
+    legacy['invariants']['loop_risk'] = 'high'
+    legacy['state'] = 'ANCHOR_LOST';legacy['recommendation']['response_mode'] = 'SILENCE'
+    _wp2c_write(b,'legacy.json',legacy)
+    inp=load_json(b/'input.json');inp['legacy_overlay']['sha256']=_wp2c_hash(b/'legacy.json');_wp2c_write(b,'input.json',inp)
+    _wp2h_repin(f)
+    after = _wp2h_run(f)
+    assert after['status']=='LOCAL_DIAGNOSTIC_BUILT'
+    for key in ('coverage','claim_diagnostics','response_recommendation','cycle_detection','loop_risk'):
+        assert after[key] == before[key]
+    assert after['legacy_operational_proxy']['reported_value'] == proxy
+    _wp2h_limits(after)
+
+
+@pytest.mark.parametrize('proxy',[-1,1.1,True,'1',{},[]])
+def test_wp2h_invalid_legacy_ratio_is_never_displayed_as_coverage(tmp_path,proxy):
+    f=_wp2h_fixture(tmp_path);b=f[1];legacy=load_json(b/'legacy.json')
+    legacy['invariants']['anchor_coverage']=proxy;_wp2c_write(b,'legacy.json',legacy)
+    inp=load_json(b/'input.json');inp['legacy_overlay']['sha256']=_wp2c_hash(b/'legacy.json');_wp2c_write(b,'input.json',inp)
+    _wp2h_repin(f);r=_wp2h_run(f)
+    assert r['status']=='LOCAL_DIAGNOSTIC_INVALID'
+    assert r['legacy_operational_proxy']['reported_value'] is None
+    _wp2h_limits(r)
+
+
+@pytest.mark.parametrize('case',['no_binding','no_invariants','null_ratio'])
+def test_wp2h_missing_proxy_is_unknown_not_zero(tmp_path,case):
+    f=_wp2h_fixture(tmp_path);b=f[1];inp=load_json(b/'input.json')
+    if case=='no_binding':inp['legacy_overlay']=None
+    else:
+        legacy=load_json(b/'legacy.json')
+        if case=='no_invariants':legacy.pop('invariants')
+        else:legacy['invariants']['anchor_coverage']=None
+        _wp2c_write(b,'legacy.json',legacy);inp['legacy_overlay']['sha256']=_wp2c_hash(b/'legacy.json')
+    _wp2c_write(b,'input.json',inp);_wp2h_repin(f);r=_wp2h_run(f)
+    assert r['status']==('LOCAL_DIAGNOSTIC_INVALID' if case=='no_binding' else 'LOCAL_DIAGNOSTIC_BUILT')
+    assert r['legacy_operational_proxy']['status']=='unavailable'
+    assert r['legacy_operational_proxy']['reported_value'] is None
+    _wp2h_limits(r)
+
+
+@pytest.mark.parametrize('state',['partial','invalid'])
+def test_wp2h_partial_claim_set_has_no_denominator(tmp_path,state):
+    f=_wp2h_fixture(tmp_path);b=f[1];cp=load_json(b/'claims.json')
+    cp['claim_set']['materialization_status']=state;_wp2c_write(b,'claims.json',cp);_wp2h_repin(f)
+    r=_wp2h_run(f);assert r['status']=='LOCAL_DIAGNOSTIC_INCOMPLETE'
+    assert r['inventory']['declared_materialization_status']==state
+    for v in r['coverage'].values():assert v['status']=='not_applicable' and v['value'] is None
+    assert r['cycle_detection']['result'] is None
+    _wp2h_limits(r)
+
+
+def _wp2h_drop_relations(f):
+    b=f[1];rp=load_json(b/'relations.json');rp['relations']=[];_wp2c_write(b,'relations.json',rp)
+    rs=load_json(b/'record-set.json');rs['records']=[];_wp2c_write(b,'record-set.json',rs)
+    graph=load_json(b/'graph.json');graph['dependency_edges']=[];_wp2c_write(b,'graph.json',graph)
+    _wp2h_repin(f)
+
+
+def test_wp2h_empty_anchor_inventory_requests_anchor_without_semantic_zero(tmp_path):
+    f=_wp2h_fixture(tmp_path);_wp2h_drop_relations(f);r=_wp2h_run(f)
+    assert r['status']=='LOCAL_DIAGNOSTIC_BUILT'
+    assert r['coverage']['anchor_presence_coverage']['value']==0
+    assert r['coverage']['verified_support_coverage']['value'] is None
+    assert r['response_recommendation']['mode']=='ASK_FOR_ANCHOR'
+    _wp2h_limits(r)
+
+
+def test_wp2h_empty_claim_set_does_not_divide_by_zero(tmp_path):
+    f=_wp2h_fixture(tmp_path);_wp2h_drop_relations(f);b=f[1]
+    cp=load_json(b/'claims.json');cp['claim_set']['claims']=[];_wp2c_write(b,'claims.json',cp);_wp2h_repin(f)
+    r=_wp2h_run(f)
+    # WP1 requires a nonempty complete/partial claim set; preserve that rule.
+    assert r['status']=='LOCAL_DIAGNOSTIC_INVALID'
+    assert r['coverage']['anchor_presence_coverage']['status']=='not_run'
+    assert r['coverage']['anchor_presence_coverage']['denominator'] is None
+    assert r['response_recommendation']['mode']=='BOUNDARY'
+    _wp2h_limits(r)
+
+
+@pytest.mark.parametrize('result',['supported','contradicted','insufficient','unresolved'])
+def test_wp2h_matching_verifier_declarations_do_not_become_claim_dispositions(tmp_path,result):
+    f=_wp2h_fixture(tmp_path);b=f[1];rp=load_json(b/'relations.json')
+    rp['relations'][0]['relation_verification']['result']=result
+    _wp2c_write(b,'relations.json',rp);_wp2h_repin(f);r=_wp2h_run(f)
+    assert r['status']=='LOCAL_DIAGNOSTIC_BUILT'
+    assert r['claim_diagnostics'][0]['recorded_relations'][0]['declared_result']==result
+    assert r['claim_diagnostics'][0]['disposition']=='unresolved'
+    _wp2h_limits(r)
+
+
+@pytest.mark.parametrize('relation_type',['references','supports','derived_from','contradicts','contextualizes'])
+def test_wp2h_presence_counts_claims_once_regardless_of_relation_label(tmp_path,relation_type):
+    f=_wp2h_fixture(tmp_path);b=f[1];rp=load_json(b/'relations.json')
+    rel=deepcopy(rp['relations'][0]);rel['binding_id']='second-binding';rel['relation_type']=relation_type
+    rel['relation_verification']={'status':'not_run','result':None,'reason':'synthetic_not_run'}
+    rel['verifier_record_id']=None;rp['relations'].append(rel);_wp2c_write(b,'relations.json',rp);_wp2h_repin(f)
+    r=_wp2h_run(f);assert r['status']=='LOCAL_DIAGNOSTIC_BUILT'
+    assert r['coverage']['anchor_presence_coverage']['numerator']==1
+    assert len(r['claim_diagnostics'][0]['recorded_relations'])==2
+    _wp2h_limits(r)
+
+
+def test_wp2h_absent_cycle_stage_is_not_low_risk(tmp_path):
+    f=_wp2h_fixture(tmp_path);c,b,_,_,name=f;s=load_json(c/name);s['cycle_profile']='not_requested';_wp2c_write(c,name,s)
+    r=_wp2h_run(f);assert r['status']=='LOCAL_DIAGNOSTIC_BUILT'
+    assert r['cycle_detection']['status']=='not_run' and r['cycle_detection']['result'] is None
+    assert r['input_requested_checks']['typed_evidence_cycle_check'] is True
+    assert r['requested_checks_complete'] is False
+    _wp2h_limits(r)
+
+
+def test_wp2h_acyclic_projection_is_not_whole_response_proof(tmp_path):
+    f=_wp2h_fixture(tmp_path);b=f[1];g=load_json(b/'graph.json');g['dependency_edges']=[]
+    _wp2c_write(b,'graph.json',g);_wp2h_repin(f);r=_wp2h_run(f)
+    assert r['status']=='LOCAL_DIAGNOSTIC_BUILT'
+    assert r['cycle_detection']['result']=='no_cycle_detected_in_declared_graph'
+    assert r['cyclic_components']==[]
+    _wp2h_limits(r)
+
+
+@pytest.mark.parametrize('case',['missing_file','no_binding','foreign_node','unknown_edge_type'])
+def test_wp2h_graph_failures_never_become_empty_success(tmp_path,case):
+    f=_wp2h_fixture(tmp_path);b=f[1]
+    if case=='no_binding':
+        inp=load_json(b/'input.json');inp['paradox_graph_binding']=None;_wp2c_write(b,'input.json',inp);_wp2h_repin(f)
+    elif case in ('foreign_node','unknown_edge_type'):
+        g=load_json(b/'graph.json')
+        if case=='foreign_node':g['dependency_edges'][0]['to']['object_id']='foreign-claim'
+        else:g['dependency_edges'][0]['type']='untyped_reference'
+        _wp2c_write(b,'graph.json',g);_wp2h_repin(f)
+    else:(b/'graph.json').unlink()
+    r=_wp2h_run(f)
+    assert r['status']==('LOCAL_DIAGNOSTIC_INCOMPLETE' if case in ('no_binding','missing_file') else 'LOCAL_DIAGNOSTIC_INVALID')
+    assert r['cycle_detection']['result'] is None
+    _wp2h_limits(r)
+
+
+@pytest.mark.parametrize('path',['input.json','carriers.json','claims.json','evidence.json','relations.json','record-set.json','record-1.json','source.json','response.json','legacy.json'])
+def test_wp2h_missing_material_propagates_incomplete(tmp_path,path):
+    f=_wp2h_fixture(tmp_path);(f[1]/path).unlink();r=_wp2h_run(f)
+    assert r['status']=='LOCAL_DIAGNOSTIC_INCOMPLETE'
+    assert r['cycle_detection']['result'] is None
+    _wp2h_limits(r)
+
+
+@pytest.mark.parametrize('path',['input.json','carriers.json','claims.json','evidence.json','relations.json','record-set.json','record-1.json','source.json','response.json','graph.json'])
+def test_wp2h_raw_material_substitution_fails_without_fallback(tmp_path,path):
+    f=_wp2h_fixture(tmp_path);p=f[1]/path;p.write_bytes(p.read_bytes()+b' ');r=_wp2h_run(f)
+    assert r['status']=='LOCAL_DIAGNOSTIC_INVALID'
+    assert r['cycle_detection']['result'] is None
+    _wp2h_limits(r)
+
+
+@pytest.mark.parametrize('which',['request','receipt','receipt_signature','observer_policy','trust_policy'])
+def test_wp2h_receipt_pipeline_missing_file_is_not_local_pipeline_fallback(tmp_path,which):
+    f=_wp2h_fixture(tmp_path,True);c,b,t,o,name=f
+    (_wp2g_path((b,t,o),which)).unlink();r=_wp2h_run(f)
+    assert r['pipeline']=='receipt-signatures'
+    assert r['status']=='LOCAL_DIAGNOSTIC_INCOMPLETE'
+    assert r['authenticated_receipt_statement'] is False
+    _wp2h_limits(r)
+
+
+def test_wp2h_rehashed_receipt_tampering_invalidates_authentication(tmp_path):
+    f=_wp2h_fixture(tmp_path,True);b,t,o=f[1:4]
+    receipt=load_json(b/'execution/receipt.json');receipt['process']['duration_ms']+=1
+    _wp2c_write(b,'execution/receipt.json',receipt);_wp2g_resign((b,t,o),sign=False);_wp2h_repin(f,refresh=False)
+    r=_wp2h_run(f);assert r['status']=='LOCAL_DIAGNOSTIC_INVALID'
+    assert r['authenticated_receipt_statement'] is False
+    assert r['execution_contract_check']['status']=='completed'
+    assert r['coverage']['anchor_presence_coverage']['value']==0.5
+    _wp2h_limits(r)
+
+
+def test_wp2h_receipt_and_cycle_stages_share_one_bound_input(tmp_path):
+    f=_wp2h_fixture(tmp_path,True);c,b,t,o,name=f
+    g=load_json(WP2D_DEMO/'graph.json')
+    g['dependency_edges']=[_wp2d_edge('a',source='claim-1',target='claim-2'),_wp2d_edge('b',source='claim-2',target='claim-1')]
+    _wp2c_write(b,'graph.json',g)
+    inp=load_json(b/'input.json');inp['paradox_graph_binding']={'path':'graph.json','schema_version':'anchor_integrity_dependency_graph_v0_1','sha256':_wp2c_hash(b/'graph.json')}
+    _wp2c_write(b,'input.json',inp);_wp2d_refresh(b);_wp2e_resign((b,t))
+    rec=load_json(b/'execution/receipt.json');rec['record_binding']['sha256']=_wp2c_hash(b/'record-1.json');_wp2c_write(b,'execution/receipt.json',rec)
+    _wp2g_resign((b,t,o));s=load_json(c/name);s['cycle_profile']='typed-dependencies-v1';_wp2c_write(c,name,s);_wp2h_repin(f,refresh=False)
+    r=_wp2h_run(f);assert r['status']=='LOCAL_DIAGNOSTIC_BUILT',r['issues']
+    assert r['authenticated_receipt_statement'] is True
+    assert r['cycle_detection']['result']=='cycle_detected'
+    assert all(v['executed'] for v in r['stage_receipts'].values())
+    _wp2h_limits(r)
+
+
+def test_wp2h_cycle_uses_retained_bytes_not_later_path_contents(tmp_path,monkeypatch):
+    f=_wp2h_fixture(tmp_path);m=_wp2h_module();original=m.DiagnosticReview.cycles
+    def mutate(self,cycle_module,records,record_review,reader,selection):
+        assert 'graph.json' in reader.cache
+        (f[1]/'graph.json').write_bytes(b'{}')
+        return original(self,cycle_module,records,record_review,reader,selection)
+    monkeypatch.setattr(m.DiagnosticReview,'cycles',mutate)
+    r=_wp2h_run(f,module=m);assert r['status']=='LOCAL_DIAGNOSTIC_BUILT'
+    assert r['cycle_detection']['result']=='cycle_detected'
+    again=_wp2h_run(f);assert again['status']=='LOCAL_DIAGNOSTIC_INVALID'
+    _wp2h_limits(r)
+
+
+@pytest.mark.parametrize('mutation',['unknown_pipeline','unknown_binding','unknown_cycle','extra_field','saved_report','missing_pin','extra_pin','bad_hash','hash_newline','unsafe_path','wrong_context','case_collision'])
+def test_wp2h_selection_rejects_unknown_or_unbound_inputs(tmp_path,mutation):
+    f=_wp2h_fixture(tmp_path);c,b,t,o,name=f;s=load_json(c/name)
+    if mutation=='unknown_pipeline':s['pipeline']='automatic'
+    elif mutation=='unknown_binding':s['binding_profile']='latest'
+    elif mutation=='unknown_cycle':s['cycle_profile']='low'
+    elif mutation=='extra_field':s['command']='arbitrary executable'
+    elif mutation=='saved_report':s['saved_success_report']={'status':'PASS'}
+    elif mutation=='missing_pin':del s['bindings']['input']
+    elif mutation=='extra_pin':s['bindings']['plugin']=deepcopy(s['bindings']['input'])
+    elif mutation=='bad_hash':s['bindings']['input']['sha256']='f'*63
+    elif mutation=='hash_newline':s['bindings']['input']['sha256']+='\n'
+    elif mutation=='unsafe_path':s['bindings']['input']['path']='../input.json'
+    elif mutation=='wrong_context':s['receipt_context']={}
+    elif mutation=='case_collision':s['bindings']['carriers']['path']='INPUT.json'
+    _wp2c_write(c,name,s);r=_wp2h_run(f)
+    assert r['status']=='LOCAL_DIAGNOSTIC_INVALID'
+    _wp2h_limits(r)
+
+
+@pytest.mark.parametrize('raw',[b'{"profile":1,"profile":2}',b'{} trailing',b'[]',b'{"x":NaN}',b'\xff'])
+def test_wp2h_strict_selection_json(tmp_path,raw):
+    f=_wp2h_fixture(tmp_path);(f[0]/f[4]).write_bytes(raw);r=_wp2h_run(f)
+    assert r['status']=='LOCAL_DIAGNOSTIC_INVALID';_wp2h_limits(r)
+
+
+def test_wp2h_caller_selection_pin_is_not_derived_from_candidate(tmp_path):
+    f=_wp2h_fixture(tmp_path);expected=_wp2c_hash(f[0]/f[4]);p=f[0]/f[4]
+    p.write_bytes(p.read_bytes()+b' ');r=_wp2h_run(f,expected=expected)
+    assert r['status']=='LOCAL_DIAGNOSTIC_INVALID'
+    assert not any(v['executed'] for v in r['stage_receipts'].values())
+    _wp2h_limits(r)
+
+
+@pytest.mark.parametrize('kind',['symlink','hardlink','fifo'])
+def test_wp2h_unsafe_selection_carriers_rejected(tmp_path,kind):
+    import os
+    f=_wp2h_fixture(tmp_path);p=f[0]/f[4];expected=_wp2c_hash(p);other=tmp_path/'other-selection';other.write_bytes(p.read_bytes());p.unlink()
+    if kind=='symlink':p.symlink_to(other)
+    elif kind=='hardlink':os.link(other,p)
+    else:os.mkfifo(p)
+    r=_wp2h_run(f,expected=expected);assert r['status']=='LOCAL_DIAGNOSTIC_INVALID';_wp2h_limits(r)
+
+
+def test_wp2h_selection_root_cannot_contain_evidence_root(tmp_path):
+    import shutil
+    f=_wp2h_fixture(tmp_path);c,b,t,o,name=f;new=c/'nested';shutil.copytree(b,new)
+    r=_wp2h_run((c,new,t,o,name));assert r['status']=='LOCAL_DIAGNOSTIC_INVALID';_wp2h_limits(r)
+
+
+@pytest.mark.parametrize('which',['missing_verifier','missing_observer','same_roots','nested_root'])
+def test_wp2h_receipt_roots_preserve_authorization_boundary(tmp_path,which):
+    f=_wp2h_fixture(tmp_path,True);c,b,t,o,name=f
+    if which=='missing_verifier':t=None
+    elif which=='missing_observer':o=None
+    elif which=='same_roots':o=t
+    else:o=t/'nested';o.mkdir()
+    r=_wp2h_run((c,b,t,o,name))
+    assert r['status']==('LOCAL_DIAGNOSTIC_INCOMPLETE' if which.startswith('missing') else 'LOCAL_DIAGNOSTIC_INVALID')
+    assert r['authenticated_receipt_statement'] is False;_wp2h_limits(r)
+
+
+def test_wp2h_local_pipeline_rejects_unused_policy_roots(tmp_path):
+    f=_wp2h_fixture(tmp_path);c,b,_,_,name=f;r=_wp2h_run((c,b,c,None,name))
+    assert r['status']=='LOCAL_DIAGNOSTIC_INVALID';_wp2h_limits(r)
+
+
+@pytest.mark.parametrize('key',['release_authority_activation','requested_checks_complete','accepted_as_execution_evidence',
+ 'accepted_as_semantic_support','accepted_as_independent_anchor','whole_response_completeness_established',
+ 'whole_response_cycle_freedom_established','legacy_v0_replaced','wp1_output_emitted'])
+def test_wp2h_report_schema_rejects_authority_promotions(key):
+    r=_wp2h_run();r[key]=True;assert_invalid('anchor_integrity_diagnostic_report_v0_1.schema.json',r)
+
+
+@pytest.mark.parametrize('mutation',['low_risk','support_percentage','binding_percentage','supported_disposition','allow_supported','unmeasured_cycle','fake_receipt','proxy_coverage','enforced'])
+def test_wp2h_report_cannot_relabel_missing_checks(mutation):
+    r=_wp2h_run()
+    if mutation=='low_risk':r['loop_risk']='low'
+    elif mutation=='support_percentage':r['coverage']['verified_support_coverage']=dict(status='completed',numerator=2,denominator=2,value=1,reason=None)
+    elif mutation=='binding_percentage':r['coverage']['verified_binding_coverage']=dict(status='completed',numerator=2,denominator=2,value=1,reason=None)
+    elif mutation=='supported_disposition':r['claim_diagnostics'][0]['disposition']='supported'
+    elif mutation=='allow_supported':r['response_recommendation']['mode']='ALLOW_SUPPORTED'
+    elif mutation=='unmeasured_cycle':r['cycle_detection']['status']='not_run'
+    elif mutation=='fake_receipt':r['authenticated_receipt_statement']=True
+    elif mutation=='proxy_coverage':r['legacy_operational_proxy']['is_claim_evidence_coverage']=True
+    else:r['response_recommendation']['enforced']=True
+    assert_invalid('anchor_integrity_diagnostic_report_v0_1.schema.json',r)
+
+
+@pytest.mark.parametrize('field,value',[('numerator',2),('denominator',3),('value',1.0)])
+def test_wp2h_arithmetic_validator_rejects_plausible_wrong_ratios(field,value):
+    m=_wp2h_module();r=_wp2h_run(module=m);r['coverage']['anchor_presence_coverage'][field]=value
+    with pytest.raises(ValueError):m.validate_arithmetic(r)
+
+
+def test_wp2h_markdown_is_separate_versioned_surface():
+    m=_wp2h_module();r=_wp2h_run(module=m);text=m.render_markdown(r)
+    assert 'WP2H diagnostic v0.1' in text and 'NOT claim coverage' in text
+    assert '1 / 2 (0.500000)' in text and 'cycle_detected' in text
+    assert '| Verified support coverage | not measured |' in text
+    assert 'have NOT been replaced' in text
+    assert '`ANSWER`' not in text and '`OPEN`' not in text
+
+
+def test_wp2h_renderer_rejects_tampered_support_label():
+    m=_wp2h_module();r=_wp2h_run(module=m);r['response_recommendation']['mode']='ALLOW_SUPPORTED'
+    with pytest.raises(Exception):m.render_markdown(r)
+
+
+def _wp2h_cli_args(fixture):
+    import sys
+    c,b,t,o,name=fixture
+    args=[sys.executable,str(WP2H_TOOL),'--bundle-root',str(b),'--selection-root',str(c),
+          '--selection',name,'--expected-selection-sha256',_wp2c_hash(c/name)]
+    if t is not None:args+=['--trust-root',str(t)]
+    if o is not None:args+=['--observer-trust-root',str(o)]
+    return args
+
+
+@pytest.mark.parametrize('fmt',['json','markdown'])
+def test_wp2h_cli_uses_fresh_pipeline_for_both_formats(tmp_path,fmt):
+    import subprocess
+    f=_wp2h_fixture(tmp_path);p=subprocess.run(_wp2h_cli_args(f)+['--format',fmt],capture_output=True,timeout=60)
+    assert p.returncode==0,p.stderr
+    if fmt=='json':_wp2h_limits(json.loads(p.stdout))
+    else:assert b'NOT claim coverage' in p.stdout and b'cycle_detected' in p.stdout
+
+
+@pytest.mark.parametrize('mutation,exitcode',[('missing',2),('tamper',1)])
+def test_wp2h_cli_propagates_failure_exit(tmp_path,mutation,exitcode):
+    import subprocess
+    f=_wp2h_fixture(tmp_path);p=f[1]/'source.json'
+    if mutation=='missing':p.unlink()
+    else:p.write_bytes(b'{}')
+    run=subprocess.run(_wp2h_cli_args(f),capture_output=True,timeout=60)
+    assert run.returncode==exitcode;_wp2h_limits(json.loads(run.stdout))
+
+
+def test_wp2h_cli_has_no_output_overwrite_option(tmp_path):
+    import subprocess
+    f=_wp2h_fixture(tmp_path);target=tmp_path/'keep';target.write_bytes(b'untouched')
+    run=subprocess.run(_wp2h_cli_args(f)+['--out',str(target)],capture_output=True,timeout=60)
+    assert run.returncode==2 and run.stdout==b'' and target.read_bytes()==b'untouched'
+
+
+def test_wp2h_deterministic_report_and_registered_module():
+    m=_wp2h_module();assert m.report_bytes(_wp2h_run(module=m))==m.report_bytes(_wp2h_run(module=m))
+    for name in ('tools-tests.list','pytest-tests.list'):
+        assert _manifest_entries(ROOT/'ci'/name).count(TEST_PATH)==1
+
+
+def test_wp2h_no_input_selected_module_or_saved_report_api():
+    m=_wp2h_module()
+    for name in ('../plugin.py','plugin.py','status.json'):
+        with pytest.raises(ValueError):m.load_installed(name)
+
+
+
+
+
+def test_wp2h_empty_invalid_claim_set_keeps_all_coverage_inapplicable(tmp_path):
+    f=_wp2h_fixture(tmp_path);_wp2h_drop_relations(f);b=f[1]
+    cp=load_json(b/'claims.json');cp['claim_set']['claims']=[];cp['claim_set']['materialization_status']='invalid'
+    _wp2c_write(b,'claims.json',cp);_wp2h_repin(f);r=_wp2h_run(f)
+    assert r['status']=='LOCAL_DIAGNOSTIC_INCOMPLETE'
+    for v in r['coverage'].values():
+        assert v['status']=='not_applicable' and v['denominator'] is None
+    _wp2h_limits(r)
+
+
+def test_wp2h_rehashed_outer_packets_cannot_hide_source_substitution(tmp_path):
+    f=_wp2h_fixture(tmp_path);b=f[1];(b/'source.json').write_bytes(b'{"unexpected":"substitute"}\n')
+    _wp2h_repin(f);r=_wp2h_run(f)
+    assert r['status']=='LOCAL_DIAGNOSTIC_INVALID'
+    assert r['coverage']['anchor_presence_coverage']['value'] is None
+    _wp2h_limits(r)
+
+
+def test_wp2h_base_check_runs_once_in_shared_receipt_chain(tmp_path,monkeypatch):
+    f=_wp2h_fixture(tmp_path,True);m=_wp2h_module();real=m.load_installed
+    receipt_module=real('check_anchor_integrity_receipt_signatures_v0_1.py')
+    execution=receipt_module.load_execution_checker();signature=execution.load_signature_checker()
+    records=signature.load_record_checker();base=records.load_binding_checker();calls=[]
+    original=base.Review.review
+    def counted(self,reader,*args,**kwargs):
+        calls.append(id(reader));return original(self,reader,*args,**kwargs)
+    monkeypatch.setattr(base.Review,'review',counted)
+    monkeypatch.setattr(records,'load_binding_checker',lambda:base)
+    monkeypatch.setattr(signature,'load_record_checker',lambda:records)
+    monkeypatch.setattr(execution,'load_signature_checker',lambda:signature)
+    monkeypatch.setattr(receipt_module,'load_execution_checker',lambda:execution)
+    monkeypatch.setattr(m,'load_installed',lambda n:receipt_module if n=='check_anchor_integrity_receipt_signatures_v0_1.py' else real(n))
+    r=_wp2h_run(f,module=m)
+    assert r['status']=='LOCAL_DIAGNOSTIC_BUILT' and len(calls)==1
+    _wp2h_limits(r)
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

@@ -1,0 +1,793 @@
+{
+  "$id": "https://eplabsai.com/pulsemech/schemas/anchor_integrity_diagnostic_selection_v0_1.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "else": {
+        "properties": {
+          "bindings": {
+            "additionalProperties": false,
+            "properties": {
+              "carriers": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256"
+                ],
+                "type": "object"
+              },
+              "input": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256"
+                ],
+                "type": "object"
+              },
+              "observer_policy": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256"
+                ],
+                "type": "object"
+              },
+              "receipt": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256"
+                ],
+                "type": "object"
+              },
+              "receipt_signature": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256"
+                ],
+                "type": "object"
+              },
+              "record_set": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256"
+                ],
+                "type": "object"
+              },
+              "request": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256"
+                ],
+                "type": "object"
+              },
+              "signatures": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256"
+                ],
+                "type": "object"
+              },
+              "trust_policy": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "input",
+              "carriers",
+              "record_set",
+              "signatures",
+              "trust_policy",
+              "request",
+              "receipt",
+              "observer_policy",
+              "receipt_signature"
+            ],
+            "type": "object"
+          },
+          "receipt_context": {
+            "additionalProperties": false,
+            "properties": {
+              "challenge": {
+                "maxLength": 64,
+                "minLength": 64,
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              "execution_id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              "execution_profile": {
+                "const": "single-record-execution-contract-v1"
+              },
+              "observer_id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              "receipt_signature_profile": {
+                "const": "pinned-ed25519-execution-observers-v1"
+              },
+              "record_id": {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "type": "string"
+              },
+              "signature_profile": {
+                "const": "pinned-ed25519-record-signers-v1"
+              },
+              "trust_domain": {
+                "enum": [
+                  "TEST",
+                  "OPERATOR"
+                ]
+              },
+              "verification_time_epoch": {
+                "maximum": 253402300799,
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "signature_profile",
+              "execution_profile",
+              "receipt_signature_profile",
+              "trust_domain",
+              "verification_time_epoch",
+              "record_id",
+              "execution_id",
+              "challenge",
+              "observer_id"
+            ],
+            "type": "object"
+          }
+        }
+      },
+      "if": {
+        "properties": {
+          "pipeline": {
+            "const": "local-records"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "bindings": {
+            "additionalProperties": false,
+            "properties": {
+              "carriers": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256"
+                ],
+                "type": "object"
+              },
+              "input": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256"
+                ],
+                "type": "object"
+              },
+              "record_set": {
+                "additionalProperties": false,
+                "properties": {
+                  "path": {
+                    "maxLength": 512,
+                    "minLength": 1,
+                    "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                    "type": "string"
+                  },
+                  "sha256": {
+                    "maxLength": 64,
+                    "minLength": 64,
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "path",
+                  "sha256"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "input",
+              "carriers",
+              "record_set"
+            ],
+            "type": "object"
+          },
+          "receipt_context": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "authority_effect": {
+      "const": "none"
+    },
+    "binding_profile": {
+      "enum": [
+        "wp2a",
+        "wp2b-json-pointer-v1"
+      ]
+    },
+    "bindings": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "carriers": {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                  "type": "string"
+                },
+                "sha256": {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "input": {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                  "type": "string"
+                },
+                "sha256": {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "record_set": {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                  "type": "string"
+                },
+                "sha256": {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "input",
+            "carriers",
+            "record_set"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "carriers": {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                  "type": "string"
+                },
+                "sha256": {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "input": {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                  "type": "string"
+                },
+                "sha256": {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "observer_policy": {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                  "type": "string"
+                },
+                "sha256": {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "receipt": {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                  "type": "string"
+                },
+                "sha256": {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "receipt_signature": {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                  "type": "string"
+                },
+                "sha256": {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "record_set": {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                  "type": "string"
+                },
+                "sha256": {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "request": {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                  "type": "string"
+                },
+                "sha256": {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "signatures": {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                  "type": "string"
+                },
+                "sha256": {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "type": "object"
+            },
+            "trust_policy": {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "maxLength": 512,
+                  "minLength": 1,
+                  "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$",
+                  "type": "string"
+                },
+                "sha256": {
+                  "maxLength": 64,
+                  "minLength": 64,
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "input",
+            "carriers",
+            "record_set",
+            "signatures",
+            "trust_policy",
+            "request",
+            "receipt",
+            "observer_policy",
+            "receipt_signature"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "candidate_status": {
+      "const": "diagnostic_only"
+    },
+    "cycle_profile": {
+      "enum": [
+        "not_requested",
+        "typed-dependencies-v1"
+      ]
+    },
+    "pipeline": {
+      "enum": [
+        "local-records",
+        "receipt-signatures"
+      ]
+    },
+    "profile": {
+      "const": "fresh-anchor-diagnostic-v1"
+    },
+    "receipt_context": {
+      "anyOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "challenge": {
+              "maxLength": 64,
+              "minLength": 64,
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "execution_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            },
+            "execution_profile": {
+              "const": "single-record-execution-contract-v1"
+            },
+            "observer_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            },
+            "receipt_signature_profile": {
+              "const": "pinned-ed25519-execution-observers-v1"
+            },
+            "record_id": {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+              "type": "string"
+            },
+            "signature_profile": {
+              "const": "pinned-ed25519-record-signers-v1"
+            },
+            "trust_domain": {
+              "enum": [
+                "TEST",
+                "OPERATOR"
+              ]
+            },
+            "verification_time_epoch": {
+              "maximum": 253402300799,
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "signature_profile",
+            "execution_profile",
+            "receipt_signature_profile",
+            "trust_domain",
+            "verification_time_epoch",
+            "record_id",
+            "execution_id",
+            "challenge",
+            "observer_id"
+          ],
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "release_authority_activation": {
+      "const": false
+    },
+    "schema_version": {
+      "const": "anchor_integrity_diagnostic_selection_v0_1"
+    }
+  },
+  "required": [
+    "schema_version",
+    "candidate_status",
+    "authority_effect",
+    "release_authority_activation",
+    "profile",
+    "pipeline",
+    "binding_profile",
+    "cycle_profile",
+    "bindings",
+    "receipt_context"
+  ],
+  "title": "Anchor WP2H selection \u2014 diagnostic only",
+  "type": "object"
+}

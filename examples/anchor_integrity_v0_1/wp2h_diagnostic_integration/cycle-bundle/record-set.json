@@ -1,0 +1,30 @@
+{
+  "authority_effect": "none",
+  "binding_profile": "wp2b-json-pointer-v1",
+  "candidate_status": "diagnostic_only",
+  "carriers_binding": {
+    "path": "carriers.json",
+    "sha256": "bf5040f19ed913f2213a97f2afffa768e9f9f937d00e5fc52e9c4498c120fcb6"
+  },
+  "input_binding": {
+    "path": "input.json",
+    "sha256": "c86fcd506562c1989cb8bc6252cc8e4fa54dbe61d32d3712eb1d0bcc268c3635"
+  },
+  "profile": "local_verifier_record_bindings_v1",
+  "records": [
+    {
+      "binding_id": "binding-1",
+      "expected_verifier": {
+        "implementation_sha256": "b0e1244adc258ef7d5ce720b92f617f196558bacfc7bbf289cff7bddc81fa192",
+        "method_id": "synthetic-record-only",
+        "method_version": "1",
+        "verifier_id": "synthetic-verifier"
+      },
+      "path": "record-1.json",
+      "record_id": "synthetic-record-1",
+      "sha256": "20fa41ca88f253398c302d73adcc7a7ccce25965f46cedd327c87e1b4842d2cd"
+    }
+  ],
+  "release_authority_activation": false,
+  "schema_version": "anchor_integrity_verifier_record_set_v0_1"
+}

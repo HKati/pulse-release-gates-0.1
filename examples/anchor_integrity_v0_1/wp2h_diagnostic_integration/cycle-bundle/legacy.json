@@ -1,0 +1,16 @@
+{
+  "fixture_role": "synthetic_untrusted_legacy_display",
+  "invariants": {
+    "anchor_coverage": 1.0,
+    "anchor_presence": true,
+    "contradiction_risk": null,
+    "loop_risk": "low"
+  },
+  "recommendation": {
+    "gate_action": "OPEN",
+    "rationale": "Synthetic legacy declarations, not checked support.",
+    "response_mode": "ANSWER"
+  },
+  "schema": "anchor_integrity_v0",
+  "state": "ANCHORED"
+}
