@@ -1,0 +1,52 @@
+{
+  "authority_effect": "none",
+  "candidate_status": "diagnostic_only",
+  "execution_scope": {
+    "challenge": "1515151515151515151515151515151515151515151515151515151515151515",
+    "execution_id": "synthetic-execution-001",
+    "record_id": "synthetic-record-1",
+    "request_sha256": "ebcc2dbee3f1b70f9715de82ec04ce607902a2974b30daa27475419295f2ac6a"
+  },
+  "key_separation": "observer_key_not_in_verifier_policy",
+  "keys": [
+    {
+      "key_id": "RFC8032-TEST1-observer",
+      "not_after_epoch": 1796428800,
+      "not_before_epoch": 1793750400,
+      "observation_bases": [
+        "synthetic_fixture"
+      ],
+      "public_key_hex": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+      "public_key_sha256": "21fe31dfa154a261626bf854046fd2271b7bed4b6abe45aa58877ef47f9721b9",
+      "purpose": "execution_receipt_statement",
+      "relation_types": [
+        "references"
+      ],
+      "results": [
+        "unresolved"
+      ],
+      "signature_suite": "ed25519",
+      "state": "active",
+      "verifier": {
+        "implementation_sha256": "009c850afc88c2a460b3a738cf77af227190723de99c5183bbdc36329ab87c28",
+        "method_id": "synthetic-record-only",
+        "method_version": "1",
+        "verifier_id": "synthetic-verifier"
+      }
+    }
+  ],
+  "observer": {
+    "implementation_sha256": "1bed153481685fa2999fcc207c6f5b19e869d120b63f171d7e4dc17e09f0823d",
+    "observer_id": "synthetic-observer-NOT-EXECUTED"
+  },
+  "policy_id": "public-TEST-observer-receipt-policy",
+  "profile": "pinned-ed25519-execution-observers-v1",
+  "record_signer_policy_sha256": "c49350c60de03b58e2ce10579ac9b8013665e5d4ad7c1f91ba158e5c7add970f",
+  "release_authority_activation": false,
+  "schema_version": "anchor_integrity_observer_policy_v0_1",
+  "subject": {
+    "run_id": "synthetic-run-001",
+    "subject_id": "wp2b-synthetic-001"
+  },
+  "trust_domain": "TEST"
+}

@@ -1,0 +1,34 @@
+{
+  "authority_effect": "none",
+  "binding": {
+    "binding_id": "binding-1",
+    "claim_digest": "4d228a0f6cdd189785ca1f773e2a8a52d2684a2b89797064f7dbe1aa2c160184",
+    "claim_id": "claim-1",
+    "evidence_id": "evidence-1",
+    "evidence_sha256": "8e55e3f190cfa261f8a0d1f6aab231eabf4fa8adf2c1147706961fa3e568e36c",
+    "relation_type": "references",
+    "source_id": "source-1",
+    "source_sha256": "e2e9ac2e7e1ccd842e00075e39f5efec84d09a3fa810591a646a285b758ea6f8"
+  },
+  "candidate_status": "diagnostic_only",
+  "challenge": "1515151515151515151515151515151515151515151515151515151515151515",
+  "execution_id": "synthetic-execution-001",
+  "release_authority_activation": false,
+  "request_sha256": "ebcc2dbee3f1b70f9715de82ec04ce607902a2974b30daa27475419295f2ac6a",
+  "schema_version": "anchor_integrity_execution_result_v0_1",
+  "subject": {
+    "run_id": "synthetic-run-001",
+    "subject_id": "wp2b-synthetic-001"
+  },
+  "verification": {
+    "reason": "synthetic_record_for_binding_tests_only_no_verifier_executed",
+    "result": "unresolved",
+    "status": "completed"
+  },
+  "verifier": {
+    "implementation_sha256": "009c850afc88c2a460b3a738cf77af227190723de99c5183bbdc36329ab87c28",
+    "method_id": "synthetic-record-only",
+    "method_version": "1",
+    "verifier_id": "synthetic-verifier"
+  }
+}

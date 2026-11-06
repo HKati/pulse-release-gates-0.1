@@ -3889,5 +3889,477 @@ def test_wp2f_registration_uses_existing_module_without_manifest_changes():
         assert _manifest_entries(ROOT/name).count(TEST_PATH)==1
 
 
+
+
+# WP2G: distinct observer-policy receipt signatures; never execution admission.
+WP2G_TOOL = ROOT / 'tools/check_anchor_integrity_receipt_signatures_v0_1.py'
+WP2G_DEMO = ROOT / 'examples/anchor_integrity_v0_1/wp2g_receipt_signatures'
+WP2G_PATHS = {**WP2F_PATHS, 'observer_policy':'policy.json',
+              'receipt_signature':'execution/receipt-signature.json'}
+WP2G_OBSERVER = 'synthetic-observer-NOT-EXECUTED'
+# RFC 8032 test 1: PUBLIC TEST material, distinct from the verifier's test-2 key.
+WP2G_SEED = bytes.fromhex('9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60')
+WP2G_PINS = {'input': 'd7d16dfccf2dce237060e6b77fbb7da907227b1bd56f1275cfb623ce81cd59a8', 'carriers': '70a4d15ee35db21a605ef283c531724d921658fa8bc46ca68f6867925b2c91c4', 'record_set': '232d6a0c0ddaed97f6d9a4f175f3105a45a5edc5c105fff1c04111884c7b4756', 'signatures': '5773836e21bd75b543a20acd42d5207e360486cf16330da96d4370a19348c07a', 'trust_policy': 'c49350c60de03b58e2ce10579ac9b8013665e5d4ad7c1f91ba158e5c7add970f', 'request': 'ebcc2dbee3f1b70f9715de82ec04ce607902a2974b30daa27475419295f2ac6a', 'receipt': 'fe766b25a1d9e520844dce3ef43ec1f1275407ba878e3738bb11811a0711222c', 'observer_policy': 'e0168bb0d71baaf65077b89752af853b5f003dc63dccb6e943e29b93e98def55', 'receipt_signature': '38d64ec24c866c774f3ddaff85d20996cbcb8599b9290a563e9938de3edd6499'}
+
+
+def _wp2g_module():
+    spec = _wp2c_importlib.spec_from_file_location('wp2g_test_checker', WP2G_TOOL)
+    module = _wp2c_importlib.module_from_spec(spec)
+    old = _wp2c_sys.dont_write_bytecode
+    _wp2c_sys.dont_write_bytecode = True
+    try: spec.loader.exec_module(module)
+    finally: _wp2c_sys.dont_write_bytecode = old
+    return module
+
+
+def _wp2g_fixture(tmp_path):
+    root=tmp_path/'receipt-signatures';_wp2c_shutil.copytree(WP2G_DEMO,root)
+    return root/'bundle',root/'trust',root/'observer-trust'
+
+
+def _wp2g_path(roots,role):
+    b,t,o=roots
+    return (t if role=='trust_policy' else o if role=='observer_policy' else b)/WP2G_PATHS[role]
+
+
+def _wp2g_pins(roots):
+    return {k:_wp2c_hash(_wp2g_path(roots,k)) for k in WP2G_PATHS}
+
+
+def _wp2g_run(roots=None,pins=None,module=None,**kwargs):
+    roots=roots or (WP2G_DEMO/'bundle',WP2G_DEMO/'trust',WP2G_DEMO/'observer-trust')
+    b,t,o=roots;m=module or _wp2g_module()
+    options=dict(paths=dict(WP2G_PATHS),expected_digests=pins or dict(WP2G_PINS),trust_root=t,
+                 observer_trust_root=o,binding_profile='wp2b-json-pointer-v1',
+                 signature_profile='pinned-ed25519-record-signers-v1',execution_profile='single-record-execution-contract-v1',
+                 receipt_signature_profile=m.PROFILE,trust_domain='TEST',verification_time_epoch=WP2E_EPOCH,
+                 record_id='synthetic-record-1',execution_id=WP2F_ID,challenge=WP2F_CHALLENGE,observer_id=WP2G_OBSERVER)
+    options.update(kwargs)
+    return m.check_receipt_signature(b,**options)
+
+
+def _wp2g_resign(roots,sign=True,seed=WP2G_SEED):
+    b,t,o=roots;m=_wp2g_module();p=load_json(o/'policy.json');s=load_json(b/'execution/receipt-signature.json')
+    s.update(observer_policy_sha256=_wp2c_hash(o/'policy.json'),record_signer_policy_sha256=_wp2c_hash(t/'policy.json'),
+             receipt_sha256=_wp2c_hash(b/'execution/receipt.json'),key_id=p['keys'][0]['key_id'])
+    if sign:
+        s['signature_hex']=_wp2e_sign(m.signing_bytes(s['observer_policy_sha256'],s['record_signer_policy_sha256'],
+                                       s['key_id'],(b/'execution/receipt.json').read_bytes()),seed=seed).hex()
+    _wp2c_write(b,'execution/receipt-signature.json',s)
+    return _wp2g_pins(roots)
+
+
+def _wp2g_has(r,code):
+    return any(i['code']==code for i in r['issues'])
+
+
+def _wp2g_limits(r):
+    assert r['candidate_status']=='diagnostic_only' and r['authority_effect']=='none'
+    for k in ('release_authority_activation','requested_checks_complete','accepted_as_execution_evidence',
+              'accepted_as_semantic_support','accepted_as_independent_anchor'):assert r[k] is False
+    for c in r['unperformed_checks'].values():assert c['status']=='not_run' and c['result'] is None and c['reason']
+    m=_wp2g_module();base=m.load_execution_checker().load_signature_checker().load_record_checker().load_binding_checker()
+    m.ReceiptSchemas(base).validate('report',r)
+
+
+def test_wp2g_real_signature_demo_has_distinct_role_and_no_execution_admission():
+    roots=(WP2G_DEMO/'bundle',WP2G_DEMO/'trust',WP2G_DEMO/'observer-trust')
+    assert _wp2g_pins(roots)==WP2G_PINS
+    r=_wp2g_run();assert r['status']=='LOCAL_RECEIPT_SIGNATURE_VERIFIED',r['issues']
+    assert r['authenticated_receipt_statement'] is True
+    assert r['observer_statement_authentication']['result']=='test_key_receipt_signature_verified'
+    assert r['receipt_signature_check']['result']=='valid'
+    assert r['execution_contract_check']['status']=='LOCAL_EXECUTION_CONTRACT_CONSISTENT'
+    assert r['execution_contract_check']['checked_object_count']==9
+    assert r['observation_basis']=='synthetic_fixture'
+    assert r['observed_digests']==r['expected_digests']==WP2G_PINS
+    _wp2g_limits(r)
+
+
+def test_wp2g_original_wp2f_example_bytes_are_not_relabelled():
+    for p in WP2F_DEMO.rglob('*'):
+        if p.is_file():assert p.read_bytes()==(WP2G_DEMO/p.relative_to(WP2F_DEMO)).read_bytes()
+    record=load_json(WP2G_DEMO/'trust/policy.json');observer=load_json(WP2G_DEMO/'observer-trust/policy.json')
+    assert not ({k['public_key_hex'] for k in record['keys']}&{k['public_key_hex'] for k in observer['keys']})
+
+
+@pytest.mark.parametrize('role',list(WP2G_PATHS))
+def test_wp2g_each_external_digest_pin_is_enforced(role):
+    pins=dict(WP2G_PINS);pins[role]='0'*64
+    r=_wp2g_run(pins=pins);assert r['status']=='LOCAL_RECEIPT_SIGNATURE_INVALID';_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('role',list(WP2G_PATHS))
+def test_wp2g_each_required_file_is_missing_not_verified(tmp_path,role):
+    roots=_wp2g_fixture(tmp_path);_wp2g_path(roots,role).unlink()
+    r=_wp2g_run(roots);assert r['status']=='LOCAL_RECEIPT_SIGNATURE_INCOMPLETE';_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('role',['observer_policy','receipt_signature'])
+@pytest.mark.parametrize('raw',[b'{"x":1,"x":2}',b'{"x":NaN}',b'\xff',b'{} trailing',b'[]',b'null'])
+def test_wp2g_strict_json_for_new_roles(tmp_path,role,raw):
+    roots=_wp2g_fixture(tmp_path);_wp2g_path(roots,role).write_bytes(raw)
+    r=_wp2g_run(roots,_wp2g_pins(roots));assert r['status']=='LOCAL_RECEIPT_SIGNATURE_INVALID';_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('role,limit',[('observer_policy',262144),('receipt_signature',16384)])
+def test_wp2g_new_artifacts_have_resource_limits(tmp_path,role,limit):
+    roots=_wp2g_fixture(tmp_path);_wp2g_path(roots,role).write_bytes(b' '*(limit+1))
+    r=_wp2g_run(roots,_wp2g_pins(roots));assert _wp2g_has(r,role+'_size_limit');_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('field,value',[
+ ('purpose','verifier_record_statement'),('signature_suite','none'),('public_key_hex','FF'*32),
+ ('public_key_sha256','0'*64),('state','revoked'),('not_before_epoch',WP2E_EPOCH+1),
+ ('not_after_epoch',WP2E_EPOCH),('relation_types',['contradicts']),('results',['supported']),
+ ('observation_bases',['unattested_observer_statement']),('executable','evil.py')])
+def test_wp2g_key_permissions_and_states_are_not_interchangeable(tmp_path,field,value):
+    roots=_wp2g_fixture(tmp_path);p=load_json(roots[2]/'policy.json');p['keys'][0][field]=value
+    _wp2c_write(roots[2],'policy.json',p)
+    r=_wp2g_run(roots,_wp2g_resign(roots));assert r['status']=='LOCAL_RECEIPT_SIGNATURE_INVALID';_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('field,value',[('verifier_id','other'),('method_id','other'),('method_version','2'),('implementation_sha256','0'*64)])
+def test_wp2g_verifier_tuple_scope_is_exact(tmp_path,field,value):
+    roots=_wp2g_fixture(tmp_path);p=load_json(roots[2]/'policy.json');p['keys'][0]['verifier'][field]=value
+    _wp2c_write(roots[2],'policy.json',p)
+    r=_wp2g_run(roots,_wp2g_resign(roots));assert _wp2g_has(r,'observer_verifier_scope_mismatch');_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('where,field,value',[
+ ('subject','subject_id','other'),('subject','run_id',None),('observer','observer_id','other'),
+ ('observer','implementation_sha256','0'*64),('execution_scope','record_id','other'),
+ ('execution_scope','execution_id','other'),('execution_scope','challenge','0'*64),
+ ('execution_scope','request_sha256','0'*64)])
+def test_wp2g_observer_subject_and_execution_scopes_are_exact(tmp_path,where,field,value):
+    roots=_wp2g_fixture(tmp_path);p=load_json(roots[2]/'policy.json');p[where][field]=value
+    _wp2c_write(roots[2],'policy.json',p)
+    r=_wp2g_run(roots,_wp2g_resign(roots));assert r['status']=='LOCAL_RECEIPT_SIGNATURE_INVALID';_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('field,value',[('trust_domain','OPERATOR'),('record_signer_policy_sha256','0'*64),
+ ('key_separation','same_key_allowed'),('authority_effect','release'),('release_authority_activation',True),
+ ('candidate_status','active'),('profile','auto')])
+def test_wp2g_policy_cannot_widen_trust_or_authority(tmp_path,field,value):
+    roots=_wp2g_fixture(tmp_path);p=load_json(roots[2]/'policy.json');p[field]=value
+    _wp2c_write(roots[2],'policy.json',p)
+    r=_wp2g_run(roots,_wp2g_resign(roots));assert r['status']=='LOCAL_RECEIPT_SIGNATURE_INVALID';_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('kind',['duplicate_id','duplicate_material','empty','over_limit','invalid_interval','record_key'])
+def test_wp2g_policy_key_inventory_constraints(tmp_path,kind):
+    roots=_wp2g_fixture(tmp_path);p=load_json(roots[2]/'policy.json');k=deepcopy(p['keys'][0])
+    if kind=='duplicate_id':p['keys'].append(k)
+    elif kind=='duplicate_material':k['key_id']='alias';p['keys'].append(k)
+    elif kind=='empty':p['keys']=[]
+    elif kind=='over_limit':p['keys']=[k]*65
+    elif kind=='invalid_interval':p['keys'][0]['not_before_epoch']=p['keys'][0]['not_after_epoch']
+    else:
+        v=load_json(roots[1]/'policy.json')['keys'][0]
+        p['keys'][0].update(public_key_hex=v['public_key_hex'],public_key_sha256=v['public_key_sha256'])
+    _wp2c_write(roots[2],'policy.json',p)
+    # Empty policies are malformed; no signing helper can select an empty key list.
+    pins=_wp2g_pins(roots) if kind=='empty' else _wp2g_resign(roots,seed=WP2E_SEED if kind=='record_key' else WP2G_SEED)
+    r=_wp2g_run(roots,pins);assert r['status']=='LOCAL_RECEIPT_SIGNATURE_INVALID';_wp2g_limits(r)
+    if kind=='record_key':assert _wp2g_has(r,'observer_key_reuses_verifier_key')
+
+
+@pytest.mark.parametrize('field,value',[('signature_suite','rsa'),('signature_domain','PULSEMECH-ANCHOR-RECORD-SIGNATURE-V1'),
+ ('public_key_hex','0'*64),('command','evil.py'),('signed_message','invented'),('observer_id','other'),
+ ('execution_id','other'),('record_id','other'),('receipt_sha256','0'*64),('observer_policy_sha256','0'*64),
+ ('record_signer_policy_sha256','0'*64),('key_id','unknown'),('release_authority_activation',True),
+ ('authority_effect','release'),('accepted_as_execution_evidence',True)])
+def test_wp2g_signature_envelope_substitutions_rejected(tmp_path,field,value):
+    roots=_wp2g_fixture(tmp_path);s=load_json(_wp2g_path(roots,'receipt_signature'));s[field]=value
+    _wp2c_write(roots[0],WP2G_PATHS['receipt_signature'],s)
+    r=_wp2g_run(roots,_wp2g_pins(roots));assert r['status']=='LOCAL_RECEIPT_SIGNATURE_INVALID';_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('sig',['0'*128,'ff'*64,'A'*128,'a'*127,'x'*128])
+def test_wp2g_bad_signature_cannot_pass(tmp_path,sig):
+    roots=_wp2g_fixture(tmp_path);s=load_json(_wp2g_path(roots,'receipt_signature'));s['signature_hex']=sig
+    _wp2c_write(roots[0],WP2G_PATHS['receipt_signature'],s)
+    r=_wp2g_run(roots,_wp2g_pins(roots));assert r['status']=='LOCAL_RECEIPT_SIGNATURE_INVALID';_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('which',['receipt_whitespace','receipt_duration','policy_whitespace','policy_id','key_id'])
+def test_wp2g_rehashing_outer_artifacts_cannot_replace_the_observer_signature(tmp_path,which):
+    roots=_wp2g_fixture(tmp_path);b,t,o=roots
+    if which=='receipt_whitespace':
+        p=b/'execution/receipt.json';p.write_bytes(b' '+p.read_bytes())
+    elif which=='receipt_duration':
+        r=load_json(b/'execution/receipt.json');r['process']['duration_ms']=2;_wp2c_write(b,'execution/receipt.json',r)
+    elif which=='policy_whitespace':
+        p=o/'policy.json';p.write_bytes(b' '+p.read_bytes())
+    else:
+        p=load_json(o/'policy.json')
+        if which=='policy_id':p['policy_id']='renamed-policy'
+        else:p['keys'][0]['key_id']='renamed-key'
+        _wp2c_write(o,'policy.json',p)
+    r=_wp2g_run(roots,_wp2g_resign(roots,sign=False))
+    assert _wp2g_has(r,'execution_receipt_signature_invalid'),r['issues']
+    assert r['observer_key_authorization']['result']=='authorized'
+    assert r['receipt_signature_check']['result']=='invalid';_wp2g_limits(r)
+
+
+def test_wp2g_record_signature_cannot_be_reused_as_receipt_signature(tmp_path):
+    roots=_wp2g_fixture(tmp_path);s=load_json(_wp2g_path(roots,'receipt_signature'))
+    s['signature_hex']=load_json(roots[0]/'signature-1.json')['signature_hex']
+    _wp2c_write(roots[0],WP2G_PATHS['receipt_signature'],s)
+    r=_wp2g_run(roots,_wp2g_pins(roots));assert _wp2g_has(r,'execution_receipt_signature_invalid');_wp2g_limits(r)
+
+
+def test_wp2g_different_signing_domain_cannot_authenticate_same_receipt(tmp_path):
+    roots=_wp2g_fixture(tmp_path);s=load_json(_wp2g_path(roots,'receipt_signature'));m=_wp2e_module()
+    s['signature_hex']=_wp2e_sign(m.signing_bytes(WP2G_PINS['observer_policy'],s['key_id'],
+                                      _wp2g_path(roots,'receipt').read_bytes()),seed=WP2G_SEED).hex()
+    _wp2c_write(roots[0],WP2G_PATHS['receipt_signature'],s)
+    r=_wp2g_run(roots,_wp2g_pins(roots));assert _wp2g_has(r,'execution_receipt_signature_invalid');_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('before,after,expected',[(WP2E_EPOCH,WP2E_EPOCH+1,True),
+ (WP2E_EPOCH-1,WP2E_EPOCH,False),(WP2E_EPOCH+1,WP2E_EPOCH+2,False)])
+def test_wp2g_observer_validity_window_is_half_open(tmp_path,before,after,expected):
+    roots=_wp2g_fixture(tmp_path);p=load_json(roots[2]/'policy.json');p['keys'][0].update(not_before_epoch=before,not_after_epoch=after)
+    _wp2c_write(roots[2],'policy.json',p);r=_wp2g_run(roots,_wp2g_resign(roots))
+    assert (r['status']=='LOCAL_RECEIPT_SIGNATURE_VERIFIED') is expected;_wp2g_limits(r)
+
+
+def test_wp2g_operator_label_requires_both_explicit_policies_and_does_not_prove_identity(tmp_path):
+    roots=_wp2g_fixture(tmp_path);b,t,o=roots
+    for root in (t,o):
+        p=load_json(root/'policy.json');p['trust_domain']='OPERATOR';_wp2c_write(root,'policy.json',p)
+    # Test-only signatures over explicitly selected policies; not operational keys.
+    _wp2e_resign((b,t))
+    p=load_json(o/'policy.json');p['record_signer_policy_sha256']=_wp2c_hash(t/'policy.json');_wp2c_write(o,'policy.json',p)
+    r=_wp2g_run(roots,_wp2g_resign(roots),trust_domain='OPERATOR')
+    assert r['status']=='LOCAL_RECEIPT_SIGNATURE_VERIFIED',r['issues']
+    assert r['observer_statement_authentication']['result']=='authorized_key_receipt_signature_verified'
+    _wp2g_limits(r)
+
+
+@pytest.mark.parametrize('state',['failed','timed_out','not_started','truncated'])
+def test_wp2g_even_signed_incomplete_process_receipt_cannot_be_admitted(tmp_path,state):
+    roots=_wp2g_fixture(tmp_path);r=load_json(_wp2g_path(roots,'receipt'));p=r['process']
+    if state=='truncated':p['stdout_complete']=False
+    elif state=='not_started':p.update(state=state,exit_code=None,duration_ms=None,stdout_complete=False,stderr_complete=False)
+    elif state=='timed_out':p.update(state=state,exit_code=None,stdout_complete=False,stderr_complete=False)
+    else:p.update(state=state,exit_code=1)
+    _wp2c_write(roots[0],WP2G_PATHS['receipt'],r)
+    result=_wp2g_run(roots,_wp2g_resign(roots))
+    assert result['status']=='LOCAL_RECEIPT_SIGNATURE_INCOMPLETE',result['issues']
+    assert result['receipt_signature_check']['result'] is None;_wp2g_limits(result)
+
+
+def test_wp2g_completed_receipt_with_wrong_result_is_invalid_even_when_signed(tmp_path):
+    roots=_wp2g_fixture(tmp_path);b,t,_=roots;s=load_json(b/'execution/stdout.json')
+    s['verification']['result']='supported';_wp2c_write(b,'execution/stdout.json',s)
+    _wp2f_rehash((b,t));result=_wp2g_run(roots,_wp2g_resign(roots))
+    assert _wp2g_has(result,'execution.stdout_signed_record_result_mismatch');_wp2g_limits(result)
+
+
+@pytest.mark.parametrize('role',['observer_policy','receipt_signature','receipt'])
+@pytest.mark.parametrize('kind',['symlink','hardlink','fifo'])
+def test_wp2g_unsafe_files_rejected_before_admission(tmp_path,role,kind):
+    roots=_wp2g_fixture(tmp_path);p=_wp2g_path(roots,role);backup=p.with_name(p.name+'.backup');p.rename(backup)
+    if kind=='symlink':p.symlink_to(backup)
+    elif kind=='hardlink':_wp2_os.link(backup,p)
+    else:_wp2_os.mkfifo(p)
+    r=_wp2g_run(roots);assert r['status']=='LOCAL_RECEIPT_SIGNATURE_INVALID';_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('role,value',[('observer_policy','../policy.json'),('receipt_signature','/tmp/receipt'),
+ ('receipt_signature','execution/../receipt-signature.json'),('receipt_signature','execution/receipt.json'),
+ ('receipt_signature','record-1.json'),('receipt_signature','execution/RECEIPT.json')])
+def test_wp2g_unsafe_and_cross_role_paths_rejected(tmp_path,role,value):
+    roots=_wp2g_fixture(tmp_path);paths=dict(WP2G_PATHS);paths[role]=value;pins=dict(WP2G_PINS)
+    if value=='execution/RECEIPT.json':
+        (roots[0]/value).write_bytes(_wp2g_path(roots,'receipt_signature').read_bytes())
+    if value=='execution/receipt.json':pins['receipt_signature']=pins['receipt']
+    if value=='record-1.json':pins['receipt_signature']=_wp2c_hash(roots[0]/value)
+    r=_wp2g_run(roots,pins,paths=paths);assert r['status']=='LOCAL_RECEIPT_SIGNATURE_INVALID';_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('case',['evidence','verifier_trust','parent','nested'])
+def test_wp2g_policy_roots_must_be_pairwise_disjoint(tmp_path,case):
+    roots=_wp2g_fixture(tmp_path);b,t,o=roots
+    target={'evidence':b,'verifier_trust':t,'parent':b.parent,'nested':b/'observer-root'}[case]
+    if case=='nested':target.mkdir()
+    r=_wp2g_run(roots,observer_trust_root=target)
+    assert _wp2g_has(r,'policy_roots_not_disjoint');_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('role',['observer_policy','receipt_signature','receipt'])
+def test_wp2g_carrier_change_during_read_rejected(tmp_path,monkeypatch,role):
+    roots=_wp2g_fixture(tmp_path);m=_wp2g_module();execution=m.load_execution_checker();sig=execution.load_signature_checker()
+    records=sig.load_record_checker();base=records.load_binding_checker();original=base.os.fstat
+    inode=_wp2g_path(roots,role).stat().st_ino;calls=[]
+    def changed(fd):
+        s=original(fd)
+        if s.st_ino==inode:
+            calls.append(fd)
+            if len(calls)==2:
+                class Mutated:
+                    def __getattr__(self,k):return getattr(s,k)+1 if k=='st_mtime_ns' else getattr(s,k)
+                return Mutated()
+        return s
+    monkeypatch.setattr(base.os,'fstat',changed)
+    monkeypatch.setattr(records,'load_binding_checker',lambda:base);monkeypatch.setattr(sig,'load_record_checker',lambda:records)
+    monkeypatch.setattr(execution,'load_signature_checker',lambda:sig);monkeypatch.setattr(m,'load_execution_checker',lambda:execution)
+    r=_wp2g_run(roots,module=m);assert any('carrier_changed_during_read' in i['code'] for i in r['issues']);_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('role',['observer_policy','trust_policy','receipt','receipt_signature'])
+def test_wp2g_authentication_uses_retained_bytes_not_a_reopened_path(tmp_path,monkeypatch,role):
+    roots=_wp2g_fixture(tmp_path);m=_wp2g_module();original=m.ReceiptReview.authenticate
+    def swap(self,*args):
+        _wp2g_path(roots,role).write_bytes(b'changed AFTER retained read\n')
+        return original(self,*args)
+    monkeypatch.setattr(m.ReceiptReview,'authenticate',swap)
+    r=_wp2g_run(roots,module=m);assert r['status']=='LOCAL_RECEIPT_SIGNATURE_VERIFIED',r['issues']
+    assert r['observed_digests'][role]==WP2G_PINS[role]
+    assert _wp2c_hash(_wp2g_path(roots,role))!=r['observed_digests'][role];_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('failure',[RuntimeError('observer_backend_missing'),TimeoutError('observer_timeout')])
+def test_wp2g_backend_failure_after_fresh_base_check_cannot_emit_success(monkeypatch,failure):
+    m=_wp2g_module();execution=m.load_execution_checker();sig=execution.load_signature_checker();original=sig.OpenSSLVerifier;calls=[]
+    def backend():
+        calls.append(1)
+        if len(calls)==2:raise failure
+        return original()
+    monkeypatch.setattr(sig,'OpenSSLVerifier',backend);monkeypatch.setattr(execution,'load_signature_checker',lambda:sig)
+    monkeypatch.setattr(m,'load_execution_checker',lambda:execution)
+    with pytest.raises(type(failure)):_wp2g_run(module=m)
+    assert len(calls)==2
+
+
+def test_wp2g_all_original_data_remains_unchanged_after_checks(tmp_path):
+    roots=_wp2g_fixture(tmp_path);before={str(p):p.read_bytes() for p in tmp_path.rglob('*') if p.is_file()}
+    a=_wp2g_run(roots);b=_wp2g_run(roots);assert a==b
+    assert before=={str(p):p.read_bytes() for p in tmp_path.rglob('*') if p.is_file()}
+
+
+@pytest.mark.parametrize('name',['observer_policy','execution_receipt_signature','execution_receipt_signature_report'])
+def test_wp2g_schemas_self_contained(name):
+    schema=load_json(ROOT/'schemas'/('anchor_integrity_'+name+'_v0_1.schema.json'))
+    jsonschema.Draft202012Validator.check_schema(schema);_wp2_module()._assert_self_contained(schema)
+
+
+@pytest.mark.parametrize('key',['release_authority_activation','accepted_as_execution_evidence','accepted_as_semantic_support',
+ 'accepted_as_independent_anchor','requested_checks_complete'])
+def test_wp2g_report_schema_rejects_authority_promotion(key):
+    r=_wp2g_run();r[key]=True
+    schema=load_json(ROOT/'schemas/anchor_integrity_execution_receipt_signature_report_v0_1.schema.json')
+    assert list(jsonschema.Draft202012Validator(schema).iter_errors(r))
+
+
+@pytest.mark.parametrize('field',['verifier_execution_attestation','observer_identity_authentication','observer_independence_verification',
+ 'request_precommitment_verification','challenge_freshness_verification','cycle_anchor_classification'])
+def test_wp2g_report_cannot_promote_unperformed_measurements(field):
+    r=_wp2g_run();r['unperformed_checks'][field]={'status':'completed','result':'verified','reason':None}
+    schema=load_json(ROOT/'schemas/anchor_integrity_execution_receipt_signature_report_v0_1.schema.json')
+    assert list(jsonschema.Draft202012Validator(schema).iter_errors(r))
+
+
+def test_wp2g_signer_label_cannot_cross_test_operator_domain():
+    r=_wp2g_run();r['observer_statement_authentication']['result']='authorized_key_receipt_signature_verified'
+    schema=load_json(ROOT/'schemas/anchor_integrity_execution_receipt_signature_report_v0_1.schema.json')
+    assert list(jsonschema.Draft202012Validator(schema).iter_errors(r))
+
+
+def _wp2g_cli():
+    cmd=[_wp2c_sys.executable,str(WP2G_TOOL),'--bundle-root',str(WP2G_DEMO/'bundle'),
+         '--trust-root',str(WP2G_DEMO/'trust'),'--observer-trust-root',str(WP2G_DEMO/'observer-trust')]
+    for k,v in WP2G_PATHS.items():cmd+=['--'+k.replace('_','-'),v,'--expected-'+k.replace('_','-')+'-sha256',WP2G_PINS[k]]
+    cmd+=['--binding-profile','wp2b-json-pointer-v1','--signature-profile','pinned-ed25519-record-signers-v1',
+          '--execution-profile','single-record-execution-contract-v1','--receipt-signature-profile',_wp2g_module().PROFILE,
+          '--trust-domain','TEST','--verification-time-epoch',str(WP2E_EPOCH),'--record-id','synthetic-record-1',
+          '--execution-id',WP2F_ID,'--challenge',WP2F_CHALLENGE,'--observer-id',WP2G_OBSERVER]
+    return cmd
+
+
+def test_wp2g_real_cli_receipt_signature_only():
+    p=_wp2c_subprocess.run(_wp2g_cli(),capture_output=True,timeout=60)
+    assert p.returncode==0,p.stderr;r=json.loads(p.stdout);assert r['status']=='LOCAL_RECEIPT_SIGNATURE_VERIFIED';_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('option',['--binding-profile','--signature-profile','--execution-profile','--receipt-signature-profile'])
+def test_wp2g_cli_unknown_profiles_fail_without_success_json(option):
+    cmd=_wp2g_cli();cmd[cmd.index(option)+1]='unknown';p=_wp2c_subprocess.run(cmd,capture_output=True,timeout=20)
+    assert p.returncode==2 and not p.stdout
+
+
+@pytest.mark.parametrize('argument',['paths','expected_digests'])
+def test_wp2g_missing_or_additional_roles_cannot_be_inferred(argument):
+    for kind in ('missing','extra'):
+        v=dict(WP2G_PATHS if argument=='paths' else WP2G_PINS)
+        if kind=='missing':v.pop('observer_policy')
+        else:v['saved_report']='ignored'
+        r=_wp2g_run(**{argument:v});assert r['status']=='LOCAL_RECEIPT_SIGNATURE_INVALID';_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('value',[True,-1,253402300800,'1793836800'])
+def test_wp2g_evaluation_epoch_is_explicit_typed_and_bounded(value):
+    with pytest.raises(ValueError):_wp2g_run(verification_time_epoch=value)
+
+
+def test_wp2g_no_live_execution_or_manifest_change():
+    source=WP2G_TOOL.read_text()
+    for bad in ('subprocess.run(', 'subprocess.Popen(', 'os.system(', 'eval(', 'exec(', 'import socket','import requests'):
+        assert bad not in source
+    for name in ('ci/tools-tests.list','ci/pytest-tests.list'):
+        assert _manifest_entries(ROOT/name).count(TEST_PATH)==1
+    assert 'OpenSSLVerifier()' in source and 'load_execution_checker()' in source
+
+
+def test_wp2g_signing_input_has_exact_byte_and_domain_binding():
+    m=_wp2g_module();a=m.signing_bytes('1'*64,'2'*64,'key',b'{}\n')
+    assert a==b'PULSEMECH-ANCHOR-EXECUTION-RECEIPT-SIGNATURE-V1\0'+b'1'*64+b'\0'+b'2'*64+b'\0key\0{}\n'
+    for args in [('x'*64,'2'*64,'key',b'{}'),('1'*64,'2'*64,'bad\0key',b'{}'),('1'*64,'2'*64,'key','{}'),
+                 ('1'*64,'2'*64,'key',b' '*(m.MAX_RECEIPT_BYTES+1))]:
+        with pytest.raises(ValueError):m.signing_bytes(*args)
+
+
+
+
+@pytest.mark.parametrize('suffix',['\n','\r\n','\t',' '])
+def test_wp2g_verifier_key_whitespace_alias_cannot_bypass_distinct_roles(tmp_path,suffix):
+    roots=_wp2g_fixture(tmp_path);p=load_json(roots[2]/'policy.json');v=load_json(roots[1]/'policy.json')['keys'][0]
+    p['keys'][0].update(public_key_hex=v['public_key_hex']+suffix,public_key_sha256=v['public_key_sha256'])
+    _wp2c_write(roots[2],'policy.json',p)
+    r=_wp2g_run(roots,_wp2g_resign(roots,seed=WP2E_SEED))
+    assert r['status']=='LOCAL_RECEIPT_SIGNATURE_INVALID';_wp2g_limits(r)
+
+
+def test_wp2g_key_role_comparison_uses_bytes_even_for_upstream_accepted_spelling(tmp_path):
+    roots=_wp2g_fixture(tmp_path);b,t,o=roots
+    record_policy=load_json(t/'policy.json');v=record_policy['keys'][0]
+    canonical=v['public_key_hex'];v['public_key_hex']=canonical+'\n';_wp2c_write(t,'policy.json',record_policy)
+    _wp2e_resign((b,t))
+    p=load_json(o/'policy.json');p['record_signer_policy_sha256']=_wp2c_hash(t/'policy.json')
+    p['keys'][0].update(public_key_hex=canonical,public_key_sha256=v['public_key_sha256']);_wp2c_write(o,'policy.json',p)
+    r=_wp2g_run(roots,_wp2g_resign(roots,seed=WP2E_SEED))
+    assert _wp2g_has(r,'observer_key_reuses_verifier_key'),r['issues'];_wp2g_limits(r)
+
+
+@pytest.mark.parametrize('role,field',[('observer_policy','key_id'),('receipt_signature','key_id'),
+ ('receipt_signature','signature_hex'),('observer_policy','policy_id')])
+def test_wp2g_new_ascii_identifier_and_encoding_fields_reject_trailing_newline(tmp_path,role,field):
+    roots=_wp2g_fixture(tmp_path);p=_wp2g_path(roots,role);v=load_json(p)
+    target=v['keys'][0] if role=='observer_policy' and field=='key_id' else v
+    target[field]+='\n';p.write_text(json.dumps(v,indent=2)+'\n')
+    r=_wp2g_run(roots,_wp2g_pins(roots));assert r['status']=='LOCAL_RECEIPT_SIGNATURE_INVALID';_wp2g_limits(r)
+
+
+def test_wp2g_authorized_unattested_statement_does_not_become_observed_execution(tmp_path):
+    roots=_wp2g_fixture(tmp_path);r=load_json(_wp2g_path(roots,'receipt'));r['observation_basis']='unattested_observer_statement'
+    _wp2c_write(roots[0],WP2G_PATHS['receipt'],r)
+    p=load_json(roots[2]/'policy.json');p['keys'][0]['observation_bases']=['unattested_observer_statement']
+    _wp2c_write(roots[2],'policy.json',p)
+    report=_wp2g_run(roots,_wp2g_resign(roots));assert report['status']=='LOCAL_RECEIPT_SIGNATURE_VERIFIED'
+    assert report['observation_basis']=='unattested_observer_statement';_wp2g_limits(report)
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
