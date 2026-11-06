@@ -1,0 +1,117 @@
+{
+  "record_type": "q3_runtime_source_notice_companion_v1",
+  "prepared_at_utc": "2026-11-06T01:12:24.630646+00:00",
+  "repository": "HKati/pulse-release-gates-0.1",
+  "reviewed_main": "003d25b15dbac62bac247e70900260aaab8b0012",
+  "transport_merge_commit": "8a49591054bf8e812a675b8113c1f16b5f4025c7",
+  "transport_pr": 2981,
+  "verified_merge_ci": {
+    "name": "PULSE CI",
+    "run_number": 7206,
+    "run_id": 41733625069,
+    "attempt": 1,
+    "conclusion": "success",
+    "head_sha": "8a49591054bf8e812a675b8113c1f16b5f4025c7"
+  },
+  "selected_original": {
+    "filename": "q2-runtime-preparation-37148637546-1.zip",
+    "size_bytes": 508460811,
+    "sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9",
+    "original_run": 37148637546,
+    "original_attempt": 1,
+    "original_artifact_id": 11282419957,
+    "original_source_commit": "77fc5d51896568db50a2a87f650711a65db8fe8c",
+    "archive_repacked": false
+  },
+  "status": "SOURCE_ATTRIBUTIONS_AND_OBSERVED_NOTICE_COMPANION_PREPARED",
+  "gnu_source_attributions_verified": 3,
+  "gnu_source_archives_full_downloaded_and_retained": 3,
+  "gnu_matching_build_ids": 3,
+  "gnu_matching_normalized_dynamic_symbol_tables": 3,
+  "observed_rust_marker_occurrences": 124,
+  "observed_unique_rust_crates_with_source_and_legal_material": 113,
+  "additional_evidenced_native_source_crates": 2,
+  "all_crate_registry_checksums_match": true,
+  "tokenizers_observed_crates_matching_pinned_lock": 39,
+  "original_wheels_and_metadata_verified": 30,
+  "original_notice_files_preserved": 54,
+  "source_patch_and_legal_material_count": 274,
+  "source_material_assembly_complete_for_the_explicit_catalog": true,
+  "complete_native_sbom": false,
+  "compiled_feature_set_verified": false,
+  "source_to_binary_rebuild_verified": false,
+  "rpm_public_key_signatures_cryptographically_verified": false,
+  "known_material_limitations": [
+    "The compiler revision is metadata evidence, not complete Rust standard-library feature provenance.",
+    "onig_sys version attribution uses observed wrapper/native symbols plus pinned source lock; no independent rebuild is claimed.",
+    "Current upstream source availability is observed; a future source-conveyance arrangement beside runtime bytes is not implemented."
+  ],
+  "scoped_gaps": [
+    {
+      "id": "G1",
+      "status": "OUTSIDE_SELECTED_RUNTIME_ARCHIVE",
+      "note": "Separate CPython/bootstrap obligations are not closed for Q2."
+    },
+    {
+      "id": "G2",
+      "status": "SOURCE_BUILD_PATCH_ATTRIBUTION_COMPLETED_DELIVERY_PENDING",
+      "three_objects": [
+        "torch/lib/libgomp.so.1",
+        "numpy.libs/libgfortran-040039e1-0352e75f.so.5.0.0",
+        "numpy.libs/libquadmath-96973f99-934c22de.so.0.0.0"
+      ]
+    },
+    {
+      "id": "G3",
+      "status": "OBSERVED_COMPONENT_NOTICE_AND_SOURCE_MATERIALS_PREPARED",
+      "not_a_complete_binary_sbom": true,
+      "optional_source_dependencies_assumed_shipped": false
+    },
+    {
+      "id": "G4",
+      "status": "OWNER_DISCLOSURE_DECISION_PENDING",
+      "scope": "Exactly the 78 inventoried ZIP members; five historical project/source files and preparation/upstream records included."
+    },
+    {
+      "id": "G5",
+      "status": "EXACT_COMPANION_AND_SOURCE_CONVEYANCE_OWNER_DECISION_PENDING",
+      "recorded_notice_materials_ready": true
+    }
+  ],
+  "runtime_transport_ready": false,
+  "actual_runner_retrieval_verified": false,
+  "source_host_selected": false,
+  "owner_local_part_downloads_reported": 20,
+  "owner_local_part_hashes_verified": false,
+  "runtime_publication_authorized": false,
+  "repository_write_performed": false,
+  "workflow_dispatched": false,
+  "model_execution_performed": false,
+  "tokenizer_execution_performed": false,
+  "generation_calls": 0,
+  "capture_handoff_approved": false,
+  "label_correctness": "not_verified",
+  "issue_2879_remains_open": true,
+  "authority_effect": "none",
+  "external_codex_work_delegated": false,
+  "new_spend_authorized": 0,
+  "notices_are_a_separate_companion": true,
+  "retained_historical_records_rewritten": false,
+  "selected_archive_member_category_counts": {
+    "model": 8,
+    "preparation_records": 4,
+    "source": 5,
+    "upstream": 31,
+    "wheelhouse": 30
+  },
+  "publication_and_measurement_sequence": [
+    "Owner decision on exact runtime/source delivery and a no-LFS/no-paid-storage source host",
+    "Implement/pin and verify retrieval of the same original bytes on the actual runner without model execution",
+    "Separately authorized new source-bound zero-generation preflight",
+    "Internal and external checks",
+    "Separate owner capture decision",
+    "At most 204 one-shot responses with original response retention",
+    "Q1 inputs bound to exact responses",
+    "Q3 calculation, separate recomputation and evidence retention"
+  ]
+}
