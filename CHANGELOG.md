@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the [LRM-03 relation comparator](docs/PULSEMECH_LANGUAGE_RELATION_COMPARATOR_v0.md):
+  evaluate four relation states on the preserved finite profile, retain complete
+  role tuples and joint interpretation choices, and produce bound difference
+  witnesses and separately assessed additions. Recompute the LRM-02 source checks;
+  resolve target-specific correspondence, coverage and addition reviews through
+  independently configured evidence. Preserve candidate/reference claim scopes,
+  incomplete families and target-local results in the existing measurement and
+  verification artifacts. Register regressions and synchronize manifest count
+  guards. Downstream impact, automatic extraction and offline replay remain later
+  work packages; no release authority is activated.
+
 - Add the [LRM-02 source and representation verifier](docs/PULSEMECH_LANGUAGE_RELATION_INPUT_VERIFIER_v0.md):
   strict input loading, exact UTF-8 source/span bindings, typed reference closure,
   a separate parser for the preserved 22 HU/EN controlled-language productions,
