@@ -1,0 +1,654 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/language_relation_evidence_v0.schema.json",
+  "title": "language_relation_evidence_v0",
+  "$comment": "LRM-02 resolver records. Schema validity establishes neither independent trust nor completed verification. Runtime resolves exact subjects, byte digests, check kinds, method/basis/scope agreement, and external configuration provenance. All references are local.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/trust_config"
+    },
+    {
+      "$ref": "#/$defs/acceptance_inventory"
+    },
+    {
+      "$ref": "#/$defs/source_verification"
+    },
+    {
+      "$ref": "#/$defs/processing_record"
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "relative_path": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*[\\\\:\\x00-\\x1f])(?!.*\\/$)[A-Za-z0-9_./-]+$"
+    },
+    "file_pin": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "path",
+        "content_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "artifact_ref": {
+      "type": "object",
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/id"
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "content_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "profile_ref": {
+      "type": "object",
+      "properties": {
+        "profile_id": {
+          "const": "lrm_finite_reference_profile_v0"
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "profile_id",
+        "content_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "tool_ref": {
+      "type": "object",
+      "properties": {
+        "tool_id": {
+          "$ref": "#/$defs/id"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "tool_id",
+        "version",
+        "content_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "acceptance_entry": {
+      "type": "object",
+      "properties": {
+        "entry_id": {
+          "$ref": "#/$defs/id"
+        },
+        "basis": {
+          "enum": [
+            "accepted_reference",
+            "profile_verified"
+          ]
+        },
+        "subject_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "side": {
+          "enum": [
+            "before",
+            "after"
+          ]
+        },
+        "representation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "verification_id": {
+          "$ref": "#/$defs/id"
+        },
+        "method": {
+          "enum": [
+            "independent_reference_review",
+            "controlled_source_profile_v0"
+          ]
+        },
+        "claim_scope": {
+          "enum": [
+            "reference_interpretation",
+            "controlled_source_profile"
+          ]
+        }
+      },
+      "required": [
+        "entry_id",
+        "basis",
+        "subject_sha256",
+        "side",
+        "representation_id",
+        "verification_id",
+        "method",
+        "claim_scope"
+      ],
+      "additionalProperties": false
+    },
+    "source_check": {
+      "type": "object",
+      "properties": {
+        "check_id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "enum": [
+            "source_binding",
+            "subject_binding",
+            "representation_mapping",
+            "coverage"
+          ]
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "not_run",
+            "error"
+          ]
+        },
+        "result": {
+          "enum": [
+            "pass",
+            "fail",
+            "unresolved",
+            null
+          ]
+        },
+        "reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        }
+      },
+      "required": [
+        "check_id",
+        "kind",
+        "status",
+        "result",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_run",
+                  "error"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "null"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "unresolved"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "fail",
+                  "unresolved"
+                ]
+              }
+            },
+            "required": [
+              "result"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "execution": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "enum": [
+            "completed",
+            "not_run",
+            "error"
+          ]
+        },
+        "result": {
+          "enum": [
+            "pass",
+            "fail",
+            "unresolved",
+            null
+          ]
+        },
+        "reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "result",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_run",
+                  "error"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "null"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "unresolved"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "fail",
+                  "unresolved"
+                ]
+              }
+            },
+            "required": [
+              "result"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "source_binding": {
+      "type": "object",
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/id"
+        },
+        "role": {
+          "enum": [
+            "before",
+            "after",
+            "context"
+          ]
+        },
+        "language": {
+          "enum": [
+            "hu",
+            "en",
+            "und"
+          ]
+        },
+        "revision": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "source_id",
+        "role",
+        "language",
+        "revision",
+        "content_sha256",
+        "byte_length"
+      ],
+      "additionalProperties": false
+    },
+    "trust_config": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "language_relation_trust_config_v0"
+        },
+        "inventory_files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file_pin"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "verification_files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file_pin"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "processing_files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file_pin"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "release_authority_activation": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "inventory_files",
+        "verification_files",
+        "processing_files",
+        "authority_effect",
+        "release_authority_activation"
+      ],
+      "additionalProperties": false
+    },
+    "acceptance_inventory": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "language_relation_acceptance_inventory_v0"
+        },
+        "inventory_id": {
+          "$ref": "#/$defs/id"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/acceptance_entry"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "release_authority_activation": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "inventory_id",
+        "entries",
+        "authority_effect",
+        "release_authority_activation"
+      ],
+      "additionalProperties": false
+    },
+    "source_verification": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "language_relation_source_verification_v0"
+        },
+        "verification_id": {
+          "$ref": "#/$defs/id"
+        },
+        "input_ref": {
+          "$ref": "#/$defs/artifact_ref"
+        },
+        "profile_ref": {
+          "$ref": "#/$defs/profile_ref"
+        },
+        "subject_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "side": {
+          "enum": [
+            "before",
+            "after"
+          ]
+        },
+        "representation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "basis": {
+          "enum": [
+            "accepted_reference",
+            "profile_verified"
+          ]
+        },
+        "method": {
+          "enum": [
+            "independent_reference_review",
+            "controlled_source_profile_v0"
+          ]
+        },
+        "claim_scope": {
+          "enum": [
+            "reference_interpretation",
+            "controlled_source_profile"
+          ]
+        },
+        "checker_ref": {
+          "$ref": "#/$defs/tool_ref"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source_check"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "release_authority_activation": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "verification_id",
+        "input_ref",
+        "profile_ref",
+        "subject_sha256",
+        "side",
+        "representation_id",
+        "basis",
+        "method",
+        "claim_scope",
+        "checker_ref",
+        "checks",
+        "authority_effect",
+        "release_authority_activation"
+      ],
+      "additionalProperties": false
+    },
+    "processing_record": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "language_relation_processing_record_v0"
+        },
+        "evidence_id": {
+          "$ref": "#/$defs/id"
+        },
+        "processing_id": {
+          "$ref": "#/$defs/id"
+        },
+        "operation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "input_ref": {
+          "$ref": "#/$defs/artifact_ref"
+        },
+        "profile_ref": {
+          "$ref": "#/$defs/profile_ref"
+        },
+        "source_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source_binding"
+          },
+          "minItems": 2,
+          "uniqueItems": true
+        },
+        "execution": {
+          "$ref": "#/$defs/execution"
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "release_authority_activation": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "evidence_id",
+        "processing_id",
+        "operation",
+        "input_ref",
+        "profile_ref",
+        "source_bindings",
+        "execution",
+        "authority_effect",
+        "release_authority_activation"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
