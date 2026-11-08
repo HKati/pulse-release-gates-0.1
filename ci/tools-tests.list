@@ -187,3 +187,4 @@ tests/test_paradox_w1_native_v0.py
 tests/test_language_relation_contract_v0.py
 tests/test_language_relation_input_verifier_v0.py
 tests/test_language_relation_comparator_v0.py
+tests/test_language_relation_impact_v0.py

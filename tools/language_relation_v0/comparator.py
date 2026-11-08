@@ -498,7 +498,8 @@ def _validate_measurement(report: dict, document: dict, verification: dict) -> N
 
 def measure_bundle(input_path: Path, *, package_root: Path | None = None,
                    trust_config: Path | None = None,
-                   comparison_trust_config: Path | None = None) -> dict:
+                   comparison_trust_config: Path | None = None,
+                   _include_impact_targets: bool = False) -> dict:
     """Recompute checks and comparison; return exact verification and measurement.
 
     Source and comparison trust configurations are independent operator premises.
@@ -566,7 +567,8 @@ def measure_bundle(input_path: Path, *, package_root: Path | None = None,
             result["reason"] = "The independent source checker contradicts a submitted representation."
         elif review["result"] == "fail":
             result["reason"] = "An independently configured necessary comparison premise failed: " + review["reason"]
-        elif target["question"] in ("support_preservation", "observed_effect"):
+        elif (target["question"] in ("support_preservation", "observed_effect")
+              and not _include_impact_targets):
             result["reason"] = "Support and observed-effect evaluation belong to LRM-04."
         else:
             for variant in variants:

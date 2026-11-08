@@ -29,8 +29,11 @@ def _publish(directory: Path, bundle: dict) -> None:
         opened = os.fstat(descriptor)
         if (opened.st_dev, opened.st_ino) != (identity.st_dev, identity.st_ino):
             raise OSError("output directory changed before publication")
-        for name, value in (("verification.json", bundle["verification"]),
-                            ("measurement.json", bundle["measurement"])):
+        artifacts = [("verification.json", bundle["verification"]),
+                     ("measurement.json", bundle["measurement"])]
+        if "impact" in bundle:
+            artifacts.append(("impact.json", bundle["impact"]))
+        for name, value in artifacts:
             fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
                          0o600, dir_fd=descriptor)
             info = os.fstat(fd)
@@ -67,17 +70,27 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--package-root", type=Path)
     parser.add_argument("--trust-config", type=Path)
     parser.add_argument("--comparison-trust-config", type=Path)
+    parser.add_argument("--with-impact", action="store_true",
+                        help="Also evaluate bounded support, conditions and observed consequences.")
+    parser.add_argument("--impact-trust-config", type=Path,
+                        help="Independent impact premises; also enables --with-impact.")
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args(argv)
     try:
         output = args.output_dir.absolute()
         if output.exists() or output.is_symlink():
             raise InputError("output directory already exists; choose a fresh path")
-        bundle = measure_bundle(args.input, package_root=args.package_root,
-                                trust_config=args.trust_config,
-                                comparison_trust_config=args.comparison_trust_config)
+        options = {"package_root": args.package_root, "trust_config": args.trust_config,
+                   "comparison_trust_config": args.comparison_trust_config}
+        if args.with_impact or args.impact_trust_config is not None:
+            from tools.language_relation_v0.impact import measure_impact_bundle
+            bundle = measure_impact_bundle(args.input, **options,
+                                           impact_trust_config=args.impact_trust_config)
+        else:
+            bundle = measure_bundle(args.input, **options)
         _publish(output, bundle)
-        print(f"Wrote measurement and verification artifacts: {output}")
+        names = ", ".join(sorted(bundle))
+        print(f"Wrote {names} artifacts: {output}")
         print("Completed diagnostics; inspect each target's state, scope and unresolved obligations.")
         print("authority_effect=none; release_authority_activation=false")
         return 0

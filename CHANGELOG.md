@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add optional [LRM-04 persistence and impact measurement](docs/PULSEMECH_LANGUAGE_RELATION_IMPACT_v0.md):
+  recompute independently admitted grounded support after base-evidence withdrawal,
+  retain conjunctive premises and alternative proof routes, and diagnose unsupported
+  cycles and exact claim/negation conflicts. Evaluate condition satisfaction and
+  complete joint possibility vectors in common finite configurations. Resolve
+  observed consequences through separately pinned before/after event records and
+  exact processing, source, subject, run and event bindings. Preserve structural
+  relation states and canonical status axes; publish a byte-bound impact artifact
+  alongside the existing verification and measurement artifacts. Keep the frozen
+  profile and LRM-03 default CLI behavior; register regressions and synchronize
+  manifest count guards. Automatic extraction, offline replay integration and
+  release authority remain outside this implementation.
+
 - Add the [LRM-03 relation comparator](docs/PULSEMECH_LANGUAGE_RELATION_COMPARATOR_v0.md):
   evaluate four relation states on the preserved finite profile, retain complete
   role tuples and joint interpretation choices, and produce bound difference
