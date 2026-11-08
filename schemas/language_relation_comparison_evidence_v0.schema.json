@@ -1,0 +1,872 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/language_relation_comparison_evidence_v0.schema.json",
+  "title": "language_relation_comparison_evidence_v0",
+  "$comment": "LRM-03 independent comparison-reference records. Exact external file pins and subject checks are required. Schema validity is not independent acceptance, actual measurement, or release authority. Accepted correspondence/context/coverage references never become controlled identity proofs.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/trust_config"
+    },
+    {
+      "$ref": "#/$defs/comparison_review"
+    }
+  ],
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "relative_path": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*[\\\\:\\x00-\\x1f])(?!.*\\/$)[A-Za-z0-9_./-]+$"
+    },
+    "file_pin": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "path",
+        "content_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "artifact_ref": {
+      "type": "object",
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/id"
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "content_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "profile_ref": {
+      "type": "object",
+      "properties": {
+        "profile_id": {
+          "const": "lrm_finite_reference_profile_v0"
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "profile_id",
+        "content_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "tool_ref": {
+      "type": "object",
+      "properties": {
+        "tool_id": {
+          "$ref": "#/$defs/id"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "tool_id",
+        "version",
+        "content_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "correspondence_check": {
+      "type": "object",
+      "properties": {
+        "check_id": {
+          "$ref": "#/$defs/id"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "not_run",
+            "error"
+          ]
+        },
+        "result": {
+          "enum": [
+            "pass",
+            "fail",
+            "unresolved",
+            null
+          ]
+        },
+        "reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "correspondence_id": {
+          "$ref": "#/$defs/id"
+        },
+        "reference_id": {
+          "$ref": "#/$defs/id"
+        }
+      },
+      "required": [
+        "check_id",
+        "status",
+        "result",
+        "reason",
+        "correspondence_id",
+        "reference_id"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_run",
+                  "error"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "null"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "unresolved"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "fail",
+                  "unresolved"
+                ]
+              }
+            },
+            "required": [
+              "result"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "coverage_check": {
+      "type": "object",
+      "properties": {
+        "check_id": {
+          "$ref": "#/$defs/id"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "not_run",
+            "error"
+          ]
+        },
+        "result": {
+          "enum": [
+            "pass",
+            "fail",
+            "unresolved",
+            null
+          ]
+        },
+        "reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "obligation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "source_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "check_id",
+        "status",
+        "result",
+        "reason",
+        "obligation_id",
+        "source_ids"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_run",
+                  "error"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "null"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "unresolved"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "fail",
+                  "unresolved"
+                ]
+              }
+            },
+            "required": [
+              "result"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "family_check": {
+      "type": "object",
+      "properties": {
+        "check_id": {
+          "$ref": "#/$defs/id"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "not_run",
+            "error"
+          ]
+        },
+        "result": {
+          "enum": [
+            "pass",
+            "fail",
+            "unresolved",
+            null
+          ]
+        },
+        "reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "family_state": {
+          "enum": [
+            "complete",
+            "unknown",
+            "empty",
+            "truncated"
+          ]
+        }
+      },
+      "required": [
+        "check_id",
+        "status",
+        "result",
+        "reason",
+        "family_state"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_run",
+                  "error"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "null"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "unresolved"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "fail",
+                  "unresolved"
+                ]
+              }
+            },
+            "required": [
+              "result"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "context_check": {
+      "type": "object",
+      "properties": {
+        "check_id": {
+          "$ref": "#/$defs/id"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "not_run",
+            "error"
+          ]
+        },
+        "result": {
+          "enum": [
+            "pass",
+            "fail",
+            "unresolved",
+            null
+          ]
+        },
+        "reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "context_source_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "check_id",
+        "status",
+        "result",
+        "reason",
+        "context_source_ids"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_run",
+                  "error"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "null"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "unresolved"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "fail",
+                  "unresolved"
+                ]
+              }
+            },
+            "required": [
+              "result"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "addition_check": {
+      "type": "object",
+      "properties": {
+        "check_id": {
+          "$ref": "#/$defs/id"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "not_run",
+            "error"
+          ]
+        },
+        "result": {
+          "enum": [
+            "pass",
+            "fail",
+            "unresolved",
+            null
+          ]
+        },
+        "reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "relation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "check_id",
+        "status",
+        "result",
+        "reason",
+        "relation_id",
+        "evidence_refs"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_run",
+                  "error"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "null"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "unresolved"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "fail",
+                  "unresolved"
+                ]
+              }
+            },
+            "required": [
+              "result"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              },
+              "result": {
+                "const": "pass"
+              }
+            },
+            "required": [
+              "status",
+              "result"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidence_refs": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "trust_config": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "language_relation_comparison_trust_config_v0"
+        },
+        "review_files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file_pin"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "release_authority_activation": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "review_files",
+        "authority_effect",
+        "release_authority_activation"
+      ],
+      "additionalProperties": false
+    },
+    "comparison_review": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "language_relation_comparison_review_v0"
+        },
+        "verification_id": {
+          "$ref": "#/$defs/id"
+        },
+        "input_ref": {
+          "$ref": "#/$defs/artifact_ref"
+        },
+        "profile_ref": {
+          "$ref": "#/$defs/profile_ref"
+        },
+        "target_id": {
+          "$ref": "#/$defs/id"
+        },
+        "basis": {
+          "const": "accepted_reference"
+        },
+        "method": {
+          "const": "independent_comparison_reference_review"
+        },
+        "claim_scope": {
+          "const": "reference_interpretation"
+        },
+        "checker_ref": {
+          "$ref": "#/$defs/tool_ref"
+        },
+        "reviewed_variant_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "correspondence_checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/correspondence_check"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "coverage_checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/coverage_check"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "family_check": {
+          "$ref": "#/$defs/family_check"
+        },
+        "context_check": {
+          "$ref": "#/$defs/context_check"
+        },
+        "addition_checks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/addition_check"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "release_authority_activation": {
+          "const": false
+        }
+      },
+      "required": [
+        "schema_version",
+        "verification_id",
+        "input_ref",
+        "profile_ref",
+        "target_id",
+        "basis",
+        "method",
+        "claim_scope",
+        "checker_ref",
+        "reviewed_variant_ids",
+        "correspondence_checks",
+        "coverage_checks",
+        "family_check",
+        "context_check",
+        "addition_checks",
+        "authority_effect",
+        "release_authority_activation"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
