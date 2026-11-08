@@ -4899,5 +4899,318 @@ def test_wp2h_base_check_runs_once_in_shared_receipt_chain(tmp_path,monkeypatch)
     _wp2h_limits(r)
 
 
+
+
+# WP2I: correct the existing legacy Markdown reader, not raw v0 JSON semantics.
+WP2I_EXAMPLE = EXAMPLE_DIR / 'wp2i_legacy_reader'
+WP2I_SNAPSHOT = ROOT / 'tests/fixtures/anchor_integrity_v0_1/legacy_reader_7d5dc991.source.json'
+
+
+def _wp2i_module():
+    import importlib.util
+    path = ROOT / 'scripts/render_anchor_integrity_overlay_v0_md.py'
+    spec = importlib.util.spec_from_file_location('wp2i_legacy_reader_test', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _wp2i_example():
+    return load_json(WP2I_EXAMPLE / 'legacy.json')
+
+
+def _wp2i_render(payload=None, error=None):
+    data = _wp2i_example() if payload is None else payload
+    return _wp2i_module()._render_md(data, error, Path('legacy.json'))
+
+
+def _wp2i_assert_boundary(text):
+    assert 'Reader profile: `legacy-v0-proxy-boundary-v1`' in text
+    assert 'not claim-evidence coverage' in text
+    assert 'Fresh evidence checks executed: `false`' in text
+    assert 'Authority effect: `none`' in text
+    assert 'Release-authority activation: `false`' in text
+    for label in ('Claim-level anchor presence', 'Verified binding coverage',
+                  'Verified support coverage', 'Typed dependency-cycle detection',
+                  'Loop risk', 'Contradiction risk', 'Independent-anchor classification'):
+        assert f'| {label} | not_run | null |' in text
+    for old in ('- State:', '- Recommendation:', '- anchor_coverage:',
+                '- loop_risk:', '**ANCHORED**', '**ANSWER**', '**OPEN**',
+                'Hallucination = Anchor Loss.'):
+        assert old not in text
+    assert 'This reader issues no response recommendation' in text
+
+
+def _wp2i_cli(tmp_path, raw=None, extra=(), cwd=None):
+    import subprocess
+    import sys
+    source = tmp_path / 'legacy.json'
+    target = tmp_path / 'view.md'
+    if raw is not None:
+        source.write_bytes(raw)
+    result = subprocess.run([sys.executable,
+        str(ROOT / 'scripts/render_anchor_integrity_overlay_v0_md.py'),
+        '--in', str(source), '--out', str(target), *map(str, extra)],
+        capture_output=True, timeout=30, cwd=cwd)
+    return result, source, target
+
+
+def test_wp2i_snapshot_is_bound_to_pinned_exact_sources():
+    snapshot = load_json(WP2I_SNAPSHOT)
+    assert snapshot['source_repository'] == 'HKati/pulse-release-gates-0.1'
+    assert snapshot['source_commit'] == '7d5dc991194a641661bd3e6d13c6db6f96e24ebd'
+    assert snapshot['record_role'] == 'historical_source_bytes_for_reader_reproduction'
+    assert snapshot['candidate_status'] == 'diagnostic_only'
+    assert snapshot['authority_effect'] == 'none'
+    expected = {
+        'scripts/render_anchor_integrity_overlay_v0_md.py': (
+            7966, '73ec5aeabeb05d6018be62fa79954e1c73dfe0a9',
+            '6422e49219099c225f280cb8a7ce7b285d00e161f7c2c047b6d62cf44d905691'),
+        'docs/ANCHOR_INTEGRITY_v0.md': (
+            8134, '31188dfe1a33012d8869f035612d4d3e98515e0a',
+            'f41ad8d562cfaf41b501be78f14050ddd6186c22f545e034fea3a3ce015f0b89'),
+    }
+    assert {r['path'] for r in snapshot['files']} == set(expected)
+    for row in snapshot['files']:
+        raw = base64.b64decode(row['content_base64'], validate=True)
+        size, git_hash, sha = expected[row['path']]
+        assert len(raw) == row['byte_length'] == size
+        assert hashlib.sha256(raw).hexdigest() == row['content_sha256'] == sha
+        assert hashlib.sha1(b'blob ' + str(size).encode() + b'\0' + raw).hexdigest() == row['git_blob_sha1'] == git_hash
+
+
+def test_wp2i_historical_renderer_remains_reproducible(tmp_path):
+    import subprocess
+    import sys
+    row = next(r for r in load_json(WP2I_SNAPSHOT)['files'] if r['path'].startswith('scripts/'))
+    source = tmp_path / 'historical_renderer.py'
+    source.write_bytes(base64.b64decode(row['content_base64'], validate=True))
+    output = tmp_path / 'historical.md'
+    before = (WP2I_EXAMPLE / 'legacy.json').read_bytes()
+    result = subprocess.run([sys.executable, str(source), '--in', str(WP2I_EXAMPLE / 'legacy.json'),
+                             '--out', str(output)], capture_output=True, timeout=30)
+    assert result.returncode == 0
+    text = output.read_text()
+    assert '- anchor_coverage: `1.000`' in text
+    assert '- loop_risk: `low`' in text
+    assert '**ANCHORED**' in text and '**ANSWER**' in text and '**OPEN**' in text
+    assert (WP2I_EXAMPLE / 'legacy.json').read_bytes() == before
+
+
+def test_wp2i_doc_keeps_original_text_with_a_separate_boundary_notice():
+    row = next(r for r in load_json(WP2I_SNAPSHOT)['files'] if r['path'].startswith('docs/'))
+    original = base64.b64decode(row['content_base64'], validate=True).decode()
+    current = (ROOT / row['path']).read_text()
+    title, body = original.split('\n\n', 1)
+    assert current.startswith(title + '\n\n> **Historical v0 design;')
+    assert current.endswith(body)
+    assert '[WP2I](ANCHOR_INTEGRITY_v0_1_WP2I_LEGACY_READER_BOUNDARY.md)' in current
+    assert '[WP2H](ANCHOR_INTEGRITY_v0_1_WP2H_DIAGNOSTIC_INTEGRATION.md)' in current
+
+
+def test_wp2i_raw_v0_producer_remains_exactly_preserved():
+    raw = (ROOT / 'scripts/anchor_integrity_adapter_v0.py').read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == '3ceb60e9ca0a5d3a7d142bc91f5f51ca0376f54a37f33c3f359774f25c42f1d0'
+
+
+def test_wp2i_expected_view_reproduces_example_without_evidence_promotion():
+    m = _wp2i_module()
+    rel = Path('examples/anchor_integrity_v0_1/wp2i_legacy_reader/legacy.json')
+    actual = m._render_md(_wp2i_example(), None, rel)
+    assert actual.encode() == (WP2I_EXAMPLE / 'expected.md').read_bytes()
+    assert 'Reported gate-signal proxy: `1.0`' in actual
+    _wp2i_assert_boundary(actual)
+
+
+@pytest.mark.parametrize('value', [0, 1, 0.0, 1.0, 0.5, 0.00000000001, 0.9999999999999])
+def test_wp2i_reports_only_the_unrounded_numeric_proxy(value):
+    payload = _wp2i_example(); payload['invariants']['anchor_coverage'] = value
+    text = _wp2i_render(payload)
+    assert 'Reported value status: `reported`' in text
+    assert f'Reported gate-signal proxy: `{json.dumps(value)}`' in text
+    _wp2i_assert_boundary(text)
+
+
+@pytest.mark.parametrize('value', [True, False, '1', '0.8', '100%', 100, -1, 1.0001,
+    [], {}, float('nan'), float('inf'), -float('inf'), 10**100])
+def test_wp2i_rejects_proxy_coercion_and_invalid_values(value):
+    payload = _wp2i_example(); payload['invariants']['anchor_coverage'] = value
+    text = _wp2i_render(payload)
+    assert 'Reported value status: `invalid`' in text
+    assert 'Reported gate-signal proxy: `null`' in text
+    _wp2i_assert_boundary(text)
+
+
+@pytest.mark.parametrize('missing', [True, False])
+def test_wp2i_missing_proxy_is_unknown_not_zero(missing):
+    payload = _wp2i_example()
+    if missing: payload['invariants'].pop('anchor_coverage')
+    else: payload['invariants']['anchor_coverage'] = None
+    text = _wp2i_render(payload)
+    assert 'Reported value status: `unavailable`' in text
+    assert 'Reported gate-signal proxy: `null`' in text
+    _wp2i_assert_boundary(text)
+
+
+@pytest.mark.parametrize(('path', 'replacement'), [
+    (('state',), 'ANCHORED'), (('state',), 'ANCHOR_LOST'), (('state',), 'UNKNOWN'),
+    (('recommendation',), {'response_mode':'SILENCE','gate_action':'CLOSED'}),
+    (('recommendation',), {'response_mode':'ALLOW_SUPPORTED','gate_action':'OPEN','rationale':'PROMOTE_SENTINEL'}),
+    (('recommendation',), '<script>PROMOTE_SENTINEL</script>'),
+    (('invariants','anchor_presence'), False), (('invariants','anchor_presence'), True),
+    (('invariants','loop_risk'), 'high'), (('invariants','loop_risk'), 'medium'),
+    (('invariants','loop_risk'), None), (('invariants','contradiction_risk'), 'high'),
+    (('invariants','notes'), 'PROMOTE_SENTINEL'),
+    (('evidence',), [{'kind':'verified','message':'PROMOTE_SENTINEL'}]),
+    (('accepted_as_semantic_support',), True), (('authority_effect',), 'release'),
+    (('checks',), {'cycle':{'status':'completed','result':'no_cycle_detected'}}),
+])
+def test_wp2i_legacy_advice_notes_and_added_claims_cannot_change_the_view(path, replacement):
+    before = _wp2i_render(); payload = _wp2i_example(); parent = payload
+    for key in path[:-1]: parent = parent[key]
+    parent[path[-1]] = replacement
+    actual = _wp2i_render(payload)
+    assert actual == before and 'PROMOTE_SENTINEL' not in actual
+    _wp2i_assert_boundary(actual)
+
+
+@pytest.mark.parametrize('payload', [[], 'x', 7, True, {}, {'schema':'other','invariants':{}},
+    {'schema':'anchor_integrity_diagnostic_report_v0_1','invariants':{}},
+    {'schema':'anchor_integrity_v0'}, {'schema':'anchor_integrity_v0','invariants':[]},
+    {'schema':'anchor_integrity_v0','invariants':None}])
+def test_wp2i_wrong_format_never_masquerades_as_legacy_evidence(payload):
+    text = _wp2i_module()._render_md(payload, None, Path('legacy.json'))
+    assert '**UNAVAILABLE**' in text and 'LEGACY_PROXY_RENDERED' not in text
+    _wp2i_assert_boundary(text)
+
+
+@pytest.mark.parametrize('raw', [
+    b'{', b'{} trailing', b'{}{}', b'\xff', b'\xef\xbb\xbf{}',
+    b'{"schema":"anchor_integrity_v0","invariants":{"anchor_coverage":NaN}}',
+    b'{"schema":"anchor_integrity_v0","invariants":{"anchor_coverage":Infinity}}',
+    b'{"schema":"anchor_integrity_v0","invariants":{"anchor_coverage":-Infinity}}',
+    b'{"schema":"anchor_integrity_v0","invariants":{"anchor_coverage":1e400}}',
+    b'{"schema":"anchor_integrity_v0","invariants":{},"invariants":{}}',
+    b'{"schema":"other","schema":"anchor_integrity_v0","invariants":{}}',
+    b'{"schema":"anchor_integrity_v0","invariants":{},"meta":{"id":1,"id":2}}',
+])
+def test_wp2i_ambiguous_or_invalid_json_yields_unavailable(tmp_path, raw):
+    p = tmp_path / 'bad.json'; p.write_bytes(raw)
+    m = _wp2i_module(); data, error = m._read_json(p)
+    assert data is None and error
+    text = m._render_md(data, error, p)
+    assert '**UNAVAILABLE**' in text
+    _wp2i_assert_boundary(text)
+    assert p.read_bytes() == raw
+
+
+@pytest.mark.parametrize('kind', ['missing', 'directory', 'oversized', 'deep'])
+def test_wp2i_unavailable_and_bounded_input_paths(tmp_path, monkeypatch, kind):
+    m = _wp2i_module(); p = tmp_path / 'input'
+    if kind == 'directory': p.mkdir()
+    elif kind == 'oversized':
+        monkeypatch.setattr(m, 'MAX_INPUT_BYTES', 16); p.write_bytes(b' ' * 17)
+    elif kind == 'deep': p.write_bytes(b'[' * 3000 + b']' * 3000)
+    data, error = m._read_json(p)
+    assert data is None and error
+    _wp2i_assert_boundary(m._render_md(data, error, p))
+
+
+@pytest.mark.parametrize('value', [
+    '`\n# INJECTED\n<script>alert(1)</script>', '```\n[run](javascript:alert(1))\n```',
+    '<img src=x onerror=alert(1)>', '&lt;script&gt;', 'a\r\nb\t\x00', '\u202eabc',
+    '\ud800', 'x' * 4000, {'x':'INJECTED'}, ['INJECTED'], float('inf'),
+])
+def test_wp2i_unverified_metadata_cannot_escape_its_literal_span(value):
+    m = _wp2i_module(); literal = m._literal(value)
+    assert literal.startswith('`') and literal.endswith('`') and literal.count('`') == 2
+    assert '\n' not in literal and '\r' not in literal
+    assert not any(c in literal for c in '<>&')
+    payload = _wp2i_example();payload['meta']['generator'] = value
+    text = m._render_md(payload, None, Path('input`\n# INJECTED'))
+    assert '<script>' not in text and '\n# INJECTED' not in text
+    _wp2i_assert_boundary(text)
+
+
+@pytest.mark.parametrize('field', ['meta', 'inputs'])
+def test_wp2i_malformed_optional_metadata_is_not_interpreted(field):
+    payload = _wp2i_example();payload[field] = ['not-an-object']
+    _wp2i_assert_boundary(_wp2i_render(payload))
+
+
+def test_wp2i_render_is_deterministic_and_does_not_mutate_the_input():
+    payload = _wp2i_example(); old = deepcopy(payload)
+    assert _wp2i_render(payload) == _wp2i_render(payload)
+    assert payload == old
+
+
+def test_wp2i_cli_writes_corrected_view_without_changing_source(tmp_path):
+    raw = (WP2I_EXAMPLE / 'legacy.json').read_bytes()
+    result, source, target = _wp2i_cli(tmp_path, raw)
+    assert result.returncode == 0 and result.stdout == b'' and result.stderr == b''
+    assert source.read_bytes() == raw
+    _wp2i_assert_boundary(target.read_text())
+
+
+@pytest.mark.parametrize('raw', [None, b'not json', b'[]'])
+def test_wp2i_ci_neutral_unavailable_placeholder_is_not_validation_success(tmp_path, raw):
+    result, source, target = _wp2i_cli(tmp_path, raw)
+    assert result.returncode == 0 and '**UNAVAILABLE**' in target.read_text()
+    _wp2i_assert_boundary(target.read_text())
+
+
+def test_wp2i_cli_default_paths_remain_compatible(tmp_path):
+    import subprocess, sys
+    m = _wp2i_module();p = tmp_path / m.DEFAULT_INPUT;p.parent.mkdir(parents=True)
+    p.write_bytes((WP2I_EXAMPLE / 'legacy.json').read_bytes())
+    result = subprocess.run([sys.executable,str(ROOT/'scripts/render_anchor_integrity_overlay_v0_md.py')],
+                            cwd=tmp_path,capture_output=True,timeout=30)
+    assert result.returncode == 0
+    _wp2i_assert_boundary((tmp_path/m.DEFAULT_OUTPUT).read_text())
+
+
+@pytest.mark.parametrize('alias', ['same', 'dot', 'symlink', 'hardlink', 'dangling_symlink', 'directory'])
+def test_wp2i_cli_rejects_output_aliases_without_clobbering_inputs(tmp_path, alias):
+    import os,subprocess,sys
+    source=tmp_path/'legacy.json';raw=(WP2I_EXAMPLE/'legacy.json').read_bytes();source.write_bytes(raw)
+    target=tmp_path/'view.md'
+    if alias=='same':target=source
+    elif alias=='dot':target=tmp_path/'sub'/'..'/'legacy.json';(tmp_path/'sub').mkdir()
+    elif alias=='symlink':target.symlink_to(source)
+    elif alias=='hardlink':os.link(source,target)
+    elif alias=='dangling_symlink':target.symlink_to(tmp_path/'missing-target')
+    else:target.mkdir()
+    result=subprocess.run([sys.executable,str(ROOT/'scripts/render_anchor_integrity_overlay_v0_md.py'),
+                            '--in',str(source),'--out',str(target)],capture_output=True,timeout=30)
+    assert result.returncode==2 and result.stdout==b'' and source.read_bytes()==raw
+    assert not (tmp_path/'missing-target').exists()
+
+
+def test_wp2i_explicit_output_replacement_keeps_existing_cli_functionality(tmp_path):
+    raw=(WP2I_EXAMPLE/'legacy.json').read_bytes();(tmp_path/'view.md').write_text('old display')
+    result,source,target=_wp2i_cli(tmp_path,raw)
+    assert result.returncode==0 and 'old display' not in target.read_text()
+    assert source.read_bytes()==raw;_wp2i_assert_boundary(target.read_text())
+
+
+def test_wp2i_runtime_has_no_network_crypto_or_evidence_execution_interface():
+    import ast
+    tree=ast.parse((ROOT/'scripts/render_anchor_integrity_overlay_v0_md.py').read_text())
+    imports={n.names[0].name for n in ast.walk(tree) if isinstance(n,ast.Import)}
+    assert imports <= {'argparse','json','math','sys'}
+    assert 'subprocess' not in imports and 'requests' not in imports
+    assert not any(isinstance(n,ast.Call) and isinstance(n.func,ast.Name) and
+                   n.func.id in ('eval','exec','compile','__import__') for n in ast.walk(tree))
+    for name in ('tools-tests.list','pytest-tests.list'):
+        assert _manifest_entries(ROOT/'ci'/name).count(TEST_PATH)==1
+
+
+def test_wp2i_document_keeps_raw_and_publication_boundaries_explicit():
+    text=(ROOT/'docs/ANCHOR_INTEGRITY_v0_1_WP2I_LEGACY_READER_BOUNDARY.md').read_text()
+    for marker in ('raw v0 JSON is unchanged','not a site deployment','not a fresh WP2H run',
+                   'same `--in` / `--out`','legacy-v0-proxy-boundary-v1'):
+        assert marker in text
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
