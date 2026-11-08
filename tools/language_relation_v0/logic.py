@@ -284,7 +284,7 @@ class VariantLogic:
                 "embedded_only": sorted(selected - self._safe_reachable[side]),
                 "safe_reachable": sorted(self._safe_reachable[side])}
 
-    def _relation(self, side: str, identifier: str) -> tuple[tuple, int]:
+    def _relation(self, side: str, identifier: str, *, expansion_depth: int = 0) -> tuple[tuple, int]:
         owner = self._owner(self.relations, side, identifier, "relation")
         key = (owner, identifier)
         if key in self._cache:
@@ -294,7 +294,8 @@ class VariantLogic:
         self._active.add(key)
         try:
             row = self.relations[owner][identifier]
-            node, cost, entities, propositions = self._expression(owner, row["expression"], ())
+            node, cost, entities, propositions = self._expression(
+                owner, row["expression"], (), expansion_depth=expansion_depth)
             node, extra, speaker = self._wrap_context(owner, row, node, omit_default=True)
             if speaker is not None:
                 entities.add(speaker)
@@ -318,15 +319,20 @@ class VariantLogic:
         return ("CONTEXT", *context, body), 1, used
 
     def _expression(self, side: str, expression: dict, environment: tuple[str, ...],
-                    depth: int = 0) -> tuple[tuple, int, set, set]:
+                    depth: int = 0, *, expansion_depth: int = 0) -> tuple[tuple, int, set, set]:
         _require(depth < 70, "expression_depth_limit", "The expression nesting bound was exceeded.")
+        # Raw expression depth resets at a relation's lexical boundary, but
+        # recursive REF/proposition expansion must retain the whole path's
+        # bound before descent. Post-order node totals cannot protect the stack.
+        _require(expansion_depth < _MAX_NODES, "expression_limit",
+                 "The cumulative relation expansion exceeds the 256-node bound.")
         operator = expression["op"]
         entities: set[tuple[str, str]] = set()
         propositions: set[tuple[str, str]] = set()
         if operator == "REF":
             identifier = expression["relation_id"]
             owner = self._owner(self.relations, side, identifier, "relation")
-            node, cost = self._relation(owner, identifier)
+            node, cost = self._relation(owner, identifier, expansion_depth=expansion_depth + 1)
             used_entities, used_propositions = self._uses[(owner, identifier)]
             return node, cost + 1, set(used_entities), set(used_propositions)
         if operator == "ATOM":
@@ -345,7 +351,7 @@ class VariantLogic:
                 else:
                     identifier = value["relation_id"]
                     owner = self._owner(self.relations, side, identifier, "proposition")
-                    body, extra = self._relation(owner, identifier)
+                    body, extra = self._relation(owner, identifier, expansion_depth=expansion_depth + 1)
                     key = self.proposition_keys[owner].get(identifier, (owner, identifier))
                     term = ("PROPOSITION", key, body)
                     used_entities, used_propositions = self._uses[(owner, identifier)]
@@ -379,7 +385,8 @@ class VariantLogic:
         children = []
         cost = 1
         for child in raw_children:
-            node, extra, child_entities, child_propositions = self._expression(side, child, child_environment, depth + 1)
+            node, extra, child_entities, child_propositions = self._expression(
+                side, child, child_environment, depth + 1, expansion_depth=expansion_depth + 1)
             children.append(node)
             cost += extra
             entities.update(child_entities)

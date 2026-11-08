@@ -395,7 +395,15 @@ def _additions(document: dict, profile: dict, target: dict, rows: list[dict],
                     evaluations = []
                     break
                 same = any(logic.compare([key], [identifier])["equivalent"] for key in original)
-                entailment = logic.entailment(original, identifier)
+                try:
+                    entailment = logic.entailment(original, identifier)
+                except LogicProblem as exc:
+                    if exc.code != "unsupported_entailment_context":
+                        raise
+                    # The Boolean derivation path cannot erase a typed claim's
+                    # context. Its own independent support can still be resolved
+                    # after the identity, context and finite-scope checks above.
+                    entailment = None
                 evaluations.append((row, same, entailment))
             except LogicProblem:
                 evaluations = []
@@ -405,12 +413,13 @@ def _additions(document: dict, profile: dict, target: dict, rows: list[dict],
                 item["reason"] = "The addition's independent comparison/derivation scope is unresolved."
             additions.append(item)
             continue
-        if any(not value["premises_satisfiable"] for _, _, value in evaluations):
+        if any(value is not None and not value["premises_satisfiable"] for _, _, value in evaluations):
             item["reason"] = "The original premises are inconsistent in a retained joint variant; no arbitrary conclusion is derived."
             additions.append(item)
             continue
-        exact = all(same for _, same, _ in evaluations)
-        derived = all(value["entailed"] and value["premises_satisfiable"]
+        derivation_checked = all(value is not None for _, _, value in evaluations)
+        exact = derivation_checked and all(same for _, same, _ in evaluations)
+        derived = derivation_checked and all(value["entailed"] and value["premises_satisfiable"]
                       for _, _, value in evaluations)
         if exact or derived:
             before = sorted({key for row, _, _ in evaluations
@@ -429,6 +438,10 @@ def _additions(document: dict, profile: dict, target: dict, rows: list[dict],
             if support["result"] == "pass" and result_basis != "candidate_only":
                 item.update(novelty="externally_supported", evidence_status="supported",
                             evidence_refs=support["evidence_refs"], reason=None)
+            elif not derivation_checked:
+                item["reason"] = ("Boolean derivation is unsupported for the retained typed context, "
+                                  "and no independently accepted addition support is available within "
+                                  "the target's evidence boundary.")
             else:
                 item.update(novelty="new_content", evidence_status="unsupported",
                             reason="No checked derivation or independently resolved support for this "

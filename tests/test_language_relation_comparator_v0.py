@@ -1222,5 +1222,335 @@ def test_comparator_module_is_registered_once_and_keeps_existing_tests():
             assert entries.count(existing) == 1
 
 
+@pytest.mark.parametrize("premise_kind", ("correspondence", "coverage"))
+def test_pr2995_exact_rejection_survives_candidate_scope_fallback(tmp_path, premise_kind):
+    fixture = accepted_fixture(tmp_path)
+    if premise_kind == "correspondence":
+        item = next(row for row in fixture["payload"]["correspondence"] if row["kind"] == "entity")
+        item.update(basis="candidate", rule_or_reference_id=None)
+        check = next(row for row in fixture["reviews"][0]["correspondence_checks"]
+                     if row["correspondence_id"] == item["correspondence_id"])
+    else:
+        check = fixture["reviews"][0]["coverage_checks"][0]
+    for obligation in fixture["payload"]["coverage_obligations"]:
+        obligation["evidence_refs"] = []
+    check.update(status="completed", result="fail",
+                 reason="Independent review rejected this exact required premise.")
+    write_source_acceptance(fixture)
+    write_comparison_reviews(fixture, refresh=True)
+
+    outcome = review_outcome(fixture)
+    assert outcome["result"] == "fail"
+    assert check["check_id"] in outcome["evidence_refs"]
+    report = measure_accepted(fixture)
+    target = result_for(report)
+    assert target["relation_state"] == "UNDETERMINED"
+    assert target["assessment_state"] == "UNRESOLVED"
+    assert target["closed_obligation_ids"] == []
+    assert report["status_axes"]["consistency_status"] == "conflicting"
+
+
+@pytest.mark.parametrize("premise_kind", ("correspondence", "coverage"))
+@pytest.mark.parametrize("check_state", ("absent", "not_run"))
+def test_pr2995_unperformed_review_keeps_conditional_candidate_scope(tmp_path, premise_kind, check_state):
+    fixture = accepted_fixture(tmp_path)
+    if premise_kind == "correspondence":
+        item = next(row for row in fixture["payload"]["correspondence"] if row["kind"] == "entity")
+        item.update(basis="candidate", rule_or_reference_id=None)
+        checks = fixture["reviews"][0]["correspondence_checks"]
+        check = next(row for row in checks if row["correspondence_id"] == item["correspondence_id"])
+    else:
+        checks = fixture["reviews"][0]["coverage_checks"]
+        check = checks[0]
+    for obligation in fixture["payload"]["coverage_obligations"]:
+        obligation["evidence_refs"] = []
+    if check_state == "absent":
+        checks.remove(check)
+    else:
+        check.update(status="not_run", result=None, reason="This independent check was not performed.")
+    write_source_acceptance(fixture)
+    write_comparison_reviews(fixture, refresh=True)
+
+    assert review_outcome(fixture)["result"] == "unresolved"
+    report = measure_accepted(fixture)
+    target = result_for(report)
+    assert target["relation_state"] == "PRESERVED"
+    assert target["assessment_state"] == "IDENTIFIED"
+    assert target["representation_basis"] == "candidate_only"
+    assert target["claim_scope"] == "candidate_structures"
+    assert target["closed_obligation_ids"] == ["coverage_main"]
+
+
+def test_pr2995_rejected_unused_identity_does_not_poison_an_independent_target(tmp_path):
+    payload = reference_input(16)
+    payload["measurement_request"]["targets"][0].update(before_ids=["b_fact"], after_ids=["a_fact"])
+    fixture = accepted_fixture(tmp_path, payload)
+    item = next(row for row in fixture["payload"]["correspondence"]
+                if row["correspondence_id"] == "map_entity_bela")
+    item.update(basis="candidate", rule_or_reference_id=None)
+    check = next(row for row in fixture["reviews"][0]["correspondence_checks"]
+                 if row["correspondence_id"] == item["correspondence_id"])
+    check.update(status="completed", result="fail", reason="This separate identity was rejected.")
+    write_source_acceptance(fixture)
+    write_comparison_reviews(fixture, refresh=True)
+
+    report = measure_accepted(fixture)
+    target = result_for(report)
+    assert target["relation_state"] == "PRESERVED"
+    assert target["assessment_state"] == "IDENTIFIED"
+    assert target["representation_basis"] == "accepted_reference"
+    addition = next(row for row in report["introduced_relations"] if row["relation_id"] == "a_addition")
+    assert addition["novelty"] == "unresolved"
+    assert addition["derivation_ref"] is None
+
+
+def test_pr2995_rejected_coverage_is_local_to_its_exact_target(tmp_path):
+    payload = reference_input()
+    auxiliary = deepcopy(payload["measurement_request"]["targets"][0])
+    auxiliary.update(target_id="target_auxiliary", required_obligation_ids=["coverage_auxiliary"])
+    payload["measurement_request"]["targets"].append(auxiliary)
+    obligation = deepcopy(payload["coverage_obligations"][0])
+    obligation.update(obligation_id="coverage_auxiliary", target_id="target_auxiliary")
+    payload["coverage_obligations"].append(obligation)
+    fixture = accepted_fixture(tmp_path, payload)
+    required = next(row for row in fixture["payload"]["coverage_obligations"]
+                    if row["obligation_id"] == "coverage_auxiliary")
+    required["evidence_refs"] = []
+    review = next(row for row in fixture["reviews"] if row["target_id"] == "target_auxiliary")
+    review["coverage_checks"][0].update(status="completed", result="fail",
+        reason="Only the auxiliary target's exact coverage was rejected.")
+    write_source_acceptance(fixture)
+    write_comparison_reviews(fixture, refresh=True)
+
+    report = measure_accepted(fixture)
+    target = result_for(report)
+    assert target["relation_state"] == "PRESERVED"
+    assert target["assessment_state"] == "IDENTIFIED"
+    assert target["representation_basis"] == "accepted_reference"
+    auxiliary_result = result_for(report, "target_auxiliary")
+    assert auxiliary_result["relation_state"] == "UNDETERMINED"
+    assert auxiliary_result["assessment_state"] == "UNRESOLVED"
+    assert auxiliary_result["closed_obligation_ids"] == []
+
+def _pr2995_typed_addition_fixture(tmp_path, discourse="assertion", modality="permission", *, named_support=True):
+    payload = reference_input(15)
+    addition = next(row for row in payload["representations"]["after"]["relations"]
+                    if row["relation_id"] == "a_addition")
+    addition.update(discourse_type=discourse, modality=modality)
+    fixture = accepted_fixture(tmp_path, payload)
+    if named_support:
+        fixture["reviews"][0]["addition_checks"] = [completed_check(
+            "checked_typed_addition", relation_id="a_addition",
+            evidence_refs=["synthetic_typed_addition_support"])]
+        write_comparison_reviews(fixture)
+    return fixture
+
+
+@pytest.mark.parametrize("discourse,modality", (
+    ("assertion", "permission"), ("assertion", "obligation"),
+    ("quotation", "declarative"), ("supposition", "declarative"),
+    ("assertion", "observed_event")))
+@pytest.mark.parametrize("named_support", (False, True))
+def test_typed_addition_resolves_own_support_without_boolean_derivation(
+        tmp_path, discourse, modality, named_support):
+    fixture = _pr2995_typed_addition_fixture(tmp_path, discourse, modality,
+                                            named_support=named_support)
+    report = measure_accepted(fixture)
+    target = result_for(report)
+    assert target["relation_state"] == "PRESERVED"
+    assert target["assessment_state"] == "IDENTIFIED"
+    assert target["representation_basis"] == "accepted_reference"
+    addition = next(row for row in report["introduced_relations"] if row["relation_id"] == "a_addition")
+    assert addition["derivation_ref"] is None
+    assert not any(row["kind"] == "derivation" for row in report["witnesses"])
+    if named_support:
+        assert addition["novelty"] == "externally_supported"
+        assert addition["evidence_status"] == "supported"
+        assert "synthetic_typed_addition_support" in addition["evidence_refs"]
+        assert "checked_typed_addition" in addition["evidence_refs"]
+    else:
+        assert addition["novelty"] == "unresolved"
+        assert addition["evidence_status"] == "unresolved"
+        assert "Boolean derivation is unsupported" in addition["reason"]
+    assert report["status_axes"]["causal_status"] == "not_evaluated"
+    assert report["authority_effect"] == "none"
+    assert report["release_authority_activation"] is False
+
+
+@pytest.mark.parametrize("state", ("not_run", "fail"))
+def test_typed_addition_requires_a_completed_passing_own_support_check(tmp_path, state):
+    fixture = _pr2995_typed_addition_fixture(tmp_path)
+    check = fixture["reviews"][0]["addition_checks"][0]
+    check.update(status="not_run" if state == "not_run" else "completed",
+                 result=None if state == "not_run" else "fail",
+                 reason="Synthetic independent addition support was not established.")
+    write_comparison_reviews(fixture)
+    report = measure_accepted(fixture)
+    assert result_for(report)["assessment_state"] == "IDENTIFIED"
+    addition = next(row for row in report["introduced_relations"] if row["relation_id"] == "a_addition")
+    assert addition["novelty"] == "unresolved"
+    assert addition["evidence_status"] == "unresolved"
+    assert addition["derivation_ref"] is None
+
+
+def test_typed_addition_support_does_not_promote_candidate_source_scope(tmp_path):
+    fixture = _pr2995_typed_addition_fixture(tmp_path)
+    report = measure_accepted(fixture, trust_config=None)
+    target = result_for(report)
+    assert target["representation_basis"] == "candidate_only"
+    assert target["assessment_state"] == "IDENTIFIED"
+    addition = next(row for row in report["introduced_relations"] if row["relation_id"] == "a_addition")
+    assert addition["novelty"] == "unresolved"
+    assert addition["evidence_status"] == "unresolved"
+    assert addition["derivation_ref"] is None
+
+
+def test_typed_addition_support_cannot_bypass_its_own_context_review(tmp_path):
+    fixture = _pr2995_typed_addition_fixture(tmp_path)
+    payload = fixture["payload"]
+    raw = b"Synthetic qualification used only by the added permission."
+    payload["sources"].append({"source_id": "typed_addition_context", "role": "context", "language": "en",
+        "encoding": "utf-8", "revision": None, "content": {"kind": "inline_utf8", "text": raw.decode()},
+        "byte_length": len(raw), "content_sha256": digest(raw)})
+    payload["source_anchors"].append({"anchor_id": "typed_addition_context_anchor",
+        "source_id": "typed_addition_context", "start_byte": 0,
+        "end_byte": len(raw), "content_sha256": digest(raw)})
+    addition = next(row for row in payload["representations"]["after"]["relations"]
+                    if row["relation_id"] == "a_addition")
+    addition["anchor_ids"].append("typed_addition_context_anchor")
+    write_source_acceptance(fixture)
+    write_comparison_reviews(fixture, refresh=True)
+    assert fixture["reviews"][0]["context_check"]["context_source_ids"] == []
+    report = measure_accepted(fixture)
+    assert result_for(report)["representation_basis"] == "accepted_reference"
+    assert result_for(report)["assessment_state"] == "IDENTIFIED"
+    addition = next(row for row in report["introduced_relations"] if row["relation_id"] == "a_addition")
+    assert addition["novelty"] == "unresolved"
+    assert addition["evidence_status"] == "unresolved"
+    assert addition["derivation_ref"] is None
+
+
+def test_non_context_logic_failure_does_not_unlock_independent_addition_support(tmp_path, monkeypatch):
+    fixture = _pr2995_typed_addition_fixture(tmp_path)
+
+    def exhausted_scope(self, premise_ids, after_id):
+        raise LogicProblem("expanded_atom_limit", "Synthetic finite derivation resource exhaustion.")
+
+    monkeypatch.setattr(VariantLogic, "entailment", exhausted_scope)
+    report = measure_accepted(fixture)
+    addition = next(row for row in report["introduced_relations"] if row["relation_id"] == "a_addition")
+    assert addition["novelty"] == "unresolved"
+    assert addition["evidence_status"] == "unresolved"
+    assert addition["derivation_ref"] is None
+
+
+def test_exact_typed_duplicate_does_not_claim_a_boolean_derivation_without_own_support(tmp_path):
+    payload = reference_input()
+    for side in ("before", "after"):
+        payload["representations"][side]["relations"][0]["modality"] = "permission"
+        replace_source(payload, side, "The synthetic reference records Anna's permission to approve.")
+    addition = deepcopy(payload["representations"]["after"]["relations"][0])
+    addition["relation_id"] = "a_addition"
+    payload["representations"]["after"]["relations"].append(addition)
+    payload["interpretations"]["variants"][0]["after_relation_ids"].append("a_addition")
+    fixture = accepted_fixture(tmp_path, payload)
+    report = measure_accepted(fixture)
+    assert result_for(report)["relation_state"] == "PRESERVED"
+    addition = next(row for row in report["introduced_relations"] if row["relation_id"] == "a_addition")
+    assert addition["novelty"] == "unresolved"
+    assert addition["evidence_status"] == "unresolved"
+    assert addition["derivation_ref"] is None
+    assert not any(row["kind"] == "derivation" for row in report["witnesses"])
+
+def nested_relation_chain_payload(length: int, wrappers: int, *,
+                                  reference_kind: str = "REF", mirror: bool = False) -> dict:
+    """Keep each raw expression shallow while expanding a longer joint path."""
+    payload = reference_input()
+    for side in ("before", "after"):
+        replace_source(payload, side, "Opaque nested relation fixture.")
+    for side in ("before", "after") if mirror else ("before",):
+        representation = payload["representations"][side]
+        template = deepcopy(representation["relations"][0])
+        prefix = side[0]
+        relations = []
+        for index in range(length):
+            if index == length - 1:
+                expression = deepcopy(template["expression"])
+            elif reference_kind == "proposition":
+                expression = {"op": "ATOM", "predicate": "notify", "arguments": [
+                    {"role": "sender", "value": {"entity_id": prefix + "_anna"}},
+                    {"role": "recipient", "value": {"entity_id": prefix + "_anna"}},
+                    {"role": "content", "value": {"relation_id": f"{prefix}_chain_{index + 1}"}}]}
+            else:
+                expression = {"op": "REF", "relation_id": f"{prefix}_chain_{index + 1}"}
+            for _ in range(wrappers):
+                expression = {"op": "NOT", "operand": expression}
+            relation = deepcopy(template)
+            relation.update(relation_id=prefix + "_main" if index == 0 else f"{prefix}_chain_{index}",
+                            expression=expression)
+            relations.append(relation)
+        representation["relations"] = relations
+    return payload
+
+
+@pytest.mark.parametrize("reference_kind", ("REF", "proposition"))
+def test_cumulative_reference_expansion_becomes_unresolved_before_stack_exhaustion(tmp_path, reference_kind):
+    from tools.language_relation_v0.verifier import verify_input
+
+    payload = nested_relation_chain_payload(25, 45, reference_kind=reference_kind)
+    path = save_input(tmp_path, payload)
+    verification = verify_input(path)
+    assert all(row["result"] == "pass" for row in verification["checks"]
+               if row["kind"] == "source_binding")
+    assert all(row["result"] == "unresolved" for row in verification["checks"]
+               if row["kind"] == "representation_mapping")
+    report = measure_input(path)
+    assert_measurement_integrity(report, payload)
+    target = result_for(report)
+    assert target["relation_state"] == "UNDETERMINED"
+    assert target["assessment_state"] == "UNRESOLVED"
+    assert target["closed_obligation_ids"] == []
+    assert "bound" in target["reason"]
+
+
+@pytest.mark.parametrize("length, wrappers, reference_kind, mirror, expected", (
+    (3, 30, "REF", True, "PRESERVED"),
+    (254, 0, "REF", False, "PRESERVED"),
+    (254, 0, "proposition", False, "CHANGED"),
+))
+def test_supported_cumulative_reference_expansions_still_complete(
+        tmp_path, length, wrappers, reference_kind, mirror, expected):
+    payload = nested_relation_chain_payload(length, wrappers,
+                                           reference_kind=reference_kind, mirror=mirror)
+    report = measured(tmp_path, payload)
+    target = result_for(report)
+    assert target["relation_state"] == expected
+    assert target["assessment_state"] == "IDENTIFIED"
+    assert target["representation_basis"] == "candidate_only"
+
+
+def test_cli_publishes_all_target_diagnostics_for_oversized_reference_expansion(tmp_path):
+    payload = nested_relation_chain_payload(25, 45)
+    another_target = deepcopy(payload["measurement_request"]["targets"][0])
+    another_target.update(target_id="target_other", required_obligation_ids=["coverage_other"])
+    payload["measurement_request"]["targets"].append(another_target)
+    another_obligation = deepcopy(payload["coverage_obligations"][0])
+    another_obligation.update(target_id="target_other", obligation_id="coverage_other")
+    payload["coverage_obligations"].append(another_obligation)
+    output = tmp_path / "bounded-diagnostics"
+    completed = invoke_cli(save_input(tmp_path, payload), output)
+    assert completed.returncode == 0, completed.stderr
+    assert {path.name for path in output.iterdir()} == {"measurement.json", "verification.json"}
+    report = json.loads((output / "measurement.json").read_bytes())
+    verification_raw = (output / "verification.json").read_bytes()
+    verification = json.loads(verification_raw)
+    assert_measurement_integrity(report, payload)
+    jsonschema.Draft202012Validator(VERIFICATION_SCHEMA).validate(verification)
+    assert report["verification_refs"] == [{"artifact_id": verification["verification_id"],
+                                            "content_sha256": digest(verification_raw)}]
+    assert {row["target_id"] for row in report["results"]} == {"target_main", "target_other"}
+    assert all(row["assessment_state"] == "UNRESOLVED" for row in report["results"])
+    assert all(row["relation_state"] == "UNDETERMINED" for row in report["results"])
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

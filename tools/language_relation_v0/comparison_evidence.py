@@ -311,7 +311,13 @@ class ComparisonTrust:
         for identifier in sorted(correspondence_ids):
             item = correspondences[identifier]
             check = correspondence_checks.get(identifier)
-            if item["basis"] != "accepted_reference":
+            # _record already binds the exact input/profile/target. A completed
+            # rejection of a required subject survives a weaker submitted basis;
+            # absent or unperformed checks still permit conditional fallback.
+            if check is not None and check["status"] == "completed" and check["result"] == "fail":
+                failures.append(_failure(check, f"correspondence {identifier}"))
+                evidence.append(check["check_id"])
+            elif item["basis"] != "accepted_reference":
                 failures.append(("unresolved", f"correspondence has no accepted-reference premise: {identifier}"))
             elif check is None:
                 failures.append(("unresolved", f"correspondence review is absent: {identifier}"))
@@ -327,7 +333,12 @@ class ComparisonTrust:
         for identifier in sorted(target["required_obligation_ids"]):
             item = obligations[identifier]
             check = coverage_checks.get(identifier)
-            if item["state"] != "fulfilled":
+            # Removing a submitted evidence reference cannot erase the exact
+            # independently configured rejection of this required obligation.
+            if check is not None and check["status"] == "completed" and check["result"] == "fail":
+                failures.append(_failure(check, f"coverage {identifier}"))
+                evidence.append(check["check_id"])
+            elif item["state"] != "fulfilled":
                 failures.append(("unresolved", f"submitted coverage remains incomplete: {identifier}"))
             elif record["verification_id"] not in item["evidence_refs"]:
                 failures.append(("unresolved", f"coverage does not name this independent review: {identifier}"))
