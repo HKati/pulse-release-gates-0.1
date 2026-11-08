@@ -244,6 +244,16 @@ coverage only for the declared case set and profile. Synthetic regressions do
 not establish general natural-language accuracy or a general hallucination
 reduction rate.
 
+The companion [H1 measurement-target and repair case](PULSEMECH_PARADOX_MEASUREMENT_TARGET_AND_REPAIR_CASE_v0.md)
+belongs primarily to Paradoxon Diagram and Transition Meter research. It
+separates the suitability of a measurement target for an operational question
+from the checking of an already selected target. Future reuse in LRM-03 or
+LRM-04 requires an explicit mapping of the case's objects, claims and evidence
+obligations into a supported domain profile. H1 is currently a hand-worked
+specification, not an executable LRM fixture. This reference adds no
+work-package completion prerequisite and changes no preserved v0 grammar,
+schema or A01–A24 acceptance obligation.
+
 ## 7. LRM-01 file boundary
 
 ### New files — 13
