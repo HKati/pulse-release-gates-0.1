@@ -5008,9 +5008,16 @@ def test_wp2i_doc_keeps_original_text_with_a_separate_boundary_notice():
     assert '[WP2H](ANCHOR_INTEGRITY_v0_1_WP2H_DIAGNOSTIC_INTEGRATION.md)' in current
 
 
-def test_wp2i_raw_v0_producer_remains_exactly_preserved():
-    raw = (ROOT / 'scripts/anchor_integrity_adapter_v0.py').read_bytes()
-    assert hashlib.sha256(raw).hexdigest() == '3ceb60e9ca0a5d3a7d142bc91f5f51ca0376f54a37f33c3f359774f25c42f1d0'
+def test_wp2i_raw_v0_producer_remains_historically_preserved_after_wp2j():
+    # WP2J intentionally changes the live producer. Preserve the exact old bytes
+    # in the existing source-bound fixture, not as an active permissive path.
+    fixture = load_json(ROOT / 'tests/fixtures/anchor_integrity_v0_1/adapter_v0_34431ec8.source.json')
+    raw = base64.b64decode(fixture['content_base64'], validate=True)
+    assert fixture['source_commit'] == '34431ec8ebe305a83273ffd39b78f083219f03e6'
+    assert fixture['source_path'] == 'scripts/anchor_integrity_adapter_v0.py'
+    assert len(raw) == fixture['byte_length'] == 11457
+    assert hashlib.sha256(raw).hexdigest() == fixture['content_sha256'] == '3ceb60e9ca0a5d3a7d142bc91f5f51ca0376f54a37f33c3f359774f25c42f1d0'
+    assert hashlib.sha1(b'blob 11457\0' + raw).hexdigest() == fixture['git_blob_sha1'] == '3f4afe26be361fddda153f72dd20803183a85a8e'
 
 
 def test_wp2i_expected_view_reproduces_example_without_evidence_promotion():
@@ -5210,6 +5217,286 @@ def test_wp2i_document_keeps_raw_and_publication_boundaries_explicit():
     for marker in ('raw v0 JSON is unchanged','not a site deployment','not a fresh WP2H run',
                    'same `--in` / `--out`','legacy-v0-proxy-boundary-v1'):
         assert marker in text
+
+
+
+# WP2J: repair the active legacy JSON producer without changing its wire shape.
+WP2J_EXAMPLE = EXAMPLE_DIR / 'wp2j_legacy_producer'
+
+
+def _wp2j_module():
+    import importlib.util
+    path = ROOT / 'scripts/anchor_integrity_adapter_v0.py'
+    spec = importlib.util.spec_from_file_location('anchor_wp2j_producer_test', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _wp2j_boundary(payload):
+    assert payload['schema'] == 'anchor_integrity_v0'
+    assert set(payload) == {'schema', 'meta', 'inputs', 'invariants', 'state', 'recommendation', 'evidence'}
+    for key in ('anchor_presence', 'anchor_coverage', 'loop_risk', 'contradiction_risk'):
+        assert payload['invariants'][key] is None
+    assert payload['state'] == 'UNKNOWN'
+    assert payload['recommendation']['response_mode'] == 'SILENCE'
+    assert payload['recommendation']['gate_action'] == 'CLOSED'
+    assert 'non-enforcing compatibility placeholders' in payload['recommendation']['rationale']
+    assert 'authority_effect=none' in payload['invariants']['notes']
+    assert {'kind':'producer_profile', 'message':'legacy-v0-unmeasured-boundary-v1'} in payload['evidence']
+    assert_valid('anchor_integrity_v0.schema.json', payload)
+
+
+def _wp2j_inputs(tmp_path, status=None, paradox=None):
+    status_path, paradox_path = tmp_path/'status.json', tmp_path/'paradox.json'
+    status_path.write_text(json.dumps(status if status is not None else {'gates':{}}))
+    paradox_path.write_text(json.dumps(paradox if paradox is not None else {'source':'synthetic'}))
+    return status_path, paradox_path
+
+
+def _wp2j_cli(tmp_path, *extra, env_update=None):
+    import os, subprocess, sys
+    env = dict(os.environ)
+    for name in ('SOURCE_DATE_EPOCH', 'GITHUB_SHA', 'GITHUB_RUN_ID'):
+        env.pop(name, None)
+    env.update(env_update or {})
+    return subprocess.run([sys.executable, str(ROOT/'scripts/anchor_integrity_adapter_v0.py'),
+        '--status',str(tmp_path/'status.json'), '--paradox-source',str(tmp_path/'paradox.json'),
+        '--out',str(tmp_path/'out.json'),*map(str,extra)], cwd=tmp_path,
+        env=env, capture_output=True, timeout=15)
+
+
+@pytest.mark.parametrize('bits', range(32))
+def test_wp2j_boolean_signal_combinations_never_grant_evidence_or_reply_permission(tmp_path, bits):
+    m = _wp2j_module()
+    signals = {k:bool(bits & (1<<i)) for i,k in enumerate(m.SIGNAL_IDS)}
+    paths = _wp2j_inputs(tmp_path, {'gates':signals})
+    before = [p.read_bytes() for p in paths]
+    out = m.build_overlay(*paths)
+    _wp2j_boundary(out)
+    assert len([r for r in out['evidence'] if r['kind']=='operational_signal']) == 5
+    assert [p.read_bytes() for p in paths] == before
+
+
+@pytest.mark.parametrize('value', ['PASS','true',1,0,1.0,False,True,None,[],{}, {'passed':True}, {'status':'PASS'}])
+def test_wp2j_only_literal_boolean_signal_notes_are_retained(tmp_path, value):
+    m = _wp2j_module(); paths = _wp2j_inputs(tmp_path, {'gates':{'q1_grounded_ok':value}})
+    out=m.build_overlay(*paths); _wp2j_boundary(out)
+    notes=[x for x in out['evidence'] if x['kind']=='operational_signal']
+    assert len(notes) == int(type(value) is bool)
+    assert out['invariants']['anchor_presence'] is not False
+
+
+@pytest.mark.parametrize('source', [None,{}, {'source':'present'},{'loop_risk':'low'}, {'edges':[]}, {'checked':True}])
+def test_wp2j_paradox_presence_never_becomes_a_cycle_measurement(source):
+    m=_wp2j_module(); risk,notes=m._loop_risk_from_paradox_source(source)
+    assert risk is None
+    if source is not None:
+        assert len(notes)==1 and 'cycle_check_not_run' in notes[0]['message']
+
+
+@pytest.mark.parametrize('values', [(True,1.0,'low'),(False,0,'high'),(None,None,None),
+                                     ('ANCHORED',100,'PASS'),({},[],True)])
+def test_wp2j_compatibility_classifier_cannot_be_used_to_bypass_the_boundary(values):
+    state,mode,gate,reason=_wp2j_module()._classify(*values)
+    assert (state,mode,gate)==('UNKNOWN','SILENCE','CLOSED')
+    assert 'not anchor-loss findings' in reason
+
+
+@pytest.mark.parametrize('raw', [b'',b'null',b'[]',b'true',b'1',b'"text"',b'{',
+ b'{"gates":{},"gates":{"q1_grounded_ok":true}}', b'{"gates":{"x":true,"x":false}}',
+ b'{"x":NaN}',b'{"x":Infinity}',b'{"x":-Infinity}',b'{"x":1e999}', b'\xff',
+ b'{}{}', b'\xef\xbb\xbf{}', b'{"x":'+b'['*1100+b'0'+b']'*1100+b'}'])
+def test_wp2j_bad_input_writes_unknown_without_echoing_content(tmp_path, raw):
+    m=_wp2j_module();p=tmp_path/'status.json';p.write_bytes(raw)
+    out=m.build_overlay(p,None);_wp2j_boundary(out)
+    assert {'kind':'input_diagnostic','message':'status:input_unreadable_or_invalid'} in out['evidence']
+    assert p.read_bytes()==raw
+
+
+@pytest.mark.parametrize('value', [None,True,[],1,'gates'])
+def test_wp2j_non_object_gate_map_is_not_treated_as_a_zero_coverage_measurement(tmp_path,value):
+    m=_wp2j_module();paths=_wp2j_inputs(tmp_path, {'gates':value})
+    out=m.build_overlay(*paths);_wp2j_boundary(out)
+    assert {'kind':'input_diagnostic','message':'status_gates_not_object'} in out['evidence']
+
+
+def test_wp2j_claim_like_fields_and_extra_prose_are_not_adopted(tmp_path):
+    m=_wp2j_module();paths=_wp2j_inputs(tmp_path, {'gates':{k:True for k in m.SIGNAL_IDS},
+        'state':'ANCHORED','anchor_coverage':1.0,'accepted_as_semantic_support':True,
+        'recommendation':{'response_mode':'ANSWER'}, 'evidence':[{'message':'EVIL_PROSE'}]})
+    out=m.build_overlay(*paths);_wp2j_boundary(out)
+    assert 'EVIL_PROSE' not in json.dumps(out)
+    assert 'accepted_as_semantic_support' not in out
+
+
+@pytest.mark.parametrize('kind', ['missing','directory','symlink','fifo','oversize'])
+def test_wp2j_input_read_failures_never_emit_a_measured_result(tmp_path, monkeypatch, kind):
+    import os
+    m=_wp2j_module();p=tmp_path/'input'
+    if kind=='directory':p.mkdir()
+    elif kind=='symlink':
+        q=tmp_path/'real';q.write_bytes(b'{}');p.symlink_to(q)
+    elif kind=='fifo': os.mkfifo(p)
+    elif kind=='oversize':
+        monkeypatch.setattr(m,'MAX_INPUT_BYTES',8);p.write_bytes(b'{"abc":1}')
+    out=m.build_overlay(p,None);_wp2j_boundary(out)
+    assert any(r['kind']=='input_diagnostic' for r in out['evidence'])
+
+
+def test_wp2j_exact_input_byte_limit_is_accepted(tmp_path,monkeypatch):
+    m=_wp2j_module();p=tmp_path/'input';p.write_bytes(b'{}');monkeypatch.setattr(m,'MAX_INPUT_BYTES',2)
+    assert m._read_json(p)=={}
+
+
+def test_wp2j_changed_file_identity_is_rejected(tmp_path,monkeypatch):
+    from types import SimpleNamespace
+    m=_wp2j_module();p=tmp_path/'input';p.write_bytes(b'{}');real=m.os.fstat;calls=[]
+    def changed(fd):
+        s=real(fd);calls.append(fd)
+        if len(calls)==1:return s
+        return SimpleNamespace(st_dev=s.st_dev,st_ino=s.st_ino,st_size=s.st_size,
+                               st_mtime_ns=s.st_mtime_ns+1,st_ctime_ns=s.st_ctime_ns)
+    monkeypatch.setattr(m.os,'fstat',changed)
+    out=m.build_overlay(p,None);_wp2j_boundary(out)
+    assert any(r['message']=='status:input_unreadable_or_invalid' for r in out['evidence'])
+
+
+@pytest.mark.parametrize('value', ['', '0','1794096000',str(2**63-1)])
+def test_wp2j_source_date_epoch_is_explicit_unverified_metadata(monkeypatch,value):
+    m=_wp2j_module();monkeypatch.setenv('SOURCE_DATE_EPOCH',value)
+    assert m._source_epoch()==(int(value) if value else None)
+
+
+@pytest.mark.parametrize('value', ['-1','1.0','true',' 1','1 ','+1','١','１',str(2**63),'9'*100])
+def test_wp2j_invalid_epoch_does_not_overwrite_any_existing_output(tmp_path,value):
+    _wp2j_inputs(tmp_path);target=tmp_path/'out.json';target.write_bytes(b'keep')
+    r=_wp2j_cli(tmp_path,env_update={'SOURCE_DATE_EPOCH':value})
+    assert r.returncode==2 and target.read_bytes()==b'keep'
+
+
+@pytest.mark.parametrize('value', [True,False,-1,1.0,'0',2**63])
+def test_wp2j_api_rejects_invalid_epoch(tmp_path,value):
+    m=_wp2j_module();paths=_wp2j_inputs(tmp_path)
+    with pytest.raises(ValueError):m.build_overlay(*paths,source_date_epoch=value)
+
+
+@pytest.mark.parametrize('alias', ['status','paradox','hardlink-status','hardlink-paradox','symlink-status','symlink-other','hardlink-other','directory'])
+def test_wp2j_output_guards_protect_both_input_roles(tmp_path,alias):
+    import os
+    paths=_wp2j_inputs(tmp_path);before=[p.read_bytes() for p in paths];target=tmp_path/'out.json'
+    other=tmp_path/'other';other.write_bytes(b'other')
+    if alias in ('status','paradox'):output=paths[alias=='paradox']
+    else:
+        output=target
+        if alias.startswith('hardlink'):
+            src=paths[0] if alias.endswith('status') else paths[1] if alias.endswith('paradox') else other
+            os.link(src,target)
+        elif alias.startswith('symlink'):target.symlink_to(paths[0] if alias.endswith('status') else other)
+        else:target.mkdir()
+    r=_wp2j_cli(tmp_path,'--out',output)
+    assert r.returncode==2 and [p.read_bytes() for p in paths]==before and other.read_bytes()==b'other'
+
+
+def test_wp2j_nonexistent_input_alias_is_rejected_before_creation(tmp_path):
+    r=_wp2j_cli(tmp_path,'--out',tmp_path/'status.json')
+    assert r.returncode==2 and not (tmp_path/'status.json').exists()
+
+
+def test_wp2j_success_and_missing_inputs_retain_ci_neutral_cli_behavior(tmp_path):
+    r=_wp2j_cli(tmp_path);assert r.returncode==0
+    _wp2j_boundary(load_json(tmp_path/'out.json'))
+    _wp2j_inputs(tmp_path);before=(tmp_path/'status.json').read_bytes()
+    r=_wp2j_cli(tmp_path);assert r.returncode==0
+    _wp2j_boundary(load_json(tmp_path/'out.json'));assert (tmp_path/'status.json').read_bytes()==before
+
+
+def test_wp2j_cli_defaults_are_preserved(tmp_path):
+    import os,subprocess,sys
+    p=tmp_path/'PULSE_safe_pack_v0/artifacts/status.json';p.parent.mkdir(parents=True);p.write_bytes(b'{"gates":{}}')
+    env=dict(os.environ);env.pop('SOURCE_DATE_EPOCH',None)
+    r=subprocess.run([sys.executable,str(ROOT/'scripts/anchor_integrity_adapter_v0.py')],
+        cwd=tmp_path,capture_output=True,env=env,timeout=15)
+    assert r.returncode==0;_wp2j_boundary(load_json(tmp_path/'anchor_integrity_v0.json'))
+
+
+def test_wp2j_disabled_paradox_source_and_identity_metadata(tmp_path):
+    _wp2j_inputs(tmp_path)
+    r=_wp2j_cli(tmp_path,'--paradox-source','','--run-id','fixed-run','--commit','fixed-commit',
+               env_update={'SOURCE_DATE_EPOCH':'0'})
+    assert r.returncode==0;out=load_json(tmp_path/'out.json');_wp2j_boundary(out)
+    assert out['inputs']['paradox_source_path'] is None and len(out['inputs']['scanned_paths'])==1
+    assert out['meta']['run_id']=='fixed-run' and out['meta']['commit']=='fixed-commit'
+    assert out['meta']['source_date_epoch']==0
+
+
+def test_wp2j_deterministic_example_matches_committed_bytes(tmp_path,monkeypatch):
+    import shutil
+    m=_wp2j_module();shutil.copytree(WP2J_EXAMPLE,tmp_path/'example');monkeypatch.chdir(tmp_path/'example')
+    out=m.build_overlay(Path('status.json'),Path('paradox.json'),'synthetic-wp2j','fixture-not-a-source-commit',0)
+    _wp2j_boundary(out)
+    assert (json.dumps(out,sort_keys=True,indent=2,ensure_ascii=True,allow_nan=False)+'\n').encode()==(WP2J_EXAMPLE/'expected.json').read_bytes()
+    assert out==m.build_overlay(Path('status.json'),Path('paradox.json'),'synthetic-wp2j','fixture-not-a-source-commit',0)
+
+
+def test_wp2j_old_and_new_producers_run_on_identical_synthetic_inputs(tmp_path):
+    import os,subprocess,sys
+    m=_wp2j_module();paths=_wp2j_inputs(tmp_path, {'gates':{k:True for k in m.SIGNAL_IDS}})
+    before=[p.read_bytes() for p in paths]
+    fixture=load_json(ROOT/'tests/fixtures/anchor_integrity_v0_1/adapter_v0_34431ec8.source.json')
+    raw=base64.b64decode(fixture['content_base64'],validate=True)
+    assert hashlib.sha256(raw).hexdigest()=='3ceb60e9ca0a5d3a7d142bc91f5f51ca0376f54a37f33c3f359774f25c42f1d0'
+    old=tmp_path/'archived.py';old.write_bytes(raw)
+    env=dict(os.environ);env.pop('SOURCE_DATE_EPOCH',None)
+    result=subprocess.run([sys.executable,str(old),'--status',str(paths[0]),'--paradox-source',str(paths[1]),
+                            '--out',str(tmp_path/'old.json')],env=env,capture_output=True,timeout=15)
+    assert result.returncode==0
+    original=load_json(tmp_path/'old.json')
+    assert original['invariants']['anchor_coverage']==1.0 and original['invariants']['loop_risk']=='low'
+    assert original['state']=='ANCHORED' and original['recommendation']['response_mode']=='ANSWER'
+    _wp2j_boundary(m.build_overlay(*paths));assert [p.read_bytes() for p in paths]==before
+
+
+def test_wp2j_repaired_output_remains_compatible_with_wp2i_reader(tmp_path):
+    m=_wp2j_module();out=m.build_overlay(*_wp2j_inputs(tmp_path))
+    view=_wp2i_module()._render_md(out,None,Path('out.json'))
+    _wp2i_assert_boundary(view)
+    assert 'Reported value status: `unavailable`' in view
+    assert 'Reported gate-signal proxy: `null`' in view
+
+
+def test_wp2j_runtime_does_not_execute_sources_or_run_evidence_checks():
+    import ast
+    tree=ast.parse((ROOT/'scripts/anchor_integrity_adapter_v0.py').read_text())
+    imports={alias.name for node in ast.walk(tree) if isinstance(node,ast.Import) for alias in node.names}
+    assert imports <= {'argparse','json','math','os','stat','sys'}
+    assert not any(isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and
+                   node.func.id in ('exec','eval','compile','__import__') for node in ast.walk(tree))
+
+
+def test_wp2j_document_separates_shape_compatibility_from_measurement():
+    text=(ROOT/'docs/ANCHOR_INTEGRITY_v0_1_WP2J_LEGACY_PRODUCER_BOUNDARY.md').read_text()
+    for term in ('legacy-v0-unmeasured-boundary-v1','no gate ratio','not a deployment',
+                 'historical fixture','one preservation guard','177','33'):
+        assert term in text
+    for name in ('ci/tools-tests.list','ci/pytest-tests.list'):
+        assert _manifest_entries(ROOT/name).count(TEST_PATH)==1
+
+
+@pytest.mark.parametrize('depth', [1, 32, 63, 64, 65, 1100])
+def test_wp2j_depth_limit_is_explicit_not_interpreter_dependent(tmp_path,depth):
+    m=_wp2j_module();p=tmp_path/'input'
+    p.write_bytes(b'{"x":'+b'['*(depth-1)+b'0'+b']'*(depth-1)+b'}')
+    value,error=m._safe_read_json(p)
+    assert (error is None)==(depth<=m.MAX_JSON_DEPTH)
+    if depth>m.MAX_JSON_DEPTH:assert value is None
+
+
+@pytest.mark.parametrize('text', ['['*1000, '}'*1000, '\\"{[', '\\\\"[', '"[]{}"', 'normal'])
+def test_wp2j_quoted_delimiters_do_not_count_as_containers(tmp_path,text):
+    m=_wp2j_module();p=tmp_path/'input';payload={'x':text}
+    p.write_text(json.dumps(payload))
+    assert m._read_json(p)==payload
 
 
 if __name__ == "__main__":

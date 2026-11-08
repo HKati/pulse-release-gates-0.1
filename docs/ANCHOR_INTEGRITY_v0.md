@@ -1,17 +1,21 @@
 # Anchor Integrity v0 (Hallucination = Anchor Loss)
 
-> **Historical v0 design; not a claim-evidence measurement.** The implemented v0
-> producer derives `anchor_coverage` from heterogeneous gate signals and does
-> not perform the cycle computation needed to justify its `loop_risk` label.
-> Its state and response/gate recommendations do not establish permission to
-> assert, semantic support, execution evidence or release authority.
+> **Historical v0 design; not a claim-evidence measurement.** Before WP2J the
+> producer derived `anchor_coverage` from gate signals and emitted `low` without
+> cycle analysis. The original design body below describes that historical intent,
+> not an implemented permission-to-assert or evidence-measurement guarantee.
 >
-> [WP2I](ANCHOR_INTEGRITY_v0_1_WP2I_LEGACY_READER_BOUNDARY.md) corrects the existing
-> Markdown reader: the numeric field is shown only as a reported operational
-> proxy; unperformed evidence/cycle measurements remain `not_run` / `null`.
-> The original JSON producer and historical design text below remain unchanged.
+> [WP2I](ANCHOR_INTEGRITY_v0_1_WP2I_LEGACY_READER_BOUNDARY.md) corrected the
+> existing Markdown reader. [WP2J](ANCHOR_INTEGRITY_v0_1_WP2J_LEGACY_PRODUCER_BOUNDARY.md)
+> now corrects the default JSON producer: all unmeasured invariants are `null`,
+> gate values remain informational Boolean notes only, and no gate ratio is emitted.
+> The unchanged v0 shape retains `UNKNOWN` / `SILENCE` / `CLOSED` solely as
+> non-enforcing compatibility placeholders, not measured anchor loss or release
+> control. The original producer is preserved in the source-bound WP1 fixture.
+> Existing historical JSON and already-published copies are not rewritten.
+>
 > For fresh evidence-bound diagnostics, use
-> [WP2H](ANCHOR_INTEGRITY_v0_1_WP2H_DIAGNOSTIC_INTEGRATION.md), with its explicit
+> [WP2H](ANCHOR_INTEGRITY_v0_1_WP2H_DIAGNOSTIC_INTEGRATION.md), with explicit
 > selection and evidence inputs. This notice does not deploy or republish a site.
 
 ## Summary
