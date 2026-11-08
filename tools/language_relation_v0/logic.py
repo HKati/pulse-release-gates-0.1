@@ -43,6 +43,34 @@ def _index(rows: Iterable[dict], key: str) -> dict[str, dict]:
     return result
 
 
+def _tuple_key(node: tuple) -> str:
+    """Preserve tuple-repr ordering without recursive tuple traversal.
+
+    Proposition bodies add several tuple layers per counted relation node.
+    A supported finite expression can therefore exceed Python's repr depth.
+    Only scalar leaves use repr; punctuation retains the existing canonical
+    ordering, including singleton tuples and escaped identifiers.
+    """
+    pieces: list[str] = []
+    pending: list[tuple[bool, Any]] = [(False, node)]
+    while pending:
+        literal, value = pending.pop()
+        if literal:
+            pieces.append(value)
+        elif isinstance(value, tuple):
+            pieces.append("(")
+            pending.append((True, ")"))
+            if len(value) == 1:
+                pending.append((True, ","))
+            for index in range(len(value) - 1, -1, -1):
+                pending.append((False, value[index]))
+                if index:
+                    pending.append((True, ", "))
+        else:
+            pieces.append(repr(value))
+    return "".join(pieces)
+
+
 def _combine(operator: str, children: Iterable[tuple]) -> tuple:
     flattened = []
     for child in children:
@@ -55,7 +83,7 @@ def _combine(operator: str, children: Iterable[tuple]) -> tuple:
     if len(flattened) == 1:
         return flattened[0]
     # Multiplicity is retained: these are only the declared AC rewrites.
-    return (operator, tuple(sorted(flattened, key=repr)))
+    return (operator, tuple(sorted(flattened, key=_tuple_key)))
 
 
 def _children(node: tuple) -> tuple:
@@ -370,7 +398,7 @@ class VariantLogic:
                 key, entity_owner = self._entity(owner, identifier)
                 members.append(key)
                 entities.add((entity_owner, identifier))
-            domain = tuple(sorted(members, key=repr))
+            domain = tuple(sorted(members, key=_tuple_key))
             child_environment += (expression["variable"],)
         if operator in ("FORALL", "EXISTS", "CONTEXT"):
             raw_children = [expression["body"]]
@@ -411,8 +439,12 @@ class VariantLogic:
         return _combine("AND", [self.relation(side, identifier) for identifier in sorted(set(identifiers))])
 
     def signature(self, side: str, identifiers: Iterable[str]) -> tuple:
-        """Canonical structural signature, suitable for a family's answer set."""
+        """Canonical structured signature; use signature_key for family sets."""
         return self.roots(side, identifiers)
+
+    def signature_key(self, side: str, identifiers: Iterable[str]) -> str:
+        """Compare family alternatives without recursive equality of tuples."""
+        return _tuple_key(self.signature(side, identifiers))
 
     def _ground(self, node: tuple, environment: tuple = (), budget: list[int] | None = None) -> tuple:
         if budget is None:
@@ -460,7 +492,7 @@ class VariantLogic:
         for node in roots:
             atoms.update(_atoms(node))
         _require(len(atoms) <= _MAX_ATOMS, "expanded_atom_limit", "A Boolean check exceeds the 12-atom bound.")
-        keys = sorted(atoms, key=repr)
+        keys = sorted(atoms, key=_tuple_key)
         for values in product((False, True), repeat=len(keys)):
             configuration = dict(zip(keys, values))
             if _truth(self._ground_constraints, configuration):

@@ -251,8 +251,8 @@ def _variant_comparison(document: dict, profile: dict, target: dict, variant: di
     if not before:
         result["reason"] = "No original relation is selected in this variant; additions are assessed separately."
         return result
-    result["before_signature"] = logic.signature("before", before)
-    result["after_signature"] = logic.signature("after", after)
+    result["before_signature"] = logic.signature_key("before", before)
+    result["after_signature"] = logic.signature_key("after", after)
     if not after:
         # Search the actual processed model, not just the caller's empty target
         # list. A missed selection cannot manufacture a broken relation.

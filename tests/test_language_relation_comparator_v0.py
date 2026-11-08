@@ -1529,6 +1529,51 @@ def test_supported_cumulative_reference_expansions_still_complete(
     assert target["representation_basis"] == "candidate_only"
 
 
+@pytest.mark.parametrize("operator", ("AND", "OR"))
+def test_deep_proposition_composition_preserves_operand_order_independence(tmp_path, operator):
+    payload = nested_relation_chain_payload(252, 0, reference_kind="proposition")
+    root = payload["representations"]["before"]["relations"][0]
+    root["expression"] = {"op": operator, "operands": [root["expression"], atom("before")]}
+    report = measured(tmp_path, payload)
+    target = result_for(report)
+    assert target["relation_state"] == "CHANGED"
+    assert target["assessment_state"] == "IDENTIFIED"
+    assert target["representation_basis"] == "candidate_only"
+    root["expression"]["operands"].reverse()
+    reordered = measured(tmp_path, payload)
+    reordered_target = result_for(reordered)
+    assert {key: value for key, value in reordered_target.items() if key != "verification_ids"} == {
+        key: value for key, value in target.items() if key != "verification_ids"}
+    assert reordered_target["verification_ids"] != target["verification_ids"]
+    assert reordered["witnesses"] == report["witnesses"]
+
+
+def test_deep_duplicate_interpretation_alternatives_remain_comparable(tmp_path):
+    payload = nested_relation_chain_payload(254, 0, reference_kind="proposition")
+    payload["measurement_request"]["targets"][0]["question"] = "interpretation_preservation"
+    variants = payload["interpretations"]["variants"]
+    duplicate = deepcopy(variants[0])
+    duplicate["variant_id"] = "variant_duplicate"
+    variants.append(duplicate)
+    report = measured(tmp_path, payload)
+    target = result_for(report)
+    assert target["relation_state"] == "CHANGED"
+    assert target["assessment_state"] == "IDENTIFIED"
+    assert target["representation_basis"] == "candidate_only"
+    assert target["compatible_variant_ids"] == sorted(row["variant_id"] for row in variants)
+    assert any(row["kind"] == "alternative_loss" for row in report["witnesses"])
+
+
+def test_structural_order_keeps_the_existing_tuple_representation():
+    from tools.language_relation_v0.logic import _tuple_key
+
+    values = [(), ("CONST", True), ("CONST", False), ("VAR", 0),
+              ("singleton",), ("nested", ((), (None,), ("quote'", 'double"', "\\", "\n", "árvíz"))),
+              ("CONTEXT", "quotation", "permission", None, ("CONST", False))]
+    assert [_tuple_key(value) for value in values] == [repr(value) for value in values]
+    assert sorted(values, key=_tuple_key) == sorted(values, key=repr)
+
+
 def test_cli_publishes_all_target_diagnostics_for_oversized_reference_expansion(tmp_path):
     payload = nested_relation_chain_payload(25, 45)
     another_target = deepcopy(payload["measurement_request"]["targets"][0])
