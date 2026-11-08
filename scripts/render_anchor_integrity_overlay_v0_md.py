@@ -1,243 +1,215 @@
 #!/usr/bin/env python3
+"""Render legacy Anchor v0 data without promoting proxies into evidence.
+
+WP2I changes the existing Markdown reader, not the preserved v0 JSON producer.
+The CLI paths and CI-neutral unavailable-input behavior remain compatible.
+This reader does not run WP2H, verify evidence, or decide release authority.
 """
-render_anchor_integrity_overlay_v0_md.py
-
-Render a human-readable Markdown summary for Anchor Integrity v0.
-
-Input:  anchor_integrity_v0.json (diagnostic overlay JSON)
-Output: anchor_integrity_overlay_v0.md (Markdown)
-
-Design goals:
-- deterministic output (stable ordering, no wall-clock timestamps)
-- CI-neutral by default (if input missing, writes a placeholder MD and exits 0)
-- does NOT change any normative gate semantics
-"""
-
 from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+import sys
+from typing import Any
+
+READER_PROFILE = "legacy-v0-proxy-boundary-v1"
+MAX_INPUT_BYTES = 8 * 1024 * 1024
+MAX_LITERAL_CHARS = 256
+DEFAULT_INPUT = "PULSE_safe_pack_v0/artifacts/anchor_integrity_v0.json"
+DEFAULT_OUTPUT = "PULSE_safe_pack_v0/artifacts/anchor_integrity_overlay_v0.md"
 
 
-def _read_json(path: Path) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
-    if not path.exists():
-        return None, f"Input JSON not found: {path}"
+def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate_json_key")
+        result[key] = value
+    return result
+
+
+def _reject_constant(value: str) -> None:
+    raise ValueError("non_finite_json_constant")
+
+
+def _finite_float(value: str) -> float:
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError("non_finite_json_number")
+    return number
+
+
+def _shape_error(value: Any) -> str | None:
+    # A format discriminator, not a full v0 schema validation or authentication.
+    if not isinstance(value, dict):
+        return "legacy_root_is_not_an_object"
+    if value.get("schema") != "anchor_integrity_v0":
+        return "unsupported_legacy_schema"
+    if not isinstance(value.get("invariants"), dict):
+        return "legacy_invariants_are_not_an_object"
+    return None
+
+
+def _read_json(path: Path) -> tuple[dict[str, Any] | None, str | None]:
+    """Bound memory and reject ambiguous JSON; paths are in a trusted local FS."""
     try:
-        return json.loads(path.read_text(encoding="utf-8")), None
-    except Exception as e:
-        return None, f"Failed to parse JSON ({path}): {e}"
+        if not path.is_file():
+            return None, "legacy_input_missing_or_not_a_regular_file"
+        with path.open("rb") as stream:
+            raw = stream.read(MAX_INPUT_BYTES + 1)
+        if len(raw) > MAX_INPUT_BYTES:
+            return None, "legacy_input_size_limit"
+        value = json.loads(raw.decode("utf-8", errors="strict"),
+                           object_pairs_hook=_unique_object,
+                           parse_constant=_reject_constant, parse_float=_finite_float)
+        error = _shape_error(value)
+        return (None, error) if error else (value, None)
+    except (OSError, UnicodeError, ValueError, RecursionError):
+        return None, "legacy_input_unreadable_or_invalid_json"
 
 
-def _as_str(x: Any) -> str:
-    if x is None:
-        return "null"
-    if isinstance(x, bool):
-        return "true" if x else "false"
-    if isinstance(x, (int, float)):
-        return str(x)
-    if isinstance(x, str):
-        return x
-    return str(x)
-
-
-def _fmt_float3(x: Any) -> str:
-    if x is None:
-        return "null"
+def _literal(value: Any) -> str:
+    """A bounded ASCII JSON scalar in one code span, never raw Markdown/HTML."""
+    if value is not None and type(value) not in (str, bool, int, float):
+        value = None
+    if isinstance(value, float) and not math.isfinite(value):
+        value = None
+    if isinstance(value, str) and len(value) > MAX_LITERAL_CHARS:
+        value = value[:MAX_LITERAL_CHARS] + "... [truncated]"
     try:
-        # Reject bool explicitly (bool is subclass of int)
-        if isinstance(x, bool):
-            return "null"
-        v = float(x)
-    except Exception:
-        return "null"
-    return f"{v:.3f}"
+        text = json.dumps(value, ensure_ascii=True, allow_nan=False)
+    except (ValueError, OverflowError):
+        text = "null"
+    if len(text) > 8 * MAX_LITERAL_CHARS:
+        text = '"[oversized metadata omitted]"'
+    for char in "`<>&":
+        text = text.replace(char, "\\u%04x" % ord(char))
+    return "`" + text + "`"
 
 
-def _ensure_parent(p: Path) -> None:
-    p.parent.mkdir(parents=True, exist_ok=True)
+def _reported_proxy(value: Any) -> tuple[str, str]:
+    if value is None:
+        return "unavailable", "null"
+    # No bool, string, percentage scaling, normalization or rounding to 1.0.
+    if type(value) not in (int, float) or not 0 <= value <= 1:
+        return "invalid", "null"
+    if isinstance(value, float) and not math.isfinite(value):
+        return "invalid", "null"
+    return "reported", json.dumps(value, allow_nan=False)
 
 
-def _sorted_evidence(evidence: Any) -> List[Dict[str, str]]:
-    if not isinstance(evidence, list):
-        return []
-    out: List[Dict[str, str]] = []
-    for item in evidence:
-        if not isinstance(item, dict):
-            continue
-        kind = item.get("kind")
-        msg = item.get("message")
-        if isinstance(kind, str) and isinstance(msg, str):
-            out.append({"kind": kind, "message": msg})
-        elif isinstance(msg, str):
-            out.append({"kind": _as_str(kind), "message": msg})
-    out.sort(key=lambda x: (x.get("kind", ""), x.get("message", "")))
-    return out
+def _render_md(data: dict[str, Any] | None, err: str | None, in_path: Path) -> str:
+    error = err or _shape_error(data)
+    available = error is None
+    inv = data["invariants"] if available else {}
+    proxy_status, proxy = _reported_proxy(inv.get("anchor_coverage"))
+    lines = [
+        "# Anchor Integrity — legacy v0 proxy view",
+        "",
+        "> **Legacy operational proxy only — not claim-evidence coverage.**",
+        "> No claim support, measured cycle risk, response permission or release authority is established.",
+        "",
+        "## Reader boundary",
+        "",
+        f"- Reader profile: `{READER_PROFILE}`",
+        "- Accepted input format: `anchor_integrity_v0`; raw JSON is not rewritten.",
+        f"- Input path (caller-supplied): {_literal(in_path.as_posix())}",
+        "- Result: **LEGACY_PROXY_RENDERED**" if available else "- Result: **UNAVAILABLE**",
+        "- Fresh evidence checks executed: `false`",
+        "- Authority effect: `none`",
+        "- Release-authority activation: `false`",
+        "",
+    ]
+    if error:
+        lines += [f"- Input diagnostic: {_literal(error)}", ""]
+    lines += [
+        "## Reported operational proxy",
+        "",
+        f"- Reported value status: `{proxy_status}`",
+        f"- Reported gate-signal proxy: `{proxy}`",
+        "- This value is copied from the legacy numeric field, not recomputed from gates.",
+        "- It is not a count or proportion of evidence-supported claims.",
+        "",
+        "## Evidence measurements",
+        "",
+        "| Measurement | Status | Result |",
+        "|---|---|---|",
+        "| Claim-level anchor presence | not_run | null |",
+        "| Verified binding coverage | not_run | null |",
+        "| Verified support coverage | not_run | null |",
+        "| Typed dependency-cycle detection | not_run | null |",
+        "| Loop risk | not_run | null |",
+        "| Contradiction risk | not_run | null |",
+        "| Independent-anchor classification | not_run | null |",
+        "",
+        "No measured result is inferred from a legacy risk label or Paradox source presence.",
+        "Legacy state, response/gate recommendations, rationale and free-text notes are not adopted or rendered as findings.",
+        "They remain in the original input JSON for historical inspection.",
+        "This reader issues no response recommendation and does not authorize a reply or a release.",
+        "",
+    ]
+    if available:
+        meta = data.get("meta")
+        meta = meta if isinstance(meta, dict) else {}
+        inputs = data.get("inputs")
+        inputs = inputs if isinstance(inputs, dict) else {}
+        lines += ["## Unverified source metadata", ""]
+        for key in ("run_id", "commit", "generator", "source_date_epoch"):
+            lines.append(f"- {key}: {_literal(meta.get(key))}")
+        for key in ("status_path", "paradox_source_path"):
+            lines.append(f"- {key}: {_literal(inputs.get(key))}")
+        lines += ["", "Metadata is displayed as bounded literal text, not authenticated identity.", ""]
+    lines += [
+        "## Evidence-bound diagnostics",
+        "",
+        "Use `tools/build_anchor_integrity_diagnostic_v0_1.py` with an explicitly pinned selection and actual input files.",
+        "See `docs/ANCHOR_INTEGRITY_v0_1_WP2H_DIAGNOSTIC_INTEGRATION.md`.",
+        "This legacy view does not run that pipeline or substitute for its report.",
+        "",
+    ]
+    return "\n".join(lines)
 
 
-def _md_escape_inline(s: str) -> str:
-    # Minimal escaping for inline markdown.
-    return s.replace("\r", " ").replace("\n", " ").strip()
+def _check_output_target(in_path: Path, out_path: Path) -> None:
+    """Do not overwrite the source JSON or follow an output file alias.
 
-
-def _render_md(data: Optional[Dict[str, Any]], err: Optional[str], in_path: Path) -> str:
-    if data is None:
-        # Placeholder, CI-neutral
-        lines = []
-        lines.append("# Anchor Integrity Overlay (v0)")
-        lines.append("")
-        lines.append("> CI-neutral diagnostic layer. This file is a best-effort summary.")
-        lines.append("")
-        lines.append("## Status")
-        lines.append("")
-        lines.append(f"- Input: `{in_path.as_posix()}`")
-        lines.append(f"- Result: **UNAVAILABLE**")
-        lines.append("")
-        lines.append("## Details")
-        lines.append("")
-        lines.append(f"- Error: {_md_escape_inline(err or 'unknown error')}")
-        lines.append("")
-        return "\n".join(lines) + "\n"
-
-    schema = data.get("schema")
-    state = data.get("state") or "UNKNOWN"
-    rec = data.get("recommendation") or {}
-    if not isinstance(rec, dict):
-        rec = {}
-
-    response_mode = rec.get("response_mode") or "SILENCE"
-    gate_action = rec.get("gate_action") or "CLOSED"
-    rationale = rec.get("rationale") or ""
-
-    meta = data.get("meta") or {}
-    if not isinstance(meta, dict):
-        meta = {}
-
-    run_id = meta.get("run_id")
-    commit = meta.get("commit")
-    generator = meta.get("generator")
-    sde = meta.get("source_date_epoch")
-
-    inputs = data.get("inputs") or {}
-    if not isinstance(inputs, dict):
-        inputs = {}
-
-    status_path = inputs.get("status_path")
-    paradox_source_path = inputs.get("paradox_source_path")
-    scanned_paths = inputs.get("scanned_paths")
-    if not isinstance(scanned_paths, list):
-        scanned_paths = []
-
-    inv = data.get("invariants") or {}
-    if not isinstance(inv, dict):
-        inv = {}
-
-    anchor_presence = inv.get("anchor_presence")
-    anchor_coverage = inv.get("anchor_coverage")
-    loop_risk = inv.get("loop_risk")
-    contradiction_risk = inv.get("contradiction_risk")
-    notes = inv.get("notes")
-
-    evidence = _sorted_evidence(data.get("evidence"))
-
-    lines: List[str] = []
-    lines.append("# Anchor Integrity Overlay (v0)")
-    lines.append("")
-    lines.append("> **Hallucination = Anchor Loss.** This overlay does not assert truth; it reports anchor-signal availability and recommends safe response modes.")
-    lines.append("")
-    lines.append("## Summary")
-    lines.append("")
-    lines.append(f"- Schema: `{_as_str(schema)}`")
-    lines.append(f"- State: **{_as_str(state)}**")
-    lines.append(f"- Recommendation:")
-    lines.append(f"  - Response mode: **{_as_str(response_mode)}**")
-    lines.append(f"  - Gate action: **{_as_str(gate_action)}**")
-    if rationale:
-        lines.append(f"- Rationale: {_md_escape_inline(_as_str(rationale))}")
-    else:
-        lines.append("- Rationale: (not provided)")
-    lines.append("")
-
-    lines.append("## Meta")
-    lines.append("")
-    lines.append(f"- run_id: `{_as_str(run_id)}`")
-    lines.append(f"- commit: `{_as_str(commit)}`")
-    lines.append(f"- generator: `{_as_str(generator)}`")
-    lines.append(f"- source_date_epoch: `{_as_str(sde)}`")
-    lines.append("")
-
-    lines.append("## Invariants")
-    lines.append("")
-    lines.append(f"- anchor_presence: `{_as_str(anchor_presence)}`")
-    lines.append(f"- anchor_coverage: `{_fmt_float3(anchor_coverage)}`")
-    lines.append(f"- loop_risk: `{_as_str(loop_risk)}`")
-    lines.append(f"- contradiction_risk: `{_as_str(contradiction_risk)}`")
-    if notes:
-        lines.append(f"- notes: {_md_escape_inline(_as_str(notes))}")
-    else:
-        lines.append("- notes: (none)")
-    lines.append("")
-
-    lines.append("## Inputs")
-    lines.append("")
-    lines.append(f"- status_path: `{_as_str(status_path)}`")
-    lines.append(f"- paradox_source_path: `{_as_str(paradox_source_path)}`")
-    if scanned_paths:
-        lines.append("- scanned_paths:")
-        for p in sorted([str(x) for x in scanned_paths]):
-            lines.append(f"  - `{_md_escape_inline(p)}`")
-    else:
-        lines.append("- scanned_paths: (none)")
-    lines.append("")
-
-    lines.append("## Evidence (deterministic order)")
-    lines.append("")
-    if not evidence:
-        lines.append("- (none)")
-    else:
-        max_items = 60
-        for item in evidence[:max_items]:
-            k = item.get("kind", "note")
-            m = item.get("message", "")
-            lines.append(f"- **{_md_escape_inline(k)}**: {_md_escape_inline(m)}")
-        if len(evidence) > max_items:
-            lines.append(f"- … truncated ({len(evidence) - max_items} more)")
-    lines.append("")
-
-    lines.append("## Operational note")
-    lines.append("")
-    lines.append("- This is a **diagnostic overlay**. It must not modify or reinterpret the main PULSE release-gate semantics.")
-    lines.append("- If the overlay state is `UNKNOWN` or `ANCHOR_LOST`, the preferred response mode is `SILENCE` (stop rather than speculate).")
-    lines.append("")
-
-    return "\n".join(lines) + "\n"
+    The caller controls the local directory. This is not hostile-filesystem or
+    concurrent-writer containment, nor an atomic-publication protocol.
+    """
+    if in_path.resolve() == out_path.resolve():
+        raise ValueError("output_must_not_replace_input")
+    if out_path.is_symlink():
+        raise ValueError("output_symlink_rejected")
+    if out_path.exists():
+        if not out_path.is_file() or out_path.stat().st_nlink != 1:
+            raise ValueError("output_must_be_an_unaliased_regular_file")
+        if in_path.exists() and in_path.samefile(out_path):
+            raise ValueError("output_must_not_alias_input")
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument(
-        "--in",
-        dest="in_path",
-        default="PULSE_safe_pack_v0/artifacts/anchor_integrity_v0.json",
-        help="Input anchor_integrity_v0.json path",
-    )
-    ap.add_argument(
-        "--out",
-        dest="out_path",
-        default="PULSE_safe_pack_v0/artifacts/anchor_integrity_overlay_v0.md",
-        help="Output markdown path",
-    )
-    args = ap.parse_args()
-
-    in_path = Path(args.in_path)
-    out_path = Path(args.out_path)
-
-    data, err = _read_json(in_path)
-    md = _render_md(data, err, in_path)
-
-    _ensure_parent(out_path)
-    out_path.write_text(md, encoding="utf-8")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--in", dest="in_path", default=DEFAULT_INPUT,
+                        help="Legacy anchor_integrity_v0.json input")
+    parser.add_argument("--out", dest="out_path", default=DEFAULT_OUTPUT,
+                        help="Markdown destination; only the reader presentation changes")
+    args = parser.parse_args()
+    in_path, out_path = Path(args.in_path), Path(args.out_path)
+    try:
+        _check_output_target(in_path, out_path)
+        data, error = _read_json(in_path)
+        text = _render_md(data, error, in_path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        # Repeat alias guard immediately before the inherited explicit file write.
+        _check_output_target(in_path, out_path)
+        out_path.write_text(text, encoding="utf-8")
+    except (OSError, ValueError, RuntimeError):
+        print("Cannot write legacy proxy view: unsafe or unavailable output path.", file=sys.stderr)
+        return 2
+    # CI-neutral rendering success, including an explicit UNAVAILABLE placeholder.
+    # This does not represent successful evidence verification.
     return 0
 
 
