@@ -1,5 +1,19 @@
 # Anchor Integrity v0 (Hallucination = Anchor Loss)
 
+> **Historical v0 design; not a claim-evidence measurement.** The implemented v0
+> producer derives `anchor_coverage` from heterogeneous gate signals and does
+> not perform the cycle computation needed to justify its `loop_risk` label.
+> Its state and response/gate recommendations do not establish permission to
+> assert, semantic support, execution evidence or release authority.
+>
+> [WP2I](ANCHOR_INTEGRITY_v0_1_WP2I_LEGACY_READER_BOUNDARY.md) corrects the existing
+> Markdown reader: the numeric field is shown only as a reported operational
+> proxy; unperformed evidence/cycle measurements remain `not_run` / `null`.
+> The original JSON producer and historical design text below remain unchanged.
+> For fresh evidence-bound diagnostics, use
+> [WP2H](ANCHOR_INTEGRITY_v0_1_WP2H_DIAGNOSTIC_INTEGRATION.md), with its explicit
+> selection and evidence inputs. This notice does not deploy or republish a site.
+
 ## Summary
 
 This document defines **Anchor Integrity v0**: a diagnostic contract that treats hallucination as **Anchor Loss** (a loss of valid external anchoring), not as a purely “content quality” defect.

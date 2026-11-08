@@ -294,6 +294,14 @@ and the M1–M3 distinctions between compatibility, applicability and actual
 impact. Each reuse needs a named correspondence; a matching label is
 insufficient.
 
+The companion [H1 measurement-target and repair case](PULSEMECH_PARADOX_MEASUREMENT_TARGET_AND_REPAIR_CASE_v0.md)
+applies selected distinctions from C07, C09 and C10 to one hand-worked case.
+It examines the relevance and discriminating scope of a measurement for an
+explicit operational question, then distinguishes consequence removal from
+a change to the generating rule while preserving useful operation. This manual
+specification contributes to the case family without closing C01–C10 or
+reporting an implemented detector or an experimental result.
+
 A later implementation can provide an independently checkable comparison and
 witness for that selected family. Only after its coverage and limitations are
 reviewed should an actual observation study be specified. An operational
