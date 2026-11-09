@@ -1,0 +1,9 @@
+{
+  "gates": {
+    "external_all_pass": true,
+    "q1_grounded_ok": true,
+    "q2_consistency_ok": true,
+    "q3_fairness_ok": true,
+    "q4_slo_ok": true
+  }
+}
