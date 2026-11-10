@@ -16,6 +16,7 @@ from pathlib import Path
 import re
 import shutil
 import signal
+import ssl
 import stat
 import subprocess
 import sys
@@ -38,16 +39,17 @@ CHECKER='PULSE_safe_pack_v0/tools/check_q3_native_capture_v0.py'
 SOURCE_FILES=('.github/workflows/q3_reference_acquisition_v0.yml', 'PULSE_safe_pack_v0/examples/q2_runtime_preparation_v0/run_37148637546/preparation.json', 'PULSE_safe_pack_v0/examples/q2_runtime_preparation_v0/run_37148637546/q2-runtime-preparation-check.json', 'PULSE_safe_pack_v0/examples/q2_runtime_preparation_v0/run_37148637546/q2_reference_model_files_v0.json', 'PULSE_safe_pack_v0/examples/q2_runtime_preparation_v0/run_37148637546/requirements-q2-reference-v0.lock', 'PULSE_safe_pack_v0/examples/q3_native_capture_v0/COMMON_INSTRUCTIONS.txt', 'PULSE_safe_pack_v0/examples/q3_native_capture_v0/SOURCE_CONTEXT_BINDINGS.json', 'PULSE_safe_pack_v0/examples/q3_native_capture_v0/TASKS_DRAFT.jsonl', 'PULSE_safe_pack_v0/examples/q3_native_capture_v0/TASK_ORDER.json', 'PULSE_safe_pack_v0/profiles/q2_reference_model_files_v0.json', 'PULSE_safe_pack_v0/profiles/q3_native_capture_v0.json', 'PULSE_safe_pack_v0/requirements-q2-reference-v0.lock', 'PULSE_safe_pack_v0/tools/acquire_q3_reference_inputs_v0.py', 'PULSE_safe_pack_v0/tools/check_q3_native_capture_v0.py', 'PULSE_safe_pack_v0/tools/q3_native_capture_contract_v0.py', 'PULSE_safe_pack_v0/tools/q3_native_runtime_v0.py', 'PULSE_safe_pack_v0/tools/run_q3_reference_subject_v0.py', 'docs/compute/PULSEMECH_Q3_ARCHIVED_INPUT_PREPARATION_v0.md', 'docs/compute/PULSEMECH_Q3_REFERENCE_RECOMPUTATION_v0.md', 'schemas/metrics/q3_native_capture_request_v0.schema.json', 'schemas/metrics/q3_native_capture_result_v0.schema.json')
 
 
-# Transport selection is part of this already sealed controller source.  A
-# future activation requires a separately reviewed source change; no workflow
-# input, request URL or ambient environment variable can select another source.
-# The retained original identity is NOT a claim that its expired artifact was
-# freshly downloaded.  No repository part source has been approved or uploaded.
+# Transport selection is part of this already sealed controller source. No
+# workflow input, request URL or ambient environment variable can select a
+# different source. Publication/configuration is not runner retrieval evidence
+# and does not authorize preflight, capture or measurement.
 RUNTIME_TRANSPORT = {
-    'kind': 'github-repository-parts-v0',
-    'repository': 'HKati/pulse-release-gates-0.1',
-    'commit': None,
-    'prefix': None,
+    'kind': 'github-release-assets-v0',
+    'repository': 'HKati/pulsemech-q3-runtime-inputs',
+    'repository_id': 1450778044,
+    'release_id': 438650666,
+    'tag': 'q2-runtime-37148637546-1-v1',
+    'tag_commit': 'd4125baa4bbf7b1b4d2d695a24b1c9bb1fa403b5',
 }
 RUNTIME_SPLIT_MANIFEST_SHA256 = '67eff809f8cf000f82b8365f1fc535ca82ffea167e2834488166915454c87f37'
 _RUNTIME_PARTS_SHA256 = '0f7af070258c3bb6206c240e00cfe5464169666fbaf9fa9540b68c7ee384d341'
@@ -181,6 +183,112 @@ RUNTIME_PARTS = ({'index': 1,
   'offset_end_exclusive': 508460811})
 
 
+
+# Exact public release inventory; the four non-runtime companion/source assets
+# are checked as metadata, not fetched or executed by the acquisition controller.
+_RUNTIME_RELEASE_SOURCE_SHA256 = '16ac2d147f12e0bd4db769b0bf9a9fe717465ab834a0a1cb047ce38aefb9ddac'
+_RUNTIME_RELEASE_ASSETS_SHA256 = '58c9e698caea11381e3bf2c916568cc18b0fe7bdac4cb5de2e3b2f4e81ed00dc'
+RUNTIME_RELEASE_ASSETS = ({'asset_id': 728263266,
+  'filename': 'Q3_RUNTIME_PARTS.json',
+  'size_bytes': 7014,
+  'sha256': '67eff809f8cf000f82b8365f1fc535ca82ffea167e2834488166915454c87f37'},
+ {'asset_id': 728325322,
+  'filename': 'Q3_RUNTIME_SOURCE_NOTICE_COMPANION_v2.zip',
+  'size_bytes': 30532275,
+  'sha256': 'cae9424e62696704db0d543c646f8ebb600d0650bbc260c80cc2207f76a40611'},
+ {'asset_id': 728245570,
+  'filename': 'gcc-4.8.5-44.el7.src.rpm',
+  'size_bytes': 79314655,
+  'sha256': '642c4085f6af9565e39583e54a9d7a5d9e6b93dd8c8e9474aec8a892d6c7aa36'},
+ {'asset_id': 728264607,
+  'filename': 'gcc-8.5.0-26.el8_10.alma.1.src.rpm',
+  'size_bytes': 65714006,
+  'sha256': '0911864c260a75ae030f3144616e7e5e1359e04ce1c9730ab83906486e3bc79f'},
+ {'asset_id': 728284300,
+  'filename': 'gcc-libraries-8.3.1-2.1.1.el7.src.rpm',
+  'size_bytes': 137336608,
+  'sha256': 'cf2a1d2c2e5a56eb2e495c2638e64769b73db07555e1f7ce34cbd9feff6891f5'},
+ {'asset_id': 727868107,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.001',
+  'size_bytes': 25423041,
+  'sha256': 'a99d34615119c69c5ba68054fa5e14e4e37828e8bbf12b569711886b7d373a0e'},
+ {'asset_id': 727895131,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.002',
+  'size_bytes': 25423041,
+  'sha256': '08c8ce6e853524fe0812e97d7c7e8e32c56728eb002be10e1f748f0b335ccec6'},
+ {'asset_id': 727915062,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.003',
+  'size_bytes': 25423041,
+  'sha256': 'bbdd47142671f1022f79d8c51ff1cf7f3ad36af64c35a1c07448a7d14e5be515'},
+ {'asset_id': 727921421,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.004',
+  'size_bytes': 25423041,
+  'sha256': '8b0c3aee20f5492b76598dbcd4e2af984c6295f1955ed2cc8e01d5813cabed12'},
+ {'asset_id': 727947000,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.005',
+  'size_bytes': 25423041,
+  'sha256': '19d689b4283374b6828973b3df216476627d4358a39ddd89c7f981de90d65d44'},
+ {'asset_id': 727962998,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.006',
+  'size_bytes': 25423041,
+  'sha256': '971dd1cf636b68d2f41a3b67eaa176a3be645707b94a904e4c29808d3b9c3012'},
+ {'asset_id': 727981350,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.007',
+  'size_bytes': 25423041,
+  'sha256': '6d6fad777bf3ef9014ade7fdf03c34f53af27140bfd6468d09d1f4ffe96b5617'},
+ {'asset_id': 727986211,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.008',
+  'size_bytes': 25423041,
+  'sha256': '932044ee2b88b02e56cbea68d1c9cefc4abc5338142ed06b1d31c76c84f1affd'},
+ {'asset_id': 728018669,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.009',
+  'size_bytes': 25423041,
+  'sha256': 'ee12b35b15a1efcbdc00ca5eff1db5021f93805ab809356d705d500a4cf06fb7'},
+ {'asset_id': 728024743,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.010',
+  'size_bytes': 25423041,
+  'sha256': '70bbd9d6ffe9b7a71b7f6723946b634d7ecd8001d60aa185915d64268c7d3fbd'},
+ {'asset_id': 728029290,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.011',
+  'size_bytes': 25423041,
+  'sha256': '4b5c14864c885831b9e0e999b2e210a02ea8b6ad3ea15f5b50f7f4ab7e912713'},
+ {'asset_id': 728039446,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.012',
+  'size_bytes': 25423041,
+  'sha256': 'e5b4f8b667f08403c9fa0d1f4a4b49900f9ec3b8f4e6aa5a27db18ec1c3f1371'},
+ {'asset_id': 728044184,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.013',
+  'size_bytes': 25423041,
+  'sha256': 'bc4ae5c262274fe6afba6f3f5e8f4aed9a18d4d9423c210223cd396b4a0858e1'},
+ {'asset_id': 728048948,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.014',
+  'size_bytes': 25423041,
+  'sha256': '52c03baac0181133d6cde5aff69f086062828faa090c09912dba9eb5fd989f11'},
+ {'asset_id': 728055341,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.015',
+  'size_bytes': 25423041,
+  'sha256': 'c773e46bfee0941fb74f618ad3cd53b9b95dc243cedcb11786d265cd9c140f49'},
+ {'asset_id': 728081578,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.016',
+  'size_bytes': 25423041,
+  'sha256': 'fc1cc48947c2dd649ae3b3b2f71f5200511cd23e678633ddb97034f02f32752b'},
+ {'asset_id': 728090048,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.017',
+  'size_bytes': 25423041,
+  'sha256': '157f3263139e31909481cf603caa5bb3e4a17e55cd740831987adc7571893cfc'},
+ {'asset_id': 728105373,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.018',
+  'size_bytes': 25423041,
+  'sha256': 'da2e77f3e606ec22ba22c26d56c111314b5c31134d82981f22c214a823093061'},
+ {'asset_id': 728148443,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.019',
+  'size_bytes': 25423041,
+  'sha256': '146b777c3be81578a6466fd51b48c76345c7749876dc784ce1e6c77efbe0907a'},
+ {'asset_id': 728151616,
+  'filename': 'q2-runtime-preparation-37148637546-1.zip.020',
+  'size_bytes': 25423032,
+  'sha256': '6be9a0f37d32177b4da03be065df9956057b52bed75d57add0b2de7a1bdd7ae8'})
+
 class EntryRejected(ValueError):
     pass
 
@@ -311,6 +419,11 @@ def _validate_runtime_parts(C,parts,archive_identity):
 
 
 def _runtime_source(C,source):
+    if type(source) is dict and source.get('kind')=='github-release-assets-v0':
+        C.fields(source,{'kind','repository','repository_id','release_id','tag','tag_commit'},
+                 'RUNTIME_RELEASE_SOURCE_FIELDS')
+        C.require(C.digest(C.encode(source))==_RUNTIME_RELEASE_SOURCE_SHA256,'RUNTIME_RELEASE_SOURCE_PIN')
+        return dict(source)
     C.fields(source,{'kind','repository','commit','prefix'},'RUNTIME_TRANSPORT_FIELDS')
     C.require(type(source['kind']) is str and source['kind'] in
               ('original-actions-artifact-v0','github-repository-parts-v0')
@@ -340,6 +453,8 @@ def runtime_transport_plan(C,p):
     source=_runtime_source(C,RUNTIME_TRANSPORT)
     if source['kind']=='github-repository-parts-v0':
         for row in RUNTIME_PARTS:C.relative(source['prefix']+'/'+row['filename'])
+    elif source['kind']=='github-release-assets-v0':
+        _runtime_release_assets(C)
     return source
 
 
@@ -347,6 +462,202 @@ def _runtime_timeout(C,end):
     remaining=end-time.monotonic()
     C.require(remaining>0,'RUNTIME_DOWNLOAD_DEADLINE')
     return min(15.0,remaining)
+
+
+def _runtime_release_assets(C):
+    C.require(type(RUNTIME_RELEASE_ASSETS) is tuple and len(RUNTIME_RELEASE_ASSETS)==25
+              and C.digest(C.encode(RUNTIME_RELEASE_ASSETS))==_RUNTIME_RELEASE_ASSETS_SHA256,
+              'RUNTIME_RELEASE_ASSETS_PIN')
+    assets={row['filename']:dict(row) for row in RUNTIME_RELEASE_ASSETS}
+    C.require(len(assets)==25 and len({row['asset_id'] for row in assets.values()})==25,
+              'RUNTIME_RELEASE_ASSET_SET')
+    for part in RUNTIME_PARTS:
+        row=assets[part['filename']]
+        C.require(row['size_bytes']==part['size_bytes'] and row['sha256']==part['sha256'],
+                  'RUNTIME_RELEASE_PART_BINDING')
+    manifest=assets['Q3_RUNTIME_PARTS.json']
+    C.require(manifest['size_bytes']==7014 and manifest['sha256']==RUNTIME_SPLIT_MANIFEST_SHA256,
+              'RUNTIME_RELEASE_MANIFEST_BINDING')
+    return assets
+
+
+def _release_asset_endpoint(source,asset):
+    return ('https://api.github.com/repos/'+source['repository']+'/releases/assets/'+str(asset['asset_id']))
+
+
+def _release_header(C,headers,name):
+    values=headers.get_all(name,[])
+    C.require(len(values)<=1 and all(type(v) is str for v in values),'RUNTIME_RELEASE_HEADERS')
+    return values[0] if values else None
+
+
+def _release_response(C,response,maximum,*,exact_size=None,json_body=False):
+    """Reject ambiguous framing/encoding before any response bytes are consumed."""
+    try:
+        C.require(response.status==200,'RUNTIME_RELEASE_HTTP_STATUS')
+        C.require(_release_header(C,response.headers,'Content-Encoding') in (None,'identity'),
+                  'RUNTIME_RELEASE_CONTENT_ENCODING')
+        length=_release_header(C,response.headers,'Content-Length')
+        transfer=_release_header(C,response.headers,'Transfer-Encoding')
+        C.require(transfer in (None,'chunked') and not (transfer and length),'RUNTIME_RELEASE_FRAMING')
+        if length is not None:
+            C.require(re.fullmatch(r'[0-9]{1,10}',length) is not None
+                      and 0<int(length)<=maximum,'RUNTIME_RELEASE_CONTENT_LENGTH')
+            if exact_size is not None:
+                C.require(int(length)==exact_size,'RUNTIME_RELEASE_CONTENT_LENGTH')
+        if json_body:
+            media=_release_header(C,response.headers,'Content-Type')
+            C.require(media is not None and media.split(';',1)[0].strip().lower()
+                      in ('application/json','application/vnd.github+json'),'RUNTIME_RELEASE_JSON_MEDIA')
+    except BaseException:
+        response.close();raise
+    return response
+
+
+def _public_release_open(C,url,end,*,binary=False):
+    # This public companion needs no token. A fresh opener has no cookies or
+    # auth handler, ignores ambient proxies, and never follows redirects itself.
+    request=urllib.request.Request(url,headers={
+        'Accept':'application/octet-stream' if binary else 'application/vnd.github+json',
+        'Accept-Encoding':'identity','X-GitHub-Api-Version':'2022-11-28','User-Agent':'PULSE-Q3-runtime-v1'})
+    try:
+        return urllib.request.build_opener(urllib.request.ProxyHandler({}),
+            urllib.request.HTTPSHandler(context=ssl.create_default_context()),NoRedirect()).open(
+                request,timeout=_runtime_timeout(C,end))
+    except urllib.error.HTTPError:
+        raise
+    except (urllib.error.URLError,TimeoutError,OSError):
+        raise C.ContractError('RUNTIME_RELEASE_UNAVAILABLE') from None
+
+
+def _release_read_bounded(C,response,maximum,end):
+    read_once=getattr(response,'read1',None)
+    C.require(callable(read_once),'RUNTIME_RELEASE_STREAM_READER')
+    chunks=[];total=0
+    while True:
+        _runtime_timeout(C,end)
+        limit=min(65536,maximum-total+1)
+        chunk=read_once(limit)
+        _runtime_timeout(C,end)
+        C.require(type(chunk) is bytes and len(chunk)<=limit,'RUNTIME_RELEASE_READ')
+        if not chunk:break
+        total+=len(chunk)
+        C.require(total<=maximum,'RUNTIME_RELEASE_BODY_SIZE');chunks.append(chunk)
+    length=_release_header(C,response.headers,'Content-Length')
+    C.require(length is None or total==int(length),'RUNTIME_RELEASE_BODY_SIZE')
+    return b''.join(chunks)
+
+
+def _release_api_json(C,source,suffix,end):
+    # Only the repository, fixed release, and exact tag reference are metadata
+    # routes. No latest lookup, search, caller URL, pagination or fallback.
+    C.require(suffix in ('','/releases/'+str(source['release_id']),'/git/ref/tags/'+source['tag']),
+              'RUNTIME_RELEASE_API_SCOPE')
+    url='https://api.github.com/repos/'+source['repository']+suffix
+    try:response=_public_release_open(C,url,end)
+    except urllib.error.HTTPError as exc:
+        exc.close();raise C.ContractError('RUNTIME_RELEASE_METADATA_HTTP') from None
+    with _release_response(C,response,1024*1024,json_body=True):
+        raw=_release_read_bounded(C,response,1024*1024,end)
+    return C.strict_json(raw,maximum=1024*1024)
+
+
+def _runtime_release_metadata(C,source,end):
+    """Retain a bounded identity projection, not signed URLs or download counts."""
+    source=_runtime_source(C,source);assets=_runtime_release_assets(C)
+    repo=_release_api_json(C,source,'',end)
+    release=_release_api_json(C,source,'/releases/'+str(source['release_id']),end)
+    tag=_release_api_json(C,source,'/git/ref/tags/'+source['tag'],end)
+    C.require(all(type(x) is dict for x in (repo,release,tag)),'RUNTIME_RELEASE_METADATA_SHAPE')
+    obj=tag.get('object');rows=release.get('assets')
+    C.require(type(obj) is dict and type(rows) is list and len(rows)==25,'RUNTIME_RELEASE_METADATA_SHAPE')
+    observed=[];base='https://api.github.com/repos/'+source['repository']
+    for row in rows:
+        C.require(type(row) is dict and type(row.get('name')) is str
+                  and row['name'] in assets,'RUNTIME_RELEASE_ASSET_NAME')
+        fixed=assets[row['name']]
+        C.require(row.get('url')==_release_asset_endpoint(source,fixed)
+                  and row.get('browser_download_url')=='https://github.com/'+source['repository']+
+                  '/releases/download/'+source['tag']+'/'+fixed['filename'],'RUNTIME_RELEASE_ASSET_URL')
+        digest=row.get('digest')
+        C.require(type(digest) is str and digest.startswith('sha256:'),'RUNTIME_RELEASE_ASSET_DIGEST')
+        observed.append({'asset_id':row.get('id'),'filename':row['name'],'size_bytes':row.get('size'),
+                         'sha256':digest[7:],'state':row.get('state')})
+    observed.sort(key=lambda row:row['filename'])
+    value={'repository':{'id':repo.get('id'),'full_name':repo.get('full_name'),'private':repo.get('private')},
+           'release':{'id':release.get('id'),'tag_name':release.get('tag_name'),
+                      'draft':release.get('draft'),'immutable':release.get('immutable')},
+           'tag':{'ref':tag.get('ref'),'object_type':obj.get('type'),'commit':obj.get('sha')},
+           'assets':observed}
+    expected={'repository':{'id':source['repository_id'],'full_name':source['repository'],'private':False},
+              'release':{'id':source['release_id'],'tag_name':source['tag'],'draft':False,'immutable':True},
+              'tag':{'ref':'refs/tags/'+source['tag'],'object_type':'commit','commit':source['tag_commit']},
+              'assets':[{**row,'state':'uploaded'} for row in RUNTIME_RELEASE_ASSETS]}
+    C.require(release.get('url')==base+'/releases/'+str(source['release_id'])
+              and C.encode(value)==C.encode(expected),'RUNTIME_RELEASE_METADATA_MISMATCH')
+    return value
+
+
+def _open_runtime_release_asset(C,source,asset,end):
+    source=_runtime_source(C,source);assets=_runtime_release_assets(C)
+    C.require(type(asset) is dict and asset.get('filename') in assets
+              and C.encode(asset)==C.encode(assets[asset['filename']]),'RUNTIME_RELEASE_ASSET_PIN')
+    endpoint=_release_asset_endpoint(source,asset)
+    try:response=_public_release_open(C,endpoint,end,binary=True)
+    except urllib.error.HTTPError as exc:
+        try:
+            C.require(exc.code==302,'RUNTIME_RELEASE_ASSET_HTTP')
+            location=_release_header(C,exc.headers,'Location')
+            C.require(type(location) is str and 0<len(location)<=16384
+                      and not any(ord(c)<33 or ord(c)==127 for c in location)
+                      and '\\' not in location,'RUNTIME_RELEASE_REDIRECT')
+            u=urllib.parse.urlsplit(location)
+            # GitHub's public Release asset service; the signed query stays in
+            # memory only and is never included in receipts or diagnostics.
+            C.require(u.scheme=='https' and u.netloc in
+                      ('release-assets.githubusercontent.com','release-assets.githubusercontent.com:443')
+                      and not u.fragment and re.fullmatch('/github-production-release-asset/'+
+                      str(source['repository_id'])+r'/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
+                      u.path) is not None,'RUNTIME_RELEASE_REDIRECT')
+        finally:exc.close()
+        try:response=_public_release_open(C,location,end,binary=True)
+        except urllib.error.HTTPError as exc:
+            exc.close();raise C.ContractError('RUNTIME_RELEASE_REDIRECT_CHAIN') from None
+    return _release_response(C,response,asset['size_bytes'],exact_size=asset['size_bytes'])
+
+
+def _runtime_release_manifest(C,source,assets,end):
+    asset=assets['Q3_RUNTIME_PARTS.json']
+    with _open_runtime_release_asset(C,source,asset,end) as response:
+        raw=_release_read_bounded(C,response,asset['size_bytes'],end)
+    C.require(len(raw)==asset['size_bytes'] and C.digest(raw)==asset['sha256'],
+              'RUNTIME_RELEASE_MANIFEST_BYTES')
+    manifest=C.strict_json(raw)
+    C.require(type(manifest) is dict and manifest.get('part_count')==20
+              and manifest.get('split_method')=='contiguous_original_bytes_no_recompression'
+              and C.encode(manifest.get('original'))==C.encode(RUNTIME_ORIGIN)
+              and C.encode(manifest.get('parts'))==C.encode(RUNTIME_PARTS),'RUNTIME_RELEASE_MANIFEST_CONTENT')
+    return {**asset,'endpoint':_release_asset_endpoint(source,asset)}
+
+
+def _download_runtime_release(C,source,target,phase_deadline):
+    end=min(phase_deadline,time.monotonic()+180);assets=_runtime_release_assets(C)
+    before=_runtime_release_metadata(C,source,end)
+    manifest=_runtime_release_manifest(C,source,assets,end)
+    after=[]
+    def recheck():
+        value=_runtime_release_metadata(C,source,end)
+        C.require(C.encode(value)==C.encode(before),'RUNTIME_RELEASE_METADATA_CHANGED')
+        after.append(value)
+    observed=_assemble_runtime_parts(C,RUNTIME_PARTS,_runtime_archive_identity(),target,end,
+        lambda part:_open_runtime_release_asset(C,source,assets[part['filename']],end),after_verify=recheck)
+    parts=[{**row,'asset_id':assets[row['filename']]['asset_id'],
+            'endpoint':_release_asset_endpoint(source,assets[row['filename']])} for row in observed['parts']]
+    return {'record_type':'q3_runtime_transport_v1','transport':source,'origin':dict(RUNTIME_ORIGIN),
+            'split_manifest_sha256':RUNTIME_SPLIT_MANIFEST_SHA256,'manifest_asset':manifest,'parts':parts,
+            'metadata_checks':{'before':before,'after':after[0]},
+            'archive_size_bytes':observed['size_bytes'],'archive_sha256':observed['sha256'],
+            'claims':dict(C.CLAIMS)}
 
 
 def _open_runtime_part(C,token,source,part,end):
@@ -388,7 +699,7 @@ def _open_runtime_part(C,token,source,part,end):
     return response
 
 
-def _assemble_runtime_parts(C,parts,archive_identity,target,end,open_part):
+def _assemble_runtime_parts(C,parts,archive_identity,target,end,open_part,*,after_verify=None):
     """Stream and verify an ordered inventory; never execute archive contents."""
     _validate_runtime_parts(C,parts,archive_identity)
     C.require(time.monotonic()<end,'RUNTIME_DOWNLOAD_DEADLINE')
@@ -425,6 +736,7 @@ def _assemble_runtime_parts(C,parts,archive_identity,target,end,open_part):
             C.require(total==archive_identity['size_bytes'] and archive_sha==archive_identity['sha256'],
                       'RUNTIME_ARCHIVE_MISMATCH')
             output.flush();os.fsync(output.fileno())
+            if after_verify is not None:after_verify()
             C.require(time.monotonic()<end,'RUNTIME_DOWNLOAD_DEADLINE')
         return {'size_bytes':total,'sha256':archive_sha,'parts':observed}
     except BaseException:
@@ -475,6 +787,8 @@ def download_runtime_artifact(C,p,token,target,phase_deadline):
 def download_runtime(C,p,token,target,phase_deadline):
     """Acquire exactly one source selected by the sealed controller, no fallback."""
     source=runtime_transport_plan(C,p)
+    if source['kind']=='github-release-assets-v0':
+        return _download_runtime_release(C,source,target,phase_deadline)
     if source['kind']=='original-actions-artifact-v0':
         observed=download_runtime_artifact(C,p,token,target,phase_deadline)
         manifest_sha=None;parts=[]

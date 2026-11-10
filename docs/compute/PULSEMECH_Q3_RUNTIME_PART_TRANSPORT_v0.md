@@ -5,6 +5,11 @@ Preparation base: `7bb56fc801673ccf31ec92227bda56a4c240b357`
 Status: inactive implementation candidate; hosted retrieval not verified  
 Authority effect: `none`
 
+**Follow-up, 2026-11-10:** The [immutable-release acquisition adapter](PULSEMECH_Q3_RUNTIME_RELEASE_TRANSPORT_v0.md)
+configures the published companion source and extends retrieval evidence and
+independent checking. The dated inactive-candidate description below is retained
+as the 2026-11-03 preparation record; actual-runner retrieval remains unverified.
+
 ## Purpose and present state
 
 The native Q3 controller can acquire the selected runtime through a reviewed

@@ -1172,7 +1172,7 @@ def synthetic_native_capture(source, original_preflight, request, run_id):
 @pytest.fixture(scope='module')
 def handoff_case(historical):
     from test_q3_native_capture_v0 import synthetic_transport_source
-    h=handoff_module();source,_=synthetic_transport_source(current_native_sources())
+    h=handoff_module();source,_=synthetic_transport_source(current_native_sources(),'github-release-assets-v0')
     e,raw=synthetic_bound_preflight(historical,source)
     extra={n:(ROOT/n).read_bytes() for n in h.EXTRA_SOURCES};a,m=h.components(ROOT,extra)
     s=acquisition_selection(a,(e,raw));c=native_mod(ROOT,'q3_native_capture_contract_v0')
@@ -1208,7 +1208,8 @@ def test_historical_replay_does_not_satisfy_current_capture_checker(historical):
         handoff_module().native_contract(source,ROOT,M)
 
 
-@pytest.mark.parametrize('fault',['missing','part_digest','source_commit'])
+@pytest.mark.parametrize('fault',['missing','part_digest','source_commit','release_id','asset_id',
+                                 'metadata_after','manifest_digest','signed_url'])
 def test_external_postflight_rejects_rehashed_transport_forgery(handoff_case,fault):
     """Rehashing every surrounding record cannot make a false receipt valid."""
     f=handoff_case;e=copy.deepcopy(f['s']);raw=dict(f['raw'])
@@ -1224,7 +1225,12 @@ def test_external_postflight_rejects_rehashed_transport_forgery(handoff_case,fau
     else:
         transport=json.loads(data['runtime-transport.json'])
         if fault=='part_digest':transport['parts'][0]['sha256']='0'*64
-        else:transport['binding']['source_commit']='0'*40
+        elif fault=='source_commit':transport['binding']['source_commit']='0'*40
+        elif fault=='release_id':transport['transport']['release_id']+=1
+        elif fault=='asset_id':transport['parts'][0]['asset_id']+=1
+        elif fault=='metadata_after':transport['metadata_checks']['after']['release']['immutable']=False
+        elif fault=='manifest_digest':transport['manifest_asset']['sha256']='0'*64
+        elif fault=='signed_url':transport['parts'][0]['endpoint']+='?secret=synthetic'
         data['runtime-transport.json']=M.encode(transport)
         pre['runtime_transport_sha256']=M.digest(data['runtime-transport.json'])
     data['prelaunch.json']=M.encode(pre);new=M.digest(data['prelaunch.json'])
