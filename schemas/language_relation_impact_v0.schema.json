@@ -1,0 +1,2186 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/language_relation_impact_v0.schema.json",
+  "title": "language_relation_impact_v0",
+  "$comment": "LRM-04 diagnostic detail. Source-bound relation results, finite-model support/condition effects and separately accepted observations retain distinct evidence scopes. No causal conclusion, target-appropriateness assessment, or release authority is granted. All references resolve within this file; frozen LRM-01 contracts remain unchanged.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "language_relation_impact_v0"
+    },
+    "artifact_kind": {
+      "const": "language_relation_impact"
+    },
+    "impact_id": {
+      "$ref": "#/$defs/id"
+    },
+    "input_ref": {
+      "$ref": "#/$defs/artifact_ref"
+    },
+    "profile_ref": {
+      "$ref": "#/$defs/profile_ref"
+    },
+    "evaluator_ref": {
+      "$ref": "#/$defs/tool_ref"
+    },
+    "execution": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "const": "completed"
+        },
+        "reason": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "status",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    "evidence_config_sha256": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/sha256"
+        }
+      ]
+    },
+    "evidence_pins": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidence_pin"
+      },
+      "minItems": 0,
+      "maxItems": 128,
+      "uniqueItems": true
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/impact_target"
+      },
+      "minItems": 0
+    },
+    "joint_conditions": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/joint_conditions"
+        }
+      ]
+    },
+    "status_axes": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/status_axes"
+        },
+        {
+          "properties": {
+            "causal_status": {
+              "const": "not_evaluated"
+            }
+          }
+        }
+      ]
+    },
+    "authority_effect": {
+      "const": "none"
+    },
+    "release_authority_activation": {
+      "const": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "impact_id",
+    "input_ref",
+    "profile_ref",
+    "evaluator_ref",
+    "execution",
+    "evidence_config_sha256",
+    "evidence_pins",
+    "targets",
+    "joint_conditions",
+    "status_axes",
+    "authority_effect",
+    "release_authority_activation"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "artifact_ref": {
+      "type": "object",
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "content_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "profile_ref": {
+      "type": "object",
+      "properties": {
+        "profile_id": {
+          "const": "lrm_finite_reference_profile_v0"
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "profile_id",
+        "content_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "tool_ref": {
+      "type": "object",
+      "properties": {
+        "tool_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "tool_id",
+        "version",
+        "content_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "status_axes": {
+      "type": "object",
+      "properties": {
+        "observation_status": {
+          "enum": [
+            "directly_observed",
+            "partially_observed",
+            "reconstructed",
+            "hypothesized",
+            "not_observed"
+          ]
+        },
+        "binding_status": {
+          "enum": [
+            "bound",
+            "partially_bound",
+            "unbound",
+            "stale",
+            "identity_conflict"
+          ]
+        },
+        "consistency_status": {
+          "enum": [
+            "consistent",
+            "ambiguous",
+            "conflicting",
+            "internally_incomplete"
+          ]
+        },
+        "reproduction_status": {
+          "enum": [
+            "reproduced",
+            "bounded_replay_only",
+            "not_reproduced",
+            "not_tested",
+            "not_reproducible"
+          ]
+        },
+        "causal_status": {
+          "enum": [
+            "not_evaluated",
+            "sequence_only",
+            "correlated",
+            "contributory_supported",
+            "enabling_supported",
+            "sufficiency_supported",
+            "necessity_supported",
+            "exclusive_path_supported",
+            "conflicting",
+            "unresolved"
+          ]
+        },
+        "authority_status": {
+          "const": "none"
+        }
+      },
+      "required": [
+        "observation_status",
+        "binding_status",
+        "consistency_status",
+        "reproduction_status",
+        "causal_status",
+        "authority_status"
+      ],
+      "additionalProperties": false
+    },
+    "instance_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "source_binding": {
+      "type": "object",
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/id"
+        },
+        "role": {
+          "enum": [
+            "before",
+            "after",
+            "context"
+          ]
+        },
+        "language": {
+          "enum": [
+            "hu",
+            "en",
+            "und"
+          ]
+        },
+        "revision": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "source_id",
+        "role",
+        "language",
+        "revision",
+        "content_sha256",
+        "byte_length"
+      ],
+      "additionalProperties": false
+    },
+    "observation_check": {
+      "type": "object",
+      "properties": {
+        "check_id": {
+          "$ref": "#/$defs/id"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "not_run",
+            "error"
+          ]
+        },
+        "result": {
+          "enum": [
+            "pass",
+            "fail",
+            "unresolved",
+            null
+          ]
+        },
+        "reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "method": {
+          "const": "independent_event_observation"
+        }
+      },
+      "required": [
+        "check_id",
+        "status",
+        "result",
+        "reason",
+        "evidence_refs",
+        "method"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "not_run",
+                  "error"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "type": "null"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "pass",
+                  "fail",
+                  "unresolved"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "result": {
+                "enum": [
+                  "fail",
+                  "unresolved"
+                ]
+              }
+            },
+            "required": [
+              "result"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "impact_observation": {
+      "type": "object",
+      "properties": {
+        "schema_version": {
+          "const": "language_relation_impact_observation_v0"
+        },
+        "observation_id": {
+          "$ref": "#/$defs/id"
+        },
+        "input_ref": {
+          "$ref": "#/$defs/artifact_ref"
+        },
+        "profile_ref": {
+          "$ref": "#/$defs/profile_ref"
+        },
+        "target_id": {
+          "$ref": "#/$defs/id"
+        },
+        "reviewed_variant_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "processing_id": {
+          "$ref": "#/$defs/id"
+        },
+        "subject_id": {
+          "$ref": "#/$defs/instance_id"
+        },
+        "run_id": {
+          "$ref": "#/$defs/instance_id"
+        },
+        "event_id": {
+          "$ref": "#/$defs/id"
+        },
+        "before_value": {
+          "type": "boolean"
+        },
+        "after_value": {
+          "type": "boolean"
+        },
+        "source_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source_binding"
+          },
+          "minItems": 2,
+          "uniqueItems": true
+        },
+        "check": {
+          "$ref": "#/$defs/observation_check"
+        }
+      },
+      "required": [
+        "schema_version",
+        "observation_id",
+        "input_ref",
+        "profile_ref",
+        "target_id",
+        "reviewed_variant_ids",
+        "processing_id",
+        "subject_id",
+        "run_id",
+        "event_id",
+        "before_value",
+        "after_value",
+        "source_bindings",
+        "check"
+      ],
+      "additionalProperties": false,
+      "description": "Separately pinned independent before/after event observation. Exact input, profile, target, variants, processing instance, subject/run/event and source-instance bindings are required. The values describe the reviewed event outcome and do not establish causality."
+    },
+    "evidence_pin": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "review",
+            "observation"
+          ]
+        },
+        "artifact_id": {
+          "$ref": "#/$defs/id"
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "kind",
+        "artifact_id",
+        "content_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "support_closure": {
+      "type": "object",
+      "properties": {
+        "grounded_claim_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "unsupported_cycle_claim_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "claim_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+              },
+              "opposes_claim_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+              }
+            },
+            "required": [
+              "claim_id",
+              "opposes_claim_id"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "support_paths": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "claim_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+              },
+              "base_claim_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+                },
+                "minItems": 1,
+                "uniqueItems": true
+              },
+              "rule_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+                },
+                "minItems": 0,
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "claim_id",
+              "base_claim_ids",
+              "rule_ids"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "recomputed_after_withdrawal": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "grounded_claim_ids",
+        "unsupported_cycle_claim_ids",
+        "conflicts",
+        "support_paths",
+        "recomputed_after_withdrawal"
+      ],
+      "additionalProperties": false
+    },
+    "support_transition": {
+      "type": "object",
+      "properties": {
+        "before": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/support_closure"
+            },
+            {
+              "properties": {
+                "recomputed_after_withdrawal": {
+                  "const": false
+                }
+              }
+            }
+          ]
+        },
+        "after": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/support_closure"
+            },
+            {
+              "properties": {
+                "recomputed_after_withdrawal": {
+                  "const": true
+                }
+              }
+            }
+          ]
+        },
+        "withdrawn_claim_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "lost_claim_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "retained_claim_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "before",
+        "after",
+        "withdrawn_claim_ids",
+        "lost_claim_ids",
+        "retained_claim_ids"
+      ],
+      "additionalProperties": false
+    },
+    "conclusion": {
+      "type": "object",
+      "properties": {
+        "conclusion": {
+          "enum": [
+            "changed",
+            "preserved",
+            "unresolved"
+          ]
+        },
+        "reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        }
+      },
+      "required": [
+        "conclusion",
+        "reason"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "conclusion": {
+                "enum": [
+                  "unresolved"
+                ]
+              }
+            },
+            "required": [
+              "conclusion"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "conclusion": {
+                "enum": [
+                  "changed",
+                  "preserved"
+                ]
+              }
+            },
+            "required": [
+              "conclusion"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "valuation_entry": {
+      "type": "object",
+      "properties": {
+        "atom_id": {
+          "$ref": "#/$defs/id"
+        },
+        "value": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "atom_id",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "valuation": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/valuation_entry"
+      },
+      "minItems": 0,
+      "maxItems": 12,
+      "uniqueItems": true
+    },
+    "answer_vector": {
+      "type": "array",
+      "items": {
+        "type": "boolean"
+      },
+      "minItems": 1,
+      "maxItems": 256
+    },
+    "selected_roots": {
+      "type": "object",
+      "properties": {
+        "before_relation_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "after_relation_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "before_relation_ids",
+        "after_relation_ids"
+      ],
+      "additionalProperties": false
+    },
+    "variant_failure": {
+      "type": "object",
+      "properties": {
+        "target_id": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/id"
+            }
+          ]
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "target_id",
+        "code",
+        "detail"
+      ],
+      "additionalProperties": false
+    },
+    "condition_failure": {
+      "type": "object",
+      "properties": {
+        "variant_id": {
+          "$ref": "#/$defs/id"
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "detail": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "variant_id",
+        "code",
+        "detail"
+      ],
+      "additionalProperties": false
+    },
+    "joint_witness": {
+      "type": "object",
+      "properties": {
+        "side": {
+          "enum": [
+            "before",
+            "after"
+          ]
+        },
+        "vector": {
+          "$ref": "#/$defs/answer_vector"
+        },
+        "valuation": {
+          "$ref": "#/$defs/valuation"
+        }
+      },
+      "required": [
+        "side",
+        "vector",
+        "valuation"
+      ],
+      "additionalProperties": false
+    },
+    "condition_variant": {
+      "type": "object",
+      "properties": {
+        "variant_id": {
+          "$ref": "#/$defs/id"
+        },
+        "configuration_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "selected_roots": {
+          "type": "object",
+          "patternProperties": {
+            "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$": {
+              "$ref": "#/$defs/selected_roots"
+            }
+          },
+          "additionalProperties": false
+        },
+        "before_vectors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/answer_vector"
+          },
+          "minItems": 1,
+          "maxItems": 4096,
+          "uniqueItems": true
+        },
+        "after_vectors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/answer_vector"
+          },
+          "minItems": 1,
+          "maxItems": 4096,
+          "uniqueItems": true
+        },
+        "changed_target_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "counterexamples": {
+          "type": "object",
+          "patternProperties": {
+            "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$": {
+              "$ref": "#/$defs/valuation"
+            }
+          },
+          "additionalProperties": false
+        },
+        "joint_witness": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/joint_witness"
+            }
+          ]
+        },
+        "per_target": {
+          "type": "object",
+          "patternProperties": {
+            "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$": {
+              "$ref": "#/$defs/conclusion"
+            }
+          },
+          "additionalProperties": false
+        },
+        "joint_conclusion": {
+          "enum": [
+            "changed",
+            "preserved",
+            "unresolved"
+          ]
+        },
+        "joint_reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "resources": {
+          "type": "object",
+          "properties": {
+            "expanded_boolean_atoms": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 12
+            },
+            "expanded_ast_nodes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 256
+            }
+          },
+          "required": [
+            "expanded_boolean_atoms",
+            "expanded_ast_nodes"
+          ],
+          "additionalProperties": false
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/variant_failure"
+          },
+          "minItems": 0
+        }
+      },
+      "required": [
+        "variant_id",
+        "configuration_count",
+        "selected_roots",
+        "before_vectors",
+        "after_vectors",
+        "changed_target_ids",
+        "counterexamples",
+        "joint_witness",
+        "per_target",
+        "joint_conclusion",
+        "joint_reason",
+        "resources",
+        "failures"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "joint_conclusion": {
+                "enum": [
+                  "changed"
+                ]
+              }
+            },
+            "required": [
+              "joint_conclusion"
+            ]
+          },
+          "then": {
+            "properties": {
+              "joint_witness": {
+                "$ref": "#/$defs/joint_witness"
+              },
+              "joint_reason": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "joint_conclusion": {
+                "enum": [
+                  "preserved"
+                ]
+              }
+            },
+            "required": [
+              "joint_conclusion"
+            ]
+          },
+          "then": {
+            "properties": {
+              "joint_witness": {
+                "type": "null"
+              },
+              "joint_reason": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "joint_conclusion": {
+                "enum": [
+                  "unresolved"
+                ]
+              }
+            },
+            "required": [
+              "joint_conclusion"
+            ]
+          },
+          "then": {
+            "properties": {
+              "joint_witness": {
+                "type": "null"
+              },
+              "joint_reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "condition_limits": {
+      "type": "object",
+      "properties": {
+        "max_targets": {
+          "const": 256
+        },
+        "max_joint_variants": {
+          "const": 64
+        },
+        "max_ast_nodes_per_variant": {
+          "const": 256
+        },
+        "max_expanded_boolean_atoms": {
+          "const": 12
+        },
+        "max_configurations_per_variant": {
+          "const": 4096
+        },
+        "max_target_value_evaluations": {
+          "const": 1048576
+        }
+      },
+      "required": [
+        "max_targets",
+        "max_joint_variants",
+        "max_ast_nodes_per_variant",
+        "max_expanded_boolean_atoms",
+        "max_configurations_per_variant",
+        "max_target_value_evaluations"
+      ],
+      "additionalProperties": false
+    },
+    "condition_group": {
+      "type": "object",
+      "properties": {
+        "target_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "state": {
+          "enum": [
+            "identified",
+            "unresolved",
+            "incompatible"
+          ]
+        },
+        "reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/condition_variant"
+          },
+          "minItems": 0,
+          "maxItems": 64
+        },
+        "per_target": {
+          "type": "object",
+          "patternProperties": {
+            "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$": {
+              "$ref": "#/$defs/conclusion"
+            }
+          },
+          "additionalProperties": false
+        },
+        "joint_conclusion": {
+          "enum": [
+            "changed",
+            "preserved",
+            "unresolved"
+          ]
+        },
+        "joint_reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "family_state": {
+          "enum": [
+            "complete",
+            "truncated",
+            "unknown",
+            "empty"
+          ]
+        },
+        "enumeration_complete": {
+          "type": "boolean"
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/condition_failure"
+          },
+          "minItems": 0,
+          "maxItems": 64
+        },
+        "limits": {
+          "$ref": "#/$defs/condition_limits"
+        },
+        "target_value_evaluations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1049088
+        }
+      },
+      "required": [
+        "target_ids",
+        "state",
+        "reason",
+        "variants",
+        "per_target",
+        "joint_conclusion",
+        "joint_reason",
+        "family_state",
+        "enumeration_complete",
+        "failures",
+        "limits",
+        "target_value_evaluations"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "identified"
+                ]
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "type": "null"
+              },
+              "enumeration_complete": {
+                "const": true
+              },
+              "joint_conclusion": {
+                "enum": [
+                  "changed",
+                  "preserved"
+                ]
+              },
+              "variants": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "unresolved",
+                  "incompatible"
+                ]
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "enumeration_complete": {
+                "enum": [
+                  false
+                ]
+              }
+            },
+            "required": [
+              "enumeration_complete"
+            ]
+          },
+          "then": {
+            "properties": {
+              "joint_conclusion": {
+                "const": "unresolved"
+              },
+              "joint_reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "joint_conclusion": {
+                "enum": [
+                  "unresolved"
+                ]
+              }
+            },
+            "required": [
+              "joint_conclusion"
+            ]
+          },
+          "then": {
+            "properties": {
+              "joint_reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "joint_conclusion": {
+                "enum": [
+                  "changed",
+                  "preserved"
+                ]
+              }
+            },
+            "required": [
+              "joint_conclusion"
+            ]
+          },
+          "then": {
+            "properties": {
+              "joint_reason": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "joint_conditions": {
+      "type": "object",
+      "properties": {
+        "target_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "state": {
+          "enum": [
+            "identified",
+            "unresolved",
+            "incompatible"
+          ]
+        },
+        "reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/condition_variant"
+          },
+          "minItems": 0,
+          "maxItems": 64
+        },
+        "per_target": {
+          "type": "object",
+          "patternProperties": {
+            "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$": {
+              "$ref": "#/$defs/conclusion"
+            }
+          },
+          "additionalProperties": false
+        },
+        "joint_conclusion": {
+          "enum": [
+            "changed",
+            "preserved",
+            "unresolved"
+          ]
+        },
+        "joint_reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "family_state": {
+          "enum": [
+            "complete",
+            "truncated",
+            "unknown",
+            "empty"
+          ]
+        },
+        "enumeration_complete": {
+          "type": "boolean"
+        },
+        "failures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/condition_failure"
+          },
+          "minItems": 0,
+          "maxItems": 64
+        },
+        "limits": {
+          "$ref": "#/$defs/condition_limits"
+        },
+        "target_value_evaluations": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1049088
+        },
+        "representation_basis": {
+          "enum": [
+            "candidate_only",
+            "accepted_reference",
+            "profile_verified"
+          ]
+        },
+        "claim_scope": {
+          "enum": [
+            "candidate_structures",
+            "reference_interpretation",
+            "controlled_source_profile"
+          ]
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "witness_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "target_ids",
+        "state",
+        "reason",
+        "variants",
+        "per_target",
+        "joint_conclusion",
+        "joint_reason",
+        "family_state",
+        "enumeration_complete",
+        "failures",
+        "limits",
+        "target_value_evaluations",
+        "representation_basis",
+        "claim_scope",
+        "evidence_refs",
+        "witness_ids"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "identified"
+                ]
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "type": "null"
+              },
+              "enumeration_complete": {
+                "const": true
+              },
+              "joint_conclusion": {
+                "enum": [
+                  "changed",
+                  "preserved"
+                ]
+              },
+              "variants": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "unresolved",
+                  "incompatible"
+                ]
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "enumeration_complete": {
+                "enum": [
+                  false
+                ]
+              }
+            },
+            "required": [
+              "enumeration_complete"
+            ]
+          },
+          "then": {
+            "properties": {
+              "joint_conclusion": {
+                "const": "unresolved"
+              },
+              "joint_reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "joint_conclusion": {
+                "enum": [
+                  "unresolved"
+                ]
+              }
+            },
+            "required": [
+              "joint_conclusion"
+            ]
+          },
+          "then": {
+            "properties": {
+              "joint_reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "joint_conclusion": {
+                "enum": [
+                  "changed",
+                  "preserved"
+                ]
+              }
+            },
+            "required": [
+              "joint_conclusion"
+            ]
+          },
+          "then": {
+            "properties": {
+              "joint_reason": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "representation_basis": {
+                "enum": [
+                  "candidate_only"
+                ]
+              }
+            },
+            "required": [
+              "representation_basis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "claim_scope": {
+                "const": "candidate_structures"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "representation_basis": {
+                "enum": [
+                  "accepted_reference"
+                ]
+              }
+            },
+            "required": [
+              "representation_basis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "claim_scope": {
+                "const": "reference_interpretation"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "representation_basis": {
+                "enum": [
+                  "profile_verified"
+                ]
+              }
+            },
+            "required": [
+              "representation_basis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "claim_scope": {
+                "const": "controlled_source_profile"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "state": {
+                "enum": [
+                  "identified"
+                ]
+              }
+            },
+            "required": [
+              "state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "witness_ids": {
+                "minItems": 1
+              }
+            }
+          }
+        }
+      ]
+    },
+    "impact_target": {
+      "type": "object",
+      "properties": {
+        "target_id": {
+          "$ref": "#/$defs/id"
+        },
+        "kind": {
+          "enum": [
+            "support",
+            "condition",
+            "observed",
+            "unresolved"
+          ]
+        },
+        "assessment_state": {
+          "enum": [
+            "IDENTIFIED",
+            "UNRESOLVED",
+            "UNBOUND",
+            "INCOMPATIBLE"
+          ]
+        },
+        "representation_basis": {
+          "enum": [
+            "candidate_only",
+            "accepted_reference",
+            "profile_verified"
+          ]
+        },
+        "claim_scope": {
+          "enum": [
+            "candidate_structures",
+            "reference_interpretation",
+            "controlled_source_profile"
+          ]
+        },
+        "conclusion": {
+          "enum": [
+            "changed",
+            "preserved",
+            "unresolved"
+          ]
+        },
+        "reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1
+            }
+          ]
+        },
+        "claim_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "evidence_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "witness_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        },
+        "support": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/support_transition"
+            }
+          ]
+        },
+        "condition": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/condition_group"
+            }
+          ]
+        },
+        "observation": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/impact_observation"
+            }
+          ]
+        },
+        "causal_status": {
+          "const": "not_evaluated"
+        }
+      },
+      "required": [
+        "target_id",
+        "kind",
+        "assessment_state",
+        "representation_basis",
+        "claim_scope",
+        "conclusion",
+        "reason",
+        "claim_ids",
+        "evidence_refs",
+        "witness_ids",
+        "support",
+        "condition",
+        "observation",
+        "causal_status"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "representation_basis": {
+                "enum": [
+                  "candidate_only"
+                ]
+              }
+            },
+            "required": [
+              "representation_basis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "claim_scope": {
+                "const": "candidate_structures"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "representation_basis": {
+                "enum": [
+                  "accepted_reference"
+                ]
+              }
+            },
+            "required": [
+              "representation_basis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "claim_scope": {
+                "const": "reference_interpretation"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "representation_basis": {
+                "enum": [
+                  "profile_verified"
+                ]
+              }
+            },
+            "required": [
+              "representation_basis"
+            ]
+          },
+          "then": {
+            "properties": {
+              "claim_scope": {
+                "const": "controlled_source_profile"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "assessment_state": {
+                "enum": [
+                  "IDENTIFIED"
+                ]
+              }
+            },
+            "required": [
+              "assessment_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "conclusion": {
+                "enum": [
+                  "changed",
+                  "preserved"
+                ]
+              },
+              "witness_ids": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "assessment_state": {
+                "enum": [
+                  "UNRESOLVED",
+                  "UNBOUND",
+                  "INCOMPATIBLE"
+                ]
+              }
+            },
+            "required": [
+              "assessment_state"
+            ]
+          },
+          "then": {
+            "properties": {
+              "conclusion": {
+                "const": "unresolved"
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "assessment_state": {
+                "const": "IDENTIFIED"
+              },
+              "kind": {
+                "enum": [
+                  "support",
+                  "observed"
+                ]
+              }
+            },
+            "required": [
+              "assessment_state",
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "representation_basis": {
+                "enum": [
+                  "accepted_reference",
+                  "profile_verified"
+                ]
+              },
+              "evidence_refs": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "assessment_state": {
+                "const": "IDENTIFIED"
+              },
+              "kind": {
+                "const": "support"
+              }
+            },
+            "required": [
+              "assessment_state",
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "support": {
+                "$ref": "#/$defs/support_transition"
+              },
+              "claim_ids": {
+                "minItems": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "assessment_state": {
+                "const": "IDENTIFIED"
+              },
+              "kind": {
+                "const": "condition"
+              }
+            },
+            "required": [
+              "assessment_state",
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "condition": {
+                "$ref": "#/$defs/condition_group"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "assessment_state": {
+                "const": "IDENTIFIED"
+              },
+              "kind": {
+                "const": "observed"
+              }
+            },
+            "required": [
+              "assessment_state",
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "observation": {
+                "$ref": "#/$defs/impact_observation"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "support"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "condition": {
+                "type": "null"
+              },
+              "observation": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "condition"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "support": {
+                "type": "null"
+              },
+              "observation": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "observed"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "support": {
+                "type": "null"
+              },
+              "condition": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "unresolved"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "assessment_state": {
+                "enum": [
+                  "UNRESOLVED",
+                  "UNBOUND",
+                  "INCOMPATIBLE"
+                ]
+              },
+              "support": {
+                "type": "null"
+              },
+              "condition": {
+                "type": "null"
+              },
+              "observation": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
