@@ -1,0 +1,192 @@
+{
+  "record_type": "q3_runtime_byte_preserving_transport_split_v0",
+  "created_at_utc": "2026-11-03T18:24:43.865651+00:00",
+  "original": {
+    "filename": "q2-runtime-preparation-37148637546-1.zip",
+    "size_bytes": 508460811,
+    "sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9",
+    "original_run_id": "37148637546",
+    "original_run_attempt": 1,
+    "original_artifact_id": 11282419957,
+    "original_source_commit": "77fc5d51896568db50a2a87f650711a65db8fe8c"
+  },
+  "split_method": "contiguous_original_bytes_no_recompression",
+  "part_count": 20,
+  "maximum_part_size_bytes": 25423041,
+  "github_browser_per_file_limit_bytes": 26214400,
+  "github_limit_source": "https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository",
+  "parts": [
+    {
+      "index": 1,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.001",
+      "size_bytes": 25423041,
+      "sha256": "a99d34615119c69c5ba68054fa5e14e4e37828e8bbf12b569711886b7d373a0e",
+      "offset_start": 0,
+      "offset_end_exclusive": 25423041
+    },
+    {
+      "index": 2,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.002",
+      "size_bytes": 25423041,
+      "sha256": "08c8ce6e853524fe0812e97d7c7e8e32c56728eb002be10e1f748f0b335ccec6",
+      "offset_start": 25423041,
+      "offset_end_exclusive": 50846082
+    },
+    {
+      "index": 3,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.003",
+      "size_bytes": 25423041,
+      "sha256": "bbdd47142671f1022f79d8c51ff1cf7f3ad36af64c35a1c07448a7d14e5be515",
+      "offset_start": 50846082,
+      "offset_end_exclusive": 76269123
+    },
+    {
+      "index": 4,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.004",
+      "size_bytes": 25423041,
+      "sha256": "8b0c3aee20f5492b76598dbcd4e2af984c6295f1955ed2cc8e01d5813cabed12",
+      "offset_start": 76269123,
+      "offset_end_exclusive": 101692164
+    },
+    {
+      "index": 5,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.005",
+      "size_bytes": 25423041,
+      "sha256": "19d689b4283374b6828973b3df216476627d4358a39ddd89c7f981de90d65d44",
+      "offset_start": 101692164,
+      "offset_end_exclusive": 127115205
+    },
+    {
+      "index": 6,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.006",
+      "size_bytes": 25423041,
+      "sha256": "971dd1cf636b68d2f41a3b67eaa176a3be645707b94a904e4c29808d3b9c3012",
+      "offset_start": 127115205,
+      "offset_end_exclusive": 152538246
+    },
+    {
+      "index": 7,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.007",
+      "size_bytes": 25423041,
+      "sha256": "6d6fad777bf3ef9014ade7fdf03c34f53af27140bfd6468d09d1f4ffe96b5617",
+      "offset_start": 152538246,
+      "offset_end_exclusive": 177961287
+    },
+    {
+      "index": 8,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.008",
+      "size_bytes": 25423041,
+      "sha256": "932044ee2b88b02e56cbea68d1c9cefc4abc5338142ed06b1d31c76c84f1affd",
+      "offset_start": 177961287,
+      "offset_end_exclusive": 203384328
+    },
+    {
+      "index": 9,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.009",
+      "size_bytes": 25423041,
+      "sha256": "ee12b35b15a1efcbdc00ca5eff1db5021f93805ab809356d705d500a4cf06fb7",
+      "offset_start": 203384328,
+      "offset_end_exclusive": 228807369
+    },
+    {
+      "index": 10,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.010",
+      "size_bytes": 25423041,
+      "sha256": "70bbd9d6ffe9b7a71b7f6723946b634d7ecd8001d60aa185915d64268c7d3fbd",
+      "offset_start": 228807369,
+      "offset_end_exclusive": 254230410
+    },
+    {
+      "index": 11,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.011",
+      "size_bytes": 25423041,
+      "sha256": "4b5c14864c885831b9e0e999b2e210a02ea8b6ad3ea15f5b50f7f4ab7e912713",
+      "offset_start": 254230410,
+      "offset_end_exclusive": 279653451
+    },
+    {
+      "index": 12,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.012",
+      "size_bytes": 25423041,
+      "sha256": "e5b4f8b667f08403c9fa0d1f4a4b49900f9ec3b8f4e6aa5a27db18ec1c3f1371",
+      "offset_start": 279653451,
+      "offset_end_exclusive": 305076492
+    },
+    {
+      "index": 13,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.013",
+      "size_bytes": 25423041,
+      "sha256": "bc4ae5c262274fe6afba6f3f5e8f4aed9a18d4d9423c210223cd396b4a0858e1",
+      "offset_start": 305076492,
+      "offset_end_exclusive": 330499533
+    },
+    {
+      "index": 14,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.014",
+      "size_bytes": 25423041,
+      "sha256": "52c03baac0181133d6cde5aff69f086062828faa090c09912dba9eb5fd989f11",
+      "offset_start": 330499533,
+      "offset_end_exclusive": 355922574
+    },
+    {
+      "index": 15,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.015",
+      "size_bytes": 25423041,
+      "sha256": "c773e46bfee0941fb74f618ad3cd53b9b95dc243cedcb11786d265cd9c140f49",
+      "offset_start": 355922574,
+      "offset_end_exclusive": 381345615
+    },
+    {
+      "index": 16,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.016",
+      "size_bytes": 25423041,
+      "sha256": "fc1cc48947c2dd649ae3b3b2f71f5200511cd23e678633ddb97034f02f32752b",
+      "offset_start": 381345615,
+      "offset_end_exclusive": 406768656
+    },
+    {
+      "index": 17,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.017",
+      "size_bytes": 25423041,
+      "sha256": "157f3263139e31909481cf603caa5bb3e4a17e55cd740831987adc7571893cfc",
+      "offset_start": 406768656,
+      "offset_end_exclusive": 432191697
+    },
+    {
+      "index": 18,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.018",
+      "size_bytes": 25423041,
+      "sha256": "da2e77f3e606ec22ba22c26d56c111314b5c31134d82981f22c214a823093061",
+      "offset_start": 432191697,
+      "offset_end_exclusive": 457614738
+    },
+    {
+      "index": 19,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.019",
+      "size_bytes": 25423041,
+      "sha256": "146b777c3be81578a6466fd51b48c76345c7749876dc784ce1e6c77efbe0907a",
+      "offset_start": 457614738,
+      "offset_end_exclusive": 483037779
+    },
+    {
+      "index": 20,
+      "filename": "q2-runtime-preparation-37148637546-1.zip.020",
+      "size_bytes": 25423032,
+      "sha256": "6be9a0f37d32177b4da03be065df9956057b52bed75d57add0b2de7a1bdd7ae8",
+      "offset_start": 483037779,
+      "offset_end_exclusive": 508460811
+    }
+  ],
+  "verification": {
+    "part_hashes_checked_after_write": true,
+    "ordered_concatenation_size_bytes": 508460811,
+    "ordered_concatenation_sha256": "b3a2b4db54816dd6f40171c221947d942ca63f3e9883f76de8455ad66037f4b9",
+    "matches_original": true,
+    "archive_contents_executed": false,
+    "owner_machine_receipt_verified": false,
+    "windows_reassembly_script_executed_here": false
+  },
+  "repository_upload_performed": false,
+  "public_distribution_clearance": "not_asserted",
+  "authority_effect": "none"
+}

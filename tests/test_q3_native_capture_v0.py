@@ -29,14 +29,15 @@ A=module('acquire_q3_reference_inputs_v0')
 def synthetic_transport_source(source,kind='github-repository-parts-v0'):
     """Bind an explicit TEST descriptor into fabricated source bytes, not ROOT.
 
-    The committed controller deliberately has no active payload commit/path.
-    A positive synthetic carrier must not pretend those inactive bytes acquired
-    a runtime. Only this in-memory fixture copy gets a made-up source endpoint.
+    Legacy route fixtures get a made-up commit/path only in this memory copy.
+    Release fixtures retain the sealed public identity but fabricate every
+    observation; none of these carriers asserts actual provider retrieval.
     """
     source=dict(source)
     configured={'kind':kind,'repository':C.REPOSITORY,
         'commit':'f'*40 if kind=='github-repository-parts-v0' else None,
         'prefix':'synthetic-q3-runtime-parts' if kind=='github-repository-parts-v0' else None}
+    if kind=='github-release-assets-v0':configured=copy.deepcopy(A.RUNTIME_TRANSPORT)
     text=source[A.SELF].decode('utf-8');lines=text.splitlines(keepends=True)
     assignments=[node for node in ast.parse(text).body if isinstance(node,ast.Assign)
         and any(isinstance(target,ast.Name) and target.id=='RUNTIME_TRANSPORT' for target in node.targets)]
@@ -53,13 +54,35 @@ def synthetic_transport_receipt(source,r,configured):
     if configured['kind']=='github-repository-parts-v0':
         parts=[{**copy.deepcopy(row),'path':configured['prefix']+'/'+row['filename']}
                for row in A.RUNTIME_PARTS]
-    return {'record_type':'q3_runtime_transport_v0','transport':dict(configured),
+    value={'record_type':'q3_runtime_transport_v0','transport':dict(configured),
         'origin':copy.deepcopy(A.RUNTIME_ORIGIN),
         'split_manifest_sha256':A.RUNTIME_SPLIT_MANIFEST_SHA256 if parts else None,
         'parts':parts,'archive_size_bytes':K.ARCHIVE_SIZE,'archive_sha256':K.ARCHIVE_SHA,
         'binding':{'request_sha256':C.digest(C.encode(r)),'source_commit':r['source_commit'],
                    'run_id':'12345','run_attempt':1,'controller_sha256':C.digest(source[A.SELF])},
         'claims':dict(C.CLAIMS)}
+    if configured['kind']=='github-release-assets-v0':
+        assets={row['filename']:row for row in A.RUNTIME_RELEASE_ASSETS}
+        endpoint=lambda row:'https://api.github.com/repos/'+configured['repository']+'/releases/assets/'+str(row['asset_id'])
+        metadata=synthetic_release_metadata()
+        manifest=assets['Q3_RUNTIME_PARTS.json']
+        value.update(record_type='q3_runtime_transport_v1',split_manifest_sha256=A.RUNTIME_SPLIT_MANIFEST_SHA256,
+            metadata_checks={'before':metadata,'after':copy.deepcopy(metadata)},
+            manifest_asset={**manifest,'endpoint':endpoint(manifest)},
+            parts=[{**copy.deepcopy(row),'asset_id':assets[row['filename']]['asset_id'],
+                    'endpoint':endpoint(assets[row['filename']])} for row in A.RUNTIME_PARTS])
+    return value
+
+
+def synthetic_release_metadata():
+    """Explicit test observations derived from the published documentation record."""
+    binding=json.loads((ROOT/'docs/compute/q3_runtime_release_binding_v0/RELEASE_BINDING.json').read_bytes())
+    r=binding['release']
+    return {'repository':{'id':r['repository_id'],'full_name':r['repository'],'private':False},
+            'release':{'id':r['release_id'],'tag_name':r['tag'],'draft':False,'immutable':True},
+            'tag':{'ref':'refs/tags/'+r['tag'],'object_type':'commit','commit':r['tag_target_commit']},
+            'assets':[{'asset_id':a['asset_id'],'filename':a['name'],'size_bytes':a['size_bytes'],
+                       'sha256':a['sha256'],'state':'uploaded'} for a in sorted(binding['assets'],key=lambda a:a['name'])]}
 
 
 def sandbox(stage):
@@ -393,13 +416,14 @@ def test_fixed_wheel_plus_filename_is_safe_not_source_path_relaxation():
 @pytest.mark.parametrize('mode,fault',[('token-preflight',None),('capture',None),('capture','decode'),
     ('capture','worker'),('token-preflight','cleanup'),('token-preflight','source'),
     ('token-preflight','transport'),('token-preflight','archive')])
-def test_actual_controller_to_publication_with_explicit_native_doubles(tmp_path,monkeypatch,mode,fault):
+@pytest.mark.parametrize('kind',['github-repository-parts-v0','github-release-assets-v0'])
+def test_actual_controller_to_publication_with_explicit_native_doubles(tmp_path,monkeypatch,mode,fault,kind):
     """Real controller/files/carrier; synthetic host/install/process/token phases.
 
     This checks orchestration, error retention and final independent validation.
     It is explicitly not a native observation or actual model/tokenizer call.
     """
-    source,fixture,r=evidence(mode);raw=C.encode(r);out=tmp_path/'out';out.mkdir()
+    source,fixture,r=evidence(mode,kind);raw=C.encode(r);out=tmp_path/'out';out.mkdir()
     host=tmp_path/'host';host.mkdir();loaded={};actual_path=Path;active=[];acquisition_events=[]
     monkeypatch.setattr(A,'Path',lambda x:host if x=='/var/lib' else actual_path(x))
     monkeypatch.setattr(A,'control_plane',lambda *a:C.strict_json(fixture['control-plane.json']))
@@ -409,16 +433,25 @@ def test_actual_controller_to_publication_with_explicit_native_doubles(tmp_path,
     # claim to be the real runtime or bypass a production entrypoint.
     transport=C.strict_json(fixture['runtime-transport.json'])['transport']
     monkeypatch.setattr(A,'RUNTIME_TRANSPORT',transport)
-    def assembled(contract,parts,identity,target,end,open_part):
+    def assembled(contract,parts,identity,target,end,open_part,*,after_verify=None):
         acquisition_events.append('parts')
         assert parts==A.RUNTIME_PARTS and identity==A._runtime_archive_identity()
         if fault=='transport':raise C.ContractError('SYNTHETIC_TRANSPORT_FAILURE')
         target.write_bytes(b'explicit synthetic archive double')
+        if after_verify is not None:after_verify()
         return {'size_bytes':K.ARCHIVE_SIZE,'sha256':K.ARCHIVE_SHA,
                 'parts':copy.deepcopy(list(A.RUNTIME_PARTS))}
     monkeypatch.setattr(A,'_assemble_runtime_parts',assembled)
     monkeypatch.setattr(A,'download_runtime_artifact',lambda *a,**k:pytest.fail('silent legacy fallback'))
     monkeypatch.setattr(A,'_open_runtime_part',lambda *a,**k:pytest.fail('network from a synthetic carrier'))
+    def metadata(*args):
+        acquisition_events.append('release-metadata');return synthetic_release_metadata()
+    def release_asset(contract,source,asset,end):
+        assert asset['filename']=='Q3_RUNTIME_PARTS.json'
+        acquisition_events.append('manifest')
+        return ShortPartStream((ROOT/'tests/fixtures/q3_runtime_release_v0/Q3_RUNTIME_PARTS.json').read_bytes())
+    monkeypatch.setattr(A,'_runtime_release_metadata',metadata)
+    monkeypatch.setattr(A,'_open_runtime_release_asset',release_asset)
     monkeypatch.setattr(A.shutil,'disk_usage',lambda *a:types.SimpleNamespace(free=10*1024**3))
     original_load=A.load_sealed
     def loader(name,path):
@@ -536,8 +569,13 @@ def test_actual_controller_to_publication_with_explicit_native_doubles(tmp_path,
     rc=A.execute(C,P,r,source,ROOT,raw,{'GITHUB_TOKEN':'synthetic-token-never-sent','GITHUB_RUN_ID':'12345'})
     assert rc==(0 if fault is None else 1)
     receipt=C.strict_json((out/'receipt.json').read_bytes());assert receipt['status']==('complete' if fault is None else 'incomplete')
-    assert acquisition_events==(['parts'] if fault=='transport' else
-        ['parts','archive'] if fault=='archive' else ['parts','archive','installer'])
+    expected_events=['parts']
+    if kind=='github-release-assets-v0':expected_events=['release-metadata','manifest']+expected_events
+    if fault!='transport':
+        if kind=='github-release-assets-v0':expected_events.append('release-metadata')
+        expected_events.append('archive')
+        if fault!='archive':expected_events.append('installer')
+    assert acquisition_events==expected_events
     assert all(s.calls==0 for s in active) if mode=='token-preflight' else all(s.calls==(1 if fault=='worker' else 204) for s in active)
     if fault!='cleanup':assert not list(host.iterdir())
     if fault is None:
@@ -714,8 +752,8 @@ def configured_transport():
             'commit':'f'*40,'prefix':'synthetic-q3-runtime-parts'}
 
 
-def test_shipped_transport_is_unconfigured_and_cannot_acquire(tmp_path,monkeypatch):
-    assert A.RUNTIME_TRANSPORT=={**configured_transport(),'commit':None,'prefix':None}
+def test_inactive_repository_transport_still_cannot_acquire(tmp_path,monkeypatch):
+    monkeypatch.setattr(A,'RUNTIME_TRANSPORT',{**configured_transport(),'commit':None,'prefix':None})
     monkeypatch.setattr(A,'api_bytes',lambda *a,**k:pytest.fail('unconfigured source reached API'))
     monkeypatch.setattr(A.urllib.request,'build_opener',lambda *a,**k:pytest.fail('unconfigured source reached HTTP'))
     path=tmp_path/'runtime.zip'
@@ -841,14 +879,14 @@ def test_raw_redirect_is_single_exact_source_and_never_forwards_token(monkeypatc
         if len(calls)==2:assert 'authorization' not in {k.lower() for k,v in calls[1].header_items()}
 
 
-@pytest.mark.parametrize('kind',['github-repository-parts-v0','original-actions-artifact-v0'])
+@pytest.mark.parametrize('kind',['github-repository-parts-v0','original-actions-artifact-v0','github-release-assets-v0'])
 def test_complete_transport_record_is_source_selected(kind):
     source,data,r=evidence(transport_kind=kind)
     assert K.validate_complete(source,data)['complete'] is True
     receipt=C.strict_json(data['runtime-transport.json'])
     assert receipt['transport']['kind']==kind
     assert receipt['origin']['original_artifact_id']==11282419957
-    assert len(receipt['parts'])==(20 if kind=='github-repository-parts-v0' else 0)
+    assert len(receipt['parts'])==(0 if kind=='original-actions-artifact-v0' else 20)
 
 
 @pytest.mark.parametrize('fault',['missing','extra','kind','commit','prefix','request','source_commit','run_id',
@@ -888,12 +926,308 @@ def test_transport_receipt_coherent_rehash_cannot_hide_wrong_source_or_bytes(fau
         K.validate_runtime_transport(source,data,r,pre)
 
 
-def test_inactive_production_source_cannot_be_promoted_by_fabricated_receipt():
+def test_release_source_cannot_be_promoted_by_fabricated_repository_receipt():
     source,data,r=evidence();source[A.SELF]=(ROOT/A.SELF).read_bytes()
     value=C.strict_json(data['runtime-transport.json'])
     value['binding']['controller_sha256']=C.digest(source[A.SELF])
     data['runtime-transport.json']=C.encode(value)
     pre=C.strict_json(data['prelaunch.json']);pre['runtime_transport_sha256']=C.digest(data['runtime-transport.json'])
     pre['source_files'][A.SELF]=C.digest(source[A.SELF])
-    with pytest.raises(ValueError,match='runtime_transport_unconfigured'):
+    with pytest.raises(ValueError,match='runtime_transport'):
         K.validate_runtime_transport(source,data,r,pre)
+
+
+def release_provider_fixture():
+    """Synthetic API bodies; no provider request is made by any test below."""
+    m=synthetic_release_metadata();s=A.RUNTIME_TRANSPORT
+    base='https://api.github.com/repos/'+s['repository']
+    rows=[{'id':r['asset_id'],'name':r['filename'],'size':r['size_bytes'],
+           'digest':'sha256:'+r['sha256'],'state':r['state'],
+           'url':base+'/releases/assets/'+str(r['asset_id']),
+           'browser_download_url':'https://github.com/'+s['repository']+'/releases/download/'+s['tag']+'/'+r['filename']}
+          for r in m['assets']]
+    return {'':m['repository'],
+            '/releases/'+str(s['release_id']):{**m['release'],'url':base+'/releases/'+str(s['release_id']),
+                                              'assets':list(reversed(rows))},
+            '/git/ref/tags/'+s['tag']:{'ref':m['tag']['ref'],
+                'object':{'type':m['tag']['object_type'],'sha':m['tag']['commit']}}}
+
+
+def test_shipped_release_plan_agrees_with_published_binding_and_independent_pins():
+    source=A.runtime_transport_plan(C,P)
+    assert source=={'kind':'github-release-assets-v0','repository':'HKati/pulsemech-q3-runtime-inputs',
+        'repository_id':1450778044,'release_id':438650666,'tag':'q2-runtime-37148637546-1-v1',
+        'tag_commit':'d4125baa4bbf7b1b4d2d695a24b1c9bb1fa403b5'}
+    assert C.digest(C.encode(source))==K.RUNTIME_RELEASE_SOURCE_SHA256
+    assert C.digest(C.encode(A.RUNTIME_RELEASE_ASSETS))==K.RUNTIME_RELEASE_ASSETS_SHA256
+    actual=[{**r,'state':'uploaded'} for r in A.RUNTIME_RELEASE_ASSETS]
+    assert actual==synthetic_release_metadata()['assets']
+    assert sum(r['size_bytes'] for r in actual)==821365369
+    assert len(A.SOURCE_FILES)==21 and set(A.SOURCE_FILES)==set(P['source_files'])
+
+
+@pytest.mark.parametrize('field,value',[('repository','other/repo'),('repository_id',True),
+    ('release_id',438650667),('tag','latest'),('tag_commit','e'*40),('url','https://unreviewed.invalid')])
+def test_release_source_cannot_be_reselected_by_descriptor(tmp_path,monkeypatch,field,value):
+    source=copy.deepcopy(A.RUNTIME_TRANSPORT);source[field]=value
+    monkeypatch.setattr(A,'RUNTIME_TRANSPORT',source)
+    monkeypatch.setattr(A.urllib.request,'build_opener',lambda *a,**k:pytest.fail('bad source reached HTTP'))
+    with pytest.raises(ValueError,match='RUNTIME_RELEASE_SOURCE'):
+        A.download_runtime(C,P,'never-forward-this-token',tmp_path/'runtime.zip',time.monotonic()+30)
+
+
+@pytest.mark.parametrize('fault',['id','size','hash','name','order','missing','extra'])
+def test_release_inventory_source_pin_rejects_mutation(monkeypatch,fault):
+    rows=copy.deepcopy(list(A.RUNTIME_RELEASE_ASSETS))
+    if fault=='id':rows[0]['asset_id']+=1
+    elif fault=='size':rows[0]['size_bytes']+=1
+    elif fault=='hash':rows[0]['sha256']='0'*64
+    elif fault=='name':rows[0]['filename']='another.json'
+    elif fault=='order':rows.reverse()
+    elif fault=='missing':rows.pop()
+    else:rows[0]['url']='https://unreviewed.invalid'
+    monkeypatch.setattr(A,'RUNTIME_RELEASE_ASSETS',tuple(rows))
+    with pytest.raises(ValueError,match='RUNTIME_RELEASE_ASSETS_PIN'):A.runtime_transport_plan(C,P)
+
+
+def test_release_metadata_reads_only_fixed_public_routes(monkeypatch):
+    source=A.RUNTIME_TRANSPORT;bodies=release_provider_fixture();calls=[];responses=[]
+    monkeypatch.setenv('HTTPS_PROXY','http://unreviewed.invalid:1234')
+    monkeypatch.setenv('GITHUB_TOKEN','must-not-leave-this-process')
+    class Opener:
+        def open(self,req,timeout):
+            calls.append(req);assert 0<timeout<=15
+            suffix=req.full_url.removeprefix('https://api.github.com/repos/'+source['repository'])
+            raw=C.encode(bodies[suffix]);r=ShortPartStream(raw)
+            r.headers['Content-Type']='application/json; charset=utf-8'
+            r.headers['Content-Length']=str(len(raw));responses.append(r);return r
+    def opener(*handlers):
+        assert len(handlers)==3
+        assert isinstance(handlers[0],A.urllib.request.ProxyHandler) and handlers[0].proxies=={}
+        assert isinstance(handlers[1],A.urllib.request.HTTPSHandler)
+        assert handlers[1]._context.verify_mode==A.ssl.CERT_REQUIRED
+        assert handlers[1]._context.check_hostname is True
+        assert isinstance(handlers[2],A.NoRedirect)
+        return Opener()
+    monkeypatch.setattr(A.urllib.request,'build_opener',opener)
+    assert A._runtime_release_metadata(C,source,time.monotonic()+30)==synthetic_release_metadata()
+    assert [r.full_url for r in calls]==['https://api.github.com/repos/'+source['repository']+p for p in bodies]
+    for req in calls:
+        h={k.lower():v for k,v in req.header_items()}
+        assert 'authorization' not in h and 'cookie' not in h
+        assert h['accept']=='application/vnd.github+json' and h['accept-encoding']=='identity'
+    assert all(r.closed and r.read_sizes for r in responses)
+
+
+@pytest.mark.parametrize('fault',['repo_id','repo_name','private','release_id','release_bool','tag_name','draft',
+    'mutable','tag_ref','tag_type','tag_commit','missing','duplicate','extra','asset_id','asset_bool','name','size',
+    'digest','state','asset_url','download_url','release_url'])
+def test_release_metadata_rejects_wrong_or_incomplete_identity(monkeypatch,fault):
+    bodies=release_provider_fixture();source=A.RUNTIME_TRANSPORT
+    repo=bodies[''];release=bodies['/releases/'+str(source['release_id'])]
+    tag=bodies['/git/ref/tags/'+source['tag']];row=release['assets'][0]
+    if fault=='repo_id':repo['id']+=1
+    elif fault=='repo_name':repo['full_name']='other/repo'
+    elif fault=='private':repo['private']=True
+    elif fault=='release_id':release['id']+=1
+    elif fault=='release_bool':release['id']=True
+    elif fault=='tag_name':release['tag_name']='another-tag'
+    elif fault=='draft':release['draft']=True
+    elif fault=='mutable':release['immutable']=False
+    elif fault=='tag_ref':tag['ref']='refs/heads/main'
+    elif fault=='tag_type':tag['object']['type']='tag'
+    elif fault=='tag_commit':tag['object']['sha']='e'*40
+    elif fault=='missing':release['assets'].pop()
+    elif fault=='duplicate':release['assets'][1]=copy.deepcopy(row)
+    elif fault=='extra':release['assets'].append(copy.deepcopy(row))
+    elif fault=='asset_id':row['id']+=1
+    elif fault=='asset_bool':row['id']=True
+    elif fault=='name':row['name']='another-file'
+    elif fault=='size':row['size']+=1
+    elif fault=='digest':row['digest']='sha256:'+'0'*64
+    elif fault=='state':row['state']='starter'
+    elif fault=='asset_url':row['url']='https://unreviewed.invalid/binary'
+    elif fault=='download_url':row['browser_download_url']=row['browser_download_url'].replace(source['tag'],'latest')
+    else:release['url']='https://api.github.com/repos/other/repo/releases/'+str(source['release_id'])
+    monkeypatch.setattr(A,'_release_api_json',lambda c,s,suffix,end:bodies[suffix])
+    with pytest.raises(ValueError,match='RUNTIME_RELEASE_'):
+        A._runtime_release_metadata(C,source,time.monotonic()+30)
+
+
+@pytest.mark.parametrize('fault',['redirect','status','encoding','double_encoding','double_length','length',
+    'transfer_length','media','oversize','short','duplicate_json','expired','no_read1'])
+def test_release_metadata_reader_rejects_unsafe_http_or_body(monkeypatch,fault):
+    body=b'{"id":1}'
+    if fault=='oversize':body=b' '*1048577
+    elif fault=='duplicate_json':body=b'{"id":1,"id":2}'
+    response=ShortPartStream(body);response.headers['Content-Type']='application/json'
+    if fault=='status':response.status=206
+    elif fault=='encoding':response.headers['Content-Encoding']='gzip'
+    elif fault=='double_encoding':
+        response.headers['Content-Encoding']='identity';response.headers['Content-Encoding']='identity'
+    elif fault=='double_length':
+        response.headers['Content-Length']='8';response.headers['Content-Length']='8'
+    elif fault=='length':response.headers['Content-Length']='1048577'
+    elif fault=='transfer_length':
+        response.headers['Content-Length']='8';response.headers['Transfer-Encoding']='chunked'
+    elif fault=='media':response.headers.replace_header('Content-Type','text/html')
+    elif fault=='short':response.headers['Content-Length']='10'
+    elif fault=='no_read1':response.read1=None
+    class Opener:
+        def open(self,req,timeout):
+            if fault=='redirect':
+                raise A.urllib.error.HTTPError(req.full_url,302,'synthetic',Message(),io.BytesIO())
+            return response
+    monkeypatch.setattr(A.urllib.request,'build_opener',lambda *a,**k:Opener())
+    end=time.monotonic()+(-1 if fault=='expired' else 30)
+    with pytest.raises(ValueError):A._release_api_json(C,A.RUNTIME_TRANSPORT,'',end)
+    if fault not in ('redirect','expired'):assert response.closed
+
+
+@pytest.mark.parametrize('fault',[None,'direct','foreign_host','wrong_repository','wrong_path','userinfo',
+    'http','fragment','controls','duplicate_location','second_redirect','wrong_status','wrong_length','gzip'])
+def test_release_asset_reader_has_one_credential_free_redirect(monkeypatch,fault):
+    source=A.RUNTIME_TRANSPORT;asset=A.RUNTIME_RELEASE_ASSETS[0];calls=[];errors=[]
+    url='https://release-assets.githubusercontent.com/github-production-release-asset/1450778044/00000000-1111-2222-3333-444444444444?sig=synthetic'
+    if fault=='foreign_host':url=url.replace('release-assets.githubusercontent.com','unreviewed.invalid')
+    elif fault=='wrong_repository':url=url.replace('1450778044','1450778045')
+    elif fault=='wrong_path':url=url.replace('/github-production-release-asset/','/arbitrary/')
+    elif fault=='userinfo':url=url.replace('https://','https://user:password@')
+    elif fault=='http':url=url.replace('https:','http:')
+    elif fault=='fragment':url+='#other'
+    elif fault=='controls':url+='\n'
+    response=ShortPartStream(b'synthetic')
+    response.headers['Content-Length']=str(asset['size_bytes']+(1 if fault=='wrong_length' else 0))
+    if fault=='gzip':response.headers['Content-Encoding']='gzip'
+    class Opener:
+        def open(self,req,timeout):
+            calls.append(req)
+            if fault!='direct' and (len(calls)==1 or fault=='second_redirect'):
+                h=Message();h['Location']=url
+                if fault=='duplicate_location':h['Location']=url
+                error=A.urllib.error.HTTPError(req.full_url,307 if fault=='wrong_status' else 302,'synthetic',h,io.BytesIO())
+                errors.append(error);raise error
+            return response
+    monkeypatch.setattr(A.urllib.request,'build_opener',lambda *a,**k:Opener())
+    if fault in (None,'direct'):
+        assert A._open_runtime_release_asset(C,source,asset,time.monotonic()+30) is response
+        assert len(calls)==(1 if fault=='direct' else 2);response.close()
+    else:
+        with pytest.raises(ValueError):A._open_runtime_release_asset(C,source,asset,time.monotonic()+30)
+        assert len(calls)==(2 if fault in ('second_redirect','wrong_length','gzip') else 1)
+    assert all(e.closed for e in errors)
+    assert calls[0].full_url.endswith('/releases/assets/'+str(asset['asset_id']))
+    for req in calls:
+        headers={k.lower():v for k,v in req.header_items()}
+        assert headers['accept']=='application/octet-stream' and headers['accept-encoding']=='identity'
+        assert 'authorization' not in headers and 'cookie' not in headers
+
+
+@pytest.mark.parametrize('fault',[None,'changed','truncated','extra'])
+def test_release_manifest_verifies_real_pinned_fixture_without_network(monkeypatch,fault):
+    raw=(ROOT/'tests/fixtures/q3_runtime_release_v0/Q3_RUNTIME_PARTS.json').read_bytes()
+    assert len(raw)==7014 and C.digest(raw)==A.RUNTIME_SPLIT_MANIFEST_SHA256
+    if fault=='changed':raw=raw.replace(b'508460811',b'508460812',1)
+    elif fault=='truncated':raw=raw[:-1]
+    elif fault=='extra':raw+=b'\n'
+    stream=ShortPartStream(raw)
+    monkeypatch.setattr(A,'_open_runtime_release_asset',lambda *args:stream)
+    assets=A._runtime_release_assets(C)
+    if fault is None:
+        record=A._runtime_release_manifest(C,A.RUNTIME_TRANSPORT,assets,time.monotonic()+30)
+        assert record['asset_id']==728263266 and record['size_bytes']==7014
+        assert record['endpoint'].endswith('/releases/assets/728263266')
+    else:
+        with pytest.raises(ValueError):A._runtime_release_manifest(C,A.RUNTIME_TRANSPORT,assets,time.monotonic()+30)
+    assert stream.closed
+
+
+@pytest.mark.parametrize('fault',[None,'before','manifest','part','after','after_timeout'])
+def test_release_dispatcher_orders_reads_and_cleans_failed_assembly(tmp_path,monkeypatch,fault):
+    """Actual private assembler/dispatcher with explicit tiny transport doubles."""
+    parts,identity,blocks=tiny_transport_parts();events=[];responses=[]
+    assets={p['filename']:{k:p[k] for k in ('filename','size_bytes','sha256')} for p in parts}
+    for i,row in enumerate(assets.values(),1):row['asset_id']=i
+    monkeypatch.setattr(A,'RUNTIME_PARTS',parts)
+    monkeypatch.setattr(A,'_runtime_archive_identity',lambda:identity)
+    monkeypatch.setattr(A,'_runtime_release_assets',lambda c:assets)
+    def metadata(*args):
+        stage='before' if not events else 'after';events.append(stage)
+        if fault==stage:raise C.ContractError('SYNTHETIC_METADATA_FAILURE')
+        if fault=='after_timeout' and stage=='after':
+            monkeypatch.setattr(A.time,'monotonic',lambda:end+1)
+        return {'test_only':'fixed-metadata'}
+    def manifest(*args):
+        events.append('manifest')
+        if fault=='manifest':raise C.ContractError('SYNTHETIC_MANIFEST_FAILURE')
+        return {'test_only':'manifest'}
+    def opened(c,s,row,deadline):
+        events.append(row['asset_id']);raw=blocks[row['asset_id']-1]
+        if fault=='part' and row['asset_id']==5:raw+=b'changed'
+        stream=ShortPartStream(raw);responses.append(stream);return stream
+    monkeypatch.setattr(A,'_runtime_release_metadata',metadata)
+    monkeypatch.setattr(A,'_runtime_release_manifest',manifest)
+    monkeypatch.setattr(A,'_open_runtime_release_asset',opened)
+    monkeypatch.setattr(A,'download_runtime_artifact',lambda *a,**k:pytest.fail('fallback'))
+    target=tmp_path/'runtime.zip';end=time.monotonic()+30
+    if fault is None:
+        receipt=A._download_runtime_release(C,A.RUNTIME_TRANSPORT,target,end)
+        assert target.read_bytes()==b''.join(blocks)
+        assert receipt['archive_sha256']==C.digest(target.read_bytes())
+        assert [r['asset_id'] for r in receipt['parts']]==list(range(1,21))
+        assert receipt['metadata_checks']['before']==receipt['metadata_checks']['after']
+        assert events==['before','manifest',*range(1,21),'after']
+        assert all('?sig=' not in r['endpoint'] for r in receipt['parts'])
+    else:
+        with pytest.raises(ValueError):A._download_runtime_release(C,A.RUNTIME_TRANSPORT,target,end)
+        assert not target.exists()
+        if fault=='before':assert events==['before']
+        elif fault=='manifest':assert events==['before','manifest']
+        elif fault=='part':assert events==['before','manifest',*range(1,6)]
+        else:assert events==['before','manifest',*range(1,21),'after']
+    assert all(r.closed for r in responses)
+
+
+@pytest.mark.parametrize('fault',['asset_id','manifest_id','manifest_hash','manifest_size','metadata_missing',
+    'metadata_before','metadata_after','metadata_asset','metadata_duplicate','endpoint','release_id','bool_id',
+    'tag','origin','archive','authority'])
+def test_release_receipt_coherent_rehash_still_rejects_substitution(fault):
+    source,data,r=evidence(transport_kind='github-release-assets-v0')
+    value=C.strict_json(data['runtime-transport.json']);pre=C.strict_json(data['prelaunch.json'])
+    if fault=='asset_id':value['parts'][0]['asset_id']+=1
+    elif fault=='manifest_id':value['manifest_asset']['asset_id']+=1
+    elif fault=='manifest_hash':value['manifest_asset']['sha256']='0'*64
+    elif fault=='manifest_size':value['manifest_asset']['size_bytes']+=1
+    elif fault=='metadata_missing':del value['metadata_checks']['after']
+    elif fault=='metadata_before':value['metadata_checks']['before']['release']['immutable']=False
+    elif fault=='metadata_after':value['metadata_checks']['after']['tag']['commit']='0'*40
+    elif fault=='metadata_asset':value['metadata_checks']['after']['assets'][0]['state']='starter'
+    elif fault=='metadata_duplicate':
+        value['metadata_checks']['after']['assets'][1]=copy.deepcopy(value['metadata_checks']['after']['assets'][0])
+    elif fault=='endpoint':value['parts'][0]['endpoint']+='?signed=synthetic'
+    elif fault=='release_id':value['transport']['release_id']+=1
+    elif fault=='bool_id':value['transport']['release_id']=True
+    elif fault=='tag':value['transport']['tag']='latest'
+    elif fault=='origin':value['origin']['original_artifact_id']+=1
+    elif fault=='archive':value['archive_sha256']='0'*64
+    else:value['claims']['authority_effect']='allow'
+    data['runtime-transport.json']=C.encode(value);pre['runtime_transport_sha256']=C.digest(data['runtime-transport.json'])
+    with pytest.raises(ValueError,match='runtime_transport'):K.validate_runtime_transport(source,data,r,pre)
+
+
+@pytest.mark.parametrize('name,fault',[('RUNTIME_TRANSPORT','release_id'),('RUNTIME_TRANSPORT','tag_commit'),
+    ('RUNTIME_RELEASE_ASSETS','asset_id'),('RUNTIME_RELEASE_ASSETS','sha256'),('RUNTIME_RELEASE_ASSETS','duplicate')])
+def test_independent_checker_does_not_trust_changed_release_literals(name,fault):
+    source={n:(ROOT/n).read_bytes() for n in P['source_files']}
+    raw=source[A.SELF].decode();lines=raw.splitlines(keepends=True)
+    node=next(n for n in ast.parse(raw).body if isinstance(n,ast.Assign)
+              and any(isinstance(t,ast.Name) and t.id==name for t in n.targets))
+    value=ast.literal_eval(node.value)
+    if name=='RUNTIME_TRANSPORT':value[fault]=438650667 if fault=='release_id' else 'e'*40
+    else:
+        rows=list(value)
+        if fault=='duplicate':rows[1]=copy.deepcopy(rows[0])
+        else:rows[0][fault]=1 if fault=='asset_id' else '0'*64
+        value=tuple(rows)
+    source[A.SELF]=(''.join(lines[:node.lineno-1])+name+' = '+repr(value)+'\n'+''.join(lines[node.end_lineno:])).encode()
+    with pytest.raises(ValueError,match='runtime_transport_release'):K.runtime_transport_source(source)

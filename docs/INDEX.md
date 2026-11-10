@@ -93,13 +93,15 @@ snapshot.
   final reviewed source and separate acceptance remain required.
 - Q3 original runtime custody and transport:
   [Owner-local custody](compute/q3_runtime_local_custody_v0/README.md) and
-  [twenty-part runtime transport](compute/PULSEMECH_Q3_RUNTIME_PART_TRANSPORT_v0.md)
-  **Recorded storage decision and inactive transport implementation.** The selected
+  [earlier part transport candidate](compute/PULSEMECH_Q3_RUNTIME_PART_TRANSPORT_v0.md),
+  followed by the [immutable-release acquisition adapter](compute/PULSEMECH_Q3_RUNTIME_RELEASE_TRANSPORT_v0.md).
+  **Source-bound adapter; actual-runner retrieval remains unverified.** The selected
   original 508,460,811-byte archive retains its identity. Owner-local storage
   replaces the earlier LFS proposal for this object; LFS and paid storage are not
   authorized, and verification of the saved owner-machine copy is not observed.
-  The transport's payload commit and prefix remain unset:
-  `RUNTIME_TRANSPORT_UNCONFIGURED`; actual hosted retrieval is not verified.
+  The controller now selects the fixed published release and asset IDs, verifies
+  the manifest and twenty fragments, and records before/after metadata checks.
+  Publication and synthetic tests do not authorize preflight or capture.
   This does not close the custody obligations for the other Q2 archives.
 - Offline Q3 archived-input preparation:
   [Selected-original package preparation](compute/PULSEMECH_Q3_ARCHIVED_INPUT_PREPARATION_v0.md)

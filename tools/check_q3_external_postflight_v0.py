@@ -38,10 +38,14 @@ PROFILE = PACK + 'profiles/q3_native_capture_v0.json'
 PROFILE_SHA256 = '31680dc2a8b2a8d367239893e6a7abbc6587f8e6f3c6cff9f580f00425e9c16b'
 REVIEWED_CHECKERS = {
     'q3_native_capture_contract_v0.py': '1648bd22e8a0a65c0cf254739a02a0cd44b567a845434891641e6e82cad6e960',
-    'check_q3_native_capture_v0.py': 'a235086aa7d9099c7f918d6f8fe482cc8115f6f662ff88602ada912adda2273d',
+    'check_q3_native_capture_v0.py': '9029e95005e5fdbb1490f0fe579820cad6f9ec5540f6914c6ce2d97959dfd3ce',
 }
 # Retain exact historical replay without granting compatibility with a new
 # capture. Handoff requires the current REVIEWED_CHECKERS pair independently.
+PART_TRANSPORT_REVIEWED_CHECKERS = {
+    'q3_native_capture_contract_v0.py': '1648bd22e8a0a65c0cf254739a02a0cd44b567a845434891641e6e82cad6e960',
+    'check_q3_native_capture_v0.py': 'a235086aa7d9099c7f918d6f8fe482cc8115f6f662ff88602ada912adda2273d',
+}
 HISTORICAL_REVIEWED_CHECKERS = {
     'q3_native_capture_contract_v0.py': '1648bd22e8a0a65c0cf254739a02a0cd44b567a845434891641e6e82cad6e960',
     'check_q3_native_capture_v0.py': '9f4ef119555b96ec52dc7d13deb6e7d507b7b360df179b3b35f11ddfb01e6a6e',
@@ -346,7 +350,7 @@ def inspect_log(raw: bytes, e: dict, startup: dict) -> dict:
 def reviewed_checker_pins(source: dict[str, bytes]) -> dict[str, str]:
     """Select one complete reviewed pair, never mix versions or trust a claim."""
     observed = {name: digest(source[PACK + 'tools/' + name]) for name in REVIEWED_CHECKERS}
-    require(observed == REVIEWED_CHECKERS or observed == HISTORICAL_REVIEWED_CHECKERS,
+    require(observed in (REVIEWED_CHECKERS, PART_TRANSPORT_REVIEWED_CHECKERS, HISTORICAL_REVIEWED_CHECKERS),
             'UNREVIEWED_NATIVE_CHECKER')
     return observed
 

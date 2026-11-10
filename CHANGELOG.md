@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Configure the [Q3 immutable-release runtime adapter](docs/compute/PULSEMECH_Q3_RUNTIME_RELEASE_TRANSPORT_v0.md)
+  for the fixed published companion. Check repository/release/tag and all 25
+  asset identities, retrieve the pinned manifest and twenty fragments without
+  credentials, and verify original bytes before the existing archive/installation
+  boundary. Retain bounded streaming, metadata rechecks and source-bound receipts;
+  update independent checking and its pin chain while preserving exact historical
+  replay. Add offline transport and coherent-forgery regressions. Actual-runner
+  retrieval, preflight, capture and Q3 measurement remain separate pending work;
+  no execution or release authority is granted, and #2879 remains open.
+
 - Add optional [LRM-04 persistence and impact measurement](docs/PULSEMECH_LANGUAGE_RELATION_IMPACT_v0.md):
   recompute independently admitted grounded support after base-evidence withdrawal,
   retain conjunctive premises and alternative proof routes, and diagnose unsupported
