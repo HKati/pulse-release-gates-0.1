@@ -21,6 +21,8 @@ boundary.
 
 **[Q2 native worker and offline verification](#q2-native-worker-and-offline-verification)**
 
+**[Q3 runtime input companion and immutable release](#q3-runtime-input-companion)**
+
 ## From AI output to an enforceable release decision
 
 A model can propose a change. Release permission comes from verified evidence.
@@ -584,6 +586,35 @@ production, active-gate and same-run release-authority eligibility remain false.
 
 [Native and offline verification checkpoint — fixed documentation snapshot](https://github.com/HKati/pulse-release-gates-0.1/blob/94b441021500361cac97a2c4814d69f344e89915/docs/compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#16-recorded-q2-2q2-3-native-worker-and-offline-verification-checkpoint) ·
 [Reviewed native platform contract](docs/compute/PULSEMECH_Q2_NATIVE_PLATFORM_v1.md)
+
+### Q3 runtime input companion
+
+The preserved runtime input for PULSEmech Q3 is published in the
+[PULSEmech Q3 runtime input companion repository](https://github.com/HKati/pulsemech-q3-runtime-inputs).
+It is a supporting input archive for this project.
+
+The fixed [immutable release `q2-runtime-37148637546-1-v1`](https://github.com/HKati/pulsemech-q3-runtime-inputs/releases/tag/q2-runtime-37148637546-1-v1)
+contains the twenty unchanged runtime fragments, the split manifest, the English
+source/notice companion and three source RPMs: **25 uploaded assets,
+821,365,369 bytes**. The original runtime archive is reconstructed from its
+twenty fragments.
+
+[Published release record](docs/compute/q3_runtime_release_binding_v0/README.md) ·
+[Machine-readable release and asset identities](docs/compute/q3_runtime_release_binding_v0/RELEASE_BINDING.json)
+
+At the 2026-11-09 publication checkpoint, all 25 asset names, exact sizes and
+GitHub-reported SHA-256 digests matched the preserved reference inventory.
+The record fixes release ID `438650666`, the tag target commit and every
+asset ID, name, size and digest.
+
+The acquisition controller at this documentation base remains unconfigured.
+Publication and this reference do not establish retrieval from the actual
+runner or authorize preflight, capture, model execution or Q3 measurement.
+`runtime_transport_ready=false`,
+`actual_runner_retrieval_verified=false`,
+`label_correctness=not_verified`, `authority_effect=none`;
+[#2879](https://github.com/HKati/pulse-release-gates-0.1/issues/2879)
+remains the open main-project work item.
 
 ### Device Ledger bounded mechanical proof
 
