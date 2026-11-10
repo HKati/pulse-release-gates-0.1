@@ -44,6 +44,22 @@ moves between merged and open work, update this index.
 
 ## Start here
 
+### Q3 runtime input companion — publication checkpoint 2026-11-09
+
+[Published runtime input release record](compute/q3_runtime_release_binding_v0/README.md) ·
+[Machine-readable release and asset identities](compute/q3_runtime_release_binding_v0/RELEASE_BINDING.json) ·
+[Immutable companion release](https://github.com/HKati/pulsemech-q3-runtime-inputs/releases/tag/q2-runtime-37148637546-1-v1)
+
+**Reader / audit surface; published external input companion.** The release
+contains the selected original runtime in twenty unchanged fragments plus five
+companion assets. The metadata comparison covers all 25 names, exact sizes and
+GitHub-reported SHA-256 digests. It records the release ID, tag target commit and
+asset identities. The main-repository acquisition controller remains
+unconfigured; actual-runner retrieval, preflight and capture acceptance remain
+separate. `authority_effect=none`; #2879 remains open.
+
+### Earlier navigation checkpoint — 2026-11-04
+
 The Q3, Anchor, LRM and W1 navigation entries below were checked on 2026-11-04
 against repository snapshot `1f6ad0961ec4dc576916248681651254996b6ea5`.
 Linked preparation and historical records retain their original scope and source
