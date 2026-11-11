@@ -1,0 +1,283 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "record_type": {
+      "const": "q3_native_capture_request_v1"
+    },
+    "mode": {
+      "enum": [
+        "token-preflight",
+        "capture"
+      ]
+    },
+    "repository": {
+      "const": "HKati/pulse-release-gates-0.1"
+    },
+    "source_commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "profile_sha256": {
+      "const": "9140a74472328d4bac49da1258575cbe200e0ded3b930212e03ec44243ac86af"
+    },
+    "task_file_sha256": {
+      "const": "9f249d858818eb6396c79669bf3f6daf1108c1948d072891dcc6ce778982c0c9"
+    },
+    "authorization": {
+      "type": "string"
+    },
+    "approved_token_map_sha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "acquisition_phase_seconds": {
+          "type": "integer",
+          "const": 14400
+        },
+        "actions_retention_days": {
+          "type": "integer",
+          "const": 30
+        },
+        "aggregate_max_attempts": {
+          "type": "integer",
+          "const": 204
+        },
+        "artifact_publication_allowance_seconds": {
+          "type": "integer",
+          "const": 600
+        },
+        "automatic_retries": {
+          "type": "integer",
+          "const": 0
+        },
+        "context_window_contract": {
+          "type": "integer",
+          "const": 8192
+        },
+        "cpu_quota_percent": {
+          "type": "integer",
+          "const": 100
+        },
+        "external_per_call_watchdog_seconds": {
+          "type": "integer",
+          "const": 65
+        },
+        "max_attempts": {
+          "type": "integer",
+          "const": 203
+        },
+        "max_attempts_per_task": {
+          "type": "integer",
+          "const": 1
+        },
+        "max_evidence_carrier_uncompressed_bytes": {
+          "type": "integer",
+          "const": 268435456
+        },
+        "max_logical_request_utf8_bytes": {
+          "type": "integer",
+          "const": 16384
+        },
+        "max_new_tokens": {
+          "type": "integer",
+          "const": 256
+        },
+        "max_prompt_tokens": {
+          "type": "integer",
+          "const": 7936
+        },
+        "max_raw_frame_bytes": {
+          "type": "integer",
+          "const": 1048576
+        },
+        "max_response_utf8_bytes": {
+          "type": "integer",
+          "const": 16384
+        },
+        "memory_bytes": {
+          "type": "integer",
+          "const": 4294967296
+        },
+        "per_response_generation_deadline_seconds": {
+          "type": "integer",
+          "const": 60
+        },
+        "post_capture_independent_verification_seconds": {
+          "type": "integer",
+          "const": 300
+        },
+        "single_cleanup_grace_seconds": {
+          "type": "integer",
+          "const": 180
+        },
+        "warmup_or_diagnostic_generation_calls": {
+          "type": "integer",
+          "const": 0
+        },
+        "worker_tasks_max": {
+          "type": "integer",
+          "const": 64
+        },
+        "workflow_timeout_minutes": {
+          "type": "integer",
+          "const": 270
+        }
+      },
+      "required": [
+        "acquisition_phase_seconds",
+        "actions_retention_days",
+        "aggregate_max_attempts",
+        "artifact_publication_allowance_seconds",
+        "automatic_retries",
+        "context_window_contract",
+        "cpu_quota_percent",
+        "external_per_call_watchdog_seconds",
+        "max_attempts",
+        "max_attempts_per_task",
+        "max_evidence_carrier_uncompressed_bytes",
+        "max_logical_request_utf8_bytes",
+        "max_new_tokens",
+        "max_prompt_tokens",
+        "max_raw_frame_bytes",
+        "max_response_utf8_bytes",
+        "memory_bytes",
+        "per_response_generation_deadline_seconds",
+        "post_capture_independent_verification_seconds",
+        "single_cleanup_grace_seconds",
+        "warmup_or_diagnostic_generation_calls",
+        "worker_tasks_max",
+        "workflow_timeout_minutes"
+      ]
+    },
+    "claims": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "current_run_evidence": {
+          "const": false
+        },
+        "policy_activation": {
+          "const": false
+        },
+        "source_authentication": {
+          "const": "not_established"
+        },
+        "label_correctness": {
+          "const": "not_verified"
+        },
+        "slice_metadata_correctness": {
+          "const": "not_verified"
+        },
+        "metric_evaluated": {
+          "const": false
+        }
+      },
+      "required": [
+        "authority_effect",
+        "production_gate_eligible",
+        "current_run_evidence",
+        "policy_activation",
+        "source_authentication",
+        "label_correctness",
+        "slice_metadata_correctness",
+        "metric_evaluated"
+      ]
+    },
+    "new_spend_authorized": {
+      "const": 0
+    },
+    "amendment_sha256": {
+      "const": "22daec9e549970c818a90be5f11c3fed9edf5fe25adeb1ac2f65cec28453f22a"
+    },
+    "historical_verification_sha256": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "required": [
+    "record_type",
+    "mode",
+    "repository",
+    "source_commit",
+    "profile_sha256",
+    "task_file_sha256",
+    "authorization",
+    "approved_token_map_sha256",
+    "limits",
+    "claims",
+    "new_spend_authorized",
+    "amendment_sha256",
+    "historical_verification_sha256"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "mode": {
+            "const": "capture"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "approved_token_map_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "not": {
+              "const": "2c7bbb375614c5d4e7eb6766fec2da61ee3f557f55dd9a09ceac6d508c8c4c04"
+            }
+          },
+          "authorization": {
+            "const": "AUTHORIZE_203_SINGLE_ATTEMPT_CONTINUATION_CALLS_AND_30_DAY_ACTIONS_RAW_RETENTION"
+          },
+          "historical_verification_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "approved_token_map_sha256": {
+            "type": "null"
+          },
+          "authorization": {
+            "const": "AUTHORIZE_ZERO_GENERATION_TOKEN_PREFLIGHT_AND_HISTORICAL_VERIFICATION_AND_30_DAY_ACTIONS_RETENTION"
+          },
+          "historical_verification_sha256": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulse:q3:native-capture-request:v1",
+  "title": "Q3 closed v1 historical verification / 203-task continuation request",
+  "description": "Exact versioned request. Construction does not dispatch. Capture requires fresh preflight and historical verification admission; no caller-selected subset, runtime URL or alternative historical artifact is accepted. Byte, source and exact-number checks remain mandatory."
+}

@@ -27,6 +27,11 @@ tests/test_q3_native_capture_contract_v0.py
 tests/test_q3_native_capture_protocol_v0.py
 tests/test_q3_native_capture_v0.py
 tests/test_q3_native_capture_workflow_v0.py
+tests/test_q3_native_capture_contract_v1.py
+tests/test_q3_native_capture_protocol_v1.py
+tests/test_q3_continuation_controller_v1.py
+tests/test_q3_continuation_checkers_v1.py
+tests/test_q3_external_postflight_v1.py
 
 tests/test_make_og_write_boundary_v0.py
 tests/test_check_pages_source_binding_v0.py

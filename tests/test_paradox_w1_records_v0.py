@@ -632,7 +632,7 @@ def test_no_project_runtime_import_or_execution_in_checker():
 
 
 def test_registered_once_in_both_manifests_and_expected_counts():
-    for name,count in [('tools-tests.list',178),('pytest-tests.list',34)]:
+    for name,count in [('tools-tests.list',178),('pytest-tests.list',39)]:
         entries=[s.split('#',1)[0].strip() for s in (ROOT/'ci'/name).read_text().splitlines()]
         entries=[s for s in entries if s]
         assert len(entries)==len(set(entries))==count
@@ -657,8 +657,8 @@ def test_all_existing_inventory_count_consumers_synchronized():
         assert r'==\s*178\b' in (ROOT/'tests'/name).read_text()
     pages=(ROOT/'tests/test_check_pages_source_binding_v0.py').read_text()
     postflight=(ROOT/'tests/test_q3_external_postflight_v0.py').read_text()
-    assert '("tools-tests.list",178)' in pages and '("pytest-tests.list",34)' in pages
-    assert "('tools-tests.list',178)" in postflight and "('pytest-tests.list',34)" in postflight
+    assert '("tools-tests.list",178)' in pages and '("pytest-tests.list",39)' in pages
+    assert "('tools-tests.list',178)" in postflight and "('pytest-tests.list',39)" in postflight
 
 
 if __name__=='__main__':
