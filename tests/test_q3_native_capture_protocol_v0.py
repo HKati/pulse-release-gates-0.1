@@ -471,3 +471,373 @@ def test_phase_installer_acknowledgement_read_failure_still_closes(
         phase_pipe('installer', 'import time;time.sleep(30)')
     assert caught.value is interruption
     assert phase_pipe.life.services[0].closed_by_phase
+
+
+def cleanup_show(values, returncode=0):
+    raw = ''.join(key + '=' + value + '\n' for key, value in values.items()).encode()
+    return subprocess.CompletedProcess(['synthetic-systemctl-show'], returncode, raw, b'')
+
+
+@pytest.fixture
+def cleanup_service(tmp_path, monkeypatch):
+    """Exercise real cleanup logic with a fake client, systemctl and cgroup tree."""
+    calls = []; events = []
+
+    class Client:
+        pid = 987654321
+        returncode = 2
+        running = False
+        wait_error = None
+        waited = False
+
+        def __init__(self):
+            self.stdin = io.BytesIO(); self.stdout = io.BytesIO()
+
+        def poll(self):
+            return None if self.running else self.returncode
+
+        def wait(self, *, timeout):
+            assert 0 < timeout <= 5
+            events.append('reap_client'); self.waited = True
+            if self.wait_error is not None:
+                raise self.wait_error
+            return self.returncode
+
+    svc = R.Service('pulse-q3-' + 'a' * 24, 'captureworker', [], tmp_path,
+                    Path(sys.executable), tmp_path / 'unused.log', time.monotonic() + 30)
+    svc.launch_attempted = True; svc.process = Client()
+    svc.reader = io.BytesIO(); svc.log = io.BytesIO()
+    cgroups = tmp_path / 'cgroups'; cgroups.mkdir()
+    cg = cgroups / svc.unit; cg.mkdir()
+    (cg / 'cgroup.events').write_bytes(b'populated 0\nfrozen 0\n')
+    (cg / 'cgroup.procs').write_bytes(b'')
+    monkeypatch.setattr(R, 'CLEANUP_CGROUP_ROOT', cgroups)
+    initial = {'LoadState': 'loaded', 'ActiveState': 'failed',
+               'ControlGroup': '/system.slice/' + svc.unit,
+               'MainPID': '0', 'ControlPID': '0', 'Job': ''}
+    final = {**initial, 'ActiveState': 'inactive'}
+    fixture = types.SimpleNamespace(service=svc, client=svc.process, cg=cg,
+        initial=initial, final=final, calls=calls, events=events,
+        replies=None, command_results={}, on_reset=None, show_count=0)
+
+    def control(command, *, timeout=15, check=True):
+        assert command[0] == '/usr/bin/systemctl' and check is False
+        assert 0 < timeout <= 10
+        operation = command[1]
+        assert operation in ('kill', 'stop', 'show', 'reset-failed')
+        assert svc.unit in command
+        calls.append(list(command)); events.append(operation)
+        if operation == 'show':
+            assert '--all' in command and '--no-pager' in command
+            assert '--property=' + ','.join(R.CLEANUP_SHOW_FIELDS) in command
+            index = fixture.show_count; fixture.show_count += 1
+            if fixture.replies is not None:
+                assert index < len(fixture.replies), 'unexpected additional observation'
+                reply = fixture.replies[index]
+                if isinstance(reply, BaseException):
+                    raise reply
+                return reply
+            return cleanup_show(fixture.initial if index == 0 else fixture.final)
+        if operation == 'reset-failed' and fixture.on_reset is not None:
+            fixture.on_reset()
+        result = fixture.command_results.get(operation, 0)
+        if isinstance(result, BaseException):
+            raise result
+        return subprocess.CompletedProcess(command, result, b'', b'')
+
+    def killpg(pid, sig):
+        assert pid == fixture.client.pid and sig == R.signal.SIGKILL
+        events.append('kill_client_group')
+
+    monkeypatch.setattr(R, 'control', control)
+    monkeypatch.setattr(R.os, 'killpg', killpg)
+    life = R.Lifecycle(); life.services.append(svc); fixture.life = life
+    return fixture
+
+
+@pytest.mark.parametrize('final_load', ['loaded', 'not-found'])
+@pytest.mark.parametrize('cgroup_present', [True, False])
+def test_failed_quiescent_service_resets_once_and_keeps_complete_shapes(
+        cleanup_service, final_load, cgroup_present):
+    f = cleanup_service; svc = f.service
+    f.final.update(LoadState=final_load, ControlGroup='')
+    if not cgroup_present:
+        (f.cg / 'cgroup.events').unlink(); (f.cg / 'cgroup.procs').unlink(); f.cg.rmdir()
+
+    def verify_before_reset():
+        assert f.client.waited and f.client.poll() is not None
+        notes = svc.cleanup_details
+        observed = next(n['properties'] for n in notes if 'properties' in n)
+        assert observed['MainPID'] == observed['ControlPID'] == '0' and observed['Job'] == ''
+        assert any(n['step'] == 'cgroup_before_reset' and n['cgroup']['state'] in (
+            'unpopulated', 'absent') for n in notes)
+
+    f.on_reset = verify_before_reset
+    result = f.life.cleanup()
+    assert result == {'cleanup_complete': True, 'errors': [],
+                      'services': [svc.cleanup], 'timers': []}
+    assert svc.cleanup == {'unit': svc.unit, 'launch_attempted': True,
+        'properties': {'LoadState': final_load, 'ActiveState': 'inactive', 'ControlGroup': ''},
+        'cgroup_empty_or_removed': True, 'client_reaped': True}
+    assert f.events == ['kill', 'stop', 'reap_client', 'show', 'reset-failed', 'show']
+    assert f.client.waited and f.client.stdin.closed and f.client.stdout.closed
+    assert svc.reader.closed and svc.log.closed
+    detail = f.life.cleanup_details['services'][0]
+    assert detail['unit'] == svc.unit and detail['step'] == 'complete' and detail['error'] is None
+    notes = detail['observations']
+    before = next(n for n in notes if n.get('step') == 'cgroup_before_reset')
+    after = next(n for n in notes if n.get('step') == 'cgroup_final')
+    assert before['cgroup'] == after['cgroup'] == (
+        {'state': 'unpopulated', 'populated': 0, 'local_process_count': 0}
+        if cgroup_present else {'state': 'absent'})
+    assert [n['properties']['ActiveState'] for n in notes if 'properties' in n] == ['failed', 'inactive']
+    old_calls = copy.deepcopy(f.calls)
+    assert f.life.cleanup() == result and f.calls == old_calls
+
+
+@pytest.mark.parametrize('fault,expected', [
+    ('main_pid', 'service_not_quiescent'),
+    ('control_pid', 'service_not_quiescent'),
+    ('pending_job', 'service_not_quiescent'),
+    ('foreign_cgroup', 'cleanup_unit_identity'),
+    ('unloaded_failed', 'cleanup_failed_unit_identity'),
+    ('active', 'service_not_inactive'),
+    ('unknown_client', 'client_launch_identity_unavailable'),
+    ('unreaped_client', 'cleanup_operation_timeout'),
+    ('populated', 'cgroup_not_empty'),
+    ('local_process', 'cgroup_not_empty'),
+    ('missing_events', 'cleanup_operation_failed'),
+    ('missing_procs', 'cleanup_operation_failed'),
+])
+def test_failed_service_never_resets_without_every_quiescence_proof(
+        cleanup_service, fault, expected):
+    f = cleanup_service
+    if fault == 'main_pid': f.initial['MainPID'] = '123'
+    elif fault == 'control_pid': f.initial['ControlPID'] = '124'
+    elif fault == 'pending_job': f.initial['Job'] = '125'
+    elif fault == 'foreign_cgroup': f.initial['ControlGroup'] = '/system.slice/other.service'
+    elif fault == 'unloaded_failed': f.initial['LoadState'] = 'not-found'
+    elif fault == 'active': f.initial['ActiveState'] = 'active'
+    elif fault == 'unknown_client': f.service.process = None
+    elif fault == 'unreaped_client':
+        f.client.running = True
+        f.client.wait_error = subprocess.TimeoutExpired(['/secret/command'], 5)
+    elif fault == 'populated': (f.cg / 'cgroup.events').write_bytes(b'populated 1\nfrozen 0\n')
+    elif fault == 'local_process': (f.cg / 'cgroup.procs').write_bytes(b'123\n')
+    elif fault == 'missing_events': (f.cg / 'cgroup.events').unlink()
+    elif fault == 'missing_procs': (f.cg / 'cgroup.procs').unlink()
+    result = f.life.cleanup()
+    assert result == {'cleanup_complete': False, 'errors': ['service_cleanup_unverified'],
+                      'services': [None], 'timers': []}
+    assert f.service.cleanup is None and not any(c[1] == 'reset-failed' for c in f.calls)
+    detail = f.life.cleanup_details['services'][0]
+    assert detail['error']['code'] == expected
+    assert b'/secret' not in C.encode(f.life.cleanup_details)
+
+
+@pytest.mark.parametrize('fault', ['active', 'failed', 'main_pid', 'control_pid', 'pending_job',
+                                  'foreign_cgroup', 'populated', 'local_process'])
+def test_reset_success_never_replaces_final_quiescence_proof(cleanup_service, fault):
+    f = cleanup_service
+    if fault in ('active', 'failed'): f.final['ActiveState'] = fault
+    elif fault == 'main_pid': f.final['MainPID'] = '123'
+    elif fault == 'control_pid': f.final['ControlPID'] = '124'
+    elif fault == 'pending_job': f.final['Job'] = '125'
+    elif fault == 'foreign_cgroup': f.final['ControlGroup'] = '/system.slice/other.service'
+    elif fault == 'populated':
+        f.on_reset = lambda: (f.cg / 'cgroup.events').write_bytes(b'populated 1\nfrozen 0\n')
+    elif fault == 'local_process':
+        f.on_reset = lambda: (f.cg / 'cgroup.procs').write_bytes(b'123\n')
+    result = f.life.cleanup()
+    assert result['cleanup_complete'] is False and result['services'] == [None]
+    assert result['errors'] == ['service_cleanup_unverified']
+    assert [c[1] for c in f.calls].count('reset-failed') == 1 and f.show_count == 2
+
+
+@pytest.mark.parametrize('fault', ['duplicate', 'missing', 'extra', 'no_equals', 'no_newline',
+    'invalid_utf8', 'oversize', 'field_oversize', 'negative_pid', 'ambiguous_pid',
+    'control_pid_text', 'zero_job', 'job_text', 'returncode'])
+def test_cleanup_rejects_ambiguous_or_unbounded_show_before_reset(cleanup_service, fault):
+    f = cleanup_service; raw = cleanup_show(f.initial).stdout; returncode = 0
+    if fault == 'duplicate': raw = raw.replace(b'ControlPID=0\n', b'MainPID=0\n')
+    elif fault == 'missing': raw = raw.replace(b'ControlPID=0\n', b'')
+    elif fault == 'extra': raw += b'Unexpected=value\n'
+    elif fault == 'no_equals': raw = raw.replace(b'Job=\n', b'Job\n')
+    elif fault == 'no_newline': raw = raw[:-1]
+    elif fault == 'invalid_utf8': raw = raw.replace(b'Job=\n', b'Job=\xff\n')
+    elif fault == 'oversize': raw = b'X' * 4097
+    elif fault == 'field_oversize': raw = raw.replace(b'Job=\n', b'Job=' + b'1' * 257 + b'\n')
+    elif fault == 'negative_pid': raw = raw.replace(b'MainPID=0\n', b'MainPID=-1\n')
+    elif fault == 'ambiguous_pid': raw = raw.replace(b'MainPID=0\n', b'MainPID=00\n')
+    elif fault == 'control_pid_text': raw = raw.replace(b'ControlPID=0\n', b'ControlPID=False\n')
+    elif fault == 'zero_job': raw = raw.replace(b'Job=\n', b'Job=0\n')
+    elif fault == 'job_text': raw = raw.replace(b'Job=\n', b'Job=none\n')
+    elif fault == 'returncode': returncode = 3
+    f.replies = [subprocess.CompletedProcess(['synthetic-show'], returncode, raw, b'/secret/stderr')]
+    result = f.life.cleanup()
+    assert result['cleanup_complete'] is False and f.service.cleanup is None
+    assert not any(c[1] == 'reset-failed' for c in f.calls)
+    notes = f.life.cleanup_details['services'][0]['observations']
+    observed = next(n for n in notes if 'stdout_sha256' in n)
+    assert observed['stdout_size_bytes'] == len(raw) and observed['stdout_sha256'] == C.digest(raw)
+    assert b'/secret' not in C.encode(f.life.cleanup_details)
+
+
+@pytest.mark.parametrize('fault,expected', [
+    ('empty_events', 'cleanup_cgroup_events'),
+    ('missing_population', 'cleanup_cgroup_events'),
+    ('duplicate_population', 'cleanup_cgroup_events'),
+    ('invalid_population', 'cleanup_cgroup_events'),
+    ('oversize_events', 'cleanup_cgroup_bound'),
+    ('oversize_procs', 'cleanup_cgroup_bound'),
+    ('root_is_file', 'cleanup_cgroup_type'),
+    ('root_is_symlink', 'cleanup_cgroup_type'),
+])
+def test_cleanup_cgroup_invalid_observation_is_never_absence(cleanup_service, fault, expected):
+    f = cleanup_service
+    payload = {'empty_events': b'', 'missing_population': b'frozen 0\n',
+               'duplicate_population': b'populated 0\npopulated 0\n',
+               'invalid_population': b'populated 2\n', 'oversize_events': b'x' * 4097}
+    if fault in payload: (f.cg / 'cgroup.events').write_bytes(payload[fault])
+    elif fault == 'oversize_procs': (f.cg / 'cgroup.procs').write_bytes(b' ' * 4097)
+    else:
+        (f.cg / 'cgroup.events').unlink(); (f.cg / 'cgroup.procs').unlink(); f.cg.rmdir()
+        if fault == 'root_is_file': f.cg.write_bytes(b'not a cgroup')
+        else: f.cg.symlink_to(f.cg.parent, target_is_directory=True)
+    with pytest.raises(ValueError, match=expected):
+        R.cleanup_cgroup(f.service.unit, time.monotonic() + 5)
+
+
+def test_cleanup_cgroup_disappearing_root_is_reobserved_as_absent(cleanup_service, monkeypatch):
+    f = cleanup_service; original = Path.open
+
+    def disappear(path, *args, **kwargs):
+        if path == f.cg / 'cgroup.events':
+            (f.cg / 'cgroup.events').unlink(); (f.cg / 'cgroup.procs').unlink(); f.cg.rmdir()
+            raise FileNotFoundError(errno.ENOENT, 'synthetic removal')
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, 'open', disappear)
+    assert R.cleanup_cgroup(f.service.unit, time.monotonic() + 5) == {'state': 'absent'}
+
+
+def test_cleanup_cgroup_permission_failure_cannot_masquerade_as_absence(cleanup_service, monkeypatch):
+    f = cleanup_service; original = Path.open
+
+    def deny(path, *args, **kwargs):
+        if path == f.cg / 'cgroup.events':
+            raise PermissionError(errno.EACCES, '/secret/token')
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, 'open', deny)
+    result = f.life.cleanup()
+    assert result['cleanup_complete'] is False and f.cg.is_dir()
+    detail = f.life.cleanup_details['services'][0]
+    assert detail['error'] == {'code': 'cleanup_operation_failed',
+                              'exception_type': 'PermissionError', 'errno': errno.EACCES}
+    assert detail['step'] == 'cgroup_before_reset'
+    assert not any(c[1] == 'reset-failed' for c in f.calls)
+    assert b'/secret' not in C.encode(f.life.cleanup_details)
+
+
+@pytest.mark.parametrize('kind', ['os_error', 'timeout', 'unsafe_contract', 'safe_contract', 'interrupt'])
+def test_cleanup_error_preserves_safe_identity_without_exception_payload(kind):
+    exc = {'os_error': OSError(errno.EACCES, '/secret/token'),
+           'timeout': subprocess.TimeoutExpired(['/secret/command'], 5, output=b'secret-output', stderr=b'secret-error'),
+           'unsafe_contract': R.C.ContractError('secret = value'),
+           'safe_contract': R.C.ContractError('cgroup_not_empty'),
+           'interrupt': KeyboardInterrupt('/secret/token')}[kind]
+    value = R.cleanup_error(exc)
+    assert value['code'] == {'timeout': 'cleanup_operation_timeout',
+                            'safe_contract': 'cgroup_not_empty'}.get(kind, 'cleanup_operation_failed')
+    assert value['exception_type'] == type(exc).__name__
+    assert value['errno'] == (errno.EACCES if kind == 'os_error' else None)
+    assert b'secret' not in C.encode(value)
+
+
+def test_cleanup_command_errors_are_retained_but_fresh_state_is_authoritative(cleanup_service):
+    f = cleanup_service
+    f.command_results.update(kill=subprocess.TimeoutExpired(['/secret/command'], 1),
+                             stop=4, **{'reset-failed': 1})
+    result = f.life.cleanup()
+    assert result['cleanup_complete'] is True
+    notes = f.life.cleanup_details['services'][0]['observations']
+    assert any(n['step'] == 'kill' and n.get('error', {}).get('code') == 'cleanup_operation_timeout' for n in notes)
+    assert any(n['step'] == 'stop' and n.get('returncode') == 4 for n in notes)
+    assert any(n['step'] == 'reset_failed' and n.get('returncode') == 1 for n in notes)
+    assert b'/secret' not in C.encode(f.life.cleanup_details)
+
+
+def test_cleanup_closed_handle_failure_keeps_other_cleanup_observations(cleanup_service):
+    f = cleanup_service
+
+    class BrokenHandle:
+        def close(self):
+            raise OSError(errno.EIO, '/secret/handle')
+
+    f.client.stdin = BrokenHandle()
+    result = f.life.cleanup()
+    assert result['cleanup_complete'] is False and f.service.cleanup is None
+    assert f.client.stdout.closed and f.service.reader.closed and f.service.log.closed
+    notes = f.life.cleanup_details['services'][0]['observations']
+    assert any(n['step'] == 'close_stdin' and n.get('error', {}).get('errno') == errno.EIO for n in notes)
+    assert any(n['step'] == 'cgroup_final' and n['cgroup']['state'] == 'unpopulated' for n in notes)
+    assert b'/secret' not in C.encode(f.life.cleanup_details)
+
+
+def test_expired_cleanup_deadline_never_starts_control_or_reset(cleanup_service):
+    f = cleanup_service
+    with pytest.raises(ValueError, match='cleanup_deadline'):
+        f.service.close(time.monotonic() - 1)
+    assert f.calls == [] and not f.client.waited and f.service.cleanup is None
+
+
+def test_repeated_cleanup_failures_keep_original_bounded_diagnostics(cleanup_service):
+    f = cleanup_service; f.initial['Job'] = '125'; deadline = time.monotonic() + 30
+    first = None
+    for _ in range(10):
+        f.show_count = 0
+        with pytest.raises(ValueError, match='service_not_quiescent'):
+            f.service.close(deadline)
+        if first is None: first = copy.deepcopy(f.service.cleanup_details)
+    assert len(f.service.cleanup_details) == 32 and f.service.cleanup_details_truncated is True
+    assert f.service.cleanup_details[:len(first)] == first
+    assert f.service.cleanup is None and not any(c[1] == 'reset-failed' for c in f.calls)
+
+
+@pytest.mark.parametrize('reset_result', ['still_failed', 'nonzero', 'timeout', 'uncertain_os_error'])
+def test_phase_and_final_cleanup_never_repeat_reset_but_can_observe_later_closure(
+        cleanup_service, reset_result):
+    f = cleanup_service; svc = f.service
+    f.final['ActiveState'] = 'failed'
+    outcome = {'still_failed': 0, 'nonzero': 1,
+               'timeout': subprocess.TimeoutExpired(['/secret/reset-command'], 5),
+               'uncertain_os_error': OSError(errno.EIO, '/secret/reset-result')}[reset_result]
+    f.command_results['reset-failed'] = outcome
+    expected = type(outcome) if isinstance(outcome, BaseException) else ValueError
+    with pytest.raises(expected):
+        svc.close(time.monotonic() + 30)
+    assert svc.cleanup is None and svc.reset_failed_attempted is True
+    assert [c[1] for c in f.calls].count('reset-failed') == 1
+
+    # A later lifecycle pass must observe the unresolved state without issuing
+    # reset again, even if the mocked reset command would now return success.
+    f.command_results['reset-failed'] = 0; f.show_count = 0
+    unresolved = f.life.cleanup(); grace = f.life.cleanup_deadline
+    assert unresolved == {'cleanup_complete': False, 'errors': ['service_cleanup_unverified'],
+                          'services': [None], 'timers': []}
+    detail = f.life.cleanup_details['services'][0]
+    assert detail['error']['code'] == 'cleanup_reset_already_attempted'
+    assert [c[1] for c in f.calls].count('reset-failed') == 1
+    assert b'/secret' not in C.encode(f.life.cleanup_details)
+
+    # Failure or timeout of the one reset attempt does not prohibit a later,
+    # independent inactive-state and empty-cgroup proof within the same grace.
+    f.initial['ActiveState'] = 'inactive'; f.show_count = 0
+    closed = f.life.cleanup()
+    assert closed['cleanup_complete'] is True and closed['errors'] == []
+    assert closed['services'] == [svc.cleanup]
+    assert svc.cleanup['properties']['ActiveState'] == 'inactive'
+    assert svc.cleanup['client_reaped'] is True and svc.cleanup['cgroup_empty_or_removed'] is True
+    assert f.life.cleanup_deadline == grace and svc.reset_failed_attempted is True
+    assert [c[1] for c in f.calls].count('reset-failed') == 1

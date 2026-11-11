@@ -415,7 +415,8 @@ def test_fixed_wheel_plus_filename_is_safe_not_source_path_relaxation():
 
 @pytest.mark.parametrize('mode,fault',[('token-preflight',None),('capture',None),('capture','decode'),
     ('capture','worker'),('token-preflight','cleanup'),('token-preflight','source'),
-    ('token-preflight','transport'),('token-preflight','archive')])
+    ('token-preflight','transport'),('token-preflight','archive'),
+    ('capture','token_limit'),('capture','token_limit_cleanup')])
 @pytest.mark.parametrize('kind',['github-repository-parts-v0','github-release-assets-v0'])
 def test_actual_controller_to_publication_with_explicit_native_doubles(tmp_path,monkeypatch,mode,fault,kind):
     """Real controller/files/carrier; synthetic host/install/process/token phases.
@@ -514,8 +515,11 @@ def test_actual_controller_to_publication_with_explicit_native_doubles(tmp_path,
                         assert cmd==('GENERATE '+FRAME[self.next]['task_id']+'\n').encode();self.calls+=1
                         if fault!='worker':
                             text='synthetic response'
+                            capped=fault in ('token_limit','token_limit_cleanup')
                             self.queue.append(C.encode({**self.slotready,'record_type':'q3_response_v0',
-                              'new_token_ids':[4,2],'text':text,'text_utf8_base64':base64.b64encode(text.encode()).decode(),'stop_reason':'eos'}))
+                              'new_token_ids':[4]*256 if capped else [4,2],'text':text,
+                              'text_utf8_base64':base64.b64encode(text.encode()).decode(),
+                              'stop_reason':'token_limit' if capped else 'eos'}))
                         self.next+=1
                     elif cmd==b'FINISH\n':
                         self.queue.append(C.encode({'record_type':'q3_session_end_v0','binding':self.full if mode=='capture' else self.binding,
@@ -538,7 +542,10 @@ def test_actual_controller_to_publication_with_explicit_native_doubles(tmp_path,
                         if svc.cleanup is None:svc.close(time.monotonic()+5)
                     for timer in self.timers:
                         if timer['closure'] is None:timer['closure']={'synthetic_unfinished_timer':True}
-                    return {'cleanup_complete':fault!='cleanup','errors':['synthetic_cleanup'] if fault=='cleanup' else [],
+                    self.cleanup_details={'record_type':'q3_native_cleanup_diagnostics_v1',
+                        'services':[{'synthetic_cleanup_observation':True}],'timers':[]}
+                    failed=fault in ('cleanup','token_limit_cleanup')
+                    return {'cleanup_complete':not failed,'errors':['synthetic_cleanup'] if failed else [],
                             'services':[s.cleanup for s in self.services],'timers':self.timers}
             mod.Lifecycle=Life
             def phase(life,prefix,stage,command,work,python,logs,deadline,ev):
@@ -576,8 +583,25 @@ def test_actual_controller_to_publication_with_explicit_native_doubles(tmp_path,
         expected_events.append('archive')
         if fault!='archive':expected_events.append('installer')
     assert acquisition_events==expected_events
-    assert all(s.calls==0 for s in active) if mode=='token-preflight' else all(s.calls==(1 if fault=='worker' else 204) for s in active)
-    if fault!='cleanup':assert not list(host.iterdir())
+    one_call=fault in ('worker','token_limit','token_limit_cleanup')
+    assert all(s.calls==0 for s in active) if mode=='token-preflight' else all(s.calls==(1 if one_call else 204) for s in active)
+    if fault not in ('cleanup','token_limit_cleanup'):assert not list(host.iterdir())
+    with zipfile.ZipFile(out/'evidence.zip') as archive:
+        assert ('lifecycle-diagnostics.json' in archive.namelist()) == (fault is not None)
+        if fault in ('token_limit','token_limit_cleanup'):
+            result=C.strict_json(archive.read('result.json'))
+            terminal=C.strict_json(archive.read('terminal.json'))
+            lifecycle=C.strict_json(archive.read('lifecycle.json'))
+            diagnostics=C.strict_json(archive.read('lifecycle-diagnostics.json'))
+            assert result['error_code']==terminal['error_code']=='TOKEN_LIMIT_TERMINATION'
+            assert terminal['attempted_calls']==1
+            assert terminal['occurrences'][0]['status']=='length_terminated'
+            assert all(row['status']=='not_started' for row in terminal['occurrences'][1:])
+            assert lifecycle['cleanup_complete']==lifecycle['private_tree_removed']==(fault=='token_limit')
+            assert diagnostics['record_type']=='q3_native_cleanup_diagnostics_v1'
+            assert diagnostics['services']==[{'synthetic_cleanup_observation':True}]
+            checked=K.check_carrier(out/'evidence.zip',source,receipt['archive_sha256'],C.digest(raw),r['source_commit'])
+            assert checked['failure_inventory_verified'] is True and checked['complete'] is False
     if fault is None:
         result=K.check_carrier(out/'evidence.zip',source,receipt['archive_sha256'],C.digest(raw),r['source_commit'])
         assert result['complete'] is True and result['native_origin_reacquired'] is False

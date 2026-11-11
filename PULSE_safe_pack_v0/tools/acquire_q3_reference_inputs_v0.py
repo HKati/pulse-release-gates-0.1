@@ -1157,6 +1157,12 @@ def execute(C,p,request,snapshot,root,raw,env):
         try:
             if status=='complete':K.validate_complete(snapshot,data)
         except Exception as exc:status='incomplete';error=failure_code(exc)
+        if status!='complete':
+            # Diagnostics never enter the closed complete-carrier format or
+            # replace the first execution failure. They also survive successful
+            # cleanup following an incomplete generation.
+            details=getattr(life,'cleanup_details',None)
+            if details is not None:data['lifecycle-diagnostics.json']=C.encode(details)
         try:receipt=publish(C,K,snapshot,output,uid,gid,data,request,status,error)
         finally:
             for sig,old in original_signal.items():signal.signal(sig,old)
