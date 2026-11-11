@@ -44,6 +44,22 @@ moves between merged and open work, update this index.
 
 ## Start here
 
+### Q3 bounded-response continuation — proposal checkpoint 2026-11-11
+
+[Continuation amendment](compute/q3_capture_continuation_amendment_v1/README.md) ·
+[Exact historical bindings and 204-occurrence plan](compute/q3_capture_continuation_amendment_v1/CONTINUATION_PLAN.json) ·
+[Closed proposal schema](compute/q3_capture_continuation_amendment_v1/continuation_plan.schema.json)
+
+**Pending operational target; protocol proposal, implementation pending.** Prepared
+on cleanup merge `be372acb8377e061409594d06ff986e5806160e8`, this amendment proposes
+retaining the first bounded response from incomplete capture `42928275426/1`
+and making one new attempt for each of the 203 recorded unstarted tasks in the
+original order. Historical observation admission requires a new dedicated
+zero-generation verification. The original failed session and unverified worker
+cleanup remain unchanged. Versioned implementation, fresh preflight and separate
+capture authorization are still required. No Q1 labels or Q3 measurement are
+produced; `authority_effect=none`; #2879 remains open.
+
 ### Q3 runtime input companion — publication checkpoint 2026-11-09
 
 [Published runtime input release record](compute/q3_runtime_release_binding_v0/README.md) ·
