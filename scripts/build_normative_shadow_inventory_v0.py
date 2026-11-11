@@ -105,6 +105,31 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
                      publishes_artifacts=["30-day owner-consented Actions evidence; not private storage"],
                      notes="No labeling, metric execution, required gate, attestation or release activation.")
 
+    if rel == ".github/workflows/q3_reference_acquisition_v1.yml":
+        expected_sha256 = "980eee6093687fb7f660777a6796abb1fd2e18789f333bb779aa999c6865821b"
+        if (name != "Q3 bounded continuation preflight and capture v1"
+                or path.is_symlink() or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
+            return entry(name=name, path=rel, surface_type="workflow",
+                         primary_role="unclassified workflow", carrier_class="advisory",
+                         authority_impacting="conditional",
+                         authority_boundary="Changed Q3 continuation carrier requires exact source review")
+        return entry(
+            name=name, path=rel, surface_type="workflow",
+            primary_role="non-authorizing Q3 bounded continuation preflight and capture",
+            carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary=(
+                "Separately consented zero-generation preflight or bounded 203-task continuation; "
+                "no gate admission."
+            ),
+            reads_artifacts=["fixed Q3 inputs, continuation amendment and exact historical capture evidence"],
+            writes_artifacts=["historical verification and bounded continuation evidence or explicit incompleteness"],
+            publishes_artifacts=["30-day owner-consented Actions evidence; not private storage"],
+            required_gate_participation=False, attestation_participation=False, release_path_participation=False,
+            notes=("The historical session remains incomplete. No labeling, metric execution, "
+                   "required gate, attestation or release activation."),
+        )
+
     if rel == ".github/workflows/pulse_ci.yml":
         return entry(
             name=name,

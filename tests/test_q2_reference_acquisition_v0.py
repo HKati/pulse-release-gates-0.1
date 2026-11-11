@@ -525,7 +525,8 @@ def _hygiene_python_sync_script():
 
 def _run_hygiene_python_sync(tmp_path, *, core_version='3.11', q2_text=None,
                              environment='dependencies: [python=3.11, pip]\n',
-                             extra_workflows=None, pulse_text=None, omit_pulse=False):
+                             extra_workflows=None, pulse_text=None, omit_pulse=False,
+                             omit_q3_v1=False):
     """Execute the actual workflow guard, not a test-side copy of its policy."""
     (tmp_path / 'environment.yml').write_text(environment)
     workflows = tmp_path / '.github/workflows'
@@ -547,6 +548,9 @@ def _run_hygiene_python_sync(tmp_path, *, core_version='3.11', q2_text=None,
     (tmp_path / worker).write_bytes((ROOT / worker).read_bytes())
     q3 = '.github/workflows/q3_reference_acquisition_v0.yml'
     (tmp_path / q3).write_bytes((ROOT / q3).read_bytes())
+    if not omit_q3_v1:
+        q3_v1 = '.github/workflows/q3_reference_acquisition_v1.yml'
+        (tmp_path / q3_v1).write_bytes((ROOT / q3_v1).read_bytes())
     for name, content in (extra_workflows or {}).items():
         (workflows / name).write_text(content)
     return subprocess.run([sys.executable, '-I', '-c', _hygiene_python_sync_script()],
@@ -683,6 +687,76 @@ def test_hygiene_checks_all_actual_repository_workflows_with_hosted_q2_pin():
                             cwd=ROOT, capture_output=True, text=True, timeout=10)
     assert result.returncode == 0, result.stdout + result.stderr
     assert 'exact patch pins verified' in result.stdout
+
+
+def test_hygiene_accepts_q3_continuation_patch_with_core_version_in_other_job(tmp_path):
+    name = 'q3_reference_acquisition_v1.yml'
+    document = yaml.load((ROOT / '.github/workflows' / name).read_text(), Loader=yaml.BaseLoader)
+    document['jobs']['ordinary'] = {'steps': [
+        {'uses': 'actions/setup-python@synthetic', 'with': {'python-version': '3.11'}}
+    ]}
+    result = _run_hygiene_python_sync(tmp_path, q2_text=_q2_workflow_text(),
+        extra_workflows={name: yaml.safe_dump(document, sort_keys=False)})
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert 'exact patch pins verified' in result.stdout
+
+
+@pytest.mark.parametrize('fault', [
+    'old_minor', 'wrong_patch', 'broad_selector', 'renamed_job',
+    'duplicate_setup', 'missing_setup', 'wrong_action', 'unscoped_job_patch',
+])
+def test_hygiene_rejects_q3_continuation_patch_outside_exact_acquire_scope(tmp_path, fault):
+    name = 'q3_reference_acquisition_v1.yml'
+    document = yaml.load((ROOT / '.github/workflows' / name).read_text(), Loader=yaml.BaseLoader)
+    jobs = document['jobs']; steps = jobs['acquire']['steps']
+    setup = next(step for step in steps if step.get('uses', '').startswith('actions/setup-python@'))
+    expected = 'exactly one setup-python in job acquire'
+    if fault in ('old_minor', 'wrong_patch', 'broad_selector'):
+        setup['with']['python-version'] = {
+            'old_minor': '3.11', 'wrong_patch': '3.11.17', 'broad_selector': '3.11.*',
+        }[fault]
+        expected = '(expected 3.11.16)'
+    elif fault == 'renamed_job':
+        jobs['other'] = jobs.pop('acquire')
+    elif fault == 'duplicate_setup':
+        steps.append(copy.deepcopy(setup))
+    elif fault == 'missing_setup':
+        steps.remove(setup)
+    elif fault == 'wrong_action':
+        setup['uses'] = 'actions/setup-node@synthetic'
+    elif fault == 'unscoped_job_patch':
+        jobs['other'] = {'steps': [copy.deepcopy(setup)]}
+        expected = '(expected 3.11)'
+    result = _run_hygiene_python_sync(tmp_path, q2_text=_q2_workflow_text(),
+        extra_workflows={name: yaml.safe_dump(document, sort_keys=False)})
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert f'::error file=.github/workflows/{name}::' in result.stdout
+    assert expected in result.stdout
+    assert 'exact patch pins verified' not in result.stdout and 'Traceback' not in result.stderr
+
+
+@pytest.mark.parametrize('renamed', [None, 'Q3_reference_acquisition_v1.yml'])
+def test_hygiene_requires_q3_continuation_at_exact_path(tmp_path, renamed):
+    name = 'q3_reference_acquisition_v1.yml'
+    text = (ROOT / '.github/workflows' / name).read_text()
+    # Keep the alias on the core line so only the missing exact path causes failure.
+    text = text.replace("python-version: '3.11.16'", "python-version: '3.11'")
+    result = _run_hygiene_python_sync(tmp_path, q2_text=_q2_workflow_text(),
+        omit_q3_v1=True, extra_workflows={renamed: text} if renamed else None)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert f'::error file=.github/workflows/{name}::' in result.stdout
+    assert 'Pinned workflow must exist as a regular file at its exact path.' in result.stdout
+    assert 'Python version drift detected' not in result.stdout and 'Traceback' not in result.stderr
+
+
+def test_hygiene_q3_continuation_patch_permission_is_not_inherited_by_alias(tmp_path):
+    name = 'other_q3_continuation.yml'
+    text = (ROOT / '.github/workflows/q3_reference_acquisition_v1.yml').read_text()
+    result = _run_hygiene_python_sync(tmp_path, q2_text=_q2_workflow_text(),
+                                     extra_workflows={name: text})
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert f'::error file=.github/workflows/{name}::' in result.stdout
+    assert '(expected 3.11)' in result.stdout
 
 
 @pytest.mark.parametrize('fault', [
