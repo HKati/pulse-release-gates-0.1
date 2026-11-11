@@ -44,21 +44,23 @@ moves between merged and open work, update this index.
 
 ## Start here
 
-### Q3 bounded-response continuation — proposal checkpoint 2026-11-11
+### Q3 bounded-response continuation — versioned implementation
 
-[Continuation amendment](compute/q3_capture_continuation_amendment_v1/README.md) ·
+[Implementation and execution boundary](compute/PULSEMECH_Q3_CONTINUATION_v1.md) ·
+[Historical continuation amendment](compute/q3_capture_continuation_amendment_v1/README.md) ·
 [Exact historical bindings and 204-occurrence plan](compute/q3_capture_continuation_amendment_v1/CONTINUATION_PLAN.json) ·
 [Closed proposal schema](compute/q3_capture_continuation_amendment_v1/continuation_plan.schema.json)
 
-**Pending operational target; protocol proposal, implementation pending.** Prepared
-on cleanup merge `be372acb8377e061409594d06ff986e5806160e8`, this amendment proposes
-retaining the first bounded response from incomplete capture `42928275426/1`
-and making one new attempt for each of the 203 recorded unstarted tasks in the
-original order. Historical observation admission requires a new dedicated
-zero-generation verification. The original failed session and unverified worker
-cleanup remain unchanged. Versioned implementation, fresh preflight and separate
-capture authorization are still required. No Q1 labels or Q3 measurement are
-produced; `authority_effect=none`; #2879 remains open.
+**Current implementation; native execution and observation acceptance pending.**
+Native v1 and handoff v2 implement the reviewed 1+203 partition: dedicated
+zero-generation verification of the retained first response, a fresh complete-frame
+token preflight, separately authorized capture of the 203 original unstarted tasks,
+and a deterministic composite verifier. A valid 256-token response permits the
+next task only after full response validation and watchdog closure. The original
+failed session and unverified worker cleanup remain unchanged. Fresh preflight
+and capture must use the same final reviewed commit. Merge alone authorizes no
+execution. No Q1 labels or Q3 measurement are produced; `authority_effect=none`;
+#2879 remains open.
 
 ### Q3 runtime input companion — publication checkpoint 2026-11-09
 

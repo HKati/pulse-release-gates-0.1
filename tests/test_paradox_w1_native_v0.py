@@ -554,7 +554,7 @@ def test_production_launcher_and_old_checker_unchanged(admitted):
 
 
 def test_registered_in_both_manifests():
-    for name,count in [('tools-tests.list',178),('pytest-tests.list',34)]:
+    for name,count in [('tools-tests.list',178),('pytest-tests.list',39)]:
         entries=[x.split('#',1)[0].strip() for x in (ROOT/'ci'/name).read_text().splitlines()]
         entries=[x for x in entries if x]
         assert len(entries)==len(set(entries))==count and entries.count(SELF)==1

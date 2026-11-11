@@ -523,7 +523,7 @@ def test_every_shell_block_parses(tmp_path):
         assert result.returncode==0, (step["name"],result.stderr.decode())
 
 
-@pytest.mark.parametrize("name,count", [("tools-tests.list",178),("pytest-tests.list",34)])
+@pytest.mark.parametrize("name,count", [("tools-tests.list",178),("pytest-tests.list",39)])
 def test_registered_once_and_all_existing_entries_preserved(name,count):
     values=[s.split("#",1)[0].strip() for s in (ROOT/"ci"/name).read_text().splitlines()]
     values=[s for s in values if s]
@@ -535,7 +535,7 @@ def test_registered_once_and_all_existing_entries_preserved(name,count):
     assert values.count("tests/test_anchor_integrity_v0_1_contract.py")==1
 
 
-@pytest.mark.parametrize("name,count", [("tools-tests.list",178),("pytest-tests.list",34)])
+@pytest.mark.parametrize("name,count", [("tools-tests.list",178),("pytest-tests.list",39)])
 @pytest.mark.parametrize("remnant", ["security/sec-pages-01-binding-36f8ff5", "main",
                                      "<<<<<<< branch", "=======", ">>>>>>> main"])
 def test_manifest_rejects_merge_remnants_even_when_count_matches(tmp_path, monkeypatch, name, count, remnant):
@@ -549,7 +549,7 @@ def test_manifest_rejects_merge_remnants_even_when_count_matches(tmp_path, monke
         test_registered_once_and_all_existing_entries_preserved(name,count)
 
 
-@pytest.mark.parametrize("name,count", [("tools-tests.list",178),("pytest-tests.list",34)])
+@pytest.mark.parametrize("name,count", [("tools-tests.list",178),("pytest-tests.list",39)])
 def test_manifest_cannot_drop_q3_while_keeping_pages_and_count(tmp_path, monkeypatch, name, count):
     raw=(ROOT/"ci"/name).read_text()
     q3="tests/test_q3_preflight_preservation_v0.py\n"

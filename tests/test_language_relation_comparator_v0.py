@@ -1210,7 +1210,7 @@ def test_cli_invalid_input_publishes_no_partial_artifact(tmp_path):
 
 
 def test_comparator_module_is_registered_once_and_keeps_existing_tests():
-    for name, expected_count in (("tools-tests.list", 178), ("pytest-tests.list", 34)):
+    for name, expected_count in (("tools-tests.list", 178), ("pytest-tests.list", 39)):
         entries = [line for raw in (ROOT / "ci" / name).read_text().splitlines()
                    if (line := raw.split("#", 1)[0].strip())]
         assert len(entries) == len(set(entries)) == expected_count
