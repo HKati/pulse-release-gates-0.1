@@ -413,6 +413,78 @@ class BoundedReader:
         self.selector.close()
 
 
+CLEANUP_SHOW_FIELDS = ('LoadState', 'ActiveState', 'ControlGroup', 'MainPID', 'ControlPID', 'Job')
+CLEANUP_CGROUP_ROOT = Path('/sys/fs/cgroup/system.slice')
+
+
+def cleanup_error(exc):
+    """Retain a bounded error identity, never exception text containing paths/tokens."""
+    code = 'cleanup_operation_failed'
+    if isinstance(exc, C.ContractError) and len(exc.args) == 1 and type(exc.args[0]) is str:
+        if re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,95}', exc.args[0]):
+            code = exc.args[0]
+    elif isinstance(exc, subprocess.TimeoutExpired):
+        code = 'cleanup_operation_timeout'
+    kind = type(exc).__name__
+    if not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{0,63}', kind):
+        kind = 'Exception'
+    number = getattr(exc, 'errno', None)
+    return {'code': code, 'exception_type': kind,
+            'errno': number if type(number) is int and 0 <= number <= 4096 else None}
+
+
+def cleanup_properties(result):
+    require(result.returncode in (0, 1, 4) and len(result.stdout) <= 4096, 'cleanup_observation')
+    text = result.stdout.decode('utf-8')
+    require(text.endswith('\n'), 'cleanup_observation')
+    pairs = [line.split('=', 1) for line in text.splitlines()]
+    require(len(pairs) == len(CLEANUP_SHOW_FIELDS)
+            and all(len(pair) == 2 and len(pair[1]) <= 256 for pair in pairs), 'cleanup_observation')
+    values = dict(pairs)
+    require(len(values) == len(pairs) and set(values) == set(CLEANUP_SHOW_FIELDS), 'cleanup_observation')
+    require(all(re.fullmatch(r'0|[1-9][0-9]{0,9}', values[k]) for k in ('MainPID', 'ControlPID'))
+            and (values['Job'] == '' or re.fullmatch(r'[1-9][0-9]{0,9}', values['Job'])),
+            'cleanup_process_observation')
+    return values
+
+
+def cleanup_cgroup(unit, deadline):
+    """Read kernel recursive population state; absence is not an arbitrary IO error."""
+    require(re.fullmatch(r'pulse-q3-[a-f0-9]{24}-[a-z]+\.service', unit), 'service_identity')
+    require(time.monotonic() < deadline, 'cleanup_deadline')
+    root = CLEANUP_CGROUP_ROOT / unit
+    try:
+        before = root.lstat()
+    except FileNotFoundError:
+        return {'state': 'absent'}
+    require(stat.S_ISDIR(before.st_mode), 'cleanup_cgroup_type')
+    try:
+        with (root / 'cgroup.events').open('rb') as f:
+            events = f.read(4097)
+        with (root / 'cgroup.procs').open('rb') as f:
+            procs = f.read(4097)
+        after = root.lstat()
+    except FileNotFoundError:
+        # A disappearing inspection file is acceptable only if the exact root
+        # also disappeared. Other IO failures remain failures.
+        try:
+            root.lstat()
+        except FileNotFoundError:
+            return {'state': 'absent'}
+        raise
+    require(time.monotonic() < deadline, 'cleanup_deadline')
+    require((before.st_dev, before.st_ino) == (after.st_dev, after.st_ino)
+            and stat.S_ISDIR(after.st_mode), 'cleanup_cgroup_changed')
+    require(len(events) <= 4096 and len(procs) <= 4096, 'cleanup_cgroup_bound')
+    require(events.endswith(b'\n'), 'cleanup_cgroup_events')
+    pairs = [line.split() for line in events.decode('ascii').splitlines()]
+    require(0 < len(pairs) <= 32 and all(len(pair) == 2 for pair in pairs), 'cleanup_cgroup_events')
+    values = dict(pairs)
+    require(len(values) == len(pairs) and values.get('populated') in ('0', '1'), 'cleanup_cgroup_events')
+    require(values['populated'] == '0' and not procs.strip(), 'cgroup_not_empty')
+    return {'state': 'unpopulated', 'populated': 0, 'local_process_count': 0}
+
+
 class Service:
     """Construction is IO-free. The caller registers this object before start."""
     def __init__(self, prefix, stage, command, work, python, log, phase_deadline):
@@ -422,6 +494,9 @@ class Service:
         self.log = None; self.process = None; self.reader = None
         self.observation = None; self.cleanup = None; self.launch_attempted = False
         self.runtime_deadline_ns = None; self.deadline = phase_deadline
+        self.cleanup_step = 'not_started'; self.cleanup_details = []
+        self.cleanup_details_truncated = False
+        self.reset_failed_attempted = False
 
     def start(self):
         require(not self.launch_attempted, 'service_already_started')
@@ -466,39 +541,99 @@ class Service:
 
     def close(self, deadline):
         if self.cleanup is not None: return self.cleanup
-        def ctl(args, max_seconds=10):
+        try:
+            return self._close(deadline)
+        except BaseException as exc:
+            self.cleanup_note({'step': self.cleanup_step, 'error': cleanup_error(exc)})
+            raise
+
+    def cleanup_note(self, value):
+        if len(self.cleanup_details) < 32:
+            self.cleanup_details.append(value)
+        else:
+            self.cleanup_details_truncated = True
+
+    def _close(self, deadline):
+        def ctl(step, args, max_seconds=10):
+            self.cleanup_step = step
             remaining = deadline-time.monotonic()
             require(remaining > 0, 'cleanup_deadline')
-            return control(args, timeout=min(max_seconds, remaining), check=False)
+            try:
+                result = control(args, timeout=min(max_seconds, remaining), check=False)
+            except Exception as exc:
+                self.cleanup_note({'step': step, 'error': cleanup_error(exc)})
+                raise
+            self.cleanup_note({'step': step, 'returncode': result.returncode})
+            return result
+
+        def observe(step):
+            result = ctl(step, ['/usr/bin/systemctl', 'show', self.unit, '--no-pager', '--all',
+                                '--property=' + ','.join(CLEANUP_SHOW_FIELDS)])
+            self.cleanup_note({'step': step, 'stdout_size_bytes': len(result.stdout),
+                               'stdout_sha256': sha(result.stdout)})
+            values = cleanup_properties(result)
+            self.cleanup_note({'step': step, 'properties': values})
+            require(values['LoadState'] in ('loaded', 'not-found')
+                    and values['ControlGroup'] in ('', '/system.slice/' + self.unit), 'cleanup_unit_identity')
+            require(values['MainPID'] == '0' and values['ControlPID'] == '0'
+                    and values['Job'] == '', 'service_not_quiescent')
+            return values
+
+        def cgroup(step):
+            self.cleanup_step = step
+            value = cleanup_cgroup(self.unit, deadline)
+            self.cleanup_note({'step': step, 'cgroup': value})
+
         if self.launch_attempted:
-            for args in (['/usr/bin/systemctl','kill','--kill-whom=all','--signal=KILL',self.unit],
-                         ['/usr/bin/systemctl','stop',self.unit]):
-                try: ctl(args)
+            for step, args in (
+                    ('kill', ['/usr/bin/systemctl','kill','--kill-whom=all','--signal=KILL',self.unit]),
+                    ('stop', ['/usr/bin/systemctl','stop',self.unit])):
+                try: ctl(step, args)
                 except Exception: pass  # Actual quiescence below, never this exit code, is authoritative.
         if self.process is not None:
+            self.cleanup_step = 'reap_client'
             if self.process.poll() is None:
                 try: os.killpg(self.process.pid, signal.SIGKILL)
                 except ProcessLookupError: pass
-            self.process.wait(timeout=max(0.01, min(5, deadline-time.monotonic())))
-            for stream in (self.process.stdin,self.process.stdout):
-                if stream: stream.close()
-        if self.reader: self.reader.close()
-        if self.log: self.log.close()
-        if self.launch_attempted:
-            q = ctl(['/usr/bin/systemctl','show',self.unit,'--no-pager',
-                     '--property=LoadState,ActiveState,ControlGroup'])
-            values = dict(x.split('=',1) for x in q.stdout.decode('utf-8').splitlines() if '=' in x)
-            require(q.returncode in (0,1,4) and set(values)=={'LoadState','ActiveState','ControlGroup'}, 'cleanup_observation')
-            require(values['LoadState'] in ('loaded','not-found') and values['ActiveState']=='inactive'
-                    and values['ControlGroup'] in ('','/system.slice/'+self.unit), 'service_not_inactive')
-            cg = Path('/sys/fs/cgroup/system.slice') / self.unit
-            if cg.exists():
-                require(all(not p.read_text().strip() for p in [cg/'cgroup.procs',*cg.rglob('cgroup.procs')]), 'cgroup_not_empty')
-        else: values = None
+            remaining = deadline-time.monotonic(); require(remaining > 0, 'cleanup_deadline')
+            self.process.wait(timeout=min(5, remaining))
+            require(self.process.poll() is not None, 'client_not_reaped')
+            self.cleanup_note({'step': 'reap_client', 'returncode': self.process.poll()})
+        handle_error = None
+        handles = ([('stdin', self.process.stdin), ('stdout', self.process.stdout)]
+                   if self.process is not None else [])
+        handles += [('reader', self.reader), ('log', self.log)]
+        for name, handle in handles:
+            if handle is not None:
+                self.cleanup_step = 'close_' + name
+                try: handle.close()
+                except Exception as exc:
+                    self.cleanup_note({'step': self.cleanup_step, 'error': cleanup_error(exc)})
+                    if handle_error is None: handle_error = exc
+        self.cleanup_step = 'client_identity'
         require(not self.launch_attempted or self.process is not None, 'client_launch_identity_unavailable')
+        if self.launch_attempted:
+            values = observe('observe_after_stop')
+            require(values['ActiveState'] in ('inactive', 'failed'), 'service_not_inactive')
+            if values['ActiveState'] == 'failed':
+                require(values['LoadState'] == 'loaded', 'cleanup_failed_unit_identity')
+                cgroup('cgroup_before_reset')
+                # A retained failure state is not live work. Reset only this
+                # registered, reaped, job-free and independently empty unit.
+                require(not self.reset_failed_attempted, 'cleanup_reset_already_attempted')
+                self.reset_failed_attempted = True
+                ctl('reset_failed', ['/usr/bin/systemctl', 'reset-failed', self.unit])
+                values = observe('observe_after_reset')
+            require(values['ActiveState'] == 'inactive', 'service_not_inactive')
+            cgroup('cgroup_final')
+            values = {key: values[key] for key in ('LoadState', 'ActiveState', 'ControlGroup')}
+        else: values = None
+        if handle_error is not None:
+            self.cleanup_step = 'handle_close'; raise handle_error
         self.cleanup = {'unit':self.unit,'launch_attempted':self.launch_attempted,
                         'properties':values,'cgroup_empty_or_removed':True,
                         'client_reaped': self.process is None or self.process.poll() is not None}
+        self.cleanup_step = 'complete'
         return self.cleanup
 
 
@@ -506,6 +641,7 @@ class Lifecycle:
     """Register before side effects. One shared final cleanup grace, not per unit."""
     def __init__(self):
         self.services=[]; self.timers={}; self.cleanup_deadline=None
+        self.cleanup_details = {'record_type': 'q3_native_cleanup_diagnostics_v1', 'services': [], 'timers': []}
 
     def start(self, *args):
         svc=Service(*args); self.services.append(svc)
@@ -542,14 +678,24 @@ class Lifecycle:
 
     def cleanup(self):
         if self.cleanup_deadline is None: self.cleanup_deadline=time.monotonic()+180
-        errors=[]
+        errors=[]; services=[]; timers=[]
         for prefix,value in self.timers.items():
             if value is None:
                 try:self.disarm(prefix,self.cleanup_deadline)
-                except BaseException:errors.append('timer_cleanup_unverified')
+                except BaseException as exc:
+                    errors.append('timer_cleanup_unverified')
+                    timers.append({'prefix': prefix, 'error': cleanup_error(exc)})
         for svc in reversed(self.services):
+            failure = None
             try:svc.close(self.cleanup_deadline)
-            except BaseException:errors.append('service_cleanup_unverified')
+            except BaseException as exc:
+                errors.append('service_cleanup_unverified'); failure = cleanup_error(exc)
+            services.append({'unit': getattr(svc, 'unit', None),
+                'step': getattr(svc, 'cleanup_step', 'unavailable'), 'error': failure,
+                'observations': getattr(svc, 'cleanup_details', []),
+                'observations_truncated': getattr(svc, 'cleanup_details_truncated', False)})
+        self.cleanup_details = {'record_type': 'q3_native_cleanup_diagnostics_v1',
+                                'services': list(reversed(services)), 'timers': timers}
         return {'cleanup_complete':not errors,'errors':errors,
                 'services':[s.cleanup for s in self.services],
                 'timers':[{'prefix':k,'closure':v} for k,v in self.timers.items()]}
