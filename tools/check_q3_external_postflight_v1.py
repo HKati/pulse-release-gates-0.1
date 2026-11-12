@@ -341,8 +341,26 @@ def inspect_log(raw: bytes, e: dict, startup: dict) -> dict:
             == [e['inputs']['artifact.zip']['sha256']], 'LOG_ARTIFACT_DIGEST')
     require(re.findall(r'^Artifact (\S+) successfully finalized\. Artifact ID (\d+)$', payload, re.M)
             == [(f'q3-reference-capture-{e["run_id"]}-{e["run_attempt"]}', str(e['artifact_id']))], 'LOG_ARTIFACT_ID')
-    require(re.findall(r'^Uploaded bytes (\d+)$', payload, re.M)
-            == [str(e['inputs']['artifact.zip']['size_bytes'])], 'LOG_ARTIFACT_SIZE')
+    # upload-artifact reports a cumulative total after every uploaded block.
+    # Block completion order can vary, so do not assume fixed-sized increments.
+    # Inspect every progress-prefix line before parsing, so malformed duplicate
+    # records cannot disappear from a successful final-size comparison.
+    expected_size = e['inputs']['artifact.zip']['size_bytes']
+    progress = [line for _, _, line in parsed if line.lstrip().startswith('Uploaded bytes')]
+    require(bool(progress), 'LOG_ARTIFACT_SIZE')
+    uploaded = 0
+    for line in progress:
+        match = re.fullmatch(r'Uploaded bytes ([1-9][0-9]{0,8})', line)
+        require(match is not None, 'LOG_ARTIFACT_SIZE')
+        current = int(match[1])
+        require(uploaded < current <= expected_size, 'LOG_ARTIFACT_SIZE')
+        uploaded = current
+    require(uploaded == expected_size, 'LOG_ARTIFACT_SIZE')
+    summaries = [line for _, _, line in parsed
+                 if line.lstrip().startswith('Artifact ') and ' has been successfully uploaded' in line]
+    require(summaries == [f'Artifact q3-reference-capture-{e["run_id"]}-{e["run_attempt"]}'
+            f' has been successfully uploaded! Final size is {expected_size} bytes.'
+            f' Artifact ID is {e["artifact_id"]}'], 'LOG_ARTIFACT_FINAL_SIZE')
     return {'value': version, 'image': images[0], 'input': 'job.log',
             'version_line': versions[0][0], 'group_start_line': parsed[start][0],
             'group_end_line': parsed[end][0], 'sha256': digest(raw)}
