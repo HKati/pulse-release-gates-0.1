@@ -130,9 +130,11 @@ def case(monkeypatch):
     lines = ['##[group]Runner Image', 'Image: ubuntu-24.04', 'Version: synthetic-image-1',
         '##[endgroup]', 'EXPECTED_SOURCE_SHA: ' + COMMIT,
         'Q3_NATIVE_REQUEST_SHA256: ' + selected['request_sha256'], 'Complete job name: acquire',
+        'Uploaded bytes ' + str(len(outer)),
         'SHA256 digest of uploaded artifact is ' + m.digest(outer),
         'Artifact q3-reference-capture-' + PREFLIGHT_ID + '-1 successfully finalized. Artifact ID 91003',
-        'Uploaded bytes ' + str(len(outer))]
+        'Artifact q3-reference-capture-' + PREFLIGHT_ID + '-1 has been successfully uploaded!'
+        ' Final size is ' + str(len(outer)) + ' bytes. Artifact ID is 91003']
     raw = {'artifact.zip': outer, 'run.json': m.encode(run),
         'jobs.json': m.encode({'total_count': 1, 'jobs': [job]}), 'artifact.json': m.encode(art),
         'job.log': ''.join('2026-11-11T10:00:03Z ' + line + '\n' for line in lines).encode()}
@@ -258,6 +260,88 @@ def test_synthetic_fresh_preflight_compares_without_granting_permission(case):
     assert result['amendment_sha256'] == case['c'].AMENDMENT_SHA256
     assert result['capture_handoff_approved'] is False and result['new_execution_authorized'] is False
     assert result['model_executed'] is False and result['tokenization_reperformed'] is False
+
+
+def upload_log(case, progress, size=19828736):
+    """Use the actual multi-block byte totals without fabricating a native run."""
+    m = case['m']
+    expected = case['a'].expectation(case['s'], case['raw'], m)
+    old_size = expected['inputs']['artifact.zip']['size_bytes']
+    expected['inputs']['artifact.zip']['size_bytes'] = size
+    log = case['raw']['job.log'].replace(
+        ('2026-11-11T10:00:03Z Uploaded bytes ' + str(old_size) + '\n').encode(),
+        ''.join('2026-11-11T10:00:03Z ' + line + '\n' for line in progress).encode())
+    log = log.replace(('Final size is ' + str(old_size) + ' bytes.').encode(),
+                      ('Final size is ' + str(size) + ' bytes.').encode())
+    startup = json.loads(case['raw']['jobs.json'])['jobs'][0]['steps'][0]
+    return log, expected, startup
+
+
+@pytest.mark.parametrize('totals', [
+    [19828736],
+    [8388608, 16777216, 19828736],  # Observed preflight 43136688284/1.
+    [3051520, 11440128, 19828736],  # Final partial block may finish first.
+])
+def test_upload_progress_accepts_single_or_multiple_cumulative_totals(case, totals):
+    log, expected, startup = upload_log(case, ['Uploaded bytes ' + str(n) for n in totals])
+    result = case['m'].inspect_log(log, expected, startup)
+    assert result['value'] == 'synthetic-image-1'
+    assert result['sha256'] == case['m'].digest(log)
+
+
+@pytest.mark.parametrize('progress', [
+    [],
+    ['Uploaded bytes 8388608', 'Uploaded bytes 16777216'],
+    ['Uploaded bytes 8388608', 'Uploaded bytes 19828737', 'Uploaded bytes 19828736'],
+    ['Uploaded bytes 16777216', 'Uploaded bytes 8388608', 'Uploaded bytes 19828736'],
+    ['Uploaded bytes 8388608', 'Uploaded bytes 8388608', 'Uploaded bytes 19828736'],
+    ['Uploaded bytes 19828736', 'Uploaded bytes 19828736'],
+    ['Uploaded bytes 0', 'Uploaded bytes 19828736'],
+    ['Uploaded bytes -1', 'Uploaded bytes 19828736'],
+    ['Uploaded bytes 8.0', 'Uploaded bytes 19828736'],
+    ['Uploaded bytes +8', 'Uploaded bytes 19828736'],
+    ['Uploaded bytes 08', 'Uploaded bytes 19828736'],
+    ['Uploaded bytes 8388608 extra', 'Uploaded bytes 19828736'],
+    ['Uploaded bytes malformed', 'Uploaded bytes 19828736'],
+    [' Uploaded bytes 8388608', 'Uploaded bytes 19828736'],
+    ['Uploaded bytes 8388608 ', 'Uploaded bytes 19828736'],
+    ['Uploaded bytes ٨', 'Uploaded bytes 19828736'],
+    ['Uploaded bytes' + '9' * 100, 'Uploaded bytes 19828736'],
+    ['Uploaded bytes ' + '9' * 100, 'Uploaded bytes 19828736'],
+])
+def test_upload_progress_rejects_incomplete_conflicting_or_malformed_totals(case, progress):
+    log, expected, startup = upload_log(case, progress)
+    with pytest.raises(ValueError, match='^LOG_ARTIFACT_SIZE$'):
+        case['m'].inspect_log(log, expected, startup)
+
+
+@pytest.mark.parametrize('fault', ['missing', 'duplicate', 'size', 'name', 'id', 'malformed'])
+def test_upload_summary_binds_final_size_name_and_id(case, fault):
+    log, expected, startup = upload_log(case, ['Uploaded bytes 8388608', 'Uploaded bytes 19828736'])
+    summary = ('2026-11-11T10:00:03Z Artifact q3-reference-capture-' + PREFLIGHT_ID + '-1'
+        ' has been successfully uploaded! Final size is 19828736 bytes. Artifact ID is 91003\n').encode()
+    replacement = {'missing': b'', 'duplicate': summary + summary,
+        'size': summary.replace(b'19828736', b'19828735'),
+        'name': summary.replace(b'q3-reference-capture-', b'wrong-artifact-'),
+        'id': summary.replace(b'91003', b'91009'),
+        'malformed': summary.replace(b'19828736', b'not-a-size')}[fault]
+    log = log.replace(summary, replacement)
+    with pytest.raises(ValueError, match='^LOG_ARTIFACT_FINAL_SIZE$'):
+        case['m'].inspect_log(log, expected, startup)
+
+
+def test_upload_progress_multi_block_comparison_preserves_other_bindings(case):
+    size = len(case['raw']['artifact.zip'])
+    log, _, _ = upload_log(case, ['Uploaded bytes 1', 'Uploaded bytes ' + str(size // 2),
+                                'Uploaded bytes ' + str(size)], size)
+    case['raw']['job.log'] = log
+    result = compare(case)
+    assert result['disposition'] == 'CONSISTENT_OFFLINE'
+    assert result['capture_handoff_approved'] is False
+    case['raw']['job.log'] = log.replace(
+        b'SHA256 digest of uploaded artifact is ', b'SHA256 digest of uploaded artifact is 0')
+    with pytest.raises(ValueError, match='^LOG_ARTIFACT_DIGEST$'):
+        compare(case)
 
 
 def test_synthetic_acquisition_rechecks_metadata_without_saved_comparison(case, tmp_path):
