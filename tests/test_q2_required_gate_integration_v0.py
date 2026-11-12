@@ -110,26 +110,27 @@ def test_independent_consumers_reacquire_and_clean_wrong_bytes(invocation,monkey
     f=invocation;seen=[];parents=[]
     class Transport:
         def __init__(self,token):assert token=='PRIVATE_TEST_TRANSPORT_TOKEN'
-        def download(self,repository,identifier,expectation,destination,deadline):
-            seen.append((repository,identifier));parents.append(destination.parent)
-            assert f.repo not in destination.parents and destination.parent.stat().st_mode & 0o777==0o700
-            destination.write_bytes(b'PRIVATE_RAW_RESPONSE_MUST_NOT_ESCAPE')
-    monkeypatch.setattr(IO,'GitHubArtifactTransport',Transport)
+        def acquire(self,profile,request,private,deadline):
+            seen.append((profile['delivery']['release_id'],request['capture_expectation']['artifact_id']))
+            parents.append(private)
+            assert f.repo not in private.parents and private.stat().st_mode & 0o777==0o700
+            (private/'capture.zip').write_bytes(b'PRIVATE_RAW_RESPONSE_MUST_NOT_ESCAPE')
+    monkeypatch.setattr(IO,'GitHubReleaseTransport',Transport)
     for consumer in ['producer','admission']:
         result=LOAD.consume(f.repo,consumer=consumer,environment=f.env)
         assert result['input_valid'] is False and result['metric_pass'] is None
         assert result['checks']['request'] is True and result['cleanup']=='verified_removed'
         assert result['diagnostics']==['q2_digest_mismatch']
         assert b'PRIVATE_' not in IO.encode(result)
-    assert len(seen)==2 and seen[0]==seen[1] and parents[0]!=parents[1]
+    assert seen==[(443495900,11472726606)]*2 and parents[0]!=parents[1]
     assert all(not p.exists() for p in parents)
 
 
 def test_transport_exception_cannot_publish_payload_credentials_or_paths(invocation,monkeypatch):
     class Transport:
         def __init__(self,token):pass
-        def download(self,*args):raise RuntimeError('PRIVATE_TEST_TRANSPORT_TOKEN PRIVATE_RAW_RESPONSE /private/capture')
-    monkeypatch.setattr(IO,'GitHubArtifactTransport',Transport)
+        def acquire(self,*args):raise RuntimeError('PRIVATE_TEST_TRANSPORT_TOKEN PRIVATE_RAW_RESPONSE /private/capture')
+    monkeypatch.setattr(IO,'GitHubReleaseTransport',Transport)
     result=LOAD.consume(invocation.repo,consumer='producer',environment=invocation.env)
     assert result['diagnostics']==['q2_internal_error'] and result['cleanup']=='verified_removed'
     assert b'PRIVATE_' not in IO.encode(result) and b'/private/' not in IO.encode(result)

@@ -286,5 +286,108 @@
   "release_capsule_present": false,
   "release_artifact_digest": null,
   "authority_effect": "none",
-  "current_inference_count": 0
+  "current_inference_count": 0,
+  "delivery": {
+    "record_type": "q2_immutable_release_delivery_v1",
+    "repository": "HKati/pulsemech-q3-runtime-inputs",
+    "release_id": 443495900,
+    "tag_name": "q2-admission-inputs-37600313529-v1",
+    "tag_commit": "d4125baa4bbf7b1b4d2d695a24b1c9bb1fa403b5",
+    "capture_filename": "q2-reference-capture-37600313529-1.zip",
+    "capsule_origin": {
+      "repository": "HKati/pulse-release-gates-0.1",
+      "run_id": "38097352170",
+      "run_attempt": 1,
+      "source_commit": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+      "artifact_id": 11686701538
+    },
+    "capsule_original": {
+      "filename": "q2-release-subject-capsule-20261010.zip",
+      "size_bytes": 452116385,
+      "sha256": "3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734"
+    },
+    "capsule_manifest_sha256": "8dfa1b9df8ed7fbd8ea8b749555ba73ebf24f5d8aeb187d15c51163137a0c857",
+    "manifest_filename": "Q2_CAPSULE_PARTS.json",
+    "notice_filename": "Q2_CAPSULE_SOURCE_NOTICE_COMPANION_v1.zip",
+    "assets": [
+      {
+        "id": 741045803,
+        "name": "q2-reference-capture-37600313529-1.zip",
+        "size_bytes": 1809263,
+        "sha256": "88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6"
+      },
+      {
+        "id": 741046886,
+        "name": "q2-release-subject-capsule-20261010.zip.001",
+        "size_bytes": 45211639,
+        "sha256": "02ce4905d3c428a65d87bb65943857dbbeb809d794eae14ae44d531180e7a4a6"
+      },
+      {
+        "id": 741057496,
+        "name": "q2-release-subject-capsule-20261010.zip.002",
+        "size_bytes": 45211639,
+        "sha256": "efe5e7c99ff69937c4d9c04612e3fbf5682326743a3f4786245ca9b3e94634d7"
+      },
+      {
+        "id": 741063499,
+        "name": "q2-release-subject-capsule-20261010.zip.003",
+        "size_bytes": 45211639,
+        "sha256": "75611f92e92de5662944fac1c551569150e61a092df9f4ce6bbddefee9f9504f"
+      },
+      {
+        "id": 741074425,
+        "name": "q2-release-subject-capsule-20261010.zip.004",
+        "size_bytes": 45211639,
+        "sha256": "b721b245d4c4c765cb2473853fd1354f979996311577ea8afc615d696c0cd949"
+      },
+      {
+        "id": 741080007,
+        "name": "q2-release-subject-capsule-20261010.zip.005",
+        "size_bytes": 45211639,
+        "sha256": "30cfa2ab086742b68a942abe02f6e98cd7dada6be1143c4d72eb02f156c6eaba"
+      },
+      {
+        "id": 741093506,
+        "name": "q2-release-subject-capsule-20261010.zip.006",
+        "size_bytes": 45211639,
+        "sha256": "b7b51b1d62685233df3d6db3310dc69c823211e99455b2f04b4478c934ace3d0"
+      },
+      {
+        "id": 741137792,
+        "name": "q2-release-subject-capsule-20261010.zip.007",
+        "size_bytes": 45211639,
+        "sha256": "f28d4d30aa484f8ed4826fdb9d321d72db10bac643b962fddc300a7af6a533b3"
+      },
+      {
+        "id": 741182100,
+        "name": "q2-release-subject-capsule-20261010.zip.008",
+        "size_bytes": 45211639,
+        "sha256": "f488b41c820ebf49415e367fc78c49ba55fdf3c9196b432c485d58e7773a0c2c"
+      },
+      {
+        "id": 741205274,
+        "name": "q2-release-subject-capsule-20261010.zip.009",
+        "size_bytes": 45211639,
+        "sha256": "3407f153cec7cd1065f40b1a15014962ed8e7ba3b8febeeeaa35076551a3e993"
+      },
+      {
+        "id": 741235021,
+        "name": "q2-release-subject-capsule-20261010.zip.010",
+        "size_bytes": 45211634,
+        "sha256": "52f6d8a7598e4ee7882a156058cbec2e8cdd8620f5aca78ac4ae1eb4586d1d02"
+      },
+      {
+        "id": 741252070,
+        "name": "Q2_CAPSULE_PARTS.json",
+        "size_bytes": 3333,
+        "sha256": "cf5a25c0ac25a4acac3af5db67732b07a099af800c0aaac93f753e2a80dafb36"
+      },
+      {
+        "id": 741352375,
+        "name": "Q2_CAPSULE_SOURCE_NOTICE_COMPANION_v1.zip",
+        "size_bytes": 446524,
+        "sha256": "d558a322e9a791d1500382d924d8dc9106a686d84edec7c952c81fa30a899329"
+      }
+    ]
+  }
 }

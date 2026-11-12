@@ -549,10 +549,10 @@ def test_verified_owner_dispatch_reaches_both_independent_intakes(acquirer, refe
     roots = []
     class RejectedArchiveTransport:
         def __init__(self, token): assert token == 'PRIVATE_TEST_TRANSPORT_TOKEN'
-        def download(self, repository, identifier, expectation, destination, deadline):
-            roots.append(destination.parent)
-            destination.write_bytes(b'PRIVATE_DIAGNOSTIC_INVALID_CAPTURE_BYTES')
-    monkeypatch.setattr(IO, 'GitHubArtifactTransport', RejectedArchiveTransport)
+        def acquire(self, profile, request, private, deadline):
+            roots.append(private)
+            (private/'capture.zip').write_bytes(b'PRIVATE_DIAGNOSTIC_INVALID_CAPTURE_BYTES')
+    monkeypatch.setattr(IO, 'GitHubReleaseTransport', RejectedArchiveTransport)
     for consumer in ('producer', 'admission'):
         result = LOAD.consume(subject.repo, consumer=consumer, environment=subject.env)
         assert result['checks']['request'] is True

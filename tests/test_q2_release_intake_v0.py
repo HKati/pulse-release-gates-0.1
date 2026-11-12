@@ -5,6 +5,7 @@ import copy
 from decimal import Decimal, localcontext
 import hashlib
 import importlib.util
+import io as bytesio
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,7 @@ import stat
 import subprocess
 import sys
 import time
+import urllib.error
 import zipfile
 
 import pytest
@@ -377,6 +379,382 @@ def test_local_zip_headers_cannot_hide_unindexed_or_conflicting_payload(tmp_path
     with pytest.raises(IO.IntakeError,match='q2_archive_rejected'):
         with IO.Archive(path,maximum_bytes=10000,max_members=4,member_bytes=100,
                         expanded_bytes=200,deadline=IO.Deadline(5)):pass
+
+
+class ReleaseResponse(bytesio.BytesIO):
+    """Offline HTTP body; no network or archive payload is executed."""
+    def __init__(self, raw, *, length=True, status=200):
+        super().__init__(raw)
+        self.status = status
+        self.headers = {"Content-Length": str(len(raw))} if length else {}
+
+
+def release_metadata(delivery):
+    root = "https://api.github.com/repos/" + delivery["repository"]
+    browser = ("https://github.com/" + delivery["repository"] +
+               "/releases/download/" + delivery["tag_name"] + "/")
+    release = {"id": delivery["release_id"], "tag_name": delivery["tag_name"],
+               "draft": False, "immutable": True, "published_at": "2026-11-12T22:49:43Z",
+               "assets": [{"id": a["id"], "name": a["name"], "size": a["size_bytes"],
+                           "digest": "sha256:" + a["sha256"], "state": "uploaded",
+                           "url": root + "/releases/assets/" + str(a["id"]),
+                           "browser_download_url": browser + a["name"]}
+                          for a in delivery["assets"]]}
+    tag = {"ref": "refs/tags/" + delivery["tag_name"],
+           "object": {"type": "commit", "sha": delivery["tag_commit"]}}
+    return release, tag
+
+
+def mock_release_opener(monkeypatch, release, tag, bodies=None, *, redirect=None,
+                        length=True):
+    """Route only fixed API reads; unexpected requests fail the test."""
+    seen = []
+    bodies = {} if bodies is None else bodies
+
+    class Opener:
+        def open(self, request, timeout):
+            assert 0 < timeout <= 30
+            seen.append(request)
+            url = request.full_url
+            if url.startswith("https://release-assets.githubusercontent.com/"):
+                return ReleaseResponse(next(iter(bodies.values())), length=length)
+            assert url.startswith("https://api.github.com/repos/HKati/pulsemech-q3-runtime-inputs/")
+            if "/releases/assets/" in url:
+                identifier = int(url.rsplit("/", 1)[1])
+                if redirect is not None:
+                    raise urllib.error.HTTPError(url, 302, "PRIVATE_REDIRECT_ERROR",
+                                                 {"Location": redirect}, bytesio.BytesIO())
+                return ReleaseResponse(bodies[identifier], length=length)
+            if "/git/ref/tags/" in url:
+                return ReleaseResponse(IO.encode(tag))
+            assert url.endswith("/releases/443495900")
+            return ReleaseResponse(IO.encode(release))
+
+    monkeypatch.setattr(IO.urllib.request, "build_opener", lambda *args: Opener())
+    return seen
+
+
+def test_published_delivery_keeps_historical_origin_separate():
+    profile = LOAD.load_profile(ROOT)
+    delivery = profile["delivery"]
+    assert delivery["repository"] == "HKati/pulsemech-q3-runtime-inputs"
+    assert delivery["release_id"] == 443495900
+    assert delivery["tag_name"] == "q2-admission-inputs-37600313529-v1"
+    assert delivery["tag_commit"] == "d4125baa4bbf7b1b4d2d695a24b1c9bb1fa403b5"
+    assert len(delivery["assets"]) == 13
+    assert sum(a["size_bytes"] for a in delivery["assets"]) == 454375505
+    assert len({a["id"] for a in delivery["assets"]}) == 13
+    assert len({a["name"] for a in delivery["assets"]}) == 13
+    assert profile["capture_expectation"]["artifact_id"] == 11472726606
+    assert delivery["capsule_origin"]["artifact_id"] == 11686701538
+    assert delivery["capsule_origin"]["run_id"] == "38097352170"
+    assert delivery["capsule_origin"]["source_commit"] == "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c"
+    assert delivery["assets"][0]["id"] == 741045803
+    assert profile["current_inference_count"] == 0 and profile["authority_effect"] == "none"
+
+
+def test_release_and_tag_metadata_are_both_verified(monkeypatch):
+    delivery = LOAD.load_profile(ROOT)["delivery"]
+    release, tag = release_metadata(delivery)
+    seen = mock_release_opener(monkeypatch, release, tag)
+    IO.GitHubReleaseTransport("PRIVATE_RELEASE_TOKEN").verify_release(delivery, IO.Deadline(5))
+    assert len(seen) == 2
+    assert any("/releases/443495900" in r.full_url for r in seen)
+    assert any("/git/ref/tags/q2-admission-inputs-37600313529-v1" in r.full_url for r in seen)
+    assert all(r.get_method() == "GET" for r in seen)
+    assert all(r.get_header("Authorization") == "Bearer PRIVATE_RELEASE_TOKEN" for r in seen)
+
+
+@pytest.mark.parametrize("fault", ["release-id", "tag-name", "draft", "mutable", "missing",
+    "duplicate", "extra", "asset-id", "asset-name", "asset-size", "asset-digest", "asset-state",
+    "tag-commit", "tag-object", "tag-ref"])
+def test_release_metadata_substitution_fails_closed(monkeypatch, fault):
+    delivery = LOAD.load_profile(ROOT)["delivery"]
+    release, tag = release_metadata(delivery)
+    if fault == "release-id": release["id"] += 1
+    elif fault == "tag-name": release["tag_name"] = "latest"
+    elif fault == "draft": release["draft"] = True
+    elif fault == "mutable": release["immutable"] = False
+    elif fault == "missing": release["assets"].pop()
+    elif fault == "duplicate": release["assets"][-1] = copy.deepcopy(release["assets"][0])
+    elif fault == "extra": release["assets"].append({**release["assets"][0], "id": 999, "name": "unexpected.zip"})
+    elif fault == "asset-id": release["assets"][0]["id"] += 1
+    elif fault == "asset-name": release["assets"][0]["name"] = "renamed.zip"
+    elif fault == "asset-size": release["assets"][0]["size"] += 1
+    elif fault == "asset-digest": release["assets"][0]["digest"] = "sha256:" + "0" * 64
+    elif fault == "asset-state": release["assets"][0]["state"] = "starter"
+    elif fault == "tag-commit": tag["object"]["sha"] = "0" * 40
+    elif fault == "tag-object": tag["object"]["type"] = "tag"
+    else: tag["ref"] = "refs/tags/unreviewed"
+    seen = mock_release_opener(monkeypatch, release, tag)
+    with pytest.raises(IO.IntakeError):
+        IO.GitHubReleaseTransport("PRIVATE_RELEASE_TOKEN").verify_release(delivery, IO.Deadline(5))
+    assert all("/releases/assets/" not in r.full_url for r in seen)
+
+
+def test_release_asset_redirect_drops_api_credentials(monkeypatch, tmp_path):
+    delivery = LOAD.load_profile(ROOT)["delivery"]
+    payload = b"OFFLINE_SYNTHETIC_RELEASE_BYTES"
+    asset = {**delivery["assets"][0], "size_bytes": len(payload), "sha256": IO.digest(payload)}
+    release, tag = release_metadata(delivery)
+    seen = mock_release_opener(monkeypatch, release, tag, {asset["id"]: payload},
+                               redirect="https://release-assets.githubusercontent.com/pinned?sig=PRIVATE_SIGNATURE")
+    destination = tmp_path / "asset"
+    IO.GitHubReleaseTransport("PRIVATE_RELEASE_TOKEN").download_asset(delivery, asset, destination, IO.Deadline(5))
+    assert destination.read_bytes() == payload
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o600
+    assert len(seen) == 2
+    assert seen[0].get_header("Authorization") == "Bearer PRIVATE_RELEASE_TOKEN"
+    assert seen[1].get_header("Authorization") is None and seen[1].get_header("Cookie") is None
+
+
+@pytest.mark.parametrize("location", ["http://release-assets.githubusercontent.com/payload",
+    "https://release-assets.githubusercontent.com.evil.invalid/payload", "https://evil.invalid/payload",
+    "https://user:secret@release-assets.githubusercontent.com/payload",
+    "https://release-assets.githubusercontent.com:444/payload",
+    "https://release-assets.githubusercontent.com/payload#fragment", "file:///private/input"])
+def test_release_asset_rejects_unsafe_redirect(monkeypatch, tmp_path, location):
+    delivery = LOAD.load_profile(ROOT)["delivery"]
+    release, tag = release_metadata(delivery)
+    seen = mock_release_opener(monkeypatch, release, tag, redirect=location)
+    with pytest.raises(IO.IntakeError, match="q2_transport_rejected"):
+        IO.GitHubReleaseTransport("PRIVATE_RELEASE_TOKEN").download_asset(
+            delivery, delivery["assets"][0], tmp_path / "asset", IO.Deadline(5))
+    assert len(seen) == 1 and not (tmp_path / "asset").exists()
+
+
+@pytest.mark.parametrize("fault", ["short", "long", "digest"])
+def test_release_stream_checks_bytes_even_without_content_length(monkeypatch, tmp_path, fault):
+    delivery = LOAD.load_profile(ROOT)["delivery"]
+    expected = b"SYNTHETIC_FIXED_PAYLOAD"
+    body = expected[:-1] if fault == "short" else expected + b"X" if fault == "long" else b"X" + expected[1:]
+    asset = {**delivery["assets"][0], "size_bytes": len(expected), "sha256": IO.digest(expected)}
+    release, tag = release_metadata(delivery)
+    seen = mock_release_opener(monkeypatch, release, tag, {asset["id"]: body}, length=False)
+    with pytest.raises(IO.IntakeError, match="q2_digest_mismatch"):
+        IO.GitHubReleaseTransport("PRIVATE_RELEASE_TOKEN").download_asset(delivery, asset, tmp_path / "asset", IO.Deadline(5))
+    assert len(seen) == 1
+
+
+@pytest.mark.parametrize("fault", ["unavailable", "oversized", "redirect"])
+def test_release_metadata_failure_has_no_retry_or_alternate_locator(monkeypatch, fault):
+    delivery = LOAD.load_profile(ROOT)["delivery"]
+    seen = []
+    class Opener:
+        def open(self, request, timeout):
+            seen.append(request)
+            assert request.full_url.endswith("/releases/443495900")
+            if fault == "oversized":
+                return ReleaseResponse(b" " * (2 * 1024 * 1024 + 1))
+            status = 302 if fault == "redirect" else 404
+            raise urllib.error.HTTPError(request.full_url, status, "PRIVATE_API_ERROR",
+                {"Location": "https://attacker.invalid/private"}, bytesio.BytesIO())
+    monkeypatch.setattr(IO.urllib.request, "build_opener", lambda *args: Opener())
+    with pytest.raises(IO.IntakeError, match="q2_transport_rejected") as failed:
+        IO.GitHubReleaseTransport("PRIVATE_RELEASE_TOKEN").verify_release(delivery, IO.Deadline(5))
+    assert len(seen) == 1 and "PRIVATE_" not in str(failed.value)
+
+
+def test_release_storage_cannot_redirect_again(monkeypatch, tmp_path):
+    delivery = LOAD.load_profile(ROOT)["delivery"]
+    seen = []
+    class Opener:
+        def open(self, request, timeout):
+            seen.append(request)
+            raise urllib.error.HTTPError(request.full_url, 302, "PRIVATE_REDIRECT_ERROR",
+                {"Location": "https://release-assets.githubusercontent.com/another"}, bytesio.BytesIO())
+    monkeypatch.setattr(IO.urllib.request, "build_opener", lambda *args: Opener())
+    with pytest.raises(IO.IntakeError, match="q2_transport_rejected"):
+        IO.GitHubReleaseTransport("PRIVATE_RELEASE_TOKEN").download_asset(
+            delivery, delivery["assets"][0], tmp_path / "asset", IO.Deadline(5))
+    assert len(seen) == 2
+    assert seen[1].get_header("Authorization") is None
+    assert not (tmp_path / "asset").exists()
+
+
+@pytest.mark.parametrize("fault", ["extra-url", "wrong-repo", "wrong-release", "wrong-tag", "wrong-commit",
+    "duplicate-id", "duplicate-name", "bool-id", "zero-size", "bad-digest", "unknown-asset-field",
+    "missing-notice", "origin-substitution"])
+def test_reviewed_delivery_binding_is_closed(fault):
+    profile = copy.deepcopy(LOAD.load_profile(ROOT))
+    delivery = profile["delivery"]
+    if fault == "extra-url": delivery["url"] = "https://attacker.invalid/payload"
+    elif fault == "wrong-repo": delivery["repository"] = "other/repo"
+    elif fault == "wrong-release": delivery["release_id"] += 1
+    elif fault == "wrong-tag": delivery["tag_name"] = "latest"
+    elif fault == "wrong-commit": delivery["tag_commit"] = "0" * 40
+    elif fault == "duplicate-id": delivery["assets"][1]["id"] = delivery["assets"][0]["id"]
+    elif fault == "duplicate-name": delivery["assets"][1]["name"] = delivery["assets"][0]["name"]
+    elif fault == "bool-id": delivery["assets"][0]["id"] = True
+    elif fault == "zero-size": delivery["assets"][0]["size_bytes"] = 0
+    elif fault == "bad-digest": delivery["assets"][0]["sha256"] = "0" * 63
+    elif fault == "unknown-asset-field": delivery["assets"][0]["url"] = "https://attacker.invalid/payload"
+    elif fault == "missing-notice": delivery["assets"].pop()
+    else: delivery["capsule_origin"]["artifact_id"] += 1
+    with pytest.raises(IO.IntakeError):
+        IO.validate_release_delivery(profile)
+
+
+def tiny_release_case():
+    """Different synthetic bytes under the reviewed role names; never historical evidence."""
+    profile = copy.deepcopy(LOAD.load_profile(ROOT))
+    delivery = profile["delivery"]
+    body_by_name = {delivery["capture_filename"]: b"SYNTHETIC_CAPTURE_ONLY\n",
+                    delivery["notice_filename"]: b"SYNTHETIC_NOTICE_ONLY\n"}
+    original_name = delivery["capsule_original"]["filename"]
+    parts = []
+    offset = 0
+    original = b""
+    for index in range(1, 11):
+        name = original_name + f".{index:03d}"
+        raw = f"RAW_BINARY_PART_{index:03d}\n".encode()
+        body_by_name[name] = raw
+        parts.append({"index": index, "filename": name, "offset_bytes": offset,
+                      "size_bytes": len(raw), "sha256": IO.digest(raw)})
+        original += raw
+        offset += len(raw)
+    delivery["capsule_original"].update(size_bytes=len(original), sha256=IO.digest(original))
+    origin = delivery["capsule_origin"]
+    manifest = {"schema": "q2_subject_capsule_raw_byte_parts_v1",
+                "purpose": "Preserve exact original archive bytes in smaller transport files.",
+                "original": copy.deepcopy(delivery["capsule_original"]),
+                "historical_origin": {"repository": origin["repository"], "actions_run_id": int(origin["run_id"]),
+                    "actions_run_attempt": origin["run_attempt"], "actions_artifact_id": origin["artifact_id"]},
+                "part_count": 10, "reconstruction": {"method": "raw_binary_concatenation",
+                    "order": "Ascending index in the parts array, 001 through 010.",
+                    "verify_each_part_before_concatenation": True,
+                    "verify_reconstructed_size_and_sha256_against_original": True,
+                    "parts_are_individual_zip_archives": False, "original_zip_recompressed": False},
+                "parts": parts, "authority_effect": "none"}
+    body_by_name[delivery["manifest_filename"]] = IO.encode(manifest)
+    for asset in delivery["assets"]:
+        raw = body_by_name[asset["name"]]
+        asset.update(size_bytes=len(raw), sha256=IO.digest(raw))
+    profile["capture_expectation"].update(archive_size_bytes=len(body_by_name[delivery["capture_filename"]]),
+        archive_sha256=IO.digest(body_by_name[delivery["capture_filename"]]))
+    request = metadata_request()
+    request["capture_expectation"] = copy.deepcopy(profile["capture_expectation"])
+    request["release_subject"].update(repository=origin["repository"], artifact_id=origin["artifact_id"],
+        archive_size_bytes=len(original), archive_sha256=IO.digest(original),
+        capsule_manifest_sha256=delivery["capsule_manifest_sha256"])
+    return profile, request, manifest, body_by_name, original
+
+
+def write_tiny_parts(delivery, bodies, private):
+    prefix = delivery["capsule_original"]["filename"] + "."
+    for name, raw in bodies.items():
+        if name.startswith(prefix):
+            (private / name).write_bytes(raw)
+
+
+def test_raw_part_reconstruction_recovers_exact_ordered_bytes(tmp_path, monkeypatch):
+    profile, _, manifest, bodies, original = tiny_release_case()
+    delivery = profile["delivery"]
+    write_tiny_parts(delivery, bodies, tmp_path)
+    monkeypatch.setattr(IO.zipfile, "ZipFile", lambda *a, **k: pytest.fail("Raw reconstruction must not parse or run ZIP payloads"))
+    destination = tmp_path / "capsule.zip"
+    IO.reconstruct_capsule(delivery, manifest, tmp_path, destination, IO.Deadline(5))
+    assert destination.read_bytes() == original
+    assert IO.digest(destination.read_bytes()) == delivery["capsule_original"]["sha256"]
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o600
+
+
+@pytest.mark.parametrize("fault", ["part-order", "index", "bool-index", "offset", "part-name", "part-digest",
+    "part-size", "part-count", "whole-digest", "origin", "extra-field", "recompressed"])
+def test_rehashed_manifest_cannot_change_the_reviewed_reconstruction(tmp_path, fault):
+    profile, _, manifest, bodies, _ = tiny_release_case()
+    delivery = profile["delivery"]
+    write_tiny_parts(delivery, bodies, tmp_path)
+    if fault == "part-order": manifest["parts"][0], manifest["parts"][1] = manifest["parts"][1], manifest["parts"][0]
+    elif fault == "index": manifest["parts"][0]["index"] = 2
+    elif fault == "bool-index": manifest["parts"][0]["index"] = True
+    elif fault == "offset": manifest["parts"][1]["offset_bytes"] += 1
+    elif fault == "part-name": manifest["parts"][0]["filename"] = "../outside"
+    elif fault == "part-digest": manifest["parts"][0]["sha256"] = "0" * 64
+    elif fault == "part-size": manifest["parts"][0]["size_bytes"] += 1
+    elif fault == "part-count": manifest["part_count"] = 9
+    elif fault == "whole-digest": manifest["original"]["sha256"] = "0" * 64
+    elif fault == "origin": manifest["historical_origin"]["actions_artifact_id"] += 1
+    elif fault == "extra-field": manifest["parts"][0]["url"] = "https://attacker.invalid/part"
+    else: manifest["reconstruction"]["original_zip_recompressed"] = True
+    # Matching the manifest's own new digest is insufficient: its relationships
+    # must still match the separately reviewed delivery binding.
+    raw = IO.encode(manifest)
+    asset = next(a for a in delivery["assets"] if a["name"] == delivery["manifest_filename"])
+    asset.update(size_bytes=len(raw), sha256=IO.digest(raw))
+    with pytest.raises(IO.IntakeError):
+        IO.reconstruct_capsule(delivery, manifest, tmp_path, tmp_path / "capsule.zip", IO.Deadline(5))
+
+
+@pytest.mark.parametrize("fault", ["corrupt", "short", "long", "swapped", "missing", "symlink", "whole-digest"])
+def test_reconstruction_rechecks_local_part_and_whole_archive_bytes(tmp_path, fault):
+    profile, _, manifest, bodies, _ = tiny_release_case()
+    delivery = profile["delivery"]
+    write_tiny_parts(delivery, bodies, tmp_path)
+    first = tmp_path / manifest["parts"][0]["filename"]
+    second = tmp_path / manifest["parts"][1]["filename"]
+    if fault == "corrupt": first.write_bytes(b"X" + first.read_bytes()[1:])
+    elif fault == "short": first.write_bytes(first.read_bytes()[:-1])
+    elif fault == "long": first.write_bytes(first.read_bytes() + b"X")
+    elif fault == "swapped": first_raw = first.read_bytes(); first.write_bytes(second.read_bytes()); second.write_bytes(first_raw)
+    elif fault == "missing": first.unlink()
+    elif fault == "symlink": first.unlink(); first.symlink_to(second)
+    else:
+        delivery["capsule_original"]["sha256"] = "0" * 64
+        manifest["original"]["sha256"] = "0" * 64
+    with pytest.raises(IO.IntakeError):
+        IO.reconstruct_capsule(delivery, manifest, tmp_path, tmp_path / "capsule.zip", IO.Deadline(5))
+
+
+def test_part_mutation_is_rejected_even_if_original_bytes_are_restored(tmp_path, monkeypatch):
+    profile, _, manifest, bodies, _ = tiny_release_case()
+    delivery = profile["delivery"]
+    write_tiny_parts(delivery, bodies, tmp_path)
+    first = tmp_path / manifest["parts"][0]["filename"]
+    original = first.read_bytes()
+    real_read, changed = IO.os.read, []
+    def replacing(fd, amount):
+        raw = real_read(fd, amount)
+        if raw and not changed:
+            changed.append(True)
+            first.write_bytes(b"X" * len(original))
+            first.write_bytes(original)
+        return raw
+    monkeypatch.setattr(IO.os, "read", replacing)
+    with pytest.raises(IO.IntakeError, match="q2_unstable_input"):
+        IO.reconstruct_capsule(delivery, manifest, tmp_path, tmp_path / "capsule.zip", IO.Deadline(5))
+
+
+def test_release_acquire_downloads_all_assets_and_reconstructs_without_inference(monkeypatch, tmp_path):
+    profile, request, _, bodies, original = tiny_release_case()
+    delivery = profile["delivery"]
+    release, tag = release_metadata(delivery)
+    by_id = {a["id"]: bodies[a["name"]] for a in delivery["assets"]}
+    seen = mock_release_opener(monkeypatch, release, tag, by_id)
+    monkeypatch.setattr(IO.zipfile, "ZipFile", lambda *a, **k: pytest.fail("Transport must not import or execute archive members"))
+    IO.GitHubReleaseTransport("PRIVATE_RELEASE_TOKEN").acquire(profile, request, tmp_path, IO.Deadline(5))
+    assert (tmp_path / "capsule.zip").read_bytes() == original
+    assert (tmp_path / "capture.zip").read_bytes() == bodies[delivery["capture_filename"]]
+    downloads = [r for r in seen if "/releases/assets/" in r.full_url]
+    assert len(downloads) == 13
+    assert {int(r.full_url.rsplit("/", 1)[1]) for r in downloads} == set(by_id)
+    assert all("/actions/artifacts/" not in r.full_url for r in seen)
+    assert request["release_subject"]["artifact_id"] == 11686701538
+
+
+@pytest.mark.parametrize("fault", ["capsule-origin", "capsule-bytes", "capsule-manifest", "capture-origin"])
+def test_release_acquire_rejects_unbound_origin_before_network(monkeypatch, tmp_path, fault):
+    profile, request, _, _, _ = tiny_release_case()
+    if fault == "capsule-origin": request["release_subject"]["artifact_id"] += 1
+    elif fault == "capsule-bytes": request["release_subject"]["archive_sha256"] = "0" * 64
+    elif fault == "capsule-manifest": request["release_subject"]["capsule_manifest_sha256"] = "0" * 64
+    else: request["capture_expectation"]["artifact_id"] += 1
+    class NoNetwork:
+        def open(self, *a, **k): pytest.fail("Unbound historical identity reached the network")
+    monkeypatch.setattr(IO.urllib.request, "build_opener", lambda *args: NoNetwork())
+    with pytest.raises(IO.IntakeError):
+        IO.GitHubReleaseTransport("PRIVATE_RELEASE_TOKEN").acquire(profile, request, tmp_path, IO.Deadline(5))
+    assert not list(tmp_path.iterdir())
 
 
 if __name__=='__main__':

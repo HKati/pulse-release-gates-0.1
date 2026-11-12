@@ -86,10 +86,45 @@ The builder does not silently rewrite that request for a new commit.
 At recovery time, the original capture artifact `11472726606` and capsule
 artifact `11686701538` returned 404, and the corresponding run artifact lists
 were empty. The precise cause of unavailability was not established. Retaining
-the bytes locally enables independent reconstruction; it does not restore the
-production loader's original Actions download route. A future live subject run
-requires a separately reviewed, available transport and a source-bound request.
-This package does not declare that prerequisite complete.
+the bytes locally enables independent reconstruction; it does not restore those
+original Actions download endpoints.
+
+### Published input delivery
+
+The production intake now selects the exact immutable
+[Q2 input release](https://github.com/HKati/pulsemech-q3-runtime-inputs/releases/tag/q2-admission-inputs-37600313529-v1)
+through the source-bound intake profile:
+
+| Delivery binding | Fixed value |
+| --- | --- |
+| Repository | `HKati/pulsemech-q3-runtime-inputs` |
+| Release ID | `443495900` |
+| Tag | `q2-admission-inputs-37600313529-v1` |
+| Tag commit | `d4125baa4bbf7b1b4d2d695a24b1c9bb1fa403b5` |
+| Uploaded assets | 13, totaling 454375505 bytes |
+| Split manifest | `Q2_CAPSULE_PARTS.json`, asset `741252070` |
+| Manifest SHA-256 | `cf5a25c0ac25a4acac3af5db67732b07a099af800c0aaac93f753e2a80dafb36` |
+| Source and notice companion | `Q2_CAPSULE_SOURCE_NOTICE_COMPANION_v1.zip`, asset `741352375` |
+| Companion SHA-256 | `d558a322e9a791d1500382d924d8dc9106a686d84edec7c952c81fa30a899329` |
+
+The profile records every uploaded asset's exact ID, name, byte count and
+SHA-256. The capture remains one ZIP; the capsule is reconstructed by raw binary
+concatenation of its ten verified parts, then checked against the original
+452116385-byte archive and its digest above. GitHub's generated source-code
+archives and release attestation are not additional Q2 input assets.
+
+The historical Actions identities in the request and result still describe the
+origin of the preserved bytes. They are not replaced by release asset IDs.
+The current delivery route is separately fixed by the committed profile and
+loader source. Each intake consumer checks and retrieves its own inputs in a
+fresh private workspace. There is no fallback to the expired artifact route,
+another release, an unpinned URL or a caller-supplied local archive.
+
+Published availability and local transport tests do not establish retrieval by
+the actual CI runner. After this change is merged, a new request must bind the
+exact reviewed merge commit. The selected real run and independent verification
+remain necessary before an accepted admission-rejection observation can be
+reported.
 
 ## Operating sequence
 

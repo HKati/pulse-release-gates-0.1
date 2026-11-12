@@ -553,3 +553,264 @@ class GitHubArtifactTransport:
         finally:
             if response is not None:
                 response.close()
+
+
+def validate_release_delivery(profile):
+    """Validate the source-pinned delivery definition without network access.
+
+    The archive's Actions origin remains in the request and public result.
+    Release IDs identify delivery only; neither identity substitutes for the
+    other. No dispatch input supplies a URL, transport mode or fallback.
+    """
+    try:
+        delivery = profile["delivery"]
+        require(type(delivery) is dict and set(delivery) == {
+            "record_type", "repository", "release_id", "tag_name", "tag_commit",
+            "capture_filename", "capsule_origin", "capsule_original",
+            "capsule_manifest_sha256", "manifest_filename", "notice_filename", "assets",
+        }, "q2_source_mismatch")
+        require(delivery["record_type"] == "q2_immutable_release_delivery_v1" and
+                delivery["repository"] == "HKati/pulsemech-q3-runtime-inputs" and
+                type(delivery["release_id"]) is int and delivery["release_id"] == 443495900 and
+                delivery["tag_name"] == "q2-admission-inputs-37600313529-v1" and
+                delivery["tag_commit"] == "d4125baa4bbf7b1b4d2d695a24b1c9bb1fa403b5" and
+                delivery["capture_filename"] == "q2-reference-capture-37600313529-1.zip" and
+                delivery["manifest_filename"] == "Q2_CAPSULE_PARTS.json" and
+                delivery["notice_filename"] == "Q2_CAPSULE_SOURCE_NOTICE_COMPANION_v1.zip",
+                "q2_source_mismatch")
+        origin = {"repository": "HKati/pulse-release-gates-0.1", "run_id": "38097352170",
+                  "run_attempt": 1, "source_commit": "3aa05dd7f8f95f30d75ab38bdb46419e3735c58c",
+                  "artifact_id": 11686701538}
+        require(encode(delivery["capsule_origin"]) == encode(origin), "q2_source_mismatch")
+        original = delivery["capsule_original"]
+        require(type(original) is dict and set(original) == {"filename", "size_bytes", "sha256"} and
+                original["filename"] == "q2-release-subject-capsule-20261010.zip" and
+                type(original["size_bytes"]) is int and 0 < original["size_bytes"] <= 2147483648 and
+                type(original["sha256"]) is str and re.fullmatch(r"[0-9a-f]{64}", original["sha256"]) and
+                type(delivery["capsule_manifest_sha256"]) is str and
+                re.fullmatch(r"[0-9a-f]{64}", delivery["capsule_manifest_sha256"]), "q2_source_mismatch")
+        names = [delivery["capture_filename"],
+                 *(original["filename"] + f".{i:03d}" for i in range(1, 11)),
+                 delivery["manifest_filename"], delivery["notice_filename"]]
+        assets = delivery["assets"]
+        require(type(assets) is list and len(assets) == 13, "q2_source_mismatch")
+        for asset, name in zip(assets, names):
+            require(type(asset) is dict and set(asset) == {"id", "name", "size_bytes", "sha256"} and
+                    type(asset["id"]) is int and 0 < asset["id"] < 2 ** 63 and
+                    asset["name"] == name and type(asset["size_bytes"]) is int and
+                    0 < asset["size_bytes"] <= 64 * 1024 * 1024 and type(asset["sha256"]) is str and
+                    re.fullmatch(r"[0-9a-f]{64}", asset["sha256"]), "q2_source_mismatch")
+        require(len({a["id"] for a in assets}) == 13 and
+                assets[0]["size_bytes"] == profile["capture_expectation"]["archive_size_bytes"] and
+                assets[0]["sha256"] == profile["capture_expectation"]["archive_sha256"] and
+                sum(a["size_bytes"] for a in assets[1:11]) == original["size_bytes"] and
+                assets[11]["size_bytes"] <= 65536 and assets[12]["size_bytes"] <= 1024 * 1024,
+                "q2_source_mismatch")
+        return delivery
+    except IntakeError:
+        raise
+    except (KeyError, TypeError, ValueError, OverflowError):
+        raise IntakeError("q2_source_mismatch") from None
+
+
+def _release_manifest(delivery):
+    origin = delivery["capsule_origin"]
+    offset, parts = 0, []
+    for index, asset in enumerate(delivery["assets"][1:11], 1):
+        parts.append({"index": index, "filename": asset["name"], "offset_bytes": offset,
+                      "size_bytes": asset["size_bytes"], "sha256": asset["sha256"]})
+        offset += asset["size_bytes"]
+    return {"schema": "q2_subject_capsule_raw_byte_parts_v1",
+            "purpose": "Preserve exact original archive bytes in smaller transport files.",
+            "original": delivery["capsule_original"],
+            "historical_origin": {"repository": origin["repository"],
+                                  "actions_run_id": int(origin["run_id"]),
+                                  "actions_run_attempt": origin["run_attempt"],
+                                  "actions_artifact_id": origin["artifact_id"]},
+            "part_count": 10,
+            "reconstruction": {"method": "raw_binary_concatenation",
+                               "order": "Ascending index in the parts array, 001 through 010.",
+                               "verify_each_part_before_concatenation": True,
+                               "verify_reconstructed_size_and_sha256_against_original": True,
+                               "parts_are_individual_zip_archives": False,
+                               "original_zip_recompressed": False},
+            "parts": parts, "authority_effect": "none"}
+
+
+def reconstruct_capsule(delivery, manifest, private, destination, deadline):
+    """Join unchanged raw parts; rehash held files and the complete output."""
+    require(encode(manifest) == encode(_release_manifest(delivery)), "q2_archive_rejected")
+    original = delivery["capsule_original"]
+    hashed, total = hashlib.sha256(), 0
+    out_fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(out_fd, "wb") as output:
+        for part in manifest["parts"]:
+            require(total == part["offset_bytes"], "q2_digest_mismatch")
+            fd, before = _open_regular(private / part["filename"])
+            try:
+                require(before.st_size == part["size_bytes"], "q2_digest_mismatch")
+                part_hash, size = hashlib.sha256(), 0
+                while True:
+                    deadline.remaining()
+                    chunk = os.read(fd, min(65536, part["size_bytes"] + 1 - size))
+                    if not chunk:
+                        break
+                    size += len(chunk)
+                    total += len(chunk)
+                    require(size <= part["size_bytes"] and total <= original["size_bytes"],
+                            "q2_digest_mismatch")
+                    part_hash.update(chunk)
+                    hashed.update(chunk)
+                    output.write(chunk)
+                require(_identity(before) == _identity(os.fstat(fd)), "q2_unstable_input")
+                require(size == part["size_bytes"] and part_hash.hexdigest() == part["sha256"],
+                        "q2_digest_mismatch")
+            finally:
+                os.close(fd)
+        output.flush()
+        os.fsync(output.fileno())
+    require(total == original["size_bytes"] and hashed.hexdigest() == original["sha256"],
+            "q2_digest_mismatch")
+
+
+class GitHubReleaseTransport:
+    """Only the reviewed immutable public release, with no Actions fallback."""
+    def __init__(self, token):
+        require(type(token) is str and 0 < len(token) <= 4096 and
+                not any(ord(c) < 33 or ord(c) > 126 for c in token), "q2_credential_missing")
+        self.token = token
+        self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
+
+    def _request(self, endpoint, accept):
+        require(endpoint.startswith("https://api.github.com/repos/HKati/pulsemech-q3-runtime-inputs/"),
+                "q2_transport_rejected")
+        return urllib.request.Request(endpoint, headers={
+            "Authorization": "Bearer " + self.token, "Accept": accept,
+            "X-GitHub-Api-Version": "2022-11-28"})
+
+    def fetch_json(self, endpoint, deadline):
+        response = None
+        try:
+            response = self.opener.open(self._request(endpoint, "application/vnd.github+json"),
+                                        timeout=deadline.remaining())
+            require(response.status == 200, "q2_transport_rejected")
+            pieces, size, maximum = [], 0, 2 * 1024 * 1024
+            while True:
+                deadline.remaining()
+                chunk = response.read(min(65536, maximum + 1 - size))
+                if not chunk:
+                    break
+                size += len(chunk)
+                require(size <= maximum, "q2_transport_rejected")
+                pieces.append(chunk)
+            return strict_json(b"".join(pieces), maximum)
+        except IntakeError:
+            raise
+        except urllib.error.HTTPError as exc:
+            exc.close()
+            raise IntakeError("q2_transport_rejected") from None
+        except Exception:
+            raise IntakeError("q2_transport_rejected") from None
+        finally:
+            if response is not None:
+                response.close()
+
+    def verify_release(self, delivery, deadline):
+        base = "https://api.github.com/repos/" + delivery["repository"]
+        release = self.fetch_json(base + "/releases/" + str(delivery["release_id"]), deadline)
+        require(type(release.get("id")) is int and release["id"] == delivery["release_id"] and
+                release.get("tag_name") == delivery["tag_name"] and release.get("draft") is False and
+                release.get("immutable") is True and type(release.get("published_at")) is str and
+                bool(release["published_at"]), "q2_transport_rejected")
+        observed = release.get("assets")
+        require(type(observed) is list and len(observed) == len(delivery["assets"]) and
+                all(type(a) is dict for a in observed), "q2_transport_rejected")
+        expected = {a["name"]: a for a in delivery["assets"]}
+        seen = set()
+        for asset in observed:
+            name = asset.get("name")
+            require(type(name) is str and name in expected and name not in seen,
+                    "q2_transport_rejected")
+            seen.add(name)
+            wanted = expected[name]
+            require(type(asset.get("id")) is int and asset["id"] == wanted["id"] and
+                    type(asset.get("size")) is int and asset["size"] == wanted["size_bytes"] and
+                    asset.get("digest") == "sha256:" + wanted["sha256"] and
+                    asset.get("state") == "uploaded" and
+                    asset.get("url") == base + "/releases/assets/" + str(wanted["id"]) and
+                    asset.get("browser_download_url") == "https://github.com/" + delivery["repository"] +
+                    "/releases/download/" + delivery["tag_name"] + "/" + name, "q2_transport_rejected")
+        tag = self.fetch_json(base + "/git/ref/tags/" + delivery["tag_name"], deadline)
+        require(tag.get("ref") == "refs/tags/" + delivery["tag_name"] and
+                type(tag.get("object")) is dict and tag["object"].get("type") == "commit" and
+                tag["object"].get("sha") == delivery["tag_commit"], "q2_transport_rejected")
+
+    def download_asset(self, delivery, asset, destination, deadline):
+        endpoint = ("https://api.github.com/repos/" + delivery["repository"] +
+                    "/releases/assets/" + str(asset["id"]))
+        response = None
+        try:
+            try:
+                response = self.opener.open(self._request(endpoint, "application/octet-stream"),
+                                            timeout=deadline.remaining())
+            except urllib.error.HTTPError as exc:
+                try:
+                    require(exc.code in (301, 302, 303, 307, 308), "q2_transport_rejected")
+                    location = exc.headers.get("Location", "")
+                    parsed = urllib.parse.urlsplit(location)
+                    require(parsed.scheme == "https" and parsed.hostname == "release-assets.githubusercontent.com" and
+                            parsed.port in (None, 443) and not parsed.username and not parsed.password and
+                            not parsed.fragment and all(33 <= ord(c) <= 126 for c in location),
+                            "q2_transport_rejected")
+                finally:
+                    exc.close()
+                # Storage receives no credential and cannot redirect a second time.
+                response = self.opener.open(urllib.request.Request(location), timeout=deadline.remaining())
+            require(response.status == 200, "q2_transport_rejected")
+            expected_size = asset["size_bytes"]
+            length = response.headers.get("Content-Length")
+            require(length is None or length == str(expected_size), "q2_digest_mismatch")
+            hashed, size = hashlib.sha256(), 0
+            fd = os.open(destination, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, "wb") as output:
+                while True:
+                    deadline.remaining()
+                    chunk = response.read(min(65536, expected_size + 1 - size))
+                    if not chunk:
+                        break
+                    size += len(chunk)
+                    require(size <= expected_size, "q2_digest_mismatch")
+                    hashed.update(chunk)
+                    output.write(chunk)
+                output.flush()
+                os.fsync(output.fileno())
+            require(size == expected_size and hashed.hexdigest() == asset["sha256"], "q2_digest_mismatch")
+        except IntakeError:
+            raise
+        except Exception:
+            raise IntakeError("q2_transport_rejected") from None
+        finally:
+            if response is not None:
+                response.close()
+
+    def acquire(self, profile, request, private, deadline):
+        delivery = validate_release_delivery(profile)
+        original, origin = delivery["capsule_original"], delivery["capsule_origin"]
+        subject = {"repository": origin["repository"], "artifact_id": origin["artifact_id"],
+                   "archive_size_bytes": original["size_bytes"], "archive_sha256": original["sha256"],
+                   "capsule_manifest_sha256": delivery["capsule_manifest_sha256"],
+                   "subject_id": profile["subject_id"], "definition_sha256": profile["definition_sha256"],
+                   "layout_profile": profile["layout_profile"]}
+        require(request["capture_expectation"] == profile["capture_expectation"] and
+                encode(request["release_subject"]) == encode(subject), "q2_request_invalid")
+        self.verify_release(delivery, deadline)
+        assets = delivery["assets"]
+        self.download_asset(delivery, assets[0], private / "capture.zip", deadline)
+        for asset in assets[11:]:
+            self.download_asset(delivery, asset, private / asset["name"], deadline)
+        manifest = strict_json(read_file(private / delivery["manifest_filename"], 65536,
+                                        assets[11]["sha256"], deadline), 65536)
+        require(encode(manifest) == encode(_release_manifest(delivery)), "q2_archive_rejected")
+        for asset in assets[1:11]:
+            self.download_asset(delivery, asset, private / asset["name"], deadline)
+        reconstruct_capsule(delivery, manifest, private, private / "capsule.zip", deadline)
