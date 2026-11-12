@@ -677,6 +677,10 @@ pulsemech_witness_verification_evidence_v0.schema.json
 
 ## Compute binding and current-run export expectation
 
+### Bounded admission-rejection observation
+
+- [Admission-rejection observer and independent checker](compute/PULSEMECH_COMPUTE_ADMISSION_REJECTION_v0.md) — A separate read-only carrier for the pinned hosted-evidence rejection path. It preserves an exact terminal run, reconstructs its source/step/input bindings, and independently checks Q2 and attestation evidence. Implementation and controlled tests do not establish a completed observed reference or satisfy the original successful Step 5C profile.
+
 ### Current merged implementation
 
 - [Compute-binding design and implementation-state record](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md) — Detailed canonical record of completed Step 3G automation, historical Step 4A capture, bounded Step 4B production/preservation, accepted Step 5A at PR #2872 / `5afb4404719fb04d3ee32a007cdbb8b47c220118`, and completed Step 5B through implementation PR #2876 / `c32508f8afb58381225fec0b426b85b00e32fe11`, owner-dispatched run `34402387728`, artifact `10123984621`, and preservation PR #2877 / `12b42736a9f8a1da16e3659a2d2099058207129b`. Historical Step 4B packet preservation remains #2868 / `55c6180dfbfd4055a558cf6b3e3883461a423f86`, with its producer separately fixed at #2867.
