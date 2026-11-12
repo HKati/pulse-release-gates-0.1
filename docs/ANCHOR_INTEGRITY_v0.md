@@ -14,6 +14,11 @@
 > control. The original producer is preserved in the source-bound WP1 fixture.
 > Existing historical JSON and already-published copies are not rewritten.
 >
+> [WP2K](ANCHOR_INTEGRITY_v0_1_WP2K_LEGACY_CONTRACT_BOUNDARY.md) corrects the
+> existing format checker: duplicate keys and invalid numeric types/values
+> are rejected. A successful check is `format_only`, not evidence
+> verification, permission to assert or release authority.
+>
 > For fresh evidence-bound diagnostics, use
 > [WP2H](ANCHOR_INTEGRITY_v0_1_WP2H_DIAGNOSTIC_INTEGRATION.md), with explicit
 > selection and evidence inputs. This notice does not deploy or republish a site.

@@ -5499,5 +5499,394 @@ def test_wp2j_quoted_delimiters_do_not_count_as_containers(tmp_path,text):
     assert m._read_json(p)==payload
 
 
+
+# WP2K: repair the existing v0 format checker without evidence promotion.
+WP2K_CHECKER = ROOT / 'scripts/check_anchor_integrity_v0_contract.py'
+WP2K_SNAPSHOT = ROOT / 'tests/fixtures/anchor_integrity_v0_1/legacy_checker_920754da.source.json'
+
+
+def _wp2k_module(path=None):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('wp2k_contract_checker_test', path or WP2K_CHECKER)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _wp2k_payload():
+    return load_json(EXAMPLE_DIR / 'wp2j_legacy_producer/expected.json')
+
+
+def _wp2k_cli(path, *extra):
+    import subprocess
+    import sys
+    return subprocess.run([sys.executable, str(WP2K_CHECKER), '--in', str(path), *extra],
+                          cwd=ROOT, capture_output=True, timeout=15)
+
+
+def _wp2k_set(payload, path, value):
+    target = payload
+    for key in path[:-1]:
+        target = target[key]
+    target[path[-1]] = value
+
+
+def _wp2k_historical_source():
+    fixture = load_json(WP2K_SNAPSHOT)
+    raw = base64.b64decode(fixture['content_base64'], validate=True)
+    assert fixture['source_repository'] == 'HKati/pulse-release-gates-0.1'
+    assert fixture['source_commit'] == '920754daa217f0c44adb7648fa49fd1c5f4765c1'
+    assert fixture['source_path'] == 'scripts/check_anchor_integrity_v0_contract.py'
+    assert fixture['byte_length'] == len(raw) == 9783
+    blob = hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest()
+    assert blob == fixture['git_blob_sha1'] == '023e3a6e817cc1c1967cf7926763fe9837b6f26e'
+    assert hashlib.sha256(raw).hexdigest() == fixture['sha256']
+    return raw
+
+
+def test_wp2k_schema_and_previous_producer_reader_are_unchanged():
+    raw = (SCHEMA_DIR / 'anchor_integrity_v0.schema.json').read_bytes()
+    assert hashlib.sha1(b'blob ' + str(len(raw)).encode() + b'\0' + raw).hexdigest() == (
+        'a67472be9fa0415d33374204125ea4785d5bb4c6')
+    _wp2k_historical_source()
+    assert _wp2j_module().PRODUCER_PROFILE == 'legacy-v0-unmeasured-boundary-v1'
+    _wp2i_assert_boundary(_wp2i_render())
+
+
+@pytest.mark.parametrize('case', ['epoch_true', 'epoch_false', 'duplicate', 'rounding', 'underflow'])
+def test_wp2k_reproduces_and_rejects_confirmed_original_false_acceptances(tmp_path, case):
+    archived = tmp_path / 'archived_checker.py'
+    archived.write_bytes(_wp2k_historical_source())
+    old = _wp2k_module(archived)
+    new = _wp2k_module()
+    doc = _wp2k_payload()
+    if case in ('epoch_true', 'epoch_false'):
+        doc['meta']['source_date_epoch'] = case == 'epoch_true'
+    raw = json.dumps(doc)
+    if case == 'duplicate':
+        raw = raw.replace('"state": "UNKNOWN"', '"state": "INVALID_STATE", "state": "UNKNOWN"')
+    if case == 'rounding':
+        raw = raw.replace('"anchor_coverage": null', '"anchor_coverage": 1.00000000000000000001')
+    if case == 'underflow':
+        raw = raw.replace('"anchor_coverage": null', '"anchor_coverage": -1e-999')
+    path = tmp_path / 'input.json'
+    path.write_text(raw)
+    assert old.check_contract(old._read_json(path))[0] is True
+    if case == 'duplicate':
+        with pytest.raises(new.InputRejected, match='duplicate_json_key'):
+            new._read_json(path)
+    else:
+        assert new.check_contract(new._read_json(path))[0] is False
+    result = _wp2k_cli(path)
+    assert result.returncode == 1
+    assert b'[OK]' not in result.stderr and b'Traceback' not in result.stderr
+    assert path.read_text() == raw
+
+
+@pytest.mark.parametrize('relative', ['wp2j_legacy_producer/expected.json', 'wp2i_legacy_reader/legacy.json'])
+def test_wp2k_accepts_current_and_historical_formats_without_promoting_evidence(tmp_path, relative):
+    original = (EXAMPLE_DIR / relative).read_bytes()
+    path = tmp_path / 'input.json'
+    path.write_bytes(original)
+    before = path.stat()
+    assert _wp2k_module().check_contract(_wp2k_module()._read_json(path))[0]
+    result = _wp2k_cli(path)
+    assert result.returncode == 0 and result.stdout == b''
+    for marker in (b'scope=format_only', b'evidence_verification=not_run', b'authority_effect=none'):
+        assert marker in result.stderr
+    assert path.read_bytes() == original
+    assert path.stat().st_mtime_ns == before.st_mtime_ns
+    assert b'accepted_as_semantic_support=true' not in result.stderr
+    assert b'release_authority_activation=true' not in result.stderr
+
+
+@pytest.mark.parametrize(('token', 'expected'), [
+    ('null', True), ('0', True), ('-0', True), ('1', True), ('1.0', True),
+    ('0.5', True), ('0.99999999999999999999999999', True), ('1e-999', True),
+    ('1.00000000000000000001', False), ('-1e-999', False), ('-0.0001', False),
+    ('1e999', False), ('-1e999', False), ('2', False), ('100', False),
+    ('true', False), ('false', False), ('"1"', False), ('"100%"', False),
+    ('[]', False), ('{}', False),
+])
+def test_wp2k_coverage_range_uses_exact_decoded_values(token, expected):
+    raw = json.dumps(_wp2k_payload()).replace('"anchor_coverage": null', '"anchor_coverage": ' + token).encode()
+    m = _wp2k_module()
+    assert m.check_contract(m._decode_json(raw))[0] is expected
+
+
+@pytest.mark.parametrize(('token', 'expected'), [
+    ('null', True), ('0', True), ('1', True), ('0.0', True), ('1.0', True),
+    ('1e3', True), ('-0.0', True), ('1e999', True), ('0e-999', True),
+    ('true', False), ('false', False), ('-1', False), ('-0.1', False),
+    ('0.5', False), ('1.00000000000000000001', False), ('1e-999', False),
+    ('"0"', False), ('[]', False),
+])
+def test_wp2k_epoch_is_nonnegative_mathematical_integer_not_boolean(token, expected):
+    raw = json.dumps(_wp2k_payload()).replace('"source_date_epoch": 0', '"source_date_epoch": ' + token)
+    assert raw != json.dumps(_wp2k_payload()) or token == '0'
+    m = _wp2k_module()
+    assert m.check_contract(m._decode_json(raw.encode()))[0] is expected
+
+
+@pytest.mark.parametrize('token', ['NaN', 'Infinity', '-Infinity'])
+def test_wp2k_nonfinite_json_constants_are_rejected_everywhere(token):
+    m = _wp2k_module()
+    with pytest.raises(m.InputRejected, match='non_finite_json_number'):
+        m._decode_json(('{"ignored":' + token + '}').encode())
+
+
+@pytest.mark.parametrize('raw', [
+    b'{"x":1,"x":2}', b'{"x":1,"x":1}', b'{"x":1,"\\u0078":1}',
+    b'{"outer":{"x":1,"x":2}}', b'{"evidence":[{"kind":"a","kind":"b"}]}',
+    b'{"state":"UNKNOWN","state":"ANCHORED"}',
+])
+def test_wp2k_duplicate_keys_are_rejected_at_all_levels(raw):
+    m = _wp2k_module()
+    with pytest.raises(m.InputRejected, match='duplicate_json_key'):
+        m._decode_json(raw)
+
+
+@pytest.mark.parametrize('raw', [b'', b'{', b'{}{}', b'{"x":}', b'{"x":1,}',
+    b'\xff', b'\xef\xbb\xbf{}', b'{"x":"\x00"}', b'{"x":01}', b'{"x":+1}',
+    b'{"x":1e}', b'{"x":.1}', b'{"x":1.}', b'/*comment*/{}'])
+def test_wp2k_invalid_json_is_rejected_with_fixed_errors(raw):
+    m = _wp2k_module()
+    with pytest.raises(m.InputRejected):
+        m._decode_json(raw)
+
+
+@pytest.mark.parametrize('doc', [None, True, False, 0, 1.0, '', [], [1]])
+def test_wp2k_nonobject_root_is_invalid_contract(doc):
+    ok, errors = _wp2k_module().check_contract(doc)
+    assert ok is False and errors == ['document root must be an object']
+
+
+@pytest.mark.parametrize('depth', [1, 32, 63, 64, 65, 1100])
+def test_wp2k_container_depth_boundary_is_explicit(depth):
+    m = _wp2k_module()
+    raw = b'{"x":' + b'[' * (depth - 1) + b'0' + b']' * (depth - 1) + b'}'
+    if depth <= m.MAX_JSON_DEPTH:
+        assert isinstance(m._decode_json(raw), dict)
+    else:
+        with pytest.raises(m.InputRejected, match='input_depth_limit'):
+            m._decode_json(raw)
+
+
+@pytest.mark.parametrize('text', ['[' * 1000, '}' * 1000, '\\"{[', '\\\\"[', '"[]{}"', 'ordinary'])
+def test_wp2k_quoted_delimiters_do_not_affect_depth(text):
+    doc = {'x': text}
+    assert _wp2k_module()._decode_json(json.dumps(doc).encode()) == doc
+
+
+def test_wp2k_size_limit_applies_to_bytes_and_file_reads(tmp_path, monkeypatch):
+    m = _wp2k_module()
+    monkeypatch.setattr(m, 'MAX_INPUT_BYTES', 100)
+    exact = b'{}' + b' ' * 98
+    assert m._decode_json(exact) == {}
+    path = tmp_path / 'input.json'
+    path.write_bytes(exact)
+    assert m._read_json(path) == {}
+    for operation in (lambda: m._decode_json(exact + b' '), lambda: m._read_json(path)):
+        path.write_bytes(exact + b' ')
+        with pytest.raises(m.InputRejected, match='input_size_limit'):
+            operation()
+
+
+@pytest.mark.parametrize(('token', 'allowed'), [
+    ('9' * 1024, True), ('9' * 1025, False),
+    ('0.' + '1' * 1022, True), ('0.' + '1' * 1023, False),
+])
+def test_wp2k_number_token_budget_is_separate_from_numeric_range(token, allowed):
+    m = _wp2k_module()
+    raw = ('{"x":' + token + '}').encode()
+    if allowed:
+        assert 'x' in m._decode_json(raw)
+    else:
+        with pytest.raises(m.InputRejected, match='numeric_token_limit'):
+            m._decode_json(raw)
+
+
+@pytest.mark.parametrize('kind', ['symlink', 'dangling', 'directory', 'fifo'])
+def test_wp2k_nonregular_input_is_rejected_without_blocking(tmp_path, kind):
+    import os
+    path = tmp_path / 'input'
+    target = tmp_path / 'target'; target.write_text(json.dumps(_wp2k_payload()))
+    if kind == 'symlink':
+        path.symlink_to(target)
+    elif kind == 'dangling':
+        path.symlink_to(tmp_path / 'missing')
+    elif kind == 'directory':
+        path.mkdir()
+    else:
+        assert hasattr(os, 'mkfifo'), 'This regression requires POSIX FIFO support'
+        os.mkfifo(path)
+    result = _wp2k_cli(path)
+    assert result.returncode == 1 and b'[OK]' not in result.stderr
+    assert b'Traceback' not in result.stderr
+
+
+def test_wp2k_observed_change_during_read_is_rejected_and_descriptor_closed(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    m = _wp2k_module()
+    path = tmp_path / 'input'; path.write_text(json.dumps(_wp2k_payload()))
+    original_stat, original_close = m.os.fstat, m.os.close
+    calls, closed = [], []
+    def changed(fd):
+        value = original_stat(fd)
+        calls.append(fd)
+        if len(calls) == 1:
+            return value
+        return SimpleNamespace(st_dev=value.st_dev, st_ino=value.st_ino, st_size=value.st_size,
+                               st_mtime_ns=value.st_mtime_ns + 1, st_ctime_ns=value.st_ctime_ns)
+    def close(fd):
+        closed.append(fd)
+        return original_close(fd)
+    monkeypatch.setattr(m.os, 'fstat', changed)
+    monkeypatch.setattr(m.os, 'close', close)
+    with pytest.raises(m.InputRejected, match='input_changed_during_read'):
+        m._read_json(path)
+    assert len(calls) == 2 and closed == [calls[0]]
+
+
+def test_wp2k_errors_do_not_echo_path_keys_or_json_as_workflow_commands(tmp_path):
+    path = tmp_path / 'x\n::warning::path-marker'
+    doc = _wp2k_payload(); doc['\n::notice::injected-marker'] = True
+    path.write_text(json.dumps(doc))
+    result = _wp2k_cli(path)
+    assert result.returncode == 1
+    assert b'path-marker' not in result.stderr and b'injected-marker' not in result.stderr
+    assert b'has unexpected keys' in result.stderr
+    path.write_bytes(b'{"secret-marker":')
+    result = _wp2k_cli(path)
+    assert result.returncode == 1 and b'secret-marker' not in result.stderr
+
+
+def test_wp2k_error_budget_cannot_turn_many_failures_into_success():
+    m = _wp2k_module(); doc = _wp2k_payload(); doc['evidence'] = [None] * 1000
+    ok, errors = m.check_contract(doc)
+    assert ok is False and len(errors) == m.MAX_ERRORS
+    assert all('must be object' in error for error in errors)
+
+
+@pytest.mark.parametrize('path', [
+    ('schema',), ('meta',), ('inputs',), ('invariants',), ('state',), ('recommendation',), ('evidence',),
+    ('meta','run_id'), ('meta','commit'), ('meta','generator'), ('meta','source_date_epoch'),
+    ('inputs','status_path'), ('inputs','paradox_source_path'), ('inputs','scanned_paths'),
+    ('invariants','anchor_presence'), ('invariants','anchor_coverage'), ('invariants','loop_risk'),
+    ('invariants','contradiction_risk'), ('invariants','notes'),
+    ('recommendation','response_mode'), ('recommendation','gate_action'), ('recommendation','rationale'),
+    ('evidence',0,'kind'), ('evidence',0,'message'),
+])
+def test_wp2k_missing_required_key_is_not_null(path):
+    doc = _wp2k_payload(); target = doc
+    for key in path[:-1]:
+        target = target[key]
+    del target[path[-1]]
+    assert _wp2k_module().check_contract(doc)[0] is False
+    assert not jsonschema.Draft202012Validator(load_json(SCHEMA_DIR/'anchor_integrity_v0.schema.json')).is_valid(doc)
+
+
+@pytest.mark.parametrize('path', [(), ('meta',), ('inputs',), ('invariants',), ('recommendation',), ('evidence',0)])
+def test_wp2k_extra_keys_remain_invalid(path):
+    doc = _wp2k_payload(); target = doc
+    for key in path:
+        target = target[key]
+    target['unexpected'] = True
+    assert _wp2k_module().check_contract(doc)[0] is False
+
+
+@pytest.mark.parametrize('path', [('meta','generator'), ('inputs','status_path'), ('recommendation','rationale'), ('evidence',0,'kind'), ('evidence',0,'message')])
+def test_wp2k_string_length_follows_frozen_schema_without_stripping(path):
+    m = _wp2k_module(); schema = jsonschema.Draft202012Validator(load_json(SCHEMA_DIR/'anchor_integrity_v0.schema.json'))
+    for value, expected in [('', False), (' ', True), ('\t\n', True), ('x', True)]:
+        doc = _wp2k_payload(); _wp2k_set(doc, path, value)
+        assert schema.is_valid(doc) is expected
+        assert m.check_contract(doc)[0] is expected
+
+
+def test_wp2k_bounded_shape_differential_matches_unchanged_schema():
+    m = _wp2k_module()
+    schema = jsonschema.Draft202012Validator(load_json(SCHEMA_DIR/'anchor_integrity_v0.schema.json'))
+    paths = [('schema',), ('meta','generator'), ('meta','source_date_epoch'), ('meta','run_id'),
+             ('inputs','status_path'), ('inputs','scanned_paths'), ('invariants','anchor_presence'),
+             ('invariants','anchor_coverage'), ('invariants','loop_risk'), ('invariants','notes'),
+             ('state',), ('recommendation','response_mode'), ('recommendation','gate_action'),
+             ('recommendation','rationale'), ('evidence',), ('evidence',0,'kind'), ('evidence',0,'ref')]
+    values = [None, True, False, 0, 1, -1, 0.0, 1.0, 0.5, 2, '', ' ', 'x', 'UNKNOWN',
+              'ANCHORED', 'ANSWER', 'OPEN', 'SILENCE', 'CLOSED', 'low', [], {}, ['x']]
+    for path in paths:
+        for value in values:
+            doc = _wp2k_payload(); _wp2k_set(doc, path, deepcopy(value))
+            assert m.check_contract(doc)[0] == schema.is_valid(doc), (path, value)
+
+
+def test_wp2k_exact_decimal_boundary_is_independent_of_active_precision():
+    from decimal import localcontext
+    m = _wp2k_module()
+    raw = json.dumps(_wp2k_payload()).replace('"anchor_coverage": null','"anchor_coverage": 1.00000000000000000001').encode()
+    with localcontext() as context:
+        context.prec = 2
+        assert m.check_contract(m._decode_json(raw))[0] is False
+
+
+def test_wp2k_large_integer_and_nonfinite_api_values_do_not_crash():
+    from decimal import Decimal
+    m = _wp2k_module()
+    for value in (10**1000, -(10**1000), float('nan'), float('inf'), float('-inf'), Decimal('NaN'), Decimal('Infinity')):
+        doc = _wp2k_payload(); doc['invariants']['anchor_coverage'] = value
+        assert m.check_contract(doc)[0] is False
+    for value in (float('nan'), float('inf'), Decimal('sNaN'), Decimal('Infinity')):
+        doc = _wp2k_payload(); doc['meta']['source_date_epoch'] = value
+        assert m.check_contract(doc)[0] is False
+
+
+def test_wp2k_cli_missing_input_and_bad_arguments_are_not_success(tmp_path):
+    import subprocess, sys
+    result = _wp2k_cli(tmp_path / 'missing')
+    assert result.returncode == 1 and b'input_missing' in result.stderr
+    result = subprocess.run([sys.executable, str(WP2K_CHECKER)], capture_output=True, timeout=15)
+    assert result.returncode == 2 and b'[OK]' not in result.stderr
+    result = subprocess.run([sys.executable, str(WP2K_CHECKER), '--help'], capture_output=True, timeout=15)
+    assert result.returncode == 0 and b'[OK]' not in result.stdout + result.stderr
+
+
+def test_wp2k_new_producer_checker_reader_pipeline_stays_unmeasured(tmp_path):
+    m = _wp2j_module(); paths = _wp2j_inputs(tmp_path, {'gates': {key: True for key in m.SIGNAL_IDS}})
+    doc = m.build_overlay(*paths); _wp2j_boundary(doc)
+    output = tmp_path / 'generated.json'; output.write_text(json.dumps(doc))
+    assert _wp2k_cli(output).returncode == 0
+    _wp2i_assert_boundary(_wp2i_module()._render_md(doc, None, output))
+    assert doc['invariants']['anchor_coverage'] is None and doc['invariants']['loop_risk'] is None
+
+
+def test_wp2k_checker_has_no_execution_or_write_interface():
+    import ast
+    tree = ast.parse(WP2K_CHECKER.read_text())
+    imports = {a.name for node in ast.walk(tree) if isinstance(node, ast.Import) for a in node.names}
+    assert imports <= {'argparse', 'json', 'math', 'os', 'stat', 'sys'}
+    assert not any(isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                   and node.func.id in ('exec','eval','compile','__import__') for node in ast.walk(tree))
+    assert not any(isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                   and node.func.attr in ('write_text','write_bytes','unlink','rename','system','popen')
+                   for node in ast.walk(tree))
+    # The retained _path_join uses string.join(...).replace(...), not a file rename.
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == 'replace':
+            base = node.func.value
+            assert (isinstance(base, ast.Call) and isinstance(base.func, ast.Attribute)
+                    and base.func.attr == 'join' and isinstance(base.func.value, ast.Constant)
+                    and isinstance(base.func.value.value, str))
+
+
+def test_wp2k_document_and_manifest_boundary():
+    text = (ROOT / 'docs/ANCHOR_INTEGRITY_v0_1_WP2K_LEGACY_CONTRACT_BOUNDARY.md').read_text()
+    for marker in ('legacy-v0-strict-format-v1', 'format_only', 'not a release decision',
+                   'duplicate', 'Decimal', 'historical', 'mathematical integer', 'minLength'):
+        assert marker in text
+    assert 'WP2K' in (ROOT / 'docs/ANCHOR_INTEGRITY_v0.md').read_text()
+    for relative in ('ci/tools-tests.list','ci/pytest-tests.list'):
+        assert _manifest_entries(ROOT / relative).count(TEST_PATH) == 1
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))
