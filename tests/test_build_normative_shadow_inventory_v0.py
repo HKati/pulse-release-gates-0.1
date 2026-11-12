@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts" / "build_normative_shadow_inventory_v0.py"
@@ -867,3 +869,64 @@ def test_q3_native_carrier_changed_bytes_do_not_inherit_exemption(tmp_path):
     item = mod.classify_workflow(path, repo_root=tmp_path)
     assert item['authority_impacting'] == 'conditional'
     assert item['carrier_class'] == 'advisory'
+
+
+def test_q3_continuation_carrier_exact_bytes_are_non_authorizing(tmp_path):
+    inventory, _ = run_builder(tmp_path)
+    relative = '.github/workflows/q3_reference_acquisition_v1.yml'
+    item = entry_by_path(inventory, relative)
+    assert item['primary_role'] == 'non-authorizing Q3 bounded continuation preflight and capture'
+    assert item['authority_impacting'] == 'no'
+    assert item['carrier_class'] == 'audit_preservation'
+    assert not item['required_gate_participation']
+    assert not item['attestation_participation']
+    assert not item['release_path_participation']
+    assert 'zero-generation preflight or bounded 203-task continuation' in item['authority_boundary']
+    assert 'historical session remains incomplete' in item['notes']
+    assert not [finding for finding in inventory['drift_findings'] if finding['path'] == relative]
+
+
+@pytest.mark.parametrize('fault', ['name', 'permission', 'trigger', 'retention',
+                                 'newline', 'line_endings', 'symlink'])
+def test_q3_continuation_changed_carrier_requires_review(tmp_path, fault):
+    repo = tmp_path / 'repo'
+    relative = '.github/workflows/q3_reference_acquisition_v1.yml'
+    path = repo / relative
+    path.parent.mkdir(parents=True)
+    original = (REPO_ROOT / relative).read_bytes()
+    replacements = {
+        'name': (b'Q3 bounded continuation preflight and capture v1', b'Renamed Q3 continuation'),
+        'permission': (b'contents: read', b'contents: write'),
+        'trigger': (b'workflow_dispatch:', b'push:'),
+        'retention': (b'retention-days: 30', b'retention-days: 90'),
+        'line_endings': (b'\n', b'\r\n'),
+    }
+    if fault in replacements:
+        old, new = replacements[fault]
+        assert old in original
+        path.write_bytes(original.replace(old, new))
+    elif fault == 'newline':
+        path.write_bytes(original + b'\n')
+    else:
+        target = repo / 'saved-workflow.txt'
+        target.write_bytes(original)
+        path.symlink_to(target)
+    inventory = run_builder_for_repo(repo, tmp_path)
+    item = entry_by_path(inventory, relative)
+    assert item['primary_role'] == 'unclassified workflow'
+    assert item['authority_impacting'] == 'conditional'
+    assert item['carrier_class'] == 'advisory'
+    assert [finding for finding in inventory['drift_findings'] if finding['path'] == relative]
+
+
+def test_q3_continuation_exact_bytes_do_not_classify_another_path(tmp_path):
+    repo = tmp_path / 'repo'
+    relative = '.github/workflows/other_q3_reference_acquisition_v1.yml'
+    path = repo / relative
+    path.parent.mkdir(parents=True)
+    path.write_bytes((REPO_ROOT / '.github/workflows/q3_reference_acquisition_v1.yml').read_bytes())
+    inventory = run_builder_for_repo(repo, tmp_path)
+    item = entry_by_path(inventory, relative)
+    assert item['primary_role'] == 'unclassified workflow'
+    assert item['authority_impacting'] == 'conditional'
+    assert [finding for finding in inventory['drift_findings'] if finding['path'] == relative]

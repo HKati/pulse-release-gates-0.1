@@ -323,7 +323,7 @@ def test_impact_cli_invalid_input_publishes_no_partial_artifacts(tmp_path):
 
 
 def test_impact_module_registered_once_with_all_existing_lrm_modules():
-    for name, expected in (("tools-tests.list", 178), ("pytest-tests.list", 34)):
+    for name, expected in (("tools-tests.list", 178), ("pytest-tests.list", 39)):
         entries = [line for raw in (ROOT / "ci" / name).read_text().splitlines()
                    if (line := raw.split("#", 1)[0].strip())]
         assert len(entries) == len(set(entries)) == expected
