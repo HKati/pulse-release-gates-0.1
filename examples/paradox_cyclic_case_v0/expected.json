@@ -1,0 +1,237 @@
+{
+  "format": "PULSEMECH-PARADOX-CYCLIC-EXPECTED-v0",
+  "status": "hand_derived_reference_not_execution",
+  "source_baseline": "1fbc52660cb1085b6cd419ff733000e7afe163f7",
+  "authority_effect": "none",
+  "production_gate_eligible": false,
+  "input_file": "examples/paradox_cyclic_case_v0/cases.json",
+  "input_file_sha256": "f85718c2f206669b4c29751b2fa795c77e66115e60e3612705e0f03b62703afe",
+  "results": [
+    {
+      "case_id": "K00",
+      "source_case_ids": [
+        "C02",
+        "C03"
+      ],
+      "claims": {
+        "direct_route_removed": "ESTABLISHED_IN_MODEL",
+        "new_failure_route_feasible": "ESTABLISHED_IN_MODEL",
+        "failure_then_mode_return": "ESTABLISHED_IN_MODEL",
+        "complete_state_return": "REFUTED_IN_MODEL",
+        "counter_projection_sound": "ESTABLISHED_IN_MODEL",
+        "repeatable_structural_return": "ESTABLISHED_IN_MODEL"
+      },
+      "admitted_prefix": {
+        "states": [
+          {
+            "subject_id": "subject-X",
+            "mode": "A",
+            "counter": 0
+          },
+          {
+            "subject_id": "subject-X",
+            "mode": "B",
+            "counter": 1
+          },
+          {
+            "subject_id": "subject-X",
+            "mode": "F",
+            "counter": 2
+          },
+          {
+            "subject_id": "subject-X",
+            "mode": "A",
+            "counter": 3
+          }
+        ],
+        "rule_ids": [
+          "r2",
+          "r3",
+          "r1"
+        ]
+      },
+      "reasoning": {
+        "direct_route_removed": "The before inventory contains subject-X A-to-F; the complete after inventory has no subject-X A-to-F rule. This is relation removal, not merely absence of the identifier r0.",
+        "new_failure_route_feasible": "r2 then r3 is enabled for subject-X from (A,0), reaching (F,2).",
+        "failure_then_mode_return": "r1 is enabled at (F,2), returning the same subject to mode A at counter 3.",
+        "complete_state_return": "Every admitted step preserves the subject and increases counter by exactly one. After any positive number m of steps from counter 0, counter=m>0; the complete initial state cannot recur.",
+        "counter_projection_sound": "For every declared mode and every nonnegative counter, each after rule has the same subject and mode test and an unconditional guard; its projected target and the failure predicate are counter-independent.",
+        "repeatable_structural_return": "For every k>=0, the same rule word r2,r3,r1 permits (A,3k)->(B,3k+1)->(F,3k+2)->(A,3k+3). Its enabling conditions and subject binding persist. This is an induction over the declared rules, not a finite-run observation."
+      }
+    },
+    {
+      "case_id": "K01",
+      "source_case_ids": [
+        "C04"
+      ],
+      "claims": {
+        "direct_route_removed": "ESTABLISHED_IN_MODEL",
+        "new_failure_route_feasible": "ESTABLISHED_IN_MODEL",
+        "failure_then_mode_return": "ESTABLISHED_IN_MODEL",
+        "complete_state_return": "REFUTED_IN_MODEL",
+        "counter_projection_sound": "REFUTED_IN_MODEL",
+        "repeatable_structural_return": "REFUTED_IN_MODEL"
+      },
+      "admitted_prefix": {
+        "states": [
+          {
+            "subject_id": "subject-X",
+            "mode": "A",
+            "counter": 0
+          },
+          {
+            "subject_id": "subject-X",
+            "mode": "B",
+            "counter": 1
+          },
+          {
+            "subject_id": "subject-X",
+            "mode": "F",
+            "counter": 2
+          },
+          {
+            "subject_id": "subject-X",
+            "mode": "A",
+            "counter": 3
+          }
+        ],
+        "rule_ids": [
+          "r2",
+          "r3",
+          "r1"
+        ]
+      },
+      "reasoning": {
+        "direct_route_removed": "The before inventory contains subject-X A-to-F; the complete after inventory has no subject-X A-to-F rule. This is relation removal, not merely absence of the identifier r0.",
+        "new_failure_route_feasible": "The guards at counters 0 and 1 hold, admitting r2,r3 and the failure at (F,2).",
+        "failure_then_mode_return": "The guard 2<3 holds for r1, so the first course reaches (A,3). This is one mode return, not restoration of enabled relations.",
+        "complete_state_return": "Every admitted step preserves the subject and increases counter by exactly one. After any positive number m of steps from counter 0, counter=m>0; the complete initial state cannot recur.",
+        "counter_projection_sound": "For subject-X at mode A, r2 is enabled at counter 0 and no move is enabled at counter 3. Equal projected states therefore have different projected successors.",
+        "repeatable_structural_return": "All after rules require counter<3 and all steps increase it by one. Every course from counter 0 has length at most 3; at (A,3) the next move is disabled. This bound refutes unbounded repetition independently of projection failure."
+      }
+    },
+    {
+      "case_id": "K02",
+      "source_case_ids": [
+        "C06"
+      ],
+      "claims": {
+        "direct_route_removed": "ESTABLISHED_IN_MODEL",
+        "new_failure_route_feasible": "ESTABLISHED_IN_MODEL",
+        "failure_then_mode_return": "REFUTED_IN_MODEL",
+        "complete_state_return": "REFUTED_IN_MODEL",
+        "counter_projection_sound": "ESTABLISHED_IN_MODEL",
+        "repeatable_structural_return": "REFUTED_IN_MODEL"
+      },
+      "admitted_prefix": {
+        "states": [
+          {
+            "subject_id": "subject-X",
+            "mode": "A",
+            "counter": 0
+          },
+          {
+            "subject_id": "subject-X",
+            "mode": "B",
+            "counter": 1
+          },
+          {
+            "subject_id": "subject-X",
+            "mode": "F",
+            "counter": 2
+          }
+        ],
+        "rule_ids": [
+          "r2",
+          "r3"
+        ]
+      },
+      "reasoning": {
+        "direct_route_removed": "The before inventory contains subject-X A-to-F; the complete after inventory has no subject-X A-to-F rule. This is relation removal, not merely absence of the identifier r0.",
+        "new_failure_route_feasible": "The unconditional subject-X rules r2,r3 admit (A,0)->(B,1)->(F,2).",
+        "failure_then_mode_return": "The complete after inventory contains no rule starting at F. The failure prefix terminates there and no course can return from F to A.",
+        "complete_state_return": "Every admitted step preserves the subject and increases counter by exactly one. After any positive number m of steps from counter 0, counter=m>0; the complete initial state cannot recur.",
+        "counter_projection_sound": "The after rules are unconditional and the projected successors at A, B and F do not depend on the counter. The F successor set is empty at every counter.",
+        "repeatable_structural_return": "The complete rule inventory permits the failure prefix but no continuation at F. Therefore no failure-return word can repeat from the initial state."
+      }
+    },
+    {
+      "case_id": "K03",
+      "source_case_ids": [
+        "C05"
+      ],
+      "claims": {
+        "direct_route_removed": "ESTABLISHED_IN_MODEL",
+        "new_failure_route_feasible": "REFUTED_IN_MODEL",
+        "failure_then_mode_return": "REFUTED_IN_MODEL",
+        "complete_state_return": "REFUTED_IN_MODEL",
+        "counter_projection_sound": "ESTABLISHED_IN_MODEL",
+        "repeatable_structural_return": "REFUTED_IN_MODEL"
+      },
+      "admitted_prefix": {
+        "states": [
+          {
+            "subject_id": "subject-X",
+            "mode": "A",
+            "counter": 0
+          },
+          {
+            "subject_id": "subject-X",
+            "mode": "B",
+            "counter": 1
+          }
+        ],
+        "rule_ids": [
+          "r2"
+        ]
+      },
+      "reasoning": {
+        "direct_route_removed": "The before inventory contains subject-X A-to-F; the complete after inventory has no subject-X A-to-F rule. This is relation removal, not merely absence of the identifier r0.",
+        "new_failure_route_feasible": "r2 reaches subject-X (B,1). The B-to-F rule r3 belongs to subject-Y. Rules preserve subjects; there is no transfer or other subject-X rule from B.",
+        "failure_then_mode_return": "For selected subject-X the complete reachable mode closure is A then B, with no eligible continuation at B. The required course through F and back to A is excluded within this model.",
+        "complete_state_return": "Every admitted step preserves the subject and increases counter by exactly one. After any positive number m of steps from counter 0, counter=m>0; the complete initial state cannot recur.",
+        "counter_projection_sound": "For the selected subject-X, the projected successor sets are A:{B}, B:{}, F:{A} at every counter. Subject-Y rules are not spliced into them.",
+        "repeatable_structural_return": "The selected subject cannot complete the displayed failure prefix or a failure-return course. This model-scoped refutation does not establish external safety."
+      }
+    },
+    {
+      "case_id": "K04",
+      "source_case_ids": [
+        "C07"
+      ],
+      "claims": {
+        "direct_route_removed": "ESTABLISHED_IN_MODEL",
+        "new_failure_route_feasible": "UNRESOLVED",
+        "failure_then_mode_return": "UNRESOLVED",
+        "complete_state_return": "REFUTED_IN_MODEL",
+        "counter_projection_sound": "UNRESOLVED",
+        "repeatable_structural_return": "UNRESOLVED"
+      },
+      "admitted_prefix": {
+        "states": [
+          {
+            "subject_id": "subject-X",
+            "mode": "A",
+            "counter": 0
+          },
+          {
+            "subject_id": "subject-X",
+            "mode": "B",
+            "counter": 1
+          }
+        ],
+        "rule_ids": [
+          "r2"
+        ]
+      },
+      "reasoning": {
+        "direct_route_removed": "The before inventory contains subject-X A-to-F; the complete after inventory has no subject-X A-to-F rule. This is relation removal, not merely absence of the identifier r0.",
+        "new_failure_route_feasible": "At subject-X (B,1), permit(subject-X,B,1) is unknown. One fixed total interpretation makes it true, another makes it false; the supplied facts select neither.",
+        "failure_then_mode_return": "An interpretation with permit true everywhere admits the full first return; one with permit false everywhere blocks r3 at the first B. One interpretation must apply to the whole course.",
+        "complete_state_return": "Every admitted step preserves the subject and increases counter by exactly one. After any positive number m of steps from counter 0, counter=m>0; the complete initial state cannot recur.",
+        "counter_projection_sound": "A constant-true interpretation is counter-independent. Another interpretation is true only at the key (subject-X,B,1) and false elsewhere, giving different B successors at counters 1 and 4. Both match the empty fact inventory.",
+        "repeatable_structural_return": "A constant-true interpretation admits every repetition; a constant-false interpretation blocks the first failure. Truth at the first B alone would not establish truth at B counters 4,7,... . Missing facts remain unresolved."
+      }
+    }
+  ]
+}
