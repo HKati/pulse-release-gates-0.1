@@ -1,26 +1,21 @@
 #!/usr/bin/env python3
-"""
-check_anchor_integrity_v0_contract.py
+"""Check the bounded legacy Anchor v0 format, never evidence or authority.
 
-Fail-closed contract check for anchor_integrity_v0 overlay output.
-
-Goals:
-- Enforce required keys (missing != null).
-- Enforce allowed enums and type ranges.
-- Enforce "additionalProperties: false" semantics (no unexpected keys).
-
-This script is intended to be used in CI for diagnostic overlays:
-- If the overlay JSON is present, it must conform to the schema contract.
-- If the overlay JSON is missing, the caller/workflow decides how to behave.
-
-Usage:
-  python scripts/check_anchor_integrity_v0_contract.py --in path/to/anchor_integrity_v0.json
+WP2K rejects ambiguous byte inputs and checks exact numeric values. The frozen
+v0 schema still admits historical measurements/labels as data; accepting their
+format does not verify them or authorize responses/releases. The WP2J producer
+and WP2I reader are not changed. CLI: --in FILE; exit 0=format only, 1=rejected,
+2=argument/installation failure. This checker never writes to input files.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import math
+import os
+import stat
+from decimal import Decimal, InvalidOperation
 import sys
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -32,17 +27,123 @@ ALLOWED_GATE_ACTION = {"OPEN", "SLOW", "CLOSED"}
 ALLOWED_RISK = {"low", "medium", "high"}
 
 
-def _read_json(path: Path) -> Any:
+CHECKER_PROFILE = "legacy-v0-strict-format-v1"
+MAX_INPUT_BYTES = 8 * 1024 * 1024
+MAX_JSON_DEPTH = 64
+MAX_NUMBER_CHARS = 1024
+MAX_ERRORS = 64
+
+
+class InputRejected(ValueError):
+    """A fixed diagnostic code; never include untrusted JSON or path text."""
+
+
+def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise InputRejected("duplicate_json_key")
+        result[key] = value
+    return result
+
+
+def _reject_constant(_value: str) -> None:
+    raise InputRejected("non_finite_json_number")
+
+
+def _parse_integer(token: str) -> int:
+    if len(token) > MAX_NUMBER_CHARS:
+        raise InputRejected("numeric_token_limit")
+    return int(token)
+
+
+def _parse_decimal(token: str) -> Decimal:
+    if len(token) > MAX_NUMBER_CHARS:
+        raise InputRejected("numeric_token_limit")
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
+        number = Decimal(token)
+    except (InvalidOperation, ValueError) as exc:
+        raise InputRejected("invalid_json_number") from exc
+    if not number.is_finite():
+        raise InputRejected("non_finite_json_number")
+    return number
+
+
+def _check_json_depth(raw: bytes) -> None:
+    """Resource precheck only; the JSON decoder still validates the grammar."""
+    depth = 0
+    quoted = escaped = False
+    for byte in raw:
+        if quoted:
+            if escaped:
+                escaped = False
+            elif byte == 92:
+                escaped = True
+            elif byte == 34:
+                quoted = False
+        elif byte == 34:
+            quoted = True
+        elif byte in (91, 123):
+            depth += 1
+            if depth > MAX_JSON_DEPTH:
+                raise InputRejected("input_depth_limit")
+        elif byte in (93, 125):
+            depth -= 1
+            if depth < 0:
+                raise InputRejected("invalid_json_nesting")
+
+
+def _decode_json(raw: bytes) -> Any:
+    if len(raw) > MAX_INPUT_BYTES:
+        raise InputRejected("input_size_limit")
+    _check_json_depth(raw)
+    try:
+        return json.loads(raw.decode("utf-8", errors="strict"),
+                          object_pairs_hook=_unique_object,
+                          parse_int=_parse_integer, parse_float=_parse_decimal,
+                          parse_constant=_reject_constant)
+    except InputRejected:
         raise
-    except Exception as e:
-        raise ValueError(f"Failed to parse JSON: {e}") from e
+    except (UnicodeError, ValueError, RecursionError, InvalidOperation) as exc:
+        raise InputRejected("invalid_json") from exc
+
+
+def _file_identity(value: os.stat_result) -> tuple[int, ...]:
+    return (value.st_dev, value.st_ino, value.st_size,
+            value.st_mtime_ns, value.st_ctime_ns)
+
+
+def _read_json(path: Path) -> Any:
+    """Read one bounded regular file; retained bytes are not a host attestation.
+
+    The local host and parent directories remain trusted. Final symlinks are
+    rejected; NONBLOCK prevents a selected FIFO from blocking before fstat.
+    Before/after metadata checks detect observed changes, not hostile races.
+    """
+    if path.is_symlink():
+        raise InputRejected("input_symlink_rejected")
+    flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(path, flags)
+    try:
+        before = os.fstat(fd)
+        if not stat.S_ISREG(before.st_mode):
+            raise InputRejected("input_not_regular")
+        if before.st_size > MAX_INPUT_BYTES:
+            raise InputRejected("input_size_limit")
+        with os.fdopen(fd, "rb", closefd=False) as stream:
+            raw = stream.read(MAX_INPUT_BYTES + 1)
+        after = os.fstat(fd)
+        if len(raw) > MAX_INPUT_BYTES:
+            raise InputRejected("input_size_limit")
+        if _file_identity(before) != _file_identity(after) or len(raw) != after.st_size:
+            raise InputRejected("input_changed_during_read")
+    finally:
+        os.close(fd)
+    return _decode_json(raw)
 
 
 def _is_str_nonempty(x: Any) -> bool:
-    return isinstance(x, str) and bool(x.strip())
+    return isinstance(x, str) and len(x) >= 1
 
 
 def _is_str_or_null(x: Any) -> bool:
@@ -54,18 +155,28 @@ def _is_bool_or_null(x: Any) -> bool:
 
 
 def _is_int_or_null_nonneg(x: Any) -> bool:
-    return x is None or (isinstance(x, int) and x >= 0)
+    if x is None:
+        return True
+    if type(x) is int:
+        return x >= 0
+    if type(x) is float:
+        return math.isfinite(x) and x >= 0 and x.is_integer()
+    if type(x) is Decimal:
+        return x.is_finite() and x >= 0 and x == x.to_integral_value()
+    return False
 
 
 def _is_float01_or_null(x: Any) -> bool:
     if x is None:
         return True
-    if isinstance(x, bool):
-        # bool is a subclass of int in Python; reject explicitly
-        return False
-    if not isinstance(x, (int, float)):
-        return False
-    return 0.0 <= float(x) <= 1.0
+    if type(x) is int:
+        # Do not cast enormous integers to float or round at the range boundary.
+        return 0 <= x <= 1
+    if type(x) is float:
+        return math.isfinite(x) and 0 <= x <= 1
+    if type(x) is Decimal:
+        return x.is_finite() and 0 <= x <= 1
+    return False
 
 
 def _path_join(parts: Sequence[Any]) -> str:
@@ -80,7 +191,7 @@ def _path_join(parts: Sequence[Any]) -> str:
 
 
 def _require(cond: bool, msg: str, errors: List[str]) -> None:
-    if not cond:
+    if not cond and len(errors) < MAX_ERRORS:
         errors.append(msg)
 
 
@@ -96,9 +207,9 @@ def _require_no_extra_keys(obj: Any, allowed: Iterable[str], where: Sequence[Any
     if not isinstance(obj, dict):
         return
     allowed_set = set(allowed)
-    extra = sorted([k for k in obj.keys() if k not in allowed_set])
-    if extra:
-        _require(False, f"{_path_join(where)} has unexpected keys: {extra}", errors)
+    if any(k not in allowed_set for k in obj):
+        # Do not echo arbitrary key text into GitHub annotation messages.
+        _require(False, f"{_path_join(where)} has unexpected keys", errors)
 
 
 def _check_meta(meta: Any, where: Sequence[Any], errors: List[str]) -> None:
@@ -226,30 +337,35 @@ def check_contract(doc: Any) -> Tuple[bool, List[str]]:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--in", dest="inp", required=True, help="Path to anchor_integrity_v0.json")
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--in", dest="inp", required=True, help="Legacy JSON file; format check only")
     args = ap.parse_args()
-
-    path = Path(args.inp)
-
     try:
-        doc = _read_json(path)
+        doc = _read_json(Path(args.inp))
     except FileNotFoundError:
-        sys.stderr.write(f"::error::Input file not found: {path}\n")
+        sys.stderr.write("::error::anchor_integrity_v0: input_missing\n")
         return 1
-    except Exception as e:
-        sys.stderr.write(f"::error::Failed to read/parse JSON: {path}\n")
-        sys.stderr.write(f"::error::{e}\n")
+    except InputRejected as exc:
+        sys.stderr.write(f"::error::anchor_integrity_v0: {exc}\n")
+        return 1
+    except (OSError, ValueError, RecursionError, OverflowError):
+        sys.stderr.write("::error::anchor_integrity_v0: input_unreadable_or_invalid\n")
         return 1
 
     ok, errors = check_contract(doc)
     if ok:
-        sys.stderr.write(f"[OK] anchor_integrity_v0 contract check passed: {path}\n")
+        sys.stderr.write(
+            "[OK] anchor_integrity_v0 format contract check passed; "
+            f"profile={CHECKER_PROFILE}; scope=format_only; "
+            "evidence_verification=not_run; authority_effect=none\n"
+        )
         return 0
 
-    sys.stderr.write(f"::error::anchor_integrity_v0 contract check FAILED: {path}\n")
+    sys.stderr.write("::error::anchor_integrity_v0 format contract check FAILED\n")
     for msg in errors:
         sys.stderr.write(f"::error::{msg}\n")
+    if len(errors) == MAX_ERRORS:
+        sys.stderr.write("::error::Diagnostic limit reached; further errors may be omitted.\n")
     return 1
 
 
