@@ -249,6 +249,18 @@ def test_pytest_tests_list_keeps_core_baseline() -> None:
         )
 
 
+def test_paradox_cyclic_evaluator_is_registered_in_both_suites() -> None:
+    required = "tests/test_paradox_cyclic_evaluator_v0.py"
+    for relative in ("ci/tools-tests.list", "ci/pytest-tests.list"):
+        path = ROOT / relative
+        entries = [raw.split("#", 1)[0].strip()
+                   for raw in path.read_text(encoding="utf-8").splitlines()]
+        if entries.count(required) != 1:
+            raise AssertionError(
+                f"{relative} must register {required} exactly once."
+            )
+
+
 def _core_baseline_check_step_present(yml_text: str) -> bool:
     lines = yml_text.splitlines()
     step_name_rx = re.compile(r"^\s*-\s*name:\s*Run core baseline check test\s*$")
@@ -687,6 +699,7 @@ def main() -> int:
     try:
         test_tools_tests_list_covers_smoke_scripts()
         test_pytest_tests_list_keeps_core_baseline()
+        test_paradox_cyclic_evaluator_is_registered_in_both_suites()
         test_pulse_core_ci_keeps_core_baseline_step()
         test_pulse_core_ci_python_version_aligns_with_environment()
         test_pulse_ci_fails_closed_on_empty_derived_gate_set()
