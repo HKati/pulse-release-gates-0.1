@@ -185,11 +185,13 @@ reads check CRC and expanded size. Regular modes reject privilege bits; the
 only allowed link is exactly `runtime/lib64` with target bytes `lib`.
 
 Fresh private directories have mode 0700 and private files start at 0600.
-Download snapshots become read-only before semantic processing. Download paths
-are derived from numeric artifact IDs in the fixed repository. A transport
-token goes only to the GitHub API request. A permitted HTTPS storage redirect
-gets no Authorization or Cookie header; proxies and automatic redirects are
-disabled. The request cannot choose an arbitrary network endpoint.
+Download snapshots become read-only before semantic processing. The current
+capture/capsule intake derives download endpoints from the committed immutable
+release and numeric release asset IDs described below. Historical Actions IDs
+remain origin metadata in the request and result. A transport token goes only
+to a GitHub API request. A permitted HTTPS storage redirect gets no Authorization
+or Cookie header; proxies and automatic redirects are disabled. The request
+cannot choose an arbitrary network endpoint.
 
 The token is removed from the semantic environment before the producer,
 admission checker or reducer starts. Generic evaluators receive no `PULSE_Q2_*`
@@ -432,3 +434,39 @@ be relaxed to accept this expected FAIL. The 49 eligible groups remain below
 the required 50, the twelve unsupported policy requirements remain unsupported,
 and issue #2879 is not closed by this publication work. No new inference,
 release-host observation, ALLOW decision or production certificate is claimed.
+
+## Immutable release delivery of the preserved inputs
+
+The later published input release provides a fixed retrieval route for the
+original capture and capsule after their historical Actions artifacts became
+unavailable. The intake profile's `delivery` object binds repository
+`HKati/pulsemech-q3-runtime-inputs`, release `443495900`, tag
+`q2-admission-inputs-37600313529-v1`, tag commit
+`d4125baa4bbf7b1b4d2d695a24b1c9bb1fa403b5`, and all 13 uploaded asset identities.
+The original capture and capsule identities above remain unchanged. The earlier
+profile flags do not claim that an archive is embedded in the repository.
+
+The loader checks the selected release's published immutable state, the tag's
+exact commit, and the complete uploaded inventory before downloading payloads.
+Names, numeric asset IDs, byte counts and SHA-256 digests must match the reviewed
+profile; missing, duplicate, additional or changed assets reject the intake.
+The separately pinned split manifest fixes each capsule part's order, offset,
+size and digest. Raw concatenation of the ten checked parts must reproduce the
+original capsule size and SHA-256 before either semantic consumer receives it.
+The source and notice companion is also retrieved and digest-checked; its bytes
+are supporting material and are never executed or used as an acceptance verdict.
+
+The producer and independent admission/negative checker each use their own
+fresh acquisition and private workspace. The bounded transport has no retry,
+latest-release selection, fallback or caller-selected endpoint. The prior
+Actions transport remains available to its existing separate publication and
+host-verification callers; the production capture/capsule intake selects only
+this reviewed release route.
+
+This transport change preserves the existing request/result schemas, workflow,
+source-role inventory, 240-second intake deadline and gate policy. A new manual
+request must name the exact reviewed source commit containing the delivery
+binding. Publication and local transport regressions do not prove that a real
+CI runner has completed acquisition, semantic replay or the bounded independent
+admission-rejection observation. Those remain separate subsequent checks; no
+workflow is dispatched by installing these files.
