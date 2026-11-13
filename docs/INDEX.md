@@ -680,6 +680,7 @@ pulsemech_witness_verification_evidence_v0.schema.json
 ### Bounded admission-rejection observation
 
 - [Admission-rejection observer and independent checker](compute/PULSEMECH_COMPUTE_ADMISSION_REJECTION_v0.md) — A separate read-only carrier for the pinned hosted-evidence rejection path. It preserves an exact terminal run, reconstructs its source/step/input bindings, and independently checks Q2 and attestation evidence. Implementation and controlled tests do not establish a completed observed reference or satisfy the original successful Step 5C profile.
+- [Independent verification of preserved run 43445176088/1](compute/admission_rejection_43445176088_v0/README.md) — Original prelaunch plan and request, plus the manual environment for collecting the existing run and executing the unchanged independent checker twice. Acceptance remains bounded to the recorded admission rejection and downstream stop.
 
 ### Current merged implementation
 

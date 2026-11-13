@@ -1,0 +1,130 @@
+name: PULSEmech independent admission-rejection verification v0
+
+# Later verification of one existing terminal run. No subject workflow dispatch.
+on:
+  workflow_dispatch:
+    inputs:
+      verification_commit:
+        description: "Exact reviewed main commit containing this verification workflow"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pulsemech-admission-rejection-verification-43445176088
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.repository == 'HKati/pulse-release-gates-0.1'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
+    env:
+      EXPECTED_VERIFICATION_SHA: ${{ inputs.verification_commit }}
+    steps:
+      - name: Check owner and exact manual verification context
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = workflow_dispatch
+          test "$GITHUB_REF" = refs/heads/main
+          test "$GITHUB_ACTOR" = HKati
+          test "$GITHUB_TRIGGERING_ACTOR" = HKati
+          test "$GITHUB_RUN_ATTEMPT" = 1
+          [[ "$EXPECTED_VERIFICATION_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$EXPECTED_VERIFICATION_SHA" = "$GITHUB_SHA"
+          test "$EXPECTED_VERIFICATION_SHA" = "$GITHUB_WORKFLOW_SHA"
+
+      - name: Checkout exact reviewed verification driver
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: verification-driver
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Checkout original observed source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: 59b0aa8d93cb655db5452367e6ad43ced424d83a
+          path: observed-source
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up exact Q2 verification Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11.16'
+
+      - name: Install locked verification dependencies
+        id: dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          verification_lock="$GITHUB_WORKSPACE/observed-source/PULSE_safe_pack_v0/requirements-attestation-v0.lock"
+          test -f "$verification_lock"
+          test ! -L "$verification_lock"
+          printf '%s  %s\n' \
+            dfea85090305c5dd7ea5b3f829cbb450621087d4b07179019a285a7d41badb28 \
+            "$verification_lock" | sha256sum --check --strict -
+          verification_venv="$RUNNER_TEMP/admission-verification-venv"
+          test ! -e "$verification_venv"
+          test ! -L "$verification_venv"
+          python -I -m venv --copies "$verification_venv"
+          verification_python="$verification_venv/bin/python"
+          test -f "$verification_python"
+          test ! -L "$verification_python"
+          PIP_CONFIG_FILE=/dev/null "$verification_python" -I -m pip \
+            --isolated --disable-pip-version-check --no-cache-dir --require-virtualenv \
+            install --index-url https://pypi.org/simple \
+            --require-hashes --only-binary=:all: --requirement "$verification_lock"
+          PIP_CONFIG_FILE=/dev/null "$verification_python" -I -m pip \
+            --isolated --disable-pip-version-check --require-virtualenv check
+          printf 'python=%s\n' "$verification_python" >> "$GITHUB_OUTPUT"
+
+      - name: Independently verify the preserved rejection twice
+        id: verification
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          PULSE_Q2_TRANSPORT_TOKEN: ${{ github.token }}
+          VERIFICATION_PYTHON: ${{ steps.dependencies.outputs.python }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          verification_parent="$RUNNER_TEMP/pulsemech-admission-rejection-verification"
+          mkdir -p "$verification_parent"
+          "$VERIFICATION_PYTHON" -I -B \
+            "$GITHUB_WORKSPACE/verification-driver/tools/run_pulsemech_admission_rejection_verification_v0.py" \
+            --repo-root "$GITHUB_WORKSPACE/observed-source" \
+            --plan "$GITHUB_WORKSPACE/verification-driver/docs/compute/admission_rejection_43445176088_v0/plan.json" \
+            --out-dir "$verification_parent/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            --replay-python "$VERIFICATION_PYTHON"
+
+      - name: Preserve independent verification evidence
+        if: always() && steps.verification.outcome != 'skipped'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: pulsemech-admission-rejection-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pulsemech-admission-rejection-verification/${{ github.run_id }}-${{ github.run_attempt }}/
+          if-no-files-found: error
+          overwrite: false
+          compression-level: 6
+          retention-days: 30
+
+      - name: Record verification scope
+        if: always() && steps.verification.outcome != 'skipped'
+        shell: bash
+        run: |
+          printf '%s\n' \
+            'Original observed PULSE CI run: 43445176088, attempt 1, source 59b0aa8d93cb655db5452367e6ad43ced424d83a.' \
+            'Inspect driver-result.json and both independent checker reports in the preserved artifact.' \
+            'This is later admission-rejection verification. The original PULSE CI rejection remains unchanged.' \
+            'No model generation, release permission, Q1/Q3 metric claim or complete Step 5C/5D claim is produced.' \
+            'authority_effect=none; keep #2879 open.' >> "$GITHUB_STEP_SUMMARY"

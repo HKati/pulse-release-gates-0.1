@@ -526,7 +526,7 @@ def _hygiene_python_sync_script():
 def _run_hygiene_python_sync(tmp_path, *, core_version='3.11', q2_text=None,
                              environment='dependencies: [python=3.11, pip]\n',
                              extra_workflows=None, pulse_text=None, omit_pulse=False,
-                             omit_q3_v1=False):
+                             omit_q3_v1=False, omit_admission_verification=False):
     """Execute the actual workflow guard, not a test-side copy of its policy."""
     (tmp_path / 'environment.yml').write_text(environment)
     workflows = tmp_path / '.github/workflows'
@@ -551,6 +551,9 @@ def _run_hygiene_python_sync(tmp_path, *, core_version='3.11', q2_text=None,
     if not omit_q3_v1:
         q3_v1 = '.github/workflows/q3_reference_acquisition_v1.yml'
         (tmp_path / q3_v1).write_bytes((ROOT / q3_v1).read_bytes())
+    if not omit_admission_verification:
+        admission = '.github/workflows/pulsemech_admission_rejection_verification_v0.yml'
+        (tmp_path / admission).write_bytes((ROOT / admission).read_bytes())
     for name, content in (extra_workflows or {}).items():
         (workflows / name).write_text(content)
     return subprocess.run([sys.executable, '-I', '-c', _hygiene_python_sync_script()],
@@ -757,6 +760,46 @@ def test_hygiene_q3_continuation_patch_permission_is_not_inherited_by_alias(tmp_
     assert result.returncode == 1, result.stdout + result.stderr
     assert f'::error file=.github/workflows/{name}::' in result.stdout
     assert '(expected 3.11)' in result.stdout
+
+
+@pytest.mark.parametrize('fault', [
+    'wrong_patch', 'old_minor', 'broad_selector', 'renamed_job',
+    'duplicate_setup', 'missing_setup', 'unscoped_job_patch', 'alias', 'missing_workflow',
+])
+def test_hygiene_admission_verification_pin_is_exact_path_and_verify_job(tmp_path, fault):
+    name = 'pulsemech_admission_rejection_verification_v0.yml'
+    document = yaml.load((ROOT / '.github/workflows' / name).read_text(), Loader=yaml.BaseLoader)
+    jobs = document['jobs']; steps = jobs['verify']['steps']
+    setup = next(step for step in steps if step.get('uses', '').startswith('actions/setup-python@'))
+    expected = 'exactly one setup-python in job verify'
+    options = {}
+    if fault in ('wrong_patch', 'old_minor', 'broad_selector'):
+        setup['with']['python-version'] = {
+            'wrong_patch': '3.11.17', 'old_minor': '3.11', 'broad_selector': '3.11.*',
+        }[fault]
+        expected = '(expected 3.11.16)'
+    elif fault == 'renamed_job':
+        jobs['other'] = jobs.pop('verify')
+    elif fault == 'duplicate_setup':
+        steps.append(copy.deepcopy(setup))
+    elif fault == 'missing_setup':
+        steps.remove(setup)
+    elif fault == 'unscoped_job_patch':
+        jobs['other'] = {'steps': [copy.deepcopy(setup)]}
+        expected = '(expected 3.11)'
+    elif fault in ('alias', 'missing_workflow'):
+        options['omit_admission_verification'] = True
+        expected = 'Pinned workflow must exist as a regular file at its exact path.'
+        setup['with']['python-version'] = '3.11'
+    extra = {} if fault == 'missing_workflow' else {
+        ('other_' + name if fault == 'alias' else name): yaml.safe_dump(document, sort_keys=False)
+    }
+    result = _run_hygiene_python_sync(tmp_path, q2_text=_q2_workflow_text(),
+        extra_workflows=extra, **options)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert f'::error file=.github/workflows/{name}::' in result.stdout
+    assert expected in result.stdout
+    assert 'exact patch pins verified' not in result.stdout and 'Traceback' not in result.stderr
 
 
 @pytest.mark.parametrize('fault', [

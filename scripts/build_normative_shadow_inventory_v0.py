@@ -130,6 +130,33 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
                    "required gate, attestation or release activation."),
         )
 
+    if rel == ".github/workflows/pulsemech_admission_rejection_verification_v0.yml":
+        expected_sha256 = "ca5e32f6057b501804401980ff57c00e2d0bdcacd6e68623f57810005323082e"
+        if (name != "PULSEmech independent admission-rejection verification v0"
+                or path.is_symlink() or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
+            return entry(
+                name=name, path=rel, surface_type="workflow",
+                primary_role="unclassified workflow", carrier_class="advisory",
+                authority_impacting="conditional",
+                authority_boundary="Changed admission-rejection verification carrier requires exact source review",
+            )
+        return entry(
+            name=name, path=rel, surface_type="workflow",
+            primary_role="non-authorizing independent admission-rejection verification",
+            carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary=(
+                "Read-only verification of one exact historical rejection run; "
+                "no subject dispatch, model inference or release admission."
+            ),
+            reads_artifacts=["exact original plan, Q2 inputs and terminal-run evidence"],
+            writes_artifacts=["fresh semantic and signature verification, two canonical reports or bounded failure"],
+            publishes_artifacts=["owner-dispatched verification evidence with declared Actions retention"],
+            required_gate_participation=False, attestation_participation=False, release_path_participation=False,
+            notes=("Verifies an existing attestation without producing one. Historical rejection remains; "
+                   "bounded observation acceptance does not close Step 5C/5D or grant release authority."),
+        )
+
     if rel == ".github/workflows/pulse_ci.yml":
         return entry(
             name=name,
