@@ -1,0 +1,249 @@
+{
+  "authority_effect": "none",
+  "bound_inputs": {
+    "capsule": {
+      "bytes": 452116385,
+      "sha256": "3625a975b4794442fe47b7f5eceb8bee5ff4150ff30b495b1d2a609e8a165734"
+    },
+    "capture": {
+      "bytes": 1809263,
+      "sha256": "88c0335d57bf5dd207840eb129fc2fe36c453a2fb0d2da72e48f9689c4758cc6"
+    },
+    "input_delivery_record_member": "inputs.json",
+    "large_input_archives_in_this_preservation": false,
+    "plan": {
+      "archive_member": "plan.json",
+      "repository_path": "docs/compute/admission_rejection_43445176088_v0/plan.json",
+      "sha256": "e24fb63a61bb6cc3d1b3321a32ba0c7c520b57f59ccf8ea34fe3b14cadf5fa5a",
+      "size_bytes": 504432
+    },
+    "q2_request": {
+      "archive_member": "input/q2_request.json",
+      "bytes": 1597,
+      "repository_path": "docs/compute/admission_rejection_43445176088_v0/input/q2_request.json",
+      "sha256": "345a1a75ad41cef7a560314b6b482d3190409a55ee655a71f514d03316e24fd6"
+    }
+  },
+  "checked_evidence": {
+    "acquisition": {
+      "archive_member": "evidence/acquisition.json",
+      "completed": true,
+      "errors": [],
+      "sha256": "7bdd4b6dd41ceb9104d694fa61f29bdc4f7646c36db2a10a2cc673cdd567d435"
+    },
+    "llamaguard": {
+      "attestation_errors": [],
+      "attestation_verified": true,
+      "backend_identity": {
+        "bytes": 41070752,
+        "origin_authenticated_by_this_checker": false,
+        "sha256": "b768184570b12536be4ac1528893f6340d1c6a7b40b56ad45bca9cd0e87ad34d",
+        "trust_scope": "root_owned_system_gh_executable"
+      },
+      "fresh_content_checker_executed": true,
+      "fresh_signature_backend_executed": true,
+      "model_execution_replayed": false,
+      "model_output_semantic_correctness_verified": false,
+      "original_runtime_reads_proven": false,
+      "record_count": 6,
+      "saved_verifier_report_matched_fresh_result": true,
+      "signature_command_contract": {
+        "oidc_issuer": "https://token.actions.githubusercontent.com",
+        "predicate_type": "https://slsa.dev/provenance/v1",
+        "repository": "HKati/pulse-release-gates-0.1",
+        "signer_workflow": "github.com/HKati/pulse-release-gates-0.1/.github/workflows/pulse_ci.yml",
+        "source_digest": "59b0aa8d93cb655db5452367e6ad43ced424d83a"
+      },
+      "validation_scope": "later_content_and_trusted_signature_replay"
+    },
+    "q2": {
+      "current_inference_count": 0,
+      "diagnostics": [
+        "q2_min_eligible_groups_not_met"
+      ],
+      "fresh_independent_checker_executed": true,
+      "input_valid": true,
+      "metric_pass": false,
+      "metrics": {
+        "consistent": 49,
+        "groups_eligible": 49,
+        "groups_total": 50,
+        "inconsistent": 0,
+        "min_n_eligible_groups": 50,
+        "responses_eligible": 147,
+        "responses_total": 150,
+        "threshold": 0.9,
+        "unknown": 1,
+        "wilson_lower_bound": 0.9273021807795037
+      },
+      "original_runtime_reads_proven": false,
+      "production_gate_eligible": false,
+      "saved_records_matched_fresh_result": true,
+      "validation_scope": "later_offline_private_input_replay"
+    },
+    "rejection_log_relation": {
+      "pulse": {
+        "actual_output_sha256": "9a22df922b78851bc2dc7f27a81cffbad6a630a8d8296e0a555d56eaafda2b4d",
+        "echo_group_excluded": true,
+        "exit_code": 1,
+        "job_log_sha256": "999b77fe4a6442294d0d9f78c2552241c123c16b98e9db3e1e99b22b18fa0072",
+        "source_script_sha256": "93a0a8b9b35fc8d473de726c43b4af0bc40812a47b2169fda14efbeb6e76c3f3"
+      },
+      "release_grade_recorded_path": {
+        "actual_output_sha256": "0602d0e25b68902c0d2863d6d31b72413be9e0ed28e5a2f7e6fcaa3d62fd5f0d",
+        "echo_group_excluded": true,
+        "exit_code": 1,
+        "job_log_sha256": "172fb9fce6ff2b34844584160e7826a92136c5b6ace696f0410f1e4567c1090d",
+        "source_script_sha256": "0b2059830d60e346717039c96d5f9663093333b5d99905b7a5008d0965d4218a"
+      }
+    },
+    "required_gate_records": {
+      "count": 19,
+      "failed": 13,
+      "generic_six_metrics_independently_replayed": false,
+      "passed": 6
+    }
+  },
+  "checker_result": {
+    "bounded_claim": "source_bound_admission_rejection_and_downstream_guard_observed",
+    "canonical_report_bytes_identical": true,
+    "driver_record_is_verifier_report": false,
+    "driver_record_member": "driver-result.json",
+    "driver_verification_completed": true,
+    "profile_id": "pulse_ci_hosted_admission_rejection_v0",
+    "reports": [
+      {
+        "accepted": true,
+        "archive_member": "check-1.json",
+        "checker_process_exit": 0,
+        "sha256": "1acf125eebfae36cd3505ac6e9b31fd024d7a4ee6074b1ca525bb6b35313c186",
+        "size_bytes": 101958
+      },
+      {
+        "accepted": true,
+        "archive_member": "check-2.json",
+        "checker_process_exit": 0,
+        "sha256": "1acf125eebfae36cd3505ac6e9b31fd024d7a4ee6074b1ca525bb6b35313c186",
+        "size_bytes": 101958
+      }
+    ],
+    "same_checker_implementation": true,
+    "separate_checker_processes": 2,
+    "two_independent_implementations": false,
+    "verifier": {
+      "checker_sha256": "2a5ed08150bd6a7a742685422e4b64b51542f0088587f1de4d3fecfb0bf6244e",
+      "jsonschema_version": "4.26.0",
+      "python_executable_sha256": "a15ccdaf07655a8667a3687b13171486c9a265d92273ba3ad820fbb64d2cfecc",
+      "python_version": "3.11.16",
+      "pyyaml_version": "6.0.3",
+      "schema_sha256": "9449e1b3ea22a2ab7cf0bf391bc930613dbd4d07aad82dc5805b6a088702e37c",
+      "semantic_helper_sha256": "15832634850c094c5d87102de1d57e2ded472f7c3850267036ec605115fe7246"
+    }
+  },
+  "is_independent_checker_report": false,
+  "observed_run": {
+    "candidate_remains_rejected": true,
+    "event": "workflow_dispatch",
+    "ref": "refs/heads/main",
+    "repository": "HKati/pulse-release-gates-0.1",
+    "run_attempt": 1,
+    "run_id": 43445176088,
+    "run_started_at": "2026-11-13T14:41:47Z",
+    "source": {
+      "closure_sha256": "77d6996daa0a6adb59dfc6b40ea38960449f48e496cea32691e0e70ea900d5c0",
+      "commit": "59b0aa8d93cb655db5452367e6ad43ced424d83a",
+      "file_count": 1982,
+      "policy_sha256": "00fc5eef5fa3f240028aaf636a2e43ba29f1da000484c7a2f1baafcdd3c4ae8c",
+      "repository": "HKati/pulse-release-gates-0.1",
+      "tree": "b8161743cedcb214b88eb3a376e5c53905e28f39",
+      "workflow_sha256": "7489fca657c4b2541da4946237b3f864aae7f9247198e5a3c6cbc3429a32db6a"
+    },
+    "source_commit": "59b0aa8d93cb655db5452367e6ad43ced424d83a",
+    "updated_at": "2026-11-13T15:33:24Z",
+    "url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43445176088",
+    "workflow_conclusion": "failure",
+    "workflow_path": ".github/workflows/pulse_ci.yml"
+  },
+  "original_github_artifact": {
+    "api_url": "https://api.github.com/repos/HKati/pulse-release-gates-0.1/actions/artifacts/14081005319",
+    "archive_members": 33,
+    "artifact_id": 14081005319,
+    "created_at": "2026-11-13T21:55:01Z",
+    "download_api_url": "https://api.github.com/repos/HKati/pulse-release-gates-0.1/actions/artifacts/14081005319/zip",
+    "filename": "pulsemech-admission-rejection-verification-43514702328-1.zip",
+    "github_api_digest": "sha256:702c126b8e9944cc9c3486e0dce0da8aa6c33f650c3451a3b1121010330049d8",
+    "name": "pulsemech-admission-rejection-verification-43514702328-1",
+    "original_bytes_unchanged": true,
+    "recompressed_or_repackaged": false,
+    "repository_path": "preservation/admission_rejection_v0/verification_43514702328_attempt_1/pulsemech-admission-rejection-verification-43514702328-1.zip",
+    "retention_expires_at": "2026-12-13T21:55:01Z",
+    "run_artifact_url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43514702328/artifacts/14081005319",
+    "sha256": "702c126b8e9944cc9c3486e0dce0da8aa6c33f650c3451a3b1121010330049d8",
+    "size_bytes": 500035
+  },
+  "record_role": "later_documentation_inventory",
+  "record_type": "pulsemech_admission_rejection_preservation_record_v0",
+  "references": {
+    "governing_contract": "docs/compute/PULSEMECH_COMPUTE_ADMISSION_REJECTION_v0.md",
+    "observation_documentation": "docs/compute/admission_rejection_43445176088_v0/README.md",
+    "original_checker": "https://github.com/HKati/pulse-release-gates-0.1/blob/59b0aa8d93cb655db5452367e6ad43ced424d83a/tools/check_pulsemech_compute_admission_rejection_v0.py",
+    "verification_workflow_at_observed_verification_source": "https://github.com/HKati/pulse-release-gates-0.1/blob/c06d306b0affcbfde35544f7dc64fc21bbf36180/.github/workflows/pulsemech_admission_rejection_verification_v0.yml"
+  },
+  "repository": "HKati/pulse-release-gates-0.1",
+  "scope": {
+    "excluded_claims": [
+      "positive_full_workflow_completion",
+      "final_check_gates_decision",
+      "release_authority",
+      "external_tool_and_host_source_closure",
+      "resource_and_timing_measurement",
+      "original_runtime_consumption_proved_by_later_replay",
+      "human_semantic_label_correctness"
+    ],
+    "grants_release_authority": false,
+    "issue_to_keep_open": "HKati/pulse-release-gates-0.1#2879",
+    "later_replay_boundary": "Later verification does not prove the original process consumed particular private input bytes or recreate its dispatch receipt.",
+    "limitations": {
+      "api_carrier_independently_signed": false,
+      "external_tool_and_host_source_closure": false,
+      "final_release_decision_produced": false,
+      "legacy_success_profile_satisfied": false,
+      "observed_allow": false,
+      "original_dispatch_input_receipt_preserved": false,
+      "original_runtime_consumption_proved_by_replay": false,
+      "q1_or_q3_metric_claimed": false,
+      "resource_measurement_claimed": false,
+      "step5c_complete": false,
+      "step5d_complete": false
+    },
+    "metadata_authentication": "GitHub API metadata; no independent signature over this documentation inventory.",
+    "normative": false,
+    "selected_bounded_observation_complete": true
+  },
+  "verification_run": {
+    "actor": "HKati",
+    "conclusion": "success",
+    "created_at": "2026-11-13T21:53:51Z",
+    "event": "workflow_dispatch",
+    "head_branch": "main",
+    "job": {
+      "completed_at": "2026-11-13T21:55:04Z",
+      "conclusion": "success",
+      "id": 132193573010,
+      "name": "verify",
+      "started_at": "2026-11-13T21:53:55Z",
+      "url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43514702328/job/132193573010"
+    },
+    "run_attempt": 1,
+    "run_id": 43514702328,
+    "run_number": 1,
+    "source_commit": "c06d306b0affcbfde35544f7dc64fc21bbf36180",
+    "source_tree": "d8510e7d3a883246a570bb9896cf6da0348e1613",
+    "status": "completed",
+    "triggering_actor": "HKati",
+    "updated_at": "2026-11-13T21:55:05Z",
+    "url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43514702328",
+    "workflow_name": "PULSEmech independent admission-rejection verification v0",
+    "workflow_path": ".github/workflows/pulsemech_admission_rejection_verification_v0.yml"
+  }
+}
