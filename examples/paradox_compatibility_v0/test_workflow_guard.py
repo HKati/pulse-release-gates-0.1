@@ -23,6 +23,7 @@ Q2_JOBS = {
     '.github/workflows/q2_release_capsule_publication_v0.yml': ['build', 'verify_download'],
     '.github/workflows/q2_release_host_tokenizer_verification_v0.yml': ['verify_host'],
     '.github/workflows/q2_release_host_worker_verification_v0.yml': ['verify_host'],
+    '.github/workflows/pulsemech_admission_rejection_verification_v0.yml': ['verify'],
 }
 
 

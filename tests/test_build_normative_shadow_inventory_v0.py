@@ -930,3 +930,52 @@ def test_q3_continuation_exact_bytes_do_not_classify_another_path(tmp_path):
     assert item['primary_role'] == 'unclassified workflow'
     assert item['authority_impacting'] == 'conditional'
     assert [finding for finding in inventory['drift_findings'] if finding['path'] == relative]
+
+
+def test_admission_verification_exact_carrier_has_no_release_authority(tmp_path):
+    inventory, _ = run_builder(tmp_path)
+    relative = '.github/workflows/pulsemech_admission_rejection_verification_v0.yml'
+    item = entry_by_path(inventory, relative)
+    assert item['primary_role'] == 'non-authorizing independent admission-rejection verification'
+    assert item['carrier_class'] == 'audit_preservation'
+    assert item['authority_impacting'] == 'no'
+    assert not item['required_gate_participation']
+    assert not item['attestation_participation']
+    assert not item['release_path_participation']
+    assert 'no subject dispatch, model inference or release admission' in item['authority_boundary']
+    assert 'Historical rejection remains' in item['notes']
+    assert not [finding for finding in inventory['drift_findings'] if finding['path'] == relative]
+
+
+@pytest.mark.parametrize('fault', ['name', 'permission', 'trigger', 'newline', 'line_endings', 'symlink', 'alias'])
+def test_admission_verification_changed_carrier_requires_review(tmp_path, fault):
+    repo = tmp_path / 'repo'
+    original_path = '.github/workflows/pulsemech_admission_rejection_verification_v0.yml'
+    relative = (original_path.replace('/pulsemech_', '/other_pulsemech_')
+                if fault == 'alias' else original_path)
+    path = repo / relative
+    path.parent.mkdir(parents=True)
+    original = (REPO_ROOT / original_path).read_bytes()
+    replacements = {
+        'name': (b'PULSEmech independent admission-rejection verification v0', b'Renamed admission verification'),
+        'permission': (b'contents: read', b'contents: write'),
+        'trigger': (b'workflow_dispatch:', b'push:'),
+        'line_endings': (b'\n', b'\r\n'),
+    }
+    if fault in replacements:
+        old, new = replacements[fault]
+        assert old in original
+        path.write_bytes(original.replace(old, new))
+    elif fault == 'newline':
+        path.write_bytes(original + b'\n')
+    elif fault == 'symlink':
+        target = repo / 'saved-workflow.txt'
+        target.write_bytes(original)
+        path.symlink_to(target)
+    else:
+        path.write_bytes(original)
+    inventory = run_builder_for_repo(repo, tmp_path)
+    item = entry_by_path(inventory, relative)
+    assert item['primary_role'] == 'unclassified workflow'
+    assert item['authority_impacting'] == 'conditional'
+    assert [finding for finding in inventory['drift_findings'] if finding['path'] == relative]

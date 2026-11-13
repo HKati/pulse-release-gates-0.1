@@ -438,5 +438,330 @@ def test_builder_rejects_malformed_or_unsafe_capsule_manifest(tmp_path, raw):
         build.capsule_manifest(path)
 
 
+def _runner_report():
+    """Deliberately synthetic orchestration output, never a semantic receipt."""
+    from tools import run_pulsemech_admission_rejection_verification_v0 as runner
+    return {"format": "pulsemech_compute_admission_rejection_report_v0", "profile_id": runner.PROFILE,
+            "accepted": True, "authority_effect": "none", "bounded_claim": runner.CLAIM,
+            "source": {"commit": runner.SOURCE}, "run": {"repository": runner.REPOSITORY,
+                "source_commit": runner.SOURCE, "run_id": runner.RUN_ID, "run_attempt": runner.ATTEMPT},
+            "synthetic_orchestration_fixture": True}
+
+
+@pytest.fixture
+def runner_fixture(tmp_path, monkeypatch):
+    """Mock transport and whole checker processes, not successful real replay."""
+    from contextlib import contextmanager
+    from types import SimpleNamespace
+    from tools import run_pulsemech_admission_rejection_verification_v0 as runner
+
+    repo = tmp_path / "original"
+    repo.mkdir()
+    source = b"synthetic reviewed source\n"
+    (repo / "fixture.txt").write_bytes(source)
+    supplied = tmp_path / "supplied"
+    supplied.mkdir()
+    (supplied / "input").mkdir()
+    payloads = {"capture": b"synthetic capture", "capsule": b"synthetic capsule"}
+    request = {"evaluation_identity": {"repository": runner.REPOSITORY, "source_commit": runner.SOURCE,
+        "workflow": ".github/workflows/pulse_ci.yml", "event": "workflow_dispatch", "ref": "refs/heads/main"}}
+    for name, key in (("capture", "capture_expectation"), ("capsule", "release_subject")):
+        request[key] = {"archive_size_bytes": len(payloads[name]),
+                        "archive_sha256": hashlib.sha256(payloads[name]).hexdigest()}
+    request_raw = runner.canonical(request)
+    plan = {"profile_id": runner.PROFILE, "authority_effect": "none", "source": {
+        "repository": runner.REPOSITORY, "commit": runner.SOURCE, "files": [{
+            "path": "fixture.txt", "mode": "100644", "bytes": len(source),
+            "sha256": hashlib.sha256(source).hexdigest()}]}}
+    plan_raw = runner.canonical(plan)
+    path = supplied / "plan.json"
+    path.write_bytes(plan_raw)
+    (supplied / "input/q2_request.json").write_bytes(request_raw)
+    monkeypatch.setattr(runner, "PLAN_BYTES", len(plan_raw))
+    monkeypatch.setattr(runner, "PLAN_SHA256", hashlib.sha256(plan_raw).hexdigest())
+    monkeypatch.setattr(runner, "REQUEST_BYTES", len(request_raw))
+    monkeypatch.setattr(runner, "REQUEST_SHA256", hashlib.sha256(request_raw).hexdigest())
+    monkeypatch.setenv("GH_TOKEN", "synthetic-github-token")
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    monkeypatch.setenv("PULSE_Q2_TRANSPORT_TOKEN", "synthetic-companion-token")
+    state = SimpleNamespace(head=runner.SOURCE, calls=[], events=[], failure=None,
+                            wrong_attempt=False, second_missing=False, report_change=None,
+                            reports=[], report_raw_transform=None, acquisition_dir=None)
+
+    def fake_git(root, arguments, deadline):
+        assert root == repo
+        if arguments[0] == "rev-parse":
+            return (state.head + "\n").encode()
+        assert arguments == ["status", "--porcelain", "--untracked-files=all"]
+        return b""
+    monkeypatch.setattr(runner, "git", fake_git)
+
+    @contextmanager
+    def boundary(seconds):
+        assert 0 < seconds <= runner.STAGE_SECONDS
+        yield object()
+
+    class FakeReleaseTransport:
+        def __init__(self, token):
+            assert token == "synthetic-companion-token"
+
+        def acquire(self, profile, value, private, deadline):
+            state.events.append("retrieve")
+            assert value == request and deadline is not None
+            for name, raw in payloads.items():
+                (private / (name + ".zip")).write_bytes(raw)
+
+    def runtime(executable, *, cwd, home, q2):
+        state.events.append("runtime-q2" if q2 else "runtime-verifier")
+        assert cwd == repo and home.is_dir()
+        return {"synthetic_runtime_probe": True, "q2": q2}
+
+    io_module = SimpleNamespace(PROFILE_PATH="synthetic-profile.json", REQUEST_SCHEMA="synthetic-schema.json",
+        strict_json=json.loads, read_file=lambda *args: b"{}", validate=lambda *args: None,
+        validate_release_delivery=lambda profile: {"synthetic_delivery": True},
+        interrupt_boundary=boundary, GitHubReleaseTransport=FakeReleaseTransport)
+    semantics = SimpleNamespace(_python_identity=runtime,
+        _trusted_gh=lambda: (b"", {"synthetic_backend": True}),
+        _run=lambda *args, **kwargs: (0, b"--bundle --signer-workflow --source-digest --predicate-type "
+                                     b"--cert-oidc-issuer --format --repo", b""))
+    monkeypatch.setattr(runner, "load_reviewed", lambda root: SimpleNamespace(io=io_module, semantics=semantics))
+
+    def fake_child(argv, **kwargs):
+        state.calls.append((argv, kwargs))
+        stage = kwargs["stage"]
+        state.events.append(stage)
+        assert argv[1:5] == ["-I", "-B", "-c", runner.CLI_BOOTSTRAP]
+        assert "synthetic-github-token" not in argv and "synthetic-companion-token" not in argv
+        assert "PULSE_Q2_TRANSPORT_TOKEN" not in runner.environment(kwargs["home"])
+        if stage == "collect":
+            assert argv[5] == str(repo / runner.COLLECTOR)
+            assert kwargs["github_token"] == "synthetic-github-token"
+            assert argv[argv.index("--run-id") + 1] == str(runner.RUN_ID)
+            assert argv[argv.index("--attempt") + 1] == "1"
+            collected = Path(argv[argv.index("--out-dir") + 1])
+            collected.mkdir()
+            state.acquisition_dir = collected
+            (collected / "raw-synthetic-evidence.txt").write_bytes(b"retained synthetic data\n")
+            (collected / "acquisition.json").write_bytes(runner.canonical({
+                "completed": state.failure != stage, "errors": [] if state.failure != stage else ["synthetic"],
+                "repository": runner.REPOSITORY, "source_commit": runner.SOURCE,
+                "run_id": runner.RUN_ID, "run_attempt": 2 if state.wrong_attempt else 1,
+                "plan_sha256": runner.PLAN_SHA256}))
+        else:
+            assert argv[5] == str(repo / runner.CHECKER)
+            assert "github_token" not in kwargs
+            assert argv[argv.index("--expected-source") + 1] == runner.SOURCE
+            assert argv[argv.index("--expected-run-id") + 1] == str(runner.RUN_ID)
+            assert argv[argv.index("--expected-attempt") + 1] == "1"
+            report = _runner_report()
+            if state.failure == stage:
+                report.update(accepted=False, error="synthetic_checker_failure")
+            if state.report_change is not None:
+                state.report_change(stage, report)
+            raw = runner.canonical(report)
+            if state.report_raw_transform is not None:
+                raw = state.report_raw_transform(raw)
+            destination = Path(argv[argv.index("--out") + 1])
+            if not (stage == "check-2" and state.second_missing):
+                destination.write_bytes(raw)
+                state.reports.append(destination)
+        return {"exit_code": 1 if state.failure == stage else 0,
+                "timed_out": False, "output_limit_exceeded": False}
+    monkeypatch.setattr(runner, "child", fake_child)
+    return SimpleNamespace(runner=runner, repo=repo, plan=path, output=tmp_path / "result",
+                           python=Path(sys.executable).resolve(), state=state,
+                           request_raw=request_raw, plan_raw=plan_raw)
+
+
+def _runner_run(fixture):
+    return fixture.runner.run(fixture.repo, fixture.plan, fixture.output, fixture.python)
+
+
+def test_runner_two_separate_clis_before_completion(runner_fixture):
+    f = runner_fixture
+    result = _runner_run(f)
+    assert result["verification_completed"] is True and result["checker_reports_equal"] is True
+    assert "accepted" not in result and result["driver_record_is_verifier_report"] is False
+    assert f.state.events == ["runtime-q2", "runtime-verifier", "collect", "retrieve", "check-1", "check-2"]
+    assert len(f.state.calls) == 3 and len(f.state.reports) == 2
+    assert f.state.reports[0].read_bytes() == f.state.reports[1].read_bytes()
+    assert (f.output / "plan.json").read_bytes() == f.plan_raw
+    assert (f.output / "input/q2_request.json").read_bytes() == f.request_raw
+    assert (f.output / "evidence/raw-synthetic-evidence.txt").read_bytes() == b"retained synthetic data\n"
+    assert not list(f.output.rglob("*.zip"))
+    assert not list(f.output.parent.glob("pulse-admission-private-*"))
+
+
+def test_runner_wrong_plan_stops_before_runtime_or_download(runner_fixture):
+    f = runner_fixture
+    raw = f.plan.read_bytes()
+    f.plan.write_bytes(raw.replace(b"authority_effect", b"authority_affect", 1))
+    result = _runner_run(f)
+    assert result["verification_completed"] is False and result["error"] == "fixed_plan_mismatch"
+    assert f.state.events == [] and f.state.calls == []
+
+
+def test_runner_wrong_request_stops_before_runtime_or_download(runner_fixture):
+    f = runner_fixture
+    path = f.plan.parent / "input/q2_request.json"
+    path.write_bytes(path.read_bytes().replace(b"workflow_dispatch", b"workflow_dispatcz"))
+    result = _runner_run(f)
+    assert result["verification_completed"] is False and result["error"] == "fixed_request_mismatch"
+    assert f.state.events == [] and f.state.calls == []
+
+
+def test_runner_wrong_source_stops_before_runtime_or_download(runner_fixture):
+    f = runner_fixture
+    f.state.head = "a" * 40
+    result = _runner_run(f)
+    assert result["verification_completed"] is False and result["error"] == "fixed_source_head_mismatch"
+    assert f.state.events == [] and f.state.calls == []
+
+
+def test_runner_changed_source_bytes_stop_before_import(runner_fixture):
+    f = runner_fixture
+    (f.repo / "fixture.txt").write_bytes(b"changed source")
+    result = _runner_run(f)
+    assert result["verification_completed"] is False and result["error"] == "source_worktree_mismatch"
+    assert f.state.events == [] and f.state.calls == []
+
+
+@pytest.mark.parametrize("name,error", [("GH_TOKEN", "github_token_missing"),
+                                       ("PULSE_Q2_TRANSPORT_TOKEN", "companion_token_missing")])
+def test_runner_missing_token_has_no_child_or_download(runner_fixture, monkeypatch, name, error):
+    f = runner_fixture
+    monkeypatch.delenv(name)
+    result = _runner_run(f)
+    assert result["verification_completed"] is False and result["error"] == error
+    assert f.state.events == [] and f.state.calls == []
+
+
+def test_runner_wrong_acquired_attempt_stops_before_archives(runner_fixture):
+    f = runner_fixture
+    f.state.wrong_attempt = True
+    result = _runner_run(f)
+    assert result["verification_completed"] is False
+    assert result["error"] == "acquisition_identity_or_completion"
+    assert f.state.events == ["runtime-q2", "runtime-verifier", "collect"]
+    assert (f.output / "evidence/acquisition.json").is_file()
+
+
+@pytest.mark.parametrize("failed_stage", ["collect", "check-1", "check-2"])
+def test_runner_child_failure_keeps_evidence_without_success(runner_fixture, failed_stage):
+    f = runner_fixture
+    f.state.failure = failed_stage
+    result = _runner_run(f)
+    assert result["verification_completed"] is False and result["checker_reports_equal"] is False
+    assert result["failed_stage"] == failed_stage and result["error"] == "child_failed"
+    assert f.state.events[-1] == failed_stage
+    saved = json.loads((f.output / "stages" / (failed_stage + ".json")).read_bytes())
+    assert saved["status"] == "failed" and saved["exit_code"] == 1
+    assert (f.output / "evidence/raw-synthetic-evidence.txt").is_file()
+    if failed_stage.startswith("check-"):
+        assert json.loads((f.output / (failed_stage + ".json")).read_bytes())["accepted"] is False
+
+
+def test_runner_first_report_alone_never_completes(runner_fixture):
+    f = runner_fixture
+    f.state.second_missing = True
+    result = _runner_run(f)
+    assert result["verification_completed"] is False and result["error"] == "checker_report_missing"
+    assert (f.output / "check-1.json").is_file() and not (f.output / "check-2.json").exists()
+
+
+def test_runner_different_success_reports_are_rejected(runner_fixture):
+    f = runner_fixture
+    f.state.report_change = lambda stage, report: report.update(synthetic_difference=stage)
+    result = _runner_run(f)
+    assert result["verification_completed"] is False and result["error"] == "checker_reports_differ"
+    assert len(f.state.reports) == 2
+
+
+@pytest.mark.parametrize("change", [
+    {"accepted": False}, {"accepted": 1}, {"authority_effect": "release"}, {"bounded_claim": "all_gates_passed"},
+])
+def test_runner_report_cannot_promote_a_different_claim(runner_fixture, change):
+    f = runner_fixture
+    f.state.report_change = lambda stage, report: report.update(change)
+    result = _runner_run(f)
+    assert result["verification_completed"] is False and result["error"] == "checker_report_not_accepted"
+
+
+def test_runner_noncanonical_matching_reports_are_rejected(runner_fixture):
+    f = runner_fixture
+    f.state.report_raw_transform = lambda raw: json.dumps(json.loads(raw), indent=2).encode()
+    result = _runner_run(f)
+    assert result["verification_completed"] is False and result["error"] == "checker_report_not_canonical"
+
+
+def test_runner_existing_output_is_never_reused(runner_fixture):
+    f = runner_fixture
+    f.output.mkdir()
+    (f.output / "keep.txt").write_bytes(b"existing")
+    with pytest.raises(f.runner.DriverError, match="output_already_exists"):
+        _runner_run(f)
+    assert list(f.output.iterdir()) == [f.output / "keep.txt"]
+    assert (f.output / "keep.txt").read_bytes() == b"existing"
+    assert f.state.events == []
+
+
+def test_runner_output_inside_source_is_rejected(runner_fixture):
+    f = runner_fixture
+    f.output = f.repo / "result"
+    with pytest.raises(f.runner.DriverError, match="output_must_be_external"):
+        _runner_run(f)
+    assert not f.output.exists() and f.state.events == []
+
+
+def test_runner_runtime_or_backend_failure_precedes_download(runner_fixture, monkeypatch):
+    f = runner_fixture
+    reviewed = f.runner.load_reviewed(f.repo)
+    def fail_backend():
+        raise ValueError("synthetic private backend detail")
+    reviewed.semantics._trusted_gh = fail_backend
+    monkeypatch.setattr(f.runner, "load_reviewed", lambda root: reviewed)
+    result = _runner_run(f)
+    assert result["verification_completed"] is False and result["failed_stage"] == "preflight"
+    assert result["error"] == "verification_driver_rejected"
+    assert f.state.calls == [] and "retrieve" not in f.state.events
+    assert "synthetic private" not in (f.output / "driver-result.json").read_text()
+
+
+def test_runner_missing_gh_attestation_capability_precedes_download(runner_fixture, monkeypatch):
+    f = runner_fixture
+    reviewed = f.runner.load_reviewed(f.repo)
+    reviewed.semantics._run = lambda *args, **kwargs: (1, b"", b"unknown command")
+    monkeypatch.setattr(f.runner, "load_reviewed", lambda root: reviewed)
+    result = _runner_run(f)
+    assert result["verification_completed"] is False
+    assert result["error"] == "gh_attestation_capability_missing"
+    assert f.state.calls == [] and "retrieve" not in f.state.events
+
+
+def test_runner_real_child_limits_and_redacts_synthetic_output(tmp_path):
+    import time
+    from tools import run_pulsemech_admission_rejection_verification_v0 as runner
+    (tmp_path / "stages").mkdir()
+    result = runner.child([sys.executable, "-I", "-B", "-c",
+                           "import time; print('synthetic-only-secret', flush=True); time.sleep(10)"],
+                          repo=tmp_path, home=tmp_path, output=tmp_path, stage="synthetic-timeout",
+                          deadline=time.monotonic() + 0.5, secrets=("synthetic-only-secret",))
+    assert result["timed_out"] is True and result["exit_code"] != 0
+    assert (tmp_path / "stages/synthetic-timeout.stdout.txt").read_bytes() == b"***\n"
+    assert "GH_TOKEN" not in runner.environment(tmp_path)
+    assert "GITHUB_TOKEN" not in runner.environment(tmp_path)
+    assert "PULSE_Q2_TRANSPORT_TOKEN" not in runner.environment(tmp_path)
+
+
+@pytest.mark.parametrize("script,option", [("COLLECTOR", "--run-id"), ("CHECKER", "--expected-run-id")])
+def test_runner_original_cli_bootstrap_supports_isolated_imports(tmp_path, script, option):
+    from tools import run_pulsemech_admission_rejection_verification_v0 as runner
+    result = subprocess.run(runner.command(Path(sys.executable).resolve(), ROOT, getattr(runner, script), "--help"),
+                            cwd=ROOT, env=runner.environment(tmp_path), capture_output=True,
+                            stdin=subprocess.DEVNULL, timeout=30, check=False)
+    assert result.returncode == 0, result.stderr.decode("utf-8", errors="replace")
+    assert option.encode() in result.stdout
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

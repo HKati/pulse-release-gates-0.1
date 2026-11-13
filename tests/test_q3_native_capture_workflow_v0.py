@@ -66,7 +66,8 @@ def guard_run(tmp_path,fault=None):
     (tmp_path/'environment.yml').write_text('dependencies: [python=3.11]\n')
     names=['q2_reference_acquisition_v0.yml','pulse_ci.yml','q2_release_capsule_publication_v0.yml',
            'q2_release_host_tokenizer_verification_v0.yml','q2_release_host_worker_verification_v0.yml',
-           'q3_reference_acquisition_v0.yml','q3_reference_acquisition_v1.yml','paradox_compatibility_v0.yml']
+           'q3_reference_acquisition_v0.yml','q3_reference_acquisition_v1.yml','paradox_compatibility_v0.yml',
+           'pulsemech_admission_rejection_verification_v0.yml']
     for n in names:(tmp_path/'.github/workflows'/n).write_bytes((ROOT/'.github/workflows'/n).read_bytes())
     path=tmp_path/WF;d=workflow();j=d['jobs']['acquire'];steps=j['steps']
     setup=next(x for x in steps if x.get('uses','').startswith('actions/setup-python@'))
