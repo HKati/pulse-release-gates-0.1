@@ -414,7 +414,6 @@ def _packet_references(contract, subject_packet, runtime_packet, inputs, operato
     states = _index(runtime_packet["state_observations"], "state_id", "duplicate_state_id")
     selected = [item["execution_id"] for item in contract["occurrences"]]
     _need(len(selected) == len(set(selected)), "execution_reused_for_occurrence")
-    matched_inputs = set()
     case_map = {item["case_id"]: item for item in contract["cases"]}
     for occurrence in contract["occurrences"]:
         _need(occurrence["packet_id"] == runtime_packet["packet_identity"]["packet_id"], "packet_id_mismatch")
@@ -444,13 +443,12 @@ def _packet_references(contract, subject_packet, runtime_packet, inputs, operato
                 if edge == "output_state_ids":
                     _need(state["producer_execution_id"] == execution["execution_id"], "state_output_producer_mismatch")
         input_reference = inputs[case_map[occurrence["case_id"]]["input_id"]]
-        if any(states[identifier]["content_status"] == "exact_digest"
-               and states[identifier]["sha256"] == input_reference["sha256"]
-               and states[identifier]["size_bytes"] == input_reference["size_bytes"]
-               for identifier in occurrence["input_state_ids"]):
-            matched_inputs.add(occurrence["case_id"])
-    represented_cases = {item["case_id"] for item in contract["occurrences"]}
-    _need(matched_inputs == represented_cases, "case_input_digest_mismatch")
+        # Each occurrence must consume its case input, including repeated cases.
+        _need(any(states[identifier]["content_status"] == "exact_digest"
+                  and states[identifier]["sha256"] == input_reference["sha256"]
+                  and states[identifier]["size_bytes"] == input_reference["size_bytes"]
+                  for identifier in occurrence["input_state_ids"]),
+              "case_input_digest_mismatch")
 
 
 def _base_report() -> dict[str, Any]:

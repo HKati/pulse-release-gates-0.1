@@ -116,6 +116,11 @@ and membership of selected input/output states in their named execution. An
 observer execution cannot stand in for a subject occurrence. A referenced
 output must agree with its declared producer.
 
+Every occurrence must reference at least one input state with `exact_digest`
+status and the selected case input's SHA-256 and byte count. When a case has
+multiple occurrences, each occurrence is checked independently; a matching
+input in one occurrence cannot satisfy another occurrence's input obligation.
+
 These checks do not reconstruct an arbitrary runtime graph or prove event
 ordering, timing, process closure, actual private reads or metric semantics.
 The packets' own success fields are not used as evidence of those properties.
@@ -138,12 +143,12 @@ python tools/check_required_gate_suite_contract_v0.py \
   --root . \
   --contract tests/fixtures/required_gate_suite_contract_v0/complete.json \
   --selection tests/fixtures/required_gate_suite_contract_v0/complete_selection.json \
-  --selection-sha256 900916bcfe286074dc9d25d174a59a888fe35051d34cb9766f6cf00884c5d308
+  --selection-sha256 d75577f91cc7c63984a4a9e7ad0cb70c17bc00c094b86483bda016f7eacba9b4
 ```
 
 The unresolved example uses `unresolved.json`, `unresolved_selection.json` and
 the independently frozen selection hash
-`92eb28a3d0d837dc5f66c6ebf5f5a3acdad394e456e678cbf092383128cc571e`.
+`de84befb3090426026b899c28e151b26a40dae4cc6c5d3b0446a15b39c552b9a`.
 Both hashes are also literal constants in the test module. Updating a selected
 file requires an explicit reviewed selection change; it is not repaired by the
 checker.

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Fix the B1 suite-contract checker to validate the selected input digest and
+  byte count for every occurrence, including repeated observations of one case.
+  A matching occurrence cannot mask another occurrence's mismatched input.
+  Add repeated-occurrence regressions and refresh the frozen checker selections;
+  retain the structural-only result and `authority_effect=none`.
+
 - Add the [B1 required-gate suite contract](docs/compute/PULSEMECH_REQUIRED_GATE_SUITE_CONTRACT_v0.md)
   and its offline structural checker. Bind declarations to a separately selected
   manifest, exact source/protocol/input bytes and existing compute packet schemas;

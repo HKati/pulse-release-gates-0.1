@@ -2,8 +2,8 @@
   "bindings": {
     "checker_source": {
       "path": "tools/check_required_gate_suite_contract_v0.py",
-      "sha256": "47d4914879b9b6ae223cc0f39fe2a63977f852cd4b409b8dc72c7f43227e18a5",
-      "size_bytes": 31358
+      "sha256": "34f873d39009e8ec9e0e71e67ccf4079e0801459645cfd7693bab37bcf17615e",
+      "size_bytes": 31259
     },
     "comparison": {
       "path": "tests/fixtures/required_gate_suite_contract_v0/synthetic_comparison.txt",

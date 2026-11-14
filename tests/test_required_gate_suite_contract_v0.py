@@ -25,8 +25,8 @@ FIXTURE_REL = 'tests/fixtures/required_gate_suite_contract_v0'
 FIXTURES = ROOT / FIXTURE_REL
 TOOL_REL = 'tools/check_required_gate_suite_contract_v0.py'
 TOOL = ROOT / TOOL_REL
-COMPLETE_SELECTION_SHA256 = '900916bcfe286074dc9d25d174a59a888fe35051d34cb9766f6cf00884c5d308'
-UNRESOLVED_SELECTION_SHA256 = '92eb28a3d0d837dc5f66c6ebf5f5a3acdad394e456e678cbf092383128cc571e'
+COMPLETE_SELECTION_SHA256 = 'd75577f91cc7c63984a4a9e7ad0cb70c17bc00c094b86483bda016f7eacba9b4'
+UNRESOLVED_SELECTION_SHA256 = 'de84befb3090426026b899c28e151b26a40dae4cc6c5d3b0446a15b39c552b9a'
 FIXTURE_FILES = {
     'complete.json', 'unresolved.json', 'missing_obligation.json',
     'duplicate_case.json', 'substituted_binding.json',
@@ -317,6 +317,87 @@ def test_runtime_packet_substitutions_and_consumption_changes_reject(tmp_path, f
     else: d['privacy_boundary']['raw_prompt_text_included'] = True
     case.bind_json('runtime_packet', d)
     case.reject()
+
+
+def repeat_baseline_case(case):
+    """Select one case with two distinct executions and shared gate obligations."""
+    baseline = next(item for item in case.contract['cases'] if item['case_id'] == 'baseline')
+    case.contract['cases'] = [baseline]
+    case.selection['inputs'] = [item for item in case.selection['inputs']
+                                if item['input_id'] == baseline['input_id']]
+    for occurrence in case.contract['occurrences']:
+        occurrence['case_id'] = baseline['case_id']
+    for obligation in case.contract['obligations']:
+        obligation['case_ids'] = [baseline['case_id']]
+
+
+@pytest.mark.parametrize('reverse_occurrences', [False, True])
+@pytest.mark.parametrize('fault', ['unrelated_bytes', 'wrong_digest', 'wrong_size', 'non_exact'])
+def test_every_repeated_case_occurrence_requires_its_selected_input(tmp_path, fault, reverse_occurrences):
+    case = Case(tmp_path)
+    repeat_baseline_case(case)
+    runtime = load(case.file('runtime_packet'))
+    reference = case.selection['inputs'][0]
+    state = next(item for item in runtime['state_observations']
+                 if item['state_id'] == 'state:b1:variant-input')
+    if fault == 'wrong_digest':
+        state['size_bytes'] = reference['size_bytes']
+    elif fault == 'wrong_size':
+        state['sha256'] = reference['sha256']
+        state['size_bytes'] = reference['size_bytes'] + 1
+    elif fault == 'non_exact':
+        state.update(sha256=reference['sha256'], size_bytes=reference['size_bytes'],
+                     content_status='metadata_only')
+    if reverse_occurrences:
+        case.contract['occurrences'].reverse()
+    case.bind_json('runtime_packet', runtime)
+    case.sync_protocol_rosters()
+    with pytest.raises(C.ContractError) as caught:
+        case.check()
+    assert caught.value.code == 'case_input_digest_mismatch'
+
+
+@pytest.mark.parametrize('input_mapping', ['shared_state', 'separate_state', 'additional_input'])
+def test_valid_repeated_case_occurrences_keep_distinct_executions(tmp_path, input_mapping):
+    case = Case(tmp_path)
+    repeat_baseline_case(case)
+    runtime = load(case.file('runtime_packet'))
+    occurrence = case.contract['occurrences'][1]
+    execution = next(item for item in runtime['executions']
+                     if item['execution_id'] == occurrence['execution_id'])
+    if input_mapping == 'separate_state':
+        state = next(item for item in runtime['state_observations']
+                     if item['state_id'] == 'state:b1:variant-input')
+        reference = case.selection['inputs'][0]
+        state.update(sha256=reference['sha256'], size_bytes=reference['size_bytes'])
+    else:
+        input_ids = ['state:b1:baseline-input']
+        if input_mapping == 'additional_input':
+            input_ids.insert(0, 'state:b1:variant-input')
+        occurrence['input_state_ids'] = input_ids
+        execution['input_state_ids'] = list(input_ids)
+    case.bind_json('runtime_packet', runtime)
+    case.sync_protocol_rosters()
+    report = case.check()
+    assert report['valid'] is True and report['declaration_complete'] is True
+    assert report['counts']['cases'] == report['counts']['inputs'] == 1
+    assert report['counts']['occurrences'] == 2
+    assert len({item['execution_id'] for item in case.contract['occurrences']}) == 2
+    boundary(report)
+
+
+def test_repeated_case_input_mismatch_cli_is_canonical_and_non_authoritative(tmp_path):
+    case = Case(tmp_path)
+    repeat_baseline_case(case)
+    case.sync_protocol_rosters()
+    first = case.cli(); second = case.cli()
+    assert first.returncode == second.returncode == 1
+    assert first.stdout == second.stdout
+    report = json.loads(first.stdout)
+    assert first.stdout == C.canonical_bytes(report)
+    assert report['valid'] is False and report['declaration_complete'] is False
+    assert report['errors'] == ['case_input_digest_mismatch']
+    boundary(report)
 
 
 @pytest.mark.parametrize('fault', ['packet_run', 'repository', 'source_commit', 'subject_run', 'candidate', 'run_id', 'attempt'])
