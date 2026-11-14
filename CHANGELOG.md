@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the [offline B2 idempotence observation adapter](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_OBSERVATION_v0.md)
+  with exact carrier/receipt verification, a truthful standalone runtime profile,
+  and per-application first-output-to-second-input binding. Reuse the existing
+  compute consumption and planned-observed relation mechanisms; retain B1 v0
+  and historical schemas. Add synthetic substitution, source, archive and CLI
+  regressions and synchronize the Tools manifest count guards. Recorded-relation
+  integrity does not authenticate physical execution or establish idempotence,
+  runtime closure, B2 completion or release eligibility; `authority_effect=none`.
+
 - Propose a [B2 snapshot-sanitizer idempotence protocol](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_PROTOCOL_v0.md)
   for the existing EPF logging component. Bind its fixed configuration, twelve
   exact public inputs, planned two-application paths, comparison, privacy and

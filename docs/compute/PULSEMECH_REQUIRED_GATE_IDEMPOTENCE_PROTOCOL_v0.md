@@ -1,5 +1,11 @@
 # Selected snapshot-sanitizer idempotence protocol v0
 
+Implementation continuation: the [offline observation adapter](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_OBSERVATION_v0.md)
+now verifies selected bytes and recorded first-to-second application relationships
+through an explicit standalone profile. The proposal and its three companions
+remain the original selection; actual acquisition, runtime closure, property
+calculation and B2 completion remain separate.
+
 ## Status and scope
 
 **Status: proposed for review. B2 is not complete.** This package selects a

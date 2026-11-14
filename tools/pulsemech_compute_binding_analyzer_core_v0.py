@@ -2761,6 +2761,91 @@ _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 _SHA40 = re.compile(r"[0-9a-f]{40}\Z")
 _RECORD_SUFFIX = re.compile(r"[A-Za-z0-9._:/@+-]+\Z")
 _OBSERVER_SCOPES = frozenset({"analysis_observer", "observation_collector"})
+STANDALONE_RUNTIME_PROFILE = "standalone_operator_v0"
+
+
+@dataclass(frozen=True)
+class _StandaloneSourceAdmission:
+    path: str
+    source_revision: str
+    sha256: str
+    size_bytes: int
+    data: bytes
+
+
+class _StandaloneRuntimeIndex(dict):
+    """Serializable index with a non-serialized immutable byte-admission token.
+
+    A dictionary copied from a report cannot recreate this token. Replay must
+    provide independently selected source descriptors and their immutable bytes.
+    The token establishes byte agreement, not Git provenance or execution truth.
+    """
+
+    __slots__ = ("_source_admissions",)
+
+    def __init__(self, value: dict[str, Any], admissions: tuple[_StandaloneSourceAdmission, ...]):
+        super().__init__(value)
+        object.__setattr__(self, "_source_admissions", admissions)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        raise AttributeError("standalone_source_admissions_are_immutable")
+
+
+def _admit_standalone_sources(values: Any) -> tuple[_StandaloneSourceAdmission, ...]:
+    if not isinstance(values, (list, tuple)) or not 1 <= len(values) <= 128:
+        raise RuntimeIndexError("standalone_source_bindings_required")
+    admissions = []
+    seen = set()
+    for value in values:
+        if not isinstance(value, dict) or set(value) != {
+            "path", "source_revision", "sha256", "size_bytes", "data",
+        }:
+            raise RuntimeIndexError("standalone_source_binding_fields_invalid")
+        path = value["path"]
+        if (not isinstance(path, str) or not path or len(path) > 1024 or "\\" in path
+                or path.startswith("/") or any(p in {"", ".", ".."} for p in path.split("/"))
+                or any(ord(c) < 32 for c in path)):
+            raise RuntimeIndexError("standalone_source_path_invalid")
+        revision, digest, size, data = (
+            value["source_revision"], value["sha256"], value["size_bytes"], value["data"],
+        )
+        if (not isinstance(revision, str) or not _SHA40.fullmatch(revision)
+                or not isinstance(digest, str) or not _SHA256.fullmatch(digest)
+                or type(size) is not int or not 0 <= size <= 2 * 1024 * 1024
+                or type(data) is not bytes):
+            raise RuntimeIndexError("standalone_source_binding_invalid")
+        if path in seen:
+            raise RuntimeIndexError("standalone_source_path_duplicate")
+        seen.add(path)
+        if len(data) != size or _runtime_sha(data) != digest:
+            raise RuntimeIndexError("standalone_source_bytes_mismatch")
+        admissions.append(_StandaloneSourceAdmission(path, revision, digest, size, data))
+    return tuple(sorted(admissions, key=lambda row: row.path))
+
+
+def _standalone_source_is_admitted(index: Any, identity: Any) -> bool:
+    if (not isinstance(index, _StandaloneRuntimeIndex)
+            or index.get("internal_profile") != STANDALONE_RUNTIME_PROFILE
+            or index.get("subject_context", {}).get("subject_profile") != STANDALONE_RUNTIME_PROFILE
+            or not isinstance(identity, dict)):
+        return False
+    for source in index._source_admissions:
+        expected = {
+            "source_kind": "repository_file", "identity_status": "exact",
+            "source_path_or_uri": source.path, "source_revision": source.source_revision,
+            "source_sha256": source.sha256, "action_repository": None,
+            "action_ref": None, "action_commit_sha": None, "container_image_digest": None,
+        }
+        if identity == expected:
+            return len(source.data) == source.size_bytes and _runtime_sha(source.data) == source.sha256
+    return False
+
+
+def _runtime_index_with_records(index: dict[str, Any], records: dict[str, Any]) -> dict[str, Any]:
+    result = {**index, "records": records}
+    if isinstance(index, _StandaloneRuntimeIndex):
+        return _StandaloneRuntimeIndex(result, index._source_admissions)
+    return result
 
 
 def _runtime_canonical(value: Any) -> bytes:
@@ -2839,6 +2924,25 @@ def _runtime_load(data: bytes) -> dict[str, Any]:
 
 def _runtime_subject(value: Any) -> dict[str, Any]:
     subject = _runtime_object(value, "runtime_subject")
+    if subject.get("subject_profile") == STANDALONE_RUNTIME_PROFILE:
+        fields = {
+            "subject_profile", "repository", "source_commit", "acquisition_id",
+            "acquisition_attempt", "subject_run_key", "protocol_id", "selection_sha256",
+            "release_candidate_id", "run_mode", "active_policy_sets",
+        }
+        if set(subject) != fields:
+            raise RuntimeIndexError("standalone_subject_fields_invalid")
+        for field in ("repository", "acquisition_id", "subject_run_key", "protocol_id"):
+            _runtime_text(subject[field], "standalone_subject_" + field)
+        if (not isinstance(subject["source_commit"], str) or not _SHA40.fullmatch(subject["source_commit"])
+                or not isinstance(subject["selection_sha256"], str) or not _SHA256.fullmatch(subject["selection_sha256"])):
+            raise RuntimeIndexError("standalone_subject_source_or_selection_invalid")
+        if type(subject["acquisition_attempt"]) is not int or subject["acquisition_attempt"] != 1:
+            raise RuntimeIndexError("standalone_subject_single_attempt_required")
+        if (subject["release_candidate_id"] is not None or subject["active_policy_sets"] != []
+                or subject["run_mode"] != "standalone_operator"):
+            raise RuntimeIndexError("standalone_subject_authority_forbidden")
+        return _runtime_copy(subject)
     projected: dict[str, Any] = {}
     for field in _SUBJECT_FIELDS:
         item = subject.get(field)
@@ -2858,8 +2962,12 @@ def _runtime_subject(value: Any) -> dict[str, Any]:
     return projected
 
 
-def _runtime_authority(value: Any, source_commit: str) -> dict[str, Any]:
+def _runtime_authority(value: Any, source_commit: str, *, standalone: bool = False) -> dict[str, Any]:
     authority = _runtime_object(value, "runtime_authority_inputs")
+    if standalone:
+        if authority != {}:
+            raise RuntimeIndexError("standalone_authority_inputs_forbidden")
+        return {}
     if set(authority) != {"workflow", "policy", "gate_registry"}:
         raise RuntimeIndexError("runtime_authority_roles_mismatch")
     for role in sorted(authority):
@@ -2886,17 +2994,24 @@ def _runtime_record_id(value: Any, prefix: str) -> str:
 def index_runtime_packet_sources(
     sources: Iterable[RuntimePacketSource], *, expected_subject: dict[str, Any],
     expected_authority_inputs: dict[str, Any],
+    standalone_source_bindings: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Index exact packet bytes without inventing terminal observation closure.
 
     expected_subject and expected_authority_inputs come from independently
     verified subject/context inputs, never from the first runtime packet itself.
     This function checks descriptor agreement, NOT historical source authenticity.
-    The caller must separately run the unchanged runtime packet validator on the
-    same immutable input bytes. No caller-provided parsed packet is accepted.
+    The caller must separately run the applicable packet validator on the same
+    immutable bytes: the unchanged legacy validator or the explicit standalone
+    validator. Standalone source admission additionally checks independently
+    selected source bytes. No caller-provided parsed packet is accepted.
     """
     subject = _runtime_subject(expected_subject)
-    authority = _runtime_authority(expected_authority_inputs, subject["source_commit"])
+    standalone = subject.get("subject_profile") == STANDALONE_RUNTIME_PROFILE
+    admissions = _admit_standalone_sources(standalone_source_bindings) if standalone else ()
+    if not standalone and standalone_source_bindings is not None:
+        raise RuntimeIndexError("standalone_sources_on_legacy_context")
+    authority = _runtime_authority(expected_authority_inputs, subject["source_commit"], standalone=standalone)
     parsed: list[tuple[RuntimePacketSource, dict[str, Any], str]] = []
     locators: set[str] = set()
     ids: set[str] = set()
@@ -2910,6 +3025,11 @@ def index_runtime_packet_sources(
             raise RuntimeIndexError("runtime_source_locator_duplicate")
         locators.add(locator)
         packet = _runtime_load(source.data)
+        if standalone:
+            if packet.get("packet_profile") != STANDALONE_RUNTIME_PROFILE:
+                raise RuntimeIndexError("standalone_runtime_profile_required")
+        elif "packet_profile" in packet:
+            raise RuntimeIndexError("runtime_packet_profile_on_legacy_context")
         if packet.get("schema_version") != "pulsemech_compute_runtime_observation_packet_v0":
             raise RuntimeIndexError("runtime_packet_schema_identity_mismatch")
         if packet.get("packet_type") != "pulsemech_compute_runtime_observation_packet":
@@ -2922,7 +3042,7 @@ def index_runtime_packet_sources(
             raise RuntimeIndexError("runtime_packet_reports_failure")
         if _runtime_subject(packet.get("subject")) != subject:
             raise RuntimeIndexError("runtime_packet_subject_context_mismatch")
-        if _runtime_authority(packet.get("authority_inputs"), subject["source_commit"]) != authority:
+        if _runtime_authority(packet.get("authority_inputs"), subject["source_commit"], standalone=standalone) != authority:
             raise RuntimeIndexError("runtime_packet_authority_context_mismatch")
         identity = _runtime_object(packet.get("packet_identity"), "packet_identity")
         identifier = _runtime_record_id(identity.get("packet_id"), "runtime-observation:")
@@ -3081,7 +3201,7 @@ def index_runtime_packet_sources(
         records[kind] = dict(sorted(records[kind].items()))
         for entry in records[kind].values():
             entry["source_refs"].sort(key=lambda item: (item["packet_sha256"], item["json_pointer"]))
-    return {
+    result = {
         "internal_profile": "pulsemech_runtime_packet_index_v0",
         "record_status": next(iter(statuses)), "subject_context": subject,
         "authority_inputs": authority, "packet_inventory": inventory,
@@ -3097,6 +3217,19 @@ def index_runtime_packet_sources(
             "supplied_packet_count": len(inventory),
         },
     }
+    if standalone:
+        result["internal_profile"] = STANDALONE_RUNTIME_PROFILE
+        result["verified_source_bindings"] = [
+            {"path": row.path, "source_revision": row.source_revision,
+             "sha256": row.sha256, "size_bytes": row.size_bytes}
+            for row in admissions
+        ]
+        result = _StandaloneRuntimeIndex(result, admissions)
+        for entry in records["executions"].values():
+            if not _standalone_source_is_admitted(result, entry["record"].get("source_identity")):
+                raise RuntimeIndexError("standalone_execution_source_not_admitted")
+        return result
+    return result
 
 
 def runtime_effective_source_identity(identity: Any, *, record_status: str) -> dict[str, Any]:
@@ -3118,7 +3251,9 @@ def runtime_effective_source_identity(identity: Any, *, record_status: str) -> d
     return result
 
 
-def _runtime_exact_source(identity: Any, *, record_status: str) -> bool:
+def _runtime_exact_source(identity: Any, *, record_status: str, source_index: dict[str, Any] | None = None) -> bool:
+    if source_index is not None and source_index.get("internal_profile") == STANDALONE_RUNTIME_PROFILE:
+        return _standalone_source_is_admitted(source_index, identity)
     identity = runtime_effective_source_identity(identity, record_status=record_status)
     if not isinstance(identity, dict) or identity.get("identity_status") != "exact":
         return False
@@ -3148,7 +3283,9 @@ def _runtime_exact_source(identity: Any, *, record_status: str) -> bool:
 
 
 
-def _runtime_execution_evidence_is_recorded(record: dict[str, Any], *, record_status: str) -> bool:
+def _runtime_execution_evidence_is_recorded(
+    record: dict[str, Any], *, record_status: str, source_index: dict[str, Any] | None = None,
+) -> bool:
     """Check invocation evidence without assigning a subject/observer role.
 
     A completed failure may have consumed inputs. Skipped, cancelled, unknown
@@ -3158,7 +3295,7 @@ def _runtime_execution_evidence_is_recorded(record: dict[str, Any], *, record_st
     command = record.get("command_identity", {})
     return (
         record.get("capture_status") == "complete"
-        and _runtime_exact_source(record.get("source_identity"), record_status=record_status)
+        and _runtime_exact_source(record.get("source_identity"), record_status=record_status, source_index=source_index)
         and isinstance(result, dict)
         and result.get("lifecycle_status") == "completed"
         and result.get("result_status") == "complete"
@@ -3172,6 +3309,7 @@ def _runtime_execution_evidence_is_recorded(record: dict[str, Any], *, record_st
 
 def _runtime_qualifying_execution(
     record: dict[str, Any], subject_key: str, *, record_status: str,
+    source_index: dict[str, Any] | None = None,
 ) -> bool:
     """Require recorded SUBJECT work; observer qualification is separate."""
     binding = record.get("run_binding", {})
@@ -3181,7 +3319,7 @@ def _runtime_qualifying_execution(
         and binding.get("subject_run_key") == subject_key
         and binding.get("execution_run_key") == subject_key
         and binding.get("binding_mode") == "current_subject_run"
-        and _runtime_execution_evidence_is_recorded(record, record_status=record_status)
+        and _runtime_execution_evidence_is_recorded(record, record_status=record_status, source_index=source_index)
     )
 
 
@@ -3220,7 +3358,7 @@ def assess_runtime_output_consumption(
     producer = producer_entry["record"]
     if producer.get("execution_scope") != "subject":
         raise RuntimeIndexError("runtime_required_producer_is_observer")
-    direct_index = {**index, "records": {**index["records"], "external_calls": {}, "model_inferences": {}}}
+    direct_index = _runtime_index_with_records(index, {**index["records"], "external_calls": {}, "model_inferences": {}})
     qualified_consumers = runtime_consumption_map(direct_index)
     results: dict[str, Any] = {}
     for state_id in sorted(required):
@@ -3239,7 +3377,7 @@ def assess_runtime_output_consumption(
         if (state.get("producer_execution_id") != producer_execution_id
                 or state_id not in producer.get("output_state_ids", [])):
             reasons.add("runtime_production_unresolved")
-        if not _runtime_qualifying_execution(producer, subject_key, record_status=index["record_status"]):
+        if not _runtime_qualifying_execution(producer, subject_key, record_status=index["record_status"], source_index=index):
             reasons.add("producer_execution_binding_unresolved")
         for identifier in qualified_consumers.get(state_id, []):
             if identifier != producer_execution_id:
@@ -3332,7 +3470,7 @@ def runtime_activity_is_recorded(index: dict[str, Any], kind: str, row: dict[str
     """
     context = runtime_activity_context(index, kind, row)
     key = index["subject_context"]["subject_run_key"]
-    if not _runtime_qualifying_execution(context, key, record_status=index["record_status"]):
+    if not _runtime_qualifying_execution(context, key, record_status=index["record_status"], source_index=index):
         return False
     return _runtime_activity_payload_is_recorded(kind, row, key)
 
@@ -3359,7 +3497,7 @@ def runtime_observation_is_recorded(index: dict[str, Any], kind: str, row: dict[
         and bool(binding["execution_run_key"])
         and binding.get("binding_mode") in {"current_subject_run", "post_run_observer", "external_export"}
         and (binding["binding_mode"] != "current_subject_run" or binding["execution_run_key"] == key)
-        and _runtime_execution_evidence_is_recorded(context, record_status=index["record_status"])
+        and _runtime_execution_evidence_is_recorded(context, record_status=index["record_status"], source_index=index)
         and _runtime_activity_payload_is_recorded(kind, row, key)
     )
 
