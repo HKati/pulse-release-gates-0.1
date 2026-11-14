@@ -46,13 +46,16 @@ moves between merged and open work, update this index.
 
 ### Required-gate coverage after accepted rejection verification
 
+- [B1 required-gate suite contract and structural checker](compute/PULSEMECH_REQUIRED_GATE_SUITE_CONTRACT_v0.md) — **Current implementation; structural declarations only.** A caller-pinned selection binds the finite case roster, per-gate evidence obligations and existing compute packet references. Valid drafts remain unresolved; complete synthetic declarations establish no execution readiness, metric PASS or release authority. The real protocol selection remains B2 work.
+
 [Current coverage and implementation plan](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#18-required-gate-coverage-plan-after-accepted-rejection-verification) ·
 [Machine-readable nineteen-gate inventory](compute/required_gate_coverage_plan_v0/coverage_plan_v0.json) ·
 [Completed bounded verification](compute/admission_rejection_43445176088_v0/README.md)
 
-**Proposed engineering plan; documentation only.** After #3016, the selected
-next unit is the shared metric-suite/obligation contract and structural
-checker, reusing the existing compute chain. Eleven requirements still lack
+**Preserved engineering plan with B1 structural implementation.** The linked
+plan retains the implementation sequence selected after #3016. B1 now supplies
+the shared metric-suite/obligation contract and structural checker; a real
+protocol and observation mapping remain B2 work. Eleven requirements still lack
 complete operational protocols; Q3 already has standalone mathematics but needs
 accepted inputs/labels, specification migration and coordinated release
 admission. All twelve unsupported gates, historical Q2 FAIL and the existing
