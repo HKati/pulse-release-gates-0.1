@@ -44,6 +44,21 @@ moves between merged and open work, update this index.
 
 ## Start here
 
+### Required-gate coverage after accepted rejection verification
+
+[Current coverage and implementation plan](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#18-required-gate-coverage-plan-after-accepted-rejection-verification) ·
+[Machine-readable nineteen-gate inventory](compute/required_gate_coverage_plan_v0/coverage_plan_v0.json) ·
+[Completed bounded verification](compute/admission_rejection_43445176088_v0/README.md)
+
+**Proposed engineering plan; documentation only.** After #3016, the selected
+next unit is the shared metric-suite/obligation contract and structural
+checker, reusing the existing compute chain. Eleven requirements still lack
+complete operational protocols; Q3 already has standalone mathematics but needs
+accepted inputs/labels, specification migration and coordinated release
+admission. All twelve unsupported gates, historical Q2 FAIL and the existing
+authority boundary remain unchanged. The earlier Q3 preflight and capture
+have already run; this plan requests no repeat.
+
 ### Q3 bounded-response continuation — versioned implementation
 
 [Implementation and execution boundary](compute/PULSEMECH_Q3_CONTINUATION_v1.md) ·
@@ -51,7 +66,12 @@ moves between merged and open work, update this index.
 [Exact historical bindings and 204-occurrence plan](compute/q3_capture_continuation_amendment_v1/CONTINUATION_PLAN.json) ·
 [Closed proposal schema](compute/q3_capture_continuation_amendment_v1/continuation_plan.schema.json)
 
-**Current implementation; native execution and observation acceptance pending.**
+**Implementation checkpoint; later hosted executions recorded.** Preflight
+[43235020126/1](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43235020126)
+and capture [43237628996/1](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43237628996)
+are terminal and successful at `68c6fb199885c99f6a5809866ebd0aaae43b4847`.
+This navigation update verifies API metadata, not fresh carrier acceptance
+or Q1/Q3 results. The linked contract retains its implementation-time scope.
 Native v1 and handoff v2 implement the reviewed 1+203 partition: dedicated
 zero-generation verification of the retained first response, a fresh complete-frame
 token preflight, separately authorized capture of the 203 original unstarted tasks,
@@ -494,7 +514,7 @@ Read these documents in this order:
   work. Synthetic result examples are specification material, not observed
   language measurements; `authority_effect = none`.
 - [compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md](compute/PULSEMECH_COMPUTE_BINDING_AND_TRANSITION_EFFICIENCY_DESIGN_v0.md) — **Current implementation and completed bounded proof.** Detailed compute contracts, completed Step 3G automation and regressions, exact historical Step 4A capture, bounded Step 4B preservation, accepted Step 5A runtime-bound construction and the completed Step 5B owner-dispatched six-process reference with exact preservation and source-bound replay; whole-runtime observation, complete Step 5 closure and later measurement remain separate.  
-- [compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#17-recorded-q2-4-field-comparison-checkpoint) — **Implementation history and recorded bounded results.** Section 17 records the local comparison of historical run `37600313529/1` and native run `39057898256/1`: 150 paired calls with matching selected output fields, preserved run-binding and platform differences, and unchanged 49/50 FAIL. Section 16 retains native acquisition and separate offline verification; section 13 retains Q2-1. Full Q2-4 acceptance, durable owner-held custody and full Q2/Step 5C/5D remain open under #2879.
+- [compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#18-required-gate-coverage-plan-after-accepted-rejection-verification) — **Current proposed coverage plan and preserved implementation history.** Section 18 continues after #3016 with the exact nineteen-gate partition, eleven protocol-definition gaps, Q3 input/migration/admission obligations, a shared metric-suite companion over the existing compute chain and the complete current test-cardinality dependency inventory for the proposed B1 unit. It activates no gate and requests no execution. Sections 1–17 retain their earlier bounded results and limitations; #2879 remains open.
 - [compute/PULSEMECH_Q2_RELEASE_HOST_TOKENIZER_CONTRACT_v0.md](compute/PULSEMECH_Q2_RELEASE_HOST_TOKENIZER_CONTRACT_v0.md) — **Implementation contract with recorded bounded Q2-1 reference.** Closed tokenizer-only source/input/projection/result contracts, four isolated occurrences, preserved historical 49/50 FAIL, separate canonical replay and the reviewed owner-run procedure. The recorded checkpoint preserves earlier rejected runs; full model/worker/release-host verification and authority remain separate.
 - [compute/PULSEMECH_Q2_RELEASE_HOST_WORKER_CONTRACT_v0.md](compute/PULSEMECH_Q2_RELEASE_HOST_WORKER_CONTRACT_v0.md) — **Strict v0 implementation contract.** Combined Q2-2/Q2-3 fixed-capsule worker, explicit owner execution/retention consent, independent checks and fail-closed custody. The later acquisition used the explicit v1 extension, not strict historical-platform equality;
   see [section 16](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#16-recorded-q2-2q2-3-native-worker-and-offline-verification-checkpoint). Q2-4 acceptance remains separate.
@@ -681,6 +701,8 @@ pulsemech_witness_verification_evidence_v0.schema.json
 
 - [Admission-rejection observer and independent checker](compute/PULSEMECH_COMPUTE_ADMISSION_REJECTION_v0.md) — A separate read-only carrier for the pinned hosted-evidence rejection path. It preserves an exact terminal run, reconstructs its source/step/input bindings, and independently checks Q2 and attestation evidence. Implementation and controlled tests do not establish a completed observed reference or satisfy the original successful Step 5C profile.
 - [Independent verification of preserved run 43445176088/1](compute/admission_rejection_43445176088_v0/README.md) — **Completed bounded operational record.** Verification run `43514702328/1` at `c06d306b0affcbfde35544f7dc64fc21bbf36180` checked the original rejected run at `59b0aa8d93cb655db5452367e6ad43ced424d83a`. Two separate processes of the same independent checker accepted the frozen evidence and produced byte-identical reports. The original GitHub artifact and a preservation record are retained. Acceptance covers the source-bound admission rejection and downstream stop; it does not complete Step 5C/5D or grant release authority. Issue #2879 remains open.
+
+- [Required-gate coverage after the accepted rejection](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#18-required-gate-coverage-plan-after-accepted-rejection-verification) — **Proposed next implementation; no gate activation.** Shared metric-suite obligations, per-property independent reconstruction, Q3 semantic migration and coordinated candidate admission. [Machine-readable plan](compute/required_gate_coverage_plan_v0/coverage_plan_v0.json).
 
 ### Current merged implementation
 
