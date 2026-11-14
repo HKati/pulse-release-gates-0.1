@@ -1,18 +1,18 @@
 # Step 5C reference readiness and first Q2 reduction unit
 
-> Current continuation: [section 18](#18-required-gate-coverage-plan-after-accepted-rejection-verification)
-> records the proposed twelve-gate implementation plan after the accepted
-> admission-rejection verification preserved by #3016. It selects no new
-> execution and changes no gate. Earlier sections retain their original
-> checkpoint meanings; their pending statements are not new run instructions.
-
-> Earlier Q2 field-comparison checkpoint: [section 17](#17-recorded-q2-4-field-comparison-checkpoint)
+> Latest bounded checkpoint: [section 17](#17-recorded-q2-4-field-comparison-checkpoint)
 > records the completed field comparison of `37600313529/1` and `39057898256/1`.
 > [Section 16](#16-recorded-q2-2q2-3-native-worker-and-offline-verification-checkpoint)
 > retains native acquisition and offline verification; [section 13](#13-recorded-q2-1-native-tokenizer-and-canonical-replay-checkpoint)
 > retains the earlier tokenizer/replay checkpoint. Sections 1–16 retain their
 > original checkpoint meanings. Full Q2-4 acceptance, durable owner-held custody
 > and full Q2/Step 5C/5D acceptance remain open.
+>
+> Current continuation: [section 18](#18-required-gate-coverage-plan-after-accepted-rejection-verification)
+> records the proposed twelve-gate implementation plan after the accepted
+> admission-rejection verification preserved by #3016. It selects no new
+> execution and changes no gate. Earlier sections retain their original
+> checkpoint meanings; their pending statements are not new run instructions.
 
 ## Current hosted Q2 integration status
 
