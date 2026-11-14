@@ -15,8 +15,10 @@ authenticate that a physical process executed or read those bytes. Source-byte
 agreement, schema validity, recorded consumption, property calculation and
 release authority remain separate claims.
 
-The actual worker and collector, enforceable acquisition limits, recoverable
-implementation/runtime closure and their review remain outstanding. B3 still
+The [acquisition continuation](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ACQUISITION_v0.md)
+adds selected-source preparation, bounded worker/process primitives and a
+synthetic coordinator. Its public observed launch remains closed pending
+recoverable runtime closure, review and separate owner authorization. B3 still
 requires the property-specific producer and independent reconstruction; B4
 requires coordinated release intake and admission; B5 requires a separately
 selected and owner-authorized actual reference. A successful replay authorizes
@@ -143,8 +145,9 @@ verifier or establish a full runtime closure.
 The 24-case-path application records can be complete while host/runtime coverage
 remains partial. Environment fingerprints and timestamps are retained as recorded
 facts; no complete host identity or resource measurement is invented. Recorded
-wall/monotonic bounds are checked, but enforcement of CPU, memory, isolation and
-execution limits belongs to the outstanding acquisition implementation.
+wall/monotonic bounds are checked. The acquisition continuation implements
+bounded process controls tested with synthetic sources; this offline adapter
+does not attest that those controls ran or establish complete host isolation.
 
 ## Versioned carrier layout
 
@@ -231,8 +234,9 @@ a synthetic regression, not a real sanitizer result.
 ## Validation and preserved boundaries
 
 The new regression module is registered once in `ci/tools-tests.list`, without
-targeted-pytest duplication. The Tools manifest is 184 entries; targeted pytest
-remains 40. All 26 dependent count references are updated together. Tests cover
+targeted-pytest duplication. The acquisition continuation adds one further
+Tools module, bringing the manifest to 185 entries; targeted pytest remains 40.
+Its dependent count references are updated together. Observation tests cover
 every cross-case substitution with identical snapshot bytes, missing/reused
 identities, receipt/read/source substitutions, malformed carriers, strict JSON,
 source-admission replay, deterministic reports and safe output handling.

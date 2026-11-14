@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add [bounded B2 idempotence acquisition primitives](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ACQUISITION_v0.md)
+  with selected-source preparation, sealed worker/input/interpreter descriptors,
+  Linux process and syscall restrictions, and synthetic finite-suite orchestration.
+  Preserve incomplete attempts without retry or cleanup and verify complete
+  example carriers with the unchanged observation adapter. Register the new
+  regressions once and coordinate Tools count guards. Observed launch remains
+  closed pending recoverable runtime closure, review and separate owner
+  authorization; no actual reference, metric verdict or release authority is
+  supplied, B2 remains incomplete and `authority_effect=none`.
+
 - Add the [offline B2 idempotence observation adapter](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_OBSERVATION_v0.md)
   with exact carrier/receipt verification, a truthful standalone runtime profile,
   and per-application first-output-to-second-input binding. Reuse the existing
