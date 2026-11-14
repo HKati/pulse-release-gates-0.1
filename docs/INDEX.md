@@ -48,7 +48,9 @@ moves between merged and open work, update this index.
 
 - [B1 required-gate suite contract and structural checker](compute/PULSEMECH_REQUIRED_GATE_SUITE_CONTRACT_v0.md) — **Current implementation; structural declarations only.** A caller-pinned selection binds the finite case roster, per-gate evidence obligations and existing compute packet references. Every occurrence must bind its selected input independently. Valid drafts remain unresolved; complete synthetic declarations establish no execution readiness, metric PASS or release authority.
 
-- [B2 snapshot-sanitizer idempotence protocol proposal](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_PROTOCOL_v0.md) — **Concrete protocol proposed for review; B2 incomplete.** Select the existing EPF snapshot sanitizer, fixed configuration, twelve exact public inputs and 24 planned applications. Specify actual first-output consumption and byte equality, with derived-input binding and a supported acquisition adapter still to implement. No subject execution, metric verdict or gate activation is supplied.
+- [B2 snapshot-sanitizer idempotence protocol proposal](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_PROTOCOL_v0.md) — **Preserved concrete protocol selection; B2 incomplete.** Select the existing EPF snapshot sanitizer, fixed configuration, twelve exact public inputs and 24 planned applications. Preserve the selected composition, comparison, privacy and acquisition boundaries. No subject execution, metric verdict or gate activation is supplied.
+
+- [B2 offline idempotence observation adapter](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_OBSERVATION_v0.md) — **Implemented selected-byte and recorded-relation verification.** Admit a distinct standalone runtime profile and require every second application to consume its own first output state, reusing existing compute analysis. Exact source/carrier/receipt bindings and synthetic regressions establish no authenticated physical execution, complete runtime closure, metric verdict or B2 completion.
 
 [Current coverage and implementation plan](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#18-required-gate-coverage-plan-after-accepted-rejection-verification) ·
 [Machine-readable nineteen-gate inventory](compute/required_gate_coverage_plan_v0/coverage_plan_v0.json) ·
@@ -57,8 +59,9 @@ moves between merged and open work, update this index.
 **Preserved engineering plan with B1 structural implementation.** The linked
 plan retains the implementation sequence selected after #3016. B1 now supplies
 the shared metric-suite/obligation contract and structural checker. The B2
-proposal specifies one finite component protocol and the required observation
-mapping; its implementation and release applicability remain open. Eleven requirements still lack
+proposal specifies one finite component protocol; its offline adapter now checks
+selected bytes and recorded application relationships. Actual acquisition,
+runtime closure, substantive calculation and release applicability remain open. Eleven requirements still lack
 complete operational protocols; Q3 already has standalone mathematics but needs
 accepted inputs/labels, specification migration and coordinated release
 admission. All twelve unsupported gates, historical Q2 FAIL and the existing
