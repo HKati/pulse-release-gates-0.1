@@ -1,0 +1,2 @@
+SYNTHETIC B1 CONTRACT FIXTURE
+Privacy and retention declaration only. Public synthetic input values are separate from runtime metadata; no prompt, model output or secret is present.

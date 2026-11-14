@@ -1,0 +1,103 @@
+{
+  "bindings": {
+    "checker_source": {
+      "path": "tools/check_required_gate_suite_contract_v0.py",
+      "sha256": "47d4914879b9b6ae223cc0f39fe2a63977f852cd4b409b8dc72c7f43227e18a5",
+      "size_bytes": 31358
+    },
+    "comparison": {
+      "path": "tests/fixtures/required_gate_suite_contract_v0/synthetic_comparison.txt",
+      "sha256": "a1fa3156b5760b524a64e93d60fbfeab4b95787baad9872ddaa47a8246ecd9b2",
+      "size_bytes": 145
+    },
+    "contract_schema": {
+      "path": "schemas/required_gate_suite_contract_v0.schema.json",
+      "sha256": "66df57c8ecbdc137b376fbab5248c395bdda47e3094b7cee74e4606ca825d215",
+      "size_bytes": 17021
+    },
+    "observation_mapping": {
+      "path": "tests/fixtures/required_gate_suite_contract_v0/synthetic_reconstruction.txt",
+      "sha256": "018e42326de0e33ef9ede0f2b72e8b67542f2368335f72be63a84ca18e496a14",
+      "size_bytes": 204
+    },
+    "operator": {
+      "path": "tests/fixtures/required_gate_suite_contract_v0/synthetic_operator.txt",
+      "sha256": "d7ef204f64068d208219be34a9de5aa66a0f41f4fbadc653c1577e34d53d7c6a",
+      "size_bytes": 140
+    },
+    "policy": {
+      "path": "pulse_gate_policy_v0.yml",
+      "sha256": "00fc5eef5fa3f240028aaf636a2e43ba29f1da000484c7a2f1baafcdd3c4ae8c",
+      "size_bytes": 3466
+    },
+    "privacy": {
+      "path": "tests/fixtures/required_gate_suite_contract_v0/synthetic_privacy.txt",
+      "sha256": "3c2318a271ec658e76c34517febb773a5883ddec05d3942220958ae6d520c580",
+      "size_bytes": 182
+    },
+    "protocol": {
+      "path": "tests/fixtures/required_gate_suite_contract_v0/synthetic_protocol.json",
+      "sha256": "93d70e1d163057ba66264b7860f52b7b93bc8d4bba26a6bf48ddf6425a683a8c",
+      "size_bytes": 1926
+    },
+    "registry": {
+      "path": "pulse_gate_registry_v0.yml",
+      "sha256": "42309ba8fed0d8558805a84bc785b6cb5aff0854b80bbbb6de251e37b97bc56b",
+      "size_bytes": 7295
+    },
+    "runtime_packet": {
+      "path": "tests/fixtures/required_gate_suite_contract_v0/runtime_packet.json",
+      "sha256": "3dea7a0b67760d968cabeb0b36de4a246360acff3125eab0619ab868de0d91b2",
+      "size_bytes": 12478
+    },
+    "runtime_schema": {
+      "path": "schemas/pulsemech_compute_runtime_observation_packet_v0.schema.json",
+      "sha256": "824991a9f5c21ca9bd9fd7d1fc5c5813af3ff0ef9714c8506d2c3e6a5f9fa0cc",
+      "size_bytes": 70467
+    },
+    "source_anchor": {
+      "path": "tests/fixtures/required_gate_suite_contract_v0/synthetic_source.txt",
+      "sha256": "f547d77ab6add9f803c486b74e905ba688be1c44fa0ee85c32544160a6e9eca1",
+      "size_bytes": 133
+    },
+    "subject_packet": {
+      "path": "tests/fixtures/required_gate_suite_contract_v0/subject_packet.json",
+      "sha256": "3d7fa82b9527b681b0fec609e8cbbc6a1073f6e115dd0804b4fb10befa6b75b6",
+      "size_bytes": 7692
+    },
+    "subject_schema": {
+      "path": "schemas/pulsemech_compute_subject_input_packet_v0.schema.json",
+      "sha256": "8116c757ba7ee65c14ae159fe9969bc2084fe105b0df7e69ebee64f65b45f1e5",
+      "size_bytes": 43429
+    }
+  },
+  "contract": {
+    "path": "tests/fixtures/required_gate_suite_contract_v0/complete.json",
+    "sha256": "375e1474884bb18a4f0db6f735b144d01a15acb44e6954166282e60e6dca6d95",
+    "size_bytes": 2616
+  },
+  "inputs": [
+    {
+      "input_id": "baseline-input",
+      "path": "tests/fixtures/required_gate_suite_contract_v0/baseline_input.json",
+      "sha256": "e61f701c4ebb228c6450fc188f9e8587b3731d57671343c93a26c597342d5cce",
+      "size_bytes": 87
+    },
+    {
+      "input_id": "variant-input",
+      "path": "tests/fixtures/required_gate_suite_contract_v0/variant_input.json",
+      "sha256": "fc7682b1ddf929055782c2a05fd50813a66f08ae97d2d033cd52d52ee5bc8796",
+      "size_bytes": 86
+    }
+  ],
+  "origin": "synthetic_fixture",
+  "record_type": "required_gate_suite_selection_v0",
+  "selected_gate_ids": [
+    "effect_present",
+    "psf_idempotence_ok"
+  ],
+  "source": {
+    "commit": "1111111111111111111111111111111111111111",
+    "repository": "synthetic/required-gate-suite"
+  }
+}

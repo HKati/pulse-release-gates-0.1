@@ -1,0 +1,196 @@
+{
+  "analysis_boundary": {
+    "current_repository_state_substitution_allowed": false,
+    "observer_in_subject_totals": false,
+    "packet_is_compute_report": false,
+    "packet_is_runtime_observation": false,
+    "runtime_observation_included": false,
+    "runtime_observation_required_for_runtime_classification": true,
+    "target_analysis_level": "artifact_observed"
+  },
+  "artifacts": [
+    {
+      "artifact_id": "artifact:b1:baseline-input",
+      "container_artifact_id": null,
+      "container_path_verified": true,
+      "content_kind": "json",
+      "digest_verified": true,
+      "display_path_or_uri": "tests/fixtures/required_gate_suite_contract_v0/baseline_input.json",
+      "media_type": "application/json",
+      "member_path": "baseline_input.json",
+      "provider_binding": null,
+      "required_for_analysis": true,
+      "role": "other",
+      "sha256": "e61f701c4ebb228c6450fc188f9e8587b3731d57671343c93a26c597342d5cce",
+      "size_bytes": 87,
+      "size_verified": true
+    },
+    {
+      "artifact_id": "artifact:b1:variant-input",
+      "container_artifact_id": null,
+      "container_path_verified": true,
+      "content_kind": "json",
+      "digest_verified": true,
+      "display_path_or_uri": "tests/fixtures/required_gate_suite_contract_v0/variant_input.json",
+      "media_type": "application/json",
+      "member_path": "variant_input.json",
+      "provider_binding": null,
+      "required_for_analysis": true,
+      "role": "other",
+      "sha256": "fc7682b1ddf929055782c2a05fd50813a66f08ae97d2d033cd52d52ee5bc8796",
+      "size_bytes": 86,
+      "size_verified": true
+    }
+  ],
+  "authority_boundary": {
+    "activates_compute_gate": false,
+    "changes_gate_policy": false,
+    "changes_gate_semantics": false,
+    "changes_release_authority": false,
+    "creates_compute_budget": false,
+    "creates_gate_result": false,
+    "creates_release_decision": false,
+    "mutates_carrier": false,
+    "packet_is_release_authority": false,
+    "write_mode": "subject_input_only",
+    "writes_subject_run": false,
+    "writes_target_repository": false
+  },
+  "authority_sources": {
+    "additional_sources": [],
+    "gate_registry": {
+      "path_or_uri": "tests/fixtures/required_gate_suite_contract_v0/synthetic_source.txt",
+      "registry_id": "synthetic-b1-registry",
+      "role": "gate_registry",
+      "sha256": "f547d77ab6add9f803c486b74e905ba688be1c44fa0ee85c32544160a6e9eca1",
+      "size_bytes": 133,
+      "source_id": "source:synthetic-b1:gate_registry",
+      "source_revision": "1111111111111111111111111111111111111111"
+    },
+    "policy": {
+      "path_or_uri": "tests/fixtures/required_gate_suite_contract_v0/synthetic_source.txt",
+      "policy_id": "synthetic-b1-policy",
+      "role": "policy",
+      "sha256": "f547d77ab6add9f803c486b74e905ba688be1c44fa0ee85c32544160a6e9eca1",
+      "size_bytes": 133,
+      "source_id": "source:synthetic-b1:policy",
+      "source_revision": "1111111111111111111111111111111111111111"
+    },
+    "workflow": {
+      "path_or_uri": "tests/fixtures/required_gate_suite_contract_v0/synthetic_source.txt",
+      "role": "workflow",
+      "sha256": "f547d77ab6add9f803c486b74e905ba688be1c44fa0ee85c32544160a6e9eca1",
+      "size_bytes": 133,
+      "source_id": "source:synthetic-b1:workflow",
+      "source_revision": "1111111111111111111111111111111111111111",
+      "workflow_name": "Synthetic B1 contract fixture; no execution",
+      "workflow_ref": "synthetic/required-gate-suite/tests/fixtures/required_gate_suite_contract_v0/synthetic_source.txt@refs/heads/synthetic-fixture"
+    }
+  },
+  "carrier": {
+    "artifact_payload_mode": "external_carrier",
+    "carrier_id": "carrier:required-gate-suite/b1/synthetic-unprovided",
+    "carrier_kind": "example_archive",
+    "immutable": true,
+    "media_type": "application/zip",
+    "path_or_uri": "synthetic-only://unprovided-carrier.zip",
+    "provider_binding": null,
+    "root_prefix": null,
+    "sha256": "4449221c6740905690ffc8b4f1cdb8dff90edaa7432d52217abe561008731480",
+    "size_bytes": 1
+  },
+  "content_boundary": {
+    "artifact_bytes_embedded": false,
+    "carrier_required_for_verification": true,
+    "packet_payload_mode": "metadata_only",
+    "raw_model_inputs_included": false,
+    "raw_model_outputs_included": false,
+    "raw_secrets_included": false
+  },
+  "coverage": {
+    "artifact_graph_complete": false,
+    "artifacts_total": 2,
+    "carrier_binding_complete": false,
+    "coverage_status": "partial",
+    "missing_roles": [
+      "final_status",
+      "release_decision"
+    ],
+    "provider_artifacts_bound": 0,
+    "provider_artifacts_total": 0,
+    "role_bindings_complete": false,
+    "role_bindings_resolved": 0,
+    "role_bindings_total": 0,
+    "source_bindings_complete": false,
+    "unresolved_artifact_ids": []
+  },
+  "errors": [],
+  "fixture_provenance": {
+    "fixture_id": "fixture:required-gate-suite/b1/synthetic",
+    "fixture_kind": "checked_in_contract_example",
+    "fixture_source_path": "tests/fixtures/required_gate_suite_contract_v0/subject_packet.json",
+    "intended_production_mode": "fixed_source_adapter",
+    "packet_producer_execution_claimed": false,
+    "schema_identity": "pulsemech_compute_subject_input_packet_v0",
+    "source_data_status": "synthetic"
+  },
+  "ok": true,
+  "packet_identity": {
+    "canonicalization": "json-sort-keys-utf8-newline",
+    "carrier_id": "carrier:required-gate-suite/b1/synthetic-unprovided",
+    "packet_created_utc": "2026-11-14T00:00:00Z",
+    "packet_id": "subject-input:required-gate-suite/b1/synthetic",
+    "packet_scope": "example",
+    "subject_run_key": "SYNTHETIC_B1=finite-pair-v0"
+  },
+  "packet_type": "pulsemech_compute_subject_input_packet",
+  "record_status": "example",
+  "role_bindings": {
+    "artifact_binding": null,
+    "attestation_records": [],
+    "candidate_index": null,
+    "candidate_records": [],
+    "complete_package": null,
+    "evidence_manifest": null,
+    "external_evidence_records": [],
+    "final_status": null,
+    "independent_verification_report": null,
+    "package_completeness_report": null,
+    "package_inventory": null,
+    "preservation_checksums": null,
+    "preservation_manifest": null,
+    "preservation_readme": null,
+    "reader_surfaces": [],
+    "recorded_verifier_report": null,
+    "release_authority": null,
+    "release_decision": null,
+    "required_gate_evidence": null,
+    "run_metadata": null,
+    "status_baseline": null
+  },
+  "schema_version": "pulsemech_compute_subject_input_packet_v0",
+  "subject": {
+    "active_policy_sets": [
+      "required"
+    ],
+    "decision": "BLOCK",
+    "event_name": "synthetic_fixture",
+    "final_status_sha256": "93ff3981f49be3591c717a734674ea7ea6196bb2ceee2559f418b7dcb3a04086",
+    "materialized_gate_set_sha256": null,
+    "policy_id": "synthetic-b1-policy",
+    "policy_sha256": "f547d77ab6add9f803c486b74e905ba688be1c44fa0ee85c32544160a6e9eca1",
+    "release_candidate_id": "synthetic-b1-candidate",
+    "release_decision_sha256": "324e6a709210df53ffad0fcb81f6ace841f75934a951727b7269f80dcd9a2ba0",
+    "repository": "synthetic/required-gate-suite",
+    "run_mode": "synthetic",
+    "source_commit": "1111111111111111111111111111111111111111",
+    "source_ref": "refs/heads/synthetic-fixture",
+    "subject_run_key": "SYNTHETIC_B1=finite-pair-v0",
+    "workflow_name": "Synthetic B1 contract fixture; no execution",
+    "workflow_path": "tests/fixtures/required_gate_suite_contract_v0/synthetic_source.txt",
+    "workflow_ref": "synthetic/required-gate-suite/tests/fixtures/required_gate_suite_contract_v0/synthetic_source.txt@refs/heads/synthetic-fixture",
+    "workflow_run_attempt": 1,
+    "workflow_run_id": 1,
+    "workflow_run_number": 1
+  }
+}
