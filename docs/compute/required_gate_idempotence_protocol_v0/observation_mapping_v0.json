@@ -1,0 +1,239 @@
+{
+  "record_type": "required_gate_idempotence_observation_mapping_v0",
+  "record_role": "observation_mapping_proposal_not_evidence",
+  "protocol_id": "epf_snapshot_idempotence_v0",
+  "status": "proposed_for_review",
+  "mapping_implemented": false,
+  "execution_authorized": false,
+  "metric_pass": null,
+  "production_gate_eligible": false,
+  "authority_effect": "none",
+  "scope": {
+    "selected_operator_source": "PULSE_safe_pack_v0/epf/epf_hazard_adapter.py",
+    "selected_operator_callable": "sanitize_snapshot_for_log",
+    "selected_return_projection": "return[0]: sanitized snapshot",
+    "configuration": {
+      "max_depth": 2,
+      "max_items": 3,
+      "allowed_prefixes": ["metrics"],
+      "deny_keys": ["metrics.pii", "metrics.secret"]
+    },
+    "case_count": 12,
+    "applications_per_case": 2,
+    "planned_subject_application_count": 24,
+    "planned_ids_are_observed_execution_ids": false,
+    "actual_run_execution_state_packet_and_carrier_identities_included": false,
+    "actual_outputs_or_output_digests_included": false,
+    "historical_capture_reinterpreted": false,
+    "b1_v0_changed": false,
+    "generic_runtime_schema_changed": false,
+    "second_generic_analyzer_or_relation_engine": false
+  },
+  "planned_applications": [
+    {"case_id": "idem-01", "first_application_id": "idem-01.first", "second_application_id": "idem-01.second"},
+    {"case_id": "idem-02", "first_application_id": "idem-02.first", "second_application_id": "idem-02.second"},
+    {"case_id": "idem-03", "first_application_id": "idem-03.first", "second_application_id": "idem-03.second"},
+    {"case_id": "idem-04", "first_application_id": "idem-04.first", "second_application_id": "idem-04.second"},
+    {"case_id": "idem-05", "first_application_id": "idem-05.first", "second_application_id": "idem-05.second"},
+    {"case_id": "idem-06", "first_application_id": "idem-06.first", "second_application_id": "idem-06.second"},
+    {"case_id": "idem-07", "first_application_id": "idem-07.first", "second_application_id": "idem-07.second"},
+    {"case_id": "idem-08", "first_application_id": "idem-08.first", "second_application_id": "idem-08.second"},
+    {"case_id": "idem-09", "first_application_id": "idem-09.first", "second_application_id": "idem-09.second"},
+    {"case_id": "idem-10", "first_application_id": "idem-10.first", "second_application_id": "idem-10.second"},
+    {"case_id": "idem-11", "first_application_id": "idem-11.first", "second_application_id": "idem-11.second"},
+    {"case_id": "idem-12", "first_application_id": "idem-12.first", "second_application_id": "idem-12.second"}
+  ],
+  "planned_case_path": {
+    "initial_input": "The exact public case input bytes selected by the protocol before acquisition.",
+    "first_application": "Apply the selected operator with the fixed configuration to the selected case input.",
+    "intermediate": "Serialize the actually returned snapshot, return[0], with the protocol's declared serializer and preserve those exact bytes.",
+    "second_application": "Read and decode those same preserved intermediate bytes, then apply the same selected operator and configuration.",
+    "final_output": "Serialize and preserve the actually returned second snapshot using the same declared serializer.",
+    "comparison": "Compare the first and second snapshot bytes under the protocol's declared equivalence rule only after both applications and the consumption relation are admitted.",
+    "metadata": "Preserve each application return[1] as a separate diagnostic role. Metadata is neither the second application's snapshot input nor the selected equivalence projection.",
+    "per_case_application_coverage": "Exactly one first and one second subject application; no missing, duplicate, reused or cross-case application may satisfy the declared path.",
+    "publication_does_not_authorize_execution": true
+  },
+  "derived_input_binding_proposal": {
+    "status": "requires_versioned_implementation",
+    "mapping_implemented": false,
+    "existing_v0_checker": "tools/check_required_gate_suite_contract_v0.py",
+    "existing_v0_schema": "schemas/required_gate_suite_contract_v0.schema.json",
+    "existing_v0_functions": ["_check_roster", "_protocol_roster", "_packet_references"],
+    "existing_v0_rule": "Each occurrence must independently reference its case's separately selected static input digest and byte count.",
+    "new_rule_required": "The first application binds to the original selected case input. The second application binds to the actual snapshot state produced by that case's first application, with the same state identity, producer identity, SHA-256 and byte count, verified against the preserved carrier bytes.",
+    "expected_relation_fixed_before_acquisition": true,
+    "expected_intermediate_digest_invented_before_acquisition": false,
+    "observed_values_may_redefine_expected_relation": false,
+    "original_input_as_decorative_second_input_permitted": false,
+    "single_wrapper_occurrence_substitutes_for_two_applications": false,
+    "same_execution_reused_for_two_applications": false,
+    "application_identity_derived_only_from_content_digest": false,
+    "unchanged_second_output_implies_consumption_without_evidence": false,
+    "required_rejections": [
+      "Second application consumes original case input instead of the actual intermediate snapshot.",
+      "Second application consumes substituted bytes with a different digest or byte count.",
+      "A copied state with a different producer or state identity is substituted for the first application's output.",
+      "First and second applications are swapped, omitted, duplicated, reused or assigned across cases.",
+      "A metadata-only or unavailable state is promoted to an exact consumed input.",
+      "A wrapper result or collector execution substitutes for either subject application.",
+      "Expected applications or input relationships are changed after observing the outputs."
+    ]
+  },
+  "runtime_projection_proposal": {
+    "schema_path": "schemas/pulsemech_compute_runtime_observation_packet_v0.schema.json",
+    "validator_path": "tools/check_pulsemech_compute_runtime_observation_packet_v0.py",
+    "projection_implemented": false,
+    "field_paths_are_descriptive_schema_paths_not_observed_records": true,
+    "application_mapping": [
+      {"field": "executions[].execution_id", "requirement": "One unique observed execution identity for each planned application, explicitly bound by the future adapter; the planned application ID is not evidence of execution."},
+      {"field": "executions[].execution_kind", "required_value": "local_tool_execution"},
+      {"field": "executions[].execution_scope", "required_value": "subject"},
+      {"field": "executions[].declared_role", "required_value": "transition"},
+      {"field": "executions[].permitted_mutation_authority", "required_value": "advisory_output"},
+      {"field": "executions[].source_identity", "requirement": "Identify the actual application entrypoint, including its future worker wrapper when that is the executed source, by exact path, committed implementation revision and SHA-256. Independently bind the selected operator module/callable to the proposal's baseline source selection and bind the invoked dependency/serialization closure. Do not substitute operator identity for wrapper identity or attribute future wrapper bytes to preparation baseline 97ab500bb9936c27632e1f40ab891d2442476786."},
+      {"field": "executions[].command_identity", "requirement": "Capture the actual invocation and arguments digests under the reviewed adapter contract. Do not substitute an intended command or include raw commands."},
+      {"field": "executions[].execution_environment", "requirement": "Bind the actual selected execution environment without invented runtime/host identity or raw environment content."},
+      {"field": "executions[].run_binding", "requirement": "Both subject and execution run keys equal the actual admitted subject run; binding_mode is current_subject_run and binding_complete is true only when established."},
+      {"field": "executions[].input_state_ids", "requirement": "First application references its original case input state. Second application references that same case's actual first snapshot output state."},
+      {"field": "executions[].output_state_ids", "requirement": "Reference distinct snapshot output states produced by the named application; diagnostic metadata remains a separately identified output role."},
+      {"field": "executions[].timing and executions[].result", "requirement": "Record observed lifecycle, result and timing with their real provenance; no success or completed value is inferred from a planned application."}
+    ],
+    "state_mapping": [
+      {"field": "state_observations[].state_id", "requirement": "Preserve distinct original, intermediate and final state identities even when their content bytes are equal."},
+      {"field": "state_observations[].state_type", "required_value": "other"},
+      {"field": "state_observations[].content_status", "required_value_for_input_or_comparison": "exact_digest"},
+      {"field": "state_observations[].sha256 and state_observations[].size_bytes", "requirement": "Recompute from the exact separately preserved member bytes; these values are absent from this proposal."},
+      {"field": "state_observations[].producer_execution_id", "requirement": "Intermediate snapshot names the first application; final snapshot names the second application. Original input has no fictitious producer application."},
+      {"field": "state_observations[].observer_execution_id", "requirement": "Names the separate actual collector execution, with its source and capture boundary bound."},
+      {"field": "state_observations[].subject_run_key and state_observations[].release_candidate_id", "requirement": "Match the admitted subject context. A standalone subject profile must not invent a release candidate or borrow a historical run."},
+      {"field": "state_observations[].authority_bearing", "required_value": false},
+      {"field": "state_observations[].mutation_class", "requirement": "none for selected original input; advisory_output for operator snapshot and diagnostic outputs."},
+      {"field": "state_observations[].secret_material_included", "required_value": false}
+    ],
+    "collector_boundary": {
+      "separate_execution_required": true,
+      "execution_scope": "observation_collector",
+      "execution_kind": "observer_execution",
+      "declared_role": "observer",
+      "permitted_mutation_authority": "advisory_output",
+      "observer_in_subject_totals": false,
+      "subject_artifacts_mutated": false,
+      "collector_can_satisfy_subject_application": false,
+      "actual_collector_and_capture_source_not_selected_by_this_mapping": true
+    },
+    "existing_semantic_checks_to_reuse": [
+      "subject_run_binding_consistent",
+      "collector_boundary_ok",
+      "execution_state_references_resolve",
+      "state_execution_references_resolve",
+      "state_producer_relations_ok",
+      "coverage_status_semantics_ok"
+    ],
+    "coverage_rule": "Reconcile all 24 planned applications with distinct observed subject executions. Packet coverage remains explicit about unavailable resource, host or wider-runtime observations; complete case-path coverage is not complete host visibility."
+  },
+  "existing_chain_reuse": [
+    {
+      "path": "tools/pulsemech_compute_binding_analyzer_core_v0.py",
+      "functions": ["index_runtime_packet_sources", "runtime_consumption_map", "runtime_exact_state", "assess_runtime_output_consumption", "build_runtime_report"],
+      "responsibility": "Validate selected runtime identities and reconstruct state producers and consumers through the existing analyzer after an admitted subject-profile adapter supplies the required source-bound inputs."
+    },
+    {
+      "path": "tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py",
+      "functions": ["build_from_captured_inputs"],
+      "responsibility": "Retain exact captured subject/carrier/runtime bytes and their established validation boundary; new standalone support must be explicit rather than relabeling a legacy packet."
+    },
+    {
+      "path": "tools/build_pulsemech_compute_planned_observed_relation_v0.py",
+      "functions": ["normalize_runtime_bound_observations", "runtime_profile_cli"],
+      "responsibility": "Reuse existing planned-observed execution and downstream-consumption comparison. Define unambiguous application-specific expectations in the future supported adapter."
+    },
+    {
+      "path": "tools/check_pulsemech_compute_binding_report_v0.py",
+      "responsibility": "Independently replay the source-bound report through the existing validator once the new subject profile is supported."
+    },
+    {
+      "path": "tools/check_pulsemech_compute_planned_observed_relation_v0.py",
+      "responsibility": "Validate the exact planned-observed result against its source inputs; a reported relation alone is insufficient."
+    }
+  ],
+  "current_profile_limitations": [
+    {
+      "path": "schemas/pulsemech_compute_subject_input_packet_v0.schema.json",
+      "related_validator": "tools/check_pulsemech_compute_subject_input_packet_v0.py",
+      "functions": ["_verify_subject_identity", "_verify_provenance", "_verify_role_bindings"],
+      "limitation": "The legacy subject shape requires real workflow/run and release-artifact identities, including final status and release decision bindings. It is not an admitted standalone local-operator subject profile.",
+      "prohibited_shortcut": "Do not fabricate GitHub run identities, status artifacts, release decisions or release-candidate applicability to fill the legacy shape."
+    },
+    {
+      "path": "tools/build_pulsemech_compute_runtime_observation_packet_from_capture_v0.py",
+      "limitation": "This producer is pinned to the accepted historical PULSE CI #6066 context and carrier; it does not collect this new suite."
+    },
+    {
+      "path": "tools/build_pulsemech_compute_whole_runtime_observation_plan_v0.py",
+      "limitation": "The whole-runtime profile selects the reviewed existing PULSE workflow/source mappings. It does not automatically authorize or instrument the selected standalone operator suite."
+    },
+    {
+      "path": "tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py",
+      "profile": "bounded_execution_reference_v0",
+      "limitation": "The bounded reference path has a separately fixed context, prelaunch and finite process scope. B1 v0 explicitly rejects this subject profile; the new suite cannot be relabeled as that reference."
+    }
+  ],
+  "implementation_prerequisites": [
+    "Review and implement a standalone finite-operator subject profile with truthful run/source/environment identities and exact carrier binding, reusing the existing analyzer.",
+    "Review and implement the versioned derived-input application mapping without relaxing B1 v0's static input checks.",
+    "Implement the narrow acquisition/serialization adapter and independent replay. Freeze its actual entrypoint, collector, dependency and runtime identities and their recoverable preservation before acquisition; the selected baseline operator/import inventory is not this future implementation closure. Reconcile closure with the approved preservation inventory without silently adding members before any actual reference is authorized.",
+    "Verify all first-to-second state and byte-consumption relations, all 24 application identities, carrier completeness and non-authority boundaries.",
+    "Keep property calculation, independent reconstruction, release applicability and gate integration as separate later acceptance steps."
+  ],
+  "planned_carrier_roles": [
+    {"role": "selected_case_inputs", "status": "planned", "description": "The 12 original authored public input byte sequences and their pre-acquisition selection."},
+    {"role": "first_snapshot_outputs", "status": "planned", "description": "One actually captured first-application snapshot byte sequence per case; not supplied by this proposal."},
+    {"role": "second_snapshot_outputs", "status": "planned", "description": "One actually captured second-application snapshot byte sequence per case; not supplied by this proposal."},
+    {"role": "application_metadata", "status": "planned", "description": "Separate return[1] diagnostics for all 24 applications, excluded from the snapshot equivalence projection."},
+    {"role": "invocation_and_consumption_records", "status": "planned", "description": "Source-bound observations establishing which selected input/state bytes each actual application consumed."},
+    {"role": "selection_source_and_runtime_bindings", "status": "planned", "description": "Exact selected protocol/catalog/mapping bytes and selected operator source bytes, plus actual source/runtime/host identity records and the acquisition member inventory. Future adapter/runtime preservation closure remains an explicit prerequisite."},
+    {"role": "subject_runtime_and_relation_records", "status": "planned", "description": "Records emitted only by the future supported subject/capture/replay adapter, with exact bound identities."}
+  ],
+  "carrier_layering_proposal": {
+    "status": "proposed_not_created",
+    "inner_acquisition_archive": "acquisition.zip",
+    "inner_planned_member_count": 95,
+    "inner_roles": "12 original inputs; 72 snapshot, metadata and diagnostic members; seven selection/capture-context records including actual application records; four selected operator/import source members.",
+    "outer_planned_member_count": 6,
+    "outer_members": [
+      "acquisition.zip",
+      "packets/subject_input_packet.json",
+      "packets/runtime_observation_packet.json",
+      "relations/binding_report.json",
+      "relations/planned_observed_relation.json",
+      "bundle_manifest.json"
+    ],
+    "binding_direction": "Packets and reports bind the exact inner acquisition archive or earlier records, never the enclosing outer archive or the outer manifest that hashes them.",
+    "manifest_rule": "Each manifest hashes its other layer members and excludes itself; each manifest's exact bytes and its complete containing archive are selected externally, avoiding self-hash cycles.",
+    "implemented_profile_or_complete_source_closure_claimed": false
+  },
+  "privacy_and_preservation_boundary": {
+    "data_classification": "authored_public_test_data",
+    "real_personal_data_or_credentials_permitted": false,
+    "operator_test_key_names_are_evidence_of_real_pii": false,
+    "raw_payload_in_generic_runtime_packet": false,
+    "raw_prompt_response_command_or_environment_included": false,
+    "metric_bytes_location": "separate exact-member inner acquisition archive under the protocol's reviewed privacy and retention contract",
+    "publication_scope": "explicitly allowlisted selected inputs, application snapshots, diagnostics, selected protocol/source bytes and required source/runtime/binding/reconstruction records only",
+    "upload_entire_work_directory": false,
+    "absence_of_observation_can_be_replaced_by_digest_equality": false,
+    "new_evidence_proves_historical_consumption": false
+  },
+  "completion_boundary": {
+    "b2_complete": false,
+    "supported_observation_profile_implemented": false,
+    "actual_subject_execution_performed": false,
+    "packet_semantics_verified": false,
+    "property_semantics_verified": false,
+    "case_path_observations_available": false,
+    "release_applicability_established": false,
+    "unsupported_gate_removed": false,
+    "issue_to_keep_open": "HKati/pulse-release-gates-0.1#2879"
+  }
+}

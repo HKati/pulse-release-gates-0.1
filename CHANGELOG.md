@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Propose a [B2 snapshot-sanitizer idempotence protocol](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_PROTOCOL_v0.md)
+  for the existing EPF logging component. Bind its fixed configuration, twelve
+  exact public inputs, planned two-application paths, comparison, privacy and
+  preservation rules. Identify the required derived-input binding and supported
+  acquisition adapter without changing B1 v0 or executing the suite. The finite
+  component proposal does not establish production-gate applicability; all twelve
+  unsupported classifications and `authority_effect=none` remain unchanged.
+
 - Fix the B1 suite-contract checker to validate the selected input digest and
   byte count for every occurrence, including repeated observations of one case.
   A matching occurrence cannot mask another occurrence's mismatched input.

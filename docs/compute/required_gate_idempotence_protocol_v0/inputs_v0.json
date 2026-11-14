@@ -1,0 +1,190 @@
+{
+  "record_type": "required_gate_idempotence_inputs_v0",
+  "record_role": "proposed_metric_inputs_not_observations",
+  "protocol_id": "epf_snapshot_idempotence_v0",
+  "status": "proposed_for_review",
+  "input_byte_rule": "Encode each input_utf8 string as UTF-8 exactly, including its final LF; do not reserialize the parsed object to establish the selected input bytes.",
+  "case_count": 12,
+  "application_count": 24,
+  "cases": [
+    {
+      "case_id": "idem-01",
+      "name": "empty",
+      "purpose": "Empty object",
+      "origin": "authored_public_test_input",
+      "input_utf8": "{}\n",
+      "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+      "size_bytes": 3,
+      "planned_carrier_member": "inputs/idem-01.json",
+      "planned_application_ids": [
+        "idem-01.first",
+        "idem-01.second"
+      ]
+    },
+    {
+      "case_id": "idem-02",
+      "name": "clean",
+      "purpose": "Already admissible numeric snapshot",
+      "origin": "authored_public_test_input",
+      "input_utf8": "{\"metrics\":{\"a\":0.0,\"b\":1.5}}\n",
+      "sha256": "c49e839dffe00caab9c6dedb1d68923c1f9a9ba6b29d0365a7e81ff11dcc5851",
+      "size_bytes": 30,
+      "planned_carrier_member": "inputs/idem-02.json",
+      "planned_application_ids": [
+        "idem-02.first",
+        "idem-02.second"
+      ]
+    },
+    {
+      "case_id": "idem-03",
+      "name": "booleans",
+      "purpose": "Boolean and integer coercion",
+      "origin": "authored_public_test_input",
+      "input_utf8": "{\"metrics\":{\"a\":true,\"b\":false,\"c\":7}}\n",
+      "sha256": "e81b8e5d56948c823b7b05d343272a6bdd2db073ab36ce70ab858ca70b128bfa",
+      "size_bytes": 39,
+      "planned_carrier_member": "inputs/idem-03.json",
+      "planned_application_ids": [
+        "idem-03.first",
+        "idem-03.second"
+      ]
+    },
+    {
+      "case_id": "idem-04",
+      "name": "numeric_strings",
+      "purpose": "Whitespace, signed zero and exponent strings",
+      "origin": "authored_public_test_input",
+      "input_utf8": "{\"metrics\":{\"a\":\" 1.25 \",\"b\":\"-0\",\"c\":\"1e2\"}}\n",
+      "sha256": "97e0531817eaf222407d6d86846c3593b27086ba8e31b8819c7fe7920b1e48de",
+      "size_bytes": 46,
+      "planned_carrier_member": "inputs/idem-04.json",
+      "planned_application_ids": [
+        "idem-04.first",
+        "idem-04.second"
+      ]
+    },
+    {
+      "case_id": "idem-05",
+      "name": "rejected_scalars",
+      "purpose": "Public text, null and nonfinite-looking string",
+      "origin": "authored_public_test_input",
+      "input_utf8": "{\"metrics\":{\"a\":\"PUBLIC_SENTINEL\",\"b\":null,\"c\":\"NaN\",\"d\":4}}\n",
+      "sha256": "2119bd28f2480a8b0adfd92ba634bbb0f0f54a3d8bdf04c7cab05cb15e9738db",
+      "size_bytes": 61,
+      "planned_carrier_member": "inputs/idem-05.json",
+      "planned_application_ids": [
+        "idem-05.first",
+        "idem-05.second"
+      ]
+    },
+    {
+      "case_id": "idem-06",
+      "name": "containers",
+      "purpose": "List rejection and nested numeric values",
+      "origin": "authored_public_test_input",
+      "input_utf8": "{\"metrics\":{\"a\":[1,2],\"b\":{\"c\":5},\"c\":\"PUBLIC_SENTINEL\"}}\n",
+      "sha256": "1c392c69a6fe94dc27417685ab71dc29e70a56aaf944476d523f3e9031b87718",
+      "size_bytes": 58,
+      "planned_carrier_member": "inputs/idem-06.json",
+      "planned_application_ids": [
+        "idem-06.first",
+        "idem-06.second"
+      ]
+    },
+    {
+      "case_id": "idem-07",
+      "name": "deny_overrides",
+      "purpose": "Exact and subtree deny policy",
+      "origin": "authored_public_test_input",
+      "input_utf8": "{\"metrics\":{\"a\":1,\"pii\":{\"value\":111},\"secret\":222}}\n",
+      "sha256": "25731cc60bd816150d7af7b54b7d08a9e82ba58f6c045c139e90fae02903553a",
+      "size_bytes": 53,
+      "planned_carrier_member": "inputs/idem-07.json",
+      "planned_application_ids": [
+        "idem-07.first",
+        "idem-07.second"
+      ]
+    },
+    {
+      "case_id": "idem-08",
+      "name": "allow_scope",
+      "purpose": "Public fields outside the selected prefix",
+      "origin": "authored_public_test_input",
+      "input_utf8": "{\"external\":{\"a\":1},\"metrics\":{\"a\":2},\"raw_prompt\":\"PUBLIC_SENTINEL\"}\n",
+      "sha256": "408bb38a5c30308475307af922a554d4b7b13d92b29567e52cfa6aacee018882",
+      "size_bytes": 70,
+      "planned_carrier_member": "inputs/idem-08.json",
+      "planned_application_ids": [
+        "idem-08.first",
+        "idem-08.second"
+      ]
+    },
+    {
+      "case_id": "idem-09",
+      "name": "depth_boundary",
+      "purpose": "Selected depth and a deeper mapping",
+      "origin": "authored_public_test_input",
+      "input_utf8": "{\"metrics\":{\"edge\":{\"kept\":2,\"deeper\":{\"dropped\":3}}}}\n",
+      "sha256": "b88f380bb96060782bb789054a0511a7d69cef36ddeb940df783b40c05640fe7",
+      "size_bytes": 55,
+      "planned_carrier_member": "inputs/idem-09.json",
+      "planned_application_ids": [
+        "idem-09.first",
+        "idem-09.second"
+      ]
+    },
+    {
+      "case_id": "idem-10",
+      "name": "budget_exact",
+      "purpose": "Exactly three numeric leaves",
+      "origin": "authored_public_test_input",
+      "input_utf8": "{\"metrics\":{\"a\":1,\"b\":2,\"c\":3}}\n",
+      "sha256": "3f586d67c8bcb24ef04ff4637c9d3f6b19d682791c1e724036daebf2ee2388c6",
+      "size_bytes": 32,
+      "planned_carrier_member": "inputs/idem-10.json",
+      "planned_application_ids": [
+        "idem-10.first",
+        "idem-10.second"
+      ]
+    },
+    {
+      "case_id": "idem-11",
+      "name": "budget_over",
+      "purpose": "Four numeric leaves with a three-leaf budget",
+      "origin": "authored_public_test_input",
+      "input_utf8": "{\"metrics\":{\"a\":1,\"b\":2,\"c\":3,\"d\":4}}\n",
+      "sha256": "7aba400372be889bb026016c94ffdfb08961805a2a501b455108914e8702c41e",
+      "size_bytes": 38,
+      "planned_carrier_member": "inputs/idem-11.json",
+      "planned_application_ids": [
+        "idem-11.first",
+        "idem-11.second"
+      ]
+    },
+    {
+      "case_id": "idem-12",
+      "name": "empty_branches",
+      "purpose": "Mappings with no retained numeric leaves",
+      "origin": "authored_public_test_input",
+      "input_utf8": "{\"metrics\":{\"a\":{},\"b\":{\"c\":[]}}}\n",
+      "sha256": "8742ce72d5054719b82aca891e4a903edfe4be490e5c34d9a8520d67e05498f2",
+      "size_bytes": 34,
+      "planned_carrier_member": "inputs/idem-12.json",
+      "planned_application_ids": [
+        "idem-12.first",
+        "idem-12.second"
+      ]
+    }
+  ],
+  "case_execution_performed": false,
+  "execution_authorized": false,
+  "metric_pass": null,
+  "production_gate_eligible": false,
+  "authority_effect": "none",
+  "privacy": {
+    "real_personal_data_or_credentials": false,
+    "raw_prompt_key_is_public_sentinel_only": true,
+    "nonfinite_looking_nan_value_is_json_string": true,
+    "values_are_not_captured_model_or_user_data": true
+  }
+}

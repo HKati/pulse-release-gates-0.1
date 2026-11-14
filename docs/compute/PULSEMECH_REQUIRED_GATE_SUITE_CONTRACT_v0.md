@@ -232,6 +232,12 @@ classifications remain in force, and the historical Q2 result remains FAIL with
 
 ## Next boundary
 
+The [selected snapshot-sanitizer idempotence protocol proposal](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_PROTOCOL_v0.md)
+fixes one concrete B2 candidate, its finite public inputs and its intended
+first-output-to-second-input relation. It identifies the missing derived-input
+binding and supported acquisition adapter explicitly; B2 remains incomplete.
+The proposal does not change this v0 checker or authorize acquisition.
+
 B2 must select a real finite subject/operator/case protocol and its observation
 mapping, comparison rules, source applicability and privacy/retention contract.
 The synthetic B1 fixtures do not make those selections. B3 and B4 retain the

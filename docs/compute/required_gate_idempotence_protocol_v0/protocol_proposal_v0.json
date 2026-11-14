@@ -1,0 +1,1283 @@
+{
+  "record_type": "required_gate_idempotence_protocol_proposal_v0",
+  "record_role": "protocol_proposal_not_evidence",
+  "protocol_id": "epf_snapshot_idempotence_v0",
+  "status": "proposed_for_review",
+  "prepared_date": "2026-11-14",
+  "prepared_date_timezone": "Europe/Budapest",
+  "repository": "HKati/pulse-release-gates-0.1",
+  "preparation_baseline": {
+    "commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+    "tree": "d3028a8d64a48b248c150d6dd60c31fe54b6bb76",
+    "merged_pr": 3018,
+    "new_proposal_files_existed_at_baseline": false
+  },
+  "selection_status": "concrete_candidate_for_owner_review_not_an_execution_selection",
+  "candidate_gate_id": "psf_idempotence_ok",
+  "claim_scope": "finite_selected_epf_logging_snapshot_projection_composition",
+  "gate_applicability": {
+    "established": false,
+    "current_registry_intent": "Idempotence invariant holds for the test suite.",
+    "component_protocol_covers_entire_production_gate": false,
+    "reason_for_selection": "A real repository logging component with a closed snapshot input/output domain and a concrete source-bound composition path.",
+    "later_review_required": "Decide whether and how this finite component claim applies to a selected release subject. It does not remove any unsupported classification."
+  },
+  "operator": {
+    "module": "PULSE_safe_pack_v0.epf.epf_hazard_adapter",
+    "callable": "sanitize_snapshot_for_log",
+    "source_path": "PULSE_safe_pack_v0/epf/epf_hazard_adapter.py",
+    "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+    "state_projection": "return[0]",
+    "definition": "F(x) is the sanitized snapshot returned by sanitize_snapshot_for_log(x, **configuration).",
+    "configuration": {
+      "max_depth": 2,
+      "max_items": 3,
+      "allowed_prefixes": [
+        "metrics"
+      ],
+      "deny_keys": [
+        "metrics.pii",
+        "metrics.secret"
+      ]
+    },
+    "actual_call_site": "probe_hazard_and_append_log uses this tuple component as snapshot_current or snapshot_reference.",
+    "broader_logging_probe_invoked_by_suite": false,
+    "forecast_field_spec_calibration_or_logger_calls_permitted": false,
+    "metadata": {
+      "preserve_both_return_1_records": true,
+      "included_in_composition_state": false,
+      "included_in_equivalence": false,
+      "projection_fixed_before_acquisition": true,
+      "reason": "Traversal counts describe each invocation and may differ; the selected application state is the stored snapshot."
+    }
+  },
+  "companions": [
+    {
+      "path": "docs/compute/required_gate_idempotence_protocol_v0/inputs_v0.json",
+      "sha256": "dd70d0fe1fee4fd5ad9ba960647828160f595627281ed47af88098c6f09af66b",
+      "size_bytes": 6900,
+      "present_at_preparation_baseline": false
+    },
+    {
+      "path": "docs/compute/required_gate_idempotence_protocol_v0/observation_mapping_v0.json",
+      "sha256": "304fe5bfb0351645f8aab83d3a64f1ff3639a20d6441364a267076fe7c4d60ff",
+      "size_bytes": 19666,
+      "present_at_preparation_baseline": false
+    }
+  ],
+  "source_inventory": [
+    {
+      "path": "PULSE_safe_pack_v0/epf/epf_hazard_adapter.py",
+      "role": "selected_operator_module",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "6f2caf66eae5df0020aba49562f775127cf6094e25252171b34df150e46152d1",
+      "size_bytes": 26944
+    },
+    {
+      "path": "PULSE_safe_pack_v0/epf/epf_hazard_forecast.py",
+      "role": "repository_import_dependency",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "19044d935ff8806f7f86bf7b41b6da02c0ab4d75d509b6388645091f228bfead",
+      "size_bytes": 13909
+    },
+    {
+      "path": "PULSE_safe_pack_v0/epf/epf_hazard_features.py",
+      "role": "repository_import_dependency",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "404570e7a9cbf0fb20959a31de404b18c33e3c5f2fa70b2b908ea28678d639f8",
+      "size_bytes": 14739
+    },
+    {
+      "path": "PULSE_safe_pack_v0/epf/epf_hazard_field_spec.py",
+      "role": "repository_import_dependency",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "aaf3c2fb6965f8941f0a60a1c01a3c3149183103f5aac51973797bd9d4421a80",
+      "size_bytes": 6003
+    },
+    {
+      "path": "PULSE_safe_pack_v0/tools/build_release_grade_candidate_status_v0.py",
+      "role": "unchanged_independent_admission_boundary",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "e981817da3eaec0b07a62eb97550764fe2b880359e87d776136444cbacdc5130",
+      "size_bytes": 41633
+    },
+    {
+      "path": "PULSE_safe_pack_v0/tools/evaluate_required_gate_v0.py",
+      "role": "unchanged_dispatcher_rejection_boundary",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "6986db5dd8a0b5638c9f88e13e10af5cbae69a53715558d07dd51d934c6ee22a",
+      "size_bytes": 53052
+    },
+    {
+      "path": "docs/compute/required_gate_coverage_plan_v0/coverage_plan_v0.json",
+      "role": "accepted_planning_baseline",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "38231dde7215e4a5efa5c00e8eb31f686abaa8e147791e6210dd58379ee09957",
+      "size_bytes": 57018
+    },
+    {
+      "path": "pulse_gate_policy_v0.yml",
+      "role": "unchanged_required_policy",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "00fc5eef5fa3f240028aaf636a2e43ba29f1da000484c7a2f1baafcdd3c4ae8c",
+      "size_bytes": 3466
+    },
+    {
+      "path": "pulse_gate_registry_v0.yml",
+      "role": "unchanged_gate_intent",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "42309ba8fed0d8558805a84bc785b6cb5aff0854b80bbbb6de251e37b97bc56b",
+      "size_bytes": 7295
+    },
+    {
+      "path": "schemas/pulsemech_compute_runtime_observation_packet_v0.schema.json",
+      "role": "existing_runtime_vocabulary",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "824991a9f5c21ca9bd9fd7d1fc5c5813af3ff0ef9714c8506d2c3e6a5f9fa0cc",
+      "size_bytes": 70467
+    },
+    {
+      "path": "schemas/pulsemech_compute_subject_input_packet_v0.schema.json",
+      "role": "current_profile_limitations_reference",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "8116c757ba7ee65c14ae159fe9969bc2084fe105b0df7e69ebee64f65b45f1e5",
+      "size_bytes": 43429
+    },
+    {
+      "path": "schemas/required_gate_suite_contract_v0.schema.json",
+      "role": "unchanged_companion_schema",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "66df57c8ecbdc137b376fbab5248c395bdda47e3094b7cee74e4606ca825d215",
+      "size_bytes": 17021
+    },
+    {
+      "path": "tools/build_pulsemech_compute_binding_report_from_subject_input_v0.py",
+      "role": "current_profile_limitations_reference",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "ae880b1c5629f8971b602e91c802b78be72b57d1865256f27d1c88929c765347",
+      "size_bytes": 36023
+    },
+    {
+      "path": "tools/build_pulsemech_compute_planned_observed_relation_v0.py",
+      "role": "existing_compute_chain_reference",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "e0dba4546964e2c8cec0603a22ff26ab5d0b6119610ded18bded3a4bea47ccc3",
+      "size_bytes": 178732
+    },
+    {
+      "path": "tools/build_pulsemech_compute_runtime_observation_packet_from_capture_v0.py",
+      "role": "current_profile_limitations_reference",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "b59cfc97d5b44bbd2393e5588b4b1180bd165b2b467ba1f9317b5e64ee91bbb1",
+      "size_bytes": 45122
+    },
+    {
+      "path": "tools/build_pulsemech_compute_whole_runtime_observation_plan_v0.py",
+      "role": "current_profile_limitations_reference",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "2307a8aa788a9a65a80b229d585378bb9f385794aae9f2a7c57f435a93478769",
+      "size_bytes": 262488
+    },
+    {
+      "path": "tools/check_pulsemech_compute_binding_report_v0.py",
+      "role": "existing_compute_chain_reference",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "239eae5779b6e0d6709d63cf25aa1524dfeeea13b5a4bde2d020e83ff916cdf9",
+      "size_bytes": 62595
+    },
+    {
+      "path": "tools/check_pulsemech_compute_planned_observed_relation_v0.py",
+      "role": "existing_compute_chain_reference",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "c28697f15124082160abce82d3115bef14c4dbfd519495fb078b9729e6365937",
+      "size_bytes": 65413
+    },
+    {
+      "path": "tools/check_pulsemech_compute_runtime_observation_packet_v0.py",
+      "role": "existing_runtime_validator",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "edc8f795043f656ffa8599dfae9555f38970790f1096cf080e9049f218d512d9",
+      "size_bytes": 49528
+    },
+    {
+      "path": "tools/check_pulsemech_compute_subject_input_packet_v0.py",
+      "role": "existing_subject_validator",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "151d2c6f7a0da39462c9f2b1749a22ecba3012382aabee849a3db0a0635da5e2",
+      "size_bytes": 101068
+    },
+    {
+      "path": "tools/check_required_gate_suite_contract_v0.py",
+      "role": "unchanged_static_input_companion_checker",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "34f873d39009e8ec9e0e71e67ccf4079e0801459645cfd7693bab37bcf17615e",
+      "size_bytes": 31259
+    },
+    {
+      "path": "tools/pulsemech_compute_binding_analyzer_core_v0.py",
+      "role": "existing_compute_chain_reference",
+      "source_commit": "97ab500bb9936c27632e1f40ab891d2442476786",
+      "sha256": "e256d0084541068155a3e08293f02c734c7f792270a8e0b80437ebbefef3ae2a",
+      "size_bytes": 191203
+    }
+  ],
+  "source_inventory_scope": "Selected unchanged repository files and known repository imports only; not an executed interpreter, host, dependency-installation or future adapter closure.",
+  "input_contract": {
+    "case_ids": [
+      "idem-01",
+      "idem-02",
+      "idem-03",
+      "idem-04",
+      "idem-05",
+      "idem-06",
+      "idem-07",
+      "idem-08",
+      "idem-09",
+      "idem-10",
+      "idem-11",
+      "idem-12"
+    ],
+    "case_count": 12,
+    "source_of_bytes": "UTF-8 encoding of inputs_v0.json cases[].input_utf8, including its final LF.",
+    "input_sha256_and_size_verified_before_invocation": true,
+    "top_level": "object",
+    "duplicate_keys_permitted": false,
+    "nonfinite_json_numbers_permitted": false,
+    "numeric_overflow_permitted": false,
+    "key_character_set": "ASCII",
+    "literal_dot_keys_in_selected_roster": false,
+    "authored_public_inputs_are_observed_execution_evidence": false,
+    "case_roster_may_change_after_acquisition_begins": false
+  },
+  "snapshot_codec": {
+    "implementation": "CPython 3.11.16 json.dumps",
+    "sort_keys": true,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "ensure_ascii": true,
+    "allow_nan": false,
+    "suffix": "\n",
+    "encoding": "UTF-8",
+    "float_representation": "Use the selected interpreter serialization exactly, including -0.0; no tolerance, signed-zero folding or int/float rewriting.",
+    "output_domain": "JSON object containing nested objects and finite numeric leaves only.",
+    "second_application_input": "Decode the exact preserved first snapshot bytes under strict JSON rules.",
+    "actual_bytes_compared_directly": true,
+    "digest_equality_alone_is_comparison": false
+  },
+  "planned_case_paths": [
+    {
+      "case_id": "idem-01",
+      "first_application_id": "idem-01.first",
+      "first_input": {
+        "kind": "selected_original_input",
+        "sha256": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356",
+        "size_bytes": 3,
+        "member": "inputs/idem-01.json"
+      },
+      "first_output_member": "observations/idem-01/first.snapshot.json",
+      "second_application_id": "idem-01.second",
+      "second_input": {
+        "kind": "actual_output_of_application",
+        "producer_application_id": "idem-01.first",
+        "output_role": "operator_snapshot",
+        "member": "observations/idem-01/first.snapshot.json"
+      },
+      "second_output_member": "observations/idem-01/second.snapshot.json",
+      "comparison_members": [
+        "observations/idem-01/first.snapshot.json",
+        "observations/idem-01/second.snapshot.json"
+      ]
+    },
+    {
+      "case_id": "idem-02",
+      "first_application_id": "idem-02.first",
+      "first_input": {
+        "kind": "selected_original_input",
+        "sha256": "c49e839dffe00caab9c6dedb1d68923c1f9a9ba6b29d0365a7e81ff11dcc5851",
+        "size_bytes": 30,
+        "member": "inputs/idem-02.json"
+      },
+      "first_output_member": "observations/idem-02/first.snapshot.json",
+      "second_application_id": "idem-02.second",
+      "second_input": {
+        "kind": "actual_output_of_application",
+        "producer_application_id": "idem-02.first",
+        "output_role": "operator_snapshot",
+        "member": "observations/idem-02/first.snapshot.json"
+      },
+      "second_output_member": "observations/idem-02/second.snapshot.json",
+      "comparison_members": [
+        "observations/idem-02/first.snapshot.json",
+        "observations/idem-02/second.snapshot.json"
+      ]
+    },
+    {
+      "case_id": "idem-03",
+      "first_application_id": "idem-03.first",
+      "first_input": {
+        "kind": "selected_original_input",
+        "sha256": "e81b8e5d56948c823b7b05d343272a6bdd2db073ab36ce70ab858ca70b128bfa",
+        "size_bytes": 39,
+        "member": "inputs/idem-03.json"
+      },
+      "first_output_member": "observations/idem-03/first.snapshot.json",
+      "second_application_id": "idem-03.second",
+      "second_input": {
+        "kind": "actual_output_of_application",
+        "producer_application_id": "idem-03.first",
+        "output_role": "operator_snapshot",
+        "member": "observations/idem-03/first.snapshot.json"
+      },
+      "second_output_member": "observations/idem-03/second.snapshot.json",
+      "comparison_members": [
+        "observations/idem-03/first.snapshot.json",
+        "observations/idem-03/second.snapshot.json"
+      ]
+    },
+    {
+      "case_id": "idem-04",
+      "first_application_id": "idem-04.first",
+      "first_input": {
+        "kind": "selected_original_input",
+        "sha256": "97e0531817eaf222407d6d86846c3593b27086ba8e31b8819c7fe7920b1e48de",
+        "size_bytes": 46,
+        "member": "inputs/idem-04.json"
+      },
+      "first_output_member": "observations/idem-04/first.snapshot.json",
+      "second_application_id": "idem-04.second",
+      "second_input": {
+        "kind": "actual_output_of_application",
+        "producer_application_id": "idem-04.first",
+        "output_role": "operator_snapshot",
+        "member": "observations/idem-04/first.snapshot.json"
+      },
+      "second_output_member": "observations/idem-04/second.snapshot.json",
+      "comparison_members": [
+        "observations/idem-04/first.snapshot.json",
+        "observations/idem-04/second.snapshot.json"
+      ]
+    },
+    {
+      "case_id": "idem-05",
+      "first_application_id": "idem-05.first",
+      "first_input": {
+        "kind": "selected_original_input",
+        "sha256": "2119bd28f2480a8b0adfd92ba634bbb0f0f54a3d8bdf04c7cab05cb15e9738db",
+        "size_bytes": 61,
+        "member": "inputs/idem-05.json"
+      },
+      "first_output_member": "observations/idem-05/first.snapshot.json",
+      "second_application_id": "idem-05.second",
+      "second_input": {
+        "kind": "actual_output_of_application",
+        "producer_application_id": "idem-05.first",
+        "output_role": "operator_snapshot",
+        "member": "observations/idem-05/first.snapshot.json"
+      },
+      "second_output_member": "observations/idem-05/second.snapshot.json",
+      "comparison_members": [
+        "observations/idem-05/first.snapshot.json",
+        "observations/idem-05/second.snapshot.json"
+      ]
+    },
+    {
+      "case_id": "idem-06",
+      "first_application_id": "idem-06.first",
+      "first_input": {
+        "kind": "selected_original_input",
+        "sha256": "1c392c69a6fe94dc27417685ab71dc29e70a56aaf944476d523f3e9031b87718",
+        "size_bytes": 58,
+        "member": "inputs/idem-06.json"
+      },
+      "first_output_member": "observations/idem-06/first.snapshot.json",
+      "second_application_id": "idem-06.second",
+      "second_input": {
+        "kind": "actual_output_of_application",
+        "producer_application_id": "idem-06.first",
+        "output_role": "operator_snapshot",
+        "member": "observations/idem-06/first.snapshot.json"
+      },
+      "second_output_member": "observations/idem-06/second.snapshot.json",
+      "comparison_members": [
+        "observations/idem-06/first.snapshot.json",
+        "observations/idem-06/second.snapshot.json"
+      ]
+    },
+    {
+      "case_id": "idem-07",
+      "first_application_id": "idem-07.first",
+      "first_input": {
+        "kind": "selected_original_input",
+        "sha256": "25731cc60bd816150d7af7b54b7d08a9e82ba58f6c045c139e90fae02903553a",
+        "size_bytes": 53,
+        "member": "inputs/idem-07.json"
+      },
+      "first_output_member": "observations/idem-07/first.snapshot.json",
+      "second_application_id": "idem-07.second",
+      "second_input": {
+        "kind": "actual_output_of_application",
+        "producer_application_id": "idem-07.first",
+        "output_role": "operator_snapshot",
+        "member": "observations/idem-07/first.snapshot.json"
+      },
+      "second_output_member": "observations/idem-07/second.snapshot.json",
+      "comparison_members": [
+        "observations/idem-07/first.snapshot.json",
+        "observations/idem-07/second.snapshot.json"
+      ]
+    },
+    {
+      "case_id": "idem-08",
+      "first_application_id": "idem-08.first",
+      "first_input": {
+        "kind": "selected_original_input",
+        "sha256": "408bb38a5c30308475307af922a554d4b7b13d92b29567e52cfa6aacee018882",
+        "size_bytes": 70,
+        "member": "inputs/idem-08.json"
+      },
+      "first_output_member": "observations/idem-08/first.snapshot.json",
+      "second_application_id": "idem-08.second",
+      "second_input": {
+        "kind": "actual_output_of_application",
+        "producer_application_id": "idem-08.first",
+        "output_role": "operator_snapshot",
+        "member": "observations/idem-08/first.snapshot.json"
+      },
+      "second_output_member": "observations/idem-08/second.snapshot.json",
+      "comparison_members": [
+        "observations/idem-08/first.snapshot.json",
+        "observations/idem-08/second.snapshot.json"
+      ]
+    },
+    {
+      "case_id": "idem-09",
+      "first_application_id": "idem-09.first",
+      "first_input": {
+        "kind": "selected_original_input",
+        "sha256": "b88f380bb96060782bb789054a0511a7d69cef36ddeb940df783b40c05640fe7",
+        "size_bytes": 55,
+        "member": "inputs/idem-09.json"
+      },
+      "first_output_member": "observations/idem-09/first.snapshot.json",
+      "second_application_id": "idem-09.second",
+      "second_input": {
+        "kind": "actual_output_of_application",
+        "producer_application_id": "idem-09.first",
+        "output_role": "operator_snapshot",
+        "member": "observations/idem-09/first.snapshot.json"
+      },
+      "second_output_member": "observations/idem-09/second.snapshot.json",
+      "comparison_members": [
+        "observations/idem-09/first.snapshot.json",
+        "observations/idem-09/second.snapshot.json"
+      ]
+    },
+    {
+      "case_id": "idem-10",
+      "first_application_id": "idem-10.first",
+      "first_input": {
+        "kind": "selected_original_input",
+        "sha256": "3f586d67c8bcb24ef04ff4637c9d3f6b19d682791c1e724036daebf2ee2388c6",
+        "size_bytes": 32,
+        "member": "inputs/idem-10.json"
+      },
+      "first_output_member": "observations/idem-10/first.snapshot.json",
+      "second_application_id": "idem-10.second",
+      "second_input": {
+        "kind": "actual_output_of_application",
+        "producer_application_id": "idem-10.first",
+        "output_role": "operator_snapshot",
+        "member": "observations/idem-10/first.snapshot.json"
+      },
+      "second_output_member": "observations/idem-10/second.snapshot.json",
+      "comparison_members": [
+        "observations/idem-10/first.snapshot.json",
+        "observations/idem-10/second.snapshot.json"
+      ]
+    },
+    {
+      "case_id": "idem-11",
+      "first_application_id": "idem-11.first",
+      "first_input": {
+        "kind": "selected_original_input",
+        "sha256": "7aba400372be889bb026016c94ffdfb08961805a2a501b455108914e8702c41e",
+        "size_bytes": 38,
+        "member": "inputs/idem-11.json"
+      },
+      "first_output_member": "observations/idem-11/first.snapshot.json",
+      "second_application_id": "idem-11.second",
+      "second_input": {
+        "kind": "actual_output_of_application",
+        "producer_application_id": "idem-11.first",
+        "output_role": "operator_snapshot",
+        "member": "observations/idem-11/first.snapshot.json"
+      },
+      "second_output_member": "observations/idem-11/second.snapshot.json",
+      "comparison_members": [
+        "observations/idem-11/first.snapshot.json",
+        "observations/idem-11/second.snapshot.json"
+      ]
+    },
+    {
+      "case_id": "idem-12",
+      "first_application_id": "idem-12.first",
+      "first_input": {
+        "kind": "selected_original_input",
+        "sha256": "8742ce72d5054719b82aca891e4a903edfe4be490e5c34d9a8520d67e05498f2",
+        "size_bytes": 34,
+        "member": "inputs/idem-12.json"
+      },
+      "first_output_member": "observations/idem-12/first.snapshot.json",
+      "second_application_id": "idem-12.second",
+      "second_input": {
+        "kind": "actual_output_of_application",
+        "producer_application_id": "idem-12.first",
+        "output_role": "operator_snapshot",
+        "member": "observations/idem-12/first.snapshot.json"
+      },
+      "second_output_member": "observations/idem-12/second.snapshot.json",
+      "comparison_members": [
+        "observations/idem-12/first.snapshot.json",
+        "observations/idem-12/second.snapshot.json"
+      ]
+    }
+  ],
+  "coverage": {
+    "required_cases": 12,
+    "applications_per_case": 2,
+    "required_complete_subject_applications": 24,
+    "maximum_subject_applications": 24,
+    "distinct_actual_execution_for_each_application": true,
+    "collector_in_subject_application_count": false,
+    "missing_duplicate_or_cross_case_applications_are_invalid": true,
+    "same_original_input_twice_is_composition": false
+  },
+  "property_rule": {
+    "formula": "For every selected case x: bytes(F(x)) == bytes(F(decode(bytes(F(x))))), using the actual first output as the second input.",
+    "evidence_validity_preconditions": [
+      "Independently selected protocol, source, adapter and runtime bindings admitted.",
+      "All original case input digests and sizes match their pre-acquisition selection.",
+      "All 24 planned applications map to distinct completed subject executions with the fixed configuration.",
+      "Each second application actually consumes its own first snapshot state and exact carrier bytes.",
+      "All required outputs, metadata and diagnostics are preserved under the reviewed carrier inventory.",
+      "Outputs satisfy the closed snapshot domain and exact canonical codec; declared limits are respected."
+    ],
+    "valid_positive": "Complete admitted evidence and equal first/second snapshot bytes for all twelve cases.",
+    "valid_negative": "Complete admitted evidence with at least one unequal first/second snapshot byte sequence; preserve the counterexample.",
+    "invalid_evidence": "Missing, duplicate, substituted or unbound input/execution/consumption/output/selection, interrupted acquisition, or limit violation.",
+    "unobserved_is_pass": false,
+    "valid_negative_is_pass": false,
+    "idempotence_alone_establishes_sanitization_quality": false,
+    "constant_empty_projection_may_be_idempotent": true
+  },
+  "proposed_execution_contract": {
+    "implemented": false,
+    "authorized": false,
+    "platform": "Linux/POSIX",
+    "python_implementation": "CPython",
+    "python_version": "3.11.16",
+    "unicode_version": "14.0.0",
+    "one_fresh_worker_process_per_application": true,
+    "maximum_attempts_per_application": 1,
+    "automatic_retries": 0,
+    "top_up": false,
+    "early_failure": "Stop, preserve the incomplete attempt, and leave coverage incomplete; do not manufacture absent observations.",
+    "limits": {
+      "initial_case_input_bytes": 1024,
+      "snapshot_bytes": 4096,
+      "second_application_input_bytes": 4096,
+      "metadata_bytes_per_application": 4096,
+      "diagnostic_bytes_per_application": 4096,
+      "worker_wall_seconds": 5,
+      "worker_cpu_seconds": 2,
+      "worker_address_space_bytes": 268435456,
+      "suite_wall_seconds": 180,
+      "acquisition_uncompressed_bytes": 2097152,
+      "observation_bundle_uncompressed_bytes": 4194304
+    },
+    "network_access_permitted": false,
+    "model_calls": 0,
+    "ambient_field_spec_or_calibration_reads_permitted": false,
+    "runtime_host_and_future_adapter_identity": "Must be independently selected and bound by the implemented adapter before any authorized acquisition; not supplied by this proposal."
+  },
+  "planned_carrier": {
+    "status": "proposed_allowlist_before_adapter_implementation",
+    "archive_name": "acquisition.zip",
+    "layer": "inner_raw_acquisition",
+    "actual_carrier_created": false,
+    "planned_member_count": 95,
+    "members": [
+      {
+        "member": "inputs/idem-01.json",
+        "role": "selected_initial_input",
+        "case_id": "idem-01"
+      },
+      {
+        "member": "observations/idem-01/first.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-01",
+        "planned_application_id": "idem-01.first"
+      },
+      {
+        "member": "observations/idem-01/first.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-01",
+        "planned_application_id": "idem-01.first"
+      },
+      {
+        "member": "observations/idem-01/first.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-01",
+        "planned_application_id": "idem-01.first"
+      },
+      {
+        "member": "observations/idem-01/second.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-01",
+        "planned_application_id": "idem-01.second"
+      },
+      {
+        "member": "observations/idem-01/second.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-01",
+        "planned_application_id": "idem-01.second"
+      },
+      {
+        "member": "observations/idem-01/second.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-01",
+        "planned_application_id": "idem-01.second"
+      },
+      {
+        "member": "inputs/idem-02.json",
+        "role": "selected_initial_input",
+        "case_id": "idem-02"
+      },
+      {
+        "member": "observations/idem-02/first.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-02",
+        "planned_application_id": "idem-02.first"
+      },
+      {
+        "member": "observations/idem-02/first.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-02",
+        "planned_application_id": "idem-02.first"
+      },
+      {
+        "member": "observations/idem-02/first.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-02",
+        "planned_application_id": "idem-02.first"
+      },
+      {
+        "member": "observations/idem-02/second.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-02",
+        "planned_application_id": "idem-02.second"
+      },
+      {
+        "member": "observations/idem-02/second.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-02",
+        "planned_application_id": "idem-02.second"
+      },
+      {
+        "member": "observations/idem-02/second.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-02",
+        "planned_application_id": "idem-02.second"
+      },
+      {
+        "member": "inputs/idem-03.json",
+        "role": "selected_initial_input",
+        "case_id": "idem-03"
+      },
+      {
+        "member": "observations/idem-03/first.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-03",
+        "planned_application_id": "idem-03.first"
+      },
+      {
+        "member": "observations/idem-03/first.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-03",
+        "planned_application_id": "idem-03.first"
+      },
+      {
+        "member": "observations/idem-03/first.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-03",
+        "planned_application_id": "idem-03.first"
+      },
+      {
+        "member": "observations/idem-03/second.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-03",
+        "planned_application_id": "idem-03.second"
+      },
+      {
+        "member": "observations/idem-03/second.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-03",
+        "planned_application_id": "idem-03.second"
+      },
+      {
+        "member": "observations/idem-03/second.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-03",
+        "planned_application_id": "idem-03.second"
+      },
+      {
+        "member": "inputs/idem-04.json",
+        "role": "selected_initial_input",
+        "case_id": "idem-04"
+      },
+      {
+        "member": "observations/idem-04/first.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-04",
+        "planned_application_id": "idem-04.first"
+      },
+      {
+        "member": "observations/idem-04/first.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-04",
+        "planned_application_id": "idem-04.first"
+      },
+      {
+        "member": "observations/idem-04/first.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-04",
+        "planned_application_id": "idem-04.first"
+      },
+      {
+        "member": "observations/idem-04/second.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-04",
+        "planned_application_id": "idem-04.second"
+      },
+      {
+        "member": "observations/idem-04/second.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-04",
+        "planned_application_id": "idem-04.second"
+      },
+      {
+        "member": "observations/idem-04/second.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-04",
+        "planned_application_id": "idem-04.second"
+      },
+      {
+        "member": "inputs/idem-05.json",
+        "role": "selected_initial_input",
+        "case_id": "idem-05"
+      },
+      {
+        "member": "observations/idem-05/first.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-05",
+        "planned_application_id": "idem-05.first"
+      },
+      {
+        "member": "observations/idem-05/first.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-05",
+        "planned_application_id": "idem-05.first"
+      },
+      {
+        "member": "observations/idem-05/first.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-05",
+        "planned_application_id": "idem-05.first"
+      },
+      {
+        "member": "observations/idem-05/second.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-05",
+        "planned_application_id": "idem-05.second"
+      },
+      {
+        "member": "observations/idem-05/second.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-05",
+        "planned_application_id": "idem-05.second"
+      },
+      {
+        "member": "observations/idem-05/second.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-05",
+        "planned_application_id": "idem-05.second"
+      },
+      {
+        "member": "inputs/idem-06.json",
+        "role": "selected_initial_input",
+        "case_id": "idem-06"
+      },
+      {
+        "member": "observations/idem-06/first.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-06",
+        "planned_application_id": "idem-06.first"
+      },
+      {
+        "member": "observations/idem-06/first.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-06",
+        "planned_application_id": "idem-06.first"
+      },
+      {
+        "member": "observations/idem-06/first.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-06",
+        "planned_application_id": "idem-06.first"
+      },
+      {
+        "member": "observations/idem-06/second.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-06",
+        "planned_application_id": "idem-06.second"
+      },
+      {
+        "member": "observations/idem-06/second.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-06",
+        "planned_application_id": "idem-06.second"
+      },
+      {
+        "member": "observations/idem-06/second.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-06",
+        "planned_application_id": "idem-06.second"
+      },
+      {
+        "member": "inputs/idem-07.json",
+        "role": "selected_initial_input",
+        "case_id": "idem-07"
+      },
+      {
+        "member": "observations/idem-07/first.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-07",
+        "planned_application_id": "idem-07.first"
+      },
+      {
+        "member": "observations/idem-07/first.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-07",
+        "planned_application_id": "idem-07.first"
+      },
+      {
+        "member": "observations/idem-07/first.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-07",
+        "planned_application_id": "idem-07.first"
+      },
+      {
+        "member": "observations/idem-07/second.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-07",
+        "planned_application_id": "idem-07.second"
+      },
+      {
+        "member": "observations/idem-07/second.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-07",
+        "planned_application_id": "idem-07.second"
+      },
+      {
+        "member": "observations/idem-07/second.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-07",
+        "planned_application_id": "idem-07.second"
+      },
+      {
+        "member": "inputs/idem-08.json",
+        "role": "selected_initial_input",
+        "case_id": "idem-08"
+      },
+      {
+        "member": "observations/idem-08/first.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-08",
+        "planned_application_id": "idem-08.first"
+      },
+      {
+        "member": "observations/idem-08/first.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-08",
+        "planned_application_id": "idem-08.first"
+      },
+      {
+        "member": "observations/idem-08/first.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-08",
+        "planned_application_id": "idem-08.first"
+      },
+      {
+        "member": "observations/idem-08/second.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-08",
+        "planned_application_id": "idem-08.second"
+      },
+      {
+        "member": "observations/idem-08/second.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-08",
+        "planned_application_id": "idem-08.second"
+      },
+      {
+        "member": "observations/idem-08/second.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-08",
+        "planned_application_id": "idem-08.second"
+      },
+      {
+        "member": "inputs/idem-09.json",
+        "role": "selected_initial_input",
+        "case_id": "idem-09"
+      },
+      {
+        "member": "observations/idem-09/first.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-09",
+        "planned_application_id": "idem-09.first"
+      },
+      {
+        "member": "observations/idem-09/first.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-09",
+        "planned_application_id": "idem-09.first"
+      },
+      {
+        "member": "observations/idem-09/first.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-09",
+        "planned_application_id": "idem-09.first"
+      },
+      {
+        "member": "observations/idem-09/second.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-09",
+        "planned_application_id": "idem-09.second"
+      },
+      {
+        "member": "observations/idem-09/second.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-09",
+        "planned_application_id": "idem-09.second"
+      },
+      {
+        "member": "observations/idem-09/second.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-09",
+        "planned_application_id": "idem-09.second"
+      },
+      {
+        "member": "inputs/idem-10.json",
+        "role": "selected_initial_input",
+        "case_id": "idem-10"
+      },
+      {
+        "member": "observations/idem-10/first.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-10",
+        "planned_application_id": "idem-10.first"
+      },
+      {
+        "member": "observations/idem-10/first.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-10",
+        "planned_application_id": "idem-10.first"
+      },
+      {
+        "member": "observations/idem-10/first.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-10",
+        "planned_application_id": "idem-10.first"
+      },
+      {
+        "member": "observations/idem-10/second.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-10",
+        "planned_application_id": "idem-10.second"
+      },
+      {
+        "member": "observations/idem-10/second.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-10",
+        "planned_application_id": "idem-10.second"
+      },
+      {
+        "member": "observations/idem-10/second.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-10",
+        "planned_application_id": "idem-10.second"
+      },
+      {
+        "member": "inputs/idem-11.json",
+        "role": "selected_initial_input",
+        "case_id": "idem-11"
+      },
+      {
+        "member": "observations/idem-11/first.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-11",
+        "planned_application_id": "idem-11.first"
+      },
+      {
+        "member": "observations/idem-11/first.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-11",
+        "planned_application_id": "idem-11.first"
+      },
+      {
+        "member": "observations/idem-11/first.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-11",
+        "planned_application_id": "idem-11.first"
+      },
+      {
+        "member": "observations/idem-11/second.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-11",
+        "planned_application_id": "idem-11.second"
+      },
+      {
+        "member": "observations/idem-11/second.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-11",
+        "planned_application_id": "idem-11.second"
+      },
+      {
+        "member": "observations/idem-11/second.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-11",
+        "planned_application_id": "idem-11.second"
+      },
+      {
+        "member": "inputs/idem-12.json",
+        "role": "selected_initial_input",
+        "case_id": "idem-12"
+      },
+      {
+        "member": "observations/idem-12/first.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-12",
+        "planned_application_id": "idem-12.first"
+      },
+      {
+        "member": "observations/idem-12/first.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-12",
+        "planned_application_id": "idem-12.first"
+      },
+      {
+        "member": "observations/idem-12/first.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-12",
+        "planned_application_id": "idem-12.first"
+      },
+      {
+        "member": "observations/idem-12/second.snapshot.json",
+        "role": "operator_snapshot",
+        "case_id": "idem-12",
+        "planned_application_id": "idem-12.second"
+      },
+      {
+        "member": "observations/idem-12/second.meta.json",
+        "role": "operator_metadata",
+        "case_id": "idem-12",
+        "planned_application_id": "idem-12.second"
+      },
+      {
+        "member": "observations/idem-12/second.stderr.txt",
+        "role": "bounded_diagnostic",
+        "case_id": "idem-12",
+        "planned_application_id": "idem-12.second"
+      },
+      {
+        "member": "selection/protocol_proposal_v0.json",
+        "role": "selected_protocol_bytes"
+      },
+      {
+        "member": "selection/inputs_v0.json",
+        "role": "selected_case_catalog_bytes"
+      },
+      {
+        "member": "selection/observation_mapping_v0.json",
+        "role": "selected_mapping_bytes"
+      },
+      {
+        "member": "capture/manifest.json",
+        "role": "exact_member_inventory"
+      },
+      {
+        "member": "capture/runtime_identity.json",
+        "role": "actual_runtime_and_host_identity"
+      },
+      {
+        "member": "capture/source_identity.json",
+        "role": "actual_operator_adapter_and_dependency_identity"
+      },
+      {
+        "member": "capture/application_records.jsonl",
+        "role": "observed_invocations_and_consumption"
+      },
+      {
+        "member": "source/PULSE_safe_pack_v0/epf/epf_hazard_adapter.py",
+        "role": "selected_operator_source_bytes"
+      },
+      {
+        "member": "source/PULSE_safe_pack_v0/epf/epf_hazard_forecast.py",
+        "role": "selected_operator_source_bytes"
+      },
+      {
+        "member": "source/PULSE_safe_pack_v0/epf/epf_hazard_features.py",
+        "role": "selected_operator_source_bytes"
+      },
+      {
+        "member": "source/PULSE_safe_pack_v0/epf/epf_hazard_field_spec.py",
+        "role": "selected_operator_source_bytes"
+      }
+    ],
+    "all_members_required_for_complete_capture": true,
+    "raw_payload_in_generic_runtime_packet": false,
+    "manifest_self_hash_rule": "The capture manifest enumerates and hashes every other member; its own exact bytes and the complete carrier are selected externally, avoiding a self-hash cycle.",
+    "inner_member_may_embed_enclosing_manifest_or_archive_digest": false,
+    "subject_runtime_and_relation_packets_stored_in_this_inner_archive": false,
+    "unexpected_members_permitted": false,
+    "implementation_may_silently_expand_inventory": false,
+    "adapter_source": "The future adapter and interpreter identities are required in capture/source_identity.json and capture/runtime_identity.json; their exact recoverable source/runtime preservation must be closed before acquisition.",
+    "partial_attempt_publication": "A separately marked incomplete attempt may preserve its actually produced subset with missing roles explicit; it cannot satisfy complete-capture admission.",
+    "full_work_directory_upload_permitted": false
+  },
+  "planned_observation_bundle": {
+    "status": "proposed_allowlist_before_adapter_implementation",
+    "actual_bundle_created": false,
+    "planned_member_count": 6,
+    "members": [
+      {
+        "member": "acquisition.zip",
+        "role": "immutable_raw_acquisition_carrier"
+      },
+      {
+        "member": "packets/subject_input_packet.json",
+        "role": "future_supported_subject_profile"
+      },
+      {
+        "member": "packets/runtime_observation_packet.json",
+        "role": "runtime_observation_packet"
+      },
+      {
+        "member": "relations/binding_report.json",
+        "role": "existing_analyzer_result"
+      },
+      {
+        "member": "relations/planned_observed_relation.json",
+        "role": "existing_relation_result"
+      },
+      {
+        "member": "bundle_manifest.json",
+        "role": "outer_member_inventory"
+      }
+    ],
+    "manifest_self_hash_rule": "bundle_manifest.json hashes the other five members; the complete outer bundle and its manifest are selected externally.",
+    "outer_member_may_embed_enclosing_manifest_or_archive_digest": false,
+    "unexpected_members_permitted": false,
+    "hash_dependency_order": [
+      "Preselected source, protocol, initial inputs and runtime requirements.",
+      "Observed raw application records, snapshots, metadata and diagnostics.",
+      "Inner capture manifest and immutable acquisition.zip.",
+      "Supported subject/runtime packets bound to acquisition.zip and any already materialized prerequisite records.",
+      "Existing binding report and then planned-observed relation result, bound to their earlier inputs.",
+      "Outer member inventory and complete observation bundle, independently selected from outside the bundle."
+    ],
+    "acyclic_binding_graph_required": true,
+    "adapter_compatibility_with_this_layout_established": false,
+    "required_before_acquisition": "The versioned adapter must establish an acyclic source-binding graph; no packet or report may embed a digest of an enclosing manifest or archive that hashes that packet or report. Review a new layout version if the implemented adapter needs different members."
+  },
+  "privacy_retention": {
+    "classification": "authored_public_test_inputs_and_derived_public_numeric_snapshots",
+    "real_personal_data_credentials_prompts_or_model_responses_permitted": false,
+    "keys_named_pii_secret_or_raw_prompt_are_public_test_sentinels_only": true,
+    "runtime_packet_contains_raw_payload": false,
+    "publication": "Only the exact reviewed carrier allowlist, source identities and diagnostic records; no ambient files, raw environment or credentials.",
+    "unexpected_sensitive_material": "Stop capture and withhold the affected carrier from publication; do not redact or rewrite it into claimed complete evidence.",
+    "public_evidence_retention": "After separate owner-authorized acquisition and publication, preserve exact accepted carrier bytes and selection indefinitely; do not silently replace an archive.",
+    "temporary_workspace": "Normal cleanup requires byte-verified preservation of every actually produced permitted public evidence member and an explicit complete or incomplete inventory with missing roles recorded. An incomplete summary alone does not permit deletion of the produced evidence. Unexpected sensitive material remains withheld pending a separate restricted-handling decision.",
+    "new_storage_service_or_paid_storage_required": false
+  },
+  "implementation_dependencies": [
+    {
+      "id": "derived_input_mapping",
+      "status": "not_implemented",
+      "requirement": "Versioned metric-specific application binding from first actual snapshot output to second input; retain B1 v0 and its per-occurrence static-input guard unchanged."
+    },
+    {
+      "id": "standalone_subject_and_capture_adapter",
+      "status": "not_implemented",
+      "requirement": "A truthful admitted standalone subject/run profile and narrow source-bound capture adapter; no fabricated GitHub/release identities or reuse of a historical fixed profile."
+    },
+    {
+      "id": "property_producer_and_independent_reconstruction",
+      "status": "not_implemented",
+      "requirement": "Separate B3 implementations reconstruct the declared finite predicate and validity from the exact carrier, including valid positive and valid negative controls."
+    },
+    {
+      "id": "release_applicability_and_integration",
+      "status": "not_established",
+      "requirement": "Separate B4 review and coordinated intake, dispatcher and independent candidate admission; component success alone cannot activate a gate."
+    },
+    {
+      "id": "actual_reference",
+      "status": "not_authorized",
+      "requirement": "Separate B5 owner authorization after implementation, recoverable source/runtime closure and preservation inventory have been verified."
+    }
+  ],
+  "completion_boundary": {
+    "b1_v0_changed": false,
+    "b2_complete": false,
+    "supported_observation_profile_implemented": false,
+    "execution_ready": false,
+    "execution_authorized": false,
+    "actual_subject_applications": 0,
+    "observed_output_records": 0,
+    "metric_calculation_performed": false,
+    "semantic_verification": "not_run",
+    "metric_pass": null,
+    "production_gate_eligible": false,
+    "anchor_authentication": "not_established",
+    "authority_effect": "none"
+  },
+  "preserved_boundaries": {
+    "unsupported_gate_count": 12,
+    "gate_policy_changed": false,
+    "required_gate_dispatcher_changed": false,
+    "independent_candidate_admission_changed": false,
+    "historical_q2": {
+      "result": "FAIL",
+      "eligible_groups": 49,
+      "required_groups": 50,
+      "unknown_groups": 1
+    },
+    "original_verification_artifact": {
+      "run_id": 43514702328,
+      "attempt": 1,
+      "sha256": "702c126b8e9944cc9c3486e0dce0da8aa6c33f650c3451a3b1121010330049d8",
+      "size_bytes": 500035
+    },
+    "q3_preflight_or_capture_repeated": false,
+    "q3_labels_created": false,
+    "q3_specification_migrated": false,
+    "tools_manifest_entries": 183,
+    "targeted_pytest_manifest_entries": 40,
+    "workflow_dispatched": false,
+    "issue_to_keep_open": "HKati/pulse-release-gates-0.1#2879"
+  }
+}
