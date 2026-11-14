@@ -6,6 +6,11 @@ through an explicit standalone profile. The proposal and its three companions
 remain the original selection; actual acquisition, runtime closure, property
 calculation and B2 completion remain separate.
 
+The [acquisition continuation](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ACQUISITION_v0.md)
+adds source preparation and bounded worker/process primitives with synthetic
+orchestration tests. Observed launch remains closed pending recoverable runtime
+closure and review; the original proposal and companion bytes below are retained.
+
 ## Status and scope
 
 **Status: proposed for review. B2 is not complete.** This package selects a
