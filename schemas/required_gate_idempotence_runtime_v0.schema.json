@@ -1,0 +1,331 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulsemech:required-gate-idempotence-runtime:v0",
+  "title": "Selected idempotence runtime capsule v0",
+  "$ref": "#/$defs/selection",
+  "$defs": {
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "record_status",
+        "profile",
+        "repository",
+        "source_commit",
+        "operator_selection_sha256",
+        "environment",
+        "trees",
+        "files",
+        "native_bindings",
+        "python",
+        "execution_ready",
+        "execution_authorized",
+        "runtime_closure_verified",
+        "production_gate_eligible",
+        "authority_effect"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_runtime_selection_v0"
+        },
+        "record_status": {
+          "enum": [
+            "example",
+            "selected"
+          ]
+        },
+        "profile": {
+          "const": "selected_cpython_runtime_capsule_v0"
+        },
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "source_commit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "operator_selection_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "environment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "python_implementation",
+            "python_version",
+            "unicode_version",
+            "os_name",
+            "architecture",
+            "executable_sha256"
+          ],
+          "properties": {
+            "python_implementation": {
+              "const": "CPython"
+            },
+            "python_version": {
+              "const": "3.11.16"
+            },
+            "unicode_version": {
+              "const": "14.0.0"
+            },
+            "os_name": {
+              "const": "Linux"
+            },
+            "architecture": {
+              "const": "x86_64"
+            },
+            "executable_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "trees": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tree_id",
+              "root"
+            ],
+            "properties": {
+              "tree_id": {
+                "enum": [
+                  "python",
+                  "native",
+                  "repository",
+                  "licenses"
+                ]
+              },
+              "root": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 400,
+                "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+              }
+            }
+          }
+        },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "tree_id",
+              "role",
+              "format",
+              "sha256",
+              "size_bytes",
+              "source_path",
+              "source_revision"
+            ],
+            "properties": {
+              "path": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 400,
+                "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+              },
+              "tree_id": {
+                "enum": [
+                  "python",
+                  "native",
+                  "repository",
+                  "licenses"
+                ]
+              },
+              "role": {
+                "enum": [
+                  "interpreter",
+                  "loader",
+                  "shared_library",
+                  "stdlib",
+                  "site_package",
+                  "repository_source",
+                  "repository_schema",
+                  "repository_data",
+                  "runtime_data",
+                  "license"
+                ]
+              },
+              "format": {
+                "enum": [
+                  "elf",
+                  "python",
+                  "json",
+                  "data",
+                  "text"
+                ]
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 134217728
+              },
+              "source_path": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 400,
+                    "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "source_revision": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "native_bindings": {
+          "type": "array",
+          "maxItems": 8192,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "consumer",
+              "kind",
+              "name",
+              "provider"
+            ],
+            "properties": {
+              "consumer": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 400,
+                "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+              },
+              "kind": {
+                "enum": [
+                  "interpreter",
+                  "needed"
+                ]
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "provider": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 400,
+                "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+              }
+            }
+          }
+        },
+        "python": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "interpreter",
+            "loader",
+            "stdlib_root",
+            "site_packages_root"
+          ],
+          "properties": {
+            "interpreter": {
+              "const": "python/bin/python3.11"
+            },
+            "loader": {
+              "const": "native/ld-linux-x86-64.so.2"
+            },
+            "stdlib_root": {
+              "const": "python/lib/python3.11"
+            },
+            "site_packages_root": {
+              "const": "python/lib/python3.11/site-packages"
+            }
+          }
+        },
+        "execution_ready": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "runtime_closure_verified": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "members"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_runtime_inventory_v0"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4098,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "member",
+              "sha256",
+              "size_bytes"
+            ],
+            "properties": {
+              "member": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 400,
+                "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 134217728
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

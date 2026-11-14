@@ -54,6 +54,8 @@ moves between merged and open work, update this index.
 
 - [B2 bounded idempotence acquisition primitives](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ACQUISITION_v0.md) — **Implemented source preparation, bounded worker/process controls and synthetic orchestration.** Preserve incomplete attempts and verify complete example carriers through the existing adapter. Observed launch remains closed pending recoverable runtime closure, review and separate owner authorization; B2 is incomplete and no actual reference is supplied.
 
+- [B2 selected runtime preservation](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_RUNTIME_v0.md) — **Implemented closed-file preservation, static native dependency bindings and exact restoration.** Bind independent runtime/operator selections, retain selected interpreter/library/Python/source bytes in a separate capsule, and restore them without execution. Dynamic closure, actual loader resolution, host qualification and observed-launch integration remain outstanding; B2 is incomplete and `authority_effect=none`.
+
 [Current coverage and implementation plan](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#18-required-gate-coverage-plan-after-accepted-rejection-verification) ·
 [Machine-readable nineteen-gate inventory](compute/required_gate_coverage_plan_v0/coverage_plan_v0.json) ·
 [Completed bounded verification](compute/admission_rejection_43445176088_v0/README.md)
