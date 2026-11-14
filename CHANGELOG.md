@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Fix the B1 suite-contract checker to validate the selected input digest and
+  byte count for every occurrence, including repeated observations of one case.
+  A matching occurrence cannot mask another occurrence's mismatched input.
+  Add repeated-occurrence regressions and refresh the frozen checker selections;
+  retain the structural-only result and `authority_effect=none`.
+
+- Add the [B1 required-gate suite contract](docs/compute/PULSEMECH_REQUIRED_GATE_SUITE_CONTRACT_v0.md)
+  and its offline structural checker. Bind declarations to a separately selected
+  manifest, exact source/protocol/input bytes and existing compute packet schemas;
+  check finite case coverage, per-gate obligations and execution/state references.
+  Distinguish valid unresolved drafts from complete declarations while keeping
+  execution readiness, semantic verification and release authority separate.
+  Add explicitly synthetic positive and rejection fixtures, register the test
+  once and synchronize all dependent tools-manifest count checks. No real
+  operator protocol, subject execution or required gate is activated;
+  `authority_effect=none` and #2879 remains open.
+
 - Configure the [Q3 immutable-release runtime adapter](docs/compute/PULSEMECH_Q3_RUNTIME_RELEASE_TRANSPORT_v0.md)
   for the fixed published companion. Check repository/release/tag and all 25
   asset identities, retrieve the pinned manifest and twenty fragments without

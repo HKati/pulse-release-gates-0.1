@@ -1,0 +1,37 @@
+{
+  "authority_effect": "none",
+  "binding_sha256": {
+    "comparison": null,
+    "observation_mapping": null,
+    "operator": null,
+    "privacy": null,
+    "protocol": null,
+    "runtime_packet": null,
+    "subject_packet": null
+  },
+  "cases": [],
+  "declaration_state": "draft",
+  "obligations": [],
+  "occurrences": [],
+  "origin": "synthetic_fixture",
+  "record_type": "required_gate_suite_contract_v0",
+  "selected_gate_ids": [
+    "effect_present",
+    "psf_idempotence_ok"
+  ],
+  "source": {
+    "commit": "1111111111111111111111111111111111111111",
+    "repository": "synthetic/required-gate-suite"
+  },
+  "suite_id": "synthetic-b1",
+  "unresolved_decisions": [
+    "protocol",
+    "subject",
+    "operator",
+    "cases",
+    "comparison",
+    "privacy_retention",
+    "observation_mapping",
+    "runtime_evidence"
+  ]
+}

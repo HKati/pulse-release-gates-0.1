@@ -1,0 +1,343 @@
+{
+  "authority_inputs": {
+    "gate_registry": {
+      "path": "tests/fixtures/required_gate_suite_contract_v0/synthetic_source.txt",
+      "role": "gate_registry",
+      "sha256": "f547d77ab6add9f803c486b74e905ba688be1c44fa0ee85c32544160a6e9eca1",
+      "source_commit": "1111111111111111111111111111111111111111"
+    },
+    "policy": {
+      "path": "tests/fixtures/required_gate_suite_contract_v0/synthetic_source.txt",
+      "role": "policy",
+      "sha256": "f547d77ab6add9f803c486b74e905ba688be1c44fa0ee85c32544160a6e9eca1",
+      "source_commit": "1111111111111111111111111111111111111111"
+    },
+    "workflow": {
+      "path": "tests/fixtures/required_gate_suite_contract_v0/synthetic_source.txt",
+      "role": "workflow",
+      "sha256": "f547d77ab6add9f803c486b74e905ba688be1c44fa0ee85c32544160a6e9eca1",
+      "source_commit": "1111111111111111111111111111111111111111"
+    }
+  },
+  "coverage": {
+    "coverage_status": "partial",
+    "execution_records": 2,
+    "expected_job_count": null,
+    "expected_step_count": null,
+    "external_call_capture_status": "none",
+    "external_call_records": 0,
+    "missing_execution_ids": [],
+    "model_inference_capture_status": "none",
+    "model_inference_records": 0,
+    "observed_job_count": 0,
+    "observed_step_count": 0,
+    "resource_axes_observed": [],
+    "resource_axes_unavailable": [],
+    "resource_measurement_records": 0,
+    "state_digest_capture_status": "complete",
+    "state_records": 4,
+    "unobserved_reasons": [
+      "other"
+    ]
+  },
+  "errors": [],
+  "executions": [
+    {
+      "capture_status": "partial",
+      "command_identity": {
+        "arguments_sha256": null,
+        "command_kind": "unknown",
+        "command_sha256": null,
+        "display_name": "Synthetic baseline metadata; never executed",
+        "raw_command_included": false
+      },
+      "declared_role": "transition",
+      "execution_environment": {
+        "architecture": null,
+        "environment_kind": "unknown",
+        "environment_sha256": null,
+        "identity_status": "unknown",
+        "image_digest": null,
+        "image_identity": null,
+        "os_name": null,
+        "os_version": null,
+        "raw_environment_included": false,
+        "runtime_name": null,
+        "runtime_version": null
+      },
+      "execution_id": "execution:b1:baseline",
+      "execution_kind": "local_tool_execution",
+      "execution_scope": "subject",
+      "external_call_ids": [],
+      "input_state_ids": [
+        "state:b1:baseline-input"
+      ],
+      "job_attempt": 1,
+      "job_id": null,
+      "job_name": "synthetic-fixture",
+      "model_inference_ids": [],
+      "output_state_ids": [
+        "state:b1:baseline-output"
+      ],
+      "parent_execution_id": null,
+      "permitted_mutation_authority": "none",
+      "resource_measurement_ids": [],
+      "result": {
+        "exit_code": null,
+        "lifecycle_status": "unknown",
+        "outcome": "unknown",
+        "result_status": "unknown"
+      },
+      "run_binding": {
+        "binding_complete": true,
+        "binding_mode": "current_subject_run",
+        "execution_run_key": "SYNTHETIC_B1=finite-pair-v0",
+        "subject_run_key": "SYNTHETIC_B1=finite-pair-v0"
+      },
+      "source_identity": {
+        "action_commit_sha": null,
+        "action_ref": null,
+        "action_repository": null,
+        "container_image_digest": null,
+        "identity_status": "exact",
+        "source_kind": "repository_file",
+        "source_path_or_uri": "tests/fixtures/required_gate_suite_contract_v0/synthetic_operator.txt",
+        "source_revision": "1111111111111111111111111111111111111111",
+        "source_sha256": "d7ef204f64068d208219be34a9de5aa66a0f41f4fbadc653c1577e34d53d7c6a"
+      },
+      "step_name": null,
+      "step_number": null,
+      "timing": {
+        "completed_utc": null,
+        "duration_ms": null,
+        "duration_source": "unknown",
+        "started_utc": null,
+        "timestamp_source": "unknown",
+        "timing_status": "unknown"
+      },
+      "workflow_name": "Synthetic B1 contract fixture; no execution"
+    },
+    {
+      "capture_status": "partial",
+      "command_identity": {
+        "arguments_sha256": null,
+        "command_kind": "unknown",
+        "command_sha256": null,
+        "display_name": "Synthetic variant metadata; never executed",
+        "raw_command_included": false
+      },
+      "declared_role": "transition",
+      "execution_environment": {
+        "architecture": null,
+        "environment_kind": "unknown",
+        "environment_sha256": null,
+        "identity_status": "unknown",
+        "image_digest": null,
+        "image_identity": null,
+        "os_name": null,
+        "os_version": null,
+        "raw_environment_included": false,
+        "runtime_name": null,
+        "runtime_version": null
+      },
+      "execution_id": "execution:b1:variant",
+      "execution_kind": "local_tool_execution",
+      "execution_scope": "subject",
+      "external_call_ids": [],
+      "input_state_ids": [
+        "state:b1:variant-input"
+      ],
+      "job_attempt": 1,
+      "job_id": null,
+      "job_name": "synthetic-fixture",
+      "model_inference_ids": [],
+      "output_state_ids": [
+        "state:b1:variant-output"
+      ],
+      "parent_execution_id": null,
+      "permitted_mutation_authority": "none",
+      "resource_measurement_ids": [],
+      "result": {
+        "exit_code": null,
+        "lifecycle_status": "unknown",
+        "outcome": "unknown",
+        "result_status": "unknown"
+      },
+      "run_binding": {
+        "binding_complete": true,
+        "binding_mode": "current_subject_run",
+        "execution_run_key": "SYNTHETIC_B1=finite-pair-v0",
+        "subject_run_key": "SYNTHETIC_B1=finite-pair-v0"
+      },
+      "source_identity": {
+        "action_commit_sha": null,
+        "action_ref": null,
+        "action_repository": null,
+        "container_image_digest": null,
+        "identity_status": "exact",
+        "source_kind": "repository_file",
+        "source_path_or_uri": "tests/fixtures/required_gate_suite_contract_v0/synthetic_operator.txt",
+        "source_revision": "1111111111111111111111111111111111111111",
+        "source_sha256": "d7ef204f64068d208219be34a9de5aa66a0f41f4fbadc653c1577e34d53d7c6a"
+      },
+      "step_name": null,
+      "step_number": null,
+      "timing": {
+        "completed_utc": null,
+        "duration_ms": null,
+        "duration_source": "unknown",
+        "started_utc": null,
+        "timestamp_source": "unknown",
+        "timing_status": "unknown"
+      },
+      "workflow_name": "Synthetic B1 contract fixture; no execution"
+    }
+  ],
+  "external_calls": [],
+  "model_inferences": [],
+  "observation_boundary": {
+    "capture_completed_utc": "2026-11-14T00:00:00Z",
+    "capture_started_utc": "2026-11-14T00:00:00Z",
+    "collector_execution_id": "execution:b1:collector",
+    "collector_mode": "example",
+    "collector_run_key": "SYNTHETIC_B1_COLLECTOR=not-executed",
+    "observer_in_subject_totals": false,
+    "subject_artifacts_mutated": false,
+    "subject_run_key": "SYNTHETIC_B1=finite-pair-v0",
+    "target_analysis_level": "runtime_observed"
+  },
+  "ok": true,
+  "packet_identity": {
+    "canonicalization": "json-sort-keys-utf8-newline",
+    "packet_created_utc": "2026-11-14T00:00:00Z",
+    "packet_id": "runtime-observation:required-gate-suite/b1/synthetic",
+    "packet_scope": "example",
+    "packet_sequence": 0,
+    "previous_packet_sha256": null,
+    "subject_run_key": "SYNTHETIC_B1=finite-pair-v0"
+  },
+  "packet_type": "pulsemech_compute_runtime_observation_packet",
+  "privacy_boundary": {
+    "authorization_headers_included": false,
+    "cookies_included": false,
+    "raw_environment_included": false,
+    "raw_model_output_included": false,
+    "raw_prompt_text_included": false,
+    "redaction_applied": false,
+    "redaction_rules_sha256": null,
+    "request_bodies_included": false,
+    "response_bodies_included": false,
+    "secret_values_included": false
+  },
+  "producer": {
+    "ci_workflow_or_job_identity": "Synthetic B1 contract fixture; no execution",
+    "collection_mode": "example",
+    "producer_execution_id": "execution:b1:collector",
+    "producer_id": "synthetic-b1-fixture",
+    "producer_name": "Synthetic structural fixture; never executed",
+    "producer_source": "tests/fixtures/required_gate_suite_contract_v0/synthetic_reconstruction.txt",
+    "producer_source_sha256": "018e42326de0e33ef9ede0f2b72e8b67542f2368335f72be63a84ca18e496a14",
+    "producer_version": "0.1.0"
+  },
+  "record_status": "example",
+  "resource_measurements": [],
+  "schema_version": "pulsemech_compute_runtime_observation_packet_v0",
+  "state_observations": [
+    {
+      "authority_bearing": false,
+      "content_status": "exact_digest",
+      "media_type": "application/json",
+      "mutation_class": "none",
+      "observed_at_utc": "2026-11-14T00:00:00Z",
+      "observer_execution_id": "execution:b1:collector",
+      "path_or_uri": "tests/fixtures/required_gate_suite_contract_v0/baseline_input.json",
+      "producer_execution_id": null,
+      "release_candidate_id": "synthetic-b1-candidate",
+      "schema_identity": null,
+      "secret_material_included": false,
+      "sha256": "e61f701c4ebb228c6450fc188f9e8587b3731d57671343c93a26c597342d5cce",
+      "size_bytes": 87,
+      "state_id": "state:b1:baseline-input",
+      "state_type": "other",
+      "subject_run_key": "SYNTHETIC_B1=finite-pair-v0"
+    },
+    {
+      "authority_bearing": false,
+      "content_status": "exact_digest",
+      "media_type": "text/plain",
+      "mutation_class": "none",
+      "observed_at_utc": "2026-11-14T00:00:00Z",
+      "observer_execution_id": "execution:b1:collector",
+      "path_or_uri": "synthetic-only://baseline-output",
+      "producer_execution_id": "execution:b1:baseline",
+      "release_candidate_id": "synthetic-b1-candidate",
+      "schema_identity": null,
+      "secret_material_included": false,
+      "sha256": "28349f7aac2b8edd52086c604eca569a97681f9b119fff5efe67d4312939abe8",
+      "size_bytes": 40,
+      "state_id": "state:b1:baseline-output",
+      "state_type": "other",
+      "subject_run_key": "SYNTHETIC_B1=finite-pair-v0"
+    },
+    {
+      "authority_bearing": false,
+      "content_status": "exact_digest",
+      "media_type": "application/json",
+      "mutation_class": "none",
+      "observed_at_utc": "2026-11-14T00:00:00Z",
+      "observer_execution_id": "execution:b1:collector",
+      "path_or_uri": "tests/fixtures/required_gate_suite_contract_v0/variant_input.json",
+      "producer_execution_id": null,
+      "release_candidate_id": "synthetic-b1-candidate",
+      "schema_identity": null,
+      "secret_material_included": false,
+      "sha256": "fc7682b1ddf929055782c2a05fd50813a66f08ae97d2d033cd52d52ee5bc8796",
+      "size_bytes": 86,
+      "state_id": "state:b1:variant-input",
+      "state_type": "other",
+      "subject_run_key": "SYNTHETIC_B1=finite-pair-v0"
+    },
+    {
+      "authority_bearing": false,
+      "content_status": "exact_digest",
+      "media_type": "text/plain",
+      "mutation_class": "none",
+      "observed_at_utc": "2026-11-14T00:00:00Z",
+      "observer_execution_id": "execution:b1:collector",
+      "path_or_uri": "synthetic-only://variant-output",
+      "producer_execution_id": "execution:b1:variant",
+      "release_candidate_id": "synthetic-b1-candidate",
+      "schema_identity": null,
+      "secret_material_included": false,
+      "sha256": "908f3d516c9f118ff0a5e7cce48227937a7c91a2d9567200459af3f1c89c5364",
+      "size_bytes": 39,
+      "state_id": "state:b1:variant-output",
+      "state_type": "other",
+      "subject_run_key": "SYNTHETIC_B1=finite-pair-v0"
+    }
+  ],
+  "subject": {
+    "active_policy_sets": [
+      "required"
+    ],
+    "event_name": "synthetic_fixture",
+    "release_candidate_id": "synthetic-b1-candidate",
+    "repository": "synthetic/required-gate-suite",
+    "run_mode": "synthetic",
+    "source_commit": "1111111111111111111111111111111111111111",
+    "source_ref": "refs/heads/synthetic-fixture",
+    "subject_run_key": "SYNTHETIC_B1=finite-pair-v0",
+    "workflow_name": "Synthetic B1 contract fixture; no execution",
+    "workflow_run_attempt": 1,
+    "workflow_run_id": 1,
+    "workflow_run_number": 1
+  },
+  "timing_basis": {
+    "cross_source_clock_status": "example",
+    "duration_derivation": "example",
+    "duration_values_estimated": false,
+    "primary_clock_source": "example",
+    "timestamp_resolution_ms": 1,
+    "timestamps_utc": true
+  }
+}
