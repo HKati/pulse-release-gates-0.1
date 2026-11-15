@@ -24,6 +24,12 @@ symbol or ABI compatibility, dynamic imports, `dlopen` coverage, a usable Python
 installation or complete runtime closure. The public acquisition command still
 rejects with `observed_acquisition_not_ready`.
 
+The subsequent
+[bootstrap preparation tool](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_BOOTSTRAP_v0.md)
+compiles and materializes a deterministic launch view and a fixed diagnostic
+probe from an accepted capsule. It preserves the distinction between a verified
+preparation and execution inside an enforced runtime boundary.
+
 | Surface | Responsibility |
 | --- | --- |
 | [Runtime preservation tool](../../tools/required_gate_idempotence_runtime_v0.py) | Validate selections, read a closed staging tree, build/check the capsule and restore exact bytes. |
@@ -223,9 +229,11 @@ coverage, wrong provider types/identities, filesystem substitution, partial
 restoration, and malformed archive/CLI input. Selected runtime fixtures and
 original sanitizer sources remain inert bytes throughout these tests.
 
-The next implementation work is qualification of the restored bootstrap and
-its dynamic import/`dlopen` dependencies, enforcement of actual loader paths,
-review of host containment, and integration of the observed launch route.
+Bootstrap planning and exact launch-view materialization are now implemented
+separately. The next implementation work is enforcement of that view before
+execution, qualification of the restored bootstrap and dynamic import/`dlopen`
+dependencies, actual loader-path binding, host review and observed-launch
+integration.
 Separate owner authorization is still required before an actual reference.
 B3 property calculation and independent reconstruction, B4 admission and B5
 actual reference remain subsequent work. No metric verdict is calculated here.

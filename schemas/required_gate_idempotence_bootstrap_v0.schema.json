@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulsemech:required-gate-idempotence-bootstrap:v0",
+  "title": "Selected idempotence bootstrap preparation v0",
+  "$ref": "#/$defs/selection",
+  "$defs": {
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "record_status",
+        "profile",
+        "runtime_selection_sha256",
+        "operator_selection_sha256",
+        "capsule_sha256",
+        "probe",
+        "interpreter_modules",
+        "execution_ready",
+        "execution_authorized",
+        "runtime_closure_verified",
+        "production_gate_eligible",
+        "authority_effect"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_bootstrap_selection_v0"
+        },
+        "record_status": {
+          "enum": [
+            "example",
+            "selected"
+          ]
+        },
+        "profile": {
+          "const": "restored_bootstrap_plan_v0"
+        },
+        "runtime_selection_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "operator_selection_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "capsule_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "probe": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ],
+          "properties": {
+            "path": {
+              "const": "tools/required_gate_idempotence_bootstrap_probe_v0.py"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 524288
+            }
+          }
+        },
+        "interpreter_modules": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "kind"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 200,
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*$"
+              },
+              "kind": {
+                "enum": [
+                  "builtin",
+                  "frozen"
+                ]
+              }
+            }
+          }
+        },
+        "execution_ready": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "runtime_closure_verified": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      }
+    }
+  }
+}
