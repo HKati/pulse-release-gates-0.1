@@ -72,7 +72,8 @@ def boundaries(record):
 
 
 class Example:
-    def __init__(self):
+    def __init__(self, *, resource_layout="package"):
+        assert resource_layout in {"package", "suffixed", "extensionless"}
         self.runtime = runtime_examples().Example()
         self.site = self.runtime.selection["python"]["site_packages_root"]
         self.stdlib = self.runtime.selection["python"]["stdlib_root"]
@@ -115,7 +116,13 @@ class Example:
         self.schema_paths = []
         for name in ("schema", "meta/core", "meta/applicator", "meta/unevaluated", "meta/validation",
                      "meta/meta-data", "meta/format-annotation", "meta/content"):
-            path = self.site + "/jsonschema_specifications/schemas/draft202012/" + name + ".json"
+            if resource_layout == "suffixed":
+                relative = name + ".json"
+            elif name == "schema":
+                relative = "metaschema.json" if resource_layout == "package" else "metaschema"
+            else:
+                relative = "vocabularies/" + name.removeprefix("meta/")
+            path = self.site + "/jsonschema_specifications/schemas/draft202012/" + relative
             raw = encoded({"$id": "https://json-schema.org/draft/2020-12/" + name,
                            "$schema": "https://json-schema.org/draft/2020-12/schema", "type": "object"})
             self.runtime.add(path, "site_package", "json", raw)
@@ -310,22 +317,30 @@ def test_native_python_extension_provider_must_be_a_shared_elf_object(tmp_path, 
         example.prepare()
 
 
+@pytest.mark.parametrize("resource", ["root", "vocabulary"])
 @pytest.mark.parametrize("change", ["missing", "changed_id", "duplicate_id", "invalid_json", "wrong_format",
-                                     "list_id", "mapping_id", "missing_dialect", "wrong_dialect"])
-def test_schema_resource_roster_is_bound_to_selected_bytes(tmp_path, change):
+                                     "wrong_role", "missing_id", "list_id", "mapping_id",
+                                     "missing_dialect", "wrong_dialect"])
+def test_schema_resource_roster_is_bound_to_selected_bytes(tmp_path, change, resource):
     example = Example()
-    path = example.schema_paths[0]
+    path = example.schema_paths[0 if resource == "root" else 1]
     if change == "missing":
         example.runtime.drop(path)
     elif change == "changed_id":
         example.runtime.replace(path, encoded({"$id": "https://example.invalid/unrelated"}))
     elif change == "duplicate_id":
-        example.runtime.add(example.site + "/jsonschema_specifications/schemas/draft202012/duplicate.json",
+        example.runtime.add(example.site + "/jsonschema_specifications/schemas/draft202012/duplicate",
                             "site_package", "json", example.runtime.payload[path])
     elif change == "invalid_json":
         example.runtime.replace(path, b"{not json}\n")
     elif change in {"list_id", "mapping_id"}:
         example.runtime.replace(path, encoded({"$id": [] if change == "list_id" else {"forged": "identity"}}))
+    elif change == "missing_id":
+        value = json.loads(example.runtime.payload[path])
+        value.pop("$id")
+        example.runtime.replace(path, encoded(value))
+    elif change == "wrong_role":
+        next(row for row in example.runtime.rows if row["path"] == path)["role"] = "runtime_data"
     elif change in {"missing_dialect", "wrong_dialect"}:
         value = json.loads(example.runtime.payload[path])
         value.pop("$schema")
@@ -343,6 +358,57 @@ def compiled_contract(prepared):
     plan = json.loads(prepared.plan_bytes)
     row = next(row for row in plan["files"] if row["origin"] == "contract")
     return json.loads(dict(prepared.contents)[row["path"]])
+
+
+@pytest.mark.parametrize("resource_layout", ["package", "suffixed", "extensionless"])
+def test_resource_identity_and_format_support_package_layout_without_filename_assumptions(tmp_path, resource_layout):
+    example = Example(resource_layout=resource_layout).seal(tmp_path / "source")
+    prepared = example.prepare()
+    report = example.verify(prepared.plan_bytes)
+    assert report["bootstrap_plan_verified"] is True
+    contract = compiled_contract(prepared)
+    assert [row["schema_id"] for row in contract["resources"]] == list(probe().REQUIRED_RESOURCE_IDS)
+    assert {row["path"] for row in contract["resources"]} == {"/runtime/" + path for path in example.schema_paths}
+    if resource_layout == "package":
+        assert example.schema_paths[0].endswith("/draft202012/metaschema.json")
+        assert {path.rsplit("/", 1)[-1] for path in example.schema_paths[1:]} == {
+            "core", "applicator", "unevaluated", "validation", "meta-data", "format-annotation", "content"}
+        assert all("/draft202012/vocabularies/" in path for path in example.schema_paths[1:])
+    for phase in ("worker", "collector"):
+        assert set(probe()._validate_contract(contract, phase)) == set(probe().MODULE_NAMES)
+    destination = tmp_path / "materialized"
+    materialized = bootstrap().materialize_bootstrap(prepared, output_directory=destination)
+    assert materialized["bootstrap_view_bytes_verified"] is True
+    for row in contract["resources"]:
+        raw = example.runtime.payload[row["path"].removeprefix("/runtime/")]
+        assert len(raw) == row["size_bytes"] and digest(raw) == row["sha256"]
+        restored = destination / "rootfs" / row["path"].lstrip("/")
+        assert restored.read_bytes() == raw and restored.stat().st_mode & 0o777 == 0o400
+    for record in (report, materialized):
+        boundaries(record)
+
+
+@pytest.mark.parametrize("extra", ["format-assertion", "README", "not-a-resource.json"])
+def test_unrelated_json_and_non_json_package_resources_do_not_change_required_roster(tmp_path, extra):
+    example = Example()
+    path = example.site + "/jsonschema_specifications/schemas/draft202012/"
+    if extra == "format-assertion":
+        path += "vocabularies/format-assertion"
+        raw = encoded({"$id": "https://json-schema.org/draft/2020-12/meta/format-assertion",
+                       "$schema": "https://json-schema.org/draft/2020-12/schema"})
+        format_name = "json"
+    else:
+        path += extra
+        raw = b"authored non-JSON package resource\n"
+        format_name = "data"
+    example.runtime.add(path, "site_package", format_name, raw)
+    example.seal(tmp_path / "source")
+    prepared = example.prepare()
+    contract = compiled_contract(prepared)
+    assert [row["schema_id"] for row in contract["resources"]] == list(probe().REQUIRED_RESOURCE_IDS)
+    assert all(row["path"] != "/runtime/" + path for row in contract["resources"])
+    assert dict(prepared.contents)["/runtime/" + path] == raw
+    assert example.verify(prepared.plan_bytes)["bootstrap_plan_verified"] is True
 
 
 def test_generated_contract_and_probe_agree_when_schema_paths_have_different_order(tmp_path):
@@ -533,6 +599,57 @@ def test_synthetic_phase_reports_only_fixed_targets_and_diagnostic_results(valid
     assert len(result["resource_observations"]) == 8
     assert sys.meta_path == prior_finders
     boundaries(result)
+
+
+@pytest.mark.parametrize("change", ["digest", "size", "identity", "dialect"])
+def test_probe_rechecks_extensionless_resource_bytes_and_identity(valid, monkeypatch, change):
+    example, prepared = valid
+    contract = compiled_contract(prepared)
+    row = next(row for row in contract["resources"] if row["schema_id"].endswith("/meta/core"))
+    assert row["path"].endswith("/vocabularies/core")
+    payload = dict(example.runtime.payload)
+    path = row["path"].removeprefix("/runtime/")
+    expected = "probe_file_binding_mismatch"
+    if change == "digest":
+        payload[path] = payload[path].replace(b'"object"', b'"string"')
+        assert len(payload[path]) == row["size_bytes"] and digest(payload[path]) != row["sha256"]
+    elif change == "size":
+        row["size_bytes"] += 1
+    else:
+        document = json.loads(payload[path])
+        document["$id" if change == "identity" else "$schema"] = "https://example.invalid/changed"
+        payload[path] = encoded(document)
+        row.update(sha256=digest(payload[path]), size_bytes=len(payload[path]))
+        expected = "probe_resource_identity_mismatch"
+
+    def read(path, limit):
+        if path == probe().INTERPRETER_PATH:
+            return example.runtime.payload[example.runtime.interpreter]
+        return payload[path.removeprefix("/runtime/")]
+
+    prior_finders = list(sys.meta_path)
+    monkeypatch.setattr(probe(), "_read_regular", read)
+    monkeypatch.setattr(probe(), "_module_observation", lambda selected, _raw, _loaded: dict(selected))
+    monkeypatch.setattr(probe(), "_sha", digest)
+    monkeypatch.setattr(probe(), "_parse", json.loads)
+    monkeypatch.setattr(probe(), "_finite_checks", lambda _phase: pytest.fail("resource rejection required"))
+    monkeypatch.setattr(sys, "path", list(probe().SEARCH_ROOTS))
+    with pytest.raises(probe().ProbeError, match=expected):
+        probe()._run_phase(contract, "worker", {"fixture": "synthetic startup"})
+    assert sys.meta_path == prior_finders
+
+
+@pytest.mark.parametrize("path", [
+    "/host/jsonschema_specifications/schemas/core",
+    "/runtime/python/lib/python3.11/site-packages/jsonschema_specifications/schemas-other/core",
+    "/runtime/python/lib/python3.11/site-packages/jsonschema_specifications/schemas/../core",
+])
+def test_extensionless_contract_resources_still_require_selected_normalized_schema_root(valid, path):
+    _, prepared = valid
+    contract = compiled_contract(prepared)
+    contract["resources"][0]["path"] = path
+    with pytest.raises(probe().ProbeError, match="probe_resource_descriptor_invalid"):
+        probe()._validate_contract(contract, "worker")
 
 
 def test_probe_phase_refuses_an_already_imported_original_operator(valid, monkeypatch):

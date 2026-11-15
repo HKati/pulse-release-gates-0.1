@@ -71,11 +71,18 @@ egg or wheel archives, excluding unmodeled startup overrides from this profile.
 
 The resource contract binds the Draft 2020-12 root metaschema and seven vocabulary
 metaschemas: core, applicator, unevaluated, validation, metadata, format annotation
-and content. Each requires a unique selected file under
-`jsonschema_specifications/schemas`, an exact byte binding, the expected `$id`
-and the Draft 2020-12 `$schema` declaration. Additional resources remain preserved
-without expanding the finite probe assertions. Generated contracts are checked
-against the fixed probe's own contract validator before plan acceptance.
+and content. Discovery considers files selected with format `json` under
+`jsonschema_specifications/schemas`, without requiring a filename suffix. Each
+required resource must have role `site_package`, an exact byte binding, a unique
+expected `$id` and the Draft 2020-12 `$schema` declaration. This accepts the pinned
+`jsonschema-specifications==2025.9.1` layout: `draft202012/metaschema.json` and
+extensionless files such as `draft202012/vocabularies/core`.
+
+Additional resources remain preserved without expanding the finite probe
+assertions. Selected non-JSON files never satisfy a resource obligation. Generated
+contracts retain the exact selected paths and are checked against the fixed
+probe's own contract validator before plan acceptance; the probe also accepts
+extensionless resource paths while retaining path, byte and identity checks.
 
 This finite target contract does not establish all Python dependencies.
 Conditional imports, frozen modules, native initializers, dynamic imports and

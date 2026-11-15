@@ -258,7 +258,7 @@ def _validate_contract(contract, phase):
     for row in resources:
         _need(type(row) is dict and set(row) == {"path", "sha256", "size_bytes", "schema_id"},
               "probe_resource_shape")
-        _need(_path_ok(row["path"]) and row["path"].endswith(".json") and row["path"].startswith(
+        _need(_path_ok(row["path"]) and row["path"].startswith(
             SITE_PACKAGES_ROOT + "/jsonschema_specifications/schemas/")
               and _hash_ok(row["sha256"]) and type(row["size_bytes"]) is int
               and 0 < row["size_bytes"] <= CONTROL_LIMIT and row["schema_id"] in REQUIRED_RESOURCE_IDS,

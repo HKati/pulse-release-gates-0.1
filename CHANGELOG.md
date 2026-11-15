@@ -10,10 +10,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   with an independently selected finite profile, deterministic launch-plan
   reconstruction, exact module/resource bindings and private launch-view
   materialization. Preserve a fixed worker/collector diagnostic probe, native
-  aliases and incomplete materialization prefixes. Add synthetic regressions
-  and coordinate Tools count guards from 186 to 187. Preparation performs no
-  selected runtime execution; the probe grants no qualification or authority,
-  observed acquisition remains closed and `authority_effect=none`.
+  aliases and incomplete materialization prefixes. Discover selected JSON Schema
+  resources by format and schema identity, including extensionless vocabulary
+  files. Add synthetic regressions and coordinate Tools count guards from 186
+  to 187. Preparation performs no selected runtime execution; the probe grants
+  no qualification or authority, observed acquisition remains closed and
+  `authority_effect=none`.
 
 - Add [B2 selected runtime preservation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_RUNTIME_v0.md)
   with independent runtime/operator selections, a closed byte-bound capsule,

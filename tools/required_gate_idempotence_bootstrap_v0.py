@@ -155,9 +155,9 @@ def _resources(runtime_selection: dict, payload: dict) -> list[dict]:
     prefix = SITE + "/jsonschema_specifications/schemas/"
     for item in runtime_selection["files"]:
         path = item["path"]
-        if not path.startswith(prefix) or not path.endswith(".json"):
+        if not path.startswith(prefix) or item["format"] != "json":
             continue
-        need(item["role"] == "site_package" and item["format"] == "json", "bootstrap_resource_format_mismatch")
+        need(item["role"] == "site_package", "bootstrap_resource_format_mismatch")
         document = parse(payload[path])
         need(type(document) is dict, "bootstrap_resource_invalid")
         identity = document.get("$id")
