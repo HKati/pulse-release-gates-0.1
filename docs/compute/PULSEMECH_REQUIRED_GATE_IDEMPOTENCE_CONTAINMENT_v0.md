@@ -189,6 +189,13 @@ The caller separately selects and retains the resulting binary hash and size.
 The coordinator never invokes a compiler or downloads a launcher. A successful
 build alone does not establish reproducibility or source-to-binary provenance.
 
+The subsequent [fixed entry build acquisition and provenance path](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_BUILD_v0.md)
+preserves two builds, their raw source/log/binary bindings and before/after
+toolchain observations, with an independent record checker and a manual hosted
+attestation workflow. It never executes the resulting entry. Same-host repeated
+bytes, a future verified provenance bundle and launch-host qualification remain
+distinct results; this path does not unlock the selected runtime.
+
 ## Commands
 
 `prepare`, `check`, `run-example` and `check-attempt` take the same original runtime
@@ -233,7 +240,9 @@ All outcomes retain diagnostic-only scope, false `containment_enforced`,
 `execution_authorized`, `observed_acquisition_supported` and
 `production_gate_eligible`; `metric_pass=null` and `authority_effect=none`.
 
-Next come a reviewed launch host and entry/launcher provenance, an actual bounded
+The [entry build path](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_BUILD_v0.md) supplies
+the next implementation increment. Remaining work includes an actual reviewed
+hosted provenance run, launcher provenance and a reviewed launch host, a bounded
 example proving the boundary on that host, independently bound runtime and loader
 observations, and reviewed selected-bootstrap integration. Actual reference
 execution still requires separate owner authorization. B3, B4 and B5 remain
