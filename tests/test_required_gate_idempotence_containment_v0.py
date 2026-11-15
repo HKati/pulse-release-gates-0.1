@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import copy
+from contextlib import contextmanager
 from dataclasses import FrozenInstanceError
 import errno
 import fcntl
@@ -19,6 +20,7 @@ import json
 import os
 from pathlib import Path
 import resource
+import select
 import shutil
 import stat
 import struct
@@ -495,6 +497,260 @@ def install_authored_child(monkeypatch, prepared, tmp_path, *, stdout=b"", stder
 
     monkeypatch.setattr(subject().subprocess, "Popen", popen)
     return children
+
+
+@contextmanager
+def staged_overflow_child(monkeypatch, tmp_path, overflow_stream):
+    """Buffer the other stream's second byte before servicing an overflow.
+
+    Pipe handshakes establish the ordering; no sleep or pipe-capacity assumption
+    controls it. The selector deliberately services the overflowing stream once
+    the first other-stream byte reaches the sink.
+    """
+    other = "stderr" if overflow_stream == "stdout" else "stdout"
+    limit = 65536 if overflow_stream == "stdout" else 4096
+    other_fd, overflow_fd = ((2, 1) if overflow_stream == "stdout" else (1, 2))
+    gate_r, gate_w = os.pipe()
+    ready_r, ready_w = os.pipe()
+    descriptors = [gate_r, gate_w, ready_r, ready_w]
+    children = []
+    code = (
+        "import os,signal\n"
+        f"os.write({other_fd},b'A')\n"
+        f"assert os.read({gate_r},1)==b'G'\n"
+        f"os.write({other_fd},b'B')\n"
+        f"os.write({ready_w},b'R')\n"
+        f"data=b'x'*{limit + 1}\n"
+        f"while data:\n count=os.write({overflow_fd},data);data=data[count:]\n"
+        "signal.pause()\n"
+    )
+
+    def popen(_argv, **kwargs):
+        child = REAL_POPEN([sys.executable, "-I", "-S", "-B", "-c", code],
+                           stdin=kwargs["stdin"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                           close_fds=True, pass_fds=(gate_r, ready_w), cwd=tmp_path,
+                           env={"LC_ALL": "C", "TZ": "UTC"}, start_new_session=True)
+        children.append(child)
+        for fd in (gate_r, ready_w):
+            os.close(fd)
+            descriptors.remove(fd)
+        return child
+
+    def release():
+        os.write(gate_w, b"G")
+        assert select.select([ready_r], [], [], 5)[0], "authored child did not buffer its second byte"
+        assert os.read(ready_r, 1) == b"R"
+
+    selector_type = subject().selectors.DefaultSelector
+
+    class OrderedSelector(selector_type):
+        prefix_selected = False
+
+        def select(self, timeout=None):
+            name = overflow_stream if self.prefix_selected else other
+            key = self.get_key(getattr(children[0], name))
+            if select.select([key.fd], [], [], timeout)[0]:
+                self.prefix_selected = True
+                return [(key, subject().selectors.EVENT_READ)]
+            return []
+
+    monkeypatch.setattr(subject().subprocess, "Popen", popen)
+    monkeypatch.setattr(subject().selectors, "DefaultSelector", OrderedSelector)
+    try:
+        yield SimpleNamespace(children=children, release=release, other=other, limit=limit)
+    finally:
+        for fd in descriptors:
+            os.close(fd)
+        for child in children:
+            if child.poll() is None:
+                child.kill()
+            child.wait(timeout=2)
+
+
+@contextmanager
+def buffered_deadline_child(monkeypatch, tmp_path, *, keep_writers=False):
+    """Expire the observed deadline only after both real pipes contain bytes."""
+    ready_r, ready_w = os.pipe()
+    out_r, out_w = os.pipe()
+    err_r, err_w = os.pipe()
+    descriptors = [ready_r, ready_w, out_r, out_w, err_r, err_w]
+    children = []
+    clock, offset = time.monotonic, [0]
+    monkeypatch.setattr(subject().time, "monotonic", lambda: clock() + offset[0])
+    code = ("import os,signal\n"
+            "os.write(1,b'pending stdout')\n"
+            "os.write(2,b'pending stderr')\n"
+            f"os.write({ready_w},b'R')\n"
+            "signal.pause()\n")
+
+    def popen(_argv, **kwargs):
+        child = REAL_POPEN([sys.executable, "-I", "-S", "-B", "-c", code],
+                           stdin=kwargs["stdin"], stdout=out_w, stderr=err_w,
+                           close_fds=True, pass_fds=(ready_w,), cwd=tmp_path,
+                           env={"LC_ALL": "C", "TZ": "UTC"}, start_new_session=True)
+        children.append(child)
+        child.stdout = os.fdopen(out_r, "rb", buffering=0)
+        child.stderr = os.fdopen(err_r, "rb", buffering=0)
+        for fd in (out_r, err_r):
+            descriptors.remove(fd)
+        for fd in (ready_w,) if keep_writers else (ready_w, out_w, err_w):
+            os.close(fd)
+            descriptors.remove(fd)
+        assert select.select([ready_r], [], [], 5)[0], "authored child did not buffer both streams"
+        assert os.read(ready_r, 1) == b"R"
+        offset[0] = 16
+        return child
+
+    monkeypatch.setattr(subject().subprocess, "Popen", popen)
+    try:
+        yield children
+    finally:
+        for fd in descriptors:
+            os.close(fd)
+        for child in children:
+            if child.poll() is None:
+                child.kill()
+            child.wait(timeout=2)
+
+
+@pytest.mark.parametrize("overflow_stream", ["stdout", "stderr"])
+def test_failed_attempt_drains_other_stream_before_binding_receipt(valid, tmp_path, monkeypatch, overflow_stream):
+    directory = subject().bootstrap.runtime.acquisition._Directory
+    append, read = directory.append, os.read
+    drained = []
+    destination = tmp_path / "attempt"
+    with staged_overflow_child(monkeypatch, tmp_path, overflow_stream) as staged:
+        def preserve(fd, data):
+            name = Path(os.readlink("/proc/self/fd/" + str(fd))).stem
+            if name == staged.other and data == b"A":
+                staged.release()
+            elif name == staged.other:
+                assert staged.children[0].returncode is not None
+                drained.append(data)
+            append(fd, data)
+
+        def bounded_read(fd, size):
+            if staged.children and staged.children[0].returncode is not None:
+                child = staged.children[0]
+                stream = getattr(child, overflow_stream)
+                assert stream.closed or fd != stream.fileno(), "full stream must not be drained again"
+            return read(fd, size)
+
+        monkeypatch.setattr(directory, "append", staticmethod(preserve))
+        monkeypatch.setattr(subject().os, "read", bounded_read)
+        receipt = subject().run_example(valid, output_directory=destination)
+        assert len(staged.children) == 1 and staged.children[0].returncode is not None
+        expected = {overflow_stream: b"x" * staged.limit, staged.other: b"AB"}
+    assert b"".join(drained) == b"B"
+    assert receipt["status"] == "incomplete"
+    assert receipt["error_code"] == "containment_" + overflow_stream + "_limit"
+    for name, raw in expected.items():
+        assert (destination / (name + ".bin")).read_bytes() == raw
+        assert receipt["streams"][name] == bound(raw)
+    checked = verify(valid, receipt, expected["stdout"], expected["stderr"])
+    assert checked["attempt_complete"] is False and checked["finite_diagnostic_valid"] is False
+    boundaries(checked)
+
+
+@pytest.mark.parametrize("keep_writers", [False, True])
+def test_deadline_drain_preserves_both_pipes_without_waiting_for_eof(valid, tmp_path, monkeypatch, keep_writers):
+    read = os.read
+    empty_nonblocking = []
+    chunks = {"stdout": bytearray(), "stderr": bytearray()}
+    with buffered_deadline_child(monkeypatch, tmp_path, keep_writers=keep_writers) as children:
+        def checked_read(fd, size):
+            if children and children[0].returncode is not None:
+                assert not os.get_blocking(fd)
+            try:
+                return read(fd, size)
+            except BlockingIOError:
+                empty_nonblocking.append(fd)
+                raise
+
+        def preserve(name, data):
+            assert children[0].returncode is not None, "pending bytes must be drained after stopping the child"
+            chunks[name].extend(data)
+
+        monkeypatch.setattr(subject().os, "read", checked_read)
+        observed, failure, raw = subject()._backend(valid, preserve)
+        assert len(children) == 1 and children[0].returncode is not None
+        assert observed["exit_code"] is not None
+    assert failure == "containment_deadline_exceeded"
+    assert raw == {"stdout": b"pending stdout", "stderr": b"pending stderr"}
+    assert raw == {name: bytes(value) for name, value in chunks.items()}
+    assert len(empty_nonblocking) == (2 if keep_writers else 0)
+
+
+def test_drain_sink_failure_preserves_partial_bytes_without_receipt(valid, tmp_path, monkeypatch):
+    directory = subject().bootstrap.runtime.acquisition._Directory
+    append = directory.append
+    retained = []
+    destination = tmp_path / "attempt"
+    with buffered_deadline_child(monkeypatch, tmp_path) as children:
+        def partial(fd, data):
+            if os.readlink("/proc/self/fd/" + str(fd)).endswith("/stdout.bin"):
+                assert children[0].returncode is not None
+                retained.append(data[:3])
+                os.write(fd, retained[-1])
+                raise OSError(errno.ENOSPC, "authored drain preservation failure")
+            append(fd, data)
+
+        monkeypatch.setattr(directory, "append", staticmethod(partial))
+        with pytest.raises(subject().PreservationError):
+            subject().run_example(valid, output_directory=destination)
+        assert len(children) == 1 and children[0].returncode is not None
+    assert retained == [b"pen"]
+    assert (destination / "stdout.bin").read_bytes() == b"pen"
+    assert not (destination / "receipt.json").exists()
+    marker = json.loads((destination / "attempt.incomplete.json").read_bytes())
+    assert marker["error_code"] == "containment_preservation_failed"
+    boundaries(marker)
+
+
+def test_capture_sink_failure_is_not_retried_by_pending_output_drain(valid, tmp_path, monkeypatch):
+    directory = subject().bootstrap.runtime.acquisition._Directory
+    append = directory.append
+    retained = []
+    destination = tmp_path / "attempt"
+    with staged_overflow_child(monkeypatch, tmp_path, "stderr") as staged:
+        def partial(fd, data):
+            if os.readlink("/proc/self/fd/" + str(fd)).endswith("/stdout.bin"):
+                assert data == b"A", "a failed sink must not be retried with buffered B"
+                staged.release()
+                retained.append(data)
+                os.write(fd, data)
+                raise OSError(errno.ENOSPC, "authored capture preservation failure")
+            append(fd, data)
+
+        monkeypatch.setattr(directory, "append", staticmethod(partial))
+        with pytest.raises(subject().PreservationError):
+            subject().run_example(valid, output_directory=destination)
+        assert len(staged.children) == 1 and staged.children[0].returncode is not None
+    assert retained == [b"A"]
+    assert (destination / "stdout.bin").read_bytes() == b"A"
+    assert (destination / "stderr.bin").read_bytes() == b""
+    assert not (destination / "receipt.json").exists()
+    marker = json.loads((destination / "attempt.incomplete.json").read_bytes())
+    assert marker["error_code"] == "containment_preservation_failed"
+
+
+def test_drain_read_error_cannot_publish_a_shortened_receipt(valid, tmp_path, monkeypatch):
+    read = os.read
+    destination = tmp_path / "attempt"
+    with buffered_deadline_child(monkeypatch, tmp_path) as children:
+        def broken_read(fd, size):
+            if (children and children[0].returncode is not None and not children[0].stdout.closed
+                    and fd == children[0].stdout.fileno()):
+                raise OSError(errno.EIO, "authored pending-pipe read failure")
+            return read(fd, size)
+
+        monkeypatch.setattr(subject().os, "read", broken_read)
+        with pytest.raises(subject().PreservationError):
+            subject().run_example(valid, output_directory=destination)
+        assert len(children) == 1 and children[0].returncode is not None
+    assert not (destination / "receipt.json").exists()
+    marker = json.loads((destination / "attempt.incomplete.json").read_bytes())
+    assert marker["error_code"] == "containment_preservation_failed"
 
 
 def test_backend_seals_every_input_and_uses_exact_descriptor_arguments(valid, tmp_path, monkeypatch):

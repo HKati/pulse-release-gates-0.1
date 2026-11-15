@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   with deterministic boundary requests, sealed input descriptors, a static entry,
   a fixed syscall policy and a bounded example-only launcher. Verify raw attempt
   records against reconstructed inputs and preserve failed or partial evidence.
+  After stopping a failed child, nonblockingly drain both output pipes through
+  the preservation sink up to their independent caps before closing them;
+  reject normal receipts after a drain or sink preservation failure.
   Keep selected-runtime execution closed and all qualification and authority
   flags unchanged. Add synthetic regressions and coordinate Tools count guards
   from 187 to 188; targeted pytest remains 40 and `authority_effect=none`.

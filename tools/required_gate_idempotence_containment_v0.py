@@ -256,6 +256,17 @@ def _backend(prepared, sink):
     limits = request["launch_policy"]["limits"]
     caps = {"stdout": limits["stdout_bytes"], "stderr": limits["stderr_bytes"]}
     buffers = {name: bytearray() for name in caps}
+    sink_failed = False
+
+    def retain(name, raw):
+        nonlocal sink_failed
+        try:
+            sink(name, raw)
+        except Exception as exc:
+            sink_failed = True
+            raise PreservationError("containment_preservation_failed") from exc
+        buffers[name].extend(raw)
+
     observation = {"pid": None, "exit_code": None, "started_monotonic_ns": time.monotonic_ns(),
                    "completed_monotonic_ns": None}
     failure = None
@@ -281,10 +292,11 @@ def _backend(prepared, sink):
                                      pass_fds=tuple(sorted({launcher_fd, seccomp_fd, args_fd, *descriptors})),
                                      start_new_session=True)
             observation["pid"] = child.pid
+            for name in caps:
+                stack.callback(getattr(child, name).close)
             selector = stack.enter_context(selectors.DefaultSelector())
             for name in caps:
                 stream = getattr(child, name)
-                stack.callback(stream.close)
                 os.set_blocking(stream.fileno(), False)
                 selector.register(stream, selectors.EVENT_READ, name)
             while selector.get_map():
@@ -304,11 +316,7 @@ def _backend(prepared, sink):
                     available = caps[name] - len(buffers[name])
                     retained = raw[:available]
                     if retained:
-                        try:
-                            sink(name, retained)
-                        except Exception as exc:
-                            raise PreservationError("containment_preservation_failed") from exc
-                        buffers[name].extend(retained)
+                        retain(name, retained)
                     if len(raw) > available:
                         failure = "containment_" + name + "_limit"
                         break
@@ -337,6 +345,23 @@ def _backend(prepared, sink):
                 except subprocess.TimeoutExpired:
                     failure = "containment_backend_reap_failed"
                 observation["exit_code"] = child.returncode
+                if failure and not sink_failed:
+                    # Stop first, then retain only bytes already readable. Each
+                    # pipe has its own remaining cap; never wait for more data.
+                    try:
+                        for name in caps:
+                            stream = getattr(child, name)
+                            os.set_blocking(stream.fileno(), False)
+                            while len(buffers[name]) < caps[name]:
+                                try:
+                                    raw = os.read(stream.fileno(), min(65536, caps[name] - len(buffers[name])))
+                                except BlockingIOError:
+                                    break
+                                if not raw:
+                                    break
+                                retain(name, raw)
+                    except (OSError, ValueError) as exc:
+                        raise PreservationError("containment_preservation_failed") from exc
             observation["completed_monotonic_ns"] = time.monotonic_ns()
     if not failure and observation["completed_monotonic_ns"] - observation["started_monotonic_ns"] > limits["wall_seconds"] * 1_000_000_000:
         failure = "containment_deadline_exceeded"

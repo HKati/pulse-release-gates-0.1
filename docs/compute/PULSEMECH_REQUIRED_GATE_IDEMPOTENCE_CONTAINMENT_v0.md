@@ -138,6 +138,15 @@ The new private output directory preserves:
 - Bounded raw prefixes in `stdout.bin` and `stderr.bin`, including failed attempts.
 - `receipt.json` with `completed` or `incomplete` status when preservation succeeds.
 
+After an overflow or deadline failure, the coordinator stops the child and
+performs its bounded reap before draining both pipes nonblockingly. Each stream
+retains already readable bytes up to its own remaining cap through the same
+preservation sink, before the pipes close. The drain stops at EOF, a would-block
+read or that stream's cap; it does not wait for additional output or restart the
+attempt. The original failure remains an incomplete result. A failing capture
+sink is not retried during cleanup, and a drain read or sink failure prevents a
+normal receipt while retaining any prefix already written.
+
 Before saving a normal receipt, the coordinator independently reopens all six
 preserved prefix files through the original pinned directory. It requires the
 exact roster, original file identities, private regular files with one link,
@@ -211,8 +220,10 @@ to 188, with current count consumers coordinated together; targeted pytest
 remains 40. Existing historical count descriptions retain their original scope.
 
 Tests use authored ELF/Python inputs and diagnostic records. Process-plumbing
-tests run authored child helpers; entry and syscall tests use isolated synthetic
-children. CI does not assume bubblewrap is installed or that its namespaces can
+tests run authored child helpers, including pending output in both streams after
+overflow and deadline failures, independent caps, nonblocking cleanup and failed
+drain preservation. Entry and syscall tests use isolated synthetic children.
+CI does not assume bubblewrap is installed or that its namespaces can
 be created. Unsupported host setup is an incomplete attempt, never a skipped
 qualification check or successful containment evidence.
 
