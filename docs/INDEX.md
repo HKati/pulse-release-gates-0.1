@@ -56,6 +56,8 @@ moves between merged and open work, update this index.
 
 - [B2 selected runtime preservation](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_RUNTIME_v0.md) — **Implemented closed-file preservation, static native dependency bindings and exact restoration.** Bind independent runtime/operator selections, retain selected interpreter/library/Python/source bytes in a separate capsule, and restore them without execution. Dynamic closure, actual loader resolution, host qualification and observed-launch integration remain outstanding; B2 is incomplete and `authority_effect=none`.
 
+- [B2 bootstrap preparation](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_BOOTSTRAP_v0.md) — **Implemented deterministic launch planning, exact view materialization and a fixed diagnostic probe.** Bind finite module/resource targets and native aliases to an accepted runtime capsule, reconstruct the plan independently and preserve its exact filesystem bytes. The probe remains diagnostic; contained execution, runtime qualification and observed-launch integration remain outstanding. B2 is incomplete and `authority_effect=none`.
+
 [Current coverage and implementation plan](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#18-required-gate-coverage-plan-after-accepted-rejection-verification) ·
 [Machine-readable nineteen-gate inventory](compute/required_gate_coverage_plan_v0/coverage_plan_v0.json) ·
 [Completed bounded verification](compute/admission_rejection_43445176088_v0/README.md)

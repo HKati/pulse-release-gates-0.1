@@ -196,3 +196,4 @@ tests/test_required_gate_suite_contract_v0.py
 tests/test_required_gate_idempotence_observation_v0.py
 tests/test_required_gate_idempotence_acquisition_v0.py
 tests/test_required_gate_idempotence_runtime_v0.py
+tests/test_required_gate_idempotence_bootstrap_v0.py
