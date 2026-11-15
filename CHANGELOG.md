@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add [B2 selected runtime preservation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_RUNTIME_v0.md)
+  with independent runtime/operator selections, a closed byte-bound capsule,
+  static ELF interpreter/dependency bindings and exact private-directory
+  restoration. Reject source, archive, native-provider and filesystem
+  substitutions; retain incomplete restoration prefixes. Add synthetic
+  regressions and coordinate Tools count guards from 185 to 186. No preserved
+  runtime is executed, the observed launch route stays closed, runtime closure
+  remains incomplete and `authority_effect=none`.
+
 - Add [bounded B2 idempotence acquisition primitives](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ACQUISITION_v0.md)
   with selected-source preparation, sealed worker/input/interpreter descriptors,
   Linux process and syscall restrictions, and synthetic finite-suite orchestration.

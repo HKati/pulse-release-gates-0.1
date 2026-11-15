@@ -9,6 +9,12 @@ B2 is incomplete.** This continuation follows the
 [offline observation adapter](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_OBSERVATION_v0.md).
 The public command prepares selected bytes without executing the sanitizer.
 
+The subsequent
+[runtime preservation tool](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_RUNTIME_v0.md)
+can preserve an independently selected runtime file set, check its static native
+bindings and restore exact bytes without execution. It does not integrate the
+observed launcher or establish complete runtime closure.
+
 The worker can perform one selected application when called by a future reviewed
 launcher. The process primitive supplies immutable inputs and enforces bounded
 child execution. The coordinator is exercised through an explicit example-only
@@ -218,9 +224,11 @@ per-occurrence failures, prefix preservation, output and path substitutions,
 forged preparations, closed observed launch, and actual Linux process controls
 with synthetic sources.
 
-Next, preserve and bind the recoverable interpreter, loader, shared libraries,
-standard-library/bootstrap and collector/verifier dependency closure; review
-the resulting runtime and integrate the observed launch route. B3 property
+The subsequent runtime preservation implementation supplies closed selected-file
+capture, static native bindings and byte-exact restoration. Its separate capsule
+does not change this process primitive's live dependencies. Qualification of the
+restored bootstrap, dynamic dependency coverage, actual loader-path enforcement,
+host review and observed-launch integration remain outstanding. B3 property
 calculation and independent reconstruction, B4 admission and B5 separately
 authorized actual reference remain subsequent work.
 
