@@ -245,11 +245,15 @@ reports `bootstrap_view_bytes_verified=true`. Both retain:
 }
 ```
 
-Next comes the runner that enforces this view before execution, followed by
-independently checked bounded bootstrap observations, dynamic dependency and
-loader binding, host review, and observed-launch integration. Actual reference
-execution requires separate owner authorization. B3 property calculation and
-independent reconstruction, B4 admission and B5 actual reference remain subsequent.
+The [containment primitives](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_v0.md)
+now derive a separate execution projection, fixed entry and syscall boundary,
+and supply bounded example-only attempts with independent diagnostic-record
+checking. They retain this preparation and probe unchanged. Selected-runtime
+execution remains closed pending entry/launcher provenance, host review and
+independently checked bounded bootstrap observations. Dynamic dependency and
+loader binding and observed-launch integration remain outstanding. Actual
+reference execution requires separate owner authorization. B3 property calculation
+and independent reconstruction, B4 admission and B5 actual reference remain subsequent.
 
 Preserve the original `43514702328`, attempt 1 artifact, historical Q2 FAIL
 (49/50 with 1 UNKNOWN), all twelve unsupported gate classifications and completed
