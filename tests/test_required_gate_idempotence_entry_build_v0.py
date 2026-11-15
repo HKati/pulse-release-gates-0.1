@@ -709,32 +709,87 @@ def test_preserved_file_and_output_directory_substitution_cannot_publish_record(
         assert (destination / "keep").read_bytes() == b"replacement directory"
 
 
-def test_toolchain_change_after_builds_preserves_both_attempts_without_record(build_selection, compiled_entry,
-                                                                          tmp_path, monkeypatch):
+@pytest.mark.parametrize("lookup_form", ["bare", "absolute", "target-prefixed"])
+@pytest.mark.parametrize("inject_change", [False, True], ids=["stable", "changed"])
+def test_toolchain_query_paths_and_post_query_change_preservation(build_selection, compiled_entry,
+                                                                tmp_path, monkeypatch, lookup_form,
+                                                                inject_change):
     b = builder()
     calls = authored_builds(monkeypatch, compiled_entry)
+    assembler = Path(shutil.which("as", path=ENVIRONMENT["PATH"]) or "")
+    assert assembler.is_file(), "The authored toolchain query requires a host assembler."
+    if lookup_form == "bare":
+        query_stdout = b"as\n"
+        expected_lookup = next(Path(directory) / "as" for directory in ("/usr/bin", "/bin")
+                               if (Path(directory) / "as").exists())
+    else:
+        alias = tmp_path / ("as" if lookup_form == "absolute" else "x86_64-linux-gnu-as")
+        alias.symlink_to(assembler.resolve(strict=True))
+        query_stdout = (str(alias) + "\n").encode("ascii")
+        expected_lookup = alias
+    original_run = b._run
+    assembler_queries = []
+    def query_run(argv, *, cwd, seconds, sink):
+        if argv == [str(build_selection["compiler"]), "-print-prog-name=as"]:
+            # Author this query through the real preservation sink so its raw
+            # bytes, recorded lookup and independently checked binding agree.
+            assembler_queries.append(query_stdout)
+            sink("stdout", query_stdout)
+            return process(800 + len(assembler_queries)), None, {"stdout": query_stdout, "stderr": b""}
+        return original_run(argv, cwd=cwd, seconds=seconds, sink=sink)
+    monkeypatch.setattr(b, "_run", query_run)
     original_capture, original_tool = b._capture, b._tool
-    changed_after_last_query = []
+    after_assembler_lookup, completed_last_query, injected = [], [], []
     def capture(evidence, prefix, *args, **kwargs):
         result = original_capture(evidence, prefix, *args, **kwargs)
+        if prefix == "query-after-as":
+            after_assembler_lookup.append(b._query_lookup(result[2]["stdout"], "as"))
         if prefix == "query-after-ld":
-            changed_after_last_query.append(True)
+            completed_last_query.append(True)
         return result
     def changed(lookup):
         descriptor, identity = original_tool(lookup)
-        if changed_after_last_query and Path(lookup).name == "as":
+        if inject_change and completed_last_query and Path(lookup) == after_assembler_lookup[0]:
+            assert descriptor["sha256"] != "0" * 64
             descriptor["sha256"] = "0" * 64
+            injected.append(Path(lookup))
         return descriptor, identity
     monkeypatch.setattr(b, "_capture", capture)
     monkeypatch.setattr(b, "_tool", changed)
-    directory = tmp_path / "changed-toolchain"
-    with pytest.raises(checker().BuildError, match="entry_build_toolchain_changed"):
-        b.acquire_entry_build(**build_selection, output_directory=directory)
+    directory = tmp_path / "toolchain-evidence"
+    if inject_change:
+        with pytest.raises(checker().BuildError, match="entry_build_toolchain_changed"):
+            b.acquire_entry_build(**build_selection, output_directory=directory)
+        assert injected == [expected_lookup]
+        assert incomplete(directory)["error_code"] == "entry_build_toolchain_changed"
+        assert (directory / "query-after-as.stdout.bin").read_bytes() == query_stdout
+        assert (directory / "query-after-ld.stdout.bin").read_bytes()
+        assert not (directory / "toolchain-after.json").exists()
+    else:
+        record = b.acquire_entry_build(**build_selection, output_directory=directory)
+        assert record["status"] == "completed" and injected == []
+        boundaries(record)
+        report = checker().check_directory(directory,
+            expected_request_sha256=digest((directory / "request.json").read_bytes()),
+            expected_record_sha256=digest((directory / "record.json").read_bytes()),
+            source_commit=build_selection["source_commit"])
+        assert report["entry_build_record_verified"] is True
+        boundaries(report)
+        assert not (directory / "attempt.incomplete.json").exists()
+        for label in ("before", "after"):
+            toolchain = json.loads((directory / ("toolchain-" + label + ".json")).read_bytes())
+            selected = next(row for row in toolchain["components"] if row["name"] == "as")
+            query = next(row for row in toolchain["queries"] if row["name"] == "as")
+            assert selected["lookup_path"] == str(expected_lookup)
+            assert selected["path"] == str(assembler.resolve(strict=True))
+            assert base64.b64decode(query["stdout_b64"]) == query_stdout
     assert calls == ["build-1", "build-2"]
-    assert incomplete(directory)["error_code"] == "entry_build_toolchain_changed"
+    assert assembler_queries == [query_stdout, query_stdout]
+    assert after_assembler_lookup == [expected_lookup] and completed_last_query == [True]
     assert all((directory / build_id / "result.json").is_file() for build_id in calls)
-    assert (directory / "query-after-ld.stdout.bin").read_bytes()
-    assert not (directory / "toolchain-after.json").exists()
+    assert all((directory / build_id / "stdout.bin").read_bytes() == b"" for build_id in calls)
+    assert all((directory / build_id / "stderr.bin").read_bytes() == b"authored compilation diagnostics\n"
+               for build_id in calls)
 
 
 def test_process_preserves_original_bytes_and_reports_nonzero_exit(tmp_path):

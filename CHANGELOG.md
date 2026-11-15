@@ -17,6 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   coordinate the guard fixtures and exercise the actual shared version guard.
   Classify the exact workflow bytes as build-evidence preservation with
   attestation participation and no required-gate or release-path participation.
+  Bind the toolchain-change regression to the observed assembler lookup and
+  verify stable and changed observations for bare, absolute and target-prefixed
+  query paths, retaining the exact failed-attempt diagnostics.
   No produced entry or selected runtime is executed, no workflow is dispatched
   by this change, and host/compiler qualification remains open. Add regressions
   and coordinate Tools count guards from 188 to 189; targeted pytest remains 40,
