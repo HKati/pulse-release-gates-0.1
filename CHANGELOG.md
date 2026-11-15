@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add [B2 containment primitives](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_v0.md)
+  with deterministic boundary requests, sealed input descriptors, a static entry,
+  a fixed syscall policy and a bounded example-only launcher. Verify raw attempt
+  records against reconstructed inputs and preserve failed or partial evidence.
+  Keep selected-runtime execution closed and all qualification and authority
+  flags unchanged. Add synthetic regressions and coordinate Tools count guards
+  from 187 to 188; targeted pytest remains 40 and `authority_effect=none`.
+
 - Add [B2 bootstrap preparation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_BOOTSTRAP_v0.md)
   with an independently selected finite profile, deterministic launch-plan
   reconstruction, exact module/resource bindings and private launch-view
