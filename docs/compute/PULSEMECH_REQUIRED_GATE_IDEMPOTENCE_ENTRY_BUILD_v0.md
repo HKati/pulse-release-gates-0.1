@@ -27,8 +27,9 @@ equivalence between source and binary, or qualification of the launch host.
 
 The schema is pinned by SHA-256 in the checker. The existing containment,
 bootstrap, runtime, acquisition, observation and B1 implementations and schemas
-retain their bytes. Existing workflows retain their bytes; the new workflow has
-only a manual trigger.
+retain their bytes. Existing execution workflows retain their bytes. Repository
+hygiene admits the exact Python patch only for the new workflow's `build` and
+`attest` setup steps; the new workflow has only a manual trigger.
 
 ## Fixed source and recipe
 
@@ -198,6 +199,23 @@ Both jobs guard the fixed repository name and ID, owner/triggering actor `HKati`
 commit identities. Actions are pinned by full commit SHA. Python is selected as
 3.11.16 and the existing hash-locked attestation requirements file is checked
 against its pinned digest before installation.
+
+The shared repository-hygiene guard requires the exact workflow path and exactly
+one `actions/setup-python` step in each of `build` and `attest`, both pinned to
+`3.11.16`. Every ordinary job retains the core `3.11` rule. Missing or renamed
+jobs, missing or duplicate setup steps, broader version selectors and patch
+drift reject. Existing synthetic guard environments include the newly required
+workflow so their positive and negative controls continue to test their intended
+rules. The entry-build regressions execute the actual shared guard as well.
+
+The [normative/shadow inventory](../../scripts/build_normative_shadow_inventory_v0.py)
+classifies only the exact reviewed workflow path and bytes as build-evidence
+preservation. Its `attestation_participation=true` describes the workflow's
+signing role; `required_gate_participation=false`,
+`release_path_participation=false` and `authority_effect=none` retain the
+non-authorizing boundary. This classification is not a record that the workflow
+has run or that a signature has been verified. Changed bytes or an alternate
+workflow path require a new explicit classification review.
 
 The **build job** has only `contents: read`. It records the context, selects and
 hashes the installed GCC, runs the finite acquisition, independently checks the

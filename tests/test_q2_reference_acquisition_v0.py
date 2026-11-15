@@ -546,6 +546,8 @@ def _run_hygiene_python_sync(tmp_path, *, core_version='3.11', q2_text=None,
     (tmp_path / tokenizer).write_bytes((ROOT / tokenizer).read_bytes())
     worker = '.github/workflows/q2_release_host_worker_verification_v0.yml'
     (tmp_path / worker).write_bytes((ROOT / worker).read_bytes())
+    entry_build = '.github/workflows/required_gate_idempotence_entry_build_v0.yml'
+    (tmp_path / entry_build).write_bytes((ROOT / entry_build).read_bytes())
     q3 = '.github/workflows/q3_reference_acquisition_v0.yml'
     (tmp_path / q3).write_bytes((ROOT / q3).read_bytes())
     if not omit_q3_v1:

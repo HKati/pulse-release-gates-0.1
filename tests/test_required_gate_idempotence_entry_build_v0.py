@@ -1084,6 +1084,126 @@ def test_workflow_shell_and_embedded_python_parse_without_executing_them(tmp_pat
                 ast.parse(snippet, feature_version=(3, 11))
 
 
+def entry_build_hygiene_guard():
+    """Extract the actual repository guard instead of duplicating its policy."""
+    document = yaml.load((ROOT / ".github/workflows/repo_hygiene.yml").read_text(), Loader=yaml.BaseLoader)
+    runs = [step["run"] for step in document["jobs"]["hygiene_guardrails"]["steps"]
+            if step.get("name") == "Repo hygiene: enforce Python version sync (environment.yml vs workflows)"]
+    assert len(runs) == 1
+    prefix, script = runs[0].split("python3 - <<'PY'\n", 1)
+    assert prefix.strip() == "set -euo pipefail" and script.endswith("PY\n")
+    return script[:-3]
+
+
+def entry_build_hygiene_fixture(directory):
+    """Include every existing required workflow so rejection identifies our mutation."""
+    workflows = directory / ".github/workflows"
+    workflows.mkdir(parents=True)
+    (directory / "environment.yml").write_bytes((ROOT / "environment.yml").read_bytes())
+    names = ("q2_reference_acquisition_v0.yml", "q3_reference_acquisition_v0.yml",
+             "q3_reference_acquisition_v1.yml", "pulsemech_admission_rejection_verification_v0.yml",
+             "pulse_ci.yml", "q2_release_capsule_publication_v0.yml",
+             "q2_release_host_tokenizer_verification_v0.yml", "q2_release_host_worker_verification_v0.yml",
+             Path(WORKFLOW_PATH).name)
+    for name in names:
+        (workflows / name).write_bytes((ROOT / ".github/workflows" / name).read_bytes())
+    return directory / WORKFLOW_PATH
+
+
+def run_entry_build_hygiene(directory):
+    return subprocess.run([sys.executable, "-I", "-B", "-c", entry_build_hygiene_guard()],
+                          cwd=directory, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10)
+
+
+def assert_entry_build_hygiene_rejected(result, *, path=WORKFLOW_PATH):
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "Traceback" not in result.stderr
+    errors = [line for line in result.stdout.splitlines() if line.startswith("::error file=")]
+    assert errors and all(line.startswith("::error file=" + path + "::") for line in errors), result.stdout
+
+
+@pytest.mark.parametrize("optional_core_job", [False, True])
+def test_actual_hygiene_guard_accepts_both_exact_entry_build_pins(tmp_path, optional_core_job):
+    target = entry_build_hygiene_fixture(tmp_path)
+    if optional_core_job:
+        value = workflow()
+        value["jobs"]["optional_core"] = {"steps": [{
+            "uses": "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+            "with": {"python-version": "3.11"}}]}
+        target.write_text(yaml.safe_dump(value, sort_keys=False))
+    result = run_entry_build_hygiene(tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "exact patch pins verified" in result.stdout
+
+
+@pytest.mark.parametrize("job", ["build", "attest"])
+@pytest.mark.parametrize("version", ["3.11", "3.11.15", "3.11.17"])
+def test_actual_hygiene_guard_rejects_entry_build_pin_drift_independently(tmp_path, job, version):
+    target = entry_build_hygiene_fixture(tmp_path)
+    value = workflow()
+    setup = next(step for step in value["jobs"][job]["steps"]
+                 if step.get("uses", "").startswith("actions/setup-python@"))
+    setup["with"]["python-version"] = version
+    target.write_text(yaml.safe_dump(value, sort_keys=False))
+    result = run_entry_build_hygiene(tmp_path)
+    assert_entry_build_hygiene_rejected(result)
+    assert "python-version=" + version + " (expected 3.11.16)" in result.stdout
+
+
+@pytest.mark.parametrize("job", ["build", "attest"])
+@pytest.mark.parametrize("fault", ["missing_setup", "duplicate_setup", "missing_job", "renamed_job"])
+def test_actual_hygiene_guard_requires_one_setup_in_each_named_entry_build_job(tmp_path, job, fault):
+    target = entry_build_hygiene_fixture(tmp_path)
+    value = workflow()
+    steps = value["jobs"][job]["steps"]
+    setup = next(step for step in steps if step.get("uses", "").startswith("actions/setup-python@"))
+    if fault == "missing_setup":
+        steps.remove(setup)
+    elif fault == "duplicate_setup":
+        steps.append(copy.deepcopy(setup))
+    elif fault == "missing_job":
+        del value["jobs"][job]
+    else:
+        value["jobs"]["renamed_" + job] = value["jobs"].pop(job)
+    target.write_text(yaml.safe_dump(value, sort_keys=False))
+    result = run_entry_build_hygiene(tmp_path)
+    assert_entry_build_hygiene_rejected(result)
+    assert "exactly one setup-python in job " + job in result.stdout
+
+
+@pytest.mark.parametrize("fault", ["missing", "renamed"])
+def test_actual_hygiene_guard_requires_the_exact_entry_build_workflow_path(tmp_path, fault):
+    target = entry_build_hygiene_fixture(tmp_path)
+    if fault == "missing":
+        target.unlink()
+    else:
+        target.rename(target.with_name("entry_build_alias.yml"))
+    result = run_entry_build_hygiene(tmp_path)
+    assert_entry_build_hygiene_rejected(result)
+    assert "Pinned workflow must exist as a regular file at its exact path" in result.stdout
+
+
+def test_actual_hygiene_guard_does_not_extend_entry_build_patch_to_another_job(tmp_path):
+    target = entry_build_hygiene_fixture(tmp_path)
+    value = workflow()
+    value["jobs"]["unrelated"] = {"steps": [{
+        "uses": "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+        "with": {"python-version": "3.11.16"}}]}
+    target.write_text(yaml.safe_dump(value, sort_keys=False))
+    result = run_entry_build_hygiene(tmp_path)
+    assert_entry_build_hygiene_rejected(result)
+    assert "python-version=3.11.16 (expected 3.11)" in result.stdout
+
+
+def test_actual_hygiene_guard_does_not_extend_entry_build_patch_to_a_workflow_alias(tmp_path):
+    target = entry_build_hygiene_fixture(tmp_path)
+    alias = target.with_name("entry_build_alias.yml")
+    alias.write_bytes(target.read_bytes())
+    result = run_entry_build_hygiene(tmp_path)
+    assert_entry_build_hygiene_rejected(result, path=".github/workflows/entry_build_alias.yml")
+    assert "python-version=3.11.16 (expected 3.11)" in result.stdout
+
+
 def test_entry_build_module_registered_once_and_targeted_manifest_unchanged():
     def entries(name):
         return [value for line in (ROOT / "ci" / name).read_text().splitlines()

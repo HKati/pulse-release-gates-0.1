@@ -157,6 +157,47 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
                    "bounded observation acceptance does not close Step 5C/5D or grant release authority."),
         )
 
+    if rel == ".github/workflows/required_gate_idempotence_entry_build_v0.yml":
+        expected_sha256 = "53a2c0ce99355899cf9296ce7c8a3cd932ae436e825665789fca7e13f1a47be6"
+        if (name != "PULSEmech idempotence entry build provenance v0"
+                or path.is_symlink() or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
+            return entry(
+                name=name, path=rel, surface_type="workflow",
+                primary_role="unclassified workflow", carrier_class="advisory",
+                authority_impacting="conditional",
+                authority_boundary="Changed entry-build provenance carrier requires exact source review",
+            )
+        return entry(
+            name=name, path=rel, surface_type="workflow",
+            primary_role="non-authorizing fixed entry-build provenance workflow",
+            carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary=(
+                "Manual owner-scoped preservation and attestation of two fixed entry builds; "
+                "no produced-entry or selected-runtime execution, required-gate activation or release admission."
+            ),
+            reads_artifacts=[
+                "exact reviewed source/workflow commit and pinned containment-entry C source",
+                "selected compiler and before/after toolchain observations",
+                "exact current-run build artifact and closed record manifest",
+            ],
+            writes_artifacts=[
+                "two preserved entry binaries, source copies, raw build logs and bounded process records",
+                "independent closed-record verification or incomplete attempt evidence",
+                "original GitHub SLSA provenance bundle and bounded signature-verification output",
+            ],
+            publishes_artifacts=[
+                "owner-dispatched build evidence and separate attestation evidence with 90-day retention",
+            ],
+            required_gate_participation=False, attestation_participation=True, release_path_participation=False,
+            notes=(
+                "Produces and verifies build provenance for the closed record without granting release authority. "
+                "Same-host repeat builds do not establish compiler correctness, source/binary equivalence or "
+                "host qualification. Static verification keeps github_build_provenance_verified=false; "
+                "signature verification has its own preserved result and B2 remains incomplete."
+            ),
+        )
+
     if rel == ".github/workflows/pulse_ci.yml":
         return entry(
             name=name,

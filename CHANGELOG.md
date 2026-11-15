@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   identical entry bytes and preserve incomplete attempts. Add a manual-only
   workflow that separates read-only compilation from attestation, checks the
   exact downloaded artifact and verifies the original provenance bundle.
+  Bind the exact Python patch to its build and attest jobs in repository hygiene,
+  coordinate the guard fixtures and exercise the actual shared version guard.
+  Classify the exact workflow bytes as build-evidence preservation with
+  attestation participation and no required-gate or release-path participation.
   No produced entry or selected runtime is executed, no workflow is dispatched
   by this change, and host/compiler qualification remains open. Add regressions
   and coordinate Tools count guards from 188 to 189; targeted pytest remains 40,

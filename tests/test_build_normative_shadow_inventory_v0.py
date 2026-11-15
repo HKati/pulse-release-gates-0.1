@@ -1,3 +1,4 @@
+import hashlib
 import json
 import subprocess
 import sys
@@ -979,3 +980,92 @@ def test_admission_verification_changed_carrier_requires_review(tmp_path, fault)
     assert item['primary_role'] == 'unclassified workflow'
     assert item['authority_impacting'] == 'conditional'
     assert [finding for finding in inventory['drift_findings'] if finding['path'] == relative]
+
+
+ENTRY_BUILD_WORKFLOW = '.github/workflows/required_gate_idempotence_entry_build_v0.yml'
+ENTRY_BUILD_WORKFLOW_SHA256 = '53a2c0ce99355899cf9296ce7c8a3cd932ae436e825665789fca7e13f1a47be6'
+
+
+def test_entry_build_exact_carrier_records_attestation_without_release_authority(tmp_path):
+    assert hashlib.sha256((REPO_ROOT / ENTRY_BUILD_WORKFLOW).read_bytes()).hexdigest() == ENTRY_BUILD_WORKFLOW_SHA256
+    inventory, _ = run_builder(tmp_path)
+    item = entry_by_path(inventory, ENTRY_BUILD_WORKFLOW)
+    assert item['primary_role'] == 'non-authorizing fixed entry-build provenance workflow'
+    assert item['carrier_class'] == 'audit_preservation'
+    assert item['authority_impacting'] == 'no'
+    assert item['required_gate_participation'] is False
+    assert item['attestation_participation'] is True
+    assert item['release_path_participation'] is False
+    assert 'no produced-entry or selected-runtime execution' in item['authority_boundary']
+    assert 'original GitHub SLSA provenance bundle' in ' '.join(item['writes_artifacts'])
+    assert 'github_build_provenance_verified=false' in item['notes']
+    assert 'B2 remains incomplete' in item['notes']
+    assert not [finding for finding in inventory['drift_findings'] if finding['path'] == ENTRY_BUILD_WORKFLOW]
+
+
+@pytest.mark.parametrize('fault', [
+    'name', 'permission', 'trigger', 'python', 'subject', 'verifier',
+    'newline', 'line_endings', 'symlink',
+])
+def test_entry_build_changed_carrier_requires_exact_source_review(tmp_path, fault):
+    repo = tmp_path / 'repo'
+    path = repo / ENTRY_BUILD_WORKFLOW
+    path.parent.mkdir(parents=True)
+    original = (REPO_ROOT / ENTRY_BUILD_WORKFLOW).read_bytes()
+    replacements = {
+        'name': (b'PULSEmech idempotence entry build provenance v0', b'Renamed entry build'),
+        'permission': (b'contents: read', b'contents: write'),
+        'trigger': (b'workflow_dispatch:', b'push:'),
+        'python': (b"python-version: '3.11.16'", b"python-version: '3.11'"),
+        'subject': (b'/input/evidence/record.json', b'/input/evidence/other.json'),
+        'verifier': (b'--deny-self-hosted-runners --format json', b'--format json'),
+        'line_endings': (b'\n', b'\r\n'),
+    }
+    if fault in replacements:
+        old, new = replacements[fault]
+        assert old in original
+        path.write_bytes(original.replace(old, new))
+    elif fault == 'newline':
+        path.write_bytes(original + b'\n')
+    else:
+        target = repo / 'saved-workflow.txt'
+        target.write_bytes(original)
+        path.symlink_to(target)
+    inventory = run_builder_for_repo(repo, tmp_path)
+    item = entry_by_path(inventory, ENTRY_BUILD_WORKFLOW)
+    assert item['primary_role'] == 'unclassified workflow'
+    assert item['authority_impacting'] == 'conditional'
+    assert [finding for finding in inventory['drift_findings'] if finding['path'] == ENTRY_BUILD_WORKFLOW]
+
+
+@pytest.mark.parametrize('filename', [
+    'other_required_gate_idempotence_entry_build_v0.yml',
+    'required_gate_idempotence_entry_build_v0.yaml',
+])
+def test_entry_build_exact_bytes_do_not_classify_a_different_path(tmp_path, filename):
+    repo = tmp_path / 'repo'
+    relative = '.github/workflows/' + filename
+    path = repo / relative
+    path.parent.mkdir(parents=True)
+    path.write_bytes((REPO_ROOT / ENTRY_BUILD_WORKFLOW).read_bytes())
+    inventory = run_builder_for_repo(repo, tmp_path)
+    item = entry_by_path(inventory, relative)
+    assert item['primary_role'] == 'unclassified workflow'
+    assert item['authority_impacting'] == 'conditional'
+    assert [finding for finding in inventory['drift_findings'] if finding['path'] == relative]
+
+
+def test_entry_build_classification_does_not_hide_an_unclassified_neighbor(tmp_path):
+    repo = tmp_path / 'repo'
+    path = repo / ENTRY_BUILD_WORKFLOW
+    path.parent.mkdir(parents=True)
+    path.write_bytes((REPO_ROOT / ENTRY_BUILD_WORKFLOW).read_bytes())
+    other = '.github/workflows/unreviewed_neighbor.yml'
+    write_workflow(repo / other, name='Unreviewed neighboring workflow')
+    inventory = run_builder_for_repo(repo, tmp_path)
+    assert entry_by_path(inventory, ENTRY_BUILD_WORKFLOW)['attestation_participation'] is True
+    assert entry_by_path(inventory, other)['primary_role'] == 'unclassified workflow'
+    assert inventory['drift_findings'] == [{
+        'severity': 'warning', 'path': other,
+        'finding': 'workflow requires explicit carrier-role classification',
+    }]
