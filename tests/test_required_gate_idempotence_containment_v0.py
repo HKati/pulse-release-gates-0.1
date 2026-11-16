@@ -1947,5 +1947,716 @@ def test_launch_host_cli_refuses_native_substitution_and_output_replacement(laun
     else: assert not output.exists()
 
 
+# Distribution authentication extends the same passive boundary. The following
+# RSA key and detached signature are public authored test data, never operational
+# credentials. Their private key was discarded after fixture authoring. Only the
+# explicitly hash-bound verifier (or a small authored capture child) may run.
+DISTRIBUTION_TOOL = ROOT / "tools/required_gate_idempotence_launcher_distribution_v0.py"
+DISTRIBUTION_CREATED = 1767229200
+DISTRIBUTION_EVALUATION = 1767232800
+DISTRIBUTION_FINGERPRINT = "A72AC1F3E2671BFF31AF873C77FE94169196DC10"
+DISTRIBUTION_KEYRING_B64 = (
+    "xv8AAAENBGlVuQABCACpgGE/QYAwK0uWPr2xgcy4keSbHSFPrhnC8HdC/M3QB+EGLCnztLRcL3ftNtjiKSEaY3TuqQcApNHJ"
+    "FlX0RM+Zk7JXiq50zFJIXl6lOydIOC/wCuFOcD3jBBFR5QW3qt5YRaobMlILrYnV/g9DGrb/f90MsdJ7LViSYHyU5cmCKxSp"
+    "RBsTEQVl1UDibDWk5Oy8QU4WDa0VEp9ym3sTTjChHsXxhA/f1IRYzWedvDy7OgJTm/kON8nGBtaGepvnf1xe/tV6DIRJ0to3"
+    "NfSGbMZb55WOAnZ4Y+AcTD22ASk8C26mkw7XQUPWNWoTg5FB/qfG8GK3rsrlsAXAIEx6Ug2JABEBAAHN/wAAAEBBdXRob3Jl"
+    "ZCBkaXN0cmlidXRpb24gdGVzdCBmaXh0dXJlIDxuby1pZGVudGl0eUBleGFtcGxlLmludmFsaWQ+wv8AAAE2BBMBCAAgBQJp"
+    "VbkAFiEEpyrB8+JnG/8xr4c8d/6UFpGW3BACGwMACgkQd/6UFpGW3BCqBwf/XEa1d4a2DxauicXwOPoJB1Eb1wfb+K0lTu92"
+    "W7mfNktCbVqEdhNX77wsSMeBW3z5PX1dThfPedylyJwP4N5WRROFmhhUQyav/NTV4r3ouNsyS4VOCnfhhOz1EZJEZGgy2915"
+    "WlkR9PftjrDETJ/UWWeyiSQbLvSXcaimkyLr6a2O2bwFC6i9YBPcz5pdw0XJXm4ihBlNMFQe5ZQOso8I1uYA2UshJ84TMt6D"
+    "Dok6Qt+R+glGOshXRVpNDojwbpICMVeVnyX3SL4cByfIAuMsvlgXI9vFI+WbApn1RuRQQBNFxoamy60Tk5G2JXnuMZQLwPhP"
+    "tALtf6C2EkB8BaYl3w=="
+)
+DISTRIBUTION_SIGNATURE_B64 = (
+    "wv8AAAEzBAABCAAdBQJpVccQFiEEpyrB8+JnG/8xr4c8d/6UFpGW3BAACgkQd/6UFpGW3BCvmQf/bpUVqHkW39lfPw/VXhoO"
+    "kNlJEd7j8I2kykW5ctpQDWpS0bw3M+RTiYniBC8uixCIMq4B3ryp91QYn3LLdhGjglt53UjHEaTarnaoSLb3S1Z7El2uZR2p"
+    "zxDHgyAwfTWykvfnQznyofdlaM7X8F+w5DmHuBa1dPXiplWKxRi+dp0rDlmIcRDTLxPRFV4WRCPmO9f/WHErvtq4bhO2CdZ3"
+    "o3lNaGJRBxbKs8iUDTkZIidYJiFGNTLBR7RKXMBsBPo7oxPE258AKr0jrFYY84k+9/JKTAu/dQkeOSgNQGU+GTUOMY3AUQUc"
+    "5AsQ/7B1XPhGXGaE/HhHnkd80LXGvgW/9A=="
+)
+
+
+def distribution_checker():
+    return module("check_required_gate_idempotence_launcher_distribution_v0",
+                  "tools/check_required_gate_idempotence_launcher_distribution_v0.py")
+
+
+def distribution_metadata():
+    return module("required_gate_idempotence_debian_metadata_v0",
+                  "tools/required_gate_idempotence_debian_metadata_v0.py")
+
+
+def distribution_signature():
+    return module("required_gate_idempotence_distribution_signature_v0",
+                  "tools/required_gate_idempotence_distribution_signature_v0.py")
+
+
+def distribution_documents(package):
+    paragraph = (f"Package: bubblewrap\nVersion: {LAUNCH_HOST_VERSION}\nArchitecture: amd64\n"
+                 f"Filename: pool/main/b/bubblewrap/bubblewrap_{LAUNCH_HOST_VERSION}_amd64.deb\n"
+                 f"Size: {len(package)}\nSHA256: {digest(package)}\nDescription: Authored public fixture\n"
+                 " continuation retained in the entire selected index\n")
+    unselected = ("Package: unrelated\nVersion: 1\nArchitecture: all\n"
+                  "Filename: pool/main/u/unrelated/unrelated_1_all.deb\nSize: 1\nSHA256: "
+                  + "b" * 64 + "\nDescription: Unselected authored paragraph\n")
+    decoded = (unselected + "\n" + paragraph + "\n").encode()
+    compressed = lzma.compress(decoded)
+    release = ("Origin: Authored\nLabel: Authored launcher fixture\nSuite: stable\nCodename: fixture\nVersion: 1\n"
+               "Date: Thu, 01 Jan 2026 00:00:00 UTC\nValid-Until: Fri, 02 Jan 2026 00:00:00 UTC\n"
+               "Architectures: amd64 arm64\nComponents: main contrib\nDescription: Public authored repository\n"
+               "SHA256:\n"
+               f" {digest(compressed)} {len(compressed)} main/binary-amd64/Packages.xz\n"
+               f" {digest(decoded)} {len(decoded)} main/binary-amd64/Packages\n").encode()
+    return release, compressed, decoded
+
+
+@pytest.fixture(scope="module")
+def distribution_case(launch_host_case):
+    c = distribution_checker()
+    old_inputs = launch_host_arguments(launch_host_case)
+    old_plan = launch_host_checker().derive_plan(**old_inputs)
+    release, compressed, decoded = distribution_documents(launch_host_case.package)
+    assert digest(release) == "faf8bad56c1185eb2dd01b9ea9f737a0241738cf40dac9d179e97008857a574d"
+    keyring = base64.b64decode(DISTRIBUTION_KEYRING_B64, validate=True)
+    signature = base64.b64decode(DISTRIBUTION_SIGNATURE_B64, validate=True)
+    verifier = Path("/usr/bin/gpg")
+    assert verifier.is_file() and not verifier.is_symlink(), "the explicit test verification tool is required"
+    trust = {
+        "record_type": "required_gate_idempotence_distribution_trust_policy_v0", "profile": c.TRUST_PROFILE,
+        "keyring": bound(keyring), "verifier": {"kind": "gpg", "path": str(verifier), **bound(verifier.read_bytes())},
+        "required_signers": [{"signing_fingerprint": DISTRIBUTION_FINGERPRINT,
+                              "primary_fingerprint": DISTRIBUTION_FINGERPRINT}],
+        "evaluation_time": DISTRIBUTION_EVALUATION, "max_release_age_seconds": 86400, "require_valid_until": True,
+    }
+    selection = {
+        "record_type": "required_gate_idempotence_launcher_distribution_selection_v0", "profile": c.PROFILE,
+        "record_status": "example", "launch_host_plan": bound(old_plan), "trust_policy": bound(encoded(trust)),
+        "release": bound(release), "release_signature": bound(signature),
+        "repository": {"origin": "Authored", "label": "Authored launcher fixture", "suite": "stable",
+                       "codename": "fixture", "version": "1", "component": "main", "architecture": "amd64"},
+        "index": {"compressed": {"path": "main/binary-amd64/Packages.xz", **bound(compressed)},
+                  "decoded": {"path": "main/binary-amd64/Packages", **bound(decoded)}},
+        "package": {"name": "bubblewrap", "version": LAUNCH_HOST_VERSION, "architecture": "amd64",
+                    "filename": f"pool/main/b/bubblewrap/bubblewrap_{LAUNCH_HOST_VERSION}_amd64.deb",
+                    **bound(launch_host_case.package)}, **c.BOUNDARY,
+    }
+    return SimpleNamespace(host=launch_host_case, host_inputs=old_inputs, host_plan=old_plan,
+                           release=release, compressed=compressed, decoded=decoded, keyring=keyring,
+                           signature=signature, verifier=verifier, trust=trust, selection=selection)
+
+
+def distribution_arguments(case, *, selection=None, trust=None, **changes):
+    chosen_trust = case.trust if trust is None else trust
+    chosen = copy.deepcopy(case.selection if selection is None else selection)
+    if trust is not None:
+        chosen["trust_policy"] = bound(encoded(chosen_trust))
+    result = {
+        "launch_host_inputs": dict(case.host_inputs), "launch_host_plan_bytes": case.host_plan,
+        "expected_launch_host_plan_sha256": digest(case.host_plan), "selection_bytes": encoded(chosen),
+        "expected_selection_sha256": digest(encoded(chosen)), "trust_policy_bytes": encoded(chosen_trust),
+        "expected_trust_policy_sha256": digest(encoded(chosen_trust)), "release_bytes": case.release,
+        "release_signature_bytes": case.signature, "packages_xz_bytes": case.compressed,
+        "keyring_bytes": case.keyring, "verifier_path": case.verifier,
+    }
+    result.update(changes)
+    return result
+
+
+def distribution_metadata_arguments(case, *, decoded=None, compressed=None, **changes):
+    index = copy.deepcopy(case.selection["index"])
+    release = case.release
+    if decoded is not None or compressed is not None:
+        decoded = case.decoded if decoded is None else decoded
+        compressed = lzma.compress(decoded) if compressed is None else compressed
+        for role, raw in (("compressed", compressed), ("decoded", decoded)):
+            old = index[role]
+            release = release.replace(f" {old['sha256']} {old['size_bytes']} {old['path']}\n".encode(),
+                                      f" {digest(raw)} {len(raw)} {old['path']}\n".encode())
+            old.update(bound(raw))
+    result = {"release_bytes": release, "packages_xz_bytes": case.compressed if compressed is None else compressed,
+              "repository": copy.deepcopy(case.selection["repository"]), "index": index,
+              "package": copy.deepcopy(case.selection["package"]),
+              "evaluation_time": DISTRIBUTION_EVALUATION, "max_release_age_seconds": 86400,
+              "require_valid_until": True}
+    result.update(changes)
+    return result
+
+
+def distribution_signature_arguments(case, **changes):
+    result = {"release_bytes": case.release, "signature_bytes": case.signature, "keyring_bytes": case.keyring,
+              "expected_keyring_sha256": digest(case.keyring), "verifier_path": case.verifier,
+              "expected_verifier": copy.deepcopy(case.trust["verifier"]),
+              "required_signers": copy.deepcopy(case.trust["required_signers"]),
+              "evaluation_time": DISTRIBUTION_EVALUATION}
+    result.update(changes)
+    return result
+
+
+def distribution_status(*, signing=DISTRIBUTION_FINGERPRINT, primary=DISTRIBUTION_FINGERPRINT,
+                        created=DISTRIBUTION_CREATED, expires=0, public=1, digest_algorithm=8,
+                        version=4, kind="00"):
+    return (f"[GNUPG:] NEWSIG\n[GNUPG:] KEY_CONSIDERED {primary} 0\n"
+            f"[GNUPG:] GOODSIG {signing[-16:]} Authored identity has no authority\n"
+            f"[GNUPG:] VALIDSIG {signing} 2026-01-01 {created} {expires} {version} 0 "
+            f"{public} {digest_algorithm} {kind} {primary}\n[GNUPG:] TRUST_UNDEFINED 0 pgp\n").encode()
+
+
+def distribution_capture_result(**changes):
+    process = {"pid": 12345, "exit_code": 0, "timed_out": False, "output_limited": False,
+               "limited_streams": [], "capture_complete": True, "error_code": None,
+               "started_monotonic_ns": 1, "completed_monotonic_ns": 2}
+    process.update(changes)
+    return {"stdout_bytes": distribution_status(), "stderr_bytes": b"authored diagnostic\n", "process_record": process}
+
+
+def test_distribution_full_original_chain_is_canonical_and_keeps_existing_boundary(distribution_case):
+    c, case = distribution_checker(), distribution_case
+    captures = []
+    args = distribution_arguments(case, signature_evidence_sink=captures.append)
+    first, second = c.derive_record(**args), c.derive_record(**args)
+    assert first == second == encoded(json.loads(first))
+    report = c.verify_record(record_bytes=first, expected_record_sha256=digest(first), **args)
+    assert report["status"] == "accepted" and len(captures) == 3
+    for name in ("distribution_signature_verified", "release_index_binding_verified", "index_package_binding_verified",
+                 "package_launcher_binding_verified", "launcher_distribution_authenticated"):
+        assert report[name] is True, name
+    for value in (json.loads(first), report):
+        for name, expected in c.BOUNDARY.items():
+            assert type(value[name]) is type(expected) and value[name] == expected, name
+    assert launch_host_checker().derive_plan(**case.host_inputs) == case.host_plan
+    assert json.loads(case.host_plan)["launcher_origin_authenticated"] is False
+    assert all(item["process_record"]["verification_status"] == "accepted" for item in captures)
+
+
+@pytest.mark.parametrize("key", ["expected_selection_sha256", "expected_trust_policy_sha256",
+                                "expected_launch_host_plan_sha256"])
+def test_distribution_external_anchors_fail_before_verifier(distribution_case, monkeypatch, key):
+    def forbidden(*args, **kwargs):
+        pytest.fail("an invalid external anchor must reject before verifier execution")
+    monkeypatch.setattr(distribution_signature(), "verify_detached", forbidden)
+    with pytest.raises(distribution_checker().DistributionError):
+        distribution_checker().derive_record(**distribution_arguments(distribution_case, **{key: "0" * 64}))
+
+
+@pytest.mark.parametrize("key", ["release_bytes", "release_signature_bytes", "packages_xz_bytes",
+                                "keyring_bytes", "launch_host_plan_bytes"])
+def test_distribution_original_replacement_cannot_borrow_retained_bindings(distribution_case, key):
+    args = distribution_arguments(distribution_case)
+    args[key] += b"replacement"
+    with pytest.raises(distribution_checker().DistributionError):
+        distribution_checker().derive_record(**args)
+
+
+@pytest.mark.parametrize("path,replacement", [
+    (("unexpected",), True), (("record_status",), "observed"), (("execution_authorized",), True),
+    (("distribution_trust_freshness_verified",), True), (("verifier_runtime_closure_verified",), True),
+    (("release", "size_bytes"), True), (("index", "decoded", "path"), "main/../Packages"),
+    (("index", "compressed", "path"), "main/binary-amd64/Packages.gz"),
+    (("package", "filename"), "pool/../bubblewrap.deb"), (("package", "filename"), "/pool/bubblewrap.deb"),
+    (("package", "sha256"), "f" * 63), (("repository", "component"), "main/../contrib"),
+])
+def test_distribution_selection_is_closed_and_strict(distribution_case, path, replacement):
+    c, chosen = distribution_checker(), copy.deepcopy(distribution_case.selection)
+    parent = chosen
+    for key in path[:-1]:
+        parent = parent[key]
+    parent[path[-1]] = replacement
+    raw = encoded(chosen)
+    with pytest.raises(c.DistributionError):
+        c.validate_selection(raw, digest(raw))
+
+
+@pytest.mark.parametrize("path,replacement", [
+    (("threshold",), 1), (("evaluation_time",), True), (("evaluation_time",), 0),
+    (("evaluation_time",), 4102444801), (("max_release_age_seconds",), True),
+    (("max_release_age_seconds",), 0), (("max_release_age_seconds",), 31622401),
+    (("require_valid_until",), 1), (("keyring", "size_bytes"), True),
+    (("verifier", "kind"), "shell"), (("verifier", "path"), "gpg"),
+    (("verifier", "path"), "/usr/bin/../bin/gpg"), (("required_signers",), []),
+    (("required_signers",), [{"signing_fingerprint": "7" * 16, "primary_fingerprint": DISTRIBUTION_FINGERPRINT}]),
+    (("required_signers",), [{"signing_fingerprint": DISTRIBUTION_FINGERPRINT.lower(),
+                             "primary_fingerprint": DISTRIBUTION_FINGERPRINT}]),
+])
+def test_distribution_trust_policy_cannot_relax_fixed_verification_rules(distribution_case, path, replacement):
+    c, trust = distribution_checker(), copy.deepcopy(distribution_case.trust)
+    parent = trust
+    for key in path[:-1]:
+        parent = parent[key]
+    parent[path[-1]] = replacement
+    raw = encoded(trust)
+    with pytest.raises(c.DistributionError):
+        c.validate_trust_policy(raw, digest(raw))
+
+
+def test_distribution_duplicate_signer_pair_is_not_an_extra_authorization(distribution_case):
+    c, trust = distribution_checker(), copy.deepcopy(distribution_case.trust)
+    trust["required_signers"] *= 2
+    raw = encoded(trust)
+    with pytest.raises(c.DistributionError):
+        c.validate_trust_policy(raw, digest(raw))
+
+
+def test_distribution_metadata_retains_both_full_indexes_and_all_paragraphs(distribution_case):
+    case = distribution_case
+    result = distribution_metadata().inspect_metadata(**distribution_metadata_arguments(case))
+    assert result["index"]["compressed"] == case.selection["index"]["compressed"]
+    assert result["index"]["decoded"] == case.selection["index"]["decoded"]
+    assert result["index"]["package_paragraphs"] == 2
+    assert result["package"] == case.selection["package"]
+    assert result["release"]["date_epoch"] == 1767225600
+    assert result["release"]["valid_until_epoch"] == 1767312000
+
+
+@pytest.mark.parametrize("old,new", [
+    (b"Origin: Authored\n", b"Origin: Authored\norigin: Authored\n"),
+    (b"Origin: Authored\n", b"Origin: Authored\n extra identity\n"),
+    (b"Origin: Authored\n", b"Origin: Other\n"),
+    (b"Architectures: amd64 arm64", b"Architectures: arm64"),
+    (b"Components: main contrib", b"Components: contrib"),
+    (b"Date: Thu, 01 Jan 2026 00:00:00 UTC", b"Date: malformed"),
+    (b"Version: 1\n", b"Version: 1\r\n"),
+    (b"Description: Public authored repository", b"Description: bad\x00value"),
+    (b"SHA256:\n", b"SHA256:\n nonsense\n"),
+    (b"main/binary-amd64/Packages.xz", b"main/../Packages.xz"),
+])
+def test_distribution_signed_release_ambiguity_and_identity_mismatches_reject(distribution_case, old, new):
+    m, case = distribution_metadata(), distribution_case
+    assert old in case.release
+    with pytest.raises(m.MetadataError):
+        m.inspect_metadata(**distribution_metadata_arguments(case, release_bytes=case.release.replace(old, new)))
+
+
+@pytest.mark.parametrize("kind", ["duplicate", "zero_prefix", "wrong_digest", "wrong_size", "missing_decoded"])
+def test_distribution_release_sha256_rows_are_unique_canonical_and_complete(distribution_case, kind):
+    m, case = distribution_metadata(), distribution_case
+    descriptor = case.selection["index"]["decoded"]
+    row = f" {descriptor['sha256']} {descriptor['size_bytes']} {descriptor['path']}\n".encode()
+    replacement = {"duplicate": row + row, "zero_prefix": row.replace(f" {len(case.decoded)} ".encode(),
+                                                                       f" 0{len(case.decoded)} ".encode()),
+                   "wrong_digest": row.replace(descriptor["sha256"].encode(), b"0" * 64),
+                   "wrong_size": row.replace(f" {len(case.decoded)} ".encode(), b" 1 "),
+                   "missing_decoded": b""}[kind]
+    with pytest.raises(m.MetadataError):
+        m.inspect_metadata(**distribution_metadata_arguments(case, release_bytes=case.release.replace(row, replacement)))
+
+
+@pytest.mark.parametrize("old,new", [
+    (b"Package: bubblewrap\n", b"Package: bubblewrap\npackage: bubblewrap\n"),
+    (b"Package: unrelated\n", b"Package: unrelated\npackage: unrelated\n"),
+    (b"Package: unrelated\n", b"malformed unselected paragraph\n"),
+    (b"Architecture: amd64\n", b"Architecture: arm64\n"),
+    (b"Filename: pool/main/b/bubblewrap/", b"Filename: pool/../b/bubblewrap/"),
+    (b"Description: Unselected authored paragraph", b"Description: bad\x00value"),
+    (b"Version: 1\n", b"Version: 1\r\n"),
+])
+def test_distribution_entire_decoded_index_is_parsed_before_selected_package_acceptance(distribution_case, old, new):
+    m, case = distribution_metadata(), distribution_case
+    assert old in case.decoded
+    args = distribution_metadata_arguments(case, decoded=case.decoded.replace(old, new))
+    with pytest.raises(m.MetadataError):
+        m.inspect_metadata(**args)
+
+
+def test_distribution_duplicate_selected_paragraph_rejects_even_when_identical(distribution_case):
+    m, case = distribution_metadata(), distribution_case
+    selected = case.decoded.split(b"\n\n")[1] + b"\n\n"
+    with pytest.raises(m.MetadataError):
+        m.inspect_metadata(**distribution_metadata_arguments(case, decoded=case.decoded + selected))
+
+
+@pytest.mark.parametrize("kind", ["truncated", "trailing", "concatenated"])
+def test_distribution_compressed_index_has_one_complete_xz_stream(distribution_case, kind):
+    m, case = distribution_metadata(), distribution_case
+    compressed = {"truncated": case.compressed[:-4], "trailing": case.compressed + b"trailing",
+                  "concatenated": case.compressed + lzma.compress(b"unselected tail")}[kind]
+    with pytest.raises(m.MetadataError):
+        m.inspect_metadata(**distribution_metadata_arguments(case, compressed=compressed))
+
+
+@pytest.mark.parametrize("evaluation,max_age,accepted", [
+    (1767225600, 1, True), (1767225599, 86400, False), (1767232800, 7200, True),
+    (1767232800, 7199, False), (1767311999, 86400, True), (1767312000, 86400, True),
+    (1767312001, 86401, False),
+])
+def test_distribution_release_time_uses_only_explicit_epoch_and_exact_boundaries(distribution_case, evaluation, max_age, accepted):
+    m = distribution_metadata()
+    args = distribution_metadata_arguments(distribution_case, evaluation_time=evaluation, max_release_age_seconds=max_age)
+    if accepted:
+        assert m.inspect_metadata(**args)["release"]["date_epoch"] == 1767225600
+    else:
+        with pytest.raises(m.MetadataError):
+            m.inspect_metadata(**args)
+
+
+def test_distribution_missing_valid_until_requires_an_explicit_policy_choice(distribution_case):
+    m, case = distribution_metadata(), distribution_case
+    raw = case.release.replace(b"Valid-Until: Fri, 02 Jan 2026 00:00:00 UTC\n", b"")
+    with pytest.raises(m.MetadataError):
+        m.inspect_metadata(**distribution_metadata_arguments(case, release_bytes=raw))
+    result = m.inspect_metadata(**distribution_metadata_arguments(case, release_bytes=raw, require_valid_until=False))
+    assert result["release"]["valid_until_epoch"] is None
+
+
+def test_distribution_signature_real_verifier_uses_only_sealed_bound_originals(distribution_case, monkeypatch):
+    sig, case = distribution_signature(), distribution_case
+    captures, calls = [], []
+    original = sig._capture
+    expected_raw = [case.verifier.read_bytes(), case.keyring, case.signature, case.release]
+    def capture(**kwargs):
+        argv = kwargs["argv"]
+        assert argv[0] == str(case.verifier) and argv[-3] == "--verify"
+        assert argv[argv.index("--faked-system-time") + 1] == str(DISTRIBUTION_EVALUATION) + "!"
+        assert set(("--no-options", "--no-default-keyring", "--no-auto-key-retrieve", "--no-auto-key-import",
+                    "--no-autostart", "--disable-dirmngr", "--batch", "--no-tty")).issubset(argv)
+        assert "--import" not in argv and "--recv-keys" not in argv and "--ignore-time-conflict" not in argv
+        assert len(kwargs["pass_fds"]) == 4 and kwargs["executable_fd"] == kwargs["pass_fds"][0]
+        for descriptor, raw in zip(kwargs["pass_fds"], expected_raw):
+            # Some supported CPython builds omit the Linux constants while the
+            # kernel exposes the same fixed seal ABI used by the verifier.
+            seals = fcntl.fcntl(descriptor, getattr(fcntl, "F_GET_SEALS", 1034))
+            required = (getattr(fcntl, "F_SEAL_SEAL", 1) | getattr(fcntl, "F_SEAL_SHRINK", 2)
+                        | getattr(fcntl, "F_SEAL_GROW", 4) | getattr(fcntl, "F_SEAL_WRITE", 8))
+            assert seals & required == required
+            assert os.pread(descriptor, len(raw) + 1, 0) == raw
+        assert Path(kwargs["directory"]).stat().st_mode & 0o077 == 0
+        calls.append(tuple(argv))
+        return original(**kwargs)
+    monkeypatch.setattr(sig, "_capture", capture)
+    result = sig.verify_detached(**distribution_signature_arguments(case, evidence_sink=captures.append))
+    assert len(calls) == len(captures) == 1
+    assert result["backend"] == case.trust["verifier"]
+    assert result["verified_signatures"][0]["signing_fingerprint"] == DISTRIBUTION_FINGERPRINT
+    record = captures[0]["process_record"]
+    assert record["inputs"] == {"release": bound(case.release), "signature": bound(case.signature), "keyring": bound(case.keyring)}
+    assert record["verification_status"] == "accepted" and record["execution"] == "sealed_verifier_memfd"
+    assert record["verifier_runtime_closure_verified"] is False
+
+
+@pytest.mark.parametrize("key", ["release_bytes", "signature_bytes"])
+def test_distribution_actual_crypto_rejects_changed_originals_and_preserves_diagnostics(distribution_case, key):
+    sig = distribution_signature()
+    args = distribution_signature_arguments(distribution_case)
+    args[key] = args[key][:-1] + bytes([args[key][-1] ^ 1])
+    evidence = []
+    with pytest.raises(sig.SignatureError):
+        sig.verify_detached(**args, evidence_sink=evidence.append)
+    assert len(evidence) == 1 and evidence[0]["stderr_bytes"]
+    assert evidence[0]["process_record"]["verification_status"] == "rejected"
+
+
+@pytest.mark.parametrize("key", ["expected_keyring_sha256", "expected_verifier"])
+def test_distribution_verifier_and_keyring_substitution_fail_before_spawn(distribution_case, monkeypatch, key):
+    sig, args = distribution_signature(), distribution_signature_arguments(distribution_case)
+    args[key] = "0" * 64 if key == "expected_keyring_sha256" else {**args[key], "sha256": "0" * 64}
+    def forbidden(**kwargs):
+        pytest.fail("unbound verification inputs must not execute")
+    monkeypatch.setattr(sig, "_capture", forbidden)
+    with pytest.raises(sig.SignatureError):
+        sig.verify_detached(**args)
+
+
+@pytest.mark.parametrize("changes", [
+    {"public": 17}, {"digest_algorithm": 2}, {"version": 3}, {"kind": "01"},
+    {"created": DISTRIBUTION_EVALUATION + 1}, {"expires": DISTRIBUTION_EVALUATION},
+    {"expires": DISTRIBUTION_CREATED - 1}, {"primary": "1" * 40}, {"signing": "2" * 40},
+])
+def test_distribution_status_rejects_unselected_signers_formats_algorithms_and_times(distribution_case, changes):
+    sig = distribution_signature()
+    with pytest.raises(sig.SignatureError):
+        sig._parse_status(distribution_status(**changes), distribution_case.trust["required_signers"], DISTRIBUTION_EVALUATION)
+
+
+@pytest.mark.parametrize("status", ["BADSIG", "ERRSIG", "EXPSIG", "EXPKEYSIG", "REVKEYSIG", "NO_PUBKEY",
+                                  "NODATA", "FAILURE", "ERROR", "KEYEXPIRED", "SIGEXPIRED", "KEYREVOKED", "UNKNOWN_STATUS"])
+def test_distribution_one_good_signature_cannot_hide_any_failed_or_unknown_group(distribution_case, status):
+    sig = distribution_signature()
+    raw = distribution_status() + f"[GNUPG:] NEWSIG\n[GNUPG:] {status} diagnostic\n".encode()
+    with pytest.raises(sig.SignatureError):
+        sig._parse_status(raw, distribution_case.trust["required_signers"], DISTRIBUTION_EVALUATION)
+
+
+@pytest.mark.parametrize("kind", ["missing_newsig", "missing_good", "missing_valid", "duplicate_good",
+                                  "duplicate_valid", "duplicate_group", "extra_noise", "wrong_date", "no_newline"])
+def test_distribution_status_group_grammar_cannot_combine_partial_observations(distribution_case, kind):
+    sig, raw = distribution_signature(), distribution_status()
+    lines = raw.splitlines(keepends=True)
+    good = next(line for line in lines if b" GOODSIG " in line)
+    valid = next(line for line in lines if b" VALIDSIG " in line)
+    changed = {"missing_newsig": raw.replace(b"[GNUPG:] NEWSIG\n", b""),
+               "missing_good": raw.replace(good, b""), "missing_valid": raw.replace(valid, b""),
+               "duplicate_good": raw.replace(good, good + good), "duplicate_valid": raw.replace(valid, valid + valid),
+               "duplicate_group": raw + raw, "extra_noise": b"success\n" + raw,
+               "wrong_date": raw.replace(b"2026-01-01", b"2026-01-02"), "no_newline": raw[:-1]}[kind]
+    with pytest.raises(sig.SignatureError):
+        sig._parse_status(changed, distribution_case.trust["required_signers"], DISTRIBUTION_EVALUATION)
+
+
+def test_distribution_full_subkey_primary_pair_and_exact_roster_are_required():
+    sig = distribution_signature()
+    first = {"signing_fingerprint": "1" * 40, "primary_fingerprint": "2" * 40}
+    second = {"signing_fingerprint": "3" * 40, "primary_fingerprint": "4" * 40}
+    first_status = distribution_status(signing=first["signing_fingerprint"], primary=first["primary_fingerprint"])
+    second_status = distribution_status(signing=second["signing_fingerprint"], primary=second["primary_fingerprint"])
+    facts = sig._parse_status(second_status + first_status, [second, first], DISTRIBUTION_EVALUATION)
+    assert [(value["signing_fingerprint"], value["primary_fingerprint"]) for value in facts] == [
+        (first["signing_fingerprint"], first["primary_fingerprint"]),
+        (second["signing_fingerprint"], second["primary_fingerprint"])]
+    for raw, roster in ((first_status, [first, second]), (first_status + second_status, [first]),
+                        (first_status, [{**first, "primary_fingerprint": "5" * 40}])):
+        with pytest.raises(sig.SignatureError):
+            sig._parse_status(raw, roster, DISTRIBUTION_EVALUATION)
+
+
+@pytest.mark.parametrize("changes,error", [
+    ({"exit_code": 1}, "signature_verification_failed"),
+    ({"timed_out": True, "capture_complete": False, "error_code": "signature_wall_timeout"}, "signature_wall_timeout"),
+    ({"output_limited": True, "limited_streams": ["stderr"], "error_code": "signature_stderr_limit"}, "signature_stderr_limit"),
+    ({"capture_complete": False}, "signature_capture_incomplete"),
+])
+def test_distribution_failed_verifier_attempt_is_preserved_once_before_rejection(distribution_case, monkeypatch, changes, error):
+    sig, evidence = distribution_signature(), []
+    monkeypatch.setattr(sig, "_capture", lambda **kwargs: distribution_capture_result(**changes))
+    with pytest.raises(sig.SignatureError, match="^" + error + "$"):
+        sig.verify_detached(**distribution_signature_arguments(distribution_case, evidence_sink=evidence.append))
+    assert len(evidence) == 1 and evidence[0]["stderr_bytes"] == b"authored diagnostic\n"
+    record = evidence[0]["process_record"]
+    assert record["verification_error_code"] == error and record["verification_status"] == "rejected"
+    assert record["stdout"] == bound(evidence[0]["stdout_bytes"])
+    assert record["stderr"] == bound(evidence[0]["stderr_bytes"])
+
+
+def test_distribution_failed_preservation_never_returns_accepted_signature(distribution_case, monkeypatch):
+    sig, calls = distribution_signature(), []
+    monkeypatch.setattr(sig, "_capture", lambda **kwargs: distribution_capture_result())
+    def failed_sink(payload):
+        calls.append(payload)
+        raise OSError("authored preservation failure")
+    with pytest.raises(sig.SignatureError, match="^signature_evidence_preservation_failed$"):
+        sig.verify_detached(**distribution_signature_arguments(distribution_case, evidence_sink=failed_sink))
+    assert len(calls) == 1
+
+
+def test_distribution_verifier_capture_drains_other_pipe_after_cap_failure(tmp_path, monkeypatch):
+    sig = distribution_signature()
+    original_selector = sig.selectors.DefaultSelector
+    class StderrFirstSelector(original_selector):
+        def select(self, timeout=None):
+            time.sleep(0.03)
+            return sorted(super().select(timeout), key=lambda result: result[0].data != "stderr")
+    code = "import os,time; os.write(1,b'AB'); os.write(2,b'overflow'); time.sleep(3)"
+    def authored(_argv, **kwargs):
+        kwargs.pop("executable")
+        return REAL_POPEN([sys.executable, "-c", code], **kwargs)
+    monkeypatch.setattr(sig.subprocess, "Popen", authored)
+    monkeypatch.setattr(sig.selectors, "DefaultSelector", StderrFirstSelector)
+    monkeypatch.setattr(sig, "STDOUT_LIMIT", 16)
+    monkeypatch.setattr(sig, "STDERR_LIMIT", 4)
+    monkeypatch.setattr(sig, "WALL_SECONDS", 0.5)
+    result = sig._capture(executable_fd=-1, argv=["authored-capture-child"], directory=str(tmp_path), pass_fds=())
+    assert result["stdout_bytes"] == b"AB" and result["stderr_bytes"] == b"over"
+    assert result["process_record"]["error_code"] == "signature_stderr_limit"
+    assert result["process_record"]["limited_streams"] == ["stderr"]
+    assert result["process_record"]["exit_code"] is not None
+
+
+def test_distribution_verifier_deadline_keeps_pending_diagnostics(tmp_path, monkeypatch):
+    sig = distribution_signature()
+    code = "import os,time; os.write(1,b'bounded status'); os.write(2,b'bounded diagnostic'); time.sleep(3)"
+    def authored(_argv, **kwargs):
+        kwargs.pop("executable")
+        return REAL_POPEN([sys.executable, "-c", code], **kwargs)
+    monkeypatch.setattr(sig.subprocess, "Popen", authored)
+    monkeypatch.setattr(sig, "WALL_SECONDS", 0.15)
+    result = sig._capture(executable_fd=-1, argv=["authored-capture-child"], directory=str(tmp_path), pass_fds=())
+    assert result["stdout_bytes"] == b"bounded status" and result["stderr_bytes"] == b"bounded diagnostic"
+    assert result["process_record"]["timed_out"] is True
+    assert result["process_record"]["error_code"] == "signature_wall_timeout"
+    assert result["process_record"]["exit_code"] is not None
+
+
+def test_distribution_checker_direct_invocation_requires_originals():
+    result = subprocess.run([sys.executable, str(ROOT / "tools/check_required_gate_idempotence_launcher_distribution_v0.py")],
+                            capture_output=True, timeout=15)
+    assert result.returncode == 1
+    report = json.loads(result.stdout)
+    assert report["status"] == "rejected" and report.get("launcher_distribution_authenticated", False) is False
+    assert report["execution_authorized"] is False and report["authority_effect"] == "none"
+
+
+@pytest.fixture(scope="module")
+def distribution_record(distribution_case):
+    return distribution_checker().derive_record(**distribution_arguments(distribution_case))
+
+
+@pytest.mark.parametrize("path,replacement", [
+    (("bindings", "launch_host_verification", "sha256"), "0" * 64),
+    (("bindings", "launcher", "sha256"), "1" * 64),
+    (("verification_policy", "evaluation_time"), DISTRIBUTION_EVALUATION + 1),
+    (("metadata", "package", "size_bytes"), 1),
+])
+def test_distribution_rehashed_saved_record_requires_complete_fresh_reconstruction(
+        distribution_case, distribution_record, path, replacement):
+    c, changed = distribution_checker(), json.loads(distribution_record)
+    parent = changed
+    for key in path[:-1]:
+        parent = parent[key]
+    parent[path[-1]] = replacement
+    raw = encoded(changed)
+    with pytest.raises(c.DistributionError, match="^distribution_record_reconstruction_mismatch$"):
+        c.verify_record(record_bytes=raw, expected_record_sha256=digest(raw), **distribution_arguments(distribution_case))
+
+
+def test_distribution_saved_accepted_record_does_not_replace_fresh_crypto(distribution_case, distribution_record, monkeypatch):
+    c, sig, evidence, calls = distribution_checker(), distribution_signature(), [], []
+    def failed_new_attempt(**kwargs):
+        calls.append(kwargs["argv"])
+        result = distribution_capture_result(exit_code=1)
+        result["stdout_bytes"] = b"[GNUPG:] NEWSIG\n[GNUPG:] BADSIG 77FE94169196DC10 authored failure\n"
+        return result
+    monkeypatch.setattr(sig, "_capture", failed_new_attempt)
+    with pytest.raises(c.DistributionError, match="^signature_verification_failed$"):
+        c.verify_record(record_bytes=distribution_record, expected_record_sha256=digest(distribution_record),
+                        **distribution_arguments(distribution_case, signature_evidence_sink=evidence.append))
+    assert len(calls) == len(evidence) == 1
+    assert evidence[0]["process_record"]["verification_status"] == "rejected"
+
+
+@pytest.mark.parametrize("key,replacement", [("name", "unrelated"), ("version", "9.9"),
+                                            ("sha256", "0" * 64), ("size_bytes", 1)])
+def test_distribution_new_selection_cannot_rebind_the_old_launcher_package(distribution_case, key, replacement):
+    c, chosen = distribution_checker(), copy.deepcopy(distribution_case.selection)
+    chosen["package"][key] = replacement
+    with pytest.raises(c.DistributionError, match="^distribution_package_launch_host_mismatch$"):
+        c.derive_record(**distribution_arguments(distribution_case, selection=chosen))
+
+
+def test_distribution_signature_creation_cannot_predate_the_signed_release(distribution_case, monkeypatch):
+    c, sig = distribution_checker(), distribution_signature()
+    facts = sig._parse_status(distribution_status(), distribution_case.trust["required_signers"], DISTRIBUTION_EVALUATION)
+    facts[0]["signature_created_epoch"] = 1767225599
+    monkeypatch.setattr(sig, "verify_detached", lambda **kwargs: {
+        "verified_signatures": facts, "backend": distribution_case.trust["verifier"]})
+    with pytest.raises(c.DistributionError):
+        c.derive_record(**distribution_arguments(distribution_case))
+
+
+@pytest.mark.parametrize("limit,value,error", [
+    ("MAX_PACKAGE_STANZAS", 1, "distribution_metadata_paragraph_limit"),
+    ("MAX_DIGEST_ROWS", 1, "distribution_metadata_digest_row_limit"),
+    ("STANZA_LIMIT", 64, "distribution_metadata_stanza_limit"),
+])
+def test_distribution_parser_count_and_stanza_bounds_are_enforced(distribution_case, monkeypatch, limit, value, error):
+    m = distribution_metadata()
+    monkeypatch.setattr(m, limit, value)
+    with pytest.raises(m.MetadataError, match="^" + error + "$"):
+        m.inspect_metadata(**distribution_metadata_arguments(distribution_case))
+
+
+def test_distribution_parser_line_limit_is_not_evaded_in_unselected_metadata(distribution_case, monkeypatch):
+    m, case = distribution_metadata(), distribution_case
+    maximum = max(map(len, (case.release + case.decoded).splitlines()))
+    monkeypatch.setattr(m, "LINE_LIMIT", maximum)
+    raw = case.decoded.replace(b"Description: Unselected authored paragraph", b"Description: " + b"x" * (maximum + 1))
+    with pytest.raises(m.MetadataError, match="^distribution_metadata_line_limit$"):
+        m.inspect_metadata(**distribution_metadata_arguments(case, decoded=raw))
+
+
+@pytest.mark.parametrize("limit,value", [("INDEX_COMPRESSED_LIMIT", 1), ("INDEX_DECODED_LIMIT", 1), ("XZ_MEMORY_LIMIT", 1)])
+def test_distribution_decompression_has_compressed_decoded_and_memory_bounds(distribution_case, monkeypatch, limit, value):
+    m = distribution_metadata()
+    monkeypatch.setattr(m, limit, value)
+    with pytest.raises(m.MetadataError):
+        m._decode_index(distribution_case.compressed)
+
+
+@pytest.mark.parametrize("kind", ["symlink", "script", "non_executable"])
+def test_distribution_verifier_identity_cannot_be_redirected_or_interpreted(distribution_case, tmp_path, monkeypatch, kind):
+    sig, path = distribution_signature(), tmp_path / "selected-gpg"
+    if kind == "symlink":
+        path.symlink_to(distribution_case.verifier)
+        raw = distribution_case.verifier.read_bytes()
+    else:
+        raw = b"#!/bin/sh\necho must-never-run\n" if kind == "script" else distribution_case.verifier.read_bytes()
+        path.write_bytes(raw)
+        path.chmod(0o755 if kind == "script" else 0o644)
+    def forbidden(**kwargs):
+        pytest.fail("an unsafe verifier path must not execute")
+    monkeypatch.setattr(sig, "_capture", forbidden)
+    expected = {"kind": "gpg", "path": str(path), **bound(raw)}
+    with pytest.raises(sig.SignatureError):
+        sig.verify_detached(**distribution_signature_arguments(distribution_case, verifier_path=path, expected_verifier=expected))
+
+
+def distribution_cli_inputs(case, directory):
+    args, _ = launch_host_cli_inputs(case.host, directory)
+    host_cli = launch_host_subject()
+    old_args = host_cli._parser().parse_args(["prepare", *args, "--output", str(directory / "unused-old-output.json")])
+    plan = launch_host_checker().derive_plan(**host_cli._original_inputs(old_args))
+    chosen = copy.deepcopy(case.selection)
+    chosen["launch_host_plan"] = bound(plan)
+    bound_files = [("launch-host-plan", plan), ("distribution-selection", encoded(chosen)), ("trust-policy", encoded(case.trust))]
+    for name, raw in bound_files:
+        path = directory / (name + ".json")
+        path.write_bytes(raw)
+        args += ["--" + name, str(path), "--" + name + "-sha256", digest(raw)]
+    for name, raw in (("release", case.release), ("release-signature", case.signature),
+                      ("packages-xz", case.compressed), ("keyring", case.keyring)):
+        path = directory / name
+        path.write_bytes(raw)
+        args += ["--" + name, str(path)]
+    return args + ["--verifier", str(case.verifier)]
+
+
+def test_distribution_cli_prepares_and_freshly_rechecks_with_original_process_evidence(distribution_case, tmp_path):
+    args = distribution_cli_inputs(distribution_case, tmp_path)
+    record_path, first_evidence, next_evidence = tmp_path / "record.json", tmp_path / "prepare-evidence", tmp_path / "check-evidence"
+    made = subprocess.run([sys.executable, str(DISTRIBUTION_TOOL), "prepare", *args, "--output", str(record_path),
+                           "--verification-directory", str(first_evidence)], capture_output=True, timeout=45)
+    assert made.returncode == 0, made.stdout.decode() + made.stderr.decode()
+    raw = record_path.read_bytes()
+    checked = subprocess.run([sys.executable, str(DISTRIBUTION_TOOL), "check", *args,
+                              "--record", str(record_path), "--record-sha256", digest(raw),
+                              "--verification-directory", str(next_evidence)], capture_output=True, timeout=30)
+    assert checked.returncode == 0, checked.stdout.decode() + checked.stderr.decode()
+    assert made.stdout == checked.stdout and record_path.read_bytes() == raw
+    assert json.loads(checked.stdout)["launcher_distribution_authenticated"] is True
+    for directory, invocations in ((first_evidence, 2), (next_evidence, 1)):
+        assert len(list(directory.iterdir())) == invocations * 3
+        for number in range(1, invocations + 1):
+            prefix = directory / f"verification-{number}"
+            process = json.loads(prefix.with_suffix(".process.json").read_bytes())
+            assert process["verification_status"] == "accepted"
+            assert process["stdout"] == bound(prefix.with_suffix(".status.bin").read_bytes())
+            assert process["stderr"] == bound(prefix.with_suffix(".stderr.bin").read_bytes())
+
+
+@pytest.mark.parametrize("kind", ["existing_output", "existing_evidence"])
+def test_distribution_cli_does_not_replace_previous_record_or_evidence(distribution_case, tmp_path, kind):
+    args = distribution_cli_inputs(distribution_case, tmp_path)
+    output, evidence = tmp_path / "record.json", tmp_path / "evidence"
+    if kind == "existing_output":
+        output.write_bytes(b"retain existing record\n")
+    else:
+        evidence.mkdir()
+        (evidence / "retain").write_bytes(b"retain existing evidence\n")
+    result = subprocess.run([sys.executable, str(DISTRIBUTION_TOOL), "prepare", *args, "--output", str(output),
+                             "--verification-directory", str(evidence)], capture_output=True, timeout=30)
+    assert result.returncode == 1 and json.loads(result.stdout)["status"] == "rejected"
+    if kind == "existing_output":
+        assert output.read_bytes() == b"retain existing record\n" and not evidence.exists()
+    else:
+        assert not output.exists() and (evidence / "retain").read_bytes() == b"retain existing evidence\n"
+
+
+def test_distribution_coordinator_offers_no_execution_or_transcript_replay_command():
+    p = module("required_gate_idempotence_launcher_distribution_v0", "tools/required_gate_idempotence_launcher_distribution_v0.py")
+    actions = p._parser()._subparsers._group_actions
+    assert len(actions) == 1 and set(actions[0].choices) == {"prepare", "check"}
+    for command in actions[0].choices.values():
+        options = {option for action in command._actions for option in action.option_strings}
+        assert "--release-signature" in options and "--trust-policy-sha256" in options
+        assert not options & {"--status-transcript", "--signature-status", "--skip-verification", "--execute"}
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
