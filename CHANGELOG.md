@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add [B2 launcher distribution authentication](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LAUNCHER_DISTRIBUTION_v0.md)
+  with a separately pinned trust policy, exact original keyring and GPG identity,
+  complete signer roster and explicit evaluation epoch. Freshly verify each
+  detached Release signature, reconstruct the full compressed/decoded Packages
+  bindings and connect the exact original package to the existing launcher plan.
+  Preserve bounded verifier status/stderr and failed-attempt diagnostics; reject
+  ambiguous metadata, partial signature success and rehashed record substitution.
+  Two separate checker processes freshly verified all three original Debian
+  signature groups and reproduced the same canonical accepted report from the
+  full 68825-paragraph package index and preserved launcher inputs.
+  Retain the original launch-host plan/report and all authority boundaries.
+  Extend the existing containment regression module without changing the 189/40
+  CI manifests. Trust freshness, upstream/build origin, host qualification and
+  selected runtime execution remain open; B2 is incomplete.
+
 - Add [B2 launcher and passive host binding](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LAUNCH_HOST_v0.md)
   with independent reconstruction from the original containment and entry-build
   inputs. Require both entry-build outputs to equal the selected containment

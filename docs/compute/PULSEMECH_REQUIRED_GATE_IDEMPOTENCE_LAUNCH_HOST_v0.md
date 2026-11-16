@@ -7,6 +7,11 @@ binding, Debian-package-to-launcher byte equality, a complete selected static
 native dependency graph, and a bounded passive host observation. Actual host
 qualification and selected-runtime execution remain open. B2 is incomplete.**
 
+The subsequent [launcher distribution authentication](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LAUNCHER_DISTRIBUTION_v0.md)
+reconstructs the original signed Release, complete package index and same package
+binding under an externally selected trust policy. It adds a distinct checked
+relationship while retaining this plan and its canonical report unchanged.
+
 The [first hosted entry-build observation](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_BUILD_v0.md#completed-hosted-observation--438544782481)
 already preserves two equal entries and the separately verified hosted
 attestation. This continuation connects that concrete evidence to the entry
@@ -134,8 +139,10 @@ delivery validation material, outside the repository file package.
 The actual archive uses `control.tar.xz` and `data.tar.xz`, with ordinary GNU tar
 headers. The selected member was also compared with local `/usr/bin/bwrap` and
 matched byte-for-byte. That checks a concrete package-member-to-local-byte
-relationship. No package-index signature authentication was performed, and no
-package program or launcher was executed. This result does not select that
+relationship. This original launch-host observation performed no package-index
+signature authentication and executed no package program or launcher. The
+[subsequent distribution check](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LAUNCHER_DISTRIBUTION_v0.md)
+addresses that publication-authentication relationship separately. This result does not select that
 launcher for an owner-authorized runtime attempt or qualify the local host.
 
 ## Every consumer's selected native relationships
