@@ -5,6 +5,8 @@ Compiler tests use inert capsule bytes. Parent-process tests substitute an
 authored host child at the Popen boundary; they never invoke bubblewrap or the
 selected capsule. Only invalid-argument entry checks and a separate fixed-filter
 child execute native test code. Neither establishes namespace containment.
+Outer-launcher tests add authored package/native/host declarations and check
+their exact relations without running the selected launcher or qualifying a host.
 """
 from __future__ import annotations
 
@@ -14,9 +16,12 @@ from contextlib import contextmanager
 from dataclasses import FrozenInstanceError
 import errno
 import fcntl
+import gzip
 import hashlib
 import importlib.util
+import io
 import json
+import lzma
 import os
 from pathlib import Path
 import resource
@@ -26,6 +31,7 @@ import stat
 import struct
 import subprocess
 import sys
+import tarfile
 import time
 from types import SimpleNamespace
 
@@ -1284,6 +1290,661 @@ def test_containment_module_is_registered_once_without_targeted_duplication():
     tools, targeted = entries("tools-tests.list"), entries("pytest-tests.list")
     assert len(tools) == len(set(tools)) == 189 and tools.count(SELF) == 1
     assert len(targeted) == len(set(targeted)) == 40 and SELF not in targeted
+
+
+# The outer-launcher plan is part of this same containment boundary. These
+# fixtures are authored bytes and passive declarations, never a qualified host.
+LAUNCH_HOST_TOOL = ROOT / "tools/required_gate_idempotence_launch_host_v0.py"
+LAUNCH_HOST_VERSION = "0.12.0-1+fixture1"
+LAUNCH_HOST_LOADER = "/lib64/ld-linux-x86-64.so.2"
+
+
+def launch_host_subject():
+    return module("required_gate_idempotence_launch_host_v0", "tools/required_gate_idempotence_launch_host_v0.py")
+
+
+def launch_host_checker():
+    return module("check_required_gate_idempotence_launch_host_v0", "tools/check_required_gate_idempotence_launch_host_v0.py")
+
+
+def launch_host_packages():
+    return module("required_gate_idempotence_launcher_package_v0", "tools/required_gate_idempotence_launcher_package_v0.py")
+
+
+def launch_host_tar(rows):
+    target = io.BytesIO()
+    with tarfile.open(fileobj=target, mode="w", format=tarfile.USTAR_FORMAT) as archive:
+        for name, raw, mode, kind, link in rows:
+            item = tarfile.TarInfo(name)
+            item.mode, item.type, item.linkname = mode, kind, link
+            item.size = len(raw) if kind == tarfile.REGTYPE else 0
+            archive.addfile(item, io.BytesIO(raw) if kind == tarfile.REGTYPE else None)
+    return target.getvalue()
+
+
+def launch_host_ar(rows):
+    result = bytearray(b"!<arch>\n")
+    for name, raw in rows:
+        header = ((name + "/").ljust(16) + "0".ljust(12) + "0".ljust(6) + "0".ljust(6)
+                  + "100644".ljust(8) + str(len(raw)).ljust(10) + "`\n").encode("ascii")
+        assert len(header) == 60
+        result.extend(header + raw + (b"\n" if len(raw) % 2 else b""))
+    return bytes(result)
+
+
+def launch_host_package(launcher, *, compression="xz", control=None, mode=0o755, data_rows=None):
+    if control is None:
+        control = ("Package: bubblewrap\nVersion: " + LAUNCH_HOST_VERSION
+                   + "\nArchitecture: amd64\nDescription: Authored test package\n"
+                     " continued description retained in the original control bytes\n"
+                     " .\n another paragraph in the same field\n").encode()
+    control_tar = launch_host_tar([("./", b"", 0o755, tarfile.DIRTYPE, ""),
+                                   ("./control", control, 0o644, tarfile.REGTYPE, "")])
+    if data_rows is None:
+        data_rows = [("./", b"", 0o755, tarfile.DIRTYPE, ""),
+                     ("./usr/", b"", 0o755, tarfile.DIRTYPE, ""),
+                     ("./usr/bin/", b"", 0o755, tarfile.DIRTYPE, ""),
+                     ("./usr/bin/bwrap", launcher, mode, tarfile.REGTYPE, "")]
+    data_tar = launch_host_tar(data_rows)
+    compress = {"xz": lzma.compress, "gz": lambda raw: gzip.compress(raw, mtime=0), "tar": lambda raw: raw}[compression]
+    suffix = "" if compression == "tar" else "." + compression
+    return launch_host_ar([("debian-binary", b"2.0\n"),
+                           ("control.tar" + suffix, compress(control_tar)),
+                           ("data.tar" + suffix, compress(data_tar))])
+
+
+def launch_host_observation():
+    status = (b"Name:\tauthored-observer\nUid:\t1000\t1000\t1000\t1000\n"
+              b"Gid:\t1000\t1000\t1000\t1000\nCapInh:\t0000000000000000\n"
+              b"CapPrm:\t0000000000000000\nCapEff:\t0000000000000000\n"
+              b"CapBnd:\t0000000000000000\nCapAmb:\t0000000000000000\n"
+              b"NoNewPrivs:\t1\nSeccomp:\t2\nSeccomp_filters:\t1\n")
+    files = {
+        "/proc/self/status": status,
+        "/proc/sys/user/max_user_namespaces": b"28633\n",
+        "/proc/sys/kernel/unprivileged_userns_clone": b"1\n",
+        "/proc/sys/kernel/apparmor_restrict_unprivileged_userns": b"0\n",
+        "/proc/sys/vm/memfd_noexec": b"0\n",
+        "/etc/ld.so.preload": b"",
+    }
+    return {"record_type": "required_gate_idempotence_launch_host_observation_v0",
+            "profile": "linux_x86_64_bubblewrap_launch_host_v0", "observation_id": "f" * 32,
+            "platform": {"system": "Linux", "machine": "x86_64", "release": "6.8.0-authored"},
+            "identity": {"uid": 1000, "euid": 1000, "gid": 1000, "egid": 1000},
+            "nofile": {"soft": 1024, "hard": 1048576}, "memfd_create_api": True,
+            "open_fd_count": 7,
+            "files": [{"path": path, "status": "present", "data_b64": base64.b64encode(raw).decode()}
+                      for path, raw in sorted(files.items())],
+            "namespaces": [{"name": name, "status": "present", "target": name + ":[4026531837]"}
+                           for name in ("user", "mnt", "ipc", "pid", "net", "uts", "cgroup")]}
+
+
+@pytest.fixture(scope="module")
+def launch_host_case(fixture):
+    c = launch_host_checker()
+    native_examples = module("launch_host_native_examples", "tests/test_required_gate_idempotence_runtime_v0.py")
+    native = {
+        "native/bwrap": native_examples.elf(interpreter=LAUNCH_HOST_LOADER,
+                                             needed=("libc.so.6", "libcap.so.2")),
+        "native/ld-linux-x86-64.so.2": native_examples.elf(soname="ld-linux-x86-64.so.2"),
+        "native/libc.so.6": native_examples.elf(soname="libc.so.6", needed=("ld-linux-x86-64.so.2",)),
+        "native/libcap.so.2": native_examples.elf(soname="libcap.so.2", needed=("libc.so.6",)),
+    }
+    launcher = native["native/bwrap"]
+    copied = SimpleNamespace(original=fixture.original, bootstrap=fixture.bootstrap,
+                             entry=fixture.entry, launcher=launcher)
+    prepared = subject().prepare_containment(**arguments(copied))
+    build_examples = module("launch_host_build_examples", "tests/test_required_gate_idempotence_entry_build_v0.py")
+    payload = build_examples.authored_payload(SimpleNamespace(
+        entry=fixture.entry, source=(ROOT / "tools/required_gate_idempotence_containment_entry_v0.c").read_bytes()))
+    package = launch_host_package(launcher)
+    host_raw = encoded(launch_host_observation())
+    roles = {"native/bwrap": ("launcher", "/selected-host/bwrap"),
+             "native/ld-linux-x86-64.so.2": ("loader", LAUNCH_HOST_LOADER),
+             "native/libc.so.6": ("shared_library", "/lib/x86_64-linux-gnu/libc.so.6"),
+             "native/libcap.so.2": ("shared_library", "/lib/x86_64-linux-gnu/libcap.so.2")}
+    chosen = {
+        "record_type": "required_gate_idempotence_launch_host_selection_v0", "profile": c.PROFILE,
+        "record_status": "example", "containment_request_sha256": digest(prepared.request_bytes),
+        "entry_build": {"source_commit": "a" * 40, "request_sha256": digest(payload["request.json"]),
+                        "record_sha256": digest(payload["record.json"])},
+        "launcher_path": "native/bwrap", "loader_path": "native/ld-linux-x86-64.so.2",
+        "native_files": [{"path": path, "host_path": roles[path][1], "role": roles[path][0], **bound(raw)}
+                         for path, raw in sorted(native.items())],
+        "native_bindings": [
+            {"consumer": "native/bwrap", "kind": "interpreter", "name": LAUNCH_HOST_LOADER,
+             "provider": "native/ld-linux-x86-64.so.2"},
+            {"consumer": "native/bwrap", "kind": "needed", "name": "libc.so.6", "provider": "native/libc.so.6"},
+            {"consumer": "native/bwrap", "kind": "needed", "name": "libcap.so.2", "provider": "native/libcap.so.2"},
+            {"consumer": "native/libcap.so.2", "kind": "needed", "name": "libc.so.6", "provider": "native/libc.so.6"},
+            {"consumer": "native/libc.so.6", "kind": "needed", "name": "ld-linux-x86-64.so.2",
+             "provider": "native/ld-linux-x86-64.so.2"}],
+        "launcher_origin": {"kind": "debian_package_member", "package": bound(package),
+                            "member_path": "usr/bin/bwrap", "name": "bubblewrap", "version": LAUNCH_HOST_VERSION,
+                            "architecture": "amd64"},
+        "host_observation": bound(host_raw), **c.BOUNDARY,
+    }
+    return SimpleNamespace(fixture=copied, containment=prepared, entry_payload=payload, native=native,
+                           package=package, host_raw=host_raw, selection=chosen)
+
+
+def launch_host_arguments(case, *, chosen=None, **changes):
+    raw = encoded(case.selection if chosen is None else chosen)
+    result = {"containment_prepared": case.containment,
+              "expected_containment_request_sha256": digest(case.containment.request_bytes),
+              "selection_bytes": raw, "expected_selection_sha256": digest(raw),
+              "entry_build_payload": dict(case.entry_payload), "launcher_package_bytes": case.package,
+              "native_payload": dict(case.native), "host_observation_bytes": case.host_raw}
+    result.update(changes)
+    return result
+
+
+def launch_host_plan(case, *, chosen=None, **changes):
+    return json.loads(launch_host_checker().derive_plan(**launch_host_arguments(case, chosen=chosen, **changes)))
+
+
+def launch_host_rebind_native(chosen, native):
+    for row in chosen["native_files"]:
+        row.update(bound(native[row["path"]]))
+
+
+def launch_host_host_change(case, path, raw=None, *, status="present"):
+    host = json.loads(case.host_raw)
+    row = next(item for item in host["files"] if item["path"] == path)
+    row.update(status=status, data_b64=base64.b64encode(raw).decode() if raw is not None else None)
+    host_raw = encoded(host)
+    chosen = copy.deepcopy(case.selection)
+    chosen["host_observation"] = bound(host_raw)
+    return chosen, host_raw
+
+
+def test_launch_host_plan_and_independent_report_are_canonical_and_non_authorizing(launch_host_case):
+    c, p = launch_host_checker(), launch_host_subject()
+    args = launch_host_arguments(launch_host_case)
+    prepared = p.prepare_launch_host(**args)
+    assert prepared.plan_bytes == c.derive_plan(**args) == c.derive_plan(**args)
+    assert encoded(json.loads(prepared.plan_bytes)) == prepared.plan_bytes
+    report = c.verify_plan(plan_bytes=prepared.plan_bytes, expected_plan_sha256=digest(prepared.plan_bytes), **args)
+    assert report == p.verify_launch_host(prepared, plan_bytes=prepared.plan_bytes,
+                                          expected_plan_sha256=digest(prepared.plan_bytes))
+    assert report["status"] == "accepted"
+    for key in ("entry_build_binding_verified", "launcher_package_member_verified",
+                "launcher_native_bindings_verified", "host_observation_record_verified"):
+        assert report[key] is True
+    for value in (json.loads(prepared.plan_bytes), report):
+        for key, expected in c.BOUNDARY.items():
+            assert value[key] == expected and type(value[key]) is type(expected)
+    with pytest.raises(FrozenInstanceError):
+        prepared.plan_bytes = b"substitution"
+    assert all(row["status"] == "observed" for row in
+               json.loads(prepared.plan_bytes)["host"]["namespace_observations"])
+    passive = {row["id"]: row for row in json.loads(prepared.plan_bytes)["host"]["passive_prerequisites"]}
+    assert passive["observer_NoNewPrivs"]["status"] == passive["observer_Seccomp"]["status"] == "observed"
+    assert passive["observer_NoNewPrivs"]["value"] == 1 and passive["observer_Seccomp"]["value"] == 2
+    assert report["containment_enforced"] is False and report["host_environment_qualified"] is False
+
+
+def test_launch_host_relationship_checks_never_execute_native_or_network_inputs(launch_host_case, monkeypatch):
+    import socket
+    import urllib.request
+    def forbidden(*args, **kwargs):
+        raise AssertionError("offline launch-host checking attempted execution or network access")
+    for obj, name in ((subprocess, "Popen"), (subprocess, "run"), (os, "system"), (os, "execve"),
+                      (socket, "create_connection"), (urllib.request, "urlopen")):
+        monkeypatch.setattr(obj, name, forbidden)
+    p = launch_host_subject().prepare_launch_host(**launch_host_arguments(launch_host_case))
+    assert launch_host_checker().verify_plan(plan_bytes=p.plan_bytes,
+        expected_plan_sha256=digest(p.plan_bytes), **launch_host_arguments(launch_host_case))["status"] == "accepted"
+
+
+@pytest.mark.parametrize("field", ["expected_selection_sha256", "expected_containment_request_sha256"])
+def test_launch_host_external_hashes_remain_required(launch_host_case, field):
+    with pytest.raises(launch_host_checker().HostError):
+        launch_host_checker().derive_plan(**launch_host_arguments(launch_host_case, **{field: "0" * 64}))
+
+
+@pytest.mark.parametrize("raw", [b'{"x":1,"x":1}', b'{"x":1.0}', b'{"x":NaN}',
+                                 b'{"x":' + b'9' * 5000 + b'}'])
+def test_launch_host_control_json_rejects_ambiguity_and_unbounded_numbers(raw):
+    with pytest.raises(launch_host_checker().HostError):
+        launch_host_checker().parse(raw)
+
+
+@pytest.mark.parametrize("change", ["extra", "missing", "duplicate_path", "host_alias", "relative_traversal",
+                                    "absolute_path", "host_normalization", "boolean_size", "selected_status"])
+def test_launch_host_closed_selection_rejects_rehashed_inventory_changes(launch_host_case, change):
+    chosen = copy.deepcopy(launch_host_case.selection)
+    if change == "extra": chosen["qualified"] = True
+    elif change == "missing": chosen.pop("host_observation")
+    elif change == "duplicate_path": chosen["native_files"].append(copy.deepcopy(chosen["native_files"][0]))
+    elif change == "host_alias": chosen["native_files"][1]["host_path"] = chosen["native_files"][0]["host_path"]
+    elif change == "relative_traversal": chosen["launcher_path"] = "native/../bwrap"
+    elif change == "absolute_path": chosen["launcher_path"] = "/native/bwrap"
+    elif change == "host_normalization": chosen["native_files"][0]["host_path"] = "/selected-host/./bwrap"
+    elif change == "boolean_size": chosen["native_files"][0]["size_bytes"] = True
+    else: chosen["record_status"] = "selected"
+    with pytest.raises(launch_host_checker().HostError):
+        launch_host_plan(launch_host_case, chosen=chosen)
+
+
+@pytest.mark.parametrize("field", ["execution_ready", "execution_authorized", "host_launcher_runtime_verified",
+                                   "github_build_provenance_verified", "launcher_executed",
+                                   "launcher_origin_authenticated", "host_observation_authenticated", "authority_effect"])
+def test_launch_host_selection_cannot_promote_passive_relationships(launch_host_case, field):
+    chosen = copy.deepcopy(launch_host_case.selection)
+    chosen[field] = "release" if field == "authority_effect" else True
+    with pytest.raises(launch_host_checker().HostError):
+        launch_host_plan(launch_host_case, chosen=chosen)
+
+
+@pytest.mark.parametrize("change", ["omit_other_consumer", "duplicate", "wrong_provider", "invented_edge", "wrong_loader"])
+def test_launch_host_native_edges_are_checked_for_every_consumer(launch_host_case, change):
+    chosen = copy.deepcopy(launch_host_case.selection)
+    rows = chosen["native_bindings"]
+    if change == "omit_other_consumer":
+        rows[:] = [row for row in rows if row["consumer"] != "native/libcap.so.2"]
+        assert any(row["name"] == "libc.so.6" for row in rows)
+    elif change == "duplicate": rows.append(copy.deepcopy(rows[0]))
+    elif change == "wrong_provider": rows[1]["provider"] = "native/libcap.so.2"
+    elif change == "invented_edge": rows.append({"consumer": "native/bwrap", "kind": "needed", "name": "invented.so", "provider": "native/libc.so.6"})
+    else: rows[0]["provider"] = "native/libc.so.6"
+    with pytest.raises(launch_host_checker().HostError):
+        launch_host_plan(launch_host_case, chosen=chosen)
+
+
+@pytest.mark.parametrize("change", ["unselected_payload", "missing_payload", "unreachable", "duplicate_soname",
+                                    "rpath", "runpath", "loader_interpreter", "loader_wrong_soname"])
+def test_launch_host_native_inventory_does_not_hide_ambient_or_unrelated_objects(launch_host_case, change):
+    chosen, native = copy.deepcopy(launch_host_case.selection), dict(launch_host_case.native)
+    elf = module("launch_host_native_examples", "tests/test_required_gate_idempotence_runtime_v0.py").elf
+    if change == "unselected_payload": native["native/extra.so"] = elf(soname="extra.so")
+    elif change == "missing_payload": native.pop("native/libcap.so.2")
+    elif change in {"unreachable", "duplicate_soname"}:
+        raw = elf(soname="unreachable.so" if change == "unreachable" else "libc.so.6")
+        native["native/extra.so"] = raw
+        chosen["native_files"].append({"path": "native/extra.so", "host_path": "/lib/extra.so", "role": "shared_library", **bound(raw)})
+    elif change in {"rpath", "runpath"}:
+        native["native/libcap.so.2"] = elf(soname="libcap.so.2", needed=("libc.so.6",), **{change: "/ambient"})
+    elif change == "loader_interpreter":
+        native["native/ld-linux-x86-64.so.2"] = elf(soname="ld-linux-x86-64.so.2", interpreter=LAUNCH_HOST_LOADER)
+    else: native["native/ld-linux-x86-64.so.2"] = elf(soname="unrelated-loader.so")
+    if change != "missing_payload": launch_host_rebind_native(chosen, native)
+    with pytest.raises(launch_host_checker().HostError):
+        launch_host_plan(launch_host_case, chosen=chosen, native_payload=native)
+
+
+def test_launch_host_reachable_native_cycle_is_not_mistaken_for_missing_evidence(launch_host_case):
+    chosen, native = copy.deepcopy(launch_host_case.selection), dict(launch_host_case.native)
+    elf = module("launch_host_native_examples", "tests/test_required_gate_idempotence_runtime_v0.py").elf
+    native["native/ld-linux-x86-64.so.2"] = elf(soname="ld-linux-x86-64.so.2", needed=("libc.so.6",))
+    launch_host_rebind_native(chosen, native)
+    chosen["native_bindings"].append({"consumer": "native/ld-linux-x86-64.so.2", "kind": "needed",
+                                       "name": "libc.so.6", "provider": "native/libc.so.6"})
+    plan = launch_host_plan(launch_host_case, chosen=chosen, native_payload=native)
+    assert plan["host_launcher_runtime_verified"] is False
+
+
+def test_launch_host_coherently_replaced_package_and_launcher_do_not_replace_containment_selection(launch_host_case):
+    chosen, native = copy.deepcopy(launch_host_case.selection), dict(launch_host_case.native)
+    native["native/bwrap"] += b"different inert bytes after the selected ELF metadata"
+    launch_host_rebind_native(chosen, native)
+    package = launch_host_package(native["native/bwrap"])
+    chosen["launcher_origin"]["package"] = bound(package)
+    with pytest.raises(launch_host_checker().HostError) as caught:
+        launch_host_plan(launch_host_case, chosen=chosen, native_payload=native, launcher_package_bytes=package)
+    assert caught.value.code == "launch_host_launcher_binding_mismatch"
+
+
+@pytest.mark.parametrize("change", ["source_commit", "request_hash", "record_hash", "missing_build", "rehashed_other_entry"])
+def test_launch_host_requires_original_build_inputs_and_exact_containment_entry(launch_host_case, change):
+    chosen, payload = copy.deepcopy(launch_host_case.selection), dict(launch_host_case.entry_payload)
+    if change in {"source_commit", "request_hash", "record_hash"}:
+        key = {"source_commit": "source_commit", "request_hash": "request_sha256", "record_hash": "record_sha256"}[change]
+        chosen["entry_build"][key] = "0" * (40 if key == "source_commit" else 64)
+    elif change == "missing_build": payload.pop("build-2/entry")
+    else:
+        for number in (1, 2):
+            name = "build-" + str(number)
+            payload[name + "/entry"] += b"independently different inert entry bytes"
+            receipt = json.loads(payload[name + "/result.json"])
+            receipt["entry"] = bound(payload[name + "/entry"])
+            payload[name + "/result.json"] = encoded(receipt)
+        module("launch_host_build_examples", "tests/test_required_gate_idempotence_entry_build_v0.py").reseal(payload)
+        chosen["entry_build"]["record_sha256"] = digest(payload["record.json"])
+        # The alternate two-build record remains internally valid. Admission
+        # must still require equality with the original containment entry.
+        report = module("launch_host_build_examples", "tests/test_required_gate_idempotence_entry_build_v0.py").checker().check_payload(
+            payload, expected_request_sha256=chosen["entry_build"]["request_sha256"],
+            expected_record_sha256=chosen["entry_build"]["record_sha256"], source_commit=chosen["entry_build"]["source_commit"])
+        assert report["status"] == "accepted"
+    with pytest.raises(launch_host_checker().HostError):
+        launch_host_plan(launch_host_case, chosen=chosen, entry_build_payload=payload)
+
+
+@pytest.mark.parametrize("compression", ["xz", "gz", "tar"])
+def test_launch_host_package_accepts_realistic_directories_and_multiline_control(launch_host_case, compression):
+    raw = launch_host_package(launch_host_case.fixture.launcher, compression=compression)
+    report = launch_host_packages().inspect_package(raw, member_path="usr/bin/bwrap", expected_name="bubblewrap",
+        expected_version=LAUNCH_HOST_VERSION, expected_architecture="amd64")
+    assert report["package"] == bound(raw)
+    assert report["control"] == {"name": "bubblewrap", "version": LAUNCH_HOST_VERSION, "architecture": "amd64"}
+    assert report["member_bytes"] == launch_host_case.fixture.launcher
+    assert report["member"] == {"path": "usr/bin/bwrap", "mode": "0755", **bound(launch_host_case.fixture.launcher)}
+    assert len(report["archive_members"]) == 3 and len(report["tar_archives"]) == 2
+
+
+@pytest.mark.parametrize("limit,accepted", [(5, False), (6, True)])
+def test_launch_host_package_member_budget_covers_control_and_data_together(launch_host_case, monkeypatch, limit, accepted):
+    package = launch_host_packages()
+    # The authored control tar has two members and data tar has four. Both
+    # individually fit either limit, so only a combined budget detects five.
+    monkeypatch.setattr(package, "MEMBER_COUNT_LIMIT", limit)
+    args = {"member_path": "usr/bin/bwrap", "expected_name": "bubblewrap",
+            "expected_version": LAUNCH_HOST_VERSION, "expected_architecture": "amd64"}
+    if accepted:
+        report = package.inspect_package(launch_host_case.package, **args)
+        assert sum(row["member_count"] for row in report["tar_archives"]) == 6
+    else:
+        with pytest.raises(package.PackageError) as caught:
+            package.inspect_package(launch_host_case.package, **args)
+        assert caught.value.code == "launcher_package_tar_member_limit"
+
+
+@pytest.mark.parametrize("change", ["member_substitution", "setuid", "setgid", "non_executable", "package_hash",
+                                    "version", "architecture", "member_path"])
+def test_launch_host_package_identity_and_selected_executable_remain_bound(launch_host_case, change):
+    chosen, raw = copy.deepcopy(launch_host_case.selection), launch_host_case.package
+    if change == "member_substitution": raw = launch_host_package(b"unrelated executable bytes")
+    elif change in {"setuid", "setgid", "non_executable"}:
+        raw = launch_host_package(launch_host_case.fixture.launcher, mode={"setuid": 0o4755, "setgid": 0o2755, "non_executable": 0o644}[change])
+    elif change == "package_hash": chosen["launcher_origin"]["package"]["sha256"] = "0" * 64
+    elif change == "version": chosen["launcher_origin"]["version"] = "0.12.0-2"
+    elif change == "architecture": chosen["launcher_origin"]["architecture"] = "arm64"
+    else: chosen["launcher_origin"]["member_path"] = "usr/bin/other"
+    if change in {"member_substitution", "setuid", "setgid", "non_executable"}:
+        chosen["launcher_origin"]["package"] = bound(raw)
+    with pytest.raises(launch_host_checker().HostError):
+        launch_host_plan(launch_host_case, chosen=chosen, launcher_package_bytes=raw)
+
+
+@pytest.mark.parametrize("change", ["ar_magic", "ar_truncated", "ar_extra", "tar_traversal", "tar_duplicate",
+                                    "selected_link", "ancestor_link", "duplicate_control", "continued_identity",
+                                    "second_control_paragraph"])
+def test_launch_host_package_reader_rejects_ambiguous_or_unsafe_original_archives(launch_host_case, change):
+    launcher = launch_host_case.fixture.launcher
+    raw = launch_host_case.package
+    if change == "ar_magic": raw = b"?" + raw[1:]
+    elif change == "ar_truncated": raw = raw[:-5]
+    elif change == "ar_extra": raw += launch_host_ar([("extra", b"hidden")])[8:]
+    elif change in {"tar_traversal", "tar_duplicate", "selected_link", "ancestor_link"}:
+        rows = [("./usr/bin/bwrap", launcher, 0o755, tarfile.REGTYPE, "")]
+        if change == "tar_traversal": rows.append(("../escape", b"hidden", 0o644, tarfile.REGTYPE, ""))
+        elif change == "tar_duplicate": rows.append(("usr/bin/bwrap", launcher, 0o755, tarfile.REGTYPE, ""))
+        elif change == "selected_link": rows = [("./usr/bin/bwrap", b"", 0o755, tarfile.SYMTYPE, "/elsewhere")]
+        else: rows.insert(0, ("usr", b"", 0o755, tarfile.SYMTYPE, "/ambient"))
+        raw = launch_host_package(launcher, data_rows=rows)
+    else:
+        control = ("Package: bubblewrap\nVersion: " + LAUNCH_HOST_VERSION + "\nArchitecture: amd64\n").encode()
+        control += {"duplicate_control": b"Architecture: amd64\n", "continued_identity": b" hidden identity suffix\n",
+                    "second_control_paragraph": b"\nPackage: hidden\n"}[change]
+        raw = launch_host_package(launcher, control=control)
+    with pytest.raises(launch_host_packages().PackageError):
+        launch_host_packages().inspect_package(raw, member_path="usr/bin/bwrap", expected_name="bubblewrap",
+            expected_version=LAUNCH_HOST_VERSION, expected_architecture="amd64")
+
+
+@pytest.mark.parametrize("change", ["wrong_hash", "extra_source", "missing_source", "duplicate_source", "invalid_base64",
+                                    "status_payload", "short_oversize", "namespace_target", "boolean_uid", "boolean_fd_count",
+                                    "negative_limit", "qualification_claim", "observation_id_newline"])
+def test_launch_host_observation_is_closed_raw_evidence_not_a_success_claim(launch_host_case, change):
+    host, chosen = json.loads(launch_host_case.host_raw), copy.deepcopy(launch_host_case.selection)
+    if change == "extra_source": host["files"].append({"path": "/proc/version", "status": "present", "data_b64": ""})
+    elif change == "missing_source": host["files"].pop()
+    elif change == "duplicate_source": host["files"].append(copy.deepcopy(host["files"][0]))
+    elif change == "invalid_base64": host["files"][0]["data_b64"] = "@@@"
+    elif change == "status_payload": host["files"][0]["status"] = "absent"
+    elif change == "short_oversize": host["files"][0].update(status="oversize", data_b64="QQ==")
+    elif change == "namespace_target": host["namespaces"][0]["target"] = "net:[4026531837]"
+    elif change == "boolean_uid": host["identity"]["uid"] = True
+    elif change == "boolean_fd_count": host["open_fd_count"] = True
+    elif change == "negative_limit": host["nofile"]["soft"] = -1
+    elif change == "qualification_claim": host["host_environment_qualified"] = True
+    elif change == "observation_id_newline": host["observation_id"] = "a" * 32 + "\n"
+    raw = encoded(host)
+    chosen["host_observation"] = bound(raw)
+    if change == "wrong_hash": chosen["host_observation"]["sha256"] = "0" * 64
+    with pytest.raises(launch_host_checker().HostError):
+        launch_host_plan(launch_host_case, chosen=chosen, host_observation_bytes=raw)
+
+
+@pytest.mark.parametrize("path,raw,status,result_id", [
+    ("/proc/sys/user/max_user_namespaces", b"0\n", "present", "user_namespace_limit"),
+    ("/proc/sys/kernel/unprivileged_userns_clone", b"0\n", "present", "unprivileged_userns_clone"),
+    ("/proc/sys/vm/memfd_noexec", b"2\n", "present", "memfd_executable_default"),
+    ("/etc/ld.so.preload", b"/ambient/injected.so\n", "present", "loader_preload"),
+])
+def test_launch_host_blocked_prerequisites_are_retained_without_qualification(launch_host_case, path, raw, status, result_id):
+    chosen, host = launch_host_host_change(launch_host_case, path, raw, status=status)
+    plan = launch_host_plan(launch_host_case, chosen=chosen, host_observation_bytes=host)
+    assert next(row for row in plan["host"]["passive_prerequisites"] if row["id"] == result_id)["status"] == "blocked"
+    assert plan["host_launcher_runtime_verified"] is False and plan["execution_ready"] is False
+
+
+@pytest.mark.parametrize("path,raw,status,result_id", [
+    ("/proc/sys/kernel/unprivileged_userns_clone", None, "absent", "unprivileged_userns_clone"),
+    ("/proc/sys/kernel/apparmor_restrict_unprivileged_userns", None, "unreadable", "apparmor_unprivileged_userns"),
+    ("/proc/sys/kernel/apparmor_restrict_unprivileged_userns", b"1\n", "present", "apparmor_unprivileged_userns"),
+    ("/proc/sys/vm/memfd_noexec", b"77\n", "present", "memfd_executable_default"),
+    ("/proc/sys/user/max_user_namespaces", b"not a number\n", "present", "user_namespace_limit"),
+    ("/etc/ld.so.preload", None, "unsafe", "loader_preload"),
+    ("/proc/self/status", b"NoNewPrivs:\t1\nNoNewPrivs:\t0\nSeccomp:\t2\n", "present", "observer_NoNewPrivs"),
+])
+def test_launch_host_unknown_prerequisites_cannot_become_positive_capability_tests(launch_host_case, path, raw, status, result_id):
+    chosen, host = launch_host_host_change(launch_host_case, path, raw, status=status)
+    plan = launch_host_plan(launch_host_case, chosen=chosen, host_observation_bytes=host)
+    assert next(row for row in plan["host"]["passive_prerequisites"] if row["id"] == result_id)["status"] == "unknown"
+    assert plan["host_launcher_runtime_verified"] is False
+
+
+@pytest.mark.parametrize("change", ["headroom", "missing_fd_observation", "no_memfd", "wrong_platform"])
+def test_launch_host_api_and_descriptor_preconditions_do_not_invent_readiness(launch_host_case, change):
+    host, chosen = json.loads(launch_host_case.host_raw), copy.deepcopy(launch_host_case.selection)
+    if change == "headroom": host["nofile"]["soft"] = 8
+    elif change == "missing_fd_observation": host["open_fd_count"] = None
+    elif change == "no_memfd": host["memfd_create_api"] = False
+    else: host["platform"]["machine"] = "aarch64"
+    raw = encoded(host)
+    chosen["host_observation"] = bound(raw)
+    plan = launch_host_plan(launch_host_case, chosen=chosen, host_observation_bytes=raw)
+    assert any(row["status"] in {"blocked", "unknown"} for row in plan["host"]["passive_prerequisites"])
+    assert plan["execution_authorized"] is False
+
+
+@pytest.mark.parametrize("delta,status", [(-1, "blocked"), (0, "satisfied")])
+def test_launch_host_descriptor_threshold_uses_observed_open_fds_and_reconstructed_view(launch_host_case, delta, status):
+    host, chosen = json.loads(launch_host_case.host_raw), copy.deepcopy(launch_host_case.selection)
+    needed = len(json.loads(launch_host_case.containment.request_bytes)["files"]) + 16 + host["open_fd_count"]
+    host["nofile"]["soft"] = needed + delta
+    raw = encoded(host)
+    chosen["host_observation"] = bound(raw)
+    plan = launch_host_plan(launch_host_case, chosen=chosen, host_observation_bytes=raw)
+    observed = next(row for row in plan["host"]["passive_prerequisites"] if row["id"] == "descriptor_headroom")
+    assert observed["status"] == status and observed["value"]["required_soft_limit"] == needed
+    assert plan["execution_ready"] is False
+
+
+@pytest.mark.parametrize("change", ["pending", "native", "host", "authority"])
+def test_launch_host_checker_reconstructs_original_relations_after_plan_rehashing(launch_host_case, change):
+    c, args = launch_host_checker(), launch_host_arguments(launch_host_case)
+    plan = json.loads(c.derive_plan(**args))
+    if change == "pending": plan["pending_obligations"] = []
+    elif change == "native": plan["native"]["bindings"] = []
+    elif change == "host": plan["host"]["passive_prerequisites"][0]["status"] = "invented"
+    else: plan["execution_authorized"] = True
+    raw = encoded(plan)
+    with pytest.raises(c.HostError):
+        c.verify_plan(plan_bytes=raw, expected_plan_sha256=digest(raw), **args)
+
+
+def test_launch_host_prepared_wrapper_cannot_replace_original_evidence(launch_host_case):
+    p, c = launch_host_subject(), launch_host_checker()
+    prepared = p.prepare_launch_host(**launch_host_arguments(launch_host_case))
+    altered = json.loads(prepared.plan_bytes)
+    altered["pending_obligations"] = []
+    raw = encoded(altered)
+    object.__setattr__(prepared, "plan_bytes", raw)
+    with pytest.raises(c.HostError):
+        p.verify_launch_host(prepared, plan_bytes=raw, expected_plan_sha256=digest(raw))
+
+
+def test_launch_host_readmits_containment_instead_of_trusting_a_rehashed_request(launch_host_case):
+    prepared = subject().prepare_containment(**dict(launch_host_case.containment.inputs))
+    altered = json.loads(prepared.request_bytes)
+    altered["phase"] = "collector"
+    raw = encoded(altered)
+    object.__setattr__(prepared, "request_bytes", raw)
+    chosen = copy.deepcopy(launch_host_case.selection)
+    chosen["containment_request_sha256"] = digest(raw)
+    with pytest.raises(launch_host_checker().HostError):
+        launch_host_plan(launch_host_case, chosen=chosen, containment_prepared=prepared,
+                         expected_containment_request_sha256=digest(raw))
+
+
+def test_launch_host_passive_observer_reads_only_fixed_sources_once(monkeypatch):
+    p, observed = launch_host_subject(), launch_host_observation()
+    file_rows = {row["path"]: row for row in observed["files"]}
+    namespace_rows = {row["name"]: row for row in observed["namespaces"]}
+    files, namespaces = [], []
+    def read_file(path):
+        files.append(path)
+        return copy.deepcopy(file_rows[path])
+    def read_namespace(name):
+        namespaces.append(name)
+        return copy.deepcopy(namespace_rows[name])
+    def forbidden(*args, **kwargs):
+        raise AssertionError("passive observer attempted child execution")
+    monkeypatch.setattr(p, "_read_host_file", read_file)
+    monkeypatch.setattr(p, "_namespace", read_namespace)
+    monkeypatch.setattr(subprocess, "Popen", forbidden)
+    raw = p.observe_host()
+    result = json.loads(raw)
+    assert files == list(p.HOST_PATHS) and len(files) == len(set(files)) == 6
+    assert namespaces == list(p.NAMESPACES) and len(namespaces) == len(set(namespaces)) == 7
+    assert len(result["observation_id"]) == 32 and raw == encoded(result)
+    assert "host_environment_qualified" not in result and "execution_ready" not in result
+
+
+@pytest.mark.parametrize("error,expected", [(errno.ENOENT, "absent"), (errno.EACCES, "unreadable"), (errno.ELOOP, "unsafe")])
+def test_launch_host_passive_read_failures_are_explicit(monkeypatch, error, expected):
+    p = launch_host_subject()
+    def fail(*args, **kwargs): raise OSError(error, "authored read failure")
+    monkeypatch.setattr(os, "open", fail)
+    assert p._read_host_file("/etc/ld.so.preload") == {"path": "/etc/ld.so.preload", "status": expected, "data_b64": None}
+
+
+def test_launch_host_passive_reader_caps_bytes_and_closes_descriptor(monkeypatch):
+    p, requested, closed = launch_host_subject(), [], []
+    source = io.BytesIO(b"A" * (p.HOST_READ_LIMIT + 100))
+    real_open, real_fstat, real_read, real_close = os.open, os.fstat, os.read, os.close
+    with monkeypatch.context() as patch:
+        patch.setattr(os, "open", lambda path, *args, **kwargs:
+                      123456 if path == "/proc/self/status" else real_open(path, *args, **kwargs))
+        patch.setattr(os, "fstat", lambda fd: SimpleNamespace(st_mode=stat.S_IFREG | 0o444)
+                      if fd == 123456 else real_fstat(fd))
+        def read(fd, size):
+            if fd != 123456:
+                return real_read(fd, size)
+            requested.append(size)
+            return source.read(size)
+        patch.setattr(os, "read", read)
+        patch.setattr(os, "close", lambda fd: closed.append(fd) if fd == 123456 else real_close(fd))
+        row = p._read_host_file("/proc/self/status")
+    assert row["status"] == "oversize" and len(base64.b64decode(row["data_b64"])) == p.HOST_READ_LIMIT
+    assert source.tell() == p.HOST_READ_LIMIT + 1 and max(requested) <= 4096 and closed == [123456]
+
+
+def test_launch_host_passive_sources_cannot_be_expanded_by_caller(monkeypatch):
+    p = launch_host_subject()
+    def forbidden(*args, **kwargs): raise AssertionError("unselected source was accessed")
+    monkeypatch.setattr(os, "open", forbidden)
+    monkeypatch.setattr(os, "readlink", forbidden)
+    with pytest.raises(launch_host_checker().HostError): p._read_host_file("/tmp/unselected")
+    with pytest.raises(launch_host_checker().HostError): p._namespace("../unselected")
+
+
+def launch_host_cli_inputs(case, directory):
+    args, prepared = cli_inputs(case.fixture, directory / "originals")
+    chosen = copy.deepcopy(case.selection)
+    chosen["containment_request_sha256"] = digest(prepared.request_bytes)
+    next(row for row in chosen["native_files"] if row["role"] == "launcher")["host_path"] = str(directory / "originals/launcher")
+    request = directory / "containment-request.json"
+    request.write_bytes(prepared.request_bytes)
+    chosen_raw = encoded(chosen)
+    selection_path = directory / "launch-host-selection.json"
+    selection_path.write_bytes(chosen_raw)
+    build_root = directory / "entry-build"
+    for name, raw in case.entry_payload.items():
+        path = build_root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+    native_root = directory / "native"
+    for name, raw in case.native.items():
+        path = native_root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+    package_path, observation_path = directory / "launcher.deb", directory / "host-observation.json"
+    package_path.write_bytes(case.package)
+    observation_path.write_bytes(case.host_raw)
+    args += ["--containment-request", str(request), "--containment-request-sha256", digest(prepared.request_bytes),
+             "--launch-host-selection", str(selection_path), "--launch-host-selection-sha256", digest(chosen_raw),
+             "--entry-build-directory", str(build_root), "--native-root", str(native_root),
+             "--launcher-package", str(package_path), "--host-observation", str(observation_path)]
+    return args, native_root
+
+
+def test_launch_host_cli_preserves_and_independently_checks_exact_plan_bytes(launch_host_case, tmp_path):
+    args, _ = launch_host_cli_inputs(launch_host_case, tmp_path)
+    path = tmp_path / "plan.json"
+    created = subprocess.run([sys.executable, str(LAUNCH_HOST_TOOL), "prepare", *args, "--output", str(path)],
+                             capture_output=True, timeout=30)
+    assert created.returncode == 0, created.stdout.decode() + created.stderr.decode()
+    raw = path.read_bytes()
+    checked = subprocess.run([sys.executable, str(LAUNCH_HOST_TOOL), "check", *args, "--plan", str(path),
+                              "--plan-sha256", digest(raw)], capture_output=True, timeout=30)
+    assert checked.returncode == 0, checked.stdout.decode() + checked.stderr.decode()
+    assert created.stdout == checked.stdout and path.read_bytes() == raw
+    assert json.loads(checked.stdout)["status"] == "accepted"
+
+
+def test_launch_host_checker_direct_invocation_requires_original_inputs():
+    result = subprocess.run([sys.executable, str(ROOT / "tools/check_required_gate_idempotence_launch_host_v0.py")],
+                            capture_output=True, timeout=15)
+    assert result.returncode == 1 and json.loads(result.stdout)["status"] == "rejected"
+
+
+@pytest.mark.parametrize("change", ["extra_file", "extra_directory", "symlink", "hardlink", "root_symlink", "existing_output"])
+def test_launch_host_cli_refuses_native_substitution_and_output_replacement(launch_host_case, tmp_path, change):
+    args, native_root = launch_host_cli_inputs(launch_host_case, tmp_path)
+    target, output = native_root / "native/bwrap", tmp_path / "plan.json"
+    if change == "extra_file": (native_root / "unselected").write_bytes(b"extra")
+    elif change == "extra_directory": (native_root / "unselected").mkdir()
+    elif change in {"symlink", "hardlink"}:
+        outside = tmp_path / "outside-launcher"
+        outside.write_bytes(target.read_bytes())
+        target.unlink()
+        if change == "symlink": target.symlink_to(outside)
+        else: os.link(outside, target)
+    elif change == "root_symlink":
+        moved = native_root.with_name("moved-native")
+        native_root.rename(moved)
+        native_root.symlink_to(moved, target_is_directory=True)
+    else: output.write_bytes(b"preserve original output\n")
+    result = subprocess.run([sys.executable, str(LAUNCH_HOST_TOOL), "prepare", *args, "--output", str(output)],
+                            capture_output=True, timeout=30)
+    assert result.returncode == 1, result.stdout.decode() + result.stderr.decode()
+    assert json.loads(result.stdout)["status"] == "rejected"
+    if change == "existing_output": assert output.read_bytes() == b"preserve original output\n"
+    else: assert not output.exists()
 
 
 if __name__ == "__main__":

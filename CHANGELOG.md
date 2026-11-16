@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add [B2 launcher and passive host binding](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LAUNCH_HOST_v0.md)
+  with independent reconstruction from the original containment and entry-build
+  inputs. Require both entry-build outputs to equal the selected containment
+  entry, bind the outer launcher to an exact plain Debian package member, and
+  check every consumer's selected interpreter/native dependency edges.
+  Add a bounded offline package reader and a passive host snapshot with explicit
+  blocked/unknown prerequisites. Preserve observed package-to-launcher equality
+  separately from origin authentication and actual host qualification.
+  Extend existing containment regressions without changing CI manifests or the
+  189 Tools / 40 targeted entries. No launcher, preserved entry or selected
+  runtime executes; the original artifacts and claim boundaries retain their
+  bytes, B2 remains incomplete and `authority_effect=none`.
+
 - Preserve the [first hosted B2 entry-build/provenance observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_BUILD_v0.md)
   from run `43854478248/1` at `f290aee20cd610e4fdb358dbf34d054ec351d390`.
   Retain both original GitHub artifact ZIPs byte-for-byte and add a descriptive
