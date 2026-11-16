@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Preserve the [first hosted B2 entry-build/provenance observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_BUILD_v0.md)
+  from run `43854478248/1` at `f290aee20cd610e4fdb358dbf34d054ec351d390`.
+  Retain both original GitHub artifact ZIPs byte-for-byte and add a descriptive
+  machine-readable inventory of their source, run, artifact and evidence bindings.
+  Record the two equal 9568-byte entries, accepted hosted record checks and the
+  actual successful hosted signature verification. Two later source-pinned
+  offline checker executions reproduce the hosted canonical reports byte-for-byte;
+  they do not claim a fresh local cryptographic verification. Keep the original
+  records and their boundary flags unchanged, update the documentation index,
+  and retain the remaining launcher/host/runtime obligations. No entry or selected
+  runtime is executed by this preservation change; B2 remains incomplete,
+  `metric_pass=null`, `actual_reference_claimed=false` and `authority_effect=none`.
+
 - Add [fixed B2 entry build acquisition and provenance](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_BUILD_v0.md)
   with two bounded builds of the unchanged static entry source, exact raw
   source/log/binary preservation and an independent closed-record checker.
