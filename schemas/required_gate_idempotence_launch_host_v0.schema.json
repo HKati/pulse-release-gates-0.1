@@ -1,0 +1,565 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulsemech:required-gate-idempotence-launch-host:v0",
+  "title": "Selected launch-host provenance relationships and passive observations v0",
+  "$ref": "#/$defs/selection",
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500,
+      "pattern": "^[A-Za-z0-9_.+\\-]+(?:/[A-Za-z0-9_.+\\-]+)*$"
+    },
+    "absolute_path": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 500,
+      "pattern": "^/[A-Za-z0-9_.+\\-]+(?:/[A-Za-z0-9_.+\\-]+)*$"
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "profile",
+        "record_status",
+        "containment_request_sha256",
+        "entry_build",
+        "launcher_path",
+        "loader_path",
+        "native_files",
+        "native_bindings",
+        "launcher_origin",
+        "host_observation",
+        "diagnostic_only",
+        "runtime_execution_authenticated",
+        "restored_bootstrap_qualified",
+        "loader_resolution_verified",
+        "python_import_closure_verified",
+        "host_environment_qualified",
+        "runtime_closure_verified",
+        "execution_ready",
+        "execution_authorized",
+        "observed_acquisition_supported",
+        "property_semantics_verified",
+        "metric_pass",
+        "actual_reference_claimed",
+        "production_gate_eligible",
+        "authority_effect",
+        "operator_applications",
+        "model_calls",
+        "containment_enforced",
+        "bootstrap_execution_observed",
+        "entry_binary_executed",
+        "compiler_closure_verified",
+        "source_binary_equivalence_verified",
+        "github_build_provenance_verified",
+        "host_launcher_runtime_verified",
+        "toolchain_execution_authenticated",
+        "launcher_executed",
+        "launcher_origin_authenticated",
+        "host_observation_authenticated"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_launch_host_selection_v0"
+        },
+        "profile": {
+          "const": "linux_x86_64_bubblewrap_launch_host_v0"
+        },
+        "record_status": {
+          "enum": [
+            "example",
+            "selected"
+          ]
+        },
+        "containment_request_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "entry_build": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source_commit",
+            "request_sha256",
+            "record_sha256"
+          ],
+          "properties": {
+            "source_commit": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "request_sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "record_sha256": {
+              "$ref": "#/$defs/digest"
+            }
+          }
+        },
+        "launcher_path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "loader_path": {
+          "$ref": "#/$defs/relative_path"
+        },
+        "native_files": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "host_path",
+              "role",
+              "sha256",
+              "size_bytes"
+            ],
+            "properties": {
+              "path": {
+                "$ref": "#/$defs/relative_path"
+              },
+              "host_path": {
+                "$ref": "#/$defs/absolute_path"
+              },
+              "role": {
+                "enum": [
+                  "launcher",
+                  "loader",
+                  "shared_library"
+                ]
+              },
+              "sha256": {
+                "$ref": "#/$defs/digest"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 64,
+                "maximum": 16777216
+              }
+            }
+          }
+        },
+        "native_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "consumer",
+              "kind",
+              "name",
+              "provider"
+            ],
+            "properties": {
+              "consumer": {
+                "$ref": "#/$defs/relative_path"
+              },
+              "kind": {
+                "enum": [
+                  "interpreter",
+                  "needed"
+                ]
+              },
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096
+              },
+              "provider": {
+                "$ref": "#/$defs/relative_path"
+              }
+            }
+          }
+        },
+        "launcher_origin": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "package",
+            "member_path",
+            "name",
+            "version",
+            "architecture"
+          ],
+          "properties": {
+            "kind": {
+              "const": "debian_package_member"
+            },
+            "package": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "sha256": {
+                  "$ref": "#/$defs/digest"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 33554432
+                }
+              }
+            },
+            "member_path": {
+              "const": "usr/bin/bwrap"
+            },
+            "name": {
+              "const": "bubblewrap"
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128,
+              "pattern": "^[0-9][0-9A-Za-z.+:~\\-]*$"
+            },
+            "architecture": {
+              "const": "amd64"
+            }
+          }
+        },
+        "host_observation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "size_bytes"
+          ],
+          "properties": {
+            "sha256": {
+              "$ref": "#/$defs/digest"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 262144
+            }
+          }
+        },
+        "diagnostic_only": {
+          "const": true
+        },
+        "runtime_execution_authenticated": {
+          "const": false
+        },
+        "restored_bootstrap_qualified": {
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "const": false
+        },
+        "python_import_closure_verified": {
+          "const": false
+        },
+        "host_environment_qualified": {
+          "const": false
+        },
+        "runtime_closure_verified": {
+          "const": false
+        },
+        "execution_ready": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "observed_acquisition_supported": {
+          "const": false
+        },
+        "property_semantics_verified": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "actual_reference_claimed": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "operator_applications": {
+          "const": 0
+        },
+        "model_calls": {
+          "const": 0
+        },
+        "containment_enforced": {
+          "const": false
+        },
+        "bootstrap_execution_observed": {
+          "const": false
+        },
+        "entry_binary_executed": {
+          "const": false
+        },
+        "compiler_closure_verified": {
+          "const": false
+        },
+        "source_binary_equivalence_verified": {
+          "const": false
+        },
+        "github_build_provenance_verified": {
+          "const": false
+        },
+        "host_launcher_runtime_verified": {
+          "const": false
+        },
+        "toolchain_execution_authenticated": {
+          "const": false
+        },
+        "launcher_executed": {
+          "const": false
+        },
+        "launcher_origin_authenticated": {
+          "const": false
+        },
+        "host_observation_authenticated": {
+          "const": false
+        }
+      }
+    },
+    "host_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "profile",
+        "observation_id",
+        "platform",
+        "identity",
+        "nofile",
+        "memfd_create_api",
+        "open_fd_count",
+        "files",
+        "namespaces"
+      ],
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_launch_host_observation_v0"
+        },
+        "profile": {
+          "const": "linux_x86_64_bubblewrap_launch_host_v0"
+        },
+        "observation_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "platform": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "system",
+            "machine",
+            "release"
+          ],
+          "properties": {
+            "system": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "machine": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "release": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          }
+        },
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "uid",
+            "euid",
+            "gid",
+            "egid"
+          ],
+          "properties": {
+            "uid": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "euid": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "gid": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "egid": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            }
+          }
+        },
+        "nofile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "soft",
+            "hard"
+          ],
+          "properties": {
+            "soft": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9223372036854775807
+                },
+                {
+                  "const": "unlimited"
+                }
+              ]
+            },
+            "hard": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9223372036854775807
+                },
+                {
+                  "const": "unlimited"
+                }
+              ]
+            }
+          }
+        },
+        "memfd_create_api": {
+          "type": "boolean"
+        },
+        "open_fd_count": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "files": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "path",
+              "status",
+              "data_b64"
+            ],
+            "properties": {
+              "path": {
+                "enum": [
+                  "/proc/self/status",
+                  "/proc/sys/user/max_user_namespaces",
+                  "/proc/sys/kernel/unprivileged_userns_clone",
+                  "/proc/sys/kernel/apparmor_restrict_unprivileged_userns",
+                  "/proc/sys/vm/memfd_noexec",
+                  "/etc/ld.so.preload"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "present",
+                  "absent",
+                  "unreadable",
+                  "oversize",
+                  "unsafe"
+                ]
+              },
+              "data_b64": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "maxLength": 21848
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "namespaces": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "status",
+              "target"
+            ],
+            "properties": {
+              "name": {
+                "enum": [
+                  "user",
+                  "mnt",
+                  "ipc",
+                  "pid",
+                  "net",
+                  "uts",
+                  "cgroup"
+                ]
+              },
+              "status": {
+                "enum": [
+                  "present",
+                  "absent",
+                  "unreadable"
+                ]
+              },
+              "target": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

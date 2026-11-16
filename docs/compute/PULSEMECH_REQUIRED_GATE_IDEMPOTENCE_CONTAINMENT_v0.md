@@ -240,11 +240,15 @@ All outcomes retain diagnostic-only scope, false `containment_enforced`,
 `execution_authorized`, `observed_acquisition_supported` and
 `production_gate_eligible`; `metric_pass=null` and `authority_effect=none`.
 
-The [entry build path](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_BUILD_v0.md) supplies
-the next implementation increment. Remaining work includes an actual reviewed
-hosted provenance run, launcher provenance and a reviewed launch host, a bounded
-example proving the boundary on that host, independently bound runtime and loader
-observations, and reviewed selected-bootstrap integration. Actual reference
+The [entry build path](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_BUILD_v0.md) now
+preserves the completed hosted provenance observation `43854478248/1`.
+The subsequent [launcher and passive host binding](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LAUNCH_HOST_v0.md)
+re-admits those entry bytes, checks the launcher's original package membership
+and every selected native dependency edge, and interprets a bounded host snapshot.
+Actual host qualification remains open. Remaining work includes authenticated
+launcher origin, a reviewed launch host, a bounded example proving the boundary
+on that host, independently bound runtime and loader observations, and reviewed
+selected-bootstrap integration. Actual reference
 execution still requires separate owner authorization. B3, B4 and B5 remain
 subsequent work. Preserve the original `43514702328/1` artifact, Q2 FAIL 49/50 plus
 1 UNKNOWN, all twelve unsupported gates and historical Q3 scope; keep

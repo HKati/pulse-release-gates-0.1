@@ -426,10 +426,15 @@ production-eligibility flags stay false; `metric_pass=null`,
 `actual_reference_claimed=false` and `authority_effect=none`. The selected
 bootstrap route remains closed.
 
-The first reviewed hosted provenance observation is preserved above. Remaining
-B2 work includes launcher provenance and host qualification, a bounded contained
-example, independently bound runtime/loader observations and reviewed
-selected-bootstrap integration.
+The first reviewed hosted provenance observation is preserved above. The
+subsequent [launcher and passive host binding](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LAUNCH_HOST_v0.md)
+requires both original build outputs to equal the selected containment entry,
+checks original package membership and complete per-consumer static native
+bindings for the outer launcher, and interprets a bounded passive host snapshot.
+These new relationships retain the original build and signature records.
+Remaining B2 work includes authenticated launcher origin and actual host
+qualification, a bounded contained example, independently bound runtime/loader
+observations and reviewed selected-bootstrap integration.
 Actual reference execution still requires separate owner authorization. B3, B4
 and B5 remain subsequent work. Preserve the original `43514702328/1` artifact,
 Q2 FAIL 49/50 plus 1 UNKNOWN, all twelve unsupported gates and historical Q3
