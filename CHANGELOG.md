@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add [fixed B2 entry build acquisition and provenance](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_BUILD_v0.md)
+  with two bounded builds of the unchanged static entry source, exact raw
+  source/log/binary preservation and an independent closed-record checker.
+  Retain compiler/subtool observations before and after building, require
+  identical entry bytes and preserve incomplete attempts. Add a manual-only
+  workflow that separates read-only compilation from attestation, checks the
+  exact downloaded artifact and verifies the original provenance bundle.
+  Bind the exact Python patch to its build and attest jobs in repository hygiene,
+  coordinate the guard fixtures and exercise the actual shared version guard.
+  Classify the exact workflow bytes as build-evidence preservation with
+  attestation participation and no required-gate or release-path participation.
+  Bind the toolchain-change regression to the observed assembler lookup and
+  verify stable and changed observations for bare, absolute and target-prefixed
+  query paths, retaining the exact failed-attempt diagnostics.
+  No produced entry or selected runtime is executed, no workflow is dispatched
+  by this change, and host/compiler qualification remains open. Add regressions
+  and coordinate Tools count guards from 188 to 189; targeted pytest remains 40,
+  B2 remains incomplete and `authority_effect=none`.
+
 - Add [B2 containment primitives](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_v0.md)
   with deterministic boundary requests, sealed input descriptors, a static entry,
   a fixed syscall policy and a bounded example-only launcher. Verify raw attempt

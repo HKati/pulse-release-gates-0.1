@@ -435,7 +435,7 @@ def test_workflow_preserves_manual_preparation_branch_and_exact_sources():
     assert 'always()' not in uploads[0]['if'] and 'secrets.' not in payload and 'contents: write' not in payload
     entries=[l.split('#',1)[0].strip() for l in (ROOT/'ci/tools-tests.list').read_text().splitlines()]
     entries=[x for x in entries if x]
-    assert len(entries)==len(set(entries))==188
+    assert len(entries)==len(set(entries))==189
     assert entries.count('tests/test_q2_reference_acquisition_v0.py')==1
 
 
@@ -546,6 +546,8 @@ def _run_hygiene_python_sync(tmp_path, *, core_version='3.11', q2_text=None,
     (tmp_path / tokenizer).write_bytes((ROOT / tokenizer).read_bytes())
     worker = '.github/workflows/q2_release_host_worker_verification_v0.yml'
     (tmp_path / worker).write_bytes((ROOT / worker).read_bytes())
+    entry_build = '.github/workflows/required_gate_idempotence_entry_build_v0.yml'
+    (tmp_path / entry_build).write_bytes((ROOT / entry_build).read_bytes())
     q3 = '.github/workflows/q3_reference_acquisition_v0.yml'
     (tmp_path / q3).write_bytes((ROOT / q3).read_bytes())
     if not omit_q3_v1:
