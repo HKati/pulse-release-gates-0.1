@@ -4,7 +4,8 @@
 
 **Implemented: two fixed builds of the repository-owned containment entry,
 preserved build records, independent offline checking, and a manual GitHub
-provenance workflow. B2 remains incomplete.**
+provenance workflow. The first hosted build/provenance observation,
+`43854478248/1`, completed and is preserved below. B2 remains incomplete.**
 
 This continuation supplies a reviewable build path for the static entry used by
 the [containment primitives](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_CONTAINMENT_v0.md).
@@ -241,12 +242,169 @@ stdout, stderr and exit code are preserved. The final artifact upload also runs
 on failure, with name
 `required-gate-idempotence-entry-attestation-RUN_ID-RUN_ATTEMPT`.
 
-An uploaded bundle is not itself a successful verification result. A future run
+An uploaded bundle is not itself a successful verification result. Every run
 must be reviewed using its exact source commit, run/attempt, artifact IDs, original
-bundle and verifier exit/output. The final evidence remains outside this
-implementation package until that run actually exists. Signed build provenance
-authenticates the checked workflow identity and subject binding; it does not
-prove compiler correctness, source/binary semantic equivalence or host fitness.
+bundle and verifier exit/output. The first completed hosted observation is
+recorded in the next section, separately from the implementation and its original
+offline records. Signed build provenance authenticates the checked workflow
+identity and subject binding; it does not prove compiler correctness,
+source/binary semantic equivalence or host fitness.
+
+## Completed hosted observation — 43854478248/1
+
+**Completed bounded operational record.** The owner-dispatched
+[first hosted run](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43854478248)
+completed successfully on 2026-11-16. It acquired two actual fixed-source builds,
+checked their original evidence in separate build and signing jobs, and completed
+the hosted signature verification. The unchanged artifacts and their
+[preservation inventory](../../preservation/required_gate_idempotence_entry_build_v0/run_43854478248_attempt_1/verification_record_v0.json)
+retain the evidence for this observation. The later inventory describes those
+results; it is not another independent checker report or an execution permit.
+
+### Run, source and artifact identities
+
+| Identity | Recorded value |
+| --- | --- |
+| Repository / repository ID | `HKati/pulse-release-gates-0.1` / `1061766508` |
+| Run / number / attempt | `43854478248` / `1` / `1` |
+| Event / ref | `workflow_dispatch` / `refs/heads/main` |
+| Actor / triggering actor | `HKati` / `HKati` |
+| Source commit and workflow SHA | `f290aee20cd610e4fdb358dbf34d054ec351d390` |
+| Source tree | `30b4e7d11f95f88b0b95e7b04b9ad29a9d95a381` |
+| Workflow path | `.github/workflows/required_gate_idempotence_entry_build_v0.yml` |
+| Build job | [133255107740](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43854478248/job/133255107740), successful |
+| Signing and verification job | [133255324365](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/43854478248/job/133255324365), successful |
+| Run creation / terminal update | `2026-11-16T11:04:28Z` / `2026-11-16T11:05:33Z` |
+| Acknowledgement required by the executed workflow | `BUILD_ENTRY_ONLY_NO_RUNTIME_EXECUTION` |
+
+The following source bytes belong to that exact hosted commit. A later commit
+which adds this observation does not become the source of the historical build.
+
+| Source object | Bytes | SHA-256 |
+| --- | ---: | --- |
+| Fixed entry C source | 4598 | `0265273af5a51301035bbd4d2418d4ab87e8572a56bddbf028c95e12e7e2631f` |
+| Acquisition tool | 30687 | `557940d01a67f8bb2023b22b21121be9ac965995ce0ddfbabf6bf09ec9e2311c` |
+| Independent checker | 22242 | `6a452044251bdcd6551bb653f1472eabbc213b3d0f5560494b0046668a325900` |
+| Request schema | 8499 | `ff382fe396ef01309db95ad129b30b6ec4c4dc8d4460d54448637c9cdac6d6af` |
+| Manual workflow | 21140 | `53a2c0ce99355899cf9296ce7c8a3cd932ae436e825665789fca7e13f1a47be6` |
+| Hosted dependency lock | 898 | `dfea85090305c5dd7ea5b3f829cbb450621087d4b07179019a285a7d41badb28` |
+
+| Preserved original ZIP | Artifact ID | Members | Bytes | SHA-256 |
+| --- | ---: | ---: | ---: | --- |
+| [Build artifact](../../preservation/required_gate_idempotence_entry_build_v0/run_43854478248_attempt_1/required-gate-idempotence-entry-build-43854478248-1.zip) | `14221130752` | 20 | 64298 | `1ad3f84009ff7446e204ab18cb61bd5494a6d1182878833de017a438a3f36855` |
+| [Attestation artifact](../../preservation/required_gate_idempotence_entry_build_v0/run_43854478248_attempt_1/required-gate-idempotence-entry-attestation-43854478248-1.zip) | `14220256431` | 27 | 93740 | `04bc923532e4ed8f3e2b564704fe6687619915c4a4fea45724af99473dfcb788` |
+
+Both downloaded ZIPs match their separately retrieved GitHub API digests and byte
+counts. They are preserved without recompression or repackaging. The API reports
+90-day Actions retention ending at `2027-02-14T11:04:30Z`; these exact repository
+copies retain the original evidence beyond that hosted retention period. The
+API metadata is a separately retrieved description, not an independent signature
+over this later documentation inventory.
+
+### Observed build and handoff relationships
+
+The build artifact contains the closed fifteen-file `evidence/` directory and
+the original acquisition, compiler-selection, workflow-start and checker
+records. The attestation artifact retains all twenty build-artifact files under
+`input/`, with byte-identical contents, alongside the signing and verification
+records. Its `original-build-artifact-id.txt` and `attestation-identity.json`
+agree with the original build artifact ID `14221130752`.
+
+| Evidence object | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `evidence/request.json` | 2268 | `e2a2df9acf7d63574396e3ccb9851c2bad9a22d177b38ab95f3f99228d388fe2` |
+| `evidence/record.json` | 2922 | `330246bc2edea58dfdd5e22de33d6bca8df702cfc38391136b4ed93738739583` |
+| Each hosted `build-1/entry` and `build-2/entry` | 9568 | `7a21b2e4d60dc080149d9a919b604e39f6fb29be42d462e979b46d3c439b95ab` |
+| Each original hosted checker report | 1407 | `f968bdca9544265843e3cd0b29953e24998dfe88453ed6bce9c699146f2a1f06` |
+| Original `attestation.bundle.json` | 11334 | `f0ebc390b9996d2ff9d5e27fa546c76e45dbad78513a0317ca3597b6fcd28e97` |
+| Original `verification.stdout.json` | 14591 | `c6d2e0f9d897f032f5d0ddab742619f938743651a6fbbdf7f1deb5ac9875d629` |
+
+Both hosted checker executions accepted the evidence. Each separately validates
+the source, command, environment, process and raw output bindings for both build
+occurrences. Their canonical reports are byte-identical and record
+`entry_build_record_verified=true`, `repeat_build_equal=true`,
+`entry_static_shape_verified=true` and `toolchain_observations_stable=true`.
+They are two executions of the same independent checker implementation in
+separate jobs.
+
+The selected compiler was `/usr/bin/x86_64-linux-gnu-gcc-13`, reporting
+`13.3.0` from Ubuntu package `13.3.0-6ubuntu2~24.04.1`; its preserved identity is
+1023032 bytes, SHA-256
+`1b99826121ae6682a634e5efe09bd3e3df58ce58e0b28f849114ab5b89139c26`.
+The two 9568-byte binaries are equal to each other under this recorded hosted
+recipe and toolchain. This observation makes no equality claim about binaries
+built with a different toolchain or host.
+
+### Hosted signature verification and later local replay
+
+Attestation `68081318` binds the closed build record. The preserved original
+bundle and identity agree on the source/workflow commit, run/attempt, original
+build artifact, request and record digests. The actual hosted
+`gh attestation verify` step returned `0`, preserved as `0` followed by LF in
+`verification.exit-code.txt`, with empty `verification.stderr.bin`. Its JSON
+output retains the verified subject and provenance. The command required the
+fixed repository and signer workflow, exact source and workflow digests,
+`refs/heads/main`, the GitHub OIDC issuer, the SLSA provenance v1 predicate and
+denial of self-hosted runners.
+
+Later local checking used the unchanged checker from
+`f290aee20cd610e4fdb358dbf34d054ec351d390`, once against each separately extracted
+original artifact's evidence. Both fresh processes returned `0` with empty
+stderr and accepted reports. Each reproduced all 1407 bytes of both original
+hosted reports. These two later processes and the two hosted processes use the
+same checker; they are not four independent implementations. The local replay
+read preserved bytes and did not compile or execute an entry, selected runtime,
+original operator or model.
+
+Local checking used CPython `3.11.16`, jsonschema `4.26.0`, PyYAML `6.0.3` and
+jsonschema-specifications `2025.9.1`. Local `rpds-py` was `2026.9.1`; the unchanged
+hosted lock selects `2026.6.3`. The matching source-bound reports are results for
+these actual executions; they do not claim an identical hosted dependency
+environment. Fresh local cryptographic signature verification was not performed.
+The retained successful signature verification is the original hosted execution,
+whose command, exit code and output are preserved separately from the later
+offline record checks.
+
+For an offline record replay, use a separate clean checkout at the exact hosted
+source commit and extract the unchanged ZIPs into separate fresh directories.
+From that source checkout, run the checker with these external identity pins;
+each output path must be new and outside its evidence directory:
+
+```bash
+python3 -I -B tools/check_required_gate_idempotence_entry_build_v0.py \
+  --evidence-dir /absolute/path/to/extracted-build/evidence \
+  --source-commit f290aee20cd610e4fdb358dbf34d054ec351d390 \
+  --request-sha256 e2a2df9acf7d63574396e3ccb9851c2bad9a22d177b38ab95f3f99228d388fe2 \
+  --record-sha256 330246bc2edea58dfdd5e22de33d6bca8df702cfc38391136b4ed93738739583 \
+  --output /absolute/path/to/new-build-record-check.json
+
+python3 -I -B tools/check_required_gate_idempotence_entry_build_v0.py \
+  --evidence-dir /absolute/path/to/extracted-attestation/input/evidence \
+  --source-commit f290aee20cd610e4fdb358dbf34d054ec351d390 \
+  --request-sha256 e2a2df9acf7d63574396e3ccb9851c2bad9a22d177b38ab95f3f99228d388fe2 \
+  --record-sha256 330246bc2edea58dfdd5e22de33d6bca8df702cfc38391136b4ed93738739583 \
+  --output /absolute/path/to/new-attestation-record-check.json
+```
+
+These commands reproduce the offline record checks. They do not repeat the
+hosted build or the cryptographic signature verification.
+
+### Preserved claim boundary
+
+This observation establishes the recorded relationship among the exact source,
+two hosted builds, their original byte evidence, independent record checks and
+the separately verified hosted attestation. The build and checker records retain
+their original `github_build_provenance_verified=false` field: the later signing
+result is a separate event, not an edit to those earlier offline records.
+
+No produced entry, selected runtime, original operator or actual reference was
+executed by this workflow or the later replay. Compiler closure, source/binary
+semantic equivalence, authenticated toolchain execution, launcher/host
+qualification and selected-bootstrap integration remain separate obligations.
+The preservation inventory grants no execution readiness, metric PASS or release
+authority. B2 remains incomplete; the original `43514702328/1` evidence, Q2 FAIL
+49/50 plus 1 UNKNOWN, all twelve unsupported gates and historical Q3 scope retain
+their recorded meanings. Issue #2879 stays open.
 
 ## Validation and remaining work
 
@@ -268,9 +426,10 @@ production-eligibility flags stay false; `metric_pass=null`,
 `actual_reference_claimed=false` and `authority_effect=none`. The selected
 bootstrap route remains closed.
 
-Remaining B2 work includes an actual reviewed hosted provenance run, launcher
-provenance and host qualification, a bounded contained example, independently
-bound runtime/loader observations and reviewed selected-bootstrap integration.
+The first reviewed hosted provenance observation is preserved above. Remaining
+B2 work includes launcher provenance and host qualification, a bounded contained
+example, independently bound runtime/loader observations and reviewed
+selected-bootstrap integration.
 Actual reference execution still requires separate owner authorization. B3, B4
 and B5 remain subsequent work. Preserve the original `43514702328/1` artifact,
 Q2 FAIL 49/50 plus 1 UNKNOWN, all twelve unsupported gates and historical Q3
