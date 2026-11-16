@@ -280,6 +280,13 @@ snapshot and pre/post file hashes do not identify the objects actually mapped
 through launcher forks and exec transitions. That investigation requires a
 separately reviewed observation mechanism and selected-bootstrap integration.
 
+The separate [fixed-probe stopped mapping observation](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MAPPING_OBSERVATION_v0.md)
+develops one such primitive using exact authored probe bytes, an owned stopped
+child, the actual executable descriptor and the retained sealed file object.
+Its cooperative checkpoint concerns that probe only; it does not observe this
+original launcher, authenticate its full dynamic path or alter this distribution
+record and its accepted report.
+
 The historical Q3 artifacts, original verification run `43514702328/1`, Q2
 `FAIL 49/50 +1 UNKNOWN`, all twelve unsupported gates and the open whole-runtime
 I/E work in [#2879](https://github.com/HKati/pulse-release-gates-0.1/issues/2879)

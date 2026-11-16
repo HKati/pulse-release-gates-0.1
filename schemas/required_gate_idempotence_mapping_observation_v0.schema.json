@@ -1,0 +1,1048 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulsemech:required-gate-idempotence-mapping-observation:v0",
+  "title": "Fixed-probe cooperative stopped executable backing-object observation v0",
+  "description": "Closed example-only selection, bounded kernel-observation capture, and independent record verification. A cooperative post-exec SIGSTOP is not a ptrace exec event. Backing-object evidence does not authenticate the host, resident memory, complete native closure, or selected runtime execution. Raw evidence and original selections must be independently reconstructed by the checker.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/selection"
+    },
+    {
+      "$ref": "#/$defs/capture"
+    },
+    {
+      "$ref": "#/$defs/verification"
+    },
+    {
+      "$ref": "#/$defs/attempt_start"
+    }
+  ],
+  "$defs": {
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 41943040
+        }
+      },
+      "required": [
+        "sha256",
+        "size_bytes"
+      ]
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_mapping_selection_v0"
+        },
+        "profile": {
+          "const": "linux_x86_64_fixed_probe_stopped_mapping_v0"
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "probe": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size_bytes": {
+              "const": 4096
+            }
+          },
+          "required": [
+            "sha256",
+            "size_bytes"
+          ]
+        },
+        "observer": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 4096,
+              "pattern": "^/"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 33554432
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ]
+        },
+        "sources": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "schemas/required_gate_idempotence_mapping_observation_v0.schema.json"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1048576
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/check_required_gate_idempotence_mapping_observation_v0.py"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1048576
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/required_gate_idempotence_mapping_observation_v0.py"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1048576
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ]
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "const": "tools/required_gate_idempotence_mapping_probe_v0.py"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1048576
+                }
+              },
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "wall_seconds": {
+              "const": 15
+            },
+            "cleanup_seconds": {
+              "const": 2
+            },
+            "proc_file_bytes": {
+              "const": 65536
+            },
+            "observer_executable_bytes": {
+              "const": 33554432
+            },
+            "stdout_bytes": {
+              "const": 4096
+            },
+            "stderr_bytes": {
+              "const": 4096
+            },
+            "total_capture_bytes": {
+              "const": 41943040
+            }
+          },
+          "required": [
+            "wall_seconds",
+            "cleanup_seconds",
+            "proc_file_bytes",
+            "observer_executable_bytes",
+            "stdout_bytes",
+            "stderr_bytes",
+            "total_capture_bytes"
+          ]
+        },
+        "record_status": {
+          "const": "example"
+        },
+        "diagnostic_only": {
+          "const": true
+        },
+        "physical_execution_authenticated": {
+          "const": false
+        },
+        "host_observation_authenticated": {
+          "const": false
+        },
+        "host_environment_qualified": {
+          "const": false
+        },
+        "host_launcher_runtime_verified": {
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "const": false
+        },
+        "process_memory_bytes_verified": {
+          "const": false
+        },
+        "complete_native_closure_verified": {
+          "const": false
+        },
+        "containment_enforced": {
+          "const": false
+        },
+        "execution_ready": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "selected_runtime_executed": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "attempt_id",
+        "probe",
+        "observer",
+        "sources",
+        "limits",
+        "record_status",
+        "diagnostic_only",
+        "physical_execution_authenticated",
+        "host_observation_authenticated",
+        "host_environment_qualified",
+        "host_launcher_runtime_verified",
+        "loader_resolution_verified",
+        "process_memory_bytes_verified",
+        "complete_native_closure_verified",
+        "containment_enforced",
+        "execution_ready",
+        "execution_authorized",
+        "selected_runtime_executed",
+        "production_gate_eligible",
+        "metric_pass",
+        "authority_effect"
+      ]
+    },
+    "fd_stat": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dev": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "ino": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 18446744073709551615
+        },
+        "mode": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "nlink": {
+          "const": 0
+        },
+        "size": {
+          "const": 4096
+        }
+      },
+      "required": [
+        "dev",
+        "ino",
+        "mode",
+        "nlink",
+        "size"
+      ]
+    },
+    "fd_object": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stat": {
+          "$ref": "#/$defs/fd_stat"
+        },
+        "seals": {
+          "const": 15
+        }
+      },
+      "required": [
+        "stat",
+        "seals"
+      ]
+    },
+    "ownership": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pidfd_opened": {
+          "type": "boolean"
+        },
+        "proc_dir_pinned": {
+          "type": "boolean"
+        },
+        "child_reaped": {
+          "type": "boolean"
+        },
+        "resumed_after_stop": {
+          "const": false
+        }
+      },
+      "required": [
+        "pidfd_opened",
+        "proc_dir_pinned",
+        "child_reaped",
+        "resumed_after_stop"
+      ]
+    },
+    "wait": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "initial": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observation": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "terminal": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "initial",
+        "observation",
+        "terminal"
+      ]
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "started_ns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "stopped_ns": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "finished_ns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        }
+      },
+      "required": [
+        "started_ns",
+        "stopped_ns",
+        "finished_ns"
+      ]
+    },
+    "file_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "enum": [
+            "attempt_start.json",
+            "child.exe.link.bin",
+            "child.maps.after.bin",
+            "child.maps.before.bin",
+            "child.pidfd.info.bin",
+            "child.stat.after.bin",
+            "child.stat.before.bin",
+            "child.status.after.bin",
+            "child.status.before.bin",
+            "executable.elf",
+            "host.json",
+            "kernel.boot_id.bin",
+            "observer.exe.bin",
+            "observer.stat.bin",
+            "observer.status.bin",
+            "probe.elf",
+            "retained.elf",
+            "selection.json",
+            "stderr.bin",
+            "stdout.bin"
+          ]
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 33554432
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ]
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_mapping_capture_v0"
+        },
+        "profile": {
+          "const": "linux_x86_64_fixed_probe_stopped_mapping_v0"
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "selection_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "incomplete"
+          ]
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,119}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observer_pid": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "child_pid": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 2147483647
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timing": {
+          "$ref": "#/$defs/timing"
+        },
+        "wait": {
+          "$ref": "#/$defs/wait"
+        },
+        "ownership": {
+          "$ref": "#/$defs/ownership"
+        },
+        "objects": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "retained": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/fd_object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "executable": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/fd_object"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "retained",
+            "executable"
+          ]
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/file_row"
+          },
+          "minItems": 2,
+          "maxItems": 20,
+          "uniqueItems": true
+        },
+        "record_status": {
+          "const": "example"
+        },
+        "diagnostic_only": {
+          "const": true
+        },
+        "physical_execution_authenticated": {
+          "const": false
+        },
+        "host_observation_authenticated": {
+          "const": false
+        },
+        "host_environment_qualified": {
+          "const": false
+        },
+        "host_launcher_runtime_verified": {
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "const": false
+        },
+        "process_memory_bytes_verified": {
+          "const": false
+        },
+        "complete_native_closure_verified": {
+          "const": false
+        },
+        "containment_enforced": {
+          "const": false
+        },
+        "execution_ready": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "selected_runtime_executed": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "attempt_id",
+        "selection_sha256",
+        "status",
+        "failure",
+        "observer_pid",
+        "child_pid",
+        "timing",
+        "wait",
+        "ownership",
+        "objects",
+        "files",
+        "record_status",
+        "diagnostic_only",
+        "physical_execution_authenticated",
+        "host_observation_authenticated",
+        "host_environment_qualified",
+        "host_launcher_runtime_verified",
+        "loader_resolution_verified",
+        "process_memory_bytes_verified",
+        "complete_native_closure_verified",
+        "containment_enforced",
+        "execution_ready",
+        "execution_authorized",
+        "selected_runtime_executed",
+        "production_gate_eligible",
+        "metric_pass",
+        "authority_effect"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "failure": {
+                "const": null
+              },
+              "child_pid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 2147483647
+              },
+              "timing": {
+                "properties": {
+                  "stopped_ns": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9223372036854775807
+                  }
+                }
+              },
+              "wait": {
+                "const": {
+                  "initial": 4991,
+                  "observation": null,
+                  "terminal": 9
+                }
+              },
+              "ownership": {
+                "const": {
+                  "pidfd_opened": true,
+                  "proc_dir_pinned": true,
+                  "child_reaped": true,
+                  "resumed_after_stop": false
+                }
+              },
+              "objects": {
+                "properties": {
+                  "retained": {
+                    "$ref": "#/$defs/fd_object"
+                  },
+                  "executable": {
+                    "$ref": "#/$defs/fd_object"
+                  }
+                }
+              },
+              "files": {
+                "minItems": 20,
+                "maxItems": 20
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "failure": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,119}$"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "attempt_start": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_mapping_attempt_start_v0"
+        },
+        "profile": {
+          "const": "linux_x86_64_fixed_probe_stopped_mapping_v0"
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "selection_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "observer_pid": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2147483647
+        },
+        "started_ns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "attempt_id",
+        "selection_sha256",
+        "observer_pid",
+        "started_ns"
+      ]
+    },
+    "namespace_roster": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cgroup": {
+          "type": "string",
+          "pattern": "^cgroup:\\[[1-9][0-9]*\\]$"
+        },
+        "ipc": {
+          "type": "string",
+          "pattern": "^ipc:\\[[1-9][0-9]*\\]$"
+        },
+        "mnt": {
+          "type": "string",
+          "pattern": "^mnt:\\[[1-9][0-9]*\\]$"
+        },
+        "net": {
+          "type": "string",
+          "pattern": "^net:\\[[1-9][0-9]*\\]$"
+        },
+        "pid": {
+          "type": "string",
+          "pattern": "^pid:\\[[1-9][0-9]*\\]$"
+        },
+        "user": {
+          "type": "string",
+          "pattern": "^user:\\[[1-9][0-9]*\\]$"
+        },
+        "uts": {
+          "type": "string",
+          "pattern": "^uts:\\[[1-9][0-9]*\\]$"
+        }
+      },
+      "required": [
+        "cgroup",
+        "ipc",
+        "mnt",
+        "net",
+        "pid",
+        "user",
+        "uts"
+      ]
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "platform": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "system": {
+              "const": "Linux"
+            },
+            "machine": {
+              "const": "x86_64"
+            },
+            "release": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          },
+          "required": [
+            "system",
+            "machine",
+            "release",
+            "version"
+          ]
+        },
+        "observer_namespaces": {
+          "$ref": "#/$defs/namespace_roster"
+        },
+        "child_namespaces": {
+          "$ref": "#/$defs/namespace_roster"
+        }
+      },
+      "required": [
+        "platform",
+        "observer_namespaces",
+        "child_namespaces"
+      ]
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_mapping_verification_v0"
+        },
+        "profile": {
+          "const": "linux_x86_64_fixed_probe_stopped_mapping_v0"
+        },
+        "attempt_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{32}$"
+        },
+        "status": {
+          "const": "accepted"
+        },
+        "selection_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "capture_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "observation_record_verified": {
+          "const": true
+        },
+        "observation_complete": {
+          "type": "boolean"
+        },
+        "stopped_executable_backing_relation_verified": {
+          "type": "boolean"
+        },
+        "sealed_executable_object_binding_verified": {
+          "type": "boolean"
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,119}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "record_status": {
+          "const": "example"
+        },
+        "diagnostic_only": {
+          "const": true
+        },
+        "physical_execution_authenticated": {
+          "const": false
+        },
+        "host_observation_authenticated": {
+          "const": false
+        },
+        "host_environment_qualified": {
+          "const": false
+        },
+        "host_launcher_runtime_verified": {
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "const": false
+        },
+        "process_memory_bytes_verified": {
+          "const": false
+        },
+        "complete_native_closure_verified": {
+          "const": false
+        },
+        "containment_enforced": {
+          "const": false
+        },
+        "execution_ready": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "selected_runtime_executed": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "attempt_id",
+        "status",
+        "selection_sha256",
+        "capture_sha256",
+        "observation_record_verified",
+        "observation_complete",
+        "stopped_executable_backing_relation_verified",
+        "sealed_executable_object_binding_verified",
+        "failure",
+        "record_status",
+        "diagnostic_only",
+        "physical_execution_authenticated",
+        "host_observation_authenticated",
+        "host_environment_qualified",
+        "host_launcher_runtime_verified",
+        "loader_resolution_verified",
+        "process_memory_bytes_verified",
+        "complete_native_closure_verified",
+        "containment_enforced",
+        "execution_ready",
+        "execution_authorized",
+        "selected_runtime_executed",
+        "production_gate_eligible",
+        "metric_pass",
+        "authority_effect"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "observation_complete": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "stopped_executable_backing_relation_verified": {
+                "const": true
+              },
+              "sealed_executable_object_binding_verified": {
+                "const": true
+              },
+              "failure": {
+                "const": null
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "stopped_executable_backing_relation_verified": {
+                "const": false
+              },
+              "sealed_executable_object_binding_verified": {
+                "const": false
+              },
+              "failure": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]{0,119}$"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
