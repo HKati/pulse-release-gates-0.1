@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add [B2 original launcher exec-stop acquisition](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_v0.md)
+  with a closed original-input request, explicit owner collector and independent
+  checker. Freshly reconstruct the preserved launcher/distribution chain before
+  request preparation or checking. Bind the exact original launcher/interpreter,
+  eight ELF load-segment occurrences and four RX memory-sample obligations to
+  one kernel exec stop with no later resume. Preserve failed prerequisites,
+  bounded diagnostics and owned-child cleanup. Previous observations and
+  original bytes remain unchanged. Actual original-target acquisition requires
+  a separately authorized eligible owner environment; selected-runtime execution
+  stays closed and `authority_effect=none`.
+
 - Add [B2 fixed-probe private-memory transition observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MEMORY_OBSERVATION_v0.md)
   with a separately pinned two-stop authored ELF and one fixed data-byte write.
   Preserve two samples of each selected code/data page at each checkpoint;

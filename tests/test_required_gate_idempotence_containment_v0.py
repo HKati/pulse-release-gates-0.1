@@ -4219,3 +4219,718 @@ def test_memory_out_of_range_file_modes_reject_with_a_controlled_checker_error(m
     selected["mode"] = 2**32
     with pytest.raises(memory_checker().MemoryCheckError):
         memory_verify_changed(memory_observed_case, capture=capture)
+
+
+# Original-launcher cp0 acquisition regressions use authored inert ELF bytes and
+# mocked owned-child boundaries only.  No original launcher, loader, hosted
+# entry, selected runtime or model is executed by these tests.
+NATIVE_ACQUISITION_TOOL = ROOT / "tools/required_gate_idempotence_exec_stop_v0.py"
+NATIVE_ACQUISITION_CHECKER = ROOT / "tools/check_required_gate_idempotence_exec_stop_v0.py"
+
+
+def native_acquisition_subject():
+    return module("required_gate_idempotence_exec_stop_v0",
+                  "tools/required_gate_idempotence_exec_stop_v0.py")
+
+
+def native_acquisition_checker():
+    return module("check_required_gate_idempotence_exec_stop_v0",
+                  "tools/check_required_gate_idempotence_exec_stop_v0.py")
+
+
+def native_acquisition_preparation():
+    return module("prepare_required_gate_idempotence_exec_stop_v0",
+                  "tools/prepare_required_gate_idempotence_exec_stop_v0.py")
+
+
+def native_acquisition_authored_elf(*, interpreter=False, marker=0x41):
+    """Two distinct, inert ET_DYN inputs with four page-aligned loads each.
+
+    Headers and map expectations are authored here rather than derived by the
+    checker under test.  The payload is deliberately never executed.
+    """
+    raw = bytearray().join(bytes((marker + index,)) * 4096 for index in range(4))
+    count = 5 if interpreter else 4
+    ident = b"\x7fELF\x02\x01\x01" + bytes(9)
+    struct.pack_into("<16sHHIQQQIHHHHHH", raw, 0, ident, 3, 62, 1,
+                     0x1010, 64, 0, 0, 64, 56, count, 0, 0, 0)
+    for index, flags in enumerate((4, 5, 4, 6)):
+        offset = index * 4096
+        struct.pack_into("<IIQQQQQQ", raw, 64 + index * 56,
+                         1, flags, offset, offset, offset, 4096, 4096, 4096)
+    if interpreter:
+        name = b"/lib64/ld-linux-x86-64.so.2\0"
+        raw[0x300:0x300 + len(name)] = name
+        struct.pack_into("<IIQQQQQQ", raw, 64 + 4 * 56,
+                         3, 4, 0x300, 0x300, 0x300, len(name), len(name), 1)
+    return bytes(raw)
+
+
+def native_acquisition_proc_stat(pid, parent, state, start):
+    fields = ["0"] * 50
+    fields[0], fields[1], fields[17], fields[19] = state, str(parent), "1", str(start)
+    return (str(pid) + " (authored inert subject) " + " ".join(fields) + "\n").encode("ascii")
+
+
+def native_acquisition_proc_status(pid, parent, state, tracer):
+    return (f"State:\t{state}\nPid:\t{pid}\nTgid:\t{pid}\nPPid:\t{parent}\n"
+            f"Threads:\t1\nTracerPid:\t{tracer}\nNSpid:\t{pid}\n").encode("ascii")
+
+
+@pytest.fixture
+def native_acquisition_case(monkeypatch):
+    checker = native_acquisition_checker()
+    launcher = native_acquisition_authored_elf(interpreter=True, marker=0x31)
+    loader = native_acquisition_authored_elf(marker=0x71)
+    native = {"native/bwrap": launcher, "native/ld-linux-x86-64.so.2": loader,
+              **{"native/" + name: ("inert dependency: " + name).encode("ascii")
+                 for name in ("libc.so.6", "libcap.so.2", "libpcre2-8.so.0", "libselinux.so.1")}}
+    layouts = {}
+    for role in ("launcher", "loader"):
+        layouts[role] = {
+            "entry": 0x1010, "phoff": 64, "phentsize": 56,
+            "phnum": 5 if role == "launcher" else 4,
+            "interpreter": "/lib64/ld-linux-x86-64.so.2" if role == "launcher" else None,
+            "segments": [{"index": index, "offset": index * 4096, "vaddr": index * 4096,
+                          "filesz": 4096, "memsz": 4096, "flags": flags, "align": 4096}
+                         for index, flags in enumerate((4, 5, 4, 6))],
+        }
+    originals = {name: encoded({"authored_original": name}) for name in (
+        "launch_host_plan", "launch_host_report", "distribution_record", "distribution_report")}
+    # Only this fixture changes the fixed production profile. None of these
+    # test bytes can be admitted by the unpatched original-byte selection.
+    monkeypatch.setattr(checker, "NATIVE", {name: bound(raw) for name, raw in native.items()})
+    monkeypatch.setattr(checker, "LAYOUTS", layouts)
+    monkeypatch.setattr(checker, "RX_BINDINGS", {"launcher": bound(launcher[4096:8192]),
+                                               "loader": bound(loader[4096:8192])})
+    monkeypatch.setattr(checker, "ORIGINAL_BINDINGS", {name: bound(raw) for name, raw in originals.items()})
+    observer_raw = b"authored inert observer bytes\n"
+    observer = {"path": "/authored/observer", **bound(observer_raw)}
+    request = checker.make_request(attempt_id="59a9fdd937d74531af23439c29fcecb9",
+        native_files=native, observer_descriptor=observer,
+        **{name + "_bytes": raw for name, raw in originals.items()})
+    request_raw = encoded(request)
+    observer_pid, child_pid = 1001, 1002
+    launcher_object = {"stat": {"dev": os.makedev(0, 1), "ino": 123, "mode": stat.S_IFREG | 0o500,
+                                "nlink": 0, "size": len(launcher)}, "seals": 15}
+    loader_object = {"stat": {"dev": os.makedev(8, 1), "ino": 456, "mode": stat.S_IFREG | 0o755,
+                              "nlink": 1, "size": len(loader)}, "seals": None}
+    bases = {"launcher": 0x40000000, "loader": 0x70000000}
+    map_rows = []
+    for role, device, inode, label in (("launcher", "00:01", 123, "/memfd:authored-launcher (deleted)"),
+                                       ("loader", "08:01", 456, "/lib64/ld-linux-x86-64.so.2")):
+        for index, permissions in enumerate(("r--p", "r-xp", "r--p", "rw-p")):
+            address = bases[role] + index * 4096
+            map_rows.append(f"{address:x}-{address + 4096:x} {permissions} {index * 4096:08x} {device} {inode} {label}\n")
+    map_rows.extend(("7ff00000-7ff01000 r--p 00000000 00:00 0 [vvar]\n",
+                     "7ff01000-7ff02000 r-xp 00000000 00:00 0 [vdso]\n",
+                     "7fff0000-80000000 rw-p 00000000 00:00 0 [stack]\n"))
+    maps_raw = "".join(map_rows).encode("ascii")
+    registers = bytearray(216)
+    struct.pack_into("<Q", registers, 16 * 8, bases["loader"] + 0x1010)
+    auxv = b"".join(struct.pack("<QQ", key, value) for key, value in (
+        (3, bases["launcher"] + 64), (4, 56), (5, 5), (6, 4096),
+        (7, bases["loader"]), (9, bases["launcher"] + 0x1010), (0, 0)))
+    namespaces = {name: f"{name}:[4026531836]" for name in checker.old.NAMESPACES}
+    files = {
+        "request.json": request_raw,
+        "attempt_start.json": encoded({"record_type": "required_gate_idempotence_exec_stop_attempt_start_v0",
+            "profile": checker.PROFILE, "attempt_id": request["attempt_id"],
+            "request_sha256": digest(request_raw), "observer_pid": observer_pid, "started_ns": 10**9}),
+        "launcher.elf": launcher, "retained.elf": launcher, "executable.elf": launcher,
+        "loader.before.elf": loader, "loader.after.elf": loader, "observer.exe.bin": observer_raw,
+        "observer.stat.bin": native_acquisition_proc_stat(observer_pid, 1, "S", 100),
+        "observer.status.bin": native_acquisition_proc_status(observer_pid, 1, "S", 0),
+        "child.maps.before.bin": maps_raw, "child.maps.after.bin": maps_raw,
+        "child.pidfd.info.bin": f"Pid:\t{child_pid}\nNSpid:\t{child_pid}\n".encode("ascii"),
+        "child.exe.link.bin": b"/memfd:authored-launcher (deleted)",
+        "regs.before.bin": bytes(registers), "regs.after.bin": bytes(registers),
+        "auxv.before.bin": auxv, "auxv.after.bin": auxv,
+        "host.json": encoded({"platform": {"system": "Linux", "machine": "x86_64",
+                                           "release": "authored", "version": "authored"},
+                              "observer_namespaces": namespaces, "child_namespaces": namespaces}),
+        "kernel.boot_id.bin": b"83b18223-3b38-4a2d-97f5-85682b8baf02\n",
+        "stdout.bin": b"", "stderr.bin": b"",
+    }
+    for suffix in ("setup", "before", "after"):
+        files[f"child.stat.{suffix}.bin"] = native_acquisition_proc_stat(child_pid, observer_pid, "t", 200)
+        files[f"child.status.{suffix}.bin"] = native_acquisition_proc_status(child_pid, observer_pid, "t", observer_pid)
+    for role, raw in (("launcher", launcher), ("loader", loader)):
+        for sample in (0, 1):
+            files[f"{role}.rx.sample{sample}.bin"] = raw[4096:8192]
+    capture = {
+        "record_type": "required_gate_idempotence_exec_stop_capture_v0", "profile": checker.PROFILE,
+        "attempt_id": request["attempt_id"], "request_sha256": digest(request_raw),
+        "status": "completed", "failure": None, "observer_pid": observer_pid, "child_pid": child_pid,
+        "timing": {"started_ns": 10**9, "stopped_ns": 2 * 10**9, "finished_ns": 3 * 10**9},
+        "wait": {"setup": 4991, "exec": 263551, "terminal": 9, "event_msg": child_pid},
+        "ownership": {"pidfd_opened": True, "proc_dir_pinned": True, "child_reaped": True,
+                      "pre_exec_resumes": 1, "ptrace_options": 0x100010, "kill_sent": True,
+                      "post_exec_resumes": 0, "detached": False},
+        "objects": {"retained": copy.deepcopy(launcher_object), "executable": copy.deepcopy(launcher_object),
+                    "loader_before": copy.deepcopy(loader_object), "loader_after": copy.deepcopy(loader_object),
+                    "memory": {"stat": {"dev": os.makedev(0, 5), "ino": 789, "mode": stat.S_IFREG | 0o600,
+                                        "nlink": 1, "size": 0}, "seals": None}},
+        "files": [{"path": name, **bound(raw)} for name, raw in sorted(files.items())], **checker.BOUNDARY,
+    }
+    return SimpleNamespace(request=request, request_raw=request_raw, native=native,
+        originals=originals, observer_raw=observer_raw, capture=capture, files=files, bases=bases)
+
+
+def native_acquisition_verify_changed(case, *, capture=None, files=None, request_raw=None):
+    chosen = case.request_raw if request_raw is None else request_raw
+    raw_files = dict(case.files if files is None else files)
+    value = copy.deepcopy(case.capture if capture is None else capture)
+    value["files"] = [{"path": name, **bound(raw)} for name, raw in sorted(raw_files.items())]
+    raw = encoded(value)
+    return native_acquisition_checker().verify_capture(request_bytes=chosen,
+        expected_request_sha256=digest(chosen), capture_bytes=raw,
+        expected_capture_sha256=digest(raw), files=raw_files)
+
+
+def test_native_acquisition_authored_cp0_reconstructs_all_loads_and_each_rx_occurrence(native_acquisition_case):
+    case, checker = native_acquisition_case, native_acquisition_checker()
+    first = native_acquisition_verify_changed(case)
+    second = native_acquisition_verify_changed(case)
+    assert encoded(first) == encoded(second)
+    assert first["status"] == "accepted" and first["observation_complete"] is True
+    assert first["kernel_exec_checkpoint_observed"] is True
+    assert first["selected_exec_rx_ranges_match_original"] is True
+    assert len(case.files) == 32 and set(case.files) == set(checker.FILE_NAMES)
+    assert [(row["object"], row["segment_index"], row["sample_index"]) for row in first["memory_relations"]] == [
+        ("launcher", 1, 0), ("launcher", 1, 1), ("loader", 1, 0), ("loader", 1, 1)]
+    assert [row["address"] for row in first["memory_relations"]] == [
+        0x40001000, 0x40001000, 0x70001000, 0x70001000]
+    for key, value in checker.BOUNDARY.items():
+        assert type(first[key]) is type(value) and first[key] == value, key
+
+
+@pytest.mark.parametrize("which", ["request", "capture"])
+def test_native_acquisition_external_hashes_are_required_even_with_a_rebound_inventory(native_acquisition_case, which):
+    case, checker = native_acquisition_case, native_acquisition_checker()
+    raw = encoded(case.capture)
+    arguments = dict(request_bytes=case.request_raw, expected_request_sha256=digest(case.request_raw),
+                     capture_bytes=raw, expected_capture_sha256=digest(raw), files=case.files)
+    arguments[f"expected_{which}_sha256"] = "0" * 64
+    with pytest.raises(checker.ExecStopError):
+        checker.verify_capture(**arguments)
+
+
+@pytest.mark.parametrize("role,sample", [("launcher", 0), ("launcher", 1), ("loader", 0), ("loader", 1)])
+def test_native_acquisition_each_rx_sample_is_required_independently(native_acquisition_case, role, sample):
+    case, files = native_acquisition_case, dict(native_acquisition_case.files)
+    name = f"{role}.rx.sample{sample}.bin"
+    raw = bytearray(files[name])
+    raw[123] ^= 1
+    files[name] = bytes(raw)
+    # The other read of this same object's segment still matches; it must not
+    # mask this occurrence after the transport inventory is recomputed.
+    assert files[f"{role}.rx.sample{1 - sample}.bin"] != files[name]
+    with pytest.raises(native_acquisition_checker().ExecStopError, match="exec_stop_memory_sample"):
+        native_acquisition_verify_changed(case, files=files)
+
+
+@pytest.mark.parametrize("load_index", range(8))
+def test_native_acquisition_each_selected_load_segment_requires_mapping_coverage(native_acquisition_case, load_index):
+    files = dict(native_acquisition_case.files)
+    rows = files["child.maps.before.bin"].splitlines(keepends=True)
+    del rows[load_index]
+    files["child.maps.before.bin"] = files["child.maps.after.bin"] = b"".join(rows)
+    with pytest.raises(native_acquisition_checker().ExecStopError, match="exec_stop_mapping_coverage"):
+        native_acquisition_verify_changed(native_acquisition_case, files=files)
+
+
+@pytest.mark.parametrize("change", ["generic_sigtrap", "wrong_setup", "different_event_pid", "second_pre_exec_resume",
+    "post_exec_resume", "detach", "weaker_options", "unreaped_child"])
+def test_native_acquisition_kernel_event_and_no_post_exec_progress_are_mandatory(native_acquisition_case, change):
+    capture = copy.deepcopy(native_acquisition_case.capture)
+    if change == "generic_sigtrap": capture["wait"]["exec"] = (5 << 8) | 0x7f
+    elif change == "wrong_setup": capture["wait"]["setup"] = (5 << 8) | 0x7f
+    elif change == "different_event_pid": capture["wait"]["event_msg"] += 1
+    elif change == "second_pre_exec_resume": capture["ownership"]["pre_exec_resumes"] = 2
+    elif change == "post_exec_resume": capture["ownership"]["post_exec_resumes"] = 1
+    elif change == "detach": capture["ownership"]["detached"] = True
+    elif change == "weaker_options": capture["ownership"]["ptrace_options"] = 0x10
+    else: capture["ownership"]["child_reaped"] = False
+    with pytest.raises(native_acquisition_checker().ExecStopError):
+        native_acquisition_verify_changed(native_acquisition_case, capture=capture)
+
+
+@pytest.mark.parametrize("field", ["AT_BASE", "AT_PHDR", "AT_ENTRY", "AT_PHNUM", "RIP"])
+def test_native_acquisition_register_auxv_and_load_bias_must_agree(native_acquisition_case, field):
+    files = dict(native_acquisition_case.files)
+    if field == "RIP":
+        raw = bytearray(files["regs.before.bin"])
+        struct.pack_into("<Q", raw, 16 * 8, native_acquisition_case.bases["launcher"] + 0x1010)
+        files["regs.before.bin"] = files["regs.after.bin"] = bytes(raw)
+    else:
+        key = {"AT_BASE": 7, "AT_PHDR": 3, "AT_ENTRY": 9, "AT_PHNUM": 5}[field]
+        rows = list(struct.iter_unpack("<QQ", files["auxv.before.bin"]))
+        raw = b"".join(struct.pack("<QQ", k, v + (4096 if field != "AT_PHNUM" else 1) if k == key else v)
+                       for k, v in rows)
+        files["auxv.before.bin"] = files["auxv.after.bin"] = raw
+    with pytest.raises(native_acquisition_checker().ExecStopError):
+        native_acquisition_verify_changed(native_acquisition_case, files=files)
+
+
+@pytest.mark.parametrize("change", ["same_name_wrong_inode", "same_name_wrong_offset", "one_segment_bias", "writable_rx"])
+def test_native_acquisition_descriptor_relation_cannot_be_replaced_by_a_mapping_name(native_acquisition_case, change):
+    files = dict(native_acquisition_case.files)
+    rows = files["child.maps.before.bin"].splitlines()
+    fields = rows[5].split(b" ", 5)  # Loader's RX row; preserve its display pathname.
+    if change == "same_name_wrong_inode": fields[4] = b"987"
+    elif change == "same_name_wrong_offset": fields[2] = b"00002000"
+    elif change == "writable_rx": fields[1] = b"rwxp"
+    else: fields[0] = b"70001800-70002800"
+    rows[5] = b" ".join(fields)
+    files["child.maps.before.bin"] = files["child.maps.after.bin"] = b"\n".join(rows) + b"\n"
+    with pytest.raises(native_acquisition_checker().ExecStopError):
+        native_acquisition_verify_changed(native_acquisition_case, files=files)
+
+
+def test_native_acquisition_mapping_display_name_has_no_authority_over_descriptor_identity(native_acquisition_case):
+    files = dict(native_acquisition_case.files)
+    for name in ("child.maps.before.bin", "child.maps.after.bin"):
+        files[name] = files[name].replace(b"/lib64/ld-linux-x86-64.so.2", b"/untrusted/display-name")
+    report = native_acquisition_verify_changed(native_acquisition_case, files=files)
+    assert report["interpreter_image_binding_verified"] is True
+
+
+@pytest.mark.parametrize("object_name", ["executable", "loader_before", "memory"])
+def test_native_acquisition_object_mode_overflow_is_a_controlled_rejection(native_acquisition_case, object_name):
+    capture = copy.deepcopy(native_acquisition_case.capture)
+    capture["objects"][object_name]["stat"]["mode"] = 2**32
+    with pytest.raises(native_acquisition_checker().ExecStopError):
+        native_acquisition_verify_changed(native_acquisition_case, capture=capture)
+
+
+@pytest.mark.parametrize("change", ["sample_alias", "native_digest", "missing_relationship", "source_digest"])
+def test_native_acquisition_request_cannot_redefine_original_selection_or_per_occurrence_duties(native_acquisition_case, change):
+    request = copy.deepcopy(native_acquisition_case.request)
+    if change == "sample_alias": request["memory_obligations"][1] = copy.deepcopy(request["memory_obligations"][0])
+    elif change == "native_digest": request["native_files"][0]["sha256"] = "0" * 64
+    elif change == "missing_relationship": request["native_relationships"].pop()
+    else: request["sources"][0]["sha256"] = "0" * 64
+    raw = encoded(request)
+    with pytest.raises(native_acquisition_checker().ExecStopError):
+        native_acquisition_checker().validate_request(raw, digest(raw))
+
+
+def test_native_acquisition_tracing_denial_receipt_retains_diagnostics_without_observation_claims(native_acquisition_case):
+    case, checker = native_acquisition_case, native_acquisition_checker()
+    capture = copy.deepcopy(case.capture)
+    capture.update(status="incomplete", failure="exec_stop_ptrace_traceme_denied")
+    capture["timing"]["stopped_ns"] = None
+    capture["wait"].update(setup=126 << 8, exec=None, terminal=126 << 8, event_msg=None)
+    capture["ownership"].update(pre_exec_resumes=0, ptrace_options=0, kill_sent=False)
+    capture["objects"]["executable"] = capture["objects"]["loader_after"] = capture["objects"]["memory"] = None
+    files = {name: raw for name, raw in case.files.items() if name in (
+        "request.json", "attempt_start.json", "launcher.elf", "loader.before.elf", "retained.elf", "observer.exe.bin")}
+    files.update({"stdout.bin": b"", "stderr.bin": b"ptrace denied\n"})
+    report = native_acquisition_verify_changed(case, capture=capture, files=files)
+    assert report["status"] == "accepted" and report["observation_complete"] is False
+    assert report["kernel_exec_checkpoint_observed"] is False and report["memory_relations"] == []
+    assert report["failure"] == "exec_stop_ptrace_traceme_denied"
+    for key, value in checker.BOUNDARY.items():
+        assert type(report[key]) is type(value) and report[key] == value, key
+    capture.update(status="completed", failure=None)
+    with pytest.raises(checker.ExecStopError):
+        native_acquisition_verify_changed(case, capture=capture, files=files)
+
+
+def test_native_acquisition_owner_acknowledgement_precedes_verification_and_dispatch(tmp_path, monkeypatch, capfd):
+    preparation = native_acquisition_preparation()
+    def forbidden(*args, **kwargs):
+        pytest.fail("wrong acknowledgement must reject before reading or verifying any original")
+    monkeypatch.setattr(preparation.safe, "read_selection_file", forbidden)
+    monkeypatch.setattr(preparation, "reconstruct_originals", forbidden)
+    monkeypatch.setattr(preparation.distribution_io, "VerificationDirectory", forbidden)
+    result = preparation.main([
+        "run-owner", "--originals-directory", str(tmp_path / "originals"),
+        "--originals-sha256", preparation.ORIGINAL_MANIFEST_SHA256,
+        "--verification-directory", str(tmp_path / "verification"),
+        "--request", str(tmp_path / "request.json"), "--request-sha256", "0" * 64,
+        "--acknowledgement", "RUN_ANY_SELECTED_PAYLOAD", "--output-directory", str(tmp_path / "capture"),
+    ])
+    assert result == 1
+    report = json.loads(capfd.readouterr().out)
+    assert report["error_code"] == "exec_stop_owner_acknowledgement"
+    assert not (tmp_path / "verification").exists() and not (tmp_path / "capture").exists()
+
+
+def test_native_acquisition_preparation_requires_the_reviewed_original_manifest_before_reading(tmp_path, monkeypatch):
+    preparation = native_acquisition_preparation()
+    # A self-consistent caller-selected manifest must not replace the original
+    # externally selected 111-file preservation case.
+    unrelated = encoded({"record_type": "launcher_distribution_original_byte_example_v0",
+                         "record_status": "example", "files": {str(index): {} for index in range(111)}})
+    def forbidden(*args, **kwargs):
+        pytest.fail("an unreviewed manifest digest must reject before input acquisition")
+    monkeypatch.setattr(preparation, "_member", forbidden)
+    with pytest.raises(preparation.safe.MappingError, match="exec_stop_original_manifest_selection"):
+        preparation.load_originals(tmp_path, digest(unrelated))
+
+
+def test_native_acquisition_original_member_fifo_substitution_rejects_without_blocking(tmp_path):
+    directory = tmp_path / "originals"
+    directory.mkdir()
+    selected = directory / "selected.json"
+    selected.write_bytes(b"preserved original\n")
+    script = r'''
+import importlib.util, json, os, pathlib, stat, sys
+sys.path.insert(0, str(pathlib.Path(sys.argv[1]).parent))
+spec = importlib.util.spec_from_file_location("exec_stop_fifo_preparation", sys.argv[1])
+preparation = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(preparation)
+directory = pathlib.Path(sys.argv[2])
+assert preparation._member(directory, "selected.json", 128) == b"preserved original\n"
+original_open, replaced = os.open, []
+def replace(name, flags, mode=0o777, *, dir_fd=None):
+    if name == "selected.json" and dir_fd is not None and not replaced:
+        assert stat.S_ISREG(os.stat(name, dir_fd=dir_fd, follow_symlinks=False).st_mode)
+        os.unlink(name, dir_fd=dir_fd)
+        os.mkfifo(name, 0o600, dir_fd=dir_fd)
+        replaced.append(True)
+    return original_open(name, flags, mode, dir_fd=dir_fd)
+os.open = replace
+try:
+    preparation._member(directory, "selected.json", 128)
+except preparation.safe.MappingError:
+    assert replaced == [True] and (directory / "selected.json").is_fifo()
+    print(json.dumps({"fifo_rejected": True}))
+else:
+    raise AssertionError("substituted FIFO was accepted")
+'''
+    result = subprocess.run([sys.executable, "-I", "-B", "-c", script,
+                             str(ROOT / "tools/prepare_required_gate_idempotence_exec_stop_v0.py"),
+                             str(directory)], capture_output=True, timeout=5)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    assert result.stderr == b"" and json.loads(result.stdout) == {"fifo_rejected": True}
+
+
+@pytest.mark.parametrize("mismatch", ["payload", "observer", "host_loader"])
+def test_native_acquisition_preflight_mismatches_stop_before_any_child(native_acquisition_case, tmp_path, monkeypatch, mismatch):
+    case, observer = native_acquisition_case, native_acquisition_subject()
+    payload = {path: case.native[path] for path in ("native/bwrap", "native/ld-linux-x86-64.so.2")}
+    def forbidden(*args, **kwargs):
+        pytest.fail("preflight mismatch must not spawn or execute a native child")
+    monkeypatch.setattr(observer, "_spawn_child", forbidden)
+    if mismatch == "payload":
+        payload["native/bwrap"] += b"changed"
+    observer_raw = case.observer_raw + (b"changed" if mismatch == "observer" else b"")
+    monkeypatch.setattr(observer, "_actual_observer", lambda: (
+        {"path": case.request["observer"]["path"], **bound(observer_raw)}, observer_raw))
+    parent = os.getpid()
+    def authored_proc(fd, name, limit, deadline):
+        return (native_acquisition_proc_stat(parent, 1, "S", 100) if name == "stat"
+                else native_acquisition_proc_status(parent, 1, "S", 0))
+    monkeypatch.setattr(observer, "_read_proc", authored_proc)
+    loader = tmp_path / "inert-loader"
+    raw = case.native["native/ld-linux-x86-64.so.2"]
+    loader.write_bytes(raw[:-1] + bytes((raw[-1] ^ 1,)) if mismatch == "host_loader" else raw)
+    loader.chmod(0o500)
+    monkeypatch.setattr(observer, "_open_loader", lambda: os.open(loader, os.O_RDONLY | os.O_NONBLOCK))
+    output = tmp_path / "capture"
+    arguments = dict(request_bytes=case.request_raw, expected_request_sha256=digest(case.request_raw),
+                     native_files=payload, output_directory=output, acknowledgement=observer.ACKNOWLEDGEMENT)
+    if mismatch == "payload":
+        with pytest.raises(observer.ExecStopObservationError, match="exec_stop_original_binding"):
+            observer.run_acquisition(**arguments)
+        assert not output.exists()
+    else:
+        report = observer.run_acquisition(**arguments)
+        assert report["observation_complete"] is False and report["kernel_exec_checkpoint_observed"] is False
+        assert report["failure"] == {"observer": "exec_stop_observer_selection_mismatch",
+                                     "host_loader": "exec_stop_host_loader_selection_mismatch"}[mismatch]
+        capture_raw, files = native_acquisition_checker().read_capture_directory(output)
+        capture = json.loads(capture_raw)
+        assert capture["child_pid"] is None and capture["ownership"]["pre_exec_resumes"] == 0
+        assert files["stdout.bin"] == files["stderr.bin"] == b""
+
+
+def test_native_acquisition_traceme_denial_exits_child_setup_before_stop_or_exec(monkeypatch):
+    observer, calls, messages = native_acquisition_subject(), [], []
+    class AuthoredExit(BaseException):
+        pass
+    def terminate(code):
+        calls.append(("exit", code))
+        raise AuthoredExit
+    def deny(request, pid, *args):
+        calls.append(("ptrace", request, pid))
+        raise PermissionError(errno.EPERM, "authored TRACEME denial")
+    def forbidden(*args, **kwargs):
+        pytest.fail("denied child setup must not stop, continue or exec an image")
+    monkeypatch.setattr(observer.os, "dup2", lambda *args: None)
+    monkeypatch.setattr(observer.os, "setsid", lambda: None)
+    monkeypatch.setattr(observer.os, "chdir", lambda path: None)
+    monkeypatch.setattr(observer.os, "getppid", lambda: 1234)
+    monkeypatch.setattr(observer, "_LIBC", SimpleNamespace(prctl=lambda *args: 0))
+    monkeypatch.setattr(observer, "_ptrace", deny)
+    monkeypatch.setattr(observer.os, "kill", forbidden)
+    monkeypatch.setattr(observer.os, "execve", forbidden)
+    monkeypatch.setattr(observer.os, "write", lambda fd, raw: messages.append((fd, raw)) or len(raw))
+    monkeypatch.setattr(observer.os, "_exit", terminate)
+    with pytest.raises(AuthoredExit):
+        observer._child_setup(51, 1234, 52, 53, 54, ())
+    assert calls == [("ptrace", observer.PTRACE_TRACEME, 0), ("exit", 120)]
+    assert messages == [(2, b"exec_stop_child_os_error_1\n")]
+
+
+@pytest.mark.parametrize("failure", ["option_denied", "setup_deadline"])
+def test_native_acquisition_failed_tracing_setup_never_reaches_pre_exec_continue(native_acquisition_case, tmp_path,
+                                                                                 monkeypatch, failure):
+    case, observer = native_acquisition_case, native_acquisition_subject()
+    parent, child = os.getpid(), os.getpid() + 100000
+    calls, spawned, cleaned = [], [], []
+    loader = tmp_path / "inert-loader"
+    loader.write_bytes(case.native["native/ld-linux-x86-64.so.2"])
+    loader.chmod(0o500)
+    monkeypatch.setattr(observer, "_actual_observer", lambda: (case.request["observer"], case.observer_raw))
+    monkeypatch.setattr(observer, "_open_loader", lambda: os.open(loader, os.O_RDONLY | os.O_NONBLOCK))
+    original_open = os.open
+    def redirect_owned_proc(path, flags, mode=0o777, *, dir_fd=None):
+        if path == f"/proc/{child}": path = f"/proc/{parent}"
+        return original_open(path, flags, mode, dir_fd=dir_fd)
+    monkeypatch.setattr(observer.os, "open", redirect_owned_proc)
+    monkeypatch.setattr(observer.os, "pidfd_open", lambda pid, flags=0: original_open("/dev/null", os.O_RDONLY))
+    def authored_proc(fd, name, limit, deadline):
+        pid, ppid, state, tracer, start = (child, parent, "t", parent, 200) if spawned else (parent, 1, "S", 0, 100)
+        return (native_acquisition_proc_stat(pid, ppid, state, start) if name == "stat"
+                else native_acquisition_proc_status(pid, ppid, state, tracer))
+    monkeypatch.setattr(observer, "_read_proc", authored_proc)
+    def spawn(fd, parent_pid):
+        assert parent_pid == parent
+        stdout_r, stdout_w = os.pipe()
+        stderr_r, stderr_w = os.pipe()
+        os.write(stdout_w, b"AB")
+        os.write(stderr_w, b"pending setup diagnostics\n")
+        os.close(stdout_w)
+        os.close(stderr_w)
+        process = SimpleNamespace(pid=child, returncode=None,
+            stdout=os.fdopen(stdout_r, "rb", buffering=0), stderr=os.fdopen(stderr_r, "rb", buffering=0))
+        spawned.append(process)
+        return process
+    monkeypatch.setattr(observer, "_spawn_child", spawn)
+    def wait(process, deadline, capture, phase):
+        assert phase == "setup"
+        if failure == "setup_deadline":
+            raise observer.ExecStopObservationError("exec_stop_wall_deadline")
+        capture["wait"]["setup"] = 4991
+        return 4991
+    monkeypatch.setattr(observer, "_wait_event", wait)
+    def deny_option(request, pid, *args):
+        calls.append(request)
+        assert request == observer.PTRACE_SETOPTIONS
+        raise PermissionError(errno.EPERM, "authored SETOPTIONS denial")
+    monkeypatch.setattr(observer, "_ptrace", deny_option)
+    def cleanup(process, pidfd, capture):
+        cleaned.append(process.pid)
+        capture["ownership"].update(child_reaped=True, kill_sent=True)
+        capture["wait"]["terminal"] = 9
+        process.returncode = -9
+        return None
+    monkeypatch.setattr(observer, "_cleanup", cleanup)
+    output = tmp_path / "capture"
+    report = observer.run_acquisition(request_bytes=case.request_raw, expected_request_sha256=digest(case.request_raw),
+        native_files={path: case.native[path] for path in ("native/bwrap", "native/ld-linux-x86-64.so.2")},
+        output_directory=output, acknowledgement=observer.ACKNOWLEDGEMENT)
+    assert report["observation_complete"] is False
+    assert report["failure"] == ("exec_stop_os_error_1" if failure == "option_denied" else "exec_stop_wall_deadline")
+    assert calls == ([observer.PTRACE_SETOPTIONS] if failure == "option_denied" else [])
+    assert cleaned == [child]
+    capture_raw, files = native_acquisition_checker().read_capture_directory(output)
+    capture = json.loads(capture_raw)
+    assert capture["ownership"]["pre_exec_resumes"] == capture["ownership"]["post_exec_resumes"] == 0
+    assert capture["ownership"]["child_reaped"] is True
+    assert files["stdout.bin"] == b"AB" and files["stderr.bin"] == b"pending setup diagnostics\n"
+    assert spawned[0].stdout.closed and spawned[0].stderr.closed
+
+
+@pytest.mark.parametrize("overflow", [None, "stdout", "stderr"])
+def test_native_acquisition_failed_attempt_drains_both_pending_streams_to_their_caps(overflow):
+    observer, preserved = native_acquisition_subject(), {}
+    process = SimpleNamespace(pid=12345, returncode=-9)
+    originals = {}
+    for name in ("stdout", "stderr"):
+        read_fd, write_fd = os.pipe()
+        os.set_blocking(write_fd, False)
+        raw = (b"O" * (observer.LIMITS[name + "_bytes"] + 1)) if overflow == name else b"AB"
+        try:
+            assert os.write(write_fd, raw) == len(raw)
+        finally:
+            os.close(write_fd)
+        originals[name] = raw
+        setattr(process, name, os.fdopen(read_fd, "rb", buffering=0))
+    output = SimpleNamespace(preserve=lambda name, raw: preserved.setdefault(name, raw))
+    failure = observer._drain_outputs(process, output, {}, "exec_stop_wall_deadline")
+    assert failure == "exec_stop_wall_deadline"
+    assert preserved == {name + ".bin": raw[:observer.LIMITS[name + "_bytes"]]
+                         for name, raw in originals.items()}
+    assert process.stdout.closed and process.stderr.closed
+
+
+@pytest.mark.parametrize("failure", [None, "deadline", "pidfd_signal"])
+def test_native_acquisition_cleanup_only_kills_and_reaps_the_owned_child(monkeypatch, failure):
+    observer, signals = native_acquisition_subject(), []
+    process = SimpleNamespace(pid=12345, returncode=None)
+    capture = {"ownership": {"child_reaped": False, "kill_sent": False}, "wait": {"terminal": None}}
+    def signal_pidfd(fd, sig):
+        signals.append(("pidfd", fd, sig))
+        if failure == "pidfd_signal": raise OSError(errno.EIO, "authored pidfd failure")
+    monkeypatch.setattr(observer.signal, "pidfd_send_signal", signal_pidfd)
+    monkeypatch.setattr(observer.os, "kill", lambda pid, sig: signals.append(("owned_pid", pid, sig)))
+    monkeypatch.setattr(observer.os, "waitpid", lambda pid, flags: (pid, 9))
+    if failure == "deadline":
+        ticks = iter((0, 3 * 10**9))
+        monkeypatch.setattr(observer.time, "monotonic_ns", lambda: next(ticks))
+    result = observer._cleanup(process, 42, capture)
+    assert all(call[2] == mapping_signal.SIGKILL for call in signals)
+    assert signals == [("pidfd", 42, mapping_signal.SIGKILL)] + (
+        [("owned_pid", process.pid, mapping_signal.SIGKILL)] if failure == "pidfd_signal" else [])
+    if failure == "deadline":
+        assert result == "exec_stop_cleanup_deadline" and capture["ownership"]["child_reaped"] is False
+    else:
+        assert capture["ownership"]["child_reaped"] is True and capture["wait"]["terminal"] == 9
+        assert process.returncode == -9
+        assert result == ("exec_stop_cleanup_pidfd_signal_failed" if failure == "pidfd_signal" else None)
+
+
+def native_acquisition_mock_preparation(case, monkeypatch):
+    preparation = native_acquisition_preparation()
+    manifest = {"files": {str(index): {} for index in range(111)}, "source_file_count": 43,
+                "explicit_signature_policy": {"evaluation_time_epoch": 1794787200}}
+    closed = []
+    monkeypatch.setattr(preparation.distribution_io, "VerificationDirectory", lambda path: SimpleNamespace(
+        count=1, close=lambda: closed.append(True)))
+    monkeypatch.setattr(preparation, "reconstruct_originals", lambda *args: (manifest, {}))
+    monkeypatch.setattr(preparation, "derive_request", lambda *args, **kwargs: copy.deepcopy(case.request))
+    monkeypatch.setattr(preparation, "_observer", lambda: case.request["observer"])
+    return preparation, manifest, closed
+
+
+@pytest.mark.parametrize("command", ["prepare", "check"])
+def test_native_acquisition_preparation_and_check_do_not_import_the_collector(native_acquisition_case, tmp_path,
+                                                                           monkeypatch, capfd, command):
+    import builtins
+    case = native_acquisition_case
+    preparation, manifest, closed = native_acquisition_mock_preparation(case, monkeypatch)
+    source = tmp_path / "request.json"
+    source.write_bytes(case.request_raw)
+    output = tmp_path / "output.json"
+    original_import = builtins.__import__
+    def forbid_collector(name, *args, **kwargs):
+        assert name != "required_gate_idempotence_exec_stop_v0", "preparation imported the execution collector"
+        return original_import(name, *args, **kwargs)
+    monkeypatch.setattr(builtins, "__import__", forbid_collector)
+    arguments = [command, "--originals-directory", str(tmp_path / "originals"),
+        "--originals-sha256", preparation.ORIGINAL_MANIFEST_SHA256,
+        "--verification-directory", str(tmp_path / "verification"), "--output", str(output)]
+    arguments += (["--attempt-id", case.request["attempt_id"]] if command == "prepare" else
+                  ["--request", str(source), "--request-sha256", digest(case.request_raw)])
+    assert preparation.main(arguments) == 0
+    report = json.loads(capfd.readouterr().out)
+    assert report["status"] == "accepted" and report["native_acquisition_performed"] is False
+    assert report["original_exec_reached"] is False and closed == [True]
+    if command == "prepare": assert output.read_bytes() == case.request_raw
+    else: assert json.loads(output.read_bytes()) == report
+
+
+def test_native_acquisition_check_requires_exact_fresh_request_reconstruction(native_acquisition_case, tmp_path,
+                                                                           monkeypatch, capfd):
+    case = native_acquisition_case
+    preparation, manifest, closed = native_acquisition_mock_preparation(case, monkeypatch)
+    changed = copy.deepcopy(case.request)
+    changed["attempt_id"] = "f" * 32
+    monkeypatch.setattr(preparation, "derive_request", lambda *args, **kwargs: changed)
+    source = tmp_path / "request.json"
+    source.write_bytes(case.request_raw)
+    output = tmp_path / "must-not-exist.json"
+    result = preparation.main(["check", "--originals-directory", str(tmp_path / "originals"),
+        "--originals-sha256", preparation.ORIGINAL_MANIFEST_SHA256,
+        "--verification-directory", str(tmp_path / "verification"), "--output", str(output),
+        "--request", str(source), "--request-sha256", digest(case.request_raw)])
+    assert result == 1 and not output.exists() and closed == [True]
+    assert json.loads(capfd.readouterr().out)["error_code"] == "exec_stop_request_reconstruction"
+
+
+def test_native_acquisition_schema_preserves_original_request_and_non_authorizing_record_shapes(native_acquisition_case):
+    import jsonschema
+    case, checker = native_acquisition_case, native_acquisition_checker()
+    schema = json.loads((ROOT / "schemas/required_gate_idempotence_exec_stop_v0.schema.json").read_bytes())
+    jsonschema.Draft202012Validator.check_schema(schema)
+    validator = jsonschema.Draft202012Validator(schema)
+    # A separate unpatched module supplies the production fixed identities.
+    # This only constructs metadata; it never reads or executes native inputs.
+    original_profile = module("exec_stop_schema_original_profile", "tools/check_required_gate_idempotence_exec_stop_v0.py")
+    original_request = original_profile._request("a" * 32, case.request["observer"])
+    validator.validate(original_request)
+    with pytest.raises(jsonschema.ValidationError):
+        validator.validate(case.request)
+    validator.validate(case.capture)
+    validator.validate(native_acquisition_verify_changed(case))
+    manifest = {"files": {str(index): {} for index in range(111)}, "source_file_count": 43,
+                "explicit_signature_policy": {"evaluation_time_epoch": 1794787200}}
+    validator.validate(native_acquisition_preparation()._preparation_report(case.request_raw, manifest))
+
+
+@pytest.mark.parametrize("kind", ["request", "capture_member"])
+def test_native_acquisition_checker_fifo_substitution_rejects_without_blocking(tmp_path, kind):
+    directory = tmp_path / "private-input"
+    directory.mkdir(mode=0o700)
+    for name, raw in (("request.json", b"request bytes\n"), ("capture.json", b"capture bytes\n"),
+                      ("launcher.rx.sample0.bin", b"sample bytes\n")):
+        path = directory / name
+        path.write_bytes(raw)
+        path.chmod(0o600)
+    script = r'''
+import importlib.util, json, os, pathlib, stat, sys
+sys.path.insert(0, str(pathlib.Path(sys.argv[1]).parent))
+spec = importlib.util.spec_from_file_location("exec_stop_fifo_checker", sys.argv[1])
+checker = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(checker)
+directory, kind = pathlib.Path(sys.argv[2]), sys.argv[3]
+name = "request.json" if kind == "request" else "launcher.rx.sample0.bin"
+def read():
+    return checker.read_request_file(directory / name) if kind == "request" else checker.read_capture_directory(directory)
+read()
+original_open, replaced = os.open, []
+def replace(path, flags, mode=0o777, *, dir_fd=None):
+    if path == name and dir_fd is not None and not replaced:
+        assert stat.S_ISREG(os.stat(path, dir_fd=dir_fd, follow_symlinks=False).st_mode)
+        os.unlink(path, dir_fd=dir_fd)
+        os.mkfifo(path, 0o600, dir_fd=dir_fd)
+        replaced.append(True)
+    return original_open(path, flags, mode, dir_fd=dir_fd)
+os.open = replace
+try:
+    read()
+except checker.ExecStopError:
+    assert replaced == [True] and (directory / name).is_fifo()
+    print(json.dumps({"fifo_rejected": True, "kind": kind}))
+else:
+    raise AssertionError("substituted FIFO was accepted")
+'''
+    result = subprocess.run([sys.executable, "-I", "-B", "-c", script,
+                             str(NATIVE_ACQUISITION_CHECKER), str(directory), kind],
+                            capture_output=True, timeout=5)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    assert result.stderr == b"" and json.loads(result.stdout) == {"fifo_rejected": True, "kind": kind}
+
+
+@pytest.mark.parametrize("change", ["missing", "nonregular", "nonzero_size", "unlinked", "executable"])
+def test_native_acquisition_complete_reads_require_a_regular_owned_memory_descriptor(native_acquisition_case, change):
+    capture = copy.deepcopy(native_acquisition_case.capture)
+    if change == "missing": capture["objects"]["memory"] = None
+    elif change == "nonregular": capture["objects"]["memory"]["stat"]["mode"] = stat.S_IFIFO | 0o600
+    elif change == "nonzero_size": capture["objects"]["memory"]["stat"]["size"] = 1
+    elif change == "executable": capture["objects"]["memory"]["stat"]["mode"] = stat.S_IFREG | 0o700
+    else: capture["objects"]["memory"]["stat"]["nlink"] = 0
+    with pytest.raises(native_acquisition_checker().ExecStopError):
+        native_acquisition_verify_changed(native_acquisition_case, capture=capture)
+
+
+def test_native_acquisition_observer_with_an_external_tracer_cannot_complete(native_acquisition_case):
+    case, files = native_acquisition_case, dict(native_acquisition_case.files)
+    files["observer.status.bin"] = mapping_status_field(files["observer.status.bin"], "TracerPid", 999)
+    with pytest.raises(native_acquisition_checker().ExecStopError, match="exec_stop_observer_identity"):
+        native_acquisition_verify_changed(case, files=files)
