@@ -3566,3 +3566,656 @@ else:
         {"event": "fifo_substituted", "kind": kind},
         {"event": "rejected", "reason": "mapping_file_changed", "kind": kind},
     ]
+
+
+# Separate two-stop authored probe: actual selected virtual-memory bytes are
+# observed at both checkpoints. Rehashed mutations below test reconstruction;
+# they are not additional live observations or original-runtime executions.
+MEMORY_TOOL = ROOT / "tools/required_gate_idempotence_memory_observation_v0.py"
+MEMORY_CHECKER = ROOT / "tools/check_required_gate_idempotence_memory_observation_v0.py"
+
+
+def memory_probe():
+    return module("required_gate_idempotence_memory_probe_v0", "tools/required_gate_idempotence_memory_probe_v0.py")
+
+
+def memory_subject():
+    return module("required_gate_idempotence_memory_observation_v0", "tools/required_gate_idempotence_memory_observation_v0.py")
+
+
+def memory_checker():
+    return module("check_required_gate_idempotence_memory_observation_v0", "tools/check_required_gate_idempotence_memory_observation_v0.py")
+
+
+@pytest.fixture(scope="module")
+def memory_observed_case(tmp_path_factory):
+    observer, checker = memory_subject(), memory_checker()
+    selection_raw = observer.make_selection("d8c508b275a34e8ca65862010a86f4f0")
+    directory = tmp_path_factory.mktemp("memory-observation") / "capture"
+    report = observer.run_example(selection_bytes=selection_raw,
+                                  expected_selection_sha256=digest(selection_raw),
+                                  output_directory=directory)
+    assert report["observation_complete"] is True, report
+    capture_raw, files = checker.read_capture_directory(directory)
+    assert files["selection.json"] == selection_raw
+    return SimpleNamespace(directory=directory, selection_raw=selection_raw,
+                           selection=json.loads(selection_raw), capture_raw=capture_raw,
+                           capture=json.loads(capture_raw), files=files, report=report)
+
+
+def memory_verify_changed(case, *, capture=None, files=None, selection_raw=None):
+    """Rehash authored changes so acceptance must depend on the finite relation."""
+    value = copy.deepcopy(case.capture if capture is None else capture)
+    raw_files = dict(case.files if files is None else files)
+    value["files"] = [{"path": name, **bound(raw)} for name, raw in sorted(raw_files.items())]
+    raw = encoded(value)
+    chosen = case.selection_raw if selection_raw is None else selection_raw
+    return memory_checker().verify_capture(selection_bytes=chosen,
+        expected_selection_sha256=digest(chosen), capture_bytes=raw,
+        expected_capture_sha256=digest(raw), files=raw_files)
+
+
+def memory_incomplete_boundaries(report):
+    assert report["status"] == "accepted" and report["observation_record_verified"] is True
+    for name in ("observation_complete", "sealed_backing_object_unchanged",
+                 "selected_memory_ranges_observed", "selected_rx_pages_match_backing",
+                 "selected_rw_transition_observed"):
+        assert report[name] is False, name
+    assert report["memory_relations"] == [] and report["changed_data_offsets"] == []
+    for key, value in memory_checker().BOUNDARY.items():
+        assert type(report[key]) is type(value) and report[key] == value, key
+
+
+def test_memory_fixed_probe_has_two_exact_load_pages_and_no_loader():
+    raw = memory_probe().probe_bytes()
+    assert len(raw) == 8192 and raw == memory_probe().probe_bytes()
+    header = struct.unpack_from("<16sHHIQQQIHHHHHH", raw)
+    assert header[:4] == (b"\x7fELF\x02\x01\x01" + bytes(9), 2, 62, 1)
+    assert header[4:7] == (0x4000E8, 64, 0) and header[8:11] == (64, 56, 3)
+    rows = [struct.unpack_from("<IIQQQQQQ", raw, 64 + index * 56) for index in range(3)]
+    assert rows == [(1, 5, 0, 0x400000, 0x400000, 4096, 4096, 4096),
+                    (1, 6, 4096, 0x401000, 0x401000, 4096, 4096, 4096),
+                    (0x6474E551, 6, 0, 0, 0, 0, 0, 16)]
+    assert raw[4096:] == bytes(4096)
+    # The old never-resumed subject remains a different exact byte object.
+    assert raw != mapping_probe().probe_bytes()
+    assert digest(mapping_probe().probe_bytes()) == "dfa1de8166ef6447cc053ca82abf4fd443757e926bc8dd4097c9afbfd7bb2c1a"
+
+
+@pytest.mark.parametrize("arguments, expected_exit", [
+    ([], 126), (["00000000"], 126), (["ffffffff"], 126),
+    (["0000000G"], 126), (["00000001", "extra"], 126), (["00000001"], 127),
+])
+def test_memory_fixed_probe_rejects_invalid_parent_before_any_checkpoint(arguments, expected_exit):
+    assert os.getpid() != 1
+    fd = os.memfd_create("memory-probe-invalid-parent", os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+    try:
+        raw = memory_probe().probe_bytes()
+        assert os.write(fd, raw) == len(raw)
+        os.fchmod(fd, 0o500)
+        fcntl.fcntl(fd, 1033, 15)
+        result = subprocess.run(["fixed-memory-probe", *arguments],
+                                executable=f"/proc/self/fd/{fd}", pass_fds=(fd,),
+                                stdin=subprocess.DEVNULL, capture_output=True, timeout=3)
+        assert result.returncode == expected_exit and result.stdout == result.stderr == b""
+    finally:
+        os.close(fd)
+
+
+def test_memory_actual_two_checkpoint_observation_reconstructs_each_range(memory_observed_case):
+    case, checker = memory_observed_case, memory_checker()
+    report = memory_verify_changed(case)
+    assert report == case.report and report["observation_complete"] is True
+    for name in ("sealed_backing_object_unchanged", "selected_memory_ranges_observed",
+                 "selected_rx_pages_match_backing", "selected_rw_transition_observed"):
+        assert report[name] is True, name
+    assert report["changed_data_offsets"] == [256]
+    rows = report["memory_relations"]
+    assert [(row["checkpoint_id"], row["range_id"]) for row in rows] == [
+        ("cp0", "rx"), ("cp0", "rw"), ("cp1", "rx"), ("cp1", "rw")]
+    assert [row["matches_backing"] for row in rows] == [True, True, True, False]
+    assert len(case.files) == 39 and set(case.files) == set(checker.FILE_NAMES)
+    original = memory_probe().probe_bytes()
+    for name in ("probe.elf", "retained.before.elf", "retained.after.elf",
+                 "cp0.executable.elf", "cp1.executable.elf"):
+        assert case.files[name] == original
+    expected_final = bytearray(4096)
+    expected_final[256] = 0x5a
+    for checkpoint in ("cp0", "cp1"):
+        for read in ("first", "second"):
+            assert case.files[f"{checkpoint}.rx.{read}.bin"] == original[:4096]
+            assert case.files[f"{checkpoint}.rw.{read}.bin"] == (
+                bytes(4096) if checkpoint == "cp0" else bytes(expected_final))
+    assert case.capture["ownership"]["continuations_sent"] == 1
+    assert case.capture["ownership"]["child_reaped"] is True
+    assert [item["wait_status"] for item in case.capture["checkpoints"]] == [4991, 4991]
+    assert case.capture["wait"]["terminal"] == 9
+    for key, value in checker.BOUNDARY.items():
+        assert type(report[key]) is type(value) and report[key] == value, key
+    with pytest.raises(ChildProcessError):
+        os.waitpid(case.capture["child_pid"], os.WNOHANG)
+
+
+@pytest.mark.parametrize("which", ["selection", "capture"])
+def test_memory_external_digests_cannot_be_replaced_by_internal_inventory(memory_observed_case, which):
+    case = memory_observed_case
+    arguments = dict(selection_bytes=case.selection_raw,
+                     expected_selection_sha256=digest(case.selection_raw),
+                     capture_bytes=case.capture_raw,
+                     expected_capture_sha256=digest(case.capture_raw), files=case.files)
+    arguments[f"expected_{which}_sha256"] = "0" * 64
+    with pytest.raises(memory_checker().MemoryCheckError):
+        memory_checker().verify_capture(**arguments)
+
+
+@pytest.mark.parametrize("change", ["range_address", "range_size", "range_offset", "range_permissions",
+    "range_duplicate", "checkpoint_order", "checkpoint_duplicate", "write_offset", "write_value",
+    "continuations", "source_digest", "source_removed", "probe_digest", "wall_limit"])
+def test_memory_selection_cannot_redefine_ranges_transition_or_sources(memory_observed_case, change):
+    selected = copy.deepcopy(memory_observed_case.selection)
+    if change.startswith("range_"):
+        if change == "range_duplicate":
+            selected["ranges"][1] = copy.deepcopy(selected["ranges"][0])
+        else:
+            key = {"range_address": "address", "range_size": "size_bytes",
+                   "range_offset": "file_offset", "range_permissions": "permissions"}[change]
+            selected["ranges"][1][key] = "rwxp" if key == "permissions" else selected["ranges"][1][key] + 1
+    elif change == "checkpoint_order":
+        selected["checkpoints"].reverse()
+    elif change == "checkpoint_duplicate":
+        selected["checkpoints"][1] = selected["checkpoints"][0]
+    elif change == "write_offset":
+        selected["transition"]["offset"] += 1
+    elif change == "write_value":
+        selected["transition"]["after_hex"] = "5b"
+    elif change == "continuations":
+        selected["transition"]["continuations"] = 2
+    elif change == "source_digest":
+        selected["sources"][0]["sha256"] = "0" * 64
+    elif change == "source_removed":
+        selected["sources"].pop()
+    elif change == "probe_digest":
+        selected["probe"]["sha256"] = "0" * 64
+    else:
+        selected["limits"]["wall_seconds"] += 1
+    raw = encoded(selected)
+    with pytest.raises(memory_checker().MemoryCheckError):
+        memory_checker().validate_selection(raw, digest(raw))
+
+
+def test_memory_selection_pins_all_reused_mapping_sources(memory_observed_case):
+    rows = memory_observed_case.selection["sources"]
+    assert len(rows) == 8 and [row["path"] for row in rows] == sorted(row["path"] for row in rows)
+    assert set(mapping_checker().SOURCE_PATHS) < {row["path"] for row in rows}
+    for row in rows:
+        assert {key: row[key] for key in ("sha256", "size_bytes")} == bound((ROOT / row["path"]).read_bytes())
+
+
+def test_memory_boundary_cannot_be_promoted_by_rehashing_selected_or_observed_records(memory_observed_case):
+    checker, case = memory_checker(), memory_observed_case
+    for key, value in checker.BOUNDARY.items():
+        replacement = not value if type(value) is bool else (True if value is None else "promoted")
+        selected = copy.deepcopy(case.selection)
+        selected[key] = replacement
+        raw = encoded(selected)
+        with pytest.raises(checker.MemoryCheckError):
+            checker.validate_selection(raw, digest(raw))
+        capture = copy.deepcopy(case.capture)
+        capture[key] = replacement
+        with pytest.raises(checker.MemoryCheckError):
+            memory_verify_changed(case, capture=capture)
+
+
+@pytest.mark.parametrize("name", [f"{checkpoint}.{region}.{read}.bin"
+    for checkpoint in ("cp0", "cp1") for region in ("rx", "rw") for read in ("first", "second")])
+def test_memory_every_checkpoint_range_and_read_must_match_its_own_bytes(memory_observed_case, name):
+    files = dict(memory_observed_case.files)
+    changed = bytearray(files[name])
+    changed[17] ^= 1
+    files[name] = bytes(changed)
+    with pytest.raises(memory_checker().MemoryCheckError):
+        memory_verify_changed(memory_observed_case, files=files)
+
+
+@pytest.mark.parametrize("change", ["missing_write", "wrong_value", "wrong_offset", "extra_write",
+                                  "swapped_checkpoint_pages", "short_second_read"])
+def test_memory_repeated_range_cannot_mask_an_incorrect_second_checkpoint(memory_observed_case, change):
+    files = dict(memory_observed_case.files)
+    if change == "swapped_checkpoint_pages":
+        for read in ("first", "second"):
+            before, after = f"cp0.rw.{read}.bin", f"cp1.rw.{read}.bin"
+            files[before], files[after] = files[after], files[before]
+    elif change == "short_second_read":
+        files["cp1.rw.second.bin"] = files["cp1.rw.second.bin"][:-1]
+    else:
+        page = bytearray(files["cp1.rw.first.bin"])
+        if change == "missing_write":
+            page[256] = 0
+        elif change == "wrong_value":
+            page[256] = 0x5b
+        elif change == "wrong_offset":
+            page[256], page[257] = 0, 0x5a
+        else:
+            page[257] = 0x5a
+        # Both repeated reads agree, so checking only repeatability is insufficient.
+        files["cp1.rw.first.bin"] = files["cp1.rw.second.bin"] = bytes(page)
+    with pytest.raises(memory_checker().MemoryCheckError):
+        memory_verify_changed(memory_observed_case, files=files)
+
+
+@pytest.mark.parametrize("change", ["checkpoint_order", "duplicate_checkpoint", "old_process_starttime",
+                                  "wrong_parent", "foreign_memory_object", "foreign_executable_object"])
+def test_memory_two_checkpoints_cannot_be_composed_from_different_occurrences(memory_observed_case, change):
+    case = memory_observed_case
+    capture, files = copy.deepcopy(case.capture), dict(case.files)
+    if change == "checkpoint_order":
+        capture["checkpoints"].reverse()
+    elif change == "duplicate_checkpoint":
+        capture["checkpoints"][1]["checkpoint_id"] = "cp0"
+    elif change == "old_process_starttime":
+        for suffix in ("before", "after"):
+            name = f"cp1.child.stat.{suffix}.bin"
+            old = mapping_checker().parse_proc_stat(files[name])["starttime"]
+            files[name] = mapping_stat_field(files[name], 22, old + 1)
+    elif change == "wrong_parent":
+        for suffix in ("before", "after"):
+            name = f"cp1.child.stat.{suffix}.bin"
+            files[name] = mapping_stat_field(files[name], 4, capture["observer_pid"] + 1000)
+            name = f"cp1.child.status.{suffix}.bin"
+            files[name] = mapping_status_field(files[name], "PPid", capture["observer_pid"] + 1000)
+    elif change == "foreign_memory_object":
+        capture["checkpoints"][1]["memory_object"]["ino"] += 1
+    else:
+        capture["checkpoints"][1]["executable_object"]["stat"]["ino"] += 1
+    with pytest.raises(memory_checker().MemoryCheckError):
+        memory_verify_changed(case, capture=capture, files=files)
+
+
+@pytest.mark.parametrize("change", ["data_offset", "data_inode", "data_permissions", "extra_mapping"])
+def test_memory_each_mapping_occurrence_is_related_to_the_selected_file_page(memory_observed_case, change):
+    case, files = memory_observed_case, dict(memory_observed_case.files)
+    rows = files["cp1.child.maps.before.bin"].splitlines()
+    for index, raw in enumerate(rows):
+        parts = raw.split(None, 5)
+        if parts[0] != b"00401000-00402000":
+            continue
+        if change == "data_offset":
+            parts[2] = b"00000000"
+        elif change == "data_inode":
+            parts[4] = str(int(parts[4]) + 1).encode()
+        elif change == "data_permissions":
+            parts[1] = b"rw-s"
+        rows[index] = b" ".join(parts)
+        break
+    else:
+        pytest.fail("fixed data mapping missing from actual observation")
+    if change == "extra_mapping":
+        rows.insert(2, b"00600000-00601000 r-xp 00000000 00:00 0")
+    changed = b"\n".join(rows) + b"\n"
+    # Preserve matching before/after maps; the declared occurrence itself is wrong.
+    files["cp1.child.maps.before.bin"] = files["cp1.child.maps.after.bin"] = changed
+    with pytest.raises(memory_checker().MemoryCheckError):
+        memory_verify_changed(case, files=files)
+
+
+@pytest.mark.parametrize("change", ["unpreserved_cp0", "unpreserved_cp1", "early_continue", "early_cp1",
+    "missing_continue", "extra_continue", "unexpected_wait", "not_reaped", "wrong_terminal", "deadline"])
+def test_memory_completed_transition_requires_ordered_preservation_and_owned_cleanup(memory_observed_case, change):
+    case, capture = memory_observed_case, copy.deepcopy(memory_observed_case.capture)
+    if change.startswith("unpreserved_"):
+        capture["checkpoints"][int(change[-1])]["preserved"] = False
+    elif change == "early_continue":
+        capture["timing"]["continued_ns"] = capture["checkpoints"][0]["observed_ns"] - 1
+    elif change == "early_cp1":
+        capture["checkpoints"][1]["stopped_ns"] = capture["timing"]["continued_ns"] - 1
+    elif change == "missing_continue":
+        capture["ownership"]["continuations_sent"] = 0
+    elif change == "extra_continue":
+        capture["ownership"]["continuations_sent"] = 2
+    elif change == "unexpected_wait":
+        capture["checkpoints"][1]["observation_wait"] = 0xffff
+    elif change == "not_reaped":
+        capture["ownership"]["child_reaped"] = False
+    elif change == "wrong_terminal":
+        capture["wait"]["terminal"] = 0
+    else:
+        capture["timing"]["finished_ns"] = capture["timing"]["started_ns"] + 18 * 10**9
+    with pytest.raises(memory_checker().MemoryCheckError):
+        memory_verify_changed(case, capture=capture)
+
+
+@pytest.mark.parametrize("name", ["retained.after.elf", "cp1.executable.elf"])
+def test_memory_sealed_backing_bytes_cannot_be_replaced_by_changed_process_bytes(memory_observed_case, name):
+    case, files = memory_observed_case, dict(memory_observed_case.files)
+    files[name] = files[name][:4096] + files["cp1.rw.first.bin"]
+    with pytest.raises(memory_checker().MemoryCheckError):
+        memory_verify_changed(case, files=files)
+
+
+@pytest.mark.parametrize("change", ["missing_sample", "extra_file", "duplicate_row", "incorrect_size"])
+def test_memory_manifest_binds_the_exact_raw_roster(memory_observed_case, change):
+    case = memory_observed_case
+    capture, files = copy.deepcopy(case.capture), dict(case.files)
+    if change == "missing_sample":
+        files.pop("cp1.rw.second.bin")
+    elif change == "extra_file":
+        files["unselected-page.bin"] = bytes(4096)
+    elif change == "duplicate_row":
+        capture["files"].append(copy.deepcopy(capture["files"][0]))
+    else:
+        capture["files"][0]["size_bytes"] += 1
+    if change in ("missing_sample", "extra_file"):
+        capture["files"] = [{"path": name, **bound(raw)} for name, raw in sorted(files.items())]
+    raw = encoded(capture)
+    with pytest.raises(memory_checker().MemoryCheckError):
+        memory_checker().verify_capture(selection_bytes=case.selection_raw,
+            expected_selection_sha256=digest(case.selection_raw), capture_bytes=raw,
+            expected_capture_sha256=digest(raw), files=files)
+
+
+def test_memory_independent_checker_processes_produce_identical_canonical_reports(memory_observed_case, tmp_path):
+    case = memory_observed_case
+    arguments = ["--selection", str(case.directory / "selection.json"),
+                 "--selection-sha256", digest(case.selection_raw),
+                 "--capture-directory", str(case.directory),
+                 "--capture-sha256", digest(case.capture_raw)]
+    reports = []
+    for index in range(2):
+        output = tmp_path / f"memory-checker-{index}.json"
+        result = subprocess.run([sys.executable, "-I", "-B", str(MEMORY_CHECKER),
+                                 *arguments, "--output", str(output)],
+                                capture_output=True, timeout=15)
+        assert result.returncode == 0, result.stdout.decode() + result.stderr.decode()
+        assert result.stderr == b"" and output.read_bytes() == result.stdout
+        assert stat.S_IMODE(output.stat().st_mode) == 0o600
+        assert result.stdout == encoded(json.loads(result.stdout))
+        reports.append(result.stdout)
+    assert reports[0] == reports[1] == encoded(case.report)
+
+
+@pytest.mark.parametrize("kind", ["selection", "capture_record", "capture_member"])
+def test_memory_checker_preserves_nonblocking_fifo_admission(tmp_path, kind):
+    directory = tmp_path / "private-memory-input"
+    directory.mkdir(mode=0o700)
+    for name, raw in (("selection.json", b"selected bytes\n"),
+                      ("capture.json", b"capture bytes\n"),
+                      ("cp1.rw.second.bin", b"raw memory bytes\n")):
+        path = directory / name
+        path.write_bytes(raw)
+        path.chmod(0o600)
+    # Filesystem-only fixture; a FIFO at the stat/open boundary must fail in
+    # the wrapper as well as in its reused admission helper, without hanging.
+    script = r'''
+import importlib.util, json, os, pathlib, stat, sys
+sys.path.insert(0, str(pathlib.Path(sys.argv[1]).parent))
+spec = importlib.util.spec_from_file_location("memory_fifo_checker", sys.argv[1])
+checker = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(checker)
+directory, kind = pathlib.Path(sys.argv[2]), sys.argv[3]
+target = {"selection": "selection.json", "capture_record": "capture.json",
+          "capture_member": "cp1.rw.second.bin"}[kind]
+def read_input():
+    if kind == "selection":
+        return checker.read_selection_file(directory / target)
+    return checker.read_capture_directory(directory)
+read_input()
+original_open, changed = os.open, []
+def replace_before_open(name, flags, mode=0o777, *, dir_fd=None):
+    if name == target and dir_fd is not None and not changed:
+        assert stat.S_ISREG(os.stat(name, dir_fd=dir_fd, follow_symlinks=False).st_mode)
+        os.unlink(name, dir_fd=dir_fd)
+        os.mkfifo(name, 0o600, dir_fd=dir_fd)
+        changed.append(True)
+        print(json.dumps({"event": "fifo_substituted", "kind": kind}), flush=True)
+    return original_open(name, flags, mode, dir_fd=dir_fd)
+os.open = replace_before_open
+try:
+    read_input()
+except checker.MemoryCheckError as error:
+    assert changed == [True] and (directory / target).is_fifo()
+    print(json.dumps({"event": "rejected", "reason": str(error), "kind": kind}), flush=True)
+else:
+    raise AssertionError("substituted FIFO was accepted")
+'''
+    result = subprocess.run([sys.executable, "-I", "-B", "-c", script,
+                             str(MEMORY_CHECKER), str(directory), kind],
+                            capture_output=True, timeout=5)
+    assert result.returncode == 0, result.stdout.decode() + result.stderr.decode()
+    assert result.stderr == b""
+    events = [json.loads(line) for line in result.stdout.splitlines()]
+    assert events == [{"event": "fifo_substituted", "kind": kind},
+                      {"event": "rejected", "reason": "mapping_file_changed", "kind": kind}]
+
+
+@pytest.mark.parametrize("change", ["capture_attempt", "selection_reference", "attempt_start"])
+def test_memory_preserved_observation_cannot_be_relabelled_as_a_new_attempt(memory_observed_case, change):
+    case = memory_observed_case
+    capture, files = copy.deepcopy(case.capture), dict(case.files)
+    if change == "capture_attempt":
+        capture["attempt_id"] = "0" * 32
+    elif change == "selection_reference":
+        capture["selection_sha256"] = "0" * 64
+    else:
+        start = json.loads(files["attempt_start.json"])
+        start["attempt_id"] = "0" * 32
+        files["attempt_start.json"] = encoded(start)
+    with pytest.raises(memory_checker().MemoryCheckError):
+        memory_verify_changed(case, capture=capture, files=files)
+
+
+def test_memory_numeric_types_and_duplicate_json_keys_do_not_change_the_closed_contract(memory_observed_case):
+    case, checker = memory_observed_case, memory_checker()
+    duplicate = case.selection_raw[:-2] + b',"attempt_id":"' + case.selection["attempt_id"].encode() + b'"}\n'
+    with pytest.raises(checker.MemoryCheckError):
+        checker.validate_selection(duplicate, digest(duplicate))
+    capture = copy.deepcopy(case.capture)
+    capture["ownership"]["continuations_sent"] = True
+    with pytest.raises(checker.MemoryCheckError):
+        memory_verify_changed(case, capture=capture)
+    capture = copy.deepcopy(case.capture)
+    capture["checkpoints"][0]["observed_ns"] = float(capture["checkpoints"][0]["observed_ns"])
+    with pytest.raises(checker.MemoryCheckError):
+        memory_verify_changed(case, capture=capture)
+    capture = copy.deepcopy(case.capture)
+    capture["checkpoints"][1]["memory_object"]["nlink"] = True
+    with pytest.raises(checker.MemoryCheckError):
+        memory_verify_changed(case, capture=capture)
+
+
+def test_memory_schema_accepts_the_actual_selection_capture_and_reconstruction(memory_observed_case):
+    import jsonschema
+    schema = json.loads((ROOT / "schemas/required_gate_idempotence_memory_observation_v0.schema.json").read_bytes())
+    jsonschema.Draft202012Validator.check_schema(schema)
+    validator = jsonschema.Draft202012Validator(schema)
+    case = memory_observed_case
+    for record in (case.selection, case.capture, case.report, json.loads(case.files["attempt_start.json"])):
+        validator.validate(record)
+
+
+@pytest.mark.parametrize("checkpoint, failure", [
+    ("cp0", "denied"), ("cp0", "short"), ("cp0", "changed"),
+    ("cp1", "denied"), ("cp1", "short"), ("cp1", "changed"),
+])
+def test_memory_failed_page_acquisition_preserves_prefix_and_stops_further_progress(tmp_path, monkeypatch,
+                                                                                 checkpoint, failure):
+    observer, checker = memory_subject(), memory_checker()
+    selected = observer.make_selection("5b062f3dfc754d579339e6cc19aec53d")
+    original_pread, send_signal = os.pread, mapping_signal.pidfd_send_signal
+    calls, signals = [], []
+    target_read = 1 if checkpoint == "cp0" else 5
+    def authored_read(fd, size, address):
+        assert size == 4096 and address in (0x400000, 0x401000)
+        calls.append((size, address))
+        if len(calls) != target_read:
+            return original_pread(fd, size, address)
+        if failure == "denied":
+            raise PermissionError(errno.EACCES, "authored own-child memory-read denial")
+        raw = original_pread(fd, size, address)
+        if failure == "short":
+            return raw[:19]
+        return raw[:17] + bytes((raw[17] ^ 1,)) + raw[18:]
+    def tracked_signal(fd, sig, *args, **kwargs):
+        signals.append(sig)
+        return send_signal(fd, sig, *args, **kwargs)
+    monkeypatch.setattr(observer.os, "pread", authored_read)
+    monkeypatch.setattr(observer.signal, "pidfd_send_signal", tracked_signal)
+    output = tmp_path / "incomplete-memory"
+    report = observer.run_example(selection_bytes=selected, expected_selection_sha256=digest(selected),
+                                  output_directory=output)
+    memory_incomplete_boundaries(report)
+    capture_raw, files = checker.read_capture_directory(output)
+    capture = json.loads(capture_raw)
+    assert capture["ownership"]["child_reaped"] is True
+    assert capture["wait"]["terminal"] == 9
+    assert capture["ownership"]["continuations_sent"] == (checkpoint == "cp1")
+    assert signals == ([mapping_signal.SIGCONT] if checkpoint == "cp1" else []) + [mapping_signal.SIGKILL]
+    sample = f"{checkpoint}.rx.first.bin"
+    if failure == "denied":
+        assert sample not in files and len(calls) == target_read
+    elif failure == "short":
+        assert files[sample] == memory_probe().probe_bytes()[:19] and len(calls) == target_read
+    else:
+        assert len(files[sample]) == 4096 and files[sample] != memory_probe().probe_bytes()[:4096]
+        assert len(calls) == (4 if checkpoint == "cp0" else 8)
+    assert files["retained.after.elf"] == files["retained.before.elf"] == memory_probe().probe_bytes()
+    if checkpoint == "cp0":
+        assert not any(name.startswith("cp1.") for name in files)
+    with pytest.raises(ChildProcessError):
+        os.waitpid(capture["child_pid"], os.WNOHANG)
+    # A structurally retained failure cannot be promoted by a status-only edit.
+    capture.update(status="completed", failure=None)
+    failed_case = SimpleNamespace(capture=capture, files=files, selection_raw=selected)
+    with pytest.raises(checker.MemoryCheckError):
+        memory_verify_changed(failed_case)
+
+
+def test_memory_success_uses_exactly_one_continue_then_owned_kill(tmp_path, monkeypatch):
+    observer = memory_subject()
+    selected = observer.make_selection("381142297d6e45d289e16d858d0a9fc4")
+    send_signal, signals = mapping_signal.pidfd_send_signal, []
+    def tracked_signal(fd, sig, *args, **kwargs):
+        signals.append(sig)
+        return send_signal(fd, sig, *args, **kwargs)
+    monkeypatch.setattr(observer.signal, "pidfd_send_signal", tracked_signal)
+    report = observer.run_example(selection_bytes=selected, expected_selection_sha256=digest(selected),
+                                  output_directory=tmp_path / "two-stops")
+    assert report["observation_complete"] is True
+    assert signals == [mapping_signal.SIGCONT, mapping_signal.SIGKILL]
+
+
+def test_memory_checkpoint_zero_disk_substitution_prevents_continuation(tmp_path, monkeypatch):
+    observer = memory_subject()
+    selected = observer.make_selection("84f0726532c14339b14ba89345aa9dd8")
+    output = tmp_path / "capture"
+    preserve, spawn = observer._preserve, observer._spawn_probe
+    send_signal, changed, signals, children = mapping_signal.pidfd_send_signal, [], [], []
+    def authored_substitution(directory, name, raw):
+        preserve(directory, name, raw)
+        if name == "cp0.child.stat.after.bin" and not changed:
+            path = output / "cp0.rx.first.bin"
+            retained = tmp_path / "original-first-page"
+            path.rename(retained)
+            path.write_bytes(retained.read_bytes())
+            path.chmod(0o600)
+            changed.append(True)
+    def tracked_spawn(*args, **kwargs):
+        child = spawn(*args, **kwargs)
+        children.append(child)
+        return child
+    def tracked_signal(fd, sig, *args, **kwargs):
+        signals.append(sig)
+        return send_signal(fd, sig, *args, **kwargs)
+    monkeypatch.setattr(observer, "_preserve", authored_substitution)
+    monkeypatch.setattr(observer, "_spawn_probe", tracked_spawn)
+    monkeypatch.setattr(observer.signal, "pidfd_send_signal", tracked_signal)
+    with pytest.raises(observer.shared.MappingPreservationError):
+        observer.run_example(selection_bytes=selected, expected_selection_sha256=digest(selected),
+                             output_directory=output)
+    assert changed == [True] and signals == [mapping_signal.SIGKILL]
+    assert len(children) == 1 and children[0].returncode == -mapping_signal.SIGKILL
+    assert not (output / "capture.json").exists()
+    assert not any(path.name.startswith("cp1.") for path in output.iterdir())
+    assert (output / "selection.json").read_bytes() == selected
+    assert (output / "attempt.incomplete.json").is_file()
+    with pytest.raises(ChildProcessError):
+        os.waitpid(children[0].pid, os.WNOHANG)
+
+
+@pytest.mark.parametrize("kind", ["existing", "symlink"])
+def test_memory_preservation_destination_rejects_before_probe_execution(tmp_path, monkeypatch, kind):
+    observer = memory_subject()
+    selected = observer.make_selection("a2047079266b45c196a7115c07d5298a")
+    owned = tmp_path / "existing"
+    owned.mkdir()
+    original = owned / "original-bytes"
+    original.write_bytes(b"preserve original\n")
+    destination = owned
+    if kind == "symlink":
+        destination = tmp_path / "alias"
+        destination.symlink_to(owned, target_is_directory=True)
+    def forbidden(*args, **kwargs):
+        pytest.fail("reused or aliased output must reject before fixed-probe execution")
+    monkeypatch.setattr(observer, "_spawn_probe", forbidden)
+    with pytest.raises((OSError, ValueError, RuntimeError)):
+        observer.run_example(selection_bytes=selected, expected_selection_sha256=digest(selected),
+                             output_directory=destination)
+    assert original.read_bytes() == b"preserve original\n"
+    assert sorted(path.name for path in owned.iterdir()) == ["original-bytes"]
+
+
+def test_memory_selected_status_rejects_before_capture_and_spawn(memory_observed_case, tmp_path, monkeypatch):
+    observer = memory_subject()
+    selected = copy.deepcopy(memory_observed_case.selection)
+    selected["record_status"] = "selected"
+    raw = encoded(selected)
+    def forbidden(*args, **kwargs):
+        pytest.fail("selected-runtime status must not reach the authored-probe execution path")
+    monkeypatch.setattr(observer, "_spawn_probe", forbidden)
+    output = tmp_path / "must-not-exist"
+    with pytest.raises(memory_checker().MemoryCheckError):
+        observer.run_example(selection_bytes=raw, expected_selection_sha256=digest(raw),
+                             output_directory=output)
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("scenario", ["permitted", "premature", "duplicate"])
+def test_memory_optional_continued_wait_event_is_bounded_to_the_single_transition(monkeypatch, scenario):
+    observer = memory_subject()
+    process = SimpleNamespace(pid=12345, returncode=None)
+    checkpoint = observer._new_checkpoint("cp0" if scenario == "premature" else "cp1")
+    capture = {"ownership": {"continuations_sent": 0 if scenario == "premature" else 1,
+                              "child_reaped": False},
+               "timing": {"continued_ns": None if scenario == "premature" else 1},
+               "wait": {"continued": None, "terminal": None}}
+    statuses = iter([0xffff, 0xffff] if scenario == "duplicate" else [0xffff, 4991])
+    calls = []
+    def authored_wait(pid, flags):
+        assert pid == process.pid
+        calls.append(True)
+        return pid, next(statuses)
+    monkeypatch.setattr(observer.os, "waitpid", authored_wait)
+    deadline = time.monotonic_ns() + 10**9
+    if scenario == "permitted":
+        observer._wait_for_stop(process, capture, checkpoint, deadline)
+        assert checkpoint["wait_status"] == 4991 and checkpoint["stopped_ns"] is not None
+        assert capture["wait"]["continued"] == 0xffff and len(calls) == 2
+    else:
+        with pytest.raises(observer.MemoryObservationError):
+            observer._wait_for_stop(process, capture, checkpoint, deadline)
+        assert checkpoint["stopped_ns"] is None
+        assert len(calls) == (1 if scenario == "premature" else 2)
+
+
+@pytest.mark.parametrize("object_name", ["retained", "executable", "memory"])
+def test_memory_out_of_range_file_modes_reject_with_a_controlled_checker_error(memory_observed_case, object_name):
+    capture = copy.deepcopy(memory_observed_case.capture)
+    if object_name == "retained":
+        selected = capture["objects"]["retained_before"]["stat"]
+    elif object_name == "executable":
+        selected = capture["checkpoints"][1]["executable_object"]["stat"]
+    else:
+        selected = capture["checkpoints"][1]["memory_object"]
+    # stat.S_ISREG must not receive an integer wider than its accepted C type.
+    selected["mode"] = 2**32
+    with pytest.raises(memory_checker().MemoryCheckError):
+        memory_verify_changed(memory_observed_case, capture=capture)

@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add [B2 fixed-probe private-memory transition observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MEMORY_OBSERVATION_v0.md)
+  with a separately pinned two-stop authored ELF and one fixed data-byte write.
+  Preserve two samples of each selected code/data page at each checkpoint;
+  independently bind every occurrence to its ELF range, process and backing
+  object. Check unchanged sealed backing bytes alongside changed private data,
+  with exactly one bounded continuation and terminal owned-child cleanup.
+  Retain denied and short reads as incomplete evidence, reuse corrected
+  nonblocking input admission, and keep the original single-stop profile and
+  source-bound observations unchanged. A completed local capture preserved
+  39 raw members; two separate checker processes reproduced byte-identical
+  accepted canonical reports. Pass all 600 containment cases (508 prior plus
+  92 new) without changing the 189/40 CI rosters. Original launcher/loader acquisition, host
+  qualification and selected execution remain open; B2 is incomplete and
+  `authority_effect=none`.
+
 - Fix the [B2 mapping checker FIFO substitution race](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MAPPING_OBSERVATION_v0.md#fifo-substitution-review-correction)
   by opening shared checker inputs with `O_NONBLOCK` before validating the
   resulting descriptor identity. Cover selection, capture record and raw-member

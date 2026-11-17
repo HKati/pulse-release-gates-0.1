@@ -299,6 +299,14 @@ The existing containment test module is extended without adding a CI entry;
 Tools remains 189 and targeted pytest remains 40. No workflow, dependency pin,
 existing runtime/containment implementation or original evidence archive changes.
 
+The separate [private-memory transition observation](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MEMORY_OBSERVATION_v0.md)
+continues from this backing-object result with a new fixed two-stop probe.
+It samples two selected memory pages at each checkpoint and checks an unchanged
+sealed backing object alongside one exact private-data change. This original
+single-stop profile, its no-resumption rule and its source-bound observations
+remain unchanged. The new range-specific result does not supply original
+launcher/loader observations or whole-memory authentication.
+
 The next observed launcher work must bind the original selected executable and
 every relevant loader/library occurrence across its actual process transitions,
 then independently observe the intended namespace/filesystem/filter/descriptor
