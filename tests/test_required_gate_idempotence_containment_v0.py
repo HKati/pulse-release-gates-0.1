@@ -3,8 +3,9 @@
 
 Compiler tests use inert capsule bytes. Parent-process tests substitute an
 authored host child at the Popen boundary; they never invoke bubblewrap or the
-selected capsule. Only invalid-argument entry checks and a separate fixed-filter
-child execute native test code. Neither establishes namespace containment.
+selected capsule. Native test code consists of invalid-argument entry checks,
+a separate fixed-filter child and the fixed authored static mapping probe.
+These tests do not establish namespace containment or selected-runtime execution.
 Outer-launcher tests add authored package/native/host declarations and check
 their exact relations without running the selected launcher or qualifying a host.
 """
@@ -2660,3 +2661,908 @@ def test_distribution_coordinator_offers_no_execution_or_transcript_replay_comma
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__]))
+
+
+# Fixed authored probe observations.  The positive fixture captures actual owned
+# process/kernel evidence; mutations below are explicitly authored rejection
+# cases and never stand in for the successful live observation.
+import signal as mapping_signal
+
+MAPPING_TOOL = ROOT / "tools/required_gate_idempotence_mapping_observation_v0.py"
+MAPPING_CHECKER = ROOT / "tools/check_required_gate_idempotence_mapping_observation_v0.py"
+
+
+def mapping_probe():
+    return module("required_gate_idempotence_mapping_probe_v0", "tools/required_gate_idempotence_mapping_probe_v0.py")
+
+
+def mapping_subject():
+    return module("required_gate_idempotence_mapping_observation_v0", "tools/required_gate_idempotence_mapping_observation_v0.py")
+
+
+def mapping_checker():
+    return module("check_required_gate_idempotence_mapping_observation_v0", "tools/check_required_gate_idempotence_mapping_observation_v0.py")
+
+
+@contextmanager
+def mapping_probe_fd():
+    fd = os.memfd_create("mapping-fixed-probe-test", os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+    try:
+        raw = mapping_probe().probe_bytes()
+        assert os.write(fd, raw) == len(raw)
+        os.fchmod(fd, 0o500)
+        # Fixed Linux ABI: F_ADD_SEALS=1033, all four mutation seals=15.
+        # The pinned CPython build need not export the symbolic constants.
+        fcntl.fcntl(fd, 1033, 15)
+        yield fd
+    finally:
+        os.close(fd)
+
+
+def test_mapping_fixed_probe_has_exact_static_single_rx_page_and_nonexecuting_stack():
+    raw = mapping_probe().probe_bytes()
+    assert len(raw) == 4096 and raw == mapping_probe().probe_bytes()
+    header = struct.unpack_from("<16sHHIQQQIHHHHHH", raw)
+    assert header[:4] == (b"\x7fELF\x02\x01\x01" + bytes(9), 2, 62, 1)
+    assert header[4:7] == (0x4000B0, 64, 0)
+    assert header[8:11] == (64, 56, 2)
+    program_headers = [struct.unpack_from("<IIQQQQQQ", raw, 64 + index * 56) for index in range(2)]
+    assert program_headers[0] == (1, 5, 0, 0x400000, 0x400000, 4096, 4096, 4096)
+    assert program_headers[1] == (0x6474E551, 6, 0, 0, 0, 0, 0, 16)
+    assert all(row[0] not in (2, 3) for row in program_headers)
+
+
+@pytest.mark.parametrize("arguments, expected_exit", [
+    ([], 126), ([""], 126), (["00000000"], 126), (["ffffffff"], 126),
+    (["0000000G"], 126), (["000000001"], 126), (["00000001", "extra"], 126),
+    (["00000001"], 127),
+])
+def test_mapping_fixed_probe_rejects_invalid_or_wrong_parent_without_stopping(arguments, expected_exit):
+    assert os.getpid() != 1
+    with mapping_probe_fd() as fd:
+        result = subprocess.run(["fixed-mapping-probe", *arguments],
+                                executable=f"/proc/self/fd/{fd}", pass_fds=(fd,),
+                                stdin=subprocess.DEVNULL, capture_output=True, timeout=3)
+    assert result.returncode == expected_exit
+    assert result.stdout == result.stderr == b""
+
+
+def test_mapping_fixed_probe_dies_with_its_parent_without_continuation():
+    # The subreaper setting and both native children exist only in this dedicated
+    # test subprocess.  Every reap is for an owned child; no host-wide setting or
+    # selected launcher/runtime is changed or executed.
+    script = r'''
+import ctypes, fcntl, json, os, select, signal, sys, time
+sys.path.insert(0, sys.argv[1])
+from required_gate_idempotence_mapping_probe_v0 import probe_bytes, parent_argument
+libc = ctypes.CDLL(None, use_errno=True)
+def prctl(option, value):
+    if libc.prctl(option, value, 0, 0, 0) != 0:
+        raise OSError(ctypes.get_errno(), "prctl failed")
+prctl(36, 1)  # PR_SET_CHILD_SUBREAPER in this test subprocess only.
+owner_pid = os.getpid()
+read_fd, write_fd = os.pipe()
+supervisor = os.fork()
+if supervisor == 0:
+    os.close(read_fd)
+    prctl(1, signal.SIGKILL)
+    if os.getppid() != owner_pid:
+        os._exit(81)
+    fd = os.memfd_create("mapping-pdeath-test", os.MFD_CLOEXEC | os.MFD_ALLOW_SEALING)
+    raw = probe_bytes()
+    if os.write(fd, raw) != len(raw):
+        os._exit(82)
+    os.fchmod(fd, 0o500)
+    fcntl.fcntl(fd, 1033, 15)
+    supervisor_pid = os.getpid()
+    probe = os.fork()
+    if probe == 0:
+        os.execve(f"/proc/self/fd/{fd}", ["fixed-mapping-probe", parent_argument(supervisor_pid)], {})
+    os.close(fd)
+    waited, stop = os.waitpid(probe, os.WUNTRACED)
+    if waited != probe or not os.WIFSTOPPED(stop) or os.WSTOPSIG(stop) != signal.SIGSTOP:
+        os._exit(83)
+    os.write(write_fd, (str(probe) + " " + str(stop) + "\n").encode("ascii"))
+    while True:
+        signal.pause()
+os.close(write_fd)
+reaped, probe = set(), None
+def reap_owned(pid):
+    deadline = time.monotonic() + 3
+    while time.monotonic() < deadline:
+        waited, status = os.waitpid(pid, os.WNOHANG)
+        if waited == pid:
+            reaped.add(pid)
+            return status
+        time.sleep(0.01)
+    raise AssertionError("owned child was not reaped")
+try:
+    assert select.select([read_fd], [], [], 3)[0], "probe did not reach its stopped checkpoint"
+    line = os.read(read_fd, 256)
+    probe, stopped = map(int, line.strip().split())
+    os.kill(supervisor, signal.SIGKILL)
+    parent_status = reap_owned(supervisor)
+    child_status = reap_owned(probe)
+    assert os.WIFSIGNALED(parent_status) and os.WTERMSIG(parent_status) == signal.SIGKILL
+    assert os.WIFSIGNALED(child_status) and os.WTERMSIG(child_status) == signal.SIGKILL
+    print(json.dumps({"stopped": os.WSTOPSIG(stopped),
+                      "parent_signal": os.WTERMSIG(parent_status),
+                      "probe_signal": os.WTERMSIG(child_status)}))
+finally:
+    os.close(read_fd)
+    for pid in (supervisor, probe):
+        if pid is not None and pid not in reaped:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            try:
+                os.waitpid(pid, 0)
+            except ChildProcessError:
+                pass
+'''
+    result = subprocess.run([sys.executable, "-I", "-B", "-c", script, str(ROOT / "tools")],
+                            capture_output=True, timeout=15)
+    assert result.returncode == 0, result.stdout.decode() + result.stderr.decode()
+    assert result.stderr == b""
+    assert json.loads(result.stdout) == {"stopped": mapping_signal.SIGSTOP,
+                                       "parent_signal": mapping_signal.SIGKILL,
+                                       "probe_signal": mapping_signal.SIGKILL}
+
+
+@pytest.fixture(scope="module")
+def mapping_observed_case(tmp_path_factory):
+    observer, checker = mapping_subject(), mapping_checker()
+    selection_raw = observer.make_selection("20a5c0e4612f483da30e6a51d04a9c83")
+    directory = tmp_path_factory.mktemp("mapping-observation") / "capture"
+    report = observer.run_example(selection_bytes=selection_raw,
+                                  expected_selection_sha256=digest(selection_raw),
+                                  output_directory=directory)
+    assert report["observation_complete"] is True, report
+    capture_raw, files = checker.read_capture_directory(directory)
+    assert files["selection.json"] == selection_raw
+    return SimpleNamespace(directory=directory, selection_raw=selection_raw,
+                           selection=json.loads(selection_raw), capture_raw=capture_raw,
+                           capture=json.loads(capture_raw), files=files, report=report)
+
+
+def mapping_verify_changed(case, *, capture=None, files=None, selection_raw=None):
+    """Rebind authored mutations internally so the semantic relation is tested."""
+    value = copy.deepcopy(case.capture if capture is None else capture)
+    raw_files = dict(case.files if files is None else files)
+    value["files"] = [{"path": name, **bound(raw)} for name, raw in sorted(raw_files.items())]
+    raw = encoded(value)
+    chosen = case.selection_raw if selection_raw is None else selection_raw
+    return mapping_checker().verify_capture(selection_bytes=chosen,
+        expected_selection_sha256=digest(chosen), capture_bytes=raw,
+        expected_capture_sha256=digest(raw), files=raw_files)
+
+
+def mapping_stat_field(raw, number, value):
+    name, tail = raw.rsplit(b") ", 1)
+    fields = tail.split()
+    if number == 1:
+        _, command = name.split(b" ", 1)
+        name = str(value).encode("ascii") + b" " + command
+    else:
+        fields[number - 3] = str(value).encode("ascii")
+    return name + b") " + b" ".join(fields) + b"\n"
+
+
+def mapping_status_field(raw, name, value):
+    key = name.encode("ascii") + b":"
+    rows = raw.splitlines()
+    assert sum(row.startswith(key) for row in rows) == 1
+    return b"\n".join(key + b"\t" + str(value).encode("ascii") if row.startswith(key) else row
+                       for row in rows) + b"\n"
+
+
+def test_mapping_actual_owned_stopped_probe_capture_is_independently_reconstructed(mapping_observed_case):
+    case, checker = mapping_observed_case, mapping_checker()
+    result = mapping_verify_changed(case)
+    assert result == case.report
+    assert result["status"] == "accepted" and result["observation_record_verified"] is True
+    assert result["observation_complete"] is True
+    assert result["stopped_executable_backing_relation_verified"] is True
+    assert result["sealed_executable_object_binding_verified"] is True
+    for key, value in checker.BOUNDARY.items():
+        assert type(result[key]) is type(value) and result[key] == value
+    assert case.capture["objects"]["retained"] == case.capture["objects"]["executable"]
+    assert case.capture["objects"]["retained"]["seals"] == 15
+    assert case.files["probe.elf"] == case.files["retained.elf"] == case.files["executable.elf"] == mapping_probe().probe_bytes()
+    assert case.files["child.maps.before.bin"] == case.files["child.maps.after.bin"]
+    assert os.WIFSTOPPED(case.capture["wait"]["initial"])
+    assert os.WSTOPSIG(case.capture["wait"]["initial"]) == mapping_signal.SIGSTOP
+    assert case.capture["wait"]["observation"] is None
+    assert os.WIFSIGNALED(case.capture["wait"]["terminal"])
+    assert os.WTERMSIG(case.capture["wait"]["terminal"]) == mapping_signal.SIGKILL
+    assert case.capture["ownership"]["child_reaped"] is True
+    assert case.capture["ownership"]["resumed_after_stop"] is False
+    assert set(case.files) == set(checker.FILE_NAMES)
+    assert case.files["stdout.bin"] == case.files["stderr.bin"] == b""
+
+
+@pytest.mark.parametrize("which", ["selection", "capture"])
+def test_mapping_external_anchors_cannot_be_supplied_by_the_capture(mapping_observed_case, which):
+    case = mapping_observed_case
+    arguments = dict(selection_bytes=case.selection_raw,
+                     expected_selection_sha256=digest(case.selection_raw),
+                     capture_bytes=case.capture_raw, expected_capture_sha256=digest(case.capture_raw),
+                     files=case.files)
+    arguments["expected_" + which + "_sha256"] = "0" * 64
+    with pytest.raises(mapping_checker().MappingError):
+        mapping_checker().verify_capture(**arguments)
+
+
+@pytest.mark.parametrize("change", ["probe", "observer_path", "source", "source_roster", "limits",
+                                   "attempt_id", "selected", "extra"])
+def test_mapping_selection_cannot_redefine_the_fixed_observer_profile(mapping_observed_case, change):
+    selected = copy.deepcopy(mapping_observed_case.selection)
+    if change == "probe":
+        selected["probe"]["sha256"] = "0" * 64
+    elif change == "observer_path":
+        selected["observer"]["path"] = "/valid/../unselected/python"
+    elif change == "source":
+        selected["sources"][0]["sha256"] = "0" * 64
+    elif change == "source_roster":
+        selected["sources"] = selected["sources"][:-1]
+    elif change == "limits":
+        selected["limits"]["wall_seconds"] += 1
+    elif change == "attempt_id":
+        selected["attempt_id"] = "A" * 32
+    elif change == "selected":
+        selected["record_status"] = "selected"
+    else:
+        selected["command"] = ["/bin/true"]
+    raw = encoded(selected)
+    with pytest.raises(mapping_checker().MappingError):
+        mapping_checker().validate_selection(raw, digest(raw))
+
+
+def test_mapping_selection_and_capture_reject_boundary_promotion(mapping_observed_case):
+    case, checker = mapping_observed_case, mapping_checker()
+    attempts = {"physical_execution_authenticated": True, "host_observation_authenticated": True,
+                "process_memory_bytes_verified": True, "complete_native_closure_verified": True,
+                "containment_enforced": True, "execution_authorized": True,
+                "selected_runtime_executed": True, "production_gate_eligible": True,
+                "metric_pass": True, "authority_effect": "release", "diagnostic_only": False}
+    for key, replacement in attempts.items():
+        selected = copy.deepcopy(case.selection)
+        selected[key] = replacement
+        raw = encoded(selected)
+        with pytest.raises(checker.MappingError):
+            checker.validate_selection(raw, digest(raw))
+        capture = copy.deepcopy(case.capture)
+        capture[key] = replacement
+        with pytest.raises(checker.MappingError):
+            mapping_verify_changed(case, capture=capture)
+
+
+@pytest.mark.parametrize("name", ["probe.elf", "retained.elf", "executable.elf", "observer.exe.bin"])
+def test_mapping_each_original_byte_object_remains_bound_after_inventory_rehash(mapping_observed_case, name):
+    files = dict(mapping_observed_case.files)
+    original = files[name]
+    files[name] = original[:-1] + bytes((original[-1] ^ 1,))
+    with pytest.raises(mapping_checker().MappingError):
+        mapping_verify_changed(mapping_observed_case, files=files)
+
+
+@pytest.mark.parametrize("change", ["capture_attempt", "start_attempt", "start_observer", "start_time",
+                                   "selection_copy", "pidfd_pid", "observer_pid"])
+def test_mapping_same_attempt_and_owned_process_identities_cannot_be_composed(mapping_observed_case, change):
+    case = mapping_observed_case
+    capture, files = copy.deepcopy(case.capture), dict(case.files)
+    start = json.loads(files["attempt_start.json"])
+    if change == "capture_attempt":
+        capture["attempt_id"] = "d" * 32
+    elif change == "start_attempt":
+        start["attempt_id"] = "d" * 32
+    elif change == "start_observer":
+        start["observer_pid"] += 1
+    elif change == "start_time":
+        start["started_ns"] += 1
+    elif change == "selection_copy":
+        chosen = json.loads(files["selection.json"])
+        chosen["attempt_id"] = "d" * 32
+        files["selection.json"] = encoded(chosen)
+    elif change == "pidfd_pid":
+        files["child.pidfd.info.bin"] = mapping_status_field(files["child.pidfd.info.bin"],
+                                                            "Pid", capture["child_pid"] + 1)
+    else:
+        files["observer.stat.bin"] = mapping_stat_field(files["observer.stat.bin"], 1,
+                                                        capture["observer_pid"] + 1)
+    files["attempt_start.json"] = encoded(start)
+    with pytest.raises(mapping_checker().MappingError):
+        mapping_verify_changed(case, capture=capture, files=files)
+
+
+@pytest.mark.parametrize("change", ["after_starttime", "after_parent", "before_pid", "before_threads",
+                                   "after_tracer", "after_running", "duplicate_status_pid"])
+def test_mapping_both_stopped_process_occurrences_are_required(mapping_observed_case, change):
+    case, files = mapping_observed_case, dict(mapping_observed_case.files)
+    if change == "after_starttime":
+        old = int(files["child.stat.after.bin"].rsplit(b") ", 1)[1].split()[19])
+        files["child.stat.after.bin"] = mapping_stat_field(files["child.stat.after.bin"], 22, old + 1)
+    elif change == "after_parent":
+        wrong = case.capture["observer_pid"] + 1
+        files["child.stat.after.bin"] = mapping_stat_field(files["child.stat.after.bin"], 4, wrong)
+        files["child.status.after.bin"] = mapping_status_field(files["child.status.after.bin"], "PPid", wrong)
+    elif change == "before_pid":
+        files["child.stat.before.bin"] = mapping_stat_field(files["child.stat.before.bin"], 1,
+                                                           case.capture["child_pid"] + 1)
+    elif change == "before_threads":
+        files["child.status.before.bin"] = mapping_status_field(files["child.status.before.bin"], "Threads", 2)
+    elif change == "after_tracer":
+        files["child.status.after.bin"] = mapping_status_field(files["child.status.after.bin"], "TracerPid", 1)
+    elif change == "after_running":
+        files["child.stat.after.bin"] = mapping_stat_field(files["child.stat.after.bin"], 3, "R")
+        files["child.status.after.bin"] = mapping_status_field(files["child.status.after.bin"], "State", "R (running)")
+    else:
+        files["child.status.after.bin"] += f"Pid:\t{case.capture['child_pid']}\n".encode("ascii")
+    with pytest.raises(mapping_checker().MappingError):
+        mapping_verify_changed(case, files=files)
+
+
+@pytest.mark.parametrize("change", ["inode", "permissions", "offset", "extent", "extra_file",
+                                   "duplicate", "anonymous_exec", "second_snapshot"])
+def test_mapping_every_mapping_occurrence_must_match_the_fixed_backing_object(mapping_observed_case, change):
+    case, files = mapping_observed_case, dict(mapping_observed_case.files)
+    rows = files["child.maps.before.bin"].splitlines()
+    index = next(i for i, row in enumerate(rows) if row.split()[0] == b"00400000-00401000")
+    fields = rows[index].split(maxsplit=5)
+    if change == "inode":
+        fields[4] = str(int(fields[4]) + 1).encode("ascii")
+    elif change == "permissions":
+        fields[1] = b"rwxp"
+    elif change == "offset":
+        fields[2] = b"00001000"
+    elif change == "extent":
+        fields[0] = b"00400000-00402000"
+    elif change == "extra_file":
+        extra = list(fields)
+        extra[0], extra[4] = b"00500000-00501000", str(int(fields[4]) + 1).encode("ascii")
+        rows.insert(index + 1, b" ".join(extra))
+    elif change == "duplicate":
+        rows.insert(index + 1, rows[index])
+    elif change == "anonymous_exec":
+        rows.insert(index + 1, b"00500000-00501000 r-xp 00000000 00:00 0")
+    elif change == "second_snapshot":
+        fields[4] = str(int(fields[4]) + 1).encode("ascii")
+    rows[index] = b" ".join(fields)
+    changed = b"\n".join(rows) + b"\n"
+    files["child.maps.after.bin"] = changed
+    if change != "second_snapshot":
+        files["child.maps.before.bin"] = changed
+    with pytest.raises(mapping_checker().MappingError):
+        mapping_verify_changed(case, files=files)
+
+
+@pytest.mark.parametrize("change", ["missing_seal", "different_executable", "linked_object", "privileged_mode",
+                                   "different_namespace", "malformed_boot_id", "output"])
+def test_mapping_kernel_object_and_host_relations_are_reconstructed(mapping_observed_case, change):
+    case = mapping_observed_case
+    capture, files = copy.deepcopy(case.capture), dict(case.files)
+    if change == "missing_seal":
+        capture["objects"]["retained"]["seals"] = 7
+    elif change == "different_executable":
+        capture["objects"]["executable"]["stat"]["ino"] += 1
+    elif change == "linked_object":
+        for obj in capture["objects"].values():
+            obj["stat"]["nlink"] = 1
+    elif change == "privileged_mode":
+        for obj in capture["objects"].values():
+            obj["stat"]["mode"] |= stat.S_ISUID
+    elif change == "different_namespace":
+        host = json.loads(files["host.json"])
+        host["child_namespaces"]["pid"] = "pid:[1]"
+        files["host.json"] = encoded(host)
+    elif change == "malformed_boot_id":
+        files["kernel.boot_id.bin"] = b"unidentified-host\n"
+    else:
+        files["stdout.bin"] = b"unexpected child output\n"
+    with pytest.raises(mapping_checker().MappingError):
+        mapping_verify_changed(case, capture=capture, files=files)
+
+
+@pytest.mark.parametrize("change", ["wrong_stop", "additional_event", "normal_exit", "unreaped",
+                                   "resumed", "no_pidfd", "late_stop", "late_cleanup"])
+def test_mapping_completed_capture_requires_exact_stop_and_bounded_terminal_cleanup(mapping_observed_case, change):
+    case, capture = mapping_observed_case, copy.deepcopy(mapping_observed_case.capture)
+    if change == "wrong_stop":
+        capture["wait"]["initial"] = (mapping_signal.SIGTRAP << 8) | 0x7f
+    elif change == "additional_event":
+        capture["wait"]["observation"] = capture["wait"]["initial"]
+    elif change == "normal_exit":
+        capture["wait"]["terminal"] = 0
+    elif change == "unreaped":
+        capture["ownership"]["child_reaped"] = False
+    elif change == "resumed":
+        capture["ownership"]["resumed_after_stop"] = True
+    elif change == "no_pidfd":
+        capture["ownership"]["pidfd_opened"] = False
+    elif change == "late_stop":
+        capture["timing"]["stopped_ns"] = capture["timing"]["started_ns"] + 15_000_000_001
+        capture["timing"]["finished_ns"] = capture["timing"]["stopped_ns"] + 1
+    else:
+        capture["timing"]["finished_ns"] = capture["timing"]["started_ns"] + 17_000_000_001
+    with pytest.raises(mapping_checker().MappingError):
+        mapping_verify_changed(case, capture=capture)
+
+
+def test_mapping_valid_incomplete_record_never_becomes_a_completed_observation(mapping_observed_case):
+    case, capture = mapping_observed_case, copy.deepcopy(mapping_observed_case.capture)
+    capture.update(status="incomplete", failure="mapping_probe_spawn_failed", child_pid=None)
+    capture["timing"]["stopped_ns"] = None
+    capture["wait"] = {"initial": None, "observation": None, "terminal": None}
+    capture["ownership"] = {"pidfd_opened": False, "proc_dir_pinned": False,
+                            "child_reaped": False, "resumed_after_stop": False}
+    capture["objects"] = {"retained": None, "executable": None}
+    files = {name: case.files[name] for name in ("selection.json", "attempt_start.json")}
+    result = mapping_verify_changed(case, capture=capture, files=files)
+    assert result["status"] == "accepted" and result["observation_record_verified"] is True
+    assert result["observation_complete"] is False
+    assert result["stopped_executable_backing_relation_verified"] is False
+    assert result["sealed_executable_object_binding_verified"] is False
+    assert result["failure"] == "mapping_probe_spawn_failed"
+    capture.update(status="completed", failure=None)
+    with pytest.raises(mapping_checker().MappingError):
+        mapping_verify_changed(case, capture=capture, files=files)
+
+
+@pytest.mark.parametrize("change", ["missing", "extra", "duplicate", "wrong_size"])
+def test_mapping_capture_inventory_is_exact_and_binds_all_raw_bytes(mapping_observed_case, change):
+    case = mapping_observed_case
+    capture, files = copy.deepcopy(case.capture), dict(case.files)
+    if change == "missing":
+        files.pop("child.status.after.bin")
+    elif change == "extra":
+        files["invented.json"] = b"{}\n"
+    elif change == "duplicate":
+        capture["files"].append(copy.deepcopy(capture["files"][0]))
+    else:
+        capture["files"][0]["size_bytes"] += 1
+    if change in ("missing", "extra"):
+        capture["files"] = [{"path": name, **bound(raw)} for name, raw in sorted(files.items())]
+    raw = encoded(capture)
+    with pytest.raises(mapping_checker().MappingError):
+        mapping_checker().verify_capture(selection_bytes=case.selection_raw,
+            expected_selection_sha256=digest(case.selection_raw), capture_bytes=raw,
+            expected_capture_sha256=digest(raw), files=files)
+
+
+@pytest.mark.parametrize("change", ["symlink_file", "hardlink_file", "symlink_directory", "symlink_parent", "extra", "mode"])
+def test_mapping_capture_reader_rejects_aliased_or_unpreserved_inputs(mapping_observed_case, tmp_path, change):
+    case, path = mapping_observed_case, tmp_path / "capture"
+    shutil.copytree(case.directory, path)
+    selected = path / "child.stat.before.bin"
+    if change == "symlink_file":
+        target = tmp_path / "unbound-stat"
+        selected.replace(target)
+        selected.symlink_to(target)
+    elif change == "hardlink_file":
+        os.link(selected, tmp_path / "unbound-alias")
+    elif change == "symlink_directory":
+        target = tmp_path / "moved"
+        path.rename(target)
+        path.symlink_to(target, target_is_directory=True)
+    elif change == "symlink_parent":
+        alias = tmp_path / "parent-alias"
+        alias.symlink_to(tmp_path, target_is_directory=True)
+        path = alias / "capture"
+    elif change == "extra":
+        (path / "unrecorded.bin").write_bytes(b"extra")
+    else:
+        selected.chmod(0o644)
+    with pytest.raises((mapping_checker().MappingError, OSError)):
+        mapping_checker().read_capture_directory(path)
+
+
+def test_mapping_independent_checker_processes_reconstruct_identical_canonical_reports(mapping_observed_case, tmp_path):
+    case = mapping_observed_case
+    arguments = ["--selection", str(case.directory / "selection.json"),
+                 "--selection-sha256", digest(case.selection_raw),
+                 "--capture-directory", str(case.directory),
+                 "--capture-sha256", digest(case.capture_raw)]
+    reports = []
+    for index in range(2):
+        output = tmp_path / f"checker-{index}.json"
+        result = subprocess.run([sys.executable, "-I", "-B", str(MAPPING_CHECKER),
+                                 *arguments, "--output", str(output)],
+                                capture_output=True, timeout=15)
+        assert result.returncode == 0, result.stdout.decode() + result.stderr.decode()
+        assert result.stderr == b"" and output.read_bytes() == result.stdout
+        assert stat.S_IMODE(output.stat().st_mode) == 0o600
+        assert result.stdout == encoded(json.loads(result.stdout))
+        reports.append(result.stdout)
+    assert reports[0] == reports[1] == encoded(case.report)
+    existing = tmp_path / "checker-0.json"
+    result = subprocess.run([sys.executable, "-I", "-B", str(MAPPING_CHECKER),
+                             *arguments, "--output", str(existing)],
+                            capture_output=True, timeout=15)
+    assert result.returncode != 0 and existing.read_bytes() == reports[0]
+
+
+def test_mapping_selected_status_rejects_before_capture_creation_or_spawn(mapping_observed_case, tmp_path, monkeypatch):
+    observer = mapping_subject()
+    selected = copy.deepcopy(mapping_observed_case.selection)
+    selected["record_status"] = "selected"
+    raw = encoded(selected)
+    def forbidden(*args, **kwargs):
+        pytest.fail("selected target must not reach the fixed-probe spawn path")
+    monkeypatch.setattr(observer, "_spawn_probe", forbidden)
+    output = tmp_path / "must-not-exist"
+    with pytest.raises(ValueError):
+        observer.run_example(selection_bytes=raw, expected_selection_sha256=digest(raw),
+                             output_directory=output)
+    assert not output.exists()
+
+
+def test_mapping_spawn_denial_is_preserved_as_incomplete_without_retry(tmp_path, monkeypatch):
+    observer, calls = mapping_subject(), []
+    selected = observer.make_selection("f04bb46c3a10470d8bca412b9b4f44c0")
+    def denied(*args, **kwargs):
+        calls.append(True)
+        raise PermissionError(errno.EPERM, "authored spawn denial")
+    monkeypatch.setattr(observer, "_spawn_probe", denied)
+    output = tmp_path / "incomplete"
+    report = observer.run_example(selection_bytes=selected, expected_selection_sha256=digest(selected),
+                                  output_directory=output)
+    assert len(calls) == 1
+    assert report["observation_record_verified"] is True and report["observation_complete"] is False
+    assert report["stopped_executable_backing_relation_verified"] is False
+    assert report["sealed_executable_object_binding_verified"] is False
+    capture_raw, files = mapping_checker().read_capture_directory(output)
+    assert json.loads(capture_raw)["status"] == "incomplete"
+    assert json.loads(capture_raw)["child_pid"] is None
+    assert files["selection.json"] == selected
+
+
+@pytest.mark.parametrize("kind", ["existing", "symlink"])
+def test_mapping_run_requires_a_new_private_directory_before_any_child(tmp_path, monkeypatch, kind):
+    observer = mapping_subject()
+    selected = observer.make_selection("5adfeac5e056421eb0aa72e0944cb58c")
+    retained = tmp_path / "retained"
+    retained.mkdir()
+    marker = retained / "owner-bytes"
+    marker.write_bytes(b"retain this original\n")
+    output = retained
+    if kind == "symlink":
+        output = tmp_path / "alias"
+        output.symlink_to(retained, target_is_directory=True)
+    def forbidden(*args, **kwargs):
+        pytest.fail("an existing or aliased output must reject before spawning")
+    monkeypatch.setattr(observer, "_spawn_probe", forbidden)
+    with pytest.raises((ValueError, OSError, RuntimeError)):
+        observer.run_example(selection_bytes=selected, expected_selection_sha256=digest(selected),
+                             output_directory=output)
+    assert marker.read_bytes() == b"retain this original\n"
+    assert sorted(path.name for path in retained.iterdir()) == ["owner-bytes"]
+
+
+@pytest.mark.parametrize("change", ["new_inode_same_bytes", "changed_bytes", "extra_file", "directory_mode", "directory_replaced"])
+def test_mapping_live_preservation_substitution_cannot_publish_a_normal_capture(tmp_path, monkeypatch, change):
+    observer = mapping_subject()
+    chosen = observer.make_selection("96fc40b257f349a7834e1fd3dc9841f7")
+    output_path, moved = tmp_path / "capture", tmp_path / "retained-original-directory"
+    preserve, changed = observer._preserve, []
+    def substitute(output, name, raw):
+        preserve(output, name, raw)
+        if name != "stdout.bin" or changed:
+            return
+        changed.append(True)
+        target = output_path / "probe.elf"
+        if change == "new_inode_same_bytes":
+            original = target.read_bytes()
+            target.rename(tmp_path / "retained-original-probe")
+            target.write_bytes(original)
+            target.chmod(0o600)
+        elif change == "changed_bytes":
+            original = target.read_bytes()
+            target.write_bytes(original[:-1] + bytes((original[-1] ^ 1,)))
+        elif change == "extra_file":
+            (output_path / "unrecorded.bin").write_bytes(b"unrecorded\n")
+        elif change == "directory_mode":
+            output_path.chmod(0o755)
+        else:
+            output_path.rename(moved)
+            output_path.mkdir(mode=0o700)
+    monkeypatch.setattr(observer, "_preserve", substitute)
+    with pytest.raises((observer.MappingPreservationError, mapping_checker().MappingError)):
+        observer.run_example(selection_bytes=chosen, expected_selection_sha256=digest(chosen),
+                             output_directory=output_path)
+    assert changed == [True]
+    assert not (output_path / "capture.json").exists()
+    assert not (moved / "capture.json").exists()
+    original_directory = moved if change == "directory_replaced" else output_path
+    assert (original_directory / "selection.json").read_bytes() == chosen
+    assert (original_directory / "attempt_start.json").is_file()
+
+
+def test_mapping_partial_preservation_failure_retains_prefix_without_normal_capture(tmp_path, monkeypatch):
+    observer = mapping_subject()
+    chosen = observer.make_selection("8b15d47a43b64e2e9ae8213ed18a4f71")
+    output_path, preserve, failures = tmp_path / "capture", observer._preserve, []
+    def partial(output, name, raw):
+        if name == "child.maps.before.bin":
+            failures.append(raw[:7])
+            fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600, dir_fd=output.fd)
+            try:
+                assert os.write(fd, raw[:7]) == 7
+            finally:
+                os.close(fd)
+            raise observer.MappingPreservationError("mapping_preservation_failed")
+        preserve(output, name, raw)
+    monkeypatch.setattr(observer, "_preserve", partial)
+    with pytest.raises(observer.MappingPreservationError):
+        observer.run_example(selection_bytes=chosen, expected_selection_sha256=digest(chosen),
+                             output_directory=output_path)
+    assert len(failures) == 1 and (output_path / "child.maps.before.bin").read_bytes() == failures[0]
+    assert not (output_path / "capture.json").exists()
+    marker = json.loads((output_path / "attempt.incomplete.json").read_bytes())
+    assert marker["status"] == "incomplete" and marker["authority_effect"] == "none"
+
+
+@pytest.mark.parametrize("failure", ["proc_denied", "deadline"])
+def test_mapping_failed_stopped_observation_kills_and_reaps_without_resuming(tmp_path, monkeypatch, failure):
+    observer = mapping_subject()
+    chosen = observer.make_selection("27a489b0c4d949c2a35ab3c0af7b741c")
+    read_proc, deadline, signal_pidfd = observer._read_proc, observer._check_deadline, observer.signal.pidfd_send_signal
+    checkpoints, signals = [], []
+    def observed_read(fd, name, limit):
+        if name == "maps":
+            checkpoints.append(name)
+            if failure == "proc_denied":
+                raise PermissionError(errno.EACCES, "authored proc denial")
+        return read_proc(fd, name, limit)
+    def expired(bound):
+        if failure == "deadline" and checkpoints:
+            raise observer.MappingObservationError("mapping_wall_deadline")
+        deadline(bound)
+    def retain_signal(fd, sig, *args, **kwargs):
+        signals.append(sig)
+        return signal_pidfd(fd, sig, *args, **kwargs)
+    monkeypatch.setattr(observer, "_read_proc", observed_read)
+    monkeypatch.setattr(observer, "_check_deadline", expired)
+    monkeypatch.setattr(observer.signal, "pidfd_send_signal", retain_signal)
+    output = tmp_path / "incomplete"
+    result = observer.run_example(selection_bytes=chosen, expected_selection_sha256=digest(chosen),
+                                  output_directory=output)
+    assert checkpoints and signals == [mapping_signal.SIGKILL]
+    assert result["observation_complete"] is False and result["physical_execution_authenticated"] is False
+    raw, _ = mapping_checker().read_capture_directory(output)
+    capture = json.loads(raw)
+    assert capture["ownership"]["child_reaped"] is True
+    assert capture["ownership"]["resumed_after_stop"] is False
+    assert os.WSTOPSIG(capture["wait"]["initial"]) == mapping_signal.SIGSTOP
+    assert os.WTERMSIG(capture["wait"]["terminal"]) == mapping_signal.SIGKILL
+    with pytest.raises(ChildProcessError):
+        os.waitpid(capture["child_pid"], os.WNOHANG)
+
+
+def test_mapping_actual_observer_mismatch_rejects_before_output_and_spawn(mapping_observed_case, tmp_path, monkeypatch):
+    observer = mapping_subject()
+    descriptor = copy.deepcopy(mapping_observed_case.selection["observer"])
+    descriptor["sha256"] = "0" * 64
+    monkeypatch.setattr(observer, "_actual_observer", lambda: (descriptor, mapping_observed_case.files["observer.exe.bin"]))
+    def forbidden(*args, **kwargs):
+        pytest.fail("a substituted observer cannot spawn the authored probe")
+    monkeypatch.setattr(observer, "_spawn_probe", forbidden)
+    output = tmp_path / "must-not-exist"
+    with pytest.raises(observer.MappingObservationError):
+        observer.run_example(selection_bytes=mapping_observed_case.selection_raw,
+                             expected_selection_sha256=digest(mapping_observed_case.selection_raw),
+                             output_directory=output)
+    assert not output.exists()
+
+
+def test_mapping_json_ambiguity_and_equal_looking_numeric_types_reject(mapping_observed_case):
+    case, checker = mapping_observed_case, mapping_checker()
+    duplicate = case.selection_raw[:-2] + b',"attempt_id":"' + case.selection["attempt_id"].encode() + b'"}\n'
+    with pytest.raises(checker.MappingError):
+        checker.validate_selection(duplicate, digest(duplicate))
+    capture = copy.deepcopy(case.capture)
+    capture["wait"]["terminal"] = float(capture["wait"]["terminal"])
+    with pytest.raises(checker.MappingError):
+        mapping_verify_changed(case, capture=capture)
+    capture = copy.deepcopy(case.capture)
+    capture["objects"]["retained"]["stat"]["nlink"] = False
+    with pytest.raises(checker.MappingError):
+        mapping_verify_changed(case, capture=capture)
+
+
+@pytest.mark.parametrize("kind", ["maps_inode", "stat_integer", "status_pid"])
+def test_mapping_bounded_raw_records_reject_oversized_numbers_with_controlled_errors(mapping_observed_case, kind):
+    case, files = mapping_observed_case, dict(mapping_observed_case.files)
+    huge = "9" * 5000
+    if kind == "maps_inode":
+        rows = files["child.maps.before.bin"].splitlines()
+        index = next(i for i, row in enumerate(rows) if row.split()[0] == b"00400000-00401000")
+        fields = rows[index].split(maxsplit=5)
+        fields[4] = huge.encode("ascii")
+        rows[index] = b" ".join(fields)
+        files["child.maps.before.bin"] = files["child.maps.after.bin"] = b"\n".join(rows) + b"\n"
+    elif kind == "stat_integer":
+        files["child.stat.after.bin"] = mapping_stat_field(files["child.stat.after.bin"], 22, huge)
+    else:
+        files["child.status.after.bin"] = mapping_status_field(files["child.status.after.bin"], "Pid", huge)
+    assert all(len(raw) <= 65536 for name, raw in files.items() if name.startswith("child."))
+    with pytest.raises(mapping_checker().MappingError):
+        mapping_verify_changed(case, files=files)
+
+
+def test_mapping_late_failure_still_gets_a_bounded_owned_child_reap(monkeypatch):
+    observer, process = mapping_subject(), SimpleNamespace(pid=12345, returncode=None)
+    capture = {"ownership": {"child_reaped": False}, "wait": {"terminal": None}}
+    signals, waits = [], []
+    monkeypatch.setattr(observer.time, "monotonic_ns", lambda: 100_000_000_000)
+    monkeypatch.setattr(observer.signal, "pidfd_send_signal", lambda fd, sig: signals.append((fd, sig)))
+    def terminal(pid, flags):
+        waits.append(pid)
+        return pid, int(mapping_signal.SIGKILL)
+    monkeypatch.setattr(observer.os, "waitpid", terminal)
+    assert observer._cleanup(process, 321, capture, 1_000_000_000) is None
+    assert signals == [(321, mapping_signal.SIGKILL)] and waits == [12345]
+    assert capture["ownership"]["child_reaped"] is True
+    assert process.returncode == -mapping_signal.SIGKILL
+    assert observer._cleanup(process, 321, capture, 1_000_000_000) is None
+    assert signals == [(321, mapping_signal.SIGKILL)] and waits == [12345]
+
+
+def test_mapping_pidfd_signal_denial_remains_incomplete_after_owned_child_cleanup(tmp_path, monkeypatch):
+    observer, children = mapping_subject(), []
+    selected = observer.make_selection("da5171a3c2994ee8ac2ae658c57c124c")
+    spawn = observer._spawn_probe
+    def owned(fd, pid):
+        child = spawn(fd, pid)
+        children.append(child)
+        return child
+    def denied(fd, sig, *args, **kwargs):
+        raise PermissionError(errno.EPERM, "authored signal denial")
+    monkeypatch.setattr(observer, "_spawn_probe", owned)
+    monkeypatch.setattr(observer.signal, "pidfd_send_signal", denied)
+    try:
+        output = tmp_path / "incomplete"
+        result = observer.run_example(selection_bytes=selected, expected_selection_sha256=digest(selected),
+                                      output_directory=output)
+        assert len(children) == 1 and result["observation_complete"] is False
+        assert result["failure"] == "mapping_cleanup_pidfd_signal_failed"
+        raw, _ = mapping_checker().read_capture_directory(output)
+        capture = json.loads(raw)
+        assert capture["ownership"]["child_reaped"] is True
+        assert os.WTERMSIG(capture["wait"]["terminal"]) == mapping_signal.SIGKILL
+        assert result["stopped_executable_backing_relation_verified"] is False
+    finally:
+        # The denial above is an authored fault.  Reap our actual stopped child
+        # through the unaffected process handle so the regression leaves no task.
+        for child in children:
+            if child.poll() is None:
+                child.kill()
+            child.wait(timeout=3)
+
+
+def test_mapping_reader_rechecks_already_read_capture_after_later_file_reads(mapping_observed_case, tmp_path, monkeypatch):
+    checker, path = mapping_checker(), tmp_path / "capture"
+    shutil.copytree(mapping_observed_case.directory, path)
+    target = path / "capture.json"
+    before, directory_before = target.stat(), path.stat()
+    original, reads, changed = target.read_bytes(), [], []
+    read_relative = checker._read_relative
+    def alter_earlier_file(parent_fd, name, limit, **kwargs):
+        raw = read_relative(parent_fd, name, limit, **kwargs)
+        reads.append(name)
+        if name == "stdout.bin":
+            assert reads[0] == "capture.json" and not changed
+            with target.open("r+b") as stream:
+                assert stream.write(bytes((original[0] ^ 1,))) == 1
+            # An explicit timestamp advance makes this race regression
+            # deterministic even on a filesystem with coarse write timestamps.
+            os.utime(target, ns=(before.st_atime_ns, before.st_mtime_ns + 1_000_000_000))
+            changed.append(True)
+        return raw
+    monkeypatch.setattr(checker, "_read_relative", alter_earlier_file)
+    with pytest.raises(checker.MappingError, match="^mapping_file_changed_after_read$"):
+        checker.read_capture_directory(path)
+    after, directory_after = target.stat(), path.stat()
+    assert changed == [True] and target.read_bytes() == bytes((original[0] ^ 1,)) + original[1:]
+    assert (after.st_dev, after.st_ino, after.st_size) == (before.st_dev, before.st_ino, before.st_size)
+    assert (directory_after.st_ino, directory_after.st_mtime_ns, directory_after.st_ctime_ns) == (
+        directory_before.st_ino, directory_before.st_mtime_ns, directory_before.st_ctime_ns)
+
+
+def test_mapping_final_publish_rechecks_earlier_raw_files_after_later_reads(tmp_path, monkeypatch):
+    observer, path = mapping_subject(), tmp_path / "capture"
+    selected = observer.make_selection("d26ca6af305a4c1b95ad8ea88c91ae72")
+    read_fd, changed = observer._read_fd, []
+    def alter_earlier_file(fd, limit, **kwargs):
+        raw = read_fd(fd, limit, **kwargs)
+        if not changed and (path / "capture.json").is_file():
+            current, final_file = os.fstat(fd), (path / "stdout.bin").stat()
+            if (current.st_dev, current.st_ino) == (final_file.st_dev, final_file.st_ino):
+                target = path / "attempt_start.json"
+                before, original = target.stat(), target.read_bytes()
+                with target.open("r+b") as stream:
+                    assert stream.write(bytes((original[0] ^ 1,))) == 1
+                os.utime(target, ns=(before.st_atime_ns, before.st_mtime_ns + 1_000_000_000))
+                after = target.stat()
+                assert (after.st_dev, after.st_ino, after.st_size) == (before.st_dev, before.st_ino, before.st_size)
+                changed.append(original)
+        return raw
+    monkeypatch.setattr(observer, "_read_fd", alter_earlier_file)
+    with pytest.raises(observer.MappingPreservationError) as rejected:
+        observer.run_example(selection_bytes=selected, expected_selection_sha256=digest(selected),
+                             output_directory=path)
+    assert str(rejected.value.__cause__) == "mapping_preserved_identity_changed"
+    assert len(changed) == 1 and (path / "capture.json").is_file()
+    assert (path / "attempt_start.json").read_bytes() == bytes((changed[0][0] ^ 1,)) + changed[0][1:]
+    assert (path / "selection.json").read_bytes() == selected
+    failure = json.loads((path / "attempt.incomplete.json").read_bytes())
+    assert failure["status"] == "incomplete" and failure["authority_effect"] == "none"
+    assert failure["failure"] == "mapping_capture_not_published"
+    # The written prefix is retained for diagnosis, but it is not readable as
+    # an accepted capture after the final preservation check has failed.
+    with pytest.raises(mapping_checker().MappingError, match="^mapping_directory_roster$"):
+        mapping_checker().read_capture_directory(path)
+
+
+@pytest.mark.parametrize("kind", ["selection", "capture_record", "capture_member"])
+def test_mapping_checker_rejects_fifo_replacement_at_input_open(tmp_path, kind):
+    # Replace the stat-validated regular file at the exact open boundary.
+    # Run the real FIFO operation in an owned subprocess: an implementation
+    # regression must fail within the timeout rather than hang the CI worker.
+    directory = tmp_path / "private-input"
+    directory.mkdir(mode=0o700)
+    for name, raw in (("selection.json", b"selected bytes\n"),
+                      ("capture.json", b"capture bytes\n"),
+                      ("child.maps.before.bin", b"raw mapping bytes\n")):
+        path = directory / name
+        path.write_bytes(raw)
+        path.chmod(0o600)
+    script = r'''
+import importlib.util, json, os, pathlib, stat, sys
+spec = importlib.util.spec_from_file_location("fifo_boundary_checker", sys.argv[1])
+checker = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(checker)
+directory, kind = pathlib.Path(sys.argv[2]), sys.argv[3]
+target = {"selection": "selection.json", "capture_record": "capture.json",
+          "capture_member": "child.maps.before.bin"}[kind]
+def read_input():
+    if kind == "selection":
+        return checker.read_selection_file(directory / target)
+    return checker.read_capture_directory(directory)
+# These are filesystem-reader fixtures, not claims of valid evidence.
+# Confirm the unchanged private regular files can be read before the race.
+before = read_input()
+if kind == "selection":
+    assert before == b"selected bytes\n"
+else:
+    assert before[0] == b"capture bytes\n"
+    assert before[1]["child.maps.before.bin"] == b"raw mapping bytes\n"
+original_open, changed = checker.os.open, []
+def replace_before_open(name, flags, mode=0o777, *, dir_fd=None):
+    if name == target and dir_fd is not None and not changed:
+        info = os.stat(name, dir_fd=dir_fd, follow_symlinks=False)
+        assert stat.S_ISREG(info.st_mode)
+        os.unlink(name, dir_fd=dir_fd)
+        os.mkfifo(name, 0o600, dir_fd=dir_fd)
+        assert stat.S_ISFIFO(os.stat(name, dir_fd=dir_fd, follow_symlinks=False).st_mode)
+        changed.append(True)
+        print(json.dumps({"event": "fifo_substituted", "kind": kind}), flush=True)
+    return original_open(name, flags, mode, dir_fd=dir_fd)
+checker.os.open = replace_before_open
+try:
+    read_input()
+except checker.MappingError as error:
+    assert changed == [True] and (directory / target).is_fifo()
+    print(json.dumps({"event": "rejected", "reason": str(error), "kind": kind}), flush=True)
+else:
+    raise AssertionError("substituted FIFO was accepted")
+'''
+    result = subprocess.run([sys.executable, "-I", "-B", "-c", script,
+                             str(MAPPING_CHECKER), str(directory), kind],
+                            capture_output=True, timeout=5)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    assert result.stderr == b""
+    assert [json.loads(line) for line in result.stdout.splitlines()] == [
+        {"event": "fifo_substituted", "kind": kind},
+        {"event": "rejected", "reason": "mapping_file_changed", "kind": kind},
+    ]

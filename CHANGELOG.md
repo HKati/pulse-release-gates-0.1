@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Fix the [B2 mapping checker FIFO substitution race](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MAPPING_OBSERVATION_v0.md#fifo-substitution-review-correction)
+  by opening shared checker inputs with `O_NONBLOCK` before validating the
+  resulting descriptor identity. Cover selection, capture record and raw-member
+  replacement at the stat/open boundary with bounded isolated regressions.
+  Reproduce all three blocking paths on the reviewed checker and verify prompt
+  rejection after the fix; pass all 508 containment cases (505 prior plus 3 new).
+  Preserve the original source-bound observation and reports unchanged; record
+  a fresh completed observation and two byte-identical independent-checker
+  reports for the corrected source selection. Keep the fixed probe, collector,
+  CI rosters, original evidence and all authority boundaries unchanged.
+
+- Add [B2 fixed-probe stopped mapping observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MAPPING_OBSERVATION_v0.md)
+  for one exact built-in authored static executable. Bind the retained sealed
+  object, actual stopped-child executable descriptor and every file-backed
+  mapping occurrence using preserved kernel evidence and an independent checker.
+  Retain raw process identities, maps, executable bytes, bounded failed attempts
+  and terminal cleanup. Require external selection/capture bindings and reject
+  substituted objects, cross-attempt evidence and incomplete preservation.
+  Keep the cooperative checkpoint distinct from ptrace exec interception,
+  process-memory equality and original launcher/runtime observation.
+  Two separate checker processes reproduced the same accepted canonical report
+  from a completed local fixed-probe capture with 20 preserved raw files.
+  Pass all 505 containment cases (409 existing plus 96 new) and keep the 189/40
+  CI rosters unchanged.
+  Preserve original evidence and all authority boundaries; actual launcher/loader
+  coverage, host qualification and selected execution remain open.
+
 - Add [B2 launcher distribution authentication](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LAUNCHER_DISTRIBUTION_v0.md)
   with a separately pinned trust policy, exact original keyring and GPG identity,
   complete signer roster and explicit evaluation epoch. Freshly verify each
