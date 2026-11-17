@@ -1,0 +1,3036 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulsemech:required-gate-idempotence-memory-observation:v0",
+  "title": "Fixed authored two-checkpoint private-memory observation v0",
+  "description": "Closed example-only selection, bounded two-checkpoint capture, and independent record verification. The fixed authored probe changes one selected private data-page byte between two cooperative SIGSTOPs. The schema constrains record structure and each checkpoint/range occurrence; the independent checker must reconstruct source and digest bindings, raw bytes, object identity, timing order and byte relations. These observations authenticate neither whole process memory, physical residency, the kernel, observer history nor original launcher or selected runtime execution.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/selection"
+    },
+    {
+      "$ref": "#/$defs/capture"
+    },
+    {
+      "$ref": "#/$defs/verification"
+    },
+    {
+      "$ref": "#/$defs/attempt_start"
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "attempt_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "pid": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "timestamp": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "wait_status": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "failure": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{0,119}$"
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 41943040
+        }
+      },
+      "required": [
+        "sha256",
+        "size_bytes"
+      ]
+    },
+    "page_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "const": 4096
+        }
+      },
+      "required": [
+        "sha256",
+        "size_bytes"
+      ]
+    },
+    "probe_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "const": 8192
+        }
+      },
+      "required": [
+        "sha256",
+        "size_bytes"
+      ]
+    },
+    "observer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 4096,
+          "pattern": "^/"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 33554432
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ]
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "wall_seconds": {
+          "const": 15
+        },
+        "cleanup_seconds": {
+          "const": 2
+        },
+        "proc_file_bytes": {
+          "const": 65536
+        },
+        "observer_executable_bytes": {
+          "const": 33554432
+        },
+        "stdout_bytes": {
+          "const": 4096
+        },
+        "stderr_bytes": {
+          "const": 4096
+        },
+        "total_capture_bytes": {
+          "const": 41943040
+        }
+      },
+      "required": [
+        "wall_seconds",
+        "cleanup_seconds",
+        "proc_file_bytes",
+        "observer_executable_bytes",
+        "stdout_bytes",
+        "stderr_bytes",
+        "total_capture_bytes"
+      ]
+    },
+    "sources": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "const": "schemas/required_gate_idempotence_mapping_observation_v0.schema.json"
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "const": "schemas/required_gate_idempotence_memory_observation_v0.schema.json"
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "const": "tools/check_required_gate_idempotence_mapping_observation_v0.py"
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "const": "tools/check_required_gate_idempotence_memory_observation_v0.py"
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "const": "tools/required_gate_idempotence_mapping_observation_v0.py"
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "const": "tools/required_gate_idempotence_mapping_probe_v0.py"
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "const": "tools/required_gate_idempotence_memory_observation_v0.py"
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "const": "tools/required_gate_idempotence_memory_probe_v0.py"
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            }
+          },
+          "required": [
+            "path",
+            "sha256",
+            "size_bytes"
+          ]
+        }
+      ],
+      "items": false,
+      "minItems": 8,
+      "maxItems": 8
+    },
+    "ranges": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "range_id": {
+              "const": "rx"
+            },
+            "address": {
+              "const": 4194304
+            },
+            "size_bytes": {
+              "const": 4096
+            },
+            "file_offset": {
+              "const": 0
+            },
+            "permissions": {
+              "const": "r-xp"
+            }
+          },
+          "required": [
+            "range_id",
+            "address",
+            "size_bytes",
+            "file_offset",
+            "permissions"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "range_id": {
+              "const": "rw"
+            },
+            "address": {
+              "const": 4198400
+            },
+            "size_bytes": {
+              "const": 4096
+            },
+            "file_offset": {
+              "const": 4096
+            },
+            "permissions": {
+              "const": "rw-p"
+            }
+          },
+          "required": [
+            "range_id",
+            "address",
+            "size_bytes",
+            "file_offset",
+            "permissions"
+          ]
+        }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "after": {
+          "const": "cp0"
+        },
+        "before": {
+          "const": "cp1"
+        },
+        "continuations": {
+          "const": 1
+        },
+        "range_id": {
+          "const": "rw"
+        },
+        "offset": {
+          "const": 256
+        },
+        "before_hex": {
+          "const": "00"
+        },
+        "after_hex": {
+          "const": "5a"
+        }
+      },
+      "required": [
+        "after",
+        "before",
+        "continuations",
+        "range_id",
+        "offset",
+        "before_hex",
+        "after_hex"
+      ]
+    },
+    "namespace_roster": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cgroup": {
+          "type": "string",
+          "pattern": "^cgroup:\\[[1-9][0-9]*\\]$"
+        },
+        "ipc": {
+          "type": "string",
+          "pattern": "^ipc:\\[[1-9][0-9]*\\]$"
+        },
+        "mnt": {
+          "type": "string",
+          "pattern": "^mnt:\\[[1-9][0-9]*\\]$"
+        },
+        "net": {
+          "type": "string",
+          "pattern": "^net:\\[[1-9][0-9]*\\]$"
+        },
+        "pid": {
+          "type": "string",
+          "pattern": "^pid:\\[[1-9][0-9]*\\]$"
+        },
+        "user": {
+          "type": "string",
+          "pattern": "^user:\\[[1-9][0-9]*\\]$"
+        },
+        "uts": {
+          "type": "string",
+          "pattern": "^uts:\\[[1-9][0-9]*\\]$"
+        }
+      },
+      "required": [
+        "cgroup",
+        "ipc",
+        "mnt",
+        "net",
+        "pid",
+        "user",
+        "uts"
+      ]
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "platform": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "system": {
+              "const": "Linux"
+            },
+            "machine": {
+              "const": "x86_64"
+            },
+            "release": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          },
+          "required": [
+            "system",
+            "machine",
+            "release",
+            "version"
+          ]
+        },
+        "observer_namespaces": {
+          "$ref": "#/$defs/namespace_roster"
+        },
+        "child_namespaces": {
+          "$ref": "#/$defs/namespace_roster"
+        }
+      },
+      "required": [
+        "platform",
+        "observer_namespaces",
+        "child_namespaces"
+      ]
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_memory_selection_v0"
+        },
+        "profile": {
+          "const": "linux_x86_64_fixed_probe_private_memory_transition_v0"
+        },
+        "attempt_id": {
+          "$ref": "#/$defs/attempt_id"
+        },
+        "probe": {
+          "$ref": "#/$defs/probe_binding"
+        },
+        "observer": {
+          "$ref": "#/$defs/observer"
+        },
+        "sources": {
+          "$ref": "#/$defs/sources"
+        },
+        "limits": {
+          "$ref": "#/$defs/limits"
+        },
+        "checkpoints": {
+          "const": [
+            "cp0",
+            "cp1"
+          ]
+        },
+        "ranges": {
+          "$ref": "#/$defs/ranges"
+        },
+        "transition": {
+          "$ref": "#/$defs/transition"
+        },
+        "record_status": {
+          "const": "example"
+        },
+        "diagnostic_only": {
+          "const": true
+        },
+        "physical_execution_authenticated": {
+          "const": false
+        },
+        "host_observation_authenticated": {
+          "const": false
+        },
+        "host_environment_qualified": {
+          "const": false
+        },
+        "host_launcher_runtime_verified": {
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "const": false
+        },
+        "process_memory_bytes_verified": {
+          "const": false
+        },
+        "complete_native_closure_verified": {
+          "const": false
+        },
+        "containment_enforced": {
+          "const": false
+        },
+        "execution_ready": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "selected_runtime_executed": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "attempt_id",
+        "probe",
+        "observer",
+        "sources",
+        "limits",
+        "checkpoints",
+        "ranges",
+        "transition",
+        "record_status",
+        "diagnostic_only",
+        "physical_execution_authenticated",
+        "host_observation_authenticated",
+        "host_environment_qualified",
+        "host_launcher_runtime_verified",
+        "loader_resolution_verified",
+        "process_memory_bytes_verified",
+        "complete_native_closure_verified",
+        "containment_enforced",
+        "execution_ready",
+        "execution_authorized",
+        "selected_runtime_executed",
+        "production_gate_eligible",
+        "metric_pass",
+        "authority_effect"
+      ]
+    },
+    "fd_stat": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dev": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "ino": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 18446744073709551615
+        },
+        "mode": {
+          "type": "integer",
+          "minimum": 32768,
+          "maximum": 36863
+        },
+        "nlink": {
+          "const": 0
+        },
+        "size": {
+          "const": 8192
+        }
+      },
+      "required": [
+        "dev",
+        "ino",
+        "mode",
+        "nlink",
+        "size"
+      ]
+    },
+    "memory_object": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dev": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "ino": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 18446744073709551615
+        },
+        "mode": {
+          "type": "integer",
+          "minimum": 32768,
+          "maximum": 36863
+        },
+        "nlink": {
+          "const": 1
+        },
+        "size": {
+          "const": 0
+        }
+      },
+      "required": [
+        "dev",
+        "ino",
+        "mode",
+        "nlink",
+        "size"
+      ]
+    },
+    "fd_object": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stat": {
+          "$ref": "#/$defs/fd_stat"
+        },
+        "seals": {
+          "const": 15
+        }
+      },
+      "required": [
+        "stat",
+        "seals"
+      ]
+    },
+    "ownership": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pidfd_opened": {
+          "type": "boolean"
+        },
+        "proc_dir_pinned": {
+          "type": "boolean"
+        },
+        "child_reaped": {
+          "type": "boolean"
+        },
+        "continuations_sent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "required": [
+        "pidfd_opened",
+        "proc_dir_pinned",
+        "child_reaped",
+        "continuations_sent"
+      ]
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "started_ns": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "continued_ns": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "finished_ns": {
+          "$ref": "#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "started_ns",
+        "continued_ns",
+        "finished_ns"
+      ]
+    },
+    "wait": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "continued": {
+          "enum": [
+            null,
+            65535
+          ]
+        },
+        "terminal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/wait_status"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "continued",
+        "terminal"
+      ]
+    },
+    "objects": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "retained_before": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/fd_object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "retained_after": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/fd_object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "retained_before",
+        "retained_after"
+      ]
+    },
+    "checkpoint_cp0": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_id": {
+          "const": "cp0"
+        },
+        "stopped_ns": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observed_ns": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wait_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/wait_status"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observation_wait": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/wait_status"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "executable_object": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/fd_object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "memory_object": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/memory_object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preserved": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "checkpoint_id",
+        "stopped_ns",
+        "observed_ns",
+        "wait_status",
+        "observation_wait",
+        "executable_object",
+        "memory_object",
+        "preserved"
+      ]
+    },
+    "checkpoint_cp1": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "checkpoint_id": {
+          "const": "cp1"
+        },
+        "stopped_ns": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observed_ns": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wait_status": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/wait_status"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observation_wait": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/wait_status"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "executable_object": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/fd_object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "memory_object": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/memory_object"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "preserved": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "checkpoint_id",
+        "stopped_ns",
+        "observed_ns",
+        "wait_status",
+        "observation_wait",
+        "executable_object",
+        "memory_object",
+        "preserved"
+      ]
+    },
+    "checkpoints": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/checkpoint_cp0"
+        },
+        {
+          "$ref": "#/$defs/checkpoint_cp1"
+        }
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "file_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "enum": [
+            "attempt_start.json",
+            "cp0.child.exe.link.bin",
+            "cp0.child.maps.after.bin",
+            "cp0.child.maps.before.bin",
+            "cp0.child.pidfd.info.bin",
+            "cp0.child.stat.after.bin",
+            "cp0.child.stat.before.bin",
+            "cp0.child.status.after.bin",
+            "cp0.child.status.before.bin",
+            "cp0.executable.elf",
+            "cp0.host.json",
+            "cp0.rw.first.bin",
+            "cp0.rw.second.bin",
+            "cp0.rx.first.bin",
+            "cp0.rx.second.bin",
+            "cp1.child.exe.link.bin",
+            "cp1.child.maps.after.bin",
+            "cp1.child.maps.before.bin",
+            "cp1.child.pidfd.info.bin",
+            "cp1.child.stat.after.bin",
+            "cp1.child.stat.before.bin",
+            "cp1.child.status.after.bin",
+            "cp1.child.status.before.bin",
+            "cp1.executable.elf",
+            "cp1.host.json",
+            "cp1.rw.first.bin",
+            "cp1.rw.second.bin",
+            "cp1.rx.first.bin",
+            "cp1.rx.second.bin",
+            "kernel.boot_id.bin",
+            "observer.exe.bin",
+            "observer.stat.bin",
+            "observer.status.bin",
+            "probe.elf",
+            "retained.after.elf",
+            "retained.before.elf",
+            "selection.json",
+            "stderr.bin",
+            "stdout.bin"
+          ]
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 33554432
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "path": {
+                "enum": [
+                  "attempt_start.json",
+                  "selection.json"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "size_bytes": {
+                "maximum": 1048576
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "path": {
+                "enum": [
+                  "cp0.child.exe.link.bin",
+                  "cp0.child.maps.after.bin",
+                  "cp0.child.maps.before.bin",
+                  "cp0.child.pidfd.info.bin",
+                  "cp0.child.stat.after.bin",
+                  "cp0.child.stat.before.bin",
+                  "cp0.child.status.after.bin",
+                  "cp0.child.status.before.bin",
+                  "cp0.host.json",
+                  "cp1.child.exe.link.bin",
+                  "cp1.child.maps.after.bin",
+                  "cp1.child.maps.before.bin",
+                  "cp1.child.pidfd.info.bin",
+                  "cp1.child.stat.after.bin",
+                  "cp1.child.stat.before.bin",
+                  "cp1.child.status.after.bin",
+                  "cp1.child.status.before.bin",
+                  "cp1.host.json",
+                  "kernel.boot_id.bin",
+                  "observer.stat.bin",
+                  "observer.status.bin"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "size_bytes": {
+                "maximum": 65536
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "path": {
+                "enum": [
+                  "cp0.executable.elf",
+                  "cp1.executable.elf",
+                  "probe.elf",
+                  "retained.after.elf",
+                  "retained.before.elf"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "size_bytes": {
+                "const": 8192
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "path": {
+                "enum": [
+                  "cp0.rw.first.bin",
+                  "cp0.rw.second.bin",
+                  "cp0.rx.first.bin",
+                  "cp0.rx.second.bin",
+                  "cp1.rw.first.bin",
+                  "cp1.rw.second.bin",
+                  "cp1.rx.first.bin",
+                  "cp1.rx.second.bin",
+                  "stderr.bin",
+                  "stdout.bin"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "size_bytes": {
+                "maximum": 4096
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "path": {
+                "enum": [
+                  "observer.exe.bin"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "size_bytes": {
+                "maximum": 33554432
+              }
+            }
+          }
+        }
+      ]
+    },
+    "files": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/file_row"
+      },
+      "minItems": 2,
+      "maxItems": 39,
+      "uniqueItems": true,
+      "allOf": [
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "attempt_start.json"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp0.child.exe.link.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp0.child.maps.after.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp0.child.maps.before.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp0.child.pidfd.info.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp0.child.stat.after.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp0.child.stat.before.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp0.child.status.after.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp0.child.status.before.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp0.executable.elf"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp0.host.json"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp0.rw.first.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp0.rw.second.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp0.rx.first.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp0.rx.second.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp1.child.exe.link.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp1.child.maps.after.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp1.child.maps.before.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp1.child.pidfd.info.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp1.child.stat.after.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp1.child.stat.before.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp1.child.status.after.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp1.child.status.before.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp1.executable.elf"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp1.host.json"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp1.rw.first.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp1.rw.second.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp1.rx.first.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "cp1.rx.second.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "kernel.boot_id.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "observer.exe.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "observer.stat.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "observer.status.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "probe.elf"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "retained.after.elf"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "retained.before.elf"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "selection.json"
+              }
+            }
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "stderr.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "properties": {
+              "path": {
+                "const": "stdout.bin"
+              }
+            }
+          },
+          "minContains": 0,
+          "maxContains": 1
+        }
+      ]
+    },
+    "completed_files": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "attempt_start.json"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp0.child.exe.link.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp0.child.maps.after.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp0.child.maps.before.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp0.child.pidfd.info.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp0.child.stat.after.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp0.child.stat.before.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp0.child.status.after.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp0.child.status.before.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp0.executable.elf"
+                },
+                "size_bytes": {
+                  "const": 8192
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp0.host.json"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp0.rw.first.bin"
+                },
+                "size_bytes": {
+                  "const": 4096
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp0.rw.second.bin"
+                },
+                "size_bytes": {
+                  "const": 4096
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp0.rx.first.bin"
+                },
+                "size_bytes": {
+                  "const": 4096
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp0.rx.second.bin"
+                },
+                "size_bytes": {
+                  "const": 4096
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp1.child.exe.link.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp1.child.maps.after.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp1.child.maps.before.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp1.child.pidfd.info.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp1.child.stat.after.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp1.child.stat.before.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp1.child.status.after.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp1.child.status.before.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp1.executable.elf"
+                },
+                "size_bytes": {
+                  "const": 8192
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp1.host.json"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp1.rw.first.bin"
+                },
+                "size_bytes": {
+                  "const": 4096
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp1.rw.second.bin"
+                },
+                "size_bytes": {
+                  "const": 4096
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp1.rx.first.bin"
+                },
+                "size_bytes": {
+                  "const": 4096
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "cp1.rx.second.bin"
+                },
+                "size_bytes": {
+                  "const": 4096
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "kernel.boot_id.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "observer.exe.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "observer.stat.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "observer.status.bin"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "probe.elf"
+                },
+                "size_bytes": {
+                  "const": 8192
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "retained.after.elf"
+                },
+                "size_bytes": {
+                  "const": 8192
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "retained.before.elf"
+                },
+                "size_bytes": {
+                  "const": 8192
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "selection.json"
+                },
+                "size_bytes": {
+                  "minimum": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "stderr.bin"
+                },
+                "size_bytes": {
+                  "const": 0
+                }
+              }
+            }
+          ]
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "#/$defs/file_row"
+            },
+            {
+              "properties": {
+                "path": {
+                  "const": "stdout.bin"
+                },
+                "size_bytes": {
+                  "const": 0
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "items": false,
+      "minItems": 39,
+      "maxItems": 39
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_memory_capture_v0"
+        },
+        "profile": {
+          "const": "linux_x86_64_fixed_probe_private_memory_transition_v0"
+        },
+        "attempt_id": {
+          "$ref": "#/$defs/attempt_id"
+        },
+        "selection_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "incomplete"
+          ]
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/failure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "observer_pid": {
+          "$ref": "#/$defs/pid"
+        },
+        "child_pid": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/pid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "timing": {
+          "$ref": "#/$defs/timing"
+        },
+        "wait": {
+          "$ref": "#/$defs/wait"
+        },
+        "ownership": {
+          "$ref": "#/$defs/ownership"
+        },
+        "objects": {
+          "$ref": "#/$defs/objects"
+        },
+        "checkpoints": {
+          "$ref": "#/$defs/checkpoints"
+        },
+        "files": {
+          "$ref": "#/$defs/files"
+        },
+        "record_status": {
+          "const": "example"
+        },
+        "diagnostic_only": {
+          "const": true
+        },
+        "physical_execution_authenticated": {
+          "const": false
+        },
+        "host_observation_authenticated": {
+          "const": false
+        },
+        "host_environment_qualified": {
+          "const": false
+        },
+        "host_launcher_runtime_verified": {
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "const": false
+        },
+        "process_memory_bytes_verified": {
+          "const": false
+        },
+        "complete_native_closure_verified": {
+          "const": false
+        },
+        "containment_enforced": {
+          "const": false
+        },
+        "execution_ready": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "selected_runtime_executed": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "attempt_id",
+        "selection_sha256",
+        "status",
+        "failure",
+        "observer_pid",
+        "child_pid",
+        "timing",
+        "wait",
+        "ownership",
+        "objects",
+        "checkpoints",
+        "files",
+        "record_status",
+        "diagnostic_only",
+        "physical_execution_authenticated",
+        "host_observation_authenticated",
+        "host_environment_qualified",
+        "host_launcher_runtime_verified",
+        "loader_resolution_verified",
+        "process_memory_bytes_verified",
+        "complete_native_closure_verified",
+        "containment_enforced",
+        "execution_ready",
+        "execution_authorized",
+        "selected_runtime_executed",
+        "production_gate_eligible",
+        "metric_pass",
+        "authority_effect"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "failure": {
+                "const": null
+              },
+              "child_pid": {
+                "$ref": "#/$defs/pid"
+              },
+              "timing": {
+                "properties": {
+                  "continued_ns": {
+                    "$ref": "#/$defs/timestamp"
+                  }
+                }
+              },
+              "wait": {
+                "properties": {
+                  "terminal": {
+                    "const": 9
+                  }
+                }
+              },
+              "ownership": {
+                "const": {
+                  "pidfd_opened": true,
+                  "proc_dir_pinned": true,
+                  "child_reaped": true,
+                  "continuations_sent": 1
+                }
+              },
+              "objects": {
+                "properties": {
+                  "retained_before": {
+                    "$ref": "#/$defs/fd_object"
+                  },
+                  "retained_after": {
+                    "$ref": "#/$defs/fd_object"
+                  }
+                }
+              },
+              "checkpoints": {
+                "type": "array",
+                "prefixItems": [
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/checkpoint_cp0"
+                      },
+                      {
+                        "properties": {
+                          "stopped_ns": {
+                            "$ref": "#/$defs/timestamp"
+                          },
+                          "observed_ns": {
+                            "$ref": "#/$defs/timestamp"
+                          },
+                          "wait_status": {
+                            "const": 4991
+                          },
+                          "observation_wait": {
+                            "const": null
+                          },
+                          "executable_object": {
+                            "$ref": "#/$defs/fd_object"
+                          },
+                          "memory_object": {
+                            "$ref": "#/$defs/memory_object"
+                          },
+                          "preserved": {
+                            "const": true
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/checkpoint_cp1"
+                      },
+                      {
+                        "properties": {
+                          "stopped_ns": {
+                            "$ref": "#/$defs/timestamp"
+                          },
+                          "observed_ns": {
+                            "$ref": "#/$defs/timestamp"
+                          },
+                          "wait_status": {
+                            "const": 4991
+                          },
+                          "observation_wait": {
+                            "const": null
+                          },
+                          "executable_object": {
+                            "$ref": "#/$defs/fd_object"
+                          },
+                          "memory_object": {
+                            "$ref": "#/$defs/memory_object"
+                          },
+                          "preserved": {
+                            "const": true
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "items": false,
+                "minItems": 2,
+                "maxItems": 2
+              },
+              "files": {
+                "$ref": "#/$defs/completed_files"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "failure": {
+                "$ref": "#/$defs/failure"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "wait": {
+                "properties": {
+                  "continued": {
+                    "const": 65535
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "ownership": {
+                "properties": {
+                  "continuations_sent": {
+                    "const": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "completed_relations": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "checkpoint_id": {
+              "const": "cp0"
+            },
+            "range_id": {
+              "const": "rx"
+            },
+            "address": {
+              "const": 4194304
+            },
+            "size_bytes": {
+              "const": 4096
+            },
+            "file_offset": {
+              "const": 0
+            },
+            "observed": {
+              "$ref": "#/$defs/page_binding"
+            },
+            "backing": {
+              "$ref": "#/$defs/page_binding"
+            },
+            "matches_backing": {
+              "const": true
+            }
+          },
+          "required": [
+            "checkpoint_id",
+            "range_id",
+            "address",
+            "size_bytes",
+            "file_offset",
+            "observed",
+            "backing",
+            "matches_backing"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "checkpoint_id": {
+              "const": "cp0"
+            },
+            "range_id": {
+              "const": "rw"
+            },
+            "address": {
+              "const": 4198400
+            },
+            "size_bytes": {
+              "const": 4096
+            },
+            "file_offset": {
+              "const": 4096
+            },
+            "observed": {
+              "$ref": "#/$defs/page_binding"
+            },
+            "backing": {
+              "$ref": "#/$defs/page_binding"
+            },
+            "matches_backing": {
+              "const": true
+            }
+          },
+          "required": [
+            "checkpoint_id",
+            "range_id",
+            "address",
+            "size_bytes",
+            "file_offset",
+            "observed",
+            "backing",
+            "matches_backing"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "checkpoint_id": {
+              "const": "cp1"
+            },
+            "range_id": {
+              "const": "rx"
+            },
+            "address": {
+              "const": 4194304
+            },
+            "size_bytes": {
+              "const": 4096
+            },
+            "file_offset": {
+              "const": 0
+            },
+            "observed": {
+              "$ref": "#/$defs/page_binding"
+            },
+            "backing": {
+              "$ref": "#/$defs/page_binding"
+            },
+            "matches_backing": {
+              "const": true
+            }
+          },
+          "required": [
+            "checkpoint_id",
+            "range_id",
+            "address",
+            "size_bytes",
+            "file_offset",
+            "observed",
+            "backing",
+            "matches_backing"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "checkpoint_id": {
+              "const": "cp1"
+            },
+            "range_id": {
+              "const": "rw"
+            },
+            "address": {
+              "const": 4198400
+            },
+            "size_bytes": {
+              "const": 4096
+            },
+            "file_offset": {
+              "const": 4096
+            },
+            "observed": {
+              "$ref": "#/$defs/page_binding"
+            },
+            "backing": {
+              "$ref": "#/$defs/page_binding"
+            },
+            "matches_backing": {
+              "const": false
+            }
+          },
+          "required": [
+            "checkpoint_id",
+            "range_id",
+            "address",
+            "size_bytes",
+            "file_offset",
+            "observed",
+            "backing",
+            "matches_backing"
+          ]
+        }
+      ],
+      "items": false,
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_memory_verification_v0"
+        },
+        "profile": {
+          "const": "linux_x86_64_fixed_probe_private_memory_transition_v0"
+        },
+        "attempt_id": {
+          "$ref": "#/$defs/attempt_id"
+        },
+        "status": {
+          "const": "accepted"
+        },
+        "selection_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "capture_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "observation_record_verified": {
+          "const": true
+        },
+        "observation_complete": {
+          "type": "boolean"
+        },
+        "sealed_backing_object_unchanged": {
+          "type": "boolean"
+        },
+        "selected_memory_ranges_observed": {
+          "type": "boolean"
+        },
+        "selected_rx_pages_match_backing": {
+          "type": "boolean"
+        },
+        "selected_rw_transition_observed": {
+          "type": "boolean"
+        },
+        "memory_relations": {
+          "anyOf": [
+            {
+              "const": []
+            },
+            {
+              "$ref": "#/$defs/completed_relations"
+            }
+          ]
+        },
+        "changed_data_offsets": {
+          "enum": [
+            [],
+            [
+              256
+            ]
+          ]
+        },
+        "failure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/failure"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "record_status": {
+          "const": "example"
+        },
+        "diagnostic_only": {
+          "const": true
+        },
+        "physical_execution_authenticated": {
+          "const": false
+        },
+        "host_observation_authenticated": {
+          "const": false
+        },
+        "host_environment_qualified": {
+          "const": false
+        },
+        "host_launcher_runtime_verified": {
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "const": false
+        },
+        "process_memory_bytes_verified": {
+          "const": false
+        },
+        "complete_native_closure_verified": {
+          "const": false
+        },
+        "containment_enforced": {
+          "const": false
+        },
+        "execution_ready": {
+          "const": false
+        },
+        "execution_authorized": {
+          "const": false
+        },
+        "selected_runtime_executed": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "attempt_id",
+        "status",
+        "selection_sha256",
+        "capture_sha256",
+        "observation_record_verified",
+        "observation_complete",
+        "sealed_backing_object_unchanged",
+        "selected_memory_ranges_observed",
+        "selected_rx_pages_match_backing",
+        "selected_rw_transition_observed",
+        "memory_relations",
+        "changed_data_offsets",
+        "failure",
+        "record_status",
+        "diagnostic_only",
+        "physical_execution_authenticated",
+        "host_observation_authenticated",
+        "host_environment_qualified",
+        "host_launcher_runtime_verified",
+        "loader_resolution_verified",
+        "process_memory_bytes_verified",
+        "complete_native_closure_verified",
+        "containment_enforced",
+        "execution_ready",
+        "execution_authorized",
+        "selected_runtime_executed",
+        "production_gate_eligible",
+        "metric_pass",
+        "authority_effect"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "observation_complete": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "sealed_backing_object_unchanged": {
+                "const": true
+              },
+              "selected_memory_ranges_observed": {
+                "const": true
+              },
+              "selected_rx_pages_match_backing": {
+                "const": true
+              },
+              "selected_rw_transition_observed": {
+                "const": true
+              },
+              "memory_relations": {
+                "$ref": "#/$defs/completed_relations"
+              },
+              "changed_data_offsets": {
+                "const": [
+                  256
+                ]
+              },
+              "failure": {
+                "const": null
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "sealed_backing_object_unchanged": {
+                "const": false
+              },
+              "selected_memory_ranges_observed": {
+                "const": false
+              },
+              "selected_rx_pages_match_backing": {
+                "const": false
+              },
+              "selected_rw_transition_observed": {
+                "const": false
+              },
+              "memory_relations": {
+                "const": []
+              },
+              "changed_data_offsets": {
+                "const": []
+              },
+              "failure": {
+                "$ref": "#/$defs/failure"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "attempt_start": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "record_type": {
+          "const": "required_gate_idempotence_memory_attempt_start_v0"
+        },
+        "profile": {
+          "const": "linux_x86_64_fixed_probe_private_memory_transition_v0"
+        },
+        "attempt_id": {
+          "$ref": "#/$defs/attempt_id"
+        },
+        "selection_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "observer_pid": {
+          "$ref": "#/$defs/pid"
+        },
+        "started_ns": {
+          "$ref": "#/$defs/timestamp"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "attempt_id",
+        "selection_sha256",
+        "observer_pid",
+        "started_ns"
+      ]
+    }
+  }
+}
