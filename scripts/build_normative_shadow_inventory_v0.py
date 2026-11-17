@@ -198,6 +198,49 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             ),
         )
 
+    if rel == ".github/workflows/required_gate_idempotence_exec_stop_v0.yml":
+        expected_sha256 = "8f4ec694d60e455273d2e29bccae289a7821363781ddb8c5b05096b01534b182"
+        if (name != "PULSEmech original launcher exec-stop observation v0"
+                or path.is_symlink() or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
+            return entry(
+                name=name, path=rel, surface_type="workflow",
+                primary_role="unclassified workflow", carrier_class="advisory",
+                authority_impacting="conditional",
+                authority_boundary="Changed original-launcher exec-stop carrier requires exact source review",
+            )
+        return entry(
+            name=name, path=rel, surface_type="workflow",
+            primary_role="non-authorizing original-launcher exec-stop observation workflow",
+            carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary=(
+                "Manual owner-scoped acquisition at one original-launcher kernel exec checkpoint; "
+                "no continuation or detach after PTRACE_EVENT_EXEC, selected-runtime execution, "
+                "required-gate activation or release admission."
+            ),
+            reads_artifacts=[
+                "exact reviewed source/workflow commit and same-attempt owner acknowledgement",
+                "preserved original launcher/distribution inputs and pinned observation environment inputs",
+                "exact current-run artifact ID and externally bound complete or incomplete attempt receipt",
+            ],
+            writes_artifacts=[
+                "original exec-stop request, raw capture or bounded incomplete attempt prefix",
+                "two independent-checker executions reconstructing the preserved original capture",
+                "completed verification binding and original GitHub attestation and signature-verification evidence",
+            ],
+            publishes_artifacts=[
+                "original observation and separate verification artifacts with 90-day retention",
+            ],
+            required_gate_participation=False, attestation_participation=True, release_path_participation=False,
+            notes=(
+                "Preserves failed prerequisites and incomplete captures without automatically repeating acquisition. "
+                "Accepted reconstruction of an incomplete record is not completed observation. "
+                "Hosted provenance and selected cp0 relationships do not establish complete native closure, "
+                "host qualification, observed containment or release authority. Steps 6 and 7 remain separate; "
+                "authority_effect=none; keep #2879 open."
+            ),
+        )
+
     if rel == ".github/workflows/pulse_ci.yml":
         return entry(
             name=name,

@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add [B2 original launcher exec-stop GitHub observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_GITHUB_v0.md)
+  as a manual owner-scoped repository process with separate acquisition and
+  verification jobs. Preserve the complete 114-file original-input carrier,
+  fixed environment inputs and unchanged historical sources. Build the pinned
+  CPython 3.11.16 image offline with its already selected loader; retain the
+  restricted container policy and permit one original cp0 attempt without
+  post-exec continuation. Preserve failed prerequisites, bounded command logs,
+  raw capture prefixes and source/run receipts. Independently reconstruct the
+  uploaded attempt twice with fresh original-chain signature checks; attest
+  only completed verification and verify the original attestation bundle.
+  Pass all 914 containment cases (668 prior plus 246 hosted) and all 61 normative
+  inventory cases without changing the 189/40 CI rosters. Fresh preparation and
+  two separate checks from the new carrier reproduce byte-identical accepted
+  reports while retaining all 53 original source bindings. The first
+  manual hosted observation remains pending; Q2's negative result, unsupported
+  gates, previous observations and all authority boundaries remain unchanged.
+
 - Add [B2 original launcher exec-stop acquisition](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_v0.md)
   with a closed original-input request, explicit owner collector and independent
   checker. Freshly reconstruct the preserved launcher/distribution chain before

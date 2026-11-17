@@ -311,3 +311,14 @@ Keep [#2879](https://github.com/HKati/pulse-release-gates-0.1/issues/2879) open.
 - [Linux mapped-file access](https://man7.org/linux/man-pages/man5/proc_pid_map_files.5.html)
 - [Linux file seals](https://man7.org/linux/man-pages/man2/F_ADD_SEALS.2const.html)
 - [Linux child waits](https://man7.org/linux/man-pages/man2/waitpid.2.html)
+
+## Repository-hosted continuation
+
+The separately implemented
+[GitHub original-launcher exec-stop observation](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_GITHUB_v0.md)
+adds the reviewed manual process for the next owner-selected attempt: fixed
+environment inputs, one original cp0 acquisition, complete or incomplete
+artifact preservation, and two independent capture checks in a separate job.
+The original source selection, completed preparation reports and historical
+claims above retain their bytes and meaning. The new workflow's first manual
+observation remains pending; repository CI does not supply that live capture.
