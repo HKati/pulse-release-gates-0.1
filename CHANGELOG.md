@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Fix the [B2 mapping checker FIFO substitution race](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MAPPING_OBSERVATION_v0.md#fifo-substitution-review-correction)
+  by opening shared checker inputs with `O_NONBLOCK` before validating the
+  resulting descriptor identity. Cover selection, capture record and raw-member
+  replacement at the stat/open boundary with bounded isolated regressions.
+  Reproduce all three blocking paths on the reviewed checker and verify prompt
+  rejection after the fix; pass all 508 containment cases (505 prior plus 3 new).
+  Preserve the original source-bound observation and reports unchanged; record
+  a fresh completed observation and two byte-identical independent-checker
+  reports for the corrected source selection. Keep the fixed probe, collector,
+  CI rosters, original evidence and all authority boundaries unchanged.
+
 - Add [B2 fixed-probe stopped mapping observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_MAPPING_OBSERVATION_v0.md)
   for one exact built-in authored static executable. Bind the retained sealed
   object, actual stopped-child executable descriptor and every file-backed

@@ -191,9 +191,9 @@ narrow relation fields. It is not an execution permit. The example runner
 returns nonzero for an incomplete attempt even if the incomplete record itself
 is structurally accepted.
 
-## Completed local observation
+## Initial completed local observation
 
-The final source-bound local attempt is
+The initial delivery's source-bound local attempt was
 `aa22afde5f3640628e33afe6db2e1f5f`. Its preserved capture is `completed`;
 both separate independent checker processes exited zero and emitted exactly
 the same accepted 1052-byte canonical report. All 20 raw files and the terminal
@@ -220,6 +220,63 @@ The completed report sets `observation_record_verified`,
 boundaries above remain in force. This is an actual local authored-probe
 observation, not a GitHub-hosted run or an observation of the original launcher.
 
+These original selection, capture, report and four-file verifier-source bytes
+remain unchanged. They describe the implementation reviewed at commit
+`657b130d50796a6c5b458131a3e623018878671a`. Their retained original source copy
+remains the appropriate implementation for replaying this historical result.
+
+## FIFO substitution review correction
+
+[PR #3029 review](https://github.com/HKati/pulse-release-gates-0.1/pull/3029#discussion_r4592990308)
+identified a replacement race between the preliminary file stat and open:
+substituting a FIFO could block the checker before descriptor identity
+validation. The shared reader now opens inputs with `O_NONBLOCK`, then applies
+the existing descriptor and preserved-path identity checks. This covers the
+external selection, capture record, raw capture members and pinned source reads.
+
+The change prevents the FIFO-open rendezvous hang. It does not make every
+regular-file or kernel I/O operation subject to a hard wall-clock deadline.
+The existing file type, link count, private mode, identity and digest checks
+retain their requirements.
+
+The corrected checker has a different source digest. It therefore rejects the
+initial delivery's source selection as `mapping_sources_changed`; the original
+capture and report hashes are not rewritten. A new local attempt,
+`e8dda0c10f7349748d221f47c7422fee`, selects the corrected source bytes and has
+its own occurrence identity and preserved kernel observations.
+
+| Corrected-source observation item | Bytes | SHA-256 |
+| --- | ---: | --- |
+| External selection | 1861 | `ec2db3243bb96eac8d83543105cf2eb22ac4443366bdd9d253f51ec53974a48a` |
+| Terminal capture | 3721 | `d4cadfbb193bd9899e8b26daaf7801332aa674fcdb9683f22acf1c3d23544d64` |
+| Independent report 1 | 1052 | `b4b21a419cadd4cffc50c56e4164e409d23516f541f473d39ad8914d4b373f45` |
+| Independent report 2 | 1052 | `b4b21a419cadd4cffc50c56e4164e409d23516f541f473d39ad8914d4b373f45` |
+
+The fresh capture is `completed` and retains all 20 raw files. Two separate
+executions of the same independent checker exited zero and emitted identical
+accepted canonical reports. Both narrow executable-object relationship fields
+are true; all existing trust and authority boundaries remain unchanged. This
+correction does not change the exact fixed probe or collector implementation.
+
+The exact reviewed checker reached an actual FIFO substitution and exceeded
+the reproduction supervisor's two-second bound on all three tested paths:
+selection, terminal capture and raw capture member. Each owned reproduction
+process was killed and reaped. The corrected checker rejected every substituted
+object as `mapping_file_changed` without timeout, in approximately 0.09--0.12
+seconds per process.
+
+The registered regressions exercise those real FIFO substitutions in isolated
+subprocesses with five-second timeouts, so a future recurrence cannot hang the
+CI worker. The complete module passed **508 cases** on CPython **3.11.16**:
+all **505 previously delivered cases** plus **3 FIFO-boundary cases**. The
+entire previous test-file byte prefix, all 244 previous top-level AST nodes
+and all 144 previous test functions remain unchanged.
+
+Fresh replay through the separately retained original sources reproduced the
+initial 1052-byte report exactly. The corrected source separately rejected that
+old selection as `mapping_sources_changed`. Standalone replay of the corrected
+capture from its validation companion reproduced the new report exactly.
+
 ## Validation and remaining work
 
 The delivery validation retains the actual fixed-probe capture, both independent
@@ -227,9 +284,9 @@ checker outputs, raw failure evidence and regression results separately from the
 repository file package. Authored parser/mutation fixtures remain distinguishable
 from the actual local process observation. The earlier ptrace-denied and simple
 cooperative feasibility records retain their original, different probe bytes;
-neither is relabeled as this final source-bound attempt.
+neither is relabeled as either source-bound attempt above.
 
-The complete registered containment module passed **505 cases** under the
+For the initial delivery, the complete registered containment module passed **505 cases** under the
 repository-pinned CPython **3.11.16**: all **409 existing cases** plus **96 new
 mapping-observation cases**. Every original top-level test statement after the
 module docstring, including all 114 prior test functions and their parameters,
@@ -264,3 +321,5 @@ keep [#2879](https://github.com/HKati/pulse-release-gates-0.1/issues/2879) open.
 - [Linux pidfd](https://man7.org/linux/man-pages/man2/pidfd_open.2.html): owned process identity and signaling/wait relationships.
 - [Linux parent-death signal](https://man7.org/linux/man-pages/man2/PR_SET_PDEATHSIG.2const.html): signal setup and parent-lifetime constraints.
 - [Linux proc filesystem](https://docs.kernel.org/filesystems/proc.html): retained proc descriptors do not retarget a later process reusing the PID.
+- [Linux FIFO open behavior](https://man7.org/linux/man-pages/man7/fifo.7.html): nonblocking read-only open does not wait for a writer.
+- [Linux open flags](https://man7.org/linux/man-pages/man2/open.2.html): `O_NONBLOCK` semantics and the regular-file/block-device limitation.

@@ -236,7 +236,9 @@ def _read_relative(parent_fd, name, limit, *, private=False, identities=None):
     if private:
         _need(stat.S_IMODE(before.st_mode) == 0o600, "mapping_file_mode")
     _need(before.st_size <= limit, "mapping_file_size")
-    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC, dir_fd=parent_fd)
+    # A substituted FIFO must not block before descriptor identity is checked.
+    fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC | os.O_NONBLOCK,
+                 dir_fd=parent_fd)
     try:
         opened = os.fstat(fd)
         _need(_identity(before) == _identity(opened), "mapping_file_changed")

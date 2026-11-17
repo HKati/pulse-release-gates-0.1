@@ -3502,3 +3502,67 @@ def test_mapping_final_publish_rechecks_earlier_raw_files_after_later_reads(tmp_
     # an accepted capture after the final preservation check has failed.
     with pytest.raises(mapping_checker().MappingError, match="^mapping_directory_roster$"):
         mapping_checker().read_capture_directory(path)
+
+
+@pytest.mark.parametrize("kind", ["selection", "capture_record", "capture_member"])
+def test_mapping_checker_rejects_fifo_replacement_at_input_open(tmp_path, kind):
+    # Replace the stat-validated regular file at the exact open boundary.
+    # Run the real FIFO operation in an owned subprocess: an implementation
+    # regression must fail within the timeout rather than hang the CI worker.
+    directory = tmp_path / "private-input"
+    directory.mkdir(mode=0o700)
+    for name, raw in (("selection.json", b"selected bytes\n"),
+                      ("capture.json", b"capture bytes\n"),
+                      ("child.maps.before.bin", b"raw mapping bytes\n")):
+        path = directory / name
+        path.write_bytes(raw)
+        path.chmod(0o600)
+    script = r'''
+import importlib.util, json, os, pathlib, stat, sys
+spec = importlib.util.spec_from_file_location("fifo_boundary_checker", sys.argv[1])
+checker = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(checker)
+directory, kind = pathlib.Path(sys.argv[2]), sys.argv[3]
+target = {"selection": "selection.json", "capture_record": "capture.json",
+          "capture_member": "child.maps.before.bin"}[kind]
+def read_input():
+    if kind == "selection":
+        return checker.read_selection_file(directory / target)
+    return checker.read_capture_directory(directory)
+# These are filesystem-reader fixtures, not claims of valid evidence.
+# Confirm the unchanged private regular files can be read before the race.
+before = read_input()
+if kind == "selection":
+    assert before == b"selected bytes\n"
+else:
+    assert before[0] == b"capture bytes\n"
+    assert before[1]["child.maps.before.bin"] == b"raw mapping bytes\n"
+original_open, changed = checker.os.open, []
+def replace_before_open(name, flags, mode=0o777, *, dir_fd=None):
+    if name == target and dir_fd is not None and not changed:
+        info = os.stat(name, dir_fd=dir_fd, follow_symlinks=False)
+        assert stat.S_ISREG(info.st_mode)
+        os.unlink(name, dir_fd=dir_fd)
+        os.mkfifo(name, 0o600, dir_fd=dir_fd)
+        assert stat.S_ISFIFO(os.stat(name, dir_fd=dir_fd, follow_symlinks=False).st_mode)
+        changed.append(True)
+        print(json.dumps({"event": "fifo_substituted", "kind": kind}), flush=True)
+    return original_open(name, flags, mode, dir_fd=dir_fd)
+checker.os.open = replace_before_open
+try:
+    read_input()
+except checker.MappingError as error:
+    assert changed == [True] and (directory / target).is_fifo()
+    print(json.dumps({"event": "rejected", "reason": str(error), "kind": kind}), flush=True)
+else:
+    raise AssertionError("substituted FIFO was accepted")
+'''
+    result = subprocess.run([sys.executable, "-I", "-B", "-c", script,
+                             str(MAPPING_CHECKER), str(directory), kind],
+                            capture_output=True, timeout=5)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    assert result.stderr == b""
+    assert [json.loads(line) for line in result.stdout.splitlines()] == [
+        {"event": "fifo_substituted", "kind": kind},
+        {"event": "rejected", "reason": "mapping_file_changed", "kind": kind},
+    ]
