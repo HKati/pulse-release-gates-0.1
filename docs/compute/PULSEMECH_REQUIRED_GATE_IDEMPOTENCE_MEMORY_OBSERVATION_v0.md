@@ -273,6 +273,14 @@ the original selected launcher and every relevant loader/native occurrence in
 its reviewed acquisition environment, followed by observed containment and
 selected-bootstrap integration.
 
+The [original launcher exec-stop acquisition](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_v0.md)
+implements the first concrete slice: the unchanged launcher and its selected
+interpreter at the kernel exec stop, with separate mapping and RX-memory
+obligations. Request preparation reconstructs the original chain; an actual
+original-target capture remains a separately authorized owner observation.
+This continuation preserves the present completed two-stop probe capture and
+its source-bound report bytes.
+
 The [preserved plan](PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#18-required-gate-coverage-plan-after-accepted-rejection-verification)
 continues in its established order. B3 property evidence, B4 admission and B5
 the separately authorized actual reference remain distinct. Broader Step 6
