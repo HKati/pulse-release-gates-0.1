@@ -2,26 +2,26 @@
 
 ## Status and scope
 
-**Implemented repository process for one owner-requested original-launcher
-exec-stop attempt, preservation of its complete or incomplete evidence, and
-independent reconstruction in a separate GitHub job. The first manual GitHub
-attempt stopped during offline environment installation, before a request or
-capture was produced. A completed original checkpoint remains pending.
-B2 remains incomplete.**
+**The selected original launcher/interpreter exec-stop observation completed in
+manual run `44375052171/1` on 2026-11-18. Both jobs succeeded; two independent
+checker processes reproduced the completed capture, and the hosted attestation
+verification succeeded. The original evidence and its narrow result are
+preserved below. The earlier `44318024733/1` installation failure retains its
+incomplete meaning. B2 remains incomplete.**
 
 This unit continues the
 [original launcher exec-stop acquisition](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_v0.md).
 That unit established an original-input request and two accepted,
 byte-identical preparation reports. It did not acquire an original-launcher
-kernel exec checkpoint. The present workflow gives the next observation a
-reviewed place in the repository, with fixed inputs, an explicit owner action,
+kernel exec checkpoint. The present workflow supplied the reviewed place for
+the completed observation, with fixed inputs, an explicit owner action,
 bounded evidence preservation and a separate verification job.
 
 Repository CI checks the implementation and its synthetic failure cases. A
-green PR does not supply an original-launcher capture. No original-target
-ptrace attempt or retry was performed while preparing this change. A new
-manual GitHub run must supply its own observed result; a denied prerequisite
-is retained as a denied prerequisite.
+green PR does not supply an original-launcher capture. The live result below
+comes from the owner's separate manual workflow dispatch. Preparing this
+preservation update did not repeat acquisition. Any future manual run must
+supply its own observed result; a denied prerequisite retains that meaning.
 
 The selected checkpoint remains `linux_x86_64_original_launcher_exec_stop_v0`:
 the kernel has installed the original launcher and interpreter images, and the
@@ -353,6 +353,10 @@ must establish its own result.
 
 ## Start a new manual observation after merge
 
+This is the retained procedure for a future separately selected observation.
+The completed run below already supplies the selected cp0 result; preserving
+it and specifying the next B2 obligation do not require another dispatch.
+
 Open [PULSEmech original launcher exec-stop observation v0](https://github.com/HKati/pulse-release-gates-0.1/actions/workflows/required_gate_idempotence_exec_stop_v0.yml)
 from the `HKati` account after the reviewed workflow has merged to `main`.
 Choose **Run workflow** and enter:
@@ -388,7 +392,8 @@ the workflow badge alone.
 | Workflow admission and failure preservation | Exercise owner/source/attempt rejections, exact private start records, failed-job artifact handoff and completed-only attestation without original-target execution. |
 | Input and environment selection | Check the carrier's closed inventory, per-file bytes, substituted-file rejection, fixed package/wheel selections and offline build command construction. |
 | CI coverage | Keep the 189 Tools and 40 targeted pytest roster entries unchanged. |
-| First live GitHub attempt | Run `44318024733/1` preserved an incomplete environment-build prefix. A completed original-launcher checkpoint remains pending a new owner-requested dispatch. |
+| First live GitHub attempt | Run `44318024733/1` preserved an incomplete environment-build prefix; its request and capture remain absent. |
+| Completed live GitHub observation | Run `44375052171/1` completed acquisition and separate verification. Its original capture, two equal accepted reports and successful hosted attestation verification are preserved below. |
 
 The actual local installer check used a rootless chroot, not Docker. Four
 preserved base layers were verified before restoration; file contents, modes
@@ -396,8 +401,161 @@ and links were retained, while fourteen layer entries with nonzero UID/GID
 were normalized to mapped-root ownership. The unchanged APT installer failed
 earlier at its unmapped sandbox UID/GID, so that local baseline did not
 reproduce the GitHub pathname diagnostic. The corrected installer completed
-without changing its validation guards. A new hosted run must still establish
-Docker-build completion and the separate original-checkpoint result.
+without changing its validation guards. The later hosted run `44375052171/1`
+separately established Docker-build completion and the selected original
+checkpoint; the local installer test retains its narrower scope.
+
+## Completed hosted observation — 44375052171/1
+
+The owner dispatched [workflow run 44375052171](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/44375052171),
+workflow number **2**, attempt **1**, from `main` at source/workflow commit
+`84b78ff1758ed3db73fbb1db1b37451ca6620373`. Both actor fields are `HKati`.
+The run started at **2026-11-18 18:56:04 UTC** and completed at
+**18:58:12 UTC**. Acquisition job `135051876641` and verification job
+`135052510782` both succeeded.
+
+The [descriptive preservation record](../../preservation/required_gate_idempotence_exec_stop_v0/run_44375052171_attempt_1/verification_record_v0.json)
+records the source, artifact identities, selected original members, narrow
+result, attestation and remaining obligations. It is an inventory and review
+record, not an additional independent checker report or an authorization.
+
+### Original artifact transport and handoff
+
+| Original artifact | Exact ZIP bytes | Members | SHA-256 |
+| --- | ---: | ---: | --- |
+| [Acquisition 14460412647](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/44375052171/artifacts/14460412647) | 161,254,756 | 220 | `50e3f48ee11937b880770985ec8a72b8eb668af8c50f52614490c46c6c354b4e` |
+| [Verification 14460567554](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/44375052171/artifacts/14460567554) | 329,299,985 | 645 | `9b9f95e2ab9a04691a8aaba6aad78874aa70e4dc1c1bb24f63f473eb36f71155` |
+
+Downloaded original ZIP sizes and SHA-256 values match the provider metadata.
+All outer members passed size, CRC and path/roster checks. The acquisition
+receipt binds **219 payload files, 161,170,630 bytes**, with external SHA-256
+`e57d1d742251dbbcf1f92033273889ead9b3ac23daa6f89ae4847dd613631e6c`.
+Including that receipt gives the 220-member acquisition artifact. Both
+verification `input/` and `private-input/` trees retain all 220 files byte for
+byte. All **62 source bindings** match the exact source commit. The original
+114-member input carrier, seven Debian archives and seven wheels retain their
+selected bytes.
+
+### Completed checkpoint and independent reconstruction
+
+| Evidence | SHA-256 |
+| --- | --- |
+| Original request, 8,106 bytes | `c23bfc0f22e3f0a52f09c141a4956c2b7431fc2109c72fff9bcf66642043a7a9` |
+| Capture record, 5,588 bytes | `0e7bc25175f9c95393ab7bd9a9895e72be5f608b17c2012c4249775e3c5dce13` |
+| Each request-check report, 1,244 bytes | `81fe3f292d0922095cb52a806ff51b9bffefe610aca9c6183e1fb58c8c3deabb` |
+| Each capture-check report, 2,200 bytes | `8a2769ae4e7858f73b7cca9285724aabaee152f4dbf6e5bfb6c603cea538b34b` |
+
+The two request reports are canonical, accepted and byte-identical. The
+acquisition result and the two independent capture reports are also canonical,
+accepted and byte-identical. Both hosted capture checks freshly reconstructed
+the distribution/launch-host chain and checked its distribution signatures at
+the selected original epoch **1794787200**. They are two processes using one
+checker implementation, not two acquisitions or two independent implementations.
+
+The capture retains all **33 selected files including `capture.json`**. The
+original launcher and interpreter have **eight `PT_LOAD` segment occurrences**
+in total. Four RX sample records match their original file ranges exactly:
+two samples of the launcher's **39,761-byte** range and two samples of the
+interpreter's **160,721-byte** range. This is **400,964 sampled bytes**, or
+**200,482 distinct bytes sampled twice**. It does not assert equality of all
+process memory, writable data, BSS, padding or intervening states.
+
+All six narrow flags are true:
+
+```text
+kernel_exec_checkpoint_observed
+launcher_image_binding_verified
+interpreter_image_binding_verified
+selected_exec_memory_ranges_observed
+selected_exec_rx_ranges_match_original
+owned_exec_stop_cleanup_verified
+```
+
+The recorded instruction pointer is at the original interpreter entry, and
+the wait record identifies `PTRACE_EVENT_EXEC`. The collector records one
+pre-exec resume, **zero post-exec resumes**, no detach, and an owned child
+killed and reaped after observation. Both owned containers were removed.
+The verification phase did not repeat acquisition.
+
+The preservation review also ran the unchanged lower-level capture checker in
+two fresh local CPython 3.11.16 processes. Both returned 0 and produced exactly
+the original 2,200-byte hosted report. This read-only reconstruction checked
+the preserved request, capture and source bindings; it did not freshly verify
+distribution or attestation signatures and did not run the collector.
+
+### Hosted attestation
+
+[Attestation 69298068](https://github.com/HKati/pulse-release-gates-0.1/attestations/69298068)
+binds `verified-binding.json`, **11,522 bytes**, SHA-256
+`e08c4504d77c6b73dd40f6fc38164699583bed9ff82015db7e9f19a5bc2f8e27`.
+The original bundle is **11,706 bytes**, SHA-256
+`74fdf59f5c309f5415e17045c4de5ddb24d78281005536d5009e628c8a196c55`.
+The subject binds the original receipt, request, capture, both equal reports,
+source files and run context.
+
+The preserved `gh attestation verify` command returned 0 with the exact
+repository, signer workflow, source and signer digest, `refs/heads/main`,
+SLSA provenance predicate, GitHub Actions issuer and hosted-runner requirement.
+Its verified statement names invocation `44375052171/attempts/1`; the verified
+transparency-log timestamp is **2026-11-18 18:57:54 UTC**. The review checked
+these retained bytes and their bindings. A fresh local attestation verification
+was not performed: the available local `gh 2.46.0` lacks that subcommand.
+
+### Repository selection and separate original custody
+
+The [control evidence selection](../../preservation/required_gate_idempotence_exec_stop_v0/run_44375052171_attempt_1/control_evidence_v0.zip)
+is a newly constructed **737,502-byte ZIP**, SHA-256
+`788aaa185e979f5ecddfa3b17f8a45d8b74ee59671b26033b5b94c249c9359c6`.
+Its **234 members, 1,513,977 decoded bytes**, are unchanged member bytes from
+the two original artifacts. The record enumerates each member's original
+artifact, path, size and digest. It includes the complete capture tree, request,
+receipt, reports, selected process/environment records and attestation evidence.
+
+This selection is not either original GitHub ZIP and is not a complete hosted
+replay carrier. It omits the Docker base-save archive, original-input archive,
+package/wheel payloads, full source copies and duplicate verification trees.
+The retained receipt still binds those omitted dependencies. Replaying the
+full hosted verification requires the original artifacts and reviewed tools.
+Every added repository file remains below the existing **8 MiB** source-file
+budget; no new exclusion or relaxed size limit is needed.
+
+Retain these two separately supplied original files outside the repository:
+
+```text
+exec_stop_44375052171_1_acquisition_original.zip
+exec_stop_44375052171_1_verification_original.zip
+```
+
+Verify their exact sizes and hashes from the table above. Original copies were
+verified during this review; receipt on the owner's own machine has not been
+observed. Provider retention was recorded as **2027-02-16 18:56:05 UTC** and is
+not permanent custody. The smaller repository selection and its hashes do not
+replace the original ZIPs. No LFS or additional paid artifact service is part
+of this preservation change.
+
+## Next bounded B2 obligation
+
+The selected original launcher/interpreter cp0 observation is complete.
+The next B2 development unit is a finite proposal for a later checkpoint that
+can establish additional native-object occurrences and actual library
+resolution. The four selected images still unobserved at cp0 are `libc.so.6`,
+`libcap.so.2`, `libpcre2-8.so.0` and `libselinux.so.1`.
+
+Retain all twelve static relationships with their separate meanings: **nine
+`DT_NEEDED` and three `PT_INTERP` relationships**. Only the original
+`bwrap`-to-interpreter relationship is required at cp0; the other eleven are
+marked `not_observed_at_cp0`. The libc/libcap interpreter declarations do not
+imply recursively executed interpreters. A later mapping snapshot alone would
+not prove each consumer's loader-resolution relationship.
+
+The next proposal must specify its exact checkpoint and allowed initialization,
+owned-process identity, original object/segment bindings, per-relationship
+evidence, finite time/event/byte limits, cleanup, failure-prefix preservation
+and independent acceptance/rejection checks. Executable entry is later than
+cp0 and may follow loader initialization. It therefore needs a separate
+observation scope; this preservation change does not implement or authorize
+post-exec continuation. Observed containment and selected-bootstrap integration
+remain subsequent obligations.
 
 The exact workflow is classified as a non-authorizing audit-preservation
 carrier. Changing its reviewed bytes does not inherit that classification.

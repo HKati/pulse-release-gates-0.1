@@ -18,6 +18,11 @@ while preparing this package.** Synthetic regression transcripts are test
 evidence. The earlier live authored-probe observations retain their original
 subjects, claims and source-bound report bytes.
 
+The later owner-dispatched
+[run 44375052171/1](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_GITHUB_v0.md#completed-hosted-observation--443750521711)
+completed the selected original cp0 observation. Its preserved result is
+separate from the historical preparation evidence described in this document.
+
 ```text
 linux_x86_64_original_launcher_exec_stop_v0
 ```
@@ -289,11 +294,14 @@ operation does not freshly verify the distribution signatures.
 
 ## Continuation of the established plan
 
-The next live observation is the exact original launcher/interpreter cp0 in an
-eligible, reviewed owner environment. Later checkpoints must establish actual
-library resolution and relevant native occurrences. Executable entry is later
-than cp0: loader initialization can run before it, so that experiment needs its
-own scope. Observed containment and selected-bootstrap integration follow.
+At the original implementation stage, the next live observation was the exact
+original launcher/interpreter cp0 in an eligible, reviewed owner environment.
+That selected observation is now preserved in
+[run 44375052171/1](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_GITHUB_v0.md#completed-hosted-observation--443750521711).
+Later checkpoints must establish actual library resolution and relevant native
+occurrences. Executable entry is later than cp0: loader initialization can run
+before it, so that experiment needs its own scope. Observed containment and
+selected-bootstrap integration follow.
 
 The [existing readiness plan](PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#18-required-gate-coverage-plan-after-accepted-rejection-verification)
 keeps B3 property evidence, B4 admission and B5 the actual reference distinct.
@@ -320,5 +328,11 @@ adds the reviewed manual process for the next owner-selected attempt: fixed
 environment inputs, one original cp0 acquisition, complete or incomplete
 artifact preservation, and two independent capture checks in a separate job.
 The original source selection, completed preparation reports and historical
-claims above retain their bytes and meaning. The new workflow's first manual
-observation remains pending; repository CI does not supply that live capture.
+claims above retain their bytes and meaning. The implementation originally
+left its live observation pending. The later
+[completed hosted observation, run 44375052171/1](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_GITHUB_v0.md#completed-hosted-observation--443750521711)
+now preserves the selected original cp0 capture, equal independent reports and
+hosted attestation verification. Repository CI remains implementation evidence;
+the live capture came from the owner's separate manual dispatch. Full B2
+qualification and the later native-resolution/containment obligations remain
+outstanding.
