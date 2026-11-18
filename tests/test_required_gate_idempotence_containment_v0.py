@@ -6284,3 +6284,152 @@ def test_hosted_driver_expired_phase_budget_blocks_work_but_preserves_cleanup_al
     driver._command(root, "container-remove", ["docker", "rm", "--force", "d" * 64],
                     30, require=False, cleanup=True)
     assert len(calls) == 1 and calls[0][1]["timeout_seconds"] == 30
+
+
+def hosted_environment_builder_fixture(tmp_path, monkeypatch):
+    """Exercise the installer with authored bytes; no package process executes."""
+    builder = module(
+        "hosted_exec_stop_environment_builder_regression_v0",
+        "tools/required_gate_idempotence_exec_stop_hosted_v0/build_environment.py",
+    )
+    config = ROOT / "tools/required_gate_idempotence_exec_stop_hosted_v0"
+    selected = json.loads((config / "environment.json").read_bytes())
+    inputs = tmp_path / "build-inputs"
+    inputs.mkdir()
+    for directory, entries in (("debs", selected["debian"]["packages"]),
+                               ("wheels", selected["python"]["packages"])):
+        (inputs / directory).mkdir()
+        for item in entries:
+            raw = ("authored non-executable " + item["filename"] + "\n").encode()
+            (inputs / directory / item["filename"]).write_bytes(raw)
+            item.update(bound(raw))
+    runtime = tmp_path / "authored-runtime"
+    runtime.mkdir()
+    runtime_paths = {}
+    for ordinal, item in enumerate(selected["expected_files"]):
+        path = runtime / str(ordinal)
+        raw = ("authored non-executable runtime file " + item["path"] + "\n").encode()
+        path.write_bytes(raw)
+        item.update(bound(raw))
+        runtime_paths[item["path"]] = path
+    (inputs / "environment.json").write_bytes(encoded(selected))
+    (inputs / "requirements.lock").write_text("\n".join(
+        item["name"] + "==" + item["version"] + " --hash=sha256:" + item["sha256"]
+        for item in selected["python"]["packages"]
+    ) + "\n")
+    before = {item["name"]: item["base_version"] for item in selected["debian"]["closure"]
+              if item["base_version"] is not None}
+    state = SimpleNamespace(
+        builder=builder, inputs=inputs, selected=selected, calls=[], runtime_paths=runtime_paths,
+        after={item["name"]: item["version"] for item in selected["debian"]["closure"]},
+        python_versions={builder.normalized_name(item["name"]): item["version"]
+                         for item in selected["python"]["packages"]},
+        status_reads=0, dpkg_failure=False, change_runtime_after_install=False,
+    )
+
+    def installed_debian():
+        state.status_reads += 1
+        return dict(before if state.status_reads == 1 else state.after)
+
+    def run(argv, **kwargs):
+        state.calls.append((list(argv), kwargs))
+        if argv[0] == "/usr/bin/dpkg":
+            if state.dpkg_failure:
+                raise subprocess.CalledProcessError(1, argv)
+        elif argv[:5] == [builder.PYTHON, "-I", "-m", "pip", "install"]:
+            pass
+        elif argv == [builder.PYTHON, "-I", "-m", "pip", "check"]:
+            if state.change_runtime_after_install:
+                path = runtime_paths["/usr/bin/gpg"]
+                raw = path.read_bytes()
+                path.write_bytes(b"X" + raw[1:])
+        else:
+            raise AssertionError("offline installer attempted an unselected command: " + repr(argv))
+        return subprocess.CompletedProcess(argv, 0)
+
+    monkeypatch.setattr(builder, "sys", SimpleNamespace(executable=builder.PYTHON, platform="linux"))
+    monkeypatch.setattr(builder, "platform", SimpleNamespace(
+        python_version=lambda: builder.PYTHON_VERSION, machine=lambda: "x86_64"))
+    monkeypatch.setattr(builder, "Path", lambda value: runtime_paths.get(str(value), Path(value)))
+    monkeypatch.setattr(builder, "installed_debian", installed_debian)
+    monkeypatch.setattr(builder, "importlib", SimpleNamespace(metadata=SimpleNamespace(
+        version=lambda name: state.python_versions[builder.normalized_name(name)])))
+    monkeypatch.setattr(builder, "subprocess", SimpleNamespace(run=run))
+    return state
+
+
+def test_hosted_environment_builder_installs_only_verified_local_overlay(tmp_path, monkeypatch):
+    state = hosted_environment_builder_fixture(tmp_path, monkeypatch)
+    result = state.builder.install(state.inputs)
+    assert len(state.calls) == 3 and state.status_reads == 2
+    argv, options = state.calls[0]
+    selected_paths = [str(state.inputs / "debs" / item["filename"])
+                      for item in state.selected["debian"]["packages"]]
+    # No resolver, dependency force, recursive input, or trigger suppression.
+    assert argv == ["/usr/bin/dpkg", "--install", *selected_paths]
+    assert len(selected_paths) == 7 and all(Path(path).is_absolute() for path in selected_paths)
+    assert options["check"] is True and options["timeout"] == 300
+    assert options["env"]["DEBIAN_FRONTEND"] == "noninteractive"
+    pip_install = state.calls[1][0]
+    assert {"--no-index", "--no-deps", "--require-hashes", "--only-binary=:all:"} <= set(pip_install)
+    assert "--find-links=" + str(state.inputs / "wheels") in pip_install
+    assert state.calls[2][0] == [state.builder.PYTHON, "-I", "-m", "pip", "check"]
+    record_path = state.inputs / "build-environment-record.json"
+    assert json.loads(record_path.read_bytes()) == result
+    assert stat.S_IMODE(record_path.stat().st_mode) == 0o644
+    assert result["environment_selection"] == bound((state.inputs / "environment.json").read_bytes())
+    assert result["installed_debian_delta"] == [
+        {"name": item["name"], "version": item["version"]} for item in state.selected["debian"]["packages"]]
+    assert len(result["checked_files"]) == len(state.selected["expected_files"])
+    assert result["authority_effect"] == "none"
+    assert result["host_environment_qualified"] is False and result["native_acquisition_performed"] is False
+    assert not (state.inputs / "debs").exists() and not (state.inputs / "wheels").exists()
+
+
+def test_hosted_environment_builder_dpkg_failure_stops_before_pip_or_record(tmp_path, monkeypatch):
+    state = hosted_environment_builder_fixture(tmp_path, monkeypatch)
+    state.dpkg_failure = True
+    with pytest.raises(subprocess.CalledProcessError):
+        state.builder.install(state.inputs)
+    assert len(state.calls) == 1 and state.calls[0][0][:2] == ["/usr/bin/dpkg", "--install"]
+    assert state.status_reads == 1
+    assert not (state.inputs / "build-environment-record.json").exists()
+    assert (state.inputs / "debs").is_dir() and (state.inputs / "wheels").is_dir()
+
+
+@pytest.mark.parametrize("directory", ["debs", "wheels"])
+@pytest.mark.parametrize("fault", ["changed", "missing", "extra"])
+def test_hosted_environment_builder_rejects_payload_fault_before_any_process(tmp_path, monkeypatch, directory, fault):
+    state = hosted_environment_builder_fixture(tmp_path, monkeypatch)
+    payloads = state.inputs / directory
+    path = sorted(payloads.iterdir())[0]
+    if fault == "changed":
+        raw = path.read_bytes()
+        path.write_bytes(b"X" + raw[1:])
+    elif fault == "missing":
+        path.unlink()
+    else:
+        (payloads / "unselected-payload").write_bytes(b"authored extra input\n")
+    with pytest.raises(ValueError, match="build_payload_binding|build_payload_members"):
+        state.builder.install(state.inputs)
+    assert state.calls == []
+    assert not (state.inputs / "build-environment-record.json").exists()
+
+
+@pytest.mark.parametrize("fault", ["debian-version", "python-version", "runtime-hash"])
+def test_hosted_environment_builder_rejects_post_install_mismatch_without_record(tmp_path, monkeypatch, fault):
+    state = hosted_environment_builder_fixture(tmp_path, monkeypatch)
+    if fault == "debian-version":
+        state.after["gpg"] = "0"
+        reason = "build_installed_package_version"
+    elif fault == "python-version":
+        state.python_versions["jsonschema"] = "0"
+        reason = "build_installed_python_version"
+    else:
+        state.change_runtime_after_install = True
+        reason = "build_runtime_file_binding"
+    with pytest.raises(ValueError, match=reason):
+        state.builder.install(state.inputs)
+    assert len(state.calls) == 3 and state.status_reads == 2
+    assert not (state.inputs / "build-environment-record.json").exists()
+    assert (state.inputs / "debs").is_dir() and (state.inputs / "wheels").is_dir()

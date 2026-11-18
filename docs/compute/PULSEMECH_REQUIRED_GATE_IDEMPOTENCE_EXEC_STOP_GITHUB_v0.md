@@ -5,7 +5,9 @@
 **Implemented repository process for one owner-requested original-launcher
 exec-stop attempt, preservation of its complete or incomplete evidence, and
 independent reconstruction in a separate GitHub job. The first manual GitHub
-observation remains pending. B2 remains incomplete.**
+attempt stopped during offline environment installation, before a request or
+capture was produced. A completed original checkpoint remains pending.
+B2 remains incomplete.**
 
 This unit continues the
 [original launcher exec-stop acquisition](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_v0.md).
@@ -137,8 +139,13 @@ from that digest and checked before and after building. Verification loads the
 exact receipt-bound archive and checks the restored configuration identity,
 without another registry pull, image save or package download. Both builds
 use the same reviewed Dockerfile and checked local tag, with `--pull=false`
-and `--network=none`. Debian installation uses `--no-download`; wheel
-installation uses `--no-index`, `--no-deps` and `--require-hashes`.
+and `--network=none`. Debian installation passes only the seven verified local
+archive paths to `dpkg --install`, with normal dependency checks and trigger
+processing. It performs no dependency resolution or package download and uses
+no force or fallback options. The selected base plus those seven additions
+supply the already checked dependency closure; all selected package versions
+and runtime file bytes are checked again after installation. Wheel installation
+uses `--no-index`, `--no-deps` and `--require-hashes`.
 The two actual constructed image IDs are recorded separately.
 This recipe fixes the selected inputs and checks the declared installed
 relationships. It does not assert byte-identical rebuilt images or complete
@@ -169,8 +176,8 @@ selected policy or automatically retrying the acquisition.
 
 The GitHub runner, kernel, Docker engine and builder, observer environment,
 procfs and retained descriptor observations remain explicit trusted components.
-The first manual run will determine the observed result under that particular
-host context.
+A manual run that reaches the collector must determine the observed result
+under that particular host context.
 
 ## Two jobs and one original attempt
 
@@ -308,7 +315,43 @@ per-consumer dependency edges remain a static graph. Actual later library
 resolution, native occurrences and observed containment require their own
 bounded observations.
 
-## Start the first manual observation after merge
+## First hosted attempt: offline installation failure
+
+[Run 44318024733, attempt 1](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/44318024733)
+was dispatched by `HKati` from `main` on 2026-11-18. Both source and workflow
+commit were `179868e6f3948dba99bf31bffdadeeda0898f1c6`.
+
+The owner/context checks, selected input checks, dependency downloads, pinned
+base-image pull, local tag checks and base-image preservation succeeded. The
+offline Docker build reached the Debian installation command, where
+`apt-get --no-download install` failed with exit status 100:
+
+```text
+E: Internal Error, Pathname to install is not absolute 'libgpg-error0_1.51-4_amd64.deb'
+```
+
+The command had received absolute archive paths. Its original diagnostic is
+preserved in `host-commands/docker-build.stderr.bin`; the hosted acquisition
+reported `hosted_docker_build_failed`. No observation container, fresh request
+or original-launcher capture was produced. The verification job accepted the
+receipt-bound preserved prefix, then reported `hosted_capture_not_published`.
+It produced no completed binding or attestation.
+
+| Preserved item | Binding |
+| --- | --- |
+| Acquisition artifact | [14433985923](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/44318024733/artifacts/14433985923), 159,992,157 bytes |
+| Acquisition ZIP SHA-256 | `7cbbfd7f9001339f54daa3161f4e786714e752341330f1c79e13992e3caf1a64` |
+| Verification artifact | [14433133494](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/44318024733/artifacts/14433133494), 319,992,180 bytes |
+| Verification ZIP SHA-256 | `bcb77f596128a95ecd147268e0861bb083d5d5c4a52524c0ad32c985fbc86f65` |
+| External acquisition receipt SHA-256 | `803281a14b32979fe0b76b47e69c3633fa8e3f037957301da3889c08bbaffe0a` |
+
+The installer correction uses direct `dpkg --install` for the same seven
+checked archives. The selected image, package and wheel bytes, loader binding,
+observation policy and original collector/checker remain unchanged. The failed
+attempt retains its original evidence and incomplete meaning; a later dispatch
+must establish its own result.
+
+## Start a new manual observation after merge
 
 Open [PULSEmech original launcher exec-stop observation v0](https://github.com/HKati/pulse-release-gates-0.1/actions/workflows/required_gate_idempotence_exec_stop_v0.yml)
 from the `HKati` account after the reviewed workflow has merged to `main`.
@@ -338,12 +381,23 @@ the workflow badge alone.
 | Validation obligation | Required evidence |
 | --- | --- |
 | Historical source preservation | All 43 historical verification sources and ten original exec-stop source files retain their selected bytes. |
-| Regression preservation | The previous 668 containment cases and their complete source prefix remain intact; hosted cases are appended to the same module. |
-| Local test result | **914 containment cases passed: 668 prior cases plus 246 hosted cases.** All 61 normative inventory cases also passed. CPython 3.11.16 ran the completed containment suite in 115.11 seconds. |
+| Regression preservation | The complete 914-case test source remains an exact prefix, including the 668 pre-hosted cases; eleven installer cases are appended to the same module. |
+| Original implementation test result | **914 containment cases passed: 668 prior cases plus 246 hosted cases.** All 61 normative inventory cases also passed. CPython 3.11.16 ran the completed containment suite in 115.11 seconds. |
+| Installer correction test result | **986 passed: 925 containment cases and 61 normative inventory cases**, under CPython 3.11.16 in 155.84 seconds. The added tests exercise the actual builder with authored bytes, mocked process invocation, payload faults and post-install mismatches. |
+| Actual offline installer validation | The complete corrected script returned 0 against the preserved base layers, seven Debian archives and seven wheels in a separate network namespace. All 87 existing Debian packages retained their versions; all three selected runtime file bindings matched. |
 | Workflow admission and failure preservation | Exercise owner/source/attempt rejections, exact private start records, failed-job artifact handoff and completed-only attestation without original-target execution. |
 | Input and environment selection | Check the carrier's closed inventory, per-file bytes, substituted-file rejection, fixed package/wheel selections and offline build command construction. |
 | CI coverage | Keep the 189 Tools and 40 targeted pytest roster entries unchanged. |
-| First live GitHub observation | Pending an explicit manual run; retain its original artifacts and assess its actual result separately. |
+| First live GitHub attempt | Run `44318024733/1` preserved an incomplete environment-build prefix. A completed original-launcher checkpoint remains pending a new owner-requested dispatch. |
+
+The actual local installer check used a rootless chroot, not Docker. Four
+preserved base layers were verified before restoration; file contents, modes
+and links were retained, while fourteen layer entries with nonzero UID/GID
+were normalized to mapped-root ownership. The unchanged APT installer failed
+earlier at its unmapped sandbox UID/GID, so that local baseline did not
+reproduce the GitHub pathname diagnostic. The corrected installer completed
+without changing its validation guards. A new hosted run must still establish
+Docker-build completion and the separate original-checkpoint result.
 
 The exact workflow is classified as a non-authorizing audit-preservation
 carrier. Changing its reviewed bytes does not inherit that classification.
