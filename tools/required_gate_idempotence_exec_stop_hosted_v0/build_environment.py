@@ -171,8 +171,12 @@ def install(inputs: Path) -> dict[str, object]:
         "PIP_DISABLE_PIP_VERSION_CHECK": "1",
         "PYTHONDONTWRITEBYTECODE": "1",
     }
+    # The complete dependency closure and every local archive were checked
+    # above. Install that closed set directly: APT's --no-download path can
+    # reject local archives before invoking dpkg. Keep normal dependency
+    # checks and trigger processing; no resolver, fallback or download runs.
     subprocess.run(
-        ["/usr/bin/apt-get", "--assume-yes", "--no-download", "--no-install-recommends", "--no-remove", "install", *(str(path) for path in debs)],
+        ["/usr/bin/dpkg", "--install", *(str(path) for path in debs)],
         env=environment, check=True, timeout=300,
     )
     subprocess.run(
