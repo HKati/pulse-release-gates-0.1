@@ -13174,16 +13174,39 @@ def _r2c2_index_oracle(files):
     return canonical({'source_kind': 'uncommitted_git_tree', 'files': rows}), subtree('')
 
 
-@pytest.fixture(scope='module')
-def r2c2_sources():
+_R2C2_PRESERVED_CARRIER = (
+    'preservation/required_gate_idempotence_exec_stop_v0/original_inputs_v0.zip'
+)
+
+
+def _r2c2_source_files(root):
+    # This synthetic source tree does not consume the separate owner-run input
+    # archive. Exclude only that carrier, never files by size or all ZIPs.
+    # A future declared dependency must fail here rather than disappear.
+    required_paths = {
+        path
+        for module in (BUILDER, PLAN_CHECKER)
+        for roles in (module._LOCAL_R2_SOURCE_ROLES, module.PUBLIC_R2_SOURCE_ROLES)
+        for _, path in roles
+    }
+    assert _R2C2_PRESERVED_CARRIER not in required_paths, 'required R2 source cannot be excluded'
     files = {}
-    for path in ROOT.rglob('*'):
-        if any(part in {'.git', '__pycache__', '.pytest_cache'} for part in path.relative_to(ROOT).parts):
+    for path in root.rglob('*'):
+        relative = path.relative_to(root)
+        if any(part in {'.git', '__pycache__', '.pytest_cache'} for part in relative.parts):
+            continue
+        if relative.as_posix() == _R2C2_PRESERVED_CARRIER:
             continue
         if path.is_dir():
             continue
         assert not path.is_symlink()
-        files[path.relative_to(ROOT).as_posix()] = ('100755' if path.stat().st_mode & 0o111 else '100644', path.read_bytes())
+        files[relative.as_posix()] = ('100755' if path.stat().st_mode & 0o111 else '100644', path.read_bytes())
+    return files
+
+
+@pytest.fixture(scope='module')
+def r2c2_sources():
+    files = _r2c2_source_files(ROOT)
     index_raw, tree = _r2c2_index_oracle(files)
     return SimpleNamespace(files=files, index_raw=index_raw, tree=tree,
         sources={path: files[path][1] for _, path in PLAN_CHECKER._LOCAL_R2_SOURCE_ROLES},
@@ -13240,6 +13263,47 @@ def test_r2c2_source_index_and_tree_match_an_independent_oracle(r2c2_sources):
     checked = PLAN_CHECKER._local_r2_checked_sources(raw, f.sources, **f.pins)
     assert set(checked) == set(f.sources)
     assert all(checked[path].data == data for path, data in f.sources.items())
+
+
+def test_r2c2_source_fixture_excludes_only_the_original_input_carrier(tmp_path):
+    carrier = 'preservation/required_gate_idempotence_exec_stop_v0/original_inputs_v0.zip'
+    oversized = b'x' * (8 * 1024 * 1024 + 1)
+    expected = {
+        'preservation/required_gate_idempotence_exec_stop_v0/ORIGINAL_INPUTS.json': ('100644', b'{}\n'),
+        'preservation/required_gate_idempotence_exec_stop_v0/other_inputs.zip': ('100644', oversized),
+        'fixtures/original_inputs_v0.zip': ('100644', b'another carrier'),
+        'tools/example.py': ('100755', b'print("example")\n'),
+    }
+    for relative, (mode, raw) in {**expected, carrier: ('100644', oversized)}.items():
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+        path.chmod(0o755 if mode == '100755' else 0o644)
+    assert _r2c2_source_files(tmp_path) == expected
+
+
+@pytest.mark.parametrize('module', [BUILDER, PLAN_CHECKER], ids=['builder', 'checker'])
+@pytest.mark.parametrize('roles_name', ['_LOCAL_R2_SOURCE_ROLES', 'PUBLIC_R2_SOURCE_ROLES'])
+def test_r2c2_source_fixture_cannot_exclude_a_declared_dependency(tmp_path, module, roles_name):
+    carrier = 'preservation/required_gate_idempotence_exec_stop_v0/original_inputs_v0.zip'
+    roles = (*getattr(module, roles_name), ('required_preserved_input', carrier))
+    with patch.object(module, roles_name, roles):
+        with pytest.raises(AssertionError, match='required R2 source cannot be excluded'):
+            _r2c2_source_files(tmp_path)
+
+
+@pytest.mark.parametrize('side', ['builder', 'checker'])
+def test_r2c2_oversized_source_entry_still_rejects_with_fresh_pins(r2c2_sources, side):
+    f = r2c2_sources
+    files = {**f.files, 'tests/oversized_source.txt': ('100644', b'x' * (8 * 1024 * 1024 + 1))}
+    index_raw, tree = _r2c2_index_oracle(files)
+    pins = {'expected_source_tree': tree, 'expected_source_index_sha256': digest(index_raw)}
+    module = BUILDER if side == 'builder' else PLAN_CHECKER
+    with pytest.raises(module.PlanError, match='r2_source_entry_invalid'):
+        if side == 'builder':
+            BUILDER._build_local_r2_plan(files, **pins)
+        else:
+            PLAN_CHECKER._local_r2_checked_sources(index_raw, f.sources, **pins)
 
 
 @pytest.mark.parametrize('side', ['builder', 'checker'])

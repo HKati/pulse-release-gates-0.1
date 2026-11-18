@@ -4934,3 +4934,1353 @@ def test_native_acquisition_observer_with_an_external_tracer_cannot_complete(nat
     files["observer.status.bin"] = mapping_status_field(files["observer.status.bin"], "TracerPid", 999)
     with pytest.raises(native_acquisition_checker().ExecStopError, match="exec_stop_observer_identity"):
         native_acquisition_verify_changed(case, files=files)
+
+
+# Hosted transport tests execute only authored Python diagnostic children.
+def hosted_transport():
+    return module("required_gate_idempotence_exec_stop_hosted_io_v0",
+                  "tools/required_gate_idempotence_exec_stop_hosted_io_v0.py")
+
+
+def test_hosted_original_input_carrier_preserves_all_selected_bytes(tmp_path):
+    import stat
+    transport = hosted_transport()
+    selection = transport.original_selection()
+    archive = ROOT / transport.ARCHIVE_REL
+    before = transport.binding(transport.read_regular(archive, transport.ARCHIVE_SIZE))
+    destination = tmp_path / "originals"
+    result = transport.extract_originals(archive, destination)
+    assert result["archive"] == before == {key: selection["archive"][key]
+                                           for key in ("sha256", "size_bytes")}
+    assert result["member_count"] == 114 and result["decoded_bytes"] == 72234203
+    assert {p.relative_to(destination).as_posix() for p in destination.rglob("*")
+            if p.is_file()} == set(selection["files"])
+    for name, expected in selection["files"].items():
+        raw = transport.read_regular(destination / name, expected["size_bytes"], private=True)
+        assert transport.binding(raw) == expected
+    assert all(stat.S_IMODE(p.stat().st_mode) == 0o700 for p in destination.rglob("*")
+               if p.is_dir())
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o700
+    assert transport.binding(transport.read_regular(archive, transport.ARCHIVE_SIZE)) == before
+    assert selection["scope"]["original_launcher_executed_by_preservation"] is False
+    assert selection["scope"]["authority_effect"] == "none"
+
+
+def test_hosted_original_input_archive_digest_precedes_extraction(tmp_path):
+    transport = hosted_transport()
+    changed = tmp_path / "changed.zip"
+    changed.write_bytes(b"not the selected original input archive")
+    destination = tmp_path / "originals"
+    with pytest.raises(transport.HostedIOError, match="hosted_io_archive_digest"):
+        transport.extract_originals(changed, destination)
+    assert not destination.exists()
+
+
+def test_hosted_original_selection_is_anchored_outside_its_own_fields(tmp_path, monkeypatch):
+    transport = hosted_transport()
+    raw = (ROOT / transport.SELECTION_REL).read_bytes()
+    modified = raw.replace(b'"preserved_input"', b'"forged____input"')
+    assert modified != raw and len(modified) == len(raw)
+    path = tmp_path / transport.SELECTION_REL
+    path.parent.mkdir(parents=True)
+    path.write_bytes(modified)
+    monkeypatch.setattr(transport, "ROOT", tmp_path)
+    with pytest.raises(transport.HostedIOError, match="hosted_io_selection_digest"):
+        transport.original_selection()
+
+
+def test_hosted_read_refuses_fifo_substitution_without_waiting_for_writer(tmp_path, monkeypatch):
+    transport = hosted_transport()
+    path = tmp_path / "selected.bin"
+    path.write_bytes(b"selected")
+    original_open = os.open
+    replaced = False
+
+    def replacing_open(name, flags, *args, **kwargs):
+        nonlocal replaced
+        if name == "selected.bin" and kwargs.get("dir_fd") is not None and not replaced:
+            assert flags & os.O_NONBLOCK
+            os.unlink(name, dir_fd=kwargs["dir_fd"])
+            os.mkfifo(name, 0o600, dir_fd=kwargs["dir_fd"])
+            replaced = True
+        return original_open(name, flags, *args, **kwargs)
+
+    monkeypatch.setattr(transport.os, "open", replacing_open)
+    with pytest.raises(transport.HostedIOError, match="hosted_io_file_changed"):
+        transport.read_regular(path, 32)
+    assert replaced
+
+
+@pytest.mark.parametrize("ancestor", [False, True])
+def test_hosted_read_rejects_final_and_ancestor_symlinks(tmp_path, ancestor):
+    transport = hosted_transport()
+    actual = tmp_path / "actual"
+    actual.mkdir()
+    (actual / "file").write_bytes(b"bytes")
+    alias = tmp_path / "alias"
+    alias.symlink_to(actual if ancestor else actual / "file", target_is_directory=ancestor)
+    with pytest.raises(transport.HostedIOError):
+        transport.read_regular(alias / "file" if ancestor else alias, 16)
+
+
+def test_hosted_private_write_is_exclusive_and_does_not_follow_aliases(tmp_path):
+    import stat
+    transport = hosted_transport()
+    path = tmp_path / "kept"
+    assert transport.write_new(path, b"first") == transport.binding(b"first")
+    assert stat.S_IMODE(path.stat().st_mode) == 0o600
+    with pytest.raises(transport.HostedIOError):
+        transport.write_new(path, b"second")
+    alias = tmp_path / "alias"
+    alias.symlink_to(path)
+    with pytest.raises(transport.HostedIOError):
+        transport.write_new(alias, b"third")
+    assert path.read_bytes() == b"first"
+    empty = tmp_path / "empty"
+    transport.write_new(empty, b"")
+    assert transport.read_regular(empty, 0, private=True) == b""
+
+
+def test_hosted_private_copy_checks_complete_roster_and_restores_modes(tmp_path):
+    import stat
+    transport = hosted_transport()
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "nested").mkdir()
+    (source / "nested/file").write_bytes(b"preserved")
+    (source / "empty").write_bytes(b"")
+    expected = {"nested/file": transport.binding(b"preserved"), "empty": transport.binding(b"")}
+    output = tmp_path / "output"
+    assert transport.copy_private_tree(source, output, expected) == {
+        "member_count": 2, "decoded_bytes": 9}
+    assert stat.S_IMODE(output.stat().st_mode) == 0o700
+    assert stat.S_IMODE((output / "nested").stat().st_mode) == 0o700
+    assert transport.read_regular(output / "nested/file", 9, private=True) == b"preserved"
+    assert transport.read_regular(output / "empty", 0, private=True) == b""
+    with pytest.raises(transport.HostedIOError):
+        transport.copy_private_tree(source, output, expected)
+    assert (output / "nested/file").read_bytes() == b"preserved"
+
+
+@pytest.mark.parametrize("fault", ["extra_file", "extra_directory", "digest", "fifo", "alias"])
+def test_hosted_private_copy_rejects_unselected_source_before_creating_output(tmp_path, fault):
+    transport = hosted_transport()
+    source = tmp_path / "source"
+    source.mkdir()
+    selected = source / "file"
+    selected.write_bytes(b"selected")
+    expected = {"file": transport.binding(b"selected")}
+    if fault == "extra_file":
+        (source / "extra").write_bytes(b"extra")
+    elif fault == "extra_directory":
+        (source / "extra").mkdir()
+    elif fault == "digest":
+        selected.write_bytes(b"tampered")
+    else:
+        selected.unlink()
+        if fault == "fifo":
+            os.mkfifo(selected)
+        else:
+            outside = tmp_path / "outside"
+            outside.write_bytes(b"selected")
+            selected.symlink_to(outside)
+    output = tmp_path / "output"
+    with pytest.raises(transport.HostedIOError):
+        transport.copy_private_tree(source, output, expected)
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("name", [".", "../x", "/x", "a//b", "a/./b", "a/../b", "a\\b"])
+def test_hosted_private_copy_rejects_noncanonical_member_names(tmp_path, name):
+    transport = hosted_transport()
+    source = tmp_path / "source"
+    source.mkdir()
+    with pytest.raises(transport.HostedIOError, match="hosted_io_member_path"):
+        transport.copy_private_tree(source, tmp_path / "output", {name: transport.binding(b"")})
+
+
+def test_hosted_private_copy_never_creates_output_inside_source(tmp_path):
+    transport = hosted_transport()
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "file").write_bytes(b"selected")
+    with pytest.raises(transport.HostedIOError, match="hosted_io_copy_destination"):
+        transport.copy_private_tree(source, source / "output", {"file": transport.binding(b"selected")})
+    assert not (source / "output").exists()
+
+
+@pytest.mark.parametrize("exit_code", [0, 7])
+def test_hosted_command_preserves_both_streams_and_ordinary_exit(tmp_path, exit_code):
+    transport = hosted_transport()
+    argv = [sys.executable, "-c",
+            "import os,sys;os.write(1,b'out');os.write(2,b'err');sys.exit(" + str(exit_code) + ")"]
+    logs = tmp_path / "logs"
+    secret = "authored-test-secret-not-for-recording"
+    result = transport.run_command(argv, logs, "authored", 5, stream_cap=32,
+                                   env={"HOSTED_TEST_SECRET": secret})
+    assert result["returncode"] == exit_code and result["failure"] is None
+    assert result["cleanup"]["child_reaped"] is True
+    assert result["stdout"] == transport.binding(b"out")
+    assert result["stderr"] == transport.binding(b"err")
+    assert transport.read_regular(logs / "authored.stdout.bin", 32, private=True) == b"out"
+    assert transport.read_regular(logs / "authored.stderr.bin", 32, private=True) == b"err"
+    assert json.loads((logs / "authored.result.json").read_bytes()) == result
+    assert json.loads((logs / "authored.argv.json").read_bytes()) == {"argv": argv}
+    assert all(secret.encode() not in path.read_bytes() for path in logs.iterdir())
+
+
+def test_hosted_command_deadline_kills_reaps_and_retains_both_diagnostics(tmp_path):
+    transport = hosted_transport()
+    logs = tmp_path / "logs"
+    result = transport.run_command([sys.executable, "-c",
+        "import os,time;os.write(1,b'before');os.write(2,b'deadline');time.sleep(10)"],
+        logs, "deadline", 0.25, stream_cap=32)
+    assert result["failure"] == "hosted_process_deadline"
+    assert result["returncode"] < 0
+    assert result["cleanup"]["kill_group_sent"] and result["cleanup"]["child_reaped"]
+    assert result["cleanup"]["pending_output_drain_attempted"]
+    assert (logs / "deadline.stdout.bin").read_bytes() == b"before"
+    assert (logs / "deadline.stderr.bin").read_bytes() == b"deadline"
+
+
+@pytest.mark.parametrize("stdout_cap", [None, 8])
+def test_hosted_command_overflow_drains_other_buffered_stream_after_slow_sink(tmp_path, monkeypatch,
+                                                                           stdout_cap):
+    import time
+    transport = hosted_transport()
+    original_write = os.write
+    actual_selector = transport.selectors.DefaultSelector
+    delayed = False
+
+    class StderrFirstSelector(actual_selector):
+        def select(self, timeout=None):
+            ready = super().select(timeout)
+            stderr = [entry for entry in ready if entry[0].data == "stderr"]
+            return stderr[:1] if stderr else ready
+
+    def slow_sink(fd, raw):
+        nonlocal delayed
+        count = original_write(fd, raw)
+        if bytes(raw) == b"A" and not delayed:
+            delayed = True
+            time.sleep(0.2)
+        return count
+
+    monkeypatch.setattr(transport.selectors, "DefaultSelector", StderrFirstSelector)
+    monkeypatch.setattr(transport.os, "write", slow_sink)
+    logs = tmp_path / "logs"
+    result = transport.run_command([sys.executable, "-c",
+        "import os,time;os.write(1,b'A');time.sleep(.05);os.write(2,b'E'*64);"
+        "os.write(1,b'B');time.sleep(10)"], logs, "overflow", 5, stream_cap=32,
+        stdout_cap=stdout_cap)
+    assert delayed and result["failure"] == "hosted_process_stderr_limit"
+    assert result["overflowed_streams"] == ["stderr"]
+    assert result["cleanup"]["child_reaped"] is True
+    assert result["stdout"] == transport.binding(b"AB")
+    assert (logs / "overflow.stdout.bin").read_bytes() == b"AB"
+    assert (logs / "overflow.stderr.bin").read_bytes() == b"E" * 32
+
+
+@pytest.mark.parametrize("descriptor,stream", [(1, "stdout"), (2, "stderr")])
+def test_hosted_command_limits_each_stream_independently(tmp_path, descriptor, stream):
+    transport = hosted_transport()
+    result = transport.run_command([sys.executable, "-c",
+        "import os;os.write(" + str(descriptor) + ",b'Z'*65)"],
+        tmp_path / "logs", "limit", 5, stream_cap=64)
+    assert result["failure"] == "hosted_process_" + stream + "_limit"
+    assert result[stream] == transport.binding(b"Z" * 64)
+    assert result["stderr" if stream == "stdout" else "stdout"] == transport.binding(b"")
+    assert result["cleanup"]["child_reaped"]
+
+
+def test_hosted_command_start_failure_still_has_complete_empty_diagnostics(tmp_path):
+    transport = hosted_transport()
+    logs = tmp_path / "logs"
+    result = transport.run_command([str(tmp_path / "missing-program")], logs, "absent", 5)
+    assert result["returncode"] is None and result["failure"] == "hosted_process_start_failed"
+    assert result["cleanup"]["child_started"] is False
+    assert result["stdout"] == result["stderr"] == transport.binding(b"")
+    assert json.loads((logs / "absent.result.json").read_bytes()) == result
+
+
+def test_hosted_command_log_collision_rejects_before_start(tmp_path, monkeypatch):
+    transport = hosted_transport()
+    logs = tmp_path / "logs"
+    logs.mkdir(mode=0o700)
+    (logs / "collision.result.json").write_bytes(b"keep original")
+
+    def forbidden_start(*_args, **_kwargs):
+        raise AssertionError("child must not start over existing diagnostics")
+
+    monkeypatch.setattr(transport.subprocess, "Popen", forbidden_start)
+    with pytest.raises(transport.HostedIOError, match="hosted_process_log_exists"):
+        transport.run_command([sys.executable, "-c", "pass"], logs, "collision", 5)
+    assert (logs / "collision.result.json").read_bytes() == b"keep original"
+    assert len(list(logs.iterdir())) == 1
+
+
+@pytest.mark.parametrize("label,timeout,cap", [
+    ("../escape", 5, 32), ("space name", 5, 32), ("okay", 0, 32),
+    ("okay", float("inf"), 32), ("okay", True, 32), ("okay", 5, 0),
+    ("okay", 5, True), ("okay", 5, 16777217),
+])
+def test_hosted_command_invalid_limits_reject_before_creation(tmp_path, label, timeout, cap):
+    transport = hosted_transport()
+    logs = tmp_path / "logs"
+    with pytest.raises(transport.HostedIOError):
+        transport.run_command([sys.executable, "-c", "pass"], logs, label, timeout, cap)
+    assert not logs.exists()
+
+
+@pytest.mark.parametrize("stdout_cap", [0, -1, True, 1.0, 268435457])
+def test_hosted_command_rejects_invalid_archive_stdout_bound(tmp_path, stdout_cap):
+    transport = hosted_transport()
+    logs = tmp_path / "logs"
+    with pytest.raises(transport.HostedIOError, match="hosted_process_stdout_cap"):
+        transport.run_command([sys.executable, "-c", "pass"], logs, "invalid", 5,
+                              stdout_cap=stdout_cap)
+    assert not logs.exists()
+
+
+@pytest.mark.parametrize("stdout_cap", [8, 33554432, 268435456])
+def test_hosted_command_archive_bound_is_separate_from_stderr_bound(tmp_path, stdout_cap):
+    transport = hosted_transport()
+    logs = tmp_path / "logs"
+    result = transport.run_command([sys.executable, "-c",
+        "import os;os.write(1,b'archive');os.write(2,b'err')"], logs, "archive", 5,
+        stream_cap=3, stdout_cap=stdout_cap)
+    assert result["returncode"] == 0 and result["failure"] is None
+    assert result["stdout_cap"] == stdout_cap and result["stream_cap"] == 3
+    assert result["stdout"] == transport.binding(b"archive")
+    assert result["stderr"] == transport.binding(b"err")
+
+
+def test_hosted_command_smaller_selected_stdout_bound_is_enforced(tmp_path):
+    transport = hosted_transport()
+    result = transport.run_command([sys.executable, "-c",
+        "import os;os.write(1,b'S'*9)"], tmp_path / "logs", "small", 5,
+        stream_cap=32, stdout_cap=8)
+    assert result["failure"] == "hosted_process_stdout_limit"
+    assert result["stdout_cap"] == 8 and result["stdout"] == transport.binding(b"S" * 8)
+    assert result["cleanup"]["child_reaped"]
+
+
+def test_hosted_private_copy_retains_written_prefix_after_sink_failure(tmp_path, monkeypatch):
+    import errno
+    transport = hosted_transport()
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "a").write_bytes(b"first")
+    (source / "z").write_bytes(b"second")
+    expected = {"a": transport.binding(b"first"), "z": transport.binding(b"second")}
+    actual_write = transport._write_at
+
+    def failing_sink(parent, name, raw):
+        if name == "z":
+            raise OSError(errno.EIO, "authored sink failure")
+        return actual_write(parent, name, raw)
+
+    monkeypatch.setattr(transport, "_write_at", failing_sink)
+    output = tmp_path / "output"
+    with pytest.raises(transport.HostedIOError, match="hosted_io_copy_failed"):
+        transport.copy_private_tree(source, output, expected)
+    assert transport.read_regular(output / "a", 5, private=True) == b"first"
+    assert not (output / "z").exists()
+    assert (source / "a").read_bytes() == b"first" and (source / "z").read_bytes() == b"second"
+
+
+def test_hosted_command_interruption_still_kills_and_reaps_owned_child(tmp_path, monkeypatch):
+    transport = hosted_transport()
+    actual_start = transport.subprocess.Popen
+    actual_selector = transport.selectors.DefaultSelector
+    children = []
+
+    def record_child(*args, **kwargs):
+        child = actual_start(*args, **kwargs)
+        children.append(child)
+        return child
+
+    class InterruptedSelector(actual_selector):
+        def select(self, timeout=None):
+            raise KeyboardInterrupt()
+
+    monkeypatch.setattr(transport.subprocess, "Popen", record_child)
+    monkeypatch.setattr(transport.selectors, "DefaultSelector", InterruptedSelector)
+    logs = tmp_path / "logs"
+    with pytest.raises(KeyboardInterrupt):
+        transport.run_command([sys.executable, "-c", "import time;time.sleep(10)"],
+                              logs, "interrupted", 5)
+    assert len(children) == 1 and children[0].returncode < 0
+    assert (logs / "interrupted.argv.json").is_file()
+    assert (logs / "interrupted.stdout.bin").is_file()
+    assert not (logs / "interrupted.result.json").exists()
+
+
+# Hosted container boundary tests are pure: no Docker, ptrace or original child.
+def hosted_container_runner():
+    return module("required_gate_idempotence_exec_stop_hosted_run_v0",
+                  "tools/required_gate_idempotence_exec_stop_hosted_run_v0.py")
+
+
+def hosted_container_context_environment(phase="acquire"):
+    runner = hosted_container_runner()
+    source = "a" * 40
+    return {
+        "GITHUB_REPOSITORY": "HKati/pulse-release-gates-0.1",
+        "GITHUB_REPOSITORY_ID": "1061766508",
+        "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF": "refs/heads/main",
+        "GITHUB_ACTOR": "HKati", "GITHUB_TRIGGERING_ACTOR": "HKati",
+        "GITHUB_RUN_ATTEMPT": "1", "GITHUB_WORKFLOW_REF": runner.WORKFLOW_REF,
+        "EXEC_STOP_ACKNOWLEDGEMENT": runner.ACKNOWLEDGEMENT, "EXEC_STOP_PHASE": phase,
+        "EXPECTED_SOURCE_COMMIT": source, "GITHUB_SHA": source,
+        "GITHUB_WORKFLOW_SHA": source, "GITHUB_RUN_ID": "123456789",
+    }
+
+
+def test_hosted_container_attempt_changes_with_source_and_run_only():
+    runner = hosted_container_runner()
+    one = runner.validate_context(hosted_container_context_environment(), "acquire")
+    two = runner.validate_context(hosted_container_context_environment("verify"), "verify")
+    assert one == two and runner.derive_attempt_id(one) == runner.derive_attempt_id(two)
+    assert len(runner.derive_attempt_id(one)) == 32
+    changed = dict(one, run_id=one["run_id"] + 1)
+    assert runner.derive_attempt_id(changed) != runner.derive_attempt_id(one)
+    changed = dict(one, source_commit="b" * 40)
+    assert runner.derive_attempt_id(changed) != runner.derive_attempt_id(one)
+
+
+@pytest.mark.parametrize("key,value", [
+    ("GITHUB_REPOSITORY", "somebody/pulse-release-gates-0.1"),
+    ("GITHUB_REPOSITORY_ID", "1"), ("GITHUB_EVENT_NAME", "push"),
+    ("GITHUB_REF", "refs/heads/topic"), ("GITHUB_ACTOR", "other"),
+    ("GITHUB_TRIGGERING_ACTOR", "other"), ("GITHUB_RUN_ATTEMPT", "2"),
+    ("GITHUB_WORKFLOW_REF", "other.yml@refs/heads/main"),
+    ("EXEC_STOP_ACKNOWLEDGEMENT", "yes"), ("EXEC_STOP_PHASE", "verify"),
+    ("EXPECTED_SOURCE_COMMIT", "A" * 40), ("EXPECTED_SOURCE_COMMIT", "a" * 39),
+    ("GITHUB_SHA", "b" * 40), ("GITHUB_WORKFLOW_SHA", "b" * 40),
+    ("GITHUB_RUN_ID", "0"), ("GITHUB_RUN_ID", "01"),
+    ("GITHUB_RUN_ID", "1\n"), ("GITHUB_RUN_ID", "1" * 21),
+])
+def test_hosted_container_context_rejects_a_changed_dispatch(key, value):
+    runner = hosted_container_runner()
+    environment = hosted_container_context_environment()
+    environment[key] = value
+    with pytest.raises(runner.HostedRunError):
+        runner.validate_context(environment, "acquire")
+
+
+def hosted_container_status(**changes):
+    values = {
+        "Name": "python3.11", "Uid": "1001 1001 1001 1001",
+        "Gid": "1002 1002 1002 1002", "Threads": "1", "TracerPid": "0",
+        "NoNewPrivs": "1", "Seccomp": "2",
+        **{name: "0000000000000000" for name in ("CapInh", "CapPrm", "CapEff", "CapBnd", "CapAmb")},
+    }
+    values.update(changes)
+    return "".join(name + ":\t" + value + "\n" for name, value in values.items()).encode()
+
+
+def test_hosted_container_status_accepts_only_untraced_single_thread_unprivileged_profile():
+    runner = hosted_container_runner()
+    actual = runner.validate_process_status(hosted_container_status(), 1001, 1002)
+    assert actual["Seccomp"] == "2" and actual["CapBnd"] == "0" * 16
+
+
+@pytest.mark.parametrize("key,value", [
+    ("Threads", "2"), ("TracerPid", "10"), ("NoNewPrivs", "0"), ("Seccomp", "0"),
+    ("Seccomp", "1"), ("CapInh", "0000000000000001"), ("CapPrm", "0000000000000001"),
+    ("CapEff", "0000000000000001"), ("CapBnd", "0000000000000001"),
+    ("CapAmb", "0000000000000001"), ("CapEff", "not_hexadecimal"),
+    ("Uid", "1001 0 1001 1001"), ("Gid", "1002 1002 0 1002"),
+])
+def test_hosted_container_status_rejects_capability_or_identity_changes(key, value):
+    runner = hosted_container_runner()
+    with pytest.raises(runner.HostedRunError):
+        runner.validate_process_status(hosted_container_status(**{key: value}), 1001, 1002)
+
+
+@pytest.mark.parametrize("uid,gid", [(0, 1002), (1001, 0), (True, 1002)])
+def test_hosted_container_status_rejects_root_or_boolean_identity(uid, gid):
+    runner = hosted_container_runner()
+    with pytest.raises(runner.HostedRunError):
+        runner.validate_process_status(hosted_container_status(), uid, gid)
+
+
+def test_hosted_container_status_rejects_duplicate_fields():
+    runner = hosted_container_runner()
+    with pytest.raises(runner.HostedRunError, match="status_duplicate"):
+        runner.validate_process_status(hosted_container_status() + b"Seccomp:\t2\n", 1001, 1002)
+
+
+def hosted_container_complete_report():
+    runner = hosted_container_runner()
+    return {
+        "record_type": "required_gate_idempotence_exec_stop_verification_v0",
+        "profile": runner.PROFILE, "status": "accepted", "attempt_id": "c" * 32,
+        "request_sha256": "d" * 64, "capture_sha256": "e" * 64,
+        "observation_record_verified": True, "observation_complete": True,
+        **{name: True for name in runner.NARROW_FLAGS},
+        "failure": None, "authority_effect": "none",
+    }
+
+
+def test_hosted_container_complete_report_requires_the_exact_attempt_and_bindings():
+    runner = hosted_container_runner()
+    report = hosted_container_complete_report()
+    assert runner.complete_report(report, "c" * 32, "d" * 64, "e" * 64)
+    assert not runner.complete_report(report, "f" * 32, "d" * 64, "e" * 64)
+    assert not runner.complete_report(report, "c" * 32, "f" * 64, "e" * 64)
+    assert not runner.complete_report(report, "c" * 32, "d" * 64, "f" * 64)
+
+
+@pytest.mark.parametrize("field", [
+    "observation_record_verified", "observation_complete", "kernel_exec_checkpoint_observed",
+    "launcher_image_binding_verified", "interpreter_image_binding_verified",
+    "selected_exec_memory_ranges_observed", "selected_exec_rx_ranges_match_original",
+    "owned_exec_stop_cleanup_verified",
+])
+@pytest.mark.parametrize("value", [False, 1, None])
+def test_hosted_container_accepted_incomplete_report_never_completes(field, value):
+    runner = hosted_container_runner()
+    report = hosted_container_complete_report()
+    report[field] = value
+    assert not runner.complete_report(report, "c" * 32, "d" * 64, "e" * 64)
+
+
+@pytest.mark.parametrize("result", [
+    {"returncode": 1, "failure": None}, {"returncode": None, "failure": None},
+    {"returncode": False, "failure": None}, {"returncode": 0, "failure": "hosted_process_deadline"},
+])
+def test_hosted_container_process_failure_never_counts_as_success(result):
+    runner = hosted_container_runner()
+    assert not runner.command_succeeded(result)
+    assert runner.command_succeeded({"returncode": 0, "failure": None})
+
+
+def test_hosted_container_canonical_reports_cannot_hide_format_or_duplicate_key_changes():
+    runner = hosted_container_runner()
+    assert runner._canonical_json(b'{"a":1}\n') == {"a": 1}
+    for raw in (b'{ "a": 1 }\n', b'{"a":1,"a":1}\n', b'{"a":NaN}\n', b'[]\n', b'null\n'):
+        with pytest.raises(ValueError):
+            runner._canonical_json(raw)
+
+
+def test_hosted_container_capture_roster_comes_only_from_receipt_prefix():
+    runner = hosted_container_runner()
+    descriptor = {"sha256": "a" * 64, "size_bytes": 1}
+    receipt = {"files": {
+        "observation/capture/capture.json": descriptor,
+        "observation/capture/request.json": descriptor,
+        "other/capture.json": descriptor,
+        "observation/commands/acquisition.result.json": descriptor,
+    }}
+    assert runner.capture_inventory(receipt) == {"capture.json": descriptor, "request.json": descriptor}
+    receipt["files"]["observation/capture/../escape.bin"] = descriptor
+    with pytest.raises(ValueError):
+        runner.capture_inventory(receipt)
+
+
+@pytest.mark.parametrize("missing", ["capture.json", "request.json"])
+def test_hosted_container_missing_capture_remains_an_incomplete_attempt(missing):
+    runner = hosted_container_runner()
+    descriptor = {"sha256": "a" * 64, "size_bytes": 1}
+    receipt = {"files": {"observation/capture/" + name: descriptor
+                         for name in ("capture.json", "request.json") if name != missing}}
+    with pytest.raises(runner.HostedRunError, match="receipt_capture_missing"):
+        runner.capture_inventory(receipt)
+
+
+def test_hosted_container_fixed_request_observer_cannot_be_replaced():
+    runner = hosted_container_runner()
+    request = {"profile": runner.PROFILE, "attempt_id": "c" * 32,
+               "observer": {"path": runner.PYTHON, **runner.EXPECTED_FILES[runner.PYTHON]}}
+    raw = runner.io.canonical(request)
+    assert runner._request(raw, "c" * 32) == request
+    request["observer"]["path"] = "/tmp/python"
+    with pytest.raises(runner.HostedRunError, match="request_observer"):
+        runner._request(runner.io.canonical(request), "c" * 32)
+
+
+# Hosted original-launcher workflow: no original acquisition is executed here.
+HOSTED_EXEC_STOP_WORKFLOW = ".github/workflows/required_gate_idempotence_exec_stop_v0.yml"
+HOSTED_EXEC_STOP_WORKFLOW_SHA256 = "8f4ec694d60e455273d2e29bccae289a7821363781ddb8c5b05096b01534b182"
+
+
+def hosted_exec_stop_workflow():
+    import yaml
+    return yaml.load((ROOT / HOSTED_EXEC_STOP_WORKFLOW).read_text(), Loader=yaml.BaseLoader)
+
+
+def hosted_exec_stop_step(job, identifier):
+    return next(step for step in job["steps"] if step.get("id") == identifier)
+
+
+def hosted_exec_stop_guard_environment(phase="acquire"):
+    return {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "GITHUB_REPOSITORY": "HKati/pulse-release-gates-0.1", "GITHUB_REPOSITORY_ID": "1061766508",
+        "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF": "refs/heads/main",
+        "GITHUB_ACTOR": "HKati", "GITHUB_TRIGGERING_ACTOR": "HKati",
+        "GITHUB_RUN_ATTEMPT": "1", "GITHUB_RUN_ID": "987654321",
+        "EXPECTED_SOURCE_COMMIT": "a" * 40, "GITHUB_SHA": "a" * 40,
+        "GITHUB_WORKFLOW_SHA": "a" * 40,
+        "GITHUB_WORKFLOW_REF": "HKati/pulse-release-gates-0.1/" + HOSTED_EXEC_STOP_WORKFLOW + "@refs/heads/main",
+        "EXEC_STOP_ACKNOWLEDGEMENT": "OBSERVE_ORIGINAL_LAUNCHER_EXEC_STOP_ONLY",
+        "EXEC_STOP_PHASE": phase, "EXEC_STOP_ARTIFACT_ID": "123456789",
+        "EXPECTED_RECEIPT_SHA256": "b" * 64,
+    }
+
+
+def test_hosted_exec_stop_workflow_is_manual_owner_scoped_and_has_separate_signer_permissions():
+    value = hosted_exec_stop_workflow()
+    assert set(value["on"]) == {"workflow_dispatch"}
+    assert set(value["on"]["workflow_dispatch"]["inputs"]) == {"expected_source_commit", "acknowledgement"}
+    assert value["permissions"] == {"contents": "read"}
+    assert value["concurrency"] == {
+        "group": "pulsemech-required-gate-idempotence-exec-stop-v0", "cancel-in-progress": "false"}
+    assert set(value["jobs"]) == {"acquire", "verify"}
+    acquire, verify = value["jobs"]["acquire"], value["jobs"]["verify"]
+    assert acquire["permissions"] == {"contents": "read"}
+    assert verify["permissions"] == {
+        "contents": "read", "actions": "read", "id-token": "write", "attestations": "write"}
+    for name, job in value["jobs"].items():
+        assert job["runs-on"] == "ubuntu-24.04" and int(job["timeout-minutes"]) <= 30
+        assert job["steps"][0]["id"] == "context"
+        assert job["env"]["EXEC_STOP_PHASE"] == name
+        assert job["env"]["EXPECTED_SOURCE_COMMIT"] == "${{ inputs.expected_source_commit }}"
+        assert job["env"]["EXEC_STOP_ACKNOWLEDGEMENT"] == "${{ inputs.acknowledgement }}"
+        assert "GH_TOKEN" not in job["env"] and "GITHUB_TOKEN" not in job["env"]
+        assert all("continue-on-error" not in step for step in job["steps"])
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_hosted_exec_stop_actual_context_guard_accepts_the_exact_owner_context(phase):
+    guard = hosted_exec_stop_step(hosted_exec_stop_workflow()["jobs"][phase], "context")["run"]
+    result = subprocess.run(["bash", "-c", guard], env=hosted_exec_stop_guard_environment(phase),
+                            stdin=subprocess.DEVNULL, capture_output=True, timeout=5)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+@pytest.mark.parametrize("field,value", [
+    ("GITHUB_REPOSITORY", "other/pulse-release-gates-0.1"),
+    ("GITHUB_REPOSITORY_ID", "1061766509"),
+    ("GITHUB_EVENT_NAME", "pull_request"),
+    ("GITHUB_REF", "refs/heads/unreviewed"),
+    ("GITHUB_ACTOR", "other"),
+    ("GITHUB_TRIGGERING_ACTOR", "other"),
+    ("GITHUB_RUN_ATTEMPT", "2"),
+    ("GITHUB_RUN_ID", "0"),
+    ("EXPECTED_SOURCE_COMMIT", "b" * 40),
+    ("GITHUB_WORKFLOW_SHA", "b" * 40),
+    ("GITHUB_WORKFLOW_REF", "HKati/pulse-release-gates-0.1/.github/workflows/other.yml@refs/heads/main"),
+    ("EXEC_STOP_ACKNOWLEDGEMENT", "OBSERVE_ORIGINAL_LAUNCHER_EXEC_STOP_ONLY "),
+])
+def test_hosted_exec_stop_actual_context_guard_rejects_independent_identity_drift(phase, field, value):
+    guard = hosted_exec_stop_step(hosted_exec_stop_workflow()["jobs"][phase], "context")["run"]
+    environment = hosted_exec_stop_guard_environment(phase)
+    environment[field] = value
+    result = subprocess.run(["bash", "-c", guard], env=environment,
+                            stdin=subprocess.DEVNULL, capture_output=True, timeout=5)
+    assert result.returncode != 0
+
+
+@pytest.mark.parametrize("field,value", [
+    ("EXEC_STOP_ARTIFACT_ID", ""), ("EXEC_STOP_ARTIFACT_ID", "0"),
+    ("EXPECTED_RECEIPT_SHA256", ""), ("EXPECTED_RECEIPT_SHA256", "b" * 63),
+])
+def test_hosted_exec_stop_verification_guard_requires_an_external_current_run_handoff(field, value):
+    guard = hosted_exec_stop_step(hosted_exec_stop_workflow()["jobs"]["verify"], "context")["run"]
+    environment = hosted_exec_stop_guard_environment("verify")
+    environment[field] = value
+    result = subprocess.run(["bash", "-c", guard], env=environment,
+                            stdin=subprocess.DEVNULL, capture_output=True, timeout=5)
+    assert result.returncode != 0
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_hosted_exec_stop_actual_prefix_preserves_exact_start_context_privately(tmp_path, phase):
+    prefix = hosted_exec_stop_step(hosted_exec_stop_workflow()["jobs"][phase], "prefix")["run"]
+    environment = hosted_exec_stop_guard_environment(phase)
+    environment["RUNNER_TEMP"] = str(tmp_path)
+    result = subprocess.run(["bash", "-c", prefix], env=environment,
+                            stdin=subprocess.DEVNULL, capture_output=True, timeout=5)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    name = "required-gate-exec-stop-" + ("verification-" if phase == "verify" else "") + "987654321-1"
+    root = tmp_path / name
+    record = root / "workflow-start.json"
+    assert stat.S_IMODE(root.stat().st_mode) == 0o700
+    assert stat.S_IMODE(record.stat().st_mode) == 0o600
+    assert json.loads(record.read_bytes()) == {
+        "format": "required_gate_idempotence_exec_stop_workflow_start_v0", "phase": phase,
+        "repository": "HKati/pulse-release-gates-0.1", "repository_id": "1061766508",
+        "source_commit": "a" * 40, "workflow_sha": "a" * 40,
+        "workflow_ref": environment["GITHUB_WORKFLOW_REF"], "run_id": 987654321, "run_attempt": 1,
+        "event_name": "workflow_dispatch", "ref": "refs/heads/main", "actor": "HKati",
+        "triggering_actor": "HKati", "acknowledgement": "OBSERVE_ORIGINAL_LAUNCHER_EXEC_STOP_ONLY",
+        "selected_runtime_executed": False, "authority_effect": "none"}
+    before = record.read_bytes()
+    repeated = subprocess.run(["bash", "-c", prefix], env=environment,
+                              stdin=subprocess.DEVNULL, capture_output=True, timeout=5)
+    assert repeated.returncode != 0 and record.read_bytes() == before
+
+
+def test_hosted_exec_stop_workflow_actions_are_immutable_and_checkout_has_no_write_credentials():
+    pins = {
+        "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "actions/upload-artifact": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+        "actions/download-artifact": "9000827ccba6bdab643e8b6fd33ac0654aef8333",
+        "actions/attest": "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"}
+    for job in hosted_exec_stop_workflow()["jobs"].values():
+        for step in job["steps"]:
+            if "uses" not in step:
+                continue
+            action, revision = step["uses"].split("@")
+            assert revision == pins[action]
+            if action == "actions/checkout":
+                assert step["with"] == {
+                    "ref": "${{ github.sha }}", "fetch-depth": "1", "persist-credentials": "false"}
+    text = (ROOT / HOSTED_EXEC_STOP_WORKFLOW).read_text()
+    assert "setup-python" not in text and "python-version:" not in text
+
+
+def test_hosted_exec_stop_workflow_checks_failed_attempts_and_preserves_both_prefixes():
+    jobs = hosted_exec_stop_workflow()["jobs"]
+    acquire, verify = jobs["acquire"], jobs["verify"]
+    ids = [step.get("id") for step in acquire["steps"]]
+    assert ids.index("context") < ids.index("prefix") < ids.index("checkout") < ids.index("acquire")
+    assert ids.index("acquire") < ids.index("finalize") < ids.index("preserve")
+    assert hosted_exec_stop_step(acquire, "finalize")["if"] == (
+        "always() && steps.prefix.outcome == 'success' && steps.checkout.outcome == 'success'")
+    assert "always()" in verify["if"] and "needs.acquire.result == 'success'" not in verify["if"]
+    assert "needs.acquire.outputs.artifact_id != ''" in verify["if"]
+    assert "needs.acquire.outputs.receipt_sha256 != ''" in verify["if"]
+    for job in jobs.values():
+        uploads = [step for step in job["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")]
+        assert len(uploads) == 1
+        upload = uploads[0]
+        assert upload["if"] == "always() && steps.prefix.outcome == 'success'"
+        assert upload["with"]["overwrite"] == "false" and upload["with"]["if-no-files-found"] == "error"
+        assert upload["with"]["compression-level"] == "0" and upload["with"]["retention-days"] == "90"
+        assert upload["with"]["include-hidden-files"] == "true"
+        assert "${{ github.run_id }}-${{ github.run_attempt }}" in upload["with"]["name"]
+
+
+def test_hosted_exec_stop_workflow_pins_download_receipt_and_attests_only_completed_verification():
+    acquire, verify = (hosted_exec_stop_workflow()["jobs"][name] for name in ("acquire", "verify"))
+    assert acquire["outputs"]["artifact_id"] == "${{ steps.preserve.outputs.artifact-id }}"
+    assert acquire["outputs"]["receipt_sha256"] == "${{ steps.finalize.outputs.receipt_sha256 }}"
+    download = next(step for step in verify["steps"] if step.get("uses", "").startswith("actions/download-artifact@"))
+    assert download["with"]["artifact-ids"] == "${{ needs.acquire.outputs.artifact_id }}"
+    assert download["with"]["repository"] == "${{ github.repository }}"
+    assert download["with"]["run-id"] == "${{ github.run_id }}"
+    assert download["with"]["digest-mismatch"] == "error" and "name" not in download["with"]
+    checked = hosted_exec_stop_step(verify, "verify")["run"]
+    assert 'exec_stop_hosted_v0.py verify' in checked
+    assert '--receipt-sha256 "$EXPECTED_RECEIPT_SHA256"' in checked
+    assert 'exec_stop_hosted_v0.py acquire' not in "\n".join(step.get("run", "") for step in verify["steps"])
+    attest = hosted_exec_stop_step(verify, "attest")
+    assert attest["if"] == "success() && steps.verify.outcome == 'success'"
+    assert attest["with"]["subject-path"].endswith("/verified-binding.json")
+    assert attest["with"]["create-storage-record"] == "false"
+    assert "predicate" not in attest["with"] and "predicate-type" not in attest["with"]
+    signature = hosted_exec_stop_step(verify, "attest_verify")
+    assert signature["if"] == "success() && steps.attest.outcome == 'success'"
+    assert 'exec_stop_hosted_v0.py attest-verify' in signature["run"]
+    assert signature["env"]["GH_TOKEN"] == "${{ github.token }}"
+    for step in verify["steps"]:
+        if step.get("id") != "attest_verify":
+            assert "GH_TOKEN" not in step.get("env", {})
+
+
+def test_hosted_exec_stop_workflow_shell_and_embedded_python_parse_without_acquisition(tmp_path):
+    import ast
+    import re
+    for name, job in hosted_exec_stop_workflow()["jobs"].items():
+        for index, step in enumerate(job["steps"]):
+            if "run" not in step:
+                continue
+            script = tmp_path / (name + "-" + str(index) + ".sh")
+            script.write_text(step["run"])
+            result = subprocess.run(["bash", "-n", str(script)], capture_output=True, timeout=5)
+            assert result.returncode == 0, result.stderr.decode(errors="replace")
+            for snippet in re.findall(r"<<'PY'[^\n]*\n(.*?)^PY$", step["run"], re.MULTILINE | re.DOTALL):
+                ast.parse(snippet, feature_version=(3, 11))
+
+
+def hosted_exec_stop_classifier():
+    return module("hosted_exec_stop_normative_inventory", "scripts/build_normative_shadow_inventory_v0.py")
+
+
+def test_hosted_exec_stop_exact_workflow_has_observation_provenance_without_release_authority():
+    path = ROOT / HOSTED_EXEC_STOP_WORKFLOW
+    assert digest(path.read_bytes()) == HOSTED_EXEC_STOP_WORKFLOW_SHA256
+    item = hosted_exec_stop_classifier().classify_workflow(path, repo_root=ROOT)
+    assert item["primary_role"] == "non-authorizing original-launcher exec-stop observation workflow"
+    assert item["carrier_class"] == "audit_preservation" and item["authority_impacting"] == "no"
+    assert item["required_gate_participation"] is False and item["release_path_participation"] is False
+    assert item["attestation_participation"] is True
+    assert "no continuation or detach after PTRACE_EVENT_EXEC" in item["authority_boundary"]
+    assert "incomplete" in item["notes"] and "keep #2879 open" in item["notes"]
+
+
+@pytest.mark.parametrize("fault", ["name", "permission", "trigger", "target", "retention", "newline", "crlf", "symlink"])
+def test_hosted_exec_stop_changed_workflow_does_not_inherit_reviewed_classification(tmp_path, fault):
+    path = tmp_path / HOSTED_EXEC_STOP_WORKFLOW
+    path.parent.mkdir(parents=True)
+    original = (ROOT / HOSTED_EXEC_STOP_WORKFLOW).read_bytes()
+    changes = {
+        "name": (b"PULSEmech original launcher exec-stop observation v0", b"Changed observation"),
+        "permission": (b"contents: read", b"contents: write"),
+        "trigger": (b"workflow_dispatch:", b"push:"),
+        "target": (b"/verified-binding.json", b"/other-binding.json"),
+        "retention": (b"retention-days: 90", b"retention-days: 1"),
+        "crlf": (b"\n", b"\r\n")}
+    if fault == "symlink":
+        saved = tmp_path / "original-workflow.txt"
+        saved.write_bytes(original)
+        path.symlink_to(saved)
+    elif fault == "newline":
+        path.write_bytes(original + b"\n")
+    else:
+        old, new = changes[fault]
+        assert old in original
+        path.write_bytes(original.replace(old, new))
+    item = hosted_exec_stop_classifier().classify_workflow(path, repo_root=tmp_path)
+    assert item["primary_role"] == "unclassified workflow" and item["authority_impacting"] == "conditional"
+    assert hosted_exec_stop_classifier().drift_findings([item]) == [{
+        "severity": "warning", "path": HOSTED_EXEC_STOP_WORKFLOW,
+        "finding": "workflow requires explicit carrier-role classification"}]
+
+
+def test_hosted_exec_stop_identical_workflow_at_another_path_is_not_reviewed(tmp_path):
+    path = tmp_path / ".github/workflows/unreviewed_exec_stop_neighbor.yml"
+    path.parent.mkdir(parents=True)
+    path.write_bytes((ROOT / HOSTED_EXEC_STOP_WORKFLOW).read_bytes())
+    item = hosted_exec_stop_classifier().classify_workflow(path, repo_root=tmp_path)
+    assert item["primary_role"] == "unclassified workflow" and item["authority_impacting"] == "conditional"
+
+
+# Host bridge regressions: Docker, original acquisition and GH are substituted.
+def hosted_driver():
+    return module("required_gate_idempotence_exec_stop_hosted_v0",
+                  "tools/required_gate_idempotence_exec_stop_hosted_v0.py")
+
+
+def hosted_driver_environment(phase="acquire"):
+    return {
+        "EXPECTED_SOURCE_COMMIT": "a" * 40,
+        "GITHUB_REPOSITORY": "HKati/pulse-release-gates-0.1", "GITHUB_REPOSITORY_ID": "1061766508",
+        "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF": "refs/heads/main",
+        "GITHUB_ACTOR": "HKati", "GITHUB_TRIGGERING_ACTOR": "HKati",
+        "GITHUB_RUN_ATTEMPT": "1", "GITHUB_RUN_ID": "987654321",
+        "GITHUB_SHA": "a" * 40, "GITHUB_WORKFLOW_SHA": "a" * 40,
+        "GITHUB_WORKFLOW_REF": "HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_exec_stop_v0.yml@refs/heads/main",
+        "EXEC_STOP_ACKNOWLEDGEMENT": "OBSERVE_ORIGINAL_LAUNCHER_EXEC_STOP_ONLY",
+        "EXEC_STOP_PHASE": phase, "EXEC_STOP_ARTIFACT_ID": "123456789",
+    }
+
+
+def hosted_driver_context():
+    return hosted_driver().context(hosted_driver_environment())
+
+
+def hosted_driver_prefix(root, phase, context):
+    root.mkdir(mode=0o700)
+    value = {"format": "required_gate_idempotence_exec_stop_workflow_start_v0", "phase": phase,
+             **context, "selected_runtime_executed": False, "authority_effect": "none"}
+    hosted_driver().io.write_new(root / "workflow-start.json", encoded(value))
+
+
+def hosted_driver_receipt(monkeypatch, *, sources_present=True, request_present=True, capture_present=True):
+    driver = hosted_driver()
+    context = hosted_driver_context()
+    sources = {"tools/reviewed-source.py": bound(b"pass\n")}
+    monkeypatch.setattr(driver, "source_bindings", lambda: copy.deepcopy(sources))
+    payloads = {"workflow-start.json": encoded({"preserved": "authored acquisition prefix"})}
+    if sources_present:
+        payloads["source/tools/reviewed-source.py"] = b"pass\n"
+    if request_present:
+        payloads["observation/request.json"] = encoded({"request": "authored; never executed"})
+    if capture_present:
+        payloads["observation/capture/capture.json"] = encoded({"status": "incomplete"})
+    files = {name: bound(raw) for name, raw in sorted(payloads.items())}
+    record = {
+        "record_type": "required_gate_idempotence_exec_stop_hosted_receipt_v0", "profile": driver.PROFILE,
+        "context": context, "files": files, "file_count": len(files),
+        "total_size_bytes": sum(len(raw) for raw in payloads.values()),
+        "source_bindings": sources, "source_prefix_complete": sources_present,
+        "request": files.get("observation/request.json"),
+        "capture": files.get("observation/capture/capture.json"),
+        "preservation_is_observation_acceptance": False, **driver.BOUNDARY,
+    }
+    return context, payloads, record
+
+
+def hosted_driver_tree(root, payloads):
+    root.mkdir(mode=0o700)
+    for name, raw in payloads.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        hosted_driver().io.write_new(path, raw)
+
+
+def test_hosted_driver_context_requires_all_identity_fields_without_coercion():
+    result = hosted_driver_context()
+    assert result["repository_id"] == "1061766508"
+    assert type(result["run_id"]) is int and result["run_id"] == 987654321
+    assert type(result["run_attempt"]) is int and result["run_attempt"] == 1
+    assert result["source_commit"] == result["workflow_sha"] == "a" * 40
+
+
+@pytest.mark.parametrize("field,value", [
+    ("EXPECTED_SOURCE_COMMIT", "A" * 40), ("EXPECTED_SOURCE_COMMIT", "a" * 39),
+    ("GITHUB_REPOSITORY", "other/repo"), ("GITHUB_REPOSITORY_ID", "1061766509"),
+    ("GITHUB_EVENT_NAME", "pull_request"), ("GITHUB_REF", "refs/heads/unreviewed"),
+    ("GITHUB_ACTOR", "other"), ("GITHUB_TRIGGERING_ACTOR", "other"),
+    ("GITHUB_RUN_ATTEMPT", "2"), ("GITHUB_RUN_ATTEMPT", 1),
+    ("GITHUB_RUN_ID", "0"), ("GITHUB_RUN_ID", "01"), ("GITHUB_RUN_ID", "1" * 21),
+    ("GITHUB_SHA", "b" * 40), ("GITHUB_WORKFLOW_SHA", "b" * 40),
+    ("GITHUB_WORKFLOW_REF", "HKati/pulse-release-gates-0.1/.github/workflows/other.yml@refs/heads/main"),
+    ("EXEC_STOP_ACKNOWLEDGEMENT", "OBSERVE_ORIGINAL_LAUNCHER_EXEC_STOP_ONLY "),
+])
+def test_hosted_driver_rejects_independent_context_drift(field, value):
+    environment = hosted_driver_environment()
+    environment[field] = value
+    with pytest.raises((ValueError, TypeError)):
+        hosted_driver().context(environment)
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_hosted_driver_container_argv_is_nonroot_fixed_and_does_not_forward_tokens(tmp_path, monkeypatch, phase):
+    driver = hosted_driver()
+    for key in ("GH_TOKEN", "GITHUB_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN", "AWS_SECRET_ACCESS_KEY"):
+        monkeypatch.setenv(key, "SECRET_DO_NOT_FORWARD_" + key)
+    original, output, previous = (tmp_path / name for name in ("originals", "output", "previous"))
+    argv = driver.docker_create_args("sha256:" + "c" * 64, hosted_driver_context(), original, output,
+                                    phase=phase, previous=previous if phase == "verify" else None,
+                                    uid=1001, gid=1002)
+    options = lambda name: [argv[i + 1] for i, item in enumerate(argv[:-1]) if item == name]
+    assert argv[:2] == ["docker", "create"]
+    assert options("--user") == ["1001:1002"] and options("--network") == ["none"]
+    assert options("--cap-drop") == ["ALL"] and options("--security-opt") == ["no-new-privileges"]
+    assert "--read-only" in argv and "--privileged" not in argv and "--cap-add" not in argv
+    assert options("--pids-limit") == ["64"] and options("--memory") == ["1g"]
+    assert options("--cpus") == ["1"] and options("--tmpfs") == ["/tmp:rw,nosuid,nodev,size=64m"]
+    mounts = options("--mount")
+    assert "type=bind,source=" + str(driver.ROOT) + ",target=/repo,readonly" in mounts
+    assert "type=bind,source=" + str(original) + ",target=/originals,readonly" in mounts
+    assert "type=bind,source=" + str(output) + ",target=/output" in mounts
+    assert len(mounts) == (4 if phase == "verify" else 3)
+    if phase == "verify":
+        assert "type=bind,source=" + str(previous) + ",target=/input,readonly" in mounts
+    environment = dict(value.split("=", 1) for value in options("--env"))
+    assert environment["EXEC_STOP_PHASE"] == phase
+    assert environment["EXPECTED_SOURCE_COMMIT"] == "a" * 40
+    assert not any("TOKEN" in key or "SECRET" in key for key in environment)
+    assert not any("SECRET_DO_NOT_FORWARD" in value for value in argv)
+    assert not any("unconfined" in value for value in argv)
+    assert argv[-4:] == ["-I", "-B", "/repo/tools/required_gate_idempotence_exec_stop_hosted_run_v0.py", phase]
+
+
+@pytest.mark.parametrize("uid,gid", [(0, 1001), (1001, 0), (-1, 1001), (True, 1001), (1001, False)])
+def test_hosted_driver_container_rejects_root_or_noninteger_identity(tmp_path, uid, gid):
+    with pytest.raises(ValueError, match="hosted_nonroot_user"):
+        hosted_driver().docker_create_args("sha256:" + "c" * 64, hosted_driver_context(),
+                                          tmp_path / "originals", tmp_path / "output",
+                                          phase="acquire", uid=uid, gid=gid)
+
+
+@pytest.mark.parametrize("phase,previous", [("other", None), ("verify", None), ("acquire", "/input")])
+def test_hosted_driver_container_rejects_phase_input_confusion(tmp_path, phase, previous):
+    with pytest.raises(ValueError, match="hosted_container_phase"):
+        hosted_driver().docker_create_args("sha256:" + "c" * 64, hosted_driver_context(),
+                                          tmp_path / "originals", tmp_path / "output",
+                                          phase=phase, previous=previous, uid=1001, gid=1002)
+
+
+def test_hosted_driver_receipt_is_anchored_by_the_external_digest(monkeypatch):
+    context, _payloads, record = hosted_driver_receipt(monkeypatch)
+    raw = encoded(record)
+    assert hosted_driver().validate_receipt(raw, digest(raw), context) == record
+    with pytest.raises(ValueError, match="hosted_receipt_digest"):
+        hosted_driver().validate_receipt(raw, "0" * 64, context)
+    changed = copy.deepcopy(record)
+    changed["context"]["source_commit"] = "b" * 40
+    with pytest.raises(ValueError, match="hosted_receipt_digest"):
+        hosted_driver().validate_receipt(encoded(changed), digest(raw), context)
+
+
+@pytest.mark.parametrize("fault", [
+    "source_commit", "run_id", "run_attempt_type", "profile", "authority", "boundary_type",
+    "extra_field", "file_count", "total_size", "source_binding", "source_prefix",
+    "request_binding", "capture_binding", "self_binding", "parent_path", "absolute_path",
+])
+def test_hosted_driver_rejects_rehashed_inconsistent_receipts(monkeypatch, fault):
+    context, _payloads, record = hosted_driver_receipt(monkeypatch)
+    value = copy.deepcopy(record)
+    if fault == "source_commit":
+        value["context"]["source_commit"] = "b" * 40
+    elif fault == "run_id":
+        value["context"]["run_id"] += 1
+    elif fault == "run_attempt_type":
+        value["context"]["run_attempt"] = True
+    elif fault == "profile":
+        value["profile"] = "other"
+    elif fault == "authority":
+        value["authority_effect"] = "release"
+    elif fault == "boundary_type":
+        value["selected_runtime_executed"] = 0
+    elif fault == "extra_field":
+        value["accepted"] = True
+    elif fault == "file_count":
+        value["file_count"] += 1
+    elif fault == "total_size":
+        value["total_size_bytes"] += 1
+    elif fault == "source_binding":
+        value["source_bindings"]["tools/reviewed-source.py"]["sha256"] = "b" * 64
+    elif fault == "source_prefix":
+        value["source_prefix_complete"] = False
+    elif fault in {"request_binding", "capture_binding"}:
+        value[fault.removesuffix("_binding")] = bound(b"other bytes")
+    else:
+        name = {"self_binding": "receipt.json", "parent_path": "../escaped", "absolute_path": "/escaped"}[fault]
+        value["files"][name] = bound(b"x")
+        value["file_count"] += 1
+        value["total_size_bytes"] += 1
+    raw = encoded(value)
+    with pytest.raises(ValueError):
+        hosted_driver().validate_receipt(raw, digest(raw), context)
+
+
+def test_hosted_driver_receipt_rejects_reformatted_json_with_a_new_digest(monkeypatch):
+    context, _payloads, record = hosted_driver_receipt(monkeypatch)
+    raw = json.dumps(record, indent=2).encode()
+    with pytest.raises(ValueError, match="hosted_receipt_shape"):
+        hosted_driver().validate_receipt(raw, digest(raw), context)
+
+
+@pytest.mark.parametrize("missing", ["sources", "request", "capture"])
+def test_hosted_driver_verifies_incomplete_prefix_bytes_then_stops_before_environment(tmp_path, monkeypatch, missing):
+    driver = hosted_driver()
+    context, payloads, record = hosted_driver_receipt(
+        monkeypatch, sources_present=missing != "sources", request_present=missing != "request",
+        capture_present=missing != "capture")
+    raw = encoded(record)
+    source, output = tmp_path / "download", tmp_path / "verification"
+    hosted_driver_tree(source, {**payloads, "receipt.json": raw})
+    hosted_driver_prefix(output, "verify", context)
+    for name, value in hosted_driver_environment("verify").items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("EXPECTED_RECEIPT_SHA256", digest(raw))
+    calls = []
+    def forbidden(*_args, **_kwargs):
+        calls.append(True)
+        raise AssertionError("an incomplete prefix must not launch environment work")
+    for name in ("environment", "_materials", "_build_image", "_container", "acquire", "_command"):
+        monkeypatch.setattr(driver, name, forbidden)
+    with pytest.raises(ValueError, match="hosted_capture_not_published"):
+        driver.verify(output, source, digest(raw), context)
+    assert calls == [] and not (output / "verified-binding.json").exists()
+    result = json.loads((output / "receipt-verification.json").read_bytes())
+    assert result["all_preserved_bytes_verified"] is True and result["observation_complete"] is False
+    assert (output / "private-input/receipt.json").read_bytes() == raw
+    assert all((output / "private-input" / name).read_bytes() == value for name, value in payloads.items())
+
+
+@pytest.mark.parametrize("fault", ["extra", "missing", "changed", "symlink"])
+def test_hosted_driver_verification_rejects_any_download_roster_or_byte_drift(tmp_path, monkeypatch, fault):
+    driver = hosted_driver()
+    context, payloads, record = hosted_driver_receipt(monkeypatch)
+    raw = encoded(record)
+    source, output = tmp_path / "download", tmp_path / "verification"
+    hosted_driver_tree(source, {**payloads, "receipt.json": raw})
+    hosted_driver_prefix(output, "verify", context)
+    for name, value in hosted_driver_environment("verify").items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("EXPECTED_RECEIPT_SHA256", digest(raw))
+    if fault == "extra":
+        (source / "not-in-receipt.bin").write_bytes(b"x")
+    else:
+        path = source / "observation/request.json"
+        if fault == "changed":
+            path.write_bytes(b"changed")
+        else:
+            path.unlink()
+            if fault == "symlink":
+                (tmp_path / "replacement").write_bytes(payloads["observation/request.json"])
+                path.symlink_to(tmp_path / "replacement")
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("unverified download reached environment work")
+    for name in ("environment", "_materials", "_build_image", "_container", "_command"):
+        monkeypatch.setattr(driver, name, forbidden)
+    with pytest.raises(ValueError):
+        driver.verify(output, source, digest(raw), context)
+    assert not (output / "receipt-verification.json").exists()
+    assert not (output / "verified-binding.json").exists()
+
+
+def hosted_driver_attestation_fixture(tmp_path, monkeypatch):
+    driver = hosted_driver()
+    context = hosted_driver_context()
+    root = tmp_path / "verification"
+    hosted_driver_prefix(root, "verify", context)
+    for name, value in hosted_driver_environment("verify").items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("GH_TOKEN", "SYNTHETIC_SECRET_DO_NOT_PRESERVE")
+    monkeypatch.setenv("EXEC_STOP_ATTESTATION_ID", "1234")
+    monkeypatch.setenv("EXEC_STOP_ATTESTATION_URL", "https://github.com/HKati/pulse-release-gates-0.1/attestations/1234")
+    value = {
+        "record_type": "required_gate_idempotence_exec_stop_hosted_verified_binding_v0",
+        "profile": driver.PROFILE, "status": "accepted", "context": context,
+        "artifact_id": 123456789, "observation_complete": True,
+        "canonical_reports_byte_identical": True, "verification_acquisition_repeated": False,
+        **driver.BOUNDARY,
+    }
+    raw = encoded(value)
+    driver.io.write_new(root / "verified-binding.json", raw)
+    bundle = tmp_path / "action-bundle.json"
+    bundle.write_bytes(b'{"authored_bundle":"never sent to GH"}\n')
+    return driver, context, root, bundle, raw
+
+
+def test_hosted_driver_attestation_verifier_pins_original_bundle_source_workflow_and_oidc(tmp_path, monkeypatch):
+    driver, context, root, bundle, raw = hosted_driver_attestation_fixture(tmp_path, monkeypatch)
+    calls = []
+    def command(*args, **kwargs):
+        calls.append((args, kwargs))
+        return {"returncode": 0, "failure": None}
+    monkeypatch.setattr(driver, "_command", command)
+    assert driver.attest_verify(root, bundle, context) == 0
+    assert len(calls) == 1
+    args, kwargs = calls[0]
+    assert args[:2] == (root, "attestation-verify")
+    assert args[2] == [
+        "gh", "attestation", "verify", str(root / "verified-binding.json"),
+        "--bundle", str(root / "attestation.bundle.json"),
+        "--repo", "HKati/pulse-release-gates-0.1",
+        "--signer-workflow", "HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_exec_stop_v0.yml",
+        "--signer-digest", "a" * 40, "--source-digest", "a" * 40,
+        "--source-ref", "refs/heads/main", "--predicate-type", "https://slsa.dev/provenance/v1",
+        "--cert-oidc-issuer", "https://token.actions.githubusercontent.com",
+        "--deny-self-hosted-runners", "--format", "json"]
+    assert args[3] <= 120 and kwargs["require"] is False
+    assert (root / "attestation.bundle.json").read_bytes() == bundle.read_bytes()
+    result = json.loads((root / "attestation-verification.json").read_bytes())
+    assert result["subject"] == bound(raw) and result["bundle"] == bound(bundle.read_bytes())
+    assert result["github_signature_verification_succeeded"] is True
+    assert all(b"SYNTHETIC_SECRET_DO_NOT_PRESERVE" not in path.read_bytes()
+               for path in root.rglob("*") if path.is_file())
+
+
+@pytest.mark.parametrize("fault", ["exit", "timeout", "subject", "bundle"])
+def test_hosted_driver_attestation_cannot_accept_failed_or_changed_verification(tmp_path, monkeypatch, fault):
+    driver, context, root, bundle, _raw = hosted_driver_attestation_fixture(tmp_path, monkeypatch)
+    def command(*_args, **_kwargs):
+        if fault == "subject":
+            (root / "verified-binding.json").write_bytes(b"changed subject")
+        if fault == "bundle":
+            (root / "attestation.bundle.json").write_bytes(b"changed preserved bundle")
+        return {"returncode": 1 if fault == "exit" else 0,
+                "failure": "hosted_process_timeout" if fault == "timeout" else None}
+    monkeypatch.setattr(driver, "_command", command)
+    with pytest.raises(ValueError):
+        driver.attest_verify(root, bundle, context)
+    assert not (root / "attestation-verification.json").exists()
+
+
+@pytest.mark.parametrize("fault", ["read_error", "deadline", "oversized"])
+def test_hosted_driver_download_retains_bounded_received_prefix_on_failure(tmp_path, monkeypatch, fault):
+    driver = hosted_driver()
+    item = {"url": "https://deb.debian.org/debian/authored.deb", **bound(b"expected")}
+    prefix = b"part" if fault != "oversized" else b"x" * (item["size_bytes"] + 1)
+    class Response:
+        status = 200
+        calls = 0
+        def __enter__(self):
+            return self
+        def __exit__(self, *_args):
+            return False
+        def geturl(self):
+            return item["url"]
+        def read(self, limit):
+            self.calls += 1
+            if self.calls == 1:
+                assert len(prefix) <= limit
+                return prefix
+            raise OSError("authored interrupted response")
+    response = Response()
+    opener = SimpleNamespace(open=lambda *_args, **_kwargs: response)
+    monkeypatch.setattr(driver.urllib.request, "build_opener", lambda *_args: opener)
+    if fault == "deadline":
+        ticks = iter((0, 1, 121))
+        monkeypatch.setattr(driver.time, "monotonic", lambda: next(ticks))
+    destination = tmp_path / "partial.deb"
+    with pytest.raises((ValueError, OSError)):
+        driver.download(item, destination)
+    assert destination.read_bytes() == prefix
+    assert len(destination.read_bytes()) <= item["size_bytes"] + 1
+
+
+@pytest.mark.parametrize("fault", ["privileged", "writable", "network", "cap_added", "seccomp"])
+def test_hosted_driver_rejects_changed_container_policy_before_start_and_cleans_up(tmp_path, monkeypatch, fault):
+    driver = hosted_driver()
+    context = hosted_driver_context()
+    root = tmp_path / "attempt"
+    root.mkdir(mode=0o700)
+    (root / "environment").mkdir(mode=0o700)
+    container_id, image_id = "d" * 64, "sha256:" + "c" * 64
+    host_config = {"Privileged": False, "ReadonlyRootfs": True, "NetworkMode": "none", "CapDrop": ["ALL"],
+                   "CapAdd": None, "SecurityOpt": ["no-new-privileges"], "PidsLimit": 64,
+                   "Memory": 1024 * 1024 * 1024, "NanoCpus": 1000000000}
+    changes = {"privileged": ("Privileged", True), "writable": ("ReadonlyRootfs", False),
+               "network": ("NetworkMode", "host"), "cap_added": ("CapAdd", ["SYS_PTRACE"]),
+               "seccomp": ("SecurityOpt", ["no-new-privileges", "seccomp=unconfined"])}
+    key, value = changes[fault]
+    host_config[key] = value
+    labels = []
+    def command(path, label, argv, *_args, **_kwargs):
+        labels.append(label)
+        if label == "container-create":
+            (path / "host-commands").mkdir(mode=0o700)
+            driver.io.write_new(path / "host-commands/container-create.stdout.bin", (container_id + "\n").encode())
+        return {"returncode": 0, "failure": None}
+    def inspection(*_args, **_kwargs):
+        return [{"Id": container_id, "Image": image_id, "HostConfig": host_config,
+                 "Config": {"User": "1001:1002"}, "State": {"Running": False, "ExitCode": 0}}]
+    monkeypatch.setattr(driver.os, "getuid", lambda: 1001)
+    monkeypatch.setattr(driver.os, "getgid", lambda: 1002)
+    monkeypatch.setattr(driver, "_command", command)
+    monkeypatch.setattr(driver, "_command_json", inspection)
+    with pytest.raises(ValueError, match="hosted_container_policy"):
+        driver._container(root, {}, image_id, context, tmp_path / "originals", "acquire")
+    assert labels == ["container-create", "container-remove"]
+    cleanup = json.loads((root / "environment/container-cleanup.json").read_bytes())
+    assert cleanup["container_id"] == container_id and cleanup["owned_container_removed"] is True
+
+
+def hosted_driver_build_fixture(tmp_path, monkeypatch, phase="acquire", *, archive_fault=None, inspect_fault=None):
+    driver = hosted_driver()
+    selected = driver.environment()
+    root, materials = tmp_path / "phase", tmp_path / "materials"
+    root.mkdir(mode=0o700)
+    materials.mkdir(mode=0o700)
+    base_id = "sha256:" + selected["base_image"]["config_sha256"]
+    local_tag = "localhost/pulse-exec-stop-base:" + selected["base_image"]["config_sha256"]
+    image_id = "sha256:" + "e" * 64
+    saved = b"authored docker-save archive; never passed to Docker\n"
+    previous = None
+    if phase == "verify":
+        previous = tmp_path / "previous"
+        value = {"returncode": 0, "failure": None, "stdout": bound(saved),
+                 "argv": ["docker", "image", "save", local_tag]}
+        if archive_fault == "digest":
+            value["stdout"] = bound(saved + b"changed")
+        elif archive_fault == "exit":
+            value["returncode"] = 1
+        elif archive_fault == "failure":
+            value["failure"] = "hosted_process_stdout_limit"
+        elif archive_fault == "argv":
+            value["argv"][-1] = "unreviewed:latest"
+        hosted_driver_tree(previous, {"host-commands/base-save.stdout.bin": saved,
+                                      "host-commands/base-save.result.json": encoded(value)})
+    calls = []
+    def command(path, label, argv, *args, **kwargs):
+        calls.append((label, list(argv), args, kwargs))
+        if label == "base-save":
+            logs = path / "host-commands"
+            logs.mkdir(mode=0o700, exist_ok=True)
+            driver.io.write_new(logs / "base-save.stdout.bin", saved)
+        elif label == "docker-build":
+            iidfile = Path(argv[argv.index("--iidfile") + 1])
+            driver.io.write_new(iidfile, (image_id + "\n").encode())
+        return {"returncode": 0, "failure": None}
+    def inspection(path, label, argv, *_args, **_kwargs):
+        calls.append((label, list(argv), (), {}))
+        value = {"Id": image_id if label == "image-inspect" else base_id,
+                 "Architecture": "amd64", "Os": "linux"}
+        if inspect_fault == label:
+            value["Id"] = "sha256:" + "f" * 64
+        return [value]
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("image reconstruction attempted an unselected download")
+    monkeypatch.setattr(driver, "_command", command)
+    monkeypatch.setattr(driver, "_command_json", inspection)
+    monkeypatch.setattr(driver, "download", forbidden)
+    return driver, root, materials, previous, selected, calls, saved, local_tag, image_id
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_hosted_driver_build_uses_preserved_base_offline_for_verification(tmp_path, monkeypatch, phase):
+    driver, root, materials, previous, selected, calls, saved, local_tag, image_id = hosted_driver_build_fixture(
+        tmp_path, monkeypatch, phase)
+    assert driver._build_image(root, selected, materials, previous) == image_id
+    by_label = {label: (argv, args, kwargs) for label, argv, args, kwargs in calls}
+    assert len(by_label) == len(calls)
+    build = by_label["docker-build"][0]
+    assert build[:2] == ["docker", "build"]
+    assert build[build.index("--network") + 1] == "none"
+    assert build[build.index("--platform") + 1] == "linux/amd64"
+    assert build[build.index("--build-arg") + 1] == "PULSE_EXEC_STOP_BASE=" + local_tag
+    assert "--pull=false" in build and "--no-cache" in build and build[-1] == str(materials)
+    if phase == "acquire":
+        assert by_label["docker-pull"][0] == [
+            "docker", "pull", "--platform", "linux/amd64", selected["base_image"]["reference"]]
+        assert by_label["base-save"][0] == ["docker", "image", "save", local_tag]
+        assert by_label["base-save"][2]["stdout_cap"] == driver.FILE_LIMIT
+        assert (root / "host-commands/base-save.stdout.bin").read_bytes() == saved
+        assert "base-load" not in by_label
+    else:
+        assert not {"docker-pull", "base-save", "base-tag"} & set(by_label)
+        assert by_label["base-load"][0] == [
+            "docker", "image", "load", "--input", str(previous / "host-commands/base-save.stdout.bin")]
+        assert by_label["base-inspect"][0] == ["docker", "image", "inspect", local_tag]
+        assert all("pull" not in argv and "save" not in argv for _label, argv, _args, _kwargs in calls)
+    record = json.loads((root / "environment/selection.json").read_bytes())
+    assert record["base_archive"] == bound(saved)
+    assert record["base_loaded_from_preserved_bytes"] is (phase == "verify")
+    assert record["base_local_build_tag"] == local_tag and record["constructed_image_id"] == image_id
+    assert record["image_reproducibility_claimed"] is False and record["authority_effect"] == "none"
+
+
+@pytest.mark.parametrize("fault", ["digest", "exit", "failure", "argv"])
+def test_hosted_driver_rejects_changed_or_incomplete_saved_base_before_loading(tmp_path, monkeypatch, fault):
+    driver, root, materials, previous, selected, calls, *_ = hosted_driver_build_fixture(
+        tmp_path, monkeypatch, "verify", archive_fault=fault)
+    with pytest.raises(ValueError, match="hosted_preserved_base_archive"):
+        driver._build_image(root, selected, materials, previous)
+    labels = [item[0] for item in calls]
+    assert labels == ["docker-version", "docker-info"]
+    assert not (root / "environment/selection.json").exists()
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+@pytest.mark.parametrize("fault", ["base-inspect", "base-tag-inspect", "base-after"])
+def test_hosted_driver_rejects_pulled_loaded_or_rebound_base_config_identity(tmp_path, monkeypatch, phase, fault):
+    driver, root, materials, previous, selected, calls, *_ = hosted_driver_build_fixture(
+        tmp_path, monkeypatch, phase, inspect_fault=fault)
+    with pytest.raises(ValueError, match="hosted_base_"):
+        driver._build_image(root, selected, materials, previous)
+    labels = [item[0] for item in calls]
+    if fault != "base-after":
+        assert "docker-build" not in labels
+    assert not (root / "environment/selection.json").exists()
+
+
+def test_hosted_driver_expired_phase_budget_blocks_work_but_preserves_cleanup_allowance(tmp_path, monkeypatch):
+    driver = hosted_driver()
+    root = tmp_path / "attempt"
+    root.mkdir(mode=0o700)
+    monkeypatch.setattr(driver, "STAGE_DEADLINE", 99)
+    monkeypatch.setattr(driver.time, "monotonic", lambda: 100)
+    calls = []
+    def run(*args, **kwargs):
+        calls.append((args, kwargs))
+        return {"returncode": 0, "failure": None}
+    monkeypatch.setattr(driver.io, "run_command", run)
+    with pytest.raises(ValueError):
+        driver._command(root, "docker-build", ["docker", "build", "."], 600)
+    assert calls == []
+    driver._command(root, "container-remove", ["docker", "rm", "--force", "d" * 64],
+                    30, require=False, cleanup=True)
+    assert len(calls) == 1 and calls[0][1]["timeout_seconds"] == 30
