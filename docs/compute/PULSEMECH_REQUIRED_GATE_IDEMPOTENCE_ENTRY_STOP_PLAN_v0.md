@@ -1,5 +1,13 @@
 # B2 original executable-entry observation plan v0
 
+**Implementation follow-up:** the separate
+[guarded entry observation implementation](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_v0.md)
+now supplies the task guard, capability qualifiers, collector, capture schema
+and independent checker. The authored plan bytes and their proposal fields
+remain unchanged. References below to unimplemented components describe this
+plan unit's original scope; no original entry capture or hosted environment
+qualification has been added by the implementation follow-up.
+
 **Status: an authored observation proposal, a closed plan schema and an
 independent byte-only plan checker are implemented. No executable-entry
 capture has been acquired. B2 remains incomplete.**

@@ -1289,8 +1289,8 @@ def test_containment_module_is_registered_once_without_targeted_duplication():
         return [value for line in (ROOT / "ci" / name).read_text().splitlines()
                 if (value := line.split("#", 1)[0].strip())]
     tools, targeted = entries("tools-tests.list"), entries("pytest-tests.list")
-    assert len(tools) == len(set(tools)) == 190 and tools.count(SELF) == 1
-    assert len(targeted) == len(set(targeted)) == 41 and SELF not in targeted
+    assert len(tools) == len(set(tools)) == 189 and tools.count(SELF) == 1
+    assert len(targeted) == len(set(targeted)) == 40 and SELF not in targeted
 
 
 # The outer-launcher plan is part of this same containment boundary. These
@@ -6747,3 +6747,1613 @@ def test_entry_stop_plan_cli_preserves_an_existing_output(entry_stop_plan_case, 
     second = subprocess.run(argv, cwd=ROOT, capture_output=True, timeout=60, check=False)
     assert second.returncode == 1 and target.read_bytes() == saved
     assert json.loads(second.stderr)["status"] == "rejected"
+
+
+# Entry-stop reconstruction uses the six preserved original ELF files as data.
+# Process, mapping, debug and guard records below are authored independently;
+# no fixture starts the original launcher or substitutes production selections.
+ENTRY_STOP_ROLES = {
+    "launcher": "native/bwrap", "loader": "native/ld-linux-x86-64.so.2",
+    "libc": "native/libc.so.6", "libcap": "native/libcap.so.2",
+    "libpcre2": "native/libpcre2-8.so.0", "libselinux": "native/libselinux.so.1",
+}
+ENTRY_STOP_BASES = {
+    "launcher": 0x40000000, "loader": 0x60000000, "libc": 0x61000000,
+    "libcap": 0x62000000, "libpcre2": 0x63000000, "libselinux": 0x64000000,
+}
+
+
+def entry_stop_checker():
+    return module("check_required_gate_idempotence_entry_stop_v0",
+                  "tools/check_required_gate_idempotence_entry_stop_v0.py")
+
+
+def entry_stop_guard_checker():
+    return module("check_required_gate_idempotence_entry_task_guard_v0",
+                  "tools/check_required_gate_idempotence_entry_task_guard_v0.py")
+
+
+def entry_stop_collector():
+    return module("required_gate_idempotence_entry_stop_v0",
+                  "tools/required_gate_idempotence_entry_stop_v0.py")
+
+
+def entry_stop_elf_oracle(raw):
+    """Read ELF metadata directly, independently of either production parser."""
+    head = struct.unpack_from("<16sHHIQQQIHHHHHH", raw)
+    assert head[0][:7] == b"\x7fELF\x02\x01\x01"
+    segments, relro = [], []
+    for index in range(head[10]):
+        kind, flags, offset, address, _physical, size, memory, align = struct.unpack_from(
+            "<IIQQQQQQ", raw, head[5] + index * head[9])
+        if kind == 1:
+            segments.append(dict(index=index, flags=flags, offset=offset,
+                vaddr=address, filesz=size, memsz=memory, align=align))
+        if kind == 0x6474e552:
+            # Linux RELRO protects whole pages ending before the final tail.
+            relro.extend(range(address // 4096 * 4096,
+                               (address + memory) // 4096 * 4096, 4096))
+    return dict(entry=head[4], phoff=head[5], phentsize=head[9], phnum=head[10],
+                segments=segments, relro=frozenset(relro))
+
+
+def entry_stop_map_oracle(native, objects, roles, *, relro):
+    """Construct page backing, then coalesce equal neighboring map rows."""
+    rows = []
+    for role in roles:
+        layout = entry_stop_elf_oracle(native[ENTRY_STOP_ROLES[role]])
+        info = objects[role]["before"]["stat"]
+        pages = []
+        for segment in layout["segments"]:
+            first = segment["vaddr"] // 4096 * 4096
+            file_end = (segment["vaddr"] + segment["filesz"] + 4095) // 4096 * 4096
+            memory_end = (segment["vaddr"] + segment["memsz"] + 4095) // 4096 * 4096
+            for offset in range(first, memory_end, 4096):
+                write = bool(segment["flags"] & 2) and not (relro and offset in layout["relro"])
+                permissions = "r" + ("w" if write else "-") + ("x" if segment["flags"] & 1 else "-") + "p"
+                anonymous = offset >= file_end
+                pages.append(dict(start=ENTRY_STOP_BASES[role] + offset,
+                    end=ENTRY_STOP_BASES[role] + offset + 4096,
+                    permissions=permissions,
+                    offset=0 if anonymous else segment["offset"] // 4096 * 4096 + offset - first,
+                    major=0 if anonymous else os.major(info["dev"]),
+                    minor=0 if anonymous else os.minor(info["dev"]),
+                    inode=0 if anonymous else info["ino"],
+                    path="" if anonymous else "/authored-display/" + ENTRY_STOP_ROLES[role]))
+        for page in sorted(pages, key=lambda row: row["start"]):
+            previous = rows[-1] if rows else None
+            if previous and previous["end"] == page["start"] and all(
+                    previous[key] == page[key] for key in ("permissions", "major", "minor", "inode", "path")) and (
+                    page["offset"] == previous["offset"] + previous["end"] - previous["start"]
+                    or page["inode"] == page["offset"] == previous["offset"] == 0):
+                previous["end"] = page["end"]
+            else:
+                rows.append(dict(page))
+    for start, permissions, name in ((0x70000000, "r--p", "[vvar]"),
+                                     (0x70001000, "r-xp", "[vdso]"),
+                                     (0x7fff0000, "rw-p", "[stack]")):
+        rows.append(dict(start=start, end=start + 4096, permissions=permissions,
+                         offset=0, major=0, minor=0, inode=0, path=name))
+    return entry_stop_encode_maps(rows)
+
+
+def entry_stop_encode_maps(rows):
+    return "".join(
+        f'{row["start"]:x}-{row["end"]:x} {row["permissions"]} {row["offset"]:08x} '
+        f'{row["major"]:02x}:{row["minor"]:02x} {row["inode"]}'
+        + (" " + row["path"] if row["path"] else "") + "\n"
+        for row in sorted(rows, key=lambda row: row["start"])).encode("ascii")
+
+
+def entry_stop_bpf_oracle(raw, *, architecture, number):
+    """Small independent interpreter for the selected classic-BPF instruction set."""
+    instructions = list(struct.iter_unpack("<HBBI", raw))
+    accumulator, position, steps = 0, 0, 0
+    packet = struct.pack("<IIQ6Q", number & 0xffffffff, architecture, 0, *([0] * 6))
+    while 0 <= position < len(instructions) and steps < len(instructions) * 2:
+        operation, yes, no, argument = instructions[position]
+        steps += 1
+        position += 1
+        if operation == 0x20:  # LD W ABS from struct seccomp_data.
+            accumulator = struct.unpack_from("<I", packet, argument)[0]
+        elif operation == 0x15:  # JMP JEQ K.
+            position += yes if accumulator == argument else no
+        elif operation == 0x45:  # JMP JSET K.
+            position += yes if accumulator & argument else no
+        elif operation == 0x35:  # JMP JGE K, if the program uses an ABI range gate.
+            position += yes if accumulator >= argument else no
+        elif operation == 0x06:  # RET K.
+            return argument
+        else:
+            raise AssertionError(f"unexpected cBPF instruction {operation:#x}")
+    raise AssertionError("filter did not terminate within its instruction bound")
+
+
+def test_entry_stop_guard_filter_independently_covers_native_x32_and_compat_numbers():
+    checker = entry_stop_guard_checker()
+    program = checker.PROGRAM_BYTES
+    assert len(program) == 168 and len(list(struct.iter_unpack("<HBBI", program))) == 21
+    denied = {56, 57, 58, 425, 426, 427, 435}
+    for number in range(549):
+        assert entry_stop_bpf_oracle(program, architecture=0xc000003e, number=number) == (
+            0x80000000 if number in denied else 0x7fff0000), number
+        assert entry_stop_bpf_oracle(program, architecture=0xc000003e,
+                                     number=number | 0x40000000) == 0x80000000, number
+    for architecture in (0, 0x40000003, 0x8000003e, 0xc00000b7, 0xffffffff):
+        for number in (0, 1, 56, 57, 58, 60, 231, 425, 426, 427, 435):
+            assert entry_stop_bpf_oracle(program, architecture=architecture, number=number) == 0x80000000
+
+
+def entry_stop_status(pid, parent, *, state="t", tracer=None, filters=2, no_new_privs=1):
+    tracer = parent if tracer is None else tracer
+    return (f"State:\t{state}\nPid:\t{pid}\nTgid:\t{pid}\nPPid:\t{parent}\n"
+            f"Threads:\t1\nTracerPid:\t{tracer}\nNSpid:\t{pid}\n"
+            f"NoNewPrivs:\t{no_new_privs}\nSeccomp:\t2\nSeccomp_filters:\t{filters}\n").encode("ascii")
+
+
+def entry_stop_descriptor_rows(launcher_size=80248):
+    def descriptor(fd, inode, mode, flags, link, *, device=1, rdev=0, size=0, seals=None):
+        return {"fd": fd, "link": link, "fdinfo": f"pos:\t0\nflags:\t{flags:o}\nino:\t{inode}\n",
+                "stat": {"dev": device, "ino": inode, "mode": mode, "rdev": rdev, "size": size},
+                "seals": seals}
+    return [
+        descriptor(0, 50, stat.S_IFCHR | 0o666, os.O_RDONLY, "/dev/null", rdev=os.makedev(1, 3)),
+        descriptor(1, 51, stat.S_IFIFO | 0o600, os.O_WRONLY, "pipe:[51]"),
+        descriptor(2, 52, stat.S_IFIFO | 0o600, os.O_WRONLY, "pipe:[52]"),
+        descriptor(4, 123, stat.S_IFREG | 0o500, os.O_RDWR | os.O_CLOEXEC,
+                   "/memfd:authored-entry-launcher (deleted)", size=launcher_size, seals=15),
+        descriptor(5, 53, stat.S_IFIFO | 0o600, os.O_WRONLY | os.O_CLOEXEC, "pipe:[53]"),
+    ]
+
+
+def entry_stop_installation(*, pid, parent, starttime, attempt_id, request_sha256, launcher_size=80248):
+    checker = entry_stop_guard_checker()
+    return {
+        "record_type": "required_gate_idempotence_entry_task_guard_installation_v0",
+        "profile": "linux_x86_64_entry_task_guard_v0", "attempt_id": attempt_id,
+        "request_sha256": request_sha256, "parent_pid": parent, "child_pid": pid,
+        "starttime": starttime, "launcher_fd": 4, "receipt_fd": 5,
+        "program": bound(checker.PROGRAM_BYTES), "program_instruction_count": 21,
+        "calls": [
+            {"option": 38, "arg2": 1, "result": 0, "errno": 0},
+            {"option": 39, "arg2": 0, "result": 1, "errno": 0},
+            {"option": 22, "arg2": 2, "result": 0, "errno": 0},
+            {"option": 21, "arg2": 0, "result": 2, "errno": 0},
+            {"option": 39, "arg2": 0, "result": 1, "errno": 0},
+        ],
+        "proc_stat": native_acquisition_proc_stat(pid, parent, "R", starttime).decode("ascii"),
+        "status_before": entry_stop_status(pid, parent, state="R", tracer=0,
+                                           filters=1, no_new_privs=0).decode("ascii"),
+        "status_after": entry_stop_status(pid, parent, state="R", tracer=0).decode("ascii"),
+        "fd_roster": entry_stop_descriptor_rows(launcher_size),
+        "physical_authentication": False, "privileged_filter_readback": False, "authority_effect": "none",
+    }
+
+
+def entry_stop_guard_qualification(environment):
+    checker = entry_stop_guard_checker()
+    sources = [{"path": path, **bound((ROOT / path).read_bytes())} for path in (
+        "tools/check_required_gate_idempotence_entry_task_guard_v0.py",
+        "tools/required_gate_idempotence_entry_task_guard_v0.py")]
+    cases = []
+    names = ("clone", "fork", "vfork", "io_uring_setup", "io_uring_enter",
+             "io_uring_register", "clone3", "x32_getpid", "compat_getpid",
+             "native_getpid", "exec_survival_clone")
+    for index, name in enumerate(names):
+        pid, parent, starttime = 2100 + index, 1001, 110 + index
+        attempt_id, request_sha256 = f"{index + 1:032x}", digest(("entry-task-guard:" + name).encode("ascii"))
+        installation = entry_stop_installation(pid=pid, parent=parent, starttime=starttime,
+            attempt_id=attempt_id, request_sha256=request_sha256, launcher_size=159)
+        probe = checker.exec_probe_bytes() if name == "exec_survival_clone" else checker.probe_bytes(name)
+        cases.append({"name": name, "child_pid": pid, "parent_pid": parent,
+            "starttime": starttime, "launcher_fd": 4, "receipt_fd": 5,
+            "attempt_id": attempt_id, "request_sha256": request_sha256,
+            "installation": encoded(installation).decode("ascii"),
+            "setup_status": entry_stop_status(pid, parent, state="T", tracer=0).decode("ascii"),
+            "setup_fds": entry_stop_descriptor_rows(159)[:-1], "setup_wait_status": 4991,
+            "terminal_wait_status": 0 if name == "native_getpid" else 31,
+            "child_reaped": True, "cleanup_signal_sent": False, "resumes": 1,
+            "stdout_hex": "", "stderr_hex": "", "probe": bound(probe),
+            "timing": {"started_ns": (index + 1) * 10**6,
+                       "setup_ns": (index + 1) * 10**6 + 100,
+                       "resumed_ns": (index + 1) * 10**6 + 200,
+                       "finished_ns": (index + 1) * 10**6 + 300}})
+    return {
+        "record_type": "required_gate_idempotence_entry_task_guard_qualification_v0",
+        "profile": "linux_x86_64_entry_task_guard_v0", "status": "complete", "failure": None,
+        "program": bound(checker.PROGRAM_BYTES), "sources": sources, "environment": environment,
+        "limits": {"wall_seconds": 30, "case_seconds": 2, "cleanup_seconds": 2,
+                   "cases": 11, "stdout_bytes": 4096, "stderr_bytes": 4096,
+                   "total_record_bytes": 512 * 1024},
+        "timing": {"started_ns": 10**6, "finished_ns": 12 * 10**6},
+        "cases": cases, "original_native_acquisition_performed": False,
+        "hosted_environment_qualified": False, "physical_authentication": False,
+        "privileged_filter_readback": False, "containment_qualification_claimed": False,
+        "execution_authorized": False, "diagnostic_only": True,
+        "metric_pass": None, "authority_effect": "none",
+    }
+
+
+def entry_stop_register_bytes(rip):
+    raw = bytearray(216)
+    struct.pack_into("<Q", raw, 16 * 8, rip)
+    return bytes(raw)
+
+
+def entry_stop_siginfo_bytes(target):
+    raw = bytearray(128)
+    struct.pack_into("<iii", raw, 0, 5, 0, 4)
+    struct.pack_into("<Q", raw, 16, target)
+    return bytes(raw)
+
+
+def entry_stop_breakpoint(target):
+    return {"target": target, "writes": [
+        {"register": 0, "value": target, "returncode": 0, "errno": 0},
+        {"register": 6, "value": 0xffff0ff0, "returncode": 0, "errno": 0},
+        {"register": 7, "value": 1, "returncode": 0, "errno": 0}],
+        "general_register_writes": 0, "instruction_pointer_writes": 0, "target_memory_writes": 0}
+
+
+def entry_stop_wait_evidence(child_pid, started=10**9):
+    timing = dict(started_ns=started, cp0_ns=started + 10**9,
+                  entry_ns=started + 2 * 10**9, finished_ns=started + 3 * 10**9)
+    return dict(
+        wait=dict(setup=4991, cp0=263551, entry=1407, terminal=9, event_msg=child_pid),
+        events=[{"phase": phase, "pid": child_pid, "status": status,
+                 "event_msg": child_pid if phase == "cp0" else None, "observed_ns": when}
+                for phase, status, when in (("setup", 4991, started + 1),
+                    ("cp0", 263551, timing["cp0_ns"]), ("entry", 1407, timing["entry_ns"]),
+                    ("terminal", 9, timing["finished_ns"]))],
+        ownership=dict(pidfd_opened=True, proc_dir_pinned=True, child_reaped=True,
+            pre_exec_resumes=1, cp0_to_entry_resumes=1, post_entry_resumes=0,
+            detached=False, ptrace_options=0x10001e, kill_sent=True), timing=timing)
+
+
+def entry_stop_hardware_qualification(environment):
+    ident = b"\x7fELF\x02\x01\x01" + bytes(9)
+    probe = struct.pack("<16sHHIQQQIHHHHHH", ident, 2, 62, 1, 0x400080,
+                        64, 0, 0, 64, 56, 1, 0, 0, 0)
+    probe += struct.pack("<IIQQQQQQ", 1, 5, 0, 0x400000, 0x400000, 130, 130, 4096)
+    probe += bytes(8) + b"\x0f\x0b"
+    assert bound(probe) == {"size_bytes": 130,
+        "sha256": "abc49f273badbc70283221499d9cffafcdd9d2e56cd6f23fee1efcd6a6226872"}
+    target, child_pid, observer_pid = 0x400080, 2200, 1001
+    auxv = b"".join(struct.pack("<QQ", key, value) for key, value in (
+        (3, 0x400040), (4, 56), (5, 1), (6, 4096), (7, 0), (9, target), (0, 0)))
+    raw = {
+        "observer.stat.bin": native_acquisition_proc_stat(observer_pid, 1, "S", 100),
+        "observer.status.bin": native_acquisition_proc_status(observer_pid, 1, "S", 0),
+        "child.stat.setup.bin": native_acquisition_proc_stat(child_pid, observer_pid, "t", 150),
+        "child.status.setup.bin": native_acquisition_proc_status(child_pid, observer_pid, "t", observer_pid),
+        "child.pidfd.info.bin": f"Pid:\t{child_pid}\nNSpid:\t{child_pid}\n".encode("ascii"),
+        "cp0.regs.bin": entry_stop_register_bytes(target), "entry.regs.bin": entry_stop_register_bytes(target),
+        "cp0.auxv.bin": auxv, "entry.auxv.bin": auxv, "executable.elf": probe, "entry.memory.bin": b"\x0f\x0b",
+        "cp0.debug.before.bin": struct.pack("<6Q", 0, 0, 0, 0, 0xffff0ff0, 0),
+        "cp0.debug.armed.bin": struct.pack("<6Q", target, 0, 0, 0, 0xffff0ff0, 1),
+        "entry.debug.bin": struct.pack("<6Q", target, 0, 0, 0, 0xffff0ff1, 1),
+        "entry.siginfo.bin": entry_stop_siginfo_bytes(target),
+    }
+    for point in ("cp0", "entry"):
+        raw[f"{point}.child.stat.bin"] = native_acquisition_proc_stat(child_pid, observer_pid, "t", 150)
+        raw[f"{point}.child.status.bin"] = native_acquisition_proc_status(child_pid, observer_pid, "t", observer_pid)
+    sources = [{"path": path, **bound((ROOT / path).read_bytes())} for path in sorted((
+        "tools/check_required_gate_idempotence_entry_stop_v0.py",
+        "tools/check_required_gate_idempotence_entry_task_guard_v0.py",
+        "tools/required_gate_idempotence_entry_stop_v0.py",
+        "tools/required_gate_idempotence_entry_task_guard_v0.py",
+        "tools/qualify_required_gate_idempotence_entry_stop_v0.py"))]
+    return {"record_type": "required_gate_idempotence_entry_stop_hardware_qualification_v0",
+        "profile": "linux_x86_64_entry_stop_hardware_qualification_v0", "status": "completed", "failure": None,
+        "attempt_id": "b84e2757f0c84d2da5b4c177eb07c8a1", "context": environment,
+        "sources": sources, "probe": bound(probe), "observer_pid": observer_pid, "child_pid": child_pid,
+        "raw": {name: value.hex() for name, value in sorted(raw.items())}, "breakpoint": entry_stop_breakpoint(target),
+        **entry_stop_wait_evidence(child_pid), "original_native_acquisition_performed": False,
+        "hosted_environment_qualified": False, "physical_authentication": False,
+        "execution_authorized": False, "authority_effect": "none"}
+
+
+@pytest.fixture(scope="module")
+def entry_stop_case():
+    import zipfile
+    checker = entry_stop_checker()
+    guard = entry_stop_guard_checker()
+    with zipfile.ZipFile(ROOT / "preservation/required_gate_idempotence_exec_stop_v0/original_inputs_v0.zip") as archive:
+        native = {name: archive.read(name) for name in ENTRY_STOP_ROLES.values()}
+    with zipfile.ZipFile(ROOT / "preservation/required_gate_idempotence_exec_stop_v0/run_44375052171_attempt_1/control_evidence_v0.zip") as archive:
+        observer = archive.read("acquisition/observation/capture/observer.exe.bin")
+    namespaces = {name: f"{name.removesuffix('_for_children')}:[{4026531800 + index}]"
+        for index, name in enumerate(("cgroup", "ipc", "mnt", "net", "pid", "pid_for_children",
+                                     "time", "time_for_children", "user", "uts"))}
+    environment = {"uname": {"sysname": "Linux", "machine": "x86_64", "release": "authored", "version": "authored"},
+        "boot_id": "83b18223-3b38-4a2d-97f5-85682b8baf02", "observer": bound(observer), "namespaces": namespaces}
+    qualification = entry_stop_guard_qualification(environment)
+    hardware = entry_stop_hardware_qualification(environment)
+    qualification_raw, hardware_raw = encoded(qualification), encoded(hardware)
+    request = checker.make_request(attempt_id="76ba1921f1df407c8d183bc82a217e1f",
+        qualification_bytes=qualification_raw, expected_qualification_sha256=digest(qualification_raw),
+        hardware_qualification_bytes=hardware_raw, expected_hardware_qualification_sha256=digest(hardware_raw))
+    request_raw = encoded(request)
+    observer_pid, child_pid = 1001, 1002
+    objects = {}
+    for index, (role, path) in enumerate(ENTRY_STOP_ROLES.items()):
+        descriptor = {"stat": {"dev": os.makedev(0, 1) if role == "launcher" else os.makedev(8, 1),
+            "ino": 123 if role == "launcher" else 456 + index, "mode": stat.S_IFREG | (0o500 if role == "launcher" else 0o755),
+            "nlink": 0 if role == "launcher" else 1, "size": len(native[path])}, "seals": 15 if role == "launcher" else None}
+        objects[role] = {"before": copy.deepcopy(descriptor), "after": copy.deepcopy(descriptor)}
+    launcher = entry_stop_elf_oracle(native[ENTRY_STOP_ROLES["launcher"]])
+    target = ENTRY_STOP_BASES["launcher"] + launcher["entry"]
+    auxv = b"".join(struct.pack("<QQ", key, value) for key, value in (
+        (3, ENTRY_STOP_BASES["launcher"] + launcher["phoff"]), (4, launcher["phentsize"]),
+        (5, launcher["phnum"]), (6, 4096), (7, ENTRY_STOP_BASES["loader"]), (9, target), (0, 0)))
+    wait_evidence = entry_stop_wait_evidence(child_pid, 10 * 10**9)
+    files = {
+        "request.json": request_raw,
+        "attempt_start.json": encoded({"record_type": "required_gate_idempotence_entry_stop_attempt_start_v0",
+            "profile": checker.PROFILE, "attempt_id": request["attempt_id"], "request_sha256": digest(request_raw),
+            "observer_pid": observer_pid, "started_ns": wait_evidence["timing"]["started_ns"]}),
+        "observer.exe.bin": observer,
+        "observer.stat.bin": native_acquisition_proc_stat(observer_pid, 1, "S", 100),
+        "observer.status.bin": native_acquisition_proc_status(observer_pid, 1, "S", 0),
+        "kernel.boot_id.bin": (environment["boot_id"] + "\n").encode("ascii"),
+        "host.json": encoded({"platform": {"system": "Linux", "machine": "x86_64", "release": "authored", "version": "authored"},
+                              "observer_namespaces": namespaces, "child_namespaces": namespaces}),
+        "child.stat.setup.bin": native_acquisition_proc_stat(child_pid, observer_pid, "t", 200),
+        "child.status.setup.bin": entry_stop_status(child_pid, observer_pid),
+        "child.pidfd.info.bin": f"Pid:\t{child_pid}\nNSpid:\t{child_pid}\n".encode("ascii"),
+        "stdout.bin": b"", "stderr.bin": b"", "guard.program.bin": guard.PROGRAM_BYTES,
+        "guard.install.json": encoded(entry_stop_installation(pid=child_pid, parent=observer_pid, starttime=200,
+            attempt_id=request["attempt_id"], request_sha256=digest(request_raw))),
+        "guard.qualification.json": qualification_raw, "breakpoint.qualification.json": hardware_raw,
+        "child.fds.setup.json": encoded(entry_stop_descriptor_rows()[:-1]),
+        "child.fds.cp0.json": encoded(entry_stop_descriptor_rows()[:3]),
+        "child.fds.entry.json": encoded(entry_stop_descriptor_rows()[:3]),
+        "breakpoint.json": encoded(entry_stop_breakpoint(target)),
+        "cp0.debug.before.bin": struct.pack("<6Q", 0, 0, 0, 0, 0xffff0ff0, 0),
+        "cp0.debug.armed.bin": struct.pack("<6Q", target, 0, 0, 0, 0xffff0ff0, 1),
+        "entry.debug.before.bin": struct.pack("<6Q", target, 0, 0, 0, 0xffff0ff1, 1),
+        "entry.debug.after.bin": struct.pack("<6Q", target, 0, 0, 0, 0xffff0ff1, 1),
+        "entry.siginfo.bin": entry_stop_siginfo_bytes(target),
+    }
+    for role, path in ENTRY_STOP_ROLES.items():
+        for side in ("before", "after"):
+            files[f"native.{role}.{side}.elf"] = native[path]
+    for point, roles in (("cp0", ("launcher", "loader")), ("entry", tuple(ENTRY_STOP_ROLES))):
+        maps = entry_stop_map_oracle(native, objects, roles, relro=point == "entry")
+        rip = target if point == "entry" else ENTRY_STOP_BASES["loader"] + entry_stop_elf_oracle(native[ENTRY_STOP_ROLES["loader"]])["entry"]
+        for side in ("before", "after"):
+            files[f"{point}.child.stat.{side}.bin"] = native_acquisition_proc_stat(child_pid, observer_pid, "t", 200)
+            files[f"{point}.child.status.{side}.bin"] = entry_stop_status(child_pid, observer_pid)
+            files[f"{point}.child.maps.{side}.bin"] = maps
+            files[f"{point}.regs.{side}.bin"] = entry_stop_register_bytes(rip)
+            files[f"{point}.auxv.{side}.bin"] = auxv
+        files[f"{point}.child.exe.link.bin"] = b"/memfd:authored-entry-launcher (deleted)"
+        files[f"{point}.executable.elf"] = native[ENTRY_STOP_ROLES["launcher"]]
+        for role in roles:
+            original = native[ENTRY_STOP_ROLES[role]]
+            segment = next(row for row in entry_stop_elf_oracle(original)["segments"] if row["flags"] == 5)
+            for sample in (0, 1):
+                files[f"{point}.{role}.rx.sample{sample}.bin"] = original[segment["offset"]:segment["offset"] + segment["filesz"]]
+    memory = {"stat": {"dev": os.makedev(0, 5), "ino": 789,
+                       "mode": stat.S_IFREG | 0o600, "nlink": 1, "size": 0}, "seals": None}
+    capture = {"record_type": "required_gate_idempotence_entry_stop_capture_v0", "profile": checker.PROFILE,
+        "attempt_id": request["attempt_id"], "request_sha256": digest(request_raw), "status": "completed", "failure": None,
+        "observer_pid": observer_pid, "child_pid": child_pid, "guard": {"launcher_fd": 4, "receipt_fd": 5},
+        "objects": {"retained": copy.deepcopy(objects["launcher"]["before"]),
+                    "cp0_executable": copy.deepcopy(objects["launcher"]["before"]),
+                    "entry_executable": copy.deepcopy(objects["launcher"]["before"]),
+                    "cp0_memory": copy.deepcopy(memory), "entry_memory": copy.deepcopy(memory), "native": objects},
+        "files": [{"path": name, **bound(raw)} for name, raw in sorted(files.items())],
+        **wait_evidence, **checker.BOUNDARY}
+    return SimpleNamespace(checker=checker, guard=guard, request=request, request_raw=request_raw,
+        capture=capture, files=files, native=native, target=target, qualification=qualification,
+        qualification_raw=qualification_raw, hardware=hardware, hardware_raw=hardware_raw, environment=environment)
+
+
+def entry_stop_check(case, *, capture=None, files=None, request_raw=None, **overrides):
+    request_raw = case.request_raw if request_raw is None else request_raw
+    files = dict(case.files if files is None else files)
+    capture = copy.deepcopy(case.capture if capture is None else capture)
+    capture["files"] = [{"path": name, **bound(raw)} for name, raw in sorted(files.items())]
+    raw = encoded(capture)
+    arguments = dict(request_bytes=request_raw, expected_request_sha256=digest(request_raw),
+                     capture_bytes=raw, expected_capture_sha256=digest(raw), files=files)
+    arguments.update(overrides)
+    return case.checker.verify_capture(**arguments)
+
+
+def test_entry_stop_original_bytes_reconstruct_fresh_cp0_and_six_entry_images(entry_stop_case):
+    case = entry_stop_case
+    assert len(case.files) == len(set(case.checker.FILE_NAMES)) == 77
+    assert set(case.files) == set(case.checker.FILE_NAMES)
+    layouts = {role: entry_stop_elf_oracle(case.native[path]) for role, path in ENTRY_STOP_ROLES.items()}
+    assert sum(len(layout["segments"]) for layout in layouts.values()) == 24
+    expected = {role: {"address": ENTRY_STOP_BASES[role] + segment["vaddr"], "size": segment["filesz"]}
+        for role, layout in layouts.items() for segment in layout["segments"] if segment["flags"] == 5}
+    assert len(expected) == 6 and 2 * sum(row["size"] for row in expected.values()) == 4601548
+    assert case.checker.derive_cp0_spans(case.request, case.capture, case.files) == {
+        role: expected[role] for role in ("launcher", "loader")}
+    assert case.checker.derive_entry_spans(case.request, case.capture, case.files) == expected
+    report = entry_stop_check(case)
+    assert report["status"] == "accepted" and report["observation_complete"] is True
+    for name in ("loader_resolution_verified", "containment_enforced", "execution_ready",
+                 "execution_authorized", "production_gate_eligible"):
+        assert report[name] is False
+    assert report["metric_pass"] is None and report["authority_effect"] == "none"
+    assert entry_stop_check(case) == report
+
+
+@pytest.mark.parametrize("role", tuple(ENTRY_STOP_ROLES))
+@pytest.mark.parametrize("side", ("before", "after"))
+def test_entry_stop_every_retained_original_image_is_byte_bound(entry_stop_case, role, side):
+    case = entry_stop_case
+    files = dict(case.files)
+    name = f"native.{role}.{side}.elf"
+    original = files[name]
+    files[name] = original[:-1] + bytes([original[-1] ^ 1])
+    with pytest.raises(case.checker.EntryStopError):
+        entry_stop_check(case, files=files)
+
+
+@pytest.mark.parametrize("name", [
+    *(f"cp0.{role}.rx.sample{sample}.bin" for role in ("launcher", "loader") for sample in (0, 1)),
+    *(f"entry.{role}.rx.sample{sample}.bin" for role in ENTRY_STOP_ROLES for sample in (0, 1)),
+])
+def test_entry_stop_every_rx_occurrence_requires_original_memory_bytes(entry_stop_case, name):
+    case = entry_stop_case
+    files = dict(case.files)
+    original = files[name]
+    files[name] = bytes([original[0] ^ 1]) + original[1:]
+    with pytest.raises(case.checker.EntryStopError):
+        entry_stop_check(case, files=files)
+
+
+@pytest.mark.parametrize("role", tuple(ENTRY_STOP_ROLES))
+@pytest.mark.parametrize("fault", ("missing_extent", "substituted_backing"))
+def test_entry_stop_all_six_image_mappings_need_selected_backing(entry_stop_case, role, fault):
+    case = entry_stop_case
+    files = dict(case.files)
+    rows = case.checker.old.parse_maps(files["entry.child.maps.before.bin"])
+    inode = case.capture["objects"]["native"][role]["before"]["stat"]["ino"]
+    index = next(index for index, row in enumerate(rows) if row["inode"] == inode)
+    if fault == "missing_extent":
+        del rows[index]
+    else:
+        rows[index]["inode"] += 10000
+    for side in ("before", "after"):
+        files[f"entry.child.maps.{side}.bin"] = entry_stop_encode_maps(rows)
+    with pytest.raises(case.checker.EntryStopError):
+        entry_stop_check(case, files=files)
+
+
+@pytest.mark.parametrize("fault", ("rx_writable", "ro_writable", "rw_executable", "wrong_offset", "remove_write_outside_relro"))
+def test_entry_stop_map_permissions_and_offsets_remain_original_obligations(entry_stop_case, fault):
+    case = entry_stop_case
+    files = dict(case.files)
+    rows = case.checker.old.parse_maps(files["entry.child.maps.before.bin"])
+    wanted = "r-xp" if fault == "rx_writable" else "r--p" if fault == "ro_writable" else "rw-p"
+    row = next(row for row in rows if row["inode"] == 123 and row["permissions"] == wanted)
+    if fault == "wrong_offset": row["offset"] += 4096
+    elif fault == "remove_write_outside_relro": row["permissions"] = "r--p"
+    else: row["permissions"] = "rwxp" if fault != "ro_writable" else "rw-p"
+    for side in ("before", "after"):
+        files[f"entry.child.maps.{side}.bin"] = entry_stop_encode_maps(rows)
+    with pytest.raises(case.checker.EntryStopError):
+        entry_stop_check(case, files=files)
+
+
+def test_entry_stop_display_paths_and_additional_metadata_do_not_become_provider_resolution(entry_stop_case):
+    case = entry_stop_case
+    files = dict(case.files)
+    for point in ("cp0", "entry"):
+        rows = case.checker.old.parse_maps(files[f"{point}.child.maps.before.bin"])
+        for row in rows:
+            if row["inode"]:
+                row["path"] = "/untrusted display string (deleted)"
+        if point == "entry":
+            rows.append(dict(start=0x71000000, end=0x71001000, permissions="rw-p", offset=0,
+                             major=0, minor=0, inode=0, path="[heap]"))
+        for side in ("before", "after"):
+            files[f"{point}.child.maps.{side}.bin"] = entry_stop_encode_maps(rows)
+    report = entry_stop_check(case, files=files)
+    assert report["observation_complete"] is True and report["loader_resolution_verified"] is False
+    assert report["complete_native_closure_verified"] is False
+
+
+@pytest.mark.parametrize("section,field,value", [
+    ("ownership", "pidfd_opened", False), ("ownership", "proc_dir_pinned", False),
+    ("ownership", "child_reaped", False), ("ownership", "kill_sent", False),
+    ("ownership", "pre_exec_resumes", 0), ("ownership", "pre_exec_resumes", 2),
+    ("ownership", "cp0_to_entry_resumes", 0), ("ownership", "cp0_to_entry_resumes", 2),
+    ("ownership", "post_entry_resumes", 1), ("ownership", "detached", True),
+    ("ownership", "ptrace_options", 0x100010),
+    ("wait", "entry", 5), ("wait", "entry", 263551), ("wait", "terminal", 0),
+    ("wait", "event_msg", 1003), ("timing", "cp0_ns", None),
+    ("timing", "entry_ns", 30 * 10**9),
+])
+def test_entry_stop_rehashed_completed_capture_cannot_skip_owned_transitions(entry_stop_case, section, field, value):
+    case = entry_stop_case
+    capture = copy.deepcopy(case.capture)
+    capture[section][field] = value
+    with pytest.raises(case.checker.EntryStopError):
+        entry_stop_check(case, capture=capture)
+
+
+@pytest.mark.parametrize("fault", ("new_child", "extra_stop", "missing_cp0", "wrong_phase", "wrong_time", "new_exec"))
+def test_entry_stop_unexpected_wait_events_cannot_be_rehashed_into_success(entry_stop_case, fault):
+    case = entry_stop_case
+    capture = copy.deepcopy(case.capture)
+    if fault == "new_child": capture["events"][2]["pid"] = 1003
+    elif fault == "extra_stop": capture["events"].insert(2, dict(capture["events"][1], phase="unexpected"))
+    elif fault == "missing_cp0": del capture["events"][1]
+    elif fault == "wrong_phase": capture["events"][2]["phase"] = "cp0"
+    elif fault == "wrong_time": capture["events"][2]["observed_ns"] = capture["timing"]["cp0_ns"] - 1
+    else: capture["events"][2]["event_msg"] = 1002
+    with pytest.raises(case.checker.EntryStopError):
+        entry_stop_check(case, capture=capture)
+
+
+@pytest.mark.parametrize("fault", ("starttime", "parent", "threads", "tracer", "pidfd", "checkpoint_changed", "cp0_reused", "auxv_changed"))
+def test_entry_stop_both_stops_must_belong_to_one_fresh_owned_process(entry_stop_case, fault):
+    case = entry_stop_case
+    files = dict(case.files)
+    if fault == "starttime":
+        for side in ("before", "after"):
+            files[f"entry.child.stat.{side}.bin"] = native_acquisition_proc_stat(1002, 1001, "t", 201)
+    elif fault == "parent":
+        for side in ("before", "after"):
+            files[f"entry.child.stat.{side}.bin"] = native_acquisition_proc_stat(1002, 999, "t", 200)
+            files[f"entry.child.status.{side}.bin"] = entry_stop_status(1002, 999)
+    elif fault in ("threads", "tracer"):
+        for side in ("before", "after"):
+            name = f"entry.child.status.{side}.bin"
+            files[name] = files[name].replace(b"Threads:\t1", b"Threads:\t2") if fault == "threads" else files[name].replace(b"TracerPid:\t1001", b"TracerPid:\t0")
+    elif fault == "pidfd": files["child.pidfd.info.bin"] = b"Pid:\t1003\nNSpid:\t1003\n"
+    elif fault == "checkpoint_changed":
+        files["entry.regs.after.bin"] = entry_stop_register_bytes(case.target + 1)
+    elif fault == "cp0_reused":
+        import zipfile
+        with zipfile.ZipFile(ROOT / "preservation/required_gate_idempotence_exec_stop_v0/run_44375052171_attempt_1/control_evidence_v0.zip") as archive:
+            for side in ("before", "after"):
+                for kind in ("stat", "status", "maps"):
+                    files[f"cp0.child.{kind}.{side}.bin"] = archive.read(f"acquisition/observation/capture/child.{kind}.{side}.bin")
+    else:
+        changed = bytearray(files["entry.auxv.before.bin"])
+        struct.pack_into("<Q", changed, 5 * 16 + 8, case.target + 4096)
+        files["entry.auxv.before.bin"] = files["entry.auxv.after.bin"] = bytes(changed)
+    with pytest.raises(case.checker.EntryStopError):
+        entry_stop_check(case, files=files)
+
+
+@pytest.mark.parametrize("fault", ("initial_debug", "wrong_address", "other_slot", "single_step", "global_enable", "siginfo_code", "siginfo_address", "rip_after_entry", "code_patch", "gpr_write", "rip_write", "debug_write_order"))
+def test_entry_stop_hardware_trap_requires_exact_before_instruction_evidence(entry_stop_case, fault):
+    case = entry_stop_case
+    files = dict(case.files)
+    target = case.target
+    if fault == "initial_debug": files["cp0.debug.before.bin"] = struct.pack("<6Q", 1, 0, 0, 0, 0xffff0ff0, 0)
+    elif fault == "wrong_address": files["cp0.debug.armed.bin"] = struct.pack("<6Q", target + 1, 0, 0, 0, 0xffff0ff0, 1)
+    elif fault in ("other_slot", "single_step", "global_enable"):
+        debug = struct.pack("<6Q", target, 0, 0, 0,
+            0xffff0ff3 if fault == "other_slot" else 0xffff4ff1 if fault == "single_step" else 0xffff0ff1,
+            3 if fault == "global_enable" else 1)
+        files["entry.debug.before.bin"] = files["entry.debug.after.bin"] = debug
+    elif fault.startswith("siginfo_"):
+        raw = bytearray(files["entry.siginfo.bin"])
+        if fault == "siginfo_code": struct.pack_into("<i", raw, 8, 2)
+        else: struct.pack_into("<Q", raw, 16, target + 1)
+        files["entry.siginfo.bin"] = bytes(raw)
+    elif fault == "rip_after_entry":
+        files["entry.regs.before.bin"] = files["entry.regs.after.bin"] = entry_stop_register_bytes(target + 1)
+    else:
+        breakpoint = json.loads(files["breakpoint.json"])
+        if fault == "code_patch": breakpoint["target_memory_writes"] = 1
+        elif fault == "gpr_write": breakpoint["general_register_writes"] = 1
+        elif fault == "rip_write": breakpoint["instruction_pointer_writes"] = 1
+        else: breakpoint["writes"].reverse()
+        files["breakpoint.json"] = encoded(breakpoint)
+    with pytest.raises(case.checker.EntryStopError):
+        entry_stop_check(case, files=files)
+
+
+@pytest.mark.parametrize("fault", ("unreaped", "no_terminal", "no_entry", "only_start"))
+def test_entry_stop_incomplete_prefix_never_promotes_observation_or_cleanup(entry_stop_case, fault):
+    case = entry_stop_case
+    capture = copy.deepcopy(case.capture)
+    files = dict(case.files)
+    capture["status"], capture["failure"] = "incomplete", "authored_cleanup_failure"
+    capture["ownership"]["child_reaped"] = False
+    if fault != "unreaped":
+        capture["wait"]["terminal"] = None
+        capture["events"] = capture["events"][:-1]
+    if fault == "no_entry":
+        files = {name: raw for name, raw in files.items() if not name.startswith("entry.")}
+        capture["timing"]["entry_ns"] = capture["wait"]["entry"] = None
+        capture["events"] = capture["events"][:2]
+    elif fault == "only_start":
+        files = {name: files[name] for name in ("request.json", "attempt_start.json")}
+        capture["child_pid"] = None
+        capture["timing"]["cp0_ns"] = capture["timing"]["entry_ns"] = None
+        capture["wait"] = {name: None for name in capture["wait"]}
+        capture["events"] = []
+        capture["ownership"] = dict(pidfd_opened=False, proc_dir_pinned=False, child_reaped=False,
+            pre_exec_resumes=0, cp0_to_entry_resumes=0, post_entry_resumes=0,
+            detached=False, ptrace_options=0, kill_sent=False)
+        capture["guard"] = {"launcher_fd": None, "receipt_fd": None}
+        capture["objects"] = {key: None for key in ("retained", "cp0_executable", "entry_executable", "cp0_memory", "entry_memory")}
+        capture["objects"]["native"] = {role: {"before": None, "after": None} for role in ENTRY_STOP_ROLES}
+    report = entry_stop_check(case, capture=capture, files=files)
+    assert report["status"] == "accepted" and report["observation_complete"] is False
+    assert report["failure"] == "authored_cleanup_failure"
+    for name, value in report.items():
+        if any(part in name for part in ("cleanup_verified", "checkpoint_observed", "memory_ranges_observed", "rx_ranges_match_original")):
+            assert value is False, name
+    assert report["authority_effect"] == "none" and report["execution_authorized"] is False
+
+
+@pytest.fixture(scope="module")
+def entry_stop_task_guard_case():
+    checker = entry_stop_guard_checker()
+    environment = {"uname": {"sysname": "Linux", "machine": "x86_64", "release": "authored", "version": "authored"},
+        "boot_id": "83b18223-3b38-4a2d-97f5-85682b8baf02",
+        "observer": {"size_bytes": 14472, "sha256": "92d7e40ec50be176cb1b790c7568b7e08cd862137b5aa69f1413ba1967886b79"},
+        "namespaces": {name: f"{name.removesuffix('_for_children')}:[{4026531800 + index}]"
+            for index, name in enumerate(("cgroup", "ipc", "mnt", "net", "pid", "pid_for_children",
+                                         "time", "time_for_children", "user", "uts"))}}
+    qualification = entry_stop_guard_qualification(environment)
+    installation = entry_stop_installation(pid=1002, parent=1001, starttime=200,
+        attempt_id="76ba1921f1df407c8d183bc82a217e1f", request_sha256="a" * 64)
+    return SimpleNamespace(checker=checker, environment=environment, qualification=qualification,
+                           installation=installation, program=checker.PROGRAM_BYTES)
+
+
+def entry_stop_installation_check(case, *, record=None, program=None, **overrides):
+    raw = encoded(case.installation if record is None else record)
+    inputs = dict(expected_pid=1002, expected_parent_pid=1001, expected_starttime=200,
+        expected_launcher_fd=4, expected_receipt_fd=5,
+        expected_attempt_id="76ba1921f1df407c8d183bc82a217e1f", expected_request_sha256="a" * 64,
+        setup_status_bytes=entry_stop_status(1002, 1001), setup_fd_records=entry_stop_descriptor_rows()[:-1],
+        checkpoint_status_bytes=(entry_stop_status(1002, 1001),) * 4)
+    inputs.update(overrides)
+    return case.checker.validate_installation(raw, case.program if program is None else program, **inputs)
+
+
+def entry_stop_qualification_check(case, record=None, **overrides):
+    inputs = dict(expected_sources=case.qualification["sources"], expected_environment=case.environment)
+    inputs.update(overrides)
+    return case.checker.validate_qualification(encoded(case.qualification if record is None else record), **inputs)
+
+
+def test_entry_stop_guard_receipt_and_all_eleven_probe_records_are_reconstructed(entry_stop_task_guard_case):
+    case = entry_stop_task_guard_case
+    report = entry_stop_installation_check(case)
+    assert report["installation_transcript_verified"] is True and report["seccomp_filters"] == 2
+    assert report["inherited_io_uring_descriptors"] == 0
+    qualification = entry_stop_qualification_check(case)
+    assert qualification["status"] == "accepted" and qualification["denial_cases"] == 10
+    assert qualification["allowed_cases"] == 1
+    for result in (report, qualification):
+        assert result["privileged_filter_readback"] is False
+        assert result["physical_authentication"] is False
+        assert result["hosted_environment_qualified"] is False and result["execution_authorized"] is False
+        assert result["metric_pass"] is None and result["authority_effect"] == "none"
+
+
+@pytest.mark.parametrize("fault", (
+    "program_changed", "failed_install", "errno", "calls_reordered", "filter_not_added",
+    "already_traced", "new_thread", "old_starttime", "wrong_attempt", "setup_not_enforced",
+    "checkpoint_filter_changed", "ring_descriptor", "unclosed_receipt", "stdout_stderr_alias",
+    "receipt_stdout_alias", "launcher_not_sealed", "launcher_inherited_after_exec", "authority_claim",
+))
+def test_entry_stop_guard_installation_needs_exact_program_identity_and_kernel_state(entry_stop_task_guard_case, fault):
+    case = entry_stop_task_guard_case
+    record = copy.deepcopy(case.installation)
+    overrides = {}
+    if fault == "program_changed": overrides["program"] = case.program[:-1] + bytes([case.program[-1] ^ 1])
+    elif fault == "failed_install": record["calls"][2]["result"] = -1
+    elif fault == "errno": record["calls"][2]["errno"] = errno.EPERM
+    elif fault == "calls_reordered": record["calls"][0], record["calls"][2] = record["calls"][2], record["calls"][0]
+    elif fault == "filter_not_added": record["status_after"] = record["status_after"].replace("Seccomp_filters:\t2", "Seccomp_filters:\t1")
+    elif fault == "already_traced": record["status_before"] = record["status_before"].replace("TracerPid:\t0", "TracerPid:\t1001")
+    elif fault == "new_thread": record["status_after"] = record["status_after"].replace("Threads:\t1", "Threads:\t2")
+    elif fault == "old_starttime": record["proc_stat"] = native_acquisition_proc_stat(1002, 1001, "R", 199).decode("ascii")
+    elif fault == "wrong_attempt": record["attempt_id"] = "0" * 32
+    elif fault == "setup_not_enforced": overrides["setup_status_bytes"] = entry_stop_status(1002, 1001, no_new_privs=0)
+    elif fault == "checkpoint_filter_changed": overrides["checkpoint_status_bytes"] = (entry_stop_status(1002, 1001, filters=3),)
+    elif fault == "ring_descriptor": record["fd_roster"][3]["link"] = "anon_inode:[io_uring]"
+    elif fault == "unclosed_receipt": overrides["setup_fd_records"] = entry_stop_descriptor_rows()
+    elif fault == "stdout_stderr_alias":
+        record["fd_roster"][2] = dict(copy.deepcopy(record["fd_roster"][1]), fd=2)
+    elif fault == "receipt_stdout_alias":
+        receipt = dict(copy.deepcopy(record["fd_roster"][1]), fd=5)
+        receipt["fdinfo"] = receipt["fdinfo"].replace("flags:\t1\n", f"flags:\t{os.O_WRONLY | os.O_CLOEXEC:o}\n")
+        record["fd_roster"][4] = receipt
+    elif fault == "launcher_not_sealed": record["fd_roster"][3]["seals"] = 0
+    elif fault == "launcher_inherited_after_exec":
+        record["fd_roster"][3]["fdinfo"] = record["fd_roster"][3]["fdinfo"].replace(f"flags:\t{os.O_RDWR | os.O_CLOEXEC:o}\n", "flags:\t2\n")
+    else: record["physical_authentication"] = True
+    with pytest.raises(case.checker.TaskGuardError):
+        entry_stop_installation_check(case, record=record, **overrides)
+
+
+@pytest.mark.parametrize("index", range(11))
+def test_entry_stop_guard_each_qualification_case_needs_its_observed_terminal_status(entry_stop_task_guard_case, index):
+    case = entry_stop_task_guard_case
+    record = copy.deepcopy(case.qualification)
+    # Unsupported compat ABI can yield SIGSEGV locally: it is not SIGSYS proof.
+    record["cases"][index]["terminal_wait_status"] = 31 if index == 9 else 11
+    with pytest.raises(case.checker.TaskGuardError, match="entry_guard_qualification_denial_not_observed"):
+        entry_stop_qualification_check(case, record)
+
+
+@pytest.mark.parametrize("fault", ("missing_case", "duplicate_case", "reused_child", "unreaped",
+    "cleanup_used", "extra_resume", "wrong_source", "wrong_environment", "changed_probe",
+    "case_timeout", "overall_timeout", "false_authority", "duplicate_json", "float", "boolean"))
+def test_entry_stop_guard_qualification_cannot_be_promoted_from_weaker_records(entry_stop_task_guard_case, fault):
+    case = entry_stop_task_guard_case
+    record = copy.deepcopy(case.qualification)
+    if fault == "missing_case": record["cases"].pop()
+    elif fault == "duplicate_case": record["cases"][1] = copy.deepcopy(record["cases"][0])
+    elif fault == "reused_child":
+        first, second = record["cases"][:2]
+        second["child_pid"], second["starttime"] = first["child_pid"], first["starttime"]
+        second["setup_status"] = entry_stop_status(first["child_pid"], 1001, state="T", tracer=0).decode("ascii")
+        second["installation"] = encoded(entry_stop_installation(pid=first["child_pid"], parent=1001,
+            starttime=first["starttime"], attempt_id=second["attempt_id"], request_sha256=second["request_sha256"], launcher_size=159)).decode("ascii")
+    elif fault == "unreaped": record["cases"][0]["child_reaped"] = False
+    elif fault == "cleanup_used": record["cases"][0]["cleanup_signal_sent"] = True
+    elif fault == "extra_resume": record["cases"][0]["resumes"] = 2
+    elif fault == "wrong_source": record["sources"][0]["sha256"] = "0" * 64
+    elif fault == "wrong_environment": record["environment"]["boot_id"] = "00000000-0000-0000-0000-000000000000"
+    elif fault == "changed_probe": record["cases"][0]["probe"]["sha256"] = "0" * 64
+    elif fault == "case_timeout":
+        record["cases"][0]["timing"]["finished_ns"] += 3 * 10**9
+        record["timing"]["finished_ns"] += 3 * 10**9
+    elif fault == "overall_timeout": record["timing"]["finished_ns"] += 31 * 10**9
+    elif fault == "false_authority": record["execution_authorized"] = True
+    elif fault == "boolean": record["cases"][0]["resumes"] = True
+    raw = encoded(record)
+    if fault == "duplicate_json": raw = b'{"status":"complete",' + raw[1:]
+    elif fault == "float": raw = raw.replace(b'"resumes":1', b'"resumes":1.0', 1)
+    with pytest.raises(case.checker.TaskGuardError):
+        case.checker.validate_qualification(raw, expected_sources=case.qualification["sources"], expected_environment=case.environment)
+
+
+@pytest.mark.parametrize("fault", ("anonymous_x", "anonymous_shared", "foreign_file", "unknown_label",
+    "anonymous_device", "anonymous_offset", "too_many_anonymous", "too_many_anonymous_bytes",
+    "missing_vvar", "duplicate_vdso", "executable_stack", "oversized_stack"))
+def test_entry_stop_unselected_map_metadata_is_closed_and_bounded(entry_stop_case, fault):
+    case = entry_stop_case
+    files = dict(case.files)
+    rows = case.checker.old.parse_maps(files["entry.child.maps.before.bin"])
+    extra = dict(start=0x71000000, end=0x71001000, permissions="rw-p", offset=0,
+                 major=0, minor=0, inode=0, path="[heap]")
+    if fault == "anonymous_x": extra["permissions"] = "r-xp"
+    elif fault == "anonymous_shared": extra["permissions"] = "rw-s"
+    elif fault == "foreign_file": extra.update(major=8, minor=1, inode=9999, path="/unselected-provider.so")
+    elif fault == "unknown_label": extra["path"] = "[unselected label]"
+    elif fault == "anonymous_device": extra["major"] = 1
+    elif fault == "anonymous_offset": extra["offset"] = 4096
+    elif fault == "too_many_anonymous":
+        rows.extend(dict(extra, start=extra["start"] + index * 8192,
+                         end=extra["end"] + index * 8192, path="") for index in range(1, 17))
+    elif fault == "too_many_anonymous_bytes": extra["end"] = extra["start"] + 64 * 1024 * 1024 + 4096
+    elif fault == "missing_vvar": rows = [row for row in rows if row["path"] != "[vvar]"]
+    elif fault == "duplicate_vdso": extra.update(permissions="r-xp", path="[vdso]")
+    elif fault == "executable_stack":
+        next(row for row in rows if row["path"] == "[stack]")["permissions"] = "rwxp"
+    else:
+        stack = next(row for row in rows if row["path"] == "[stack]")
+        stack["end"] = stack["start"] + 8 * 1024 * 1024 + 4096
+    rows.append(extra)
+    for side in ("before", "after"):
+        files[f"entry.child.maps.{side}.bin"] = entry_stop_encode_maps(rows)
+    with pytest.raises(case.checker.EntryStopError):
+        entry_stop_check(case, files=files)
+
+
+@pytest.mark.parametrize("fault", ("filter_program", "old_attempt", "wrong_request", "other_child",
+    "postexec_launcher_fd", "stdout_replaced", "checkpoint_filter_changed", "launcher_fd_object"))
+def test_entry_stop_guard_transcript_binds_the_same_original_process_and_descriptors(entry_stop_case, fault):
+    case = entry_stop_case
+    files = dict(case.files)
+    if fault == "filter_program":
+        raw = files["guard.program.bin"]
+        files["guard.program.bin"] = raw[:-1] + bytes([raw[-1] ^ 1])
+    elif fault in ("old_attempt", "wrong_request", "other_child", "launcher_fd_object"):
+        record = json.loads(files["guard.install.json"])
+        if fault == "old_attempt": record["attempt_id"] = "d54f64c544090b13d2c2633b32204e02"
+        elif fault == "wrong_request": record["request_sha256"] = "0" * 64
+        elif fault == "other_child": record["child_pid"] += 1
+        else:
+            record["fd_roster"][3]["stat"]["ino"] += 1
+            record["fd_roster"][3]["fdinfo"] = record["fd_roster"][3]["fdinfo"].replace("ino:\t123", "ino:\t124")
+            setup = json.loads(files["child.fds.setup.json"])
+            setup[3] = copy.deepcopy(record["fd_roster"][3])
+            files["child.fds.setup.json"] = encoded(setup)
+        files["guard.install.json"] = encoded(record)
+    elif fault == "postexec_launcher_fd": files["child.fds.entry.json"] = files["child.fds.setup.json"]
+    elif fault == "stdout_replaced":
+        fds = json.loads(files["child.fds.entry.json"])
+        fds[1]["link"], fds[1]["stat"]["ino"] = "pipe:[151]", 151
+        fds[1]["fdinfo"] = fds[1]["fdinfo"].replace("ino:\t51", "ino:\t151")
+        files["child.fds.entry.json"] = encoded(fds)
+    else:
+        for side in ("before", "after"):
+            files[f"entry.child.status.{side}.bin"] = entry_stop_status(1002, 1001, filters=3)
+    with pytest.raises(case.checker.EntryStopError):
+        entry_stop_check(case, files=files)
+
+
+@pytest.mark.parametrize("fault", ("unqualified", "no_cleanup", "wrong_target", "memory_changed",
+    "probe_changed", "missing_raw", "wrong_starttime", "wrong_trap", "other_debug_cause",
+    "extra_resume", "stale_context", "source_changed", "external_digest", "boolean"))
+def test_entry_stop_hardware_qualification_requires_independent_raw_abi_evidence(entry_stop_case, fault):
+    case = entry_stop_case
+    record = copy.deepcopy(case.hardware)
+    if fault == "unqualified": record["status"], record["failure"] = "incomplete", "authored_hardware_unavailable"
+    elif fault == "no_cleanup": record["ownership"]["child_reaped"] = False
+    elif fault == "wrong_target": record["breakpoint"]["target"] += 1
+    elif fault == "memory_changed": record["raw"]["entry.memory.bin"] = "9090"
+    elif fault == "probe_changed":
+        raw = bytes.fromhex(record["raw"]["executable.elf"])
+        record["raw"]["executable.elf"] = (raw[:-1] + bytes([raw[-1] ^ 1])).hex()
+    elif fault == "missing_raw": del record["raw"]["cp0.regs.bin"]
+    elif fault == "wrong_starttime":
+        record["raw"]["entry.child.stat.bin"] = native_acquisition_proc_stat(2200, 1001, "t", 151).hex()
+    elif fault == "wrong_trap":
+        raw = bytearray.fromhex(record["raw"]["entry.siginfo.bin"])
+        struct.pack_into("<i", raw, 8, 2)
+        record["raw"]["entry.siginfo.bin"] = raw.hex()
+    elif fault == "other_debug_cause": record["raw"]["entry.debug.bin"] = struct.pack("<6Q", 0x400080, 0, 0, 0, 0xffff4ff1, 1).hex()
+    elif fault == "extra_resume": record["ownership"]["post_entry_resumes"] = 1
+    elif fault == "stale_context": record["context"]["uname"]["release"] = "different-kernel"
+    elif fault == "source_changed": record["sources"][0]["sha256"] = "0" * 64
+    elif fault == "boolean": record["ownership"]["cp0_to_entry_resumes"] = True
+    raw = encoded(record)
+    with pytest.raises(ValueError):
+        case.checker.validate_hardware_qualification(raw, "0" * 64 if fault == "external_digest" else digest(raw),
+                                                     expected_context=case.environment)
+
+
+@pytest.mark.parametrize("fault", ("source", "native_identity", "consumer_resolution", "limit", "signal_forwarding",
+    "observer", "authority", "duplicate_json", "float", "boolean", "external_digest"))
+def test_entry_stop_rehashed_request_cannot_change_the_approved_scope(entry_stop_case, fault):
+    case = entry_stop_case
+    request = copy.deepcopy(case.request)
+    if fault == "source": request["sources"][0]["sha256"] = "0" * 64
+    elif fault == "native_identity": request["native_objects"][0]["sha256"] = "0" * 64
+    elif fault == "consumer_resolution": request["static_relationships"][0]["consumer_resolution_observed"] = True
+    elif fault == "limit": request["limits"]["wall_seconds"] = 60
+    elif fault == "signal_forwarding": request["checkpoint"]["signal_forwarding"] = True
+    elif fault == "observer": request["observer"]["sha256"] = "0" * 64
+    elif fault == "authority": request["execution_authorized"] = True
+    elif fault == "boolean": request["limits"]["owned_tracees"] = True
+    raw = encoded(request)
+    if fault == "duplicate_json": raw = b'{"profile":"discarded",' + raw[1:]
+    elif fault == "float": raw = raw.replace(b'"wall_seconds":15', b'"wall_seconds":15.0', 1)
+    with pytest.raises(case.checker.EntryStopError):
+        case.checker.validate_request(raw, "0" * 64 if fault == "external_digest" else digest(raw))
+
+
+@pytest.mark.parametrize("fault", ("capture_sha", "duplicate_json", "float", "boolean", "missing_file", "extra_file", "wrong_bytes_type"))
+def test_entry_stop_capture_parser_and_external_bindings_remain_strict(entry_stop_case, fault):
+    case = entry_stop_case
+    files = dict(case.files)
+    capture = copy.deepcopy(case.capture)
+    overrides = {}
+    if fault == "capture_sha": overrides["expected_capture_sha256"] = "0" * 64
+    elif fault == "missing_file": del files["entry.libc.rx.sample1.bin"]
+    elif fault == "extra_file": files["unselected.bin"] = b"unselected"
+    elif fault == "wrong_bytes_type": files["entry.libc.rx.sample1.bin"] = bytearray(files["entry.libc.rx.sample1.bin"])
+    elif fault == "boolean": capture["ownership"]["post_entry_resumes"] = False
+    if fault in ("duplicate_json", "float"):
+        raw = encoded(capture)
+        raw = b'{"status":"completed",' + raw[1:] if fault == "duplicate_json" else raw.replace(b'"cp0_to_entry_resumes":1', b'"cp0_to_entry_resumes":1.0', 1)
+        overrides.update(capture_bytes=raw, expected_capture_sha256=digest(raw))
+    with pytest.raises(case.checker.EntryStopError):
+        entry_stop_check(case, capture=capture, files=files, **overrides)
+
+
+def test_entry_stop_shape_acceptance_does_not_replace_memory_reconstruction(entry_stop_case):
+    import jsonschema
+    case = entry_stop_case
+    files = dict(case.files)
+    raw = files["entry.libc.rx.sample1.bin"]
+    files["entry.libc.rx.sample1.bin"] = bytes([raw[0] ^ 1]) + raw[1:]
+    capture = copy.deepcopy(case.capture)
+    capture["files"] = [{"path": name, **bound(value)} for name, value in sorted(files.items())]
+    schema = json.loads((ROOT / case.checker.SCHEMA_REL).read_bytes())
+    jsonschema.Draft202012Validator.check_schema(schema)
+    jsonschema.Draft202012Validator(schema).validate(capture)
+    with pytest.raises(case.checker.EntryStopError, match="entry_stop_entry_sample"):
+        entry_stop_check(case, capture=capture, files=files)
+
+
+@pytest.mark.parametrize("which", ("historical", "guard", "hardware"))
+def test_entry_stop_request_attempt_must_be_fresh_after_both_qualifications(entry_stop_case, which):
+    case = entry_stop_case
+    attempt_id = "d54f64c544090b13d2c2633b32204e02" if which == "historical" else (
+        case.qualification["cases"][0]["attempt_id"] if which == "guard" else case.hardware["attempt_id"])
+    with pytest.raises(case.checker.EntryStopError):
+        case.checker.make_request(attempt_id=attempt_id,
+            qualification_bytes=case.qualification_raw, expected_qualification_sha256=digest(case.qualification_raw),
+            hardware_qualification_bytes=case.hardware_raw, expected_hardware_qualification_sha256=digest(case.hardware_raw))
+
+
+@pytest.mark.parametrize("which", ("guard", "hardware"))
+def test_entry_stop_qualified_benign_child_cannot_be_relabelled_as_the_original_attempt(entry_stop_case, which):
+    case = entry_stop_case
+    capture, files = copy.deepcopy(case.capture), dict(case.files)
+    child, starttime = (2100, 110) if which == "guard" else (2200, 150)
+    capture["child_pid"], capture["wait"]["event_msg"] = child, child
+    for event in capture["events"]:
+        event["pid"] = child
+        if event["phase"] == "cp0": event["event_msg"] = child
+    files["child.stat.setup.bin"] = native_acquisition_proc_stat(child, 1001, "t", starttime)
+    files["child.status.setup.bin"] = entry_stop_status(child, 1001)
+    files["child.pidfd.info.bin"] = f"Pid:\t{child}\nNSpid:\t{child}\n".encode("ascii")
+    files["guard.install.json"] = encoded(entry_stop_installation(pid=child, parent=1001,
+        starttime=starttime, attempt_id=case.request["attempt_id"], request_sha256=digest(case.request_raw)))
+    for point in ("cp0", "entry"):
+        for side in ("before", "after"):
+            files[f"{point}.child.stat.{side}.bin"] = native_acquisition_proc_stat(child, 1001, "t", starttime)
+            files[f"{point}.child.status.{side}.bin"] = entry_stop_status(child, 1001)
+    with pytest.raises(case.checker.EntryStopError):
+        entry_stop_check(case, capture=capture, files=files)
+
+
+def entry_stop_write_capture(directory, case):
+    directory.mkdir(mode=0o700)
+    raw = encoded(case.capture)
+    for name, content in {"capture.json": raw, **case.files}.items():
+        path = directory / name
+        path.write_bytes(content)
+        path.chmod(0o600)
+    return raw
+
+
+def test_entry_stop_checker_cli_reconstructs_and_preserves_existing_output(entry_stop_case, tmp_path):
+    case = entry_stop_case
+    directory, target = tmp_path / "capture", tmp_path / "check.json"
+    raw = entry_stop_write_capture(directory, case)
+    arguments = [sys.executable, "-I", "-B", str(ROOT / "tools/check_required_gate_idempotence_entry_stop_v0.py"),
+        "--request", str(directory / "request.json"), "--request-sha256", digest(case.request_raw),
+        "--capture-directory", str(directory), "--capture-sha256", digest(raw), "--output", str(target)]
+    result = subprocess.run(arguments, cwd=ROOT, capture_output=True, check=False, timeout=30)
+    assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
+    saved = target.read_bytes()
+    assert result.stdout == saved and json.loads(saved)["observation_complete"] is True
+    again = subprocess.run(arguments, cwd=ROOT, capture_output=True, check=False, timeout=30)
+    assert again.returncode == 1 and target.read_bytes() == saved
+    assert json.loads(again.stderr)["status"] == "rejected"
+
+
+def entry_stop_public_setup(case, tmp_path, monkeypatch, *, admission="valid"):
+    import zipfile
+    preparation = module("prepare_required_gate_idempotence_entry_stop_v0",
+                         "tools/prepare_required_gate_idempotence_entry_stop_v0.py")
+    calls = []
+    with zipfile.ZipFile(ROOT / "preservation/required_gate_idempotence_exec_stop_v0/original_inputs_v0.zip") as archive:
+        manifest = json.loads(archive.read("CASE_INPUTS.json"))
+        originals = {name: archive.read(name) for name in (
+            "launch-host-plan.json", "launch-host-verification.json", "launcher-distribution-record.json")}
+        originals["distribution-verification.json"] = archive.read("results/checker-1.json")
+    originals.update(case.native)
+
+    def sink(path):
+        calls.append("sink")
+        return SimpleNamespace(count=0 if admission == "missing_signature" else 1,
+                               close=lambda: calls.append("closed"))
+
+    def reconstruct(directory, expected_digest, evidence_sink):
+        calls.append("fresh_admission")
+        assert expected_digest == preparation.original.ORIGINAL_MANIFEST_SHA256
+        if admission == "rejected":
+            raise preparation.safe.MappingError("authored_fresh_original_rejection")
+        if admission == "changed_original":
+            raw = originals["native/bwrap"]
+            originals["native/bwrap"] = raw[:-1] + bytes([raw[-1] ^ 1])
+        return manifest, originals
+
+    actual_derive = preparation.original.derive_request
+
+    def derive(*args, **kwargs):
+        calls.append("derive_original")
+        return actual_derive(*args, **kwargs)
+
+    monkeypatch.setattr(preparation.distribution_io, "VerificationDirectory", sink)
+    monkeypatch.setattr(preparation.original, "reconstruct_originals", reconstruct)
+    monkeypatch.setattr(preparation.original, "derive_request", derive)
+    monkeypatch.setattr(preparation.original, "_observer", lambda: dict(case.request["observer"]))
+    paths = {}
+    for name, raw in (("request", case.request_raw), ("guard", case.qualification_raw), ("hardware", case.hardware_raw)):
+        path = tmp_path / (name + ".json")
+        path.write_bytes(raw)
+        paths[name] = path
+    arguments = ["--originals-directory", str(tmp_path / "originals"),
+        "--originals-sha256", preparation.original.ORIGINAL_MANIFEST_SHA256,
+        "--verification-directory", str(tmp_path / "verification"),
+        "--task-guard-qualification", str(paths["guard"]),
+        "--task-guard-qualification-sha256", digest(case.qualification_raw),
+        "--hardware-qualification", str(paths["hardware"]),
+        "--hardware-qualification-sha256", digest(case.hardware_raw)]
+    return preparation, calls, arguments, paths
+
+
+@pytest.mark.parametrize("command", ("prepare", "check", "check-capture"))
+def test_entry_stop_public_adapter_freshly_admits_originals_without_importing_native_collectors(entry_stop_case,
+        tmp_path, monkeypatch, capfd, command):
+    import builtins
+    import ctypes
+    case = entry_stop_case
+    preparation, calls, arguments, paths = entry_stop_public_setup(case, tmp_path, monkeypatch)
+    actual_import = builtins.__import__
+    blocked = {"required_gate_idempotence_entry_stop_v0", "required_gate_idempotence_entry_task_guard_v0",
+               "qualify_required_gate_idempotence_entry_stop_v0", "required_gate_idempotence_exec_stop_v0"}
+
+    def guarded_import(name, *args, **kwargs):
+        assert name not in blocked, "pure preparation imported a native collector"
+        return actual_import(name, *args, **kwargs)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("pure preparation attempted process execution")
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    monkeypatch.setattr(subprocess, "Popen", forbidden)
+    monkeypatch.setattr(os, "fork", forbidden)
+    monkeypatch.setattr(os, "execve", forbidden)
+    monkeypatch.setattr(ctypes, "CDLL", forbidden)
+    output = tmp_path / "public-output.json"
+    arguments = [command, *arguments, "--output", str(output)]
+    if command == "prepare":
+        arguments += ["--attempt-id", case.request["attempt_id"]]
+    else:
+        arguments += ["--request", str(paths["request"]), "--request-sha256", digest(case.request_raw)]
+    if command == "check-capture":
+        capture_path = tmp_path / "capture"
+        raw = entry_stop_write_capture(capture_path, case)
+        arguments += ["--capture-directory", str(capture_path), "--capture-sha256", digest(raw)]
+    assert preparation.main(arguments) == 0
+    report = json.loads(capfd.readouterr().out)
+    assert calls == ["sink", "fresh_admission", "derive_original", "closed"]
+    assert report["status"] == "accepted" and report["execution_authorized"] is False
+    if command == "prepare":
+        assert output.read_bytes() == case.request_raw
+    else:
+        assert json.loads(output.read_bytes()) == report
+    if command != "check-capture":
+        assert report["native_acquisition_performed"] is False and report["entry_checkpoint_observed"] is False
+
+
+@pytest.mark.parametrize("admission", ("rejected", "missing_signature", "changed_original"))
+def test_entry_stop_public_adapter_saved_request_cannot_replace_fresh_original_admission(entry_stop_case,
+        tmp_path, monkeypatch, capfd, admission):
+    case = entry_stop_case
+    preparation, calls, arguments, paths = entry_stop_public_setup(case, tmp_path, monkeypatch, admission=admission)
+    output = tmp_path / "must-not-exist.json"
+    result = preparation.main(["check", *arguments, "--output", str(output),
+        "--request", str(paths["request"]), "--request-sha256", digest(case.request_raw)])
+    assert result == 1 and not output.exists()
+    report = json.loads(capfd.readouterr().out)
+    assert report["status"] == "rejected" and report["execution_authorized"] is False
+    assert calls[:2] == ["sink", "fresh_admission"] and calls[-1] == "closed"
+    assert ("derive_original" in calls) == (admission == "changed_original")
+
+
+@pytest.mark.parametrize("fault", ("acknowledgement", "original_bytes", "guard_digest", "guard_wrong_signal",
+    "hardware_digest", "hardware_context", "observer_context", "future_guard", "future_hardware"))
+def test_entry_stop_collector_rejects_unqualified_inputs_before_output_or_original_fork(entry_stop_case,
+        tmp_path, monkeypatch, fault):
+    case, collector = entry_stop_case, entry_stop_collector()
+    request = copy.deepcopy(case.request)
+    guard_record, hardware_record = copy.deepcopy(case.qualification), copy.deepcopy(case.hardware)
+    guard_raw, hardware_raw, natives = case.qualification_raw, case.hardware_raw, dict(case.native)
+    context = copy.deepcopy(case.environment)
+    if fault == "original_bytes":
+        raw = natives["native/bwrap"]
+        natives["native/bwrap"] = raw[:-1] + bytes([raw[-1] ^ 1])
+    elif fault == "guard_digest": guard_raw += b"\n"
+    elif fault == "hardware_digest": hardware_raw += b"\n"
+    elif fault == "guard_wrong_signal":
+        guard_record["cases"][8]["terminal_wait_status"] = 11
+        guard_raw = encoded(guard_record)
+        request["guard"]["qualification"] = bound(guard_raw)
+    elif fault == "hardware_context":
+        hardware_record["context"]["boot_id"] = "00000000-0000-0000-0000-000000000000"
+        hardware_raw = encoded(hardware_record)
+        request["hardware_qualification"] = bound(hardware_raw)
+    elif fault == "observer_context": context["observer"]["sha256"] = "0" * 64
+    elif fault == "future_guard":
+        for timing in (guard_record["timing"], *(row["timing"] for row in guard_record["cases"])):
+            for name in timing: timing[name] += 20 * 10**9
+        guard_raw = encoded(guard_record)
+        request["guard"]["qualification"] = bound(guard_raw)
+    elif fault == "future_hardware":
+        for name in hardware_record["timing"]: hardware_record["timing"][name] += 20 * 10**9
+        for event in hardware_record["events"]: event["observed_ns"] += 20 * 10**9
+        hardware_raw = encoded(hardware_record)
+        request["hardware_qualification"] = bound(hardware_raw)
+    request_raw = encoded(request)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("unqualified request reached output creation or native child creation")
+
+    monkeypatch.setattr(collector.guard, "current_context", lambda: context)
+    monkeypatch.setattr(collector, "time", SimpleNamespace(monotonic_ns=lambda: 10 * 10**9))
+    monkeypatch.setattr(collector, "_OutputDirectory", forbidden)
+    monkeypatch.setattr(collector, "_spawn_child", forbidden)
+    with pytest.raises(ValueError):
+        collector.run_acquisition(request_bytes=request_raw, expected_request_sha256=digest(request_raw),
+            native_files=natives, qualification_bytes=guard_raw, hardware_qualification_bytes=hardware_raw,
+            output_directory=tmp_path / "must-not-exist",
+            acknowledgement="unacknowledged" if fault == "acknowledgement" else collector.ACKNOWLEDGEMENT)
+    assert not (tmp_path / "must-not-exist").exists()
+
+
+@pytest.mark.parametrize("fail_pipe", (2, 3))
+def test_entry_stop_guard_setup_failure_closes_every_owned_descriptor_before_fork(monkeypatch, fail_pipe):
+    guard = module("required_gate_idempotence_entry_task_guard_v0",
+                   "tools/required_gate_idempotence_entry_task_guard_v0.py")
+    native_os = SimpleNamespace(**vars(os))
+    monkeypatch.setattr(guard, "os", native_os)
+    opened, calls = [], []
+    actual_probe = guard._sealed_probe
+
+    def probe():
+        descriptor = actual_probe()
+        opened.append(descriptor)
+        return descriptor
+
+    def pipe(flags):
+        calls.append(flags)
+        if len(calls) == fail_pipe:
+            raise OSError(errno.EMFILE, "authored descriptor exhaustion")
+        descriptors = os.pipe2(flags)
+        opened.extend(descriptors)
+        return descriptors
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("descriptor failure must precede fork and filter installation")
+
+    monkeypatch.setattr(guard, "_sealed_probe", probe)
+    native_os.pipe2, native_os.fork = pipe, forbidden
+    native_os.listdir = lambda path: [str(os.getpid())] if path == "/proc/self/task" else os.listdir(path)
+    monkeypatch.setattr(guard, "install_and_record", forbidden)
+    with pytest.raises(guard._QualificationFailure):
+        guard._qualify_case("clone", time.monotonic_ns() + 10**9)
+    assert len(calls) == fail_pipe and len(opened) == 1 + 2 * (fail_pipe - 1)
+    for descriptor in opened:
+        with pytest.raises(OSError) as caught:
+            os.fstat(descriptor)
+        assert caught.value.errno == errno.EBADF
+
+
+def entry_stop_mock_owned_attempt(case, tmp_path, monkeypatch, fault):
+    """Keep orchestration, preservation and pure replay real; replace native I/O."""
+    collector = entry_stop_collector()
+    native_os = SimpleNamespace(**vars(os))
+    native_signal = SimpleNamespace(**vars(collector.signal))
+    native_fcntl = SimpleNamespace(**vars(fcntl))
+    state = {"phase": "before", "ticks": time.monotonic_ns(), "calls": [], "descriptors": {},
+             "proc": {}, "killed": False, "process": None, "debug_reads": 0}
+    observer_dir, child_dir = tmp_path / "observer-proc", tmp_path / "child-proc"
+    observer_dir.mkdir()
+    child_dir.mkdir()
+    boot_path, pidfd_path, memory_path = tmp_path / "boot", tmp_path / "pidfd", tmp_path / "memory"
+    boot_path.write_bytes(case.files["kernel.boot_id.bin"])
+    pidfd_path.write_bytes(case.files["child.pidfd.info.bin"])
+    memory_path.write_bytes(b"")
+    memory_path.chmod(0o600)
+
+    def tick():
+        state["ticks"] += 3 * 10**9 if fault == "cleanup_timeout" and state["killed"] else 1000
+        return state["ticks"]
+
+    def open_native(role):
+        descriptor = os.open("/dev/null", os.O_RDONLY | os.O_CLOEXEC)
+        state["descriptors"][descriptor] = role
+        return descriptor
+
+    def native_path(path):
+        role = next(role for role, selected in ENTRY_STOP_ROLES.items() if Path(path).name == Path(selected).name)
+        return open_native(role)
+
+    def open_proc(path, flags, *args, **kwargs):
+        value = os.fspath(path)
+        if value == "/proc/1001":
+            descriptor = os.open(observer_dir, flags)
+            state["proc"][descriptor] = "observer"
+            return descriptor
+        if value == "/proc/1002":
+            descriptor = os.open(child_dir, flags)
+            state["proc"][descriptor] = "child"
+            return descriptor
+        if value == "/proc/sys/kernel/random/boot_id": return os.open(boot_path, flags)
+        if value.startswith("/proc/self/fdinfo/"): return os.open(pidfd_path, flags)
+        if value == "mem": return os.open(memory_path, flags)
+        raise AssertionError("unselected native open: " + value)
+
+    def read_proc(descriptor, name, limit, deadline):
+        if state["proc"][descriptor] == "observer": return case.files["observer." + name + ".bin"]
+        if state["phase"] == "setup": return case.files["child." + name + ".setup.bin"]
+        middle = "child." if name in ("stat", "status", "maps") else ""
+        return case.files[state["phase"] + "." + middle + name + ".before.bin"]
+
+    def readlink(path, *, dir_fd=None):
+        if path == "exe": return case.files[state["phase"] + ".child.exe.link.bin"].decode("ascii")
+        if path.startswith("ns/"): return case.environment["namespaces"][path[3:]]
+        raise AssertionError("unselected readlink: " + path)
+
+    def read_regular(descriptor, limit, deadline):
+        role = state["descriptors"][descriptor]
+        state["calls"].append(("read_original", role))
+        return copy.deepcopy(case.capture["objects"]["native"][role]["before"]), case.native[ENTRY_STOP_ROLES[role]]
+
+    def spawn(launcher_fd, parent, attempt, request_sha256):
+        assert parent == 1001 and attempt == case.request["attempt_id"] and request_sha256 == digest(case.request_raw)
+        assert {row[1] for row in state["calls"] if row[0] == "read_original"} == set(ENTRY_STOP_ROLES)
+        state["calls"].append(("spawn_owned", 1002))
+        streams = []
+        for _ in range(2):
+            read_fd, write_fd = os.pipe2(os.O_CLOEXEC)
+            os.close(write_fd)
+            streams.append(os.fdopen(read_fd, "rb", buffering=0))
+        process = SimpleNamespace(pid=1002, returncode=None, stdout=streams[0], stderr=streams[1],
+            guard_receipt=io.BytesIO(), launcher_fd=4, receipt_fd=5)
+        state["process"] = process
+        return process
+
+    def wait_event(process, deadline, capture, phase):
+        assert phase in ("setup", "cp0", "entry")
+        state["phase"] = phase
+        state["calls"].append(("wait", phase))
+        status = {"setup": 4991, "cp0": 263551, "entry": 1407}[phase]
+        if fault == "entry_exit" and phase == "entry": status = 3 << 8
+        collector._record_wait(capture, process, phase, status)
+        return status
+
+    def ptrace(operation, pid, address=0, data=0):
+        assert pid == 1002
+        assert operation in (collector.PTRACE_SETOPTIONS, collector.PTRACE_CONT, collector.PTRACE_POKEUSER)
+        state["calls"].append(("ptrace", operation, address, data))
+        return 0
+
+    def debug(pid):
+        assert pid == 1002
+        names = ("cp0.debug.before.bin", "cp0.debug.armed.bin", "entry.debug.before.bin", "entry.debug.after.bin")
+        name = names[state["debug_reads"]]
+        state["debug_reads"] += 1
+        if fault == "arm_readback" and name == "cp0.debug.armed.bin":
+            return struct.pack("<6Q", case.target + 1, 0, 0, 0, 0xffff0ff0, 1)
+        return case.files[name]
+
+    def pread(descriptor, size, address):
+        for role, path in ENTRY_STOP_ROLES.items():
+            segment = next(row for row in entry_stop_elf_oracle(case.native[path])["segments"] if row["flags"] == 5)
+            if address == ENTRY_STOP_BASES[role] + segment["vaddr"]:
+                assert size == segment["filesz"]
+                state["calls"].append(("sample", state["phase"], role))
+                return case.native[path][segment["offset"]:segment["offset"] + size]
+        raise AssertionError("memory request escaped the independently selected RX intervals")
+
+    def receipt(process):
+        if fault == "guard_receipt":
+            record = json.loads(case.files["guard.install.json"])
+            record["request_sha256"] = "0" * 64
+            return encoded(record)
+        return case.files["guard.install.json"]
+
+    def kill_pidfd(descriptor, signal):
+        assert descriptor == state["pidfd"] and signal == 9
+        state["calls"].append(("kill_owned", descriptor, signal))
+        if fault == "cleanup_signal": raise OSError(errno.EPERM, "authored signal rejection")
+        state["killed"] = True
+
+    def kill_owned(pid, signal):
+        assert pid == 1002 and signal == 9
+        state["calls"].append(("kill_fallback", pid, signal))
+        raise OSError(errno.EPERM, "authored signal rejection")
+
+    def pidfd_open(pid, flags):
+        assert pid == 1002 and flags == 0
+        descriptor = os.open(pidfd_path, os.O_RDONLY | os.O_CLOEXEC)
+        state["pidfd"] = descriptor
+        return descriptor
+
+    def waitpid(pid, flags):
+        assert pid == 1002
+        return (1002, 9) if state["killed"] else (0, 0)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("mocked native producer must never create or execute a real child")
+
+    native_os.open, native_os.readlink, native_os.getpid = open_proc, readlink, lambda: 1001
+    native_os.pread, native_os.pidfd_open, native_os.waitpid, native_os.kill = pread, pidfd_open, waitpid, kill_owned
+    native_os.fork = native_os.execve = forbidden
+    native_os.uname = lambda: SimpleNamespace(sysname="Linux", machine="x86_64", release="authored", version="authored")
+    native_signal.pidfd_send_signal = kill_pidfd
+    native_fcntl.fcntl = lambda descriptor, operation: 15 if operation == collector.shared.F_GET_SEALS else forbidden()
+    monkeypatch.setattr(collector, "os", native_os)
+    monkeypatch.setattr(collector, "signal", native_signal)
+    monkeypatch.setattr(collector, "fcntl", native_fcntl)
+    monkeypatch.setattr(collector, "time", SimpleNamespace(monotonic_ns=tick, sleep=lambda _seconds: None))
+    monkeypatch.setattr(collector, "_sealed_launcher", lambda raw: open_native("launcher"))
+    monkeypatch.setattr(collector, "_open_native", native_path)
+    monkeypatch.setattr(collector, "_read_proc", read_proc)
+    monkeypatch.setattr(collector, "_spawn_child", spawn)
+    monkeypatch.setattr(collector, "_wait_event", wait_event)
+    monkeypatch.setattr(collector, "_ptrace", ptrace)
+    monkeypatch.setattr(collector, "_event_message", lambda pid: pid)
+    monkeypatch.setattr(collector, "_registers", lambda pid: case.files[state["phase"] + ".regs.before.bin"])
+    monkeypatch.setattr(collector, "_debug_registers", debug)
+    monkeypatch.setattr(collector, "_siginfo", lambda pid: case.files["entry.siginfo.bin"])
+    monkeypatch.setattr(collector, "_read_guard_receipt", receipt)
+    monkeypatch.setattr(collector.prior, "_read_regular", read_regular)
+    monkeypatch.setattr(collector.prior, "_read_executable", lambda descriptor, deadline: (
+        copy.deepcopy(case.capture["objects"][state["phase"] + "_executable"]), case.native["native/bwrap"]))
+    monkeypatch.setattr(collector.shared, "_actual_observer", lambda: (dict(case.request["observer"]), case.files["observer.exe.bin"]))
+    monkeypatch.setattr(collector.guard, "current_context", lambda: copy.deepcopy(case.environment))
+    monkeypatch.setattr(collector.guard, "descriptor_snapshot", lambda pid: json.loads(case.files[
+        "child.fds.setup.json" if state["phase"] == "setup" else "child.fds." + state["phase"] + ".json"]))
+    return collector, state
+
+
+@pytest.mark.parametrize("fault", (None, "guard_receipt", "arm_readback", "entry_exit", "cleanup_signal", "cleanup_timeout"))
+def test_entry_stop_collector_owned_state_machine_preserves_only_completed_proof(entry_stop_case,
+        tmp_path, monkeypatch, fault):
+    case = entry_stop_case
+    collector, state = entry_stop_mock_owned_attempt(case, tmp_path, monkeypatch, fault)
+    directory = tmp_path / "owned-capture"
+    report = collector.run_acquisition(request_bytes=case.request_raw, expected_request_sha256=digest(case.request_raw),
+        native_files=case.native, qualification_bytes=case.qualification_raw,
+        hardware_qualification_bytes=case.hardware_raw, output_directory=directory,
+        acknowledgement=collector.ACKNOWLEDGEMENT)
+    raw, files = case.checker.read_capture_directory(directory)
+    capture = json.loads(raw)
+    replay = case.checker.verify_capture(request_bytes=case.request_raw, expected_request_sha256=digest(case.request_raw),
+        capture_bytes=raw, expected_capture_sha256=digest(raw), files=files)
+    assert replay == report
+    assert report["observation_complete"] is (fault is None)
+    assert capture["ownership"]["post_entry_resumes"] == 0 and capture["ownership"]["detached"] is False
+    continues = [row for row in state["calls"] if row[:2] == ("ptrace", 7)]
+    assert len(continues) == (0 if fault == "guard_receipt" else 1 if fault == "arm_readback" else 2)
+    writes = [(row[2], row[3]) for row in state["calls"] if row[:2] == ("ptrace", 6)]
+    assert writes == ([] if fault == "guard_receipt" else [(848, case.target), (848 + 48, 0xffff0ff0), (848 + 56, 1)])
+    assert state["process"].stdout.closed and state["process"].stderr.closed and state["process"].guard_receipt.closed
+    assert all(report[name] is (fault is None) for name in case.checker.NARROW_FLAGS)
+    if fault is None:
+        assert len(files) == 77 and len(report["segment_relations"]) == 24 and len(report["memory_relations"]) == 16
+        assert capture["status"] == "completed" and capture["ownership"]["child_reaped"] is True
+        assert len([row for row in state["calls"] if row[0] == "sample"]) == 16
+    else:
+        assert capture["status"] == "incomplete" and capture["failure"]
+        assert report["memory_relations"] == report["segment_relations"] == []
+    if fault in ("cleanup_signal", "cleanup_timeout"):
+        assert capture["ownership"]["child_reaped"] is False
+
+
+def test_entry_stop_replay_imports_only_byte_checkers_and_never_executes(entry_stop_case, monkeypatch):
+    import builtins
+    import ctypes
+    case = entry_stop_case
+    actual_import = builtins.__import__
+    blocked = {"required_gate_idempotence_entry_stop_v0", "required_gate_idempotence_entry_task_guard_v0",
+        "qualify_required_gate_idempotence_entry_stop_v0", "prepare_required_gate_idempotence_entry_stop_v0",
+        "required_gate_idempotence_exec_stop_v0", "prepare_required_gate_idempotence_exec_stop_v0"}
+
+    def guarded(name, *args, **kwargs):
+        assert name not in blocked, "replay imported a native producer or admission adapter"
+        return actual_import(name, *args, **kwargs)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("entry evidence reconstruction must only inspect bytes")
+
+    monkeypatch.setattr(builtins, "__import__", guarded)
+    monkeypatch.setattr(subprocess, "Popen", forbidden)
+    monkeypatch.setattr(os, "fork", forbidden)
+    monkeypatch.setattr(os, "execve", forbidden)
+    monkeypatch.setattr(os, "system", forbidden)
+    monkeypatch.setattr(ctypes, "CDLL", forbidden)
+    independent = module("entry_stop_checker_no_native_execution", "tools/check_required_gate_idempotence_entry_stop_v0.py")
+    raw = encoded(case.capture)
+    report = independent.verify_capture(request_bytes=case.request_raw, expected_request_sha256=digest(case.request_raw),
+        capture_bytes=raw, expected_capture_sha256=digest(raw), files=case.files)
+    assert report["status"] == "accepted" and report["observation_complete"] is True
+    assert report["physical_execution_authenticated"] is False and report["execution_authorized"] is False
+
+
+@pytest.mark.parametrize("which", ("historical", "native_mid_replay"))
+def test_entry_stop_replay_rechecks_actual_source_bytes(entry_stop_case, monkeypatch, which):
+    case = entry_stop_case
+    target = "docs/compute/required_gate_idempotence_protocol_v0/inputs_v0.json" if which == "historical" else (
+        "tools/required_gate_idempotence_entry_stop_v0.py")
+    original, reads = case.checker._source, []
+
+    def changed(path):
+        raw = original(path)
+        if path == target:
+            reads.append(path)
+            if which == "historical" or len(reads) > 1:
+                return raw + b"\n"
+        return raw
+
+    monkeypatch.setattr(case.checker, "_source", changed)
+    with pytest.raises(case.checker.EntryStopError):
+        entry_stop_check(case)
+    assert len(reads) == 1 if which == "historical" else len(reads) >= 2
+
+
+def test_entry_stop_cleanup_unreadable_event_metadata_still_reaps_the_owned_child(monkeypatch):
+    collector = entry_stop_collector()
+    process = SimpleNamespace(pid=1234567890, returncode=None)
+    capture = {"wait": {"terminal": None}, "events": [],
+               "ownership": {"child_reaped": False, "kill_sent": False}}
+    native_os = SimpleNamespace(**vars(os))
+    native_signal = SimpleNamespace(**vars(collector.signal))
+    statuses = iter(((process.pid, (4 << 16) | 1407), (process.pid, 9)))
+    waits, signals = [], []
+
+    def wait(pid, flags):
+        waits.append(pid)
+        assert pid == process.pid
+        return next(statuses)
+
+    def unavailable(pid):
+        assert pid == process.pid
+        raise OSError(errno.ESRCH, "authored post-kill metadata race")
+
+    native_os.waitpid = wait
+    native_signal.pidfd_send_signal = lambda descriptor, number: signals.append((descriptor, number))
+    monkeypatch.setattr(collector, "os", native_os)
+    monkeypatch.setattr(collector, "signal", native_signal)
+    monkeypatch.setattr(collector, "_event_message", unavailable)
+    monkeypatch.setattr(collector, "time", SimpleNamespace(monotonic_ns=time.monotonic_ns, sleep=lambda seconds: None))
+    failure = collector._cleanup(process, 42, capture)
+    assert failure == "entry_stop_cleanup_event_metadata_failed"
+    assert capture["ownership"] == {"child_reaped": True, "kill_sent": True}
+    assert capture["wait"]["terminal"] == 9 and process.returncode == -9
+    assert waits == [process.pid, process.pid] and signals == [(42, 9)]
+    assert capture["events"][0]["phase"] == "unexpected"
+    assert capture["events"][0]["status"] == (4 << 16) | 1407
+    assert capture["events"][0]["event_msg"] is None and capture["events"][1]["phase"] == "terminal"
+
+
+def test_entry_stop_collector_cleanup_exception_still_drains_and_closes_without_publishing(entry_stop_case,
+        tmp_path, monkeypatch):
+    case = entry_stop_case
+    collector, state = entry_stop_mock_owned_attempt(case, tmp_path, monkeypatch, None)
+
+    def interrupted(*args, **kwargs):
+        raise RuntimeError("injected_cleanup_interruption")
+
+    monkeypatch.setattr(collector, "_cleanup", interrupted)
+    directory = tmp_path / "interrupted-capture"
+    with pytest.raises(RuntimeError, match="injected_cleanup_interruption"):
+        collector.run_acquisition(request_bytes=case.request_raw, expected_request_sha256=digest(case.request_raw),
+            native_files=case.native, qualification_bytes=case.qualification_raw,
+            hardware_qualification_bytes=case.hardware_raw, output_directory=directory,
+            acknowledgement=collector.ACKNOWLEDGEMENT)
+    for descriptor in (*state["descriptors"], *state["proc"], state["pidfd"]):
+        with pytest.raises(OSError) as caught:
+            os.fstat(descriptor)
+        assert caught.value.errno == errno.EBADF
+    process = state["process"]
+    assert process.stdout.closed and process.stderr.closed and process.guard_receipt.closed
+    assert (directory / "stdout.bin").read_bytes() == (directory / "stderr.bin").read_bytes() == b""
+    assert (directory / "attempt.incomplete.json").is_file()
+    assert not (directory / "capture.json").exists()
+
+
+def test_entry_stop_hardware_cleanup_exception_preserves_incomplete_prefix_and_closes_descriptors(entry_stop_case,
+        tmp_path, monkeypatch):
+    case = entry_stop_case
+    qualifier = module("qualify_required_gate_idempotence_entry_stop_v0",
+                       "tools/qualify_required_gate_idempotence_entry_stop_v0.py")
+    native_os = SimpleNamespace(**vars(os))
+    parent, fake_child = os.getpid(), 1234567890
+    opened = []
+    observer_dir, child_dir = tmp_path / "observer-proc", tmp_path / "child-proc"
+    observer_dir.mkdir()
+    child_dir.mkdir()
+
+    def tracked_open(path, flags, *args, **kwargs):
+        target = observer_dir if os.fspath(path) == "/proc/" + str(parent) else child_dir
+        assert os.fspath(path) in ("/proc/" + str(parent), "/proc/" + str(fake_child))
+        descriptor = os.open(target, flags)
+        opened.append(descriptor)
+        return descriptor
+
+    def tracked_memfd(name, flags):
+        descriptor = os.memfd_create(name, flags)
+        opened.append(descriptor)
+        return descriptor
+
+    def pidfd(pid, flags):
+        assert pid == fake_child and flags == 0
+        descriptor = os.open("/dev/null", os.O_RDONLY | os.O_CLOEXEC)
+        opened.append(descriptor)
+        return descriptor
+
+    def stopped_before_tracing(*args, **kwargs):
+        raise ValueError("authored_setup_failure")
+
+    def interrupted(*args, **kwargs):
+        raise RuntimeError("injected_cleanup_interruption")
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("hardware cleanup regression must not trace or execute a child")
+
+    native_os.open, native_os.memfd_create, native_os.pidfd_open = tracked_open, tracked_memfd, pidfd
+    native_os.fork = lambda: fake_child
+    native_os.listdir = lambda path: [str(parent)] if path == "/proc/self/task" else os.listdir(path)
+    native_os.execve = native_os.kill = forbidden
+    monkeypatch.setattr(qualifier, "os", native_os)
+    monkeypatch.setattr(qualifier, "_probe_child", forbidden)
+    monkeypatch.setattr(qualifier.guard, "current_context", lambda: copy.deepcopy(case.environment))
+    monkeypatch.setattr(qualifier.native, "_read_proc", lambda descriptor, name, limit, deadline: (
+        native_acquisition_proc_stat(parent, os.getppid(), "S", 100) if name == "stat" else
+        native_acquisition_proc_status(parent, os.getppid(), "S", 0)))
+    monkeypatch.setattr(qualifier.native, "_wait_event", stopped_before_tracing)
+    monkeypatch.setattr(qualifier.native, "_ptrace", forbidden)
+    monkeypatch.setattr(qualifier.native, "_cleanup", interrupted)
+    record = qualifier.qualify()
+    assert record["status"] == "incomplete" and record["failure"] == "injected_cleanup_interruption"
+    assert record["ownership"]["pre_exec_resumes"] == record["ownership"]["cp0_to_entry_resumes"] == 0
+    assert set(record["raw"]) == {"observer.stat.bin", "observer.status.bin"}
+    assert len(opened) == 4
+    for descriptor in opened:
+        with pytest.raises(OSError) as caught:
+            os.fstat(descriptor)
+        assert caught.value.errno == errno.EBADF
+    raw = encoded(record)
+    with pytest.raises(case.checker.EntryStopError, match="entry_stop_hardware_incomplete"):
+        case.checker.validate_hardware_qualification(raw, digest(raw), expected_context=case.environment)
+
+
+@pytest.mark.parametrize("operation,result,number,expected", [
+    (3, -1, 0, (1 << 64) - 1), (3, -2, 0, (1 << 64) - 2), (3, 0, 0, 0),
+    (3, -1, errno.EIO, "os_error"), (3, -1, errno.EPERM, "os_error"),
+    (6, 0, 0, 0), (6, -1, 0, "invalid_return"), (6, 1, 0, "invalid_return"),
+])
+def test_entry_stop_ptrace_distinguishes_minus_one_data_from_errno(monkeypatch, operation, result, number, expected):
+    import ctypes
+    collector = entry_stop_collector()
+    calls = []
+
+    def ptrace(*arguments):
+        calls.append((arguments, ctypes.get_errno()))
+        ctypes.set_errno(number)
+        return result
+
+    monkeypatch.setattr(collector, "_LIBC", SimpleNamespace(ptrace=ptrace))
+    ctypes.set_errno(errno.EBUSY)
+    try:
+        if expected == "os_error":
+            with pytest.raises(OSError) as caught:
+                collector._ptrace(operation, 1002, 848, 0)
+            assert caught.value.errno == number
+        elif expected == "invalid_return":
+            with pytest.raises(collector.EntryStopObservationError, match="entry_stop_ptrace_return"):
+                collector._ptrace(operation, 1002, 848, 0)
+        else:
+            assert collector._ptrace(operation, 1002, 848, 0) == expected
+        assert calls == [((operation, 1002, 848, 0), 0)]
+    finally:
+        ctypes.set_errno(0)
+
+
+@pytest.mark.parametrize("operation,address,data", [
+    (4, 0, 0), (5, 0, 0), (13, 0, 0), (16, 0, 0), (17, 0, 0),
+    (3, 0, 0), (3, 848 + 8 * 4, 0), (6, 848 + 8, 0),
+    (6, 848 + 8 * 2, 0), (6, 848 + 8 * 3, 0), (6, 16 * 8, 0),
+    (7, 0, 5), (7, 1, 0),
+])
+def test_entry_stop_ptrace_forbidden_mutations_never_reach_kernel(monkeypatch, operation, address, data):
+    collector = entry_stop_collector()
+
+    def forbidden(*arguments):
+        raise AssertionError("forbidden ptrace operation reached the native boundary")
+
+    monkeypatch.setattr(collector, "_LIBC", SimpleNamespace(ptrace=forbidden))
+    with pytest.raises(collector.EntryStopObservationError, match="entry_stop_(ptrace_request|debug_read|debug_write|signal_forwarding)_forbidden"):
+        collector._ptrace(operation, 1002, address, data)
