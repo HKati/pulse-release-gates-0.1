@@ -312,7 +312,7 @@ def test_workflow_artifact_identity_matches_reviewed_fix() -> None:
 
 def test_tools_tests_manifest_registers_workflow_regression_exactly_once() -> None:
     entries = manifest_entries()
-    assert len(entries) == 179
+    assert len(entries) == 190
     assert len(entries) == len(set(entries))
     assert entries.count(TEST_RELATIVE_PATH) == 1
     index = entries.index(TEST_RELATIVE_PATH)

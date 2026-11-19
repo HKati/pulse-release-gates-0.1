@@ -1,8 +1,12 @@
 # PULSEmech Language Relation Adapter Evaluation v0
 
 Status: **LRM-05** preserved candidate import and fixed-set evaluation interface.
-Implementation base: `ed1b84119ef2fcd0dcf6997a28efeee0902af27f`, the merged
-LRM-04 baseline in `HKati/pulse-release-gates-0.1`.
+Original implementation base: `ed1b84119ef2fcd0dcf6997a28efeee0902af27f`, the
+merged LRM-04 baseline in `HKati/pulse-release-gates-0.1`.
+PR #3036 integration base: `2184fcc18dd7665d2687cda932ac9218af2fe0af`.
+Integration preserves every existing test-manifest entry, current workflow
+fixture and changelog entry, then adds the LRM-05 regression module once in each
+manifest (190 tools entries and 41 targeted pytest entries).
 
 This package imports saved candidate responses, binds them to a fixed source-only
 HU/EN request inventory, and runs the existing independent LRM-02 input verifier.

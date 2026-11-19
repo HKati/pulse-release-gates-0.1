@@ -1264,8 +1264,8 @@ def test_entry_build_module_registered_once_and_targeted_manifest_unchanged():
         return [value for line in (ROOT / "ci" / name).read_text().splitlines()
                 if (value := line.split("#", 1)[0].strip())]
     tools, targeted = entries("tools-tests.list"), entries("pytest-tests.list")
-    assert len(tools) == len(set(tools)) == 189 and tools.count(SELF) == 1
-    assert len(targeted) == len(set(targeted)) == 40 and SELF not in targeted
+    assert len(tools) == len(set(tools)) == 190 and tools.count(SELF) == 1
+    assert len(targeted) == len(set(targeted)) == 41 and SELF not in targeted
 
 
 if __name__ == "__main__":

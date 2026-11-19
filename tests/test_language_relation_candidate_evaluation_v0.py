@@ -820,7 +820,7 @@ def test_publisher_rolls_back_only_owned_files_after_partial_failure(tmp_path, m
 def test_candidate_evaluation_registered_once_without_losing_prior_lrm_modules():
     previous = ["tests/test_language_relation_" + name + "_v0.py"
                 for name in ("contract", "input_verifier", "comparator", "impact")]
-    for name, count in (("tools-tests.list", 179), ("pytest-tests.list", 35)):
+    for name, count in (("tools-tests.list", 190), ("pytest-tests.list", 41)):
         entries = [line.split("#", 1)[0].strip() for line in (ROOT / "ci" / name).read_text().splitlines()]
         entries = [line for line in entries if line]
         assert len(entries) == len(set(entries)) == count
