@@ -1,0 +1,901 @@
+{
+  "record_type": "required_gate_idempotence_entry_stop_plan_v0",
+  "profile": "linux_x86_64_original_launcher_entry_stop_plan_v0",
+  "proposed_observation_profile": "linux_x86_64_original_launcher_entry_stop_v0",
+  "historical_baseline": {
+    "run_id": 44375052171,
+    "run_attempt": 1,
+    "source_commit": "84b78ff1758ed3db73fbb1db1b37451ca6620373",
+    "attempt_id": "d54f64c544090b13d2c2633b32204e02",
+    "archive_path": "preservation/required_gate_idempotence_exec_stop_v0/run_44375052171_attempt_1/control_evidence_v0.zip",
+    "archive": {
+      "sha256": "788aaa185e979f5ecddfa3b17f8a45d8b74ee59671b26033b5b94c249c9359c6",
+      "size_bytes": 737502
+    },
+    "scope": "historical_cp0_lower_level_reconstruction_only",
+    "historical_child_terminated": true,
+    "historical_child_resumable": false,
+    "fresh_signature_verification_claimed": false,
+    "fresh_cp0_of_future_attempt_still_required": true
+  },
+  "original_inputs": {
+    "archive_path": "preservation/required_gate_idempotence_exec_stop_v0/original_inputs_v0.zip",
+    "archive": {
+      "sha256": "70b57f9a40cb375e267e215b3704be21c9f6d8987cadc13d92dfcc8db56d9c8a",
+      "size_bytes": 24816167
+    },
+    "native_byte_selection_only": true
+  },
+  "future_attempt": {
+    "fresh_attempt_required": true,
+    "fresh_cp0_required": true,
+    "new_profile_cp0_prefix_required": true,
+    "completed_historical_cp0_report_reusable_as_live_prefix": false,
+    "historical_pid_or_aslr_address_reusable": false,
+    "single_owned_process_continuity_required": true,
+    "fresh_original_input_admission_required": true,
+    "owner_acquisition_authorization_required": true,
+    "authorization_supplied_by_plan": false
+  },
+  "checkpoint": {
+    "kind": "original_executable_AT_ENTRY",
+    "target": "fresh_auxv_AT_ENTRY_equals_fresh_launcher_load_bias_plus_original_ELF_e_entry",
+    "target_must_be_in_original_launcher_rx_segment": true,
+    "arbitrary_address_or_symbol_lookup": false,
+    "candidate_stop_mechanism": "x86_64_hardware_execution_breakpoint_slot_0",
+    "debug_register_writes": [
+      "DR0",
+      "DR6",
+      "DR7"
+    ],
+    "debug_register_write_readback_required": true,
+    "dr0_target": "derived_fresh_AT_ENTRY",
+    "dr7_value": 1,
+    "dr6_required_cause": "slot_0_only_no_other_significant_cause",
+    "stop_signal": "SIGTRAP",
+    "ptrace_event_bits_at_entry": 0,
+    "siginfo_code": "TRAP_HWBKPT",
+    "instruction_pointer": "derived_fresh_AT_ENTRY",
+    "stop_before_entry_instruction_required": true,
+    "capability_qualified": false,
+    "software_breakpoint_or_target_code_patch": false,
+    "general_register_or_instruction_pointer_write": false
+  },
+  "execution_policy": {
+    "argv": [
+      "bubblewrap"
+    ],
+    "environment": {
+      "LC_ALL": "C",
+      "TZ": "UTC"
+    },
+    "cwd": "/",
+    "pre_exec_resumes": 1,
+    "cp0_to_entry_resumes": 1,
+    "post_entry_resumes": 0,
+    "detach": false,
+    "retry": false,
+    "fallback_checkpoint": false,
+    "signal_forwarding_before_entry": false,
+    "loader_override_or_LD_environment_injection": false,
+    "allowed_interval": "fresh_cp0_to_original_executable_entry",
+    "loader_relocations_may_execute": true,
+    "initializers_preinitializers_and_ifunc_resolvers_may_execute": true,
+    "absence_of_pre_entry_native_execution_claimed": false,
+    "absence_of_pre_entry_side_effects_claimed": false,
+    "unexpected_stop_or_early_exit": "incomplete_then_owned_cleanup",
+    "cleanup_failure_can_be_complete": false
+  },
+  "task_creation_guard": {
+    "required_before_original_exec": true,
+    "candidate_mechanism": "separately_validated_child_seccomp_filter",
+    "no_new_privs_required": true,
+    "native_x86_64_only": true,
+    "compat_and_x32_syscall_paths_allowed": false,
+    "blocked_syscalls": [
+      "clone",
+      "clone3",
+      "fork",
+      "io_uring_enter",
+      "io_uring_register",
+      "io_uring_setup",
+      "vfork"
+    ],
+    "blocked_syscall_action": "SECCOMP_RET_KILL_PROCESS",
+    "inherited_io_uring_descriptors": 0,
+    "ptrace_options": [
+      "EXITKILL",
+      "TRACECLONE",
+      "TRACEEXEC",
+      "TRACEFORK",
+      "TRACEVFORK"
+    ],
+    "ptrace_events_alone_establish_no_task_creation": false,
+    "seccomp_mode_alone_identifies_installed_filter": false,
+    "privileged_filter_readback_assumed_available": false,
+    "exact_filter_program_selected": false,
+    "installation_and_denial_evidence_implemented": false,
+    "owned_outer_container_cleanup_required": true,
+    "containment_qualification_claimed": false
+  },
+  "mapping_policy": {
+    "all_six_selected_objects_required_for_positive": true,
+    "current_host_presence_assumed": false,
+    "one_unambiguous_occurrence_per_selected_object": true,
+    "actual_mapped_object_descriptor_and_whole_file_binding_required": true,
+    "before_after_stopped_identity_maps_auxv_and_register_evidence_required": true,
+    "same_process_cp0_to_entry_identity_required": true,
+    "every_selected_PT_LOAD_file_extent_covered": true,
+    "one_segment_equals_one_maps_row": false,
+    "gnu_relro_write_removal_must_be_derived": true,
+    "new_executable_or_writable_permission_gain_accepted": false,
+    "unselected_mappings": "retain_raw_maps_without_promoting_selected_native_closure",
+    "anonymous_tls_heap_stack_and_kernel_mappings": "separate_bounded_metadata_policy_required",
+    "rx_samples_per_selected_rx_segment": 2,
+    "rx_sample_bytes_must_equal_original_file_ranges": true,
+    "whole_process_memory_or_intermediate_states_verified": false,
+    "missing_substituted_or_ambiguous_selected_object": "incomplete_or_rejected_no_obligation_removal"
+  },
+  "evidence_policy": {
+    "new_closed_capture_schema_required": true,
+    "capture_schema_implemented": false,
+    "independent_capture_checker_implemented": false,
+    "required_groups": [
+      "attempt_and_request",
+      "fresh_cp0_prefix",
+      "entry_checkpoint",
+      "debug_register_programming_and_trap",
+      "task_guard_installation",
+      "selected_object_descriptors_and_bytes",
+      "maps_auxv_registers_and_process_identity",
+      "selected_rx_samples",
+      "bounded_events_and_output",
+      "owned_cleanup_and_failure_prefix"
+    ],
+    "complete_or_incomplete_prefix_preserved": true,
+    "failed_cleanup_or_preservation_is_success": false,
+    "saved_success_booleans_replace_raw_reconstruction": false
+  },
+  "limits": {
+    "wall_seconds": 15,
+    "cleanup_seconds": 2,
+    "owned_tracees": 1,
+    "wait_records": 8,
+    "capture_files": 160,
+    "control_file_bytes": 1048576,
+    "proc_file_bytes": 65536,
+    "stdout_bytes": 4096,
+    "stderr_bytes": 4096,
+    "total_capture_bytes": 41943040,
+    "deadline_extension_or_implicit_retry": false
+  },
+  "remaining_obligations": [
+    "select_and_validate_exact_task_creation_filter_and_installation_evidence",
+    "implement_and_test_new_owned_cp0_to_entry_collector",
+    "implement_and_test_closed_entry_capture_schema_and_independent_checker",
+    "qualify_exact_environment_native_object_paths_and_breakpoint_capability",
+    "owner_authorize_and_preserve_one_new_attempt",
+    "define_per_consumer_loader_resolution_witness",
+    "observe_containment_and_selected_bootstrap_integration",
+    "complete_B3_B4_B5_and_broader_Steps_6_7"
+  ],
+  "boundary": {
+    "record_status": "proposal",
+    "diagnostic_only": true,
+    "entry_checkpoint_observed": false,
+    "additional_native_objects_observed": false,
+    "native_acquisition_performed": false,
+    "collector_implemented": false,
+    "host_environment_qualified": false,
+    "physical_execution_authenticated": false,
+    "loader_resolution_verified": false,
+    "complete_native_closure_verified": false,
+    "containment_enforced": false,
+    "execution_ready": false,
+    "execution_authorized": false,
+    "selected_runtime_executed": false,
+    "production_gate_eligible": false,
+    "b2_complete": false,
+    "metric_pass": null,
+    "authority_effect": "none"
+  },
+  "observer": {
+    "path": "/usr/local/bin/python3.11",
+    "sha256": "92d7e40ec50be176cb1b790c7568b7e08cd862137b5aa69f1413ba1967886b79",
+    "size_bytes": 14472
+  },
+  "native_objects": [
+    {
+      "path": "native/bwrap",
+      "sha256": "573236e5328ac2ebb08f59ae3a9805b4f8d12bdef14be8af4450d5463294985f",
+      "size_bytes": 80248,
+      "elf": {
+        "entry": 21904,
+        "phoff": 64,
+        "phentsize": 56,
+        "phnum": 14,
+        "interpreter": "/lib64/ld-linux-x86-64.so.2",
+        "segments": [
+          {
+            "index": 2,
+            "offset": 0,
+            "vaddr": 0,
+            "filesz": 9616,
+            "memsz": 9616,
+            "flags": 4,
+            "align": 4096
+          },
+          {
+            "index": 3,
+            "offset": 12288,
+            "vaddr": 12288,
+            "filesz": 39761,
+            "memsz": 39761,
+            "flags": 5,
+            "align": 4096
+          },
+          {
+            "index": 4,
+            "offset": 53248,
+            "vaddr": 53248,
+            "filesz": 21400,
+            "memsz": 21400,
+            "flags": 4,
+            "align": 4096
+          },
+          {
+            "index": 5,
+            "offset": 76016,
+            "vaddr": 80112,
+            "filesz": 2045,
+            "memsz": 2312,
+            "flags": 6,
+            "align": 4096
+          }
+        ]
+      },
+      "dynamic": {
+        "elf_type": "ET_DYN",
+        "interpreter": "/lib64/ld-linux-x86-64.so.2",
+        "needed": [
+          "libselinux.so.1",
+          "libcap.so.2",
+          "libc.so.6"
+        ],
+        "soname": null,
+        "rpath": null,
+        "runpath": null
+      },
+      "initialization": {
+        "gnu_relro": [
+          {
+            "index": 13,
+            "vaddr": 80112,
+            "memsz": 1808
+          }
+        ],
+        "init_declared": true,
+        "init_array_bytes": 8,
+        "preinit_array_bytes": 0,
+        "text_relocations_declared": false
+      },
+      "presence": "required_for_positive_entry_observation",
+      "entry_observed": false,
+      "rx_samples": [
+        {
+          "segment_index": 3,
+          "sample_index": 0,
+          "file_offset": 12288,
+          "vaddr": 12288,
+          "sha256": "023deed07f1021011871b69ab9836728306e2c00413623eec1ddce4ae1cee036",
+          "size_bytes": 39761
+        },
+        {
+          "segment_index": 3,
+          "sample_index": 1,
+          "file_offset": 12288,
+          "vaddr": 12288,
+          "sha256": "023deed07f1021011871b69ab9836728306e2c00413623eec1ddce4ae1cee036",
+          "size_bytes": 39761
+        }
+      ]
+    },
+    {
+      "path": "native/ld-linux-x86-64.so.2",
+      "sha256": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307",
+      "size_bytes": 225672,
+      "elf": {
+        "entry": 119488,
+        "phoff": 64,
+        "phentsize": 56,
+        "phnum": 9,
+        "interpreter": null,
+        "segments": [
+          {
+            "index": 0,
+            "offset": 0,
+            "vaddr": 0,
+            "filesz": 3280,
+            "memsz": 3280,
+            "flags": 4,
+            "align": 4096
+          },
+          {
+            "index": 1,
+            "offset": 4096,
+            "vaddr": 4096,
+            "filesz": 160721,
+            "memsz": 160721,
+            "flags": 5,
+            "align": 4096
+          },
+          {
+            "index": 2,
+            "offset": 167936,
+            "vaddr": 167936,
+            "filesz": 44336,
+            "memsz": 44336,
+            "flags": 4,
+            "align": 4096
+          },
+          {
+            "index": 3,
+            "offset": 213568,
+            "vaddr": 213568,
+            "filesz": 10508,
+            "memsz": 13224,
+            "flags": 6,
+            "align": 4096
+          }
+        ]
+      },
+      "dynamic": {
+        "elf_type": "ET_DYN",
+        "interpreter": null,
+        "needed": [],
+        "soname": "ld-linux-x86-64.so.2",
+        "rpath": null,
+        "runpath": null
+      },
+      "initialization": {
+        "gnu_relro": [
+          {
+            "index": 8,
+            "vaddr": 213568,
+            "memsz": 7616
+          }
+        ],
+        "init_declared": false,
+        "init_array_bytes": 0,
+        "preinit_array_bytes": 0,
+        "text_relocations_declared": false
+      },
+      "presence": "required_for_positive_entry_observation",
+      "entry_observed": false,
+      "rx_samples": [
+        {
+          "segment_index": 1,
+          "sample_index": 0,
+          "file_offset": 4096,
+          "vaddr": 4096,
+          "sha256": "d37e7ccdc896ff037553cc924c788f81b8dcb0fa6a69a5717a03c87ad67dee21",
+          "size_bytes": 160721
+        },
+        {
+          "segment_index": 1,
+          "sample_index": 1,
+          "file_offset": 4096,
+          "vaddr": 4096,
+          "sha256": "d37e7ccdc896ff037553cc924c788f81b8dcb0fa6a69a5717a03c87ad67dee21",
+          "size_bytes": 160721
+        }
+      ]
+    },
+    {
+      "path": "native/libc.so.6",
+      "sha256": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+      "size_bytes": 1995216,
+      "elf": {
+        "entry": 171632,
+        "phoff": 64,
+        "phentsize": 56,
+        "phnum": 15,
+        "interpreter": "/lib64/ld-linux-x86-64.so.2",
+        "segments": [
+          {
+            "index": 2,
+            "offset": 0,
+            "vaddr": 0,
+            "filesz": 161096,
+            "memsz": 161096,
+            "flags": 4,
+            "align": 4096
+          },
+          {
+            "index": 3,
+            "offset": 163840,
+            "vaddr": 163840,
+            "filesz": 1451581,
+            "memsz": 1451581,
+            "flags": 5,
+            "align": 4096
+          },
+          {
+            "index": 4,
+            "offset": 1617920,
+            "vaddr": 1617920,
+            "filesz": 348604,
+            "memsz": 348604,
+            "flags": 4,
+            "align": 4096
+          },
+          {
+            "index": 5,
+            "offset": 1969056,
+            "vaddr": 1973152,
+            "filesz": 19240,
+            "memsz": 74416,
+            "flags": 6,
+            "align": 4096
+          }
+        ]
+      },
+      "dynamic": {
+        "elf_type": "ET_DYN",
+        "interpreter": "/lib64/ld-linux-x86-64.so.2",
+        "needed": [
+          "ld-linux-x86-64.so.2"
+        ],
+        "soname": "libc.so.6",
+        "rpath": null,
+        "runpath": null
+      },
+      "initialization": {
+        "gnu_relro": [
+          {
+            "index": 14,
+            "vaddr": 1973152,
+            "memsz": 13408
+          }
+        ],
+        "init_declared": false,
+        "init_array_bytes": 24,
+        "preinit_array_bytes": 0,
+        "text_relocations_declared": false
+      },
+      "presence": "required_for_positive_entry_observation",
+      "entry_observed": false,
+      "rx_samples": [
+        {
+          "segment_index": 3,
+          "sample_index": 0,
+          "file_offset": 163840,
+          "vaddr": 163840,
+          "sha256": "62e635e44277351baa6a5b2f35c4b4d41d3311b9ea8c0f83d5e77f9c38535396",
+          "size_bytes": 1451581
+        },
+        {
+          "segment_index": 3,
+          "sample_index": 1,
+          "file_offset": 163840,
+          "vaddr": 163840,
+          "sha256": "62e635e44277351baa6a5b2f35c4b4d41d3311b9ea8c0f83d5e77f9c38535396",
+          "size_bytes": 1451581
+        }
+      ]
+    },
+    {
+      "path": "native/libcap.so.2",
+      "sha256": "41217b0af128444f66dee8adda52b2ceaf19da00e5b0b155e2b87b857671286b",
+      "size_bytes": 47288,
+      "elf": {
+        "entry": 31472,
+        "phoff": 64,
+        "phentsize": 56,
+        "phnum": 11,
+        "interpreter": "/lib64/ld-linux-x86-64.so.2",
+        "segments": [
+          {
+            "index": 2,
+            "offset": 0,
+            "vaddr": 0,
+            "filesz": 10344,
+            "memsz": 10344,
+            "flags": 4,
+            "align": 4096
+          },
+          {
+            "index": 3,
+            "offset": 12288,
+            "vaddr": 12288,
+            "filesz": 19973,
+            "memsz": 19973,
+            "flags": 5,
+            "align": 4096
+          },
+          {
+            "index": 4,
+            "offset": 32768,
+            "vaddr": 32768,
+            "filesz": 7440,
+            "memsz": 7440,
+            "flags": 4,
+            "align": 4096
+          },
+          {
+            "index": 5,
+            "offset": 42592,
+            "vaddr": 42592,
+            "filesz": 2512,
+            "memsz": 2536,
+            "flags": 6,
+            "align": 4096
+          }
+        ]
+      },
+      "dynamic": {
+        "elf_type": "ET_DYN",
+        "interpreter": "/lib64/ld-linux-x86-64.so.2",
+        "needed": [
+          "libc.so.6"
+        ],
+        "soname": "libcap.so.2",
+        "rpath": null,
+        "runpath": null
+      },
+      "initialization": {
+        "gnu_relro": [
+          {
+            "index": 10,
+            "vaddr": 42592,
+            "memsz": 2464
+          }
+        ],
+        "init_declared": true,
+        "init_array_bytes": 16,
+        "preinit_array_bytes": 0,
+        "text_relocations_declared": false
+      },
+      "presence": "required_for_positive_entry_observation",
+      "entry_observed": false,
+      "rx_samples": [
+        {
+          "segment_index": 3,
+          "sample_index": 0,
+          "file_offset": 12288,
+          "vaddr": 12288,
+          "sha256": "9fa482ff965fbab531909d7afe886e264013fb91d036aa50035c4369290d3492",
+          "size_bytes": 19973
+        },
+        {
+          "segment_index": 3,
+          "sample_index": 1,
+          "file_offset": 12288,
+          "vaddr": 12288,
+          "sha256": "9fa482ff965fbab531909d7afe886e264013fb91d036aa50035c4369290d3492",
+          "size_bytes": 19973
+        }
+      ]
+    },
+    {
+      "path": "native/libpcre2-8.so.0",
+      "sha256": "92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3",
+      "size_bytes": 711216,
+      "elf": {
+        "entry": 0,
+        "phoff": 64,
+        "phentsize": 56,
+        "phnum": 9,
+        "interpreter": null,
+        "segments": [
+          {
+            "index": 0,
+            "offset": 0,
+            "vaddr": 0,
+            "filesz": 8400,
+            "memsz": 8400,
+            "flags": 4,
+            "align": 4096
+          },
+          {
+            "index": 1,
+            "offset": 12288,
+            "vaddr": 12288,
+            "filesz": 501093,
+            "memsz": 501093,
+            "flags": 5,
+            "align": 4096
+          },
+          {
+            "index": 2,
+            "offset": 516096,
+            "vaddr": 516096,
+            "filesz": 189464,
+            "memsz": 189464,
+            "flags": 4,
+            "align": 4096
+          },
+          {
+            "index": 3,
+            "offset": 707664,
+            "vaddr": 711760,
+            "filesz": 1528,
+            "memsz": 1784,
+            "flags": 6,
+            "align": 4096
+          }
+        ]
+      },
+      "dynamic": {
+        "elf_type": "ET_DYN",
+        "interpreter": null,
+        "needed": [
+          "libc.so.6"
+        ],
+        "soname": "libpcre2-8.so.0",
+        "rpath": null,
+        "runpath": null
+      },
+      "initialization": {
+        "gnu_relro": [
+          {
+            "index": 8,
+            "vaddr": 711760,
+            "memsz": 944
+          }
+        ],
+        "init_declared": true,
+        "init_array_bytes": 8,
+        "preinit_array_bytes": 0,
+        "text_relocations_declared": false
+      },
+      "presence": "required_for_positive_entry_observation",
+      "entry_observed": false,
+      "rx_samples": [
+        {
+          "segment_index": 1,
+          "sample_index": 0,
+          "file_offset": 12288,
+          "vaddr": 12288,
+          "sha256": "17c96dea245bb1910c287101900eff019f83af8be49ecf14df09442377f0b583",
+          "size_bytes": 501093
+        },
+        {
+          "segment_index": 1,
+          "sample_index": 1,
+          "file_offset": 12288,
+          "vaddr": 12288,
+          "sha256": "17c96dea245bb1910c287101900eff019f83af8be49ecf14df09442377f0b583",
+          "size_bytes": 501093
+        }
+      ]
+    },
+    {
+      "path": "native/libselinux.so.1",
+      "sha256": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c",
+      "size_bytes": 202984,
+      "elf": {
+        "entry": 0,
+        "phoff": 64,
+        "phentsize": 56,
+        "phnum": 10,
+        "interpreter": null,
+        "segments": [
+          {
+            "index": 0,
+            "offset": 0,
+            "vaddr": 0,
+            "filesz": 26856,
+            "memsz": 26856,
+            "flags": 4,
+            "align": 4096
+          },
+          {
+            "index": 1,
+            "offset": 28672,
+            "vaddr": 28672,
+            "filesz": 127645,
+            "memsz": 127645,
+            "flags": 5,
+            "align": 4096
+          },
+          {
+            "index": 2,
+            "offset": 159744,
+            "vaddr": 159744,
+            "filesz": 34272,
+            "memsz": 34272,
+            "flags": 4,
+            "align": 4096
+          },
+          {
+            "index": 3,
+            "offset": 197976,
+            "vaddr": 197976,
+            "filesz": 2832,
+            "memsz": 12664,
+            "flags": 6,
+            "align": 4096
+          }
+        ]
+      },
+      "dynamic": {
+        "elf_type": "ET_DYN",
+        "interpreter": null,
+        "needed": [
+          "libpcre2-8.so.0",
+          "libc.so.6",
+          "ld-linux-x86-64.so.2"
+        ],
+        "soname": "libselinux.so.1",
+        "rpath": null,
+        "runpath": null
+      },
+      "initialization": {
+        "gnu_relro": [
+          {
+            "index": 9,
+            "vaddr": 197976,
+            "memsz": 2728
+          }
+        ],
+        "init_declared": true,
+        "init_array_bytes": 16,
+        "preinit_array_bytes": 0,
+        "text_relocations_declared": false
+      },
+      "presence": "required_for_positive_entry_observation",
+      "entry_observed": false,
+      "rx_samples": [
+        {
+          "segment_index": 1,
+          "sample_index": 0,
+          "file_offset": 28672,
+          "vaddr": 28672,
+          "sha256": "f55f35d38734aabf14e208763613657c7355b3c1e209608182631d039faa061e",
+          "size_bytes": 127645
+        },
+        {
+          "segment_index": 1,
+          "sample_index": 1,
+          "file_offset": 28672,
+          "vaddr": 28672,
+          "sha256": "f55f35d38734aabf14e208763613657c7355b3c1e209608182631d039faa061e",
+          "size_bytes": 127645
+        }
+      ]
+    }
+  ],
+  "static_relationships": [
+    {
+      "consumer": "native/bwrap",
+      "kind": "interpreter",
+      "name": "/lib64/ld-linux-x86-64.so.2",
+      "provider": "native/ld-linux-x86-64.so.2",
+      "static_selection_verified": true,
+      "provider_mapping_observed": false,
+      "consumer_resolution_observed": false,
+      "entry_obligation": "fresh_kernel_interpreter_continuity"
+    },
+    {
+      "consumer": "native/bwrap",
+      "kind": "needed",
+      "name": "libc.so.6",
+      "provider": "native/libc.so.6",
+      "static_selection_verified": true,
+      "provider_mapping_observed": false,
+      "consumer_resolution_observed": false,
+      "entry_obligation": "mapped_provider_is_not_consumer_resolution"
+    },
+    {
+      "consumer": "native/bwrap",
+      "kind": "needed",
+      "name": "libcap.so.2",
+      "provider": "native/libcap.so.2",
+      "static_selection_verified": true,
+      "provider_mapping_observed": false,
+      "consumer_resolution_observed": false,
+      "entry_obligation": "mapped_provider_is_not_consumer_resolution"
+    },
+    {
+      "consumer": "native/bwrap",
+      "kind": "needed",
+      "name": "libselinux.so.1",
+      "provider": "native/libselinux.so.1",
+      "static_selection_verified": true,
+      "provider_mapping_observed": false,
+      "consumer_resolution_observed": false,
+      "entry_obligation": "mapped_provider_is_not_consumer_resolution"
+    },
+    {
+      "consumer": "native/libc.so.6",
+      "kind": "interpreter",
+      "name": "/lib64/ld-linux-x86-64.so.2",
+      "provider": "native/ld-linux-x86-64.so.2",
+      "static_selection_verified": true,
+      "provider_mapping_observed": false,
+      "consumer_resolution_observed": false,
+      "entry_obligation": "static_metadata_only"
+    },
+    {
+      "consumer": "native/libc.so.6",
+      "kind": "needed",
+      "name": "ld-linux-x86-64.so.2",
+      "provider": "native/ld-linux-x86-64.so.2",
+      "static_selection_verified": true,
+      "provider_mapping_observed": false,
+      "consumer_resolution_observed": false,
+      "entry_obligation": "mapped_provider_is_not_consumer_resolution"
+    },
+    {
+      "consumer": "native/libcap.so.2",
+      "kind": "interpreter",
+      "name": "/lib64/ld-linux-x86-64.so.2",
+      "provider": "native/ld-linux-x86-64.so.2",
+      "static_selection_verified": true,
+      "provider_mapping_observed": false,
+      "consumer_resolution_observed": false,
+      "entry_obligation": "static_metadata_only"
+    },
+    {
+      "consumer": "native/libcap.so.2",
+      "kind": "needed",
+      "name": "libc.so.6",
+      "provider": "native/libc.so.6",
+      "static_selection_verified": true,
+      "provider_mapping_observed": false,
+      "consumer_resolution_observed": false,
+      "entry_obligation": "mapped_provider_is_not_consumer_resolution"
+    },
+    {
+      "consumer": "native/libpcre2-8.so.0",
+      "kind": "needed",
+      "name": "libc.so.6",
+      "provider": "native/libc.so.6",
+      "static_selection_verified": true,
+      "provider_mapping_observed": false,
+      "consumer_resolution_observed": false,
+      "entry_obligation": "mapped_provider_is_not_consumer_resolution"
+    },
+    {
+      "consumer": "native/libselinux.so.1",
+      "kind": "needed",
+      "name": "ld-linux-x86-64.so.2",
+      "provider": "native/ld-linux-x86-64.so.2",
+      "static_selection_verified": true,
+      "provider_mapping_observed": false,
+      "consumer_resolution_observed": false,
+      "entry_obligation": "mapped_provider_is_not_consumer_resolution"
+    },
+    {
+      "consumer": "native/libselinux.so.1",
+      "kind": "needed",
+      "name": "libc.so.6",
+      "provider": "native/libc.so.6",
+      "static_selection_verified": true,
+      "provider_mapping_observed": false,
+      "consumer_resolution_observed": false,
+      "entry_obligation": "mapped_provider_is_not_consumer_resolution"
+    },
+    {
+      "consumer": "native/libselinux.so.1",
+      "kind": "needed",
+      "name": "libpcre2-8.so.0",
+      "provider": "native/libpcre2-8.so.0",
+      "static_selection_verified": true,
+      "provider_mapping_observed": false,
+      "consumer_resolution_observed": false,
+      "entry_obligation": "mapped_provider_is_not_consumer_resolution"
+    }
+  ],
+  "totals": {
+    "native_objects": 6,
+    "pt_load_occurrences": 24,
+    "rx_sample_occurrences": 12,
+    "rx_sample_bytes": 4601548,
+    "distinct_rx_bytes": 2300774,
+    "static_relationships": 12,
+    "dt_needed_relationships": 9,
+    "pt_interp_relationships": 3
+  }
+}

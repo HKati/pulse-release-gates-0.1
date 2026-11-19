@@ -6433,3 +6433,317 @@ def test_hosted_environment_builder_rejects_post_install_mismatch_without_record
     assert len(state.calls) == 3 and state.status_reads == 2
     assert not (state.inputs / "build-environment-record.json").exists()
     assert (state.inputs / "debs").is_dir() and (state.inputs / "wheels").is_dir()
+
+
+# Entry-stop proposal checks consume historical bytes only. No original child,
+# dynamic loader, entry collector or new hosted acquisition executes here.
+ENTRY_STOP_PLAN_REL = "docs/compute/required_gate_idempotence_entry_stop_plan_v0/plan_v0.json"
+
+
+@pytest.fixture(scope="module")
+def entry_stop_plan_case():
+    checker = module("check_required_gate_idempotence_entry_stop_plan_v0",
+                     "tools/check_required_gate_idempotence_entry_stop_plan_v0.py")
+    raw = (ROOT / ENTRY_STOP_PLAN_REL).read_bytes()
+    return SimpleNamespace(checker=checker, raw=raw, plan=json.loads(raw),
+        baseline=(ROOT / checker.BASELINE_REL).read_bytes(),
+        originals=(ROOT / checker.ORIGINALS_REL).read_bytes())
+
+
+def entry_stop_plan_check(case, raw=None, **overrides):
+    raw = case.raw if raw is None else raw
+    arguments = dict(plan_bytes=raw, expected_plan_sha256=digest(raw),
+                     baseline_archive_bytes=case.baseline,
+                     originals_archive_bytes=case.originals)
+    arguments.update(overrides)
+    return case.checker.verify_plan(**arguments)
+
+
+def test_entry_stop_plan_reconstructs_actual_cp0_and_original_native_extents(entry_stop_plan_case):
+    import zipfile
+    case = entry_stop_plan_case
+    report = entry_stop_plan_check(case)
+    assert report == entry_stop_plan_check(case)
+    assert report["status"] == "accepted" and report["plan_consistency_verified"] is True
+    assert report["historical_cp0"] == {
+        "run_id": 44375052171, "run_attempt": 1,
+        "source_commit": "84b78ff1758ed3db73fbb1db1b37451ca6620373",
+        "attempt_id": "d54f64c544090b13d2c2633b32204e02",
+        "lower_level_reconstruction_accepted": True,
+        "report": {"sha256": "8a2769ae4e7858f73b7cca9285724aabaee152f4dbf6e5bfb6c603cea538b34b", "size_bytes": 2200},
+        "source_file_count": 62,
+    }
+    assert {row["path"] for row in case.plan["native_objects"]} == {
+        "native/bwrap", "native/ld-linux-x86-64.so.2", "native/libc.so.6",
+        "native/libcap.so.2", "native/libpcre2-8.so.0", "native/libselinux.so.1",
+    }
+    load_count, rx_bytes, rx_count = 0, 0, 0
+    with zipfile.ZipFile(io.BytesIO(case.originals)) as archive:
+        for row in case.plan["native_objects"]:
+            raw = archive.read(row["path"])
+            assert bound(raw) == {name: row[name] for name in ("sha256", "size_bytes")}
+            header = struct.unpack_from("<16sHHIQQQIHHHHHH", raw)
+            for index in range(header[10]):
+                kind, flags, _offset, _vaddr, _paddr, filesz, _memsz, _align = struct.unpack_from(
+                    "<IIQQQQQQ", raw, header[5] + index * header[9])
+                load_count += kind == 1
+                if kind == 1 and flags == 5:
+                    rx_bytes += filesz
+                    rx_count += 1
+            for sample in row["rx_samples"]:
+                segment = next(item for item in row["elf"]["segments"] if item["index"] == sample["segment_index"])
+                selected = raw[segment["offset"]:segment["offset"] + segment["filesz"]]
+                assert bound(selected) == {name: sample[name] for name in ("sha256", "size_bytes")}
+    assert report["totals"] == {
+        "native_objects": 6, "pt_load_occurrences": load_count,
+        "rx_sample_occurrences": 2 * rx_count, "rx_sample_bytes": 2 * rx_bytes,
+        "distinct_rx_bytes": rx_bytes, "static_relationships": 12,
+        "dt_needed_relationships": 9, "pt_interp_relationships": 3,
+    }
+    assert (load_count, rx_count, rx_bytes) == (24, 6, 2300774)
+    assert report["original_native_bytes_verified"] is True
+    for flag in ("entry_checkpoint_observed", "additional_native_objects_observed",
+                 "native_acquisition_performed", "collector_implemented", "execution_authorized",
+                 "selected_runtime_executed", "loader_resolution_verified", "b2_complete",
+                 "distribution_signature_freshly_verified", "attestation_signature_freshly_verified",
+                 "full_hosted_replay_performed", "production_gate_eligible"):
+        assert report[flag] is False, flag
+    assert report["metric_pass"] is None and report["authority_effect"] == "none"
+
+
+@pytest.mark.parametrize("fault", [
+    "object_missing", "object_duplicate", "object_substituted", "object_digest",
+    "segment_missing", "segment_duplicate", "segment_offset", "segment_flags",
+    "sample_missing", "sample_duplicate", "sample_other_object", "sample_digest",
+])
+def test_entry_stop_plan_rehashed_native_obligations_cannot_change(entry_stop_plan_case, fault):
+    case = entry_stop_plan_case
+    plan = copy.deepcopy(case.plan)
+    objects = plan["native_objects"]
+    segments, samples = objects[0]["elf"]["segments"], objects[0]["rx_samples"]
+    if fault == "object_missing": objects.pop()
+    elif fault == "object_duplicate": objects[-1] = copy.deepcopy(objects[0])
+    elif fault == "object_substituted": objects[0]["path"] = "native/other-launcher"
+    elif fault == "object_digest": objects[0]["sha256"] = "0" * 64
+    elif fault == "segment_missing": segments.pop()
+    elif fault == "segment_duplicate": segments[-1] = copy.deepcopy(segments[0])
+    elif fault == "segment_offset": segments[1]["offset"] += 4096
+    elif fault == "segment_flags": segments[1]["flags"] = 7
+    elif fault == "sample_missing": samples.pop()
+    elif fault == "sample_duplicate": samples[1] = copy.deepcopy(samples[0])
+    elif fault == "sample_other_object": samples[0] = copy.deepcopy(objects[1]["rx_samples"][0])
+    else: samples[0]["sha256"] = "0" * 64
+    raw = encoded(plan)
+    assert json.loads(raw) != case.plan
+    with pytest.raises(case.checker.PlanError):
+        entry_stop_plan_check(case, raw)
+
+
+@pytest.mark.parametrize("fault", [
+    "missing", "duplicate", "provider_substituted", "consumer_substituted",
+    "needed_as_interpreter", "metadata_interpreter_executed", "mapping_promoted_to_resolution",
+])
+def test_entry_stop_plan_rehashed_relationships_keep_occurrence_meanings(entry_stop_plan_case, fault):
+    case = entry_stop_plan_case
+    plan = copy.deepcopy(case.plan)
+    rows = plan["static_relationships"]
+    if fault == "missing": rows.pop()
+    elif fault == "duplicate": rows[-1] = copy.deepcopy(rows[0])
+    elif fault == "provider_substituted": rows[1]["provider"] = "native/libcap.so.2"
+    elif fault == "consumer_substituted": rows[1]["consumer"] = "native/libselinux.so.1"
+    elif fault == "needed_as_interpreter": rows[1]["kind"] = "interpreter"
+    elif fault == "metadata_interpreter_executed":
+        row = next(item for item in rows if item["consumer"] == "native/libc.so.6" and item["kind"] == "interpreter")
+        row["entry_obligation"] = "fresh_kernel_interpreter_continuity"
+    else:
+        rows[1]["provider_mapping_observed"] = True
+        rows[1]["consumer_resolution_observed"] = True
+    with pytest.raises(case.checker.PlanError):
+        entry_stop_plan_check(case, encoded(plan))
+
+
+@pytest.mark.parametrize("section,field,value", [
+    ("historical_baseline", "historical_child_resumable", True),
+    ("historical_baseline", "run_attempt", 2),
+    ("future_attempt", "historical_pid_or_aslr_address_reusable", True),
+    ("future_attempt", "completed_historical_cp0_report_reusable_as_live_prefix", True),
+    ("future_attempt", "fresh_cp0_required", False),
+    ("future_attempt", "authorization_supplied_by_plan", True),
+    ("execution_policy", "post_entry_resumes", 1),
+    ("execution_policy", "cp0_to_entry_resumes", 2),
+    ("execution_policy", "absence_of_pre_entry_side_effects_claimed", True),
+    ("checkpoint", "debug_register_writes", ["DR0", "DR1", "DR6", "DR7"]),
+    ("checkpoint", "software_breakpoint_or_target_code_patch", True),
+    ("checkpoint", "general_register_or_instruction_pointer_write", True),
+    ("task_creation_guard", "ptrace_events_alone_establish_no_task_creation", True),
+    ("evidence_policy", "saved_success_booleans_replace_raw_reconstruction", True),
+    ("boundary", "entry_checkpoint_observed", True),
+    ("boundary", "loader_resolution_verified", True),
+    ("boundary", "authority_effect", "release"),
+    ("boundary", "metric_pass", True),
+])
+def test_entry_stop_plan_rehash_does_not_authorize_scope_changes(entry_stop_plan_case, section, field, value):
+    case = entry_stop_plan_case
+    plan = copy.deepcopy(case.plan)
+    plan[section][field] = value
+    with pytest.raises(case.checker.PlanError):
+        entry_stop_plan_check(case, encoded(plan))
+
+
+@pytest.mark.parametrize("field,value", [
+    ("wall_seconds", 60), ("cleanup_seconds", 20), ("owned_tracees", 2),
+    ("wait_records", 100), ("total_capture_bytes", 83886080),
+])
+def test_entry_stop_plan_rehashed_limits_cannot_expand(entry_stop_plan_case, field, value):
+    case = entry_stop_plan_case
+    plan = copy.deepcopy(case.plan)
+    plan["limits"][field] = value
+    with pytest.raises(case.checker.PlanError):
+        entry_stop_plan_check(case, encoded(plan))
+
+
+@pytest.mark.parametrize("fault", [
+    "duplicate_top", "duplicate_nested", "float", "boolean", "nonfinite", "invalid_utf8", "array", "oversized",
+])
+def test_entry_stop_plan_strict_json_and_numeric_types(entry_stop_plan_case, fault):
+    case = entry_stop_plan_case
+    raw = encoded(case.plan)
+    if fault == "duplicate_top": raw = b'{"profile":"discarded",' + raw[1:]
+    elif fault == "duplicate_nested": raw = raw.replace(b'"wall_seconds":15', b'"wall_seconds":15,"wall_seconds":15', 1)
+    elif fault == "float": raw = raw.replace(b'"wall_seconds":15', b'"wall_seconds":15.0', 1)
+    elif fault == "boolean": raw = raw.replace(b'"owned_tracees":1', b'"owned_tracees":true', 1)
+    elif fault == "nonfinite": raw = raw.replace(b'"wall_seconds":15', b'"wall_seconds":NaN', 1)
+    elif fault == "invalid_utf8": raw += b"\xff"
+    elif fault == "array": raw = b"[]\n"
+    else: raw = b" " * (case.checker.CONTROL_BYTES + 1)
+    assert raw != encoded(case.plan)
+    with pytest.raises(case.checker.PlanError):
+        entry_stop_plan_check(case, raw)
+
+
+@pytest.mark.parametrize("expected", ["0" * 64, "a" * 63, "A" * 64, False])
+def test_entry_stop_plan_requires_the_external_plan_digest(entry_stop_plan_case, expected):
+    case = entry_stop_plan_case
+    with pytest.raises(case.checker.PlanError, match="entry_stop_plan_(external_digest|digest_mismatch)"):
+        entry_stop_plan_check(case, expected_plan_sha256=expected)
+
+
+@pytest.mark.parametrize("which", ["baseline", "originals"])
+@pytest.mark.parametrize("fault", ["changed", "truncated", "wrong_type"])
+def test_entry_stop_plan_both_selected_archives_require_exact_bytes(entry_stop_plan_case, which, fault):
+    case = entry_stop_plan_case
+    raw = getattr(case, which)
+    if fault == "changed": raw = raw[:-1] + bytes([raw[-1] ^ 1])
+    elif fault == "truncated": raw = raw[:-1]
+    else: raw = bytearray(raw)
+    parameter = "baseline_archive_bytes" if which == "baseline" else "originals_archive_bytes"
+    with pytest.raises(case.checker.PlanError, match="entry_stop_plan_archive_binding"):
+        entry_stop_plan_check(case, **{parameter: raw})
+
+
+@pytest.mark.parametrize("fault", ["rejected", "incomplete"])
+def test_entry_stop_plan_saved_cp0_reports_cannot_override_fresh_reconstruction(entry_stop_plan_case, monkeypatch, fault):
+    import zipfile
+    case = entry_stop_plan_case
+    with zipfile.ZipFile(io.BytesIO(case.baseline)) as archive:
+        saved = json.loads(archive.read("verification/verification/capture-check-1.json"))
+    calls = []
+
+    def reject(**inputs):
+        calls.append(inputs)
+        if fault == "rejected":
+            raise case.checker.cp0.ExecStopError("authored_raw_capture_rejection")
+        return dict(saved, observation_complete=False)
+
+    monkeypatch.setattr(case.checker.cp0, "verify_capture", reject)
+    with pytest.raises(case.checker.PlanError, match="entry_stop_plan_historical_cp0_(rejected|incomplete)"):
+        entry_stop_plan_check(case)
+    assert len(calls) == 1
+    assert digest(calls[0]["capture_bytes"]) == "0e7bc25175f9c95393ab7bd9a9895e72be5f608b17c2012c4249775e3c5dce13"
+    assert len(calls[0]["files"]) == 32 and saved["observation_complete"] is True
+
+
+@pytest.mark.parametrize("which", ["historical", "checker", "schema"])
+def test_entry_stop_plan_source_changes_during_verification_are_rejected(entry_stop_plan_case, monkeypatch, which):
+    case = entry_stop_plan_case
+    target = {
+        "historical": "docs/compute/required_gate_idempotence_protocol_v0/inputs_v0.json",
+        "checker": "tools/check_required_gate_idempotence_entry_stop_plan_v0.py",
+        "schema": case.checker.SCHEMA_REL,
+    }[which]
+    actual_source = case.checker._source
+    reads = []
+
+    def changed_source(path):
+        raw = actual_source(path)
+        if path == target:
+            reads.append(path)
+            if which == "historical" or len(reads) > 1:
+                return raw + b"\n"
+        return raw
+
+    monkeypatch.setattr(case.checker, "_source", changed_source)
+    with pytest.raises(case.checker.PlanError, match="entry_stop_plan_(historical_source_changed|checker_source_changed)"):
+        entry_stop_plan_check(case)
+    assert len(reads) == (1 if which == "historical" else 2)
+
+
+def test_entry_stop_plan_shape_acceptance_does_not_replace_original_byte_semantics(entry_stop_plan_case):
+    import jsonschema
+    case = entry_stop_plan_case
+    plan = copy.deepcopy(case.plan)
+    plan["native_objects"][0]["sha256"] = "0" * 64
+    schema = json.loads((ROOT / case.checker.SCHEMA_REL).read_bytes())
+    jsonschema.Draft202012Validator.check_schema(schema)
+    jsonschema.Draft202012Validator(schema).validate(plan)
+    with pytest.raises(case.checker.PlanError, match="entry_stop_plan_native_obligations"):
+        entry_stop_plan_check(case, encoded(plan))
+
+
+def test_entry_stop_plan_verification_never_imports_collectors_or_starts_execution(entry_stop_plan_case, monkeypatch):
+    import builtins
+    import ctypes
+    case = entry_stop_plan_case
+    actual_import = builtins.__import__
+    collectors = {
+        "required_gate_idempotence_exec_stop_v0", "prepare_required_gate_idempotence_exec_stop_v0",
+        "required_gate_idempotence_exec_stop_hosted_v0", "required_gate_idempotence_containment_v0",
+    }
+
+    def guarded_import(name, *args, **kwargs):
+        assert name not in collectors, "proposal checker imported a live acquisition adapter"
+        return actual_import(name, *args, **kwargs)
+
+    def forbidden_execution(*args, **kwargs):
+        raise AssertionError("proposal verification must only reconstruct preserved data")
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    monkeypatch.setattr(subprocess, "Popen", forbidden_execution)
+    monkeypatch.setattr(os, "fork", forbidden_execution)
+    monkeypatch.setattr(os, "execve", forbidden_execution)
+    monkeypatch.setattr(os, "system", forbidden_execution)
+    monkeypatch.setattr(ctypes, "CDLL", forbidden_execution)
+    monkeypatch.setattr(case.checker.transport, "run_command", forbidden_execution)
+    independent = module("entry_stop_plan_no_execution", "tools/check_required_gate_idempotence_entry_stop_plan_v0.py")
+    report = independent.verify_plan(plan_bytes=case.raw, expected_plan_sha256=digest(case.raw),
+        baseline_archive_bytes=case.baseline, originals_archive_bytes=case.originals)
+    assert report["status"] == "accepted" and report["native_acquisition_performed"] is False
+
+
+def test_entry_stop_plan_cli_preserves_an_existing_output(entry_stop_plan_case, tmp_path):
+    case = entry_stop_plan_case
+    target = tmp_path / "entry-stop-plan-verification.json"
+    argv = [sys.executable, "-I", "-B",
+        str(ROOT / "tools/check_required_gate_idempotence_entry_stop_plan_v0.py"),
+        "--plan", str(ROOT / ENTRY_STOP_PLAN_REL), "--plan-sha256", digest(case.raw),
+        "--output", str(target)]
+    first = subprocess.run(argv, cwd=ROOT, capture_output=True, timeout=60, check=False)
+    assert first.returncode == 0, first.stderr.decode()
+    saved = target.read_bytes()
+    assert first.stdout == saved
+    report = json.loads(saved)
+    assert report["plan"] == bound(case.raw) and report["status"] == "accepted"
+    assert report["native_acquisition_performed"] is False and report["authority_effect"] == "none"
+    second = subprocess.run(argv, cwd=ROOT, capture_output=True, timeout=60, check=False)
+    assert second.returncode == 1 and target.read_bytes() == saved
+    assert json.loads(second.stderr)["status"] == "rejected"

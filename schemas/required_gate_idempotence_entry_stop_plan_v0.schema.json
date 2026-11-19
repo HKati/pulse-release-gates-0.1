@@ -1,0 +1,727 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/required_gate_idempotence_entry_stop_plan_v0.schema.json",
+  "title": "Original executable-entry observation plan v0",
+  "description": "A non-authorizing proposal. Structural validity does not reconstruct historical evidence or prove future observations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "profile",
+    "proposed_observation_profile",
+    "historical_baseline",
+    "original_inputs",
+    "future_attempt",
+    "checkpoint",
+    "execution_policy",
+    "task_creation_guard",
+    "mapping_policy",
+    "evidence_policy",
+    "limits",
+    "remaining_obligations",
+    "boundary",
+    "observer",
+    "native_objects",
+    "static_relationships",
+    "totals"
+  ],
+  "properties": {
+    "record_type": {
+      "const": "required_gate_idempotence_entry_stop_plan_v0"
+    },
+    "profile": {
+      "const": "linux_x86_64_original_launcher_entry_stop_plan_v0"
+    },
+    "proposed_observation_profile": {
+      "const": "linux_x86_64_original_launcher_entry_stop_v0"
+    },
+    "historical_baseline": {
+      "const": {
+        "run_id": 44375052171,
+        "run_attempt": 1,
+        "source_commit": "84b78ff1758ed3db73fbb1db1b37451ca6620373",
+        "attempt_id": "d54f64c544090b13d2c2633b32204e02",
+        "archive_path": "preservation/required_gate_idempotence_exec_stop_v0/run_44375052171_attempt_1/control_evidence_v0.zip",
+        "archive": {
+          "sha256": "788aaa185e979f5ecddfa3b17f8a45d8b74ee59671b26033b5b94c249c9359c6",
+          "size_bytes": 737502
+        },
+        "scope": "historical_cp0_lower_level_reconstruction_only",
+        "historical_child_terminated": true,
+        "historical_child_resumable": false,
+        "fresh_signature_verification_claimed": false,
+        "fresh_cp0_of_future_attempt_still_required": true
+      }
+    },
+    "original_inputs": {
+      "const": {
+        "archive_path": "preservation/required_gate_idempotence_exec_stop_v0/original_inputs_v0.zip",
+        "archive": {
+          "sha256": "70b57f9a40cb375e267e215b3704be21c9f6d8987cadc13d92dfcc8db56d9c8a",
+          "size_bytes": 24816167
+        },
+        "native_byte_selection_only": true
+      }
+    },
+    "future_attempt": {
+      "const": {
+        "fresh_attempt_required": true,
+        "fresh_cp0_required": true,
+        "new_profile_cp0_prefix_required": true,
+        "completed_historical_cp0_report_reusable_as_live_prefix": false,
+        "historical_pid_or_aslr_address_reusable": false,
+        "single_owned_process_continuity_required": true,
+        "fresh_original_input_admission_required": true,
+        "owner_acquisition_authorization_required": true,
+        "authorization_supplied_by_plan": false
+      }
+    },
+    "checkpoint": {
+      "const": {
+        "kind": "original_executable_AT_ENTRY",
+        "target": "fresh_auxv_AT_ENTRY_equals_fresh_launcher_load_bias_plus_original_ELF_e_entry",
+        "target_must_be_in_original_launcher_rx_segment": true,
+        "arbitrary_address_or_symbol_lookup": false,
+        "candidate_stop_mechanism": "x86_64_hardware_execution_breakpoint_slot_0",
+        "debug_register_writes": [
+          "DR0",
+          "DR6",
+          "DR7"
+        ],
+        "debug_register_write_readback_required": true,
+        "dr0_target": "derived_fresh_AT_ENTRY",
+        "dr7_value": 1,
+        "dr6_required_cause": "slot_0_only_no_other_significant_cause",
+        "stop_signal": "SIGTRAP",
+        "ptrace_event_bits_at_entry": 0,
+        "siginfo_code": "TRAP_HWBKPT",
+        "instruction_pointer": "derived_fresh_AT_ENTRY",
+        "stop_before_entry_instruction_required": true,
+        "capability_qualified": false,
+        "software_breakpoint_or_target_code_patch": false,
+        "general_register_or_instruction_pointer_write": false
+      }
+    },
+    "execution_policy": {
+      "const": {
+        "argv": [
+          "bubblewrap"
+        ],
+        "environment": {
+          "LC_ALL": "C",
+          "TZ": "UTC"
+        },
+        "cwd": "/",
+        "pre_exec_resumes": 1,
+        "cp0_to_entry_resumes": 1,
+        "post_entry_resumes": 0,
+        "detach": false,
+        "retry": false,
+        "fallback_checkpoint": false,
+        "signal_forwarding_before_entry": false,
+        "loader_override_or_LD_environment_injection": false,
+        "allowed_interval": "fresh_cp0_to_original_executable_entry",
+        "loader_relocations_may_execute": true,
+        "initializers_preinitializers_and_ifunc_resolvers_may_execute": true,
+        "absence_of_pre_entry_native_execution_claimed": false,
+        "absence_of_pre_entry_side_effects_claimed": false,
+        "unexpected_stop_or_early_exit": "incomplete_then_owned_cleanup",
+        "cleanup_failure_can_be_complete": false
+      }
+    },
+    "task_creation_guard": {
+      "const": {
+        "required_before_original_exec": true,
+        "candidate_mechanism": "separately_validated_child_seccomp_filter",
+        "no_new_privs_required": true,
+        "native_x86_64_only": true,
+        "compat_and_x32_syscall_paths_allowed": false,
+        "blocked_syscalls": [
+          "clone",
+          "clone3",
+          "fork",
+          "io_uring_enter",
+          "io_uring_register",
+          "io_uring_setup",
+          "vfork"
+        ],
+        "blocked_syscall_action": "SECCOMP_RET_KILL_PROCESS",
+        "inherited_io_uring_descriptors": 0,
+        "ptrace_options": [
+          "EXITKILL",
+          "TRACECLONE",
+          "TRACEEXEC",
+          "TRACEFORK",
+          "TRACEVFORK"
+        ],
+        "ptrace_events_alone_establish_no_task_creation": false,
+        "seccomp_mode_alone_identifies_installed_filter": false,
+        "privileged_filter_readback_assumed_available": false,
+        "exact_filter_program_selected": false,
+        "installation_and_denial_evidence_implemented": false,
+        "owned_outer_container_cleanup_required": true,
+        "containment_qualification_claimed": false
+      }
+    },
+    "mapping_policy": {
+      "const": {
+        "all_six_selected_objects_required_for_positive": true,
+        "current_host_presence_assumed": false,
+        "one_unambiguous_occurrence_per_selected_object": true,
+        "actual_mapped_object_descriptor_and_whole_file_binding_required": true,
+        "before_after_stopped_identity_maps_auxv_and_register_evidence_required": true,
+        "same_process_cp0_to_entry_identity_required": true,
+        "every_selected_PT_LOAD_file_extent_covered": true,
+        "one_segment_equals_one_maps_row": false,
+        "gnu_relro_write_removal_must_be_derived": true,
+        "new_executable_or_writable_permission_gain_accepted": false,
+        "unselected_mappings": "retain_raw_maps_without_promoting_selected_native_closure",
+        "anonymous_tls_heap_stack_and_kernel_mappings": "separate_bounded_metadata_policy_required",
+        "rx_samples_per_selected_rx_segment": 2,
+        "rx_sample_bytes_must_equal_original_file_ranges": true,
+        "whole_process_memory_or_intermediate_states_verified": false,
+        "missing_substituted_or_ambiguous_selected_object": "incomplete_or_rejected_no_obligation_removal"
+      }
+    },
+    "evidence_policy": {
+      "const": {
+        "new_closed_capture_schema_required": true,
+        "capture_schema_implemented": false,
+        "independent_capture_checker_implemented": false,
+        "required_groups": [
+          "attempt_and_request",
+          "fresh_cp0_prefix",
+          "entry_checkpoint",
+          "debug_register_programming_and_trap",
+          "task_guard_installation",
+          "selected_object_descriptors_and_bytes",
+          "maps_auxv_registers_and_process_identity",
+          "selected_rx_samples",
+          "bounded_events_and_output",
+          "owned_cleanup_and_failure_prefix"
+        ],
+        "complete_or_incomplete_prefix_preserved": true,
+        "failed_cleanup_or_preservation_is_success": false,
+        "saved_success_booleans_replace_raw_reconstruction": false
+      }
+    },
+    "limits": {
+      "const": {
+        "wall_seconds": 15,
+        "cleanup_seconds": 2,
+        "owned_tracees": 1,
+        "wait_records": 8,
+        "capture_files": 160,
+        "control_file_bytes": 1048576,
+        "proc_file_bytes": 65536,
+        "stdout_bytes": 4096,
+        "stderr_bytes": 4096,
+        "total_capture_bytes": 41943040,
+        "deadline_extension_or_implicit_retry": false
+      }
+    },
+    "remaining_obligations": {
+      "const": [
+        "select_and_validate_exact_task_creation_filter_and_installation_evidence",
+        "implement_and_test_new_owned_cp0_to_entry_collector",
+        "implement_and_test_closed_entry_capture_schema_and_independent_checker",
+        "qualify_exact_environment_native_object_paths_and_breakpoint_capability",
+        "owner_authorize_and_preserve_one_new_attempt",
+        "define_per_consumer_loader_resolution_witness",
+        "observe_containment_and_selected_bootstrap_integration",
+        "complete_B3_B4_B5_and_broader_Steps_6_7"
+      ]
+    },
+    "boundary": {
+      "const": {
+        "record_status": "proposal",
+        "diagnostic_only": true,
+        "entry_checkpoint_observed": false,
+        "additional_native_objects_observed": false,
+        "native_acquisition_performed": false,
+        "collector_implemented": false,
+        "host_environment_qualified": false,
+        "physical_execution_authenticated": false,
+        "loader_resolution_verified": false,
+        "complete_native_closure_verified": false,
+        "containment_enforced": false,
+        "execution_ready": false,
+        "execution_authorized": false,
+        "selected_runtime_executed": false,
+        "production_gate_eligible": false,
+        "b2_complete": false,
+        "metric_pass": null,
+        "authority_effect": "none"
+      }
+    },
+    "observer": {
+      "$ref": "#/$defs/observer"
+    },
+    "native_objects": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "$ref": "#/$defs/native_object"
+      },
+      "uniqueItems": true
+    },
+    "static_relationships": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": {
+        "$ref": "#/$defs/relationship"
+      },
+      "uniqueItems": true
+    },
+    "totals": {
+      "$ref": "#/$defs/totals"
+    }
+  },
+  "$defs": {
+    "observer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "segment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "index",
+        "offset",
+        "vaddr",
+        "filesz",
+        "memsz",
+        "flags",
+        "align"
+      ],
+      "properties": {
+        "index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "vaddr": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "filesz": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "memsz": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "flags": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "align": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "elf_layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entry",
+        "phoff",
+        "phentsize",
+        "phnum",
+        "interpreter",
+        "segments"
+      ],
+      "properties": {
+        "entry": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "phoff": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "phentsize": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "phnum": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "interpreter": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "segments": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/segment"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "dynamic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "elf_type",
+        "interpreter",
+        "needed",
+        "soname",
+        "rpath",
+        "runpath"
+      ],
+      "properties": {
+        "elf_type": {
+          "enum": [
+            "ET_DYN",
+            "ET_EXEC"
+          ]
+        },
+        "interpreter": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "needed": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 3,
+          "items": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "uniqueItems": true
+        },
+        "soname": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "rpath": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        },
+        "runpath": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        }
+      }
+    },
+    "initialization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gnu_relro",
+        "init_declared",
+        "init_array_bytes",
+        "preinit_array_bytes",
+        "text_relocations_declared"
+      ],
+      "properties": {
+        "gnu_relro": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "index",
+              "vaddr",
+              "memsz"
+            ],
+            "properties": {
+              "index": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9223372036854775807
+              },
+              "vaddr": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9223372036854775807
+              },
+              "memsz": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9223372036854775807
+              }
+            }
+          },
+          "uniqueItems": true
+        },
+        "init_declared": {
+          "type": "boolean"
+        },
+        "init_array_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "preinit_array_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "text_relocations_declared": {
+          "type": "boolean"
+        }
+      }
+    },
+    "sample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "segment_index",
+        "sample_index",
+        "file_offset",
+        "vaddr",
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "segment_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "sample_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "file_offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "vaddr": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "native_object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "size_bytes",
+        "elf",
+        "dynamic",
+        "initialization",
+        "presence",
+        "entry_observed",
+        "rx_samples"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "elf": {
+          "$ref": "#/$defs/elf_layout"
+        },
+        "dynamic": {
+          "$ref": "#/$defs/dynamic"
+        },
+        "initialization": {
+          "$ref": "#/$defs/initialization"
+        },
+        "presence": {
+          "const": "required_for_positive_entry_observation"
+        },
+        "entry_observed": {
+          "type": "boolean"
+        },
+        "rx_samples": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "$ref": "#/$defs/sample"
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "consumer",
+        "kind",
+        "name",
+        "provider",
+        "static_selection_verified",
+        "provider_mapping_observed",
+        "consumer_resolution_observed",
+        "entry_obligation"
+      ],
+      "properties": {
+        "consumer": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "kind": {
+          "enum": [
+            "interpreter",
+            "needed"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "provider": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "static_selection_verified": {
+          "type": "boolean"
+        },
+        "provider_mapping_observed": {
+          "type": "boolean"
+        },
+        "consumer_resolution_observed": {
+          "type": "boolean"
+        },
+        "entry_obligation": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    "totals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "native_objects",
+        "pt_load_occurrences",
+        "rx_sample_occurrences",
+        "rx_sample_bytes",
+        "distinct_rx_bytes",
+        "static_relationships",
+        "dt_needed_relationships",
+        "pt_interp_relationships"
+      ],
+      "properties": {
+        "native_objects": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "pt_load_occurrences": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "rx_sample_occurrences": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "rx_sample_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "distinct_rx_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "static_relationships": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "dt_needed_relationships": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "pt_interp_relationships": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      }
+    }
+  }
+}
