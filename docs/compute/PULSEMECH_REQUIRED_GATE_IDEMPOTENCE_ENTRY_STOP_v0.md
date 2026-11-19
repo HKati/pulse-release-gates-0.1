@@ -228,10 +228,12 @@ request. The explicit native command is `run-owner`, with acknowledgement
 `OBSERVE_ORIGINAL_LAUNCHER_ENTRY_STOP_ONLY`; authorization remains a separate
 owner decision.
 
-This unit adds no workflow and dispatches no acquisition. A future hosted
-integration must retain both capability records and the original capture,
-verify original host paths, preserve incomplete attempts, independently
-reconstruct the result and verify removal of the owned outer container.
+The separate
+[GitHub hosted integration](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_GITHUB_v0.md)
+now supplies the owner-controlled workflow, exact original host-object checks,
+preservation of both capability records and incomplete attempts, independent
+reconstruction and owned outer-container cleanup. Publishing that integration
+does not dispatch an acquisition or establish successful host qualification.
 The native collector's child cleanup does not assert hosted container cleanup.
 
 ## Validation scope and next evidence
@@ -250,10 +252,11 @@ required seccomp-denial observation, and the hardware probe's
 `PTRACE_TRACEME` returned `EPERM`. Both outcomes remain incomplete capability
 records. No original launcher or selected-runtime execution was performed.
 
-The next operational unit is the selected hosted environment and its
-owner-controlled entry workflow, including complete capability qualification
-and bounded outer cleanup. A separately authorized fresh entry capture and
-its preserved independent reconstructions then supply new narrow evidence.
+The next operational evidence comes from the separately selected hosted
+environment and its owner-controlled entry workflow, including both complete
+capability qualifications and bounded outer cleanup. A separately authorized
+fresh entry capture and its preserved independent reconstructions then supply
+new narrow evidence.
 Actual per-consumer loader resolution, observed containment,
 selected-bootstrap integration, B3 property evidence, B4 admission and B5's
 actual reference remain separate obligations.
