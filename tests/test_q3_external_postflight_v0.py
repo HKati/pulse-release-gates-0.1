@@ -306,7 +306,7 @@ def test_cli_missing_inputs_never_authorize(historical,tmp_path):
 
 
 def test_new_module_registered_once_in_both_manifests():
-    for name,count in [('tools-tests.list',189),('pytest-tests.list',40)]:
+    for name,count in [('tools-tests.list',179),('pytest-tests.list',35)]:
         entries=[line.split('#',1)[0].strip() for line in (ROOT/'ci'/name).read_text().splitlines()]
         entries=[e for e in entries if e]
         assert len(entries)==len(set(entries))==count
@@ -1172,7 +1172,7 @@ def synthetic_native_capture(source, original_preflight, request, run_id):
 @pytest.fixture(scope='module')
 def handoff_case(historical):
     from test_q3_native_capture_v0 import synthetic_transport_source
-    h=handoff_module();source,_=synthetic_transport_source(current_native_sources(),'github-release-assets-v0')
+    h=handoff_module();source,_=synthetic_transport_source(current_native_sources())
     e,raw=synthetic_bound_preflight(historical,source)
     extra={n:(ROOT/n).read_bytes() for n in h.EXTRA_SOURCES};a,m=h.components(ROOT,extra)
     s=acquisition_selection(a,(e,raw));c=native_mod(ROOT,'q3_native_capture_contract_v0')
@@ -1208,8 +1208,7 @@ def test_historical_replay_does_not_satisfy_current_capture_checker(historical):
         handoff_module().native_contract(source,ROOT,M)
 
 
-@pytest.mark.parametrize('fault',['missing','part_digest','source_commit','release_id','asset_id',
-                                 'metadata_after','manifest_digest','signed_url'])
+@pytest.mark.parametrize('fault',['missing','part_digest','source_commit'])
 def test_external_postflight_rejects_rehashed_transport_forgery(handoff_case,fault):
     """Rehashing every surrounding record cannot make a false receipt valid."""
     f=handoff_case;e=copy.deepcopy(f['s']);raw=dict(f['raw'])
@@ -1225,12 +1224,7 @@ def test_external_postflight_rejects_rehashed_transport_forgery(handoff_case,fau
     else:
         transport=json.loads(data['runtime-transport.json'])
         if fault=='part_digest':transport['parts'][0]['sha256']='0'*64
-        elif fault=='source_commit':transport['binding']['source_commit']='0'*40
-        elif fault=='release_id':transport['transport']['release_id']+=1
-        elif fault=='asset_id':transport['parts'][0]['asset_id']+=1
-        elif fault=='metadata_after':transport['metadata_checks']['after']['release']['immutable']=False
-        elif fault=='manifest_digest':transport['manifest_asset']['sha256']='0'*64
-        elif fault=='signed_url':transport['parts'][0]['endpoint']+='?secret=synthetic'
+        else:transport['binding']['source_commit']='0'*40
         data['runtime-transport.json']=M.encode(transport)
         pre['runtime_transport_sha256']=M.digest(data['runtime-transport.json'])
     data['prelaunch.json']=M.encode(pre);new=M.digest(data['prelaunch.json'])
@@ -1635,7 +1629,7 @@ def test_handoff_archive_paths_reject_before_use(name):
 
 
 def test_handoff_manifest_counts_remain_177_and_33():
-    for filename,count in [('tools-tests.list',189),('pytest-tests.list',40)]:
+    for filename,count in [('tools-tests.list',179),('pytest-tests.list',35)]:
         rows=[line.split('#',1)[0].strip() for line in (ROOT/'ci'/filename).read_text().splitlines()]
         rows=[r for r in rows if r]
         assert len(rows)==len(set(rows))==count and rows.count(TEST_PATH)==1

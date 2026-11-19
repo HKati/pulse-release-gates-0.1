@@ -182,7 +182,7 @@ def test_tools_registration_is_163_and_does_not_expand_pytest_manifest():
                                            'q2_required_gate_integration_v0','q2_hosted_intake_workflow_v0',
                                            'q2_capsule_publication_v0','q2_negative_intake_verification_v0')]
     entries=[x.strip() for x in (ROOT/'ci/tools-tests.list').read_text().splitlines() if x.strip() and not x.lstrip().startswith('#')]
-    assert len(entries)==len(set(entries))==189
+    assert len(entries)==len(set(entries))==179
     pytest_entries=(ROOT/'ci/pytest-tests.list').read_text().splitlines()
     assert all(entries.count(name)==1 and name not in pytest_entries for name in modules)
 
@@ -549,10 +549,10 @@ def test_verified_owner_dispatch_reaches_both_independent_intakes(acquirer, refe
     roots = []
     class RejectedArchiveTransport:
         def __init__(self, token): assert token == 'PRIVATE_TEST_TRANSPORT_TOKEN'
-        def acquire(self, profile, request, private, deadline):
-            roots.append(private)
-            (private/'capture.zip').write_bytes(b'PRIVATE_DIAGNOSTIC_INVALID_CAPTURE_BYTES')
-    monkeypatch.setattr(IO, 'GitHubReleaseTransport', RejectedArchiveTransport)
+        def download(self, repository, identifier, expectation, destination, deadline):
+            roots.append(destination.parent)
+            destination.write_bytes(b'PRIVATE_DIAGNOSTIC_INVALID_CAPTURE_BYTES')
+    monkeypatch.setattr(IO, 'GitHubArtifactTransport', RejectedArchiveTransport)
     for consumer in ('producer', 'admission'):
         result = LOAD.consume(subject.repo, consumer=consumer, environment=subject.env)
         assert result['checks']['request'] is True

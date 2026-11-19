@@ -1,0 +1,96 @@
+{
+  "artifact_kind": "language_relation_candidate_records",
+  "authority_effect": "none",
+  "producer": {
+    "adapter_id": "synthetic_fixture_author",
+    "adapter_version": "0",
+    "historical_input_isolation": "not_verified",
+    "model": null,
+    "provider": null,
+    "record_origin": "synthetic_fixture",
+    "run_id": null
+  },
+  "record_set_id": "lrm05_authored_import_controls_v0",
+  "records": [
+    {
+      "capture_status": "completed",
+      "case_id": "LRM_REF_01",
+      "confidence": null,
+      "reason": null,
+      "record_id": "fixture.LRM_REF_01",
+      "request_sha256": "f9eff6d394a7a874266f98b8594d5a666313b9d2f52cbab0c5c5bdd3cc100121",
+      "response": {
+        "byte_length": 5702,
+        "content_sha256": "9d73e5869b8bed20700e4e95e330779c3f30de9df531b118c79ecc3723273ce6",
+        "path": "responses/en_identity.json"
+      },
+      "unresolved_items": []
+    },
+    {
+      "capture_status": "unsupported",
+      "case_id": "LRM_REF_02",
+      "confidence": null,
+      "reason": "Synthetic producer-declared unsupported free paraphrase; no candidate response was produced.",
+      "record_id": "fixture.LRM_REF_02",
+      "request_sha256": "99549f8c71f38c26210f72be0e9a360bed85cefe6c7f176fea96a27334749bf7",
+      "response": null,
+      "unresolved_items": [
+        {
+          "category": "paraphrase_correspondence",
+          "end_byte": 30,
+          "issue_id": "fixture.free_paraphrase",
+          "question_ids": [
+            "target_main"
+          ],
+          "reason": "Synthetic producer declaration: correspondence across the free paraphrase was not resolved.",
+          "source_id": "source_before",
+          "start_byte": 0
+        }
+      ]
+    },
+    {
+      "capture_status": "failed",
+      "case_id": "LRM_REF_03",
+      "confidence": null,
+      "reason": "Synthetic producer failure used to exercise complete-inventory accounting; no model was called.",
+      "record_id": "fixture.LRM_REF_03",
+      "request_sha256": "110dceb09caf9b7c2f1127352aeff6340c2f12a0ee36e01b9436afec41246d5f",
+      "response": null,
+      "unresolved_items": []
+    },
+    {
+      "capture_status": "completed",
+      "case_id": "LRM_REF_05",
+      "confidence": null,
+      "reason": null,
+      "record_id": "fixture.LRM_REF_05",
+      "request_sha256": "b473a775532c173870b19b76c31092e093a8891cb153bf6ab0b3ff98ced4d5fe",
+      "response": {
+        "byte_length": 7391,
+        "content_sha256": "ff22217c3c24f7248887fea06be07dc22a53483022e00a23718068f3aef712fd",
+        "path": "responses/hu_connective.json"
+      },
+      "unresolved_items": []
+    },
+    {
+      "capture_status": "completed",
+      "case_id": "LRM_REF_10",
+      "confidence": 0.99,
+      "reason": null,
+      "record_id": "fixture.LRM_REF_10",
+      "request_sha256": "4f9c97e4cc353256c3766c3f6a89d8223ab31a471ac7662a47f3a9ca10a3a330",
+      "response": {
+        "byte_length": 5896,
+        "content_sha256": "83bce755d01c3a54873f7cd9e9b1ff86fb30d99a8f6f8e08865b465870b4fecd",
+        "path": "responses/en_quote_mismatch.json"
+      },
+      "unresolved_items": []
+    }
+  ],
+  "release_authority_activation": false,
+  "request_set_ref": {
+    "content_sha256": "a147703b992e7236e839174c9fe72cd71c83e4781ac27a1c81076fb9c222ca22",
+    "request_set_id": "lrm_hu_en_source_requests_v0"
+  },
+  "schema_version": "language_relation_candidate_records_v0"
+}
