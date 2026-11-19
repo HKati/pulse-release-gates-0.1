@@ -241,6 +241,51 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             ),
         )
 
+    if rel == ".github/workflows/required_gate_idempotence_entry_stop_v0.yml":
+        expected_sha256 = "452972094f789a65b5933497be000d97c2ba7d896a7b41fad0dd028cfa7a9021"
+        if (name != "PULSEmech original launcher entry-stop observation v0"
+                or path.is_symlink() or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
+            return entry(
+                name=name, path=rel, surface_type="workflow",
+                primary_role="unclassified workflow", carrier_class="advisory",
+                authority_impacting="conditional",
+                authority_boundary="Changed original-entry observation carrier requires exact source review",
+            )
+        return entry(
+            name=name, path=rel, surface_type="workflow",
+            primary_role="non-authorizing guarded original-entry observation workflow",
+            carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary=(
+                "Manual owner-scoped capability qualification and one fresh original cp0-to-entry attempt; "
+                "no continuation or detach after executable entry, selected-runtime execution, "
+                "required-gate activation or release admission."
+            ),
+            reads_artifacts=[
+                "exact reviewed source/workflow commit and same-attempt owner acknowledgement",
+                "preserved original inputs, selected native objects and pinned observation environment",
+                "separate task-guard and hardware-breakpoint qualification records from the acquisition context",
+                "exact current-run artifact ID and externally bound complete or incomplete attempt receipt",
+            ],
+            writes_artifacts=[
+                "both capability records and bounded failed-prerequisite or original-attempt prefixes",
+                "original entry request and raw cp0/entry capture with owned-child cleanup evidence",
+                "two independent reconstructions of preserved bytes and owned outer-container cleanup evidence",
+                "completed verification binding and original GitHub attestation and signature-verification evidence",
+            ],
+            publishes_artifacts=[
+                "original qualification/observation and separate verification artifacts with 90-day retention",
+            ],
+            required_gate_participation=False, attestation_participation=True, release_path_participation=False,
+            notes=(
+                "Both capability qualifications must complete before the original attempt. "
+                "Failed prerequisites and incomplete captures remain incomplete; verification repeats neither "
+                "qualification nor acquisition. Loader initialization can execute before entry; provider mappings "
+                "do not establish per-consumer resolution, complete native closure, containment or release authority. "
+                "B2 and Steps 6 and 7 remain separate; metric_pass=null; authority_effect=none; keep #2879 open."
+            ),
+        )
+
     if rel == ".github/workflows/pulse_ci.yml":
         return entry(
             name=name,

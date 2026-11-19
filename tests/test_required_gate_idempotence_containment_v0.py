@@ -8357,3 +8357,1267 @@ def test_entry_stop_ptrace_forbidden_mutations_never_reach_kernel(monkeypatch, o
     monkeypatch.setattr(collector, "_LIBC", SimpleNamespace(ptrace=forbidden))
     with pytest.raises(collector.EntryStopObservationError, match="entry_stop_(ptrace_request|debug_read|debug_write|signal_forwarding)_forbidden"):
         collector._ptrace(operation, 1002, address, data)
+
+
+# Hosted entry-stop integration: native acquisition and Docker remain unexecuted.
+# Hosted original-launcher workflow: no original acquisition is executed here.
+ENTRY_HOSTED_WORKFLOW = ".github/workflows/required_gate_idempotence_entry_stop_v0.yml"
+
+
+def entry_hosted_workflow():
+    import yaml
+    return yaml.load((ROOT / ENTRY_HOSTED_WORKFLOW).read_text(), Loader=yaml.BaseLoader)
+
+
+def entry_hosted_step(job, identifier):
+    return next(step for step in job["steps"] if step.get("id") == identifier)
+
+
+def entry_hosted_guard_environment(phase="acquire"):
+    return {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "GITHUB_REPOSITORY": "HKati/pulse-release-gates-0.1", "GITHUB_REPOSITORY_ID": "1061766508",
+        "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF": "refs/heads/main",
+        "GITHUB_ACTOR": "HKati", "GITHUB_TRIGGERING_ACTOR": "HKati",
+        "GITHUB_RUN_ATTEMPT": "1", "GITHUB_RUN_ID": "987654321",
+        "EXPECTED_SOURCE_COMMIT": "a" * 40, "GITHUB_SHA": "a" * 40,
+        "GITHUB_WORKFLOW_SHA": "a" * 40,
+        "GITHUB_WORKFLOW_REF": "HKati/pulse-release-gates-0.1/" + ENTRY_HOSTED_WORKFLOW + "@refs/heads/main",
+        "ENTRY_STOP_ACKNOWLEDGEMENT": "OBSERVE_ORIGINAL_LAUNCHER_ENTRY_STOP_ONLY",
+        "ENTRY_STOP_PHASE": phase, "ENTRY_STOP_ARTIFACT_ID": "123456789",
+        "EXPECTED_RECEIPT_SHA256": "b" * 64,
+    }
+
+
+def test_entry_hosted_workflow_is_manual_owner_scoped_and_has_separate_signer_permissions():
+    value = entry_hosted_workflow()
+    assert set(value["on"]) == {"workflow_dispatch"}
+    assert set(value["on"]["workflow_dispatch"]["inputs"]) == {"expected_source_commit", "acknowledgement"}
+    assert value["permissions"] == {"contents": "read"}
+    assert value["concurrency"] == {
+        "group": "pulsemech-required-gate-idempotence-entry-stop-v0", "cancel-in-progress": "false"}
+    assert set(value["jobs"]) == {"acquire", "verify"}
+    acquire, verify = value["jobs"]["acquire"], value["jobs"]["verify"]
+    assert acquire["permissions"] == {"contents": "read"}
+    assert verify["permissions"] == {
+        "contents": "read", "actions": "read", "id-token": "write", "attestations": "write"}
+    for name, job in value["jobs"].items():
+        assert job["runs-on"] == "ubuntu-24.04" and int(job["timeout-minutes"]) <= 30
+        assert job["steps"][0]["id"] == "context"
+        assert job["env"]["ENTRY_STOP_PHASE"] == name
+        assert job["env"]["EXPECTED_SOURCE_COMMIT"] == "${{ inputs.expected_source_commit }}"
+        assert job["env"]["ENTRY_STOP_ACKNOWLEDGEMENT"] == "${{ inputs.acknowledgement }}"
+        assert "GH_TOKEN" not in job["env"] and "GITHUB_TOKEN" not in job["env"]
+        assert all("continue-on-error" not in step for step in job["steps"])
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_entry_hosted_actual_context_guard_accepts_the_exact_owner_context(phase):
+    guard = entry_hosted_step(entry_hosted_workflow()["jobs"][phase], "context")["run"]
+    result = subprocess.run(["bash", "-c", guard], env=entry_hosted_guard_environment(phase),
+                            stdin=subprocess.DEVNULL, capture_output=True, timeout=5)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+@pytest.mark.parametrize("field,value", [
+    ("GITHUB_REPOSITORY", "other/pulse-release-gates-0.1"),
+    ("GITHUB_REPOSITORY_ID", "1061766509"),
+    ("GITHUB_EVENT_NAME", "pull_request"),
+    ("GITHUB_REF", "refs/heads/unreviewed"),
+    ("GITHUB_ACTOR", "other"),
+    ("GITHUB_TRIGGERING_ACTOR", "other"),
+    ("GITHUB_RUN_ATTEMPT", "2"),
+    ("GITHUB_RUN_ID", "0"),
+    ("EXPECTED_SOURCE_COMMIT", "b" * 40),
+    ("GITHUB_WORKFLOW_SHA", "b" * 40),
+    ("GITHUB_WORKFLOW_REF", "HKati/pulse-release-gates-0.1/.github/workflows/other.yml@refs/heads/main"),
+    ("ENTRY_STOP_ACKNOWLEDGEMENT", "OBSERVE_ORIGINAL_LAUNCHER_ENTRY_STOP_ONLY "),
+])
+def test_entry_hosted_actual_context_guard_rejects_independent_identity_drift(phase, field, value):
+    guard = entry_hosted_step(entry_hosted_workflow()["jobs"][phase], "context")["run"]
+    environment = entry_hosted_guard_environment(phase)
+    environment[field] = value
+    result = subprocess.run(["bash", "-c", guard], env=environment,
+                            stdin=subprocess.DEVNULL, capture_output=True, timeout=5)
+    assert result.returncode != 0
+
+
+@pytest.mark.parametrize("field,value", [
+    ("ENTRY_STOP_ARTIFACT_ID", ""), ("ENTRY_STOP_ARTIFACT_ID", "0"),
+    ("EXPECTED_RECEIPT_SHA256", ""), ("EXPECTED_RECEIPT_SHA256", "b" * 63),
+])
+def test_entry_hosted_verification_guard_requires_an_external_current_run_handoff(field, value):
+    guard = entry_hosted_step(entry_hosted_workflow()["jobs"]["verify"], "context")["run"]
+    environment = entry_hosted_guard_environment("verify")
+    environment[field] = value
+    result = subprocess.run(["bash", "-c", guard], env=environment,
+                            stdin=subprocess.DEVNULL, capture_output=True, timeout=5)
+    assert result.returncode != 0
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_entry_hosted_actual_prefix_preserves_exact_start_context_privately(tmp_path, phase):
+    prefix = entry_hosted_step(entry_hosted_workflow()["jobs"][phase], "prefix")["run"]
+    environment = entry_hosted_guard_environment(phase)
+    environment["RUNNER_TEMP"] = str(tmp_path)
+    result = subprocess.run(["bash", "-c", prefix], env=environment,
+                            stdin=subprocess.DEVNULL, capture_output=True, timeout=5)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    name = "required-gate-entry-stop-" + ("verification-" if phase == "verify" else "") + "987654321-1"
+    root = tmp_path / name
+    record = root / "workflow-start.json"
+    assert stat.S_IMODE(root.stat().st_mode) == 0o700
+    assert stat.S_IMODE(record.stat().st_mode) == 0o600
+    assert json.loads(record.read_bytes()) == {
+        "format": "required_gate_idempotence_entry_stop_workflow_start_v0", "phase": phase,
+        "repository": "HKati/pulse-release-gates-0.1", "repository_id": "1061766508",
+        "source_commit": "a" * 40, "workflow_sha": "a" * 40,
+        "workflow_ref": environment["GITHUB_WORKFLOW_REF"], "run_id": 987654321, "run_attempt": 1,
+        "event_name": "workflow_dispatch", "ref": "refs/heads/main", "actor": "HKati",
+        "triggering_actor": "HKati", "acknowledgement": "OBSERVE_ORIGINAL_LAUNCHER_ENTRY_STOP_ONLY",
+        "selected_runtime_executed": False, "authority_effect": "none"}
+    before = record.read_bytes()
+    repeated = subprocess.run(["bash", "-c", prefix], env=environment,
+                              stdin=subprocess.DEVNULL, capture_output=True, timeout=5)
+    assert repeated.returncode != 0 and record.read_bytes() == before
+
+
+def test_entry_hosted_workflow_actions_are_immutable_and_checkout_has_no_write_credentials():
+    pins = {
+        "actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "actions/upload-artifact": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+        "actions/download-artifact": "9000827ccba6bdab643e8b6fd33ac0654aef8333",
+        "actions/attest": "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"}
+    for job in entry_hosted_workflow()["jobs"].values():
+        for step in job["steps"]:
+            if "uses" not in step:
+                continue
+            action, revision = step["uses"].split("@")
+            assert revision == pins[action]
+            if action == "actions/checkout":
+                assert step["with"] == {
+                    "ref": "${{ github.sha }}", "fetch-depth": "1", "persist-credentials": "false"}
+    text = (ROOT / ENTRY_HOSTED_WORKFLOW).read_text()
+    assert "setup-python" not in text and "python-version:" not in text
+
+
+def test_entry_hosted_workflow_checks_failed_attempts_and_preserves_both_prefixes():
+    jobs = entry_hosted_workflow()["jobs"]
+    acquire, verify = jobs["acquire"], jobs["verify"]
+    ids = [step.get("id") for step in acquire["steps"]]
+    assert ids.index("context") < ids.index("prefix") < ids.index("checkout") < ids.index("acquire")
+    assert ids.index("acquire") < ids.index("finalize") < ids.index("preserve")
+    assert entry_hosted_step(acquire, "finalize")["if"] == (
+        "always() && steps.prefix.outcome == 'success' && steps.checkout.outcome == 'success'")
+    assert "always()" in verify["if"] and "needs.acquire.result == 'success'" not in verify["if"]
+    assert "needs.acquire.outputs.artifact_id != ''" in verify["if"]
+    assert "needs.acquire.outputs.receipt_sha256 != ''" in verify["if"]
+    for job in jobs.values():
+        uploads = [step for step in job["steps"] if step.get("uses", "").startswith("actions/upload-artifact@")]
+        assert len(uploads) == 1
+        upload = uploads[0]
+        assert upload["if"] == "always() && steps.prefix.outcome == 'success'"
+        assert upload["with"]["overwrite"] == "false" and upload["with"]["if-no-files-found"] == "error"
+        assert upload["with"]["compression-level"] == "0" and upload["with"]["retention-days"] == "90"
+        assert upload["with"]["include-hidden-files"] == "true"
+        assert "${{ github.run_id }}-${{ github.run_attempt }}" in upload["with"]["name"]
+
+
+def test_entry_hosted_workflow_pins_download_receipt_and_attests_only_completed_verification():
+    acquire, verify = (entry_hosted_workflow()["jobs"][name] for name in ("acquire", "verify"))
+    assert acquire["outputs"]["artifact_id"] == "${{ steps.preserve.outputs.artifact-id }}"
+    assert acquire["outputs"]["receipt_sha256"] == "${{ steps.finalize.outputs.receipt_sha256 }}"
+    download = next(step for step in verify["steps"] if step.get("uses", "").startswith("actions/download-artifact@"))
+    assert download["with"]["artifact-ids"] == "${{ needs.acquire.outputs.artifact_id }}"
+    assert download["with"]["repository"] == "${{ github.repository }}"
+    assert download["with"]["run-id"] == "${{ github.run_id }}"
+    assert download["with"]["digest-mismatch"] == "error" and "name" not in download["with"]
+    checked = entry_hosted_step(verify, "verify")["run"]
+    assert 'entry_stop_hosted_v0.py verify' in checked
+    assert '--receipt-sha256 "$EXPECTED_RECEIPT_SHA256"' in checked
+    assert 'entry_stop_hosted_v0.py acquire' not in "\n".join(step.get("run", "") for step in verify["steps"])
+    attest = entry_hosted_step(verify, "attest")
+    assert attest["if"] == "success() && steps.verify.outcome == 'success'"
+    assert attest["with"]["subject-path"].endswith("/verified-binding.json")
+    assert attest["with"]["create-storage-record"] == "false"
+    assert "predicate" not in attest["with"] and "predicate-type" not in attest["with"]
+    signature = entry_hosted_step(verify, "attest_verify")
+    assert signature["if"] == "success() && steps.attest.outcome == 'success'"
+    assert 'entry_stop_hosted_v0.py attest-verify' in signature["run"]
+    assert signature["env"]["GH_TOKEN"] == "${{ github.token }}"
+    for step in verify["steps"]:
+        if step.get("id") != "attest_verify":
+            assert "GH_TOKEN" not in step.get("env", {})
+
+
+def test_entry_hosted_workflow_shell_and_embedded_python_parse_without_acquisition(tmp_path):
+    import ast
+    import re
+    for name, job in entry_hosted_workflow()["jobs"].items():
+        for index, step in enumerate(job["steps"]):
+            if "run" not in step:
+                continue
+            script = tmp_path / (name + "-" + str(index) + ".sh")
+            script.write_text(step["run"])
+            result = subprocess.run(["bash", "-n", str(script)], capture_output=True, timeout=5)
+            assert result.returncode == 0, result.stderr.decode(errors="replace")
+            for snippet in re.findall(r"<<'PY'[^\n]*\n(.*?)^PY$", step["run"], re.MULTILINE | re.DOTALL):
+                ast.parse(snippet, feature_version=(3, 11))
+
+
+
+# Host bridge regressions: Docker, original acquisition and GH are substituted.
+def entry_hosted_driver():
+    return module("required_gate_idempotence_entry_stop_hosted_v0",
+                  "tools/required_gate_idempotence_entry_stop_hosted_v0.py")
+
+
+def entry_hosted_driver_environment(phase="acquire"):
+    return {
+        "EXPECTED_SOURCE_COMMIT": "a" * 40,
+        "GITHUB_REPOSITORY": "HKati/pulse-release-gates-0.1", "GITHUB_REPOSITORY_ID": "1061766508",
+        "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF": "refs/heads/main",
+        "GITHUB_ACTOR": "HKati", "GITHUB_TRIGGERING_ACTOR": "HKati",
+        "GITHUB_RUN_ATTEMPT": "1", "GITHUB_RUN_ID": "987654321",
+        "GITHUB_SHA": "a" * 40, "GITHUB_WORKFLOW_SHA": "a" * 40,
+        "GITHUB_WORKFLOW_REF": "HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_entry_stop_v0.yml@refs/heads/main",
+        "ENTRY_STOP_ACKNOWLEDGEMENT": "OBSERVE_ORIGINAL_LAUNCHER_ENTRY_STOP_ONLY",
+        "ENTRY_STOP_PHASE": phase, "ENTRY_STOP_ARTIFACT_ID": "123456789",
+    }
+
+
+def entry_hosted_driver_context():
+    return entry_hosted_driver().context(entry_hosted_driver_environment())
+
+
+def entry_hosted_driver_prefix(root, phase, context):
+    root.mkdir(mode=0o700)
+    value = {"format": "required_gate_idempotence_entry_stop_workflow_start_v0", "phase": phase,
+             **context, "selected_runtime_executed": False, "authority_effect": "none"}
+    entry_hosted_driver().io.write_new(root / "workflow-start.json", encoded(value))
+
+
+def entry_hosted_driver_receipt(monkeypatch, *, sources_present=True, request_present=True, capture_present=True,
+                               task_guard_present=True, hardware_present=True):
+    driver = entry_hosted_driver()
+    context = entry_hosted_driver_context()
+    sources = {"tools/reviewed-source.py": bound(b"pass\n")}
+    monkeypatch.setattr(driver, "source_bindings", lambda: copy.deepcopy(sources))
+    payloads = {"workflow-start.json": encoded({"preserved": "authored acquisition prefix"})}
+    if sources_present:
+        payloads["source/tools/reviewed-source.py"] = b"pass\n"
+    if request_present:
+        payloads["observation/request.json"] = encoded({"request": "authored; never executed"})
+    if capture_present:
+        payloads["observation/capture/capture.json"] = encoded({"status": "incomplete"})
+    if task_guard_present:
+        payloads["observation/qualifications/task-guard.json"] = encoded({"authored": "task guard bytes"})
+    if hardware_present:
+        payloads["observation/qualifications/hardware.json"] = encoded({"authored": "hardware bytes"})
+    files = {name: bound(raw) for name, raw in sorted(payloads.items())}
+    record = {
+        "record_type": "required_gate_idempotence_entry_stop_hosted_receipt_v0", "profile": driver.PROFILE,
+        "context": context, "files": files, "file_count": len(files),
+        "total_size_bytes": sum(len(raw) for raw in payloads.values()),
+        "source_bindings": sources, "source_prefix_complete": sources_present,
+        "request": files.get("observation/request.json"),
+        "capture": files.get("observation/capture/capture.json"),
+        "task_guard_qualification": files.get("observation/qualifications/task-guard.json"),
+        "hardware_qualification": files.get("observation/qualifications/hardware.json"),
+        "preservation_is_observation_acceptance": False, **driver.BOUNDARY,
+    }
+    return context, payloads, record
+
+
+def entry_hosted_driver_tree(root, payloads):
+    root.mkdir(mode=0o700)
+    for name, raw in payloads.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        entry_hosted_driver().io.write_new(path, raw)
+
+
+def test_entry_hosted_driver_context_requires_all_identity_fields_without_coercion():
+    result = entry_hosted_driver_context()
+    assert result["repository_id"] == "1061766508"
+    assert type(result["run_id"]) is int and result["run_id"] == 987654321
+    assert type(result["run_attempt"]) is int and result["run_attempt"] == 1
+    assert result["source_commit"] == result["workflow_sha"] == "a" * 40
+
+
+@pytest.mark.parametrize("field,value", [
+    ("EXPECTED_SOURCE_COMMIT", "A" * 40), ("EXPECTED_SOURCE_COMMIT", "a" * 39),
+    ("GITHUB_REPOSITORY", "other/repo"), ("GITHUB_REPOSITORY_ID", "1061766509"),
+    ("GITHUB_EVENT_NAME", "pull_request"), ("GITHUB_REF", "refs/heads/unreviewed"),
+    ("GITHUB_ACTOR", "other"), ("GITHUB_TRIGGERING_ACTOR", "other"),
+    ("GITHUB_RUN_ATTEMPT", "2"), ("GITHUB_RUN_ATTEMPT", 1),
+    ("GITHUB_RUN_ID", "0"), ("GITHUB_RUN_ID", "01"), ("GITHUB_RUN_ID", "1" * 21),
+    ("GITHUB_SHA", "b" * 40), ("GITHUB_WORKFLOW_SHA", "b" * 40),
+    ("GITHUB_WORKFLOW_REF", "HKati/pulse-release-gates-0.1/.github/workflows/other.yml@refs/heads/main"),
+    ("ENTRY_STOP_ACKNOWLEDGEMENT", "OBSERVE_ORIGINAL_LAUNCHER_ENTRY_STOP_ONLY "),
+])
+def test_entry_hosted_driver_rejects_independent_context_drift(field, value):
+    environment = entry_hosted_driver_environment()
+    environment[field] = value
+    with pytest.raises((ValueError, TypeError)):
+        entry_hosted_driver().context(environment)
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_entry_hosted_driver_container_argv_is_nonroot_fixed_and_does_not_forward_tokens(tmp_path, monkeypatch, phase):
+    driver = entry_hosted_driver()
+    for key in ("GH_TOKEN", "GITHUB_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN", "AWS_SECRET_ACCESS_KEY"):
+        monkeypatch.setenv(key, "SECRET_DO_NOT_FORWARD_" + key)
+    original, output, previous = (tmp_path / name for name in ("originals", "output", "previous"))
+    argv = driver.docker_create_args("sha256:" + "c" * 64, entry_hosted_driver_context(), original, output,
+                                    phase=phase, previous=previous if phase == "verify" else None,
+                                    uid=1001, gid=1002)
+    options = lambda name: [argv[i + 1] for i, item in enumerate(argv[:-1]) if item == name]
+    assert argv[:2] == ["docker", "create"]
+    assert options("--user") == ["1001:1002"] and options("--network") == ["none"]
+    assert options("--cap-drop") == ["ALL"] and options("--security-opt") == ["no-new-privileges"]
+    assert "--read-only" in argv and "--privileged" not in argv and "--cap-add" not in argv
+    assert options("--pids-limit") == ["64"] and options("--memory") == ["1g"]
+    assert options("--cpus") == ["1"] and options("--tmpfs") == ["/tmp:rw,nosuid,nodev,size=64m"]
+    mounts = options("--mount")
+    assert "type=bind,source=" + str(driver.ROOT) + ",target=/repo,readonly" in mounts
+    assert "type=bind,source=" + str(original) + ",target=/originals,readonly" in mounts
+    assert "type=bind,source=" + str(output) + ",target=/output" in mounts
+    assert len(mounts) == (4 if phase == "verify" else 3)
+    if phase == "verify":
+        assert "type=bind,source=" + str(previous) + ",target=/input,readonly" in mounts
+    environment = dict(value.split("=", 1) for value in options("--env"))
+    assert environment["ENTRY_STOP_PHASE"] == phase
+    assert environment["EXPECTED_SOURCE_COMMIT"] == "a" * 40
+    assert not any("TOKEN" in key or "SECRET" in key for key in environment)
+    assert not any("SECRET_DO_NOT_FORWARD" in value for value in argv)
+    assert not any("unconfined" in value for value in argv)
+    assert argv[-4:] == ["-I", "-B", "/repo/tools/required_gate_idempotence_entry_stop_hosted_v0/run.py", phase]
+
+
+@pytest.mark.parametrize("uid,gid", [(0, 1001), (1001, 0), (-1, 1001), (True, 1001), (1001, False)])
+def test_entry_hosted_driver_container_rejects_root_or_noninteger_identity(tmp_path, uid, gid):
+    with pytest.raises(ValueError, match="hosted_nonroot_user"):
+        entry_hosted_driver().docker_create_args("sha256:" + "c" * 64, entry_hosted_driver_context(),
+                                          tmp_path / "originals", tmp_path / "output",
+                                          phase="acquire", uid=uid, gid=gid)
+
+
+@pytest.mark.parametrize("phase,previous", [("other", None), ("verify", None), ("acquire", "/input")])
+def test_entry_hosted_driver_container_rejects_phase_input_confusion(tmp_path, phase, previous):
+    with pytest.raises(ValueError, match="hosted_container_phase"):
+        entry_hosted_driver().docker_create_args("sha256:" + "c" * 64, entry_hosted_driver_context(),
+                                          tmp_path / "originals", tmp_path / "output",
+                                          phase=phase, previous=previous, uid=1001, gid=1002)
+
+
+def test_entry_hosted_driver_receipt_is_anchored_by_the_external_digest(monkeypatch):
+    context, _payloads, record = entry_hosted_driver_receipt(monkeypatch)
+    raw = encoded(record)
+    assert entry_hosted_driver().validate_receipt(raw, digest(raw), context) == record
+    with pytest.raises(ValueError, match="hosted_receipt_digest"):
+        entry_hosted_driver().validate_receipt(raw, "0" * 64, context)
+    changed = copy.deepcopy(record)
+    changed["context"]["source_commit"] = "b" * 40
+    with pytest.raises(ValueError, match="hosted_receipt_digest"):
+        entry_hosted_driver().validate_receipt(encoded(changed), digest(raw), context)
+
+
+@pytest.mark.parametrize("fault", [
+    "source_commit", "run_id", "run_attempt_type", "profile", "authority", "boundary_type",
+    "extra_field", "file_count", "total_size", "source_binding", "source_prefix",
+    "request_binding", "capture_binding", "task_guard_binding", "hardware_binding",
+    "self_binding", "parent_path", "absolute_path",
+])
+def test_entry_hosted_driver_rejects_rehashed_inconsistent_receipts(monkeypatch, fault):
+    context, _payloads, record = entry_hosted_driver_receipt(monkeypatch)
+    value = copy.deepcopy(record)
+    if fault == "source_commit":
+        value["context"]["source_commit"] = "b" * 40
+    elif fault == "run_id":
+        value["context"]["run_id"] += 1
+    elif fault == "run_attempt_type":
+        value["context"]["run_attempt"] = True
+    elif fault == "profile":
+        value["profile"] = "other"
+    elif fault == "authority":
+        value["authority_effect"] = "release"
+    elif fault == "boundary_type":
+        value["selected_runtime_executed"] = 0
+    elif fault == "extra_field":
+        value["accepted"] = True
+    elif fault == "file_count":
+        value["file_count"] += 1
+    elif fault == "total_size":
+        value["total_size_bytes"] += 1
+    elif fault == "source_binding":
+        value["source_bindings"]["tools/reviewed-source.py"]["sha256"] = "b" * 64
+    elif fault == "source_prefix":
+        value["source_prefix_complete"] = False
+    elif fault in {"request_binding", "capture_binding"}:
+        value[fault.removesuffix("_binding")] = bound(b"other bytes")
+    elif fault in {"task_guard_binding", "hardware_binding"}:
+        value[{"task_guard_binding": "task_guard_qualification", "hardware_binding": "hardware_qualification"}[fault]] = bound(b"other bytes")
+    else:
+        name = {"self_binding": "receipt.json", "parent_path": "../escaped", "absolute_path": "/escaped"}[fault]
+        value["files"][name] = bound(b"x")
+        value["file_count"] += 1
+        value["total_size_bytes"] += 1
+    raw = encoded(value)
+    with pytest.raises(ValueError):
+        entry_hosted_driver().validate_receipt(raw, digest(raw), context)
+
+
+def test_entry_hosted_driver_receipt_rejects_reformatted_json_with_a_new_digest(monkeypatch):
+    context, _payloads, record = entry_hosted_driver_receipt(monkeypatch)
+    raw = json.dumps(record, indent=2).encode()
+    with pytest.raises(ValueError, match="hosted_receipt_shape"):
+        entry_hosted_driver().validate_receipt(raw, digest(raw), context)
+
+
+@pytest.mark.parametrize("missing", ["sources", "request", "capture", "task_guard", "hardware"])
+def test_entry_hosted_driver_verifies_incomplete_prefix_bytes_then_stops_before_environment(tmp_path, monkeypatch, missing):
+    driver = entry_hosted_driver()
+    context, payloads, record = entry_hosted_driver_receipt(
+        monkeypatch, sources_present=missing != "sources", request_present=missing != "request",
+        capture_present=missing != "capture", task_guard_present=missing != "task_guard",
+        hardware_present=missing != "hardware")
+    raw = encoded(record)
+    source, output = tmp_path / "download", tmp_path / "verification"
+    entry_hosted_driver_tree(source, {**payloads, "receipt.json": raw})
+    entry_hosted_driver_prefix(output, "verify", context)
+    for name, value in entry_hosted_driver_environment("verify").items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("EXPECTED_RECEIPT_SHA256", digest(raw))
+    calls = []
+    def forbidden(*_args, **_kwargs):
+        calls.append(True)
+        raise AssertionError("an incomplete prefix must not launch environment work")
+    for name in ("environment", "_materials", "_build_image", "_container", "acquire", "_command"):
+        monkeypatch.setattr(driver, name, forbidden)
+    with pytest.raises(ValueError, match="hosted_capture_not_published"):
+        driver.verify(output, source, digest(raw), context)
+    assert calls == [] and not (output / "verified-binding.json").exists()
+    result = json.loads((output / "receipt-verification.json").read_bytes())
+    assert result["all_preserved_bytes_verified"] is True and result["observation_complete"] is False
+    assert (output / "private-input/receipt.json").read_bytes() == raw
+    assert all((output / "private-input" / name).read_bytes() == value for name, value in payloads.items())
+
+
+@pytest.mark.parametrize("fault", ["extra", "missing", "changed", "symlink"])
+def test_entry_hosted_driver_verification_rejects_any_download_roster_or_byte_drift(tmp_path, monkeypatch, fault):
+    driver = entry_hosted_driver()
+    context, payloads, record = entry_hosted_driver_receipt(monkeypatch)
+    raw = encoded(record)
+    source, output = tmp_path / "download", tmp_path / "verification"
+    entry_hosted_driver_tree(source, {**payloads, "receipt.json": raw})
+    entry_hosted_driver_prefix(output, "verify", context)
+    for name, value in entry_hosted_driver_environment("verify").items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("EXPECTED_RECEIPT_SHA256", digest(raw))
+    if fault == "extra":
+        (source / "not-in-receipt.bin").write_bytes(b"x")
+    else:
+        path = source / "observation/request.json"
+        if fault == "changed":
+            path.write_bytes(b"changed")
+        else:
+            path.unlink()
+            if fault == "symlink":
+                (tmp_path / "replacement").write_bytes(payloads["observation/request.json"])
+                path.symlink_to(tmp_path / "replacement")
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("unverified download reached environment work")
+    for name in ("environment", "_materials", "_build_image", "_container", "_command"):
+        monkeypatch.setattr(driver, name, forbidden)
+    with pytest.raises(ValueError):
+        driver.verify(output, source, digest(raw), context)
+    assert not (output / "receipt-verification.json").exists()
+    assert not (output / "verified-binding.json").exists()
+
+
+def entry_hosted_driver_attestation_fixture(tmp_path, monkeypatch):
+    driver = entry_hosted_driver()
+    context = entry_hosted_driver_context()
+    root = tmp_path / "verification"
+    entry_hosted_driver_prefix(root, "verify", context)
+    for name, value in entry_hosted_driver_environment("verify").items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("GH_TOKEN", "SYNTHETIC_SECRET_DO_NOT_PRESERVE")
+    monkeypatch.setenv("ENTRY_STOP_ATTESTATION_ID", "1234")
+    monkeypatch.setenv("ENTRY_STOP_ATTESTATION_URL", "https://github.com/HKati/pulse-release-gates-0.1/attestations/1234")
+    value = {
+        "record_type": "required_gate_idempotence_entry_stop_hosted_verified_binding_v0",
+        "profile": driver.PROFILE, "status": "accepted", "context": context,
+        "artifact_id": 123456789, "observation_complete": True,
+        "canonical_reports_byte_identical": True, "verification_acquisition_repeated": False,
+        "owned_outer_cleanup_verified": True, "source_bindings": driver.source_bindings(),
+        **{name: True for name in driver.NARROW_FLAGS},
+        **{name: bound(b"authored bound evidence") for name in (
+            "original_receipt", "request", "capture", "task_guard_qualification", "hardware_qualification",
+            "original_container_cleanup", "verification_container_cleanup", "first_report", "second_report")},
+        **driver.BOUNDARY,
+    }
+    raw = encoded(value)
+    driver.io.write_new(root / "verified-binding.json", raw)
+    bundle = tmp_path / "action-bundle.json"
+    bundle.write_bytes(b'{"authored_bundle":"never sent to GH"}\n')
+    return driver, context, root, bundle, raw
+
+
+def test_entry_hosted_driver_attestation_verifier_pins_original_bundle_source_workflow_and_oidc(tmp_path, monkeypatch):
+    driver, context, root, bundle, raw = entry_hosted_driver_attestation_fixture(tmp_path, monkeypatch)
+    calls = []
+    def command(*args, **kwargs):
+        calls.append((args, kwargs))
+        return {"returncode": 0, "failure": None}
+    monkeypatch.setattr(driver, "_command", command)
+    assert driver.attest_verify(root, bundle, context) == 0
+    assert len(calls) == 1
+    args, kwargs = calls[0]
+    assert args[:2] == (root, "attestation-verify")
+    assert args[2] == [
+        "gh", "attestation", "verify", str(root / "verified-binding.json"),
+        "--bundle", str(root / "attestation.bundle.json"),
+        "--repo", "HKati/pulse-release-gates-0.1",
+        "--signer-workflow", "HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_entry_stop_v0.yml",
+        "--signer-digest", "a" * 40, "--source-digest", "a" * 40,
+        "--source-ref", "refs/heads/main", "--predicate-type", "https://slsa.dev/provenance/v1",
+        "--cert-oidc-issuer", "https://token.actions.githubusercontent.com",
+        "--deny-self-hosted-runners", "--format", "json"]
+    assert args[3] <= 120 and kwargs["require"] is False
+    assert (root / "attestation.bundle.json").read_bytes() == bundle.read_bytes()
+    result = json.loads((root / "attestation-verification.json").read_bytes())
+    assert result["subject"] == bound(raw) and result["bundle"] == bound(bundle.read_bytes())
+    assert result["github_signature_verification_succeeded"] is True
+    assert all(b"SYNTHETIC_SECRET_DO_NOT_PRESERVE" not in path.read_bytes()
+               for path in root.rglob("*") if path.is_file())
+
+
+@pytest.mark.parametrize("fault", ["exit", "timeout", "subject", "bundle"])
+def test_entry_hosted_driver_attestation_cannot_accept_failed_or_changed_verification(tmp_path, monkeypatch, fault):
+    driver, context, root, bundle, _raw = entry_hosted_driver_attestation_fixture(tmp_path, monkeypatch)
+    def command(*_args, **_kwargs):
+        if fault == "subject":
+            (root / "verified-binding.json").write_bytes(b"changed subject")
+        if fault == "bundle":
+            (root / "attestation.bundle.json").write_bytes(b"changed preserved bundle")
+        return {"returncode": 1 if fault == "exit" else 0,
+                "failure": "hosted_process_timeout" if fault == "timeout" else None}
+    monkeypatch.setattr(driver, "_command", command)
+    with pytest.raises(ValueError):
+        driver.attest_verify(root, bundle, context)
+    assert not (root / "attestation-verification.json").exists()
+
+
+def test_entry_hosted_workflow_exact_carrier_has_no_required_gate_or_release_participation():
+    path = ROOT / ENTRY_HOSTED_WORKFLOW
+    assert digest(path.read_bytes()) == "452972094f789a65b5933497be000d97c2ba7d896a7b41fad0dd028cfa7a9021"
+    item = hosted_exec_stop_classifier().classify_workflow(path, repo_root=ROOT)
+    assert item["primary_role"] == "non-authorizing guarded original-entry observation workflow"
+    assert item["carrier_class"] == "audit_preservation" and item["authority_impacting"] == "no"
+    assert item["required_gate_participation"] is False and item["release_path_participation"] is False
+    assert item["attestation_participation"] is True
+    assert "qualification" in item["authority_boundary"] and "keep #2879 open" in item["notes"]
+
+
+@pytest.mark.parametrize("fault", ["name", "permission", "trigger", "subject", "retention", "newline", "crlf", "symlink"])
+def test_entry_hosted_changed_workflow_cannot_inherit_reviewed_carrier_classification(tmp_path, fault):
+    path = tmp_path / ENTRY_HOSTED_WORKFLOW
+    path.parent.mkdir(parents=True)
+    original = (ROOT / ENTRY_HOSTED_WORKFLOW).read_bytes()
+    changes = {
+        "name": (b"PULSEmech original launcher entry-stop observation v0", b"Changed observation"),
+        "permission": (b"contents: read", b"contents: write"),
+        "trigger": (b"workflow_dispatch:", b"push:"),
+        "subject": (b"/verified-binding.json", b"/different-binding.json"),
+        "retention": (b"retention-days: 90", b"retention-days: 1"),
+        "crlf": (b"\n", b"\r\n"),
+    }
+    if fault == "symlink":
+        target = tmp_path / "saved-workflow.txt"
+        target.write_bytes(original)
+        path.symlink_to(target)
+    elif fault == "newline":
+        path.write_bytes(original + b"\n")
+    else:
+        before, after = changes[fault]
+        assert before in original
+        path.write_bytes(original.replace(before, after))
+    item = hosted_exec_stop_classifier().classify_workflow(path, repo_root=tmp_path)
+    assert item["primary_role"] == "unclassified workflow" and item["authority_impacting"] == "conditional"
+    assert hosted_exec_stop_classifier().drift_findings([item]) == [{
+        "severity": "warning", "path": ENTRY_HOSTED_WORKFLOW,
+        "finding": "workflow requires explicit carrier-role classification"}]
+
+
+def test_entry_hosted_workflow_bytes_at_another_path_are_not_the_selected_carrier(tmp_path):
+    path = tmp_path / ".github/workflows/unreviewed_entry_stop.yml"
+    path.parent.mkdir(parents=True)
+    path.write_bytes((ROOT / ENTRY_HOSTED_WORKFLOW).read_bytes())
+    item = hosted_exec_stop_classifier().classify_workflow(path, repo_root=tmp_path)
+    assert item["primary_role"] == "unclassified workflow" and item["authority_impacting"] == "conditional"
+
+
+@pytest.mark.parametrize("field,value", [("observation_complete", False), ("observation_complete", 1),
+                                          ("status", "incomplete"), ("context", {})])
+def test_entry_hosted_incomplete_or_unbound_subject_never_reaches_attestation_verification(tmp_path, monkeypatch, field, value):
+    driver, context, root, bundle, raw = entry_hosted_driver_attestation_fixture(tmp_path, monkeypatch)
+    record = json.loads(raw)
+    record[field] = value
+    (root / "verified-binding.json").write_bytes(encoded(record))
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("an incomplete subject reached the external signature verifier")
+    monkeypatch.setattr(driver, "_command", forbidden)
+    with pytest.raises(ValueError, match="hosted_attestation_subject"):
+        driver.attest_verify(root, bundle, context)
+    assert not (root / "attestation-verification.json").exists()
+
+
+def entry_hosted_runner():
+    return module("entry_hosted_container_runner_regression_v0",
+                  "tools/required_gate_idempotence_entry_stop_hosted_v0/run.py")
+
+
+ENTRY_HOSTED_NARROW = (
+    "kernel_exec_checkpoint_observed", "fresh_cp0_prefix_verified", "entry_checkpoint_observed",
+    "selected_native_image_bindings_verified", "selected_entry_memory_ranges_observed",
+    "selected_entry_rx_ranges_match_original", "task_guard_installation_verified",
+    "hardware_entry_stop_verified", "owned_entry_stop_cleanup_verified",
+)
+
+
+def entry_hosted_complete_report(attempt_id, request_sha256, capture_sha256):
+    return {"record_type": "required_gate_idempotence_entry_stop_verification_v0",
+        "profile": "linux_x86_64_original_launcher_entry_stop_v0", "status": "accepted",
+        "attempt_id": attempt_id, "request_sha256": request_sha256, "capture_sha256": capture_sha256,
+        "observation_record_verified": True, "observation_complete": True,
+        **{name: True for name in ENTRY_HOSTED_NARROW}, "failure": None,
+        "metric_pass": None, "authority_effect": "none"}
+
+
+def test_entry_hosted_host_cli_help_uses_only_the_runner_standard_library():
+    result = subprocess.run([sys.executable, "-I", "-S", "-B",
+        str(ROOT / "tools/required_gate_idempotence_entry_stop_hosted_v0.py"), "--help"],
+        stdin=subprocess.DEVNULL, capture_output=True, timeout=15)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    assert b"attest-verify" in result.stdout and b"acquire" in result.stdout
+
+
+def test_entry_hosted_host_source_and_environment_checks_do_not_need_installed_python_packages():
+    program = """import json,runpy,sys
+namespace=runpy.run_path(sys.argv[1])
+selected=namespace['environment']()
+sources=namespace['source_bindings']()
+print(json.dumps({'profile':selected['profile'],'source_count':len(sources)}))
+"""
+    result = subprocess.run([sys.executable, "-I", "-S", "-B", "-c", program,
+        str(ROOT / "tools/required_gate_idempotence_entry_stop_hosted_v0.py")],
+        stdin=subprocess.DEVNULL, capture_output=True, timeout=30)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    record = json.loads(result.stdout)
+    assert record["profile"] == "linux_x86_64_original_launcher_entry_stop_v0"
+    assert record["source_count"] > 72
+
+
+def test_entry_hosted_runner_requires_every_selected_entry_obligation():
+    runner = entry_hosted_runner()
+    assert runner.NARROW_FLAGS == ENTRY_HOSTED_NARROW
+    report = entry_hosted_complete_report("c" * 32, "d" * 64, "e" * 64)
+    assert runner.complete_report(report, "c" * 32, "d" * 64, "e" * 64)
+    for changed in (("f" * 32, "d" * 64, "e" * 64),
+                    ("c" * 32, "f" * 64, "e" * 64),
+                    ("c" * 32, "d" * 64, "f" * 64)):
+        assert not runner.complete_report(report, *changed)
+
+
+@pytest.mark.parametrize("field", (*ENTRY_HOSTED_NARROW, "observation_record_verified", "observation_complete"))
+@pytest.mark.parametrize("value", [False, 1, None])
+def test_entry_hosted_runner_never_promotes_a_missing_or_truthy_entry_obligation(field, value):
+    runner = entry_hosted_runner()
+    report = entry_hosted_complete_report("c" * 32, "d" * 64, "e" * 64)
+    report[field] = value
+    assert not runner.complete_report(report, "c" * 32, "d" * 64, "e" * 64)
+
+
+def entry_hosted_runner_fixture(case, tmp_path, monkeypatch, *, phase="acquire", fault=None):
+    """Exercise orchestration while substituting only passive runtime and child I/O.
+
+    Qualification records retain real source bindings and are reconstructed by
+    the actual pure qualifiers. The response emitter below is an authored child
+    boundary, never a qualification command, Docker invocation or original run.
+    """
+    runner = entry_hosted_runner()
+    output, previous = tmp_path / "output", tmp_path / "input"
+    output.mkdir(mode=0o700)
+    previous.mkdir(mode=0o700)
+    monkeypatch.setattr(runner, "REPO", ROOT)
+    monkeypatch.setattr(runner, "OUTPUT", output)
+    monkeypatch.setattr(runner, "INPUT", previous)
+    monkeypatch.setattr(runner, "validate_runtime", lambda _environment: {"authored_passive_runtime": True})
+    guard_native = importlib.import_module("required_gate_idempotence_entry_task_guard_v0")
+    def passive_context():
+        assert phase == "acquire", "verification must use the preserved acquisition context"
+        return copy.deepcopy(case.environment)
+    monkeypatch.setattr(guard_native, "current_context", passive_context)
+    environment = entry_hosted_driver_environment(phase)
+    context = runner.validate_context(environment, phase)
+    attempt_id = runner.derive_attempt_id(context)
+    request = copy.deepcopy(case.request)
+    request["attempt_id"] = attempt_id
+    request["cp0_request"]["attempt_id"] = attempt_id
+    request_raw = encoded(request)
+    capture_raw = encoded({"authored_capture": "orchestration fixture", "status": "completed"})
+    guard_record, hardware_record = copy.deepcopy(case.qualification), copy.deepcopy(case.hardware)
+    if fault == "guard_incomplete":
+        guard_record["status"], guard_record["failure"] = "incomplete", "authored_guard_failure"
+    elif fault == "hardware_incomplete":
+        hardware_record["status"], hardware_record["failure"] = "incomplete", "authored_hardware_failure"
+    elif fault == "qualification_context":
+        hardware_record["context"]["boot_id"] = "13b18223-3b38-4a2d-97f5-85682b8baf02"
+    elif fault == "qualification_source":
+        guard_record["sources"][0]["sha256"] = "0" * 64
+    elif fault == "qualification_signal":
+        guard_record["cases"][8]["terminal_wait_status"] = 11
+    elif fault in {"foreign_context_boot", "foreign_context_namespaces", "foreign_context_observer"}:
+        foreign = copy.deepcopy(case.environment)
+        if fault == "foreign_context_boot":
+            foreign["boot_id"] = "13b18223-3b38-4a2d-97f5-85682b8baf02"
+        elif fault == "foreign_context_namespaces":
+            foreign["namespaces"]["mnt"] = "mnt:[4026532999]"
+        else:
+            foreign["observer"]["sha256"] = "e" * 64
+        guard_record["environment"] = copy.deepcopy(foreign)
+        hardware_record["context"] = copy.deepcopy(foreign)
+    qualified = {"task_guard": encoded(guard_record), "hardware": encoded(hardware_record)}
+    prepared = {"record_type": "required_gate_idempotence_entry_stop_preparation_verification_v0",
+        "profile": runner.PROFILE, "status": "accepted", "attempt_id": attempt_id,
+        "request": bound(request_raw), "original_relationships_reconstructed": True,
+        "distribution_signature_freshly_verified": True, "original_reports_reproduced": True,
+        "task_guard_qualification_record_verified": True, "hardware_qualification_record_verified": True,
+        "metric_pass": None, "authority_effect": "none"}
+    complete = entry_hosted_complete_report(attempt_id, digest(request_raw), digest(capture_raw))
+    calls = []
+
+    def command(argv, directory, label, *_args, **_kwargs):
+        calls.append((tuple(argv), label))
+        output_path = Path(argv[argv.index("--output") + 1]) if "--output" in argv else None
+        result = {"returncode": 0, "failure": None}
+        if any(str(arg).endswith("/required_gate_idempotence_entry_task_guard_v0.py") for arg in argv):
+            assert output_path is not None
+            runner.io.write_new(output_path, qualified["task_guard"])
+            stdout = qualified["task_guard"]
+            if fault == "guard_command":
+                result["returncode"] = 1
+        elif any(str(arg).endswith("/qualify_required_gate_idempotence_entry_stop_v0.py") for arg in argv):
+            assert output_path is not None
+            runner.io.write_new(output_path, qualified["hardware"])
+            stdout = qualified["hardware"]
+            if fault == "hardware_command":
+                result["returncode"] = 1
+        else:
+            operation = argv[argv.index(str(runner.ADAPTER)) + 1]
+            if operation == "prepare":
+                assert output_path is not None
+                runner.io.write_new(output_path, request_raw)
+                stdout = encoded(prepared)
+                if fault == "prepare_command":
+                    result["returncode"] = 1
+            elif operation == "check":
+                report = copy.deepcopy(prepared)
+                if fault == "request_reports_differ" and label.endswith("2"):
+                    report["authored_extra"] = True
+                stdout = encoded(report)
+                runner.io.write_new(output_path, stdout)
+                if fault == "request_command" and label.endswith("1"):
+                    result["returncode"] = 1
+            elif operation == "run-owner":
+                capture = Path(argv[argv.index("--output-directory") + 1])
+                capture.mkdir(mode=0o700)
+                runner.io.write_new(capture / "capture.json", capture_raw)
+                runner.io.write_new(capture / "request.json", request_raw)
+                report = copy.deepcopy(complete)
+                if fault == "acquisition_incomplete":
+                    report["observation_complete"] = False
+                    result["returncode"] = 1
+                stdout = encoded(report)
+            elif operation == "check-capture":
+                report = copy.deepcopy(complete)
+                if fault == "capture_reports_differ" and label.endswith("2"):
+                    report["authored_extra"] = True
+                if fault == "capture_incomplete":
+                    report["observation_complete"] = False
+                if fault == "capture_truthy":
+                    report["entry_checkpoint_observed"] = 1
+                stdout = encoded(report)
+                runner.io.write_new(output_path, stdout)
+            else:
+                raise AssertionError("unexpected child operation: " + operation)
+        runner.io.write_new(directory / (label + ".stdout.bin"), stdout)
+        runner.io.write_new(directory / (label + ".stderr.bin"), b"")
+        runner.io.write_new(directory / (label + ".result.json"), encoded(result))
+        return result
+
+    monkeypatch.setattr(runner.io, "run_command", command)
+    if phase == "verify":
+        original_result = {"returncode": 0, "failure": None}
+        if fault == "original_exit":
+            original_result["returncode"] = 1
+        elif fault == "original_timeout":
+            original_result["failure"] = "hosted_process_deadline"
+        files = {
+            "observation/request.json": request_raw,
+            "observation/capture/request.json": request_raw,
+            "observation/capture/capture.json": capture_raw,
+            "observation/qualifications/task-guard.json": qualified["task_guard"],
+            "observation/qualifications/hardware.json": qualified["hardware"],
+            "observation/qualifications/acquisition-context.json": encoded(case.environment),
+            "observation/commands/acquisition.result.json": encoded(original_result),
+        }
+        if fault == "missing_qualification":
+            files.pop("observation/qualifications/hardware.json")
+        elif fault == "missing_acquisition_context":
+            files.pop("observation/qualifications/acquisition-context.json")
+        elif fault == "acquisition_context_mismatch":
+            context_record = copy.deepcopy(case.environment)
+            context_record["boot_id"] = "13b18223-3b38-4a2d-97f5-85682b8baf02"
+            files["observation/qualifications/acquisition-context.json"] = encoded(context_record)
+        receipt = {"context": context, "files": {name: bound(raw) for name, raw in files.items()}}
+        receipt["task_guard_qualification"] = receipt["files"].get("observation/qualifications/task-guard.json")
+        receipt["hardware_qualification"] = receipt["files"].get("observation/qualifications/hardware.json")
+        if fault == "qualification_binding":
+            receipt["files"]["observation/qualifications/task-guard.json"] = bound(b"substituted")
+            receipt["task_guard_qualification"] = bound(b"substituted")
+        elif fault == "acquisition_context_binding":
+            receipt["files"]["observation/qualifications/acquisition-context.json"] = bound(b"substituted")
+        for name, raw in files.items():
+            path = previous / name
+            path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            runner.io.write_new(path, raw)
+        runner.io.write_new(previous / "receipt.json", encoded(receipt))
+    return SimpleNamespace(runner=runner, output=output, input=previous, environment=environment,
+        context=context, request_raw=request_raw, capture_raw=capture_raw, qualifications=qualified,
+        calls=calls, attempt_id=attempt_id)
+
+
+def entry_hosted_called_operations(case):
+    result = []
+    for argv, _label in case.calls:
+        if str(case.runner.ADAPTER) in argv:
+            result.append(argv[argv.index(str(case.runner.ADAPTER)) + 1])
+        elif any(arg.endswith("/required_gate_idempotence_entry_task_guard_v0.py") for arg in argv):
+            result.append("qualify-task-guard")
+        elif any(arg.endswith("/qualify_required_gate_idempotence_entry_stop_v0.py") for arg in argv):
+            result.append("qualify-hardware")
+        else:
+            raise AssertionError("unclassified authored child call")
+    return result
+
+
+def test_entry_hosted_runner_qualifies_both_prerequisites_before_exactly_one_original_attempt(entry_stop_case, tmp_path, monkeypatch):
+    case = entry_hosted_runner_fixture(entry_stop_case, tmp_path, monkeypatch)
+    assert case.runner.run_phase("acquire", case.environment) == 0
+    assert entry_hosted_called_operations(case) == [
+        "qualify-task-guard", "qualify-hardware", "prepare", "check", "check", "run-owner"]
+    summary = json.loads((case.output / "acquisition-summary.json").read_bytes())
+    assert summary["observation_complete"] is True and summary["acquisition_command_invoked"] is True
+    assert summary["qualification_preconditions_verified"] is True
+    assert summary["qualifications"] == {name: bound(raw) for name, raw in case.qualifications.items()}
+    assert summary["request"] == bound(case.request_raw) and summary["capture"] == bound(case.capture_raw)
+    assert summary["metric_pass"] is None and summary["authority_effect"] == "none"
+
+
+@pytest.mark.parametrize("fault", ["guard_command", "hardware_command", "guard_incomplete", "hardware_incomplete",
+    "qualification_context", "qualification_source", "qualification_signal",
+    "foreign_context_boot", "foreign_context_namespaces", "foreign_context_observer"])
+def test_entry_hosted_failed_qualification_preserves_both_prefixes_without_preparing_or_executing_original(entry_stop_case, tmp_path, monkeypatch, fault):
+    case = entry_hosted_runner_fixture(entry_stop_case, tmp_path, monkeypatch, fault=fault)
+    assert case.runner.run_phase("acquire", case.environment) == 1
+    assert entry_hosted_called_operations(case) == ["qualify-task-guard", "qualify-hardware"]
+    assert (case.output / "qualifications/task-guard.json").read_bytes() == case.qualifications["task_guard"]
+    assert (case.output / "qualifications/hardware.json").read_bytes() == case.qualifications["hardware"]
+    summary = json.loads((case.output / "acquisition-summary.json").read_bytes())
+    assert summary["observation_complete"] is False and summary["acquisition_command_invoked"] is False
+    assert summary["qualification_preconditions_verified"] is False
+    assert all(summary[name] is False for name in ENTRY_HOSTED_NARROW)
+    assert not (case.output / "request.json").exists() and not (case.output / "capture").exists()
+
+
+@pytest.mark.parametrize("fault", ["prepare_command", "request_command", "request_reports_differ"])
+def test_entry_hosted_preparation_or_reconstruction_failure_stops_before_original_attempt(entry_stop_case, tmp_path, monkeypatch, fault):
+    case = entry_hosted_runner_fixture(entry_stop_case, tmp_path, monkeypatch, fault=fault)
+    assert case.runner.run_phase("acquire", case.environment) == 1
+    operations = entry_hosted_called_operations(case)
+    assert operations[:3] == ["qualify-task-guard", "qualify-hardware", "prepare"]
+    assert "run-owner" not in operations
+    summary = json.loads((case.output / "acquisition-summary.json").read_bytes())
+    assert summary["observation_complete"] is False and summary["acquisition_command_invoked"] is False
+
+
+def test_entry_hosted_runner_verifies_the_same_preserved_capture_twice_without_requalifying_or_acquiring(entry_stop_case, tmp_path, monkeypatch):
+    case = entry_hosted_runner_fixture(entry_stop_case, tmp_path, monkeypatch, phase="verify")
+    assert case.runner.run_phase("verify", case.environment) == 0
+    assert entry_hosted_called_operations(case) == ["check-capture", "check-capture"]
+    assert (case.output / "capture-check-1.json").read_bytes() == (case.output / "capture-check-2.json").read_bytes()
+    assert (case.output / "capture/capture.json").read_bytes() == case.capture_raw
+    summary = json.loads((case.output / "verification-summary.json").read_bytes())
+    assert summary["observation_complete"] is True and summary["acquisition_command_invoked"] is False
+    assert summary["canonical_reports_byte_identical"] is True and summary["qualification_preconditions_verified"] is True
+    assert summary["qualification_commands_completed"] is False
+    assert (case.output / "qualifications/acquisition-context.json").read_bytes() == encoded(entry_stop_case.environment)
+
+
+@pytest.mark.parametrize("fault", ["original_exit", "original_timeout", "capture_reports_differ", "capture_incomplete",
+    "capture_truthy", "missing_qualification", "qualification_binding", "qualification_context",
+    "missing_acquisition_context", "acquisition_context_mismatch", "acquisition_context_binding"])
+def test_entry_hosted_runner_failed_original_or_changed_proof_never_completes_verification(entry_stop_case, tmp_path, monkeypatch, fault):
+    case = entry_hosted_runner_fixture(entry_stop_case, tmp_path, monkeypatch, phase="verify", fault=fault)
+    assert case.runner.run_phase("verify", case.environment) == 1
+    operations = entry_hosted_called_operations(case)
+    assert all(operation == "check-capture" for operation in operations) and len(operations) <= 2
+    summary = json.loads((case.output / "verification-summary.json").read_bytes())
+    assert summary["observation_complete"] is False and summary["acquisition_command_invoked"] is False
+    assert all(summary[name] is False for name in ENTRY_HOSTED_NARROW)
+
+
+def entry_hosted_cleanup_payloads(context, phase="acquire", *, image_id="sha256:" + "c" * 64):
+    driver = entry_hosted_driver()
+    cid = "d" * 64
+    cleanup = {"container_id": cid, "context": context, "phase": phase, "image_id": image_id,
+        "owned_container_created": True, "owned_container_removed": True,
+        "removal_absence_observed": True, "failure": None, **driver.BOUNDARY}
+    before = [{"Id": cid, "Image": image_id,
+        "Name": "/pulse-entry-stop-" + str(context["run_id"]) + "-1-" + phase,
+        "Config": {"Labels": {"org.pulsemech.entry-stop.run": str(context["run_id"]),
+                                "org.pulsemech.entry-stop.source": context["source_commit"]}}}]
+    remove = {"returncode": 0, "failure": None, "argv": ["docker", "rm", "--force", cid]}
+    absence = {"returncode": 0, "failure": None, "stdout": bound(b""),
+        "argv": ["docker", "container", "ls", "--all", "--quiet", "--no-trunc", "--filter", "id=" + cid]}
+    return {"environment/container-cleanup.json": encoded(cleanup),
+        "environment/container-id.txt": (cid + "\n").encode(),
+        "environment/selection.json": encoded({"constructed_image_id": image_id}),
+        "host-commands/container-before.stdout.bin": encoded(before),
+        "host-commands/container-remove.result.json": encoded(remove),
+        "host-commands/container-absence.result.json": encoded(absence),
+        "host-commands/container-absence.stdout.bin": b""}
+
+
+def test_entry_hosted_outer_cleanup_requires_owned_removal_and_a_fresh_empty_query(tmp_path):
+    driver, context = entry_hosted_driver(), entry_hosted_driver_context()
+    payloads = entry_hosted_cleanup_payloads(context)
+    root = tmp_path / "preserved"
+    entry_hosted_driver_tree(root, payloads)
+    assert driver.validate_cleanup(root, context, "acquire") == bound(payloads["environment/container-cleanup.json"])
+
+
+@pytest.mark.parametrize("fault", ["missing", "false_removal", "truthy_removal", "false_absence", "wrong_run",
+    "wrong_phase", "wrong_cid_file", "wrong_image", "wrong_name", "wrong_label", "remove_exit", "remove_timeout",
+    "remove_other_target", "absence_exit", "absence_timeout", "absence_other_query", "absence_binding", "still_present"])
+def test_entry_hosted_rehashed_cleanup_claims_cannot_replace_owned_removal_evidence(tmp_path, fault):
+    driver, context = entry_hosted_driver(), entry_hosted_driver_context()
+    payloads = entry_hosted_cleanup_payloads(context)
+    def change(name, mutate):
+        value = json.loads(payloads[name])
+        mutate(value)
+        payloads[name] = encoded(value)
+    cleanup_path = "environment/container-cleanup.json"
+    if fault == "missing":
+        payloads.pop(cleanup_path)
+    elif fault in {"false_removal", "truthy_removal", "false_absence", "wrong_run", "wrong_phase"}:
+        def mutate(record):
+            if fault == "false_removal": record["owned_container_removed"] = False
+            elif fault == "truthy_removal": record["owned_container_removed"] = 1
+            elif fault == "false_absence": record["removal_absence_observed"] = False
+            elif fault == "wrong_run": record["context"]["run_id"] += 1
+            else: record["phase"] = "verify"
+        change(cleanup_path, mutate)
+    elif fault == "wrong_cid_file":
+        payloads["environment/container-id.txt"] = ("e" * 64 + "\n").encode()
+    elif fault == "wrong_image":
+        change("environment/selection.json", lambda value: value.update(constructed_image_id="sha256:" + "e" * 64))
+    elif fault in {"wrong_name", "wrong_label"}:
+        def mutate(rows):
+            if fault == "wrong_name": rows[0]["Name"] = "/someone-elses-container"
+            else: rows[0]["Config"]["Labels"]["org.pulsemech.entry-stop.source"] = "e" * 40
+        change("host-commands/container-before.stdout.bin", mutate)
+    elif fault.startswith("remove_"):
+        def mutate(value):
+            if fault == "remove_exit": value["returncode"] = 1
+            elif fault == "remove_timeout": value["failure"] = "hosted_process_deadline"
+            else: value["argv"][-1] = "e" * 64
+        change("host-commands/container-remove.result.json", mutate)
+    elif fault == "still_present":
+        remaining = ("d" * 64 + "\n").encode()
+        payloads["host-commands/container-absence.stdout.bin"] = remaining
+        change("host-commands/container-absence.result.json", lambda value: value.update(stdout=bound(remaining)))
+    else:
+        def mutate(value):
+            if fault == "absence_exit": value["returncode"] = 1
+            elif fault == "absence_timeout": value["failure"] = "hosted_process_deadline"
+            elif fault == "absence_other_query": value["argv"][-1] = "id=" + "e" * 64
+            else: value["stdout"] = bound(b"not the observed bytes")
+        change("host-commands/container-absence.result.json", mutate)
+    root = tmp_path / "preserved"
+    entry_hosted_driver_tree(root, payloads)
+    with pytest.raises((OSError, ValueError)):
+        driver.validate_cleanup(root, context, "acquire")
+
+
+def entry_hosted_native_installer_fixture(tmp_path, monkeypatch):
+    builder = module("entry_hosted_original_object_builder_regression_v0",
+                     "tools/required_gate_idempotence_entry_stop_hosted_v0/build_environment.py")
+    inputs, host = tmp_path / "inputs", tmp_path / "authored-host"
+    (inputs / "native").mkdir(parents=True)
+    host.mkdir()
+    names = ("native/bwrap", "native/ld-linux-x86-64.so.2", "native/libc.so.6",
+             "native/libcap.so.2", "native/libpcre2-8.so.0", "native/libselinux.so.1")
+    raw = {name: ("authored-native-bytes:" + name).encode() for name in names}
+    paths = {name: None if name == "native/bwrap" else str(host / Path(name).name) for name in names}
+    for name, value in raw.items():
+        (inputs / name).write_bytes(value)
+    for name in ("native/ld-linux-x86-64.so.2", "native/libc.so.6"):
+        Path(paths[name]).write_bytes(raw[name])
+    monkeypatch.setattr(builder, "NATIVE", {name: bound(value) for name, value in raw.items()})
+    monkeypatch.setattr(builder, "NATIVE_HOST_PATHS", paths)
+    selection = {"original_native_objects": [
+        {"input": name, "host_path": paths[name], "installation":
+         "retained_data_only" if name == "native/bwrap" else
+         "require_existing_exact" if name in ("native/ld-linux-x86-64.so.2", "native/libc.so.6") else
+         "install_if_absent_or_require_existing_exact", **bound(raw[name])} for name in names]}
+    return SimpleNamespace(builder=builder, inputs=inputs, host=host, raw=raw, paths=paths, selection=selection)
+
+
+def test_entry_hosted_original_object_installation_keeps_launcher_data_and_requires_exact_base_objects(tmp_path, monkeypatch):
+    case = entry_hosted_native_installer_fixture(tmp_path, monkeypatch)
+    result = case.builder.install_original_objects(case.inputs, case.selection)
+    assert [row["action"] for row in result] == ["retained_data_only", "existing_original_verified",
+        "existing_original_verified", "installed_absent_original", "installed_absent_original", "installed_absent_original"]
+    assert not (case.host / "bwrap").exists()
+    for name, path in case.paths.items():
+        if path is not None:
+            assert Path(path).read_bytes() == case.raw[name]
+    before = {path: Path(path).stat().st_mtime_ns for path in case.paths.values() if path is not None}
+    again = case.builder.install_original_objects(case.inputs, case.selection)
+    assert all(row["action"] == "existing_original_verified" for row in again[1:])
+    assert {path: Path(path).stat().st_mtime_ns for path in before} == before
+
+
+@pytest.mark.parametrize("fault", ["missing_loader", "missing_libc", "conflicting_loader", "conflicting_libc",
+                                   "conflicting_libcap", "changed_original", "extra_original", "policy_change"])
+def test_entry_hosted_original_object_installer_rejects_substitution_without_overwriting_existing_objects(tmp_path, monkeypatch, fault):
+    case = entry_hosted_native_installer_fixture(tmp_path, monkeypatch)
+    conflict = None
+    if fault.startswith("missing_"):
+        name = "native/ld-linux-x86-64.so.2" if fault == "missing_loader" else "native/libc.so.6"
+        Path(case.paths[name]).unlink()
+    elif fault.startswith("conflicting_"):
+        name = {"conflicting_loader": "native/ld-linux-x86-64.so.2", "conflicting_libc": "native/libc.so.6",
+                "conflicting_libcap": "native/libcap.so.2"}[fault]
+        conflict = Path(case.paths[name])
+        conflict.write_bytes(b"keep pre-existing bytes")
+    elif fault == "changed_original":
+        (case.inputs / "native/bwrap").write_bytes(b"substituted original")
+    elif fault == "extra_original":
+        (case.inputs / "native/unselected.so").write_bytes(b"extra")
+    else:
+        case.selection["original_native_objects"][2]["installation"] = "install_if_absent_or_require_existing_exact"
+    with pytest.raises((OSError, ValueError)):
+        case.builder.install_original_objects(case.inputs, case.selection)
+    if conflict is not None:
+        assert conflict.read_bytes() == b"keep pre-existing bytes"
+
+
+def test_entry_hosted_selected_environment_binds_all_six_original_native_objects(entry_stop_case):
+    driver, runner = entry_hosted_driver(), entry_hosted_runner()
+    selected = driver.environment()
+    objects = selected["original_native_objects"]
+    expected_paths = {"native/bwrap": None, "native/ld-linux-x86-64.so.2": "/lib64/ld-linux-x86-64.so.2",
+        "native/libc.so.6": "/usr/lib/x86_64-linux-gnu/libc.so.6",
+        "native/libcap.so.2": "/usr/lib/x86_64-linux-gnu/libcap.so.2",
+        "native/libpcre2-8.so.0": "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0",
+        "native/libselinux.so.1": "/usr/lib/x86_64-linux-gnu/libselinux.so.1"}
+    assert len(objects) == 6 and {row["input"]: row["host_path"] for row in objects} == expected_paths
+    for row in objects:
+        assert {key: row[key] for key in ("sha256", "size_bytes")} == bound(entry_stop_case.native[row["input"]])
+        if row["host_path"] is not None:
+            assert runner.EXPECTED_FILES[row["host_path"]] == bound(entry_stop_case.native[row["input"]])
+    sources = driver.source_bindings()
+    assert len(sources) == len(set(sources)) == 81
+    for row in entry_stop_case.request["sources"]:
+        assert sources[row["path"]] == {key: row[key] for key in ("sha256", "size_bytes")}
+
+
+def entry_hosted_verification_fixture(tmp_path, monkeypatch, *, fault=None):
+    """Keep receipt/copy/cleanup gates real; author only unavailable host I/O."""
+    driver = entry_hosted_driver()
+    context, payloads, receipt = entry_hosted_driver_receipt(monkeypatch)
+    payloads.update(entry_hosted_cleanup_payloads(context))
+    cid = "d" * 64
+    original = {"status": "completed", "context": context, "observation_complete": True,
+        "request": receipt["request"], "capture": receipt["capture"],
+        "qualifications": {"task_guard": receipt["task_guard_qualification"],
+                           "hardware": receipt["hardware_qualification"]},
+        "qualification_preconditions_verified": True, "qualification_commands_completed": True,
+        "acquisition_command_invoked": True, "canonical_reports_byte_identical": True,
+        **{name: True for name in ENTRY_HOSTED_NARROW}, **driver.BOUNDARY}
+    start = {"returncode": 0, "failure": None, "argv": ["docker", "start", "--attach", cid]}
+    after = [{"Id": cid, "State": {"Status": "exited", "Running": False, "ExitCode": 0,
+                                   "OOMKilled": False, "Error": ""}}]
+    if fault == "original_cleanup":
+        cleanup = json.loads(payloads["environment/container-cleanup.json"])
+        cleanup["owned_container_removed"] = False
+        payloads["environment/container-cleanup.json"] = encoded(cleanup)
+    elif fault == "original_incomplete":
+        original["status"] = "incomplete"
+    elif fault == "original_context":
+        original["context"] = {**context, "run_id": context["run_id"] + 1}
+    elif fault == "original_qualification":
+        original["qualifications"] = {**original["qualifications"], "hardware": bound(b"other qualification")}
+    elif fault == "original_request":
+        original["request"] = bound(b"other request")
+    elif fault in {"original_preconditions", "original_qualification_commands", "original_acquisition", "original_reports"}:
+        name = {"original_preconditions": "qualification_preconditions_verified",
+            "original_qualification_commands": "qualification_commands_completed",
+            "original_acquisition": "acquisition_command_invoked",
+            "original_reports": "canonical_reports_byte_identical"}[fault]
+        original[name] = False
+    elif fault == "original_truthy_entry":
+        original["entry_checkpoint_observed"] = 1
+    elif fault == "original_exit":
+        start["returncode"] = 1
+    elif fault == "original_timeout":
+        start["failure"] = "hosted_process_deadline"
+    elif fault == "original_start_target":
+        start["argv"][-1] = "e" * 64
+    elif fault == "original_oom":
+        after[0]["State"]["OOMKilled"] = True
+    elif fault == "original_running":
+        after[0]["State"]["Running"] = True
+    elif fault == "original_container_error":
+        after[0]["State"]["Error"] = "authored runtime failure"
+    payloads["observation/acquisition-summary.json"] = encoded(original)
+    payloads["host-commands/container-start.result.json"] = encoded(start)
+    payloads["host-commands/container-after.stdout.bin"] = encoded(after)
+    receipt["files"] = {name: bound(raw) for name, raw in sorted(payloads.items())}
+    receipt["file_count"] = len(payloads)
+    receipt["total_size_bytes"] = sum(len(raw) for raw in payloads.values())
+    raw = encoded(receipt)
+    source, output = tmp_path / "download", tmp_path / "verification"
+    entry_hosted_driver_tree(source, {**payloads, "receipt.json": raw})
+    entry_hosted_driver_prefix(output, "verify", context)
+    for name, value in entry_hosted_driver_environment("verify").items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("EXPECTED_RECEIPT_SHA256", digest(raw))
+    repo = tmp_path / "authored-reviewed-repo"
+    (repo / "tools").mkdir(parents=True)
+    (repo / "tools/reviewed-source.py").write_bytes(b"pass\n")
+    monkeypatch.setattr(driver, "ROOT", repo)
+    calls = []
+    image_id = "sha256:" + "c" * 64
+
+    def selected_environment():
+        calls.append("environment")
+        return {"authored": "selected environment"}
+
+    def extract(_archive, target):
+        calls.append("extract-preserved-originals")
+        target.mkdir(mode=0o700)
+
+    def materials(*_args, **_kwargs):
+        calls.append("materials")
+        return {"authored": "preserved dependencies"}
+
+    def build(*_args, **_kwargs):
+        calls.append("build")
+        return image_id
+
+    def container(root, _selected, selected_image, ctx, _originals, phase, previous):
+        calls.append("verify-container")
+        assert selected_image == image_id and phase == "verify" and previous == output / "private-input"
+        payload = entry_hosted_cleanup_payloads(ctx, "verify", image_id=image_id)
+        if fault == "verification_cleanup":
+            cleanup = json.loads(payload["environment/container-cleanup.json"])
+            cleanup["removal_absence_observed"] = False
+            payload["environment/container-cleanup.json"] = encoded(cleanup)
+        summary = {"status": "completed", "context": ctx, "observation_complete": True,
+            "qualification_preconditions_verified": True, "qualification_commands_completed": False,
+            "acquisition_command_invoked": False, **{name: True for name in ENTRY_HOSTED_NARROW}, **driver.BOUNDARY}
+        if fault == "verification_incomplete":
+            summary["observation_complete"] = False
+        elif fault == "verification_requalified":
+            summary["qualification_commands_completed"] = True
+        elif fault == "verification_reacquired":
+            summary["acquisition_command_invoked"] = True
+        elif fault == "verification_preconditions":
+            summary["qualification_preconditions_verified"] = False
+        report = entry_hosted_complete_report(entry_hosted_runner().derive_attempt_id(ctx),
+            receipt["request"]["sha256"], receipt["capture"]["sha256"])
+        if fault == "verification_truthy_report":
+            report["entry_checkpoint_observed"] = 1
+        report_raw = encoded(report)
+        payload["verification/verification-summary.json"] = encoded(summary)
+        payload["verification/capture-check-1.json"] = report_raw
+        payload["verification/capture-check-2.json"] = (
+            encoded({**report, "authored_difference": True}) if fault == "verification_reports_differ" else report_raw)
+        for name, value in payload.items():
+            path = root / name
+            path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            driver.io.write_new(path, value)
+        return root / "verification"
+
+    monkeypatch.setattr(driver, "environment", selected_environment)
+    monkeypatch.setattr(driver.io, "extract_originals", extract)
+    monkeypatch.setattr(driver, "verify_debian_index", lambda *_args: {"authored": "preserved index"})
+    monkeypatch.setattr(driver, "_materials", materials)
+    monkeypatch.setattr(driver, "_build_image", build)
+    monkeypatch.setattr(driver, "_container", container)
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("authored host verification must never invoke external commands or acquisition")
+    monkeypatch.setattr(driver, "_command", forbidden)
+    monkeypatch.setattr(driver, "acquire", forbidden)
+    return SimpleNamespace(driver=driver, context=context, source=source, output=output,
+                           receipt=receipt, raw=raw, calls=calls)
+
+
+def test_entry_hosted_host_verification_binds_original_and_verification_cleanup_before_publishing(tmp_path, monkeypatch):
+    case = entry_hosted_verification_fixture(tmp_path, monkeypatch)
+    assert case.driver.verify(case.output, case.source, digest(case.raw), case.context) == 0
+    assert case.calls == ["environment", "extract-preserved-originals", "materials", "build", "verify-container"]
+    value = json.loads((case.output / "verified-binding.json").read_bytes())
+    assert value["original_receipt"] == bound(case.raw)
+    assert value["original_container_cleanup"] == bound(
+        (case.source / "environment/container-cleanup.json").read_bytes())
+    assert value["verification_container_cleanup"] == bound(
+        (case.output / "environment/container-cleanup.json").read_bytes())
+    assert value["task_guard_qualification"] == case.receipt["task_guard_qualification"]
+    assert value["hardware_qualification"] == case.receipt["hardware_qualification"]
+    assert value["first_report"] == value["second_report"]
+    assert value["owned_outer_cleanup_verified"] is True and value["observation_complete"] is True
+    assert value["verification_acquisition_repeated"] is False
+    assert all(value[name] is True for name in ENTRY_HOSTED_NARROW)
+    assert value["metric_pass"] is None and value["authority_effect"] == "none"
+
+
+@pytest.mark.parametrize("fault", ["original_cleanup", "original_incomplete", "original_context",
+    "original_qualification", "original_request", "original_preconditions", "original_qualification_commands",
+    "original_acquisition", "original_reports", "original_truthy_entry", "original_exit", "original_timeout",
+    "original_start_target", "original_oom", "original_running", "original_container_error"])
+def test_entry_hosted_original_failed_outer_job_cannot_be_promoted_by_complete_looking_capture(tmp_path, monkeypatch, fault):
+    case = entry_hosted_verification_fixture(tmp_path, monkeypatch, fault=fault)
+    with pytest.raises(ValueError):
+        case.driver.verify(case.output, case.source, digest(case.raw), case.context)
+    prefix = json.loads((case.output / "receipt-verification.json").read_bytes())
+    assert prefix["all_preserved_bytes_verified"] is True and prefix["observation_complete"] is False
+    assert not case.calls and not (case.output / "verified-binding.json").exists()
+
+
+@pytest.mark.parametrize("fault", ["verification_cleanup", "verification_incomplete", "verification_requalified",
+    "verification_reacquired", "verification_preconditions", "verification_truthy_report", "verification_reports_differ"])
+def test_entry_hosted_verification_failed_cleanup_or_replay_cannot_publish_an_attestation_subject(tmp_path, monkeypatch, fault):
+    case = entry_hosted_verification_fixture(tmp_path, monkeypatch, fault=fault)
+    with pytest.raises(ValueError):
+        case.driver.verify(case.output, case.source, digest(case.raw), case.context)
+    assert case.calls[-1] == "verify-container"
+    assert (case.output / "verification/verification-summary.json").is_file()
+    assert not (case.output / "verified-binding.json").exists()
