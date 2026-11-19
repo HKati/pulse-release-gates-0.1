@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/language_relation_adapter_requests_v0.schema.json",
+  "title": "language_relation_adapter_requests_v0",
+  "$comment": "LRM-05 fixed source-only request inventory. Shape validation does not prove byte binding, case uniqueness, source truth, extraction correctness, historical input isolation or release authority. Runtime pins the exact inventory bytes and checks all cross-record bindings. No reference representation, correspondence, interpretation family, coverage assertion or expected verdict is admitted.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "language_relation_adapter_requests_v0"
+    },
+    "artifact_kind": {
+      "const": "language_relation_adapter_requests"
+    },
+    "request_set_id": {
+      "const": "lrm_hu_en_source_requests_v0"
+    },
+    "provenance": {
+      "const": "synthetic_reference"
+    },
+    "profile_ref": {
+      "$ref": "#/$defs/profile_ref"
+    },
+    "requests": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/request"
+      },
+      "minItems": 23,
+      "maxItems": 23
+    },
+    "authority_effect": {
+      "const": "none"
+    },
+    "release_authority_activation": {
+      "const": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "request_set_id",
+    "provenance",
+    "profile_ref",
+    "requests",
+    "authority_effect",
+    "release_authority_activation"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "profile_ref": {
+      "type": "object",
+      "properties": {
+        "profile_id": {
+          "const": "lrm_finite_reference_profile_v0"
+        },
+        "content_sha256": {
+          "const": "f98a7c59b97f3854f9d585ae0fbf47b4427dd21345104def885fc046a3c8a2ad"
+        }
+      },
+      "required": [
+        "profile_id",
+        "content_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "source_id": {
+          "$ref": "#/$defs/id"
+        },
+        "role": {
+          "enum": [
+            "before",
+            "after",
+            "context"
+          ]
+        },
+        "language": {
+          "enum": [
+            "hu",
+            "en"
+          ]
+        },
+        "revision": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            }
+          ]
+        },
+        "encoding": {
+          "const": "utf-8"
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "content": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "inline_utf8"
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1048576
+            }
+          },
+          "required": [
+            "kind",
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "source_id",
+        "role",
+        "language",
+        "revision",
+        "encoding",
+        "content_sha256",
+        "byte_length",
+        "content"
+      ],
+      "additionalProperties": false
+    },
+    "question": {
+      "type": "object",
+      "properties": {
+        "target_id": {
+          "$ref": "#/$defs/id"
+        },
+        "question": {
+          "enum": [
+            "relation_preservation",
+            "interpretation_preservation",
+            "support_preservation",
+            "condition_impact",
+            "observed_effect"
+          ]
+        },
+        "granularity": {
+          "enum": [
+            "relation",
+            "relation_group",
+            "consequence"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "context_source_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 0,
+          "maxItems": 16,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "target_id",
+        "question",
+        "granularity",
+        "description",
+        "context_source_ids"
+      ],
+      "additionalProperties": false
+    },
+    "request": {
+      "type": "object",
+      "properties": {
+        "case_id": {
+          "$ref": "#/$defs/id"
+        },
+        "profile_ref": {
+          "$ref": "#/$defs/profile_ref"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source"
+          },
+          "minItems": 2,
+          "maxItems": 16
+        },
+        "questions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/question"
+          },
+          "minItems": 1,
+          "maxItems": 24
+        }
+      },
+      "required": [
+        "case_id",
+        "profile_ref",
+        "sources",
+        "questions"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

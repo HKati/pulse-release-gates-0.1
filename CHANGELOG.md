@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add [LRM-05 preserved candidate import and evaluation](docs/PULSEMECH_LANGUAGE_RELATION_ADAPTER_EVALUATION_v0.md)
+  on a fixed source-only inventory of 23 HU/EN cases and 24 questions. Bind saved
+  responses to exact request/source bytes, retain failed, missing and unsupported
+  cases, and run the independent LRM-02 representation checker. Preserve exact
+  admitted input and verification artifacts for the existing measurement path.
+  Separate producer declarations, confidence, source mapping and unresolved
+  target selection; publish operational counts without an extraction-accuracy
+  claim. No live model call, reference-answer input, acceptance promotion,
+  workflow change or release-authority activation is introduced.
+
 - Add [B2 original launcher exec-stop GitHub observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_GITHUB_v0.md)
   as a manual owner-scoped repository process with separate acquisition and
   verification jobs. Preserve the complete 114-file original-input carrier,

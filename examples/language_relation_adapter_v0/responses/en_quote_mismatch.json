@@ -1,0 +1,248 @@
+{
+  "artifact_kind": "language_relation_input",
+  "authority_effect": "none",
+  "case_id": "LRM_REF_10",
+  "correspondence": [
+    {
+      "after_ids": [
+        "a_anna"
+      ],
+      "anchor_ids": [
+        "anchor_after",
+        "anchor_before"
+      ],
+      "basis": "candidate",
+      "before_ids": [
+        "b_anna"
+      ],
+      "correspondence_id": "map_entity_anna",
+      "kind": "entity",
+      "rule_or_reference_id": null
+    },
+    {
+      "after_ids": [
+        "a_main"
+      ],
+      "anchor_ids": [
+        "anchor_after",
+        "anchor_before"
+      ],
+      "basis": "candidate",
+      "before_ids": [
+        "b_main"
+      ],
+      "correspondence_id": "map_relation_1",
+      "kind": "relation",
+      "rule_or_reference_id": null
+    }
+  ],
+  "coverage_obligations": [
+    {
+      "evidence_refs": [],
+      "kind": "source_scope",
+      "obligation_id": "coverage_main",
+      "reason": null,
+      "side": "both",
+      "source_ids": [
+        "source_after",
+        "source_before"
+      ],
+      "state": "fulfilled",
+      "target_id": "target_main"
+    }
+  ],
+  "impact_model": null,
+  "interpretations": {
+    "reason": null,
+    "state": "complete",
+    "variants": [
+      {
+        "after_relation_ids": [
+          "a_main"
+        ],
+        "before_relation_ids": [
+          "b_main"
+        ],
+        "context_constraints": [],
+        "correspondence_ids": [
+          "map_entity_anna",
+          "map_relation_1"
+        ],
+        "variant_id": "variant_1"
+      }
+    ]
+  },
+  "measurement_request": {
+    "processing_claim": "structural_comparison",
+    "targets": [
+      {
+        "after_ids": [
+          "a_main"
+        ],
+        "before_ids": [
+          "b_main"
+        ],
+        "context_source_ids": [],
+        "description": "Compare the selected role-bound relation or relation group.",
+        "granularity": "relation",
+        "question": "relation_preservation",
+        "required_obligation_ids": [
+          "coverage_main"
+        ],
+        "target_id": "target_main"
+      }
+    ]
+  },
+  "processing_binding": null,
+  "profile_ref": {
+    "content_sha256": "f98a7c59b97f3854f9d585ae0fbf47b4427dd21345104def885fc046a3c8a2ad",
+    "profile_id": "lrm_finite_reference_profile_v0"
+  },
+  "provenance": "synthetic_reference",
+  "release_authority_activation": false,
+  "representation_basis": {
+    "after": {
+      "acceptance_ref": null,
+      "basis": "candidate_only",
+      "verification_ref": null
+    },
+    "before": {
+      "acceptance_ref": null,
+      "basis": "candidate_only",
+      "verification_ref": null
+    }
+  },
+  "representations": {
+    "after": {
+      "domains": [],
+      "entities": [
+        {
+          "anchor_ids": [
+            "anchor_after"
+          ],
+          "entity_id": "a_anna",
+          "entity_type": "person",
+          "label": "Anna"
+        }
+      ],
+      "groups": [],
+      "relations": [
+        {
+          "anchor_ids": [
+            "anchor_after"
+          ],
+          "discourse_type": "assertion",
+          "expression": {
+            "arguments": [
+              {
+                "role": "agent",
+                "value": {
+                  "entity_id": "a_anna"
+                }
+              }
+            ],
+            "op": "ATOM",
+            "predicate": "approve"
+          },
+          "modality": "declarative",
+          "relation_id": "a_main",
+          "speaker_entity_id": null
+        }
+      ],
+      "representation_id": "a_representation",
+      "source_id": "source_after"
+    },
+    "before": {
+      "domains": [],
+      "entities": [
+        {
+          "anchor_ids": [
+            "anchor_before"
+          ],
+          "entity_id": "b_anna",
+          "entity_type": "person",
+          "label": "Anna"
+        },
+        {
+          "anchor_ids": [
+            "anchor_before"
+          ],
+          "entity_id": "b_eva",
+          "entity_type": "person",
+          "label": "Éva"
+        }
+      ],
+      "groups": [],
+      "relations": [
+        {
+          "anchor_ids": [
+            "anchor_before"
+          ],
+          "discourse_type": "assertion",
+          "expression": {
+            "arguments": [
+              {
+                "role": "agent",
+                "value": {
+                  "entity_id": "b_anna"
+                }
+              }
+            ],
+            "op": "ATOM",
+            "predicate": "approve"
+          },
+          "modality": "declarative",
+          "relation_id": "b_main",
+          "speaker_entity_id": null
+        }
+      ],
+      "representation_id": "b_representation",
+      "source_id": "source_before"
+    }
+  },
+  "schema_version": "language_relation_input_v0",
+  "source_anchors": [
+    {
+      "anchor_id": "anchor_after",
+      "content_sha256": "197c771085539b76b220bb2c7ad11e2a02e4b6482ed14505b622d6cd2e55f5d7",
+      "end_byte": 14,
+      "source_id": "source_after",
+      "start_byte": 0
+    },
+    {
+      "anchor_id": "anchor_before",
+      "content_sha256": "7af591be268d613af21f969f34874614ce0df3f582166d2720a815b48b2f82fa",
+      "end_byte": 27,
+      "source_id": "source_before",
+      "start_byte": 0
+    }
+  ],
+  "sources": [
+    {
+      "byte_length": 14,
+      "content": {
+        "kind": "inline_utf8",
+        "text": "Anna approves."
+      },
+      "content_sha256": "197c771085539b76b220bb2c7ad11e2a02e4b6482ed14505b622d6cd2e55f5d7",
+      "encoding": "utf-8",
+      "language": "en",
+      "revision": null,
+      "role": "after",
+      "source_id": "source_after"
+    },
+    {
+      "byte_length": 27,
+      "content": {
+        "kind": "inline_utf8",
+        "text": "Éva says: (Anna approves)."
+      },
+      "content_sha256": "7af591be268d613af21f969f34874614ce0df3f582166d2720a815b48b2f82fa",
+      "encoding": "utf-8",
+      "language": "en",
+      "revision": null,
+      "role": "before",
+      "source_id": "source_before"
+    }
+  ]
+}

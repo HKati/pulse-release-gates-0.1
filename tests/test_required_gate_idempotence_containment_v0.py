@@ -1289,8 +1289,8 @@ def test_containment_module_is_registered_once_without_targeted_duplication():
         return [value for line in (ROOT / "ci" / name).read_text().splitlines()
                 if (value := line.split("#", 1)[0].strip())]
     tools, targeted = entries("tools-tests.list"), entries("pytest-tests.list")
-    assert len(tools) == len(set(tools)) == 189 and tools.count(SELF) == 1
-    assert len(targeted) == len(set(targeted)) == 40 and SELF not in targeted
+    assert len(tools) == len(set(tools)) == 190 and tools.count(SELF) == 1
+    assert len(targeted) == len(set(targeted)) == 41 and SELF not in targeted
 
 
 # The outer-launcher plan is part of this same containment boundary. These

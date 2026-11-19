@@ -1,0 +1,331 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/HKati/pulse-release-gates-0.1/schemas/language_relation_candidate_records_v0.schema.json",
+  "title": "language_relation_candidate_records_v0",
+  "$comment": "LRM-05 preserved response index. Provider/model identity, confidence, capture state and unresolved items are declarations, not authenticated provenance or accepted evidence. The evaluator separately binds exact response/request/source bytes, isolates invalid cases and runs the existing independent verifier. No network call, source acceptance or release authority follows from schema validity.",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": "language_relation_candidate_records_v0"
+    },
+    "artifact_kind": {
+      "const": "language_relation_candidate_records"
+    },
+    "record_set_id": {
+      "$ref": "#/$defs/id"
+    },
+    "request_set_ref": {
+      "type": "object",
+      "properties": {
+        "request_set_id": {
+          "const": "lrm_hu_en_source_requests_v0"
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "request_set_id",
+        "content_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "producer": {
+      "$ref": "#/$defs/producer"
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/record"
+      },
+      "minItems": 0,
+      "maxItems": 64
+    },
+    "authority_effect": {
+      "const": "none"
+    },
+    "release_authority_activation": {
+      "const": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "artifact_kind",
+    "record_set_id",
+    "request_set_ref",
+    "producer",
+    "records",
+    "authority_effect",
+    "release_authority_activation"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.:-]{0,127}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "producer": {
+      "type": "object",
+      "properties": {
+        "adapter_id": {
+          "$ref": "#/$defs/id"
+        },
+        "adapter_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "provider": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          ]
+        },
+        "model": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          ]
+        },
+        "run_id": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          ]
+        },
+        "record_origin": {
+          "enum": [
+            "synthetic_fixture",
+            "preserved_model_response"
+          ]
+        },
+        "historical_input_isolation": {
+          "const": "not_verified"
+        }
+      },
+      "required": [
+        "adapter_id",
+        "adapter_version",
+        "provider",
+        "model",
+        "run_id",
+        "record_origin",
+        "historical_input_isolation"
+      ],
+      "additionalProperties": false
+    },
+    "response": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "content_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      },
+      "required": [
+        "path",
+        "byte_length",
+        "content_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "unresolved_item": {
+      "type": "object",
+      "properties": {
+        "issue_id": {
+          "$ref": "#/$defs/id"
+        },
+        "category": {
+          "enum": [
+            "referent_resolution",
+            "implicit_context",
+            "negation_scope",
+            "modal_scope",
+            "paraphrase_correspondence",
+            "alternative_completeness",
+            "target_selection",
+            "other"
+          ]
+        },
+        "reason": {
+          "$ref": "#/$defs/text"
+        },
+        "source_id": {
+          "$ref": "#/$defs/id"
+        },
+        "start_byte": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1048576
+        },
+        "end_byte": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        },
+        "question_ids": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/id"
+          },
+          "minItems": 1,
+          "maxItems": 24,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "issue_id",
+        "category",
+        "reason",
+        "source_id",
+        "start_byte",
+        "end_byte",
+        "question_ids"
+      ],
+      "additionalProperties": false
+    },
+    "record": {
+      "type": "object",
+      "properties": {
+        "record_id": {
+          "$ref": "#/$defs/id"
+        },
+        "case_id": {
+          "$ref": "#/$defs/id"
+        },
+        "request_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "capture_status": {
+          "enum": [
+            "completed",
+            "failed",
+            "unsupported",
+            "not_run"
+          ]
+        },
+        "response": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/response"
+            }
+          ]
+        },
+        "reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/text"
+            }
+          ]
+        },
+        "confidence": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            }
+          ]
+        },
+        "unresolved_items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/unresolved_item"
+          },
+          "minItems": 0,
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "record_id",
+        "case_id",
+        "request_sha256",
+        "capture_status",
+        "response",
+        "reason",
+        "confidence",
+        "unresolved_items"
+      ],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "capture_status": {
+                "const": "completed"
+              }
+            },
+            "required": [
+              "capture_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "response": {
+                "$ref": "#/$defs/response"
+              },
+              "reason": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "response": {
+                "type": "null"
+              },
+              "reason": {
+                "$ref": "#/$defs/text"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
