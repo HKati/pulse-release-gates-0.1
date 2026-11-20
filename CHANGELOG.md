@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the [B2 per-consumer loader-resolution plan](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_PLAN_v0.md)
+  with a closed proposal schema and independent data-only checker. Reconstruct
+  the preserved original entry capture with all 81 historical source bindings;
+  derive nine original `DT_NEEDED` occurrences and three separate interpreter
+  declarations directly from the original ELF bytes. Select a bounded proposed
+  return-event witness with a final original-entry stop, exact occurrence joins
+  and explicit unsatisfied binary/ABI, capability and implementation gates.
+  No new acquisition or workflow is introduced; loader-resolution verification,
+  B2 completion, selected-runtime execution and release authority remain open.
+
 - Add [LRM-05 preserved candidate import and evaluation](docs/PULSEMECH_LANGUAGE_RELATION_ADAPTER_EVALUATION_v0.md)
   on a fixed source-only inventory of 23 HU/EN cases and 24 questions. Bind saved
   responses to exact request/source bytes, retain failed, missing and unsupported
