@@ -364,6 +364,23 @@
   ],
   "host_environment_qualified": false,
   "native_acquisition_performed": false,
+  "native_object_restorations": [
+    {
+      "after": {
+        "sha256": "92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3",
+        "size_bytes": 711216
+      },
+      "before": {
+        "sha256": "8dde125b341abfdf4a596d2974cd3048e350cbc8d2d77acd54ea044f7815ca77",
+        "size_bytes": 711216
+      },
+      "host_path": "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0",
+      "input": "native/libpcre2-8.so.0",
+      "mode": 420,
+      "resolved_path": "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0.14.0",
+      "symlink_target": "libpcre2-8.so.0.14.0"
+    }
+  ],
   "original_native_objects": [
     {
       "host_path": null,
