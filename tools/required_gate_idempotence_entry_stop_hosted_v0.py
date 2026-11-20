@@ -30,7 +30,7 @@ ACKNOWLEDGEMENT = "OBSERVE_ORIGINAL_LAUNCHER_ENTRY_STOP_ONLY"
 REPOSITORY = "HKati/pulse-release-gates-0.1"
 WORKFLOW = ".github/workflows/required_gate_idempotence_entry_stop_v0.yml"
 CONFIG = "tools/required_gate_idempotence_entry_stop_hosted_v0"
-ENVIRONMENT_SHA256 = "87616cb66c17cc7ccfde3b516c20118665c4b7de948c39d66204263a275875db"
+ENVIRONMENT_SHA256 = "3f2d551e47f6babcc4c0a2090f8ebd342d82085c91daa982a12f4017a930804a"
 ORIGINAL_SHA256 = "16c541b8fd733dcef1b495b104b5377d11624b6106fbfa740e5ec6eb856cdfaa"
 FILE_LIMIT = 256 * 1024 * 1024
 TOTAL_LIMIT = 512 * 1024 * 1024
@@ -75,6 +75,23 @@ NATIVE_HOST_PATHS = {
     "native/libpcre2-8.so.0": "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0",
     "native/libselinux.so.1": "/usr/lib/x86_64-linux-gnu/libselinux.so.1",
 }
+# This one pre-build restoration is selected independently of the original
+# object checks. It accepts only the preserved base object's exact before bytes.
+NATIVE_RESTORATIONS = [{
+    "input": "native/libpcre2-8.so.0",
+    "host_path": "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0",
+    "symlink_target": "libpcre2-8.so.0.14.0",
+    "resolved_path": "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0.14.0",
+    "before": {
+        "sha256": "8dde125b341abfdf4a596d2974cd3048e350cbc8d2d77acd54ea044f7815ca77",
+        "size_bytes": 711216,
+    },
+    "after": {
+        "sha256": "92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3",
+        "size_bytes": 711216,
+    },
+    "mode": 420,
+}]
 BOUNDARY = {
     "host_environment_qualified": False, "physical_execution_authenticated": False,
     "complete_native_closure_verified": False, "containment_enforced": False,
@@ -205,6 +222,12 @@ def environment():
         else "install_if_absent_or_require_existing_exact", **native[name]}
         for name, path in NATIVE_HOST_PATHS.items()]
     _need(value.get("original_native_objects") == expected, "hosted_native_object_selection")
+    _need(io.canonical(value.get("native_object_restorations")) == io.canonical(NATIVE_RESTORATIONS),
+          "hosted_native_restoration_selection")
+    for item in NATIVE_RESTORATIONS:
+        _need(item["after"] == native[item["input"]]
+              and item["host_path"] == NATIVE_HOST_PATHS[item["input"]],
+              "hosted_native_restoration_original_binding")
     return value
 
 

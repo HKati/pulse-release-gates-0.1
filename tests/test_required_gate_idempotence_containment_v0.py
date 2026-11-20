@@ -9055,6 +9055,8 @@ def entry_hosted_runner_fixture(case, tmp_path, monkeypatch, *, phase="acquire",
     monkeypatch.setattr(runner, "REPO", ROOT)
     monkeypatch.setattr(runner, "OUTPUT", output)
     monkeypatch.setattr(runner, "INPUT", previous)
+    monkeypatch.setattr(runner, "ENVIRONMENT", ROOT / "tools/required_gate_idempotence_entry_stop_hosted_v0/environment.json")
+    monkeypatch.setattr(runner, "REQUIREMENTS", ROOT / "tools/required_gate_idempotence_entry_stop_hosted_v0/requirements.lock")
     monkeypatch.setattr(runner, "validate_runtime", lambda _environment: {"authored_passive_runtime": True})
     guard_native = importlib.import_module("required_gate_idempotence_entry_task_guard_v0")
     def passive_context():
@@ -9167,6 +9169,7 @@ def entry_hosted_runner_fixture(case, tmp_path, monkeypatch, *, phase="acquire",
         elif fault == "original_timeout":
             original_result["failure"] = "hosted_process_deadline"
         files = {
+            "observation/host-evidence/build-environment-record.json": encoded(entry_hosted_authored_build_record()[0]),
             "observation/request.json": request_raw,
             "observation/capture/request.json": request_raw,
             "observation/capture/capture.json": capture_raw,
@@ -9404,7 +9407,8 @@ def test_entry_hosted_original_object_installation_keeps_launcher_data_and_requi
 
 
 @pytest.mark.parametrize("fault", ["missing_loader", "missing_libc", "conflicting_loader", "conflicting_libc",
-                                   "conflicting_libcap", "changed_original", "extra_original", "policy_change"])
+                                   "conflicting_libcap", "conflicting_libpcre2", "conflicting_libselinux",
+                                   "changed_original", "extra_original", "policy_change"])
 def test_entry_hosted_original_object_installer_rejects_substitution_without_overwriting_existing_objects(tmp_path, monkeypatch, fault):
     case = entry_hosted_native_installer_fixture(tmp_path, monkeypatch)
     conflict = None
@@ -9413,7 +9417,8 @@ def test_entry_hosted_original_object_installer_rejects_substitution_without_ove
         Path(case.paths[name]).unlink()
     elif fault.startswith("conflicting_"):
         name = {"conflicting_loader": "native/ld-linux-x86-64.so.2", "conflicting_libc": "native/libc.so.6",
-                "conflicting_libcap": "native/libcap.so.2"}[fault]
+                "conflicting_libcap": "native/libcap.so.2", "conflicting_libpcre2": "native/libpcre2-8.so.0",
+                "conflicting_libselinux": "native/libselinux.so.1"}[fault]
         conflict = Path(case.paths[name])
         conflict.write_bytes(b"keep pre-existing bytes")
     elif fault == "changed_original":
@@ -9621,3 +9626,388 @@ def test_entry_hosted_verification_failed_cleanup_or_replay_cannot_publish_an_at
     assert case.calls[-1] == "verify-container"
     assert (case.output / "verification/verification-summary.json").is_file()
     assert not (case.output / "verified-binding.json").exists()
+
+
+# The first hosted entry-stop run preserved a base image whose existing pcre2
+# SONAME resolved normally but contained a different, same-size revision.
+# These fixtures use authored inert bytes and real filesystem operations only.
+ENTRY_HOSTED_PCRE2_RESTORATION = {
+    "input": "native/libpcre2-8.so.0",
+    "host_path": "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0",
+    "symlink_target": "libpcre2-8.so.0.14.0",
+    "resolved_path": "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0.14.0",
+    "before": {"sha256": "8dde125b341abfdf4a596d2974cd3048e350cbc8d2d77acd54ea044f7815ca77",
+               "size_bytes": 711216},
+    "after": {"sha256": "92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3",
+              "size_bytes": 711216},
+    "mode": 0o644,
+}
+
+
+def entry_hosted_authored_build_record():
+    config = ROOT / "tools/required_gate_idempotence_entry_stop_hosted_v0"
+    selection_raw, lock_raw = (config / "environment.json").read_bytes(), (config / "requirements.lock").read_bytes()
+    selection = json.loads(selection_raw)
+    restoration = copy.deepcopy(ENTRY_HOSTED_PCRE2_RESTORATION)
+    resolved = {restoration["host_path"]: restoration["resolved_path"]}
+    record = {
+        "record_type": "required_gate_idempotence_entry_stop_hosted_environment_build_v0",
+        "environment_selection": bound(selection_raw), "requirements_lock": bound(lock_raw),
+        "base_image_reference": selection["base_image"]["reference"], "python_version": "3.11.16",
+        "installed_debian_delta": [{"name": item["name"], "version": item["version"]}
+                                   for item in selection["debian"]["packages"]],
+        "selected_python_packages": [{"name": item["name"], "version": item["version"]}
+                                     for item in selection["python"]["packages"]],
+        "checked_files": [{**item, "resolved_path": resolved.get(item["path"], item["path"])}
+                          for item in selection["expected_files"]],
+        "original_native_objects": [{**item,
+            "action": "retained_data_only" if item["host_path"] is None else "existing_original_verified",
+            "resolved_path": resolved.get(item["host_path"], item["host_path"])}
+            for item in selection["original_native_objects"]],
+        "native_object_restorations": [{**restoration, "action": "restored_selected_base_original",
+            "observed_before": copy.deepcopy(restoration["before"]),
+            "observed_after": copy.deepcopy(restoration["after"])}],
+        "host_environment_qualified": False, "native_acquisition_performed": False,
+        "authority_effect": "none",
+    }
+    return record, selection, selection_raw, lock_raw
+
+
+def entry_hosted_restoration_fixture(tmp_path, monkeypatch):
+    case = entry_hosted_native_installer_fixture(tmp_path, monkeypatch)
+    case.soname = Path(case.paths["native/libpcre2-8.so.0"])
+    case.terminal = case.host / "libpcre2-8.so.0.14.0"
+    case.before = b"B" * len(case.raw["native/libpcre2-8.so.0"])
+    case.terminal.write_bytes(case.before)
+    case.terminal.chmod(0o644)
+    case.soname.symlink_to(case.terminal.name)
+    case.restoration = {**copy.deepcopy(ENTRY_HOSTED_PCRE2_RESTORATION),
+        "host_path": str(case.soname), "resolved_path": str(case.terminal),
+        "before": bound(case.before), "after": bound(case.raw["native/libpcre2-8.so.0"])}
+    monkeypatch.setattr(case.builder, "NATIVE_RESTORATIONS", [copy.deepcopy(case.restoration)])
+    case.selection["native_object_restorations"] = [copy.deepcopy(case.restoration)]
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("native-object restoration must not start a child process")
+    monkeypatch.setattr(case.builder, "subprocess", SimpleNamespace(run=forbidden))
+    return case
+
+
+def entry_hosted_tree_bytes(root):
+    """Snapshot regular data and links without opening authored FIFO faults."""
+    result = {}
+    for path in [root, *sorted(root.rglob("*"))]:
+        info = path.lstat()
+        payload = (os.readlink(path) if stat.S_ISLNK(info.st_mode) else
+                   path.read_bytes() if stat.S_ISREG(info.st_mode) else None)
+        result[str(path.relative_to(root))] = (info.st_mode, info.st_nlink, payload)
+    return result
+
+
+def test_entry_hosted_restoration_pins_one_known_base_revision_and_preserves_original_selection():
+    driver, runner = entry_hosted_driver(), entry_hosted_runner()
+    builder = module("entry_hosted_original_object_builder_regression_v0",
+                     "tools/required_gate_idempotence_entry_stop_hosted_v0/build_environment.py")
+    selected = driver.environment()
+    expected = [ENTRY_HOSTED_PCRE2_RESTORATION]
+    assert selected["native_object_restorations"] == driver.NATIVE_RESTORATIONS == runner.NATIVE_RESTORATIONS == builder.NATIVE_RESTORATIONS == expected
+    assert selected["base_image"]["config_sha256"] == "274d131132dbdc6058ed77088525d77adaf0749a6d99f2cf7d42feb9a10737c8"
+    original = {item["input"]: item for item in selected["original_native_objects"]}
+    assert {key: original[expected[0]["input"]][key] for key in ("sha256", "size_bytes")} == expected[0]["after"]
+    assert original[expected[0]["input"]]["installation"] == "install_if_absent_or_require_existing_exact"
+    assert all(original[name]["installation"] == "require_existing_exact"
+               for name in ("native/libc.so.6", "native/ld-linux-x86-64.so.2"))
+    record, selection, selection_raw, lock_raw = entry_hosted_authored_build_record()
+    assert runner.validate_build_record(record, selection, selection_raw, lock_raw) is None
+
+
+@pytest.mark.parametrize("name", ["native/libcap.so.2", "native/libpcre2-8.so.0", "native/libselinux.so.1"])
+def test_entry_hosted_original_installer_accepts_exact_soname_targets_without_replacing_links(tmp_path, monkeypatch, name):
+    case = entry_hosted_native_installer_fixture(tmp_path, monkeypatch)
+    soname = Path(case.paths[name])
+    target = soname.with_name(soname.name + ".authored-version")
+    target.write_bytes(case.raw[name])
+    soname.symlink_to(target.name)
+    identities = (soname.lstat().st_ino, target.stat().st_ino, target.stat().st_mtime_ns)
+    result = case.builder.install_original_objects(case.inputs, case.selection)
+    item = next(row for row in result if row["input"] == name)
+    assert item["action"] == "existing_original_verified" and item["resolved_path"] == str(target)
+    assert (soname.lstat().st_ino, target.stat().st_ino, target.stat().st_mtime_ns) == identities
+    assert os.readlink(soname) == target.name and target.read_bytes() == case.raw[name]
+
+
+def test_entry_hosted_restoration_reproduces_base_collision_then_restores_only_the_selected_terminal(tmp_path, monkeypatch):
+    case = entry_hosted_restoration_fixture(tmp_path, monkeypatch)
+    immutable = {name: (Path(case.paths[name]).stat().st_ino, Path(case.paths[name]).read_bytes())
+                 for name in ("native/libc.so.6", "native/ld-linux-x86-64.so.2")}
+    link_identity, terminal_identity = case.soname.lstat().st_ino, case.terminal.stat().st_ino
+    with pytest.raises(ValueError, match="build_native_host_conflict"):
+        case.builder.install_original_objects(case.inputs, case.selection)
+    assert case.terminal.read_bytes() == case.before
+    result = case.builder.restore_original_native_objects(case.inputs, case.selection)
+    assert result == [{**case.restoration, "action": "restored_selected_base_original",
+        "observed_before": bound(case.before), "observed_after": bound(case.raw["native/libpcre2-8.so.0"])}]
+    assert case.soname.lstat().st_ino == link_identity and os.readlink(case.soname) == case.terminal.name
+    assert case.terminal.stat().st_ino != terminal_identity and stat.S_IMODE(case.terminal.stat().st_mode) == 0o644
+    assert case.terminal.read_bytes() == case.raw["native/libpcre2-8.so.0"]
+    assert case.builder.verify_native_restorations(case.selection) is None
+    final = case.builder.install_original_objects(case.inputs, case.selection)
+    assert next(row for row in final if row["input"] == "native/libpcre2-8.so.0")["action"] == "existing_original_verified"
+    assert {name: (Path(case.paths[name]).stat().st_ino, Path(case.paths[name]).read_bytes()) for name in immutable} == immutable
+    assert not list(case.host.glob(".pulse-entry-stop-restoration-*"))
+
+
+@pytest.mark.parametrize("fault", ["wrong_before", "already_original", "missing_terminal", "missing_soname",
+    "regular_soname", "wrong_symlink", "terminal_symlink", "terminal_directory", "terminal_fifo",
+    "terminal_hardlink", "wrong_mode", "parent_symlink", "wrong_original", "missing_original", "symlink_original",
+    "preexisting_stage"])
+def test_entry_hosted_restoration_rejects_unknown_state_without_changing_any_existing_bytes(tmp_path, monkeypatch, fault):
+    case = entry_hosted_restoration_fixture(tmp_path, monkeypatch)
+    if fault == "wrong_before":
+        case.terminal.write_bytes(b"C" * len(case.before))
+    elif fault == "already_original":
+        case.terminal.write_bytes(case.raw["native/libpcre2-8.so.0"])
+    elif fault == "missing_terminal":
+        case.terminal.unlink()
+    elif fault == "missing_soname":
+        case.soname.unlink()
+    elif fault == "regular_soname":
+        case.soname.unlink()
+        case.soname.write_bytes(case.before)
+    elif fault == "wrong_symlink":
+        other = case.host / "unselected-version"
+        other.write_bytes(case.before)
+        case.soname.unlink()
+        case.soname.symlink_to(other.name)
+    elif fault == "terminal_symlink":
+        other = case.host / "unselected-terminal"
+        other.write_bytes(case.before)
+        case.terminal.unlink()
+        case.terminal.symlink_to(other.name)
+    elif fault == "terminal_directory":
+        case.terminal.unlink()
+        case.terminal.mkdir()
+    elif fault == "terminal_fifo":
+        case.terminal.unlink()
+        os.mkfifo(case.terminal)
+    elif fault == "terminal_hardlink":
+        os.link(case.terminal, case.host / "unexpected-alias")
+    elif fault == "wrong_mode":
+        case.terminal.chmod(0o666)
+    elif fault == "parent_symlink":
+        moved = case.host.with_name("unselected-directory")
+        case.host.rename(moved)
+        case.host.symlink_to(moved.name, target_is_directory=True)
+    elif fault == "wrong_original":
+        (case.inputs / "native/libpcre2-8.so.0").write_bytes(case.before)
+    elif fault == "missing_original":
+        (case.inputs / "native/libpcre2-8.so.0").unlink()
+    elif fault == "symlink_original":
+        original = case.inputs / "native/libpcre2-8.so.0"
+        other = case.inputs / "unselected-original"
+        original.rename(other)
+        original.symlink_to(other)
+    else:
+        (case.host / (".pulse-entry-stop-restoration-" + case.terminal.name)).write_bytes(b"keep foreign staging data")
+    before = entry_hosted_tree_bytes(tmp_path)
+    with pytest.raises((OSError, ValueError)):
+        case.builder.restore_original_native_objects(case.inputs, case.selection)
+    assert entry_hosted_tree_bytes(tmp_path) == before
+
+
+@pytest.mark.parametrize("fault", ["missing", "extra_row", "extra_field", "before_hash", "after_hash",
+    "host_path", "resolved_path", "symlink_target", "mode", "float_mode", "float_size"])
+def test_entry_hosted_restoration_selection_is_exact_before_any_mutation(tmp_path, monkeypatch, fault):
+    case = entry_hosted_restoration_fixture(tmp_path, monkeypatch)
+    row = case.selection["native_object_restorations"][0]
+    if fault == "missing":
+        case.selection.pop("native_object_restorations")
+    elif fault == "extra_row":
+        case.selection["native_object_restorations"].append(copy.deepcopy(row))
+    elif fault == "extra_field":
+        row["allow_any_conflict"] = True
+    elif fault in {"before_hash", "after_hash"}:
+        row[fault.split("_")[0]]["sha256"] = "e" * 64
+    elif fault in {"host_path", "resolved_path", "symlink_target"}:
+        row[fault] += ".unselected"
+    elif fault == "mode":
+        row["mode"] = 0o666
+    elif fault == "float_mode":
+        row["mode"] = float(row["mode"])
+    else:
+        row["before"]["size_bytes"] = float(row["before"]["size_bytes"])
+    before = entry_hosted_tree_bytes(tmp_path)
+    with pytest.raises(ValueError, match="build_native_restoration_selection"):
+        case.builder.restore_original_native_objects(case.inputs, case.selection)
+    assert entry_hosted_tree_bytes(tmp_path) == before
+
+
+def test_entry_hosted_restoration_atomic_replace_failure_keeps_prior_bytes_and_removes_owned_stage(tmp_path, monkeypatch):
+    case = entry_hosted_restoration_fixture(tmp_path, monkeypatch)
+    native_os = SimpleNamespace(**vars(os))
+    def rejected(*_args, **_kwargs):
+        raise OSError(errno.EIO, "authored atomic replacement failure")
+    native_os.replace = rejected
+    monkeypatch.setattr(case.builder, "os", native_os)
+    before = entry_hosted_tree_bytes(tmp_path)
+    with pytest.raises(ValueError, match="build_native_restoration_io"):
+        case.builder.restore_original_native_objects(case.inputs, case.selection)
+    assert entry_hosted_tree_bytes(tmp_path) == before
+
+
+@pytest.mark.parametrize("fault", ["bytes", "link", "mode", "hardlink"])
+def test_entry_hosted_final_restoration_check_rejects_package_trigger_drift_without_repair(tmp_path, monkeypatch, fault):
+    case = entry_hosted_restoration_fixture(tmp_path, monkeypatch)
+    case.builder.restore_original_native_objects(case.inputs, case.selection)
+    if fault == "bytes":
+        case.terminal.write_bytes(case.before)
+    elif fault == "link":
+        other = case.host / "unselected-post-trigger-target"
+        other.write_bytes(case.raw["native/libpcre2-8.so.0"])
+        case.soname.unlink()
+        case.soname.symlink_to(other.name)
+    elif fault == "mode":
+        case.terminal.chmod(0o666)
+    else:
+        os.link(case.terminal, case.host / "unexpected-post-trigger-alias")
+    before = entry_hosted_tree_bytes(tmp_path)
+    with pytest.raises(ValueError):
+        case.builder.verify_native_restorations(case.selection)
+    assert entry_hosted_tree_bytes(tmp_path) == before
+
+
+@pytest.mark.parametrize("trigger_drift", [None, "same_bytes_new_symlink_target", "changed_terminal_mode"])
+def test_entry_hosted_environment_build_checks_restoration_again_after_package_triggers(tmp_path, monkeypatch, trigger_drift):
+    case = entry_hosted_restoration_fixture(tmp_path, monkeypatch)
+    builder = case.builder
+    selected = json.loads((ROOT / "tools/required_gate_idempotence_entry_stop_hosted_v0/environment.json").read_bytes())
+    selected.update(case.selection)
+    selected["expected_files"] = [{"path": path, **bound(case.raw[name])}
+        for name, path in case.paths.items() if path is not None]
+    for name in ("authored-python", "authored-gpg"):
+        path = case.host / name
+        raw = ("inert runtime bytes: " + name).encode()
+        path.write_bytes(raw)
+        selected["expected_files"].append({"path": str(path), **bound(raw)})
+    for directory, entries in (("debs", selected["debian"]["packages"]), ("wheels", selected["python"]["packages"])):
+        (case.inputs / directory).mkdir()
+        for item in entries:
+            raw = ("inert offline archive: " + item["filename"]).encode()
+            (case.inputs / directory / item["filename"]).write_bytes(raw)
+            item.update(bound(raw))
+    (case.inputs / "environment.json").write_bytes(encoded(selected))
+    (case.inputs / "requirements.lock").write_text("\n".join(
+        item["name"] + "==" + item["version"] + " --hash=sha256:" + item["sha256"]
+        for item in selected["python"]["packages"]) + "\n")
+    before = {item["name"]: item["base_version"] for item in selected["debian"]["closure"]
+              if item["base_version"] is not None}
+    after = {item["name"]: item["version"] for item in selected["debian"]["closure"]}
+    packages = {item["name"]: item["version"] for item in selected["python"]["packages"]}
+    statuses, calls = iter((before, after)), []
+    def run(argv, **_kwargs):
+        calls.append(argv)
+        if argv[0] == "/usr/bin/dpkg":
+            assert case.soname.read_bytes() == case.raw["native/libpcre2-8.so.0"]
+            if trigger_drift == "same_bytes_new_symlink_target":
+                other = case.host / "post-trigger-version"
+                other.write_bytes(case.raw["native/libpcre2-8.so.0"])
+                case.soname.unlink()
+                case.soname.symlink_to(other.name)
+            elif trigger_drift == "changed_terminal_mode":
+                case.terminal.chmod(0o666)
+        else:
+            assert argv[:4] == [builder.PYTHON, "-I", "-m", "pip"]
+        return subprocess.CompletedProcess(argv, 0)
+    monkeypatch.setattr(builder, "sys", SimpleNamespace(executable=builder.PYTHON, platform="linux"))
+    monkeypatch.setattr(builder, "platform", SimpleNamespace(python_version=lambda: builder.PYTHON_VERSION,
+                                                           machine=lambda: "x86_64"))
+    monkeypatch.setattr(builder, "installed_debian", lambda: next(statuses))
+    monkeypatch.setattr(builder, "importlib", SimpleNamespace(metadata=SimpleNamespace(version=packages.__getitem__)))
+    monkeypatch.setattr(builder, "subprocess", SimpleNamespace(run=run))
+    record_path = case.inputs / "build-environment-record.json"
+    if trigger_drift is None:
+        result = builder.install(case.inputs)
+        assert json.loads(record_path.read_bytes()) == result
+        assert result["native_object_restorations"] == [{**case.restoration,
+            "action": "restored_selected_base_original", "observed_before": bound(case.before),
+            "observed_after": bound(case.raw["native/libpcre2-8.so.0"])}]
+        assert result["host_environment_qualified"] is False and result["native_acquisition_performed"] is False
+        assert result["authority_effect"] == "none"
+    else:
+        with pytest.raises(ValueError, match="build_native_restoration_"):
+            builder.install(case.inputs)
+        assert not record_path.exists()
+        # Every final runtime byte still matches, so layout verification must
+        # reject this independently of the existing hash-only runtime check.
+        assert builder.check_runtime_files(selected, include_gpg=True)
+    assert len(calls) == 3 and calls[0][:2] == ["/usr/bin/dpkg", "--install"]
+
+
+@pytest.mark.parametrize("fault", ["missing", "extra_row", "action", "before", "after", "observed_before",
+    "observed_after", "mode", "float_mode", "float_size", "extra_field", "checked_path",
+    "original_action", "original_path", "rehashed_selection"])
+def test_entry_hosted_build_record_cannot_relabel_an_unknown_base_or_restored_original(fault):
+    runner = entry_hosted_runner()
+    record, selection, selection_raw, lock_raw = entry_hosted_authored_build_record()
+    row = record["native_object_restorations"][0]
+    if fault == "missing":
+        record.pop("native_object_restorations")
+    elif fault == "extra_row":
+        record["native_object_restorations"].append(copy.deepcopy(row))
+    elif fault == "action":
+        row["action"] = "accepted_ambient_library"
+    elif fault in {"before", "after", "observed_before", "observed_after"}:
+        row[fault]["sha256"] = "e" * 64
+    elif fault == "mode":
+        row["mode"] = 0o666
+    elif fault == "float_mode":
+        row["mode"] = float(row["mode"])
+    elif fault == "float_size":
+        row["observed_before"]["size_bytes"] = float(row["observed_before"]["size_bytes"])
+    elif fault == "extra_field":
+        row["ambient_object_allowed"] = True
+    elif fault == "checked_path":
+        next(item for item in record["checked_files"] if item["path"] == row["host_path"])["resolved_path"] += ".unselected"
+    elif fault in {"original_action", "original_path"}:
+        original = next(item for item in record["original_native_objects"] if item["input"] == row["input"])
+        if fault == "original_action":
+            original["action"] = "installed_absent_original"
+        else:
+            original["resolved_path"] += ".unselected"
+    else:
+        selection["native_object_restorations"][0]["before"]["sha256"] = "e" * 64
+        selection_raw = encoded(selection)
+        record["environment_selection"] = bound(selection_raw)
+        row["before"]["sha256"] = row["observed_before"]["sha256"] = "e" * 64
+    with pytest.raises(runner.HostedRunError):
+        runner.validate_build_record(record, selection, selection_raw, lock_raw)
+
+
+@pytest.mark.parametrize("fault", ["missing", "receipt_binding", "noncanonical", "rehashed_before", "rehashed_after"])
+def test_entry_hosted_verification_requires_preserved_restoration_evidence_before_any_reconstruction(entry_stop_case, tmp_path, monkeypatch, fault):
+    case = entry_hosted_runner_fixture(entry_stop_case, tmp_path, monkeypatch, phase="verify")
+    relative = "observation/host-evidence/build-environment-record.json"
+    path, receipt_path = case.input / relative, case.input / "receipt.json"
+    receipt = json.loads(receipt_path.read_bytes())
+    if fault == "missing":
+        path.unlink()
+        receipt["files"].pop(relative)
+    elif fault == "receipt_binding":
+        receipt["files"][relative] = bound(b"substituted build record")
+    else:
+        record = json.loads(path.read_bytes())
+        if fault == "noncanonical":
+            raw = json.dumps(record, indent=2).encode() + b"\n"
+        else:
+            field = "before" if fault == "rehashed_before" else "after"
+            row = record["native_object_restorations"][0]
+            row[field]["sha256"] = row["observed_" + field]["sha256"] = "e" * 64
+            raw = encoded(record)
+        path.write_bytes(raw)
+        receipt["files"][relative] = bound(raw)
+    receipt_path.write_bytes(encoded(receipt))
+    assert case.runner.run_phase("verify", case.environment) == 1
+    assert case.calls == [] and not (case.output / "qualifications").exists()
+    summary = json.loads((case.output / "verification-summary.json").read_bytes())
+    assert summary["observation_complete"] is False and summary["acquisition_command_invoked"] is False
+    assert summary["qualification_preconditions_verified"] is False
+    assert all(summary[name] is False for name in ENTRY_HOSTED_NARROW)

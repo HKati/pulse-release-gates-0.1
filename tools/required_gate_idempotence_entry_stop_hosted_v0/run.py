@@ -57,6 +57,24 @@ EXPECTED_FILES = {'/lib64/ld-linux-x86-64.so.2': {'sha256': 'c8438e4fde1934e61c8
  '/usr/lib/x86_64-linux-gnu/libselinux.so.1': {'sha256': '5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c',
                                                'size_bytes': 202984}}
 
+# This one pre-build restoration is selected independently of the original
+# object checks. It accepts only the preserved base object's exact before bytes.
+NATIVE_RESTORATIONS = [{
+    "input": "native/libpcre2-8.so.0",
+    "host_path": "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0",
+    "symlink_target": "libpcre2-8.so.0.14.0",
+    "resolved_path": "/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0.14.0",
+    "before": {
+        "sha256": "8dde125b341abfdf4a596d2974cd3048e350cbc8d2d77acd54ea044f7815ca77",
+        "size_bytes": 711216,
+    },
+    "after": {
+        "sha256": "92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3",
+        "size_bytes": 711216,
+    },
+    "mode": 420,
+}]
+
 PYTHON_PACKAGES = {
     "pyyaml": "6.0.3", "attrs": "26.1.0", "jsonschema": "4.26.0",
     "jsonschema-specifications": "2025.9.1", "referencing": "0.37.0",
@@ -209,6 +227,18 @@ def validate_build_record(record, selection, selection_raw, lock_raw):
     _need(type(checked) is list and len(checked) == len(EXPECTED_FILES), "hosted_runner_build_file_roster")
     _need({item["path"]: {key: item[key] for key in ("sha256", "size_bytes")}
            for item in checked} == EXPECTED_FILES, "hosted_runner_build_file_binding")
+    _need(io.canonical(selection.get("native_object_restorations")) == io.canonical(NATIVE_RESTORATIONS),
+          "hosted_runner_native_restoration_selection")
+    expected_restorations = [{**item, "action": "restored_selected_base_original",
+        "observed_before": item["before"], "observed_after": item["after"]}
+        for item in NATIVE_RESTORATIONS]
+    _need(io.canonical(record.get("native_object_restorations")) == io.canonical(expected_restorations),
+          "hosted_runner_build_native_restoration_binding")
+    for item in NATIVE_RESTORATIONS:
+        _need(item["after"] == EXPECTED_FILES[item["host_path"]]
+              and all(row.get("resolved_path") == item["resolved_path"]
+                      for row in checked if row["path"] == item["host_path"]),
+              "hosted_runner_build_native_restoration_path")
     objects = record.get("original_native_objects")
     _need(type(objects) is list and len(objects) == 6, "hosted_runner_build_native_roster")
     for actual, selected in zip(objects, selection["original_native_objects"]):
@@ -224,6 +254,11 @@ def validate_build_record(record, selection, selection_raw, lock_raw):
                 allowed.add("installed_absent_original")
             _need(actual["action"] in allowed and type(actual["resolved_path"]) is str
                   and actual["resolved_path"].startswith("/"), "hosted_runner_build_native_action")
+    for restored in NATIVE_RESTORATIONS:
+        rows = [item for item in objects if item["input"] == restored["input"]]
+        _need(len(rows) == 1 and rows[0]["action"] == "existing_original_verified"
+              and rows[0]["resolved_path"] == restored["resolved_path"],
+              "hosted_runner_build_native_restoration_result")
     _need(record.get("host_environment_qualified") is False
           and record.get("native_acquisition_performed") is False
           and record.get("authority_effect") == "none", "hosted_runner_build_scope")
@@ -251,6 +286,8 @@ def validate_runtime(environment):
           and {item["path"]: {key: item[key] for key in ("sha256", "size_bytes")}
                for item in selection["expected_files"]} == EXPECTED_FILES,
           "hosted_runner_environment_file_selection")
+    _need(io.canonical(selection.get("native_object_restorations")) == io.canonical(NATIVE_RESTORATIONS),
+          "hosted_runner_native_restoration_selection")
     image_id = environment.get("ENTRY_STOP_IMAGE_ID", "")
     _need(type(image_id) is str and re.fullmatch(r"sha256:[0-9a-f]{64}", image_id) is not None,
           "hosted_runner_image_id")
@@ -502,10 +539,24 @@ def capture_inventory(receipt):
     return result
 
 
+def validate_preserved_build_record(receipt):
+    """Recheck the acquisition's selected restoration as preserved data only."""
+    relative = "observation/host-evidence/build-environment-record.json"
+    raw = io.read_regular(INPUT / relative, CONTROL_BYTES, private=True)
+    _need(receipt["files"].get(relative) == io.binding(raw),
+          "hosted_runner_receipt_build_record_binding")
+    record = _canonical_json(raw)
+    selection_raw = io.read_regular(ENVIRONMENT, CONTROL_BYTES)
+    selection = io._parse(selection_raw)
+    validate_build_record(record, selection, selection_raw, io.read_regular(REQUIREMENTS, 16384))
+    return io.binding(raw)
+
+
 def verify(context, summary):
     attempt_id = derive_attempt_id(context)
     receipt = _canonical_json(io.read_regular(INPUT / "receipt.json", 8 * CONTROL_BYTES, private=True))
     _need(receipt.get("context") == context, "hosted_runner_receipt_context")
+    validate_preserved_build_record(receipt)
     _mkdir_private(OUTPUT / "qualifications")
     for name, field in (("task_guard", "task_guard_qualification"), ("hardware", "hardware_qualification")):
         relative = "observation/qualifications/" + _qualification_path(name).name
