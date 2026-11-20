@@ -1,10 +1,11 @@
 # B2 guarded original executable-entry GitHub observation v0
 
-**Status: the owner-controlled hosted integration is implemented. Its first
-hosted run stopped during image construction, before capability qualification
-or original executable-entry acquisition. The selected environment correction
-below addresses that preserved build failure; a fresh hosted attempt remains
-required. B2 remains incomplete; `metric_pass=null` and `authority_effect=none`.**
+**Status: owner-dispatched run `44740993943/1` completed the selected capability
+qualifications, original executable-entry acquisition and separate hosted
+verification. Its source, original artifacts and bounded preservation selection
+are recorded below. The first run's environment-build failure remains a
+separate historical result. B2 remains incomplete; `metric_pass=null` and
+`authority_effect=none`.**
 
 This integration carries the
 [guarded original executable-entry collector](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_v0.md)
@@ -33,6 +34,7 @@ never resumed or relabelled as the fresh attempt.
 | [Entry preparation adapter](../../tools/prepare_required_gate_idempotence_entry_stop_v0.py) | Repeat original distribution/launch-host admission before preparing, acquiring or checking the selected entry record. |
 | [Independent entry checker](../../tools/check_required_gate_idempotence_entry_stop_v0.py) | Reconstruct the original request, qualifications, stopped process relationships, sampled bytes and child cleanup. |
 | [Workflow inventory](../../scripts/build_normative_shadow_inventory_v0.py) | Classify only these exact reviewed workflow bytes as a non-authorizing audit-preservation workflow. |
+| [Completed-run record](../../preservation/required_gate_idempotence_entry_stop_v0/run_44740993943_attempt_1/verification_record_v0.json) and [control evidence selection](../../preservation/required_gate_idempotence_entry_stop_v0/run_44740993943_attempt_1/control_evidence_v0.zip) | Describe the reviewed successful run and preserve an enumerated selection of unchanged original artifact members; retain the full original ZIPs separately. |
 
 The hosted driver uses the runner's standard-library Python for orchestration.
 The selected observer and verification dependencies live in the pinned image.
@@ -249,14 +251,157 @@ described above.
 The preserved receipt has null task-guard qualification, hardware qualification,
 request and capture fields. This run establishes a failed environment build,
 not successful capability qualification, entry observation or Q3 measurement.
-Artifact bindings and static inspection do not replace a new owner-dispatched
-run after the correction is merged and its CI has passed.
+Artifact bindings and static inspection did not supply a completed observation.
+The subsequent owner dispatch below supplies the selected original entry result
+after the environment correction.
 
-## Owner launch procedure after merge
+## Completed hosted observation: 44740993943/1
+
+The second workflow run was a fresh owner dispatch, with **run attempt 1**:
+
+| Item | Recorded value |
+| --- | --- |
+| Run | [44740993943, attempt 1](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/44740993943); workflow sequence 2 |
+| Source and workflow commit | [`03d2c76e06d1f4efaf3a9e7e78dcf16a8be62081`](https://github.com/HKati/pulse-release-gates-0.1/tree/03d2c76e06d1f4efaf3a9e7e78dcf16a8be62081) |
+| Source Git tree | `d202d34ddca7e483f2274404ef72c0ed22e2b774` |
+| Event and ref | `workflow_dispatch`; `refs/heads/main` |
+| Actor and triggering actor | `HKati` |
+| Recorded run interval | November 20, 2026, 13:03:42–13:05:40 UTC |
+| Acquisition job | [136304320903](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/44740993943/job/136304320903), success |
+| Verification job | [136304821660](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/44740993943/job/136304821660), success |
+
+The acquisition completed both separate capability qualifications before the
+fresh original attempt. The original child reached its live kernel exec
+checkpoint and then executable entry in one cp0-to-entry continuation. It
+was killed and reaped there without further continuation or detach. The
+separate verification job reconstructed the preserved capture and completed
+the hosted attestation verification; it did not repeat original acquisition.
+
+The complete capture contains **78 members**, including `capture.json` and its
+77 bound evidence members. The accepted reports reconstruct six selected
+original ELF objects, 24 `PT_LOAD` segment occurrences, four fresh cp0 RX
+samples totaling 400,964 bytes, and twelve entry RX sample occurrences totaling
+4,601,548 bytes. The entry samples cover 2,300,774 distinct RX bytes twice.
+All nine narrow observation flags are true. The twelve static relationships
+(nine `DT_NEEDED` occurrences and three `PT_INTERP` declarations) retain
+`consumer_resolution_observed=false`; they are not observations of each
+consumer's actual resolution.
+
+Both capability records and their matching acquisition context are preserved.
+The task-guard qualifier completed all eleven cases; the separate hardware
+qualifier completed its selected trap and owned cleanup. Both phase build
+records retain the pinned libpcre2 restoration and final original-object
+checks. These selected qualifications do not change the broader
+`host_environment_qualified=false` boundary.
+
+The acquisition receipt binds 306 payload files totaling 201,458,840 bytes.
+Including the receipt, all 307 acquisition files match both the verification
+artifact's `input/` and `private-input/` copies. All 81 source bindings match
+the recorded source commit. Receipt acceptance alone remains insufficient to
+claim observation completion; the accepted capture reconstruction supplies
+that separate result.
+
+### Original artifact bindings
+
+Both original ZIP byte streams were checked against their provider size and
+SHA-256 before inspection. The
+[descriptive preservation record](../../preservation/required_gate_idempotence_entry_stop_v0/run_44740993943_attempt_1/verification_record_v0.json)
+records their inventories and the original member provenance of the repository
+selection.
+
+| Artifact | Exact original binding |
+| --- | --- |
+| [Acquisition artifact 14631066127](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/44740993943/artifacts/14631066127) | `required-gate-idempotence-entry-stop-44740993943-1`; **201,576,137 bytes**; SHA-256 `6b393cc38fd04cf1c21012e02cd599d3c4712cf6fb6f55761bbc11270a1b143a` |
+| [Verification artifact 14630776595](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/44740993943/artifacts/14630776595) | `required-gate-idempotence-entry-stop-verification-44740993943-1`; **450,280,763 bytes**; SHA-256 `a7e00f90b2b23312ef44d139545c9277443cc627d7b1b2ffad6630f41fee2688` |
+
+### Reconstruction and signature verification
+
+The hosted verification result, original signature-verification result and
+later local preservation review have separate meanings. Reconstructing the
+capture from preserved bytes does not run the original child again, repeat
+capability qualification or independently establish the truth of every host
+observation. The descriptive preservation record is an inventory, not an
+additional independent checker implementation or a grant of authority.
+
+Both original hosted capture reports are accepted, byte-identical and
+**12,542 bytes** each, with SHA-256
+`e8cbdb4e7f25a4701be1f2b699d96702e077368cc1ddbe1d9ccc8189cb8e6bdd`.
+The acquisition checker returned the same report. The two hosted verification
+processes also freshly checked the original distribution signature through
+the preparation adapter.
+
+[Attestation 70148417](https://github.com/HKati/pulse-release-gates-0.1/attestations/70148417)
+binds the 15,533-byte `verified-binding.json`, SHA-256
+`6618bbd5fd778d32b87c8b6602c11547dcb4cc8e7cb23dd40e911c63d172d1bf`.
+The preserved original bundle is 11,554 bytes, SHA-256
+`93ec70cec4943080298dc5203e4b49fb7ff5dd58734be4a3202fe169874b5218`.
+The original hosted `gh attestation verify` command exited zero with the
+selected repository, workflow, source commit, source ref and hosted-runner
+constraints. Its result is preserved alongside the subject and bundle.
+
+Two fresh local CPython 3.12.14 processes using the unchanged lower-level
+checker reproduced both original hosted reports byte for byte. This was
+data-only reconstruction with jsonschema 4.26.0: no original acquisition,
+qualification, native launcher or Docker execution was repeated. Distribution
+and attestation signatures were not freshly verified locally. These are two
+processes using the same checker implementation, not two independently
+implemented checkers.
+
+### Repository selection and separate original custody
+
+The [control evidence selection](../../preservation/required_gate_idempotence_entry_stop_v0/run_44740993943_attempt_1/control_evidence_v0.zip)
+is a derived archive of unchanged original artifact members. The descriptive
+record enumerates each selected member's original artifact, path, size and
+digest. The full original ZIPs retain their own byte identities.
+
+The derived ZIP is **5,682,024 bytes**, SHA-256
+`75c71960080a22c88f78b92c8c9af293cc28dc41a4fbd3916e0f515755a245d0`.
+It retains **309 unchanged original members** (204 acquisition and 105
+verification), totaling 12,819,181 decoded bytes. These include the complete
+78-member capture, both complete qualification records and their context,
+requests, receipts, source-binding inventories, original checker reports,
+signature diagnostics, restoration/build controls, attestation material and
+both outer cleanup records.
+
+It omits the Docker base-save payload, package/wheel and separate native
+material payloads, original-input transport ZIP, full source copies and
+duplicate verification input/private-input/capture trees. The original
+receipt retains the omitted acquisition members' exact bindings. Each new
+repository file stays below the existing 8 MiB source-entry limit; no source
+exception or budget increase is introduced.
+
+The bounded selection is not either original GitHub ZIP and is not a complete
+hosted replay carrier. Full hosted verification still requires the original
+artifacts and reviewed tools. Retain both original ZIPs outside the repository
+and verify their exact sizes and hashes above. Copies were verified in the
+review workspace; receipt on the owner's own machine has not been observed.
+Both provider artifacts recorded an expiry of **2027-02-18 13:03:43 UTC**.
+That retention does not establish permanent custody. No LFS or additional paid
+artifact service is introduced by this preservation update.
+
+### Next bounded B2 obligation
+
+The selected original entry observation is complete. The next evidence
+obligation is actual per-consumer loader-resolution reconstruction: observing
+selected provider mappings does not determine which provider supplied each
+consumer relationship. This preservation update implements no later
+checkpoint and authorizes no further original execution.
+
+Observed containment, selected-bootstrap integration, B3 property evidence,
+B4 admission and B5's actual reference remain separate. The selected metric
+runtime was not executed, and no Q3 measurement or complete native closure is
+claimed. Keep `metric_pass=null`, `authority_effect=none` and #2879 open under
+its existing acceptance conditions.
+
+## Owner launch procedure for a future attempt
+
+The successful run above already supplies the selected observation. Preserving
+and reviewing it does not require another dispatch. Any future attempt needs
+its own reviewed source and explicit owner decision.
 
 Open
 [PULSEmech original launcher entry-stop observation v0](https://github.com/HKati/pulse-release-gates-0.1/actions/workflows/required_gate_idempotence_entry_stop_v0.yml)
-after this workflow is merged and the reviewed commit's CI has completed.
+after the reviewed commit's CI has completed.
 In **Run workflow**, select:
 
 | Field | Value |
@@ -270,11 +415,15 @@ The explicit manual action authorizes this one bounded workflow attempt. A
 later attempt needs a fresh workflow dispatch; **Re-run jobs** creates an
 inadmissible attempt number for this profile.
 
-This implementation change performs no dispatch. The exact launch commit is
-selected only after merge; the implementation's development base is not a
-substitute for that future reviewed main commit.
+This preservation update performs no dispatch. The completed run's source
+identity is historical evidence, not a substitute for reviewing the main commit
+selected for a future attempt.
 
 ## Validation and authority boundary
+
+The implementation regression results below predate this preservation-only
+update. The completed hosted observation and subsequent preserved-byte
+reconstructions are recorded above.
 
 Regression tests are appended to the existing containment module, preserving
 the current 190-tools / 41-targeted manifest registrations. They exercise
