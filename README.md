@@ -228,9 +228,9 @@ later source revision.
 ### Current development checkpoint — 2026-11-20
 
 This checkpoint describes source
-[`921c1cc935e325f892c962201a170479d4ce1100`](https://github.com/HKati/pulse-release-gates-0.1/tree/921c1cc935e325f892c962201a170479d4ce1100),
-after the hosted entry-stop integration in
-[#3038](https://github.com/HKati/pulse-release-gates-0.1/pull/3038).
+[`03d2c76e06d1f4efaf3a9e7e78dcf16a8be62081`](https://github.com/HKati/pulse-release-gates-0.1/tree/03d2c76e06d1f4efaf3a9e7e78dcf16a8be62081),
+including the corrected hosted entry-stop environment and completed
+[owner-dispatched run `44740993943/1`](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/44740993943).
 Implementation, original execution, independent reconstruction and reference
 acceptance are recorded separately. Historical results retain their original
 run and source identities.
@@ -239,17 +239,18 @@ run and source identities.
 |---|---|---|
 | Bounded admission-rejection verification | Completed and preserved: `43514702328/1`. Two executions of the same independent checker accepted the frozen evidence and produced byte-identical reports. The original candidate remains rejected. | [Preserved verification record](docs/compute/admission_rejection_43445176088_v0/README.md) |
 | B2 original launcher exec-stop | Completed and preserved: `44375052171/1`. The selected kernel exec checkpoint, independent capture reconstruction and hosted attestation verification succeeded. The child was stopped before the interpreter's first userspace instruction. | [Completed exec-stop observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_GITHUB_v0.md) |
-| B2 guarded original entry collector | Implemented through #3037: task guard, two separate capability qualifiers, original-entry collector, independent checker and preparation adapter. Original executable-entry acquisition remains pending. | [Collector and verification contract](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_v0.md) |
-| B2 hosted entry-stop workflow | Implemented through #3038: pinned environment, owner/commit/attempt admission, separate acquisition and verification jobs, failure-prefix preservation and outer-container cleanup checks. Live hosted qualification and entry capture remain pending. | [Hosted workflow and owner handoff](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_GITHUB_v0.md) |
+| B2 guarded original entry collector | Completed bounded hosted observation: `44740993943/1`. Both prerequisite capability qualifications completed before one fresh original cp0-to-entry attempt; the child was terminated at executable entry without a further continuation. | [Collector and verification contract](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_v0.md) |
+| B2 hosted entry-stop workflow | Acquisition and separate verification succeeded in `44740993943/1`, including preserved capture reconstruction, outer-container cleanup and hosted attestation verification. The original artifacts and bounded repository selection retain separate custody and replay meanings. | [Completed hosted observation and preservation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_GITHUB_v0.md#completed-hosted-observation-447409939431) |
 | LRM-02–04 measurement core | Source/representation verification, finite relation comparison and finite support/impact evaluation are implemented within their declared evidence and representation boundaries. | [Input verification](docs/PULSEMECH_LANGUAGE_RELATION_INPUT_VERIFIER_v0.md), [relation comparison](docs/PULSEMECH_LANGUAGE_RELATION_COMPARATOR_v0.md), [support and impact](docs/PULSEMECH_LANGUAGE_RELATION_IMPACT_v0.md) |
 | LRM-05 candidate evaluation | Saved candidate-response import and fixed HU/EN source-request evaluation are implemented. The adapter runs LRM-02 verification and publishes inputs for separately invoked LRM-03/04 measurement. | [Candidate import and evaluation](docs/PULSEMECH_LANGUAGE_RELATION_ADAPTER_EVALUATION_v0.md) |
 
-The next B2 operational step is a separately owner-triggered hosted qualification
-and original entry-stop attempt, followed by reconstruction from the preserved
-bytes. At this checkpoint, no original executable-entry capture has been
-acquired. B2 remains incomplete, with `metric_pass = null` and
-`authority_effect = none`. Per-consumer loader resolution, complete containment
-and actual reference acceptance remain separate obligations.
+The selected original executable-entry observation is complete. The next B2
+evidence obligation is actual per-consumer loader-resolution reconstruction;
+observed provider mappings alone do not establish it. Complete containment,
+selected-bootstrap integration and actual reference acceptance remain separate
+obligations. B2 remains incomplete, with `metric_pass = null` and
+`authority_effect = none`. No selected metric runtime or Q3 measurement was
+executed by this entry-stop observation.
 
 LRM-05 retains `representation_basis = candidate_only` and
 `scope_selection = not_verified`. It makes no model calls and reports no provider
