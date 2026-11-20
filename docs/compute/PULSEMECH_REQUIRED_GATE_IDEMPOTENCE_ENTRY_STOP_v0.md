@@ -2,9 +2,14 @@
 
 **Status: the task guard, separate capability qualifiers, original-entry
 collector, closed capture schema, independent byte checker and original-input
-preparation adapter are implemented. No original executable-entry capture has
-been acquired. The selected hosted environment remains unqualified. B2 is
-incomplete and `authority_effect=none`.**
+preparation adapter are implemented. Owner-dispatched run `44740993943/1`
+completed the selected capability qualifications, fresh original entry capture
+and separate hosted verification. These bounded results do not establish
+general host qualification or full B2; `metric_pass=null` and
+`authority_effect=none`.**
+
+The [completed hosted observation and preservation record](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_GITHUB_v0.md#completed-hosted-observation-447409939431)
+bind that result to source `03d2c76e06d1f4efaf3a9e7e78dcf16a8be62081`.
 
 This unit implements the next acquisition mechanism selected by the
 [original executable-entry plan](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_PLAN_v0.md).
@@ -246,20 +251,24 @@ and descriptor disagreements, invalid/rehashed qualification records,
 wrong/missing entry evidence, altered memory, reused identities, forbidden
 transitions, incomplete prefixes and output/preservation failures.
 
-The local development environment is not eligible for an original attempt.
+The earlier local development environment was not eligible for an original attempt.
 The compat `int 0x80` probe ended with SIGSEGV, which cannot establish the
 required seccomp-denial observation, and the hardware probe's
 `PTRACE_TRACEME` returned `EPERM`. Both outcomes remain incomplete capability
-records. No original launcher or selected-runtime execution was performed.
+records. No original launcher or selected-runtime execution was performed in
+that local validation.
 
-The next operational evidence comes from the separately selected hosted
-environment and its owner-controlled entry workflow, including both complete
-capability qualifications and bounded outer cleanup. A separately authorized
-fresh entry capture and its preserved independent reconstructions then supply
-new narrow evidence.
-Actual per-consumer loader resolution, observed containment,
-selected-bootstrap integration, B3 property evidence, B4 admission and B5's
-actual reference remain separate obligations.
+The subsequent owner-dispatched hosted run `44740993943/1` completed both
+capability qualifications in the acquisition context, one fresh original
+cp0-to-entry attempt and separate verification with bounded outer cleanup.
+It stopped and terminated the original child at executable entry without
+continuing from that checkpoint. The [hosted preservation record](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_GITHUB_v0.md#completed-hosted-observation-447409939431)
+retains the original evidence and its verification scope.
+
+The next B2 evidence obligation is actual per-consumer loader-resolution
+reconstruction. Provider mapping presence alone does not establish it.
+Observed containment, selected-bootstrap integration, B3 property evidence,
+B4 admission and B5's actual reference remain separate obligations.
 
 All broad boundaries remain diagnostic: `metric_pass=null`,
 `authority_effect=none`, no physical execution authentication, no complete
