@@ -10011,3 +10011,607 @@ def test_entry_hosted_verification_requires_preserved_restoration_evidence_befor
     assert summary["observation_complete"] is False and summary["acquisition_command_invoked"] is False
     assert summary["qualification_preconditions_verified"] is False
     assert all(summary[name] is False for name in ENTRY_HOSTED_NARROW)
+
+
+# Loader-resolution proposal checks consume the preserved successful entry
+# capture as data. They do not acquire a witness, qualify an internal loader
+# ABI, resume the historical child or run the original launcher.
+ENTRY_RESOLUTION_PLAN_REL = "docs/compute/required_gate_idempotence_loader_resolution_plan_v0/plan_v0.json"
+ENTRY_RESOLUTION_TOOL_REL = "tools/check_required_gate_idempotence_loader_resolution_plan_v0.py"
+
+
+@pytest.fixture(scope="module")
+def entry_resolution_plan_case():
+    import zipfile
+    checker = module("check_required_gate_idempotence_loader_resolution_plan_v0", ENTRY_RESOLUTION_TOOL_REL)
+    raw = (ROOT / ENTRY_RESOLUTION_PLAN_REL).read_bytes()
+    baseline = (ROOT / checker.BASELINE_REL).read_bytes()
+    with zipfile.ZipFile(io.BytesIO(baseline)) as archive:
+        native = {
+            path: archive.read("acquisition/observation/capture/native." + role + ".before.elf")
+            for role, path in ENTRY_STOP_ROLES.items()
+        }
+        for role, path in ENTRY_STOP_ROLES.items():
+            assert archive.read("acquisition/observation/capture/native." + role + ".after.elf") == native[path]
+        saved_report = archive.read("verification/verification/capture-check-1.json")
+        request = json.loads(archive.read("acquisition/observation/request.json"))
+    return SimpleNamespace(checker=checker, raw=raw, plan=json.loads(raw),
+                           baseline=baseline, native=native, saved_report=saved_report, request=request)
+
+
+def entry_resolution_plan_check(case, raw=None, **overrides):
+    raw = case.raw if raw is None else raw
+    arguments = dict(plan_bytes=raw, expected_plan_sha256=digest(raw),
+                     historical_entry_archive_bytes=case.baseline)
+    arguments.update(overrides)
+    return case.checker.verify_plan(**arguments)
+
+
+def _entry_resolution_elf_oracle(native):
+    """Read the selected ELF declarations with struct, without production parsers."""
+    needed, interpreters = [], []
+    descriptors = {path: {"path": path, **bound(raw)} for path, raw in native.items()}
+    providers = {Path(path).name: descriptor for path, descriptor in descriptors.items()}
+    loads = 0
+    for path in sorted(native):
+        raw = native[path]
+        header = struct.unpack_from("<16sHHIQQQIHHHHHH", raw)
+        assert header[0][:6] == b"\x7fELF\x02\x01" and header[2] == 62
+        program = [(index, *struct.unpack_from("<IIQQQQQQ", raw, header[5] + index * header[9]))
+                   for index in range(header[10])]
+        loads += sum(row[1] == 1 for row in program)
+        dynamic_headers = [row for row in program if row[1] == 2]
+        assert len(dynamic_headers) == 1
+        dynamic_header = dynamic_headers[0]
+        dynamic = []
+        for offset in range(dynamic_header[3], dynamic_header[3] + dynamic_header[6], 16):
+            tag, value = struct.unpack_from("<qQ", raw, offset)
+            if tag == 0:
+                break
+            dynamic.append((tag, value, offset))
+        else:
+            raise AssertionError("selected ELF has no dynamic terminator")
+        tables = [value for tag, value, _offset in dynamic if tag == 5]
+        sizes = [value for tag, value, _offset in dynamic if tag == 10]
+        assert len(tables) == len(sizes) == 1
+        mapped = [row for row in program if row[1] == 1 and row[4] <= tables[0]
+                  and tables[0] + sizes[0] <= row[4] + row[6]]
+        assert len(mapped) == 1
+        table_offset = mapped[0][3] + tables[0] - mapped[0][4]
+        needed_ordinal = 0
+        for dynamic_ordinal, (tag, value, offset) in enumerate(dynamic):
+            if tag != 1:
+                continue
+            name_offset = table_offset + value
+            name_end = raw.index(b"\0", name_offset, table_offset + sizes[0])
+            name = raw[name_offset:name_end].decode("ascii")
+            needed.append({
+                "consumer": descriptors[path],
+                "dynamic_program_header_index": dynamic_header[0],
+                "dynamic_entry_ordinal": dynamic_ordinal,
+                "dynamic_entry_file_offset": offset,
+                "dynamic_entry_vaddr": dynamic_header[4] + offset - dynamic_header[3],
+                "needed_ordinal": needed_ordinal,
+                "name": name,
+                "string_table_offset": value,
+                "name_file_offset": name_offset,
+                "expected_provider": providers[name],
+                "evidence_role": "static_candidate_only",
+                "consumer_resolution_observed": False,
+            })
+            needed_ordinal += 1
+        for row in program:
+            if row[1] != 3:
+                continue
+            interpreter = raw[row[3]:row[3] + row[6]]
+            assert interpreter.endswith(b"\0") and interpreter.count(b"\0") == 1
+            name = interpreter[:-1].decode("ascii")
+            interpreters.append({
+                "consumer": descriptors[path], "program_header_index": row[0],
+                "file_offset": row[3], "size_bytes": row[6], "path": name,
+                "expected_provider": providers[Path(name).name],
+                "evidence_role": ("historical_kernel_continuity" if path == "native/bwrap"
+                                  else "static_metadata_only"),
+                "consumer_resolution_observed": False,
+            })
+    return descriptors, needed, interpreters, loads
+
+
+def test_entry_resolution_plan_reconstructs_real_entry_without_claiming_new_resolution(entry_resolution_plan_case):
+    case = entry_resolution_plan_case
+    report = entry_resolution_plan_check(case)
+    assert report == entry_resolution_plan_check(case)
+    assert report["status"] == "accepted" and report["plan_consistency_verified"] is True
+    assert report["plan"] == bound(case.raw)
+    historical = report["historical_entry"]
+    assert historical["run_id"] == 44740993943 and historical["run_attempt"] == 1
+    assert historical["source_commit"] == "03d2c76e06d1f4efaf3a9e7e78dcf16a8be62081"
+    assert historical["attempt_id"] == "4588122020677e9b3c9d359c987e30e4"
+    assert historical["report"] == bound(case.saved_report)
+    assert historical["source_file_count"] == 81
+    assert historical["lower_level_reconstruction_accepted"] is True
+    assert all(historical["narrow_flags"][name] is True for name in case.checker.entry.NARROW_FLAGS)
+    assert report["original_native_bytes_verified"] is True
+    assert report["static_occurrences_derived"] is True
+    assert report["record_status"] == "proposal" and report["diagnostic_only"] is True
+    for name in ("loader_resolution_verified", "native_acquisition_performed", "execution_authorized",
+                 "selected_runtime_executed", "b2_complete", "distribution_signature_freshly_verified",
+                 "attestation_signature_freshly_verified", "full_hosted_replay_performed"):
+        assert report[name] is False, name
+    assert report["metric_pass"] is None and report["authority_effect"] == "none"
+
+
+def test_entry_resolution_plan_derives_each_needed_occurrence_and_separate_interpreter_declaration(entry_resolution_plan_case):
+    case = entry_resolution_plan_case
+    descriptors, needed, interpreters, load_count = _entry_resolution_elf_oracle(case.native)
+    assert [{name: row[name] for name in ("path", "size_bytes", "sha256")}
+            for row in case.plan["native_objects"]] == [descriptors[path] for path in sorted(descriptors)]
+    assert case.plan["dependency_occurrences"] == needed
+    assert case.plan["interpreter_declarations"] == interpreters
+    assert len(needed) == 9 and len(interpreters) == 3 and load_count == 24
+    assert sum(row["name"] == "libc.so.6" for row in needed) == 4
+    assert len({(row["consumer"]["path"], row["needed_ordinal"]) for row in needed}) == 9
+    assert sum(row["evidence_role"] == "historical_kernel_continuity" for row in interpreters) == 1
+    assert case.plan["totals"] == {
+        "native_objects": 6, "original_native_bytes": sum(len(raw) for raw in case.native.values()),
+        "pt_load_occurrences": load_count, "dependency_occurrences": len(needed),
+        "interpreter_declarations": len(interpreters), "static_relationships": len(needed) + len(interpreters),
+    }
+    assert case.plan["totals"]["original_native_bytes"] == 3262624
+
+
+@pytest.mark.parametrize("fault", [
+    "missing", "duplicate", "consumer", "provider", "name", "dynamic_program_header_index",
+    "dynamic_entry_ordinal", "dynamic_entry_file_offset", "dynamic_entry_vaddr", "needed_ordinal",
+    "string_table_offset", "name_file_offset", "observation", "evidence", "order", "collapse_shared_name",
+])
+def test_entry_resolution_plan_rehashed_needed_occurrences_cannot_change(entry_resolution_plan_case, fault):
+    case = entry_resolution_plan_case
+    plan = copy.deepcopy(case.plan)
+    rows = plan["dependency_occurrences"]
+    if fault == "missing": rows.pop()
+    elif fault == "duplicate": rows[-1] = copy.deepcopy(rows[0])
+    elif fault == "consumer":
+        rows[0]["consumer"] = copy.deepcopy(next(row["consumer"] for row in rows
+                                                if row["consumer"] != rows[0]["consumer"]))
+    elif fault == "provider":
+        rows[0]["expected_provider"] = copy.deepcopy(next(row["expected_provider"] for row in rows
+                                                         if row["expected_provider"] != rows[0]["expected_provider"]))
+    elif fault == "name": rows[0]["name"] = "unselected.so.0"
+    elif fault == "observation": rows[0]["consumer_resolution_observed"] = True
+    elif fault == "evidence": rows[0]["evidence_role"] = "observed_provider_mapping"
+    elif fault == "order": rows.reverse()
+    elif fault == "collapse_shared_name":
+        plan["dependency_occurrences"] = list({row["name"]: row for row in rows}.values())
+    else: rows[0][fault] += 1
+    assert plan != case.plan
+    with pytest.raises(case.checker.PlanError):
+        entry_resolution_plan_check(case, encoded(plan))
+
+
+@pytest.mark.parametrize("fault", ["missing", "duplicate", "digest", "size", "entry", "dynamic", "observed", "evidence"])
+def test_entry_resolution_plan_rehashed_native_candidates_remain_exact_original_bytes(entry_resolution_plan_case, fault):
+    case = entry_resolution_plan_case
+    plan = copy.deepcopy(case.plan)
+    rows = plan["native_objects"]
+    if fault == "missing": rows.pop()
+    elif fault == "duplicate": rows[-1] = copy.deepcopy(rows[0])
+    elif fault == "digest": rows[0]["sha256"] = "0" * 64
+    elif fault == "size": rows[0]["size_bytes"] += 1
+    elif fault == "entry": rows[0]["elf"]["entry"] += 1
+    elif fault == "dynamic": rows[0]["dynamic"]["needed"][0] = "unselected.so.0"
+    elif fault == "observed": rows[0]["consumer_resolution_observed"] = True
+    else: rows[0]["evidence_role"] = "observed_resolution"
+    with pytest.raises(case.checker.PlanError):
+        entry_resolution_plan_check(case, encoded(plan))
+
+
+@pytest.mark.parametrize("fault", ["missing", "duplicate", "metadata_as_live_interpreter", "path", "offset", "size", "provider", "observed"])
+def test_entry_resolution_plan_interpreter_metadata_cannot_become_other_actual_loads(entry_resolution_plan_case, fault):
+    case = entry_resolution_plan_case
+    plan = copy.deepcopy(case.plan)
+    rows = plan["interpreter_declarations"]
+    if fault == "missing": rows.pop()
+    elif fault == "duplicate": rows[-1] = copy.deepcopy(rows[0])
+    elif fault == "metadata_as_live_interpreter":
+        next(row for row in rows if row["consumer"]["path"] == "native/libc.so.6")["evidence_role"] = "historical_kernel_continuity"
+    elif fault == "path": rows[0]["path"] = "/tmp/unselected-loader"
+    elif fault == "offset": rows[0]["file_offset"] += 1
+    elif fault == "size": rows[0]["size_bytes"] -= 1
+    elif fault == "provider": rows[0]["expected_provider"]["sha256"] = "0" * 64
+    else: rows[0]["consumer_resolution_observed"] = True
+    with pytest.raises(case.checker.PlanError):
+        entry_resolution_plan_check(case, encoded(plan))
+
+
+@pytest.mark.parametrize("field", ["native_objects", "original_native_bytes", "pt_load_occurrences",
+                                    "dependency_occurrences", "interpreter_declarations", "static_relationships"])
+def test_entry_resolution_plan_rehashed_totals_cannot_hide_missing_work(entry_resolution_plan_case, field):
+    case = entry_resolution_plan_case
+    plan = copy.deepcopy(case.plan)
+    plan["totals"][field] -= 1
+    with pytest.raises(case.checker.PlanError):
+        entry_resolution_plan_check(case, encoded(plan))
+
+
+@pytest.mark.parametrize("expected", ["0" * 64, "a" * 63, "A" * 64, False])
+def test_entry_resolution_plan_requires_an_external_exact_plan_digest(entry_resolution_plan_case, expected):
+    case = entry_resolution_plan_case
+    with pytest.raises(case.checker.PlanError, match="loader_resolution_plan_(external_digest|digest_mismatch)"):
+        entry_resolution_plan_check(case, expected_plan_sha256=expected)
+
+
+@pytest.mark.parametrize("fault", ["duplicate_top", "duplicate_nested", "float", "boolean", "nonfinite",
+                                   "invalid_utf8", "array", "oversized", "extra", "missing"])
+def test_entry_resolution_plan_strict_json_and_closed_fields(entry_resolution_plan_case, fault):
+    case = entry_resolution_plan_case
+    raw = encoded(case.plan)
+    if fault == "duplicate_top": raw = b'{"record_type":"discarded",' + raw[1:]
+    elif fault == "duplicate_nested":
+        raw = raw.replace(b'"consumer_resolution_observed":false',
+                          b'"consumer_resolution_observed":false,"consumer_resolution_observed":false', 1)
+    elif fault == "float": raw = raw.replace(b'"needed_ordinal":0', b'"needed_ordinal":0.0', 1)
+    elif fault == "boolean": raw = raw.replace(b'"needed_ordinal":0', b'"needed_ordinal":false', 1)
+    elif fault == "nonfinite": raw = raw.replace(b'"needed_ordinal":0', b'"needed_ordinal":NaN', 1)
+    elif fault == "invalid_utf8": raw += b"\xff"
+    elif fault == "array": raw = b"[]\n"
+    elif fault == "oversized": raw = b" " * (case.checker.CONTROL_BYTES + 1)
+    else:
+        plan = copy.deepcopy(case.plan)
+        if fault == "extra": plan["accepted_by_caller"] = True
+        else: plan.pop("dependency_occurrences")
+        raw = encoded(plan)
+    assert raw != encoded(case.plan)
+    with pytest.raises(case.checker.PlanError):
+        entry_resolution_plan_check(case, raw)
+
+
+@pytest.mark.parametrize("fault", ["changed", "truncated", "wrong_type", "earlier_cp0"])
+def test_entry_resolution_plan_requires_the_exact_successful_entry_archive(entry_resolution_plan_case, fault):
+    case = entry_resolution_plan_case
+    raw = case.baseline
+    if fault == "changed": raw = raw[:-1] + bytes([raw[-1] ^ 1])
+    elif fault == "truncated": raw = raw[:-1]
+    elif fault == "wrong_type": raw = bytearray(raw)
+    else:
+        raw = (ROOT / "preservation/required_gate_idempotence_exec_stop_v0/run_44375052171_attempt_1/control_evidence_v0.zip").read_bytes()
+    with pytest.raises(case.checker.PlanError, match="loader_resolution_plan_archive_binding"):
+        entry_resolution_plan_check(case, historical_entry_archive_bytes=raw)
+
+
+@pytest.mark.parametrize("fault", ["rejected", "incomplete"])
+def test_entry_resolution_plan_saved_success_cannot_override_fresh_entry_reconstruction(entry_resolution_plan_case, monkeypatch, fault):
+    case = entry_resolution_plan_case
+    saved = json.loads(case.saved_report)
+    calls = []
+
+    def reject(**inputs):
+        calls.append(inputs)
+        if fault == "rejected":
+            raise case.checker.entry.EntryStopError("authored_historical_entry_rejection")
+        return dict(saved, observation_complete=False)
+
+    monkeypatch.setattr(case.checker.entry, "verify_capture", reject)
+    with pytest.raises(case.checker.PlanError, match="loader_resolution_plan_historical_entry_(rejected|incomplete)"):
+        entry_resolution_plan_check(case)
+    assert len(calls) == 1
+    assert digest(calls[0]["capture_bytes"]) == "f6a8af188cc93ac6ad375ae09252abd7b14e699e4900cca357a6eb165194823d"
+    assert saved["observation_complete"] is True
+
+
+@pytest.mark.parametrize("which", ["historical", "checker", "schema"])
+def test_entry_resolution_plan_source_bytes_must_remain_stable(entry_resolution_plan_case, monkeypatch, which):
+    case = entry_resolution_plan_case
+    target = {
+        "historical": "tools/check_required_gate_idempotence_entry_stop_v0.py",
+        "checker": ENTRY_RESOLUTION_TOOL_REL,
+        "schema": case.checker.SCHEMA_REL,
+    }[which]
+    original = case.checker._source
+    reads = []
+
+    def changed(path):
+        raw = original(path)
+        if path == target:
+            reads.append(path)
+            if which == "historical" or len(reads) > 1:
+                return raw + b"\n"
+        return raw
+
+    monkeypatch.setattr(case.checker, "_source", changed)
+    with pytest.raises(case.checker.PlanError, match="loader_resolution_plan_(historical_source_changed|checker_source_changed)"):
+        entry_resolution_plan_check(case)
+    assert len(reads) == (1 if which == "historical" else 2)
+
+
+def test_entry_resolution_plan_schema_shape_does_not_replace_elf_semantics(entry_resolution_plan_case):
+    import jsonschema
+    case = entry_resolution_plan_case
+    schema = json.loads((ROOT / case.checker.SCHEMA_REL).read_bytes())
+    jsonschema.Draft202012Validator.check_schema(schema)
+    plan = copy.deepcopy(case.plan)
+    plan["dependency_occurrences"][0]["expected_provider"]["sha256"] = "0" * 64
+    jsonschema.Draft202012Validator(schema).validate(plan)
+    with pytest.raises(case.checker.PlanError):
+        entry_resolution_plan_check(case, encoded(plan))
+
+
+def test_entry_resolution_plan_verification_is_data_only(entry_resolution_plan_case, monkeypatch):
+    import builtins
+    import ctypes
+    case = entry_resolution_plan_case
+    original_import = builtins.__import__
+    collectors = {
+        "required_gate_idempotence_exec_stop_v0", "prepare_required_gate_idempotence_exec_stop_v0",
+        "required_gate_idempotence_exec_stop_hosted_v0", "required_gate_idempotence_containment_v0",
+        "required_gate_idempotence_entry_stop_v0", "prepare_required_gate_idempotence_entry_stop_v0",
+        "required_gate_idempotence_entry_stop_hosted_v0", "qualify_required_gate_idempotence_entry_stop_v0",
+        "required_gate_idempotence_entry_task_guard_v0",
+    }
+
+    def guarded_import(name, *args, **kwargs):
+        assert name not in collectors, "plan checker imported an acquisition or qualification module"
+        return original_import(name, *args, **kwargs)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("loader-resolution proposal verification must inspect preserved data only")
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    monkeypatch.setattr(subprocess, "Popen", forbidden)
+    monkeypatch.setattr(os, "fork", forbidden)
+    monkeypatch.setattr(os, "execve", forbidden)
+    monkeypatch.setattr(os, "system", forbidden)
+    monkeypatch.setattr(ctypes, "CDLL", forbidden)
+    monkeypatch.setattr(case.checker.transport, "run_command", forbidden)
+    independent = module("entry_resolution_plan_no_execution", ENTRY_RESOLUTION_TOOL_REL)
+    report = independent.verify_plan(plan_bytes=case.raw, expected_plan_sha256=digest(case.raw),
+                                     historical_entry_archive_bytes=case.baseline)
+    assert report["status"] == "accepted" and report["native_acquisition_performed"] is False
+
+
+def test_entry_resolution_plan_cli_repeats_canonically_without_replacing_existing_output(entry_resolution_plan_case, tmp_path):
+    case = entry_resolution_plan_case
+    outputs = [tmp_path / "plan-check-one.json", tmp_path / "plan-check-two.json"]
+    argv = [sys.executable, "-I", "-B", str(ROOT / ENTRY_RESOLUTION_TOOL_REL),
+            "--plan", str(ROOT / ENTRY_RESOLUTION_PLAN_REL), "--plan-sha256", digest(case.raw)]
+    reports = []
+    for output in outputs:
+        result = subprocess.run([*argv, "--output", str(output)], cwd=ROOT,
+                                capture_output=True, timeout=60, check=False)
+        assert result.returncode == 0, result.stderr.decode()
+        raw = output.read_bytes()
+        assert result.stdout == raw == case.checker.canonical(json.loads(raw))
+        assert json.loads(raw)["plan"] == bound(case.raw)
+        reports.append(raw)
+    assert reports[0] == reports[1]
+    result = subprocess.run([*argv, "--output", str(outputs[0])], cwd=ROOT,
+                            capture_output=True, timeout=60, check=False)
+    assert result.returncode == 1 and outputs[0].read_bytes() == reports[0]
+    assert json.loads(result.stderr)["status"] == "rejected"
+
+
+def test_entry_resolution_plan_cli_rejection_cannot_publish_success(entry_resolution_plan_case, tmp_path):
+    case = entry_resolution_plan_case
+    output = tmp_path / "must-not-exist.json"
+    result = subprocess.run([sys.executable, "-I", "-B", str(ROOT / ENTRY_RESOLUTION_TOOL_REL),
+                             "--plan", str(ROOT / ENTRY_RESOLUTION_PLAN_REL),
+                             "--plan-sha256", "0" * 64, "--output", str(output)],
+                            cwd=ROOT, capture_output=True, timeout=60, check=False)
+    assert result.returncode == 1 and not output.exists() and not result.stdout
+    assert json.loads(result.stderr)["status"] == "rejected"
+
+
+def _entry_resolution_change(plan, dotted, value):
+    target = plan
+    parts = dotted.split(".")
+    for part in parts[:-1]:
+        target = target[part]
+    assert parts[-1] in target and target[parts[-1]] != value
+    target[parts[-1]] = value
+
+
+def test_entry_resolution_plan_keeps_two_slot_witness_unqualified_and_all_gates_open(entry_resolution_plan_case):
+    plan = entry_resolution_plan_case.plan
+    witness = plan["witness_design"]
+    assert witness["selection_status"] == "proposed_unqualified"
+    assert witness["upstream_source_is_original_binary_qualification"] is False
+    checkpoint = witness["return_checkpoint"]
+    assert checkpoint["source_function"] == "openaux" and checkpoint["source_call"] == "_dl_map_object"
+    assert checkpoint["phase"] == "immediately_after_call_before_return_value_store"
+    for name in ("binary_file_offset", "binary_virtual_address", "args_pointer_recovery_recipe",
+                 "private_layout_recipe", "source_debug_binary_binding"):
+        assert checkpoint[name] is None, name
+    assert checkpoint["args_aux_is_fresh_at_this_checkpoint"] is False
+    assert checkpoint["argument_pointer_assumed_in_RDI"] is False
+    policy = witness["breakpoint_policy"]
+    assert (policy["return_slot"], policy["entry_slot"], policy["dr7_enable_value"]) == (0, 1, 5)
+    assert policy["same_two_targets_armed_from_cp0_until_entry"] is True
+    assert policy["disarm_after_ninth_return"] is False
+    assert policy["existing_slot_zero_qualification_sufficient"] is False
+    assert policy["require_only_expected_slot_cause"] is True
+    acceptance = witness["positive_acceptance"]
+    assert acceptance["selected_event_namespace_must_be_base"] is True
+    assert acceptance["selected_consumer_and_provider_maps_must_be_non_proxy"] is True
+    assert acceptance["absence_of_all_other_namespace_activity_claimed"] is False
+    execution = plan["execution_policy"]
+    assert execution["positive_pre_exec_resumes"] == 1
+    assert execution["positive_cp0_through_entry_resumes"] == 10
+    assert execution["positive_total_ptrace_cont"] == 11
+    assert execution["post_entry_resumes"] == 0
+    assert execution["original_entry_profile_continuation_policy_changed"] is False
+    assert plan["limits"]["positive_resolution_events"] == 9
+    assert plan["limits"]["preserved_resolution_events_max"] == 10
+    assert plan["limits"]["ptrace_cont_max"] == 11
+    gates = plan["implementation_gates"]
+    assert {row["id"] for row in gates} == {
+        "exact_original_loader_source_debug_binary_binding", "exact_return_site_and_live_value_recipe",
+        "private_structures_and_occurrence_provenance", "two_slot_repeated_hardware_stop_qualification",
+        "closed_new_request_capture_and_event_schemas", "bounded_collector_and_independent_raw_checker",
+        "fresh_environment_and_original_input_admission", "owner_authorized_fresh_acquisition_and_preservation",
+    }
+    assert len(gates) == 8 and all(row["status"] == "unsatisfied" for row in gates)
+    assert {name for name, value in plan["boundary"].items() if value is True} == {
+        "diagnostic_only", "witness_design_selected"}
+
+
+@pytest.mark.parametrize("path,value", [
+    ("future_attempt.historical_entry_report_reusable_as_live_prefix", True),
+    ("future_attempt.historical_pid_or_aslr_address_reusable", True),
+    ("future_attempt.historical_child_resumable", True),
+    ("future_attempt.fresh_original_input_admission_required", False),
+    ("future_attempt.fresh_two_slot_breakpoint_qualification_required", False),
+    ("future_attempt.selected_invocation_must_remain_original", False),
+    ("future_attempt.owner_acquisition_authorization_required", False),
+    ("future_attempt.authorization_supplied_by_plan", True),
+    ("witness_design.selection_status", "qualified"),
+    ("witness_design.upstream_source_is_original_binary_qualification", True),
+    ("witness_design.return_checkpoint.binary_file_offset", 4096),
+    ("witness_design.return_checkpoint.binary_virtual_address", 4096),
+    ("witness_design.return_checkpoint.args_pointer_recovery_recipe", {"register": "RDI"}),
+    ("witness_design.return_checkpoint.private_layout_recipe", {"link_map_from_host_headers": True}),
+    ("witness_design.return_checkpoint.source_debug_binary_binding", {"version": "glibc-2.41"}),
+    ("witness_design.return_checkpoint.args_aux_is_fresh_at_this_checkpoint", True),
+    ("witness_design.return_checkpoint.argument_pointer_assumed_in_RDI", True),
+    ("witness_design.breakpoint_policy.entry_slot", 0),
+    ("witness_design.breakpoint_policy.dr7_enable_value", 1),
+    ("witness_design.breakpoint_policy.same_two_targets_armed_from_cp0_until_entry", False),
+    ("witness_design.breakpoint_policy.disarm_after_ninth_return", True),
+    ("witness_design.breakpoint_policy.require_only_expected_slot_cause", False),
+    ("witness_design.breakpoint_policy.existing_slot_zero_qualification_sufficient", True),
+    ("witness_design.breakpoint_policy.software_breakpoint_or_target_code_patch", True),
+    ("witness_design.occurrence_join.event_order_is_dynamic_ordinal", True),
+    ("witness_design.occurrence_join.duplicate_needed_names_within_one_consumer_allowed", True),
+    ("witness_design.occurrence_join.reused_provider_requires_its_own_consumer_event", False),
+    ("witness_design.occurrence_join.expected_provider_is_observation", True),
+    ("witness_design.occurrence_join.global_map_list_or_initfini_array_is_selected_witness", True),
+    ("witness_design.positive_acceptance.required_dt_needed_events", 8),
+    ("witness_design.positive_acceptance.extra_event_allowed", True),
+    ("witness_design.positive_acceptance.unknown_consumer_or_provider_allowed", True),
+    ("witness_design.positive_acceptance.missing_or_duplicate_event_allowed", True),
+    ("witness_design.positive_acceptance.entry_before_all_events_complete", True),
+    ("witness_design.positive_acceptance.selected_event_namespace_must_be_base", False),
+    ("witness_design.positive_acceptance.selected_consumer_and_provider_maps_must_be_non_proxy", False),
+    ("witness_design.positive_acceptance.absence_of_all_other_namespace_activity_claimed", True),
+    ("execution_policy.positive_cp0_through_entry_resumes", 1),
+    ("execution_policy.positive_total_ptrace_cont", 10),
+    ("execution_policy.post_entry_resumes", 1),
+    ("execution_policy.guard_uninstall_or_relaxation_allowed", True),
+    ("execution_policy.before_all_userspace_claim", True),
+    ("execution_policy.implicit_retry_deadline_extension_or_fallback", True),
+    ("evidence_policy.original_old_capture_schema_reused_for_new_events", True),
+    ("evidence_policy.LD_PRELOAD_LD_AUDIT_LD_DEBUG_or_other_environment_injection", True),
+    ("evidence_policy.etc_ld_so_preload_must_be_proven_absent_or_empty", False),
+    ("evidence_policy.pointer_or_pathname_alone_sufficient", True),
+    ("evidence_policy.physical_execution_authentication_claimed", True),
+    ("evidence_policy.full_hosted_replay_from_control_selection_claimed", True),
+    ("evidence_policy.signatures_freshly_verified_by_plan_checker", True),
+])
+def test_entry_resolution_plan_rehash_cannot_qualify_abi_or_expand_observation(entry_resolution_plan_case, path, value):
+    case = entry_resolution_plan_case
+    plan = copy.deepcopy(case.plan)
+    _entry_resolution_change(plan, path, value)
+    with pytest.raises(case.checker.PlanError):
+        entry_resolution_plan_check(case, encoded(plan))
+
+
+@pytest.mark.parametrize("field,value", [
+    ("run_id", 44375052171), ("run_attempt", 2),
+    ("source_commit", "0353b1f5f4e247783098e3275bcac5dcdf10a6f1"),
+    ("attempt_id", "0" * 32), ("source_file_count", 72),
+    ("historical_child_resumable", True), ("historical_consumer_resolution_observed", True),
+    ("fresh_signature_verification_claimed", True), ("complete_hosted_replay_carrier", True),
+])
+def test_entry_resolution_plan_historical_entry_cannot_be_relabelled(entry_resolution_plan_case, field, value):
+    case = entry_resolution_plan_case
+    plan = copy.deepcopy(case.plan)
+    _entry_resolution_change(plan, "historical_baseline." + field, value)
+    with pytest.raises(case.checker.PlanError):
+        entry_resolution_plan_check(case, encoded(plan))
+
+
+@pytest.mark.parametrize("field,value", [
+    ("wall_seconds", 30), ("cleanup_seconds", 4), ("owned_tracees", 2),
+    ("positive_resolution_events", 10), ("preserved_resolution_events_max", 11),
+    ("wait_records", 40), ("ptrace_cont_max", 12), ("capture_files", 1024),
+    ("total_capture_bytes", 128 * 1024 * 1024), ("control_file_bytes", 2 * 1024 * 1024),
+    ("per_event_memory_ranges", 64), ("memory_samples_per_range", 1),
+    ("memory_window_bytes", 8192), ("per_event_memory_bytes", 512 * 1024),
+    ("pointer_indirections_max", 8), ("needed_name_bytes_including_NUL", 512),
+    ("source_debug_qualification_payload_bytes", 128 * 1024 * 1024),
+    ("absolute_addresses_from_old_attempt_allowed", True),
+    ("raise_limits_after_start_or_implicit_retry", True),
+])
+def test_entry_resolution_plan_rehashed_limits_cannot_expand_or_erase_required_samples(entry_resolution_plan_case, field, value):
+    case = entry_resolution_plan_case
+    plan = copy.deepcopy(case.plan)
+    _entry_resolution_change(plan, "limits." + field, value)
+    with pytest.raises(case.checker.PlanError):
+        entry_resolution_plan_check(case, encoded(plan))
+
+
+@pytest.mark.parametrize("field,value", [
+    ("native_acquisition_performed", True), ("witness_collector_implemented", True),
+    ("witness_capture_schema_implemented", True), ("witness_capture_checker_implemented", True),
+    ("loader_private_abi_qualified", True), ("two_slot_breakpoint_qualified", True),
+    ("consumer_resolution_observed", True), ("loader_resolution_verified", True),
+    ("host_environment_qualified", True), ("physical_execution_authenticated", True),
+    ("complete_native_closure_verified", True), ("containment_enforced", True),
+    ("execution_ready", True), ("execution_authorized", True),
+    ("selected_runtime_executed", True), ("production_gate_eligible", True),
+    ("b2_complete", True), ("metric_pass", True), ("authority_effect", "release"),
+])
+def test_entry_resolution_plan_rehashed_boundaries_cannot_promote_a_proposal(entry_resolution_plan_case, field, value):
+    case = entry_resolution_plan_case
+    plan = copy.deepcopy(case.plan)
+    _entry_resolution_change(plan, "boundary." + field, value)
+    with pytest.raises(case.checker.PlanError):
+        entry_resolution_plan_check(case, encoded(plan))
+
+
+@pytest.mark.parametrize("gate", [
+    "exact_original_loader_source_debug_binary_binding", "exact_return_site_and_live_value_recipe",
+    "private_structures_and_occurrence_provenance", "two_slot_repeated_hardware_stop_qualification",
+    "closed_new_request_capture_and_event_schemas", "bounded_collector_and_independent_raw_checker",
+    "fresh_environment_and_original_input_admission", "owner_authorized_fresh_acquisition_and_preservation",
+])
+def test_entry_resolution_plan_cannot_self_certify_an_unimplemented_gate(entry_resolution_plan_case, gate):
+    case = entry_resolution_plan_case
+    plan = copy.deepcopy(case.plan)
+    next(row for row in plan["implementation_gates"] if row["id"] == gate)["status"] = "satisfied"
+    with pytest.raises(case.checker.PlanError):
+        entry_resolution_plan_check(case, encoded(plan))
+
+
+@pytest.mark.parametrize("fault", ["missing", "duplicate"])
+def test_entry_resolution_plan_gate_roster_is_closed(entry_resolution_plan_case, fault):
+    case = entry_resolution_plan_case
+    plan = copy.deepcopy(case.plan)
+    if fault == "missing": plan["implementation_gates"].pop()
+    else: plan["implementation_gates"][-1] = copy.deepcopy(plan["implementation_gates"][0])
+    with pytest.raises(case.checker.PlanError):
+        entry_resolution_plan_check(case, encoded(plan))
+
+
+def test_entry_resolution_plan_declared_memory_and_file_budgets_cover_the_selected_proposal(entry_resolution_plan_case):
+    case = entry_resolution_plan_case
+    limits = case.plan["limits"]
+    rx_sizes = {}
+    for path, raw in case.native.items():
+        header = struct.unpack_from("<16sHHIQQQIHHHHHH", raw)
+        segments = [struct.unpack_from("<IIQQQQQQ", raw, header[5] + index * header[9])
+                    for index in range(header[10])]
+        rx_sizes[path] = sum(row[5] for row in segments if row[0] == 1 and row[1] == 5)
+    event_memory = (limits["per_event_memory_ranges"] * limits["memory_samples_per_range"]
+                    * limits["memory_window_bytes"])
+    assert event_memory == limits["per_event_memory_bytes"] == 262144 == 2 * 131072
+    complete_native_snapshots = 2 * sum(len(raw) for raw in case.native.values())
+    entry_samples = 2 * sum(rx_sizes.values())
+    cp0_samples = 2 * (rx_sizes["native/bwrap"] + rx_sizes["native/ld-linux-x86-64.so.2"])
+    per_event = 2 * rx_sizes["native/ld-linux-x86-64.so.2"] + event_memory
+    observer = case.request["observer"]["size_bytes"]
+    assert observer == 14472
+    selected_bytes_and_allowance = (complete_native_snapshots + entry_samples + cp0_samples
+                                   + limits["preserved_resolution_events_max"] * per_event
+                                   + observer + 8 * 1024 * 1024)
+    assert selected_bytes_and_allowance == 25766700 < limits["total_capture_bytes"] == 64 * 1024 * 1024
+    assert 78 + limits["preserved_resolution_events_max"] * limits["per_event_files"] + 8 <= limits["capture_files"]
