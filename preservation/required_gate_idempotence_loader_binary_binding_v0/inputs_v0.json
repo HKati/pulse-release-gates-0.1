@@ -1,0 +1,126 @@
+{
+  "record_type": "required_gate_idempotence_loader_binary_inputs_v0",
+  "distribution_source_version": "2.41-12+deb13u4",
+  "part_size_bytes_max": 8000000,
+  "artifact_count": 6,
+  "part_count": 9,
+  "total_artifact_bytes": 41590708,
+  "artifacts": [
+    {
+      "name": "libc6_2.41-12+deb13u4_amd64.deb",
+      "origin_url": "https://deb.debian.org/debian/pool/main/g/glibc/libc6_2.41-12+deb13u4_amd64.deb",
+      "sha256": "967aa62605721081c3eb2a17650611a792aa802d76a6511d1840242623d204c9",
+      "size_bytes": 2846580,
+      "parts": [
+        {
+          "path": "raw/libc6_2.41-12+deb13u4_amd64.deb",
+          "ordinal": 1,
+          "offset_bytes": 0,
+          "size_bytes": 2846580,
+          "sha256": "967aa62605721081c3eb2a17650611a792aa802d76a6511d1840242623d204c9"
+        }
+      ]
+    },
+    {
+      "name": "libc6-dbg_2.41-12+deb13u4_amd64.deb",
+      "origin_url": "https://deb.debian.org/debian/pool/main/g/glibc/libc6-dbg_2.41-12+deb13u4_amd64.deb",
+      "sha256": "0123a767a462c59d75e1bd56c4a0f7192c389f600e4743e807d3d33c679dbcf7",
+      "size_bytes": 7373052,
+      "parts": [
+        {
+          "path": "raw/libc6-dbg_2.41-12+deb13u4_amd64.deb",
+          "ordinal": 1,
+          "offset_bytes": 0,
+          "size_bytes": 7373052,
+          "sha256": "0123a767a462c59d75e1bd56c4a0f7192c389f600e4743e807d3d33c679dbcf7"
+        }
+      ]
+    },
+    {
+      "name": "Sources.xz",
+      "origin_url": "https://deb.debian.org/debian/dists/trixie/main/source/Sources.xz",
+      "sha256": "6002f81f463a2d976d84b34170367cc16da2d60bd0ba9ab9d868d6e1c1a935d9",
+      "size_bytes": 10540436,
+      "parts": [
+        {
+          "path": "raw/Sources.xz.part001",
+          "ordinal": 1,
+          "offset_bytes": 0,
+          "size_bytes": 8000000,
+          "sha256": "3dd4790f65540cb7004b5b13cc98d60b706fa62ec347da24f34629c18d1bc724"
+        },
+        {
+          "path": "raw/Sources.xz.part002",
+          "ordinal": 2,
+          "offset_bytes": 8000000,
+          "size_bytes": 2540436,
+          "sha256": "4a2df0061f07a5aabc5a976cd4c5c80faa1a25f9455b67780fd87e7d2c5270cf"
+        }
+      ]
+    },
+    {
+      "name": "glibc_2.41-12+deb13u4.dsc",
+      "origin_url": "https://deb.debian.org/debian/pool/main/g/glibc/glibc_2.41-12+deb13u4.dsc",
+      "sha256": "0915324aa646bb99abfaa9aa6ecb734b30babd28454a3e51f3152912370fbd3e",
+      "size_bytes": 7576,
+      "parts": [
+        {
+          "path": "raw/glibc_2.41-12+deb13u4.dsc",
+          "ordinal": 1,
+          "offset_bytes": 0,
+          "size_bytes": 7576,
+          "sha256": "0915324aa646bb99abfaa9aa6ecb734b30babd28454a3e51f3152912370fbd3e"
+        }
+      ]
+    },
+    {
+      "name": "glibc_2.41.orig.tar.xz",
+      "origin_url": "https://deb.debian.org/debian/pool/main/g/glibc/glibc_2.41.orig.tar.xz",
+      "sha256": "f24aa441021121a79266f0d75242706cab8843a47901fefe74527491807f1998",
+      "size_bytes": 20323540,
+      "parts": [
+        {
+          "path": "raw/glibc_2.41.orig.tar.xz.part001",
+          "ordinal": 1,
+          "offset_bytes": 0,
+          "size_bytes": 8000000,
+          "sha256": "4790b9cafe4425b2776884b87f345591accb35232f6db5d891d869d20626fde4"
+        },
+        {
+          "path": "raw/glibc_2.41.orig.tar.xz.part002",
+          "ordinal": 2,
+          "offset_bytes": 8000000,
+          "size_bytes": 8000000,
+          "sha256": "89c780719196bcbdce8ba0290918ea5468a681525b5836d24cbf2d788c9e5f75"
+        },
+        {
+          "path": "raw/glibc_2.41.orig.tar.xz.part003",
+          "ordinal": 3,
+          "offset_bytes": 16000000,
+          "size_bytes": 4323540,
+          "sha256": "875cb7ed49f8f386a6ba4948dad2eeb4da80494ece0c49d566a93271870997ba"
+        }
+      ]
+    },
+    {
+      "name": "glibc_2.41-12+deb13u4.debian.tar.xz",
+      "origin_url": "https://deb.debian.org/debian/pool/main/g/glibc/glibc_2.41-12+deb13u4.debian.tar.xz",
+      "sha256": "dda4153511bfd543502d18e5bc9323110996fe9c531f14ae3fad6eb17f027c7d",
+      "size_bytes": 499524,
+      "parts": [
+        {
+          "path": "raw/glibc_2.41-12+deb13u4.debian.tar.xz",
+          "ordinal": 1,
+          "offset_bytes": 0,
+          "size_bytes": 499524,
+          "sha256": "dda4153511bfd543502d18e5bc9323110996fe9c531f14ae3fad6eb17f027c7d"
+        }
+      ]
+    }
+  ],
+  "network_required_for_checker": false,
+  "fresh_distribution_authentication_claimed": false,
+  "source_to_binary_rebuild_performed": false,
+  "native_acquisition_performed": false,
+  "authority_effect": "none"
+}

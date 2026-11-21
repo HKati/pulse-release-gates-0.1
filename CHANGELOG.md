@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the [B2 exact original-loader binary/debug/source binding](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_BINARY_BINDING_v0.md)
+  with six complete preserved distribution artifacts in nine ordinary-size
+  byte parts and a data-only independent checker. Reconstruct the historical
+  entry evidence, package membership and selected patched source; correlate the
+  original instructions and raw DWARF at the pre-store return checkpoint with
+  the RBX argument and RAX provider recipe. Bind exact private field layouts and
+  the nine original consumer/name pointer obligations without importing host
+  layouts or executing the loader. Retain the unchanged authored plan, all 81
+  historical source bindings and the 190/41 CI lists. Reproducible source/build
+  equivalence, live readout and hardware qualification, loader-resolution
+  acquisition, B2 completion and release authority remain open.
+
 - Add the [B2 per-consumer loader-resolution plan](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_PLAN_v0.md)
   with a closed proposal schema and independent data-only checker. Reconstruct
   the preserved original entry capture with all 81 historical source bindings;

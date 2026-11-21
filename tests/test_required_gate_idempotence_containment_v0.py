@@ -10615,3 +10615,571 @@ def test_entry_resolution_plan_declared_memory_and_file_budgets_cover_the_select
                                    + observer + 8 * 1024 * 1024)
     assert selected_bytes_and_allowance == 25766700 < limits["total_capture_bytes"] == 64 * 1024 * 1024
     assert 78 + limits["preserved_resolution_events_max"] * limits["per_event_files"] + 8 <= limits["capture_files"]
+
+
+# Exact loader qualification is an offline, original-byte operation. These
+# regressions inspect the preserved ELF/package/debug/source artifacts; they do
+# not execute the original loader, qualify hardware stops or collect events.
+LOADER_BINARY_BINDING_TOOL_REL = "tools/check_required_gate_idempotence_loader_binary_binding_v0.py"
+LOADER_BINARY_BINDING_RECORD_REL = "docs/compute/required_gate_idempotence_loader_binary_binding_v0/record_v0.json"
+LOADER_BINARY_BINDING_LOADER_SHA = "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307"
+LOADER_BINARY_BINDING_DEBUG_SHA = "34ab07395545cf33df8e551e809ebee6fd3fc2707ed848e390872dce539c4a78"
+LOADER_BINARY_BINDING_DEBUG_PACKAGE_SHA = "0123a767a462c59d75e1bd56c4a0f7192c389f600e4743e807d3d33c679dbcf7"
+
+
+@pytest.fixture(scope="module")
+def loader_binary_binding_case():
+    import zipfile
+    checker = module("check_required_gate_idempotence_loader_binary_binding_v0", LOADER_BINARY_BINDING_TOOL_REL)
+    raw = (ROOT / LOADER_BINARY_BINDING_RECORD_REL).read_bytes()
+    baseline = (ROOT / checker.BASELINE_REL).read_bytes()
+    artifacts = checker.read_artifact_members()
+    with zipfile.ZipFile(io.BytesIO(baseline)) as archive:
+        loader = archive.read("acquisition/observation/capture/native.loader.before.elf")
+        assert loader == archive.read("acquisition/observation/capture/native.loader.after.elf")
+        historical_sources = json.loads(archive.read("acquisition/source-bindings.json"))
+    return SimpleNamespace(checker=checker, raw=raw, record=json.loads(raw), baseline=baseline,
+                           artifacts=artifacts, loader=loader, historical_sources=historical_sources)
+
+
+def loader_binary_binding_check(case, raw=None, **overrides):
+    raw = case.raw if raw is None else raw
+    arguments = dict(record_bytes=raw, expected_record_sha256=digest(raw),
+                     historical_entry_archive_bytes=case.baseline, artifact_members=case.artifacts)
+    arguments.update(overrides)
+    return case.checker.verify_binding(**arguments)
+
+
+@pytest.fixture(scope="module")
+def loader_binary_binding_report(loader_binary_binding_case):
+    return loader_binary_binding_check(loader_binary_binding_case)
+
+
+def _loader_binary_binding_debug_package_oracle(raw):
+    """Use the standard tar reader, independently of the production package parser."""
+    assert bound(raw) == {"sha256": LOADER_BINARY_BINDING_DEBUG_PACKAGE_SHA, "size_bytes": 7373052}
+    assert raw[:8] == b"!<arch>\n"
+    members, position = {}, 8
+    while position < len(raw):
+        header = raw[position:position + 60]
+        assert len(header) == 60 and header[58:] == b"`\n"
+        name = header[:16].decode("ascii").rstrip(" /")
+        length = int(header[48:58].decode("ascii").strip())
+        assert name not in members and 0 < length <= len(raw) - position - 60
+        members[name] = raw[position + 60:position + 60 + length]
+        position += 60 + length + length % 2
+    assert position == len(raw) and set(members) == {"debian-binary", "control.tar.xz", "data.tar.xz"}
+    assert members["debian-binary"] == b"2.0\n"
+    selected = "./usr/lib/debug/.build-id/86/f7eb4ff495ed3f2831c6d3d662e4321762a2a3.debug"
+    with tarfile.open(fileobj=io.BytesIO(members["data.tar.xz"]), mode="r:xz") as archive:
+        rows = archive.getmembers()
+        assert len(rows) == 449
+        matches = [row for row in rows if row.name == selected]
+        assert len(matches) == 1 and matches[0].isreg() and matches[0].size == 556488
+        stream = archive.extractfile(matches[0])
+        assert stream is not None
+        debug = stream.read(556489)
+    assert bound(debug) == {"sha256": LOADER_BINARY_BINDING_DEBUG_SHA, "size_bytes": 556488}
+    return debug
+
+
+def _loader_binary_binding_sections_oracle(raw):
+    """Read ELF section headers with struct, without production ELF/DWARF helpers."""
+    import zlib
+    header = struct.unpack_from("<16sHHIQQQIHHHHHH", raw)
+    assert header[0][:7] == b"\x7fELF\x02\x01\x01" and header[2] == 62
+    assert header[11] == 64 and 0 < header[12] <= 128
+    rows = [struct.unpack_from("<IIQQQQIIQQ", raw, header[6] + index * header[11])
+            for index in range(header[12])]
+    names_row = rows[header[13]]
+    names = raw[names_row[4]:names_row[4] + names_row[5]]
+    sections = {}
+    for row in rows:
+        name_end = names.index(b"\0", row[0])
+        name = names[row[0]:name_end].decode("ascii")
+        assert name not in sections
+        data = b"" if row[1] == 8 else raw[row[4]:row[4] + row[5]]
+        if row[1] != 8:
+            assert len(data) == row[5]
+        if row[2] & 0x800:
+            kind, reserved, length, alignment = struct.unpack_from("<IIQQ", data)
+            assert kind == 1 and reserved == 0 and length <= 2 * 1024 * 1024
+            assert alignment in {1, 4, 8, 16}
+            decoder = zlib.decompressobj()
+            data = decoder.decompress(data[24:], length + 1)
+            assert len(data) == length and decoder.eof and not decoder.unused_data
+        sections[name] = (row, data)
+    return sections
+
+
+@pytest.fixture(scope="module")
+def loader_binary_binding_debug(loader_binary_binding_case):
+    packages = [raw for raw in loader_binary_binding_case.artifacts.values()
+                if type(raw) is bytes and len(raw) == 7373052
+                and digest(raw) == LOADER_BINARY_BINDING_DEBUG_PACKAGE_SHA]
+    assert len(packages) == 1
+    return _loader_binary_binding_debug_package_oracle(packages[0])
+
+
+def test_loader_binary_binding_independent_original_code_oracle(loader_binary_binding_case):
+    raw = loader_binary_binding_case.loader
+    assert bound(raw) == {"sha256": LOADER_BINARY_BINDING_LOADER_SHA, "size_bytes": 225672}
+    header = struct.unpack_from("<16sHHIQQQIHHHHHH", raw)
+    program = [struct.unpack_from("<IIQQQQQQ", raw, header[5] + index * header[9])
+               for index in range(header[10])]
+    start, length = 0x3640, 55
+    containing = [row for row in program if row[0] == 1 and row[1] == 5
+                  and row[3] <= start and start + length <= row[3] + row[5]]
+    assert len(containing) == 1
+    segment = containing[0]
+    offset = segment[2] + start - segment[3]
+    code = raw[offset:offset + length]
+    assert code.hex() == (
+        "534889fb488b3f8b4b08488b73180fb68754030000448b430c4c8b4f3089c2"
+        "83e203a803b8010000000f44d0e82f5d0000488943205bc3"
+    )
+    # RBX receives the entry argument and remains saved across the direct call.
+    assert code[:4] == b"\x53\x48\x89\xfb" and code[-2:] == b"\x5b\xc3"
+    assert code[44] == 0xE8
+    return_address = start + 44 + 5
+    assert return_address == 0x3671
+    assert return_address + struct.unpack_from("<i", code, 45)[0] == 0x93A0
+    # The selected checkpoint precedes this RAX-to-[RBX+32] store.
+    assert code[49:53] == b"\x48\x89\x43\x20"
+
+
+def test_loader_binary_binding_independent_debug_identity_and_symbol_oracle(loader_binary_binding_case,
+                                                                          loader_binary_binding_debug):
+    import zlib
+    original = _loader_binary_binding_sections_oracle(loader_binary_binding_case.loader)
+    debug = _loader_binary_binding_sections_oracle(loader_binary_binding_debug)
+    note = bytes.fromhex("040000001400000003000000474e550086f7eb4ff495ed3f2831c6d3d662e4321762a2a3")
+    assert original[".note.gnu.build-id"][1] == debug[".note.gnu.build-id"][1] == note
+    link = original[".gnu_debuglink"][1]
+    terminator = link.index(b"\0")
+    assert link[:terminator] == b"f7eb4ff495ed3f2831c6d3d662e4321762a2a3.debug"
+    crc_offset = (terminator + 1 + 3) & ~3
+    assert int.from_bytes(link[crc_offset:crc_offset + 4], "little") == zlib.crc32(loader_binary_binding_debug) == 0x32EB62BE
+    symbol_bytes, strings = debug[".symtab"][1], debug[".strtab"][1]
+    symbols = {}
+    for offset in range(0, len(symbol_bytes), 24):
+        name, info, _other, _section, value, size = struct.unpack_from("<IBBHQQ", symbol_bytes, offset)
+        text = strings[name:strings.index(b"\0", name)].decode("ascii")
+        if text in {"openaux", "_dl_map_object"}:
+            assert text not in symbols and info & 15 == 2
+            symbols[text] = (value, size)
+    assert symbols == {"openaux": (0x3640, 55), "_dl_map_object": (0x93A0, 2859)}
+
+
+def test_loader_binary_binding_independent_dwarf_location_and_callsite_oracle(loader_binary_binding_debug):
+    sections = _loader_binary_binding_sections_oracle(loader_binary_binding_debug)
+    info = sections[".debug_info"][1]
+    assert struct.unpack_from("<IHBBI", info, 0xBCA5) == (0x35DF, 5, 1, 8, 0x17F4)
+    # Independent raw DIE bytes include the original post-call PC, rather than
+    # accepting a producer-authored location or a matching function name alone.
+    assert info[0xF193:0xF1A1].hex() == "1c71360000000000000f27000000"
+    assert 0xBCA5 + int.from_bytes(info[0xF19C:0xF1A0], "little") == 0xE3B4
+    locations = sections[".debug_loclists"][1]
+    raw = locations[0x2C2F:0x2C4B]
+    assert raw.hex() == "0640360000000000000400070155040736015304363704a301559f00"
+    base = int.from_bytes(raw[1:9], "little")
+    assert raw[14:19] == bytes([4, 7, 54, 1, 0x53])
+    begin, end = base + raw[15], base + raw[16]
+    assert begin == 0x3647 <= 0x3671 < end == 0x3676
+    assert raw[18] - 0x50 == 3  # DW_OP_reg3 is x86-64 RBX, not RDI (reg5).
+
+
+def test_loader_binary_binding_preserves_historical_sources_prior_proposal_and_ci(loader_binary_binding_case):
+    case = loader_binary_binding_case
+    assert len(case.historical_sources) == 81
+    assert SELF not in case.historical_sources
+    for path, descriptor in case.historical_sources.items():
+        assert bound((ROOT / path).read_bytes()) == descriptor, path
+    originals = {
+        ENTRY_RESOLUTION_TOOL_REL: (44623, "a26b59f804b8000219b85b99dda08869099b3ca82a9093923ac01bf0b00d19b7"),
+        "schemas/required_gate_idempotence_loader_resolution_plan_v0.schema.json":
+            (27856, "f3d7dfa891d69528632f4145ef1677782e238ce73ff66ce301b56159762b5b01"),
+        ENTRY_RESOLUTION_PLAN_REL: (33641, "ff33f96d0095f949763125d67da1159112b067b86c2fe3b5f1302f55cb193d7d"),
+        "ci/tools-tests.list": (10531, "4ca6ae37463948b0f825b09f6ccb45b19eb5b6e825315e6550e45fdfb3d9b3e2"),
+        "ci/pytest-tests.list": (2044, "f3d032e96e751cc0b5dfa8657c52c2be8dfea3f56709bf986ca2e69b60ea4cc7"),
+    }
+    for path, (size, expected) in originals.items():
+        assert bound((ROOT / path).read_bytes()) == {"size_bytes": size, "sha256": expected}, path
+    for path, count in (("ci/tools-tests.list", 190), ("ci/pytest-tests.list", 41)):
+        entries = [line.strip() for line in (ROOT / path).read_text().splitlines()
+                   if line.strip() and not line.strip().startswith("#")]
+        assert len(entries) == len(set(entries)) == count
+    # This unit appends tests; previously merged regression code is unchanged.
+    assert digest((ROOT / SELF).read_bytes()[:591424]) == "8cdd3705916b206b0bb3e85fc7b4f39e5208e980e89d89d0a2fbaa6cc9ea2378"
+
+
+@pytest.mark.parametrize("which", ["loader", "debug"])
+def test_loader_binary_binding_build_id_and_version_do_not_authorize_modified_bytes(
+        loader_binary_binding_case, loader_binary_binding_debug, which):
+    binary = module("required_gate_idempotence_loader_binary_v0",
+                    "tools/required_gate_idempotence_loader_binary_v0.py")
+    loader, debug = loader_binary_binding_case.loader, loader_binary_binding_debug
+    if which == "loader":
+        changed = bytearray(loader)
+        changed[0x366D] ^= 1  # Alter the relative call while retaining the build ID.
+        loader = bytes(changed)
+    else:
+        changed = bytearray(debug)
+        sections = _loader_binary_binding_sections_oracle(debug)
+        changed[sections[".debug_info"][0][4] + 24] ^= 1
+        debug = bytes(changed)
+    expected_note = bytes.fromhex("86f7eb4ff495ed3f2831c6d3d662e4321762a2a3")
+    assert expected_note in loader and expected_note in debug
+    with pytest.raises(binary.BinaryError, match="input_sha256"):
+        binary.derive_binary_facts(loader_bytes=loader, debug_bytes=debug)
+
+
+def test_loader_binary_binding_debug_parser_bounds_are_enforced_before_expansion():
+    import zlib
+    binary = module("required_gate_idempotence_loader_binary_v0",
+                    "tools/required_gate_idempotence_loader_binary_v0.py")
+    encoded_section = struct.pack("<IIQQ", 1, 0, binary.MAX_DECODED_SECTION + 1, 1) + zlib.compress(b"a")
+    view = object.__new__(binary.ELF)
+    view.data = encoded_section
+    view.sections = {".debug_info": {"type": 1, "flags": 0x800, "offset": 0,
+                                       "size": len(encoded_section)}}
+    with pytest.raises(binary.BinaryError, match="zlib_section_header"):
+        view.section(".debug_info")
+    with pytest.raises(binary.BinaryError, match="uleb64_length"):
+        binary.Reader(b"\x80" * 10).uleb()
+    with pytest.raises(binary.BinaryError, match="reader_overrun"):
+        binary.Reader(b"\x81").uleb()
+
+
+@pytest.mark.parametrize("fault", ["missing", "extra", "changed", "swapped_equal_sized_parts"])
+def test_loader_binary_binding_raw_parts_cannot_be_substituted(loader_binary_binding_case, fault):
+    case = loader_binary_binding_case
+    members = dict(case.artifacts)
+    first = "raw/glibc_2.41.orig.tar.xz.part001"
+    second = "raw/glibc_2.41.orig.tar.xz.part002"
+    assert len(members[first]) == len(members[second]) == 8000000
+    if fault == "missing":
+        members.pop(first)
+    elif fault == "extra":
+        members["raw/undeclared-input.bin"] = b"unselected"
+    elif fault == "changed":
+        members[first] = bytes([members[first][0] ^ 1]) + members[first][1:]
+    else:
+        members[first], members[second] = members[second], members[first]
+    with pytest.raises(case.checker.BindingError):
+        case.checker._reassemble_inputs(members)
+
+
+@pytest.mark.parametrize("expected", ["0" * 64, "a" * 63, False])
+def test_loader_binary_binding_requires_external_exact_control_digest(loader_binary_binding_case, expected):
+    case = loader_binary_binding_case
+    with pytest.raises(case.checker.BindingError):
+        loader_binary_binding_check(case, expected_record_sha256=expected)
+
+
+@pytest.mark.parametrize("fault", ["duplicate_key", "noninteger", "nonfinite", "extra"])
+def test_loader_binary_binding_strict_json_and_closed_control(loader_binary_binding_case, fault):
+    case = loader_binary_binding_case
+    raw = encoded(case.record)
+    if fault == "duplicate_key":
+        raw = b'{"record_type":"discarded",' + raw[1:]
+    elif fault == "noninteger":
+        raw = raw.replace(b'"size_bytes":225672', b'"size_bytes":225672.0', 1)
+    elif fault == "nonfinite":
+        raw = raw.replace(b'"size_bytes":225672', b'"size_bytes":NaN', 1)
+    else:
+        raw = encoded({**case.record, "accepted_by_caller": True})
+    assert raw != encoded(case.record)
+    with pytest.raises(case.checker.BindingError):
+        loader_binary_binding_check(case, raw)
+
+
+@pytest.mark.parametrize("which", ["historical", "prior_plan", "new_helper"])
+def test_loader_binary_binding_source_drift_cannot_be_hidden(loader_binary_binding_case, monkeypatch, which):
+    case = loader_binary_binding_case
+    if which == "historical":
+        owner = module("check_required_gate_idempotence_loader_resolution_plan_v0", ENTRY_RESOLUTION_TOOL_REL)
+        target = "tools/check_required_gate_idempotence_entry_stop_v0.py"
+    else:
+        owner = case.checker
+        target = (ENTRY_RESOLUTION_TOOL_REL if which == "prior_plan"
+                  else "tools/required_gate_idempotence_loader_binary_v0.py")
+    original = owner._source
+    reads = []
+
+    def changed(path):
+        raw = original(path)
+        if path == target:
+            reads.append(path)
+            if which != "new_helper" or len(reads) > 1:
+                return raw + b"\n"
+        return raw
+
+    monkeypatch.setattr(owner, "_source", changed)
+    with pytest.raises(case.checker.BindingError):
+        loader_binary_binding_check(case)
+    assert len(reads) >= (2 if which == "new_helper" else 1)
+
+
+def test_loader_binary_binding_verification_has_no_execution_or_network_path(loader_binary_binding_case, monkeypatch):
+    import builtins
+    import ctypes
+    import socket
+    import urllib.request
+    case = loader_binary_binding_case
+    original_import = builtins.__import__
+    collectors = {
+        "required_gate_idempotence_exec_stop_v0", "prepare_required_gate_idempotence_exec_stop_v0",
+        "required_gate_idempotence_exec_stop_hosted_v0", "required_gate_idempotence_containment_v0",
+        "required_gate_idempotence_entry_stop_v0", "prepare_required_gate_idempotence_entry_stop_v0",
+        "required_gate_idempotence_entry_stop_hosted_v0", "qualify_required_gate_idempotence_entry_stop_v0",
+        "required_gate_idempotence_entry_task_guard_v0",
+    }
+
+    def guarded_import(name, *args, **kwargs):
+        assert name not in collectors, "binary binding imported an acquisition or qualification module"
+        return original_import(name, *args, **kwargs)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("binary binding must inspect preserved bytes without execution or network")
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    monkeypatch.setattr(subprocess, "Popen", forbidden)
+    monkeypatch.setattr(os, "fork", forbidden)
+    monkeypatch.setattr(os, "execve", forbidden)
+    monkeypatch.setattr(os, "system", forbidden)
+    monkeypatch.setattr(ctypes, "CDLL", forbidden)
+    monkeypatch.setattr(socket, "socket", forbidden)
+    monkeypatch.setattr(socket, "create_connection", forbidden)
+    monkeypatch.setattr(urllib.request, "urlopen", forbidden)
+    independent = module("loader_binary_binding_no_execution", LOADER_BINARY_BINDING_TOOL_REL)
+    report = independent.verify_binding(record_bytes=case.raw, expected_record_sha256=digest(case.raw),
+                                        historical_entry_archive_bytes=case.baseline,
+                                        artifact_members=case.artifacts)
+    assert report["status"] == "accepted"
+
+
+def test_loader_binary_binding_cli_is_canonical_and_output_is_exclusive(loader_binary_binding_case, tmp_path):
+    case = loader_binary_binding_case
+    outputs = [tmp_path / "binding-check-one.json", tmp_path / "binding-check-two.json"]
+    argv = [sys.executable, "-I", "-B", str(ROOT / LOADER_BINARY_BINDING_TOOL_REL),
+            "--record", str(ROOT / LOADER_BINARY_BINDING_RECORD_REL),
+            "--record-sha256", digest(case.raw)]
+    reports = []
+    for output in outputs:
+        completed = subprocess.run([*argv, "--output", str(output)], cwd=ROOT,
+                                   capture_output=True, timeout=120, check=False)
+        assert completed.returncode == 0, completed.stderr.decode()
+        raw = output.read_bytes()
+        assert completed.stdout == raw == case.checker.canonical(json.loads(raw))
+        assert json.loads(raw)["status"] == "accepted"
+        reports.append(raw)
+    assert reports[0] == reports[1]
+    completed = subprocess.run([*argv, "--output", str(outputs[0])], cwd=ROOT,
+                               capture_output=True, timeout=120, check=False)
+    assert completed.returncode == 1 and outputs[0].read_bytes() == reports[0]
+    assert json.loads(completed.stderr)["status"] == "rejected"
+
+
+def test_loader_binary_binding_cli_rejection_does_not_create_success(loader_binary_binding_case, tmp_path):
+    case = loader_binary_binding_case
+    output = tmp_path / "rejected-binding-must-not-exist.json"
+    completed = subprocess.run([sys.executable, "-I", "-B", str(ROOT / LOADER_BINARY_BINDING_TOOL_REL),
+                                "--record", str(ROOT / LOADER_BINARY_BINDING_RECORD_REL),
+                                "--record-sha256", "0" * 64, "--output", str(output)],
+                               cwd=ROOT, capture_output=True, timeout=120, check=False)
+    assert completed.returncode == 1 and not output.exists() and not completed.stdout
+    assert json.loads(completed.stderr)["status"] == "rejected"
+
+
+def test_loader_binary_binding_full_original_input_carrier_has_no_gaps_or_large_file_exception(loader_binary_binding_case):
+    case = loader_binary_binding_case
+    manifest = json.loads((ROOT / case.checker.INPUTS_REL).read_bytes())
+    expected = {
+        "libc6_2.41-12+deb13u4_amd64.deb":
+            (2846580, "967aa62605721081c3eb2a17650611a792aa802d76a6511d1840242623d204c9"),
+        "libc6-dbg_2.41-12+deb13u4_amd64.deb":
+            (7373052, LOADER_BINARY_BINDING_DEBUG_PACKAGE_SHA),
+        "Sources.xz": (10540436, "6002f81f463a2d976d84b34170367cc16da2d60bd0ba9ab9d868d6e1c1a935d9"),
+        "glibc_2.41-12+deb13u4.dsc":
+            (7576, "0915324aa646bb99abfaa9aa6ecb734b30babd28454a3e51f3152912370fbd3e"),
+        "glibc_2.41.orig.tar.xz":
+            (20323540, "f24aa441021121a79266f0d75242706cab8843a47901fefe74527491807f1998"),
+        "glibc_2.41-12+deb13u4.debian.tar.xz":
+            (499524, "dda4153511bfd543502d18e5bc9323110996fe9c531f14ae3fad6eb17f027c7d"),
+    }
+    assert manifest["artifact_count"] == len(expected) == 6
+    assert len(manifest["artifacts"]) == 6
+    seen = set()
+    for artifact in manifest["artifacts"]:
+        total, hasher = 0, hashlib.sha256()
+        size, expected_sha = expected[artifact["name"]]
+        assert (artifact["size_bytes"], artifact["sha256"]) == (size, expected_sha)
+        for ordinal, part in enumerate(artifact["parts"], 1):
+            path = part["path"]
+            assert path not in seen and part["ordinal"] == ordinal and part["offset_bytes"] == total
+            seen.add(path)
+            raw = case.artifacts[path]
+            assert 0 < len(raw) == part["size_bytes"] <= 8000000 < 8 * 1024 * 1024
+            assert digest(raw) == part["sha256"]
+            hasher.update(raw)
+            total += len(raw)
+        assert total == size and hasher.hexdigest() == expected_sha
+    assert seen == set(case.artifacts) and len(seen) == manifest["part_count"] == 9
+    assert sum(map(len, case.artifacts.values())) == manifest["total_artifact_bytes"] == 41590708
+    assert 41590708 < 64 * 1024 * 1024
+
+
+@pytest.mark.parametrize("path,value", [
+    ("static_binary.return_checkpoint.vaddr", 0x3672),
+    ("static_binary.return_checkpoint.args_register", "RDI"),
+    ("static_binary.return_checkpoint.args_aux_fresh", True),
+    ("static_binary.link_map.members.l_ns.offset_bytes", 40),
+    ("boundary.authenticated_build_provenance", True),
+    ("boundary.consumer_resolution_observed", True),
+])
+def test_loader_binary_binding_rehashed_recipe_or_boundary_cannot_override_original_evidence(
+        loader_binary_binding_case, path, value):
+    case = loader_binary_binding_case
+    record = copy.deepcopy(case.record)
+    target = record
+    parts = path.split(".")
+    for part in parts[:-1]:
+        target = target[part]
+    assert parts[-1] in target and target[parts[-1]] != value
+    target[parts[-1]] = value
+    with pytest.raises(case.checker.BindingError):
+        loader_binary_binding_check(case, encoded(record))
+
+
+def test_loader_binary_binding_positive_static_qualification_preserves_live_and_build_boundaries(
+        loader_binary_binding_case, loader_binary_binding_report):
+    case, report = loader_binary_binding_case, loader_binary_binding_report
+    assert report["status"] == "accepted"
+    facts = case.record["static_binary"]
+    assert facts["loader"] == {"sha256": LOADER_BINARY_BINDING_LOADER_SHA, "size_bytes": 225672,
+                               "build_id": "86f7eb4ff495ed3f2831c6d3d662e4321762a2a3"}
+    assert facts["debug"] == {"sha256": LOADER_BINARY_BINDING_DEBUG_SHA, "size_bytes": 556488,
+                              "build_id": "86f7eb4ff495ed3f2831c6d3d662e4321762a2a3"}
+    checkpoint = facts["return_checkpoint"]
+    assert checkpoint["vaddr"] == checkpoint["file_offset"] == 0x3671
+    assert checkpoint["instruction_hex"] == "48894320" and checkpoint["instruction_size"] == 4
+    assert checkpoint["args_register"] == "RBX" and checkpoint["provider_register"] == "RAX"
+    assert checkpoint["before_result_store"] is True and checkpoint["args_aux_fresh"] is False
+    assert facts["openaux_args"]["size_bytes"] == 40 and facts["link_map"]["required_prefix_bytes"] == 56
+    assert {key: row["offset_bytes"] for key, row in facts["openaux_args"]["members"].items()} == {
+        "map": 0, "trace_mode": 8, "open_mode": 12, "strtab": 16, "name": 24, "aux": 32}
+    assert {key: row["offset_bytes"] for key, row in facts["link_map"]["members"].items()} == {
+        "l_addr": 0, "l_ld": 16, "l_real": 40, "l_ns": 48}
+    boundary = case.record["boundary"]
+    for key in ("source_binary_equivalence_verified", "authenticated_build_provenance",
+                "native_acquisition_performed", "consumer_resolution_observed", "b2_complete"):
+        assert boundary[key] is report[key] is False, key
+    assert boundary["authority_effect"] == "none" and boundary["metric_pass"] is None
+    assert encoded({key: report[key] for key in boundary}) == encoded(boundary)
+    assert report["record"] == bound(case.raw)
+    assert report["historical_source_file_count"] == 81 and len(report["prior_sources"]) == 3
+    assert len(report["implementation_sources"]) == 4
+    assert set(report["implementation_sources"]) == set(case.checker.NEW_SOURCES)
+    assert not set(report["implementation_sources"]).intersection(case.historical_sources)
+    assert (report["artifact_count"], report["artifact_part_count"], report["original_artifact_bytes"]) == (6, 9, 41590708)
+    assert report["selected_patched_source_files"] == 7 and report["active_source_patches_scanned"] == 80
+    assert report["static_DT_NEEDED_occurrences"] == 9
+    assert case.record["gate_progress"]["complete_prior_binary_source_build_gate"] == "not_closed_by_this_record"
+    assert case.record["gate_progress"]["fresh_original_loader_resolution_acquisition"] == "not_performed"
+    assert case.record["source_line_bindings"]["physical_line_separator"] == "LF"
+    assert case.record["source_line_bindings"]["DWARF_embeds_source_content_hashes"] is False
+    assert case.record["source_line_bindings"]["full_source_to_binary_equivalence_established"] is False
+    assert case.record["source_line_bindings"]["checkpoint"]["physical_line"] == 64
+    assert facts["source_build_reproduced"] is False and facts["runtime_resolution_observed"] is False
+    assert facts["hardware_stop_qualified"] is False and facts["execution_authorized"] is False
+
+
+def test_loader_binary_binding_patched_source_matches_independent_distribution_extraction(
+        loader_binary_binding_case, loader_binary_binding_report):
+    assert loader_binary_binding_report["status"] == "accepted"
+    facts = loader_binary_binding_case.record["source_binding"]
+    source = facts["source"]
+    assert source["name"] == "glibc" and source["version"] == "2.41-12+deb13u4"
+    expected = {
+        "elf/dl-deps.c": (17592, "2f23f25c68bdde0ca3c30a3186861be716d7790b17c4b99681bc8c5d9e554f8b"),
+        "elf/dl-load.c": (68566, "9569f7343a86b0851404bb0ad839b8c7787d73aeaa19e06dc2e62d77b3e05d36"),
+        "include/link.h": (13993, "7ed94ef359bac5549a63a3c19a7a32e6cef6e18787201b765be63b1e1e1f983f"),
+        "sysdeps/generic/ldsodefs.h": (54340, "8a17e7e438fcfb2e89c2a58cf76ffe2a79c32f8816b2387de610ed996473e962"),
+        "sysdeps/x86_64/dl-machine.h": (24634, "1545fc722187437ac1c73b5e022fa409ace5998c21915e9d3133c23d0f4413a7"),
+        "dlfcn/dlfcn.h": (8581, "89e69b3e7f8f6863670d9e71d8e0344cff60758656758e549092ef44e566ef7c"),
+        "elf/elf.h": (196094, "1490fa24d00c6e1a803edd0402e24f11bcf9de0683953f83a726a9c5462fe46c"),
+    }
+    rows = {row["path"]: row for row in source["files"]}
+    assert len(source["files"]) == len(rows) == 7 and set(rows) == set(expected)
+    for path, (size, sha256) in expected.items():
+        assert rows[path]["patched"]["binding"] == {"size_bytes": size, "sha256": sha256}
+    assert rows["elf/dl-deps.c"]["patch_steps"] == []
+    assert rows["sysdeps/x86_64/dl-machine.h"]["patch_steps"] == []
+    assert [row["order"] for row in rows["elf/dl-load.c"]["patch_steps"]] == [0, 19, 75]
+    assert source["series"]["binding"] == {
+        "size_bytes": 2574, "sha256": "cb7488954191709b6759021fbec3fecfa04727b94d039f339b1f31e4f1e9d00b"}
+    assert source["series"]["active_patch_count"] == len(source["series"]["patches"]) == 80
+    assert source["series"]["all_active_patches_scanned"] is True
+    assert source["series"]["patch_policy"] == "full_context_unique_match_with_recorded_offsets_no_fuzz"
+    assert source["archives"]["original"]["decoded"]["size_bytes"] == 258478080
+    assert facts["claim_limits"]["signature_freshly_verified"] is False
+    assert facts["claim_limits"]["source_to_binary_rebuild_performed"] is False
+
+
+@pytest.mark.parametrize("fault", ["altered_context", "ambiguous_context"])
+def test_loader_binary_binding_patch_replay_requires_complete_unambiguous_old_context(fault):
+    source = module("required_gate_idempotence_loader_source_v0",
+                    "tools/required_gate_idempotence_loader_source_v0.py")
+    patch = b"--- a/selected.c\n+++ b/selected.c\n@@ -1,3 +1,3 @@\n first\n-old\n+new\n last\n"
+    blocks = source._scan_patch(patch)
+    assert len(blocks) == 1 and blocks[0]["old"] == blocks[0]["new"] == "selected.c"
+    original = b"first\nold\nlast\n"
+    changed, facts = source._apply_hunks(original, blocks[0]["hunks"])
+    assert changed == b"first\nnew\nlast\n" and facts[0]["line_offset"] == 0
+    # Changing a context line cannot be forgiven as patch fuzz. Two complete
+    # fallback matches cannot be silently resolved by choosing the first one.
+    damaged = (b"altered\nold\nlast\n" if fault == "altered_context"
+               else b"prefix\n" + original + original)
+    with pytest.raises(source.SourceError, match="source_patch_context_not_unique"):
+        source._apply_hunks(damaged, blocks[0]["hunks"])
+
+
+def test_loader_binary_binding_patch_offset_is_recorded_without_dropping_context():
+    source = module("required_gate_idempotence_loader_source_v0",
+                    "tools/required_gate_idempotence_loader_source_v0.py")
+    patch = b"--- a/selected.c\n+++ b/selected.c\n@@ -1,3 +1,3 @@\n first\n-old\n+new\n last\n"
+    before = b"prefix\nfirst\nold\nlast\n"
+    after, facts = source._apply_hunks(before, source._scan_patch(patch)[0]["hunks"])
+    assert after == b"prefix\nfirst\nnew\nlast\n"
+    assert facts[0]["match_method"] == "unique_full_context" and facts[0]["line_offset"] == 1
+    assert facts[0]["old_hunk"] == bound(b"first\nold\nlast\n")
+    assert facts[0]["before"] == bound(before) and facts[0]["after"] == bound(after)
+
+
+@pytest.mark.parametrize("scope", ["direct_binding", "selected_part"])
+def test_loader_binary_binding_oversized_bytes_reject_before_hashing(loader_binary_binding_case, monkeypatch, scope):
+    case = loader_binary_binding_case
+    if scope == "direct_binding":
+        oversized = b"abcd"
+        expected = {"size_bytes": 3, "sha256": digest(b"abc")}
+    else:
+        path = "raw/glibc_2.41.orig.tar.xz.part001"
+        oversized = case.artifacts[path] + b"x"
+        assert len(oversized) == 8000001
+    original_sha = case.checker.sha
+    hashed_oversized = []
+
+    def guarded_sha(raw):
+        if raw is oversized:
+            hashed_oversized.append(len(raw))
+            raise AssertionError("oversized bytes reached hashing before the selected length check")
+        return original_sha(raw)
+
+    monkeypatch.setattr(case.checker, "sha", guarded_sha)
+    with pytest.raises(case.checker.BindingError):
+        if scope == "direct_binding":
+            case.checker._bound(oversized, expected, "test_selected_size")
+        else:
+            case.checker._reassemble_inputs({**case.artifacts, path: oversized})
+    assert hashed_oversized == []
