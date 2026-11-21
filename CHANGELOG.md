@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the [B2 original-loader rebuild-attestation binding](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_REBUILD_ATTESTATION_BINDING_v0.md)
+  with exact preserved rebuilder statements and public-key response, bounded
+  canonical-message/key derivation and fresh Ed25519 verification. Reconstruct
+  the unchanged build-record prerequisite and join both selected original
+  packages and the complete buildinfo carrier to every signed digest. Retain
+  the other signature as unverified and the API aliases as one evidence set.
+  Historical key authority, direct signed source-input coverage, accepted build
+  policy, the source/build gate, live acquisition and B2 completion remain open.
+
 - Add the [B2 original-loader build-record binding](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_BUILD_RECORD_BINDING_v0.md)
   with exact recovered buildinfo/changes preservation, bounded envelope and
   Deb822 parsing, complete cross-record inventory joins and fresh checks of the
