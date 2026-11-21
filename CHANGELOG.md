@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the [B2 original-loader build-record binding](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_BUILD_RECORD_BINDING_v0.md)
+  with exact recovered buildinfo/changes preservation, bounded envelope and
+  Deb822 parsing, complete cross-record inventory joins and fresh checks of the
+  two selected original package byte streams. Reconstruct the unchanged startup
+  prerequisite and retain declaration-only scope for the other eighteen outputs.
+  Signature verification, builder authorization, authenticated build provenance,
+  the source/build gate, live acquisition and B2 completion remain open.
+
 - Add the [B2 original-loader startup and resume acceptance contract](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_STARTUP_CONTRACT_v0.md)
   with fresh prior reconstruction, original source/debug/instruction mode
   derivation, complete bounded initial-stack fixture checks and explicit

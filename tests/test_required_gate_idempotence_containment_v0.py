@@ -12847,3 +12847,697 @@ def test_loader_startup_contract_cli_bad_digest_cannot_publish_success(
         "--contract-sha256", "f" * 64, "--output", str(output)])
     assert status == 2 and not output.exists()
     assert capsys.readouterr().out == ""
+
+
+# Original build records remain unauthenticated candidates. Their syntax,
+# complete declared rosters and two supplied output payloads are checked without
+# treating a parsed signature packet or a producer's identity as authorization.
+LOADER_BUILD_RECORD_HELPER_REL = "tools/required_gate_idempotence_loader_buildinfo_v0.py"
+LOADER_BUILD_RECORD_ENVELOPE_REL = "tools/required_gate_idempotence_loader_build_envelope_v0.py"
+LOADER_BUILD_RECORD_WRAPPER_REL = "tools/check_required_gate_idempotence_loader_build_record_binding_v0.py"
+LOADER_BUILD_RECORD_DIR = "docs/compute/required_gate_idempotence_loader_build_record_binding_v0"
+LOADER_BUILD_RECORD_REL = LOADER_BUILD_RECORD_DIR + "/record_v0.json"
+
+
+def _loader_build_record_cleartext_oracle(raw):
+    prefix = b"-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA512\n\n"
+    assert raw.startswith(prefix)
+    body, _armor = raw[len(prefix):].split(b"\n-----BEGIN PGP SIGNATURE-----\n", 1)
+    return b"\n".join(line[2:] if line.startswith(b"- ") else line for line in body.split(b"\n"))
+
+
+@pytest.fixture(scope="module")
+def loader_build_record_case(loader_startup_source_case):
+    root = ROOT / LOADER_BUILD_RECORD_DIR / "preservation"
+    build_raw = (root / "glibc_2.41-12+deb13u4_amd64.buildinfo").read_bytes()
+    changes_raw = (root / "glibc_2.41-12+deb13u4_amd64-buildd.changes").read_bytes()
+    return SimpleNamespace(
+        helper=module("required_gate_idempotence_loader_buildinfo_v0", LOADER_BUILD_RECORD_HELPER_REL),
+        envelope=module("required_gate_idempotence_loader_build_envelope_v0", LOADER_BUILD_RECORD_ENVELOPE_REL),
+        inputs=loader_startup_source_case.inputs, build_raw=build_raw, changes_raw=changes_raw,
+        build_payload=_loader_build_record_cleartext_oracle(build_raw),
+        change_payload=_loader_build_record_cleartext_oracle(changes_raw))
+
+
+def _loader_build_record_check(case, **changes):
+    arguments = dict(buildinfo_payload=case.build_payload, changes_payload=case.change_payload,
+                     buildinfo_envelope=case.build_raw, inputs=case.inputs)
+    arguments.update(changes)
+    return case.helper.derive_buildinfo_facts(**arguments)
+
+
+def _loader_build_record_block(raw, field):
+    import re
+    pattern = rb"(?m)^" + re.escape(field.encode("ascii")) + rb":[^\n]*\n(?: [^\n]*\n)*"
+    matches = list(re.finditer(pattern, raw))
+    assert len(matches) == 1
+    return matches[0]
+
+
+def _loader_build_record_replace_block(raw, field, replacement):
+    match = _loader_build_record_block(raw, field)
+    return raw[:match.start()] + replacement + raw[match.end():]
+
+
+def _loader_build_record_row(raw, field, filename, *, checksum=None, size=None, rename=None,
+                            duplicate=False, missing=False):
+    match = _loader_build_record_block(raw, field)
+    lines = match[0].splitlines(keepends=True)
+    selected = [index for index, line in enumerate(lines[1:], 1)
+                if line.split()[-1] == filename.encode("ascii")]
+    assert len(selected) == 1
+    index = selected[0]
+    words = lines[index].split()
+    if checksum is not None:
+        words[0] = checksum.encode("ascii")
+    if size is not None:
+        words[1] = str(size).encode("ascii")
+    if rename is not None:
+        words[-1] = rename.encode("ascii")
+    lines[index] = b" " + b" ".join(words) + b"\n"
+    if duplicate:
+        lines.insert(index, lines[index])
+    if missing:
+        del lines[index]
+    return raw[:match.start()] + b"".join(lines) + raw[match.end():]
+
+
+def test_loader_build_record_complete_rosters_and_two_payloads_match_independent_oracle(loader_build_record_case):
+    from email.parser import BytesParser
+    case = loader_build_record_case
+    report = _loader_build_record_check(case)
+    parsed = BytesParser().parsebytes(case.build_payload)
+    declared_names = set(parsed["Binary"].split())
+    rosters = {}
+    for key, algorithm in (("Checksums-Md5", "md5"), ("Checksums-Sha1", "sha1"), ("Checksums-Sha256", "sha256")):
+        rosters[algorithm] = {name: (int(size), value)
+                              for value, size, name in (row.split() for row in parsed[key].splitlines() if row)}
+        assert len(rosters[algorithm]) == 20
+    assert len(declared_names) == 20
+    assert report["claim_scope"] == "syntactic_declared_build_record_relationships_only"
+    assert (report["output_rosters"]["buildinfo_count"], report["output_rosters"]["changes_count"]) == (20, 21)
+    outputs = report["output_rosters"]["outputs"]
+    assert len(outputs) == 20 and sum(row["complete_payload_checked"] for row in outputs) == 2
+    for row in outputs:
+        for algorithm, roster in rosters.items():
+            assert (row["size_bytes"], row[algorithm]) == roster[row["name"]]
+    for name, selected in report["selected_original_packages"].items():
+        raw = case.inputs[name]
+        assert selected == {"size_bytes": len(raw), "sha256": digest(raw),
+                            "md5": hashlib.md5(raw, usedforsecurity=False).hexdigest(),
+                            "sha1": hashlib.sha1(raw, usedforsecurity=False).hexdigest()}
+    envelope_row = report["output_rosters"]["buildinfo_envelope_row"]
+    assert envelope_row["name"] == "glibc_2.41-12+deb13u4_amd64-buildd.buildinfo"
+    assert (envelope_row["size_bytes"], envelope_row["sha256"]) == (15502, digest(case.build_raw))
+    assert len(report["declared_build"]["installed_dependencies"]) == 287
+    assert report["declared_build"]["toolchain"] == {
+        "binutils": "2.44-3", "dpkg-dev": "1.22.22", "gcc-14": "14.2.0-19"}
+    assert report["declared_build"]["date_epoch"] == 1783791760
+    assert report["declared_upload"]["date_epoch"] == int(
+        report["declared_build"]["environment"]["SOURCE_DATE_EPOCH"]) == 1782769072
+    assert report["source_identity"]["direct_source_checksums_present"] is False
+    assert len(report["source_input_artifacts"]) == 3
+    for key, expected in case.helper.BOUNDARY.items():
+        assert type(report["boundary"][key]) is type(expected) and report["boundary"][key] == expected
+
+
+@pytest.mark.parametrize("fault", [
+    "duplicate_field", "case_duplicate", "unknown_field", "missing_field", "second_paragraph",
+    "orphan_continuation", "crlf", "nul", "tab", "long_line", "folded_scalar",
+    "source", "version", "architecture", "format", "missing_checksum", "duplicate_output",
+    "source_output", "noncanonical_digest", "noncanonical_size", "checksum_size_disagreement",
+    "cross_record_hash", "envelope_name", "envelope_hash", "envelope_bytes",
+    "dependency_duplicate", "dependency_range", "toolchain", "environment_duplicate",
+    "environment_injection", "environment_extra", "weekday", "date_order", "build_path",
+    "description_missing", "closes_duplicate", "changelog_identity",
+])
+def test_loader_build_record_ambiguous_or_inconsistent_candidate_records_reject(loader_build_record_case, fault):
+    case = loader_build_record_case
+    build, changes, envelope = case.build_payload, case.change_payload, case.build_raw
+    other = "libc-bin_2.41-12+deb13u4_amd64.deb"
+    if fault in {"duplicate_field", "case_duplicate"}:
+        build = (b"Source: glibc\n" if fault == "duplicate_field" else b"source: glibc\n") + build
+    elif fault == "unknown_field":
+        build = b"Signature-Verified: true\n" + build
+    elif fault == "missing_field":
+        build = _loader_build_record_replace_block(build, "Source", b"")
+    elif fault == "second_paragraph":
+        build = build.replace(b"Source: glibc\n", b"Source: glibc\n\n", 1)
+    elif fault == "orphan_continuation":
+        build = b" unowned continuation\n" + build
+    elif fault == "crlf":
+        build = build.replace(b"\n", b"\r\n")
+    elif fault == "nul":
+        build = build.replace(b"Source: glibc", b"Source: glibc\0")
+    elif fault == "tab":
+        build = build.replace(b"Source: glibc", b"Source:\tglibc")
+    elif fault == "long_line":
+        build = _loader_build_record_replace_block(build, "Build-Path", b"Build-Path: /" + b"x" * 4096 + b"\n")
+    elif fault == "folded_scalar":
+        build = build.replace(b"Source: glibc\n", b"Source: glibc\n hidden\n")
+    elif fault in {"source", "version", "architecture", "format"}:
+        old, new = {"source": (b"Source: glibc", b"Source: other"),
+                    "version": (b"Version: 2.41-12+deb13u4", b"Version: 2.41-12+deb13u3"),
+                    "architecture": (b"Architecture: amd64\n", b"Architecture: amd64 source\n"),
+                    "format": (b"Format: 1.0", b"Format: 1.8")}[fault]
+        build = build.replace(old, new, 1)
+    elif fault == "missing_checksum":
+        build = _loader_build_record_replace_block(build, "Checksums-Sha256", b"")
+    elif fault == "duplicate_output":
+        build = _loader_build_record_row(build, "Checksums-Sha256", other, duplicate=True)
+    elif fault == "source_output":
+        build = _loader_build_record_row(build, "Checksums-Sha256", other, rename="glibc_2.41-12+deb13u4.dsc")
+    elif fault == "noncanonical_digest":
+        build = _loader_build_record_row(build, "Checksums-Sha256", other, checksum="A" * 64)
+    elif fault == "noncanonical_size":
+        build = _loader_build_record_row(build, "Checksums-Sha256", other, size="0638452")
+    elif fault == "checksum_size_disagreement":
+        build = _loader_build_record_row(build, "Checksums-Sha1", other, size=638453)
+    elif fault == "cross_record_hash":
+        build = _loader_build_record_row(build, "Checksums-Sha256", other, checksum="0" * 64)
+    elif fault == "envelope_name":
+        changes = changes.replace(b"glibc_2.41-12+deb13u4_amd64-buildd.buildinfo",
+                                  b"glibc_2.41-12+deb13u4_amd64.buildinfo")
+    elif fault == "envelope_hash":
+        changes = _loader_build_record_row(changes, "Checksums-Sha256",
+            "glibc_2.41-12+deb13u4_amd64-buildd.buildinfo", checksum="0" * 64)
+    elif fault == "envelope_bytes":
+        envelope = envelope[:-2] + bytes([envelope[-2] ^ 1]) + envelope[-1:]
+    elif fault == "dependency_duplicate":
+        build = build.replace(b" gcc-14 (= 14.2.0-19),\n", b" gcc-14 (= 14.2.0-19),\n" * 2)
+    elif fault == "dependency_range":
+        build = build.replace(b" gcc-14 (= 14.2.0-19),", b" gcc-14 (>= 14.2.0-19),")
+    elif fault == "toolchain":
+        build = build.replace(b" gcc-14 (= 14.2.0-19),", b" gcc-14 (= 14.2.0-18),")
+    elif fault == "environment_duplicate":
+        build = build.replace(b' LANG="C.UTF-8"\n', b' LANG="C.UTF-8"\n' * 2)
+    elif fault == "environment_injection":
+        build = build.replace(b'DEB_BUILD_OPTIONS="parallel=6"', b'DEB_BUILD_OPTIONS="$(unexpected-command)"')
+    elif fault == "environment_extra":
+        build += b' EXTRA="candidate"\n'
+    elif fault == "weekday":
+        build = build.replace(b"Build-Date: Sat,", b"Build-Date: Sun,")
+    elif fault == "date_order":
+        build = build.replace(b"Sat, 11 Jul 2026 17:42:40 +0000", b"Sun, 28 Jun 2026 17:42:40 +0000")
+    elif fault == "build_path":
+        build = build.replace(b"Build-Path: /build/reproducible-path/glibc-2.41",
+                              b"Build-Path: /different/source")
+    elif fault == "description_missing":
+        changes = changes.replace(b" libc6      - GNU C Library: Shared libraries\n", b"")
+    elif fault == "closes_duplicate":
+        changes = changes.replace(b"Closes: 1134543 1134544 1135405", b"Closes: 1134543 1134543 1135405")
+    elif fault == "changelog_identity":
+        changes = changes.replace(b" glibc (2.41-12+deb13u4) trixie;", b" glibc (2.41-12+deb13u3) trixie;")
+    else:
+        raise AssertionError(fault)
+    with pytest.raises(case.helper.BuildinfoError):
+        _loader_build_record_check(case, buildinfo_payload=build, changes_payload=changes, buildinfo_envelope=envelope)
+
+
+@pytest.mark.parametrize("field,width", [("Checksums-Md5", 32), ("Checksums-Sha1", 40), ("Checksums-Sha256", 64)])
+def test_loader_build_record_coherent_wrong_selected_output_checksums_reject_actual_payload(
+        loader_build_record_case, field, width):
+    case = loader_build_record_case
+    filename = "libc6_2.41-12+deb13u4_amd64.deb"
+    build = _loader_build_record_row(case.build_payload, field, filename, checksum="0" * width)
+    changes = _loader_build_record_row(case.change_payload, "Files" if field == "Checksums-Md5" else field,
+                                      filename, checksum="0" * width)
+    with pytest.raises(case.helper.BuildinfoError, match="original_package_row"):
+        _loader_build_record_check(case, buildinfo_payload=build, changes_payload=changes)
+
+
+def test_loader_build_record_other_output_declarations_do_not_verify_unsupplied_payloads(loader_build_record_case):
+    case = loader_build_record_case
+    filename = "libc-bin_2.41-12+deb13u4_amd64.deb"
+    build, changes = case.build_payload, case.change_payload
+    for field, width in (("Checksums-Md5", 32), ("Checksums-Sha1", 40), ("Checksums-Sha256", 64)):
+        build = _loader_build_record_row(build, field, filename, checksum="1" * width)
+        changes = _loader_build_record_row(changes, "Files" if field == "Checksums-Md5" else field,
+                                          filename, checksum="1" * width)
+    result = _loader_build_record_check(case, buildinfo_payload=build, changes_payload=changes)
+    assert result["boundary"]["unselected_output_payloads_verified"] is False
+    assert result["boundary"]["signature_verified"] is False
+    assert result["boundary"]["authenticated_build_provenance"] is False
+    assert result["limitations"]["candidate_to_envelope_extraction_checked_by_this_module"] is False
+    assert not next(row for row in result["output_rosters"]["outputs"] if row["name"] == filename)["complete_payload_checked"]
+
+
+@pytest.mark.parametrize("which", ["artifact", "buildinfo_payload", "changes_payload", "envelope"])
+def test_loader_build_record_all_raw_limits_precede_hashes(loader_build_record_case, monkeypatch, which):
+    case = loader_build_record_case
+    changes = {}
+    if which == "artifact":
+        changes["inputs"] = {**case.inputs, "Sources.xz": case.inputs["Sources.xz"] + b"x"}
+    elif which == "envelope":
+        changes["buildinfo_envelope"] = case.build_raw + b"x"
+    else:
+        changes[which] = bytes(case.helper.POLICY["payload_bytes"] + 1)
+    hashed = []
+
+    def forbidden(raw, **_kwargs):
+        hashed.append(len(raw))
+        raise AssertionError("raw size preflight did not precede hashing")
+
+    for name in ("sha256", "sha1", "md5"):
+        monkeypatch.setattr(case.helper.hashlib, name, forbidden)
+    with pytest.raises(case.helper.BuildinfoError, match="size"):
+        _loader_build_record_check(case, **changes)
+    assert hashed == []
+
+
+@pytest.fixture(scope="module")
+def loader_build_record_binding_case(loader_binary_binding_case, loader_build_record_case):
+    checker = module("check_required_gate_idempotence_loader_build_record_binding_v0",
+                     LOADER_BUILD_RECORD_WRAPPER_REL)
+    raw = (ROOT / LOADER_BUILD_RECORD_REL).read_bytes()
+    return SimpleNamespace(
+        checker=checker, raw=raw, value=json.loads(raw), static_case=loader_binary_binding_case,
+        startup_raw=(ROOT / LOADER_STARTUP_CONTRACT_REL).read_bytes(),
+        prior_raw=(ROOT / LOADER_READOUT_CONTRACT_REL).read_bytes(),
+        carriers={checker.BUILDINFO_NAME: loader_build_record_case.build_raw,
+                  checker.CHANGES_NAME: loader_build_record_case.changes_raw})
+
+
+def _loader_build_record_binding_check(case, raw=None, **changes):
+    raw = case.raw if raw is None else raw
+    arguments = dict(record_bytes=raw, expected_record_sha256=digest(raw),
+                     startup_contract_bytes=case.startup_raw, prior_contract_bytes=case.prior_raw,
+                     static_record_bytes=case.static_case.raw,
+                     historical_entry_archive_bytes=case.static_case.baseline,
+                     artifact_members=case.static_case.artifacts, carriers=case.carriers)
+    arguments.update(changes)
+    return case.checker.verify_binding(**arguments)
+
+
+@pytest.fixture(scope="module")
+def loader_build_record_binding_report(loader_build_record_binding_case):
+    case = loader_build_record_binding_case
+    real_prior = case.checker.startup._verify
+    real_extract = case.checker.envelope.extract_clearsigned_payload
+    real_records = case.checker.records.derive_buildinfo_facts
+    prior_results, envelope_results, record_results = [], {}, []
+
+    def prior_spy(*arguments):
+        result = real_prior(*arguments)
+        prior_results.append(result)
+        return result
+
+    def extract_spy(raw):
+        result = real_extract(raw)
+        envelope_results[digest(raw)] = result
+        return result
+
+    def records_spy(**arguments):
+        result = real_records(**arguments)
+        record_results.append(result)
+        return result
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("build-record binding attempted native execution or network")
+
+    import socket
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(case.checker.startup, "_verify", prior_spy)
+        patch.setattr(case.checker.envelope, "extract_clearsigned_payload", extract_spy)
+        patch.setattr(case.checker.records, "derive_buildinfo_facts", records_spy)
+        patch.setattr(subprocess, "Popen", forbidden)
+        patch.setattr(subprocess, "run", forbidden)
+        patch.setattr(os, "system", forbidden)
+        patch.setattr(os, "fork", forbidden)
+        patch.setattr(socket, "create_connection", forbidden)
+        result = _loader_build_record_binding_check(case)
+    assert len(prior_results) == len(record_results) == 1 and len(envelope_results) == 2
+    case.prior_verified = prior_results[0]
+    case.envelope_facts = {name: envelope_results[digest(raw)][1] for name, raw in case.carriers.items()}
+    case.build_facts = record_results[0]
+    return result
+
+
+def test_loader_build_record_binding_freshly_reconstructs_prior_chain_without_execution(
+        loader_build_record_binding_case, loader_build_record_binding_report):
+    case, report = loader_build_record_binding_case, loader_build_record_binding_report
+    assert report["status"] == "accepted_record_binding"
+    for name in ("record_binding_verified", "original_carrier_byte_bindings_verified",
+                 "envelope_structure_checked", "declared_build_record_relationships_verified",
+                 "prior_startup_static_chain_reconstructed"):
+        assert report[name] is True
+    assert (report["shared_binary_output_rows"], report["changes_checksum_rows"],
+            report["selected_binary_package_bytes_verified"],
+            report["other_binary_output_payloads_not_retrieved"]) == (20, 21, 2, 18)
+    prior = case.prior_verified[0]
+    assert prior["historical_source_file_count"] == 81 and prior["original_DT_NEEDED_occurrences"] == 9
+    assert report["prior_report"] == bound(case.checker.startup.canonical(prior))
+    assert report["envelope_structure"] == bound(case.checker.canonical(case.envelope_facts))
+    assert report["declared_build_record_relationships"] == bound(case.checker.canonical(case.build_facts))
+    assert report["record"] == bound(case.raw)
+    assert report["missing_build_evidence"]["accepted_build_evidence_policy"] == "not_selected"
+    assert len(report["missing_build_evidence"]["missing_for_candidate_route"]) == 4
+    assert report["missing_build_evidence"]["independent_rebuild_also_required_by_this_unit"] is False
+    for key, expected in case.checker.BOUNDARY.items():
+        assert type(report[key]) is type(expected) and report[key] == expected
+
+
+@pytest.mark.parametrize("expected", [None, "f" * 64, True])
+def test_loader_build_record_binding_requires_external_digest(loader_build_record_binding_case, expected):
+    case = loader_build_record_binding_case
+    with pytest.raises(case.checker.BindingError):
+        _loader_build_record_binding_check(case, expected_record_sha256=expected)
+
+
+@pytest.mark.parametrize("fault", [
+    "duplicate", "float", "unknown", "payload_authenticated", "claimed_primary",
+    "direct_source_hashes", "all_outputs", "builder_authority", "provenance", "source_gate",
+    "authority", "remove_build_gap", "selected_policy", "saved_prior_verdict",
+])
+def test_loader_build_record_binding_rehashed_statement_or_authority_substitutions_reject(
+        loader_build_record_binding_case, fault):
+    case = loader_build_record_binding_case
+    value = copy.deepcopy(case.value)
+    if fault == "duplicate":
+        raw = b'{"profile":"other",' + case.raw[1:]
+    else:
+        if fault == "float":
+            value["prior_startup_prerequisite"]["historical_source_count"] = 81.0
+        elif fault == "unknown":
+            value["saved_accepted_verdict"] = True
+        elif fault == "payload_authenticated":
+            value["envelope_structure"][case.checker.BUILDINFO_NAME]["payload_authenticated"] = True
+        elif fault == "claimed_primary":
+            value["envelope_structure"][case.checker.BUILDINFO_NAME]["signature_packet"]["primary_fingerprint"] = (
+                "E59235957BF95A38472158EC37C520CAEF5D4224")
+        elif fault == "direct_source_hashes":
+            value["declared_build_record_relationships"]["boundary"]["source_input_hashes_directly_attested"] = True
+        elif fault == "all_outputs":
+            value["declared_build_record_relationships"]["limitations"]["unselected_output_payload_count"] = 0
+        elif fault in {"builder_authority", "provenance", "source_gate"}:
+            field = {"builder_authority": "builder_authority_verified",
+                     "provenance": "authenticated_build_provenance",
+                     "source_gate": "source_build_gate_satisfied"}[fault]
+            value["boundary"][field] = True
+        elif fault == "authority":
+            value["boundary"]["authority_effect"] = "release"
+        elif fault == "remove_build_gap":
+            value["missing_build_evidence"]["missing_for_candidate_route"].pop()
+        elif fault == "selected_policy":
+            value["missing_build_evidence"]["accepted_build_evidence_policy"] = "archive_uid_is_builder_authority"
+        elif fault == "saved_prior_verdict":
+            value["prior_startup_prerequisite"]["saved_report_is_acceptance_input"] = True
+        else:
+            raise AssertionError(fault)
+        raw = encoded(value)
+    with pytest.raises(case.checker.BindingError):
+        _loader_build_record_binding_check(case, raw)
+
+
+@pytest.mark.parametrize("selected", ["buildinfo", "changes"])
+def test_loader_build_record_binding_original_carrier_replacement_rejects_even_rehashed_record(
+        loader_build_record_binding_case, selected):
+    case = loader_build_record_binding_case
+    name = case.checker.BUILDINFO_NAME if selected == "buildinfo" else case.checker.CHANGES_NAME
+    original = case.carriers[name]
+    changed = original.replace(b"Source: glibc\n", b"Source: other\n", 1)
+    assert len(changed) == len(original) and changed != original
+    # The changed cleartext is still a structurally valid envelope. Preserved
+    # whole-carrier binding is a separate requirement of the public wrapper.
+    _payload, structural = case.checker.envelope.extract_clearsigned_payload(changed)
+    assert structural["signature_verified"] is False
+    value = copy.deepcopy(case.value)
+    for row in value["preserved_carriers"]:
+        if row["filename"] == name:
+            row["content"] = bound(changed)
+    value["envelope_structure"][name] = structural
+    with pytest.raises(case.checker.BindingError, match="carrier_binding"):
+        _loader_build_record_binding_check(case, encoded(value), carriers={**case.carriers, name: changed})
+
+
+def test_loader_build_record_binding_saved_prior_report_cannot_replace_reconstruction(
+        loader_build_record_binding_case, monkeypatch):
+    case = loader_build_record_binding_case
+    calls = []
+
+    def unavailable(*arguments):
+        calls.append(arguments)
+        raise ValueError("authored_missing_prior_reconstruction")
+
+    monkeypatch.setattr(case.checker.startup, "_verify", unavailable)
+    with pytest.raises(case.checker.BindingError, match="evidence_rejected"):
+        _loader_build_record_binding_check(case)
+    assert len(calls) == 1
+    assert calls[0][0] == case.startup_raw and calls[0][2] == case.prior_raw
+    assert calls[0][3] == case.static_case.raw and calls[0][4] == case.static_case.baseline
+    assert calls[0][5] == case.static_case.artifacts
+
+
+@pytest.mark.parametrize("scope", ["prior_source", "current_source_changed"])
+def test_loader_build_record_binding_checks_sources_before_and_after_reconstruction(
+        loader_build_record_binding_case, loader_build_record_binding_report, monkeypatch, scope):
+    case = loader_build_record_binding_case
+    real_source = case.checker._source
+    selected = next(iter(case.checker.PRIOR_SOURCES)) if scope == "prior_source" else case.checker.SELF_REL
+    calls = {}
+
+    def changed(path):
+        raw = real_source(path)
+        calls[path] = calls.get(path, 0) + 1
+        return raw + b"\n" if path == selected and (scope == "prior_source" or calls[path] > 1) else raw
+
+    # Reuse the genuinely reconstructed prior tuple only to isolate this
+    # wrapper's additional before/after source-stability obligation.
+    monkeypatch.setattr(case.checker.startup, "_verify", lambda *_args: copy.deepcopy(case.prior_verified))
+    monkeypatch.setattr(case.checker, "_source", changed)
+    with pytest.raises(case.checker.BindingError, match="source_changed"):
+        _loader_build_record_binding_check(case)
+
+
+def test_loader_build_record_binding_cli_reports_are_canonical_and_outputs_are_exclusive(
+        loader_build_record_binding_case, loader_build_record_binding_report, tmp_path, monkeypatch, capsys):
+    case = loader_build_record_binding_case
+    outputs = [tmp_path / name for name in ("first.json", "second.json")]
+    for output in outputs:
+        result = subprocess.run([sys.executable, "-I", "-B", str(ROOT / LOADER_BUILD_RECORD_WRAPPER_REL),
+            "--record", str(ROOT / LOADER_BUILD_RECORD_REL), "--record-sha256", digest(case.raw),
+            "--output", str(output)], capture_output=True, timeout=180, check=False)
+        assert result.returncode == 0, result.stderr.decode(errors="replace")
+        assert result.stdout == result.stderr == b""
+    first = outputs[0].read_bytes()
+    assert first == outputs[1].read_bytes() == case.checker.canonical(loader_build_record_binding_report)
+    sentinel = tmp_path / "existing.json"
+    sentinel.write_bytes(b"owner data remains exact\n")
+    monkeypatch.setattr(case.checker, "verify_binding", lambda **_kwargs: loader_build_record_binding_report)
+    status = case.checker.main(["--record", str(ROOT / LOADER_BUILD_RECORD_REL),
+        "--record-sha256", digest(case.raw), "--output", str(sentinel)])
+    assert status == 2 and sentinel.read_bytes() == b"owner data remains exact\n"
+    assert capsys.readouterr().out == ""
+
+
+def test_loader_build_record_binding_cli_bad_digest_cannot_publish_success(
+        loader_build_record_binding_case, tmp_path, capsys):
+    case = loader_build_record_binding_case
+    output = tmp_path / "must-not-exist.json"
+    status = case.checker.main(["--record", str(ROOT / LOADER_BUILD_RECORD_REL),
+        "--record-sha256", "f" * 64, "--output", str(output)])
+    assert status == 2 and not output.exists()
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize("name", [
+    "libc6_2.41-12+deb13u4_amd64.deb", "libc6-dbg_2.41-12+deb13u4_amd64.deb",
+    "Sources.xz", "glibc_2.41-12+deb13u4.dsc", "glibc_2.41.orig.tar.xz",
+    "glibc_2.41-12+deb13u4.debian.tar.xz",
+])
+def test_loader_build_record_each_original_artifact_requires_its_complete_pinned_bytes(
+        loader_build_record_case, name):
+    case = loader_build_record_case
+    original = case.inputs[name]
+    changed = bytes([original[0] ^ 1]) + original[1:]
+    with pytest.raises(case.helper.BuildinfoError, match="input_sha256"):
+        _loader_build_record_check(case, inputs={**case.inputs, name: changed})
+
+
+def _loader_build_record_crc24_oracle(raw):
+    # Byte-table recurrence, independent of the production per-input-bit loop.
+    table = []
+    for entry in range(256):
+        value = entry << 16
+        for _ in range(8):
+            value = ((value << 1) ^ (0x864CFB if value & 0x800000 else 0)) & 0xFFFFFF
+        table.append(value)
+    value = 0xB704CE
+    for octet in raw:
+        value = ((value << 8) & 0xFFFFFF) ^ table[(value >> 16) ^ octet]
+    return value.to_bytes(3, "big")
+
+
+def _loader_build_record_original_signature(raw):
+    marker = b"-----BEGIN PGP SIGNATURE-----\n\n"
+    _prefix, armor = raw.split(marker, 1)
+    lines = armor.splitlines()
+    assert lines[-1] == b"-----END PGP SIGNATURE-----"
+    packet = base64.b64decode(b"".join(lines[:-2]), validate=True)
+    assert _loader_build_record_crc24_oracle(packet) == base64.b64decode(lines[-2][1:], validate=True)
+    assert packet[0] == 0x89 and int.from_bytes(packet[1:3], "big") == len(packet) - 3
+    return packet
+
+
+def _loader_build_record_rearmor(raw, packet):
+    marker = b"-----BEGIN PGP SIGNATURE-----\n\n"
+    prefix, _armor = raw.split(marker, 1)
+    encoded = base64.b64encode(packet)
+    lines = [encoded[index:index + 64] for index in range(0, len(encoded), 64)]
+    return (prefix + marker + b"\n".join(lines) + b"\n=" +
+            base64.b64encode(_loader_build_record_crc24_oracle(packet)) +
+            b"\n-----END PGP SIGNATURE-----\n")
+
+
+def _loader_build_record_no_envelope_authority(facts):
+    for field in ("signature_verified", "payload_authenticated", "builder_authority_verified",
+                  "authenticated_build_provenance", "source_build_gate_satisfied"):
+        assert facts[field] is False
+    assert facts["claim_scope"] == "structural_metadata_only"
+    assert facts["signature_packet"]["primary_fingerprint"] is None
+
+
+@pytest.mark.parametrize("which,payload_size,mpi_bits", [("build", 14619, 4093), ("changes", 8081, 4096)])
+def test_loader_build_record_original_envelopes_match_independent_candidate_and_packet_oracles(
+        loader_build_record_case, which, payload_size, mpi_bits):
+    case = loader_build_record_case
+    raw = case.build_raw if which == "build" else case.changes_raw
+    expected = case.build_payload if which == "build" else case.change_payload
+    packet = _loader_build_record_original_signature(raw)
+    payload, facts = case.envelope.extract_clearsigned_payload(raw)
+    assert payload == expected and len(payload) == payload_size and payload.endswith(b"\n")
+    assert facts["carrier"] == bound(raw) and facts["payload"] == bound(expected)
+    signature = facts["signature_packet"]
+    assert signature["binding"] == bound(packet)
+    assert signature["claimed_issuer_fingerprint"] == "E59235957BF95A38472158EC37C520CAEF5D4224"
+    assert signature["claimed_issuer_key_id"] == "37C520CAEF5D4224"
+    assert signature["claimed_signature_created_epoch"] == 1783791789
+    assert signature["claimed_signature_created_utc"] == "2026-07-11T17:43:09Z"
+    assert (signature["signature_version"], signature["signature_class"],
+            signature["public_key_algorithm"], signature["hash_algorithm"]) == (4, "01", 1, 10)
+    assert signature["rsa_signature_mpi_bits"] == mpi_bits
+    assert signature["rsa_signature_mpi_size_bytes"] == 512
+    assert facts["crc24_checked"] is True and facts["framing_newline_removed"] is True
+    _loader_build_record_no_envelope_authority(facts)
+
+
+@pytest.mark.parametrize("fault", ["cleartext", "canonical_rsa_mpi"])
+def test_loader_build_record_structural_acceptance_never_authenticates_changed_content(
+        loader_build_record_case, fault):
+    case = loader_build_record_case
+    packet = _loader_build_record_original_signature(case.build_raw)
+    if fault == "cleartext":
+        altered = case.build_raw.replace(b"Build-Origin: Debian\n", b"Build-Origin: Fiction\n", 1)
+    else:
+        changed_packet = bytearray(packet)
+        changed_packet[-1] ^= 1
+        altered = _loader_build_record_rearmor(case.build_raw, bytes(changed_packet))
+    assert altered != case.build_raw
+    payload, facts = case.envelope.extract_clearsigned_payload(altered)
+    if fault == "cleartext":
+        assert payload != case.build_payload
+        assert facts["signature_packet"]["binding"] == bound(packet)
+    else:
+        assert payload == case.build_payload
+        assert facts["signature_packet"]["binding"] != bound(packet)
+    _loader_build_record_no_envelope_authority(facts)
+
+
+def test_loader_build_record_dash_escape_and_signature_framing_have_exact_payload_semantics(loader_build_record_case):
+    case = loader_build_record_case
+    marker = b"-----BEGIN PGP SIGNATURE-----\n\n"
+    _prefix, armor = case.build_raw.split(marker, 1)
+    escaped = b"alpha\n- -literal\n- From sender\n- -----BEGIN PGP SIGNATURE-----\n"
+    raw = b"-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA512\n\n" + escaped + b"\n" + marker + armor
+    payload, facts = case.envelope.extract_clearsigned_payload(raw)
+    assert payload == b"alpha\n-literal\nFrom sender\n-----BEGIN PGP SIGNATURE-----\n"
+    assert facts["dash_unescaped_line_count"] == 3
+    _loader_build_record_no_envelope_authority(facts)
+
+
+@pytest.mark.parametrize("fault", ["duplicate_hash", "armor_header", "trailing_data", "bad_dash",
+                                   "bad_crc", "bad_base64"])
+def test_loader_build_record_malformed_cleartext_or_armor_rejects(loader_build_record_case, fault):
+    case = loader_build_record_case
+    raw = case.build_raw
+    marker = b"-----BEGIN PGP SIGNATURE-----\n\n"
+    if fault == "duplicate_hash":
+        altered = raw.replace(b"Hash: SHA512\n", b"Hash: SHA512\nHash: SHA512\n", 1)
+    elif fault == "armor_header":
+        altered = raw.replace(marker, b"-----BEGIN PGP SIGNATURE-----\nVersion: injected\n\n", 1)
+    elif fault == "trailing_data":
+        altered = raw + b"Format: 1.0\n"
+    elif fault == "bad_dash":
+        altered = raw.replace(b"Format: 1.0\n", b"-unescaped\nFormat: 1.0\n", 1)
+    elif fault == "bad_crc":
+        lines = raw.splitlines(keepends=True)
+        assert lines[-2].startswith(b"=")
+        lines[-2] = b"=" + (b"A" if lines[-2][1:2] != b"A" else b"B") + lines[-2][2:]
+        altered = b"".join(lines)
+    else:
+        altered = raw.replace(marker, marker + b"!", 1)
+    with pytest.raises(case.envelope.BuildEnvelopeError):
+        case.envelope.extract_clearsigned_payload(altered)
+
+
+@pytest.mark.parametrize("fault", ["extra_packet", "wrong_class", "duplicate_issuer",
+                                   "issuer_mismatch", "mpi_noncanonical", "mpi_trailing"])
+def test_loader_build_record_complete_packet_and_subpacket_semantics_reject(loader_build_record_case, fault):
+    case = loader_build_record_case
+    packet = _loader_build_record_original_signature(case.build_raw)
+    body = bytearray(packet[3:])
+    # Independent original offsets: v4 header; 29 hashed bytes; ten unhashed
+    # bytes; two stored digest-prefix bytes; two MPI-bitcount bytes; 512 MPI bytes.
+    assert body[:6] == bytes((4, 1, 1, 10, 0, 29))
+    assert body[6:9] == bytes((22, 33, 4)) and body[29:31] == bytes((5, 2))
+    assert body[35:39] == bytes((0, 10, 9, 16))
+    if fault == "extra_packet":
+        altered_packet = packet + packet
+    else:
+        if fault == "wrong_class":
+            body[1] = 0
+        elif fault == "duplicate_issuer":
+            body[35:35] = body[6:29]
+            body[4:6] = (52).to_bytes(2, "big")
+        elif fault == "issuer_mismatch":
+            body[39] ^= 1
+        elif fault == "mpi_noncanonical":
+            bits = int.from_bytes(body[49:51], "big")
+            body[49:51] = (bits + 1).to_bytes(2, "big")
+        elif fault == "mpi_trailing":
+            body += b"\0"
+        altered_packet = b"\x89" + len(body).to_bytes(2, "big") + bytes(body)
+    altered = _loader_build_record_rearmor(case.build_raw, altered_packet)
+    with pytest.raises(case.envelope.BuildEnvelopeError):
+        case.envelope.extract_clearsigned_payload(altered)
+
+
+@pytest.mark.parametrize("fault", ["carrier", "payload", "armor", "packet", "mpi"])
+def test_loader_build_record_envelope_all_size_limits_precede_hashes(loader_build_record_case, monkeypatch, fault):
+    case = loader_build_record_case
+    envelope = case.envelope
+    marker = b"-----BEGIN PGP SIGNATURE-----\n\n"
+    prefix, armor = case.build_raw.split(marker, 1)
+    if fault == "carrier":
+        altered = b"x" * (envelope.CARRIER_LIMIT + 1)
+    elif fault == "payload":
+        payload = (b"x" * 2047 + b"\n") * (envelope.PAYLOAD_LIMIT // 2048) + b"x"
+        assert len(payload) == envelope.PAYLOAD_LIMIT + 1
+        altered = b"-----BEGIN PGP SIGNED MESSAGE-----\nHash: SHA512\n\n" + payload + b"\n" + marker + armor
+        assert len(altered) < envelope.CARRIER_LIMIT
+    elif fault == "armor":
+        altered = prefix + marker + b"A\n" * (envelope.ARMOR_LIMIT // 2 + 1) + b"-----END PGP SIGNATURE-----\n"
+        assert len(altered) < envelope.CARRIER_LIMIT
+    elif fault == "packet":
+        packet = b"\x89" + (envelope.SIGNATURE_PACKET_LIMIT - 2).to_bytes(2, "big") + b"x" * (envelope.SIGNATURE_PACKET_LIMIT - 2)
+        assert len(packet) == envelope.SIGNATURE_PACKET_LIMIT + 1
+        altered = _loader_build_record_rearmor(case.build_raw, packet)
+    else:
+        packet = bytearray(_loader_build_record_original_signature(case.build_raw))
+        packet[52:54] = (envelope.RSA_MPI_BITS_LIMIT + 1).to_bytes(2, "big")
+        altered = _loader_build_record_rearmor(case.build_raw, bytes(packet))
+    def forbidden_hash(*args, **kwargs):
+        raise AssertionError("envelope bound must be checked before SHA256")
+    monkeypatch.setattr(envelope.hashlib, "sha256", forbidden_hash)
+    with pytest.raises(envelope.BuildEnvelopeError):
+        envelope.extract_clearsigned_payload(altered)
