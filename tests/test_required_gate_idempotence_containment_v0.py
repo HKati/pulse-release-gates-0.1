@@ -12127,3 +12127,723 @@ def test_loader_readout_two_slot_rf_clear_samples_do_not_establish_a_resume_poli
     assert report["complete_fixture_sequence_verified"] is True
     assert report["rflags_resume_policy_qualified"] is False
     assert report["two_slot_breakpoint_qualified"] is False
+
+
+# B2 startup acceptance predicates are tested against independently authored raw
+# fixtures. The older decoder fixtures above retain their broader acceptance;
+# neither these samples nor a selected policy claim actual startup acquisition.
+LOADER_STARTUP_SOURCE_REL = "tools/required_gate_idempotence_loader_startup_v0.py"
+LOADER_STARTUP_READOUT_REL = "tools/required_gate_idempotence_loader_startup_readout_v0.py"
+LOADER_STARTUP_WRAPPER_REL = "tools/check_required_gate_idempotence_loader_startup_contract_v0.py"
+LOADER_STARTUP_CONTRACT_REL = "docs/compute/required_gate_idempotence_loader_startup_contract_v0/contract_v0.json"
+
+
+def loader_startup_source():
+    return module("required_gate_idempotence_loader_startup_v0", LOADER_STARTUP_SOURCE_REL)
+
+
+def loader_startup_reader():
+    return module("required_gate_idempotence_loader_startup_readout_v0", LOADER_STARTUP_READOUT_REL)
+
+
+def _loader_startup_invocation_rebind(case):
+    case.record["raw_files"] = {name: bound(raw) for name, raw in sorted(case.files.items())}
+
+
+def _loader_startup_invocation_word(case, name, offset, value, fmt="<Q", *, both=True):
+    raw = bytearray(case.files[name])
+    struct.pack_into(fmt, raw, offset, value)
+    case.files[name] = bytes(raw)
+    if both:
+        case.files[name.replace(".before.", ".after.")] = bytes(raw)
+    _loader_startup_invocation_rebind(case)
+
+
+def _loader_startup_invocation_fixture(originals, first):
+    # Derive addresses from the independent original-ELF fixture. CP0 has only
+    # launcher and interpreter mappings; later dependency maps are absent.
+    selected_inodes = {row["before"]["inode"] for row in first.event["backings"]
+                       if row["native_path"] in {"native/bwrap", "native/ld-linux-x86-64.so.2"}}
+    maps = b"".join(line + b"\n" for line in first.files["maps.before.bin"].splitlines()
+                    if int(line.split()[4]) in selected_inodes | {0})
+    stack_pointer = 0x71000100
+    pointers = (0x71000300, 0x71000380, 0x71000400)
+    strings = b"bubblewrap\0LC_ALL=C\0TZ=UTC\0"
+    assert len(strings) == 27
+    auxv = first.files["auxv.before.bin"]
+    words = struct.pack("<6Q", 1, pointers[0], 0, pointers[1], pointers[2], 0) + auxv
+    registers = bytearray(216)
+    loader_entry = first.biases["native/ld-linux-x86-64.so.2"] + originals.elf["native/ld-linux-x86-64.so.2"].entry
+    struct.pack_into("<Q", registers, 16 * 8, loader_entry)
+    struct.pack_into("<Q", registers, 18 * 8, 0x202)  # CP0 is not a hardware fault.
+    struct.pack_into("<Q", registers, 19 * 8, stack_pointer)
+    fixed = ("observer.stat.bin", "observer.status.bin", "child.stat.setup.bin",
+             "child.status.setup.bin", "child.pidfd.info.bin")
+    files = {name: first.files[name] for name in fixed}
+    for side in ("before", "after"):
+        for kind in ("stat", "status"):
+            files[f"child.{kind}.{side}.bin"] = first.files[f"child.{kind}.{side}.bin"]
+        for name, raw in (("maps", maps), ("regs", bytes(registers)), ("auxv", auxv),
+                          ("stack.words", words), ("stack.strings", strings)):
+            files[f"{name}.{side}.bin"] = raw
+    record = {"record_type": "required_gate_idempotence_loader_startup_invocation_fixture_v0",
+              "profile": "linux_x86_64_original_loader_startup_invocation_fixture_v0",
+              "evidence_origin": "authored_test_fixture",
+              **{key: first.event[key] for key in
+                 ("attempt_id", "observer_pid", "child_pid", "child_starttime")},
+              "stop_wait_status": 0x4057F,
+              "raw_files": {name: bound(raw) for name, raw in sorted(files.items())}}
+    return SimpleNamespace(record=record, files=files, pointers=pointers,
+                           stack_pointer=stack_pointer, loader_entry=loader_entry)
+
+
+def _loader_startup_fixture(originals, *, completed=True):
+    events = [_loader_readout_event_fixture(originals, occurrence, event_index=index)
+              for index, occurrence in enumerate(reversed(range(9)))]
+    # The selected normal startup requires AT_SECURE=0. Add it only to new
+    # copies; the previously merged fixtures and their decoder policy stay intact.
+    for event in events:
+        auxv = event.files["auxv.before.bin"]
+        auxv = auxv[:-16] + struct.pack("<QQ", 23, 0) + auxv[-16:]
+        event.files["auxv.before.bin"] = event.files["auxv.after.bin"] = auxv
+        _loader_readout_rebind(event)
+    return SimpleNamespace(events=events, invocation=_loader_startup_invocation_fixture(originals, events[0]),
+        hardware=(_loader_readout_two_slot_fixture() if completed
+                  else _loader_readout_two_slot_fixture(returns=10, completed=False)))
+
+
+def _loader_startup_replace_auxv(case, raw):
+    for event in case.events:
+        event.files["auxv.before.bin"] = event.files["auxv.after.bin"] = raw
+        _loader_readout_rebind(event)
+    invocation = case.invocation
+    for side in ("before", "after"):
+        invocation.files[f"auxv.{side}.bin"] = raw
+        invocation.files[f"stack.words.{side}.bin"] = invocation.files[f"stack.words.{side}.bin"][:48] + raw
+    _loader_startup_invocation_rebind(invocation)
+
+
+def _loader_startup_check(originals, case):
+    return loader_startup_reader().verify_policy_fixtures(
+        invocation=case.invocation.record, invocation_files=case.invocation.files,
+        events=[row.event for row in case.events], files_by_event=[row.files for row in case.events],
+        transcript=case.hardware.record, transcript_files=case.hardware.files,
+        static_record=originals.case.record, native=originals.native)
+
+
+def _loader_startup_assert_boundary(report, helper):
+    for name, expected in helper.BOUNDARY.items():
+        assert type(report[name]) is type(expected) and report[name] == expected, name
+    assert report["invocation_mode_policy_qualified"] is False
+    assert report["rflags_resume_policy_qualified"] is False
+    assert report["source_build_gate_satisfied"] is False
+    assert report["native_acquisition_performed"] is False
+    assert report["metric_pass"] is None and report["authority_effect"] == "none"
+
+
+@pytest.mark.parametrize("cp0_flags,stop_flags", [(0x202, 0x10202), (0x10202, 0x10247)])
+def test_loader_startup_zero_modes_and_masked_flags_are_fixture_predicates_only(
+        loader_readout_originals, cp0_flags, stop_flags):
+    helper = loader_startup_reader()
+    case = _loader_startup_fixture(loader_readout_originals)
+    _loader_startup_invocation_word(case.invocation, "regs.before.bin", 18 * 8, cp0_flags)
+    _loader_readout_two_slot_word(case.hardware, "cp0.regs.bin", 18 * 8, cp0_flags)
+    for event in case.events:
+        _loader_readout_set_word(event, "regs.before.bin", 18 * 8, stop_flags, both=True)
+    for number in range(1, 11):
+        _loader_readout_two_slot_word(case.hardware, f"event.{number:02d}.regs.a.bin",
+                                     18 * 8, stop_flags, both=True)
+    result = _loader_startup_check(loader_readout_originals, case)
+    assert result["status"] == "accepted_test_fixtures"
+    assert result["complete_fixture_set_verified"] is True
+    assert result["fixture_invocation_modes_verified"] is True
+    assert result["fixture_hardware_resume_flags_verified"] is True
+    assert result["invocation_fixture"]["fixture_invocation_consistent"] is True
+    assert result["two_slot_probe_is_original_loader_attempt"] is False
+    _loader_startup_assert_boundary(result, helper)
+
+
+@pytest.mark.parametrize("field,offset,value", [
+    ("trace_mode", 8, 1), ("trace_mode", 8, -1),
+    ("open_mode", 12, 1), ("open_mode", 12, 0x100), ("open_mode", 12, -(1 << 31)),
+])
+def test_loader_startup_rehashed_nonzero_signed_modes_pass_old_decoder_but_fail_selected_policy(
+        loader_readout_originals, field, offset, value):
+    case = _loader_startup_fixture(loader_readout_originals)
+    event = case.events[-1]
+    packed_offset = next(row["offset"] for row in event.event["runtime_ranges"] if row["role"] == "args")
+    _loader_readout_set_word(event, "memory.sample0.bin", packed_offset + offset, value, fmt="<i", both=True)
+    old = _loader_readout_check(loader_readout_originals, event)
+    assert old["fixture_readout_consistent"] is True
+    assert old["occurrence_join"][field] == value
+    assert old["invocation_mode_policy_qualified"] is False
+    with pytest.raises(loader_startup_reader().StartupReadoutError):
+        _loader_startup_check(loader_readout_originals, case)
+
+
+@pytest.mark.parametrize("where", ["readout_last", "probe_first", "probe_ninth", "probe_entry"])
+def test_loader_startup_rehashed_rf_clear_stops_pass_old_decoders_but_fail_selected_policy(
+        loader_readout_originals, where):
+    case = _loader_startup_fixture(loader_readout_originals)
+    if where == "readout_last":
+        event = case.events[-1]
+        _loader_readout_set_word(event, "regs.before.bin", 18 * 8, 0x202, both=True)
+        old = _loader_readout_check(loader_readout_originals, event)
+        assert old["fixture_readout_consistent"] is True
+    else:
+        number = {"probe_first": 1, "probe_ninth": 9, "probe_entry": 10}[where]
+        _loader_readout_two_slot_word(case.hardware, f"event.{number:02d}.regs.a.bin",
+                                     18 * 8, 0x202, both=True)
+        old = loader_readout_two_slot().verify_transcript(
+            transcript=case.hardware.record, files=case.hardware.files)
+        assert old["complete_fixture_sequence_verified"] is True
+    assert old["rflags_resume_policy_qualified"] is False
+    with pytest.raises(loader_startup_reader().StartupReadoutError):
+        _loader_startup_check(loader_readout_originals, case)
+
+
+@pytest.mark.parametrize("fault", [
+    "extra_argument", "extra_environment", "changed_environment", "argv_missing_nul",
+    "argv_pointer_outside_stack", "stack_words_bounds", "misaligned_rsp",
+    "overlap_words_string", "overlap_strings", "auxv_stack_disagrees",
+    "coherent_auxv_substitution", "coherent_child_occurrence", "observer_occurrence",
+    "wrong_pidfd", "wrong_cp0_rip", "dependency_mapped_at_cp0", "changed_sample",
+    "cp0_trap_flag", "missing_at_secure", "nonzero_at_secure",
+])
+def test_loader_startup_initial_stack_and_process_substitutions_reject(
+        loader_readout_originals, fault):
+    case = _loader_startup_fixture(loader_readout_originals)
+    invocation = case.invocation
+    if fault in {"extra_argument", "extra_environment"}:
+        argv0, env0, env1 = invocation.pointers
+        if fault == "extra_argument":
+            prefix = struct.pack("<7Q", 2, argv0, 0x71000480, 0, env0, env1, 0)
+            extra = b"extra\0"
+        else:
+            prefix = struct.pack("<7Q", 1, argv0, 0, env0, env1, 0x71000480, 0)
+            extra = b"LD_PRELOAD=fixture\0"
+        for side in ("before", "after"):
+            invocation.files[f"stack.words.{side}.bin"] = prefix + invocation.files[f"auxv.{side}.bin"]
+            invocation.files[f"stack.strings.{side}.bin"] += extra
+    elif fault in {"changed_environment", "argv_missing_nul"}:
+        raw = invocation.files["stack.strings.before.bin"]
+        raw = raw.replace(b"LC_ALL=C", b"LC_ALL=X") if fault == "changed_environment" else raw[:10] + b"X" + raw[11:]
+        invocation.files["stack.strings.before.bin"] = invocation.files["stack.strings.after.bin"] = raw
+    elif fault in {"argv_pointer_outside_stack", "overlap_words_string", "overlap_strings"}:
+        offset = 24 if fault == "overlap_strings" else 8
+        value = {"argv_pointer_outside_stack": 0x73000800,
+                 "overlap_words_string": invocation.stack_pointer + 8,
+                 "overlap_strings": invocation.pointers[0] + 5}[fault]
+        _loader_startup_invocation_word(invocation, "stack.words.before.bin", offset, value)
+    elif fault in {"stack_words_bounds", "misaligned_rsp"}:
+        value = 0x71000FF0 if fault == "stack_words_bounds" else invocation.stack_pointer + 8
+        _loader_startup_invocation_word(invocation, "regs.before.bin", 19 * 8, value)
+    elif fault == "auxv_stack_disagrees":
+        _loader_startup_invocation_word(invocation, "stack.words.before.bin", 48 + 8, 0xBAD)
+    elif fault == "coherent_auxv_substitution":
+        raw = invocation.files["auxv.before.bin"]
+        raw = raw[:-16] + struct.pack("<QQ", 25, 0x71000600) + raw[-16:]
+        for side in ("before", "after"):
+            invocation.files[f"auxv.{side}.bin"] = raw
+            invocation.files[f"stack.words.{side}.bin"] = invocation.files[f"stack.words.{side}.bin"][:48] + raw
+    elif fault == "coherent_child_occurrence":
+        invocation.record["child_starttime"] += 1
+        raw = native_acquisition_proc_stat(4002, 4001, "t", invocation.record["child_starttime"])
+        for suffix in ("setup", "before", "after"):
+            invocation.files[f"child.stat.{suffix}.bin"] = raw
+    elif fault == "observer_occurrence":
+        invocation.files["observer.stat.bin"] = native_acquisition_proc_stat(4001, 1, "S", 123401)
+    elif fault == "wrong_pidfd":
+        invocation.files["child.pidfd.info.bin"] = b"Pid:\t4003\nNSpid:\t4003\n"
+    elif fault == "wrong_cp0_rip":
+        _loader_startup_invocation_word(invocation, "regs.before.bin", 16 * 8, case.events[0].entry_target)
+    elif fault == "dependency_mapped_at_cp0":
+        invocation.files["maps.before.bin"] = invocation.files["maps.after.bin"] = case.events[0].files["maps.before.bin"]
+    elif fault == "changed_sample":
+        invocation.files["stack.strings.after.bin"] = b"X" + invocation.files["stack.strings.after.bin"][1:]
+    elif fault == "cp0_trap_flag":
+        _loader_startup_invocation_word(invocation, "regs.before.bin", 18 * 8, 0x302)
+    elif fault in {"missing_at_secure", "nonzero_at_secure"}:
+        pairs = list(struct.iter_unpack("<QQ", invocation.files["auxv.before.bin"]))
+        pairs = ([(key, value) for key, value in pairs if key != 23] if fault == "missing_at_secure"
+                 else [(key, 1 if key == 23 else value) for key, value in pairs])
+        _loader_startup_replace_auxv(case, b"".join(struct.pack("<QQ", *pair) for pair in pairs))
+    else:
+        raise AssertionError(fault)
+    _loader_startup_invocation_rebind(invocation)
+    with pytest.raises(loader_startup_reader().StartupReadoutError):
+        _loader_startup_check(loader_readout_originals, case)
+
+
+def test_loader_startup_incomplete_tenth_return_cannot_be_promoted_by_matching_policy(loader_readout_originals):
+    case = _loader_startup_fixture(loader_readout_originals, completed=False)
+    result = _loader_startup_check(loader_readout_originals, case)
+    assert result["status"] == "incomplete_test_fixtures"
+    assert result["complete_fixture_set_verified"] is False
+    assert result["two_slot_fixture"]["unexpected_tenth_return_preserved"] is True
+    assert result["two_slot_probe_is_original_loader_attempt"] is False
+    _loader_startup_assert_boundary(result, loader_startup_reader())
+
+
+@pytest.fixture(scope="module")
+def loader_startup_source_case(loader_binary_binding_case, loader_binary_binding_debug):
+    prior = loader_binary_binding_case
+    manifest = json.loads((ROOT / prior.checker.INPUTS_REL).read_bytes())
+    inputs = {}
+    for item in manifest["artifacts"]:
+        pieces, cursor = [], 0
+        for ordinal, part in enumerate(item["parts"], 1):
+            raw = prior.artifacts[part["path"]]
+            assert part["ordinal"] == ordinal and part["offset_bytes"] == cursor
+            assert bound(raw) == {key: part[key] for key in ("size_bytes", "sha256")}
+            pieces.append(raw)
+            cursor += len(raw)
+        raw = b"".join(pieces)
+        assert bound(raw) == {key: item[key] for key in ("size_bytes", "sha256")}
+        inputs[item["name"]] = raw
+    return SimpleNamespace(helper=loader_startup_source(), inputs=inputs, loader=prior.loader,
+                           debug=loader_binary_binding_debug)
+
+
+@pytest.fixture(scope="module")
+def loader_startup_source_oracle(loader_startup_source_case):
+    """Standard tar reader and a separate exact-coordinate six-hunk oracle."""
+    import re
+    inputs = loader_startup_source_case.inputs
+    names = {"elf/rtld.c", "elf/dl-main.h", "elf/dl-environ.c", "elf/dl-deps.c",
+             "sysdeps/unix/sysv/linux/dl-parse_auxv.h", "sysdeps/unix/sysv/linux/dl-sysdep.c"}
+    sources = {}
+    with tarfile.open(fileobj=io.BytesIO(inputs["glibc_2.41.orig.tar.xz"]), mode="r|xz") as archive:
+        for member in archive:
+            path = member.name.removeprefix("glibc-2.41/")
+            if path in names:
+                assert member.isfile() and path not in sources
+                stream = archive.extractfile(member)
+                assert stream is not None
+                sources[path] = stream.read()
+                assert len(sources[path]) == member.size
+    assert set(sources) == names
+    assert bound(sources["elf/rtld.c"]) == {
+        "size_bytes": 86992, "sha256": "dcc52dea8284139c8a55ac21bddd678d08ae9dc3b1de2d5dfc6342664174192e"}
+    with tarfile.open(fileobj=io.BytesIO(inputs["glibc_2.41-12+deb13u4.debian.tar.xz"]), mode="r:xz") as archive:
+        stream = archive.extractfile("debian/patches/git-updates.diff")
+        assert stream is not None
+        lines = stream.read().splitlines(keepends=True)
+    start = lines.index(b"diff --git a/elf/rtld.c b/elf/rtld.c\n")
+    end = next((index for index in range(start + 1, len(lines))
+                if lines[index].startswith(b"diff --git ")), len(lines))
+    selected = lines[start:end]
+    assert b"--- a/elf/rtld.c\n" in selected and b"+++ b/elf/rtld.c\n" in selected
+    positions = [index for index, line in enumerate(selected) if line.startswith(b"@@ ")]
+    assert len(positions) == 6
+    original = sources["elf/rtld.c"].splitlines(keepends=True)
+    output, cursor = [], 0
+    for number, position in enumerate(positions):
+        header = re.fullmatch(rb"@@ -([0-9]+),([0-9]+) \+([0-9]+),([0-9]+) @@[^\n]*\n", selected[position])
+        assert header is not None
+        first, old_count, _new_first, new_count = map(int, header.groups())
+        next_position = positions[number + 1] if number + 1 < len(positions) else len(selected)
+        body = selected[position + 1:next_position]
+        assert body and all(line[:1] in (b" ", b"+", b"-") for line in body)
+        old = [line[1:] for line in body if line[:1] in (b" ", b"-")]
+        new = [line[1:] for line in body if line[:1] in (b" ", b"+")]
+        assert len(old) == old_count and len(new) == new_count
+        index = first - 1
+        assert cursor <= index and original[index:index + old_count] == old
+        output.extend(original[cursor:index])
+        output.extend(new)
+        cursor = index + old_count
+    output.extend(original[cursor:])
+    sources["elf/rtld.c"] = b"".join(output)
+    expected = {
+        "elf/rtld.c": (87900, "e6f5a773bff5eb4d2312ce456992d8d3db849dcc4761adfe210e0fbcdc226b6f"),
+        "elf/dl-main.h": (3961, "43b6753c2c455a6ffb600316418a5eae2c123e63e5e169664b79230c6e7a0441"),
+        "elf/dl-environ.c": (1991, "e9a5cabdc31d397a4e58ce7f3a2f0bd3c506b30d0743fb5a086467b37a877ed5"),
+        "elf/dl-deps.c": (17592, "2f23f25c68bdde0ca3c30a3186861be716d7790b17c4b99681bc8c5d9e554f8b"),
+        "sysdeps/unix/sysv/linux/dl-parse_auxv.h": (
+            2705, "c06c8be5a27c3cf0b5b31bf54758791bc96b1b417694905723a4a172d58d209f"),
+        "sysdeps/unix/sysv/linux/dl-sysdep.c": (
+            8817, "b0df8f3fea3a01931a128317f21371bebaa20eca13b2009c5363f950e7c5d2bc"),
+    }
+    for path, (size, sha256) in expected.items():
+        assert bound(sources[path]) == {"size_bytes": size, "sha256": sha256}
+    return sources
+
+
+@pytest.fixture(scope="module")
+def loader_startup_source_report(loader_startup_source_case):
+    case = loader_startup_source_case
+    return case.helper.derive_startup_facts(inputs=case.inputs, loader=case.loader, debug=case.debug)
+
+
+def test_loader_startup_source_and_patches_match_an_independent_distribution_oracle(
+        loader_startup_source_case, loader_startup_source_oracle, loader_startup_source_report):
+    case, sources, report = loader_startup_source_case, loader_startup_source_oracle, loader_startup_source_report
+    assert report["expected_modes"] == {"trace_mode": 0, "open_mode": 0}
+    assert report["input_bindings"] == {name: bound(raw) for name, raw in sorted(case.inputs.items())}
+    facts = report["source_reconstruction"]
+    assert facts["additional_source_count"] == 5 and facts["reused_source_count"] == 1
+    assert facts["patch_series"]["active_patch_count"] == 80
+    assert facts["patch_series"]["all_active_patches_scanned"] is True
+    files = {row["path"]: row for row in facts["files"]}
+    assert set(files) == set(sources)
+    for path, raw in sources.items():
+        assert files[path]["patched"]["binding"] == bound(raw)
+    assert [(step["order"], step["hunk_count"]) for step in files["elf/rtld.c"]["patch_steps"]] == [(0, 6)]
+    for row in report["source_semantic_ranges"]:
+        source = sources[row["source_path"]]
+        first, last = row["first_physical_line"], row["last_physical_line"]
+        selected = b"\n".join(source.split(b"\n")[first - 1:last]) + b"\n"
+        assert row["range"] == bound(selected) and row["source"] == bound(source)
+    for key, expected in case.helper.BOUNDARY.items():
+        assert type(report["boundary"][key]) is type(expected) and report["boundary"][key] == expected
+    assert report["boundary"]["original_invocation_observed"] is False
+    assert report["boundary"]["source_binary_equivalence_verified"] is False
+
+
+def test_loader_startup_original_instruction_oracle_proves_zero_arguments_and_forwarding(loader_startup_source_case):
+    raw = loader_startup_source_case.loader
+    loads = _loader_readout_elf(raw).loads
+
+    def at(address, size):
+        segment = next(row for row in loads if row[3] <= address and address + size <= row[3] + row[5])
+        offset = segment[2] + address - segment[3]
+        return raw[offset:offset + size]
+
+    # Decode the selected SIB/disp8 independently: auxv[tag] is stored at
+    # rsp-104 + tag*8. The two reads therefore select AT_ENTRY9 and AT_SECURE23.
+    indexed = at(0x1BEEA, 5)
+    assert indexed == bytes.fromhex("48894cc498")
+    scale = 1 << (indexed[3] >> 6)
+    displacement = struct.unpack_from("<b", indexed, 4)[0]
+    assert (scale, (indexed[3] >> 3) & 7, indexed[3] & 7, displacement) == (8, 0, 4, -104)
+    entry = at(0x1BF1C, 5)
+    secure = at(0x1BF25, 5)
+    assert entry == bytes.fromhex("488b7c24e0")
+    assert secure == bytes.fromhex("448b7c2450")
+    assert struct.unpack_from("<b", entry, 4)[0] == displacement + 9 * scale
+    assert struct.unpack_from("<b", secure, 4)[0] == displacement + 23 * scale
+    store = at(0x1BFBB, 7)
+    assert store == bytes.fromhex("44893d869a0100")
+    assert 0x1BFBB + 7 + struct.unpack_from("<i", store, 3)[0] == 0x35A48
+    assert at(0x1BFDC, 4) == bytes.fromhex("48897a10")
+    assert at(0x1CC81, 5) == bytes.fromhex("488d542410")
+    assert at(0x1BFDC, 4)[-1] == at(0x1CC81, 5)[-1] == 16
+    callback = at(0x1E419, 7)
+    assert callback == bytes.fromhex("488d35e0010000")
+    assert 0x1E419 + 7 + struct.unpack_from("<i", callback, 3)[0] == 0x1E600
+    sysdep = at(0x1E435, 5)
+    assert sysdep[0] == 0xE8
+    assert 0x1E435 + 5 + struct.unpack_from("<i", sysdep, 1)[0] == 0x1CC10
+    assert at(0x1E63A, 7) == bytes.fromhex("c745c800000000")
+    assert at(0x2009B, 2) == bytes.fromhex("31c9")
+    assert at(0x200AD, 4) == bytes.fromhex("837dc803")
+    assert at(0x200B4, 3) == bytes.fromhex("0f94c1")
+    assert at(0x200B7, 3) == bytes.fromhex("4531c0")
+    call = at(0x200BA, 5)
+    assert call[0] == 0xE8 and 0x200BF + struct.unpack_from("<i", call, 1)[0] == 0x3680
+    # The args base is rbp-1136: these stores land at offsets8 and12.
+    assert at(0x38C9, 6) == bytes.fromhex("899d98fbffff")
+    assert at(0x38D5, 6) == bytes.fromhex("899d9cfbffff")
+    assert struct.unpack_from("<i", at(0x38C9, 6), 2)[0] - (-1136) == 8
+    assert struct.unpack_from("<i", at(0x38D5, 6), 2)[0] - (-1136) == 12
+
+
+@pytest.mark.parametrize("path,before,after", [
+    ("elf/rtld.c", b"state->mode = rtld_mode_normal;", b"state->mode = rtld_mode_trace;"),
+    ("elf/rtld.c", b"state.mode == rtld_mode_trace, 0);", b"state.mode == rtld_mode_trace, 1);"),
+    ("elf/dl-deps.c", b"args.open_mode = open_mode;", b"args.open_mode = trace_mode;"),
+])
+def test_loader_startup_source_semantic_witnesses_reject_changed_mode_flow(
+        loader_startup_source_case, loader_startup_source_oracle, path, before, after):
+    helper = loader_startup_source_case.helper
+    sources = dict(loader_startup_source_oracle)
+    assert sources[path].count(before) == 1
+    sources[path] = sources[path].replace(before, after)
+    # This narrow parser test is deliberately below immutable input admission.
+    # It cannot produce a public accepted record for modified source artifacts.
+    with pytest.raises(helper.StartupError, match="startup_source_semantic_range"):
+        helper._semantic_ranges(sources)
+
+
+def test_loader_startup_source_reconstruction_cannot_skip_the_selected_distribution_patch(
+        loader_startup_source_case, monkeypatch):
+    case = loader_startup_source_case
+    scan = case.helper.source._scan_patch
+
+    def omit_rtld(raw):
+        return [block for block in scan(raw)
+                if "elf/rtld.c" not in {block["old"], block["new"], block["index"]}]
+
+    monkeypatch.setattr(case.helper.source, "_scan_patch", omit_rtld)
+    with pytest.raises(case.helper.StartupError, match="startup_patched_source"):
+        case.helper._source_facts(case.inputs)
+
+
+@pytest.mark.parametrize("which", ["source_archive", "distribution_patch", "startup_call", "debug"])
+def test_loader_startup_unchanged_version_or_build_id_does_not_admit_changed_inputs(
+        loader_startup_source_case, which):
+    case = loader_startup_source_case
+    inputs, loader, debug = dict(case.inputs), case.loader, case.debug
+    if which in {"source_archive", "distribution_patch"}:
+        name = ("glibc_2.41.orig.tar.xz" if which == "source_archive"
+                else "glibc_2.41-12+deb13u4.debian.tar.xz")
+        raw = bytearray(inputs[name])
+        raw[len(raw) // 2] ^= 1
+        inputs[name] = bytes(raw)
+    elif which == "startup_call":
+        raw = bytearray(loader)
+        raw[0x200BB] ^= 1
+        loader = bytes(raw)
+        assert bytes.fromhex("86f7eb4ff495ed3f2831c6d3d662e4321762a2a3") in loader
+    else:
+        raw = bytearray(debug)
+        raw[-1] ^= 1
+        debug = bytes(raw)
+    with pytest.raises(case.helper.StartupError, match="sha256"):
+        case.helper.derive_startup_facts(inputs=inputs, loader=loader, debug=debug)
+
+
+@pytest.mark.parametrize("which", ["source_archive", "loader", "debug"])
+def test_loader_startup_every_input_size_is_checked_before_the_first_hash(
+        loader_startup_source_case, monkeypatch, which):
+    case = loader_startup_source_case
+    inputs, loader, debug = dict(case.inputs), case.loader, case.debug
+    if which == "source_archive":
+        inputs["glibc_2.41.orig.tar.xz"] += b"X"
+    elif which == "loader":
+        loader += b"X"
+    else:
+        debug += b"X"
+    hashed = []
+
+    def forbidden(raw):
+        hashed.append(len(raw))
+        raise AssertionError("a raw input was hashed before all fixed size limits")
+
+    monkeypatch.setattr(case.helper.hashlib, "sha256", forbidden)
+    with pytest.raises(case.helper.StartupError, match="size"):
+        case.helper.derive_startup_facts(inputs=inputs, loader=loader, debug=debug)
+    assert hashed == []
+
+
+@pytest.fixture(scope="module")
+def loader_startup_contract_case(loader_binary_binding_case):
+    checker = module("check_required_gate_idempotence_loader_startup_contract_v0", LOADER_STARTUP_WRAPPER_REL)
+    raw = (ROOT / LOADER_STARTUP_CONTRACT_REL).read_bytes()
+    return SimpleNamespace(checker=checker, raw=raw, value=json.loads(raw),
+                           prior_raw=(ROOT / LOADER_READOUT_CONTRACT_REL).read_bytes(),
+                           static_case=loader_binary_binding_case)
+
+
+def _loader_startup_contract_check(case, raw=None, **changes):
+    raw = case.raw if raw is None else raw
+    arguments = dict(contract_bytes=raw, expected_contract_sha256=digest(raw),
+                     prior_contract_bytes=case.prior_raw,
+                     static_record_bytes=case.static_case.raw,
+                     historical_entry_archive_bytes=case.static_case.baseline,
+                     artifact_members=case.static_case.artifacts)
+    arguments.update(changes)
+    return case.checker.verify_contract(**arguments)
+
+
+@pytest.fixture(scope="module")
+def loader_startup_contract_report(loader_startup_contract_case):
+    case = loader_startup_contract_case
+    real_verify = case.checker._verify
+    real_prior = case.checker.prior._verify
+    real_startup = case.checker.startup.derive_startup_facts
+    verified, prior_results, startup_results = [], [], []
+
+    def verify_spy(*arguments):
+        result = real_verify(*arguments)
+        verified.append(result)
+        return result
+
+    def prior_spy(*arguments):
+        result = real_prior(*arguments)
+        prior_results.append(result)
+        return result
+
+    def startup_spy(**arguments):
+        result = real_startup(**arguments)
+        startup_results.append(result)
+        return result
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("startup contract attempted native execution or network")
+
+    import socket
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(case.checker, "_verify", verify_spy)
+        patch.setattr(case.checker.prior, "_verify", prior_spy)
+        patch.setattr(case.checker.startup, "derive_startup_facts", startup_spy)
+        patch.setattr(subprocess, "Popen", forbidden)
+        patch.setattr(subprocess, "run", forbidden)
+        patch.setattr(os, "system", forbidden)
+        patch.setattr(os, "fork", forbidden)
+        patch.setattr(socket, "create_connection", forbidden)
+        result = _loader_startup_contract_check(case)
+    assert len(verified) == len(prior_results) == len(startup_results) == 1
+    case.verified = verified[0]
+    case.prior_verified = prior_results[0]
+    case.startup_facts = startup_results[0]
+    return result
+
+
+def test_loader_startup_contract_reconstructs_prior_evidence_and_derives_policy_without_execution(
+        loader_startup_contract_case, loader_startup_contract_report):
+    case, report = loader_startup_contract_case, loader_startup_contract_report
+    assert report["status"] == "accepted" and report["contract_verified"] is True
+    assert report["prior_static_and_readout_contract_reconstructed"] is True
+    assert report["selected_startup_mode_decision_verified"] is True
+    assert report["initial_stack_acceptance_checker_implemented"] is True
+    assert report["hardware_resume_acceptance_rule_implemented"] is True
+    assert report["historical_source_file_count"] == 81 and report["original_DT_NEEDED_occurrences"] == 9
+    assert report["prior_report"] == bound(case.checker.prior.canonical(case.prior_verified[0]))
+    assert report["startup_derivation"] == bound(case.checker.canonical(case.startup_facts))
+    assert report["unresolved_prerequisites"]["source_build"]["status"] == "unsatisfied"
+    for key, expected in case.checker.BOUNDARY.items():
+        assert type(report[key]) is type(expected) and report[key] == expected
+
+
+@pytest.mark.parametrize("expected", [None, "f" * 64, True])
+def test_loader_startup_contract_requires_external_digest(loader_startup_contract_case, expected):
+    case = loader_startup_contract_case
+    with pytest.raises(case.checker.ContractError):
+        _loader_startup_contract_check(case, expected_contract_sha256=expected)
+
+
+@pytest.mark.parametrize("fault", [
+    "duplicate", "float", "unknown", "mode", "rf_relaxed", "cp0_rf_fixed",
+    "source_range", "live_promoted", "build_promoted", "authority_promoted", "remove_build_gap",
+])
+def test_loader_startup_contract_rehashed_proof_or_policy_substitutions_reject(loader_startup_contract_case, fault):
+    case = loader_startup_contract_case
+    value = copy.deepcopy(case.value)
+    if fault == "duplicate":
+        raw = b'{"profile":"other",' + case.raw[1:]
+    else:
+        if fault == "float":
+            value["prior_readout_prerequisite"]["historical_source_count"] = 81.0
+        elif fault == "unknown":
+            value["saved_accepted_verdict"] = True
+        elif fault == "mode":
+            value["startup_derivation"]["expected_modes"]["open_mode"] = 1
+        elif fault == "rf_relaxed":
+            value["selected_acceptance_policy"]["hardware_stop_rf"] = 0
+        elif fault == "cp0_rf_fixed":
+            value["selected_acceptance_policy"]["cp0_rf_values"] = [1]
+        elif fault == "source_range":
+            value["startup_derivation"]["source_semantic_ranges"][0]["first_physical_line"] += 1
+        elif fault == "live_promoted":
+            value["boundary"]["original_invocation_observed"] = True
+        elif fault == "build_promoted":
+            value["boundary"]["source_build_gate_satisfied"] = True
+        elif fault == "authority_promoted":
+            value["boundary"]["authority_effect"] = "release"
+        elif fault == "remove_build_gap":
+            value["unresolved_prerequisites"]["source_build"]["recorded_gaps"].pop()
+        else:
+            raise AssertionError(fault)
+        raw = encoded(value)
+    with pytest.raises(case.checker.ContractError):
+        _loader_startup_contract_check(case, raw)
+
+
+def test_loader_startup_contract_saved_prior_verdict_cannot_replace_reconstruction(
+        loader_startup_contract_case, monkeypatch):
+    case = loader_startup_contract_case
+    calls = []
+
+    def unavailable(*arguments):
+        calls.append(arguments)
+        raise ValueError("authored_missing_prior_reconstruction")
+
+    monkeypatch.setattr(case.checker.prior, "_verify", unavailable)
+    with pytest.raises(case.checker.ContractError, match="evidence_rejected"):
+        _loader_startup_contract_check(case)
+    assert len(calls) == 1
+    assert calls[0][0] == case.prior_raw and calls[0][2] == case.static_case.raw
+    assert calls[0][3] == case.static_case.baseline and calls[0][4] == case.static_case.artifacts
+
+
+@pytest.mark.parametrize("scope", ["prior_source", "current_source_changed"])
+def test_loader_startup_contract_checks_exact_sources_before_and_after_derivation(
+        loader_startup_contract_case, loader_startup_contract_report, monkeypatch, scope):
+    case = loader_startup_contract_case
+    real_source = case.checker._source
+    selected = next(iter(case.checker.PRIOR_SOURCES)) if scope == "prior_source" else case.checker.SELF_REL
+    calls = {}
+
+    def changed(path):
+        raw = real_source(path)
+        calls[path] = calls.get(path, 0) + 1
+        return raw + b"\n" if path == selected and (scope == "prior_source" or calls[path] > 1) else raw
+
+    # The module fixture already performed both real reconstructions. Isolate
+    # the wrapper's source-stability obligation without repeating that work.
+    monkeypatch.setattr(case.checker.prior, "_verify", lambda *_args: copy.deepcopy(case.prior_verified))
+    monkeypatch.setattr(case.checker.startup, "derive_startup_facts",
+                        lambda **_kwargs: copy.deepcopy(case.startup_facts))
+    monkeypatch.setattr(case.checker, "_source", changed)
+    with pytest.raises(case.checker.ContractError, match="source_changed"):
+        _loader_startup_contract_check(case)
+
+
+@pytest.mark.parametrize("completed", [True, False])
+def test_loader_startup_contract_composition_preserves_incomplete_status_and_fixture_boundaries(
+        loader_startup_contract_case, loader_startup_contract_report, loader_readout_originals,
+        monkeypatch, completed):
+    case = loader_startup_contract_case
+    fixtures = _loader_startup_fixture(loader_readout_originals, completed=completed)
+    if not completed:
+        # The complete branch below and the module fixture use real derivation.
+        # Reuse its result only to isolate the real policy checker's incomplete
+        # classification; the raw fixture checker is never substituted.
+        monkeypatch.setattr(case.checker, "_verify", lambda *_args: copy.deepcopy(case.verified))
+    result = case.checker.verify_fixtures(
+        contract_bytes=case.raw, expected_contract_sha256=digest(case.raw),
+        invocation=fixtures.invocation.record, invocation_files=fixtures.invocation.files,
+        events=[row.event for row in fixtures.events], files_by_event=[row.files for row in fixtures.events],
+        transcript=fixtures.hardware.record, transcript_files=fixtures.hardware.files,
+        prior_contract_bytes=case.prior_raw, static_record_bytes=case.static_case.raw,
+        historical_entry_archive_bytes=case.static_case.baseline, artifact_members=case.static_case.artifacts)
+    assert result["status"] == ("accepted_test_fixtures" if completed else "incomplete_test_fixtures")
+    assert result["complete_fixture_set_verified"] is completed
+    assert result["fixture_domains_are_one_acquired_process"] is False
+    assert result["selected_policy_fixture"]["complete_fixture_set_verified"] is completed
+    assert result["selected_policy_fixture"]["two_slot_probe_is_original_loader_attempt"] is False
+    for key, expected in case.checker.BOUNDARY.items():
+        assert type(result[key]) is type(expected) and result[key] == expected
+
+
+def test_loader_startup_contract_cli_reports_are_canonical_and_outputs_are_exclusive(
+        loader_startup_contract_case, loader_startup_contract_report, tmp_path, monkeypatch, capsys):
+    case = loader_startup_contract_case
+    outputs = [tmp_path / name for name in ("first.json", "second.json")]
+    for output in outputs:
+        result = subprocess.run([sys.executable, "-I", "-B", str(ROOT / LOADER_STARTUP_WRAPPER_REL),
+            "--contract", str(ROOT / LOADER_STARTUP_CONTRACT_REL), "--contract-sha256", digest(case.raw),
+            "--output", str(output)], capture_output=True, timeout=180, check=False)
+        assert result.returncode == 0, result.stderr.decode(errors="replace")
+        assert result.stdout == result.stderr == b""
+    first = outputs[0].read_bytes()
+    assert first == outputs[1].read_bytes() == case.checker.canonical(loader_startup_contract_report)
+    sentinel = tmp_path / "existing.json"
+    sentinel.write_bytes(b"owner data remains exact\n")
+    monkeypatch.setattr(case.checker, "verify_contract", lambda **_kwargs: loader_startup_contract_report)
+    status = case.checker.main(["--contract", str(ROOT / LOADER_STARTUP_CONTRACT_REL),
+        "--contract-sha256", digest(case.raw), "--output", str(sentinel)])
+    assert status == 2 and sentinel.read_bytes() == b"owner data remains exact\n"
+    assert capsys.readouterr().out == ""
+
+
+def test_loader_startup_contract_cli_bad_digest_cannot_publish_success(
+        loader_startup_contract_case, tmp_path, capsys):
+    case = loader_startup_contract_case
+    output = tmp_path / "must-not-exist.json"
+    status = case.checker.main(["--contract", str(ROOT / LOADER_STARTUP_CONTRACT_REL),
+        "--contract-sha256", "f" * 64, "--output", str(output)])
+    assert status == 2 and not output.exists()
+    assert capsys.readouterr().out == ""

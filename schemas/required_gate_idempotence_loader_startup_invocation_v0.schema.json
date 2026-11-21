@@ -1,0 +1,148 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulsemech:required-gate-idempotence-loader-startup-invocation:v0",
+  "title": "Authored original-loader initial-stack invocation fixture v0",
+  "description": "Closed data-only fixture. Raw cp0 RSP supplies argc, argv, envp and the complete auxv; exactly three NUL-terminated strings use fixed packed offsets. Schema validity is not raw-byte consistency, actual acquisition, current-kernel qualification, authenticated build provenance, or release authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "profile",
+    "evidence_origin",
+    "attempt_id",
+    "observer_pid",
+    "child_pid",
+    "child_starttime",
+    "stop_wait_status",
+    "raw_files"
+  ],
+  "properties": {
+    "record_type": {
+      "const": "required_gate_idempotence_loader_startup_invocation_fixture_v0"
+    },
+    "profile": {
+      "const": "linux_x86_64_original_loader_startup_invocation_fixture_v0"
+    },
+    "evidence_origin": {
+      "const": "authored_test_fixture"
+    },
+    "attempt_id": {
+      "type": "string",
+      "minLength": 32,
+      "maxLength": 32,
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "observer_pid": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "child_pid": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "child_starttime": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "stop_wait_status": {
+      "type": "integer",
+      "const": 263551
+    },
+    "raw_files": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 19,
+      "maxProperties": 19,
+      "required": [
+        "auxv.after.bin",
+        "auxv.before.bin",
+        "child.pidfd.info.bin",
+        "child.stat.after.bin",
+        "child.stat.before.bin",
+        "child.stat.setup.bin",
+        "child.status.after.bin",
+        "child.status.before.bin",
+        "child.status.setup.bin",
+        "maps.after.bin",
+        "maps.before.bin",
+        "observer.stat.bin",
+        "observer.status.bin",
+        "regs.after.bin",
+        "regs.before.bin",
+        "stack.strings.after.bin",
+        "stack.strings.before.bin",
+        "stack.words.after.bin",
+        "stack.words.before.bin"
+      ],
+      "properties": {
+        "auxv.after.bin": {"$ref": "#/$defs/auxv"},
+        "auxv.before.bin": {"$ref": "#/$defs/auxv"},
+        "child.pidfd.info.bin": {"$ref": "#/$defs/proc"},
+        "child.stat.after.bin": {"$ref": "#/$defs/proc"},
+        "child.stat.before.bin": {"$ref": "#/$defs/proc"},
+        "child.stat.setup.bin": {"$ref": "#/$defs/proc"},
+        "child.status.after.bin": {"$ref": "#/$defs/proc"},
+        "child.status.before.bin": {"$ref": "#/$defs/proc"},
+        "child.status.setup.bin": {"$ref": "#/$defs/proc"},
+        "maps.after.bin": {"$ref": "#/$defs/proc"},
+        "maps.before.bin": {"$ref": "#/$defs/proc"},
+        "observer.stat.bin": {"$ref": "#/$defs/proc"},
+        "observer.status.bin": {"$ref": "#/$defs/proc"},
+        "regs.after.bin": {"$ref": "#/$defs/registers"},
+        "regs.before.bin": {"$ref": "#/$defs/registers"},
+        "stack.strings.after.bin": {"$ref": "#/$defs/strings"},
+        "stack.strings.before.bin": {"$ref": "#/$defs/strings"},
+        "stack.words.after.bin": {"$ref": "#/$defs/words"},
+        "stack.words.before.bin": {"$ref": "#/$defs/words"}
+      }
+    }
+  },
+  "$defs": {
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["size_bytes", "sha256"],
+      "properties": {
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65536
+        },
+        "sha256": {
+          "type": "string",
+          "minLength": 64,
+          "maxLength": 64,
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "proc": {"$ref": "#/$defs/binding"},
+    "registers": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"size_bytes": {"const": 216}}}
+      ]
+    },
+    "strings": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"size_bytes": {"const": 27}}}
+      ]
+    },
+    "auxv": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"size_bytes": {"minimum": 16, "maximum": 1024, "multipleOf": 16}}}
+      ]
+    },
+    "words": {
+      "allOf": [
+        {"$ref": "#/$defs/binding"},
+        {"properties": {"size_bytes": {"minimum": 64, "maximum": 1072, "multipleOf": 8}}}
+      ]
+    }
+  }
+}

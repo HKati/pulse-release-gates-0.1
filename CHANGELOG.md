@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the [B2 original-loader startup and resume acceptance contract](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_STARTUP_CONTRACT_v0.md)
+  with fresh prior reconstruction, original source/debug/instruction mode
+  derivation, complete bounded initial-stack fixture checks and explicit
+  RF/TF predicates for the selected hardware stops. Preserve incomplete
+  outcomes and the existing historical/source boundaries. Actual invocation,
+  hardware qualification, authenticated build provenance, original acquisition,
+  B2 completion and release authority remain open.
+
 - Add the [B2 loader readout checker contract](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_READOUT_CONTRACT_v0.md)
   with fresh reconstruction of the pinned static prerequisite, raw register and
   memory occurrence checks, and a separate two-slot repeated-stop transcript
