@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the [B2 loader readout checker contract](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_READOUT_CONTRACT_v0.md)
+  with fresh reconstruction of the pinned static prerequisite, raw register and
+  memory occurrence checks, and a separate two-slot repeated-stop transcript
+  checker. Closed, explicitly authored test fixtures exercise the rules without
+  native execution or qualification claims. Build provenance, invocation modes,
+  live capability and original acquisition remain blocked. Historical sources,
+  the 190/41 CI inventories and non-authority boundaries remain unchanged.
+
 - Add the [B2 exact original-loader binary/debug/source binding](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_BINARY_BINDING_v0.md)
   with six complete preserved distribution artifacts in nine ordinary-size
   byte parts and a data-only independent checker. Reconstruct the historical

@@ -1,0 +1,2595 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "B2 authored loader readout checker contract v0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "profile",
+    "evidence_role",
+    "static_prerequisite",
+    "selected_recipe",
+    "occurrence_obligations",
+    "readout_checker",
+    "two_slot_checker",
+    "fixture_policy",
+    "unresolved_prerequisites",
+    "implementation_sources",
+    "boundary"
+  ],
+  "properties": {
+    "record_type": {
+      "type": "string",
+      "const": "required_gate_idempotence_loader_readout_contract_v0"
+    },
+    "profile": {
+      "type": "string",
+      "const": "linux_x86_64_loader_readout_contract_v0"
+    },
+    "evidence_role": {
+      "type": "string",
+      "const": "authored_checker_contract_not_live_qualification"
+    },
+    "static_prerequisite": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_path",
+        "record",
+        "verification_report",
+        "implementation_sources",
+        "fresh_reconstruction_required",
+        "saved_report_is_acceptance_input",
+        "historical_source_count"
+      ],
+      "properties": {
+        "record_path": {
+          "type": "string",
+          "const": "docs/compute/required_gate_idempotence_loader_binary_binding_v0/record_v0.json"
+        },
+        "record": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "properties": {
+            "size_bytes": {
+              "type": "integer",
+              "const": 132289
+            },
+            "sha256": {
+              "type": "string",
+              "const": "d5679d1afab1c13db460ad8d818e5a07241b8dfeb079f410069c550c9f10d065"
+            }
+          }
+        },
+        "verification_report": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "properties": {
+            "size_bytes": {
+              "type": "integer",
+              "const": 3564
+            },
+            "sha256": {
+              "type": "string",
+              "const": "734f4809078f5c17dcd198d2d666be6479275dbdf90d707a9dc9d3afbe197f3a"
+            }
+          }
+        },
+        "implementation_sources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tools/check_required_gate_idempotence_loader_binary_binding_v0.py",
+            "schemas/required_gate_idempotence_loader_binary_binding_v0.schema.json",
+            "tools/required_gate_idempotence_loader_binary_v0.py",
+            "tools/required_gate_idempotence_loader_source_v0.py"
+          ],
+          "properties": {
+            "tools/check_required_gate_idempotence_loader_binary_binding_v0.py": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "size_bytes",
+                "sha256"
+              ],
+              "properties": {
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 27302
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "8b23d285d7995d9d33a434ea74be2a873b083f4d531d12074b874c8e9b5aad1f"
+                }
+              }
+            },
+            "schemas/required_gate_idempotence_loader_binary_binding_v0.schema.json": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "size_bytes",
+                "sha256"
+              ],
+              "properties": {
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 103806
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "a554cf4a4b6a4f0ececd2fe61c06648bee6dc7c3cbf550195b9d5808b3438002"
+                }
+              }
+            },
+            "tools/required_gate_idempotence_loader_binary_v0.py": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "size_bytes",
+                "sha256"
+              ],
+              "properties": {
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 30222
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "06f6921fd051b2bec7a40949bebafd5222c1cfddff4fad850750fa3c0dc6a369"
+                }
+              }
+            },
+            "tools/required_gate_idempotence_loader_source_v0.py": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "size_bytes",
+                "sha256"
+              ],
+              "properties": {
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 32215
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "bcc8da48d19666ab8b79a5586b3c486d44c177def9c9c24ec902c050bb92d1ff"
+                }
+              }
+            }
+          }
+        },
+        "fresh_reconstruction_required": {
+          "type": "boolean",
+          "const": true
+        },
+        "saved_report_is_acceptance_input": {
+          "type": "boolean",
+          "const": false
+        },
+        "historical_source_count": {
+          "type": "integer",
+          "const": 81
+        }
+      }
+    },
+    "selected_recipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "loader",
+        "checkpoint_vaddr",
+        "checkpoint_file_offset",
+        "live_RIP_relation",
+        "phase",
+        "args_pointer_register",
+        "provider_map_register",
+        "args_bytes",
+        "consumer_map_bytes",
+        "provider_map_bytes",
+        "args_fields",
+        "map_fields",
+        "map_namespace_is_signed",
+        "selected_namespace_value",
+        "needed_name_read_size",
+        "map_pointer_chasing_beyond_selected_prefix",
+        "args_aux_fresh_at_checkpoint",
+        "args_pointer_assumed_in_RDI",
+        "live_readout_qualified"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "const": "selected_static_recipe_only"
+        },
+        "loader": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sha256",
+            "size_bytes",
+            "build_id"
+          ],
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "const": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307"
+            },
+            "size_bytes": {
+              "type": "integer",
+              "const": 225672
+            },
+            "build_id": {
+              "type": "string",
+              "const": "86f7eb4ff495ed3f2831c6d3d662e4321762a2a3"
+            }
+          }
+        },
+        "checkpoint_vaddr": {
+          "type": "integer",
+          "const": 13937
+        },
+        "checkpoint_file_offset": {
+          "type": "integer",
+          "const": 13937
+        },
+        "live_RIP_relation": {
+          "type": "string",
+          "const": "fresh_original_loader_load_bias_plus_checkpoint_vaddr"
+        },
+        "phase": {
+          "type": "string",
+          "const": "before_return_value_store_after_map_object_call"
+        },
+        "args_pointer_register": {
+          "type": "string",
+          "const": "RBX"
+        },
+        "provider_map_register": {
+          "type": "string",
+          "const": "RAX"
+        },
+        "args_bytes": {
+          "type": "integer",
+          "const": 40
+        },
+        "consumer_map_bytes": {
+          "type": "integer",
+          "const": 56
+        },
+        "provider_map_bytes": {
+          "type": "integer",
+          "const": 56
+        },
+        "args_fields": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "map",
+            "trace_mode",
+            "open_mode",
+            "strtab",
+            "name",
+            "aux"
+          ],
+          "properties": {
+            "map": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "offset_bytes",
+                "size_bytes"
+              ],
+              "properties": {
+                "offset_bytes": {
+                  "type": "integer",
+                  "const": 0
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 8
+                }
+              }
+            },
+            "trace_mode": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "offset_bytes",
+                "size_bytes"
+              ],
+              "properties": {
+                "offset_bytes": {
+                  "type": "integer",
+                  "const": 8
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 4
+                }
+              }
+            },
+            "open_mode": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "offset_bytes",
+                "size_bytes"
+              ],
+              "properties": {
+                "offset_bytes": {
+                  "type": "integer",
+                  "const": 12
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 4
+                }
+              }
+            },
+            "strtab": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "offset_bytes",
+                "size_bytes"
+              ],
+              "properties": {
+                "offset_bytes": {
+                  "type": "integer",
+                  "const": 16
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 8
+                }
+              }
+            },
+            "name": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "offset_bytes",
+                "size_bytes"
+              ],
+              "properties": {
+                "offset_bytes": {
+                  "type": "integer",
+                  "const": 24
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 8
+                }
+              }
+            },
+            "aux": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "offset_bytes",
+                "size_bytes"
+              ],
+              "properties": {
+                "offset_bytes": {
+                  "type": "integer",
+                  "const": 32
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 8
+                }
+              }
+            }
+          }
+        },
+        "map_fields": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "l_addr",
+            "l_ld",
+            "l_real",
+            "l_ns"
+          ],
+          "properties": {
+            "l_addr": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "offset_bytes",
+                "size_bytes"
+              ],
+              "properties": {
+                "offset_bytes": {
+                  "type": "integer",
+                  "const": 0
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 8
+                }
+              }
+            },
+            "l_ld": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "offset_bytes",
+                "size_bytes"
+              ],
+              "properties": {
+                "offset_bytes": {
+                  "type": "integer",
+                  "const": 16
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 8
+                }
+              }
+            },
+            "l_real": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "offset_bytes",
+                "size_bytes"
+              ],
+              "properties": {
+                "offset_bytes": {
+                  "type": "integer",
+                  "const": 40
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 8
+                }
+              }
+            },
+            "l_ns": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "offset_bytes",
+                "size_bytes"
+              ],
+              "properties": {
+                "offset_bytes": {
+                  "type": "integer",
+                  "const": 48
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 8
+                }
+              }
+            }
+          }
+        },
+        "map_namespace_is_signed": {
+          "type": "boolean",
+          "const": true
+        },
+        "selected_namespace_value": {
+          "type": "integer",
+          "const": 0
+        },
+        "needed_name_read_size": {
+          "type": "string",
+          "const": "unique_original_name_length_plus_one_NUL"
+        },
+        "map_pointer_chasing_beyond_selected_prefix": {
+          "type": "boolean",
+          "const": false
+        },
+        "args_aux_fresh_at_checkpoint": {
+          "type": "boolean",
+          "const": false
+        },
+        "args_pointer_assumed_in_RDI": {
+          "type": "boolean",
+          "const": false
+        },
+        "live_readout_qualified": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "occurrence_obligations": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "items": false,
+      "prefixItems": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "consumer",
+            "dynamic_program_header_index",
+            "dynamic_entry_ordinal",
+            "dynamic_entry_file_offset",
+            "dynamic_entry_vaddr",
+            "needed_ordinal",
+            "name",
+            "string_table_offset",
+            "name_file_offset",
+            "expected_provider",
+            "evidence_role",
+            "consumer_resolution_observed",
+            "dynamic_vaddr",
+            "strtab_vaddr",
+            "strtab_size_bytes",
+            "strtab_file_offset",
+            "name_pointer_addend_vaddr",
+            "name_with_NUL",
+            "pointer_base",
+            "runtime_pointer_or_map_observed"
+          ],
+          "properties": {
+            "consumer": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/bwrap"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "573236e5328ac2ebb08f59ae3a9805b4f8d12bdef14be8af4450d5463294985f"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 80248
+                }
+              }
+            },
+            "dynamic_program_header_index": {
+              "type": "integer",
+              "const": 6
+            },
+            "dynamic_entry_ordinal": {
+              "type": "integer",
+              "const": 0
+            },
+            "dynamic_entry_file_offset": {
+              "type": "integer",
+              "const": 76304
+            },
+            "dynamic_entry_vaddr": {
+              "type": "integer",
+              "const": 80400
+            },
+            "needed_ordinal": {
+              "type": "integer",
+              "const": 0
+            },
+            "name": {
+              "type": "string",
+              "const": "libselinux.so.1"
+            },
+            "string_table_offset": {
+              "type": "integer",
+              "const": 1171
+            },
+            "name_file_offset": {
+              "type": "integer",
+              "const": 5171
+            },
+            "expected_provider": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/libselinux.so.1"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 202984
+                }
+              }
+            },
+            "evidence_role": {
+              "type": "string",
+              "const": "static_candidate_only"
+            },
+            "consumer_resolution_observed": {
+              "type": "boolean",
+              "const": false
+            },
+            "dynamic_vaddr": {
+              "type": "integer",
+              "const": 80400
+            },
+            "strtab_vaddr": {
+              "type": "integer",
+              "const": 4000
+            },
+            "strtab_size_bytes": {
+              "type": "integer",
+              "const": 1353
+            },
+            "strtab_file_offset": {
+              "type": "integer",
+              "const": 4000
+            },
+            "name_pointer_addend_vaddr": {
+              "type": "integer",
+              "const": 5171
+            },
+            "name_with_NUL": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sha256",
+                "size_bytes",
+                "hex"
+              ],
+              "properties": {
+                "sha256": {
+                  "type": "string",
+                  "const": "5586a42892fd37ff5362bc9d019a40a3fd9f9194dabf8b993f1ee9fc832d0263"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 16
+                },
+                "hex": {
+                  "type": "string",
+                  "const": "6c696273656c696e75782e736f2e3100"
+                }
+              }
+            },
+            "pointer_base": {
+              "type": "string",
+              "const": "fresh_consumer_load_bias"
+            },
+            "runtime_pointer_or_map_observed": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "consumer",
+            "dynamic_program_header_index",
+            "dynamic_entry_ordinal",
+            "dynamic_entry_file_offset",
+            "dynamic_entry_vaddr",
+            "needed_ordinal",
+            "name",
+            "string_table_offset",
+            "name_file_offset",
+            "expected_provider",
+            "evidence_role",
+            "consumer_resolution_observed",
+            "dynamic_vaddr",
+            "strtab_vaddr",
+            "strtab_size_bytes",
+            "strtab_file_offset",
+            "name_pointer_addend_vaddr",
+            "name_with_NUL",
+            "pointer_base",
+            "runtime_pointer_or_map_observed"
+          ],
+          "properties": {
+            "consumer": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/bwrap"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "573236e5328ac2ebb08f59ae3a9805b4f8d12bdef14be8af4450d5463294985f"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 80248
+                }
+              }
+            },
+            "dynamic_program_header_index": {
+              "type": "integer",
+              "const": 6
+            },
+            "dynamic_entry_ordinal": {
+              "type": "integer",
+              "const": 1
+            },
+            "dynamic_entry_file_offset": {
+              "type": "integer",
+              "const": 76320
+            },
+            "dynamic_entry_vaddr": {
+              "type": "integer",
+              "const": 80416
+            },
+            "needed_ordinal": {
+              "type": "integer",
+              "const": 1
+            },
+            "name": {
+              "type": "string",
+              "const": "libcap.so.2"
+            },
+            "string_table_offset": {
+              "type": "integer",
+              "const": 1187
+            },
+            "name_file_offset": {
+              "type": "integer",
+              "const": 5187
+            },
+            "expected_provider": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/libcap.so.2"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "41217b0af128444f66dee8adda52b2ceaf19da00e5b0b155e2b87b857671286b"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 47288
+                }
+              }
+            },
+            "evidence_role": {
+              "type": "string",
+              "const": "static_candidate_only"
+            },
+            "consumer_resolution_observed": {
+              "type": "boolean",
+              "const": false
+            },
+            "dynamic_vaddr": {
+              "type": "integer",
+              "const": 80400
+            },
+            "strtab_vaddr": {
+              "type": "integer",
+              "const": 4000
+            },
+            "strtab_size_bytes": {
+              "type": "integer",
+              "const": 1353
+            },
+            "strtab_file_offset": {
+              "type": "integer",
+              "const": 4000
+            },
+            "name_pointer_addend_vaddr": {
+              "type": "integer",
+              "const": 5187
+            },
+            "name_with_NUL": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sha256",
+                "size_bytes",
+                "hex"
+              ],
+              "properties": {
+                "sha256": {
+                  "type": "string",
+                  "const": "df750d090f85212fb7102f3fa043b3a57a0a183c1c353f7bfcb767a5fb672758"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 12
+                },
+                "hex": {
+                  "type": "string",
+                  "const": "6c69626361702e736f2e3200"
+                }
+              }
+            },
+            "pointer_base": {
+              "type": "string",
+              "const": "fresh_consumer_load_bias"
+            },
+            "runtime_pointer_or_map_observed": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "consumer",
+            "dynamic_program_header_index",
+            "dynamic_entry_ordinal",
+            "dynamic_entry_file_offset",
+            "dynamic_entry_vaddr",
+            "needed_ordinal",
+            "name",
+            "string_table_offset",
+            "name_file_offset",
+            "expected_provider",
+            "evidence_role",
+            "consumer_resolution_observed",
+            "dynamic_vaddr",
+            "strtab_vaddr",
+            "strtab_size_bytes",
+            "strtab_file_offset",
+            "name_pointer_addend_vaddr",
+            "name_with_NUL",
+            "pointer_base",
+            "runtime_pointer_or_map_observed"
+          ],
+          "properties": {
+            "consumer": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/bwrap"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "573236e5328ac2ebb08f59ae3a9805b4f8d12bdef14be8af4450d5463294985f"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 80248
+                }
+              }
+            },
+            "dynamic_program_header_index": {
+              "type": "integer",
+              "const": 6
+            },
+            "dynamic_entry_ordinal": {
+              "type": "integer",
+              "const": 2
+            },
+            "dynamic_entry_file_offset": {
+              "type": "integer",
+              "const": 76336
+            },
+            "dynamic_entry_vaddr": {
+              "type": "integer",
+              "const": 80432
+            },
+            "needed_ordinal": {
+              "type": "integer",
+              "const": 2
+            },
+            "name": {
+              "type": "string",
+              "const": "libc.so.6"
+            },
+            "string_table_offset": {
+              "type": "integer",
+              "const": 1199
+            },
+            "name_file_offset": {
+              "type": "integer",
+              "const": 5199
+            },
+            "expected_provider": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/libc.so.6"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 1995216
+                }
+              }
+            },
+            "evidence_role": {
+              "type": "string",
+              "const": "static_candidate_only"
+            },
+            "consumer_resolution_observed": {
+              "type": "boolean",
+              "const": false
+            },
+            "dynamic_vaddr": {
+              "type": "integer",
+              "const": 80400
+            },
+            "strtab_vaddr": {
+              "type": "integer",
+              "const": 4000
+            },
+            "strtab_size_bytes": {
+              "type": "integer",
+              "const": 1353
+            },
+            "strtab_file_offset": {
+              "type": "integer",
+              "const": 4000
+            },
+            "name_pointer_addend_vaddr": {
+              "type": "integer",
+              "const": 5199
+            },
+            "name_with_NUL": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sha256",
+                "size_bytes",
+                "hex"
+              ],
+              "properties": {
+                "sha256": {
+                  "type": "string",
+                  "const": "ca0937c37cb31984ab453b9ca94dbfdfeda9527c62bb9be0a86e08907578e445"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 10
+                },
+                "hex": {
+                  "type": "string",
+                  "const": "6c6962632e736f2e3600"
+                }
+              }
+            },
+            "pointer_base": {
+              "type": "string",
+              "const": "fresh_consumer_load_bias"
+            },
+            "runtime_pointer_or_map_observed": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "consumer",
+            "dynamic_program_header_index",
+            "dynamic_entry_ordinal",
+            "dynamic_entry_file_offset",
+            "dynamic_entry_vaddr",
+            "needed_ordinal",
+            "name",
+            "string_table_offset",
+            "name_file_offset",
+            "expected_provider",
+            "evidence_role",
+            "consumer_resolution_observed",
+            "dynamic_vaddr",
+            "strtab_vaddr",
+            "strtab_size_bytes",
+            "strtab_file_offset",
+            "name_pointer_addend_vaddr",
+            "name_with_NUL",
+            "pointer_base",
+            "runtime_pointer_or_map_observed"
+          ],
+          "properties": {
+            "consumer": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/libc.so.6"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 1995216
+                }
+              }
+            },
+            "dynamic_program_header_index": {
+              "type": "integer",
+              "const": 6
+            },
+            "dynamic_entry_ordinal": {
+              "type": "integer",
+              "const": 0
+            },
+            "dynamic_entry_file_offset": {
+              "type": "integer",
+              "const": 1980736
+            },
+            "dynamic_entry_vaddr": {
+              "type": "integer",
+              "const": 1984832
+            },
+            "needed_ordinal": {
+              "type": "integer",
+              "const": 0
+            },
+            "name": {
+              "type": "string",
+              "const": "ld-linux-x86-64.so.2"
+            },
+            "string_table_offset": {
+              "type": "integer",
+              "const": 34478
+            },
+            "name_file_offset": {
+              "type": "integer",
+              "const": 148782
+            },
+            "expected_provider": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/ld-linux-x86-64.so.2"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 225672
+                }
+              }
+            },
+            "evidence_role": {
+              "type": "string",
+              "const": "static_candidate_only"
+            },
+            "consumer_resolution_observed": {
+              "type": "boolean",
+              "const": false
+            },
+            "dynamic_vaddr": {
+              "type": "integer",
+              "const": 1984832
+            },
+            "strtab_vaddr": {
+              "type": "integer",
+              "const": 114304
+            },
+            "strtab_size_bytes": {
+              "type": "integer",
+              "const": 35011
+            },
+            "strtab_file_offset": {
+              "type": "integer",
+              "const": 114304
+            },
+            "name_pointer_addend_vaddr": {
+              "type": "integer",
+              "const": 148782
+            },
+            "name_with_NUL": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sha256",
+                "size_bytes",
+                "hex"
+              ],
+              "properties": {
+                "sha256": {
+                  "type": "string",
+                  "const": "a3b2fe6ecbf935bfdb16e511d08dff5838828fb50ba3665a33716f91a3bf6d33"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 21
+                },
+                "hex": {
+                  "type": "string",
+                  "const": "6c642d6c696e75782d7838362d36342e736f2e3200"
+                }
+              }
+            },
+            "pointer_base": {
+              "type": "string",
+              "const": "fresh_consumer_load_bias"
+            },
+            "runtime_pointer_or_map_observed": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "consumer",
+            "dynamic_program_header_index",
+            "dynamic_entry_ordinal",
+            "dynamic_entry_file_offset",
+            "dynamic_entry_vaddr",
+            "needed_ordinal",
+            "name",
+            "string_table_offset",
+            "name_file_offset",
+            "expected_provider",
+            "evidence_role",
+            "consumer_resolution_observed",
+            "dynamic_vaddr",
+            "strtab_vaddr",
+            "strtab_size_bytes",
+            "strtab_file_offset",
+            "name_pointer_addend_vaddr",
+            "name_with_NUL",
+            "pointer_base",
+            "runtime_pointer_or_map_observed"
+          ],
+          "properties": {
+            "consumer": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/libcap.so.2"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "41217b0af128444f66dee8adda52b2ceaf19da00e5b0b155e2b87b857671286b"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 47288
+                }
+              }
+            },
+            "dynamic_program_header_index": {
+              "type": "integer",
+              "const": 6
+            },
+            "dynamic_entry_ordinal": {
+              "type": "integer",
+              "const": 0
+            },
+            "dynamic_entry_file_offset": {
+              "type": "integer",
+              "const": 43912
+            },
+            "dynamic_entry_vaddr": {
+              "type": "integer",
+              "const": 43912
+            },
+            "needed_ordinal": {
+              "type": "integer",
+              "const": 0
+            },
+            "name": {
+              "type": "string",
+              "const": "libc.so.6"
+            },
+            "string_table_offset": {
+              "type": "integer",
+              "const": 1441
+            },
+            "name_file_offset": {
+              "type": "integer",
+              "const": 5761
+            },
+            "expected_provider": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/libc.so.6"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 1995216
+                }
+              }
+            },
+            "evidence_role": {
+              "type": "string",
+              "const": "static_candidate_only"
+            },
+            "consumer_resolution_observed": {
+              "type": "boolean",
+              "const": false
+            },
+            "dynamic_vaddr": {
+              "type": "integer",
+              "const": 43912
+            },
+            "strtab_vaddr": {
+              "type": "integer",
+              "const": 4320
+            },
+            "strtab_size_bytes": {
+              "type": "integer",
+              "const": 1560
+            },
+            "strtab_file_offset": {
+              "type": "integer",
+              "const": 4320
+            },
+            "name_pointer_addend_vaddr": {
+              "type": "integer",
+              "const": 5761
+            },
+            "name_with_NUL": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sha256",
+                "size_bytes",
+                "hex"
+              ],
+              "properties": {
+                "sha256": {
+                  "type": "string",
+                  "const": "ca0937c37cb31984ab453b9ca94dbfdfeda9527c62bb9be0a86e08907578e445"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 10
+                },
+                "hex": {
+                  "type": "string",
+                  "const": "6c6962632e736f2e3600"
+                }
+              }
+            },
+            "pointer_base": {
+              "type": "string",
+              "const": "fresh_consumer_load_bias"
+            },
+            "runtime_pointer_or_map_observed": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "consumer",
+            "dynamic_program_header_index",
+            "dynamic_entry_ordinal",
+            "dynamic_entry_file_offset",
+            "dynamic_entry_vaddr",
+            "needed_ordinal",
+            "name",
+            "string_table_offset",
+            "name_file_offset",
+            "expected_provider",
+            "evidence_role",
+            "consumer_resolution_observed",
+            "dynamic_vaddr",
+            "strtab_vaddr",
+            "strtab_size_bytes",
+            "strtab_file_offset",
+            "name_pointer_addend_vaddr",
+            "name_with_NUL",
+            "pointer_base",
+            "runtime_pointer_or_map_observed"
+          ],
+          "properties": {
+            "consumer": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/libpcre2-8.so.0"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 711216
+                }
+              }
+            },
+            "dynamic_program_header_index": {
+              "type": "integer",
+              "const": 4
+            },
+            "dynamic_entry_ordinal": {
+              "type": "integer",
+              "const": 0
+            },
+            "dynamic_entry_file_offset": {
+              "type": "integer",
+              "const": 708056
+            },
+            "dynamic_entry_vaddr": {
+              "type": "integer",
+              "const": 712152
+            },
+            "needed_ordinal": {
+              "type": "integer",
+              "const": 0
+            },
+            "name": {
+              "type": "string",
+              "const": "libc.so.6"
+            },
+            "string_table_offset": {
+              "type": "integer",
+              "const": 2399
+            },
+            "name_file_offset": {
+              "type": "integer",
+              "const": 6167
+            },
+            "expected_provider": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/libc.so.6"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 1995216
+                }
+              }
+            },
+            "evidence_role": {
+              "type": "string",
+              "const": "static_candidate_only"
+            },
+            "consumer_resolution_observed": {
+              "type": "boolean",
+              "const": false
+            },
+            "dynamic_vaddr": {
+              "type": "integer",
+              "const": 712152
+            },
+            "strtab_vaddr": {
+              "type": "integer",
+              "const": 3768
+            },
+            "strtab_size_bytes": {
+              "type": "integer",
+              "const": 2480
+            },
+            "strtab_file_offset": {
+              "type": "integer",
+              "const": 3768
+            },
+            "name_pointer_addend_vaddr": {
+              "type": "integer",
+              "const": 6167
+            },
+            "name_with_NUL": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sha256",
+                "size_bytes",
+                "hex"
+              ],
+              "properties": {
+                "sha256": {
+                  "type": "string",
+                  "const": "ca0937c37cb31984ab453b9ca94dbfdfeda9527c62bb9be0a86e08907578e445"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 10
+                },
+                "hex": {
+                  "type": "string",
+                  "const": "6c6962632e736f2e3600"
+                }
+              }
+            },
+            "pointer_base": {
+              "type": "string",
+              "const": "fresh_consumer_load_bias"
+            },
+            "runtime_pointer_or_map_observed": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "consumer",
+            "dynamic_program_header_index",
+            "dynamic_entry_ordinal",
+            "dynamic_entry_file_offset",
+            "dynamic_entry_vaddr",
+            "needed_ordinal",
+            "name",
+            "string_table_offset",
+            "name_file_offset",
+            "expected_provider",
+            "evidence_role",
+            "consumer_resolution_observed",
+            "dynamic_vaddr",
+            "strtab_vaddr",
+            "strtab_size_bytes",
+            "strtab_file_offset",
+            "name_pointer_addend_vaddr",
+            "name_with_NUL",
+            "pointer_base",
+            "runtime_pointer_or_map_observed"
+          ],
+          "properties": {
+            "consumer": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/libselinux.so.1"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 202984
+                }
+              }
+            },
+            "dynamic_program_header_index": {
+              "type": "integer",
+              "const": 4
+            },
+            "dynamic_entry_ordinal": {
+              "type": "integer",
+              "const": 0
+            },
+            "dynamic_entry_file_offset": {
+              "type": "integer",
+              "const": 198192
+            },
+            "dynamic_entry_vaddr": {
+              "type": "integer",
+              "const": 198192
+            },
+            "needed_ordinal": {
+              "type": "integer",
+              "const": 0
+            },
+            "name": {
+              "type": "string",
+              "const": "libpcre2-8.so.0"
+            },
+            "string_table_offset": {
+              "type": "integer",
+              "const": 6778
+            },
+            "name_file_offset": {
+              "type": "integer",
+              "const": 18938
+            },
+            "expected_provider": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/libpcre2-8.so.0"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 711216
+                }
+              }
+            },
+            "evidence_role": {
+              "type": "string",
+              "const": "static_candidate_only"
+            },
+            "consumer_resolution_observed": {
+              "type": "boolean",
+              "const": false
+            },
+            "dynamic_vaddr": {
+              "type": "integer",
+              "const": 198192
+            },
+            "strtab_vaddr": {
+              "type": "integer",
+              "const": 12160
+            },
+            "strtab_size_bytes": {
+              "type": "integer",
+              "const": 7065
+            },
+            "strtab_file_offset": {
+              "type": "integer",
+              "const": 12160
+            },
+            "name_pointer_addend_vaddr": {
+              "type": "integer",
+              "const": 18938
+            },
+            "name_with_NUL": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sha256",
+                "size_bytes",
+                "hex"
+              ],
+              "properties": {
+                "sha256": {
+                  "type": "string",
+                  "const": "49343975da99a9139f83ec99bb72bce4243d96421a19d5851b9c3c81d34db835"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 16
+                },
+                "hex": {
+                  "type": "string",
+                  "const": "6c696270637265322d382e736f2e3000"
+                }
+              }
+            },
+            "pointer_base": {
+              "type": "string",
+              "const": "fresh_consumer_load_bias"
+            },
+            "runtime_pointer_or_map_observed": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "consumer",
+            "dynamic_program_header_index",
+            "dynamic_entry_ordinal",
+            "dynamic_entry_file_offset",
+            "dynamic_entry_vaddr",
+            "needed_ordinal",
+            "name",
+            "string_table_offset",
+            "name_file_offset",
+            "expected_provider",
+            "evidence_role",
+            "consumer_resolution_observed",
+            "dynamic_vaddr",
+            "strtab_vaddr",
+            "strtab_size_bytes",
+            "strtab_file_offset",
+            "name_pointer_addend_vaddr",
+            "name_with_NUL",
+            "pointer_base",
+            "runtime_pointer_or_map_observed"
+          ],
+          "properties": {
+            "consumer": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/libselinux.so.1"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 202984
+                }
+              }
+            },
+            "dynamic_program_header_index": {
+              "type": "integer",
+              "const": 4
+            },
+            "dynamic_entry_ordinal": {
+              "type": "integer",
+              "const": 1
+            },
+            "dynamic_entry_file_offset": {
+              "type": "integer",
+              "const": 198208
+            },
+            "dynamic_entry_vaddr": {
+              "type": "integer",
+              "const": 198208
+            },
+            "needed_ordinal": {
+              "type": "integer",
+              "const": 1
+            },
+            "name": {
+              "type": "string",
+              "const": "libc.so.6"
+            },
+            "string_table_offset": {
+              "type": "integer",
+              "const": 6794
+            },
+            "name_file_offset": {
+              "type": "integer",
+              "const": 18954
+            },
+            "expected_provider": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/libc.so.6"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 1995216
+                }
+              }
+            },
+            "evidence_role": {
+              "type": "string",
+              "const": "static_candidate_only"
+            },
+            "consumer_resolution_observed": {
+              "type": "boolean",
+              "const": false
+            },
+            "dynamic_vaddr": {
+              "type": "integer",
+              "const": 198192
+            },
+            "strtab_vaddr": {
+              "type": "integer",
+              "const": 12160
+            },
+            "strtab_size_bytes": {
+              "type": "integer",
+              "const": 7065
+            },
+            "strtab_file_offset": {
+              "type": "integer",
+              "const": 12160
+            },
+            "name_pointer_addend_vaddr": {
+              "type": "integer",
+              "const": 18954
+            },
+            "name_with_NUL": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sha256",
+                "size_bytes",
+                "hex"
+              ],
+              "properties": {
+                "sha256": {
+                  "type": "string",
+                  "const": "ca0937c37cb31984ab453b9ca94dbfdfeda9527c62bb9be0a86e08907578e445"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 10
+                },
+                "hex": {
+                  "type": "string",
+                  "const": "6c6962632e736f2e3600"
+                }
+              }
+            },
+            "pointer_base": {
+              "type": "string",
+              "const": "fresh_consumer_load_bias"
+            },
+            "runtime_pointer_or_map_observed": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "consumer",
+            "dynamic_program_header_index",
+            "dynamic_entry_ordinal",
+            "dynamic_entry_file_offset",
+            "dynamic_entry_vaddr",
+            "needed_ordinal",
+            "name",
+            "string_table_offset",
+            "name_file_offset",
+            "expected_provider",
+            "evidence_role",
+            "consumer_resolution_observed",
+            "dynamic_vaddr",
+            "strtab_vaddr",
+            "strtab_size_bytes",
+            "strtab_file_offset",
+            "name_pointer_addend_vaddr",
+            "name_with_NUL",
+            "pointer_base",
+            "runtime_pointer_or_map_observed"
+          ],
+          "properties": {
+            "consumer": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/libselinux.so.1"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 202984
+                }
+              }
+            },
+            "dynamic_program_header_index": {
+              "type": "integer",
+              "const": 4
+            },
+            "dynamic_entry_ordinal": {
+              "type": "integer",
+              "const": 2
+            },
+            "dynamic_entry_file_offset": {
+              "type": "integer",
+              "const": 198224
+            },
+            "dynamic_entry_vaddr": {
+              "type": "integer",
+              "const": 198224
+            },
+            "needed_ordinal": {
+              "type": "integer",
+              "const": 2
+            },
+            "name": {
+              "type": "string",
+              "const": "ld-linux-x86-64.so.2"
+            },
+            "string_table_offset": {
+              "type": "integer",
+              "const": 6804
+            },
+            "name_file_offset": {
+              "type": "integer",
+              "const": 18964
+            },
+            "expected_provider": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "sha256",
+                "size_bytes"
+              ],
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "const": "native/ld-linux-x86-64.so.2"
+                },
+                "sha256": {
+                  "type": "string",
+                  "const": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 225672
+                }
+              }
+            },
+            "evidence_role": {
+              "type": "string",
+              "const": "static_candidate_only"
+            },
+            "consumer_resolution_observed": {
+              "type": "boolean",
+              "const": false
+            },
+            "dynamic_vaddr": {
+              "type": "integer",
+              "const": 198192
+            },
+            "strtab_vaddr": {
+              "type": "integer",
+              "const": 12160
+            },
+            "strtab_size_bytes": {
+              "type": "integer",
+              "const": 7065
+            },
+            "strtab_file_offset": {
+              "type": "integer",
+              "const": 12160
+            },
+            "name_pointer_addend_vaddr": {
+              "type": "integer",
+              "const": 18964
+            },
+            "name_with_NUL": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "sha256",
+                "size_bytes",
+                "hex"
+              ],
+              "properties": {
+                "sha256": {
+                  "type": "string",
+                  "const": "a3b2fe6ecbf935bfdb16e511d08dff5838828fb50ba3665a33716f91a3bf6d33"
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "const": 21
+                },
+                "hex": {
+                  "type": "string",
+                  "const": "6c642d6c696e75782d7838362d36342e736f2e3200"
+                }
+              }
+            },
+            "pointer_base": {
+              "type": "string",
+              "const": "fresh_consumer_load_bias"
+            },
+            "runtime_pointer_or_map_observed": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        }
+      ]
+    },
+    "readout_checker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_origin",
+        "native_bytes_role",
+        "contemporaneous_backing_acquisition_authenticated",
+        "rflags_resume_policy_qualified",
+        "checkpoint_vaddr",
+        "argument_register",
+        "provider_register",
+        "argument_bytes",
+        "map_prefix_bytes",
+        "return_slot",
+        "entry_slot",
+        "dr7",
+        "samples_per_range",
+        "event_files",
+        "runtime_ranges",
+        "runtime_window_bytes",
+        "runtime_sample_bytes",
+        "needed_name_bytes",
+        "proc_file_bytes",
+        "control_bytes",
+        "loader_rx_bytes",
+        "fixture_set_events",
+        "invocation_mode_policy_qualified",
+        "actual_event_lifecycle_qualified"
+      ],
+      "properties": {
+        "evidence_origin": {
+          "type": "string",
+          "const": "authored_test_fixture"
+        },
+        "native_bytes_role": {
+          "type": "string",
+          "const": "pinned_original_fixture_inputs"
+        },
+        "contemporaneous_backing_acquisition_authenticated": {
+          "type": "boolean",
+          "const": false
+        },
+        "rflags_resume_policy_qualified": {
+          "type": "boolean",
+          "const": false
+        },
+        "checkpoint_vaddr": {
+          "type": "integer",
+          "const": 13937
+        },
+        "argument_register": {
+          "type": "string",
+          "const": "RBX"
+        },
+        "provider_register": {
+          "type": "string",
+          "const": "RAX"
+        },
+        "argument_bytes": {
+          "type": "integer",
+          "const": 40
+        },
+        "map_prefix_bytes": {
+          "type": "integer",
+          "const": 56
+        },
+        "return_slot": {
+          "type": "integer",
+          "const": 0
+        },
+        "entry_slot": {
+          "type": "integer",
+          "const": 1
+        },
+        "dr7": {
+          "type": "integer",
+          "const": 5
+        },
+        "samples_per_range": {
+          "type": "integer",
+          "const": 2
+        },
+        "event_files": {
+          "type": "integer",
+          "const": 22
+        },
+        "runtime_ranges": {
+          "type": "integer",
+          "const": 4
+        },
+        "runtime_window_bytes": {
+          "type": "integer",
+          "const": 4096
+        },
+        "runtime_sample_bytes": {
+          "type": "integer",
+          "const": 131072
+        },
+        "needed_name_bytes": {
+          "type": "integer",
+          "const": 256
+        },
+        "proc_file_bytes": {
+          "type": "integer",
+          "const": 65536
+        },
+        "control_bytes": {
+          "type": "integer",
+          "const": 1048576
+        },
+        "loader_rx_bytes": {
+          "type": "integer",
+          "const": 160721
+        },
+        "fixture_set_events": {
+          "type": "integer",
+          "const": 9
+        },
+        "invocation_mode_policy_qualified": {
+          "type": "boolean",
+          "const": false
+        },
+        "actual_event_lifecycle_qualified": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "two_slot_checker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "record_type",
+        "profile",
+        "evidence_origin",
+        "probe_entry",
+        "return_target",
+        "terminal_target",
+        "accepted_return_events",
+        "maximum_preserved_return_events",
+        "completed_total_ptrace_cont",
+        "post_entry_resumes",
+        "allowed_debug_writes",
+        "armed_dr7",
+        "dr6_reserved",
+        "ptrace_options",
+        "register_bytes",
+        "debug_register_bytes",
+        "siginfo_bytes",
+        "stable_samples",
+        "rflags_trap_flag_mask",
+        "rflags_trap_flag_must_be_clear",
+        "rflags_resume_policy_qualified",
+        "rflags_resume_flag_policy",
+        "observation_nanoseconds",
+        "cleanup_nanoseconds",
+        "wait_records",
+        "raw_files",
+        "raw_total_bytes",
+        "control_bytes",
+        "fixture_acceptance_is_live_qualification"
+      ],
+      "properties": {
+        "record_type": {
+          "type": "string",
+          "const": "required_gate_idempotence_loader_two_slot_fixture_transcript_v0"
+        },
+        "profile": {
+          "type": "string",
+          "const": "linux_x86_64_loader_two_slot_fixture_v0"
+        },
+        "evidence_origin": {
+          "type": "string",
+          "const": "authored_test_fixture"
+        },
+        "probe_entry": {
+          "type": "integer",
+          "const": 4194432
+        },
+        "return_target": {
+          "type": "integer",
+          "const": 4194437
+        },
+        "terminal_target": {
+          "type": "integer",
+          "const": 4194440
+        },
+        "accepted_return_events": {
+          "type": "integer",
+          "const": 9
+        },
+        "maximum_preserved_return_events": {
+          "type": "integer",
+          "const": 10
+        },
+        "completed_total_ptrace_cont": {
+          "type": "integer",
+          "const": 11
+        },
+        "post_entry_resumes": {
+          "type": "integer",
+          "const": 0
+        },
+        "allowed_debug_writes": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": false,
+          "prefixItems": [
+            {
+              "type": "integer",
+              "const": 0
+            },
+            {
+              "type": "integer",
+              "const": 1
+            },
+            {
+              "type": "integer",
+              "const": 6
+            },
+            {
+              "type": "integer",
+              "const": 7
+            }
+          ]
+        },
+        "armed_dr7": {
+          "type": "integer",
+          "const": 5
+        },
+        "dr6_reserved": {
+          "type": "integer",
+          "const": 4294905840
+        },
+        "ptrace_options": {
+          "type": "integer",
+          "const": 1048606
+        },
+        "register_bytes": {
+          "type": "integer",
+          "const": 216
+        },
+        "debug_register_bytes": {
+          "type": "integer",
+          "const": 48
+        },
+        "siginfo_bytes": {
+          "type": "integer",
+          "const": 128
+        },
+        "stable_samples": {
+          "type": "integer",
+          "const": 2
+        },
+        "rflags_trap_flag_mask": {
+          "type": "integer",
+          "const": 256
+        },
+        "rflags_trap_flag_must_be_clear": {
+          "type": "boolean",
+          "const": true
+        },
+        "rflags_resume_policy_qualified": {
+          "type": "boolean",
+          "const": false
+        },
+        "rflags_resume_flag_policy": {
+          "type": "string",
+          "const": "not_qualified_no_live_RF_value_selected"
+        },
+        "observation_nanoseconds": {
+          "type": "integer",
+          "const": 15000000000
+        },
+        "cleanup_nanoseconds": {
+          "type": "integer",
+          "const": 2000000000
+        },
+        "wait_records": {
+          "type": "integer",
+          "const": 20
+        },
+        "raw_files": {
+          "type": "integer",
+          "const": 160
+        },
+        "raw_total_bytes": {
+          "type": "integer",
+          "const": 1048576
+        },
+        "control_bytes": {
+          "type": "integer",
+          "const": 1048576
+        },
+        "fixture_acceptance_is_live_qualification": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "fixture_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowed_evidence_origin",
+        "actual_qualification_evidence_accepted",
+        "authored_fixture_is_actual_acquisition",
+        "hardware_fixture_and_original_readout_fixture_are_one_process",
+        "fixture_clock_is_observed_clock",
+        "fixture_success_can_close_source_build_gate"
+      ],
+      "properties": {
+        "allowed_evidence_origin": {
+          "type": "string",
+          "const": "authored_test_fixture"
+        },
+        "actual_qualification_evidence_accepted": {
+          "type": "boolean",
+          "const": false
+        },
+        "authored_fixture_is_actual_acquisition": {
+          "type": "boolean",
+          "const": false
+        },
+        "hardware_fixture_and_original_readout_fixture_are_one_process": {
+          "type": "boolean",
+          "const": false
+        },
+        "fixture_clock_is_observed_clock": {
+          "type": "boolean",
+          "const": false
+        },
+        "fixture_success_can_close_source_build_gate": {
+          "type": "boolean",
+          "const": false
+        }
+      }
+    },
+    "unresolved_prerequisites": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_build",
+        "invocation_modes",
+        "guard_and_environment",
+        "hardware",
+        "rflags_resume_policy",
+        "live_readout",
+        "original_request_capture_and_collector",
+        "actual_acquisition"
+      ],
+      "properties": {
+        "source_build": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "original_gate",
+            "status",
+            "recorded_gaps",
+            "accepted_build_evidence_policy",
+            "alternative_evidence_route_selected",
+            "package_version_build_id_debuglink_or_DWARF_is_build_provenance"
+          ],
+          "properties": {
+            "original_gate": {
+              "type": "string",
+              "const": "exact_original_loader_source_debug_binary_binding"
+            },
+            "status": {
+              "type": "string",
+              "const": "unsatisfied"
+            },
+            "recorded_gaps": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": false,
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "const": "source_to_binary_equivalence_not_independently_reproduced"
+                },
+                {
+                  "type": "string",
+                  "const": "authenticated_build_process_provenance_not_established"
+                }
+              ]
+            },
+            "accepted_build_evidence_policy": {
+              "type": "string",
+              "const": "not_selected"
+            },
+            "alternative_evidence_route_selected": {
+              "type": "boolean",
+              "const": false
+            },
+            "package_version_build_id_debuglink_or_DWARF_is_build_provenance": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        },
+        "invocation_modes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "trace_mode",
+            "open_mode",
+            "arbitrary_decoded_values_authorize_acquisition"
+          ],
+          "properties": {
+            "trace_mode": {
+              "type": "string",
+              "const": "decoded_but_selected_invocation_policy_not_qualified"
+            },
+            "open_mode": {
+              "type": "string",
+              "const": "decoded_but_selected_invocation_policy_not_qualified"
+            },
+            "arbitrary_decoded_values_authorize_acquisition": {
+              "type": "boolean",
+              "const": false
+            }
+          }
+        },
+        "guard_and_environment": {
+          "type": "string",
+          "const": "fresh_qualification_and_original_input_admission_required"
+        },
+        "hardware": {
+          "type": "string",
+          "const": "actual_same_environment_two_slot_qualification_required"
+        },
+        "rflags_resume_policy": {
+          "type": "string",
+          "const": "raw_flags_preserved_TF_forbidden_RF_resume_policy_not_qualified"
+        },
+        "live_readout": {
+          "type": "string",
+          "const": "actual_original_private_ABI_readout_not_qualified"
+        },
+        "original_request_capture_and_collector": {
+          "type": "string",
+          "const": "not_implemented_by_this_unit"
+        },
+        "actual_acquisition": {
+          "type": "string",
+          "const": "separate_review_and_owner_authorization_required"
+        }
+      }
+    },
+    "implementation_sources": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": false,
+      "prefixItems": [
+        {
+          "type": "string",
+          "const": "schemas/required_gate_idempotence_loader_readout_contract_v0.schema.json"
+        },
+        {
+          "type": "string",
+          "const": "schemas/required_gate_idempotence_loader_readout_event_v0.schema.json"
+        },
+        {
+          "type": "string",
+          "const": "schemas/required_gate_idempotence_loader_two_slot_v0.schema.json"
+        },
+        {
+          "type": "string",
+          "const": "tools/check_required_gate_idempotence_loader_readout_contract_v0.py"
+        },
+        {
+          "type": "string",
+          "const": "tools/required_gate_idempotence_loader_readout_v0.py"
+        },
+        {
+          "type": "string",
+          "const": "tools/required_gate_idempotence_loader_two_slot_v0.py"
+        }
+      ]
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "live_private_abi_readout_qualified",
+        "two_slot_breakpoint_qualified",
+        "invocation_mode_policy_qualified",
+        "rflags_resume_policy_qualified",
+        "contemporaneous_backing_acquisition_authenticated",
+        "source_binary_equivalence_verified",
+        "authenticated_build_provenance",
+        "source_build_gate_satisfied",
+        "original_acquisition_ready",
+        "original_acquisition_authorized",
+        "native_acquisition_performed",
+        "consumer_resolution_observed",
+        "loader_resolution_verified",
+        "complete_native_closure_verified",
+        "containment_enforced",
+        "selected_runtime_executed",
+        "production_gate_eligible",
+        "b2_complete",
+        "metric_pass",
+        "authority_effect"
+      ],
+      "properties": {
+        "live_private_abi_readout_qualified": {
+          "type": "boolean",
+          "const": false
+        },
+        "two_slot_breakpoint_qualified": {
+          "type": "boolean",
+          "const": false
+        },
+        "invocation_mode_policy_qualified": {
+          "type": "boolean",
+          "const": false
+        },
+        "rflags_resume_policy_qualified": {
+          "type": "boolean",
+          "const": false
+        },
+        "contemporaneous_backing_acquisition_authenticated": {
+          "type": "boolean",
+          "const": false
+        },
+        "source_binary_equivalence_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "authenticated_build_provenance": {
+          "type": "boolean",
+          "const": false
+        },
+        "source_build_gate_satisfied": {
+          "type": "boolean",
+          "const": false
+        },
+        "original_acquisition_ready": {
+          "type": "boolean",
+          "const": false
+        },
+        "original_acquisition_authorized": {
+          "type": "boolean",
+          "const": false
+        },
+        "native_acquisition_performed": {
+          "type": "boolean",
+          "const": false
+        },
+        "consumer_resolution_observed": {
+          "type": "boolean",
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "complete_native_closure_verified": {
+          "type": "boolean",
+          "const": false
+        },
+        "containment_enforced": {
+          "type": "boolean",
+          "const": false
+        },
+        "selected_runtime_executed": {
+          "type": "boolean",
+          "const": false
+        },
+        "production_gate_eligible": {
+          "type": "boolean",
+          "const": false
+        },
+        "b2_complete": {
+          "type": "boolean",
+          "const": false
+        },
+        "metric_pass": {
+          "type": "null",
+          "const": null
+        },
+        "authority_effect": {
+          "type": "string",
+          "const": "none"
+        }
+      }
+    }
+  }
+}

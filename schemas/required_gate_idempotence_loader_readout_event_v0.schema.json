@@ -1,0 +1,330 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pulsemech:required-gate-idempotence-loader-readout-event:v0",
+  "title": "Authored original-loader readout event fixture v0",
+  "description": "Data-only implementation fixture. Cannot represent actual acquisition, live private ABI qualification, source/build admission, or release authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "profile",
+    "evidence_origin",
+    "attempt_id",
+    "event_index",
+    "observer_pid",
+    "child_pid",
+    "child_starttime",
+    "stop_wait_status",
+    "raw_files",
+    "backings",
+    "runtime_ranges",
+    "loader_rx_range"
+  ],
+  "properties": {
+    "record_type": {
+      "const": "required_gate_idempotence_loader_readout_event_v0"
+    },
+    "profile": {
+      "const": "linux_x86_64_original_loader_readout_fixture_v0"
+    },
+    "evidence_origin": {
+      "const": "authored_test_fixture"
+    },
+    "attempt_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "event_index": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 8
+    },
+    "observer_pid": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "child_pid": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2147483647
+    },
+    "child_starttime": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "stop_wait_status": {
+      "const": 1407
+    },
+    "raw_files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "auxv.after.bin",
+        "auxv.before.bin",
+        "child.pidfd.info.bin",
+        "child.stat.after.bin",
+        "child.stat.before.bin",
+        "child.stat.setup.bin",
+        "child.status.after.bin",
+        "child.status.before.bin",
+        "child.status.setup.bin",
+        "debug.after.bin",
+        "debug.before.bin",
+        "loader.rx.sample0.bin",
+        "loader.rx.sample1.bin",
+        "maps.after.bin",
+        "maps.before.bin",
+        "memory.sample0.bin",
+        "memory.sample1.bin",
+        "observer.stat.bin",
+        "observer.status.bin",
+        "regs.after.bin",
+        "regs.before.bin",
+        "siginfo.bin"
+      ],
+      "properties": {
+        "auxv.after.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "auxv.before.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "child.pidfd.info.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "child.stat.after.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "child.stat.before.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "child.stat.setup.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "child.status.after.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "child.status.before.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "child.status.setup.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "debug.after.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "debug.before.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "loader.rx.sample0.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "loader.rx.sample1.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "maps.after.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "maps.before.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "memory.sample0.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "memory.sample1.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "observer.stat.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "observer.status.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "regs.after.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "regs.before.bin": {
+          "$ref": "#/$defs/binding"
+        },
+        "siginfo.bin": {
+          "$ref": "#/$defs/binding"
+        }
+      }
+    },
+    "backings": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "native_path",
+          "content",
+          "before",
+          "after"
+        ],
+        "properties": {
+          "native_path": {
+            "type": "string",
+            "enum": [
+              "native/bwrap",
+              "native/ld-linux-x86-64.so.2",
+              "native/libc.so.6",
+              "native/libcap.so.2",
+              "native/libpcre2-8.so.0",
+              "native/libselinux.so.1"
+            ]
+          },
+          "content": {
+            "$ref": "#/$defs/binding"
+          },
+          "before": {
+            "$ref": "#/$defs/stat"
+          },
+          "after": {
+            "$ref": "#/$defs/stat"
+          }
+        }
+      }
+    },
+    "runtime_ranges": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "address",
+          "offset",
+          "size_bytes"
+        ],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": [
+              "args",
+              "consumer_map",
+              "provider_map",
+              "needed_name"
+            ]
+          },
+          "address": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 140737488355327
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 131071
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          }
+        }
+      }
+    },
+    "loader_rx_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "address",
+        "size_bytes"
+      ],
+      "properties": {
+        "address": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 140737488355327
+        },
+        "size_bytes": {
+          "const": 160721
+        }
+      }
+    }
+  },
+  "$defs": {
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sha256",
+        "size_bytes"
+      ],
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16777216
+        }
+      }
+    },
+    "stat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_major",
+        "device_minor",
+        "inode",
+        "size_bytes",
+        "mode",
+        "nlink",
+        "mtime_ns",
+        "ctime_ns"
+      ],
+      "properties": {
+        "device_major": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "device_minor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "inode": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 18446744073709551615
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 16777216
+        },
+        "mode": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 65535
+        },
+        "nlink": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "mtime_ns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "ctime_ns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        }
+      }
+    }
+  }
+}
