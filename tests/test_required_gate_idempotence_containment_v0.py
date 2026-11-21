@@ -13541,3 +13541,807 @@ def test_loader_build_record_envelope_all_size_limits_precede_hashes(loader_buil
     monkeypatch.setattr(envelope.hashlib, "sha256", forbidden_hash)
     with pytest.raises(envelope.BuildEnvelopeError):
         envelope.extract_clearsigned_payload(altered)
+
+
+# Original independent rebuild attestations: bounded public-data verification.
+# These tests never rebuild or execute the selected original loader/runtime.
+LOADER_REBUILD_HELPER_REL = "tools/required_gate_idempotence_loader_rebuild_attestation_v0.py"
+LOADER_REBUILD_WRAPPER_REL = "tools/check_required_gate_idempotence_loader_rebuild_attestation_binding_v0.py"
+LOADER_REBUILD_DIR = "docs/compute/required_gate_idempotence_loader_rebuild_attestation_binding_v0"
+LOADER_REBUILD_RECORD_REL = LOADER_REBUILD_DIR + "/record_v0.json"
+LOADER_REBUILD_KEY_ID = "2980aa6249ad89ce0ef0f0f5e6d0896214301b2818aad33443444cf460df6ed6"
+LOADER_REBUILD_UNSELECTED_KEY_ID = "c70f1852977e382b45eea36783e59dd5f4413e39bdbed773ad0d83aa4d8212b9"
+LOADER_REBUILD_PUBLIC = bytes.fromhex("13ba298a31f08e49f88a736013fd3d4d290867f72dfd2b3e52ba8d30e5451718")
+LOADER_REBUILD_PACKAGES = (
+    "libc6_2.41-12+deb13u4_amd64.deb", "libc6-dbg_2.41-12+deb13u4_amd64.deb")
+LOADER_REBUILD_ATTESTATIONS = ("libc6_attestation.json", "libc6_dbg_attestation.json")
+
+
+@pytest.fixture(scope="module")
+def loader_rebuild_attestation_case(loader_build_record_case):
+    preservation = ROOT / LOADER_REBUILD_DIR / "preservation"
+    return SimpleNamespace(
+        helper=module("required_gate_idempotence_loader_rebuild_attestation_v0", LOADER_REBUILD_HELPER_REL),
+        attestations={name: (preservation / name).read_bytes() for name in LOADER_REBUILD_ATTESTATIONS},
+        public_keys=(preservation / "public_keys.json").read_bytes(),
+        buildinfo=loader_build_record_case.build_raw,
+        packages={name: loader_build_record_case.inputs[name] for name in LOADER_REBUILD_PACKAGES})
+
+
+def _loader_rebuild_check(case, **changes):
+    arguments = dict(attestations=case.attestations, public_keys_bytes=case.public_keys,
+                     buildinfo_bytes=case.buildinfo, packages=case.packages)
+    arguments.update(changes)
+    return case.helper.derive_attestation_facts(**arguments)
+
+
+def _loader_rebuild_selected_signature(value):
+    matches = [entry for entry in value["signatures"] if entry["keyid"] == LOADER_REBUILD_KEY_ID]
+    assert len(matches) == 1
+    return matches[0]
+
+
+def _loader_rebuild_oracle_signed_bytes(value):
+    # Both selected originals contain only printable ASCII names/digests,
+    # dicts, empty lists/dicts and null. This oracle makes no RFC8785 claim.
+    def checked(node):
+        if node is None:
+            return
+        if isinstance(node, str):
+            assert all(32 <= ord(char) <= 126 and char not in '\\"' for char in node)
+        elif isinstance(node, list):
+            for child in node:
+                checked(child)
+        else:
+            assert isinstance(node, dict)
+            for key, child in node.items():
+                checked(key)
+                checked(child)
+    checked(value)
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("ascii")
+
+
+@pytest.mark.parametrize("fault", [
+    "duplicate_root_key", "duplicate_nested_key", "float", "nonfinite", "root_extra",
+    "signed_extra", "signed_not_object", "wrong_type", "wrong_name", "extra_material",
+    "extra_product", "extra_digest", "uppercase_digest", "short_digest", "environment",
+    "command", "byproducts", "duplicate_signer", "empty_signatures", "short_signature",
+    "uppercase_signature", "signature_extra", "signatures_not_array", "unicode_name",
+])
+def test_loader_rebuild_ambiguous_or_out_of_profile_attestations_reject(loader_rebuild_attestation_case, fault):
+    case = loader_rebuild_attestation_case
+    name = LOADER_REBUILD_ATTESTATIONS[0]
+    value = json.loads(case.attestations[name])
+    signed = value["signed"]
+    product = signed["products"][LOADER_REBUILD_PACKAGES[0]]
+    if fault == "duplicate_root_key":
+        raw = encoded(value).replace(b'{"signatures":', b'{"signed":{},"signatures":', 1)
+    elif fault == "duplicate_nested_key":
+        raw = encoded(value).replace(b'"sha256":', b'"sha256":"' + b"0" * 64 + b'","sha256":', 1)
+    elif fault == "float":
+        raw = encoded(value).replace(b'"environment":null', b'"environment":1.0', 1)
+    elif fault == "nonfinite":
+        raw = encoded(value).replace(b'"environment":null', b'"environment":NaN', 1)
+    else:
+        if fault == "root_extra":
+            value["verified"] = True
+        elif fault == "signed_extra":
+            signed["builder_authority_verified"] = True
+        elif fault == "signed_not_object":
+            value["signed"] = []
+        elif fault == "wrong_type":
+            signed["_type"] = "layout"
+        elif fault == "wrong_name":
+            signed["name"] = "rebuild another.deb"
+        elif fault == "extra_material":
+            signed["materials"]["glibc_2.41.orig.tar.xz"] = {"sha256": "0" * 64, "sha512": "0" * 128}
+        elif fault == "extra_product":
+            signed["products"]["another.deb"] = dict(product)
+        elif fault == "extra_digest":
+            product["md5"] = "0" * 32
+        elif fault == "uppercase_digest":
+            product["sha256"] = product["sha256"].upper()
+        elif fault == "short_digest":
+            product["sha256"] = product["sha256"][:-1]
+        elif fault == "environment":
+            signed["environment"] = {"trusted": True}
+        elif fault == "command":
+            signed["command"] = ["true"]
+        elif fault == "byproducts":
+            signed["byproducts"] = {"return-value": 0}
+        elif fault == "duplicate_signer":
+            value["signatures"][0] = copy.deepcopy(_loader_rebuild_selected_signature(value))
+        elif fault == "empty_signatures":
+            value["signatures"] = []
+        elif fault == "short_signature":
+            _loader_rebuild_selected_signature(value)["sig"] = "0" * 126
+        elif fault == "uppercase_signature":
+            _loader_rebuild_selected_signature(value)["sig"] = _loader_rebuild_selected_signature(value)["sig"].upper()
+        elif fault == "signature_extra":
+            _loader_rebuild_selected_signature(value)["verified"] = True
+        elif fault == "signatures_not_array":
+            value["signatures"] = {entry["keyid"]: entry["sig"] for entry in value["signatures"]}
+        elif fault == "unicode_name":
+            signed["name"] += "\N{LATIN SMALL LETTER E WITH ACUTE}"
+        raw = encoded(value)
+    assert raw != case.attestations[name]
+    with pytest.raises(case.helper.RebuildAttestationError):
+        _loader_rebuild_check(case, attestations={**case.attestations, name: raw})
+
+
+@pytest.mark.parametrize("fault", ["unknown_field", "duplicate_key", "no_current_key", "duplicate_current_key",
+                                   "nonstring_key", "pem_base64", "pem_footer", "pem_trailing"])
+def test_loader_rebuild_public_key_endpoint_is_closed_and_bounded(loader_rebuild_attestation_case, fault):
+    case = loader_rebuild_attestation_case
+    value = json.loads(case.public_keys)
+    if fault == "duplicate_key":
+        raw = encoded(value).replace(b'{"current":', b'{"current":[],"current":', 1)
+    else:
+        if fault == "unknown_field":
+            value["trusted"] = True
+        elif fault == "no_current_key":
+            value["current"] = []
+        elif fault == "duplicate_current_key":
+            value["current"] *= 2
+        elif fault == "nonstring_key":
+            value["current"] = [True]
+        elif fault == "pem_base64":
+            value["current"][0] = value["current"][0].replace("MCww", "!Cww", 1)
+        elif fault == "pem_footer":
+            value["current"][0] = value["current"][0].replace("END PUBLIC KEY", "END PRIVATE KEY")
+        elif fault == "pem_trailing":
+            value["current"][0] += "injected\n"
+        raw = encoded(value)
+    with pytest.raises(case.helper.RebuildAttestationError):
+        _loader_rebuild_check(case, public_keys_bytes=raw)
+
+
+@pytest.mark.parametrize("which", LOADER_REBUILD_ATTESTATIONS)
+def test_loader_rebuild_selected_original_signature_tamper_rejects(loader_rebuild_attestation_case, which):
+    case = loader_rebuild_attestation_case
+    value = json.loads(case.attestations[which])
+    selected = _loader_rebuild_selected_signature(value)
+    signature = bytes.fromhex(selected["sig"])
+    selected["sig"] = (bytes([signature[0] ^ 1]) + signature[1:]).hex()
+    with pytest.raises(case.helper.RebuildAttestationError, match="selected_signature_invalid"):
+        _loader_rebuild_check(case, attestations={**case.attestations, which: encoded(value)})
+
+
+@pytest.mark.parametrize("which", LOADER_REBUILD_PACKAGES)
+def test_loader_rebuild_original_package_bytes_must_match_the_signed_product(loader_rebuild_attestation_case, which):
+    case = loader_rebuild_attestation_case
+    raw = case.packages[which]
+    altered = bytes([raw[0] ^ 1]) + raw[1:]
+    with pytest.raises(case.helper.RebuildAttestationError):
+        _loader_rebuild_check(case, packages={**case.packages, which: altered})
+
+
+def test_loader_rebuild_complete_original_buildinfo_bytes_are_the_signed_material(loader_rebuild_attestation_case):
+    case = loader_rebuild_attestation_case
+    altered = case.buildinfo.replace(b"Build-Origin: Debian", b"Build-Origin: DebiaN", 1)
+    assert len(altered) == len(case.buildinfo) and altered != case.buildinfo
+    with pytest.raises(case.helper.RebuildAttestationError):
+        _loader_rebuild_check(case, buildinfo_bytes=altered)
+
+
+@pytest.mark.parametrize("fault", ["coherent_product_substitution", "unselected_signature_as_selected"])
+def test_loader_rebuild_coherent_substitution_and_signature_reuse_reject(loader_rebuild_attestation_case, fault):
+    case = loader_rebuild_attestation_case
+    name = LOADER_REBUILD_ATTESTATIONS[0]
+    value = json.loads(case.attestations[name])
+    packages = dict(case.packages)
+    if fault == "coherent_product_substitution":
+        original = packages[LOADER_REBUILD_PACKAGES[0]]
+        changed = bytes([original[0] ^ 1]) + original[1:]
+        packages[LOADER_REBUILD_PACKAGES[0]] = changed
+        product = value["signed"]["products"][LOADER_REBUILD_PACKAGES[0]]
+        product["sha256"] = hashlib.sha256(changed).hexdigest()
+        product["sha512"] = hashlib.sha512(changed).hexdigest()
+    else:
+        unselected = next(item for item in value["signatures"] if item["keyid"] == LOADER_REBUILD_UNSELECTED_KEY_ID)
+        _loader_rebuild_selected_signature(value)["sig"] = unselected["sig"]
+    expected_code = "rebuild_package_sha256" if fault == "coherent_product_substitution" else "selected_signature_invalid"
+    with pytest.raises(case.helper.RebuildAttestationError, match=expected_code):
+        _loader_rebuild_check(case, attestations={**case.attestations, name: encoded(value)}, packages=packages)
+
+
+@pytest.fixture(scope="module")
+def loader_rebuild_binding_case(loader_build_record_binding_case, loader_rebuild_attestation_case):
+    prior = loader_build_record_binding_case
+    raw = (ROOT / LOADER_REBUILD_RECORD_REL).read_bytes()
+    return SimpleNamespace(
+        checker=module("check_required_gate_idempotence_loader_rebuild_attestation_binding_v0",
+                       LOADER_REBUILD_WRAPPER_REL),
+        raw=raw, value=json.loads(raw), prior=prior, attested=loader_rebuild_attestation_case)
+
+
+def _loader_rebuild_binding_check(case, raw=None, **changes):
+    raw = case.raw if raw is None else raw
+    arguments = dict(record_bytes=raw, expected_record_sha256=digest(raw),
+                     build_record_bytes=case.prior.raw, startup_contract_bytes=case.prior.startup_raw,
+                     prior_contract_bytes=case.prior.prior_raw, static_record_bytes=case.prior.static_case.raw,
+                     historical_entry_archive_bytes=case.prior.static_case.baseline,
+                     artifact_members=case.prior.static_case.artifacts, build_carriers=case.prior.carriers,
+                     attestations=case.attested.attestations, public_keys_bytes=case.attested.public_keys)
+    arguments.update(changes)
+    return case.checker.verify_binding(**arguments)
+
+
+@pytest.fixture(scope="module")
+def loader_rebuild_binding_report(loader_rebuild_binding_case):
+    case = loader_rebuild_binding_case
+    real_prior = case.checker.prior.verify_binding
+    real_derive = case.checker.rebuild.derive_attestation_facts
+    real_verify = case.attested.helper.crypto.OpenSSLVerifier.verify
+    real_popen = subprocess.Popen
+    prior_results, derive_results, crypto_calls, commands = [], [], [], []
+
+    def prior_spy(**arguments):
+        result = real_prior(**arguments)
+        prior_results.append((arguments, result))
+        return result
+
+    def derive_spy(**arguments):
+        result = real_derive(**arguments)
+        derive_results.append((arguments, result))
+        return result
+
+    def verify_spy(verifier, key, signature, message):
+        result = real_verify(verifier, key, signature, message)
+        crypto_calls.append((key, signature, message, result))
+        return result
+
+    def public_crypto_only(command, *arguments, **options):
+        assert type(command) is list and command[0] == "/usr/bin/openssl"
+        assert command[1:] == ["version"] or command[1:] == [
+            "pkeyutl", "-verify", "-pubin", "-keyform", "DER", "-inkey", "key.der",
+            "-rawin", "-in", "message.bin", "-sigfile", "signature.bin", "-provider", "default"]
+        assert options.get("shell") is False
+        assert options.get("env") == {"PATH": "/usr/bin:/bin", "LC_ALL": "C", "LANG": "C",
+                                      "OPENSSL_CONF": "/dev/null"}
+        commands.append(list(command))
+        return real_popen(command, *arguments, **options)
+
+    def forbidden(*_arguments, **_options):
+        raise AssertionError("rebuild binding attempted original/native execution or network")
+
+    import socket
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(case.checker.prior, "verify_binding", prior_spy)
+        patch.setattr(case.checker.rebuild, "derive_attestation_facts", derive_spy)
+        patch.setattr(case.attested.helper.crypto.OpenSSLVerifier, "verify", verify_spy)
+        patch.setattr(subprocess, "Popen", public_crypto_only)
+        patch.setattr(os, "system", forbidden)
+        patch.setattr(os, "fork", forbidden)
+        patch.setattr(socket, "create_connection", forbidden)
+        result = _loader_rebuild_binding_check(case)
+    assert len(prior_results) == len(derive_results) == 1
+    case.prior_arguments, case.prior_report = prior_results[0]
+    case.rebuild_arguments, case.rebuild_facts = derive_results[0]
+    case.crypto_calls, case.crypto_commands = crypto_calls, commands
+    return result
+
+
+def test_loader_rebuild_original_signatures_match_independent_in_toto_byte_oracle(
+        loader_rebuild_binding_case, loader_rebuild_binding_report):
+    case, facts = loader_rebuild_binding_case, loader_rebuild_binding_case.rebuild_facts
+    originals = case.attested
+    expected_signed = {
+        "libc6_attestation.json": (650, "fc3816be7123f704db4a46bad4c4c8b25a0def0186f23267749ca110768e4b67"),
+        "libc6_dbg_attestation.json": (658, "6d633f4c6bd0ba28ef61251a28cbcd0b2c072ccd49a6ddff15aeb148563a4887"),
+    }
+    selected_calls = [call for call in case.crypto_calls if call[0] == LOADER_REBUILD_PUBLIC]
+    assert len(selected_calls) == 2 and all(call[3] is True for call in selected_calls)
+    kat_calls = [call for call in case.crypto_calls if call[0] == originals.helper.crypto.KAT_PUBLIC]
+    assert [call[3] for call in kat_calls] == [True, False]
+    assert case.crypto_commands[0] == ["/usr/bin/openssl", "version"]
+    assert len(case.crypto_commands) >= 4  # version, positive KAT, both genuine selected statements
+    for row in facts["attestations"]:
+        raw = originals.attestations[row["filename"]]
+        value = json.loads(raw)
+        message = _loader_rebuild_oracle_signed_bytes(value["signed"])
+        assert (len(message), digest(message)) == expected_signed[row["filename"]]
+        assert not message.endswith(b"\n") and message != raw
+        assert row["signed_canonical_bytes"] == bound(message)
+        selected = bytes.fromhex(_loader_rebuild_selected_signature(value)["sig"])
+        assert (LOADER_REBUILD_PUBLIC, selected, message, True) in selected_calls
+        assert row["carrier"] == bound(raw)
+        assert row["selected_signature_verified"] is True
+        assert row["other_signature_verified"] is row["signature_quorum_established"] is False
+        assert (row["listed_signature_count"], row["selected_verified_signature_count"]) == (2, 1)
+        assert [(entry["keyid"], entry["selected"], entry["signature_verified"])
+                for entry in row["signatures"]] == [
+                    (LOADER_REBUILD_KEY_ID, True, True), (LOADER_REBUILD_UNSELECTED_KEY_ID, False, False)]
+        product_name = row["product_filename"]
+        material_hashes = {"sha256": digest(originals.buildinfo),
+                           "sha512": hashlib.sha512(originals.buildinfo).hexdigest()}
+        product_hashes = {"sha256": digest(originals.packages[product_name]),
+                          "sha512": hashlib.sha512(originals.packages[product_name]).hexdigest()}
+        assert value["signed"]["materials"] == {"glibc_2.41-12+deb13u4_amd64.buildinfo": material_hashes}
+        assert value["signed"]["products"] == {product_name: product_hashes}
+        assert row["complete_material_bytes_joined"] is row["complete_product_bytes_joined"] is True
+    key_object = {"keyid_hash_algorithms": ["sha256", "sha512"], "keytype": "ed25519",
+                  "keyval": {"public": LOADER_REBUILD_PUBLIC.hex()}, "scheme": "ed25519"}
+    canonical_key = _loader_rebuild_oracle_signed_bytes(key_object)
+    assert (len(canonical_key), digest(canonical_key)) == (171, LOADER_REBUILD_KEY_ID)
+    key = facts["public_key"]
+    assert key["canonical_key_object"] == key_object and key["canonical_key_bytes"] == bound(canonical_key)
+    pem = json.loads(originals.public_keys)["current"][0]
+    der = base64.b64decode(pem.splitlines()[1], validate=True)
+    assert der == bytes.fromhex("302c300706032b65700500032100") + LOADER_REBUILD_PUBLIC
+    assert key["original_spki_der"] == bound(der) and key["pem"] == bound(pem.encode("ascii"))
+    assert key["original_spki_explicit_null_parameters"] is key["backend_spki_parameters_absent"] is True
+    assert key["historical_role_authenticated"] is False
+    assert facts["verified_attestation_count"] == 2 and facts["selected_signature_verified"] is True
+    assert facts["limitations"] == originals.helper.LIMITATIONS
+    assert facts["boundary"] == originals.helper.BOUNDARY
+    assert facts["boundary"]["source_build_gate_satisfied"] is facts["boundary"]["b2_complete"] is False
+    assert facts["backend_observation"]["known_answer_self_test"] == "passed"
+
+
+def test_loader_rebuild_transport_format_does_not_change_the_signed_bytes(
+        loader_rebuild_binding_case, loader_rebuild_binding_report):
+    case = loader_rebuild_binding_case
+
+    def reorder(value):
+        if isinstance(value, dict):
+            return {key: reorder(value[key]) for key in reversed(list(value))}
+        if isinstance(value, list):
+            return [reorder(item) for item in value]
+        return value
+
+    attestations = {name: json.dumps(reorder(json.loads(raw)), indent=2).encode("ascii") + b"\n\n"
+                    for name, raw in case.attested.attestations.items()}
+    # An ASCII unicode escape in the transport has the same decoded value.
+    attestations[LOADER_REBUILD_ATTESTATIONS[0]] = attestations[LOADER_REBUILD_ATTESTATIONS[0]].replace(
+        b'"link"', b'"\\u006cink"', 1)
+    keys = json.dumps(json.loads(case.attested.public_keys), indent=2).encode("ascii") + b"\n"
+    facts = _loader_rebuild_check(case.attested, attestations=attestations, public_keys_bytes=keys)
+    before = case.rebuild_facts
+    assert facts["public_key"]["response"] != before["public_key"]["response"]
+    assert facts["public_key"]["keyid"] == before["public_key"]["keyid"]
+    for actual, original in zip(facts["attestations"], before["attestations"]):
+        assert actual["carrier"] != original["carrier"]
+        for field in ("signed_canonical_bytes", "signed_link", "signatures", "selected_signature_verified",
+                      "other_signature_verified", "signature_quorum_established"):
+            assert actual[field] == original[field]
+    assert facts["boundary"] == before["boundary"]
+
+
+@pytest.mark.parametrize("which", LOADER_REBUILD_ATTESTATIONS)
+def test_loader_rebuild_unselected_signature_has_no_verified_identity_or_quorum(
+        loader_rebuild_attestation_case, which):
+    case = loader_rebuild_attestation_case
+    value = json.loads(case.attestations[which])
+    other = next(item for item in value["signatures"] if item["keyid"] == LOADER_REBUILD_UNSELECTED_KEY_ID)
+    other["sig"] = "00" * 64
+    # This deliberately invalid other signature remains only a listed byte
+    # carrier. Only the separately selected original signature is verified.
+    facts = _loader_rebuild_check(case, attestations={**case.attestations, which: encoded(value)})
+    row = next(item for item in facts["attestations"] if item["filename"] == which)
+    listed = next(item for item in row["signatures"] if item["keyid"] == LOADER_REBUILD_UNSELECTED_KEY_ID)
+    assert listed["signature"] == bound(bytes(64))
+    assert listed["selected"] is listed["signature_verified"] is False
+    assert row["selected_signature_verified"] is True
+    assert row["selected_verified_signature_count"] == 1
+    assert row["other_signature_verified"] is row["signature_quorum_established"] is False
+    assert facts["boundary"]["rebuilder_identity_authenticated"] is False
+    assert facts["boundary"]["rebuild_process_independence_verified"] is False
+
+
+@pytest.mark.parametrize("fault", ["algorithm_oid", "null_parameter", "different_public_key"])
+def test_loader_rebuild_pem_key_is_selected_by_complete_der_and_raw_key(
+        loader_rebuild_attestation_case, monkeypatch, fault):
+    case = loader_rebuild_attestation_case
+    value = json.loads(case.public_keys)
+    pem = value["current"][0]
+    der = bytearray(base64.b64decode(pem.splitlines()[1], validate=True))
+    offset = {"algorithm_oid": 8, "null_parameter": 9, "different_public_key": len(der) - 1}[fault]
+    der[offset] ^= 1
+    value["current"][0] = ("-----BEGIN PUBLIC KEY-----\r\n" + base64.b64encode(der).decode("ascii")
+                            + "\r\n-----END PUBLIC KEY-----\r\n")
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("an unselected DER/public key reached crypto")
+
+    monkeypatch.setattr(case.helper.crypto, "OpenSSLVerifier", forbidden)
+    with pytest.raises(case.helper.RebuildAttestationError,
+                       match="rebuild_public_key_selected" if fault == "different_public_key" else "rebuild_public_key_der"):
+        _loader_rebuild_check(case, public_keys_bytes=encoded(value))
+
+
+@pytest.mark.parametrize("section,algorithm", [(section, algorithm) for section in ("materials", "products")
+                                               for algorithm in ("sha256", "sha512")])
+def test_loader_rebuild_each_signed_digest_algorithm_joins_complete_bytes(
+        loader_rebuild_attestation_case, monkeypatch, section, algorithm):
+    case = loader_rebuild_attestation_case
+    name = LOADER_REBUILD_ATTESTATIONS[0]
+    value = json.loads(case.attestations[name])
+    entry = next(iter(value["signed"][section].values()))
+    entry[algorithm] = "0" * len(entry[algorithm])
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("mismatched material/product digest reached crypto")
+
+    monkeypatch.setattr(case.helper.crypto, "OpenSSLVerifier", forbidden)
+    with pytest.raises(case.helper.RebuildAttestationError,
+                       match="rebuild_material_digest" if section == "materials" else "rebuild_product_digest"):
+        _loader_rebuild_check(case, attestations={**case.attestations, name: encoded(value)})
+
+
+@pytest.mark.parametrize("fault", [
+    "empty_attestation", "long_attestation", "nonbytes_attestation", "long_keys", "nonbytes_keys",
+    "short_buildinfo", "long_libc6", "long_debug", "missing_attestation", "extra_attestation",
+    "missing_package", "extra_package",
+])
+def test_loader_rebuild_all_raw_extents_and_rosters_precede_hash_parse_and_crypto(
+        loader_rebuild_attestation_case, monkeypatch, fault):
+    case = loader_rebuild_attestation_case
+    attestations, packages = dict(case.attestations), dict(case.packages)
+    keys, buildinfo = case.public_keys, case.buildinfo
+    if fault in {"empty_attestation", "long_attestation", "nonbytes_attestation"}:
+        attestations[LOADER_REBUILD_ATTESTATIONS[-1]] = {
+            "empty_attestation": b"", "long_attestation": b"x" * (case.helper.POLICY["attestation_bytes"] + 1),
+            "nonbytes_attestation": "not bytes"}[fault]
+    elif fault == "long_keys":
+        keys = b"x" * (case.helper.POLICY["public_keys_bytes"] + 1)
+    elif fault == "nonbytes_keys":
+        keys = bytearray(keys)
+    elif fault == "short_buildinfo":
+        buildinfo = buildinfo[:-1]
+    elif fault in {"long_libc6", "long_debug"}:
+        name = LOADER_REBUILD_PACKAGES[0 if fault == "long_libc6" else 1]
+        packages[name] += b"x"
+    elif fault == "missing_attestation":
+        attestations.pop(LOADER_REBUILD_ATTESTATIONS[-1])
+    elif fault == "extra_attestation":
+        attestations["other.json"] = b"{}"
+    elif fault == "missing_package":
+        packages.pop(LOADER_REBUILD_PACKAGES[-1])
+    else:
+        packages["other.deb"] = b"x"
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("raw extent or roster was not checked before hash/parse/crypto")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(case.helper.hashlib, "sha256", forbidden)
+        patch.setattr(case.helper.hashlib, "sha512", forbidden)
+        patch.setattr(case.helper, "_load", forbidden)
+        patch.setattr(case.helper.crypto, "OpenSSLVerifier", forbidden)
+        with pytest.raises(case.helper.RebuildAttestationError):
+            _loader_rebuild_check(case, attestations=attestations, public_keys_bytes=keys,
+                                 buildinfo_bytes=buildinfo, packages=packages)
+
+
+@pytest.mark.parametrize("fault", ["depth", "node_count"])
+def test_loader_rebuild_json_complexity_is_bounded_before_crypto(loader_rebuild_attestation_case, monkeypatch, fault):
+    case = loader_rebuild_attestation_case
+    value = json.loads(case.attestations[LOADER_REBUILD_ATTESTATIONS[0]])
+    if fault == "depth":
+        child = None
+        for _ in range(case.helper.POLICY["json_depth"] + 1):
+            child = [child]
+    else:
+        child = [None] * (case.helper.POLICY["json_nodes"] + 1)
+    value["signed"]["environment"] = child
+    raw = encoded(value)
+    assert len(raw) < case.helper.POLICY["attestation_bytes"]
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("out-of-bounds JSON reached crypto")
+
+    monkeypatch.setattr(case.helper.crypto, "OpenSSLVerifier", forbidden)
+    with pytest.raises(case.helper.RebuildAttestationError, match="rebuild_json_complexity"):
+        _loader_rebuild_check(case, attestations={**case.attestations, LOADER_REBUILD_ATTESTATIONS[0]: raw})
+
+
+@pytest.mark.parametrize("failure", [OSError, RuntimeError, subprocess.SubprocessError])
+def test_loader_rebuild_crypto_backend_failure_never_returns_verification_facts(
+        loader_rebuild_attestation_case, monkeypatch, failure):
+    case = loader_rebuild_attestation_case
+
+    def unavailable():
+        raise failure("private installation detail must not escape")
+
+    monkeypatch.setattr(case.helper.crypto, "OpenSSLVerifier", unavailable)
+    with pytest.raises(case.helper.RebuildAttestationError, match="^rebuild_crypto_backend_failure$"):
+        _loader_rebuild_check(case)
+
+
+def test_loader_rebuild_binding_freshly_reconstructs_the_same_source_and_package_chain(
+        loader_rebuild_binding_case, loader_rebuild_binding_report):
+    case, report = loader_rebuild_binding_case, loader_rebuild_binding_report
+    assert report["status"] == "accepted_rebuild_attestation_binding"
+    for field in ("record_binding_verified", "original_rebuild_carrier_bytes_verified",
+                  "prior_build_record_chain_reconstructed", "rebuild_signature_mathematics_verified",
+                  "signed_buildinfo_and_product_byte_bindings_verified"):
+        assert report[field] is True
+    assert (report["verified_selected_signatures"], report["unverified_other_signatures"],
+            report["selected_original_binary_packages"], report["selected_original_buildinfo_carriers"]) == (2, 2, 2, 1)
+    assert case.prior_arguments["record_bytes"] == case.prior.raw
+    assert case.prior_arguments["expected_record_sha256"] == digest(case.prior.raw)
+    assert case.prior_arguments["startup_contract_bytes"] == case.prior.startup_raw
+    assert case.prior_arguments["prior_contract_bytes"] == case.prior.prior_raw
+    assert case.prior_arguments["static_record_bytes"] == case.prior.static_case.raw
+    assert case.prior_arguments["historical_entry_archive_bytes"] == case.prior.static_case.baseline
+    assert case.prior_arguments["artifact_members"] is case.prior.static_case.artifacts
+    assert case.prior_arguments["carriers"] is case.prior.carriers
+    assert case.rebuild_arguments["buildinfo_bytes"] == case.prior.carriers[case.checker.prior.BUILDINFO_NAME]
+    assert case.rebuild_arguments["packages"] == case.attested.packages
+    assert case.rebuild_arguments["attestations"] is case.attested.attestations
+    assert case.rebuild_arguments["public_keys_bytes"] == case.attested.public_keys
+    assert case.prior_report["status"] == "accepted_record_binding"
+    assert case.prior_report["prior_startup_static_chain_reconstructed"] is True
+    assert case.prior_report["selected_binary_package_bytes_verified"] == 2
+    assert report["prior_report"] == bound(case.checker.prior.canonical(case.prior_report))
+    assert report["record"] == bound(case.raw)
+    expected_facts = {key: value for key, value in case.rebuild_facts.items() if key != "backend_observation"}
+    assert case.value["rebuild_attestation_facts"] == expected_facts
+    assert report["rebuild_attestation_facts"] == bound(case.checker.canonical(expected_facts))
+    assert report["backend_observation"] == case.rebuild_facts["backend_observation"]
+    assert "backend_observation" not in case.value["rebuild_attestation_facts"]
+    assert case.value["runtime_backend_policy"]["host_specific_backend_identity_is_authored_constant"] is False
+    for path, expected in report["prior_sources"].items():
+        assert bound((ROOT / path).read_bytes()) == expected
+    for path, expected in report["implementation_sources"].items():
+        assert bound((ROOT / path).read_bytes()) == expected
+    for field, expected in case.checker.BOUNDARY.items():
+        assert type(report[field]) is type(expected) and report[field] == expected
+    assert report["source_build_gate_satisfied"] is report["original_acquisition_ready"] is report["b2_complete"] is False
+    assert report["metric_pass"] is None and report["authority_effect"] == "none"
+    assert "signature_verified" not in report and "authenticated_payload" not in report
+    assert report["buildinfo_signature_verified"] is report["changes_signature_verified"] is False
+    missing = report["missing_build_evidence"]
+    assert missing["accepted_build_evidence_policy"] == "not_selected"
+    assert len(missing["missing_for_candidate_route"]) == 3
+    assert missing["both_buildd_authentication_and_independent_rebuild_required"] is False
+
+
+@pytest.mark.parametrize("expected", [None, True, "f" * 64])
+def test_loader_rebuild_binding_requires_an_external_matching_digest(loader_rebuild_binding_case, expected):
+    case = loader_rebuild_binding_case
+    with pytest.raises(case.checker.BindingError):
+        _loader_rebuild_binding_check(case, expected_record_sha256=expected)
+
+
+@pytest.mark.parametrize("fault", [
+    "duplicate", "float", "unknown", "key_identity", "historical_key_authority", "second_signature",
+    "signature_quorum", "direct_source_hashes", "source_build_gate", "provenance", "original_buildd",
+    "authority", "metric", "acquisition", "b2", "selected_policy", "remove_gap", "saved_prior_verdict",
+    "skip_fresh_chain", "authored_backend_identity", "backend_closure", "retrieval_authority",
+])
+def test_loader_rebuild_binding_rehashed_authority_and_statement_promotions_reject(loader_rebuild_binding_case, fault):
+    case = loader_rebuild_binding_case
+    value = copy.deepcopy(case.value)
+    facts = value["rebuild_attestation_facts"]
+    if fault == "duplicate":
+        raw = b'{"profile":"other",' + case.raw[1:]
+    else:
+        if fault == "float":
+            facts["verified_attestation_count"] = 2.0
+        elif fault == "unknown":
+            value["saved_accepted_verdict"] = True
+        elif fault == "key_identity":
+            facts["public_key"]["raw_public_key_hex"] = "00" * 32
+        elif fault == "historical_key_authority":
+            facts["public_key"]["historical_role_authenticated"] = True
+        elif fault == "second_signature":
+            facts["attestations"][0]["signatures"][1]["signature_verified"] = True
+        elif fault == "signature_quorum":
+            facts["attestations"][0]["signature_quorum_established"] = True
+        elif fault == "direct_source_hashes":
+            facts["limitations"]["signed_source_archive_digests_present"] = True
+        elif fault in {"source_build_gate", "provenance", "original_buildd", "acquisition", "b2"}:
+            field = {"source_build_gate": "source_build_gate_satisfied", "provenance": "authenticated_build_provenance",
+                     "original_buildd": "buildinfo_signature_verified", "acquisition": "original_acquisition_ready",
+                     "b2": "b2_complete"}[fault]
+            value["boundary"][field] = True
+        elif fault == "authority":
+            value["boundary"]["authority_effect"] = "release"
+        elif fault == "metric":
+            value["boundary"]["metric_pass"] = True
+        elif fault == "selected_policy":
+            value["missing_build_evidence"]["accepted_build_evidence_policy"] = "public_endpoint_implies_trust"
+        elif fault == "remove_gap":
+            value["missing_build_evidence"]["missing_for_candidate_route"].pop()
+        elif fault == "saved_prior_verdict":
+            value["prior_build_record_prerequisite"]["saved_report_is_acceptance_input"] = True
+        elif fault == "skip_fresh_chain":
+            value["prior_build_record_prerequisite"]["fresh_build_record_startup_static_source_package_reconstruction_required"] = False
+        elif fault == "authored_backend_identity":
+            facts["backend_observation"] = {"path": "/usr/bin/openssl", "binary_sha256": "0" * 64}
+        elif fault == "backend_closure":
+            value["runtime_backend_policy"]["binary_provider_os_closure_attested"] = True
+        elif fault == "retrieval_authority":
+            value["preserved_carriers"][0]["retrieval_location_is_rebuilder_authorization"] = True
+        else:
+            raise AssertionError(fault)
+        raw = encoded(value)
+    with pytest.raises(case.checker.BindingError):
+        _loader_rebuild_binding_check(case, raw)
+
+
+@pytest.mark.parametrize("which", (*LOADER_REBUILD_ATTESTATIONS, "public_keys.json"))
+def test_loader_rebuild_binding_original_carrier_pins_survive_rehashed_record_substitution(
+        loader_rebuild_binding_case, which):
+    case = loader_rebuild_binding_case
+    attestations, keys = dict(case.attested.attestations), case.attested.public_keys
+    if which == "public_keys.json":
+        original = keys
+        # Same-length transport change; the endpoint roster is not authority.
+        changed = keys.replace(b"MCww", b"NCww", 1)
+        keys = changed
+    else:
+        original = attestations[which]
+        value = json.loads(original)
+        old = next(item["sig"] for item in value["signatures"] if item["keyid"] == LOADER_REBUILD_UNSELECTED_KEY_ID)
+        changed = original.replace(old.encode("ascii"), ("00" * 64).encode("ascii"), 1)
+        attestations[which] = changed
+    assert len(changed) == len(original) and changed != original
+    value = copy.deepcopy(case.value)
+    row = next(item for item in value["preserved_carriers"] if item["filename"] == which)
+    row["content"] = bound(changed)
+    with pytest.raises(case.checker.BindingError, match="loader_rebuild_original_carrier_sha256"):
+        _loader_rebuild_binding_check(case, encoded(value), attestations=attestations, public_keys_bytes=keys)
+
+
+@pytest.mark.parametrize("fault", ["record", "first_attestation", "last_attestation", "keys", "prior_record"])
+def test_loader_rebuild_binding_control_and_carrier_lengths_precede_hashes(
+        loader_rebuild_binding_case, monkeypatch, fault):
+    case = loader_rebuild_binding_case
+    arguments = dict(record_bytes=case.raw, expected_record_sha256=digest(case.raw),
+                     build_record_bytes=case.prior.raw, attestations=dict(case.attested.attestations),
+                     public_keys_bytes=case.attested.public_keys)
+    if fault == "record":
+        arguments["record_bytes"] = b"x" * (case.checker.CONTROL_BYTES + 1)
+    elif fault in {"first_attestation", "last_attestation"}:
+        name = LOADER_REBUILD_ATTESTATIONS[0 if fault == "first_attestation" else -1]
+        arguments["attestations"][name] += b"x"
+    elif fault == "keys":
+        arguments["public_keys_bytes"] += b"x"
+    else:
+        arguments["build_record_bytes"] += b"x"
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("wrapper extent rejection came after hashing/parsing/crypto")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(case.checker, "sha", forbidden)
+        patch.setattr(case.checker, "parse", forbidden)
+        patch.setattr(case.checker.rebuild, "derive_attestation_facts", forbidden)
+        with pytest.raises(case.checker.BindingError):
+            case.checker.verify_binding(**arguments)
+
+
+@pytest.mark.parametrize("which", [
+    "libc6_2.41-12+deb13u4_amd64.deb", "libc6-dbg_2.41-12+deb13u4_amd64.deb", "Sources.xz",
+    "glibc_2.41-12+deb13u4.dsc", "glibc_2.41.orig.tar.xz", "glibc_2.41-12+deb13u4.debian.tar.xz",
+])
+def test_loader_rebuild_binding_every_original_source_and_package_part_remains_required(
+        loader_rebuild_binding_case, monkeypatch, which):
+    case = loader_rebuild_binding_case
+    static = case.prior.static_case
+    manifest = json.loads((ROOT / static.checker.INPUTS_REL).read_bytes())
+    artifact = next(item for item in manifest["artifacts"] if item["name"] == which)
+    path = artifact["parts"][0]["path"]
+    original = static.artifacts[path]
+    changed = bytes([original[0] ^ 1]) + original[1:]
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("changed original artifact reached rebuild signature verification")
+
+    monkeypatch.setattr(case.checker.rebuild, "derive_attestation_facts", forbidden)
+    with pytest.raises(case.checker.BindingError, match="loader_rebuild_evidence_rejected"):
+        _loader_rebuild_binding_check(case, artifact_members={**static.artifacts, path: changed})
+
+
+@pytest.mark.parametrize("which", ["buildinfo", "changes"])
+def test_loader_rebuild_binding_original_build_carriers_remain_separately_pinned(
+        loader_rebuild_binding_case, monkeypatch, which):
+    case = loader_rebuild_binding_case
+    name = case.checker.prior.BUILDINFO_NAME if which == "buildinfo" else case.checker.prior.CHANGES_NAME
+    raw = case.prior.carriers[name]
+    changed = raw.replace(b"Source: glibc\n", b"Source: other\n", 1)
+    assert len(changed) == len(raw) and changed != raw
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("changed original build carrier reached rebuild signature verification")
+
+    monkeypatch.setattr(case.checker.rebuild, "derive_attestation_facts", forbidden)
+    with pytest.raises(case.checker.BindingError, match="loader_rebuild_original_build_carrier_sha256"):
+        _loader_rebuild_binding_check(case, build_carriers={**case.prior.carriers, name: changed})
+
+
+def test_loader_rebuild_binding_saved_prior_success_cannot_replace_fresh_reconstruction(
+        loader_rebuild_binding_case, monkeypatch):
+    case, calls = loader_rebuild_binding_case, []
+
+    def unavailable(**arguments):
+        calls.append(arguments)
+        raise ValueError("fresh prior evidence unavailable")
+
+    monkeypatch.setattr(case.checker.prior, "verify_binding", unavailable)
+    with pytest.raises(case.checker.BindingError, match="loader_rebuild_evidence_rejected"):
+        _loader_rebuild_binding_check(case)
+    assert len(calls) == 1
+    assert calls[0]["record_bytes"] == case.prior.raw
+    assert calls[0]["artifact_members"] is case.prior.static_case.artifacts
+    assert calls[0]["carriers"] is case.prior.carriers
+    assert "report" not in calls[0] and "prior_report" not in calls[0]
+
+
+@pytest.mark.parametrize("scope", ["pinned_crypto_source", "helper_after", "schema_after", "wrapper_after", "transitive_prior_after"])
+def test_loader_rebuild_binding_sources_must_remain_pinned_and_stable(
+        loader_rebuild_binding_case, loader_rebuild_binding_report, monkeypatch, scope):
+    case = loader_rebuild_binding_case
+    target = case.checker.prior if scope == "transitive_prior_after" else case.checker
+    selected = {
+        "pinned_crypto_source": "tools/check_anchor_integrity_record_signatures_v0_1.py",
+        "helper_after": LOADER_REBUILD_HELPER_REL,
+        "schema_after": case.checker.SCHEMA_REL,
+        "wrapper_after": case.checker.SELF_REL,
+        "transitive_prior_after": case.checker.prior.SELF_REL,
+    }[scope]
+    real_source, counts = target._source, {}
+
+    def changed(path):
+        raw = real_source(path)
+        counts[path] = counts.get(path, 0) + 1
+        if path == selected and (scope == "pinned_crypto_source" or counts[path] > 1):
+            return raw + b"\n"
+        return raw
+
+    # Cached genuine outcomes isolate the wrapper's additional source-stability
+    # obligation; the acceptance fixture and both CLI checks reconstruct fully.
+    monkeypatch.setattr(case.checker.prior, "verify_binding", lambda **_kwargs: copy.deepcopy(case.prior_report))
+    monkeypatch.setattr(case.checker.rebuild, "derive_attestation_facts", lambda **_kwargs: copy.deepcopy(case.rebuild_facts))
+    monkeypatch.setattr(target, "_source", changed)
+    with pytest.raises(case.checker.BindingError):
+        _loader_rebuild_binding_check(case)
+    assert counts[selected] >= (1 if scope == "pinned_crypto_source" else 2)
+
+
+@pytest.mark.parametrize("field,changed", [("binary_sha256", "0" * 64), ("path", "/tmp/openssl"),
+                                          ("known_answer_self_test", "not_run")])
+def test_loader_rebuild_binding_runtime_backend_identity_is_checked_without_authored_host_pin(
+        loader_rebuild_binding_case, loader_rebuild_binding_report, monkeypatch, field, changed):
+    case = loader_rebuild_binding_case
+    altered = copy.deepcopy(case.rebuild_facts)
+    altered["backend_observation"][field] = changed
+    monkeypatch.setattr(case.checker.prior, "verify_binding", lambda **_kwargs: copy.deepcopy(case.prior_report))
+    monkeypatch.setattr(case.checker.rebuild, "derive_attestation_facts", lambda **_kwargs: altered)
+    with pytest.raises(case.checker.BindingError, match="loader_rebuild_backend_"):
+        _loader_rebuild_binding_check(case)
+
+
+def test_loader_rebuild_binding_two_real_cli_reports_are_canonical_and_outputs_exclusive(
+        loader_rebuild_binding_case, loader_rebuild_binding_report, tmp_path, monkeypatch, capsys):
+    case = loader_rebuild_binding_case
+    outputs = [tmp_path / name for name in ("first.json", "second.json")]
+    for output in outputs:
+        result = subprocess.run([sys.executable, "-I", "-B", str(ROOT / LOADER_REBUILD_WRAPPER_REL),
+            "--record", str(ROOT / LOADER_REBUILD_RECORD_REL), "--record-sha256", digest(case.raw),
+            "--output", str(output)], capture_output=True, timeout=180, check=False)
+        assert result.returncode == 0, result.stderr.decode(errors="replace")
+        assert result.stdout == result.stderr == b""
+    first = outputs[0].read_bytes()
+    assert first == outputs[1].read_bytes() == case.checker.canonical(loader_rebuild_binding_report)
+    assert first.endswith(b"\n") and not first.endswith(b"\n\n")
+    assert first == encoded(json.loads(first))
+    sentinel = tmp_path / "existing.json"
+    sentinel.write_bytes(b"owner data remains exact\n")
+    monkeypatch.setattr(case.checker, "verify_binding", lambda **_kwargs: loader_rebuild_binding_report)
+    status = case.checker.main(["--record", str(ROOT / LOADER_REBUILD_RECORD_REL),
+        "--record-sha256", digest(case.raw), "--output", str(sentinel)])
+    assert status == 2 and sentinel.read_bytes() == b"owner data remains exact\n"
+    assert capsys.readouterr().out == ""
+
+
+def test_loader_rebuild_binding_cli_bad_digest_cannot_publish_success(loader_rebuild_binding_case, tmp_path, capsys):
+    case = loader_rebuild_binding_case
+    output = tmp_path / "must-not-exist.json"
+    status = case.checker.main(["--record", str(ROOT / LOADER_REBUILD_RECORD_REL),
+        "--record-sha256", "f" * 64, "--output", str(output)])
+    assert status == 2 and not output.exists()
+    assert capsys.readouterr().out == ""

@@ -1,0 +1,1711 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Closed preserved rebuilder signature and byte-binding record. Signature mathematics does not establish historical authority, actual source use, an accepted rebuild policy or acquisition readiness. Acceptance requires fresh prior reconstruction and fresh cryptographic verification of the selected public data.",
+  "properties": {
+    "boundary": {
+      "additionalProperties": false,
+      "properties": {
+        "authenticated_build_provenance": {
+          "const": false,
+          "type": "boolean"
+        },
+        "authority_effect": {
+          "const": "none",
+          "type": "string"
+        },
+        "b2_complete": {
+          "const": false,
+          "type": "boolean"
+        },
+        "builder_authority_verified": {
+          "const": false,
+          "type": "boolean"
+        },
+        "buildinfo_signature_verified": {
+          "const": false,
+          "type": "boolean"
+        },
+        "changes_signature_verified": {
+          "const": false,
+          "type": "boolean"
+        },
+        "complete_native_closure_verified": {
+          "const": false,
+          "type": "boolean"
+        },
+        "consumer_resolution_observed": {
+          "const": false,
+          "type": "boolean"
+        },
+        "containment_enforced": {
+          "const": false,
+          "type": "boolean"
+        },
+        "contemporaneous_backing_acquisition_authenticated": {
+          "const": false,
+          "type": "boolean"
+        },
+        "historical_signing_time_authenticated": {
+          "const": false,
+          "type": "boolean"
+        },
+        "invocation_mode_policy_qualified": {
+          "const": false,
+          "type": "boolean"
+        },
+        "live_private_abi_readout_qualified": {
+          "const": false,
+          "type": "boolean"
+        },
+        "loader_resolution_verified": {
+          "const": false,
+          "type": "boolean"
+        },
+        "metric_pass": {
+          "const": null,
+          "type": "null"
+        },
+        "native_acquisition_performed": {
+          "const": false,
+          "type": "boolean"
+        },
+        "native_rebuild_performed": {
+          "const": false,
+          "type": "boolean"
+        },
+        "original_acquisition_authorized": {
+          "const": false,
+          "type": "boolean"
+        },
+        "original_acquisition_ready": {
+          "const": false,
+          "type": "boolean"
+        },
+        "original_invocation_observed": {
+          "const": false,
+          "type": "boolean"
+        },
+        "other_binary_output_bytes_verified": {
+          "const": false,
+          "type": "boolean"
+        },
+        "other_rebuilder_signature_verified": {
+          "const": false,
+          "type": "boolean"
+        },
+        "production_gate_eligible": {
+          "const": false,
+          "type": "boolean"
+        },
+        "project_rebuild_policy_selected": {
+          "const": false,
+          "type": "boolean"
+        },
+        "rebuild_process_independence_verified": {
+          "const": false,
+          "type": "boolean"
+        },
+        "rebuilder_historical_authority_verified": {
+          "const": false,
+          "type": "boolean"
+        },
+        "rflags_resume_policy_qualified": {
+          "const": false,
+          "type": "boolean"
+        },
+        "selected_runtime_executed": {
+          "const": false,
+          "type": "boolean"
+        },
+        "signed_build_log_binding_verified": {
+          "const": false,
+          "type": "boolean"
+        },
+        "signed_source_input_coverage_complete": {
+          "const": false,
+          "type": "boolean"
+        },
+        "source_binary_equivalence_verified": {
+          "const": false,
+          "type": "boolean"
+        },
+        "source_build_gate_satisfied": {
+          "const": false,
+          "type": "boolean"
+        },
+        "source_input_hashes_directly_attested": {
+          "const": false,
+          "type": "boolean"
+        },
+        "trusted_rebuilder_payload_admitted": {
+          "const": false,
+          "type": "boolean"
+        },
+        "two_slot_breakpoint_qualified": {
+          "const": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "original_invocation_observed",
+        "live_private_abi_readout_qualified",
+        "two_slot_breakpoint_qualified",
+        "invocation_mode_policy_qualified",
+        "rflags_resume_policy_qualified",
+        "contemporaneous_backing_acquisition_authenticated",
+        "source_binary_equivalence_verified",
+        "authenticated_build_provenance",
+        "source_build_gate_satisfied",
+        "original_acquisition_ready",
+        "original_acquisition_authorized",
+        "native_acquisition_performed",
+        "consumer_resolution_observed",
+        "loader_resolution_verified",
+        "complete_native_closure_verified",
+        "containment_enforced",
+        "selected_runtime_executed",
+        "production_gate_eligible",
+        "b2_complete",
+        "metric_pass",
+        "authority_effect",
+        "buildinfo_signature_verified",
+        "changes_signature_verified",
+        "builder_authority_verified",
+        "source_input_hashes_directly_attested",
+        "other_binary_output_bytes_verified",
+        "trusted_rebuilder_payload_admitted",
+        "rebuilder_historical_authority_verified",
+        "signed_source_input_coverage_complete",
+        "signed_build_log_binding_verified",
+        "historical_signing_time_authenticated",
+        "project_rebuild_policy_selected",
+        "rebuild_process_independence_verified",
+        "native_rebuild_performed",
+        "other_rebuilder_signature_verified"
+      ],
+      "type": "object"
+    },
+    "development_base": {
+      "const": "83c5ca277ce94a4d2f03b073d92da66014fb6a24",
+      "type": "string"
+    },
+    "evidence_role": {
+      "const": "selected_rebuilder_signature_math_and_exact_material_product_bindings",
+      "type": "string"
+    },
+    "implementation_sources": {
+      "items": false,
+      "maxItems": 3,
+      "minItems": 3,
+      "prefixItems": [
+        {
+          "const": "schemas/required_gate_idempotence_loader_rebuild_attestation_binding_v0.schema.json",
+          "type": "string"
+        },
+        {
+          "const": "tools/check_required_gate_idempotence_loader_rebuild_attestation_binding_v0.py",
+          "type": "string"
+        },
+        {
+          "const": "tools/required_gate_idempotence_loader_rebuild_attestation_v0.py",
+          "type": "string"
+        }
+      ],
+      "type": "array"
+    },
+    "missing_build_evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "accepted_build_evidence_policy": {
+          "const": "not_selected",
+          "type": "string"
+        },
+        "both_buildd_authentication_and_independent_rebuild_required": {
+          "const": false,
+          "type": "boolean"
+        },
+        "candidate_route": {
+          "const": "separately_produced_rebuilder_statement",
+          "type": "string"
+        },
+        "current_public_key_endpoint_is_historical_role_authorization": {
+          "const": false,
+          "type": "boolean"
+        },
+        "missing_for_candidate_route": {
+          "items": false,
+          "maxItems": 3,
+          "minItems": 3,
+          "prefixItems": [
+            {
+              "const": "independently_selected_rebuilder_identity_authority_and_verification_time_policy",
+              "type": "string"
+            },
+            {
+              "const": "accepted_source_input_binding_or_explicitly_reviewed_source_resolution_policy",
+              "type": "string"
+            },
+            {
+              "const": "explicit_project_acceptance_of_the_rebuilder_statement_scope",
+              "type": "string"
+            }
+          ],
+          "type": "array"
+        },
+        "original_acquisition_remains_separate": {
+          "const": true,
+          "type": "boolean"
+        },
+        "original_buildd_signer_route_remains_separate_and_unverified": {
+          "const": true,
+          "type": "boolean"
+        },
+        "signature_math_is_semantic_rebuild_or_source_execution_proof": {
+          "const": false,
+          "type": "boolean"
+        },
+        "signed_materials_cover_original_buildinfo_only": {
+          "const": true,
+          "type": "boolean"
+        },
+        "source_archives_or_build_log_directly_bound_by_signed_statement": {
+          "const": false,
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "candidate_route",
+        "accepted_build_evidence_policy",
+        "current_public_key_endpoint_is_historical_role_authorization",
+        "signature_math_is_semantic_rebuild_or_source_execution_proof",
+        "signed_materials_cover_original_buildinfo_only",
+        "source_archives_or_build_log_directly_bound_by_signed_statement",
+        "missing_for_candidate_route",
+        "original_buildd_signer_route_remains_separate_and_unverified",
+        "both_buildd_authentication_and_independent_rebuild_required",
+        "original_acquisition_remains_separate"
+      ],
+      "type": "object"
+    },
+    "preserved_carriers": {
+      "items": false,
+      "maxItems": 3,
+      "minItems": 3,
+      "prefixItems": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "content": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "const": "dc7cc8831246e1fac3aa29d02177f5ce85253fde5d586e1848a869c7805df2c6",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 1104,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            "filename": {
+              "const": "libc6_attestation.json",
+              "type": "string"
+            },
+            "path": {
+              "const": "docs/compute/required_gate_idempotence_loader_rebuild_attestation_binding_v0/preservation/libc6_attestation.json",
+              "type": "string"
+            },
+            "retrieval_location_is_rebuilder_authorization": {
+              "const": false,
+              "type": "boolean"
+            },
+            "retrieval_url": {
+              "const": "https://reproduce.debian.net/amd64/api/v1/builds/269686/artifacts/710018/attestation",
+              "type": "string"
+            }
+          },
+          "required": [
+            "filename",
+            "path",
+            "content",
+            "retrieval_url",
+            "retrieval_location_is_rebuilder_authorization"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "content": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "const": "9e7e500b1aa181474a4ceb4bde60779fe6adb95ade3812c82833b037b49ceda4",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 1112,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            "filename": {
+              "const": "libc6_dbg_attestation.json",
+              "type": "string"
+            },
+            "path": {
+              "const": "docs/compute/required_gate_idempotence_loader_rebuild_attestation_binding_v0/preservation/libc6_dbg_attestation.json",
+              "type": "string"
+            },
+            "retrieval_location_is_rebuilder_authorization": {
+              "const": false,
+              "type": "boolean"
+            },
+            "retrieval_url": {
+              "const": "https://reproduce.debian.net/amd64/api/v1/builds/269686/artifacts/710019/attestation",
+              "type": "string"
+            }
+          },
+          "required": [
+            "filename",
+            "path",
+            "content",
+            "retrieval_url",
+            "retrieval_location_is_rebuilder_authorization"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "content": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "const": "ae30bbb97ab1d57cb8bc874571cc8883f9ea44ca105ff27feb3e621c9ac85761",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 142,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            "filename": {
+              "const": "public_keys.json",
+              "type": "string"
+            },
+            "path": {
+              "const": "docs/compute/required_gate_idempotence_loader_rebuild_attestation_binding_v0/preservation/public_keys.json",
+              "type": "string"
+            },
+            "retrieval_location_is_rebuilder_authorization": {
+              "const": false,
+              "type": "boolean"
+            },
+            "retrieval_url": {
+              "const": "https://reproduce.debian.net/amd64/api/v1/meta/public-keys",
+              "type": "string"
+            }
+          },
+          "required": [
+            "filename",
+            "path",
+            "content",
+            "retrieval_url",
+            "retrieval_location_is_rebuilder_authorization"
+          ],
+          "type": "object"
+        }
+      ],
+      "type": "array"
+    },
+    "prior_build_record_prerequisite": {
+      "additionalProperties": false,
+      "properties": {
+        "fresh_build_record_startup_static_source_package_reconstruction_required": {
+          "const": true,
+          "type": "boolean"
+        },
+        "implementation_sources": {
+          "additionalProperties": false,
+          "properties": {
+            "schemas/required_gate_idempotence_loader_build_record_binding_v0.schema.json": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "const": "98f6beff59c9c03e7ef2c9790d6a465c6e5c6c78c40e257428ea9078fd326ce7",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 139559,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            "tools/check_anchor_integrity_record_signatures_v0_1.py": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "const": "d370a07a9587ad143f4ad121f468de4cc936c6128e3f798d7aa9e44ea6d3ac65",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 27374,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            "tools/check_required_gate_idempotence_loader_build_record_binding_v0.py": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "const": "c6ee57f9a2aaff50bd0e01fc44cc03c2abe48f477c651167dea1f5f4b95624be",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 15022,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            "tools/required_gate_idempotence_loader_build_envelope_v0.py": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "const": "fcce2caac93cbe904b7fb9aa5e97d2575943ae6de663fb458ffa13c4dc2023ab",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 12544,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            "tools/required_gate_idempotence_loader_buildinfo_v0.py": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "const": "bffa40fae52c173aed442fc3741f353c5487dd9d1b7751b86563cd6abb279fb3",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 18819,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "schemas/required_gate_idempotence_loader_build_record_binding_v0.schema.json",
+            "tools/check_anchor_integrity_record_signatures_v0_1.py",
+            "tools/check_required_gate_idempotence_loader_build_record_binding_v0.py",
+            "tools/required_gate_idempotence_loader_build_envelope_v0.py",
+            "tools/required_gate_idempotence_loader_buildinfo_v0.py"
+          ],
+          "type": "object"
+        },
+        "record": {
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "const": "c15c85e2b875a3deff90576c0c0b1162cc0d91a511271598076b703ad71e2309",
+              "type": "string"
+            },
+            "size_bytes": {
+              "const": 35194,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "type": "object"
+        },
+        "record_path": {
+          "const": "docs/compute/required_gate_idempotence_loader_build_record_binding_v0/record_v0.json",
+          "type": "string"
+        },
+        "saved_report_is_acceptance_input": {
+          "const": false,
+          "type": "boolean"
+        },
+        "verification_report": {
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "const": "a4c18cdac2eb083b11b87d6681435c6ffdcdac7ba557cb406b496b147a691048",
+              "type": "string"
+            },
+            "size_bytes": {
+              "const": 5154,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "record_path",
+        "record",
+        "verification_report",
+        "implementation_sources",
+        "fresh_build_record_startup_static_source_package_reconstruction_required",
+        "saved_report_is_acceptance_input"
+      ],
+      "type": "object"
+    },
+    "profile": {
+      "const": "linux_x86_64_original_loader_rebuild_attestation_binding_v0",
+      "type": "string"
+    },
+    "rebuild_attestation_facts": {
+      "additionalProperties": false,
+      "properties": {
+        "attestations": {
+          "items": false,
+          "maxItems": 2,
+          "minItems": 2,
+          "prefixItems": [
+            {
+              "additionalProperties": false,
+              "properties": {
+                "carrier": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "sha256": {
+                      "const": "dc7cc8831246e1fac3aa29d02177f5ce85253fde5d586e1848a869c7805df2c6",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "const": 1104,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "sha256",
+                    "size_bytes"
+                  ],
+                  "type": "object"
+                },
+                "complete_material_bytes_joined": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "complete_product_bytes_joined": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "filename": {
+                  "const": "libc6_attestation.json",
+                  "type": "string"
+                },
+                "listed_signature_count": {
+                  "const": 2,
+                  "type": "integer"
+                },
+                "material_filename": {
+                  "const": "glibc_2.41-12+deb13u4_amd64.buildinfo",
+                  "type": "string"
+                },
+                "other_signature_verified": {
+                  "const": false,
+                  "type": "boolean"
+                },
+                "product_filename": {
+                  "const": "libc6_2.41-12+deb13u4_amd64.deb",
+                  "type": "string"
+                },
+                "selected_signature_verified": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "selected_verified_signature_count": {
+                  "const": 1,
+                  "type": "integer"
+                },
+                "signature_quorum_established": {
+                  "const": false,
+                  "type": "boolean"
+                },
+                "signatures": {
+                  "items": false,
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "keyid": {
+                          "const": "2980aa6249ad89ce0ef0f0f5e6d0896214301b2818aad33443444cf460df6ed6",
+                          "type": "string"
+                        },
+                        "selected": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "signature": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "sha256": {
+                              "const": "bd3832454a24606808c2d01672a5a3207599c9aaf0303b537f407a846c1b8b95",
+                              "type": "string"
+                            },
+                            "size_bytes": {
+                              "const": 64,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "sha256",
+                            "size_bytes"
+                          ],
+                          "type": "object"
+                        },
+                        "signature_verified": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "keyid",
+                        "selected",
+                        "signature",
+                        "signature_verified"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "keyid": {
+                          "const": "c70f1852977e382b45eea36783e59dd5f4413e39bdbed773ad0d83aa4d8212b9",
+                          "type": "string"
+                        },
+                        "selected": {
+                          "const": false,
+                          "type": "boolean"
+                        },
+                        "signature": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "sha256": {
+                              "const": "94a7dec983a3b40d4a4d58abbae2705d14e8750b5e54d42fb8d533fcbf561210",
+                              "type": "string"
+                            },
+                            "size_bytes": {
+                              "const": 64,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "sha256",
+                            "size_bytes"
+                          ],
+                          "type": "object"
+                        },
+                        "signature_verified": {
+                          "const": false,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "keyid",
+                        "selected",
+                        "signature",
+                        "signature_verified"
+                      ],
+                      "type": "object"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "signed_canonical_bytes": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "sha256": {
+                      "const": "fc3816be7123f704db4a46bad4c4c8b25a0def0186f23267749ca110768e4b67",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "const": 650,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "sha256",
+                    "size_bytes"
+                  ],
+                  "type": "object"
+                },
+                "signed_link": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "_type": {
+                      "const": "link",
+                      "type": "string"
+                    },
+                    "byproducts": {
+                      "additionalProperties": false,
+                      "properties": {},
+                      "required": [],
+                      "type": "object"
+                    },
+                    "command": {
+                      "items": false,
+                      "maxItems": 0,
+                      "minItems": 0,
+                      "type": "array"
+                    },
+                    "environment": {
+                      "const": null,
+                      "type": "null"
+                    },
+                    "materials": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "glibc_2.41-12+deb13u4_amd64.buildinfo": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "sha256": {
+                              "const": "5af18d1a381adb80a101b714b57c7822e5f0442f68e148df26b0dbcc4a1ca1e9",
+                              "type": "string"
+                            },
+                            "sha512": {
+                              "const": "a524fc5465d9b50903657c04f0f252ddb1d24a11161e3c51e33e566c7a2936d723dc2c1f9a71cd6e16aeaf90f15eb21e102c8acb2535bb6d8421065ca371eb0a",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "sha256",
+                            "sha512"
+                          ],
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "glibc_2.41-12+deb13u4_amd64.buildinfo"
+                      ],
+                      "type": "object"
+                    },
+                    "name": {
+                      "const": "rebuild libc6_2.41-12+deb13u4_amd64.deb",
+                      "type": "string"
+                    },
+                    "products": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "libc6_2.41-12+deb13u4_amd64.deb": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "sha256": {
+                              "const": "967aa62605721081c3eb2a17650611a792aa802d76a6511d1840242623d204c9",
+                              "type": "string"
+                            },
+                            "sha512": {
+                              "const": "0ab52592ed75cd5731f9b065ff4ea9109d58ce4f80cfc044d3209219e88a79c904baacc8f48d49cb440376b172ef82e5875ae15d7de7336e9d93e7c3bc2f61e5",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "sha256",
+                            "sha512"
+                          ],
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "libc6_2.41-12+deb13u4_amd64.deb"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "_type",
+                    "byproducts",
+                    "command",
+                    "environment",
+                    "materials",
+                    "name",
+                    "products"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "carrier",
+                "complete_material_bytes_joined",
+                "complete_product_bytes_joined",
+                "filename",
+                "listed_signature_count",
+                "material_filename",
+                "other_signature_verified",
+                "product_filename",
+                "selected_signature_verified",
+                "selected_verified_signature_count",
+                "signature_quorum_established",
+                "signatures",
+                "signed_canonical_bytes",
+                "signed_link"
+              ],
+              "type": "object"
+            },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "carrier": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "sha256": {
+                      "const": "9e7e500b1aa181474a4ceb4bde60779fe6adb95ade3812c82833b037b49ceda4",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "const": 1112,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "sha256",
+                    "size_bytes"
+                  ],
+                  "type": "object"
+                },
+                "complete_material_bytes_joined": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "complete_product_bytes_joined": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "filename": {
+                  "const": "libc6_dbg_attestation.json",
+                  "type": "string"
+                },
+                "listed_signature_count": {
+                  "const": 2,
+                  "type": "integer"
+                },
+                "material_filename": {
+                  "const": "glibc_2.41-12+deb13u4_amd64.buildinfo",
+                  "type": "string"
+                },
+                "other_signature_verified": {
+                  "const": false,
+                  "type": "boolean"
+                },
+                "product_filename": {
+                  "const": "libc6-dbg_2.41-12+deb13u4_amd64.deb",
+                  "type": "string"
+                },
+                "selected_signature_verified": {
+                  "const": true,
+                  "type": "boolean"
+                },
+                "selected_verified_signature_count": {
+                  "const": 1,
+                  "type": "integer"
+                },
+                "signature_quorum_established": {
+                  "const": false,
+                  "type": "boolean"
+                },
+                "signatures": {
+                  "items": false,
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "keyid": {
+                          "const": "2980aa6249ad89ce0ef0f0f5e6d0896214301b2818aad33443444cf460df6ed6",
+                          "type": "string"
+                        },
+                        "selected": {
+                          "const": true,
+                          "type": "boolean"
+                        },
+                        "signature": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "sha256": {
+                              "const": "fa5a39f1da1b1db4ede667e0505adf70d72edeca515bf96db5279dc522a326af",
+                              "type": "string"
+                            },
+                            "size_bytes": {
+                              "const": 64,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "sha256",
+                            "size_bytes"
+                          ],
+                          "type": "object"
+                        },
+                        "signature_verified": {
+                          "const": true,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "keyid",
+                        "selected",
+                        "signature",
+                        "signature_verified"
+                      ],
+                      "type": "object"
+                    },
+                    {
+                      "additionalProperties": false,
+                      "properties": {
+                        "keyid": {
+                          "const": "c70f1852977e382b45eea36783e59dd5f4413e39bdbed773ad0d83aa4d8212b9",
+                          "type": "string"
+                        },
+                        "selected": {
+                          "const": false,
+                          "type": "boolean"
+                        },
+                        "signature": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "sha256": {
+                              "const": "df8c2ec0db83d2c62258490e06a8d2d933903728d37262f8a7d35c31f2278c4c",
+                              "type": "string"
+                            },
+                            "size_bytes": {
+                              "const": 64,
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "sha256",
+                            "size_bytes"
+                          ],
+                          "type": "object"
+                        },
+                        "signature_verified": {
+                          "const": false,
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "keyid",
+                        "selected",
+                        "signature",
+                        "signature_verified"
+                      ],
+                      "type": "object"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "signed_canonical_bytes": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "sha256": {
+                      "const": "6d633f4c6bd0ba28ef61251a28cbcd0b2c072ccd49a6ddff15aeb148563a4887",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "const": 658,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "sha256",
+                    "size_bytes"
+                  ],
+                  "type": "object"
+                },
+                "signed_link": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "_type": {
+                      "const": "link",
+                      "type": "string"
+                    },
+                    "byproducts": {
+                      "additionalProperties": false,
+                      "properties": {},
+                      "required": [],
+                      "type": "object"
+                    },
+                    "command": {
+                      "items": false,
+                      "maxItems": 0,
+                      "minItems": 0,
+                      "type": "array"
+                    },
+                    "environment": {
+                      "const": null,
+                      "type": "null"
+                    },
+                    "materials": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "glibc_2.41-12+deb13u4_amd64.buildinfo": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "sha256": {
+                              "const": "5af18d1a381adb80a101b714b57c7822e5f0442f68e148df26b0dbcc4a1ca1e9",
+                              "type": "string"
+                            },
+                            "sha512": {
+                              "const": "a524fc5465d9b50903657c04f0f252ddb1d24a11161e3c51e33e566c7a2936d723dc2c1f9a71cd6e16aeaf90f15eb21e102c8acb2535bb6d8421065ca371eb0a",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "sha256",
+                            "sha512"
+                          ],
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "glibc_2.41-12+deb13u4_amd64.buildinfo"
+                      ],
+                      "type": "object"
+                    },
+                    "name": {
+                      "const": "rebuild libc6-dbg_2.41-12+deb13u4_amd64.deb",
+                      "type": "string"
+                    },
+                    "products": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "libc6-dbg_2.41-12+deb13u4_amd64.deb": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "sha256": {
+                              "const": "0123a767a462c59d75e1bd56c4a0f7192c389f600e4743e807d3d33c679dbcf7",
+                              "type": "string"
+                            },
+                            "sha512": {
+                              "const": "58471fc5c5cf9e3757ae034b62f4456395d01b2df21b7f286e7ff68113c47df8b23bf4ce30950cfae4172b67f825d7679b8debfa64fc9f09382e70b9f3bf3535",
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "sha256",
+                            "sha512"
+                          ],
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "libc6-dbg_2.41-12+deb13u4_amd64.deb"
+                      ],
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "_type",
+                    "byproducts",
+                    "command",
+                    "environment",
+                    "materials",
+                    "name",
+                    "products"
+                  ],
+                  "type": "object"
+                }
+              },
+              "required": [
+                "carrier",
+                "complete_material_bytes_joined",
+                "complete_product_bytes_joined",
+                "filename",
+                "listed_signature_count",
+                "material_filename",
+                "other_signature_verified",
+                "product_filename",
+                "selected_signature_verified",
+                "selected_verified_signature_count",
+                "signature_quorum_established",
+                "signatures",
+                "signed_canonical_bytes",
+                "signed_link"
+              ],
+              "type": "object"
+            }
+          ],
+          "type": "array"
+        },
+        "boundary": {
+          "additionalProperties": false,
+          "properties": {
+            "authenticated_build_provenance": {
+              "const": false,
+              "type": "boolean"
+            },
+            "authority_effect": {
+              "const": "none",
+              "type": "string"
+            },
+            "b2_complete": {
+              "const": false,
+              "type": "boolean"
+            },
+            "consumer_resolution_observed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "historical_rebuilder_key_authority_authenticated": {
+              "const": false,
+              "type": "boolean"
+            },
+            "historical_signing_time_authenticated": {
+              "const": false,
+              "type": "boolean"
+            },
+            "metric_pass": {
+              "const": null,
+              "type": "null"
+            },
+            "native_rebuild_performed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "original_acquisition_authorized": {
+              "const": false,
+              "type": "boolean"
+            },
+            "original_acquisition_ready": {
+              "const": false,
+              "type": "boolean"
+            },
+            "original_buildinfo_signature_verified": {
+              "const": false,
+              "type": "boolean"
+            },
+            "original_changes_signature_verified": {
+              "const": false,
+              "type": "boolean"
+            },
+            "other_signature_verified": {
+              "const": false,
+              "type": "boolean"
+            },
+            "project_rebuild_policy_selected": {
+              "const": false,
+              "type": "boolean"
+            },
+            "rebuild_process_independence_verified": {
+              "const": false,
+              "type": "boolean"
+            },
+            "rebuilder_identity_authenticated": {
+              "const": false,
+              "type": "boolean"
+            },
+            "source_binary_equivalence_verified": {
+              "const": false,
+              "type": "boolean"
+            },
+            "source_build_gate_satisfied": {
+              "const": false,
+              "type": "boolean"
+            },
+            "source_input_hashes_directly_attested": {
+              "const": false,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "authenticated_build_provenance",
+            "authority_effect",
+            "b2_complete",
+            "consumer_resolution_observed",
+            "historical_rebuilder_key_authority_authenticated",
+            "historical_signing_time_authenticated",
+            "metric_pass",
+            "native_rebuild_performed",
+            "original_acquisition_authorized",
+            "original_acquisition_ready",
+            "original_buildinfo_signature_verified",
+            "original_changes_signature_verified",
+            "other_signature_verified",
+            "project_rebuild_policy_selected",
+            "rebuild_process_independence_verified",
+            "rebuilder_identity_authenticated",
+            "source_binary_equivalence_verified",
+            "source_build_gate_satisfied",
+            "source_input_hashes_directly_attested"
+          ],
+          "type": "object"
+        },
+        "input_bindings": {
+          "additionalProperties": false,
+          "properties": {
+            "buildinfo": {
+              "additionalProperties": false,
+              "properties": {
+                "filename": {
+                  "const": "glibc_2.41-12+deb13u4_amd64.buildinfo",
+                  "type": "string"
+                },
+                "sha256": {
+                  "const": "5af18d1a381adb80a101b714b57c7822e5f0442f68e148df26b0dbcc4a1ca1e9",
+                  "type": "string"
+                },
+                "sha512": {
+                  "const": "a524fc5465d9b50903657c04f0f252ddb1d24a11161e3c51e33e566c7a2936d723dc2c1f9a71cd6e16aeaf90f15eb21e102c8acb2535bb6d8421065ca371eb0a",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 15502,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "filename",
+                "sha256",
+                "sha512",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            "packages": {
+              "items": false,
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "filename": {
+                      "const": "libc6-dbg_2.41-12+deb13u4_amd64.deb",
+                      "type": "string"
+                    },
+                    "sha256": {
+                      "const": "0123a767a462c59d75e1bd56c4a0f7192c389f600e4743e807d3d33c679dbcf7",
+                      "type": "string"
+                    },
+                    "sha512": {
+                      "const": "58471fc5c5cf9e3757ae034b62f4456395d01b2df21b7f286e7ff68113c47df8b23bf4ce30950cfae4172b67f825d7679b8debfa64fc9f09382e70b9f3bf3535",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "const": 7373052,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "filename",
+                    "sha256",
+                    "sha512",
+                    "size_bytes"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "additionalProperties": false,
+                  "properties": {
+                    "filename": {
+                      "const": "libc6_2.41-12+deb13u4_amd64.deb",
+                      "type": "string"
+                    },
+                    "sha256": {
+                      "const": "967aa62605721081c3eb2a17650611a792aa802d76a6511d1840242623d204c9",
+                      "type": "string"
+                    },
+                    "sha512": {
+                      "const": "0ab52592ed75cd5731f9b065ff4ea9109d58ce4f80cfc044d3209219e88a79c904baacc8f48d49cb440376b172ef82e5875ae15d7de7336e9d93e7c3bc2f61e5",
+                      "type": "string"
+                    },
+                    "size_bytes": {
+                      "const": 2846580,
+                      "type": "integer"
+                    }
+                  },
+                  "required": [
+                    "filename",
+                    "sha256",
+                    "sha512",
+                    "size_bytes"
+                  ],
+                  "type": "object"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "buildinfo",
+            "packages"
+          ],
+          "type": "object"
+        },
+        "limitations": {
+          "additionalProperties": false,
+          "properties": {
+            "matching_product_digest_is_direct_observation_of_rebuild_execution": {
+              "const": false,
+              "type": "boolean"
+            },
+            "other_signature_verification_performed": {
+              "const": false,
+              "type": "boolean"
+            },
+            "retrieval_url_authenticates_historical_signer_role": {
+              "const": false,
+              "type": "boolean"
+            },
+            "signed_builder_identity_present": {
+              "const": false,
+              "type": "boolean"
+            },
+            "signed_byproducts_are_empty": {
+              "const": true,
+              "type": "boolean"
+            },
+            "signed_command_is_empty": {
+              "const": true,
+              "type": "boolean"
+            },
+            "signed_environment_is_null": {
+              "const": true,
+              "type": "boolean"
+            },
+            "signed_rebuild_log_digest_present": {
+              "const": false,
+              "type": "boolean"
+            },
+            "signed_source_archive_digests_present": {
+              "const": false,
+              "type": "boolean"
+            },
+            "signed_timestamp_present": {
+              "const": false,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "matching_product_digest_is_direct_observation_of_rebuild_execution",
+            "other_signature_verification_performed",
+            "retrieval_url_authenticates_historical_signer_role",
+            "signed_builder_identity_present",
+            "signed_byproducts_are_empty",
+            "signed_command_is_empty",
+            "signed_environment_is_null",
+            "signed_rebuild_log_digest_present",
+            "signed_source_archive_digests_present",
+            "signed_timestamp_present"
+          ],
+          "type": "object"
+        },
+        "profile": {
+          "const": "selected_original_loader_rebuild_attestations_v0",
+          "type": "string"
+        },
+        "public_key": {
+          "additionalProperties": false,
+          "properties": {
+            "backend_spki_parameters_absent": {
+              "const": true,
+              "type": "boolean"
+            },
+            "canonical_key_bytes": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "const": "2980aa6249ad89ce0ef0f0f5e6d0896214301b2818aad33443444cf460df6ed6",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 171,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            "canonical_key_object": {
+              "additionalProperties": false,
+              "properties": {
+                "keyid_hash_algorithms": {
+                  "items": false,
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "const": "sha256",
+                      "type": "string"
+                    },
+                    {
+                      "const": "sha512",
+                      "type": "string"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "keytype": {
+                  "const": "ed25519",
+                  "type": "string"
+                },
+                "keyval": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "public": {
+                      "const": "13ba298a31f08e49f88a736013fd3d4d290867f72dfd2b3e52ba8d30e5451718",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "public"
+                  ],
+                  "type": "object"
+                },
+                "scheme": {
+                  "const": "ed25519",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "keyid_hash_algorithms",
+                "keytype",
+                "keyval",
+                "scheme"
+              ],
+              "type": "object"
+            },
+            "historical_role_authenticated": {
+              "const": false,
+              "type": "boolean"
+            },
+            "key_selected_by_exact_bytes": {
+              "const": true,
+              "type": "boolean"
+            },
+            "keyid": {
+              "const": "2980aa6249ad89ce0ef0f0f5e6d0896214301b2818aad33443444cf460df6ed6",
+              "type": "string"
+            },
+            "original_spki_der": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "const": "f773805fcbe56243f796748d5d7993c5d961a39eb0371715bbdfd9d3c3f0bbb5",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 46,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            "original_spki_explicit_null_parameters": {
+              "const": true,
+              "type": "boolean"
+            },
+            "pem": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "const": "707ab55149ad64f09d3670781ea5a625069dbc18946bc3fc5a4a1adf1d71db5b",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 120,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            },
+            "raw_public_key_hex": {
+              "const": "13ba298a31f08e49f88a736013fd3d4d290867f72dfd2b3e52ba8d30e5451718",
+              "type": "string"
+            },
+            "response": {
+              "additionalProperties": false,
+              "properties": {
+                "sha256": {
+                  "const": "ae30bbb97ab1d57cb8bc874571cc8883f9ea44ca105ff27feb3e621c9ac85761",
+                  "type": "string"
+                },
+                "size_bytes": {
+                  "const": 142,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "sha256",
+                "size_bytes"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "backend_spki_parameters_absent",
+            "canonical_key_bytes",
+            "canonical_key_object",
+            "historical_role_authenticated",
+            "key_selected_by_exact_bytes",
+            "keyid",
+            "original_spki_der",
+            "original_spki_explicit_null_parameters",
+            "pem",
+            "raw_public_key_hex",
+            "response"
+          ],
+          "type": "object"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_loader_rebuild_attestation_facts_v0",
+          "type": "string"
+        },
+        "selected_material_product_hashes_verified": {
+          "const": true,
+          "type": "boolean"
+        },
+        "selected_signature_verified": {
+          "const": true,
+          "type": "boolean"
+        },
+        "verified_attestation_count": {
+          "const": 2,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "attestations",
+        "boundary",
+        "input_bindings",
+        "limitations",
+        "profile",
+        "public_key",
+        "record_type",
+        "selected_material_product_hashes_verified",
+        "selected_signature_verified",
+        "verified_attestation_count"
+      ],
+      "type": "object"
+    },
+    "record_type": {
+      "const": "required_gate_idempotence_loader_rebuild_attestation_binding_v0",
+      "type": "string"
+    },
+    "runtime_backend_policy": {
+      "additionalProperties": false,
+      "properties": {
+        "backend_binary_hash_stable_for_verification_required": {
+          "const": true,
+          "type": "boolean"
+        },
+        "binary_provider_os_closure_attested": {
+          "const": false,
+          "type": "boolean"
+        },
+        "existing_verifier_source": {
+          "const": "tools/check_anchor_integrity_record_signatures_v0_1.py",
+          "type": "string"
+        },
+        "host_specific_backend_identity_is_authored_constant": {
+          "const": false,
+          "type": "boolean"
+        },
+        "path": {
+          "const": "/usr/bin/openssl",
+          "type": "string"
+        },
+        "positive_and_negative_known_answer_self_tests_required": {
+          "const": true,
+          "type": "boolean"
+        },
+        "suite": {
+          "const": "ed25519",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "suite",
+        "existing_verifier_source",
+        "positive_and_negative_known_answer_self_tests_required",
+        "backend_binary_hash_stable_for_verification_required",
+        "host_specific_backend_identity_is_authored_constant",
+        "binary_provider_os_closure_attested"
+      ],
+      "type": "object"
+    }
+  },
+  "required": [
+    "record_type",
+    "profile",
+    "development_base",
+    "evidence_role",
+    "prior_build_record_prerequisite",
+    "preserved_carriers",
+    "rebuild_attestation_facts",
+    "missing_build_evidence",
+    "runtime_backend_policy",
+    "implementation_sources",
+    "boundary"
+  ],
+  "title": "Original-loader rebuilder attestation binding v0",
+  "type": "object"
+}

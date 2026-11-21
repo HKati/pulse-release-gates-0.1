@@ -1,0 +1,357 @@
+{
+  "boundary": {
+    "authenticated_build_provenance": false,
+    "authority_effect": "none",
+    "b2_complete": false,
+    "builder_authority_verified": false,
+    "buildinfo_signature_verified": false,
+    "changes_signature_verified": false,
+    "complete_native_closure_verified": false,
+    "consumer_resolution_observed": false,
+    "containment_enforced": false,
+    "contemporaneous_backing_acquisition_authenticated": false,
+    "historical_signing_time_authenticated": false,
+    "invocation_mode_policy_qualified": false,
+    "live_private_abi_readout_qualified": false,
+    "loader_resolution_verified": false,
+    "metric_pass": null,
+    "native_acquisition_performed": false,
+    "native_rebuild_performed": false,
+    "original_acquisition_authorized": false,
+    "original_acquisition_ready": false,
+    "original_invocation_observed": false,
+    "other_binary_output_bytes_verified": false,
+    "other_rebuilder_signature_verified": false,
+    "production_gate_eligible": false,
+    "project_rebuild_policy_selected": false,
+    "rebuild_process_independence_verified": false,
+    "rebuilder_historical_authority_verified": false,
+    "rflags_resume_policy_qualified": false,
+    "selected_runtime_executed": false,
+    "signed_build_log_binding_verified": false,
+    "signed_source_input_coverage_complete": false,
+    "source_binary_equivalence_verified": false,
+    "source_build_gate_satisfied": false,
+    "source_input_hashes_directly_attested": false,
+    "trusted_rebuilder_payload_admitted": false,
+    "two_slot_breakpoint_qualified": false
+  },
+  "development_base": "83c5ca277ce94a4d2f03b073d92da66014fb6a24",
+  "evidence_role": "selected_rebuilder_signature_math_and_exact_material_product_bindings",
+  "implementation_sources": [
+    "schemas/required_gate_idempotence_loader_rebuild_attestation_binding_v0.schema.json",
+    "tools/check_required_gate_idempotence_loader_rebuild_attestation_binding_v0.py",
+    "tools/required_gate_idempotence_loader_rebuild_attestation_v0.py"
+  ],
+  "missing_build_evidence": {
+    "accepted_build_evidence_policy": "not_selected",
+    "both_buildd_authentication_and_independent_rebuild_required": false,
+    "candidate_route": "separately_produced_rebuilder_statement",
+    "current_public_key_endpoint_is_historical_role_authorization": false,
+    "missing_for_candidate_route": [
+      "independently_selected_rebuilder_identity_authority_and_verification_time_policy",
+      "accepted_source_input_binding_or_explicitly_reviewed_source_resolution_policy",
+      "explicit_project_acceptance_of_the_rebuilder_statement_scope"
+    ],
+    "original_acquisition_remains_separate": true,
+    "original_buildd_signer_route_remains_separate_and_unverified": true,
+    "signature_math_is_semantic_rebuild_or_source_execution_proof": false,
+    "signed_materials_cover_original_buildinfo_only": true,
+    "source_archives_or_build_log_directly_bound_by_signed_statement": false
+  },
+  "preserved_carriers": [
+    {
+      "content": {
+        "sha256": "dc7cc8831246e1fac3aa29d02177f5ce85253fde5d586e1848a869c7805df2c6",
+        "size_bytes": 1104
+      },
+      "filename": "libc6_attestation.json",
+      "path": "docs/compute/required_gate_idempotence_loader_rebuild_attestation_binding_v0/preservation/libc6_attestation.json",
+      "retrieval_location_is_rebuilder_authorization": false,
+      "retrieval_url": "https://reproduce.debian.net/amd64/api/v1/builds/269686/artifacts/710018/attestation"
+    },
+    {
+      "content": {
+        "sha256": "9e7e500b1aa181474a4ceb4bde60779fe6adb95ade3812c82833b037b49ceda4",
+        "size_bytes": 1112
+      },
+      "filename": "libc6_dbg_attestation.json",
+      "path": "docs/compute/required_gate_idempotence_loader_rebuild_attestation_binding_v0/preservation/libc6_dbg_attestation.json",
+      "retrieval_location_is_rebuilder_authorization": false,
+      "retrieval_url": "https://reproduce.debian.net/amd64/api/v1/builds/269686/artifacts/710019/attestation"
+    },
+    {
+      "content": {
+        "sha256": "ae30bbb97ab1d57cb8bc874571cc8883f9ea44ca105ff27feb3e621c9ac85761",
+        "size_bytes": 142
+      },
+      "filename": "public_keys.json",
+      "path": "docs/compute/required_gate_idempotence_loader_rebuild_attestation_binding_v0/preservation/public_keys.json",
+      "retrieval_location_is_rebuilder_authorization": false,
+      "retrieval_url": "https://reproduce.debian.net/amd64/api/v1/meta/public-keys"
+    }
+  ],
+  "prior_build_record_prerequisite": {
+    "fresh_build_record_startup_static_source_package_reconstruction_required": true,
+    "implementation_sources": {
+      "schemas/required_gate_idempotence_loader_build_record_binding_v0.schema.json": {
+        "sha256": "98f6beff59c9c03e7ef2c9790d6a465c6e5c6c78c40e257428ea9078fd326ce7",
+        "size_bytes": 139559
+      },
+      "tools/check_anchor_integrity_record_signatures_v0_1.py": {
+        "sha256": "d370a07a9587ad143f4ad121f468de4cc936c6128e3f798d7aa9e44ea6d3ac65",
+        "size_bytes": 27374
+      },
+      "tools/check_required_gate_idempotence_loader_build_record_binding_v0.py": {
+        "sha256": "c6ee57f9a2aaff50bd0e01fc44cc03c2abe48f477c651167dea1f5f4b95624be",
+        "size_bytes": 15022
+      },
+      "tools/required_gate_idempotence_loader_build_envelope_v0.py": {
+        "sha256": "fcce2caac93cbe904b7fb9aa5e97d2575943ae6de663fb458ffa13c4dc2023ab",
+        "size_bytes": 12544
+      },
+      "tools/required_gate_idempotence_loader_buildinfo_v0.py": {
+        "sha256": "bffa40fae52c173aed442fc3741f353c5487dd9d1b7751b86563cd6abb279fb3",
+        "size_bytes": 18819
+      }
+    },
+    "record": {
+      "sha256": "c15c85e2b875a3deff90576c0c0b1162cc0d91a511271598076b703ad71e2309",
+      "size_bytes": 35194
+    },
+    "record_path": "docs/compute/required_gate_idempotence_loader_build_record_binding_v0/record_v0.json",
+    "saved_report_is_acceptance_input": false,
+    "verification_report": {
+      "sha256": "a4c18cdac2eb083b11b87d6681435c6ffdcdac7ba557cb406b496b147a691048",
+      "size_bytes": 5154
+    }
+  },
+  "profile": "linux_x86_64_original_loader_rebuild_attestation_binding_v0",
+  "rebuild_attestation_facts": {
+    "attestations": [
+      {
+        "carrier": {
+          "sha256": "dc7cc8831246e1fac3aa29d02177f5ce85253fde5d586e1848a869c7805df2c6",
+          "size_bytes": 1104
+        },
+        "complete_material_bytes_joined": true,
+        "complete_product_bytes_joined": true,
+        "filename": "libc6_attestation.json",
+        "listed_signature_count": 2,
+        "material_filename": "glibc_2.41-12+deb13u4_amd64.buildinfo",
+        "other_signature_verified": false,
+        "product_filename": "libc6_2.41-12+deb13u4_amd64.deb",
+        "selected_signature_verified": true,
+        "selected_verified_signature_count": 1,
+        "signature_quorum_established": false,
+        "signatures": [
+          {
+            "keyid": "2980aa6249ad89ce0ef0f0f5e6d0896214301b2818aad33443444cf460df6ed6",
+            "selected": true,
+            "signature": {
+              "sha256": "bd3832454a24606808c2d01672a5a3207599c9aaf0303b537f407a846c1b8b95",
+              "size_bytes": 64
+            },
+            "signature_verified": true
+          },
+          {
+            "keyid": "c70f1852977e382b45eea36783e59dd5f4413e39bdbed773ad0d83aa4d8212b9",
+            "selected": false,
+            "signature": {
+              "sha256": "94a7dec983a3b40d4a4d58abbae2705d14e8750b5e54d42fb8d533fcbf561210",
+              "size_bytes": 64
+            },
+            "signature_verified": false
+          }
+        ],
+        "signed_canonical_bytes": {
+          "sha256": "fc3816be7123f704db4a46bad4c4c8b25a0def0186f23267749ca110768e4b67",
+          "size_bytes": 650
+        },
+        "signed_link": {
+          "_type": "link",
+          "byproducts": {},
+          "command": [],
+          "environment": null,
+          "materials": {
+            "glibc_2.41-12+deb13u4_amd64.buildinfo": {
+              "sha256": "5af18d1a381adb80a101b714b57c7822e5f0442f68e148df26b0dbcc4a1ca1e9",
+              "sha512": "a524fc5465d9b50903657c04f0f252ddb1d24a11161e3c51e33e566c7a2936d723dc2c1f9a71cd6e16aeaf90f15eb21e102c8acb2535bb6d8421065ca371eb0a"
+            }
+          },
+          "name": "rebuild libc6_2.41-12+deb13u4_amd64.deb",
+          "products": {
+            "libc6_2.41-12+deb13u4_amd64.deb": {
+              "sha256": "967aa62605721081c3eb2a17650611a792aa802d76a6511d1840242623d204c9",
+              "sha512": "0ab52592ed75cd5731f9b065ff4ea9109d58ce4f80cfc044d3209219e88a79c904baacc8f48d49cb440376b172ef82e5875ae15d7de7336e9d93e7c3bc2f61e5"
+            }
+          }
+        }
+      },
+      {
+        "carrier": {
+          "sha256": "9e7e500b1aa181474a4ceb4bde60779fe6adb95ade3812c82833b037b49ceda4",
+          "size_bytes": 1112
+        },
+        "complete_material_bytes_joined": true,
+        "complete_product_bytes_joined": true,
+        "filename": "libc6_dbg_attestation.json",
+        "listed_signature_count": 2,
+        "material_filename": "glibc_2.41-12+deb13u4_amd64.buildinfo",
+        "other_signature_verified": false,
+        "product_filename": "libc6-dbg_2.41-12+deb13u4_amd64.deb",
+        "selected_signature_verified": true,
+        "selected_verified_signature_count": 1,
+        "signature_quorum_established": false,
+        "signatures": [
+          {
+            "keyid": "2980aa6249ad89ce0ef0f0f5e6d0896214301b2818aad33443444cf460df6ed6",
+            "selected": true,
+            "signature": {
+              "sha256": "fa5a39f1da1b1db4ede667e0505adf70d72edeca515bf96db5279dc522a326af",
+              "size_bytes": 64
+            },
+            "signature_verified": true
+          },
+          {
+            "keyid": "c70f1852977e382b45eea36783e59dd5f4413e39bdbed773ad0d83aa4d8212b9",
+            "selected": false,
+            "signature": {
+              "sha256": "df8c2ec0db83d2c62258490e06a8d2d933903728d37262f8a7d35c31f2278c4c",
+              "size_bytes": 64
+            },
+            "signature_verified": false
+          }
+        ],
+        "signed_canonical_bytes": {
+          "sha256": "6d633f4c6bd0ba28ef61251a28cbcd0b2c072ccd49a6ddff15aeb148563a4887",
+          "size_bytes": 658
+        },
+        "signed_link": {
+          "_type": "link",
+          "byproducts": {},
+          "command": [],
+          "environment": null,
+          "materials": {
+            "glibc_2.41-12+deb13u4_amd64.buildinfo": {
+              "sha256": "5af18d1a381adb80a101b714b57c7822e5f0442f68e148df26b0dbcc4a1ca1e9",
+              "sha512": "a524fc5465d9b50903657c04f0f252ddb1d24a11161e3c51e33e566c7a2936d723dc2c1f9a71cd6e16aeaf90f15eb21e102c8acb2535bb6d8421065ca371eb0a"
+            }
+          },
+          "name": "rebuild libc6-dbg_2.41-12+deb13u4_amd64.deb",
+          "products": {
+            "libc6-dbg_2.41-12+deb13u4_amd64.deb": {
+              "sha256": "0123a767a462c59d75e1bd56c4a0f7192c389f600e4743e807d3d33c679dbcf7",
+              "sha512": "58471fc5c5cf9e3757ae034b62f4456395d01b2df21b7f286e7ff68113c47df8b23bf4ce30950cfae4172b67f825d7679b8debfa64fc9f09382e70b9f3bf3535"
+            }
+          }
+        }
+      }
+    ],
+    "boundary": {
+      "authenticated_build_provenance": false,
+      "authority_effect": "none",
+      "b2_complete": false,
+      "consumer_resolution_observed": false,
+      "historical_rebuilder_key_authority_authenticated": false,
+      "historical_signing_time_authenticated": false,
+      "metric_pass": null,
+      "native_rebuild_performed": false,
+      "original_acquisition_authorized": false,
+      "original_acquisition_ready": false,
+      "original_buildinfo_signature_verified": false,
+      "original_changes_signature_verified": false,
+      "other_signature_verified": false,
+      "project_rebuild_policy_selected": false,
+      "rebuild_process_independence_verified": false,
+      "rebuilder_identity_authenticated": false,
+      "source_binary_equivalence_verified": false,
+      "source_build_gate_satisfied": false,
+      "source_input_hashes_directly_attested": false
+    },
+    "input_bindings": {
+      "buildinfo": {
+        "filename": "glibc_2.41-12+deb13u4_amd64.buildinfo",
+        "sha256": "5af18d1a381adb80a101b714b57c7822e5f0442f68e148df26b0dbcc4a1ca1e9",
+        "sha512": "a524fc5465d9b50903657c04f0f252ddb1d24a11161e3c51e33e566c7a2936d723dc2c1f9a71cd6e16aeaf90f15eb21e102c8acb2535bb6d8421065ca371eb0a",
+        "size_bytes": 15502
+      },
+      "packages": [
+        {
+          "filename": "libc6-dbg_2.41-12+deb13u4_amd64.deb",
+          "sha256": "0123a767a462c59d75e1bd56c4a0f7192c389f600e4743e807d3d33c679dbcf7",
+          "sha512": "58471fc5c5cf9e3757ae034b62f4456395d01b2df21b7f286e7ff68113c47df8b23bf4ce30950cfae4172b67f825d7679b8debfa64fc9f09382e70b9f3bf3535",
+          "size_bytes": 7373052
+        },
+        {
+          "filename": "libc6_2.41-12+deb13u4_amd64.deb",
+          "sha256": "967aa62605721081c3eb2a17650611a792aa802d76a6511d1840242623d204c9",
+          "sha512": "0ab52592ed75cd5731f9b065ff4ea9109d58ce4f80cfc044d3209219e88a79c904baacc8f48d49cb440376b172ef82e5875ae15d7de7336e9d93e7c3bc2f61e5",
+          "size_bytes": 2846580
+        }
+      ]
+    },
+    "limitations": {
+      "matching_product_digest_is_direct_observation_of_rebuild_execution": false,
+      "other_signature_verification_performed": false,
+      "retrieval_url_authenticates_historical_signer_role": false,
+      "signed_builder_identity_present": false,
+      "signed_byproducts_are_empty": true,
+      "signed_command_is_empty": true,
+      "signed_environment_is_null": true,
+      "signed_rebuild_log_digest_present": false,
+      "signed_source_archive_digests_present": false,
+      "signed_timestamp_present": false
+    },
+    "profile": "selected_original_loader_rebuild_attestations_v0",
+    "public_key": {
+      "backend_spki_parameters_absent": true,
+      "canonical_key_bytes": {
+        "sha256": "2980aa6249ad89ce0ef0f0f5e6d0896214301b2818aad33443444cf460df6ed6",
+        "size_bytes": 171
+      },
+      "canonical_key_object": {
+        "keyid_hash_algorithms": [
+          "sha256",
+          "sha512"
+        ],
+        "keytype": "ed25519",
+        "keyval": {
+          "public": "13ba298a31f08e49f88a736013fd3d4d290867f72dfd2b3e52ba8d30e5451718"
+        },
+        "scheme": "ed25519"
+      },
+      "historical_role_authenticated": false,
+      "key_selected_by_exact_bytes": true,
+      "keyid": "2980aa6249ad89ce0ef0f0f5e6d0896214301b2818aad33443444cf460df6ed6",
+      "original_spki_der": {
+        "sha256": "f773805fcbe56243f796748d5d7993c5d961a39eb0371715bbdfd9d3c3f0bbb5",
+        "size_bytes": 46
+      },
+      "original_spki_explicit_null_parameters": true,
+      "pem": {
+        "sha256": "707ab55149ad64f09d3670781ea5a625069dbc18946bc3fc5a4a1adf1d71db5b",
+        "size_bytes": 120
+      },
+      "raw_public_key_hex": "13ba298a31f08e49f88a736013fd3d4d290867f72dfd2b3e52ba8d30e5451718",
+      "response": {
+        "sha256": "ae30bbb97ab1d57cb8bc874571cc8883f9ea44ca105ff27feb3e621c9ac85761",
+        "size_bytes": 142
+      }
+    },
+    "record_type": "required_gate_idempotence_loader_rebuild_attestation_facts_v0",
+    "selected_material_product_hashes_verified": true,
+    "selected_signature_verified": true,
+    "verified_attestation_count": 2
+  },
+  "record_type": "required_gate_idempotence_loader_rebuild_attestation_binding_v0",
+  "runtime_backend_policy": {
+    "backend_binary_hash_stable_for_verification_required": true,
+    "binary_provider_os_closure_attested": false,
+    "existing_verifier_source": "tools/check_anchor_integrity_record_signatures_v0_1.py",
+    "host_specific_backend_identity_is_authored_constant": false,
+    "path": "/usr/bin/openssl",
+    "positive_and_negative_known_answer_self_tests_required": true,
+    "suite": "ed25519"
+  }
+}
