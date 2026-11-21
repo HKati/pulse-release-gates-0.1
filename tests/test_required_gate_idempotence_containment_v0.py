@@ -15460,3 +15460,88 @@ def test_loader_two_slot_qualification_sigchld_ownership_preflight_precedes_spaw
         with pytest.raises(producer.QualificationError, match="two_slot_native_sigchld_handler"):
             backend.spawn(_loader_readout_two_slot_probe_oracle(), 1_000_000_000)
     assert queried == [producer.signal.SIGCHLD]
+
+
+def _loader_two_slot_qualification_child_proc_pairs():
+    # Independently enumerate both selected proc files at every acquisition
+    # phase; the native dispatcher's substring predicates are not reused.
+    return [
+        ("child.stat.setup.bin", "child.status.setup.bin"),
+        ("cp0.child.stat.bin", "cp0.child.status.bin"),
+        *[(f"event.{number:02d}.child.stat.{side}.bin",
+           f"event.{number:02d}.child.status.{side}.bin")
+          for number in range(1, 11) for side in ("a", "b")],
+    ]
+
+
+@pytest.mark.parametrize("name,leaf", [
+    (name, leaf)
+    for pair in _loader_two_slot_qualification_child_proc_pairs()
+    for name, leaf in zip(pair, ("stat", "status"))
+])
+def test_loader_two_slot_qualification_native_child_proc_dispatch_selects_exact_leaf(
+        loader_two_slot_qualification_modules, name, leaf):
+    modules = loader_two_slot_qualification_modules
+    native = object.__new__(modules.native_type)
+    native.starttime, native.procfd, native.clock = None, 60002, lambda: 0
+    raw_files = {"stat": _loader_two_slot_qualification_stat(),
+                 "status": _loader_two_slot_qualification_status()}
+    selected = []
+
+    def read_path(path, maximum, deadline, *, directory):
+        selected.append((path, maximum, deadline, directory))
+        return raw_files[path]
+
+    # Exercise NativeBackend.read itself. Only the low-level file read is
+    # replaced; no real descriptor, proc file, child or ptrace call is used.
+    native._read_path = read_path
+    actual = native.read(name, 1_000_000)
+    assert selected == [(leaf, 65536, 1_000_000, 60002)]
+    assert actual == raw_files[leaf]
+    assert native.starttime == (234567 if leaf == "stat" else None)
+
+
+def test_loader_two_slot_qualification_native_child_proc_dispatch_reaches_terminal_in_scripted_controller(
+        loader_two_slot_qualification_modules):
+    modules = loader_two_slot_qualification_modules
+    pairs = _loader_two_slot_qualification_child_proc_pairs()
+    by_name = {name: {"stat": pair[0], "status": pair[1]}
+               for pair in pairs for name in pair}
+    routed = []
+
+    class NativeProcDispatchBackend(_LoaderTwoSlotQualificationScriptedBackend):
+        def __init__(self):
+            super().__init__()
+            self.native = object.__new__(modules.native_type)
+            self.native.starttime, self.native.procfd = None, 60002
+            self.native.clock = self.clock
+
+        def read(self, name, deadline):
+            if name not in by_name:
+                return super().read(name, deadline)
+            self.calls.append(("read", name))
+
+            def read_path(path, maximum, selected_deadline, *, directory):
+                assert (maximum, selected_deadline, directory) == (65536, deadline, 60002)
+                routed.append((name, path))
+                return self.case.files[by_name[name][path]]
+
+            self.native._read_path = read_path
+            raw = self.native.read(name, deadline)
+            self.starttime = self.native.starttime
+            return raw
+
+    backend = NativeProcDispatchBackend()
+    record = modules.producer.qualify(backend=backend)
+    assert record["status"] == "completed", record["failure"]
+    assert record["evidence_origin"] == "scripted_test_backend"
+    assert backend.cont_count == 11 and backend.closed and backend.reaped
+    assert routed == [(name, leaf) for pair in pairs for name, leaf in zip(pair, ("stat", "status"))]
+    for name in by_name:
+        assert bytes.fromhex(record["raw"][name]["hex"]) == backend.case.files[name]
+    raw = encoded(record)
+    report = modules.checker.verify_record(record_bytes=raw, expected_record_sha256=digest(raw),
+                                          expected_context=backend.case.context)
+    assert report["complete_mechanics_verified"] is True
+    assert report["native_record_reconstructed"] is False
+    _loader_two_slot_qualification_assert_boundary(report)

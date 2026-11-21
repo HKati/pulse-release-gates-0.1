@@ -339,7 +339,8 @@ class NativeBackend:
             return self._read_path(leaf, 65536, deadline, directory=self.observerfd)
         if name == "child.pidfd.info.bin":
             return self._read_path("/proc/self/fdinfo/" + str(self.pidfd), 65536, deadline)
-        if "child.stat" in name:
+        # Include the delimiter: child.status also starts with child.stat.
+        if "child.stat." in name:
             raw = self._read_path("stat", 65536, deadline, directory=self.procfd)
             try:
                 if self.starttime is None:
@@ -351,7 +352,7 @@ class NativeBackend:
                 _preserve_raw_failure(exc, raw, 65536)
                 raise
             return raw
-        if "child.status" in name:
+        if "child.status." in name:
             return self._read_path("status", 65536, deadline, directory=self.procfd)
         if name == "cp0.auxv.bin":
             return self._read_path("auxv", 65536, deadline, directory=self.procfd)
