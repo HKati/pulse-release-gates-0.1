@@ -86,6 +86,8 @@ moves between merged and open work, update this index.
 
 - [B2 loader readout checker contract](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_READOUT_CONTRACT_v0.md) — **Implemented fresh static-prerequisite reconstruction and separate data-only readout/two-slot fixture checkers.** Reconstruct raw register, memory, map and original occurrence joins; check repeated hardware-stop transcript relationships with explicit incomplete-prefix rules. Authored fixtures never become live qualification or original observations. Build provenance, invocation modes, live capability, original acquisition and B2 completion remain open; `metric_pass=null` and `authority_effect=none`.
 
+- [B2 original-loader startup and resume acceptance contract](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_STARTUP_CONTRACT_v0.md) — **Implemented conditional original source/debug/instruction mode derivation and additional authored-fixture acceptance rules.** Bind the selected zero startup modes to the original recipe, validate complete bounded initial argument/environment and process relationships, and require RF set / TF clear at hardware execution stops. Freshly reconstruct the unchanged prior readout/static proof and preserve incomplete results. Actual invocation, live resumption, build provenance, original acquisition and B2 completion remain open; `metric_pass=null` and `authority_effect=none`.
+
 [Current coverage and implementation plan](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#18-required-gate-coverage-plan-after-accepted-rejection-verification) ·
 [Machine-readable nineteen-gate inventory](compute/required_gate_coverage_plan_v0/coverage_plan_v0.json) ·
 [Completed bounded verification](compute/admission_rejection_43445176088_v0/README.md)
