@@ -1,0 +1,119 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA512
+
+Format: 1.8
+Date: Mon, 29 Jun 2026 23:37:52 +0200
+Source: glibc
+Binary: libc-bin libc-bin-dbgsym libc-dev-bin libc-dev-bin-dbgsym libc-devtools libc-devtools-dbgsym libc6 libc6-dbg libc6-dev libc6-dev-dbgsym libc6-dev-i386 libc6-dev-x32 libc6-i386 libc6-i386-dbgsym libc6-udeb libc6-x32 libc6-x32-dbgsym locales-all nscd nscd-dbgsym
+Architecture: amd64
+Version: 2.41-12+deb13u4
+Distribution: trixie
+Urgency: medium
+Maintainer: all / amd64 / i386 Build Daemon (x86-grnet-03) <buildd_amd64-x86-grnet-03@buildd.debian.org>
+Changed-By: Aurelien Jarno <aurel32@debian.org>
+Description:
+ libc-bin   - GNU C Library: Binaries
+ libc-dev-bin - GNU C Library: Development binaries
+ libc-devtools - GNU C Library: Development tools
+ libc6      - GNU C Library: Shared libraries
+ libc6-dbg  - GNU C Library: detached debugging symbols
+ libc6-dev  - GNU C Library: Development Libraries and Header Files
+ libc6-dev-i386 - GNU C Library: 32-bit development libraries for AMD64
+ libc6-dev-x32 - GNU C Library: X32 ABI Development Libraries for AMD64
+ libc6-i386 - GNU C Library: 32-bit shared libraries for AMD64
+ libc6-udeb - GNU C Library: Shared libraries - udeb (udeb)
+ libc6-x32  - GNU C Library: X32 ABI Shared libraries for AMD64
+ locales-all - GNU C Library: Precompiled locale data
+ nscd       - GNU C Library: Name Service Cache Daemon
+Closes: 1134543 1134544 1135405
+Changes:
+ glibc (2.41-12+deb13u4) trixie; urgency=medium
+ .
+   * debian/patches/git-updates.diff: update from upstream stable branch:
+     - Fix build against linux 7.0 headers.  Closes: #1135405.
+     - Fix ungetwc operating on byte stream (CVE-2026-5928).  Closes: #1134544.
+     - Fix buffer overflow in scanf %mc (CVE-2026-5450).  Closes: #1134543.
+     - Suppress iconv intermediate errors with //TRANSLIT.
+Checksums-Sha1:
+ 978d237f54a6efe544f9fc91cc3c582e3892a3de 15502 glibc_2.41-12+deb13u4_amd64-buildd.buildinfo
+ 9adb2905b4c2b15d50adfeca2e674ae4dca8cd47 2278104 libc-bin-dbgsym_2.41-12+deb13u4_amd64.deb
+ 5262f3fa760a16acde1903de0f1ddc0be8cca6da 638452 libc-bin_2.41-12+deb13u4_amd64.deb
+ 3c06acd61ff318066ca71474f4417d0ad80be3f2 31920 libc-dev-bin-dbgsym_2.41-12+deb13u4_amd64.deb
+ 1fd7d8116ab37f41be398769527a36a4a2cd5c5b 59960 libc-dev-bin_2.41-12+deb13u4_amd64.deb
+ a9119c767829a5d775fd78064591f1c1b24fbb76 47904 libc-devtools-dbgsym_2.41-12+deb13u4_amd64.deb
+ b561597f76396041045889fb0437504961ecfe20 69724 libc-devtools_2.41-12+deb13u4_amd64.deb
+ 6fb70b733b1b59d4980166a9eb2b7044f629ef02 7373052 libc6-dbg_2.41-12+deb13u4_amd64.deb
+ 2fa0c6105a48d7a1d7bb1116c3d29f5df2d8079a 14828 libc6-dev-dbgsym_2.41-12+deb13u4_amd64.deb
+ 6898f8a1e5b7eba1673043016de11b06a7ee95aa 1429124 libc6-dev-i386_2.41-12+deb13u4_amd64.deb
+ f76e7acac8e773e26a6853f0e775a45395dfe5da 1596192 libc6-dev-x32_2.41-12+deb13u4_amd64.deb
+ f3859a3c0528bb85c746a18270793b295d2c80dc 1994660 libc6-dev_2.41-12+deb13u4_amd64.deb
+ 3d708cbbfec3ed11116ea910f48d4236d8958f54 6817228 libc6-i386-dbgsym_2.41-12+deb13u4_amd64.deb
+ b9aca6e797c890bfd49662474161fc9758b9873d 2539076 libc6-i386_2.41-12+deb13u4_amd64.deb
+ 1301129c8e68246c58b707f9c38bcad0f9521c20 1425096 libc6-udeb_2.41-12+deb13u4_amd64.udeb
+ 54c8c77e02942ce42c71207bee02733549ddc90f 7192412 libc6-x32-dbgsym_2.41-12+deb13u4_amd64.deb
+ bb559f07c633215f41f5c20894c13d8d91e51995 2670432 libc6-x32_2.41-12+deb13u4_amd64.deb
+ 27904cc1b58dd79f0768ba6aa6dd993edc411b97 2846580 libc6_2.41-12+deb13u4_amd64.deb
+ a5367d0345200aea649ea6eda45e11bd83b82989 11164992 locales-all_2.41-12+deb13u4_amd64.deb
+ ea9613e3b7f9ba00ad0967dfdb2bebbeb9de5aae 220064 nscd-dbgsym_2.41-12+deb13u4_amd64.deb
+ f6e92ce3525cdb820e6b12191fa14987dbbfa7ba 107404 nscd_2.41-12+deb13u4_amd64.deb
+Checksums-Sha256:
+ 5af18d1a381adb80a101b714b57c7822e5f0442f68e148df26b0dbcc4a1ca1e9 15502 glibc_2.41-12+deb13u4_amd64-buildd.buildinfo
+ f281d4385234edc7da012f2cdb195907a57e90317129978cba7f94b2c5483fd0 2278104 libc-bin-dbgsym_2.41-12+deb13u4_amd64.deb
+ dc8c79647fe3a5f37f72a400414f70263d0212f010ff2c09f990e30d91e38d1c 638452 libc-bin_2.41-12+deb13u4_amd64.deb
+ 0674e8dd264f29a42c818c9c691dde1431489026beedf106d49df1bab7db9ad3 31920 libc-dev-bin-dbgsym_2.41-12+deb13u4_amd64.deb
+ 2c21175d6a8283ed566d154c0c0bc06f60836e53b0b9e1f74c14eac586b68c24 59960 libc-dev-bin_2.41-12+deb13u4_amd64.deb
+ aa0a81cb56716e40ff4bad33567711590c4648b703f0d317f5f9c52cecf924df 47904 libc-devtools-dbgsym_2.41-12+deb13u4_amd64.deb
+ 51554325036ac8506bc5c74dbc2626dda32930460923736277c38f92ab43dcf1 69724 libc-devtools_2.41-12+deb13u4_amd64.deb
+ 0123a767a462c59d75e1bd56c4a0f7192c389f600e4743e807d3d33c679dbcf7 7373052 libc6-dbg_2.41-12+deb13u4_amd64.deb
+ 758c7ecd03ea5883003319e9e9c56455e7fd63c91bf15f2b53cc69193c3e9399 14828 libc6-dev-dbgsym_2.41-12+deb13u4_amd64.deb
+ 703dfda170c766dd82986f12b6494fb4c8f51f2ab93bb214d0be02c69e4e7869 1429124 libc6-dev-i386_2.41-12+deb13u4_amd64.deb
+ b9f33ef9c5ca194ebf3a19892df54f864518c7f9998296b300e6fc3df93c8c7a 1596192 libc6-dev-x32_2.41-12+deb13u4_amd64.deb
+ 1fda734dabcd80b77266a09ab62b0f1e3e16d8091db62899890b2200745632a2 1994660 libc6-dev_2.41-12+deb13u4_amd64.deb
+ bcb03ca4d551439fd2c6458573870eb4d67150e1277320114b42c8796ff7b9ef 6817228 libc6-i386-dbgsym_2.41-12+deb13u4_amd64.deb
+ 50c1653ce29519e1fcd8742f2c67f5edad8d4c3aed3d1ffbea2b7c3497a809d2 2539076 libc6-i386_2.41-12+deb13u4_amd64.deb
+ 5360fd835dd70bcae8fbb722c788d3a0da4efe4d9a9f3df10cd25d15f8cbb3a3 1425096 libc6-udeb_2.41-12+deb13u4_amd64.udeb
+ ec5a36037ca91dbefeedfbc4e19cd41f8cb594f38ae6eaa3c9220f6754529c41 7192412 libc6-x32-dbgsym_2.41-12+deb13u4_amd64.deb
+ 05f331c961ebab1ab6028c5a15bb5b903ea1ea2e22d6cee84f73ff1d28be44af 2670432 libc6-x32_2.41-12+deb13u4_amd64.deb
+ 967aa62605721081c3eb2a17650611a792aa802d76a6511d1840242623d204c9 2846580 libc6_2.41-12+deb13u4_amd64.deb
+ 6115af37620649568c25a7321d40094c44cb339c0aaccf3faa9cc2a9b1e38764 11164992 locales-all_2.41-12+deb13u4_amd64.deb
+ 4029e9e8fc98ca9c425e4e04b64ff2173e54e08cf91f17927bf9d803836a6c41 220064 nscd-dbgsym_2.41-12+deb13u4_amd64.deb
+ 96669e5e955a5cad09f7ae43a762a189213e183ebeab7ee65dd2cf0caa90655f 107404 nscd_2.41-12+deb13u4_amd64.deb
+Files:
+ d1126a688824f0c543107e386f91931e 15502 libs required glibc_2.41-12+deb13u4_amd64-buildd.buildinfo
+ 57cc90baddee24395b3fe44f0bdcf371 2278104 debug optional libc-bin-dbgsym_2.41-12+deb13u4_amd64.deb
+ 953e2f92e83896730d699bf8b67d00e1 638452 libs required libc-bin_2.41-12+deb13u4_amd64.deb
+ a3e39614c57a68efbfb5caccf38a53a0 31920 debug optional libc-dev-bin-dbgsym_2.41-12+deb13u4_amd64.deb
+ 134e916e5b1b2a07033d6f8f538318ff 59960 libdevel optional libc-dev-bin_2.41-12+deb13u4_amd64.deb
+ b0531105fa023d295caad6a82bb9521f 47904 debug optional libc-devtools-dbgsym_2.41-12+deb13u4_amd64.deb
+ 14b74e86292a086ef6d66600e735fee8 69724 devel optional libc-devtools_2.41-12+deb13u4_amd64.deb
+ ff40ce1e8b641ee300c065594462c786 7373052 debug optional libc6-dbg_2.41-12+deb13u4_amd64.deb
+ da80559ece30498821c58fbb6a828623 14828 debug optional libc6-dev-dbgsym_2.41-12+deb13u4_amd64.deb
+ b70d658f3d985da5ed69e4c69333089d 1429124 libdevel optional libc6-dev-i386_2.41-12+deb13u4_amd64.deb
+ c3f1cf5a6ebe9722a3b8a80414ca577e 1596192 libdevel optional libc6-dev-x32_2.41-12+deb13u4_amd64.deb
+ 418afa25e28a18e3729cd1d9cf3bf010 1994660 libdevel optional libc6-dev_2.41-12+deb13u4_amd64.deb
+ f3b89bf453c150712483fa79306f7eec 6817228 debug optional libc6-i386-dbgsym_2.41-12+deb13u4_amd64.deb
+ 96cd65a7f7fb1e708dfbf0f052cfbf9a 2539076 libs optional libc6-i386_2.41-12+deb13u4_amd64.deb
+ 3f695a46464437c8aa43c309b576ff8a 1425096 debian-installer optional libc6-udeb_2.41-12+deb13u4_amd64.udeb
+ 59b5f5224f84478f8a4217b5573bc766 7192412 debug optional libc6-x32-dbgsym_2.41-12+deb13u4_amd64.deb
+ 7ebb63d5f1309b7307861234643e231f 2670432 libs optional libc6-x32_2.41-12+deb13u4_amd64.deb
+ 5559581916477ef1f57ea9f82cecf22e 2846580 libs optional libc6_2.41-12+deb13u4_amd64.deb
+ fb9d65aaac943f5f1f53a91a9fcf280a 11164992 localization optional locales-all_2.41-12+deb13u4_amd64.deb
+ cc4b7e5fc439d8bf6a5c27a9ae5a2665 220064 debug optional nscd-dbgsym_2.41-12+deb13u4_amd64.deb
+ 937b8f752338f55dd6c49d86b6e22d2b 107404 admin optional nscd_2.41-12+deb13u4_amd64.deb
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIzBAEBCgAdFiEE5ZI1lXv5WjhHIVjsN8Ugyu9dQiQFAmpSgK0ACgkQN8Ugyu9d
+QiQDkxAAhP5UNwuAWW0hyQd5p8ZuSLECW4h0CfjgvE2sRkzAxvyzgzrmSSTsbZox
+ImKHL1HXPY6TkqT9dPn7TlauACZ7sY5CFWDEGP/tJRGJVfCVrPhW0aSMOsfFydvO
+zfP59eXhDKWkkdb/lGEGxjGYHrTfYU88hPMzYw472en7wKPGMwg/r98GD/E94pyk
+jXIMjxl2VsDrg02FE9cQtnYdKLplDPNJy7LmH88DFjrlAoSABJb9ma9M/8XfeSg3
+0zRs8/UH+KC9klPxRTLFuCQ/RdGC1hHTKUzuTBvRuG/k/43cvRFQsvwk3/msHLNd
+/wpsh4RpeoR3P4LihTNqTMyeH3bawBmV5YtQ7AgGuYJO4xzbHsGOb3Yzfg4qcCKL
+XX+ECcsRpwn25xIjFmHdIQaa46/WCVa2SqR4L7sCH++UxwTrPpClG3mWHFiMWwqD
+FbxFeakjyV9Yase78XlfnwvhE4nVGDA87TIIP8Dl5Nb+2zOl4zRWL8WYgqLFPrJc
+D+iuUlLUCpgj/C5NzEiCaZytXF9umQHrW6rlgnENrxlMkVo2x1OrJpAetrPQNylc
+rRG7JQdnEgp/Vl9QzpFEy5e9ehW2acwXyTt3Jz+q8Gi1AjZY9O7mndGFpddSPFkA
+rDzejRisIUnSRHmSJv5VUxR/LM3qqVFXRUS+hh69e3WX94BiEYU=
+=74zi
+-----END PGP SIGNATURE-----
