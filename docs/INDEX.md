@@ -84,6 +84,8 @@ moves between merged and open work, update this index.
 
 - [B2 bootstrap preparation](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_BOOTSTRAP_v0.md) — **Implemented deterministic launch planning, exact view materialization and a fixed diagnostic probe.** Bind finite module/resource targets and native aliases to an accepted runtime capsule, reconstruct the plan independently and preserve its exact filesystem bytes. The probe remains diagnostic; contained execution, runtime qualification and observed-launch integration remain outstanding. B2 is incomplete and `authority_effect=none`.
 
+- [B2 loader readout checker contract](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_READOUT_CONTRACT_v0.md) — **Implemented fresh static-prerequisite reconstruction and separate data-only readout/two-slot fixture checkers.** Reconstruct raw register, memory, map and original occurrence joins; check repeated hardware-stop transcript relationships with explicit incomplete-prefix rules. Authored fixtures never become live qualification or original observations. Build provenance, invocation modes, live capability, original acquisition and B2 completion remain open; `metric_pass=null` and `authority_effect=none`.
+
 [Current coverage and implementation plan](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#18-required-gate-coverage-plan-after-accepted-rejection-verification) ·
 [Machine-readable nineteen-gate inventory](compute/required_gate_coverage_plan_v0/coverage_plan_v0.json) ·
 [Completed bounded verification](compute/admission_rejection_43445176088_v0/README.md)

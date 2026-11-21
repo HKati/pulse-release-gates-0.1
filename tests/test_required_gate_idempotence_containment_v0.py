@@ -11183,3 +11183,947 @@ def test_loader_binary_binding_oversized_bytes_reject_before_hashing(loader_bina
         else:
             case.checker._reassemble_inputs({**case.artifacts, path: oversized})
     assert hashed_oversized == []
+
+
+# B2 loader readout contract: all stop, process and memory samples below are
+# independently authored checker fixtures. No original loader or native probe
+# executes, and no fixture constitutes an observed qualification.
+LOADER_READOUT_HELPER_REL = "tools/required_gate_idempotence_loader_readout_v0.py"
+LOADER_READOUT_TWO_SLOT_REL = "tools/required_gate_idempotence_loader_two_slot_v0.py"
+LOADER_READOUT_CONTRACT_REL = "docs/compute/required_gate_idempotence_loader_readout_contract_v0/contract_v0.json"
+LOADER_READOUT_WRAPPER_REL = "tools/check_required_gate_idempotence_loader_readout_contract_v0.py"
+
+
+def loader_readout_helper():
+    return module("required_gate_idempotence_loader_readout_v0", LOADER_READOUT_HELPER_REL)
+
+
+def loader_readout_two_slot():
+    return module("required_gate_idempotence_loader_two_slot_v0", LOADER_READOUT_TWO_SLOT_REL)
+
+
+def _loader_readout_elf(raw):
+    """Small independent struct-only oracle for constructing maps and pointers."""
+    header = struct.unpack_from("<16sHHIQQQIHHHHHH", raw)
+    assert header[0][:6] == b"\x7fELF\x02\x01" and header[2] == 62
+    rows = [struct.unpack_from("<IIQQQQQQ", raw, header[5] + i * header[9])
+            for i in range(header[10])]
+    loads = [row for row in rows if row[0] == 1]
+    dynamic = next(row for row in rows if row[0] == 2)
+    tags = []
+    for position in range(dynamic[2], dynamic[2] + dynamic[5], 16):
+        tag, value = struct.unpack_from("<qQ", raw, position)
+        if tag == 0:
+            break
+        tags.append((tag, value, position))
+    else:
+        raise AssertionError("unterminated original ELF dynamic table")
+    table = next(value for tag, value, _position in tags if tag == 5)
+    table_size = next(value for tag, value, _position in tags if tag == 10)
+    segment = next(row for row in loads if row[3] <= table and table + table_size <= row[3] + row[5])
+    table_offset = segment[2] + table - segment[3]
+    needed = []
+    for ordinal, (tag, value, _position) in enumerate(tags):
+        if tag == 1:
+            end = raw.index(b"\0", table_offset + value, table_offset + table_size)
+            needed.append({"dynamic_ordinal": ordinal, "string_offset": value,
+                           "name": raw[table_offset + value:end + 1]})
+    phdr_load = next(row for row in loads if row[2] <= header[5]
+                     and header[5] + header[9] * header[10] <= row[2] + row[5])
+    return SimpleNamespace(entry=header[4], loads=loads, dynamic_vaddr=dynamic[3],
+                           strtab_vaddr=table, needed=needed, phentsize=header[9], phnum=header[10],
+                           phdr_vaddr=phdr_load[3] + header[5] - phdr_load[2])
+
+
+@pytest.fixture(scope="module")
+def loader_readout_originals(loader_binary_binding_case):
+    import zipfile
+    roles = {"launcher": "bwrap", "loader": "ld-linux-x86-64.so.2", "libc": "libc.so.6",
+             "libcap": "libcap.so.2", "libpcre2": "libpcre2-8.so.0", "libselinux": "libselinux.so.1"}
+    with zipfile.ZipFile(io.BytesIO(loader_binary_binding_case.baseline)) as archive:
+        native = {"native/" + name: archive.read("acquisition/observation/capture/native." + role + ".before.elf")
+                  for role, name in roles.items()}
+    _descriptors, needed, _interpreters, loads = _entry_resolution_elf_oracle(native)
+    assert loads == 24 and len(needed) == 9
+    return SimpleNamespace(case=loader_binary_binding_case, native=native,
+                           elf={path: _loader_readout_elf(raw) for path, raw in native.items()},
+                           occurrences=needed)
+
+
+def _loader_readout_event_fixture(originals, occurrence=0, *, event_index=0, absent=()):
+    """Author runtime byte samples from original ELF declarations, never live state."""
+    row = originals.occurrences[occurrence]
+    consumer, provider = row["consumer"]["path"], row["expected_provider"]["path"]
+    ordered = sorted(originals.native)
+    biases = {path: 0x50000000 + index * 0x01000000 for index, path in enumerate(ordered)}
+    backings = []
+    lines = []
+    for index, path in enumerate(ordered):
+        raw, elf = originals.native[path], originals.elf[path]
+        info = {"device_major": 8, "device_minor": 1, "inode": 1000 + index,
+                "size_bytes": len(raw), "mode": stat.S_IFREG | 0o644, "nlink": 1,
+                "mtime_ns": 100, "ctime_ns": 100}
+        backings.append({"native_path": path, "content": bound(raw),
+                         "before": dict(info), "after": dict(info)})
+        if path in absent:
+            continue
+        for segment in elf.loads:
+            first = segment[3] // 4096 * 4096
+            end = (segment[3] + segment[5] + 4095) // 4096 * 4096
+            offset = segment[2] // 4096 * 4096
+            permissions = "r" + ("w" if segment[1] & 2 else "-") + ("x" if segment[1] & 1 else "-") + "p"
+            lines.append((biases[path] + first, f"{biases[path]+first:x}-{biases[path]+end:x} {permissions} "
+                          f"{offset:08x} 08:01 {info['inode']} /authored/{Path(path).name}\n"))
+    args_address, consumer_pointer, provider_pointer = 0x70000100, 0x70000200, 0x70000300
+    lines.append((0x70000000, "70000000-70001000 rw-p 00000000 00:00 0 [heap]\n"))
+    for address, permission, name in ((0x71000000, "rw-p", "stack"),
+                                      (0x72000000, "r--p", "vvar"),
+                                      (0x73000000, "r-xp", "vdso")):
+        lines.append((address, f"{address:x}-{address+4096:x} {permission} 00000000 00:00 0 [{name}]\n"))
+    maps = "".join(line for _address, line in sorted(lines)).encode("ascii")
+    selected = next(item for item in originals.elf[consumer].needed
+                    if item["dynamic_ordinal"] == row["dynamic_entry_ordinal"])
+    table_pointer = biases[consumer] + originals.elf[consumer].strtab_vaddr
+    name_pointer = table_pointer + selected["string_offset"]
+    args = struct.pack("<QiiQQQ", consumer_pointer, 0, 0, table_pointer, name_pointer, 0xDEADBEEF)
+
+    def prefix(path, pointer):
+        raw = bytearray(56)
+        struct.pack_into("<Q", raw, 0, biases[path])
+        struct.pack_into("<Q", raw, 16, biases[path] + originals.elf[path].dynamic_vaddr)
+        struct.pack_into("<Qq", raw, 40, pointer, 0)
+        return bytes(raw)
+
+    packed, ranges = b"", []
+    for role, address, raw in (("args", args_address, args),
+                               ("consumer_map", consumer_pointer, prefix(consumer, consumer_pointer)),
+                               ("provider_map", provider_pointer, prefix(provider, provider_pointer)),
+                               ("needed_name", name_pointer, selected["name"])):
+        ranges.append({"role": role, "address": address, "offset": len(packed), "size_bytes": len(raw)})
+        packed += raw
+    loader = "native/ld-linux-x86-64.so.2"
+    loader_target = biases[loader] + 0x3671
+    entry_target = biases["native/bwrap"] + originals.elf["native/bwrap"].entry
+    regs = bytearray(216)
+    for index, value in ((5, args_address), (10, provider_pointer), (14, 0xBADBEEF),
+                         (16, loader_target), (18, 0x10202), (19, 0x70000800)):
+        struct.pack_into("<Q", regs, index * 8, value)
+    debug = struct.pack("<6Q", loader_target, entry_target, 0, 0, 0xFFFF0FF1, 5)
+    siginfo = bytearray(128)
+    struct.pack_into("<iii", siginfo, 0, 5, 0, 4)
+    struct.pack_into("<Q", siginfo, 16, loader_target)
+    auxv = b"".join(struct.pack("<QQ", key, value) for key, value in
+                    ((3, biases["native/bwrap"] + originals.elf["native/bwrap"].phdr_vaddr),
+                     (4, originals.elf["native/bwrap"].phentsize), (5, originals.elf["native/bwrap"].phnum),
+                     (6, 4096), (7, biases[loader]), (9, entry_target), (0, 0)))
+    observer, child, starttime = 4001, 4002, 123456
+    files = {"observer.stat.bin": native_acquisition_proc_stat(observer, 1, "S", 123400),
+             "observer.status.bin": native_acquisition_proc_status(observer, 1, "S", 0),
+             "child.stat.setup.bin": native_acquisition_proc_stat(child, observer, "t", starttime),
+             "child.status.setup.bin": native_acquisition_proc_status(child, observer, "t", observer),
+             "child.pidfd.info.bin": f"Pid:\t{child}\nNSpid:\t{child}\n".encode("ascii"),
+             "siginfo.bin": bytes(siginfo)}
+    rx = next(segment for segment in originals.elf[loader].loads if segment[1] == 5)
+    rx_bytes = originals.native[loader][rx[2]:rx[2] + rx[5]]
+    assert len(rx_bytes) == 160721
+    for side in ("before", "after"):
+        files["child.stat." + side + ".bin"] = files["child.stat.setup.bin"]
+        files["child.status." + side + ".bin"] = files["child.status.setup.bin"]
+        for name, raw in (("maps", maps), ("regs", bytes(regs)), ("auxv", auxv), ("debug", debug)):
+            files[name + "." + side + ".bin"] = raw
+    for sample in (0, 1):
+        files[f"memory.sample{sample}.bin"] = packed
+        files[f"loader.rx.sample{sample}.bin"] = rx_bytes
+    event = {"record_type": "required_gate_idempotence_loader_readout_event_v0",
+             "profile": "linux_x86_64_original_loader_readout_fixture_v0",
+             "evidence_origin": "authored_test_fixture", "attempt_id": "12" * 16,
+             "event_index": event_index, "observer_pid": observer, "child_pid": child,
+             "child_starttime": starttime, "stop_wait_status": 1407,
+             "raw_files": {name: bound(raw) for name, raw in sorted(files.items())},
+             "backings": backings, "runtime_ranges": ranges,
+             "loader_rx_range": {"address": biases[loader] + rx[3], "size_bytes": len(rx_bytes)}}
+    return SimpleNamespace(event=event, files=files, consumer=consumer, provider=provider,
+                           biases=biases, occurrence=row, target=loader_target,
+                           entry_target=entry_target, args=args_address,
+                           consumer_pointer=consumer_pointer, provider_pointer=provider_pointer)
+
+
+def _loader_readout_rebind(case):
+    case.event["raw_files"] = {name: bound(raw) for name, raw in sorted(case.files.items())}
+
+
+def _loader_readout_set_word(case, filename, offset, value, fmt="<Q", *, both=False):
+    raw = bytearray(case.files[filename])
+    struct.pack_into(fmt, raw, offset, value)
+    case.files[filename] = bytes(raw)
+    if both:
+        if ".sample0." in filename:
+            other = filename.replace(".sample0.", ".sample1.")
+        else:
+            other = filename.replace(".before.", ".after.")
+        case.files[other] = bytes(raw)
+    _loader_readout_rebind(case)
+
+
+
+def _loader_readout_two_slot_probe_oracle():
+    # Authored inert ELF with one RX PT_LOAD; no PT_INTERP or executable fallback.
+    code = bytes.fromhex("b90900000090e2fd0f0b")
+    size = 128 + len(code)
+    ident = b"\x7fELF\x02\x01\x01" + b"\0" * 9
+    header = struct.pack("<16sHHIQQQIHHHHHH", ident, 2, 62, 1, 0x400080, 64, 0,
+                         0, 64, 56, 1, 0, 0, 0)
+    program = struct.pack("<IIQQQQQQ", 1, 5, 0, 0x400000, 0x400000, size, size, 4096)
+    return header + program + b"\0" * 8 + code
+
+
+def _loader_readout_two_slot_fixture(*, returns=9, completed=True):
+    """An invented raw transcript for testing; its ELF is never executed."""
+    helper = loader_readout_two_slot()
+    opid, cpid, starttime, pidfd = 5001, 5002, 234567, 17
+    probe = _loader_readout_two_slot_probe_oracle()
+    code = probe[128:]
+    reset = struct.pack("<6Q", 0, 0, 0, 0, 0xFFFF0FF0, 0)
+    armed = struct.pack("<6Q", 0x400085, 0x400088, 0, 0, 0xFFFF0FF0, 5)
+    process_stat = native_acquisition_proc_stat(cpid, opid, "t", starttime).replace(
+        b"authored inert subject", b"two-slot-fixture")
+    process_status = ("Name:\ttwo-slot-fixture\n" +
+                      native_acquisition_proc_status(cpid, opid, "t (tracing stop)", opid).decode("ascii")).encode("ascii")
+
+    def registers(rip, counter):
+        words = [0] * 27
+        words[11], words[16], words[18] = counter, rip, 0x10202
+        return struct.pack("<27Q", *words)
+
+    files = {"probe.elf": probe,
+             "child.pidfd.info.bin": (f"pos:\t0\nflags:\t02000002\nmnt_id:\t5\nino:\t7001\n"
+                                       f"Pid:\t{cpid}\nNSpid:\t{cpid}\n").encode("ascii"),
+             "child.stat.setup.bin": process_stat, "child.status.setup.bin": process_status,
+             "cp0.child.stat.bin": process_stat, "cp0.child.status.bin": process_status,
+             "cp0.regs.bin": registers(0x400080, 0), "cp0.debug.before.bin": reset,
+             "cp0.debug.armed.bin": armed}
+    start = 1000000000
+    waits = [{"phase": "setup", "pid": cpid, "status": 0x137F, "at_ns": start + 1000000},
+             {"phase": "exec", "pid": cpid, "status": 0x4057F, "at_ns": start + 3000000}]
+    resume_afters = [("setup", start + 2000000)]
+    if returns or completed:
+        resume_afters.append(("cp0", start + 5000000))
+    events = []
+    kinds = ["return"] * returns + (["entry"] if completed else [])
+    for index, kind in enumerate(kinds, 1):
+        prefix = f"event.{index:02d}"
+        at = start + (4 * index + 2) * 1000000
+        waits.append({"phase": prefix, "pid": cpid, "status": 0x57F, "at_ns": at})
+        events.append({"index": index, "kind": kind, "sample_times_ns": [at + 100000, at + 200000]})
+        target = 0x400085 if kind == "return" else 0x400088
+        counter = max(0, 10 - index) if kind == "return" else 0
+        debug = struct.pack("<6Q", 0x400085, 0x400088, 0, 0,
+                            0xFFFF0FF0 | (1 if kind == "return" else 2), 5)
+        siginfo = bytearray(128)
+        struct.pack_into("<iii", siginfo, 0, 5, 0, 4)
+        struct.pack_into("<Q", siginfo, 16, target)
+        files[prefix + ".siginfo.bin"] = bytes(siginfo)
+        for side in ("a", "b"):
+            for name, raw in (("regs", registers(target, counter)), ("debug", debug),
+                              ("child.stat", process_stat), ("child.status", process_status), ("code", code)):
+                files[f"{prefix}.{name}.{side}.bin"] = raw
+        if index < len(kinds):
+            resume_afters.append((prefix, at + 1000000))
+    resumes = []
+    for index, (after, at) in enumerate(resume_afters):
+        resumes.append({"after": after, "at_ns": at,
+                        "clear": {"register": 6, "value": 0xFFFF0FF0, "returncode": 0, "errno": 0},
+                        "request": "PTRACE_CONT", "address": 0, "signal": 0, "returncode": 0, "errno": 0})
+        files[f"resume.{index:02d}.debug.bin"] = reset if index == 0 else armed
+    cleanup = (waits[-1]["at_ns"] + 2000000 if kinds else start + 6000000)
+    waits.append({"phase": "reap", "pid": cpid, "status": 9, "at_ns": cleanup + 1000000})
+    record = {"record_type": "required_gate_idempotence_loader_two_slot_fixture_transcript_v0",
+              "profile": "linux_x86_64_loader_two_slot_fixture_v0", "evidence_origin": "authored_test_fixture",
+              "attempt_id": "34" * 16, "status": "completed" if completed else "incomplete",
+              "failure": None if completed else ("unexpected_tenth_return" if returns == 10 else "stopped_prefix"),
+              "process": {"observer_pid": opid, "child_pid": cpid, "starttime": starttime, "pidfd": pidfd},
+              "options": {"request": "PTRACE_SETOPTIONS", "value": 0x10001E, "returncode": 0, "errno": 0},
+              "timing": {"started_ns": start, "armed_ns": start + 4000000,
+                         "cleanup_started_ns": cleanup, "finished_ns": cleanup + 2000000},
+              "arming": [{"register": register, "value": value, "returncode": 0, "errno": 0}
+                         for register, value in ((0, 0x400085), (1, 0x400088), (6, 0xFFFF0FF0), (7, 5))],
+              "waits": waits, "resumes": resumes, "events": events,
+              "cleanup": {"signal": 9, "method": "pidfd_send_signal", "pidfd": pidfd, "pid": cpid,
+                          "at_ns": cleanup, "returncode": 0, "errno": 0, "reaped": True},
+              "raw_files": {name: bound(raw) for name, raw in sorted(files.items())},
+              "boundary": copy.deepcopy(helper.BOUNDARY)}
+    return SimpleNamespace(record=record, files=files)
+
+
+def _loader_readout_two_slot_rebind(case):
+    case.record["raw_files"] = {name: bound(raw) for name, raw in sorted(case.files.items())}
+
+
+def _loader_readout_two_slot_word(case, name, offset, value, fmt="<Q", *, both=False):
+    raw = bytearray(case.files[name])
+    struct.pack_into(fmt, raw, offset, value)
+    case.files[name] = bytes(raw)
+    if both:
+        case.files[name.replace(".a.", ".b.")] = bytes(raw)
+    _loader_readout_two_slot_rebind(case)
+
+
+
+def _loader_readout_check(originals, case):
+    return loader_readout_helper().verify_event(event=case.event, files=case.files,
+        static_record=originals.case.record, native=originals.native)
+
+
+def _loader_readout_assert_boundary(report):
+    for name in ("live_private_abi_readout_qualified", "consumer_resolution_observed",
+                 "source_build_gate_satisfied", "original_acquisition_ready", "acquisition_ready",
+                 "rflags_resume_policy_qualified", "contemporaneous_backing_acquisition_authenticated"):
+        if name in report:
+            assert report[name] is False, name
+    assert report["metric_pass"] is None and report["authority_effect"] == "none"
+
+
+@pytest.mark.parametrize("occurrence", range(9))
+def test_loader_readout_original_occurrence_fixtures_are_checked_without_observation(
+        loader_readout_originals, occurrence):
+    case = _loader_readout_event_fixture(loader_readout_originals, occurrence)
+    report = _loader_readout_check(loader_readout_originals, case)
+    assert report["fixture_readout_consistent"] is True
+    assert report["live_private_abi_readout_qualified"] is False
+    assert report["consumer_resolution_observed"] is False
+    assert report["source_build_gate_satisfied"] is False
+    _loader_readout_assert_boundary(report)
+
+
+def test_loader_readout_intermediate_event_does_not_require_not_yet_loaded_dependencies(loader_readout_originals):
+    absent = ("native/libc.so.6", "native/libcap.so.2", "native/libpcre2-8.so.0")
+    case = _loader_readout_event_fixture(loader_readout_originals, absent=absent)
+    report = _loader_readout_check(loader_readout_originals, case)
+    assert report["fixture_readout_consistent"] is True
+    _loader_readout_assert_boundary(report)
+
+
+@pytest.mark.parametrize("fault", ["rbx_from_rdi", "provider_from_aux", "wrong_rip", "both_slot_causes",
+    "no_slot_cause", "slot_one_cause", "one_slot_only", "wrong_entry_slot", "siginfo_code", "siginfo_address",
+    "second_register_sample", "second_memory_sample", "second_rx_sample", "second_maps_sample", "rx_address",
+    "consumer_bias", "consumer_dynamic", "consumer_proxy", "consumer_namespace",
+    "provider_bias", "provider_dynamic", "provider_proxy", "provider_namespace",
+    "name_pointer", "string_table_pointer", "name_missing_nul", "same_name_wrong_consumer",
+    "memory_offset_gap", "memory_overlap", "unused_memory", "missing_runtime_range",
+    "backing_inode", "backing_changed", "backing_content", "process_starttime", "pidfd",
+    "bool_event_index", "fixture_promoted", "unexpected_control", "missing_raw_file", "extra_raw_file", "trap_flag"])
+def test_loader_readout_rehashed_raw_relationship_substitutions_reject(loader_readout_originals, fault):
+    case = _loader_readout_event_fixture(loader_readout_originals)
+    range_offsets = {row["role"]: row["offset"] for row in case.event["runtime_ranges"]}
+    if fault == "trap_flag":
+        _loader_readout_set_word(case, "regs.before.bin", 18 * 8, 0x10302, both=True)
+    elif fault == "rbx_from_rdi":
+        _loader_readout_set_word(case, "regs.before.bin", 5 * 8, 0xBADBEEF, both=True)
+    elif fault == "provider_from_aux":
+        _loader_readout_set_word(case, "regs.before.bin", 10 * 8, 0xDEADBEEF, both=True)
+    elif fault == "wrong_rip":
+        _loader_readout_set_word(case, "regs.before.bin", 16 * 8, case.target + 4, both=True)
+    elif fault in {"both_slot_causes", "no_slot_cause", "slot_one_cause"}:
+        cause = {"both_slot_causes": 3, "no_slot_cause": 0, "slot_one_cause": 2}[fault]
+        _loader_readout_set_word(case, "debug.before.bin", 4 * 8, 0xFFFF0FF0 | cause, both=True)
+    elif fault == "one_slot_only":
+        _loader_readout_set_word(case, "debug.before.bin", 5 * 8, 1, both=True)
+    elif fault == "wrong_entry_slot":
+        _loader_readout_set_word(case, "debug.before.bin", 8, case.entry_target + 4, both=True)
+    elif fault == "siginfo_code":
+        _loader_readout_set_word(case, "siginfo.bin", 8, 1, fmt="<i")
+    elif fault == "siginfo_address":
+        _loader_readout_set_word(case, "siginfo.bin", 16, case.target + 1)
+    elif fault == "second_register_sample":
+        _loader_readout_set_word(case, "regs.after.bin", 0, 17)
+    elif fault == "second_memory_sample":
+        raw = bytearray(case.files["memory.sample1.bin"])
+        raw[0] ^= 1
+        case.files["memory.sample1.bin"] = bytes(raw)
+    elif fault == "second_rx_sample":
+        raw = bytearray(case.files["loader.rx.sample1.bin"])
+        raw[0] ^= 1
+        case.files["loader.rx.sample1.bin"] = bytes(raw)
+    elif fault == "rx_address":
+        case.event["loader_rx_range"]["address"] += 4096
+    elif fault == "second_maps_sample":
+        case.files["maps.after.bin"] = case.files["maps.after.bin"].replace(b"/authored/", b"/changed/", 1)
+    elif fault.startswith("consumer_") or fault.startswith("provider_"):
+        role = "consumer_map" if fault.startswith("consumer_") else "provider_map"
+        field = fault.split("_", 1)[1]
+        offset = range_offsets[role] + {"bias": 0, "dynamic": 16, "proxy": 40, "namespace": 48}[field]
+        if field == "namespace":
+            value, fmt = -1, "<q"
+        else:
+            old = struct.unpack_from("<Q", case.files["memory.sample0.bin"], offset)[0]
+            value, fmt = old + 4096, "<Q"
+        _loader_readout_set_word(case, "memory.sample0.bin", offset, value, fmt, both=True)
+    elif fault in {"name_pointer", "string_table_pointer"}:
+        offset = 24 if fault == "name_pointer" else 16
+        old = struct.unpack_from("<Q", case.files["memory.sample0.bin"], offset)[0]
+        _loader_readout_set_word(case, "memory.sample0.bin", offset, old + 1, both=True)
+    elif fault == "name_missing_nul":
+        for name in ("memory.sample0.bin", "memory.sample1.bin"):
+            case.files[name] = case.files[name][:-1] + b"x"
+    elif fault == "same_name_wrong_consumer":
+        offset = range_offsets["consumer_map"]
+        _loader_readout_set_word(case, "memory.sample0.bin", offset,
+                                case.biases["native/libcap.so.2"], both=True)
+    elif fault == "memory_offset_gap":
+        case.event["runtime_ranges"][-1]["offset"] += 1
+    elif fault == "memory_overlap":
+        case.event["runtime_ranges"][1]["offset"] = 0
+    elif fault == "unused_memory":
+        for name in ("memory.sample0.bin", "memory.sample1.bin"):
+            case.files[name] += b"unused"
+    elif fault == "missing_runtime_range":
+        case.event["runtime_ranges"].pop()
+    elif fault == "backing_inode":
+        for side in ("before", "after"):
+            case.event["backings"][0][side]["inode"] += 100
+    elif fault == "backing_changed":
+        case.event["backings"][0]["after"]["ctime_ns"] += 1
+    elif fault == "backing_content":
+        case.event["backings"][0]["content"]["sha256"] = "0" * 64
+    elif fault == "process_starttime":
+        case.files["child.stat.after.bin"] = native_acquisition_proc_stat(4002, 4001, "t", 123457)
+    elif fault == "pidfd":
+        case.files["child.pidfd.info.bin"] = b"Pid:\t4003\nNSpid:\t4003\n"
+    elif fault == "bool_event_index":
+        case.event["event_index"] = False
+    elif fault == "fixture_promoted":
+        case.event["evidence_origin"] = "actual_original_loader_acquisition"
+    elif fault == "unexpected_control":
+        case.event["live_private_abi_readout_qualified"] = True
+    elif fault == "missing_raw_file":
+        del case.files["regs.after.bin"]
+    elif fault == "extra_raw_file":
+        case.files["unconsumed.bin"] = b"unbound"
+    else:
+        raise AssertionError(fault)
+    _loader_readout_rebind(case)
+    with pytest.raises(loader_readout_helper().ReadoutError,
+                       match="loader_readout_single_step_flag" if fault == "trap_flag" else None):
+        _loader_readout_check(loader_readout_originals, case)
+
+
+def test_loader_readout_rax_and_rbx_do_not_depend_on_stale_aux_or_rdi(loader_readout_originals):
+    case = _loader_readout_event_fixture(loader_readout_originals)
+    _loader_readout_set_word(case, "regs.before.bin", 14 * 8, 0xAA55, both=True)
+    _loader_readout_set_word(case, "memory.sample0.bin", 32, 0xBB66, both=True)
+    report = _loader_readout_check(loader_readout_originals, case)
+    assert report["fixture_readout_consistent"] is True
+    _loader_readout_assert_boundary(report)
+
+
+def test_loader_readout_source_record_and_native_bytes_are_not_caller_override_hints(loader_readout_originals):
+    helper = loader_readout_helper()
+    case = _loader_readout_event_fixture(loader_readout_originals)
+    changed = copy.deepcopy(loader_readout_originals.case.record)
+    changed["recipe"]["args_pointer_register"] = "RDI"
+    with pytest.raises(helper.ReadoutError):
+        helper.verify_event(event=case.event, files=case.files, static_record=changed,
+                            native=loader_readout_originals.native)
+    native = dict(loader_readout_originals.native)
+    native["native/libcap.so.2"] = native["native/libcap.so.2"][:-1] + b"X"
+    with pytest.raises(helper.ReadoutError):
+        helper.verify_event(event=case.event, files=case.files,
+                            static_record=loader_readout_originals.case.record, native=native)
+
+
+@pytest.mark.parametrize("fault", [None, "duplicate", "missing", "cross_attempt", "cross_process"])
+def test_loader_readout_nine_occurrence_join_is_set_based_and_context_bound(loader_readout_originals, fault):
+    helper = loader_readout_helper()
+    # Reverse the static declaration order to demonstrate that event order does
+    # not manufacture an original dynamic-table ordinal.
+    cases = [_loader_readout_event_fixture(loader_readout_originals, occurrence, event_index=index)
+             for index, occurrence in enumerate(reversed(range(9)))]
+    if fault == "duplicate":
+        cases[-1] = _loader_readout_event_fixture(loader_readout_originals, 8, event_index=8)
+    elif fault == "missing":
+        cases.pop()
+    elif fault == "cross_attempt":
+        cases[-1].event["attempt_id"] = "98" * 16
+    elif fault == "cross_process":
+        cases[-1].event["child_starttime"] += 1
+    arguments = dict(events=[case.event for case in cases], files_by_event=[case.files for case in cases],
+                     static_record=loader_readout_originals.case.record, native=loader_readout_originals.native)
+    if fault is not None:
+        with pytest.raises(helper.ReadoutError):
+            helper.verify_event_set(**arguments)
+    else:
+        report = helper.verify_event_set(**arguments)
+        assert report["fixture_readout_consistent"] is True
+        _loader_readout_assert_boundary(report)
+
+
+
+@pytest.mark.parametrize("scope", ["register", "memory", "proc", "native"])
+def test_loader_readout_oversized_raw_inputs_reject_before_any_hash(loader_readout_originals, monkeypatch, scope):
+    helper = loader_readout_helper()
+    case = _loader_readout_event_fixture(loader_readout_originals)
+    native = dict(loader_readout_originals.native)
+    if scope == "register":
+        case.files["regs.after.bin"] += b"x"
+    elif scope == "memory":
+        case.files["memory.sample1.bin"] = bytes(131073)
+    elif scope == "proc":
+        case.files["maps.after.bin"] = bytes(65537)
+    else:
+        native["native/libcap.so.2"] += b"x"
+    hashed = []
+
+    def forbidden_hash(raw):
+        hashed.append(len(raw))
+        raise AssertionError("size rejection must precede hashing")
+
+    monkeypatch.setattr(helper, "sha", forbidden_hash)
+    with pytest.raises(helper.ReadoutError, match="size"):
+        helper.verify_event(event=case.event, files=case.files,
+                            static_record=loader_readout_originals.case.record, native=native)
+    assert hashed == []
+
+
+def test_loader_readout_two_slot_probe_and_complete_fixture_are_independently_derived():
+    helper = loader_readout_two_slot()
+    case = _loader_readout_two_slot_fixture()
+    assert helper.probe_bytes() == _loader_readout_two_slot_probe_oracle()
+    report = helper.verify_transcript(transcript=case.record, files=case.files)
+    assert report["status"] == "accepted"
+    assert report["complete_fixture_sequence_verified"] is True
+    assert report["preserved_return_events"] == 9 and report["ptrace_cont_count"] == 11
+    assert report["post_entry_resumes"] == 0
+    assert report["two_slot_breakpoint_qualified"] is False
+    assert report["native_acquisition_performed"] is False
+    _loader_readout_assert_boundary(report)
+
+
+@pytest.mark.parametrize("returns", [0, 3, 9, 10])
+def test_loader_readout_two_slot_incomplete_prefix_preserves_owned_cleanup_without_promotion(returns):
+    helper = loader_readout_two_slot()
+    case = _loader_readout_two_slot_fixture(returns=returns, completed=False)
+    report = helper.verify_transcript(transcript=case.record, files=case.files)
+    assert report["status"] == "incomplete"
+    assert report["complete_fixture_sequence_verified"] is False
+    assert report["preserved_return_events"] == returns
+    assert report["unexpected_tenth_return_preserved"] is (returns == 10)
+    assert report["ptrace_cont_count"] == returns + 1
+    assert report["owned_cleanup_fixture_verified"] is True
+    assert report["two_slot_breakpoint_qualified"] is False
+    _loader_readout_assert_boundary(report)
+
+
+
+@pytest.mark.parametrize("fault", ["one_slot_arming", "dr7_single_slot", "extra_debug_write", "failed_write",
+    "both_causes", "no_cause", "wrong_slot", "wrong_rip", "wrong_loop_counter", "unstable_registers",
+    "modified_code", "modified_probe", "stale_dr6_resume", "return_disarmed_after_ninth",
+    "single_step", "resume_after_entry", "resume_after_tenth", "wrong_pidfd", "wrong_cleanup_pid",
+    "no_reap", "wrong_kill_signal", "wrong_reap_status", "cross_process_starttime", "wrong_siginfo",
+    "bool_child_pid", "deadline", "sample_after_resume", "missing_raw", "extra_raw",
+    "fixture_promoted", "hardware_promoted", "build_promoted", "extra_control", "trap_flag", "cp0_trap_flag"])
+def test_loader_readout_two_slot_rehashed_transcript_faults_cannot_qualify_or_resume(fault):
+    helper = loader_readout_two_slot()
+    case = _loader_readout_two_slot_fixture(returns=10, completed=False) if fault == "resume_after_tenth" else _loader_readout_two_slot_fixture()
+    if fault == "trap_flag":
+        _loader_readout_two_slot_word(case, "event.01.regs.a.bin", 18 * 8, 0x10302, both=True)
+    elif fault == "cp0_trap_flag":
+        _loader_readout_two_slot_word(case, "cp0.regs.bin", 18 * 8, 0x10302)
+    elif fault == "one_slot_arming":
+        del case.record["arming"][1]
+    elif fault == "dr7_single_slot":
+        case.record["arming"][-1]["value"] = 1
+    elif fault == "extra_debug_write":
+        case.record["arming"].append({"register": 2, "value": 0, "returncode": 0, "errno": 0})
+    elif fault == "failed_write":
+        case.record["arming"][1]["errno"] = 5
+    elif fault in {"both_causes", "no_cause", "wrong_slot"}:
+        cause = {"both_causes": 3, "no_cause": 0, "wrong_slot": 2}[fault]
+        _loader_readout_two_slot_word(case, "event.01.debug.a.bin", 32, 0xFFFF0FF0 | cause, both=True)
+    elif fault == "wrong_rip":
+        _loader_readout_two_slot_word(case, "event.01.regs.a.bin", 16 * 8, 0x400088, both=True)
+    elif fault == "wrong_loop_counter":
+        _loader_readout_two_slot_word(case, "event.01.regs.a.bin", 11 * 8, 8, both=True)
+    elif fault == "unstable_registers":
+        _loader_readout_two_slot_word(case, "event.01.regs.b.bin", 18 * 8, 0x202)
+    elif fault == "modified_code":
+        for side in ("a", "b"):
+            case.files[f"event.01.code.{side}.bin"] = bytes.fromhex("b90800000090e2fd0f0b")
+    elif fault == "modified_probe":
+        raw = bytearray(case.files["probe.elf"])
+        raw[129] = 8
+        case.files["probe.elf"] = bytes(raw)
+    elif fault == "stale_dr6_resume":
+        _loader_readout_two_slot_word(case, "resume.02.debug.bin", 32, 0xFFFF0FF1)
+    elif fault == "return_disarmed_after_ninth":
+        _loader_readout_two_slot_word(case, "resume.10.debug.bin", 40, 4)
+    elif fault == "single_step":
+        case.record["resumes"][2]["request"] = "PTRACE_SINGLESTEP"
+    elif fault in {"resume_after_entry", "resume_after_tenth"}:
+        extra = copy.deepcopy(case.record["resumes"][-1])
+        extra["after"] = "event.10"
+        extra["at_ns"] += 4000000
+        case.record["resumes"].append(extra)
+        case.files["resume.11.debug.bin"] = case.files["cp0.debug.armed.bin"]
+    elif fault == "wrong_pidfd":
+        case.record["cleanup"]["pidfd"] += 1
+    elif fault == "wrong_cleanup_pid":
+        case.record["cleanup"]["pid"] += 1
+    elif fault == "no_reap":
+        case.record["cleanup"]["reaped"] = False
+    elif fault == "wrong_kill_signal":
+        case.record["cleanup"]["signal"] = 15
+    elif fault == "wrong_reap_status":
+        case.record["waits"][-1]["status"] = 0
+    elif fault == "cross_process_starttime":
+        raw = native_acquisition_proc_stat(5002, 5001, "t", 234568).replace(
+            b"authored inert subject", b"two-slot-fixture")
+        for side in ("a", "b"):
+            case.files[f"event.02.child.stat.{side}.bin"] = raw
+    elif fault == "wrong_siginfo":
+        _loader_readout_two_slot_word(case, "event.01.siginfo.bin", 16, 0x400088)
+    elif fault == "bool_child_pid":
+        case.record["process"]["child_pid"] = True
+    elif fault == "deadline":
+        case.record["timing"]["cleanup_started_ns"] += 16000000000
+        case.record["timing"]["finished_ns"] += 16000000000
+    elif fault == "sample_after_resume":
+        case.record["events"][0]["sample_times_ns"][1] = case.record["resumes"][2]["at_ns"] + 1
+    elif fault == "missing_raw":
+        del case.files["event.09.regs.b.bin"]
+    elif fault == "extra_raw":
+        case.files["unconsumed.bin"] = b"extra"
+    elif fault == "fixture_promoted":
+        case.record["evidence_origin"] = "actual_hardware_qualification"
+    elif fault == "hardware_promoted":
+        case.record["boundary"]["two_slot_breakpoint_qualified"] = True
+    elif fault == "build_promoted":
+        case.record["boundary"]["source_build_gate_satisfied"] = True
+    elif fault == "extra_control":
+        case.record["general_register_writes"] = 1
+    else:
+        raise AssertionError(fault)
+    _loader_readout_two_slot_rebind(case)
+    with pytest.raises(helper.TwoSlotError,
+                       match="two_slot_single_step_flag" if fault in {"trap_flag", "cp0_trap_flag"} else None):
+        helper.verify_transcript(transcript=case.record, files=case.files)
+
+
+@pytest.mark.parametrize("fault", ["duplicate", "float", "nonfinite"])
+def test_loader_readout_two_slot_json_control_rejects_ambiguous_inputs(fault):
+    helper = loader_readout_two_slot()
+    case = _loader_readout_two_slot_fixture()
+    raw = encoded(case.record)
+    if fault == "duplicate":
+        raw = b'{"status":"incomplete",' + raw[1:]
+    elif fault == "float":
+        raw = raw.replace(b'"pidfd":17', b'"pidfd":17.0', 1)
+    else:
+        raw = raw.replace(b'"pidfd":17', b'"pidfd":NaN', 1)
+    with pytest.raises(helper.TwoSlotError):
+        helper.verify_transcript(transcript=raw, files=case.files)
+
+
+def test_loader_readout_two_slot_oversized_raw_bytes_reject_before_hashing(monkeypatch):
+    helper = loader_readout_two_slot()
+    case = _loader_readout_two_slot_fixture()
+    case.files["event.09.regs.b.bin"] = bytes(217)
+    hashed = []
+
+    def forbidden_hash(raw):
+        hashed.append(len(raw))
+        raise AssertionError("oversized input reached hashing")
+
+    monkeypatch.setattr(helper.hashlib, "sha256", forbidden_hash)
+    with pytest.raises(helper.TwoSlotError, match="raw_size"):
+        helper.verify_transcript(transcript=case.record, files=case.files)
+    assert hashed == []
+
+
+
+@pytest.mark.parametrize("change", ["backing_identity", "loader_relocation", "observer_occurrence"])
+def test_loader_readout_individually_valid_events_cannot_change_same_process_backing_or_auxv(
+        loader_readout_originals, change):
+    helper = loader_readout_helper()
+    cases = [_loader_readout_event_fixture(loader_readout_originals, occurrence, event_index=index)
+             for index, occurrence in enumerate(reversed(range(9)))]
+    selected = cases[-1]  # bwrap -> libselinux; loader is a separate mapping.
+    if change == "observer_occurrence":
+        selected.files["observer.stat.bin"] = native_acquisition_proc_stat(4001, 1, "S", 123401)
+    elif change == "backing_identity":
+        inode_map = {}
+        for backing in selected.event["backings"]:
+            old_inode = backing["before"]["inode"]
+            inode_map[old_inode] = old_inode + 200
+            backing["before"]["inode"] = backing["after"]["inode"] = old_inode + 200
+        lines = []
+        for line in selected.files["maps.before.bin"].decode("ascii").splitlines():
+            parts = line.split()
+            if int(parts[4]) in inode_map:
+                parts[4] = str(inode_map[int(parts[4])])
+            lines.append(" ".join(parts) + "\n")
+        selected.files["maps.before.bin"] = selected.files["maps.after.bin"] = "".join(lines).encode("ascii")
+    else:
+        delta = 0x08000000
+        loader = next(row for row in selected.event["backings"]
+                      if row["native_path"] == "native/ld-linux-x86-64.so.2")
+        inode = loader["before"]["inode"]
+        lines = []
+        for line in selected.files["maps.before.bin"].decode("ascii").splitlines():
+            parts = line.split()
+            left, right = (int(x, 16) for x in parts[0].split("-"))
+            if int(parts[4]) == inode:
+                left, right = left + delta, right + delta
+                parts[0] = f"{left:x}-{right:x}"
+            lines.append((left, " ".join(parts) + "\n"))
+        selected.files["maps.before.bin"] = selected.files["maps.after.bin"] = "".join(
+            line for _address, line in sorted(lines)).encode("ascii")
+        aux = b"".join(struct.pack("<QQ", key, value + delta if key == 7 else value)
+                        for key, value in struct.iter_unpack("<QQ", selected.files["auxv.before.bin"]))
+        selected.files["auxv.before.bin"] = selected.files["auxv.after.bin"] = aux
+        _loader_readout_set_word(selected, "regs.before.bin", 16 * 8, selected.target + delta, both=True)
+        _loader_readout_set_word(selected, "debug.before.bin", 0, selected.target + delta, both=True)
+        _loader_readout_set_word(selected, "siginfo.bin", 16, selected.target + delta)
+        selected.event["loader_rx_range"]["address"] += delta
+    _loader_readout_rebind(selected)
+    # Each individual event is internally coherent; only the same-process set
+    # obligation rejects this substitution across otherwise valid event inputs.
+    report = _loader_readout_check(loader_readout_originals, selected)
+    assert report["fixture_readout_consistent"] is True
+    assert report["contemporaneous_backing_acquisition_authenticated"] is False
+    with pytest.raises(helper.ReadoutError):
+        helper.verify_event_set(events=[case.event for case in cases], files_by_event=[case.files for case in cases],
+            static_record=loader_readout_originals.case.record, native=loader_readout_originals.native)
+
+
+
+@pytest.fixture(scope="module")
+def loader_readout_contract_case(loader_binary_binding_case):
+    checker = module("check_required_gate_idempotence_loader_readout_contract_v0", LOADER_READOUT_WRAPPER_REL)
+    raw = (ROOT / LOADER_READOUT_CONTRACT_REL).read_bytes()
+    return SimpleNamespace(checker=checker, raw=raw, value=json.loads(raw),
+                           static_case=loader_binary_binding_case)
+
+
+def _loader_readout_contract_check(case, raw=None, **changes):
+    raw = case.raw if raw is None else raw
+    arguments = dict(contract_bytes=raw, expected_contract_sha256=digest(raw),
+                     static_record_bytes=case.static_case.raw,
+                     historical_entry_archive_bytes=case.static_case.baseline,
+                     artifact_members=case.static_case.artifacts)
+    arguments.update(changes)
+    return case.checker.verify_contract(**arguments)
+
+
+@pytest.fixture(scope="module")
+def loader_readout_contract_report(loader_readout_contract_case):
+    case = loader_readout_contract_case
+    real = case.checker.static.verify_binding
+    reconstructed = []
+
+    def spy(**arguments):
+        value = real(**arguments)
+        reconstructed.append(copy.deepcopy(value))
+        return value
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("contract verification attempted native execution or network")
+
+    import socket
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(case.checker.static, "verify_binding", spy)
+        patch.setattr(subprocess, "Popen", forbidden)
+        patch.setattr(subprocess, "run", forbidden)
+        patch.setattr(os, "system", forbidden)
+        patch.setattr(os, "fork", forbidden)
+        patch.setattr(socket, "create_connection", forbidden)
+        result = _loader_readout_contract_check(case)
+    assert len(reconstructed) == 1
+    case.reconstructed_static_report = reconstructed[0]
+    return result
+
+
+def test_loader_readout_contract_freshly_reconstructs_static_evidence_without_execution(
+        loader_readout_contract_case, loader_readout_contract_report):
+    case, report = loader_readout_contract_case, loader_readout_contract_report
+    assert report["status"] == "accepted" and report["contract_verified"] is True
+    assert report["static_binding_reconstruction_verified"] is True
+    assert report["qualification_checker_implemented"] is True
+    assert report["historical_source_file_count"] == 81
+    assert report["original_DT_NEEDED_occurrences"] == 9
+    assert report["static_report"] == bound(case.checker.static.canonical(case.reconstructed_static_report))
+    for name, expected in case.checker.BOUNDARY.items():
+        assert type(report[name]) is type(expected) and report[name] == expected
+    assert report["unresolved_prerequisites"]["source_build"]["status"] == "unsatisfied"
+    assert report["unresolved_prerequisites"]["source_build"]["accepted_build_evidence_policy"] == "not_selected"
+
+
+@pytest.mark.parametrize("expected", [None, "", "f" * 64, "A" * 64, "0" * 63, True])
+def test_loader_readout_contract_requires_exact_external_digest(loader_readout_contract_case, expected):
+    case = loader_readout_contract_case
+    with pytest.raises(case.checker.ContractError):
+        _loader_readout_contract_check(case, expected_contract_sha256=expected)
+
+
+@pytest.mark.parametrize("fault", ["duplicate", "float", "nan", "unknown", "live_promoted",
+    "hardware_promoted", "build_promoted", "authority_promoted", "invocation_promoted", "remove_build_gap"])
+def test_loader_readout_contract_rehashed_controls_cannot_relax_boundaries(loader_readout_contract_case, fault):
+    case = loader_readout_contract_case
+    value = copy.deepcopy(case.value)
+    if fault == "duplicate":
+        raw = b'{"profile":"other",' + case.raw[1:]
+    elif fault == "float":
+        value["static_prerequisite"]["historical_source_count"] = 81.0
+        raw = encoded(value)
+    elif fault == "nan":
+        raw = case.raw.replace(b'"historical_source_count": 81', b'"historical_source_count": NaN', 1)
+        assert raw != case.raw
+    else:
+        if fault == "unknown":
+            value["saved_accepted_verdict"] = True
+        elif fault == "remove_build_gap":
+            value["unresolved_prerequisites"]["source_build"]["recorded_gaps"].pop()
+        else:
+            key = {"live_promoted": "live_private_abi_readout_qualified",
+                   "hardware_promoted": "two_slot_breakpoint_qualified",
+                   "build_promoted": "source_build_gate_satisfied",
+                   "authority_promoted": "authority_effect",
+                   "invocation_promoted": "invocation_mode_policy_qualified"}[fault]
+            value["boundary"][key] = "release" if key == "authority_effect" else True
+        raw = encoded(value)
+    with pytest.raises(case.checker.ContractError):
+        _loader_readout_contract_check(case, raw)
+
+
+def test_loader_readout_contract_saved_report_never_substitutes_for_reconstruction(loader_readout_contract_case, monkeypatch):
+    case = loader_readout_contract_case
+    calls = []
+
+    def unavailable(**arguments):
+        calls.append(arguments)
+        raise case.checker.static.BindingError("authored_reconstruction_failure")
+
+    monkeypatch.setattr(case.checker.static, "verify_binding", unavailable)
+    with pytest.raises(case.checker.ContractError, match="evidence_rejected"):
+        _loader_readout_contract_check(case)
+    assert len(calls) == 1
+    assert calls[0]["record_bytes"] == case.static_case.raw
+    assert calls[0]["historical_entry_archive_bytes"] == case.static_case.baseline
+    assert calls[0]["artifact_members"] == case.static_case.artifacts
+
+
+@pytest.mark.parametrize("scope", ["static_source", "current_source_changed"])
+def test_loader_readout_contract_retains_exact_sources_before_and_after_derivation(
+        loader_readout_contract_case, loader_readout_contract_report, monkeypatch, scope):
+    case = loader_readout_contract_case
+    actual = case.checker._source
+    selected = (next(iter(case.checker.STATIC_SOURCES)) if scope == "static_source" else case.checker.SELF_REL)
+    calls = {}
+
+    def changed(path):
+        raw = actual(path)
+        calls[path] = calls.get(path, 0) + 1
+        if path == selected and (scope == "static_source" or calls[path] > 1):
+            return raw + b"\n"
+        return raw
+
+    # Full reconstruction was exercised above. This isolates a changed source
+    # during the wrapper's independent stability check without redoing that work.
+    monkeypatch.setattr(case.checker.static, "verify_binding", lambda **_kw: copy.deepcopy(case.reconstructed_static_report))
+    monkeypatch.setattr(case.checker, "_source", changed)
+    with pytest.raises(case.checker.ContractError, match="source_changed"):
+        _loader_readout_contract_check(case)
+
+
+def test_loader_readout_contract_input_limit_precedes_hashing(loader_readout_contract_case, monkeypatch):
+    case = loader_readout_contract_case
+    oversized = bytes(case.checker.CONTROL_BYTES + 1)
+    hashed = []
+
+    def forbidden(raw):
+        hashed.append(len(raw))
+        raise AssertionError("oversized control reached hashing")
+
+    monkeypatch.setattr(case.checker, "sha", forbidden)
+    with pytest.raises(case.checker.ContractError, match="control_size"):
+        _loader_readout_contract_check(case, oversized, expected_contract_sha256="f" * 64)
+    assert hashed == []
+
+
+@pytest.mark.parametrize("completed", [True, False])
+def test_loader_readout_contract_fixture_composition_preserves_completion_and_separate_subjects(
+        loader_readout_contract_case, loader_readout_contract_report, loader_readout_originals,
+        monkeypatch, completed):
+    case = loader_readout_contract_case
+    events = [_loader_readout_event_fixture(loader_readout_originals, index, event_index=index) for index in range(9)]
+    hardware = _loader_readout_two_slot_fixture() if completed else _loader_readout_two_slot_fixture(returns=10, completed=False)
+    if not completed:
+        # The complete integration above reconstructs the originals through this
+        # wrapper. Reuse only that independently reconstructed prerequisite to
+        # isolate propagation of the real helper's incomplete classification.
+        monkeypatch.setattr(case.checker.static, "verify_binding",
+                            lambda **_kw: copy.deepcopy(case.reconstructed_static_report))
+    result = case.checker.verify_fixtures(contract_bytes=case.raw, expected_contract_sha256=digest(case.raw),
+        events=[row.event for row in events], files_by_event=[row.files for row in events],
+        transcript=hardware.record, transcript_files=hardware.files,
+        static_record_bytes=case.static_case.raw, historical_entry_archive_bytes=case.static_case.baseline,
+        artifact_members=case.static_case.artifacts)
+    assert result["status"] == ("accepted_test_fixtures" if completed else "incomplete_test_fixtures")
+    assert result["complete_fixture_pair_verified"] is completed
+    assert result["fixture_domains_are_one_acquired_process"] is False
+    assert result["readout_fixture"]["fixture_readout_consistent"] is True
+    assert result["two_slot_fixture"]["status"] == ("accepted" if completed else "incomplete")
+    assert result["two_slot_fixture"]["unexpected_tenth_return_preserved"] is not completed
+    for name, expected in case.checker.BOUNDARY.items():
+        assert type(result[name]) is type(expected) and result[name] == expected
+
+
+def test_loader_readout_contract_cli_two_processes_are_canonical_and_output_exclusive(
+        loader_readout_contract_case, loader_readout_contract_report, tmp_path, monkeypatch, capsys):
+    case = loader_readout_contract_case
+    outputs = [tmp_path / name for name in ("first.json", "second.json")]
+    for output in outputs:
+        result = subprocess.run([sys.executable, "-I", "-B", str(ROOT / LOADER_READOUT_WRAPPER_REL),
+            "--contract", str(ROOT / LOADER_READOUT_CONTRACT_REL), "--contract-sha256", digest(case.raw),
+            "--output", str(output)], capture_output=True, timeout=180, check=False)
+        assert result.returncode == 0, result.stderr.decode(errors="replace")
+        assert result.stdout == b"loader_readout_contract_accepted\n" and result.stderr == b""
+    first = outputs[0].read_bytes()
+    assert outputs[1].read_bytes() == first == case.checker.canonical(loader_readout_contract_report)
+    sentinel = tmp_path / "existing.json"
+    sentinel.write_bytes(b"preserve this exact owner file\n")
+    monkeypatch.setattr(case.checker, "verify_contract", lambda **_kw: loader_readout_contract_report)
+    status = case.checker.main(["--contract", str(ROOT / LOADER_READOUT_CONTRACT_REL),
+        "--contract-sha256", digest(case.raw), "--output", str(sentinel)])
+    assert status == 2 and sentinel.read_bytes() == b"preserve this exact owner file\n"
+    assert capsys.readouterr().out == ""
+
+
+def test_loader_readout_contract_cli_invalid_digest_cannot_publish_success(
+        loader_readout_contract_case, tmp_path, capsys):
+    case = loader_readout_contract_case
+    output = tmp_path / "must-not-exist.json"
+    status = case.checker.main(["--contract", str(ROOT / LOADER_READOUT_CONTRACT_REL),
+        "--contract-sha256", "f" * 64, "--output", str(output)])
+    assert status == 2 and not output.exists()
+    assert capsys.readouterr().out == ""
+
+
+
+def test_loader_readout_rf_clear_samples_do_not_establish_a_resume_policy(loader_readout_originals):
+    case = _loader_readout_event_fixture(loader_readout_originals)
+    _loader_readout_set_word(case, "regs.before.bin", 18 * 8, 0x202, both=True)
+    report = _loader_readout_check(loader_readout_originals, case)
+    assert report["fixture_readout_consistent"] is True
+    assert report["rflags_resume_policy_qualified"] is False
+    assert report["live_private_abi_readout_qualified"] is False
+
+
+def test_loader_readout_two_slot_rf_clear_samples_do_not_establish_a_resume_policy():
+    helper = loader_readout_two_slot()
+    case = _loader_readout_two_slot_fixture()
+    for number in range(1, 11):
+        _loader_readout_two_slot_word(case, f"event.{number:02d}.regs.a.bin", 18 * 8, 0x202, both=True)
+    report = helper.verify_transcript(transcript=case.record, files=case.files)
+    assert report["complete_fixture_sequence_verified"] is True
+    assert report["rflags_resume_policy_qualified"] is False
+    assert report["two_slot_breakpoint_qualified"] is False

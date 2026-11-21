@@ -1,0 +1,537 @@
+{
+  "record_type": "required_gate_idempotence_loader_readout_contract_v0",
+  "profile": "linux_x86_64_loader_readout_contract_v0",
+  "evidence_role": "authored_checker_contract_not_live_qualification",
+  "static_prerequisite": {
+    "record_path": "docs/compute/required_gate_idempotence_loader_binary_binding_v0/record_v0.json",
+    "record": {
+      "size_bytes": 132289,
+      "sha256": "d5679d1afab1c13db460ad8d818e5a07241b8dfeb079f410069c550c9f10d065"
+    },
+    "verification_report": {
+      "size_bytes": 3564,
+      "sha256": "734f4809078f5c17dcd198d2d666be6479275dbdf90d707a9dc9d3afbe197f3a"
+    },
+    "implementation_sources": {
+      "tools/check_required_gate_idempotence_loader_binary_binding_v0.py": {
+        "size_bytes": 27302,
+        "sha256": "8b23d285d7995d9d33a434ea74be2a873b083f4d531d12074b874c8e9b5aad1f"
+      },
+      "schemas/required_gate_idempotence_loader_binary_binding_v0.schema.json": {
+        "size_bytes": 103806,
+        "sha256": "a554cf4a4b6a4f0ececd2fe61c06648bee6dc7c3cbf550195b9d5808b3438002"
+      },
+      "tools/required_gate_idempotence_loader_binary_v0.py": {
+        "size_bytes": 30222,
+        "sha256": "06f6921fd051b2bec7a40949bebafd5222c1cfddff4fad850750fa3c0dc6a369"
+      },
+      "tools/required_gate_idempotence_loader_source_v0.py": {
+        "size_bytes": 32215,
+        "sha256": "bcc8da48d19666ab8b79a5586b3c486d44c177def9c9c24ec902c050bb92d1ff"
+      }
+    },
+    "fresh_reconstruction_required": true,
+    "saved_report_is_acceptance_input": false,
+    "historical_source_count": 81
+  },
+  "selected_recipe": {
+    "status": "selected_static_recipe_only",
+    "loader": {
+      "sha256": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307",
+      "size_bytes": 225672,
+      "build_id": "86f7eb4ff495ed3f2831c6d3d662e4321762a2a3"
+    },
+    "checkpoint_vaddr": 13937,
+    "checkpoint_file_offset": 13937,
+    "live_RIP_relation": "fresh_original_loader_load_bias_plus_checkpoint_vaddr",
+    "phase": "before_return_value_store_after_map_object_call",
+    "args_pointer_register": "RBX",
+    "provider_map_register": "RAX",
+    "args_bytes": 40,
+    "consumer_map_bytes": 56,
+    "provider_map_bytes": 56,
+    "args_fields": {
+      "map": {
+        "offset_bytes": 0,
+        "size_bytes": 8
+      },
+      "trace_mode": {
+        "offset_bytes": 8,
+        "size_bytes": 4
+      },
+      "open_mode": {
+        "offset_bytes": 12,
+        "size_bytes": 4
+      },
+      "strtab": {
+        "offset_bytes": 16,
+        "size_bytes": 8
+      },
+      "name": {
+        "offset_bytes": 24,
+        "size_bytes": 8
+      },
+      "aux": {
+        "offset_bytes": 32,
+        "size_bytes": 8
+      }
+    },
+    "map_fields": {
+      "l_addr": {
+        "offset_bytes": 0,
+        "size_bytes": 8
+      },
+      "l_ld": {
+        "offset_bytes": 16,
+        "size_bytes": 8
+      },
+      "l_real": {
+        "offset_bytes": 40,
+        "size_bytes": 8
+      },
+      "l_ns": {
+        "offset_bytes": 48,
+        "size_bytes": 8
+      }
+    },
+    "map_namespace_is_signed": true,
+    "selected_namespace_value": 0,
+    "needed_name_read_size": "unique_original_name_length_plus_one_NUL",
+    "map_pointer_chasing_beyond_selected_prefix": false,
+    "args_aux_fresh_at_checkpoint": false,
+    "args_pointer_assumed_in_RDI": false,
+    "live_readout_qualified": false
+  },
+  "occurrence_obligations": [
+    {
+      "consumer": {
+        "path": "native/bwrap",
+        "sha256": "573236e5328ac2ebb08f59ae3a9805b4f8d12bdef14be8af4450d5463294985f",
+        "size_bytes": 80248
+      },
+      "dynamic_program_header_index": 6,
+      "dynamic_entry_ordinal": 0,
+      "dynamic_entry_file_offset": 76304,
+      "dynamic_entry_vaddr": 80400,
+      "needed_ordinal": 0,
+      "name": "libselinux.so.1",
+      "string_table_offset": 1171,
+      "name_file_offset": 5171,
+      "expected_provider": {
+        "path": "native/libselinux.so.1",
+        "sha256": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c",
+        "size_bytes": 202984
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 80400,
+      "strtab_vaddr": 4000,
+      "strtab_size_bytes": 1353,
+      "strtab_file_offset": 4000,
+      "name_pointer_addend_vaddr": 5171,
+      "name_with_NUL": {
+        "sha256": "5586a42892fd37ff5362bc9d019a40a3fd9f9194dabf8b993f1ee9fc832d0263",
+        "size_bytes": 16,
+        "hex": "6c696273656c696e75782e736f2e3100"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    },
+    {
+      "consumer": {
+        "path": "native/bwrap",
+        "sha256": "573236e5328ac2ebb08f59ae3a9805b4f8d12bdef14be8af4450d5463294985f",
+        "size_bytes": 80248
+      },
+      "dynamic_program_header_index": 6,
+      "dynamic_entry_ordinal": 1,
+      "dynamic_entry_file_offset": 76320,
+      "dynamic_entry_vaddr": 80416,
+      "needed_ordinal": 1,
+      "name": "libcap.so.2",
+      "string_table_offset": 1187,
+      "name_file_offset": 5187,
+      "expected_provider": {
+        "path": "native/libcap.so.2",
+        "sha256": "41217b0af128444f66dee8adda52b2ceaf19da00e5b0b155e2b87b857671286b",
+        "size_bytes": 47288
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 80400,
+      "strtab_vaddr": 4000,
+      "strtab_size_bytes": 1353,
+      "strtab_file_offset": 4000,
+      "name_pointer_addend_vaddr": 5187,
+      "name_with_NUL": {
+        "sha256": "df750d090f85212fb7102f3fa043b3a57a0a183c1c353f7bfcb767a5fb672758",
+        "size_bytes": 12,
+        "hex": "6c69626361702e736f2e3200"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    },
+    {
+      "consumer": {
+        "path": "native/bwrap",
+        "sha256": "573236e5328ac2ebb08f59ae3a9805b4f8d12bdef14be8af4450d5463294985f",
+        "size_bytes": 80248
+      },
+      "dynamic_program_header_index": 6,
+      "dynamic_entry_ordinal": 2,
+      "dynamic_entry_file_offset": 76336,
+      "dynamic_entry_vaddr": 80432,
+      "needed_ordinal": 2,
+      "name": "libc.so.6",
+      "string_table_offset": 1199,
+      "name_file_offset": 5199,
+      "expected_provider": {
+        "path": "native/libc.so.6",
+        "sha256": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+        "size_bytes": 1995216
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 80400,
+      "strtab_vaddr": 4000,
+      "strtab_size_bytes": 1353,
+      "strtab_file_offset": 4000,
+      "name_pointer_addend_vaddr": 5199,
+      "name_with_NUL": {
+        "sha256": "ca0937c37cb31984ab453b9ca94dbfdfeda9527c62bb9be0a86e08907578e445",
+        "size_bytes": 10,
+        "hex": "6c6962632e736f2e3600"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    },
+    {
+      "consumer": {
+        "path": "native/libc.so.6",
+        "sha256": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+        "size_bytes": 1995216
+      },
+      "dynamic_program_header_index": 6,
+      "dynamic_entry_ordinal": 0,
+      "dynamic_entry_file_offset": 1980736,
+      "dynamic_entry_vaddr": 1984832,
+      "needed_ordinal": 0,
+      "name": "ld-linux-x86-64.so.2",
+      "string_table_offset": 34478,
+      "name_file_offset": 148782,
+      "expected_provider": {
+        "path": "native/ld-linux-x86-64.so.2",
+        "sha256": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307",
+        "size_bytes": 225672
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 1984832,
+      "strtab_vaddr": 114304,
+      "strtab_size_bytes": 35011,
+      "strtab_file_offset": 114304,
+      "name_pointer_addend_vaddr": 148782,
+      "name_with_NUL": {
+        "sha256": "a3b2fe6ecbf935bfdb16e511d08dff5838828fb50ba3665a33716f91a3bf6d33",
+        "size_bytes": 21,
+        "hex": "6c642d6c696e75782d7838362d36342e736f2e3200"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    },
+    {
+      "consumer": {
+        "path": "native/libcap.so.2",
+        "sha256": "41217b0af128444f66dee8adda52b2ceaf19da00e5b0b155e2b87b857671286b",
+        "size_bytes": 47288
+      },
+      "dynamic_program_header_index": 6,
+      "dynamic_entry_ordinal": 0,
+      "dynamic_entry_file_offset": 43912,
+      "dynamic_entry_vaddr": 43912,
+      "needed_ordinal": 0,
+      "name": "libc.so.6",
+      "string_table_offset": 1441,
+      "name_file_offset": 5761,
+      "expected_provider": {
+        "path": "native/libc.so.6",
+        "sha256": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+        "size_bytes": 1995216
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 43912,
+      "strtab_vaddr": 4320,
+      "strtab_size_bytes": 1560,
+      "strtab_file_offset": 4320,
+      "name_pointer_addend_vaddr": 5761,
+      "name_with_NUL": {
+        "sha256": "ca0937c37cb31984ab453b9ca94dbfdfeda9527c62bb9be0a86e08907578e445",
+        "size_bytes": 10,
+        "hex": "6c6962632e736f2e3600"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    },
+    {
+      "consumer": {
+        "path": "native/libpcre2-8.so.0",
+        "sha256": "92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3",
+        "size_bytes": 711216
+      },
+      "dynamic_program_header_index": 4,
+      "dynamic_entry_ordinal": 0,
+      "dynamic_entry_file_offset": 708056,
+      "dynamic_entry_vaddr": 712152,
+      "needed_ordinal": 0,
+      "name": "libc.so.6",
+      "string_table_offset": 2399,
+      "name_file_offset": 6167,
+      "expected_provider": {
+        "path": "native/libc.so.6",
+        "sha256": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+        "size_bytes": 1995216
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 712152,
+      "strtab_vaddr": 3768,
+      "strtab_size_bytes": 2480,
+      "strtab_file_offset": 3768,
+      "name_pointer_addend_vaddr": 6167,
+      "name_with_NUL": {
+        "sha256": "ca0937c37cb31984ab453b9ca94dbfdfeda9527c62bb9be0a86e08907578e445",
+        "size_bytes": 10,
+        "hex": "6c6962632e736f2e3600"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    },
+    {
+      "consumer": {
+        "path": "native/libselinux.so.1",
+        "sha256": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c",
+        "size_bytes": 202984
+      },
+      "dynamic_program_header_index": 4,
+      "dynamic_entry_ordinal": 0,
+      "dynamic_entry_file_offset": 198192,
+      "dynamic_entry_vaddr": 198192,
+      "needed_ordinal": 0,
+      "name": "libpcre2-8.so.0",
+      "string_table_offset": 6778,
+      "name_file_offset": 18938,
+      "expected_provider": {
+        "path": "native/libpcre2-8.so.0",
+        "sha256": "92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3",
+        "size_bytes": 711216
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 198192,
+      "strtab_vaddr": 12160,
+      "strtab_size_bytes": 7065,
+      "strtab_file_offset": 12160,
+      "name_pointer_addend_vaddr": 18938,
+      "name_with_NUL": {
+        "sha256": "49343975da99a9139f83ec99bb72bce4243d96421a19d5851b9c3c81d34db835",
+        "size_bytes": 16,
+        "hex": "6c696270637265322d382e736f2e3000"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    },
+    {
+      "consumer": {
+        "path": "native/libselinux.so.1",
+        "sha256": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c",
+        "size_bytes": 202984
+      },
+      "dynamic_program_header_index": 4,
+      "dynamic_entry_ordinal": 1,
+      "dynamic_entry_file_offset": 198208,
+      "dynamic_entry_vaddr": 198208,
+      "needed_ordinal": 1,
+      "name": "libc.so.6",
+      "string_table_offset": 6794,
+      "name_file_offset": 18954,
+      "expected_provider": {
+        "path": "native/libc.so.6",
+        "sha256": "9792e3cbb541c8f44c7acf5f14f4022ea62998ecc787d326bed4d8b6547dfd92",
+        "size_bytes": 1995216
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 198192,
+      "strtab_vaddr": 12160,
+      "strtab_size_bytes": 7065,
+      "strtab_file_offset": 12160,
+      "name_pointer_addend_vaddr": 18954,
+      "name_with_NUL": {
+        "sha256": "ca0937c37cb31984ab453b9ca94dbfdfeda9527c62bb9be0a86e08907578e445",
+        "size_bytes": 10,
+        "hex": "6c6962632e736f2e3600"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    },
+    {
+      "consumer": {
+        "path": "native/libselinux.so.1",
+        "sha256": "5cb5293b4e7590463b94f7b23152d54807a6a2ccaf8cac9e343908c6692c086c",
+        "size_bytes": 202984
+      },
+      "dynamic_program_header_index": 4,
+      "dynamic_entry_ordinal": 2,
+      "dynamic_entry_file_offset": 198224,
+      "dynamic_entry_vaddr": 198224,
+      "needed_ordinal": 2,
+      "name": "ld-linux-x86-64.so.2",
+      "string_table_offset": 6804,
+      "name_file_offset": 18964,
+      "expected_provider": {
+        "path": "native/ld-linux-x86-64.so.2",
+        "sha256": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307",
+        "size_bytes": 225672
+      },
+      "evidence_role": "static_candidate_only",
+      "consumer_resolution_observed": false,
+      "dynamic_vaddr": 198192,
+      "strtab_vaddr": 12160,
+      "strtab_size_bytes": 7065,
+      "strtab_file_offset": 12160,
+      "name_pointer_addend_vaddr": 18964,
+      "name_with_NUL": {
+        "sha256": "a3b2fe6ecbf935bfdb16e511d08dff5838828fb50ba3665a33716f91a3bf6d33",
+        "size_bytes": 21,
+        "hex": "6c642d6c696e75782d7838362d36342e736f2e3200"
+      },
+      "pointer_base": "fresh_consumer_load_bias",
+      "runtime_pointer_or_map_observed": false
+    }
+  ],
+  "readout_checker": {
+    "evidence_origin": "authored_test_fixture",
+    "native_bytes_role": "pinned_original_fixture_inputs",
+    "contemporaneous_backing_acquisition_authenticated": false,
+    "rflags_resume_policy_qualified": false,
+    "checkpoint_vaddr": 13937,
+    "argument_register": "RBX",
+    "provider_register": "RAX",
+    "argument_bytes": 40,
+    "map_prefix_bytes": 56,
+    "return_slot": 0,
+    "entry_slot": 1,
+    "dr7": 5,
+    "samples_per_range": 2,
+    "event_files": 22,
+    "runtime_ranges": 4,
+    "runtime_window_bytes": 4096,
+    "runtime_sample_bytes": 131072,
+    "needed_name_bytes": 256,
+    "proc_file_bytes": 65536,
+    "control_bytes": 1048576,
+    "loader_rx_bytes": 160721,
+    "fixture_set_events": 9,
+    "invocation_mode_policy_qualified": false,
+    "actual_event_lifecycle_qualified": false
+  },
+  "two_slot_checker": {
+    "record_type": "required_gate_idempotence_loader_two_slot_fixture_transcript_v0",
+    "profile": "linux_x86_64_loader_two_slot_fixture_v0",
+    "evidence_origin": "authored_test_fixture",
+    "probe_entry": 4194432,
+    "return_target": 4194437,
+    "terminal_target": 4194440,
+    "accepted_return_events": 9,
+    "maximum_preserved_return_events": 10,
+    "completed_total_ptrace_cont": 11,
+    "post_entry_resumes": 0,
+    "allowed_debug_writes": [
+      0,
+      1,
+      6,
+      7
+    ],
+    "armed_dr7": 5,
+    "dr6_reserved": 4294905840,
+    "ptrace_options": 1048606,
+    "register_bytes": 216,
+    "debug_register_bytes": 48,
+    "siginfo_bytes": 128,
+    "stable_samples": 2,
+    "rflags_trap_flag_mask": 256,
+    "rflags_trap_flag_must_be_clear": true,
+    "rflags_resume_policy_qualified": false,
+    "rflags_resume_flag_policy": "not_qualified_no_live_RF_value_selected",
+    "observation_nanoseconds": 15000000000,
+    "cleanup_nanoseconds": 2000000000,
+    "wait_records": 20,
+    "raw_files": 160,
+    "raw_total_bytes": 1048576,
+    "control_bytes": 1048576,
+    "fixture_acceptance_is_live_qualification": false
+  },
+  "fixture_policy": {
+    "allowed_evidence_origin": "authored_test_fixture",
+    "actual_qualification_evidence_accepted": false,
+    "authored_fixture_is_actual_acquisition": false,
+    "hardware_fixture_and_original_readout_fixture_are_one_process": false,
+    "fixture_clock_is_observed_clock": false,
+    "fixture_success_can_close_source_build_gate": false
+  },
+  "unresolved_prerequisites": {
+    "source_build": {
+      "original_gate": "exact_original_loader_source_debug_binary_binding",
+      "status": "unsatisfied",
+      "recorded_gaps": [
+        "source_to_binary_equivalence_not_independently_reproduced",
+        "authenticated_build_process_provenance_not_established"
+      ],
+      "accepted_build_evidence_policy": "not_selected",
+      "alternative_evidence_route_selected": false,
+      "package_version_build_id_debuglink_or_DWARF_is_build_provenance": false
+    },
+    "invocation_modes": {
+      "trace_mode": "decoded_but_selected_invocation_policy_not_qualified",
+      "open_mode": "decoded_but_selected_invocation_policy_not_qualified",
+      "arbitrary_decoded_values_authorize_acquisition": false
+    },
+    "guard_and_environment": "fresh_qualification_and_original_input_admission_required",
+    "hardware": "actual_same_environment_two_slot_qualification_required",
+    "rflags_resume_policy": "raw_flags_preserved_TF_forbidden_RF_resume_policy_not_qualified",
+    "live_readout": "actual_original_private_ABI_readout_not_qualified",
+    "original_request_capture_and_collector": "not_implemented_by_this_unit",
+    "actual_acquisition": "separate_review_and_owner_authorization_required"
+  },
+  "implementation_sources": [
+    "schemas/required_gate_idempotence_loader_readout_contract_v0.schema.json",
+    "schemas/required_gate_idempotence_loader_readout_event_v0.schema.json",
+    "schemas/required_gate_idempotence_loader_two_slot_v0.schema.json",
+    "tools/check_required_gate_idempotence_loader_readout_contract_v0.py",
+    "tools/required_gate_idempotence_loader_readout_v0.py",
+    "tools/required_gate_idempotence_loader_two_slot_v0.py"
+  ],
+  "boundary": {
+    "live_private_abi_readout_qualified": false,
+    "two_slot_breakpoint_qualified": false,
+    "invocation_mode_policy_qualified": false,
+    "rflags_resume_policy_qualified": false,
+    "contemporaneous_backing_acquisition_authenticated": false,
+    "source_binary_equivalence_verified": false,
+    "authenticated_build_provenance": false,
+    "source_build_gate_satisfied": false,
+    "original_acquisition_ready": false,
+    "original_acquisition_authorized": false,
+    "native_acquisition_performed": false,
+    "consumer_resolution_observed": false,
+    "loader_resolution_verified": false,
+    "complete_native_closure_verified": false,
+    "containment_enforced": false,
+    "selected_runtime_executed": false,
+    "production_gate_eligible": false,
+    "b2_complete": false,
+    "metric_pass": null,
+    "authority_effect": "none"
+  }
+}

@@ -1,0 +1,474 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "required_gate_idempotence_loader_two_slot_v0.schema.json",
+  "title": "Authored two-slot mechanics fixture transcript v0",
+  "description": "Structural contract only. Raw-byte reconstruction remains mandatory; fixture acceptance never qualifies hardware or original acquisition.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "record_type",
+    "profile",
+    "evidence_origin",
+    "attempt_id",
+    "status",
+    "failure",
+    "process",
+    "options",
+    "timing",
+    "arming",
+    "waits",
+    "resumes",
+    "events",
+    "cleanup",
+    "raw_files",
+    "boundary"
+  ],
+  "properties": {
+    "record_type": {
+      "const": "required_gate_idempotence_loader_two_slot_fixture_transcript_v0"
+    },
+    "profile": {
+      "const": "linux_x86_64_loader_two_slot_fixture_v0"
+    },
+    "evidence_origin": {
+      "const": "authored_test_fixture"
+    },
+    "attempt_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "incomplete"
+      ]
+    },
+    "failure": {
+      "enum": [
+        null,
+        "stopped_prefix",
+        "unexpected_tenth_return"
+      ]
+    },
+    "process": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observer_pid",
+        "child_pid",
+        "starttime",
+        "pidfd"
+      ],
+      "properties": {
+        "observer_pid": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 2147483647
+        },
+        "child_pid": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 2147483647
+        },
+        "starttime": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "pidfd": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 1048575
+        }
+      }
+    },
+    "options": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request",
+        "value",
+        "returncode",
+        "errno"
+      ],
+      "properties": {
+        "request": {
+          "const": "PTRACE_SETOPTIONS"
+        },
+        "value": {
+          "const": 1048606
+        },
+        "returncode": {
+          "const": 0
+        },
+        "errno": {
+          "const": 0
+        }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "started_ns",
+        "armed_ns",
+        "cleanup_started_ns",
+        "finished_ns"
+      ],
+      "properties": {
+        "started_ns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "armed_ns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "cleanup_started_ns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "finished_ns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        }
+      }
+    },
+    "arming": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "register",
+          "value",
+          "returncode",
+          "errno"
+        ],
+        "properties": {
+          "register": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "value": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9223372036854775807
+          },
+          "returncode": {
+            "const": 0
+          },
+          "errno": {
+            "const": 0
+          }
+        }
+      }
+    },
+    "waits": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "phase",
+          "pid",
+          "status",
+          "at_ns"
+        ],
+        "properties": {
+          "phase": {
+            "type": "string",
+            "pattern": "^(setup|exec|event\\.(0[1-9]|10)|reap)$"
+          },
+          "pid": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 2147483647
+          },
+          "status": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "at_ns": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9223372036854775807
+          }
+        }
+      }
+    },
+    "resumes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 11,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "after",
+          "at_ns",
+          "clear",
+          "request",
+          "address",
+          "signal",
+          "returncode",
+          "errno"
+        ],
+        "properties": {
+          "after": {
+            "type": "string",
+            "pattern": "^(setup|cp0|event\\.0[1-9])$"
+          },
+          "at_ns": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9223372036854775807
+          },
+          "clear": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "register",
+              "value",
+              "returncode",
+              "errno"
+            ],
+            "properties": {
+              "register": {
+                "const": 6
+              },
+              "value": {
+                "const": 4294905840
+              },
+              "returncode": {
+                "const": 0
+              },
+              "errno": {
+                "const": 0
+              }
+            }
+          },
+          "request": {
+            "const": "PTRACE_CONT"
+          },
+          "address": {
+            "const": 0
+          },
+          "signal": {
+            "const": 0
+          },
+          "returncode": {
+            "const": 0
+          },
+          "errno": {
+            "const": 0
+          }
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "index",
+          "kind",
+          "sample_times_ns"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "kind": {
+            "enum": [
+              "return",
+              "entry"
+            ]
+          },
+          "sample_times_ns": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            }
+          }
+        }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "signal",
+        "method",
+        "pidfd",
+        "pid",
+        "at_ns",
+        "returncode",
+        "errno",
+        "reaped"
+      ],
+      "properties": {
+        "signal": {
+          "const": 9
+        },
+        "method": {
+          "const": "pidfd_send_signal"
+        },
+        "pidfd": {
+          "type": "integer",
+          "minimum": 3,
+          "maximum": 1048575
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 2147483647
+        },
+        "at_ns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9223372036854775807
+        },
+        "returncode": {
+          "const": 0
+        },
+        "errno": {
+          "const": 0
+        },
+        "reaped": {
+          "const": true
+        }
+      }
+    },
+    "raw_files": {
+      "type": "object",
+      "minProperties": 10,
+      "maxProperties": 160,
+      "additionalProperties": false,
+      "patternProperties": {
+        "^[A-Za-z0-9_.-]{1,128}$": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "size_bytes",
+            "sha256"
+          ],
+          "properties": {
+            "size_bytes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1048576
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "two_slot_breakpoint_qualified",
+        "rflags_resume_policy_qualified",
+        "original_acquisition_ready",
+        "consumer_resolution_observed",
+        "source_build_gate_satisfied",
+        "native_acquisition_performed",
+        "physical_execution_authenticated",
+        "metric_pass",
+        "authority_effect"
+      ],
+      "properties": {
+        "two_slot_breakpoint_qualified": {
+          "const": false
+        },
+        "original_acquisition_ready": {
+          "const": false
+        },
+        "consumer_resolution_observed": {
+          "const": false
+        },
+        "source_build_gate_satisfied": {
+          "const": false
+        },
+        "native_acquisition_performed": {
+          "const": false
+        },
+        "physical_execution_authenticated": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "authority_effect": {
+          "const": "none"
+        },
+        "rflags_resume_policy_qualified": {
+          "const": false
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "completed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "failure": {
+            "const": null
+          },
+          "events": {
+            "minItems": 10,
+            "maxItems": 10
+          },
+          "resumes": {
+            "minItems": 11,
+            "maxItems": 11
+          },
+          "waits": {
+            "minItems": 13,
+            "maxItems": 13
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "failure": {
+            "enum": [
+              "stopped_prefix",
+              "unexpected_tenth_return"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}
