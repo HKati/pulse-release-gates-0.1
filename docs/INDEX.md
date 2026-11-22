@@ -94,6 +94,8 @@ moves between merged and open work, update this index.
 
 - [B2 loader two-slot qualification implementation](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_QUALIFICATION_v0.md) — **Implemented a separate bounded fixed-probe producer and independent raw-record checker.** Reconstruct both hardware slots, repeated RF/TF-qualified stops, exact continuation counts, process identity and owned cleanup; preserve incomplete attempts and keep scripted backend tests distinct from native records. Actual selected-environment qualification and original loader acquisition remain separate; source/build admission, B2 completion and release authority remain open.
 
+- [B2 loader two-slot qualification request and attempt](compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_ACQUISITION_v0.md) — **Implemented pre-execution selection and one acknowledged fixed-probe attempt with independent preserved-byte reconstruction.** Bind the selected context and exact implementation before invocation, preserve complete or incomplete outcomes, and reuse the existing raw checker without deriving expectations from incoming records. Hosted execution, actual qualification, original loader acquisition, source/build admission and B2 completion remain open; `metric_pass=null` and `authority_effect=none`.
+
 [Current coverage and implementation plan](compute/PULSEMECH_COMPUTE_REFERENCE_READINESS_v0.md#18-required-gate-coverage-plan-after-accepted-rejection-verification) ·
 [Machine-readable nineteen-gate inventory](compute/required_gate_coverage_plan_v0/coverage_plan_v0.json) ·
 [Completed bounded verification](compute/admission_rejection_43445176088_v0/README.md)
