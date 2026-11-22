@@ -1,0 +1,2327 @@
+{
+  "$defs": {
+    "attestationIdentity": {
+      "additionalProperties": false,
+      "properties": {
+        "boundary": {
+          "$ref": "#/$defs/boundary"
+        },
+        "bundle": {
+          "$ref": "#/$defs/descriptor"
+        },
+        "context": {
+          "$ref": "#/$defs/context"
+        },
+        "handoff": {
+          "$ref": "#/$defs/handoff"
+        },
+        "profile": {
+          "const": "linux_x86_64_loader_two_slot_hosted_v0"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_loader_two_slot_hosted_attestation_identity_v0"
+        },
+        "signer_digest": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "signer_workflow": {
+          "const": "HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_loader_two_slot_qualification_v0.yml"
+        },
+        "source_digest": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "source_ref": {
+          "const": "refs/heads/main"
+        },
+        "subject": {
+          "$ref": "#/$defs/controlDescriptor"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "context",
+        "handoff",
+        "subject",
+        "bundle",
+        "signer_workflow",
+        "signer_digest",
+        "source_digest",
+        "source_ref",
+        "boundary"
+      ],
+      "type": "object"
+    },
+    "attestationVerification": {
+      "additionalProperties": false,
+      "properties": {
+        "boundary": {
+          "$ref": "#/$defs/boundary"
+        },
+        "bundle": {
+          "$ref": "#/$defs/descriptor"
+        },
+        "context": {
+          "$ref": "#/$defs/context"
+        },
+        "github_signature_verification_succeeded": {
+          "const": true
+        },
+        "handoff": {
+          "$ref": "#/$defs/handoff"
+        },
+        "profile": {
+          "const": "linux_x86_64_loader_two_slot_hosted_v0"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_loader_two_slot_hosted_attestation_verification_v0"
+        },
+        "status": {
+          "const": "accepted"
+        },
+        "subject": {
+          "$ref": "#/$defs/controlDescriptor"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "context",
+        "status",
+        "handoff",
+        "subject",
+        "bundle",
+        "github_signature_verification_succeeded",
+        "boundary"
+      ],
+      "type": "object"
+    },
+    "boundary": {
+      "additionalProperties": false,
+      "properties": {
+        "authority_effect": {
+          "const": "none"
+        },
+        "b2_complete": {
+          "const": false
+        },
+        "consumer_resolution_observed": {
+          "const": false
+        },
+        "current_host_admission_satisfied": {
+          "const": false
+        },
+        "metric_pass": {
+          "const": null
+        },
+        "original_acquisition_ready": {
+          "const": false
+        },
+        "original_native_acquisition_performed": {
+          "const": false
+        },
+        "physical_execution_authenticated": {
+          "const": false
+        },
+        "selected_runtime_executed": {
+          "const": false
+        },
+        "source_build_gate_satisfied": {
+          "const": false
+        }
+      },
+      "required": [
+        "original_native_acquisition_performed",
+        "original_acquisition_ready",
+        "source_build_gate_satisfied",
+        "b2_complete",
+        "consumer_resolution_observed",
+        "physical_execution_authenticated",
+        "current_host_admission_satisfied",
+        "metric_pass",
+        "authority_effect",
+        "selected_runtime_executed"
+      ],
+      "type": "object"
+    },
+    "cleanup": {
+      "additionalProperties": false,
+      "properties": {
+        "absence_verified": {
+          "type": "boolean"
+        },
+        "cleanup_errors": {
+          "items": {
+            "pattern": "^[a-z][a-z0-9_]{0,127}$",
+            "type": "string"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        "container_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            }
+          ]
+        },
+        "image_id": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "pattern": "^sha256:[0-9a-f]{64}$",
+              "type": "string"
+            }
+          ]
+        },
+        "inspect_exit_code": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer"
+            }
+          ]
+        },
+        "name": {
+          "pattern": "^pulse-two-slot-[1-9][0-9]*-1-(acquire|verify)$",
+          "type": "string"
+        },
+        "owned_container_verified": {
+          "type": "boolean"
+        },
+        "phase": {
+          "enum": [
+            "acquire",
+            "verify"
+          ]
+        },
+        "remove_succeeded": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "container_id",
+        "image_id",
+        "phase",
+        "name",
+        "owned_container_verified",
+        "inspect_exit_code",
+        "remove_succeeded",
+        "absence_verified",
+        "cleanup_errors"
+      ],
+      "type": "object"
+    },
+    "commandDescriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "maximum": 4194304,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "containerEnvironment": {
+      "additionalProperties": false,
+      "properties": {
+        "EXPECTED_RECEIPT_SHA256": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "EXPECTED_SOURCE_COMMIT": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "GITHUB_ACTOR": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "GITHUB_EVENT_NAME": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "GITHUB_REF": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "GITHUB_REPOSITORY": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "GITHUB_REPOSITORY_ID": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "GITHUB_RUN_ATTEMPT": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "GITHUB_RUN_ID": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "GITHUB_RUN_NUMBER": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "GITHUB_SHA": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "GITHUB_TRIGGERING_ACTOR": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "GITHUB_WORKFLOW_REF": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "GITHUB_WORKFLOW_SHA": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "LC_ALL": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "PYTHONDONTWRITEBYTECODE": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "PYTHONNOUSERSITE": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "TWO_SLOT_HOSTED_ACKNOWLEDGEMENT": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "TWO_SLOT_HOSTED_ARTIFACT_DIGEST": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "TWO_SLOT_HOSTED_ARTIFACT_ID": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "TWO_SLOT_HOSTED_IMAGE_ID": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "TWO_SLOT_HOSTED_PHASE": {
+          "maxLength": 8192,
+          "type": "string"
+        },
+        "TZ": {
+          "maxLength": 8192,
+          "type": "string"
+        }
+      },
+      "required": [
+        "EXPECTED_SOURCE_COMMIT",
+        "TWO_SLOT_HOSTED_ACKNOWLEDGEMENT",
+        "TWO_SLOT_HOSTED_PHASE",
+        "TWO_SLOT_HOSTED_IMAGE_ID",
+        "GITHUB_REPOSITORY",
+        "GITHUB_REPOSITORY_ID",
+        "GITHUB_SHA",
+        "GITHUB_WORKFLOW_SHA",
+        "GITHUB_WORKFLOW_REF",
+        "GITHUB_RUN_ID",
+        "GITHUB_RUN_NUMBER",
+        "GITHUB_RUN_ATTEMPT",
+        "GITHUB_EVENT_NAME",
+        "GITHUB_REF",
+        "GITHUB_ACTOR",
+        "GITHUB_TRIGGERING_ACTOR",
+        "PYTHONDONTWRITEBYTECODE",
+        "PYTHONNOUSERSITE",
+        "LC_ALL",
+        "TZ"
+      ],
+      "type": "object"
+    },
+    "context": {
+      "additionalProperties": false,
+      "properties": {
+        "acknowledgement": {
+          "const": "QUALIFY_LOADER_TWO_SLOT_ONLY"
+        },
+        "actor": {
+          "const": "HKati"
+        },
+        "event_name": {
+          "const": "workflow_dispatch"
+        },
+        "ref": {
+          "const": "refs/heads/main"
+        },
+        "repository": {
+          "const": "HKati/pulse-release-gates-0.1"
+        },
+        "repository_id": {
+          "const": "1061766508"
+        },
+        "run_attempt": {
+          "const": 1
+        },
+        "run_id": {
+          "maximum": 9223372036854775807,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "run_number": {
+          "maximum": 9223372036854775807,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "source_commit": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        },
+        "triggering_actor": {
+          "const": "HKati"
+        },
+        "workflow_ref": {
+          "const": "HKati/pulse-release-gates-0.1/.github/workflows/required_gate_idempotence_loader_two_slot_qualification_v0.yml@refs/heads/main"
+        },
+        "workflow_sha": {
+          "pattern": "^[0-9a-f]{40}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "repository",
+        "repository_id",
+        "source_commit",
+        "workflow_sha",
+        "workflow_ref",
+        "run_id",
+        "run_number",
+        "run_attempt",
+        "event_name",
+        "ref",
+        "actor",
+        "triggering_actor",
+        "acknowledgement"
+      ],
+      "type": "object"
+    },
+    "controlDescriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "maximum": 65536,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "descriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "maximum": 268435456,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "emptyControlDescriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "maximum": 65536,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "environment": {
+      "const": {
+        "authority_effect": "none",
+        "base_image": {
+          "config_sha256": "274d131132dbdc6058ed77088525d77adaf0749a6d99f2cf7d42feb9a10737c8",
+          "config_size_bytes": 5485,
+          "layers": [
+            {
+              "sha256": "6b37362b3da78869050b894b799ad4df04f1f3b52774087db0d81151570244c8",
+              "size_bytes": 29830418
+            },
+            {
+              "sha256": "41e7217c2e506d048f89ca0c5cfef848c05ef990900627c19f99938c4aae57f8",
+              "size_bytes": 1294119
+            },
+            {
+              "sha256": "58abdd9670ca8c69d03432ce188995dee67f0979357caf83866fe1ef2ec37138",
+              "size_bytes": 14450867
+            },
+            {
+              "sha256": "0526d5e29bf341cb1941d46a6d4ab64fcde4fca3dc3adccfb4dbf5728b88b61e",
+              "size_bytes": 249
+            }
+          ],
+          "manifest_sha256": "174bec68e0451bffabbb08c7d5d21c6b253f772d81d52b9558af97bb3159b761",
+          "manifest_size_bytes": 1746,
+          "reference": "docker.io/library/python@sha256:174bec68e0451bffabbb08c7d5d21c6b253f772d81d52b9558af97bb3159b761",
+          "source_metadata_url": "https://github.com/docker-library/repo-info/blob/6f3a6a22ff9af6b10d9c3a8aeaaf1a2fb4c5873c/repos/python/remote/3.11.16-slim-trixie.md"
+        },
+        "original_payload_included": false,
+        "platform": "linux/amd64",
+        "profile": "linux_x86_64_loader_two_slot_hosted_v0",
+        "python": {
+          "executable": "/usr/local/bin/python3.11",
+          "observer_binding": {
+            "sha256": "92d7e40ec50be176cb1b790c7568b7e08cd862137b5aa69f1413ba1967886b79",
+            "size_bytes": 14472
+          },
+          "packages": [
+            {
+              "filename": "attrs-26.1.0-py3-none-any.whl",
+              "name": "attrs",
+              "scope": "qualification_verifier_dependency",
+              "sha256": "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309",
+              "size_bytes": 67548,
+              "url": "https://files.pythonhosted.org/packages/64/b4/17d4b0b2a2dc85a6df63d1157e028ed19f90d4cd97c36717afef2bc2f395/attrs-26.1.0-py3-none-any.whl",
+              "version": "26.1.0"
+            },
+            {
+              "filename": "jsonschema-4.26.0-py3-none-any.whl",
+              "name": "jsonschema",
+              "scope": "qualification_verifier_dependency",
+              "sha256": "d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce",
+              "size_bytes": 90630,
+              "url": "https://files.pythonhosted.org/packages/69/90/f63fb5873511e014207a475e2bb4e8b2e570d655b00ac19a9a0ca0a385ee/jsonschema-4.26.0-py3-none-any.whl",
+              "version": "4.26.0"
+            },
+            {
+              "filename": "jsonschema_specifications-2025.9.1-py3-none-any.whl",
+              "name": "jsonschema-specifications",
+              "scope": "qualification_verifier_dependency",
+              "sha256": "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe",
+              "size_bytes": 18437,
+              "url": "https://files.pythonhosted.org/packages/41/45/1a4ed80516f02155c51f51e8cedb3c1902296743db0bbc66608a0db2814f/jsonschema_specifications-2025.9.1-py3-none-any.whl",
+              "version": "2025.9.1"
+            },
+            {
+              "filename": "referencing-0.37.0-py3-none-any.whl",
+              "name": "referencing",
+              "scope": "qualification_verifier_dependency",
+              "sha256": "381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231",
+              "size_bytes": 26766,
+              "url": "https://files.pythonhosted.org/packages/2c/58/ca301544e1fa93ed4f80d724bf5b194f6e4b945841c5bfd555878eea9fcb/referencing-0.37.0-py3-none-any.whl",
+              "version": "0.37.0"
+            },
+            {
+              "filename": "rpds_py-2026.9.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+              "name": "rpds-py",
+              "scope": "qualification_verifier_dependency",
+              "sha256": "136a1c3fe4402b7008bc81cb62ee538481795b61a7e83df88dff3b3f02b726ff",
+              "size_bytes": 375426,
+              "url": "https://files.pythonhosted.org/packages/2d/5c/aac3b960fd55d37b49f77c0eebbe043eaf36762ebd48e7b46951e59c1c05/rpds_py-2026.9.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl",
+              "version": "2026.9.1"
+            },
+            {
+              "filename": "typing_extensions-4.16.0-py3-none-any.whl",
+              "name": "typing_extensions",
+              "scope": "qualification_verifier_dependency",
+              "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+              "size_bytes": 45571,
+              "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+              "version": "4.16.0"
+            }
+          ],
+          "version": "3.11.16"
+        },
+        "record_type": "required_gate_idempotence_loader_two_slot_hosted_environment_v0",
+        "requirements": {
+          "sha256": "3d42319e264dfcd35a820113e71152fedc3b12d70ceec44c91145fff67322138",
+          "size_bytes": 607
+        },
+        "runtime": {
+          "cap_drop": [
+            "ALL"
+          ],
+          "cpus": "1",
+          "default_apparmor": true,
+          "default_seccomp": true,
+          "memory": "1g",
+          "network": "none",
+          "no_new_privileges": true,
+          "pids_limit": 64,
+          "read_only": true,
+          "tmpfs_tmp": "rw,nosuid,nodev,size=64m",
+          "user": "invoking_runner_uid_gid"
+        },
+        "runtime_environment": [
+          "PYTHONDONTWRITEBYTECODE=1",
+          "PYTHONNOUSERSITE=1",
+          "PIP_NO_INDEX=1",
+          "PIP_DISABLE_PIP_VERSION_CHECK=1"
+        ]
+      }
+    },
+    "failure": {
+      "additionalProperties": false,
+      "properties": {
+        "boundary": {
+          "$ref": "#/$defs/boundary"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/context"
+            }
+          ]
+        },
+        "error_code": {
+          "pattern": "^[a-z][a-z0-9_]{0,127}$",
+          "type": "string"
+        },
+        "profile": {
+          "const": "linux_x86_64_loader_two_slot_hosted_v0"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_loader_two_slot_hosted_failure_v0"
+        },
+        "stage": {
+          "enum": [
+            "acquire",
+            "finalize",
+            "verify",
+            "attest-verify"
+          ]
+        },
+        "status": {
+          "const": "preserved_incomplete"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "status",
+        "stage",
+        "error_code",
+        "context",
+        "boundary"
+      ],
+      "type": "object"
+    },
+    "files": {
+      "additionalProperties": false,
+      "maxProperties": 256,
+      "properties": {
+        "attestation-bundle.json": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "attestation-identity.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "attestation.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "control/hosted-selection.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "environment/container-cleanup.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "environment/container-id.txt": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "environment/container-plan.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "environment/image-id.txt": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "environment/selection.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "failure.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/artifact-metadata.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/artifact-metadata.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/artifact-metadata.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/artifact-metadata.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/attestation-verify.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/attestation-verify.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/attestation-verify.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/attestation-verify.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/base-inspect-after.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/base-inspect-after.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/base-inspect-after.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/base-inspect-after.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/base-inspect.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/base-inspect.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/base-inspect.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/base-inspect.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/base-load.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/base-load.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/base-load.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/base-load.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/base-pull.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/base-pull.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/base-pull.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/base-pull.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/base-save.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/base-save.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/base-save.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/base-save.stdout.bin": {
+          "$ref": "#/$defs/descriptor"
+        },
+        "host-commands/base-tag-inspect.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/base-tag-inspect.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/base-tag-inspect.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/base-tag-inspect.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/base-tag.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/base-tag.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/base-tag.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/base-tag.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/container-absence.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/container-absence.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/container-absence.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/container-absence.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/container-create.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/container-create.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/container-create.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/container-create.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/container-inspect.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/container-inspect.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/container-inspect.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/container-inspect.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/container-ownership-inspect.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/container-ownership-inspect.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/container-ownership-inspect.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/container-ownership-inspect.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/container-remove.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/container-remove.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/container-remove.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/container-remove.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/container-start.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/container-start.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/container-start.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/container-start.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/container-state.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/container-state.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/container-state.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/container-state.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/git-head-after.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/git-head-after.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/git-head-after.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/git-head-after.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/git-head-before.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/git-head-before.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/git-head-before.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/git-head-before.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/git-source-tree.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/git-source-tree.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/git-source-tree.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/git-source-tree.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/image-build.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/image-build.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/image-build.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/image-build.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/image-inspect.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/image-inspect.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "host-commands/image-inspect.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "host-commands/image-inspect.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "materials/Dockerfile": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "materials/build_environment.py": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "materials/environment.json": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "materials/requirements.lock": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "materials/run.py": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "materials/wheels/attrs-26.1.0-py3-none-any.whl": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "materials/wheels/jsonschema-4.26.0-py3-none-any.whl": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "materials/wheels/jsonschema_specifications-2025.9.1-py3-none-any.whl": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "materials/wheels/referencing-0.37.0-py3-none-any.whl": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "materials/wheels/rpds_py-2026.9.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "materials/wheels/typing_extensions-4.16.0-py3-none-any.whl": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "observation/acquisition-summary.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "observation/attempt-check-1.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "observation/attempt-check-2.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "observation/attempt/attempt.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "observation/attempt/qualification.json": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "observation/attempt/request.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "observation/build-environment-record.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "observation/commands/attempt-check-1.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "observation/commands/attempt-check-1.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "observation/commands/attempt-check-1.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "observation/commands/attempt-check-1.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "observation/commands/attempt-check-2.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "observation/commands/attempt-check-2.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "observation/commands/attempt-check-2.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "observation/commands/attempt-check-2.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "observation/commands/probe.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "observation/commands/probe.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "observation/commands/probe.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "observation/commands/probe.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "observation/request.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "prefix-verification.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "source-bindings.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "source/.github/workflows/required_gate_idempotence_loader_two_slot_qualification_v0.yml": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/schemas/required_gate_idempotence_loader_two_slot_attempt_v0.schema.json": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/schemas/required_gate_idempotence_loader_two_slot_hosted_v0.schema.json": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/schemas/required_gate_idempotence_loader_two_slot_qualification_v0.schema.json": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/schemas/required_gate_idempotence_loader_two_slot_request_v0.schema.json": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/tools/check_required_gate_idempotence_loader_two_slot_attempt_v0.py": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/tools/check_required_gate_idempotence_loader_two_slot_hosted_v0.py": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/tools/check_required_gate_idempotence_loader_two_slot_qualification_v0.py": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/tools/prepare_required_gate_idempotence_loader_two_slot_v0.py": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/tools/qualify_required_gate_idempotence_loader_two_slot_v0.py": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/tools/required_gate_idempotence_exec_stop_hosted_io_v0.py": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/tools/required_gate_idempotence_loader_two_slot_hosted_v0.py": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/tools/required_gate_idempotence_loader_two_slot_hosted_v0/Dockerfile": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/tools/required_gate_idempotence_loader_two_slot_hosted_v0/build_environment.py": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/tools/required_gate_idempotence_loader_two_slot_hosted_v0/environment.json": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/tools/required_gate_idempotence_loader_two_slot_hosted_v0/requirements.lock": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/tools/required_gate_idempotence_loader_two_slot_hosted_v0/run.py": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "source/tools/required_gate_idempotence_loader_two_slot_v0.py": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "verification/attempt-check-1.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "verification/attempt-check-2.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "verification/attempt/attempt.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "verification/attempt/qualification.json": {
+          "$ref": "#/$defs/sourceDescriptor"
+        },
+        "verification/attempt/request.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "verification/build-environment-record.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "verification/commands/attempt-check-1.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "verification/commands/attempt-check-1.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "verification/commands/attempt-check-1.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "verification/commands/attempt-check-1.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "verification/commands/attempt-check-2.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "verification/commands/attempt-check-2.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "verification/commands/attempt-check-2.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "verification/commands/attempt-check-2.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "verification/commands/probe.argv.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "verification/commands/probe.result.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "verification/commands/probe.stderr.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "verification/commands/probe.stdout.bin": {
+          "$ref": "#/$defs/commandDescriptor"
+        },
+        "verification/request.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "verification/verification-summary.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "verified-binding.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        },
+        "workflow-start.json": {
+          "$ref": "#/$defs/emptyControlDescriptor"
+        }
+      },
+      "type": "object"
+    },
+    "handoff": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "artifact_id": {
+          "maximum": 9223372036854775807,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "receipt_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "artifact_id",
+        "artifact_digest",
+        "receipt_sha256"
+      ],
+      "type": "object"
+    },
+    "image": {
+      "additionalProperties": false,
+      "properties": {
+        "base_archive": {
+          "$ref": "#/$defs/descriptor"
+        },
+        "base_image": {
+          "const": {
+            "config_sha256": "274d131132dbdc6058ed77088525d77adaf0749a6d99f2cf7d42feb9a10737c8",
+            "config_size_bytes": 5485,
+            "layers": [
+              {
+                "sha256": "6b37362b3da78869050b894b799ad4df04f1f3b52774087db0d81151570244c8",
+                "size_bytes": 29830418
+              },
+              {
+                "sha256": "41e7217c2e506d048f89ca0c5cfef848c05ef990900627c19f99938c4aae57f8",
+                "size_bytes": 1294119
+              },
+              {
+                "sha256": "58abdd9670ca8c69d03432ce188995dee67f0979357caf83866fe1ef2ec37138",
+                "size_bytes": 14450867
+              },
+              {
+                "sha256": "0526d5e29bf341cb1941d46a6d4ab64fcde4fca3dc3adccfb4dbf5728b88b61e",
+                "size_bytes": 249
+              }
+            ],
+            "manifest_sha256": "174bec68e0451bffabbb08c7d5d21c6b253f772d81d52b9558af97bb3159b761",
+            "manifest_size_bytes": 1746,
+            "reference": "docker.io/library/python@sha256:174bec68e0451bffabbb08c7d5d21c6b253f772d81d52b9558af97bb3159b761",
+            "source_metadata_url": "https://github.com/docker-library/repo-info/blob/6f3a6a22ff9af6b10d9c3a8aeaaf1a2fb4c5873c/repos/python/remote/3.11.16-slim-trixie.md"
+          }
+        },
+        "base_loaded_from_preserved_bytes": {
+          "type": "boolean"
+        },
+        "base_local_build_tag": {
+          "const": "localhost/pulse-two-slot-base:274d131132dbdc6058ed77088525d77adaf0749a6d99f2cf7d42feb9a10737c8"
+        },
+        "boundary": {
+          "$ref": "#/$defs/boundary"
+        },
+        "build_inputs_fixed": {
+          "const": true
+        },
+        "constructed_image_id": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "environment_selection": {
+          "const": {
+            "sha256": "8419a2ebcd3d5014d4395cbd9118d1db74de35743d171e4011607bbba5848612",
+            "size_bytes": 5124
+          }
+        },
+        "image_reproducibility_claimed": {
+          "const": false
+        },
+        "profile": {
+          "const": "linux_x86_64_loader_two_slot_hosted_v0"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_loader_two_slot_hosted_image_v0"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "base_image",
+        "constructed_image_id",
+        "base_archive",
+        "base_loaded_from_preserved_bytes",
+        "base_local_build_tag",
+        "environment_selection",
+        "build_inputs_fixed",
+        "image_reproducibility_claimed",
+        "boundary"
+      ],
+      "type": "object"
+    },
+    "mount": {
+      "additionalProperties": false,
+      "properties": {
+        "readonly": {
+          "type": "boolean"
+        },
+        "source": {
+          "maxLength": 4096,
+          "pattern": "^/",
+          "type": "string"
+        },
+        "target": {
+          "enum": [
+            "/control",
+            "/input",
+            "/output",
+            "/repo"
+          ]
+        }
+      },
+      "required": [
+        "source",
+        "target",
+        "readonly"
+      ],
+      "type": "object"
+    },
+    "plan": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "enum": [
+            [
+              "-I",
+              "-B",
+              "/repo/tools/required_gate_idempotence_loader_two_slot_hosted_v0/run.py",
+              "acquire"
+            ],
+            [
+              "-I",
+              "-B",
+              "/repo/tools/required_gate_idempotence_loader_two_slot_hosted_v0/run.py",
+              "verify"
+            ]
+          ]
+        },
+        "context": {
+          "$ref": "#/$defs/context"
+        },
+        "entrypoint": {
+          "const": [
+            "/usr/local/bin/python3.11"
+          ]
+        },
+        "environment": {
+          "$ref": "#/$defs/containerEnvironment"
+        },
+        "gid": {
+          "maximum": 2147483647,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "image_environment": {
+          "items": {
+            "maxLength": 8192,
+            "type": "string"
+          },
+          "maxItems": 128,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "image_id": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "labels": {
+          "additionalProperties": false,
+          "properties": {
+            "org.pulsemech.two-slot.phase": {
+              "enum": [
+                "acquire",
+                "verify"
+              ]
+            },
+            "org.pulsemech.two-slot.profile": {
+              "const": "linux_x86_64_loader_two_slot_hosted_v0"
+            },
+            "org.pulsemech.two-slot.run": {
+              "pattern": "^[1-9][0-9]*/1$",
+              "type": "string"
+            },
+            "org.pulsemech.two-slot.source": {
+              "pattern": "^[0-9a-f]{40}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "org.pulsemech.two-slot.run",
+            "org.pulsemech.two-slot.source",
+            "org.pulsemech.two-slot.profile",
+            "org.pulsemech.two-slot.phase"
+          ],
+          "type": "object"
+        },
+        "mounts": {
+          "items": {
+            "$ref": "#/$defs/mount"
+          },
+          "maxItems": 4,
+          "minItems": 3,
+          "type": "array"
+        },
+        "name": {
+          "pattern": "^pulse-two-slot-[1-9][0-9]*-1-(acquire|verify)$",
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "acquire",
+            "verify"
+          ]
+        },
+        "profile": {
+          "const": "linux_x86_64_loader_two_slot_hosted_v0"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_loader_two_slot_hosted_container_plan_v0"
+        },
+        "selection": {
+          "$ref": "#/$defs/controlDescriptor"
+        },
+        "uid": {
+          "maximum": 2147483647,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "phase",
+        "context",
+        "image_id",
+        "uid",
+        "gid",
+        "name",
+        "labels",
+        "image_environment",
+        "environment",
+        "mounts",
+        "entrypoint",
+        "command",
+        "selection"
+      ],
+      "type": "object"
+    },
+    "prefixVerification": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "all_preserved_bytes_verified": {
+                "const": false
+              },
+              "error_code": {
+                "pattern": "^[a-z][a-z0-9_]{0,127}$",
+                "type": "string"
+              },
+              "preserved_file_count": {
+                "type": "null"
+              },
+              "receipt": {
+                "type": "null"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "preserved_prefix_verified"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "all_preserved_bytes_verified": {
+                "const": true
+              },
+              "context": {
+                "$ref": "#/$defs/context"
+              },
+              "error_code": {
+                "type": "null"
+              },
+              "handoff": {
+                "$ref": "#/$defs/handoff"
+              },
+              "preserved_file_count": {
+                "maximum": 257,
+                "minimum": 1,
+                "type": "integer"
+              },
+              "receipt": {
+                "$ref": "#/$defs/controlDescriptor"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "all_preserved_bytes_verified": {
+          "type": "boolean"
+        },
+        "boundary": {
+          "$ref": "#/$defs/boundary"
+        },
+        "context": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/context"
+            }
+          ]
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,127}$",
+              "type": "string"
+            }
+          ]
+        },
+        "handoff": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/handoff"
+            }
+          ]
+        },
+        "preservation_is_qualification_acceptance": {
+          "const": false
+        },
+        "preserved_file_count": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "maximum": 257,
+              "minimum": 1,
+              "type": "integer"
+            }
+          ]
+        },
+        "profile": {
+          "const": "linux_x86_64_loader_two_slot_hosted_v0"
+        },
+        "receipt": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/controlDescriptor"
+            }
+          ]
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_loader_two_slot_hosted_prefix_verification_v0"
+        },
+        "status": {
+          "enum": [
+            "preserved_prefix_verified",
+            "preserved_incomplete"
+          ]
+        }
+      },
+      "required": [
+        "all_preserved_bytes_verified",
+        "boundary",
+        "context",
+        "handoff",
+        "preservation_is_qualification_acceptance",
+        "preserved_file_count",
+        "profile",
+        "receipt",
+        "record_type",
+        "status",
+        "error_code"
+      ],
+      "type": "object"
+    },
+    "receipt": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "error_code": {
+                "pattern": "^[a-z][a-z0-9_]{0,127}$",
+                "type": "string"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed_native_reconstruction"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "attempt": {
+                "$ref": "#/$defs/controlDescriptor"
+              },
+              "environment": {
+                "const": {
+                  "sha256": "8419a2ebcd3d5014d4395cbd9118d1db74de35743d171e4011607bbba5848612",
+                  "size_bytes": 5124
+                }
+              },
+              "error_code": {
+                "type": "null"
+              },
+              "phase": {
+                "const": "acquire"
+              },
+              "qualification": {
+                "$ref": "#/$defs/descriptor"
+              },
+              "request": {
+                "$ref": "#/$defs/controlDescriptor"
+              },
+              "selection": {
+                "$ref": "#/$defs/controlDescriptor"
+              },
+              "sources": {
+                "$ref": "#/$defs/sources"
+              },
+              "summary": {
+                "$ref": "#/$defs/controlDescriptor"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "attempt": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/descriptor"
+            }
+          ]
+        },
+        "boundary": {
+          "$ref": "#/$defs/boundary"
+        },
+        "context": {
+          "$ref": "#/$defs/context"
+        },
+        "environment": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/descriptor"
+            }
+          ]
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,127}$",
+              "type": "string"
+            }
+          ]
+        },
+        "file_count": {
+          "maximum": 256,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "files": {
+          "$ref": "#/$defs/files"
+        },
+        "phase": {
+          "enum": [
+            "acquire",
+            "verify"
+          ]
+        },
+        "profile": {
+          "const": "linux_x86_64_loader_two_slot_hosted_v0"
+        },
+        "qualification": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/descriptor"
+            }
+          ]
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_loader_two_slot_hosted_receipt_v0"
+        },
+        "request": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/descriptor"
+            }
+          ]
+        },
+        "selection": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/descriptor"
+            }
+          ]
+        },
+        "sources": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/sources"
+            }
+          ]
+        },
+        "status": {
+          "enum": [
+            "completed_native_reconstruction",
+            "preserved_incomplete"
+          ]
+        },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/descriptor"
+            }
+          ]
+        },
+        "total_size_bytes": {
+          "maximum": 536870912,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "phase",
+        "context",
+        "sources",
+        "environment",
+        "selection",
+        "summary",
+        "request",
+        "attempt",
+        "qualification",
+        "files",
+        "file_count",
+        "total_size_bytes",
+        "status",
+        "error_code",
+        "boundary"
+      ],
+      "type": "object"
+    },
+    "selectedSourceDescriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "maximum": 1048576,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "selection": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "handoff": {
+                "$ref": "#/$defs/handoff"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "phase": {
+                "const": "acquire"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "handoff": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "boundary": {
+          "$ref": "#/$defs/boundary"
+        },
+        "context": {
+          "$ref": "#/$defs/context"
+        },
+        "environment": {
+          "const": {
+            "sha256": "8419a2ebcd3d5014d4395cbd9118d1db74de35743d171e4011607bbba5848612",
+            "size_bytes": 5124
+          }
+        },
+        "handoff": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/handoff"
+            }
+          ]
+        },
+        "image_id": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "acquire",
+            "verify"
+          ]
+        },
+        "profile": {
+          "const": "linux_x86_64_loader_two_slot_hosted_v0"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_loader_two_slot_hosted_selection_v0"
+        },
+        "sources": {
+          "$ref": "#/$defs/sources"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "phase",
+        "context",
+        "image_id",
+        "sources",
+        "environment",
+        "handoff",
+        "boundary"
+      ],
+      "type": "object"
+    },
+    "sourceDescriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "size_bytes": {
+          "maximum": 1048576,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "size_bytes",
+        "sha256"
+      ],
+      "type": "object"
+    },
+    "sources": {
+      "additionalProperties": false,
+      "properties": {
+        ".github/workflows/required_gate_idempotence_loader_two_slot_qualification_v0.yml": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "schemas/required_gate_idempotence_loader_two_slot_attempt_v0.schema.json": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "schemas/required_gate_idempotence_loader_two_slot_hosted_v0.schema.json": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "schemas/required_gate_idempotence_loader_two_slot_qualification_v0.schema.json": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "schemas/required_gate_idempotence_loader_two_slot_request_v0.schema.json": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "tools/check_required_gate_idempotence_loader_two_slot_attempt_v0.py": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "tools/check_required_gate_idempotence_loader_two_slot_hosted_v0.py": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "tools/check_required_gate_idempotence_loader_two_slot_qualification_v0.py": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "tools/prepare_required_gate_idempotence_loader_two_slot_v0.py": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "tools/qualify_required_gate_idempotence_loader_two_slot_v0.py": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "tools/required_gate_idempotence_exec_stop_hosted_io_v0.py": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "tools/required_gate_idempotence_loader_two_slot_hosted_v0.py": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "tools/required_gate_idempotence_loader_two_slot_hosted_v0/Dockerfile": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "tools/required_gate_idempotence_loader_two_slot_hosted_v0/build_environment.py": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "tools/required_gate_idempotence_loader_two_slot_hosted_v0/environment.json": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "tools/required_gate_idempotence_loader_two_slot_hosted_v0/requirements.lock": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "tools/required_gate_idempotence_loader_two_slot_hosted_v0/run.py": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        },
+        "tools/required_gate_idempotence_loader_two_slot_v0.py": {
+          "$ref": "#/$defs/selectedSourceDescriptor"
+        }
+      },
+      "required": [
+        ".github/workflows/required_gate_idempotence_loader_two_slot_qualification_v0.yml",
+        "schemas/required_gate_idempotence_loader_two_slot_attempt_v0.schema.json",
+        "schemas/required_gate_idempotence_loader_two_slot_hosted_v0.schema.json",
+        "schemas/required_gate_idempotence_loader_two_slot_qualification_v0.schema.json",
+        "schemas/required_gate_idempotence_loader_two_slot_request_v0.schema.json",
+        "tools/check_required_gate_idempotence_loader_two_slot_attempt_v0.py",
+        "tools/check_required_gate_idempotence_loader_two_slot_hosted_v0.py",
+        "tools/check_required_gate_idempotence_loader_two_slot_qualification_v0.py",
+        "tools/prepare_required_gate_idempotence_loader_two_slot_v0.py",
+        "tools/qualify_required_gate_idempotence_loader_two_slot_v0.py",
+        "tools/required_gate_idempotence_exec_stop_hosted_io_v0.py",
+        "tools/required_gate_idempotence_loader_two_slot_hosted_v0.py",
+        "tools/required_gate_idempotence_loader_two_slot_hosted_v0/Dockerfile",
+        "tools/required_gate_idempotence_loader_two_slot_hosted_v0/build_environment.py",
+        "tools/required_gate_idempotence_loader_two_slot_hosted_v0/environment.json",
+        "tools/required_gate_idempotence_loader_two_slot_hosted_v0/requirements.lock",
+        "tools/required_gate_idempotence_loader_two_slot_hosted_v0/run.py",
+        "tools/required_gate_idempotence_loader_two_slot_v0.py"
+      ],
+      "type": "object"
+    },
+    "summary": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "else": {
+            "properties": {
+              "error_code": {
+                "pattern": "^[a-z][a-z0-9_]{0,127}$",
+                "type": "string"
+              }
+            }
+          },
+          "if": {
+            "properties": {
+              "status": {
+                "const": "completed_native_reconstruction"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "attempt": {
+                "$ref": "#/$defs/controlDescriptor"
+              },
+              "error_code": {
+                "type": "null"
+              },
+              "qualification": {
+                "additionalProperties": false,
+                "properties": {
+                  "sha256": {
+                    "pattern": "^[0-9a-f]{64}$",
+                    "type": "string"
+                  },
+                  "size_bytes": {
+                    "maximum": 1048576,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "size_bytes",
+                  "sha256"
+                ],
+                "type": "object"
+              },
+              "reports": {
+                "items": {
+                  "$ref": "#/$defs/controlDescriptor"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": "array"
+              },
+              "request": {
+                "$ref": "#/$defs/controlDescriptor"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "attempt": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/controlDescriptor"
+            }
+          ]
+        },
+        "boundary": {
+          "$ref": "#/$defs/boundary"
+        },
+        "context": {
+          "$ref": "#/$defs/context"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "pattern": "^[a-z][a-z0-9_]{0,127}$",
+              "type": "string"
+            }
+          ]
+        },
+        "image_id": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "phase": {
+          "enum": [
+            "acquire",
+            "verify"
+          ]
+        },
+        "profile": {
+          "const": "linux_x86_64_loader_two_slot_hosted_v0"
+        },
+        "qualification": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/descriptor"
+            }
+          ]
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_loader_two_slot_hosted_summary_v0"
+        },
+        "reports": {
+          "items": {
+            "$ref": "#/$defs/controlDescriptor"
+          },
+          "maxItems": 2,
+          "type": "array"
+        },
+        "request": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/controlDescriptor"
+            }
+          ]
+        },
+        "request_id": {
+          "pattern": "^[0-9a-f]{32}$",
+          "type": "string"
+        },
+        "selection": {
+          "$ref": "#/$defs/controlDescriptor"
+        },
+        "status": {
+          "enum": [
+            "completed_native_reconstruction",
+            "preserved_incomplete"
+          ]
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "phase",
+        "context",
+        "image_id",
+        "selection",
+        "request_id",
+        "request",
+        "attempt",
+        "qualification",
+        "reports",
+        "status",
+        "error_code",
+        "boundary"
+      ],
+      "type": "object"
+    },
+    "verifiedBinding": {
+      "additionalProperties": false,
+      "properties": {
+        "acquisition_cleanup": {
+          "$ref": "#/$defs/controlDescriptor"
+        },
+        "acquisition_image_id": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "acquisition_selection": {
+          "$ref": "#/$defs/controlDescriptor"
+        },
+        "acquisition_summary": {
+          "$ref": "#/$defs/controlDescriptor"
+        },
+        "artifact_metadata": {
+          "$ref": "#/$defs/descriptor"
+        },
+        "attempt": {
+          "$ref": "#/$defs/controlDescriptor"
+        },
+        "boundary": {
+          "$ref": "#/$defs/boundary"
+        },
+        "context": {
+          "$ref": "#/$defs/context"
+        },
+        "environment": {
+          "const": {
+            "sha256": "8419a2ebcd3d5014d4395cbd9118d1db74de35743d171e4011607bbba5848612",
+            "size_bytes": 5124
+          }
+        },
+        "handoff": {
+          "$ref": "#/$defs/handoff"
+        },
+        "image_reproducibility_claimed": {
+          "const": false
+        },
+        "independent_reconstruction_count": {
+          "const": 2
+        },
+        "profile": {
+          "const": "linux_x86_64_loader_two_slot_hosted_v0"
+        },
+        "qualification": {
+          "$ref": "#/$defs/descriptor"
+        },
+        "receipt": {
+          "$ref": "#/$defs/controlDescriptor"
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_loader_two_slot_hosted_verified_binding_v0"
+        },
+        "reports": {
+          "items": {
+            "$ref": "#/$defs/controlDescriptor"
+          },
+          "maxItems": 2,
+          "minItems": 2,
+          "type": "array"
+        },
+        "request": {
+          "$ref": "#/$defs/controlDescriptor"
+        },
+        "request_id": {
+          "pattern": "^[0-9a-f]{32}$",
+          "type": "string"
+        },
+        "sources": {
+          "$ref": "#/$defs/sources"
+        },
+        "status": {
+          "const": "completed_native_reconstruction"
+        },
+        "verification_cleanup": {
+          "$ref": "#/$defs/controlDescriptor"
+        },
+        "verification_image_id": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "verification_selection": {
+          "$ref": "#/$defs/controlDescriptor"
+        },
+        "verification_summary": {
+          "$ref": "#/$defs/controlDescriptor"
+        }
+      },
+      "required": [
+        "record_type",
+        "profile",
+        "context",
+        "status",
+        "handoff",
+        "receipt",
+        "sources",
+        "environment",
+        "acquisition_image_id",
+        "verification_image_id",
+        "acquisition_selection",
+        "verification_selection",
+        "acquisition_cleanup",
+        "verification_cleanup",
+        "request",
+        "attempt",
+        "acquisition_summary",
+        "verification_summary",
+        "request_id",
+        "qualification",
+        "reports",
+        "artifact_metadata",
+        "independent_reconstruction_count",
+        "image_reproducibility_claimed",
+        "boundary"
+      ],
+      "type": "object"
+    },
+    "workflowStart": {
+      "additionalProperties": false,
+      "properties": {
+        "boundary": {
+          "$ref": "#/$defs/boundary"
+        },
+        "context": {
+          "$ref": "#/$defs/context"
+        },
+        "phase": {
+          "enum": [
+            "acquire",
+            "verify"
+          ]
+        },
+        "record_type": {
+          "const": "required_gate_idempotence_loader_two_slot_workflow_start_v0"
+        }
+      },
+      "required": [
+        "record_type",
+        "phase",
+        "context",
+        "boundary"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "https://pulsemech.org/schemas/required_gate_idempotence_loader_two_slot_hosted_v0.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Closed hosted controls. The data-only checker additionally verifies byte bindings, source/run joins, fixed command records and actual container policy. Preservation never means native success or physical execution authentication.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/selection"
+    },
+    {
+      "$ref": "#/$defs/plan"
+    },
+    {
+      "$ref": "#/$defs/summary"
+    },
+    {
+      "$ref": "#/$defs/receipt"
+    },
+    {
+      "$ref": "#/$defs/cleanup"
+    },
+    {
+      "$ref": "#/$defs/workflowStart"
+    },
+    {
+      "$ref": "#/$defs/image"
+    },
+    {
+      "$ref": "#/$defs/verifiedBinding"
+    },
+    {
+      "$ref": "#/$defs/failure"
+    },
+    {
+      "$ref": "#/$defs/prefixVerification"
+    },
+    {
+      "$ref": "#/$defs/attestationIdentity"
+    },
+    {
+      "$ref": "#/$defs/attestationVerification"
+    },
+    {
+      "$ref": "#/$defs/environment"
+    }
+  ],
+  "title": "Finite qualification-only loader two-slot hosted records v0"
+}

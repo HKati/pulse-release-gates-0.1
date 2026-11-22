@@ -16627,3 +16627,1532 @@ def test_loader_two_slot_attempt_new_request_or_report_cannot_publish_changed_sa
         assert modules.checker.main([*args, "--output", str(output)]) == 2
         assert capsys.readouterr().out == ""
     assert len(mutations) == 1 and output.read_bytes() == b""
+
+
+# Qualification-only hosted regressions. Every raw native-origin record below
+# is an authored fixture. Docker, downloads and producer calls are substituted;
+# only the independent data-only checker may execute in a fresh interpreter.
+LOADER_TWO_SLOT_HOSTED_CONFIG = "tools/required_gate_idempotence_loader_two_slot_hosted_v0"
+LOADER_TWO_SLOT_HOSTED_DRIVER = LOADER_TWO_SLOT_HOSTED_CONFIG + ".py"
+LOADER_TWO_SLOT_HOSTED_CHECKER = "tools/check_required_gate_idempotence_loader_two_slot_hosted_v0.py"
+LOADER_TWO_SLOT_HOSTED_SCHEMA = "schemas/required_gate_idempotence_loader_two_slot_hosted_v0.schema.json"
+LOADER_TWO_SLOT_HOSTED_WORKFLOW = (
+    ".github/workflows/required_gate_idempotence_loader_two_slot_qualification_v0.yml")
+LOADER_TWO_SLOT_HOSTED_PROFILE = "linux_x86_64_loader_two_slot_hosted_v0"
+
+
+def loader_two_slot_hosted_checker():
+    return module("check_required_gate_idempotence_loader_two_slot_hosted_v0",
+                  LOADER_TWO_SLOT_HOSTED_CHECKER)
+
+
+def loader_two_slot_hosted_driver():
+    return module("required_gate_idempotence_loader_two_slot_hosted_v0",
+                  LOADER_TWO_SLOT_HOSTED_DRIVER)
+
+
+def loader_two_slot_hosted_runner():
+    return module("loader_two_slot_hosted_inner_runner_tests",
+                  LOADER_TWO_SLOT_HOSTED_CONFIG + "/run.py")
+
+
+def _loader_two_slot_hosted_environment(phase="acquire"):
+    # Authored identifiers, not a claimed GitHub run or qualification result.
+    return {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "EXPECTED_SOURCE_COMMIT": "a" * 40,
+        "GITHUB_REPOSITORY": "HKati/pulse-release-gates-0.1",
+        "GITHUB_REPOSITORY_ID": "1061766508",
+        "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF": "refs/heads/main",
+        "GITHUB_ACTOR": "HKati", "GITHUB_TRIGGERING_ACTOR": "HKati",
+        "GITHUB_RUN_ATTEMPT": "1", "GITHUB_RUN_ID": "987654321", "GITHUB_RUN_NUMBER": "2345",
+        "GITHUB_SHA": "a" * 40, "GITHUB_WORKFLOW_SHA": "a" * 40,
+        "GITHUB_WORKFLOW_REF": (
+            "HKati/pulse-release-gates-0.1/" + LOADER_TWO_SLOT_HOSTED_WORKFLOW + "@refs/heads/main"),
+        "TWO_SLOT_HOSTED_ACKNOWLEDGEMENT": "QUALIFY_LOADER_TWO_SLOT_ONLY",
+        "TWO_SLOT_HOSTED_PHASE": phase,
+        "TWO_SLOT_HOSTED_ARTIFACT_ID": "123456789",
+        "TWO_SLOT_HOSTED_ARTIFACT_DIGEST": "sha256:" + "b" * 64,
+        "EXPECTED_RECEIPT_SHA256": "c" * 64,
+    }
+
+
+def _loader_two_slot_hosted_context():
+    return {
+        "repository": "HKati/pulse-release-gates-0.1", "repository_id": "1061766508",
+        "source_commit": "a" * 40, "workflow_sha": "a" * 40,
+        "workflow_ref": (
+            "HKati/pulse-release-gates-0.1/" + LOADER_TWO_SLOT_HOSTED_WORKFLOW + "@refs/heads/main"),
+        "run_id": 987654321, "run_number": 2345, "run_attempt": 1,
+        "event_name": "workflow_dispatch", "ref": "refs/heads/main", "actor": "HKati",
+        "triggering_actor": "HKati", "acknowledgement": "QUALIFY_LOADER_TWO_SLOT_ONLY",
+    }
+
+
+def _loader_two_slot_hosted_sources():
+    paths = sorted([
+        *(item["path"] for item in _loader_two_slot_attempt_sources()),
+        LOADER_TWO_SLOT_HOSTED_DRIVER, LOADER_TWO_SLOT_HOSTED_CHECKER,
+        LOADER_TWO_SLOT_HOSTED_SCHEMA, LOADER_TWO_SLOT_HOSTED_WORKFLOW,
+        *(LOADER_TWO_SLOT_HOSTED_CONFIG + "/" + name for name in (
+            "environment.json", "requirements.lock", "Dockerfile", "build_environment.py", "run.py")),
+        "tools/required_gate_idempotence_exec_stop_hosted_io_v0.py",
+    ])
+    assert len(paths) == 18 and len(set(paths)) == 18
+    return {path: bound((ROOT / path).read_bytes()) for path in paths}
+
+
+def _loader_two_slot_hosted_tree(root, payloads):
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    for name, raw in payloads.items():
+        target = root / name
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        target.write_bytes(raw)
+        target.chmod(0o600)
+    return root
+
+
+def _loader_two_slot_hosted_native_case(context=None, *, origin="native_owned_probe"):
+    case = _loader_two_slot_attempt_fixture(origin=origin)
+    context = _loader_two_slot_hosted_context() if context is None else context
+    case.context["observer"] = {
+        "size_bytes": 14472,
+        "sha256": "92d7e40ec50be176cb1b790c7568b7e08cd862137b5aa69f1413ba1967886b79",
+    }
+    for name in ("context", "context_after"):
+        case.raw_case.record[name] = copy.deepcopy(case.context)
+    _loader_two_slot_attempt_rebind_qualification(case)
+    case.request["request_id"] = loader_two_slot_hosted_checker().request_identity(context)
+    case.request["expected_context"] = copy.deepcopy(case.context)
+    case.attempt["request_id"] = case.request["request_id"]
+    case.attempt["request"] = bound(encoded(case.request))
+    case.attempt["context_before"] = copy.deepcopy(case.context)
+    case.attempt["context_after"] = copy.deepcopy(case.context)
+    return case
+
+
+def test_loader_two_slot_hosted_preserves_the_exact_prior_test_prefix_and_core_source_closure():
+    assert digest((ROOT / SELF).read_bytes()[:911691]) == (
+        "66a59f1022394a6b38b5cc19d2b4bcc89981efdf486b19bfb16569a14dacb767")
+    selected = _loader_two_slot_hosted_sources()
+    checker = loader_two_slot_hosted_checker()
+    assert set(checker.SOURCE_PATHS) == set(selected)
+    assert checker.source_bindings() == selected
+    assert not any("entry_stop" in path or "original" in path for path in selected)
+    test_containment_module_is_registered_once_without_targeted_duplication()
+
+
+def test_loader_two_slot_hosted_context_has_exact_run_source_workflow_and_owner_identity():
+    checker = loader_two_slot_hosted_checker()
+    actual = checker.context(_loader_two_slot_hosted_environment())
+    assert actual == _loader_two_slot_hosted_context()
+    for key in ("run_id", "run_number", "run_attempt"):
+        assert type(actual[key]) is int
+    assert len(checker.request_identity(actual)) == 32
+    assert checker.request_identity(actual) == checker.request_identity(copy.deepcopy(actual))
+
+
+@pytest.mark.parametrize("field,value", [
+    ("EXPECTED_SOURCE_COMMIT", "A" * 40), ("EXPECTED_SOURCE_COMMIT", "a" * 39),
+    ("GITHUB_SHA", "b" * 40), ("GITHUB_WORKFLOW_SHA", "b" * 40),
+    ("GITHUB_REPOSITORY", "other/pulse-release-gates-0.1"),
+    ("GITHUB_REPOSITORY_ID", "1061766509"), ("GITHUB_EVENT_NAME", "pull_request"),
+    ("GITHUB_REF", "refs/heads/unreviewed"), ("GITHUB_ACTOR", "other"),
+    ("GITHUB_TRIGGERING_ACTOR", "other"), ("GITHUB_RUN_ATTEMPT", "2"),
+    ("GITHUB_RUN_ATTEMPT", 1), ("GITHUB_RUN_ID", "0"), ("GITHUB_RUN_ID", "01"),
+    ("GITHUB_RUN_ID", "1" * 21), ("GITHUB_RUN_NUMBER", "0"), ("GITHUB_RUN_NUMBER", True),
+    ("GITHUB_WORKFLOW_REF", "HKati/pulse-release-gates-0.1/.github/workflows/other.yml@refs/heads/main"),
+    ("TWO_SLOT_HOSTED_ACKNOWLEDGEMENT", "QUALIFY_LOADER_TWO_SLOT_ONLY "),
+])
+def test_loader_two_slot_hosted_rejects_context_substitution_before_any_execution(field, value):
+    environment = _loader_two_slot_hosted_environment()
+    environment[field] = value
+    with pytest.raises((ValueError, TypeError)):
+        loader_two_slot_hosted_checker().context(environment)
+
+
+@pytest.mark.parametrize("field", ["run_id", "run_number", "source_commit"])
+def test_loader_two_slot_hosted_request_identity_changes_for_other_authorized_run_or_source(field):
+    context = _loader_two_slot_hosted_context()
+    previous = loader_two_slot_hosted_checker().request_identity(context)
+    if field == "source_commit":
+        context["source_commit"] = context["workflow_sha"] = "b" * 40
+    else:
+        context[field] += 1
+    assert loader_two_slot_hosted_checker().request_identity(context) != previous
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_loader_two_slot_hosted_container_argv_selects_only_readonly_closure_and_fixed_policy(
+        tmp_path, monkeypatch, phase):
+    driver = loader_two_slot_hosted_driver()
+    for key in ("GH_TOKEN", "GITHUB_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN", "AWS_SECRET_ACCESS_KEY"):
+        monkeypatch.setenv(key, "SECRET_DO_NOT_FORWARD_" + key)
+    source, control, output, previous = (tmp_path / name for name in (
+        "source", "control", "observation" if phase == "acquire" else "verification", "input"))
+    args = driver.docker_create_args("sha256:" + "d" * 64, _loader_two_slot_hosted_context(),
+        source, control, output, phase=phase, previous=previous if phase == "verify" else None,
+        uid=1001, gid=1002, handoff=None if phase == "acquire" else {
+            "artifact_id": 123456789, "artifact_digest": "sha256:" + "b" * 64,
+            "receipt_sha256": "c" * 64})
+    options = lambda name: [args[i + 1] for i, arg in enumerate(args[:-1]) if arg == name]
+    assert args[:2] == ["docker", "create"]
+    assert options("--user") == ["1001:1002"]
+    assert options("--network") == ["none"] and options("--cap-drop") == ["ALL"]
+    assert options("--security-opt") == ["no-new-privileges"]
+    assert options("--pids-limit") == ["64"] and options("--memory") == ["1g"]
+    assert options("--cpus") == ["1"] and options("--tmpfs") == ["/tmp:rw,nosuid,nodev,size=64m"]
+    assert "--read-only" in args
+    for forbidden in ("--privileged", "--cap-add", "--init", "--pid", "--ipc", "--device"):
+        assert forbidden not in args
+    assert not any("unconfined" in value or "SECRET_DO_NOT_FORWARD" in value for value in args)
+    mounts = set(options("--mount"))
+    wanted = {
+        "type=bind,source=" + str(source) + ",target=/repo,readonly",
+        "type=bind,source=" + str(control) + ",target=/control,readonly",
+        "type=bind,source=" + str(output) + ",target=/output",
+    }
+    if phase == "verify":
+        wanted.add("type=bind,source=" + str(previous) + ",target=/input,readonly")
+    assert mounts == wanted and len(options("--mount")) == len(wanted)
+    assert args[-4:] == ["-I", "-B", "/repo/" + LOADER_TWO_SLOT_HOSTED_CONFIG + "/run.py", phase]
+
+
+@pytest.mark.parametrize("uid,gid", [(0, 1001), (1001, 0), (-1, 1001), (True, 1001), (1001, False)])
+def test_loader_two_slot_hosted_container_rejects_root_or_coerced_identity(tmp_path, uid, gid):
+    with pytest.raises((ValueError, TypeError)):
+        loader_two_slot_hosted_driver().docker_create_args(
+            "sha256:" + "d" * 64, _loader_two_slot_hosted_context(), tmp_path / "source",
+            tmp_path / "control", tmp_path / "output", phase="acquire", uid=uid, gid=gid)
+
+
+@pytest.mark.parametrize("phase,previous", [("probe", None), ("other", None), ("verify", None),
+                                           ("acquire", "unexpected-input")])
+def test_loader_two_slot_hosted_container_rejects_internal_probe_or_confused_input(tmp_path, phase, previous):
+    with pytest.raises((ValueError, TypeError)):
+        loader_two_slot_hosted_driver().docker_create_args(
+            "sha256:" + "d" * 64, _loader_two_slot_hosted_context(), tmp_path / "source",
+            tmp_path / "control", tmp_path / "output", phase=phase,
+            previous=tmp_path / previous if previous else None, uid=1001, gid=1002)
+
+
+def test_loader_two_slot_hosted_environment_is_the_exact_six_wheel_verifier_closure():
+    selected = json.loads((ROOT / LOADER_TWO_SLOT_HOSTED_CONFIG / "environment.json").read_bytes())
+    assert selected["record_type"] == "required_gate_idempotence_loader_two_slot_hosted_environment_v0"
+    assert selected["profile"] == LOADER_TWO_SLOT_HOSTED_PROFILE
+    assert selected["platform"] == "linux/amd64"
+    base = selected["base_image"]
+    assert base["reference"] == (
+        "docker.io/library/python@sha256:174bec68e0451bffabbb08c7d5d21c6b253f772d81d52b9558af97bb3159b761")
+    assert base["config_sha256"] == "274d131132dbdc6058ed77088525d77adaf0749a6d99f2cf7d42feb9a10737c8"
+    assert selected["python"]["executable"] == "/usr/local/bin/python3.11"
+    assert selected["python"]["version"] == "3.11.16"
+    assert selected["python"]["observer_binding"] == {
+        "size_bytes": 14472,
+        "sha256": "92d7e40ec50be176cb1b790c7568b7e08cd862137b5aa69f1413ba1967886b79",
+    }
+    packages = selected["python"]["packages"]
+    expected = {
+        "attrs": ("26.1.0", "c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309"),
+        "jsonschema": ("4.26.0", "d489f15263b8d200f8387e64b4c3a75f06629559fb73deb8fdfb525f2dab50ce"),
+        "jsonschema-specifications": ("2025.9.1", "98802fee3a11ee76ecaca44429fda8a41bff98b00a0f2838151b113f210cc6fe"),
+        "referencing": ("0.37.0", "381329a9f99628c9069361716891d34ad94af76e461dcb0335825aecc7692231"),
+        "rpds-py": ("2026.9.1", "136a1c3fe4402b7008bc81cb62ee538481795b61a7e83df88dff3b3f02b726ff"),
+        "typing_extensions": ("4.16.0", "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8"),
+    }
+    assert len(packages) == 6
+    assert {row["name"]: (row["version"], row["sha256"]) for row in packages} == expected
+    assert all(row["url"].startswith("https://files.pythonhosted.org/packages/") and
+               row["url"].endswith("/" + row["filename"]) and row["size_bytes"] > 0 for row in packages)
+    lock = (ROOT / LOADER_TWO_SLOT_HOSTED_CONFIG / "requirements.lock").read_bytes()
+    assert selected["requirements"] == bound(lock)
+    assert set(lock.decode().splitlines()) == {
+        name + "==" + version + " --hash=sha256:" + sha256
+        for name, (version, sha256) in expected.items()}
+    assert selected["original_payload_included"] is False and selected["authority_effect"] == "none"
+    assert not {"debian", "original_native_objects", "native_object_restorations"}.intersection(selected)
+    assert selected["runtime_environment"] == [
+        "PYTHONDONTWRITEBYTECODE=1", "PYTHONNOUSERSITE=1", "PIP_NO_INDEX=1",
+        "PIP_DISABLE_PIP_VERSION_CHECK=1"]
+
+
+@pytest.mark.parametrize("fault", ["fsync", "final_close", "same_inode_drift"])
+def test_loader_two_slot_hosted_control_publication_failure_invalidates_owned_bytes(tmp_path, monkeypatch, fault):
+    driver = loader_two_slot_hosted_driver()
+    path = tmp_path / "verified-binding.json"
+    fsync, close = os.fsync, os.close
+    injected = []
+
+    def owned(fd):
+        if not path.exists() or not path.stat().st_size:
+            return False
+        opened, saved = os.fstat(fd), path.stat()
+        return (opened.st_dev, opened.st_ino) == (saved.st_dev, saved.st_ino)
+
+    def fail_sync(fd):
+        if fault in {"fsync", "same_inode_drift"} and not injected and owned(fd):
+            injected.append(True)
+            if fault == "fsync":
+                raise OSError(errno.EIO, "authored sync failure")
+            raw = path.read_bytes()
+            path.write_bytes(raw.replace(b"completed", b"substitut"))
+        return fsync(fd)
+
+    def fail_close(fd):
+        if fault == "final_close" and not injected and owned(fd):
+            injected.append(True)
+            close(fd)
+            raise OSError(errno.EIO, "authored consumed-descriptor close failure")
+        return close(fd)
+
+    monkeypatch.setattr(os, "fsync", fail_sync)
+    monkeypatch.setattr(os, "close", fail_close)
+    with pytest.raises((OSError, ValueError)):
+        driver._write_json(path, {"status": "completed", "physical_execution_authenticated": False})
+    assert injected == [True] and path.read_bytes() == b""
+
+
+def test_loader_two_slot_hosted_command_deadline_never_suppresses_owned_cleanup(tmp_path, monkeypatch):
+    driver = loader_two_slot_hosted_driver()
+    calls = []
+
+    def command(argv, logs, label, **kwargs):
+        calls.append((argv, logs, label, kwargs))
+        return _loader_two_slot_hosted_command_result()
+
+    monkeypatch.setattr(driver.io, "run_command", command)
+    monkeypatch.setattr(driver, "STAGE_DEADLINE", time.monotonic() - 1)
+    for key, value in {"DOCKER_HOST": "tcp://unauthorized.invalid:2375", "DOCKER_CONTEXT": "remote",
+                       "DOCKER_CONFIG": "/untrusted", "HTTPS_PROXY": "http://untrusted.invalid",
+                       "GH_TOKEN": "SECRET_AUTHORED"}.items():
+        monkeypatch.setenv(key, value)
+    with pytest.raises(ValueError):
+        driver._command(tmp_path, "container-start", ["docker", "start", "d" * 64])
+    assert calls == []
+    result = driver._command(tmp_path, "container-remove", ["docker", "rm", "--force", "d" * 64],
+                             timeout=15, cleanup=True)
+    assert result["returncode"] == 0 and len(calls) == 1
+    environment = calls[0][3]["env"]
+    assert calls[0][3]["timeout_seconds"] == 15
+    assert environment["DOCKER_HOST"] == "unix:///var/run/docker.sock"
+    assert environment["DOCKER_CONFIG"] != "/untrusted"
+    assert not {"DOCKER_CONTEXT", "HTTPS_PROXY", "GH_TOKEN"}.intersection(environment)
+
+
+def _loader_two_slot_hosted_selection(phase="acquire", *, context=None):
+    checker = loader_two_slot_hosted_checker()
+    context = _loader_two_slot_hosted_context() if context is None else context
+    handoff = None if phase == "acquire" else {
+        "artifact_id": 123456789, "artifact_digest": "sha256:" + "b" * 64,
+        "receipt_sha256": "c" * 64,
+    }
+    return checker.make_selection(phase, context, "sha256:" + "d" * 64,
+        _loader_two_slot_hosted_sources(),
+        bound((ROOT / LOADER_TWO_SLOT_HOSTED_CONFIG / "environment.json").read_bytes()), handoff)
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_loader_two_slot_hosted_selection_joins_exact_context_sources_environment_and_phase(phase):
+    checker = loader_two_slot_hosted_checker()
+    selected = _loader_two_slot_hosted_selection(phase)
+    assert selected["context"] == _loader_two_slot_hosted_context()
+    assert selected["sources"] == _loader_two_slot_hosted_sources()
+    assert selected["image_id"] == "sha256:" + "d" * 64
+    checker.validate_selection(selected, phase)
+    assert selected["handoff"] is None if phase == "acquire" else selected["handoff"]["artifact_id"] == 123456789
+    assert selected["boundary"] == {**_loader_two_slot_qualification_boundary(), "selected_runtime_executed": False}
+
+
+@pytest.mark.parametrize("fault", ["context_extra", "truthy_run", "image_tag", "source_missing",
+    "source_extra", "environment_drift", "handoff_in_acquire", "handoff_missing",
+    "handoff_truthy_id", "handoff_digest", "phase", "boundary", "extra"])
+def test_loader_two_slot_hosted_selection_rejects_rehashed_cross_phase_or_source_substitution(fault):
+    phase = "verify" if fault in {"handoff_missing", "handoff_truthy_id", "handoff_digest"} else "acquire"
+    value = _loader_two_slot_hosted_selection(phase)
+    if fault == "context_extra": value["context"]["unselected"] = "x"
+    elif fault == "truthy_run": value["context"]["run_attempt"] = True
+    elif fault == "image_tag": value["image_id"] = "python:latest"
+    elif fault == "source_missing": value["sources"].pop(LOADER_TWO_SLOT_ATTEMPT_ADAPTER_REL)
+    elif fault == "source_extra": value["sources"]["tools/unselected.py"] = bound(b"x")
+    elif fault == "environment_drift": value["environment"]["sha256"] = "f" * 64
+    elif fault == "handoff_in_acquire": value["handoff"] = _loader_two_slot_hosted_selection("verify")["handoff"]
+    elif fault == "handoff_missing": value["handoff"] = None
+    elif fault == "handoff_truthy_id": value["handoff"]["artifact_id"] = True
+    elif fault == "handoff_digest": value["handoff"]["artifact_digest"] = "b" * 64
+    elif fault == "phase": value["phase"] = "probe"
+    elif fault == "boundary": value["boundary"]["physical_execution_authenticated"] = True
+    else: value["unselected"] = None
+    with pytest.raises((ValueError, TypeError)):
+        loader_two_slot_hosted_checker().validate_selection(value, phase)
+
+
+def _loader_two_slot_hosted_git_fixture(tmp_path, monkeypatch, *, fault=None):
+    driver = loader_two_slot_hosted_driver()
+    selected, context = _loader_two_slot_hosted_sources(), _loader_two_slot_hosted_context()
+    checkout = tmp_path / "authored-checkout"
+    _loader_two_slot_hosted_tree(checkout, {name: (ROOT / name).read_bytes() for name in selected})
+    rows = []
+    for name in sorted(selected):
+        raw = (checkout / name).read_bytes()
+        blob = hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()
+        rows.append(b"100644 blob " + blob.encode() + b"\t" + name.encode() + b"\0")
+    if fault == "blob": rows[0] = rows[0].replace(rows[0].split(b" ")[2][:40], b"f" * 40, 1)
+    elif fault == "symlink_mode": rows[0] = rows[0].replace(b"100644", b"120000", 1)
+    elif fault == "missing_path": rows.pop()
+    elif fault == "duplicate_path": rows.append(rows[0])
+    elif fault == "unexpected_path": rows.append(b"100644 blob " + b"f" * 40 + b"\tunselected.py\0")
+    elif fault == "source_bytes": (checkout / sorted(selected)[0]).write_bytes(b"changed\n")
+    calls = []
+
+    def command(root, label, argv, **kwargs):
+        calls.append((label, argv, kwargs))
+        if label == "git-source-tree":
+            raw = b"".join(rows)
+        else:
+            head = "b" * 40 if fault == label else context["source_commit"]
+            raw = (head + "\n").encode()
+        _loader_two_slot_hosted_tree(root, {"host-commands/" + label + ".stdout.bin": raw})
+        return {"returncode": 0, "failure": None}
+
+    monkeypatch.setattr(driver, "ROOT", checkout)
+    monkeypatch.setattr(driver, "_command", command)
+    return SimpleNamespace(driver=driver, sources=selected, context=context, checkout=checkout,
+                           output=tmp_path / "preserved", calls=calls)
+
+
+def test_loader_two_slot_hosted_source_snapshot_checks_committed_blobs_between_two_exact_heads(tmp_path, monkeypatch):
+    case = _loader_two_slot_hosted_git_fixture(tmp_path, monkeypatch)
+    case.driver.validate_git_source_snapshot(case.output, case.context, case.sources)
+    assert [item[0] for item in case.calls] == ["git-head-before", "git-source-tree", "git-head-after"]
+    tree_argv = case.calls[1][1]
+    assert tree_argv[tree_argv.index("--full-tree") + 1:] == [case.context["source_commit"], "--", *sorted(case.sources)]
+    assert case.calls[1][2]["stdout_cap"] == 65536
+
+
+@pytest.mark.parametrize("fault", ["git-head-before", "git-head-after", "blob", "symlink_mode",
+                                    "missing_path", "duplicate_path", "unexpected_path", "source_bytes"])
+def test_loader_two_slot_hosted_source_snapshot_rejects_checkout_tree_or_worktree_substitution(tmp_path, monkeypatch, fault):
+    case = _loader_two_slot_hosted_git_fixture(tmp_path, monkeypatch, fault=fault)
+    with pytest.raises((OSError, ValueError)):
+        case.driver.validate_git_source_snapshot(case.output, case.context, case.sources)
+    assert not (case.output / "source-bindings.json").exists()
+
+
+def test_loader_two_slot_hosted_failed_source_copy_retains_original_prelaunch_selection(tmp_path, monkeypatch):
+    case = _loader_two_slot_hosted_git_fixture(tmp_path, monkeypatch)
+    case.output.mkdir()
+    selected = encoded(case.sources)
+    changed = sorted(case.sources)[2]
+    (case.checkout / changed).write_bytes(b"authored drift after selection\n")
+    with pytest.raises(ValueError):
+        case.driver._copy_sources(case.output, case.sources)
+    assert (case.output / "source-bindings.json").read_bytes() == selected
+    assert not (case.output / "source" / changed).exists()
+    first = sorted(case.sources)[0]
+    assert bound((case.output / "source" / first).read_bytes()) == case.sources[first]
+
+
+@pytest.mark.parametrize("raw", [b'', b'{"x":1,"x":2}', b'{"a":{"x":1,"x":2}}',
+    b'{"x":NaN}', b'{"x":Infinity}', b'{"x":-Infinity}', b'{"x":1e9999}',
+    b'{"x":0.125}', b'{"x":9223372036854775808}', b'\xff',
+    b'[' * 34 + b'0' + b']' * 34, b'[' + b','.join([b'0'] * 513) + b']',
+    encoded({"x": "a" * 16385}), b' ' * 65537])
+def test_loader_two_slot_hosted_control_parser_rejects_ambiguous_unbounded_or_noninteger_json(raw):
+    with pytest.raises((ValueError, TypeError)):
+        loader_two_slot_hosted_checker().parse(raw)
+
+
+@pytest.mark.parametrize("raw", [b'{"elapsed_seconds":NaN}', b'{"elapsed_seconds":Infinity}',
+    b'{"elapsed_seconds":1e9999}', b'{"elapsed_seconds":0.1,"elapsed_seconds":0.2}'])
+def test_loader_two_slot_hosted_diagnostic_parsers_allow_only_finite_unambiguous_times(raw):
+    for parser in (loader_two_slot_hosted_checker().parse_external, loader_two_slot_hosted_driver().parse):
+        with pytest.raises(ValueError):
+            parser(raw)
+
+
+def test_loader_two_slot_hosted_actual_io_elapsed_seconds_remains_readable_without_float_controls():
+    raw = encoded({"returncode": 0, "failure": None, "elapsed_seconds": 0.125})
+    assert loader_two_slot_hosted_checker().parse_external(raw)["elapsed_seconds"] == 0.125
+    assert loader_two_slot_hosted_driver().parse(raw)["elapsed_seconds"] == 0.125
+    with pytest.raises(ValueError):
+        loader_two_slot_hosted_checker().parse(raw)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("TWO_SLOT_HOSTED_ARTIFACT_ID", ""), ("TWO_SLOT_HOSTED_ARTIFACT_ID", "0"),
+    ("TWO_SLOT_HOSTED_ARTIFACT_ID", "01"), ("TWO_SLOT_HOSTED_ARTIFACT_ID", True),
+    ("TWO_SLOT_HOSTED_ARTIFACT_DIGEST", "b" * 64),
+    ("TWO_SLOT_HOSTED_ARTIFACT_DIGEST", "sha256:" + "B" * 64),
+    ("EXPECTED_RECEIPT_SHA256", ""), ("EXPECTED_RECEIPT_SHA256", "c" * 63),
+])
+def test_loader_two_slot_hosted_verification_requires_external_artifact_and_receipt_bindings(field, value):
+    environment = _loader_two_slot_hosted_environment("verify")
+    environment[field] = value
+    with pytest.raises((ValueError, TypeError)):
+        loader_two_slot_hosted_checker().handoff(environment)
+
+
+@pytest.mark.parametrize("origin", ["native_owned_probe", "scripted_test_backend"])
+def test_loader_two_slot_hosted_summary_reconstructs_authored_native_origin_without_promoting_scripted_data(origin):
+    case = _loader_two_slot_hosted_native_case(origin=origin)
+    selected = _loader_two_slot_hosted_selection()
+    report = encoded(_loader_two_slot_attempt_check(case))
+    value = loader_two_slot_hosted_checker().make_summary("acquire", selected,
+        request_bytes=encoded(case.request), attempt_bytes=encoded(case.attempt),
+        qualification_bytes=case.qualification, report_bytes=(report, report))
+    assert value["status"] == ("completed_native_reconstruction" if origin == "native_owned_probe" else
+                                "preserved_incomplete")
+    assert value["request_id"] == case.request["request_id"]
+    assert value["boundary"] == {**_loader_two_slot_qualification_boundary(), "selected_runtime_executed": False}
+    assert value["reports"] == [bound(report), bound(report)]
+
+
+@pytest.mark.parametrize("fault", ["producer_zero", "producer_two", "producer_bool", "origin",
+    "request_id", "missing_report", "changed_report", "report_bytes", "command_failed", "promoted_boundary"])
+def test_loader_two_slot_hosted_summary_never_completes_a_failed_or_substituted_one_probe_binding(fault):
+    case = _loader_two_slot_hosted_native_case()
+    selected = _loader_two_slot_hosted_selection()
+    report = _loader_two_slot_attempt_check(case)
+    error_code = None
+    if fault == "producer_zero": report["producer_invocations"] = 0
+    elif fault == "producer_two": report["producer_invocations"] = 2
+    elif fault == "producer_bool": report["producer_invocations"] = True
+    elif fault == "origin": report["evidence_origin"] = "scripted_test_backend"
+    elif fault == "request_id": report["request_id"] = "e" * 32
+    elif fault == "report_bytes": report["attempt"]["sha256"] = "e" * 64
+    elif fault == "command_failed": error_code = "authored_probe_failed"
+    elif fault == "promoted_boundary": report["physical_execution_authenticated"] = True
+    reports = (encoded(report), encoded(report))
+    if fault == "missing_report": reports = reports[:1]
+    elif fault == "changed_report": reports = (reports[0], encoded({**report, "accepted_return_events": 8}))
+    value = loader_two_slot_hosted_checker().make_summary("acquire", selected,
+        request_bytes=encoded(case.request), attempt_bytes=encoded(case.attempt),
+        qualification_bytes=case.qualification, report_bytes=reports, error_code=error_code)
+    assert value["status"] == "preserved_incomplete" and value["error_code"]
+    assert value["boundary"]["physical_execution_authenticated"] is False
+
+
+def test_loader_two_slot_hosted_zero_length_raw_prefix_can_be_preserved_without_completion():
+    case = _loader_two_slot_hosted_native_case()
+    value = loader_two_slot_hosted_checker().make_summary("acquire", _loader_two_slot_hosted_selection(),
+        request_bytes=encoded(case.request), qualification_bytes=b"", error_code="authored_probe_failed")
+    assert value["status"] == "preserved_incomplete"
+    assert value["qualification"] == bound(b"") and value["reports"] == []
+
+
+def _loader_two_slot_hosted_command_result(returncode=0, *, failure=None):
+    return {"returncode": returncode, "failure": failure, "overflowed_streams": [],
+        "elapsed_seconds": 0.125, "cleanup": {"child_started": True, "child_reaped": True,
+            "kill_group_sent": False, "kill_error_errno": None, "pending_output_drain_attempted": True}}
+
+
+def _loader_two_slot_hosted_inner_fixture(tmp_path, monkeypatch, *, phase="acquire", origin="native_owned_probe"):
+    runner = loader_two_slot_hosted_runner()
+    selection = _loader_two_slot_hosted_selection(phase)
+    case = _loader_two_slot_hosted_native_case(origin=origin)
+    output, control, previous = (tmp_path / name for name in ("output", "control", "input"))
+    output.mkdir(mode=0o700)
+    _loader_two_slot_hosted_tree(control, {"hosted-selection.json": encoded(selection)})
+    for key, value in _loader_two_slot_hosted_environment(phase).items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv("TWO_SLOT_HOSTED_IMAGE_ID", selection["image_id"])
+    monkeypatch.setattr(runner, "OUTPUT", output)
+    monkeypatch.setattr(runner, "CONTROL", control)
+    monkeypatch.setattr(runner, "INPUT", previous)
+    # The authored runner fixture selects no actual host environment. Passive
+    # interpreter/package checks have their own isolated regression below.
+    monkeypatch.setattr(runner, "_environment_check", lambda **_kwargs: None, raising=False)
+    payloads = {"request.json": encoded(case.request), "attempt/request.json": encoded(case.request),
+                "attempt/attempt.json": encoded(case.attempt), "attempt/qualification.json": case.qualification}
+    root = output if phase == "acquire" else previous / "observation"
+    if phase == "verify":
+        _loader_two_slot_hosted_tree(root, payloads)
+    return SimpleNamespace(runner=runner, selected=selection, case=case, output=output,
+        root=root, control=control, previous=previous, payloads=payloads, calls=[])
+
+
+@pytest.mark.parametrize("pid", [1, 5001])
+def test_loader_two_slot_hosted_probe_rejects_pid1_and_calls_the_native_default_adapter_once(
+        loader_two_slot_attempt_modules, tmp_path, monkeypatch, pid):
+    modules = loader_two_slot_attempt_modules
+    fixture = _loader_two_slot_hosted_inner_fixture(tmp_path, monkeypatch)
+    calls = []
+
+    def prepare(**kwargs):
+        calls.append(("prepare", kwargs))
+        return fixture.payloads["request.json"]
+
+    def attempt(**kwargs):
+        calls.append(("attempt", kwargs))
+        return copy.deepcopy(fixture.case.attempt)
+
+    monkeypatch.setattr(modules.adapter, "prepare", prepare)
+    monkeypatch.setattr(modules.adapter, "attempt", attempt)
+    monkeypatch.setattr(os, "getpid", lambda: pid)
+    if pid == 1:
+        with pytest.raises(ValueError, match="two_slot_hosted_probe_pid"):
+            fixture.runner.probe()
+        assert calls == []
+    else:
+        assert fixture.runner.probe() == 0
+        assert calls == [
+            ("prepare", {"output": fixture.output / "request.json", "request_id": fixture.case.request["request_id"]}),
+            ("attempt", {"request_bytes": fixture.payloads["request.json"],
+                "expected_request_sha256": digest(fixture.payloads["request.json"]),
+                "acknowledgement": "QUALIFY_LOADER_TWO_SLOT_ONLY", "output_directory": fixture.output / "attempt"}),
+        ]
+
+
+@pytest.mark.parametrize("fault", ["prepare_failure", "scripted", "zero", "two", "bool", "incomplete"])
+def test_loader_two_slot_hosted_probe_does_not_retry_or_complete_failed_or_scripted_adapter_results(
+        loader_two_slot_attempt_modules, tmp_path, monkeypatch, fault):
+    modules = loader_two_slot_attempt_modules
+    fixture = _loader_two_slot_hosted_inner_fixture(tmp_path, monkeypatch)
+    calls = []
+
+    def prepare(**kwargs):
+        calls.append("prepare")
+        if fault == "prepare_failure":
+            raise OSError(errno.EIO, "authored prepare failure")
+        return fixture.payloads["request.json"]
+
+    def attempt(**kwargs):
+        calls.append("attempt")
+        result = copy.deepcopy(fixture.case.attempt)
+        if fault == "scripted": result["evidence_origin"] = "scripted_test_backend"
+        elif fault == "incomplete": result["status"] = "incomplete"
+        else: result["producer_invocations"] = {"zero": 0, "two": 2, "bool": True}[fault]
+        return result
+
+    monkeypatch.setattr(modules.adapter, "prepare", prepare)
+    monkeypatch.setattr(modules.adapter, "attempt", attempt)
+    if fault == "prepare_failure":
+        with pytest.raises(OSError):
+            fixture.runner.probe()
+        assert calls == ["prepare"]
+    else:
+        assert fixture.runner.probe() == 1
+        assert calls == ["prepare", "attempt"]
+
+
+def _loader_two_slot_hosted_mock_inner_commands(fixture, monkeypatch, *, fault=None):
+    report = encoded(_loader_two_slot_attempt_check(fixture.case))
+
+    def command(argv, logdir, label, timeout_seconds, stream_cap=1048576):
+        fixture.calls.append((argv, logdir, label, timeout_seconds))
+        if label == "probe":
+            _loader_two_slot_hosted_tree(fixture.output, fixture.payloads)
+            if fault == "probe_exit": return _loader_two_slot_hosted_command_result(1)
+            if fault == "probe_timeout": return _loader_two_slot_hosted_command_result(-9, failure="hosted_process_deadline")
+            return _loader_two_slot_hosted_command_result()
+        assert label in {"attempt-check-1", "attempt-check-2"}
+        raw = report
+        if fault == "report_whitespace": raw += b" "
+        elif fault == "report_divergence" and label.endswith("2"):
+            raw = encoded({**json.loads(report), "accepted_return_events": 8})
+        elif fault == "report_boundary":
+            raw = encoded({**json.loads(report), "physical_execution_authenticated": 0})
+        target = Path(argv[argv.index("--output") + 1])
+        target.write_bytes(raw)
+        if fault == "evidence_drift" and label.endswith("2"):
+            (fixture.root / "attempt/qualification.json").write_bytes(fixture.case.qualification + b" ")
+        if fault == "checker_exit": return _loader_two_slot_hosted_command_result(2)
+        if fault == "bool_exit": return _loader_two_slot_hosted_command_result(False)
+        result = _loader_two_slot_hosted_command_result()
+        if fault == "unreaped": result["cleanup"]["child_reaped"] = False
+        return result
+
+    monkeypatch.setattr(fixture.runner, "_command", command)
+    return report
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_loader_two_slot_hosted_supervisor_uses_one_fixed_child_probe_and_only_data_checkers_on_replay(
+        loader_two_slot_attempt_modules, tmp_path, monkeypatch, phase):
+    fixture = _loader_two_slot_hosted_inner_fixture(tmp_path, monkeypatch, phase=phase)
+    _loader_two_slot_hosted_mock_inner_commands(fixture, monkeypatch)
+    forbidden = lambda **_kwargs: pytest.fail("supervisor/replay called a native adapter directly")
+    monkeypatch.setattr(loader_two_slot_attempt_modules.adapter, "prepare", forbidden)
+    monkeypatch.setattr(loader_two_slot_attempt_modules.adapter, "attempt", forbidden)
+    summary = getattr(fixture.runner, phase)()
+    labels = [call[2] for call in fixture.calls]
+    assert labels == (["probe"] if phase == "acquire" else []) + ["attempt-check-1", "attempt-check-2"]
+    if phase == "acquire":
+        assert fixture.calls[0][0] == [fixture.runner.PYTHON, "-I", "-B", str(fixture.runner.RUNNER), "probe"]
+        assert fixture.calls[0][3] == 45
+    for argv, _logs, label, timeout in fixture.calls:
+        if label != "probe":
+            assert argv[:4] == [fixture.runner.PYTHON, "-I", "-B", str(fixture.runner.ATTEMPT_CHECKER)]
+            assert argv[argv.index("--request") + 1] == str(fixture.root / "request.json")
+            assert timeout == 30
+    assert summary["status"] == "completed_native_reconstruction"
+    leaf = "acquisition-summary.json" if phase == "acquire" else "verification-summary.json"
+    assert (fixture.output / leaf).read_bytes() == encoded(summary)
+
+
+@pytest.mark.parametrize("fault", ["probe_exit", "probe_timeout", "checker_exit", "bool_exit", "unreaped",
+    "report_whitespace", "report_divergence", "report_boundary", "evidence_drift"])
+def test_loader_two_slot_hosted_inner_failure_preserves_bytes_and_never_publishes_completed_summary(
+        tmp_path, monkeypatch, fault):
+    fixture = _loader_two_slot_hosted_inner_fixture(tmp_path, monkeypatch)
+    _loader_two_slot_hosted_mock_inner_commands(fixture, monkeypatch, fault=fault)
+    summary = fixture.runner.acquire()
+    assert summary["status"] == "preserved_incomplete" and summary["error_code"]
+    assert (fixture.output / "request.json").read_bytes() == fixture.payloads["request.json"]
+    assert (fixture.output / "attempt/attempt.json").read_bytes() == fixture.payloads["attempt/attempt.json"]
+    assert [call[2] for call in fixture.calls].count("probe") == 1
+    assert len([call for call in fixture.calls if call[2].startswith("attempt-check-")]) <= 2
+    assert (fixture.output / "acquisition-summary.json").read_bytes() == encoded(summary)
+
+
+def test_loader_two_slot_hosted_verify_runs_two_actual_data_only_checker_processes_with_identical_output(
+        tmp_path, monkeypatch):
+    fixture = _loader_two_slot_hosted_inner_fixture(tmp_path, monkeypatch, phase="verify")
+    original = {name: (fixture.root / name).read_bytes() for name in fixture.payloads}
+    script = """
+import importlib.abc
+import os
+import subprocess
+import sys
+sys.path.insert(0, sys.argv.pop(1))
+class NoProbeModules(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname in {'qualify_required_gate_idempotence_loader_two_slot_v0',
+                        'prepare_required_gate_idempotence_loader_two_slot_v0'}:
+            raise AssertionError('data-only replay imported producer')
+sys.meta_path.insert(0, NoProbeModules())
+import check_required_gate_idempotence_loader_two_slot_attempt_v0 as checker
+def forbidden(*args, **kwargs):
+    raise AssertionError('data-only replay attempted process execution or live context')
+os.fork = forbidden
+os.uname = forbidden
+subprocess.Popen = forbidden
+original_open = os.open
+def no_proc(path, *args, **kwargs):
+    if str(path).startswith('/proc/'):
+        raise AssertionError('data-only replay sampled live context')
+    return original_open(path, *args, **kwargs)
+os.open = no_proc
+raise SystemExit(checker.main(sys.argv[1:]))
+"""
+
+    def command(argv, logdir, label, timeout_seconds, stream_cap=1048576):
+        fixture.calls.append((argv, logdir, label, timeout_seconds))
+        assert label in {"attempt-check-1", "attempt-check-2"}
+        assert argv[:4] == [fixture.runner.PYTHON, "-I", "-B", str(fixture.runner.ATTEMPT_CHECKER)]
+        result = subprocess.run([sys.executable, "-I", "-B", "-c", script,
+            str(ROOT / "tools"), *argv[4:]], capture_output=True, timeout=30, check=False)
+        assert result.returncode == 0, result.stderr.decode(errors="replace")
+        assert result.stdout == result.stderr == b""
+        return _loader_two_slot_hosted_command_result(result.returncode)
+
+    monkeypatch.setattr(fixture.runner, "_command", command)
+    summary = fixture.runner.verify()
+    assert summary["status"] == "completed_native_reconstruction", summary
+    assert [call[2] for call in fixture.calls] == ["attempt-check-1", "attempt-check-2"]
+    first, second = (fixture.output / name for name in ("attempt-check-1.json", "attempt-check-2.json"))
+    assert first.read_bytes() == second.read_bytes() == encoded(_loader_two_slot_attempt_check(fixture.case))
+    assert summary["reports"] == [bound(first.read_bytes()), bound(second.read_bytes())]
+    assert {name: (fixture.root / name).read_bytes() for name in original} == original
+
+
+@pytest.mark.parametrize("fault", ["source_bytes", "run", "artifact_id", "artifact_digest", "receipt_digest"])
+def test_loader_two_slot_hosted_inner_replay_rejects_cross_run_or_source_handoff_before_commands(
+        tmp_path, monkeypatch, fault):
+    fixture = _loader_two_slot_hosted_inner_fixture(tmp_path, monkeypatch, phase="verify")
+    if fault == "source_bytes":
+        changed = copy.deepcopy(fixture.selected)
+        changed["sources"][LOADER_TWO_SLOT_ATTEMPT_ADAPTER_REL]["sha256"] = "f" * 64
+        (fixture.control / "hosted-selection.json").write_bytes(encoded(changed))
+    else:
+        key, value = {"run": ("GITHUB_RUN_ID", "987654322"),
+            "artifact_id": ("TWO_SLOT_HOSTED_ARTIFACT_ID", "123456790"),
+            "artifact_digest": ("TWO_SLOT_HOSTED_ARTIFACT_DIGEST", "sha256:" + "e" * 64),
+            "receipt_digest": ("EXPECTED_RECEIPT_SHA256", "e" * 64)}[fault]
+        monkeypatch.setenv(key, value)
+    monkeypatch.setattr(fixture.runner, "_command", lambda *_args, **_kwargs:
+                        pytest.fail("unbound selection reached a checker command"))
+    with pytest.raises(ValueError):
+        fixture.runner.verify()
+    assert list(fixture.output.iterdir()) == []
+
+
+def _loader_two_slot_hosted_command_files(label, argv, *, stdout=b"", stderr=b"", returncode=0,
+                                          failure=None, directory="host-commands"):
+    result = {"argv": argv, "returncode": returncode, "failure": failure,
+        "stdout": bound(stdout), "stderr": bound(stderr), "timeout_seconds": 30,
+        "stream_cap": 1048576, "stdout_cap": 268435456 if label == "base-save" else 4194304,
+        "overflowed_streams": [], "elapsed_seconds": 0.125,
+        "cleanup": {"child_started": True, "child_reaped": True, "kill_group_sent": False,
+                    "kill_error_errno": None, "pending_output_drain_attempted": True}}
+    prefix = directory + "/" + label
+    return {prefix + ".argv.json": encoded({"argv": argv}), prefix + ".result.json": encoded(result),
+            prefix + ".stdout.bin": stdout, prefix + ".stderr.bin": stderr}
+
+
+def _loader_two_slot_hosted_plan(root, phase="acquire"):
+    selected = _loader_two_slot_hosted_selection(phase)
+    plan = loader_two_slot_hosted_checker().make_container_plan(
+        phase, selected["context"], selected["image_id"], 1001, 1002, root,
+        ["PATH=/usr/local/bin:/usr/bin:/bin", "PYTHON_VERSION=3.11.16", "PIP_NO_INDEX=1"],
+        bound(encoded(selected)), previous=root.parent / "retained-input" if phase == "verify" else None,
+        handoff=selected["handoff"])
+    return selected, plan
+
+
+def _loader_two_slot_hosted_inspect(plan, *, cid="d" * 64, exited=False):
+    inherited = dict(entry.split("=", 1) for entry in plan["image_environment"])
+    environment = {**inherited, **plan["environment"]}
+    mounts = [{"Type": "bind", "Source": mount["source"], "Destination": mount["target"],
+               "RW": not mount["readonly"], "Propagation": "rprivate"} for mount in plan["mounts"]]
+    host_mounts = [{"Type": "bind", "Source": mount["source"], "Target": mount["target"],
+                   "ReadOnly": mount["readonly"], "BindOptions": {"Propagation": "rprivate"}}
+                  for mount in plan["mounts"]]
+    return [{"Id": cid, "Image": plan["image_id"], "Name": "/" + plan["name"],
+        "AppArmorProfile": "docker-default",
+        "Config": {"Labels": copy.deepcopy(plan["labels"]), "Entrypoint": copy.deepcopy(plan["entrypoint"]),
+            "Cmd": copy.deepcopy(plan["command"]), "User": str(plan["uid"]) + ":" + str(plan["gid"]),
+            "Image": plan["image_id"], "WorkingDir": "/repo",
+            "Env": [key + "=" + value for key, value in sorted(environment.items())],
+            "Volumes": None, "Healthcheck": None, "Tty": False, "OpenStdin": False},
+        "HostConfig": {"Privileged": False, "ReadonlyRootfs": True, "NetworkMode": "none",
+            "CapDrop": ["ALL"], "CapAdd": None, "SecurityOpt": ["no-new-privileges"],
+            "PidsLimit": 64, "Memory": 1073741824, "NanoCpus": 1000000000,
+            "Tmpfs": {"/tmp": "rw,nosuid,nodev,size=64m"}, "Devices": [], "DeviceRequests": [],
+            "DeviceCgroupRules": None, "VolumesFrom": None, "Binds": None, "PidMode": "",
+            "UTSMode": "", "UsernsMode": "", "IpcMode": "private", "CgroupnsMode": "private",
+            "Init": None, "AutoRemove": False, "Mounts": host_mounts},
+        "Mounts": mounts, "State": {"Status": "exited" if exited else "created", "Running": False,
+            "OOMKilled": False, "Error": "", "ExitCode": 0}}]
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_loader_two_slot_hosted_inspection_binds_actual_command_environment_mounts_and_policy(tmp_path, phase):
+    selected, plan = _loader_two_slot_hosted_plan(tmp_path, phase)
+    info = _loader_two_slot_hosted_inspect(plan)
+    assert loader_two_slot_hosted_checker().validate_container_identity(
+        info, "d" * 64, selected["image_id"], selected["context"], phase, plan) == info[0]
+
+
+@pytest.mark.parametrize("fault", ["entrypoint", "command", "command_probe", "environment_duplicate",
+    "environment_substitution", "environment_secret", "mount_source", "mount_writable", "mount_extra",
+    "mount_propagation", "host_mount_writable", "user", "workdir", "image", "name", "label",
+    "privileged", "root_writable", "network", "sys_ptrace", "seccomp", "apparmor", "pids", "memory",
+    "cpu", "tmpfs", "host_pid", "init", "device", "healthcheck"])
+def test_loader_two_slot_hosted_inspection_rejects_relaxed_policy_or_relabelled_execution(tmp_path, fault):
+    selected, plan = _loader_two_slot_hosted_plan(tmp_path)
+    info = _loader_two_slot_hosted_inspect(plan)
+    item, config, host = info[0], info[0]["Config"], info[0]["HostConfig"]
+    if fault == "entrypoint": config["Entrypoint"] = ["/bin/sh"]
+    elif fault == "command": config["Cmd"][2] = "/repo/tools/unselected.py"
+    elif fault == "command_probe": config["Cmd"][-1] = "probe"
+    elif fault == "environment_duplicate": config["Env"].append(config["Env"][0])
+    elif fault == "environment_substitution": config["Env"] = [row.replace("PYTHON_VERSION=3.11.16", "PYTHON_VERSION=3.12.0") for row in config["Env"]]
+    elif fault == "environment_secret": config["Env"].append("GH_TOKEN=UNSELECTED")
+    elif fault == "mount_source": item["Mounts"][0]["Source"] = str(ROOT)
+    elif fault == "mount_writable": item["Mounts"][0]["RW"] = True
+    elif fault == "mount_extra": item["Mounts"].append({"Type": "bind", "Source": "/", "Destination": "/host", "RW": False})
+    elif fault == "mount_propagation": item["Mounts"][0]["Propagation"] = "rshared"
+    elif fault == "host_mount_writable": host["Mounts"][0]["ReadOnly"] = False
+    elif fault == "user": config["User"] = "0:0"
+    elif fault == "workdir": config["WorkingDir"] = "/"
+    elif fault == "image": item["Image"] = "sha256:" + "e" * 64
+    elif fault == "name": item["Name"] = "/another-run"
+    elif fault == "label": config["Labels"]["org.pulsemech.two-slot.source"] = "e" * 40
+    elif fault == "privileged": host["Privileged"] = True
+    elif fault == "root_writable": host["ReadonlyRootfs"] = False
+    elif fault == "network": host["NetworkMode"] = "host"
+    elif fault == "sys_ptrace": host["CapAdd"] = ["SYS_PTRACE"]
+    elif fault == "seccomp": host["SecurityOpt"].append("seccomp=unconfined")
+    elif fault == "apparmor": item["AppArmorProfile"] = "unconfined"
+    elif fault == "pids": host["PidsLimit"] = -1
+    elif fault == "memory": host["Memory"] = 0
+    elif fault == "cpu": host["NanoCpus"] = 0
+    elif fault == "tmpfs": host["Tmpfs"]["/tmp"] = "rw,exec,size=1g"
+    elif fault == "host_pid": host["PidMode"] = "host"
+    elif fault == "init": host["Init"] = True
+    elif fault == "device": host["Devices"] = [{"PathOnHost": "/dev/mem"}]
+    else: config["Healthcheck"] = {"Test": ["CMD", "unselected"]}
+    with pytest.raises(ValueError):
+        loader_two_slot_hosted_checker().validate_container_identity(
+            info, "d" * 64, selected["image_id"], selected["context"], "acquire", plan)
+
+
+def _loader_two_slot_hosted_container_fixture(tmp_path, monkeypatch, *, fault=None):
+    driver, checker = loader_two_slot_hosted_driver(), loader_two_slot_hosted_checker()
+    root = tmp_path / "acquisition"
+    selected, plan = _loader_two_slot_hosted_plan(root)
+    _loader_two_slot_hosted_tree(root, {
+        "control/hosted-selection.json": encoded(selected),
+        "host-commands/image-inspect.stdout.bin": encoded([{"Id": selected["image_id"],
+            "Config": {"Env": plan["image_environment"]}}]),
+    })
+    (root / "environment").mkdir(mode=0o700)
+    calls = []
+    monkeypatch.setattr(os, "getuid", lambda: 1001)
+    monkeypatch.setattr(os, "getgid", lambda: 1002)
+
+    def command(destination, label, argv, timeout=120, require=True, env=None, **kwargs):
+        assert Path(destination) == root
+        calls.append((label, argv, kwargs))
+        stdout, returncode, failure = b"", 0, None
+        if label == "container-create":
+            cid = "e" * 64 if fault == "cid_substitution" else "d" * 64
+            if fault != "missing_cid":
+                (root / "environment/container-id.txt").write_bytes((cid + "\n").encode())
+            stdout = (cid + "\n").encode()
+            if fault in {"create_exit", "foreign_owner"}: returncode = 1
+            elif fault == "create_timeout": returncode, failure = -9, "hosted_process_deadline"
+        elif label in {"container-inspect", "container-state", "container-ownership-inspect"}:
+            info = _loader_two_slot_hosted_inspect(plan, exited=label != "container-inspect")
+            if fault == "command_substitution" and label == "container-inspect": info[0]["Config"]["Cmd"][-1] = "probe"
+            if fault == "foreign_owner" and label == "container-ownership-inspect":
+                info[0]["Config"]["Labels"]["org.pulsemech.two-slot.run"] = "999/1"
+            if fault == "exit_failure" and label == "container-state": info[0]["State"]["ExitCode"] = 1
+            if fault == "ownership_failure" and label == "container-ownership-inspect": returncode = 1
+            stdout = encoded(info)
+        elif label == "container-start":
+            if fault == "start_timeout": returncode, failure = -9, "hosted_process_deadline"
+        elif label == "container-remove":
+            stdout = ("d" * 64 + "\n").encode()
+            if fault == "remove_failure": returncode = 1
+        elif label == "container-absence":
+            if fault == "absence_nonempty": stdout = ("d" * 64 + "\n").encode()
+            if fault == "absence_failure": returncode = 1
+        else:
+            pytest.fail("unexpected external command " + label)
+        payloads = _loader_two_slot_hosted_command_files(label, argv, stdout=stdout,
+            returncode=returncode, failure=failure)
+        _loader_two_slot_hosted_tree(root, payloads)
+        result = json.loads(payloads["host-commands/" + label + ".result.json"])
+        if require and returncode != 0:
+            raise ValueError("authored_command_failure")
+        return result
+
+    monkeypatch.setattr(driver, "_command", command)
+    return SimpleNamespace(driver=driver, checker=checker, root=root, selected=selected,
+                           plan=plan, calls=calls)
+
+
+def test_loader_two_slot_hosted_outer_container_records_actual_policy_then_owned_removal_and_empty_full_id_query(
+        tmp_path, monkeypatch):
+    fixture = _loader_two_slot_hosted_container_fixture(tmp_path, monkeypatch)
+    result = fixture.driver._container(fixture.root, fixture.checker.environment(),
+        fixture.selected["image_id"], fixture.selected["context"], "acquire")
+    assert result == fixture.root / "observation"
+    assert [row[0] for row in fixture.calls] == ["container-create", "container-inspect", "container-start",
+        "container-state", "container-ownership-inspect", "container-remove", "container-absence"]
+    assert fixture.calls[-2][1] == ["docker", "rm", "--force", "d" * 64]
+    assert fixture.calls[-1][1] == ["docker", "container", "ls", "--all", "--quiet", "--no-trunc", "--filter", "id=" + "d" * 64]
+    assert all(row[2].get("cleanup") is True for row in fixture.calls[-4:])
+    cleanup = json.loads((fixture.root / "environment/container-cleanup.json").read_bytes())
+    assert cleanup["owned_container_verified"] is cleanup["remove_succeeded"] is cleanup["absence_verified"] is True
+    assert cleanup["cleanup_errors"] == []
+
+
+@pytest.mark.parametrize("fault", ["create_exit", "create_timeout", "missing_cid", "cid_substitution",
+    "foreign_owner", "command_substitution", "start_timeout", "exit_failure", "ownership_failure",
+    "remove_failure", "absence_nonempty", "absence_failure"])
+def test_loader_two_slot_hosted_failed_create_and_runtime_never_skip_owned_cleanup_or_trust_a_cidfile(
+        tmp_path, monkeypatch, fault):
+    fixture = _loader_two_slot_hosted_container_fixture(tmp_path, monkeypatch, fault=fault)
+    with pytest.raises((OSError, ValueError)):
+        fixture.driver._container(fixture.root, fixture.checker.environment(),
+            fixture.selected["image_id"], fixture.selected["context"], "acquire")
+    labels = [row[0] for row in fixture.calls]
+    assert "container-ownership-inspect" in labels
+    ownership = next(row for row in fixture.calls if row[0] == "container-ownership-inspect")
+    assert ownership[1] == ["docker", "container", "inspect", fixture.plan["name"]]
+    assert ownership[2]["cleanup"] is True
+    cleanup = json.loads((fixture.root / "environment/container-cleanup.json").read_bytes())
+    if fault in {"foreign_owner", "ownership_failure"}:
+        assert "container-remove" not in labels and "container-absence" not in labels
+        assert cleanup["owned_container_verified"] is False
+    else:
+        remove = next(row for row in fixture.calls if row[0] == "container-remove")
+        assert remove[1] == ["docker", "rm", "--force", "d" * 64]
+        assert remove[2]["cleanup"] is True and "container-absence" in labels
+        if fault == "cid_substitution":
+            assert not any("e" * 64 in row[1] for row in fixture.calls if row[0] == "container-remove")
+    if fault in {"create_exit", "create_timeout", "missing_cid", "cid_substitution", "foreign_owner", "command_substitution"}:
+        assert "container-start" not in labels
+    if fault in {"remove_failure", "absence_nonempty", "absence_failure", "foreign_owner", "ownership_failure", "cid_substitution"}:
+        assert cleanup["cleanup_errors"]
+
+
+def _loader_two_slot_hosted_prefix(root, phase="acquire", context=None):
+    context = _loader_two_slot_hosted_context() if context is None else context
+    value = {"record_type": "required_gate_idempotence_loader_two_slot_workflow_start_v0",
+        "phase": phase, "context": context,
+        "boundary": {**_loader_two_slot_qualification_boundary(), "selected_runtime_executed": False}}
+    _loader_two_slot_hosted_tree(root, {"workflow-start.json": encoded(value)})
+    return value
+
+
+def _loader_two_slot_hosted_incomplete_receipt(tmp_path, *, sources=False, drift=False):
+    checker, context = loader_two_slot_hosted_checker(), _loader_two_slot_hosted_context()
+    root = tmp_path / "retained-prefix"
+    _loader_two_slot_hosted_prefix(root)
+    if sources:
+        selected = _loader_two_slot_hosted_sources()
+        first = sorted(selected)[0]
+        _loader_two_slot_hosted_tree(root, {"source-bindings.json": encoded(selected),
+            "source/" + first: b"authored source drift\n" if drift else (ROOT / first).read_bytes()})
+    _loader_two_slot_hosted_tree(root, {"observation/attempt/qualification.json": b""})
+    receipt = checker.make_receipt(root, context)
+    raw = encoded(receipt)
+    (root / "receipt.json").write_bytes(raw)
+    return SimpleNamespace(checker=checker, context=context, root=root, receipt=receipt, raw=raw)
+
+
+@pytest.mark.parametrize("sources,drift", [(False, False), (True, False), (True, True)])
+def test_loader_two_slot_hosted_incomplete_receipt_preserves_original_selection_and_all_available_bytes(
+        tmp_path, sources, drift):
+    fixture = _loader_two_slot_hosted_incomplete_receipt(tmp_path, sources=sources, drift=drift)
+    value = fixture.checker.verify_preservation(fixture.root, fixture.raw, digest(fixture.raw), fixture.context)
+    assert value["status"] == "preserved_incomplete"
+    assert value["sources"] == (_loader_two_slot_hosted_sources() if sources else None)
+    assert value["request"] is None and value["attempt"] is None
+    assert value["qualification"] == bound(b"")
+    assert "receipt.json" not in value["files"]
+    assert value["file_count"] == len(value["files"])
+    assert value["total_size_bytes"] == sum(row["size_bytes"] for row in value["files"].values())
+    with pytest.raises((OSError, ValueError)):
+        fixture.checker.verify_completed_acquisition(fixture.root, fixture.context, value)
+
+
+def test_loader_two_slot_hosted_finalizer_never_replaces_original_sources_after_checkout_drift(tmp_path, monkeypatch, capsys):
+    driver, checker = loader_two_slot_hosted_driver(), loader_two_slot_hosted_checker()
+    root = tmp_path / "prefix"
+    _loader_two_slot_hosted_prefix(root)
+    selected = _loader_two_slot_hosted_sources()
+    _loader_two_slot_hosted_tree(root, {"source-bindings.json": encoded(selected)})
+    changed = copy.deepcopy(selected)
+    changed[LOADER_TWO_SLOT_HOSTED_DRIVER]["sha256"] = "f" * 64
+    monkeypatch.setattr(checker, "source_bindings", lambda: copy.deepcopy(changed))
+    monkeypatch.setenv("TWO_SLOT_HOSTED_PHASE", "acquire")
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    assert driver.finalize(root, _loader_two_slot_hosted_context()) == 0
+    receipt = json.loads((root / "receipt.json").read_bytes())
+    assert receipt["sources"] == selected and receipt["status"] == "preserved_incomplete"
+    assert (root / "source-bindings.json").read_bytes() == encoded(selected)
+    result = json.loads(capsys.readouterr().out)
+    assert result["receipt_sha256"] == digest((root / "receipt.json").read_bytes())
+
+
+@pytest.mark.parametrize("fault", ["external_digest", "other_run", "file_count", "total", "count_bool",
+    "source_null_environment", "descriptor_join", "unknown_file", "self_inventory", "boundary", "noncanonical"])
+def test_loader_two_slot_hosted_receipt_rejects_rehashed_scope_roster_or_descriptor_substitution(tmp_path, fault):
+    fixture = _loader_two_slot_hosted_incomplete_receipt(tmp_path)
+    value = copy.deepcopy(fixture.receipt)
+    if fault == "other_run": value["context"]["run_id"] += 1
+    elif fault == "file_count": value["file_count"] += 1
+    elif fault == "total": value["total_size_bytes"] += 1
+    elif fault == "count_bool": value["file_count"] = True
+    elif fault == "source_null_environment": value["environment"] = bound(b"unselected")
+    elif fault == "descriptor_join": value["qualification"] = bound(b"other")
+    elif fault in {"unknown_file", "self_inventory"}:
+        value["files"]["unselected.bin" if fault == "unknown_file" else "receipt.json"] = bound(b"")
+        value["file_count"] += 1
+    elif fault == "boundary": value["boundary"]["b2_complete"] = True
+    raw = encoded(value)
+    if fault == "noncanonical": raw = json.dumps(value, indent=2).encode()
+    selected_digest = "e" * 64 if fault == "external_digest" else digest(raw)
+    with pytest.raises(ValueError):
+        fixture.checker.validate_receipt(raw, selected_digest, fixture.context)
+
+
+@pytest.mark.parametrize("fault", ["changed", "missing", "extra", "symlink", "hardlink", "fifo", "unselected_directory",
+                                    "control_limit", "record_limit", "archive_limit", "count_limit", "total_limit"])
+def test_loader_two_slot_hosted_finite_inventory_rejects_unsafe_or_changed_prefixes_and_bounded_extents(
+        tmp_path, monkeypatch, fault):
+    fixture = _loader_two_slot_hosted_incomplete_receipt(tmp_path)
+    target = fixture.root / "observation/attempt/qualification.json"
+    if fault == "changed": target.write_bytes(b"changed\n")
+    elif fault == "missing": target.unlink()
+    elif fault == "extra": (fixture.root / "unselected.bin").write_bytes(b"x")
+    elif fault in {"symlink", "hardlink", "fifo"}:
+        target.unlink()
+        original = tmp_path / "untrusted-record"
+        original.write_bytes(b"")
+        if fault == "symlink": target.symlink_to(original)
+        elif fault == "hardlink": os.link(original, target)
+        else: os.mkfifo(target)
+    elif fault == "unselected_directory": (fixture.root / "unselected").mkdir()
+    elif fault == "control_limit": (fixture.root / "failure.json").write_bytes(b"x" * 65537)
+    elif fault == "record_limit": target.write_bytes(b"x" * 1048577)
+    elif fault == "archive_limit":
+        target = fixture.root / "host-commands/base-save.stdout.bin"
+        target.parent.mkdir()
+        with target.open("wb") as stream:
+            stream.truncate(268435457)
+    elif fault == "count_limit": monkeypatch.setattr(fixture.checker, "FILE_COUNT_LIMIT", 1)
+    else: monkeypatch.setattr(fixture.checker, "TOTAL_LIMIT", 1)
+    with pytest.raises((OSError, ValueError)):
+        fixture.checker.verify_preservation(fixture.root, fixture.raw, digest(fixture.raw), fixture.context)
+
+
+def test_loader_two_slot_hosted_roster_is_finite_and_contains_only_named_sources_materials_commands_and_outputs():
+    checker = loader_two_slot_hosted_checker()
+    names = checker.allowed_files()
+    assert type(names) is frozenset and 0 < len(names) <= 256
+    assert checker.FILE_LIMIT == 268435456 and checker.TOTAL_LIMIT == 536870912
+    assert checker.FILE_COUNT_LIMIT == 256 and checker.CONTROL_LIMIT == 65536
+    assert {name.removeprefix("source/") for name in names if name.startswith("source/")} == set(_loader_two_slot_hosted_sources())
+    assert len([name for name in names if name.startswith("materials/wheels/")]) == 6
+    assert "receipt.json" not in names and "attestation-identity.json" in names
+    assert "observation/build-environment-record.json" in names and "verification/build-environment-record.json" in names
+    assert not any("*" in name or ".." in Path(name).parts or name.startswith("/") or "original" in name for name in names)
+
+
+def _loader_two_slot_hosted_artifact_metadata(context=None, handoff=None):
+    context = _loader_two_slot_hosted_context() if context is None else context
+    handoff = _loader_two_slot_hosted_selection("verify")["handoff"] if handoff is None else handoff
+    return {"id": handoff["artifact_id"],
+        "name": "required-gate-idempotence-loader-two-slot-" + str(context["run_id"]) + "-1",
+        "digest": handoff["artifact_digest"], "expired": False,
+        "workflow_run": {"id": context["run_id"], "head_sha": context["source_commit"],
+            "head_branch": "main", "repository_id": 1061766508, "head_repository_id": 1061766508}}
+
+
+@pytest.mark.parametrize("fault", [None, "artifact_id", "artifact_digest", "artifact_name", "expired",
+    "run_id", "head_sha", "branch", "repository_id", "head_repository_id", "bool_id"])
+def test_loader_two_slot_hosted_artifact_metadata_joins_exact_repository_run_source_id_and_digest(fault):
+    checker = loader_two_slot_hosted_checker()
+    context, handoff = _loader_two_slot_hosted_context(), _loader_two_slot_hosted_selection("verify")["handoff"]
+    value = _loader_two_slot_hosted_artifact_metadata(context, handoff)
+    if fault == "artifact_id": value["id"] += 1
+    elif fault == "artifact_digest": value["digest"] = "sha256:" + "e" * 64
+    elif fault == "artifact_name": value["name"] += "-other"
+    elif fault == "expired": value["expired"] = True
+    elif fault == "run_id": value["workflow_run"]["id"] += 1
+    elif fault == "head_sha": value["workflow_run"]["head_sha"] = "e" * 40
+    elif fault == "branch": value["workflow_run"]["head_branch"] = "other"
+    elif fault in {"repository_id", "head_repository_id"}: value["workflow_run"][fault] += 1
+    elif fault == "bool_id": value["id"] = True
+    if fault is None:
+        assert checker.validate_artifact_metadata(value, context, handoff) == value
+    else:
+        with pytest.raises(ValueError):
+            checker.validate_artifact_metadata(value, context, handoff)
+
+
+def _loader_two_slot_hosted_workflow():
+    import yaml
+    return yaml.load((ROOT / LOADER_TWO_SLOT_HOSTED_WORKFLOW).read_text(), Loader=yaml.BaseLoader)
+
+
+def test_loader_two_slot_hosted_workflow_is_manual_pinned_and_preserves_failures_before_attestation():
+    workflow = _loader_two_slot_hosted_workflow()
+    assert set(workflow["on"]) == {"workflow_dispatch"}
+    assert set(workflow["jobs"]) == {"acquire", "verify"}
+    assert workflow["concurrency"]["cancel-in-progress"] == "false"
+    acquire, verify = (workflow["jobs"][phase] for phase in ("acquire", "verify"))
+    assert acquire["permissions"] == {"contents": "read"}
+    assert verify["permissions"] == {"contents": "read", "actions": "read", "id-token": "write", "attestations": "write"}
+    assert "always()" in verify["if"] and "needs.acquire.result == 'success'" not in verify["if"]
+    for key in ("artifact_id", "artifact_digest", "receipt_sha256"):
+        assert "needs.acquire.outputs." + key + " != ''" in verify["if"]
+    pins = {"actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "actions/upload-artifact": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+        "actions/download-artifact": "9000827ccba6bdab643e8b6fd33ac0654aef8333",
+        "actions/attest": "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"}
+    for phase, job in workflow["jobs"].items():
+        assert job["runs-on"] == "ubuntu-24.04" and int(job["timeout-minutes"]) == 30
+        ids = [step.get("id") for step in job["steps"]]
+        assert ids.index("prefix") < ids.index("checkout") < ids.index(phase)
+        assert not {"GH_TOKEN", "GITHUB_TOKEN"}.intersection(job["env"])
+        uploads = []
+        for step in job["steps"]:
+            assert "continue-on-error" not in step
+            if "uses" not in step:
+                continue
+            action, revision = step["uses"].split("@")
+            assert revision == pins[action]
+            if action == "actions/checkout":
+                assert step["with"] == {"ref": "${{ github.sha }}", "fetch-depth": "1", "persist-credentials": "false"}
+            elif action == "actions/upload-artifact":
+                uploads.append(step)
+                assert step["if"] == "always() && steps.prefix.outputs.root_created == 'true'"
+                assert step["with"]["overwrite"] == "false" and step["with"]["if-no-files-found"] == "error"
+        assert len(uploads) == 1
+    steps = {step.get("id"): step for step in verify["steps"] if step.get("id")}
+    assert steps["attest"]["if"] == "success() && steps.verify.outcome == 'success'"
+    assert steps["attest"]["with"]["subject-path"].endswith("/verified-binding.json")
+    download = next(step for step in verify["steps"] if step.get("uses", "").startswith("actions/download-artifact@"))
+    assert download["with"]["artifact-ids"] == "${{ needs.acquire.outputs.artifact_id }}"
+    assert download["with"]["run-id"] == "${{ github.run_id }}"
+    assert download["with"]["digest-mismatch"] == "error" and "name" not in download["with"]
+    assert download["with"]["path"].endswith("-input")
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_loader_two_slot_hosted_actual_workflow_guard_and_prefix_select_private_immutable_context(tmp_path, phase):
+    job = _loader_two_slot_hosted_workflow()["jobs"][phase]
+    environment = _loader_two_slot_hosted_environment(phase)
+    environment.update(RUNNER_TEMP=str(tmp_path), GITHUB_OUTPUT=str(tmp_path / "workflow-output"))
+    guard = subprocess.run(["bash", "-c", job["steps"][0]["run"]], env=environment,
+        stdin=subprocess.DEVNULL, capture_output=True, timeout=5, check=False)
+    assert guard.returncode == 0, guard.stderr.decode(errors="replace")
+    prefix = next(step for step in job["steps"] if step.get("id") == "prefix")["run"]
+    result = subprocess.run(["bash", "-c", prefix], env=environment,
+        stdin=subprocess.DEVNULL, capture_output=True, timeout=5, check=False)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    name = "required-gate-loader-two-slot-" + ("verification-" if phase == "verify" else "") + "987654321-1"
+    root = tmp_path / name
+    raw = (root / "workflow-start.json").read_bytes()
+    assert stat.S_IMODE(root.stat().st_mode) == 0o700
+    assert stat.S_IMODE((root / "workflow-start.json").stat().st_mode) == 0o600
+    assert json.loads(raw)["context"] == _loader_two_slot_hosted_context()
+    assert json.loads(raw)["phase"] == phase
+    assert (tmp_path / "workflow-output").read_text() == "root_created=true\n"
+    again = subprocess.run(["bash", "-c", prefix], env=environment,
+        stdin=subprocess.DEVNULL, capture_output=True, timeout=5, check=False)
+    assert again.returncode != 0 and (root / "workflow-start.json").read_bytes() == raw
+
+
+@pytest.mark.parametrize("phase,field,value", [
+    ("acquire", "GITHUB_ACTOR", "other"), ("acquire", "GITHUB_TRIGGERING_ACTOR", "other"),
+    ("acquire", "GITHUB_EVENT_NAME", "pull_request"), ("acquire", "GITHUB_REF", "refs/heads/other"),
+    ("acquire", "GITHUB_RUN_ATTEMPT", "2"), ("acquire", "GITHUB_WORKFLOW_SHA", "e" * 40),
+    ("acquire", "EXPECTED_SOURCE_COMMIT", "e" * 40), ("acquire", "GITHUB_RUN_NUMBER", "0"),
+    ("verify", "TWO_SLOT_HOSTED_ARTIFACT_ID", "0"),
+    ("verify", "TWO_SLOT_HOSTED_ARTIFACT_DIGEST", "e" * 64),
+    ("verify", "EXPECTED_RECEIPT_SHA256", "e" * 63),
+])
+def test_loader_two_slot_hosted_actual_workflow_guard_rejects_unselected_launch_or_handoff(phase, field, value):
+    environment = _loader_two_slot_hosted_environment(phase)
+    environment[field] = value
+    guard = _loader_two_slot_hosted_workflow()["jobs"][phase]["steps"][0]["run"]
+    result = subprocess.run(["bash", "-c", guard], env=environment,
+        stdin=subprocess.DEVNULL, capture_output=True, timeout=5, check=False)
+    assert result.returncode != 0
+
+
+def _loader_two_slot_hosted_complete_phase(tmp_path, monkeypatch, *, previous=None):
+    """Authored end-to-end record; six inert wheel bytes stand in for downloads.
+
+    Only the wheel size/hash selection seam is replaced. Real immutable pins
+    are checked separately; no wheel, image, probe or native runtime executes.
+    All source/Git/command/container/core-report/receipt joins run unchanged.
+    """
+    checker = loader_two_slot_hosted_checker()
+    context = _loader_two_slot_hosted_context()
+    phase = "acquire" if previous is None else "verify"
+    root = tmp_path / phase
+    env = json.loads((ROOT / LOADER_TWO_SLOT_HOSTED_CONFIG / "environment.json").read_bytes())
+    wheels = {}
+    for package in env["python"]["packages"]:
+        raw = ("inert authored wheel fixture: " + package["name"] + "\n").encode()
+        package.update(bound(raw))
+        wheels[package["filename"]] = raw
+    monkeypatch.setattr(checker, "environment", lambda: copy.deepcopy(env))
+    sources = _loader_two_slot_hosted_sources()
+    image = "sha256:" + ("d" if previous is None else "e") * 64
+    cid = ("1" if previous is None else "2") * 64
+    handoff = None if previous is None else {"artifact_id": 123456789,
+        "artifact_digest": "sha256:" + "b" * 64, "receipt_sha256": digest(previous.receipt_raw)}
+    selection = checker.make_selection(phase, context, image, sources, checker.ENVIRONMENT_BINDING, handoff)
+    base_env = ["PATH=/usr/local/bin:/usr/bin:/bin", "PYTHON_VERSION=3.11.16"]
+    image_env = base_env + env["runtime_environment"]
+    plan = checker.make_container_plan(phase, context, image, 1001, 1002, root, image_env,
+        bound(encoded(selection)), previous=None if previous is None else previous.root, handoff=handoff)
+    case = _loader_two_slot_hosted_native_case() if previous is None else previous.case
+    request, attempt, qualification = encoded(case.request), encoded(case.attempt), case.qualification
+    report = encoded(_loader_two_slot_attempt_check(case)) if previous is None else previous.report
+    location = "observation" if previous is None else "verification"
+    summary = checker.make_summary(phase, selection, request_bytes=request, attempt_bytes=attempt,
+        qualification_bytes=qualification, report_bytes=(report, report))
+    prefix = {"record_type": "required_gate_idempotence_loader_two_slot_workflow_start_v0",
+              "phase": phase, "context": context, "boundary": checker.BOUNDARY}
+    files = {"workflow-start.json": encoded(prefix), "source-bindings.json": encoded(sources),
+        "control/hosted-selection.json": encoded(selection), "environment/container-plan.json": encoded(plan),
+        "environment/container-id.txt": (cid + "\n").encode(), "environment/image-id.txt": (image + "\n").encode(),
+        location + "/attempt-check-1.json": report, location + "/attempt-check-2.json": report,
+        location + ("/acquisition-summary.json" if previous is None else "/verification-summary.json"): encoded(summary)}
+    files.update({"source/" + name: (ROOT / name).read_bytes() for name in sources})
+    files.update({"materials/" + name: (ROOT / LOADER_TWO_SLOT_HOSTED_CONFIG / name).read_bytes()
+                  for name in ("Dockerfile", "environment.json", "requirements.lock", "build_environment.py", "run.py")})
+    files.update({"materials/wheels/" + name: raw for name, raw in wheels.items()})
+    if previous is None:
+        files.update({"observation/request.json": request, "observation/attempt/request.json": request,
+                      "observation/attempt/attempt.json": attempt, "observation/attempt/qualification.json": qualification})
+    files[location + "/build-environment-record.json"] = encoded({
+        "record_type": "required_gate_idempotence_loader_two_slot_build_v0", "profile": checker.PROFILE,
+        "environment": checker.ENVIRONMENT_BINDING, "requirements": env["requirements"],
+        "wheels": {name: bound(raw) for name, raw in wheels.items()}, "python": checker.OBSERVER_BINDING,
+        "installed": {item["name"]: item["version"] for item in env["python"]["packages"]},
+        "offline_install": True, "reproducible_image_claimed": False, "original_payload_included": False,
+        "authority_effect": "none"})
+
+    def command(label, argv, stdout=b"", directory="host-commands"):
+        files.update(_loader_two_slot_hosted_command_files(label, argv, stdout=stdout, directory=directory))
+
+    git = ["git", "--no-pager", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null", "-C", "/authored/checkout"]
+    command("git-head-before", [*git, "rev-parse", "--verify", "HEAD"], (context["source_commit"] + "\n").encode())
+    tree = []
+    for name in sorted(sources):
+        raw = files["source/" + name]
+        blob = hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()
+        tree.append(b"100644 blob " + blob.encode() + b"\t" + name.encode() + b"\0")
+    command("git-source-tree", [*git, "ls-tree", "-r", "-z", "--full-tree", context["source_commit"], "--", *sorted(sources)], b"".join(tree))
+    command("git-head-after", [*git, "rev-parse", "--verify", "HEAD"], (context["source_commit"] + "\n").encode())
+    base = env["base_image"]
+    base_id, tag = "sha256:" + base["config_sha256"], "localhost/pulse-two-slot-base:" + base["config_sha256"]
+    archive = b"authored base archive fixture; never loaded\n" if previous is None else previous.archive
+    if previous is None:
+        command("base-pull", ["docker", "pull", "--platform", "linux/amd64", base["reference"]])
+        command("base-tag", ["docker", "image", "tag", base_id, tag])
+        command("base-save", ["docker", "image", "save", tag], archive)
+    else:
+        command("base-load", ["docker", "image", "load", "--input", str(previous.root / "host-commands/base-save.stdout.bin")])
+    base_info = encoded([{"Id": base_id, "Os": "linux", "Architecture": "amd64", "Config": {"Env": base_env}}])
+    command("base-inspect", ["docker", "image", "inspect", base["reference"] if previous is None else tag], base_info)
+    command("base-tag-inspect", ["docker", "image", "inspect", tag], base_info)
+    command("base-inspect-after", ["docker", "image", "inspect", tag], base_info)
+    command("image-build", ["docker", "build", "--platform", "linux/amd64", "--network", "none", "--pull=false",
+        "--no-cache", "--build-arg", "PULSE_TWO_SLOT_BASE=" + tag, "--iidfile", str(root / "environment/image-id.txt"), str(root / "materials")])
+    command("image-inspect", ["docker", "image", "inspect", image],
+            encoded([{"Id": image, "Os": "linux", "Architecture": "amd64", "Config": {"Env": image_env}}]))
+    files["environment/selection.json"] = encoded({
+        "record_type": "required_gate_idempotence_loader_two_slot_hosted_image_v0", "profile": checker.PROFILE,
+        "base_image": base, "constructed_image_id": image, "base_archive": bound(archive),
+        "base_loaded_from_preserved_bytes": previous is not None, "base_local_build_tag": tag,
+        "environment_selection": checker.ENVIRONMENT_BINDING, "build_inputs_fixed": True,
+        "image_reproducibility_claimed": False, "boundary": checker.BOUNDARY})
+    command("container-create", checker.docker_create_argv(plan), (cid + "\n").encode())
+    command("container-inspect", ["docker", "container", "inspect", cid], encoded(_loader_two_slot_hosted_inspect(plan, cid=cid)))
+    command("container-start", ["docker", "start", "--attach", cid])
+    terminal = encoded(_loader_two_slot_hosted_inspect(plan, cid=cid, exited=True))
+    command("container-state", ["docker", "container", "inspect", cid], terminal)
+    command("container-ownership-inspect", ["docker", "container", "inspect", plan["name"]], terminal)
+    command("container-remove", ["docker", "rm", "--force", cid], (cid + "\n").encode())
+    command("container-absence", ["docker", "container", "ls", "--all", "--quiet", "--no-trunc", "--filter", "id=" + cid])
+    files["environment/container-cleanup.json"] = encoded({"container_id": cid, "image_id": image, "phase": phase,
+        "name": plan["name"], "owned_container_verified": True, "inspect_exit_code": 0,
+        "remove_succeeded": True, "absence_verified": True, "cleanup_errors": []})
+    inner = "/output" if previous is None else "/input/observation"
+    if previous is None:
+        command("probe", [checker.PYTHON, "-I", "-B", "/repo/" + LOADER_TWO_SLOT_HOSTED_CONFIG + "/run.py", "probe"], directory=location + "/commands")
+    for ordinal in (1, 2):
+        label = "attempt-check-" + str(ordinal)
+        command(label, [checker.PYTHON, "-I", "-B", "/repo/" + LOADER_TWO_SLOT_ATTEMPT_CHECKER_REL,
+            "--request", inner + "/request.json", "--request-sha256", digest(request), "--attempt-directory", inner + "/attempt",
+            "--attempt-sha256", digest(attempt), "--output", "/output/" + label + ".json"], directory=location + "/commands")
+    if previous is not None:
+        command("artifact-metadata", ["gh", "api", "repos/HKati/pulse-release-gates-0.1/actions/artifacts/123456789"],
+                encoded(_loader_two_slot_hosted_artifact_metadata(context, handoff)))
+        files["prefix-verification.json"] = encoded({
+            "record_type": "required_gate_idempotence_loader_two_slot_hosted_prefix_verification_v0",
+            "profile": checker.PROFILE, "context": context, "handoff": handoff, "receipt": bound(previous.receipt_raw),
+            "preserved_file_count": previous.receipt["file_count"] + 1, "all_preserved_bytes_verified": True,
+            "preservation_is_qualification_acceptance": False, "status": "preserved_prefix_verified",
+            "error_code": None, "boundary": checker.BOUNDARY})
+    _loader_two_slot_hosted_tree(root, files)
+    receipt = receipt_raw = None
+    if previous is None:
+        receipt = checker.make_receipt(root, context)
+        receipt_raw = encoded(receipt)
+        (root / "receipt.json").write_bytes(receipt_raw)
+    return SimpleNamespace(checker=checker, root=root, context=context, selected=selection, plan=plan,
+        case=case, report=report, receipt=receipt, receipt_raw=receipt_raw, archive=archive, handoff=handoff, summary=summary)
+
+
+def test_loader_two_slot_hosted_complete_authored_acquisition_and_independent_verification_join_without_native_execution(
+        tmp_path, monkeypatch):
+    acquisition = _loader_two_slot_hosted_complete_phase(tmp_path, monkeypatch)
+    assert acquisition.receipt["status"] == "completed_native_reconstruction", acquisition.receipt["error_code"]
+    verification = _loader_two_slot_hosted_complete_phase(tmp_path, monkeypatch, previous=acquisition)
+    value = verification.checker.make_verified_binding(verification.root, acquisition.root, acquisition.context,
+                                                       verification.handoff, acquisition.receipt)
+    assert value["status"] == "completed_native_reconstruction" and value["independent_reconstruction_count"] == 2
+    assert value["acquisition_image_id"] != value["verification_image_id"]
+    assert value["image_reproducibility_claimed"] is False
+    assert value["reports"] == [bound(acquisition.report), bound(acquisition.report)]
+    assert value["boundary"] == {**_loader_two_slot_qualification_boundary(), "selected_runtime_executed": False}
+    import jsonschema
+    schema = json.loads((ROOT / LOADER_TWO_SLOT_HOSTED_SCHEMA).read_bytes())
+    jsonschema.Draft202012Validator.check_schema(schema)
+    validator = jsonschema.Draft202012Validator(schema)
+    for record in (acquisition.selected, acquisition.plan, acquisition.summary, acquisition.receipt,
+                   verification.selected, verification.plan, verification.summary, value):
+        validator.validate(record)
+
+
+@pytest.mark.parametrize("fault", ["cross_run_artifact", "wrong_receipt", "verification_probe", "changed_report",
+                                    "failed_acquisition_command", "copied_source_drift", "scripted_attempt"])
+def test_loader_two_slot_hosted_complete_looking_replay_cannot_promote_cross_run_changed_or_scripted_evidence(
+        tmp_path, monkeypatch, fault):
+    acquisition = _loader_two_slot_hosted_complete_phase(tmp_path, monkeypatch)
+    verification = _loader_two_slot_hosted_complete_phase(tmp_path, monkeypatch, previous=acquisition)
+    if fault == "cross_run_artifact":
+        name = "host-commands/artifact-metadata.stdout.bin"
+        value = json.loads((verification.root / name).read_bytes())
+        value["workflow_run"]["id"] += 1
+        raw = encoded(value)
+        (verification.root / name).write_bytes(raw)
+        result_path = verification.root / "host-commands/artifact-metadata.result.json"
+        result = json.loads(result_path.read_bytes())
+        result["stdout"] = bound(raw)
+        result_path.write_bytes(encoded(result))
+    elif fault == "wrong_receipt": verification.handoff["receipt_sha256"] = "f" * 64
+    elif fault == "verification_probe":
+        _loader_two_slot_hosted_tree(verification.root, {"verification/commands/probe.argv.json": encoded({"argv": ["unselected"]})})
+    elif fault == "changed_report": (verification.root / "verification/attempt-check-2.json").write_bytes(verification.report + b" ")
+    else:
+        if fault == "failed_acquisition_command":
+            path = acquisition.root / "host-commands/container-start.result.json"
+            value = json.loads(path.read_bytes())
+            value["returncode"] = 1
+            path.write_bytes(encoded(value))
+        elif fault == "copied_source_drift":
+            (acquisition.root / "source" / LOADER_TWO_SLOT_ATTEMPT_ADAPTER_REL).write_bytes(b"changed\n")
+        else:
+            path = acquisition.root / "observation/attempt/attempt.json"
+            value = json.loads(path.read_bytes())
+            value["evidence_origin"] = "scripted_test_backend"
+            path.write_bytes(encoded(value))
+        # Even a newly bound preservation receipt cannot create completion.
+        (acquisition.root / "receipt.json").unlink()
+        acquisition.receipt = acquisition.checker.make_receipt(acquisition.root, acquisition.context)
+        acquisition.receipt_raw = encoded(acquisition.receipt)
+        (acquisition.root / "receipt.json").write_bytes(acquisition.receipt_raw)
+        verification.handoff["receipt_sha256"] = digest(acquisition.receipt_raw)
+        assert acquisition.receipt["status"] == "preserved_incomplete"
+    with pytest.raises((OSError, ValueError)):
+        verification.checker.make_verified_binding(verification.root, acquisition.root, acquisition.context,
+                                                   verification.handoff, acquisition.receipt)
+
+
+def _loader_two_slot_hosted_builder_fixture(tmp_path, monkeypatch, *, fault=None):
+    builder = module("loader_two_slot_hosted_environment_builder_tests", LOADER_TWO_SLOT_HOSTED_CONFIG + "/build_environment.py")
+    selected = json.loads((ROOT / LOADER_TWO_SLOT_HOSTED_CONFIG / "environment.json").read_bytes())
+    executable = b"authored interpreter bytes, never executed\n"
+    selected["python"]["observer_binding"] = bound(executable)
+    payloads = {}
+    for item in selected["python"]["packages"]:
+        raw = ("authored inert wheel: " + item["name"] + "\n").encode()
+        item.update(bound(raw))
+        payloads["wheels/" + item["filename"]] = raw
+    lock = ("\n".join(item["name"] + "==" + item["version"] + " --hash=sha256:" + item["sha256"]
+                      for item in selected["python"]["packages"]) + "\n").encode()
+    selected["requirements"] = bound(lock)
+    payloads["environment.json"], payloads["requirements.lock"] = encoded(selected), lock
+    root = _loader_two_slot_hosted_tree(tmp_path / "build-inputs", payloads)
+    calls = []
+    monkeypatch.setattr(builder, "ENVIRONMENT_SHA256", digest(payloads["environment.json"]))
+    monkeypatch.setattr(builder, "platform", SimpleNamespace(system=lambda: "Linux", machine=lambda: "x86_64",
+                                                            python_version=lambda: "3.11.16"))
+    monkeypatch.setattr(builder, "sys", SimpleNamespace(executable="/usr/local/bin/python3.11",
+                                                       flags=SimpleNamespace(isolated=1)))
+    versions = {item["name"]: item["version"] for item in selected["python"]["packages"]}
+    monkeypatch.setattr(builder, "importlib", SimpleNamespace(metadata=SimpleNamespace(
+        version=lambda name: "0.0.0" if fault == "installed_version" else versions[name])))
+    original_read = builder._read
+    monkeypatch.setattr(builder, "_read", lambda path, limit:
+        (b"changed executable" if fault == "interpreter" else executable)
+        if str(path) == "/usr/local/bin/python3.11" else original_read(path, limit))
+
+    def install(argv, **kwargs):
+        calls.append((argv, kwargs))
+        if fault == "post_install_drift":
+            (root / "requirements.lock").write_bytes(lock + b" ")
+        return SimpleNamespace(returncode=1 if fault == "install_exit" else 0)
+
+    monkeypatch.setattr(builder, "subprocess", SimpleNamespace(run=install, DEVNULL=subprocess.DEVNULL))
+    if fault == "environment": (root / "environment.json").write_bytes(payloads["environment.json"] + b" ")
+    elif fault == "lock": (root / "requirements.lock").write_bytes(lock + b" ")
+    elif fault == "wheel": (root / "wheels" / selected["python"]["packages"][0]["filename"]).write_bytes(b"changed")
+    elif fault == "extra_wheel": (root / "wheels/unselected.whl").write_bytes(b"unselected")
+    return SimpleNamespace(builder=builder, selected=selected, root=root, calls=calls, executable=executable)
+
+
+def test_loader_two_slot_hosted_build_installs_only_the_hash_locked_offline_closure_with_mocked_installer(tmp_path, monkeypatch):
+    fixture = _loader_two_slot_hosted_builder_fixture(tmp_path, monkeypatch)
+    record = fixture.builder.build(fixture.root)
+    assert len(fixture.calls) == 1
+    argv, kwargs = fixture.calls[0]
+    assert argv == ["/usr/local/bin/python3.11", "-I", "-B", "-m", "pip", "install", "--no-index", "--no-deps",
+        "--no-cache-dir", "--no-compile", "--disable-pip-version-check", "--require-hashes", "--find-links",
+        str(fixture.root / "wheels"), "-r", str(fixture.root / "requirements.lock")]
+    assert kwargs == {"stdin": subprocess.DEVNULL, "check": False, "timeout": 120}
+    assert record["offline_install"] is True and record["original_payload_included"] is False
+    assert record["reproducible_image_claimed"] is False and record["authority_effect"] == "none"
+    assert (fixture.root / "build-environment-record.json").read_bytes() == encoded(record)
+
+
+@pytest.mark.parametrize("fault", ["environment", "lock", "wheel", "extra_wheel", "interpreter",
+                                    "install_exit", "installed_version", "post_install_drift", "publication_close"])
+def test_loader_two_slot_hosted_build_rejects_input_substitution_and_failed_publication_without_network(
+        tmp_path, monkeypatch, fault):
+    fixture = _loader_two_slot_hosted_builder_fixture(tmp_path, monkeypatch, fault=fault)
+    target = fixture.root / "build-environment-record.json"
+    injected = []
+    if fault == "publication_close":
+        close = os.close
+
+        def fail_close(fd):
+            if not injected and target.exists() and target.stat().st_size:
+                opened, saved = os.fstat(fd), target.stat()
+                if (opened.st_dev, opened.st_ino) == (saved.st_dev, saved.st_ino):
+                    injected.append(True)
+                    close(fd)
+                    raise OSError(errno.EIO, "authored record close failure")
+            return close(fd)
+
+        monkeypatch.setattr(os, "close", fail_close)
+    with pytest.raises((OSError, ValueError)):
+        fixture.builder.build(fixture.root)
+    assert not target.exists()
+    assert len(fixture.calls) == (0 if fault in {"environment", "lock", "wheel", "extra_wheel", "interpreter"} else 1)
+    if fault == "publication_close": assert injected == [True]
+
+
+@pytest.mark.parametrize("fault", [None, "version", "machine", "isolated", "executable", "package", "record"])
+def test_loader_two_slot_hosted_passive_environment_check_binds_interpreter_packages_and_preserved_build_record(
+        tmp_path, monkeypatch, fault):
+    runner = loader_two_slot_hosted_runner()
+    selected = json.loads((ROOT / LOADER_TWO_SLOT_HOSTED_CONFIG / "environment.json").read_bytes())
+    executable = b"authored interpreter fixture; never executed\n"
+    selected["python"]["observer_binding"] = bound(executable)
+    versions = {row["name"]: row["version"] for row in selected["python"]["packages"]}
+    record = {"record_type": "required_gate_idempotence_loader_two_slot_build_v0", "profile": LOADER_TWO_SLOT_HOSTED_PROFILE,
+        "environment": runner.hosted.ENVIRONMENT_BINDING, "requirements": selected["requirements"],
+        "wheels": {row["filename"]: {key: row[key] for key in ("size_bytes", "sha256")} for row in selected["python"]["packages"]},
+        "python": selected["python"]["observer_binding"], "installed": versions,
+        "offline_install": True, "reproducible_image_claimed": False, "original_payload_included": False, "authority_effect": "none"}
+    build = tmp_path / "build-environment-record.json"
+    build.write_bytes(encoded(record) + (b" " if fault == "record" else b""))
+    output = tmp_path / "output"
+    output.mkdir()
+    monkeypatch.setattr(runner, "OUTPUT", output)
+    monkeypatch.setattr(runner, "BUILD_RECORD", build)
+    monkeypatch.setattr(runner.hosted, "environment", lambda: copy.deepcopy(selected))
+    monkeypatch.setattr(runner, "platform", SimpleNamespace(system=lambda: "Linux",
+        machine=lambda: "aarch64" if fault == "machine" else "x86_64",
+        python_version=lambda: "3.12.0" if fault == "version" else "3.11.16"))
+    monkeypatch.setattr(runner, "sys", SimpleNamespace(executable="/usr/local/bin/python3.11",
+        flags=SimpleNamespace(isolated=0 if fault == "isolated" else 1)))
+    monkeypatch.setattr(runner, "importlib", SimpleNamespace(metadata=SimpleNamespace(
+        version=lambda name: "0.0.0" if fault == "package" else versions[name])))
+    read = runner.core.read_regular
+    monkeypatch.setattr(runner.core, "read_regular", lambda path, *args, **kwargs:
+        (b"changed interpreter" if fault == "executable" else executable)
+        if str(path) == "/usr/local/bin/python3.11" else read(path, *args, **kwargs))
+    monkeypatch.setattr(runner, "_command", lambda *_args, **_kwargs: pytest.fail("passive environment check executed a command"))
+    if fault is None:
+        assert runner._environment_check(preserve=True) == record
+        assert (output / "build-environment-record.json").read_bytes() == encoded(record)
+    else:
+        with pytest.raises(ValueError):
+            runner._environment_check(preserve=True)
+        assert list(output.iterdir()) == []
+
+
+def test_loader_two_slot_hosted_summary_requires_byte_identical_canonical_checker_outputs():
+    case = _loader_two_slot_hosted_native_case()
+    report = encoded(_loader_two_slot_attempt_check(case))
+    value = loader_two_slot_hosted_checker().make_summary("acquire", _loader_two_slot_hosted_selection(),
+        request_bytes=encoded(case.request), attempt_bytes=encoded(case.attempt), qualification_bytes=case.qualification,
+        report_bytes=(report, report + b" "))
+    assert value["status"] == "preserved_incomplete"
