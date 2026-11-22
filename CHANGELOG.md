@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add a separate [B2 loader two-slot hosted qualification route](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md)
+  with a manual owner-bound workflow, exact source/input preservation, one
+  synthetic probe in a restricted container and independent offline replay in
+  a fresh verification job. Bind current-run artifacts, fixed commands, native
+  reports, owned container cleanup and completed-statement attestation;
+  preserve incomplete prefixes without promoting them. This implementation
+  does not run the workflow. Actual qualification, original source/build
+  admission, original acquisition, B2 completion and release authority remain
+  separate; issue #2879 retains its complete whole-runtime scope.
+
 - Add the [B2 loader two-slot qualification request and attempt adapter](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_ACQUISITION_v0.md)
   with independently selected pre-execution context, exact implementation
   bindings, one acknowledged fixed-probe invocation and closed complete or
