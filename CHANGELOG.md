@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the [B2 loader two-slot qualification request and attempt adapter](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_ACQUISITION_v0.md)
+  with independently selected pre-execution context, exact implementation
+  bindings, one acknowledged fixed-probe invocation and closed complete or
+  incomplete preservation. Reuse the existing raw checker for independent
+  reconstruction and retain scripted/native origin separation. Actual hosted
+  qualification, original loader acquisition, source/build admission, B2
+  completion and release authority remain open.
+
 - Add the [B2 loader two-slot qualification implementation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_QUALIFICATION_v0.md)
   with a separate fixed-probe producer, a closed bounded native record and an
   independent raw-record checker. Bind repeated hardware stops, RF/TF state,

@@ -15545,3 +15545,1085 @@ def test_loader_two_slot_qualification_native_child_proc_dispatch_reaches_termin
     assert report["complete_mechanics_verified"] is True
     assert report["native_record_reconstructed"] is False
     _loader_two_slot_qualification_assert_boundary(report)
+
+
+# Request/attempt-envelope regressions. Raw records below are authored fixtures;
+# adapter cases use the existing scripted kernel surface and never run a probe.
+LOADER_TWO_SLOT_ATTEMPT_CHECKER_REL = (
+    "tools/check_required_gate_idempotence_loader_two_slot_attempt_v0.py")
+LOADER_TWO_SLOT_ATTEMPT_ADAPTER_REL = (
+    "tools/prepare_required_gate_idempotence_loader_two_slot_v0.py")
+LOADER_TWO_SLOT_ATTEMPT_REQUEST_SCHEMA_REL = (
+    "schemas/required_gate_idempotence_loader_two_slot_request_v0.schema.json")
+LOADER_TWO_SLOT_ATTEMPT_SCHEMA_REL = (
+    "schemas/required_gate_idempotence_loader_two_slot_attempt_v0.schema.json")
+
+
+def loader_two_slot_attempt_checker():
+    return module("check_required_gate_idempotence_loader_two_slot_attempt_v0",
+                  LOADER_TWO_SLOT_ATTEMPT_CHECKER_REL)
+
+
+def loader_two_slot_attempt_adapter():
+    return module("prepare_required_gate_idempotence_loader_two_slot_v0",
+                  LOADER_TWO_SLOT_ATTEMPT_ADAPTER_REL)
+
+
+def _loader_two_slot_attempt_sources():
+    # This roster is authored independently of either new module's constants.
+    paths = sorted((
+        LOADER_TWO_SLOT_ATTEMPT_CHECKER_REL, LOADER_TWO_SLOT_ATTEMPT_ADAPTER_REL,
+        LOADER_TWO_SLOT_ATTEMPT_REQUEST_SCHEMA_REL, LOADER_TWO_SLOT_ATTEMPT_SCHEMA_REL,
+        LOADER_TWO_SLOT_QUALIFICATION_CHECKER_REL, LOADER_TWO_SLOT_QUALIFICATION_PRODUCER_REL,
+        LOADER_TWO_SLOT_QUALIFICATION_SCHEMA_REL, "tools/required_gate_idempotence_loader_two_slot_v0.py",
+    ))
+    return [{"path": path, **bound((ROOT / path).read_bytes())} for path in paths]
+
+
+def _loader_two_slot_attempt_fixture(*, origin="scripted_test_backend"):
+    raw_case = _loader_two_slot_qualification_fixture(origin=origin)
+    context = copy.deepcopy(raw_case.context)
+    request = {
+        "record_type": "required_gate_idempotence_loader_two_slot_request_v0",
+        "profile": "linux_x86_64_loader_two_slot_attempt_v0",
+        "request_id": "76" * 16,
+        "acknowledgement": "QUALIFY_LOADER_TWO_SLOT_ONLY",
+        "expected_context": context,
+        "sources": _loader_two_slot_attempt_sources(),
+        "probe": bound(_loader_readout_two_slot_probe_oracle()),
+        "limits": {"native_attempts": 1, "observation_ns": 15_000_000_000,
+                   "cleanup_ns": 2_000_000_000, "qualification_bytes": 1_048_576,
+                   "decoded_raw_bytes": 262_144, "raw_files": 160, "operations": 128},
+        "boundary": _loader_two_slot_qualification_boundary(),
+    }
+    qualification = encoded(raw_case.record)
+    attempt = {
+        "record_type": "required_gate_idempotence_loader_two_slot_attempt_v0",
+        "profile": "linux_x86_64_loader_two_slot_attempt_v0",
+        "request_id": request["request_id"],
+        "request": bound(encoded(request)),
+        "status": "completed", "phase": "complete", "failure": None,
+        "producer_invocations": 1, "evidence_origin": origin,
+        "context_before": copy.deepcopy(context), "context_after": copy.deepcopy(context),
+        "sources_before": copy.deepcopy(request["sources"]),
+        "sources_after": copy.deepcopy(request["sources"]),
+        "qualification": bound(qualification),
+        "boundary": _loader_two_slot_qualification_boundary(),
+    }
+    return SimpleNamespace(request=request, attempt=attempt, qualification=qualification,
+                           raw_case=raw_case, context=context)
+
+
+def _loader_two_slot_attempt_check(case, **overrides):
+    checker = loader_two_slot_attempt_checker()
+    request, attempt = encoded(case.request), encoded(case.attempt)
+    kwargs = {"request_bytes": request, "expected_request_sha256": digest(request),
+              "attempt_bytes": attempt, "expected_attempt_sha256": digest(attempt),
+              "qualification_bytes": case.qualification}
+    kwargs.update(overrides)
+    return checker.verify_attempt(**kwargs)
+
+
+def _loader_two_slot_attempt_rebind_qualification(case):
+    case.qualification = encoded(case.raw_case.record)
+    case.attempt["qualification"] = bound(case.qualification)
+
+
+def _loader_two_slot_attempt_incomplete(case, *, phase="verification", invocations=1):
+    case.attempt.update(status="incomplete", phase=phase,
+                        failure="authored_attempt_failure", producer_invocations=invocations)
+    if invocations == 0:
+        case.attempt["evidence_origin"] = "not_invoked"
+        case.qualification = None
+        case.attempt["qualification"] = None
+    return case
+
+
+def _loader_two_slot_attempt_assert_incomplete(report):
+    assert report["status"] == "preserved_incomplete"
+    assert report["complete_mechanics_verified"] is False
+    assert report["native_record_reconstructed"] is False
+    assert report["scripted_record_reconstructed"] is False
+    _loader_two_slot_qualification_assert_boundary(report)
+
+
+@pytest.fixture
+def loader_two_slot_attempt_modules(loader_two_slot_qualification_modules, monkeypatch):
+    modules = loader_two_slot_qualification_modules
+    checker, adapter = loader_two_slot_attempt_checker(), loader_two_slot_attempt_adapter()
+
+    def forbidden_context():
+        pytest.fail("attempt regressions must select authored context, not the live host")
+
+    monkeypatch.setattr(adapter, "read_context", forbidden_context)
+    return SimpleNamespace(checker=checker, adapter=adapter, producer=modules.producer)
+
+
+def test_loader_two_slot_attempt_preserves_qualification_bytes_and_existing_test_prefix():
+    selected = {
+        LOADER_TWO_SLOT_QUALIFICATION_CHECKER_REL:
+            (29770, "258b0e9a2cd1dee9b3d83b9c39ceb10ceb0946d9725aed6c86d2bf83297cbc18"),
+        LOADER_TWO_SLOT_QUALIFICATION_PRODUCER_REL:
+            (38571, "51a87458b0c9e9af1bdb96e3ed5ebbc615f6ff812fe2b6192e9b00036837ed7b"),
+        LOADER_TWO_SLOT_QUALIFICATION_SCHEMA_REL:
+            (34562, "1dd15cd020ae019c27cd1a2db3dc3e0de081970e96e97a8d36b7b27bd1eb81d1"),
+        "tools/required_gate_idempotence_loader_two_slot_v0.py":
+            (23627, "4f0e5e3661a204914bfa65e327b7d88dc7a704efc229d97f4f1fa369cdf372f3"),
+    }
+    for path, (size, sha256) in selected.items():
+        assert bound((ROOT / path).read_bytes()) == {"size_bytes": size, "sha256": sha256}, path
+    assert digest((ROOT / SELF).read_bytes()[:858969]) == (
+        "4b387e84db595bba5d395f37e15fdbc2bcc52c68f802fca7ae5b4bcf6d3e4812")
+    test_containment_module_is_registered_once_without_targeted_duplication()
+
+
+@pytest.mark.parametrize("origin,native", [("scripted_test_backend", False), ("native_owned_probe", True)])
+def test_loader_two_slot_attempt_authored_envelope_reconstructs_with_distinct_origins(origin, native):
+    case = _loader_two_slot_attempt_fixture(origin=origin)
+    checker = loader_two_slot_attempt_checker()
+    raw = encoded(case.request)
+    assert checker.verify_request(request_bytes=raw, expected_request_sha256=digest(raw)) == case.request
+    report = _loader_two_slot_attempt_check(case)
+    assert report["status"] == ("accepted_native_qualification_attempt" if native else
+                                "accepted_scripted_qualification_attempt")
+    assert report["complete_mechanics_verified"] is True
+    assert report["native_record_reconstructed"] is native
+    assert report["scripted_record_reconstructed"] is not native
+    _loader_two_slot_qualification_assert_boundary(report)
+
+
+@pytest.mark.parametrize("fault", [
+    "extra_field", "missing_field", "profile", "acknowledgement", "request_id", "probe_digest",
+    "probe_size_bool", "limit", "limit_bool", "boundary", "context_boot", "context_machine",
+    "context_extra", "observer_size_bool", "namespace", "source_digest", "source_size",
+    "source_duplicate", "source_missing", "source_extra", "source_order", "source_path",
+])
+def test_loader_two_slot_attempt_request_rehashed_selection_fault_is_rejected(fault):
+    case = _loader_two_slot_attempt_fixture()
+    request = case.request
+    if fault == "extra_field":
+        request["unexpected"] = True
+    elif fault == "missing_field":
+        del request["probe"]
+    elif fault == "profile":
+        request["profile"] = "linux_x86_64_original_launcher_entry_stop_v0"
+    elif fault == "acknowledgement":
+        request["acknowledgement"] = "OBSERVE_ORIGINAL_LAUNCHER_ENTRY_STOP_ONLY"
+    elif fault == "request_id":
+        request["request_id"] = "AB" * 16
+    elif fault == "probe_digest":
+        request["probe"]["sha256"] = "0" * 64
+    elif fault == "probe_size_bool":
+        request["probe"]["size_bytes"] = True
+    elif fault == "limit":
+        request["limits"]["native_attempts"] = 2
+    elif fault == "limit_bool":
+        request["limits"]["native_attempts"] = True
+    elif fault == "boundary":
+        request["boundary"]["physical_execution_authenticated"] = True
+    elif fault == "context_boot":
+        request["expected_context"]["boot_id"] = "not-a-boot-identity"
+    elif fault == "context_machine":
+        request["expected_context"]["uname"]["machine"] = "aarch64"
+    elif fault == "context_extra":
+        request["expected_context"]["authority"] = True
+    elif fault == "observer_size_bool":
+        request["expected_context"]["observer"]["size_bytes"] = True
+    elif fault == "namespace":
+        request["expected_context"]["namespaces"]["pid"] = "mnt:[2201]"
+    elif fault == "source_digest":
+        request["sources"][0]["sha256"] = "0" * 64
+    elif fault == "source_size":
+        request["sources"][0]["size_bytes"] += 1
+    elif fault == "source_duplicate":
+        request["sources"][1] = copy.deepcopy(request["sources"][0])
+    elif fault == "source_missing":
+        request["sources"].pop()
+    elif fault == "source_extra":
+        request["sources"].append({"path": "tools/unreviewed.py", **bound(b"not selected")})
+    elif fault == "source_order":
+        request["sources"].reverse()
+    elif fault == "source_path":
+        request["sources"][0]["path"] = "../unreviewed.py"
+    checker = loader_two_slot_attempt_checker()
+    raw = encoded(request)
+    with pytest.raises(ValueError):
+        checker.verify_request(request_bytes=raw, expected_request_sha256=digest(raw))
+
+
+@pytest.mark.parametrize("fault", [
+    "extra_field", "missing_field", "profile", "request_id", "request_digest", "request_size",
+    "qualification_digest", "qualification_size", "invocations_two", "invocations_bool",
+    "invocations_zero", "origin", "failure", "phase", "context_before", "context_after",
+    "context_null", "sources_before", "sources_after", "sources_null", "source_duplicate",
+    "source_order", "boundary", "no_raw", "empty_raw", "invalid_raw", "raw_incomplete",
+    "raw_bad_rf", "raw_context", "raw_origin",
+])
+def test_loader_two_slot_attempt_completed_envelope_cannot_hide_rebound_mismatch(fault):
+    case = _loader_two_slot_attempt_fixture()
+    attempt = case.attempt
+    if fault == "extra_field":
+        attempt["unexpected"] = True
+    elif fault == "missing_field":
+        del attempt["context_after"]
+    elif fault == "profile":
+        attempt["profile"] = "linux_x86_64_loader_two_slot_qualification_v0"
+    elif fault == "request_id":
+        attempt["request_id"] = "23" * 16
+    elif fault == "request_digest":
+        attempt["request"]["sha256"] = "0" * 64
+    elif fault == "request_size":
+        attempt["request"]["size_bytes"] += 1
+    elif fault == "qualification_digest":
+        attempt["qualification"]["sha256"] = "0" * 64
+    elif fault == "qualification_size":
+        attempt["qualification"]["size_bytes"] += 1
+    elif fault == "invocations_two":
+        attempt["producer_invocations"] = 2
+    elif fault == "invocations_bool":
+        attempt["producer_invocations"] = True
+    elif fault == "invocations_zero":
+        attempt["producer_invocations"] = 0
+        attempt["evidence_origin"] = "not_invoked"
+    elif fault == "origin":
+        attempt["evidence_origin"] = "native_owned_probe"
+    elif fault == "failure":
+        attempt["failure"] = "authored_failure"
+    elif fault == "phase":
+        attempt["phase"] = "qualification"
+    elif fault in ("context_before", "context_after"):
+        attempt[fault]["boot_id"] = "abcdef01-89ab-cdef-0123-456789abcdef"
+    elif fault == "context_null":
+        attempt["context_before"] = None
+    elif fault in ("sources_before", "sources_after"):
+        attempt[fault][0]["sha256"] = "0" * 64
+    elif fault == "sources_null":
+        attempt["sources_after"] = None
+    elif fault == "source_duplicate":
+        attempt["sources_after"][1] = copy.deepcopy(attempt["sources_after"][0])
+    elif fault == "source_order":
+        attempt["sources_after"].reverse()
+    elif fault == "boundary":
+        attempt["boundary"]["current_host_admission_satisfied"] = True
+    elif fault in ("no_raw", "empty_raw", "invalid_raw"):
+        case.qualification = None if fault == "no_raw" else b"" if fault == "empty_raw" else b"{"
+        attempt["qualification"] = None if case.qualification is None else bound(case.qualification)
+    elif fault == "raw_incomplete":
+        case.raw_case.record.update(status="incomplete", phase="event.01", failure="authored_stop_failure")
+        _loader_two_slot_attempt_rebind_qualification(case)
+    elif fault == "raw_bad_rf":
+        _loader_two_slot_qualification_set_word(
+            case.raw_case, "event.01.regs.a.bin", 18 * 8, 0x202, both=True)
+        _loader_two_slot_attempt_rebind_qualification(case)
+    elif fault == "raw_context":
+        case.raw_case.record["context"]["boot_id"] = "abcdef01-89ab-cdef-0123-456789abcdef"
+        case.raw_case.record["context_after"] = copy.deepcopy(case.raw_case.record["context"])
+        _loader_two_slot_attempt_rebind_qualification(case)
+    elif fault == "raw_origin":
+        case.raw_case.record["evidence_origin"] = "native_owned_probe"
+        _loader_two_slot_attempt_rebind_qualification(case)
+    with pytest.raises(ValueError):
+        _loader_two_slot_attempt_check(case)
+
+
+@pytest.mark.parametrize("fault", ["no_raw", "empty_raw", "invalid_raw", "raw_incomplete",
+                                    "context_drift", "source_drift", "no_invocation"])
+def test_loader_two_slot_attempt_incomplete_diagnostics_never_establish_mechanics(fault):
+    case = _loader_two_slot_attempt_incomplete(_loader_two_slot_attempt_fixture())
+    if fault in ("no_raw", "empty_raw", "invalid_raw"):
+        case.qualification = None if fault == "no_raw" else b"" if fault == "empty_raw" else b"{"
+        case.attempt["qualification"] = None if case.qualification is None else bound(case.qualification)
+    elif fault == "raw_incomplete":
+        case.raw_case.record.update(status="incomplete", phase="event.03", failure="authored_stop_failure")
+        _loader_two_slot_attempt_rebind_qualification(case)
+    elif fault == "context_drift":
+        case.attempt["context_after"]["boot_id"] = "abcdef01-89ab-cdef-0123-456789abcdef"
+    elif fault == "source_drift":
+        case.attempt["sources_after"][0]["sha256"] = "0" * 64
+    else:
+        _loader_two_slot_attempt_incomplete(case, phase="admission", invocations=0)
+    _loader_two_slot_attempt_assert_incomplete(_loader_two_slot_attempt_check(case))
+
+
+@pytest.mark.parametrize("fault", ["failure_missing", "phase_complete", "scripted_to_native",
+                                    "raw_despite_zero_invocations"])
+def test_loader_two_slot_attempt_incomplete_status_cannot_launder_origin_or_invocation(fault):
+    case = _loader_two_slot_attempt_incomplete(_loader_two_slot_attempt_fixture())
+    if fault == "failure_missing":
+        case.attempt["failure"] = None
+    elif fault == "phase_complete":
+        case.attempt["phase"] = "complete"
+    elif fault == "scripted_to_native":
+        case.attempt["evidence_origin"] = "native_owned_probe"
+    else:
+        case.attempt["producer_invocations"] = 0
+        case.attempt["evidence_origin"] = "not_invoked"
+    with pytest.raises(ValueError):
+        _loader_two_slot_attempt_check(case)
+
+
+@pytest.mark.parametrize("target,fault", [
+    (target, fault) for target in ("request", "attempt")
+    for fault in ("duplicate_key", "float", "nonfinite", "wrong_digest", "oversize")
+])
+def test_loader_two_slot_attempt_strict_json_and_external_selection(target, fault):
+    case = _loader_two_slot_attempt_fixture()
+    selected = encoded(getattr(case, target))
+    if fault == "duplicate_key":
+        selected = b'{"profile":"duplicate",' + selected[1:]
+    elif fault == "float":
+        selected = selected.replace(b'"producer_invocations":1', b'"producer_invocations":1.0') if target == "attempt" else selected.replace(b'"native_attempts":1', b'"native_attempts":1.0')
+    elif fault == "nonfinite":
+        selected = selected.replace(b'"failure":null', b'"failure":NaN') if target == "attempt" else selected.replace(b'"native_attempts":1', b'"native_attempts":NaN')
+    elif fault == "oversize":
+        selected = b" " * (2 * 1024 * 1024) + selected
+    sha256 = "0" * 64 if fault == "wrong_digest" else digest(selected)
+    checker = loader_two_slot_attempt_checker()
+    with pytest.raises(ValueError):
+        if target == "request":
+            checker.verify_request(request_bytes=selected, expected_request_sha256=sha256)
+        else:
+            _loader_two_slot_attempt_check(case, attempt_bytes=selected, expected_attempt_sha256=sha256)
+
+
+def test_loader_two_slot_attempt_checker_does_not_read_verifier_host_context(monkeypatch):
+    case = _loader_two_slot_attempt_fixture(origin="native_owned_probe")
+    monkeypatch.setattr(os, "uname", lambda: pytest.fail("record verification must not select verifier host"))
+    monkeypatch.setattr(os, "readlink", lambda *_a, **_kw: pytest.fail("verification must not read live namespaces"))
+    report = _loader_two_slot_attempt_check(case)
+    assert report["complete_mechanics_verified"] is True
+    assert report["current_host_admission_satisfied"] is False
+
+
+def test_loader_two_slot_attempt_checker_rechecks_source_inventory_after_reconstruction(monkeypatch):
+    case = _loader_two_slot_attempt_fixture()
+    checker = loader_two_slot_attempt_checker()
+    actual = checker._source_bytes
+    calls = []
+
+    def changed_sources():
+        sources = actual()
+        calls.append(True)
+        if len(calls) > 1:
+            sources[LOADER_TWO_SLOT_ATTEMPT_ADAPTER_REL] += b"\n# concurrent source change\n"
+        return sources
+
+    monkeypatch.setattr(checker, "_source_bytes", changed_sources)
+    with pytest.raises(ValueError):
+        _loader_two_slot_attempt_check(case)
+    assert len(calls) >= 2
+
+
+def _loader_two_slot_attempt_run(modules, output, *, backend=None, case=None,
+                               context_reader=None, acknowledgement="QUALIFY_LOADER_TWO_SLOT_ONLY"):
+    case = _loader_two_slot_attempt_fixture() if case is None else case
+    backend = _LoaderTwoSlotQualificationScriptedBackend() if backend is None else backend
+    request = encoded(case.request)
+    receipt = modules.adapter.attempt(
+        request_bytes=request, expected_request_sha256=digest(request),
+        acknowledgement=acknowledgement, output_directory=output, backend=backend,
+        context_reader=(lambda: copy.deepcopy(case.context)) if context_reader is None else context_reader)
+    return case, backend, receipt
+
+
+def _loader_two_slot_attempt_saved_report(output, request):
+    attempt = (output / "attempt.json").read_bytes()
+    qualification_path = output / "qualification.json"
+    return loader_two_slot_attempt_checker().verify_attempt(
+        request_bytes=request, expected_request_sha256=digest(request),
+        attempt_bytes=attempt, expected_attempt_sha256=digest(attempt),
+        qualification_bytes=qualification_path.read_bytes() if qualification_path.exists() else None)
+
+
+def test_loader_two_slot_attempt_prepare_selects_context_before_execution(loader_two_slot_attempt_modules, tmp_path):
+    modules = loader_two_slot_attempt_modules
+    case = _loader_two_slot_attempt_fixture()
+    selected = []
+
+    def read_selected():
+        selected.append(True)
+        return copy.deepcopy(case.context)
+
+    destination = tmp_path / "request.json"
+    raw = modules.adapter.prepare(output=destination, request_id=case.request["request_id"],
+                                  context_reader=read_selected)
+    assert len(selected) == 2
+    assert raw == destination.read_bytes() == encoded(case.request)
+    assert stat.S_IMODE(destination.stat().st_mode) == 0o600
+    assert modules.checker.verify_request(request_bytes=raw, expected_request_sha256=digest(raw)) == case.request
+
+
+def test_loader_two_slot_attempt_prepare_rejects_context_change_without_request(loader_two_slot_attempt_modules, tmp_path):
+    case = _loader_two_slot_attempt_fixture()
+    calls = []
+
+    def changing_context():
+        value = copy.deepcopy(case.context)
+        calls.append(True)
+        if len(calls) > 1:
+            value["boot_id"] = "abcdef01-89ab-cdef-0123-456789abcdef"
+        return value
+
+    output = tmp_path / "request.json"
+    with pytest.raises(ValueError):
+        loader_two_slot_attempt_modules.adapter.prepare(output=output, context_reader=changing_context)
+    assert not output.exists()
+
+
+@pytest.mark.parametrize("kind", ["file", "symlink", "directory"])
+def test_loader_two_slot_attempt_prepare_preserves_existing_output(loader_two_slot_attempt_modules, tmp_path, kind):
+    case = _loader_two_slot_attempt_fixture()
+    owner = tmp_path / "owner.json"
+    owner.write_bytes(b"owner data stays exact\n")
+    output = tmp_path / "request.json"
+    if kind == "file":
+        output = owner
+    elif kind == "symlink":
+        output.symlink_to(owner)
+    else:
+        output.mkdir()
+    with pytest.raises((ValueError, OSError)):
+        loader_two_slot_attempt_modules.adapter.prepare(
+            output=output, context_reader=lambda: copy.deepcopy(case.context))
+    assert owner.read_bytes() == b"owner data stays exact\n"
+    if kind == "symlink":
+        assert output.is_symlink()
+    elif kind == "directory":
+        assert output.is_dir() and list(output.iterdir()) == []
+
+
+def test_loader_two_slot_attempt_adapter_reserves_every_output_before_single_scripted_invocation(
+        loader_two_slot_attempt_modules, tmp_path, monkeypatch):
+    modules = loader_two_slot_attempt_modules
+    case = _loader_two_slot_attempt_fixture()
+    backend = _LoaderTwoSlotQualificationScriptedBackend()
+    output = tmp_path / "attempt"
+    invoke = modules.producer.qualify
+    calls = []
+
+    def observed_invocation(*, backend):
+        calls.append(True)
+        assert {item.name for item in output.iterdir()} == {"request.json", "qualification.json", "attempt.json"}
+        assert (output / "request.json").read_bytes() == encoded(case.request)
+        assert (output / "qualification.json").read_bytes() == (output / "attempt.json").read_bytes() == b""
+        assert stat.S_IMODE(output.stat().st_mode) == 0o700
+        for path in output.iterdir():
+            assert stat.S_IMODE(path.stat().st_mode) == 0o600
+        return invoke(backend=backend)
+
+    monkeypatch.setattr(modules.producer, "qualify", observed_invocation)
+    _, backend, receipt = _loader_two_slot_attempt_run(modules, output, backend=backend, case=case)
+    assert calls == [True] and receipt["producer_invocations"] == 1
+    assert receipt["evidence_origin"] == "scripted_test_backend"
+    assert receipt["status"] == "completed" and receipt["phase"] == "complete"
+    assert receipt["failure"] is None and backend.closed and backend.reaped
+    assert backend.cont_count == 11
+    assert (output / "attempt.json").read_bytes() == encoded(receipt)
+    record = json.loads((output / "qualification.json").read_bytes())
+    assert record["evidence_origin"] == "scripted_test_backend"
+    assert record["context"] == receipt["context_before"] == case.context
+    report = _loader_two_slot_attempt_saved_report(output, encoded(case.request))
+    assert report["status"] == "accepted_scripted_qualification_attempt"
+    assert report["complete_mechanics_verified"] is True
+    _loader_two_slot_qualification_assert_boundary(report)
+
+
+@pytest.mark.parametrize("acknowledgement", ["", "qualify_loader_two_slot_only", "OBSERVE_ORIGINAL_LAUNCHER_ENTRY_STOP_ONLY", True])
+def test_loader_two_slot_attempt_wrong_acknowledgement_never_invokes_producer(
+        loader_two_slot_attempt_modules, tmp_path, acknowledgement):
+    modules = loader_two_slot_attempt_modules
+    backend = _LoaderTwoSlotQualificationScriptedBackend()
+    output = tmp_path / "not-created"
+    with pytest.raises(ValueError):
+        _loader_two_slot_attempt_run(modules, output, backend=backend, acknowledgement=acknowledgement)
+    assert backend.calls == [] and not output.exists()
+
+
+@pytest.mark.parametrize("fault", ["digest", "source", "request_shape"])
+def test_loader_two_slot_attempt_rejected_request_never_invokes_producer(
+        loader_two_slot_attempt_modules, tmp_path, fault):
+    modules = loader_two_slot_attempt_modules
+    case = _loader_two_slot_attempt_fixture()
+    if fault == "source":
+        case.request["sources"][0]["sha256"] = "0" * 64
+    elif fault == "request_shape":
+        case.request["undeclared"] = True
+    raw = encoded(case.request)
+    backend = _LoaderTwoSlotQualificationScriptedBackend()
+    output = tmp_path / "not-created"
+    with pytest.raises(ValueError):
+        modules.adapter.attempt(request_bytes=raw,
+            expected_request_sha256="0" * 64 if fault == "digest" else digest(raw),
+            acknowledgement=modules.adapter.ACKNOWLEDGEMENT, output_directory=output,
+            backend=backend, context_reader=lambda: copy.deepcopy(case.context))
+    assert backend.calls == [] and not output.exists()
+
+
+@pytest.mark.parametrize("kind", ["directory", "file", "symlink"])
+def test_loader_two_slot_attempt_existing_directory_or_alias_cannot_trigger_probe(
+        loader_two_slot_attempt_modules, tmp_path, kind):
+    modules = loader_two_slot_attempt_modules
+    backend = _LoaderTwoSlotQualificationScriptedBackend()
+    owner = tmp_path / "owner"
+    owner.mkdir()
+    sentinel = owner / "sentinel"
+    sentinel.write_bytes(b"untouched owner directory\n")
+    output = tmp_path / "attempt"
+    if kind == "directory":
+        output = owner
+    elif kind == "symlink":
+        output.symlink_to(owner, target_is_directory=True)
+    else:
+        output.write_bytes(b"existing output file\n")
+    with pytest.raises((ValueError, OSError)):
+        _loader_two_slot_attempt_run(modules, output, backend=backend)
+    assert backend.calls == [] and sentinel.read_bytes() == b"untouched owner directory\n"
+    assert {item.name for item in owner.iterdir()} == {"sentinel"}
+    if kind == "file":
+        assert output.read_bytes() == b"existing output file\n"
+    elif kind == "symlink":
+        assert output.is_symlink()
+
+
+def test_loader_two_slot_attempt_context_mismatch_is_preserved_without_invocation(
+        loader_two_slot_attempt_modules, tmp_path):
+    modules = loader_two_slot_attempt_modules
+    case = _loader_two_slot_attempt_fixture()
+    changed = copy.deepcopy(case.context)
+    changed["boot_id"] = "abcdef01-89ab-cdef-0123-456789abcdef"
+    output = tmp_path / "attempt"
+    _, backend, receipt = _loader_two_slot_attempt_run(
+        modules, output, case=case, context_reader=lambda: copy.deepcopy(changed))
+    assert backend.calls == []
+    assert receipt["status"] == "incomplete" and receipt["phase"] == "admission"
+    assert receipt["producer_invocations"] == 0 and receipt["evidence_origin"] == "not_invoked"
+    assert receipt["context_before"] == changed
+    assert (output / "qualification.json").read_bytes() == b""
+    _loader_two_slot_attempt_assert_incomplete(_loader_two_slot_attempt_saved_report(output, encoded(case.request)))
+
+
+@pytest.mark.parametrize("which", ["context", "source"])
+def test_loader_two_slot_attempt_post_cleanup_drift_cannot_publish_completed_receipt(
+        loader_two_slot_attempt_modules, tmp_path, monkeypatch, which):
+    modules = loader_two_slot_attempt_modules
+    case = _loader_two_slot_attempt_fixture()
+    state = {"after": False}
+
+    class ChangedAfterCleanup(_LoaderTwoSlotQualificationScriptedBackend):
+        def close(self):
+            super().close()
+            state["after"] = True
+
+    backend = ChangedAfterCleanup()
+    inventory = modules.checker.source_inventory
+
+    def sources():
+        value = inventory()
+        if state["after"] and which == "source":
+            value[0]["sha256"] = "0" * 64
+        return value
+
+    def context():
+        value = copy.deepcopy(case.context)
+        if state["after"] and which == "context":
+            value["boot_id"] = "abcdef01-89ab-cdef-0123-456789abcdef"
+        return value
+
+    monkeypatch.setattr(modules.checker, "source_inventory", sources)
+    output = tmp_path / "attempt"
+    _, backend, receipt = _loader_two_slot_attempt_run(modules, output, case=case,
+                                                       backend=backend, context_reader=context)
+    assert receipt["status"] == "incomplete" and receipt["producer_invocations"] == 1
+    assert backend.closed and backend.reaped and backend.cont_count == 11
+    assert json.loads((output / "qualification.json").read_bytes())["status"] == "completed"
+    _loader_two_slot_attempt_assert_incomplete(_loader_two_slot_attempt_saved_report(output, encoded(case.request)))
+
+
+@pytest.mark.parametrize("fault,max_cont", [("spawn_before_child", 0), ("partial_sample", 4),
+                                           ("tenth_return", 11), ("cleanup_failure", 11)])
+def test_loader_two_slot_attempt_retains_bounded_producer_failures_without_retry(
+        loader_two_slot_attempt_modules, tmp_path, fault, max_cont):
+    modules = loader_two_slot_attempt_modules
+    backend = _LoaderTwoSlotQualificationScriptedBackend(fault=fault)
+    output = tmp_path / "attempt"
+    case, backend, receipt = _loader_two_slot_attempt_run(modules, output, backend=backend)
+    assert receipt["status"] == "incomplete" and receipt["producer_invocations"] == 1
+    assert backend.closed and backend.cont_count == max_cont
+    assert sum(call[0] == "spawn" for call in backend.calls) == 1
+    raw = json.loads((output / "qualification.json").read_bytes())
+    assert raw["status"] == "incomplete" and raw["failure"]
+    if fault == "partial_sample":
+        assert "event.03.regs.b.bin" in raw["raw"] and "event.03.debug.b.bin" not in raw["raw"]
+    _loader_two_slot_attempt_assert_incomplete(_loader_two_slot_attempt_saved_report(output, encoded(case.request)))
+
+
+def test_loader_two_slot_attempt_interrupted_invocation_preserves_one_failed_attempt(
+        loader_two_slot_attempt_modules, tmp_path, monkeypatch):
+    modules = loader_two_slot_attempt_modules
+    calls = []
+
+    def interrupt(*, backend):
+        calls.append(backend)
+        raise KeyboardInterrupt()
+
+    monkeypatch.setattr(modules.producer, "qualify", interrupt)
+    output = tmp_path / "attempt"
+    case, backend, receipt = _loader_two_slot_attempt_run(modules, output)
+    assert calls == [backend] and receipt["producer_invocations"] == 1
+    assert receipt["status"] == "incomplete" and receipt["failure"] == "two_slot_attempt_interrupted"
+    assert (output / "qualification.json").read_bytes() == b""
+    _loader_two_slot_attempt_assert_incomplete(_loader_two_slot_attempt_saved_report(output, encoded(case.request)))
+
+
+def test_loader_two_slot_attempt_real_source_drift_preserves_incomplete_evidence(
+        loader_two_slot_attempt_modules, tmp_path, monkeypatch):
+    modules = loader_two_slot_attempt_modules
+    case = _loader_two_slot_attempt_fixture()
+    selected = tmp_path / "selected-source"
+    for item in case.request["sources"]:
+        target = selected / item["path"]
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((ROOT / item["path"]).read_bytes())
+    monkeypatch.setattr(modules.checker, "ROOT", selected)
+    monkeypatch.setattr(modules.checker.raw, "ROOT", selected)
+    changed = selected / LOADER_TWO_SLOT_ATTEMPT_ADAPTER_REL
+    original = changed.read_bytes()
+
+    class ChangedSelectedSource(_LoaderTwoSlotQualificationScriptedBackend):
+        def close(self):
+            super().close()
+            changed.write_bytes(original + b"\n# authored concurrent selected-source change\n")
+
+    backend = ChangedSelectedSource()
+    output = tmp_path / "attempt"
+    try:
+        _, backend, receipt = _loader_two_slot_attempt_run(modules, output, case=case, backend=backend)
+        assert receipt["status"] == "incomplete" and receipt["producer_invocations"] == 1
+        before = next(row for row in receipt["sources_before"] if row["path"] == LOADER_TWO_SLOT_ATTEMPT_ADAPTER_REL)
+        after = next(row for row in receipt["sources_after"] if row["path"] == LOADER_TWO_SLOT_ATTEMPT_ADAPTER_REL)
+        assert before == {"path": LOADER_TWO_SLOT_ATTEMPT_ADAPTER_REL, **bound(original)}
+        assert after == {"path": LOADER_TWO_SLOT_ATTEMPT_ADAPTER_REL, **bound(changed.read_bytes())}
+        assert before != after and backend.closed and backend.reaped
+    finally:
+        changed.write_bytes(original)
+    # Independent later replay uses the selected original source again, while
+    # retaining the changed after-snapshot as failure evidence, never success.
+    _loader_two_slot_attempt_assert_incomplete(_loader_two_slot_attempt_saved_report(output, encoded(case.request)))
+
+
+@pytest.mark.parametrize("target", ["request.json", "qualification.json", "attempt.json", "directory", "parent"])
+def test_loader_two_slot_attempt_publication_replacement_preserves_owner_bytes_and_invalidates_receipt(
+        loader_two_slot_attempt_modules, tmp_path, monkeypatch, target):
+    modules = loader_two_slot_attempt_modules
+    parent = tmp_path / "selected-parent"
+    parent.mkdir()
+    output = parent / "attempt"
+    displaced = tmp_path / "displaced"
+    owner_bytes = b"concurrent owner replacement stays exact\n"
+    publish = modules.adapter._publish
+    replaced = []
+    owner_path = []
+    owned_receipt = []
+
+    def replacing_publish(fd, data):
+        publish(fd, data)
+        if json.loads(data)["record_type"] != "required_gate_idempotence_loader_two_slot_attempt_v0":
+            return
+        assert json.loads((output / "attempt.json").read_bytes())["status"] == "completed"
+        replaced.append(True)
+        if target == "parent":
+            parent.rename(displaced)
+            parent.mkdir()
+            owner_path.append(parent / "owner")
+            owned_receipt.append(displaced / "attempt" / "attempt.json")
+        elif target == "directory":
+            output.rename(displaced)
+            output.mkdir()
+            owner_path.append(output / "owner")
+            owned_receipt.append(displaced / "attempt.json")
+        else:
+            leaf = output / target
+            leaf.rename(displaced)
+            owner_path.append(leaf)
+            owned_receipt.append(displaced if target == "attempt.json" else output / "attempt.json")
+        owner_path[0].write_bytes(owner_bytes)
+
+    monkeypatch.setattr(modules.adapter, "_publish", replacing_publish)
+    backend = _LoaderTwoSlotQualificationScriptedBackend()
+    with pytest.raises((ValueError, OSError)):
+        _loader_two_slot_attempt_run(modules, output, backend=backend)
+    assert replaced == [True] and backend.closed and backend.reaped
+    assert owner_path[0].read_bytes() == owner_bytes
+    assert owned_receipt[0].read_bytes() == b""
+
+
+def test_loader_two_slot_attempt_unexpected_reserved_roster_blocks_execution(
+        loader_two_slot_attempt_modules, tmp_path, monkeypatch):
+    modules = loader_two_slot_attempt_modules
+    output = tmp_path / "attempt"
+    publish = modules.adapter._publish
+    backend = _LoaderTwoSlotQualificationScriptedBackend()
+
+    def add_unexpected(fd, data):
+        publish(fd, data)
+        if json.loads(data)["record_type"] == "required_gate_idempotence_loader_two_slot_request_v0":
+            (output / "unselected.json").write_bytes(b"unselected additional file\n")
+
+    monkeypatch.setattr(modules.adapter, "_publish", add_unexpected)
+    with pytest.raises(ValueError):
+        _loader_two_slot_attempt_run(modules, output, backend=backend)
+    assert backend.calls == [] and (output / "attempt.json").read_bytes() == b""
+    assert (output / "unselected.json").read_bytes() == b"unselected additional file\n"
+
+
+@pytest.mark.parametrize("target", ["qualification.json", "attempt.json", "directory"])
+def test_loader_two_slot_attempt_fsync_failure_after_complete_write_cannot_leave_success(
+        loader_two_slot_attempt_modules, tmp_path, monkeypatch, target):
+    modules = loader_two_slot_attempt_modules
+    output = tmp_path / "attempt"
+    fsync = os.fsync
+    injected = []
+
+    def failed_fsync(fd):
+        info = os.fstat(fd)
+        selected = output if target == "directory" else output / target
+        if not injected and selected.exists() and (output / "attempt.json").exists():
+            match = (info.st_dev, info.st_ino) == (selected.stat().st_dev, selected.stat().st_ino)
+            ready = ((output / "attempt.json").stat().st_size > 0 if target == "directory"
+                     else selected.stat().st_size > 0)
+            if match and ready:
+                raw = (output / "attempt.json").read_bytes() if target == "directory" else selected.read_bytes()
+                assert json.loads(raw)["status"] == "completed"
+                injected.append(True)
+                raise OSError(errno.EIO, "authored synchronization failure")
+        return fsync(fd)
+
+    monkeypatch.setattr(os, "fsync", failed_fsync)
+    backend = _LoaderTwoSlotQualificationScriptedBackend()
+    with pytest.raises(OSError):
+        _loader_two_slot_attempt_run(modules, output, backend=backend)
+    assert injected == [True] and backend.closed and backend.reaped
+    assert (output / "attempt.json").read_bytes() == b""
+
+
+def test_loader_two_slot_attempt_partial_record_publication_stays_diagnostic(
+        loader_two_slot_attempt_modules, tmp_path, monkeypatch):
+    modules = loader_two_slot_attempt_modules
+    output = tmp_path / "attempt"
+    publish = modules.adapter._publish
+    partial = []
+
+    def short_publication(fd, data):
+        if json.loads(data)["record_type"] == "required_gate_idempotence_loader_two_slot_qualification_v0":
+            partial.append(data[:23])
+            assert os.write(fd, partial[0]) == 23
+            raise OSError(errno.ENOSPC, "authored partial output")
+        return publish(fd, data)
+
+    monkeypatch.setattr(modules.adapter, "_publish", short_publication)
+    backend = _LoaderTwoSlotQualificationScriptedBackend()
+    with pytest.raises(OSError):
+        _loader_two_slot_attempt_run(modules, output, backend=backend)
+    assert backend.closed and backend.reaped and len(partial) == 1
+    assert (output / "qualification.json").read_bytes() == partial[0]
+    assert (output / "attempt.json").read_bytes() == b""
+
+
+@pytest.mark.parametrize("target", ["request.json", "qualification.json", "attempt.json"])
+def test_loader_two_slot_attempt_close_failure_after_consuming_fd_invalidates_receipt(
+        loader_two_slot_attempt_modules, tmp_path, monkeypatch, target):
+    modules = loader_two_slot_attempt_modules
+    output = tmp_path / "attempt"
+    close = os.close
+    injected = []
+
+    def failed_close(fd):
+        info = os.fstat(fd)
+        selected = output / target
+        receipt = output / "attempt.json"
+        if not injected and selected.exists() and receipt.exists() and receipt.stat().st_size > 0:
+            expected = selected.stat()
+            if (info.st_dev, info.st_ino) == (expected.st_dev, expected.st_ino):
+                assert json.loads(receipt.read_bytes())["status"] == "completed"
+                injected.append(True)
+                close(fd)
+                raise OSError(errno.EIO, "authored consumed-descriptor close failure")
+        return close(fd)
+
+    monkeypatch.setattr(os, "close", failed_close)
+    backend = _LoaderTwoSlotQualificationScriptedBackend()
+    with pytest.raises(OSError):
+        _loader_two_slot_attempt_run(modules, output, backend=backend)
+    assert injected == [True] and backend.closed and backend.reaped
+    assert (output / "attempt.json").read_bytes() == b""
+
+
+def _loader_two_slot_attempt_cli_fixture(tmp_path, *, incomplete=False, missing_raw=False):
+    case = _loader_two_slot_attempt_fixture()
+    if incomplete:
+        _loader_two_slot_attempt_incomplete(case, phase="admission", invocations=0)
+        if not missing_raw:
+            case.qualification = b""
+            case.attempt["qualification"] = bound(b"")
+    request = tmp_path / "selected-request.json"
+    request.write_bytes(encoded(case.request))
+    directory = tmp_path / "preserved-attempt"
+    directory.mkdir(mode=0o700)
+    (directory / "request.json").write_bytes(request.read_bytes())
+    (directory / "attempt.json").write_bytes(encoded(case.attempt))
+    if case.qualification is not None:
+        (directory / "qualification.json").write_bytes(case.qualification)
+    args = ["--request", str(request), "--request-sha256", digest(request.read_bytes()),
+            "--attempt-directory", str(directory), "--attempt-sha256", digest(encoded(case.attempt))]
+    return case, request, directory, args
+
+
+def test_loader_two_slot_attempt_two_independent_data_only_cli_reports_are_byte_identical(tmp_path):
+    case, _request, _directory, args = _loader_two_slot_attempt_cli_fixture(tmp_path)
+    # A fresh interpreter proves that checker import and execution need neither
+    # execution module. Its process-launch surface and live proc reads are also
+    # forbidden, while ordinary source/dependency files remain readable.
+    script = """
+import importlib.abc
+import os
+import subprocess
+import sys
+sys.path.insert(0, sys.argv.pop(1))
+class NoExecutionModules(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname in {'qualify_required_gate_idempotence_loader_two_slot_v0',
+                        'prepare_required_gate_idempotence_loader_two_slot_v0'}:
+            raise AssertionError('data-only checker imported execution module')
+sys.meta_path.insert(0, NoExecutionModules())
+import check_required_gate_idempotence_loader_two_slot_attempt_v0 as checker
+def forbidden(*args, **kwargs):
+    raise AssertionError('data-only checker attempted execution or live context')
+os.fork = forbidden
+os.uname = forbidden
+subprocess.Popen = forbidden
+original_open = os.open
+def no_proc(path, *args, **kwargs):
+    if str(path).startswith('/proc/'):
+        raise AssertionError('data-only checker read live process context')
+    return original_open(path, *args, **kwargs)
+os.open = no_proc
+raise SystemExit(checker.main(sys.argv[1:]))
+"""
+    outputs = [tmp_path / name for name in ("first.json", "second.json")]
+    for output in outputs:
+        result = subprocess.run([sys.executable, "-I", "-B", "-c", script, str(ROOT / "tools"),
+                                 *args, "--output", str(output)],
+                                capture_output=True, timeout=30, check=False)
+        assert result.returncode == 0, result.stderr.decode(errors="replace")
+        assert result.stdout == result.stderr == b""
+    assert outputs[0].read_bytes() == outputs[1].read_bytes() == encoded(_loader_two_slot_attempt_check(case))
+    assert outputs[0].read_bytes().endswith(b"\n")
+    assert not outputs[0].read_bytes().endswith(b"\n\n")
+
+
+@pytest.mark.parametrize("missing_raw", [False, True])
+def test_loader_two_slot_attempt_checker_cli_preserves_incomplete_with_nonzero_status(tmp_path, capsys, missing_raw):
+    _case, _request, _directory, args = _loader_two_slot_attempt_cli_fixture(
+        tmp_path, incomplete=True, missing_raw=missing_raw)
+    output = tmp_path / "incomplete-report.json"
+    assert loader_two_slot_attempt_checker().main([*args, "--output", str(output)]) == 1
+    _loader_two_slot_attempt_assert_incomplete(json.loads(output.read_bytes()))
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize("fault", [
+    "request_digest", "attempt_digest", "request_copy", "extra_file", "missing_record",
+    "nested_directory", "record_symlink", "record_hardlink", "record_fifo", "directory_symlink",
+    "parent_symlink", "oversized_record", "existing_output",
+])
+def test_loader_two_slot_attempt_checker_cli_rejects_wrong_selection_or_unsafe_roster(tmp_path, capsys, fault):
+    _case, request, directory, args = _loader_two_slot_attempt_cli_fixture(tmp_path)
+    output = tmp_path / "result.json"
+    if fault == "request_digest":
+        args[args.index("--request-sha256") + 1] = "0" * 64
+    elif fault == "attempt_digest":
+        args[args.index("--attempt-sha256") + 1] = "0" * 64
+    elif fault == "request_copy":
+        (directory / "request.json").write_bytes(request.read_bytes() + b" ")
+    elif fault == "extra_file":
+        (directory / "unselected.txt").write_bytes(b"unexpected\n")
+    elif fault == "missing_record":
+        (directory / "qualification.json").unlink()
+    elif fault == "nested_directory":
+        (directory / "unselected").mkdir()
+    elif fault in ("record_symlink", "record_hardlink", "record_fifo"):
+        record = directory / "qualification.json"
+        original = tmp_path / "original-qualification.json"
+        record.rename(original)
+        if fault == "record_symlink":
+            record.symlink_to(original)
+        elif fault == "record_hardlink":
+            os.link(original, record)
+        else:
+            os.mkfifo(record)
+    elif fault == "directory_symlink":
+        link = tmp_path / "attempt-alias"
+        link.symlink_to(directory, target_is_directory=True)
+        args[args.index("--attempt-directory") + 1] = str(link)
+    elif fault == "parent_symlink":
+        link = tmp_path / "parent-alias"
+        link.symlink_to(tmp_path, target_is_directory=True)
+        args[args.index("--attempt-directory") + 1] = str(link / directory.name)
+    elif fault == "oversized_record":
+        (directory / "qualification.json").write_bytes(b" " * (1024 * 1024 + 1))
+    else:
+        output.write_bytes(b"existing owner output\n")
+    assert loader_two_slot_attempt_checker().main([*args, "--output", str(output)]) == 2
+    if fault == "existing_output":
+        assert output.read_bytes() == b"existing owner output\n"
+    else:
+        assert not output.exists()
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize("fault", ["fsync", "file_replacement", "parent_replacement", "close"])
+def test_loader_two_slot_attempt_checker_cli_publication_failure_invalidates_only_owned_result(
+        tmp_path, monkeypatch, capsys, fault):
+    _case, _request, _directory, args = _loader_two_slot_attempt_cli_fixture(tmp_path)
+    parent = tmp_path / "result-parent"
+    parent.mkdir()
+    output = parent / "result.json"
+    displaced = tmp_path / "displaced"
+    owner_bytes = b"concurrent owner publication replacement\n"
+    fsync, close = os.fsync, os.close
+    injected = []
+
+    def matches_output(fd):
+        if not output.exists() or not output.is_file() or not output.stat().st_size:
+            return False
+        info, selected = os.fstat(fd), output.stat()
+        return (info.st_dev, info.st_ino) == (selected.st_dev, selected.st_ino)
+
+    def failed_fsync(fd):
+        if not injected and fault != "close" and matches_output(fd):
+            assert json.loads(output.read_bytes())["status"] == "accepted_scripted_qualification_attempt"
+            injected.append(True)
+            if fault == "fsync":
+                raise OSError(errno.EIO, "authored report fsync failure")
+            if fault == "file_replacement":
+                output.rename(displaced)
+                output.write_bytes(owner_bytes)
+            else:
+                parent.rename(displaced)
+                parent.mkdir()
+                (parent / "owner").write_bytes(owner_bytes)
+        return fsync(fd)
+
+    def failed_close(fd):
+        if not injected and fault == "close" and matches_output(fd):
+            assert json.loads(output.read_bytes())["status"] == "accepted_scripted_qualification_attempt"
+            injected.append(True)
+            close(fd)
+            raise OSError(errno.EIO, "authored consumed report fd")
+        return close(fd)
+
+    monkeypatch.setattr(os, "fsync", failed_fsync)
+    monkeypatch.setattr(os, "close", failed_close)
+    assert loader_two_slot_attempt_checker().main([*args, "--output", str(output)]) == 2
+    assert injected == [True]
+    if fault == "file_replacement":
+        assert output.read_bytes() == owner_bytes and displaced.read_bytes() == b""
+    elif fault == "parent_replacement":
+        assert (parent / "owner").read_bytes() == owner_bytes
+        assert (displaced / "result.json").read_bytes() == b""
+        assert not output.exists()
+    else:
+        assert output.read_bytes() == b""
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize("target", ["request.json", "qualification.json", "attempt.json"])
+def test_loader_two_slot_attempt_in_place_preserved_content_drift_cannot_complete(
+        loader_two_slot_attempt_modules, tmp_path, monkeypatch, target):
+    modules = loader_two_slot_attempt_modules
+    output = tmp_path / "attempt"
+    mutations = []
+
+    def mutate_in_place():
+        path = output / target
+        before = path.stat()
+        value = json.loads(path.read_bytes())
+        key = "attempt_id" if target == "qualification.json" else "request_id"
+        old = value[key]
+        value[key] = ("8" if old[0] != "8" else "9") + old[1:]
+        changed = encoded(value)
+        assert len(changed) == before.st_size
+        path.write_bytes(changed)
+        after = path.stat()
+        assert (before.st_dev, before.st_ino, before.st_size) == (after.st_dev, after.st_ino, after.st_size)
+        mutations.append(changed)
+
+    class ChangedRequestBytes(_LoaderTwoSlotQualificationScriptedBackend):
+        def close(self):
+            super().close()
+            if target == "request.json":
+                mutate_in_place()
+
+    publish = modules.adapter._publish
+
+    def changed_qualification(fd, data):
+        publish(fd, data)
+        selected_type = {"qualification.json": "required_gate_idempotence_loader_two_slot_qualification_v0",
+                         "attempt.json": "required_gate_idempotence_loader_two_slot_attempt_v0"}.get(target)
+        if selected_type and json.loads(data)["record_type"] == selected_type:
+            mutate_in_place()
+
+    monkeypatch.setattr(modules.adapter, "_publish", changed_qualification)
+    backend = ChangedRequestBytes()
+    with pytest.raises((ValueError, OSError)):
+        _loader_two_slot_attempt_run(modules, output, backend=backend)
+    assert len(mutations) == 1 and backend.closed and backend.reaped
+    if target != "attempt.json":
+        assert (output / target).read_bytes() == mutations[0]
+    assert (output / "attempt.json").read_bytes() == b""
+
+
+@pytest.mark.parametrize("kind", ["prepare", "checker"])
+def test_loader_two_slot_attempt_new_request_or_report_cannot_publish_changed_same_inode_bytes(
+        loader_two_slot_attempt_modules, tmp_path, monkeypatch, capsys, kind):
+    modules = loader_two_slot_attempt_modules
+    case, _request, _directory, args = _loader_two_slot_attempt_cli_fixture(tmp_path)
+    output = tmp_path / "new-output.json"
+    mutations = []
+
+    def change_request_identity():
+        before = output.stat()
+        value = json.loads(output.read_bytes())
+        old = value["request_id"]
+        value["request_id"] = ("8" if old[0] != "8" else "9") + old[1:]
+        raw = encoded(value)
+        assert len(raw) == before.st_size
+        output.write_bytes(raw)
+        after = output.stat()
+        assert (before.st_dev, before.st_ino, before.st_size) == (after.st_dev, after.st_ino, after.st_size)
+        mutations.append(raw)
+
+    if kind == "prepare":
+        publish = modules.adapter._publish
+
+        def changed_prepare(fd, raw):
+            publish(fd, raw)
+            change_request_identity()
+
+        monkeypatch.setattr(modules.adapter, "_publish", changed_prepare)
+        with pytest.raises((ValueError, OSError)):
+            modules.adapter.prepare(output=output, context_reader=lambda: copy.deepcopy(case.context))
+    else:
+        fsync = os.fsync
+
+        def changed_report(fd):
+            if not mutations and output.exists() and output.stat().st_size:
+                opened, saved = os.fstat(fd), output.stat()
+                if (opened.st_dev, opened.st_ino) == (saved.st_dev, saved.st_ino):
+                    change_request_identity()
+            return fsync(fd)
+
+        monkeypatch.setattr(os, "fsync", changed_report)
+        assert modules.checker.main([*args, "--output", str(output)]) == 2
+        assert capsys.readouterr().out == ""
+    assert len(mutations) == 1 and output.read_bytes() == b""
