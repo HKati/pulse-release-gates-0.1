@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the [B2 loader two-slot qualification implementation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_QUALIFICATION_v0.md)
+  with a separate fixed-probe producer, a closed bounded native record and an
+  independent raw-record checker. Bind repeated hardware stops, RF/TF state,
+  exact continuation counts, process identity and owned cleanup; preserve
+  incomplete attempts and distinguish scripted backend tests from native
+  records. Actual selected-environment qualification, original loader readouts,
+  source/build admission, B2 completion and release authority remain open.
+
 - Add the [B2 original-loader rebuild-attestation binding](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_REBUILD_ATTESTATION_BINDING_v0.md)
   with exact preserved rebuilder statements and public-key response, bounded
   canonical-message/key derivation and fresh Ed25519 verification. Reconstruct

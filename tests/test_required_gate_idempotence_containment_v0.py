@@ -14345,3 +14345,1203 @@ def test_loader_rebuild_binding_cli_bad_digest_cannot_publish_success(loader_reb
         "--record-sha256", "f" * 64, "--output", str(output)])
     assert status == 2 and not output.exists()
     assert capsys.readouterr().out == ""
+
+
+# Native two-slot qualification implementation tests. Every process, register,
+# clock and ptrace response below is invented; the fixed probe is never run.
+LOADER_TWO_SLOT_QUALIFICATION_CHECKER_REL = (
+    "tools/check_required_gate_idempotence_loader_two_slot_qualification_v0.py")
+LOADER_TWO_SLOT_QUALIFICATION_PRODUCER_REL = (
+    "tools/qualify_required_gate_idempotence_loader_two_slot_v0.py")
+LOADER_TWO_SLOT_QUALIFICATION_SCHEMA_REL = (
+    "schemas/required_gate_idempotence_loader_two_slot_qualification_v0.schema.json")
+
+
+def loader_two_slot_qualification_checker():
+    return module("check_required_gate_idempotence_loader_two_slot_qualification_v0",
+                  LOADER_TWO_SLOT_QUALIFICATION_CHECKER_REL)
+
+
+def loader_two_slot_qualification_producer():
+    return module("qualify_required_gate_idempotence_loader_two_slot_v0",
+                  LOADER_TWO_SLOT_QUALIFICATION_PRODUCER_REL)
+
+
+def _loader_two_slot_qualification_registers(rip, counter, flags=0x10202):
+    # Linux x86_64 user_regs_struct, independently laid out in declaration order.
+    words = [0] * 27
+    words[11], words[16], words[17], words[18], words[20] = counter, rip, 0x33, flags, 0x2B
+    return struct.pack("<27Q", *words)
+
+
+def _loader_two_slot_qualification_debug(cause=None, *, armed=True):
+    return struct.pack("<6Q", 0x400085 if armed else 0, 0x400088 if armed else 0,
+                       0, 0, 0xFFFF0FF0 | (cause or 0), 5 if armed else 0)
+
+
+def _loader_two_slot_qualification_siginfo(target):
+    raw = bytearray(128)
+    struct.pack_into("<iii", raw, 0, 5, 0, 4)  # SIGTRAP, errno 0, TRAP_HWBKPT.
+    struct.pack_into("<Q", raw, 16, target)
+    return bytes(raw)
+
+
+def _loader_two_slot_qualification_status(*, extra_counter=1, tracer=5001, pid=5002):
+    # Keep the complete authored carrier, including fields outside the identity
+    # projection. Voluntary context-switch counters may differ between samples.
+    return (f"Name:\tpulse-two-slot\nUmask:\t0022\nState:\tt (tracing stop)\n"
+            f"Tgid:\t{pid}\nNgid:\t0\nPid:\t{pid}\nPPid:\t5001\nTracerPid:\t{tracer}\n"
+            f"Uid:\t1000\t1000\t1000\t1000\nGid:\t1000\t1000\t1000\t1000\n"
+            f"FDSize:\t64\nGroups:\t1000 \nNStgid:\t{pid}\nNSpid:\t{pid}\n"
+            f"NSpgid:\t{pid}\nNSsid:\t{pid}\nThreads:\t1\nVmSize:\t4 kB\n"
+            f"SigQ:\t0/1000\nSigPnd:\t0000000000000000\n"
+            f"voluntary_ctxt_switches:\t{extra_counter}\nnonvoluntary_ctxt_switches:\t0\n").encode("ascii")
+
+
+def _loader_two_slot_qualification_stat(*, starttime=234567, pid=5002, parent=5001):
+    return _loader_two_slot_qualification_native_stat(pid, parent, "t", starttime, "pulse-two-slot")
+
+
+def _loader_two_slot_qualification_native_stat(pid, parent, state, starttime, comm):
+    fields = ["0"] * 50
+    fields[0], fields[1], fields[17], fields[19] = state, str(parent), "1", str(starttime)
+    fields[22] = str((1 << 64) - 1)  # Field25, rsslim: Linux prints unsigned ULONG_MAX.
+    return (f"{pid} ({comm}) " + " ".join(fields) + "\n").encode("ascii")
+
+
+def test_loader_two_slot_qualification_preserves_old_profiles_and_registration():
+    unchanged = {
+        "tools/required_gate_idempotence_loader_two_slot_v0.py":
+            (23627, "4f0e5e3661a204914bfa65e327b7d88dc7a704efc229d97f4f1fa369cdf372f3"),
+        "tools/required_gate_idempotence_entry_stop_v0.py":
+            (40704, "316f2b80dc836cfce9601fb4f9f346abf6ef4ec9a6d17794a558b44433e01a60"),
+        "tools/qualify_required_gate_idempotence_entry_stop_v0.py":
+            (11960, "6f8247c40573abd83e923d572a397a962a918d28817a7b7c37ae137e4d9354b1"),
+        "schemas/required_gate_idempotence_loader_two_slot_v0.schema.json":
+            (10547, "cd380913c5b689abe5fa6be3dabe206e5edf44e4707c7f4819635066211838da"),
+    }
+    for path, (size, sha256) in unchanged.items():
+        assert bound((ROOT / path).read_bytes()) == {"size_bytes": size, "sha256": sha256}, path
+    assert digest((ROOT / SELF).read_bytes()[:797815]) == (
+        "3af1c07225f85efd6abc01bd3bc8e98739ff6725a77b48e2ab8717ab3017f37b")
+    test_containment_module_is_registered_once_without_targeted_duplication()
+
+
+def _loader_two_slot_qualification_context():
+    names = ("cgroup", "ipc", "mnt", "net", "pid", "pid_for_children", "time",
+             "time_for_children", "user", "uts")
+    return {
+        "uname": {"sysname": "Linux", "release": "6.11-scripted", "version": "authored test context",
+                  "machine": "x86_64"},
+        "boot_id": "01234567-89ab-cdef-0123-456789abcdef",
+        "observer": bound(b"authored observer identity, never executed"),
+        "namespaces": {name: name.removesuffix("_for_children") + ":[" + str(2200 + index) + "]"
+                       for index, name in enumerate(names)},
+    }
+
+
+def _loader_two_slot_qualification_sources():
+    paths = sorted((LOADER_TWO_SLOT_QUALIFICATION_CHECKER_REL,
+                    LOADER_TWO_SLOT_QUALIFICATION_PRODUCER_REL,
+                    LOADER_TWO_SLOT_QUALIFICATION_SCHEMA_REL,
+                    "tools/required_gate_idempotence_loader_two_slot_v0.py"))
+    return [{"path": path, **bound((ROOT / path).read_bytes())} for path in paths]
+
+
+def _loader_two_slot_qualification_boundary():
+    return {
+        "original_native_acquisition_performed": False, "original_acquisition_ready": False,
+        "source_build_gate_satisfied": False, "b2_complete": False,
+        "consumer_resolution_observed": False, "physical_execution_authenticated": False,
+        "current_host_admission_satisfied": False, "metric_pass": None, "authority_effect": "none",
+    }
+
+
+def _loader_two_slot_qualification_fixture(*, origin="scripted_test_backend"):
+    """Build the entire expected raw record independently of the new producer."""
+    opid, cpid, starttime, pidfd = 5001, 5002, 234567, 17
+    probe = _loader_readout_two_slot_probe_oracle()
+    context, sources = _loader_two_slot_qualification_context(), _loader_two_slot_qualification_sources()
+    observer_stat = _loader_two_slot_qualification_native_stat(opid, 1, "R", 123456, "python3")
+    observer_status = ("Name:\tpython3\nUmask:\t0022\nState:\tR (running)\n"
+                       f"Tgid:\t{opid}\nPid:\t{opid}\nPPid:\t1\nTracerPid:\t0\n"
+                       f"Threads:\t1\nNSpid:\t{opid}\nGroups:\t\n"
+                       "voluntary_ctxt_switches:\t1\n").encode("ascii")
+    raw = {
+        "probe.elf": probe, "probe.seals.bin": struct.pack("<Q", 15),
+        "probe.mode.bin": struct.pack("<Q", 0o500),
+        "observer.stat.bin": observer_stat, "observer.status.bin": observer_status,
+        "child.pidfd.info.bin": (f"pos:\t0\nflags:\t02000002\nmnt_id:\t5\nino:\t7001\n"
+                                 f"Pid:\t{cpid}\nNSpid:\t{cpid}\n").encode("ascii"),
+        "child.stat.setup.bin": _loader_two_slot_qualification_stat(),
+        "child.status.setup.bin": _loader_two_slot_qualification_status(),
+        "setup.debug.before.bin": _loader_two_slot_qualification_debug(armed=False),
+        "cp0.child.stat.bin": _loader_two_slot_qualification_stat(),
+        "cp0.child.status.bin": _loader_two_slot_qualification_status(),
+        "cp0.regs.bin": _loader_two_slot_qualification_registers(0x400080, 0, 0x202),
+        "cp0.auxv.bin": b"".join(struct.pack("<QQ", key, value) for key, value in (
+            (3, 0x400040), (4, 56), (5, 1), (6, 4096), (7, 0), (9, 0x400080), (0, 0))),
+        "cp0.executable.elf": probe,
+        "cp0.debug.before.bin": _loader_two_slot_qualification_debug(armed=False),
+        "cp0.debug.armed.bin": _loader_two_slot_qualification_debug(),
+    }
+    operations = []
+    now = 1_000_000_000
+
+    def row(op, **values):
+        nonlocal now
+        now += 1_000_000
+        operations.append({"op": op, "at_ns": now, **values})
+
+    def resume(number, after):
+        row("debug_write", phase=f"resume.{number:02d}", register=6,
+            value=0xFFFF0FF0, returncode=0, errno=0)
+        raw[f"resume.{number:02d}.debug.bin"] = _loader_two_slot_qualification_debug(armed=number != 0)
+        row("continue", after=after, address=0, signal=0, returncode=0, errno=0)
+
+    row("wait", phase="setup", pid=cpid, status=0x137F)
+    row("options", value=0x10001E, returncode=0, errno=0)
+    resume(0, "setup")
+    row("wait", phase="exec", pid=cpid, status=0x4057F)
+    for register, value in ((0, 0x400085), (1, 0x400088), (6, 0xFFFF0FF0), (7, 5)):
+        row("debug_write", phase="arming", register=register, value=value, returncode=0, errno=0)
+    resume(1, "cp0")
+    for number in range(1, 11):
+        phase = f"event.{number:02d}"
+        terminal = number == 10
+        target, counter, cause = (0x400088, 0, 2) if terminal else (0x400085, 10 - number, 1)
+        row("wait", phase=phase, pid=cpid, status=0x57F)
+        raw[phase + ".siginfo.bin"] = _loader_two_slot_qualification_siginfo(target)
+        for side in ("a", "b"):
+            raw[f"{phase}.regs.{side}.bin"] = _loader_two_slot_qualification_registers(target, counter)
+            raw[f"{phase}.debug.{side}.bin"] = _loader_two_slot_qualification_debug(cause)
+            raw[f"{phase}.child.stat.{side}.bin"] = _loader_two_slot_qualification_stat()
+            raw[f"{phase}.child.status.{side}.bin"] = _loader_two_slot_qualification_status(
+                extra_counter=number if side == "a" else number + 1)
+            raw[f"{phase}.code.{side}.bin"] = probe[128:]
+            row("sample", phase=phase, side=side)
+        if not terminal:
+            resume(number + 1, phase)
+    cleanup_started = now + 500_000
+    row("kill", method="pidfd_send_signal", pid=cpid, pidfd=pidfd, signal=9, returncode=0, errno=0)
+    row("wait", phase="reap", pid=cpid, status=9)
+    record = {
+        "record_type": "required_gate_idempotence_loader_two_slot_qualification_v0",
+        "profile": "linux_x86_64_loader_two_slot_qualification_v0",
+        "evidence_origin": origin, "attempt_id": "65" * 16,
+        "status": "completed", "failure": None, "phase": "finished",
+        "context": context, "context_after": copy.deepcopy(context),
+        "sources": sources, "sources_after": copy.deepcopy(sources),
+        "process": {"observer_pid": opid, "child_pid": cpid, "starttime": starttime,
+                    "pidfd": pidfd, "proc_dir_pinned": True, "unexpected_children": []},
+        "probe": {**bound(probe), "seals": 15, "mode": 0o500},
+        "timing": {"started_ns": 1_000_000_000, "cleanup_started_ns": cleanup_started,
+                   "finished_ns": now + 1_000_000},
+        "operations": operations, "raw": {}, "boundary": _loader_two_slot_qualification_boundary(),
+    }
+    case = SimpleNamespace(record=record, files=raw, context=context)
+    _loader_two_slot_qualification_rebind(case)
+    return case
+
+
+def _loader_two_slot_qualification_rebind(case):
+    case.record["raw"] = {name: {**bound(raw), "hex": raw.hex()} for name, raw in sorted(case.files.items())}
+
+
+def _loader_two_slot_qualification_set_word(case, name, offset, value, fmt="<Q", *, both=False):
+    raw = bytearray(case.files[name])
+    struct.pack_into(fmt, raw, offset, value)
+    case.files[name] = bytes(raw)
+    if both:
+        assert ".a." in name
+        case.files[name.replace(".a.", ".b.")] = bytes(raw)
+    _loader_two_slot_qualification_rebind(case)
+
+
+def _loader_two_slot_qualification_check(case, *, expected_context=None):
+    raw = encoded(case.record)
+    return loader_two_slot_qualification_checker().verify_record(
+        record_bytes=raw, expected_record_sha256=digest(raw),
+        expected_context=case.context if expected_context is None else expected_context)
+
+
+def _loader_two_slot_qualification_assert_boundary(report):
+    for key, value in _loader_two_slot_qualification_boundary().items():
+        assert type(report[key]) is type(value) and report[key] == value, key
+
+
+@pytest.mark.parametrize("origin,native", [("scripted_test_backend", False), ("native_owned_probe", True)])
+def test_loader_two_slot_qualification_independent_raw_record_reconstructs_only_recorded_mechanics(origin, native):
+    case = _loader_two_slot_qualification_fixture(origin=origin)
+    report = _loader_two_slot_qualification_check(case)
+    assert report["status"] == ("accepted_native_qualification_record" if native else
+                                "accepted_scripted_qualification_record")
+    assert report["record_binding_verified"] is True
+    assert report["selected_context_binding_verified"] is True
+    assert report["source_inventory_verified"] is True
+    assert report["complete_mechanics_verified"] is True
+    assert report["native_record_reconstructed"] is native
+    assert report["scripted_record_reconstructed"] is not native
+    assert report["accepted_return_events"] == 9 and report["ptrace_cont_count"] == 11
+    assert report["post_terminal_resumes"] == 0 and report["incomplete_record_preserved"] is False
+    assert report["raw_file_count"] == len(case.files) == 137
+    assert report["raw_total_bytes"] == sum(map(len, case.files.values()))
+    assert len(case.record["operations"]) == 61
+    assert report["record"] == bound(encoded(case.record))
+    assert case.files["event.01.child.status.a.bin"] != case.files["event.01.child.status.b.bin"]
+    _loader_two_slot_qualification_assert_boundary(report)
+
+
+def test_loader_two_slot_qualification_masked_flags_and_siginfo_padding_are_not_guessed_constants():
+    case = _loader_two_slot_qualification_fixture()
+    _loader_two_slot_qualification_set_word(case, "cp0.regs.bin", 18 * 8, 0x10247)
+    for number in range(1, 11):
+        _loader_two_slot_qualification_set_word(case, f"event.{number:02d}.regs.a.bin",
+                                               18 * 8, 0x10247, both=True)
+        name = f"event.{number:02d}.siginfo.bin"
+        changed = bytearray(case.files[name])
+        changed[32:] = b"\xa5" * (len(changed) - 32)
+        case.files[name] = bytes(changed)
+    _loader_two_slot_qualification_rebind(case)
+    report = _loader_two_slot_qualification_check(case)
+    assert report["complete_mechanics_verified"] is True
+    _loader_two_slot_qualification_assert_boundary(report)
+
+
+@pytest.mark.parametrize("fault", [
+    "cp0_tf", "stop_tf", "stop_rf_clear", "second_sample_rf_clear", "wrong_loop_count",
+    "terminal_counter_nonzero", "wrong_return_rip", "terminal_return_rip", "both_dr_causes",
+    "single_step_dr_cause", "slot1_disarmed_after_ninth", "dr6_not_cleared", "code_changed",
+    "unstable_debug", "wrong_siginfo", "wrong_starttime", "wrong_tracer", "wrong_pidfd",
+    "duplicate_status_field", "status_namespace_vector", "observer_traced", "probe_changed",
+    "unsealed_probe", "wrong_auxv", "duplicate_auxv", "missing_last_raw", "unexpected_raw",
+    "raw_hash_mismatch", "raw_size_mismatch", "unknown_boundary_field", "promoted_boundary",
+    "bool_pid", "missing_sample_operation", "continue_after_terminal", "forwarded_signal",
+    "debug_write_dr2", "nonexclusive_cleanup", "unreaped_child", "wrong_wait_pid",
+    "early_entry_wait", "observation_timeout", "cleanup_timeout", "unordered_samples",
+    "changed_context", "changed_sources", "context_namespace_substitution", "proc_stat_uint64_overflow",
+])
+def test_loader_two_slot_qualification_rehashed_raw_or_journal_fault_cannot_complete(fault):
+    case = _loader_two_slot_qualification_fixture()
+    operations = case.record["operations"]
+
+    def operation(op, **selectors):
+        return next(row for row in operations if row["op"] == op
+                    and all(row.get(key) == value for key, value in selectors.items()))
+
+    word_faults = {
+        "cp0_tf": ("cp0.regs.bin", 18 * 8, 0x302, False),
+        "stop_tf": ("event.01.regs.a.bin", 18 * 8, 0x10302, True),
+        "stop_rf_clear": ("event.09.regs.a.bin", 18 * 8, 0x202, True),
+        "second_sample_rf_clear": ("event.10.regs.b.bin", 18 * 8, 0x202, False),
+        "wrong_loop_count": ("event.03.regs.a.bin", 11 * 8, 6, True),
+        "terminal_counter_nonzero": ("event.10.regs.a.bin", 11 * 8, 1, True),
+        "wrong_return_rip": ("event.01.regs.a.bin", 16 * 8, 0x400086, True),
+        "terminal_return_rip": ("event.10.regs.a.bin", 16 * 8, 0x400085, True),
+        "both_dr_causes": ("event.01.debug.a.bin", 4 * 8, 0xFFFF0FF3, True),
+        "single_step_dr_cause": ("event.02.debug.a.bin", 4 * 8, 0xFFFF4FF1, True),
+        "slot1_disarmed_after_ninth": ("resume.10.debug.bin", 5 * 8, 1, False),
+        "dr6_not_cleared": ("resume.02.debug.bin", 4 * 8, 0xFFFF0FF1, False),
+        "unstable_debug": ("event.07.debug.b.bin", 5 * 8, 4, False),
+        "wrong_siginfo": ("event.05.siginfo.bin", 16, 0x400088, False),
+        "unsealed_probe": ("probe.seals.bin", 0, 7, False),
+        "wrong_auxv": ("cp0.auxv.bin", 5 * 16 + 8, 0x400081, False),
+    }
+    if fault in word_faults:
+        name, offset, value, both = word_faults[fault]
+        _loader_two_slot_qualification_set_word(case, name, offset, value, both=both)
+    elif fault == "code_changed":
+        for side in ("a", "b"):
+            case.files[f"event.04.code.{side}.bin"] = b"\xcc" + case.files[f"event.04.code.{side}.bin"][1:]
+    elif fault == "wrong_starttime":
+        case.files["event.02.child.stat.b.bin"] = _loader_two_slot_qualification_stat(starttime=234568)
+    elif fault == "wrong_tracer":
+        case.files["event.08.child.status.a.bin"] = _loader_two_slot_qualification_status(tracer=9001)
+    elif fault == "wrong_pidfd":
+        case.files["child.pidfd.info.bin"] = case.files["child.pidfd.info.bin"].replace(b"5002", b"5003")
+    elif fault == "duplicate_status_field":
+        case.files["event.01.child.status.a.bin"] += b"Threads:\t1\n"
+    elif fault == "status_namespace_vector":
+        name = "event.01.child.status.a.bin"
+        case.files[name] = case.files[name].replace(b"NSpid:\t5002", b"NSpid:\t5002 77")
+    elif fault == "observer_traced":
+        case.files["observer.status.bin"] = case.files["observer.status.bin"].replace(b"TracerPid:\t0", b"TracerPid:\t7")
+    elif fault == "probe_changed":
+        case.files["cp0.executable.elf"] = case.files["probe.elf"][:-1] + b"\x00"
+    elif fault == "duplicate_auxv":
+        case.files["cp0.auxv.bin"] = case.files["cp0.auxv.bin"][:-16] + struct.pack("<QQ", 9, 0x400080) + bytes(16)
+    elif fault == "missing_last_raw":
+        del case.files["event.10.code.b.bin"]
+    elif fault == "unexpected_raw":
+        case.files["unselected.evidence.bin"] = b"unexpected"
+    elif fault == "unknown_boundary_field":
+        case.record["boundary"]["qualification_authorized"] = False
+    elif fault == "promoted_boundary":
+        case.record["boundary"]["physical_execution_authenticated"] = True
+    elif fault == "bool_pid":
+        case.record["process"]["observer_pid"] = True
+    elif fault == "missing_sample_operation":
+        operations.remove(operation("sample", phase="event.10", side="b"))
+    elif fault == "continue_after_terminal":
+        row = dict(operation("continue", after="event.09"), after="event.10")
+        row["at_ns"] = operation("sample", phase="event.10", side="b")["at_ns"]
+        operations.insert(len(operations) - 2, row)
+    elif fault == "forwarded_signal":
+        operation("continue", after="event.01")["signal"] = 5
+    elif fault == "debug_write_dr2":
+        operation("debug_write", phase="arming", register=1)["register"] = 2
+    elif fault == "nonexclusive_cleanup":
+        operation("kill")["method"] = "owned_pid_fallback"
+    elif fault == "unreaped_child":
+        operations.remove(operation("wait", phase="reap"))
+    elif fault == "wrong_wait_pid":
+        operation("wait", phase="event.01")["pid"] = 5003
+    elif fault == "early_entry_wait":
+        operation("wait", phase="event.01")["status"] = 0x4057F
+    elif fault == "observation_timeout":
+        case.record["timing"]["started_ns"] = 0
+        delta = 20_000_000_000
+        for row in operations:
+            row["at_ns"] += delta
+        case.record["timing"]["cleanup_started_ns"] += delta
+        case.record["timing"]["finished_ns"] += delta
+    elif fault == "cleanup_timeout":
+        case.record["timing"]["finished_ns"] += 2_000_000_001
+    elif fault == "unordered_samples":
+        operation("sample", phase="event.05", side="b")["at_ns"] = operation("sample", phase="event.05", side="a")["at_ns"]
+    elif fault == "changed_context":
+        case.record["context_after"]["boot_id"] = "f" * 8 + case.context["boot_id"][8:]
+    elif fault == "changed_sources":
+        case.record["sources_after"][0]["sha256"] = "f" * 64
+    elif fault == "context_namespace_substitution":
+        case.record["context_after"]["namespaces"]["pid"] = "pid:[99999]"
+    elif fault == "proc_stat_uint64_overflow":
+        case.files["event.01.child.stat.a.bin"] = case.files["event.01.child.stat.a.bin"].replace(
+            b"18446744073709551615", b"18446744073709551616")
+    _loader_two_slot_qualification_rebind(case)
+    if fault == "raw_hash_mismatch":
+        case.record["raw"]["event.09.code.b.bin"]["sha256"] = "f" * 64
+    elif fault == "raw_size_mismatch":
+        case.record["raw"]["event.09.code.b.bin"]["size_bytes"] += 1
+    with pytest.raises(loader_two_slot_qualification_checker().QualificationError):
+        _loader_two_slot_qualification_check(case)
+
+
+@pytest.mark.parametrize("fault", ["duplicate_key", "float", "nonfinite", "unknown_field", "external_digest"])
+def test_loader_two_slot_qualification_strict_json_and_external_record_selection(fault):
+    checker = loader_two_slot_qualification_checker()
+    case = _loader_two_slot_qualification_fixture()
+    raw = encoded(case.record)
+    if fault == "duplicate_key":
+        raw = b'{"status":"completed",' + raw[1:]
+    elif fault == "float":
+        raw = raw.replace(b'"observer_pid":5001', b'"observer_pid":5001.0')
+    elif fault == "nonfinite":
+        raw = raw.replace(b'"observer_pid":5001', b'"observer_pid":NaN')
+    elif fault == "unknown_field":
+        raw = b'{"saved_success":true,' + raw[1:]
+    with pytest.raises(checker.QualificationError):
+        checker.verify_record(record_bytes=raw,
+            expected_record_sha256="0" * 64 if fault == "external_digest" else digest(raw),
+            expected_context=case.context)
+
+
+def test_loader_two_slot_qualification_selected_context_cannot_be_taken_from_unrelated_record():
+    case = _loader_two_slot_qualification_fixture()
+    expected = copy.deepcopy(case.context)
+    expected["observer"]["sha256"] = "a" * 64
+    with pytest.raises(loader_two_slot_qualification_checker().QualificationError):
+        _loader_two_slot_qualification_check(case, expected_context=expected)
+
+
+def test_loader_two_slot_qualification_source_inventory_is_checked_again_after_reconstruction(monkeypatch):
+    checker = loader_two_slot_qualification_checker()
+    case = _loader_two_slot_qualification_fixture()
+    real = checker._source_bytes
+    calls = []
+
+    def changing():
+        files = real()
+        calls.append(True)
+        if len(calls) > 1:
+            files[LOADER_TWO_SLOT_QUALIFICATION_PRODUCER_REL] += b"\n"
+        return files
+
+    monkeypatch.setattr(checker, "_source_bytes", changing)
+    with pytest.raises(checker.QualificationError, match="sources_changed"):
+        _loader_two_slot_qualification_check(case)
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("fault", ["late_extent", "aggregate"])
+def test_loader_two_slot_qualification_all_raw_bounds_precede_any_raw_hash(fault, monkeypatch):
+    checker = loader_two_slot_qualification_checker()
+    case = _loader_two_slot_qualification_fixture()
+    # Retain an incomplete diagnostic carrier to isolate the raw budget from the
+    # completed roster and process semantics; it still cannot qualify anything.
+    case.record.update(status="incomplete", failure="scripted_budget_failure", phase="cleanup")
+    if fault == "late_extent":
+        case.record["raw"]["event.10.child.status.b.bin"] = {
+            "size_bytes": 65537, "sha256": "0" * 64, "hex": "00" * 65537}
+    else:
+        for index in range(1, 6):
+            case.record["raw"][f"event.{index:02d}.child.status.a.bin"] = {
+                "size_bytes": 65536, "sha256": digest(bytes(65536)), "hex": "00" * 65536}
+    real_binding = checker.binding
+    raw_hashes = []
+    payloads = set(case.files.values())
+
+    def guarded_binding(raw):
+        if raw in payloads or raw == bytes(65536):
+            raw_hashes.append(raw)
+            pytest.fail("a raw payload was hashed before all raw extents were admitted")
+        return real_binding(raw)
+
+    monkeypatch.setattr(checker, "binding", guarded_binding)
+    with pytest.raises(checker.QualificationError):
+        _loader_two_slot_qualification_check(case)
+    assert raw_hashes == []
+
+
+def test_loader_two_slot_qualification_incomplete_raw_failures_remain_diagnostic():
+    case = _loader_two_slot_qualification_fixture()
+    _loader_two_slot_qualification_set_word(case, "event.01.regs.a.bin", 18 * 8, 0x302, both=True)
+    case.record.update(status="incomplete", failure="scripted_bad_hardware_flags", phase="event.01")
+    report = _loader_two_slot_qualification_check(case)
+    assert report["status"] == "preserved_incomplete"
+    assert report["incomplete_record_preserved"] is True
+    assert report["complete_mechanics_verified"] is False
+    assert report["native_record_reconstructed"] is report["scripted_record_reconstructed"] is False
+    assert report["accepted_return_events"] == 0 and report["post_terminal_resumes"] is None
+    _loader_two_slot_qualification_assert_boundary(report)
+
+
+class _LoaderTwoSlotQualificationScriptedBackend:
+    """A deterministic invented kernel surface; it owns no real process or fd."""
+
+    def __init__(self, fault=None):
+        self.case = _loader_two_slot_qualification_fixture()
+        self.fault = fault
+        self.observer_pid = 5001
+        self.child_pid = self.starttime = self.pidfd = None
+        self.probe_seals = self.probe_mode = None
+        self.proc_pinned = False
+        self.now = 2_000_000_000
+        self.wait_count = self.cont_count = self.context_count = self.source_count = 0
+        self.calls, self.cleanup_operations = [], []
+        self.closed = self.reaped = False
+        self.last_wait = None
+        # An injected backend's self-label must never select native origin.
+        self.evidence_origin = "native_owned_probe"
+
+    def clock(self):
+        self.now += 1_000
+        return self.now
+
+    def context(self):
+        self.context_count += 1
+        value = copy.deepcopy(self.case.context)
+        if self.fault == "context_changed" and self.context_count > 1:
+            value["boot_id"] = "abcdef01-89ab-cdef-0123-456789abcdef"
+        return value
+
+    def source_inventory(self):
+        self.source_count += 1
+        value = copy.deepcopy(self.case.record["sources"])
+        if self.fault == "sources_changed" and self.source_count > 1:
+            value[0]["sha256"] = "0" * 64
+        return value
+
+    def spawn(self, probe, deadline):
+        self.calls.append(("spawn", len(probe)))
+        assert probe == _loader_readout_two_slot_probe_oracle()
+        assert self.clock() < deadline
+        if self.fault == "spawn_before_child":
+            raise OSError(errno.EMFILE, "scripted descriptor exhaustion")
+        self.child_pid, self.pidfd, self.proc_pinned = 5002, 17, True
+        self.probe_seals, self.probe_mode = (7 if self.fault == "unsealed" else 15), 0o500
+        if self.fault == "spawn_after_child":
+            raise OSError(errno.EIO, "scripted failure after ownership")
+        return self.snapshot()["process"]
+
+    def snapshot(self):
+        return {
+            "process": {"observer_pid": self.observer_pid, "child_pid": self.child_pid,
+                        "starttime": self.starttime, "pidfd": self.pidfd,
+                        "proc_dir_pinned": self.proc_pinned, "unexpected_children": []},
+            "probe": {"seals": self.probe_seals, "mode": self.probe_mode},
+        }
+
+    def wait(self, deadline):
+        index = self.wait_count
+        self.wait_count += 1
+        self.calls.append(("wait", index))
+        status = 0x137F if index == 0 else 0x4057F if index == 1 else 0x57F
+        if self.fault == "setup_exit" and index == 0:
+            status = 120 << 8
+        elif self.fault == "exec_exit" and index == 1:
+            status = 120 << 8
+        elif self.fault == "unexpected_signal" and index == 2:
+            status = 0xB7F
+        self.reaped = os.WIFEXITED(status) or os.WIFSIGNALED(status)
+        self.last_wait = (5002, status)
+        return self.last_wait
+
+    def read(self, name, deadline):
+        self.calls.append(("read", name))
+        if name == "child.stat.setup.bin":
+            self.starttime = 234567
+        if self.fault == "partial_sample" and name == "event.03.debug.b.bin":
+            raise OSError(errno.EIO, "scripted sample read failure")
+        if name.startswith("unexpected."):
+            target = name.replace("unexpected.", "event.01.")
+            if target == "event.01.regs.bin":
+                target = "event.01.regs.a.bin"
+            elif target == "event.01.debug.bin":
+                target = "event.01.debug.a.bin"
+            return self.case.files[target]
+        raw = self.case.files[name]
+        if self.fault == "arming_readback" and name == "cp0.debug.armed.bin":
+            raw = _loader_two_slot_qualification_debug(armed=False)
+        if self.fault == "resume_readback" and name == "resume.02.debug.bin":
+            raw = _loader_two_slot_qualification_debug(1)
+        if self.fault == "timeout" and name == "event.03.siginfo.bin":
+            self.now += 15_000_000_001
+        if self.fault == "bad_rf" and name in ("event.01.regs.a.bin", "event.01.regs.b.bin"):
+            raw = _loader_two_slot_qualification_registers(0x400085, 9, 0x202)
+        if self.fault == "short_cp0" and name == "cp0.regs.bin":
+            raw = raw[:-1]
+        if self.fault == "short_event" and name == "event.03.code.b.bin":
+            raw = raw[:-1]
+        if self.fault == "tenth_return" and name.startswith("event.10."):
+            if ".regs." in name:
+                raw = _loader_two_slot_qualification_registers(0x400085, 1)
+            elif ".debug." in name:
+                raw = _loader_two_slot_qualification_debug(1)
+            elif name.endswith("siginfo.bin"):
+                raw = _loader_two_slot_qualification_siginfo(0x400085)
+        if self.fault == "early_terminal" and name.startswith("event.03."):
+            if ".regs." in name:
+                raw = _loader_two_slot_qualification_registers(0x400088, 0)
+            elif ".debug." in name:
+                raw = _loader_two_slot_qualification_debug(2)
+            elif name.endswith("siginfo.bin"):
+                raw = _loader_two_slot_qualification_siginfo(0x400088)
+        return raw
+
+    def options(self):
+        self.calls.append(("options",))
+        return 0
+
+    def write_debug(self, number, value):
+        self.calls.append(("write_debug", number, value))
+        if self.fault == "partial_arming" and number == 1:
+            raise OSError(errno.EIO, "scripted DR1 write failure")
+        return 0
+
+    def cont(self):
+        self.calls.append(("continue",))
+        self.cont_count += 1
+        return 0
+
+    def cleanup(self, deadline):
+        self.calls.append(("cleanup",))
+        self.cleanup_operations = []
+        if self.child_pid is None or self.reaped:
+            return []
+        self.cleanup_operations.append({
+            "op": "kill", "at_ns": self.clock(), "method": "pidfd_send_signal",
+            "pid": self.child_pid, "pidfd": self.pidfd, "signal": 9,
+            "returncode": -1 if self.fault == "cleanup_failure" else 0,
+            "errno": errno.EIO if self.fault == "cleanup_failure" else 0,
+        })
+        if self.fault == "cleanup_failure":
+            raise OSError(errno.EIO, "scripted kill failure")
+        self.reaped = True
+        self.cleanup_operations.append({"op": "wait", "at_ns": self.clock(), "phase": "reap",
+                                        "pid": self.child_pid, "status": 9})
+        if self.fault == "cleanup_timeout":
+            self.now += 2_000_000_001
+        return copy.deepcopy(self.cleanup_operations)
+
+    def close(self):
+        self.calls.append(("close",))
+        self.closed = True
+        if self.fault == "close_failure":
+            raise OSError(errno.EIO, "scripted close failure")
+
+
+@pytest.fixture
+def loader_two_slot_qualification_modules(monkeypatch):
+    checker = loader_two_slot_qualification_checker()
+    producer = loader_two_slot_qualification_producer()
+    native_type = producer.NativeBackend
+
+    def forbidden_native():
+        pytest.fail("qualification tests must never instantiate a native backend")
+
+    monkeypatch.setattr(producer, "NativeBackend", forbidden_native)
+    monkeypatch.setattr(producer.os, "fork", lambda: pytest.fail("qualification tests must never fork a probe"))
+    return SimpleNamespace(checker=checker, producer=producer, native_type=native_type)
+
+
+def test_loader_two_slot_qualification_scripted_controller_matches_independent_raw_reconstruction(
+        loader_two_slot_qualification_modules):
+    modules = loader_two_slot_qualification_modules
+    backend = _LoaderTwoSlotQualificationScriptedBackend()
+    record = modules.producer.qualify(backend=backend)
+    assert record["status"] == "completed", record["failure"]
+    assert record["evidence_origin"] == "scripted_test_backend"
+    assert backend.cont_count == 11 and backend.closed and backend.reaped
+    assert set(record["raw"]) == set(backend.case.files)
+    assert len(record["raw"]) == 137 and len(record["operations"]) == 61
+    for name, row in record["raw"].items():
+        assert bytes.fromhex(row["hex"]) == backend.case.files[name], name
+    # Compare journal semantics against the independent oracle, allowing only
+    # the acquisition clock to differ.
+    without_time = lambda rows: [{key: value for key, value in row.items() if key != "at_ns"} for row in rows]
+    assert without_time(record["operations"]) == without_time(backend.case.record["operations"])
+    raw = encoded(record)
+    report = modules.checker.verify_record(record_bytes=raw, expected_record_sha256=digest(raw),
+                                          expected_context=backend.case.context)
+    assert report["complete_mechanics_verified"] is True
+    assert report["native_record_reconstructed"] is False
+    _loader_two_slot_qualification_assert_boundary(report)
+
+
+@pytest.mark.parametrize("fault,max_cont", [
+    ("spawn_before_child", 0), ("spawn_after_child", 0), ("unsealed", 0),
+    ("setup_exit", 0), ("exec_exit", 1), ("partial_arming", 1),
+    ("arming_readback", 1), ("resume_readback", 2), ("partial_sample", 4),
+    ("unexpected_signal", 2), ("early_terminal", 4), ("tenth_return", 11),
+    ("bad_rf", 2), ("timeout", 4), ("context_changed", 11),
+    ("sources_changed", 11), ("cleanup_failure", 11), ("cleanup_timeout", 11),
+    ("close_failure", 11), ("short_cp0", 1), ("short_event", 4),
+])
+def test_loader_two_slot_qualification_controller_retains_failures_without_further_resume(
+        loader_two_slot_qualification_modules, fault, max_cont):
+    modules = loader_two_slot_qualification_modules
+    backend = _LoaderTwoSlotQualificationScriptedBackend(fault=fault)
+    record = modules.producer.qualify(backend=backend)
+    assert record["status"] == "incomplete" and record["failure"] is not None
+    assert record["evidence_origin"] == "scripted_test_backend"
+    assert backend.cont_count == max_cont and backend.closed
+    assert ("cleanup",) in backend.calls
+    assert backend.calls[-1] == ("close",)
+    if fault not in ("spawn_before_child", "cleanup_failure"):
+        assert backend.reaped
+    if fault == "spawn_after_child":
+        assert record["process"]["child_pid"] == 5002
+        assert any(row["op"] == "kill" and row["pid"] == 5002 for row in record["operations"])
+    if fault == "partial_arming":
+        failed = next(row for row in record["operations"] if row["op"] == "debug_write" and row["register"] == 1)
+        assert failed["returncode"] == -1 and failed["errno"] == errno.EIO
+    if fault == "partial_sample":
+        assert "event.03.regs.b.bin" in record["raw"]
+        assert "event.03.debug.b.bin" not in record["raw"]
+        assert not any(row["op"] == "sample" and row["phase"] == "event.03" and row["side"] == "b"
+                       for row in record["operations"])
+    if fault == "tenth_return":
+        assert record["failure"] == "two_slot_native_unexpected_tenth_return"
+        assert {f"event.10.code.{side}.bin" for side in ("a", "b")} <= set(record["raw"])
+        assert sum(row["op"] == "sample" and row["phase"] == "event.10"
+                   for row in record["operations"]) == 2
+        assert not any(row["op"] == "continue" and row["after"] == "event.10"
+                       for row in record["operations"])
+    if fault == "cleanup_failure":
+        assert any(row["op"] == "kill" and row["returncode"] == -1 for row in record["operations"])
+    if fault in ("short_cp0", "short_event"):
+        name = "cp0.regs.bin" if fault == "short_cp0" else "event.03.code.b.bin"
+        assert bytes.fromhex(record["raw"][name]["hex"]) == backend.case.files[name][:-1]
+    raw = encoded(record)
+    report = modules.checker.verify_record(record_bytes=raw, expected_record_sha256=digest(raw),
+                                          expected_context=backend.case.context)
+    assert report["status"] == "preserved_incomplete"
+    assert report["complete_mechanics_verified"] is False
+    assert report["accepted_return_events"] == 0
+    _loader_two_slot_qualification_assert_boundary(report)
+
+
+@pytest.mark.parametrize("ptrace_request,address,data", [
+    (13, 0, 1234),  # SETREGS
+    (9, 0, 0),  # SINGLESTEP
+    (17, 0, 0),  # DETACH
+    (4, 0x400085, 0xCC),  # POKETEXT / software breakpoint
+    (5, 0x400085, 0),  # POKEDATA
+    (7, 0, 5),  # CONT with forwarded signal
+    (6, 848 + 16, 0x400085),  # DR2 outside the selected slots
+    (6, 848 + 8, 0x400089),  # DR1 with a different address
+    (0x4200, 0, 0x100010),  # Incomplete ptrace options
+    (False, 0, 0),
+])
+def test_loader_two_slot_qualification_native_allowlist_rejects_before_fake_kernel_call(
+        loader_two_slot_qualification_modules, ptrace_request, address, data):
+    modules = loader_two_slot_qualification_modules
+    backend = object.__new__(modules.native_type)
+    backend.child_pid = 5002
+    calls = []
+    backend.libc = SimpleNamespace(ptrace=lambda *args: calls.append(args) or 0)
+    with pytest.raises(modules.producer.QualificationError):
+        backend._ptrace(ptrace_request, 5002, address, data)
+    assert calls == []
+
+
+def test_loader_two_slot_qualification_native_dr1_and_peek_errno_are_exact_without_kernel_execution(
+        loader_two_slot_qualification_modules):
+    modules = loader_two_slot_qualification_modules
+    backend = object.__new__(modules.native_type)
+    backend.child_pid = 5002
+    calls = []
+
+    def fake_ptrace(*args):
+        calls.append(args)
+        return 0
+
+    backend.libc = SimpleNamespace(ptrace=fake_ptrace)
+    assert backend._ptrace(6, 5002, 856, 0x400088) == 0
+    assert calls == [(6, 5002, 856, 0x400088)]
+    backend.libc.ptrace = lambda *_args: -1
+    assert backend._ptrace(3, 5002, 848, 0) == (1 << 64) - 1
+
+    def denied(*_args):
+        modules.producer.ctypes.set_errno(errno.EIO)
+        return -1
+
+    backend.libc.ptrace = denied
+    with pytest.raises(OSError) as failure:
+        backend._ptrace(3, 5002, 848, 0)
+    assert failure.value.errno == errno.EIO
+
+
+def test_loader_two_slot_qualification_native_exceptional_child_cleanup_uses_only_owned_targets(
+        loader_two_slot_qualification_modules, monkeypatch):
+    modules = loader_two_slot_qualification_modules
+    backend = object.__new__(modules.native_type)
+    backend.child_pid, backend.pidfd, backend.reaped = 5002, 17, False
+    backend.unexpected_children = [{"pid": 5003, "pidfd": 18, "event": 1, "reaped": False}]
+    backend.cleanup_operations = []
+    ticks = iter(range(1_000_000_000, 1_010_000_000, 1_000))
+    backend.clock = lambda: next(ticks)
+    signals, waits = [], []
+    monkeypatch.setattr(modules.producer.signal, "pidfd_send_signal",
+                        lambda fd, sig, *_args: signals.append((fd, sig)))
+    monkeypatch.setattr(modules.producer.os, "kill",
+                        lambda *_args: pytest.fail("both owned pidfds are available"))
+
+    def waitpid(pid, flags):
+        waits.append((pid, flags))
+        return pid, 9
+
+    monkeypatch.setattr(modules.producer.os, "waitpid", waitpid)
+    rows = backend.cleanup(1_100_000_000)
+    assert signals == [(18, 9), (17, 9)]
+    assert [pid for pid, _flags in waits] == [5003, 5002]
+    assert [row["op"] for row in rows] == ["kill", "kill", "wait", "wait"]
+    assert backend.reaped is True and backend.unexpected_children[0]["reaped"] is True
+
+
+def test_loader_two_slot_qualification_failed_pidfd_kill_retains_failure_and_uses_owned_fallback(
+        loader_two_slot_qualification_modules, monkeypatch):
+    modules = loader_two_slot_qualification_modules
+    backend = object.__new__(modules.native_type)
+    backend.child_pid, backend.pidfd, backend.reaped = 5002, 17, False
+    backend.unexpected_children, backend.cleanup_operations = [], []
+    ticks = iter(range(1_000_000_000, 1_010_000_000, 1_000))
+    backend.clock = lambda: next(ticks)
+    killed = []
+
+    def failed_pidfd(fd, sig):
+        assert (fd, sig) == (17, 9)
+        raise OSError(errno.EIO, "scripted pidfd failure")
+
+    monkeypatch.setattr(modules.producer.signal, "pidfd_send_signal", failed_pidfd)
+    monkeypatch.setattr(modules.producer.os, "kill", lambda pid, sig: killed.append((pid, sig)))
+    monkeypatch.setattr(modules.producer.os, "waitpid", lambda pid, _flags: (pid, 9))
+    with pytest.raises(OSError):
+        backend.cleanup(1_100_000_000)
+    assert killed == [(5002, 9)] and backend.reaped is True
+    rows = backend.cleanup_operations
+    assert [row["op"] for row in rows] == ["kill", "kill", "wait"]
+    assert rows[0]["returncode"] == -1 and rows[0]["errno"] == errno.EIO
+    assert rows[1]["method"] == "owned_pid_fallback" and rows[1]["returncode"] == 0
+
+
+def test_loader_two_slot_qualification_expired_cleanup_still_attempts_every_owned_kill(
+        loader_two_slot_qualification_modules, monkeypatch):
+    modules = loader_two_slot_qualification_modules
+    backend = object.__new__(modules.native_type)
+    backend.child_pid, backend.pidfd, backend.reaped = 5002, 17, False
+    backend.unexpected_children = [{"pid": 5003, "pidfd": 18, "event": 1, "reaped": False}]
+    backend.cleanup_operations = []
+    backend.clock = lambda: 2_000_000_000
+    killed = []
+    monkeypatch.setattr(modules.producer.signal, "pidfd_send_signal",
+                        lambda fd, sig: killed.append((fd, sig)))
+    monkeypatch.setattr(modules.producer.os, "waitpid",
+                        lambda *_args: pytest.fail("expired cleanup cannot begin another wait"))
+    with pytest.raises(modules.producer.QualificationError, match="deadline"):
+        backend.cleanup(1_000_000_000)
+    assert killed == [(18, 9), (17, 9)]
+    assert [row["op"] for row in backend.cleanup_operations] == ["kill", "kill"]
+    assert not backend.reaped
+
+
+@pytest.mark.parametrize("name", ["cp0.regs.bin", "event.03.code.b.bin"])
+def test_loader_two_slot_qualification_short_raw_read_is_preserved_only_as_incomplete(name):
+    case = _loader_two_slot_qualification_fixture()
+    case.files[name] = case.files[name][:-1]
+    _loader_two_slot_qualification_rebind(case)
+    checker = loader_two_slot_qualification_checker()
+    with pytest.raises(checker.QualificationError):
+        _loader_two_slot_qualification_check(case)
+    case.record.update(status="incomplete", failure="scripted_short_read", phase="cp0")
+    report = _loader_two_slot_qualification_check(case)
+    assert report["incomplete_record_preserved"] is True
+    assert report["complete_mechanics_verified"] is False
+    _loader_two_slot_qualification_assert_boundary(report)
+
+
+def _loader_two_slot_qualification_cli_inputs(tmp_path):
+    case = _loader_two_slot_qualification_fixture()
+    record, context = tmp_path / "record.json", tmp_path / "context.json"
+    record.write_bytes(encoded(case.record))
+    context.write_bytes(encoded(case.context))
+    args = ["--record", str(record), "--record-sha256", digest(record.read_bytes()),
+            "--expected-context", str(context), "--expected-context-sha256", digest(context.read_bytes())]
+    return case, record, context, args
+
+
+def test_loader_two_slot_qualification_two_real_checker_cli_reports_are_byte_identical(tmp_path):
+    case, _record, _context, args = _loader_two_slot_qualification_cli_inputs(tmp_path)
+    outputs = [tmp_path / name for name in ("first.json", "second.json")]
+    for output in outputs:
+        result = subprocess.run([sys.executable, "-I", "-B",
+            str(ROOT / LOADER_TWO_SLOT_QUALIFICATION_CHECKER_REL), *args, "--output", str(output)],
+            capture_output=True, timeout=30, check=False)
+        assert result.returncode == 0, result.stderr.decode(errors="replace")
+        assert result.stdout == result.stderr == b""
+    first = outputs[0].read_bytes()
+    assert first == outputs[1].read_bytes() == encoded(_loader_two_slot_qualification_check(case))
+    assert first.endswith(b"\n") and not first.endswith(b"\n\n")
+
+
+@pytest.mark.parametrize("fault", ["record_digest", "context_digest", "existing_output", "record_symlink"])
+def test_loader_two_slot_qualification_checker_cli_cannot_publish_misselected_or_replaced_output(
+        tmp_path, capsys, fault):
+    _case, record, _context, args = _loader_two_slot_qualification_cli_inputs(tmp_path)
+    output = tmp_path / "result.json"
+    if fault == "record_digest":
+        args[args.index("--record-sha256") + 1] = "f" * 64
+    elif fault == "context_digest":
+        args[args.index("--expected-context-sha256") + 1] = "f" * 64
+    elif fault == "existing_output":
+        output.write_bytes(b"owner bytes stay exact\n")
+    else:
+        link = tmp_path / "record-link.json"
+        link.symlink_to(record)
+        args[args.index("--record") + 1] = str(link)
+    status = loader_two_slot_qualification_checker().main([*args, "--output", str(output)])
+    assert status == 2
+    if fault == "existing_output":
+        assert output.read_bytes() == b"owner bytes stay exact\n"
+    else:
+        assert not output.exists()
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize("symlink", [False, True])
+def test_loader_two_slot_qualification_producer_reserves_output_before_any_attempt(
+        loader_two_slot_qualification_modules, tmp_path, monkeypatch, capsys, symlink):
+    producer = loader_two_slot_qualification_modules.producer
+    owner = tmp_path / "owner.json"
+    owner.write_bytes(b"preserve exact owner bytes\n")
+    output = tmp_path / "result.json" if symlink else owner
+    if symlink:
+        output.symlink_to(owner)
+    monkeypatch.setattr(producer, "qualify", lambda: pytest.fail("existing output must prevent any attempt"))
+    status = producer.main(["--output", str(output)])
+    assert status == 2 and owner.read_bytes() == b"preserve exact owner bytes\n"
+    assert capsys.readouterr().out == ""
+
+
+def test_loader_two_slot_qualification_producer_detects_output_replacement_without_overwriting_it(
+        loader_two_slot_qualification_modules, tmp_path, monkeypatch, capsys):
+    producer = loader_two_slot_qualification_modules.producer
+    case = _loader_two_slot_qualification_fixture()
+    output = tmp_path / "result.json"
+
+    def scripted_attempt():
+        output.unlink()
+        output.write_bytes(b"concurrent owner replacement\n")
+        return case.record
+
+    monkeypatch.setattr(producer, "qualify", scripted_attempt)
+    status = producer.main(["--output", str(output)])
+    assert status == 2 and output.read_bytes() == b"concurrent owner replacement\n"
+    assert capsys.readouterr().out == ""
+
+
+def test_loader_two_slot_qualification_producer_cli_retains_complete_diagnostic_failure_record(
+        loader_two_slot_qualification_modules, tmp_path, monkeypatch, capsys):
+    modules = loader_two_slot_qualification_modules
+    backend = _LoaderTwoSlotQualificationScriptedBackend("partial_sample")
+    record = modules.producer.qualify(backend=backend)
+    assert record["status"] == "incomplete"
+    monkeypatch.setattr(modules.producer, "qualify", lambda: record)
+    output = tmp_path / "incomplete.json"
+    assert modules.producer.main(["--output", str(output)]) == 2
+    assert output.read_bytes() == encoded(record)
+    assert capsys.readouterr().out == ""
+    raw = output.read_bytes()
+    report = modules.checker.verify_record(record_bytes=raw, expected_record_sha256=digest(raw),
+                                          expected_context=backend.case.context)
+    assert report["status"] == "preserved_incomplete" and not report["complete_mechanics_verified"]
+
+
+def _loader_two_slot_qualification_failed_publication_case(modules, tmp_path, monkeypatch, capsys, kind):
+    case, _record, _context, checker_args = _loader_two_slot_qualification_cli_inputs(tmp_path)
+    attempts = []
+
+    def scripted_attempt():
+        attempts.append(True)
+        return copy.deepcopy(case.record)
+
+    monkeypatch.setattr(modules.producer, "qualify", scripted_attempt)
+
+    def invoke(output):
+        if kind == "producer":
+            return modules.producer.main(["--output", str(output)])
+        return modules.checker.main([*checker_args, "--output", str(output)])
+
+    owner = tmp_path / "existing-owner.json"
+    owner_bytes = b"owner bytes must survive publication failure\n"
+    owner.write_bytes(owner_bytes)
+    monkeypatch.setattr(os, "fsync", lambda _fd: pytest.fail("existing output must not be opened for publication"))
+    assert invoke(owner) == 2
+    assert owner.read_bytes() == owner_bytes and attempts == []
+    observed_complete_writes = []
+    for replace in (False, True):
+        output = tmp_path / ("replaced-output.json" if replace else "new-output.json")
+        displaced = tmp_path / "original-owned-inode.json"
+
+        def failed_fsync(_fd):
+            # Prove the failure occurs after a complete, otherwise acceptable
+            # JSON document was written, rather than before the dangerous point.
+            value = json.loads(output.read_bytes())
+            expected = "completed" if kind == "producer" else "accepted_scripted_qualification_record"
+            assert value["status"] == expected
+            observed_complete_writes.append(expected)
+            if replace:
+                output.rename(displaced)
+                output.write_bytes(owner_bytes)
+            raise OSError(errno.ENOSPC if kind == "producer" else errno.EIO, "scripted fsync failure")
+
+        monkeypatch.setattr(os, "fsync", failed_fsync)
+        assert invoke(output) == 2
+        if replace:
+            assert output.read_bytes() == owner_bytes
+            assert displaced.read_bytes() == b""
+        else:
+            assert output.read_bytes() == b""
+        assert owner.read_bytes() == owner_bytes
+    assert len(observed_complete_writes) == 2
+    assert len(attempts) == (2 if kind == "producer" else 0)
+    assert capsys.readouterr().out == ""
+
+
+def test_loader_two_slot_qualification_producer_fsync_failure_invalidates_only_owned_artifact(
+        loader_two_slot_qualification_modules, tmp_path, monkeypatch, capsys):
+    _loader_two_slot_qualification_failed_publication_case(
+        loader_two_slot_qualification_modules, tmp_path, monkeypatch, capsys, "producer")
+
+
+def test_loader_two_slot_qualification_checker_fsync_failure_invalidates_only_owned_artifact(
+        loader_two_slot_qualification_modules, tmp_path, monkeypatch, capsys):
+    _loader_two_slot_qualification_failed_publication_case(
+        loader_two_slot_qualification_modules, tmp_path, monkeypatch, capsys, "checker")
+
+
+@pytest.mark.parametrize("fault", ["deadline_after_chunk", "file_identity_after_chunk"])
+def test_loader_two_slot_qualification_native_read_failure_preserves_already_acquired_bytes(
+        loader_two_slot_qualification_modules, monkeypatch, fault):
+    modules = loader_two_slot_qualification_modules
+    expected_raw = _loader_two_slot_qualification_stat()
+
+    class ReadFailureBackend(_LoaderTwoSlotQualificationScriptedBackend):
+        def read(self, name, deadline):
+            if name != "child.stat.setup.bin":
+                return super().read(name, deadline)
+            self.calls.append(("read", name))
+            native = object.__new__(modules.native_type)
+            clock_calls, stat_calls = [], []
+            chunks = iter((expected_raw, b""))
+
+            def clock():
+                clock_calls.append(True)
+                return deadline + 1 if fault == "deadline_after_chunk" and len(clock_calls) > 1 else 0
+
+            def fstat(_fd):
+                stat_calls.append(True)
+                return SimpleNamespace(st_mode=stat.S_IFREG | 0o400, st_dev=1, st_size=0,
+                    st_ino=2 if fault == "file_identity_after_chunk" and len(stat_calls) > 1 else 1)
+
+            native.clock = clock
+            with monkeypatch.context() as patch:
+                patch.setattr(modules.producer.os, "fstat", fstat)
+                patch.setattr(modules.producer.os, "read", lambda _fd, _count: next(chunks))
+                # The fd is invented and both syscall surfaces are substituted;
+                # no process or real descriptor is read.
+                return native._read_fd(60001, 65536, deadline)
+
+    backend = ReadFailureBackend()
+    record = modules.producer.qualify(backend=backend)
+    assert record["status"] == "incomplete" and record["failure"] is not None
+    assert backend.cont_count == 0 and backend.reaped and backend.closed
+    assert bytes.fromhex(record["raw"]["child.stat.setup.bin"]["hex"]) == expected_raw
+    raw = encoded(record)
+    report = modules.checker.verify_record(record_bytes=raw, expected_record_sha256=digest(raw),
+                                          expected_context=backend.case.context)
+    assert report["incomplete_record_preserved"] is True and not report["complete_mechanics_verified"]
+
+
+def test_loader_two_slot_qualification_malformed_initial_stat_is_kept_before_identity_rejection(
+        loader_two_slot_qualification_modules):
+    modules = loader_two_slot_qualification_modules
+    expected_raw = b"malformed initial stat bytes\n"
+
+    class MalformedStatBackend(_LoaderTwoSlotQualificationScriptedBackend):
+        def read(self, name, deadline):
+            if name != "child.stat.setup.bin":
+                return super().read(name, deadline)
+            self.calls.append(("read", name))
+            native = object.__new__(modules.native_type)
+            native.starttime, native.procfd, native.clock = None, 60002, lambda: 0
+            native._read_path = lambda *_args, **_kwargs: expected_raw
+            return native.read(name, deadline)
+
+    backend = MalformedStatBackend()
+    record = modules.producer.qualify(backend=backend)
+    assert record["status"] == "incomplete" and record["failure"] is not None
+    assert backend.cont_count == 0 and backend.reaped and backend.closed
+    assert bytes.fromhex(record["raw"]["child.stat.setup.bin"]["hex"]) == expected_raw
+    raw = encoded(record)
+    report = modules.checker.verify_record(record_bytes=raw, expected_record_sha256=digest(raw),
+                                          expected_context=backend.case.context)
+    assert report["status"] == "preserved_incomplete" and not report["complete_mechanics_verified"]
+
+
+@pytest.mark.parametrize("handler_kind", ["ignored", "custom", "default"])
+def test_loader_two_slot_qualification_sigchld_ownership_preflight_precedes_spawn(
+        loader_two_slot_qualification_modules, monkeypatch, handler_kind):
+    modules = loader_two_slot_qualification_modules
+    backend = object.__new__(modules.native_type)
+    backend.observer_pid, backend.clock = 5001, lambda: 0
+    producer = modules.producer
+    handler = {"ignored": producer.signal.SIG_IGN, "default": producer.signal.SIG_DFL,
+               "custom": lambda _signum, _frame: None}[handler_kind]
+    queried = []
+
+    def getsignal(signum):
+        queried.append(signum)
+        return handler
+
+    monkeypatch.setattr(producer.sys, "platform", "linux")
+    monkeypatch.setattr(producer.os, "uname", lambda: SimpleNamespace(machine="x86_64"))
+    monkeypatch.setattr(producer.os, "sysconf", lambda _name: 4096)
+    monkeypatch.setattr(producer.os, "listdir", lambda _path: ["5001"])
+    monkeypatch.setattr(producer.signal, "getsignal", getsignal)
+    monkeypatch.setattr(producer.signal, "signal",
+                        lambda *_args: pytest.fail("preflight must not reset the caller's signal handling"))
+    monkeypatch.setattr(producer.os, "memfd_create",
+                        lambda *_args: pytest.fail("rejected signal handling must precede allocation and fork"))
+    if handler_kind == "default":
+        assert backend._platform() is None
+    else:
+        with pytest.raises(producer.QualificationError, match="two_slot_native_sigchld_handler"):
+            backend.spawn(_loader_readout_two_slot_probe_oracle(), 1_000_000_000)
+    assert queried == [producer.signal.SIGCHLD]
+
+
+def _loader_two_slot_qualification_child_proc_pairs():
+    # Independently enumerate both selected proc files at every acquisition
+    # phase; the native dispatcher's substring predicates are not reused.
+    return [
+        ("child.stat.setup.bin", "child.status.setup.bin"),
+        ("cp0.child.stat.bin", "cp0.child.status.bin"),
+        *[(f"event.{number:02d}.child.stat.{side}.bin",
+           f"event.{number:02d}.child.status.{side}.bin")
+          for number in range(1, 11) for side in ("a", "b")],
+    ]
+
+
+@pytest.mark.parametrize("name,leaf", [
+    (name, leaf)
+    for pair in _loader_two_slot_qualification_child_proc_pairs()
+    for name, leaf in zip(pair, ("stat", "status"))
+])
+def test_loader_two_slot_qualification_native_child_proc_dispatch_selects_exact_leaf(
+        loader_two_slot_qualification_modules, name, leaf):
+    modules = loader_two_slot_qualification_modules
+    native = object.__new__(modules.native_type)
+    native.starttime, native.procfd, native.clock = None, 60002, lambda: 0
+    raw_files = {"stat": _loader_two_slot_qualification_stat(),
+                 "status": _loader_two_slot_qualification_status()}
+    selected = []
+
+    def read_path(path, maximum, deadline, *, directory):
+        selected.append((path, maximum, deadline, directory))
+        return raw_files[path]
+
+    # Exercise NativeBackend.read itself. Only the low-level file read is
+    # replaced; no real descriptor, proc file, child or ptrace call is used.
+    native._read_path = read_path
+    actual = native.read(name, 1_000_000)
+    assert selected == [(leaf, 65536, 1_000_000, 60002)]
+    assert actual == raw_files[leaf]
+    assert native.starttime == (234567 if leaf == "stat" else None)
+
+
+def test_loader_two_slot_qualification_native_child_proc_dispatch_reaches_terminal_in_scripted_controller(
+        loader_two_slot_qualification_modules):
+    modules = loader_two_slot_qualification_modules
+    pairs = _loader_two_slot_qualification_child_proc_pairs()
+    by_name = {name: {"stat": pair[0], "status": pair[1]}
+               for pair in pairs for name in pair}
+    routed = []
+
+    class NativeProcDispatchBackend(_LoaderTwoSlotQualificationScriptedBackend):
+        def __init__(self):
+            super().__init__()
+            self.native = object.__new__(modules.native_type)
+            self.native.starttime, self.native.procfd = None, 60002
+            self.native.clock = self.clock
+
+        def read(self, name, deadline):
+            if name not in by_name:
+                return super().read(name, deadline)
+            self.calls.append(("read", name))
+
+            def read_path(path, maximum, selected_deadline, *, directory):
+                assert (maximum, selected_deadline, directory) == (65536, deadline, 60002)
+                routed.append((name, path))
+                return self.case.files[by_name[name][path]]
+
+            self.native._read_path = read_path
+            raw = self.native.read(name, deadline)
+            self.starttime = self.native.starttime
+            return raw
+
+    backend = NativeProcDispatchBackend()
+    record = modules.producer.qualify(backend=backend)
+    assert record["status"] == "completed", record["failure"]
+    assert record["evidence_origin"] == "scripted_test_backend"
+    assert backend.cont_count == 11 and backend.closed and backend.reaped
+    assert routed == [(name, leaf) for pair in pairs for name, leaf in zip(pair, ("stat", "status"))]
+    for name in by_name:
+        assert bytes.fromhex(record["raw"][name]["hex"]) == backend.case.files[name]
+    raw = encoded(record)
+    report = modules.checker.verify_record(record_bytes=raw, expected_record_sha256=digest(raw),
+                                          expected_context=backend.case.context)
+    assert report["complete_mechanics_verified"] is True
+    assert report["native_record_reconstructed"] is False
+    _loader_two_slot_qualification_assert_boundary(report)
