@@ -286,6 +286,50 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             ),
         )
 
+    if rel == ".github/workflows/required_gate_idempotence_loader_two_slot_qualification_v0.yml":
+        expected_sha256 = "b0b889a3b6b8f8fa863e3ffba295dd9c295254ea7fdddb2066017f8c5d1e59ef"
+        if (name != "PULSEmech loader two-slot qualification v0"
+                or path.is_symlink() or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
+            return entry(
+                name=name, path=rel, surface_type="workflow",
+                primary_role="unclassified workflow", carrier_class="advisory",
+                authority_impacting="conditional",
+                authority_boundary="Changed synthetic two-slot qualification carrier requires exact source review",
+            )
+        return entry(
+            name=name, path=rel, surface_type="workflow",
+            primary_role="non-authorizing synthetic loader two-slot qualification workflow",
+            carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary=(
+                "Manual owner-scoped execution of one fixed synthetic probe with preserved evidence "
+                "and independent data-only replay; no original-launcher or model execution, "
+                "required-gate activation or release admission."
+            ),
+            reads_artifacts=[
+                "exact reviewed source/workflow commit, fixed source closure and owner acknowledgement",
+                "pinned Python base, six hash-locked verifier wheels and preserved build inputs",
+                "exact current-run artifact ID/digest and externally bound complete or incomplete attempt receipt",
+            ],
+            writes_artifacts=[
+                "context-bound synthetic request, native attempt and qualification bytes or incomplete prefix",
+                "two canonical acquisition reports and two independent data-only replay reports",
+                "fixed command/runtime records and verified owned container cleanup",
+                "completed verification binding and original GitHub attestation and signature-verification evidence",
+            ],
+            publishes_artifacts=[
+                "synthetic qualification and separate verification artifacts with 90-day retention",
+            ],
+            required_gate_participation=False, attestation_participation=True, release_path_participation=False,
+            notes=(
+                "Incomplete prefixes remain incomplete and cannot reach completed-statement attestation. "
+                "The verifier rebuilds from preserved inputs without repeating native qualification. "
+                "Hosted statement attestation does not establish physical execution authentication, "
+                "future-host admission, original source/build acceptance, B2 completion or release authority. "
+                "metric_pass=null; authority_effect=none; keep #2879 open with its complete whole-runtime scope."
+            ),
+        )
+
     if rel == ".github/workflows/pulse_ci.yml":
         return entry(
             name=name,
