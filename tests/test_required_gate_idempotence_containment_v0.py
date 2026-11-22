@@ -16799,7 +16799,7 @@ def test_loader_two_slot_hosted_container_argv_selects_only_readonly_closure_and
     assert args[:2] == ["docker", "create"]
     assert options("--user") == ["1001:1002"]
     assert options("--network") == ["none"] and options("--cap-drop") == ["ALL"]
-    assert options("--security-opt") == ["no-new-privileges"]
+    assert options("--security-opt") == ["no-new-privileges", "apparmor=docker-default"]
     assert options("--pids-limit") == ["64"] and options("--memory") == ["1g"]
     assert options("--cpus") == ["1"] and options("--tmpfs") == ["/tmp:rw,nosuid,nodev,size=64m"]
     assert "--read-only" in args
@@ -17416,7 +17416,8 @@ def _loader_two_slot_hosted_inspect(plan, *, cid="d" * 64, exited=False):
             "Env": [key + "=" + value for key, value in sorted(environment.items())],
             "Volumes": None, "Healthcheck": None, "Tty": False, "OpenStdin": False},
         "HostConfig": {"Privileged": False, "ReadonlyRootfs": True, "NetworkMode": "none",
-            "CapDrop": ["ALL"], "CapAdd": None, "SecurityOpt": ["no-new-privileges"],
+            "CapDrop": ["ALL"], "CapAdd": None,
+            "SecurityOpt": ["no-new-privileges", "apparmor=docker-default"],
             "PidsLimit": 64, "Memory": 1073741824, "NanoCpus": 1000000000,
             "Tmpfs": {"/tmp": "rw,nosuid,nodev,size=64m"}, "Devices": [], "DeviceRequests": [],
             "DeviceCgroupRules": None, "VolumesFrom": None, "Binds": None, "PidMode": "",
@@ -17478,25 +17479,28 @@ def test_loader_two_slot_hosted_inspection_rejects_relaxed_policy_or_relabelled_
             info, "d" * 64, selected["image_id"], selected["context"], "acquire", plan)
 
 
-def _loader_two_slot_hosted_container_fixture(tmp_path, monkeypatch, *, fault=None):
+def _loader_two_slot_hosted_container_fixture(tmp_path, monkeypatch, *, fault=None, phase="acquire"):
     driver, checker = loader_two_slot_hosted_driver(), loader_two_slot_hosted_checker()
-    root = tmp_path / "acquisition"
-    selected, plan = _loader_two_slot_hosted_plan(root)
+    root = tmp_path / ("acquisition" if phase == "acquire" else "verification")
+    selected, plan = _loader_two_slot_hosted_plan(root, phase)
     _loader_two_slot_hosted_tree(root, {
         "control/hosted-selection.json": encoded(selected),
         "host-commands/image-inspect.stdout.bin": encoded([{"Id": selected["image_id"],
             "Config": {"Env": plan["image_environment"]}}]),
     })
     (root / "environment").mkdir(mode=0o700)
-    calls = []
+    calls, creation_options = [], []
+    started = False
     monkeypatch.setattr(os, "getuid", lambda: 1001)
     monkeypatch.setattr(os, "getgid", lambda: 1002)
 
     def command(destination, label, argv, timeout=120, require=True, env=None, **kwargs):
+        nonlocal started
         assert Path(destination) == root
         calls.append((label, argv, kwargs))
         stdout, returncode, failure = b"", 0, None
         if label == "container-create":
+            creation_options[:] = [argv[i + 1] for i, arg in enumerate(argv[:-1]) if arg == "--security-opt"]
             cid = "e" * 64 if fault == "cid_substitution" else "d" * 64
             if fault != "missing_cid":
                 (root / "environment/container-id.txt").write_bytes((cid + "\n").encode())
@@ -17505,6 +17509,13 @@ def _loader_two_slot_hosted_container_fixture(tmp_path, monkeypatch, *, fault=No
             elif fault == "create_timeout": returncode, failure = -9, "hosted_process_deadline"
         elif label in {"container-inspect", "container-state", "container-ownership-inspect"}:
             info = _loader_two_slot_hosted_inspect(plan, exited=label != "container-inspect")
+            # Docker records an explicitly selected profile during create;
+            # its implicit default is filled at start, not before it.
+            info[0]["HostConfig"]["SecurityOpt"] = list(creation_options)
+            profiles = [value.split("=", 1)[1] for value in creation_options if value.startswith("apparmor=")]
+            info[0]["AppArmorProfile"] = profiles[-1] if profiles else ("docker-default" if started else "")
+            if fault == "terminal_profile_missing" and label == "container-state":
+                info[0]["AppArmorProfile"] = ""
             if fault == "command_substitution" and label == "container-inspect": info[0]["Config"]["Cmd"][-1] = "probe"
             if fault == "foreign_owner" and label == "container-ownership-inspect":
                 info[0]["Config"]["Labels"]["org.pulsemech.two-slot.run"] = "999/1"
@@ -17512,6 +17523,7 @@ def _loader_two_slot_hosted_container_fixture(tmp_path, monkeypatch, *, fault=No
             if fault == "ownership_failure" and label == "container-ownership-inspect": returncode = 1
             stdout = encoded(info)
         elif label == "container-start":
+            started = True
             if fault == "start_timeout": returncode, failure = -9, "hosted_process_deadline"
         elif label == "container-remove":
             stdout = ("d" * 64 + "\n").encode()
@@ -17531,7 +17543,8 @@ def _loader_two_slot_hosted_container_fixture(tmp_path, monkeypatch, *, fault=No
 
     monkeypatch.setattr(driver, "_command", command)
     return SimpleNamespace(driver=driver, checker=checker, root=root, selected=selected,
-                           plan=plan, calls=calls)
+                           plan=plan, calls=calls, phase=phase,
+                           previous=root.parent / "retained-input" if phase == "verify" else None)
 
 
 def test_loader_two_slot_hosted_outer_container_records_actual_policy_then_owned_removal_and_empty_full_id_query(
@@ -18156,3 +18169,129 @@ def test_loader_two_slot_hosted_summary_requires_byte_identical_canonical_checke
         request_bytes=encoded(case.request), attempt_bytes=encoded(case.attempt), qualification_bytes=case.qualification,
         report_bytes=(report, report + b" "))
     assert value["status"] == "preserved_incomplete"
+
+
+def _loader_two_slot_hosted_recorded_prestart():
+    # Exact bytes from run 45079210493/1, source a6babb55284ad914c9feb2e041fc2b8ec624aa68,
+    # acquisition artifact 14776900777. Archive SHA-256:
+    # ea65d7af5e10166afb3e914ea849f7968d3305bd7882d297eb8d10c5e03dcbed.
+    # These are a failed prestart inspection and its plan, not a native probe result.
+    root = ROOT / "tests/fixtures/required_gate_idempotence_loader_two_slot_hosted_v0"
+    inspection = (root / "container-inspect-45079210493-1.json").read_bytes()
+    plan = (root / "container-plan-45079210493-1.json").read_bytes()
+    assert (len(inspection), digest(inspection)) == (
+        11466, "2846108b284adbc4e76413b072902c45e2d27731a3e081027d21e3305e4a9399")
+    assert (len(plan), digest(plan)) == (
+        3048, "4bec1d5fa8df4635204f07b8e76dbc359cdc4c67d9cb4a1cee8dd53de7f1a538")
+    return json.loads(plan), json.loads(inspection)
+
+
+def test_loader_two_slot_hosted_recorded_implicit_apparmor_prestart_remains_rejected():
+    plan, info = _loader_two_slot_hosted_recorded_prestart()
+    item = info[0]
+    assert plan["context"]["run_id"] == 45079210493 and plan["context"]["run_attempt"] == 1
+    assert item["State"]["Status"] == "created" and item["State"]["Running"] is False
+    assert item["State"]["Pid"] == 0 and item["State"]["StartedAt"] == "0001-01-01T00:00:00Z"
+    assert item["AppArmorProfile"] == ""
+    assert item["HostConfig"]["SecurityOpt"] == ["no-new-privileges"]
+    with pytest.raises(ValueError, match="two_slot_hosted_container_policy"):
+        loader_two_slot_hosted_checker().validate_container_identity(
+            info, item["Id"], plan["image_id"], plan["context"], "acquire", plan)
+
+
+@pytest.mark.parametrize("no_new_privileges", ["no-new-privileges", "no-new-privileges=true"])
+def test_loader_two_slot_hosted_explicit_apparmor_selection_accepts_authored_prestart_copy(no_new_privileges):
+    plan, recorded = _loader_two_slot_hosted_recorded_prestart()
+    # Only this in-memory copy is authored. The original fixture stays unchanged.
+    authored = copy.deepcopy(recorded)
+    authored[0]["HostConfig"]["SecurityOpt"] = [no_new_privileges, "apparmor=docker-default"]
+    authored[0]["AppArmorProfile"] = "docker-default"
+    assert loader_two_slot_hosted_checker().validate_container_identity(
+        authored, authored[0]["Id"], plan["image_id"], plan["context"], "acquire", plan) == authored[0]
+    assert recorded[0]["AppArmorProfile"] == ""
+    assert recorded[0]["HostConfig"]["SecurityOpt"] == ["no-new-privileges"]
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_loader_two_slot_hosted_both_command_implementations_explicitly_select_default_apparmor(tmp_path, phase):
+    selected, plan = _loader_two_slot_hosted_plan(tmp_path, phase)
+    mounts = {item["target"]: Path(item["source"]) for item in plan["mounts"]}
+    actual = loader_two_slot_hosted_driver().docker_create_args(
+        selected["image_id"], selected["context"], mounts["/repo"], mounts["/control"], mounts["/output"],
+        phase=phase, previous=mounts.get("/input"), uid=plan["uid"], gid=plan["gid"],
+        handoff=selected["handoff"])
+    reconstructed = loader_two_slot_hosted_checker().docker_create_argv(plan)
+    assert actual == reconstructed
+    for argv in (actual, reconstructed):
+        assert [argv[i + 1] for i, option in enumerate(argv[:-1]) if option == "--security-opt"] == [
+            "no-new-privileges", "apparmor=docker-default"]
+
+
+@pytest.mark.parametrize("exited", [False, True], ids=["created", "terminal"])
+@pytest.mark.parametrize("options", [
+    None, [], ["no-new-privileges"], ["apparmor=docker-default"],
+    ["no-new-privileges", "apparmor="],
+    ["no-new-privileges", "apparmor=custom"],
+    ["no-new-privileges", "apparmor=unconfined"],
+    ["no-new-privileges", "apparmor=docker-default", "apparmor=docker-default"],
+    ["no-new-privileges", "apparmor=docker-default", "seccomp=unconfined"],
+])
+def test_loader_two_slot_hosted_rejects_missing_or_unselected_apparmor_options(tmp_path, exited, options):
+    selected, plan = _loader_two_slot_hosted_plan(tmp_path)
+    info = _loader_two_slot_hosted_inspect(plan, exited=exited)
+    info[0]["HostConfig"]["SecurityOpt"] = copy.deepcopy(options)
+    with pytest.raises(ValueError, match="two_slot_hosted_container_policy"):
+        loader_two_slot_hosted_checker().validate_container_identity(
+            info, "d" * 64, selected["image_id"], selected["context"], "acquire", plan)
+
+
+@pytest.mark.parametrize("exited", [False, True], ids=["created", "terminal"])
+@pytest.mark.parametrize("profile", [None, "", "custom", "unconfined"])
+def test_loader_two_slot_hosted_explicit_option_never_substitutes_for_inspected_apparmor_profile(
+        tmp_path, exited, profile):
+    selected, plan = _loader_two_slot_hosted_plan(tmp_path)
+    info = _loader_two_slot_hosted_inspect(plan, exited=exited)
+    if profile is None:
+        del info[0]["AppArmorProfile"]
+    else:
+        info[0]["AppArmorProfile"] = profile
+    with pytest.raises(ValueError, match="two_slot_hosted_container_defaults"):
+        loader_two_slot_hosted_checker().validate_container_identity(
+            info, "d" * 64, selected["image_id"], selected["context"], "acquire", plan)
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+@pytest.mark.parametrize("fault", [None, "implicit_profile", "terminal_profile_missing"])
+def test_loader_two_slot_hosted_apparmor_lifecycle_selects_before_start_and_retains_owned_cleanup(
+        tmp_path, monkeypatch, phase, fault):
+    fixture = _loader_two_slot_hosted_container_fixture(tmp_path, monkeypatch, fault=fault, phase=phase)
+    if fault == "implicit_profile":
+        original = fixture.driver.docker_create_args
+
+        def omit_profile(*args, **kwargs):
+            argv = original(*args, **kwargs)
+            index = argv.index("apparmor=docker-default")
+            assert argv[index - 1] == "--security-opt"
+            del argv[index - 1:index + 1]
+            return argv
+
+        monkeypatch.setattr(fixture.driver, "docker_create_args", omit_profile)
+
+    def run():
+        return fixture.driver._container(fixture.root, fixture.checker.environment(),
+            fixture.selected["image_id"], fixture.selected["context"], phase, previous=fixture.previous)
+
+    if fault is None:
+        assert run() == fixture.root / ("observation" if phase == "acquire" else "verification")
+    else:
+        error = "two_slot_hosted_container_policy" if fault == "implicit_profile" else "two_slot_hosted_container_defaults"
+        with pytest.raises(ValueError, match=error):
+            run()
+    labels = [row[0] for row in fixture.calls]
+    assert labels.count("container-start") == (0 if fault == "implicit_profile" else 1)
+    assert labels[-3:] == ["container-ownership-inspect", "container-remove", "container-absence"]
+    cleanup = json.loads((fixture.root / "environment/container-cleanup.json").read_bytes())
+    assert cleanup["owned_container_verified"] is cleanup["remove_succeeded"] is cleanup["absence_verified"] is True
+    assert cleanup["cleanup_errors"] == []
+    before = json.loads((fixture.root / "host-commands/container-inspect.stdout.bin").read_bytes())[0]
+    assert before["AppArmorProfile"] == ("" if fault == "implicit_profile" else "docker-default")

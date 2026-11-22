@@ -500,7 +500,9 @@ def validate_container_identity(info, cid, image, ctx, phase, plan, ownership_on
     _need(host.get("Privileged") is False and host.get("ReadonlyRootfs") is True
           and host.get("NetworkMode") == "none" and host.get("CapDrop") == ["ALL"]
           and host.get("CapAdd") in (None, [])
-          and host.get("SecurityOpt") in (["no-new-privileges"], ["no-new-privileges=true"])
+          and host.get("SecurityOpt") in (
+              ["no-new-privileges", "apparmor=docker-default"],
+              ["no-new-privileges=true", "apparmor=docker-default"])
           and type(host.get("PidsLimit")) is int and host["PidsLimit"] == 64
           and type(host.get("Memory")) is int and host["Memory"] == 1024 ** 3
           and type(host.get("NanoCpus")) is int and host["NanoCpus"] == 10 ** 9
@@ -628,6 +630,7 @@ def docker_create_argv(plan):
     argv = ["docker", "create", "--name", plan["name"], "--cidfile", str(root / "environment/container-id.txt"),
         "--platform", "linux/amd64", "--user", str(plan["uid"]) + ":" + str(plan["gid"]),
         "--read-only", "--network", "none", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+        "--security-opt", "apparmor=docker-default",
         "--pids-limit", "64", "--memory", "1g", "--cpus", "1", "--tmpfs", "/tmp:rw,nosuid,nodev,size=64m",
         "--workdir", "/repo"]
     for key, value in sorted(plan["labels"].items()):

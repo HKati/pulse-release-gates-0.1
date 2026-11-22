@@ -123,6 +123,27 @@ automatic retry or relaxed-policy fallback is offered. If the selected hosted
 runner cannot perform the probe under this policy, the result remains an
 incomplete qualification with diagnostic evidence.
 
+Both phases select `--security-opt apparmor=docker-default` explicitly when
+creating their container. Docker can leave an implicit default profile empty
+in the inspection of a container that has not started. Explicit selection
+keeps the required profile visible before execution; the controller and the
+independent checker still require `AppArmorProfile=docker-default` at both
+prestart and terminal inspection, plus exactly the selected AppArmor and
+no-new-privileges options. Empty, custom or unconfined profiles are rejected.
+
+The first hosted attempt,
+[run 45079210493/1](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45079210493),
+at source `a6babb55284ad914c9feb2e041fc2b8ec624aa68`, stopped with
+`two_slot_hosted_container_defaults` while its container was still `created`.
+No probe was started. Owned removal and a successful absence check completed;
+the verification job rejected the preserved incomplete prefix and skipped
+attestation. The regression fixtures retain the original container inspection
+and plan bytes from acquisition artifact `14776900777`, whose archive SHA-256
+is `ea65d7af5e10166afb3e914ea849f7968d3305bd7882d297eb8d10c5e03dcbed`.
+Any modified inspection used by the regression tests is an authored case,
+not evidence of a later successful qualification. A fresh reviewed-source
+attempt remains necessary after the correction.
+
 A successful completed result requires actual terminal state with exit code
 zero, no OOM and no Docker state error. The controller then verifies container
 ownership before force-removal and obtains a successful full-ID listing that

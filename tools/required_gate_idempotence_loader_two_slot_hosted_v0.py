@@ -417,11 +417,14 @@ def docker_create_args(image_id, ctx, source, control, output, *, phase,
         "org.pulsemech.two-slot.profile": PROFILE,
         "org.pulsemech.two-slot.phase": phase,
     }
+    # An implicit default is recorded only when Docker starts the container.
+    # Select the same required profile explicitly for the prestart inspection.
     args = ["docker", "create", "--name", name,
             "--cidfile", str(root / "environment/container-id.txt"),
             "--platform", "linux/amd64", "--user", str(uid) + ":" + str(gid),
             "--read-only", "--network", "none", "--cap-drop", "ALL",
-            "--security-opt", "no-new-privileges", "--pids-limit", "64",
+            "--security-opt", "no-new-privileges",
+            "--security-opt", "apparmor=docker-default", "--pids-limit", "64",
             "--memory", "1g", "--cpus", "1", "--tmpfs", "/tmp:rw,nosuid,nodev,size=64m",
             "--workdir", "/repo"]
     for key, value in sorted(labels.items()):
