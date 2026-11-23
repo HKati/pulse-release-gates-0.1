@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Fix the [B2 loader two-slot hosted qualification](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md)
+  container creation to select `apparmor=docker-default` explicitly in both
+  acquisition and verification. Keep strict prestart and terminal profile
+  checks, independently reconstruct the exact selected command, and add
+  regressions from the first hosted attempt's actual prestart inspection.
+  The original incomplete attempt remains incomplete; actual qualification,
+  original-loader acquisition and release authority remain separate.
+
 - Add a separate [B2 loader two-slot hosted qualification route](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md)
   with a manual owner-bound workflow, exact source/input preservation, one
   synthetic probe in a restricted container and independent offline replay in
