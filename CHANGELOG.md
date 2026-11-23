@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Preserve the completed [B2 hosted two-slot qualification](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md#completed-hosted-qualification-452531882861)
+  from owner-dispatched run `45253188286/1` at source `624713608bcf5467c6d4be44cd026f906c45f274`.
+  Retain 255 unchanged original control/evidence members, exact artifact and
+  source bindings, four identical hosted reports, cleanup and hosted attestation
+  verification. Two fresh data-only checker processes reproduced the reports;
+  complete original evidence reconstructed the attested binding unchanged under
+  its recorded absolute input-path requirement. Keep complete original ZIPs in
+  separate custody and the first failed attempt incomplete. Original-loader
+  acquisition, source/build acceptance, B2 and whole-runtime #2879 remain open;
+  `metric_pass=null` and `authority_effect=none`.
+
 - Fix the [B2 loader two-slot hosted qualification](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md)
   container creation to select `apparmor=docker-default` explicitly in both
   acquisition and verification. Keep strict prestart and terminal profile
