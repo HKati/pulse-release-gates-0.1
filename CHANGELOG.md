@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add a bounded [B2 original-loader rebuild acceptance policy](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_REBUILD_ACCEPTANCE_v0.md)
+  and independent data-only checker. Preserve the exact public service snapshot,
+  join its source-resolution records to all three complete original source
+  inputs, and freshly reconstruct the preceding package and signature proof.
+  Default evaluation leaves policy selection pending. An externally selected
+  exact policy can satisfy only the scoped source/build prerequisite under its
+  explicit current-service endorsement and unsigned source-association trust
+  assumptions. Retain truncation, unverified historical authority and original
+  signature limits; original acquisition, future-host admission, B2 and
+  whole-runtime #2879 remain open, with `metric_pass=null` and `authority_effect=none`.
+
 - Preserve the completed [B2 hosted two-slot qualification](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md#completed-hosted-qualification-452531882861)
   from owner-dispatched run `45253188286/1` at source `624713608bcf5467c6d4be44cd026f906c45f274`.
   Retain 255 unchanged original control/evidence members, exact artifact and

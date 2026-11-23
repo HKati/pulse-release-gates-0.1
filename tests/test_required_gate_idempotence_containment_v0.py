@@ -18295,3 +18295,665 @@ def test_loader_two_slot_hosted_apparmor_lifecycle_selects_before_start_and_reta
     assert cleanup["cleanup_errors"] == []
     before = json.loads((fixture.root / "host-commands/container-inspect.stdout.bin").read_bytes())[0]
     assert before["AppArmorProfile"] == ("" if fault == "implicit_profile" else "docker-default")
+
+
+# Rebuild acceptance policy tests preserve the historical proof and distinguish
+# verification of a candidate from an explicit caller selection of that policy.
+# Public signature verification is permitted; the original subject never runs.
+LOADER_REBUILD_ACCEPTANCE_CHECKER_REL = (
+    "tools/check_required_gate_idempotence_loader_rebuild_acceptance_v0.py")
+LOADER_REBUILD_ACCEPTANCE_HELPER_REL = (
+    "tools/required_gate_idempotence_loader_rebuild_acceptance_v0.py")
+
+
+@pytest.fixture(scope="module")
+def loader_rebuild_acceptance_case(loader_rebuild_binding_case):
+    prior = loader_rebuild_binding_case
+    checker = module("check_required_gate_idempotence_loader_rebuild_acceptance_v0",
+                     LOADER_REBUILD_ACCEPTANCE_CHECKER_REL)
+    helper = module("required_gate_idempotence_loader_rebuild_acceptance_v0",
+                    LOADER_REBUILD_ACCEPTANCE_HELPER_REL)
+    record = (ROOT / checker.RECORD_REL).read_bytes()
+    policy = (ROOT / checker.POLICY_REL).read_bytes()
+    evidence = checker.read_evidence_archive()
+    static = prior.prior.static_case
+    original_inputs = static.checker._reassemble_inputs(static.artifacts)
+    source_inputs = {name: original_inputs[name] for name in helper.SOURCE_INPUT_BINDINGS}
+    return SimpleNamespace(
+        checker=checker, helper=helper, prior=prior, raw=record, value=json.loads(record),
+        policy=policy, policy_value=json.loads(policy), evidence=evidence,
+        source_inputs=source_inputs, buildinfo=prior.prior.carriers[prior.checker.prior.BUILDINFO_NAME])
+
+
+def _loader_rebuild_acceptance_arguments(case, raw=None, **changes):
+    raw = case.raw if raw is None else raw
+    prior = case.prior
+    arguments = dict(
+        record_bytes=raw, expected_record_sha256=digest(raw), policy_bytes=case.policy,
+        evidence_archive_bytes=case.evidence, prior_record_bytes=prior.raw,
+        build_record_bytes=prior.prior.raw, startup_contract_bytes=prior.prior.startup_raw,
+        prior_contract_bytes=prior.prior.prior_raw, static_record_bytes=prior.prior.static_case.raw,
+        historical_entry_archive_bytes=prior.prior.static_case.baseline,
+        artifact_members=prior.prior.static_case.artifacts, build_carriers=prior.prior.carriers,
+        attestations=prior.attested.attestations, public_keys_bytes=prior.attested.public_keys)
+    arguments.update(changes)
+    return arguments
+
+
+def _loader_rebuild_acceptance_check(case, raw=None, **changes):
+    return case.checker.verify_acceptance(**_loader_rebuild_acceptance_arguments(case, raw, **changes))
+
+
+@pytest.fixture(scope="module")
+def loader_rebuild_acceptance_reports(loader_rebuild_acceptance_case):
+    case = loader_rebuild_acceptance_case
+    real_prior = case.checker.prior.verify_binding
+    real_popen = subprocess.Popen
+    prior_calls, prior_reports, commands = [], [], []
+
+    def prior_spy(**arguments):
+        prior_calls.append(arguments)
+        report = real_prior(**arguments)
+        prior_reports.append(report)
+        return report
+
+    def public_crypto_only(command, *arguments, **options):
+        assert type(command) is list and command[0] == "/usr/bin/openssl"
+        assert command[1:] == ["version"] or command[1:] == [
+            "pkeyutl", "-verify", "-pubin", "-keyform", "DER", "-inkey", "key.der",
+            "-rawin", "-in", "message.bin", "-sigfile", "signature.bin", "-provider", "default"]
+        assert options.get("shell") is False
+        assert options.get("env") == {"PATH": "/usr/bin:/bin", "LC_ALL": "C", "LANG": "C",
+                                      "OPENSSL_CONF": "/dev/null"}
+        commands.append(list(command))
+        return real_popen(command, *arguments, **options)
+
+    def forbidden(*_arguments, **_options):
+        raise AssertionError("rebuild acceptance attempted native execution or network")
+
+    import socket
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(case.checker.prior, "verify_binding", prior_spy)
+        patch.setattr(subprocess, "Popen", public_crypto_only)
+        patch.setattr(os, "system", forbidden)
+        patch.setattr(os, "fork", forbidden)
+        patch.setattr(socket, "create_connection", forbidden)
+        candidate = _loader_rebuild_acceptance_check(case)
+        selected = _loader_rebuild_acceptance_check(case, accepted_policy_sha256=digest(case.policy))
+    assert len(prior_calls) == len(prior_reports) == 2
+    assert commands
+    case.prior_calls, case.prior_reports, case.crypto_commands = prior_calls, prior_reports, commands
+    return candidate, selected
+
+
+def _loader_rebuild_acceptance_boundary(report):
+    for field in (
+            "source_build_gate_satisfied", "original_acquisition_ready", "original_acquisition_authorized",
+            "native_acquisition_performed", "selected_runtime_executed", "consumer_resolution_observed",
+            "loader_resolution_verified", "complete_native_closure_verified", "containment_enforced",
+            "production_gate_eligible", "b2_complete", "authenticated_build_provenance",
+            "rebuilder_historical_authority_verified", "historical_signing_time_authenticated",
+            "signed_source_input_coverage_complete", "signed_build_log_binding_verified",
+            "owner_policy_adoption_verified", "future_host_admitted", "release_authorized",
+            "historical_service_deployment_verified", "complete_rebuild_execution_observed",
+            "current_service_role_independently_proved_by_signature_math",
+            "preserved_https_response_is_live_tls_reauthentication", "step5c_complete"):
+        assert report[field] is False, field
+    assert report["metric_pass"] is None
+    assert report["authority_effect"] == "none"
+
+
+def test_loader_rebuild_acceptance_real_reference_requires_external_policy_selection(
+        loader_rebuild_acceptance_case, loader_rebuild_acceptance_reports):
+    case = loader_rebuild_acceptance_case
+    candidate, selected = loader_rebuild_acceptance_reports
+    assert candidate["candidate_evidence_verified"] is selected["candidate_evidence_verified"] is True
+    assert candidate["policy_selection"] == "pending_external_selection"
+    assert candidate["accepted_policy_sha256"] is None
+    assert candidate["source_build_gate_satisfied_under_policy"] is False
+    assert selected["policy_selection"] == "externally_selected_exact_policy"
+    assert selected["accepted_policy_sha256"] == digest(case.policy)
+    assert selected["source_build_gate_satisfied_under_policy"] is True
+    assert candidate["record"] == selected["record"] == bound(case.raw)
+    for report in (candidate, selected):
+        _loader_rebuild_acceptance_boundary(report)
+    assert (ROOT / case.checker.RECORD_REL).read_bytes() == case.raw
+    assert (ROOT / case.checker.POLICY_REL).read_bytes() == case.policy
+    assert case.prior_calls[0] == case.prior_calls[1]
+    for arguments in case.prior_calls:
+        assert arguments["record_bytes"] == case.prior.raw
+        assert arguments["expected_record_sha256"] == digest(case.prior.raw)
+        assert arguments["artifact_members"] is case.prior.prior.static_case.artifacts
+        assert arguments["build_carriers"] is case.prior.prior.carriers
+        assert arguments["public_keys_bytes"] == case.prior.attested.public_keys
+        assert "report" not in arguments and "prior_report" not in arguments
+    assert candidate["source_build_gate_satisfied"] is selected["source_build_gate_satisfied"] is False
+
+
+@pytest.mark.parametrize("accepted", [True, False, "", "f" * 64, "uppercase_exact", 0, [], {}])
+def test_loader_rebuild_acceptance_rejects_unrecognized_policy_selection_before_prior_crypto(
+        loader_rebuild_acceptance_case, monkeypatch, accepted):
+    case = loader_rebuild_acceptance_case
+    if accepted == "uppercase_exact":
+        accepted = digest(case.policy).upper()
+
+    def forbidden(**_arguments):
+        raise AssertionError("invalid policy selection reached prior signature verification")
+
+    monkeypatch.setattr(case.checker.prior, "verify_binding", forbidden)
+    with pytest.raises(case.checker.AcceptanceError):
+        _loader_rebuild_acceptance_check(case, accepted_policy_sha256=accepted)
+
+
+@pytest.mark.parametrize("expected", [None, True, "f" * 64])
+def test_loader_rebuild_acceptance_requires_external_matching_record_digest(
+        loader_rebuild_acceptance_case, monkeypatch, expected):
+    case = loader_rebuild_acceptance_case
+
+    def forbidden(**_arguments):
+        raise AssertionError("invalid record digest reached prior signature verification")
+
+    monkeypatch.setattr(case.checker.prior, "verify_binding", forbidden)
+    with pytest.raises(case.checker.AcceptanceError):
+        _loader_rebuild_acceptance_check(case, expected_record_sha256=expected)
+
+
+@pytest.mark.parametrize("argument,value", [
+    ("saved_report", {"status": "accepted"}), ("prior_report", {"status": "accepted"}),
+    ("source_build_gate_satisfied", True), ("source_build_gate_satisfied_under_policy", True),
+    ("policy_selected", True), ("owner_approved", True),
+])
+def test_loader_rebuild_acceptance_api_has_no_saved_verdict_or_boolean_admission(
+        loader_rebuild_acceptance_case, argument, value):
+    case = loader_rebuild_acceptance_case
+    with pytest.raises(TypeError):
+        case.checker.verify_acceptance(**_loader_rebuild_acceptance_arguments(case, **{argument: value}))
+
+
+@pytest.mark.parametrize("path,replacement", [
+    (("service_role_selection", "role"), "unknown_worker_role"),
+    (("service_role_selection", "https_origin"), "https://unselected.example"),
+    (("service_role_selection", "public_key_hex"), "00" * 32),
+    (("service_role_selection", "build_id"), 269687),
+    (("service_role_selection", "distinct_accepted_service_endorsements"), 2),
+    (("verification_time_policy", "scope"), "all_future_hosts_and_keys"),
+    (("verification_time_policy", "snapshot_date_utc"), "2026-11-22"),
+    (("verification_time_policy", "historical_worker_key_authority_or_signing_time_inferred"), True),
+    (("verification_time_policy", "continued_key_authority_after_snapshot_inferred"), True),
+    (("selection_contract", "default"), "selected"),
+    (("selection_contract", "policy_record_or_repository_presence_is_project_adoption"), True),
+    (("selection_contract", "selected_policy_digest_authenticates_owner_identity"), True),
+    (("selection_contract", "saved_verification_report_is_an_acceptance_input"), True),
+    (("selection_contract", "caller_approved_boolean_is_an_acceptance_input"), True),
+    (("subject", "source_version"), "2.41-12+deb13u3"),
+    (("subject", "loader_member", "sha256"), "0" * 64),
+    (("subject", "debug_member", "sha256"), "0" * 64),
+    (("subject", "products", "libc6_2.41-12+deb13u4_amd64.deb", "sha256"), "0" * 64),
+    (("subject", "source_inputs", "glibc_2.41-12+deb13u4.dsc", "sha256"), "0" * 64),
+    (("source_resolution_acceptance", "exact_preserved_truncation_marker_required"), False),
+    (("source_resolution_acceptance", "source_input_digests_directly_bound_by_the_signed_links"), True),
+    (("source_resolution_acceptance", "log_digest_directly_bound_by_the_signed_links"), True),
+    (("source_resolution_acceptance", "truncated_log_is_complete_build_or_terminal_success_evidence"), True),
+    (("admission_effect", "original_acquisition_ready"), True),
+    (("admission_effect", "original_acquisition_authorized"), True),
+    (("admission_effect", "future_host_admission"), True),
+    (("admission_effect", "b2_complete"), True),
+    (("admission_effect", "authority_effect"), "release"),
+])
+def test_loader_rebuild_acceptance_rehashed_policy_cannot_select_new_trust_or_wider_scope(
+        loader_rebuild_acceptance_case, monkeypatch, path, replacement):
+    case = loader_rebuild_acceptance_case
+    value = copy.deepcopy(case.policy_value)
+    target = value
+    for key in path[:-1]:
+        target = target[key]
+    assert target[path[-1]] != replacement
+    target[path[-1]] = replacement
+    changed = encoded(value)
+
+    def forbidden(**_arguments):
+        raise AssertionError("unreviewed policy reached prior signature verification")
+
+    monkeypatch.setattr(case.checker.prior, "verify_binding", forbidden)
+    with pytest.raises(case.checker.AcceptanceError):
+        _loader_rebuild_acceptance_check(case, policy_bytes=changed,
+                                        accepted_policy_sha256=digest(changed))
+
+
+def test_loader_rebuild_acceptance_policy_candidate_never_authenticates_its_own_adoption(
+        loader_rebuild_acceptance_case, loader_rebuild_acceptance_reports):
+    case = loader_rebuild_acceptance_case
+    selection = case.policy_value["selection_contract"]
+    assert selection["default"] == "candidate_evidence_only_policy_selection_pending"
+    assert selection["external_exact_policy_sha256_required_for_scoped_admission"] is True
+    for field in ("caller_approved_boolean_is_an_acceptance_input",
+                  "policy_record_or_repository_presence_is_project_adoption",
+                  "saved_verification_report_is_an_acceptance_input",
+                  "selected_policy_digest_authenticates_owner_identity",
+                  "selected_policy_digest_is_execution_authorization",
+                  "selected_policy_digest_is_release_authority"):
+        assert selection[field] is False
+    time_policy = case.policy_value["verification_time_policy"]
+    assert time_policy["scope"] == "offline_replay_of_the_exact_reviewed_snapshot_only"
+    assert time_policy["live_key_revocation_or_endpoint_status_checked_by_offline_checker"] is False
+    assert time_policy["historical_worker_key_authority_or_signing_time_inferred"] is False
+    assert case.policy_value["admission_effect"]["future_host_admission"] is False
+    assert case.policy_value["source_resolution_acceptance"]["source_log_and_metadata_are_unsigned"] is True
+    assert case.policy_value["source_resolution_acceptance"]["complete_build_log_required_for_this_narrow_policy"] is False
+    assert case.policy_value["source_resolution_acceptance"]["truncated_log_is_complete_build_or_terminal_success_evidence"] is False
+    assert case.policy_value["service_role_selection"]["independent_operator_quorum_established"] is False
+    assert case.policy_value["statement_acceptance"]["reviewed_implementation_sources_are_historical_deployment_proof"] is False
+
+
+def test_loader_rebuild_acceptance_cannot_replace_fresh_prior_reconstruction_with_saved_success(
+        loader_rebuild_acceptance_case, monkeypatch):
+    case, calls = loader_rebuild_acceptance_case, []
+
+    def unavailable(**arguments):
+        calls.append(arguments)
+        raise ValueError("fresh original proof unavailable")
+
+    monkeypatch.setattr(case.checker.prior, "verify_binding", unavailable)
+    with pytest.raises(case.checker.AcceptanceError):
+        _loader_rebuild_acceptance_check(case, accepted_policy_sha256=digest(case.policy))
+    assert len(calls) == 1
+    assert calls[0]["record_bytes"] == case.prior.raw
+    assert calls[0]["artifact_members"] is case.prior.prior.static_case.artifacts
+    assert calls[0]["build_carriers"] is case.prior.prior.carriers
+    assert "report" not in calls[0] and "prior_report" not in calls[0]
+
+
+@pytest.mark.parametrize("field", ["prior_record_bytes", "build_record_bytes", "startup_contract_bytes",
+                                   "prior_contract_bytes", "static_record_bytes", "historical_entry_archive_bytes"])
+def test_loader_rebuild_acceptance_each_original_prior_proof_is_still_required(
+        loader_rebuild_acceptance_case, field):
+    case = loader_rebuild_acceptance_case
+    arguments = _loader_rebuild_acceptance_arguments(case)
+    original = arguments[field]
+    assert original
+    changed = bytes([original[0] ^ 1]) + original[1:]
+    with pytest.raises(case.checker.AcceptanceError):
+        _loader_rebuild_acceptance_check(case, **{field: changed})
+
+
+@pytest.mark.parametrize("which", ["libc6_attestation.json", "libc6_dbg_attestation.json", "public_keys.json"])
+def test_loader_rebuild_acceptance_original_signature_and_key_carriers_are_not_policy_replaceable(
+        loader_rebuild_acceptance_case, which):
+    case = loader_rebuild_acceptance_case
+    if which == "public_keys.json":
+        raw = case.prior.attested.public_keys
+        changed = raw.replace(b"MCww", b"NCww", 1)
+        assert changed != raw and len(changed) == len(raw)
+        substitutions = {"public_keys_bytes": changed}
+    else:
+        originals = case.prior.attested.attestations
+        raw = originals[which]
+        changed = raw.replace(b'"signed"', b'"signee"', 1)
+        assert changed != raw and len(changed) == len(raw)
+        substitutions = {"attestations": {**originals, which: changed}}
+    with pytest.raises(case.checker.AcceptanceError):
+        _loader_rebuild_acceptance_check(case, accepted_policy_sha256=digest(case.policy), **substitutions)
+
+
+@pytest.mark.parametrize("fault", [
+    "duplicate", "float", "approved_payload", "caller_gate", "record_approval", "self_selection",
+    "bool_int", "saved_report", "skip_fresh_chain", "owner_adoption", "future_host", "acquisition",
+    "whole_b2", "authority", "metric", "runtime_backend_authored", "policy_binding", "service_facts",
+])
+def test_loader_rebuild_acceptance_rehashed_record_cannot_promote_authored_claims(
+        loader_rebuild_acceptance_case, loader_rebuild_acceptance_reports, monkeypatch, fault):
+    case = loader_rebuild_acceptance_case
+    value = copy.deepcopy(case.value)
+    if fault == "duplicate":
+        raw = b'{"profile":"other",' + case.raw.lstrip()[1:]
+    else:
+        if fault == "float":
+            value["candidate_policy"]["content"]["size_bytes"] = float(len(case.policy))
+        elif fault == "approved_payload":
+            value["approved_by_owner"] = True
+        elif fault == "caller_gate":
+            value["source_build_gate_satisfied_under_policy"] = True
+        elif fault == "record_approval":
+            value["candidate_policy"]["record_embeds_policy_approval"] = True
+        elif fault == "self_selection":
+            value["selection_contract"]["candidate_record_or_policy_can_select_itself"] = True
+        elif fault == "bool_int":
+            value["boundary"]["source_build_gate_satisfied_under_policy"] = 0
+        elif fault == "saved_report":
+            value["prior_rebuild_attestation_prerequisite"]["saved_report_is_acceptance_input"] = True
+        elif fault == "skip_fresh_chain":
+            value["prior_rebuild_attestation_prerequisite"][
+                "fresh_signature_build_record_startup_static_source_package_reconstruction_required"] = False
+        elif fault in {"owner_adoption", "future_host", "acquisition", "whole_b2"}:
+            field = {"owner_adoption": "owner_policy_adoption_verified", "future_host": "future_host_admitted",
+                     "acquisition": "original_acquisition_ready", "whole_b2": "b2_complete"}[fault]
+            value["boundary"][field] = True
+        elif fault == "authority":
+            value["boundary"]["authority_effect"] = "release"
+        elif fault == "metric":
+            value["boundary"]["metric_pass"] = True
+        elif fault == "runtime_backend_authored":
+            value["prior_rebuild_attestation_prerequisite"]["runtime_backend_observation"] = {
+                "path": "/usr/bin/openssl", "binary_sha256": "0" * 64}
+        elif fault == "policy_binding":
+            value["candidate_policy"]["content"]["sha256"] = "0" * 64
+        elif fault == "service_facts":
+            value["public_service_facts"]["owner_approved"] = True
+        else:
+            raise AssertionError(fault)
+        raw = encoded(value)
+    # Genuine cached prior results isolate this new record's acceptance boundary;
+    # both reference modes and the fresh CLI processes execute the complete proof.
+    monkeypatch.setattr(case.checker.prior, "verify_binding",
+                        lambda **_kwargs: copy.deepcopy(case.prior_reports[0]))
+    with pytest.raises(case.checker.AcceptanceError):
+        _loader_rebuild_acceptance_check(case, raw, accepted_policy_sha256=digest(case.policy))
+
+
+@pytest.mark.parametrize("scope", ["pinned_prior", "helper_after", "schema_after", "checker_after", "prior_after"])
+def test_loader_rebuild_acceptance_sources_are_pinned_and_stable_through_verification(
+        loader_rebuild_acceptance_case, loader_rebuild_acceptance_reports, monkeypatch, scope):
+    case = loader_rebuild_acceptance_case
+    target = case.checker.prior if scope == "prior_after" else case.checker
+    selected = {
+        "pinned_prior": case.checker.prior.SELF_REL,
+        "helper_after": LOADER_REBUILD_ACCEPTANCE_HELPER_REL,
+        "schema_after": case.checker.SCHEMA_REL,
+        "checker_after": case.checker.SELF_REL,
+        "prior_after": case.checker.prior.SELF_REL,
+    }[scope]
+    real_source, counts = target._source, {}
+
+    def changed(path):
+        raw = real_source(path)
+        counts[path] = counts.get(path, 0) + 1
+        if path == selected and (scope == "pinned_prior" or counts[path] > 1):
+            return raw + b"\n"
+        return raw
+
+    monkeypatch.setattr(case.checker.prior, "verify_binding",
+                        lambda **_kwargs: copy.deepcopy(case.prior_reports[0]))
+    monkeypatch.setattr(target, "_source", changed)
+    with pytest.raises(case.checker.AcceptanceError):
+        _loader_rebuild_acceptance_check(case)
+    assert counts[selected] >= (1 if scope == "pinned_prior" else 2)
+
+
+@pytest.mark.parametrize("fault", ["record", "policy", "archive", "prior_record"])
+def test_loader_rebuild_acceptance_new_control_extents_precede_hashes_and_prior_crypto(
+        loader_rebuild_acceptance_case, monkeypatch, fault):
+    case = loader_rebuild_acceptance_case
+    arguments = _loader_rebuild_acceptance_arguments(case)
+    field = {"record": "record_bytes", "policy": "policy_bytes", "archive": "evidence_archive_bytes",
+             "prior_record": "prior_record_bytes"}[fault]
+    arguments[field] = (b"x" * (case.checker.CONTROL_BYTES + 1) if fault in {"record", "policy"}
+                        else arguments[field] + b"x")
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("invalid raw extent reached hash, parse, or prior crypto")
+
+    monkeypatch.setattr(case.checker, "sha", forbidden)
+    monkeypatch.setattr(case.checker, "parse", forbidden)
+    monkeypatch.setattr(case.checker.prior, "verify_binding", forbidden)
+    with pytest.raises(case.checker.AcceptanceError):
+        case.checker.verify_acceptance(**arguments)
+
+
+def test_loader_rebuild_acceptance_two_fresh_selected_cli_reports_are_canonical_and_exclusive(
+        loader_rebuild_acceptance_case, loader_rebuild_acceptance_reports, tmp_path, monkeypatch, capsys):
+    case = loader_rebuild_acceptance_case
+    outputs = [tmp_path / name for name in ("first.json", "second.json")]
+    for output in outputs:
+        completed = subprocess.run([
+            sys.executable, "-I", "-B", str(ROOT / LOADER_REBUILD_ACCEPTANCE_CHECKER_REL),
+            "--record", str(ROOT / case.checker.RECORD_REL), "--record-sha256", digest(case.raw),
+            "--policy", str(ROOT / case.checker.POLICY_REL), "--accepted-policy-sha256", digest(case.policy),
+            "--output", str(output)], capture_output=True, timeout=180, check=False)
+        assert completed.returncode == 0, completed.stderr.decode(errors="replace")
+        assert completed.stdout == completed.stderr == b""
+    first = outputs[0].read_bytes()
+    assert first == outputs[1].read_bytes() == case.checker.canonical(loader_rebuild_acceptance_reports[1])
+    assert first == encoded(json.loads(first))
+    assert first.endswith(b"\n") and not first.endswith(b"\n\n")
+    sentinel = tmp_path / "existing.json"
+    sentinel.write_bytes(b"owner bytes remain unchanged\n")
+    monkeypatch.setattr(case.checker, "verify_acceptance", lambda **_kwargs: loader_rebuild_acceptance_reports[1])
+    status = case.checker.main([
+        "--record", str(ROOT / case.checker.RECORD_REL), "--record-sha256", digest(case.raw),
+        "--policy", str(ROOT / case.checker.POLICY_REL), "--accepted-policy-sha256", digest(case.policy),
+        "--output", str(sentinel)])
+    assert status == 2 and sentinel.read_bytes() == b"owner bytes remain unchanged\n"
+    assert capsys.readouterr().out == ""
+
+
+@pytest.mark.parametrize("fault", ["bad_record", "bad_selection"])
+def test_loader_rebuild_acceptance_cli_invalid_digest_cannot_publish_report(
+        loader_rebuild_acceptance_case, tmp_path, capsys, fault):
+    case = loader_rebuild_acceptance_case
+    output = tmp_path / "must-not-exist.json"
+    arguments = [
+        "--record", str(ROOT / case.checker.RECORD_REL),
+        "--record-sha256", "f" * 64 if fault == "bad_record" else digest(case.raw),
+        "--policy", str(ROOT / case.checker.POLICY_REL), "--output", str(output)]
+    if fault == "bad_selection":
+        arguments += ["--accepted-policy-sha256", "f" * 64]
+    assert case.checker.main(arguments) == 2
+    assert not output.exists()
+    assert capsys.readouterr().out == ""
+
+
+@pytest.fixture(scope="module")
+def loader_rebuild_acceptance_public_members(loader_rebuild_acceptance_case):
+    case = loader_rebuild_acceptance_case
+    return case.helper.read_public_service_evidence(case.evidence)
+
+
+@pytest.mark.parametrize("which", [
+    "libc6_2.41-12+deb13u4_amd64.deb", "libc6-dbg_2.41-12+deb13u4_amd64.deb",
+    "glibc_2.41.orig.tar.xz",
+])
+def test_loader_rebuild_acceptance_policy_does_not_replace_original_source_or_output_bytes(
+        loader_rebuild_acceptance_case, monkeypatch, which):
+    case = loader_rebuild_acceptance_case
+    static = case.prior.prior.static_case
+    manifest = json.loads((ROOT / static.checker.INPUTS_REL).read_bytes())
+    artifact = next(item for item in manifest["artifacts"] if item["name"] == which)
+    path = artifact["parts"][0]["path"]
+    raw = static.artifacts[path]
+    changed = bytes([raw[0] ^ 1]) + raw[1:]
+
+    def forbidden(**_arguments):
+        raise AssertionError("changed original input reached prior signature verification")
+
+    monkeypatch.setattr(case.checker.prior, "verify_binding", forbidden)
+    with pytest.raises(case.checker.AcceptanceError):
+        _loader_rebuild_acceptance_check(case, accepted_policy_sha256=digest(case.policy),
+                                        artifact_members={**static.artifacts, path: changed})
+
+
+@pytest.mark.parametrize("fault", ["missing_marker", "wrong_marker", "trailing_bytes", "source_name",
+                                   "source_version", "apt_uri", "apt_size", "apt_sha256", "dcmd_sha256",
+                                   "buildinfo_path", "buildinfo_warning", "dsc_warning", "unpack"])
+def test_loader_rebuild_acceptance_log_semantics_reject_changed_source_or_completeness_claims(
+        loader_rebuild_acceptance_case, loader_rebuild_acceptance_public_members, fault):
+    case = loader_rebuild_acceptance_case
+    raw = loader_rebuild_acceptance_public_members["rebuild_269686.log"]
+    marker = b"\n\nTRUNCATED DUE TO SIZE LIMIT: 20971520 bytes\n\n"
+    dsc_name = b"glibc_2.41-12+deb13u4.dsc"
+    dsc_hash = b"0915324aa646bb99abfaa9aa6ecb734b30babd28454a3e51f3152912370fbd3e"
+    assert raw.endswith(marker)
+    if fault == "missing_marker":
+        changed = raw[:-len(marker)]
+    elif fault == "trailing_bytes":
+        changed = raw + b"x"
+    else:
+        before, after = {
+            "wrong_marker": (marker, marker.replace(b"20971520", b"20971521")),
+            "source_name": (b"\nSource: glibc\n", b"\nSource: other\n"),
+            "source_version": (b"\nVersion: 2.41-12+deb13u4\n", b"\nVersion: 2.41-12+deb13u3\n"),
+            "apt_uri": (b"glibc_2.41-12%2bdeb13u4.dsc'", b"glibc_2.41-12%2bdeb13u3.dsc'"),
+            "apt_size": (dsc_name + b" 7576 SHA256:", dsc_name + b" 7575 SHA256:"),
+            "apt_sha256": (b"SHA256:" + dsc_hash, b"SHA256:" + b"0" * 64),
+            "dcmd_sha256": (b"\n" + dsc_hash + b"  " + dsc_name + b"\n",
+                             b"\n" + b"0" * 64 + b"  " + dsc_name + b"\n"),
+            "buildinfo_path": (b"/inputs/glibc_2.41-12+deb13u4_amd64.buildinfo",
+                               b"/inputs/glibc_2.41-12+deb13u3_amd64.buildinfo"),
+            "buildinfo_warning": (b"contains a GPG signature which has NOT been validated",
+                                  b"contains a GPG signature which has NOW been validated"),
+            "dsc_warning": (dsc_name + b": no acceptable signature found",
+                            dsc_name + b": an acceptable signature found"),
+            "unpack": (b"dpkg-source: info: unpacking glibc_2.41.orig.tar.xz",
+                       b"dpkg-source: info: unpacking glibc_2.40.orig.tar.xz"),
+        }[fault]
+        assert before in raw
+        changed = raw.replace(before, after, 1)
+    assert changed != raw
+    # This entry point checks grammar and actual source bytes without the outer
+    # fixed archive/member digest, so these are semantic rejection regressions.
+    with pytest.raises(case.helper.AcceptanceEvidenceError):
+        case.helper.parse_rebuild_log(changed, buildinfo_bytes=case.buildinfo, source_inputs=case.source_inputs)
+
+
+@pytest.mark.parametrize("which", ["glibc_2.41-12+deb13u4.dsc", "glibc_2.41.orig.tar.xz",
+                                   "glibc_2.41-12+deb13u4.debian.tar.xz"])
+def test_loader_rebuild_acceptance_log_claims_do_not_substitute_for_complete_source_bytes(
+        loader_rebuild_acceptance_case, loader_rebuild_acceptance_public_members, which):
+    case = loader_rebuild_acceptance_case
+    raw = case.source_inputs[which]
+    changed = bytes([raw[0] ^ 1]) + raw[1:]
+    with pytest.raises(case.helper.AcceptanceEvidenceError):
+        case.helper.parse_rebuild_log(loader_rebuild_acceptance_public_members["rebuild_269686.log"],
+            buildinfo_bytes=case.buildinfo, source_inputs={**case.source_inputs, which: changed})
+
+
+@pytest.mark.parametrize("fault", ["missing", "extra", "short_last_source", "long_log", "bad_buildinfo"])
+def test_loader_rebuild_acceptance_log_source_roster_and_raw_bounds_are_closed(
+        loader_rebuild_acceptance_case, loader_rebuild_acceptance_public_members, fault):
+    case = loader_rebuild_acceptance_case
+    source_inputs = dict(case.source_inputs)
+    log = loader_rebuild_acceptance_public_members["rebuild_269686.log"]
+    buildinfo = case.buildinfo
+    if fault == "missing":
+        source_inputs.pop("glibc_2.41-12+deb13u4.dsc")
+    elif fault == "extra":
+        source_inputs["other-source.tar.xz"] = b"not selected"
+    elif fault == "short_last_source":
+        source_inputs["glibc_2.41-12+deb13u4.debian.tar.xz"] = source_inputs[
+            "glibc_2.41-12+deb13u4.debian.tar.xz"][:-1]
+    elif fault == "long_log":
+        log = log + b"x" * (1024 * 1024)
+    else:
+        buildinfo = buildinfo.replace(b"Source: glibc\n", b"Source: other\n", 1)
+        assert buildinfo != case.buildinfo
+    with pytest.raises(case.helper.AcceptanceEvidenceError):
+        case.helper.parse_rebuild_log(log, buildinfo_bytes=buildinfo, source_inputs=source_inputs)
+
+
+def test_loader_rebuild_acceptance_original_unsigned_log_matches_independent_source_byte_oracle(
+        loader_rebuild_acceptance_case, loader_rebuild_acceptance_public_members):
+    case, members = loader_rebuild_acceptance_case, loader_rebuild_acceptance_public_members
+    expected_sources = {
+        "glibc_2.41-12+deb13u4.dsc": (7576, "0915324aa646bb99abfaa9aa6ecb734b30babd28454a3e51f3152912370fbd3e"),
+        "glibc_2.41.orig.tar.xz": (20323540, "f24aa441021121a79266f0d75242706cab8843a47901fefe74527491807f1998"),
+        "glibc_2.41-12+deb13u4.debian.tar.xz": (499524, "dda4153511bfd543502d18e5bc9323110996fe9c531f14ae3fad6eb17f027c7d"),
+    }
+    expected_rows = [{"filename": name, "size_bytes": size, "sha256": sha256}
+                     for name, (size, sha256) in sorted(expected_sources.items())]
+    assert [{"filename": name, **bound(raw)} for name, raw in sorted(case.source_inputs.items())] == expected_rows
+    assert set(members) == {
+        "debrebuild.pl", "libc6_attestation.json", "libc6_dbg_attestation.json", "public_keys.json",
+        "rebuild_269686.json", "rebuild_269686.log", "rebuilder-debian.sh", "rebuilderd_LICENSE",
+        "rebuilderd_daemon_attestation.rs", "rebuilderd_daemon_build.rs", "rebuilderd_daemon_meta.rs",
+        "rebuilderd_worker_rebuild.rs", "retrieval_manifest_v0.json", "service_overview.html",
+    }
+    assert members["public_keys.json"] == case.prior.attested.public_keys
+    for name in ("libc6_attestation.json", "libc6_dbg_attestation.json"):
+        assert members[name] == case.prior.attested.attestations[name]
+    raw = members["rebuild_269686.log"]
+    facts = case.helper.parse_rebuild_log(raw, buildinfo_bytes=case.buildinfo, source_inputs=case.source_inputs)
+    assert facts["carrier"] == bound(raw)
+    assert facts["source_inputs"] == expected_rows
+    assert facts["source_name"] == "glibc" and facts["source_version"] == "2.41-12+deb13u4"
+    assert facts["unsigned"] is True and facts["is_complete"] is False
+    assert facts["truncated_prefix_bytes"] == 20971520
+    assert facts["build_completion_observed_in_log"] is False
+    assert facts["buildinfo_unvalidated_signature_warning_observed"] is True
+    assert facts["dsc_unvalidated_signature_warning_observed"] is True
+    assert facts["source_resolution_order_verified"] is facts["source_raw_bytes_joined"] is True
+    assert [{key: row[key] for key in ("filename", "size_bytes", "sha256")}
+            for row in facts["source_download_rows"]] == expected_rows
+    assert [{key: row[key] for key in ("filename", "sha256")}
+            for row in facts["source_checksum_rows"]] == [
+                {key: row[key] for key in ("filename", "sha256")} for row in expected_rows]
+    assert max(row["line"] for row in facts["source_download_rows"]) < min(
+        row["line"] for row in facts["source_checksum_rows"])
+    assert max(row["line"] for row in facts["source_checksum_rows"]) < facts["debrebuild_command_line"]
+    assert facts["debrebuild_command_line"] < facts["sbuild_command_line"] < facts["source_extract_line"]
+    assert facts == case.value["public_service_facts"]["log"]
+    assert case.value["public_service_facts"]["service_metadata"]["status"] == "GOOD"
+    assert case.value["public_service_facts"]["reviewed_implementation"]["deployed_code_identity_authenticated"] is False
+
+
+@pytest.mark.parametrize("member", ["rebuild_269686.log", "rebuild_269686.json", "public_keys.json"])
+def test_loader_rebuild_acceptance_repacked_evidence_cannot_replace_reviewed_carrier_bytes(
+        loader_rebuild_acceptance_case, loader_rebuild_acceptance_public_members, member):
+    import zipfile
+    case, members = loader_rebuild_acceptance_case, loader_rebuild_acceptance_public_members
+    output = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(case.evidence)) as original, zipfile.ZipFile(output, "w") as changed:
+        for info in original.infolist():
+            raw = members[info.filename]
+            if info.filename == member:
+                raw = bytes([raw[0] ^ 1]) + raw[1:]
+            changed.writestr(info, raw, compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
+    with pytest.raises(case.helper.AcceptanceEvidenceError, match="^rebuild_acceptance_evidence_member_binding$"):
+        case.helper.read_public_service_evidence(output.getvalue())
+
+
+@pytest.mark.parametrize("fault", ["last_member_extent", "last_member_encryption", "last_member_symlink"])
+def test_loader_rebuild_acceptance_checks_every_zip_member_before_any_body_hash(
+        loader_rebuild_acceptance_case, monkeypatch, fault):
+    case = loader_rebuild_acceptance_case
+    raw = bytearray(case.evidence)
+    offset = raw.rfind(b"PK\x01\x02")
+    assert offset >= 0
+    if fault == "last_member_extent":
+        old = struct.unpack_from("<L", raw, offset + 24)[0]
+        struct.pack_into("<L", raw, offset + 24, old + 1)
+    elif fault == "last_member_encryption":
+        struct.pack_into("<H", raw, offset + 8, 1)
+    else:
+        struct.pack_into("<L", raw, offset + 38, (stat.S_IFLNK | 0o600) << 16)
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("last invalid ZIP member was checked after a body hash")
+
+    monkeypatch.setattr(case.helper, "_bound", forbidden)
+    with pytest.raises(case.helper.AcceptanceEvidenceError, match="^rebuild_acceptance_archive_member$"):
+        case.helper.read_public_service_evidence(bytes(raw))
+
+
+def test_loader_rebuild_acceptance_log_line_flood_is_bounded_before_source_hashes(
+        loader_rebuild_acceptance_case, monkeypatch):
+    case = loader_rebuild_acceptance_case
+    flooded = b"\n" * 20971520 + b"\n\nTRUNCATED DUE TO SIZE LIMIT: 20971520 bytes\n\n"
+
+    def forbidden(*_args, **_kwargs):
+        raise AssertionError("over-complex log reached source hashing")
+
+    monkeypatch.setattr(case.helper, "_input_facts", forbidden)
+    with pytest.raises(case.helper.AcceptanceEvidenceError, match="^rebuild_acceptance_log_complexity$"):
+        case.helper.parse_rebuild_log(flooded, buildinfo_bytes=case.buildinfo, source_inputs=case.source_inputs)
+
+
+def test_loader_rebuild_acceptance_log_nonascii_control_is_a_stable_rejection(
+        loader_rebuild_acceptance_case, loader_rebuild_acceptance_public_members):
+    case = loader_rebuild_acceptance_case
+    raw = loader_rebuild_acceptance_public_members["rebuild_269686.log"]
+    original, substituted = b"'https://deb.debian.org/", b"'https://deb.d\xc3\xa9ian.org/"
+    assert len(original) == len(substituted) and original in raw
+    changed = raw.replace(original, substituted, 1)
+    assert changed != raw and len(changed) == len(raw)
+    changed.decode("utf-8")
+    with pytest.raises(case.helper.AcceptanceEvidenceError, match="^rebuild_acceptance_log_invalid$"):
+        case.helper.parse_rebuild_log(changed, buildinfo_bytes=case.buildinfo, source_inputs=case.source_inputs)

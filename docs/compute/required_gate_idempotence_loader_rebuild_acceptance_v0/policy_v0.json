@@ -1,0 +1,241 @@
+{
+  "admission_effect": {
+    "authenticated_original_build_provenance": false,
+    "authority_effect": "none",
+    "b2_complete": false,
+    "future_host_admission": false,
+    "historical_rebuilder_authority_verified": false,
+    "metric_pass": null,
+    "native_rebuild_performed": false,
+    "only_positive_gate": "source_build_gate_satisfied_under_policy",
+    "original_acquisition_authorized": false,
+    "original_acquisition_ready": false,
+    "original_loader_executed": false,
+    "prior_records_and_their_false_boundaries_remain_historical_and_unchanged": true,
+    "requires_fresh_signature_source_package_and_policy_checks": true,
+    "source_binary_equivalence_independently_observed": false
+  },
+  "decision_scope": "source_build_prerequisite_for_the_two_selected_original_loader_packages_only",
+  "development_base": "846db3d94d7fc869b6a8d20bdc98efe6d26c81b4",
+  "policy_id": "glibc_2_41_12_deb13u4_current_service_endorsement_2026_11_23_v0",
+  "policy_type": "required_gate_idempotence_loader_rebuild_acceptance_policy_v0",
+  "preserved_evidence": {
+    "archive_binding": {
+      "sha256": "a826480a93d9a9a4fc458502731370d67845f2dfc67d4f95e5b59b9941246db3",
+      "size_bytes": 486911
+    },
+    "archive_path": "docs/compute/required_gate_idempotence_loader_rebuild_acceptance_v0/preservation/public_service_evidence_v0.zip",
+    "decoded_total_bytes": 21105560,
+    "members": {
+      "debrebuild.pl": {
+        "sha256": "53a98e5ed34575fc3cb54b1d8506cba9a4782f66315d60936a3003caf5622390",
+        "size_bytes": 28931,
+        "url": "https://sources.debian.org/data/main/d/devscripts/2.26.15/scripts/debrebuild.pl"
+      },
+      "libc6_attestation.json": {
+        "sha256": "dc7cc8831246e1fac3aa29d02177f5ce85253fde5d586e1848a869c7805df2c6",
+        "size_bytes": 1104,
+        "url": "https://reproduce.debian.net/amd64/api/v1/builds/269686/artifacts/710018/attestation"
+      },
+      "libc6_dbg_attestation.json": {
+        "sha256": "9e7e500b1aa181474a4ceb4bde60779fe6adb95ade3812c82833b037b49ceda4",
+        "size_bytes": 1112,
+        "url": "https://reproduce.debian.net/amd64/api/v1/builds/269686/artifacts/710019/attestation"
+      },
+      "public_keys.json": {
+        "sha256": "ae30bbb97ab1d57cb8bc874571cc8883f9ea44ca105ff27feb3e621c9ac85761",
+        "size_bytes": 142,
+        "url": "https://reproduce.debian.net/amd64/api/v1/meta/public-keys"
+      },
+      "rebuild_269686.json": {
+        "sha256": "8f33a6f92164c91d76a335e3b14510f92c22a8c64cf5b09ba28918b521606231",
+        "size_bytes": 274,
+        "url": "https://reproduce.debian.net/amd64/api/v1/builds/269686"
+      },
+      "rebuild_269686.log": {
+        "sha256": "014cdf663727e61b0e5c4c8a761be3374cdb249479abfd9ab4348ce995d721a4",
+        "size_bytes": 20971567,
+        "url": "https://reproduce.debian.net/amd64/api/v1/builds/269686/log"
+      },
+      "rebuilder-debian.sh": {
+        "sha256": "66d6e397dad32c5000a72da11d1a9de5c7a36a210bb1f138489be11679a81820",
+        "size_bytes": 3845,
+        "url": "https://raw.githubusercontent.com/kpcyrd/rebuilderd/8c996c248f9b9668fa62fcd8fe8aa2fd0ed7b999/worker/rebuilder-debian.sh"
+      },
+      "rebuilderd_LICENSE": {
+        "sha256": "d62f065830aa3739cc031156b9690805c7b2e811b4a178c8b4acd8725d561c94",
+        "size_bytes": 35142,
+        "url": "https://raw.githubusercontent.com/kpcyrd/rebuilderd/8c996c248f9b9668fa62fcd8fe8aa2fd0ed7b999/LICENSE"
+      },
+      "rebuilderd_daemon_attestation.rs": {
+        "sha256": "cda2f3da41e710f451f0591e713c5ffcbd82658fd518ec15f517c895a2e5e38f",
+        "size_bytes": 10928,
+        "url": "https://raw.githubusercontent.com/kpcyrd/rebuilderd/8c996c248f9b9668fa62fcd8fe8aa2fd0ed7b999/daemon/src/attestation.rs"
+      },
+      "rebuilderd_daemon_build.rs": {
+        "sha256": "8b5bfa7a152871edef92290fccbaf99acb40502cd4c530a1ba6a4f88c4f47b43",
+        "size_bytes": 15555,
+        "url": "https://raw.githubusercontent.com/kpcyrd/rebuilderd/8c996c248f9b9668fa62fcd8fe8aa2fd0ed7b999/daemon/src/api/v1/build.rs"
+      },
+      "rebuilderd_daemon_meta.rs": {
+        "sha256": "629bd3e68b732592239c5a31ab3449774127a8ed216157e41155351625c6069c",
+        "size_bytes": 4081,
+        "url": "https://raw.githubusercontent.com/kpcyrd/rebuilderd/8c996c248f9b9668fa62fcd8fe8aa2fd0ed7b999/daemon/src/api/v1/meta.rs"
+      },
+      "rebuilderd_worker_rebuild.rs": {
+        "sha256": "2b6d0b3406878888cb69c0f4791474609bf07703e4aa6975dd29011e84a1eee9",
+        "size_bytes": 10515,
+        "url": "https://raw.githubusercontent.com/kpcyrd/rebuilderd/8c996c248f9b9668fa62fcd8fe8aa2fd0ed7b999/worker/src/rebuild.rs"
+      },
+      "retrieval_manifest_v0.json": {
+        "sha256": "bf7b2d0380c233a2561803e9ac47d4012a632bf7f19770ebf299318f6d5161d4",
+        "size_bytes": 8463,
+        "url": null
+      },
+      "service_overview.html": {
+        "sha256": "1defd250800c1bf35aed13720d4f9b8c8581b1b92a7fc190a3563c3b5de6e883",
+        "size_bytes": 13901,
+        "url": "https://reproduce.debian.net/"
+      }
+    }
+  },
+  "prior_rebuild_attestation": {
+    "fresh_chain_and_signature_verification_required": true,
+    "record": {
+      "sha256": "19c346076b6ec7d5e7d948d13d16a3ba6f45a56b4fdcf9236d9a445dddbc1d7f",
+      "size_bytes": 15758
+    },
+    "record_path": "docs/compute/required_gate_idempotence_loader_rebuild_attestation_binding_v0/record_v0.json",
+    "saved_report_is_acceptance_input": false
+  },
+  "profile": "linux_x86_64_original_loader_rebuild_acceptance_v0",
+  "remaining_prerequisites": [
+    "bounded_original_loader_collector_and_independent_native_event_checker",
+    "fresh_selected_environment_admission_and_same_environment_two_slot_qualification",
+    "fresh_original_input_backing_and_invocation_readout_qualification",
+    "separate_owner_authorization_for_one_original_acquisition",
+    "complete_attempt_preservation_independent_verification_and_whole_runtime_B2_scope"
+  ],
+  "selection_contract": {
+    "caller_approved_boolean_is_an_acceptance_input": false,
+    "default": "candidate_evidence_only_policy_selection_pending",
+    "external_exact_policy_sha256_required_for_scoped_admission": true,
+    "policy_record_or_repository_presence_is_project_adoption": false,
+    "saved_verification_report_is_an_acceptance_input": false,
+    "selected_policy_digest_authenticates_owner_identity": false,
+    "selected_policy_digest_is_execution_authorization": false,
+    "selected_policy_digest_is_release_authority": false
+  },
+  "service_role_selection": {
+    "api_prefix": "/amd64/api/v1",
+    "artifact_ids": [
+      710018,
+      710019
+    ],
+    "build_id": 269686,
+    "distinct_accepted_service_endorsements": 1,
+    "https_origin": "https://reproduce.debian.net",
+    "in_toto_keyid": "2980aa6249ad89ce0ef0f0f5e6d0896214301b2818aad33443444cf460df6ed6",
+    "independent_operator_quorum_established": false,
+    "public_key_hex": "13ba298a31f08e49f88a736013fd3d4d290867f72dfd2b3e52ba8d30e5451718",
+    "role": "current_daemon_endorsement_of_stored_successful_byte_identical_rebuild_statement",
+    "second_listed_signature_is_required_or_counted": false,
+    "selected_verified_signatures_per_product": 1,
+    "signature_algorithm": "ed25519",
+    "trusted_components": [
+      "service_worker_build_execution_and_original_vs_rebuilt_byte_comparison",
+      "service_storage_and_build_to_log_to_artifact_associations",
+      "daemon_signing_key_control_and_current_endorsement_semantics",
+      "reviewed_https_retrieval_origin_and_preservation_of_response_bytes"
+    ]
+  },
+  "source_resolution_acceptance": {
+    "accepted_association": "the_service_supplied_log_prefix_and_build_metadata_belong_to_the_same_build_as_the_two_daemon_endorsed_attestations",
+    "archive_signature_cryptography_freshly_verified_by_this_unit": false,
+    "archive_signature_evidence_and_selected_keyring_are_inherited_trust_inputs": true,
+    "complete_build_log_required_for_this_narrow_policy": false,
+    "complete_three_source_inputs_must_match_preserved_archive_bindings": true,
+    "exact_preserved_truncation_marker_required": true,
+    "fresh_prior_archive_source_binary_debug_chain_reconstruction_required": true,
+    "log_apt_uri_size_sha256_and_dcmd_sha256_must_match_all_three_inputs": true,
+    "log_digest_directly_bound_by_the_signed_links": false,
+    "log_dsc_checksum_success_is_source_signature_verification": false,
+    "log_explicitly_reports_buildinfo_gpg_signature_not_validated": true,
+    "log_explicitly_reports_dsc_inline_signature_not_verified": true,
+    "log_source_version_debrebuild_sibling_dsc_and_unpack_records_required": true,
+    "new_source_acceptance_trust_basis": "exact_prior_archive_bound_source_bytes_plus_explicitly_selected_service_association_policy",
+    "original_buildinfo_covers_dsc_digest": false,
+    "policy": "reviewed_exact_source_resolution_and_service_association",
+    "source_input_digests_directly_bound_by_the_signed_links": false,
+    "source_log_and_metadata_are_unsigned": true,
+    "truncated_log_is_complete_build_or_terminal_success_evidence": false
+  },
+  "statement_acceptance": {
+    "accepted_meaning_under_selected_role": "the_service_endorses_a_successful_byte_identical_rebuild_for_each_exact_signed_product_using_the_exact_signed_buildinfo",
+    "both_original_products_and_complete_buildinfo_bytes_must_match_every_signed_digest": true,
+    "empty_command_empty_byproducts_and_null_environment_are_explicitly_accepted": true,
+    "public_key_endpoint_alone_authenticates_historical_worker_role": false,
+    "reviewed_implementation_sources_are_historical_deployment_proof": false,
+    "service_good_metadata_alone_is_sufficient": false,
+    "successful_rebuild_observed_by_this_checker": false
+  },
+  "subject": {
+    "architecture": "amd64",
+    "buildinfo": {
+      "filename": "glibc_2.41-12+deb13u4_amd64.buildinfo",
+      "sha256": "5af18d1a381adb80a101b714b57c7822e5f0442f68e148df26b0dbcc4a1ca1e9",
+      "size_bytes": 15502
+    },
+    "debug_member": {
+      "path": "usr/lib/debug/.build-id/86/f7eb4ff495ed3f2831c6d3d662e4321762a2a3.debug",
+      "sha256": "34ab07395545cf33df8e551e809ebee6fd3fc2707ed848e390872dce539c4a78",
+      "size_bytes": 556488
+    },
+    "loader_member": {
+      "path": "usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2",
+      "sha256": "c8438e4fde1934e61c88311633f00949ff645d5c04cdb8671fa3d78164d2f307",
+      "size_bytes": 225672
+    },
+    "products": {
+      "libc6-dbg_2.41-12+deb13u4_amd64.deb": {
+        "sha256": "0123a767a462c59d75e1bd56c4a0f7192c389f600e4743e807d3d33c679dbcf7",
+        "size_bytes": 7373052
+      },
+      "libc6_2.41-12+deb13u4_amd64.deb": {
+        "sha256": "967aa62605721081c3eb2a17650611a792aa802d76a6511d1840242623d204c9",
+        "size_bytes": 2846580
+      }
+    },
+    "source_inputs": {
+      "glibc_2.41-12+deb13u4.debian.tar.xz": {
+        "sha256": "dda4153511bfd543502d18e5bc9323110996fe9c531f14ae3fad6eb17f027c7d",
+        "size_bytes": 499524
+      },
+      "glibc_2.41-12+deb13u4.dsc": {
+        "sha256": "0915324aa646bb99abfaa9aa6ecb734b30babd28454a3e51f3152912370fbd3e",
+        "size_bytes": 7576
+      },
+      "glibc_2.41.orig.tar.xz": {
+        "sha256": "f24aa441021121a79266f0d75242706cab8843a47901fefe74527491807f1998",
+        "size_bytes": 20323540
+      }
+    },
+    "source_name": "glibc",
+    "source_version": "2.41-12+deb13u4"
+  },
+  "verification_time_policy": {
+    "continued_key_authority_after_snapshot_inferred": false,
+    "current_key_meaning": "current_in_the_preserved_key_endpoint_response_at_retrieval",
+    "daemon_may_add_current_signature_when_serving_a_stored_attestation": true,
+    "different_key_snapshot_or_subject_requires_a_new_reviewed_policy": true,
+    "historical_worker_key_authority_or_signing_time_inferred": false,
+    "http_date_and_log_timestamps_are_authenticated_signing_times": false,
+    "key_and_two_attestations_observed_at_utc": "2026-11-23T22:00:17Z",
+    "live_key_revocation_or_endpoint_status_checked_by_offline_checker": false,
+    "preserved_snapshot_provenance_is_cryptographically_reverified_offline": false,
+    "retrieval_finished_at_utc": "2026-11-23T22:02:34Z",
+    "retrieval_started_at_utc": "2026-11-23T22:00:10Z",
+    "scope": "offline_replay_of_the_exact_reviewed_snapshot_only",
+    "snapshot_date_utc": "2026-11-23"
+  }
+}
