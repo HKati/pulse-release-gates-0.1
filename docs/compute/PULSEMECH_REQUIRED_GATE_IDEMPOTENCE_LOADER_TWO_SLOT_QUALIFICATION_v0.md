@@ -6,7 +6,16 @@ This unit implements a separate producer and an independent raw-record checker
 for the fixed, synthetic two-slot hardware probe. It advances the implementation
 portion of gate 4 in the
 [loader-resolution plan](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_PLAN_v0.md#unsatisfied-implementation-gates-and-next-unit).
-It does not supply an actual qualification record or an original loader capture.
+Its implementation regressions do not supply an actual qualification record or
+an original loader capture.
+
+**Selected native result:** the later hosted route completed one fixed probe in
+[owner-dispatched run `45253188286/1`](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45253188286)
+at source `624713608bcf5467c6d4be44cd026f906c45f274`. The
+[completed hosted qualification and preservation](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md#completed-hosted-qualification-452531882861)
+retain the actual request, native record, four matching hosted reports, cleanup
+and hosted attestation verification. This selected result does not admit a
+future host, observe the original loader or complete B2.
 
 The development base is `90ffaf4ad09e02f41fcfb47ecc8c33e640f8770f`, after
 [PR #3047](https://github.com/HKati/pulse-release-gates-0.1/pull/3047).
@@ -21,7 +30,7 @@ remain open as described in the
 | Native record | A separately identified closed format preserving raw bytes, operations, context, implementation identity and incomplete outcomes. |
 | Independent checker | Fresh reconstruction of the selected raw mechanics, with an externally selected record digest and context. |
 | Implementation regressions | Authored raw records and a scripted backend; no native capability probe is executed by the tests. |
-| Actual selected environment | Still requires a separately authorized acquisition, preservation and fresh admission. |
+| Actual selected environment | Completed bounded hosted result `45253188286/1`; later acquisitions still require their own selection, authorization and fresh admission. |
 | Original loader | No new invocation, dependency-return event or provider-resolution evidence. |
 | B2 and issue #2879 | Incomplete and open under the existing scope. |
 
@@ -224,11 +233,12 @@ It does not independently authenticate that those bytes came from physical
 execution. A producer-declared native origin is not an execution attestation.
 Scripted backend records remain explicitly identified as implementation tests.
 
-Actual qualification requires the later selected environment, exact executed
+Actual qualification requires the selected environment, exact executed
 source, preserved acquisition, independent reconstruction and freshness/admission
 joins. A record from another kernel, boot, namespace or observer identity cannot
-silently qualify a new acquisition. This unit does not create that hosted
-admission path or authorize its execution.
+silently qualify a new acquisition. The separate hosted result linked above
+records those relationships for its own attempt; this implementation unit does
+not grant authorization or admission to another attempt.
 
 The original source/build evidence route remains a separate obligation. An
 accepted original buildd route or an accepted rebuild route may satisfy the
