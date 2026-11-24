@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the separate [B2 bounded original-loader collector and independent replay](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_v0.md).
+  Reconstruct the full original-input and explicitly selected rebuild-policy
+  chains before fresh fixed guard/two-slot probes, then permit one acknowledged
+  original attempt with nine unique raw consumer/provider returns and a terminal
+  entry stop. Bind contemporaneous backing reads, paired raw samples, exact
+  continuation counts and owned cleanup; preserve incomplete attempts and keep
+  scripted tests distinct from native evidence. This unit performs no original
+  acquisition or workflow dispatch. Existing profiles, B2 completion and
+  whole-runtime #2879 retain their scope; `metric_pass=null` and
+  `authority_effect=none`.
+
 - Add a bounded [B2 original-loader rebuild acceptance policy](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_REBUILD_ACCEPTANCE_v0.md)
   and independent data-only checker. Preserve the exact public service snapshot,
   join its source-resolution records to all three complete original source
