@@ -57,6 +57,19 @@ old reports are fixed comparison oracles; they are never accepted instead of
 running the verification chain. The new original request and native obligations
 must equal those freshly derived from these bytes.
 
+The original trust policy also selects the external verification executable:
+`/usr/bin/gpg`, exactly 1,230,080 bytes with SHA-256
+`7c9d2f9416aabcd10199e2984439f49612644a948279ac56bdf70d69c8958ddf`.
+The original archive does not supply this executable. Preparation, acquisition
+admission and replay therefore need an environment that provides these exact
+bytes and their working runtime dependencies. A different GPG installation
+fails with `signature_verifier_binding_mismatch` before capability probes or
+original execution. The collector does not rewrite that policy to match the
+current machine. The earlier
+[hosted exec-stop environment](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_GITHUB_v0.md)
+documents the selected verifier and runtime provisioning; its historical run
+does not qualify a new collector environment.
+
 The same call freshly reconstructs the
 [rebuild acceptance policy](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_REBUILD_ACCEPTANCE_v0.md)
 and all its preceding source, package and selected-signature relationships.
@@ -286,6 +299,31 @@ raw-byte mutations, the actual native proc dispatcher with substituted reads,
 the closed ptrace surface, qualification/context joins, finite continuations,
 incomplete cleanup and exclusive publication. It does not execute the original
 launcher, qualify a host or manufacture a native run record.
+
+The tests distinguish three verification responsibilities:
+
+- Structural admission and collector tests use an explicitly scripted
+  original-signature execution boundary. They assert the exact historical
+  policy and original inputs, retain the original signature parser and sealed
+  input checks, and reconstruct the original byte relationships and rebuild
+  acceptance chain. Rebuild attestation checks still use real OpenSSL. The
+  scripted signature process is not a successful execution of the historically
+  pinned verifier.
+- Separate cryptographic tests run the unchanged GPG verification code on the
+  original Release, detached signature and keyring, with the original selected
+  signers and evaluation epoch. These tests explicitly bind the current test
+  host's verifier in a test-only argument set and also reject altered signed
+  bytes. They do not change the archived trust policy or establish admission
+  under its historical verifier selection.
+- A production-path regression supplies a different verifier file to the real
+  bounded file reader and requires rejection before a verifier subprocess,
+  capability probe or original process can start. It does not depend on the
+  test host already differing from the historical environment.
+
+This separation keeps the portable suite meaningful on CI hosts whose GPG
+bytes differ from the original selection. Complete unmodified admission under
+the historical policy still requires the exact selected verifier environment;
+portable tests do not certify that an arbitrary CI runner meets that condition.
 
 The next execution step requires an owner-selected environment, exact merged
 source and policy selection, one separately acknowledged fresh attempt, complete

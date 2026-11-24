@@ -19631,11 +19631,65 @@ def loader_resolution_request_case(loader_readout_originals):
 
 
 @pytest.fixture(scope="module")
-def loader_resolution_real_admission(loader_resolution_request_case, loader_rebuild_acceptance_case):
+def loader_resolution_original_signature_inputs():
+    """Preserved crypto inputs; the external historical verifier is not bundled."""
+    import zipfile
+    core = loader_resolution_admission()
+    raw = (ROOT / core.entry_plan.ORIGINALS_REL).read_bytes()
+    assert bound(raw) == core.entry_plan.ORIGINALS
+    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+        manifest_raw = archive.read("CASE_INPUTS.json")
+        assert digest(manifest_raw) == core.original.ORIGINAL_MANIFEST_SHA256
+        manifest = json.loads(manifest_raw)
+        names = ("controls/distribution-trust-policy.json", "distribution-origin/Release",
+                 "distribution-origin/Release.gpg", "distribution-origin/debian-archive-keyring.gpg",
+                 "distribution-origin/gpg-status.original")
+        members = {name: archive.read(name) for name in names}
+    for name, value in members.items():
+        assert bound(value) == manifest["files"][name]
+    policy = json.loads(members["controls/distribution-trust-policy.json"])
+    assert policy["verifier"] == manifest["external_verifier"] == {
+        "kind": "gpg", "path": "/usr/bin/gpg", "size_bytes": 1230080,
+        "sha256": "7c9d2f9416aabcd10199e2984439f49612644a948279ac56bdf70d69c8958ddf"}
+    return SimpleNamespace(policy=policy, release=members["distribution-origin/Release"],
+        signature=members["distribution-origin/Release.gpg"],
+        keyring=members["distribution-origin/debian-archive-keyring.gpg"],
+        scripted_status=members["distribution-origin/gpg-status.original"])
+
+
+def _loader_resolution_current_host_signature_arguments(case):
+    """Select a test-only backend, never rewrite or admit the historical policy."""
+    verifier = Path("/usr/bin/gpg")
+    assert verifier.is_file() and not verifier.is_symlink(), "the explicit test verification tool is required"
+    return {"release_bytes": case.release, "signature_bytes": case.signature,
+        "keyring_bytes": case.keyring, "expected_keyring_sha256": case.policy["keyring"]["sha256"],
+        "verifier_path": verifier,
+        "expected_verifier": {"kind": "gpg", "path": str(verifier), **bound(verifier.read_bytes())},
+        "required_signers": copy.deepcopy(case.policy["required_signers"]),
+        "evaluation_time": case.policy["evaluation_time"]}
+
+
+@pytest.fixture(scope="module")
+def loader_resolution_scripted_signature_admission(loader_resolution_request_case, loader_rebuild_acceptance_case,
+                                                  loader_resolution_original_signature_inputs):
+    """Reconstruct raw joins with an explicitly authored GPG execution boundary.
+
+    The original policy pins a Debian GPG that an Ubuntu CI runner need not
+    contain. This fixture never substitutes the current host into that policy.
+    An inert verifier marker and scripted GPG output exercise the unchanged
+    sealing, status parser and reconstruction code; only OpenSSL actually runs.
+    Separate tests check real original signatures with a test-selected host
+    verifier and enforce the unmodified historical pin before any execution.
+    This fixture is not evidence of an original-policy cryptographic admission.
+    """
     case, preserved = loader_resolution_request_case, loader_rebuild_acceptance_case
+    signature_case = loader_resolution_original_signature_inputs
+    signature = case.core.distribution_signature
     inputs = _loader_rebuild_acceptance_arguments(preserved)
     del inputs["expected_record_sha256"]
     calls, commands = [], []
+    verifier_reads, scripted_commands = [], []
+    inert_verifier = b"authored inert GPG marker; never an executable\n"
     real_acceptance, real_popen = case.core.acceptance.verify_acceptance, subprocess.Popen
 
     def acceptance_spy(**arguments):
@@ -19644,12 +19698,32 @@ def loader_resolution_real_admission(loader_resolution_request_case, loader_rebu
 
     def only_public_signature_tools(command, *args, **kwargs):
         assert type(command) is list and command
-        assert (command[0] == "/usr/bin/openssl"
-                or "--status-fd" in command and "--disable-dirmngr" in command
-                and "--no-auto-key-retrieve" in command and "--verify" in command)
+        assert command[0] == "/usr/bin/openssl"
         assert kwargs.get("shell") is False
         commands.append(list(command))
         return real_popen(command, *args, **kwargs)
+
+    def scripted_verifier_read(path, expected):
+        assert path == "/usr/bin/gpg" and expected == signature_case.policy["verifier"]
+        verifier_reads.append((path, copy.deepcopy(expected)))
+        return inert_verifier
+
+    def scripted_signature_capture(**arguments):
+        argv, descriptors = arguments["argv"], arguments["pass_fds"]
+        assert argv[0] == "/usr/bin/gpg" and argv[-3] == "--verify"
+        assert argv[argv.index("--faked-system-time") + 1] == str(signature_case.policy["evaluation_time"]) + "!"
+        assert {"--disable-dirmngr", "--no-auto-key-retrieve", "--no-auto-key-import",
+                "--no-autostart", "--status-fd"} <= set(argv)
+        assert len(descriptors) == 4 and arguments["executable_fd"] == descriptors[0]
+        expected_raw = (inert_verifier, signature_case.keyring, signature_case.signature, signature_case.release)
+        for descriptor, expected in zip(descriptors, expected_raw):
+            assert os.pread(descriptor, len(expected) + 1, 0) == expected
+            assert fcntl.fcntl(descriptor, getattr(fcntl, "F_GET_SEALS", 1034)) & 15 == 15
+        scripted_commands.append(list(argv))
+        result = distribution_capture_result(pid=12345)
+        result["stdout_bytes"] = signature_case.scripted_status
+        result["stderr_bytes"] = b"authored scripted GPG transport; no verifier process executed\n"
+        return result
 
     def forbidden(*_a, **_k):
         pytest.fail("fresh byte admission attempted a probe or original execution")
@@ -19657,6 +19731,8 @@ def loader_resolution_real_admission(loader_resolution_request_case, loader_rebu
     with pytest.MonkeyPatch.context() as patch:
         patch.setattr(case.core.acceptance, "verify_acceptance", acceptance_spy)
         patch.setattr(subprocess, "Popen", only_public_signature_tools)
+        patch.setattr(signature, "_read_verifier", scripted_verifier_read)
+        patch.setattr(signature, "_capture", scripted_signature_capture)
         patch.setattr(os, "fork", forbidden)
         producer = loader_resolution_producer()
         patch.setattr(producer, "NativeBackend", forbidden)
@@ -19669,7 +19745,9 @@ def loader_resolution_real_admission(loader_resolution_request_case, loader_rebu
     assert calls[0]["record_bytes"] == preserved.raw
     assert calls[0]["accepted_policy_sha256"] == LOADER_RESOLUTION_POLICY_SHA
     assert calls[0]["artifact_members"] is preserved.prior.prior.static_case.artifacts
+    assert len(verifier_reads) == len(scripted_commands) == 1
     case.admitted, case.acceptance_calls, case.crypto_commands = admitted, calls, commands
+    case.scripted_signature_commands = scripted_commands
     return admitted
 
 
@@ -19979,7 +20057,7 @@ def _loader_resolution_scripted_collect(modules, request_case, monkeypatch, faul
 
 
 @pytest.fixture(scope="module")
-def loader_resolution_scripted_record(loader_resolution_request_case, loader_resolution_real_admission):
+def loader_resolution_scripted_record(loader_resolution_request_case, loader_resolution_scripted_signature_admission):
     case = loader_resolution_request_case
     producer = loader_resolution_producer()
     modules = SimpleNamespace(producer=producer, admission=case.core)
@@ -20029,7 +20107,7 @@ def test_loader_resolution_scripted_controller_reaches_nine_returns_and_never_re
     ("target_output", True, 11), ("close_failure", True, 11),
 ])
 def test_loader_resolution_scripted_failures_preserve_prefix_and_clean_owned_state(
-        loader_resolution_modules, loader_resolution_request_case, loader_resolution_real_admission,
+        loader_resolution_modules, loader_resolution_request_case, loader_resolution_scripted_signature_admission,
         monkeypatch, fault, spawned, max_cont):
     backend, result, _calls = _loader_resolution_scripted_collect(
         loader_resolution_modules, loader_resolution_request_case, monkeypatch, fault)
@@ -20055,9 +20133,9 @@ def test_loader_resolution_scripted_failures_preserve_prefix_and_clean_owned_sta
         assert len(capture["returns"]) == 2 and capture["entry"] is not None
 
 
-def test_loader_resolution_real_admission_reconstructs_source_policy_and_original_raw_chain(
-        loader_resolution_request_case, loader_resolution_real_admission):
-    case, admitted = loader_resolution_request_case, loader_resolution_real_admission
+def test_loader_resolution_scripted_signature_boundary_preserves_original_raw_chain_and_real_rebuild_checks(
+        loader_resolution_request_case, loader_resolution_scripted_signature_admission):
+    case, admitted = loader_resolution_request_case, loader_resolution_scripted_signature_admission
     assert admitted["request"] == case.request
     assert admitted["native_files"] == case.originals.native
     assert admitted["static_record"] == case.originals.case.record
@@ -20071,10 +20149,101 @@ def test_loader_resolution_real_admission_reconstructs_source_policy_and_origina
     assert original["original_reports_reconstructed"] is True
     assert len(original["signature_evidence"]) == 1
     process = original["signature_evidence"][0]["process_record"]
-    assert type(process["pid"]) is int and process["pid"] > 1
+    assert process["pid"] == 12345  # Authored boundary output, not a live verifier PID.
     assert process["execution"] == "sealed_verifier_memfd" and process["inputs_sealed"] is True
-    assert any("--status-fd" in argv for argv in case.crypto_commands)
-    assert any(argv[0] == "/usr/bin/openssl" for argv in case.crypto_commands)
+    assert len(case.scripted_signature_commands) == 1
+    assert "--status-fd" in case.scripted_signature_commands[0]
+    assert case.crypto_commands and all(argv[0] == "/usr/bin/openssl" for argv in case.crypto_commands)
+
+
+def test_loader_resolution_original_signatures_use_real_crypto_with_explicit_test_host_selection(
+        loader_resolution_modules, loader_resolution_original_signature_inputs, monkeypatch):
+    """Check original crypto, without claiming admission under the historical pin."""
+    case, sig = loader_resolution_original_signature_inputs, distribution_signature()
+    policy_before = encoded(case.policy)
+    arguments = _loader_resolution_current_host_signature_arguments(case)
+    evidence, commands = [], []
+    real_popen = subprocess.Popen
+
+    def only_original_signature(command, *args, **kwargs):
+        assert command[0] == "/usr/bin/gpg" and "--verify" in command
+        assert "--disable-dirmngr" in command and "--no-auto-key-retrieve" in command
+        assert kwargs.get("shell") is False
+        commands.append(list(command))
+        return real_popen(command, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "Popen", only_original_signature)
+    monkeypatch.setattr(loader_resolution_modules.admission, "reconstruct_admission",
+        lambda **_k: pytest.fail("test-selected current verifier is not original-policy admission"))
+    report = sig.verify_detached(**arguments, evidence_sink=evidence.append)
+    assert len(evidence) == len(commands) == 1
+    assert report["backend"] == arguments["expected_verifier"]
+    assert report["verified_signatures"] == sig._parse_status(
+        case.scripted_status, case.policy["required_signers"], case.policy["evaluation_time"])
+    process = evidence[0]["process_record"]
+    assert process["pid"] > 1 and process["verification_status"] == "accepted"
+    assert process["inputs"] == {"release": bound(case.release), "signature": bound(case.signature),
+                                "keyring": bound(case.keyring)}
+    assert process["verifier"] == arguments["expected_verifier"]
+    assert encoded(case.policy) == policy_before
+
+
+@pytest.mark.parametrize("changed", ["release_bytes", "signature_bytes"])
+def test_loader_resolution_original_signature_real_crypto_rejects_changed_signed_inputs(
+        loader_resolution_modules, loader_resolution_original_signature_inputs, changed):
+    case, sig = loader_resolution_original_signature_inputs, distribution_signature()
+    policy_before = encoded(case.policy)
+    arguments = _loader_resolution_current_host_signature_arguments(case)
+    if changed == "release_bytes":
+        assert arguments[changed].startswith(b"Origin: Debian\n")
+        arguments[changed] = arguments[changed].replace(b"Origin: Debian\n", b"Origin: DebiaX\n", 1)
+    else:
+        assert arguments[changed].startswith(b"-----BEGIN PGP SIGNATURE-----\n\n")
+        position = arguments[changed].index(b"\n\n") + 2
+        raw = bytearray(arguments[changed])
+        raw[position] = ord("A") if raw[position] != ord("A") else ord("B")
+        arguments[changed] = bytes(raw)
+    evidence = []
+    with pytest.raises(sig.SignatureError):
+        sig.verify_detached(**arguments, evidence_sink=evidence.append)
+    assert len(evidence) == 1
+    assert evidence[0]["process_record"]["verification_status"] == "rejected"
+    assert encoded(case.policy) == policy_before
+
+
+def test_loader_resolution_historical_verifier_mismatch_rejects_before_any_execution(
+        loader_resolution_modules, loader_resolution_request_case, loader_resolution_original_signature_inputs,
+        tmp_path, monkeypatch):
+    """Exercise the CI mismatch even where the installed GPG matches the old pin."""
+    modules, request_case, signature_case = (loader_resolution_modules, loader_resolution_request_case,
+                                            loader_resolution_original_signature_inputs)
+    alien = bytearray(Path("/usr/bin/gpg").read_bytes())
+    alien[-1] ^= 1
+    alien = bytes(alien)
+    assert bound(alien) != {key: signature_case.policy["verifier"][key] for key in ("sha256", "size_bytes")}
+    path = tmp_path / "different-gpg"
+    path.write_bytes(alien)
+    path.chmod(0o700)
+    real_open, verifier_opens = os.open, []
+
+    def open_with_different_host_verifier(selected, flags, *args, **kwargs):
+        if selected == "/usr/bin/gpg":
+            verifier_opens.append(selected)
+            return real_open(path, flags, *args, **kwargs)
+        return real_open(selected, flags, *args, **kwargs)
+
+    def forbidden(*_a, **_k):
+        pytest.fail("unmatched historical verifier reached execution or rebuild admission")
+
+    monkeypatch.setattr(os, "open", open_with_different_host_verifier)
+    monkeypatch.setattr(subprocess, "Popen", forbidden)
+    monkeypatch.setattr(modules.admission.acceptance, "verify_acceptance", forbidden)
+    with pytest.raises(modules.admission.original.distribution.DistributionError,
+                       match="^signature_verifier_binding_mismatch$"):
+        modules.producer.collect(request_bytes=request_case.raw,
+            expected_request_sha256=digest(request_case.raw), accepted_policy_sha256=LOADER_RESOLUTION_POLICY_SHA,
+            acknowledgement=LOADER_RESOLUTION_ACK)
+    assert verifier_opens == ["/usr/bin/gpg"]
 
 
 @pytest.mark.parametrize("fault", ["argv", "envp", "cwd", "old_ack", "authority", "boolean_limit",
@@ -20146,8 +20315,8 @@ def _loader_resolution_changed_verifier_diagnostics(admitted, number=1):
     return value
 
 
-def test_loader_resolution_preserved_diagnostics_may_vary_without_becoming_admission(loader_resolution_real_admission):
-    admitted = loader_resolution_real_admission
+def test_loader_resolution_preserved_diagnostics_may_vary_without_becoming_admission(loader_resolution_scripted_signature_admission):
+    admitted = loader_resolution_scripted_signature_admission
     changed = _loader_resolution_changed_verifier_diagnostics(admitted)
     report = _loader_resolution_preserved_summary_check(admitted,
         changed["source_build_report"], changed["original_admission"])
@@ -20162,8 +20331,8 @@ def test_loader_resolution_preserved_diagnostics_may_vary_without_becoming_admis
     "signature_fd_alias", "signature_fd_path", "signature_argv", "signature_input",
     "signature_status", "signature_bound_stream", "signature_extra_field"])
 def test_loader_resolution_preserved_reports_cannot_override_fresh_input_policy_or_signature_facts(
-        loader_resolution_real_admission, fault):
-    admitted = loader_resolution_real_admission
+        loader_resolution_scripted_signature_admission, fault):
+    admitted = loader_resolution_scripted_signature_admission
     source, original = copy.deepcopy(admitted["source_build_report"]), copy.deepcopy(admitted["original_admission"])
     evidence = original["signature_evidence"][0]
     process = evidence["process_record"]
