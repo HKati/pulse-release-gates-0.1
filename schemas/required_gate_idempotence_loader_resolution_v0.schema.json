@@ -1,0 +1,1043 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Bounded original-loader native capture and incomplete-prefix record v0",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "record_type": {
+      "const": "required_gate_idempotence_loader_resolution_capture_v0"
+    },
+    "profile": {
+      "const": "linux_x86_64_original_launcher_loader_resolution_v0"
+    },
+    "evidence_origin": {
+      "enum": [
+        "native_original_loader_capture",
+        "scripted_test_backend"
+      ]
+    },
+    "attempt_id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$"
+    },
+    "request_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "incomplete"
+      ]
+    },
+    "failure": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,119}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "context": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/context"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "process": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "observer_pid": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "child_pid": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "starttime": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "pidfd": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "proc_dir_pinned": {
+          "type": "boolean"
+        },
+        "unexpected_children": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "pid": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9223372036854775807
+              },
+              "pidfd": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9223372036854775807
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "event": {
+                "enum": [
+                  1,
+                  2,
+                  3
+                ]
+              },
+              "reaped": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "pid",
+              "pidfd",
+              "event",
+              "reaped"
+            ]
+          },
+          "maxItems": 1
+        }
+      },
+      "required": [
+        "observer_pid",
+        "child_pid",
+        "starttime",
+        "pidfd",
+        "proc_dir_pinned",
+        "unexpected_children"
+      ]
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "started_ns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "cleanup_started_ns": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "finished_ns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        }
+      },
+      "required": [
+        "started_ns",
+        "cleanup_started_ns",
+        "finished_ns"
+      ]
+    },
+    "guard": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "launcher_fd": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "receipt_fd": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "launcher_fd",
+        "receipt_fd"
+      ]
+    },
+    "operations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/operation"
+      },
+      "maxItems": 256
+    },
+    "cp0": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/checkpoint"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "returns": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/checkpoint"
+      },
+      "maxItems": 10
+    },
+    "entry": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/checkpoint"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "files": {
+      "type": "object",
+      "maxProperties": 512,
+      "additionalProperties": {
+        "$ref": "#/$defs/binding"
+      },
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,199}$"
+      }
+    },
+    "boundary": {
+      "$ref": "#/$defs/boundary"
+    }
+  },
+  "required": [
+    "record_type",
+    "profile",
+    "evidence_origin",
+    "attempt_id",
+    "request_sha256",
+    "status",
+    "failure",
+    "context",
+    "process",
+    "timing",
+    "guard",
+    "operations",
+    "cp0",
+    "returns",
+    "entry",
+    "files",
+    "boundary"
+  ],
+  "$defs": {
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 67108864
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "size_bytes",
+        "sha256"
+      ]
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,199}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 67108864
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "path",
+        "size_bytes",
+        "sha256"
+      ]
+    },
+    "stat": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "dev": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "ino": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "mode": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "nlink": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "mtime_ns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "ctime_ns": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        }
+      },
+      "required": [
+        "dev",
+        "ino",
+        "mode",
+        "nlink",
+        "size",
+        "mtime_ns",
+        "ctime_ns"
+      ]
+    },
+    "backing": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "native_path": {
+          "type": "string",
+          "enum": [
+            "native/bwrap",
+            "native/ld-linux-x86-64.so.2",
+            "native/libc.so.6",
+            "native/libcap.so.2",
+            "native/libpcre2-8.so.0",
+            "native/libselinux.so.1"
+          ]
+        },
+        "before": {
+          "$ref": "#/$defs/stat"
+        },
+        "after": {
+          "$ref": "#/$defs/stat"
+        },
+        "content": {
+          "$ref": "#/$defs/reference"
+        }
+      },
+      "required": [
+        "native_path",
+        "before",
+        "after",
+        "content"
+      ]
+    },
+    "runtime_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": [
+            "args",
+            "consumer_map",
+            "provider_map",
+            "needed_name"
+          ]
+        },
+        "address": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 131072
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        }
+      },
+      "required": [
+        "role",
+        "address",
+        "offset",
+        "size_bytes"
+      ]
+    },
+    "rx_range": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "native_path": {
+          "type": "string",
+          "enum": [
+            "native/bwrap",
+            "native/ld-linux-x86-64.so.2",
+            "native/libc.so.6",
+            "native/libcap.so.2",
+            "native/libpcre2-8.so.0",
+            "native/libselinux.so.1"
+          ]
+        },
+        "address": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3262624
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3262624
+        }
+      },
+      "required": [
+        "native_path",
+        "address",
+        "offset",
+        "size_bytes"
+      ]
+    },
+    "checkpoint": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "phase": {
+          "type": "string",
+          "pattern": "^(cp0|entry|return\\.(0[1-9]|10))$"
+        },
+        "sample_started_ns": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9223372036854775807
+        },
+        "sample_finished_ns": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "raw_files": {
+          "type": "object",
+          "maxProperties": 32,
+          "additionalProperties": {
+            "$ref": "#/$defs/reference"
+          },
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[a-z0-9_.-]{1,80}$"
+          }
+        },
+        "backings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/backing"
+          },
+          "maxItems": 6
+        },
+        "runtime_ranges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/runtime_range"
+          },
+          "maxItems": 32
+        },
+        "loader_rx_range": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "address": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9223372036854775807
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 160721
+                }
+              },
+              "required": [
+                "address",
+                "size_bytes"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "native_rx_ranges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/rx_range"
+          },
+          "maxItems": 6
+        },
+        "executable": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/backing"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "phase",
+        "sample_started_ns",
+        "sample_finished_ns",
+        "raw_files",
+        "backings",
+        "runtime_ranges",
+        "loader_rx_range",
+        "native_rx_ranges",
+        "executable"
+      ]
+    },
+    "operation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "wait"
+            },
+            "at_ns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            "phase": {
+              "type": "string",
+              "pattern": "^(setup|exec|event\\.(0[1-9]|10)|reap)$"
+            },
+            "pid": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            "status": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "op",
+            "at_ns",
+            "phase",
+            "pid",
+            "status"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "options"
+            },
+            "at_ns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9223372036854775807
+            },
+            "returncode": {
+              "type": "integer",
+              "minimum": -1,
+              "maximum": 0
+            },
+            "errno": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4095
+            }
+          },
+          "required": [
+            "op",
+            "at_ns",
+            "value",
+            "returncode",
+            "errno"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "debug_write"
+            },
+            "at_ns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            "phase": {
+              "type": "string",
+              "pattern": "^(arming|resume\\.(0[0-9]|10))$"
+            },
+            "register": {
+              "type": "integer",
+              "enum": [
+                0,
+                1,
+                6,
+                7
+              ]
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            },
+            "returncode": {
+              "type": "integer",
+              "minimum": -1,
+              "maximum": 0
+            },
+            "errno": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4095
+            }
+          },
+          "required": [
+            "op",
+            "at_ns",
+            "phase",
+            "register",
+            "value",
+            "returncode",
+            "errno"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "continue"
+            },
+            "at_ns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            "after": {
+              "type": "string",
+              "pattern": "^(setup|cp0|return\\.0[1-9])$"
+            },
+            "address": {
+              "const": 0
+            },
+            "signal": {
+              "const": 0
+            },
+            "returncode": {
+              "type": "integer",
+              "minimum": -1,
+              "maximum": 0
+            },
+            "errno": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4095
+            }
+          },
+          "required": [
+            "op",
+            "at_ns",
+            "after",
+            "address",
+            "signal",
+            "returncode",
+            "errno"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "sample"
+            },
+            "at_ns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            "phase": {
+              "type": "string",
+              "pattern": "^(cp0|entry|return\\.(0[1-9]|10))$"
+            },
+            "side": {
+              "enum": [
+                "a",
+                "b"
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "at_ns",
+            "phase",
+            "side"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "op": {
+              "const": "kill"
+            },
+            "at_ns": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            "method": {
+              "enum": [
+                "pidfd_send_signal",
+                "owned_pid_fallback"
+              ]
+            },
+            "pid": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9223372036854775807
+            },
+            "pidfd": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9223372036854775807
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "signal": {
+              "const": 9
+            },
+            "returncode": {
+              "type": "integer",
+              "minimum": -1,
+              "maximum": 0
+            },
+            "errno": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4095
+            }
+          },
+          "required": [
+            "op",
+            "at_ns",
+            "method",
+            "pid",
+            "pidfd",
+            "signal",
+            "returncode",
+            "errno"
+          ]
+        }
+      ]
+    },
+    "boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "original_acquisition_authorized": {
+          "const": false
+        },
+        "native_acquisition_performed": {
+          "const": false
+        },
+        "consumer_resolution_observed": {
+          "const": false
+        },
+        "loader_resolution_verified": {
+          "const": false
+        },
+        "complete_native_closure_verified": {
+          "const": false
+        },
+        "physical_execution_authenticated": {
+          "const": false
+        },
+        "full_runtime_observed": {
+          "const": false
+        },
+        "containment_enforced": {
+          "const": false
+        },
+        "selected_runtime_executed": {
+          "const": false
+        },
+        "production_gate_eligible": {
+          "const": false
+        },
+        "b2_complete": {
+          "const": false
+        },
+        "metric_pass": {
+          "type": "null"
+        },
+        "authority_effect": {
+          "const": "none"
+        }
+      },
+      "required": [
+        "original_acquisition_authorized",
+        "native_acquisition_performed",
+        "consumer_resolution_observed",
+        "loader_resolution_verified",
+        "complete_native_closure_verified",
+        "physical_execution_authenticated",
+        "full_runtime_observed",
+        "containment_enforced",
+        "selected_runtime_executed",
+        "production_gate_eligible",
+        "b2_complete",
+        "metric_pass",
+        "authority_effect"
+      ]
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "uname": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sysname": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "release": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "machine": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            }
+          },
+          "required": [
+            "sysname",
+            "release",
+            "version",
+            "machine"
+          ]
+        },
+        "boot_id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        },
+        "observer": {
+          "$ref": "#/$defs/binding"
+        },
+        "namespaces": {
+          "$ref": "#/$defs/namespaces"
+        }
+      },
+      "required": [
+        "uname",
+        "boot_id",
+        "observer",
+        "namespaces"
+      ]
+    },
+    "namespaces": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cgroup": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "ipc": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "mnt": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "net": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "pid": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "pid_for_children": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "time": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 128
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "time_for_children": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 128
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "user": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "uts": {
+          "type": "string",
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "cgroup",
+        "ipc",
+        "mnt",
+        "net",
+        "pid",
+        "pid_for_children",
+        "time",
+        "time_for_children",
+        "user",
+        "uts"
+      ]
+    }
+  }
+}

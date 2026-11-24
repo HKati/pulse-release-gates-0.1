@@ -18957,3 +18957,1768 @@ def test_loader_rebuild_acceptance_log_nonascii_control_is_a_stable_rejection(
     changed.decode("utf-8")
     with pytest.raises(case.helper.AcceptanceEvidenceError, match="^rebuild_acceptance_log_invalid$"):
         case.helper.parse_rebuild_log(changed, buildinfo_bytes=case.buildinfo, source_inputs=case.source_inputs)
+
+
+# Original-loader acquisition regressions use invented process and kernel byte
+# surfaces. The original executables and qualification probes never execute.
+# A separately tested full admission replays only the public signature tools.
+LOADER_RESOLUTION_ADMISSION_REL = "tools/required_gate_idempotence_loader_resolution_v0.py"
+LOADER_RESOLUTION_PRODUCER_REL = "tools/collect_required_gate_idempotence_loader_resolution_v0.py"
+LOADER_RESOLUTION_CHECKER_REL = "tools/check_required_gate_idempotence_loader_resolution_v0.py"
+LOADER_RESOLUTION_READER_REL = "tools/required_gate_idempotence_loader_resolution_readout_v0.py"
+LOADER_RESOLUTION_PREPARE_REL = "tools/prepare_required_gate_idempotence_loader_resolution_v0.py"
+LOADER_RESOLUTION_POLICY_SHA = "1b1e4f414ffa7e56a8494f8a6d6051594c800cae978fa90585c4a02041bed953"
+LOADER_RESOLUTION_ACK = "OBSERVE_ORIGINAL_LOADER_NINE_RETURNS_AND_ENTRY_STOP_ONLY"
+
+
+def loader_resolution_admission():
+    return module("required_gate_idempotence_loader_resolution_v0", LOADER_RESOLUTION_ADMISSION_REL)
+
+
+def loader_resolution_producer():
+    return module("collect_required_gate_idempotence_loader_resolution_v0", LOADER_RESOLUTION_PRODUCER_REL)
+
+
+def loader_resolution_checker():
+    return module("check_required_gate_idempotence_loader_resolution_v0", LOADER_RESOLUTION_CHECKER_REL)
+
+
+def loader_resolution_reader():
+    return module("required_gate_idempotence_loader_resolution_readout_v0", LOADER_RESOLUTION_READER_REL)
+
+
+@pytest.fixture
+def loader_resolution_modules(monkeypatch):
+    producer = loader_resolution_producer()
+    native_type = producer.NativeBackend
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("original-loader tests must never create a native backend or fork")
+
+    monkeypatch.setattr(producer, "NativeBackend", forbidden)
+    monkeypatch.setattr(os, "fork", forbidden)
+    monkeypatch.setattr(producer.guard, "qualify", forbidden)
+    monkeypatch.setattr(producer.probe, "qualify", forbidden)
+    return SimpleNamespace(producer=producer, native_type=native_type,
+                           admission=loader_resolution_admission())
+
+
+@pytest.mark.parametrize("role,path,directory,maximum", [
+    ("observer.stat", "stat", 60001, 65536),
+    ("observer.status", "status", 60001, 65536),
+    ("child.stat", "stat", 60002, 65536),
+    ("child.status", "status", 60002, 65536),
+    ("maps", "maps", 60002, 65536),
+    ("auxv", "auxv", 60002, 1024),
+    ("pidfd.info", "/proc/self/fdinfo/17", None, 65536),
+])
+def test_loader_resolution_native_proc_dispatch_uses_exact_field_roles(
+        loader_resolution_modules, role, path, directory, maximum):
+    native = object.__new__(loader_resolution_modules.native_type)
+    native.observerfd, native.procfd, native.pidfd = 60001, 60002, 17
+    native.starttime, native.clock = None, lambda: 1
+    calls = []
+    stat_raw = native_acquisition_proc_stat(4002, 4001, "t", 123456)
+    status_raw = entry_stop_status(4002, 4001)
+    raw_by_path = {"stat": stat_raw, "status": status_raw, "maps": b"authored maps\n",
+                   "auxv": struct.pack("<QQ", 0, 0),
+                   "/proc/self/fdinfo/17": b"Pid:\t4002\nNSpid:\t4002\n"}
+
+    def read_path(selected, limit, deadline, *, directory=None):
+        calls.append((selected, directory, limit, deadline))
+        return raw_by_path[selected]
+
+    native._read_path = read_path
+    raw = native.read_proc(role, 10)
+    assert raw == raw_by_path[path]
+    assert calls == [(path, directory, maximum, 10)]
+    assert stat_raw != status_raw
+    assert native.starttime == (123456 if role == "child.stat" else None)
+
+
+@pytest.mark.parametrize("role", ["child.st", "child.status.setup", "child.stat.extra", "other", True])
+def test_loader_resolution_native_proc_dispatch_rejects_unselected_names_without_reading(
+        loader_resolution_modules, role):
+    native = object.__new__(loader_resolution_modules.native_type)
+    native.clock = lambda: 1
+    native._read_path = lambda *_a, **_k: pytest.fail("unselected proc role reached a reader")
+    with pytest.raises(loader_resolution_modules.producer.CollectionError, match="loader_resolution_proc_role"):
+        native.read_proc(role, 10)
+
+
+def _loader_resolution_ptrace_surface(native_type):
+    native = object.__new__(native_type)
+    native.child_pid = 4002
+    native.return_target, native.entry_target = 0x51003671, 0x50006220
+    native.continuations, native.terminal_seen = 0, False
+    calls = []
+
+    def ptrace(*args):
+        calls.append(args)
+        return 0
+
+    native.libc = SimpleNamespace(ptrace=ptrace)
+    return native, calls
+
+
+@pytest.mark.parametrize("ptrace_request,pid,address,data", [
+    (False, 0, 0, 0), (13, 4002, 0, 1), (4, 4002, 0x50000000, 7),
+    (5, 4002, 0x50000000, 7), (17, 4002, 0, 0), (9, 4002, 0, 0),
+    (7, 9999, 0, 0), (7, True, 0, 0), (7, 4002, 1, 0), (7, 4002, 0, 5),
+    (6, 4002, 848 + 16, 1), (6, 4002, 848 + 24, 1),
+    (6, 4002, 848 + 48, 0), (6, 4002, 848 + 56, 0),
+    (6, 4002, 848, 0xDEADBEEF), (6, 4002, 848 + 8, 0xDEADBEEF),
+    (3, 4002, 0, 0), (3, 4002, 848, 1),
+    (0x4200, 4002, 0, 0), (12, 4002, 0, 0),
+])
+def test_loader_resolution_native_ptrace_surface_rejects_writes_detach_and_unowned_operations(
+        loader_resolution_modules, ptrace_request, pid, address, data):
+    native, calls = _loader_resolution_ptrace_surface(loader_resolution_modules.native_type)
+    with pytest.raises(loader_resolution_modules.producer.CollectionError):
+        native._ptrace(ptrace_request, pid, address, data)
+    assert calls == []
+
+
+@pytest.mark.parametrize("fault", ["terminal", "budget"])
+def test_loader_resolution_native_cannot_resume_after_terminal_or_past_budget(loader_resolution_modules, fault):
+    native, calls = _loader_resolution_ptrace_surface(loader_resolution_modules.native_type)
+    native.terminal_seen = fault == "terminal"
+    native.continuations = 11 if fault == "budget" else 10
+    with pytest.raises(loader_resolution_modules.producer.CollectionError, match="loader_resolution_continue_forbidden"):
+        native.cont()
+    assert calls == []
+
+
+def test_loader_resolution_native_debug_surface_permits_only_selected_targets_and_reset(loader_resolution_modules):
+    native, calls = _loader_resolution_ptrace_surface(loader_resolution_modules.native_type)
+    for number, value in ((0, 0x51003671), (1, 0x50006220), (6, 0xFFFF0FF0), (7, 5)):
+        native.write_debug(number, value)
+    native.options()
+    native.cont()
+    assert calls == [(6, 4002, 848, 0x51003671), (6, 4002, 856, 0x50006220),
+                     (6, 4002, 896, 0xFFFF0FF0), (6, 4002, 904, 5),
+                     (0x4200, 4002, 0, 0x10001E), (7, 4002, 0, 0)]
+    assert native.continuations == 1
+
+
+@pytest.mark.parametrize("address,size", [(0, 1), (-1, 1), (1, 0), (1, -1), (True, 1),
+                                         (1, True), ((1 << 47) - 1, 2), (1, 16777217)])
+def test_loader_resolution_native_memory_rejects_bad_extents_before_open(
+        loader_resolution_modules, monkeypatch, address, size):
+    native = object.__new__(loader_resolution_modules.native_type)
+    native.clock, native.memfd = lambda: 1, None
+    monkeypatch.setattr(os, "open", lambda *_a, **_k: pytest.fail("invalid memory extent reached open"))
+    with pytest.raises(loader_resolution_modules.producer.CollectionError, match="loader_resolution_memory_extent"):
+        native.memory(address, size, 10)
+
+
+def loader_resolution_preparation():
+    return module("prepare_required_gate_idempotence_loader_resolution_v0", LOADER_RESOLUTION_PREPARE_REL)
+
+
+@pytest.mark.parametrize("acknowledgement", ["", "OBSERVE_ORIGINAL_LAUNCHER_EXEC_STOP_ONLY",
+    "QUALIFY_LOADER_TWO_SLOT_ONLY", "OBSERVE_ORIGINAL_LAUNCHER_ENTRY_STOP_ONLY",
+    LOADER_RESOLUTION_ACK + " "])
+def test_loader_resolution_cli_legacy_acknowledgement_fails_before_read_or_producer_import(
+        tmp_path, monkeypatch, capfd, acknowledgement):
+    import builtins
+    adapter = loader_resolution_preparation()
+    real_import = builtins.__import__
+    calls = []
+
+    def guarded_import(name, *args, **kwargs):
+        if name == "collect_required_gate_idempotence_loader_resolution_v0":
+            pytest.fail("wrong owner acknowledgement imported the native producer")
+        return real_import(name, *args, **kwargs)
+
+    def forbidden_read(*args, **kwargs):
+        calls.append((args, kwargs))
+        pytest.fail("wrong owner acknowledgement read a request")
+
+    monkeypatch.setattr(builtins, "__import__", guarded_import)
+    monkeypatch.setattr(adapter.transport, "read_regular", forbidden_read)
+    output = tmp_path / "must-not-exist"
+    result = adapter.main(["run-owner", "--request", str(tmp_path / "absent.json"),
+        "--request-sha256", "0" * 64, "--accepted-policy-sha256", LOADER_RESOLUTION_POLICY_SHA,
+        "--acknowledgement", acknowledgement, "--output-directory", str(output)])
+    assert result == 1 and not output.exists() and calls == []
+    report = json.loads(capfd.readouterr().out)
+    assert report["error_code"] == "loader_resolution_owner_acknowledgement_required"
+    assert report["original_acquisition_authorized"] is False
+
+
+@pytest.mark.parametrize("name", ["../outside", "nested/file", "/absolute", ".hidden", "",
+    "capture.json", "attempt.incomplete.json", "x" * 193, "raw\x00.bin", "raw\n.bin"])
+def test_loader_resolution_capture_writer_rejects_unselected_names_without_creating_files(tmp_path, name):
+    adapter = loader_resolution_preparation()
+    output = adapter.CaptureDirectory(tmp_path / "capture")
+    try:
+        with pytest.raises(adapter.core.ResolutionError, match="loader_resolution_preservation_name"):
+            output.preserve(name, b"invented byte record")
+        assert output.files == {} and list(output.path.iterdir()) == []
+    finally:
+        output.close()
+
+
+def test_loader_resolution_capture_writer_is_exclusive_and_replay_ignores_saved_report(tmp_path):
+    adapter = loader_resolution_preparation()
+    path = tmp_path / "capture"
+    output = adapter.CaptureDirectory(path)
+    raw_files = {"request.json": b"authored request", "event.01.regs.bin": bytes(216)}
+    capture = {"status": "incomplete", "evidence_origin": "scripted_test_backend"}
+    try:
+        raw = adapter.preserve_result(output, {"capture": capture, "files": raw_files,
+                                              "report": {"status": "authored, untrusted report"}})
+        with pytest.raises(adapter.core.ResolutionError, match="loader_resolution_preservation_name"):
+            output.preserve("request.json", b"replacement")
+    finally:
+        output.close()
+    with pytest.raises(FileExistsError):
+        adapter.CaptureDirectory(path)
+    observed, files = adapter.read_capture_directory(path)
+    assert observed == raw == encoded(capture) and files == raw_files
+    # This file is deliberately outside the checker input map.
+    (path / "verification.json").write_bytes(b'{"approved":true,"status":"complete"}')
+    assert adapter.read_capture_directory(path) == (raw, raw_files)
+
+
+@pytest.mark.parametrize("fault", ["changed_bytes", "extra_file", "symlink", "root_replaced"])
+def test_loader_resolution_capture_writer_rereads_owned_prefix_before_publishing(tmp_path, fault):
+    adapter = loader_resolution_preparation()
+    path = tmp_path / "capture"
+    output = adapter.CaptureDirectory(path)
+    try:
+        output.preserve("raw.bin", b"original preserved bytes")
+        if fault == "changed_bytes":
+            (path / "raw.bin").write_bytes(b"different preserved byte")
+        elif fault == "extra_file":
+            (path / "extra.bin").write_bytes(b"unselected")
+        elif fault == "symlink":
+            (path / "raw.bin").unlink()
+            (path / "raw.bin").symlink_to(tmp_path / "absent")
+        else:
+            path.rename(tmp_path / "owned-but-moved")
+            path.mkdir()
+        with pytest.raises(adapter.output_io.MappingPreservationError):
+            output.publish(encoded({"status": "complete"}))
+        assert not (path / "capture.json").exists()
+    finally:
+        output.close()
+
+
+def test_loader_resolution_capture_publication_failure_cannot_be_replayed_as_complete(tmp_path, monkeypatch):
+    adapter = loader_resolution_preparation()
+    path = tmp_path / "capture"
+    output = adapter.CaptureDirectory(path)
+    real_verify = output._verify_disk
+    counts = []
+
+    def mutate_after_publication(extra=None):
+        counts.append(extra is not None)
+        if extra is not None:
+            (path / "raw.bin").write_bytes(b"changed after capture write")
+        return real_verify(extra)
+
+    try:
+        output.preserve("raw.bin", b"original before publication")
+        monkeypatch.setattr(output, "_verify_disk", mutate_after_publication)
+        with pytest.raises(adapter.output_io.MappingPreservationError):
+            output.publish(encoded({"status": "complete"}))
+        output.mark_failure("authored_publication_failure")
+        assert counts == [False, True]
+    finally:
+        output.close()
+    assert (path / "attempt.incomplete.json").is_file()
+    with pytest.raises(adapter.core.ResolutionError, match="loader_resolution_capture_directory_roster"):
+        adapter.read_capture_directory(path)
+
+
+@pytest.mark.parametrize("fault", ["raw_symlink", "parent_symlink", "changed_capture"])
+def test_loader_resolution_capture_directory_rejects_unsafe_or_changing_reads(tmp_path, monkeypatch, fault):
+    adapter = loader_resolution_preparation()
+    path = tmp_path / "capture"
+    output = adapter.CaptureDirectory(path)
+    try:
+        adapter.preserve_result(output, {"capture": {"status": "incomplete"},
+            "files": {"raw.bin": b"invented bytes"}, "report": None})
+    finally:
+        output.close()
+    if fault == "raw_symlink":
+        (path / "raw.bin").unlink()
+        (path / "raw.bin").symlink_to(path / "capture.json")
+    elif fault == "parent_symlink":
+        link = tmp_path / "alias"
+        link.symlink_to(path, target_is_directory=True)
+        path = link
+    else:
+        real_read = adapter.transport._read_at
+        reads = []
+
+        def changing_read(directory, name, maximum):
+            raw = real_read(directory, name, maximum)
+            if name == "capture.json":
+                reads.append(name)
+                if len(reads) == 2:
+                    return encoded({"status": "changed"})
+            return raw
+
+        monkeypatch.setattr(adapter.transport, "_read_at", changing_read)
+    with pytest.raises((OSError, ValueError)):
+        adapter.read_capture_directory(path)
+
+
+def test_loader_resolution_cli_publication_failure_marks_the_owned_attempt_incomplete(
+        loader_resolution_modules, tmp_path, monkeypatch, capfd):
+    adapter = loader_resolution_preparation()
+    output_path = tmp_path / "capture"
+    request_path = tmp_path / "request.json"
+    request_path.write_bytes(b"invented transport-unit request")
+    monkeypatch.setattr(adapter.core, "validate_request", lambda *_a: {})
+    calls = []
+
+    def scripted_result(**arguments):
+        calls.append(arguments)
+        return {"capture": {"status": "complete", "evidence_origin": "scripted_test_backend"},
+                "files": {"raw.bin": b"preserved transport-unit bytes"},
+                "report": {"status": "transport-unit fixture"}}
+
+    real_verify = adapter.CaptureDirectory._verify_disk
+
+    def mutate_publication(output, extra=None):
+        if extra is not None:
+            (output.path / "raw.bin").write_bytes(b"changed after capture publication")
+        return real_verify(output, extra)
+
+    monkeypatch.setattr(loader_resolution_modules.producer, "collect", scripted_result)
+    monkeypatch.setattr(adapter.CaptureDirectory, "_verify_disk", mutate_publication)
+    result = adapter.main(["run-owner", "--request", str(request_path),
+        "--request-sha256", digest(request_path.read_bytes()),
+        "--accepted-policy-sha256", LOADER_RESOLUTION_POLICY_SHA,
+        "--acknowledgement", LOADER_RESOLUTION_ACK, "--output-directory", str(output_path)])
+    assert result == 1 and len(calls) == 1
+    failure = json.loads(capfd.readouterr().out)
+    assert failure["status"] == "rejected" and failure["authority_effect"] == "none"
+    assert (output_path / "attempt.incomplete.json").is_file()
+    with pytest.raises(adapter.core.ResolutionError, match="loader_resolution_capture_directory_roster"):
+        adapter.read_capture_directory(output_path)
+
+
+def _loader_resolution_preload_fixture(status="absent"):
+    root = {"dev": 1, "ino": 600, "mode": stat.S_IFDIR | 0o755,
+            "nlink": 5, "size": 4096, "mtime_ns": 100, "ctime_ns": 100}
+    parent = {**root, "ino": 601}
+    regular = {**root, "ino": 602, "mode": stat.S_IFREG | 0o644, "nlink": 1, "size": 0}
+    return {"status": status, "root": {"before": dict(root), "after": dict(root)},
+            "parent": {"before": dict(parent), "after": dict(parent)},
+            "file": None if status == "absent" else {"before": dict(regular), "after": dict(regular)},
+            "content": bound(b""), "open_errno": errno.ENOENT if status == "absent" else 0}
+
+
+def _loader_resolution_checkpoint_case(originals, phase="return.01", occurrence=8):
+    """Independent native-contract fixture, assembled from original ELF bytes.
+
+    The existing fixture builders provide struct-only invented maps/pointers;
+    no production checkpoint derivation constructs the expected raw samples.
+    """
+    event = _loader_readout_event_fixture(originals, occurrence)
+    auxv = event.files["auxv.before.bin"]
+    auxv = auxv[:-16] + struct.pack("<QQ", 23, 0) + auxv[-16:]
+    event.files["auxv.before.bin"] = event.files["auxv.after.bin"] = auxv
+    invocation = _loader_startup_invocation_fixture(originals, event)
+    raw = dict(invocation.files if phase == "cp0" else event.files)
+    process = {"observer_pid": 4001, "child_pid": 4002, "starttime": 123456,
+               "pidfd": 17, "proc_dir_pinned": True, "unexpected_children": []}
+    child_status = entry_stop_status(4002, 4001)
+    for name in ("child.status.setup.bin", "child.status.before.bin", "child.status.after.bin"):
+        raw[name] = child_status
+    raw["environment.json"] = encoded({"cwd_hex": "2f",
+        "namespaces": _loader_two_slot_qualification_context()["namespaces"],
+        "preload": _loader_resolution_preload_fixture()})
+    raw["fds.json"] = encoded(entry_stop_descriptor_rows()[:3])
+    armed = (event.target, event.entry_target, 0, 0, 0xFFFF0FF0, 5)
+    backings, files = [], {}
+    for old in event.event["backings"]:
+        native_path, info = old["native_path"], old["before"]
+        launcher = native_path == "native/bwrap"
+        selected = {"dev": 1 if launcher else os.makedev(info["device_major"], info["device_minor"]),
+                    "ino": 123 if launcher else info["inode"], "mode": stat.S_IFREG | (0o500 if launcher else 0o755),
+                    "nlink": 0 if launcher else 1, "size": info["size_bytes"],
+                    "mtime_ns": info["mtime_ns"], "ctime_ns": info["ctime_ns"]}
+        native_raw = originals.native[native_path]
+        path = "native." + digest(native_raw) + ".elf"
+        files[path] = native_raw
+        backings.append({"native_path": native_path, "before": dict(selected),
+                         "after": dict(selected), "content": {"path": path, **bound(native_raw)}})
+    checkpoint = {"phase": phase, "sample_started_ns": 2_000_000_000,
+        "sample_finished_ns": 2_001_000_000, "raw_files": {}, "backings": backings,
+        "runtime_ranges": copy.deepcopy(event.event["runtime_ranges"]),
+        "loader_rx_range": copy.deepcopy(event.event["loader_rx_range"]),
+        "native_rx_ranges": [], "executable": None}
+    if phase in ("cp0", "entry"):
+        checkpoint["runtime_ranges"], checkpoint["loader_rx_range"] = [], None
+        checkpoint["executable"] = copy.deepcopy(next(
+            row for row in backings if row["native_path"] == "native/bwrap"))
+        raw["executable.elf"] = originals.native["native/bwrap"]
+        raw["child.exe.link.bin"] = b"/memfd:authored-loader-launcher (deleted)"
+        if phase == "cp0":
+            raw["debug.before.bin"] = struct.pack("<6Q", 0, 0, 0, 0, 0xFFFF0FF0, 0)
+            raw["debug.armed.bin"] = struct.pack("<6Q", *armed)
+            selected_paths = ["native/bwrap", "native/ld-linux-x86-64.so.2"]
+        else:
+            selected_paths = sorted(originals.native)
+            for name in ("memory.sample0.bin", "memory.sample1.bin", "loader.rx.sample0.bin",
+                         "loader.rx.sample1.bin"):
+                del raw[name]
+            registers = bytearray(raw["regs.before.bin"])
+            struct.pack_into("<Q", registers, 16 * 8, event.entry_target)
+            raw["regs.before.bin"] = raw["regs.after.bin"] = bytes(registers)
+            raw["debug.before.bin"] = raw["debug.after.bin"] = struct.pack(
+                "<6Q", *armed[:4], 0xFFFF0FF2, 5)
+            raw["siginfo.bin"] = entry_stop_siginfo_bytes(event.entry_target)
+        packed = bytearray()
+        for path in sorted(selected_paths):
+            segments = [row for row in originals.elf[path].loads if row[1] == 5]
+            assert len(segments) == 1
+            segment = segments[0]
+            checkpoint["native_rx_ranges"].append({"native_path": path,
+                "address": event.biases[path] + segment[3], "offset": len(packed),
+                "size_bytes": segment[5]})
+            packed.extend(originals.native[path][segment[2]:segment[2] + segment[5]])
+        raw["native.rx.sample0.bin"] = raw["native.rx.sample1.bin"] = bytes(packed)
+    def memfd_maps(data):
+        lines = []
+        for line in data.splitlines():
+            fields = line.split(maxsplit=5)
+            if fields[4] == b"1000":
+                fields[3], fields[4] = b"00:01", b"123"
+            lines.append(b" ".join(fields) + b"\n")
+        return b"".join(lines)
+
+    for name in ("maps.before.bin", "maps.after.bin"):
+        raw[name] = memfd_maps(raw[name])
+        event.files[name] = memfd_maps(event.files[name])
+    common = {"observer.stat.bin", "observer.status.bin", "child.stat.setup.bin",
+              "child.status.setup.bin", "child.pidfd.info.bin"}
+    for role, data in raw.items():
+        path = role if role in common else phase + "." + role
+        if role == "executable.elf":
+            path = checkpoint["executable"]["content"]["path"]
+        files[path] = data
+        checkpoint["raw_files"][role] = {"path": path, **bound(data)}
+    return SimpleNamespace(checkpoint=checkpoint, files=files, process=process, event=event,
+                           originals=originals, raw=raw)
+
+
+def _loader_resolution_checkpoint_raw(case, role, raw, *, both=False):
+    roles = [role]
+    if both:
+        other = role.replace(".before.", ".after.").replace(".sample0.", ".sample1.")
+        assert other != role
+        roles.append(other)
+    for selected in roles:
+        reference = case.checkpoint["raw_files"][selected]
+        case.files[reference["path"]] = raw
+        reference.update(bound(raw))
+        case.raw[selected] = raw
+
+
+def _loader_resolution_checkpoint_word(case, role, offset, value, fmt="<Q", *, both=True):
+    raw = bytearray(case.raw[role])
+    struct.pack_into(fmt, raw, offset, value)
+    _loader_resolution_checkpoint_raw(case, role, bytes(raw), both=both)
+
+
+def _loader_resolution_checkpoint_check(case):
+    return loader_resolution_reader().validate_checkpoint(checkpoint=case.checkpoint,
+        files=case.files, process=case.process, static_record=case.originals.case.record,
+        native_files=case.originals.native)
+
+
+@pytest.mark.parametrize("phase", ["cp0", "return.01", "entry"])
+def test_loader_resolution_independent_checkpoint_oracle_reconstructs_each_native_record_shape(
+        loader_readout_originals, phase, monkeypatch):
+    case = _loader_resolution_checkpoint_case(loader_readout_originals, phase)
+    helper = loader_resolution_reader()
+
+    def forbidden(*_a, **_k):
+        pytest.fail("a native checkpoint was relabelled through a fixture verifier")
+
+    monkeypatch.setattr(helper.decoding, "verify_event", forbidden)
+    monkeypatch.setattr(helper.startup, "verify_policy_fixtures", forbidden)
+    report = _loader_resolution_checkpoint_check(case)
+    assert report["phase"] == phase
+    assert report["return_target"] == case.event.target and report["entry_target"] == case.event.entry_target
+    assert report["raw_files"] == case.raw
+    if phase == "cp0":
+        assert report["invocation"]["argv"] == ["bubblewrap"]
+        assert report["invocation"]["envp"] == ["LC_ALL=C", "TZ=UTC"]
+        assert report["occurrence_join"] is None
+    elif phase == "entry":
+        assert set(report["layouts"]) == set(loader_readout_originals.native)
+        assert report["occurrence_join"] is None
+    else:
+        join = report["occurrence_join"]
+        assert (join["consumer"], join["provider"]) == (case.event.consumer, case.event.provider)
+        assert join["trace_mode"] == join["open_mode"] == 0
+        assert join["dynamic_entry_ordinal"] == case.event.occurrence["dynamic_entry_ordinal"]
+
+
+@pytest.mark.parametrize("fault", ["flags_tf", "flags_rf", "stop_pc", "dr6_two_causes", "dr7_extra_slot",
+    "wrong_siginfo", "wrong_return_pointer", "nonzero_trace_mode", "nonzero_open_mode",
+    "wrong_consumer_pointer", "wrong_strtab", "wrong_needed_pointer", "wrong_namespace",
+    "loader_rx", "runtime_sample_drift", "backing_read_drift", "backing_alias",
+    "map_identity", "unselected_mapping", "unexpected_fd", "cwd", "guard_state"])
+def test_loader_resolution_return_rehash_cannot_hide_raw_stop_identity_or_resolution_failure(
+        loader_readout_originals, fault):
+    case = _loader_resolution_checkpoint_case(loader_readout_originals)
+    word_changes = {
+        "flags_tf": ("regs.before.bin", 18 * 8, 0x10302, "<Q"),
+        "flags_rf": ("regs.before.bin", 18 * 8, 0x202, "<Q"),
+        "stop_pc": ("regs.before.bin", 16 * 8, case.event.target + 1, "<Q"),
+        "dr6_two_causes": ("debug.before.bin", 4 * 8, 0xFFFF0FF3, "<Q"),
+        "dr7_extra_slot": ("debug.before.bin", 5 * 8, 0x15, "<Q"),
+        "wrong_return_pointer": ("regs.before.bin", 10 * 8, case.event.consumer_pointer, "<Q"),
+        "nonzero_trace_mode": ("memory.sample0.bin", 8, 1, "<i"),
+        "nonzero_open_mode": ("memory.sample0.bin", 12, -1, "<i"),
+        "wrong_consumer_pointer": ("memory.sample0.bin", 0, case.event.consumer_pointer + 8, "<Q"),
+        "wrong_strtab": ("memory.sample0.bin", 16, 0xDEADBEEF, "<Q"),
+        "wrong_needed_pointer": ("memory.sample0.bin", 24, 0xDEADBEEF, "<Q"),
+        "wrong_namespace": ("memory.sample0.bin", 40 + 48, 1, "<q"),
+    }
+    if fault in word_changes:
+        name, offset, value, fmt = word_changes[fault]
+        _loader_resolution_checkpoint_word(case, name, offset, value, fmt)
+    elif fault == "wrong_siginfo":
+        _loader_resolution_checkpoint_word(case, "siginfo.bin", 8, 1, "<i", both=False)
+    elif fault in ("loader_rx", "runtime_sample_drift"):
+        role = "loader.rx.sample0.bin" if fault == "loader_rx" else "memory.sample0.bin"
+        raw = bytearray(case.raw[role])
+        raw[0] ^= 1
+        _loader_resolution_checkpoint_raw(case, role, bytes(raw), both=fault == "loader_rx")
+    elif fault == "backing_read_drift":
+        case.checkpoint["backings"][0]["after"]["ctime_ns"] += 1
+    elif fault == "backing_alias":
+        first, second = case.checkpoint["backings"][:2]
+        for side in ("before", "after"):
+            second[side]["dev"], second[side]["ino"] = first[side]["dev"], first[side]["ino"]
+    elif fault in ("map_identity", "unselected_mapping"):
+        raw = case.raw["maps.before.bin"]
+        if fault == "map_identity":
+            raw = raw.replace(b"08:01", b"08:02", 1)
+        else:
+            raw += b"74000000-74001000 r--p 00000000 08:01 9999 /unselected.so\n"
+        _loader_resolution_checkpoint_raw(case, "maps.before.bin", raw, both=True)
+    elif fault == "unexpected_fd":
+        _loader_resolution_checkpoint_raw(case, "fds.json", encoded(entry_stop_descriptor_rows()[:4]))
+    elif fault == "cwd":
+        value = json.loads(case.raw["environment.json"])
+        value["cwd_hex"] = b"/unselected".hex()
+        _loader_resolution_checkpoint_raw(case, "environment.json", encoded(value))
+    elif fault == "guard_state":
+        raw = case.raw["child.status.before.bin"].replace(b"NoNewPrivs:\t1", b"NoNewPrivs:\t0")
+        _loader_resolution_checkpoint_raw(case, "child.status.before.bin", raw, both=True)
+    with pytest.raises(loader_resolution_reader().ReadoutError):
+        _loader_resolution_checkpoint_check(case)
+
+
+@pytest.mark.parametrize("fault", ["argv_count", "environment", "stack_overlap", "stack_auxv_drift",
+    "secure_execution", "initial_pc", "loader_progressed", "rx_bytes", "executable_identity"])
+def test_loader_resolution_cp0_rehash_cannot_replace_actual_initial_invocation(loader_readout_originals, fault):
+    case = _loader_resolution_checkpoint_case(loader_readout_originals, "cp0")
+    if fault == "argv_count":
+        _loader_resolution_checkpoint_word(case, "stack.words.before.bin", 0, 2)
+    elif fault == "environment":
+        raw = case.raw["stack.strings.before.bin"].replace(b"LC_ALL=C", b"LD_AUDIT")
+        _loader_resolution_checkpoint_raw(case, "stack.strings.before.bin", raw, both=True)
+    elif fault == "stack_overlap":
+        address = struct.unpack_from("<Q", case.raw["regs.before.bin"], 19 * 8)[0]
+        _loader_resolution_checkpoint_word(case, "stack.words.before.bin", 8, address)
+    elif fault == "stack_auxv_drift":
+        _loader_resolution_checkpoint_word(case, "stack.words.before.bin", 48 + 8, 0xDEADBEEF)
+    elif fault == "secure_execution":
+        auxv = case.raw["auxv.before.bin"]
+        position = next(i for i in range(0, len(auxv), 16) if struct.unpack_from("<Q", auxv, i)[0] == 23)
+        _loader_resolution_checkpoint_word(case, "auxv.before.bin", position + 8, 1)
+        _loader_resolution_checkpoint_word(case, "stack.words.before.bin", position + 48 + 8, 1)
+    elif fault == "initial_pc":
+        _loader_resolution_checkpoint_word(case, "regs.before.bin", 16 * 8, case.event.target)
+    elif fault == "loader_progressed":
+        _loader_resolution_checkpoint_raw(case, "maps.before.bin", case.event.files["maps.before.bin"], both=True)
+    elif fault == "rx_bytes":
+        raw = bytearray(case.raw["native.rx.sample0.bin"])
+        raw[-1] ^= 1
+        _loader_resolution_checkpoint_raw(case, "native.rx.sample0.bin", bytes(raw), both=True)
+    else:
+        for side in ("before", "after"):
+            case.checkpoint["executable"][side]["ino"] += 100
+    with pytest.raises(loader_resolution_reader().ReadoutError):
+        _loader_resolution_checkpoint_check(case)
+
+
+@pytest.mark.parametrize("fault", ["wrong_pc", "return_cause", "missing_object", "truncated_rx", "extra_runtime"])
+def test_loader_resolution_entry_checkpoint_requires_all_original_images_and_terminal_cause(
+        loader_readout_originals, fault):
+    case = _loader_resolution_checkpoint_case(loader_readout_originals, "entry")
+    if fault == "wrong_pc":
+        _loader_resolution_checkpoint_word(case, "regs.before.bin", 16 * 8, case.event.entry_target + 1)
+    elif fault == "return_cause":
+        _loader_resolution_checkpoint_word(case, "debug.before.bin", 4 * 8, 0xFFFF0FF1)
+    elif fault == "missing_object":
+        missing = next(row for row in case.checkpoint["backings"] if row["native_path"] == "native/libcap.so.2")
+        raw = b"".join(line + b"\n" for line in case.raw["maps.before.bin"].splitlines()
+                       if int(line.split()[4]) != missing["before"]["ino"])
+        _loader_resolution_checkpoint_raw(case, "maps.before.bin", raw, both=True)
+    elif fault == "truncated_rx":
+        _loader_resolution_checkpoint_raw(case, "native.rx.sample0.bin", case.raw["native.rx.sample0.bin"][:-1], both=True)
+    else:
+        case.checkpoint["runtime_ranges"] = [{"role": "invented"}]
+    with pytest.raises(loader_resolution_reader().ReadoutError):
+        _loader_resolution_checkpoint_check(case)
+
+
+@pytest.mark.parametrize("selected", [None, True, "", "0" * 64,
+    LOADER_RESOLUTION_POLICY_SHA.upper(), LOADER_RESOLUTION_POLICY_SHA + "\n"])
+def test_loader_resolution_owner_requires_an_external_exact_policy_before_backend_creation(
+        loader_resolution_modules, selected):
+    modules = loader_resolution_modules
+    with pytest.raises(modules.admission.ResolutionError, match="loader_resolution_(external_policy|required|selected_policy)"):
+        modules.producer.collect(request_bytes=b"{}\n", expected_request_sha256=digest(b"{}\n"),
+            accepted_policy_sha256=selected, acknowledgement=LOADER_RESOLUTION_ACK)
+
+
+@pytest.mark.parametrize("acknowledgement", [None, True, "", "QUALIFY_LOADER_TWO_SLOT_ONLY",
+    "OBSERVE_ORIGINAL_LAUNCHER_EXEC_STOP_ONLY", LOADER_RESOLUTION_ACK + "\n"])
+def test_loader_resolution_collect_requires_new_ack_before_admission(loader_resolution_modules, monkeypatch, acknowledgement):
+    modules = loader_resolution_modules
+    monkeypatch.setattr(modules.admission, "reconstruct_admission",
+                        lambda **_k: pytest.fail("wrong acknowledgement reached raw admission"))
+    with pytest.raises(modules.producer.CollectionError, match="loader_resolution_owner_acknowledgement_required"):
+        modules.producer.collect(request_bytes=b"{}\n", expected_request_sha256=digest(b"{}\n"),
+            accepted_policy_sha256=LOADER_RESOLUTION_POLICY_SHA, acknowledgement=acknowledgement)
+
+
+@pytest.mark.parametrize("raw", [b'{"x":1,"x":2}', b'{"x":1.0}', b'{"x":NaN}',
+    b'{"x":Infinity}', b'\xff', b'[' * 34 + b'0' + b']' * 34])
+def test_loader_resolution_request_json_is_bounded_strict_and_integer_only(raw):
+    core = loader_resolution_admission()
+    with pytest.raises(core.ResolutionError):
+        core.parse(raw)
+
+
+@pytest.mark.parametrize("extra", [{"approved": True}, {"admission_report": b"saved report"},
+    {"source_build_gate_satisfied_under_policy": True}, {"owner_approved": True},
+    {"record_bytes": {"status": "accepted"}}, {"artifact_members": b"not a byte map"}])
+def test_loader_resolution_admission_has_no_saved_report_or_boolean_capability_input(extra, monkeypatch):
+    core = loader_resolution_admission()
+    monkeypatch.setattr(core, "validate_request", lambda *_a: {"sources": {}})
+    monkeypatch.setattr(core, "_read", lambda *_a, **_k: pytest.fail("invalid admission roster read carriers"))
+    monkeypatch.setattr(core, "_admit_originals", lambda *_a: pytest.fail("invalid admission roster reached GPG"))
+    with pytest.raises(core.ResolutionError, match="loader_resolution_admission_"):
+        core.reconstruct_admission(request_bytes=b"test", expected_request_sha256="0" * 64,
+            admission_inputs=extra, accepted_policy_sha256=LOADER_RESOLUTION_POLICY_SHA)
+
+
+@pytest.fixture(scope="module")
+def loader_resolution_request_case(loader_readout_originals):
+    core = loader_resolution_admission()
+    observer = b"authored observer identity, never executed"
+    request = core.make_request(attempt_id="96" * 16,
+        observer_descriptor={"path": "/authored/observer", **bound(observer)})
+    raw = encoded(request)
+    assert core.validate_request(raw, digest(raw)) == request
+    return SimpleNamespace(core=core, request=request, raw=raw, observer=observer,
+        originals=loader_readout_originals)
+
+
+@pytest.fixture(scope="module")
+def loader_resolution_original_signature_inputs():
+    """Preserved crypto inputs; the external historical verifier is not bundled."""
+    import zipfile
+    core = loader_resolution_admission()
+    raw = (ROOT / core.entry_plan.ORIGINALS_REL).read_bytes()
+    assert bound(raw) == core.entry_plan.ORIGINALS
+    with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+        manifest_raw = archive.read("CASE_INPUTS.json")
+        assert digest(manifest_raw) == core.original.ORIGINAL_MANIFEST_SHA256
+        manifest = json.loads(manifest_raw)
+        names = ("controls/distribution-trust-policy.json", "distribution-origin/Release",
+                 "distribution-origin/Release.gpg", "distribution-origin/debian-archive-keyring.gpg",
+                 "distribution-origin/gpg-status.original")
+        members = {name: archive.read(name) for name in names}
+    for name, value in members.items():
+        assert bound(value) == manifest["files"][name]
+    policy = json.loads(members["controls/distribution-trust-policy.json"])
+    assert policy["verifier"] == manifest["external_verifier"] == {
+        "kind": "gpg", "path": "/usr/bin/gpg", "size_bytes": 1230080,
+        "sha256": "7c9d2f9416aabcd10199e2984439f49612644a948279ac56bdf70d69c8958ddf"}
+    return SimpleNamespace(policy=policy, release=members["distribution-origin/Release"],
+        signature=members["distribution-origin/Release.gpg"],
+        keyring=members["distribution-origin/debian-archive-keyring.gpg"],
+        scripted_status=members["distribution-origin/gpg-status.original"])
+
+
+def _loader_resolution_current_host_signature_arguments(case):
+    """Select a test-only backend, never rewrite or admit the historical policy."""
+    verifier = Path("/usr/bin/gpg")
+    assert verifier.is_file() and not verifier.is_symlink(), "the explicit test verification tool is required"
+    return {"release_bytes": case.release, "signature_bytes": case.signature,
+        "keyring_bytes": case.keyring, "expected_keyring_sha256": case.policy["keyring"]["sha256"],
+        "verifier_path": verifier,
+        "expected_verifier": {"kind": "gpg", "path": str(verifier), **bound(verifier.read_bytes())},
+        "required_signers": copy.deepcopy(case.policy["required_signers"]),
+        "evaluation_time": case.policy["evaluation_time"]}
+
+
+@pytest.fixture(scope="module")
+def loader_resolution_scripted_signature_admission(loader_resolution_request_case, loader_rebuild_acceptance_case,
+                                                  loader_resolution_original_signature_inputs):
+    """Reconstruct raw joins with an explicitly authored GPG execution boundary.
+
+    The original policy pins a Debian GPG that an Ubuntu CI runner need not
+    contain. This fixture never substitutes the current host into that policy.
+    An inert verifier marker and scripted GPG output exercise the unchanged
+    sealing, status parser and reconstruction code; only OpenSSL actually runs.
+    Separate tests check real original signatures with a test-selected host
+    verifier and enforce the unmodified historical pin before any execution.
+    This fixture is not evidence of an original-policy cryptographic admission.
+    """
+    case, preserved = loader_resolution_request_case, loader_rebuild_acceptance_case
+    signature_case = loader_resolution_original_signature_inputs
+    signature = case.core.distribution_signature
+    inputs = _loader_rebuild_acceptance_arguments(preserved)
+    del inputs["expected_record_sha256"]
+    calls, commands = [], []
+    verifier_reads, scripted_commands = [], []
+    inert_verifier = b"authored inert GPG marker; never an executable\n"
+    real_acceptance, real_popen = case.core.acceptance.verify_acceptance, subprocess.Popen
+
+    def acceptance_spy(**arguments):
+        calls.append(arguments)
+        return real_acceptance(**arguments)
+
+    def only_public_signature_tools(command, *args, **kwargs):
+        assert type(command) is list and command
+        assert command[0] == "/usr/bin/openssl"
+        assert kwargs.get("shell") is False
+        commands.append(list(command))
+        return real_popen(command, *args, **kwargs)
+
+    def scripted_verifier_read(path, expected):
+        assert path == "/usr/bin/gpg" and expected == signature_case.policy["verifier"]
+        verifier_reads.append((path, copy.deepcopy(expected)))
+        return inert_verifier
+
+    def scripted_signature_capture(**arguments):
+        argv, descriptors = arguments["argv"], arguments["pass_fds"]
+        assert argv[0] == "/usr/bin/gpg" and argv[-3] == "--verify"
+        assert argv[argv.index("--faked-system-time") + 1] == str(signature_case.policy["evaluation_time"]) + "!"
+        assert {"--disable-dirmngr", "--no-auto-key-retrieve", "--no-auto-key-import",
+                "--no-autostart", "--status-fd"} <= set(argv)
+        assert len(descriptors) == 4 and arguments["executable_fd"] == descriptors[0]
+        expected_raw = (inert_verifier, signature_case.keyring, signature_case.signature, signature_case.release)
+        for descriptor, expected in zip(descriptors, expected_raw):
+            assert os.pread(descriptor, len(expected) + 1, 0) == expected
+            assert fcntl.fcntl(descriptor, getattr(fcntl, "F_GET_SEALS", 1034)) & 15 == 15
+        scripted_commands.append(list(argv))
+        result = distribution_capture_result(pid=12345)
+        result["stdout_bytes"] = signature_case.scripted_status
+        result["stderr_bytes"] = b"authored scripted GPG transport; no verifier process executed\n"
+        return result
+
+    def forbidden(*_a, **_k):
+        pytest.fail("fresh byte admission attempted a probe or original execution")
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(case.core.acceptance, "verify_acceptance", acceptance_spy)
+        patch.setattr(subprocess, "Popen", only_public_signature_tools)
+        patch.setattr(signature, "_read_verifier", scripted_verifier_read)
+        patch.setattr(signature, "_capture", scripted_signature_capture)
+        patch.setattr(os, "fork", forbidden)
+        producer = loader_resolution_producer()
+        patch.setattr(producer, "NativeBackend", forbidden)
+        patch.setattr(producer.guard, "qualify", forbidden)
+        patch.setattr(producer.probe, "qualify", forbidden)
+        admitted = case.core.reconstruct_admission(request_bytes=case.raw,
+            expected_request_sha256=digest(case.raw), admission_inputs=inputs,
+            accepted_policy_sha256=LOADER_RESOLUTION_POLICY_SHA)
+    assert len(calls) == 1 and commands
+    assert calls[0]["record_bytes"] == preserved.raw
+    assert calls[0]["accepted_policy_sha256"] == LOADER_RESOLUTION_POLICY_SHA
+    assert calls[0]["artifact_members"] is preserved.prior.prior.static_case.artifacts
+    assert len(verifier_reads) == len(scripted_commands) == 1
+    case.admitted, case.acceptance_calls, case.crypto_commands = admitted, calls, commands
+    case.scripted_signature_commands = scripted_commands
+    return admitted
+
+
+def _loader_resolution_guard_qualification(environment):
+    value = entry_stop_guard_qualification(environment)
+    for index, case in enumerate(value["cases"]):
+        case["parent_pid"] = 5001
+        case["starttime"] = 123600 + index
+        case["setup_status"] = case["setup_status"].replace("PPid:\t1001", "PPid:\t5001")
+        installation = json.loads(case["installation"])
+        installation["parent_pid"] = 5001
+        installation["starttime"] = case["starttime"]
+        installation["proc_stat"] = native_acquisition_proc_stat(
+            case["child_pid"], 5001, "R", case["starttime"]).decode("ascii")
+        for key in ("status_before", "status_after"):
+            installation[key] = installation[key].replace("PPid:\t1001", "PPid:\t5001")
+        case["installation"] = encoded(installation).decode("ascii")
+    return value
+
+
+class _LoaderResolutionScriptedBackend:
+    """An invented kernel surface with no owned real PID, descriptor or code."""
+
+    def __init__(self, request_case, fault=None):
+        self.request_case, self.fault = request_case, fault
+        self.context_value = _loader_two_slot_qualification_context()
+        self.probe_case = _loader_two_slot_qualification_fixture()
+        self.guard_value = _loader_resolution_guard_qualification(self.context_value)
+        self.observer_pid, self.child_pid, self.starttime, self.pidfd = 5001, None, None, None
+        self.now, self.wait_count, self.cont_count = 2_000_000_000, 0, 0
+        self.context_count = self.source_count = self.qualification_count = 0
+        self.phase = "prelaunch"
+        self.calls, self.cleanup_operations = [], []
+        self.prepared = self.closed = self.reaped = self.terminal_seen = False
+        self.last_wait = None
+        self.debug = [0, 0, 0, 0, 0xFFFF0FF0, 0]
+        self.evidence_origin = "native_original_loader_capture"  # Ignored injection.
+        originals = request_case.originals
+        self.points = {"cp0": _loader_resolution_checkpoint_case(originals, "cp0"),
+                       "entry": _loader_resolution_checkpoint_case(originals, "entry")}
+        for number in range(1, 11):
+            occurrence = 8 if number == 10 or fault == "duplicate_return" and number == 2 else 9 - number
+            self.points[f"return.{number:02d}"] = _loader_resolution_checkpoint_case(
+                originals, f"return.{number:02d}", occurrence)
+        self.child_stat = _loader_two_slot_qualification_native_stat(4002, 5001, "t", 345678, "bubblewrap")
+        self.child_status = ("Name:\tbubblewrap\n" + entry_stop_status(
+            4002, 5001, state="t (tracing stop)").decode("ascii")).encode("ascii")
+        for case in self.points.values():
+            case.process["observer_pid"] = 5001
+            case.process["starttime"] = 345678
+            for role in ("child.stat.setup.bin", "child.stat.before.bin", "child.stat.after.bin"):
+                _loader_resolution_checkpoint_raw(case, role, self.child_stat)
+            for role in ("child.status.setup.bin", "child.status.before.bin", "child.status.after.bin"):
+                _loader_resolution_checkpoint_raw(case, role, self.child_status)
+            for role in ("observer.stat.bin", "observer.status.bin"):
+                _loader_resolution_checkpoint_raw(case, role, self.probe_case.files[role])
+
+    def clock(self):
+        self.now += 1000
+        return self.now
+
+    def context(self):
+        self.context_count += 1
+        value = copy.deepcopy(self.context_value)
+        if (self.fault == "qualification_context" and self.context_count >= 2
+                or self.fault == "prelaunch_context" and self.context_count >= 3):
+            value["boot_id"] = "abcdef01-89ab-cdef-0123-456789abcdef"
+        return value
+
+    def source_inventory(self):
+        self.source_count += 1
+        value = copy.deepcopy(self.request_case.request["sources"])
+        if self.fault == "sources_changed" and self.source_count >= 2:
+            value[sorted(value)[0]]["sha256"] = "0" * 64
+        return value
+
+    def fresh_qualifications(self):
+        self.qualification_count += 1
+        self.calls.append(("qualify",))
+        guard_value, hardware = copy.deepcopy(self.guard_value), copy.deepcopy(self.probe_case.record)
+        if self.fault == "guard_denial_missing":
+            guard_value["cases"][0]["terminal_wait_status"] = 0
+        if self.fault == "hardware_context":
+            hardware["context"]["boot_id"] = "abcdef01-89ab-cdef-0123-456789abcdef"
+        return encoded(guard_value), encoded(hardware)
+
+    def prepare(self, native_files, deadline):
+        self.calls.append(("prepare",))
+        assert native_files == self.request_case.originals.native and self.clock() < deadline
+        self.prepared = True
+
+    def acquire_backings(self, deadline):
+        assert self.clock() < deadline
+        return copy.deepcopy(self.points["cp0"].checkpoint["backings"])
+
+    def spawn(self, attempt_id, request_sha256, deadline):
+        self.calls.append(("spawn",))
+        assert attempt_id == self.request_case.request["attempt_id"]
+        assert request_sha256 == digest(self.request_case.raw) and self.clock() < deadline
+        assert self.child_pid is None
+        self.child_pid, self.pidfd = 4002, 17
+        if self.fault == "spawn_after_child":
+            raise OSError(errno.EIO, "authored partial ownership failure")
+        return self.snapshot()
+
+    def snapshot(self):
+        return {"observer_pid": self.observer_pid, "child_pid": self.child_pid,
+                "starttime": self.starttime, "pidfd": self.pidfd,
+                "proc_dir_pinned": self.child_pid is not None, "unexpected_children": []}
+
+    def guard_metadata(self):
+        return {"launcher_fd": 4 if self.prepared else None,
+                "receipt_fd": 5 if self.child_pid is not None else None}
+
+    def read_proc(self, role, deadline):
+        assert self.clock() < deadline
+        self.calls.append(("read_proc", role))
+        if role == "observer.exe":
+            return self.request_case.observer
+        if role == "boot_id":
+            return (self.context_value["boot_id"] + "\n").encode("ascii")
+        if role in ("observer.stat", "observer.status"):
+            raw = self.probe_case.files[role + ".bin"]
+            if self.fault == "observer_changed" and role == "observer.stat":
+                return raw.replace(b"123456", b"123457")
+            return raw
+        if role == "child.stat":
+            self.starttime = 345678
+            return self.child_stat
+        if role == "child.status":
+            return self.child_status
+        if role == "pidfd.info":
+            return b"Pid:\t4002\nNSpid:\t4002\n"
+        if role == "guard.receipt":
+            return encoded(entry_stop_installation(pid=4002, parent=5001, starttime=345678,
+                attempt_id=self.request_case.request["attempt_id"], request_sha256=digest(self.request_case.raw)))
+        if role == "fds":
+            count = 4 if self.phase == "setup" or self.fault == "fd_leak" else 3
+            return encoded(entry_stop_descriptor_rows()[:count])
+        if role == "cwd":
+            return b"/"
+        if role == "exe.link":
+            return self.points["cp0"].raw["child.exe.link.bin"]
+        assert role in ("maps", "auxv"), role
+        return self.points[self.phase].raw[role + ".before.bin"]
+
+    def environment(self, deadline):
+        value = {"cwd_hex": "2f", "namespaces": copy.deepcopy(self.context_value["namespaces"]),
+                 "preload": _loader_resolution_preload_fixture()}
+        if self.fault == "child_namespace":
+            value["namespaces"]["mnt"] = "mnt:[999999]"
+        return encoded(value)
+
+    def preload(self, deadline, *, child=False):
+        return _loader_resolution_preload_fixture()
+
+    def executable(self, deadline):
+        point = self.points[self.phase]
+        return copy.deepcopy(point.checkpoint["executable"]), point.raw["executable.elf"]
+
+    def registers(self, deadline):
+        raw = self.points[self.phase].raw["regs.before.bin"]
+        if self.fault == "bad_rf" and self.phase == "return.01":
+            raw = bytearray(raw)
+            struct.pack_into("<Q", raw, 18 * 8, 0x202)
+            raw = bytes(raw)
+        return raw
+
+    def debug_registers(self, deadline):
+        words = list(self.debug)
+        if self.fault == "arming_readback" and self.phase == "cp0" and words[5] == 5:
+            words[1] = 0
+        return struct.pack("<6Q", *words)
+
+    def siginfo(self, deadline):
+        return self.points[self.phase].raw["siginfo.bin"]
+
+    def event_message(self, deadline):
+        return struct.pack("<Q", self.child_pid)
+
+    def memory(self, address, size, deadline):
+        assert self.clock() < deadline
+        point = self.points[self.phase]
+        segments = []
+        if self.phase == "cp0":
+            words = point.raw["stack.words.before.bin"]
+            stack_pointer = struct.unpack_from("<Q", point.raw["regs.before.bin"], 19 * 8)[0]
+            segments.append((stack_pointer, words))
+            fields = struct.unpack_from("<6Q", words)
+            segments += list(zip((fields[1], fields[3], fields[4]), (b"bubblewrap\0", b"LC_ALL=C\0", b"TZ=UTC\0")))
+        elif self.phase.startswith("return."):
+            for row in point.checkpoint["runtime_ranges"]:
+                raw = point.raw["memory.sample0.bin"][row["offset"]:row["offset"] + row["size_bytes"]]
+                if row["role"] == "needed_name":
+                    raw += bytes(256 - len(raw))
+                if (self.fault == "partial_memory" and self.phase == "return.03"
+                        and row["role"] == "consumer_map" and address == row["address"]):
+                    error = OSError(errno.EIO, "authored partial memory read")
+                    error.raw_bytes = raw[:7]
+                    raise error
+                segments.append((row["address"], raw))
+        for path, elf in self.request_case.originals.elf.items():
+            for segment in elf.loads:
+                if segment[1] == 5:
+                    raw = self.request_case.originals.native[path][segment[2]:segment[2] + segment[5]]
+                    segments.append((point.event.biases[path] + segment[3], raw))
+        for base, raw in segments:
+            if base <= address and address + size <= base + len(raw):
+                return raw[address - base:address - base + size]
+        raise AssertionError(("unselected authored memory read", self.phase, address, size))
+
+    def wait(self, deadline):
+        index = self.wait_count
+        self.wait_count += 1
+        self.calls.append(("wait", index))
+        if index == 0:
+            self.phase, status = "setup", 0x137F
+        elif index == 1:
+            self.phase, status = "cp0", 0x4057F
+        else:
+            number = index - 1
+            terminal = number == 10 and self.fault != "tenth_return" or self.fault == "early_terminal" and number == 3
+            self.phase, status = ("entry" if terminal else f"return.{number:02d}"), 0x57F
+            self.debug[4] = 0xFFFF0FF2 if terminal else 0xFFFF0FF1
+            if self.fault == "unexpected_signal" and number == 1:
+                status = 0xB7F
+        self.last_wait = (self.child_pid, status)
+        return self.last_wait
+
+    def options(self):
+        self.calls.append(("options",))
+        return 0
+
+    def set_targets(self, return_target, entry_target):
+        point = self.points["cp0"]
+        assert (return_target, entry_target) == (point.event.target, point.event.entry_target)
+
+    def write_debug(self, number, value):
+        self.calls.append(("debug_write", number, value))
+        self.debug[{0: 0, 1: 1, 6: 4, 7: 5}[number]] = value
+        return 0
+
+    def cont(self):
+        assert not self.terminal_seen and self.cont_count < 11
+        self.cont_count += 1
+        self.calls.append(("continue", self.phase))
+        return 0
+
+    def stable_stop(self, deadline):
+        assert self.clock() < deadline
+
+    def mark_terminal(self):
+        self.terminal_seen = True
+        self.calls.append(("terminal",))
+
+    def cleanup(self, deadline):
+        self.calls.append(("cleanup",))
+        if self.child_pid is None:
+            return []
+        self.cleanup_operations = [{"op": "kill", "at_ns": self.clock(), "method": "pidfd_send_signal",
+            "pid": self.child_pid, "pidfd": self.pidfd, "signal": 9,
+            "returncode": -1 if self.fault == "cleanup_failure" else 0,
+            "errno": errno.EIO if self.fault == "cleanup_failure" else 0}]
+        if self.fault == "cleanup_failure":
+            raise OSError(errno.EIO, "authored cleanup failure")
+        self.cleanup_operations.append({"op": "wait", "at_ns": self.clock(), "phase": "reap",
+                                        "pid": self.child_pid, "status": 9})
+        self.reaped = True
+        if self.fault == "cleanup_timeout":
+            self.now += 3_000_000_000
+        return copy.deepcopy(self.cleanup_operations)
+
+    def drain_outputs(self, deadline):
+        self.calls.append(("drain",))
+        return {"stdout.bin": b"unselected output" if self.fault == "target_output" else b"", "stderr.bin": b""}
+
+    def close(self):
+        self.calls.append(("close",))
+        self.closed = True
+        if self.fault == "close_failure":
+            raise OSError(errno.EIO, "authored close failure")
+
+
+def _loader_resolution_scripted_admission(request_case):
+    return {"request": request_case.request, "native_files": request_case.originals.native,
+        "static_record": request_case.originals.case.record,
+        "source_build_report": copy.deepcopy(request_case.admitted["source_build_report"]),
+        "original_admission": copy.deepcopy(request_case.admitted["original_admission"])}
+
+
+def _loader_resolution_scripted_collect(modules, request_case, monkeypatch, fault=None):
+    calls = []
+
+    def raw_admission(**arguments):
+        assert arguments["accepted_policy_sha256"] == LOADER_RESOLUTION_POLICY_SHA
+        assert arguments["request_bytes"] == request_case.raw
+        assert arguments["expected_request_sha256"] == digest(request_case.raw)
+        calls.append(arguments)
+        return _loader_resolution_scripted_admission(request_case)
+
+    monkeypatch.setattr(modules.admission, "reconstruct_admission", raw_admission)
+    backend = _LoaderResolutionScriptedBackend(request_case, fault)
+    result = modules.producer.collect(request_bytes=request_case.raw,
+        expected_request_sha256=digest(request_case.raw), accepted_policy_sha256=LOADER_RESOLUTION_POLICY_SHA,
+        acknowledgement=LOADER_RESOLUTION_ACK, backend=backend)
+    return backend, result, calls
+
+
+@pytest.fixture(scope="module")
+def loader_resolution_scripted_record(loader_resolution_request_case, loader_resolution_scripted_signature_admission):
+    case = loader_resolution_request_case
+    producer = loader_resolution_producer()
+    modules = SimpleNamespace(producer=producer, admission=case.core)
+
+    def forbidden(*_a, **_k):
+        pytest.fail("scripted record fixture attempted native acquisition")
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(producer, "NativeBackend", forbidden)
+        patch.setattr(os, "fork", forbidden)
+        patch.setattr(producer.guard, "qualify", forbidden)
+        patch.setattr(producer.probe, "qualify", forbidden)
+        backend, result, calls = _loader_resolution_scripted_collect(modules, case, patch)
+    assert result["capture"]["status"] == "completed", result["capture"]["failure"]
+    assert result["report"] is not None
+    assert result["report"]["status"] == "accepted_scripted_loader_resolution_record"
+    return SimpleNamespace(request_case=case, backend=backend, result=result, admission_calls=calls)
+
+
+def test_loader_resolution_scripted_controller_reaches_nine_returns_and_never_resumes_entry(
+        loader_resolution_scripted_record):
+    fixture = loader_resolution_scripted_record
+    backend, result, admission_calls = fixture.backend, fixture.result, fixture.admission_calls
+    capture = result["capture"]
+    assert capture["status"] == "completed", capture["failure"]
+    assert capture["evidence_origin"] == "scripted_test_backend"
+    assert backend.qualification_count == 1 and len(admission_calls) >= 1
+    assert len(capture["returns"]) == 9 and capture["entry"]["phase"] == "entry"
+    assert backend.cont_count == 11 and backend.terminal_seen and backend.reaped and backend.closed
+    assert [row for row in backend.calls if row[0] == "spawn"] == [("spawn",)]
+    assert backend.calls.index(("qualify",)) < backend.calls.index(("spawn",))
+    assert backend.calls[-3:] == [("cleanup",), ("drain",), ("close",)]
+    assert all(value is False for key, value in capture["boundary"].items()
+               if key not in ("authority_effect", "metric_pass"))
+    assert capture["boundary"]["metric_pass"] is None and capture["boundary"]["authority_effect"] == "none"
+
+
+@pytest.mark.parametrize("fault,spawned,max_cont", [
+    ("guard_denial_missing", False, 0), ("hardware_context", False, 0),
+    ("qualification_context", False, 0), ("prelaunch_context", False, 0),
+    ("observer_changed", False, 0), ("sources_changed", False, 0),
+    ("spawn_after_child", True, 0), ("child_namespace", True, 1), ("fd_leak", True, 1),
+    ("arming_readback", True, 1), ("unexpected_signal", True, 2), ("bad_rf", True, 2),
+    ("duplicate_return", True, 3), ("partial_memory", True, 4),
+    ("early_terminal", True, 4), ("tenth_return", True, 11),
+    ("cleanup_failure", True, 11), ("cleanup_timeout", True, 11),
+    ("target_output", True, 11), ("close_failure", True, 11),
+])
+def test_loader_resolution_scripted_failures_preserve_prefix_and_clean_owned_state(
+        loader_resolution_modules, loader_resolution_request_case, loader_resolution_scripted_signature_admission,
+        monkeypatch, fault, spawned, max_cont):
+    backend, result, _calls = _loader_resolution_scripted_collect(
+        loader_resolution_modules, loader_resolution_request_case, monkeypatch, fault)
+    capture = result["capture"]
+    assert capture["status"] == "incomplete" and capture["failure"]
+    assert capture["evidence_origin"] == "scripted_test_backend" and backend.closed
+    assert result["report"] is not None, capture["failure"]
+    assert result["report"]["status"] == "preserved_incomplete"
+    assert result["report"]["accepted_return_events"] == 0
+    assert result["report"]["consumer_resolution_observed"] is False
+    assert sum(row[0] == "spawn" for row in backend.calls) == int(spawned)
+    assert backend.cont_count == max_cont, capture["failure"]
+    assert ("cleanup",) in backend.calls and ("drain",) in backend.calls
+    assert "request.json" in result["files"]
+    if spawned and fault != "cleanup_failure":
+        assert backend.reaped
+    if fault == "partial_memory":
+        assert len(result["files"]["return.03.memory.sample0.bin"]) == 47
+        assert len(capture["returns"]) == 3 and capture["entry"] is None
+    if fault == "tenth_return":
+        assert len(capture["returns"]) == 10 and capture["entry"] is None
+    if fault == "early_terminal":
+        assert len(capture["returns"]) == 2 and capture["entry"] is not None
+
+
+def test_loader_resolution_scripted_signature_boundary_preserves_original_raw_chain_and_real_rebuild_checks(
+        loader_resolution_request_case, loader_resolution_scripted_signature_admission):
+    case, admitted = loader_resolution_request_case, loader_resolution_scripted_signature_admission
+    assert admitted["request"] == case.request
+    assert admitted["native_files"] == case.originals.native
+    assert admitted["static_record"] == case.originals.case.record
+    source = admitted["source_build_report"]
+    assert source["source_build_gate_satisfied_under_policy"] is True
+    assert source["policy_selection"] == "externally_selected_exact_policy"
+    _loader_rebuild_acceptance_boundary(source)
+    original = admitted["original_admission"]
+    assert original["original_input_count"] == 111 and original["historical_source_count"] == 43
+    assert original["distribution_signature_freshly_verified"] is True
+    assert original["original_reports_reconstructed"] is True
+    assert len(original["signature_evidence"]) == 1
+    process = original["signature_evidence"][0]["process_record"]
+    assert process["pid"] == 12345  # Authored boundary output, not a live verifier PID.
+    assert process["execution"] == "sealed_verifier_memfd" and process["inputs_sealed"] is True
+    assert len(case.scripted_signature_commands) == 1
+    assert "--status-fd" in case.scripted_signature_commands[0]
+    assert case.crypto_commands and all(argv[0] == "/usr/bin/openssl" for argv in case.crypto_commands)
+
+
+def test_loader_resolution_original_signatures_use_real_crypto_with_explicit_test_host_selection(
+        loader_resolution_modules, loader_resolution_original_signature_inputs, monkeypatch):
+    """Check original crypto, without claiming admission under the historical pin."""
+    case, sig = loader_resolution_original_signature_inputs, distribution_signature()
+    policy_before = encoded(case.policy)
+    arguments = _loader_resolution_current_host_signature_arguments(case)
+    evidence, commands = [], []
+    real_popen = subprocess.Popen
+
+    def only_original_signature(command, *args, **kwargs):
+        assert command[0] == "/usr/bin/gpg" and "--verify" in command
+        assert "--disable-dirmngr" in command and "--no-auto-key-retrieve" in command
+        assert kwargs.get("shell") is False
+        commands.append(list(command))
+        return real_popen(command, *args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "Popen", only_original_signature)
+    monkeypatch.setattr(loader_resolution_modules.admission, "reconstruct_admission",
+        lambda **_k: pytest.fail("test-selected current verifier is not original-policy admission"))
+    report = sig.verify_detached(**arguments, evidence_sink=evidence.append)
+    assert len(evidence) == len(commands) == 1
+    assert report["backend"] == arguments["expected_verifier"]
+    assert report["verified_signatures"] == sig._parse_status(
+        case.scripted_status, case.policy["required_signers"], case.policy["evaluation_time"])
+    process = evidence[0]["process_record"]
+    assert process["pid"] > 1 and process["verification_status"] == "accepted"
+    assert process["inputs"] == {"release": bound(case.release), "signature": bound(case.signature),
+                                "keyring": bound(case.keyring)}
+    assert process["verifier"] == arguments["expected_verifier"]
+    assert encoded(case.policy) == policy_before
+
+
+@pytest.mark.parametrize("changed", ["release_bytes", "signature_bytes"])
+def test_loader_resolution_original_signature_real_crypto_rejects_changed_signed_inputs(
+        loader_resolution_modules, loader_resolution_original_signature_inputs, changed):
+    case, sig = loader_resolution_original_signature_inputs, distribution_signature()
+    policy_before = encoded(case.policy)
+    arguments = _loader_resolution_current_host_signature_arguments(case)
+    if changed == "release_bytes":
+        assert arguments[changed].startswith(b"Origin: Debian\n")
+        arguments[changed] = arguments[changed].replace(b"Origin: Debian\n", b"Origin: DebiaX\n", 1)
+    else:
+        assert arguments[changed].startswith(b"-----BEGIN PGP SIGNATURE-----\n\n")
+        position = arguments[changed].index(b"\n\n") + 2
+        raw = bytearray(arguments[changed])
+        raw[position] = ord("A") if raw[position] != ord("A") else ord("B")
+        arguments[changed] = bytes(raw)
+    evidence = []
+    with pytest.raises(sig.SignatureError):
+        sig.verify_detached(**arguments, evidence_sink=evidence.append)
+    assert len(evidence) == 1
+    assert evidence[0]["process_record"]["verification_status"] == "rejected"
+    assert encoded(case.policy) == policy_before
+
+
+def test_loader_resolution_historical_verifier_mismatch_rejects_before_any_execution(
+        loader_resolution_modules, loader_resolution_request_case, loader_resolution_original_signature_inputs,
+        tmp_path, monkeypatch):
+    """Exercise the CI mismatch even where the installed GPG matches the old pin."""
+    modules, request_case, signature_case = (loader_resolution_modules, loader_resolution_request_case,
+                                            loader_resolution_original_signature_inputs)
+    alien = bytearray(Path("/usr/bin/gpg").read_bytes())
+    alien[-1] ^= 1
+    alien = bytes(alien)
+    assert bound(alien) != {key: signature_case.policy["verifier"][key] for key in ("sha256", "size_bytes")}
+    path = tmp_path / "different-gpg"
+    path.write_bytes(alien)
+    path.chmod(0o700)
+    real_open, verifier_opens = os.open, []
+
+    def open_with_different_host_verifier(selected, flags, *args, **kwargs):
+        if selected == "/usr/bin/gpg":
+            verifier_opens.append(selected)
+            return real_open(path, flags, *args, **kwargs)
+        return real_open(selected, flags, *args, **kwargs)
+
+    def forbidden(*_a, **_k):
+        pytest.fail("unmatched historical verifier reached execution or rebuild admission")
+
+    monkeypatch.setattr(os, "open", open_with_different_host_verifier)
+    monkeypatch.setattr(subprocess, "Popen", forbidden)
+    monkeypatch.setattr(modules.admission.acceptance, "verify_acceptance", forbidden)
+    with pytest.raises(modules.admission.original.distribution.DistributionError,
+                       match="^signature_verifier_binding_mismatch$"):
+        modules.producer.collect(request_bytes=request_case.raw,
+            expected_request_sha256=digest(request_case.raw), accepted_policy_sha256=LOADER_RESOLUTION_POLICY_SHA,
+            acknowledgement=LOADER_RESOLUTION_ACK)
+    assert verifier_opens == ["/usr/bin/gpg"]
+
+
+@pytest.mark.parametrize("fault", ["argv", "envp", "cwd", "old_ack", "authority", "boolean_limit",
+    "post_entry_resume", "extra_source", "missing_source", "occurrence_name", "unknown_field"])
+def test_loader_resolution_rehashed_request_cannot_expand_selected_acquisition_scope(loader_resolution_request_case, fault):
+    case, core = loader_resolution_request_case, loader_resolution_admission()
+    value = copy.deepcopy(case.request)
+    if fault == "argv":
+        value["execution"]["argv"].append("--unselected")
+    elif fault == "envp":
+        value["execution"]["environment"]["LD_PRELOAD"] = "/unselected.so"
+    elif fault == "cwd":
+        value["execution"]["cwd"] = "/unselected"
+    elif fault == "old_ack":
+        value["acknowledgement"]["token"] = "OBSERVE_ORIGINAL_LAUNCHER_EXEC_STOP_ONLY"
+    elif fault == "authority":
+        value["boundary"]["original_acquisition_authorized"] = True
+    elif fault == "boolean_limit":
+        value["limits"]["owned_tracees"] = True
+    elif fault == "post_entry_resume":
+        value["limits"]["post_terminal_continuations"] = 1
+    elif fault == "extra_source":
+        value["sources"]["tools/unselected.py"] = bound(b"unselected")
+    elif fault == "missing_source":
+        value["sources"].pop(next(iter(value["sources"])))
+    elif fault == "occurrence_name":
+        value["occurrence_obligations"][0]["name"] = "unselected.so"
+    else:
+        value["approved"] = True
+    raw = encoded(value)
+    with pytest.raises(core.ResolutionError, match="loader_resolution_request_contract"):
+        core.validate_request(raw, digest(raw))
+
+
+@pytest.mark.parametrize("fault", ["oversized", "wrong_digest"])
+def test_loader_resolution_request_rejects_unselected_bytes_before_source_reconstruction(monkeypatch, fault):
+    core = loader_resolution_admission()
+    monkeypatch.setattr(core, "make_request", lambda **_k: pytest.fail("unselected bytes reached source reconstruction"))
+    if fault == "oversized":
+        raw = b"x" * (core.CONTROL_BYTES + 1)
+        selected = "0" * 64
+        monkeypatch.setattr(core, "sha", lambda *_a: pytest.fail("oversized control reached hashing"))
+    else:
+        raw, selected = b"{}\n", "0" * 64
+    with pytest.raises(core.ResolutionError):
+        core.validate_request(raw, selected)
+
+
+def _loader_resolution_preserved_summary_check(admitted, source=None, original=None):
+    core = loader_resolution_admission()
+    source = admitted["source_build_report"] if source is None else source
+    original = admitted["original_admission"] if original is None else original
+    return core.validate_preserved_admission(source_build_bytes=encoded(source),
+        original_admission_bytes=encoded(original), admitted=admitted)
+
+
+def _loader_resolution_changed_verifier_diagnostics(admitted, number=1):
+    value = copy.deepcopy(admitted)
+    source = value["source_build_report"]
+    source["backend_observation"].update({"binary_sha256": str(number % 10) * 64,
+        "version": "OpenSSL 3.9.0 authored diagnostic backend"})
+    source["prior_report"]["sha256"] = str((number + 1) % 10) * 64
+    row = value["original_admission"]["signature_evidence"][0]["process_record"]
+    row["pid"] += number
+    row["started_monotonic_ns"] += number * 1000
+    row["completed_monotonic_ns"] += number * 1000
+    row["argv"] = ["/proc/self/fd/" + str(int(token.rsplit("/", 1)[1]) + number * 100)
+                   if token.startswith("/proc/self/fd/") else token for token in row["argv"]]
+    return value
+
+
+def test_loader_resolution_preserved_diagnostics_may_vary_without_becoming_admission(loader_resolution_scripted_signature_admission):
+    admitted = loader_resolution_scripted_signature_admission
+    changed = _loader_resolution_changed_verifier_diagnostics(admitted)
+    report = _loader_resolution_preserved_summary_check(admitted,
+        changed["source_build_report"], changed["original_admission"])
+    assert report == {"preserved_admission_summaries_consistent": True,
+                      "fresh_original_and_rebuild_inputs_reconstructed": True,
+                      "preserved_backend_execution_authenticated": False}
+
+
+@pytest.mark.parametrize("fault", ["policy_selection", "source_gate", "owner_adoption", "prior_stable_digest",
+    "backend_suite", "backend_path", "backend_boolean_size", "original_input_count",
+    "original_archive", "signature_pid_boolean", "signature_time_float", "signature_time_order",
+    "signature_fd_alias", "signature_fd_path", "signature_argv", "signature_input",
+    "signature_status", "signature_bound_stream", "signature_extra_field"])
+def test_loader_resolution_preserved_reports_cannot_override_fresh_input_policy_or_signature_facts(
+        loader_resolution_scripted_signature_admission, fault):
+    admitted = loader_resolution_scripted_signature_admission
+    source, original = copy.deepcopy(admitted["source_build_report"]), copy.deepcopy(admitted["original_admission"])
+    evidence = original["signature_evidence"][0]
+    process = evidence["process_record"]
+    if fault == "policy_selection":
+        source["policy_selection"] = "approved"
+    elif fault == "source_gate":
+        source["source_build_gate_satisfied_under_policy"] = 1
+    elif fault == "owner_adoption":
+        source["owner_policy_adoption_verified"] = True
+    elif fault == "prior_stable_digest":
+        source["prior_report_without_runtime_backend_observation"]["sha256"] = "0" * 64
+    elif fault == "backend_suite":
+        source["backend_observation"]["suite"] = "selected-by-report"
+    elif fault == "backend_path":
+        source["backend_observation"]["path"] = "/unselected/openssl"
+    elif fault == "backend_boolean_size":
+        source["prior_report"]["size_bytes"] = True
+    elif fault == "original_input_count":
+        original["original_input_count"] = 110
+    elif fault == "original_archive":
+        original["original_archive"]["sha256"] = "0" * 64
+    elif fault == "signature_pid_boolean":
+        process["pid"] = True
+    elif fault == "signature_time_float":
+        process["started_monotonic_ns"] = 20.0
+    elif fault == "signature_time_order":
+        process["completed_monotonic_ns"] = process["started_monotonic_ns"] - 1
+    elif fault in ("signature_fd_alias", "signature_fd_path"):
+        positions = [i for i, token in enumerate(process["argv"]) if token.startswith("/proc/self/fd/")]
+        assert len(positions) == 3
+        process["argv"][positions[-1]] = (process["argv"][positions[0]] if fault == "signature_fd_alias" else "/tmp/unselected")
+    elif fault == "signature_argv":
+        process["argv"][1] = "--unselected-option"
+    elif fault == "signature_input":
+        process["inputs"]["release"]["sha256"] = "0" * 64
+    elif fault == "signature_status":
+        evidence["stdout_hex"] = b"not a valid signature status".hex()
+        process["stdout"] = bound(bytes.fromhex(evidence["stdout_hex"]))
+    elif fault == "signature_bound_stream":
+        evidence["stderr_hex"] += "00"
+    else:
+        process["approved"] = True
+    with pytest.raises(ValueError):
+        _loader_resolution_preserved_summary_check(admitted, source, original)
+
+
+@pytest.mark.parametrize("fault", [None, "empty", "nonempty", "symlink", "permission_denied",
+    "wrong_absence_errno", "appeared", "changed_stat", "changed_parent", "changed_read",
+    "parent_symlink", "child_root_changed", "close_failure"])
+def test_loader_resolution_native_preload_dispatch_distinguishes_absence_from_failed_or_changed_reads(
+        loader_resolution_modules, fault):
+    modules = loader_resolution_modules
+    native = object.__new__(modules.native_type)
+    native.clock, native.procfd = lambda: 1, 60002
+    proof = _loader_resolution_preload_fixture("empty")
+    native.preload_root = native.preload_parent = None
+    if fault == "child_root_changed":
+        native.preload_root = copy.deepcopy(proof["root"]["before"])
+        native.preload_parent = copy.deepcopy(proof["parent"]["before"])
+    rows = {301: proof["root"]["before"], 302: proof["parent"]["before"],
+            303: proof["file"]["before"]}
+    opened, closed, reads, stats = [], [], [], {301: 0, 302: 0, 303: 0, "name": 0}
+    absent = fault in (None, "wrong_absence_errno", "appeared")
+
+    def observed(row):
+        return SimpleNamespace(**{"st_" + key: value for key, value in row.items()})
+
+    def open_path(path, flags, *, dir_fd=None):
+        if path in ("/", "root"):
+            assert (dir_fd is None) == (path == "/")
+            descriptor = 301
+        elif path == "etc":
+            assert dir_fd == 301 and flags & os.O_NOFOLLOW and flags & os.O_DIRECTORY
+            if fault == "parent_symlink":
+                raise OSError(errno.ELOOP, "authored symlink")
+            descriptor = 302
+        else:
+            assert path == "ld.so.preload" and dir_fd == 302
+            assert flags & os.O_NOFOLLOW and flags & os.O_NONBLOCK
+            if absent and fault != "appeared":
+                raise FileNotFoundError(errno.ENOENT, "authored absence")
+            descriptor = 303
+        opened.append(descriptor)
+        return descriptor
+
+    def fstat(descriptor):
+        stats[descriptor] += 1
+        row = dict(rows[descriptor])
+        if fault == "changed_stat" and descriptor == 303 and stats[descriptor] > 1:
+            row["ctime_ns"] += 1
+        if fault == "changed_parent" and descriptor == 302 and stats[descriptor] > 1:
+            row["mtime_ns"] += 1
+        if fault == "child_root_changed" and descriptor == 301:
+            row["ino"] += 1
+        return observed(row)
+
+    def named_stat(path, *, dir_fd, follow_symlinks):
+        assert path == "ld.so.preload" and dir_fd == 302 and follow_symlinks is False
+        stats["name"] += 1
+        if fault == "permission_denied":
+            raise PermissionError(errno.EACCES, "authored denied read")
+        if absent:
+            raise FileNotFoundError(errno.EACCES if fault == "wrong_absence_errno" else errno.ENOENT,
+                                    "authored failed lookup")
+        row = dict(rows[303])
+        if fault == "nonempty":
+            row["size"] = 1
+        if fault == "symlink":
+            row["mode"] = stat.S_IFLNK | 0o777
+        return observed(row)
+
+    def read(descriptor, length):
+        assert (descriptor, length) == (303, 1)
+        reads.append((descriptor, length))
+        return b"X" if fault == "changed_read" else b""
+
+    def close(descriptor):
+        closed.append(descriptor)
+        if fault == "close_failure" and descriptor == 303:
+            raise OSError(errno.EIO, "authored close failure")
+
+    result = error = None
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(os, "open", open_path)
+        patch.setattr(os, "fstat", fstat)
+        patch.setattr(os, "stat", named_stat)
+        patch.setattr(os, "read", read)
+        patch.setattr(os, "close", close)
+        try:
+            result = native.preload(10, child=fault == "child_root_changed")
+        except (OSError, ValueError) as caught:
+            error = caught
+    assert sorted(closed) == sorted(opened)
+    if fault in (None, "empty"):
+        assert error is None and result["status"] == ("absent" if fault is None else "empty")
+        assert result["content"] == bound(b"")
+        assert reads == ([] if fault is None else [(303, 1)])
+    else:
+        assert error is not None and result is None
+        if fault in ("nonempty", "symlink", "permission_denied", "wrong_absence_errno", "parent_symlink"):
+            assert reads == []
+
+
+@pytest.mark.parametrize("state", ["absent", "empty"])
+def test_loader_resolution_preload_absent_or_read_empty_records_are_only_scoped_evidence(state):
+    helper = loader_resolution_reader()
+    value = _loader_resolution_preload_fixture(state)
+    assert helper.validate_preload(value) == value
+    assert helper.validate_preload(value, expected=copy.deepcopy(value)) == value
+
+
+@pytest.mark.parametrize("fault", ["nonempty", "symlink", "unknown_status", "wrong_errno", "bool_errno",
+    "present_absence", "read_drift", "parent_mtime", "parent_ctime", "root_inode", "content"])
+def test_loader_resolution_preload_rehash_cannot_hide_changed_custody_or_unsupported_absence(fault):
+    helper = loader_resolution_reader()
+    expected = _loader_resolution_preload_fixture("empty" if fault in ("nonempty", "symlink") else "absent")
+    value = copy.deepcopy(expected)
+    if fault == "nonempty":
+        for side in ("before", "after"):
+            value["file"][side]["size"] = 1
+    elif fault == "symlink":
+        for side in ("before", "after"):
+            value["file"][side]["mode"] = stat.S_IFLNK | 0o777
+    elif fault == "unknown_status":
+        value["status"] = "not_read"
+    elif fault in ("wrong_errno", "bool_errno"):
+        value["open_errno"] = errno.EACCES if fault == "wrong_errno" else True
+    elif fault == "present_absence":
+        value["file"] = _loader_resolution_preload_fixture("empty")["file"]
+    elif fault == "read_drift":
+        value["parent"]["after"]["ctime_ns"] += 1
+    elif fault in ("parent_mtime", "parent_ctime", "root_inode"):
+        object_name, field = ("root", "ino") if fault == "root_inode" else (
+            "parent", "mtime_ns" if fault == "parent_mtime" else "ctime_ns")
+        for side in ("before", "after"):
+            value[object_name][side][field] += 1
+    else:
+        value["content"] = bound(b"not empty")
+    with pytest.raises(helper.ReadoutError):
+        helper.validate_preload(value, expected=expected)
+
+
+def _loader_resolution_rebind_capture(capture, files):
+    capture["files"] = {name: bound(raw) for name, raw in sorted(files.items())}
+    points = ([capture["cp0"]] if capture["cp0"] else []) + capture["returns"] + (
+        [capture["entry"]] if capture["entry"] else [])
+    for point in points:
+        for reference in point["raw_files"].values():
+            if reference["path"] in files:
+                reference.update(bound(files[reference["path"]]))
+
+
+def _loader_resolution_replay_arguments(fixture, *, capture=None, files=None):
+    case = fixture.request_case
+    capture = fixture.result["capture"] if capture is None else capture
+    files = fixture.result["files"] if files is None else files
+    raw = encoded(capture)
+    return {"request_bytes": case.raw, "expected_request_sha256": digest(case.raw),
+            "capture_bytes": raw, "expected_capture_sha256": digest(raw), "files": files,
+            "accepted_policy_sha256": LOADER_RESOLUTION_POLICY_SHA}
+
+
+def _loader_resolution_replay_admission(fixture, monkeypatch):
+    calls = []
+
+    def fresh(**arguments):
+        assert arguments["accepted_policy_sha256"] == LOADER_RESOLUTION_POLICY_SHA
+        assert arguments["request_bytes"] == fixture.request_case.raw
+        calls.append(arguments)
+        return _loader_resolution_scripted_admission(fixture.request_case)
+
+    monkeypatch.setattr(fixture.request_case.core, "reconstruct_admission", fresh)
+    return calls
+
+
+def test_loader_resolution_replay_is_canonical_across_new_verifier_process_diagnostics(
+        loader_resolution_scripted_record, monkeypatch):
+    fixture = loader_resolution_scripted_record
+    core, checker = fixture.request_case.core, loader_resolution_checker()
+    calls = []
+
+    def changing_fresh_diagnostics(**arguments):
+        assert arguments["accepted_policy_sha256"] == LOADER_RESOLUTION_POLICY_SHA
+        calls.append(arguments)
+        return _loader_resolution_changed_verifier_diagnostics(fixture.request_case.admitted, len(calls))
+
+    monkeypatch.setattr(core, "reconstruct_admission", changing_fresh_diagnostics)
+    first = checker.verify_scripted_capture(**_loader_resolution_replay_arguments(fixture))
+    second = checker.verify_scripted_capture(**_loader_resolution_replay_arguments(fixture))
+    assert len(calls) == 2 and encoded(first) == encoded(second) == encoded(fixture.result["report"])
+    assert first["complete_mechanics_verified"] is True and first["scripted_record_reconstructed"] is True
+    assert first["native_record_reconstructed"] is first["consumer_resolution_observed"] is False
+    assert first["loader_resolution_verified"] is first["original_loader_capture_completed"] is False
+    assert first["physical_execution_authenticated"] is first["b2_complete"] is False
+    assert first["metric_pass"] is None and first["authority_effect"] == "none"
+
+
+@pytest.mark.parametrize("fault", ["extra_field", "boundary", "boolean_process", "wrong_request",
+    "return_order", "missing_return", "duplicate_occurrence", "post_entry_continue", "missing_reset",
+    "failed_resume", "sample_outside_window", "missing_reap", "cleanup_deadline",
+    "unexpected_child", "namespace_changed", "preload_parent_mtime", "preload_parent_ctime",
+    "backing_continuity", "extra_raw", "missing_raw", "changed_native", "wrong_event_message"])
+def test_loader_resolution_rehashed_capture_cannot_replace_independent_lifecycle_or_raw_continuity(
+        loader_resolution_scripted_record, monkeypatch, fault):
+    fixture = loader_resolution_scripted_record
+    _loader_resolution_replay_admission(fixture, monkeypatch)
+    capture, files = copy.deepcopy(fixture.result["capture"]), dict(fixture.result["files"])
+    if fault == "extra_field":
+        capture["approved"] = True
+    elif fault == "boundary":
+        capture["boundary"]["native_acquisition_performed"] = True
+    elif fault == "boolean_process":
+        capture["process"]["observer_pid"] = True
+    elif fault == "wrong_request":
+        files["request.json"] += b" "
+    elif fault == "return_order":
+        capture["returns"][0], capture["returns"][1] = capture["returns"][1], capture["returns"][0]
+    elif fault == "missing_return":
+        capture["returns"].pop()
+    elif fault == "duplicate_occurrence":
+        first, second = capture["returns"][:2]
+        second["runtime_ranges"] = copy.deepcopy(first["runtime_ranges"])
+        for role in ("memory.sample0.bin", "memory.sample1.bin"):
+            files[second["raw_files"][role]["path"]] = files[first["raw_files"][role]["path"]]
+    elif fault == "post_entry_continue":
+        row = copy.deepcopy(next(row for row in capture["operations"] if row["op"] == "continue"))
+        row.update({"after": "entry", "at_ns": capture["entry"]["sample_finished_ns"] + 1})
+        position = next(i for i, row in enumerate(capture["operations"]) if row["op"] == "kill")
+        capture["operations"].insert(position, row)
+    elif fault == "missing_reset":
+        position = next(i for i, row in enumerate(capture["operations"])
+                        if row["op"] == "debug_write" and row["phase"] == "resume.02")
+        del capture["operations"][position]
+    elif fault == "failed_resume":
+        next(row for row in capture["operations"] if row["op"] == "continue")["returncode"] = -1
+    elif fault == "sample_outside_window":
+        capture["returns"][0]["sample_started_ns"] = capture["returns"][0]["sample_finished_ns"] - 1
+    elif fault == "missing_reap":
+        capture["operations"] = [row for row in capture["operations"]
+                                  if not (row["op"] == "wait" and row["phase"] == "reap")]
+    elif fault == "cleanup_deadline":
+        capture["timing"]["finished_ns"] = capture["timing"]["cleanup_started_ns"] + 2_000_000_001
+    elif fault == "unexpected_child":
+        capture["process"]["unexpected_children"] = [{"pid": 7001, "pidfd": 99, "reaped": False}]
+    elif fault in ("namespace_changed", "preload_parent_mtime", "preload_parent_ctime"):
+        path = capture["returns"][4]["raw_files"]["environment.json"]["path"]
+        value = json.loads(files[path])
+        if fault == "namespace_changed":
+            value["namespaces"]["mnt"] = "mnt:[999999]"
+        else:
+            key = "mtime_ns" if fault == "preload_parent_mtime" else "ctime_ns"
+            for side in ("before", "after"):
+                value["preload"]["parent"][side][key] += 1
+        files[path] = encoded(value)
+    elif fault == "backing_continuity":
+        for side in ("before", "after"):
+            capture["returns"][0]["backings"][2][side]["ctime_ns"] += 1
+    elif fault == "extra_raw":
+        files["unselected.bin"] = b"unselected"
+    elif fault == "missing_raw":
+        del files["guard.program.bin"]
+    elif fault == "changed_native":
+        path = capture["cp0"]["backings"][0]["content"]["path"]
+        raw = bytearray(files[path])
+        raw[-1] ^= 1
+        files[path] = bytes(raw)
+    else:
+        files["exec.event_message.bin"] = struct.pack("<Q", capture["process"]["child_pid"] + 1)
+    _loader_resolution_rebind_capture(capture, files)
+    with pytest.raises(loader_resolution_checker().CaptureError):
+        loader_resolution_checker().verify_scripted_capture(
+            **_loader_resolution_replay_arguments(fixture, capture=capture, files=files))
+
+
+def test_loader_resolution_public_native_replay_does_not_promote_scripted_origin_or_qualification(
+        loader_resolution_scripted_record, monkeypatch):
+    fixture = loader_resolution_scripted_record
+    calls = _loader_resolution_replay_admission(fixture, monkeypatch)
+    checker = loader_resolution_checker()
+    with pytest.raises(checker.CaptureError, match="loader_resolution_evidence_origin"):
+        checker.verify_capture(**_loader_resolution_replay_arguments(fixture))
+    assert calls == []
+    capture = copy.deepcopy(fixture.result["capture"])
+    capture["evidence_origin"] = "native_original_loader_capture"
+    with pytest.raises(checker.CaptureError):
+        checker.verify_capture(**_loader_resolution_replay_arguments(fixture, capture=capture))
+    assert len(calls) == 1
+
+
+def test_loader_resolution_incomplete_prefix_never_retains_completed_observation_claims(
+        loader_resolution_scripted_record, monkeypatch):
+    fixture = loader_resolution_scripted_record
+    _loader_resolution_replay_admission(fixture, monkeypatch)
+    capture = copy.deepcopy(fixture.result["capture"])
+    capture["status"], capture["failure"] = "incomplete", "authored_post_capture_failure"
+    report = loader_resolution_checker().verify_scripted_capture(
+        **_loader_resolution_replay_arguments(fixture, capture=capture))
+    assert report["status"] == "preserved_incomplete"
+    assert report["incomplete_record_preserved"] is True and report["complete_mechanics_verified"] is False
+    assert report["accepted_return_events"] == 0 and report["occurrence_joins"] == []
+    for name in ("native_record_reconstructed", "scripted_record_reconstructed", "consumer_resolution_observed",
+                 "loader_resolution_verified", "original_loader_capture_completed", "physical_execution_authenticated",
+                 "b2_complete", "original_acquisition_ready", "future_host_admitted"):
+        assert report[name] is False, name
+
+
+def test_loader_resolution_checker_directory_reader_bounds_actual_reads_by_selected_manifest_size(tmp_path, monkeypatch):
+    checker = loader_resolution_checker()
+    path = tmp_path / "capture"
+    path.mkdir()
+    name = "source_build.admission.json"
+    (path / name).write_bytes(b"longer than declared")
+    (path / "capture.json").write_bytes(encoded({"files": {name: bound(b"x")}}))
+    calls, real_read = [], checker.transport.read_regular
+
+    def bounded_read(selected, maximum):
+        if Path(selected).name == name:
+            calls.append(maximum)
+            assert maximum == 1, "raw read used the loose role limit instead of selected extent"
+        return real_read(selected, maximum)
+
+    monkeypatch.setattr(checker.transport, "read_regular", bounded_read)
+    with pytest.raises(ValueError):
+        checker.read_capture_directory(path)
+    assert calls == [1]
+
+
+def test_loader_resolution_both_directory_readers_ignore_output_report_and_reject_failure_marker(tmp_path):
+    adapter, checker = loader_resolution_preparation(), loader_resolution_checker()
+    output = adapter.CaptureDirectory(tmp_path / "capture")
+    files = {"request.json": b"authored transport request", "stdout.bin": b""}
+    capture = {"status": "incomplete", "files": {name: bound(raw) for name, raw in files.items()}}
+    try:
+        raw = adapter.preserve_result(output, {"capture": capture, "files": files,
+            "report": {"approved": True, "status": "this output is not an input"}})
+    finally:
+        output.close()
+    for reader in (adapter.read_capture_directory, checker.read_capture_directory):
+        assert reader(output.path) == (raw, files)
+    (output.path / "attempt.incomplete.json").write_bytes(b"failed publication")
+    for reader in (adapter.read_capture_directory, checker.read_capture_directory):
+        with pytest.raises(ValueError):
+            reader(output.path)
+
+
+def test_loader_resolution_additions_preserve_the_entire_preceding_registered_test_prefix():
+    raw = (ROOT / SELF).read_bytes()
+    assert digest(raw[:1051787]) == "b785f46fe01fa4e38ac633d56edb7592bd077b09899c4dd3c8ed8606ba26c419"
+    test_containment_module_is_registered_once_without_targeted_duplication()
