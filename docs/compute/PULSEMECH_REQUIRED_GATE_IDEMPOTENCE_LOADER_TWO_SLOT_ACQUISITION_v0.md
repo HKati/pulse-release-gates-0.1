@@ -17,12 +17,21 @@ This is a callable implementation unit in the gate 4 qualification path of the
 The local regressions use authored records and scripted execution. They supply
 no actual native qualification record or original-loader observation.
 
+**Selected hosted result:**
+[owner-dispatched run `45253188286/1`](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45253188286)
+at source `624713608bcf5467c6d4be44cd026f906c45f274` completed one actual fixed
+probe through this adapter. Its
+[preserved request, attempt and hosted verification](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md#completed-hosted-qualification-452531882861)
+retain native-origin evidence separately from the authored regression cases.
+Original-loader acquisition, future-context admission and B2 completion remain
+open.
+
 | Surface | Responsibility |
 | --- | --- |
 | Request preparation | Read the selected environment independently, before a probe, and bind the fixed profile and exact implementation inventory. |
 | Attempt adapter | Require the exact acknowledgement and request digest, recheck the selection, invoke at most one fixed probe and preserve its outcome. |
 | Attempt checker | Independently validate the request, receipt and raw-record bindings; reconstruct mechanics through the unchanged raw checker. |
-| Hosted integration | Still requires its own reviewed source, workflow, run, artifact and execution procedure bindings. |
+| Hosted integration | The separate hosted route completed selected attempt `45253188286/1` with reviewed source, workflow, artifact and independent replay bindings. |
 | Original loader | Still requires its separate source/build acceptance, collector, input admission and authorized observation. |
 
 ## File inventory and unchanged components
@@ -229,9 +238,10 @@ context reads. They exercise the actual new adapter/checker and the unchanged
 raw checker. Native probe execution, Docker execution and workflow dispatch are
 outside the regression path.
 
-The existing test file is extended without rewriting earlier cases. The main
-README, existing workflows, historical evidence and the 190 Tools / 41 targeted
-test registrations retain their bytes.
+The implementation increment extended the existing test file without rewriting
+earlier cases. It left the main README, existing workflows, historical evidence
+and the 190 Tools / 41 targeted test registrations unchanged. The later
+preservation update records the selected hosted result in documentation.
 
 ## Remaining execution and issue boundary
 
@@ -241,12 +251,13 @@ entry-stop workflow remains a different operation: it qualifies its original
 entry-stop prerequisites and then invokes the original launcher. It must not be
 used as a shortcut for a qualification-only attempt.
 
-The next execution integration must bind the reviewed source, selected runtime
+The separate hosted integration binds the reviewed source, selected runtime
 environment, owner request, workflow/run/attempt identity, actual invocation,
-preserved artifact, independent reconstruction and outer cleanup. Actual
-dispatch remains a separate owner decision at the exact reviewed revision.
+preserved artifact, independent reconstruction and outer cleanup. These
+relationships were checked for `45253188286/1`. Any later dispatch remains a
+separate owner decision at the exact reviewed revision.
 
-Even a later complete qualification applies to its recorded environment. It
+The completed qualification applies to its recorded environment. It
 cannot admit a future original-loader acquisition in another boot, namespace,
 container or process context. Fresh original-input admission, the original
 collector/capture path and the accepted source/build evidence route retain

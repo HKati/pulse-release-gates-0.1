@@ -2,6 +2,14 @@
 
 ## Status and scope
 
+**Selected hosted qualification completed:** owner-dispatched run
+[`45253188286/1`](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45253188286)
+at source `624713608bcf5467c6d4be44cd026f906c45f274` completed the fixed native
+probe, separate hosted replay, owned-container cleanup and hosted attestation
+verification. The [completed result and preservation](#completed-hosted-qualification-452531882861)
+below retain its exact scope. Original-loader acquisition, source/build
+acceptance, future-host admission and B2 completion remain open.
+
 This unit supplies a separate, manual GitHub execution and preservation route
 for the existing fixed synthetic two-slot probe. It builds on the unchanged
 [raw qualification implementation](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_QUALIFICATION_v0.md)
@@ -17,8 +25,9 @@ image, container, request-context or qualification digest is predetermined.
 
 The workflow is
 [`required_gate_idempotence_loader_two_slot_qualification_v0.yml`](../../.github/workflows/required_gate_idempotence_loader_two_slot_qualification_v0.yml).
-It has only `workflow_dispatch`; existing workflows, CI manifests, original
-launcher collectors and the main README are unchanged. It never selects the
+It has only `workflow_dispatch`. That implementation left existing workflows,
+CI manifests, original launcher collectors and the main README unchanged.
+The workflow never selects the
 original launcher, original package archives, native overlays, Q2/Q3 workloads
 or model payloads. The complete whole-runtime scope of issue #2879 stays open.
 
@@ -123,6 +132,28 @@ automatic retry or relaxed-policy fallback is offered. If the selected hosted
 runner cannot perform the probe under this policy, the result remains an
 incomplete qualification with diagnostic evidence.
 
+Both phases select `--security-opt apparmor=docker-default` explicitly when
+creating their container. Docker can leave an implicit default profile empty
+in the inspection of a container that has not started. Explicit selection
+keeps the required profile visible before execution; the controller and the
+independent checker still require `AppArmorProfile=docker-default` at both
+prestart and terminal inspection, plus exactly the selected AppArmor and
+no-new-privileges options. Empty, custom or unconfined profiles are rejected.
+
+The first hosted attempt,
+[run 45079210493/1](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45079210493),
+at source `a6babb55284ad914c9feb2e041fc2b8ec624aa68`, stopped with
+`two_slot_hosted_container_defaults` while its container was still `created`.
+No probe was started. Owned removal and a successful absence check completed;
+the verification job rejected the preserved incomplete prefix and skipped
+attestation. The regression fixtures retain the original container inspection
+and plan bytes from acquisition artifact `14776900777`, whose archive SHA-256
+is `ea65d7af5e10166afb3e914ea849f7968d3305bd7882d297eb8d10c5e03dcbed`.
+Any modified inspection used by the regression tests is an authored case,
+not evidence of a later successful qualification. The fresh reviewed-source
+attempt `45253188286/1` below records the actual outcome after the correction;
+it does not change the earlier incomplete result.
+
 A successful completed result requires actual terminal state with exit code
 zero, no OOM and no Docker state error. The controller then verifies container
 ownership before force-removal and obtains a successful full-ID listing that
@@ -205,6 +236,130 @@ included in preservation records.
 This attestation authenticates the hosted verified statement. It does not
 authenticate every physical event claimed by the native record, admit a
 future host, satisfy original source/build policy or grant release authority.
+
+## Completed hosted qualification: 45253188286/1
+
+The owner dispatched
+[workflow run `45253188286`, attempt 1](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45253188286)
+on 2026-11-23 from `main`, selecting source and workflow commit
+[`624713608bcf5467c6d4be44cd026f906c45f274`](https://github.com/HKati/pulse-release-gates-0.1/tree/624713608bcf5467c6d4be44cd026f906c45f274)
+and acknowledgement `QUALIFY_LOADER_TWO_SLOT_ONLY`. Both the acquisition job
+and the separate replay/attestation job succeeded. The eighteen selected source
+files retained by both artifacts match that commit byte for byte.
+
+### Selected native result and cleanup
+
+The preserved request ID is `64a4bed1dd7e6f06333c42db52d5622e`. Its attempt
+records one producer invocation with origin `native_owned_probe`, completed
+mechanics and no scripted reconstruction. The fixed 138-byte ELF reached nine
+accepted return stops at the first slot and one terminal stop at the second.
+The raw record accounts for eleven continuations and zero post-terminal
+resumes; the owned child was terminated and reaped.
+
+The original qualification record is **122,939 bytes**, SHA-256
+`4a68980210242eed77ebad836171bb4edc1f6ff3c912d61a5991176b76b422b7`.
+Both acquisition reports and both separate verification reports are
+byte-identical: **1,366 bytes** each, SHA-256
+`656aa821bf6f9a7a89168b02bb55565a03c354133400a7937cb37a0158931fca`.
+Their accepted status is `accepted_native_qualification_attempt`. These are
+four processes using the same unchanged checker implementation, with the two
+replay processes running in the separate verification environment.
+
+Both phases selected `apparmor=docker-default` explicitly. Their prestart and
+terminal inspections report `AppArmorProfile=docker-default` and the exact
+`no-new-privileges` / `apparmor=docker-default` option pair. Both containers
+terminated with exit code zero, no OOM and an empty Docker state error. Each
+phase then verified ownership, successful removal and absence; both cleanup
+records contain an empty error list. This records the selected runtime policy
+and cleanup checks without granting general host or future-context admission.
+
+### Original artifact and attestation bindings
+
+Both complete original ZIP byte streams were checked against their provider
+sizes and SHA-256 values before the preservation selection was made.
+
+| Artifact | Exact original ZIP binding |
+| --- | --- |
+| [Acquisition artifact 14855273661](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45253188286/artifacts/14855273661) | `required-gate-idempotence-loader-two-slot-45253188286-1`; **131,031,858 bytes**; SHA-256 `0e2c4fb0b15ba66913014959a8eaceb1fc9d2cfe4b4702b35a6103a22977226e` |
+| [Verification artifact 14856708803](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45253188286/artifacts/14856708803) | `required-gate-idempotence-loader-two-slot-verification-45253188286-1`; **1,276,240 bytes**; SHA-256 `a46d8bee7504f112ee9469559ed684dd25fa463f4449ec59c0cb37531846c48e` |
+
+The external acquisition-receipt SHA-256 is
+`89cca33cdcd41baf35ff00471485529c8f65d845fba347982c5cb926c5cd4221`.
+The completed `verified-binding.json` is **6,220 bytes**, SHA-256
+`151b936a8295dc38a28541ef9c784783376e5a98f36ac13052482c025901b52d`.
+Its original attestation bundle is **11,770 bytes**, SHA-256
+`ace2d948b5d72588f01d49f1bb52fd664ae7b4f64562e689d9c0b3287b31c31d`.
+The original hosted `gh attestation verify` command exited zero with the
+selected repository, signer workflow, source/signer digests, main ref and
+hosted-runner constraints. The bundle, subject, verification command and
+accepted verification record are preserved together. This authenticates the
+hosted statement within its recorded boundary; physical-event authentication
+and original source/build acceptance remain false.
+
+### Repository selection and local reconstruction
+
+The [control evidence selection](../../preservation/required_gate_idempotence_loader_two_slot_qualification_v0/run_45253188286_attempt_1/control_evidence_v0.zip)
+retains **255 unchanged original members**: 129 from acquisition and all 126
+from verification. The derived ZIP is **1,603,965 bytes**, SHA-256
+`79d623d5277dee4e8c5c0552f74f1e0f069b689409be5b4de9a828d40e946e53`.
+It includes the complete native request/attempt/qualification,
+all four hosted reports, both eighteen-file source copies, wheel and environment
+materials, command and container records, receipt and handoff, cleanup and
+attestation evidence. The
+[descriptive preservation inventory](../../preservation/required_gate_idempotence_loader_two_slot_qualification_v0/run_45253188286_attempt_1/verification_record_v0.json)
+records the archive binding and every member's original artifact, path, size
+and digest. That inventory is not an additional independent checker report.
+
+The only omitted original member is acquisition
+`host-commands/base-save.stdout.bin`, **129,640,960 bytes**. Its exact binding
+remains in the unchanged acquisition receipt and preservation inventory. The
+derived ZIP is neither original GitHub ZIP and is not a complete hosted replay
+carrier. Complete hosted replay requires the full original acquisition,
+including that base-save payload, and the separate verification evidence.
+
+Two fresh local processes of the unchanged attempt checker reproduced all four
+original hosted reports byte for byte. The local review used CPython 3.12.14 and
+jsonschema 4.26.0. It also revalidated the complete acquisition receipt and
+completed acquisition, and the unchanged hosted checker reproduced the original
+6,220-byte `verified-binding.json` exactly. All 130 acquisition and 126
+verification member bytes and modes remained unchanged.
+
+The outer binding checker enforces the recorded absolute private-input mount,
+`/home/runner/work/_temp/required-gate-loader-two-slot-verification-45253188286-1-private-input`.
+The review restored a byte-identical regular-file copy of the full acquisition
+at that exact path for the data-only join, then removed the temporary copy and
+the parent directories it had created. The lower-level attempt replay remains
+separate from this outer path requirement. No evidence or checker was rewritten
+to accept a relocated mount.
+
+This was preserved-data reconstruction: the native probe, original launcher and
+Docker execution were not repeated. Execution in the original container image
+and fresh local attestation-signature verification are not claimed. The
+preservation inventory records these local checks separately from the original
+hosted results and signature-verification command.
+
+Retain both full original ZIPs outside the repository and verify their exact
+sizes and hashes above. Review-workspace copies were verified; receipt on the
+owner's own machine has not been observed. Both provider artifacts recorded an
+expiry of **2027-02-21 19:51:03 UTC**. Their provider retention is not permanent
+custody. No LFS, source-budget increase or additional paid artifact service is
+introduced by this preservation update.
+
+### Remaining original-loader work
+
+The selected synthetic qualification is complete within its recorded context.
+It does not execute the original launcher or establish its per-consumer loader
+resolution. The accepted original source/build evidence route, fresh original
+admission, complete collector/capture/checker implementation and separately
+authorized original observation remain open. The nine synthetic return stops
+are not nine observed original dependency resolutions.
+
+The earlier original entry-stop result and failed first two-slot attempt retain
+their own identities. Complete containment, selected-bootstrap integration,
+B3 property evidence, B4 admission and B5 actual reference remain separate.
+Keep `b2_complete=false`, `metric_pass=null`, `authority_effect=none` and
+[#2879](https://github.com/HKati/pulse-release-gates-0.1/issues/2879) open under
+its full whole-runtime acceptance conditions.
 
 ## Owner sequence after review and merge
 

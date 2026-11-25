@@ -225,12 +225,15 @@ later source revision.
 | Paradoxon PD-SM-01-E1 finite checks and MON-1 local enforcement | Completed local evidence preserved through #2954 / `a9de035d1b3ac227359ca78a98274abe4c9ee186`: 8192 F1 rows, 4096 F2 rows and 17 selected MON-1 cases; original archive and nested E0 retained; E2 compatibility and production authority remain separate; [result and original evidence](docs/PULSEMECH_PARADOX_E1_MON1_RESULT_v0.md); `authority_effect = none` |
 | Paradoxon PD-SM-02 source-bound pre-execution impact | Implementation merged through #2957 / `4cb5f7dbe00cfbaf5bd50f77423e4d671fa71905`; bounded local scratch result preserved through #2958 / `5bb3cae1ea562cbfde4b80f7bc3878bf3d92f6be`: 112 recorded regressions, 24/24 declared outcomes, 4/4 eligible exact effects and 20/20 non-eligible attempts stopped before output creation; CPython 3.13.5/Linux x86_64 only; [result and evidence](docs/PULSEMECH_PARADOX_PREEXECUTION_SCRATCH_RESULT_v0.md); `authority_effect = none` |
 
-### Current development checkpoint — 2026-11-20
+<a id="current-development-checkpoint--2026-11-20"></a>
+
+### Current development checkpoint — 2026-11-23
 
 This checkpoint describes source
-[`03d2c76e06d1f4efaf3a9e7e78dcf16a8be62081`](https://github.com/HKati/pulse-release-gates-0.1/tree/03d2c76e06d1f4efaf3a9e7e78dcf16a8be62081),
-including the corrected hosted entry-stop environment and completed
-[owner-dispatched run `44740993943/1`](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/44740993943).
+[`624713608bcf5467c6d4be44cd026f906c45f274`](https://github.com/HKati/pulse-release-gates-0.1/tree/624713608bcf5467c6d4be44cd026f906c45f274),
+including the completed original entry observation and the selected synthetic
+two-slot qualification in
+[owner-dispatched run `45253188286/1`](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45253188286).
 Implementation, original execution, independent reconstruction and reference
 acceptance are recorded separately. Historical results retain their original
 run and source identities.
@@ -241,16 +244,20 @@ run and source identities.
 | B2 original launcher exec-stop | Completed and preserved: `44375052171/1`. The selected kernel exec checkpoint, independent capture reconstruction and hosted attestation verification succeeded. The child was stopped before the interpreter's first userspace instruction. | [Completed exec-stop observation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_EXEC_STOP_GITHUB_v0.md) |
 | B2 guarded original entry collector | Completed bounded hosted observation: `44740993943/1`. Both prerequisite capability qualifications completed before one fresh original cp0-to-entry attempt; the child was terminated at executable entry without a further continuation. | [Collector and verification contract](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_v0.md) |
 | B2 hosted entry-stop workflow | Acquisition and separate verification succeeded in `44740993943/1`, including preserved capture reconstruction, outer-container cleanup and hosted attestation verification. The original artifacts and bounded repository selection retain separate custody and replay meanings. | [Completed hosted observation and preservation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_ENTRY_STOP_GITHUB_v0.md#completed-hosted-observation-447409939431) |
+| B2 synthetic loader two-slot qualification | Completed and preserved: `45253188286/1`. One fixed native probe, four byte-identical hosted checker reports, separate replay, owned-container cleanup and hosted attestation verification completed in the selected context. The bounded repository selection omits only the Docker base-save payload; complete original ZIPs retain separate custody. | [Completed qualification and preservation](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md#completed-hosted-qualification-452531882861) |
 | LRM-02–04 measurement core | Source/representation verification, finite relation comparison and finite support/impact evaluation are implemented within their declared evidence and representation boundaries. | [Input verification](docs/PULSEMECH_LANGUAGE_RELATION_INPUT_VERIFIER_v0.md), [relation comparison](docs/PULSEMECH_LANGUAGE_RELATION_COMPARATOR_v0.md), [support and impact](docs/PULSEMECH_LANGUAGE_RELATION_IMPACT_v0.md) |
 | LRM-05 candidate evaluation | Saved candidate-response import and fixed HU/EN source-request evaluation are implemented. The adapter runs LRM-02 verification and publishes inputs for separately invoked LRM-03/04 measurement. | [Candidate import and evaluation](docs/PULSEMECH_LANGUAGE_RELATION_ADAPTER_EVALUATION_v0.md) |
 
-The selected original executable-entry observation is complete. The next B2
-evidence obligation is actual per-consumer loader-resolution reconstruction;
-observed provider mappings alone do not establish it. Complete containment,
-selected-bootstrap integration and actual reference acceptance remain separate
-obligations. B2 remains incomplete, with `metric_pass = null` and
-`authority_effect = none`. No selected metric runtime or Q3 measurement was
-executed by this entry-stop observation.
+The selected original executable-entry observation and the separate synthetic
+two-slot qualification are complete within their recorded contexts. The next B2
+obligations include an accepted original source/build route, fresh original
+admission and actual per-consumer loader-resolution reconstruction. Observed
+provider mappings alone do not establish consumer resolution, and the synthetic
+probe does not admit a future original-loader host. Complete containment,
+selected-bootstrap integration and actual reference acceptance remain separate.
+B2 remains incomplete, with `metric_pass = null` and `authority_effect = none`.
+Neither bounded observation executed the selected metric runtime or a Q3
+measurement.
 
 LRM-05 retains `representation_basis = candidate_only` and
 `scope_selection = not_verified`. It makes no model calls and reports no provider
@@ -268,7 +275,7 @@ release authority.
 
 The following is the retained November 4 source-bound snapshot. Later B2 and LRM
 states are recorded in the
-[current development checkpoint](#current-development-checkpoint--2026-11-20).
+[current development checkpoint](#current-development-checkpoint--2026-11-23).
 
 This documentation checkpoint describes source
 [`1f6ad0961ec4dc576916248681651254996b6ea5`](https://github.com/HKati/pulse-release-gates-0.1/tree/1f6ad0961ec4dc576916248681651254996b6ea5).

@@ -6,6 +6,75 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Fix the original-loader checkpoint comparison after the first
+  [hosted observation attempt](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md#first-hosted-attempt-455866533791).
+  Preserve both original process samples while excluding only validated RSS
+  accounting values from stopped-sample equality in the collector and native
+  replay. Keep identity, security, mappings, registers and memory checks strict;
+  retain the historical fixture contracts. Add unchanged samples from the
+  incomplete attempt and regressions through collection and independent replay.
+  The recorded failure remains incomplete; a fresh owner dispatch is still
+  required, with B2 and #2879 open and `authority_effect=none`.
+
+- Add the separate [hosted B2 original-loader resolution route](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md).
+  Bind manual owner dispatch to the reviewed source and explicitly selected
+  rebuild policy; preserve the complete offline admission closure and exact
+  GPG/OpenSSL/native environment. Supervise one bounded original collector,
+  independently replay raw evidence in a separate job, require equal checker
+  reports and owned cleanup, and attest only completed verification. Preserve
+  incomplete prefixes and classify the new workflow explicitly. This unit
+  implements the route without dispatching it; B2 and whole-runtime #2879
+  remain open, with `metric_pass=null` and `authority_effect=none`.
+
+- Fix the [B2 original-loader collector regressions](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_v0.md#verification-and-next-boundary)
+  to distinguish scripted original-signature transport from fresh cryptographic
+  verification with an explicitly selected test-host verifier. Exercise the
+  unchanged original signature inputs with real GPG, reject changed signed
+  bytes, and prove that an unselected verifier still stops production admission
+  before any probe or original execution. Keep the historical verifier pin,
+  production admission and existing runtime profiles unchanged.
+
+- Add the separate [B2 bounded original-loader collector and independent replay](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_v0.md).
+  Reconstruct the full original-input and explicitly selected rebuild-policy
+  chains before fresh fixed guard/two-slot probes, then permit one acknowledged
+  original attempt with nine unique raw consumer/provider returns and a terminal
+  entry stop. Bind contemporaneous backing reads, paired raw samples, exact
+  continuation counts and owned cleanup; preserve incomplete attempts and keep
+  scripted tests distinct from native evidence. This unit performs no original
+  acquisition or workflow dispatch. Existing profiles, B2 completion and
+  whole-runtime #2879 retain their scope; `metric_pass=null` and
+  `authority_effect=none`.
+
+- Add a bounded [B2 original-loader rebuild acceptance policy](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_REBUILD_ACCEPTANCE_v0.md)
+  and independent data-only checker. Preserve the exact public service snapshot,
+  join its source-resolution records to all three complete original source
+  inputs, and freshly reconstruct the preceding package and signature proof.
+  Default evaluation leaves policy selection pending. An externally selected
+  exact policy can satisfy only the scoped source/build prerequisite under its
+  explicit current-service endorsement and unsigned source-association trust
+  assumptions. Retain truncation, unverified historical authority and original
+  signature limits; original acquisition, future-host admission, B2 and
+  whole-runtime #2879 remain open, with `metric_pass=null` and `authority_effect=none`.
+
+- Preserve the completed [B2 hosted two-slot qualification](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md#completed-hosted-qualification-452531882861)
+  from owner-dispatched run `45253188286/1` at source `624713608bcf5467c6d4be44cd026f906c45f274`.
+  Retain 255 unchanged original control/evidence members, exact artifact and
+  source bindings, four identical hosted reports, cleanup and hosted attestation
+  verification. Two fresh data-only checker processes reproduced the reports;
+  complete original evidence reconstructed the attested binding unchanged under
+  its recorded absolute input-path requirement. Keep complete original ZIPs in
+  separate custody and the first failed attempt incomplete. Original-loader
+  acquisition, source/build acceptance, B2 and whole-runtime #2879 remain open;
+  `metric_pass=null` and `authority_effect=none`.
+
+- Fix the [B2 loader two-slot hosted qualification](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md)
+  container creation to select `apparmor=docker-default` explicitly in both
+  acquisition and verification. Keep strict prestart and terminal profile
+  checks, independently reconstruct the exact selected command, and add
+  regressions from the first hosted attempt's actual prestart inspection.
+  The original incomplete attempt remains incomplete; actual qualification,
+  original-loader acquisition and release authority remain separate.
+
 - Add a separate [B2 loader two-slot hosted qualification route](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md)
   with a manual owner-bound workflow, exact source/input preservation, one
   synthetic probe in a restricted container and independent offline replay in
