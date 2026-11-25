@@ -755,7 +755,12 @@ def collect(*, request_bytes, expected_request_sha256, accepted_policy_sha256,
             backings=checkpoint["backings"], files=files, native_files=native)
 
     def pair_stable(checkpoint):
-        for kind in ("child.stat", "child.status", "maps", "regs", "auxv"):
+        decoding.validate_process_pair(
+            stat_before=checkpoint_raw(checkpoint, "child.stat.before.bin"),
+            stat_after=checkpoint_raw(checkpoint, "child.stat.after.bin"),
+            status_before=checkpoint_raw(checkpoint, "child.status.before.bin"),
+            status_after=checkpoint_raw(checkpoint, "child.status.after.bin"))
+        for kind in ("maps", "regs", "auxv"):
             _need(checkpoint_raw(checkpoint, kind + ".before.bin") ==
                   checkpoint_raw(checkpoint, kind + ".after.bin"),
                   "loader_resolution_checkpoint_changed")

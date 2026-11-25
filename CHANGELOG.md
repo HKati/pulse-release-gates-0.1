@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Fix the original-loader checkpoint comparison after the first
+  [hosted observation attempt](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md#first-hosted-attempt-455866533791).
+  Preserve both original process samples while excluding only validated RSS
+  accounting values from stopped-sample equality in the collector and native
+  replay. Keep identity, security, mappings, registers and memory checks strict;
+  retain the historical fixture contracts. Add unchanged samples from the
+  incomplete attempt and regressions through collection and independent replay.
+  The recorded failure remains incomplete; a fresh owner dispatch is still
+  required, with B2 and #2879 open and `authority_effect=none`.
+
 - Add the separate [hosted B2 original-loader resolution route](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md).
   Bind manual owner dispatch to the reviewed source and explicitly selected
   rebuild policy; preserve the complete offline admission closure and exact

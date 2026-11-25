@@ -22456,3 +22456,259 @@ def test_loader_resolution_hosted_download_rejects_bad_binding_but_preserves_onl
     assert target.read_bytes() == (b'' if fault == 'redirect' else response_raw[:len(expected_raw)])
     assert len(target.read_bytes()) <= item['size_bytes']
     assert stat.S_IMODE(target.stat().st_mode) == 0o600
+
+
+# Native procfs resident-accounting regression from failed hosted run 45586653379/1.
+# The four retained process samples are data only; they cannot complete that capture.
+LOADER_RESOLUTION_PROC_RESIDENCY_FIXTURE = (
+    ROOT / 'tests/fixtures/loader_resolution_proc_residency_45586653379_v0')
+LOADER_RESOLUTION_PROC_RESIDENCY_BINDINGS = {
+    'stat_before': ('cp0.child.stat.before.bin', 290,
+        '433bc9ba224afc1ed6c48482a2e274c5ea254591a087c79066ddb3ed0fd0d0e0'),
+    'stat_after': ('cp0.child.stat.after.bin', 291,
+        '002960fbb58934c075f2eeacf9f36e31d5c23efa40acecfed021de42d1f930ba'),
+    'status_before': ('cp0.child.status.before.bin', 1469,
+        '78147544a91f64e60bcf3ea94c362238a9d871576a22c033dcad64041445dded'),
+    'status_after': ('cp0.child.status.after.bin', 1469,
+        '90cd471714b99ad0e2f9fa36f753da8b2b2bd43d7db00d1b576264edd910c58d'),
+}
+
+
+def _loader_resolution_proc_residency_observed_pair():
+    result = {}
+    for argument, (name, size, expected_sha) in LOADER_RESOLUTION_PROC_RESIDENCY_BINDINGS.items():
+        raw = (LOADER_RESOLUTION_PROC_RESIDENCY_FIXTURE / name).read_bytes()
+        assert bound(raw) == {'size_bytes': size, 'sha256': expected_sha}
+        result[argument] = raw
+    return result
+
+
+def _loader_resolution_proc_residency_status(raw, *, after=False):
+    """Authored resident-accounting changes, including anonymous page residency."""
+    values = (224, 224, 24, 160, 40) if after else (12, 12, 12, 0, 0)
+    names = ('VmHWM', 'VmRSS', 'RssAnon', 'RssFile', 'RssShmem')
+    assert all((name + ':').encode('ascii') not in raw for name in names)
+    return raw + b''.join((f'{name}:\t{value:8d} kB\n').encode('ascii')
+                           for name, value in zip(names, values))
+
+
+def _loader_resolution_proc_residency_case(originals, phase='return.01'):
+    case = _loader_resolution_checkpoint_case(originals, phase)
+    for side, rss in (('before', 0), ('after', 40)):
+        role = f'child.stat.{side}.bin'
+        _loader_resolution_checkpoint_raw(case, role, mapping_stat_field(case.raw[role], 24, rss))
+        role = f'child.status.{side}.bin'
+        _loader_resolution_checkpoint_raw(case, role,
+            _loader_resolution_proc_residency_status(case.raw[role], after=side == 'after'))
+    return case
+
+
+def test_loader_resolution_proc_residency_preserved_cp0_pair_accepts_only_accounting_difference():
+    pair = _loader_resolution_proc_residency_observed_pair()
+    original = dict(pair)
+    assert pair['stat_before'] != pair['stat_after']
+    assert pair['status_before'] != pair['status_after']
+    assert loader_resolution_reader().validate_process_pair(**pair) is None
+    assert pair == original
+    before = pair['stat_before'].rsplit(b') ', 1)[1].split()
+    after = pair['stat_after'].rsplit(b') ', 1)[1].split()
+    assert [(index + 3, a, b) for index, (a, b) in enumerate(zip(before, after)) if a != b] == [
+        (24, b'0', b'40')]
+    # The independent status samples are retained even though their asynchronous
+    # total does not equal stat.rss times page size: no such equality is asserted.
+    assert b'VmRSS:\t      12 kB\n' in pair['status_before']
+    assert b'VmRSS:\t     212 kB\n' in pair['status_after']
+
+
+@pytest.mark.parametrize('phase', ['cp0', 'return.01', 'entry'])
+def test_loader_resolution_proc_residency_checkpoint_preserves_different_original_samples(
+        loader_readout_originals, phase, monkeypatch):
+    case = _loader_resolution_proc_residency_case(loader_readout_originals, phase)
+    helper = loader_resolution_reader()
+    original_files = dict(case.files)
+    original_checkpoint = copy.deepcopy(case.checkpoint)
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail('native resolution used a historical fixture process validator')
+
+    monkeypatch.setattr(helper.decoding, '_processes', forbidden)
+    report = _loader_resolution_checkpoint_check(case)
+    assert report['phase'] == phase
+    assert report['raw_files'] == case.raw
+    assert case.files == original_files and case.checkpoint == original_checkpoint
+    for kind in ('stat', 'status'):
+        before = case.checkpoint['raw_files'][f'child.{kind}.before.bin']
+        after = case.checkpoint['raw_files'][f'child.{kind}.after.bin']
+        assert before['sha256'] != after['sha256']
+        assert original_files[before['path']] != original_files[after['path']]
+
+
+def test_loader_resolution_proc_residency_setup_to_exec_name_change_keeps_identity_continuity(
+        loader_readout_originals):
+    case = _loader_resolution_proc_residency_case(loader_readout_originals, 'cp0')
+    for side, name in (('setup', 'python3.11'), ('before', 'bubblewrap'), ('after', 'bubblewrap')):
+        role = f'child.stat.{side}.bin'
+        raw = case.raw[role]
+        left, tail = raw.rsplit(b') ', 1)
+        pid = left.split(b' ', 1)[0]
+        _loader_resolution_checkpoint_raw(case, role, pid + b' (' + name.encode() + b') ' + tail)
+        role = f'child.status.{side}.bin'
+        assert b'Name:' not in case.raw[role]
+        _loader_resolution_checkpoint_raw(case, role,
+            ('Name:\t' + name + '\n').encode() + case.raw[role])
+    assert _loader_resolution_checkpoint_check(case)['phase'] == 'cp0'
+
+
+@pytest.mark.parametrize('fault', [
+    'stat_parent', 'stat_starttime', 'stat_threads', 'stat_vsize', 'stat_comm',
+    'status_uid', 'status_capabilities', 'status_guard', 'status_filters',
+    'status_vmsize', 'status_vmpte', 'status_vmswap', 'status_unknown',
+    'maps', 'registers', 'auxv',
+])
+def test_loader_resolution_proc_residency_rehashed_checkpoint_still_rejects_other_drift(
+        loader_readout_originals, fault):
+    case = _loader_resolution_proc_residency_case(loader_readout_originals)
+    stat_fields = {'stat_parent': 4, 'stat_starttime': 22, 'stat_threads': 20, 'stat_vsize': 23}
+    if fault in stat_fields:
+        role = 'child.stat.after.bin'
+        field = stat_fields[fault]
+        old = int(case.raw[role].rsplit(b') ', 1)[1].split()[field - 3])
+        _loader_resolution_checkpoint_raw(case, role, mapping_stat_field(case.raw[role], field, old + 1))
+    elif fault == 'stat_comm':
+        role = 'child.stat.after.bin'
+        left, tail = case.raw[role].rsplit(b') ', 1)
+        pid = left.split(b' ', 1)[0]
+        _loader_resolution_checkpoint_raw(case, role, pid + b' (changed-comm) ' + tail)
+    elif fault in ('status_guard', 'status_filters'):
+        role = 'child.status.after.bin'
+        name, value = ('NoNewPrivs', 0) if fault == 'status_guard' else ('Seccomp_filters', 3)
+        _loader_resolution_checkpoint_raw(case, role, mapping_status_field(case.raw[role], name, value))
+    elif fault.startswith('status_'):
+        name, before, after = {
+            'status_uid': ('Uid', '1000\t1000\t1000\t1000', '1001\t1000\t1000\t1000'),
+            'status_capabilities': ('CapEff', '0000000000000000', '0000000000000001'),
+            'status_vmsize': ('VmSize', '472 kB', '476 kB'),
+            'status_vmpte': ('VmPTE', '40 kB', '44 kB'),
+            'status_vmswap': ('VmSwap', '0 kB', '4 kB'),
+            'status_unknown': ('RssUnselected', '0 kB', '4 kB'),
+        }[fault]
+        for side, value in (('before', before), ('after', after)):
+            role = f'child.status.{side}.bin'
+            _loader_resolution_checkpoint_raw(case, role,
+                case.raw[role] + (name + ':\t' + value + '\n').encode('ascii'))
+    else:
+        role = {'maps': 'maps.after.bin', 'registers': 'regs.after.bin', 'auxv': 'auxv.after.bin'}[fault]
+        raw = bytearray(case.raw[role])
+        raw[0] ^= 1
+        _loader_resolution_checkpoint_raw(case, role, bytes(raw))
+    with pytest.raises(loader_resolution_reader().ReadoutError):
+        _loader_resolution_checkpoint_check(case)
+
+
+@pytest.mark.parametrize('fault', [
+    'negative_stat', 'overflow_stat', 'nonnumeric_stat', 'negative_status',
+    'overflow_status', 'wrong_unit', 'missing_value', 'duplicate_status',
+    'duplicate_both', 'removed_status', 'added_status', 'reordered_status',
+])
+def test_loader_resolution_proc_residency_rejects_malformed_accounting_or_changed_roster(fault):
+    pair = _loader_resolution_proc_residency_observed_pair()
+    if fault.endswith('_stat'):
+        value = {'negative_stat': -1, 'overflow_stat': 1 << 63, 'nonnumeric_stat': 'x'}[fault]
+        pair['stat_before'] = mapping_stat_field(pair['stat_before'], 24, value)
+        pair['stat_after'] = mapping_stat_field(pair['stat_after'], 24, value)
+    elif fault in ('negative_status', 'overflow_status', 'wrong_unit', 'missing_value'):
+        value = {'negative_status': '-1 kB', 'overflow_status': str(1 << 63) + ' kB',
+                 'wrong_unit': '212 MB', 'missing_value': 'kB'}[fault]
+        for side in ('before', 'after'):
+            pair['status_' + side] = mapping_status_field(pair['status_' + side], 'VmRSS', value)
+    elif fault.startswith('duplicate'):
+        pair['status_after'] += b'VmRSS:\t     212 kB\n'
+        if fault == 'duplicate_both':
+            pair['status_before'] += b'VmRSS:\t      12 kB\n'
+    elif fault == 'removed_status':
+        pair['status_after'] = b''.join(line for line in pair['status_after'].splitlines(True)
+                                        if not line.startswith(b'RssAnon:'))
+    elif fault == 'added_status':
+        pair['status_after'] += b'VmUnselected:\t1 kB\n'
+    else:
+        lines = pair['status_after'].splitlines(True)
+        a = next(index for index, line in enumerate(lines) if line.startswith(b'VmRSS:'))
+        b = next(index for index, line in enumerate(lines) if line.startswith(b'RssAnon:'))
+        lines[a], lines[b] = lines[b], lines[a]
+        pair['status_after'] = b''.join(lines)
+    with pytest.raises(loader_resolution_reader().ReadoutError):
+        loader_resolution_reader().validate_process_pair(**pair)
+
+
+def test_loader_resolution_proc_residency_does_not_relax_historical_fixture_process_equality(
+        loader_readout_originals):
+    case = _loader_resolution_proc_residency_case(loader_readout_originals)
+    helper = loader_resolution_reader().decoding
+    identity = {'observer_pid': case.process['observer_pid'], 'child_pid': case.process['child_pid'],
+                'child_starttime': case.process['starttime']}
+    with pytest.raises(helper.ReadoutError, match='loader_readout_process_sample_changed'):
+        helper._processes(identity, case.raw)
+
+
+@pytest.mark.parametrize('fault,expected_continues', [(None, 11), ('cp0_vsize', 1),
+    ('return_status', 2), ('entry_guard', 11)])
+def test_loader_resolution_proc_residency_scripted_collector_preserves_samples_and_stops_at_entry(
+        loader_resolution_modules, loader_resolution_request_case,
+        loader_resolution_scripted_signature_admission, monkeypatch, fault, expected_continues):
+    original_read = _LoaderResolutionScriptedBackend.read_proc
+    counts, samples = {}, {}
+
+    def changing_accounting(self, role, deadline):
+        raw = original_read(self, role, deadline)
+        if role not in ('child.stat', 'child.status') or self.phase == 'setup':
+            return raw
+        key = (self.phase, role)
+        ordinal = counts.get(key, 0)
+        counts[key] = ordinal + 1
+        assert ordinal in (0, 1), key
+        if role == 'child.stat':
+            raw = mapping_stat_field(raw, 24, 40 if ordinal else 0)
+            if fault == 'cp0_vsize' and self.phase == 'cp0' and ordinal:
+                raw = mapping_stat_field(raw, 23, 483328)
+        else:
+            raw = _loader_resolution_proc_residency_status(raw, after=bool(ordinal))
+            if fault == 'return_status' and self.phase == 'return.01':
+                raw += b'RssUnselected:\t' + (b'4' if ordinal else b'0') + b' kB\n'
+            if fault == 'entry_guard' and self.phase == 'entry' and ordinal:
+                raw = mapping_status_field(raw, 'NoNewPrivs', 0)
+        samples[(self.phase, role, ordinal)] = raw
+        return raw
+
+    monkeypatch.setattr(_LoaderResolutionScriptedBackend, 'read_proc', changing_accounting)
+    backend, result, _calls = _loader_resolution_scripted_collect(
+        loader_resolution_modules, loader_resolution_request_case, monkeypatch)
+    capture = result['capture']
+    assert backend.cont_count == expected_continues
+    assert backend.reaped and backend.closed
+    assert capture['evidence_origin'] == 'scripted_test_backend'
+    assert capture['boundary']['b2_complete'] is False
+    assert capture['boundary']['metric_pass'] is None and capture['boundary']['authority_effect'] == 'none'
+    if fault:
+        assert capture['status'] == 'incomplete' and capture['failure']
+        assert result['report']['status'] == 'preserved_incomplete'
+        assert result['report']['accepted_return_events'] == 0
+        return
+    assert capture['status'] == 'completed', capture['failure']
+    assert len(capture['returns']) == 9 and backend.terminal_seen
+    assert result['report']['status'] == 'accepted_scripted_loader_resolution_record'
+    assert not result['report']['native_record_reconstructed']
+    points = [capture['cp0'], *capture['returns'], capture['entry']]
+    assert len(points) == 11
+    for point in points:
+        for kind in ('stat', 'status'):
+            role = 'child.' + kind
+            before, after = (samples[(point['phase'], role, index)] for index in (0, 1))
+            assert before != after
+            for side, raw in (('before', before), ('after', after)):
+                descriptor = point['raw_files'][role + '.' + side + '.bin']
+                assert result['files'][descriptor['path']] == raw
+                assert {key: descriptor[key] for key in ('size_bytes', 'sha256')} == bound(raw)
+    fixture = SimpleNamespace(request_case=loader_resolution_request_case, result=result)
+    replay = loader_resolution_checker().verify_scripted_capture(**_loader_resolution_replay_arguments(fixture))
+    assert encoded(replay) == encoded(result['report'])
+    assert replay['ptrace_cont_count'] == 11 and replay['post_entry_resumes'] == 0
