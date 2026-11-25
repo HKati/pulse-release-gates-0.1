@@ -12,6 +12,9 @@ attestation.
 The subsequent [hosted execution and independent replay route](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md)
 provides a separate manual workflow, complete offline environment and custody
 contract for this collector. Its implementation does not itself perform a run.
+The [first owner-dispatched hosted attempt](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md#first-hosted-attempt-455866533791)
+stopped incomplete at cp0; its preserved process samples now cover the specific
+residency-accounting regression described below.
 
 The selected historical entry capture and completed
 [two-slot probe](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md)
@@ -208,6 +211,33 @@ unselected file mappings. They do not require all six libraries to be present
 before the loader has reached them. The terminal entry checkpoint requires the
 complete selected six-object mapping coverage and paired original RX bytes.
 The original immutable loader RX bytes are checked at every return.
+
+### Process identity and resident-memory accounting
+
+The collector and native checkpoint decoder validate both complete original
+`stat` and `status` samples. They permit a difference only in the numeric value
+of `stat` field 24 (`rss`) and the five explicitly named `status` quantities
+`VmHWM`, `VmRSS`, `RssAnon`, `RssFile` and `RssShmem`. These are nonnegative,
+bounded resident-memory accounting values; status units must remain `kB`.
+Duplicate fields, changed field membership, malformed quantities and changes
+to every other field remain rejected. Both raw samples and their separate
+digests stay unchanged in the capture.
+
+Linux documents [RSS accounting as asynchronous](https://docs.kernel.org/filesystems/proc.html).
+Reading a stopped process's memory may fault in pages without resuming that
+process. Residency counters therefore do not serve as process-identity or
+unchanged-code evidence, and the checker does not require their totals to agree
+across separately sampled procfs files. `RssAnon` belongs to the same explicit
+resident-accounting family; this exception does not extend to arbitrary
+`Rss*` or `Vm*` names, `VmPTE`, `VmSwap` or virtual-size fields.
+
+PID/TGID, parent, tracer, starttime, tracing-stop state, one-thread identity,
+pidfd ownership, credentials, capabilities and guard state retain their checks.
+Registers, maps, auxv, debug registers, stack samples and selected memory remain
+exact comparisons. Setup-to-exec continuity retains its existing identity
+checks; it does not require the pre-exec process name or address layout to
+survive exec. Historical authored-fixture validators retain their original
+strict byte-comparison contracts.
 
 Initial-stack evidence includes the complete bounded control structure, argv
 and environment terminators, the entire auxv with terminator, and exactly the

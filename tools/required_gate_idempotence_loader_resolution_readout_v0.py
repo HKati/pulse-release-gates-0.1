@@ -42,6 +42,7 @@ ENTRY_ROLES = tuple(sorted((set(decoding.FILE_NAMES) - {
        "environment.json", "fds.json"}))
 MAX_INTEGER = (1 << 63) - 1
 SAFE_PATH = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,199}\Z")
+RESIDENT_STATUS_FIELDS = frozenset((b"VmHWM", b"VmRSS", b"RssAnon", b"RssFile", b"RssShmem"))
 
 
 class ReadoutError(ValueError):
@@ -75,6 +76,90 @@ def binding(raw):
 
 def _same(actual, expected, code):
     _need(canonical(actual) == canonical(expected), code)
+
+
+def _process_stat_projection(raw):
+    # The parser checks all 52 fields, including the mixed signed/unsigned
+    # kernel values. Only field 24 (rss) is excluded from byte stability.
+    decoding.proc.parse_proc_stat(raw)
+    offset = raw.rfind(b")") + 2
+    fields = tuple(re.finditer(rb"\S+", raw[offset:]))
+    rss = fields[21]  # The suffix begins with field 3, the process state.
+    _need(re.fullmatch(rb"0|[1-9][0-9]{0,18}", rss.group()) is not None
+          and int(rss.group()) <= MAX_INTEGER, "loader_resolution_process_rss")
+    return raw[:offset + rss.start()], raw[offset + rss.end():]
+
+
+def _process_status_projection(raw):
+    # Parse every key first, rejecting duplicates and malformed identity
+    # fields. The projection retains field order and all unselected bytes.
+    decoding.proc.parse_proc_status(raw)
+    _need(b"\r" not in raw, "loader_resolution_process_status_encoding")
+    projected = []
+    for line in raw.splitlines(keepends=True):
+        _need(line.endswith(b"\n"), "loader_resolution_process_status_encoding")
+        name, value = line[:-1].split(b":", 1)
+        if name in RESIDENT_STATUS_FIELDS:
+            quantity = re.fullmatch(
+                rb"([ \t])[ \t]*(0|[1-9][0-9]{0,18})([ \t]+kB)", value)
+            _need(quantity is not None and int(quantity.group(2)) <= MAX_INTEGER,
+                  "loader_resolution_process_resident_kb")
+            # Kernel numeric left padding changes with the number of digits.
+            # Keep the key, separator, unit suffix and newline exactly.
+            projected.append((name + b":" + quantity.group(1), quantity.group(3) + b"\n"))
+        else:
+            projected.append((line,))
+    return tuple(projected)
+
+
+def validate_process_pair(*, stat_before, stat_after, status_before, status_after):
+    """Check stopped proc samples without rewriting their retained raw bytes.
+
+    Observer memory reads may change resident accounting while the child stays
+    stopped. Exempt only stat RSS and the five named resident-kB values; all
+    other fields, their membership and their formatting remain byte-stable.
+    Identity and guard requirements are checked separately on both samples.
+    """
+    try:
+        _need(_process_stat_projection(stat_before) == _process_stat_projection(stat_after),
+              "loader_resolution_process_stat_changed")
+        _need(_process_status_projection(status_before) == _process_status_projection(status_after),
+              "loader_resolution_process_status_changed")
+    except ReadoutError:
+        raise
+    except (ValueError, TypeError, KeyError, IndexError, OverflowError) as exc:
+        raise ReadoutError("loader_resolution_process_pair_rejected") from exc
+
+
+def _processes(event, files):
+    """Keep setup/exec identity continuity separate from within-stop stability."""
+    proc = decoding.proc
+    observer = proc.parse_proc_stat(files["observer.stat.bin"])
+    status = proc.parse_proc_status(files["observer.status.bin"])
+    opid, child = event["observer_pid"], event["child_pid"]
+    _need(opid != child and observer["pid"] == status["pid"] == status["tgid"] == opid
+          and observer["threads"] == status["threads"] == 1
+          and observer["ppid"] == status["ppid"] and status["tracer"] == 0,
+          "loader_resolution_observer_identity")
+    selected = []
+    for side in ("setup", "before", "after"):
+        ps = proc.parse_proc_stat(files["child.stat." + side + ".bin"])
+        pt = proc.parse_proc_status(files["child.status." + side + ".bin"])
+        _need(ps["pid"] == pt["pid"] == pt["tgid"] == child
+              and ps["ppid"] == pt["ppid"] == opid
+              and ps["threads"] == pt["threads"] == 1
+              and ps["state"] == pt["state"] == "t" and pt["tracer"] == opid
+              and ps["starttime"] == event["child_starttime"] >= observer["starttime"],
+              "loader_resolution_child_identity")
+        selected.append(ps)
+    _same(selected[0], selected[1], "loader_resolution_child_changed")
+    _same(selected[1], selected[2], "loader_resolution_child_changed")
+    validate_process_pair(stat_before=files["child.stat.before.bin"],
+        stat_after=files["child.stat.after.bin"], status_before=files["child.status.before.bin"],
+        status_after=files["child.status.after.bin"])
+    info = proc._colon_fields(files["child.pidfd.info.bin"], "loader_resolution_pidfd_encoding")
+    _need("Pid" in info and proc._decimal(info["Pid"], "loader_resolution_pidfd_pid", 1) == child,
+          "loader_resolution_pidfd_identity")
 
 
 def safe_path(path):
@@ -421,7 +506,7 @@ def _validate_checkpoint(*, checkpoint, files, process, static_record, native_fi
     selected = _backings(checkpoint["backings"], files, native_files)
     event_identity = {"observer_pid": process["observer_pid"], "child_pid": process["child_pid"],
                       "child_starttime": process["starttime"]}
-    decoding._processes(event_identity, raw)
+    _processes(event_identity, raw)
     for stem in ("maps", "regs", "auxv"):
         _need(raw[stem + ".before.bin"] == raw[stem + ".after.bin"],
               "loader_resolution_stopped_sample_changed")

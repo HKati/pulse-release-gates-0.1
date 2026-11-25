@@ -7,8 +7,9 @@ This unit implements the GitHub acquisition and independent replay route for the
 merged in #3055. Its implementation base is
 `a97e493fdca0d7d9bd4f472fe6825fe61e22f769`.
 Implementation checks do not execute the original launcher, native probes or
-this workflow. An actual hosted capture remains a subsequent owner-dispatched
-operation at the reviewed main commit containing this implementation.
+this workflow. The [first owner-dispatched attempt](#first-hosted-attempt-455866533791)
+stopped incomplete at cp0. A new actual hosted attempt remains a separate
+owner-dispatched operation at the reviewed main commit containing the repair.
 
 The selected interval remains nine unique original-loader dependency returns,
 followed by original executable entry: eleven `PTRACE_CONT` calls in total and
@@ -211,3 +212,52 @@ the policy and acknowledgement together before an owner dispatch. Assess both
 jobs, raw artifacts, all four checker reports, cleanup and attestation before
 preserving any completed result. A green implementation PR or uploaded artifact
 alone does not finish original acquisition or close #2879.
+
+## First hosted attempt: 45586653379/1
+
+Owner-dispatched [run 45586653379, attempt 1](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45586653379)
+used source `fbcc8ccfadbc317ece1aeacb4c0eff50d0fcfe59`. The owner, source,
+acknowledgement and selected-policy guards passed. Acquisition produced an
+incomplete native-profile record at the first exec-stop checkpoint, with
+`loader_resolution_checkpoint_changed`, one continuation and no accepted
+dependency returns. No terminal executable-entry checkpoint was obtained.
+
+The two cp0 process samples differed only in resident-memory accounting:
+
+| Field | Before | After |
+| --- | ---: | ---: |
+| `stat` field 24 (`rss`, pages) | 0 | 40 |
+| `status` `VmHWM` (`kB`) | 12 | 212 |
+| `status` `VmRSS` (`kB`) | 12 | 212 |
+| `status` `RssFile` (`kB`) | 0 | 160 |
+| `status` `RssShmem` (`kB`) | 0 | 40 |
+
+Registers, maps, auxv, stack samples and the paired original executable-memory
+samples were byte-identical. The collector read 39,761 page-aligned bytes from
+the sealed-memfd launcher and 160,721 page-aligned bytes from the file-backed
+loader. At 4 KiB per page, those ranges cover 40 KiB and 160 KiB respectively,
+matching the resident-accounting increases. This supports the explanation that
+observer reads faulted those pages in; it is not external authentication of the
+specific kernel's execution. The upstream [proc-memory read path](https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux/+/master/fs/proc/base.c)
+uses remote-memory access, whose [page-acquisition contract](https://kernel.googlesource.com/pub/scm/linux/kernel/git/torvalds/linux.git/+/7b9acbb6aad4f54623dcd4bd4b1a60fe0c727b09/mm/gup.c)
+allows pages to be faulted in. Linux also documents asynchronous RSS accounting.
+
+The acquisition container's retained cleanup record reports verified ownership,
+successful removal and verified absence. The verification job checked the
+exact acquisition artifact, receipt and all 320 receipt-bound files, then
+stopped on the incomplete prefix. Attestation was skipped. This is preserved
+diagnostic custody, not completed original-loader reconstruction.
+
+| Original artifact | ID | Bytes | SHA-256 |
+| --- | ---: | ---: | --- |
+| Acquisition | `15008174005` | 220025688 | `0403474d2419084fba6133c17140cf190d5b8acc923cf3587d43467f34d29127` |
+| Verification | `15009441127` | 6774 | `50188b1baab6f41d109cff7140690cdbb5dcac03745d5cab8cdd25e041e43933` |
+
+The acquisition receipt SHA-256 is
+`a1fb3e81c6f3911c3c771a907e70acd83b88a0cd9dd8490606e6e73b87ee71cf`.
+Four unchanged cp0 process samples and their exact artifact/source provenance
+are retained as [regression inputs](../../tests/fixtures/loader_resolution_proc_residency_45586653379_v0/provenance.json).
+That small test fixture is explicitly not a complete capture or a replacement
+for the original artifacts. The original incomplete record is not rewritten or
+promoted by the [native process-pair correction](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_v0.md#process-identity-and-resident-memory-accounting).
+A fresh owner dispatch after repair review, CI and merge is still required.

@@ -1,0 +1,54 @@
+{
+  "artifact": {
+    "id": 15008174005,
+    "name": "required-gate-idempotence-loader-resolution-45586653379-1",
+    "sha256": "0403474d2419084fba6133c17140cf190d5b8acc923cf3587d43467f34d29127",
+    "size_bytes": 220025688
+  },
+  "boundary": {
+    "authority_effect": "none",
+    "b2_complete": false,
+    "complete_capture_preserved_here": false,
+    "metric_pass": null,
+    "original_loader_capture_completed": false,
+    "physical_execution_authenticated": false
+  },
+  "files": {
+    "cp0.child.stat.after.bin": {
+      "artifact_member": "observation/capture/cp0.child.stat.after.bin",
+      "sha256": "002960fbb58934c075f2eeacf9f36e31d5c23efa40acecfed021de42d1f930ba",
+      "size_bytes": 291
+    },
+    "cp0.child.stat.before.bin": {
+      "artifact_member": "observation/capture/cp0.child.stat.before.bin",
+      "sha256": "433bc9ba224afc1ed6c48482a2e274c5ea254591a087c79066ddb3ed0fd0d0e0",
+      "size_bytes": 290
+    },
+    "cp0.child.status.after.bin": {
+      "artifact_member": "observation/capture/cp0.child.status.after.bin",
+      "sha256": "90cd471714b99ad0e2f9fa36f753da8b2b2bd43d7db00d1b576264edd910c58d",
+      "size_bytes": 1469
+    },
+    "cp0.child.status.before.bin": {
+      "artifact_member": "observation/capture/cp0.child.status.before.bin",
+      "sha256": "78147544a91f64e60bcf3ea94c362238a9d871576a22c033dcad64041445dded",
+      "size_bytes": 1469
+    }
+  },
+  "original_capture": {
+    "accepted_return_events": 0,
+    "artifact_member": "observation/capture/capture.json",
+    "failure": "loader_resolution_checkpoint_changed",
+    "ptrace_cont_count": 1,
+    "sha256": "c296596af40d5e6fab08b2d6ee9a42c724a20b4e3b1fe2f4dbc4309ea13c8755",
+    "size_bytes": 16771,
+    "status": "incomplete"
+  },
+  "purpose": "Four unchanged process samples from an incomplete hosted attempt; data-only regression inputs, not a complete capture.",
+  "record_type": "loader_resolution_proc_residency_regression_origin_v0",
+  "repository": "HKati/pulse-release-gates-0.1",
+  "run_attempt": 1,
+  "run_id": 45586653379,
+  "run_url": "https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45586653379",
+  "source_commit": "fbcc8ccfadbc317ece1aeacb4c0eff50d0fcfe59"
+}
