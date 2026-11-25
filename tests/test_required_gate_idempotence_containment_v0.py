@@ -20722,3 +20722,1737 @@ def test_loader_resolution_additions_preserve_the_entire_preceding_registered_te
     raw = (ROOT / SELF).read_bytes()
     assert digest(raw[:1051787]) == "b785f46fe01fa4e38ac633d56edb7592bd077b09899c4dd3c8ed8606ba26c419"
     test_containment_module_is_registered_once_without_targeted_duplication()
+
+
+# Hosted original-loader integration remains scripted; no acquisition is performed.
+LOADER_RESOLUTION_HOSTED_CONFIG = "tools/required_gate_idempotence_loader_resolution_hosted_v0"
+LOADER_RESOLUTION_HOSTED_DRIVER = LOADER_RESOLUTION_HOSTED_CONFIG + ".py"
+LOADER_RESOLUTION_HOSTED_CHECKER = "tools/check_required_gate_idempotence_loader_resolution_hosted_v0.py"
+LOADER_RESOLUTION_HOSTED_SCHEMA = "schemas/required_gate_idempotence_loader_resolution_hosted_v0.schema.json"
+LOADER_RESOLUTION_HOSTED_WORKFLOW = ".github/workflows/required_gate_idempotence_loader_resolution_v0.yml"
+LOADER_RESOLUTION_HOSTED_PROFILE = "linux_x86_64_loader_resolution_hosted_v0"
+
+
+def loader_resolution_hosted_checker():
+    return module("check_required_gate_idempotence_loader_resolution_hosted_v0", LOADER_RESOLUTION_HOSTED_CHECKER)
+
+
+def loader_resolution_hosted_driver():
+    return module("required_gate_idempotence_loader_resolution_hosted_v0", LOADER_RESOLUTION_HOSTED_DRIVER)
+
+
+def loader_resolution_hosted_runner():
+    return module("loader_resolution_hosted_inner_runner_tests", LOADER_RESOLUTION_HOSTED_CONFIG + "/run.py")
+
+
+def _loader_resolution_hosted_environment(phase="acquire"):
+    # Authored identifiers, not a claimed GitHub run or qualification result.
+    return {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "EXPECTED_SOURCE_COMMIT": "a" * 40,
+        "ACCEPTED_POLICY_SHA256": LOADER_RESOLUTION_POLICY_SHA,
+        "GITHUB_REPOSITORY": "HKati/pulse-release-gates-0.1",
+        "GITHUB_REPOSITORY_ID": "1061766508",
+        "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF": "refs/heads/main",
+        "GITHUB_ACTOR": "HKati", "GITHUB_TRIGGERING_ACTOR": "HKati",
+        "GITHUB_RUN_ATTEMPT": "1", "GITHUB_RUN_ID": "987654321", "GITHUB_RUN_NUMBER": "2345",
+        "GITHUB_SHA": "a" * 40, "GITHUB_WORKFLOW_SHA": "a" * 40,
+        "GITHUB_WORKFLOW_REF": (
+            "HKati/pulse-release-gates-0.1/" + LOADER_RESOLUTION_HOSTED_WORKFLOW + "@refs/heads/main"),
+        "LOADER_RESOLUTION_HOSTED_ACKNOWLEDGEMENT": "OBSERVE_ORIGINAL_LOADER_NINE_RETURNS_AND_ENTRY_STOP_ONLY",
+        "LOADER_RESOLUTION_HOSTED_PHASE": phase,
+        "LOADER_RESOLUTION_HOSTED_ARTIFACT_ID": "123456789",
+        "LOADER_RESOLUTION_HOSTED_ARTIFACT_DIGEST": "sha256:" + "b" * 64,
+        "EXPECTED_RECEIPT_SHA256": "c" * 64,
+    }
+
+
+def _loader_resolution_hosted_context():
+    return {
+        "repository": "HKati/pulse-release-gates-0.1", "repository_id": "1061766508",
+        "source_commit": "a" * 40, "workflow_sha": "a" * 40,
+        "workflow_ref": (
+            "HKati/pulse-release-gates-0.1/" + LOADER_RESOLUTION_HOSTED_WORKFLOW + "@refs/heads/main"),
+        "run_id": 987654321, "run_number": 2345, "run_attempt": 1,
+        "event_name": "workflow_dispatch", "ref": "refs/heads/main", "actor": "HKati",
+        "triggering_actor": "HKati", "acknowledgement": "OBSERVE_ORIGINAL_LOADER_NINE_RETURNS_AND_ENTRY_STOP_ONLY",
+        "accepted_policy_sha256": LOADER_RESOLUTION_POLICY_SHA,
+    }
+
+
+def _loader_resolution_hosted_workflow():
+    import yaml
+    return yaml.load((ROOT / LOADER_RESOLUTION_HOSTED_WORKFLOW).read_text(), Loader=yaml.BaseLoader)
+
+
+def test_loader_resolution_hosted_workflow_is_manual_pinned_and_preserves_failures_before_attestation():
+    workflow = _loader_resolution_hosted_workflow()
+    assert set(workflow["on"]) == {"workflow_dispatch"}
+    assert set(workflow["jobs"]) == {"acquire", "verify"}
+    inputs = workflow["on"]["workflow_dispatch"]["inputs"]
+    assert set(inputs) == {"expected_source_commit", "accepted_policy_sha256", "acknowledgement"}
+    assert all(row["required"] == "true" and row["type"] == "string" and "default" not in row
+               for row in inputs.values())
+    assert workflow["concurrency"]["cancel-in-progress"] == "false"
+    acquire, verify = (workflow["jobs"][phase] for phase in ("acquire", "verify"))
+    assert acquire["permissions"] == {"contents": "read"}
+    assert verify["permissions"] == {"contents": "read", "actions": "read", "id-token": "write", "attestations": "write"}
+    assert "always()" in verify["if"] and "needs.acquire.result == 'success'" not in verify["if"]
+    for key in ("artifact_id", "artifact_digest", "receipt_sha256"):
+        assert "needs.acquire.outputs." + key + " != ''" in verify["if"]
+    pins = {"actions/checkout": "3d3c42e5aac5ba805825da76410c181273ba90b1",
+        "actions/upload-artifact": "cf430e030ddbb5b0abf93d22962f4752f3646cd9",
+        "actions/download-artifact": "9000827ccba6bdab643e8b6fd33ac0654aef8333",
+        "actions/attest": "f7c74d28b9d84cb8768d0b8ca14a4bac6ef463e6"}
+    for phase, job in workflow["jobs"].items():
+        assert job["runs-on"] == "ubuntu-24.04" and int(job["timeout-minutes"]) == 30
+        ids = [step.get("id") for step in job["steps"]]
+        assert ids.index("prefix") < ids.index("checkout") < ids.index(phase)
+        assert not {"GH_TOKEN", "GITHUB_TOKEN"}.intersection(job["env"])
+        assert job["env"]["ACCEPTED_POLICY_SHA256"] == "${{ inputs.accepted_policy_sha256 }}"
+        uploads = []
+        for step in job["steps"]:
+            assert "continue-on-error" not in step
+            if "uses" not in step:
+                continue
+            action, revision = step["uses"].split("@")
+            assert revision == pins[action]
+            if action == "actions/checkout":
+                assert step["with"] == {"ref": "${{ github.sha }}", "fetch-depth": "1", "persist-credentials": "false"}
+            elif action == "actions/upload-artifact":
+                uploads.append(step)
+                assert step["if"] == "always() && steps.prefix.outputs.root_created == 'true'"
+                assert step["with"]["overwrite"] == "false" and step["with"]["if-no-files-found"] == "error"
+                assert step["with"]["retention-days"] == "90"
+                assert step["with"]["include-hidden-files"] == "true"
+                assert step["with"]["compression-level"] == "0"
+        assert len(uploads) == 1
+    steps = {step.get("id"): step for step in verify["steps"] if step.get("id")}
+    assert steps["attest"]["if"] == "success() && steps.verify.outcome == 'success'"
+    assert steps["attest"]["with"]["subject-path"].endswith("/verified-binding.json")
+    download = next(step for step in verify["steps"] if step.get("uses", "").startswith("actions/download-artifact@"))
+    assert download["with"]["artifact-ids"] == "${{ needs.acquire.outputs.artifact_id }}"
+    assert download["with"]["run-id"] == "${{ github.run_id }}"
+    assert download["with"]["digest-mismatch"] == "error" and "name" not in download["with"]
+    assert download["with"]["path"].endswith("-input")
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_loader_resolution_hosted_actual_workflow_guard_and_prefix_select_private_immutable_context(tmp_path, phase):
+    job = _loader_resolution_hosted_workflow()["jobs"][phase]
+    environment = _loader_resolution_hosted_environment(phase)
+    environment.update(RUNNER_TEMP=str(tmp_path), GITHUB_OUTPUT=str(tmp_path / "workflow-output"))
+    guard = subprocess.run(["bash", "-c", job["steps"][0]["run"]], env=environment,
+        stdin=subprocess.DEVNULL, capture_output=True, timeout=5, check=False)
+    assert guard.returncode == 0, guard.stderr.decode(errors="replace")
+    prefix = next(step for step in job["steps"] if step.get("id") == "prefix")["run"]
+    result = subprocess.run(["bash", "-c", prefix], env=environment,
+        stdin=subprocess.DEVNULL, capture_output=True, timeout=5, check=False)
+    assert result.returncode == 0, result.stderr.decode(errors="replace")
+    name = "required-gate-loader-resolution-" + ("verification-" if phase == "verify" else "") + "987654321-1"
+    root = tmp_path / name
+    raw = (root / "workflow-start.json").read_bytes()
+    assert stat.S_IMODE(root.stat().st_mode) == 0o700
+    assert stat.S_IMODE((root / "workflow-start.json").stat().st_mode) == 0o600
+    assert json.loads(raw)["context"] == _loader_resolution_hosted_context()
+    assert json.loads(raw)["phase"] == phase
+    assert json.loads(raw)["record_type"] == "required_gate_idempotence_loader_resolution_workflow_start_v0"
+    assert json.loads(raw)["boundary"] == loader_resolution_admission().BOUNDARY
+    assert (tmp_path / "workflow-output").read_text() == "root_created=true\n"
+    again = subprocess.run(["bash", "-c", prefix], env=environment,
+        stdin=subprocess.DEVNULL, capture_output=True, timeout=5, check=False)
+    assert again.returncode != 0 and (root / "workflow-start.json").read_bytes() == raw
+
+
+@pytest.mark.parametrize("phase,field,value", [
+    ("acquire", "ACCEPTED_POLICY_SHA256", None),
+    ("acquire", "ACCEPTED_POLICY_SHA256", ""),
+    ("acquire", "ACCEPTED_POLICY_SHA256", "0" * 64),
+    ("verify", "ACCEPTED_POLICY_SHA256", "0" * 64),
+    ("acquire", "LOADER_RESOLUTION_HOSTED_ACKNOWLEDGEMENT", "QUALIFY_LOADER_TWO_SLOT_ONLY"),
+    ("verify", "LOADER_RESOLUTION_HOSTED_ACKNOWLEDGEMENT", "OBSERVE_ORIGINAL_LAUNCHER_ENTRY_STOP_ONLY"),
+    ("acquire", "GITHUB_ACTOR", "other"), ("acquire", "GITHUB_TRIGGERING_ACTOR", "other"),
+    ("acquire", "GITHUB_EVENT_NAME", "pull_request"), ("acquire", "GITHUB_REF", "refs/heads/other"),
+    ("acquire", "GITHUB_RUN_ATTEMPT", "2"), ("acquire", "GITHUB_WORKFLOW_SHA", "e" * 40),
+    ("acquire", "EXPECTED_SOURCE_COMMIT", "e" * 40), ("acquire", "GITHUB_RUN_NUMBER", "0"),
+    ("verify", "LOADER_RESOLUTION_HOSTED_ARTIFACT_ID", "0"),
+    ("verify", "LOADER_RESOLUTION_HOSTED_ARTIFACT_DIGEST", "e" * 64),
+    ("verify", "EXPECTED_RECEIPT_SHA256", "e" * 63),
+])
+def test_loader_resolution_hosted_actual_workflow_guard_rejects_unselected_launch_or_handoff(phase, field, value):
+    environment = _loader_resolution_hosted_environment(phase)
+    if value is None:
+        environment.pop(field)
+    else:
+        environment[field] = value
+    guard = _loader_resolution_hosted_workflow()["jobs"][phase]["steps"][0]["run"]
+    result = subprocess.run(["bash", "-c", guard], env=environment,
+        stdin=subprocess.DEVNULL, capture_output=True, timeout=5, check=False)
+    assert result.returncode != 0
+
+
+def test_loader_resolution_hosted_additions_preserve_the_complete_prior_test_prefix():
+    raw = (ROOT / SELF).read_bytes()
+    assert digest(raw[:1144910]) == "3e938dd1d5dd5df1b3cd40ec96bc6fcee5529b2143bcb346a5b079986c73b782"
+    test_containment_module_is_registered_once_without_targeted_duplication()
+
+
+# Hosted transport and lifecycle tests use authored contexts and mocked Docker.
+
+def _loader_resolution_hosted_sources():
+    checker = loader_resolution_hosted_checker()
+    return {name: bound((ROOT / name).read_bytes()) for name in checker.SOURCE_PATHS}
+
+
+def _loader_resolution_hosted_tree(root, payloads):
+    root.mkdir(mode=0o700, parents=True, exist_ok=True)
+    for name, raw in payloads.items():
+        target = root / name
+        target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        target.write_bytes(raw)
+        target.chmod(0o600)
+    return root
+
+
+def test_loader_resolution_hosted_context_has_exact_run_source_workflow_and_owner_identity():
+    checker = loader_resolution_hosted_checker()
+    actual = checker.context(_loader_resolution_hosted_environment())
+    assert actual == _loader_resolution_hosted_context()
+    for key in ("run_id", "run_number", "run_attempt"):
+        assert type(actual[key]) is int
+    assert len(checker.request_identity(actual)) == 32
+    assert checker.request_identity(actual) == checker.request_identity(copy.deepcopy(actual))
+
+
+@pytest.mark.parametrize("field,value", [
+    ("EXPECTED_SOURCE_COMMIT", "A" * 40), ("EXPECTED_SOURCE_COMMIT", "a" * 39),
+    ("GITHUB_SHA", "b" * 40), ("GITHUB_WORKFLOW_SHA", "b" * 40),
+    ("GITHUB_REPOSITORY", "other/pulse-release-gates-0.1"),
+    ("GITHUB_REPOSITORY_ID", "1061766509"), ("GITHUB_EVENT_NAME", "pull_request"),
+    ("GITHUB_REF", "refs/heads/unreviewed"), ("GITHUB_ACTOR", "other"),
+    ("GITHUB_TRIGGERING_ACTOR", "other"), ("GITHUB_RUN_ATTEMPT", "2"),
+    ("GITHUB_RUN_ATTEMPT", 1), ("GITHUB_RUN_ID", "0"), ("GITHUB_RUN_ID", "01"),
+    ("GITHUB_RUN_ID", "1" * 21), ("GITHUB_RUN_NUMBER", "0"), ("GITHUB_RUN_NUMBER", True),
+    ("GITHUB_WORKFLOW_REF", "HKati/pulse-release-gates-0.1/.github/workflows/other.yml@refs/heads/main"),
+    ("LOADER_RESOLUTION_HOSTED_ACKNOWLEDGEMENT", "OBSERVE_ORIGINAL_LOADER_NINE_RETURNS_AND_ENTRY_STOP_ONLY "),
+])
+def test_loader_resolution_hosted_rejects_context_substitution_before_any_execution(field, value):
+    environment = _loader_resolution_hosted_environment()
+    environment[field] = value
+    with pytest.raises((ValueError, TypeError)):
+        loader_resolution_hosted_checker().context(environment)
+
+
+@pytest.mark.parametrize("field", ["run_id", "run_number", "source_commit"])
+def test_loader_resolution_hosted_request_identity_changes_for_other_authorized_run_or_source(field):
+    context = _loader_resolution_hosted_context()
+    previous = loader_resolution_hosted_checker().request_identity(context)
+    if field == "source_commit":
+        context["source_commit"] = context["workflow_sha"] = "b" * 40
+    else:
+        context[field] += 1
+    assert loader_resolution_hosted_checker().request_identity(context) != previous
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_loader_resolution_hosted_container_argv_selects_only_readonly_closure_and_fixed_policy(
+        tmp_path, monkeypatch, phase):
+    driver = loader_resolution_hosted_driver()
+    for key in ("GH_TOKEN", "GITHUB_TOKEN", "ACTIONS_ID_TOKEN_REQUEST_TOKEN", "AWS_SECRET_ACCESS_KEY"):
+        monkeypatch.setenv(key, "SECRET_DO_NOT_FORWARD_" + key)
+    source, control, output, previous = (tmp_path / name for name in (
+        "source", "control", "observation" if phase == "acquire" else "verification", "input"))
+    args = driver.docker_create_args("sha256:" + "d" * 64, _loader_resolution_hosted_context(),
+        source, control, output, phase=phase, previous=previous if phase == "verify" else None,
+        uid=1001, gid=1002, handoff=None if phase == "acquire" else {
+            "artifact_id": 123456789, "artifact_digest": "sha256:" + "b" * 64,
+            "receipt_sha256": "c" * 64})
+    options = lambda name: [args[i + 1] for i, arg in enumerate(args[:-1]) if arg == name]
+    assert args[:2] == ["docker", "create"]
+    assert options("--user") == ["1001:1002"]
+    assert options("--network") == ["none"] and options("--cap-drop") == ["ALL"]
+    assert options("--security-opt") == ["no-new-privileges", "apparmor=docker-default"]
+    assert options("--pids-limit") == ["64"] and options("--memory") == ["1g"]
+    assert options("--cpus") == ["1"] and options("--tmpfs") == ["/tmp:rw,nosuid,nodev,size=64m"]
+    assert "--read-only" in args
+    for forbidden in ("--privileged", "--cap-add", "--init", "--pid", "--ipc", "--device"):
+        assert forbidden not in args
+    assert not any("unconfined" in value or "SECRET_DO_NOT_FORWARD" in value for value in args)
+    mounts = set(options("--mount"))
+    wanted = {
+        "type=bind,source=" + str(source) + ",target=/repo,readonly",
+        "type=bind,source=" + str(control) + ",target=/control,readonly",
+        "type=bind,source=" + str(output) + ",target=/output",
+    }
+    if phase == "verify":
+        wanted.add("type=bind,source=" + str(previous) + ",target=/input,readonly")
+    assert mounts == wanted and len(options("--mount")) == len(wanted)
+    assert args[-4:] == ["-I", "-B", "/repo/" + LOADER_RESOLUTION_HOSTED_CONFIG + "/run.py", phase]
+
+
+@pytest.mark.parametrize("uid,gid", [(0, 1001), (1001, 0), (-1, 1001), (True, 1001), (1001, False)])
+def test_loader_resolution_hosted_container_rejects_root_or_coerced_identity(tmp_path, uid, gid):
+    with pytest.raises((ValueError, TypeError)):
+        loader_resolution_hosted_driver().docker_create_args(
+            "sha256:" + "d" * 64, _loader_resolution_hosted_context(), tmp_path / "source",
+            tmp_path / "control", tmp_path / "output", phase="acquire", uid=uid, gid=gid)
+
+
+@pytest.mark.parametrize("phase,previous", [("probe", None), ("other", None), ("verify", None),
+                                           ("acquire", "unexpected-input")])
+def test_loader_resolution_hosted_container_rejects_internal_probe_or_confused_input(tmp_path, phase, previous):
+    with pytest.raises((ValueError, TypeError)):
+        loader_resolution_hosted_driver().docker_create_args(
+            "sha256:" + "d" * 64, _loader_resolution_hosted_context(), tmp_path / "source",
+            tmp_path / "control", tmp_path / "output", phase=phase,
+            previous=tmp_path / previous if previous else None, uid=1001, gid=1002)
+
+
+@pytest.mark.parametrize("fault", ["fsync", "final_close", "same_inode_drift"])
+def test_loader_resolution_hosted_control_publication_failure_invalidates_owned_bytes(tmp_path, monkeypatch, fault):
+    driver = loader_resolution_hosted_driver()
+    path = tmp_path / "verified-binding.json"
+    fsync, close = os.fsync, os.close
+    injected = []
+
+    def owned(fd):
+        if not path.exists() or not path.stat().st_size:
+            return False
+        opened, saved = os.fstat(fd), path.stat()
+        return (opened.st_dev, opened.st_ino) == (saved.st_dev, saved.st_ino)
+
+    def fail_sync(fd):
+        if fault in {"fsync", "same_inode_drift"} and not injected and owned(fd):
+            injected.append(True)
+            if fault == "fsync":
+                raise OSError(errno.EIO, "authored sync failure")
+            raw = path.read_bytes()
+            path.write_bytes(raw.replace(b"completed", b"substitut"))
+        return fsync(fd)
+
+    def fail_close(fd):
+        if fault == "final_close" and not injected and owned(fd):
+            injected.append(True)
+            close(fd)
+            raise OSError(errno.EIO, "authored consumed-descriptor close failure")
+        return close(fd)
+
+    monkeypatch.setattr(os, "fsync", fail_sync)
+    monkeypatch.setattr(os, "close", fail_close)
+    with pytest.raises((OSError, ValueError)):
+        driver._write_json(path, {"status": "completed", "physical_execution_authenticated": False})
+    assert injected == [True] and path.read_bytes() == b""
+
+
+def test_loader_resolution_hosted_command_deadline_never_suppresses_owned_cleanup(tmp_path, monkeypatch):
+    driver = loader_resolution_hosted_driver()
+    calls = []
+
+    def command(argv, logs, label, **kwargs):
+        calls.append((argv, logs, label, kwargs))
+        return _loader_resolution_hosted_command_result()
+
+    monkeypatch.setattr(driver.io, "run_command", command)
+    monkeypatch.setattr(driver, "STAGE_DEADLINE", time.monotonic() - 1)
+    for key, value in {"DOCKER_HOST": "tcp://unauthorized.invalid:2375", "DOCKER_CONTEXT": "remote",
+                       "DOCKER_CONFIG": "/untrusted", "HTTPS_PROXY": "http://untrusted.invalid",
+                       "GH_TOKEN": "SECRET_AUTHORED"}.items():
+        monkeypatch.setenv(key, value)
+    with pytest.raises(ValueError):
+        driver._command(tmp_path, "container-start", ["docker", "start", "d" * 64])
+    assert calls == []
+    result = driver._command(tmp_path, "container-remove", ["docker", "rm", "--force", "d" * 64],
+                             timeout=15, cleanup=True)
+    assert result["returncode"] == 0 and len(calls) == 1
+    environment = calls[0][3]["env"]
+    assert calls[0][3]["timeout_seconds"] == 15
+    assert environment["DOCKER_HOST"] == "unix:///var/run/docker.sock"
+    assert environment["DOCKER_CONFIG"] != "/untrusted"
+    assert not {"DOCKER_CONTEXT", "HTTPS_PROXY", "GH_TOKEN"}.intersection(environment)
+
+
+def _loader_resolution_hosted_selection(phase="acquire", *, context=None):
+    checker = loader_resolution_hosted_checker()
+    context = _loader_resolution_hosted_context() if context is None else context
+    handoff = None if phase == "acquire" else {
+        "artifact_id": 123456789, "artifact_digest": "sha256:" + "b" * 64,
+        "receipt_sha256": "c" * 64,
+    }
+    return checker.make_selection(phase, context, "sha256:" + "d" * 64,
+        _loader_resolution_hosted_sources(),
+        bound((ROOT / LOADER_RESOLUTION_HOSTED_CONFIG / "environment.json").read_bytes()), handoff)
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_loader_resolution_hosted_selection_joins_exact_context_sources_environment_and_phase(phase):
+    checker = loader_resolution_hosted_checker()
+    selected = _loader_resolution_hosted_selection(phase)
+    assert selected["context"] == _loader_resolution_hosted_context()
+    assert selected["sources"] == _loader_resolution_hosted_sources()
+    assert selected["image_id"] == "sha256:" + "d" * 64
+    checker.validate_selection(selected, phase)
+    assert selected["handoff"] is None if phase == "acquire" else selected["handoff"]["artifact_id"] == 123456789
+    assert selected["boundary"] == loader_resolution_hosted_checker().BOUNDARY
+
+
+@pytest.mark.parametrize("fault", ["context_extra", "truthy_run", "image_tag", "source_missing",
+    "source_extra", "environment_drift", "handoff_in_acquire", "handoff_missing",
+    "handoff_truthy_id", "handoff_digest", "phase", "boundary", "extra"])
+def test_loader_resolution_hosted_selection_rejects_rehashed_cross_phase_or_source_substitution(fault):
+    phase = "verify" if fault in {"handoff_missing", "handoff_truthy_id", "handoff_digest"} else "acquire"
+    value = _loader_resolution_hosted_selection(phase)
+    if fault == "context_extra": value["context"]["unselected"] = "x"
+    elif fault == "truthy_run": value["context"]["run_attempt"] = True
+    elif fault == "image_tag": value["image_id"] = "python:latest"
+    elif fault == "source_missing": value["sources"].pop("tools/prepare_required_gate_idempotence_loader_resolution_v0.py")
+    elif fault == "source_extra": value["sources"]["tools/unselected.py"] = bound(b"x")
+    elif fault == "environment_drift": value["environment"]["sha256"] = "f" * 64
+    elif fault == "handoff_in_acquire": value["handoff"] = _loader_resolution_hosted_selection("verify")["handoff"]
+    elif fault == "handoff_missing": value["handoff"] = None
+    elif fault == "handoff_truthy_id": value["handoff"]["artifact_id"] = True
+    elif fault == "handoff_digest": value["handoff"]["artifact_digest"] = "b" * 64
+    elif fault == "phase": value["phase"] = "probe"
+    elif fault == "boundary": value["boundary"]["physical_execution_authenticated"] = True
+    else: value["unselected"] = None
+    with pytest.raises((ValueError, TypeError)):
+        loader_resolution_hosted_checker().validate_selection(value, phase)
+
+
+def _loader_resolution_hosted_git_fixture(tmp_path, monkeypatch, *, fault=None):
+    driver = loader_resolution_hosted_driver()
+    selected, context = _loader_resolution_hosted_sources(), _loader_resolution_hosted_context()
+    checkout = tmp_path / "authored-checkout"
+    _loader_resolution_hosted_tree(checkout, {name: (ROOT / name).read_bytes() for name in selected})
+    rows = []
+    for name in sorted(selected):
+        raw = (checkout / name).read_bytes()
+        blob = hashlib.sha1(b"blob " + str(len(raw)).encode() + b"\0" + raw).hexdigest()
+        rows.append(b"100644 blob " + blob.encode() + b"\t" + name.encode() + b"\0")
+    if fault == "blob": rows[0] = rows[0].replace(rows[0].split(b" ")[2][:40], b"f" * 40, 1)
+    elif fault == "symlink_mode": rows[0] = rows[0].replace(b"100644", b"120000", 1)
+    elif fault == "missing_path": rows.pop()
+    elif fault == "duplicate_path": rows.append(rows[0])
+    elif fault == "unexpected_path": rows.append(b"100644 blob " + b"f" * 40 + b"\tunselected.py\0")
+    elif fault == "source_bytes": (checkout / sorted(selected)[0]).write_bytes(b"changed\n")
+    calls = []
+
+    def command(root, label, argv, **kwargs):
+        calls.append((label, argv, kwargs))
+        if label == "git-source-tree":
+            raw = b"".join(rows)
+        else:
+            head = "b" * 40 if fault == label else context["source_commit"]
+            raw = (head + "\n").encode()
+        _loader_resolution_hosted_tree(root, {"host-commands/" + label + ".stdout.bin": raw})
+        return {"returncode": 0, "failure": None}
+
+    monkeypatch.setattr(driver, "ROOT", checkout)
+    monkeypatch.setattr(driver, "_command", command)
+    return SimpleNamespace(driver=driver, sources=selected, context=context, checkout=checkout,
+                           output=tmp_path / "preserved", calls=calls)
+
+
+def test_loader_resolution_hosted_source_snapshot_checks_committed_blobs_between_two_exact_heads(tmp_path, monkeypatch):
+    case = _loader_resolution_hosted_git_fixture(tmp_path, monkeypatch)
+    case.driver.validate_git_source_snapshot(case.output, case.context, case.sources)
+    assert [item[0] for item in case.calls] == ["git-head-before", "git-source-tree", "git-head-after"]
+    tree_argv = case.calls[1][1]
+    assert tree_argv[tree_argv.index("--full-tree") + 1:] == [case.context["source_commit"]]
+    assert len(tree_argv) == 13 <= 128 < len(case.sources)
+    assert case.calls[1][2]["stdout_cap"] == 4194304
+
+
+@pytest.mark.parametrize("fault", ["git-head-before", "git-head-after", "blob", "symlink_mode",
+                                    "missing_path", "duplicate_path", "source_bytes"])
+def test_loader_resolution_hosted_source_snapshot_rejects_checkout_tree_or_worktree_substitution(tmp_path, monkeypatch, fault):
+    case = _loader_resolution_hosted_git_fixture(tmp_path, monkeypatch, fault=fault)
+    with pytest.raises((OSError, ValueError)):
+        case.driver.validate_git_source_snapshot(case.output, case.context, case.sources)
+    assert not (case.output / "source-bindings.json").exists()
+
+
+def test_loader_resolution_hosted_failed_source_copy_retains_original_prelaunch_selection(tmp_path, monkeypatch):
+    case = _loader_resolution_hosted_git_fixture(tmp_path, monkeypatch)
+    case.output.mkdir()
+    selected = encoded(case.sources)
+    changed = sorted(case.sources)[2]
+    (case.checkout / changed).write_bytes(b"authored drift after selection\n")
+    with pytest.raises(ValueError):
+        case.driver._copy_sources(case.output, case.sources)
+    assert (case.output / "source-bindings.json").read_bytes() == selected
+    assert not (case.output / "source" / changed).exists()
+    first = sorted(case.sources)[0]
+    assert bound((case.output / "source" / first).read_bytes()) == case.sources[first]
+
+
+@pytest.mark.parametrize("raw", [b'{"elapsed_seconds":NaN}', b'{"elapsed_seconds":Infinity}',
+    b'{"elapsed_seconds":1e9999}', b'{"elapsed_seconds":0.1,"elapsed_seconds":0.2}'])
+def test_loader_resolution_hosted_diagnostic_parsers_allow_only_finite_unambiguous_times(raw):
+    for parser in (loader_resolution_hosted_checker().parse_external, loader_resolution_hosted_driver().parse):
+        with pytest.raises(ValueError):
+            parser(raw)
+
+
+def test_loader_resolution_hosted_actual_io_elapsed_seconds_remains_readable_without_float_controls():
+    raw = encoded({"returncode": 0, "failure": None, "elapsed_seconds": 0.125})
+    assert loader_resolution_hosted_checker().parse_external(raw)["elapsed_seconds"] == 0.125
+    assert loader_resolution_hosted_driver().parse(raw)["elapsed_seconds"] == 0.125
+    with pytest.raises(ValueError):
+        loader_resolution_hosted_checker().parse(raw)
+
+
+@pytest.mark.parametrize("field,value", [
+    ("LOADER_RESOLUTION_HOSTED_ARTIFACT_ID", ""), ("LOADER_RESOLUTION_HOSTED_ARTIFACT_ID", "0"),
+    ("LOADER_RESOLUTION_HOSTED_ARTIFACT_ID", "01"), ("LOADER_RESOLUTION_HOSTED_ARTIFACT_ID", True),
+    ("LOADER_RESOLUTION_HOSTED_ARTIFACT_DIGEST", "b" * 64),
+    ("LOADER_RESOLUTION_HOSTED_ARTIFACT_DIGEST", "sha256:" + "B" * 64),
+    ("EXPECTED_RECEIPT_SHA256", ""), ("EXPECTED_RECEIPT_SHA256", "c" * 63),
+])
+def test_loader_resolution_hosted_verification_requires_external_artifact_and_receipt_bindings(field, value):
+    environment = _loader_resolution_hosted_environment("verify")
+    environment[field] = value
+    with pytest.raises((ValueError, TypeError)):
+        loader_resolution_hosted_checker().handoff(environment)
+
+
+def _loader_resolution_hosted_command_result(returncode=0, *, failure=None):
+    return {"returncode": returncode, "failure": failure, "overflowed_streams": [],
+        "elapsed_seconds": 0.125, "cleanup": {"child_started": True, "child_reaped": True,
+            "kill_group_sent": False, "kill_error_errno": None, "pending_output_drain_attempted": True}}
+
+
+def _loader_resolution_hosted_command_files(label, argv, *, stdout=b"", stderr=b"", returncode=0,
+                                          failure=None, directory="host-commands"):
+    result = {"argv": argv, "returncode": returncode, "failure": failure,
+        "stdout": bound(stdout), "stderr": bound(stderr), "timeout_seconds": 30,
+        "stream_cap": 1048576, "stdout_cap": 268435456 if label == "base-save" else 4194304,
+        "overflowed_streams": [], "elapsed_seconds": 0.125,
+        "cleanup": {"child_started": True, "child_reaped": True, "kill_group_sent": False,
+                    "kill_error_errno": None, "pending_output_drain_attempted": True}}
+    prefix = directory + "/" + label
+    return {prefix + ".argv.json": encoded({"argv": argv}), prefix + ".result.json": encoded(result),
+            prefix + ".stdout.bin": stdout, prefix + ".stderr.bin": stderr}
+
+
+def _loader_resolution_hosted_plan(root, phase="acquire"):
+    selected = _loader_resolution_hosted_selection(phase)
+    plan = loader_resolution_hosted_checker().make_container_plan(
+        phase, selected["context"], selected["image_id"], 1001, 1002, root,
+        ["PATH=/usr/local/bin:/usr/bin:/bin", "PYTHON_VERSION=3.11.16", "PIP_NO_INDEX=1"],
+        bound(encoded(selected)), previous=root.parent / "retained-input" if phase == "verify" else None,
+        handoff=selected["handoff"])
+    return selected, plan
+
+
+def _loader_resolution_hosted_inspect(plan, *, cid="d" * 64, exited=False):
+    inherited = dict(entry.split("=", 1) for entry in plan["image_environment"])
+    environment = {**inherited, **plan["environment"]}
+    mounts = [{"Type": "bind", "Source": mount["source"], "Destination": mount["target"],
+               "RW": not mount["readonly"], "Propagation": "rprivate"} for mount in plan["mounts"]]
+    host_mounts = [{"Type": "bind", "Source": mount["source"], "Target": mount["target"],
+                   "ReadOnly": mount["readonly"], "BindOptions": {"Propagation": "rprivate"}}
+                  for mount in plan["mounts"]]
+    return [{"Id": cid, "Image": plan["image_id"], "Name": "/" + plan["name"],
+        "AppArmorProfile": "docker-default",
+        "Config": {"Labels": copy.deepcopy(plan["labels"]), "Entrypoint": copy.deepcopy(plan["entrypoint"]),
+            "Cmd": copy.deepcopy(plan["command"]), "User": str(plan["uid"]) + ":" + str(plan["gid"]),
+            "Image": plan["image_id"], "WorkingDir": "/repo",
+            "Env": [key + "=" + value for key, value in sorted(environment.items())],
+            "Volumes": None, "Healthcheck": None, "Tty": False, "OpenStdin": False},
+        "HostConfig": {"Privileged": False, "ReadonlyRootfs": True, "NetworkMode": "none",
+            "CapDrop": ["ALL"], "CapAdd": None,
+            "SecurityOpt": ["no-new-privileges", "apparmor=docker-default"],
+            "PidsLimit": 64, "Memory": 1073741824, "NanoCpus": 1000000000,
+            "Tmpfs": {"/tmp": "rw,nosuid,nodev,size=64m"}, "Devices": [], "DeviceRequests": [],
+            "DeviceCgroupRules": None, "VolumesFrom": None, "Binds": None, "PidMode": "",
+            "UTSMode": "", "UsernsMode": "", "IpcMode": "private", "CgroupnsMode": "private",
+            "Init": None, "AutoRemove": False, "Mounts": host_mounts},
+        "Mounts": mounts, "State": {"Status": "exited" if exited else "created", "Running": False,
+            "OOMKilled": False, "Error": "", "ExitCode": 0}}]
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_loader_resolution_hosted_inspection_binds_actual_command_environment_mounts_and_policy(tmp_path, phase):
+    selected, plan = _loader_resolution_hosted_plan(tmp_path, phase)
+    info = _loader_resolution_hosted_inspect(plan)
+    assert loader_resolution_hosted_checker().validate_container_identity(
+        info, "d" * 64, selected["image_id"], selected["context"], phase, plan) == info[0]
+
+
+@pytest.mark.parametrize("fault", ["entrypoint", "command", "command_probe", "environment_duplicate",
+    "environment_substitution", "environment_secret", "mount_source", "mount_writable", "mount_extra",
+    "mount_propagation", "host_mount_writable", "user", "workdir", "image", "name", "label",
+    "privileged", "root_writable", "network", "sys_ptrace", "seccomp", "apparmor", "pids", "memory",
+    "cpu", "tmpfs", "host_pid", "init", "device", "healthcheck"])
+def test_loader_resolution_hosted_inspection_rejects_relaxed_policy_or_relabelled_execution(tmp_path, fault):
+    selected, plan = _loader_resolution_hosted_plan(tmp_path)
+    info = _loader_resolution_hosted_inspect(plan)
+    item, config, host = info[0], info[0]["Config"], info[0]["HostConfig"]
+    if fault == "entrypoint": config["Entrypoint"] = ["/bin/sh"]
+    elif fault == "command": config["Cmd"][2] = "/repo/tools/unselected.py"
+    elif fault == "command_probe": config["Cmd"][-1] = "probe"
+    elif fault == "environment_duplicate": config["Env"].append(config["Env"][0])
+    elif fault == "environment_substitution": config["Env"] = [row.replace("PYTHON_VERSION=3.11.16", "PYTHON_VERSION=3.12.0") for row in config["Env"]]
+    elif fault == "environment_secret": config["Env"].append("GH_TOKEN=UNSELECTED")
+    elif fault == "mount_source": item["Mounts"][0]["Source"] = str(ROOT)
+    elif fault == "mount_writable": item["Mounts"][0]["RW"] = True
+    elif fault == "mount_extra": item["Mounts"].append({"Type": "bind", "Source": "/", "Destination": "/host", "RW": False})
+    elif fault == "mount_propagation": item["Mounts"][0]["Propagation"] = "rshared"
+    elif fault == "host_mount_writable": host["Mounts"][0]["ReadOnly"] = False
+    elif fault == "user": config["User"] = "0:0"
+    elif fault == "workdir": config["WorkingDir"] = "/"
+    elif fault == "image": item["Image"] = "sha256:" + "e" * 64
+    elif fault == "name": item["Name"] = "/another-run"
+    elif fault == "label": config["Labels"]["org.pulsemech.loader-resolution.source"] = "e" * 40
+    elif fault == "privileged": host["Privileged"] = True
+    elif fault == "root_writable": host["ReadonlyRootfs"] = False
+    elif fault == "network": host["NetworkMode"] = "host"
+    elif fault == "sys_ptrace": host["CapAdd"] = ["SYS_PTRACE"]
+    elif fault == "seccomp": host["SecurityOpt"].append("seccomp=unconfined")
+    elif fault == "apparmor": item["AppArmorProfile"] = "unconfined"
+    elif fault == "pids": host["PidsLimit"] = -1
+    elif fault == "memory": host["Memory"] = 0
+    elif fault == "cpu": host["NanoCpus"] = 0
+    elif fault == "tmpfs": host["Tmpfs"]["/tmp"] = "rw,exec,size=1g"
+    elif fault == "host_pid": host["PidMode"] = "host"
+    elif fault == "init": host["Init"] = True
+    elif fault == "device": host["Devices"] = [{"PathOnHost": "/dev/mem"}]
+    else: config["Healthcheck"] = {"Test": ["CMD", "unselected"]}
+    with pytest.raises(ValueError):
+        loader_resolution_hosted_checker().validate_container_identity(
+            info, "d" * 64, selected["image_id"], selected["context"], "acquire", plan)
+
+
+def _loader_resolution_hosted_container_fixture(tmp_path, monkeypatch, *, fault=None, phase="acquire"):
+    driver, checker = loader_resolution_hosted_driver(), loader_resolution_hosted_checker()
+    root = tmp_path / ("acquisition" if phase == "acquire" else "verification")
+    selected, plan = _loader_resolution_hosted_plan(root, phase)
+    _loader_resolution_hosted_tree(root, {
+        "control/hosted-selection.json": encoded(selected),
+        "host-commands/image-inspect.stdout.bin": encoded([{"Id": selected["image_id"],
+            "Config": {"Env": plan["image_environment"]}}]),
+    })
+    (root / "environment").mkdir(mode=0o700)
+    calls, creation_options = [], []
+    started = False
+    monkeypatch.setattr(os, "getuid", lambda: 1001)
+    monkeypatch.setattr(os, "getgid", lambda: 1002)
+
+    def command(destination, label, argv, timeout=120, require=True, env=None, **kwargs):
+        nonlocal started
+        assert Path(destination) == root
+        calls.append((label, argv, kwargs))
+        stdout, returncode, failure = b"", 0, None
+        if label == "container-create":
+            creation_options[:] = [argv[i + 1] for i, arg in enumerate(argv[:-1]) if arg == "--security-opt"]
+            cid = "e" * 64 if fault == "cid_substitution" else "d" * 64
+            if fault != "missing_cid":
+                (root / "environment/container-id.txt").write_bytes((cid + "\n").encode())
+            stdout = (cid + "\n").encode()
+            if fault in {"create_exit", "foreign_owner"}: returncode = 1
+            elif fault == "create_timeout": returncode, failure = -9, "hosted_process_deadline"
+        elif label in {"container-inspect", "container-state", "container-ownership-inspect"}:
+            info = _loader_resolution_hosted_inspect(plan, exited=label != "container-inspect")
+            # Docker records an explicitly selected profile during create;
+            # its implicit default is filled at start, not before it.
+            info[0]["HostConfig"]["SecurityOpt"] = list(creation_options)
+            profiles = [value.split("=", 1)[1] for value in creation_options if value.startswith("apparmor=")]
+            info[0]["AppArmorProfile"] = profiles[-1] if profiles else ("docker-default" if started else "")
+            if fault == "terminal_profile_missing" and label == "container-state":
+                info[0]["AppArmorProfile"] = ""
+            if fault == "command_substitution" and label == "container-inspect": info[0]["Config"]["Cmd"][-1] = "probe"
+            if fault == "foreign_owner" and label == "container-ownership-inspect":
+                info[0]["Config"]["Labels"]["org.pulsemech.loader-resolution.run"] = "999/1"
+            if fault == "exit_failure" and label == "container-state": info[0]["State"]["ExitCode"] = 1
+            if fault == "ownership_failure" and label == "container-ownership-inspect": returncode = 1
+            stdout = encoded(info)
+        elif label == "container-start":
+            started = True
+            if fault == "start_timeout": returncode, failure = -9, "hosted_process_deadline"
+        elif label == "container-remove":
+            stdout = ("d" * 64 + "\n").encode()
+            if fault == "remove_failure": returncode = 1
+        elif label == "container-absence":
+            if fault == "absence_nonempty": stdout = ("d" * 64 + "\n").encode()
+            if fault == "absence_failure": returncode = 1
+        else:
+            pytest.fail("unexpected external command " + label)
+        payloads = _loader_resolution_hosted_command_files(label, argv, stdout=stdout,
+            returncode=returncode, failure=failure)
+        _loader_resolution_hosted_tree(root, payloads)
+        result = json.loads(payloads["host-commands/" + label + ".result.json"])
+        if require and returncode != 0:
+            raise ValueError("authored_command_failure")
+        return result
+
+    monkeypatch.setattr(driver, "_command", command)
+    return SimpleNamespace(driver=driver, checker=checker, root=root, selected=selected,
+                           plan=plan, calls=calls, phase=phase,
+                           previous=root.parent / "retained-input" if phase == "verify" else None)
+
+
+def test_loader_resolution_hosted_outer_container_records_actual_policy_then_owned_removal_and_empty_full_id_query(
+        tmp_path, monkeypatch):
+    fixture = _loader_resolution_hosted_container_fixture(tmp_path, monkeypatch)
+    result = fixture.driver._container(fixture.root, fixture.checker.environment(),
+        fixture.selected["image_id"], fixture.selected["context"], "acquire")
+    assert result == fixture.root / "observation"
+    assert [row[0] for row in fixture.calls] == ["container-create", "container-inspect", "container-start",
+        "container-state", "container-ownership-inspect", "container-remove", "container-absence"]
+    assert fixture.calls[-2][1] == ["docker", "rm", "--force", "d" * 64]
+    assert fixture.calls[-1][1] == ["docker", "container", "ls", "--all", "--quiet", "--no-trunc", "--filter", "id=" + "d" * 64]
+    assert all(row[2].get("cleanup") is True for row in fixture.calls[-4:])
+    cleanup = json.loads((fixture.root / "environment/container-cleanup.json").read_bytes())
+    assert cleanup["owned_container_verified"] is cleanup["remove_succeeded"] is cleanup["absence_verified"] is True
+    assert cleanup["cleanup_errors"] == []
+
+
+@pytest.mark.parametrize("fault", ["create_exit", "create_timeout", "missing_cid", "cid_substitution",
+    "foreign_owner", "command_substitution", "start_timeout", "exit_failure", "ownership_failure",
+    "remove_failure", "absence_nonempty", "absence_failure"])
+def test_loader_resolution_hosted_failed_create_and_runtime_never_skip_owned_cleanup_or_trust_a_cidfile(
+        tmp_path, monkeypatch, fault):
+    fixture = _loader_resolution_hosted_container_fixture(tmp_path, monkeypatch, fault=fault)
+    with pytest.raises((OSError, ValueError)):
+        fixture.driver._container(fixture.root, fixture.checker.environment(),
+            fixture.selected["image_id"], fixture.selected["context"], "acquire")
+    labels = [row[0] for row in fixture.calls]
+    assert "container-ownership-inspect" in labels
+    ownership = next(row for row in fixture.calls if row[0] == "container-ownership-inspect")
+    assert ownership[1] == ["docker", "container", "inspect", fixture.plan["name"]]
+    assert ownership[2]["cleanup"] is True
+    cleanup = json.loads((fixture.root / "environment/container-cleanup.json").read_bytes())
+    if fault in {"foreign_owner", "ownership_failure"}:
+        assert "container-remove" not in labels and "container-absence" not in labels
+        assert cleanup["owned_container_verified"] is False
+    else:
+        remove = next(row for row in fixture.calls if row[0] == "container-remove")
+        assert remove[1] == ["docker", "rm", "--force", "d" * 64]
+        assert remove[2]["cleanup"] is True and "container-absence" in labels
+        if fault == "cid_substitution":
+            assert not any("e" * 64 in row[1] for row in fixture.calls if row[0] == "container-remove")
+    if fault in {"create_exit", "create_timeout", "missing_cid", "cid_substitution", "foreign_owner", "command_substitution"}:
+        assert "container-start" not in labels
+    if fault in {"remove_failure", "absence_nonempty", "absence_failure", "foreign_owner", "ownership_failure", "cid_substitution"}:
+        assert cleanup["cleanup_errors"]
+
+
+def _loader_resolution_hosted_artifact_metadata(context=None, handoff=None):
+    context = _loader_resolution_hosted_context() if context is None else context
+    handoff = _loader_resolution_hosted_selection("verify")["handoff"] if handoff is None else handoff
+    return {"id": handoff["artifact_id"],
+        "name": "required-gate-idempotence-loader-resolution-" + str(context["run_id"]) + "-1",
+        "digest": handoff["artifact_digest"], "expired": False,
+        "workflow_run": {"id": context["run_id"], "head_sha": context["source_commit"],
+            "head_branch": "main", "repository_id": 1061766508, "head_repository_id": 1061766508}}
+
+
+@pytest.mark.parametrize("fault", [None, "artifact_id", "artifact_digest", "artifact_name", "expired",
+    "run_id", "head_sha", "branch", "repository_id", "head_repository_id", "bool_id"])
+def test_loader_resolution_hosted_artifact_metadata_joins_exact_repository_run_source_id_and_digest(fault):
+    checker = loader_resolution_hosted_checker()
+    context, handoff = _loader_resolution_hosted_context(), _loader_resolution_hosted_selection("verify")["handoff"]
+    value = _loader_resolution_hosted_artifact_metadata(context, handoff)
+    if fault == "artifact_id": value["id"] += 1
+    elif fault == "artifact_digest": value["digest"] = "sha256:" + "e" * 64
+    elif fault == "artifact_name": value["name"] += "-other"
+    elif fault == "expired": value["expired"] = True
+    elif fault == "run_id": value["workflow_run"]["id"] += 1
+    elif fault == "head_sha": value["workflow_run"]["head_sha"] = "e" * 40
+    elif fault == "branch": value["workflow_run"]["head_branch"] = "other"
+    elif fault in {"repository_id", "head_repository_id"}: value["workflow_run"][fault] += 1
+    elif fault == "bool_id": value["id"] = True
+    if fault is None:
+        assert checker.validate_artifact_metadata(value, context, handoff) == value
+    else:
+        with pytest.raises(ValueError):
+            checker.validate_artifact_metadata(value, context, handoff)
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+def test_loader_resolution_hosted_both_command_implementations_explicitly_select_default_apparmor(tmp_path, phase):
+    selected, plan = _loader_resolution_hosted_plan(tmp_path, phase)
+    mounts = {item["target"]: Path(item["source"]) for item in plan["mounts"]}
+    actual = loader_resolution_hosted_driver().docker_create_args(
+        selected["image_id"], selected["context"], mounts["/repo"], mounts["/control"], mounts["/output"],
+        phase=phase, previous=mounts.get("/input"), uid=plan["uid"], gid=plan["gid"],
+        handoff=selected["handoff"])
+    reconstructed = loader_resolution_hosted_checker().docker_create_argv(plan)
+    assert actual == reconstructed
+    for argv in (actual, reconstructed):
+        assert [argv[i + 1] for i, option in enumerate(argv[:-1]) if option == "--security-opt"] == [
+            "no-new-privileges", "apparmor=docker-default"]
+
+
+@pytest.mark.parametrize("exited", [False, True], ids=["created", "terminal"])
+@pytest.mark.parametrize("options", [
+    None, [], ["no-new-privileges"], ["apparmor=docker-default"],
+    ["no-new-privileges", "apparmor="],
+    ["no-new-privileges", "apparmor=custom"],
+    ["no-new-privileges", "apparmor=unconfined"],
+    ["no-new-privileges", "apparmor=docker-default", "apparmor=docker-default"],
+    ["no-new-privileges", "apparmor=docker-default", "seccomp=unconfined"],
+])
+def test_loader_resolution_hosted_rejects_missing_or_unselected_apparmor_options(tmp_path, exited, options):
+    selected, plan = _loader_resolution_hosted_plan(tmp_path)
+    info = _loader_resolution_hosted_inspect(plan, exited=exited)
+    info[0]["HostConfig"]["SecurityOpt"] = copy.deepcopy(options)
+    with pytest.raises(ValueError, match="loader_resolution_hosted_container_policy"):
+        loader_resolution_hosted_checker().validate_container_identity(
+            info, "d" * 64, selected["image_id"], selected["context"], "acquire", plan)
+
+
+@pytest.mark.parametrize("exited", [False, True], ids=["created", "terminal"])
+@pytest.mark.parametrize("profile", [None, "", "custom", "unconfined"])
+def test_loader_resolution_hosted_explicit_option_never_substitutes_for_inspected_apparmor_profile(
+        tmp_path, exited, profile):
+    selected, plan = _loader_resolution_hosted_plan(tmp_path)
+    info = _loader_resolution_hosted_inspect(plan, exited=exited)
+    if profile is None:
+        del info[0]["AppArmorProfile"]
+    else:
+        info[0]["AppArmorProfile"] = profile
+    with pytest.raises(ValueError, match="loader_resolution_hosted_container_defaults"):
+        loader_resolution_hosted_checker().validate_container_identity(
+            info, "d" * 64, selected["image_id"], selected["context"], "acquire", plan)
+
+
+@pytest.mark.parametrize("phase", ["acquire", "verify"])
+@pytest.mark.parametrize("fault", [None, "implicit_profile", "terminal_profile_missing"])
+def test_loader_resolution_hosted_apparmor_lifecycle_selects_before_start_and_retains_owned_cleanup(
+        tmp_path, monkeypatch, phase, fault):
+    fixture = _loader_resolution_hosted_container_fixture(tmp_path, monkeypatch, fault=fault, phase=phase)
+    if fault == "implicit_profile":
+        original = fixture.driver.docker_create_args
+
+        def omit_profile(*args, **kwargs):
+            argv = original(*args, **kwargs)
+            index = argv.index("apparmor=docker-default")
+            assert argv[index - 1] == "--security-opt"
+            del argv[index - 1:index + 1]
+            return argv
+
+        monkeypatch.setattr(fixture.driver, "docker_create_args", omit_profile)
+
+    def run():
+        return fixture.driver._container(fixture.root, fixture.checker.environment(),
+            fixture.selected["image_id"], fixture.selected["context"], phase, previous=fixture.previous)
+
+    if fault is None:
+        assert run() == fixture.root / ("observation" if phase == "acquire" else "verification")
+    else:
+        error = "loader_resolution_hosted_container_policy" if fault == "implicit_profile" else "loader_resolution_hosted_container_defaults"
+        with pytest.raises(ValueError, match=error):
+            run()
+    labels = [row[0] for row in fixture.calls]
+    assert labels.count("container-start") == (0 if fault == "implicit_profile" else 1)
+    assert labels[-3:] == ["container-ownership-inspect", "container-remove", "container-absence"]
+    cleanup = json.loads((fixture.root / "environment/container-cleanup.json").read_bytes())
+    assert cleanup["owned_container_verified"] is cleanup["remove_succeeded"] is cleanup["absence_verified"] is True
+    assert cleanup["cleanup_errors"] == []
+    before = json.loads((fixture.root / "host-commands/container-inspect.stdout.bin").read_bytes())[0]
+    assert before["AppArmorProfile"] == ("" if fault == "implicit_profile" else "docker-default")
+
+
+
+def test_loader_resolution_hosted_source_roster_contains_transitive_raw_admission_and_current_carriers():
+    checker = loader_resolution_hosted_checker()
+    sources = _loader_resolution_hosted_sources()
+    assert len(sources) == len(checker.SOURCE_PATHS) == 153
+    assert len(set(checker.SOURCE_PATHS)) == 153
+    assert checker.source_bindings() == sources
+    required = {
+        LOADER_RESOLUTION_HOSTED_DRIVER, LOADER_RESOLUTION_HOSTED_CHECKER,
+        LOADER_RESOLUTION_HOSTED_SCHEMA, LOADER_RESOLUTION_HOSTED_WORKFLOW,
+        'tools/prepare_required_gate_idempotence_loader_resolution_v0.py',
+        'tools/collect_required_gate_idempotence_loader_resolution_v0.py',
+        'tools/check_required_gate_idempotence_loader_resolution_v0.py',
+        'tools/required_gate_idempotence_loader_resolution_v0.py',
+        'docs/compute/required_gate_idempotence_loader_rebuild_acceptance_v0/policy_v0.json',
+        'preservation/required_gate_idempotence_exec_stop_v0/original_inputs_v0.zip',
+        'preservation/required_gate_idempotence_entry_stop_v0/run_44740993943_attempt_1/control_evidence_v0.zip',
+        *(LOADER_RESOLUTION_HOSTED_CONFIG + '/' + name for name in
+          ('environment.json', 'requirements.lock', 'Dockerfile', 'build_environment.py', 'run.py')),
+    }
+    assert required <= set(sources)
+    assert sources[LOADER_RESOLUTION_HOSTED_CONFIG + '/environment.json'] == checker.ENVIRONMENT_BINDING
+    assert all(0 < item['size_bytes'] <= checker.source_limit(name) for name, item in sources.items())
+
+
+@pytest.mark.parametrize('policy', [None, '', '0' * 64, LOADER_RESOLUTION_POLICY_SHA.upper(), True])
+def test_loader_resolution_hosted_context_requires_exact_external_policy_before_any_commands(policy):
+    environment = _loader_resolution_hosted_environment()
+    if policy is None:
+        environment.pop('ACCEPTED_POLICY_SHA256')
+    else:
+        environment['ACCEPTED_POLICY_SHA256'] = policy
+    with pytest.raises((ValueError, TypeError)):
+        loader_resolution_hosted_checker().context(environment)
+
+
+def test_loader_resolution_hosted_context_is_closed_and_retains_conservative_thirteen_field_boundary():
+    checker = loader_resolution_hosted_checker()
+    assert checker.BOUNDARY == loader_resolution_admission().BOUNDARY
+    assert len(checker.BOUNDARY) == 13
+    context = _loader_resolution_hosted_context()
+    for fault in ('policy_missing', 'policy_drift', 'extra', 'truthy_attempt'):
+        changed = copy.deepcopy(context)
+        if fault == 'policy_missing': changed.pop('accepted_policy_sha256')
+        elif fault == 'policy_drift': changed['accepted_policy_sha256'] = 'f' * 64
+        elif fault == 'extra': changed['unselected'] = False
+        else: changed['run_attempt'] = True
+        with pytest.raises((ValueError, TypeError)):
+            checker.validate_context(changed)
+
+
+def test_loader_resolution_hosted_environment_restores_original_signature_tool_and_exact_offline_materials(
+        loader_resolution_original_signature_inputs):
+    checker = loader_resolution_hosted_checker()
+    selected = checker.environment()
+    expected_files = {item['path']: {key: item[key] for key in ('size_bytes', 'sha256')}
+                      for item in selected['expected_files']}
+    historical = loader_resolution_original_signature_inputs.policy['verifier']
+    assert expected_files['/usr/bin/gpg'] == {key: historical[key] for key in ('size_bytes', 'sha256')}
+    assert len(expected_files) == len(selected['expected_files']) == 12
+    assert selected['python']['executable'] == '/usr/local/bin/python3.11'
+    assert selected['python']['version'] == '3.11.16'
+    assert selected['python']['observer_binding'] == checker.OBSERVER_BINDING
+    packages = selected['python']['packages']
+    assert len(packages) == 7
+    assert {item['name'] for item in packages} == {
+        'PyYAML', 'attrs', 'jsonschema', 'jsonschema-specifications',
+        'referencing', 'rpds-py', 'typing_extensions'}
+    requirements = (ROOT / LOADER_RESOLUTION_HOSTED_CONFIG / 'requirements.lock').read_bytes()
+    assert selected['requirements'] == bound(requirements)
+    assert set(requirements.decode().splitlines()) == {
+        item['name'] + '==' + item['version'] + ' --hash=sha256:' + item['sha256'] for item in packages}
+    debs = selected['debian']['packages']
+    assert len(debs) == 7 and {item['name'] for item in debs} == {
+        'gpg', 'gpgconf', 'libassuan9', 'libgcrypt20', 'libgpg-error0', 'libksba8', 'libnpth0t64'}
+    assert selected['debian']['libc_installation_performed'] is False
+    native = {item['input']: item for item in selected['original_native_objects']}
+    assert len(native) == 6 and native['native/bwrap']['installation'] == 'retained_data_only'
+    assert native['native/bwrap']['host_path'] is None
+    assert selected['native_object_restorations'] == [{
+        'after': {'sha256': '92e9b4167f9bbc237ca8f5526d82ee99ec9f8dbd0270ef1dd0ab24e2217f48e3', 'size_bytes': 711216},
+        'before': {'sha256': '8dde125b341abfdf4a596d2974cd3048e350cbc8d2d77acd54ea044f7815ca77', 'size_bytes': 711216},
+        'host_path': '/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0',
+        'input': 'native/libpcre2-8.so.0', 'mode': 0o644,
+        'resolved_path': '/usr/lib/x86_64-linux-gnu/libpcre2-8.so.0.14.0',
+        'symlink_target': 'libpcre2-8.so.0.14.0'}]
+    assert selected['host_environment_qualified'] is selected['native_acquisition_performed'] is False
+    assert selected['authority_effect'] == 'none'
+    dockerfile = (ROOT / LOADER_RESOLUTION_HOSTED_CONFIG / 'Dockerfile').read_text()
+    assert 'RUN ["/usr/local/bin/python3.11", "-I", "-B",' in dockerfile and 'apt-get' not in dockerfile
+
+
+def test_loader_resolution_hosted_preservation_roster_covers_completed_scripted_raw_capture_without_relabelling(
+        loader_resolution_scripted_record):
+    fixture, checker = loader_resolution_scripted_record, loader_resolution_hosted_checker()
+    files = fixture.result['files']
+    assert fixture.result['capture']['evidence_origin'] == 'scripted_test_backend'
+    assert fixture.result['report']['status'] == 'accepted_scripted_loader_resolution_record'
+    assert set(files) <= set(checker.CAPTURE_RAW_LIMITS)
+    assert all(len(raw) <= checker.CAPTURE_RAW_LIMITS[name] for name, raw in files.items())
+    assert {'observation/capture/' + name for name in files} <= checker.allowed_files()
+    assert {'verification/capture/' + name for name in files} <= checker.allowed_files()
+    assert 'observation/capture/capture.json' in checker.allowed_files()
+    assert not checker._native_report(fixture.result['report'], fixture.request_case.request['attempt_id'])
+
+
+@pytest.mark.parametrize('fault', ['spawn_after_child', 'partial_memory', 'tenth_return', 'close_failure'])
+def test_loader_resolution_hosted_preservation_roster_covers_partial_and_unexpected_scripted_roles(
+        loader_resolution_modules, loader_resolution_request_case, loader_resolution_scripted_signature_admission,
+        monkeypatch, fault):
+    _backend, result, _calls = _loader_resolution_scripted_collect(
+        loader_resolution_modules, loader_resolution_request_case, monkeypatch, fault)
+    checker = loader_resolution_hosted_checker()
+    assert result['capture']['status'] == 'incomplete'
+    assert result['capture']['evidence_origin'] == 'scripted_test_backend'
+    assert set(result['files']) <= set(checker.CAPTURE_RAW_LIMITS)
+    assert all(len(raw) <= checker.CAPTURE_RAW_LIMITS[name] for name, raw in result['files'].items())
+    assert {'observation/capture/' + name for name in result['files']} <= checker.allowed_files()
+
+
+def _loader_resolution_hosted_transport_report(context=None):
+    """Author a report-shaped transport unit, never a raw/native proof fixture.
+
+    The arbitrary request/capture bytes are deliberately not valid capture
+    controls. Only summary transport rules consume this helper. Real scripted
+    captures above keep their origin and must fail hosted native completion.
+    """
+    checker = loader_resolution_hosted_checker()
+    context = _loader_resolution_hosted_context() if context is None else context
+    request_raw, capture_raw = b'authored transport request\n', b'authored transport capture\n'
+    report = {
+        'record_type': 'required_gate_idempotence_loader_resolution_verification_v0',
+        'profile': 'linux_x86_64_original_launcher_loader_resolution_v0',
+        'attempt_id': checker.request_identity(context),
+        'evidence_origin': 'native_original_loader_capture',
+        'status': 'accepted_native_loader_resolution_record',
+        'record_binding_verified': True, 'complete_mechanics_verified': True,
+        'native_record_reconstructed': True, 'scripted_record_reconstructed': False,
+        'original_loader_capture_completed': True, 'incomplete_record_preserved': False,
+        'failure': None, 'ptrace_cont_count': 11, 'accepted_return_events': 9,
+        'post_entry_resumes': 0, 'source_build_policy_admitted_for_replay': True,
+        'preserved_admission_summaries_consistent': True,
+        'fresh_original_and_rebuild_inputs_reconstructed': True,
+        'preserved_backend_execution_authenticated': False,
+        'final_original_objects': 6, 'final_pt_load_occurrences': 24,
+        'original_rx_samples': 16, 'return_rx_samples': 18,
+        **checker.BOUNDARY, 'consumer_resolution_observed': True,
+        'loader_resolution_verified': True, 'current_backing_read_records_verified': True,
+        'original_invocation_record_verified': True, 'original_acquisition_ready': False,
+        'future_host_admitted': False, 'request': bound(request_raw), 'capture': bound(capture_raw),
+        'source_build_report': bound(b'authored source report'),
+        'original_admission': bound(b'authored original report'),
+        'fresh_source_build_facts': bound(b'authored source facts'),
+        'fresh_original_admission_facts': bound(b'authored original facts'),
+        'task_guard_report': bound(b'authored guard report'),
+        'qualification_reports': {'guard': bound(b'authored guard qualification'),
+                                  'two_slot': bound(b'authored two-slot qualification')},
+        'raw_file_count': 1, 'raw_total_bytes': 1,
+        'occurrence_joins': [{} for _ in range(9)], 'invocation': {},
+    }
+    return SimpleNamespace(request_raw=request_raw, capture_raw=capture_raw, report=report)
+
+
+@pytest.mark.parametrize('phase', ['acquire', 'verify'])
+def test_loader_resolution_hosted_summary_binds_only_two_identical_transport_reports_and_stays_non_authorizing(phase):
+    fixture = _loader_resolution_hosted_transport_report()
+    raw = encoded(fixture.report)
+    checker = loader_resolution_hosted_checker()
+    value = checker.make_summary(phase, _loader_resolution_hosted_selection(phase),
+        request_bytes=fixture.request_raw, capture_bytes=fixture.capture_raw, report_bytes=(raw, raw))
+    assert value['status'] == 'completed_native_reconstruction'
+    assert value['boundary'] == checker.BOUNDARY
+    assert value['boundary']['consumer_resolution_observed'] is False
+    assert value['boundary']['b2_complete'] is False
+    assert value['request'] == bound(fixture.request_raw) and value['capture'] == bound(fixture.capture_raw)
+    assert value['reports'] == [bound(raw), bound(raw)]
+
+
+@pytest.mark.parametrize('fault', [
+    'scripted', 'failed', 'request_id', 'request_binding', 'capture_binding',
+    'report_missing', 'report_whitespace', 'report_divergent', 'failed_command',
+    'returns_eight', 'returns_ten', 'returns_bool', 'cont_extra', 'entry_resumed',
+    'scope_promoted', 'scope_bool_coercion', 'report_extra', 'qualification_missing',
+    'raw_count_bool', 'raw_extent_overflow'])
+def test_loader_resolution_hosted_summary_rejects_incomplete_divergent_or_promoted_transport(fault):
+    fixture = _loader_resolution_hosted_transport_report()
+    report, error = fixture.report, None
+    if fault == 'scripted': report['evidence_origin'] = 'scripted_test_backend'
+    elif fault == 'failed': report['failure'] = {'code': 'authored_failure'}
+    elif fault == 'request_id': report['attempt_id'] = 'f' * 32
+    elif fault in ('request_binding', 'capture_binding'): report[fault.split('_')[0]]['sha256'] = 'f' * 64
+    elif fault == 'failed_command': error = 'authored_command_failed'
+    elif fault.startswith('returns_'): report['accepted_return_events'] = {'returns_eight': 8, 'returns_ten': 10, 'returns_bool': True}[fault]
+    elif fault == 'cont_extra': report['ptrace_cont_count'] = 12
+    elif fault == 'entry_resumed': report['post_entry_resumes'] = 1
+    elif fault == 'scope_promoted': report['physical_execution_authenticated'] = True
+    elif fault == 'scope_bool_coercion': report['physical_execution_authenticated'] = 0
+    elif fault == 'report_extra': report['unselected'] = False
+    elif fault == 'qualification_missing': report['qualification_reports'].pop('guard')
+    elif fault == 'raw_count_bool': report['raw_file_count'] = True
+    elif fault == 'raw_extent_overflow': report['raw_total_bytes'] = 64 * 1024 * 1024 + 1
+    reports = (encoded(report), encoded(report))
+    if fault == 'report_missing': reports = reports[:1]
+    elif fault == 'report_whitespace': reports = (reports[0] + b' ', reports[1] + b' ')
+    elif fault == 'report_divergent': reports = (reports[0], encoded({**report, 'raw_total_bytes': 2}))
+    checker = loader_resolution_hosted_checker()
+    value = checker.make_summary('acquire', _loader_resolution_hosted_selection(),
+        request_bytes=fixture.request_raw, capture_bytes=fixture.capture_raw,
+        report_bytes=reports, error_code=error)
+    assert value['status'] == 'preserved_incomplete' and value['error_code']
+    assert value['boundary'] == checker.BOUNDARY
+
+
+def _loader_resolution_hosted_prefix(root, phase='acquire', context=None):
+    context = _loader_resolution_hosted_context() if context is None else context
+    value = {'record_type': 'required_gate_idempotence_loader_resolution_workflow_start_v0',
+        'phase': phase, 'context': context, 'boundary': dict(loader_resolution_hosted_checker().BOUNDARY)}
+    _loader_resolution_hosted_tree(root, {'workflow-start.json': encoded(value)})
+    return value
+
+
+def _loader_resolution_hosted_incomplete_receipt(tmp_path, *, sources=False, drift=False):
+    checker, context = loader_resolution_hosted_checker(), _loader_resolution_hosted_context()
+    root = tmp_path / 'retained-prefix'
+    _loader_resolution_hosted_prefix(root)
+    if sources:
+        selected = _loader_resolution_hosted_sources()
+        first = sorted(selected)[0]
+        _loader_resolution_hosted_tree(root, {'source-bindings.json': encoded(selected),
+            'source/' + first: b'authored source drift\n' if drift else (ROOT / first).read_bytes()})
+    _loader_resolution_hosted_tree(root, {'observation/capture/capture.json': b''})
+    receipt = checker.make_receipt(root, context)
+    raw = encoded(receipt)
+    (root / 'receipt.json').write_bytes(raw)
+    return SimpleNamespace(checker=checker, context=context, root=root, receipt=receipt, raw=raw)
+
+
+@pytest.mark.parametrize('sources,drift', [(False, False), (True, False), (True, True)])
+def test_loader_resolution_hosted_failed_prefix_keeps_zero_length_capture_and_original_source_selection(tmp_path, sources, drift):
+    fixture = _loader_resolution_hosted_incomplete_receipt(tmp_path, sources=sources, drift=drift)
+    value = fixture.checker.verify_preservation(fixture.root, fixture.raw, digest(fixture.raw), fixture.context)
+    assert value['status'] == 'preserved_incomplete'
+    assert value['sources'] == (_loader_resolution_hosted_sources() if sources else None)
+    assert value['request'] is None and value['capture'] == bound(b'')
+    assert value['boundary'] == fixture.checker.BOUNDARY
+    assert 'receipt.json' not in value['files']
+    assert value['file_count'] == len(value['files'])
+    assert value['total_size_bytes'] == sum(item['size_bytes'] for item in value['files'].values())
+    with pytest.raises((OSError, ValueError)):
+        fixture.checker.verify_completed_acquisition(fixture.root, fixture.context, value)
+
+
+@pytest.mark.parametrize('fault', ['context', 'policy', 'boundary', 'count', 'size', 'roster', 'capture_join', 'promote'])
+def test_loader_resolution_hosted_receipt_rehash_cannot_replace_scope_roster_or_capture_join(tmp_path, fault):
+    fixture = _loader_resolution_hosted_incomplete_receipt(tmp_path)
+    changed = copy.deepcopy(fixture.receipt)
+    if fault == 'context': changed['context']['run_id'] += 1
+    elif fault == 'policy': changed['context']['accepted_policy_sha256'] = 'e' * 64
+    elif fault == 'boundary': changed['boundary']['consumer_resolution_observed'] = True
+    elif fault == 'count': changed['file_count'] = True
+    elif fault == 'size': changed['total_size_bytes'] += 1
+    elif fault == 'roster': changed['files']['unselected.bin'] = bound(b'')
+    elif fault == 'capture_join': changed['capture'] = bound(b'other')
+    else: changed['status'], changed['error_code'] = 'completed_native_reconstruction', None
+    raw = encoded(changed)
+    with pytest.raises((ValueError, TypeError)):
+        fixture.checker.validate_receipt(raw, digest(raw), fixture.context)
+
+
+@pytest.mark.parametrize('fault', ['unknown', 'symlink', 'hardlink', 'fifo', 'extent'])
+def test_loader_resolution_hosted_inventory_rejects_unselected_alias_or_oversized_raw_role(tmp_path, fault):
+    root = tmp_path / 'prefix'
+    _loader_resolution_hosted_prefix(root)
+    target = root / 'observation/capture/cp0.regs.before.bin'
+    target.parent.mkdir(parents=True)
+    if fault == 'unknown': target = root / 'unselected.bin'; target.write_bytes(b'')
+    elif fault == 'symlink': target.symlink_to(root / 'workflow-start.json')
+    elif fault == 'hardlink': os.link(root / 'workflow-start.json', target)
+    elif fault == 'fifo': os.mkfifo(target)
+    else: target.write_bytes(b'x' * 217)
+    with pytest.raises((OSError, ValueError)):
+        loader_resolution_hosted_checker().inventory(root)
+
+
+@pytest.mark.parametrize('path', [LOADER_RESOLUTION_HOSTED_DRIVER, LOADER_RESOLUTION_HOSTED_CHECKER])
+def test_loader_resolution_hosted_outer_cli_help_imports_with_site_packages_disabled(path):
+    result = subprocess.run([sys.executable, '-I', '-S', '-B', str(ROOT / path), '--help'],
+        cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15, check=False)
+    assert result.returncode == 0, result.stderr.decode()
+    assert b'usage:' in result.stdout
+
+
+def _loader_resolution_hosted_transport_capture(context=None):
+    """Authored custody bytes only: deliberately incomplete raw capture semantics.
+
+    No scripted/native acquisition fixture is relabelled. This object exercises
+    report/command transport joins; the unchanged semantic checker must reject
+    it, as covered explicitly below.
+    """
+    checker, core = loader_resolution_hosted_checker(), loader_resolution_admission()
+    context = _loader_resolution_hosted_context() if context is None else context
+    fixture = _loader_resolution_hosted_transport_report(context)
+    request = core.make_request(attempt_id=checker.request_identity(context),
+        observer_descriptor={'path': checker.PYTHON, **checker.OBSERVER_BINDING})
+    fixture.request_raw = encoded(request)
+    saved_build = {'authored': 'transport-only source facts', 'backend_observation': {'pid': 12345}}
+    saved_original = {'authored': 'transport-only original facts', 'signature_evidence': {'pid': 12345}}
+    files = {'request.json': fixture.request_raw,
+        'source_build.admission.json': encoded(saved_build),
+        'original.admission.json': encoded(saved_original)}
+    capture = {'record_type': 'required_gate_idempotence_loader_resolution_capture_v0',
+        'profile': core.PROFILE, 'attempt_id': request['attempt_id'],
+        'evidence_origin': 'native_original_loader_capture', 'status': 'completed',
+        'failure': None, 'request_sha256': digest(fixture.request_raw),
+        'boundary': dict(core.BOUNDARY), 'files': {name: bound(raw) for name, raw in files.items()}}
+    fixture.capture_raw = encoded(capture)
+    report = fixture.report
+    report.update(request=bound(fixture.request_raw), capture=bound(fixture.capture_raw),
+        source_build_report=bound(files['source_build.admission.json']),
+        original_admission=bound(files['original.admission.json']),
+        fresh_source_build_facts=bound(encoded({'authored': 'transport-only source facts'})),
+        fresh_original_admission_facts=bound(encoded({'authored': 'transport-only original facts'})),
+        raw_file_count=len(files), raw_total_bytes=len(fixture.capture_raw) + sum(map(len, files.values())))
+    fixture.request, fixture.capture, fixture.files = request, capture, files
+    fixture.payloads = {'request.json': fixture.request_raw, 'capture/capture.json': fixture.capture_raw,
+        **{'capture/' + name: raw for name, raw in files.items()}}
+    return fixture
+
+
+def test_loader_resolution_hosted_transport_only_fixture_is_rejected_by_unchanged_raw_semantic_checker(monkeypatch):
+    fixture = _loader_resolution_hosted_transport_capture()
+    def forbidden(*_args, **_kwargs):
+        pytest.fail('transport-only fixture must fail before admission or process execution')
+    monkeypatch.setattr(loader_resolution_admission(), 'reconstruct_admission', forbidden)
+    monkeypatch.setattr(subprocess, 'Popen', forbidden)
+    monkeypatch.setattr(os, 'fork', forbidden)
+    with pytest.raises(ValueError):
+        loader_resolution_checker().verify_capture(
+            request_bytes=fixture.request_raw, expected_request_sha256=digest(fixture.request_raw),
+            capture_bytes=fixture.capture_raw, expected_capture_sha256=digest(fixture.capture_raw),
+            files=fixture.files, accepted_policy_sha256=LOADER_RESOLUTION_POLICY_SHA)
+
+
+def _loader_resolution_hosted_inner_fixture(tmp_path, monkeypatch, phase='acquire'):
+    runner = loader_resolution_hosted_runner()
+    selected = _loader_resolution_hosted_selection(phase)
+    fixture = _loader_resolution_hosted_transport_capture(selected['context'])
+    output, control, previous = (tmp_path / name for name in ('output', 'control', 'input'))
+    output.mkdir(mode=0o700)
+    _loader_resolution_hosted_tree(control, {'hosted-selection.json': encoded(selected)})
+    for key, value in _loader_resolution_hosted_environment(phase).items():
+        monkeypatch.setenv(key, value)
+    monkeypatch.setenv('LOADER_RESOLUTION_HOSTED_IMAGE_ID', selected['image_id'])
+    monkeypatch.setattr(runner, 'OUTPUT', output)
+    monkeypatch.setattr(runner, 'CONTROL', control)
+    monkeypatch.setattr(runner, 'INPUT', previous)
+    # These unit fixtures select no real runtime. Exact environment material
+    # checks are separate; only the subprocess transport seam is authored here.
+    monkeypatch.setattr(runner, '_environment_check', lambda **_kwargs: None)
+    root = output if phase == 'acquire' else previous / 'observation'
+    if phase == 'verify': _loader_resolution_hosted_tree(root, fixture.payloads)
+    fixture.runner, fixture.selected, fixture.output = runner, selected, output
+    fixture.root, fixture.control, fixture.previous = root, control, previous
+    fixture.calls = []
+    return fixture
+
+
+@pytest.mark.parametrize('pid,result', [(1, 0), (5001, 0), (5001, 1), (5001, True), (5001, 2)])
+def test_loader_resolution_hosted_observer_constructs_exact_path_binding_and_calls_adapter_once(
+        tmp_path, monkeypatch, pid, result):
+    fixture = _loader_resolution_hosted_inner_fixture(tmp_path, monkeypatch)
+    calls = []
+    adapter = module('prepare_required_gate_idempotence_loader_resolution_v0',
+        'tools/prepare_required_gate_idempotence_loader_resolution_v0.py')
+    monkeypatch.setattr(os, 'getpid', lambda: pid)
+    monkeypatch.setattr(fixture.runner.core.original, '_observer',
+        lambda: {'path': fixture.runner.PYTHON, **fixture.runner.hosted.OBSERVER_BINDING})
+    monkeypatch.setattr(adapter, 'main', lambda argv: calls.append(argv) or result)
+    def forbidden(*_args, **_kwargs):
+        pytest.fail('hosted observer must delegate to the existing adapter without an extra qualification')
+    producer = loader_resolution_producer()
+    monkeypatch.setattr(producer, 'NativeBackend', forbidden)
+    monkeypatch.setattr(producer.guard, 'qualify', forbidden)
+    monkeypatch.setattr(producer.probe, 'qualify', forbidden)
+    if pid == 1 or type(result) is not int or result not in (0, 1):
+        with pytest.raises(ValueError): fixture.runner.observe()
+    else:
+        assert fixture.runner.observe() == result
+    if pid == 1:
+        assert calls == [] and not (fixture.output / 'request.json').exists()
+    else:
+        request_bytes = (fixture.output / 'request.json').read_bytes()
+        request = fixture.runner.core.validate_request(request_bytes, digest(request_bytes))
+        assert request['observer'] == {'path': fixture.runner.PYTHON, **fixture.runner.hosted.OBSERVER_BINDING}
+        assert request['attempt_id'] == fixture.runner.hosted.request_identity(fixture.selected['context'])
+        assert calls == [[
+            'run-owner', '--request', str(fixture.output / 'request.json'),
+            '--request-sha256', digest(request_bytes), '--accepted-policy-sha256', LOADER_RESOLUTION_POLICY_SHA,
+            '--acknowledgement', LOADER_RESOLUTION_ACK, '--output-directory', str(fixture.output / 'capture')]]
+
+
+def _loader_resolution_hosted_mock_inner_commands(fixture, monkeypatch, fault=None):
+    def command(argv, logdir, label, timeout_seconds, stream_cap=1048576):
+        fixture.calls.append((argv, logdir, label, timeout_seconds))
+        if label == 'observe':
+            _loader_resolution_hosted_tree(fixture.output, fixture.payloads)
+            if fault == 'observe_exit': return _loader_resolution_hosted_command_result(1)
+            if fault == 'observe_timeout': return _loader_resolution_hosted_command_result(-9, failure='hosted_process_deadline')
+            return _loader_resolution_hosted_command_result()
+        assert label in ('capture-check-1', 'capture-check-2')
+        report = copy.deepcopy(fixture.report)
+        if fault == 'report_scripted': report['evidence_origin'] = 'scripted_test_backend'
+        elif fault == 'report_boundary': report['physical_execution_authenticated'] = True
+        elif fault == 'report_divergent' and label.endswith('2'): report['raw_total_bytes'] += 1
+        raw = encoded(report)
+        if fault == 'report_whitespace': raw += b' '
+        Path(argv[argv.index('--output') + 1]).write_bytes(raw)
+        if fault == 'raw_drift' and label.endswith('2'):
+            (fixture.root / 'capture/original.admission.json').write_bytes(b'x' * len(fixture.files['original.admission.json']))
+        result = _loader_resolution_hosted_command_result()
+        if fault == 'checker_exit': result['returncode'] = 2
+        elif fault == 'checker_bool': result['returncode'] = False
+        elif fault == 'unreaped': result['cleanup']['child_reaped'] = False
+        return result
+    monkeypatch.setattr(fixture.runner, '_command', command)
+
+
+@pytest.mark.parametrize('phase', ['acquire', 'verify'])
+def test_loader_resolution_hosted_supervisor_has_one_observer_and_replay_only_two_data_checker_commands(
+        tmp_path, monkeypatch, phase):
+    fixture = _loader_resolution_hosted_inner_fixture(tmp_path, monkeypatch, phase)
+    _loader_resolution_hosted_mock_inner_commands(fixture, monkeypatch)
+    adapter = module('prepare_required_gate_idempotence_loader_resolution_v0',
+        'tools/prepare_required_gate_idempotence_loader_resolution_v0.py')
+    monkeypatch.setattr(adapter, 'main', lambda *_a, **_k: pytest.fail('supervisor/replay imported or invoked adapter'))
+    summary = getattr(fixture.runner, phase)()
+    assert summary['status'] == 'completed_native_reconstruction', summary
+    assert summary['boundary'] == fixture.runner.hosted.BOUNDARY
+    assert [call[2] for call in fixture.calls] == (['observe'] if phase == 'acquire' else []) + ['capture-check-1', 'capture-check-2']
+    for argv, _logs, label, timeout in fixture.calls:
+        if label == 'observe':
+            assert argv == [fixture.runner.PYTHON, '-I', '-B', str(fixture.runner.RUNNER), 'observe']
+            assert timeout == 240
+        else:
+            assert argv == [fixture.runner.PYTHON, '-I', '-B', str(fixture.runner.CAPTURE_CHECKER),
+                '--request', str(fixture.root / 'request.json'), '--request-sha256', digest(fixture.request_raw),
+                '--capture-dir', str(fixture.root / 'capture'), '--capture-sha256', digest(fixture.capture_raw),
+                '--accepted-policy-sha256', LOADER_RESOLUTION_POLICY_SHA,
+                '--output', str(fixture.output / (label + '.json'))]
+            assert timeout == 180
+    leaf = 'acquisition-summary.json' if phase == 'acquire' else 'verification-summary.json'
+    assert (fixture.output / leaf).read_bytes() == encoded(summary)
+
+
+@pytest.mark.parametrize('fault', ['observe_exit', 'observe_timeout', 'checker_exit', 'checker_bool', 'unreaped',
+    'report_scripted', 'report_boundary', 'report_divergent', 'report_whitespace', 'raw_drift'])
+def test_loader_resolution_hosted_inner_failure_never_retries_original_or_completes_transport(
+        tmp_path, monkeypatch, fault):
+    fixture = _loader_resolution_hosted_inner_fixture(tmp_path, monkeypatch)
+    _loader_resolution_hosted_mock_inner_commands(fixture, monkeypatch, fault)
+    summary = fixture.runner.acquire()
+    assert summary['status'] == 'preserved_incomplete' and summary['error_code']
+    assert [call[2] for call in fixture.calls].count('observe') == 1
+    assert len([call for call in fixture.calls if call[2].startswith('capture-check-')]) <= 2
+    assert (fixture.output / 'request.json').read_bytes() == fixture.request_raw
+    assert (fixture.output / 'capture/capture.json').read_bytes() == fixture.capture_raw
+    assert (fixture.output / 'acquisition-summary.json').read_bytes() == encoded(summary)
+
+
+@pytest.mark.parametrize('fault', ['policy', 'run', 'source', 'image', 'artifact', 'artifact_digest', 'receipt'])
+def test_loader_resolution_hosted_replay_rejects_changed_selection_before_any_checker(tmp_path, monkeypatch, fault):
+    fixture = _loader_resolution_hosted_inner_fixture(tmp_path, monkeypatch, 'verify')
+    field, value = {'policy': ('ACCEPTED_POLICY_SHA256', 'e' * 64),
+        'run': ('GITHUB_RUN_ID', '987654322'), 'source': ('EXPECTED_SOURCE_COMMIT', 'e' * 40),
+        'image': ('LOADER_RESOLUTION_HOSTED_IMAGE_ID', 'sha256:' + 'e' * 64),
+        'artifact': ('LOADER_RESOLUTION_HOSTED_ARTIFACT_ID', '123456790'),
+        'artifact_digest': ('LOADER_RESOLUTION_HOSTED_ARTIFACT_DIGEST', 'sha256:' + 'e' * 64),
+        'receipt': ('EXPECTED_RECEIPT_SHA256', 'e' * 64)}[fault]
+    monkeypatch.setenv(field, value)
+    monkeypatch.setattr(fixture.runner, '_command', lambda *_a, **_k: pytest.fail('unselected replay reached a checker'))
+    with pytest.raises(ValueError): fixture.runner.verify()
+    assert list(fixture.output.iterdir()) == []
+
+
+def test_loader_resolution_hosted_inner_import_and_invalid_replay_cannot_import_any_native_adapter(tmp_path):
+    script = r'''
+import importlib.abc
+import importlib.util
+import os
+import subprocess
+import sys
+class NoNativeProducer(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname in {'prepare_required_gate_idempotence_loader_resolution_v0',
+                        'collect_required_gate_idempotence_loader_resolution_v0',
+                        'qualify_required_gate_idempotence_loader_two_slot_v0',
+                        'qualify_required_gate_idempotence_task_guard_v0'}:
+            raise AssertionError('replay imported a native acquisition module')
+sys.meta_path.insert(0, NoNativeProducer())
+def forbidden(*args, **kwargs):
+    raise AssertionError('invalid replay attempted a process or original execution')
+os.fork = forbidden
+subprocess.Popen = forbidden
+spec = importlib.util.spec_from_file_location('hosted_inner_import_test', sys.argv[1])
+runner = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(runner)
+runner.CONTROL = runner.Path(sys.argv[2])
+raise SystemExit(runner.main(['verify']))
+'''
+    result = subprocess.run([sys.executable, '-I', '-B', '-c', script,
+        str(ROOT / LOADER_RESOLUTION_HOSTED_CONFIG / 'run.py'), str(tmp_path / 'no-control')],
+        capture_output=True, timeout=30, check=False)
+    assert result.returncode == 2, result.stderr.decode()
+    assert result.stdout == b''
+    assert b'AssertionError' not in result.stderr and b'Traceback' not in result.stderr
+
+
+def _loader_resolution_hosted_report_join_fixture(tmp_path, phase='acquire'):
+    checker = loader_resolution_hosted_checker()
+    selected = _loader_resolution_hosted_selection(phase)
+    fixture = _loader_resolution_hosted_transport_capture(selected['context'])
+    root, previous = tmp_path / 'retained', tmp_path / 'earlier'
+    evidence = root / 'observation' if phase == 'acquire' else previous / 'observation'
+    output = root / ('observation' if phase == 'acquire' else 'verification')
+    _loader_resolution_hosted_tree(evidence, fixture.payloads)
+    output.mkdir(mode=0o700, parents=True, exist_ok=True)
+    inner_root = '/output' if phase == 'acquire' else '/input/observation'
+    command_directory = ('observation' if phase == 'acquire' else 'verification') + '/commands'
+    if phase == 'acquire':
+        _loader_resolution_hosted_tree(root, _loader_resolution_hosted_command_files('observe',
+            [checker.PYTHON, '-I', '-B', '/repo/' + LOADER_RESOLUTION_HOSTED_CONFIG + '/run.py', 'observe'],
+            directory=command_directory))
+    report_raw = encoded(fixture.report)
+    for label in ('capture-check-1', 'capture-check-2'):
+        _loader_resolution_hosted_tree(root, _loader_resolution_hosted_command_files(label,
+            [checker.PYTHON, '-I', '-B', '/repo/tools/check_required_gate_idempotence_loader_resolution_v0.py',
+             '--request', inner_root + '/request.json', '--request-sha256', digest(fixture.request_raw),
+             '--capture-dir', inner_root + '/capture', '--capture-sha256', digest(fixture.capture_raw),
+             '--accepted-policy-sha256', LOADER_RESOLUTION_POLICY_SHA,
+             '--output', '/output/' + label + '.json'], directory=command_directory))
+        (output / (label + '.json')).write_bytes(report_raw)
+    summary = checker.make_summary(phase, selected, request_bytes=fixture.request_raw,
+        capture_bytes=fixture.capture_raw, report_bytes=(report_raw, report_raw))
+    leaf = 'acquisition-summary.json' if phase == 'acquire' else 'verification-summary.json'
+    (output / leaf).write_bytes(encoded(summary))
+    fixture.checker, fixture.selected, fixture.root, fixture.previous = checker, selected, root, previous
+    fixture.evidence, fixture.output, fixture.summary_leaf = evidence, output, leaf
+    fixture.command_directory, fixture.report_raw = command_directory, report_raw
+    return fixture
+
+
+@pytest.mark.parametrize('phase', ['acquire', 'verify'])
+def test_loader_resolution_hosted_report_transport_joins_raw_manifest_source_policy_and_two_distinct_commands(tmp_path, phase):
+    fixture = _loader_resolution_hosted_report_join_fixture(tmp_path, phase)
+    value = fixture.checker._verify_reports(fixture.root, fixture.selected,
+        fixture.previous if phase == 'verify' else None)
+    assert value['request_id'] == fixture.request['attempt_id']
+    assert value['request'] == bound(fixture.request_raw) and value['capture'] == bound(fixture.capture_raw)
+    assert value['reports'] == [bound(fixture.report_raw), bound(fixture.report_raw)]
+    assert value['summary'] == bound((fixture.output / fixture.summary_leaf).read_bytes())
+
+
+@pytest.mark.parametrize('fault', ['raw_changed', 'raw_missing', 'raw_extra', 'raw_symlink', 'request_copy',
+    'request_policy', 'request_observer', 'request_sources', 'capture_origin', 'capture_boundary',
+    'report_scripted', 'report_facts', 'report_size', 'report_divergent', 'report_whitespace',
+    'command_policy', 'command_capture_digest', 'command_failed', 'command_not_reaped',
+    'summary_promoted', 'summary_selection', 'verification_observe'])
+def test_loader_resolution_hosted_report_transport_rejects_raw_policy_command_or_summary_substitution(tmp_path, fault):
+    phase = 'verify' if fault == 'verification_observe' else 'acquire'
+    fixture = _loader_resolution_hosted_report_join_fixture(tmp_path, phase)
+    if fault.startswith('raw_'):
+        target = fixture.evidence / 'capture/original.admission.json'
+        if fault == 'raw_changed': target.write_bytes(b'x' * len(fixture.files['original.admission.json']))
+        elif fault == 'raw_missing': target.unlink()
+        elif fault == 'raw_extra': (target.parent / 'unexpected.bin').write_bytes(b'')
+        else: target.unlink(); target.symlink_to(fixture.evidence / 'request.json')
+    elif fault == 'request_copy': (fixture.evidence / 'capture/request.json').write_bytes(b'x' * len(fixture.request_raw))
+    elif fault.startswith('request_'):
+        value = copy.deepcopy(fixture.request)
+        if fault == 'request_policy': value['source_build']['policy']['sha256'] = 'e' * 64
+        elif fault == 'request_observer': value['observer']['path'] = '/usr/bin/python3'
+        else: value['sources'].pop(next(iter(value['sources'])))
+        (fixture.evidence / 'request.json').write_bytes(encoded(value))
+    elif fault.startswith('capture_'):
+        value = copy.deepcopy(fixture.capture)
+        if fault == 'capture_origin': value['evidence_origin'] = 'scripted_test_backend'
+        else: value['boundary']['original_acquisition_authorized'] = True
+        (fixture.evidence / 'capture/capture.json').write_bytes(encoded(value))
+    elif fault.startswith('report_'):
+        value = copy.deepcopy(fixture.report)
+        if fault == 'report_scripted': value['evidence_origin'] = 'scripted_test_backend'
+        elif fault == 'report_facts': value['fresh_original_admission_facts']['sha256'] = 'e' * 64
+        elif fault == 'report_size': value['raw_total_bytes'] += 1
+        elif fault == 'report_divergent': value['occurrence_joins'][0] = {'authored': 'different'}
+        raw = encoded(value) + (b' ' if fault == 'report_whitespace' else b'')
+        (fixture.output / 'capture-check-2.json').write_bytes(raw)
+    elif fault.startswith('command_'):
+        prefix = fixture.root / fixture.command_directory / 'capture-check-2'
+        argv = json.loads(Path(str(prefix) + '.argv.json').read_bytes())['argv']
+        if fault == 'command_policy': argv[argv.index('--accepted-policy-sha256') + 1] = 'e' * 64
+        elif fault == 'command_capture_digest': argv[argv.index('--capture-sha256') + 1] = 'e' * 64
+        payloads = _loader_resolution_hosted_command_files('capture-check-2', argv,
+            returncode=1 if fault == 'command_failed' else 0, directory=fixture.command_directory)
+        if fault == 'command_not_reaped':
+            name = fixture.command_directory + '/capture-check-2.result.json'
+            result = json.loads(payloads[name]); result['cleanup']['child_reaped'] = False
+            payloads[name] = encoded(result)
+        _loader_resolution_hosted_tree(fixture.root, payloads)
+    elif fault.startswith('summary_'):
+        path = fixture.output / fixture.summary_leaf
+        value = json.loads(path.read_bytes())
+        if fault == 'summary_promoted': value['boundary']['physical_execution_authenticated'] = True
+        else: value['selection']['sha256'] = 'e' * 64
+        path.write_bytes(encoded(value))
+    else:
+        _loader_resolution_hosted_tree(fixture.root, _loader_resolution_hosted_command_files('observe',
+            ['authored unselected observer'], directory=fixture.command_directory))
+    with pytest.raises((ValueError, OSError)):
+        fixture.checker._verify_reports(fixture.root, fixture.selected,
+            fixture.previous if phase == 'verify' else None)
+
+
+def test_loader_resolution_hosted_schema_closes_selection_prefix_receipt_summary_and_scope(tmp_path):
+    import jsonschema
+    schema = json.loads((ROOT / LOADER_RESOLUTION_HOSTED_SCHEMA).read_bytes())
+    jsonschema.Draft202012Validator.check_schema(schema)
+    validator = jsonschema.Draft202012Validator(schema)
+    checker = loader_resolution_hosted_checker()
+    receipt = _loader_resolution_hosted_incomplete_receipt(tmp_path).receipt
+    selection = _loader_resolution_hosted_selection()
+    transport = _loader_resolution_hosted_transport_report()
+    raw = encoded(transport.report)
+    summary = checker.make_summary('acquire', selection, request_bytes=transport.request_raw,
+        capture_bytes=transport.capture_raw, report_bytes=(raw, raw))
+    prefix = _loader_resolution_hosted_prefix(tmp_path / 'schema-prefix')
+    plan = _loader_resolution_hosted_plan(tmp_path / 'schema-plan')[1]
+    for value in (selection, receipt, summary, prefix, plan):
+        assert validator.is_valid(value), ('schema rejected', value['record_type'])
+        altered = copy.deepcopy(value); altered['unselected'] = None
+        assert list(validator.iter_errors(altered))
+        altered = copy.deepcopy(value); altered['context']['accepted_policy_sha256'] = 'e' * 64
+        assert list(validator.iter_errors(altered))
+        if 'boundary' in value:
+            altered = copy.deepcopy(value); altered['boundary']['b2_complete'] = True
+            assert list(validator.iter_errors(altered))
+    assert validator.is_valid(checker.environment()), 'schema rejected selected environment'
+
+
+@pytest.mark.parametrize('fault', [None, 'extra', 'symlink', 'hardlink', 'digest', 'inside_source', 'declared_total'])
+def test_loader_resolution_hosted_private_copy_uses_exact_roster_and_bounded_private_bytes(tmp_path, monkeypatch, fault):
+    driver = loader_resolution_hosted_driver()
+    source, destination = tmp_path / 'download', tmp_path / 'private-input'
+    payloads = {'receipt.json': b'authored receipt\n', 'observation/capture/request.json': b'authored request\n'}
+    _loader_resolution_hosted_tree(source, payloads)
+    selected = {name: bound(raw) for name, raw in payloads.items()}
+    target = source / 'observation/capture/request.json'
+    if fault == 'extra': (source / 'unexpected').write_bytes(b'')
+    elif fault == 'symlink': target.unlink(); target.symlink_to(source / 'receipt.json')
+    elif fault == 'hardlink': target.unlink(); os.link(source / 'receipt.json', target)
+    elif fault == 'digest': selected['receipt.json']['sha256'] = 'f' * 64
+    elif fault == 'inside_source': destination = source / 'copied'
+    elif fault == 'declared_total':
+        selected = {'part' + str(i): {'size_bytes': 256 * 1024 * 1024, 'sha256': 'f' * 64} for i in range(4)}
+        monkeypatch.setattr(driver.io, '_pin_directory', lambda *_a, **_k: pytest.fail('overflow reached filesystem'))
+    if fault:
+        with pytest.raises((ValueError, OSError)):
+            driver._copy_private_input(source, destination, selected)
+        assert not destination.exists()
+    else:
+        result = driver._copy_private_input(source, destination, selected)
+        assert result == {'member_count': 2, 'decoded_bytes': sum(map(len, payloads.values()))}
+        assert stat.S_IMODE(destination.stat().st_mode) == 0o700
+        for name, raw in payloads.items():
+            assert (destination / name).read_bytes() == raw
+            assert stat.S_IMODE((destination / name).stat().st_mode) == 0o600
+            assert (destination / name).stat().st_ino != (source / name).stat().st_ino
+
+
+def loader_resolution_hosted_builder():
+    return module('loader_resolution_hosted_environment_builder_tests',
+                  LOADER_RESOLUTION_HOSTED_CONFIG + '/build_environment.py')
+
+
+@pytest.mark.parametrize('fault,code', [('environment', 'build_environment_digest'),
+    ('requirements', 'build_requirements_binding'), ('wheels', 'build_payload_binding')])
+def test_loader_resolution_hosted_builder_rejects_selected_byte_drift_before_any_installer_or_native_mutation(
+        tmp_path, monkeypatch, fault, code):
+    builder = loader_resolution_hosted_builder()
+    selected = loader_resolution_hosted_checker().environment()
+    for name in ('debs', 'wheels', 'native'): (tmp_path / name).mkdir()
+    for name in ('environment.json', 'requirements.lock', 'build_environment.py'):
+        (tmp_path / name).write_bytes((ROOT / LOADER_RESOLUTION_HOSTED_CONFIG / name).read_bytes())
+    for name in builder.NATIVE: (tmp_path / name).write_bytes(b'authored inert input only')
+    for directory, items in (('wheels', selected['python']['packages']), ('debs', selected['debian']['packages'])):
+        for item in items: (tmp_path / directory / item['filename']).write_bytes(b'authored inert input only')
+    if fault == 'environment':
+        path = tmp_path / 'environment.json'; path.write_bytes(path.read_bytes() + b' ')
+    elif fault == 'requirements':
+        path = tmp_path / 'requirements.lock'; path.write_bytes(path.read_bytes() + b'\n')
+    monkeypatch.setattr(builder, 'sys', SimpleNamespace(
+        executable=builder.PYTHON, flags=SimpleNamespace(isolated=1), platform='linux'))
+    monkeypatch.setattr(builder.platform, 'python_version', lambda: builder.PYTHON_VERSION)
+    monkeypatch.setattr(builder.platform, 'machine', lambda: 'x86_64')
+    def forbidden(*_a, **_k): pytest.fail('invalid material reached an installer or native mutation')
+    monkeypatch.setattr(builder, 'restore_original_native_objects', forbidden)
+    monkeypatch.setattr(builder, 'install_original_objects', forbidden)
+    monkeypatch.setattr(builder.subprocess, 'run', forbidden)
+    with pytest.raises(ValueError, match=code): builder.install(tmp_path)
+    assert not (tmp_path / 'build-environment-record.json').exists()
+
+
+@pytest.mark.parametrize('fault', ['symlink_input', 'oversize_input', 'existing_output', 'symlink_output'])
+def test_loader_resolution_hosted_builder_rejects_input_aliases_and_output_overwrite(tmp_path, fault):
+    builder = loader_resolution_hosted_builder()
+    original, alias = tmp_path / 'original', tmp_path / 'alias'
+    original.write_bytes(b'preserve these bytes')
+    if fault.startswith('symlink'): alias.symlink_to(original)
+    if fault == 'symlink_output': operation = lambda: builder.write_new(alias, b'overwrite')
+    elif fault == 'existing_output': operation = lambda: builder.write_new(original, b'overwrite')
+    elif fault == 'oversize_input': operation = lambda: builder.read_regular(original, 2)
+    else: operation = lambda: builder.read_regular(alias, 100)
+    with pytest.raises((OSError, ValueError)): operation()
+    assert original.read_bytes() == b'preserve these bytes'
+
+
+@pytest.mark.parametrize('positive,negative,code', [(1, 1, 'build_crypto_positive_self_test'),
+    (0, 0, 'build_crypto_negative_self_test')])
+def test_loader_resolution_hosted_builder_requires_positive_and_negative_public_signature_answers(
+        monkeypatch, positive, negative, code):
+    builder = loader_resolution_hosted_builder()
+    selected = copy.deepcopy(loader_resolution_hosted_checker().environment())
+    # Unit-test backend pins are explicitly selected locally. The historical
+    # acquisition policy and pinned build environment remain unchanged.
+    for item in selected['crypto_backend']['runtime_files']:
+        item.update(bound(Path(item['path']).read_bytes()))
+    selected['crypto_backend']['base_packages'] = {}
+    monkeypatch.setattr(builder, 'installed_debian', lambda: {})
+    replies = iter((subprocess.CompletedProcess([], 0, b'OpenSSL 3.5.7 authored\n'),
+        subprocess.CompletedProcess([], positive), subprocess.CompletedProcess([], negative)))
+    calls = []
+    def crypto_only(argv, **kwargs):
+        assert argv[0] == '/usr/bin/openssl' and kwargs['shell'] is False
+        assert kwargs['env']['OPENSSL_CONF'] == '/dev/null'
+        calls.append(argv)
+        return next(replies)
+    monkeypatch.setattr(builder.subprocess, 'run', crypto_only)
+    with pytest.raises(ValueError, match=code): builder.check_openssl_backend(selected)
+    assert len(calls) == (2 if positive else 3)
+
+
+def test_loader_resolution_hosted_full_git_metadata_ignores_unselected_paths_without_expanding_copy_roster(tmp_path, monkeypatch):
+    case = _loader_resolution_hosted_git_fixture(tmp_path, monkeypatch, fault='unexpected_path')
+    case.driver.validate_git_source_snapshot(case.output, case.context, case.sources)
+    argv = case.calls[1][1]
+    assert len(argv) == 13 <= 128 < len(case.sources)
+    assert 'unselected.py' not in case.sources
+    case.driver._copy_sources(case.output, case.sources)
+    assert not (case.output / 'source/unselected.py').exists()
+    assert json.loads((case.output / 'source-bindings.json').read_bytes()) == case.sources
+
+
+def _loader_resolution_hosted_build_record():
+    """Authored build custody fields, no claim an image was constructed here."""
+    checker = loader_resolution_hosted_checker()
+    selected = checker.environment()
+    restoration = selected['native_object_restorations'][0]
+    def resolved(path):
+        return restoration['resolved_path'] if path == restoration['host_path'] else path
+    record = {
+        'record_type': 'required_gate_idempotence_loader_resolution_hosted_environment_build_v0',
+        'profile': checker.PROFILE, 'environment_selection': checker.ENVIRONMENT_BINDING,
+        'requirements_lock': selected['requirements'],
+        'base_image_reference': selected['base_image']['reference'], 'python_version': '3.11.16',
+        'installed_debian_delta': [{key: item[key] for key in ('name', 'version')} for item in selected['debian']['packages']],
+        'selected_python_packages': [{key: item[key] for key in ('name', 'version')} for item in selected['python']['packages']],
+        'native_object_restorations': [{**item, 'action': 'restored_selected_base_original',
+            'observed_before': item['before'], 'observed_after': item['after']}
+            for item in selected['native_object_restorations']],
+        'checked_files': [{**item, 'resolved_path': resolved(item['path'])} for item in selected['expected_files']],
+        'original_native_objects': [{**item,
+            'resolved_path': None if item['host_path'] is None else resolved(item['host_path']),
+            'action': 'retained_data_only' if item['host_path'] is None else 'existing_original_verified'}
+            for item in selected['original_native_objects']],
+        'openssl_backend': {'path': '/usr/bin/openssl',
+            'binary_sha256': next(item['sha256'] for item in selected['expected_files'] if item['path'] == '/usr/bin/openssl'),
+            'version': 'OpenSSL 3.5.7 authored transport', 'suite': 'ed25519', 'known_answer_self_test': 'passed'},
+        'offline_install': True, 'reproducible_image_claimed': False,
+        'host_environment_qualified': False, 'native_acquisition_performed': False, 'authority_effect': 'none'}
+    return selected, record
+
+
+@pytest.mark.parametrize('fault', [None, 'gpg_missing', 'gpg_binding', 'runtime_duplicate',
+    'launcher_action', 'pcre_action', 'pcre_path', 'pcre_both_paths', 'native_path',
+    'restoration_before', 'openssl_kat', 'scope', 'extra'])
+def test_loader_resolution_hosted_build_record_requires_exact_gpg_and_native_restoration_custody(fault):
+    checker = loader_resolution_hosted_checker()
+    selected, record = _loader_resolution_hosted_build_record()
+    gpg = next(item for item in record['checked_files'] if item['path'] == '/usr/bin/gpg')
+    pcre = next(item for item in record['original_native_objects'] if item['input'] == 'native/libpcre2-8.so.0')
+    pcre_runtime = next(item for item in record['checked_files'] if item['path'] == pcre['host_path'])
+    if fault == 'gpg_missing': record['checked_files'].remove(gpg)
+    elif fault == 'gpg_binding': gpg['sha256'] = 'e' * 64
+    elif fault == 'runtime_duplicate': record['checked_files'][0] = copy.deepcopy(gpg)
+    elif fault == 'launcher_action': record['original_native_objects'][0]['action'] = 'executed'
+    elif fault == 'pcre_action': pcre['action'] = 'installed_absent_original'
+    elif fault == 'pcre_path': pcre['resolved_path'] = '/other/libpcre.so'
+    elif fault == 'pcre_both_paths': pcre['resolved_path'] = pcre_runtime['resolved_path'] = '/other/libpcre.so'
+    elif fault == 'native_path': record['original_native_objects'][1]['resolved_path'] = '/other/loader'
+    elif fault == 'restoration_before': record['native_object_restorations'][0]['observed_before'] = record['native_object_restorations'][0]['after']
+    elif fault == 'openssl_kat': record['openssl_backend']['known_answer_self_test'] = 'skipped'
+    elif fault == 'scope': record['host_environment_qualified'] = True
+    elif fault == 'extra': record['unselected'] = True
+    if fault:
+        with pytest.raises(ValueError): checker.validate_build_record(record, selected)
+    else:
+        assert checker.validate_build_record(record, selected) == record
+
+
+@pytest.mark.parametrize('phase', ['acquire', 'verify'])
+def test_loader_resolution_hosted_build_uses_selected_base_and_offline_private_materials_without_native_execution(
+        tmp_path, monkeypatch, phase):
+    driver, checker = loader_resolution_hosted_driver(), loader_resolution_hosted_checker()
+    selected = checker.environment()
+    root, previous = tmp_path / 'build', tmp_path / 'previous'
+    env_raw = (ROOT / LOADER_RESOLUTION_HOSTED_CONFIG / 'environment.json').read_bytes()
+    _loader_resolution_hosted_tree(root, {'source/' + LOADER_RESOLUTION_HOSTED_CONFIG + '/environment.json': env_raw})
+    materials = root / 'materials'; materials.mkdir()
+    base_id = 'sha256:' + selected['base_image']['config_sha256']
+    local_tag = 'localhost/pulse-loader-resolution-base:' + selected['base_image']['config_sha256']
+    image_id, base_archive = 'sha256:' + 'd' * 64, b'authored base archive transport only\n'
+    base_info = {'Id': base_id, 'Architecture': 'amd64', 'Os': 'linux',
+                 'Config': {'Env': ['PATH=/usr/local/bin:/usr/bin:/bin']}}
+    if phase == 'verify':
+        _loader_resolution_hosted_tree(previous, _loader_resolution_hosted_command_files(
+            'base-save', ['docker', 'image', 'save', local_tag], stdout=base_archive))
+    calls = []
+    def command(destination, label, argv, *args, **kwargs):
+        assert Path(destination) == root
+        calls.append((label, argv, kwargs))
+        stdout = b''
+        if label in ('base-inspect', 'base-tag-inspect', 'base-inspect-after'):
+            stdout = encoded([base_info])
+        elif label == 'image-inspect':
+            built = copy.deepcopy(base_info); built['Id'] = image_id
+            built['Config']['Env'] += selected['runtime_environment']
+            stdout = encoded([built])
+        elif label == 'base-save': stdout = base_archive
+        elif label == 'image-build':
+            (root / 'environment/image-id.txt').write_text(image_id + '\n')
+        else: assert label in ('base-pull', 'base-tag', 'base-load')
+        payloads = _loader_resolution_hosted_command_files(label, argv, stdout=stdout)
+        _loader_resolution_hosted_tree(root, payloads)
+        return json.loads(payloads['host-commands/' + label + '.result.json'])
+    monkeypatch.setattr(driver, '_command', command)
+    actual = driver._build_image(root, selected, materials, previous if phase == 'verify' else None)
+    assert actual == image_id
+    labels = [call[0] for call in calls]
+    assert ('base-pull' in labels) == (phase == 'acquire')
+    assert ('base-save' in labels) == (phase == 'acquire')
+    assert ('base-load' in labels) == (phase == 'verify')
+    build = next(call[1] for call in calls if call[0] == 'image-build')
+    assert build == ['docker', 'build', '--platform', 'linux/amd64', '--network', 'none',
+        '--pull=false', '--no-cache', '--build-arg', 'PULSE_LOADER_RESOLUTION_BASE=' + local_tag,
+        '--iidfile', str(root / 'environment/image-id.txt'), str(materials)]
+    image = json.loads((root / 'environment/selection.json').read_bytes())
+    assert image['base_loaded_from_preserved_bytes'] == (phase == 'verify')
+    assert image['base_archive'] == bound(base_archive) and image['boundary'] == checker.BOUNDARY
+
+
+@pytest.mark.parametrize('fault', [None, 'extra_byte', 'short_body', 'changed_byte', 'redirect'])
+def test_loader_resolution_hosted_download_rejects_bad_binding_but_preserves_only_bounded_received_prefix(
+        tmp_path, monkeypatch, fault):
+    driver = loader_resolution_hosted_driver()
+    expected_raw = b'selected package bytes\n'
+    item = {'filename': 'authored-1-py3-none-any.whl',
+        'url': 'https://files.pythonhosted.org/packages/authored-1-py3-none-any.whl', **bound(expected_raw)}
+    response_raw = (expected_raw + b'x' if fault == 'extra_byte' else
+                    expected_raw[:-1] if fault == 'short_body' else
+                    b'x' + expected_raw[1:] if fault == 'changed_byte' else expected_raw)
+    class Response:
+        status = 200
+        def __init__(self): self.body = io.BytesIO(response_raw)
+        def __enter__(self): return self
+        def __exit__(self, *_args): return False
+        def geturl(self): return 'https://unselected.invalid/package.whl' if fault == 'redirect' else item['url']
+        def read(self, size): return self.body.read(size)
+    calls = []
+    def opened(request, timeout):
+        calls.append((request.full_url, timeout))
+        return Response()
+    monkeypatch.setattr(driver.urllib.request, 'build_opener',
+        lambda *_handlers: SimpleNamespace(open=opened))
+    target = tmp_path / item['filename']
+    if fault:
+        with pytest.raises(ValueError, match='loader_resolution_hosted_download_(binding|status)'):
+            driver.download(item, target)
+    else:
+        assert driver.download(item, target) is None
+    assert len(calls) == 1 and calls[0][0] == item['url']
+    assert target.read_bytes() == (b'' if fault == 'redirect' else response_raw[:len(expected_raw)])
+    assert len(target.read_bytes()) <= item['size_bytes']
+    assert stat.S_IMODE(target.stat().st_mode) == 0o600

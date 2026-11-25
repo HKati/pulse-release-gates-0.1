@@ -330,6 +330,53 @@ def classify_workflow(path: Path, *, repo_root: Path) -> dict[str, Any]:
             ),
         )
 
+    if rel == ".github/workflows/required_gate_idempotence_loader_resolution_v0.yml":
+        expected_sha256 = "ef4b6622ef0443452062e872f8d960658f0647723677ca8c1e5d0f2f8b4b7f97"
+        if (name != "PULSEmech original loader resolution observation v0"
+                or path.is_symlink() or not path.is_file()
+                or hashlib.sha256(path.read_bytes()).hexdigest() != expected_sha256):
+            return entry(
+                name=name, path=rel, surface_type="workflow",
+                primary_role="unclassified workflow", carrier_class="advisory",
+                authority_impacting="conditional",
+                authority_boundary="Changed original-loader resolution carrier requires exact source review",
+            )
+        return entry(
+            name=name, path=rel, surface_type="workflow",
+            primary_role="non-authorizing bounded original-loader resolution observation workflow",
+            carrier_class="audit_preservation", authority_impacting="no",
+            authority_boundary=(
+                "Manual owner-scoped original-input and selected-policy admission, fresh guard and two-slot "
+                "qualification, and one original attempt through nine selected dependency returns and entry; "
+                "no continuation after entry, model execution, required-gate activation or release admission."
+            ),
+            reads_artifacts=[
+                "exact reviewed source/workflow commit, independently selected policy digest and owner acknowledgement",
+                "preserved original distribution and rebuild inputs, exact verifier and original native objects",
+                "pinned Python base, verified Debian packages and hash-locked verifier wheels",
+                "exact current-run artifact ID/digest and externally bound complete or incomplete attempt receipt",
+            ],
+            writes_artifacts=[
+                "source-bound original request, raw nine-return and entry capture or bounded incomplete prefix",
+                "fresh acquisition-context task-guard and two-slot qualification records",
+                "two canonical acquisition reports and two independent data-only replay reports",
+                "fixed command/runtime records and verified owned container cleanup",
+                "completed verification binding and original GitHub attestation and signature-verification evidence",
+            ],
+            publishes_artifacts=[
+                "original-loader observation and separate verification artifacts with 90-day retention",
+            ],
+            required_gate_participation=False, attestation_participation=True, release_path_participation=False,
+            notes=(
+                "Incomplete prefixes remain incomplete and cannot reach completed-statement attestation. "
+                "The verifier rebuilds offline from preserved inputs without repeating probes or acquisition. "
+                "The historical GPG selection remains exact; test-host verifier selection cannot replace it. "
+                "Hosted statement attestation does not establish physical execution authentication, "
+                "future-host admission, whole-runtime closure, B2 completion or release authority. "
+                "metric_pass=null; authority_effect=none; keep #2879 open with its complete whole-runtime scope."
+            ),
+        )
+
     if rel == ".github/workflows/pulse_ci.yml":
         return entry(
             name=name,

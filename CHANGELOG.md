@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Add the separate [hosted B2 original-loader resolution route](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md).
+  Bind manual owner dispatch to the reviewed source and explicitly selected
+  rebuild policy; preserve the complete offline admission closure and exact
+  GPG/OpenSSL/native environment. Supervise one bounded original collector,
+  independently replay raw evidence in a separate job, require equal checker
+  reports and owned cleanup, and attest only completed verification. Preserve
+  incomplete prefixes and classify the new workflow explicitly. This unit
+  implements the route without dispatching it; B2 and whole-runtime #2879
+  remain open, with `metric_pass=null` and `authority_effect=none`.
+
 - Fix the [B2 original-loader collector regressions](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_v0.md#verification-and-next-boundary)
   to distinguish scripted original-signature transport from fresh cryptographic
   verification with an explicitly selected test-host verifier. Exercise the

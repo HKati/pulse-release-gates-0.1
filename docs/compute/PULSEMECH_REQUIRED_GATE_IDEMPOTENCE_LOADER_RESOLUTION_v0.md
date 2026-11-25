@@ -9,6 +9,10 @@ It supplies implementation and scripted regression coverage. It contains no
 new original-loader run, successful native capture, workflow dispatch or hosted
 attestation.
 
+The subsequent [hosted execution and independent replay route](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md)
+provides a separate manual workflow, complete offline environment and custody
+contract for this collector. Its implementation does not itself perform a run.
+
 The selected historical entry capture and completed
 [two-slot probe](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_TWO_SLOT_HOSTED_v0.md)
 retain their original meanings. Neither is a live prefix for a new process.
