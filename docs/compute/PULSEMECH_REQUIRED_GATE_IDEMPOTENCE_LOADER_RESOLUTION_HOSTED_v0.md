@@ -2,6 +2,13 @@
 
 ## Status and scope
 
+**Selected original-loader observation completed:** owner-dispatched
+[run `45881405789`, attempt 1](#completed-hosted-observation-458814057891)
+on 2026-11-26, at source `f2854184ebb069ed6407874a68a4aaa1c84fea5c`,
+completed the nine selected dependency-return observations, original entry stop,
+separate hosted replay, owned cleanup and attestation verification. The result
+and its exact preservation are described below.
+
 This unit implements the GitHub acquisition and independent replay route for the
 [bounded original-loader collector](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_v0.md)
 merged in #3055. Its implementation base is
@@ -10,9 +17,9 @@ Implementation checks do not execute the original launcher, native probes or
 this workflow. The [first owner-dispatched attempt](#first-hosted-attempt-455866533791)
 stopped incomplete at cp0. The [second attempt](#second-hosted-attempt-458361762661)
 passed cp0 and stopped on an unselected loader-cache mapping at the first
-dependency return. Both records remain incomplete. A new actual hosted attempt
-remains a separate owner-dispatched operation at the reviewed main commit
-containing the selected-environment correction.
+dependency return. Both records remain incomplete. The completed third run has
+its own source and attempt identity, including the reviewed cache-absence
+selection; it does not promote either earlier failure.
 
 The selected interval remains nine unique original-loader dependency returns,
 followed by original executable entry: eleven `PTRACE_CONT` calls in total and
@@ -239,11 +246,12 @@ joins; bounded custody; and owned cleanup failures. Scripted collector fixtures
 remain explicitly scripted. Public GPG/OpenSSL signature tests are separate
 from native acquisition tests and do not qualify the host.
 
-After review, PR CI and merge, select the actual resulting main SHA and review
-the policy and acknowledgement together before an owner dispatch. Assess both
-jobs, raw artifacts, all four checker reports, cleanup and attestation before
-preserving any completed result. A green implementation PR or uploaded artifact
-alone does not finish original acquisition or close #2879.
+The completed owner-dispatched run below is separate from those implementation
+checks. Any later acquisition still requires review, PR CI and merge, the exact
+reviewed main SHA, explicit policy selection and a new owner dispatch. Its result
+must be assessed from both jobs, raw artifacts, all four checker reports, cleanup
+and attestation. The completed loader observation does not close #2879 or
+authorize another execution.
 
 ## First hosted attempt: 45586653379/1
 
@@ -342,3 +350,195 @@ It does not rewrite either failed attempt, relax original admission or claim
 that later return checkpoints will complete. The whole-runtime issue #2879
 remains open, with `b2_complete=false`, `metric_pass=null` and
 `authority_effect=none`.
+
+## Completed hosted observation: 45881405789/1
+
+The owner dispatched
+[workflow run `45881405789`, attempt 1](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45881405789)
+on 2026-11-26 from `main`, selecting source and workflow commit
+[`f2854184ebb069ed6407874a68a4aaa1c84fea5c`](https://github.com/HKati/pulse-release-gates-0.1/tree/f2854184ebb069ed6407874a68a4aaa1c84fea5c),
+the exact rebuild-policy digest above and
+`OBSERVE_ORIGINAL_LOADER_NINE_RETURNS_AND_ENTRY_STOP_ONLY`. Both acquisition
+and the separate replay/attestation job succeeded. The run completed at
+2026-11-26 19:12:47 UTC. A later preservation commit does not replace this
+execution's source identity.
+
+### Selected original result
+
+The preserved request ID is `0cd4d7d3267f1010a499a7b415fb2b74`. Fresh original
+and selected-policy admission and the current observer's guard/two-slot
+qualifications preceded one original-loader attempt. Its capture has origin
+`native_original_loader_capture`, status `completed` and no failure. The
+original invocation remains `argv=["bubblewrap"]`, `cwd="/"`, with only
+`LC_ALL=C` and `TZ=UTC`.
+
+The raw checker reconstructed these nine distinct original `DT_NEEDED`
+consumer/provider occurrences:
+
+| Return | Consumer | Requested name / returned original provider |
+| --- | --- | --- |
+| 1 | `bwrap` | `libselinux.so.1` |
+| 2 | `bwrap` | `libcap.so.2` |
+| 3 | `bwrap` | `libc.so.6` |
+| 4 | `libselinux.so.1` | `libpcre2-8.so.0` |
+| 5 | `libselinux.so.1` | `libc.so.6` |
+| 6 | `libselinux.so.1` | `ld-linux-x86-64.so.2` |
+| 7 | `libcap.so.2` | `libc.so.6` |
+| 8 | `libc.so.6` | `ld-linux-x86-64.so.2` |
+| 9 | `libpcre2-8.so.0` | `libc.so.6` |
+
+The final checkpoint is the original executable entry. The accepted record
+accounts for eleven `PTRACE_CONT` calls and zero continuations after entry,
+followed by owned child termination and reaping. The final mapping inventory
+contains six original objects and twenty-four `PT_LOAD` occurrences. The report
+records sixteen original RX samples and eighteen return RX samples within the
+selected paired-read contract. These observations do not describe execution of
+the launcher's post-entry body or the selected metric runtime.
+
+The capture contains 252 bound raw files plus `capture.json`, totaling
+11,719,149 bytes. The manifest itself is 118,469 bytes, SHA-256
+`b34319dc8472125612ca2d2f78eb4b7ba749944e0e639e1f7bccf4a33ea8203f`.
+Both acquisition reports and both verification reports are byte-identical:
+6,599 bytes each, SHA-256
+`c51e8e880bfc97379708439f1aa4980497615d23389c6883bbd4434fce4c5e89`.
+Their accepted status is `accepted_native_loader_resolution_record`. These are
+four processes using the same independent raw-checker implementation; the two
+verification processes ran in the separate reconstructed environment.
+
+The raw reports establish `consumer_resolution_observed=true` and
+`loader_resolution_verified=true` for this selected attempt. The hosted
+summaries, receipt and attested binding retain their original conservative
+boundary objects. Those different scopes are preserved without rewriting
+either record type. The selected source/build-policy result retains its
+documented service-endorsement and source-association trust assumptions.
+
+### Selected environment and cleanup
+
+Both phase build records select `/etc/ld.so.cache` as
+`absent_after_package_install`. Both fresh `loader-cache-state.json` records
+report absence and bind environment selection SHA-256
+`677e221369cd27420ec726974f204b7a2be1444437ae7df494bd12786308762b`
+(25,705 bytes), with their respective `acquire` and `verify` phases. All
+twenty-two preserved cp0/return/entry map samples omit the cache. The raw checker
+continues to reject unselected file-backed mappings; this result required no
+pathname exception.
+
+Both containers retained the selected readonly root, exact mounts, network
+`none`, dropped capabilities, no-new-privileges and `docker-default` AppArmor
+profile. Both terminal inspections report exit code zero, no OOM and no Docker
+state error. Both owned-cleanup records report verified ownership, successful
+removal and verified absence, with empty cleanup-error lists. Acquisition and
+verification retain separate image and container identities; reproducible image
+IDs and future-host admission are not claimed.
+
+### Original artifacts and attestation
+
+The complete original ZIP byte streams were checked against their provider
+sizes and SHA-256 values before selecting repository evidence.
+
+| Original artifact | ID | Bytes | SHA-256 |
+| --- | ---: | ---: | --- |
+| [Acquisition](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45881405789/artifacts/15147471320) | `15147471320` | 227871854 | `5c1477e4051d62871bb130ef8aee0e2718f1c738be3b130cfe8c258b57b8f5c8` |
+| [Verification](https://github.com/HKati/pulse-release-gates-0.1/actions/runs/45881405789/artifacts/15147282024) | `15147282024` | 86371424 | `d6b2c0b987fd61f97e68bd5c779a5eaa603551c66b7dd0fa5eeb6c3d11ff8fbe` |
+
+The exact acquisition-receipt SHA-256 is
+`cbb4a07ead4b6aef0317581d89cf9a609bae1ecbf69e19fa3ca6fc345dc35fee`.
+The attested `verified-binding.json` is 28,833 bytes, SHA-256
+`01ab395f8a4508c05c85bb2db4215422fc37ec8f37e39f94d1f222d4d77dcf96`.
+Its original bundle is 11,501 bytes, SHA-256
+`fbacce304cfa0d46b7974516f4b8a10dca07c585336df9c56fd8870b1b221b44`.
+
+The original hosted attestation-verification command succeeded with the selected
+repository, signer workflow, source/signer digests, main ref and hosted-runner
+constraints. The subject, original bundle, identity, command outputs and accepted
+verification record are preserved together. This authenticates the hosted
+statement within its recorded boundary; physical execution authentication and
+complete native closure remain false.
+
+### Local preserved-data reconstruction
+
+Two fresh local processes of the unchanged raw checker reproduced all four
+original hosted reports byte for byte. The review used CPython 3.12.14,
+jsonschema 4.26.0 and the exact selected `/usr/bin/gpg` bytes: 1,230,080 bytes,
+SHA-256 `7c9d2f9416aabcd10199e2984439f49612644a948279ac56bdf70d69c8958ddf`.
+Both processes freshly reconstructed the original-input and selected-policy
+admission chain from the preserved inputs and exited zero. Their outputs retain
+the report binding above; using two processes does not introduce a second
+independently implemented checker.
+
+The unchanged hosted checker revalidated the acquisition receipt and completed
+acquisition, then reproduced the original 28,833-byte `verified-binding.json`
+exactly. Both artifacts' 153 selected source entries match the actual fetched
+Git tree at `f2854184ebb069ed6407874a68a4aaa1c84fea5c`. All 531 acquisition
+members and 276 verification members retained their original bytes and modes.
+
+The outer join requires the recorded absolute private-input path,
+`/home/runner/work/_temp/required-gate-loader-resolution-verification-45881405789-1-private-input`.
+The review created a regular-file restoration of the complete acquisition at
+that previously absent path, checked all 531 member bytes and modes, performed
+the unchanged join, and removed the owned copy and newly created parent
+directories. No original evidence or checker was rewritten to accept a
+relocated mount.
+
+This was preserved-data reconstruction. No original process, qualification
+probe or container was run, and execution in the original container image is
+not claimed. The original hosted GitHub attestation verification remains
+preserved evidence; its signature was **not freshly verified locally**. These
+local checks remain separate from the actual hosted acquisition and its
+signature-verification result.
+
+### Repository selection and original custody
+
+The [control evidence selection](../../preservation/required_gate_idempotence_loader_resolution_v0/run_45881405789_attempt_1/control_evidence_v0.zip)
+retains unchanged original artifact members, including the complete unique raw
+capture, current-observer qualifications, admission/signature diagnostics,
+request, all four hosted checker reports, receipts and handoff, source-binding
+inventories, environment/cache controls, command/runtime/cleanup records and
+attestation evidence. The
+[descriptive preservation inventory](../../preservation/required_gate_idempotence_loader_resolution_v0/run_45881405789_attempt_1/verification_record_v0.json)
+provides the selection's exact byte binding, member counts and every selected
+or omitted member's original artifact, path, size and SHA-256. That inventory
+is not an additional independent checker report.
+
+Selected payload bytes and original permission attributes are preserved. The
+derived ZIP uses phase-prefixed paths, fixed timestamps and deflate compression;
+the complete original ZIP byte streams retain their original archive metadata.
+
+Large base-image, package/wheel and separate native-material payloads, and full
+source copies including the original-input transport archive, remain in the
+complete original artifacts. Their omission from the repository selection does not change the
+original receipt or any original bytes. The derived control archive is neither
+original GitHub ZIP and is not a complete hosted-environment replay carrier.
+Full hosted replay still requires the complete originals and the selected
+source/verifier environment.
+
+Retain both original ZIP byte streams in the separate custody package
+`B2_LOADER_RESOLUTION_45881405789_1_ORIGINALS.zip`, and verify their exact sizes
+and hashes above. The repository-only files package is
+`B2_LOADER_RESOLUTION_RUN3_REPO_FILES_v0.zip`; it does not replace original
+custody. Review-workspace copies were verified. Receipt and hash verification
+on the owner's own machine have not been observed. Both provider artifacts
+record expiry at **2027-02-24 19:08:45 UTC**. Provider retention is not permanent
+custody. This preservation introduces no LFS, source-budget increase or paid
+artifact service.
+
+### Next bounded B2 obligation
+
+The selected nine-return original-loader observation is complete. The next
+design task is the observed containment boundary and selected-bootstrap
+integration: declare the exact launcher invocation, namespace/task-creation
+rules, expected process relationships, collector separation, supported terminal
+condition and failure behavior before implementing another acquisition profile.
+The present one-tracee/task-guard profile and entry-stop acknowledgement do not
+authorize continuation beyond entry or establish namespace containment.
+
+No old capture is a live process prefix. Any later native acquisition requires
+its own reviewed contract and separate owner authorization. This preservation
+update performs no dispatch. Both earlier original-loader failures remain
+incomplete under their own source and attempt identities.
+
+Whole-runtime occurrence and terminal closure, selected-bootstrap execution,
+B3 property evidence, B4 admission and B5 actual-reference work remain separate.
+Keep [#2879](https://github.com/HKati/pulse-release-gates-0.1/issues/2879) open
+under its full Step 5C acceptance conditions, with `b2_complete=false`,
+`metric_pass=null` and `authority_effect=none`.

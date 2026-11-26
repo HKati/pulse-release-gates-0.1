@@ -2,12 +2,18 @@
 
 ## Status and scope
 
+**The selected original-loader observation completed in owner-dispatched
+[run `45881405789/1`](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md#completed-hosted-observation-458814057891).**
+Its original capture, four equal hosted checker reports, cleanup and attestation
+have a separate preservation record. The result is limited to the nine selected
+consumer/provider returns and original entry stop.
+
 This unit implements a separate request, original-loader collector and raw
 capture checker for the finite interval selected by the
 [loader-resolution plan](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_PLAN_v0.md).
-It supplies implementation and scripted regression coverage. It contains no
-new original-loader run, successful native capture, workflow dispatch or hosted
-attestation.
+Its original implementation supplied code and scripted regression coverage;
+the actual observation was acquired later through the separately dispatched
+hosted route.
 
 The subsequent [hosted execution and independent replay route](PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md)
 provides a separate manual workflow, complete offline environment and custody
@@ -22,8 +28,8 @@ retain their original meanings. Neither is a live prefix for a new process.
 The existing exec-stop, entry-stop and authored-fixture profiles are unchanged.
 Their acknowledgement tokens do not authorize this profile.
 
-A later completed native original-loader capture can establish the nine selected consumer/provider
-returns and the original executable entry checkpoint for that one attempt.
+The completed native original-loader capture establishes the nine selected
+consumer/provider returns and original executable entry for its own attempt.
 It does not establish whole-runtime closure, namespace containment, Q2/Q3
 measurement, selected-bootstrap execution or a production release decision.
 [Issue #2879](https://github.com/HKati/pulse-release-gates-0.1/issues/2879)

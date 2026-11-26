@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+- Preserve the completed [original-loader observation 45881405789/1](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md#completed-hosted-observation-458814057891)
+  at its exact source and policy identity. Retain the complete unique raw
+  capture, nine consumer/provider returns, terminal entry stop, four equal
+  hosted reports, cache-absence controls, owned cleanup and attestation evidence
+  in a bounded repository selection with exact original-member provenance.
+  Keep both full original artifact ZIPs in separate custody. Record containment
+  and selected-bootstrap design as the next boundary; earlier failures remain
+  incomplete, B2 and #2879 stay open, and `authority_effect=none`.
+
 - Select loader-cache absence in the hosted original-loader environment after
   the [second observation attempt](docs/compute/PULSEMECH_REQUIRED_GATE_IDEMPOTENCE_LOADER_RESOLUTION_HOSTED_v0.md#second-hosted-attempt-458361762661)
   stopped at an unselected `/etc/ld.so.cache` mapping. Remove only the selected
